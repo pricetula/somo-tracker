@@ -319,6 +319,51 @@ The transactional ledger row where every individual student's presence status is
 
 ---
 
+### 23. Timetable Slots Schema (`timetable_slots` table) [Revised]
+Defines the scheduled academic and non-instructional blocks tracking which subjects are taught to which classes, by which teachers, and where.
+
+| Field Name | Data Type | Nullable | Domain Rules & Database Constraints |
+| --- | --- | --- | --- |
+| `id` | `UUID` | No | Primary key. |
+| `school_id` | `UUID` | No | Foreign key mapping to the physical campus. Driven by RLS. |
+| `class_id` | `UUID` | No | Foreign key pointing to the target room cohort (`classes` table). |
+| `subject_id` | `UUID` | No | Foreign key linking to the master `subjects` catalog. |
+| `teacher_id` | `UUID` | No | Foreign key mapping to the `users` profile instructing this specific block. |
+| `room_id` | `UUID` | Yes | Foreign key pointing to a physical campus room structure. |
+| `day_of_week` | `INTEGER` | No | Numeric index representation: `1` (Monday) through `7` (Sunday). |
+| `start_time` | `TIME` | No | The official scheduled start time clock parameter. |
+| `end_time` | `TIME` | No | The official scheduled end time clock parameter. |
+
+---
+
+### 24. Student Health Profiles Schema (`student_health_profiles` table)
+Maintains baseline critical medical indicators and baseline biological flags per individual student context.
+
+| Field Name | Data Type | Nullable | Domain Rules & Database Constraints |
+| --- | --- | --- | --- |
+| `id` | `UUID` | No | Primary key. |
+| `student_id` | `UUID` | No | Foreign key mapping 1:1 explicitly to the master `students` profile record. |
+| `blood_group` | `VARCHAR` | Yes | Standard blood categorization syntax (e.g., `A+`, `O-`). |
+| `allergies` | `TEXT[]` | Yes | Array listing diagnosed triggers for instant profile workspace flags. |
+| `chronic_conditions` | `TEXT[]` | Yes | Array tracking long-term medical conditions (e.g., Asthma, Diabetes). |
+| `emergency_instructions`| `TEXT` | Yes | Operational directive text for immediate execution during first-aid incidents. |
+
+---
+
+### 25. Medical Incidents Ledger (`medical_incidents` table)
+The live transactional log record tracking individual health emergency events, sickbay visit transactions, or treatment administration logs.
+
+| Field Name | Data Type | Nullable | Domain Rules & Database Constraints |
+| --- | --- | --- | --- |
+| `id` | `UUID` | No | Primary key. Unique ledger entry transaction index. |
+| `student_id` | `UUID` | No | Foreign key identifying the treated student target profile. |
+| `incident_timestamp` | `TIMESTAMP`| No | The precise date and time the medical emergency context occurred. |
+| `symptoms` | `TEXT` | No | Text summary documenting client presentation details. |
+| `action_taken` | `TEXT` | No | Explicit clinical logging steps applied (e.g., medications given, emergency referrals). |
+| `logged_by` | `UUID` | No | Foreign key mapping directly to the `users` profile of the administrator or nurse. |
+
+---
+
 ## 🛡️ Non-Negotiable Coding Agent Guardrails
 
 When drafting route handlers or database queries, the coding agent must strictly enforce these architectural guardrails:
@@ -362,14 +407,27 @@ When creating an entry in `formative_tasks`, the backend validation service must
 **13. The Historical Evaluation Lock**
 Mutations to values within `task_evaluations` are governed strictly by the assessment window boundary. If the `end_date` found in the parent `academic_terms` table has elapsed, the backend API route must block all `UPDATE` or `DELETE` requests unless executed by an authorized `SCHOOL_ADMIN`.
 
-**14. Summative Score Ceiling Validation**
-The backend validation middleware must catch and block any attempt to save a record into `summative_scores` where the `raw_score` is greater than the corresponding `max_points` defined in the parent `summative_assessments` structural rule.
-
-**15. Multi-Tenant Assessment Boundaries**
-When looking up or inserting records into `summative_assessments`, the query path must validate that the target `subject_id` belongs to an education system active within the user's tenant scope, preventing cross-tenant curriculum modifications or configuration leaks.
-
 **16. Roster-Scoped Attendance Verification**
 When a user attempts to write rows to `attendance_logs`, the API middleware validation layer must verify that the `recorded_by` user has an active `class_teachers` assignment or a `SCHOOL_ADMIN` role for the targeted class context and subject. A teacher cannot mark lesson attendance for a student cohort or subject they do not officially instruct.
 
 **17. Past-Term Attendance Lock**
 The database or backend middleware must block any `INSERT`, `UPDATE`, or `DELETE` statements on `attendance_periods` or its child log records if the corresponding `academic_term_id` has `is_current = false`. Historical audit logs must remain immutable for institutional statutory compliance tracking.
+
+**18. Overlapping Timetable Constraint**
+The database or backend validation service must block any attempt to save data to `timetable_slots` if the requested timeline window (`start_time` to `end_time`) intersects with an existing scheduled row entry for that exact same `class_id` on that same `day_of_week`.
+
+**18-A. Class Conflict Prevention**
+The backend validation service must block any transaction on `timetable_slots` if the requested time interval matches an existing row's timeframe for the same `class_id` on the same `day_of_week`. A class cohort cannot have two lessons simultaneously.
+
+**18-B. Teacher Conflict Prevention**
+The backend validation layer must check and reject adjustments if the assigned `teacher_id` is already scheduled to instruct another class group anywhere on the campus during an overlapping time interval on that specific `day_of_week`.
+
+**18-C. Room Conflict Prevention**
+When a physical space parameter (`room_id`) is submitted, the system must drop the operation if that exact location context is already booked by another group within the intersecting time boundaries on that day.
+
+**19. Health Profile Access Restriction**
+The API routing stack must explicitly restrict queries targeting `student_health_profiles` and `medical_incidents`. Data hydration is strictly forbidden unless the requesting security context evaluates to a tenant-wide `SCHOOL_ADMIN`, a designated campus `SUPPORT_STAFF` profile, or a `TEACHER` who is actively linked to that student cohort through a class-roster ledger block.
+
+
+**20. Non-Instructional Attendance Bypass**
+The backend attendance generation pipeline must instantly ignore any `timetable_slots` where the mapped `subject_id` corresponds to a system-defined non-instructional code wrapper (e.g., prefix `SYS-` for Lunch, Breaks, or Assemblies). No transactional rows inside `attendance_periods` or `attendance_logs` shall be initialized for non-academic tracking periods, preventing false alerts or dead tracking parameters on the teacher's workspace.

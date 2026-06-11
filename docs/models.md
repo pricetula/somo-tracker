@@ -264,6 +264,61 @@ The transactional ledger row where a specific student's performance is locked. I
 
 ---
 
+### 19. Summative Assessments Schema (`summative_assessments` table)
+Represents formal terminal examinations or standardized block assessments managed at the institutional or national level for a given term (e.g., end-of-term exams, KPSEA layouts, or traditional 8-4-4 style tests).
+
+| Field Name | Data Type | Nullable | Domain Rules & Database Constraints |
+| --- | --- | --- | --- |
+| `id` | `UUID` | No | Primary key. |
+| `school_id` | `UUID` | No | Foreign key mapping to the physical campus. Driven by RLS. |
+| `academic_term_id` | `UUID` | No | Foreign key specifying the exact lock window for the evaluation. |
+| `subject_id` | `UUID` | No | Foreign key linking directly to the parent `subjects` schema node. |
+| `max_points` | `INTEGER` | No | Total achievable score raw boundary (e.g., `100` for traditional percentages, or `50` for localized statutory tests). |
+
+---
+
+### 20. Summative Scores Schema (`summative_scores` table)
+Stores the physical scores achieved by individual students on formal terminal examinations.
+
+| Field Name | Data Type | Nullable | Domain Rules & Database Constraints |
+| --- | --- | --- | --- |
+| `id` | `UUID` | No | Primary key. Unique transaction tracking ID. |
+| `summative_assessment_id` | `UUID` | No | Foreign key targeting the parent examination metadata profile. |
+| `student_id` | `UUID` | No | Foreign key targeting the explicit student profile record. |
+| `raw_score` | `NUMERIC(5,2)` | No | The absolute numeric score earned by the student (e.g., `20.00`). Must be less than or equal to the parent assessment's `max_points`. |
+| `teacher_remarks` | `TEXT` | Yes | Custom terminal textual notes for end-of-term review sheets. |
+| `updated_at` | `TIMESTAMP` | No | System timestamp tracking modifications for audit validation chains. |
+
+---
+
+### 21. Attendance Periods Schema (`attendance_periods` table)
+Represents a specific, scheduled lesson block or class period on the school timetable. Every attendance sheet must be anchored to an explicit subject lesson.
+
+| Field Name | Data Type | Nullable | Domain Rules & Database Constraints |
+| --- | --- | --- | --- |
+| `id` | `UUID` | No | Primary key. |
+| `school_id` | `UUID` | No | Foreign key mapping to the physical campus. Driven by RLS. |
+| `academic_term_id` | `UUID` | No | Foreign key anchoring the sheet to the active calendar window. |
+| `class_id` | `UUID` | No | Foreign key referencing the specific classroom group instance (`classes` table). |
+| `subject_id` | `UUID` | No | Foreign key linking directly to the master `subjects` table. Strictly MANDATORY to drive lesson-by-lesson tracking. |
+| `date_recorded` | `DATE` | No | The calendar day the lesson occurred. Indexed for fast dashboard aggregation. |
+
+---
+
+### 22. Attendance Logs Schema (`attendance_logs` table)
+The transactional ledger row where every individual student's presence status is officially logged for a given lesson period.
+
+| Field Name | Data Type | Nullable | Domain Rules & Database Constraints |
+| --- | --- | --- | --- |
+| `id` | `UUID` | No | Primary key. Unique transaction tracking ID. |
+| `attendance_period_id` | `UUID` | No | Foreign key linking directly to the parent scheduled lesson period header. |
+| `student_id` | `UUID` | No | Foreign key targeting the explicit student profile record. |
+| `status` | `ENUM` | No | Must map strictly to tracking states: `PRESENT`, `ABSENT`, `LATE`, or `EXCUSED`. |
+| `remarks` | `VARCHAR` | Yes | Qualitative notes explaining an absence or lateness (e.g., "Medical clearance", "Sports practice"). |
+| `recorded_by` | `UUID` | No | Foreign key mapping to the `users` profile of the staff member clocking the register. |
+
+---
+
 ## 🛡️ Non-Negotiable Coding Agent Guardrails
 
 When drafting route handlers or database queries, the coding agent must strictly enforce these architectural guardrails:
@@ -306,3 +361,15 @@ When creating an entry in `formative_tasks`, the backend validation service must
 
 **13. The Historical Evaluation Lock**
 Mutations to values within `task_evaluations` are governed strictly by the assessment window boundary. If the `end_date` found in the parent `academic_terms` table has elapsed, the backend API route must block all `UPDATE` or `DELETE` requests unless executed by an authorized `SCHOOL_ADMIN`.
+
+**14. Summative Score Ceiling Validation**
+The backend validation middleware must catch and block any attempt to save a record into `summative_scores` where the `raw_score` is greater than the corresponding `max_points` defined in the parent `summative_assessments` structural rule.
+
+**15. Multi-Tenant Assessment Boundaries**
+When looking up or inserting records into `summative_assessments`, the query path must validate that the target `subject_id` belongs to an education system active within the user's tenant scope, preventing cross-tenant curriculum modifications or configuration leaks.
+
+**16. Roster-Scoped Attendance Verification**
+When a user attempts to write rows to `attendance_logs`, the API middleware validation layer must verify that the `recorded_by` user has an active `class_teachers` assignment or a `SCHOOL_ADMIN` role for the targeted class context and subject. A teacher cannot mark lesson attendance for a student cohort or subject they do not officially instruct.
+
+**17. Past-Term Attendance Lock**
+The database or backend middleware must block any `INSERT`, `UPDATE`, or `DELETE` statements on `attendance_periods` or its child log records if the corresponding `academic_term_id` has `is_current = false`. Historical audit logs must remain immutable for institutional statutory compliance tracking.

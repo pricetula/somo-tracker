@@ -91,7 +91,7 @@ To calculate these metrics without choking production runtime, the analytics eng
 
 ## 🗄️ Part 3: Read-Optimized Snapshot Tables
 
-To bypass heavy multi-table table joins during dashboard rendering, the following specialized analytics tables cache pre-aggregated calculations.
+To bypass heavy multi-table database joins during dashboard rendering, the following specialized analytics tables cache pre-aggregated calculations.
 
 ### 1. Attendance Snapshot Ledger (`analytics_attendance_snapshots`)
 Flattens live attendance logs into daily and termly summaries per class section to hydrate heatmaps instantly.
@@ -109,12 +109,13 @@ Flattens live attendance logs into daily and termly summaries per class section 
 | *Constraint* | *Composite* | *No* | `UNIQUE(class_id, log_date)` to ensure one row per day. |
 
 ### 2. Subject Performance Snapshots (`analytics_subject_performance_snapshots`)
-Stores pre-calculated class averages and CBC rating percentages. This table contains self-referencing tracking fields to compute year-over-year progress loops within a single read query.
+Stores pre-calculated class averages and CBC rating percentages. Tracks grade level identifiers to preserve historical context during student promotions.
 
 | Field Name | Data Type | Nullable | Domain Rules & Database Constraints |
 | --- | --- | --- | --- |
 | `id` | `UUID` | No | Primary key. |
 | `class_id` | `UUID` | No | Foreign key linking to the classroom cohort. |
+| `grade_level_id` | `UUID` | No | Foreign key tying the average to a permanent grade tier. |
 | `subject_id` | `UUID` | No | Foreign key linking to the evaluated subject. |
 | `academic_term_id` | `UUID` | No | Foreign key defining the tracking term context. |
 | `traditional_mean_score`| `NUMERIC(5,2)` | Yes | Average score percentage. NULL if CBC track. |
@@ -123,7 +124,7 @@ Stores pre-calculated class averages and CBC rating percentages. This table cont
 | `cbc_ae_percentage` | `NUMERIC(5,2)` | Yes | Pre-calculated % of Approaching Expectations. |
 | `cbc_be_percentage` | `NUMERIC(5,2)` | Yes | Pre-calculated % of Below Expectations. |
 | `prior_year_mean_delta`| `NUMERIC(5,2)` | Yes | Current mean minus previous year's parallel term mean. |
-| `last_calculated_at` | `TIMESTAMP` | No | Timestamp tracking computation velocity. |
+| `last_calculated_at` | `TIMESTAMP` | No | Recomputes on active assessment updates. |
 | *Constraint* | *Composite* | *No* | `UNIQUE(class_id, subject_id, academic_term_id)`. |
 
 ### 3. Individual Student Growth Snapshots (`analytics_student_longitudinal_snapshots`)
@@ -133,6 +134,7 @@ Caches term-by-term subject results for single students, allowing immediate rend
 | --- | --- | --- | --- |
 | `id` | `UUID` | No | Primary key. |
 | `student_id` | `UUID` | No | Foreign key linking to the unique student profile. |
+| `grade_level_id` | `UUID` | No | Preserves the student's grade level placement for this tracking point. |
 | `subject_id` | `UUID` | No | Foreign key linking to the target subject catalog. |
 | `academic_term_id` | `UUID` | No | Foreign key defining the current term context. |
 | `calculated_score` | `NUMERIC(5,2)` | Yes | Numeric grade for traditional tracks. NULL if CBC. |
@@ -158,11 +160,11 @@ Aggregates medical visit data to populate the Sickbay Velocity Index without pro
 
 ## 🛡️ Part 4: Data Pipeline & Synchronization Guardrails
 
-### 1. Event-Driven Cache Invalidation
+### 23. Event-Driven Cache Invalidation
 The backend runtime must listen for successful write operations targeting transactional tables (`attendance_logs`, `summative_scores`, `task_evaluations`, and medical records). Upon transaction commit, a lightweight background job must execute immediately to recalculate the matching row inside the corresponding analytics snapshot table.
 
-### 2. Historical Term Immutability Lock
+### 24. Historical Term Immutability Lock
 Once an `academic_term_id` transitions from `is_current = true` to `is_current = false`, the analytics pipeline flags all rows linked to that term as frozen. Background event triggers are blocked from running mutations on historical terms, enforcing absolute data immutability for past academic periods.
 
-### 3. The Midnight Reconciliation Loop
+### 25. The Midnight Reconciliation Loop
 To protect dashboards against missing event triggers or race conditions, an automated system cron worker runs daily at midnight. This worker re-aggregates raw transactional rows from the preceding 48 hours and overwrites the cached values inside the analytical snapshot tables to repair any daytime sync drift.

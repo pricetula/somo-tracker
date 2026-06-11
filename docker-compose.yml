@@ -34,9 +34,10 @@ services:
     restart: unless-stopped
 
   somotracker_api:
-    image: cosmtrek/air:v1.51.0
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: somotracker_api
-    working_dir: /app
     volumes:
       - ./backend:/app
     ports:
@@ -67,7 +68,7 @@ services:
     environment:
       NODE_ENV: development
       NEXT_PUBLIC_API_URL: http://localhost:3030
-    command: sh -c "npm install -g pnpm@latest && pnpm install --frozen-lockfile --ignore-scripts && pnpm run dev"
+    command: sh -c "npm install -g pnpm@9 && pnpm install --frozen-lockfile --ignore-scripts && pnpm run dev"
     depends_on:
       - somotracker_api
 

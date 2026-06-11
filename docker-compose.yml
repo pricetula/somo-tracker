@@ -1,0 +1,76 @@
+services:
+  somotracker_postgres:
+    image: postgres:16-alpine
+    container_name: somotracker_postgres
+    environment:
+      POSTGRES_DB: somotracker_dev
+      POSTGRES_USER: somo_admin
+      POSTGRES_PASSWORD: somo_secure_password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U somo_admin -d somotracker_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
+  somotracker_redis:
+    image: redis:7-alpine
+    container_name: somotracker_redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  somotracker_api:
+    image: cosmtrek/air:v1.51.0
+    container_name: somotracker_api
+    working_dir: /app
+    volumes:
+      - ./backend:/app
+    ports:
+      - "3030:3030"
+    environment:
+      DATABASE_URL: "postgres://somo_admin:somo_secure_password@somotracker_postgres:5432/somotracker_dev?sslmode=disable"
+      REDIS_URL: "somotracker_redis:6379"
+      APP_ENV: "development"
+      PORT: "3030"
+      ALLOWED_ORIGINS: "http://localhost:3000"
+    depends_on:
+      somotracker_postgres:
+        condition: service_healthy
+      somotracker_redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  somotracker_frontend:
+    image: node:20-alpine
+    container_name: somotracker_frontend
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+      NEXT_PUBLIC_API_URL: http://localhost:3030
+    command: sh -c "npm install -g pnpm@latest && pnpm install --frozen-lockfile --ignore-scripts && pnpm run dev"
+    depends_on:
+      - somotracker_api
+
+volumes:
+  postgres_data:
+  redis_data:

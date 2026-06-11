@@ -41,7 +41,7 @@ Create `docker-compose.yml` in the root workspace folder with three services:
 **`somotracker_api`** — `cosmtrek/air:v1.51.0`
 - `working_dir: /app`
 - Volume mount: `./backend:/app`
-- Expose port `8080`
+- Expose port `3030`
 - `depends_on` both database services with condition `service_healthy`
 - Pass `DATABASE_URL` and `REDIS_URL` as environment variables that match their service hostnames (i.e. `postgres:5432` and `redis:6379`)
 
@@ -58,7 +58,7 @@ Create a clean environment parser using `os.Getenv` with safe fallbacks:
 | `DATABASE_URL` | `postgres://somo_admin:somo_secure_password@postgres:5432/somotracker_dev?sslmode=disable` |
 | `REDIS_URL` | `redis:6379` |
 | `APP_ENV` | `development` |
-| `PORT` | `8080` |
+| `PORT` | `3030` |
 
 Expose a `Config` struct holding these four fields. Expose a `Load() Config` constructor function. Wrap it in an `fx`-friendly provider:
 
@@ -110,7 +110,7 @@ On every response, inject these headers via a `app.Use` handler:
 - `Content-Security-Policy: default-src 'self'`
 
 ### Layer 3 — Custom header CSRF guard
-> **Important design note:** This is a defense-in-depth layer, not a replacement for token-based CSRF protection. It guards against simple cross-origin form submissions but is bypassable by CORS-misconfigured endpoints. A full CSRF implementation (double-submit cookie or signed token) should be layered on top in a future iteration.
+> **Important design note:** This is a defense-in-depth layer, not a replacement for token-based CSRF protection. It guards against simple cross-origin form submissions but is bypassable by CORS-misconfigured endpoints. Because this project uses server-side sessions (not JWTs), the session cookie's `SameSite=Strict` flag provides strong CSRF protection for same-site navigation. This header guard adds defense-in-depth for cross-origin API consumers.
 
 For mutating methods (`POST`, `PUT`, `DELETE`, `PATCH`): if the `X-Requested-With` header is absent, halt and return:
 ```json
@@ -346,6 +346,308 @@ func consumeSafeClient(client *http.Client) {
 
 ---
 
+---
+
+## 9. Next.js frontend security: `./frontend/`
+
+> **Scope note:** This section covers the security boundary between a Next.js 14+ (App Router) frontend and the Go Fiber backend. Every item here is a direct consequence of having two separate origins in the same product. Treat each sub-section as a standalone prompt you can hand to a frontend-focused agent.
+
+---
+
+### 9.1 CORS policy on the Go backend: `./backend/internal/middleware/cors.go`
+
+Adding a browser-facing frontend means the backend must now express an explicit CORS policy. Add a `cors.go` file to the middleware package and register it inside `middleware.Register()` **before** all other layers (even panic recovery) so preflight `OPTIONS` requests are handled before any security logic runs.
+
+Install the Fiber CORS middleware:
+```
+github.com/gofiber/fiber/v2/middleware/cors
+```
+
+Configure it as follows:
+
+```go
+app.Use(cors.New(cors.Config{
+    AllowOrigins:     cfg.AllowedOrigins, // e.g. "http://localhost:3000" in dev, real domain in prod
+    AllowMethods:     "GET,POST,PUT,DELETE,PATCH,OPTIONS",
+    AllowHeaders:     "Origin,Content-Type,Accept,Authorization,X-Requested-With",
+    AllowCredentials: true,
+    MaxAge:           86400, // cache preflight for 24 hours
+}))
+```
+
+Add `ALLOWED_ORIGINS` to `config.Config` with fallback `http://localhost:3000`.
+
+**Critical rules:**
+- Never set `AllowOrigins: "*"` when `AllowCredentials: true` — browsers will block the response and this combination is invalid per the CORS spec.
+- In production, `AllowedOrigins` must be set to the exact frontend domain(s) from an environment variable. Wildcard origins are forbidden in production.
+- The `OPTIONS` method must be included in `AllowMethods` or preflight requests will return `405` and silently break all non-simple requests from the browser.
+
+Add to the verification checklist: a browser `fetch` with `credentials: "include"` from `localhost:3000` to `localhost:3030/health` must return `200` without a CORS error.
+
+---
+
+### 9.2 Redis-backed session + HttpOnly cookie auth strategy: `./frontend/lib/auth.ts` and `./backend/internal/middleware/auth.go`
+
+Next.js introduces two common session storage mistakes. Specify the correct strategy explicitly so neither agent makes the wrong choice.
+
+**What to build on the backend (`auth.go`):**
+
+Create a `ValidateSession` middleware that:
+1. Reads the session ID exclusively from the `HttpOnly` cookie named `somo_session` — never from `Authorization: Bearer` headers for browser-initiated requests (Bearer tokens are for M2M/API clients only, not browsers).
+2. Looks up the session ID in Redis using key format `session:{id}`. The stored value is a JSON blob containing `user_id`, `tenant_id`, and `role`.
+3. On a cache hit, deserialise the session data and store it in Fiber locals (`c.Locals("session", sessionData)`). Also call `Redis.Expire` to implement a rolling session window (e.g. 24 hours from last activity).
+4. On a cache miss or any Redis error, return `401` with body `{"error": "unauthorized"}`. Never reveal whether the session was missing vs expired vs invalid — all map to `401`.
+5. Session IDs must be cryptographically random — generate with `crypto/rand`, 32 bytes, hex-encoded (64 chars). Never use sequential or predictable IDs.
+
+**What to build on the frontend (`lib/auth.ts`):**
+
+When the backend creates a session at login:
+- The backend stores session data in Redis and issues the session ID via `Set-Cookie` with flags: `HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=86400`.
+- Never write the session ID to `localStorage` or `sessionStorage` — these are readable by any JavaScript on the page, including injected XSS payloads.
+- Never write the session ID to a non-`HttpOnly` cookie — React/Next.js code should never be able to call `document.cookie` and read it.
+- On logout, the backend must actively delete the Redis session key (`DEL session:{id}`) before expiring the cookie. Cookie deletion alone is not sufficient — the server-side session must be invalidated.
+
+**Next.js middleware (`./frontend/middleware.ts`):**
+
+Write a Next.js edge middleware that checks for the presence of the `somo_session` cookie on every protected route. If absent, redirect to `/login`. This is a UX guard only — it is not a security boundary. The Go backend `ValidateSession` middleware is the actual security gate.
+
+```typescript
+import { NextRequest, NextResponse } from 'next/server'
+
+const PROTECTED_PREFIXES = ['/dashboard', '/settings', '/admin']
+
+export function middleware(req: NextRequest) {
+  const isProtected = PROTECTED_PREFIXES.some(p => req.nextUrl.pathname.startsWith(p))
+  if (isProtected && !req.cookies.get('somo_session')) {
+    return NextResponse.redirect(new URL('/login', req.url))
+  }
+  return NextResponse.next()
+}
+
+export const config = { matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'] }
+```
+
+---
+
+### 9.3 Environment variable discipline: `./frontend/.env.local` and `./frontend/next.config.ts`
+
+Next.js has two categories of environment variables with critically different exposure:
+
+| Prefix | Exposed to | Risk if misused |
+|---|---|---|
+| `NEXT_PUBLIC_` | Browser JS bundle | Any user can read it in DevTools |
+| (no prefix) | Server-side only (SSR, API routes, RSC) | Never reaches the browser |
+
+**Rules to enforce — add as a lint comment block at the top of `next.config.ts`:**
+
+```typescript
+// SECURITY RULES — DO NOT VIOLATE:
+// 1. NEXT_PUBLIC_ variables must contain ZERO secrets.
+//    Acceptable: API base URL, feature flags, analytics IDs.
+//    Never: session secrets, DB URLs, API keys, service account credentials.
+// 2. The backend DATABASE_URL and REDIS_URL must never appear in this file.
+// 3. Internal session secrets or signing keys must never appear in this file under any name.
+// 4. Server-only secrets go in .env.local (gitignored) and are accessed
+//    only inside Server Components, Route Handlers, or getServerSideProps.
+// 5. Run `npx @next/codemod` or manually audit: grep -r "NEXT_PUBLIC_" ./
+//    and verify each result contains no credentials.
+```
+
+Add to `.gitignore`:
+```
+.env.local
+.env.*.local
+```
+
+Add a CI check that fails if any `NEXT_PUBLIC_` variable value matches a secret pattern (JWT, private key, connection string). A simple shell check:
+```bash
+grep -r "NEXT_PUBLIC_" .env* | grep -E "(password|secret|key|session|DATABASE_URL|REDIS)" && echo "SECRET LEAK" && exit 1
+```
+
+---
+
+### 9.4 Content Security Policy for Next.js RSC and chunks: `./frontend/next.config.ts`
+
+The `Content-Security-Policy` header set by the Go backend (`default-src 'self'`) will break Next.js in production because:
+- Next.js lazy-loads JS chunks from `/_next/static/chunks/` — these are same-origin but the dynamic import pattern may require `script-src 'self' 'unsafe-eval'` in development (Turbopack).
+- React Server Components stream inline `<script>` tags with nonces for hydration.
+- Third-party fonts, analytics, or image domains need explicit allowlisting.
+
+**Two required changes:**
+
+**On the Go backend**, scope the `Content-Security-Policy` header to API responses only (i.e. routes under `/api/` and `/health`), not to all responses. The frontend's Next.js config will own the CSP for HTML page responses:
+
+```go
+// In security headers middleware — scope to API paths only
+if strings.HasPrefix(c.Path(), "/api/") || c.Path() == "/health" {
+    c.Set("Content-Security-Policy", "default-src 'self'")
+}
+```
+
+**On the Next.js frontend**, implement a nonce-based CSP in `next.config.ts` using the `headers()` config:
+
+```typescript
+// next.config.ts
+import type { NextConfig } from 'next'
+import crypto from 'crypto'
+
+const nextConfig: NextConfig = {
+  async headers() {
+    const nonce = crypto.randomBytes(16).toString('base64')
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'Content-Security-Policy',
+            value: [
+              `default-src 'self'`,
+              `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
+              `style-src 'self' 'unsafe-inline'`,   // Next.js requires this for CSS-in-JS
+              `img-src 'self' data: blob:`,
+              `font-src 'self'`,
+              `connect-src 'self' ${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3030'}`,
+              `frame-ancestors 'none'`,              // redundant with X-Frame-Options but belt+suspenders
+              `base-uri 'self'`,
+              `form-action 'self'`,
+            ].join('; '),
+          },
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+        ],
+      },
+    ]
+  },
+}
+
+export default nextConfig
+```
+
+> **Implementation note:** The `nonce` approach above generates one nonce per build, not per request. For a per-request nonce (stronger), implement this in `./frontend/middleware.ts` using `NextResponse.next({ headers: { 'x-nonce': nonce } })` and read it inside a Server Component via `headers()`. This is the Next.js 14 recommended pattern — use it if the product handles sensitive data.
+
+---
+
+### 9.5 Open redirect guard: `./frontend/lib/redirect.ts`
+
+Next.js `redirect()` and `router.push()` are commonly abused in phishing attacks when redirect targets are constructed from user-supplied query parameters (e.g. `/login?next=/dashboard` → manipulated to `/login?next=https://evil.com`).
+
+Create a whitelist-based redirect sanitiser used everywhere a redirect target comes from user input:
+
+```typescript
+// ./frontend/lib/redirect.ts
+
+const ALLOWED_REDIRECT_PREFIXES = [
+  '/dashboard',
+  '/settings',
+  '/tenants',
+]
+
+/**
+ * Sanitises a redirect target from user-supplied input.
+ * Only allows relative paths on the allowlist. Returns /dashboard as the
+ * safe default for anything that doesn't match.
+ */
+export function sanitiseRedirect(raw: string | null | undefined): string {
+  if (!raw) return '/dashboard'
+
+  // Reject anything that looks absolute (has a protocol or starts with //)
+  if (/^https?:\/\//i.test(raw) || raw.startsWith('//')) return '/dashboard'
+
+  // Reject anything with a newline (response splitting defence)
+  if (raw.includes('\n') || raw.includes('\r')) return '/dashboard'
+
+  const normalised = decodeURIComponent(raw).split('?')[0]
+  const isAllowed = ALLOWED_REDIRECT_PREFIXES.some(p => normalised.startsWith(p))
+  return isAllowed ? raw : '/dashboard'
+}
+```
+
+Use `sanitiseRedirect(searchParams.get('next'))` everywhere a post-login or post-action redirect is performed. Never pass `router.push(searchParams.get('next'))` directly.
+
+---
+
+### 9.6 Supply chain: `./frontend/package.json` and CI
+
+Next.js projects accumulate hundreds of transitive npm dependencies. Add the following hardening measures:
+
+**Lock file enforcement** — add to CI:
+```bash
+npm ci --ignore-scripts   # use ci not install; --ignore-scripts prevents postinstall attacks
+```
+
+**Dependency audit gate** — add to CI as a required step:
+```bash
+npm audit --audit-level=high   # fails CI on high/critical CVEs
+```
+
+**Subresource Integrity for external scripts** — if any third-party `<script>` tags are added to `./frontend/app/layout.tsx`, they must include `integrity` and `crossOrigin="anonymous"` attributes:
+```tsx
+<script
+  src="https://example.com/analytics.js"
+  integrity="sha384-<hash>"
+  crossOrigin="anonymous"
+/>
+```
+
+**`package.json` engine pinning** — add to prevent running with unexpected Node versions:
+```json
+"engines": {
+  "node": ">=20.0.0 <22.0.0",
+  "npm": ">=10.0.0"
+}
+```
+
+**`.npmrc`** — add to the frontend root to prevent dependency confusion attacks where an attacker publishes a malicious package to the public registry with the same name as an internal package:
+```
+registry=https://registry.npmjs.org/
+save-exact=true
+```
+
+---
+
+### 9.7 Docker Compose additions for the frontend service
+
+Add a `somotracker_frontend` service to `./docker-compose.yml`:
+
+```yaml
+somotracker_frontend:
+  image: node:20-alpine
+  working_dir: /app
+  volumes:
+    - ./frontend:/app
+    - /app/node_modules       # isolate container node_modules from host
+    - /app/.next              # isolate build cache from host
+  ports:
+    - "3000:3000"
+  environment:
+    - NODE_ENV=development
+    - NEXT_PUBLIC_API_URL=http://localhost:3030
+  command: sh -c "npm ci --ignore-scripts && npm run dev"
+  depends_on:
+    - somotracker_api
+```
+
+The `node_modules` and `.next` anonymous volumes prevent the container from using the host's `node_modules` (which may have been installed with a different OS/architecture) and keep Next.js build artefacts from leaking to the host filesystem.
+
+---
+
+### Updated verification checklist additions (Next.js)
+
+In addition to the Go backend checks, verify:
+
+- `OPTIONS http://localhost:3030/api/tenants` from browser origin `http://localhost:3000` returns `200` with correct `Access-Control-Allow-Origin` and `Access-Control-Allow-Credentials: true`
+- `POST http://localhost:3030/api/tenants` with `credentials: "include"` and a valid `somo_session` cookie succeeds; without the cookie, returns `401`
+- `document.cookie` in the browser DevTools console does **not** show `somo_session` (confirming `HttpOnly` is set)
+- `NEXT_PUBLIC_` grep across `./frontend/.env*` finds no secrets
+- `npm audit --audit-level=high` exits `0` in CI
+- `/login?next=https://evil.com` redirects to `/dashboard`, not to `evil.com`
+- Browser DevTools Network tab shows `Content-Security-Policy` header on HTML responses from Next.js
+- Chrome DevTools Console shows zero CSP violation warnings on page load
+
+---
+
 ## Constraints and verification checklist
 
 Before considering the scaffold complete, verify all of the following:
@@ -360,6 +662,7 @@ Before considering the scaffold complete, verify all of the following:
 - Repeated rapid `GET` requests from a single IP eventually return `429`
 - Graceful shutdown (`SIGTERM`) allows in-flight requests to complete before pool teardown
 
+
 ---
 
 ## Package dependency graph (no cycles allowed)
@@ -367,12 +670,18 @@ Before considering the scaffold complete, verify all of the following:
 ```
 cmd/api
   ├── config
-  ├── database   (depends on: config)
-  ├── middleware  (depends on: database)
+  ├── database       (depends on: config)
+  ├── middleware      (depends on: database, config)
   ├── utils
   └── tenant
         ├── database
         └── (fiber.Router — injected at route registration, not package import)
+
+frontend/                          (independent process, separate dependency tree)
+  ├── lib/auth.ts                  (session cookie reads only — no direct backend import)
+  ├── lib/redirect.ts              (pure utility — zero external deps)
+  ├── middleware.ts                (Next.js edge runtime — no Node APIs)
+  └── next.config.ts               (build-time only)
 ```
 
-`config` and `utils` must have zero internal dependencies on other workspace packages.
+`config` and `utils` must have zero internal dependencies on other workspace packages. The `frontend/` tree must never import from `backend/` — the only coupling is the HTTP contract (JSON over REST) and the shared cookie name `somo_session`.

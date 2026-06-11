@@ -317,8 +317,8 @@ Acts as the global master catalog of billing items and invoicing dimensions acro
 | --- | --- | --- | --- |
 | `id` | `UUID` | No | Primary key. |
 | `school_id` | `UUID` | No | Foreign key mapping to the physical campus. Driven by RLS. |
-| `name` | `VARCHAR` | No | Display name of the fee item type (e.g., "Tuition Fee", "Activity Fee"). |
-| `is_mandatory` | `BOOLEAN` | No | Defaults to `true`. If false, represents an optional add-on subscription (e.g., Transport). |
+| `name` | `VARCHAR` | No | Display name of the fee item type (e.g., "Tuition Fee"). |
+| `is_mandatory` | `BOOLEAN` | No | Defaults to `true`. If false, represents an optional add-on subscription. |
 
 ### 27. Fee Templates Schema (`fee_templates` table)
 The configuration layer where administrators define baseline fee structures for an explicit grade level and term block.
@@ -331,6 +331,7 @@ The configuration layer where administrators define baseline fee structures for 
 | `grade_id` | `UUID` | No | Foreign key linking to the static `grades` lookup table. |
 | `fee_category_id` | `UUID` | No | Foreign key pointing to the target item type in `fee_categories`. |
 | `amount` | `NUMERIC(12,2)`| No | The standard baseline cost defined for this item cohort structure. |
+| *Constraint* | *Composite* | *No* | `UNIQUE(academic_term_id, grade_id, fee_category_id)` to prevent duplicate structural configuration rules. |
 
 ### 28. Student Invoices Schema (`student_invoices` table)
 The live transactional billing row assigned to a student's ledger representing exact liabilities owed for a given term block.
@@ -338,17 +339,17 @@ The live transactional billing row assigned to a student's ledger representing e
 | Field Name | Data Type | Nullable | Domain Rules & Database Constraints |
 | --- | --- | --- | --- |
 | `id` | `UUID` | No | Primary key. Unique transactional invoice tracker. |
-| `student_id` | `UUID` | No | Foreign key targeting the explicit student profile record. |
-| `academic_term_id` | `UUID` | No | Foreign key locking the liability context to a specific operational term. |
+| `student_id` | `UUID` | No | Foreign key targeting the explicit student profile record. **Composite Performance Index Active.** |
+| `academic_term_id` | `UUID` | No | Foreign key locking the liability context to a specific operational term. **Composite Performance Index Active.** |
 | `fee_category_id` | `UUID` | No | Foreign key pointing to the specific item being billed. |
 | `amount_due` | `NUMERIC(12,2)`| No | The actual amount billed to this student (inherits from template, custom modifiable for scholarships). |
 | `amount_paid` | `NUMERIC(12,2)`| No | The cumulative total of cleared payments applied against this invoice line. Defaults to 0.00. |
+| *Constraint* | *Composite* | *No* | `UNIQUE(student_id, academic_term_id, fee_category_id)` to explicitly prevent duplicate line-item billing records. |
 
----
 
 ## 🛡️ Part 2: Non-Negotiable Coding Agent Guardrails
 
-When drafting route handlers, database rules, validation layers, or query middleware, the system must strictly satisfy this checklist:
+When drafting route handlers, database rules, or validation middleware, the coding agent must strictly satisfy this checklist:
 
 ### 🔐 Multi-Tenant & Campus Access Controls
 **1. The RLS Tenant Wall**

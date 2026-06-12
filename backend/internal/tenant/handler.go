@@ -5,6 +5,18 @@ import (
 	"go.uber.org/fx"
 )
 
+// CreateTenantPayload is the request body for POST /tenants.
+type CreateTenantPayload struct {
+	Name string `json:"name"`
+	Slug string `json:"slug,omitempty"`
+}
+
+// ErrorBody is the JSON error response body.
+type ErrorBody struct {
+	Error   string `json:"error"`
+	Message string `json:"message,omitempty"`
+}
+
 // Handler exposes tenant-related HTTP endpoints.
 type Handler struct {
 	svc *Service
@@ -22,11 +34,19 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 }
 
 // Create handles POST /tenants.
+//
+// @Summary      Create a tenant
+// @Description  Creates a new tenant (school) in the system.
+// @Tags         Tenants
+// @Accept       json
+// @Produce      json
+// @Param        body  body      CreateTenantPayload  true  "Tenant details"
+// @Success      201   {object}  tenant.Tenant
+// @Failure      422  {object}  ErrorBody  "Invalid input"
+// @Failure      500  {object}  ErrorBody  "Internal error"
+// @Router       /tenants [post]
 func (h *Handler) Create(c *fiber.Ctx) error {
-	var payload struct {
-		Name string `json:"name"`
-		Slug string `json:"slug,omitempty"`
-	}
+	var payload CreateTenantPayload
 	if err := c.BodyParser(&payload); err != nil {
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
 			"error":   "invalid_input",

@@ -3,21 +3,19 @@
  *
  * Endpoints:
  *   POST /tenants  — create a new tenant (admin use)
+ *
+ * 🔄 AUTO-GENERATED TYPES: See src/lib/api/generated.ts (generated from backend swagger.json).
+ *   Run `pnpm generate:api` to regenerate when the backend API changes.
  */
 
 import { api } from "./client";
+import type { definitions } from "./generated";
 
-export interface CreateTenantPayload {
-  name: string;
-  slug?: string;
-}
+/** Request body for POST /tenants */
+export type CreateTenantPayload = definitions["internal_tenant.CreateTenantPayload"];
 
-export interface TenantResponse {
-  id: string;
-  name: string;
-  slug: string;
-  created_at: string;
-}
+/** Response from POST /tenants */
+export type TenantResponse = definitions["internal_tenant.Tenant"];
 
 /** Create a new tenant. Requires admin privileges. */
 export async function createTenant(

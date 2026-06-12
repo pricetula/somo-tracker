@@ -1,4 +1,4 @@
-.PHONY: up up-d down ps logs-down logs-api logs-postgres logs-redis logs-frontend restart-api rebuild-api build-api
+.PHONY: up up-d down ps logs-down logs-api logs-postgres logs-redis logs-frontend restart-api rebuild-api build-api generate-swagger generate-api-types help
 
 # ─── Docker Compose shortcuts ────────────────────────────────────────────────
 
@@ -41,6 +41,16 @@ rebuild-api:  ## Rebuild and recreate the API container
 
 build-api:    ## Build the API service (no start)
 	docker compose build somotracker_api
+
+# ─── Code generation ─────────────────────────────────────────────────────────
+
+generate-swagger:  ## Generate Swagger/OpenAPI docs from Go annotations
+	cd backend && swag init -g cmd/api/main.go --output docs --parseDependency --parseInternal
+
+generate-api-types: generate-swagger  ## Generate TypeScript types from swagger.json
+	cd frontend && pnpm generate:api
+
+generate: generate-api-types  ## Run all code generation (swagger + TS types)
 
 # ─── Help ─────────────────────────────────────────────────────────────────────
 

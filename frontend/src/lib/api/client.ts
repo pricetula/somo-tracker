@@ -3,14 +3,16 @@
  *
  * All requests are sent with `credentials: "include"` so the HttpOnly
  * `somo_sid` cookie is attached automatically by the browser.
+ *
+ * 🔄 TYPES: ApiError is re-exported from generated.ts (backend swagger).
  */
+
+import type { definitions } from "./generated";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3030";
 
-export interface ApiError {
-  error: string;
-  message?: string;
-}
+/** Error response body from the backend (sourced from swagger). */
+export type ApiError = definitions["internal_auth.ErrorBody"];
 
 export class ApiRequestError extends Error {
   public status: number;

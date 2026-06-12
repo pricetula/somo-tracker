@@ -27,6 +27,22 @@ type ErrorBody struct {
 	Message string `json:"message,omitempty"`
 }
 
+// VerifyPayload is the request body for POST /api/auth/verify.
+type VerifyPayload struct {
+	Token string `json:"token"`
+}
+
+// VerifyResponse is the response body for POST /api/auth/verify.
+type VerifyResponse struct {
+	SessionRef string `json:"session_ref"`
+}
+
+// MeResponse is the response body for GET /api/auth/me.
+type MeResponse struct {
+	UserID   string `json:"user_id"`
+	TenantID string `json:"tenant_id"`
+}
+
 // Handler exposes auth HTTP endpoints.
 type Handler struct {
 	svc    *Service
@@ -56,6 +72,17 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 }
 
 // Discover handles POST /api/auth/discover (PHASE 1).
+//
+// @Summary      Initiate magic-link discovery
+// @Description  Sends a magic-link email to the given address to discover or create an organization.
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Param        body  body  DiscoveryPayload  true  "Email address to send magic link to"
+// @Success      200   "Magic link sent"
+// @Failure      422   {object}  ErrorBody  "Invalid input"
+// @Failure      500   {object}  ErrorBody  "Internal error"
+// @Router       /api/auth/discover [post]
 func (h *Handler) Discover(c *fiber.Ctx) error {
 	var payload DiscoveryPayload
 	if err := c.BodyParser(&payload); err != nil {
@@ -84,6 +111,17 @@ func (h *Handler) Discover(c *fiber.Ctx) error {
 // The URL includes ?token=...&stytch_token_type=discovery.
 // We verify the token, cache the IST in Redis, set CSRF cookie,
 // and redirect the browser to the frontend's /register page with the session_ref.
+//
+// @Summary      Magic-link callback
+// @Description  Stytch redirects users here after clicking a magic link. Verifies the token, caches the IST, and redirects to the frontend.
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Param        token  query  string  true  "Stytch discovery magic link token"
+// @Success      302    "Redirects to frontend /register with session_ref"
+// @Failure      422    {object}  ErrorBody  "Invalid input"
+// @Failure      500    {object}  ErrorBody  "Internal error"
+// @Router       /api/auth/callback [get]
 func (h *Handler) MagicLinkCallback(c *fiber.Ctx) error {
 	token := c.Query("token")
 	if token == "" {
@@ -123,6 +161,18 @@ func (h *Handler) MagicLinkCallback(c *fiber.Ctx) error {
 }
 
 // Verify handles POST /api/auth/verify (PHASE 2).
+//
+// @Summary      Verify magic-link token
+// @Description  Validates a magic-link discovery token and returns a session reference for the registration flow.
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Param        body  body      VerifyPayload  true  "Magic link token"
+// @Success      200   {object}  VerifyResponse
+// @Failure      422   {object}  ErrorBody  "Invalid input"
+// @Failure      401   {object}  ErrorBody  "Token expired"
+// @Failure      500   {object}  ErrorBody  "Internal error"
+// @Router       /api/auth/verify [post]
 func (h *Handler) Verify(c *fiber.Ctx) error {
 	var payload struct {
 		Token string `json:"token"`
@@ -152,6 +202,19 @@ func (h *Handler) Verify(c *fiber.Ctx) error {
 }
 
 // Register handles POST /api/auth/register (PHASE 3).
+//
+// @Summary      Complete registration
+// @Description  Creates a tenant (school), user, and session. Sets the session cookie on success.
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Param        body  body  RegistrationPayload  true  "Registration details"
+// @Success      204   "Session cookie set; no content"
+// @Failure      422   {object}  ErrorBody  "Invalid input"
+// @Failure      401   {object}  ErrorBody  "Token expired or MFA required"
+// @Failure      409   {object}  ErrorBody  "Organization already exists"
+// @Failure      500   {object}  ErrorBody  "Internal error"
+// @Router       /api/auth/register [post]
 func (h *Handler) Register(c *fiber.Ctx) error {
 	var payload RegistrationPayload
 	if err := c.BodyParser(&payload); err != nil {
@@ -194,6 +257,16 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 }
 
 // Me handles GET /api/auth/me (requirement 6).
+//
+// @Summary      Get current session
+// @Description  Returns the authenticated user's ID and tenant ID from the session cookie.
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  MeResponse
+// @Failure      401  {object}  ErrorBody  "Session expired or missing"
+// @Failure      500  {object}  ErrorBody  "Internal error"
+// @Router       /api/auth/me [get]
 func (h *Handler) Me(c *fiber.Ctx) error {
 	token := c.Cookies(somoCookieName)
 	if token == "" {
@@ -216,6 +289,15 @@ func (h *Handler) Me(c *fiber.Ctx) error {
 }
 
 // Logout handles DELETE /api/auth/session (requirement 7).
+//
+// @Summary      Logout
+// @Description  Destroys the current session and clears cookies.
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Success      204  "Session destroyed; cookies cleared"
+// @Failure      500  {object}  ErrorBody  "Internal error"
+// @Router       /api/auth/session [delete]
 func (h *Handler) Logout(c *fiber.Ctx) error {
 	token := c.Cookies(somoCookieName)
 

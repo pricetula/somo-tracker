@@ -7,27 +7,28 @@
  *   POST /api/auth/register   — complete registration, set session cookie
  *   GET  /api/auth/me         — fetch current session info
  *   DELETE /api/auth/session  — logout
+ *
+ * 🔄 AUTO-GENERATED TYPES: See src/lib/api/generated.ts (generated from backend swagger.json).
+ *   Run `pnpm generate:api` to regenerate when the backend API changes.
  */
 
 import { api, ApiRequestError } from "./client";
+import type { definitions } from "./generated";
 
-// ─── Types ────────────────────────────────────────────────────────────────
+// ─── Types (sourced from generated swagger types) ─────────────────────────
 
-export interface MeResponse {
-  user_id: string;
-  tenant_id: string;
-}
+/** @returns {Promise<void>} */
+export type DiscoverPayload = definitions["internal_auth.DiscoveryPayload"];
 
-export interface VerifyResponse {
-  session_ref: string;
-}
+/**
+ * Response from POST /api/auth/verify
+ * @returns {{ session_ref: string }}
+ */
+export type VerifyResponse = definitions["internal_auth.VerifyResponse"];
 
-export interface RegisterPayload {
-  school_name: string;
-  session_ref: string;
-  first_name: string;
-  last_name: string;
-}
+export type RegisterPayload = definitions["internal_auth.RegistrationPayload"];
+
+export type MeResponse = definitions["internal_auth.MeResponse"];
 
 // ─── Functions ────────────────────────────────────────────────────────────
 

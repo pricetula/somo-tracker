@@ -1,0 +1,345 @@
+ROLE & CONTEXT:
+You are a Staff Backend Engineer expert in Go, multi-tenant B2B architectures, and Uber's fx dependency
+injection framework. You are tasked with building the complete, production-grade 'auth' module for
+Somotracker located under './backend/internal/auth/'.
+
+This system interfaces with a headless Next.js frontend and leverages an existing infrastructure stack
+of Go-Fiber, Redis, and PostgreSQL (via sqlc generated queries). You must strictly follow the
+architectural boundaries defined in our system design contract: High ROI, zero performance waste,
+absolute Locality of Behavior (LoB), and perfect separation of infrastructure clients from core
+business logic via interfaces.
+
+*Important: refer to ./models.md for relevant schema details to assist creating migration files
+
+---
+
+ARCHITECTURE & DATA FLOW VISUALIZATION:
+
+[PHASE 1: INITIAL DISCOVERY & LINK DISPATCH]
+Next.js Frontend            Go Backend (Fiber + Fx)          Stytch B2B API Server
+     │                                 │                               │
+     │── 1. POST /api/auth/discover ──>│                               │
+     │   (user_email)                  │── 2. MagicLinks.Email.        │
+     │                                 │      Discovery.Send() ───────>│
+     │<── 3. HTTP 200 OK (Clean UI) ───│                               │── (Dispatches Magic Link)
+
+[PHASE 2: TOKEN EXCHANGE & BACKEND CACHE ISOLATION]
+User clicks email link ──> Lands on Next.js ──> Extracted token sent to backend
+     │                                 │                               │
+     │── 4. POST /api/auth/verify ────>│                               │
+     │   (magic_link_token)            │── 5. MagicLinks.Discovery.    │
+     │                                 │      Authenticate() ─────────>│
+     │                                 │                               │── (Returns raw IST string)
+     │                                 │<──────────────────────────────│
+     │                                 │── 6. Write to Redis Cache ──┐ │
+     │                                 │   (Key: "ist:{env}:{uuid4}") │ │
+     │                                 │   (TTL: 10 minutes)         │ │
+     │                                 │<────────────────────────────┘ │
+     │<── 7. Return JSON Payload ──────│                               │
+         { "session_ref": "ref_123" }
+
+[PHASE 3: ORGANIZATIONAL MUTATION & FINAL HANDOFF]
+User submits "Create School" form on Next.js
+     │                                 │                               │
+     │── 8. POST /api/auth/register ──>│                               │
+     │   (session_ref, school_name)    │── 9. Read & DELETE Redis ───┐ │
+     │                                 │   (one-time use IST pull)   │ │
+     │                                 │<────────────────────────────┘ │
+     │                                 │── 10. Organizations.Create() ─>│── (Provisions Org Node)
+     │                                 │── 11. Discovery.Intermediate  │
+     │                                 │       Sessions.Exchange() ────>│── (Validates & authenticates)
+     │                                 │<──────────────────────────────│
+     │                                 │── 12. Write PostgreSQL rows ┐ │
+     │                                 │   (Save local Tenant/User   │ │
+     │                                 │    inside DB transaction)   │ │
+     │                                 │<────────────────────────────┘ │
+     │                                 │── 13. Persist opaque token ─┐ │
+     │                                 │   in Redis (30-day TTL)     │ │
+     │                                 │<────────────────────────────┘ │
+     │<── 14. Drop HTTPOnly Cookie ────│                               │
+         (SameSite=Lax Session Token)
+
+[POST-REGISTRATION: SESSION VALIDATION]
+Subsequent API requests from Next.js
+     │                                 │
+     │── GET /api/auth/me ────────────>│
+     │   (somo_sid cookie)             │── Validate token in Redis
+     │                                 │── Resolve tenant_id from sessions table
+     │<── 200 { user_id, tenant_id } ──│
+
+---
+
+NON-NEGOTIABLE SECURITY REQUIREMENTS:
+
+1. INFRASTRUCTURE DECOUPLING: Do not leak Stytch SDK data models directly into your core service
+   logic. Create an 'IdentityProvider' interface inside your domain space. Wrap the concrete Stytch
+   client inside a dedicated adapter that handles data transformations.
+
+2. BACKEND IST ISOLATION: The raw Intermediate Session Token (IST) returned from Stytch must never
+   be exposed to the browser. It must be trapped in Redis on the backend using a namespaced key of
+   the form "ist:{env}:{uuid_v4}" with a 10-minute TTL. The IST key must be DELETED immediately
+   after a successful read in step 9 (one-time use — do not rely solely on TTL expiry). The
+   frontend must handle only a secure cryptographically random reference ID string.
+
+3. MFA TAMPER PREVENTION: During step 11, you must explicitly parse the Stytch response property
+   'MemberAuthenticated'. If this flag is false (indicating that the organization enforces
+   Multi-Factor Authentication), you must immediately drop the flow, block session creation, and
+   return a clean HTTP 401 response indicating that an MFA step-up verification challenge is
+   required.
+
+4. OPAQUE SESSION COOKIE: Do not return Stytch JWT tokens to the browser. Generate an opaque
+   session token string using 'crypto/rand'. Drop this token into an HTTP response cookie matching
+   these production security flags:
+     Name     = 'somo_sid'
+     HttpOnly = true
+     Secure   = true
+     SameSite = Lax
+     Path     = "/"
+     Domain   = injected from Config struct (do not hardcode)
+     Max-Age  = 30 days (2592000 seconds)
+   The generated token must also be persisted server-side in Redis (TTL matching Max-Age) keyed as
+   "session:{token}". This is required for validation on every subsequent request. There is no
+   valid session without a server-side record.
+
+5. CONTEXT HARNESSING: Extract the generated device fingerprint context located in
+   'c.Locals("device_fingerprint")' created by our global security pipeline and associate it with
+   your internal session data registration.
+
+6. SESSION VALIDATION ENDPOINT: Implement GET /api/auth/me. This endpoint reads the 'somo_sid'
+   cookie, looks up the token in Redis, resolves the associated tenant_id and user_id from the
+   sessions table in Postgres, and returns a safe user context payload. This is the handoff
+   contract for all downstream API middleware. Return HTTP 401 with a clean error body if the
+   token is missing, expired, or not found.
+
+7. LOGOUT ENDPOINT: Implement DELETE /api/auth/session (or POST /api/auth/logout). This endpoint
+   reads the 'somo_sid' cookie, deletes the token from Redis and the sessions table, then clears
+   the cookie by setting Max-Age=0. Return HTTP 204 on success.
+
+---
+
+IDEMPOTENCY & CONSISTENCY REQUIREMENTS:
+
+8. REGISTER IDEMPOTENCY: Before calling Organizations.Create() in step 10, check whether a tenant
+   already exists in Postgres with the given stytch_org_id or school_name (for the authenticated
+   identity). If one exists, skip org creation and proceed to session issuance. This prevents
+   duplicate Stytch org provisioning on frontend retries or network timeouts. Use the session_ref
+   as a natural idempotency scope.
+
+9. TRANSACTIONAL POSTGRES WRITES: Steps 10–12 span an external Stytch call followed by a Postgres
+   write. Wrap all Postgres mutations in step 12 (insert tenant, insert user, insert session) in a
+   single database transaction. If any row fails to insert, roll back the entire transaction. Since
+   Stytch has no two-phase commit, if Postgres fails after a successful Organizations.Create(),
+   log a structured WARN-level alert containing the stytch_org_id for manual reconciliation. Do
+   not silently swallow this inconsistency.
+
+---
+
+CONTEXT & CANCELLATION REQUIREMENTS:
+
+10. CONTEXT PROPAGATION: Every method on the 'IdentityProvider' interface and the 'Repository'
+    interface must accept 'ctx context.Context' as its first argument. Pass the Fiber request
+    context (converted via 'c.Context()' to a standard context) through all I/O operations. This
+    ensures request cancellation and timeout propagation work correctly across Stytch API calls,
+    Redis operations, and Postgres queries.
+
+---
+
+OBSERVABILITY REQUIREMENTS:
+
+11. STRUCTURED LOGGING: Inject a '*zap.Logger' (or '*slog.Logger' if that is the project standard)
+    into both the Service and the StytchAdapter via constructor. Log at INFO level on each phase
+    boundary (discovery sent, IST cached, IST consumed, org created, session issued). Log at ERROR
+    level on all external call failures, including the stytch_org_id in any post-create failure
+    log. Never log raw ISTs, tokens, or cookie values.
+
+12. LATENCY METRICS: Wrap each external Stytch call and each Redis operation with a timing
+    observation (e.g. a Prometheus histogram or a simple time.Since defer). Export the auth flow
+    end-to-end latency from /register as a labeled metric.
+
+---
+
+INPUT VALIDATION REQUIREMENTS:
+
+13. REGISTRATION PAYLOAD VALIDATION: The 'RegistrationPayload' struct must implement a
+    'Validate() error' method called at the top of the service Register function before any I/O.
+    Rules:
+      - school_name: required, 2–100 characters, printable UTF-8 only, no leading/trailing
+        whitespace (trim and re-validate length after trim)
+      - session_ref: required, must match the uuid_v4 format used during issuance
+    Return a typed validation error (see domain error taxonomy below) so the handler can map it
+    to HTTP 422 Unprocessable Entity.
+
+---
+
+DOMAIN ERROR TAXONOMY:
+
+14. Define the following sentinel/typed errors in 'domain.go'. The handler must use a type switch
+    or errors.Is check to map each to the correct HTTP status and JSON body:
+
+      ErrInvalidInput      → HTTP 422  { "error": "invalid_input",      "message": "..." }
+      ErrExpiredToken      → HTTP 401  { "error": "expired_token",       "message": "..." }
+      ErrMFARequired       → HTTP 401  { "error": "mfa_required",        "message": "..." }
+      ErrOrgAlreadyExists  → HTTP 409  { "error": "org_already_exists",  "message": "..." }
+      ErrNotFound          → HTTP 404  { "error": "not_found",           "message": "..." }
+      ErrInternal          → HTTP 500  { "error": "internal_error",      "message": "..." }
+
+    All errors from external calls (Stytch, Redis, Postgres) that do not map to a domain error
+    should be wrapped and returned as ErrInternal. Never leak raw SDK error strings to the client.
+
+---
+
+FX LIFECYCLE REQUIREMENTS:
+
+15. LIFECYCLE HOOKS: Any constructor that holds a long-lived connection (Redis client, Postgres
+    pool) must register fx.Hook callbacks:
+      OnStart: ping the connection and return an error if unreachable (fail fast at boot)
+      OnStop:  gracefully close the connection / drain the pool
+    This prevents the application from starting in a broken state and ensures clean shutdown.
+
+---
+
+FILE-BY-FILE CODE IMPLEMENTATION INSTRUCTIONS:
+
+Generate the following files inside the package directory './backend/internal/auth/':
+
+1. 'domain.go'
+   - Define clean internal structures: 'UserSession', 'DiscoveryPayload', 'RegistrationPayload'.
+   - Add a 'Validate() error' method on 'RegistrationPayload' (see requirement 13).
+   - Declare the full domain error set (see requirement 14) as typed sentinel values.
+   - Declare the client-side 'IdentityProvider' interface. All methods must accept
+     'ctx context.Context' as their first argument (see requirement 10). Methods must cover:
+       * SendDiscoveryEmail(ctx, email) error
+       * AuthenticateDiscoveryToken(ctx, token) (ist string, err error)
+       * CreateOrganization(ctx, name string) (orgID string, err error)
+       * ExchangeIntermediateSession(ctx, ist, orgID string) (ExchangeResult, error)
+     where 'ExchangeResult' is a clean domain struct containing MemberAuthenticated bool,
+     StytchSessionToken string, MemberID string, OrganizationID string.
+   - Declare the business layer 'Repository' interface. All methods must accept
+     'ctx context.Context' as their first argument. Methods must cover at minimum:
+       * TenantExists(ctx, orgID string) (bool, error)
+       * CreateTenant(ctx, params CreateTenantParams) (tenantID string, err error)
+       * CreateUser(ctx, params CreateUserParams) (userID string, err error)
+       * CreateSession(ctx, params CreateSessionParams) error
+       * GetSessionByToken(ctx, token string) (*UserSession, error)
+       * DeleteSession(ctx, token string) error
+
+2. 'stytch.go' (The Wrapper Adapter)
+   - Create a concrete struct 'StytchAdapter' that implements your 'IdentityProvider' interface.
+   - This file is the only file allowed to import 'github.com/stytchauth/stytch-go/v12/b2b/b2bapi'.
+   - Inject a '*zap.Logger' and a 'Config' struct via constructor (see requirement 11).
+   - Implement methods mapping to the four core Stytch SDK flows:
+       * MagicLinks.Email.Discovery.Send
+       * MagicLinks.Discovery.Authenticate
+       * Organizations.Create
+       * Discovery.IntermediateSessions.Exchange
+   - All methods must accept and propagate 'ctx context.Context'.
+   - Transform all Stytch SDK response types into clean domain structs before returning.
+     Never let Stytch SDK types escape this file.
+
+3. 'repository.go'
+   - Implement the 'SqlcRepository' struct utilizing your generated sqlc query engine definitions.
+   - Inject the sqlc Queries object and the raw *pgxpool.Pool (needed for transactions) via
+     constructor.
+   - Implement all methods defined in the 'Repository' interface.
+   - The 'CreateTenant', 'CreateUser', and 'CreateSession' operations must be executed inside a
+     single Postgres transaction (begin/commit/rollback), per requirement 9. Accept a context
+     and use pgxpool.BeginTx.
+   - On any Postgres error after a Stytch org has been successfully created, log the stytch_org_id
+     at WARN level for manual reconciliation before returning ErrInternal.
+   - Register fx lifecycle hooks for the pgxpool (OnStart: ping, OnStop: close), per requirement 15.
+
+4. 'service.go'
+   - Implement the core business 'Service' struct via constructor dependency injection.
+     Dependencies: IdentityProvider, Repository, Redis client, *zap.Logger, Config.
+   - Implement the following service methods:
+       * Discover(ctx, email string) error
+       * Verify(ctx, token string) (sessionRef string, err error)
+       * Register(ctx, sessionRef string, payload RegistrationPayload) error
+           - Call payload.Validate() first; return ErrInvalidInput on failure.
+           - Read AND DELETE the IST from Redis atomically (GET then DEL, or use a Lua script
+             for atomic read-delete) — one-time use, per requirement 2.
+           - Check TenantExists before calling CreateOrganization, per requirement 8.
+           - Check MemberAuthenticated on the ExchangeResult; return ErrMFARequired if false,
+             per requirement 3.
+           - On successful exchange, call repository methods inside a transaction, per requirement 9.
+           - Generate opaque session token via crypto/rand (32 bytes, hex-encoded).
+           - Persist token to Redis ("session:{token}", 30-day TTL), per requirement 4.
+           - Return the token to the handler for cookie issuance.
+       * GetSession(ctx, token string) (*UserSession, error)
+           - Look up token in Redis first. On miss return ErrExpiredToken.
+           - Cross-reference with Postgres via GetSessionByToken for full user context.
+       * Logout(ctx, token string) error
+           - Delete from Redis and call repository.DeleteSession.
+   - Return only domain errors up the call stack. Wrap all external errors in ErrInternal
+     if they do not map to a specific domain error.
+
+5. 'handler.go'
+   - Create the Go-Fiber HTTP delivery controllers.
+   - Inject '*zap.Logger' and 'Config' (for cookie Domain) via constructor.
+   - Expose endpoints:
+       * POST   /api/auth/discover  → calls service.Discover
+       * POST   /api/auth/verify    → calls service.Verify, returns { "session_ref": "..." }
+       * POST   /api/auth/register  → calls service.Register, drops somo_sid cookie
+       * GET    /api/auth/me        → calls service.GetSession, returns safe user context
+       * DELETE /api/auth/session   → calls service.Logout, clears cookie (Max-Age=0)
+   - Cookie issuance in /register must set all six attributes:
+     Name, HttpOnly, Secure, SameSite, Path, Domain, Max-Age (see requirement 4).
+   - Implement a single mapError(err error) (int, ErrorBody) helper using errors.Is/type-switch
+     against the full domain error taxonomy (see requirement 14). All handlers call this helper —
+     no ad-hoc status code logic scattered across handlers.
+   - Extract device fingerprint from c.Locals("device_fingerprint") before calling service.Register.
+     Pass it as part of the registration context or as an explicit parameter.
+
+6. 'service_test.go'
+   - Implement unit tests for your service layer logic using 'go test -short'.
+   - Build the following in-memory mock implementations:
+       * MockIdentityProvider  (implements IdentityProvider)
+       * MockRepository        (implements Repository)
+       * MockCache             (in-process Redis substitute, e.g. using alicebobapps/miniredis
+                                or a simple map[string]string with sync.RWMutex)
+   - All three mocks must be injected into the Service under test. No real DB, Redis, or network.
+   - Test cases must cover at minimum:
+       * Verify: Stytch timeout → ErrInternal propagated
+       * Verify: Stytch expired token error → ErrExpiredToken propagated
+       * Register: IST not found in cache (already consumed or expired) → ErrExpiredToken
+       * Register: MemberAuthenticated = false → ErrMFARequired, no Postgres writes occur
+       * Register: Postgres write failure after successful Stytch exchange → ErrInternal,
+                   verify stytch_org_id was logged (capture log output)
+       * Register: duplicate call with same session_ref after org already exists → no second
+                   Organizations.Create() called (idempotency check)
+       * GetSession: token not in cache → ErrExpiredToken
+       * Logout: happy path → token removed from both cache and repository
+
+7. 'module.go'
+   - Bundle the entire package cleanly into an Uber fx module container:
+
+     var Module = fx.Module("auth",
+         fx.Provide(
+             NewStytchAdapter,
+             NewSqlcRepository,
+             NewService,
+             NewHandler,
+         ),
+     )
+
+   - Ensure 'NewStytchAdapter' and 'NewSqlcRepository' receive a 'Config' struct as a dependency.
+     The Config struct must be defined in (or imported from) a shared config package and provided
+     at the application root — not constructed inside this module.
+   - Ensure all fx.Hook lifecycle registrations (Redis ping, Postgres ping, graceful close) are
+     wired in their respective constructors, not in module.go.
+
+---
+
+COMPILE & INTEGRATION CHECKLIST:
+- All interface method signatures include 'ctx context.Context' as first parameter.
+- No Stytch SDK types appear outside of stytch.go.
+- No domain error strings are returned raw to HTTP clients.
+- All Redis keys follow the namespaced pattern: "ist:{env}:{uuid}", "session:{token}".
+- IST Redis key is deleted (not just TTL-expired) immediately after first read.
+- Postgres writes in Register are wrapped in a single transaction.
+- Cookie attributes include Path and Domain (from config), not just HttpOnly/Secure/SameSite.
+- Opaque session token is stored server-side in Redis before the cookie is issued.
+- GET /api/auth/me and DELETE /api/auth/session endpoints are implemented.
+- service_test.go injects all three mocks; no real I/O occurs in any test.
+- fx.Hook OnStart/OnStop are registered for any constructor holding a persistent connection.
+- No circular imports between domain.go, stytch.go, repository.go, service.go, handler.go.

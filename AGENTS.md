@@ -7,7 +7,7 @@ The Somotracker platform is organized as a single, unified monorepo. Agents must
 ├── .github/          # CI/CD workflows and automation pipelines
 ├── ./backend/        # Go (Fiber) REST API — Core business logic & analytics engine
 ├── ./docs/           # Standardized Markdown templates and system feature specs
-├── ./frontend/       # Next.js (App Router) — Multi-tenant educational dashboard
+├── ./frontend/       # Next.js v16+ (App Router) — Multi-tenant educational dashboard
 └── ./public/         # Svelte — High-conversion, lightweight marketing website
 
 📦 2. Package Manager Policy

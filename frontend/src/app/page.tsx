@@ -1,7 +1,5 @@
+import { HomePage } from "@/features/home/components/home-page";
+
 export default function Home() {
-    return (
-        <main>
-            Frontend Home
-        </main>
-    );
+  return <HomePage />;
 }

@@ -1,23 +1,65 @@
 import { NextRequest, NextResponse } from "next/server";
+import { SESSION_COOKIE_NAME } from "@/lib/auth";
 
 const PROTECTED_PREFIXES = ["/dashboard", "/settings", "/admin"];
 
 /**
- * Next.js edge middleware that checks for the presence of the `somo_session`
- * cookie on every protected route. If absent, redirects to `/login`.
+ * Auth state determination:
+ * - **IST (Intermediate Session Token) stage**: No `somo_sid` cookie, but
+ *   `session_ref` query param is present on `/register`. The user clicked a
+ *   magic link but hasn't created their tenant yet.
+ * - **Real token**: `somo_sid` cookie exists. The user has a valid session
+ *   and can access protected routes.
+ * - **Not authenticated**: Neither cookie nor valid IST query param.
  *
- * This is a UX guard only — it is not a security boundary.
- * The Go backend's ValidateSession middleware is the actual security gate.
+ * Middleware behaviour:
+ * - Protected routes require the `somo_sid` cookie. Absent → redirect to /login.
+ * - `/register` without `session_ref` → redirect to /login.
+ * - `/login` with `somo_sid` cookie → redirect to /dashboard.
+ * - `/` → rewrite based on auth state.
  */
 export function middleware(req: NextRequest) {
-  const isProtected = PROTECTED_PREFIXES.some((p) =>
-    req.nextUrl.pathname.startsWith(p),
-  );
+  const { pathname, searchParams } = req.nextUrl;
+  const hasSession = req.cookies.has(SESSION_COOKIE_NAME);
+  const hasSessionRef = searchParams.has("session_ref");
 
-  if (isProtected && !req.cookies.get("somo_session")) {
-    const loginUrl = new URL("/login", req.url);
-    loginUrl.searchParams.set("next", req.nextUrl.pathname);
-    return NextResponse.redirect(loginUrl);
+  // ── `/` root: rewrite to dashboard if authenticated, login otherwise ──
+  if (pathname === "/") {
+    const dest = hasSession ? "/dashboard" : "/login";
+    return NextResponse.rewrite(new URL(dest, req.url));
+  }
+
+  // ── Protected routes: require real session cookie ──
+  const isProtected = PROTECTED_PREFIXES.some((p) => pathname.startsWith(p));
+  if (isProtected) {
+    if (!hasSession) {
+      const loginUrl = new URL("/login", req.url);
+      loginUrl.searchParams.set("next", pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+    return NextResponse.next();
+  }
+
+  // ── Register page: IST stage if session_ref present ──
+  if (pathname === "/register") {
+    if (hasSession) {
+      // Already authenticated → go to dashboard
+      return NextResponse.redirect(new URL("/dashboard", req.url));
+    }
+    if (!hasSessionRef) {
+      // No session_ref → redirect to login
+      return NextResponse.redirect(new URL("/login", req.url));
+    }
+    // IST stage — allow through to /register?session_ref=...
+    return NextResponse.next();
+  }
+
+  // ── Login page: if already authenticated, redirect to dashboard ──
+  if (pathname === "/login") {
+    if (hasSession) {
+      return NextResponse.redirect(new URL("/dashboard", req.url));
+    }
+    return NextResponse.next();
   }
 
   return NextResponse.next();

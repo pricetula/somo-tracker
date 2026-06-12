@@ -13,6 +13,8 @@ const ALLOWED_REDIRECT_PREFIXES = [
   "/dashboard",
   "/settings",
   "/tenants",
+  "/register",
+  "/login",
 ];
 
 /**

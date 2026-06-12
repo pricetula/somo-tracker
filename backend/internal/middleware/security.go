@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/hex"
 	"fmt"
 	"strings"
@@ -37,17 +38,35 @@ func Register(app *fiber.App, pools *database.Pools, cfg config.Config) {
 		return c.Next()
 	})
 
-	// Layer 3 — CSRF header guard (defense-in-depth)
+	// Layer 3 — CSRF double-submit cookie pattern
+	// On state-changing requests (POST, PUT, DELETE, PATCH), compares the
+	// csrf_token cookie value against the X-CSRF-Token request header.
+	// Safe methods (GET, HEAD, OPTIONS) are not checked.
+	// The csrf_token cookie is set as non-HttpOnly so the frontend JS can read it.
 	app.Use(func(c *fiber.Ctx) error {
 		method := c.Method()
-		if method == "POST" || method == "PUT" || method == "DELETE" || method == "PATCH" {
-			if c.Get("X-Requested-With") == "" {
-				return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-					"error":  "forbidden",
-					"reason": "missing X-Requested-With header",
-				})
-			}
+		if method == "GET" || method == "HEAD" || method == "OPTIONS" {
+			return c.Next()
 		}
+
+		cookieToken := c.Cookies("csrf_token")
+		headerToken := c.Get("X-CSRF-Token")
+
+		if cookieToken == "" || headerToken == "" {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"error":  "forbidden",
+				"reason": "csrf token missing",
+			})
+		}
+
+		// Constant-time comparison to prevent timing attacks
+		if subtle.ConstantTimeCompare([]byte(cookieToken), []byte(headerToken)) != 1 {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"error":  "forbidden",
+				"reason": "csrf token mismatch",
+			})
+		}
+
 		return c.Next()
 	})
 

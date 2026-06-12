@@ -117,8 +117,8 @@ func (r *SqlcRepository) CreateUser(ctx context.Context, params CreateUserParams
 // CreateSession persists a session record.
 func (r *SqlcRepository) CreateSession(ctx context.Context, params CreateSessionParams) error {
 	const query = `
-		INSERT INTO sessions (token, user_id, tenant_id, stytch_member_id, stytch_org_id, device_fingerprint, expires_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO sessions (token, user_id, tenant_id, stytch_member_id, stytch_org_id, stytch_session_token, device_fingerprint, expires_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	`
 	_, err := r.pool.Exec(ctx, query,
 		params.Token,
@@ -126,6 +126,7 @@ func (r *SqlcRepository) CreateSession(ctx context.Context, params CreateSession
 		params.TenantID,
 		params.StytchMemberID,
 		params.StytchOrgID,
+		params.StytchSessionToken,
 		params.DeviceFingerprint,
 		params.ExpiresAt,
 	)
@@ -139,6 +140,7 @@ func (r *SqlcRepository) CreateSession(ctx context.Context, params CreateSession
 func (r *SqlcRepository) GetSessionByToken(ctx context.Context, token string) (*UserSession, error) {
 	const query = `
 		SELECT id, token, user_id, tenant_id, stytch_member_id, stytch_org_id,
+		       COALESCE(stytch_session_token, '') as stytch_session_token,
 		       COALESCE(device_fingerprint, '') as device_fingerprint,
 		       expires_at, created_at
 		FROM sessions
@@ -147,8 +149,8 @@ func (r *SqlcRepository) GetSessionByToken(ctx context.Context, token string) (*
 	var s UserSession
 	err := r.pool.QueryRow(ctx, query, token).Scan(
 		&s.ID, &s.Token, &s.UserID, &s.TenantID,
-		&s.StytchMemberID, &s.StytchOrgID, &s.DeviceFingerprint,
-		&s.ExpiresAt, &s.CreatedAt,
+		&s.StytchMemberID, &s.StytchOrgID, &s.StytchSessionToken,
+		&s.DeviceFingerprint, &s.ExpiresAt, &s.CreatedAt,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -222,8 +224,8 @@ func (r *SqlcRepository) CreateTenantUserSession(
 
 	// 3. Insert session
 	sessionQuery := `
-		INSERT INTO sessions (token, user_id, tenant_id, stytch_member_id, stytch_org_id, device_fingerprint, expires_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO sessions (token, user_id, tenant_id, stytch_member_id, stytch_org_id, stytch_session_token, device_fingerprint, expires_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	`
 	_, err = tx.Exec(ctx, sessionQuery,
 		sessionParams.Token,
@@ -231,6 +233,7 @@ func (r *SqlcRepository) CreateTenantUserSession(
 		tenantID,
 		sessionParams.StytchMemberID,
 		sessionParams.StytchOrgID,
+		sessionParams.StytchSessionToken,
 		sessionParams.DeviceFingerprint,
 		sessionParams.ExpiresAt,
 	)

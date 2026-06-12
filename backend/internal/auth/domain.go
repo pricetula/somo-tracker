@@ -38,15 +38,16 @@ func (e *ValidationError) Unwrap() error { return e.Err }
 
 // UserSession represents an authenticated browser session.
 type UserSession struct {
-	ID               string    `json:"id"`
-	Token            string    `json:"-"`
-	UserID           string    `json:"user_id"`
-	TenantID         string    `json:"tenant_id"`
-	StytchMemberID   string    `json:"-"`
-	StytchOrgID      string    `json:"-"`
-	DeviceFingerprint string   `json:"-"`
-	ExpiresAt        time.Time `json:"expires_at"`
-	CreatedAt        time.Time `json:"created_at"`
+	ID                 string    `json:"id"`
+	Token              string    `json:"-"`
+	UserID             string    `json:"user_id"`
+	TenantID           string    `json:"tenant_id"`
+	StytchMemberID     string    `json:"-"`
+	StytchOrgID        string    `json:"-"`
+	StytchSessionToken string    `json:"-"`
+	DeviceFingerprint  string    `json:"-"`
+	ExpiresAt          time.Time `json:"expires_at"`
+	CreatedAt          time.Time `json:"created_at"`
 }
 
 // DiscoveryPayload is sent by the frontend to initiate the magic-link flow.
@@ -151,13 +152,14 @@ type CreateUserParams struct {
 
 // CreateSessionParams holds input for creating a new session row.
 type CreateSessionParams struct {
-	Token             string
-	UserID            string
-	TenantID          string
-	StytchMemberID    string
-	StytchOrgID       string
-	DeviceFingerprint string
-	ExpiresAt         time.Time
+	Token              string
+	UserID             string
+	TenantID           string
+	StytchMemberID     string
+	StytchOrgID        string
+	StytchSessionToken string
+	DeviceFingerprint  string
+	ExpiresAt          time.Time
 }
 
 // Repository defines the contract for database persistence.

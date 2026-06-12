@@ -242,13 +242,14 @@ func (s *Service) Register(ctx context.Context, sessionRef string, payload Regis
 	}
 
 	sessionParams := CreateSessionParams{
-		Token:             sessionToken,
-		UserID:            "", // set after user creation
-		TenantID:          "", // set after tenant creation
-		StytchMemberID:    result.MemberID,
-		StytchOrgID:       orgID,
-		DeviceFingerprint: deviceFingerprint,
-		ExpiresAt:         expiresAt,
+		Token:              sessionToken,
+		UserID:             "", // set after user creation
+		TenantID:           "", // set after tenant creation
+		StytchMemberID:     result.MemberID,
+		StytchOrgID:        orgID,
+		StytchSessionToken: result.StytchSessionToken,
+		DeviceFingerprint:  deviceFingerprint,
+		ExpiresAt:          expiresAt,
 	}
 
 	if tenantExists {
@@ -267,8 +268,8 @@ func (s *Service) Register(ctx context.Context, sessionRef string, payload Regis
 		}
 	}
 
-	// 10. Persist session token in Redis (requirement 4)
-	if err := s.rdb.Set(ctx, s.sessionKey(sessionToken), sessionToken, sessionTTL).Err(); err != nil {
+	// 10. Persist session mapping in Redis: opaque key → Stytch session token (requirement 4)
+	if err := s.rdb.Set(ctx, s.sessionKey(sessionToken), result.StytchSessionToken, sessionTTL).Err(); err != nil {
 		return "", fmt.Errorf("%w: cache session: %v", ErrInternal, err)
 	}
 

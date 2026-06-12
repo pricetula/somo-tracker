@@ -1,7 +1,10 @@
 package auth
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"errors"
+	"fmt"
 
 	"github.com/gofiber/fiber/v2"
 	"go.uber.org/zap"
@@ -47,6 +50,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	auth.Post("/discover", h.Discover)
 	auth.Post("/verify", h.Verify)
 	auth.Post("/register", h.Register)
+	auth.Get("/callback", h.MagicLinkCallback)
 	auth.Get("/me", h.Me)
 	auth.Delete("/session", h.Logout)
 }
@@ -73,6 +77,52 @@ func (h *Handler) Discover(c *fiber.Ctx) error {
 	}
 
 	return c.SendStatus(fiber.StatusOK)
+}
+
+// MagicLinkCallback handles GET /api/auth/callback.
+// Stytch redirects the user's browser here after clicking a magic link.
+// The URL includes ?token=...&stytch_token_type=discovery.
+// We verify the token, cache the IST in Redis, set CSRF cookie,
+// and redirect the browser to the frontend's /register page with the session_ref.
+func (h *Handler) MagicLinkCallback(c *fiber.Ctx) error {
+	token := c.Query("token")
+	if token == "" {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(ErrorBody{
+			Error:   "invalid_input",
+			Message: "token query parameter is required",
+		})
+	}
+
+	sessionRef, err := h.svc.Verify(c.Context(), token)
+	if err != nil {
+		h.logger.Error("auth: magic link callback verify failed",
+			zap.Error(err),
+		)
+		status, body := h.mapError(err)
+		return c.Status(status).JSON(body)
+	}
+
+	// Set a CSRF token cookie so the frontend can include it on mutating requests
+	csrfToken, err := generateCSRFToken()
+	if err != nil {
+		h.logger.Error("auth: failed to generate CSRF token", zap.Error(err))
+	} else {
+		h.setCSRFTokenCookie(c, csrfToken)
+	}
+
+	// Redirect browser to frontend registration page with session_ref
+	frontendURL := "http://localhost:3000/register"
+	if h.cfg.AppEnv != "development" {
+		frontendURL = "https://app.somotracker.com/register"
+	}
+	redirectURL := fmt.Sprintf("%s?session_ref=%s", frontendURL, sessionRef)
+
+	h.logger.Info("auth: magic link callback — redirecting to frontend",
+		zap.String("session_ref", sessionRef),
+		zap.String("redirect_url", frontendURL),
+	)
+
+	return c.Redirect(redirectURL, fiber.StatusFound)
 }
 
 // Verify handles POST /api/auth/verify (PHASE 2).
@@ -123,17 +173,25 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 		return c.Status(status).JSON(body)
 	}
 
-	// Issue HTTPOnly cookie (requirement 4)
+	// Issue HTTPOnly session cookie (requirement 4)
 	c.Cookie(&fiber.Cookie{
 		Name:     somoCookieName,
 		Value:    sessionToken,
 		HTTPOnly: true,
-		Secure:   h.cfg.AppEnv != "development", // Secure in non-dev environments
+		Secure:   h.cfg.AppEnv != "development",
 		SameSite: "Lax",
 		Path:     "/",
 		Domain:   h.cfg.CookieDomain,
 		MaxAge:   cookieMaxAge,
 	})
+
+	// Issue non-HttpOnly CSRF token cookie so the frontend JS can read it
+	csrfToken, err := generateCSRFToken()
+	if err != nil {
+		h.logger.Error("auth: failed to generate CSRF token", zap.Error(err))
+	} else {
+		h.setCSRFTokenCookie(c, csrfToken)
+	}
 
 	return c.SendStatus(fiber.StatusNoContent)
 }
@@ -169,7 +227,7 @@ func (h *Handler) Logout(c *fiber.Ctx) error {
 		return c.Status(status).JSON(body)
 	}
 
-	// Clear the cookie
+	// Clear the session cookie
 	c.Cookie(&fiber.Cookie{
 		Name:     somoCookieName,
 		Value:    "",
@@ -178,7 +236,19 @@ func (h *Handler) Logout(c *fiber.Ctx) error {
 		SameSite: "Lax",
 		Path:     "/",
 		Domain:   h.cfg.CookieDomain,
-		MaxAge:   -1, // Expire immediately
+		MaxAge:   -1,
+	})
+
+	// Clear the CSRF token cookie
+	c.Cookie(&fiber.Cookie{
+		Name:     "csrf_token",
+		Value:    "",
+		HTTPOnly: false,
+		Secure:   h.cfg.AppEnv != "development",
+		SameSite: "Lax",
+		Path:     "/",
+		Domain:   h.cfg.CookieDomain,
+		MaxAge:   -1,
 	})
 
 	return c.SendStatus(fiber.StatusNoContent)
@@ -226,4 +296,33 @@ func (h *Handler) mapError(err error) (int, ErrorBody) {
 			Message: "an unexpected error occurred",
 		}
 	}
+}
+
+// ============================================================================
+// CSRF helpers — Double-Submit Cookie pattern
+// ============================================================================
+
+// setCSRFTokenCookie sets a non-HttpOnly csrf_token cookie so the frontend JS
+// can read it and include it as an X-CSRF-Token header on mutating requests.
+func (h *Handler) setCSRFTokenCookie(c *fiber.Ctx, token string) {
+	c.Cookie(&fiber.Cookie{
+		Name:     "csrf_token",
+		Value:    token,
+		HTTPOnly: false,
+		Secure:   h.cfg.AppEnv != "development",
+		SameSite: "Lax",
+		Path:     "/",
+		Domain:   h.cfg.CookieDomain,
+		MaxAge:   cookieMaxAge,
+	})
+}
+
+// generateCSRFToken returns a cryptographically random token suitable for use
+// as a CSRF token. It returns a URL-safe base64-encoded string.
+func generateCSRFToken() (string, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(b), nil
 }

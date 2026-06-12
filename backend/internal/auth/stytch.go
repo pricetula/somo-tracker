@@ -32,7 +32,16 @@ type StytchAdapter struct {
 
 // NewStytchAdapter creates a new StytchAdapter and initializes the Stytch B2B client.
 func NewStytchAdapter(cfg config.Config, logger *zap.Logger) (*StytchAdapter, error) {
-	api, err := b2bstytchapi.NewClient(cfg.StytchProjectID, cfg.StytchSecret)
+	opts := []b2bstytchapi.Option{
+		b2bstytchapi.WithSkipJWKSInitialization(),
+	}
+	if cfg.StytchBaseURL != "" {
+		opts = append(opts, b2bstytchapi.WithBaseURI(cfg.StytchBaseURL))
+		logger.Info("stytch adapter: using custom base URL",
+			zap.String("base_url", cfg.StytchBaseURL),
+		)
+	}
+	api, err := b2bstytchapi.NewClient(cfg.StytchProjectID, cfg.StytchSecret, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("stytch client init: %w", err)
 	}
@@ -59,7 +68,8 @@ func (s *StytchAdapter) SendDiscoveryEmail(ctx context.Context, email string) er
 	}()
 
 	params := &emaildiscovery.SendParams{
-		EmailAddress: email,
+		EmailAddress:        email,
+		DiscoveryRedirectURL: s.cfg.StytchRedirectURL,
 	}
 
 	_, err := s.api.MagicLinks.Email.Discovery.Send(ctx, params)

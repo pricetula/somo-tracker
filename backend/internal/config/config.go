@@ -14,9 +14,11 @@ type Config struct {
 	Port            string
 	AllowedOrigins  string
 	CookieDomain    string
-	StytchProjectID string
-	StytchSecret    string
-	StytchEnv       string
+	StytchProjectID    string
+	StytchSecret       string
+	StytchEnv          string
+	StytchRedirectURL  string
+	StytchBaseURL      string // optional: override Stytch API base URL (for testing)
 }
 
 // Load reads configuration from environment variables with safe fallbacks.
@@ -28,9 +30,11 @@ func Load() Config {
 		Port:            getEnv("PORT", "3030"),
 		AllowedOrigins:  getEnv("ALLOWED_ORIGINS", "http://localhost:3000"),
 		CookieDomain:    getEnv("COOKIE_DOMAIN", "localhost"),
-		StytchProjectID: getEnv("STYTCH_PROJECT_ID", ""),
-		StytchSecret:    getEnv("STYTCH_SECRET", ""),
-		StytchEnv:       getEnv("STYTCH_ENV", "test"),
+		StytchProjectID:  getEnv("STYTCH_PROJECT_ID", ""),
+		StytchSecret:     getEnv("STYTCH_SECRET", ""),
+		StytchEnv:         getEnv("STYTCH_ENV", "test"),
+		StytchRedirectURL:  getEnv("STYTCH_REDIRECT_URL", "http://localhost:3030/api/auth/callback"),
+		StytchBaseURL:      getEnv("STYTCH_BASE_URL", ""),
 	}
 }
 

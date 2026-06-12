@@ -9,7 +9,9 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"go.uber.org/fx"
+	"go.uber.org/zap"
 
+	"somotracker/backend/internal/auth"
 	"somotracker/backend/internal/config"
 	"somotracker/backend/internal/database"
 	"somotracker/backend/internal/middleware"
@@ -23,10 +25,20 @@ func main() {
 		database.Module,
 		utils.Module,
 		tenant.Module,
+		auth.Module,
 
+		fx.Provide(newLogger),
 		fx.Invoke(registerApp),
 		fx.Invoke(consumeSafeClient),
 	).Run()
+}
+
+func newLogger() (*zap.Logger, error) {
+	logger, err := zap.NewProduction()
+	if err != nil {
+		return nil, err
+	}
+	return logger, nil
 }
 
 func errToStatus(err error) string {
@@ -48,6 +60,7 @@ func registerApp(
 	cfg config.Config,
 	pools *database.Pools,
 	tenantHandler *tenant.Handler,
+	authHandler *auth.Handler,
 ) {
 	app := fiber.New(fiber.Config{
 		AppName: "somotracker",
@@ -74,6 +87,7 @@ func registerApp(
 
 			// Mount domain routes
 			tenantHandler.RegisterRoutes(app)
+			authHandler.RegisterRoutes(app)
 
 			// Start Fiber in a non-blocking goroutine
 			go func() {

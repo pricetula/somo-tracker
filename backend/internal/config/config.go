@@ -8,21 +8,29 @@ import (
 
 // Config holds all application configuration loaded from environment variables.
 type Config struct {
-	DatabaseURL    string
-	RedisURL       string
-	AppEnv         string
-	Port           string
-	AllowedOrigins string
+	DatabaseURL     string
+	RedisURL        string
+	AppEnv          string
+	Port            string
+	AllowedOrigins  string
+	CookieDomain    string
+	StytchProjectID string
+	StytchSecret    string
+	StytchEnv       string
 }
 
 // Load reads configuration from environment variables with safe fallbacks.
 func Load() Config {
 	return Config{
-		DatabaseURL:    getEnv("DATABASE_URL", "postgres://somo_admin:somo_secure_password@postgres:5432/somotracker_dev?sslmode=disable"),
-		RedisURL:       getEnv("REDIS_URL", "redis:6379"),
-		AppEnv:         getEnv("APP_ENV", "development"),
-		Port:           getEnv("PORT", "3030"),
-		AllowedOrigins: getEnv("ALLOWED_ORIGINS", "http://localhost:3000"),
+		DatabaseURL:     getEnv("DATABASE_URL", "postgres://somo_admin:somo_secure_password@postgres:5432/somotracker_dev?sslmode=disable"),
+		RedisURL:        getEnv("REDIS_URL", "redis:6379"),
+		AppEnv:          getEnv("APP_ENV", "development"),
+		Port:            getEnv("PORT", "3030"),
+		AllowedOrigins:  getEnv("ALLOWED_ORIGINS", "http://localhost:3000"),
+		CookieDomain:    getEnv("COOKIE_DOMAIN", "localhost"),
+		StytchProjectID: getEnv("STYTCH_PROJECT_ID", ""),
+		StytchSecret:    getEnv("STYTCH_SECRET", ""),
+		StytchEnv:       getEnv("STYTCH_ENV", "test"),
 	}
 }
 

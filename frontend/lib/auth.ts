@@ -8,7 +8,7 @@
  *   (it cannot due to HttpOnly) and must NEVER store it in localStorage/sessionStorage.
  * - The backend owns session creation (via Set-Cookie at register) and invalidation
  *   (DEL in Redis + cookie expiry on logout).
- * - Next.js middleware checks only for cookie *presence* as a UX guard.
+ * - Next.js proxy checks only for cookie *presence* as a UX guard.
  *   The Go backend's CSRF + session validation is the actual security gate.
  * - Client-side auth state should be derived from the /me API endpoint response,
  *   not from document.cookie (HttpOnly cookies are invisible to JS).
@@ -20,7 +20,7 @@
  * - **Real token stage**: After POST /api/auth/register succeeds, the backend sets the
  *   `somo_sid` cookie. The user has access to /dashboard and other protected routes.
  *
- * To determine which stage you're in on the server side (middleware):
+ * To determine which stage you're in on the server side (proxy):
  *   cookie `somo_sid` exists    → Real token → allow access to dashboard
  *   query param `session_ref`    → IST stage  → on /register page
  *   neither                      → Not authenticated → redirect to /login

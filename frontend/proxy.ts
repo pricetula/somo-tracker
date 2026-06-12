@@ -18,7 +18,7 @@ const PROTECTED_PREFIXES = ["/dashboard", "/settings", "/admin"];
  * - `/login` with `somo_sid` cookie → redirect to /dashboard.
  * - `/` → rewrite based on auth state.
  */
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const { pathname, searchParams } = req.nextUrl;
   const hasSession = req.cookies.has(SESSION_COOKIE_NAME);
   const hasSessionRef = searchParams.has("session_ref");

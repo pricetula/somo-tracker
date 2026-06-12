@@ -10,7 +10,13 @@ The Somotracker platform is organized as a single, unified monorepo. Agents must
 ├── ./frontend/       # Next.js v16+ (App Router) — Multi-tenant educational dashboard
 └── ./public/         # Svelte — High-conversion, lightweight marketing website
 
-📦 2. Package Manager Policy
+📝 2. Changelog & Notable Migrations
+
+| Date | Change |
+|------|--------|
+| 2026-06-12 | **Middleware → Proxy**: Renamed `frontend/middleware.ts` → `frontend/proxy.ts` and export `middleware()` → `proxy()` per Next.js v16 deprecation. See https://nextjs.org/docs/messages/middleware-to-proxy |
+
+📦 3. Package Manager Policy
 Both `./frontend/` (Next.js) and `./public/` (Svelte) **must** use **pnpm** as their sole package manager.
 
 - **pnpm must be used exclusively.** Never use `npm install`, `yarn add`, or any other package manager in these directories.

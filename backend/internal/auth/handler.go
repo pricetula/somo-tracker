@@ -111,15 +111,12 @@ func (h *Handler) MagicLinkCallback(c *fiber.Ctx) error {
 	}
 
 	// Redirect browser to frontend registration page with session_ref
-	frontendURL := "http://localhost:3000/register"
-	if h.cfg.AppEnv != "development" {
-		frontendURL = "https://app.somotracker.com/register"
-	}
-	redirectURL := fmt.Sprintf("%s?session_ref=%s", frontendURL, sessionRef)
+	frontendRegisterURL := h.cfg.FrontendURL + "/register"
+	redirectURL := fmt.Sprintf("%s?session_ref=%s", frontendRegisterURL, sessionRef)
 
 	h.logger.Info("auth: magic link callback — redirecting to frontend",
 		zap.String("session_ref", sessionRef),
-		zap.String("redirect_url", frontendURL),
+		zap.String("redirect_url", frontendRegisterURL),
 	)
 
 	return c.Redirect(redirectURL, fiber.StatusFound)

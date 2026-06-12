@@ -19,6 +19,7 @@ type Config struct {
 	StytchEnv          string
 	StytchRedirectURL  string
 	StytchBaseURL      string // optional: override Stytch API base URL (for testing)
+	FrontendURL        string
 }
 
 // Load reads configuration from environment variables with safe fallbacks.
@@ -35,6 +36,7 @@ func Load() Config {
 		StytchEnv:         getEnv("STYTCH_ENV", "test"),
 		StytchRedirectURL:  getEnv("STYTCH_REDIRECT_URL", "http://localhost:3030/api/auth/callback"),
 		StytchBaseURL:      getEnv("STYTCH_BASE_URL", ""),
+		FrontendURL:        getEnv("FRONTEND_URL", "http://localhost:3000"),
 	}
 }
 

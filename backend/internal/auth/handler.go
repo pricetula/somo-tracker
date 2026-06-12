@@ -1,8 +1,11 @@
 package auth
 
 import (
+	"crypto/hmac"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 
@@ -17,8 +20,9 @@ import (
 // ============================================================================
 
 const (
-	somoCookieName = "somo_sid"
-	cookieMaxAge   = 2592000 // 30 days in seconds
+	somoCookieName    = "somo_sid"
+	somoRoleCookieName = "somo_role"
+	cookieMaxAge      = 2592000 // 30 days in seconds
 )
 
 // ErrorBody is the JSON response body for error responses (requirement 14).
@@ -227,7 +231,7 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 	// Extract device fingerprint from security pipeline (requirement 5)
 	deviceFingerprint, _ := c.Locals("device_fingerprint").(string)
 
-	sessionToken, err := h.svc.Register(c.Context(), payload.SessionRef, payload, deviceFingerprint)
+	sessionToken, role, err := h.svc.Register(c.Context(), payload.SessionRef, payload, deviceFingerprint)
 	if err != nil {
 		status, body := h.mapError(err)
 		return c.Status(status).JSON(body)
@@ -238,6 +242,18 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 		Name:     somoCookieName,
 		Value:    sessionToken,
 		HTTPOnly: true,
+		Secure:   h.cfg.AppEnv != "development",
+		SameSite: "Lax",
+		Path:     "/",
+		Domain:   h.cfg.CookieDomain,
+		MaxAge:   cookieMaxAge,
+	})
+
+	// Issue signed role cookie (not HttpOnly — Next.js middleware reads it)
+	c.Cookie(&fiber.Cookie{
+		Name:     somoRoleCookieName,
+		Value:    createSignedCookieValue(role, h.cfg.CookieSecret),
+		HTTPOnly: false,
 		Secure:   h.cfg.AppEnv != "development",
 		SameSite: "Lax",
 		Path:     "/",
@@ -311,6 +327,18 @@ func (h *Handler) Logout(c *fiber.Ctx) error {
 		Name:     somoCookieName,
 		Value:    "",
 		HTTPOnly: true,
+		Secure:   h.cfg.AppEnv != "development",
+		SameSite: "Lax",
+		Path:     "/",
+		Domain:   h.cfg.CookieDomain,
+		MaxAge:   -1,
+	})
+
+	// Clear the role cookie
+	c.Cookie(&fiber.Cookie{
+		Name:     somoRoleCookieName,
+		Value:    "",
+		HTTPOnly: false,
 		Secure:   h.cfg.AppEnv != "development",
 		SameSite: "Lax",
 		Path:     "/",
@@ -404,4 +432,18 @@ func generateCSRFToken() (string, error) {
 		return "", err
 	}
 	return base64.RawURLEncoding.EncodeToString(b), nil
+}
+
+// ============================================================================
+// Cookie signing helpers — Two-Cookie Auth (Role Signing)
+// ============================================================================
+
+// createSignedCookieValue signs a value using HMAC-SHA256 and returns it in
+// the format: value.hexsignature
+// The frontend splits on the last '.' and verifies with the same secret.
+func createSignedCookieValue(value, secret string) string {
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(value))
+	sig := hex.EncodeToString(mac.Sum(nil))
+	return value + "." + sig
 }

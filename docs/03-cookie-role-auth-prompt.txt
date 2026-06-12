@@ -1,0 +1,41 @@
+Implement Two-Cookie Auth (Role Signing) with Tests
+Context: The app already has a working registration and login flow using Fiber (Go backend) and Next.js frontend. After a successful login or registration completion, the backend must issue two cookies simultaneously.
+
+What to implement:
+Backend (Go/Fiber)
+
+Add a createSignedCookieValue(value, secret string) string helper that signs a string using HMAC-SHA256 and returns it as value.hexsignature
+After successful login, set two cookies at the same time:
+
+somo_sid — existing session cookie, keep as-is (HttpOnly)
+somo_role — new cookie containing the user's role signed with COOKIE_SECRET from env, not HttpOnly so Next.js middleware can read it. Must match the same Secure, SameSite, Domain, MaxAge, and Path settings as somo_sid
+
+
+Apply the same dual-cookie logic to the end of the registration flow, at the point where the user is already authenticated and a session is created
+On logout, delete both cookies
+
+Frontend (Next.js — proxy.ts middleware)
+
+Add a verifySignedCookie(cookieValue, secret) async helper using the Web Crypto API (crypto.subtle) — no Node.js crypto. It splits on the last ., verifies the HMAC-SHA256 signature, and returns the role string or null
+For every protected route, before allowing access:
+
+Check both somo_sid and somo_role exist — if either is missing, redirect to /login
+Verify the signature on somo_role using process.env.COOKIE_SECRET — if invalid (tampered), delete both cookies and redirect to /login
+Check the verified role is permitted on the requested path using the ROLE_ROUTES map — if not, redirect to that role's first allowed route
+
+
+The COOKIE_SECRET env variable must be present in both the Go backend env and Next.js env, with the same value
+
+
+Test scenarios to cover:
+
+After login — both somo_sid and somo_role cookies are present in the response
+After registration completion — same as above, both cookies set
+After logout — both cookies are cleared/expired
+Valid role cookie — user with TEACHER role can access /dashboard/classes but is redirected away from /admin
+Tampered role cookie — manually changing somo_role value in browser DevTools causes middleware to clear both cookies and redirect to /login
+Missing role cookie (only somo_sid present) — middleware redirects to /login
+Missing session cookie (only somo_role present) — middleware redirects to /login
+Wrong COOKIE_SECRET on Next.js side — signature verification fails and user is booted even with a legitimate cookie
+
+*important: discuss how best to test this fully

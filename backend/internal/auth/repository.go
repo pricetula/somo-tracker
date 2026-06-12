@@ -137,18 +137,34 @@ func (r *SqlcRepository) CreateSession(ctx context.Context, params CreateSession
 }
 
 // GetSessionByToken retrieves a session by its opaque token.
+// The user's role is sourced from their highest-privilege active membership.
 func (r *SqlcRepository) GetSessionByToken(ctx context.Context, token string) (*UserSession, error) {
 	const query = `
-		SELECT id, token, user_id, tenant_id, stytch_member_id, stytch_org_id,
-		       COALESCE(stytch_session_token, '') as stytch_session_token,
-		       COALESCE(device_fingerprint, '') as device_fingerprint,
-		       expires_at, created_at
-		FROM sessions
-		WHERE token = $1 AND expires_at > NOW()
+		SELECT s.id, s.token, s.user_id, s.tenant_id,
+		       COALESCE(m.role::text, 'TEACHER') as role,
+		       s.stytch_member_id, s.stytch_org_id,
+		       COALESCE(s.stytch_session_token, '') as stytch_session_token,
+		       COALESCE(s.device_fingerprint, '') as device_fingerprint,
+		       s.expires_at, s.created_at
+		FROM sessions s
+		LEFT JOIN LATERAL (
+			SELECT role FROM memberships
+			WHERE user_id = s.user_id AND is_active = true
+			ORDER BY
+				CASE role
+					WHEN 'SYSTEM_ADMIN' THEN 1
+					WHEN 'SCHOOL_ADMIN' THEN 2
+					WHEN 'TEACHER' THEN 3
+					WHEN 'SUPPORT_STAFF' THEN 4
+				END
+			LIMIT 1
+		) m ON true
+		WHERE s.token = $1 AND s.expires_at > NOW()
 	`
 	var s UserSession
 	err := r.pool.QueryRow(ctx, query, token).Scan(
 		&s.ID, &s.Token, &s.UserID, &s.TenantID,
+		&s.Role,
 		&s.StytchMemberID, &s.StytchOrgID, &s.StytchSessionToken,
 		&s.DeviceFingerprint, &s.ExpiresAt, &s.CreatedAt,
 	)
@@ -254,6 +270,63 @@ func (r *SqlcRepository) CreateTenantUserSession(
 	)
 
 	return userID, tenantID, nil
+}
+
+// CreateSchool creates a new school for a tenant and returns its ID.
+func (r *SqlcRepository) CreateSchool(ctx context.Context, tenantID string, name string) (string, error) {
+	const query = `
+		INSERT INTO schools (name, tenant_id)
+		VALUES ($1, $2)
+		RETURNING id
+	`
+	var id string
+	err := r.pool.QueryRow(ctx, query, name, tenantID).Scan(&id)
+	if err != nil {
+		return "", fmt.Errorf("%w: create school: %v", ErrInternal, err)
+	}
+	return id, nil
+}
+
+// CreateMembership creates a membership linking a user to a school with a role.
+func (r *SqlcRepository) CreateMembership(ctx context.Context, userID, schoolID, role string) error {
+	const query = `
+		INSERT INTO memberships (role, user_id, school_id)
+		VALUES ($1::user_role, $2, $3)
+		ON CONFLICT (user_id, school_id) DO UPDATE SET
+			role = EXCLUDED.role,
+			is_active = true
+	`
+	_, err := r.pool.Exec(ctx, query, role, userID, schoolID)
+	if err != nil {
+		return fmt.Errorf("%w: create membership: %v", ErrInternal, err)
+	}
+	return nil
+}
+
+// GetUserHighestRole returns the highest (most privileged) role for a user
+// across all their active memberships.
+func (r *SqlcRepository) GetUserHighestRole(ctx context.Context, userID string) (string, error) {
+	const query = `
+		SELECT role::text FROM memberships
+		WHERE user_id = $1 AND is_active = true
+		ORDER BY
+			CASE role
+				WHEN 'SYSTEM_ADMIN' THEN 1
+				WHEN 'SCHOOL_ADMIN' THEN 2
+				WHEN 'TEACHER' THEN 3
+				WHEN 'SUPPORT_STAFF' THEN 4
+			END
+		LIMIT 1
+	`
+	var role string
+	err := r.pool.QueryRow(ctx, query, userID).Scan(&role)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return "TEACHER", nil // default if no membership found
+		}
+		return "", fmt.Errorf("%w: get user role: %v", ErrInternal, err)
+	}
+	return role, nil
 }
 
 // generateSlug creates a URL-friendly slug from a school name.

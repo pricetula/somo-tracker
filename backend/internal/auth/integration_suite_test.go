@@ -342,6 +342,7 @@ func runMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 	migrationFiles := []string{
 		"000001_auth_tables.up.sql",
 		"000002_add_stytch_session_token.up.sql",
+		"000003_schools_and_memberships.up.sql",
 	}
 
 	// Find the migrations directory relative to the test file

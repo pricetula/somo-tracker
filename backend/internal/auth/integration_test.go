@@ -109,12 +109,15 @@ func TestIntegration_Stytch_OrgCreationDuplicate(t *testing.T) {
 		LastName:   "Smith",
 	}
 
-	token, err := suite.svc.Register(context.Background(), sessionRef, payload, "fp-001")
+	token, role, err := suite.svc.Register(context.Background(), sessionRef, payload, "fp-001")
 	if err != nil {
 		t.Fatalf("first registration failed: %v", err)
 	}
 	if token == "" {
 		t.Fatal("expected non-empty session token")
+	}
+	if role != "SCHOOL_ADMIN" {
+		t.Fatalf("expected SCHOOL_ADMIN role for first user, got %s", role)
 	}
 
 	// Second registration with same IST — should fail because IST was consumed
@@ -135,7 +138,7 @@ func TestIntegration_Stytch_OrgCreationDuplicate(t *testing.T) {
 	}
 
 	// Tenant already exists — this should still succeed (it handles existing tenants)
-	token2, err := suite.svc.Register(context.Background(), sessionRef2, payload2, "fp-002")
+	token2, _, err := suite.svc.Register(context.Background(), sessionRef2, payload2, "fp-002")
 	if err != nil {
 		t.Fatalf("second registration for same school failed: %v", err)
 	}
@@ -183,7 +186,7 @@ func TestIntegration_Stytch_OrgCreationFailure(t *testing.T) {
 		LastName:   "Brown",
 	}
 
-	_, err = suite.svc.Register(context.Background(), sessionRef, payload, "fp-003")
+	_, _, err = suite.svc.Register(context.Background(), sessionRef, payload, "fp-003")
 	if err == nil {
 		t.Fatal("expected error from org creation failure, got nil")
 	}
@@ -237,7 +240,7 @@ func TestIntegration_Stytch_ISTExchangeInvalid(t *testing.T) {
 		LastName:   "Prince",
 	}
 
-	_, err = suite.svc.Register(context.Background(), sessionRef, payload, "fp-004")
+	_, _, err = suite.svc.Register(context.Background(), sessionRef, payload, "fp-004")
 	if err == nil {
 		t.Fatal("expected error from invalid IST, got nil")
 	}
@@ -290,7 +293,7 @@ func TestIntegration_Stytch_ISTExchangeMFANotMet(t *testing.T) {
 		LastName:   "Adams",
 	}
 
-	_, err = suite.svc.Register(context.Background(), sessionRef, payload, "fp-005")
+	_, _, err = suite.svc.Register(context.Background(), sessionRef, payload, "fp-005")
 	if err == nil {
 		t.Fatal("expected ErrMFARequired, got nil")
 	}
@@ -906,7 +909,7 @@ func TestIntegration_DDoS_ConcurrentRegistration(t *testing.T) {
 		wg.Add(1)
 		go func(tk regTask) {
 			defer wg.Done()
-			token, err := suite.svc.Register(context.Background(), tk.sessionRef, tk.payload, fmt.Sprintf("fp-concurrent-%s", tk.sessionRef[:8]))
+			token, _, err := suite.svc.Register(context.Background(), tk.sessionRef, tk.payload, fmt.Sprintf("fp-concurrent-%s", tk.sessionRef[:8]))
 			if err != nil {
 				errs <- fmt.Errorf("registration %s failed: %w", tk.sessionRef, err)
 				return
@@ -1093,7 +1096,7 @@ func TestIntegration_EdgeCase_RegisterAfterLogout(t *testing.T) {
 		LastName:   "Castle",
 	}
 
-	token, err := suite.svc.Register(context.Background(), sessionRef, payload, "fp-logout-reuse")
+	token, _, err := suite.svc.Register(context.Background(), sessionRef, payload, "fp-logout-reuse")
 	if err != nil {
 		t.Fatalf("registration failed: %v", err)
 	}
@@ -1145,11 +1148,14 @@ func TestIntegration_EdgeCase_EmptyDeviceFingerprint(t *testing.T) {
 		LastName:   "Hopper",
 	}
 
-	token, err := suite.svc.Register(context.Background(), sessionRef, payload, "")
+	token, role, err := suite.svc.Register(context.Background(), sessionRef, payload, "")
 	if err != nil {
 		t.Fatalf("registration with empty device fingerprint failed: %v", err)
 	}
 	if token == "" {
 		t.Fatal("expected non-empty session token")
+	}
+	if role != "SCHOOL_ADMIN" {
+		t.Fatalf("expected SCHOOL_ADMIN role for new tenant registration, got %s", role)
 	}
 }

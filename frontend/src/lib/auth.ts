@@ -28,3 +28,28 @@
 
 /** Name of the HttpOnly session cookie set by the Go backend. */
 export const SESSION_COOKIE_NAME = "somo_sid";
+
+/** Name of the signed role cookie set by the Go backend (not HttpOnly). */
+export const ROLE_COOKIE_NAME = "somo_role";
+
+/**
+ * Role-to-routes mapping for Next.js middleware guards.
+ * Each role lists the path prefixes they are allowed to access.
+ * If a role is not listed, they get the default access from PROTECTED_PREFIXES.
+ */
+export const ROLE_ROUTES: Record<string, string[]> = {
+  SYSTEM_ADMIN: ["/admin", "/dashboard", "/settings"],
+  SCHOOL_ADMIN: ["/admin", "/dashboard", "/settings"],
+  TEACHER: ["/dashboard"],
+  SUPPORT_STAFF: ["/dashboard"],
+};
+
+/**
+ * Per-role first allowed route for redirecting users who hit a forbidden path.
+ */
+export const ROLE_DEFAULT_ROUTES: Record<string, string> = {
+  SYSTEM_ADMIN: "/admin",
+  SCHOOL_ADMIN: "/admin",
+  TEACHER: "/dashboard",
+  SUPPORT_STAFF: "/dashboard",
+};

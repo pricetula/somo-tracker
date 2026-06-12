@@ -2,8 +2,10 @@ package auth
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -94,13 +96,18 @@ type MockRepository struct {
 	getSessionByTokenFn       func(ctx context.Context, token string) (*UserSession, error)
 	deleteSessionFn           func(ctx context.Context, token string) error
 	createTenantUserSessionFn func(ctx context.Context, tp CreateTenantParams, up CreateUserParams, sp CreateSessionParams) (string, string, error)
+	createSchoolFn            func(ctx context.Context, tenantID string, name string) (string, error)
+	createMembershipFn        func(ctx context.Context, userID, schoolID, role string) error
+	getUserHighestRoleFn      func(ctx context.Context, userID string) (string, error)
 
-	sessions map[string]*UserSession
+	sessions     map[string]*UserSession
+	memberships  map[string]string // userID -> role
 }
 
 func NewMockRepository() *MockRepository {
 	return &MockRepository{
-		sessions: make(map[string]*UserSession),
+		sessions:    make(map[string]*UserSession),
+		memberships: make(map[string]string),
 	}
 }
 
@@ -192,8 +199,40 @@ func (m *MockRepository) CreateTenantUserSession(ctx context.Context, tp CreateT
 		Token:    sp.Token,
 		UserID:   userID,
 		TenantID: tenantID,
+		Role:     "SCHOOL_ADMIN",
 	}
 	return userID, tenantID, nil
+}
+
+func (m *MockRepository) CreateSchool(ctx context.Context, tenantID string, name string) (string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.createSchoolFn != nil {
+		return m.createSchoolFn(ctx, tenantID, name)
+	}
+	return "school_" + tenantID, nil
+}
+
+func (m *MockRepository) CreateMembership(ctx context.Context, userID, schoolID, role string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.createMembershipFn != nil {
+		return m.createMembershipFn(ctx, userID, schoolID, role)
+	}
+	m.memberships[userID] = role
+	return nil
+}
+
+func (m *MockRepository) GetUserHighestRole(ctx context.Context, userID string) (string, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if m.getUserHighestRoleFn != nil {
+		return m.getUserHighestRoleFn(ctx, userID)
+	}
+	if role, ok := m.memberships[userID]; ok {
+		return role, nil
+	}
+	return "TEACHER", nil
 }
 
 // ============================================================================
@@ -291,23 +330,23 @@ func newTestHarness(t *testing.T) *testHarness {
 }
 
 // registerViaMocks runs the full registration flow using mocks instead of real Redis/Postgres.
-func (h *testHarness) registerViaMocks(ctx context.Context, sessionRef string, payload RegistrationPayload, deviceFingerprint string) (string, error) {
+func (h *testHarness) registerViaMocks(ctx context.Context, sessionRef string, payload RegistrationPayload, deviceFingerprint string) (string, string, error) {
 	// 1. Validate
 	if err := payload.Validate(); err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	// 2. Atomic read-delete IST from mock cache
 	istKey := fmt.Sprintf("%s%s:%s", istKeyPrefix, "test", sessionRef)
 	ist, ok := h.cache.GetAndDel(istKey)
 	if !ok {
-		return "", ErrExpiredToken
+		return "", "", ErrExpiredToken
 	}
 
 	// 3. Create org in Stytch
 	orgID, err := h.idp.CreateOrganization(ctx, payload.SchoolName)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	// Track stytch_org_id for reconciliation logging
@@ -316,18 +355,18 @@ func (h *testHarness) registerViaMocks(ctx context.Context, sessionRef string, p
 	// 4. Exchange IST
 	result, err := h.idp.ExchangeIntermediateSession(ctx, ist, orgID)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	// 5. MFA check
 	if !result.MemberAuthenticated {
-		return "", ErrMFARequired
+		return "", "", ErrMFARequired
 	}
 
 	// 6. Idempotency: check tenant existence
-	_, err = h.repo.TenantExists(ctx, orgID)
+	exists, err := h.repo.TenantExists(ctx, orgID)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	// 7. Generate session token
@@ -357,14 +396,28 @@ func (h *testHarness) registerViaMocks(ctx context.Context, sessionRef string, p
 	}
 
 	// 8. Persist in single transaction
-	if _, _, err := h.repo.CreateTenantUserSession(ctx, tenantParams, userParams, sessionParams); err != nil {
-		return "", err
+	userID, tenantID, err := h.repo.CreateTenantUserSession(ctx, tenantParams, userParams, sessionParams)
+	if err != nil {
+		return "", "", err
 	}
 
-	// 9. Cache session token
+	// 9. Create school and membership
+	role := "TEACHER"
+	if !exists {
+		role = "SCHOOL_ADMIN"
+	}
+	schoolID, err := h.repo.CreateSchool(ctx, tenantID, payload.SchoolName)
+	if err != nil {
+		return "", "", err
+	}
+	if err := h.repo.CreateMembership(ctx, userID, schoolID, role); err != nil {
+		return "", "", err
+	}
+
+	// 10. Cache session token
 	h.cache.Set(h.svc.sessionKey(sessionToken), sessionToken)
 
-	return sessionToken, nil
+	return sessionToken, role, nil
 }
 
 // ============================================================================
@@ -419,7 +472,7 @@ func TestRegister_ISTNotFound(t *testing.T) {
 	}
 
 	// Don't pre-set IST — it won't be found (already consumed or never set)
-	_, err := h.registerViaMocks(context.Background(), sessionRef, payload, "")
+	_, _, err := h.registerViaMocks(context.Background(), sessionRef, payload, "")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -453,7 +506,7 @@ func TestRegister_MFANotAuthenticated(t *testing.T) {
 		LastName:   "Doe",
 	}
 
-	_, err := h.registerViaMocks(context.Background(), sessionRef, payload, "")
+	_, _, err := h.registerViaMocks(context.Background(), sessionRef, payload, "")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -484,7 +537,7 @@ func TestRegister_PostgresWriteFailureAfterStytch(t *testing.T) {
 		LastName:   "Doe",
 	}
 
-	_, err := h.registerViaMocks(context.Background(), sessionRef, payload, "")
+	_, _, err := h.registerViaMocks(context.Background(), sessionRef, payload, "")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -530,12 +583,15 @@ func TestRegister_Idempotency(t *testing.T) {
 		LastName:   "Doe",
 	}
 
-	token, err := h.registerViaMocks(context.Background(), sessionRef, payload, "")
+	token, role, err := h.registerViaMocks(context.Background(), sessionRef, payload, "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if token == "" {
 		t.Fatal("expected non-empty session token")
+	}
+	if role != "TEACHER" {
+		t.Fatalf("expected role TEACHER for existing tenant, got %s", role)
 	}
 
 	// CreateOrganization was called once (the mock doesn't know about duplicates,
@@ -626,6 +682,79 @@ func TestValidate_OK(t *testing.T) {
 	}
 	if err := p.Validate(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+// ============================================================================
+// Tests: Cookie signing (Two-Cookie Auth)
+// ============================================================================
+
+func TestCreateSignedCookieValue_Format(t *testing.T) {
+	secret := "test-secret-must-be-32-chars-long!"
+	role := "SCHOOL_ADMIN"
+
+	signed := createSignedCookieValue(role, secret)
+
+	// Format: value.signature (single dot)
+	parts := strings.SplitN(signed, ".", 2)
+	if len(parts) != 2 {
+		t.Fatalf("expected format value.signature, got %q", signed)
+	}
+	if parts[0] != role {
+		t.Fatalf("expected role %q in signed value, got %q", role, parts[0])
+	}
+	if parts[1] == "" {
+		t.Fatal("expected non-empty hex signature")
+	}
+	// Verify it's valid hex
+	_, err := hex.DecodeString(parts[1])
+	if err != nil {
+		t.Fatalf("expected valid hex signature, got error: %v", err)
+	}
+}
+
+func TestCreateSignedCookieValue_DifferentRolesProduceDifferentSignatures(t *testing.T) {
+	secret := "test-secret-must-be-32-chars-long!"
+
+	signedAdmin := createSignedCookieValue("SCHOOL_ADMIN", secret)
+	signedTeacher := createSignedCookieValue("TEACHER", secret)
+
+	// Different roles should produce different signed values
+	if signedAdmin == signedTeacher {
+		t.Fatal("different roles should produce different signed values")
+	}
+}
+
+func TestCreateSignedCookieValue_DifferentSecretsProduceDifferentSignatures(t *testing.T) {
+	secretA := "secret-a-32-chars-long-for-testing!"
+	secretB := "secret-b-32-chars-long-for-testing!"
+
+	signedA := createSignedCookieValue("SCHOOL_ADMIN", secretA)
+	signedB := createSignedCookieValue("SCHOOL_ADMIN", secretB)
+
+	// Different secrets should produce different signatures
+	partsA := strings.SplitN(signedA, ".", 2)
+	partsB := strings.SplitN(signedB, ".", 2)
+	if partsA[1] == partsB[1] {
+		t.Fatal("different secrets should produce different signatures")
+	}
+
+	// But both should have the same role prefix
+	if partsA[0] != partsB[0] {
+		t.Fatal("both should have the same role prefix")
+	}
+}
+
+func TestCreateSignedCookieValue_Deterministic(t *testing.T) {
+	secret := "test-secret-must-be-32-chars-long!"
+	role := "TEACHER"
+
+	signed1 := createSignedCookieValue(role, secret)
+	signed2 := createSignedCookieValue(role, secret)
+
+	// Same inputs must produce the same output (HMAC is deterministic)
+	if signed1 != signed2 {
+		t.Fatal("same inputs should produce identical output")
 	}
 }
 

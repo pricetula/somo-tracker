@@ -42,6 +42,7 @@ type UserSession struct {
 	Token              string    `json:"-"`
 	UserID             string    `json:"user_id"`
 	TenantID           string    `json:"tenant_id"`
+	Role               string    `json:"role"`
 	StytchMemberID     string    `json:"-"`
 	StytchOrgID        string    `json:"-"`
 	StytchSessionToken string    `json:"-"`
@@ -199,6 +200,16 @@ type Repository interface {
 		userParams CreateUserParams,
 		sessionParams CreateSessionParams,
 	) (userID string, tenantID string, err error)
+
+	// CreateSchool creates a new school for a tenant and returns its ID.
+	CreateSchool(ctx context.Context, tenantID string, name string) (schoolID string, err error)
+
+	// CreateMembership creates a membership linking a user to a school with a role.
+	CreateMembership(ctx context.Context, userID, schoolID, role string) error
+
+	// GetUserHighestRole returns the highest (most privileged) role for a user
+	// across all their active memberships.
+	GetUserHighestRole(ctx context.Context, userID string) (string, error)
 }
 
 // StytchOrgIDKey is the context key used to pass the stytch_org_id through

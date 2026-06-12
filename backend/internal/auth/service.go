@@ -123,8 +123,9 @@ func (s *Service) Verify(ctx context.Context, token string) (string, error) {
 
 // Register completes the registration flow (PHASE 3).
 // Validates input, reads IST from Redis, creates org in Stytch,
-// exchanges IST, persists to Postgres, and issues session token.
-func (s *Service) Register(ctx context.Context, sessionRef string, payload RegistrationPayload, deviceFingerprint string) (sessionToken string, err error) {
+// exchanges IST, persists to Postgres, creates school + membership,
+// issues session token, and returns the user's assigned role.
+func (s *Service) Register(ctx context.Context, sessionRef string, payload RegistrationPayload, deviceFingerprint string) (sessionToken string, role string, err error) {
 	s.logger.Info("auth: register initiated",
 		zap.String("session_ref", sessionRef),
 		zap.String("school_name", payload.SchoolName),
@@ -132,13 +133,13 @@ func (s *Service) Register(ctx context.Context, sessionRef string, payload Regis
 
 	// 1. Validate payload (requirement 13)
 	if err := payload.Validate(); err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	// 2. Read AND DELETE IST from Redis atomically (requirement 2 — one-time use)
 	ist, err := s.readAndDeleteIST(ctx, sessionRef)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	// 3. Check if tenant already exists (idempotency — requirement 8)
@@ -159,10 +160,12 @@ func (s *Service) Register(ctx context.Context, sessionRef string, payload Regis
 	//    First check if there's already a tenant with this name
 	exists, err := s.repo.TenantExistsByName(ctx, payload.SchoolName)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	var orgID string
+	var userID, tenantID string
+
 	if exists {
 		// Org already exists — we still need to complete the exchange for
 		// the existing org. Get the org ID from the database.
@@ -180,12 +183,7 @@ func (s *Service) Register(ctx context.Context, sessionRef string, payload Regis
 			zap.String("school_name", payload.SchoolName),
 			zap.Error(err),
 		)
-
-		// Check if the error is because the org already exists in Stytch
-		// (this happens on idempotent retries). In that case, we still
-		// need the org ID to proceed with the exchange.
-		// For now, wrap as internal and let the caller handle it.
-		return "", err
+		return "", "", err
 	}
 
 	// Set the stytch_org_id in context for reconciliation logging (requirement 9)
@@ -198,7 +196,7 @@ func (s *Service) Register(ctx context.Context, sessionRef string, payload Regis
 			zap.String("org_id", orgID),
 			zap.Error(err),
 		)
-		return "", err
+		return "", "", err
 	}
 
 	// 6. Check MFA status (requirement 3)
@@ -207,19 +205,19 @@ func (s *Service) Register(ctx context.Context, sessionRef string, payload Regis
 			zap.String("member_id", result.MemberID),
 			zap.String("org_id", orgID),
 		)
-		return "", ErrMFARequired
+		return "", "", ErrMFARequired
 	}
 
 	// 7. Check for existing tenant (idempotency check after exchange — requirement 8)
 	tenantExists, err := s.repo.TenantExists(ctx, orgID)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	// 8. Generate opaque session token (requirement 4)
 	tokenBytes := make([]byte, 32)
 	if _, err := rand.Read(tokenBytes); err != nil {
-		return "", fmt.Errorf("%w: generate session token: %v", ErrInternal, err)
+		return "", "", fmt.Errorf("%w: generate session token: %v", ErrInternal, err)
 	}
 	sessionToken = hex.EncodeToString(tokenBytes)
 
@@ -258,27 +256,51 @@ func (s *Service) Register(ctx context.Context, sessionRef string, payload Regis
 		s.logger.Info("auth: tenant already exists, creating user and session only",
 			zap.String("org_id", orgID),
 		)
-		if _, _, err := s.repo.CreateTenantUserSession(ctx, tenantParams, userParams, sessionParams); err != nil {
-			return "", err
+		if userID, tenantID, err = s.repo.CreateTenantUserSession(ctx, tenantParams, userParams, sessionParams); err != nil {
+			return "", "", err
 		}
 	} else {
 		// Fresh registration — create all three in a single transaction
-		if _, _, err := s.repo.CreateTenantUserSession(ctx, tenantParams, userParams, sessionParams); err != nil {
-			return "", err
+		if userID, tenantID, err = s.repo.CreateTenantUserSession(ctx, tenantParams, userParams, sessionParams); err != nil {
+			return "", "", err
 		}
 	}
 
-	// 10. Persist session mapping in Redis: opaque key → Stytch session token (requirement 4)
+	// 10. Create school and membership for the newly registered user.
+	// For a fresh tenant (first user), assign SCHOOL_ADMIN.
+	// For existing tenants (subsequent users), assign TEACHER.
+	role = "TEACHER"
+	if !tenantExists {
+		role = "SCHOOL_ADMIN"
+	}
+
+	schoolID, err := s.repo.CreateSchool(ctx, tenantID, payload.SchoolName)
+	if err != nil {
+		return "", "", fmt.Errorf("%w: create school: %v", ErrInternal, err)
+	}
+
+	if err := s.repo.CreateMembership(ctx, userID, schoolID, role); err != nil {
+		return "", "", fmt.Errorf("%w: create membership: %v", ErrInternal, err)
+	}
+
+	s.logger.Info("auth: school and membership created",
+		zap.String("school_id", schoolID),
+		zap.String("user_id", userID),
+		zap.String("role", role),
+	)
+
+	// 11. Persist session mapping in Redis: opaque key → Stytch session token (requirement 4)
 	if err := s.rdb.Set(ctx, s.sessionKey(sessionToken), result.StytchSessionToken, sessionTTL).Err(); err != nil {
-		return "", fmt.Errorf("%w: cache session: %v", ErrInternal, err)
+		return "", "", fmt.Errorf("%w: cache session: %v", ErrInternal, err)
 	}
 
 	s.logger.Info("auth: registration complete — session issued",
 		zap.String("org_id", orgID),
 		zap.String("session_token_preview", sessionToken[:8]+"..."),
+		zap.String("role", role),
 	)
 
-	return sessionToken, nil
+	return sessionToken, role, nil
 }
 
 // GetSession validates a session token and returns the user session.

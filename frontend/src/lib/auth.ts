@@ -18,7 +18,7 @@
  *   redirected to /register?session_ref=.... No `somo_sid` cookie exists yet.
  *   The frontend should show the registration form to let the user create their tenant.
  * - **Real token stage**: After POST /api/auth/register succeeds, the backend sets the
- *   `somo_sid` cookie. The user has access to /dashboard and other protected routes.
+ *   `somo_sid` cookie. The user has access to `/` (dashboard) and other protected routes.
  *
  * To determine which stage you're in on the server side (proxy):
  *   cookie `somo_sid` exists    → Real token → allow access to dashboard
@@ -50,6 +50,6 @@ export const ROLE_ROUTES: Record<string, string[]> = {
 export const ROLE_DEFAULT_ROUTES: Record<string, string> = {
   SYSTEM_ADMIN: "/admin",
   SCHOOL_ADMIN: "/admin",
-  TEACHER: "/dashboard",
-  SUPPORT_STAFF: "/dashboard",
+  TEACHER: "/",
+  SUPPORT_STAFF: "/",
 };

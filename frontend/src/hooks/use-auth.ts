@@ -87,7 +87,7 @@ export function useRegister() {
       toast.success("Account created!", {
         description: "Welcome to Somotracker.",
       });
-      router.push("/dashboard");
+      router.push("/");
     },
     onError: (err) => {
       toast.error("Registration failed", {

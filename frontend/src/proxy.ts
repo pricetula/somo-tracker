@@ -117,9 +117,10 @@ function clearCookiesAndRedirect(req: NextRequest, pathname: string): NextRespon
  *   No entry in ROLE_ROUTES → deny (not silently allow).
  *   Not permitted → redirect to that role's default route.
  * - `/register` without `session_ref` → redirect to /login.
- * - `/login` with BOTH `somo_sid` and `somo_role` cookies → redirect to /dashboard.
+ * - `/login` with BOTH `somo_sid` and `somo_role` cookies → redirect to `/`.
  *   (Requiring both prevents a redirect loop when only one cookie is present.)
- * - `/` → redirect (not rewrite) based on auth state so the URL updates correctly.
+ * - `/` → serves as the dashboard. Auth + role required, otherwise redirect to /login.
+ *   Role must have `/dashboard` or `/` in its ROLE_ROUTES to pass.
  */
 export async function proxy(req: NextRequest) {
   const { pathname, searchParams } = req.nextUrl;
@@ -127,11 +128,47 @@ export async function proxy(req: NextRequest) {
   const hasRole = req.cookies.has(ROLE_COOKIE_NAME);
   const hasSessionRef = searchParams.has("session_ref");
 
-  // ── `/` root: redirect to dashboard if authenticated, login otherwise ──
-  // Using redirect (not rewrite) so the browser URL updates correctly.
+  // ── `/` root: serves as the dashboard — requires auth + valid role ──
   if (pathname === "/") {
-    const dest = hasSession && hasRole ? "/dashboard" : "/login";
-    return NextResponse.redirect(new URL(dest, req.url));
+    if (!hasSession || !hasRole) {
+      const loginUrl = new URL("/login", req.url);
+      loginUrl.searchParams.set("next", pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+
+    const cookieSecret = process.env.COOKIE_SECRET;
+    if (!cookieSecret) {
+      console.error("[proxy] COOKIE_SECRET is not set — blocking root access");
+      return NextResponse.redirect(new URL("/login", req.url));
+    }
+
+    const roleCookieValue = req.cookies.get(ROLE_COOKIE_NAME)!.value;
+    const verifiedRole = await verifySignedCookie(roleCookieValue, cookieSecret);
+
+    if (!verifiedRole) {
+      return clearCookiesAndRedirect(req, pathname);
+    }
+
+    if (!VALID_ROLES.has(verifiedRole)) {
+      return clearCookiesAndRedirect(req, pathname);
+    }
+
+    const allowedRoutes = ROLE_ROUTES[verifiedRole];
+    if (!allowedRoutes) {
+      return clearCookiesAndRedirect(req, pathname);
+    }
+
+    // A role has dashboard access if it has "/dashboard" in its ROLE_ROUTES
+    // (the conceptual dashboard indicator) or if it explicitly lists "/".
+    const hasDashboardAccess = allowedRoutes.some(
+      (route) => route === "/dashboard" || route === "/",
+    );
+    if (!hasDashboardAccess) {
+      const defaultRoute = ROLE_DEFAULT_ROUTES[verifiedRole] || "/";
+      return NextResponse.redirect(new URL(defaultRoute, req.url));
+    }
+
+    return NextResponse.next();
   }
 
   // ── Protected routes: require BOTH cookies + valid, permitted role ──
@@ -171,7 +208,7 @@ export async function proxy(req: NextRequest) {
 
     const isAllowed = allowedRoutes.some((route) => pathname.startsWith(route));
     if (!isAllowed) {
-      const defaultRoute = ROLE_DEFAULT_ROUTES[verifiedRole] || "/dashboard";
+      const defaultRoute = ROLE_DEFAULT_ROUTES[verifiedRole] || "/";
       return NextResponse.redirect(new URL(defaultRoute, req.url));
     }
 
@@ -181,7 +218,7 @@ export async function proxy(req: NextRequest) {
   // ── Register page: IST stage if session_ref present ──
   if (pathname === "/register") {
     if (hasSession) {
-      return NextResponse.redirect(new URL("/dashboard", req.url));
+      return NextResponse.redirect(new URL("/", req.url));
     }
     if (!hasSessionRef) {
       return NextResponse.redirect(new URL("/login", req.url));
@@ -196,7 +233,7 @@ export async function proxy(req: NextRequest) {
   // bounce back to /login.
   if (pathname === "/login") {
     if (hasSession && hasRole) {
-      return NextResponse.redirect(new URL("/dashboard", req.url));
+      return NextResponse.redirect(new URL("/", req.url));
     }
     return NextResponse.next();
   }

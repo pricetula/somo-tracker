@@ -1,0 +1,36 @@
+'use client';
+
+import React from 'react';
+import Link from 'next/link';
+import { HelpCircle } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+
+interface DocTooltipProps {
+  summary: string;
+  slug: string;
+  anchorId?: string;
+}
+
+export function DocTooltip({ summary, slug, anchorId }: DocTooltipProps) {
+  const fullPath = `/docs/${slug}${anchorId ? `#${anchorId}` : ''}`;
+
+  return (
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="inline-flex items-center text-muted-foreground hover:text-foreground transition-colors ml-1 cursor-help align-middle">
+            <HelpCircle className="h-4 w-4" />
+          </span>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-xs p-3 space-y-2 text-xs side-top">
+          <p className="leading-relaxed text-foreground">{summary}</p>
+          <div className="pt-1.5 border-t border-border">
+            <Link href={fullPath} className="font-semibold text-primary hover:underline block text-right">
+              View Full Docs →
+            </Link>
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}

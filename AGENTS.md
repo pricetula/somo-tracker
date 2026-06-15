@@ -16,6 +16,24 @@ The Somotracker platform is organized as a single, unified monorepo. Agents must
 |------|--------|
 | 2026-06-12 | **Middleware → Proxy**: Renamed `frontend/middleware.ts` → `frontend/proxy.ts` and export `middleware()` → `proxy()` per Next.js v16 deprecation. See https://nextjs.org/docs/messages/middleware-to-proxy |
 
+# Agent Directive: Documentation & Tooltip Synchronization
+
+You must preserve strict architectural synchronization across this workspace.
+
+### Core Rules:
+1. All contextual inline UI assistance MUST derive from `content/docs/*.mdx` frontmatter via `<FeatureHelp slug="filename" anchorId="heading-anchor" />`.
+2. NEVER hardcode descriptive explanations inside your UI markup or labels.
+3. Every doc file must declare a clean, concise, markdown-free `tooltipSummary` string under 160 characters.
+
+### Verification Cycle:
+Prior to completing any task involving routing modifications, settings UI adjustments, or backend flag configuration updates, you MUST successfully run:
+```bash
+npm run audit:docs
+```
+If errors occur, fix the misalignments immediately before pushing code patches.
+
+---
+
 📦 3. Package Manager Policy
 Both `./frontend/` (Next.js) and `./public/` (Svelte) **must** use **pnpm** as their sole package manager.
 

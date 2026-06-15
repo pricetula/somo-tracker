@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "generate:api": "openapi-typescript ../backend/docs/swagger.json --output src/lib/api/generated.ts",
-    "generate:api:dev": "openapi-typescript http://localhost:3030/swagger/doc.json --output src/lib/api/generated.ts"
+    "generate:api:dev": "openapi-typescript http://localhost:3030/swagger/doc.json --output src/lib/api/generated.ts",
+    "audit:docs": "node scripts/audit-docs.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
@@ -16,10 +17,12 @@
     "@radix-ui/react-label": "^2.1.9",
     "@radix-ui/react-popover": "^1.1.16",
     "@radix-ui/react-slot": "^1.2.5",
+    "@radix-ui/react-tooltip": "^1.2.9",
     "@tanstack/react-query": "^5.101.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
+    "gray-matter": "^4.0.3",
     "input-otp": "^1.4.2",
     "lucide-react": "^1.17.0",
     "next": "16.2.9",
@@ -27,6 +30,8 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-hook-form": "^7.78.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "shadcn": "^4.11.0",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.6.0",

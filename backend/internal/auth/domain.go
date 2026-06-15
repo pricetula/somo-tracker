@@ -58,10 +58,11 @@ type DiscoveryPayload struct {
 
 // RegistrationPayload is submitted after the user clicks the magic link.
 type RegistrationPayload struct {
-	SchoolName  string `json:"school_name"`
-	SessionRef  string `json:"session_ref"`
-	FirstName   string `json:"first_name"`
-	LastName    string `json:"last_name"`
+	SchoolName        string `json:"school_name"`
+	SessionRef        string `json:"session_ref"`
+	FirstName         string `json:"first_name"`
+	LastName          string `json:"last_name"`
+	EducationSystemID string `json:"education_system_id"`
 }
 
 var uuidV4Regex = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
@@ -79,6 +80,13 @@ func (p *RegistrationPayload) Validate() error {
 	}
 	if !isPrintableUTF8(p.SchoolName) {
 		return &ValidationError{Err: ErrInvalidInput, Message: "school_name must contain only printable UTF-8 characters"}
+	}
+
+	if p.EducationSystemID == "" {
+		return &ValidationError{Err: ErrInvalidInput, Message: "education_system_id is required"}
+	}
+	if !uuidV4Regex.MatchString(p.EducationSystemID) {
+		return &ValidationError{Err: ErrInvalidInput, Message: "education_system_id must be a valid UUID"}
 	}
 
 	if p.SessionRef == "" {
@@ -202,10 +210,10 @@ type Repository interface {
 	) (userID string, tenantID string, err error)
 
 	// CreateSchool creates a new school for a tenant and returns its ID.
-	CreateSchool(ctx context.Context, tenantID string, name string) (schoolID string, err error)
+	CreateSchool(ctx context.Context, tenantID string, name string, educationSystemID string) (schoolID string, err error)
 
 	// CreateMembership creates a membership linking a user to a school with a role.
-	CreateMembership(ctx context.Context, userID, schoolID, role string) error
+	CreateMembership(ctx context.Context, userID, schoolID, tenantID, role string) error
 
 	// GetUserHighestRole returns the highest (most privileged) role for a user
 	// across all their active memberships.

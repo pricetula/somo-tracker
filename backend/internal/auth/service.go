@@ -274,12 +274,12 @@ func (s *Service) Register(ctx context.Context, sessionRef string, payload Regis
 		role = "SCHOOL_ADMIN"
 	}
 
-	schoolID, err := s.repo.CreateSchool(ctx, tenantID, payload.SchoolName)
+	schoolID, err := s.repo.CreateSchool(ctx, tenantID, payload.SchoolName, payload.EducationSystemID)
 	if err != nil {
 		return "", "", fmt.Errorf("%w: create school: %v", ErrInternal, err)
 	}
 
-	if err := s.repo.CreateMembership(ctx, userID, schoolID, role); err != nil {
+	if err := s.repo.CreateMembership(ctx, userID, schoolID, tenantID, role); err != nil {
 		return "", "", fmt.Errorf("%w: create membership: %v", ErrInternal, err)
 	}
 

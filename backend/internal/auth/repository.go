@@ -273,14 +273,14 @@ func (r *SqlcRepository) CreateTenantUserSession(
 }
 
 // CreateSchool creates a new school for a tenant and returns its ID.
-func (r *SqlcRepository) CreateSchool(ctx context.Context, tenantID string, name string) (string, error) {
+func (r *SqlcRepository) CreateSchool(ctx context.Context, tenantID string, name string, educationSystemID string) (string, error) {
 	const query = `
-		INSERT INTO schools (name, tenant_id)
-		VALUES ($1, $2)
+		INSERT INTO schools (name, tenant_id, education_system_id)
+		VALUES ($1, $2, $3)
 		RETURNING id
 	`
 	var id string
-	err := r.pool.QueryRow(ctx, query, name, tenantID).Scan(&id)
+	err := r.pool.QueryRow(ctx, query, name, tenantID, educationSystemID).Scan(&id)
 	if err != nil {
 		return "", fmt.Errorf("%w: create school: %v", ErrInternal, err)
 	}
@@ -288,15 +288,16 @@ func (r *SqlcRepository) CreateSchool(ctx context.Context, tenantID string, name
 }
 
 // CreateMembership creates a membership linking a user to a school with a role.
-func (r *SqlcRepository) CreateMembership(ctx context.Context, userID, schoolID, role string) error {
+func (r *SqlcRepository) CreateMembership(ctx context.Context, userID, schoolID, tenantID, role string) error {
 	const query = `
-		INSERT INTO memberships (role, user_id, school_id)
-		VALUES ($1::user_role, $2, $3)
+		INSERT INTO memberships (role, user_id, school_id, tenant_id)
+		VALUES ($1::user_role, $2, $3, $4)
 		ON CONFLICT (user_id, school_id) DO UPDATE SET
 			role = EXCLUDED.role,
-			is_active = true
+			is_active = true,
+			tenant_id = EXCLUDED.tenant_id
 	`
-	_, err := r.pool.Exec(ctx, query, role, userID, schoolID)
+	_, err := r.pool.Exec(ctx, query, role, userID, schoolID, tenantID)
 	if err != nil {
 		return fmt.Errorf("%w: create membership: %v", ErrInternal, err)
 	}

@@ -186,6 +186,7 @@ export interface definitions {
     last_name?: string;
     school_name?: string;
     session_ref?: string;
+    education_system_id?: string;
   };
   "internal_auth.VerifyPayload": {
     token?: string;

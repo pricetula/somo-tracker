@@ -96,8 +96,8 @@ type MockRepository struct {
 	getSessionByTokenFn       func(ctx context.Context, token string) (*UserSession, error)
 	deleteSessionFn           func(ctx context.Context, token string) error
 	createTenantUserSessionFn func(ctx context.Context, tp CreateTenantParams, up CreateUserParams, sp CreateSessionParams) (string, string, error)
-	createSchoolFn            func(ctx context.Context, tenantID string, name string) (string, error)
-	createMembershipFn        func(ctx context.Context, userID, schoolID, role string) error
+	createSchoolFn            func(ctx context.Context, tenantID string, name string, educationSystemID string) (string, error)
+	createMembershipFn        func(ctx context.Context, userID, schoolID, tenantID, role string) error
 	getUserHighestRoleFn      func(ctx context.Context, userID string) (string, error)
 
 	sessions     map[string]*UserSession
@@ -204,20 +204,20 @@ func (m *MockRepository) CreateTenantUserSession(ctx context.Context, tp CreateT
 	return userID, tenantID, nil
 }
 
-func (m *MockRepository) CreateSchool(ctx context.Context, tenantID string, name string) (string, error) {
+func (m *MockRepository) CreateSchool(ctx context.Context, tenantID string, name string, educationSystemID string) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.createSchoolFn != nil {
-		return m.createSchoolFn(ctx, tenantID, name)
+		return m.createSchoolFn(ctx, tenantID, name, educationSystemID)
 	}
 	return "school_" + tenantID, nil
 }
 
-func (m *MockRepository) CreateMembership(ctx context.Context, userID, schoolID, role string) error {
+func (m *MockRepository) CreateMembership(ctx context.Context, userID, schoolID, tenantID, role string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.createMembershipFn != nil {
-		return m.createMembershipFn(ctx, userID, schoolID, role)
+		return m.createMembershipFn(ctx, userID, schoolID, tenantID, role)
 	}
 	m.memberships[userID] = role
 	return nil
@@ -406,11 +406,11 @@ func (h *testHarness) registerViaMocks(ctx context.Context, sessionRef string, p
 	if !exists {
 		role = "SCHOOL_ADMIN"
 	}
-	schoolID, err := h.repo.CreateSchool(ctx, tenantID, payload.SchoolName)
+	schoolID, err := h.repo.CreateSchool(ctx, tenantID, payload.SchoolName, payload.EducationSystemID)
 	if err != nil {
 		return "", "", err
 	}
-	if err := h.repo.CreateMembership(ctx, userID, schoolID, role); err != nil {
+	if err := h.repo.CreateMembership(ctx, userID, schoolID, tenantID, role); err != nil {
 		return "", "", err
 	}
 

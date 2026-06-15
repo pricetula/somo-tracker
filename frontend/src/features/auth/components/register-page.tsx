@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { useEffect } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, GraduationCap } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -27,6 +27,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useRegister } from "@/hooks/use-auth";
+import { EducationSystemCombobox } from "@/features/education-system";
 
 const registerSchema = z.object({
   school_name: z
@@ -41,6 +42,9 @@ const registerSchema = z.object({
     .string()
     .min(1, "Last name is required")
     .max(100, "Last name must be less than 100 characters"),
+  education_system_id: z
+    .string()
+    .uuid("Please select an education system"),
 });
 
 type RegisterValues = z.infer<typeof registerSchema>;
@@ -57,6 +61,7 @@ function RegisterForm() {
       school_name: "",
       first_name: "",
       last_name: "",
+      education_system_id: "",
     },
   });
 
@@ -77,6 +82,7 @@ function RegisterForm() {
       session_ref: sessionRef!,
       first_name: values.first_name,
       last_name: values.last_name,
+      education_system_id: values.education_system_id,
     });
   }
 
@@ -139,6 +145,33 @@ function RegisterForm() {
                     </FormItem>
                   )}
                 />
+              </div>
+              <FormField
+                control={form.control}
+                name="education_system_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Education System</FormLabel>
+                    <FormControl>
+                      <EducationSystemCombobox
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        placeholder="Select education system…"
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      The curriculum framework your school follows
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="flex items-center gap-2 rounded-xl border border-border/50 bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+                <GraduationCap className="h-4 w-4 shrink-0" />
+                <span>
+                  Your school&apos;s education system determines available
+                  curricula, grade structure, and assessment types.
+                </span>
               </div>
               <Button
                 type="submit"

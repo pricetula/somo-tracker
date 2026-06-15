@@ -89,12 +89,14 @@ CREATE INDEX idx_memberships_school_id ON memberships(school_id);
 -- -----------------------------------------------------------------------------
 CREATE TABLE academic_years (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id  UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     school_id  UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
     name       VARCHAR(50) NOT NULL,
     start_date DATE NOT NULL,
     end_date   DATE NOT NULL,
     is_current BOOLEAN NOT NULL DEFAULT false
 );
+CREATE INDEX idx_academic_years_tenant_id ON academic_years(tenant_id);
 CREATE INDEX idx_academic_years_school_id ON academic_years(school_id);
 CREATE UNIQUE INDEX idx_one_current_year_per_school
     ON academic_years(school_id)
@@ -103,12 +105,14 @@ CREATE UNIQUE INDEX idx_one_current_year_per_school
 -- -----------------------------------------------------------------------------
 CREATE TABLE academic_terms (
     id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id        UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     academic_year_id UUID NOT NULL REFERENCES academic_years(id) ON DELETE CASCADE,
     name             VARCHAR(100) NOT NULL,
     start_date       DATE NOT NULL,
     end_date         DATE NOT NULL,
     is_current       BOOLEAN NOT NULL DEFAULT false
 );
+CREATE INDEX idx_academic_terms_tenant_id ON academic_terms(tenant_id);
 CREATE INDEX idx_academic_terms_year_id ON academic_terms(academic_year_id);
 CREATE UNIQUE INDEX idx_one_current_term_per_year
     ON academic_terms(academic_year_id)
@@ -126,12 +130,14 @@ CREATE INDEX idx_grades_education_system_id ON grades(education_system_id);
 -- -----------------------------------------------------------------------------
 CREATE TABLE classes (
     id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id        UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     school_id        UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
     academic_year_id UUID NOT NULL REFERENCES academic_years(id) ON DELETE CASCADE,
     grade_id         UUID NOT NULL REFERENCES grades(id),
     name             VARCHAR(100) NOT NULL,  -- "East", "Alpha"
     is_active        BOOLEAN NOT NULL DEFAULT true
 );
+CREATE INDEX idx_classes_tenant_id ON classes(tenant_id);
 CREATE INDEX idx_classes_school_id ON classes(school_id);
 CREATE INDEX idx_classes_academic_year_id ON classes(academic_year_id);
 CREATE INDEX idx_classes_grade_id ON classes(grade_id);
@@ -153,6 +159,7 @@ CREATE INDEX idx_students_tenant_id ON students(tenant_id);
 -- -----------------------------------------------------------------------------
 CREATE TABLE student_enrollments (
     id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id        UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     student_id       UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
     school_id        UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
     academic_term_id UUID NOT NULL REFERENCES academic_terms(id) ON DELETE CASCADE,
@@ -161,12 +168,11 @@ CREATE TABLE student_enrollments (
     created_at       TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT unique_active_term_enrollment UNIQUE (student_id, academic_term_id)
 );
+CREATE INDEX idx_enrollments_tenant_id ON student_enrollments(tenant_id);
 CREATE INDEX idx_enrollments_student_id ON student_enrollments(student_id);
 CREATE INDEX idx_enrollments_school_id ON student_enrollments(school_id);
 CREATE INDEX idx_enrollments_term_id ON student_enrollments(academic_term_id);
 CREATE INDEX idx_enrollments_class_id ON student_enrollments(class_id);
-
--- -----------------------------------------------------------------------------
 
 -- =============================================================================
 -- SECTION 2: KENYA COMPETENCY-BASED CURRICULUM MODULE (`cbc_`)
@@ -372,7 +378,6 @@ CREATE TABLE ib_task_criterion_scores (
     task_id           UUID NOT NULL REFERENCES ib_tasks(id) ON DELETE CASCADE,
     student_id        UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
     graded_by_user_id UUID NOT NULL REFERENCES users(id),
-    --          now replaced entirely by the ENUM type
     criterion_type    ib_criterion_type NOT NULL,
     achievement_level INT NOT NULL,
     teacher_remarks   TEXT,
@@ -407,11 +412,6 @@ CREATE UNIQUE INDEX idx_ib_one_primary_per_discipline
 -- =============================================================================
 -- SECTION 4b: ASSESSMENT WEIGHTS
 -- =============================================================================
--- School-wide per-grade weighting rules. Weights apply equally across all
--- subjects within a grade — no per-subject overrides.
--- The three weights (CAT + MID_TERM + END_TERM) must sum to 100; this is
--- enforced at the application layer since SQL cannot easily aggregate-check
--- across rows in a single constraint.
 
 CREATE TABLE assessment_weights (
     id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -422,7 +422,6 @@ CREATE TABLE assessment_weights (
     weight_percent   NUMERIC(5,2) NOT NULL CHECK (weight_percent > 0 AND weight_percent <= 100),
     CONSTRAINT unique_weight_rule UNIQUE (school_id, grade_id, academic_term_id, assessment_type)
 );
-
 CREATE INDEX idx_assessment_weights_school_grade ON assessment_weights(school_id, grade_id);
 CREATE INDEX idx_assessment_weights_term_id ON assessment_weights(academic_term_id);
 
@@ -452,7 +451,6 @@ CREATE TABLE attendance_periods (
 CREATE INDEX idx_att_periods_class_date ON attendance_periods(class_id, date_recorded);
 CREATE INDEX idx_att_periods_term_id ON attendance_periods(academic_term_id);
 CREATE INDEX idx_att_periods_school_id ON attendance_periods(school_id);
---         COALESCE to a sentinel UUID handles the nullable curriculum columns in the UNIQUE key.
 CREATE UNIQUE INDEX idx_unique_attendance_period
     ON attendance_periods (
         class_id,
@@ -482,7 +480,6 @@ CREATE INDEX idx_att_logs_student_id ON attendance_logs(student_id);
 CREATE TABLE timetable_slots (
     id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     school_id            UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
-    --         timetable history and preventing stale slots carrying into new years
     academic_year_id     UUID NOT NULL REFERENCES academic_years(id) ON DELETE CASCADE,
     class_id             UUID NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
     teacher_id           UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -497,7 +494,7 @@ CREATE TABLE timetable_slots (
         (cbc_learning_area_id IS NOT NULL AND igcse_subject_id IS NULL AND ib_discipline_id IS NULL) OR
         (cbc_learning_area_id IS NULL AND igcse_subject_id IS NOT NULL AND ib_discipline_id IS NULL) OR
         (cbc_learning_area_id IS NULL AND igcse_subject_id IS NULL AND ib_discipline_id IS NOT NULL) OR
-        (cbc_learning_area_id IS NULL AND igcse_subject_id IS NULL AND ib_discipline_id IS NULL)  -- breaks/assemblies
+        (cbc_learning_area_id IS NULL AND igcse_subject_id IS NULL AND ib_discipline_id IS NULL)
     )
 );
 CREATE INDEX idx_timetable_school_year ON timetable_slots(school_id, academic_year_id);
@@ -554,8 +551,6 @@ CREATE INDEX idx_fee_templates_school_term ON fee_templates(school_id, academic_
 CREATE INDEX idx_fee_templates_grade_id ON fee_templates(grade_id);
 
 -- -----------------------------------------------------------------------------
---         audit trail, making it impossible to know when/how payments arrived.
---         Balance is now derived from payments (see view below).
 CREATE TABLE student_invoices (
     id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     student_id       UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
@@ -569,13 +564,12 @@ CREATE INDEX idx_invoices_student_term ON student_invoices(student_id, academic_
 CREATE INDEX idx_invoices_fee_category_id ON student_invoices(fee_category_id);
 
 -- -----------------------------------------------------------------------------
---         amount_paid on the invoice is now: SUM(payments.amount) per invoice.
 CREATE TABLE payments (
     id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     invoice_id     UUID NOT NULL REFERENCES student_invoices(id) ON DELETE CASCADE,
     amount         NUMERIC(12,2) NOT NULL CHECK (amount > 0),
-    payment_method VARCHAR(50),          -- 'MPESA', 'BANK_TRANSFER', 'CASH', etc.
-    reference_code VARCHAR(100),         -- e.g. M-Pesa transaction code
+    payment_method VARCHAR(50),
+    reference_code VARCHAR(100),
     recorded_by    UUID NOT NULL REFERENCES users(id),
     created_at     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -584,7 +578,6 @@ CREATE INDEX idx_payments_invoice_id ON payments(invoice_id);
 -- =============================================================================
 -- SECTION 6: CONVENIENCE VIEWS
 -- =============================================================================
---         Use this anywhere you previously read invoice.amount_paid.
 CREATE VIEW v_invoice_balances AS
 SELECT
     i.id                                          AS invoice_id,
@@ -593,9 +586,9 @@ SELECT
     i.fee_category_id,
     i.amount_due,
     COALESCE(SUM(p.amount), 0.00)                 AS amount_paid,
-    i.amount_due - COALESCE(SUM(p.amount), 0.00)  AS balance_outstanding
+    (i.amount_due - COALESCE(SUM(p.amount), 0.00)) AS balance_due
 FROM student_invoices i
-LEFT JOIN payments p ON p.invoice_id = i.id
+LEFT JOIN payments p ON i.id = p.invoice_id
 GROUP BY i.id, i.student_id, i.academic_term_id, i.fee_category_id, i.amount_due;
 -- Step 1 (latest_igcse_scores CTE): for each student + subject + term + assessment_type,
 --   pick the single latest sitting using DISTINCT ON ... ORDER BY examination_date DESC.

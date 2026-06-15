@@ -51,6 +51,7 @@ func main() {
 		educationsystem.Module,
 
 		fx.Provide(newLogger),
+		fx.Invoke(runMigrations),
 		fx.Invoke(registerApp),
 		fx.Invoke(consumeSafeClient),
 	).Run()
@@ -76,6 +77,15 @@ func consumeSafeClient(client *http.Client) {
 	// the fx container so it is available to future consumers without
 	// triggering an unused-provision warning.
 	_ = client
+}
+
+// runMigrations applies pending database migrations before the HTTP server
+// starts. Invoked via fx so it runs during the container startup phase, before
+// any lifecycle OnStart hooks.
+func runMigrations(cfg config.Config) {
+	if err := database.RunMigrations(cfg.DatabaseURL); err != nil {
+		log.Fatalf("[migrate] fatal: %v", err)
+	}
 }
 
 func registerApp(

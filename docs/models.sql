@@ -429,77 +429,159 @@ CREATE INDEX idx_assessment_weights_term_id ON assessment_weights(academic_term_
 -- SECTION 5: UNIFIED CORE SYSTEMS (ATTENDANCE, HEALTH, FINANCES)
 -- =============================================================================
 
--- ====================================================================
--- UNIFIED ATTENDANCE SYSTEM
--- ====================================================================
-
-CREATE TABLE attendance_periods (
+-- -----------------------------------------------------------------------------
+-- 1. CBC ATTENDANCE
+-- -----------------------------------------------------------------------------
+CREATE TABLE cbc_attendance_periods (
     id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id            UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     school_id            UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
     academic_term_id     UUID NOT NULL REFERENCES academic_terms(id) ON DELETE CASCADE,
     class_id             UUID NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
-    cbc_learning_area_id UUID REFERENCES cbc_learning_areas(id) ON DELETE SET NULL,
-    igcse_subject_id     UUID REFERENCES igcse_subjects(id) ON DELETE SET NULL,
-    ib_discipline_id     UUID REFERENCES ib_disciplines(id) ON DELETE SET NULL,
-    date_recorded        DATE NOT NULL,
-    CONSTRAINT chk_single_curriculum_subject_link CHECK (
-        (cbc_learning_area_id IS NOT NULL AND igcse_subject_id IS NULL AND ib_discipline_id IS NULL) OR
-        (cbc_learning_area_id IS NULL AND igcse_subject_id IS NOT NULL AND ib_discipline_id IS NULL) OR
-        (cbc_learning_area_id IS NULL AND igcse_subject_id IS NULL AND ib_discipline_id IS NOT NULL)
-    )
+    cbc_learning_area_id UUID NOT NULL REFERENCES cbc_learning_areas(id) ON DELETE CASCADE,
+    date_recorded        DATE NOT NULL
 );
-CREATE INDEX idx_att_periods_class_date ON attendance_periods(class_id, date_recorded);
-CREATE INDEX idx_att_periods_term_id ON attendance_periods(academic_term_id);
-CREATE INDEX idx_att_periods_school_id ON attendance_periods(school_id);
-CREATE UNIQUE INDEX idx_unique_attendance_period
-    ON attendance_periods (
-        class_id,
-        date_recorded,
-        COALESCE(cbc_learning_area_id, '00000000-0000-0000-0000-000000000000'::uuid),
-        COALESCE(igcse_subject_id,     '00000000-0000-0000-0000-000000000000'::uuid),
-        COALESCE(ib_discipline_id,     '00000000-0000-0000-0000-000000000000'::uuid)
-    );
+CREATE INDEX idx_cbc_att_tenant ON cbc_attendance_periods(tenant_id);
+CREATE INDEX idx_cbc_att_periods_class_date ON cbc_attendance_periods(class_id, date_recorded);
+CREATE UNIQUE INDEX idx_cbc_unique_attendance_period 
+    ON cbc_attendance_periods(class_id, date_recorded, cbc_learning_area_id);
+
+CREATE TABLE cbc_attendance_logs (
+    id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id               UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    cbc_attendance_period_id UUID NOT NULL REFERENCES cbc_attendance_periods(id) ON DELETE CASCADE,
+    student_id              UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    status                  attendance_status NOT NULL,
+    remarks                 VARCHAR(255),
+    recorded_by             UUID NOT NULL REFERENCES users(id),
+    CONSTRAINT unique_cbc_student_attendance_period UNIQUE (cbc_attendance_period_id, student_id)
+);
+CREATE INDEX idx_cbc_att_logs_tenant ON cbc_attendance_logs(tenant_id);
+CREATE INDEX idx_cbc_att_logs_period ON cbc_attendance_logs(cbc_attendance_period_id);
+CREATE INDEX idx_cbc_att_logs_student ON cbc_attendance_logs(student_id);
+
 
 -- -----------------------------------------------------------------------------
-CREATE TABLE attendance_logs (
+-- 2. IGCSE ATTENDANCE
+-- -----------------------------------------------------------------------------
+CREATE TABLE igcse_attendance_periods (
     id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    attendance_period_id UUID NOT NULL REFERENCES attendance_periods(id) ON DELETE CASCADE,
-    student_id           UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
-    status               attendance_status NOT NULL,
-    remarks              VARCHAR(255),
-    recorded_by          UUID NOT NULL REFERENCES users(id),
-    CONSTRAINT unique_student_attendance_period UNIQUE (attendance_period_id, student_id)
+    tenant_id            UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    school_id            UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+    academic_term_id     UUID NOT NULL REFERENCES academic_terms(id) ON DELETE CASCADE,
+    class_id             UUID NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+    igcse_subject_id     UUID NOT NULL REFERENCES igcse_subjects(id) ON DELETE CASCADE,
+    date_recorded        DATE NOT NULL
 );
-CREATE INDEX idx_att_logs_period_id ON attendance_logs(attendance_period_id);
-CREATE INDEX idx_att_logs_student_id ON attendance_logs(student_id);
+CREATE INDEX idx_igcse_att_tenant ON igcse_attendance_periods(tenant_id);
+CREATE INDEX idx_igcse_att_periods_class_date ON igcse_attendance_periods(class_id, date_recorded);
+CREATE UNIQUE INDEX idx_igcse_unique_attendance_period 
+    ON igcse_attendance_periods(class_id, date_recorded, igcse_subject_id);
 
--- ====================================================================
--- UNIFIED TIMETABLE SYSTEM
--- ====================================================================
+CREATE TABLE igcse_attendance_logs (
+    id                        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id                 UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    igcse_attendance_period_id UUID NOT NULL REFERENCES igcse_attendance_periods(id) ON DELETE CASCADE,
+    student_id                UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    status                    attendance_status NOT NULL,
+    remarks                   VARCHAR(255),
+    recorded_by               UUID NOT NULL REFERENCES users(id),
+    CONSTRAINT unique_igcse_student_attendance_period UNIQUE (igcse_attendance_period_id, student_id)
+);
+CREATE INDEX idx_igcse_att_logs_tenant ON igcse_attendance_logs(tenant_id);
+CREATE INDEX idx_igcse_att_logs_period ON igcse_attendance_logs(igcse_attendance_period_id);
+CREATE INDEX idx_igcse_att_logs_student ON igcse_attendance_logs(student_id);
 
-CREATE TABLE timetable_slots (
+
+-- -----------------------------------------------------------------------------
+-- 3. IB MYP ATTENDANCE
+-- -----------------------------------------------------------------------------
+CREATE TABLE ib_attendance_periods (
     id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id            UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    school_id            UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+    academic_term_id     UUID NOT NULL REFERENCES academic_terms(id) ON DELETE CASCADE,
+    class_id             UUID NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+    ib_discipline_id     UUID NOT NULL REFERENCES ib_disciplines(id) ON DELETE CASCADE,
+    date_recorded        DATE NOT NULL
+);
+CREATE INDEX idx_ib_att_tenant ON ib_attendance_periods(tenant_id);
+CREATE INDEX idx_ib_att_periods_class_date ON ib_attendance_periods(class_id, date_recorded);
+CREATE UNIQUE INDEX idx_ib_unique_attendance_period 
+    ON ib_attendance_periods(class_id, date_recorded, ib_discipline_id);
+
+CREATE TABLE ib_attendance_logs (
+    id                     UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id              UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    ib_attendance_period_id UUID NOT NULL REFERENCES ib_attendance_periods(id) ON DELETE CASCADE,
+    student_id             UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    status                 attendance_status NOT NULL,
+    remarks                VARCHAR(255),
+    recorded_by            UUID NOT NULL REFERENCES users(id),
+    CONSTRAINT unique_ib_student_attendance_period UNIQUE (ib_attendance_period_id, student_id)
+);
+CREATE INDEX idx_ib_att_logs_tenant ON ib_attendance_logs(tenant_id);
+CREATE INDEX idx_ib_att_logs_period ON ib_attendance_logs(ib_attendance_period_id);
+CREATE INDEX idx_ib_att_logs_student ON ib_attendance_logs(student_id);
+
+-- ====================================================================
+-- CURRICULUM-SPECIFIC TIMETABLE SYSTEM (SPLIT ARCHITECTURE)
+-- ====================================================================
+
+-- 1. CBC TIMETABLE
+CREATE TABLE cbc_timetable_slots (
+    id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id            UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     school_id            UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
     academic_year_id     UUID NOT NULL REFERENCES academic_years(id) ON DELETE CASCADE,
     class_id             UUID NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
     teacher_id           UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    cbc_learning_area_id UUID REFERENCES cbc_learning_areas(id) ON DELETE SET NULL,
-    igcse_subject_id     UUID REFERENCES igcse_subjects(id) ON DELETE SET NULL,
-    ib_discipline_id     UUID REFERENCES ib_disciplines(id) ON DELETE SET NULL,
+    cbc_learning_area_id UUID REFERENCES cbc_learning_areas(id) ON DELETE SET NULL, -- Nullable for breaks/assemblies
     room_identifier      VARCHAR(50),
     day_of_week          INT NOT NULL CHECK (day_of_week BETWEEN 1 AND 7),
     start_time           TIME NOT NULL,
-    end_time             TIME NOT NULL,
-    CONSTRAINT chk_timetable_curriculum_link CHECK (
-        (cbc_learning_area_id IS NOT NULL AND igcse_subject_id IS NULL AND ib_discipline_id IS NULL) OR
-        (cbc_learning_area_id IS NULL AND igcse_subject_id IS NOT NULL AND ib_discipline_id IS NULL) OR
-        (cbc_learning_area_id IS NULL AND igcse_subject_id IS NULL AND ib_discipline_id IS NOT NULL) OR
-        (cbc_learning_area_id IS NULL AND igcse_subject_id IS NULL AND ib_discipline_id IS NULL)
-    )
+    end_time             TIME NOT NULL
 );
-CREATE INDEX idx_timetable_school_year ON timetable_slots(school_id, academic_year_id);
-CREATE INDEX idx_timetable_class_id ON timetable_slots(class_id);
-CREATE INDEX idx_timetable_teacher_id ON timetable_slots(teacher_id);
+CREATE INDEX idx_cbc_timetable_tenant ON cbc_timetable_slots(tenant_id);
+CREATE INDEX idx_cbc_timetable_school_year ON cbc_timetable_slots(school_id, academic_year_id);
+CREATE INDEX idx_cbc_timetable_class ON cbc_timetable_slots(class_id);
+CREATE INDEX idx_cbc_timetable_teacher ON cbc_timetable_slots(teacher_id);
+
+CREATE TABLE igcse_timetable_slots (
+    id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id            UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    school_id            UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+    academic_year_id     UUID NOT NULL REFERENCES academic_years(id) ON DELETE CASCADE,
+    class_id             UUID NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+    teacher_id           UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    igcse_subject_id     UUID REFERENCES igcse_subjects(id) ON DELETE SET NULL,     -- Nullable for breaks/assemblies
+    room_identifier      VARCHAR(50),
+    day_of_week          INT NOT NULL CHECK (day_of_week BETWEEN 1 AND 7),
+    start_time           TIME NOT NULL,
+    end_time             TIME NOT NULL
+);
+CREATE INDEX idx_igcse_timetable_tenant ON igcse_timetable_slots(tenant_id);
+CREATE INDEX idx_igcse_timetable_school_year ON igcse_timetable_slots(school_id, academic_year_id);
+CREATE INDEX idx_igcse_timetable_class ON igcse_timetable_slots(class_id);
+CREATE INDEX idx_igcse_timetable_teacher ON igcse_timetable_slots(teacher_id);
+
+CREATE TABLE ib_timetable_slots (
+    id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id            UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    school_id            UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+    academic_year_id     UUID NOT NULL REFERENCES academic_years(id) ON DELETE CASCADE,
+    class_id             UUID NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+    teacher_id           UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    ib_discipline_id     UUID REFERENCES ib_disciplines(id) ON DELETE SET NULL,     -- Nullable for breaks/assemblies
+    room_identifier      VARCHAR(50),
+    day_of_week          INT NOT NULL CHECK (day_of_week BETWEEN 1 AND 7),
+    start_time           TIME NOT NULL,
+    end_time             TIME NOT NULL
+);
+CREATE INDEX idx_ib_timetable_tenant ON ib_timetable_slots(tenant_id);
+CREATE INDEX idx_ib_timetable_school_year ON ib_timetable_slots(school_id, academic_year_id);
+CREATE INDEX idx_ib_timetable_class ON ib_timetable_slots(class_id);
+CREATE INDEX idx_ib_timetable_teacher ON ib_timetable_slots(teacher_id);
 
 -- ====================================================================
 -- UNIFIED HEALTH SYSTEM

@@ -13,6 +13,8 @@
 // @tag.description Authentication and session management endpoints
 // @tag.name       Tenants
 // @tag.description Tenant (school) management endpoints
+// @tag.name       Education Systems
+// @tag.description Education system (curriculum framework) endpoints
 package main
 
 import (
@@ -30,6 +32,7 @@ import (
 	"somotracker/backend/internal/auth"
 	"somotracker/backend/internal/config"
 	"somotracker/backend/internal/database"
+	"somotracker/backend/internal/educationsystem"
 	"somotracker/backend/internal/middleware"
 	"somotracker/backend/internal/tenant"
 	"somotracker/backend/internal/utils"
@@ -45,6 +48,7 @@ func main() {
 		utils.Module,
 		tenant.Module,
 		auth.Module,
+		educationsystem.Module,
 
 		fx.Provide(newLogger),
 		fx.Invoke(registerApp),
@@ -80,6 +84,7 @@ func registerApp(
 	pools *database.Pools,
 	tenantHandler *tenant.Handler,
 	authHandler *auth.Handler,
+	educationSystemHandler *educationsystem.Handler,
 ) {
 	app := fiber.New(fiber.Config{
 		AppName: "somotracker",
@@ -116,6 +121,7 @@ func registerApp(
 			// Mount domain routes
 			tenantHandler.RegisterRoutes(app)
 			authHandler.RegisterRoutes(app)
+			educationSystemHandler.RegisterRoutes(app)
 
 			// Start Fiber in a non-blocking goroutine
 			go func() {

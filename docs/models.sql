@@ -1,6 +1,7 @@
 -- ================================================================================
 -- 💾 FULL_MODELS_ENHANCED.txt — MULTI-TENANT ARCHITECTURE SCHEMA CONFIGURATION
 -- ================================================================================
+
 -- =============================================================================
 -- UTILITY: auto-updating updated_at trigger
 -- Must be created first — referenced by multiple tables below.
@@ -166,19 +167,6 @@ CREATE INDEX idx_enrollments_term_id ON student_enrollments(academic_term_id);
 CREATE INDEX idx_enrollments_class_id ON student_enrollments(class_id);
 
 -- -----------------------------------------------------------------------------
-CREATE TABLE class_teachers (
-    id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    class_id   UUID NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
-    user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    is_primary BOOLEAN NOT NULL DEFAULT true,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT unique_class_teacher UNIQUE (class_id, user_id)
-);
-CREATE INDEX idx_class_teachers_class_id ON class_teachers(class_id);
-CREATE INDEX idx_class_teachers_user_id ON class_teachers(user_id);
-CREATE UNIQUE INDEX idx_one_primary_teacher_per_class
-    ON class_teachers(class_id)
-    WHERE is_primary = true;
 
 -- =============================================================================
 -- SECTION 2: KENYA COMPETENCY-BASED CURRICULUM MODULE (`cbc_`)
@@ -250,6 +238,24 @@ CREATE TRIGGER trg_cbc_task_evaluations_updated_at
     BEFORE UPDATE ON cbc_task_evaluations
     FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
 
+-- -----------------------------------------------------------------------------
+CREATE TABLE cbc_class_teachers (
+    id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    class_id             UUID NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+    user_id              UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    learning_area_id     UUID NOT NULL REFERENCES cbc_learning_areas(id) ON DELETE CASCADE,
+    is_primary           BOOLEAN NOT NULL DEFAULT false,
+    created_at           TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT unique_cbc_class_teacher UNIQUE (class_id, user_id, learning_area_id)
+);
+CREATE INDEX idx_cbc_class_teachers_class_id ON cbc_class_teachers(class_id);
+CREATE INDEX idx_cbc_class_teachers_user_id ON cbc_class_teachers(user_id);
+CREATE INDEX idx_cbc_class_teachers_area_id ON cbc_class_teachers(learning_area_id);
+-- One primary teacher per learning area per class
+CREATE UNIQUE INDEX idx_cbc_one_primary_per_area
+    ON cbc_class_teachers(class_id, learning_area_id)
+    WHERE is_primary = true;
+
 -- =============================================================================
 -- SECTION 3: CAMBRIDGE INTERNATIONAL CURRICULUM MODULE (`igcse_`)
 -- =============================================================================
@@ -306,6 +312,24 @@ CREATE TRIGGER trg_igcse_assessment_marks_updated_at
     BEFORE UPDATE ON igcse_assessment_marks
     FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
 
+-- -----------------------------------------------------------------------------
+CREATE TABLE igcse_class_teachers (
+    id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    class_id     UUID NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+    user_id      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    subject_id   UUID NOT NULL REFERENCES igcse_subjects(id) ON DELETE CASCADE,
+    is_primary   BOOLEAN NOT NULL DEFAULT false,
+    created_at   TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT unique_igcse_class_teacher UNIQUE (class_id, user_id, subject_id)
+);
+CREATE INDEX idx_igcse_class_teachers_class_id ON igcse_class_teachers(class_id);
+CREATE INDEX idx_igcse_class_teachers_user_id ON igcse_class_teachers(user_id);
+CREATE INDEX idx_igcse_class_teachers_subject_id ON igcse_class_teachers(subject_id);
+-- One primary teacher per subject per class
+CREATE UNIQUE INDEX idx_igcse_one_primary_per_subject
+    ON igcse_class_teachers(class_id, subject_id)
+    WHERE is_primary = true;
+
 -- =============================================================================
 -- SECTION 4: INTERNATIONAL BACCALAUREATE MODULE (`ib_`)
 -- =============================================================================
@@ -361,6 +385,24 @@ CREATE INDEX idx_ib_criterion_scores_student_id ON ib_task_criterion_scores(stud
 CREATE TRIGGER trg_ib_task_criterion_scores_updated_at
     BEFORE UPDATE ON ib_task_criterion_scores
     FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+
+-- -----------------------------------------------------------------------------
+CREATE TABLE ib_class_teachers (
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    class_id      UUID NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+    user_id       UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    discipline_id UUID NOT NULL REFERENCES ib_disciplines(id) ON DELETE CASCADE,
+    is_primary    BOOLEAN NOT NULL DEFAULT false,
+    created_at    TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT unique_ib_class_teacher UNIQUE (class_id, user_id, discipline_id)
+);
+CREATE INDEX idx_ib_class_teachers_class_id ON ib_class_teachers(class_id);
+CREATE INDEX idx_ib_class_teachers_user_id ON ib_class_teachers(user_id);
+CREATE INDEX idx_ib_class_teachers_discipline_id ON ib_class_teachers(discipline_id);
+-- One primary teacher per discipline per class
+CREATE UNIQUE INDEX idx_ib_one_primary_per_discipline
+    ON ib_class_teachers(class_id, discipline_id)
+    WHERE is_primary = true;
 
 -- =============================================================================
 -- SECTION 4b: ASSESSMENT WEIGHTS

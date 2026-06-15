@@ -28,6 +28,11 @@ import {
 } from "@/components/ui/card";
 import { useRegister } from "@/hooks/use-auth";
 import { EducationSystemCombobox } from "@/features/education-system";
+import { DocTooltip } from "@/components/ui/DocTooltip";
+
+interface RegisterPageProps {
+  tooltipSummary?: string;
+}
 
 const registerSchema = z.object({
   school_name: z
@@ -49,7 +54,7 @@ const registerSchema = z.object({
 
 type RegisterValues = z.infer<typeof registerSchema>;
 
-function RegisterForm() {
+function RegisterForm({ tooltipSummary }: { tooltipSummary?: string }) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const sessionRef = searchParams.get("session_ref");
@@ -93,6 +98,9 @@ function RegisterForm() {
           <CardTitle className="text-2xl">Create Your School Account</CardTitle>
           <CardDescription>
             Set up your school or educational organization
+            {tooltipSummary && (
+              <DocTooltip summary={tooltipSummary} slug="authentication" />
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -191,7 +199,7 @@ function RegisterForm() {
   );
 }
 
-export function RegisterPage() {
+export function RegisterPage({ tooltipSummary }: RegisterPageProps) {
   return (
     <Suspense
       fallback={
@@ -200,7 +208,7 @@ export function RegisterPage() {
         </div>
       }
     >
-      <RegisterForm />
+      <RegisterForm tooltipSummary={tooltipSummary} />
     </Suspense>
   );
 }

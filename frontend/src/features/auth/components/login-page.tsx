@@ -23,6 +23,11 @@ import {
 } from "@/components/ui/card";
 import { useDiscover } from "@/hooks/use-auth";
 import { Loader2 } from "lucide-react";
+import { DocTooltip } from "@/components/ui/DocTooltip";
+
+interface LoginPageProps {
+  tooltipSummary?: string;
+}
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -30,7 +35,7 @@ const loginSchema = z.object({
 
 type LoginValues = z.infer<typeof loginSchema>;
 
-export function LoginPage() {
+export function LoginPage({ tooltipSummary }: LoginPageProps) {
   const discoverMutation = useDiscover();
 
   const form = useForm<LoginValues>({
@@ -51,6 +56,9 @@ export function LoginPage() {
           <CardTitle className="text-2xl">Sign in to Somotracker</CardTitle>
           <CardDescription>
             Enter your email to receive a magic link
+            {tooltipSummary && (
+              <DocTooltip summary={tooltipSummary} slug="authentication" />
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -90,6 +98,9 @@ export function LoginPage() {
           <p className="mt-4 text-center text-xs text-muted-foreground">
             No password needed. We&apos;ll send a one-time sign-in link to your
             email.
+            {tooltipSummary && (
+              <DocTooltip summary={tooltipSummary} slug="authentication" anchorId="session-timeouts" />
+            )}
           </p>
         </CardContent>
       </Card>

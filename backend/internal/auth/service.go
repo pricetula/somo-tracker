@@ -142,48 +142,48 @@ func (s *Service) Register(ctx context.Context, sessionRef string, payload Regis
 		return "", "", err
 	}
 
-	// 3. Check if tenant already exists (idempotency — requirement 8)
-	//    We check by both org name and by examining the authenticated user's identity.
-	//    For the discovery flow, the IST contains the user's identity.
-	//    We need to first exchange the IST to get the user info, then check.
-	//
-	//    But actually, per the flow: we need the org ID to check. So we proceed
-	//    differently: check by school name first (cheap), then try org creation
-	//    if needed, or re-use existing org.
+	// 3. Determine Stytch organization — either existing or new
+	//    Check by school name first (cheap lookup). If the tenant already
+	//    exists in the database, retrieve its Stytch org ID and skip org
+	//    creation. Otherwise, provision a new org in Stytch.
 	//
 	//    The idempotency scope is the session_ref. If a previous call created
 	//    the org and then failed on Postgres, the IST would already be consumed
 	//    (not found in Redis). So the key idempotency check happens here at the
 	//    IST lookup — if the IST is already consumed, we return ErrExpiredToken.
-
-	// 4. Create organization in Stytch (if not already existing)
-	//    First check if there's already a tenant with this name
-	exists, err := s.repo.TenantExistsByName(ctx, payload.SchoolName)
+	tenantExistsByName, err := s.repo.TenantExistsByName(ctx, payload.SchoolName)
 	if err != nil {
 		return "", "", err
 	}
 
 	var orgID string
+	var existingTenantID string
 	var userID, tenantID string
 
-	if exists {
-		// Org already exists — we still need to complete the exchange for
-		// the existing org. Get the org ID from the database.
-		s.logger.Info("auth: tenant already exists, skipping org creation",
+	if tenantExistsByName {
+		// Tenant already exists — retrieve its Stytch org ID so we can
+		// exchange the IST against the correct org without re-creating it.
+		var stytchOrgID string
+		existingTenantID, stytchOrgID, err = s.repo.GetTenantByName(ctx, payload.SchoolName)
+		if err != nil {
+			return "", "", err
+		}
+		orgID = stytchOrgID
+		s.logger.Info("auth: tenant already exists, using existing org",
 			zap.String("school_name", payload.SchoolName),
+			zap.String("existing_tenant_id", existingTenantID),
+			zap.String("stytch_org_id", orgID),
 		)
-		// We don't have a GetTenantByOrgName method in the repository,
-		// so we'll create the org and handle duplicates gracefully.
-		// Actually, let's create the org — Stytch handles dedup by name.
-	}
-
-	orgID, err = s.idp.CreateOrganization(ctx, payload.SchoolName)
-	if err != nil {
-		s.logger.Error("auth: create org failed",
-			zap.String("school_name", payload.SchoolName),
-			zap.Error(err),
-		)
-		return "", "", err
+	} else {
+		// No existing tenant — provision a new organization in Stytch
+		orgID, err = s.idp.CreateOrganization(ctx, payload.SchoolName)
+		if err != nil {
+			s.logger.Error("auth: create org failed",
+				zap.String("school_name", payload.SchoolName),
+				zap.Error(err),
+			)
+			return "", "", err
+		}
 	}
 
 	// Set the stytch_org_id in context for reconciliation logging (requirement 9)
@@ -250,13 +250,31 @@ func (s *Service) Register(ctx context.Context, sessionRef string, payload Regis
 		ExpiresAt:          expiresAt,
 	}
 
-	if tenantExists {
-		// Tenant already exists — skip org/tenant creation,
-		// just create user and session (requirement 8 — idempotency)
+	// 10. Persist to database — two distinct paths:
+	//     - Existing tenant: create user + session only (no tenant insert)
+	//     - Fresh tenant: create tenant + user + session in one transaction
+	if tenantExists || tenantExistsByName {
+		// Tenant already exists — use its existing ID, create user + session only
+		if tenantExistsByName {
+			tenantID = existingTenantID
+		} else {
+			// tenantExists (by orgID) but not by name — shouldn't happen with
+			// Stytch dedup, but handle gracefully by looking up the tenant ID
+			fetchedID, _, err := s.repo.GetTenantByName(ctx, payload.SchoolName)
+			if err != nil {
+				return "", "", err
+			}
+			tenantID = fetchedID
+		}
+
+		userParams.TenantID = tenantID
+		sessionParams.TenantID = tenantID
+
 		s.logger.Info("auth: tenant already exists, creating user and session only",
+			zap.String("tenant_id", tenantID),
 			zap.String("org_id", orgID),
 		)
-		if userID, tenantID, err = s.repo.CreateTenantUserSession(ctx, tenantParams, userParams, sessionParams); err != nil {
+		if userID, err = s.repo.CreateUserSession(ctx, userParams, sessionParams); err != nil {
 			return "", "", err
 		}
 	} else {
@@ -266,11 +284,11 @@ func (s *Service) Register(ctx context.Context, sessionRef string, payload Regis
 		}
 	}
 
-	// 10. Create school and membership for the newly registered user.
+	// 11. Create school and membership for the newly registered user.
 	// For a fresh tenant (first user), assign SCHOOL_ADMIN.
 	// For existing tenants (subsequent users), assign TEACHER.
 	role = "TEACHER"
-	if !tenantExists {
+	if !tenantExists && !tenantExistsByName {
 		role = "SCHOOL_ADMIN"
 	}
 
@@ -289,7 +307,7 @@ func (s *Service) Register(ctx context.Context, sessionRef string, payload Regis
 		zap.String("role", role),
 	)
 
-	// 11. Persist session mapping in Redis: opaque key → Stytch session token (requirement 4)
+	// 12. Persist session mapping in Redis: opaque key → Stytch session token (requirement 4)
 	if err := s.rdb.Set(ctx, s.sessionKey(sessionToken), result.StytchSessionToken, sessionTTL).Err(); err != nil {
 		return "", "", fmt.Errorf("%w: cache session: %v", ErrInternal, err)
 	}
@@ -375,6 +393,11 @@ func (s *Service) readAndDeleteIST(ctx context.Context, sessionRef string) (stri
 
 	ist, err := script.Run(ctx, s.rdb, []string{istKey}).Result()
 	if err != nil {
+		// redis.Nil means the key didn't exist (Lua `return false`).
+		// Map this to ErrExpiredToken so the caller gets a 401, not a 500.
+		if errors.Is(err, redis.Nil) {
+			return "", fmt.Errorf("%w: IST not found or already consumed", ErrExpiredToken)
+		}
 		return "", fmt.Errorf("%w: atomic read-delete ist: %v", ErrInternal, err)
 	}
 	if ist == nil {
@@ -400,12 +423,12 @@ func (s *Service) sessionKey(token string) string {
 
 // createUserAndSession creates only a user and session (for existing tenants).
 // This is kept for backward compatibility with tests.
-func (s *Service) createUserAndSession(ctx context.Context, userParams CreateUserParams, sessionParams CreateSessionParams, orgID string) (string, string, error) {
-	return s.repo.CreateTenantUserSession(ctx, CreateTenantParams{
-		Name:        "",
-		Slug:        "",
-		StytchOrgID: orgID,
-	}, userParams, sessionParams)
+func (s *Service) createUserAndSession(ctx context.Context, userParams CreateUserParams, sessionParams CreateSessionParams, _ string) (string, string, error) {
+	userID, err := s.repo.CreateUserSession(ctx, userParams, sessionParams)
+	if err != nil {
+		return "", "", err
+	}
+	return userID, userParams.TenantID, nil
 }
 
 // generateUUID generates a UUID v4 string using crypto/rand.

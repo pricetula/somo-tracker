@@ -89,6 +89,7 @@ type MockRepository struct {
 
 	tenantExistsFn            func(ctx context.Context, orgID string) (bool, error)
 	tenantExistsByNameFn      func(ctx context.Context, name string) (bool, error)
+	getTenantByNameFn         func(ctx context.Context, name string) (string, string, error)
 	userExistsByExternalIDFn  func(ctx context.Context, externalAuthID string) (bool, error)
 	createTenantFn            func(ctx context.Context, params CreateTenantParams) (string, error)
 	createUserFn              func(ctx context.Context, params CreateUserParams) (string, error)
@@ -96,6 +97,7 @@ type MockRepository struct {
 	getSessionByTokenFn       func(ctx context.Context, token string) (*UserSession, error)
 	deleteSessionFn           func(ctx context.Context, token string) error
 	createTenantUserSessionFn func(ctx context.Context, tp CreateTenantParams, up CreateUserParams, sp CreateSessionParams) (string, string, error)
+	createUserSessionFn       func(ctx context.Context, up CreateUserParams, sp CreateSessionParams) (string, error)
 	createSchoolFn            func(ctx context.Context, tenantID string, name string, educationSystemID string) (string, error)
 	createMembershipFn        func(ctx context.Context, userID, schoolID, tenantID, role string) error
 	getUserHighestRoleFn      func(ctx context.Context, userID string) (string, error)
@@ -127,6 +129,24 @@ func (m *MockRepository) TenantExistsByName(ctx context.Context, name string) (b
 		return m.tenantExistsByNameFn(ctx, name)
 	}
 	return false, nil
+}
+
+func (m *MockRepository) GetTenantByName(ctx context.Context, name string) (string, string, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if m.getTenantByNameFn != nil {
+		return m.getTenantByNameFn(ctx, name)
+	}
+	return "", "", ErrNotFound
+}
+
+func (m *MockRepository) CreateUserSession(ctx context.Context, up CreateUserParams, sp CreateSessionParams) (string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.createUserSessionFn != nil {
+		return m.createUserSessionFn(ctx, up, sp)
+	}
+	return "", nil
 }
 
 func (m *MockRepository) UserExistsByExternalID(ctx context.Context, externalAuthID string) (bool, error) {

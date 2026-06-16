@@ -233,6 +233,10 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 
 	sessionToken, role, err := h.svc.Register(c.Context(), payload.SessionRef, payload, deviceFingerprint)
 	if err != nil {
+		h.logger.Error("auth: registration failed",
+			zap.Error(err),
+			zap.String("session_ref", payload.SessionRef),
+		)
 		status, body := h.mapError(err)
 		return c.Status(status).JSON(body)
 	}
@@ -397,7 +401,16 @@ func (h *Handler) mapError(err error) (int, ErrorBody) {
 			Error:   "not_found",
 			Message: "resource not found",
 		}
+	case errors.Is(err, ErrInternal):
+		// Log internal errors so they're visible in server logs,
+		// but return a generic message to avoid leaking internals.
+		h.logger.Error("auth: internal error", zap.Error(err))
+		return fiber.StatusInternalServerError, ErrorBody{
+			Error:   "internal_error",
+			Message: "an unexpected error occurred",
+		}
 	default:
+		h.logger.Error("auth: unhandled error", zap.Error(err))
 		return fiber.StatusInternalServerError, ErrorBody{
 			Error:   "internal_error",
 			Message: "an unexpected error occurred",

@@ -3,8 +3,8 @@ package tenant
 import (
 	"context"
 	"fmt"
-	"strings"
-	"time"
+
+	"somotracker/backend/internal/slug"
 )
 
 // Service contains business logic for tenant operations.
@@ -55,18 +55,5 @@ func (s *Service) CreateTenant(ctx context.Context, name string, slug string) (*
 
 // generateSlug creates a URL-friendly slug from a name.
 func generateSlug(name string) string {
-	var slug strings.Builder
-	for _, r := range name {
-		if r >= 'A' && r <= 'Z' {
-			slug.WriteRune(r + 32)
-		} else if r >= 'a' && r <= 'z' || r >= '0' && r <= '9' {
-			slug.WriteRune(r)
-		} else if r == ' ' || r == '-' || r == '_' {
-			slug.WriteRune('-')
-		}
-	}
-	if slug.Len() == 0 {
-		slug.WriteString(fmt.Sprintf("school-%d", time.Now().UnixNano()))
-	}
-	return slug.String()
+	return slug.Generate(name)
 }

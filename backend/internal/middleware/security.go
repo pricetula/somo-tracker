@@ -43,10 +43,22 @@ func Register(app *fiber.App, pools *database.Pools, cfg config.Config) {
 	// csrf_token cookie value against the X-CSRF-Token request header.
 	// Safe methods (GET, HEAD, OPTIONS) are not checked.
 	// The csrf_token cookie is set as non-HttpOnly so the frontend JS can read it.
+	//
+	// Public auth endpoints are exempt because no CSRF cookie exists yet
+	// during the initial magic-link discovery and verification flow.
+	csrfIgnoredPrefixes := []string{"/api/auth/discover", "/api/auth/verify"}
 	app.Use(func(c *fiber.Ctx) error {
 		method := c.Method()
 		if method == "GET" || method == "HEAD" || method == "OPTIONS" {
 			return c.Next()
+		}
+
+		// Skip CSRF check for public auth endpoints
+		path := c.Path()
+		for _, prefix := range csrfIgnoredPrefixes {
+			if path == prefix || strings.HasPrefix(path, prefix) {
+				return c.Next()
+			}
 		}
 
 		cookieToken := c.Cookies("csrf_token")

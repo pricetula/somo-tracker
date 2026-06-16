@@ -12,8 +12,14 @@ import "go.uber.org/fx"
 // *http.Client is provided by utils.Module.
 var Module = fx.Module("auth",
 	fx.Provide(
-		NewStytchAdapter,
-		NewSqlcRepository,
+		fx.Annotate(
+			NewStytchAdapter,
+			fx.As(new(IdentityProvider)),
+		),
+		fx.Annotate(
+			NewSqlcRepository,
+			fx.As(new(Repository)),
+		),
 		NewService,
 		NewHandler,
 	),

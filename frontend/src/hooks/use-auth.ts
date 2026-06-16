@@ -11,6 +11,7 @@ import {
   register,
   verifyToken,
   getApiErrorMessage,
+  isApiError,
   type MeResponse,
   type RegisterPayload,
 } from "@/lib/api/auth";
@@ -90,6 +91,15 @@ export function useRegister() {
       router.push("/");
     },
     onError: (err) => {
+      // 401 means the session_ref is expired or already consumed —
+      // redirect to login so the user can request a new magic link
+      if (isApiError(err) && err.status === 401) {
+        toast.error("Link expired", {
+          description: "This registration session has expired. Please request a new magic link.",
+        });
+        router.replace("/login");
+        return;
+      }
       toast.error("Registration failed", {
         description: getApiErrorMessage(err),
       });

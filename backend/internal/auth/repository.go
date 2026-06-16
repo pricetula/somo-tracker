@@ -73,6 +73,20 @@ func (r *SqlcRepository) TenantExistsByName(ctx context.Context, name string) (b
 	return exists, nil
 }
 
+// GetTenantByName retrieves an existing tenant's ID and Stytch org ID by name.
+func (r *SqlcRepository) GetTenantByName(ctx context.Context, name string) (string, string, error) {
+	const query = `SELECT id, stytch_org_id FROM tenants WHERE name = $1`
+	var id, orgID string
+	err := r.pool.QueryRow(ctx, query, name).Scan(&id, &orgID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return "", "", fmt.Errorf("%w: tenant not found: %s", ErrNotFound, name)
+		}
+		return "", "", fmt.Errorf("%w: get tenant by name: %v", ErrInternal, err)
+	}
+	return id, orgID, nil
+}
+
 // UserExistsByExternalID checks if a user exists with the given Stytch user ID.
 func (r *SqlcRepository) UserExistsByExternalID(ctx context.Context, externalAuthID string) (bool, error) {
 	const query = `SELECT EXISTS(SELECT 1 FROM users WHERE external_auth_id = $1)`
@@ -270,6 +284,69 @@ func (r *SqlcRepository) CreateTenantUserSession(
 	)
 
 	return userID, tenantID, nil
+}
+
+// CreateUserSession creates a user and session inside a single transaction,
+// without creating a new tenant. Used when a tenant already exists.
+func (r *SqlcRepository) CreateUserSession(
+	ctx context.Context,
+	userParams CreateUserParams,
+	sessionParams CreateSessionParams,
+) (userID string, err error) {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return "", fmt.Errorf("%w: begin tx: %v", ErrInternal, err)
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback(ctx)
+		}
+	}()
+
+	// 1. Insert user
+	userQuery := `
+		INSERT INTO users (email, tenant_id, first_name, last_name, external_auth_id)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING id
+	`
+	err = tx.QueryRow(ctx, userQuery,
+		userParams.Email, userParams.TenantID, userParams.FirstName, userParams.LastName, userParams.ExternalAuthID,
+	).Scan(&userID)
+	if err != nil {
+		return "", fmt.Errorf("%w: create user in tx: %v", ErrInternal, err)
+	}
+
+	// 2. Insert session
+	sessionQuery := `
+		INSERT INTO sessions (token, user_id, tenant_id, stytch_member_id, stytch_org_id, stytch_session_token, device_fingerprint, expires_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+	`
+	_, err = tx.Exec(ctx, sessionQuery,
+		sessionParams.Token,
+		userID,
+		sessionParams.TenantID,
+		sessionParams.StytchMemberID,
+		sessionParams.StytchOrgID,
+		sessionParams.StytchSessionToken,
+		sessionParams.DeviceFingerprint,
+		sessionParams.ExpiresAt,
+	)
+	if err != nil {
+		return "", fmt.Errorf("%w: create session in tx: %v", ErrInternal, err)
+	}
+
+	// Commit the transaction
+	err = tx.Commit(ctx)
+	if err != nil {
+		return "", fmt.Errorf("%w: commit tx: %v", ErrInternal, err)
+	}
+
+	r.logger.Info("user and session created in single transaction (existing tenant)",
+		zap.String("user_id", userID),
+		zap.String("tenant_id", userParams.TenantID),
+	)
+
+	return userID, nil
 }
 
 // CreateSchool creates a new school for a tenant and returns its ID.

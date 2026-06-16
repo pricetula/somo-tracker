@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 
 	"somotracker/backend/internal/config"
+	"somotracker/backend/internal/slug"
 
 	"github.com/stytchauth/stytch-go/v16/stytch/b2b/b2bstytchapi"
 	intermediatesessions "github.com/stytchauth/stytch-go/v16/stytch/b2b/discovery/intermediatesessions"
@@ -128,6 +129,7 @@ func (s *StytchAdapter) CreateOrganization(ctx context.Context, name string) (st
 
 	params := &organizations.CreateParams{
 		OrganizationName: name,
+		OrganizationSlug: slug.Generate(name),
 	}
 
 	resp, err := s.api.Organizations.Create(ctx, params)

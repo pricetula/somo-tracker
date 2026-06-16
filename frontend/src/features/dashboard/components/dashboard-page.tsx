@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import { useMe, useLogout } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,12 +12,24 @@ import {
 } from "@/components/ui/card";
 import { Loader2, LogOut } from "lucide-react";
 import { SESSION_COOKIE_NAME } from "@/lib/auth";
+import {
+  AcademicCalendarForm,
+  PrepModeAlert,
+  useCalendarEvaluator,
+} from "@/features/calendar";
+
+// ─── Dashboard Composite Component ────────────────────────────────────────
 
 export function DashboardPage() {
-  const { data: session, isLoading } = useMe();
+  const { data: session, isLoading: sessionLoading } = useMe();
   const logoutMutation = useLogout();
+  const calendarState = useCalendarEvaluator();
 
-  if (isLoading) {
+  // Track whether the calendar form has been dismissed after successful save
+  const [formDismissed, setFormDismissed] = React.useState(false);
+
+  // Combine loading: session or calendar data
+  if (sessionLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -24,13 +37,41 @@ export function DashboardPage() {
     );
   }
 
+  // Decide what to render in the top container zone
+  const showForm =
+    !formDismissed && calendarState.type === "form";
+
+  const showPrepAlert =
+    calendarState.type === "hidden" && calendarState.alert === "prep-mode";
+
+  // Dashboard skeleton cards are unlocked when the calendar is hidden (active)
+  const dashboardUnlocked = calendarState.type === "hidden";
+
   return (
     <div className="min-h-screen p-6">
+      {/* ─── HIERARCHICAL CONTAINER ZONE (Top of layout) ─────────────── */}
+      <div className="mb-8">
+        {showForm && (
+          <div className="animate-in slide-in-from-top-4 fade-in duration-300">
+            <AcademicCalendarForm onSuccess={() => setFormDismissed(true)} />
+          </div>
+        )}
+        {showPrepAlert && <PrepModeAlert />}
+        {calendarState.type === "loading" && (
+          <div className="flex items-center justify-center rounded-2xl border bg-card p-8">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        )}
+      </div>
+
+      {/* ─── HEADER ──────────────────────────────────────────────────── */}
       <header className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Dashboard</h1>
           <p className="text-sm text-muted-foreground">
-            You have a valid session
+            {dashboardUnlocked
+              ? "Academic calendar is active — all systems operational"
+              : "Complete calendar setup above to unlock analytics"}
           </p>
         </div>
         <Button
@@ -47,41 +88,125 @@ export function DashboardPage() {
         </Button>
       </header>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      {/* ─── TOP OF PAGE STATISTICS SECTION ──────────────────────────── */}
+      <div
+        className={`mb-8 grid gap-6 md:grid-cols-3 transition-all duration-500 ${
+          dashboardUnlocked ? "" : "pointer-events-none opacity-40 blur-sm"
+        }`}
+      >
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Session</CardTitle>
-            <CardDescription>
-              Authenticated via {SESSION_COOKIE_NAME} cookie
-            </CardDescription>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Total Students
+            </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-1 text-sm">
-            {session ? (
-              <>
-                <p>
-                  <span className="font-medium text-muted-foreground">
-                    User ID:
-                  </span>{" "}
-                  <code className="rounded bg-muted px-1 py-0.5 text-xs">
-                    {session.user_id}
-                  </code>
-                </p>
-                <p>
-                  <span className="font-medium text-muted-foreground">
-                    Tenant ID:
-                  </span>{" "}
-                  <code className="rounded bg-muted px-1 py-0.5 text-xs">
-                    {session.tenant_id}
-                  </code>
-                </p>
-              </>
-            ) : (
-              <p className="text-muted-foreground">
-                Unable to load session details.
-              </p>
-            )}
+          <CardContent>
+            <p className="text-3xl font-bold">—</p>
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Total Teachers
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold">—</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Active Classes
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold">—</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ─── REST OF THE PAGE (Analytics Workspace) ──────────────────── */}
+      <div
+        className={`space-y-6 transition-all duration-500 ${
+          dashboardUnlocked ? "" : "pointer-events-none opacity-30 blur-sm"
+        }`}
+      >
+        {/* Skeleton: Attendance Trends */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Attendance Trends</CardTitle>
+            <CardDescription>
+              Weekly attendance overview for the current term
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex h-48 items-center justify-center rounded-lg bg-muted/50">
+              <p className="text-sm text-muted-foreground">
+                {dashboardUnlocked
+                  ? "Chart loading..."
+                  : "🔒 Unlock by completing calendar setup"}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Skeleton: Performance Assessment Rubrics */}
+        <div className="grid gap-6 md:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">
+                Performance Assessment
+              </CardTitle>
+              <CardDescription>
+                Student competency rubrics
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex h-32 items-center justify-center rounded-lg bg-muted/50">
+                <p className="text-sm text-muted-foreground">
+                  {dashboardUnlocked
+                    ? "Loading..."
+                    : "🔒 Locked"}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Session Info</CardTitle>
+              <CardDescription>
+                Authenticated via {SESSION_COOKIE_NAME} cookie
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-1 text-sm">
+              {session ? (
+                <>
+                  <p>
+                    <span className="font-medium text-muted-foreground">
+                      User ID:
+                    </span>{" "}
+                    <code className="rounded bg-muted px-1 py-0.5 text-xs">
+                      {session.user_id}
+                    </code>
+                  </p>
+                  <p>
+                    <span className="font-medium text-muted-foreground">
+                      Tenant ID:
+                    </span>{" "}
+                    <code className="rounded bg-muted px-1 py-0.5 text-xs">
+                      {session.tenant_id}
+                    </code>
+                  </p>
+                </>
+              ) : (
+                <p className="text-muted-foreground">
+                  Unable to load session details.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );

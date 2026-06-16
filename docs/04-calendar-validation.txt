@@ -1,0 +1,150 @@
+================================================================================
+B2B SAAS SYSTEM ARCHITECTURE PROMPT: CLIENT-SIDE CALENDAR VALIDATION ENGINE
+================================================================================
+Target System: Somotracker B2B Platform (Kenyan CBE/CBC Multi-Tenant Architecture)
+Core Focus: High-ROI, Minimalist Onboarding UX via Dynamic Top-Section Components
+No-Code Blueprint: Layout Structures, Flow Rules, & TanStack Query Strategy
+================================================================================
+
+1. GLOBAL CLIENT-SIDE QUERY ARCHITECTURE (TANSTACK QUERY)
+--------------------------------------------------------------------------------
+To protect backend computing resources and guarantee ultra-low latency across 
+parallel intercepted routes, dialogs, and deep links, the layout utilizes 
+a unified cache caching strategy:
+
+* Global Core Query Key: ['academic-calendar', 'current']
+* Backend API Source: GET /api/v1/schools/current-calendar
+* API Response Model: 
+  Single JSON object containing the current Year metadata and an ordered Array 
+  of all existing nested Period objects (holding names, dates, and an 'is_final' boolean).
+* Cache Optimization Settings:
+  - staleTime: Infinity (Data changes exceptionally rarely)
+  - refetchOnWindowFocus: false
+  - Request Deduplication: Enabled out-of-the-box by TanStack Query. If multiple 
+    dashboard widgets or modal routes request this key simultaneously, only 
+    one network fetch is fired.
+
+--------------------------------------------------------------------------------
+2. DASHBOARD PAGE LAYOUT SCHEMA (MACRO LEVEL)
+--------------------------------------------------------------------------------
+The dashboard structure places the active onboarding/remediation container 
+at the absolute top of the viewport hierarchy. This preserves context, allowing 
+the administrator to scroll downward to see the app layout, but demands action 
+by sitting physically above data visualizations.
+
++------------------------------------------------------------------------------+
+|                                                                              |
+|  HIERARCHICAL CONTAINER ZONE (Pushed to the absolute top of layout)         |
+|  ==========================================================================  |
+|  |                                                                        |  |
+|  |  [DYNAMIC COMPONENT SECTION: TIME SETUP FORM / NOTIFICATION HUB]        |  |
+|  |                                                                        |  |
+|  ==========================================================================  |
+|                                                                              |
+|  TOP OF PAGE STATISTICS SECTION (Metric Counters)                           |
+|  --------------------------------------------------------------------------  |
+|  | [Total Students: --]  | [Total Teachers: --]  | [Active Classes: --] |  |
+|  --------------------------------------------------------------------------  |
+|                                                                              |
+|  REST OF THE PAGE VIEWPORTS (Analytics Workspace)                            |
+|  --------------------------------------------------------------------------  |
+|  |                                                                        |  |
+|  |  [SKELETON LOADER GRAPH: Attendance Trends - Grayed out & Locked]       |  |
+|  |                                                                        |  |
+|  |  [SKELETON LOADER CARDS: Performance Assessment Rubrics]              |  |
+|  |                                                                        |  |
+|  --------------------------------------------------------------------------  |
++------------------------------------------------------------------------------+
+
+--------------------------------------------------------------------------------
+3. CLIENT-SIDE COMPONENT STATE DECISION TREE (THE EVALUATION MATRIX)
+--------------------------------------------------------------------------------
+Upon fetching the unified API array, the frontend component bypasses real-time 
+backend activation status and evaluates the timeline layout structurally using 
+local machine time (current_date):
+
+CASE 1: (API returns Null OR Year object has no matching Periods)
+   --> Mount: [UNIFIED TRANSACTIONAL FORM] (State A)
+
+CASE 2: (Data exists, check boundaries)
+   Let FIRST_START = Periods[0].start_date
+   Let FINAL_END   = Periods.find(p => p.is_final == true).end_date
+
+   IF (current_date >= FIRST_START AND current_date <= FINAL_END) THEN
+      --> COLLAPSE & HIDE FORM COMPLETELY
+      --> Unlock dashboard skeleton states below.
+      --> Note: If current_date falls between individual period dates (e.g., 
+          a vacation break in September), the form STAYS hidden.
+
+   ELSE IF (current_date < FIRST_START) THEN
+      --> COLLAPSE & HIDE FORM COMPLETELY (Pre-year setup completed in advance)
+      --> Show minimalist top alert strip: "📅 System in preparation mode for upcoming year."
+
+   ELSE IF (current_date > FINAL_END) THEN
+      --> Mount: [UNIFIED TRANSACTIONAL FORM] (State A - Rendered for the next cycle year)
+
+--------------------------------------------------------------------------------
+4. COMPONENT STATE A: VISUAL FORM SCHEMA & USER UX MATRIX
+--------------------------------------------------------------------------------
+When displayed, this component functions as a zero-text-input transactional 
+factory. Year and period allocations are mandatory and must be sent together.
+
+--------------------------------------------------------------------------------
+| 🗓️  Set Up Academic Calendar                                                  |
+|                                                                              |
+|  Select Academic Year:   [  2026  ]   <-- Centered Input, pre-filled with    |
+|                                           current system year.               |
+|                                                                              |
+|  Define Academic Periods                                                     |
+|  --------------------------------------------------------------------------  |
+|  | Row 1: [ Term 1 ]  [ Start Date 📅 ]  to  [ End Date 📅 ]     [ Remove ] |  |
+|  | Row 2: [ Term 2 ]  [ Start Date 📅 ]  to  [ End Date 📅 ]     [ Remove ] |  |
+|  | Row 3: [ Term 3 ]  [ Start Date 📅 ]  to  [ End Date 📅 ]     [ Remove ] |  |
+|  --------------------------------------------------------------------------  |
+|  [ + Add Period Row ]                                                        |
+|                                                                              |
+|  [ Save & Activate Calendar ]   [ Fill with Sample CBC Data (Skip/Demo) ]    |
+--------------------------------------------------------------------------------
+
+UX FORM INTERACTION LAWS:
+
+* Smart Defaults: 
+  On mounting for a Kenyan CBC school context, the form automatically spins up 
+  3 rows pre-labeled "Term 1", "Term 2", and "Term 3". 
+* Structural Year Locks: 
+  Clicking any Shadcn date picker restricts the calendar view window strictly 
+  between January 1st and December 31st of the [Year] entered in the primary field.
+* Sequential Minimum Date Cascading (Anti-Clash Engine):
+  - Row 1 Start Picker Minimum Allowed = Jan 1st of Selected Year.
+  - Row 1 End Picker Minimum Allowed = Row 1 Selected Start Date + 1 Day.
+  - Row 2 Start Picker Minimum Allowed = Row 1 Selected End Date + 1 Day.
+    (All prior months/days in the picker are visually disabled and unclickable).
+  - Row 3 Start Picker Minimum Allowed = Row 2 Selected End Date + 1 Day.
+* Automatic Hook Matrix:
+  The component automatically tracks the bottom-most row in the dynamic table 
+  array and injects `is_final = true` onto that child payload block, strip-clearing 
+  the flag from all higher preceding rows.
+
+--------------------------------------------------------------------------------
+5. MUTATION TRANSMISSION & DATA SUCCESS TRANSITION VISUALS
+--------------------------------------------------------------------------------
+* Button Guard: 
+  The primary "[ Save & Activate Calendar ]" button remains disabled until the 
+  Year input is filled AND every visible row contains a valid name, start date, 
+  and end date.
+* Submission Execution:
+  Clicking the save action packages the schema into one single nested execution 
+  payload (1 parent record, multiple nested child arrays) via useMutation.
+* Loading Animation:
+  The action button shifts into a dynamic loading spinner animation; the entire 
+  onboarding wrapper container opacity drops to 60%, blocking all subsequent 
+  clicks or duplicate data submissions.
+* Success Resolution:
+  Upon receiving an HTTP 200/201 success code from the Go backend:
+  1. The form payload elements fade out quickly.
+  2. A centered, glowing green Lucide Checkmark Icon [✓] appears softly.
+  3. The TanStack query client triggers: queryClient.invalidateQueries(['academic-calendar']).
+  4. The layout detects the fresh state, executes the Decision Tree, and the 
+     entire Top Section slides upwards out of sight, smoothly revealing the 
+     now active, unlocked dashboard statistics below.
+================================================================================

@@ -1,0 +1,40 @@
+---
+title: "Academic Calendar Validation"
+description: "Configure and validate academic periods using the on-boarding calendar setup wizard."
+tooltipSummary: "Set up academic years and term periods with client-side date validation, the is_final toggle, and auto-unlocking dashboard analytics."
+---
+
+## Overview {#overview}
+The Academic Calendar Validation Engine ensures every school configures their academic year and term dates before accessing dashboard analytics. It uses a client-side decision tree to evaluate when the form should be shown or hidden based on the current date relative to configured periods.
+
+## Decision Tree {#decision-tree}
+The system evaluates four cases to determine the UI state:
+
+- **Setup needed** — No calendar configured: the full setup form is shown.
+- **Active year** — Today falls within the configured period range: form collapses, dashboard unlocks.
+- **Pre-season** — Today is before the year starts: a minimal alert strip is shown.
+- **Rollover** — Today is after the final period ends: the setup form appears for the next cycle.
+
+## Setup Form (State A) {#setup-form}
+The form provides a zero-text-input transactional factory for defining an academic calendar:
+
+- **Year input** — Centered numeric field pre-filled with the current year.
+- **Period rows** — Dynamic form array with 3 pre-loaded CBC terms (Term 1, Term 2, Term 3).
+- **Date pickers** — Shadcn popover-based pickers with sequential minimum date cascading (anti-clash engine).
+- **is_final toggle** — Each row has a visible "Set Final" button; only one period can be final.
+
+## Date Anti-Clash Engine {#anti-clash-engine}
+Each date picker enforces cascading minimum dates:
+- Row 1 start: January 1st of the selected year.
+- Row 1 end: Row 1 start + 1 day.
+- Row 2 start: Row 1 end + 1 day.
+- All pickers capped at December 31st of the selected year.
+
+## Dashboard Integration {#dashboard-integration}
+When the calendar is active, the top-section form collapses upward and the statistics cards and analytics workspace below become fully interactive. When no calendar is configured, the lower sections are blurred and locked.
+
+## File Reference {#file-reference}
+- `frontend/src/features/calendar/` — All calendar feature code (hooks, components, types).
+- `frontend/src/components/ui/calendar.tsx` — Shadcn Calendar (react-day-picker v10).
+- `backend/internal/academiccalendar/` — Go module (handler, service, repository).
+- `backend/internal/database/migrations/000003_add_is_final_to_terms.up.sql` — Database migration.

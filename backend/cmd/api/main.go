@@ -29,6 +29,7 @@ import (
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 
+	"somotracker/backend/internal/academiccalendar"
 	"somotracker/backend/internal/auth"
 	"somotracker/backend/internal/config"
 	"somotracker/backend/internal/database"
@@ -49,6 +50,7 @@ func main() {
 		tenant.Module,
 		auth.Module,
 		educationsystem.Module,
+		academiccalendar.Module,
 
 		fx.Provide(newLogger),
 		fx.Invoke(runMigrations),
@@ -95,6 +97,7 @@ func registerApp(
 	tenantHandler *tenant.Handler,
 	authHandler *auth.Handler,
 	educationSystemHandler *educationsystem.Handler,
+	academicCalendarHandler *academiccalendar.Handler,
 ) {
 	app := fiber.New(fiber.Config{
 		AppName: "somotracker",
@@ -132,6 +135,7 @@ func registerApp(
 			tenantHandler.RegisterRoutes(app)
 			authHandler.RegisterRoutes(app)
 			educationSystemHandler.RegisterRoutes(app)
+			academicCalendarHandler.RegisterRoutes(app)
 
 			// Start Fiber in a non-blocking goroutine
 			go func() {

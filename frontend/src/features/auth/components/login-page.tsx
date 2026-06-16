@@ -52,15 +52,15 @@ export function LoginPage({ tooltipSummary }: LoginPageProps) {
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
       <Card className="w-full max-w-sm">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Sign in to Somotracker</CardTitle>
+        <CardHeader>
+          <CardTitle className="text-2xl">Welcome</CardTitle>
           <CardDescription>
-            Enter your email to receive a magic link
+            Enter your email to sign in or register.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mb-4">
               <FormField
                 control={form.control}
                 name="email"
@@ -92,9 +92,8 @@ export function LoginPage({ tooltipSummary }: LoginPageProps) {
               </Button>
             </form>
           </Form>
-          <p className="mt-4 text-center text-xs text-muted-foreground">
-            No password needed. We&apos;ll send a one-time sign-in link to your
-            email.
+          <p className="mt-8 text-center text-xs text-muted-foreground">
+            No password needed.
             {tooltipSummary && (
               <DocTooltip summary={tooltipSummary} slug="authentication" anchorId="session-timeouts" />
             )}

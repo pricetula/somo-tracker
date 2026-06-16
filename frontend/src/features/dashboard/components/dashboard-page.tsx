@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useMe, useLogout } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,15 +11,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Loader2, LogOut } from "lucide-react";
+import { Loader2, LogOut, CalendarPlus, School } from "lucide-react";
 import { SESSION_COOKIE_NAME } from "@/lib/auth";
 import {
-  AcademicCalendarForm,
   PrepModeAlert,
   useCalendarEvaluator,
 } from "@/features/calendar";
 import {
-  ClassStreamGenerator,
   useClassStreamEvaluator,
   useClasses,
 } from "@/features/classes";
@@ -32,10 +31,9 @@ export function DashboardPage() {
   const classStreamState = useClassStreamEvaluator();
   const { data: classes } = useClasses();
 
-  // Track whether the calendar form has been dismissed after successful save
-  const [formDismissed, setFormDismissed] = React.useState(false);
-  // Track whether the class generator has been dismissed after successful generation
-  const [classStepDismissed, setClassStepDismissed] = React.useState(false);
+  // Forms are now route-based (intercepted modal or standalone page).
+  // The evaluator hooks will naturally reflect state changes after successful
+  // saves, so no local dismissed-state tracking is needed.
 
   // Combine loading: session or calendar data
   if (sessionLoading) {
@@ -48,7 +46,7 @@ export function DashboardPage() {
 
   // Decide what to render in the top container zone
   const showForm =
-    !formDismissed && calendarState.type === "form";
+    calendarState.type === "form";
 
   const showPrepAlert =
     calendarState.type === "hidden" && calendarState.alert === "prep-mode";
@@ -56,7 +54,6 @@ export function DashboardPage() {
   // Step 2: Show class/stream generator after calendar is active and no classes exist
   const calendarIsActive = calendarState.type === "hidden" || calendarState.type === "form";
   const showClassStep =
-    !classStepDismissed &&
     calendarIsActive &&
     classStreamState.type === "setup";
 
@@ -71,16 +68,48 @@ export function DashboardPage() {
         {/* Step 1: Academic Calendar Setup */}
         {showForm && (
           <div className="animate-in slide-in-from-top-4 fade-in duration-300">
-            <AcademicCalendarForm onSuccess={() => setFormDismissed(true)} />
+            <Link href="/dashboard/calendar/new" className="block">
+              <div className="rounded-2xl border bg-card p-6 shadow-sm transition-all hover:border-primary/30 hover:shadow-md cursor-pointer">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+                    <CalendarPlus className="h-6 w-6 text-primary" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold">
+                      {calendarState.type === "form" && "mode" in calendarState && calendarState.mode === "next-cycle"
+                        ? "Set Up Next Academic Year"
+                        : "Set Up Academic Calendar"}
+                    </h2>
+                    <p className="text-sm text-muted-foreground">
+                      Define your academic year and periods to unlock the dashboard
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </Link>
           </div>
         )}
 
         {/* Step 2: Class & Stream Generator */}
         {showClassStep && (
           <div className="animate-in slide-in-from-top-4 fade-in duration-300">
-            <ClassStreamGenerator
-              onSuccess={() => setClassStepDismissed(true)}
-            />
+            <Link href="/dashboard/classes/generate" className="block">
+              <div className="rounded-2xl border bg-card p-6 shadow-sm transition-all hover:border-primary/30 hover:shadow-md cursor-pointer">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+                    <School className="h-6 w-6 text-primary" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold">
+                      Establish Classes &amp; Streams
+                    </h2>
+                    <p className="text-sm text-muted-foreground">
+                      Generate your classroom grid from grade tiers and stream sections
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </Link>
           </div>
         )}
 

@@ -115,7 +115,8 @@ export function useLogout() {
   return useMutation({
     mutationFn: () => logout(),
     onSuccess: async () => {
-      queryClient.removeQueries({ queryKey: authKeys.me });
+      // Clear all cached queries so no stale data leaks across sessions
+      queryClient.clear();
       toast.success("Logged out");
       router.push("/login");
     },

@@ -138,8 +138,9 @@ export async function proxy(req: NextRequest) {
 
     const cookieSecret = process.env.COOKIE_SECRET;
     if (!cookieSecret) {
-      console.error("[proxy] COOKIE_SECRET is not set — blocking root access");
-      return NextResponse.redirect(new URL("/login", req.url));
+      console.error("[proxy] COOKIE_SECRET is not set — clearing cookies and blocking root access");
+      // Clear cookies so /login won't bounce back (avoids redirect loop)
+      return clearCookiesAndRedirect(req, pathname);
     }
 
     const roleCookieValue = req.cookies.get(ROLE_COOKIE_NAME)!.value;
@@ -182,9 +183,9 @@ export async function proxy(req: NextRequest) {
 
     const cookieSecret = process.env.COOKIE_SECRET;
     if (!cookieSecret) {
-      // Misconfiguration — log loudly and deny access rather than failing open
+      // Misconfiguration — log loudly, clear cookies, and deny access
       console.error("[proxy] COOKIE_SECRET is not set — blocking all protected route access");
-      return NextResponse.redirect(new URL("/login", req.url));
+      return clearCookiesAndRedirect(req, pathname);
     }
 
     const roleCookieValue = req.cookies.get(ROLE_COOKIE_NAME)!.value;

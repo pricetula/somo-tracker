@@ -26,7 +26,7 @@ type Config struct {
 // Load reads configuration from environment variables with safe fallbacks.
 func Load() Config {
 	return Config{
-		DatabaseURL:       getEnv("DATABASE_URL", "postgres://somo_admin:somo_secure_password@postgres:5432/somotracker_dev?sslmode=disable"),
+		DatabaseURL:       getEnv("DATABASE_URL", "postgres://somo_admin:somo_secure_password@somotracker_postgres:5432/somotracker_dev?sslmode=disable"),
 		RedisURL:          getEnv("REDIS_URL", "redis:6379"),
 		AppEnv:            getEnv("APP_ENV", "development"),
 		Port:              getEnv("PORT", "3030"),

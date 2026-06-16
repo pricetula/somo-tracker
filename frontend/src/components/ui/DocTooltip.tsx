@@ -22,13 +22,11 @@ export function DocTooltip({ summary, slug, anchorId }: DocTooltipProps) {
             <HelpCircle className="h-4 w-4" />
           </span>
         </TooltipTrigger>
-        <TooltipContent className="max-w-xs p-3 space-y-2 text-xs side-top">
-          <p className="leading-relaxed text-foreground">{summary}</p>
-          <div className="pt-1.5 border-t border-border">
-            <Link href={fullPath} className="font-semibold text-primary hover:underline block text-right">
-              View Full Docs →
-            </Link>
-          </div>
+        <TooltipContent className="max-w-xs p-3 space-y-2 text-xs side-top flex flex-col">
+          <p className="leading-relaxed block">{summary}</p>
+          <Link href={fullPath} className="font-semibold text-primary hover:underline block">
+            View Full Docs →
+          </Link>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

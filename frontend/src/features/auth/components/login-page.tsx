@@ -56,9 +56,6 @@ export function LoginPage({ tooltipSummary }: LoginPageProps) {
           <CardTitle className="text-2xl">Sign in to Somotracker</CardTitle>
           <CardDescription>
             Enter your email to receive a magic link
-            {tooltipSummary && (
-              <DocTooltip summary={tooltipSummary} slug="authentication" />
-            )}
           </CardDescription>
         </CardHeader>
         <CardContent>

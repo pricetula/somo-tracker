@@ -3,6 +3,7 @@ package database
 import (
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/pgx/v5"
@@ -13,9 +14,17 @@ import (
 // directory against the given database URL. It uses golang-migrate under the
 // hood and logs each migration step.
 func RunMigrations(databaseURL string) error {
+	// Replace postgres:// or postgresql:// with pgx5:// safely
+	srcURL := databaseURL
+	if strings.HasPrefix(srcURL, "postgres://") {
+		srcURL = strings.Replace(srcURL, "postgres://", "pgx5://", 1)
+	} else if strings.HasPrefix(srcURL, "postgresql://") {
+		srcURL = strings.Replace(srcURL, "postgresql://", "pgx5://", 1)
+	}
+
 	m, err := migrate.New(
 		"file://internal/database/migrations",
-		"pgx5://"+databaseURL, // pgx/v5 driver expects the "pgx5://" scheme
+		srcURL, // pgx/v5 driver expects the "pgx5://" scheme
 	)
 	if err != nil {
 		return fmt.Errorf("init migrate: %w", err)

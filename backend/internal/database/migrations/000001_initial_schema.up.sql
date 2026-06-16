@@ -297,6 +297,7 @@ CREATE TABLE IF NOT EXISTS academic_terms (
     start_date       DATE NOT NULL,
     end_date         DATE NOT NULL,
     is_current       BOOLEAN NOT NULL DEFAULT false,
+    is_final         BOOLEAN NOT NULL DEFAULT false,
     CONSTRAINT chk_academic_term_dates CHECK (end_date > start_date)
 );
 
@@ -337,6 +338,7 @@ CREATE TABLE IF NOT EXISTS classes (
     education_system_id UUID NOT NULL,
     grade_id           UUID NOT NULL,
     name               VARCHAR(100) NOT NULL,
+    stream             VARCHAR(100) NOT NULL DEFAULT '',
     is_active          BOOLEAN NOT NULL DEFAULT true
 );
 
@@ -344,6 +346,7 @@ CREATE INDEX IF NOT EXISTS idx_classes_tenant_id         ON classes(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_classes_school_id         ON classes(school_id);
 CREATE INDEX IF NOT EXISTS idx_classes_academic_year_id  ON classes(academic_year_id);
 CREATE INDEX IF NOT EXISTS idx_classes_grade_id          ON classes(grade_id);
+CREATE INDEX IF NOT EXISTS idx_classes_stream            ON classes (stream);
 
 DO $$ BEGIN
     IF NOT EXISTS (

@@ -391,6 +391,21 @@ func (h *Handler) mapError(err error) (int, ErrorBody) {
 			Error:   "mfa_required",
 			Message: "multi-factor authentication challenge required",
 		}
+	case errors.Is(err, ErrJITProvisioningNotAllowed):
+		return fiber.StatusForbidden, ErrorBody{
+			Error:   "jit_provisioning_not_allowed",
+			Message: "email JIT provisioning is not allowed for this organization",
+		}
+	case errors.Is(err, ErrMemberNotFound):
+		return fiber.StatusForbidden, ErrorBody{
+			Error:   "member_not_found",
+			Message: "member not found in the target organization",
+		}
+	case errors.Is(err, ErrOrgNotFound):
+		return fiber.StatusNotFound, ErrorBody{
+			Error:   "org_not_found",
+			Message: "organization not found in the identity provider",
+		}
 	case errors.Is(err, ErrOrgAlreadyExists):
 		return fiber.StatusConflict, ErrorBody{
 			Error:   "org_already_exists",

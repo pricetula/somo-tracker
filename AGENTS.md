@@ -15,6 +15,7 @@ The Somotracker platform is organized as a single, unified monorepo. Agents must
 | Date | Change |
 |------|--------|
 | 2026-06-12 | **Middleware → Proxy**: Renamed `frontend/middleware.ts` → `frontend/proxy.ts` and export `middleware()` → `proxy()` per Next.js v16 deprecation. See https://nextjs.org/docs/messages/middleware-to-proxy |
+| 2026-06-16 | **Migration squash**: Merged `000003` (`is_final`) and `000004` (`stream`) into `000001_initial_schema.up.sql` as inline column declarations. All schema changes must now go directly into `000001`. See §4. |
 
 # Agent Directive: Documentation & Tooltip Synchronization
 
@@ -34,7 +35,24 @@ If errors occur, fix the misalignments immediately before pushing code patches.
 
 ---
 
-📦 3. Package Manager Policy
+🗄️ 4. Database Migration Policy
+
+All database schema changes **must** be made directly to the single migration file:
+
+- `backend/internal/database/migrations/000001_initial_schema.up.sql`
+
+**Do NOT create new migration files.** Instead, modify the initial schema file directly:
+- Add new columns inline in `CREATE TABLE IF NOT EXISTS` statements
+- Add new tables inline in the same file
+- Add new indexes, constraints, or views inline
+
+This policy ensures a single-source-of-truth for the schema. Seed data (`000002_seed.up.sql`) is the only exception — it remains a separate file since it's data population, not schema DDL.
+
+When adding columns, always declare them directly in the `CREATE TABLE` statement rather than using `ALTER TABLE … ADD COLUMN` for tables defined in this file. For tables owned by future extensions, use `ALTER TABLE` with `IF NOT EXISTS` guards.
+
+---
+
+📦 5. Package Manager Policy
 Both `./frontend/` (Next.js) and `./public/` (Svelte) **must** use **pnpm** as their sole package manager.
 
 - **pnpm must be used exclusively.** Never use `npm install`, `yarn add`, or any other package manager in these directories.

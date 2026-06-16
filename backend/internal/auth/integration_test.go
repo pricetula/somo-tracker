@@ -315,6 +315,467 @@ func TestIntegration_Stytch_ISTExchangeMFANotMet(t *testing.T) {
 	}
 }
 
+// TestIntegration_Stytch_Exchange_JITProvisioningNotAllowed simulates Stytch
+// returning email_jit_provisioning_not_allowed during IST exchange. This occurs
+// when the target organization does not allow email JIT (just-in-time) provisioning
+// of new members.
+func TestIntegration_Stytch_Exchange_JITProvisioningNotAllowed(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+	suite := testSuite
+	suite.freshDB(t)
+	suite.freshRedis(t)
+	defer suite.resetStytchHandlers()
+
+	sessionRef := "550e8400-e29b-41d4-a716-446655440100"
+	istKey := fmt.Sprintf("%stest:%s", istKeyPrefix, sessionRef)
+	err := suite.rdb.Set(context.Background(), istKey, "ist_test_jit", istTTL).Err()
+	if err != nil {
+		t.Fatalf("set IST: %v", err)
+	}
+
+	suite.setStytchHandlers(StytchMockHandlers{
+		ExchangeISTFn: func(ist, orgID string) (int, any) {
+			return http.StatusBadRequest, map[string]any{
+				"status_code":   400,
+				"error_type":    "email_jit_provisioning_not_allowed",
+				"error_message": "Email JIT provisioning is not allowed for this organization",
+				"request_id":    "req-jit-blocked",
+			}
+		},
+	})
+
+	payload := RegistrationPayload{
+		SchoolName: "JIT Blocked School",
+		SessionRef: sessionRef,
+		FirstName:  "Hank",
+		LastName:   "Pym",
+	}
+
+	_, _, err = suite.svc.Register(context.Background(), sessionRef, payload, "fp-jit")
+	if err == nil {
+		t.Fatal("expected error from JIT provisioning not allowed, got nil")
+	}
+	if !errors.Is(err, ErrJITProvisioningNotAllowed) {
+		t.Fatalf("expected ErrJITProvisioningNotAllowed, got %v", err)
+	}
+
+	// Verify no tenant, user, or session leaked into the database
+	var count int
+	_ = suite.pgPool.QueryRow(context.Background(),
+		"SELECT COUNT(*) FROM tenants WHERE name = $1", "JIT Blocked School").Scan(&count)
+	if count > 0 {
+		t.Fatal("tenant should NOT have been created after JIT provisioning failure")
+	}
+}
+
+// TestIntegration_Stytch_Exchange_MemberNotFound simulates Stytch returning
+// member_not_found during IST exchange. This occurs when the authenticated
+// user does not have a membership in the target organization.
+func TestIntegration_Stytch_Exchange_MemberNotFound(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+	suite := testSuite
+	suite.freshDB(t)
+	suite.freshRedis(t)
+	defer suite.resetStytchHandlers()
+
+	sessionRef := "550e8400-e29b-41d4-a716-446655440110"
+	istKey := fmt.Sprintf("%stest:%s", istKeyPrefix, sessionRef)
+	err := suite.rdb.Set(context.Background(), istKey, "ist_test_member_not_found", istTTL).Err()
+	if err != nil {
+		t.Fatalf("set IST: %v", err)
+	}
+
+	suite.setStytchHandlers(StytchMockHandlers{
+		ExchangeISTFn: func(ist, orgID string) (int, any) {
+			return http.StatusBadRequest, map[string]any{
+				"status_code":   400,
+				"error_type":    "member_not_found",
+				"error_message": "member not found in organization",
+				"request_id":    "req-member-not-found",
+			}
+		},
+	})
+
+	payload := RegistrationPayload{
+		SchoolName: "Member Not Found School",
+		SessionRef: sessionRef,
+		FirstName:  "Tony",
+		LastName:   "Stark",
+	}
+
+	_, _, err = suite.svc.Register(context.Background(), sessionRef, payload, "fp-member-not-found")
+	if err == nil {
+		t.Fatal("expected error from member_not_found, got nil")
+	}
+	if !errors.Is(err, ErrMemberNotFound) {
+		t.Fatalf("expected ErrMemberNotFound, got %v", err)
+	}
+}
+
+// TestIntegration_Stytch_Exchange_OrgNotFound simulates Stytch returning
+// organization_not_found during IST exchange. This occurs when the org ID
+// used for exchange doesn't exist in Stytch.
+func TestIntegration_Stytch_Exchange_OrgNotFound(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+	suite := testSuite
+	suite.freshDB(t)
+	suite.freshRedis(t)
+	defer suite.resetStytchHandlers()
+
+	sessionRef := "550e8400-e29b-41d4-a716-446655440120"
+	istKey := fmt.Sprintf("%stest:%s", istKeyPrefix, sessionRef)
+	err := suite.rdb.Set(context.Background(), istKey, "ist_test_org_not_found", istTTL).Err()
+	if err != nil {
+		t.Fatalf("set IST: %v", err)
+	}
+
+	suite.setStytchHandlers(StytchMockHandlers{
+		ExchangeISTFn: func(ist, orgID string) (int, any) {
+			return http.StatusBadRequest, map[string]any{
+				"status_code":   400,
+				"error_type":    "organization_not_found",
+				"error_message": "organization not found",
+				"request_id":    "req-org-not-found",
+			}
+		},
+	})
+
+	payload := RegistrationPayload{
+		SchoolName: "Org Not Found School",
+		SessionRef: sessionRef,
+		FirstName:  "Bruce",
+		LastName:   "Banner",
+	}
+
+	_, _, err = suite.svc.Register(context.Background(), sessionRef, payload, "fp-org-not-found")
+	if err == nil {
+		t.Fatal("expected error from org_not_found, got nil")
+	}
+	if !errors.Is(err, ErrOrgNotFound) {
+		t.Fatalf("expected ErrOrgNotFound, got %v", err)
+	}
+}
+
+// TestIntegration_Stytch_Exchange_ExpiredIST simulates Stytch returning an
+// expired IST error during the exchange call itself (as opposed to the IST
+// missing from Redis, which is already tested).
+func TestIntegration_Stytch_Exchange_ExpiredIST(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+	suite := testSuite
+	suite.freshDB(t)
+	suite.freshRedis(t)
+	defer suite.resetStytchHandlers()
+
+	sessionRef := "550e8400-e29b-41d4-a716-446655440130"
+	istKey := fmt.Sprintf("%stest:%s", istKeyPrefix, sessionRef)
+	err := suite.rdb.Set(context.Background(), istKey, "ist_test_stale", istTTL).Err()
+	if err != nil {
+		t.Fatalf("set IST: %v", err)
+	}
+
+	suite.setStytchHandlers(StytchMockHandlers{
+		ExchangeISTFn: func(ist, orgID string) (int, any) {
+			return http.StatusBadRequest, map[string]any{
+				"status_code":   400,
+				"error_type":    "intermediate_session_token_expired",
+				"error_message": "intermediate session token has expired",
+				"request_id":    "req-ist-expired",
+			}
+		},
+	})
+
+	payload := RegistrationPayload{
+		SchoolName: "Expired IST School",
+		SessionRef: sessionRef,
+		FirstName:  "Natasha",
+		LastName:   "Romanoff",
+	}
+
+	_, _, err = suite.svc.Register(context.Background(), sessionRef, payload, "fp-ist-expired")
+	if err == nil {
+		t.Fatal("expected error from expired IST, got nil")
+	}
+	if !errors.Is(err, ErrInternal) {
+		t.Fatalf("expected ErrInternal for expired IST during exchange, got %v", err)
+	}
+}
+
+// TestIntegration_Stytch_Exchange_ReturnsSessionJWT verifies that when Stytch
+// returns both a session_token and session_jwt, both are properly stored and
+// retrievable. This validates the "real token" exchange path.
+func TestIntegration_Stytch_Exchange_ReturnsSessionJWT(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+	suite := testSuite
+	suite.freshDB(t)
+	suite.freshRedis(t)
+	defer suite.resetStytchHandlers()
+
+	sessionRef := "550e8400-e29b-41d4-a716-446655440140"
+	istKey := fmt.Sprintf("%stest:%s", istKeyPrefix, sessionRef)
+	err := suite.rdb.Set(context.Background(), istKey, "ist_test_jwt", istTTL).Err()
+	if err != nil {
+		t.Fatalf("set IST: %v", err)
+	}
+
+	// Use default handlers (which return session_token) — we verify the token
+	// is stored and retrievable via GetSession.
+	payload := RegistrationPayload{
+		SchoolName: "JWT Exchange School",
+		SessionRef: sessionRef,
+		FirstName:  "Steve",
+		LastName:   "Rogers",
+	}
+
+	token, role, err := suite.svc.Register(context.Background(), sessionRef, payload, "fp-jwt")
+	if err != nil {
+		t.Fatalf("registration failed: %v", err)
+	}
+	if token == "" {
+		t.Fatal("expected non-empty session token")
+	}
+	if role != "SCHOOL_ADMIN" {
+		t.Fatalf("expected SCHOOL_ADMIN for first user, got %s", role)
+	}
+
+	// Verify the session can be retrieved (proving the Stytch session token
+	// was stored and the Redis + Postgres write succeeded)
+	session, err := suite.svc.GetSession(context.Background(), token)
+	if err != nil {
+		t.Fatalf("expected session to be retrievable: %v", err)
+	}
+	if session.StytchSessionToken == "" {
+		t.Fatal("expected stytch_session_token to be stored in the session")
+	}
+	if session.StytchOrgID == "" {
+		t.Fatal("expected stytch_org_id to be stored in the session")
+	}
+	if session.StytchMemberID == "" {
+		t.Fatal("expected stytch_member_id to be stored in the session")
+	}
+}
+
+// TestIntegration_Stytch_OrgCreationDuplicateSlug simulates Stytch returning
+// a slug conflict when creating an organization. Stytch enforces unique slugs
+// across all organizations.
+func TestIntegration_Stytch_OrgCreationDuplicateSlug(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+	suite := testSuite
+	suite.freshDB(t)
+	suite.freshRedis(t)
+	defer suite.resetStytchHandlers()
+
+	sessionRef := "550e8400-e29b-41d4-a716-446655440150"
+	istKey := fmt.Sprintf("%stest:%s", istKeyPrefix, sessionRef)
+	err := suite.rdb.Set(context.Background(), istKey, "ist_test_slug_collision", istTTL).Err()
+	if err != nil {
+		t.Fatalf("set IST: %v", err)
+	}
+
+	suite.setStytchHandlers(StytchMockHandlers{
+		CreateOrgFn: func(name string) (int, any) {
+			return http.StatusConflict, map[string]any{
+				"status_code":   409,
+				"error_type":    "organization_slug_conflict",
+				"error_message": "an organization with this slug already exists",
+				"request_id":    "req-slug-conflict",
+			}
+		},
+	})
+
+	payload := RegistrationPayload{
+		SchoolName: "Duplicate Slug School",
+		SessionRef: sessionRef,
+		FirstName:  "Clint",
+		LastName:   "Barton",
+	}
+
+	_, _, err = suite.svc.Register(context.Background(), sessionRef, payload, "fp-slug")
+	if err == nil {
+		t.Fatal("expected error from slug conflict, got nil")
+	}
+	if !errors.Is(err, ErrInternal) {
+		t.Fatalf("expected ErrInternal for slug conflict, got %v", err)
+	}
+
+	// Verify no tenant leaked into the database
+	var count int
+	_ = suite.pgPool.QueryRow(context.Background(),
+		"SELECT COUNT(*) FROM tenants WHERE name = $1", "Duplicate Slug School").Scan(&count)
+	if count > 0 {
+		t.Fatal("tenant should not have been created after org creation failure")
+	}
+}
+
+// TestIntegration_Stytch_OrgCreationEmptyOrgID simulates Stytch returning a
+// 200 OK with a response body that's missing the organization_id field.
+func TestIntegration_Stytch_OrgCreationEmptyOrgID(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+	suite := testSuite
+	suite.freshDB(t)
+	suite.freshRedis(t)
+	defer suite.resetStytchHandlers()
+
+	sessionRef := "550e8400-e29b-41d4-a716-446655440160"
+	istKey := fmt.Sprintf("%stest:%s", istKeyPrefix, sessionRef)
+	err := suite.rdb.Set(context.Background(), istKey, "ist_test_empty_org", istTTL).Err()
+	if err != nil {
+		t.Fatalf("set IST: %v", err)
+	}
+
+	suite.setStytchHandlers(StytchMockHandlers{
+		CreateOrgFn: func(name string) (int, any) {
+			return http.StatusOK, map[string]any{
+				"request_id":  "req-empty-org",
+				"status_code": 200,
+				"organization": map[string]any{
+					"organization_id":   "",
+					"organization_name": name,
+				},
+			}
+		},
+	})
+
+	payload := RegistrationPayload{
+		SchoolName: "Empty Org ID School",
+		SessionRef: sessionRef,
+		FirstName:  "Wanda",
+		LastName:   "Maximoff",
+	}
+
+	_, _, err = suite.svc.Register(context.Background(), sessionRef, payload, "fp-empty-org")
+	if err == nil {
+		t.Fatal("expected error from empty org_id, got nil")
+	}
+	if !errors.Is(err, ErrInternal) {
+		t.Fatalf("expected ErrInternal for empty org_id, got %v", err)
+	}
+
+	// Verify no tenant leaked into the database
+	var count int
+	_ = suite.pgPool.QueryRow(context.Background(),
+		"SELECT COUNT(*) FROM tenants WHERE name = $1", "Empty Org ID School").Scan(&count)
+	if count > 0 {
+		t.Fatal("tenant should not have been created after empty org_id response")
+	}
+}
+
+// TestIntegration_ExistingOrg_SecondUserRegistration verifies that a second
+// user can register for an existing org (tenant already exists). The first
+// registration creates the org, the second should re-use it, create a new user
+// and session, and assign the TEACHER role.
+func TestIntegration_ExistingOrg_SecondUserRegistration(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+	suite := testSuite
+	suite.freshDB(t)
+	suite.freshRedis(t)
+	defer suite.resetStytchHandlers()
+
+	schoolName := "Second User School"
+
+	// ---- First registration: creates the org and tenant ----
+	sessionRef1 := "550e8400-e29b-41d4-a716-446655440170"
+	istKey1 := fmt.Sprintf("%stest:%s", istKeyPrefix, sessionRef1)
+	err := suite.rdb.Set(context.Background(), istKey1, "ist_test_first", istTTL).Err()
+	if err != nil {
+		t.Fatalf("set first IST: %v", err)
+	}
+
+	payload1 := RegistrationPayload{
+		SchoolName: schoolName,
+		SessionRef: sessionRef1,
+		FirstName:  "Peter",
+		LastName:   "Parker",
+	}
+
+	token1, role1, err := suite.svc.Register(context.Background(), sessionRef1, payload1, "fp-first")
+	if err != nil {
+		t.Fatalf("first registration failed: %v", err)
+	}
+	if token1 == "" {
+		t.Fatal("expected non-empty session token from first registration")
+	}
+	if role1 != "SCHOOL_ADMIN" {
+		t.Fatalf("expected SCHOOL_ADMIN for first user, got %s", role1)
+	}
+
+	// ---- Second registration: same school, new user ----
+	sessionRef2 := "550e8400-e29b-41d4-a716-446655440171"
+	istKey2 := fmt.Sprintf("%stest:%s", istKeyPrefix, sessionRef2)
+	err = suite.rdb.Set(context.Background(), istKey2, "ist_test_second", istTTL).Err()
+	if err != nil {
+		t.Fatalf("set second IST: %v", err)
+	}
+
+	payload2 := RegistrationPayload{
+		SchoolName: schoolName,
+		SessionRef: sessionRef2,
+		FirstName:  "Miles",
+		LastName:   "Morales",
+	}
+
+	token2, role2, err := suite.svc.Register(context.Background(), sessionRef2, payload2, "fp-second")
+	if err != nil {
+		t.Fatalf("second registration failed: %v", err)
+	}
+	if token2 == "" {
+		t.Fatal("expected non-empty session token from second registration")
+	}
+	if role2 != "TEACHER" {
+		t.Fatalf("expected TEACHER for second user, got %s", role2)
+	}
+
+	// Verify tokens are different
+	if token1 == token2 {
+		t.Fatal("first and second user should have different session tokens")
+	}
+
+	// Verify both sessions are retrievable
+	_, err = suite.svc.GetSession(context.Background(), token1)
+	if err != nil {
+		t.Fatalf("first user session should be retrievable: %v", err)
+	}
+	_, err = suite.svc.GetSession(context.Background(), token2)
+	if err != nil {
+		t.Fatalf("second user session should be retrievable: %v", err)
+	}
+
+	// Verify the tenant has exactly 2 users
+	var userCount int
+	err = suite.pgPool.QueryRow(context.Background(),
+		"SELECT COUNT(*) FROM users WHERE tenant_id = (SELECT id FROM tenants WHERE name = $1)",
+		schoolName).Scan(&userCount)
+	if err != nil {
+		t.Fatalf("count users: %v", err)
+	}
+	if userCount != 2 {
+		t.Fatalf("expected 2 users in tenant, got %d", userCount)
+	}
+
+	// Verify only 1 tenant exists
+	var tenantCount int
+	_ = suite.pgPool.QueryRow(context.Background(),
+		"SELECT COUNT(*) FROM tenants WHERE name = $1", schoolName).Scan(&tenantCount)
+	if tenantCount != 1 {
+		t.Fatalf("expected exactly 1 tenant, got %d", tenantCount)
+	}
+}
+
 // ============================================================================
 // Category 2: Redis Cache Scenarios
 // ============================================================================

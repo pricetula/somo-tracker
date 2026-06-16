@@ -336,8 +336,6 @@ func TestMigrationsIntegration_ApplyAll(t *testing.T) {
 	migrations := []string{
 		"000001_initial_schema.up.sql",
 		"000002_seed.up.sql",
-		"000003_add_is_final_to_terms.up.sql",
-		"000004_add_stream_to_classes.up.sql",
 	}
 
 	for _, f := range migrations {

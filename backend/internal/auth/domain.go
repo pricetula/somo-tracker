@@ -14,12 +14,15 @@ import (
 // ============================================================================
 
 var (
-	ErrInvalidInput     = errors.New("invalid_input")
-	ErrExpiredToken     = errors.New("expired_token")
-	ErrMFARequired      = errors.New("mfa_required")
-	ErrOrgAlreadyExists = errors.New("org_already_exists")
-	ErrNotFound         = errors.New("not_found")
-	ErrInternal         = errors.New("internal_error")
+	ErrInvalidInput           = errors.New("invalid_input")
+	ErrExpiredToken           = errors.New("expired_token")
+	ErrMFARequired            = errors.New("mfa_required")
+	ErrOrgAlreadyExists       = errors.New("org_already_exists")
+	ErrJITProvisioningNotAllowed = errors.New("jit_provisioning_not_allowed")
+	ErrMemberNotFound         = errors.New("member_not_found")
+	ErrOrgNotFound            = errors.New("org_not_found")
+	ErrNotFound               = errors.New("not_found")
+	ErrInternal               = errors.New("internal_error")
 )
 
 // ValidationError carries a user-facing message alongside the sentinel.
@@ -180,6 +183,9 @@ type Repository interface {
 	// TenantExistsByName checks if a tenant already exists with the given school name.
 	TenantExistsByName(ctx context.Context, name string) (bool, error)
 
+	// GetTenantByName retrieves an existing tenant's ID and Stytch org ID by name.
+	GetTenantByName(ctx context.Context, name string) (string, string, error)
+
 	// UserExistsByExternalID checks if a user already exists with the given Stytch user ID.
 	UserExistsByExternalID(ctx context.Context, externalAuthID string) (bool, error)
 
@@ -209,6 +215,10 @@ type Repository interface {
 		sessionParams CreateSessionParams,
 	) (userID string, tenantID string, err error)
 
+	// CreateUserSession creates a user and session inside a single transaction
+	// for an existing tenant (no tenant insert). Returns the user ID.
+	CreateUserSession(ctx context.Context, userParams CreateUserParams, sessionParams CreateSessionParams) (userID string, err error)
+
 	// CreateSchool creates a new school for a tenant and returns its ID.
 	CreateSchool(ctx context.Context, tenantID string, name string, educationSystemID string) (schoolID string, err error)
 
@@ -235,6 +245,12 @@ func ErrorToCode(err error) string {
 		return "mfa_required"
 	case errors.Is(err, ErrOrgAlreadyExists):
 		return "org_already_exists"
+	case errors.Is(err, ErrJITProvisioningNotAllowed):
+		return "jit_provisioning_not_allowed"
+	case errors.Is(err, ErrMemberNotFound):
+		return "member_not_found"
+	case errors.Is(err, ErrOrgNotFound):
+		return "org_not_found"
 	case errors.Is(err, ErrNotFound):
 		return "not_found"
 	case errors.Is(err, ErrInternal):

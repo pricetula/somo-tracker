@@ -175,6 +175,18 @@ func (s *StytchAdapter) ExchangeIntermediateSession(ctx context.Context, ist, or
 			zap.String("org_id", orgID),
 			zap.Error(err),
 		)
+
+		// Map specific Stytch error types to domain errors for proper handling
+		if isJITProvisioningError(err) {
+			return ExchangeResult{}, fmt.Errorf("%w: stytch exchange ist: %v", ErrJITProvisioningNotAllowed, err)
+		}
+		if isMemberNotFoundError(err) {
+			return ExchangeResult{}, fmt.Errorf("%w: stytch exchange ist: %v", ErrMemberNotFound, err)
+		}
+		if isOrgNotFoundError(err) {
+			return ExchangeResult{}, fmt.Errorf("%w: stytch exchange ist: %v", ErrOrgNotFound, err)
+		}
+
 		return ExchangeResult{}, fmt.Errorf("%w: stytch exchange ist: %v", ErrInternal, err)
 	}
 
@@ -204,4 +216,37 @@ func isExpiredTokenError(err error) bool {
 }
 
 // Compile-time interface check.
+// isJITProvisioningError checks if the error indicates that email JIT provisioning
+// is not allowed for the target organization. This occurs when a member tries to
+// authenticate against an org that doesn't allow just-in-time member provisioning.
+func isJITProvisioningError(err error) bool {
+	var stytchErr stytcherror.Error
+	if errors.As(err, &stytchErr) {
+		return stytchErr.ErrorType == "email_jit_provisioning_not_allowed"
+	}
+	return false
+}
+
+// isMemberNotFoundError checks if the error indicates the member doesn't exist
+// in the target organization. This can happen during IST exchange when the
+// member was not JIT provisioned and has no existing membership.
+func isMemberNotFoundError(err error) bool {
+	var stytchErr stytcherror.Error
+	if errors.As(err, &stytchErr) {
+		return stytchErr.ErrorType == "member_not_found"
+	}
+	return false
+}
+
+// isOrgNotFoundError checks if the error indicates the organization was not
+// found in Stytch. This can happen during IST exchange if the org ID is
+// invalid or the org was deleted.
+func isOrgNotFoundError(err error) bool {
+	var stytchErr stytcherror.Error
+	if errors.As(err, &stytchErr) {
+		return stytchErr.ErrorType == "organization_not_found"
+	}
+	return false
+}
+
 var _ IdentityProvider = (*StytchAdapter)(nil)

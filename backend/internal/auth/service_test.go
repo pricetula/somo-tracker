@@ -485,10 +485,11 @@ func TestRegister_ISTNotFound(t *testing.T) {
 
 	sessionRef := "550e8400-e29b-41d4-a716-446655440000"
 	payload := RegistrationPayload{
-		SchoolName: "Test School",
-		SessionRef: sessionRef,
-		FirstName:  "John",
-		LastName:   "Doe",
+		SchoolName:        "Test School",
+		SessionRef:        sessionRef,
+		FirstName:         "John",
+		LastName:          "Doe",
+		EducationSystemID: "550e8400-e29b-41d4-a716-446655440099",
 	}
 
 	// Don't pre-set IST — it won't be found (already consumed or never set)
@@ -520,10 +521,11 @@ func TestRegister_MFANotAuthenticated(t *testing.T) {
 	}
 
 	payload := RegistrationPayload{
-		SchoolName: "Test School MFA",
-		SessionRef: sessionRef,
-		FirstName:  "John",
-		LastName:   "Doe",
+		SchoolName:        "Test School MFA",
+		SessionRef:        sessionRef,
+		FirstName:         "John",
+		LastName:          "Doe",
+		EducationSystemID: "550e8400-e29b-41d4-a716-446655440099",
 	}
 
 	_, _, err := h.registerViaMocks(context.Background(), sessionRef, payload, "")
@@ -551,10 +553,11 @@ func TestRegister_PostgresWriteFailureAfterStytch(t *testing.T) {
 	}
 
 	payload := RegistrationPayload{
-		SchoolName: "Postgres Fail School",
-		SessionRef: sessionRef,
-		FirstName:  "John",
-		LastName:   "Doe",
+		SchoolName:        "Postgres Fail School",
+		SessionRef:        sessionRef,
+		FirstName:         "John",
+		LastName:          "Doe",
+		EducationSystemID: "550e8400-e29b-41d4-a716-446655440099",
 	}
 
 	_, _, err := h.registerViaMocks(context.Background(), sessionRef, payload, "")
@@ -597,10 +600,11 @@ func TestRegister_Idempotency(t *testing.T) {
 	}
 
 	payload := RegistrationPayload{
-		SchoolName: "Duplicate School",
-		SessionRef: sessionRef,
-		FirstName:  "John",
-		LastName:   "Doe",
+		SchoolName:        "Duplicate School",
+		SessionRef:        sessionRef,
+		FirstName:         "John",
+		LastName:          "Doe",
+		EducationSystemID: "550e8400-e29b-41d4-a716-446655440099",
 	}
 
 	token, role, err := h.registerViaMocks(context.Background(), sessionRef, payload, "")
@@ -673,13 +677,15 @@ func TestRegister_PayloadValidation(t *testing.T) {
 		name    string
 		payload RegistrationPayload
 	}{
-		{"empty school name", RegistrationPayload{SchoolName: "", SessionRef: "550e8400-e29b-41d4-a716-446655440000"}},
-		{"too short school name", RegistrationPayload{SchoolName: "A", SessionRef: "550e8400-e29b-41d4-a716-446655440000"}},
-		{"too long school name", RegistrationPayload{SchoolName: string(make([]byte, 101)), SessionRef: "550e8400-e29b-41d4-a716-446655440000"}},
-		{"all whitespace after trim", RegistrationPayload{SchoolName: "   ", SessionRef: "550e8400-e29b-41d4-a716-446655440000"}},
-		{"too short after trim", RegistrationPayload{SchoolName: "  A  ", SessionRef: "550e8400-e29b-41d4-a716-446655440000"}},
-		{"invalid session ref", RegistrationPayload{SchoolName: "Valid School", SessionRef: "not-a-uuid"}},
-		{"empty session ref", RegistrationPayload{SchoolName: "Valid School", SessionRef: ""}},
+		{"empty school name", RegistrationPayload{SchoolName: "", SessionRef: "550e8400-e29b-41d4-a716-446655440000", EducationSystemID: "550e8400-e29b-41d4-a716-446655440099"}},
+		{"too short school name", RegistrationPayload{SchoolName: "A", SessionRef: "550e8400-e29b-41d4-a716-446655440000", EducationSystemID: "550e8400-e29b-41d4-a716-446655440099"}},
+		{"too long school name", RegistrationPayload{SchoolName: string(make([]byte, 101)), SessionRef: "550e8400-e29b-41d4-a716-446655440000", EducationSystemID: "550e8400-e29b-41d4-a716-446655440099"}},
+		{"all whitespace after trim", RegistrationPayload{SchoolName: "   ", SessionRef: "550e8400-e29b-41d4-a716-446655440000", EducationSystemID: "550e8400-e29b-41d4-a716-446655440099"}},
+		{"too short after trim", RegistrationPayload{SchoolName: "  A  ", SessionRef: "550e8400-e29b-41d4-a716-446655440000", EducationSystemID: "550e8400-e29b-41d4-a716-446655440099"}},
+		{"invalid session ref", RegistrationPayload{SchoolName: "Valid School", SessionRef: "not-a-uuid", EducationSystemID: "550e8400-e29b-41d4-a716-446655440099"}},
+		{"empty session ref", RegistrationPayload{SchoolName: "Valid School", SessionRef: "", EducationSystemID: "550e8400-e29b-41d4-a716-446655440099"}},
+		{"empty education system id", RegistrationPayload{SchoolName: "Valid School", SessionRef: "550e8400-e29b-41d4-a716-446655440000", EducationSystemID: ""}},
+		{"invalid education system id", RegistrationPayload{SchoolName: "Valid School", SessionRef: "550e8400-e29b-41d4-a716-446655440000", EducationSystemID: "not-a-uuid"}},
 	}
 
 	for _, tt := range tests {
@@ -697,8 +703,9 @@ func TestRegister_PayloadValidation(t *testing.T) {
 
 func TestValidate_OK(t *testing.T) {
 	p := RegistrationPayload{
-		SchoolName: "Valid School Name",
-		SessionRef: "550e8400-e29b-41d4-a716-446655440000",
+		SchoolName:        "Valid School Name",
+		SessionRef:        "550e8400-e29b-41d4-a716-446655440000",
+		EducationSystemID: "550e8400-e29b-41d4-a716-446655440099",
 	}
 	if err := p.Validate(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -795,5 +802,47 @@ func TestGenerateSlug(t *testing.T) {
 				t.Fatal("slug should not be empty")
 			}
 		})
+	}
+}
+
+// ============================================================================
+// Tests: Error Code Mapping
+// ============================================================================
+
+func TestErrorToCode_JITProvisioningNotAllowed(t *testing.T) {
+	code := ErrorToCode(ErrJITProvisioningNotAllowed)
+	if code != "jit_provisioning_not_allowed" {
+		t.Fatalf("expected jit_provisioning_not_allowed, got %s", code)
+	}
+}
+
+func TestErrorToCode_MemberNotFound(t *testing.T) {
+	code := ErrorToCode(ErrMemberNotFound)
+	if code != "member_not_found" {
+		t.Fatalf("expected member_not_found, got %s", code)
+	}
+}
+
+func TestErrorToCode_OrgNotFound(t *testing.T) {
+	code := ErrorToCode(ErrOrgNotFound)
+	if code != "org_not_found" {
+		t.Fatalf("expected org_not_found, got %s", code)
+	}
+}
+
+func TestErrorToCode_WrappedError(t *testing.T) {
+	// Verify wrapping doesn't break error code mapping
+	err := fmt.Errorf("%w: jit provisioning blocked for org X", ErrJITProvisioningNotAllowed)
+	code := ErrorToCode(err)
+	if code != "jit_provisioning_not_allowed" {
+		t.Fatalf("expected jit_provisioning_not_allowed for wrapped error, got %s", code)
+	}
+}
+
+func TestErrorToCode_UnknownError(t *testing.T) {
+	err := errors.New("completely unknown error")
+	code := ErrorToCode(err)
+	if !strings.HasPrefix(code, "unknown:") {
+		t.Fatalf("expected unknown: prefix, got %s", code)
 	}
 }

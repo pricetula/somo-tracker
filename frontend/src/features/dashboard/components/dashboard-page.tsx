@@ -17,6 +17,11 @@ import {
   PrepModeAlert,
   useCalendarEvaluator,
 } from "@/features/calendar";
+import {
+  ClassStreamGenerator,
+  useClassStreamEvaluator,
+  useClasses,
+} from "@/features/classes";
 
 // ─── Dashboard Composite Component ────────────────────────────────────────
 
@@ -24,9 +29,13 @@ export function DashboardPage() {
   const { data: session, isLoading: sessionLoading } = useMe();
   const logoutMutation = useLogout();
   const calendarState = useCalendarEvaluator();
+  const classStreamState = useClassStreamEvaluator();
+  const { data: classes } = useClasses();
 
   // Track whether the calendar form has been dismissed after successful save
   const [formDismissed, setFormDismissed] = React.useState(false);
+  // Track whether the class generator has been dismissed after successful generation
+  const [classStepDismissed, setClassStepDismissed] = React.useState(false);
 
   // Combine loading: session or calendar data
   if (sessionLoading) {
@@ -44,20 +53,46 @@ export function DashboardPage() {
   const showPrepAlert =
     calendarState.type === "hidden" && calendarState.alert === "prep-mode";
 
-  // Dashboard skeleton cards are unlocked when the calendar is hidden (active)
-  const dashboardUnlocked = calendarState.type === "hidden";
+  // Step 2: Show class/stream generator after calendar is active and no classes exist
+  const calendarIsActive = calendarState.type === "hidden" || calendarState.type === "form";
+  const showClassStep =
+    !classStepDismissed &&
+    calendarIsActive &&
+    classStreamState.type === "setup";
+
+  // Dashboard is fully unlocked when the calendar is active AND classes are ready
+  const dashboardUnlocked =
+    calendarState.type === "hidden" && classStreamState.type === "ready";
 
   return (
     <div className="min-h-screen p-6">
       {/* ─── HIERARCHICAL CONTAINER ZONE (Top of layout) ─────────────── */}
-      <div className="mb-8">
+      <div className="mb-8 space-y-6">
+        {/* Step 1: Academic Calendar Setup */}
         {showForm && (
           <div className="animate-in slide-in-from-top-4 fade-in duration-300">
             <AcademicCalendarForm onSuccess={() => setFormDismissed(true)} />
           </div>
         )}
+
+        {/* Step 2: Class & Stream Generator */}
+        {showClassStep && (
+          <div className="animate-in slide-in-from-top-4 fade-in duration-300">
+            <ClassStreamGenerator
+              onSuccess={() => setClassStepDismissed(true)}
+            />
+          </div>
+        )}
+
         {showPrepAlert && <PrepModeAlert />}
+
         {calendarState.type === "loading" && (
+          <div className="flex items-center justify-center rounded-2xl border bg-card p-8">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        )}
+
+        {classStreamState.type === "loading" && calendarIsActive && !showClassStep && (
           <div className="flex items-center justify-center rounded-2xl border bg-card p-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
@@ -70,8 +105,8 @@ export function DashboardPage() {
           <h1 className="text-2xl font-bold">Dashboard</h1>
           <p className="text-sm text-muted-foreground">
             {dashboardUnlocked
-              ? "Academic calendar is active — all systems operational"
-              : "Complete calendar setup above to unlock analytics"}
+              ? "All systems operational — dashboard is ready"
+              : "Complete the onboarding steps above to unlock analytics"}
           </p>
         </div>
         <Button
@@ -121,7 +156,9 @@ export function DashboardPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">—</p>
+            <p className="text-3xl font-bold">
+              {classes && classes.length > 0 ? classes.length : "—"}
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -145,7 +182,7 @@ export function DashboardPage() {
               <p className="text-sm text-muted-foreground">
                 {dashboardUnlocked
                   ? "Chart loading..."
-                  : "🔒 Unlock by completing calendar setup"}
+                  : "🔒 Complete onboarding to unlock"}
               </p>
             </div>
           </CardContent>

@@ -3,8 +3,11 @@ import path from "path";
 
 export default defineConfig({
   test: {
-    environment: "node",
-    include: ["src/**/*.test.ts", "src/**/*.spec.ts"],
+    environment: "jsdom",
+    include: ["src/**/*.test.ts", "src/**/*.test.tsx", "src/**/*.spec.ts", "src/**/*.spec.tsx"],
+    setupFiles: ["./src/__tests__/setup.ts"],
+    // jsdom + React testing workaround for `@testing-library/react`
+    css: true,
   },
   resolve: {
     alias: {

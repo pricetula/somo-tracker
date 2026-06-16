@@ -1,0 +1,53 @@
+---
+title: "Class & Stream Generator"
+description: "Zero-friction onboarding Step 2 that cross-multiplies stream tags with CBE grade levels to bulk-create classrooms."
+tooltipSummary: "Bulk-generate classrooms by typing stream names; real-time preview cross-multiplies streams with CBC Grade 1–4 before saving."
+---
+
+## Overview {#overview}
+The Class & Stream Generator is Step 2 of the onboarding lifecycle. It mounts in the dashboard's Hierarchical Container Zone after the academic calendar is configured (Step 1) and the classes list is empty. Instead of using checkbox lists, the component presents a single tag-creator input followed by an automated live structural preview.
+
+## Trigger Conditions {#trigger-conditions}
+The generator mounts only when:
+- `GET /api/v1/schools/current-calendar` returns a valid saved academic calendar.
+- `GET /api/v1/schools/classes` returns an empty array.
+
+These conditions are evaluated by the `useClassStreamEvaluator` hook, which returns `"setup"` when both are met, triggering the `ClassStreamGenerator` component to render.
+
+## Tag Input Mechanics {#tag-input}
+- The text input acts as a dynamic tag field (Shadcn-styled).
+- The admin types a stream handle (e.g., `East`), presses Enter.
+- The string is instantly committed into local component state as a tag chip with a dismissal `x`.
+- Paste support: comma/newline/tab-separated lists are split and added as individual tags.
+- Backspace on empty input removes the last tag.
+
+## Cross-Multiplication Preview {#cross-multiplication}
+Every time a stream tag is added or removed, the frontend instantly cross-multiplies the current tag array against the internal CBE Grades array (`["Grade 1", "Grade 2", "Grade 3", "Grade 4"]`). The generated grid displays the exact outcome strings in a responsive card layout.
+
+- Streams `["East", "West"]` produce 8 grid cells: `Grade 1 East`, `Grade 1 West`, `Grade 2 East`, etc.
+- The preview count badge updates dynamically.
+- A dashed empty state is shown when no streams have been added.
+
+## Submission & State Convergence {#submission}
+- **Button Guard**: The "Save & Generate Classrooms" button is disabled when the streams array is empty.
+- **Unified Payload**: A single `POST /api/v1/schools/classes/generate` call with `{ streams: [...] }` triggers the backend to cross-multiply and bulk-insert in one DB transaction.
+- **Loading State**: The container drops to 60% opacity with a spinner; the form is locked against double-submission.
+- **Success Resolution**: Upon HTTP 201:
+  1. The input and preview grids fade out.
+  2. A glowing green Lucide `CheckCircle2` is temporarily center-rendered.
+  3. The TanStack query cache is invalidated via `queryClient.invalidateQueries(['classes'])`.
+  4. The container slides up and collapses, revealing the unlocked dashboard.
+
+## Backend Integration {#backend}
+- **Endpoint**: `POST /api/v1/schools/classes/generate`
+- **Transaction**: The Go service resolves the current academic year, fetches the school's grade levels, cross-multiplies grades × streams, and bulk-inserts all classroom records in a single PostgreSQL transaction.
+- **Database migration**: `000004_add_stream_to_classes` adds a `stream` column to the `classes` table.
+
+## File Reference {#file-reference}
+- `frontend/src/features/classes/` — All class feature code (hooks, components, types).
+- `frontend/src/features/classes/components/class-stream-generator.tsx` — The main Step 2 component.
+- `frontend/src/features/classes/hooks/use-class-stream-evaluator.ts` — Decision tree for mounting Step 2.
+- `frontend/src/features/classes/hooks/use-classes.ts` — TanStack Query hooks.
+- `frontend/src/lib/api/classes.ts` — API client.
+- `backend/internal/classes/` — Go module (handler, service, repository).
+- `backend/internal/database/migrations/000004_add_stream_to_classes.up.sql` — Database migration.

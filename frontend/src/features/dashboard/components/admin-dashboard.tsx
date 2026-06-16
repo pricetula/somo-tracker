@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useMe, useLogout } from "@/hooks/use-auth";
+import { useMe } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -26,7 +26,6 @@ import {
 
 export function DashboardPage() {
   const { data: session, isLoading: sessionLoading } = useMe();
-  const logoutMutation = useLogout();
   const calendarState = useCalendarEvaluator();
   const classStreamState = useClassStreamEvaluator();
   const { data: classes } = useClasses();
@@ -138,17 +137,11 @@ export function DashboardPage() {
               : "Complete the onboarding steps above to unlock analytics"}
           </p>
         </div>
-        <Button
-          variant="outline"
-          onClick={() => logoutMutation.mutate()}
-          disabled={logoutMutation.isPending}
-        >
-          {logoutMutation.isPending ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
+        <Button variant="outline" asChild>
+          <Link href="/logout">
             <LogOut className="mr-2 h-4 w-4" />
-          )}
-          Sign Out
+            Sign Out
+          </Link>
         </Button>
       </header>
 

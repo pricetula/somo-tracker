@@ -125,7 +125,7 @@ DO $$ BEGIN
     END IF;
 END $$;
 
-CREATE TRIGGER IF NOT EXISTS trg_users_updated_at
+CREATE TRIGGER trg_users_updated_at
     BEFORE UPDATE ON users
     FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
 
@@ -567,6 +567,15 @@ CREATE INDEX IF NOT EXISTS idx_cbc_formative_tasks_outcome_id ON cbc_formative_t
 
 DO $$ BEGIN
     IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'uq_cbc_formative_tasks_tenant' AND conrelid = 'cbc_formative_tasks'::regclass
+    ) THEN
+        ALTER TABLE cbc_formative_tasks ADD CONSTRAINT uq_cbc_formative_tasks_tenant UNIQUE (tenant_id, id);
+    END IF;
+END $$;
+
+DO $$ BEGIN
+    IF NOT EXISTS (
         SELECT 1 FROM pg_constraint WHERE conname = 'fk_cbc_formative_tasks_tenant_class'
           AND conrelid = 'cbc_formative_tasks'::regclass
     ) THEN
@@ -634,7 +643,7 @@ DO $$ BEGIN
     END IF;
 END $$;
 
-CREATE TRIGGER IF NOT EXISTS trg_cbc_task_evaluations_updated_at
+CREATE TRIGGER trg_cbc_task_evaluations_updated_at
     BEFORE UPDATE ON cbc_task_evaluations
     FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
 
@@ -745,6 +754,15 @@ CREATE INDEX IF NOT EXISTS idx_igcse_assessments_term_id    ON igcse_class_asses
 
 DO $$ BEGIN
     IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'uq_igcse_class_assessments_tenant' AND conrelid = 'igcse_class_assessments'::regclass
+    ) THEN
+        ALTER TABLE igcse_class_assessments ADD CONSTRAINT uq_igcse_class_assessments_tenant UNIQUE (tenant_id, id);
+    END IF;
+END $$;
+
+DO $$ BEGIN
+    IF NOT EXISTS (
         SELECT 1 FROM pg_constraint WHERE conname = 'fk_igcse_assessments_tenant_class'
           AND conrelid = 'igcse_class_assessments'::regclass
     ) THEN
@@ -812,7 +830,7 @@ DO $$ BEGIN
     END IF;
 END $$;
 
-CREATE TRIGGER IF NOT EXISTS trg_igcse_assessment_marks_updated_at
+CREATE TRIGGER trg_igcse_assessment_marks_updated_at
     BEFORE UPDATE ON igcse_assessment_marks
     FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
 
@@ -868,6 +886,15 @@ CREATE TABLE IF NOT EXISTS ib_subject_groups (
 
 CREATE INDEX IF NOT EXISTS idx_ib_subject_groups_tenant     ON ib_subject_groups(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_ib_subject_groups_school_id  ON ib_subject_groups(school_id);
+
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'uq_ib_subject_groups_tenant' AND conrelid = 'ib_subject_groups'::regclass
+    ) THEN
+        ALTER TABLE ib_subject_groups ADD CONSTRAINT uq_ib_subject_groups_tenant UNIQUE (tenant_id, id);
+    END IF;
+END $$;
 
 DO $$ BEGIN
     IF NOT EXISTS (
@@ -940,6 +967,15 @@ CREATE INDEX IF NOT EXISTS idx_ib_tasks_tenant          ON ib_tasks(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_ib_tasks_discipline_id   ON ib_tasks(discipline_id);
 CREATE INDEX IF NOT EXISTS idx_ib_tasks_class_id        ON ib_tasks(class_id);
 CREATE INDEX IF NOT EXISTS idx_ib_tasks_term_id         ON ib_tasks(academic_term_id);
+
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'uq_ib_tasks_tenant' AND conrelid = 'ib_tasks'::regclass
+    ) THEN
+        ALTER TABLE ib_tasks ADD CONSTRAINT uq_ib_tasks_tenant UNIQUE (tenant_id, id);
+    END IF;
+END $$;
 
 DO $$ BEGIN
     IF NOT EXISTS (
@@ -1023,7 +1059,7 @@ DO $$ BEGIN
     END IF;
 END $$;
 
-CREATE TRIGGER IF NOT EXISTS trg_ib_task_criterion_scores_updated_at
+CREATE TRIGGER trg_ib_task_criterion_scores_updated_at
     BEFORE UPDATE ON ib_task_criterion_scores
     FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
 
@@ -1151,6 +1187,15 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_cbc_unique_attendance_period
     ON cbc_attendance_periods(class_id, date_recorded, cbc_learning_area_id);
 
 DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'uq_cbc_attendance_periods_tenant' AND conrelid = 'cbc_attendance_periods'::regclass
+    ) THEN
+        ALTER TABLE cbc_attendance_periods ADD CONSTRAINT uq_cbc_attendance_periods_tenant UNIQUE (tenant_id, id);
+    END IF;
+END $$;
+
+DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_cbc_att_periods_tenant_school'
         AND conrelid = 'cbc_attendance_periods'::regclass) THEN
         ALTER TABLE cbc_attendance_periods ADD CONSTRAINT fk_cbc_att_periods_tenant_school
@@ -1232,6 +1277,15 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_igcse_unique_attendance_period
     ON igcse_attendance_periods(class_id, date_recorded, igcse_subject_id);
 
 DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'uq_igcse_attendance_periods_tenant' AND conrelid = 'igcse_attendance_periods'::regclass
+    ) THEN
+        ALTER TABLE igcse_attendance_periods ADD CONSTRAINT uq_igcse_attendance_periods_tenant UNIQUE (tenant_id, id);
+    END IF;
+END $$;
+
+DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_igcse_att_periods_tenant_school'
         AND conrelid = 'igcse_attendance_periods'::regclass) THEN
         ALTER TABLE igcse_attendance_periods ADD CONSTRAINT fk_igcse_att_periods_tenant_school
@@ -1311,6 +1365,15 @@ CREATE INDEX IF NOT EXISTS idx_ib_att_tenant                  ON ib_attendance_p
 CREATE INDEX IF NOT EXISTS idx_ib_att_periods_class_date      ON ib_attendance_periods(class_id, date_recorded);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_ib_unique_attendance_period
     ON ib_attendance_periods(class_id, date_recorded, ib_discipline_id);
+
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'uq_ib_attendance_periods_tenant' AND conrelid = 'ib_attendance_periods'::regclass
+    ) THEN
+        ALTER TABLE ib_attendance_periods ADD CONSTRAINT uq_ib_attendance_periods_tenant UNIQUE (tenant_id, id);
+    END IF;
+END $$;
 
 DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_ib_att_periods_tenant_school'
@@ -1702,6 +1765,15 @@ CREATE INDEX IF NOT EXISTS idx_invoices_tenant        ON invoices(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_invoices_student_term  ON invoices(student_id, academic_term_id);
 
 DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'uq_invoices_tenant' AND conrelid = 'invoices'::regclass
+    ) THEN
+        ALTER TABLE invoices ADD CONSTRAINT uq_invoices_tenant UNIQUE (tenant_id, id);
+    END IF;
+END $$;
+
+DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_invoices_tenant_student'
         AND conrelid = 'invoices'::regclass) THEN
         ALTER TABLE invoices ADD CONSTRAINT fk_invoices_tenant_student
@@ -1831,15 +1903,19 @@ GROUP BY ls.student_id, ls.subject_id, ls.academic_term_id, ls.class_id;
 
 CREATE OR REPLACE VIEW v_cbc_final_term_scores AS
 WITH latest_cbc_scores AS (
-    SELECT DISTINCT ON (e.student_id, t.learning_area_id, t.academic_term_id, t.assessment_type)
-        e.student_id, t.learning_area_id, t.academic_term_id, t.class_id,
+    SELECT DISTINCT ON (e.student_id, la.id, t.academic_term_id, t.assessment_type)
+        e.student_id, la.id AS learning_area_id, t.academic_term_id, t.class_id,
         t.assessment_type,
         CASE e.score_level
             WHEN 'EE' THEN 4 WHEN 'ME' THEN 3 WHEN 'AE' THEN 2 WHEN 'BE' THEN 1
         END AS numeric_score
     FROM cbc_task_evaluations e
-    JOIN cbc_formative_tasks t ON t.id = e.formative_task_id
-    ORDER BY e.student_id, t.learning_area_id, t.academic_term_id, t.assessment_type, t.date_administered DESC
+    JOIN cbc_formative_tasks t          ON t.id = e.formative_task_id
+    JOIN cbc_learning_outcomes lo       ON lo.id = t.learning_outcome_id
+    JOIN cbc_sub_strands ss             ON ss.id = lo.sub_strand_id
+    JOIN cbc_strands s                  ON s.id = ss.strand_id
+    JOIN cbc_learning_areas la          ON la.id = s.learning_area_id
+    ORDER BY e.student_id, la.id, t.academic_term_id, t.assessment_type, t.date_administered DESC
 )
 SELECT
     ls.student_id, ls.learning_area_id, ls.academic_term_id, ls.class_id,

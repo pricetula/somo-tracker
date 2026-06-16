@@ -16,6 +16,7 @@ import (
 	magiclinksdiscovery "github.com/stytchauth/stytch-go/v16/stytch/b2b/magiclinks/discovery"
 	emaildiscovery "github.com/stytchauth/stytch-go/v16/stytch/b2b/magiclinks/email/discovery"
 	"github.com/stytchauth/stytch-go/v16/stytch/b2b/organizations"
+	members "github.com/stytchauth/stytch-go/v16/stytch/b2b/organizations/members"
 	"github.com/stytchauth/stytch-go/v16/stytch/stytcherror"
 )
 
@@ -85,8 +86,8 @@ func (s *StytchAdapter) SendDiscoveryEmail(ctx context.Context, email string) er
 	return nil
 }
 
-// AuthenticateDiscoveryToken validates a magic-link token and returns the IST.
-func (s *StytchAdapter) AuthenticateDiscoveryToken(ctx context.Context, token string) (string, error) {
+// AuthenticateDiscoveryToken validates a magic-link token and returns the IST and email.
+func (s *StytchAdapter) AuthenticateDiscoveryToken(ctx context.Context, token string) (string, string, error) {
 	start := time.Now()
 	defer func() {
 		s.logger.Info("Stytch AuthenticateDiscoveryToken completed",
@@ -105,16 +106,19 @@ func (s *StytchAdapter) AuthenticateDiscoveryToken(ctx context.Context, token st
 		)
 
 		if isExpiredTokenError(err) {
-			return "", fmt.Errorf("%w: stytch token expired", ErrExpiredToken)
+			return "", "", fmt.Errorf("%w: stytch token expired", ErrExpiredToken)
 		}
-		return "", fmt.Errorf("%w: stytch authenticate: %v", ErrInternal, err)
+		return "", "", fmt.Errorf("%w: stytch authenticate: %v", ErrInternal, err)
 	}
 
 	if resp.IntermediateSessionToken == "" {
-		return "", fmt.Errorf("%w: stytch response missing intermediate_session_token", ErrInternal)
+		return "", "", fmt.Errorf("%w: stytch response missing intermediate_session_token", ErrInternal)
+	}
+	if resp.EmailAddress == "" {
+		return "", "", fmt.Errorf("%w: stytch response missing email_address", ErrInternal)
 	}
 
-	return resp.IntermediateSessionToken, nil
+	return resp.IntermediateSessionToken, resp.EmailAddress, nil
 }
 
 // CreateOrganization provisions a new organization in Stytch.
@@ -213,6 +217,47 @@ func isExpiredTokenError(err error) bool {
 		return stytchErr.ErrorType == "magic_link_token_expired"
 	}
 	return false
+}
+
+// CreateMember provisions a new member in an existing Stytch organization.
+func (s *StytchAdapter) CreateMember(ctx context.Context, orgID, email, name string) (string, error) {
+	start := time.Now()
+	defer func() {
+		s.logger.Info("Stytch CreateMember completed",
+			zap.String("org_id", orgID),
+			zap.String("email", email),
+			zap.Duration("latency", time.Since(start)),
+		)
+	}()
+
+	params := &members.CreateParams{
+		OrganizationID: orgID,
+		EmailAddress:   email,
+		Name:           name,
+	}
+
+	resp, err := s.api.Organizations.Members.Create(ctx, params)
+	if err != nil {
+		s.logger.Error("Stytch CreateMember failed",
+			zap.String("org_id", orgID),
+			zap.String("email", email),
+			zap.Error(err),
+		)
+		return "", fmt.Errorf("%w: stytch create member: %v", ErrInternal, err)
+	}
+
+	memberID := resp.Member.MemberID
+	if memberID == "" {
+		return "", fmt.Errorf("%w: stytch response missing member_id", ErrInternal)
+	}
+
+	s.logger.Info("Stytch member created",
+		zap.String("member_id", memberID),
+		zap.String("org_id", orgID),
+		zap.String("email", email),
+	)
+
+	return memberID, nil
 }
 
 // Compile-time interface check.

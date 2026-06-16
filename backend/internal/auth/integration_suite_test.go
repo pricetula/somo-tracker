@@ -60,7 +60,9 @@ type IntegrationSuite struct {
 	stytchDiscoveryAuthFn     func(token string) (int, any)
 	stytchCreateOrgFn         func(name string) (int, any)
 	stytchExchangeISTFn       func(ist, orgID string) (int, any)
+	stytchCreateMemberFn      func(orgID, email, name string) (int, any)
 	stytchCreateOrgCallCount  int
+	stytchCreateMemberCallCount int
 	stytchExchangeISTCallCount int
 }
 
@@ -117,7 +119,7 @@ func setupSuite(ctx context.Context) (*IntegrationSuite, error) {
 		AppEnv:              "test",
 		Port:                "0",
 		AllowedOrigins:      "http://localhost:3000",
-		CookieDomain:        "localhost",
+		CookieDomain:        "",
 		StytchProjectID:     "test-project-id",
 		StytchSecret:        "test-secret",
 		StytchEnv:           "test",
@@ -220,6 +222,22 @@ func setupSuite(ctx context.Context) (*IntegrationSuite, error) {
 					"member_id":   "member_test_" + orgID,
 					"email_address": "test@example.com",
 					"status":      "active",
+				},
+				"organization": map[string]any{
+					"organization_id": orgID,
+				},
+			}
+		},
+		stytchCreateMemberFn: func(orgID, email, name string) (int, any) {
+			return http.StatusOK, map[string]any{
+				"request_id":  "req-create-member-ok",
+				"status_code": 200,
+				"member_id":   "member_test_" + orgID,
+				"member": map[string]any{
+					"member_id":     "member_test_" + orgID,
+					"email_address": email,
+					"name":          name,
+					"status":        "active",
 				},
 				"organization": map[string]any{
 					"organization_id": orgID,
@@ -430,6 +448,39 @@ func (s *IntegrationSuite) startMockStytchServer() {
 		writeStytchJSON(w, status, body)
 	})
 
+	// POST /v1/b2b/organizations/{org_id}/members — create member
+	mux.HandleFunc("/v1/b2b/organizations/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			writeStytchError(w, http.StatusMethodNotAllowed, "method_not_allowed", "expected POST")
+			return
+		}
+
+		// Extract org_id from path: /v1/b2b/organizations/{org_id}/members
+		// We only handle the members endpoint here; other sub-paths return 404.
+		if !strings.HasSuffix(r.URL.Path, "/members") {
+			writeStytchError(w, http.StatusNotFound, "not_found", "unknown organizations sub-path")
+			return
+		}
+
+		var req struct {
+			OrganizationID string `json:"organization_id"`
+			EmailAddress   string `json:"email_address"`
+			Name           string `json:"name"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeStytchError(w, http.StatusBadRequest, "invalid_request", "bad JSON")
+			return
+		}
+
+		s.stytchMu.Lock()
+		fn := s.stytchCreateMemberFn
+		s.stytchCreateMemberCallCount++
+		s.stytchMu.Unlock()
+
+		status, body := fn(req.OrganizationID, req.EmailAddress, req.Name)
+		writeStytchJSON(w, status, body)
+	})
+
 	// POST /v1/b2b/discovery/intermediate_sessions/exchange
 	mux.HandleFunc("/v1/b2b/discovery/intermediate_sessions/exchange", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -472,6 +523,9 @@ func (s *IntegrationSuite) setStytchHandlers(h StytchMockHandlers) {
 	}
 	if h.CreateOrgFn != nil {
 		s.stytchCreateOrgFn = h.CreateOrgFn
+	}
+	if h.CreateMemberFn != nil {
+		s.stytchCreateMemberFn = h.CreateMemberFn
 	}
 	if h.ExchangeISTFn != nil {
 		s.stytchExchangeISTFn = h.ExchangeISTFn
@@ -527,7 +581,24 @@ func (s *IntegrationSuite) resetStytchHandlers() {
 			},
 		}
 	}
+	s.stytchCreateMemberFn = func(orgID, email, name string) (int, any) {
+		return http.StatusOK, map[string]any{
+			"request_id":  "req-create-member-ok",
+			"status_code": 200,
+			"member_id":   "member_test_" + orgID,
+			"member": map[string]any{
+				"member_id":     "member_test_" + orgID,
+				"email_address": email,
+				"name":          name,
+				"status":        "active",
+			},
+			"organization": map[string]any{
+				"organization_id": orgID,
+			},
+		}
+	}
 	s.stytchCreateOrgCallCount = 0
+	s.stytchCreateMemberCallCount = 0
 	s.stytchExchangeISTCallCount = 0
 }
 
@@ -536,6 +607,7 @@ type StytchMockHandlers struct {
 	DiscoverySendFn func(email string) (statusCode int, response any)
 	DiscoveryAuthFn func(token string) (statusCode int, response any)
 	CreateOrgFn     func(name string) (statusCode int, response any)
+	CreateMemberFn  func(orgID, email, name string) (statusCode int, response any)
 	ExchangeISTFn   func(ist, orgID string) (statusCode int, response any)
 }
 

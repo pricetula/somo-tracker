@@ -130,8 +130,8 @@ type IdentityProvider interface {
 	SendDiscoveryEmail(ctx context.Context, email string) error
 
 	// AuthenticateDiscoveryToken validates a magic-link token and returns
-	// the raw Intermediate Session Token (IST).
-	AuthenticateDiscoveryToken(ctx context.Context, token string) (ist string, err error)
+	// the raw Intermediate Session Token (IST) and the verified email address.
+	AuthenticateDiscoveryToken(ctx context.Context, token string) (ist, email string, err error)
 
 	// CreateOrganization provisions a new organization in the identity provider.
 	CreateOrganization(ctx context.Context, name string) (orgID string, err error)
@@ -140,6 +140,9 @@ type IdentityProvider interface {
 	// the context of a specific organization. Returns MemberAuthenticated
 	// status for MFA enforcement (requirement 3).
 	ExchangeIntermediateSession(ctx context.Context, ist, orgID string) (ExchangeResult, error)
+
+	// CreateMember provisions a new member in an existing Stytch organization.
+	CreateMember(ctx context.Context, orgID, email, name string) (memberID string, err error)
 }
 
 // ============================================================================

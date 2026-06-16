@@ -315,11 +315,11 @@ func TestIntegration_Stytch_ISTExchangeMFANotMet(t *testing.T) {
 	}
 }
 
-// TestIntegration_Stytch_Exchange_JITProvisioningNotAllowed simulates Stytch
-// returning email_jit_provisioning_not_allowed during IST exchange. This occurs
-// when the target organization does not allow email JIT (just-in-time) provisioning
-// of new members.
-func TestIntegration_Stytch_Exchange_JITProvisioningNotAllowed(t *testing.T) {
+// TestIntegration_Stytch_CreateMember_Failure simulates Stytch returning
+// an error during member creation. Since we now pre-create the member in Stytch
+// before exchanging the IST (instead of relying on JIT provisioning), a failure
+// here should abort the registration without leaking any database state.
+func TestIntegration_Stytch_CreateMember_Failure(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
@@ -329,6 +329,61 @@ func TestIntegration_Stytch_Exchange_JITProvisioningNotAllowed(t *testing.T) {
 	defer suite.resetStytchHandlers()
 
 	sessionRef := "550e8400-e29b-41d4-a716-446655440100"
+	istKey := fmt.Sprintf("%stest:%s", istKeyPrefix, sessionRef)
+	err := suite.rdb.Set(context.Background(), istKey, "ist_test_member_create_fail", istTTL).Err()
+	if err != nil {
+		t.Fatalf("set IST: %v", err)
+	}
+
+	suite.setStytchHandlers(StytchMockHandlers{
+		CreateMemberFn: func(orgID, email, name string) (int, any) {
+			return http.StatusBadRequest, map[string]any{
+				"status_code":   400,
+				"error_type":    "invalid_email",
+				"error_message": "Invalid email address",
+				"request_id":    "req-invalid-email",
+			}
+		},
+	})
+
+	payload := RegistrationPayload{
+		SchoolName: "Create Member Fail School",
+		SessionRef: sessionRef,
+		FirstName:  "Hank",
+		LastName:   "Pym",
+	}
+
+	_, _, err = suite.svc.Register(context.Background(), sessionRef, payload, "fp-cm-fail")
+	if err == nil {
+		t.Fatal("expected error from member creation failure, got nil")
+	}
+	if !errors.Is(err, ErrInternal) {
+		t.Fatalf("expected ErrInternal, got %v", err)
+	}
+
+	// Verify no tenant, user, or session leaked into the database
+	var count int
+	_ = suite.pgPool.QueryRow(context.Background(),
+		"SELECT COUNT(*) FROM tenants WHERE name = $1", "Create Member Fail School").Scan(&count)
+	if count > 0 {
+		t.Fatal("tenant should NOT have been created after member creation failure")
+	}
+}
+
+// TestIntegration_Stytch_Exchange_JITProvisioningNotAllowed simulates Stytch
+// returning email_jit_provisioning_not_allowed during IST exchange. This can still
+// occur when an existing tenant org has JIT provisioning disabled and the member
+// was not pre-created (e.g., invite flow).
+func TestIntegration_Stytch_Exchange_JITProvisioningNotAllowed(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+	suite := testSuite
+	suite.freshDB(t)
+	suite.freshRedis(t)
+	defer suite.resetStytchHandlers()
+
+	sessionRef := "550e8400-e29b-41d4-a716-446655440101"
 	istKey := fmt.Sprintf("%stest:%s", istKeyPrefix, sessionRef)
 	err := suite.rdb.Set(context.Background(), istKey, "ist_test_jit", istTTL).Err()
 	if err != nil {
@@ -927,7 +982,7 @@ func TestIntegration_Redis_ConcurrentISTConsume(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			svc := suite.svc
-			val, err := svc.readAndDeleteIST(ctx, sessionRef)
+			val, _, err := svc.readAndDeleteIST(ctx, sessionRef)
 			if err == nil && val != "" {
 				results <- val
 			} else {

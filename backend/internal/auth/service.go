@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -86,13 +87,19 @@ func (s *Service) Discover(ctx context.Context, email string) error {
 	return nil
 }
 
-// Verify validates a magic-link token and caches the IST in Redis (PHASE 2).
+// istCacheData is the JSON structure stored in Redis for a pending registration.
+type istCacheData struct {
+	IST   string `json:"ist"`
+	Email string `json:"email"`
+}
+
+// Verify validates a magic-link token and caches the IST and email in Redis (PHASE 2).
 // Returns a session reference (UUID v4) that the frontend uses for registration.
 func (s *Service) Verify(ctx context.Context, token string) (string, error) {
 	s.logger.Info("auth: verify initiated")
 
-	// Authenticate the discovery token with Stytch
-	ist, err := s.idp.AuthenticateDiscoveryToken(ctx, token)
+	// Authenticate the discovery token with Stytch — now returns both IST and email
+	ist, email, err := s.idp.AuthenticateDiscoveryToken(ctx, token)
 	if err != nil {
 		// If it's an expired token error, propagate it directly
 		if errors.Is(err, ErrExpiredToken) {
@@ -107,14 +114,21 @@ func (s *Service) Verify(ctx context.Context, token string) (string, error) {
 		return "", fmt.Errorf("%w: generate session ref: %v", ErrInternal, err)
 	}
 
-	// Cache the IST in Redis with 10-minute TTL (requirement 2)
+	// Cache the IST and email as JSON in Redis with 10-minute TTL (requirement 2)
+	cacheData := istCacheData{IST: ist, Email: email}
+	cacheJSON, err := json.Marshal(cacheData)
+	if err != nil {
+		return "", fmt.Errorf("%w: marshal cache data: %v", ErrInternal, err)
+	}
+
 	istKey := fmt.Sprintf("%s%s:%s", istKeyPrefix, s.cfg.AppEnv, sessionRef)
-	if err := s.rdb.Set(ctx, istKey, ist, istTTL).Err(); err != nil {
+	if err := s.rdb.Set(ctx, istKey, string(cacheJSON), istTTL).Err(); err != nil {
 		return "", fmt.Errorf("%w: cache ist: %v", ErrInternal, err)
 	}
 
-	s.logger.Info("auth: IST cached in Redis",
+	s.logger.Info("auth: IST and email cached in Redis",
 		zap.String("session_ref", sessionRef),
+		zap.String("email", email),
 		zap.Duration("ttl", istTTL),
 	)
 
@@ -136,8 +150,8 @@ func (s *Service) Register(ctx context.Context, sessionRef string, payload Regis
 		return "", "", err
 	}
 
-	// 2. Read AND DELETE IST from Redis atomically (requirement 2 — one-time use)
-	ist, err := s.readAndDeleteIST(ctx, sessionRef)
+	// 2. Read AND DELETE IST and email from Redis atomically (requirement 2 — one-time use)
+	ist, email, err := s.readAndDeleteIST(ctx, sessionRef)
 	if err != nil {
 		return "", "", err
 	}
@@ -189,7 +203,20 @@ func (s *Service) Register(ctx context.Context, sessionRef string, payload Regis
 	// Set the stytch_org_id in context for reconciliation logging (requirement 9)
 	ctx = context.WithValue(ctx, StytchOrgIDKey{}, orgID)
 
-	// 5. Exchange intermediate session (requirement 3 — MFA check)
+	// 5. Create member in the Stytch org before exchanging the IST.
+	//    This ensures the member exists in the org so IST exchange doesn't
+	//    fail with email_jit_provisioning_not_allowed.
+	memberName := payload.FirstName + " " + payload.LastName
+	if _, err := s.idp.CreateMember(ctx, orgID, email, memberName); err != nil {
+		s.logger.Error("auth: create member failed",
+			zap.String("org_id", orgID),
+			zap.String("email", email),
+			zap.Error(err),
+		)
+		return "", "", err
+	}
+
+	// 6. Exchange intermediate session (requirement 3 — MFA check)
 	result, err := s.idp.ExchangeIntermediateSession(ctx, ist, orgID)
 	if err != nil {
 		s.logger.Error("auth: IST exchange failed",
@@ -232,8 +259,8 @@ func (s *Service) Register(ctx context.Context, sessionRef string, payload Regis
 	}
 
 	userParams := CreateUserParams{
-		Email:          "", // populated from Stytch member object in production
-		TenantID:       "", // set after tenant creation
+		Email:          email, // from Stytch discovery authentication
+		TenantID:       "",    // set after tenant creation
 		FirstName:      payload.FirstName,
 		LastName:       payload.LastName,
 		ExternalAuthID: result.MemberID,
@@ -378,8 +405,8 @@ func (s *Service) Logout(ctx context.Context, token string) error {
 // Internal helpers
 // ============================================================================
 
-// readAndDeleteIST atomically reads and deletes the IST from Redis (requirement 2).
-func (s *Service) readAndDeleteIST(ctx context.Context, sessionRef string) (string, error) {
+// readAndDeleteIST atomically reads and deletes the IST+email JSON from Redis (requirement 2).
+func (s *Service) readAndDeleteIST(ctx context.Context, sessionRef string) (ist, email string, err error) {
 	istKey := fmt.Sprintf("%s%s:%s", istKeyPrefix, s.cfg.AppEnv, sessionRef)
 
 	// Use a Lua script for atomic GET + DEL to prevent TOCTOU race conditions
@@ -391,29 +418,37 @@ func (s *Service) readAndDeleteIST(ctx context.Context, sessionRef string) (stri
 		return val
 	`)
 
-	ist, err := script.Run(ctx, s.rdb, []string{istKey}).Result()
+	val, err := script.Run(ctx, s.rdb, []string{istKey}).Result()
 	if err != nil {
 		// redis.Nil means the key didn't exist (Lua `return false`).
 		// Map this to ErrExpiredToken so the caller gets a 401, not a 500.
 		if errors.Is(err, redis.Nil) {
-			return "", fmt.Errorf("%w: IST not found or already consumed", ErrExpiredToken)
+			return "", "", fmt.Errorf("%w: IST not found or already consumed", ErrExpiredToken)
 		}
-		return "", fmt.Errorf("%w: atomic read-delete ist: %v", ErrInternal, err)
+		return "", "", fmt.Errorf("%w: atomic read-delete ist: %v", ErrInternal, err)
 	}
-	if ist == nil {
-		return "", fmt.Errorf("%w: IST not found or already consumed", ErrExpiredToken)
-	}
-
-	istStr, ok := ist.(string)
-	if !ok || istStr == "" {
-		return "", fmt.Errorf("%w: invalid IST value in cache", ErrInternal)
+	if val == nil {
+		return "", "", fmt.Errorf("%w: IST not found or already consumed", ErrExpiredToken)
 	}
 
-	s.logger.Info("auth: IST consumed from Redis",
+	valStr, ok := val.(string)
+	if !ok || valStr == "" {
+		return "", "", fmt.Errorf("%w: invalid IST value in cache", ErrInternal)
+	}
+
+	// Decode the JSON payload (backward compatible: plain IST string also accepted)
+	var data istCacheData
+	if err := json.Unmarshal([]byte(valStr), &data); err != nil || data.IST == "" || data.Email == "" {
+		// Not valid JSON cache data — treat the whole value as a plain IST (legacy format)
+		data = istCacheData{IST: valStr, Email: ""}
+	}
+
+	s.logger.Info("auth: IST and email consumed from Redis",
 		zap.String("session_ref", sessionRef),
+		zap.String("email", data.Email),
 	)
 
-	return istStr, nil
+	return data.IST, data.Email, nil
 }
 
 // sessionKey returns the Redis key for a session token.

@@ -46,7 +46,7 @@ func Register(app *fiber.App, pools *database.Pools, cfg config.Config) {
 	//
 	// Public auth endpoints are exempt because no CSRF cookie exists yet
 	// during the initial magic-link discovery and verification flow.
-	csrfIgnoredPrefixes := []string{"/api/auth/discover", "/api/auth/verify"}
+	csrfIgnoredPrefixes := []string{"/api/auth/discover", "/api/auth/verify", "/api/auth/register"}
 	app.Use(func(c *fiber.Ctx) error {
 		method := c.Method()
 		if method == "GET" || method == "HEAD" || method == "OPTIONS" {

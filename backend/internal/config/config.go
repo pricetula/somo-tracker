@@ -52,7 +52,7 @@ func Load() Config {
 		AppEnv:            getEnv("APP_ENV", "development"),
 		Port:              getEnv("PORT", "3030"),
 		AllowedOrigins:    getEnv("ALLOWED_ORIGINS", "http://localhost:3000"),
-		CookieDomain:      getEnv("COOKIE_DOMAIN", "localhost"),
+		CookieDomain:      getEnv("COOKIE_DOMAIN", ""),
 		StytchProjectID:   getEnv("STYTCH_PROJECT_ID", ""),
 		StytchSecret:      getEnv("STYTCH_SECRET", ""),
 		StytchEnv:         getEnv("STYTCH_ENV", "test"),

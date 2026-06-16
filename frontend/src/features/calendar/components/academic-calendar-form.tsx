@@ -213,7 +213,7 @@ export function AcademicCalendarForm({ onSuccess }: AcademicCalendarFormProps) {
           {/* ── Periods Section ──────────────────────────────────────── */}
           <div>
             <div className="mb-3 flex items-center justify-between">
-              <FormLabel className="text-base">Define Academic Periods</FormLabel>
+              <h3 className="text-base font-medium text-foreground">Define Academic Periods</h3>
               <Button
                 type="button"
                 variant="outline"

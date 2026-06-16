@@ -25,13 +25,15 @@ type MockIdentityProvider struct {
 	mu sync.RWMutex
 
 	sendDiscoveryEmailFn          func(ctx context.Context, email string) error
-	authenticateDiscoveryTokenFn  func(ctx context.Context, token string) (string, error)
+	authenticateDiscoveryTokenFn  func(ctx context.Context, token string) (ist, email string, err error)
 	createOrganizationFn          func(ctx context.Context, name string) (string, error)
+	createMemberFn                func(ctx context.Context, orgID, email, name string) (string, error)
 	exchangeIntermediateSessionFn func(ctx context.Context, ist, orgID string) (ExchangeResult, error)
 
 	sendDiscoveryEmailCalls          int
 	authenticateDiscoveryTokenCalls  int
 	createOrganizationCalls          int
+	createMemberCalls                int
 	exchangeIntermediateSessionCalls int
 }
 
@@ -45,14 +47,14 @@ func (m *MockIdentityProvider) SendDiscoveryEmail(ctx context.Context, email str
 	return nil
 }
 
-func (m *MockIdentityProvider) AuthenticateDiscoveryToken(ctx context.Context, token string) (string, error) {
+func (m *MockIdentityProvider) AuthenticateDiscoveryToken(ctx context.Context, token string) (string, string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.authenticateDiscoveryTokenCalls++
 	if m.authenticateDiscoveryTokenFn != nil {
 		return m.authenticateDiscoveryTokenFn(ctx, token)
 	}
-	return "test_ist_token", nil
+	return "test_ist_token", "test@example.com", nil
 }
 
 func (m *MockIdentityProvider) CreateOrganization(ctx context.Context, name string) (string, error) {
@@ -63,6 +65,16 @@ func (m *MockIdentityProvider) CreateOrganization(ctx context.Context, name stri
 		return m.createOrganizationFn(ctx, name)
 	}
 	return "org_test_123", nil
+}
+
+func (m *MockIdentityProvider) CreateMember(ctx context.Context, orgID, email, name string) (string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.createMemberCalls++
+	if m.createMemberFn != nil {
+		return m.createMemberFn(ctx, orgID, email, name)
+	}
+	return "member_test_" + orgID, nil
 }
 
 func (m *MockIdentityProvider) ExchangeIntermediateSession(ctx context.Context, ist, orgID string) (ExchangeResult, error) {
@@ -326,7 +338,7 @@ func newTestHarness(t *testing.T) *testHarness {
 
 	cfg := config.Config{
 		AppEnv:       "test",
-		CookieDomain: "localhost",
+		CookieDomain: "",
 	}
 
 	// Service with nil rdb — we test business logic via mocks directly
@@ -447,8 +459,8 @@ func (h *testHarness) registerViaMocks(ctx context.Context, sessionRef string, p
 func TestVerify_StytchTimeout(t *testing.T) {
 	h := newTestHarness(t)
 
-	h.idp.authenticateDiscoveryTokenFn = func(ctx context.Context, token string) (string, error) {
-		return "", fmt.Errorf("%w: stytch timeout: context deadline exceeded", ErrInternal)
+	h.idp.authenticateDiscoveryTokenFn = func(ctx context.Context, token string) (string, string, error) {
+		return "", "", fmt.Errorf("%w: stytch timeout: context deadline exceeded", ErrInternal)
 	}
 
 	_, err := h.svc.Verify(context.Background(), "some_token")
@@ -463,8 +475,8 @@ func TestVerify_StytchTimeout(t *testing.T) {
 func TestVerify_StytchExpiredToken(t *testing.T) {
 	h := newTestHarness(t)
 
-	h.idp.authenticateDiscoveryTokenFn = func(ctx context.Context, token string) (string, error) {
-		return "", fmt.Errorf("%w: stytch token expired", ErrExpiredToken)
+	h.idp.authenticateDiscoveryTokenFn = func(ctx context.Context, token string) (string, string, error) {
+		return "", "", fmt.Errorf("%w: stytch token expired", ErrExpiredToken)
 	}
 
 	_, err := h.svc.Verify(context.Background(), "expired_token")

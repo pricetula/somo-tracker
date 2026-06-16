@@ -159,7 +159,7 @@ CREATE INDEX IF NOT EXISTS idx_sessions_stytch_session_token    ON sessions (sty
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS education_systems (
     id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name         VARCHAR(100) NOT NULL,                    -- "Kenya CBC", "Cambridge IGCSE", "IB MYP"
+    name         VARCHAR(100) NOT NULL UNIQUE,                    -- "Kenya CBC", "Cambridge IGCSE", "IB MYP"
     country_code CHAR(2) NOT NULL
         CONSTRAINT chk_country_code_format CHECK (country_code ~ '^[A-Z]{2}$')
 );

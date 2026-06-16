@@ -9,7 +9,7 @@
 
 import type { definitions } from "./generated";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3030";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 /** Error response body from the backend (sourced from swagger). */
 export type ApiError = definitions["internal_auth.ErrorBody"];

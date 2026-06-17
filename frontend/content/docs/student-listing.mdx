@@ -1,0 +1,85 @@
+---
+title: "Student Listing & Bulk Import"
+description: "High-performance virtual table for viewing, searching, and managing student records with CSV bulk ingestion via SSE-streamed goroutine pipeline."
+tooltipSummary: "Browse students in a virtualized table, add one manually via side drawer, or bulk-import 1,000+ records via CSV with real-time SSE progress tracking."
+---
+
+## Overview {#overview}
+
+The Student Listing module provides a hyper-minimalist, high-performance interface for managing student records. It uses TanStack Table with TanStack Virtual for DOM-virtualized rendering of 10,000+ rows, and a streaming goroutine-based CSV ingestion pipeline for bulk imports — no external queue system required.
+
+## Virtual Table Canvas {#virtual-table}
+
+- Full-width or `max-w-7xl` canvas with no card wrappers or nested containers.
+- Header: `text-2xl font-semibold tracking-tight` with an inline muted counter badge.
+- Controls Row: Borderless search box with inline icon, filter icon button, and split primary button.
+- **Engine**: TanStack Table v8 + TanStack Virtual.
+- **Sticky Elements**: Table headers use `sticky top-0 bg-background/95 backdrop-blur-sm z-10`.
+- **Dividers**: Ultra-low contrast horizontal lines (`border-b border-border/40`). Zero vertical borders.
+- **Row Heights**: Rigidly fixed at `h-12` (48px) to prevent virtualization layout jitter.
+- **Row Actions**: Hidden by default. Triggered via ghost ellipsis button (`...`) initiating a shadcn dropdown menu with Edit, View Profile, and Deactivate options.
+
+## Empty State {#empty-state}
+
+When zero student records exist:
+
+- Centered, minimalist layout with no clip-art graphics.
+- Typography: `text-sm font-medium` title, `text-xs text-muted-foreground` subtitle.
+- Dual secondary-styled CTA buttons: `[ Manually Add ]` and `[ Upload CSV ]`.
+
+## Manual Addition {#manual-addition}
+
+- Component: shadcn Sheet (right-aligned drawer).
+- Form stack with `space-y-4` layout, preserving underlying view state.
+- Fields: First Name, Middle Name, Last Name, Gender (select), Date of Birth.
+- Validation via Zod schema with react-hook-form.
+- **State Sync**: On save, invalidates TanStack Query cache. Sheet closes, entry appears in virtual viewport.
+
+## CSV Bulk Import {#csv-import}
+
+### Drop Zone Modal
+
+- Dashed, muted boundary drop area with "Download standard CSV template" link.
+- Client-side validation: file type (`.csv`), size (max 32MB), structural header checking.
+
+### No-Queue Ingestion Pipeline
+
+1. Frontend dispatches CSV via `POST /api/v1/students/import` as multipart form data.
+2. Go-Fiber endpoint reads headers, validates schema, returns `202 Accepted` with `import_id`.
+3. Frontend opens SSE connection to `GET /api/v1/students/import/stream?id={import_id}`.
+4. Go backend processes rows in a background goroutine, streaming progress events:
+   `data: {"status": "processing", "current": 450, "total": 1240}`
+5. Failed rows are collected with validation reasons.
+6. Error CSV is stored in Redis with 1800s TTL under key `err_log:{import_id}`.
+7. Terminal SSE event delivers: `data: {"status": "completed", "success": 1220, "failed": 20, "download_url": "/api/v1/students/import/errors?id=..."}`
+8. Progress modal collapses to a mini bottom-right widget (Google Drive upload style).
+
+### Error Recovery
+
+- Failed rows are compiled into a new CSV with appended `reason_for_failure` column.
+- Downloaded via `GET /api/v1/students/import/errors?id=...`.
+- Redis TTL ensures automatic cleanup after 30 minutes.
+
+## API Endpoints {#api-endpoints}
+
+| Method | Path                             | Description                           |
+| ------ | -------------------------------- | ------------------------------------- |
+| GET    | `/api/v1/students`               | List students (paginated, searchable) |
+| POST   | `/api/v1/students`               | Create a single student               |
+| POST   | `/api/v1/students/import`        | Upload CSV for bulk import            |
+| GET    | `/api/v1/students/import/stream` | SSE progress stream                   |
+| GET    | `/api/v1/students/import/errors` | Download error CSV                    |
+
+## File Reference {#file-reference}
+
+- `frontend/src/app/(dashboard)/admins/students/page.tsx` — Page entry point.
+- `frontend/src/features/students/` — All feature code.
+- `frontend/src/features/students/components/student-table.tsx` — Virtualized TanStack Table.
+- `frontend/src/features/students/components/student-sheet.tsx` — Add student drawer.
+- `frontend/src/features/students/components/import-modal.tsx` — CSV upload modal.
+- `frontend/src/features/students/components/import-progress.tsx` — Mini SSE progress widget.
+- `frontend/src/features/students/components/empty-state.tsx` — Empty state component.
+- `frontend/src/features/students/hooks/use-students.ts` — TanStack Query hooks.
+- `frontend/src/lib/api/students.ts` — API client functions.
+- `backend/internal/students/` — Go module (handler, service, repository).
+- `backend/internal/students/domain.go` — Types and domain models.

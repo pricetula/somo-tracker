@@ -11,6 +11,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	fibermiddleware "github.com/gofiber/fiber/v2/middleware/recover"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 
 	"somotracker/backend/internal/config"
@@ -110,6 +111,65 @@ func Register(app *fiber.App, pools *database.Pools, cfg config.Config) {
 		c.Locals("device_fingerprint", fingerprint)
 		return c.Next()
 	})
+
+	// Layer 6 — Session loading (for API routes)
+	// Reads the somo_sid cookie, looks up the session in Postgres,
+	// and stores it in c.Locals("session"). Skips non-API routes.
+	app.Use(func(c *fiber.Ctx) error {
+		if !strings.HasPrefix(c.Path(), "/api/") {
+			return c.Next()
+		}
+
+		token := c.Cookies("somo_sid")
+		if token == "" {
+			return c.Next()
+		}
+
+		s, err := loadSession(c.Context(), pools.PG, token)
+		if err != nil {
+			// Session expired or not found — just continue without setting locals
+			return c.Next()
+		}
+
+		c.Locals("session", s)
+		return c.Next()
+	})
+}
+
+// SessionInfo is a lightweight session representation for middleware.
+type SessionInfo struct {
+	UserID   string
+	TenantID string
+	Role     string
+}
+
+// loadSession looks up a session by token and returns session info.
+func loadSession(ctx context.Context, pool *pgxpool.Pool, token string) (*SessionInfo, error) {
+	const query = `
+		SELECT s.user_id, s.tenant_id,
+		       COALESCE(
+			       (SELECT role::text FROM memberships
+			         WHERE user_id = s.user_id AND is_active = true
+			         ORDER BY
+			           CASE role
+			             WHEN 'SYSTEM_ADMIN' THEN 1
+			             WHEN 'SCHOOL_ADMIN' THEN 2
+			             WHEN 'TEACHER' THEN 3
+			             WHEN 'SUPPORT_STAFF' THEN 4
+			           END
+			         LIMIT 1),
+			       'TEACHER'
+		       ) as role
+		FROM sessions s
+		WHERE s.token = $1 AND s.expires_at > NOW()
+	`
+
+	var s SessionInfo
+	err := pool.QueryRow(ctx, query, token).Scan(&s.UserID, &s.TenantID, &s.Role)
+	if err != nil {
+		return nil, err
+	}
+	return &s, nil
 }
 
 // checkRateLimit implements a sliding-window rate limiter using a Redis sorted set.

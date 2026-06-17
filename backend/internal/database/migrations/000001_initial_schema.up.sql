@@ -172,7 +172,8 @@ CREATE TABLE IF NOT EXISTS schools (
     tenant_id            UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     education_system_id  UUID NOT NULL REFERENCES education_systems(id),
     name                 VARCHAR(255) NOT NULL,
-    is_active            BOOLEAN NOT NULL DEFAULT true
+    is_active            BOOLEAN NOT NULL DEFAULT true,
+    is_demo              BOOLEAN NOT NULL DEFAULT false
 );
 
 CREATE INDEX IF NOT EXISTS idx_schools_tenant_id            ON schools(tenant_id);

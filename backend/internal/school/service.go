@@ -19,9 +19,32 @@ func NewService(repo *SqlcRepository) *Service {
 	return &Service{repo: repo}
 }
 
+// GetByID returns a school by ID.
+func (s *Service) GetByID(ctx context.Context, id string) (*School, error) {
+	return s.repo.GetByID(ctx, id)
+}
+
 // ListByTenant returns all active schools for a tenant.
 func (s *Service) ListByTenant(ctx context.Context, tenantID string) ([]School, error) {
 	return s.repo.ListByTenant(ctx, tenantID)
+}
+
+// ActivateSchool switches the user's active school.
+// Deactivates all memberships and activates the target one.
+func (s *Service) ActivateSchool(ctx context.Context, userID, schoolID, tenantID string) error {
+	// Verify the school belongs to this tenant
+	school, err := s.repo.GetByID(ctx, schoolID)
+	if err != nil {
+		return err
+	}
+	if school == nil {
+		return fmt.Errorf("school not found")
+	}
+	if school.TenantID != tenantID {
+		return fmt.Errorf("school does not belong to this tenant")
+	}
+
+	return s.repo.ActivateSchoolMembership(ctx, userID, schoolID, tenantID)
 }
 
 // CreateSchool creates a new school and assigns the creator as SCHOOL_ADMIN.

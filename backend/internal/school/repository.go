@@ -105,6 +105,61 @@ func (r *SqlcRepository) GetActiveSchoolByUser(ctx context.Context, userID strin
 	return &s, nil
 }
 
+// ActivateSchoolMembership sets is_active=false on all memberships for the user,
+// then sets is_active=true on the target school membership.
+func (r *SqlcRepository) ActivateSchoolMembership(ctx context.Context, userID, schoolID, tenantID string) error {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback(ctx)
+		}
+	}()
+
+	// Deactivate all memberships for this user in this tenant
+	_, err = tx.Exec(ctx,
+		`UPDATE memberships SET is_active = false
+		 WHERE user_id = $1 AND tenant_id = $2 AND school_id != $3`,
+		userID, tenantID, schoolID,
+	)
+	if err != nil {
+		return fmt.Errorf("deactivate memberships: %w", err)
+	}
+
+	// Activate the target membership (creates one if it doesn't exist)
+	result, err := tx.Exec(ctx,
+		`UPDATE memberships SET is_active = true
+		 WHERE user_id = $1 AND school_id = $2 AND tenant_id = $3`,
+		userID, schoolID, tenantID,
+	)
+	if err != nil {
+		return fmt.Errorf("activate membership: %w", err)
+	}
+
+	if result.RowsAffected() == 0 {
+		// No membership row yet — this can happen if the school was created
+		// by another admin and the user hasn't been assigned yet.
+		// Default to TEACHER role.
+		_, err = tx.Exec(ctx,
+			`INSERT INTO memberships (user_id, school_id, tenant_id, role, is_active)
+			 VALUES ($1, $2, $3, 'TEACHER'::user_role, true)
+			 ON CONFLICT (user_id, school_id) DO UPDATE SET is_active = true`,
+			userID, schoolID, tenantID,
+		)
+		if err != nil {
+			return fmt.Errorf("insert new membership: %w", err)
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit tx: %w", err)
+	}
+
+	return nil
+}
+
 // Create inserts a new school and returns it.
 func (r *SqlcRepository) Create(ctx context.Context, tenantID, name, educationSystemID string) (*School, error) {
 	const query = `

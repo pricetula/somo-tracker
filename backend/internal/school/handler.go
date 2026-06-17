@@ -2,11 +2,14 @@ package school
 
 import (
 	"errors"
+	"fmt"
 	"regexp"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/fx"
 
+	"somotracker/backend/internal/database"
 	"somotracker/backend/internal/middleware"
 )
 
@@ -14,12 +17,20 @@ var uuidV4Regex = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89a
 
 // Handler exposes school-related HTTP endpoints.
 type Handler struct {
-	svc *Service
+	svc  *Service
+	pool *pgxpool.Pool
+}
+
+// loadSchoolSession is the session info extracted from the cookie manually.
+type loadSchoolSession struct {
+	UserID   string
+	TenantID string
+	Role     string
 }
 
 // NewHandler creates a new Handler.
-func NewHandler(svc *Service) *Handler {
-	return &Handler{svc: svc}
+func NewHandler(svc *Service, pool *database.Pools) *Handler {
+	return &Handler{svc: svc, pool: pool.PG}
 }
 
 // RegisterRoutes mounts school routes on the given router.
@@ -27,6 +38,10 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	schools := router.Group("/schools")
 	schools.Get("/", h.List)
 	schools.Post("/", h.Create)
+
+	// Activate school — switch the user's current active school.
+	// Manually extracts session from cookie since school routes aren't under /api/.
+	schools.Post("/:id/activate", h.Activate)
 }
 
 // List handles GET /schools?tenant_id=...
@@ -58,6 +73,101 @@ func (h *Handler) List(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(schools)
+}
+
+// Activate handles POST /schools/:id/activate.
+//
+// @Summary      Activate school
+// @Description  Switches the authenticated user's active school by deactivating all
+//
+//	memberships and activating the target school membership.
+//
+// @Tags         Schools
+// @Produce      json
+// @Success      200  {object}  School
+// @Failure      401  {object}  ErrorBody  "Unauthorized"
+// @Failure      404  {object}  ErrorBody  "Not found"
+// @Failure      500  {object}  ErrorBody  "Internal error"
+// @Router       /schools/{id}/activate [post]
+func (h *Handler) Activate(c *fiber.Ctx) error {
+	schoolID := c.Params("id")
+	if schoolID == "" {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(ErrorBody{
+			Error:   "invalid_input",
+			Message: "school id is required",
+		})
+	}
+
+	// Manually extract session from the somo_sid cookie
+	// (school routes aren't under /api/ so the session middleware doesn't load)
+	session, err := h.loadSessionFromCookie(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(ErrorBody{
+			Error:   "unauthorized",
+			Message: "authentication required",
+		})
+	}
+
+	if err := h.svc.ActivateSchool(c.Context(), session.UserID, schoolID, session.TenantID); err != nil {
+		if err.Error() == "school not found" {
+			return c.Status(fiber.StatusNotFound).JSON(ErrorBody{
+				Error:   "not_found",
+				Message: "school not found",
+			})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorBody{
+			Error:   "internal_error",
+			Message: err.Error(),
+		})
+	}
+
+	// Return the updated school
+	school, err := h.svc.GetByID(c.Context(), schoolID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorBody{
+			Error:   "internal_error",
+			Message: err.Error(),
+		})
+	}
+
+	return c.JSON(school)
+}
+
+// loadSessionFromCookie reads the somo_sid cookie and queries the session + active
+// membership from Postgres. This is needed because the session middleware only runs
+// for /api/ routes, but school routes are mounted at /schools/.
+func (h *Handler) loadSessionFromCookie(c *fiber.Ctx) (*loadSchoolSession, error) {
+	token := c.Cookies("somo_sid")
+	if token == "" {
+		return nil, fmt.Errorf("no session cookie")
+	}
+
+	const query = `
+		SELECT s.user_id, s.tenant_id,
+		       COALESCE(
+		         (SELECT role::text FROM memberships
+		           WHERE user_id = s.user_id AND is_active = true
+		           ORDER BY
+		             CASE role
+		               WHEN 'SYSTEM_ADMIN' THEN 1
+		               WHEN 'SCHOOL_ADMIN' THEN 2
+		               WHEN 'TEACHER' THEN 3
+		               WHEN 'SUPPORT_STAFF' THEN 4
+		             END
+		           LIMIT 1),
+		         'TEACHER'
+		       ) as role
+		FROM sessions s
+		WHERE s.token = $1 AND s.expires_at > NOW()
+	`
+
+	var s loadSchoolSession
+	err := h.pool.QueryRow(c.Context(), query, token).Scan(&s.UserID, &s.TenantID, &s.Role)
+	if err != nil {
+		return nil, fmt.Errorf("load session from cookie: %w", err)
+	}
+
+	return &s, nil
 }
 
 // Create handles POST /schools.

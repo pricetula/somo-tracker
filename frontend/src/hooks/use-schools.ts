@@ -11,9 +11,12 @@ import { toast } from "sonner";
 import {
     listSchools,
     createSchool,
+    updateSchool,
+    deleteSchool,
     activateSchool,
     type School,
     type CreateSchoolPayload,
+    type UpdateSchoolPayload,
 } from "@/lib/api/schools";
 import { getApiErrorMessage } from "@/lib/api/auth";
 import type { MeResponse } from "@/lib/api/auth";
@@ -51,6 +54,45 @@ export function useCreateSchool() {
         },
         onError: (err) => {
             toast.error("Failed to create school", {
+                description: getApiErrorMessage(err),
+            });
+        },
+    });
+}
+
+/** Update a school's name (requires SCHOOL_ADMIN or SYSTEM_ADMIN role). */
+export function useUpdateSchool() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ schoolId, payload }: { schoolId: string; payload: UpdateSchoolPayload }) =>
+            updateSchool(schoolId, payload),
+        onSuccess: (school) => {
+            queryClient.invalidateQueries({ queryKey: schoolKeys.all });
+            toast.success("School updated!", {
+                description: `"${school.name}" has been saved.`,
+            });
+        },
+        onError: (err) => {
+            toast.error("Failed to update school", {
+                description: getApiErrorMessage(err),
+            });
+        },
+    });
+}
+
+/** Delete a school (soft-delete, requires SCHOOL_ADMIN or SYSTEM_ADMIN role). */
+export function useDeleteSchool() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (schoolId: string) => deleteSchool(schoolId),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: schoolKeys.all });
+            toast.success("School deleted");
+        },
+        onError: (err) => {
+            toast.error("Failed to delete school", {
                 description: getApiErrorMessage(err),
             });
         },

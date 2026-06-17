@@ -66,7 +66,10 @@ function buildNavItems(role: string): NavItem[] {
                 title: "Settings",
                 url: "#",
                 icon: <Settings2Icon className="size-4" />,
-                items: [{ title: "General", url: "/settings" }],
+                items: [
+                    { title: "General", url: "/settings" },
+                    { title: "Schools", url: "/settings/school" },
+                ],
             },
         ];
     }

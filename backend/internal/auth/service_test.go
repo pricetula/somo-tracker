@@ -29,12 +29,14 @@ type MockIdentityProvider struct {
 	createOrganizationFn          func(ctx context.Context, name string) (string, error)
 	createMemberFn                func(ctx context.Context, orgID, email, name string) (string, error)
 	exchangeIntermediateSessionFn func(ctx context.Context, ist, orgID string) (ExchangeResult, error)
+	inviteMemberByEmailFn         func(ctx context.Context, orgID, email, name, redirectURL string) (string, error)
 
 	sendDiscoveryEmailCalls          int
 	authenticateDiscoveryTokenCalls  int
 	createOrganizationCalls          int
 	createMemberCalls                int
 	exchangeIntermediateSessionCalls int
+	inviteMemberByEmailCalls         int
 }
 
 func (m *MockIdentityProvider) SendDiscoveryEmail(ctx context.Context, email string) error {
@@ -75,6 +77,16 @@ func (m *MockIdentityProvider) CreateMember(ctx context.Context, orgID, email, n
 		return m.createMemberFn(ctx, orgID, email, name)
 	}
 	return "member_test_" + orgID, nil
+}
+
+func (m *MockIdentityProvider) InviteMemberByEmail(ctx context.Context, orgID, email, name, redirectURL string) (string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.inviteMemberByEmailCalls++
+	if m.inviteMemberByEmailFn != nil {
+		return m.inviteMemberByEmailFn(ctx, orgID, email, name, redirectURL)
+	}
+	return "member_invited_" + orgID, nil
 }
 
 func (m *MockIdentityProvider) ExchangeIntermediateSession(ctx context.Context, ist, orgID string) (ExchangeResult, error) {

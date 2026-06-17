@@ -79,6 +79,11 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
+DO $$ BEGIN
+    CREATE TYPE invitation_status AS ENUM ('pending', 'accepted', 'expired', 'revoked');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
 -- ============================================================================
 -- CORE AUTH & IDENTITY TABLES
 -- ============================================================================
@@ -223,6 +228,44 @@ DO $$ BEGIN
     ) THEN
         ALTER TABLE memberships
             ADD CONSTRAINT unique_user_school_membership UNIQUE (user_id, school_id);
+    END IF;
+END $$;
+
+-- ---------------------------------------------------------------------------
+-- invitations
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS invitations (
+    id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    school_id          UUID NOT NULL,
+    tenant_id          UUID NOT NULL,
+    email              VARCHAR(255) NOT NULL,
+    role               user_role NOT NULL,
+    status             invitation_status NOT NULL DEFAULT 'pending',
+    invited_by         UUID REFERENCES users(id) ON DELETE SET NULL,
+    token              TEXT NOT NULL,
+    expires_at         TIMESTAMPTZ NOT NULL,
+    accepted_at        TIMESTAMPTZ,
+    first_name         VARCHAR(255),
+    last_name          VARCHAR(255),
+    phone              VARCHAR(50),
+    registration_number VARCHAR(100),
+    stytch_member_id   VARCHAR(255),
+    created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_invitations_school_id  ON invitations(school_id);
+CREATE INDEX IF NOT EXISTS idx_invitations_tenant_id  ON invitations(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_invitations_email      ON invitations(email);
+CREATE INDEX IF NOT EXISTS idx_invitations_status     ON invitations(status);
+
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'fk_invitations_tenant_school' AND conrelid = 'invitations'::regclass
+    ) THEN
+        ALTER TABLE invitations
+            ADD CONSTRAINT fk_invitations_tenant_school
+            FOREIGN KEY (tenant_id, school_id) REFERENCES schools(tenant_id, id) ON DELETE CASCADE;
     END IF;
 END $$;
 

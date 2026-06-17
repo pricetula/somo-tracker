@@ -14,6 +14,7 @@ import (
 	"github.com/stytchauth/stytch-go/v16/stytch/b2b/b2bstytchapi"
 	intermediatesessions "github.com/stytchauth/stytch-go/v16/stytch/b2b/discovery/intermediatesessions"
 	magiclinksdiscovery "github.com/stytchauth/stytch-go/v16/stytch/b2b/magiclinks/discovery"
+	stytchemail "github.com/stytchauth/stytch-go/v16/stytch/b2b/magiclinks/email"
 	emaildiscovery "github.com/stytchauth/stytch-go/v16/stytch/b2b/magiclinks/email/discovery"
 	"github.com/stytchauth/stytch-go/v16/stytch/b2b/organizations"
 	members "github.com/stytchauth/stytch-go/v16/stytch/b2b/organizations/members"
@@ -70,7 +71,7 @@ func (s *StytchAdapter) SendDiscoveryEmail(ctx context.Context, email string) er
 	}()
 
 	params := &emaildiscovery.SendParams{
-		EmailAddress:        email,
+		EmailAddress:         email,
 		DiscoveryRedirectURL: s.cfg.StytchRedirectURL,
 	}
 
@@ -255,6 +256,42 @@ func (s *StytchAdapter) CreateMember(ctx context.Context, orgID, email, name str
 		zap.String("member_id", memberID),
 		zap.String("org_id", orgID),
 		zap.String("email", email),
+	)
+
+	return memberID, nil
+}
+
+// InviteMemberByEmail sends a Stytch invite email to join an organization.
+func (s *StytchAdapter) InviteMemberByEmail(ctx context.Context, orgID, email, name, redirectURL string) (string, error) {
+	start := time.Now()
+
+	params := &stytchemail.InviteParams{
+		OrganizationID:    orgID,
+		EmailAddress:      email,
+		Name:              name,
+		InviteRedirectURL: redirectURL,
+	}
+
+	resp, err := s.api.MagicLinks.Email.Invite(ctx, params)
+	if err != nil {
+		s.logger.Error("Stytch InviteMemberByEmail failed",
+			zap.String("org_id", orgID),
+			zap.String("email", email),
+			zap.Error(err),
+		)
+		return "", fmt.Errorf("%w: stytch invite member: %v", ErrInternal, err)
+	}
+
+	memberID := resp.MemberID
+	if memberID == "" {
+		return "", fmt.Errorf("%w: stytch response missing member_id", ErrInternal)
+	}
+
+	s.logger.Info("Stytch invite sent",
+		zap.String("member_id", memberID),
+		zap.String("org_id", orgID),
+		zap.String("email", email),
+		zap.Duration("latency", time.Since(start)),
 	)
 
 	return memberID, nil

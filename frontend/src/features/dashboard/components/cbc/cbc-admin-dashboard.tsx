@@ -38,7 +38,7 @@ import {
 
 export function CbcAdminDashboard() {
     return (
-        <div className="mx-auto flex max-w-[1400px] flex-col gap-4 p-4">
+        <div className="mx-auto flex max-w-350 flex-col gap-4 p-4">
             {/* ── Top Ribbon ── */}
             <div className="flex flex-col gap-4 md:flex-row">
                 <div className="flex-1">

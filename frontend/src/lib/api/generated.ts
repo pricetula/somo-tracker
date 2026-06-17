@@ -51,7 +51,7 @@ export interface paths {
         };
     };
     "/api/auth/me": {
-        /** Returns the authenticated user's ID and tenant ID from the session cookie. */
+        /** Returns the authenticated user's profile including role, school, and name. */
         get: {
             responses: {
                 /** OK */
@@ -142,6 +142,77 @@ export interface paths {
             };
         };
     };
+    "/education-systems": {
+        /** Returns all available education systems (CBC, IGCSE, IB MYP, etc.) */
+        get: {
+            responses: {
+                /** OK */
+                200: {
+                    schema: definitions["internal_educationsystem.EducationSystem"][];
+                };
+                /** Internal Server Error */
+                500: {
+                    schema: definitions["fiber.Map"];
+                };
+            };
+        };
+    };
+    "/schools": {
+        /** Returns all active schools for the authenticated user's tenant. */
+        get: {
+            parameters: {
+                query: {
+                    /** Tenant ID */
+                    tenant_id: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: definitions["internal_school.School"][];
+                };
+                /** Invalid input */
+                422: {
+                    schema: definitions["internal_school.ErrorBody"];
+                };
+                /** Internal error */
+                500: {
+                    schema: definitions["internal_school.ErrorBody"];
+                };
+            };
+        };
+        /** Creates a new school under the current tenant and assigns the current user as SCHOOL_ADMIN. */
+        post: {
+            parameters: {
+                body: {
+                    /** School details */
+                    body: definitions["internal_school.CreateSchoolPayload"];
+                };
+            };
+            responses: {
+                /** Created */
+                201: {
+                    schema: definitions["internal_school.School"];
+                };
+                /** Unauthorized */
+                401: {
+                    schema: definitions["internal_school.ErrorBody"];
+                };
+                /** Forbidden */
+                403: {
+                    schema: definitions["internal_school.ErrorBody"];
+                };
+                /** Invalid input */
+                422: {
+                    schema: definitions["internal_school.ErrorBody"];
+                };
+                /** Internal error */
+                500: {
+                    schema: definitions["internal_school.ErrorBody"];
+                };
+            };
+        };
+    };
     "/tenants": {
         /** Creates a new tenant (school) in the system. */
         post: {
@@ -170,6 +241,7 @@ export interface paths {
 }
 
 export interface definitions {
+    "fiber.Map": { [key: string]: unknown };
     "internal_auth.DiscoveryPayload": {
         email?: string;
     };
@@ -178,21 +250,48 @@ export interface definitions {
         message?: string;
     };
     "internal_auth.MeResponse": {
+        email?: string;
+        first_name?: string;
+        last_name?: string;
+        role?: string;
+        school_id?: string;
+        school_name?: string;
         tenant_id?: string;
         user_id?: string;
     };
     "internal_auth.RegistrationPayload": {
+        education_system_id?: string;
         first_name?: string;
         last_name?: string;
         school_name?: string;
         session_ref?: string;
-        education_system_id?: string;
     };
     "internal_auth.VerifyPayload": {
         token?: string;
     };
     "internal_auth.VerifyResponse": {
         session_ref?: string;
+    };
+    "internal_educationsystem.EducationSystem": {
+        country_code?: string;
+        id?: string;
+        name?: string;
+    };
+    "internal_school.CreateSchoolPayload": {
+        education_system_id?: string;
+        name?: string;
+    };
+    "internal_school.ErrorBody": {
+        error?: string;
+        message?: string;
+    };
+    "internal_school.School": {
+        education_system_id?: string;
+        id?: string;
+        is_active?: boolean;
+        is_demo?: boolean;
+        name?: string;
+        tenant_id?: string;
     };
     "internal_tenant.CreateTenantPayload": {
         name?: string;
@@ -210,8 +309,6 @@ export interface definitions {
     };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface operations {}
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface external {}

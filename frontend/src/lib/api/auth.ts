@@ -30,6 +30,9 @@ export type RegisterPayload = definitions["internal_auth.RegistrationPayload"];
 
 export type MeResponse = definitions["internal_auth.MeResponse"];
 
+export type SchoolInfo = definitions["internal_school.School"];
+export type CreateSchoolPayload = definitions["internal_school.CreateSchoolPayload"];
+
 // ─── Functions ────────────────────────────────────────────────────────────
 
 /** PHASE 1: Send a magic link to the given email. */

@@ -106,7 +106,7 @@ const docTemplate = `{
         },
         "/api/auth/me": {
             "get": {
-                "description": "Returns the authenticated user's ID and tenant ID from the session cookie.",
+                "description": "Returns the authenticated user's profile including role, school, and name.",
                 "consumes": [
                     "application/json"
                 ],
@@ -272,6 +272,135 @@ const docTemplate = `{
                 }
             }
         },
+        "/education-systems": {
+            "get": {
+                "description": "Returns all available education systems (CBC, IGCSE, IB MYP, etc.)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Education Systems"
+                ],
+                "summary": "List education systems",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/internal_educationsystem.EducationSystem"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/fiber.Map"
+                        }
+                    }
+                }
+            }
+        },
+        "/schools": {
+            "get": {
+                "description": "Returns all active schools for the authenticated user's tenant.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Schools"
+                ],
+                "summary": "List schools",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Tenant ID",
+                        "name": "tenant_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/internal_school.School"
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid input",
+                        "schema": {
+                            "$ref": "#/definitions/internal_school.ErrorBody"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_school.ErrorBody"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Creates a new school under the current tenant and assigns the current user as SCHOOL_ADMIN.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Schools"
+                ],
+                "summary": "Create a school",
+                "parameters": [
+                    {
+                        "description": "School details",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_school.CreateSchoolPayload"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/internal_school.School"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_school.ErrorBody"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/internal_school.ErrorBody"
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid input",
+                        "schema": {
+                            "$ref": "#/definitions/internal_school.ErrorBody"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_school.ErrorBody"
+                        }
+                    }
+                }
+            }
+        },
         "/tenants": {
             "post": {
                 "description": "Creates a new tenant (school) in the system.",
@@ -320,6 +449,10 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "fiber.Map": {
+            "type": "object",
+            "additionalProperties": true
+        },
         "internal_auth.DiscoveryPayload": {
             "type": "object",
             "properties": {
@@ -342,6 +475,24 @@ const docTemplate = `{
         "internal_auth.MeResponse": {
             "type": "object",
             "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "first_name": {
+                    "type": "string"
+                },
+                "last_name": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "school_id": {
+                    "type": "string"
+                },
+                "school_name": {
+                    "type": "string"
+                },
                 "tenant_id": {
                     "type": "string"
                 },
@@ -353,6 +504,9 @@ const docTemplate = `{
         "internal_auth.RegistrationPayload": {
             "type": "object",
             "properties": {
+                "education_system_id": {
+                    "type": "string"
+                },
                 "first_name": {
                     "type": "string"
                 },
@@ -379,6 +533,65 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "session_ref": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_educationsystem.EducationSystem": {
+            "type": "object",
+            "properties": {
+                "country_code": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_school.CreateSchoolPayload": {
+            "type": "object",
+            "properties": {
+                "education_system_id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_school.ErrorBody": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_school.School": {
+            "type": "object",
+            "properties": {
+                "education_system_id": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_active": {
+                    "type": "boolean"
+                },
+                "is_demo": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "tenant_id": {
                     "type": "string"
                 }
             }
@@ -431,6 +644,10 @@ const docTemplate = `{
         {
             "description": "Tenant (school) management endpoints",
             "name": "Tenants"
+        },
+        {
+            "description": "Education system (curriculum framework) endpoints",
+            "name": "Education Systems"
         }
     ]
 }`

@@ -1,5 +1,8 @@
 basePath: /
 definitions:
+  fiber.Map:
+    additionalProperties: true
+    type: object
   internal_auth.DiscoveryPayload:
     properties:
       email:
@@ -14,6 +17,18 @@ definitions:
     type: object
   internal_auth.MeResponse:
     properties:
+      email:
+        type: string
+      first_name:
+        type: string
+      last_name:
+        type: string
+      role:
+        type: string
+      school_id:
+        type: string
+      school_name:
+        type: string
       tenant_id:
         type: string
       user_id:
@@ -21,6 +36,8 @@ definitions:
     type: object
   internal_auth.RegistrationPayload:
     properties:
+      education_system_id:
+        type: string
       first_name:
         type: string
       last_name:
@@ -38,6 +55,44 @@ definitions:
   internal_auth.VerifyResponse:
     properties:
       session_ref:
+        type: string
+    type: object
+  internal_educationsystem.EducationSystem:
+    properties:
+      country_code:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+    type: object
+  internal_school.CreateSchoolPayload:
+    properties:
+      education_system_id:
+        type: string
+      name:
+        type: string
+    type: object
+  internal_school.ErrorBody:
+    properties:
+      error:
+        type: string
+      message:
+        type: string
+    type: object
+  internal_school.School:
+    properties:
+      education_system_id:
+        type: string
+      id:
+        type: string
+      is_active:
+        type: boolean
+      is_demo:
+        type: boolean
+      name:
+        type: string
+      tenant_id:
         type: string
     type: object
   internal_tenant.CreateTenantPayload:
@@ -136,8 +191,8 @@ paths:
     get:
       consumes:
       - application/json
-      description: Returns the authenticated user's ID and tenant ID from the session
-        cookie.
+      description: Returns the authenticated user's profile including role, school,
+        and name.
       produces:
       - application/json
       responses:
@@ -245,6 +300,92 @@ paths:
       summary: Verify magic-link token
       tags:
       - Auth
+  /education-systems:
+    get:
+      description: Returns all available education systems (CBC, IGCSE, IB MYP, etc.)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/internal_educationsystem.EducationSystem'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/fiber.Map'
+      summary: List education systems
+      tags:
+      - Education Systems
+  /schools:
+    get:
+      description: Returns all active schools for the authenticated user's tenant.
+      parameters:
+      - description: Tenant ID
+        in: query
+        name: tenant_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/internal_school.School'
+            type: array
+        "422":
+          description: Invalid input
+          schema:
+            $ref: '#/definitions/internal_school.ErrorBody'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/internal_school.ErrorBody'
+      summary: List schools
+      tags:
+      - Schools
+    post:
+      consumes:
+      - application/json
+      description: Creates a new school under the current tenant and assigns the current
+        user as SCHOOL_ADMIN.
+      parameters:
+      - description: School details
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_school.CreateSchoolPayload'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/internal_school.School'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_school.ErrorBody'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/internal_school.ErrorBody'
+        "422":
+          description: Invalid input
+          schema:
+            $ref: '#/definitions/internal_school.ErrorBody'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/internal_school.ErrorBody'
+      summary: Create a school
+      tags:
+      - Schools
   /tenants:
     post:
       consumes:
@@ -281,3 +422,5 @@ tags:
   name: Auth
 - description: Tenant (school) management endpoints
   name: Tenants
+- description: Education system (curriculum framework) endpoints
+  name: Education Systems

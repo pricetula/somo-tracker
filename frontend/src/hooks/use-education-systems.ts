@@ -15,8 +15,8 @@ const EDUCATION_SYSTEMS_KEY = ["education-systems"] as const;
 
 /** Options for useEducationSystems. */
 export interface UseEducationSystemsOptions {
-  /** Enable/disable the query (default: true). */
-  enabled?: boolean;
+    /** Enable/disable the query (default: true). */
+    enabled?: boolean;
 }
 
 /**
@@ -26,14 +26,14 @@ export interface UseEducationSystemsOptions {
  * on page reload or manual invalidation via `queryClient.invalidateQueries`.
  */
 export function useEducationSystems(opts: UseEducationSystemsOptions = {}) {
-  const { enabled = true } = opts;
+    const { enabled = true } = opts;
 
-  return useQuery<EducationSystem[]>({
-    queryKey: EDUCATION_SYSTEMS_KEY,
-    queryFn: listEducationSystems,
-    staleTime: Infinity,       // Never re-fetch automatically
-    gcTime: 60 * 60 * 1000,   // Keep in garbage-collected cache for 1 hour
-    retry: 2,
-    enabled,
-  });
+    return useQuery<EducationSystem[]>({
+        queryKey: EDUCATION_SYSTEMS_KEY,
+        queryFn: listEducationSystems,
+        staleTime: Infinity, // Never re-fetch automatically
+        gcTime: 60 * 60 * 1000, // Keep in garbage-collected cache for 1 hour
+        retry: 2,
+        enabled,
+    });
 }

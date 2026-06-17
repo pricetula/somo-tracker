@@ -1,7 +1,3 @@
 export function HomePage() {
-  return (
-    <main>
-      Frontend Home
-    </main>
-  );
+    return <main>Frontend Home</main>;
 }

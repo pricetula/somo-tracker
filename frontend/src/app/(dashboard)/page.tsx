@@ -1,38 +1,38 @@
 import { getVerifiedRole } from "@/lib/auth-server";
 import {
-  SystemAdminDashboardPage,
-  SchoolAdminDashboardPage,
-  TeacherDashboardPage,
-  SupportStaffDashboardPage,
+    SystemAdminDashboardPage,
+    SchoolAdminDashboardPage,
+    TeacherDashboardPage,
+    SupportStaffDashboardPage,
 } from "@/features/dashboard";
 
 export default async function Home() {
-  const role = await getVerifiedRole();
+    const role = await getVerifiedRole();
 
-  // The proxy ensures only authenticated users with a valid role reach here,
-  // but we handle the edge case gracefully.
-  if (!role) {
-    return (
-      <article>
-        <p>Unable to verify your session. Please log in again.</p>
-      </article>
-    );
-  }
+    // The proxy ensures only authenticated users with a valid role reach here,
+    // but we handle the edge case gracefully.
+    if (!role) {
+        return (
+            <article>
+                <p>Unable to verify your session. Please log in again.</p>
+            </article>
+        );
+    }
 
-  switch (role) {
-    case "SYSTEM_ADMIN":
-      return <SystemAdminDashboardPage />;
-    case "SCHOOL_ADMIN":
-      return <SchoolAdminDashboardPage />;
-    case "TEACHER":
-      return <TeacherDashboardPage />;
-    case "SUPPORT_STAFF":
-      return <SupportStaffDashboardPage />;
-    default:
-      return (
-        <article>
-          <p>Unknown role. Please contact support.</p>
-        </article>
-      );
-  }
+    switch (role) {
+        case "SYSTEM_ADMIN":
+            return <SystemAdminDashboardPage />;
+        case "SCHOOL_ADMIN":
+            return <SchoolAdminDashboardPage />;
+        case "TEACHER":
+            return <TeacherDashboardPage />;
+        case "SUPPORT_STAFF":
+            return <SupportStaffDashboardPage />;
+        default:
+            return (
+                <article>
+                    <p>Unknown role. Please contact support.</p>
+                </article>
+            );
+    }
 }

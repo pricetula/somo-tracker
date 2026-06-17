@@ -5,11 +5,13 @@ A Next.js (App Router), TypeScript, and Domain-Driven/Feature-Module design. Mai
 ---
 
 ## 1. Core Architecture Style
+
 The project is organized by **Feature Modules** inside a top-level directory. `src/app` should only include routing files, no custom components.
 
 Each feature should be self-contained, encapsulating its own logic, UI, and state.
 
 ### Directory Structure Blueprint
+
 When creating or modifying a feature, adhere strictly to this isolated module structure:
 
 ```text
@@ -36,3 +38,4 @@ src/
 │
 ├── components/           # Truly GLOBAL, generic UI components only (e.g., Shadcn/Button)
 └── lib/                  # Truly GLOBAL utilities (e.g., prisma, tailwind-merge)
+```

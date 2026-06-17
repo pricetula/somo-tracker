@@ -1,9 +1,5 @@
 "use client";
 
 export function AdminDashboardPage() {
-  return (
-    <article>
-      admin dashboard
-    </article>
-  )
+    return <article>admin dashboard</article>;
 }

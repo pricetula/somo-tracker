@@ -1,6 +1,6 @@
 packages:
-  - '.'
-  
+    - "."
+
 allowBuilds:
-  sharp: true
-  unrs-resolver: true
+    sharp: true
+    unrs-resolver: true

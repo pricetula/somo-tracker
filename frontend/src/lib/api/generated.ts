@@ -4,212 +4,214 @@
  */
 
 export interface paths {
-  "/api/auth/callback": {
-    /** Stytch redirects users here after clicking a magic link. Verifies the token, caches the IST, and redirects to the frontend. */
-    get: {
-      parameters: {
-        query: {
-          /** Stytch discovery magic link token */
-          token: string;
+    "/api/auth/callback": {
+        /** Stytch redirects users here after clicking a magic link. Verifies the token, caches the IST, and redirects to the frontend. */
+        get: {
+            parameters: {
+                query: {
+                    /** Stytch discovery magic link token */
+                    token: string;
+                };
+            };
+            responses: {
+                /** Redirects to frontend /register with session_ref */
+                302: never;
+                /** Invalid input */
+                422: {
+                    schema: definitions["internal_auth.ErrorBody"];
+                };
+                /** Internal error */
+                500: {
+                    schema: definitions["internal_auth.ErrorBody"];
+                };
+            };
         };
-      };
-      responses: {
-        /** Redirects to frontend /register with session_ref */
-        302: never;
-        /** Invalid input */
-        422: {
-          schema: definitions["internal_auth.ErrorBody"];
-        };
-        /** Internal error */
-        500: {
-          schema: definitions["internal_auth.ErrorBody"];
-        };
-      };
     };
-  };
-  "/api/auth/discover": {
-    /** Sends a magic-link email to the given address to discover or create an organization. */
-    post: {
-      parameters: {
-        body: {
-          /** Email address to send magic link to */
-          body: definitions["internal_auth.DiscoveryPayload"];
+    "/api/auth/discover": {
+        /** Sends a magic-link email to the given address to discover or create an organization. */
+        post: {
+            parameters: {
+                body: {
+                    /** Email address to send magic link to */
+                    body: definitions["internal_auth.DiscoveryPayload"];
+                };
+            };
+            responses: {
+                /** Magic link sent */
+                200: unknown;
+                /** Invalid input */
+                422: {
+                    schema: definitions["internal_auth.ErrorBody"];
+                };
+                /** Internal error */
+                500: {
+                    schema: definitions["internal_auth.ErrorBody"];
+                };
+            };
         };
-      };
-      responses: {
-        /** Magic link sent */
-        200: unknown;
-        /** Invalid input */
-        422: {
-          schema: definitions["internal_auth.ErrorBody"];
-        };
-        /** Internal error */
-        500: {
-          schema: definitions["internal_auth.ErrorBody"];
-        };
-      };
     };
-  };
-  "/api/auth/me": {
-    /** Returns the authenticated user's ID and tenant ID from the session cookie. */
-    get: {
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["internal_auth.MeResponse"];
+    "/api/auth/me": {
+        /** Returns the authenticated user's ID and tenant ID from the session cookie. */
+        get: {
+            responses: {
+                /** OK */
+                200: {
+                    schema: definitions["internal_auth.MeResponse"];
+                };
+                /** Session expired or missing */
+                401: {
+                    schema: definitions["internal_auth.ErrorBody"];
+                };
+                /** Internal error */
+                500: {
+                    schema: definitions["internal_auth.ErrorBody"];
+                };
+            };
         };
-        /** Session expired or missing */
-        401: {
-          schema: definitions["internal_auth.ErrorBody"];
-        };
-        /** Internal error */
-        500: {
-          schema: definitions["internal_auth.ErrorBody"];
-        };
-      };
     };
-  };
-  "/api/auth/register": {
-    /** Creates a tenant (school), user, and session. Sets the session cookie on success. */
-    post: {
-      parameters: {
-        body: {
-          /** Registration details */
-          body: definitions["internal_auth.RegistrationPayload"];
+    "/api/auth/register": {
+        /** Creates a tenant (school), user, and session. Sets the session cookie on success. */
+        post: {
+            parameters: {
+                body: {
+                    /** Registration details */
+                    body: definitions["internal_auth.RegistrationPayload"];
+                };
+            };
+            responses: {
+                /** Session cookie set; no content */
+                204: never;
+                /** Token expired or MFA required */
+                401: {
+                    schema: definitions["internal_auth.ErrorBody"];
+                };
+                /** Organization already exists */
+                409: {
+                    schema: definitions["internal_auth.ErrorBody"];
+                };
+                /** Invalid input */
+                422: {
+                    schema: definitions["internal_auth.ErrorBody"];
+                };
+                /** Internal error */
+                500: {
+                    schema: definitions["internal_auth.ErrorBody"];
+                };
+            };
         };
-      };
-      responses: {
-        /** Session cookie set; no content */
-        204: never;
-        /** Token expired or MFA required */
-        401: {
-          schema: definitions["internal_auth.ErrorBody"];
-        };
-        /** Organization already exists */
-        409: {
-          schema: definitions["internal_auth.ErrorBody"];
-        };
-        /** Invalid input */
-        422: {
-          schema: definitions["internal_auth.ErrorBody"];
-        };
-        /** Internal error */
-        500: {
-          schema: definitions["internal_auth.ErrorBody"];
-        };
-      };
     };
-  };
-  "/api/auth/session": {
-    /** Destroys the current session and clears cookies. */
-    delete: {
-      responses: {
-        /** Session destroyed; cookies cleared */
-        204: never;
-        /** Internal error */
-        500: {
-          schema: definitions["internal_auth.ErrorBody"];
+    "/api/auth/session": {
+        /** Destroys the current session and clears cookies. */
+        delete: {
+            responses: {
+                /** Session destroyed; cookies cleared */
+                204: never;
+                /** Internal error */
+                500: {
+                    schema: definitions["internal_auth.ErrorBody"];
+                };
+            };
         };
-      };
     };
-  };
-  "/api/auth/verify": {
-    /** Validates a magic-link discovery token and returns a session reference for the registration flow. */
-    post: {
-      parameters: {
-        body: {
-          /** Magic link token */
-          body: definitions["internal_auth.VerifyPayload"];
+    "/api/auth/verify": {
+        /** Validates a magic-link discovery token and returns a session reference for the registration flow. */
+        post: {
+            parameters: {
+                body: {
+                    /** Magic link token */
+                    body: definitions["internal_auth.VerifyPayload"];
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: definitions["internal_auth.VerifyResponse"];
+                };
+                /** Token expired */
+                401: {
+                    schema: definitions["internal_auth.ErrorBody"];
+                };
+                /** Invalid input */
+                422: {
+                    schema: definitions["internal_auth.ErrorBody"];
+                };
+                /** Internal error */
+                500: {
+                    schema: definitions["internal_auth.ErrorBody"];
+                };
+            };
         };
-      };
-      responses: {
-        /** OK */
-        200: {
-          schema: definitions["internal_auth.VerifyResponse"];
-        };
-        /** Token expired */
-        401: {
-          schema: definitions["internal_auth.ErrorBody"];
-        };
-        /** Invalid input */
-        422: {
-          schema: definitions["internal_auth.ErrorBody"];
-        };
-        /** Internal error */
-        500: {
-          schema: definitions["internal_auth.ErrorBody"];
-        };
-      };
     };
-  };
-  "/tenants": {
-    /** Creates a new tenant (school) in the system. */
-    post: {
-      parameters: {
-        body: {
-          /** Tenant details */
-          body: definitions["internal_tenant.CreateTenantPayload"];
+    "/tenants": {
+        /** Creates a new tenant (school) in the system. */
+        post: {
+            parameters: {
+                body: {
+                    /** Tenant details */
+                    body: definitions["internal_tenant.CreateTenantPayload"];
+                };
+            };
+            responses: {
+                /** Created */
+                201: {
+                    schema: definitions["internal_tenant.Tenant"];
+                };
+                /** Invalid input */
+                422: {
+                    schema: definitions["internal_tenant.ErrorBody"];
+                };
+                /** Internal error */
+                500: {
+                    schema: definitions["internal_tenant.ErrorBody"];
+                };
+            };
         };
-      };
-      responses: {
-        /** Created */
-        201: {
-          schema: definitions["internal_tenant.Tenant"];
-        };
-        /** Invalid input */
-        422: {
-          schema: definitions["internal_tenant.ErrorBody"];
-        };
-        /** Internal error */
-        500: {
-          schema: definitions["internal_tenant.ErrorBody"];
-        };
-      };
     };
-  };
 }
 
 export interface definitions {
-  "internal_auth.DiscoveryPayload": {
-    email?: string;
-  };
-  "internal_auth.ErrorBody": {
-    error?: string;
-    message?: string;
-  };
-  "internal_auth.MeResponse": {
-    tenant_id?: string;
-    user_id?: string;
-  };
-  "internal_auth.RegistrationPayload": {
-    first_name?: string;
-    last_name?: string;
-    school_name?: string;
-    session_ref?: string;
-    education_system_id?: string;
-  };
-  "internal_auth.VerifyPayload": {
-    token?: string;
-  };
-  "internal_auth.VerifyResponse": {
-    session_ref?: string;
-  };
-  "internal_tenant.CreateTenantPayload": {
-    name?: string;
-    slug?: string;
-  };
-  "internal_tenant.ErrorBody": {
-    error?: string;
-    message?: string;
-  };
-  "internal_tenant.Tenant": {
-    created_at?: string;
-    id?: string;
-    name?: string;
-    slug?: string;
-  };
+    "internal_auth.DiscoveryPayload": {
+        email?: string;
+    };
+    "internal_auth.ErrorBody": {
+        error?: string;
+        message?: string;
+    };
+    "internal_auth.MeResponse": {
+        tenant_id?: string;
+        user_id?: string;
+    };
+    "internal_auth.RegistrationPayload": {
+        first_name?: string;
+        last_name?: string;
+        school_name?: string;
+        session_ref?: string;
+        education_system_id?: string;
+    };
+    "internal_auth.VerifyPayload": {
+        token?: string;
+    };
+    "internal_auth.VerifyResponse": {
+        session_ref?: string;
+    };
+    "internal_tenant.CreateTenantPayload": {
+        name?: string;
+        slug?: string;
+    };
+    "internal_tenant.ErrorBody": {
+        error?: string;
+        message?: string;
+    };
+    "internal_tenant.Tenant": {
+        created_at?: string;
+        id?: string;
+        name?: string;
+        slug?: string;
+    };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface operations {}
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface external {}

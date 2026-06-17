@@ -16,26 +16,26 @@ import type { ClassStreamState } from "@/features/classes/types";
  *   CASE 5: Classes exist → return "ready" (hide Step 2)
  */
 export function useClassStreamEvaluator(): ClassStreamState {
-  const { data: calendar, isLoading: calendarLoading } = useAcademicCalendar();
-  const { data: classes, isLoading: classesLoading } = useClasses();
+    const { data: calendar, isLoading: calendarLoading } = useAcademicCalendar();
+    const { data: classes, isLoading: classesLoading } = useClasses();
 
-  return React.useMemo(() => {
-    // Prerequisite: academic calendar must be configured
-    if (calendarLoading) return { type: "loading" };
-    if (!calendar || !calendar.periods || calendar.periods.length === 0) {
-      // Calendar not configured yet — wait (Step 1 must complete before Step 2)
-      return { type: "loading" };
-    }
+    return React.useMemo(() => {
+        // Prerequisite: academic calendar must be configured
+        if (calendarLoading) return { type: "loading" };
+        if (!calendar || !calendar.periods || calendar.periods.length === 0) {
+            // Calendar not configured yet — wait (Step 1 must complete before Step 2)
+            return { type: "loading" };
+        }
 
-    // Classes query in progress
-    if (classesLoading) return { type: "loading" };
+        // Classes query in progress
+        if (classesLoading) return { type: "loading" };
 
-    // CASE 4: Empty classes list → mount the stream generator
-    if (!classes || classes.length === 0) {
-      return { type: "setup" };
-    }
+        // CASE 4: Empty classes list → mount the stream generator
+        if (!classes || classes.length === 0) {
+            return { type: "setup" };
+        }
 
-    // CASE 5: Classes exist → collapse Step 2
-    return { type: "ready" };
-  }, [calendar, calendarLoading, classes, classesLoading]);
+        // CASE 5: Classes exist → collapse Step 2
+        return { type: "ready" };
+    }, [calendar, calendarLoading, classes, classesLoading]);
 }

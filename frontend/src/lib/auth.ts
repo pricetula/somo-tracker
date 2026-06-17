@@ -38,18 +38,18 @@ export const ROLE_COOKIE_NAME = "somo_role";
  * If a role is not listed, they get the default access from PROTECTED_PREFIXES.
  */
 export const ROLE_ROUTES: Record<string, string[]> = {
-  SYSTEM_ADMIN: ["/admin", "/dashboard", "/settings"],
-  SCHOOL_ADMIN: ["/admin", "/dashboard", "/settings"],
-  TEACHER: ["/dashboard"],
-  SUPPORT_STAFF: ["/dashboard"],
+    SYSTEM_ADMIN: ["/admin", "/dashboard", "/settings"],
+    SCHOOL_ADMIN: ["/admin", "/dashboard", "/settings"],
+    TEACHER: ["/dashboard"],
+    SUPPORT_STAFF: ["/dashboard"],
 };
 
 /**
  * Per-role first allowed route for redirecting users who hit a forbidden path.
  */
 export const ROLE_DEFAULT_ROUTES: Record<string, string> = {
-  SYSTEM_ADMIN: "/admin",
-  SCHOOL_ADMIN: "/admin",
-  TEACHER: "/",
-  SUPPORT_STAFF: "/",
+    SYSTEM_ADMIN: "/admin",
+    SCHOOL_ADMIN: "/admin",
+    TEACHER: "/",
+    SUPPORT_STAFF: "/",
 };

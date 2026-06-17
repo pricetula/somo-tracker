@@ -9,13 +9,7 @@
  * target originates from user input (query params, form data, etc.).
  */
 
-const ALLOWED_REDIRECT_PREFIXES = [
-  "/dashboard",
-  "/settings",
-  "/tenants",
-  "/register",
-  "/login",
-];
+const ALLOWED_REDIRECT_PREFIXES = ["/dashboard", "/settings", "/tenants", "/register", "/login"];
 
 /**
  * Sanitises a redirect target from user-supplied input.
@@ -23,21 +17,19 @@ const ALLOWED_REDIRECT_PREFIXES = [
  * for anything that doesn't match.
  */
 export function sanitiseRedirect(raw: string | null | undefined): string {
-  if (!raw) return "/";
+    if (!raw) return "/";
 
-  // Reject anything that looks absolute (has a protocol or starts with //)
-  if (/^https?:\/\//i.test(raw) || raw.startsWith("//")) return "/";
+    // Reject anything that looks absolute (has a protocol or starts with //)
+    if (/^https?:\/\//i.test(raw) || raw.startsWith("//")) return "/";
 
-  // Reject anything with a newline (response splitting defence)
-  if (raw.includes("\n") || raw.includes("\r")) return "/";
+    // Reject anything with a newline (response splitting defence)
+    if (raw.includes("\n") || raw.includes("\r")) return "/";
 
-  const normalised = decodeURIComponent(raw).split("?")[0];
+    const normalised = decodeURIComponent(raw).split("?")[0];
 
-  // Allow root path (dashboard) explicitly
-  if (normalised === "/") return raw;
+    // Allow root path (dashboard) explicitly
+    if (normalised === "/") return raw;
 
-  const isAllowed = ALLOWED_REDIRECT_PREFIXES.some((p) =>
-    normalised.startsWith(p),
-  );
-  return isAllowed ? raw : "/";
+    const isAllowed = ALLOWED_REDIRECT_PREFIXES.some((p) => normalised.startsWith(p));
+    return isAllowed ? raw : "/";
 }

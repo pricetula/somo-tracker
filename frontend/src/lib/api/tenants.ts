@@ -18,8 +18,6 @@ export type CreateTenantPayload = definitions["internal_tenant.CreateTenantPaylo
 export type TenantResponse = definitions["internal_tenant.Tenant"];
 
 /** Create a new tenant. Requires admin privileges. */
-export async function createTenant(
-  payload: CreateTenantPayload,
-): Promise<TenantResponse> {
-  return api.post<TenantResponse>("/tenants", payload);
+export async function createTenant(payload: CreateTenantPayload): Promise<TenantResponse> {
+    return api.post<TenantResponse>("/tenants", payload);
 }

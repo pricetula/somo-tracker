@@ -30,10 +30,10 @@ import (
 // Package-level test suite
 // ============================================================================
 
+const testEducationSystemID = "550e8400-e29b-41d4-a716-446655440009"
+
 var (
-	testSuite     *IntegrationSuite
-	suiteSetupOnce sync.Once
-	suiteErr      error
+	testSuite *IntegrationSuite
 )
 
 // IntegrationSuite holds all the shared infrastructure for integration tests.
@@ -55,15 +55,15 @@ type IntegrationSuite struct {
 	stytchServer   *httptest.Server
 
 	// Stytch mock controls — test functions set these to control behavior
-	stytchMu                  sync.Mutex
-	stytchDiscoverySendFn     func(email string) (int, any)
-	stytchDiscoveryAuthFn     func(token string) (int, any)
-	stytchCreateOrgFn         func(name string) (int, any)
-	stytchExchangeISTFn       func(ist, orgID string) (int, any)
-	stytchCreateMemberFn      func(orgID, email, name string) (int, any)
-	stytchCreateOrgCallCount  int
+	stytchMu                    sync.Mutex
+	stytchDiscoverySendFn       func(email string) (int, any)
+	stytchDiscoveryAuthFn       func(token string) (int, any)
+	stytchCreateOrgFn           func(name string) (int, any)
+	stytchExchangeISTFn         func(ist, orgID string) (int, any)
+	stytchCreateMemberFn        func(orgID, email, name string) (int, any)
+	stytchCreateOrgCallCount    int
 	stytchCreateMemberCallCount int
-	stytchExchangeISTCallCount int
+	stytchExchangeISTCallCount  int
 }
 
 // ============================================================================
@@ -114,17 +114,17 @@ func setupSuite(ctx context.Context) (*IntegrationSuite, error) {
 	// ---------- 3. Build config ----------
 	dbURL := fmt.Sprintf("postgres://somo_admin:somo_secure_password@%s/somotracker_test?sslmode=disable", pgHostPort)
 	cfg := config.Config{
-		DatabaseURL:         dbURL,
-		RedisURL:            redisAddr,
-		AppEnv:              "test",
-		Port:                "0",
-		AllowedOrigins:      "http://localhost:3000",
-		CookieDomain:        "",
-		StytchProjectID:     "test-project-id",
-		StytchSecret:        "test-secret",
-		StytchEnv:           "test",
-		StytchRedirectURL:   "http://localhost:3030/api/auth/callback",
-		StytchBaseURL:       "", // will be set after mock server starts
+		DatabaseURL:       dbURL,
+		RedisURL:          redisAddr,
+		AppEnv:            "test",
+		Port:              "0",
+		AllowedOrigins:    "http://localhost:3000",
+		CookieDomain:      "",
+		StytchProjectID:   "test-project-id",
+		StytchSecret:      "test-secret",
+		StytchEnv:         "test",
+		StytchRedirectURL: "http://localhost:3030/api/auth/callback",
+		StytchBaseURL:     "", // will be set after mock server starts
 	}
 
 	// ---------- 4. Connect to Postgres and run migrations ----------
@@ -170,16 +170,16 @@ func setupSuite(ctx context.Context) (*IntegrationSuite, error) {
 
 	// ---------- 7. Build suite ----------
 	suite := &IntegrationSuite{
-		ctx:          ctx,
-		pgContainer:  pgC,
+		ctx:            ctx,
+		pgContainer:    pgC,
 		redisContainer: redisC,
-		pgHostPort:   pgHostPort,
-		redisAddr:    redisAddr,
-		pgPool:       pool,
-		rdb:          rdb,
-		cfg:          cfg,
-		logger:       logger,
-		observedLogs: observedLogs,
+		pgHostPort:     pgHostPort,
+		redisAddr:      redisAddr,
+		pgPool:         pool,
+		rdb:            rdb,
+		cfg:            cfg,
+		logger:         logger,
+		observedLogs:   observedLogs,
 
 		// Default Stytch mock behaviors
 		stytchDiscoverySendFn: func(email string) (int, any) {
@@ -190,11 +190,11 @@ func setupSuite(ctx context.Context) (*IntegrationSuite, error) {
 		},
 		stytchDiscoveryAuthFn: func(token string) (int, any) {
 			return http.StatusOK, map[string]any{
-				"request_id":                "req-discovery-auth-ok",
-				"status_code":               200,
+				"request_id":                 "req-discovery-auth-ok",
+				"status_code":                200,
 				"intermediate_session_token": "ist_test_" + token,
-				"email_address":             "test@example.com",
-				"discovered_organizations":  []any{},
+				"email_address":              "test@example.com",
+				"discovered_organizations":   []any{},
 			}
 		},
 		stytchCreateOrgFn: func(name string) (int, any) {
@@ -211,17 +211,17 @@ func setupSuite(ctx context.Context) (*IntegrationSuite, error) {
 		},
 		stytchExchangeISTFn: func(ist, orgID string) (int, any) {
 			return http.StatusOK, map[string]any{
-				"request_id":             "req-exchange-ist-ok",
-				"status_code":            200,
-				"member_id":              "member_test_" + orgID,
-				"session_token":          "sess_test_" + ist,
-				"session_jwt":            "",
-				"member_authenticated":   true,
+				"request_id":                 "req-exchange-ist-ok",
+				"status_code":                200,
+				"member_id":                  "member_test_" + orgID,
+				"session_token":              "sess_test_" + ist,
+				"session_jwt":                "",
+				"member_authenticated":       true,
 				"intermediate_session_token": ist,
 				"member": map[string]any{
-					"member_id":   "member_test_" + orgID,
+					"member_id":     "member_test_" + orgID,
 					"email_address": "test@example.com",
-					"status":      "active",
+					"status":        "active",
 				},
 				"organization": map[string]any{
 					"organization_id": orgID,
@@ -252,7 +252,19 @@ func setupSuite(ctx context.Context) (*IntegrationSuite, error) {
 	// Update config with the mock server URL
 	suite.cfg.StytchBaseURL = suite.stytchURL
 
-	// ---------- 9. Build Service and Handler ----------
+	// ---------- 9. Seed reference data ----------
+	seedCtx := context.Background()
+	_, err = pool.Exec(seedCtx, `
+		INSERT INTO education_systems (id, name, country_code)
+		VALUES ($1, 'Kenya CBC', 'KE')
+		ON CONFLICT DO NOTHING
+	`, testEducationSystemID)
+	if err != nil {
+		suite.cleanup()
+		return nil, fmt.Errorf("seed education system: %w", err)
+	}
+
+	// ---------- 10. Build Service and Handler ----------
 	repo := &SqlcRepository{
 		pool:   pool,
 		logger: logger,
@@ -544,11 +556,11 @@ func (s *IntegrationSuite) resetStytchHandlers() {
 	}
 	s.stytchDiscoveryAuthFn = func(token string) (int, any) {
 		return http.StatusOK, map[string]any{
-			"request_id":                  "req-discovery-auth-ok",
-			"status_code":                 200,
-			"intermediate_session_token":  "ist_test_" + token,
-			"email_address":               "test@example.com",
-			"discovered_organizations":    []any{},
+			"request_id":                 "req-discovery-auth-ok",
+			"status_code":                200,
+			"intermediate_session_token": "ist_test_" + token,
+			"email_address":              "test@example.com",
+			"discovered_organizations":   []any{},
 		}
 	}
 	s.stytchCreateOrgFn = func(name string) (int, any) {
@@ -565,11 +577,11 @@ func (s *IntegrationSuite) resetStytchHandlers() {
 	}
 	s.stytchExchangeISTFn = func(ist, orgID string) (int, any) {
 		return http.StatusOK, map[string]any{
-			"request_id":                "req-exchange-ist-ok",
-			"status_code":               200,
-			"member_id":                 "member_test_" + orgID,
-			"session_token":             "sess_test_" + ist,
-			"member_authenticated":      true,
+			"request_id":                 "req-exchange-ist-ok",
+			"status_code":                200,
+			"member_id":                  "member_test_" + orgID,
+			"session_token":              "sess_test_" + ist,
+			"member_authenticated":       true,
 			"intermediate_session_token": ist,
 			"member": map[string]any{
 				"member_id":     "member_test_" + orgID,
@@ -659,12 +671,20 @@ func (s *IntegrationSuite) cleanup() {
 // Test helpers
 // ============================================================================
 
-// freshDB cleans the sessions, users, and tenants tables between test cases.
+// freshDB cleans all core tables between test cases.
+// Order matters due to foreign key constraints.
+// Does NOT delete education_systems (reference data).
 func (s *IntegrationSuite) freshDB(t *testing.T) {
 	t.Helper()
 	ctx := context.Background()
 	if _, err := s.pgPool.Exec(ctx, "DELETE FROM sessions"); err != nil {
 		t.Fatalf("clean sessions: %v", err)
+	}
+	if _, err := s.pgPool.Exec(ctx, "DELETE FROM memberships"); err != nil {
+		t.Fatalf("clean memberships: %v", err)
+	}
+	if _, err := s.pgPool.Exec(ctx, "DELETE FROM schools"); err != nil {
+		t.Fatalf("clean schools: %v", err)
 	}
 	if _, err := s.pgPool.Exec(ctx, "DELETE FROM users"); err != nil {
 		t.Fatalf("clean users: %v", err)

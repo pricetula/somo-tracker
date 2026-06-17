@@ -113,9 +113,10 @@ type MockRepository struct {
 	createSchoolFn            func(ctx context.Context, tenantID string, name string, educationSystemID string) (string, error)
 	createMembershipFn        func(ctx context.Context, userID, schoolID, tenantID, role string) error
 	getUserHighestRoleFn      func(ctx context.Context, userID string) (string, error)
+	getMeInfoFn               func(ctx context.Context, token string) (*MeInfo, error)
 
-	sessions     map[string]*UserSession
-	memberships  map[string]string // userID -> role
+	sessions    map[string]*UserSession
+	memberships map[string]string // userID -> role
 }
 
 func NewMockRepository() *MockRepository {
@@ -253,6 +254,31 @@ func (m *MockRepository) CreateMembership(ctx context.Context, userID, schoolID,
 	}
 	m.memberships[userID] = role
 	return nil
+}
+
+func (m *MockRepository) GetMeInfo(ctx context.Context, token string) (*MeInfo, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if m.getMeInfoFn != nil {
+		return m.getMeInfoFn(ctx, token)
+	}
+	if s, ok := m.sessions[token]; ok {
+		role := "TEACHER"
+		if r, ok2 := m.memberships[s.UserID]; ok2 {
+			role = r
+		}
+		return &MeInfo{
+			UserID:     s.UserID,
+			TenantID:   s.TenantID,
+			Role:       role,
+			SchoolID:   "school_" + s.TenantID,
+			SchoolName: "Test School",
+			FirstName:  "Test",
+			LastName:   "User",
+			Email:      "test@example.com",
+		}, nil
+	}
+	return nil, ErrNotFound
 }
 
 func (m *MockRepository) GetUserHighestRole(ctx context.Context, userID string) (string, error) {

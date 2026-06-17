@@ -381,6 +381,66 @@ func (r *SqlcRepository) CreateMembership(ctx context.Context, userID, schoolID,
 	return nil
 }
 
+// GetMeInfo returns the full profile info for /me: user details, role,
+// and the active school.
+func (r *SqlcRepository) GetMeInfo(ctx context.Context, token string) (*MeInfo, error) {
+	const query = `
+		SELECT
+			s.user_id,
+			s.tenant_id,
+			COALESCE(m.role::text, 'TEACHER') as role,
+			u.first_name,
+			u.last_name,
+			u.email,
+			sch.id as school_id,
+			sch.name as school_name
+		FROM sessions s
+		JOIN users u ON u.id = s.user_id
+		LEFT JOIN LATERAL (
+			SELECT role, school_id FROM memberships
+			WHERE user_id = s.user_id AND is_active = true
+			ORDER BY
+				CASE role
+					WHEN 'SYSTEM_ADMIN' THEN 1
+					WHEN 'SCHOOL_ADMIN' THEN 2
+					WHEN 'TEACHER' THEN 3
+					WHEN 'SUPPORT_STAFF' THEN 4
+				END
+			LIMIT 1
+		) m ON true
+		LEFT JOIN schools sch ON sch.id = m.school_id
+		WHERE s.token = $1 AND s.expires_at > NOW()
+	`
+
+	var info MeInfo
+	var schoolID, schoolName *string
+	err := r.pool.QueryRow(ctx, query, token).Scan(
+		&info.UserID,
+		&info.TenantID,
+		&info.Role,
+		&info.FirstName,
+		&info.LastName,
+		&info.Email,
+		&schoolID,
+		&schoolName,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("%w: session not found", ErrNotFound)
+		}
+		return nil, fmt.Errorf("%w: get me info: %v", ErrInternal, err)
+	}
+
+	if schoolID != nil {
+		info.SchoolID = *schoolID
+	}
+	if schoolName != nil {
+		info.SchoolName = *schoolName
+	}
+
+	return &info, nil
+}
+
 // GetUserHighestRole returns the highest (most privileged) role for a user
 // across all their active memberships.
 func (r *SqlcRepository) GetUserHighestRole(ctx context.Context, userID string) (string, error) {

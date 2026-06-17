@@ -20,9 +20,9 @@ import (
 // ============================================================================
 
 const (
-	somoCookieName    = "somo_sid"
+	somoCookieName     = "somo_sid"
 	somoRoleCookieName = "somo_role"
-	cookieMaxAge      = 2592000 // 30 days in seconds
+	cookieMaxAge       = 2592000 // 30 days in seconds
 )
 
 // ErrorBody is the JSON response body for error responses (requirement 14).
@@ -43,8 +43,14 @@ type VerifyResponse struct {
 
 // MeResponse is the response body for GET /api/auth/me.
 type MeResponse struct {
-	UserID   string `json:"user_id"`
-	TenantID string `json:"tenant_id"`
+	UserID     string `json:"user_id"`
+	TenantID   string `json:"tenant_id"`
+	Role       string `json:"role"`
+	SchoolID   string `json:"school_id,omitempty"`
+	SchoolName string `json:"school_name,omitempty"`
+	FirstName  string `json:"first_name,omitempty"`
+	LastName   string `json:"last_name,omitempty"`
+	Email      string `json:"email,omitempty"`
 }
 
 // Handler exposes auth HTTP endpoints.
@@ -279,7 +285,7 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 // Me handles GET /api/auth/me (requirement 6).
 //
 // @Summary      Get current session
-// @Description  Returns the authenticated user's ID and tenant ID from the session cookie.
+// @Description  Returns the authenticated user's profile including role, school, and name.
 // @Tags         Auth
 // @Accept       json
 // @Produce      json
@@ -296,15 +302,21 @@ func (h *Handler) Me(c *fiber.Ctx) error {
 		})
 	}
 
-	session, err := h.svc.GetSession(c.Context(), token)
+	info, err := h.svc.GetMe(c.Context(), token)
 	if err != nil {
 		status, body := h.mapError(err)
 		return c.Status(status).JSON(body)
 	}
 
 	return c.JSON(fiber.Map{
-		"user_id":   session.UserID,
-		"tenant_id": session.TenantID,
+		"user_id":     info.UserID,
+		"tenant_id":   info.TenantID,
+		"role":        info.Role,
+		"school_id":   info.SchoolID,
+		"school_name": info.SchoolName,
+		"first_name":  info.FirstName,
+		"last_name":   info.LastName,
+		"email":       info.Email,
 	})
 }
 

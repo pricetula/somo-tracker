@@ -14,15 +14,15 @@ import (
 // ============================================================================
 
 var (
-	ErrInvalidInput           = errors.New("invalid_input")
-	ErrExpiredToken           = errors.New("expired_token")
-	ErrMFARequired            = errors.New("mfa_required")
-	ErrOrgAlreadyExists       = errors.New("org_already_exists")
+	ErrInvalidInput              = errors.New("invalid_input")
+	ErrExpiredToken              = errors.New("expired_token")
+	ErrMFARequired               = errors.New("mfa_required")
+	ErrOrgAlreadyExists          = errors.New("org_already_exists")
 	ErrJITProvisioningNotAllowed = errors.New("jit_provisioning_not_allowed")
-	ErrMemberNotFound         = errors.New("member_not_found")
-	ErrOrgNotFound            = errors.New("org_not_found")
-	ErrNotFound               = errors.New("not_found")
-	ErrInternal               = errors.New("internal_error")
+	ErrMemberNotFound            = errors.New("member_not_found")
+	ErrOrgNotFound               = errors.New("org_not_found")
+	ErrNotFound                  = errors.New("not_found")
+	ErrInternal                  = errors.New("internal_error")
 )
 
 // ValidationError carries a user-facing message alongside the sentinel.
@@ -231,6 +231,22 @@ type Repository interface {
 	// GetUserHighestRole returns the highest (most privileged) role for a user
 	// across all their active memberships.
 	GetUserHighestRole(ctx context.Context, userID string) (string, error)
+
+	// GetMeInfo returns the full profile info for /me: user details, role,
+	// and the active school.
+	GetMeInfo(ctx context.Context, token string) (*MeInfo, error)
+}
+
+// MeInfo is the result of GetMeInfo.
+type MeInfo struct {
+	UserID     string
+	TenantID   string
+	Role       string
+	SchoolID   string
+	SchoolName string
+	FirstName  string
+	LastName   string
+	Email      string
 }
 
 // StytchOrgIDKey is the context key used to pass the stytch_org_id through

@@ -22,7 +22,7 @@ import (
 // ============================================================================
 
 const (
-	istTTL        = 10 * time.Minute   // Redis TTL for IST cache (requirement 2)
+	istTTL        = 10 * time.Minute    // Redis TTL for IST cache (requirement 2)
 	sessionTTL    = 30 * 24 * time.Hour // 30-day Redis TTL for session token (requirement 4)
 	istKeyPrefix  = "ist:"              // key pattern: "ist:{env}:{uuid}"
 	sessionPrefix = "session:"          // key pattern: "session:{token}"
@@ -30,11 +30,11 @@ const (
 
 // Service holds business logic dependencies.
 type Service struct {
-	idp      IdentityProvider
-	repo     Repository
-	rdb      *redis.Client
-	logger   *zap.Logger
-	cfg      config.Config
+	idp    IdentityProvider
+	repo   Repository
+	rdb    *redis.Client
+	logger *zap.Logger
+	cfg    config.Config
 }
 
 // NewService creates a new Service with fx lifecycle hooks for Redis.
@@ -346,6 +346,33 @@ func (s *Service) Register(ctx context.Context, sessionRef string, payload Regis
 	)
 
 	return sessionToken, role, nil
+}
+
+// GetMe returns the full profile info for the authenticated user.
+func (s *Service) GetMe(ctx context.Context, token string) (*MeInfo, error) {
+	if token == "" {
+		return nil, ErrExpiredToken
+	}
+
+	// Check Redis first (fast path)
+	exists, err := s.rdb.Exists(ctx, s.sessionKey(token)).Result()
+	if err != nil {
+		return nil, fmt.Errorf("%w: check session in cache: %v", ErrInternal, err)
+	}
+	if exists == 0 {
+		return nil, ErrExpiredToken
+	}
+
+	info, err := s.repo.GetMeInfo(ctx, token)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			_ = s.rdb.Del(ctx, s.sessionKey(token)).Err()
+			return nil, ErrExpiredToken
+		}
+		return nil, err
+	}
+
+	return info, nil
 }
 
 // GetSession validates a session token and returns the user session.

@@ -26,6 +26,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	schools := router.Group("/api/v1/schools")
 
 	schools.Get("/classes", h.requireAuth, h.ListClasses)
+	schools.Get("/classes/grades", h.requireAuth, h.ListGrades)
 	schools.Post("/classes/generate", h.requireAuth, h.GenerateClasses)
 }
 
@@ -53,7 +54,7 @@ func (h *Handler) requireAuth(c *fiber.Ctx) error {
 }
 
 // ListClasses handles GET /api/v1/schools/classes.
-// Returns all active classes for the authenticated school's current academic year.
+// Supports optional query params: grade_ids (comma-separated), search, is_active.
 func (h *Handler) ListClasses(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
 	userID := c.Locals("user_id").(string)
@@ -66,7 +67,21 @@ func (h *Handler) ListClasses(c *fiber.Ctx) error {
 		})
 	}
 
-	classes, err := h.svc.ListClasses(c.Context(), schoolID, tenantID)
+	// Parse filter params
+	params := ListClassesParams{
+		Search: c.Query("search", ""),
+	}
+
+	if gradeIDs := c.Query("grade_ids", ""); gradeIDs != "" {
+		params.GradeIDs = splitAndTrim(gradeIDs, ",")
+	}
+
+	if isActiveStr := c.Query("is_active", ""); isActiveStr != "" {
+		isActive := isActiveStr == "true"
+		params.IsActive = &isActive
+	}
+
+	classes, err := h.svc.ListClasses(c.Context(), schoolID, tenantID, params)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorBody{
 			Error:   "internal_error",
@@ -75,6 +90,31 @@ func (h *Handler) ListClasses(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(classes)
+}
+
+// ListGrades handles GET /api/v1/schools/classes/grades.
+// Returns all grade records for the school's education system.
+func (h *Handler) ListGrades(c *fiber.Ctx) error {
+	tenantID := c.Locals("tenant_id").(string)
+	userID := c.Locals("user_id").(string)
+
+	schoolID, err := h.svc.ResolveSchoolID(c.Context(), tenantID, userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorBody{
+			Error:   "internal_error",
+			Message: "failed to resolve school: " + err.Error(),
+		})
+	}
+
+	grades, err := h.svc.ListGrades(c.Context(), schoolID, tenantID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorBody{
+			Error:   "internal_error",
+			Message: err.Error(),
+		})
+	}
+
+	return c.JSON(grades)
 }
 
 // GenerateClasses handles POST /api/v1/schools/classes/generate.
@@ -129,6 +169,41 @@ func (h *Handler) GenerateClasses(c *fiber.Ctx) error {
 }
 
 // Module is an fx-compatible module for the classes domain.
+// splitAndTrim splits a string by a separator and trims whitespace from each element.
+func splitAndTrim(s, sep string) []string {
+	if s == "" {
+		return nil
+	}
+	var result []string
+	start := 0
+	for i := 0; i < len(s); i++ {
+		if string(s[i]) == sep {
+			part := trimSpace(s[start:i])
+			if part != "" {
+				result = append(result, part)
+			}
+			start = i + 1
+		}
+	}
+	part := trimSpace(s[start:])
+	if part != "" {
+		result = append(result, part)
+	}
+	return result
+}
+
+// trimSpace strips leading and trailing whitespace from a string.
+func trimSpace(s string) string {
+	start, end := 0, len(s)
+	for start < end && (s[start] == ' ' || s[start] == '\t' || s[start] == '\n' || s[start] == '\r') {
+		start++
+	}
+	for end > start && (s[end-1] == ' ' || s[end-1] == '\t' || s[end-1] == '\n' || s[end-1] == '\r') {
+		end--
+	}
+	return s[start:end]
+}
+
 var Module = fx.Module("classes",
 	fx.Provide(
 		NewRepository,

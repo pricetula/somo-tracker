@@ -14,6 +14,20 @@ export interface ClassItem {
     created_at?: string;
 }
 
+/** A grade record from the backend. */
+export interface Grade {
+    id: string;
+    name: string;
+    sequence_order: number;
+}
+
+/** Params for listing classes with filters. */
+export interface ClassListParams {
+    grade_ids?: string[];
+    search?: string;
+    is_active?: boolean;
+}
+
 /** Payload sent to POST /api/v1/schools/classes/generate. */
 export interface GeneratePayload {
     streams: string[];

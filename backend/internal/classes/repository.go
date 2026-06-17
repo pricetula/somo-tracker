@@ -48,8 +48,8 @@ func (r *Repository) GetPrimarySchoolID(ctx context.Context, tenantID, userID st
 
 // GetCurrentAcademicYear returns the current academic year for a school.
 type academicYearInfo struct {
-	ID                 string
-	EducationSystemID  string
+	ID                string
+	EducationSystemID string
 }
 
 func (r *Repository) GetCurrentAcademicYear(ctx context.Context, schoolID, tenantID string) (*academicYearInfo, error) {
@@ -109,17 +109,42 @@ func (r *Repository) GetSchoolGrades(ctx context.Context, schoolID, tenantID str
 	return grades, nil
 }
 
-// ListClasses returns all active classes for the school's current academic year.
-func (r *Repository) ListClasses(ctx context.Context, schoolID, tenantID string) ([]Class, error) {
-	const query = `
+// ListClasses returns filtered classes for the school's current academic year.
+func (r *Repository) ListClasses(ctx context.Context, schoolID, tenantID string, params ListClassesParams) ([]Class, error) {
+	query := `
 		SELECT c.id, c.tenant_id, c.school_id, c.academic_year_id,
 		       c.education_system_id, c.grade_id, c.name, c.stream, c.is_active
 		FROM classes c
 		JOIN academic_years ay ON ay.id = c.academic_year_id
 		WHERE c.school_id = $1 AND c.tenant_id = $2 AND ay.is_current = true
-		ORDER BY c.name ASC
 	`
-	rows, err := r.pool.Query(ctx, query, schoolID, tenantID)
+	args := []any{schoolID, tenantID}
+	argIdx := 3
+
+	if len(params.GradeIDs) > 0 {
+		placeholders := make([]string, 0, len(params.GradeIDs))
+		for _, gid := range params.GradeIDs {
+			placeholders = append(placeholders, fmt.Sprintf("$%d", argIdx))
+			args = append(args, gid)
+			argIdx++
+		}
+		query += fmt.Sprintf(" AND c.grade_id IN (%s)", joinStrings(placeholders, ", "))
+	}
+
+	if params.Search != "" {
+		query += fmt.Sprintf(" AND c.name ILIKE $%d", argIdx)
+		args = append(args, "%"+params.Search+"%")
+		argIdx++
+	}
+
+	if params.IsActive != nil {
+		query += fmt.Sprintf(" AND c.is_active = $%d", argIdx)
+		args = append(args, *params.IsActive)
+	}
+
+	query += ` ORDER BY c.name ASC`
+
+	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list classes: %w", err)
 	}
@@ -146,6 +171,32 @@ func (r *Repository) ListClasses(ctx context.Context, schoolID, tenantID string)
 // BeginTx starts a transaction.
 func (r *Repository) BeginTx(ctx context.Context) (pgx.Tx, error) {
 	return r.pool.Begin(ctx)
+}
+
+// ListGrades returns all grades for the school's education system.
+func (r *Repository) ListGrades(ctx context.Context, schoolID, tenantID string) ([]GradeInfo, error) {
+	const query = `
+		SELECT g.id, g.name, g.sequence_order
+		FROM grades g
+		JOIN schools s ON s.education_system_id = g.education_system_id
+		WHERE s.id = $1 AND s.tenant_id = $2
+		ORDER BY g.sequence_order ASC
+	`
+	rows, err := r.pool.Query(ctx, query, schoolID, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("list grades: %w", err)
+	}
+	defer rows.Close()
+
+	var grades []GradeInfo
+	for rows.Next() {
+		var g GradeInfo
+		if err := rows.Scan(&g.ID, &g.Name, &g.SequenceOrder); err != nil {
+			return nil, fmt.Errorf("scan grade: %w", err)
+		}
+		grades = append(grades, g)
+	}
+	return grades, nil
 }
 
 // BulkInsertClasses inserts all generated class records in a single batch.
@@ -199,4 +250,16 @@ func (r *Repository) BulkInsertClasses(
 	}
 
 	return inserted, nil
+}
+
+// joinStrings joins string slices with a separator (replaces strings.Join for clarity in SQL building).
+func joinStrings(elems []string, sep string) string {
+	if len(elems) == 0 {
+		return ""
+	}
+	result := elems[0]
+	for _, e := range elems[1:] {
+		result += sep + e
+	}
+	return result
 }

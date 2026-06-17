@@ -25,9 +25,14 @@ func (s *Service) ResolveSchoolID(ctx context.Context, tenantID, userID string) 
 	return schoolID, nil
 }
 
-// ListClasses returns all active classes for the school's current academic year.
-func (s *Service) ListClasses(ctx context.Context, schoolID, tenantID string) ([]Class, error) {
-	return s.repo.ListClasses(ctx, schoolID, tenantID)
+// ListClasses returns filtered classes for the school's current academic year.
+func (s *Service) ListClasses(ctx context.Context, schoolID, tenantID string, params ListClassesParams) ([]Class, error) {
+	return s.repo.ListClasses(ctx, schoolID, tenantID, params)
+}
+
+// ListGrades returns all grades for the school's education system.
+func (s *Service) ListGrades(ctx context.Context, schoolID, tenantID string) ([]GradeInfo, error) {
+	return s.repo.ListGrades(ctx, schoolID, tenantID)
 }
 
 // GenerateClasses cross-multiplies streams with the school's CBE grade levels,

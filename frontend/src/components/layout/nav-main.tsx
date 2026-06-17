@@ -50,6 +50,7 @@ function buildNavItems(role: string): NavItem[] {
                     { title: "Teachers", url: "/admins/teachers" },
                     { title: "Staff", url: "/admins/staff" },
                     { title: "Students", url: "/admins/students" },
+                    { title: "Classes", url: "/classes" },
                 ],
             },
             {

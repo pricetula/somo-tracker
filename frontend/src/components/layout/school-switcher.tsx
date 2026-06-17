@@ -66,7 +66,7 @@ export function SchoolSwitcher({
                         </SidebarMenuButton>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent
-                        className="w-fit min-w-[200px]"
+                        className="w-fit min-w-50"
                         align="start"
                         side={isMobile ? "bottom" : "right"}
                         sideOffset={4}

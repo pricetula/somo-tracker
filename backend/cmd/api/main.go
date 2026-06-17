@@ -30,12 +30,13 @@ import (
 	"go.uber.org/zap"
 
 	"somotracker/backend/internal/academiccalendar"
-	"somotracker/backend/internal/classes"
 	"somotracker/backend/internal/auth"
+	"somotracker/backend/internal/classes"
 	"somotracker/backend/internal/config"
 	"somotracker/backend/internal/database"
 	"somotracker/backend/internal/educationsystem"
 	"somotracker/backend/internal/middleware"
+	"somotracker/backend/internal/school"
 	"somotracker/backend/internal/tenant"
 	"somotracker/backend/internal/utils"
 
@@ -51,6 +52,7 @@ func main() {
 		tenant.Module,
 		auth.Module,
 		educationsystem.Module,
+		school.Module,
 		academiccalendar.Module,
 		classes.Module,
 
@@ -99,6 +101,7 @@ func registerApp(
 	tenantHandler *tenant.Handler,
 	authHandler *auth.Handler,
 	educationSystemHandler *educationsystem.Handler,
+	schoolHandler *school.Handler,
 	academicCalendarHandler *academiccalendar.Handler,
 	classesHandler *classes.Handler,
 ) {
@@ -138,6 +141,7 @@ func registerApp(
 			tenantHandler.RegisterRoutes(app)
 			authHandler.RegisterRoutes(app)
 			educationSystemHandler.RegisterRoutes(app)
+			schoolHandler.RegisterRoutes(app)
 			academicCalendarHandler.RegisterRoutes(app)
 			classesHandler.RegisterRoutes(app)
 

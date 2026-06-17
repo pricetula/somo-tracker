@@ -65,6 +65,38 @@ type InviteErrorItem struct {
 	Error string `json:"error"`
 }
 
+// ─── Invitation HTTP types ──────────────────────────────────────────────
+
+// ListInvitationsFilter defines filters for listing invitations.
+type ListInvitationsFilter struct {
+	Search  string
+	Email   string
+	Status  string
+	Role    string
+	Expired bool
+	Offset  int
+	Limit   int
+}
+
+// ListInvitationsResponse wraps a paginated invitation list.
+type ListInvitationsResponse struct {
+	Invitations []Invitation `json:"invitations"`
+	Total       int          `json:"total"`
+}
+
+// CreateInvitationsRequest is the request body for POST /api/v1/invitations.
+type CreateInvitationsRequest struct {
+	Invites []CreateInviteItem `json:"invites"`
+}
+
+// CreateInviteItem is a single invite entry for the new endpoint.
+type CreateInviteItem struct {
+	Email     string `json:"email"`
+	FirstName string `json:"first_name,omitempty"`
+	LastName  string `json:"last_name,omitempty"`
+	Role      string `json:"role"`
+}
+
 // ErrorBody is the JSON error response body.
 type ErrorBody struct {
 	Error   string `json:"error"`

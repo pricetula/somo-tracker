@@ -23,11 +23,15 @@ func NewHandler(svc *Service, authSvc *auth.Service, repo *Repository) *Handler 
 	return &Handler{svc: svc, authSvc: authSvc, repo: repo}
 }
 
-// RegisterRoutes mounts member routes on the given router.
+// RegisterRoutes mounts member and invitation routes on the given router.
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	members := router.Group("/api/v1/members")
 	members.Get("/", h.requireAuth, h.List)
 	members.Post("/invite", h.requireAuth, h.BulkInvite)
+
+	invitations := router.Group("/api/v1/invitations")
+	invitations.Get("/", h.requireAuth, h.ListInvitations)
+	invitations.Post("/", h.requireAuth, h.CreateInvitations)
 }
 
 // ─── Auth middleware ───────────────────────────────────────────────────────
@@ -187,6 +191,128 @@ func (h *Handler) BulkInvite(c *fiber.Ctx) error {
 	}
 
 	result, err := h.svc.BulkInvite(c.Context(), tenantID, schoolID, req)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorBody{
+			Error:   "internal_error",
+			Message: err.Error(),
+		})
+	}
+
+	return c.JSON(result)
+}
+
+// ─── Invitation Handlers ────────────────────────────────────────────────────
+
+// ListInvitations handles GET /api/v1/invitations
+//
+// @Summary      List invitations
+// @Description  Returns paginated invitations with optional filters.
+// @Tags         Invitations
+// @Produce      json
+// @Param        search    query  string  false  "Search by name"
+// @Param        email     query  string  false  "Filter by email"
+// @Param        status    query  string  false  "Filter by status (pending, accepted, expired, revoked)"
+// @Param        role      query  string  false  "Filter by role (TEACHER, SCHOOL_ADMIN, SUPPORT_STAFF)"
+// @Param        expired   query  bool    false  "Include expired invitations (default: false)"
+// @Param        page      query  int     false  "Page number (1-indexed)"
+// @Param        per_page  query  int     false  "Items per page (max 100)"
+// @Success      200  {object}  ListInvitationsResponse
+// @Failure      400  {object}  ErrorBody  "Invalid input"
+// @Failure      401  {object}  ErrorBody  "Unauthorized"
+// @Failure      500  {object}  ErrorBody  "Internal error"
+// @Router       /api/v1/invitations [get]
+func (h *Handler) ListInvitations(c *fiber.Ctx) error {
+	tenantID := c.Locals("tenant_id").(string)
+	userID := c.Locals("user_id").(string)
+
+	page, _ := strconv.Atoi(c.Query("page", "1"))
+	perPage, _ := strconv.Atoi(c.Query("per_page", "50"))
+	search := strings.TrimSpace(c.Query("search", ""))
+	email := strings.TrimSpace(c.Query("email", ""))
+	status := strings.TrimSpace(c.Query("status", ""))
+	role := strings.TrimSpace(c.Query("role", ""))
+	expired := strings.ToLower(c.Query("expired", "false")) == "true"
+
+	if page < 1 {
+		page = 1
+	}
+	if perPage < 1 || perPage > 100 {
+		perPage = 50
+	}
+
+	offset := (page - 1) * perPage
+
+	schoolID, err := h.resolveActiveSchool(c, tenantID, userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorBody{
+			Error:   "internal_error",
+			Message: "failed to resolve active school: " + err.Error(),
+		})
+	}
+
+	invitations, total, err := h.svc.ListInvitations(c.Context(), tenantID, schoolID, ListInvitationsFilter{
+		Search:  search,
+		Email:   email,
+		Status:  status,
+		Role:    role,
+		Expired: expired,
+		Offset:  offset,
+		Limit:   perPage,
+	})
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorBody{
+			Error:   "internal_error",
+			Message: err.Error(),
+		})
+	}
+
+	return c.JSON(ListInvitationsResponse{
+		Invitations: invitations,
+		Total:       total,
+	})
+}
+
+// CreateInvitations handles POST /api/v1/invitations
+//
+// @Summary      Create invitations
+// @Description  Creates new invitation records. This is the new endpoint that accepts per-invite roles.
+// @Tags         Invitations
+// @Accept       json
+// @Produce      json
+// @Param        body  body  CreateInvitationsRequest  true  "Invitations payload"
+// @Success      200  {object}  BulkInviteResponse
+// @Failure      400  {object}  ErrorBody  "Invalid input"
+// @Failure      401  {object}  ErrorBody  "Unauthorized"
+// @Failure      500  {object}  ErrorBody  "Internal error"
+// @Router       /api/v1/invitations [post]
+func (h *Handler) CreateInvitations(c *fiber.Ctx) error {
+	tenantID := c.Locals("tenant_id").(string)
+	userID := c.Locals("user_id").(string)
+
+	var req CreateInvitationsRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorBody{
+			Error:   "invalid_input",
+			Message: "invalid request body",
+		})
+	}
+
+	if len(req.Invites) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorBody{
+			Error:   "invalid_input",
+			Message: "at least one invite is required",
+		})
+	}
+
+	schoolID, err := h.resolveActiveSchool(c, tenantID, userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorBody{
+			Error:   "internal_error",
+			Message: "failed to resolve active school: " + err.Error(),
+		})
+	}
+
+	result, err := h.svc.CreateInvitations(c.Context(), tenantID, schoolID, userID, req)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorBody{
 			Error:   "internal_error",

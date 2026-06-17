@@ -115,7 +115,7 @@ func (s *Service) BulkInvite(ctx context.Context, tenantID, schoolID string, req
 			CreatedAt: now,
 		}
 
-		if err := s.repo.CreateInvitation(ctx, inv); err != nil {
+		if err := s.repo.CreateInvitation(ctx, inv, ""); err != nil {
 			resp.Failed++
 			resp.Errors = append(resp.Errors, InviteErrorItem{
 				Email: item.Email,
@@ -150,6 +150,114 @@ func (s *Service) BulkInvite(ctx context.Context, tenantID, schoolID string, req
 				zap.String("invitation_id", inv.ID),
 				zap.Error(err),
 			)
+		}
+
+		resp.Sent++
+	}
+
+	return resp, nil
+}
+
+// ListInvitations returns paginated invitations with optional filters.
+func (s *Service) ListInvitations(ctx context.Context, tenantID, schoolID string, filter ListInvitationsFilter) ([]Invitation, int, error) {
+	if filter.Limit <= 0 || filter.Limit > 100 {
+		filter.Limit = 50
+	}
+	if filter.Offset < 0 {
+		filter.Offset = 0
+	}
+	return s.repo.ListInvitations(ctx, tenantID, schoolID, filter)
+}
+
+// CreateInvitations creates new invitation records with per-invite roles.
+func (s *Service) CreateInvitations(ctx context.Context, tenantID, schoolID, invitedBy string, req CreateInvitationsRequest) (*BulkInviteResponse, error) {
+	if len(req.Invites) == 0 {
+		return nil, fmt.Errorf("at least one invite is required")
+	}
+
+	resp := &BulkInviteResponse{}
+
+	for _, item := range req.Invites {
+		if item.Email == "" {
+			resp.Failed++
+			resp.Errors = append(resp.Errors, InviteErrorItem{
+				Email: item.Email,
+				Error: "email is required",
+			})
+			continue
+		}
+
+		// Validate role
+		if item.Role != "TEACHER" && item.Role != "SUPPORT_STAFF" && item.Role != "SCHOOL_ADMIN" {
+			resp.Failed++
+			resp.Errors = append(resp.Errors, InviteErrorItem{
+				Email: item.Email,
+				Error: "invalid role: must be TEACHER, SUPPORT_STAFF, or SCHOOL_ADMIN",
+			})
+			continue
+		}
+
+		// Check if user is already a member
+		existing, err := s.repo.GetMemberByEmail(ctx, schoolID, item.Email)
+		if err != nil {
+			resp.Failed++
+			resp.Errors = append(resp.Errors, InviteErrorItem{
+				Email: item.Email,
+				Error: "internal error checking existing membership",
+			})
+			continue
+		}
+		if existing != nil {
+			resp.Failed++
+			resp.Errors = append(resp.Errors, InviteErrorItem{
+				Email: item.Email,
+				Error: "user is already a member of this school",
+			})
+			continue
+		}
+
+		// Check for existing pending invite
+		pending, err := s.repo.GetPendingInviteByEmail(ctx, schoolID, item.Email)
+		if err != nil {
+			resp.Failed++
+			resp.Errors = append(resp.Errors, InviteErrorItem{
+				Email: item.Email,
+				Error: "internal error checking existing invitation",
+			})
+			continue
+		}
+		if pending != nil {
+			resp.Failed++
+			resp.Errors = append(resp.Errors, InviteErrorItem{
+				Email: item.Email,
+				Error: "pending invitation already exists for this email",
+			})
+			continue
+		}
+
+		// Create invitation record
+		now := time.Now().UTC()
+
+		inv := &Invitation{
+			ID:        newID(),
+			SchoolID:  schoolID,
+			TenantID:  tenantID,
+			Email:     item.Email,
+			Role:      item.Role,
+			Status:    "pending",
+			FirstName: strPtr(item.FirstName),
+			LastName:  strPtr(item.LastName),
+			ExpiresAt: now.Add(invitationTTL),
+			CreatedAt: now,
+		}
+
+		if err := s.repo.CreateInvitation(ctx, inv, invitedBy); err != nil {
+			resp.Failed++
+			resp.Errors = append(resp.Errors, InviteErrorItem{
+				Email: item.Email,
+				Error: "failed to create invitation",
+			})
+			continue
 		}
 
 		resp.Sent++

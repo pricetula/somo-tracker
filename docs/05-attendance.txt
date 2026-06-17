@@ -1,0 +1,375 @@
+SOMOTRACKER — CBC TIMETABLE & ATTENDANCE UI/UX BUILD BRIEF
+============================================================
+Scope: CBC curriculum track only. Three surfaces:
+  1. Timetable builder — Class Detail page
+  2. Attendance recording — Class Detail page
+  3. "My Attendance" — Teacher Dashboard page
+
+This is a behavior and interaction spec, not a visual mockup. Build against
+it directly. Where a rule maps to a specific schema constraint, the
+constraint is named so you don't accidentally relax something the database
+already enforces (or duplicate validation that should live server-side).
+
+------------------------------------------------------------------------
+0. GLOBAL STYLE DIRECTION (applies to all three surfaces)
+------------------------------------------------------------------------
+Tone: calm administrative tool, not a consumer app. Teachers use this
+between classes on phones with patchy connectivity as often as on desktop
+admin machines. Optimize for thumb reach and large tap targets over density.
+
+Visual language:
+- Flat surfaces, no gradients or drop shadows except a single subtle
+  elevation shadow on modals/sheets.
+- One accent color per curriculum track across the whole product (CBC =
+  teal, IGCSE = purple, IB = coral, or similar) so a teacher who teaches
+  across grades never confuses which track a screen belongs to. CBC = teal
+  throughout this brief.
+- Status colors are semantic and used nowhere else: green = present/
+  complete, red = absent/conflict, amber = late/pending, gray = excused/
+  not-yet-due/inactive.
+- Typography: one sans-serif family, two weights only (regular, medium).
+  Sentence case everywhere, no ALL CAPS, no title case in buttons or
+  headers.
+- Border radius: medium (8px) for inputs and chips, large (12px) for
+  cards and sheets.
+- Every destructive or schema-irreversible action (deleting a timetable
+  slot that has attendance history attached, editing a submitted
+  attendance log) requires a confirm step. Routine actions (marking
+  present, adding a new empty slot) never do.
+- Loading states: skeleton placeholders matching final layout shape, not
+  spinners, for anything that takes over 300ms (grid loads, dashboard
+  loads). Spinners only for inline button actions (saving a single mark).
+- Offline tolerance: attendance marking screens must work against a local
+  optimistic queue. If the network call to persist a mark fails, the UI
+  shows a small "not saved — retrying" badge on that row, not a blocking
+  error. Timetable editing (admin-only, desktop-first) does not need
+  offline tolerance.
+
+Accessibility:
+- Color is never the only signal. Status always pairs an icon or text
+  label with the color (e.g. a red dot AND the word "Absent", not just
+  red).
+- Tap targets minimum 40x40px on any screen reachable from the teacher
+  dashboard (assume phone use).
+- All interactive elements reachable by keyboard tab order on desktop
+  admin screens.
+
+------------------------------------------------------------------------
+1. TIMETABLE BUILDER — CLASS DETAIL PAGE
+------------------------------------------------------------------------
+User: school admin (role SCHOOL_ADMIN), desktop-first, occasional tablet.
+Frequency: built once per term, edited occasionally (teacher changes,
+room changes). Not a daily-use screen — favor clarity and safety over
+speed of repeated entry.
+
+Underlying table: cbc_timetable_slots
+  (tenant_id, school_id, academic_year_id, class_id, teacher_id,
+   cbc_learning_area_id, room_identifier, day_of_week, start_time, end_time)
+Hard DB constraints this UI must respect and pre-empt, not just react to:
+  - excl_cbc_timetable_teacher: same teacher cannot have overlapping time
+    ranges on the same day_of_week within the same academic_year_id.
+  - excl_cbc_timetable_room: same room cannot have overlapping time ranges
+    on the same day_of_week within the same academic_year_id.
+  - day_of_week CHECK 1..7 — UI should only expose the days the school
+    actually operates (typically 1-5), configurable, but never send a
+    value outside 1-7.
+  - cbc_learning_area_id is nullable in the schema (free periods, breaks,
+    assembly are valid slots with no learning area).
+
+1.1 Layout
+- Default view: weekly grid for the class's current academic_year_id.
+  Columns = operating days (Mon-Fri default). Rows = time, NOT period
+  number — render against actual start_time/end_time so variable-length
+  periods (e.g. a 90-minute double lesson) display proportionally taller
+  than a 35-minute period.
+- Row height scale: configurable per school but default ~1px per minute,
+  clamped to a minimum readable height (~40px) so very short slots (e.g.
+  a 20-minute registration period) remain tappable/clickable.
+  - Header row shows day name + count of scheduled slots that day, so an
+  admin can spot an empty day (e.g. forgot to schedule Friday) at a glance
+  without opening it.
+- Empty grid cells are themselves the "add" affordance: hovering an empty
+  time range shows a faint dashed outline and a "+" icon; clicking opens
+  the slot editor pre-filled with that day and an inferred start time
+  (snapped to the nearest 5-minute grid).
+- A toolbar above the grid holds: academic year selector (in case admin
+  is viewing/copying a past year), "Duplicate day to..." action, "Copy
+  from another class" action, and a text search/filter by teacher name
+  (highlights that teacher's slots across the whole grid — useful for
+  spotting their gaps before assigning more).
+
+1.2 Adding or editing a slot
+Opens a side panel (not full-screen modal — admin needs to see the grid
+behind it for spatial context) with fields in this order:
+  1. Learning area — searchable select, options scoped to the class's
+     grade via cbc_learning_areas.grade_id + education_system_id. Include
+     a "No learning area (break / assembly / free period)" option at the
+     top of the list, since cbc_learning_area_id is nullable.
+  2. Teacher — searchable select. Default the option list to teachers
+     already linked to this class for the chosen learning area via
+     cbc_class_teachers (filtered by class_id + learning_area_id). This
+     is a UX narrowing, not a hard restriction — provide a secondary
+     "show all teachers at this school" toggle for substitute/new
+     assignments, since the DB does not require the teacher to already
+     be in cbc_class_teachers.
+  3. Day of week — segmented control showing only operating days.
+  4. Start time / end time — paired time pickers, 5-minute increments,
+     end time auto-suggests start + the school's default period length
+     but remains freely editable.
+  5. Room — free-text with autocomplete against previously used
+     room_identifier values for this school (it's a VARCHAR, not a FK, so
+     there is no canonical room list to validate against — autocomplete
+     is purely a convenience, not a constraint).
+- Real-time conflict check while the panel is open: as soon as teacher +
+  day + start/end are all set, fire a lightweight query for existing
+  slots for that teacher (any class) on that day/year with overlapping
+  time, and existing slots in that room on that day/year with overlapping
+  time. Surface conflicts inline under the relevant field BEFORE the user
+  hits save:
+    "Mr. Otieno is already teaching Grade 6 Green at this time" (teacher
+    conflict) — shown under the Teacher field.
+    "Room 4 is in use by Grade 7 Blue at this time" (room conflict) —
+    shown under the Room field.
+  This is a soft pre-check (best-effort, can have race conditions); the
+  database EXCLUDE constraints are the actual source of truth. If save is
+  attempted anyway and the DB rejects it, surface the same human-readable
+  conflict message (name the colliding class/teacher/room and time) —
+  never show a raw constraint name or SQLSTATE code to the admin.
+- Save button disabled only while a known conflict is showing; otherwise
+  always enabled (don't block on the async pre-check still loading —
+  let the DB be the final arbiter rather than freezing the UI on slow
+  networks).
+
+1.3 Editing/moving an existing slot
+- Click an existing slot block to open the same side panel pre-filled,
+  editable in place.
+- Drag-and-drop: dragging a slot block to a different day/time column
+  updates day_of_week/start_time/end_time live, re-running the same
+  conflict pre-check, with the block ghosting red/teal during drag to
+  preview validity at the drop target before release.
+- Resize handles on the bottom edge of a slot block adjust end_time only
+  (start_time is anchored to where the block currently sits); same
+  conflict pre-check on release.
+- Deleting a slot: if the slot has zero associated cbc_attendance_periods
+  rows, delete immediately with no confirmation (it's inert). If it has
+  one or more attendance_periods (meaning attendance has already been
+  taken against it historically), require a confirm dialog stating how
+  many attendance records exist and that they will be orphaned/retained
+  but no longer editable via the normal flow — phrase this for an admin,
+  not a developer ("This slot has 14 attendance records linked to it.
+  Deleting it won't delete those records, but you won't be able to take
+  attendance against this slot anymore.").
+
+1.4 Bulk actions
+- "Duplicate day to..." — pick a source day already populated, pick one
+  or more target days, copies all slots (new day_of_week, same
+  teacher/room/time/learning area) and runs the same conflict check
+  per-slot before committing; if any individual slot would conflict,
+  skip only that slot and report which ones were skipped and why, rather
+  than failing the whole batch.
+- "Copy from another class" — same mechanism, sourcing slots from a
+  different class_id within the same academic_year_id, useful when two
+  streams of the same grade share an almost-identical timetable.
+
+1.5 Empty / edge states
+- No academic_year_id marked is_current for the school → block the whole
+  timetable builder behind a banner: "No current academic year set.
+  Set one in School Settings before building a timetable." (the schema
+  enforces at most one current year via idx_one_current_year_per_school,
+  but doesn't guarantee one exists).
+- Class has zero cbc_class_teachers rows for any learning area → grid
+  still renders, but the "Teacher" field in the slot editor defaults to
+  the "show all teachers" view since there's nothing to narrow against,
+  with a one-line hint: "No teachers assigned to this class yet — add
+  them in Class Settings to speed this up next time."
+
+------------------------------------------------------------------------
+2. ATTENDANCE RECORDING — CLASS DETAIL PAGE
+------------------------------------------------------------------------
+User: SCHOOL_ADMIN or TEACHER viewing a specific class's history/overview
+(distinct from the dashboard in section 3, which is the teacher's own
+"take attendance now" flow). This view is retrospective and managerial:
+browsing, auditing, and correcting, not the primary daily-entry point.
+
+Underlying tables: cbc_attendance_periods (class_id, academic_term_id,
+cbc_learning_area_id, date_recorded) and cbc_attendance_logs
+(cbc_attendance_period_id, student_id, status, remarks, recorded_by).
+Constraints to respect:
+  - idx_cbc_unique_attendance_period: one period per
+    (class_id, date_recorded, cbc_learning_area_id) — so a class can have
+    multiple attendance periods on the same day, one per learning area,
+    never two for the same learning area on the same day.
+  - unique_cbc_student_attendance_period: one log row per student per
+    period — editing an existing mark is an UPDATE, not an INSERT.
+  - attendance_status enum: PRESENT, ABSENT, LATE, EXCUSED only.
+
+2.1 Layout
+- Default view: a calendar-density heatmap for the current term — one
+  cell per date_recorded that has at least one attendance_period for
+  this class, shaded by that day's overall attendance rate (darker green
+  = higher present rate, red tint = notably low). Days with no periods
+  recorded render as empty/gray, visually distinct from "0% present"
+  (a day nobody took attendance must never look the same as a day
+  everybody was absent).
+- Below the heatmap: a flat list/table view as the actual default for
+  most interaction — rows are individual attendance_periods for this
+  class (date + learning area + recorded-by teacher), most recent first,
+  with a status pill showing how many of the period's logs are
+  PRESENT/ABSENT/LATE/EXCUSED at a glance (small inline stacked bar, not
+  a separate chart).
+- Filters above the list: learning area (dropdown), date range, and "only
+  show periods with no record yet" toggle that surfaces gaps — i.e. slots
+  in cbc_timetable_slots for this class/day combination that have no
+  matching cbc_attendance_periods row, meaning attendance was never taken.
+  This gap-detection is the single most useful feature on this screen for
+  an admin auditing compliance.
+
+2.2 Drilling into a period
+- Clicking a list row opens the full register for that period: every
+  enrolled student (via student_enrollments for the relevant
+  academic_term_id + class_id) cross-referenced against existing
+  cbc_attendance_logs for that period_id.
+- Students with no log row yet show as "Not marked" (gray), distinctly
+  from EXCUSED — the schema has no NULL/unmarked status, so "not marked"
+  is purely the absence of a log row and must be rendered as a fifth
+  visual state even though it isn't a database enum value.
+- Each student row: name, current status as a 4-way segmented control
+  (Present / Absent / Late / Excused), optional remarks field (maps to
+  cbc_attendance_logs.remarks), and recorded_by shown as small muted text
+  under the name once a mark exists ("Marked by Mrs. Achieng, 8:42am").
+- Editing an already-marked student's status here is an explicit
+  re-grading action — show a one-time confirm only the first time in a
+  session ("You're changing an existing record"), not on every click,
+  to avoid alert fatigue while still flagging that this is a correction
+  to history rather than first entry.
+- Bulk action at the top of the register: "Mark remaining as Present" —
+  applies PRESENT only to students currently in the "Not marked" state,
+  never overwriting an existing explicit mark.
+
+2.3 Permissions nuance
+- SCHOOL_ADMIN can edit any period for any teacher.
+- TEACHER can edit periods for classes where they appear in
+  cbc_class_teachers for the relevant learning area; for periods recorded
+  by a different teacher, render fields read-only with a note ("Recorded
+  by another teacher — contact your admin to make changes") rather than
+  hiding the data, since visibility into the full record matters for
+  context even when edit rights don't extend that far.
+
+------------------------------------------------------------------------
+3. TEACHER DASHBOARD — "MY ATTENDANCE" (take attendance, in the moment)
+------------------------------------------------------------------------
+User: TEACHER, mobile-first. This is the primary, high-frequency entry
+point — used multiple times a day, often standing in a classroom with
+spotty wifi. Speed and error-tolerance matter more than completeness of
+information shown.
+
+Core logic: derive "what's due right now" by joining cbc_timetable_slots
+for today's day_of_week against the current time, scoped to slots where
+the logged-in teacher is teacher_id (or appears in cbc_class_teachers for
+that learning area — handle both, since timetable teacher_id and
+class-teacher assignment are separate concepts in the schema and may
+diverge, e.g. a substitute covering the timetable slot).
+
+3.1 Layout — the day list
+- A single vertical list, one card per scheduled slot for today, ordered
+  by start_time. No grid, no calendar chrome — this is a to-do list, not
+  a scheduling tool.
+- Each card shows: time range, learning area name, class name, and a
+  status badge in one of four states:
+    - "Ongoing" (amber) — current time falls within start_time/end_time
+      and no cbc_attendance_periods row exists yet for
+      (class_id, today's date, learning_area_id).
+    - "Done" (green) — an attendance_period exists and all enrolled
+      students have a log row.
+    - "Incomplete" (amber, distinct icon from Ongoing) — an
+      attendance_period exists but some enrolled students have no log
+      row (someone started taking attendance and didn't finish).
+    - "Upcoming" (gray, muted) — start_time is still in the future;
+      card is visible for context/planning but not yet actionable, tap
+      target visually de-emphasized (no large button, smaller text).
+    - "Past — not taken" (red) — end_time has already passed and no
+      attendance_period exists at all. This is the state that matters
+      most for follow-up/compliance and should sort to the top of the
+      list regardless of strict time order, or at minimum carry a visual
+      weight (red left border) that makes it impossible to miss when
+      scrolling.
+- The "Ongoing" card for the current period is visually the largest/most
+  prominent on the screen (e.g. expanded by default, others collapsed to
+  a single line) since it's almost always the thing the teacher opened
+  the dashboard to act on.
+- Past slots beyond a reasonable window (e.g. more than 3 days ago)
+  don't appear in this daily view at all — surfaced instead via the
+  Class Detail gap-detection view in section 2.1, which is the right
+  tool for backfilling old gaps. The dashboard stays focused on "now."
+
+3.2 Taking attendance from the dashboard
+- Tapping an Ongoing, Incomplete, or Past-not-taken card expands an
+  inline register (not a navigation to a new page — preserve scroll
+  position and the rest of the day list below it) listing every enrolled
+  student with a tap-target sized PRESENT/ABSENT/LATE/EXCUSED control.
+- Default state for every student when an attendance_period is first
+  created: no log row, rendered as "Not marked," exactly as in section
+  2.2 — never pre-fill everyone as Present by default, since silent
+  defaults are how absences get missed.
+- One-tap "Mark all Present" sits above the student list for the common
+  full-attendance case, with each subsequent tap on an individual student
+  simply changing that one student away from Present — i.e. it's a bulk
+  starting point, not a locked bulk state.
+- Each tap on a status control saves immediately and optimistically
+  (no separate "Submit" button for the whole register) — this matches
+  unique_cbc_student_attendance_period: first tap for a student is an
+  INSERT, subsequent taps are UPDATEs, both fired on every tap. A small
+  per-row save indicator (checkmark fading after ~1s, or a retry badge
+  on failure per section 0's offline tolerance) replaces the need for a
+  page-level save state.
+- Collapsing the register (tap the card header again) re-collapses to
+  the summary badge, which updates live to Done/Incomplete based on
+  current log coverage.
+- Once every enrolled student has a log row, auto-collapse the card and
+  flip its badge to Done with a brief success affordance (e.g. a single
+  checkmark pulse, not a modal or toast that requires dismissal).
+
+3.3 Substitute / off-roster handling
+- If the teacher viewing the dashboard is not the timetable's teacher_id
+  and not in cbc_class_teachers for that learning area (i.e. genuinely
+  unexpected), still allow them to take attendance — recorded_by simply
+  records who actually did it, which is exactly what that column is for
+  — but show a small inline note ("You're not the usual teacher for this
+  class — covering today?") so it's clear this is being noticed, not
+  silently allowed without context.
+
+3.4 Empty / edge states
+- No slots at all today (weekend, holiday, or simply no timetable built
+  for this class yet) → friendly empty state, not an error: "Nothing
+  scheduled for you today." Distinguish in the copy between "no school
+  today" (if academic_terms or a holiday calendar says so, if available)
+  and "no timetable found" (prompt to contact admin) where that
+  distinction is knowable; otherwise keep it generic rather than
+  guessing.
+- Multiple classes with overlapping or back-to-back periods — list
+  simply sorts by start_time; no special handling needed since a teacher
+  physically can't be in two places at once and the timetable's own
+  EXCLUDE constraint already prevents the same teacher being double-
+  booked at the database level.
+
+------------------------------------------------------------------------
+4. CROSS-CUTTING DATA CONTRACTS (for the agent implementing this)
+------------------------------------------------------------------------
+- "Today's slots for teacher X" query: cbc_timetable_slots WHERE
+  teacher_id = X (or class_id IN (SELECT class_id FROM cbc_class_teachers
+  WHERE user_id = X)) AND day_of_week = EXTRACT(ISODOW FROM CURRENT_DATE)
+  AND academic_year_id = <current year for the school>.
+- "Period status" (Done/Incomplete/Ongoing/Past-not-taken) is computed,
+  not stored — derive it at query time from comparing
+  COUNT(enrolled students via student_enrollments) against
+  COUNT(cbc_attendance_logs for that period_id). Do not introduce a denormalized
+  status column; the comparison is cheap and avoids drift.
+- "Not marked" is a UI-only state with no enum value — never attempt to
+  write it to cbc_attendance_logs.status. It is purely the absence of a
+  row for that (period_id, student_id) pair.
+- All writes from the dashboard and class-detail register go through the
+  same upsert-style endpoint: given (period_id, student_id, status,
+  remarks), insert if no log row exists, update if one does — the unique
+  constraint unique_cbc_student_attendance_period makes this safe to
+  implement as a single idempotent upsert rather than separate
+  create/update code paths.

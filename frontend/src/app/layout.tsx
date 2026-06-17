@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Inter } from "next/font/google";
+import { ThemeProvider } from "next-themes";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { QueryProvider } from "@/providers/query-provider";
@@ -31,6 +32,7 @@ export default function RootLayout({
     return (
         <html
             lang="en"
+            suppressHydrationWarning
             className={cn(
                 "h-full",
                 "antialiased",
@@ -41,10 +43,17 @@ export default function RootLayout({
             )}
         >
             <body className="flex min-h-full flex-col">
-                <QueryProvider>
-                    <TooltipProvider>{children}</TooltipProvider>
-                    <Toaster />
-                </QueryProvider>
+                <ThemeProvider
+                    attribute="class"
+                    defaultTheme="system"
+                    enableSystem
+                    disableTransitionOnChange
+                >
+                    <QueryProvider>
+                        <TooltipProvider>{children}</TooltipProvider>
+                        <Toaster />
+                    </QueryProvider>
+                </ThemeProvider>
             </body>
         </html>
     );

@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
     SidebarGroup,
@@ -11,57 +13,123 @@ import {
     SidebarMenuSubButton,
     SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
-import { ChevronRightIcon } from "lucide-react";
+import {
+    LayoutDashboardIcon,
+    UsersIcon,
+    BookOpenIcon,
+    Settings2Icon,
+    ChevronRightIcon,
+} from "lucide-react";
 
-export function NavMain({
-    items,
-}: {
-    items: {
-        title: string;
-        url: string;
-        icon?: React.ReactNode;
-        isActive?: boolean;
-        items?: {
-            title: string;
-            url: string;
-        }[];
-    }[];
-}) {
+interface NavItem {
+    title: string;
+    url: string;
+    icon: React.ReactNode;
+    isActive?: boolean;
+    items?: { title: string; url: string }[];
+}
+
+function buildNavItems(role: string): NavItem[] {
+    const isAdmin = role === "SCHOOL_ADMIN" || role === "SYSTEM_ADMIN";
+
+    if (isAdmin) {
+        return [
+            {
+                title: "Dashboard",
+                url: "/",
+                icon: <LayoutDashboardIcon className="size-4" />,
+                isActive: true,
+            },
+            {
+                title: "Members",
+                url: "#",
+                icon: <UsersIcon className="size-4" />,
+                items: [
+                    { title: "Admins", url: "/admins" },
+                    { title: "Teachers", url: "/admins/teachers" },
+                    { title: "Staff", url: "/admins/staff" },
+                    { title: "Students", url: "/admins/students" },
+                ],
+            },
+            {
+                title: "Documentation",
+                url: "#",
+                icon: <BookOpenIcon className="size-4" />,
+                items: [
+                    { title: "Authentication", url: "/docs/authentication" },
+                    { title: "Calendar Validation", url: "/docs/calendar-validation" },
+                    { title: "Class Stream Generator", url: "/docs/class-stream-generator" },
+                ],
+            },
+            {
+                title: "Settings",
+                url: "#",
+                icon: <Settings2Icon className="size-4" />,
+                items: [{ title: "General", url: "/settings" }],
+            },
+        ];
+    }
+
+    // Default for non-admin roles
+    return [
+        {
+            title: "Dashboard",
+            url: "/",
+            icon: <LayoutDashboardIcon className="size-4" />,
+            isActive: true,
+        },
+    ];
+}
+
+export function NavMain({ role }: { role: string }) {
+    const items = buildNavItems(role);
+
     return (
         <SidebarGroup>
             <SidebarGroupLabel>Platform</SidebarGroupLabel>
             <SidebarMenu>
-                {items.map((item) => (
-                    <Collapsible
-                        key={item.title}
-                        asChild
-                        defaultOpen={item.isActive}
-                        className="group/collapsible"
-                    >
-                        <SidebarMenuItem>
-                            <CollapsibleTrigger asChild>
-                                <SidebarMenuButton tooltip={item.title}>
+                {items.map((item) =>
+                    item.items ? (
+                        <Collapsible
+                            key={item.title}
+                            asChild
+                            defaultOpen={item.isActive}
+                            className="group/collapsible"
+                        >
+                            <SidebarMenuItem>
+                                <CollapsibleTrigger asChild>
+                                    <SidebarMenuButton tooltip={item.title}>
+                                        {item.icon}
+                                        <span>{item.title}</span>
+                                        <ChevronRightIcon className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                                    </SidebarMenuButton>
+                                </CollapsibleTrigger>
+                                <CollapsibleContent>
+                                    <SidebarMenuSub>
+                                        {item.items.map((subItem) => (
+                                            <SidebarMenuSubItem key={subItem.title}>
+                                                <SidebarMenuSubButton asChild>
+                                                    <Link href={subItem.url}>
+                                                        <span>{subItem.title}</span>
+                                                    </Link>
+                                                </SidebarMenuSubButton>
+                                            </SidebarMenuSubItem>
+                                        ))}
+                                    </SidebarMenuSub>
+                                </CollapsibleContent>
+                            </SidebarMenuItem>
+                        </Collapsible>
+                    ) : (
+                        <SidebarMenuItem key={item.title}>
+                            <SidebarMenuButton asChild tooltip={item.title}>
+                                <Link href={item.url}>
                                     {item.icon}
                                     <span>{item.title}</span>
-                                    <ChevronRightIcon className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-                                </SidebarMenuButton>
-                            </CollapsibleTrigger>
-                            <CollapsibleContent>
-                                <SidebarMenuSub>
-                                    {item.items?.map((subItem) => (
-                                        <SidebarMenuSubItem key={subItem.title}>
-                                            <SidebarMenuSubButton asChild>
-                                                <a href={subItem.url}>
-                                                    <span>{subItem.title}</span>
-                                                </a>
-                                            </SidebarMenuSubButton>
-                                        </SidebarMenuSubItem>
-                                    ))}
-                                </SidebarMenuSub>
-                            </CollapsibleContent>
+                                </Link>
+                            </SidebarMenuButton>
                         </SidebarMenuItem>
-                    </Collapsible>
-                ))}
+                    )
+                )}
             </SidebarMenu>
         </SidebarGroup>
     );

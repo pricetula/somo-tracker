@@ -6,7 +6,7 @@ import {
     ROLE_DEFAULT_ROUTES,
 } from "@/lib/auth";
 
-const PROTECTED_PREFIXES = ["/dashboard", "/settings", "/admin"];
+const PROTECTED_PREFIXES = ["/dashboard", "/settings", "/admin", "/admins", "/schools"];
 
 // Exhaustive set of valid roles — verifiedRole must be one of these or access is denied.
 // Keeps role checking honest even if ROLE_ROUTES is missing an entry.

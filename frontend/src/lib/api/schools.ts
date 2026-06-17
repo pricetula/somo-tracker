@@ -23,3 +23,8 @@ export async function listSchools(tenantId: string): Promise<School[]> {
 export async function createSchool(payload: CreateSchoolPayload): Promise<School> {
     return api.post<School>("/schools", payload);
 }
+
+/** Activate a school — switch the user's current active school membership. */
+export async function activateSchool(schoolId: string): Promise<School> {
+    return api.post<School>(`/schools/${encodeURIComponent(schoolId)}/activate`);
+}

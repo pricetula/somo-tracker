@@ -178,6 +178,40 @@ func (r *SqlcRepository) Create(ctx context.Context, tenantID, name, educationSy
 	return &s, nil
 }
 
+// UpdateName updates a school's name. Returns the updated school.
+func (r *SqlcRepository) UpdateName(ctx context.Context, id, name string) (*School, error) {
+	const query = `
+		UPDATE schools SET name = $1
+		WHERE id = $2 AND is_active = true
+		RETURNING id, tenant_id, education_system_id, name, is_active, is_demo
+	`
+
+	var s School
+	err := r.pool.QueryRow(ctx, query, name, id).Scan(
+		&s.ID, &s.TenantID, &s.EducationSystemID, &s.Name, &s.IsActive, &s.IsDemo,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("update school name: %w", err)
+	}
+	return &s, nil
+}
+
+// Delete soft-deletes a school by setting is_active = false.
+func (r *SqlcRepository) Delete(ctx context.Context, id string) error {
+	const query = `UPDATE schools SET is_active = false WHERE id = $1`
+	tag, err := r.pool.Exec(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("soft-delete school: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("school not found")
+	}
+	return nil
+}
+
 // CreateSchoolAndMembership creates a school and membership in a single transaction.
 func (r *SqlcRepository) CreateSchoolAndMembership(
 	ctx context.Context,

@@ -16,6 +16,11 @@ type CreateSchoolPayload struct {
 	EducationSystemID string `json:"education_system_id"`
 }
 
+// UpdateSchoolPayload is the request body for PUT /schools/:id.
+type UpdateSchoolPayload struct {
+	Name string `json:"name"`
+}
+
 // ErrorBody is the JSON error response body.
 type ErrorBody struct {
 	Error   string `json:"error"`

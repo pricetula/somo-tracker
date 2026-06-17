@@ -21,13 +21,6 @@ type Handler struct {
 	pool *pgxpool.Pool
 }
 
-// loadSchoolSession is the session info extracted from the cookie manually.
-type loadSchoolSession struct {
-	UserID   string
-	TenantID string
-	Role     string
-}
-
 // NewHandler creates a new Handler.
 func NewHandler(svc *Service, pool *database.Pools) *Handler {
 	return &Handler{svc: svc, pool: pool.PG}
@@ -38,6 +31,15 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	schools := router.Group("/schools")
 	schools.Get("/", h.List)
 	schools.Post("/", h.Create)
+
+	// Admin-only routes — require SYSTEM_ADMIN or SCHOOL_ADMIN
+	admin := schools.Group("/:id",
+		middleware.RequireRole(&database.Pools{PG: h.pool},
+			middleware.WithRoles("SYSTEM_ADMIN", "SCHOOL_ADMIN"),
+		),
+	)
+	admin.Put("/", h.Update)
+	admin.Delete("/", h.Delete)
 
 	// Activate school — switch the user's current active school.
 	// Manually extracts session from cookie since school routes aren't under /api/.
@@ -98,9 +100,8 @@ func (h *Handler) Activate(c *fiber.Ctx) error {
 		})
 	}
 
-	// Manually extract session from the somo_sid cookie
 	// (school routes aren't under /api/ so the session middleware doesn't load)
-	session, err := h.loadSessionFromCookie(c)
+	session, err := loadSchoolSessionFromCookie(h.pool, c)
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(ErrorBody{
 			Error:   "unauthorized",
@@ -133,10 +134,10 @@ func (h *Handler) Activate(c *fiber.Ctx) error {
 	return c.JSON(school)
 }
 
-// loadSessionFromCookie reads the somo_sid cookie and queries the session + active
-// membership from Postgres. This is needed because the session middleware only runs
-// for /api/ routes, but school routes are mounted at /schools/.
-func (h *Handler) loadSessionFromCookie(c *fiber.Ctx) (*loadSchoolSession, error) {
+// loadSchoolSessionFromCookie reads the somo_sid cookie and returns the session info.
+// This is identical in logic to middleware.loadSessionFromCookie but avoids
+// importing the middleware package's internal helper for old-style routes.
+func loadSchoolSessionFromCookie(pool *pgxpool.Pool, c *fiber.Ctx) (*middleware.SessionInfo, error) {
 	token := c.Cookies("somo_sid")
 	if token == "" {
 		return nil, fmt.Errorf("no session cookie")
@@ -161,13 +162,132 @@ func (h *Handler) loadSessionFromCookie(c *fiber.Ctx) (*loadSchoolSession, error
 		WHERE s.token = $1 AND s.expires_at > NOW()
 	`
 
-	var s loadSchoolSession
-	err := h.pool.QueryRow(c.Context(), query, token).Scan(&s.UserID, &s.TenantID, &s.Role)
+	var s middleware.SessionInfo
+	err := pool.QueryRow(c.Context(), query, token).Scan(&s.UserID, &s.TenantID, &s.Role)
 	if err != nil {
 		return nil, fmt.Errorf("load session from cookie: %w", err)
 	}
 
 	return &s, nil
+}
+
+// Update handles PUT /schools/:id.
+//
+// @Summary      Update school name
+// @Description  Updates the name of a school. Requires SCHOOL_ADMIN or SYSTEM_ADMIN role.
+// @Tags         Schools
+// @Accept       json
+// @Produce      json
+// @Param        id    path  string               true  "School ID"
+// @Param        body  body  UpdateSchoolPayload  true  "Updated school details"
+// @Success      200   {object}  School
+// @Failure      400   {object}  ErrorBody  "Invalid input"
+// @Failure      401   {object}  ErrorBody  "Unauthorized"
+// @Failure      403   {object}  ErrorBody  "Forbidden"
+// @Failure      404   {object}  ErrorBody  "Not found"
+// @Failure      409   {object}  ErrorBody  "Already exists"
+// @Failure      500   {object}  ErrorBody  "Internal error"
+// @Router       /schools/{id} [put]
+func (h *Handler) Update(c *fiber.Ctx) error {
+	schoolID := c.Params("id")
+	if schoolID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorBody{
+			Error:   "invalid_input",
+			Message: "school id is required",
+		})
+	}
+
+	session := middleware.GetSession(c)
+	if session == nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(ErrorBody{
+			Error:   "unauthorized",
+			Message: "authentication required",
+		})
+	}
+
+	var payload UpdateSchoolPayload
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorBody{
+			Error:   "invalid_input",
+			Message: "invalid request body",
+		})
+	}
+
+	if payload.Name == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorBody{
+			Error:   "invalid_input",
+			Message: "name is required",
+		})
+	}
+
+	school, err := h.svc.UpdateSchoolName(c.Context(), schoolID, session.TenantID, payload.Name)
+	if err != nil {
+		if err.Error() == "school not found" {
+			return c.Status(fiber.StatusNotFound).JSON(ErrorBody{
+				Error:   "not_found",
+				Message: "school not found",
+			})
+		}
+		if errors.Is(err, ErrNameAlreadyExists) {
+			return c.Status(fiber.StatusConflict).JSON(ErrorBody{
+				Error:   "already_exists",
+				Message: err.Error(),
+			})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorBody{
+			Error:   "internal_error",
+			Message: err.Error(),
+		})
+	}
+
+	return c.JSON(school)
+}
+
+// Delete handles DELETE /schools/:id.
+//
+// @Summary      Delete school
+// @Description  Soft-deletes a school (sets is_active = false). Requires SCHOOL_ADMIN or SYSTEM_ADMIN role.
+// @Tags         Schools
+// @Produce      json
+// @Param        id  path  string  true  "School ID"
+// @Success      204  "No Content"
+// @Failure      400  {object}  ErrorBody  "Invalid input"
+// @Failure      401  {object}  ErrorBody  "Unauthorized"
+// @Failure      403  {object}  ErrorBody  "Forbidden"
+// @Failure      404  {object}  ErrorBody  "Not found"
+// @Failure      500  {object}  ErrorBody  "Internal error"
+// @Router       /schools/{id} [delete]
+func (h *Handler) Delete(c *fiber.Ctx) error {
+	schoolID := c.Params("id")
+	if schoolID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorBody{
+			Error:   "invalid_input",
+			Message: "school id is required",
+		})
+	}
+
+	session := middleware.GetSession(c)
+	if session == nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(ErrorBody{
+			Error:   "unauthorized",
+			Message: "authentication required",
+		})
+	}
+
+	if err := h.svc.DeleteSchool(c.Context(), schoolID, session.TenantID); err != nil {
+		if err.Error() == "school not found" {
+			return c.Status(fiber.StatusNotFound).JSON(ErrorBody{
+				Error:   "not_found",
+				Message: "school not found",
+			})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorBody{
+			Error:   "internal_error",
+			Message: err.Error(),
+		})
+	}
+
+	return c.SendStatus(fiber.StatusNoContent)
 }
 
 // Create handles POST /schools.

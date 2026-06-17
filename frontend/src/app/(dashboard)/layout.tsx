@@ -1,3 +1,5 @@
+import { AppLayout } from "@/components/layout/layout";
+
 /**
  * Dashboard layout — wraps all authenticated pages.
  * Add sidebar, header, and navigation chrome here.
@@ -13,9 +15,9 @@ export default function DashboardLayout({
     modal: React.ReactNode;
 }) {
     return (
-        <>
+        <AppLayout>
             {children}
             {modal}
-        </>
+        </AppLayout>
     );
 }

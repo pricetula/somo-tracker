@@ -37,6 +37,7 @@ import (
 	"somotracker/backend/internal/educationsystem"
 	"somotracker/backend/internal/middleware"
 	"somotracker/backend/internal/school"
+	"somotracker/backend/internal/students"
 	"somotracker/backend/internal/tenant"
 	"somotracker/backend/internal/utils"
 
@@ -55,6 +56,7 @@ func main() {
 		school.Module,
 		academiccalendar.Module,
 		classes.Module,
+		students.Module,
 
 		fx.Provide(newLogger),
 		fx.Invoke(runMigrations),
@@ -104,6 +106,7 @@ func registerApp(
 	schoolHandler *school.Handler,
 	academicCalendarHandler *academiccalendar.Handler,
 	classesHandler *classes.Handler,
+	studentsHandler *students.Handler,
 ) {
 	app := fiber.New(fiber.Config{
 		AppName: "somotracker",
@@ -144,6 +147,7 @@ func registerApp(
 			schoolHandler.RegisterRoutes(app)
 			academicCalendarHandler.RegisterRoutes(app)
 			classesHandler.RegisterRoutes(app)
+			studentsHandler.RegisterRoutes(app)
 
 			// Start Fiber in a non-blocking goroutine
 			go func() {

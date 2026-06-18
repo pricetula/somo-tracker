@@ -1,0 +1,83 @@
+{
+  "grade": "Grade 10",
+  "level": "Senior School",
+  "pathway": "Social Sciences",
+  "track": "Humanities and Languages",
+  "learning_areas": [
+    {
+      "learning_area": "History and International Relations",
+      "strands": [
+        {
+          "strand": "Colonial Administrative Systems and Resistance",
+          "sub_strands": [
+            {
+              "sub_strand": "Direct vs. Indirect Rule and Armed Resistances",
+              "outcomes": [
+                "Contrast the structural execution of British indirect rule against the French assimilation policy across Africa",
+                "Analyze the socio-economic impacts of settler colonialism, land alienation, and early political associations in Kenya"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Global Geopolitics",
+          "sub_strands": [
+            {
+              "sub_strand": "The World Wars and League of Nations",
+              "outcomes": [
+                "Examine the underlying systemic causes and geopolitical outcomes of the First and Second World Wars",
+                "Evaluate the structural failures of the League of Nations in maintaining international collective security architectures"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Geography and GIS Architecture",
+      "strands": [
+        {
+          "strand": "Geomorphology and Internal Land-Forming Processes",
+          "sub_strands": [
+            {
+              "sub_strand": "Plate Tectonics, Volcanicity, and Earthquakes",
+              "outcomes": [
+                "Analyze mechanisms of compressional, tensional, and shearing forces according to modern plate tectonics theory",
+                "Map extrusive and intrusive volcanic features and assess their direct influence on human settlements and economic activities"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Practical Geography and Spatial Analytics",
+          "sub_strands": [
+            {
+              "sub_strand": "Statistical Data and Introduction to GIS",
+              "outcomes": [
+                "Compute and interpret geographical data metrics using standard deviation, variance, and cumulative frequency graphs",
+                "Explain the foundational data structures (vector vs. raster spatial layers) of Geographic Information Systems (GIS)"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Christian Religious Education (Advanced CRE)",
+      "strands": [
+        {
+          "strand": "Sovereignty of God and Covenant Systems",
+          "sub_strands": [
+            {
+              "sub_strand": "The Abrahamic Covenant and Sinai Mosaic Law",
+              "outcomes": [
+                "Analyze the theological parameters, symbolism, and modern ethical obligations tied to the Abrahamic and Mosaic covenants",
+                "Evaluate leadership profiles of Israelite judges and early kings against modern standards of public accountability and corporate ethics"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

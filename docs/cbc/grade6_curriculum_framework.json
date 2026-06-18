@@ -1,0 +1,296 @@
+{
+  "grade": "Grade 6",
+  "level": "Upper Primary",
+  "learning_areas": [
+    {
+      "learning_area": "English Language",
+      "strands": [
+        {
+          "strand": "Listening and Speaking",
+          "sub_strands": [
+            {
+              "sub_strand": "Critical Listening, Debating, and Public Speaking",
+              "outcomes": [
+                "Listen critically to complex texts and debates to identify fallacies, biases, and primary lines of reasoning",
+                "Participate effectively in formal debates using persuasive language, objective evidence, and proper elocution parameters"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Reading",
+          "sub_strands": [
+            {
+              "sub_strand": "Advanced Reading Comprehension and Literary Analysis",
+              "outcomes": [
+                "Analyze full-length children's novels and complex articles to interpret themes, character motivations, and subtext",
+                "Read grade-level texts fluently (130-150 words per minute) with targeted syntactic and emotional inflections"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Writing",
+          "sub_strands": [
+            {
+              "sub_strand": "Functional and Creative Writing Modules",
+              "outcomes": [
+                "Compose formal letters, official emails, and imaginative narratives adhering to rigorous structural and grammatical protocols",
+                "Employ complex sentence structures, active/passive voices, and advanced punctuation matrices independently"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Kiswahili",
+      "strands": [
+        {
+          "strand": "Kusikiliza na Kuzungumza",
+          "sub_strands": [
+            {
+              "sub_strand": "Kusikiliza kwa Makini na Hotuba",
+              "outcomes": [
+                "Kusikiliza na kuchanganua hotuba au mijadala changamano na kuwasilisha maoni mbadala kwa ufasaha",
+                "Kutoa wasilisho la mdomo au hotuba fupi kuhusu masuala ibuka katika jamii kwa ujasiri"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Kusoma",
+          "sub_strands": [
+            {
+              "sub_strand": "Uchambuzi wa Fasihi na Vifungu",
+              "outcomes": [
+                "Kusoma na kufafanua maana fiche, itikadi, na mafunzo katika hadithi, mashairi ya arudhi, na tamthilia fupi",
+                "Kutumia kamusi na muktadha kubaini maana ya msamiati maalumu na wa kitaaluma"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Kuandika",
+          "sub_strands": [
+            {
+              "sub_strand": "Uandishi wa Kazi za Kiofisi na Insha Bunifu",
+              "outcomes": [
+                "Kuandika barua rasmi, ratiba za vikao, na insha za hoja zifuatazo kanuni sahihi za sarufi",
+                "Kutumia ngeli zote, viunganishi changamano, na kauli za vitendo (tendesha, tendana, tendewa) katika uandishi"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Mathematics",
+      "strands": [
+        {
+          "strand": "Numbers",
+          "sub_strands": [
+            {
+              "sub_strand": "Whole Numbers up to 1,000,000",
+              "outcomes": [
+                "Read, write, translate, and evaluate place value matrices for whole numbers up to 1,000,000",
+                "Find the L.C.M and G.C.D of up to three numbers using prime factorization methods"
+              ]
+            },
+            {
+              "sub_strand": "Fractions, Decimals, and Percentages Optimization",
+              "outcomes": [
+                "Perform operations involving addition, subtraction, multiplication, and division of fractions and decimals up to three decimal places",
+                "Convert fractions and decimals into percentages and calculate percentage profit or loss in real-world simulations"
+              ]
+            },
+            {
+              "sub_strand": "Squares and Square Roots",
+              "outcomes": [
+                "Find the square of a number up to 100, and find the square root of perfect squares using factorization or inspection methods"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Measurement",
+          "sub_strands": [
+            {
+              "sub_strand": "Surface Area, Volume, and Capacity Matrices",
+              "outcomes": [
+                "Calculate the surface area of cubes, cuboids, and triangular prisms using formal algebraic nets",
+                "Solve compound mathematical problems involving the volume of cylinders, cubes, and cuboids (cm³ and m³)"
+              ]
+            },
+            {
+              "sub_strand": "Speed, Time, and Financial Accounting",
+              "outcomes": [
+                "Determine speed, distance, and time relationships, converting between km/h and m/s",
+                "Prepare income and expenditure statements, evaluate simple interest, and construct household budgets up to 10,000 Shillings"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Geometry and Algebra",
+          "sub_strands": [
+            {
+              "sub_strand": "Angles, Construction, and Linear Equations",
+              "outcomes": [
+                "Construct angles of 90°, 60°, and 45° using a pair of compasses and a ruler, and find angles on a straight line and around a point",
+                "Formulate and solve single-variable linear equations from practical scenarios"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Science and Technology",
+      "strands": [
+        {
+          "strand": "Living Things",
+          "sub_strands": [
+            {
+              "sub_strand": "Human Excretory and Nervous System Overview",
+              "outcomes": [
+                "Identify, locate, and outline the physiological functions of the human excretory organs (skin, lungs, kidneys)",
+                "Describe structural configurations of the human nervous system and relate them to basic reflex arcs"
+              ]
+            },
+            {
+              "sub_strand": "Plants and Animals Reproduction",
+              "outcomes": [
+                "Examine mechanisms of pollination and fertilization in flowering plants using physical flower dissections",
+                "Differentiate internal and external fertilization methods across various animal classes"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Environment, Force, and Energy",
+          "sub_strands": [
+            {
+              "sub_strand": "Types of Forces and Energy Transformations",
+              "outcomes": [
+                "Investigate properties of magnetic, gravitational, and frictional forces using physical laboratory set-ups",
+                "Demonstrate how mechanical energy converts to electrical energy or heat through interactive models"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Computing Science",
+          "sub_strands": [
+            {
+              "sub_strand": "Spreadsheets, Multimedia Development, and Coding Logic",
+              "outcomes": [
+                "Design basic data models, insert formulas (SUM, AVERAGE), and map charts using standard spreadsheet tools",
+                "Develop functional branching or looping logic programs using advanced block-based or text-based educational coding engines"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Agriculture and Nutrition",
+      "strands": [
+        {
+          "strand": "Animal Husbandry and Value Addition",
+          "sub_strands": [
+            {
+              "sub_strand": "Domestic Poultry Management and Crop Processing",
+              "outcomes": [
+                "Outline structural requirements, feeding schedules, and disease control protocols for localized poultry framing systems",
+                "Demonstrate value addition sorting, clean processing, and standard packaging of tubers and cereal yields"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Food Safety, Nutrition, and Laundry",
+          "sub_strands": [
+            {
+              "sub_strand": "Special Diets and Laundering Diverse Fabrics",
+              "outcomes": [
+                "Plan and compile balanced nutritional matrices catering to individuals with special dietary needs (convalescents, manually working individuals)",
+                "Identify stain removal parameters and execute appropriate laundering cycles for cotton, wool, and synthetic fabrics"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Social Studies",
+      "strands": [
+        {
+          "strand": "Physical Environment and Citizens Orientation",
+          "sub_strands": [
+            {
+              "sub_strand": "Mapping East Africa and Regional Climate Data",
+              "outcomes": [
+                "Map positions, relief features, and transport networks across East Africa using coordinates and scale models",
+                "Evaluate the correlations between physical climate patterns and demographic settlement distributions"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "History, Citizenship, and Governance",
+          "sub_strands": [
+            {
+              "sub_strand": "National Heroes, National Integration, and Democratic Systems",
+              "outcomes": [
+                "Analyze roles of national historical figures in independence struggles and list elements that foster national cohesion",
+                "Outline the structure, arms, and functional responsibilities of the National Government of Kenya (Legislature, Executive, Judiciary)"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Creative Arts",
+      "strands": [
+        {
+          "strand": "Art Exhibition, Production, and Execution",
+          "sub_strands": [
+            {
+              "sub_strand": "Graphic Design, Puppet Theater, and Tie-and-Dye Techniques",
+              "outcomes": [
+                "Create complex commercial designs, logos, and posters incorporating precise font sizes and color combinations",
+                "Produce pattern orientations on fabric substrates using advanced folding, binding, and tie-and-dye recipes"
+              ]
+            },
+            {
+              "sub_strand": "Ensemble Performances and Musical Notation",
+              "outcomes": [
+                "Read, write, and execute simple musical staff notations comprising pitch ranges and duration signatures (semibreve, minim, crotchet)",
+                "Choreograph and stage full-scale theatrical plays or traditional multi-instrument string and percussion dances"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Religious Education (CRE / IRE / HRE)",
+      "strands": [
+        {
+          "strand": "Values, Morality, and Social Responsibility",
+          "sub_strands": [
+            {
+              "sub_strand": "Scriptural Studies, Substance Abuse Mitigation, and Integrity",
+              "outcomes": [
+                "Critique peer behaviors and modern societal trends against foundational scriptural values on honesty, temperance, and work ethic",
+                "Formulate personalized action frameworks to resist substance abuse, peer pressure, and unethical shortcuts"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

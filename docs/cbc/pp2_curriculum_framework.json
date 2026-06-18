@@ -1,0 +1,226 @@
+{
+  "grade": "PP2",
+  "level": "Pre-Primary",
+  "learning_areas": [
+    {
+      "learning_area": "Language Activities",
+      "strands": [
+        {
+          "strand": "Listening and Speaking",
+          "sub_strands": [
+            {
+              "sub_strand": "Listening and Attention",
+              "outcomes": [
+                "Listen attentively to extended stories, instructions, and conversations for details",
+                "Respond accurately and appropriately to complex verbal prompts and questions"
+              ]
+            },
+            {
+              "sub_strand": "Free Expression",
+              "outcomes": [
+                "Communicate ideas, desires, feelings, and personal experiences clearly and fluently using complete sentences",
+                "Take turns constructively during structured classroom conversations and peer discussions"
+              ]
+            },
+            {
+              "sub_strand": "Phonological Awareness",
+              "outcomes": [
+                "Identify, blend, and segment rhyming words, syllables, and initial sounds in spoken words",
+                "Produce letter sounds accurately for basic consonant-vowel-consonant (CVC) patterns"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Reading Readiness",
+          "sub_strands": [
+            {
+              "sub_strand": "Print and Word Awareness",
+              "outcomes": [
+                "Track text visually from left to right and top to bottom with emerging consistency",
+                "Recognize sight words and common functional words within the print environment"
+              ]
+            },
+            {
+              "sub_strand": "Reading Comprehension",
+              "outcomes": [
+                "Predict outcomes or next steps in a story based on illustrations and contextual clues",
+                "Recall and sequence main events or characters from a read-aloud narrative"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Writing Readiness",
+          "sub_strands": [
+            {
+              "sub_strand": "Patterning and Controlled Writing",
+              "outcomes": [
+                "Form upper and lower case letters legibly using correct directional strokes",
+                "Write personal names and simple three-letter words independently with proper spacing"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Mathematical Activities",
+      "strands": [
+        {
+          "strand": "Numbers",
+          "sub_strands": [
+            {
+              "sub_strand": "Classification and Pairing",
+              "outcomes": [
+                "Sort and classify a collection of concrete objects based on two simultaneous attributes such as size and color",
+                "Create and extend simple repeating patterns using concrete objects, shapes, or drawings"
+              ]
+            },
+            {
+              "sub_strand": "Counting and Cardinality",
+              "outcomes": [
+                "Count objects sequentially up to 20 using concrete representations and one-to-one correspondence",
+                "Represent quantities up to 10 using concrete objects, drawings, and numerals"
+              ]
+            },
+            {
+              "sub_strand": "Number Operations",
+              "outcomes": [
+                "Demonstrate the concept of addition as putting together objects up to a sum of 9",
+                "Demonstrate the concept of subtraction as taking away objects from a group up to 9"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Measurement",
+          "sub_strands": [
+            {
+              "sub_strand": "Mass, Capacity, and Time",
+              "outcomes": [
+                "Compare and order objects based on mass (heavy/light) and capacity (holds more/holds less)",
+                "Identify days of the week and describe daily routines using time-relative terms like morning, afternoon, and night"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Geometry",
+          "sub_strands": [
+            {
+              "sub_strand": "Geometric Shapes",
+              "outcomes": [
+                "Identify, name, and draw basic two-dimensional shapes including circles, triangles, rectangles, and squares",
+                "Recognize and point out basic shapes within objects in the immediate environment"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Environmental Activities",
+      "strands": [
+        {
+          "strand": "Natural Environment",
+          "sub_strands": [
+            {
+              "sub_strand": "Weather and Climate Elements",
+              "outcomes": [
+                "Observe, describe, and record daily weather conditions using symbols (sunny, rainy, windy, cloudy)",
+                "Identify appropriate clothing, shelter, and activities for different weather conditions"
+              ]
+            },
+            {
+              "sub_strand": "Plants and Animals",
+              "outcomes": [
+                "Identify and care for common plants and domestic animals within the locality",
+                "State basic parts of a plant and recognize safe versus dangerous plants and animals"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Social and Economic Environment",
+          "sub_strands": [
+            {
+              "sub_strand": "Our Community and Helpers",
+              "outcomes": [
+                "Identify and roleplay different community helpers (teachers, doctors, police officers, farmers) and their contributions",
+                "Demonstrate respect for diverse cultures, norms, and roles within the local neighborhood"
+              ]
+            },
+            {
+              "sub_strand": "Care of Resources",
+              "outcomes": [
+                "Practice proper disposal of waste and conservation of water and electricity at home and school",
+                "Demonstrate care and responsibility for personal and shared school property"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Psychomotor and Creative Activities",
+      "strands": [
+        {
+          "strand": "Physical Development and Sports",
+          "sub_strands": [
+            {
+              "sub_strand": "Locomotor and Manipulation Skills",
+              "outcomes": [
+                "Execute complex physical skills including catching, throwing, kicking, and bouncing a ball with control",
+                "Maintain body dynamic balance while navigating obstacles or participating in structured relays"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Creative and Performing Arts",
+          "sub_strands": [
+            {
+              "sub_strand": "Art and Craft Production",
+              "outcomes": [
+                "Create functional and decorative artifacts using techniques like paper folding, weaving, painting, and clay modeling",
+                "Express personal imagination and stories through distinct drawings and artwork"
+              ]
+            },
+            {
+              "sub_strand": "Music, Dance, and Drama",
+              "outcomes": [
+                "Perform short songs, singing games, and simple rhythmic dances individually and in groups",
+                "Dramatize simple situational roles, stories, or emotional states during creative play"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Christian Religious Education (CRE)",
+      "strands": [
+        {
+          "strand": "The Life of Jesus Christ",
+          "sub_strands": [
+            {
+              "sub_strand": "Early Life and Family of Jesus",
+              "outcomes": [
+                "Narrate stories about the birth, childhood, and family background of Jesus Christ",
+                "Relate the obedience and growth of young Jesus to their own daily choices and family relationships"
+              ]
+            },
+            {
+              "sub_strand": "Christian Values and Conduct",
+              "outcomes": [
+                "Demonstrate key Christian values such as sharing, honesty, kindness, and love during peer interactions",
+                "Apply simple biblical moral lessons to resolve everyday conflicts peacefully"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

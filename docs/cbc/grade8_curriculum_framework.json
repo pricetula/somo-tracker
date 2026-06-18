@@ -1,0 +1,305 @@
+{
+  "grade": "Grade 8",
+  "level": "Junior School",
+  "learning_areas": [
+    {
+      "learning_area": "English",
+      "strands": [
+        {
+          "strand": "Listening and Speaking",
+          "sub_strands": [
+            {
+              "sub_strand": "Critical Listening for Argumentation and Interviewing Skills",
+              "outcomes": [
+                "Analyze extended oral arguments to evaluate the validity of evidence and identify logical fallacies like circular reasoning",
+                "Conduct structured interviews on community issues using open-ended questions, active listening, and appropriate follow-up strategies"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Reading and Literature",
+          "sub_strands": [
+            {
+              "sub_strand": "Thematic Analysis and Intensive Reading",
+              "outcomes": [
+                "Critique the development of plot, characterization, and conflict in full-length African novellas",
+                "Examine features of functional graphics, tables, and charts to synthesize complex information within research texts"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Writing and Grammar",
+          "sub_strands": [
+            {
+              "sub_strand": "Functional Writing and Complex Grammatical Structures",
+              "outcomes": [
+                "Write clear business letters, curriculum vitae (CVs), and argumentative compositions based on contemporary data",
+                "Apply accurate grammatical structures including past perfect continuous tense, relative clauses, and inverted sentence patterns"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Kiswahili",
+      "strands": [
+        {
+          "strand": "Kusikiliza na Kuzungumza",
+          "sub_strands": [
+            {
+              "sub_strand": "Ufahamu wa Kusikiliza na Majadiliano ya Hoja",
+              "outcomes": [
+                "Kuchanganua taarifa, habari, au matangazo changamano kutoka vyombo vya habari na kutoa tathmini muhimu",
+                "Kuwasilisha hotuba za ushawishi na kushiriki katika mijadala inayozingatia kanuni za utafiti na ushahidi"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Kusoma",
+          "sub_strands": [
+            {
+              "sub_strand": "Uchambuzi wa Tamthilia, Ushairi, na Maandishi ya Kitaaluma",
+              "outcomes": [
+                "Kufafanua tanzu za fasihi simulizi (kama vile miviga, maghani, au maigizo) na kubaini dhima zake katika jamii",
+                "Kusoma na kufupisha makala ya kisayansi au ya kijamii yakizingatia ujumbe mkuu"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Kuandika na Sarufi",
+          "sub_strands": [
+            {
+              "sub_strand": "Uandishi wa Kitaalamu na Matumizi ya Lugha",
+              "outcomes": [
+                "Kuandika barua rasmi za kibiashara, kumbukumbu za mikutano (minutes), na insha za ulinganuzi",
+                "Kutumia viunganishi vya masharti, mnyambuliko wa vitendo katika kauli mbalimbali, na ngeli kwa usahihi wa hali ya juu"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Mathematics",
+      "strands": [
+        {
+          "strand": "Numbers and Algebra",
+          "sub_strands": [
+            {
+              "sub_strand": "Linear Inequalities and Simultaneous Equations",
+              "outcomes": [
+                "Formulate, solve, and represent linear inequalities in one variable on a standard number line",
+                "Solve pairs of simultaneous linear equations in two variables using substitution and elimination methods"
+              ]
+            },
+            {
+              "sub_strand": "Approximation and Standard Form",
+              "outcomes": [
+                "Express large and small decimal numbers in standard scientific form ($A \\times 10^n$ where $1 \\le A < 10$)",
+                "Round numbers to a specified number of significant figures"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Measurement and Geometry",
+          "sub_strands": [
+            {
+              "sub_strand": "Surface Area and Volume of Pyramids and Cones",
+              "outcomes": [
+                "Calculate the surface area and volume of right pyramids and right circular cones using their respective dimensional properties",
+                "Solve real-world conversion challenges linking units of density, mass, and cubic volumes"
+              ]
+            },
+            {
+              "sub_strand": "Angle Properties of Polygons",
+              "outcomes": [
+                "Find the sum of interior and exterior angles of regular and irregular convex polygons"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Data Handling and Probability",
+          "sub_strands": [
+            {
+              "sub_strand": "Measures of Central Tendency and Probability Frameworks",
+              "outcomes": [
+                "Calculate the mean, median, and mode for ungrouped data sets, and interpret them contextually",
+                "Determine the experimental and theoretical probability of simple combined outcomes using tree diagrams"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Integrated Science",
+      "strands": [
+        {
+          "strand": "Matter and Chemical Transformations",
+          "sub_strands": [
+            {
+              "sub_strand": "Atomic Structure, Chemical Symbols, and Simple Equations",
+              "outcomes": [
+                "Describe the atomic structure in terms of protons, neutrons, and electrons, and deduce mass and atomic numbers",
+                "Write down names, standard chemical symbols, and word equations for reactions between simple elements and oxygen or water"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Energy and its Conversions",
+          "sub_strands": [
+            {
+              "sub_strand": "Static Electricity and Current Electricity Circuits",
+              "outcomes": [
+                "Investigate static electricity charges using a gold-leaf electroscope setup",
+                "Set up serial and parallel electric circuits using cells, bulbs, switches, and ammeters to monitor current dynamics"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Human Biology and Health",
+          "sub_strands": [
+            {
+              "sub_strand": "Human Reproductive System and Excretory Homeostasis",
+              "outcomes": [
+                "Describe the structural anatomy and physiological roles of the male and female human reproductive systems",
+                "Explain the role of the skin and kidneys in human temperature regulation and osmoregulation homeostasis"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Social Studies",
+      "strands": [
+        {
+          "strand": "Physical Environment and Climate Change",
+          "sub_strands": [
+            {
+              "sub_strand": "Climate Change Challenges and Adaptation Strategies",
+              "outcomes": [
+                "Analyze the natural and human causes of climate change globally and assess its explicit impacts across Africa",
+                "Formulate and implement local-scale climate mitigation and adaptation frameworks within the school community"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "History, Citizenship, and Governance",
+          "sub_strands": [
+            {
+              "sub_strand": "Pre-Colonial African Societies and Citizenship Dynamics",
+              "outcomes": [
+                "Examine the socio-political organization of selected pre-colonial African kingdoms and communities",
+                "Analyze categories of Kenyan citizenship, processes of naturalization, and factors threatening national cohesion"
+              ]
+            },
+            {
+              "sub_strand": "Electoral Process and Civic Awareness",
+              "outcomes": [
+                "Outline the components, values, and importance of democratic electoral cycles in Kenya, highlighting IEBC functional matrices"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Pre-Technical Studies",
+      "strands": [
+        {
+          "strand": "Technical Drawing and Production Design",
+          "sub_strands": [
+            {
+              "sub_strand": "Isometric Drawing Projections and Circuit Layouts",
+              "outcomes": [
+                "Construct accurate isometric drawings of basic blocks and mechanical joints from provided orthographic planes",
+                "Interpret and draw elementary schematic wiring circuits utilizing international electronic symbols"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Engineering Systems and Energy Converters",
+          "sub_strands": [
+            {
+              "sub_strand": "Simple Mechanisms and Power Transmission",
+              "outcomes": [
+                "Identify and demonstrate the working mechanisms of levers, pulleys, gears, and inclined planes in daily machinery",
+                "Apply safety procedures when handling electrical components, soldering devices, or localized bench hand-tools"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Agriculture and Nutrition",
+      "strands": [
+        {
+          "strand": "Crop and Animal Husbandry Optimization",
+          "sub_strands": [
+            {
+              "sub_strand": "Crop Pests Management and Domestic Livestock Feeding",
+              "outcomes": [
+                "Identify common field and storage crop pests, analyzing their damage and executing non-chemical biological controls",
+                "Classify livestock feeds into roughages and concentrates, and balance simple feeding ratios for domestic farm units"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Nutrition, Food Preservation, and Safety",
+          "sub_strands": [
+            {
+              "sub_strand": "Food Hygiene, Reheating Food, and Kitchen Tools Maintenance",
+              "outcomes": [
+                "Demonstrate proper methods of reheating leftover meals safely to eliminate bacterial toxins and minimize nutrient depletion",
+                "Clean, sharpen, and apply rust-prevention maintenance routines across a variety of kitchen utensils and structural tools"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Creative Arts and Sports",
+      "strands": [
+        {
+          "strand": "Art and Multimedia Expression",
+          "sub_strands": [
+            {
+              "sub_strand": "Fabric Decoration, Block Printing, and Digital Photography",
+              "outcomes": [
+                "Create balanced block-printed designs on textile substrates using localized motifs and sustainable ink solutions",
+                "Edit digital images using software extensions to alter exposure, contrast, cropping bounds, and narrative values"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Music and Performing Arts",
+          "sub_strands": [
+            {
+              "sub_strand": "Musical Scale Building, Group Drama, and Score Auditing",
+              "outcomes": [
+                "Construct and sing major musical scales (including C major and G major) on staff grids using proper key signatures",
+                "Rehearse and present original skits or short plays featuring clear climactic resolutions, sound effects, and spatial blockers"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,129 @@
+{
+  "grade": "Grade 11",
+  "level": "Senior School",
+  "pathway": "Science, Technology, Engineering, and Mathematics (STEM)",
+  "track": "Pure Sciences",
+  "learning_areas": [
+    {
+      "learning_area": "Mathematics (Advanced STEM)",
+      "strands": [
+        {
+          "strand": "Calculus and Coordinate Geometry",
+          "sub_strands": [
+            {
+              "sub_strand": "Introduction to Differentiation and Limits",
+              "outcomes": [
+                "Understand the concept of a limit and derive the derivative of polynomial functions from first principles",
+                "Apply differentiation to determine gradients of curves, equations of tangents, and stationary points (maxima and minima)"
+              ]
+            },
+            {
+              "sub_strand": "Circles on the Cartesian Plane",
+              "outcomes": [
+                "Formulate the general equation of a circle $(x-a)^2 + (y-b)^2 = r^2$ and determine its center and radius from expanded polynomial forms"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Probability and Statistics",
+          "sub_strands": [
+            {
+              "sub_strand": "Permutations and Combinations",
+              "outcomes": [
+                "Solve complex arrangement and selection problems utilizing factorial notation, permutations ($^nP_r$), and combinations ($^nC_r$)"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Physics",
+      "strands": [
+        {
+          "strand": "Thermodynamics and Ideal Fluids",
+          "sub_strands": [
+            {
+              "sub_strand": "Gas Laws and Kinetic Theory of Gases",
+              "outcomes": [
+                "Verify the absolute zero temperature threshold and apply the combined gas law equations contextually",
+                "Explain gas pressure variations using the kinetic theory of matter and solve heat capacity thermal energy tasks"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Electricity and Magnetism",
+          "sub_strands": [
+            {
+              "sub_strand": "Magnetic Effect of an Electric Current",
+              "outcomes": [
+                "Map magnetic field configurations around current-carrying conductors, solenoids, and flat coils",
+                "Determine the direction and magnitude of magnetic forces on moving charges utilizing Fleming's Left-Hand Rule"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Chemistry",
+      "strands": [
+        {
+          "strand": "Physical Chemistry",
+          "sub_strands": [
+            {
+              "sub_strand": "Reaction Rates and Chemical Equilibrium",
+              "outcomes": [
+                "Investigate factors altering reaction kinetics (concentration, temperature, surface area, catalysts) using collision theory models",
+                "Apply Le Chatelier's Principle to predict equilibrium shifts in dynamic reversible chemical networks"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Organic Chemistry II",
+          "sub_strands": [
+            {
+              "sub_strand": "Alkanols and Alkanoic Acids",
+              "outcomes": [
+                "Synthesize and classify primary, secondary, and tertiary alkanols and map out esterification reaction profiles",
+                "Determine structural variations and IUPAC naming protocols for alkanoic acids up to carbon-5"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Biology",
+      "strands": [
+        {
+          "strand": "Physiology and Homeostasis",
+          "sub_strands": [
+            {
+              "sub_strand": "Excretion and Osmoregulation Structures",
+              "outcomes": [
+                "Analyze the structural anatomy and counter-current multiplier mechanics of the mammalian nephron unit",
+                "Examine homeostatic feedback mechanisms managed by Antidiuretic Hormone (ADH) and Aldosterone during fluid changes"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Genetics and Molecular Biology",
+          "sub_strands": [
+            {
+              "sub_strand": "Dihybrid Inheritance and Sex Linkage",
+              "outcomes": [
+                "Model dihybrid inheritance patterns ($9:3:3:1$ phenotypic distributions) using advanced genetic matrix diagrams",
+                "Trace sex-linked traits including hemophilia and color blindness across generational pedigree charts"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

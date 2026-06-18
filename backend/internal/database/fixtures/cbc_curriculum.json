@@ -2,7 +2,7 @@
   "_meta": {
     "title": "Kenya CBC Curriculum Reference Data",
     "description": "Portable reference dataset mapping CBC grade names to learning areas, strands, sub-strands, and learning outcomes. The backend loads this file when seeding curriculum for a CBC school.",
-    "source": "docs/cbc-cariculum.json — compiled from KICD curriculum designs (kicd.ac.ke)",
+    "source": "docs/cbc/*.json — compiled from KICD curriculum designs (kicd.ac.ke)",
     "usage": "Match grade.name against the grades seeded in 000002_seed.up.sql, then insert learning areas, strands, sub-strands, and outcomes using runtime-allocated UUIDs.",
     "last_exported": "2026-06-18"
   },
@@ -20,14 +20,49 @@
                 {
                   "name": "Listening and Attention",
                   "outcomes": [
-                    "Develop appropriate listening skills from varied experiences to enrich their ability to communicate",
-                    "Participate in conversation using appropriate verbal and non-verbal language in everyday experiences"
+                    "Develop appropriate listening skills from varied experiences to enrich communication",
+                    "Demonstrate sustained attention during conversations, stories, and instructions",
+                    "Respond appropriately to verbal and non-verbal cues in everyday interactions"
                   ]
                 },
                 {
                   "name": "Free Expression",
                   "outcomes": [
-                    "Express own opinions, ideas and feelings creatively, freely and confidently in varied situations as they appreciate others"
+                    "Express own opinions, needs, ideas, and feelings creatively and confidently",
+                    "Appreciate the opinions and feelings of others during shared conversations"
+                  ]
+                },
+                {
+                  "name": "Auditory Discrimination",
+                  "outcomes": [
+                    "Distinguish between different environmental sounds to enhance phonological awareness",
+                    "Identify and match similar sounds in words, chants, and rhymes"
+                  ]
+                },
+                {
+                  "name": "Visual Discrimination",
+                  "outcomes": [
+                    "Differentiate shapes, sizes, colors, and symbols to build reading readiness",
+                    "Track objects visually from left to right to establish proper eye movement for reading"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Reading Readiness",
+              "sub_strands": [
+                {
+                  "name": "Book Handling Skills",
+                  "outcomes": [
+                    "Demonstrate correct book orientation by holding a book upright and turning pages from right to left",
+                    "Show care for books and reading materials by handling them gently"
+                  ]
+                },
+                {
+                  "name": "Print Awareness",
+                  "outcomes": [
+                    "Recognize that print carries meaning and conveys a message",
+                    "Identify common signs, labels, and logos within their immediate environment"
                   ]
                 }
               ]
@@ -42,10 +77,148 @@
               "name": "Numbers",
               "sub_strands": [
                 {
-                  "name": "Pre-Number Activities (Matching, Sorting, Classifying)",
+                  "name": "Pre-Number Activities (Matching and Sorting)",
                   "outcomes": [
-                    "Sort and classify objects according to one attribute such as colour, shape or size",
-                    "Match objects in a one-to-one correspondence for counting readiness"
+                    "Sort and classify objects according to a single attribute such as color, shape, or size",
+                    "Match objects in a one-to-one correspondence to build a foundation for counting",
+                    "Arrange objects in simple patterns or linear sequences based on size"
+                  ]
+                },
+                {
+                  "name": "Rote Counting",
+                  "outcomes": [
+                    "Count sequentially from 1 to 10 using rhymes, songs, and real objects",
+                    "Demonstrate an awareness of number names in sequence"
+                  ]
+                },
+                {
+                  "name": "Number Recognition and Value",
+                  "outcomes": [
+                    "Identify and name numerals from 1 to 5 in their environment",
+                    "Map numerals 1 to 5 to their corresponding concrete quantities"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Measurement",
+              "sub_strands": [
+                {
+                  "name": "Size and Length Comparison",
+                  "outcomes": [
+                    "Compare objects using terms such as big/small, long/short, or tall/short",
+                    "Order up to three objects sequentially according to height or length"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Environmental Activities",
+          "code": "ENV",
+          "strands": [
+            {
+              "name": "Myself and My Environment",
+              "sub_strands": [
+                {
+                  "name": "Parts of the Body",
+                  "outcomes": [
+                    "Identify and name basic external body parts and state their main functions",
+                    "Demonstrate appreciation for their own body and physical uniqueness"
+                  ]
+                },
+                {
+                  "name": "Personal Hygiene",
+                  "outcomes": [
+                    "Practice simple personal hygiene routines such as washing hands, brushing teeth, and wiping the nose",
+                    "Use the toilet or latrine appropriately and wash hands afterwards"
+                  ]
+                },
+                {
+                  "name": "My Family and School",
+                  "outcomes": [
+                    "Name immediate family members and recognize their roles within the home",
+                    "Identify key places and people within the school compound"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Health and Safety",
+              "sub_strands": [
+                {
+                  "name": "Safe and Unsafe Environments",
+                  "outcomes": [
+                    "Identify potentially dangerous objects and areas at home and school",
+                    "Demonstrate standard safety precautions when playing or walking"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Psychomotor and Creative Activities",
+          "code": "PCA",
+          "strands": [
+            {
+              "name": "Gross Motor Skills",
+              "sub_strands": [
+                {
+                  "name": "Locomotor and Non-Locomotor Movements",
+                  "outcomes": [
+                    "Perform basic movements including walking, running, jumping, hopping, and skipping safely",
+                    "Demonstrate body balance, agility, and coordination during group games"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Fine Motor Skills",
+              "sub_strands": [
+                {
+                  "name": "Manipulation and Coordination",
+                  "outcomes": [
+                    "Manipulate materials through modeling, tearing, pasting, and threading to develop finger muscles",
+                    "Demonstrate hand-eye coordination by scribbling or coloring within broad outlines"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Creative and Performance Arts",
+              "sub_strands": [
+                {
+                  "name": "Music and Movement",
+                  "outcomes": [
+                    "Sing simple songs and perform rhythmic movements in response to different tempos",
+                    "Play basic percussion instruments and sound-makers collaboratively"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Christian Religious Education (CRE)",
+          "code": "CRE",
+          "strands": [
+            {
+              "name": "God's Creation and Love",
+              "sub_strands": [
+                {
+                  "name": "God the Creator",
+                  "outcomes": [
+                    "Recognize God as the creator of themselves, other people, and the natural environment",
+                    "Express gratitude to God through simple short prayers and songs"
+                  ]
+                },
+                {
+                  "name": "The Holy Bible",
+                  "outcomes": [
+                    "Handle the Bible with respect as a special book containing God's word",
+                    "Listen attentively to short biblical stories and extract simple moral lessons"
                   ]
                 }
               ]
@@ -65,10 +238,55 @@
               "name": "Listening and Speaking",
               "sub_strands": [
                 {
-                  "name": "Conversation and Polite Language",
+                  "name": "Listening and Attention",
                   "outcomes": [
-                    "Communicate appropriately using verbal and/or non-verbal modes in a variety of contexts",
-                    "Demonstrate appropriate etiquette in social relationships"
+                    "Listen attentively to extended stories, instructions, and conversations for details",
+                    "Respond accurately and appropriately to complex verbal prompts and questions"
+                  ]
+                },
+                {
+                  "name": "Free Expression",
+                  "outcomes": [
+                    "Communicate ideas, desires, feelings, and personal experiences clearly and fluently using complete sentences",
+                    "Take turns constructively during structured classroom conversations and peer discussions"
+                  ]
+                },
+                {
+                  "name": "Phonological Awareness",
+                  "outcomes": [
+                    "Identify, blend, and segment rhyming words, syllables, and initial sounds in spoken words",
+                    "Produce letter sounds accurately for basic consonant-vowel-consonant (CVC) patterns"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Reading Readiness",
+              "sub_strands": [
+                {
+                  "name": "Print and Word Awareness",
+                  "outcomes": [
+                    "Track text visually from left to right and top to bottom with emerging consistency",
+                    "Recognize sight words and common functional words within the print environment"
+                  ]
+                },
+                {
+                  "name": "Reading Comprehension",
+                  "outcomes": [
+                    "Predict outcomes or next steps in a story based on illustrations and contextual clues",
+                    "Recall and sequence main events or characters from a read-aloud narrative"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Writing Readiness",
+              "sub_strands": [
+                {
+                  "name": "Patterning and Controlled Writing",
+                  "outcomes": [
+                    "Form upper and lower case letters legibly using correct directional strokes",
+                    "Write personal names and simple three-letter words independently with proper spacing"
                   ]
                 }
               ]
@@ -83,10 +301,92 @@
               "name": "Numbers",
               "sub_strands": [
                 {
-                  "name": "Number Recognition and Counting",
+                  "name": "Classification and Pairing",
                   "outcomes": [
-                    "Recite number names in sequence for number readiness",
-                    "Demonstrate basic numeracy skills for learning"
+                    "Sort and classify a collection of concrete objects based on two simultaneous attributes such as size and color",
+                    "Create and extend simple repeating patterns using concrete objects, shapes, or drawings"
+                  ]
+                },
+                {
+                  "name": "Counting and Cardinality",
+                  "outcomes": [
+                    "Count objects sequentially up to 20 using concrete representations and one-to-one correspondence",
+                    "Represent quantities up to 10 using concrete objects, drawings, and numerals"
+                  ]
+                },
+                {
+                  "name": "Number Operations",
+                  "outcomes": [
+                    "Demonstrate the concept of addition as putting together objects up to a sum of 9",
+                    "Demonstrate the concept of subtraction as taking away objects from a group up to 9"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Measurement",
+              "sub_strands": [
+                {
+                  "name": "Mass, Capacity, and Time",
+                  "outcomes": [
+                    "Compare and order objects based on mass (heavy/light) and capacity (holds more/holds less)",
+                    "Identify days of the week and describe daily routines using time-relative terms like morning, afternoon, and night"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Geometry",
+              "sub_strands": [
+                {
+                  "name": "Geometric Shapes",
+                  "outcomes": [
+                    "Identify, name, and draw basic two-dimensional shapes including circles, triangles, rectangles, and squares",
+                    "Recognize and point out basic shapes within objects in the immediate environment"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Environmental Activities",
+          "code": "ENV",
+          "strands": [
+            {
+              "name": "Natural Environment",
+              "sub_strands": [
+                {
+                  "name": "Weather and Climate Elements",
+                  "outcomes": [
+                    "Observe, describe, and record daily weather conditions using symbols (sunny, rainy, windy, cloudy)",
+                    "Identify appropriate clothing, shelter, and activities for different weather conditions"
+                  ]
+                },
+                {
+                  "name": "Plants and Animals",
+                  "outcomes": [
+                    "Identify and care for common plants and domestic animals within the locality",
+                    "State basic parts of a plant and recognize safe versus dangerous plants and animals"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Social and Economic Environment",
+              "sub_strands": [
+                {
+                  "name": "Our Community and Helpers",
+                  "outcomes": [
+                    "Identify and roleplay different community helpers (teachers, doctors, police officers, farmers) and their contributions",
+                    "Demonstrate respect for diverse cultures, norms, and roles within the local neighborhood"
+                  ]
+                },
+                {
+                  "name": "Care of Resources",
+                  "outcomes": [
+                    "Practice proper disposal of waste and conservation of water and electricity at home and school",
+                    "Demonstrate care and responsibility for personal and shared school property"
                   ]
                 }
               ]
@@ -98,13 +398,57 @@
           "code": "PCA",
           "strands": [
             {
-              "name": "Art and Craft",
+              "name": "Physical Development and Sports",
               "sub_strands": [
                 {
-                  "name": "Drawing and Colouring",
+                  "name": "Locomotor and Manipulation Skills",
                   "outcomes": [
-                    "Create artworks to share ideas, thoughts, feelings and experiences for learning and enjoyment",
-                    "Appreciate own and others' artworks from within their social context and culture"
+                    "Execute complex physical skills including catching, throwing, kicking, and bouncing a ball with control",
+                    "Maintain body dynamic balance while navigating obstacles or participating in structured relays"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Creative and Performing Arts",
+              "sub_strands": [
+                {
+                  "name": "Art and Craft Production",
+                  "outcomes": [
+                    "Create functional and decorative artifacts using techniques like paper folding, weaving, painting, and clay modeling",
+                    "Express personal imagination and stories through distinct drawings and artwork"
+                  ]
+                },
+                {
+                  "name": "Music, Dance, and Drama",
+                  "outcomes": [
+                    "Perform short songs, singing games, and simple rhythmic dances individually and in groups",
+                    "Dramatize simple situational roles, stories, or emotional states during creative play"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Christian Religious Education (CRE)",
+          "code": "CRE",
+          "strands": [
+            {
+              "name": "The Life of Jesus Christ",
+              "sub_strands": [
+                {
+                  "name": "Early Life and Family of Jesus",
+                  "outcomes": [
+                    "Narrate stories about the birth, childhood, and family background of Jesus Christ",
+                    "Relate the obedience and growth of young Jesus to their own daily choices and family relationships"
+                  ]
+                },
+                {
+                  "name": "Christian Values and Conduct",
+                  "outcomes": [
+                    "Demonstrate key Christian values such as sharing, honesty, kindness, and love during peer interactions",
+                    "Apply simple biblical moral lessons to resolve everyday conflicts peacefully"
                   ]
                 }
               ]
@@ -117,24 +461,55 @@
       "grade_name": "Grade 1",
       "learning_areas": [
         {
-          "name": "Mathematical Activities",
-          "code": "MATH",
+          "name": "Language Activities / English",
+          "code": "ENG",
           "strands": [
             {
-              "name": "Numbers",
+              "name": "Listening and Speaking",
               "sub_strands": [
                 {
-                  "name": "Pre-Number Activities",
+                  "name": "Talking About Self and Immediate Environment",
                   "outcomes": [
-                    "Sort objects according to colour, shape and size for classification",
-                    "Make patterns using real objects to develop logical reasoning"
+                    "Express personal needs, feelings, and experiences clearly using simple sentences",
+                    "Respond appropriately to greetings, simple instructions, and questions from peers and teachers"
                   ]
                 },
                 {
-                  "name": "Number and Place Value (1-10)",
+                  "name": "Listening and Attention",
                   "outcomes": [
-                    "Recite number names up to 50 in sequence",
-                    "Identify place value of ones and tens"
+                    "Listen attentively to short oral narratives, poems, and instructions to recall key details",
+                    "Demonstrate appropriate digital etiquette when listening to audio devices or educational media"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Reading",
+              "sub_strands": [
+                {
+                  "name": "Word Recognition (Phonemic Awareness)",
+                  "outcomes": [
+                    "Recognize and produce consonant-vowel-consonant (CVC) words and basic blends",
+                    "Read high-frequency sight words accurately in simple contextual sentences"
+                  ]
+                },
+                {
+                  "name": "Reading Comprehension",
+                  "outcomes": [
+                    "Answer direct text-based questions from short, illustrated storybooks",
+                    "Sequence at least three main events from a reading text chronologically"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Writing",
+              "sub_strands": [
+                {
+                  "name": "Handwriting and Word Formation",
+                  "outcomes": [
+                    "Form letters legibly with appropriate spacing between words",
+                    "Spell simple phonetically regular words correctly in writing tasks"
                   ]
                 }
               ]
@@ -142,76 +517,79 @@
           ]
         },
         {
-          "name": "Movement Activities",
-          "code": "MOV",
+          "name": "Mathematical Activities",
+          "code": "MATH",
           "strands": [
             {
-              "name": "Basic Movement Skills",
+              "name": "Numbers",
               "sub_strands": [
                 {
-                  "name": "Locomotor Skill: Walking",
+                  "name": "Number Concept and Counting",
                   "outcomes": [
-                    "Name the parts of the body that are in use when walking for body awareness",
-                    "Perform walking in different ways for strength, coordination, endurance, balance and space awareness"
+                    "Count forward and backward from 1 to 100 using concrete objects and charts",
+                    "Identify, read, and write numbers 1 to 20 in symbols and words"
                   ]
                 },
                 {
-                  "name": "Locomotor Skill: Running",
+                  "name": "Place Value",
                   "outcomes": [
-                    "Perform running in different ways for strength, coordination, endurance, balance and space awareness",
-                    "Observe rules when playing games for own and others' safety"
+                    "Identify tens and ones in two-digit numbers up to 20 using bundles of sticks or counters"
                   ]
                 },
                 {
-                  "name": "Locomotor Skill: Jumping for Height",
+                  "name": "Addition and Subtraction",
                   "outcomes": [
-                    "Perform jumping for height in different ways for strength, coordination, endurance, balance and space awareness",
-                    "Appreciate jumping for height for strength, coordination, balance and self-esteem"
-                  ]
-                },
-                {
-                  "name": "Non-Locomotor Skill: Stretching",
-                  "outcomes": [
-                    "Perform stretching in different ways for flexibility, agility, coordination and space awareness",
-                    "Establish relationships through stretching for critical thinking and problem solving"
-                  ]
-                },
-                {
-                  "name": "Manipulative Skill: Overarm Throw",
-                  "outcomes": [
-                    "Perform the overarm throw in different ways for strength, coordination, endurance, balance and space awareness",
-                    "Make appropriate play items for creativity and imagination"
+                    "Add two single-digit numbers up to a sum of 20 using concrete representations",
+                    "Subtract single-digit numbers within 20 by taking away counters or cross-outs"
                   ]
                 }
               ]
             },
             {
-              "name": "Swimming",
+              "name": "Measurement",
               "sub_strands": [
                 {
-                  "name": "Water Safety: Pool Rules",
+                  "name": "Length and Mass",
                   "outcomes": [
-                    "Familiarize with the pool rules for safety",
-                    "Observe sanitation around the pool environs for personal hygiene"
+                    "Measure length of various classroom surfaces using arbitrary units like handspans and strides",
+                    "Compare masses of common items using standard terms like heavier, lighter, or same as"
                   ]
                 },
                 {
-                  "name": "Basic Swimming Skills: Exhaling in Water",
+                  "name": "Time and Money",
                   "outcomes": [
-                    "Practice exhaling in water for sustained swimming",
-                    "Appreciate exhaling in water for stamina and endurance"
+                    "Identify Kenyan currency coins up to 20 shillings and practice simple currency matching",
+                    "Tell time by the hour using analogue and digital clocks"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Environmental Activities",
+          "code": "ENV",
+          "strands": [
+            {
+              "name": "Our School and Family",
+              "sub_strands": [
+                {
+                  "name": "School Routine and Environment",
+                  "outcomes": [
+                    "Identify key locations and administrative personnel within the school setting",
+                    "Demonstrate adherence to clean school habits including correct litter disposal"
                   ]
                 }
               ]
             },
             {
-              "name": "Gymnastics",
+              "name": "Health Practices",
               "sub_strands": [
                 {
-                  "name": "Static Balances: Single Leg Balance",
+                  "name": "Care of Teeth and Personal Hygiene",
                   "outcomes": [
-                    "Perform the single leg balance for coordination, balance, strength and space awareness",
-                    "Appreciate performing the single leg balance for self-esteem"
+                    "Demonstrate the correct step-by-step technique for brushing teeth",
+                    "Identify healthy food options that prevent dental decay and promote body growth"
                   ]
                 }
               ]
@@ -224,36 +602,96 @@
       "grade_name": "Grade 2",
       "learning_areas": [
         {
-          "name": "Environmental Activities",
-          "code": "ENV",
+          "name": "English Language Activities",
+          "code": "ENG",
           "strands": [
             {
-              "name": "Social Environment",
+              "name": "Listening and Speaking",
               "sub_strands": [
                 {
-                  "name": "Keeping the School Environment Clean",
+                  "name": "Talking About School, Home, and Community",
                   "outcomes": [
-                    "Name ways of keeping the school environment clean",
-                    "Clean the school environment for the well-being of self and others"
+                    "Express thoughts, feelings, and instructions clearly using appropriate vocabulary and correct sentence structures",
+                    "Listen attentively and respond politely to descriptions of everyday events and community activities"
                   ]
                 },
                 {
-                  "name": "Family Needs and Wants",
+                  "name": "Listening for Comprehension and Vocabulary",
                   "outcomes": [
-                    "Mention differences between family needs and wants",
-                    "Classify family needs and wants for financial literacy awareness"
+                    "Identify specific information and answer literal questions from short audio clips or stories read aloud",
+                    "Use new words acquired from listening tasks to construct meaningful sentences"
                   ]
                 }
               ]
             },
             {
-              "name": "Personal Environment",
+              "name": "Reading Readiness and Reading",
               "sub_strands": [
                 {
-                  "name": "Care of Personal and Common Items",
+                  "name": "Word Position and Silent Reading",
                   "outcomes": [
-                    "Differentiate between personal and common items used at home",
-                    "Clean personal and common items using locally available materials"
+                    "Read grade-level texts fluently, accurately, and with appropriate expression",
+                    "Demonstrate silent reading habits while maintaining focus on short paragraphs"
+                  ]
+                },
+                {
+                  "name": "Reading Comprehension",
+                  "outcomes": [
+                    "Draw logical conclusions and answer both direct and simple inferential questions from storybooks",
+                    "Retell a story accurately by highlighting the main characters and setting"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Writing",
+              "sub_strands": [
+                {
+                  "name": "Punctuation and Spelling",
+                  "outcomes": [
+                    "Apply basic punctuation marks including capital letters, periods, and question marks correctly in short sentences",
+                    "Spell frequently used words and multi-syllable phonetic words accurately"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Kiswahili Activities (Shughuli za Lugha ya Kiswahili)",
+          "code": "KISW",
+          "strands": [
+            {
+              "name": "Kusikiliza na Kuzungumza",
+              "sub_strands": [
+                {
+                  "name": "Maamkizi na Mazungumzo",
+                  "outcomes": [
+                    "Kuitikia na kutumia maamkizi na maneno ya adabu ipasavyo katika mazingira ya shuleni na nyumbani",
+                    "Kutoa na kufuata maagizo rahisi yanayohusisha shughuli za kila siku"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Kusoma",
+              "sub_strands": [
+                {
+                  "name": "Kusoma kwa Sauti",
+                  "outcomes": [
+                    "Kusoma maneno, sentensi, na vifungu vifupi kwa ufasaha, kuzingatia alama za uakifishaji",
+                    "Kutambua msamiati wa kimsingi unaopatikana katika vifungu vya kusoma"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Kuandika",
+              "sub_strands": [
+                {
+                  "name": "Kukuza herufi na silabi",
+                  "outcomes": [
+                    "Kuandika herufi na maneno kwa mwandiko unaosomeka na wenye nafasi ifasayo kati ya maneno"
                   ]
                 }
               ]
@@ -268,10 +706,181 @@
               "name": "Numbers",
               "sub_strands": [
                 {
+                  "name": "Number Concept and Representation",
+                  "outcomes": [
+                    "Count forward and backward from 1 to 1000 in intervals of 1, 5, 10, and 100",
+                    "Read and write numbers up to 100 in symbols and words"
+                  ]
+                },
+                {
                   "name": "Place Value",
                   "outcomes": [
-                    "Identify the place value of ones, tens and hundreds",
-                    "Use place value to compare and order numbers"
+                    "Identify place value of digits up to hundreds, tens, and ones using concrete structural representations"
+                  ]
+                },
+                {
+                  "name": "Number Patterns",
+                  "outcomes": [
+                    "Identify missing numbers or complete ascending and descending number patterns up to 100"
+                  ]
+                },
+                {
+                  "name": "Addition and Subtraction",
+                  "outcomes": [
+                    "Add up to two-digit numbers with regrouping up to a sum of 100",
+                    "Subtract up to two-digit numbers without regrouping within 100"
+                  ]
+                },
+                {
+                  "name": "Multiplication and Division",
+                  "outcomes": [
+                    "Represent multiplication as repeated addition using arrays or single groups up to 5x5",
+                    "Represent division as equal sharing or grouping using concrete materials"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Measurement",
+              "sub_strands": [
+                {
+                  "name": "Length, Mass, and Capacity",
+                  "outcomes": [
+                    "Measure and compare lengths using non-standard and arbitrary standard units",
+                    "Estimate and balance masses of objects against known classroom items",
+                    "Measure capacity of liquid containers using non-standard units"
+                  ]
+                },
+                {
+                  "name": "Time and Money",
+                  "outcomes": [
+                    "Tell time to the half-hour using analogue clocks",
+                    "Identify Kenyan currency notes and coins up to 50 shillings and perform simple mental calculations"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Geometry",
+              "sub_strands": [
+                {
+                  "name": "Lines and Shapes",
+                  "outcomes": [
+                    "Identify and draw straight lines, curved lines, rectangles, circles, triangles, and squares"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Environmental Activities",
+          "code": "ENV",
+          "strands": [
+            {
+              "name": "Our Environment",
+              "sub_strands": [
+                {
+                  "name": "Weather Patterns and Safe Practices",
+                  "outcomes": [
+                    "Monitor and record regular weather trends over an extended period",
+                    "Identify appropriate safety precautions to avoid injuries during adverse weather conditions"
+                  ]
+                },
+                {
+                  "name": "Animals and Plants in the Locality",
+                  "outcomes": [
+                    "Group local animals based on characteristics like feeding habits or physical features",
+                    "Demonstrate proper care for plants at home and around the school compound"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Health Practices and Safety",
+              "sub_strands": [
+                {
+                  "name": "Food and Basic First Aid",
+                  "outcomes": [
+                    "Differentiate between healthy food groups and common non-nutritious items",
+                    "Demonstrate knowledge of basic procedures when reporting accidents or minor injuries"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Hygiene and Nutrition Activities",
+          "code": "HGN",
+          "strands": [
+            {
+              "name": "Health Practices",
+              "sub_strands": [
+                {
+                  "name": "Cleanliness of Body and Environment",
+                  "outcomes": [
+                    "Demonstrate correct methods for washing clothes, cleaning classrooms, and standard bathroom cleaning",
+                    "Practice appropriate hand hygiene behaviors at key milestones throughout the day"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Food Hygiene",
+              "sub_strands": [
+                {
+                  "name": "Safe Food Handling",
+                  "outcomes": [
+                    "Identify correct ways to wash, store, and consume raw fruit and clean vegetables safely"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Religious Education (CRE / IRE / HRE)",
+          "code": "RE",
+          "strands": [
+            {
+              "name": "Values and Teachings",
+              "sub_strands": [
+                {
+                  "name": "Parables and Stories of Kindness",
+                  "outcomes": [
+                    "Retell specific parables or sacred historical stories that advocate for empathy, hard work, and sharing",
+                    "Demonstrate helpfulness toward elders, family members, and school peers in daily interactions"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Movement and Creative Activities",
+          "code": "MCA",
+          "strands": [
+            {
+              "name": "Psychomotor Skills",
+              "sub_strands": [
+                {
+                  "name": "Rhythmic Gymnastics and Games",
+                  "outcomes": [
+                    "Perform continuous physical movements like leaping, turning, rolling, and dodging with body alignment",
+                    "Follow rules and show teamwork principles in non-competitive games"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Creative Arts",
+              "sub_strands": [
+                {
+                  "name": "Drawing, Modeling, and Music",
+                  "outcomes": [
+                    "Create balanced patterns and textures through painting, printing, or localized weaving",
+                    "Sing local national and folk melodies in unison, maintaining steady rhythm and accurate tempo"
                   ]
                 }
               ]
@@ -284,17 +893,204 @@
       "grade_name": "Grade 3",
       "learning_areas": [
         {
-          "name": "Kiswahili Language Activities",
+          "name": "English Language Activities",
+          "code": "ENG",
+          "strands": [
+            {
+              "name": "Listening and Speaking",
+              "sub_strands": [
+                {
+                  "name": "Talking About Technology, Safety, and Communication",
+                  "outcomes": [
+                    "Express complex ideas, instructions, and safety precautions clearly using a wide range of vocabulary",
+                    "Listen critically to short informational texts to summarize key facts and express opinions"
+                  ]
+                },
+                {
+                  "name": "Language Structures and Functions",
+                  "outcomes": [
+                    "Use pronouns, prepositions, and simple past tense regular/irregular verbs accurately in speech",
+                    "Respond appropriately to open-ended questions regarding familiar topics"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Reading",
+              "sub_strands": [
+                {
+                  "name": "Fluency and Silent Reading",
+                  "outcomes": [
+                    "Read grade-level texts at an optimal speed with appropriate phrasing, tone, and accuracy",
+                    "Demonstrate sustained silent reading for pleasure and information retrieval"
+                  ]
+                },
+                {
+                  "name": "Reading Comprehension",
+                  "outcomes": [
+                    "Make inferences, predict outcomes, and distinguish between fact and fiction in reading cards and storybooks",
+                    "Identify the central theme, moral lesson, and sequence of events from a text"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Writing",
+              "sub_strands": [
+                {
+                  "name": "Guided and Creative Writing",
+                  "outcomes": [
+                    "Write cohesive short paragraphs using correct sentence structures, capitalization, and punctuation",
+                    "Spell unfamiliar multi-syllabic words accurately using phonetic spelling strategies"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Kiswahili Activities (Shughuli za Lugha ya Kiswahili)",
           "code": "KISW",
           "strands": [
             {
-              "name": "Kusikiliza na Kuzungumza (Listening and Speaking)",
+              "name": "Kusikiliza na Kuzungumza",
               "sub_strands": [
                 {
-                  "name": "Matumizi ya Lugha ya Heshima",
+                  "name": "Kusikiliza kwa Makini na Maelezo",
                   "outcomes": [
-                    "Kutumia lugha ya heshima katika mazungumzo ya kila siku",
-                    "Kushiriki katika mazungumzo kwa kujiamini"
+                    "Kusikiliza hadithi, habari, au maagizo na kutoa muhtasari au majibu sahihi ya maswali",
+                    "Kutumia msamiati mwafaka kueleza matukio, usalama, na mazingira yanayomzunguka mwanafunzi"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Kusoma",
+              "sub_strands": [
+                {
+                  "name": "Kusoma kwa Ufasaha na Ufahamu",
+                  "outcomes": [
+                    "Kusoma vifungu vya maneno kwa sauti inayosikika na kwa kasi inayofaa huku wakizingatia uakifishaji",
+                    "Kujibu maswali ya ufahamu kutokana na vifungu vya kusoma (maswali ya moja kwa moja na ya mapendeleo)"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Kuandika",
+              "sub_strands": [
+                {
+                  "name": "Insha fupi na Imla",
+                  "outcomes": [
+                    "Kuandika aya fupi na tungo rahisi zenye mtiririko mzuri wa mawazo na tahajia sahihi"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Mathematical Activities",
+          "code": "MATH",
+          "strands": [
+            {
+              "name": "Numbers",
+              "sub_strands": [
+                {
+                  "name": "Number Concept and Operations",
+                  "outcomes": [
+                    "Count forward and backward from 1 to 1000 in intervals of 2, 5, 10, 50, and 100",
+                    "Read, write, and represent numbers up to 1000 in symbols and numbers up to 100 in words"
+                  ]
+                },
+                {
+                  "name": "Place Value and Fractions",
+                  "outcomes": [
+                    "Identify place value of digits up to thousands, hundreds, tens, and ones",
+                    "Identify, read, and write simple fractions as part of a whole (half, quarter, eighth)"
+                  ]
+                },
+                {
+                  "name": "Addition and Subtraction",
+                  "outcomes": [
+                    "Add up to three-digit numbers with regrouping up to a sum of 1000",
+                    "Subtract up to three-digit numbers with regrouping within 1000"
+                  ]
+                },
+                {
+                  "name": "Multiplication and Division",
+                  "outcomes": [
+                    "Multiply single-digit numbers by numbers up to 10 using mental strategies and arrays",
+                    "Divide numbers up to 30 by single digits without a remainder through factor grouping"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Measurement",
+              "sub_strands": [
+                {
+                  "name": "Length, Mass, and Capacity",
+                  "outcomes": [
+                    "Measure length in standard units (meters) using tape measures or meter rules",
+                    "Measure mass in kilograms using a simple weighing balance",
+                    "Measure and compare capacity in liters using standard containers"
+                  ]
+                },
+                {
+                  "name": "Time and Money",
+                  "outcomes": [
+                    "Tell time to the nearest five minutes using an analogue clock face",
+                    "Perform operations involving Kenyan currency notes and coins up to 100 shillings"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Geometry",
+              "sub_strands": [
+                {
+                  "name": "Position and Shapes",
+                  "outcomes": [
+                    "Identify and trace horizontal, vertical, and diagonal lines",
+                    "Make patterns using interlocking two-dimensional shapes"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Environmental Activities",
+          "code": "ENV",
+          "strands": [
+            {
+              "name": "Natural Environment and Weather",
+              "sub_strands": [
+                {
+                  "name": "Soil Types and Characteristics",
+                  "outcomes": [
+                    "Model and compare physical properties of clay, sand, and loam soils based on texture and modeling capability",
+                    "Demonstrate simple methods of conserving soil erosion in the school environment"
+                  ]
+                },
+                {
+                  "name": "Water Conservation and Sources",
+                  "outcomes": [
+                    "Identify local sources of clean and polluted water and discuss methods of safe harvesting",
+                    "Practice practical water conservation measures like turning off taps and recycling water"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Social and Economic Environment",
+              "sub_strands": [
+                {
+                  "name": "Marketplace and Resources",
+                  "outcomes": [
+                    "Describe common business transactions, types of items sold, and basic ethics in the local market",
+                    "Demonstrate resource planning by reusing and recycling materials within their environment"
                   ]
                 }
               ]
@@ -306,13 +1102,98 @@
           "code": "HGN",
           "strands": [
             {
-              "name": "Personal Hygiene",
+              "name": "Personal and Community Health",
               "sub_strands": [
                 {
-                  "name": "Care of the Body",
+                  "name": "Parasites and Preventive Practices",
                   "outcomes": [
-                    "Practice hygiene, nutrition, sanitation and safety skills to promote health and wellbeing",
-                    "Demonstrate correct handwashing procedure to prevent communicable diseases"
+                    "Identify common external human parasites (lice, bedbugs, jiggers) and state regular preventive actions",
+                    "Demonstrate appropriate methods of medicine usage, storage, and adherence to safety labels"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Food and Safety",
+              "sub_strands": [
+                {
+                  "name": "Kitchen Safety and Food Preservation",
+                  "outcomes": [
+                    "Identify potential hazards in a kitchen and demonstrate actions to prevent burns or accidental cuts",
+                    "Practice traditional and modern simple methods of preserving common food items from contamination"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Religious Education (CRE / IRE / HRE)",
+          "code": "RE",
+          "strands": [
+            {
+              "name": "Christian / Islamic / Hindu Values",
+              "sub_strands": [
+                {
+                  "name": "Respect for Authority and Peers",
+                  "outcomes": [
+                    "Explain the importance of respecting institutional authority, community elders, and parents based on spiritual teachings",
+                    "Demonstrate honesty, inclusivity, and empathy when dealing with individuals of different backgrounds"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Movement and Creative Activities",
+          "code": "MCA",
+          "strands": [
+            {
+              "name": "Movement and Physical Education",
+              "sub_strands": [
+                {
+                  "name": "Swimming and Gymnastics",
+                  "outcomes": [
+                    "Execute proper body buoyancy techniques, kicking patterns, and water safety strokes independently",
+                    "Perform sequences of specialized physical maneuvers including forward rolls, vaulting, and balancing with control"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Creative Arts",
+              "sub_strands": [
+                {
+                  "name": "Crafting, Ornaments, and Puppetry",
+                  "outcomes": [
+                    "Design and construct basic hand puppets, masks, or beaded ornaments using local sustainable materials",
+                    "Create three-dimensional structures using simple modeling techniques"
+                  ]
+                },
+                {
+                  "name": "Music and Solos",
+                  "outcomes": [
+                    "Perform patriotic, sacred, and topical solo songs with correct pitch, phrasing, and emotional expression",
+                    "Identify and classify traditional African musical instruments within the local community"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Indigenous Language Activities",
+          "code": "ILA",
+          "strands": [
+            {
+              "name": "Cultural Heritage and Oral Literature",
+              "sub_strands": [
+                {
+                  "name": "Storytelling and Riddles",
+                  "outcomes": [
+                    "Listen to and recount local community folktales, proverbs, and riddles in the local language",
+                    "Appreciate cultural heritage expressions and moral benchmarks passed down through indigenous language arts"
                   ]
                 }
               ]
@@ -325,31 +1206,298 @@
       "grade_name": "Grade 4",
       "learning_areas": [
         {
+          "name": "English Language",
+          "code": "ENG",
+          "strands": [
+            {
+              "name": "Listening and Speaking",
+              "sub_strands": [
+                {
+                  "name": "Digital Media Literacy and Oral Communication",
+                  "outcomes": [
+                    "Listen attentively to multi-media educational narratives to accurately summarize foundational arguments",
+                    "Present brief oral reports on environmental or localized topics using varied vocabulary and accurate syntactic forms"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Reading",
+              "sub_strands": [
+                {
+                  "name": "Critical Reading and Media Literacy",
+                  "outcomes": [
+                    "Analyze elementary digital and print media texts to answer explicit and implicit interpretive prompts",
+                    "Read age-appropriate literary texts silently to establish central thematic messages and chronological structural elements"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Writing",
+              "sub_strands": [
+                {
+                  "name": "Composition and Mechanics",
+                  "outcomes": [
+                    "Compose multi-paragraph descriptive and narrative configurations utilizing correct grammatical inflections",
+                    "Apply structured punctuation matrices including quotation marks and commas in complex sentence environments"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Kiswahili",
+          "code": "KISW",
+          "strands": [
+            {
+              "name": "Kusikiliza na Kuzungumza",
+              "sub_strands": [
+                {
+                  "name": "Uwasilishaji wa Kidijitali na Maongezi",
+                  "outcomes": [
+                    "Kusikiliza kwa makini habari au simulizi za kidijitali na kuzitolea muhtasari sahihi",
+                    "Kuzungumza kwa ufasaha na kutumia msamiati mwafaka kueleza mada za kijamii na mazingira"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Kusoma",
+              "sub_strands": [
+                {
+                  "name": "Kusoma kwa Ufahamu na Uchambuzi",
+                  "outcomes": [
+                    "Kusoma vifungu vya habari na fasihi ya watoto ili kujibu maswali ya wazi na ya kiufahamu",
+                    "Kutambua sifa za wahusika na maadili yanayojitokeza katika hadithi"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Kuandika",
+              "sub_strands": [
+                {
+                  "name": "Insha na Sarufi",
+                  "outcomes": [
+                    "Kuandika insha fupi za wasifu na masimulizi zikizingatia uakifishaji na tahajia sahihi",
+                    "Kutumia viambishi, ngeli za nomino, na nyakati kwa usahihi katika tungo"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Mathematics",
+          "code": "MATH",
+          "strands": [
+            {
+              "name": "Numbers",
+              "sub_strands": [
+                {
+                  "name": "Whole Numbers and Place Value",
+                  "outcomes": [
+                    "Read, write, and identify place value parameters for whole numbers up to 10,000",
+                    "Round off whole numbers to the nearest tens, hundreds, and thousands"
+                  ]
+                },
+                {
+                  "name": "Fractions and Decimals",
+                  "outcomes": [
+                    "Compare and order proper fractions with denominators up to 10 using concrete grids",
+                    "Convert simple fractions into base-10 decimal equivalents with one decimal place"
+                  ]
+                },
+                {
+                  "name": "Operations (Addition, Subtraction, Multiplication, Division)",
+                  "outcomes": [
+                    "Add and subtract whole numbers up to 4 digits with regrouping parameters up to a total of 10,000",
+                    "Multiply a 3-digit number by a 1-digit number and divide 2-digit numbers by 1-digit divisors without remainders"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Measurement",
+              "sub_strands": [
+                {
+                  "name": "Length, Mass, and Capacity",
+                  "outcomes": [
+                    "Convert length metrics between meters and centimeters utilizing accurate computational models",
+                    "Solve real-world addition and subtraction problems involving kilograms, grams, liters, and milliliters"
+                  ]
+                },
+                {
+                  "name": "Financial Literacy and Time",
+                  "outcomes": [
+                    "Tell time down to minutes and seconds using both digital systems and traditional analogue interfaces",
+                    "Perform compound transactions involving currency combinations up to 1,000 Kenyan Shillings"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Geometry and Data Handling",
+              "sub_strands": [
+                {
+                  "name": "Lines, Angles, and Pictographs",
+                  "outcomes": [
+                    "Identify and classify right angles, acute angles, parallel lines, and perpendicular configurations",
+                    "Collect localized environmental data metrics and represent them accurately using standardized pictographs"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
           "name": "Science and Technology",
           "code": "SCT",
           "strands": [
             {
-              "name": "Matter",
+              "name": "Living Things",
               "sub_strands": [
                 {
-                  "name": "Properties of the Three States of Matter",
+                  "name": "Plants and Animals Classification",
                   "outcomes": [
-                    "Demonstrate the properties of the three states of matter through hands-on activities",
-                    "Practice preventive health measures, such as avoiding blowing air into a shared balloon, when carrying out activities on matter"
+                    "Classify local area plants based on characteristics such as flowering status and root frameworks",
+                    "Differentiate between vertebrate and invertebrate structures utilizing physical specimens and digital models"
                   ]
                 },
                 {
-                  "name": "Management of Solid Waste",
+                  "name": "Human Body and Digestive System",
                   "outcomes": [
-                    "Identify solid waste within the school compound and its environment",
-                    "Discuss ways of managing different types of solid waste in the environment"
+                    "Identify, label, and outline the physiological functions of the human digestive system structures",
+                    "Differentiate types of human teeth, mapping their specific structural traits to mechanical functionality"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Environment and Technology",
+              "sub_strands": [
+                {
+                  "name": "Pollution Control and Digital Simulations",
+                  "outcomes": [
+                    "Differentiate the impacts of air, water, and soil pollution in the community and offer remedial designs",
+                    "Navigate basic digital simulation components to observe environmental processes safely"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Matter and Energy",
+              "sub_strands": [
+                {
+                  "name": "States of Matter and Sound Energy",
+                  "outcomes": [
+                    "Investigate properties of solids, liquids, and gases via localized physical experiments",
+                    "Demonstrate how sound travels through different materials and describe factors altering pitch"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Agriculture and Nutrition",
+          "code": "AGN",
+          "strands": [
+            {
+              "name": "Conservation of Resources",
+              "sub_strands": [
+                {
+                  "name": "Soil Conservation and Water Harvesting",
+                  "outcomes": [
+                    "Construct small-scale macro-structures like simple terraces or mulching beds to curb soil degradation",
+                    "Demonstrate climate-smart micro-irrigation and simple water harvesting methodologies in farming modules"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Food Production and Hygiene",
+              "sub_strands": [
+                {
+                  "name": "Domestic Gardening and Home Nutrition",
+                  "outcomes": [
+                    "Establish functional container gardens or innovative vertical farm structures for local vegetable crops",
+                    "Practice proper food safety protocols, kitchen sorting, and basic macro-nutritional preservation steps"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Social Studies",
+          "code": "SST",
+          "strands": [
+            {
+              "name": "Physical and Built Environment",
+              "sub_strands": [
+                {
+                  "name": "County Mapping and Directional Metrics",
+                  "outcomes": [
+                    "Map local county boundaries and identify dominant geographic landmarks using the 8 points of the compass",
+                    "Outline the historical significance of localized heritage infrastructure and built monuments"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "People and Population",
+              "sub_strands": [
+                {
+                  "name": "Cultural Interdependence and Leadership",
+                  "outcomes": [
+                    "Describe historical migration paths and trace inter-community relationships within the county environment",
+                    "Identify structural functions of county leadership frameworks and outline characteristics of ethical civic administration"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Creative Arts",
+          "code": "CA",
+          "strands": [
+            {
+              "name": "Creating, Executing, and Performing",
+              "sub_strands": [
+                {
+                  "name": "Visual Arts Production and Multimedia",
+                  "outcomes": [
+                    "Design structural patterns and 3D mockups using sustainable artistic practices and digital illustration panels",
+                    "Produce functional household items using traditional pottery modeling and basic leather crafting techniques"
                   ]
                 },
                 {
-                  "name": "Water Conservation",
+                  "name": "Music, Dance, and Physical Expression",
                   "outcomes": [
-                    "Explain the meaning of water conservation",
-                    "Discuss ways water is wasted at home and at school"
+                    "Compose and perform short topical ensemble melodies utilizing localized scale configurations",
+                    "Execute complex choreographic steps or rhythmic gymnastics balances that align with designated tempos"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Religious Education (CRE / IRE / HRE)",
+          "code": "RE",
+          "strands": [
+            {
+              "name": "Social Justice and Ethical Leadership",
+              "sub_strands": [
+                {
+                  "name": "Scriptural Studies and Contemporary Morals",
+                  "outcomes": [
+                    "Evaluate scriptural passages regarding fair resource distribution, community empathy, and social justice parameters",
+                    "Differentiate ethical choices from deceptive behaviors within digital communication pipelines and physical encounters"
                   ]
                 }
               ]
@@ -362,36 +1510,29 @@
       "grade_name": "Grade 5",
       "learning_areas": [
         {
-          "name": "Social Studies",
-          "code": "SST",
-          "strands": [
-            {
-              "name": "Natural and Built Environments",
-              "sub_strands": [
-                {
-                  "name": "Location, Position and Size of Kenya",
-                  "outcomes": [
-                    "Identify countries that neighbour Kenya",
-                    "Locate the position of Kenya in relation to her neighbours using a compass direction",
-                    "Value good relations between Kenya and her neighbours"
-                  ]
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "name": "English Language Activities",
+          "name": "English Language",
           "code": "ENG",
           "strands": [
             {
               "name": "Listening and Speaking",
               "sub_strands": [
                 {
-                  "name": "Listening Comprehension: Oral Narratives",
+                  "name": "Active Listening, Interpersonal Discussions, and Etiquette",
                   "outcomes": [
-                    "Recognise sounds, words and phrases correctly",
-                    "Listen for the main idea and specific details for effective communication"
+                    "Listen attentively to multi-paragraph complex arguments to distinguish between fact and opinion",
+                    "Contribute constructively to group discussions using turn-taking, appropriate vocabulary, and varied voice modulations"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Reading",
+              "sub_strands": [
+                {
+                  "name": "Fluency, Extensive Reading, and Information Retrieval",
+                  "outcomes": [
+                    "Read grade-level prose fluently at a speed of 110\u2013130 words per minute with appropriate expression",
+                    "Analyze informational and literary texts to infer missing data and determine the writer's underlying purpose"
                   ]
                 }
               ]
@@ -400,10 +1541,273 @@
               "name": "Writing",
               "sub_strands": [
                 {
-                  "name": "Filling in Forms",
+                  "name": "Composition Frameworks and Applied Grammar",
                   "outcomes": [
-                    "Record specific details in a variety of forms",
-                    "Acknowledge the importance of filling forms correctly"
+                    "Write cohesive informational and narrative compositions of up to three paragraphs using transitional devices",
+                    "Apply accurate parts of speech including relative pronouns, adverbs of manner, and perfect tense configurations"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Kiswahili",
+          "code": "KISW",
+          "strands": [
+            {
+              "name": "Kusikiliza na Kuzungumza",
+              "sub_strands": [
+                {
+                  "name": "Kusikiliza na Kujadili kwa undani",
+                  "outcomes": [
+                    "Kusikiliza makala, hotuba, au midahalo na kubaini hoja kuu na upili kwa usahihi",
+                    "Kujadili masuala mbalimbali kwa kutumia msamiati mwafaka na lugha yenye adabu na mtiririko mzuri"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Kusoma",
+              "sub_strands": [
+                {
+                  "name": "Kusoma kwa Kasi na Ufahamu wa Kina",
+                  "outcomes": [
+                    "Kusoma vifungu vya habari na kazi za fasihi ili kuchanganua maana ya ndani na ujumbe wa mwandishi",
+                    "Kufafanua methali, vitendawili, na misemo inayopatikana katika vifungu vya kusoma"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Kuandika",
+              "sub_strands": [
+                {
+                  "name": "Insha za Maelezo na Sarufi Teule",
+                  "outcomes": [
+                    "Kuandika insha za maelezo, barua za kirafiki, na taarifa fupi zikizingatia kanuni zote za uandishi",
+                    "Kutumia ngeli changamano, viunganishi vya wakati, na vinyume vya vitendo katika tungo"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Mathematics",
+          "code": "MATH",
+          "strands": [
+            {
+              "name": "Numbers",
+              "sub_strands": [
+                {
+                  "name": "Whole Numbers up to 100,000",
+                  "outcomes": [
+                    "Read, write, model, and identify the place value of numbers up to 100,000",
+                    "Find the Total Value of digits, and round off numbers up to 100,000 to the nearest ten thousand"
+                  ]
+                },
+                {
+                  "name": "Multiplication, Division, and Combined Operations",
+                  "outcomes": [
+                    "Multiply a 3-digit number by a 2-digit number with and without regrouping patterns",
+                    "Divide numbers up to 3 digits by 2-digit divisors with or without remainders",
+                    "Perform combined mathematical operations (BODMAS) up to numbers totaling 100,000"
+                  ]
+                },
+                {
+                  "name": "Fractions, Decimals, and Percentages",
+                  "outcomes": [
+                    "Convert improper fractions into mixed numbers and vice versa through grouping models",
+                    "Read, write, and add/subtract decimals up to two decimal places, and interpret percentages as hundredths"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Measurement",
+              "sub_strands": [
+                {
+                  "name": "Area and Perimeter formulas",
+                  "outcomes": [
+                    "Calculate the perimeter of composite shapes, triangles, rectangles, and squares",
+                    "Determine the area of rectangular and square surfaces using unit squares and formal algorithmic models"
+                  ]
+                },
+                {
+                  "name": "Volume, Capacity, and Financial Planning",
+                  "outcomes": [
+                    "Measure the volume of cubes and cuboids using standard cubic units (cm\u00b3)",
+                    "Solve multi-step money problems involving bills, changes, and basic budgeting calculations within 1,000 Shillings"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Geometry and Data Handling",
+              "sub_strands": [
+                {
+                  "name": "Angles, Triangles, and Bar Charts",
+                  "outcomes": [
+                    "Measure and draw angles using a protractor up to 180 degrees, and classify them accordingly",
+                    "Collect environmental data points and represent them cleanly via standard column and bar charts"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Science and Technology",
+          "code": "SCT",
+          "strands": [
+            {
+              "name": "Living Things",
+              "sub_strands": [
+                {
+                  "name": "Human Respiratory and Circulatory Systems",
+                  "outcomes": [
+                    "Identify, sketch, and outline the core functions of the organs in the human respiratory system",
+                    "Examine how the human heart and blood vessels function during regular physical activities"
+                  ]
+                },
+                {
+                  "name": "Fungi and Bacteria",
+                  "outcomes": [
+                    "Classify common fungi and bacteria based on their beneficial and harmful traits within local ecosystems",
+                    "Demonstrate appropriate methods of handling food to avoid bacterial and fungal spoilage"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Environment and Energy",
+              "sub_strands": [
+                {
+                  "name": "Light Energy and Reflection",
+                  "outcomes": [
+                    "Investigate how light travels in a straight line and verify properties of reflection using plain mirrors",
+                    "Construct a functional periscope using local resources to observe hidden objects"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Computing Science and Coding",
+              "sub_strands": [
+                {
+                  "name": "Word Processing and Basic Block-Based Programming",
+                  "outcomes": [
+                    "Create, edit, format, and safely save textual documents using standard word processing software tools",
+                    "Construct elementary linear logic sequences using drag-and-drop block-based software environments"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Agriculture and Nutrition",
+          "code": "AGN",
+          "strands": [
+            {
+              "name": "Animal Production and Crop Protection",
+              "sub_strands": [
+                {
+                  "name": "Small Wild Animals Management and Weed Control",
+                  "outcomes": [
+                    "Construct and implement appropriate defensive barriers or scarecrows to protect farm crops from destructive small animals",
+                    "Identify common farm weeds and demonstrate structural safe methods of mechanical and physical weeding"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Food Preservation and Cooking",
+              "sub_strands": [
+                {
+                  "name": "Preservation of Excess Farm Produce and Baking",
+                  "outcomes": [
+                    "Practice solar drying, smoking, or traditional salting techniques to preserve perishable vegetables and pulses",
+                    "Prepare simple balanced baked meals safely using local open-air or localized clay ovens"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Social Studies",
+          "code": "SST",
+          "strands": [
+            {
+              "name": "Physical Features and Climate of the Region",
+              "sub_strands": [
+                {
+                  "name": "Physical Features, Map Reading, and Climate Zones",
+                  "outcomes": [
+                    "Identify major rivers, mountains, and plains across the regional landscape and interpret map symbols accurately",
+                    "Analyze the impact of distinct weather configurations and climate zones on local agricultural activities"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Historical Heritage and Civic Governance",
+              "sub_strands": [
+                {
+                  "name": "Community Heritage and Judicial Systems",
+                  "outcomes": [
+                    "Appreciate historical community leaders, physical cultural shrines, and artifacts that form the local identity",
+                    "Outline the structure and fundamental roles of the local judicial systems and alternative dispute resolution pathways"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Creative Arts",
+          "code": "CA",
+          "strands": [
+            {
+              "name": "Visual Arts, Expression, and Exhibition",
+              "sub_strands": [
+                {
+                  "name": "Photography, Graphics, and Sculpting",
+                  "outcomes": [
+                    "Capture digital or simulated frames utilizing basic principles of composition, balance, and angles",
+                    "Carve or model structural figurines representing active living postures using local soft stones, clay, or papier-m\u00e2ch\u00e9"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Performing Arts, Music, and Theater",
+              "sub_strands": [
+                {
+                  "name": "Choral Performances, Playwriting, and Descant Recorder",
+                  "outcomes": [
+                    "Perform dynamic folk songs and choral verses collaboratively while matching standard vocal ranges and key parameters",
+                    "Play structured note configurations on the descant recorder using accurate fingerings and breath coordination rules"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Religious Education (CRE / IRE / HRE)",
+          "code": "RE",
+          "strands": [
+            {
+              "name": "Christian / Islamic / Hindu Sacred Teachings",
+              "sub_strands": [
+                {
+                  "name": "Talents, Stewardship, and Ethical Media Behavior",
+                  "outcomes": [
+                    "Evaluate individual talents and stewardship responsibilities based on sacred writings and ancient scriptures",
+                    "Apply spiritual moral benchmarks to identify and avoid cyber-bullying, plagiarism, and misinformation on digital channels"
                   ]
                 }
               ]
@@ -416,6 +1820,90 @@
       "grade_name": "Grade 6",
       "learning_areas": [
         {
+          "name": "English Language",
+          "code": "ENG",
+          "strands": [
+            {
+              "name": "Listening and Speaking",
+              "sub_strands": [
+                {
+                  "name": "Critical Listening, Debating, and Public Speaking",
+                  "outcomes": [
+                    "Listen critically to complex texts and debates to identify fallacies, biases, and primary lines of reasoning",
+                    "Participate effectively in formal debates using persuasive language, objective evidence, and proper elocution parameters"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Reading",
+              "sub_strands": [
+                {
+                  "name": "Advanced Reading Comprehension and Literary Analysis",
+                  "outcomes": [
+                    "Analyze full-length children's novels and complex articles to interpret themes, character motivations, and subtext",
+                    "Read grade-level texts fluently (130-150 words per minute) with targeted syntactic and emotional inflections"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Writing",
+              "sub_strands": [
+                {
+                  "name": "Functional and Creative Writing Modules",
+                  "outcomes": [
+                    "Compose formal letters, official emails, and imaginative narratives adhering to rigorous structural and grammatical protocols",
+                    "Employ complex sentence structures, active/passive voices, and advanced punctuation matrices independently"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Kiswahili",
+          "code": "KISW",
+          "strands": [
+            {
+              "name": "Kusikiliza na Kuzungumza",
+              "sub_strands": [
+                {
+                  "name": "Kusikiliza kwa Makini na Hotuba",
+                  "outcomes": [
+                    "Kusikiliza na kuchanganua hotuba au mijadala changamano na kuwasilisha maoni mbadala kwa ufasaha",
+                    "Kutoa wasilisho la mdomo au hotuba fupi kuhusu masuala ibuka katika jamii kwa ujasiri"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Kusoma",
+              "sub_strands": [
+                {
+                  "name": "Uchambuzi wa Fasihi na Vifungu",
+                  "outcomes": [
+                    "Kusoma na kufafanua maana fiche, itikadi, na mafunzo katika hadithi, mashairi ya arudhi, na tamthilia fupi",
+                    "Kutumia kamusi na muktadha kubaini maana ya msamiati maalumu na wa kitaaluma"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Kuandika",
+              "sub_strands": [
+                {
+                  "name": "Uandishi wa Kazi za Kiofisi na Insha Bunifu",
+                  "outcomes": [
+                    "Kuandika barua rasmi, ratiba za vikao, na insha za hoja zifuatazo kanuni sahihi za sarufi",
+                    "Kutumia ngeli zote, viunganishi changamano, na kauli za vitendo (tendesha, tendana, tendewa) katika uandishi"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
           "name": "Mathematics",
           "code": "MATH",
           "strands": [
@@ -423,10 +1911,54 @@
               "name": "Numbers",
               "sub_strands": [
                 {
-                  "name": "Whole Numbers",
+                  "name": "Whole Numbers up to 1,000,000",
                   "outcomes": [
-                    "Read and write numbers in symbols and words up to millions",
-                    "Round off numbers to the nearest given place value"
+                    "Read, write, translate, and evaluate place value matrices for whole numbers up to 1,000,000",
+                    "Find the L.C.M and G.C.D of up to three numbers using prime factorization methods"
+                  ]
+                },
+                {
+                  "name": "Fractions, Decimals, and Percentages Optimization",
+                  "outcomes": [
+                    "Perform operations involving addition, subtraction, multiplication, and division of fractions and decimals up to three decimal places",
+                    "Convert fractions and decimals into percentages and calculate percentage profit or loss in real-world simulations"
+                  ]
+                },
+                {
+                  "name": "Squares and Square Roots",
+                  "outcomes": [
+                    "Find the square of a number up to 100, and find the square root of perfect squares using factorization or inspection methods"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Measurement",
+              "sub_strands": [
+                {
+                  "name": "Surface Area, Volume, and Capacity Matrices",
+                  "outcomes": [
+                    "Calculate the surface area of cubes, cuboids, and triangular prisms using formal algebraic nets",
+                    "Solve compound mathematical problems involving the volume of cylinders, cubes, and cuboids (cm\u00b3 and m\u00b3)"
+                  ]
+                },
+                {
+                  "name": "Speed, Time, and Financial Accounting",
+                  "outcomes": [
+                    "Determine speed, distance, and time relationships, converting between km/h and m/s",
+                    "Prepare income and expenditure statements, evaluate simple interest, and construct household budgets up to 10,000 Shillings"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Geometry and Algebra",
+              "sub_strands": [
+                {
+                  "name": "Angles, Construction, and Linear Equations",
+                  "outcomes": [
+                    "Construct angles of 90\u00b0, 60\u00b0, and 45\u00b0 using a pair of compasses and a ruler, and find angles on a straight line and around a point",
+                    "Formulate and solve single-variable linear equations from practical scenarios"
                   ]
                 }
               ]
@@ -438,13 +1970,147 @@
           "code": "SCT",
           "strands": [
             {
-              "name": "Living Things and Their Environment",
+              "name": "Living Things",
               "sub_strands": [
                 {
-                  "name": "Plants and Animals",
+                  "name": "Human Excretory and Nervous System Overview",
                   "outcomes": [
-                    "Classify plants and animals based on observable characteristics",
-                    "Appreciate the role of plants and animals in the ecosystem"
+                    "Identify, locate, and outline the physiological functions of the human excretory organs (skin, lungs, kidneys)",
+                    "Describe structural configurations of the human nervous system and relate them to basic reflex arcs"
+                  ]
+                },
+                {
+                  "name": "Plants and Animals Reproduction",
+                  "outcomes": [
+                    "Examine mechanisms of pollination and fertilization in flowering plants using physical flower dissections",
+                    "Differentiate internal and external fertilization methods across various animal classes"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Environment, Force, and Energy",
+              "sub_strands": [
+                {
+                  "name": "Types of Forces and Energy Transformations",
+                  "outcomes": [
+                    "Investigate properties of magnetic, gravitational, and frictional forces using physical laboratory set-ups",
+                    "Demonstrate how mechanical energy converts to electrical energy or heat through interactive models"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Computing Science",
+              "sub_strands": [
+                {
+                  "name": "Spreadsheets, Multimedia Development, and Coding Logic",
+                  "outcomes": [
+                    "Design basic data models, insert formulas (SUM, AVERAGE), and map charts using standard spreadsheet tools",
+                    "Develop functional branching or looping logic programs using advanced block-based or text-based educational coding engines"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Agriculture and Nutrition",
+          "code": "AGN",
+          "strands": [
+            {
+              "name": "Animal Husbandry and Value Addition",
+              "sub_strands": [
+                {
+                  "name": "Domestic Poultry Management and Crop Processing",
+                  "outcomes": [
+                    "Outline structural requirements, feeding schedules, and disease control protocols for localized poultry framing systems",
+                    "Demonstrate value addition sorting, clean processing, and standard packaging of tubers and cereal yields"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Food Safety, Nutrition, and Laundry",
+              "sub_strands": [
+                {
+                  "name": "Special Diets and Laundering Diverse Fabrics",
+                  "outcomes": [
+                    "Plan and compile balanced nutritional matrices catering to individuals with special dietary needs (convalescents, manually working individuals)",
+                    "Identify stain removal parameters and execute appropriate laundering cycles for cotton, wool, and synthetic fabrics"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Social Studies",
+          "code": "SST",
+          "strands": [
+            {
+              "name": "Physical Environment and Citizens Orientation",
+              "sub_strands": [
+                {
+                  "name": "Mapping East Africa and Regional Climate Data",
+                  "outcomes": [
+                    "Map positions, relief features, and transport networks across East Africa using coordinates and scale models",
+                    "Evaluate the correlations between physical climate patterns and demographic settlement distributions"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "History, Citizenship, and Governance",
+              "sub_strands": [
+                {
+                  "name": "National Heroes, National Integration, and Democratic Systems",
+                  "outcomes": [
+                    "Analyze roles of national historical figures in independence struggles and list elements that foster national cohesion",
+                    "Outline the structure, arms, and functional responsibilities of the National Government of Kenya (Legislature, Executive, Judiciary)"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Creative Arts",
+          "code": "CA",
+          "strands": [
+            {
+              "name": "Art Exhibition, Production, and Execution",
+              "sub_strands": [
+                {
+                  "name": "Graphic Design, Puppet Theater, and Tie-and-Dye Techniques",
+                  "outcomes": [
+                    "Create complex commercial designs, logos, and posters incorporating precise font sizes and color combinations",
+                    "Produce pattern orientations on fabric substrates using advanced folding, binding, and tie-and-dye recipes"
+                  ]
+                },
+                {
+                  "name": "Ensemble Performances and Musical Notation",
+                  "outcomes": [
+                    "Read, write, and execute simple musical staff notations comprising pitch ranges and duration signatures (semibreve, minim, crotchet)",
+                    "Choreograph and stage full-scale theatrical plays or traditional multi-instrument string and percussion dances"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Religious Education (CRE / IRE / HRE)",
+          "code": "RE",
+          "strands": [
+            {
+              "name": "Values, Morality, and Social Responsibility",
+              "sub_strands": [
+                {
+                  "name": "Scriptural Studies, Substance Abuse Mitigation, and Integrity",
+                  "outcomes": [
+                    "Critique peer behaviors and modern societal trends against foundational scriptural values on honesty, temperance, and work ethic",
+                    "Formulate personalized action frameworks to resist substance abuse, peer pressure, and unethical shortcuts"
                   ]
                 }
               ]
@@ -457,24 +2123,6 @@
       "grade_name": "Grade 7 (JSS 1)",
       "learning_areas": [
         {
-          "name": "Mathematics",
-          "code": "MATH",
-          "strands": [
-            {
-              "name": "Numbers",
-              "sub_strands": [
-                {
-                  "name": "Whole Numbers",
-                  "outcomes": [
-                    "Identify place value and total value of digits in large numbers",
-                    "Apply whole numbers to perform mathematical operations in real-life situations"
-                  ]
-                }
-              ]
-            }
-          ]
-        },
-        {
           "name": "English",
           "code": "ENG",
           "strands": [
@@ -482,10 +2130,34 @@
               "name": "Listening and Speaking",
               "sub_strands": [
                 {
-                  "name": "Listening Comprehension",
+                  "name": "Critical Listening and Complex Oral Presentations",
                   "outcomes": [
-                    "Listen attentively and respond to a variety of oral texts",
-                    "Use appropriate non-verbal cues during listening for effective communication"
+                    "Listen critically to extensive academic presentations to distinguish between explicit assertions and implicit assumptions",
+                    "Deliver formal individual presentations on socio-economic themes using accurate intonation, stress patterns, and non-verbal cues"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Reading",
+              "sub_strands": [
+                {
+                  "name": "Literary Genres and Functional Reading",
+                  "outcomes": [
+                    "Analyze structural elements and stylistic devices across poetry, short stories, and simple plays",
+                    "Scan complex reference documents and digital materials to extract specific operational data points"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Writing and Grammar",
+              "sub_strands": [
+                {
+                  "name": "Functional Writing and Syntactic Structures",
+                  "outcomes": [
+                    "Compose formal book reviews, structural minutes of meetings, and multi-paragraph expository essays",
+                    "Apply complex grammatical structures including conditional clauses, active/passive voice shifts, and modal verbs accurately"
                   ]
                 }
               ]
@@ -493,17 +2165,41 @@
           ]
         },
         {
-          "name": "Agriculture",
-          "code": "AGR",
+          "name": "Kiswahili",
+          "code": "KISW",
           "strands": [
             {
-              "name": "Crop Production",
+              "name": "Kusikiliza na Kuzungumza",
               "sub_strands": [
                 {
-                  "name": "Crop Husbandry Practices",
+                  "name": "Ufahamu wa Kusikiliza na Majadiliano ya Jopo",
                   "outcomes": [
-                    "Identify common crops grown in the local area",
-                    "Practice basic crop husbandry activities such as planting and tending crops in the school farm"
+                    "Kusikiliza makala changamano na kuwasilisha uchambuzi wa kina wa hoja kuu",
+                    "Shiriki katika majadiliano ya jopo na midahalo rasmi ukitumia lugha sanifu na msamiati wa kitaaluma"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Kusoma",
+              "sub_strands": [
+                {
+                  "name": "Uchambuzi wa Fasihi na Maandishi ya Kitaaluma",
+                  "outcomes": [
+                    "Kusoma na kuchambua vipengele vya fani na maudhui katika riwaya teule na ushairi wa kisasa",
+                    "Kusoma maandishi ya taarifa kubaini mienendo na ujumbe uliokusudiwa"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Kuandika na Sarufi",
+              "sub_strands": [
+                {
+                  "name": "Uandishi wa Kazi na Muundo wa Lugha",
+                  "outcomes": [
+                    "Kuandika tawasifu, barua rasmi za kiofisi, na tanzu mbalimbali za insha za hoja",
+                    "Kutumia ngeli zote, viunganishi, mnyambuliko wa vitendo, na sentensi changamano kwa usahihi"
                   ]
                 }
               ]
@@ -511,17 +2207,53 @@
           ]
         },
         {
-          "name": "Pre-Technical and Pre-Career Education",
-          "code": "PTPC",
+          "name": "Mathematics",
+          "code": "MATH",
           "strands": [
             {
-              "name": "Business Environment",
+              "name": "Numbers",
               "sub_strands": [
                 {
-                  "name": "Introduction to Entrepreneurship",
+                  "name": "Integers, Rational Numbers, and Real Number System",
                   "outcomes": [
-                    "Explain the meaning and importance of entrepreneurship",
-                    "Design a simple mini business plan and pitch the idea to peers"
+                    "Perform operations involving negative and positive integers on a vertical and horizontal number line",
+                    "Apply laws of indices to simplify algebraic numbers and numerical expressions containing exponents"
+                  ]
+                },
+                {
+                  "name": "Fractions, Decimals, and Percentages Integration",
+                  "outcomes": [
+                    "Solve real-life arithmetic problems involving compound fractions, recurring decimals, and percentage increases or decreases"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Algebra",
+              "sub_strands": [
+                {
+                  "name": "Algebraic Expressions and Linear Equations",
+                  "outcomes": [
+                    "Formulate and simplify linear algebraic expressions by collecting like terms and expanding single brackets",
+                    "Form the mathematical modeling for and solve single-variable linear equations containing fractional coefficients"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Measurement and Geometry",
+              "sub_strands": [
+                {
+                  "name": "Pythagoras' Theorem and Conversions",
+                  "outcomes": [
+                    "Verify and apply Pythagoras' Theorem to calculate the lengths of missing sides in right-angled triangles",
+                    "Convert units of speed, area, and density into equivalent international standard configurations (SI units)"
+                  ]
+                },
+                {
+                  "name": "Geometrical Constructions",
+                  "outcomes": [
+                    "Construct perpendicular bisectors of lines, angle bisectors, and specific angles (90, 45, 60, 30) using a ruler and compasses only"
                   ]
                 }
               ]
@@ -529,17 +2261,161 @@
           ]
         },
         {
-          "name": "Life Skills Education",
-          "code": "LSE",
+          "name": "Integrated Science",
+          "code": "ISC",
           "strands": [
             {
-              "name": "Self Awareness",
+              "name": "Matter and Chemical Mixtures",
               "sub_strands": [
                 {
-                  "name": "Decision Making and Coping with Stress",
+                  "name": "Separation of Mixtures and Acids, Bases, Indicators",
                   "outcomes": [
-                    "Identify personal strengths and areas for self-improvement",
-                    "Demonstrate appropriate ways of coping with stress in day-to-day life"
+                    "Perform laboratory experiments to separate mixtures using fractional distillation, paper chromatography, and crystallization",
+                    "Classify everyday household substances as acidic, basic, or neutral using simple commercial and plant-extract indicators"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Force, Energy, and Physical Environments",
+              "sub_strands": [
+                {
+                  "name": "Linear Motion, Force Types, and Heat Transfer",
+                  "outcomes": [
+                    "Investigate linear uniform motion parameters and determine relationships between speed, distance, and time graphs",
+                    "Demonstrate pathways of heat transfer via conduction, convection, and radiation using standard experimental apparatus"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Cells and Living Systems",
+              "sub_strands": [
+                {
+                  "name": "Microscopy and Cell Structures",
+                  "outcomes": [
+                    "Identify parts and demonstrate correct operational handling of a light microscope to view prepared biological specimens",
+                    "Compare structures and physiological differences between generalized plant cells and animal cells"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Social Studies",
+          "code": "SST",
+          "strands": [
+            {
+              "name": "Physical Environment and Africa Map Analysis",
+              "sub_strands": [
+                {
+                  "name": "Maps and Relief Features of Africa",
+                  "outcomes": [
+                    "Locate countries, lines of latitude/longitude, and major climatic zones across the African continent using coordinates",
+                    "Examine the tectonic theories behind the formation of major landforms like the East African Rift Valley"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "History, Citizenship, and Governance",
+              "sub_strands": [
+                {
+                  "name": "Human Evolution and Constitutional Governance",
+                  "outcomes": [
+                    "Trace the archaeological evidence of human evolution and early technological stages in East Africa",
+                    "Explain the historical process of constitution-making in Kenya and outline the core components of the Bill of Rights"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Pre-Technical Studies",
+          "code": "PTS",
+          "strands": [
+            {
+              "name": "Technical Drawing and Graphic Design",
+              "sub_strands": [
+                {
+                  "name": "Drawing Instruments and Geometrical Shapes",
+                  "outcomes": [
+                    "Identify, maintain, and use technical drawing instruments to construct accurate plain geometrical configurations",
+                    "Draw orthographic views of simple solid objects utilizing plane projections"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Materials, Tools, and Safety Protocols",
+              "sub_strands": [
+                {
+                  "name": "Workshop Safety and Hand Tools",
+                  "outcomes": [
+                    "Identify potential hazards in a workshop space and demonstrate strict adherence to safety procedures and emergency steps",
+                    "Classify common engineering materials (metals, plastics, wood) and select appropriate hand tools for basic manipulation tasks"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Agriculture and Nutrition",
+          "code": "AGN",
+          "strands": [
+            {
+              "name": "Crop Production and Sustainable Practices",
+              "sub_strands": [
+                {
+                  "name": "Land Preparation, Minimum Tillage, and Agroforestry",
+                  "outcomes": [
+                    "Demonstrate appropriate methods of primary and secondary land preparation for crop establishment",
+                    "Apply conservation agriculture principles including minimum tillage and value-added agroforestry setups"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Nutrition and Food Preservation",
+              "sub_strands": [
+                {
+                  "name": "Nutritional Disorders and Food Safety",
+                  "outcomes": [
+                    "Analyze causes, signs, and preventive measures for common nutritional deficiency disorders (kwashiorkor, marasmus, scurvy)",
+                    "Apply modern and local food preservation tech blocks to prevent contamination and bacterial pathogens"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Creative Arts and Sports",
+          "code": "CAS",
+          "strands": [
+            {
+              "name": "Arts Production and Multimedia Layouts",
+              "sub_strands": [
+                {
+                  "name": "Drawing, Painting, and Digital Media Production",
+                  "outcomes": [
+                    "Apply cross-hatching, smudging, and tonal graduation techniques to render forms from observation",
+                    "Design corporate identities, posters, and advertisements utilizing graphic design computer programs"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Music and Performing Arts",
+              "sub_strands": [
+                {
+                  "name": "Western and African Musical Notations and Instrumental Ensembles",
+                  "outcomes": [
+                    "Read, perform, and transpose musical scores in simple time signatures containing crotchets, quavers, and semiquavers",
+                    "Dramatize short scripted plays exploring contemporary issues with proper character voice, expressions, and costuming"
                   ]
                 }
               ]
@@ -552,18 +2428,41 @@
       "grade_name": "Grade 8 (JSS 2)",
       "learning_areas": [
         {
-          "name": "Integrated Science",
-          "code": "ISC",
+          "name": "English",
+          "code": "ENG",
           "strands": [
             {
-              "name": "Mixtures, Elements and Compounds",
+              "name": "Listening and Speaking",
               "sub_strands": [
                 {
-                  "name": "Elements and Compounds",
+                  "name": "Critical Listening for Argumentation and Interviewing Skills",
                   "outcomes": [
-                    "Distinguish between an element and a compound",
-                    "Relate common elements to their chemical symbols",
-                    "Appreciate the information found on packaging labels of commonly consumed substances"
+                    "Analyze extended oral arguments to evaluate the validity of evidence and identify logical fallacies like circular reasoning",
+                    "Conduct structured interviews on community issues using open-ended questions, active listening, and appropriate follow-up strategies"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Reading and Literature",
+              "sub_strands": [
+                {
+                  "name": "Thematic Analysis and Intensive Reading",
+                  "outcomes": [
+                    "Critique the development of plot, characterization, and conflict in full-length African novellas",
+                    "Examine features of functional graphics, tables, and charts to synthesize complex information within research texts"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Writing and Grammar",
+              "sub_strands": [
+                {
+                  "name": "Functional Writing and Complex Grammatical Structures",
+                  "outcomes": [
+                    "Write clear business letters, curriculum vitae (CVs), and argumentative compositions based on contemporary data",
+                    "Apply accurate grammatical structures including past perfect continuous tense, relative clauses, and inverted sentence patterns"
                   ]
                 }
               ]
@@ -571,29 +2470,138 @@
           ]
         },
         {
-          "name": "English",
-          "code": "ENG",
+          "name": "Kiswahili",
+          "code": "KISW",
           "strands": [
             {
-              "name": "Reading",
+              "name": "Kusikiliza na Kuzungumza",
               "sub_strands": [
                 {
-                  "name": "Independent Reading",
+                  "name": "Ufahamu wa Kusikiliza na Majadiliano ya Hoja",
                   "outcomes": [
-                    "Identify print and non-print texts that are interesting to read",
-                    "Appreciate the importance of reading for enjoyment"
+                    "Kuchanganua taarifa, habari, au matangazo changamano kutoka vyombo vya habari na kutoa tathmini muhimu",
+                    "Kuwasilisha hotuba za ushawishi na kushiriki katika mijadala inayozingatia kanuni za utafiti na ushahidi"
                   ]
                 }
               ]
             },
             {
-              "name": "Listening and Speaking",
+              "name": "Kusoma",
               "sub_strands": [
                 {
-                  "name": "Polite Language (Telephone Etiquette)",
+                  "name": "Uchambuzi wa Tamthilia, Ushairi, na Maandishi ya Kitaaluma",
                   "outcomes": [
-                    "Use polite expressions appropriately during telephone conversations",
-                    "Demonstrate conversational skills such as disagreeing politely"
+                    "Kufafanua tanzu za fasihi simulizi (kama vile miviga, maghani, au maigizo) na kubaini dhima zake katika jamii",
+                    "Kusoma na kufupisha makala ya kisayansi au ya kijamii yakizingatia ujumbe mkuu"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Kuandika na Sarufi",
+              "sub_strands": [
+                {
+                  "name": "Uandishi wa Kitaalamu na Matumizi ya Lugha",
+                  "outcomes": [
+                    "Kuandika barua rasmi za kibiashara, kumbukumbu za mikutano (minutes), na insha za ulinganuzi",
+                    "Kutumia viunganishi vya masharti, mnyambuliko wa vitendo katika kauli mbalimbali, na ngeli kwa usahihi wa hali ya juu"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Mathematics",
+          "code": "MATH",
+          "strands": [
+            {
+              "name": "Numbers and Algebra",
+              "sub_strands": [
+                {
+                  "name": "Linear Inequalities and Simultaneous Equations",
+                  "outcomes": [
+                    "Formulate, solve, and represent linear inequalities in one variable on a standard number line",
+                    "Solve pairs of simultaneous linear equations in two variables using substitution and elimination methods"
+                  ]
+                },
+                {
+                  "name": "Approximation and Standard Form",
+                  "outcomes": [
+                    "Express large and small decimal numbers in standard scientific form (A × 10ⁿ where 1 ≤ A < 10)",
+                    "Round numbers to a specified number of significant figures"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Measurement and Geometry",
+              "sub_strands": [
+                {
+                  "name": "Surface Area and Volume of Pyramids and Cones",
+                  "outcomes": [
+                    "Calculate the surface area and volume of right pyramids and right circular cones using their respective dimensional properties",
+                    "Solve real-world conversion challenges linking units of density, mass, and cubic volumes"
+                  ]
+                },
+                {
+                  "name": "Angle Properties of Polygons",
+                  "outcomes": [
+                    "Find the sum of interior and exterior angles of regular and irregular convex polygons"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Data Handling and Probability",
+              "sub_strands": [
+                {
+                  "name": "Measures of Central Tendency and Probability Frameworks",
+                  "outcomes": [
+                    "Calculate the mean, median, and mode for ungrouped data sets, and interpret them contextually",
+                    "Determine the experimental and theoretical probability of simple combined outcomes using tree diagrams"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Integrated Science",
+          "code": "ISC",
+          "strands": [
+            {
+              "name": "Matter and Chemical Transformations",
+              "sub_strands": [
+                {
+                  "name": "Atomic Structure, Chemical Symbols, and Simple Equations",
+                  "outcomes": [
+                    "Describe the atomic structure in terms of protons, neutrons, and electrons, and deduce mass and atomic numbers",
+                    "Write down names, standard chemical symbols, and word equations for reactions between simple elements and oxygen or water"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Energy and its Conversions",
+              "sub_strands": [
+                {
+                  "name": "Static Electricity and Current Electricity Circuits",
+                  "outcomes": [
+                    "Investigate static electricity charges using a gold-leaf electroscope setup",
+                    "Set up serial and parallel electric circuits using cells, bulbs, switches, and ammeters to monitor current dynamics"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Human Biology and Health",
+              "sub_strands": [
+                {
+                  "name": "Human Reproductive System and Excretory Homeostasis",
+                  "outcomes": [
+                    "Describe the structural anatomy and physiological roles of the male and female human reproductive systems",
+                    "Explain the role of the skin and kidneys in human temperature regulation and osmoregulation homeostasis"
                   ]
                 }
               ]
@@ -605,13 +2613,121 @@
           "code": "SST",
           "strands": [
             {
-              "name": "Social Studies and Personal Management",
+              "name": "Physical Environment and Climate Change",
               "sub_strands": [
                 {
-                  "name": "Self-Improvement",
+                  "name": "Climate Change Challenges and Adaptation Strategies",
                   "outcomes": [
-                    "Describe personality traits for self-understanding",
-                    "Appreciate the role of values in the development of personality traits"
+                    "Analyze the natural and human causes of climate change globally and assess its explicit impacts across Africa",
+                    "Formulate and implement local-scale climate mitigation and adaptation frameworks within the school community"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "History, Citizenship, and Governance",
+              "sub_strands": [
+                {
+                  "name": "Pre-Colonial African Societies and Citizenship Dynamics",
+                  "outcomes": [
+                    "Examine the socio-political organization of selected pre-colonial African kingdoms and communities",
+                    "Analyze categories of Kenyan citizenship, processes of naturalization, and factors threatening national cohesion"
+                  ]
+                },
+                {
+                  "name": "Electoral Process and Civic Awareness",
+                  "outcomes": [
+                    "Outline the components, values, and importance of democratic electoral cycles in Kenya, highlighting IEBC functional matrices"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Pre-Technical Studies",
+          "code": "PTS",
+          "strands": [
+            {
+              "name": "Technical Drawing and Production Design",
+              "sub_strands": [
+                {
+                  "name": "Isometric Drawing Projections and Circuit Layouts",
+                  "outcomes": [
+                    "Construct accurate isometric drawings of basic blocks and mechanical joints from provided orthographic planes",
+                    "Interpret and draw elementary schematic wiring circuits utilizing international electronic symbols"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Engineering Systems and Energy Converters",
+              "sub_strands": [
+                {
+                  "name": "Simple Mechanisms and Power Transmission",
+                  "outcomes": [
+                    "Identify and demonstrate the working mechanisms of levers, pulleys, gears, and inclined planes in daily machinery",
+                    "Apply safety procedures when handling electrical components, soldering devices, or localized bench hand-tools"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Agriculture and Nutrition",
+          "code": "AGN",
+          "strands": [
+            {
+              "name": "Crop and Animal Husbandry Optimization",
+              "sub_strands": [
+                {
+                  "name": "Crop Pests Management and Domestic Livestock Feeding",
+                  "outcomes": [
+                    "Identify common field and storage crop pests, analyzing their damage and executing non-chemical biological controls",
+                    "Classify livestock feeds into roughages and concentrates, and balance simple feeding ratios for domestic farm units"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Nutrition, Food Preservation, and Safety",
+              "sub_strands": [
+                {
+                  "name": "Food Hygiene, Reheating Food, and Kitchen Tools Maintenance",
+                  "outcomes": [
+                    "Demonstrate proper methods of reheating leftover meals safely to eliminate bacterial toxins and minimize nutrient depletion",
+                    "Clean, sharpen, and apply rust-prevention maintenance routines across a variety of kitchen utensils and structural tools"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Creative Arts and Sports",
+          "code": "CAS",
+          "strands": [
+            {
+              "name": "Art and Multimedia Expression",
+              "sub_strands": [
+                {
+                  "name": "Fabric Decoration, Block Printing, and Digital Photography",
+                  "outcomes": [
+                    "Create balanced block-printed designs on textile substrates using localized motifs and sustainable ink solutions",
+                    "Edit digital images using software extensions to alter exposure, contrast, cropping bounds, and narrative values"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Music and Performing Arts",
+              "sub_strands": [
+                {
+                  "name": "Musical Scale Building, Group Drama, and Score Auditing",
+                  "outcomes": [
+                    "Construct and sing major musical scales (including C major and G major) on staff grids using proper key signatures",
+                    "Rehearse and present original skits or short plays featuring clear climactic resolutions, sound effects, and spatial blockers"
                   ]
                 }
               ]
@@ -624,53 +2740,296 @@
       "grade_name": "Grade 9 (JSS 3)",
       "learning_areas": [
         {
+          "name": "English",
+          "code": "ENG",
+          "strands": [
+            {
+              "name": "Listening and Speaking",
+              "sub_strands": [
+                {
+                  "name": "Critical Listening, Symposiums, and Rhetorical Devices",
+                  "outcomes": [
+                    "Evaluate extended panel presentations and public speeches to decode rhetorical devices (ethos, pathos, logos) and subtle propoganda techniques",
+                    "Lead complex symposium sessions and academic presentations with stylistic fluency, adapting tone and register to audience profiles"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Reading and Literature",
+              "sub_strands": [
+                {
+                  "name": "Comparative Literature and Contextual Analysis",
+                  "outcomes": [
+                    "Compare themes, archetypal character sets, and localized cultural conflicts across distinct multi-cultural poetry anthologies and play scripts",
+                    "Synthesize dense information from complex legal, technical, and informational texts to validate or challenge specific hypotheses"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Writing and Grammar",
+              "sub_strands": [
+                {
+                  "name": "Advanced Functional Genres and Syntactic Control",
+                  "outcomes": [
+                    "Compose comprehensive investigative reports, critical research essays, and legalistic business proposals incorporating parenthetical citations",
+                    "Demonstrate absolute control over complex syntax patterns including subjunctive mood configurations, relative pronoun tracking, and compound-complex configurations"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Kiswahili",
+          "code": "KISW",
+          "strands": [
+            {
+              "name": "Kusikiliza na Kuzungumza",
+              "sub_strands": [
+                {
+                  "name": "Uchambuzi wa Hotuba na Majadiliano ya Kongamano",
+                  "outcomes": [
+                    "Kusikiliza, kuchambua, na kukosoa kwa kina taarifa na hotuba rasmi za kitaifa na kimataifa",
+                    "Kuendesha makongamano na kuwasilisha mada changamano kwa Kiswahili fasaha, ufasaha wa matamshi na utumiaji wa mbinu za ushawishi"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Kusoma",
+              "sub_strands": [
+                {
+                  "name": "Uhakiki wa Fasihi na Maandishi Teule",
+                  "outcomes": [
+                    "Kuhakiki tamthilia na riwaya za Kiswahili kwa kuchambua dhamira, migogoro, falsafa ya mwandishi, na matumizi ya lugha ya kisanii",
+                    "Kusoma na kufafanua fasihi simulizi changamano kama vile miviga, migaji, na visasili vya kijamii"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Kuandika na Sarufi",
+              "sub_strands": [
+                {
+                  "name": "Uandishi wa Kitaalamu na Sarufi ya Kina",
+                  "outcomes": [
+                    "Kuandika ripoti za utafiti, risala, na insha changamano za kitaaluma zilizofanyiwa marejeleo ya kutosha",
+                    "Kutumia kwa ufasaha miundo yote ya sentensi (rahisi, ambatano, changamano), usemi wa taarifa na usemi halisi, na unyambulishaji wa vitendo"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Mathematics",
+          "code": "MATH",
+          "strands": [
+            {
+              "name": "Algebra and Coordinate Geometry",
+              "sub_strands": [
+                {
+                  "name": "Quadratic Expressions, Equations, and Cartesian Graphs",
+                  "outcomes": [
+                    "Expand quadratic expressions and factorize expressions of the form ax² + bx + c = 0 using various algebraic methods",
+                    "Determine the gradient, mid-point, and length of a straight line segment plotted on a 2D Cartesian coordinate grid system",
+                    "Formulate and solve quadratic equations from practical problems and draw their corresponding parabolic curves"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Geometry and Trigonometry",
+              "sub_strands": [
+                {
+                  "name": "Trigonometric Ratios and Surface Area/Volume of Spheres",
+                  "outcomes": [
+                    "Define, calculate, and apply the primary trigonometric ratios (sine, cosine, tangent) to find lengths and angles in right-angled triangles",
+                    "Calculate the surface area and volume of regular spheres, hemispheres, and compound geometric solids encountered in design setups"
+                  ]
+                },
+                {
+                  "name": "Transformation Geometry",
+                  "outcomes": [
+                    "Perform reflection, rotation, and translation transformations on geometric figures within a coordinate plane mapping framework"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Data Handling and Business Arithmetic",
+              "sub_strands": [
+                {
+                  "name": "Grouped Data Metrics and Advanced Financial Math",
+                  "outcomes": [
+                    "Construct frequency distribution tables for grouped data and compute the estimated mean and modal class metrics",
+                    "Calculate compound interest over extended durations, compound depreciation, and interpret simple stock market indices and tax matrices (PAYE models)"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
           "name": "Integrated Science",
           "code": "ISC",
           "strands": [
             {
-              "name": "Scientific Investigation",
+              "name": "Chemical Kinetics and Periodic Trends",
               "sub_strands": [
                 {
-                  "name": "Scientific Methods and Skills",
+                  "name": "The Periodic Table, Chemical Bonds, and Simple Chemical Reactions",
                   "outcomes": [
-                    "Apply the scientific method to investigate a problem",
-                    "Appreciate the role of scientific investigation in solving real-life problems"
+                    "Explain the arrangement of elements in the periodic table based on atomic structure and identify trends across periods and down groups",
+                    "Investigate how ionic and covalent chemical bonds form and construct balanced chemical equations for reactions between simple metals and dilute acids"
                   ]
                 }
               ]
             },
             {
-              "name": "Mixtures, Elements and Compounds",
+              "name": "Physics of Energy and Waves",
               "sub_strands": [
                 {
-                  "name": "Separation Techniques",
+                  "name": "Electromagnetic Waves, Sound Propagation, and Light Refraction",
                   "outcomes": [
-                    "Select appropriate methods of separating different types of mixtures",
-                    "Apply separation techniques to solve everyday problems"
+                    "Examine the properties and uses of components within the electromagnetic spectrum and investigate the laws of light refraction using glass blocks",
+                    "Determine speed, frequency, and wavelength properties of transverse and longitudinal waves moving through media fields"
                   ]
                 }
               ]
             },
             {
-              "name": "Living Things and Their Environment",
+              "name": "Genetics and Ecosystem Dynamics",
               "sub_strands": [
                 {
-                  "name": "Interdependence of Living Things",
+                  "name": "Introduction to Genetics, Inheritance, and Environmental Sustainability",
                   "outcomes": [
-                    "Describe the interdependence between living things and their environment",
-                    "Advocate for conservation of the environment for sustainable living"
+                    "Describe structural configurations of chromosomes and DNA and explain how basic dominant and recessive traits pass across generations",
+                    "Evaluate the role of ecological interactions (food webs, nutrient cycles) and formulate systemic frameworks to mitigate local environmental crises"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Social Studies",
+          "code": "SST",
+          "strands": [
+            {
+              "name": "Global Environments and Geopolitics",
+              "sub_strands": [
+                {
+                  "name": "Global Climatic Systems and Major Economic Blocs",
+                  "outcomes": [
+                    "Map and analyze the physical characteristics of major global climatic zones and their explicitly correlated economic activities",
+                    "Examine the historical formation, objectives, and administrative structures of major global and African economic organizations (e.g., EAC, COMESA, AU, UN)"
                   ]
                 }
               ]
             },
             {
-              "name": "Force and Energy",
+              "name": "Civics, Nationalism, and Global Citizenship",
               "sub_strands": [
                 {
-                  "name": "Forms and Sources of Energy",
+                  "name": "The Struggle for Independence, Constitutional Rights, and Global Relations",
                   "outcomes": [
-                    "Identify various forms and sources of energy used in day-to-day life",
-                    "Appreciate the importance of renewable sources of energy for sustainable development"
+                    "Critique political and armed paths to Kenyan independence, highlighting key nationalist organizational frameworks",
+                    "Analyze the structures and operational profiles of the devolved governance system in Kenya (County Assemblies vs. County Executives)",
+                    "Evaluate the roles and duties of an individual within global governance, human rights declarations, and international conflict resolution processes"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Pre-Technical Studies",
+          "code": "PTS",
+          "strands": [
+            {
+              "name": "Technical Graphics and Architecture Models",
+              "sub_strands": [
+                {
+                  "name": "Sectional Views, Development of Surfaces, and CAD Overview",
+                  "outcomes": [
+                    "Construct standard sectional orthographic views of complex mechanical assemblies to expose internal structural traits",
+                    "Draw accurate development patterns of prisms, cylinders, and pyramids for sheet-metal fabrication operations",
+                    "Navigate basic computer-aided design (CAD) software interfaces to compile linear engineering geometries and wireframe models"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Applied Mechanics and Electronics Automation",
+              "sub_strands": [
+                {
+                  "name": "Fluid Systems, Sensors, and Basic Automation Frameworks",
+                  "outcomes": [
+                    "Demonstrate the engineering applications of simple hydraulic and pneumatic principles in everyday mechanical machinery",
+                    "Design and construct basic electronic automated warning or tracking systems incorporating sensors, microcontrollers, and logic relays"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Agriculture and Nutrition",
+          "code": "AGN",
+          "strands": [
+            {
+              "name": "Advanced Agribusiness and Farm Automation",
+              "sub_strands": [
+                {
+                  "name": "Farm Records, Agribusiness Models, and Smart Farming Technology",
+                  "outcomes": [
+                    "Prepare, analyze, and interpret complex farm accounting tools, income statements, inventory records, and production budgets",
+                    "Evaluate agribusiness marketing models and outline applications of modern automated sensors or drip automation systems in crop handling"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Nutrition, Food Technology, and Hospitality Foundation",
+              "sub_strands": [
+                {
+                  "name": "Catering Principles, Meal Planning, and Food Chemistry Basics",
+                  "outcomes": [
+                    "Plan, cost, cook, and display large-scale healthy multi-course meals adhering to commercial food safety and hospitality guidelines",
+                    "Examine factors that induce chemical changes or spoilage in food nutrients during standard thermal processing, cooking, and fermentation cycles"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Creative Arts and Sports",
+          "code": "CAS",
+          "strands": [
+            {
+              "name": "Visual Arts, Curating, and Entrepreneurship",
+              "sub_strands": [
+                {
+                  "name": "Exhibition Layouts, Portfolio Management, and Commercial Art",
+                  "outcomes": [
+                    "Plan, organize, and curate a formal school art exhibition displaying diverse artistic styles and calculating commercial values",
+                    "Create complex corporate marketing advertisements, digital vectors, and brand identity guides for localized business entities"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Music and Performing Arts",
+              "sub_strands": [
+                {
+                  "name": "Four-Part Harmony, Play Direction, and Musical Performance Masterclasses",
+                  "outcomes": [
+                    "Identify and sing or play melodies tracking basic four-part harmonic voicings (Soprano, Alto, Tenor, Bass) on a grand staff grid",
+                    "Direct, block, stage, and evaluate full-length theatrical narratives incorporating audio engineering elements and aesthetic set designs"
                   ]
                 }
               ]
@@ -723,6 +3082,662 @@
               ]
             }
           ]
+        },
+        {
+          "name": "Mathematics (Advanced / Core STEM)",
+          "code": "MATH",
+          "strands": [
+            {
+              "name": "Algebra and Functions",
+              "sub_strands": [
+                {
+                  "name": "Quadratic Functions and Identities",
+                  "outcomes": [
+                    "Solve quadratic equations using the quadratic formula, completing the square, and graphical techniques",
+                    "Analyze properties of parabolas including vertex positioning, axis of symmetry, and roots estimation"
+                  ]
+                },
+                {
+                  "name": "Surds, Logarithms, and Sequences",
+                  "outcomes": [
+                    "Simplify expressions containing numerical surds and rationalize denominators using conjugate pairs",
+                    "Apply the laws of logarithms to solve exponential equations modeling population growth or compound decay systems"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Trigonometry and Geometry",
+              "sub_strands": [
+                {
+                  "name": "Trigonometric Graphs and Sine/Cosine Rules",
+                  "outcomes": [
+                    "Plot and interpret trigonometric functions y = sin(x), y = cos(x), and y = tan(x) for angles up to 360°",
+                    "Apply the Sine and Cosine rules to compute missing dimensions and angles in non-right-angled oblique triangles"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Physics",
+          "code": "PHY",
+          "strands": [
+            {
+              "name": "Mechanics",
+              "sub_strands": [
+                {
+                  "name": "Linear Motion and Newton's Laws of Motion",
+                  "outcomes": [
+                    "Derive and apply the equations of uniformly accelerated linear motion (v = u + at, s = ut + ½at², v² = u² + 2as)",
+                    "Investigate Newton's three laws of motion experimentally and solve problems linking force, mass, and acceleration vector matrices"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Waves and Optics",
+              "sub_strands": [
+                {
+                  "name": "Refraction of Light and Thin Lenses",
+                  "outcomes": [
+                    "Verify Snell's law and determine the refractive index of glass and liquid mediums using ray-tracing techniques",
+                    "Construct ray diagrams to determine image positions, magnification parameters, and characteristics for concave and convex thin lenses"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Chemistry",
+          "code": "CHEM",
+          "strands": [
+            {
+              "name": "Structure and Bonding",
+              "sub_strands": [
+                {
+                  "name": "The Mole Concept and Stoichiometry",
+                  "outcomes": [
+                    "Define Avogadro's constant and compute moles, molar masses, and reacting volumes for gaseous and aqueous substances",
+                    "Determine empirical and molecular formulas from percentage elemental composition data collections"
+                  ]
+                },
+                {
+                  "name": "Gas Laws",
+                  "outcomes": [
+                    "Investigate and verify Boyle's Law, Charles's Law, and the Ideal Gas Equation through experimental simulation models"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Organic Chemistry I",
+              "sub_strands": [
+                {
+                  "name": "Hydrocarbons (Alkanes, Alkenes, Alkynes)",
+                  "outcomes": [
+                    "Name, draw, and construct structural models for straight-chain alkanes, alkenes, and alkynes up to carbon-5 using IUPAC nomenclature Rules",
+                    "Differentiate saturated and unsaturated hydrocarbons using chemical tests including bromine water and acidified KMnO₄ solutions"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Biology",
+          "code": "BIO",
+          "strands": [
+            {
+              "name": "Physiology and Transport Systems",
+              "sub_strands": [
+                {
+                  "name": "Gaseous Exchange in Plants and Animals",
+                  "outcomes": [
+                    "Examine structural mechanics of stomata and lenticels and explain the physiological processes matching plant gaseous transport",
+                    "Dissect and analyze respiratory mechanisms in insects (tracheal systems), fish (gills), and mammals (alveolar gas transport loops)"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Ecology and Genetics Foundation",
+              "sub_strands": [
+                {
+                  "name": "Monohybrid Inheritance and Mitosis/Meiosis",
+                  "outcomes": [
+                    "Model genetic crossings for monohybrid inheritance patterns using genetic diagrams and Punnett squares to predict phenotypic variations",
+                    "Examine phases of mitosis and meiosis under microscopic simulations and explain their significance in growth and reproductive cycles"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Agricultural Sciences and Value Addition",
+          "code": "AGR",
+          "strands": [
+            {
+              "name": "Crop Physiology and Soil Mechanics",
+              "sub_strands": [
+                {
+                  "name": "Soil Chemistry and Macronutrient Kinetics",
+                  "outcomes": [
+                    "Determine soil pH metrics using electrochemical probes and diagnose specific cation-exchange capacity trends",
+                    "Analyze structural nitrogen, phosphorus, and potassium pathways to correct crop nutritional deficiencies"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Agribusiness Technology and Automation",
+              "sub_strands": [
+                {
+                  "name": "Precision Irrigation and Controlled-Environment Agriculture",
+                  "outcomes": [
+                    "Design automated closed-loop drip networks utilizing localized soil-moisture sensor loops and solar pumps",
+                    "Manage microclimatic telemetry matrices (humidity, thermal variations, CO2 values) inside standard greenhouse systems"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Environmental Science and Resource Management",
+          "code": "ESRM",
+          "strands": [
+            {
+              "name": "Ecosystem Dynamics and Ecological Auditing",
+              "sub_strands": [
+                {
+                  "name": "Environmental Impact Assessments (EIA) and Bioindicators",
+                  "outcomes": [
+                    "Perform localized terrestrial or aquatic population surveys using quadrant sampling models and biotic diversity indexes",
+                    "Draft elementary Environmental Impact Assessment (EIA) blueprints evaluating local infrastructural interventions"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Renewable Energy Engineering",
+              "sub_strands": [
+                {
+                  "name": "Photovoltaic and Biomass Energy Optimization",
+                  "outcomes": [
+                    "Calculate structural load sizing parameters and efficiency configurations for off-grid solar photovoltaic layouts",
+                    "Design and construct scalable anaerobic bio-digester setups to convert agricultural waste products into fuel sources"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Health and Food Technology Sciences",
+          "code": "HFTS",
+          "strands": [
+            {
+              "name": "Nutritional Biochemistry and Micro-Biology",
+              "sub_strands": [
+                {
+                  "name": "Food Preservation Biochemistry and Pathogen Vectors",
+                  "outcomes": [
+                    "Examine underlying chemical profiles governing enzyme-driven food spoilage, lipid oxidation, and cellular fermentation",
+                    "Cultivate and isolate microscopic foodborne fungal or bacterial pathogens using sterile agar medium plating configurations"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Computer Science and Coding Architecture",
+          "code": "CS",
+          "strands": [
+            {
+              "name": "Data Structures and Algorithm Design",
+              "sub_strands": [
+                {
+                  "name": "Linear Data Structures and Complexity Introduction",
+                  "outcomes": [
+                    "Implement and manipulate static arrays, dynamic lists, stacks, and queues using a structured text-based programming language",
+                    "Analyze algorithm execution paths using Big O notation to evaluate time and space complexity baselines"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Software Engineering Principles",
+              "sub_strands": [
+                {
+                  "name": "Object-Oriented Programming (OOP)",
+                  "outcomes": [
+                    "Design software modules implementing core OOP pillars: encapsulation, inheritance, polymorphism, and abstraction",
+                    "Construct unified modeling language (UML) class diagrams to architect data relationships before system implementation"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Engineering Graphics and Technical Design",
+          "code": "EGTD",
+          "strands": [
+            {
+              "name": "Advanced Projections and Auxiliary Views",
+              "sub_strands": [
+                {
+                  "name": "First and Third Angle Orthographic Projections",
+                  "outcomes": [
+                    "Convert complex three-dimensional isometric models into detailed 2D multi-view configurations under international drafting standards",
+                    "Construct auxiliary structural views to expose true shapes of inclined and skewed plane features"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Computer-Aided Automation (CAD)",
+              "sub_strands": [
+                {
+                  "name": "Parametric 3D Modeling and Assemblies",
+                  "outcomes": [
+                    "Generate precise parametric solid components and multi-part constraint assemblies within a CAD workspace engine",
+                    "Extract standardized manufacturing blueprints complete with geometric dimensioning and tolerancing (GD&T) metrics"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Electrical and Electronics Technology",
+          "code": "EET",
+          "strands": [
+            {
+              "name": "Circuit Physics and Network Theorems",
+              "sub_strands": [
+                {
+                  "name": "DC Network Analysis and Laws",
+                  "outcomes": [
+                    "Apply Kirchhoff's Current Law (KCL) and Kirchhoff's Voltage Law (KVL) to calculate branching parameters in complex multi-loop circuits",
+                    "Verify Ohm's Law and calculate total resistance for combinations of series, parallel, and delta-wye configurations"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Digital Electronics and Logic Automation",
+              "sub_strands": [
+                {
+                  "name": "Logic Gates, Boolean Algebra, and Combinational Circuits",
+                  "outcomes": [
+                    "Construct and minimize logic expressions using Boolean identities and Karnaugh Maps (K-Maps) up to 3 variables",
+                    "Prototype physical combinational systems utilizing NAND, NOR, XOR, and standard inverter integrated circuit chips"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Building and Mechanical Technology",
+          "code": "BMT",
+          "strands": [
+            {
+              "name": "Material Mechanics and Workshop Safety",
+              "sub_strands": [
+                {
+                  "name": "Stress-Strain Dynamics and Destructive Testing",
+                  "outcomes": [
+                    "Investigate tensile, compressive, and shear strain behaviors in structural engineering substrates through physical load testing",
+                    "Calculate Young's Modulus metrics from linear deformation data collections while observing factor-of-safety parameters"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Financial Accounting and Ledgers",
+          "code": "ACC",
+          "strands": [
+            {
+              "name": "The Accounting Cycle and Source Documents",
+              "sub_strands": [
+                {
+                  "name": "Double-Entry Bookkeeping and Ledger Postings",
+                  "outcomes": [
+                    "Process business transactions through books of original entry and execute double-entry ledger postings cleanly",
+                    "Extract a balanced Trial Balance and design corrective journal adjustments for errors that do or do not affect ledger balancing"
+                  ]
+                },
+                {
+                  "name": "Financial Statements Generation",
+                  "outcomes": [
+                    "Construct structured Statements of Profit or Loss (Trading and Profit & Loss Accounts) and Statements of Financial Position (Balance Sheets) for sole proprietorships"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Micro and Macro Economics",
+          "code": "ECON",
+          "strands": [
+            {
+              "name": "Market Dynamics and Price Determination",
+              "sub_strands": [
+                {
+                  "name": "Demand, Supply, and Market Equilibrium Elasticities",
+                  "outcomes": [
+                    "Formulate and graph mathematical functions matching individual and market demand and supply metrics",
+                    "Calculate and interpret Price Elasticity of Demand (PED) and Price Elasticity of Supply (PES) values alongside geometric market equilibrium shifts"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Structure of Production and Inflation",
+              "sub_strands": [
+                {
+                  "name": "Factors of Production and Monetary/Fiscal Policy Inflation Systems",
+                  "outcomes": [
+                    "Evaluate the productivity rewards of land, labor, capital, and entrepreneurship within a developing market framework",
+                    "Analyze the structural causes (demand-pull vs. cost-push) of inflation and critique Central Bank regulatory interventions"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Business Management and Entrepreneurship",
+          "code": "BME",
+          "strands": [
+            {
+              "name": "Business Planning and Operational Formats",
+              "sub_strands": [
+                {
+                  "name": "Corporate Structures, Legal Frameworks, and Strategic Business Plans",
+                  "outcomes": [
+                    "Differentiate the operational, liability, and capital extraction privileges of sole traders, partnerships, and limited liability corporations",
+                    "Draft a comprehensive, bankable strategic business plan evaluating market research metrics, operational budgets, and SWOT components"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "History and International Relations",
+          "code": "HIST",
+          "strands": [
+            {
+              "name": "Colonial Administrative Systems and Resistance",
+              "sub_strands": [
+                {
+                  "name": "Direct vs. Indirect Rule and Armed Resistances",
+                  "outcomes": [
+                    "Contrast the structural execution of British indirect rule against the French assimilation policy across Africa",
+                    "Analyze the socio-economic impacts of settler colonialism, land alienation, and early political associations in Kenya"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Global Geopolitics",
+              "sub_strands": [
+                {
+                  "name": "The World Wars and League of Nations",
+                  "outcomes": [
+                    "Examine the underlying systemic causes and geopolitical outcomes of the First and Second World Wars",
+                    "Evaluate the structural failures of the League of Nations in maintaining international collective security architectures"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Geography and GIS Architecture",
+          "code": "GEO",
+          "strands": [
+            {
+              "name": "Geomorphology and Internal Land-Forming Processes",
+              "sub_strands": [
+                {
+                  "name": "Plate Tectonics, Volcanicity, and Earthquakes",
+                  "outcomes": [
+                    "Analyze mechanisms of compressional, tensional, and shearing forces according to modern plate tectonics theory",
+                    "Map extrusive and intrusive volcanic features and assess their direct influence on human settlements and economic activities"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Practical Geography and Spatial Analytics",
+              "sub_strands": [
+                {
+                  "name": "Statistical Data and Introduction to GIS",
+                  "outcomes": [
+                    "Compute and interpret geographical data metrics using standard deviation, variance, and cumulative frequency graphs",
+                    "Explain the foundational data structures (vector vs. raster spatial layers) of Geographic Information Systems (GIS)"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Christian Religious Education (Advanced CRE)",
+          "code": "CRE",
+          "strands": [
+            {
+              "name": "Sovereignty of God and Covenant Systems",
+              "sub_strands": [
+                {
+                  "name": "The Abrahamic Covenant and Sinai Mosaic Law",
+                  "outcomes": [
+                    "Analyze the theological parameters, symbolism, and modern ethical obligations tied to the Abrahamic and Mosaic covenants",
+                    "Evaluate leadership profiles of Israelite judges and early kings against modern standards of public accountability and corporate ethics"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Music Theory and Composition",
+          "code": "MUS",
+          "strands": [
+            {
+              "name": "Advanced Harmony and Part-Writing",
+              "sub_strands": [
+                {
+                  "name": "Diatonic Chords and Inversions",
+                  "outcomes": [
+                    "Identify and construct primary and secondary diatonic triads and their inversions on a grand staff",
+                    "Apply standard four-part voice leading principles (SATB) to eliminate parallel fifths and octaves in harmonic progressions"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Musical Forms and Analysis",
+              "sub_strands": [
+                {
+                  "name": "Binary, Ternary, and Sonata Form Architectural Layouts",
+                  "outcomes": [
+                    "Analyze classical and African art music compositions to determine structural sectional boundaries and modulation pathways",
+                    "Compose original thematic motifs and develop them using rhythmic variation, inversion, and retrograde techniques"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Theatre and Film Studies",
+          "code": "THEA",
+          "strands": [
+            {
+              "name": "Theatrical Production and Script Analysis",
+              "sub_strands": [
+                {
+                  "name": "Dramatic Structure, Textual Critique, and Blocking",
+                  "outcomes": [
+                    "Deconstruct a standard play script to chart the exposition, rising action, climax, falling action, and denouement",
+                    "Formulate comprehensive scene blocking diagrams and direct cast positioning utilizing spatial theater zones"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Cinematography and Screenwriting",
+              "sub_strands": [
+                {
+                  "name": "Screenplay Formatting, Storyboarding, and Camera Mechanics",
+                  "outcomes": [
+                    "Draft a short, single-scene film script conforming strictly to standard industry screenplay layout software rules",
+                    "Generate a detailed operational storyboard specifying camera angles, shot sizes (extreme close-up to wide shot), and motion vectors"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Fine Art and Two-Dimensional Production",
+          "code": "ART",
+          "strands": [
+            {
+              "name": "Advanced Perspective Drawing and Anatomy",
+              "sub_strands": [
+                {
+                  "name": "Linear Perspective and Human Figure Proportions",
+                  "outcomes": [
+                    "Construct interior and exterior spatial scenes implementing accurate two-point and three-point linear perspective grids",
+                    "Render anatomically accurate human figures from life, maintaining standard proportions and structural skeletal foreshortening"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Color Theory and Media Application",
+              "sub_strands": [
+                {
+                  "name": "Color Harmonies and Gouache/Oil Painting",
+                  "outcomes": [
+                    "Apply complex color configurations (analogous, complementary, split-complementary) to convey ambient depth and mood",
+                    "Execute traditional underpainting and layering methods using gouache, acrylics, or oil paint mediums"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Graphic Design and Digital Media",
+          "code": "GRD",
+          "strands": [
+            {
+              "name": "Corporate Branding and Visual Communication",
+              "sub_strands": [
+                {
+                  "name": "Typography, Vector Illustration, and User Interface Fundamentals",
+                  "outcomes": [
+                    "Design unified visual identity manuals including vector logos, layout typography hierarchies, and strict color codes",
+                    "Wireframe functional, low-fidelity digital user interfaces (UI) prioritizing visual balance and accessibility guidelines"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Three-Dimensional Design and Craft",
+          "code": "TDC",
+          "strands": [
+            {
+              "name": "Sculpture, Ceramics, and Sustainable Product Design",
+              "sub_strands": [
+                {
+                  "name": "Armature Construction and Clay Kiln Firings",
+                  "outcomes": [
+                    "Build structural wire and mesh armatures to support clay or plaster figurative sculptures",
+                    "Manage complex hand-building ceramic processes (coiling, slabbing) and apply glazing recipes prior to kiln firing"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Human Anatomy and Exercise Physiology",
+          "code": "SPO",
+          "strands": [
+            {
+              "name": "Musculoskeletal Mechanics and Energy Systems",
+              "sub_strands": [
+                {
+                  "name": "Joint Kinesiology and Muscle Biomechanics",
+                  "outcomes": [
+                    "Classify synovial joint configurations and model their structural mechanical leverage during athletic movements",
+                    "Analyze the recruitment profiles of slow-twitch (Type I) and fast-twitch (Type II) muscle fibers across diverse exercise domains"
+                  ]
+                },
+                {
+                  "name": "Metabolic Energy Pathways",
+                  "outcomes": [
+                    "Contrast the physiological thresholds of the ATP-CP, Anaerobic Lactic, and Aerobic metabolic energy production systems"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Sports Biomechanics and Performance Analysis",
+          "code": "SBP",
+          "strands": [
+            {
+              "name": "Kinematics and Motion Dynamics",
+              "sub_strands": [
+                {
+                  "name": "Linear/Angular Motion Kinetics and Projectile Parameters",
+                  "outcomes": [
+                    "Calculate angular velocity, torque, and center of mass displacements during complex jumping or throwing tasks",
+                    "Evaluate variables (release velocity, angle, height) altering the parabolic trajectory path of athletic projectiles"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Sports Nutrition, Coaching, and Injury Management",
+          "code": "SNC",
+          "strands": [
+            {
+              "name": "Athletic Dietetics, Training Principles, and First Aid Care",
+              "sub_strands": [
+                {
+                  "name": "Macronutrient Loading, Training Laws, and Acute Injury Triage",
+                  "outcomes": [
+                    "Design optimized carbohydrate loading programs and hydration schedules customized to specific athletic event profiles",
+                    "Apply core training principles (overload, specificity, reversibility) to design longitudinal macrocycle performance charts",
+                    "Demonstrate standard on-field first aid procedures (PRICE protocol) to stabilize acute soft-tissue sports injuries safely"
+                  ]
+                }
+              ]
+            }
+          ]
         }
       ]
     },
@@ -764,6 +3779,492 @@
               ]
             }
           ]
+        },
+        {
+          "name": "Mathematics (Advanced STEM)",
+          "code": "CMATH",
+          "strands": [
+            {
+              "name": "Calculus and Coordinate Geometry",
+              "sub_strands": [
+                {
+                  "name": "Introduction to Differentiation and Limits",
+                  "outcomes": [
+                    "Understand the concept of a limit and derive the derivative of polynomial functions from first principles",
+                    "Apply differentiation to determine gradients of curves, equations of tangents, and stationary points (maxima and minima)"
+                  ]
+                },
+                {
+                  "name": "Circles on the Cartesian Plane",
+                  "outcomes": [
+                    "Formulate the general equation of a circle (x-a)² + (y-b)² = r² and determine its center and radius from expanded polynomial forms"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Probability and Statistics",
+              "sub_strands": [
+                {
+                  "name": "Permutations and Combinations",
+                  "outcomes": [
+                    "Solve complex arrangement and selection problems utilizing factorial notation, permutations (ⁿPᵣ), and combinations (ⁿCᵣ)"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Physics",
+          "code": "PHY",
+          "strands": [
+            {
+              "name": "Thermodynamics and Ideal Fluids",
+              "sub_strands": [
+                {
+                  "name": "Gas Laws and Kinetic Theory of Gases",
+                  "outcomes": [
+                    "Verify the absolute zero temperature threshold and apply the combined gas law equations contextually",
+                    "Explain gas pressure variations using the kinetic theory of matter and solve heat capacity thermal energy tasks"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Electricity and Magnetism",
+              "sub_strands": [
+                {
+                  "name": "Magnetic Effect of an Electric Current",
+                  "outcomes": [
+                    "Map magnetic field configurations around current-carrying conductors, solenoids, and flat coils",
+                    "Determine the direction and magnitude of magnetic forces on moving charges utilizing Fleming's Left-Hand Rule"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Chemistry",
+          "code": "CHEM",
+          "strands": [
+            {
+              "name": "Physical Chemistry",
+              "sub_strands": [
+                {
+                  "name": "Reaction Rates and Chemical Equilibrium",
+                  "outcomes": [
+                    "Investigate factors altering reaction kinetics (concentration, temperature, surface area, catalysts) using collision theory models",
+                    "Apply Le Chatelier's Principle to predict equilibrium shifts in dynamic reversible chemical networks"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Organic Chemistry II",
+              "sub_strands": [
+                {
+                  "name": "Alkanols and Alkanoic Acids",
+                  "outcomes": [
+                    "Synthesize and classify primary, secondary, and tertiary alkanols and map out esterification reaction profiles",
+                    "Determine structural variations and IUPAC naming protocols for alkanoic acids up to carbon-5"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Biology",
+          "code": "BIO",
+          "strands": [
+            {
+              "name": "Physiology and Homeostasis",
+              "sub_strands": [
+                {
+                  "name": "Excretion and Osmoregulation Structures",
+                  "outcomes": [
+                    "Analyze the structural anatomy and counter-current multiplier mechanics of the mammalian nephron unit",
+                    "Examine homeostatic feedback mechanisms managed by Antidiuretic Hormone (ADH) and Aldosterone during fluid changes"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Genetics and Molecular Biology",
+              "sub_strands": [
+                {
+                  "name": "Dihybrid Inheritance and Sex Linkage",
+                  "outcomes": [
+                    "Model dihybrid inheritance patterns (9:3:3:1 phenotypic distributions) using advanced genetic matrix diagrams",
+                    "Trace sex-linked traits including hemophilia and color blindness across generational pedigree charts"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Advanced Agricultural Engineering",
+          "code": "AGR",
+          "strands": [
+            {
+              "name": "Animal Breeding and Livestock Pathology",
+              "sub_strands": [
+                {
+                  "name": "Artificial Insemination and Infectious Disease Controls",
+                  "outcomes": [
+                    "Evaluate genetic selection criteria and mechanics matching artificial insemination pipelines in domestic herds",
+                    "Diagnose life cycles, vector profiles, and biosecurity protocols for tick-borne diseases and zoonotic infections"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Farm Power and Mechanization",
+              "sub_strands": [
+                {
+                  "name": "Internal Combustion Engines and Power Take-Off (PTO) Lines",
+                  "outcomes": [
+                    "Differentiate structural operation dynamics inside two-stroke and four-stroke diesel internal combustion engines",
+                    "Manage mechanical attachments matching tractor power take-off (PTO) units safely under work criteria"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Environmental Tech and Spatial Ecology",
+          "code": "ESRM",
+          "strands": [
+            {
+              "name": "Waste Management and Toxicological Monitoring",
+              "sub_strands": [
+                {
+                  "name": "Effluent Treatment and Eutrophication Mitigation",
+                  "outcomes": [
+                    "Design structural multi-stage industrial wastewater treatment layouts involving sedimentation, aeration, and disinfection bio-steps",
+                    "Monitor biological oxygen demand (BOD) metrics to estimate effluent pollution stress inside surface rivers"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Computer Science and Data Engineering",
+          "code": "CS",
+          "strands": [
+            {
+              "name": "Non-Linear Data Structures and Databases",
+              "sub_strands": [
+                {
+                  "name": "Trees, Graphs, and Relational Databases",
+                  "outcomes": [
+                    "Implement and traverse binary search trees and basic graph structures using structural text coding",
+                    "Design normalized relational database schemas (up to 3NF) and query datasets using structural SQL statements"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Network Architecture and Cybersecurity",
+              "sub_strands": [
+                {
+                  "name": "OSI Layering Models and Cryptography",
+                  "outcomes": [
+                    "Map out data packet movement across the 7 layers of the OSI model architecture",
+                    "Apply symmetric and asymmetric encryption models to protect local data transmission sockets"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Engineering Graphics and Structural Analytics",
+          "code": "EGTD",
+          "strands": [
+            {
+              "name": "Interpenetration and Advanced Sectioning",
+              "sub_strands": [
+                {
+                  "name": "Lines of Interpenetration and Solid Developments",
+                  "outcomes": [
+                    "Construct geometric intersection profiles when dissimilar geometric solids (e.g., cylinders intersecting prisms) merge",
+                    "Generate exact layout surface developments for transition pieces utilized in ventilation ducting design"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Electrical and Applied Automation technology",
+          "code": "EET",
+          "strands": [
+            {
+              "name": "AC Circuit Physics and Semiconductor Logic",
+              "sub_strands": [
+                {
+                  "name": "Alternating Current Vectors and Diode Rectification",
+                  "outcomes": [
+                    "Calculate impedance, power factor, and resonant frequencies within serial RLC configurations using phasor vectors",
+                    "Design and solder functional full-wave bridge rectifier circuits using semiconductor diodes and smoothing capacitors"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Microcontrollers and Embedded Systems",
+              "sub_strands": [
+                {
+                  "name": "Firmware Development and Hardware Interfacing",
+                  "outcomes": [
+                    "Write clear structural code to program embedded microcontrollers for polling automated sensory telemetry arrays",
+                    "Interface hardware components using standard serial communication protocols (I2C and SPI links)"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Financial Accounting II",
+          "code": "ACC",
+          "strands": [
+            {
+              "name": "Partnership Accounts",
+              "sub_strands": [
+                {
+                  "name": "Partnership Formation and Profit Appropriation",
+                  "outcomes": [
+                    "Construct Partnership Appropriation Accounts, Capital Accounts, and Current Accounts following partnership deeds",
+                    "Calculate and account for goodwill allocations, interest on capital, interest on drawings, and partner salaries smoothly"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Company Accounts Introduction",
+              "sub_strands": [
+                {
+                  "name": "Issue of Shares and Debentures Ledger Entries",
+                  "outcomes": [
+                    "Process ledger entries for the issuance of ordinary shares and preference shares at par, premium, or discount",
+                    "Construct financial statement disclosures capturing share capital structures and long-term liabilities"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Macroeconomics",
+          "code": "ECON",
+          "strands": [
+            {
+              "name": "National Income Architecture",
+              "sub_strands": [
+                {
+                  "name": "Circular Flow of Income and Measurement Metrics",
+                  "outcomes": [
+                    "Model the circular flow of income using multi-sector frameworks (household, firm, government, international trade)",
+                    "Compute National Income metrics using the Gross Domestic Product (GDP) Expenditure, Income, and Output computation methods"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Money, Banking, and Public Finance",
+              "sub_strands": [
+                {
+                  "name": "Central Banking Mandates and Taxation Systems",
+                  "outcomes": [
+                    "Analyze monetary policy instruments (open market operations, reserve ratios) deployed to regulate cash reserve matrices",
+                    "Evaluate progressive, proportional, and regressive tax models alongside public expenditure frameworks"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "History and Government",
+          "code": "HIST",
+          "strands": [
+            {
+              "name": "The Rise of African Nationalism",
+              "sub_strands": [
+                {
+                  "name": "Decolonization Movements and Constitutional Changes",
+                  "outcomes": [
+                    "Analyze the factors that accelerated African nationalism after 1945, highlighting the role of WWII returnees and pan-Africanism",
+                    "Trace the constitutional milestones leading to Kenya's independence, evaluating the Lancaster House Conferences (1960-1962) frameworks"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Political Systems and Devolved Governance",
+              "sub_strands": [
+                {
+                  "name": "The Legislature and Devolved County Fiscal Frameworks",
+                  "outcomes": [
+                    "Examine the legislative process, structures, and roles of the National Assembly and Senate in bicameral systems",
+                    "Critique the revenue allocation mechanisms between national and county governments, analyzing the role of the Commission on Revenue Allocation (CRA)"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Geography and Spatial Analytics",
+          "code": "GEO",
+          "strands": [
+            {
+              "name": "Climatology and External Land-Forming Processes",
+              "sub_strands": [
+                {
+                  "name": "Global Winds, Pressure Belts, and Weather Forecasting Systems",
+                  "outcomes": [
+                    "Examine the planetary wind systems, planetary pressure belts, and the dynamics of the Inter-Tropical Convergence Zone (ITCZ)",
+                    "Interpret complex synoptic weather maps to model short-term regional weather variations"
+                  ]
+                },
+                {
+                  "name": "Weathering and Mass Wasting",
+                  "outcomes": [
+                    "Differentiate physical, chemical, and biological weathering processes across diverse climatic zones",
+                    "Evaluate the causes, categories, and direct environmental hazards associated with rapid mass wasting events"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Advanced Music Theory and Orchestration",
+          "code": "MUS",
+          "strands": [
+            {
+              "name": "Chromatic Harmony and Modulation",
+              "sub_strands": [
+                {
+                  "name": "Secondary Dominants and Pivot Chord Modulations",
+                  "outcomes": [
+                    "Identify, resolve, and write secondary dominant chords within major and minor key structures on a grand staff",
+                    "Compose short harmonic progressions that smoothly modulate to closely related keys using common pivot chords"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Instrumentation and Scoring",
+              "sub_strands": [
+                {
+                  "name": "Orchestral Instrument Ranges and Transposition",
+                  "outcomes": [
+                    "Analyze pitch ranges, clef usage, and acoustic timbres for standard Western orchestral instruments",
+                    "Transpose musical scores accurately for common transposing instruments including B-flat trumpets, clarinets, and F horns"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Theatre, Scenography, and Directing",
+          "code": "THEA",
+          "strands": [
+            {
+              "name": "Scenography and Technical Theatre",
+              "sub_strands": [
+                {
+                  "name": "Lighting Design, Stage Acoustics, and Set Architecture",
+                  "outcomes": [
+                    "Draft comprehensive theatrical lighting plots mapping out fixtures, gels, circuit patches, and illumination angles",
+                    "Design structural scale models of proscenium and thrust stages implementing specific set architectural designs"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Fine Art and Exhibition Production",
+          "code": "ART",
+          "strands": [
+            {
+              "name": "Advanced Studio Painting and Printmaking",
+              "sub_strands": [
+                {
+                  "name": "Impasto, Glazing, and Intaglio Printmaking",
+                  "outcomes": [
+                    "Execute complex landscape or figurative expressions implementing advanced paint applications such as impasto and transparent glazing layers",
+                    "Produce fine art prints using traditional intaglio etching or multi-block color woodcut techniques safely"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Graphic Design and Digital Architecture",
+          "code": "GRD",
+          "strands": [
+            {
+              "name": "Digital Animation and Motion Graphics",
+              "sub_strands": [
+                {
+                  "name": "Keyframe Animation, Storyboarding, and Vector Assets",
+                  "outcomes": [
+                    "Construct fluid vector-based 2D animations using keyframe manipulation, ease-in/ease-out curves, and onion-skinning mechanics",
+                    "Compile professional animatics matching clear timing audio tracks to establish proper kinematic storytelling parameters"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Advanced Biomechanics and Kinematics",
+          "code": "SPO",
+          "strands": [
+            {
+              "name": "Fluid Dynamics and Athletic Movement",
+              "sub_strands": [
+                {
+                  "name": "Aerodynamic Drag, Hydrodynamics, and Magnus Effect",
+                  "outcomes": [
+                    "Analyze the influence of form drag, skin friction drag, and fluid laminar flows on high-velocity athletic performance",
+                    "Apply the Magnus Effect to explain the parabolic curve trajectories of spinning projectiles in sports like soccer and tennis"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Exercise Metabolism and Cardiorespiratory Fitness",
+          "code": "SBP",
+          "strands": [
+            {
+              "name": "Cardiorespiratory Responses to Stress",
+              "sub_strands": [
+                {
+                  "name": "VO2 Max Kinetics and Lactate Thresholds",
+                  "outcomes": [
+                    "Measure and interpret Maximum Oxygen Uptake (VO₂ max) kinetics using standardized continuous laboratory stress protocols",
+                    "Identify the physiological mechanisms inducing the onset of blood lactate accumulation (OBLA) during progressive exercise intensity increases"
+                  ]
+                }
+              ]
+            }
+          ]
         }
       ]
     },
@@ -782,6 +4283,114 @@
                   "outcomes": [
                     "Plan and execute a community service project addressing an identified community need",
                     "Present a portfolio of evidence demonstrating impact and reflection on the project"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Mathematics (Advanced STEM)",
+          "code": "CMATH",
+          "strands": [
+            {
+              "name": "Integral Calculus and Differential Equations",
+              "sub_strands": [
+                {
+                  "name": "Indefinite and Definite Integration",
+                  "outcomes": [
+                    "Derive the integration of polynomial and simple trigonometric functions as the reverse of differentiation",
+                    "Apply definite integrals to evaluate the exact area bounded under curves and between intersecting boundary lines"
+                  ]
+                },
+                {
+                  "name": "First-Order Differential Equations",
+                  "outcomes": [
+                    "Formulate and solve first-order ordinary differential equations utilizing the separation of variables method"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Complex Numbers and Vectors",
+              "sub_strands": [
+                {
+                  "name": "Imaginary Numbers and Argand Diagrams",
+                  "outcomes": [
+                    "Perform algebraic operations on complex numbers (z = a + ib) and represent them spatially on Argand diagrams",
+                    "Convert complex numbers between Cartesian form and polar configuration (r(cosθ + isinθ))"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Physics",
+          "code": "PHY",
+          "strands": [
+            {
+              "name": "Modern Quantum Physics and Radioactivity",
+              "sub_strands": [
+                {
+                  "name": "Photoelectric Effect and X-Ray Production",
+                  "outcomes": [
+                    "Analyze the photoelectric equation (E = hf = W₀ + K_max) and solve problems involving work function threshold frequencies",
+                    "Explain the mechanics of X-ray generation within a Coolidge tube and differentiate continuous vs. characteristic spectra profiles"
+                  ]
+                },
+                {
+                  "name": "Nuclear Decay Dynamics",
+                  "outcomes": [
+                    "Formulate balanced nuclear equations for Alpha, Beta, and Gamma decays, and calculate radioisotope half-life decay constants"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Chemistry",
+          "code": "CHEM",
+          "strands": [
+            {
+              "name": "Electrochemistry and Analytical Kinetics",
+              "sub_strands": [
+                {
+                  "name": "Electrochemical Cells and Standard Electrode Potentials",
+                  "outcomes": [
+                    "Construct voltaic/galvanic cells, compute standard cell EMF (E°_cell = E°_cathode - E°_anode), and predict reaction spontaneity",
+                    "Analyze industrial electrolytic processes including the Down's cell extraction of sodium and the electrorefining of copper metal"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Organic Chemistry III",
+              "sub_strands": [
+                {
+                  "name": "Polymers and Synthetic Macromolecules",
+                  "outcomes": [
+                    "Differentiate addition and condensation polymerization mechanics, detailing structures for nylon-6,6, Terylene, and polythene",
+                    "Evaluate environmental impacts of synthetic polymers and research structural biopolymer alternatives"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Biology",
+          "code": "BIO",
+          "strands": [
+            {
+              "name": "Evolutionary Biology and Population Genetics",
+              "sub_strands": [
+                {
+                  "name": "Evidence of Evolution and Specialization Drivers",
+                  "outcomes": [
+                    "Critique evolutionary assertions based on comparative anatomy (homologous vs. analogous organs), embryology, and fossil timelines",
+                    "Apply the Hardy-Weinberg principle equation (p² + 2pq + q² = 1) to compute allele frequency vectors inside static populations"
                   ]
                 }
               ]

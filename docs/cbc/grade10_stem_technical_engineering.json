@@ -1,0 +1,112 @@
+{
+  "grade": "Grade 10",
+  "level": "Senior School",
+  "pathway": "Science, Technology, Engineering, and Mathematics (STEM)",
+  "track": "Technical and Engineering Studies",
+  "learning_areas": [
+    {
+      "learning_area": "Computer Science and Coding Architecture",
+      "strands": [
+        {
+          "strand": "Data Structures and Algorithm Design",
+          "sub_strands": [
+            {
+              "sub_strand": "Linear Data Structures and Complexity Introduction",
+              "outcomes": [
+                "Implement and manipulate static arrays, dynamic lists, stacks, and queues using a structured text-based programming language",
+                "Analyze algorithm execution paths using Big O notation to evaluate time and space complexity baselines"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Software Engineering Principles",
+          "sub_strands": [
+            {
+              "sub_strand": "Object-Oriented Programming (OOP)",
+              "outcomes": [
+                "Design software modules implementing core OOP pillars: encapsulation, inheritance, polymorphism, and abstraction",
+                "Construct unified modeling language (UML) class diagrams to architect data relationships before system implementation"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Engineering Graphics and Technical Design",
+      "strands": [
+        {
+          "strand": "Advanced Projections and Auxiliary Views",
+          "sub_strands": [
+            {
+              "sub_strand": "First and Third Angle Orthographic Projections",
+              "outcomes": [
+                "Convert complex three-dimensional isometric models into detailed 2D multi-view configurations under international drafting standards",
+                "Construct auxiliary structural views to expose true shapes of inclined and skewed plane features"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Computer-Aided Automation (CAD)",
+          "sub_strands": [
+            {
+              "sub_strand": "Parametric 3D Modeling and Assemblies",
+              "outcomes": [
+                "Generate precise parametric solid components and multi-part constraint assemblies within a CAD workspace engine",
+                "Extract standardized manufacturing blueprints complete with geometric dimensioning and tolerancing (GD&T) metrics"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Electrical and Electronics Technology",
+      "strands": [
+        {
+          "strand": "Circuit Physics and Network Theorems",
+          "sub_strands": [
+            {
+              "sub_strand": "DC Network Analysis and Laws",
+              "outcomes": [
+                "Apply Kirchhoff's Current Law (KCL) and Kirchhoff's Voltage Law (KVL) to calculate branching parameters in complex multi-loop circuits",
+                "Verify Ohm's Law and calculate total resistance for combinations of series, parallel, and delta-wye configurations"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Digital Electronics and Logic Automation",
+          "sub_strands": [
+            {
+              "sub_strand": "Logic Gates, Boolean Algebra, and Combinational Circuits",
+              "outcomes": [
+                "Construct and minimize logic expressions using Boolean identities and Karnaugh Maps (K-Maps) up to 3 variables",
+                "Prototype physical combinational systems utilizing NAND, NOR, XOR, and standard inverter integrated circuit chips"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Building and Mechanical Technology",
+      "strands": [
+        {
+          "strand": "Material Mechanics and Workshop Safety",
+          "sub_strands": [
+            {
+              "sub_strand": "Stress-Strain Dynamics and Destructive Testing",
+              "outcomes": [
+                "Investigate tensile, compressive, and shear strain behaviors in structural engineering substrates through physical load testing",
+                "Calculate Young's Modulus metrics from linear deformation data collections while observing factor-of-safety parameters"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

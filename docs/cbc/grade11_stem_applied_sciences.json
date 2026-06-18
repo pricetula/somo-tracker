@@ -1,0 +1,54 @@
+{
+  "grade": "Grade 11",
+  "level": "Senior School",
+  "pathway": "Science, Technology, Engineering, and Mathematics (STEM)",
+  "track": "Applied Sciences",
+  "learning_areas": [
+    {
+      "learning_area": "Advanced Agricultural Engineering",
+      "strands": [
+        {
+          "strand": "Animal Breeding and Livestock Pathology",
+          "sub_strands": [
+            {
+              "sub_strand": "Artificial Insemination and Infectious Disease Controls",
+              "outcomes": [
+                "Evaluate genetic selection criteria and mechanics matching artificial insemination pipelines in domestic herds",
+                "Diagnose life cycles, vector profiles, and biosecurity protocols for tick-borne diseases and zoonotic infections"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Farm Power and Mechanization",
+          "sub_strands": [
+            {
+              "sub_strand": "Internal Combustion Engines and Power Take-Off (PTO) Lines",
+              "outcomes": [
+                "Differentiate structural operation dynamics inside two-stroke and four-stroke diesel internal combustion engines",
+                "Manage mechanical attachments matching tractor power take-off (PTO) units safely under work criteria"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Environmental Tech and Spatial Ecology",
+      "strands": [
+        {
+          "strand": "Waste Management and Toxicological Monitoring",
+          "sub_strands": [
+            {
+              "sub_strand": "Effluent Treatment and Eutrophication Mitigation",
+              "outcomes": [
+                "Design structural multi-stage industrial wastewater treatment layouts involving sedimentation, aeration, and disinfection bio-steps",
+                "Monitor biological oxygen demand (BOD) metrics to estimate effluent pollution stress inside surface rivers"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

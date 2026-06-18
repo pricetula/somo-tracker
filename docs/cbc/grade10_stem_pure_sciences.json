@@ -1,0 +1,137 @@
+{
+  "grade": "Grade 10",
+  "level": "Senior School",
+  "pathway": "Science, Technology, Engineering, and Mathematics (STEM)",
+  "track": "Pure Sciences",
+  "learning_areas": [
+    {
+      "learning_area": "Mathematics (Advanced / Core STEM)",
+      "strands": [
+        {
+          "strand": "Algebra and Functions",
+          "sub_strands": [
+            {
+              "sub_strand": "Quadratic Functions and Identities",
+              "outcomes": [
+                "Solve quadratic equations using the quadratic formula, completing the square, and graphical techniques",
+                "Analyze properties of parabolas including vertex positioning, axis of symmetry, and roots estimation"
+              ]
+            },
+            {
+              "sub_strand": "Surds, Logarithms, and Sequences",
+              "outcomes": [
+                "Simplify expressions containing numerical surds and rationalize denominators using conjugate pairs",
+                "Apply the laws of logarithms to solve exponential equations modeling population growth or compound decay systems"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Trigonometry and Geometry",
+          "sub_strands": [
+            {
+              "sub_strand": "Trigonometric Graphs and Sine/Cosine Rules",
+              "outcomes": [
+                "Plot and interpret trigonometric functions $y = \\sin(x)$, $y = \\cos(x)$, and $y = \\tan(x)$ for angles up to 360°",
+                "Apply the Sine and Cosine rules to compute missing dimensions and angles in non-right-angled oblique triangles"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Physics",
+      "strands": [
+        {
+          "strand": "Mechanics",
+          "sub_strands": [
+            {
+              "sub_strand": "Linear Motion and Newton's Laws of Motion",
+              "outcomes": [
+                "Derive and apply the equations of uniformly accelerated linear motion ($v = u + at$, $s = ut + \\frac{1}{2}at^2$, $v^2 = u^2 + 2as$)",
+                "Investigate Newton's three laws of motion experimentally and solve problems linking force, mass, and acceleration vector matrices"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Waves and Optics",
+          "sub_strands": [
+            {
+              "sub_strand": "Refraction of Light and Thin Lenses",
+              "outcomes": [
+                "Verify Snell's law and determine the refractive index of glass and liquid mediums using ray-tracing techniques",
+                "Construct ray diagrams to determine image positions, magnification parameters, and characteristics for concave and convex thin lenses"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Chemistry",
+      "strands": [
+        {
+          "strand": "Structure and Bonding",
+          "sub_strands": [
+            {
+              "sub_strand": "The Mole Concept and Stoichiometry",
+              "outcomes": [
+                "Define Avogadro's constant and compute moles, molar masses, and reacting volumes for gaseous and aqueous substances",
+                "Determine empirical and molecular formulas from percentage elemental composition data collections"
+              ]
+            },
+            {
+              "sub_strand": "Gas Laws",
+              "outcomes": [
+                "Investigate and verify Boyle's Law, Charles's Law, and the Ideal Gas Equation through experimental simulation models"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Organic Chemistry I",
+          "sub_strands": [
+            {
+              "sub_strand": "Hydrocarbons (Alkanes, Alkenes, Alkynes)",
+              "outcomes": [
+                "Name, draw, and construct structural models for straight-chain alkanes, alkenes, and alkynes up to carbon-5 using IUPAC nomenclature Rules",
+                "Differentiate saturated and unsaturated hydrocarbons using chemical tests including bromine water and acidified KMnO₄ solutions"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Biology",
+      "strands": [
+        {
+          "strand": "Physiology and Transport Systems",
+          "sub_strands": [
+            {
+              "sub_strand": "Gaseous Exchange in Plants and Animals",
+              "outcomes": [
+                "Examine structural mechanics of stomata and lenticels and explain the physiological processes matching plant gaseous transport",
+                "Dissect and analyze respiratory mechanisms in insects (tracheal systems), fish (gills), and mammals (alveolar gas transport loops)"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Ecology and Genetics Foundation",
+          "sub_strands": [
+            {
+              "sub_strand": "Monohybrid Inheritance and Mitosis/Meiosis",
+              "outcomes": [
+                "Model genetic crossings for monohybrid inheritance patterns using genetic diagrams and Punnett squares to predict phenotypic variations",
+                "Examine phases of mitosis and meiosis under microscopic simulations and explain their significance in growth and reproductive cycles"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

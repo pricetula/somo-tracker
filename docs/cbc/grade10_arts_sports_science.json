@@ -1,0 +1,66 @@
+{
+  "grade": "Grade 10",
+  "level": "Senior School",
+  "pathway": "Arts and Sports Science",
+  "track": "Sports Science",
+  "learning_areas": [
+    {
+      "learning_area": "Human Anatomy and Exercise Physiology",
+      "strands": [
+        {
+          "strand": "Musculoskeletal Mechanics and Energy Systems",
+          "sub_strands": [
+            {
+              "sub_strand": "Joint Kinesiology and Muscle Biomechanics",
+              "outcomes": [
+                "Classify synovial joint configurations and model their structural mechanical leverage during athletic movements",
+                "Analyze the recruitment profiles of slow-twitch (Type I) and fast-twitch (Type II) muscle fibers across diverse exercise domains"
+              ]
+            },
+            {
+              "sub_strand": "Metabolic Energy Pathways",
+              "outcomes": [
+                "Contrast the physiological thresholds of the ATP-CP, Anaerobic Lactic, and Aerobic metabolic energy production systems"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Sports Biomechanics and Performance Analysis",
+      "strands": [
+        {
+          "strand": "Kinematics and Motion Dynamics",
+          "sub_strands": [
+            {
+              "sub_strand": "Linear/Angular Motion Kinetics and Projectile Parameters",
+              "outcomes": [
+                "Calculate angular velocity, torque, and center of mass displacements during complex jumping or throwing tasks",
+                "Evaluate variables (release velocity, angle, height) altering the parabolic trajectory path of athletic projectiles"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Sports Nutrition, Coaching, and Injury Management",
+      "strands": [
+        {
+          "strand": "Athletic Dietetics, Training Principles, and First Aid Care",
+          "sub_strands": [
+            {
+              "sub_strand": "Macronutrient Loading, Training Laws, and Acute Injury Triage",
+              "outcomes": [
+                "Design optimized carbohydrate loading programs and hydration schedules customized to specific athletic event profiles",
+                "Apply core training principles (overload, specificity, reversibility) to design longitudinal macrocycle performance charts",
+                "Demonstrate standard on-field first aid procedures (PRICE protocol) to stabilize acute soft-tissue sports injuries safely"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,306 @@
+{
+  "grade": "Grade 3",
+  "level": "Lower Primary",
+  "learning_areas": [
+    {
+      "learning_area": "English Language Activities",
+      "strands": [
+        {
+          "strand": "Listening and Speaking",
+          "sub_strands": [
+            {
+              "sub_strand": "Talking About Technology, Safety, and Communication",
+              "outcomes": [
+                "Express complex ideas, instructions, and safety precautions clearly using a wide range of vocabulary",
+                "Listen critically to short informational texts to summarize key facts and express opinions"
+              ]
+            },
+            {
+              "sub_strand": "Language Structures and Functions",
+              "outcomes": [
+                "Use pronouns, prepositions, and simple past tense regular/irregular verbs accurately in speech",
+                "Respond appropriately to open-ended questions regarding familiar topics"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Reading",
+          "sub_strands": [
+            {
+              "sub_strand": "Fluency and Silent Reading",
+              "outcomes": [
+                "Read grade-level texts at an optimal speed with appropriate phrasing, tone, and accuracy",
+                "Demonstrate sustained silent reading for pleasure and information retrieval"
+              ]
+            },
+            {
+              "sub_strand": "Reading Comprehension",
+              "outcomes": [
+                "Make inferences, predict outcomes, and distinguish between fact and fiction in reading cards and storybooks",
+                "Identify the central theme, moral lesson, and sequence of events from a text"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Writing",
+          "sub_strands": [
+            {
+              "sub_strand": "Guided and Creative Writing",
+              "outcomes": [
+                "Write cohesive short paragraphs using correct sentence structures, capitalization, and punctuation",
+                "Spell unfamiliar multi-syllabic words accurately using phonetic spelling strategies"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Kiswahili Activities (Shughuli za Lugha ya Kiswahili)",
+      "strands": [
+        {
+          "strand": "Kusikiliza na Kuzungumza",
+          "sub_strands": [
+            {
+              "sub_strand": "Kusikiliza kwa Makini na Maelezo",
+              "outcomes": [
+                "Kusikiliza hadithi, habari, au maagizo na kutoa muhtasari au majibu sahihi ya maswali",
+                "Kutumia msamiati mwafaka kueleza matukio, usalama, na mazingira yanayomzunguka mwanafunzi"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Kusoma",
+          "sub_strands": [
+            {
+              "sub_strand": "Kusoma kwa Ufasaha na Ufahamu",
+              "outcomes": [
+                "Kusoma vifungu vya maneno kwa sauti inayosikika na kwa kasi inayofaa huku wakizingatia uakifishaji",
+                "Kujibu maswali ya ufahamu kutokana na vifungu vya kusoma (maswali ya moja kwa moja na ya mapendeleo)"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Kuandika",
+          "sub_strands": [
+            {
+              "sub_strand": "Insha fupi na Imla",
+              "outcomes": [
+                "Kuandika aya fupi na tungo rahisi zenye mtiririko mzuri wa mawazo na tahajia sahihi"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Mathematical Activities",
+      "strands": [
+        {
+          "strand": "Numbers",
+          "sub_strands": [
+            {
+              "sub_strand": "Number Concept and Operations",
+              "outcomes": [
+                "Count forward and backward from 1 to 1000 in intervals of 2, 5, 10, 50, and 100",
+                "Read, write, and represent numbers up to 1000 in symbols and numbers up to 100 in words"
+              ]
+            },
+            {
+              "sub_strand": "Place Value and Fractions",
+              "outcomes": [
+                "Identify place value of digits up to thousands, hundreds, tens, and ones",
+                "Identify, read, and write simple fractions as part of a whole (half, quarter, eighth)"
+              ]
+            },
+            {
+              "sub_strand": "Addition and Subtraction",
+              "outcomes": [
+                "Add up to three-digit numbers with regrouping up to a sum of 1000",
+                "Subtract up to three-digit numbers with regrouping within 1000"
+              ]
+            },
+            {
+              "sub_strand": "Multiplication and Division",
+              "outcomes": [
+                "Multiply single-digit numbers by numbers up to 10 using mental strategies and arrays",
+                "Divide numbers up to 30 by single digits without a remainder through factor grouping"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Measurement",
+          "sub_strands": [
+            {
+              "sub_strand": "Length, Mass, and Capacity",
+              "outcomes": [
+                "Measure length in standard units (meters) using tape measures or meter rules",
+                "Measure mass in kilograms using a simple weighing balance",
+                "Measure and compare capacity in liters using standard containers"
+              ]
+            },
+            {
+              "sub_strand": "Time and Money",
+              "outcomes": [
+                "Tell time to the nearest five minutes using an analogue clock face",
+                "Perform operations involving Kenyan currency notes and coins up to 100 shillings"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Geometry",
+          "sub_strands": [
+            {
+              "sub_strand": "Position and Shapes",
+              "outcomes": [
+                "Identify and trace horizontal, vertical, and diagonal lines",
+                "Make patterns using interlocking two-dimensional shapes"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Environmental Activities",
+      "strands": [
+        {
+          "strand": "Natural Environment and Weather",
+          "sub_strands": [
+            {
+              "sub_strand": "Soil Types and Characteristics",
+              "outcomes": [
+                "Model and compare physical properties of clay, sand, and loam soils based on texture and modeling capability",
+                "Demonstrate simple methods of conserving soil erosion in the school environment"
+              ]
+            },
+            {
+              "sub_strand": "Water Conservation and Sources",
+              "outcomes": [
+                "Identify local sources of clean and polluted water and discuss methods of safe harvesting",
+                "Practice practical water conservation measures like turning off taps and recycling water"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Social and Economic Environment",
+          "sub_strands": [
+            {
+              "sub_strand": "Marketplace and Resources",
+              "outcomes": [
+                "Describe common business transactions, types of items sold, and basic ethics in the local market",
+                "Demonstrate resource planning by reusing and recycling materials within their environment"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Hygiene and Nutrition Activities",
+      "strands": [
+        {
+          "strand": "Personal and Community Health",
+          "sub_strands": [
+            {
+              "sub_strand": "Parasites and Preventive Practices",
+              "outcomes": [
+                "Identify common external human parasites (lice, bedbugs, jiggers) and state regular preventive actions",
+                "Demonstrate appropriate methods of medicine usage, storage, and adherence to safety labels"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Food and Safety",
+          "sub_strands": [
+            {
+              "sub_strand": "Kitchen Safety and Food Preservation",
+              "outcomes": [
+                "Identify potential hazards in a kitchen and demonstrate actions to prevent burns or accidental cuts",
+                "Practice traditional and modern simple methods of preserving common food items from contamination"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Religious Education (CRE / IRE / HRE)",
+      "strands": [
+        {
+          "strand": "Christian / Islamic / Hindu Values",
+          "sub_strands": [
+            {
+              "sub_strand": "Respect for Authority and Peers",
+              "outcomes": [
+                "Explain the importance of respecting institutional authority, community elders, and parents based on spiritual teachings",
+                "Demonstrate honesty, inclusivity, and empathy when dealing with individuals of different backgrounds"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Movement and Creative Activities",
+      "strands": [
+        {
+          "strand": "Movement and Physical Education",
+          "sub_strands": [
+            {
+              "sub_strand": "Swimming and Gymnastics",
+              "outcomes": [
+                "Execute proper body buoyancy techniques, kicking patterns, and water safety strokes independently",
+                "Perform sequences of specialized physical maneuvers including forward rolls, vaulting, and balancing with control"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Creative Arts",
+          "sub_strands": [
+            {
+              "sub_strand": "Crafting, Ornaments, and Puppetry",
+              "outcomes": [
+                "Design and construct basic hand puppets, masks, or beaded ornaments using local sustainable materials",
+                "Create three-dimensional structures using simple modeling techniques"
+              ]
+            },
+            {
+              "sub_strand": "Music and Solos",
+              "outcomes": [
+                "Perform patriotic, sacred, and topical solo songs with correct pitch, phrasing, and emotional expression",
+                "Identify and classify traditional African musical instruments within the local community"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Indigenous Language Activities",
+      "strands": [
+        {
+          "strand": "Cultural Heritage and Oral Literature",
+          "sub_strands": [
+            {
+              "sub_strand": "Storytelling and Riddles",
+              "outcomes": [
+                "Listen to and recount local community folktales, proverbs, and riddles in the local language",
+                "Appreciate cultural heritage expressions and moral benchmarks passed down through indigenous language arts"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

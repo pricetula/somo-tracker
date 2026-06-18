@@ -1,0 +1,71 @@
+{
+  "grade": "Grade 10",
+  "level": "Senior School",
+  "pathway": "Arts and Sports Science",
+  "track": "Visual Arts",
+  "learning_areas": [
+    {
+      "learning_area": "Fine Art and Two-Dimensional Production",
+      "strands": [
+        {
+          "strand": "Advanced Perspective Drawing and Anatomy",
+          "sub_strands": [
+            {
+              "sub_strand": "Linear Perspective and Human Figure Proportions",
+              "outcomes": [
+                "Construct interior and exterior spatial scenes implementing accurate two-point and three-point linear perspective grids",
+                "Render anatomically accurate human figures from life, maintaining standard proportions and structural skeletal foreshortening"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Color Theory and Media Application",
+          "sub_strands": [
+            {
+              "sub_strand": "Color Harmonies and Gouache/Oil Painting",
+              "outcomes": [
+                "Apply complex color configurations (analogous, complementary, split-complementary) to convey ambient depth and mood",
+                "Execute traditional underpainting and layering methods using gouache, acrylics, or oil paint mediums"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Graphic Design and Digital Media",
+      "strands": [
+        {
+          "strand": "Corporate Branding and Visual Communication",
+          "sub_strands": [
+            {
+              "sub_strand": "Typography, Vector Illustration, and User Interface Fundamentals",
+              "outcomes": [
+                "Design unified visual identity manuals including vector logos, layout typography hierarchies, and strict color codes",
+                "Wireframe functional, low-fidelity digital user interfaces (UI) prioritizing visual balance and accessibility guidelines"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Three-Dimensional Design and Craft",
+      "strands": [
+        {
+          "strand": "Sculpture, Ceramics, and Sustainable Product Design",
+          "sub_strands": [
+            {
+              "sub_strand": "Armature Construction and Clay Kiln Firings",
+              "outcomes": [
+                "Build structural wire and mesh armatures to support clay or plaster figurative sculptures",
+                "Manage complex hand-building ceramic processes (coiling, slabbing) and apply glazing recipes prior to kiln firing"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

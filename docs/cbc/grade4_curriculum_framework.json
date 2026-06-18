@@ -1,0 +1,297 @@
+{
+  "grade": "Grade 4",
+  "level": "Upper Primary",
+  "learning_areas": [
+    {
+      "learning_area": "English Language",
+      "strands": [
+        {
+          "strand": "Listening and Speaking",
+          "sub_strands": [
+            {
+              "sub_strand": "Digital Media Literacy and Oral Communication",
+              "outcomes": [
+                "Listen attentively to multi-media educational narratives to accurately summarize foundational arguments",
+                "Present brief oral reports on environmental or localized topics using varied vocabulary and accurate syntactic forms"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Reading",
+          "sub_strands": [
+            {
+              "sub_strand": "Critical Reading and Media Literacy",
+              "outcomes": [
+                "Analyze elementary digital and print media texts to answer explicit and implicit interpretive prompts",
+                "Read age-appropriate literary texts silently to establish central thematic messages and chronological structural elements"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Writing",
+          "sub_strands": [
+            {
+              "sub_strand": "Composition and Mechanics",
+              "outcomes": [
+                "Compose multi-paragraph descriptive and narrative configurations utilizing correct grammatical inflections",
+                "Apply structured punctuation matrices including quotation marks and commas in complex sentence environments"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Kiswahili",
+      "strands": [
+        {
+          "strand": "Kusikiliza na Kuzungumza",
+          "sub_strands": [
+            {
+              "sub_strand": "Uwasilishaji wa Kidijitali na Maongezi",
+              "outcomes": [
+                "Kusikiliza kwa makini habari au simulizi za kidijitali na kuzitolea muhtasari sahihi",
+                "Kuzungumza kwa ufasaha na kutumia msamiati mwafaka kueleza mada za kijamii na mazingira"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Kusoma",
+          "sub_strands": [
+            {
+              "sub_strand": "Kusoma kwa Ufahamu na Uchambuzi",
+              "outcomes": [
+                "Kusoma vifungu vya habari na fasihi ya watoto ili kujibu maswali ya wazi na ya kiufahamu",
+                "Kutambua sifa za wahusika na maadili yanayojitokeza katika hadithi"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Kuandika",
+          "sub_strands": [
+            {
+              "sub_strand": "Insha na Sarufi",
+              "outcomes": [
+                "Kuandika insha fupi za wasifu na masimulizi zikizingatia uakifishaji na tahajia sahihi",
+                "Kutumia viambishi, ngeli za nomino, na nyakati kwa usahihi katika tungo"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Mathematics",
+      "strands": [
+        {
+          "strand": "Numbers",
+          "sub_strands": [
+            {
+              "sub_strand": "Whole Numbers and Place Value",
+              "outcomes": [
+                "Read, write, and identify place value parameters for whole numbers up to 10,000",
+                "Round off whole numbers to the nearest tens, hundreds, and thousands"
+              ]
+            },
+            {
+              "sub_strand": "Fractions and Decimals",
+              "outcomes": [
+                "Compare and order proper fractions with denominators up to 10 using concrete grids",
+                "Convert simple fractions into base-10 decimal equivalents with one decimal place"
+              ]
+            },
+            {
+              "sub_strand": "Operations (Addition, Subtraction, Multiplication, Division)",
+              "outcomes": [
+                "Add and subtract whole numbers up to 4 digits with regrouping parameters up to a total of 10,000",
+                "Multiply a 3-digit number by a 1-digit number and divide 2-digit numbers by 1-digit divisors without remainders"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Measurement",
+          "sub_strands": [
+            {
+              "sub_strand": "Length, Mass, and Capacity",
+              "outcomes": [
+                "Convert length metrics between meters and centimeters utilizing accurate computational models",
+                "Solve real-world addition and subtraction problems involving kilograms, grams, liters, and milliliters"
+              ]
+            },
+            {
+              "sub_strand": "Financial Literacy and Time",
+              "outcomes": [
+                "Tell time down to minutes and seconds using both digital systems and traditional analogue interfaces",
+                "Perform compound transactions involving currency combinations up to 1,000 Kenyan Shillings"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Geometry and Data Handling",
+          "sub_strands": [
+            {
+              "sub_strand": "Lines, Angles, and Pictographs",
+              "outcomes": [
+                "Identify and classify right angles, acute angles, parallel lines, and perpendicular configurations",
+                "Collect localized environmental data metrics and represent them accurately using standardized pictographs"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Science and Technology",
+      "strands": [
+        {
+          "strand": "Living Things",
+          "sub_strands": [
+            {
+              "sub_strand": "Plants and Animals Classification",
+              "outcomes": [
+                "Classify local area plants based on characteristics such as flowering status and root frameworks",
+                "Differentiate between vertebrate and invertebrate structures utilizing physical specimens and digital models"
+              ]
+            },
+            {
+              "sub_strand": "Human Body and Digestive System",
+              "outcomes": [
+                "Identify, label, and outline the physiological functions of the human digestive system structures",
+                "Differentiate types of human teeth, mapping their specific structural traits to mechanical functionality"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Environment and Technology",
+          "sub_strands": [
+            {
+              "sub_strand": "Pollution Control and Digital Simulations",
+              "outcomes": [
+                "Differentiate the impacts of air, water, and soil pollution in the community and offer remedial designs",
+                "Navigate basic digital simulation components to observe environmental processes safely"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Matter and Energy",
+          "sub_strands": [
+            {
+              "sub_strand": "States of Matter and Sound Energy",
+              "outcomes": [
+                "Investigate properties of solids, liquids, and gases via localized physical experiments",
+                "Demonstrate how sound travels through different materials and describe factors altering pitch"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Agriculture and Nutrition",
+      "strands": [
+        {
+          "strand": "Conservation of Resources",
+          "sub_strands": [
+            {
+              "sub_strand": "Soil Conservation and Water Harvesting",
+              "outcomes": [
+                "Construct small-scale macro-structures like simple terraces or mulching beds to curb soil degradation",
+                "Demonstrate climate-smart micro-irrigation and simple water harvesting methodologies in farming modules"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Food Production and Hygiene",
+          "sub_strands": [
+            {
+              "sub_strand": "Domestic Gardening and Home Nutrition",
+              "outcomes": [
+                "Establish functional container gardens or innovative vertical farm structures for local vegetable crops",
+                "Practice proper food safety protocols, kitchen sorting, and basic macro-nutritional preservation steps"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Social Studies",
+      "strands": [
+        {
+          "strand": "Physical and Built Environment",
+          "sub_strands": [
+            {
+              "sub_strand": "County Mapping and Directional Metrics",
+              "outcomes": [
+                "Map local county boundaries and identify dominant geographic landmarks using the 8 points of the compass",
+                "Outline the historical significance of localized heritage infrastructure and built monuments"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "People and Population",
+          "sub_strands": [
+            {
+              "sub_strand": "Cultural Interdependence and Leadership",
+              "outcomes": [
+                "Describe historical migration paths and trace inter-community relationships within the county environment",
+                "Identify structural functions of county leadership frameworks and outline characteristics of ethical civic administration"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Creative Arts",
+      "strands": [
+        {
+          "strand": "Creating, Executing, and Performing",
+          "sub_strands": [
+            {
+              "sub_strand": "Visual Arts Production and Multimedia",
+              "outcomes": [
+                "Design structural patterns and 3D mockups using sustainable artistic practices and digital illustration panels",
+                "Produce functional household items using traditional pottery modeling and basic leather crafting techniques"
+              ]
+            },
+            {
+              "sub_strand": "Music, Dance, and Physical Expression",
+              "outcomes": [
+                "Compose and perform short topical ensemble melodies utilizing localized scale configurations",
+                "Execute complex choreographic steps or rhythmic gymnastics balances that align with designated tempos"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Religious Education (CRE / IRE / HRE)",
+      "strands": [
+        {
+          "strand": "Social Justice and Ethical Leadership",
+          "sub_strands": [
+            {
+              "sub_strand": "Scriptural Studies and Contemporary Morals",
+              "outcomes": [
+                "Evaluate scriptural passages regarding fair resource distribution, community empathy, and social justice parameters",
+                "Differentiate ethical choices from deceptive behaviors within digital communication pipelines and physical encounters"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

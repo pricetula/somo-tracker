@@ -1,0 +1,285 @@
+{
+  "grade": "Grade 2",
+  "level": "Lower Primary",
+  "learning_areas": [
+    {
+      "learning_area": "English Language Activities",
+      "strands": [
+        {
+          "strand": "Listening and Speaking",
+          "sub_strands": [
+            {
+              "sub_strand": "Talking About School, Home, and Community",
+              "outcomes": [
+                "Express thoughts, feelings, and instructions clearly using appropriate vocabulary and correct sentence structures",
+                "Listen attentively and respond politely to descriptions of everyday events and community activities"
+              ]
+            },
+            {
+              "sub_strand": "Listening for Comprehension and Vocabulary",
+              "outcomes": [
+                "Identify specific information and answer literal questions from short audio clips or stories read aloud",
+                "Use new words acquired from listening tasks to construct meaningful sentences"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Reading Readiness and Reading",
+          "sub_strands": [
+            {
+              "sub_strand": "Word Position and Silent Reading",
+              "outcomes": [
+                "Read grade-level texts fluently, accurately, and with appropriate expression",
+                "Demonstrate silent reading habits while maintaining focus on a short paragraphs"
+              ]
+            },
+            {
+              "sub_strand": "Reading Comprehension",
+              "outcomes": [
+                "Draw logical conclusions and answer both direct and simple inferential questions from storybooks",
+                "Retell a story accurately by highlighting the main characters and setting"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Writing",
+          "sub_strands": [
+            {
+              "sub_strand": "Punctuation and Spelling",
+              "outcomes": [
+                "Apply basic punctuation marks including capital letters, periods, and question marks correctly in short sentences",
+                "Spell frequently used words and multi-syllable phonetic words accurately"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Kiswahili Activities (Shughuli za Lugha ya Kiswahili)",
+      "strands": [
+        {
+          "strand": "Kusikiliza na Kuzungumza",
+          "sub_strands": [
+            {
+              "sub_strand": "Maamkizi na Mazungumzo",
+              "outcomes": [
+                "Kuitikia na kutumia maamkizi na maneno ya adabu ipasavyo katika mazingira ya shuleni na nyumbani",
+                "Kutoa na kufuata maagizo rahisi yanayohusisha shughuli za kila siku"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Kusoma",
+          "sub_strands": [
+            {
+              "sub_strand": "Kusoma kwa Sauti",
+              "outcomes": [
+                "Kusoma maneno, sentensi, na vifungu vifupi kwa ufasaha, kuzingatia alama za uakifishaji",
+                "Kutambua msamiati wa kimsingi unaopatikana katika vifungu vya kusoma"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Kuandika",
+          "sub_strands": [
+            {
+              "sub_strand": "Kukuza herufi na silabi",
+              "outcomes": [
+                "Kuandika herufi na maneno kwa mwandiko unaosomeka na wenye nafasi ifasayo kati ya maneno"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Mathematical Activities",
+      "strands": [
+        {
+          "strand": "Numbers",
+          "sub_strands": [
+            {
+              "sub_strand": "Number Concept and Representation",
+              "outcomes": [
+                "Count forward and backward from 1 to 1000 in intervals of 1, 5, 10, and 100",
+                "Read and write numbers up to 100 in symbols and words"
+              ]
+            },
+            {
+              "sub_strand": "Place Value",
+              "outcomes": [
+                "Identify place value of digits up to hundreds, tens, and ones using concrete structural representations"
+              ]
+            },
+            {
+              "sub_strand": "Number Patterns",
+              "outcomes": [
+                "Identify, missing numbers or complete ascending and descending number patterns up to 100"
+              ]
+            },
+            {
+              "sub_strand": "Addition and Subtraction",
+              "outcomes": [
+                "Add up to two-digit numbers with regrouping up to a sum of 100",
+                "Subtract up to two-digit numbers without regrouping within 100"
+              ]
+            },
+            {
+              "sub_strand": "Multiplication and Division",
+              "outcomes": [
+                "Represent multiplication as repeated addition using arrays or single groups up to 5x5",
+                "Represent division as equal sharing or grouping using concrete materials"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Measurement",
+          "sub_strands": [
+            {
+              "sub_strand": "Length, Mass, and Capacity",
+              "outcomes": [
+                "Measure and compare lengths using non-standard and arbitrary standard units",
+                "Estimate and balance masses of objects against known classroom items",
+                "Measure capacity of liquid containers using non-standard units"
+              ]
+            },
+            {
+              "sub_strand": "Time and Money",
+              "outcomes": [
+                "Tell time to the half-hour using analogue clocks",
+                "Identify Kenyan currency notes and coins up to 50 shillings and perform simple mental calculations"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Geometry",
+          "sub_strands": [
+            {
+              "sub_strand": "Lines and Shapes",
+              "outcomes": [
+                "Identify and draw straight lines, curved lines, rectangles, circles, triangles, and squares"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Environmental Activities",
+      "strands": [
+        {
+          "strand": "Our Environment",
+          "sub_strands": [
+            {
+              "sub_strand": "Weather Patterns and Safe Practices",
+              "outcomes": [
+                "Monitor and record regular weather trends over an extended period",
+                "Identify appropriate safety precautions to avoid injuries during adverse weather conditions"
+              ]
+            },
+            {
+              "sub_strand": "Animals and Plants in the Locality",
+              "outcomes": [
+                "Group local animals based on characteristics like feeding habits or physical features",
+                "Demonstrate proper care for plants at home and around the school compound"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Health Practices and Safety",
+          "sub_strands": [
+            {
+              "sub_strand": "Food and Basic First Aid",
+              "outcomes": [
+                "Differentiate between healthy food groups and common non-nutritious items",
+                "Demonstrate knowledge of basic procedures when reporting accidents or minor injuries"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Hygiene and Nutrition Activities",
+      "strands": [
+        {
+          "strand": "Health Practices",
+          "sub_strands": [
+            {
+              "sub_strand": "Cleanliness of Body and Environment",
+              "outcomes": [
+                "Demonstrate correct methods for washing clothes, cleaning classrooms, and standard bathroom cleaning",
+                "Practice appropriate hand hygiene behaviors at key milestones throughout the day"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Food Hygiene",
+          "sub_strands": [
+            {
+              "sub_strand": "Safe Food Handling",
+              "outcomes": [
+                "Identify correct ways to wash, store, and consume raw fruit and clean vegetables safely"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Religious Education (CRE / IRE / HRE)",
+      "strands": [
+        {
+          "strand": "Values and Teachings",
+          "sub_strands": [
+            {
+              "sub_strand": "Parables and Stories of Kindness",
+              "outcomes": [
+                "Retell specific parables or sacred historical stories that advocate for empathy, hard work, and sharing",
+                "Demonstrate helpfulness toward elders, family members, and school peers in daily interactions"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Movement and Creative Activities",
+      "strands": [
+        {
+          "strand": "Psychomotor Skills",
+          "sub_strands": [
+            {
+              "sub_strand": "Rhythmic Gymnastics and Games",
+              "outcomes": [
+                "Perform continuous physical movements like leaping, turning, rolling, and dodging with body alignment",
+                "Follow rules and show teamwork principles in non-competitive games"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Creative Arts",
+          "sub_strands": [
+            {
+              "sub_strand": "Drawing, Modeling, and Music",
+              "outcomes": [
+                "Create balanced patterns and textures through painting, printing, or localized weaving",
+                "Sing local national and folk melodies in unison, maintaining steady rhythm and accurate tempo"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,66 @@
+{
+  "grade": "Grade 10",
+  "level": "Senior School",
+  "pathway": "Arts and Sports Science",
+  "track": "Performing Arts",
+  "learning_areas": [
+    {
+      "learning_area": "Music Theory and Composition",
+      "strands": [
+        {
+          "strand": "Advanced Harmony and Part-Writing",
+          "sub_strands": [
+            {
+              "sub_strand": "Diatonic Chords and Inversions",
+              "outcomes": [
+                "Identify and construct primary and secondary diatonic triads and their inversions on a grand staff",
+                "Apply standard four-part voice leading principles (SATB) to eliminate parallel fifths and octaves in harmonic progressions"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Musical Forms and Analysis",
+          "sub_strands": [
+            {
+              "sub_strand": "Binary, Ternary, and Sonata Form Architectural Layouts",
+              "outcomes": [
+                "Analyze classical and African art music compositions to determine structural sectional boundaries and modulation pathways",
+                "Compose original thematic motifs and develop them using rhythmic variation, inversion, and retrograde techniques"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Theatre and Film Studies",
+      "strands": [
+        {
+          "strand": "Theatrical Production and Script Analysis",
+          "sub_strands": [
+            {
+              "sub_strand": "Dramatic Structure, Textual Critique, and Blocking",
+              "outcomes": [
+                "Deconstruct a standard play script to chart the exposition, rising action, climax, falling action, and denouement",
+                "Formulate comprehensive scene blocking diagrams and direct cast positioning utilizing spatial theater zones"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Cinematography and Screenwriting",
+          "sub_strands": [
+            {
+              "sub_strand": "Screenplay Formatting, Storyboarding, and Camera Mechanics",
+              "outcomes": [
+                "Draft a short, single-scene film script conforming strictly to standard industry screenplay layout software rules",
+                "Generate a detailed operational storyboard specifying camera angles, shot sizes (extreme close-up to wide shot), and motion vectors"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

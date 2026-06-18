@@ -1,0 +1,66 @@
+{
+  "grade": "Grade 11",
+  "level": "Senior School",
+  "pathway": "Social Sciences",
+  "track": "Business Studies",
+  "learning_areas": [
+    {
+      "learning_area": "Financial Accounting II",
+      "strands": [
+        {
+          "strand": "Partnership Accounts",
+          "sub_strands": [
+            {
+              "sub_strand": "Partnership Formation and Profit Appropriation",
+              "outcomes": [
+                "Construct Partnership Appropriation Accounts, Capital Accounts, and Current Accounts following partnership deeds",
+                "Calculate and account for goodwill allocations, interest on capital, interest on drawings, and partner salaries smoothly"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Company Accounts Introduction",
+          "sub_strands": [
+            {
+              "sub_strand": "Issue of Shares and Debentures Ledger Entries",
+              "outcomes": [
+                "Process ledger entries for the issuance of ordinary shares and preference shares at par, premium, or discount",
+                "Construct financial statement disclosures capturing share capital structures and long-term liabilities"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Macroeconomics",
+      "strands": [
+        {
+          "strand": "National Income Architecture",
+          "sub_strands": [
+            {
+              "sub_strand": "Circular Flow of Income and Measurement Metrics",
+              "outcomes": [
+                "Model the circular flow of income using multi-sector frameworks (household, firm, government, international trade)",
+                "Compute National Income metrics using the Gross Domestic Product (GDP) Expenditure, Income, and Output computation methods"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Money, Banking, and Public Finance",
+          "sub_strands": [
+            {
+              "sub_strand": "Central Banking Mandates and Taxation Systems",
+              "outcomes": [
+                "Analyze monetary policy instruments (open market operations, reserve ratios) deployed to regulate cash reserve matrices",
+                "Evaluate progressive, proportional, and regressive tax models alongside public expenditure frameworks"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

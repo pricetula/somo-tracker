@@ -1,0 +1,42 @@
+{
+  "grade": "Grade 11",
+  "level": "Senior School",
+  "pathway": "Arts and Sports Science",
+  "track": "Sports Science",
+  "learning_areas": [
+    {
+      "learning_area": "Advanced Biomechanics and Kinematics",
+      "strands": [
+        {
+          "strand": "Fluid Dynamics and Athletic Movement",
+          "sub_strands": [
+            {
+              "sub_strand": "Aerodynamic Drag, Hydrodynamics, and Magnus Effect",
+              "outcomes": [
+                "Analyze the influence of form drag, skin friction drag, and fluid laminar flows on high-velocity athletic performance",
+                "Apply the Magnus Effect to explain the parabolic curve trajectories of spinning projectiles in sports like soccer and tennis"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Exercise Metabolism and Cardiorespiratory Fitness",
+      "strands": [
+        {
+          "strand": "Cardiorespiratory Responses to Stress",
+          "sub_strands": [
+            {
+              "sub_strand": "VO2 Max Kinetics and Lactate Thresholds",
+              "outcomes": [
+                "Measure and interpret Maximum Oxygen Uptake ($VO_2$ max) kinetics using standardized continuous laboratory stress protocols",
+                "Identify the physiological mechanisms inducing the onset of blood lactate accumulation (OBLA) during progressive exercise intensity increases"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

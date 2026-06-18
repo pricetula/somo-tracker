@@ -1,0 +1,83 @@
+{
+  "grade": "Grade 10",
+  "level": "Senior School",
+  "pathway": "Science, Technology, Engineering, and Mathematics (STEM)",
+  "track": "Applied Sciences",
+  "learning_areas": [
+    {
+      "learning_area": "Agricultural Sciences and Value Addition",
+      "strands": [
+        {
+          "strand": "Crop Physiology and Soil Mechanics",
+          "sub_strands": [
+            {
+              "sub_strand": "Soil Chemistry and Macronutrient Kinetics",
+              "outcomes": [
+                "Determine soil pH metrics using electrochemical probes and diagnose specific cation-exchange capacity trends",
+                "Analyze structural nitrogen, phosphorus, and potassium pathways to correct crop nutritional deficiencies"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Agribusiness Technology and Automation",
+          "sub_strands": [
+            {
+              "sub_strand": "Precision Irrigation and Controlled-Environment Agriculture",
+              "outcomes": [
+                "Design automated closed-loop drip networks utilizing localized soil-moisture sensor loops and solar pumps",
+                "Manage microclimatic telemetry matrices (humidity, thermal variations, CO2 values) inside standard greenhouse systems"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Environmental Science and Resource Management",
+      "strands": [
+        {
+          "strand": "Ecosystem Dynamics and Ecological Auditing",
+          "sub_strands": [
+            {
+              "sub_strand": "Environmental Impact Assessments (EIA) and Bioindicators",
+              "outcomes": [
+                "Perform localized terrestrial or aquatic population surveys using quadrant sampling models and biotic diversity indexes",
+                "Draft elementary Environmental Impact Assessment (EIA) blueprints evaluating local infrastructural interventions"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Renewable Energy Engineering",
+          "sub_strands": [
+            {
+              "sub_strand": "Photovoltaic and Biomass Energy Optimization",
+              "outcomes": [
+                "Calculate structural load sizing parameters and efficiency configurations for off-grid solar photovoltaic layouts",
+                "Design and construct scalable anaerobic bio-digester setups to convert agricultural waste products into fuel sources"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Health and Food Technology Sciences",
+      "strands": [
+        {
+          "strand": "Nutritional Biochemistry and Micro-Biology",
+          "sub_strands": [
+            {
+              "sub_strand": "Food Preservation Biochemistry and Pathogen Vectors",
+              "outcomes": [
+                "Examine underlying chemical profiles governing enzyme-driven food spoilage, lipid oxidation, and cellular fermentation",
+                "Cultivate and isolate microscopic foodborne fungal or bacterial pathogens using sterile agar medium plating configurations"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

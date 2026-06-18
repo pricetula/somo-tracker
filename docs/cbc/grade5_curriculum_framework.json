@@ -1,0 +1,303 @@
+{
+  "grade": "Grade 5",
+  "level": "Upper Primary",
+  "learning_areas": [
+    {
+      "learning_area": "English Language",
+      "strands": [
+        {
+          "strand": "Listening and Speaking",
+          "sub_strands": [
+            {
+              "sub_strand": "Active Listening, Interpersonal Discussions, and Etiquette",
+              "outcomes": [
+                "Listen attentively to multi-paragraph complex arguments to distinguish between fact and opinion",
+                "Contribute constructively to group discussions using turn-taking, appropriate vocabulary, and varied voice modulations"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Reading",
+          "sub_strands": [
+            {
+              "sub_strand": "Fluency, Extensive Reading, and Information Retrieval",
+              "outcomes": [
+                "Read grade-level prose fluently at a speed of 110–130 words per minute with appropriate expression",
+                "Analyze informational and literary texts to infer missing data and determine the writer's underlying purpose"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Writing",
+          "sub_strands": [
+            {
+              "sub_strand": "Composition Frameworks and Applied Grammar",
+              "outcomes": [
+                "Write cohesive informational and narrative compositions of up to three paragraphs using transitional devices",
+                "Apply accurate parts of speech including relative pronouns, adverbs of manner, and perfect tense configurations"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Kiswahili",
+      "strands": [
+        {
+          "strand": "Kusikiliza na Kuzungumza",
+          "sub_strands": [
+            {
+              "sub_strand": "Kusikiliza na Kujadili kwa undani",
+              "outcomes": [
+                "Kusikiliza makala, hotuba, au midahalo na kubaini hoja kuu na upili kwa usahihi",
+                "Kujadili masuala mbalimbali kwa kutumia msamiati mwafaka na lugha yenye adabu na mtiririko mzuri"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Kusoma",
+          "sub_strands": [
+            {
+              "sub_strand": "Kusoma kwa Kasi na Ufahamu wa Kina",
+              "outcomes": [
+                "Kusoma vifungu vya habari na kazi za fasihi ili kuchanganua maana ya ndani na ujumbe wa mwandishi",
+                "Kufafanua methali, vitendawili, na misemo inayopatikana katika vifungu vya kusoma"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Kuandika",
+          "sub_strands": [
+            {
+              "sub_strand": "Insha za Maelezo na Sarufi Teule",
+              "outcomes": [
+                "Kuandika insha za maelezo, barua za kirafiki, na taarifa fupi zikizingatia kanuni zote za uandishi",
+                "Kutumia ngeli changamano, viunganishi vya wakati, na vinyume vya vitendo katika tungo"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Mathematics",
+      "strands": [
+        {
+          "strand": "Numbers",
+          "sub_strands": [
+            {
+              "sub_strand": "Whole Numbers up to 100,000",
+              "outcomes": [
+                "Read, write, model, and identify the place value of numbers up to 100,000",
+                "Find the Total Value of digits, and round off numbers up to 100,000 to the nearest ten thousand"
+              ]
+            },
+            {
+              "sub_strand": "Multiplication, Division, and Combined Operations",
+              "outcomes": [
+                "Multiply a 3-digit number by a 2-digit number with and without regrouping patterns",
+                "Divide numbers up to 3 digits by 2-digit divisors with or without remainders",
+                "Perform combined mathematical operations (BODMAS) up to numbers totaling 100,000"
+              ]
+            },
+            {
+              "sub_strand": "Fractions, Decimals, and Percentages",
+              "outcomes": [
+                "Convert improper fractions into mixed numbers and vice versa through grouping models",
+                "Read, write, and add/subtract decimals up to two decimal places, and interpret percentages as hundredths"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Measurement",
+          "sub_strands": [
+            {
+              "sub_strand": "Area and Perimeter formulas",
+              "outcomes": [
+                "Calculate the perimeter of composite shapes, triangles, rectangles, and squares",
+                "Determine the area of rectangular and square surfaces using unit squares and formal algorithmic models"
+              ]
+            },
+            {
+              "sub_strand": "Volume, Capacity, and Financial Planning",
+              "outcomes": [
+                "Measure the volume of cubes and cuboids using standard cubic units (cm³)",
+                "Solve multi-step money problems involving bills, changes, and basic budgeting calculations within 1,000 Shillings"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Geometry and Data Handling",
+          "sub_strands": [
+            {
+              "sub_strand": "Angles, Triangles, and Bar Charts",
+              "outcomes": [
+                "Measure and draw angles using a protractor up to 180 degrees, and classify them accordingly",
+                "Collect environmental data points and represent them cleanly via standard column and bar charts"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Science and Technology",
+      "strands": [
+        {
+          "strand": "Living Things",
+          "sub_strands": [
+            {
+              "sub_strand": "Human Respiratory and Circulatory Systems",
+              "outcomes": [
+                "Identify, sketch, and outline the core functions of the organs in the human respiratory system",
+                "Examine how the human heart and blood vessels function during regular physical activities"
+              ]
+            },
+            {
+              "sub_strand": "Fungi and Bacteria",
+              "outcomes": [
+                "Classify common fungi and bacteria based on their beneficial and harmful traits within local ecosystems",
+                "Demonstrate appropriate methods of handling food to avoid bacterial and fungal spoilage"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Environment and Energy",
+          "sub_strands": [
+            {
+              "sub_strand": "Light Energy and Reflection",
+              "outcomes": [
+                "Investigate how light travels in a straight line and verify properties of reflection using plain mirrors",
+                "Construct a functional periscope using local resources to observe hidden objects"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Computing Science and Coding",
+          "sub_strands": [
+            {
+              "sub_strand": "Word Processing and Basic Block-Based Programming",
+              "outcomes": [
+                "Create, edit, format, and safely save textual documents using standard word processing software tools",
+                "Construct elementary linear logic sequences using drag-and-drop block-based software environments"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Agriculture and Nutrition",
+      "strands": [
+        {
+          "strand": "Animal Production and Crop Protection",
+          "sub_strands": [
+            {
+              "sub_strand": "Small Wild Animals Management and Weed Control",
+              "outcomes": [
+                "Construct and implement appropriate defensive barriers or scarecrows to protect farm crops from destructive small animals",
+                "Identify common farm weeds and demonstrate structural safe methods of mechanical and physical weeding"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Food Preservation and Cooking",
+          "sub_strands": [
+            {
+              "sub_strand": "Preservation of Excess Farm Produce and Baking",
+              "outcomes": [
+                "Practice solar drying, smoking, or traditional salting techniques to preserve perishable vegetables and pulses",
+                "Prepare simple balanced baked meals safely using local open-air or localized clay ovens"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Social Studies",
+      "strands": [
+        {
+          "strand": "Physical Features and Climate of the Region",
+          "sub_strands": [
+            {
+              "sub_strand": "Physical Features, Map Reading, and Climate Zones",
+              "outcomes": [
+                "Identify major rivers, mountains, and plains across the regional landscape and interpret map symbols accurately",
+                "Analyze the impact of distinct weather configurations and climate zones on local agricultural activities"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Historical Heritage and Civic Governance",
+          "sub_strands": [
+            {
+              "sub_strand": "Community Heritage and Judicial Systems",
+              "outcomes": [
+                "Appreciate historical community leaders, physical cultural shrines, and artifacts that form the local identity",
+                "Outline the structure and fundamental roles of the local judicial systems and alternative dispute resolution pathways"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Creative Arts",
+      "strands": [
+        {
+          "strand": "Visual Arts, Expression, and Exhibition",
+          "sub_strands": [
+            {
+              "sub_strand": "Photography, Graphics, and Sculpting",
+              "outcomes": [
+                "Capture digital or simulated frames utilizing basic principles of composition, balance, and angles",
+                "Carve or model structural figurines representing active living postures using local soft stones, clay, or papier-mâché"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Performing Arts, Music, and Theater",
+          "sub_strands": [
+            {
+              "sub_strand": "Choral Performances, Playwriting, and Descant Recorder",
+              "outcomes": [
+                "Perform dynamic folk songs and choral verses collaboratively while matching standard vocal ranges and key parameters",
+                "Play structured note configurations on the descant recorder using accurate fingerings and breath coordination rules"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Religious Education (CRE / IRE / HRE)",
+      "strands": [
+        {
+          "strand": "Christian / Islamic / Hindu Sacred Teachings",
+          "sub_strands": [
+            {
+              "sub_strand": "Talents, Stewardship, and Ethical Media Behavior",
+              "outcomes": [
+                "Evaluate individual talents and stewardship responsibilities based on sacred writings and ancient scriptures",
+                "Apply spiritual moral benchmarks to identify and avoid cyber-bullying, plagiarism, and misinformation on digital channels"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

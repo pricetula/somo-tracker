@@ -1,0 +1,139 @@
+{
+  "grade": "Grade 1",
+  "level": "Lower Primary",
+  "learning_areas": [
+    {
+      "learning_area": "Language Activities / English",
+      "strands": [
+        {
+          "strand": "Listening and Speaking",
+          "sub_strands": [
+            {
+              "sub_strand": "Talking About Self and Immediate Environment",
+              "outcomes": [
+                "Express personal needs, feelings, and experiences clearly using simple sentences",
+                "Respond appropriately to greetings, simple instructions, and questions from peers and teachers"
+              ]
+            },
+            {
+              "sub_strand": "Listening and Attention",
+              "outcomes": [
+                "Listen attentively to short oral narratives, poems, and instructions to recall key details",
+                "Demonstrate appropriate digital etiquette when listening to audio devices or educational media"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Reading",
+          "sub_strands": [
+            {
+              "sub_strand": "Word Recognition (Phonemic Awareness)",
+              "outcomes": [
+                "Recognize and produce consonant-vowel-consonant (CVC) words and basic blends",
+                "Read high-frequency sight words accurately in simple contextual sentences"
+              ]
+            },
+            {
+              "sub_strand": "Reading Comprehension",
+              "outcomes": [
+                "Answer direct text-based questions from short, illustrated storybooks",
+                "Sequence at least three main events from a reading text chronologically"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Writing",
+          "sub_strands": [
+            {
+              "sub_strand": "Handwriting and Word Formation",
+              "outcomes": [
+                "Form letters legibly with appropriate spacing between words",
+                "Spell simple phonetically regular words correctly in writing tasks"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Mathematical Activities",
+      "strands": [
+        {
+          "strand": "Numbers",
+          "sub_strands": [
+            {
+              "sub_strand": "Number Concept and Counting",
+              "outcomes": [
+                "Count forward and backward from 1 to 100 using concrete objects and charts",
+                "Identify, read, and write numbers 1 to 20 in symbols and words"
+              ]
+            },
+            {
+              "sub_strand": "Place Value",
+              "outcomes": [
+                "Identify tens and ones in two-digit numbers up to 20 using bundles of sticks or counters"
+              ]
+            },
+            {
+              "sub_strand": "Addition and Subtraction",
+              "outcomes": [
+                "Add two single-digit numbers up to a sum of 20 using concrete representations",
+                "Subtract single-digit numbers within 20 by taking away counters or cross-outs"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Measurement",
+          "sub_strands": [
+            {
+              "sub_strand": "Length and Mass",
+              "outcomes": [
+                "Measure length of various classroom surfaces using arbitrary units like handspans and strides",
+                "Compare masses of common items using standard terms like heavier, lighter, or same as"
+              ]
+            },
+            {
+              "sub_strand": "Time and Money",
+              "outcomes": [
+                "Identify Kenyan currency coins up to 20 shillings and practice simple currency matching",
+                "Tell time by the hour using analogue and digital clocks"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Environmental Activities",
+      "strands": [
+        {
+          "strand": "Our School and Family",
+          "sub_strands": [
+            {
+              "sub_strand": "School Routine and Environment",
+              "outcomes": [
+                "Identify key locations and administrative personnel within the school setting",
+                "Demonstrate adherence to clean school habits including correct litter disposal"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Health Practices",
+          "sub_strands": [
+            {
+              "sub_strand": "Care of Teeth and Personal Hygiene",
+              "outcomes": [
+                "Demonstrate the correct step-by-step technique for brushing teeth",
+                "Identify healthy food options that prevent dental decay and promote body growth"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

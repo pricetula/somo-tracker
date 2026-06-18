@@ -1,0 +1,295 @@
+{
+  "grade": "Grade 9",
+  "level": "Junior School",
+  "learning_areas": [
+    {
+      "learning_area": "English",
+      "strands": [
+        {
+          "strand": "Listening and Speaking",
+          "sub_strands": [
+            {
+              "sub_strand": "Critical Listening, Symposiums, and Rhetorical Devices",
+              "outcomes": [
+                "Evaluate extended panel presentations and public speeches to decode rhetorical devices (ethos, pathos, logos) and subtle propoganda techniques",
+                "Lead complex symposium sessions and academic presentations with stylistic fluency, adapting tone and register to audience profiles"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Reading and Literature",
+          "sub_strands": [
+            {
+              "sub_strand": "Comparative Literature and Contextual Analysis",
+              "outcomes": [
+                "Compare themes, archetypal character sets, and localized cultural conflicts across distinct multi-cultural poetry anthologies and play scripts",
+                "Synthesize dense information from complex legal, technical, and informational texts to validate or challenge specific hypotheses"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Writing and Grammar",
+          "sub_strands": [
+            {
+              "sub_strand": "Advanced Functional Genres and Syntactic Control",
+              "outcomes": [
+                "Compose comprehensive investigative reports, critical research essays, and legalistic business proposals incorporating parenthetical citations",
+                "Demonstrate absolute control over complex syntax patterns including subjunctive mood configurations, relative pronoun tracking, and compound-complex configurations"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Kiswahili",
+      "strands": [
+        {
+          "strand": "Kusikiliza na Kuzungumza",
+          "sub_strands": [
+            {
+              "sub_strand": "Uchambuzi wa Hotuba na Majadiliano ya Kongamano",
+              "outcomes": [
+                "Kusikiliza, kuchambua, na kukosoa kwa kina taarifa na hotuba rasmi za kitaifa na kimataifa",
+                "Kuendesha makongamano na kuwasilisha mada changamano kwa Kiswahili fasaha, ufasaha wa matamshi na utumiaji wa mbinu za ushawishi"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Kusoma",
+          "sub_strands": [
+            {
+              "sub_strand": "Uhakiki wa Fasihi na Maandishi Teule",
+              "outcomes": [
+                "Kuhakiki tamthilia na riwaya za Kiswahili kwa kuchambua dhamira, migogoro, falsafa ya mwandishi, na matumizi ya lugha ya kisanii",
+                "Kusoma na kufafanua fasihi simulizi changamano kama vile miviga, migaji, na visasili vya kijamii"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Kuandika na Sarufi",
+          "sub_strands": [
+            {
+              "sub_strand": "Uandishi wa Kitaalamu na Sarufi ya Kina",
+              "outcomes": [
+                "Kuandika ripoti za utafiti, risala, na insha changamano za kitaaluma zilizofanyiwa marejeleo ya kutosha",
+                "Kutumia kwa ufasaha miundo yote ya sentensi (rahisi, ambatano, changamano), usemi wa taarifa na usemi halisi, na unyambulishaji wa vitendo"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Mathematics",
+      "strands": [
+        {
+          "strand": "Algebra and Coordinate Geometry",
+          "sub_strands": [
+            {
+              "sub_strand": "Quadratic Expressions, Equations, and Cartesian Graphs",
+              "outcomes": [
+                "Expand quadratic expressions and factorize expressions of the form $ax^2 + bx + c = 0$ using various algebraic methods",
+                "Determine the gradient, mid-point, and length of a straight line segment plotted on a 2D Cartesian coordinate grid system",
+                "Formulate and solve quadratic equations from practical problems and draw their corresponding parabolic curves"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Geometry and Trigonometry",
+          "sub_strands": [
+            {
+              "sub_strand": "Trigonometric Ratios and Surface Area/Volume of Spheres",
+              "outcomes": [
+                "Define, calculate, and apply the primary trigonometric ratios (sine, cosine, tangent) to find lengths and angles in right-angled triangles",
+                "Calculate the surface area and volume of regular spheres, hemispheres, and compound geometric solids encountered in design setups"
+              ]
+            },
+            {
+              "sub_strand": "Transformation Geometry",
+              "outcomes": [
+                "Perform reflection, rotation, and translation transformations on geometric figures within a coordinate plane mapping framework"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Data Handling and Business Arithmetic",
+          "sub_strands": [
+            {
+              "sub_strand": "Grouped Data Metrics and Advanced Financial Math",
+              "outcomes": [
+                "Construct frequency distribution tables for grouped data and compute the estimated mean and modal class metrics",
+                "Calculate compound interest over extended durations, compound depreciation, and interpret simple stock market indices and tax matrices (PAYE models)"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Integrated Science",
+      "strands": [
+        {
+          "strand": "Chemical Kinetics and Periodic Trends",
+          "sub_strands": [
+            {
+              "sub_strand": "The Periodic Table, Chemical Bonds, and Simple Chemical Reactions",
+              "outcomes": [
+                "Explain the arrangement of elements in the periodic table based on atomic structure and identify trends across periods and down groups",
+                "Investigate how ionic and covalent chemical bonds form and construct balanced chemical equations for reactions between simple metals and dilute acids"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Physics of Energy and Waves",
+          "sub_strands": [
+            {
+              "sub_strand": "Electromagnetic Waves, Sound Propagation, and Light Refraction",
+              "outcomes": [
+                "Examine the properties and uses of components within the electromagnetic spectrum and investigate the laws of light refraction using glass blocks",
+                "Determine speed, frequency, and wavelength properties of transverse and longitudinal waves moving through media fields"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Genetics and Ecosystem Dynamics",
+          "sub_strands": [
+            {
+              "sub_strand": "Introduction to Genetics, Inheritance, and Environmental Sustainability",
+              "outcomes": [
+                "Describe structural configurations of chromosomes and DNA and explain how basic dominant and recessive traits pass across generations",
+                "Evaluate the role of ecological interactions (food webs, nutrient cycles) and formulate systemic frameworks to mitigate local environmental crises"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Social Studies",
+      "strands": [
+        {
+          "strand": "Global Environments and Geopolitics",
+          "sub_strands": [
+            {
+              "sub_strand": "Global Climatic Systems and Major Economic Blocs",
+              "outcomes": [
+                "Map and analyze the physical characteristics of major global climatic zones and their explicitly correlated economic activities",
+                "Examine the historical formation, objectives, and administrative structures of major global and African economic organizations (e.g., EAC, COMESA, AU, UN)"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Civics, Nationalism, and Global Citizenship",
+          "sub_strands": [
+            {
+              "sub_strand": "The Struggle for Independence, Constitutional Rights, and Global Relations",
+              "outcomes": [
+                "Critique political and armed paths to Kenyan independence, highlighting key nationalist organizational frameworks",
+                "Analyze the structures and operational profiles of the devolved governance system in Kenya (County Assemblies vs. County Executives)",
+                "Evaluate the roles and duties of an individual within global governance, human rights declarations, and international conflict resolution processes"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Pre-Technical Studies",
+      "strands": [
+        {
+          "strand": "Technical Graphics and Architecture Models",
+          "sub_strands": [
+            {
+              "sub_strand": "Sectional Views, Development of Surfaces, and CAD Overview",
+              "outcomes": [
+                "Construct standard sectional orthographic views of complex mechanical assemblies to expose internal structural traits",
+                "Draw accurate development patterns of prisms, cylinders, and pyramids for sheet-metal fabrication operations",
+                "Navigate basic computer-aided design (CAD) software interfaces to compile linear engineering geometries and wireframe models"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Applied Mechanics and Electronics Automation",
+          "sub_strands": [
+            {
+              "sub_strand": "Fluid Systems, Sensors, and Basic Automation Frameworks",
+              "outcomes": [
+                "Demonstrate the engineering applications of simple hydraulic and pneumatic principles in everyday mechanical machinery",
+                "Design and construct basic electronic automated warning or tracking systems incorporating sensors, microcontrollers, and logic relays"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Agriculture and Nutrition",
+      "strands": [
+        {
+          "strand": "Advanced Agribusiness and Farm Automation",
+          "sub_strands": [
+            {
+              "sub_strand": "Farm Records, Agribusiness Models, and Smart Farming Technology",
+              "outcomes": [
+                "Prepare, analyze, and interpret complex farm accounting tools, income statements, inventory records, and production budgets",
+                "Evaluate agribusiness marketing models and outline applications of modern automated sensors or drip automation systems in crop handling"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Nutrition, Food Technology, and Hospitality Foundation",
+          "sub_strands": [
+            {
+              "sub_strand": "Catering Principles, Meal Planning, and Food Chemistry Basics",
+              "outcomes": [
+                "Plan, cost, cook, and display large-scale healthy multi-course meals adhering to commercial food safety and hospitality guidelines",
+                "Examine factors that induce chemical changes or spoilage in food nutrients during standard thermal processing, cooking, and fermentation cycles"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Creative Arts and Sports",
+      "strands": [
+        {
+          "strand": "Visual Arts, Curating, and Entrepreneurship",
+          "sub_strands": [
+            {
+              "sub_strand": "Exhibition Layouts, Portfolio Management, and Commercial Art",
+              "outcomes": [
+                "Plan, organize, and curate a formal school art exhibition displaying diverse artistic styles and calculating commercial values",
+                "Create complex corporate marketing advertisements, digital vectors, and brand identity guides for localized business entities"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Music and Performing Arts",
+          "sub_strands": [
+            {
+              "sub_strand": "Four-Part Harmony, Play Direction, and Musical Performance Masterclasses",
+              "outcomes": [
+                "Identify and sing or play melodies tracking basic four-part harmonic voicings (Soprano, Alto, Tenor, Bass) on a grand staff grid",
+                "Direct, block, stage, and evaluate full-length theatrical narratives incorporating audio engineering elements and aesthetic set designs"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

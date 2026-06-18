@@ -1,0 +1,77 @@
+{
+  "grade": "Grade 10",
+  "level": "Senior School",
+  "pathway": "Social Sciences",
+  "track": "Business Studies",
+  "learning_areas": [
+    {
+      "learning_area": "Financial Accounting and Ledgers",
+      "strands": [
+        {
+          "strand": "The Accounting Cycle and Source Documents",
+          "sub_strands": [
+            {
+              "sub_strand": "Double-Entry Bookkeeping and Ledger Postings",
+              "outcomes": [
+                "Process business transactions through books of original entry and execute double-entry ledger postings cleanly",
+                "Extract a balanced Trial Balance and design corrective journal adjustments for errors that do or do not affect ledger balancing"
+              ]
+            },
+            {
+              "sub_strand": "Financial Statements Generation",
+              "outcomes": [
+                "Construct structured Statements of Profit or Loss (Trading and Profit & Loss Accounts) and Statements of Financial Position (Balance Sheets) for sole proprietorships"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Micro and Macro Economics",
+      "strands": [
+        {
+          "strand": "Market Dynamics and Price Determination",
+          "sub_strands": [
+            {
+              "sub_strand": "Demand, Supply, and Market Equilibrium Elasticities",
+              "outcomes": [
+                "Formulate and graph mathematical functions matching individual and market demand and supply metrics",
+                "Calculate and interpret Price Elasticity of Demand (PED) and Price Elasticity of Supply (PES) values alongside geometric market equilibrium shifts"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Structure of Production and Inflation",
+          "sub_strands": [
+            {
+              "sub_strand": "Factors of Production and Monetary/Fiscal Policy Inflation Systems",
+              "outcomes": [
+                "Evaluate the productivity rewards of land, labor, capital, and entrepreneurship within a developing market framework",
+                "Analyze the structural causes (demand-pull vs. cost-push) of inflation and critique Central Bank regulatory interventions"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Business Management and Entrepreneurship",
+      "strands": [
+        {
+          "strand": "Business Planning and Operational Formats",
+          "sub_strands": [
+            {
+              "sub_strand": "Corporate Structures, Legal Frameworks, and Strategic Business Plans",
+              "outcomes": [
+                "Differentiate the operational, liability, and capital extraction privileges of sole traders, partnerships, and limited liability corporations",
+                "Draft a comprehensive, bankable strategic business plan evaluating market research metrics, operational budgets, and SWOT components"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

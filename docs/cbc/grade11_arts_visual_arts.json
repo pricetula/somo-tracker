@@ -1,0 +1,42 @@
+{
+  "grade": "Grade 11",
+  "level": "Senior School",
+  "pathway": "Arts and Sports Science",
+  "track": "Visual Arts",
+  "learning_areas": [
+    {
+      "learning_area": "Fine Art and Exhibition Production",
+      "strands": [
+        {
+          "strand": "Advanced Studio Painting and Printmaking",
+          "sub_strands": [
+            {
+              "sub_strand": "Impasto, Glazing, and Intaglio Printmaking",
+              "outcomes": [
+                "Execute complex landscape or figurative expressions implementing advanced paint applications such as impasto and transparent glazing layers",
+                "Produce fine art prints using traditional intaglio etching or multi-block color woodcut techniques safely"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Graphic Design and Digital Architecture",
+      "strands": [
+        {
+          "strand": "Digital Animation and Motion Graphics",
+          "sub_strands": [
+            {
+              "sub_strand": "Keyframe Animation, Storyboarding, and Vector Assets",
+              "outcomes": [
+                "Construct fluid vector-based 2D animations using keyframe manipulation, ease-in/ease-out curves, and onion-skinning mechanics",
+                "Compile professional animatics matching clear timing audio tracks to establish proper kinematic storytelling parameters"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

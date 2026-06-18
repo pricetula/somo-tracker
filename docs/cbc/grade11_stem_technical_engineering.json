@@ -1,0 +1,83 @@
+{
+  "grade": "Grade 11",
+  "level": "Senior School",
+  "pathway": "Science, Technology, Engineering, and Mathematics (STEM)",
+  "track": "Technical and Engineering Studies",
+  "learning_areas": [
+    {
+      "learning_area": "Computer Science and Data Engineering",
+      "strands": [
+        {
+          "strand": "Non-Linear Data Structures and Databases",
+          "sub_strands": [
+            {
+              "sub_strand": "Trees, Graphs, and Relational Databases",
+              "outcomes": [
+                "Implement and traverse binary search trees and basic graph structures using structural text coding",
+                "Design normalized relational database schemas (up to 3NF) and query datasets using structural SQL statements"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Network Architecture and Cybersecurity",
+          "sub_strands": [
+            {
+              "sub_strand": "OSI Layering Models and Cryptography",
+              "outcomes": [
+                "Map out data packet movement across the 7 layers of the OSI model architecture",
+                "Apply symmetric and asymmetric encryption models to protect local data transmission sockets"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Engineering Graphics and Structural Analytics",
+      "strands": [
+        {
+          "strand": "Interpenetration and Advanced Sectioning",
+          "sub_strands": [
+            {
+              "sub_strand": "Lines of Interpenetration and Solid Developments",
+              "outcomes": [
+                "Construct geometric intersection profiles when dissimilar geometric solids (e.g., cylinders intersecting prisms) merge",
+                "Generate exact layout surface developments for transition pieces utilized in ventilation ducting design"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Electrical and Applied Automation technology",
+      "strands": [
+        {
+          "strand": "AC Circuit Physics and Semiconductor Logic",
+          "sub_strands": [
+            {
+              "sub_strand": "Alternating Current Vectors and Diode Rectification",
+              "outcomes": [
+                "Calculate impedance, power factor, and resonant frequencies within serial RLC configurations using phasor vectors",
+                "Design and solder functional full-wave bridge rectifier circuits using semiconductor diodes and smoothing capacitors"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Microcontrollers and Embedded Systems",
+          "sub_strands": [
+            {
+              "sub_strand": "Firmware Development and Hardware Interfacing",
+              "outcomes": [
+                "Write clear structural code to program embedded microcontrollers for polling automated sensory telemetry arrays",
+                "Interface hardware components using standard serial communication protocols (I2C and SPI links)"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

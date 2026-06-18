@@ -1,0 +1,298 @@
+{
+  "grade": "Grade 7",
+  "level": "Junior School",
+  "learning_areas": [
+    {
+      "learning_area": "English",
+      "strands": [
+        {
+          "strand": "Listening and Speaking",
+          "sub_strands": [
+            {
+              "sub_strand": "Critical Listening and Complex Oral Presentations",
+              "outcomes": [
+                "Listen critically to extensive academic presentations to distinguish between explicit assertions and implicit assumptions",
+                "Deliver formal individual presentations on socio-economic themes using accurate intonation, stress patterns, and non-verbal cues"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Reading",
+          "sub_strands": [
+            {
+              "sub_strand": "Literary Genres and Functional Reading",
+              "outcomes": [
+                "Analyze structural elements and stylistic devices across poetry, short stories, and simple plays",
+                "Scan complex reference documents and digital materials to extract specific operational data points"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Writing and Grammar",
+          "sub_strands": [
+            {
+              "sub_strand": "Functional Writing and Syntactic Structures",
+              "outcomes": [
+                "Compose formal book reviews, structural minutes of meetings, and multi-paragraph expository essays",
+                "Apply complex grammatical structures including conditional clauses, active/passive voice shifts, and modal verbs accurately"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Kiswahili",
+      "strands": [
+        {
+          "strand": "Kusikiliza na Kuzungumza",
+          "sub_strands": [
+            {
+              "sub_strand": "Ufahamu wa Kusikiliza na Majadiliano ya Jopo",
+              "outcomes": [
+                "Kusikiliza makala changamano na kuwasilisha uchambuzi wa kina wa hoja kuu",
+                "Shiriki katika majadiliano ya jopo na midahalo rasmi ukitumia lugha sanifu na msamiati wa kitaaluma"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Kusoma",
+          "sub_strands": [
+            {
+              "sub_strand": "Uchambuzi wa Fasihi na Maandishi ya Kitaaluma",
+              "outcomes": [
+                "Kusoma na kuchambua vipengele vya fani na maudhui katika riwaya teule na ushairi wa kisasa",
+                "Kusoma maandishi ya taarifa kubaini mienendo na ujumbe uliokusudiwa"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Kuandika na Sarufi",
+          "sub_strands": [
+            {
+              "sub_strand": "Uandishi wa Kazi na Muundo wa Lugha",
+              "outcomes": [
+                "Kuandika tawasifu, barua rasmi za kiofisi, na tanzu mbalimbali za insha za hoja",
+                "Kutumia ngeli zote, viunganishi, mnyambuliko wa vitendo, na sentensi changamano kwa usahihi"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Mathematics",
+      "strands": [
+        {
+          "strand": "Numbers",
+          "sub_strands": [
+            {
+              "sub_strand": "Integers, Rational Numbers, and Real Number System",
+              "outcomes": [
+                "Perform operations involving negative and positive integers on a vertical and horizontal number line",
+                "Apply laws of indices to simplify algebraic numbers and numerical expressions containing exponents"
+              ]
+            },
+            {
+              "sub_strand": "Fractions, Decimals, and Percentages Integration",
+              "outcomes": [
+                "Solve real-life arithmetic problems involving compound fractions, recurring decimals, and percentage increases or decreases"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Algebra",
+          "sub_strands": [
+            {
+              "sub_strand": "Algebraic Expressions and Linear Equations",
+              "outcomes": [
+                "Formulate and simplify linear algebraic expressions by collecting like terms and expanding single brackets",
+                "Form the mathematical modeling for and solve single-variable linear equations containing fractional coefficients"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Measurement and Geometry",
+          "sub_strands": [
+            {
+              "sub_strand": "Pythagoras' Theorem and Conversions",
+              "outcomes": [
+                "Verify and apply Pythagoras' Theorem to calculate the lengths of missing sides in right-angled triangles",
+                "Convert units of speed, area, and density into equivalent international standard configurations (SI units)"
+              ]
+            },
+            {
+              "sub_strand": "Geometrical Constructions",
+              "outcomes": [
+                "Construct perpendicular bisectors of lines, angle bisectors, and specific angles (90, 45, 60, 30) using a ruler and compasses only"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Integrated Science",
+      "strands": [
+        {
+          "strand": "Matter and Chemical Mixtures",
+          "sub_strands": [
+            {
+              "sub_strand": "Separation of Mixtures and Acids, Bases, Indicators",
+              "outcomes": [
+                "Perform laboratory experiments to separate mixtures using fractional distillation, paper chromatography, and crystallization",
+                "Classify everyday household substances as acidic, basic, or neutral using simple commercial and plant-extract indicators"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Force, Energy, and Physical Environments",
+          "sub_strands": [
+            {
+              "sub_strand": "Linear Motion, Force Types, and Heat Transfer",
+              "outcomes": [
+                "Investigate linear uniform motion parameters and determine relationships between speed, distance, and time graphs",
+                "Demonstrate pathways of heat transfer via conduction, convection, and radiation using standard experimental apparatus"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Cells and Living Systems",
+          "sub_strands": [
+            {
+              "sub_strand": "Microscopy and Cell Structures",
+              "outcomes": [
+                "Identify parts and demonstrate correct operational handling of a light microscope to view prepared biological specimens",
+                "Compare structures and physiological differences between generalized plant cells and animal cells"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Social Studies",
+      "strands": [
+        {
+          "strand": "Physical Environment and Africa Map Analysis",
+          "sub_strands": [
+            {
+              "sub_strand": "Maps and Relief Features of Africa",
+              "outcomes": [
+                "Locate countries, lines of latitude/longitude, and major climatic zones across the African continent using coordinates",
+                "Examine the tectonic theories behind the formation of major landforms like the East African Rift Valley"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "History, Citizenship, and Governance",
+          "sub_strands": [
+            {
+              "sub_strand": "Human Evolution and Constitutional Governance",
+              "outcomes": [
+                "Trace the archaeological evidence of human evolution and early technological stages in East Africa",
+                "Explain the historical process of constitution-making in Kenya and outline the core components of the Bill of Rights"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Pre-Technical Studies",
+      "strands": [
+        {
+          "strand": "Technical Drawing and Graphic Design",
+          "sub_strands": [
+            {
+              "sub_strand": "Drawing Instruments and Geometrical Shapes",
+              "outcomes": [
+                "Identify, maintain, and use technical drawing instruments to construct accurate plain geometrical configurations",
+                "Draw orthographic views of simple solid objects utilizing plane projections"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Materials, Tools, and Safety Protocols",
+          "sub_strands": [
+            {
+              "sub_strand": "Workshop Safety and Hand Tools",
+              "outcomes": [
+                "Identify potential hazards in a workshop space and demonstrate strict adherence to safety procedures and emergency steps",
+                "Classify common engineering materials (metals, plastics, wood) and select appropriate hand tools for basic manipulation tasks"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Agriculture and Nutrition",
+      "strands": [
+        {
+          "strand": "Crop Production and Sustainable Practices",
+          "sub_strands": [
+            {
+              "sub_strand": "Land Preparation, Minimum Tillage, and Agroforestry",
+              "outcomes": [
+                "Demonstrate appropriate methods of primary and secondary land preparation for crop establishment",
+                "Apply conservation agriculture principles including minimum tillage and value-added agroforestry setups"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Nutrition and Food Preservation",
+          "sub_strands": [
+            {
+              "sub_strand": "Nutritional Disorders and Food Safety",
+              "outcomes": [
+                "Analyze causes, signs, and preventive measures for common nutritional deficiency disorders (kwashiorkor, marasmus, scurvy)",
+                "Apply modern and local food preservation tech blocks to prevent contamination and bacterial pathogens"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Creative Arts and Sports",
+      "strands": [
+        {
+          "strand": "Arts Production and Multimedia Layouts",
+          "sub_strands": [
+            {
+              "sub_strand": "Drawing, Painting, and Digital Media Production",
+              "outcomes": [
+                "Apply cross-hatching, smudging, and tonal graduation techniques to render forms from observation",
+                "Design corporate identities, posters, and advertisements utilizing graphic design computer programs"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Music and Performing Arts",
+          "sub_strands": [
+            {
+              "sub_strand": "Western and African Musical Notations and Instrumental Ensembles",
+              "outcomes": [
+                "Read, perform, and transpose musical scores in simple time signatures containing crotchets, quavers, and semiquavers",
+                "Dramatize short scripted plays exploring contemporary issues with proper character voice, expressions, and costuming"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

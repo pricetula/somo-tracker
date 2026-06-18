@@ -1,0 +1,216 @@
+{
+  "grade": "PP1",
+  "level": "Pre-Primary",
+  "learning_areas": [
+    {
+      "learning_area": "Language Activities",
+      "strands": [
+        {
+          "strand": "Listening and Speaking",
+          "sub_strands": [
+            {
+              "sub_strand": "Listening and Attention",
+              "outcomes": [
+                "Develop appropriate listening skills from varied experiences to enrich communication",
+                "Demonstrate sustained attention during conversations, stories, and instructions",
+                "Respond appropriately to verbal and non-verbal cues in everyday interactions"
+              ]
+            },
+            {
+              "sub_strand": "Free Expression",
+              "outcomes": [
+                "Express own opinions, needs, ideas, and feelings creatively and confidently",
+                "Appreciate the opinions and feelings of others during shared conversations"
+              ]
+            },
+            {
+              "sub_strand": "Auditory Discrimination",
+              "outcomes": [
+                "Distinguish between different environmental sounds to enhance phonological awareness",
+                "Identify and match similar sounds in words, chants, and rhymes"
+              ]
+            },
+            {
+              "sub_strand": "Visual Discrimination",
+              "outcomes": [
+                "Differentiate shapes, sizes, colors, and symbols to build reading readiness",
+                "Track objects visually from left to right to establish proper eye movement for reading"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Reading Readiness",
+          "sub_strands": [
+            {
+              "sub_strand": "Book Handling Skills",
+              "outcomes": [
+                "Demonstrate correct book orientation by holding a book upright and turning pages from right to left",
+                "Show care for books and reading materials by handling them gently"
+              ]
+            },
+            {
+              "sub_strand": "Print Awareness",
+              "outcomes": [
+                "Recognize that print carries meaning and conveys a message",
+                "Identify common signs, labels, and logos within their immediate environment"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Mathematical Activities",
+      "strands": [
+        {
+          "strand": "Numbers",
+          "sub_strands": [
+            {
+              "sub_strand": "Pre-Number Activities (Matching and Sorting)",
+              "outcomes": [
+                "Sort and classify objects according to a single attribute such as color, shape, or size",
+                "Match objects in a one-to-one correspondence to build a foundation for counting",
+                "Arrange objects in simple patterns or linear sequences based on size"
+              ]
+            },
+            {
+              "sub_strand": "Rote Counting",
+              "outcomes": [
+                "Count sequentially from 1 to 10 using rhymes, songs, and real objects",
+                "Demonstrate an awareness of number names in sequence"
+              ]
+            },
+            {
+              "sub_strand": "Number Recognition and Value",
+              "outcomes": [
+                "Identify and name numerals from 1 to 5 in their environment",
+                "Map numerals 1 to 5 to their corresponding concrete quantities"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Measurement",
+          "sub_strands": [
+            {
+              "sub_strand": "Size and Length Comparison",
+              "outcomes": [
+                "Compare objects using terms such as big/small, long/short, or tall/short",
+                "Order up to three objects sequentially according to height or length"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Environmental Activities",
+      "strands": [
+        {
+          "strand": "Myself and My Environment",
+          "sub_strands": [
+            {
+              "sub_strand": "Parts of the Body",
+              "outcomes": [
+                "Identify and name basic external body parts and state their main functions",
+                "Demonstrate appreciation for their own body and physical uniqueness"
+              ]
+            },
+            {
+              "sub_strand": "Personal Hygiene",
+              "outcomes": [
+                "Practice simple personal hygiene routines such as washing hands, brushing teeth, and wiping the nose",
+                "Use the toilet or latrine appropriately and wash hands afterwards"
+              ]
+            },
+            {
+              "sub_strand": "My Family and School",
+              "outcomes": [
+                "Name immediate family members and recognize their roles within the home",
+                "Identify key places and people within the school compound"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Health and Safety",
+          "sub_strands": [
+            {
+              "sub_strand": "Safe and Unsafe Environments",
+              "outcomes": [
+                "Identify potentially dangerous objects and areas at home and school",
+                "Demonstrate standard safety precautions when playing or walking"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Psychomotor and Creative Activities",
+      "strands": [
+        {
+          "strand": "Gross Motor Skills",
+          "sub_strands": [
+            {
+              "sub_strand": "Locomotor and Non-Locomotor Movements",
+              "outcomes": [
+                "Perform basic movements including walking, running, jumping, hopping, and skipping safely",
+                "Demonstrate body balance, agility, and coordination during group games"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Fine Motor Skills",
+          "sub_strands": [
+            {
+              "sub_strand": "Manipulation and Coordination",
+              "outcomes": [
+                "Manipulate materials through modeling, tearing, pasting, and threading to develop finger muscles",
+                "Demonstrate hand-eye coordination by scribbling or coloring within broad outlines"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Creative and Performance Arts",
+          "sub_strands": [
+            {
+              "sub_strand": "Music and Movement",
+              "outcomes": [
+                "Sing simple songs and perform rhythmic movements in response to different tempos",
+                "Play basic percussion instruments and sound-makers collaboratively"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Christian Religious Education (CRE)",
+      "strands": [
+        {
+          "strand": "God's Creation and Love",
+          "sub_strands": [
+            {
+              "sub_strand": "God the Creator",
+              "outcomes": [
+                "Recognize God as the creator of themselves, other people, and the natural environment",
+                "Express gratitude to God through simple short prayers and songs"
+              ]
+            },
+            {
+              "sub_strand": "The Holy Bible",
+              "outcomes": [
+                "Handle the Bible with respect as a special book containing God's word",
+                "Listen attentively to short biblical stories and extract simple moral lessons"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

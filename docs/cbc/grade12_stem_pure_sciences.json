@@ -1,0 +1,112 @@
+{
+  "grade": "Grade 12",
+  "level": "Senior School",
+  "pathway": "Science, Technology, Engineering, and Mathematics (STEM)",
+  "track": "Pure Sciences",
+  "learning_areas": [
+    {
+      "learning_area": "Mathematics (Advanced STEM)",
+      "strands": [
+        {
+          "strand": "Integral Calculus and Differential Equations",
+          "sub_strands": [
+            {
+              "sub_strand": "Indefinite and Definite Integration",
+              "outcomes": [
+                "Derive the integration of polynomial and simple trigonometric functions as the reverse of differentiation",
+                "Apply definite integrals to evaluate the exact area bounded under curves and between intersecting boundary lines"
+              ]
+            },
+            {
+              "sub_strand": "First-Order Differential Equations",
+              "outcomes": [
+                "Formulate and solve first-order ordinary differential equations utilizing the separation of variables method"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Complex Numbers and Vectors",
+          "sub_strands": [
+            {
+              "sub_strand": "Imaginary Numbers and Argand Diagrams",
+              "outcomes": [
+                "Perform algebraic operations on complex numbers ($z = a + ib$) and represent them spatially on Argand diagrams",
+                "Convert complex numbers between Cartesian form and polar configuration ($r(\\cos\\theta + i\\sin\\theta)$)"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Physics",
+      "strands": [
+        {
+          "strand": "Modern Quantum Physics and Radioactivity",
+          "sub_strands": [
+            {
+              "sub_strand": "Photoelectric Effect and X-Ray Production",
+              "outcomes": [
+                "Analyze the photoelectric equation ($E = hf = W_0 + K_{max}$) and solve problems involving work function threshold frequencies",
+                "Explain the mechanics of X-ray generation within a Coolidge tube and differentiate continuous vs. characteristic spectra profiles"
+              ]
+            },
+            {
+              "sub_strand": "Nuclear Decay Dynamics",
+              "outcomes": [
+                "Formulate balanced nuclear equations for Alpha, Beta, and Gamma decays, and calculate radioisotope half-life decay constants"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Chemistry",
+      "strands": [
+        {
+          "strand": "Electrochemistry and Analytical Kinetics",
+          "sub_strands": [
+            {
+              "sub_strand": "Electrochemical Cells and Standard Electrode Potentials",
+              "outcomes": [
+                "Construct voltaic/galvanic cells, compute standard cell EMF ($E^{\\theta}_{cell} = E^{\\theta}_{cathode} - E^{\\theta}_{anode}$), and predict reaction spontaneity",
+                "Analyze industrial electrolytic processes including the Down's cell extraction of sodium and the electrorefining of copper metal"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Organic Chemistry III",
+          "sub_strands": [
+            {
+              "sub_strand": "Polymers and Synthetic Macromolecules",
+              "outcomes": [
+                "Differentiate addition and condensation polymerization mechanics, detailing structures for nylon-6,6, Terylene, and polythene",
+                "Evaluate environmental impacts of synthetic polymers and research structural biopolymer alternatives"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Biology",
+      "strands": [
+        {
+          "strand": "Evolutionary Biology and Population Genetics",
+          "sub_strands": [
+            {
+              "sub_strand": "Evidence of Evolution and Specialization Drivers",
+              "outcomes": [
+                "Critique evolutionary assertions based on comparative anatomy (homologous vs. analogous organs), embryology, and fossil timelines",
+                "Apply the Hardy-Weinberg principle equation ($p^2 + 2pq + q^2 = 1$) to compute allele frequency vectors inside static populations"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

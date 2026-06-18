@@ -1,0 +1,54 @@
+{
+  "grade": "Grade 11",
+  "level": "Senior School",
+  "pathway": "Arts and Sports Science",
+  "track": "Performing Arts",
+  "learning_areas": [
+    {
+      "learning_area": "Advanced Music Theory and Orchestration",
+      "strands": [
+        {
+          "strand": "Chromatic Harmony and Modulation",
+          "sub_strands": [
+            {
+              "sub_strand": "Secondary Dominants and Pivot Chord Modulations",
+              "outcomes": [
+                "Identify, resolve, and write secondary dominant chords within major and minor key structures on a grand staff",
+                "Compose short harmonic progressions that smoothly modulate to closely related keys using common pivot chords"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Instrumentation and Scoring",
+          "sub_strands": [
+            {
+              "sub_strand": "Orchestral Instrument Ranges and Transposition",
+              "outcomes": [
+                "Analyze pitch ranges, clef usage, and acoustic timbres for standard Western orchestral instruments",
+                "Transpose musical scores accurately for common transposing instruments including B-flat trumpets, clarinets, and F horns"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Theatre, Scenography, and Directing",
+      "strands": [
+        {
+          "strand": "Scenography and Technical Theatre",
+          "sub_strands": [
+            {
+              "sub_strand": "Lighting Design, Stage Acoustics, and Set Architecture",
+              "outcomes": [
+                "Draft comprehensive theatrical lighting plots mapping out fixtures, gels, circuit patches, and illumination angles",
+                "Design structural scale models of proscenium and thrust stages implementing specific set architectural designs"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "grade": "Grade 11",
+  "level": "Senior School",
+  "pathway": "Social Sciences",
+  "track": "Humanities and Languages",
+  "learning_areas": [
+    {
+      "learning_area": "History and Government",
+      "strands": [
+        {
+          "strand": "The Rise of African Nationalism",
+          "sub_strands": [
+            {
+              "sub_strand": "Decolonization Movements and Constitutional Changes",
+              "outcomes": [
+                "Analyze the factors that accelerated African nationalism after 1945, highlighting the role of WWII returnees and pan-Africanism",
+                "Trace the constitutional milestones leading to Kenya's independence, evaluating the Lancaster House Conferences (1960-1962) frameworks"
+              ]
+            }
+          ]
+        },
+        {
+          "strand": "Political Systems and Devolved Governance",
+          "sub_strands": [
+            {
+              "sub_strand": "The Legislature and Devolved County Fiscal Frameworks",
+              "outcomes": [
+                "Examine the legislative process, structures, and roles of the National Assembly and Senate in bicameral systems",
+                "Critique the revenue allocation mechanisms between national and county governments, analyzing the role of the Commission on Revenue Allocation (CRA)"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "learning_area": "Geography and Spatial Analytics",
+      "strands": [
+        {
+          "strand": "Climatology and External Land-Forming Processes",
+          "sub_strands": [
+            {
+              "sub_strand": "Global Winds, Pressure Belts, and Weather Forecasting Systems",
+              "outcomes": [
+                "Examine the planetary wind systems, planetary pressure belts, and the dynamics of the Inter-Tropical Convergence Zone (ITCZ)",
+                "Interpret complex synoptic weather maps to model short-term regional weather variations"
+              ]
+            },
+            {
+              "sub_strand": "Weathering and Mass Wasting",
+              "outcomes": [
+                "Differentiate physical, chemical, and biological weathering processes across diverse climatic zones",
+                "Evaluate the causes, categories, and direct environmental hazards associated with rapid mass wasting events"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

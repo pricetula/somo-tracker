@@ -8,6 +8,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useReactTable, getCoreRowModel, flexRender, type ColumnDef } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
@@ -30,7 +31,14 @@ const columns: ColumnDef<ClassItem>[] = [
     {
         accessorKey: "name",
         header: "Class Name",
-        cell: ({ row }) => <span className="text-sm font-medium">{row.original.name}</span>,
+        cell: ({ row }) => (
+            <Link
+                href={`/classes/${row.original.id}?tab=timetable`}
+                className="text-sm font-medium transition-colors hover:text-teal-600 hover:underline"
+            >
+                {row.original.name}
+            </Link>
+        ),
     },
     {
         accessorKey: "stream",
@@ -54,7 +62,7 @@ const columns: ColumnDef<ClassItem>[] = [
     {
         id: "actions",
         header: "",
-        cell: () => (
+        cell: ({ row }) => (
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                     <Button
@@ -67,7 +75,9 @@ const columns: ColumnDef<ClassItem>[] = [
                     </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-36">
-                    <DropdownMenuItem>View Details</DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                        <Link href={`/classes/${row.original.id}?tab=timetable`}>View Details</Link>
+                    </DropdownMenuItem>
                     <DropdownMenuItem>Manage Students</DropdownMenuItem>
                     <DropdownMenuItem className="text-destructive">Deactivate</DropdownMenuItem>
                 </DropdownMenuContent>

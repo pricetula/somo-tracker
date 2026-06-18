@@ -52,6 +52,23 @@ When adding columns, always declare them directly in the `CREATE TABLE` statemen
 
 ---
 
+⚡ 6. React State-in-Effect Policy
+
+Calling `setState` synchronously within a `useEffect` body causes cascading renders that hurt performance. Effects are intended to synchronize React with external systems (DOM, subscriptions, platform APIs) — not to derive state from other state.
+
+### Core Rules:
+1. **Never call `setState` inside `useEffect`.** Derive state from props/state using `useMemo` or compute inline during render.
+2. **Use event handlers for reactive updates.** If a state change must trigger another state update (e.g., auto-suggesting end time when start time changes), do it in the event handler (e.g., `onValueChange`) — not in an effect.
+3. **Prefer `useMemo` over `useEffect` + `setState`.** If a value can be computed from existing state/props, use `useMemo` instead of an effect that calls `setState`.
+
+### Verification:
+Run `pnpm lint` in `./frontend/` before pushing. The `react-hooks/set-state-in-effect` ESLint rule enforces this policy.
+
+### Rationale:
+Synchronous `setState` in `useEffect` forces React to re-render the component immediately after the effect runs, wasting a render cycle and potentially causing infinite loops. See the ESLint rule reference: https://react.dev/learn/you-might-not-need-an-effect
+
+---
+
 📦 5. Package Manager Policy
 Both `./frontend/` (Next.js) and `./public/` (Svelte) **must** use **pnpm** as their sole package manager.
 

@@ -39,7 +39,6 @@ var (
 // IntegrationSuite holds all the shared infrastructure for integration tests.
 type IntegrationSuite struct {
 	ctx            context.Context
-	cancel         context.CancelFunc
 	pgContainer    testcontainers.Container
 	redisContainer testcontainers.Container
 	pgHostPort     string // "host:port" for pg connection
@@ -106,7 +105,7 @@ func setupSuite(ctx context.Context) (*IntegrationSuite, error) {
 	fmt.Println("=== Starting Redis container...")
 	redisC, redisAddr, err := startRedis(ctx)
 	if err != nil {
-		pgC.Terminate(ctx)
+		_ = pgC.Terminate(ctx)
 		return nil, fmt.Errorf("redis container: %w", err)
 	}
 	fmt.Printf("=== Redis ready at %s\n", redisAddr)
@@ -130,8 +129,8 @@ func setupSuite(ctx context.Context) (*IntegrationSuite, error) {
 	// ---------- 4. Connect to Postgres and run migrations ----------
 	pgCfg, err := pgxpool.ParseConfig(dbURL)
 	if err != nil {
-		pgC.Terminate(ctx)
-		redisC.Terminate(ctx)
+		_ = pgC.Terminate(ctx)
+		_ = redisC.Terminate(ctx)
 		return nil, fmt.Errorf("parse pg config: %w", err)
 	}
 	pgCfg.MaxConns = 5
@@ -139,15 +138,15 @@ func setupSuite(ctx context.Context) (*IntegrationSuite, error) {
 
 	pool, err := pgxpool.NewWithConfig(ctx, pgCfg)
 	if err != nil {
-		pgC.Terminate(ctx)
-		redisC.Terminate(ctx)
+		_ = pgC.Terminate(ctx)
+		_ = redisC.Terminate(ctx)
 		return nil, fmt.Errorf("create pg pool: %w", err)
 	}
 
 	if err := runMigrations(ctx, pool); err != nil {
 		pool.Close()
-		pgC.Terminate(ctx)
-		redisC.Terminate(ctx)
+		_ = pgC.Terminate(ctx)
+		_ = redisC.Terminate(ctx)
 		return nil, fmt.Errorf("run migrations: %w", err)
 	}
 	fmt.Println("=== Migrations applied")
@@ -158,9 +157,9 @@ func setupSuite(ctx context.Context) (*IntegrationSuite, error) {
 	})
 	if err := rdb.Ping(ctx).Err(); err != nil {
 		pool.Close()
-		rdb.Close()
-		pgC.Terminate(ctx)
-		redisC.Terminate(ctx)
+		_ = rdb.Close()
+		_ = pgC.Terminate(ctx)
+		_ = redisC.Terminate(ctx)
 		return nil, fmt.Errorf("redis ping: %w", err)
 	}
 
@@ -321,13 +320,13 @@ func startPostgres(ctx context.Context) (testcontainers.Container, string, error
 
 	host, err := c.Host(ctx)
 	if err != nil {
-		c.Terminate(ctx)
+		_ = c.Terminate(ctx)
 		return nil, "", err
 	}
 
 	port, err := c.MappedPort(ctx, "5432")
 	if err != nil {
-		c.Terminate(ctx)
+		_ = c.Terminate(ctx)
 		return nil, "", err
 	}
 
@@ -351,13 +350,13 @@ func startRedis(ctx context.Context) (testcontainers.Container, string, error) {
 
 	host, err := c.Host(ctx)
 	if err != nil {
-		c.Terminate(ctx)
+		_ = c.Terminate(ctx)
 		return nil, "", err
 	}
 
 	port, err := c.MappedPort(ctx, "6379")
 	if err != nil {
-		c.Terminate(ctx)
+		_ = c.Terminate(ctx)
 		return nil, "", err
 	}
 
@@ -630,7 +629,7 @@ type StytchMockHandlers struct {
 func writeStytchJSON(w http.ResponseWriter, status int, body any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(body)
+	_ = json.NewEncoder(w).Encode(body)
 }
 
 func writeStytchError(w http.ResponseWriter, status int, errType, message string) {
@@ -654,16 +653,16 @@ func (s *IntegrationSuite) cleanup() {
 		s.pgPool.Close()
 	}
 	if s.rdb != nil {
-		s.rdb.Close()
+		_ = s.rdb.Close()
 	}
 	if s.stytchServer != nil {
 		s.stytchServer.Close()
 	}
 	if s.redisContainer != nil {
-		s.redisContainer.Terminate(ctx)
+		_ = s.redisContainer.Terminate(ctx)
 	}
 	if s.pgContainer != nil {
-		s.pgContainer.Terminate(ctx)
+		_ = s.pgContainer.Terminate(ctx)
 	}
 }
 

@@ -42,7 +42,7 @@ func Load() Config {
 			if _, statErr := os.Stat(envPath); statErr == nil {
 				logger.Info("config: loaded .env file", zap.String("path", envPath))
 			}
-			logger.Sync()
+			_ = logger.Sync()
 		}
 	}
 

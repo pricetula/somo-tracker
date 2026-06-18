@@ -23,8 +23,8 @@ import (
 // schemaMeta holds metadata extracted from one migration file.
 type schemaMeta struct {
 	// table -> list of unique constraint column-sets (normalised)
-	uniques    map[string][]string // e.g., {"users": ["(id)", "(tenant_id, id)", "(email)"]}
-	primaries  map[string]string   // table -> primary key column set, e.g., "(id)"
+	uniques   map[string][]string // e.g., {"users": ["(id)", "(tenant_id, id)", "(email)"]}
+	primaries map[string]string   // table -> primary key column set, e.g., "(id)"
 	// all FK constraints found in the file
 	fks []fkConstraint
 }
@@ -323,7 +323,7 @@ func TestMigrationsIntegration_ApplyAll(t *testing.T) {
 	// Start PostgreSQL container
 	pgC, hostPort, err := startPG(ctx)
 	require.NoError(t, err)
-	defer pgC.Terminate(ctx)
+	defer func() { _ = pgC.Terminate(ctx) }()
 
 	dbURL := fmt.Sprintf("postgres://somo_admin:somo_secure_password@%s/somotracker_test?sslmode=disable", hostPort)
 
@@ -408,13 +408,13 @@ func startPG(ctx context.Context) (testcontainers.Container, string, error) {
 
 	host, err := c.Host(ctx)
 	if err != nil {
-		c.Terminate(ctx)
+		_ = c.Terminate(ctx)
 		return nil, "", err
 	}
 
 	port, err := c.MappedPort(ctx, "5432")
 	if err != nil {
-		c.Terminate(ctx)
+		_ = c.Terminate(ctx)
 		return nil, "", err
 	}
 

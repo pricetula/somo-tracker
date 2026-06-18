@@ -34,7 +34,7 @@ func TestGenerate(t *testing.T) {
 				// For special chars and empty, the result has a timestamp suffix
 				if got[:len(tt.want)] != tt.want {
 					// Check prefix for timestamp-based fallbacks
-					if !(len(got) >= len(tt.want) && got[:len(tt.want)] == tt.want) {
+					if len(got) < len(tt.want) || got[:len(tt.want)] != tt.want {
 						t.Errorf("Generate(%q) = %q, want prefix %q", tt.in, got, tt.want)
 					}
 				}

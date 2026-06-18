@@ -50,7 +50,7 @@ func (s *Service) SaveCurrentCalendar(
 	if err != nil {
 		return nil, fmt.Errorf("begin transaction: %w", err)
 	}
-	defer tx.Rollback(ctx) // no-op if committed
+	defer func() { _ = tx.Rollback(ctx) }() // no-op if committed
 
 	// 1. Unset any existing current year for this school
 	if err := s.repo.UnsetCurrentYears(ctx, tx, schoolID, tenantID); err != nil {

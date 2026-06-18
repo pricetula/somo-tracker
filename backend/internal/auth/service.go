@@ -483,16 +483,6 @@ func (s *Service) sessionKey(token string) string {
 	return sessionPrefix + token
 }
 
-// createUserAndSession creates only a user and session (for existing tenants).
-// This is kept for backward compatibility with tests.
-func (s *Service) createUserAndSession(ctx context.Context, userParams CreateUserParams, sessionParams CreateSessionParams, _ string) (string, string, error) {
-	userID, err := s.repo.CreateUserSession(ctx, userParams, sessionParams)
-	if err != nil {
-		return "", "", err
-	}
-	return userID, userParams.TenantID, nil
-}
-
 // generateUUID generates a UUID v4 string using crypto/rand.
 func generateUUID() (string, error) {
 	b := make([]byte, 16)

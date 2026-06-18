@@ -46,7 +46,7 @@ func Connect(cfg config.Config) (*Pools, error) {
 
 	if err := rdb.Ping(ctx).Err(); err != nil {
 		pool.Close()
-		rdb.Close()
+		_ = rdb.Close()
 		return nil, fmt.Errorf("redis ping: %w", err)
 	}
 

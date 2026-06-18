@@ -56,18 +56,6 @@ type ErrorBody struct {
 
 // ─── Internal helpers ──────────────────────────────────────────────────────
 
-// gradeAssignment holds a resolved grade record from the database.
-type gradeAssignment struct {
-	ID   string
-	Name string
-}
-
-// yearAssignment holds the current academic year record.
-type yearAssignment struct {
-	ID                string
-	EducationSystemID string
-}
-
 // classInput is an internal struct for passing bulk-insert parameters.
 type classInput struct {
 	GradeID string

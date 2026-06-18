@@ -31,7 +31,7 @@ func Generate(name string) string {
 		}
 	}
 	if slug.Len() == 0 {
-		slug.WriteString(fmt.Sprintf("school-%d", time.Now().UnixNano()))
+		fmt.Fprintf(&slug, "school-%d", time.Now().UnixNano())
 	}
 	return slug.String()
 }

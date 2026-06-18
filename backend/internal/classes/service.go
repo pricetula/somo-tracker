@@ -90,7 +90,7 @@ func (s *Service) GenerateClasses(
 	if err != nil {
 		return nil, fmt.Errorf("begin transaction: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	inserted, err := s.repo.BulkInsertClasses(ctx, tx, tenantID, schoolID, academicYear.ID, inputs)
 	if err != nil {

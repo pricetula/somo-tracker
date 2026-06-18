@@ -595,5 +595,406 @@ func scanConflicts(rows pgx.Rows) ([]conflictingSlot, error) {
 	return conflicts, nil
 }
 
-// Ensure local alias doesn't conflict with the standard strings package.
+// ═══════════════════════════════════════════════════════════════════════════
+// ATTENDANCE — periods
+// ═══════════════════════════════════════════════════════════════════════════
+
+// CreateAttendancePeriod inserts a new attendance period.
+func (r *Repository) CreateAttendancePeriod(ctx context.Context, p *CbcAttendancePeriod) error {
+	const query = `
+		INSERT INTO cbc_attendance_periods
+			(tenant_id, school_id, academic_term_id, class_id, cbc_learning_area_id, date_recorded, recorded_by)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		RETURNING id, created_at
+	`
+	err := r.pool.QueryRow(ctx, query,
+		p.TenantID, p.SchoolID, p.AcademicTermID, p.ClassID, p.LearningAreaID, p.DateRecorded, p.RecordedBy,
+	).Scan(&p.ID, &p.CreatedAt)
+	if err != nil {
+		return fmt.Errorf("create attendance period: %w", err)
+	}
+	return nil
+}
+
+// FetchAttendancePeriodsByDate returns periods for a class on a given date.
+func (r *Repository) FetchAttendancePeriodsByDate(ctx context.Context, classID, date string) ([]CbcAttendancePeriod, error) {
+	const query = `
+		SELECT id, tenant_id, school_id, academic_term_id, class_id,
+		       cbc_learning_area_id, date_recorded::text, recorded_by, created_at::text
+		FROM cbc_attendance_periods
+		WHERE class_id = $1 AND date_recorded = $2
+		ORDER BY cbc_learning_area_id
+	`
+	rows, err := r.pool.Query(ctx, query, classID, date)
+	if err != nil {
+		return nil, fmt.Errorf("fetch periods by date: %w", err)
+	}
+	defer rows.Close()
+	return scanPeriods(rows)
+}
+
+// FetchAttendancePeriodSummaries returns period summaries for a class in a date range.
+func (r *Repository) FetchAttendancePeriodSummaries(ctx context.Context, classID, from, to string) ([]AttendancePeriodSummary, error) {
+	const query = `
+		SELECT
+			ap.id,
+			ap.date_recorded::text,
+			ap.cbc_learning_area_id,
+			COALESCE(la.name, '') AS learning_area_name,
+			u.first_name || ' ' || u.last_name AS recorded_by_name,
+			ap.recorded_by,
+			ap.created_at::text,
+			COALESCE(stats.total_students, 0)::int AS total_students,
+			COALESCE(stats.present_count, 0)::int AS present_count,
+			COALESCE(stats.absent_count, 0)::int AS absent_count,
+			COALESCE(stats.late_count, 0)::int AS late_count,
+			COALESCE(stats.excused_count, 0)::int AS excused_count,
+			COALESCE(stats.unmarked_count, 0)::int AS unmarked_count
+		FROM cbc_attendance_periods ap
+		JOIN cbc_learning_areas la ON la.id = ap.cbc_learning_area_id
+		JOIN users u ON u.id = ap.recorded_by
+		LEFT JOIN LATERAL (
+			SELECT
+				COUNT(DISTINCT e.student_id) AS total_students,
+				COUNT(l.id) FILTER (WHERE l.status = 'PRESENT') AS present_count,
+				COUNT(l.id) FILTER (WHERE l.status = 'ABSENT') AS absent_count,
+				COUNT(l.id) FILTER (WHERE l.status = 'LATE') AS late_count,
+				COUNT(l.id) FILTER (WHERE l.status = 'EXCUSED') AS excused_count,
+				(COUNT(DISTINCT e.student_id) - COUNT(l.id)) AS unmarked_count
+			FROM student_enrollments e
+			LEFT JOIN cbc_attendance_logs l
+				ON l.student_id = e.student_id
+				AND l.cbc_attendance_period_id = ap.id
+				AND l.tenant_id = e.tenant_id
+			WHERE e.class_id = ap.class_id
+			  AND e.academic_term_id = ap.academic_term_id
+			  AND e.status = 'ACTIVE'
+		) stats ON true
+		WHERE ap.class_id = $1
+		  AND ap.date_recorded >= $2
+		  AND ap.date_recorded <= $3
+		ORDER BY ap.date_recorded DESC, la.name ASC
+	`
+	rows, err := r.pool.Query(ctx, query, classID, from, to)
+	if err != nil {
+		return nil, fmt.Errorf("fetch period summaries: %w", err)
+	}
+	defer rows.Close()
+	return scanPeriodSummaries(rows)
+}
+
+// FetchAttendancePeriodByID returns a single period by ID.
+func (r *Repository) FetchAttendancePeriodByID(ctx context.Context, periodID string) (*CbcAttendancePeriod, error) {
+	const query = `
+		SELECT id, tenant_id, school_id, academic_term_id, class_id,
+		       cbc_learning_area_id, date_recorded::text, recorded_by, created_at::text
+		FROM cbc_attendance_periods
+		WHERE id = $1
+	`
+	row := r.pool.QueryRow(ctx, query, periodID)
+	p, err := scanPeriod(row)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("fetch period by id: %w", err)
+	}
+	return p, nil
+}
+
+// FetchAttendancePeriodSummary returns a single period summary.
+func (r *Repository) FetchAttendancePeriodSummary(ctx context.Context, periodID string) (*AttendancePeriodSummary, error) {
+	const query = `
+		SELECT
+			ap.id,
+			ap.date_recorded::text,
+			ap.cbc_learning_area_id,
+			COALESCE(la.name, '') AS learning_area_name,
+			u.first_name || ' ' || u.last_name AS recorded_by_name,
+			ap.recorded_by,
+			ap.created_at::text,
+			COALESCE(stats.total_students, 0)::int AS total_students,
+			COALESCE(stats.present_count, 0)::int AS present_count,
+			COALESCE(stats.absent_count, 0)::int AS absent_count,
+			COALESCE(stats.late_count, 0)::int AS late_count,
+			COALESCE(stats.excused_count, 0)::int AS excused_count,
+			COALESCE(stats.unmarked_count, 0)::int AS unmarked_count
+		FROM cbc_attendance_periods ap
+		JOIN cbc_learning_areas la ON la.id = ap.cbc_learning_area_id
+		JOIN users u ON u.id = ap.recorded_by
+		LEFT JOIN LATERAL (
+			SELECT
+				COUNT(DISTINCT e.student_id) AS total_students,
+				COUNT(l.id) FILTER (WHERE l.status = 'PRESENT') AS present_count,
+				COUNT(l.id) FILTER (WHERE l.status = 'ABSENT') AS absent_count,
+				COUNT(l.id) FILTER (WHERE l.status = 'LATE') AS late_count,
+				COUNT(l.id) FILTER (WHERE l.status = 'EXCUSED') AS excused_count,
+				(COUNT(DISTINCT e.student_id) - COUNT(l.id)) AS unmarked_count
+			FROM student_enrollments e
+			LEFT JOIN cbc_attendance_logs l
+				ON l.student_id = e.student_id
+				AND l.cbc_attendance_period_id = ap.id
+				AND l.tenant_id = e.tenant_id
+			WHERE e.class_id = ap.class_id
+			  AND e.academic_term_id = ap.academic_term_id
+			  AND e.status = 'ACTIVE'
+		) stats ON true
+		WHERE ap.id = $1
+	`
+	row := r.pool.QueryRow(ctx, query, periodID)
+	s, err := scanPeriodSummary(row)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("fetch period summary: %w", err)
+	}
+	return s, nil
+}
+
+// FetchClassEnrolledCount returns the number of actively enrolled students.
+func (r *Repository) FetchClassEnrolledCount(ctx context.Context, classID, termID string) (int, error) {
+	const query = `
+		SELECT COUNT(*) FROM student_enrollments
+		WHERE class_id = $1 AND academic_term_id = $2 AND status = 'ACTIVE'
+	`
+	var count int
+	err := r.pool.QueryRow(ctx, query, classID, termID).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("count enrolled students: %w", err)
+	}
+	return count, nil
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ATTENDANCE — logs
+// ═══════════════════════════════════════════════════════════════════════════
+
+// FetchAttendanceLogsByPeriod returns all logs for a period with recorder details.
+func (r *Repository) FetchAttendanceLogsByPeriod(ctx context.Context, periodID string) ([]AttendanceLogDetail, error) {
+	const query = `
+		SELECT
+			l.id, l.tenant_id, l.cbc_attendance_period_id, l.student_id,
+			l.status, l.remarks, l.recorded_by,
+			u.first_name, u.last_name
+		FROM cbc_attendance_logs l
+		JOIN users u ON u.id = l.recorded_by
+		WHERE l.cbc_attendance_period_id = $1
+		ORDER BY l.student_id
+	`
+	rows, err := r.pool.Query(ctx, query, periodID)
+	if err != nil {
+		return nil, fmt.Errorf("fetch logs by period: %w", err)
+	}
+	defer rows.Close()
+
+	var logs []AttendanceLogDetail
+	for rows.Next() {
+		var d AttendanceLogDetail
+		if err := rows.Scan(
+			&d.ID, &d.TenantID, &d.PeriodID, &d.StudentID,
+			&d.Status, &d.Remarks, &d.RecordedBy,
+			&d.RecorderFirstName, &d.RecorderLastName,
+		); err != nil {
+			return nil, fmt.Errorf("scan log detail: %w", err)
+		}
+		d.RecordedByLabel = d.RecorderFirstName + " " + d.RecorderLastName
+		logs = append(logs, d)
+	}
+	return logs, nil
+}
+
+// UpsertAttendanceLog inserts or updates a single attendance log.
+// Returns the log with its ID populated (new or existing).
+func (r *Repository) UpsertAttendanceLog(ctx context.Context, log *CbcAttendanceLog) error {
+	const query = `
+		INSERT INTO cbc_attendance_logs
+			(tenant_id, cbc_attendance_period_id, student_id, status, remarks, recorded_by)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		ON CONFLICT (cbc_attendance_period_id, student_id)
+		DO UPDATE SET status = EXCLUDED.status, remarks = EXCLUDED.remarks, recorded_by = EXCLUDED.recorded_by
+		RETURNING id
+	`
+	err := r.pool.QueryRow(ctx, query,
+		log.TenantID, log.PeriodID, log.StudentID, log.Status, log.Remarks, log.RecordedBy,
+	).Scan(&log.ID)
+	if err != nil {
+		return fmt.Errorf("upsert attendance log: %w", err)
+	}
+	return nil
+}
+
+// BatchUpsertAttendanceLogs inserts or updates multiple logs in a single batch.
+func (r *Repository) BatchUpsertAttendanceLogs(ctx context.Context, tenantID, periodID, recordedBy string, marks []BatchLogMark) ([]CbcAttendanceLog, error) {
+	if len(marks) == 0 {
+		return nil, nil
+	}
+
+	const query = `
+		INSERT INTO cbc_attendance_logs
+			(tenant_id, cbc_attendance_period_id, student_id, status, remarks, recorded_by)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		ON CONFLICT (cbc_attendance_period_id, student_id)
+		DO UPDATE SET status = EXCLUDED.status, remarks = EXCLUDED.remarks, recorded_by = EXCLUDED.recorded_by
+		RETURNING id, tenant_id, cbc_attendance_period_id, student_id, status, remarks, recorded_by
+	`
+
+	logs := make([]CbcAttendanceLog, 0, len(marks))
+	for _, m := range marks {
+		var log CbcAttendanceLog
+		err := r.pool.QueryRow(ctx, query,
+			tenantID, periodID, m.StudentID, m.Status, m.Remarks, recordedBy,
+		).Scan(&log.ID, &log.TenantID, &log.PeriodID, &log.StudentID, &log.Status, &log.Remarks, &log.RecordedBy)
+		if err != nil {
+			return nil, fmt.Errorf("batch upsert log for student %s: %w", m.StudentID, err)
+		}
+		logs = append(logs, log)
+	}
+	return logs, nil
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ATTENDANCE — analytics
+// ═══════════════════════════════════════════════════════════════════════════
+
+// FetchAttendanceHeatmap returns per-day attendance stats for a class/term.
+func (r *Repository) FetchAttendanceHeatmap(ctx context.Context, classID, termID string) ([]AttendanceHeatmapDay, error) {
+	const query = `
+		SELECT
+			ap.date_recorded::text AS date,
+			COUNT(DISTINCT ap.id)::int AS period_count,
+			COUNT(l.id)::int AS total_marks,
+			COUNT(l.id) FILTER (WHERE l.status = 'PRESENT')::int AS present_count
+		FROM cbc_attendance_periods ap
+		JOIN cbc_attendance_logs l ON l.cbc_attendance_period_id = ap.id AND l.tenant_id = ap.tenant_id
+		WHERE ap.class_id = $1 AND ap.academic_term_id = $2
+		GROUP BY ap.date_recorded
+		ORDER BY ap.date_recorded ASC
+	`
+	rows, err := r.pool.Query(ctx, query, classID, termID)
+	if err != nil {
+		return nil, fmt.Errorf("fetch attendance heatmap: %w", err)
+	}
+	defer rows.Close()
+
+	var days []AttendanceHeatmapDay
+	for rows.Next() {
+		var d AttendanceHeatmapDay
+		var presentCount int
+		if err := rows.Scan(&d.Date, &d.PeriodCount, &d.TotalMarks, &presentCount); err != nil {
+			return nil, fmt.Errorf("scan heatmap day: %w", err)
+		}
+		if d.TotalMarks > 0 {
+			rate := float64(presentCount) / float64(d.TotalMarks) * 100
+			d.PresentRate = &rate
+		}
+		days = append(days, d)
+	}
+	return days, nil
+}
+
+// FetchAttendanceGaps returns timetable slots with no attendance period for the given dates.
+func (r *Repository) FetchAttendanceGaps(ctx context.Context, classID, from, to string) ([]AttendanceGap, error) {
+	// Generate all dates in range that match each slot's day_of_week,
+	// then exclude those with an existing attendance period.
+	// PostgreSQL EXTRACT(DOW): 0=Sun...6=Sat → we store 1=Mon...7=Sun
+	const query = `
+		WITH date_range AS (
+			SELECT d::date AS date,
+			       CASE WHEN EXTRACT(DOW FROM d) = 0 THEN 7
+			            ELSE EXTRACT(DOW FROM d)::int END AS dow
+			FROM generate_series($2::date, $3::date, '1 day'::interval) d
+		),
+		slot_dates AS (
+			SELECT ts.id AS slot_id, ts.class_id, ts.cbc_learning_area_id,
+			       COALESCE(la.name, 'Free Period') AS learning_area_name,
+			       ts.day_of_week, ts.start_time::text, ts.end_time::text,
+			       dr.date::text
+			FROM cbc_timetable_slots ts
+			JOIN date_range dr ON dr.dow = ts.day_of_week
+			LEFT JOIN cbc_learning_areas la ON la.id = ts.cbc_learning_area_id
+			WHERE ts.class_id = $1
+		)
+		SELECT sd.slot_id, sd.class_id, sd.cbc_learning_area_id,
+		       sd.learning_area_name, sd.day_of_week, sd.start_time, sd.end_time, sd.date
+		FROM slot_dates sd
+		LEFT JOIN cbc_attendance_periods ap
+			ON ap.class_id = sd.class_id
+			AND ap.cbc_learning_area_id = sd.cbc_learning_area_id
+			AND ap.date_recorded = sd.date::date
+		WHERE ap.id IS NULL
+		ORDER BY sd.date, sd.start_time
+	`
+	rows, err := r.pool.Query(ctx, query, classID, from, to)
+	if err != nil {
+		return nil, fmt.Errorf("fetch attendance gaps: %w", err)
+	}
+	defer rows.Close()
+
+	var gaps []AttendanceGap
+	for rows.Next() {
+		var g AttendanceGap
+		if err := rows.Scan(
+			&g.SlotID, &g.ClassID, &g.LearningAreaID,
+			&g.LearningAreaName, &g.DayOfWeek, &g.StartTime, &g.EndTime, &g.Date,
+		); err != nil {
+			return nil, fmt.Errorf("scan attendance gap: %w", err)
+		}
+		gaps = append(gaps, g)
+	}
+	return gaps, nil
+}
+
+// ─── Scanner helpers for attendance ──────────────────────────────────────
+
+func scanPeriods(rows pgx.Rows) ([]CbcAttendancePeriod, error) {
+	var periods []CbcAttendancePeriod
+	for rows.Next() {
+		p, err := scanPeriod(rows)
+		if err != nil {
+			return nil, err
+		}
+		periods = append(periods, *p)
+	}
+	return periods, nil
+}
+
+func scanPeriod(row pgx.Row) (*CbcAttendancePeriod, error) {
+	var p CbcAttendancePeriod
+	err := row.Scan(
+		&p.ID, &p.TenantID, &p.SchoolID, &p.AcademicTermID, &p.ClassID,
+		&p.LearningAreaID, &p.DateRecorded, &p.RecordedBy, &p.CreatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &p, nil
+}
+
+func scanPeriodSummaries(rows pgx.Rows) ([]AttendancePeriodSummary, error) {
+	var summaries []AttendancePeriodSummary
+	for rows.Next() {
+		s, err := scanPeriodSummary(rows)
+		if err != nil {
+			return nil, err
+		}
+		summaries = append(summaries, *s)
+	}
+	return summaries, nil
+}
+
+func scanPeriodSummary(row pgx.Row) (*AttendancePeriodSummary, error) {
+	var s AttendancePeriodSummary
+	err := row.Scan(
+		&s.ID, &s.DateRecorded, &s.LearningAreaID, &s.LearningAreaName,
+		&s.RecordedByName, &s.RecordedByID, &s.RecordedAt,
+		&s.TotalStudents, &s.PresentCount, &s.AbsentCount,
+		&s.LateCount, &s.ExcusedCount, &s.UnmarkedCount,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &s, nil
+}
+
 var _ = strings.Join

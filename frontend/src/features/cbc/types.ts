@@ -186,6 +186,83 @@ export interface OfflineAttendanceEntry {
     retryCount: number;
 }
 
+/**
+ * Attendance period summary for the period list view.
+ * Includes recorder info and per-status breakdown counts.
+ */
+export interface AttendancePeriodSummary {
+    id: string;
+    date_recorded: string;
+    cbc_learning_area_id: string;
+    learning_area_name: string;
+    recorded_by_name: string;
+    recorded_by_id: string;
+    recorded_at: string; // ISO timestamp when period was created
+    total_students: number;
+    present_count: number;
+    absent_count: number;
+    late_count: number;
+    excused_count: number;
+    unmarked_count: number;
+}
+
+/** A single day cell in the term-level heatmap. */
+export interface AttendanceHeatmapDay {
+    date: string; // "YYYY-MM-DD"
+    period_count: number;
+    present_rate: number | null; // null = no periods at all (empty/gray)
+    total_marks: number;
+}
+
+/** A timetable slot that has no corresponding attendance period (a gap). */
+export interface AttendanceGap {
+    slot_id: string;
+    class_id: string;
+    cbc_learning_area_id: string | null;
+    learning_area_name: string;
+    day_of_week: number;
+    start_time: string;
+    end_time: string;
+    date: string; // specific date this slot falls on
+}
+
+/**
+ * Enriched attendance log with recorder details for the register view.
+ */
+export interface CbcAttendanceLogDetail extends CbcAttendanceLog {
+    recorder_first_name: string;
+    recorder_last_name: string;
+    /** Human-friendly "Marked by X, HH:MMam" */
+    recorded_by_label: string;
+}
+
+/** Status of a dashboard slot card. */
+export type SlotCardStatus = "ongoing" | "done" | "incomplete" | "upcoming" | "past_not_taken";
+
+/**
+ * Enriched slot card for the teacher dashboard (My Attendance).
+ * Extends the bare slot with attendance status and completeness info.
+ */
+export interface DashboardSlotCard {
+    slot_id: string;
+    class_id: string;
+    class_name: string;
+    learning_area_name: string;
+    learning_area_id: string;
+    start_time: string;
+    end_time: string;
+    day_of_week: number;
+    /** The matching attendance period, if one exists. */
+    attendance_period_id: string | null;
+    status: SlotCardStatus;
+    total_students: number;
+    marked_count: number;
+    /** Whether the logged-in teacher is the usual teacher for this slot. */
+    is_usual_teacher: boolean;
+    /** Academic term ID for this date */
+    academic_term_id: string;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // SHARED REFERENCE DATA
 // ═══════════════════════════════════════════════════════════════════════════
@@ -206,6 +283,7 @@ export interface CbcClassTeacher {
     user_id: string;
     learning_area_id: string;
     is_primary: boolean;
+    teacher_name?: string;
 }
 
 export interface UserBrief {

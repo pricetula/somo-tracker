@@ -1225,7 +1225,9 @@ CREATE TABLE IF NOT EXISTS cbc_attendance_periods (
     academic_term_id     UUID NOT NULL,
     class_id             UUID NOT NULL,
     cbc_learning_area_id UUID NOT NULL,
-    date_recorded        DATE NOT NULL
+    date_recorded        DATE NOT NULL,
+    recorded_by          UUID NOT NULL REFERENCES users(id),
+    created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_cbc_att_tenant                   ON cbc_attendance_periods(tenant_id);

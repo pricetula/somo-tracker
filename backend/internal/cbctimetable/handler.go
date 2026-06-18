@@ -51,6 +51,20 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	// Attendance helpers
 	cbc.Get("/classes/:classId/students", h.FetchClassStudents)
 	cbc.Get("/attendance/slots/today", h.FetchTodayTeacherSlots)
+
+	// ── Attendance periods ──────────────────────────────────────────
+	cbc.Get("/classes/:classId/attendance/periods", h.FetchAttendancePeriods)
+	cbc.Post("/classes/:classId/attendance/periods", h.CreateAttendancePeriod)
+	cbc.Get("/attendance/periods/:periodId", h.FetchAttendancePeriodDetail)
+	cbc.Get("/attendance/periods/:periodId/logs", h.FetchAttendanceLogs)
+
+	// ── Attendance logs ─────────────────────────────────────────────
+	cbc.Post("/attendance/logs", h.SaveAttendanceLog)
+	cbc.Post("/attendance/logs/batch", h.BatchSaveAttendanceLogs)
+
+	// ── Attendance analytics ────────────────────────────────────────
+	cbc.Get("/classes/:classId/attendance/heatmap", h.FetchAttendanceHeatmap)
+	cbc.Get("/classes/:classId/attendance/gaps", h.FetchAttendanceGaps)
 }
 
 // ─── Helper: extract tenant/school/user from context ──────────────────────
@@ -401,6 +415,209 @@ func (h *Handler) FetchTodayTeacherSlots(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(slots)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ATTENDANCE — period handlers
+// ═══════════════════════════════════════════════════════════════════════════
+
+// FetchAttendancePeriods handles GET /api/v1/cbc/classes/:classId/attendance/periods
+// Query params: ?date=YYYY-MM-DD or ?from=YYYY-MM-DD&to=YYYY-MM-DD
+func (h *Handler) FetchAttendancePeriods(c *fiber.Ctx) error {
+	classID := c.Params("classId")
+	if classID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "class_id is required"})
+	}
+
+	date := c.Query("date")
+	from := c.Query("from")
+	to := c.Query("to")
+
+	// Single-date fetch
+	if date != "" {
+		periods, err := h.svc.FetchAttendancePeriodsByDate(c.Context(), classID, date)
+		if err != nil {
+			h.log.Error("fetch attendance periods by date", zap.Error(err))
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to fetch periods"})
+		}
+		return c.JSON(periods)
+	}
+
+	// Date range fetch (summaries)
+	if from != "" && to != "" {
+		summaries, err := h.svc.FetchAttendancePeriodSummaries(c.Context(), classID, from, to)
+		if err != nil {
+			h.log.Error("fetch attendance period summaries", zap.Error(err))
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to fetch period summaries"})
+		}
+		return c.JSON(summaries)
+	}
+
+	return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "provide ?date= or ?from=&to="})
+}
+
+// CreateAttendancePeriod handles POST /api/v1/cbc/classes/:classId/attendance/periods
+func (h *Handler) CreateAttendancePeriod(c *fiber.Ctx) error {
+	classID := c.Params("classId")
+	tenantID, userID, ok := h.getContext(c)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "unauthorized"})
+	}
+
+	var req CreatePeriodRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+	}
+	if req.LearningAreaID == "" || req.DateRecorded == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "cbc_learning_area_id and date_recorded are required"})
+	}
+
+	// Resolve school_id from the class
+	schoolID, err := h.resolveSchoolID(c.Context(), classID)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	period, err := h.svc.CreateAttendancePeriod(c.Context(), classID, tenantID, schoolID, userID, &req)
+	if err != nil {
+		if err == ErrNoCurrentTerm {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "no current academic term set"})
+		}
+		// Unique constraint violation (duplicate period for same class/date/area)
+		if strings.Contains(err.Error(), "unique") || strings.Contains(err.Error(), "duplicate") {
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "An attendance period already exists for this class, date, and learning area"})
+		}
+		h.log.Error("create attendance period", zap.Error(err))
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to create attendance period"})
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(period)
+}
+
+// FetchAttendancePeriodDetail handles GET /api/v1/cbc/attendance/periods/:periodId
+func (h *Handler) FetchAttendancePeriodDetail(c *fiber.Ctx) error {
+	periodID := c.Params("periodId")
+	if periodID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "period_id is required"})
+	}
+
+	summary, err := h.svc.FetchAttendancePeriodSummary(c.Context(), periodID)
+	if err != nil {
+		h.log.Error("fetch attendance period detail", zap.Error(err))
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to fetch period detail"})
+	}
+	if summary == nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "period not found"})
+	}
+
+	return c.JSON(summary)
+}
+
+// FetchAttendanceLogs handles GET /api/v1/cbc/attendance/periods/:periodId/logs
+func (h *Handler) FetchAttendanceLogs(c *fiber.Ctx) error {
+	periodID := c.Params("periodId")
+	if periodID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "period_id is required"})
+	}
+
+	logs, err := h.svc.FetchAttendanceLogs(c.Context(), periodID)
+	if err != nil {
+		h.log.Error("fetch attendance logs", zap.Error(err))
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to fetch attendance logs"})
+	}
+
+	return c.JSON(logs)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ATTENDANCE — log handlers
+// ═══════════════════════════════════════════════════════════════════════════
+
+// SaveAttendanceLog handles POST /api/v1/cbc/attendance/logs
+func (h *Handler) SaveAttendanceLog(c *fiber.Ctx) error {
+	tenantID, userID, ok := h.getContext(c)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "unauthorized"})
+	}
+
+	var req SaveLogRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+	}
+	if req.PeriodID == "" || req.StudentID == "" || req.Status == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "cbc_attendance_period_id, student_id, and status are required"})
+	}
+
+	log, err := h.svc.SaveAttendanceLog(c.Context(), tenantID, userID, &req)
+	if err != nil {
+		h.log.Error("save attendance log", zap.Error(err))
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to save attendance"})
+	}
+
+	return c.JSON(log)
+}
+
+// BatchSaveAttendanceLogs handles POST /api/v1/cbc/attendance/logs/batch
+func (h *Handler) BatchSaveAttendanceLogs(c *fiber.Ctx) error {
+	tenantID, userID, ok := h.getContext(c)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "unauthorized"})
+	}
+
+	var req BatchSaveLogsRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+	}
+	if req.PeriodID == "" || len(req.Marks) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "cbc_attendance_period_id and marks are required"})
+	}
+
+	logs, err := h.svc.BatchSaveAttendanceLogs(c.Context(), tenantID, userID, &req)
+	if err != nil {
+		h.log.Error("batch save attendance logs", zap.Error(err))
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to save attendance"})
+	}
+
+	return c.JSON(logs)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ATTENDANCE — analytics handlers
+// ═══════════════════════════════════════════════════════════════════════════
+
+// FetchAttendanceHeatmap handles GET /api/v1/cbc/classes/:classId/attendance/heatmap?term_id=...
+func (h *Handler) FetchAttendanceHeatmap(c *fiber.Ctx) error {
+	classID := c.Params("classId")
+	termID := c.Query("term_id")
+	if classID == "" || termID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "class_id and term_id are required"})
+	}
+
+	days, err := h.svc.FetchAttendanceHeatmap(c.Context(), classID, termID)
+	if err != nil {
+		h.log.Error("fetch attendance heatmap", zap.Error(err))
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to fetch heatmap"})
+	}
+
+	return c.JSON(days)
+}
+
+// FetchAttendanceGaps handles GET /api/v1/cbc/classes/:classId/attendance/gaps?from=...&to=...
+func (h *Handler) FetchAttendanceGaps(c *fiber.Ctx) error {
+	classID := c.Params("classId")
+	from := c.Query("from")
+	to := c.Query("to")
+	if classID == "" || from == "" || to == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "class_id, from, and to are required"})
+	}
+
+	gaps, err := h.svc.FetchAttendanceGaps(c.Context(), classID, from, to)
+	if err != nil {
+		h.log.Error("fetch attendance gaps", zap.Error(err))
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to fetch attendance gaps"})
+	}
+
+	return c.JSON(gaps)
 }
 
 // ─── Internal helpers ──────────────────────────────────────────────────────

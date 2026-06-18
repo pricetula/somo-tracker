@@ -431,6 +431,96 @@ func (s *Service) FetchCurrentTerm(ctx context.Context, schoolID, tenantID strin
 	return s.repo.FetchCurrentAcademicTerm(ctx, schoolID, tenantID)
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// ATTENDANCE — periods
+// ═══════════════════════════════════════════════════════════════════════════
+
+// CreateAttendancePeriod creates a new attendance period.
+func (s *Service) CreateAttendancePeriod(ctx context.Context, classID string, tenantID, schoolID, userID string, req *CreatePeriodRequest) (*CbcAttendancePeriod, error) {
+	// Resolve the current academic term for this school
+	termID, err := s.repo.FetchCurrentAcademicTerm(ctx, schoolID, tenantID)
+	if err != nil {
+		return nil, ErrNoCurrentTerm
+	}
+
+	period := &CbcAttendancePeriod{
+		TenantID:       tenantID,
+		SchoolID:       schoolID,
+		AcademicTermID: termID,
+		ClassID:        classID,
+		LearningAreaID: req.LearningAreaID,
+		DateRecorded:   req.DateRecorded,
+		RecordedBy:     userID,
+	}
+
+	if err := s.repo.CreateAttendancePeriod(ctx, period); err != nil {
+		return nil, fmt.Errorf("create attendance period: %w", err)
+	}
+
+	return period, nil
+}
+
+// FetchAttendancePeriodsByDate returns periods for a class on a specific date.
+func (s *Service) FetchAttendancePeriodsByDate(ctx context.Context, classID, date string) ([]CbcAttendancePeriod, error) {
+	return s.repo.FetchAttendancePeriodsByDate(ctx, classID, date)
+}
+
+// FetchAttendancePeriodSummaries returns period summaries for a date range.
+func (s *Service) FetchAttendancePeriodSummaries(ctx context.Context, classID, from, to string) ([]AttendancePeriodSummary, error) {
+	return s.repo.FetchAttendancePeriodSummaries(ctx, classID, from, to)
+}
+
+// FetchAttendancePeriodSummary returns a single period summary by ID.
+func (s *Service) FetchAttendancePeriodSummary(ctx context.Context, periodID string) (*AttendancePeriodSummary, error) {
+	return s.repo.FetchAttendancePeriodSummary(ctx, periodID)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ATTENDANCE — logs
+// ═══════════════════════════════════════════════════════════════════════════
+
+// FetchAttendanceLogs returns all logs for a period.
+func (s *Service) FetchAttendanceLogs(ctx context.Context, periodID string) ([]AttendanceLogDetail, error) {
+	return s.repo.FetchAttendanceLogsByPeriod(ctx, periodID)
+}
+
+// SaveAttendanceLog upserts a single attendance log.
+func (s *Service) SaveAttendanceLog(ctx context.Context, tenantID, userID string, req *SaveLogRequest) (*CbcAttendanceLog, error) {
+	log := &CbcAttendanceLog{
+		TenantID:   tenantID,
+		PeriodID:   req.PeriodID,
+		StudentID:  req.StudentID,
+		Status:     req.Status,
+		Remarks:    req.Remarks,
+		RecordedBy: userID,
+	}
+
+	if err := s.repo.UpsertAttendanceLog(ctx, log); err != nil {
+		return nil, fmt.Errorf("save attendance log: %w", err)
+	}
+
+	return log, nil
+}
+
+// BatchSaveAttendanceLogs upserts multiple logs for a period.
+func (s *Service) BatchSaveAttendanceLogs(ctx context.Context, tenantID, userID string, req *BatchSaveLogsRequest) ([]CbcAttendanceLog, error) {
+	return s.repo.BatchUpsertAttendanceLogs(ctx, tenantID, req.PeriodID, userID, req.Marks)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ATTENDANCE — analytics
+// ═══════════════════════════════════════════════════════════════════════════
+
+// FetchAttendanceHeatmap returns per-day heatmap data for a class/term.
+func (s *Service) FetchAttendanceHeatmap(ctx context.Context, classID, termID string) ([]AttendanceHeatmapDay, error) {
+	return s.repo.FetchAttendanceHeatmap(ctx, classID, termID)
+}
+
+// FetchAttendanceGaps returns timetable slots with no attendance coverage.
+func (s *Service) FetchAttendanceGaps(ctx context.Context, classID, from, to string) ([]AttendanceGap, error) {
+	return s.repo.FetchAttendanceGaps(ctx, classID, from, to)
+}
+
 // ─── Internal helpers ──────────────────────────────────────────────────────
 
 func validateSlot(dayOfWeek int, startTime, endTime string) error {

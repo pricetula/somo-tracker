@@ -29,12 +29,29 @@ vi.mock("lucide-react", () => ({
     ArrowLeft: () => <span data-testid="mock-arrow-left" />,
     Copy: () => <span data-testid="mock-copy" />,
     ArrowRightFromLine: () => <span data-testid="mock-arrow-right" />,
-    Loader2: () => <span data-testid="mock-loader" />,
     AlertTriangle: () => <span data-testid="mock-alert-triangle" />,
     Trash2: () => <span data-testid="mock-trash" />,
     Search: () => <span data-testid="mock-search" />,
     MoreHorizontal: () => <span data-testid="mock-more" />,
     ChevronDown: () => <span data-testid="mock-chevron-down" />,
+    Users: () => <span data-testid="mock-users" />,
+    ClipboardList: () => <span data-testid="mock-clipboard" />,
+    Filter: () => <span data-testid="mock-filter" />,
+    RotateCcw: () => <span data-testid="mock-rotate" />,
+}));
+
+// Mock Input component (used by attendance student row)
+vi.mock("@/components/ui/input", () => ({
+    Input: ({ value, onChange, placeholder, className, onClick }: Record<string, unknown>) => (
+        <input
+            data-testid="mock-input"
+            value={value}
+            onChange={onChange}
+            placeholder={placeholder}
+            className={className}
+            onClick={onClick}
+        />
+    ),
 }));
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -207,6 +224,9 @@ describe("CbcAttendanceStudentRow", () => {
         isSaving: false,
         syncPending: false,
         onSelectStatus,
+        remarks: null,
+        onRemarksChange: vi.fn(),
+        readOnly: false,
     };
 
     it("renders student name", () => {

@@ -4,6 +4,7 @@ import * as React from "react";
 import { Loader2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
 import type { AttendanceStatus } from "@/features/cbc/types";
 
 // ─── Status config ─────────────────────────────────────────────────────────
@@ -50,7 +51,14 @@ interface CbcAttendanceStudentRowProps {
     currentStatus: AttendanceStatus | null;
     isSaving: boolean;
     syncPending: boolean;
+    /** Recorder info shown when a mark already exists. */
+    recordedByLabel?: string;
     onSelectStatus: (status: AttendanceStatus) => void;
+    remarks: string | null;
+    onRemarksChange: (remarks: string) => void;
+    /** Whether this row is read-only (e.g. recorded by another teacher). */
+    readOnly: boolean;
+    readOnlyNote?: string;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────
@@ -61,26 +69,42 @@ export function CbcAttendanceStudentRow({
     currentStatus,
     isSaving,
     syncPending,
+    recordedByLabel,
     onSelectStatus,
+    remarks,
+    onRemarksChange,
+    readOnly,
+    readOnlyNote,
 }: CbcAttendanceStudentRowProps) {
     const statuses: AttendanceStatus[] = ["PRESENT", "ABSENT", "LATE", "EXCUSED"];
 
     return (
         <div
             className={cn(
-                "flex items-center gap-3 border-b px-3 py-2.5 transition-colors",
-                syncPending && "bg-amber-50"
+                "flex items-start gap-3 border-b px-3 py-2.5 transition-colors",
+                syncPending && "bg-amber-50",
+                readOnly && "opacity-80"
             )}
         >
             {/* Student info */}
             <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{studentName}</p>
+                <p className={cn("truncate text-sm font-medium", readOnly && "text-gray-500")}>
+                    {studentName}
+                </p>
                 {admissionNumber && (
                     <p className="text-muted-foreground truncate text-xs">{admissionNumber}</p>
                 )}
+                {/* Recorder info */}
+                {recordedByLabel && (
+                    <p className="mt-0.5 text-[10px] text-gray-400">{recordedByLabel}</p>
+                )}
+                {/* Read-only note */}
+                {readOnly && readOnlyNote && (
+                    <p className="mt-0.5 text-[10px] text-amber-600 italic">{readOnlyNote}</p>
+                )}
             </div>
 
-            {/* Sync pending badge */}
+            {/* Sync badge */}
             {syncPending && (
                 <div className="flex items-center gap-1 text-amber-600">
                     <Loader2 className="size-3 animate-spin" />
@@ -88,22 +112,40 @@ export function CbcAttendanceStudentRow({
                 </div>
             )}
 
-            {/* Status toggle pills */}
+            {/* Remarks input */}
+            {!readOnly && (
+                <div className="w-24 shrink-0">
+                    <Input
+                        value={remarks ?? ""}
+                        onChange={(e) => onRemarksChange(e.target.value)}
+                        placeholder="Remarks..."
+                        className="h-7 text-[10px]"
+                        onClick={(e) => e.stopPropagation()}
+                    />
+                </div>
+            )}
+
+            {/* Status toggle pills — segment control */}
             <div className="flex shrink-0 gap-1">
                 {statuses.map((status) => {
                     const cfg = STATUS_CONFIG[status];
                     const isActive = currentStatus === status;
+
                     return (
                         <button
                             key={status}
                             type="button"
-                            onClick={() => onSelectStatus(status)}
-                            disabled={isSaving}
+                            onClick={() => {
+                                if (!readOnly && !isSaving) {
+                                    onSelectStatus(status);
+                                }
+                            }}
+                            disabled={readOnly || isSaving}
                             className={cn(
                                 "flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-all",
                                 "min-h-[40px] min-w-[40px]", // 40px minimum tap target
                                 isActive ? cfg.activeClass : cfg.inactiveClass,
-                                isSaving && "cursor-not-allowed opacity-50"
+                                (readOnly || isSaving) && "cursor-not-allowed opacity-50"
                             )}
                             aria-label={`Mark ${studentName} as ${cfg.label}`}
                             aria-pressed={isActive}

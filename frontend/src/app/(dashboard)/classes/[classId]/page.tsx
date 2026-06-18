@@ -15,6 +15,8 @@ import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 
+import { useMe } from "@/hooks/use-auth";
+
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -45,6 +47,7 @@ export default function ClassDetailPage() {
     const params = useParams<{ classId: string }>();
     const searchParams = useSearchParams();
     const router = useRouter();
+    const { data: me } = useMe();
     const classId = params.classId;
 
     const tabFromUrl = searchParams.get("tab") ?? "timetable";
@@ -200,6 +203,15 @@ export default function ClassDetailPage() {
                         academicTermId={classDetail.academic_term_id}
                         gradeId={classDetail.grade_id}
                         className={classDetail.name}
+                        userId={me?.user_id}
+                        userRole={
+                            me?.role as
+                                | "SYSTEM_ADMIN"
+                                | "SCHOOL_ADMIN"
+                                | "TEACHER"
+                                | "SUPPORT_STAFF"
+                                | undefined
+                        }
                     />
                 </TabsContent>
             </Tabs>

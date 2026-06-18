@@ -1,5 +1,6 @@
 "use client";
 
+import { useMe } from "@/hooks/use-auth";
 import { MyAttendanceSection } from "@/features/cbc/components/dashboard/my-attendance";
 
 /**
@@ -11,22 +12,24 @@ import { MyAttendanceSection } from "@/features/cbc/components/dashboard/my-atte
  *  - Upcoming tasks / recent activity (placeholder for future work)
  */
 
-// TODO: extract teacherId from session context / auth hook
-const DEMO_TEACHER_ID = "current-teacher-id";
-
 export function TeacherDashboardPage() {
+    const { data: me } = useMe();
+    const teacherId = me?.user_id ?? "";
+
     return (
         <div className="flex flex-1 flex-col gap-6 p-6">
             {/* ── Welcome ─────────────────────────────────────────────── */}
             <div>
-                <h1 className="text-2xl font-semibold tracking-tight">Teacher dashboard</h1>
+                <h1 className="text-2xl font-semibold tracking-tight">
+                    Welcome back{me?.first_name ? `, ${me.first_name}` : ""}
+                </h1>
                 <p className="text-muted-foreground mt-1 text-sm">
                     Manage your classes, attendance, and assessments.
                 </p>
             </div>
 
             {/* ── My Attendance ───────────────────────────────────────── */}
-            <MyAttendanceSection teacherId={DEMO_TEACHER_ID} />
+            <MyAttendanceSection teacherId={teacherId} />
         </div>
     );
 }

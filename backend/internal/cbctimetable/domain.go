@@ -147,3 +147,103 @@ type SlotBrief struct {
 	StartTime        string `json:"start_time"`
 	EndTime          string `json:"end_time"`
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ATTENDANCE — request / response types
+// ═══════════════════════════════════════════════════════════════════════════
+
+// CbcAttendancePeriod represents a single row in cbc_attendance_periods.
+type CbcAttendancePeriod struct {
+	ID             string `json:"id"`
+	TenantID       string `json:"tenant_id"`
+	SchoolID       string `json:"school_id"`
+	AcademicTermID string `json:"academic_term_id"`
+	ClassID        string `json:"class_id"`
+	LearningAreaID string `json:"cbc_learning_area_id"`
+	DateRecorded   string `json:"date_recorded"`
+	RecordedBy     string `json:"recorded_by"`
+	CreatedAt      string `json:"created_at"`
+}
+
+// CbcAttendanceLog represents a single row in cbc_attendance_logs.
+type CbcAttendanceLog struct {
+	ID         string  `json:"id"`
+	TenantID   string  `json:"tenant_id"`
+	PeriodID   string  `json:"cbc_attendance_period_id"`
+	StudentID  string  `json:"student_id"`
+	Status     string  `json:"status"`
+	Remarks    *string `json:"remarks"`
+	RecordedBy string  `json:"recorded_by"`
+}
+
+// AttendancePeriodSummary is the enriched period view for the list/register.
+type AttendancePeriodSummary struct {
+	ID               string `json:"id"`
+	DateRecorded     string `json:"date_recorded"`
+	LearningAreaID   string `json:"cbc_learning_area_id"`
+	LearningAreaName string `json:"learning_area_name"`
+	RecordedByName   string `json:"recorded_by_name"`
+	RecordedByID     string `json:"recorded_by_id"`
+	RecordedAt       string `json:"recorded_at"`
+	TotalStudents    int    `json:"total_students"`
+	PresentCount     int    `json:"present_count"`
+	AbsentCount      int    `json:"absent_count"`
+	LateCount        int    `json:"late_count"`
+	ExcusedCount     int    `json:"excused_count"`
+	UnmarkedCount    int    `json:"unmarked_count"`
+}
+
+// AttendanceLogDetail is a log entry with recorder details.
+type AttendanceLogDetail struct {
+	CbcAttendanceLog
+	RecorderFirstName string `json:"recorder_first_name"`
+	RecorderLastName  string `json:"recorder_last_name"`
+	RecordedByLabel   string `json:"recorded_by_label"`
+}
+
+// AttendanceHeatmapDay is a single day cell in the term-level heatmap.
+type AttendanceHeatmapDay struct {
+	Date        string   `json:"date"`
+	PeriodCount int      `json:"period_count"`
+	PresentRate *float64 `json:"present_rate"`
+	TotalMarks  int      `json:"total_marks"`
+}
+
+// AttendanceGap is a timetable slot that has no corresponding attendance period.
+type AttendanceGap struct {
+	SlotID           string  `json:"slot_id"`
+	ClassID          string  `json:"class_id"`
+	LearningAreaID   *string `json:"cbc_learning_area_id"`
+	LearningAreaName string  `json:"learning_area_name"`
+	DayOfWeek        int     `json:"day_of_week"`
+	StartTime        string  `json:"start_time"`
+	EndTime          string  `json:"end_time"`
+	Date             string  `json:"date"`
+}
+
+// CreatePeriodRequest is the request body for POST attendance/periods.
+type CreatePeriodRequest struct {
+	LearningAreaID string `json:"cbc_learning_area_id"`
+	DateRecorded   string `json:"date_recorded"`
+}
+
+// SaveLogRequest is the request body for POST attendance/logs.
+type SaveLogRequest struct {
+	PeriodID  string  `json:"cbc_attendance_period_id"`
+	StudentID string  `json:"student_id"`
+	Status    string  `json:"status"`
+	Remarks   *string `json:"remarks"`
+}
+
+// BatchSaveLogsRequest is the request body for POST attendance/logs/batch.
+type BatchSaveLogsRequest struct {
+	PeriodID string         `json:"cbc_attendance_period_id"`
+	Marks    []BatchLogMark `json:"marks"`
+}
+
+// BatchLogMark is a single entry in a batch save.
+type BatchLogMark struct {
+	StudentID string  `json:"student_id"`
+	Status    string  `json:"status"`
+	Remarks   *string `json:"remarks"`
+}

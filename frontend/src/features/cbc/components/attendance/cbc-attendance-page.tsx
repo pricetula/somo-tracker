@@ -2,31 +2,29 @@
 
 import * as React from "react";
 import { format } from "date-fns";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, ClipboardList } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-    Select,
-    SelectTrigger,
-    SelectValue,
-    SelectContent,
-    SelectItem,
-} from "@/components/ui/select";
-
+import { CbcAttendanceHeatmap } from "./cbc-attendance-heatmap";
+import { CbcAttendancePeriodList } from "./cbc-attendance-period-list";
 import { CbcAttendanceGrid } from "./cbc-attendance-grid";
 import {
     useCbcAttendancePeriods,
-    useCreateCbcAttendancePeriod,
+    useCbcAttendancePeriodSummaries,
     useCbcAttendanceLogs,
     useCbcClassStudents,
     useSaveAttendanceMark,
+    useMarkRemainingAsPresent,
+    useCreateCbcAttendancePeriod,
+    useCbcAttendanceHeatmap,
 } from "@/features/cbc/hooks/use-cbc-attendance";
 import { useCbcLearningAreas } from "@/features/cbc/hooks/use-cbc-timetable";
 import type {
     AttendanceStudentRow,
     AttendanceStatus,
+    AttendanceGap,
     OfflineAttendanceEntry,
 } from "@/features/cbc/types";
 
@@ -38,6 +36,10 @@ interface CbcAttendancePageProps {
     academicTermId: string;
     gradeId: string;
     className: string;
+    /** Current user's ID for permission checking. */
+    userId?: string;
+    /** Current user's role. */
+    userRole?: "SYSTEM_ADMIN" | "SCHOOL_ADMIN" | "TEACHER" | "SUPPORT_STAFF";
 }
 
 // ─── Component ────────────────────────────────────────────────────────────
@@ -47,23 +49,37 @@ export function CbcAttendancePage({
     academicTermId,
     gradeId,
     className,
+    userRole = "TEACHER",
 }: CbcAttendancePageProps) {
-    // ── Date state ─────────────────────────────────────────────────────
+    // ── View state ───────────────────────────────────────────────────
+    const [view, setView] = React.useState<"list" | "register">("list");
+    const [selectedPeriodId, setSelectedPeriodId] = React.useState<string | null>(null);
     const [selectedDate, setSelectedDate] = React.useState(format(new Date(), "yyyy-MM-dd"));
-
-    // ── Learning area state ───────────────────────────────────────────
-    const [selectedLearningArea, setSelectedLearningArea] = React.useState<string>("");
 
     // ── Offline optimistic queue ──────────────────────────────────────
     const [localQueue, setLocalQueue] = React.useState<OfflineAttendanceEntry[]>([]);
     const [savingStudentIds, setSavingStudentIds] = React.useState<Set<string>>(new Set());
 
+    // ── Local remarks store (studentId → remarks text) ───────────────
+    const [remarksStore, setRemarksStore] = React.useState<Record<string, string>>({});
+
     // ── Data ────────────────────────────────────────────────────────────
     const { data: learningAreas = [] } = useCbcLearningAreas(gradeId);
+    const { data: heatmapData = [], isLoading: heatmapLoading } = useCbcAttendanceHeatmap(
+        classId,
+        academicTermId
+    );
 
     const { data: periods = [], isLoading: periodsLoading } = useCbcAttendancePeriods(
         classId,
         selectedDate
+    );
+
+    // Monthly summaries used for heatmap legend / stats
+    useCbcAttendancePeriodSummaries(
+        classId,
+        format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), "yyyy-MM-dd"),
+        format(new Date(), "yyyy-MM-dd")
     );
 
     const { data: students = [], isLoading: studentsLoading } = useCbcClassStudents(
@@ -71,13 +87,14 @@ export function CbcAttendancePage({
         academicTermId
     );
 
-    // Find the attendance period matching the selected learning area
-    const matchingPeriod = periods.find((p) => p.cbc_learning_area_id === selectedLearningArea);
+    const { data: logs = [] } = useCbcAttendanceLogs(selectedPeriodId);
 
-    const { data: logs = [] } = useCbcAttendanceLogs(matchingPeriod?.id ?? null);
+    // Selected period details
+    const selectedPeriod = periods.find((p) => p.id === selectedPeriodId);
 
     const { mutateAsync: createPeriod } = useCreateCbcAttendancePeriod(classId);
-    const { mutateAsync: saveMark } = useSaveAttendanceMark(matchingPeriod?.id ?? "");
+    const { mutateAsync: saveMark } = useSaveAttendanceMark(selectedPeriodId ?? "");
+    const { mutateAsync: markRemaining } = useMarkRemainingAsPresent(selectedPeriodId ?? "");
 
     // ── Merge logs into student rows ──────────────────────────────────
     const studentRows: AttendanceStudentRow[] = React.useMemo(() => {
@@ -98,7 +115,7 @@ export function CbcAttendancePage({
         status: AttendanceStatus,
         periodId: string
     ) => {
-        // Add to local optimistic queue
+        // Add to optimistic queue
         const entry: OfflineAttendanceEntry = {
             localId: `${studentId}-${Date.now()}`,
             periodId,
@@ -112,11 +129,10 @@ export function CbcAttendancePage({
         setSavingStudentIds((prev) => new Set(prev).add(studentId));
 
         try {
-            await saveMark({ studentId, status });
-            // Remove from local queue on success
+            await saveMark({ studentId, status, remarks: remarksStore[studentId] ?? undefined });
             setLocalQueue((prev) => prev.filter((e) => e.studentId !== studentId));
         } catch {
-            // Mark stays in queue for retry; retry badge visible
+            // Stay in queue — retry badge visible
         } finally {
             setSavingStudentIds((prev) => {
                 const next = new Set(prev);
@@ -126,41 +142,106 @@ export function CbcAttendancePage({
         }
     };
 
-    // ── Start a new attendance period for the selected learning area ──
-    const handleStartAttendance = async () => {
-        if (!selectedLearningArea) return;
+    // ── Handle remarks change ─────────────────────────────────────────
+    const handleRemarksChange = (studentId: string, remarks: string) => {
+        setRemarksStore((prev) => ({ ...prev, [studentId]: remarks }));
+    };
+
+    // ── Handle Mark Remaining as Present ──────────────────────────────
+    const handleMarkRemaining = async (studentIds: string[]) => {
+        if (!selectedPeriodId || studentIds.length === 0) return;
+
+        // Optimistically update local queue
+        const entries: OfflineAttendanceEntry[] = studentIds.map((id) => ({
+            localId: `${id}-bulk-${Date.now()}`,
+            periodId: selectedPeriodId,
+            studentId: id,
+            status: "PRESENT" as AttendanceStatus,
+            timestamp: Date.now(),
+            retryCount: 0,
+        }));
+
+        setLocalQueue((prev) => [
+            ...prev.filter((e) => !studentIds.includes(e.studentId)),
+            ...entries,
+        ]);
+        studentIds.forEach((id) => {
+            setSavingStudentIds((prev) => new Set(prev).add(id));
+        });
+
         try {
-            await createPeriod({
-                cbcLearningAreaId: selectedLearningArea,
-                date: selectedDate,
-            });
+            await markRemaining(studentIds);
+            setLocalQueue((prev) => prev.filter((e) => !studentIds.includes(e.studentId)));
         } catch {
-            // Error handled in the hook (toast)
+            // Stay in queue
+        } finally {
+            studentIds.forEach((id) => {
+                setSavingStudentIds((prev) => {
+                    const next = new Set(prev);
+                    next.delete(id);
+                    return next;
+                });
+            });
         }
     };
 
-    // ── Navigate date ─────────────────────────────────────────────────
-    const goToPreviousDay = () => {
-        const d = new Date(selectedDate);
-        d.setDate(d.getDate() - 1);
-        setSelectedDate(format(d, "yyyy-MM-dd"));
+    // ── Handle selecting a period from the list ───────────────────────
+    const handleSelectPeriod = (periodId: string) => {
+        setSelectedPeriodId(periodId);
+        setView("register");
     };
 
-    const goToNextDay = () => {
-        const d = new Date(selectedDate);
-        d.setDate(d.getDate() + 1);
-        // Don't allow future dates beyond today
-        if (d <= new Date()) {
-            setSelectedDate(format(d, "yyyy-MM-dd"));
+    // ── Handle filling a gap ─────────────────────────────────────────
+    const handleFillGap = async (gap: AttendanceGap) => {
+        if (!gap.cbc_learning_area_id) return;
+
+        try {
+            const period = await createPeriod({
+                cbcLearningAreaId: gap.cbc_learning_area_id,
+                date: gap.date,
+            });
+            setSelectedPeriodId(period.id);
+            setSelectedDate(gap.date);
+            setView("register");
+        } catch {
+            // Error toast handled by hook
         }
     };
 
-    const goToToday = () => {
-        setSelectedDate(today);
+    // ── Handle starting a new period for a learning area on a date ────
+    const handleStartNewPeriod = async (learningAreaId: string, date: string) => {
+        try {
+            const period = await createPeriod({
+                cbcLearningAreaId: learningAreaId,
+                date,
+            });
+            setSelectedPeriodId(period.id);
+            setSelectedDate(date);
+            setView("register");
+        } catch {
+            // Error toast handled by hook
+        }
     };
 
-    // ── Date display ──────────────────────────────────────────────────
-    const displayDate = format(new Date(selectedDate), "EEE, MMM d, yyyy");
+    // ── Go back to list view ─────────────────────────────────────────
+    const handleBackToList = () => {
+        setSelectedPeriodId(null);
+        setView("list");
+    };
+
+    // ── Check permissions ────────────────────────────────────────────
+    // SCHOOL_ADMIN can edit all periods; TEACHER can edit if they
+    // are the recorded_by for the period. The backend enforces the
+    // canonical check against cbc_class_teachers.
+    const isNewPeriod = selectedPeriodId !== null && !selectedPeriod;
+    const canEdit =
+        userRole === "SCHOOL_ADMIN" ||
+        (userRole === "TEACHER" && (isNewPeriod || selectedPeriod?.id === selectedPeriodId));
+
+    const learningAreaOptions = learningAreas.map((la) => ({
+        id: la.id,
+        name: la.name,
+    }));
 
     // ── Render ────────────────────────────────────────────────────────
     return (
@@ -170,98 +251,93 @@ export function CbcAttendancePage({
                 <h2 className="text-lg font-medium tracking-tight">{className} — attendance</h2>
             </div>
 
-            {/* ── Date navigation ────────────────────────────────────── */}
-            <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-8"
-                        onClick={goToPreviousDay}
-                        aria-label="Previous day"
-                    >
-                        <ChevronLeft className="size-4" />
-                    </Button>
-
-                    <span className="min-w-40 text-center text-sm font-medium">{displayDate}</span>
-
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-8"
-                        onClick={goToNextDay}
-                        disabled={format(new Date(selectedDate), "yyyy-MM-dd") >= today}
-                        aria-label="Next day"
-                    >
-                        <ChevronRight className="size-4" />
-                    </Button>
-                </div>
-
-                {selectedDate !== today && (
-                    <Button variant="outline" size="sm" className="h-7 text-xs" onClick={goToToday}>
-                        Today
-                    </Button>
-                )}
-            </div>
-
-            {/* ── Learning area selector ─────────────────────────────── */}
-            <div className="flex items-center gap-3">
-                <div className="w-64">
-                    <Select value={selectedLearningArea} onValueChange={setSelectedLearningArea}>
-                        <SelectTrigger>
-                            <SelectValue placeholder="Select learning area..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {learningAreas.map((la) => (
-                                <SelectItem key={la.id} value={la.id}>
-                                    {la.name}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
-
-                {selectedLearningArea && !matchingPeriod && (
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleStartAttendance}
-                        className="h-8 text-xs"
-                    >
-                        Start attendance for this period
-                    </Button>
-                )}
-
-                {matchingPeriod && (
-                    <span className="flex items-center gap-1 text-xs font-medium text-teal-600">
-                        <span className="inline-block size-1.5 rounded-full bg-teal-500" />
-                        Attendance in progress
-                    </span>
-                )}
-            </div>
-
-            {/* ── Attendance grid ────────────────────────────────────── */}
-            <Card className="overflow-hidden">
-                {periodsLoading || studentsLoading ? (
-                    <div className="p-4">
-                        <Skeleton className="h-8 w-full" />
-                        <div className="mt-2 space-y-2">
-                            {Array.from({ length: 5 }).map((_, i) => (
-                                <Skeleton key={i} className="h-12 w-full" />
+            {/* ── Heatmap section ────────────────────────────────────── */}
+            <Card className="overflow-hidden p-4">
+                {heatmapLoading ? (
+                    <div className="space-y-2">
+                        <Skeleton className="h-4 w-32" />
+                        <div className="grid grid-cols-7 gap-1">
+                            {Array.from({ length: 35 }).map((_, i) => (
+                                <Skeleton key={i} className="size-8 rounded" />
                             ))}
                         </div>
                     </div>
                 ) : (
-                    <CbcAttendanceGrid
-                        students={studentRows}
-                        isLoading={studentsLoading}
-                        periodId={matchingPeriod?.id ?? null}
-                        localQueue={localQueue}
-                        onSelectStatus={handleSelectStatus}
-                        savingStudentIds={savingStudentIds}
+                    <CbcAttendanceHeatmap
+                        data={heatmapData}
+                        selectedDate={selectedDate}
+                        onSelectDate={(date) => {
+                            setSelectedDate(date);
+                            if (view === "register") {
+                                setView("list");
+                                setSelectedPeriodId(null);
+                            }
+                        }}
+                        termStart={format(new Date(new Date().getFullYear(), 0, 1), "yyyy-MM-dd")}
+                        termEnd={format(new Date(), "yyyy-MM-dd")}
                     />
                 )}
             </Card>
+
+            {/* ── Main content: List or Register ─────────────────────── */}
+            {view === "list" && (
+                <Card className="overflow-hidden">
+                    <div className="border-b px-3 py-2">
+                        <div className="flex items-center gap-2">
+                            <ClipboardList className="size-4 text-teal-600" />
+                            <span className="text-sm font-medium">Attendance records</span>
+                        </div>
+                    </div>
+                    <CbcAttendancePeriodList
+                        classId={classId}
+                        learningAreaOptions={learningAreaOptions}
+                        selectedPeriodId={selectedPeriodId}
+                        onSelectPeriod={handleSelectPeriod}
+                        onFillGap={handleFillGap}
+                        onStartNewPeriod={handleStartNewPeriod}
+                        academicTermId={academicTermId}
+                    />
+                </Card>
+            )}
+
+            {view === "register" && (
+                <div className="space-y-3">
+                    {/* Back button */}
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={handleBackToList}
+                    >
+                        <ArrowLeft className="mr-1 size-3.5" />
+                        Back to records
+                    </Button>
+
+                    {/* Register */}
+                    <Card className="overflow-hidden">
+                        <div className="border-b bg-gray-50 px-3 py-2">
+                            <p className="text-xs font-medium">
+                                {selectedPeriod
+                                    ? `${format(new Date(selectedPeriod.date_recorded), "MMM d, yyyy")} — ${learningAreas.find((la) => la.id === selectedPeriod.cbc_learning_area_id)?.name ?? "Unknown"}`
+                                    : "Attendance register"}
+                            </p>
+                        </div>
+                        <CbcAttendanceGrid
+                            students={studentRows}
+                            logs={logs}
+                            isLoading={studentsLoading || periodsLoading}
+                            periodId={selectedPeriodId}
+                            localQueue={localQueue}
+                            onSelectStatus={handleSelectStatus}
+                            onRemarksChange={handleRemarksChange}
+                            onMarkRemainingAsPresent={handleMarkRemaining}
+                            savingStudentIds={savingStudentIds}
+                            canEdit={canEdit}
+                            recordedByUserId={selectedPeriod?.id}
+                        />
+                    </Card>
+                </div>
+            )}
         </div>
     );
 }

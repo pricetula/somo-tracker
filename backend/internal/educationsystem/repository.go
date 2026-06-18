@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"somotracker/backend/internal/database"
@@ -17,6 +18,21 @@ type Repository struct {
 // NewRepository creates a new Repository.
 func NewRepository(pools *database.Pools) *Repository {
 	return &Repository{pool: pools.PG}
+}
+
+// GetByID returns a single education system by its UUID.
+func (r *Repository) GetByID(ctx context.Context, id string) (*EducationSystem, error) {
+	const query = `SELECT id, name, country_code FROM education_systems WHERE id = $1`
+
+	var s EducationSystem
+	err := r.pool.QueryRow(ctx, query, id).Scan(&s.ID, &s.Name, &s.CountryCode)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("get education system by id: %w", err)
+	}
+	return &s, nil
 }
 
 // ListAll returns every education system ordered by name.

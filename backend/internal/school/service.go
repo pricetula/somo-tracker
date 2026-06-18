@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
+	"somotracker/backend/internal/curriculum"
+	"somotracker/backend/internal/educationsystem"
 )
 
 // ErrNameAlreadyExists is returned when a school with the same name already exists in the tenant.
@@ -11,12 +14,18 @@ var ErrNameAlreadyExists = errors.New("a school with this name already exists in
 
 // Service contains business logic for school operations.
 type Service struct {
-	repo *SqlcRepository
+	repo          *SqlcRepository
+	eduSysRepo    *educationsystem.Repository
+	curriculumSdr *curriculum.Seeder
 }
 
 // NewService creates a new Service.
-func NewService(repo *SqlcRepository) *Service {
-	return &Service{repo: repo}
+func NewService(repo *SqlcRepository, eduSysRepo *educationsystem.Repository, curriculumSdr *curriculum.Seeder) *Service {
+	return &Service{
+		repo:          repo,
+		eduSysRepo:    eduSysRepo,
+		curriculumSdr: curriculumSdr,
+	}
 }
 
 // GetByID returns a school by ID.
@@ -92,7 +101,9 @@ func (s *Service) DeleteSchool(ctx context.Context, id, tenantID string) error {
 	return s.repo.Delete(ctx, id)
 }
 
-// CreateSchool creates a new school and assigns the creator as SCHOOL_ADMIN.
+// CreateSchool creates a new school, assigns the creator as SCHOOL_ADMIN,
+// and — if the education system is Kenya CBC — seeds the full curriculum
+// hierarchy (learning areas, strands, sub-strands, learning outcomes).
 func (s *Service) CreateSchool(ctx context.Context, tenantID, name, educationSystemID, userID string) (*School, error) {
 	// Check for duplicate name within the tenant
 	existing, err := s.repo.ListByTenant(ctx, tenantID)
@@ -111,5 +122,34 @@ func (s *Service) CreateSchool(ctx context.Context, tenantID, name, educationSys
 		return nil, err
 	}
 
+	// If this is a CBC school, seed the curriculum
+	if err := s.seedCBCIfNeeded(ctx, tenantID, school, educationSystemID); err != nil {
+		// Log but don't fail — the school was created successfully.
+		// The curriculum can be retried manually or via a background job.
+		return school, fmt.Errorf("school created but curriculum seeding failed: %w", err)
+	}
+
 	return school, nil
+}
+
+// seedCBCIfNeeded checks whether the education system is Kenya CBC and, if so,
+// seeds the full curriculum hierarchy from the fixture JSON.
+func (s *Service) seedCBCIfNeeded(ctx context.Context, tenantID string, school *School, educationSystemID string) error {
+	eduSys, err := s.eduSysRepo.GetByID(ctx, educationSystemID)
+	if err != nil {
+		return fmt.Errorf("lookup education system: %w", err)
+	}
+	if eduSys == nil {
+		return fmt.Errorf("education system %s not found", educationSystemID)
+	}
+
+	if eduSys.Name != "Kenya CBC" {
+		return nil // Not a CBC school — nothing to seed
+	}
+
+	if err := s.curriculumSdr.SeedCBCForSchool(ctx, tenantID, school.ID, educationSystemID); err != nil {
+		return fmt.Errorf("seed cbc curriculum: %w", err)
+	}
+
+	return nil
 }

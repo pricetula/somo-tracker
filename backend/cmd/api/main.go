@@ -33,6 +33,7 @@ import (
 	"somotracker/backend/internal/auth"
 	"somotracker/backend/internal/classes"
 	"somotracker/backend/internal/config"
+	"somotracker/backend/internal/curriculum"
 	"somotracker/backend/internal/database"
 	"somotracker/backend/internal/educationsystem"
 	"somotracker/backend/internal/members"
@@ -53,6 +54,7 @@ func main() {
 		utils.Module,
 		tenant.Module,
 		auth.Module,
+		curriculum.Module,
 		educationsystem.Module,
 		school.Module,
 		academiccalendar.Module,

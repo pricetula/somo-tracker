@@ -1,0 +1,794 @@
+{
+  "_meta": {
+    "title": "Kenya CBC Curriculum Reference Data",
+    "description": "Portable reference dataset mapping CBC grade names to learning areas, strands, sub-strands, and learning outcomes. The backend loads this file when seeding curriculum for a CBC school.",
+    "source": "docs/cbc-cariculum.json — compiled from KICD curriculum designs (kicd.ac.ke)",
+    "usage": "Match grade.name against the grades seeded in 000002_seed.up.sql, then insert learning areas, strands, sub-strands, and outcomes using runtime-allocated UUIDs.",
+    "last_exported": "2026-06-18"
+  },
+  "grades": [
+    {
+      "grade_name": "PP1",
+      "learning_areas": [
+        {
+          "name": "Language Activities",
+          "code": "LAN",
+          "strands": [
+            {
+              "name": "Listening and Speaking",
+              "sub_strands": [
+                {
+                  "name": "Listening and Attention",
+                  "outcomes": [
+                    "Develop appropriate listening skills from varied experiences to enrich their ability to communicate",
+                    "Participate in conversation using appropriate verbal and non-verbal language in everyday experiences"
+                  ]
+                },
+                {
+                  "name": "Free Expression",
+                  "outcomes": [
+                    "Express own opinions, ideas and feelings creatively, freely and confidently in varied situations as they appreciate others"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Mathematical Activities",
+          "code": "MATH",
+          "strands": [
+            {
+              "name": "Numbers",
+              "sub_strands": [
+                {
+                  "name": "Pre-Number Activities (Matching, Sorting, Classifying)",
+                  "outcomes": [
+                    "Sort and classify objects according to one attribute such as colour, shape or size",
+                    "Match objects in a one-to-one correspondence for counting readiness"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "grade_name": "PP2",
+      "learning_areas": [
+        {
+          "name": "Language Activities",
+          "code": "LAN",
+          "strands": [
+            {
+              "name": "Listening and Speaking",
+              "sub_strands": [
+                {
+                  "name": "Conversation and Polite Language",
+                  "outcomes": [
+                    "Communicate appropriately using verbal and/or non-verbal modes in a variety of contexts",
+                    "Demonstrate appropriate etiquette in social relationships"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Mathematical Activities",
+          "code": "MATH",
+          "strands": [
+            {
+              "name": "Numbers",
+              "sub_strands": [
+                {
+                  "name": "Number Recognition and Counting",
+                  "outcomes": [
+                    "Recite number names in sequence for number readiness",
+                    "Demonstrate basic numeracy skills for learning"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Psychomotor and Creative Activities",
+          "code": "PCA",
+          "strands": [
+            {
+              "name": "Art and Craft",
+              "sub_strands": [
+                {
+                  "name": "Drawing and Colouring",
+                  "outcomes": [
+                    "Create artworks to share ideas, thoughts, feelings and experiences for learning and enjoyment",
+                    "Appreciate own and others' artworks from within their social context and culture"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "grade_name": "Grade 1",
+      "learning_areas": [
+        {
+          "name": "Mathematical Activities",
+          "code": "MATH",
+          "strands": [
+            {
+              "name": "Numbers",
+              "sub_strands": [
+                {
+                  "name": "Pre-Number Activities",
+                  "outcomes": [
+                    "Sort objects according to colour, shape and size for classification",
+                    "Make patterns using real objects to develop logical reasoning"
+                  ]
+                },
+                {
+                  "name": "Number and Place Value (1-10)",
+                  "outcomes": [
+                    "Recite number names up to 50 in sequence",
+                    "Identify place value of ones and tens"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Movement Activities",
+          "code": "MOV",
+          "strands": [
+            {
+              "name": "Basic Movement Skills",
+              "sub_strands": [
+                {
+                  "name": "Locomotor Skill: Walking",
+                  "outcomes": [
+                    "Name the parts of the body that are in use when walking for body awareness",
+                    "Perform walking in different ways for strength, coordination, endurance, balance and space awareness"
+                  ]
+                },
+                {
+                  "name": "Locomotor Skill: Running",
+                  "outcomes": [
+                    "Perform running in different ways for strength, coordination, endurance, balance and space awareness",
+                    "Observe rules when playing games for own and others' safety"
+                  ]
+                },
+                {
+                  "name": "Locomotor Skill: Jumping for Height",
+                  "outcomes": [
+                    "Perform jumping for height in different ways for strength, coordination, endurance, balance and space awareness",
+                    "Appreciate jumping for height for strength, coordination, balance and self-esteem"
+                  ]
+                },
+                {
+                  "name": "Non-Locomotor Skill: Stretching",
+                  "outcomes": [
+                    "Perform stretching in different ways for flexibility, agility, coordination and space awareness",
+                    "Establish relationships through stretching for critical thinking and problem solving"
+                  ]
+                },
+                {
+                  "name": "Manipulative Skill: Overarm Throw",
+                  "outcomes": [
+                    "Perform the overarm throw in different ways for strength, coordination, endurance, balance and space awareness",
+                    "Make appropriate play items for creativity and imagination"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Swimming",
+              "sub_strands": [
+                {
+                  "name": "Water Safety: Pool Rules",
+                  "outcomes": [
+                    "Familiarize with the pool rules for safety",
+                    "Observe sanitation around the pool environs for personal hygiene"
+                  ]
+                },
+                {
+                  "name": "Basic Swimming Skills: Exhaling in Water",
+                  "outcomes": [
+                    "Practice exhaling in water for sustained swimming",
+                    "Appreciate exhaling in water for stamina and endurance"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Gymnastics",
+              "sub_strands": [
+                {
+                  "name": "Static Balances: Single Leg Balance",
+                  "outcomes": [
+                    "Perform the single leg balance for coordination, balance, strength and space awareness",
+                    "Appreciate performing the single leg balance for self-esteem"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "grade_name": "Grade 2",
+      "learning_areas": [
+        {
+          "name": "Environmental Activities",
+          "code": "ENV",
+          "strands": [
+            {
+              "name": "Social Environment",
+              "sub_strands": [
+                {
+                  "name": "Keeping the School Environment Clean",
+                  "outcomes": [
+                    "Name ways of keeping the school environment clean",
+                    "Clean the school environment for the well-being of self and others"
+                  ]
+                },
+                {
+                  "name": "Family Needs and Wants",
+                  "outcomes": [
+                    "Mention differences between family needs and wants",
+                    "Classify family needs and wants for financial literacy awareness"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Personal Environment",
+              "sub_strands": [
+                {
+                  "name": "Care of Personal and Common Items",
+                  "outcomes": [
+                    "Differentiate between personal and common items used at home",
+                    "Clean personal and common items using locally available materials"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Mathematical Activities",
+          "code": "MATH",
+          "strands": [
+            {
+              "name": "Numbers",
+              "sub_strands": [
+                {
+                  "name": "Place Value",
+                  "outcomes": [
+                    "Identify the place value of ones, tens and hundreds",
+                    "Use place value to compare and order numbers"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "grade_name": "Grade 3",
+      "learning_areas": [
+        {
+          "name": "Kiswahili Language Activities",
+          "code": "KISW",
+          "strands": [
+            {
+              "name": "Kusikiliza na Kuzungumza (Listening and Speaking)",
+              "sub_strands": [
+                {
+                  "name": "Matumizi ya Lugha ya Heshima",
+                  "outcomes": [
+                    "Kutumia lugha ya heshima katika mazungumzo ya kila siku",
+                    "Kushiriki katika mazungumzo kwa kujiamini"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Hygiene and Nutrition Activities",
+          "code": "HGN",
+          "strands": [
+            {
+              "name": "Personal Hygiene",
+              "sub_strands": [
+                {
+                  "name": "Care of the Body",
+                  "outcomes": [
+                    "Practice hygiene, nutrition, sanitation and safety skills to promote health and wellbeing",
+                    "Demonstrate correct handwashing procedure to prevent communicable diseases"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "grade_name": "Grade 4",
+      "learning_areas": [
+        {
+          "name": "Science and Technology",
+          "code": "SCT",
+          "strands": [
+            {
+              "name": "Matter",
+              "sub_strands": [
+                {
+                  "name": "Properties of the Three States of Matter",
+                  "outcomes": [
+                    "Demonstrate the properties of the three states of matter through hands-on activities",
+                    "Practice preventive health measures, such as avoiding blowing air into a shared balloon, when carrying out activities on matter"
+                  ]
+                },
+                {
+                  "name": "Management of Solid Waste",
+                  "outcomes": [
+                    "Identify solid waste within the school compound and its environment",
+                    "Discuss ways of managing different types of solid waste in the environment"
+                  ]
+                },
+                {
+                  "name": "Water Conservation",
+                  "outcomes": [
+                    "Explain the meaning of water conservation",
+                    "Discuss ways water is wasted at home and at school"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "grade_name": "Grade 5",
+      "learning_areas": [
+        {
+          "name": "Social Studies",
+          "code": "SST",
+          "strands": [
+            {
+              "name": "Natural and Built Environments",
+              "sub_strands": [
+                {
+                  "name": "Location, Position and Size of Kenya",
+                  "outcomes": [
+                    "Identify countries that neighbour Kenya",
+                    "Locate the position of Kenya in relation to her neighbours using a compass direction",
+                    "Value good relations between Kenya and her neighbours"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "English Language Activities",
+          "code": "ENG",
+          "strands": [
+            {
+              "name": "Listening and Speaking",
+              "sub_strands": [
+                {
+                  "name": "Listening Comprehension: Oral Narratives",
+                  "outcomes": [
+                    "Recognise sounds, words and phrases correctly",
+                    "Listen for the main idea and specific details for effective communication"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Writing",
+              "sub_strands": [
+                {
+                  "name": "Filling in Forms",
+                  "outcomes": [
+                    "Record specific details in a variety of forms",
+                    "Acknowledge the importance of filling forms correctly"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "grade_name": "Grade 6",
+      "learning_areas": [
+        {
+          "name": "Mathematics",
+          "code": "MATH",
+          "strands": [
+            {
+              "name": "Numbers",
+              "sub_strands": [
+                {
+                  "name": "Whole Numbers",
+                  "outcomes": [
+                    "Read and write numbers in symbols and words up to millions",
+                    "Round off numbers to the nearest given place value"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Science and Technology",
+          "code": "SCT",
+          "strands": [
+            {
+              "name": "Living Things and Their Environment",
+              "sub_strands": [
+                {
+                  "name": "Plants and Animals",
+                  "outcomes": [
+                    "Classify plants and animals based on observable characteristics",
+                    "Appreciate the role of plants and animals in the ecosystem"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "grade_name": "Grade 7 (JSS 1)",
+      "learning_areas": [
+        {
+          "name": "Mathematics",
+          "code": "MATH",
+          "strands": [
+            {
+              "name": "Numbers",
+              "sub_strands": [
+                {
+                  "name": "Whole Numbers",
+                  "outcomes": [
+                    "Identify place value and total value of digits in large numbers",
+                    "Apply whole numbers to perform mathematical operations in real-life situations"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "English",
+          "code": "ENG",
+          "strands": [
+            {
+              "name": "Listening and Speaking",
+              "sub_strands": [
+                {
+                  "name": "Listening Comprehension",
+                  "outcomes": [
+                    "Listen attentively and respond to a variety of oral texts",
+                    "Use appropriate non-verbal cues during listening for effective communication"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Agriculture",
+          "code": "AGR",
+          "strands": [
+            {
+              "name": "Crop Production",
+              "sub_strands": [
+                {
+                  "name": "Crop Husbandry Practices",
+                  "outcomes": [
+                    "Identify common crops grown in the local area",
+                    "Practice basic crop husbandry activities such as planting and tending crops in the school farm"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Pre-Technical and Pre-Career Education",
+          "code": "PTPC",
+          "strands": [
+            {
+              "name": "Business Environment",
+              "sub_strands": [
+                {
+                  "name": "Introduction to Entrepreneurship",
+                  "outcomes": [
+                    "Explain the meaning and importance of entrepreneurship",
+                    "Design a simple mini business plan and pitch the idea to peers"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Life Skills Education",
+          "code": "LSE",
+          "strands": [
+            {
+              "name": "Self Awareness",
+              "sub_strands": [
+                {
+                  "name": "Decision Making and Coping with Stress",
+                  "outcomes": [
+                    "Identify personal strengths and areas for self-improvement",
+                    "Demonstrate appropriate ways of coping with stress in day-to-day life"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "grade_name": "Grade 8 (JSS 2)",
+      "learning_areas": [
+        {
+          "name": "Integrated Science",
+          "code": "ISC",
+          "strands": [
+            {
+              "name": "Mixtures, Elements and Compounds",
+              "sub_strands": [
+                {
+                  "name": "Elements and Compounds",
+                  "outcomes": [
+                    "Distinguish between an element and a compound",
+                    "Relate common elements to their chemical symbols",
+                    "Appreciate the information found on packaging labels of commonly consumed substances"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "English",
+          "code": "ENG",
+          "strands": [
+            {
+              "name": "Reading",
+              "sub_strands": [
+                {
+                  "name": "Independent Reading",
+                  "outcomes": [
+                    "Identify print and non-print texts that are interesting to read",
+                    "Appreciate the importance of reading for enjoyment"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Listening and Speaking",
+              "sub_strands": [
+                {
+                  "name": "Polite Language (Telephone Etiquette)",
+                  "outcomes": [
+                    "Use polite expressions appropriately during telephone conversations",
+                    "Demonstrate conversational skills such as disagreeing politely"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Social Studies",
+          "code": "SST",
+          "strands": [
+            {
+              "name": "Social Studies and Personal Management",
+              "sub_strands": [
+                {
+                  "name": "Self-Improvement",
+                  "outcomes": [
+                    "Describe personality traits for self-understanding",
+                    "Appreciate the role of values in the development of personality traits"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "grade_name": "Grade 9 (JSS 3)",
+      "learning_areas": [
+        {
+          "name": "Integrated Science",
+          "code": "ISC",
+          "strands": [
+            {
+              "name": "Scientific Investigation",
+              "sub_strands": [
+                {
+                  "name": "Scientific Methods and Skills",
+                  "outcomes": [
+                    "Apply the scientific method to investigate a problem",
+                    "Appreciate the role of scientific investigation in solving real-life problems"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Mixtures, Elements and Compounds",
+              "sub_strands": [
+                {
+                  "name": "Separation Techniques",
+                  "outcomes": [
+                    "Select appropriate methods of separating different types of mixtures",
+                    "Apply separation techniques to solve everyday problems"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Living Things and Their Environment",
+              "sub_strands": [
+                {
+                  "name": "Interdependence of Living Things",
+                  "outcomes": [
+                    "Describe the interdependence between living things and their environment",
+                    "Advocate for conservation of the environment for sustainable living"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Force and Energy",
+              "sub_strands": [
+                {
+                  "name": "Forms and Sources of Energy",
+                  "outcomes": [
+                    "Identify various forms and sources of energy used in day-to-day life",
+                    "Appreciate the importance of renewable sources of energy for sustainable development"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "grade_name": "Grade 10 (SSS 1)",
+      "learning_areas": [
+        {
+          "name": "Core Mathematics",
+          "code": "CMATH",
+          "strands": [
+            {
+              "name": "Numbers",
+              "sub_strands": [
+                {
+                  "name": "Real Numbers",
+                  "outcomes": [
+                    "Identify and categorise whole numbers as odd, even, prime, composite, rational and irrational",
+                    "Use the reciprocal of real numbers to work out mathematical tasks"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Indices and Logarithms",
+              "sub_strands": [
+                {
+                  "name": "Application of Indices and Logarithms",
+                  "outcomes": [
+                    "Derive and apply the laws of indices in different situations",
+                    "Determine and apply common logarithms of numbers in mathematical computations"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Quadratic Expressions and Equations",
+              "sub_strands": [
+                {
+                  "name": "Formation and Simplification of Quadratic Expressions",
+                  "outcomes": [
+                    "Form quadratic expressions from given mathematical statements or real-life situations",
+                    "Simplify quadratic expressions using appropriate mathematical operations"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "grade_name": "Grade 11 (SSS 2)",
+      "learning_areas": [
+        {
+          "name": "Biology (STEM Pathway)",
+          "code": "BIO",
+          "strands": [
+            {
+              "name": "Genetics",
+              "sub_strands": [
+                {
+                  "name": "Principles of Inheritance",
+                  "outcomes": [
+                    "Explain the basic principles of Mendelian inheritance",
+                    "Apply genetic principles to solve simple monohybrid cross problems"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "History and Citizenship (Social Sciences Pathway)",
+          "code": "HIST",
+          "strands": [
+            {
+              "name": "Kenya and the World",
+              "sub_strands": [
+                {
+                  "name": "Kenya's Foreign Policy",
+                  "outcomes": [
+                    "Explain the principles guiding Kenya's foreign policy",
+                    "Appreciate Kenya's role in regional and international cooperation"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "grade_name": "Grade 12 (SSS 3)",
+      "learning_areas": [
+        {
+          "name": "Community Service Learning",
+          "code": "CSL",
+          "strands": [
+            {
+              "name": "Community Project Implementation",
+              "sub_strands": [
+                {
+                  "name": "Project Execution and Portfolio Development",
+                  "outcomes": [
+                    "Plan and execute a community service project addressing an identified community need",
+                    "Present a portfolio of evidence demonstrating impact and reflection on the project"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

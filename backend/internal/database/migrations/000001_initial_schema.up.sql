@@ -59,6 +59,11 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
+DO $$ BEGIN
+    CREATE TYPE invitation_status AS ENUM ('pending', 'accepted', 'expired', 'revoked');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
 -- ------------------------------------------------------------
 -- TENANTS
 -- ------------------------------------------------------------
@@ -205,11 +210,43 @@ CREATE INDEX IF NOT EXISTS idx_invitations_status    ON invitations (status);
 -- GRADES
 -- ------------------------------------------------------------
 
+CREATE TABLE IF NOT EXISTS curriculum_stages (
+    id                  UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    education_system_id UUID         NOT NULL REFERENCES education_systems(id) ON DELETE CASCADE,
+    name                VARCHAR(100) NOT NULL, -- e.g., 'Early Years', 'Upper Primary', 'Junior Secondary'
+    code                VARCHAR(50)  NOT NULL, -- e.g., 'CBC_EARLY_YEARS', 'CBC_UPPER_PRIMARY'
+    
+    CONSTRAINT uq_curriculum_stage_code UNIQUE (education_system_id, code)
+);
+
+CREATE TABLE IF NOT EXISTS assessment_grade_scales (
+    id                  UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    curriculum_stage_id UUID          NOT NULL REFERENCES curriculum_stages(id) ON DELETE CASCADE,
+    grade_key           VARCHAR(10)   NOT NULL, -- e.g., 'EE', 'ME', 'A', 'B+'
+    description         VARCHAR(255),           -- e.g., 'Exceeding Expectations'
+    min_percentage      NUMERIC(5,2),           -- Nullable for early years (e.g., 80.00)
+    max_percentage      NUMERIC(5,2),           -- Nullable for early years (e.g., 100.00)
+    points              INT,                    -- Nullable (used for Senior School 12-point scale)
+    
+    CONSTRAINT uq_stage_grade_key UNIQUE (curriculum_stage_id, grade_key)
+);
+
+CREATE TABLE IF NOT EXISTS assessment_types (
+    id                  UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    curriculum_stage_id UUID         NOT NULL REFERENCES curriculum_stages(id) ON DELETE CASCADE,
+    name                VARCHAR(100) NOT NULL, -- e.g., 'Classroom Based Assessment (CBA)', 'KPSEA'
+    code                VARCHAR(50)  NOT NULL, -- e.g., 'FORMATIVE_CBA', 'SUMMATIVE_NATIONAL'
+    weight_contribution NUMERIC(5,2) NOT NULL DEFAULT 0.00, -- e.g., 60.00 or 40.00 for upper primary
+    
+    CONSTRAINT uq_stage_assessment_code UNIQUE (curriculum_stage_id, code)
+);
+
 CREATE TABLE IF NOT EXISTS grades (
     id                  UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     education_system_id UUID         NOT NULL REFERENCES education_systems(id) ON DELETE CASCADE,
     name                VARCHAR(100) NOT NULL,
     sequence_order      INT          NOT NULL,
+    curriculum_stage_id UUID NOT NULL REFERENCES curriculum_stages(id)
     
     CONSTRAINT uq_grades_education_system UNIQUE (education_system_id, id)
 );

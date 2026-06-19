@@ -48,22 +48,23 @@ seeded_assessment_types AS (
 -- Step 3: Seed the Grade Scale Rubrics & Percentage Bands per Stage
 seeded_scales AS (
     INSERT INTO assessment_grade_scales (id, curriculum_stage_id, grade_key, description, min_percentage, max_percentage, points) VALUES
-        -- Early Years & Lower Primary: Pure Qualitative Rubrics (No percentages or numeric points)
-        (gen_random_uuid(), (SELECT id FROM seeded_stages WHERE code = 'CBC_EARLY_YEARS'), 'EE', 'Exceeding Expectations', NULL, NULL, NULL),
-        (gen_random_uuid(), (SELECT id FROM seeded_stages WHERE code = 'CBC_EARLY_YEARS'), 'ME', 'Meeting Expectations', NULL, NULL, NULL),
-        (gen_random_uuid(), (SELECT id FROM seeded_stages WHERE code = 'CBC_EARLY_YEARS'), 'AE', 'Approaching Expectations', NULL, NULL, NULL),
-        (gen_random_uuid(), (SELECT id FROM seeded_stages WHERE code = 'CBC_EARLY_YEARS'), 'BE', 'Below Expectations', NULL, NULL, NULL),
+        -- Early Years Education (Manually adding points 1-4)
+        (gen_random_uuid(), (SELECT id FROM seeded_stages WHERE code = 'CBC_EARLY_YEARS'), 'EE', 'Exceeding Expectations', NULL, NULL, 4),
+        (gen_random_uuid(), (SELECT id FROM seeded_stages WHERE code = 'CBC_EARLY_YEARS'), 'ME', 'Meeting Expectations', NULL, NULL, 3),
+        (gen_random_uuid(), (SELECT id FROM seeded_stages WHERE code = 'CBC_EARLY_YEARS'), 'AE', 'Approaching Expectations', NULL, NULL, 2),
+        (gen_random_uuid(), (SELECT id FROM seeded_stages WHERE code = 'CBC_EARLY_YEARS'), 'BE', 'Below Expectations', NULL, NULL, 1),
         
-        (gen_random_uuid(), (SELECT id FROM seeded_stages WHERE code = 'CBC_LOWER_PRIMARY'), 'EE', 'Exceeding Expectations', NULL, NULL, NULL),
-        (gen_random_uuid(), (SELECT id FROM seeded_stages WHERE code = 'CBC_LOWER_PRIMARY'), 'ME', 'Meeting Expectations', NULL, NULL, NULL),
-        (gen_random_uuid(), (SELECT id FROM seeded_stages WHERE code = 'CBC_LOWER_PRIMARY'), 'AE', 'Approaching Expectations', NULL, NULL, NULL),
-        (gen_random_uuid(), (SELECT id FROM seeded_stages WHERE code = 'CBC_LOWER_PRIMARY'), 'BE', 'Below Expectations', NULL, NULL, NULL),
+        -- Lower Primary (Manually adding points 1-4)
+        (gen_random_uuid(), (SELECT id FROM seeded_stages WHERE code = 'CBC_LOWER_PRIMARY'), 'EE', 'Exceeding Expectations', NULL, NULL, 4),
+        (gen_random_uuid(), (SELECT id FROM seeded_stages WHERE code = 'CBC_LOWER_PRIMARY'), 'ME', 'Meeting Expectations', NULL, NULL, 3),
+        (gen_random_uuid(), (SELECT id FROM seeded_stages WHERE code = 'CBC_LOWER_PRIMARY'), 'AE', 'Approaching Expectations', NULL, NULL, 2),
+        (gen_random_uuid(), (SELECT id FROM seeded_stages WHERE code = 'CBC_LOWER_PRIMARY'), 'BE', 'Below Expectations', NULL, NULL, 1),
 
-        -- Upper Primary: Rubrics map to numerical percentage thresholds
-        (gen_random_uuid(), (SELECT id FROM seeded_stages WHERE code = 'CBC_UPPER_PRIMARY'), 'EE', 'Exceeding Expectations', 80.00, 100.00, NULL),
-        (gen_random_uuid(), (SELECT id FROM seeded_stages WHERE code = 'CBC_UPPER_PRIMARY'), 'ME', 'Meeting Expectations', 60.00, 79.99, NULL),
-        (gen_random_uuid(), (SELECT id FROM seeded_stages WHERE code = 'CBC_UPPER_PRIMARY'), 'AE', 'Approaching Expectations', 40.00, 59.99, NULL),
-        (gen_random_uuid(), (SELECT id FROM seeded_stages WHERE code = 'CBC_UPPER_PRIMARY'), 'BE', 'Below Expectations', 0.00, 39.99, NULL),
+        -- Upper Primary (Manually adding points 1-4 alongside their percentage thresholds)
+        (gen_random_uuid(), (SELECT id FROM seeded_stages WHERE code = 'CBC_UPPER_PRIMARY'), 'EE', 'Exceeding Expectations', 80.00, 100.00, 4),
+        (gen_random_uuid(), (SELECT id FROM seeded_stages WHERE code = 'CBC_UPPER_PRIMARY'), 'ME', 'Meeting Expectations', 60.00, 79.99, 3),
+        (gen_random_uuid(), (SELECT id FROM seeded_stages WHERE code = 'CBC_UPPER_PRIMARY'), 'AE', 'Approaching Expectations', 40.00, 59.99, 2),
+        (gen_random_uuid(), (SELECT id FROM seeded_stages WHERE code = 'CBC_UPPER_PRIMARY'), 'BE', 'Below Expectations', 0.00, 39.99, 1),
 
         -- Junior Secondary: 8-Level Advanced Granular Scale
         (gen_random_uuid(), (SELECT id FROM seeded_stages WHERE code = 'CBC_JUNIOR_SECONDARY'), 'EE1', 'Exceeding Expectations Tier 1', 90.00, 100.00, 8),

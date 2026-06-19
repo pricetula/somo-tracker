@@ -283,8 +283,14 @@ CREATE INDEX IF NOT EXISTS idx_academic_terms_tenant_id ON academic_terms (tenan
 CREATE INDEX IF NOT EXISTS idx_academic_terms_school_id ON academic_terms (school_id);
 CREATE INDEX IF NOT EXISTS idx_academic_terms_year_id   ON academic_terms (academic_year_id);
 
+-- (tenant_id, id) supports composite FKs from assessments and other children.
+-- (tenant_id, school_id, id) supports composite FKs that need school scoping.
 ALTER TABLE academic_terms
     ADD CONSTRAINT uq_academic_terms_tenant UNIQUE (tenant_id, id)
+    IF NOT EXISTS;
+
+ALTER TABLE academic_terms
+    ADD CONSTRAINT uq_academic_terms_tenant_school UNIQUE (tenant_id, school_id, id)
     IF NOT EXISTS;
 
 ALTER TABLE academic_terms
@@ -395,8 +401,8 @@ ALTER TABLE student_enrollments
     IF NOT EXISTS;
 
 ALTER TABLE student_enrollments
-    ADD CONSTRAINT fk_enrollments_tenant_term
-    FOREIGN KEY (tenant_id, academic_term_id) REFERENCES academic_terms(tenant_id, id) ON DELETE CASCADE
+    ADD CONSTRAINT fk_enrollments_tenant_school_term
+    FOREIGN KEY (tenant_id, school_id, academic_term_id) REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE
     IF NOT EXISTS;
 
 ALTER TABLE student_enrollments
@@ -659,7 +665,7 @@ ALTER TABLE cbc_attendance_periods
 
 ALTER TABLE cbc_attendance_periods
     ADD CONSTRAINT fk_cbc_att_periods_tenant_term
-    FOREIGN KEY (tenant_id, academic_term_id) REFERENCES academic_terms(tenant_id, id) ON DELETE CASCADE
+    FOREIGN KEY (tenant_id, school_id, academic_term_id) REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE
     IF NOT EXISTS;
 
 ALTER TABLE cbc_attendance_periods
@@ -727,7 +733,7 @@ ALTER TABLE igcse_attendance_periods
 
 ALTER TABLE igcse_attendance_periods
     ADD CONSTRAINT fk_igcse_att_periods_tenant_term
-    FOREIGN KEY (tenant_id, academic_term_id) REFERENCES academic_terms(tenant_id, id) ON DELETE CASCADE
+    FOREIGN KEY (tenant_id, school_id, academic_term_id) REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE
     IF NOT EXISTS;
 
 ALTER TABLE igcse_attendance_periods
@@ -795,7 +801,7 @@ ALTER TABLE ib_attendance_periods
 
 ALTER TABLE ib_attendance_periods
     ADD CONSTRAINT fk_ib_att_periods_tenant_term
-    FOREIGN KEY (tenant_id, academic_term_id) REFERENCES academic_terms(tenant_id, id) ON DELETE CASCADE
+    FOREIGN KEY (tenant_id, school_id, academic_term_id) REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE
     IF NOT EXISTS;
 
 ALTER TABLE ib_attendance_periods
@@ -1090,7 +1096,7 @@ ALTER TABLE fee_templates
 
 ALTER TABLE fee_templates
     ADD CONSTRAINT fk_fee_templates_tenant_term
-    FOREIGN KEY (tenant_id, academic_term_id) REFERENCES academic_terms(tenant_id, id) ON DELETE CASCADE
+    FOREIGN KEY (tenant_id, school_id, academic_term_id) REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE
     IF NOT EXISTS;
 
 ALTER TABLE fee_templates
@@ -1129,7 +1135,7 @@ ALTER TABLE invoices
 
 ALTER TABLE invoices
     ADD CONSTRAINT fk_invoices_tenant_term
-    FOREIGN KEY (tenant_id, academic_term_id) REFERENCES academic_terms(tenant_id, id) ON DELETE CASCADE
+    FOREIGN KEY (tenant_id, school_id, academic_term_id) REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE
     IF NOT EXISTS;
 
 ALTER TABLE invoices

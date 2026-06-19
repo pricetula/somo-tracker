@@ -78,8 +78,6 @@ CREATE INDEX IF NOT EXISTS idx_tenants_stytch_org_id ON tenants (stytch_org_id);
 -- USERS
 -- ------------------------------------------------------------
 
--- tenant_id is NULL for SYSTEM_ADMIN accounts.
--- external_auth_id is nullable for pre-invited accounts not yet activated in Stytch.
 CREATE TABLE IF NOT EXISTS users (
     id               UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     email            VARCHAR(255) NOT NULL,
@@ -89,14 +87,13 @@ CREATE TABLE IF NOT EXISTS users (
     is_active        BOOLEAN      NOT NULL DEFAULT TRUE,
     external_auth_id VARCHAR(255) UNIQUE,
     created_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-    updated_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+    updated_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    
+    CONSTRAINT uq_users_tenant UNIQUE (tenant_id, id)
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email    ON users (email);
 CREATE INDEX        IF NOT EXISTS idx_users_tenant   ON users (tenant_id);
-
--- Required for composite FKs from timetable and other child tables.
-ALTER TABLE users ADD CONSTRAINT uq_users_tenant UNIQUE (tenant_id, id) IF NOT EXISTS;
 
 DROP TRIGGER IF EXISTS trg_users_updated_at ON users;
 CREATE TRIGGER trg_users_updated_at
@@ -130,10 +127,9 @@ CREATE INDEX IF NOT EXISTS idx_sessions_stytch_session_token ON sessions (stytch
 -- ------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS education_systems (
-    id           UUID    PRIMARY KEY DEFAULT gen_random_uuid(),
+    id           UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     name         VARCHAR(100) NOT NULL UNIQUE,
-    country_code CHAR(2) NOT NULL
-        CONSTRAINT chk_country_code_format CHECK (country_code ~ '^[A-Z]{2}$')
+    country_code CHAR(2)      NOT NULL CONSTRAINT chk_country_code_format CHECK (country_code ~ '^[A-Z]{2}$')
 );
 
 -- ------------------------------------------------------------
@@ -146,40 +142,34 @@ CREATE TABLE IF NOT EXISTS schools (
     education_system_id UUID    NOT NULL REFERENCES education_systems(id),
     name                VARCHAR(255) NOT NULL,
     is_active           BOOLEAN NOT NULL DEFAULT true,
-    is_demo             BOOLEAN NOT NULL DEFAULT false
+    is_demo             BOOLEAN NOT NULL DEFAULT false,
+    
+    CONSTRAINT uq_schools_tenant UNIQUE (tenant_id, id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_schools_tenant_id           ON schools (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_schools_education_system_id ON schools (education_system_id);
-
-ALTER TABLE schools ADD CONSTRAINT uq_schools_tenant UNIQUE (tenant_id, id) IF NOT EXISTS;
 
 -- ------------------------------------------------------------
 -- MEMBERSHIPS
 -- ------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS memberships (
-    id         UUID      PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id  UUID      NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    user_id    UUID      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    school_id  UUID      NOT NULL,
-    role       user_role NOT NULL,
-    is_active  BOOLEAN   NOT NULL DEFAULT true,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id  UUID        NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    user_id    UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    school_id  UUID        NOT NULL,
+    role       user_role   NOT NULL,
+    is_active  BOOLEAN     NOT NULL DEFAULT true,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    
+    CONSTRAINT fk_memberships_tenant_school FOREIGN KEY (tenant_id, school_id) REFERENCES schools(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT unique_user_school_membership UNIQUE (user_id, school_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_memberships_tenant_id ON memberships (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_memberships_user_id   ON memberships (user_id);
 CREATE INDEX IF NOT EXISTS idx_memberships_school_id ON memberships (school_id);
-
-ALTER TABLE memberships
-    ADD CONSTRAINT fk_memberships_tenant_school
-    FOREIGN KEY (tenant_id, school_id) REFERENCES schools(tenant_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
-ALTER TABLE memberships
-    ADD CONSTRAINT unique_user_school_membership UNIQUE (user_id, school_id)
-    IF NOT EXISTS;
 
 -- ------------------------------------------------------------
 -- INVITATIONS
@@ -201,7 +191,9 @@ CREATE TABLE IF NOT EXISTS invitations (
     phone               VARCHAR(50),
     registration_number VARCHAR(100),
     stytch_member_id    VARCHAR(255),
-    created_at          TIMESTAMPTZ       NOT NULL DEFAULT NOW()
+    created_at          TIMESTAMPTZ       NOT NULL DEFAULT NOW(),
+    
+    CONSTRAINT fk_invitations_tenant_school FOREIGN KEY (tenant_id, school_id) REFERENCES schools(tenant_id, id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_invitations_tenant_id ON invitations (tenant_id);
@@ -209,56 +201,42 @@ CREATE INDEX IF NOT EXISTS idx_invitations_school_id ON invitations (school_id);
 CREATE INDEX IF NOT EXISTS idx_invitations_email     ON invitations (email);
 CREATE INDEX IF NOT EXISTS idx_invitations_status    ON invitations (status);
 
-ALTER TABLE invitations
-    ADD CONSTRAINT fk_invitations_tenant_school
-    FOREIGN KEY (tenant_id, school_id) REFERENCES schools(tenant_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
 -- ------------------------------------------------------------
 -- GRADES
 -- ------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS grades (
-    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    education_system_id UUID NOT NULL REFERENCES education_systems(id) ON DELETE CASCADE,
+    id                  UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    education_system_id UUID         NOT NULL REFERENCES education_systems(id) ON DELETE CASCADE,
     name                VARCHAR(100) NOT NULL,
-    sequence_order      INT  NOT NULL
+    sequence_order      INT          NOT NULL,
+    
+    CONSTRAINT uq_grades_education_system UNIQUE (education_system_id, id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_grades_education_system_id ON grades (education_system_id);
-
-ALTER TABLE grades
-    ADD CONSTRAINT uq_grades_education_system UNIQUE (education_system_id, id)
-    IF NOT EXISTS;
 
 -- ------------------------------------------------------------
 -- ACADEMIC YEARS
 -- ------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS academic_years (
-    id         UUID    PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id  UUID    NOT NULL,
-    school_id  UUID    NOT NULL,
+    id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id  UUID        NOT NULL,
+    school_id  UUID        NOT NULL,
     name       VARCHAR(50) NOT NULL,
-    start_date DATE    NOT NULL,
-    end_date   DATE    NOT NULL,
-    is_current BOOLEAN NOT NULL DEFAULT false,
-    CONSTRAINT chk_academic_year_dates CHECK (end_date > start_date)
+    start_date DATE        NOT NULL,
+    end_date   DATE        NOT NULL,
+    is_current BOOLEAN     NOT NULL DEFAULT false,
+    
+    CONSTRAINT chk_academic_year_dates CHECK (end_date > start_date),
+    CONSTRAINT uq_academic_years_tenant UNIQUE (tenant_id, id),
+    CONSTRAINT fk_academic_years_tenant_school FOREIGN KEY (tenant_id, school_id) REFERENCES schools(tenant_id, id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_academic_years_tenant_id ON academic_years (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_academic_years_school_id ON academic_years (school_id);
 
-ALTER TABLE academic_years
-    ADD CONSTRAINT uq_academic_years_tenant UNIQUE (tenant_id, id)
-    IF NOT EXISTS;
-
-ALTER TABLE academic_years
-    ADD CONSTRAINT fk_academic_years_tenant_school
-    FOREIGN KEY (tenant_id, school_id) REFERENCES schools(tenant_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
--- Only one active year per school at a time.
 CREATE UNIQUE INDEX IF NOT EXISTS idx_one_current_year_per_school
     ON academic_years (school_id) WHERE is_current = true;
 
@@ -267,43 +245,27 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_one_current_year_per_school
 -- ------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS academic_terms (
-    id               UUID    PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id        UUID    NOT NULL,
-    school_id        UUID    NOT NULL,
-    academic_year_id UUID    NOT NULL,
+    id               UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id        UUID         NOT NULL,
+    school_id        UUID         NOT NULL,
+    academic_year_id UUID         NOT NULL,
     name             VARCHAR(100) NOT NULL,
-    start_date       DATE    NOT NULL,
-    end_date         DATE    NOT NULL,
-    is_current       BOOLEAN NOT NULL DEFAULT false,
-    is_final         BOOLEAN NOT NULL DEFAULT false,
-    CONSTRAINT chk_academic_term_dates CHECK (end_date > start_date)
+    start_date       DATE         NOT NULL,
+    end_date         DATE         NOT NULL,
+    is_current       BOOLEAN      NOT NULL DEFAULT false,
+    is_final         BOOLEAN      NOT NULL DEFAULT false,
+    
+    CONSTRAINT chk_academic_term_dates CHECK (end_date > start_date),
+    CONSTRAINT uq_academic_terms_tenant UNIQUE (tenant_id, id),
+    CONSTRAINT uq_academic_terms_tenant_school UNIQUE (tenant_id, school_id, id),
+    CONSTRAINT fk_academic_terms_tenant_school FOREIGN KEY (tenant_id, school_id) REFERENCES schools(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_academic_terms_tenant_year FOREIGN KEY (tenant_id, academic_year_id) REFERENCES academic_years(tenant_id, id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_academic_terms_tenant_id ON academic_terms (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_academic_terms_school_id ON academic_terms (school_id);
 CREATE INDEX IF NOT EXISTS idx_academic_terms_year_id   ON academic_terms (academic_year_id);
 
--- (tenant_id, id) supports composite FKs from assessments and other children.
--- (tenant_id, school_id, id) supports composite FKs that need school scoping.
-ALTER TABLE academic_terms
-    ADD CONSTRAINT uq_academic_terms_tenant UNIQUE (tenant_id, id)
-    IF NOT EXISTS;
-
-ALTER TABLE academic_terms
-    ADD CONSTRAINT uq_academic_terms_tenant_school UNIQUE (tenant_id, school_id, id)
-    IF NOT EXISTS;
-
-ALTER TABLE academic_terms
-    ADD CONSTRAINT fk_academic_terms_tenant_school
-    FOREIGN KEY (tenant_id, school_id) REFERENCES schools(tenant_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
-ALTER TABLE academic_terms
-    ADD CONSTRAINT fk_academic_terms_tenant_year
-    FOREIGN KEY (tenant_id, academic_year_id) REFERENCES academic_years(tenant_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
--- Only one active term per year at a time.
 CREATE UNIQUE INDEX IF NOT EXISTS idx_one_current_term_per_year
     ON academic_terms (academic_year_id) WHERE is_current = true;
 
@@ -312,15 +274,20 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_one_current_term_per_year
 -- ------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS classes (
-    id                  UUID    PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id           UUID    NOT NULL,
-    school_id           UUID    NOT NULL,
-    academic_year_id    UUID    NOT NULL,
-    education_system_id UUID    NOT NULL,
-    grade_id            UUID    NOT NULL,
+    id                  UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id           UUID         NOT NULL,
+    school_id           UUID         NOT NULL,
+    academic_year_id    UUID         NOT NULL,
+    education_system_id UUID         NOT NULL,
+    grade_id            UUID         NOT NULL,
     name                VARCHAR(100) NOT NULL,
     stream              VARCHAR(100) NOT NULL DEFAULT '',
-    is_active           BOOLEAN NOT NULL DEFAULT true
+    is_active           BOOLEAN      NOT NULL DEFAULT true,
+    
+    CONSTRAINT uq_classes_tenant UNIQUE (tenant_id, id),
+    CONSTRAINT fk_classes_tenant_school FOREIGN KEY (tenant_id, school_id) REFERENCES schools(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_classes_tenant_academic_year FOREIGN KEY (tenant_id, academic_year_id) REFERENCES academic_years(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_classes_education_system_grade FOREIGN KEY (education_system_id, grade_id) REFERENCES grades(education_system_id, id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_classes_tenant_id        ON classes (tenant_id);
@@ -329,30 +296,10 @@ CREATE INDEX IF NOT EXISTS idx_classes_academic_year_id ON classes (academic_yea
 CREATE INDEX IF NOT EXISTS idx_classes_grade_id         ON classes (grade_id);
 CREATE INDEX IF NOT EXISTS idx_classes_stream           ON classes (stream);
 
-ALTER TABLE classes ADD CONSTRAINT uq_classes_tenant UNIQUE (tenant_id, id) IF NOT EXISTS;
-
-ALTER TABLE classes
-    ADD CONSTRAINT fk_classes_tenant_school
-    FOREIGN KEY (tenant_id, school_id) REFERENCES schools(tenant_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
-ALTER TABLE classes
-    ADD CONSTRAINT fk_classes_tenant_academic_year
-    FOREIGN KEY (tenant_id, academic_year_id) REFERENCES academic_years(tenant_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
-ALTER TABLE classes
-    ADD CONSTRAINT fk_classes_education_system_grade
-    FOREIGN KEY (education_system_id, grade_id) REFERENCES grades(education_system_id, id)
-    IF NOT EXISTS;
-
 -- ------------------------------------------------------------
 -- STUDENTS
 -- ------------------------------------------------------------
 
--- Students are tenant-scoped only. School association is via
--- student_enrollments, which supports transfers across schools
--- within the same tenant while preserving history.
 CREATE TABLE IF NOT EXISTS students (
     id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id     UUID        NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -362,12 +309,12 @@ CREATE TABLE IF NOT EXISTS students (
     gender        gender_type NOT NULL,
     date_of_birth DATE        NOT NULL,
     is_active     BOOLEAN     NOT NULL DEFAULT true,
-    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    
+    CONSTRAINT uq_students_tenant UNIQUE (tenant_id, id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_students_tenant_id ON students (tenant_id);
-
-ALTER TABLE students ADD CONSTRAINT uq_students_tenant UNIQUE (tenant_id, id) IF NOT EXISTS;
 
 -- ------------------------------------------------------------
 -- STUDENT ENROLLMENTS
@@ -381,7 +328,13 @@ CREATE TABLE IF NOT EXISTS student_enrollments (
     academic_term_id UUID              NOT NULL,
     class_id         UUID,
     status           enrollment_status NOT NULL DEFAULT 'ACTIVE',
-    created_at       TIMESTAMPTZ       NOT NULL DEFAULT NOW()
+    created_at       TIMESTAMPTZ       NOT NULL DEFAULT NOW(),
+    
+    CONSTRAINT fk_enrollments_tenant_student FOREIGN KEY (tenant_id, student_id) REFERENCES students(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_enrollments_tenant_school FOREIGN KEY (tenant_id, school_id) REFERENCES schools(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_enrollments_tenant_school_term FOREIGN KEY (tenant_id, school_id, academic_term_id) REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_enrollments_tenant_class FOREIGN KEY (tenant_id, class_id) REFERENCES classes(tenant_id, id) ON DELETE SET NULL,
+    CONSTRAINT unique_student_term_enrollment UNIQUE (student_id, academic_term_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_enrollments_tenant_id  ON student_enrollments (tenant_id);
@@ -389,31 +342,6 @@ CREATE INDEX IF NOT EXISTS idx_enrollments_student_id ON student_enrollments (st
 CREATE INDEX IF NOT EXISTS idx_enrollments_school_id  ON student_enrollments (school_id);
 CREATE INDEX IF NOT EXISTS idx_enrollments_term_id    ON student_enrollments (academic_term_id);
 CREATE INDEX IF NOT EXISTS idx_enrollments_class_id   ON student_enrollments (class_id);
-
-ALTER TABLE student_enrollments
-    ADD CONSTRAINT fk_enrollments_tenant_student
-    FOREIGN KEY (tenant_id, student_id) REFERENCES students(tenant_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
-ALTER TABLE student_enrollments
-    ADD CONSTRAINT fk_enrollments_tenant_school
-    FOREIGN KEY (tenant_id, school_id) REFERENCES schools(tenant_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
-ALTER TABLE student_enrollments
-    ADD CONSTRAINT fk_enrollments_tenant_school_term
-    FOREIGN KEY (tenant_id, school_id, academic_term_id) REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
-ALTER TABLE student_enrollments
-    ADD CONSTRAINT fk_enrollments_tenant_class
-    FOREIGN KEY (tenant_id, class_id) REFERENCES classes(tenant_id, id) ON DELETE SET NULL
-    IF NOT EXISTS;
-
--- A student may only have one enrollment per term.
-ALTER TABLE student_enrollments
-    ADD CONSTRAINT unique_student_term_enrollment UNIQUE (student_id, academic_term_id)
-    IF NOT EXISTS;
 
 -- ------------------------------------------------------------
 -- CBC — CURRICULUM STRUCTURE
@@ -426,22 +354,15 @@ CREATE TABLE IF NOT EXISTS cbc_learning_areas (
     education_system_id UUID         NOT NULL,
     grade_id            UUID         NOT NULL,
     name                VARCHAR(150) NOT NULL,
-    code                VARCHAR(50)  NOT NULL
+    code                VARCHAR(50)  NOT NULL,
+    
+    CONSTRAINT fk_cbc_learning_areas_tenant_school FOREIGN KEY (tenant_id, school_id) REFERENCES schools(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_cbc_learning_areas_education_system_grade FOREIGN KEY (education_system_id, grade_id) REFERENCES grades(education_system_id, id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_cbc_learning_areas_tenant    ON cbc_learning_areas (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_cbc_learning_areas_school_id ON cbc_learning_areas (school_id);
 CREATE INDEX IF NOT EXISTS idx_cbc_learning_areas_grade_id  ON cbc_learning_areas (grade_id);
-
-ALTER TABLE cbc_learning_areas
-    ADD CONSTRAINT fk_cbc_learning_areas_tenant_school
-    FOREIGN KEY (tenant_id, school_id) REFERENCES schools(tenant_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
-ALTER TABLE cbc_learning_areas
-    ADD CONSTRAINT fk_cbc_learning_areas_education_system_grade
-    FOREIGN KEY (education_system_id, grade_id) REFERENCES grades(education_system_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
 
 CREATE TABLE IF NOT EXISTS cbc_strands (
     id               UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -464,13 +385,16 @@ CREATE INDEX IF NOT EXISTS idx_cbc_sub_strands_strand_id ON cbc_sub_strands (str
 -- ------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS cbc_class_teachers (
-    id               UUID    PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id        UUID    NOT NULL,
-    class_id         UUID    NOT NULL,
-    user_id          UUID    NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    learning_area_id UUID    NOT NULL REFERENCES cbc_learning_areas(id) ON DELETE CASCADE,
-    is_primary       BOOLEAN NOT NULL DEFAULT false,
-    created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id        UUID        NOT NULL,
+    class_id         UUID        NOT NULL,
+    user_id          UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    learning_area_id UUID        NOT NULL REFERENCES cbc_learning_areas(id) ON DELETE CASCADE,
+    is_primary       BOOLEAN     NOT NULL DEFAULT false,
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    
+    CONSTRAINT fk_cbc_class_teachers_tenant_class FOREIGN KEY (tenant_id, class_id) REFERENCES classes(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT unique_cbc_class_teacher UNIQUE (class_id, user_id, learning_area_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_cbc_class_teachers_tenant   ON cbc_class_teachers (tenant_id);
@@ -478,160 +402,8 @@ CREATE INDEX IF NOT EXISTS idx_cbc_class_teachers_class_id ON cbc_class_teachers
 CREATE INDEX IF NOT EXISTS idx_cbc_class_teachers_user_id  ON cbc_class_teachers (user_id);
 CREATE INDEX IF NOT EXISTS idx_cbc_class_teachers_area_id  ON cbc_class_teachers (learning_area_id);
 
-ALTER TABLE cbc_class_teachers
-    ADD CONSTRAINT fk_cbc_class_teachers_tenant_class
-    FOREIGN KEY (tenant_id, class_id) REFERENCES classes(tenant_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
-ALTER TABLE cbc_class_teachers
-    ADD CONSTRAINT unique_cbc_class_teacher UNIQUE (class_id, user_id, learning_area_id)
-    IF NOT EXISTS;
-
--- Only one primary teacher per learning area per class.
 CREATE UNIQUE INDEX IF NOT EXISTS idx_cbc_one_primary_per_area
     ON cbc_class_teachers (class_id, learning_area_id) WHERE is_primary = true;
-
--- ------------------------------------------------------------
--- IGCSE — CURRICULUM STRUCTURE
--- ------------------------------------------------------------
-
-CREATE TABLE IF NOT EXISTS igcse_subjects (
-    id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id           UUID        NOT NULL,
-    school_id           UUID        NOT NULL,
-    education_system_id UUID        NOT NULL,
-    grade_id            UUID        NOT NULL,
-    name                VARCHAR(150) NOT NULL,
-    code                VARCHAR(20)  NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_igcse_subjects_tenant    ON igcse_subjects (tenant_id);
-CREATE INDEX IF NOT EXISTS idx_igcse_subjects_school_id ON igcse_subjects (school_id);
-CREATE INDEX IF NOT EXISTS idx_igcse_subjects_grade_id  ON igcse_subjects (grade_id);
-
-ALTER TABLE igcse_subjects
-    ADD CONSTRAINT fk_igcse_subjects_tenant_school
-    FOREIGN KEY (tenant_id, school_id) REFERENCES schools(tenant_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
-ALTER TABLE igcse_subjects
-    ADD CONSTRAINT fk_igcse_subjects_education_system_grade
-    FOREIGN KEY (education_system_id, grade_id) REFERENCES grades(education_system_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
--- ------------------------------------------------------------
--- IGCSE — CLASS TEACHERS
--- ------------------------------------------------------------
-
-CREATE TABLE IF NOT EXISTS igcse_class_teachers (
-    id         UUID    PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id  UUID    NOT NULL,
-    class_id   UUID    NOT NULL,
-    user_id    UUID    NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    subject_id UUID    NOT NULL REFERENCES igcse_subjects(id) ON DELETE CASCADE,
-    is_primary BOOLEAN NOT NULL DEFAULT false,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_igcse_class_teachers_tenant     ON igcse_class_teachers (tenant_id);
-CREATE INDEX IF NOT EXISTS idx_igcse_class_teachers_class_id   ON igcse_class_teachers (class_id);
-CREATE INDEX IF NOT EXISTS idx_igcse_class_teachers_user_id    ON igcse_class_teachers (user_id);
-CREATE INDEX IF NOT EXISTS idx_igcse_class_teachers_subject_id ON igcse_class_teachers (subject_id);
-
-ALTER TABLE igcse_class_teachers
-    ADD CONSTRAINT fk_igcse_class_teachers_tenant_class
-    FOREIGN KEY (tenant_id, class_id) REFERENCES classes(tenant_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
-ALTER TABLE igcse_class_teachers
-    ADD CONSTRAINT unique_igcse_class_teacher UNIQUE (class_id, user_id, subject_id)
-    IF NOT EXISTS;
-
--- Only one primary teacher per subject per class.
-CREATE UNIQUE INDEX IF NOT EXISTS idx_igcse_one_primary_per_subject
-    ON igcse_class_teachers (class_id, subject_id) WHERE is_primary = true;
-
--- ------------------------------------------------------------
--- IB — CURRICULUM STRUCTURE
--- ------------------------------------------------------------
-
-CREATE TABLE IF NOT EXISTS ib_subject_groups (
-    id         UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id  UUID         NOT NULL,
-    school_id  UUID         NOT NULL,
-    group_name VARCHAR(100) NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_ib_subject_groups_tenant    ON ib_subject_groups (tenant_id);
-CREATE INDEX IF NOT EXISTS idx_ib_subject_groups_school_id ON ib_subject_groups (school_id);
-
-ALTER TABLE ib_subject_groups
-    ADD CONSTRAINT uq_ib_subject_groups_tenant UNIQUE (tenant_id, id)
-    IF NOT EXISTS;
-
-ALTER TABLE ib_subject_groups
-    ADD CONSTRAINT fk_ib_subject_groups_tenant_school
-    FOREIGN KEY (tenant_id, school_id) REFERENCES schools(tenant_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
-CREATE TABLE IF NOT EXISTS ib_disciplines (
-    id                  UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id           UUID         NOT NULL,
-    group_id            UUID         NOT NULL,
-    education_system_id UUID         NOT NULL,
-    grade_id            UUID         NOT NULL,
-    name                VARCHAR(150) NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_ib_disciplines_tenant    ON ib_disciplines (tenant_id);
-CREATE INDEX IF NOT EXISTS idx_ib_disciplines_group_id  ON ib_disciplines (group_id);
-CREATE INDEX IF NOT EXISTS idx_ib_disciplines_grade_id  ON ib_disciplines (grade_id);
-
-ALTER TABLE ib_disciplines
-    ADD CONSTRAINT uq_ib_disciplines_tenant UNIQUE (tenant_id, id)
-    IF NOT EXISTS;
-
-ALTER TABLE ib_disciplines
-    ADD CONSTRAINT fk_ib_disciplines_tenant_group
-    FOREIGN KEY (tenant_id, group_id) REFERENCES ib_subject_groups(tenant_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
-ALTER TABLE ib_disciplines
-    ADD CONSTRAINT fk_ib_disciplines_education_system_grade
-    FOREIGN KEY (education_system_id, grade_id) REFERENCES grades(education_system_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
--- ------------------------------------------------------------
--- IB — CLASS TEACHERS
--- ------------------------------------------------------------
-
-CREATE TABLE IF NOT EXISTS ib_class_teachers (
-    id            UUID    PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id     UUID    NOT NULL,
-    class_id      UUID    NOT NULL,
-    user_id       UUID    NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    discipline_id UUID    NOT NULL REFERENCES ib_disciplines(id) ON DELETE CASCADE,
-    is_primary    BOOLEAN NOT NULL DEFAULT false,
-    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_ib_class_teachers_tenant        ON ib_class_teachers (tenant_id);
-CREATE INDEX IF NOT EXISTS idx_ib_class_teachers_class_id      ON ib_class_teachers (class_id);
-CREATE INDEX IF NOT EXISTS idx_ib_class_teachers_user_id       ON ib_class_teachers (user_id);
-CREATE INDEX IF NOT EXISTS idx_ib_class_teachers_discipline_id ON ib_class_teachers (discipline_id);
-
-ALTER TABLE ib_class_teachers
-    ADD CONSTRAINT fk_ib_class_teachers_tenant_class
-    FOREIGN KEY (tenant_id, class_id) REFERENCES classes(tenant_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
-ALTER TABLE ib_class_teachers
-    ADD CONSTRAINT unique_ib_class_teacher UNIQUE (class_id, user_id, discipline_id)
-    IF NOT EXISTS;
-
--- Only one primary teacher per discipline per class.
-CREATE UNIQUE INDEX IF NOT EXISTS idx_ib_one_primary_per_discipline
-    ON ib_class_teachers (class_id, discipline_id) WHERE is_primary = true;
 
 -- ------------------------------------------------------------
 -- CBC — ATTENDANCE
@@ -646,32 +418,18 @@ CREATE TABLE IF NOT EXISTS cbc_attendance_periods (
     cbc_learning_area_id UUID        NOT NULL REFERENCES cbc_learning_areas(id) ON DELETE CASCADE,
     date_recorded        DATE        NOT NULL,
     recorded_by          UUID        NOT NULL REFERENCES users(id),
-    created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    
+    CONSTRAINT uq_cbc_attendance_periods_tenant UNIQUE (tenant_id, id),
+    CONSTRAINT fk_cbc_att_periods_tenant_school FOREIGN KEY (tenant_id, school_id) REFERENCES schools(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_cbc_att_periods_tenant_term FOREIGN KEY (tenant_id, school_id, academic_term_id) REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_cbc_att_periods_tenant_class FOREIGN KEY (tenant_id, class_id) REFERENCES classes(tenant_id, id) ON DELETE CASCADE
 );
 
 CREATE INDEX        IF NOT EXISTS idx_cbc_att_periods_tenant     ON cbc_attendance_periods (tenant_id);
 CREATE INDEX        IF NOT EXISTS idx_cbc_att_periods_class_date ON cbc_attendance_periods (class_id, date_recorded);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_cbc_unique_attendance_period
     ON cbc_attendance_periods (class_id, date_recorded, cbc_learning_area_id);
-
-ALTER TABLE cbc_attendance_periods
-    ADD CONSTRAINT uq_cbc_attendance_periods_tenant UNIQUE (tenant_id, id)
-    IF NOT EXISTS;
-
-ALTER TABLE cbc_attendance_periods
-    ADD CONSTRAINT fk_cbc_att_periods_tenant_school
-    FOREIGN KEY (tenant_id, school_id) REFERENCES schools(tenant_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
-ALTER TABLE cbc_attendance_periods
-    ADD CONSTRAINT fk_cbc_att_periods_tenant_term
-    FOREIGN KEY (tenant_id, school_id, academic_term_id) REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
-ALTER TABLE cbc_attendance_periods
-    ADD CONSTRAINT fk_cbc_att_periods_tenant_class
-    FOREIGN KEY (tenant_id, class_id) REFERENCES classes(tenant_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
 
 CREATE TABLE IF NOT EXISTS cbc_attendance_logs (
     id                       UUID              PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -680,171 +438,21 @@ CREATE TABLE IF NOT EXISTS cbc_attendance_logs (
     student_id               UUID              NOT NULL,
     status                   attendance_status NOT NULL,
     remarks                  VARCHAR(255),
-    recorded_by              UUID              NOT NULL REFERENCES users(id)
+    recorded_by              UUID              NOT NULL REFERENCES users(id),
+    
+    CONSTRAINT fk_cbc_att_logs_tenant_period FOREIGN KEY (tenant_id, cbc_attendance_period_id) REFERENCES cbc_attendance_periods(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_cbc_att_logs_tenant_student FOREIGN KEY (tenant_id, student_id) REFERENCES students(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT unique_cbc_student_attendance_period UNIQUE (cbc_attendance_period_id, student_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_cbc_att_logs_tenant  ON cbc_attendance_logs (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_cbc_att_logs_period  ON cbc_attendance_logs (cbc_attendance_period_id);
 CREATE INDEX IF NOT EXISTS idx_cbc_att_logs_student ON cbc_attendance_logs (student_id);
 
-ALTER TABLE cbc_attendance_logs
-    ADD CONSTRAINT fk_cbc_att_logs_tenant_period
-    FOREIGN KEY (tenant_id, cbc_attendance_period_id)
-        REFERENCES cbc_attendance_periods(tenant_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
-ALTER TABLE cbc_attendance_logs
-    ADD CONSTRAINT fk_cbc_att_logs_tenant_student
-    FOREIGN KEY (tenant_id, student_id) REFERENCES students(tenant_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
-ALTER TABLE cbc_attendance_logs
-    ADD CONSTRAINT unique_cbc_student_attendance_period UNIQUE (cbc_attendance_period_id, student_id)
-    IF NOT EXISTS;
-
--- ------------------------------------------------------------
--- IGCSE — ATTENDANCE
--- ------------------------------------------------------------
-
-CREATE TABLE IF NOT EXISTS igcse_attendance_periods (
-    id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id        UUID        NOT NULL,
-    school_id        UUID        NOT NULL,
-    academic_term_id UUID        NOT NULL,
-    class_id         UUID        NOT NULL,
-    igcse_subject_id UUID        NOT NULL REFERENCES igcse_subjects(id) ON DELETE CASCADE,
-    date_recorded    DATE        NOT NULL,
-    recorded_by      UUID        NOT NULL REFERENCES users(id)
-);
-
-CREATE INDEX        IF NOT EXISTS idx_igcse_att_periods_tenant     ON igcse_attendance_periods (tenant_id);
-CREATE INDEX        IF NOT EXISTS idx_igcse_att_periods_class_date ON igcse_attendance_periods (class_id, date_recorded);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_igcse_unique_attendance_period
-    ON igcse_attendance_periods (class_id, date_recorded, igcse_subject_id);
-
-ALTER TABLE igcse_attendance_periods
-    ADD CONSTRAINT uq_igcse_attendance_periods_tenant UNIQUE (tenant_id, id)
-    IF NOT EXISTS;
-
-ALTER TABLE igcse_attendance_periods
-    ADD CONSTRAINT fk_igcse_att_periods_tenant_school
-    FOREIGN KEY (tenant_id, school_id) REFERENCES schools(tenant_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
-ALTER TABLE igcse_attendance_periods
-    ADD CONSTRAINT fk_igcse_att_periods_tenant_term
-    FOREIGN KEY (tenant_id, school_id, academic_term_id) REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
-ALTER TABLE igcse_attendance_periods
-    ADD CONSTRAINT fk_igcse_att_periods_tenant_class
-    FOREIGN KEY (tenant_id, class_id) REFERENCES classes(tenant_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
-CREATE TABLE IF NOT EXISTS igcse_attendance_logs (
-    id                         UUID              PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id                  UUID              NOT NULL,
-    igcse_attendance_period_id UUID              NOT NULL,
-    student_id                 UUID              NOT NULL,
-    status                     attendance_status NOT NULL,
-    remarks                    VARCHAR(255),
-    recorded_by                UUID              NOT NULL REFERENCES users(id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_igcse_att_logs_tenant  ON igcse_attendance_logs (tenant_id);
-CREATE INDEX IF NOT EXISTS idx_igcse_att_logs_period  ON igcse_attendance_logs (igcse_attendance_period_id);
-CREATE INDEX IF NOT EXISTS idx_igcse_att_logs_student ON igcse_attendance_logs (student_id);
-
-ALTER TABLE igcse_attendance_logs
-    ADD CONSTRAINT fk_igcse_att_logs_tenant_period
-    FOREIGN KEY (tenant_id, igcse_attendance_period_id)
-        REFERENCES igcse_attendance_periods(tenant_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
-ALTER TABLE igcse_attendance_logs
-    ADD CONSTRAINT fk_igcse_att_logs_tenant_student
-    FOREIGN KEY (tenant_id, student_id) REFERENCES students(tenant_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
-ALTER TABLE igcse_attendance_logs
-    ADD CONSTRAINT unique_igcse_student_attendance_period UNIQUE (igcse_attendance_period_id, student_id)
-    IF NOT EXISTS;
-
--- ------------------------------------------------------------
--- IB — ATTENDANCE
--- ------------------------------------------------------------
-
-CREATE TABLE IF NOT EXISTS ib_attendance_periods (
-    id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id        UUID        NOT NULL,
-    school_id        UUID        NOT NULL,
-    academic_term_id UUID        NOT NULL,
-    class_id         UUID        NOT NULL,
-    ib_discipline_id UUID        NOT NULL REFERENCES ib_disciplines(id) ON DELETE CASCADE,
-    date_recorded    DATE        NOT NULL,
-    recorded_by      UUID        NOT NULL REFERENCES users(id)
-);
-
-CREATE INDEX        IF NOT EXISTS idx_ib_att_periods_tenant     ON ib_attendance_periods (tenant_id);
-CREATE INDEX        IF NOT EXISTS idx_ib_att_periods_class_date ON ib_attendance_periods (class_id, date_recorded);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_ib_unique_attendance_period
-    ON ib_attendance_periods (class_id, date_recorded, ib_discipline_id);
-
-ALTER TABLE ib_attendance_periods
-    ADD CONSTRAINT uq_ib_attendance_periods_tenant UNIQUE (tenant_id, id)
-    IF NOT EXISTS;
-
-ALTER TABLE ib_attendance_periods
-    ADD CONSTRAINT fk_ib_att_periods_tenant_school
-    FOREIGN KEY (tenant_id, school_id) REFERENCES schools(tenant_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
-ALTER TABLE ib_attendance_periods
-    ADD CONSTRAINT fk_ib_att_periods_tenant_term
-    FOREIGN KEY (tenant_id, school_id, academic_term_id) REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
-ALTER TABLE ib_attendance_periods
-    ADD CONSTRAINT fk_ib_att_periods_tenant_class
-    FOREIGN KEY (tenant_id, class_id) REFERENCES classes(tenant_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
-CREATE TABLE IF NOT EXISTS ib_attendance_logs (
-    id                      UUID              PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id               UUID              NOT NULL,
-    ib_attendance_period_id UUID              NOT NULL,
-    student_id              UUID              NOT NULL,
-    status                  attendance_status NOT NULL,
-    remarks                 VARCHAR(255),
-    recorded_by             UUID              NOT NULL REFERENCES users(id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_ib_att_logs_tenant  ON ib_attendance_logs (tenant_id);
-CREATE INDEX IF NOT EXISTS idx_ib_att_logs_period  ON ib_attendance_logs (ib_attendance_period_id);
-CREATE INDEX IF NOT EXISTS idx_ib_att_logs_student ON ib_attendance_logs (student_id);
-
-ALTER TABLE ib_attendance_logs
-    ADD CONSTRAINT fk_ib_att_logs_tenant_period
-    FOREIGN KEY (tenant_id, ib_attendance_period_id)
-        REFERENCES ib_attendance_periods(tenant_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
-ALTER TABLE ib_attendance_logs
-    ADD CONSTRAINT fk_ib_att_logs_tenant_student
-    FOREIGN KEY (tenant_id, student_id) REFERENCES students(tenant_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
-ALTER TABLE ib_attendance_logs
-    ADD CONSTRAINT unique_ib_student_attendance_period UNIQUE (ib_attendance_period_id, student_id)
-    IF NOT EXISTS;
-
 -- ------------------------------------------------------------
 -- CBC — TIMETABLE
 -- ------------------------------------------------------------
 
--- cbc_learning_area_id is nullable (a slot may be a break/admin period).
--- NULL room_identifier means no room assigned; the exclusion constraint
--- only fires when room_identifier is non-null (NULLs never conflict in GiST WITH =).
 CREATE TABLE IF NOT EXISTS cbc_timetable_slots (
     id                   UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id            UUID        NOT NULL,
@@ -856,33 +464,18 @@ CREATE TABLE IF NOT EXISTS cbc_timetable_slots (
     room_identifier      VARCHAR(50),
     day_of_week          INT         NOT NULL CHECK (day_of_week BETWEEN 1 AND 7),
     start_time           TIME        NOT NULL,
-    end_time             TIME        NOT NULL
+    end_time             TIME        NOT NULL,
+    
+    CONSTRAINT fk_cbc_timetable_tenant_school FOREIGN KEY (tenant_id, school_id) REFERENCES schools(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_cbc_timetable_tenant_year FOREIGN KEY (tenant_id, academic_year_id) REFERENCES academic_years(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_cbc_timetable_tenant_class FOREIGN KEY (tenant_id, class_id) REFERENCES classes(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_cbc_timetable_tenant_teacher FOREIGN KEY (tenant_id, teacher_id) REFERENCES users(tenant_id, id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_cbc_timetable_tenant      ON cbc_timetable_slots (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_cbc_timetable_school_year ON cbc_timetable_slots (school_id, academic_year_id);
 CREATE INDEX IF NOT EXISTS idx_cbc_timetable_class       ON cbc_timetable_slots (class_id);
 CREATE INDEX IF NOT EXISTS idx_cbc_timetable_teacher     ON cbc_timetable_slots (teacher_id);
-
-ALTER TABLE cbc_timetable_slots
-    ADD CONSTRAINT fk_cbc_timetable_tenant_school
-    FOREIGN KEY (tenant_id, school_id) REFERENCES schools(tenant_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
-ALTER TABLE cbc_timetable_slots
-    ADD CONSTRAINT fk_cbc_timetable_tenant_year
-    FOREIGN KEY (tenant_id, academic_year_id) REFERENCES academic_years(tenant_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
-ALTER TABLE cbc_timetable_slots
-    ADD CONSTRAINT fk_cbc_timetable_tenant_class
-    FOREIGN KEY (tenant_id, class_id) REFERENCES classes(tenant_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
-ALTER TABLE cbc_timetable_slots
-    ADD CONSTRAINT fk_cbc_timetable_tenant_teacher
-    FOREIGN KEY (tenant_id, teacher_id) REFERENCES users(tenant_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
 
 DO $$ BEGIN
     ALTER TABLE cbc_timetable_slots ADD CONSTRAINT excl_cbc_timetable_teacher
@@ -896,132 +489,6 @@ END $$;
 
 DO $$ BEGIN
     ALTER TABLE cbc_timetable_slots ADD CONSTRAINT excl_cbc_timetable_room
-        EXCLUDE USING gist (
-            room_identifier  WITH =,
-            academic_year_id WITH =,
-            fn_timerange(day_of_week, start_time, end_time) WITH &&
-        );
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-
--- ------------------------------------------------------------
--- IGCSE — TIMETABLE
--- ------------------------------------------------------------
-
-CREATE TABLE IF NOT EXISTS igcse_timetable_slots (
-    id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id        UUID        NOT NULL,
-    school_id        UUID        NOT NULL,
-    academic_year_id UUID        NOT NULL,
-    class_id         UUID        NOT NULL,
-    teacher_id       UUID        NOT NULL,
-    igcse_subject_id UUID        REFERENCES igcse_subjects(id) ON DELETE SET NULL,
-    room_identifier  VARCHAR(50),
-    day_of_week      INT         NOT NULL CHECK (day_of_week BETWEEN 1 AND 7),
-    start_time       TIME        NOT NULL,
-    end_time         TIME        NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_igcse_timetable_tenant      ON igcse_timetable_slots (tenant_id);
-CREATE INDEX IF NOT EXISTS idx_igcse_timetable_school_year ON igcse_timetable_slots (school_id, academic_year_id);
-CREATE INDEX IF NOT EXISTS idx_igcse_timetable_class       ON igcse_timetable_slots (class_id);
-CREATE INDEX IF NOT EXISTS idx_igcse_timetable_teacher     ON igcse_timetable_slots (teacher_id);
-
-ALTER TABLE igcse_timetable_slots
-    ADD CONSTRAINT fk_igcse_timetable_tenant_school
-    FOREIGN KEY (tenant_id, school_id) REFERENCES schools(tenant_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
-ALTER TABLE igcse_timetable_slots
-    ADD CONSTRAINT fk_igcse_timetable_tenant_year
-    FOREIGN KEY (tenant_id, academic_year_id) REFERENCES academic_years(tenant_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
-ALTER TABLE igcse_timetable_slots
-    ADD CONSTRAINT fk_igcse_timetable_tenant_class
-    FOREIGN KEY (tenant_id, class_id) REFERENCES classes(tenant_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
-ALTER TABLE igcse_timetable_slots
-    ADD CONSTRAINT fk_igcse_timetable_tenant_teacher
-    FOREIGN KEY (tenant_id, teacher_id) REFERENCES users(tenant_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
-DO $$ BEGIN
-    ALTER TABLE igcse_timetable_slots ADD CONSTRAINT excl_igcse_timetable_teacher
-        EXCLUDE USING gist (
-            teacher_id       WITH =,
-            academic_year_id WITH =,
-            fn_timerange(day_of_week, start_time, end_time) WITH &&
-        );
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-
-DO $$ BEGIN
-    ALTER TABLE igcse_timetable_slots ADD CONSTRAINT excl_igcse_timetable_room
-        EXCLUDE USING gist (
-            room_identifier  WITH =,
-            academic_year_id WITH =,
-            fn_timerange(day_of_week, start_time, end_time) WITH &&
-        );
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-
--- ------------------------------------------------------------
--- IB — TIMETABLE
--- ------------------------------------------------------------
-
-CREATE TABLE IF NOT EXISTS ib_timetable_slots (
-    id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id        UUID        NOT NULL,
-    school_id        UUID        NOT NULL,
-    academic_year_id UUID        NOT NULL,
-    class_id         UUID        NOT NULL,
-    teacher_id       UUID        NOT NULL,
-    ib_discipline_id UUID        REFERENCES ib_disciplines(id) ON DELETE SET NULL,
-    room_identifier  VARCHAR(50),
-    day_of_week      INT         NOT NULL CHECK (day_of_week BETWEEN 1 AND 7),
-    start_time       TIME        NOT NULL,
-    end_time         TIME        NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_ib_timetable_tenant      ON ib_timetable_slots (tenant_id);
-CREATE INDEX IF NOT EXISTS idx_ib_timetable_school_year ON ib_timetable_slots (school_id, academic_year_id);
-CREATE INDEX IF NOT EXISTS idx_ib_timetable_class       ON ib_timetable_slots (class_id);
-CREATE INDEX IF NOT EXISTS idx_ib_timetable_teacher     ON ib_timetable_slots (teacher_id);
-
-ALTER TABLE ib_timetable_slots
-    ADD CONSTRAINT fk_ib_timetable_tenant_school
-    FOREIGN KEY (tenant_id, school_id) REFERENCES schools(tenant_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
-ALTER TABLE ib_timetable_slots
-    ADD CONSTRAINT fk_ib_timetable_tenant_year
-    FOREIGN KEY (tenant_id, academic_year_id) REFERENCES academic_years(tenant_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
-ALTER TABLE ib_timetable_slots
-    ADD CONSTRAINT fk_ib_timetable_tenant_class
-    FOREIGN KEY (tenant_id, class_id) REFERENCES classes(tenant_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
-ALTER TABLE ib_timetable_slots
-    ADD CONSTRAINT fk_ib_timetable_tenant_teacher
-    FOREIGN KEY (tenant_id, teacher_id) REFERENCES users(tenant_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
-DO $$ BEGIN
-    ALTER TABLE ib_timetable_slots ADD CONSTRAINT excl_ib_timetable_teacher
-        EXCLUDE USING gist (
-            teacher_id       WITH =,
-            academic_year_id WITH =,
-            fn_timerange(day_of_week, start_time, end_time) WITH &&
-        );
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-
-DO $$ BEGIN
-    ALTER TABLE ib_timetable_slots ADD CONSTRAINT excl_ib_timetable_room
         EXCLUDE USING gist (
             room_identifier  WITH =,
             academic_year_id WITH =,
@@ -1063,16 +530,13 @@ CREATE TABLE IF NOT EXISTS fee_categories (
     tenant_id    UUID         NOT NULL,
     school_id    UUID         NOT NULL,
     name         VARCHAR(150) NOT NULL,
-    is_mandatory BOOLEAN      NOT NULL DEFAULT true
+    is_mandatory BOOLEAN      NOT NULL DEFAULT true,
+    
+    CONSTRAINT fk_fee_categories_tenant_school FOREIGN KEY (tenant_id, school_id) REFERENCES schools(tenant_id, id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_fee_categories_tenant    ON fee_categories (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_fee_categories_school_id ON fee_categories (school_id);
-
-ALTER TABLE fee_categories
-    ADD CONSTRAINT fk_fee_categories_tenant_school
-    FOREIGN KEY (tenant_id, school_id) REFERENCES schools(tenant_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
 
 CREATE TABLE IF NOT EXISTS fee_templates (
     id                  UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1082,31 +546,17 @@ CREATE TABLE IF NOT EXISTS fee_templates (
     academic_term_id    UUID          NOT NULL,
     grade_id            UUID          NOT NULL,
     fee_category_id     UUID          NOT NULL REFERENCES fee_categories(id) ON DELETE CASCADE,
-    amount              NUMERIC(12,2) NOT NULL CHECK (amount >= 0)
+    amount              NUMERIC(12,2) NOT NULL CHECK (amount >= 0),
+    
+    CONSTRAINT fk_fee_templates_tenant_school FOREIGN KEY (tenant_id, school_id) REFERENCES schools(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_fee_templates_tenant_term FOREIGN KEY (tenant_id, school_id, academic_term_id) REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_fee_templates_education_system_grade FOREIGN KEY (education_system_id, grade_id) REFERENCES grades(education_system_id, id) ON DELETE CASCADE,
+    CONSTRAINT unique_fee_template_rule UNIQUE (academic_term_id, grade_id, fee_category_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_fee_templates_tenant      ON fee_templates (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_fee_templates_school_term ON fee_templates (school_id, academic_term_id);
 CREATE INDEX IF NOT EXISTS idx_fee_templates_grade_id    ON fee_templates (grade_id);
-
-ALTER TABLE fee_templates
-    ADD CONSTRAINT fk_fee_templates_tenant_school
-    FOREIGN KEY (tenant_id, school_id) REFERENCES schools(tenant_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
-ALTER TABLE fee_templates
-    ADD CONSTRAINT fk_fee_templates_tenant_term
-    FOREIGN KEY (tenant_id, school_id, academic_term_id) REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
-ALTER TABLE fee_templates
-    ADD CONSTRAINT fk_fee_templates_education_system_grade
-    FOREIGN KEY (education_system_id, grade_id) REFERENCES grades(education_system_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
-ALTER TABLE fee_templates
-    ADD CONSTRAINT unique_fee_template_rule UNIQUE (academic_term_id, grade_id, fee_category_id)
-    IF NOT EXISTS;
 
 CREATE TABLE IF NOT EXISTS invoices (
     id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1115,32 +565,17 @@ CREATE TABLE IF NOT EXISTS invoices (
     school_id        UUID        NOT NULL,
     academic_term_id UUID        NOT NULL,
     invoice_label    VARCHAR(255),
-    created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    
+    CONSTRAINT uq_invoices_tenant UNIQUE (tenant_id, id),
+    CONSTRAINT fk_invoices_tenant_student FOREIGN KEY (tenant_id, student_id) REFERENCES students(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_invoices_tenant_school FOREIGN KEY (tenant_id, school_id) REFERENCES schools(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_invoices_tenant_term FOREIGN KEY (tenant_id, school_id, academic_term_id) REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE,
+    CONSTRAINT unique_invoice_per_student_term UNIQUE (student_id, academic_term_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_invoices_tenant       ON invoices (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_invoices_student_term ON invoices (student_id, academic_term_id);
-
-ALTER TABLE invoices ADD CONSTRAINT uq_invoices_tenant UNIQUE (tenant_id, id) IF NOT EXISTS;
-
-ALTER TABLE invoices
-    ADD CONSTRAINT fk_invoices_tenant_student
-    FOREIGN KEY (tenant_id, student_id) REFERENCES students(tenant_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
-ALTER TABLE invoices
-    ADD CONSTRAINT fk_invoices_tenant_school
-    FOREIGN KEY (tenant_id, school_id) REFERENCES schools(tenant_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
-ALTER TABLE invoices
-    ADD CONSTRAINT fk_invoices_tenant_term
-    FOREIGN KEY (tenant_id, school_id, academic_term_id) REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
-
-ALTER TABLE invoices
-    ADD CONSTRAINT unique_invoice_per_student_term UNIQUE (student_id, academic_term_id)
-    IF NOT EXISTS;
 
 CREATE TABLE IF NOT EXISTS invoice_items (
     id              UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1149,17 +584,14 @@ CREATE TABLE IF NOT EXISTS invoice_items (
     fee_category_id UUID          NOT NULL REFERENCES fee_categories(id) ON DELETE CASCADE,
     description     VARCHAR(255),
     amount          NUMERIC(12,2) NOT NULL CHECK (amount >= 0),
-    created_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+    created_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    
+    CONSTRAINT fk_invoice_items_tenant_invoice FOREIGN KEY (tenant_id, invoice_id) REFERENCES invoices(tenant_id, id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_invoice_items_tenant       ON invoice_items (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_invoice_items_invoice_id   ON invoice_items (invoice_id);
 CREATE INDEX IF NOT EXISTS idx_invoice_items_fee_category ON invoice_items (fee_category_id);
-
-ALTER TABLE invoice_items
-    ADD CONSTRAINT fk_invoice_items_tenant_invoice
-    FOREIGN KEY (tenant_id, invoice_id) REFERENCES invoices(tenant_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;
 
 CREATE TABLE IF NOT EXISTS payments (
     id             UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1169,13 +601,10 @@ CREATE TABLE IF NOT EXISTS payments (
     payment_method VARCHAR(50),
     reference_code VARCHAR(100),
     recorded_by    UUID          NOT NULL REFERENCES users(id),
-    created_at     TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+    created_at     TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    
+    CONSTRAINT fk_payments_tenant_invoice FOREIGN KEY (tenant_id, invoice_id) REFERENCES invoices(tenant_id, id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_payments_tenant     ON payments (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_payments_invoice_id ON payments (invoice_id);
-
-ALTER TABLE payments
-    ADD CONSTRAINT fk_payments_tenant_invoice
-    FOREIGN KEY (tenant_id, invoice_id) REFERENCES invoices(tenant_id, id) ON DELETE CASCADE
-    IF NOT EXISTS;

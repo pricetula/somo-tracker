@@ -13,13 +13,7 @@ import {
     SidebarMenuSubButton,
     SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
-import {
-    LayoutDashboardIcon,
-    UsersIcon,
-    BookOpenIcon,
-    Settings2Icon,
-    ChevronRightIcon,
-} from "lucide-react";
+import { LayoutDashboardIcon, UsersIcon, Settings2Icon, ChevronRightIcon } from "lucide-react";
 
 interface NavItem {
     title: string;
@@ -47,30 +41,13 @@ function buildNavItems(role: string): NavItem[] {
                 items: [
                     { title: "Admins", url: "/admins" },
                     { title: "Invitations", url: "/admins/invitations" },
-                    { title: "Teachers", url: "/admins/teachers" },
-                    { title: "Staff", url: "/admins/staff" },
-                    { title: "Students", url: "/admins/students" },
-                    { title: "Classes", url: "/classes" },
-                ],
-            },
-            {
-                title: "Documentation",
-                url: "#",
-                icon: <BookOpenIcon className="size-4" />,
-                items: [
-                    { title: "Authentication", url: "/docs/authentication" },
-                    { title: "Calendar Validation", url: "/docs/calendar-validation" },
-                    { title: "Class Stream Generator", url: "/docs/class-stream-generator" },
                 ],
             },
             {
                 title: "Settings",
                 url: "#",
                 icon: <Settings2Icon className="size-4" />,
-                items: [
-                    { title: "General", url: "/settings" },
-                    { title: "Schools", url: "/settings/school" },
-                ],
+                items: [{ title: "General", url: "/settings" }],
             },
         ];
     }

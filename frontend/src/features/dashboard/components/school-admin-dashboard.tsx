@@ -1,7 +1,12 @@
 "use client";
 
-import { CbcAdminDashboard } from "./cbc/cbc-admin-dashboard";
-
 export function SchoolAdminDashboardPage() {
-    return <CbcAdminDashboard />;
+    return (
+        <article>
+            <h1 className="text-2xl font-semibold tracking-tight">School Admin Dashboard</h1>
+            <p className="text-muted-foreground mt-1 text-sm">
+                Welcome to SomoTracker. Manage your school, members, and settings.
+            </p>
+        </article>
+    );
 }

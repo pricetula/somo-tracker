@@ -46,7 +46,7 @@ DROP TYPE IF EXISTS enrollment_status CASCADE;
 -- ============================================================================
 
 DO $$ BEGIN
-    CREATE TYPE user_role AS ENUM ('SYSTEM_ADMIN', 'SCHOOL_ADMIN', 'TEACHER', 'SUPPORT_STAFF');
+    CREATE TYPE user_role AS ENUM ('SYSTEM_ADMIN', 'SCHOOL_ADMIN', 'TEACHER', 'SUPPORT_STAFF', 'PARENT');
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
@@ -447,6 +447,51 @@ CREATE INDEX IF NOT EXISTS idx_invitations_email     ON invitations (email);
 CREATE INDEX IF NOT EXISTS idx_invitations_status    ON invitations (status);
 
 -- ---------------------------------------------------------------------------
+-- CBC PARENTS (Profile Extension linking to core platform Users)
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS cbc_parents (
+    id             UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id      UUID         NOT NULL,
+    user_id        UUID         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    phone_number   VARCHAR(20)  NOT NULL, -- Crucial for M-Pesa & SMS notifications
+    is_active      BOOLEAN      NOT NULL DEFAULT true,
+    created_at     TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at     TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT uq_cbc_parents_user UNIQUE (user_id),
+    CONSTRAINT fk_cbc_parents_tenant_user FOREIGN KEY (tenant_id, user_id) REFERENCES users(tenant_id, id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_cbc_parents_phone ON cbc_parents (phone_number);
+CREATE INDEX IF NOT EXISTS idx_cbc_parents_tenant ON cbc_parents (tenant_id);
+
+DROP TRIGGER IF EXISTS trg_cbc_parents_updated_at ON cbc_parents;
+CREATE TRIGGER trg_cbc_parents_updated_at
+    BEFORE UPDATE ON cbc_parents
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+
+COMMENT ON TABLE cbc_parents IS
+    'Profile extension table for users acting as parents or guardians. Links
+     directly to the platform users table to leverage Stytch B2B auth loops.';
+
+-- ---------------------------------------------------------------------------
+-- CBC STUDENT PARENTS JUNCTION (Many-to-Many Relationship Mapping)
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS cbc_student_parents (
+    student_id    UUID        NOT NULL REFERENCES cbc_students(id) ON DELETE CASCADE,
+    parent_id     UUID        NOT NULL REFERENCES cbc_parents(id) ON DELETE CASCADE,
+    relationship  VARCHAR(50) NULL, -- 'Father', 'Mother', 'Guardian'
+    is_primary    BOOLEAN     NOT NULL DEFAULT true,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    PRIMARY KEY (student_id, parent_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_junction_parent ON cbc_student_parents (parent_id);
+
+-- ---------------------------------------------------------------------------
 -- CBC STUDENTS (replaces generic students)
 -- ---------------------------------------------------------------------------
 
@@ -457,7 +502,7 @@ CREATE TABLE IF NOT EXISTS cbc_students (
     middle_name             VARCHAR(100) NULL,
     last_name               VARCHAR(100) NOT NULL,
     gender                  CHAR(1)      NOT NULL,
-    date_of_birth           DATE         NOT NULL,
+    date_of_birth           DATE         NULL,
     upi_number              VARCHAR(20)  NULL,
     knec_assessment_number  VARCHAR(15)  NULL,
     learning_pathway        cbc_learning_pathway  NOT NULL DEFAULT 'Age_Based',
@@ -601,6 +646,7 @@ CREATE TABLE IF NOT EXISTS invoices (
     student_id       UUID        NOT NULL,
     school_id        UUID        NOT NULL,
     academic_term_id UUID        NOT NULL,
+    parent_id        UUID        NULL REFERENCES cbc_parents(id) ON DELETE SET NULL,
     invoice_label    VARCHAR(255) NULL,
     created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
@@ -613,6 +659,7 @@ CREATE TABLE IF NOT EXISTS invoices (
 
 CREATE INDEX IF NOT EXISTS idx_invoices_tenant       ON invoices (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_invoices_student_term ON invoices (student_id, academic_term_id);
+CREATE INDEX IF NOT EXISTS idx_invoices_parent       ON invoices (parent_id);
 
 -- ---------------------------------------------------------------------------
 -- INVOICE ITEMS
@@ -643,6 +690,7 @@ CREATE TABLE IF NOT EXISTS payments (
     tenant_id      UUID          NOT NULL,
     invoice_id     UUID          NOT NULL,
     amount         NUMERIC(12,2) NOT NULL CHECK (amount > 0),
+    parent_id      UUID          NULL REFERENCES cbc_parents(id) ON DELETE SET NULL,
     payment_method VARCHAR(50)   NULL,
     reference_code VARCHAR(100)  NULL,
     recorded_by    UUID          NOT NULL REFERENCES users(id),
@@ -653,6 +701,7 @@ CREATE TABLE IF NOT EXISTS payments (
 
 CREATE INDEX IF NOT EXISTS idx_payments_tenant     ON payments (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_payments_invoice_id ON payments (invoice_id);
+CREATE INDEX IF NOT EXISTS idx_payments_parent     ON payments (parent_id);
 
 -- ============================================================================
 -- LAYER 5 — CBC CURRICULUM STRUCTURE

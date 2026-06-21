@@ -69,7 +69,9 @@ DROP TABLE IF EXISTS academic_years CASCADE;
 -- ============================================================================
 
 DROP TABLE IF EXISTS cbc_student_enrollments CASCADE;
+DROP TABLE IF EXISTS cbc_student_parents CASCADE;
 DROP TABLE IF EXISTS cbc_students CASCADE;
+DROP TABLE IF EXISTS cbc_parents CASCADE;
 DROP TABLE IF EXISTS cbc_classes CASCADE;
 DROP TABLE IF EXISTS cbc_schools CASCADE;
 

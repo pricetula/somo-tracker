@@ -188,11 +188,11 @@ func (s *Service) CreateInvitations(ctx context.Context, tenantID, schoolID, inv
 		}
 
 		// Validate role
-		if item.Role != "TEACHER" && item.Role != "SUPPORT_STAFF" && item.Role != "SCHOOL_ADMIN" {
+		if item.Role != "TEACHER" && item.Role != "NURSE" && item.Role != "FINANCE" && item.Role != "SCHOOL_ADMIN" {
 			resp.Failed++
 			resp.Errors = append(resp.Errors, InviteErrorItem{
 				Email: item.Email,
-				Error: "invalid role: must be TEACHER, SUPPORT_STAFF, or SCHOOL_ADMIN",
+				Error: "invalid role: must be TEACHER, NURSE, FINANCE, or SCHOOL_ADMIN",
 			})
 			continue
 		}

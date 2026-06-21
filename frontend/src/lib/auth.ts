@@ -41,7 +41,8 @@ export const ROLE_ROUTES: Record<string, string[]> = {
     SYSTEM_ADMIN: ["/admin", "/admins", "/dashboard", "/settings", "/schools", "/docs"],
     SCHOOL_ADMIN: ["/admin", "/admins", "/dashboard", "/settings", "/schools", "/docs"],
     TEACHER: ["/dashboard", "/docs"],
-    SUPPORT_STAFF: ["/dashboard", "/docs"],
+    NURSE: ["/dashboard", "/docs"],
+    FINANCE: ["/dashboard", "/docs"],
 };
 
 /**
@@ -51,5 +52,6 @@ export const ROLE_DEFAULT_ROUTES: Record<string, string> = {
     SYSTEM_ADMIN: "/admin",
     SCHOOL_ADMIN: "/admin",
     TEACHER: "/",
-    SUPPORT_STAFF: "/",
+    NURSE: "/",
+    FINANCE: "/",
 };

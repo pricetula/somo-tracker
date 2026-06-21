@@ -33,7 +33,7 @@ interface InviteRow {
 interface BulkInviteModalProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    role: "TEACHER" | "SUPPORT_STAFF";
+    role: "TEACHER" | "NURSE" | "FINANCE";
 }
 
 // ─── Component ─────────────────────────────────────────────────────────────
@@ -98,7 +98,7 @@ export function BulkInviteModal({ open, onOpenChange, role }: BulkInviteModalPro
     }
 
     const validCount = rows.filter((r) => r.email.trim() !== "").length;
-    const roleLabel = role === "TEACHER" ? "Teachers" : "Staff";
+    const roleLabel = role === "TEACHER" ? "Teachers" : role === "NURSE" ? "Nurses" : "Finance";
 
     return (
         <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -106,7 +106,7 @@ export function BulkInviteModal({ open, onOpenChange, role }: BulkInviteModalPro
                 <DialogHeader>
                     <DialogTitle>Invite {roleLabel}</DialogTitle>
                     <DialogDescription>
-                        Send invitation emails to join as {role.toLowerCase()}.
+                        Send invitation emails to join as {role.toLowerCase().replace(/_/g, " ")}.
                     </DialogDescription>
                 </DialogHeader>
 

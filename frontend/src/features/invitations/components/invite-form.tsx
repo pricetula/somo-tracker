@@ -56,7 +56,8 @@ const DEFAULT_ROLE: InvitationRole = "TEACHER";
 const ROLE_OPTIONS: { value: InvitationRole; label: string }[] = [
     { value: "SCHOOL_ADMIN", label: "School Admin" },
     { value: "TEACHER", label: "Teacher" },
-    { value: "SUPPORT_STAFF", label: "Staff" },
+    { value: "NURSE", label: "Nurse" },
+    { value: "FINANCE", label: "Finance" },
 ];
 
 // ─── Form Content ──────────────────────────────────────────────────────────

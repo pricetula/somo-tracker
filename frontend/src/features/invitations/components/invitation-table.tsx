@@ -47,7 +47,8 @@ const ROLE_LABELS: Record<InvitationRole, string> = {
     SYSTEM_ADMIN: "System Admin",
     SCHOOL_ADMIN: "School Admin",
     TEACHER: "Teacher",
-    SUPPORT_STAFF: "Staff",
+    NURSE: "Nurse",
+    FINANCE: "Finance",
 };
 
 function formatDate(iso: string): string {
@@ -271,7 +272,8 @@ export function InvitationTable({
                             <SelectItem value="">All Roles</SelectItem>
                             <SelectItem value="SCHOOL_ADMIN">School Admin</SelectItem>
                             <SelectItem value="TEACHER">Teacher</SelectItem>
-                            <SelectItem value="SUPPORT_STAFF">Staff</SelectItem>
+                            <SelectItem value="NURSE">Nurse</SelectItem>
+                            <SelectItem value="FINANCE">Finance</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>

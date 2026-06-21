@@ -93,7 +93,8 @@ func (r *Repository) GetActiveSchoolID(ctx context.Context, tenantID, userID str
 			CASE role
 				WHEN 'SCHOOL_ADMIN'::user_role THEN 1
 				WHEN 'TEACHER'::user_role THEN 2
-				WHEN 'SUPPORT_STAFF'::user_role THEN 3
+				WHEN 'NURSE'::user_role THEN 3
+				WHEN 'FINANCE'::user_role THEN 4
 			END
 		LIMIT 1
 	`

@@ -13,7 +13,8 @@ The platform operates on a strict, top-down data hierarchy to protect multi-tena
 | `SYSTEM_ADMIN` | Global (Cross-Tenant) | Platform infrastructure, multi-tenant onboarding, billing, and global health metrics. |
 | `SCHOOL_ADMIN` | Tenant-Wide | Full institutional oversight, staff/student user configuration, and school-wide historical performance analytics. |
 | `TEACHER` | Roster-Scoped | Classroom management, grade inputs, attendance tracking, and localized subject trends. |
-| `SUPPORT_STAFF` | Cohort-Scoped | Early warning indicators, action log tracking, student academic matrices, and clinical/health logs. |
+| `NURSE` | Cohort-Scoped | Early warning indicators, action log tracking, student academic matrices, and clinical/health logs. |
+| `FINANCE` | Cohort-Scoped | Billing, invoicing, payment tracking, and financial reporting. |
 
 ---
 
@@ -420,7 +421,7 @@ The backend attendance generation pipeline must instantly ignore any `timetable_
 
 ### 🏥 Medical & Health Data Security
 **19. Health Profile Access Restriction**
-The API routing stack must explicitly restrict queries targeting `student_health_profiles` and `medical_incidents`. Data hydration is strictly forbidden unless the requesting security context evaluates to a tenant-wide `SCHOOL_ADMIN`, a designated campus `SUPPORT_STAFF` profile, or a `TEACHER` who is actively linked to that student cohort through a class-roster ledger block.
+The API routing stack must explicitly restrict queries targeting `student_health_profiles` and `medical_incidents`. Data hydration is strictly forbidden unless the requesting security context evaluates to a tenant-wide `SCHOOL_ADMIN`, a designated campus `NURSE` profile, or a `TEACHER` who is actively linked to that student cohort through a class-roster ledger block.
 
 ### 💰 Financial & Invoicing Controls
 **21. Strict Invoice Balance Ceiling**

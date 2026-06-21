@@ -5,7 +5,7 @@ const PROTECTED_PREFIXES = ["/dashboard", "/settings", "/admin", "/admins", "/sc
 
 // Exhaustive set of valid roles — verifiedRole must be one of these or access is denied.
 // Keeps role checking honest even if ROLE_ROUTES is missing an entry.
-const VALID_ROLES = new Set(["SYSTEM_ADMIN", "SCHOOL_ADMIN", "TEACHER", "SUPPORT_STAFF"]);
+const VALID_ROLES = new Set(["SYSTEM_ADMIN", "SCHOOL_ADMIN", "TEACHER", "NURSE", "FINANCE"]);
 
 /**
  * Converts a hex string back to a Uint8Array.

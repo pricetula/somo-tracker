@@ -75,7 +75,7 @@ func (h *Handler) resolveActiveSchool(c *fiber.Ctx, tenantID, userID string) (st
 // @Description  Returns paginated members (users with active memberships) filtered by role.
 // @Tags         Members
 // @Produce      json
-// @Param        role      query  string  true   "Role filter (TEACHER or SUPPORT_STAFF)"
+// @Param        role      query  string  true   "Role filter (TEACHER or NURSE)"
 // @Param        page      query  int     false  "Page number (1-indexed)"
 // @Param        per_page  query  int     false  "Items per page (max 100)"
 // @Param        search    query  string  false  "Search by name or email"
@@ -92,13 +92,13 @@ func (h *Handler) List(c *fiber.Ctx) error {
 	if role == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorBody{
 			Error:   "invalid_input",
-			Message: "role query parameter is required (TEACHER or SUPPORT_STAFF)",
+			Message: "role query parameter is required (TEACHER, NURSE, or FINANCE)",
 		})
 	}
-	if role != "TEACHER" && role != "SUPPORT_STAFF" {
+	if role != "TEACHER" && role != "NURSE" && role != "FINANCE" {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorBody{
 			Error:   "invalid_input",
-			Message: "role must be TEACHER or SUPPORT_STAFF",
+			Message: "role must be TEACHER, NURSE, or FINANCE",
 		})
 	}
 
@@ -168,10 +168,10 @@ func (h *Handler) BulkInvite(c *fiber.Ctx) error {
 			Message: "role is required",
 		})
 	}
-	if req.Role != "TEACHER" && req.Role != "SUPPORT_STAFF" {
+	if req.Role != "TEACHER" && req.Role != "NURSE" && req.Role != "FINANCE" {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorBody{
 			Error:   "invalid_input",
-			Message: "role must be TEACHER or SUPPORT_STAFF",
+			Message: "role must be TEACHER, NURSE, or FINANCE",
 		})
 	}
 
@@ -212,7 +212,7 @@ func (h *Handler) BulkInvite(c *fiber.Ctx) error {
 // @Param        search    query  string  false  "Search by name"
 // @Param        email     query  string  false  "Filter by email"
 // @Param        status    query  string  false  "Filter by status (pending, accepted, expired, revoked)"
-// @Param        role      query  string  false  "Filter by role (TEACHER, SCHOOL_ADMIN, SUPPORT_STAFF)"
+// @Param        role      query  string  false  "Filter by role (TEACHER, SCHOOL_ADMIN, NURSE, FINANCE)"
 // @Param        expired   query  bool    false  "Include expired invitations (default: false)"
 // @Param        page      query  int     false  "Page number (1-indexed)"
 // @Param        per_page  query  int     false  "Items per page (max 100)"

@@ -15,7 +15,7 @@ export interface Member {
     email: string;
     first_name: string;
     last_name: string;
-    role: "TEACHER" | "SUPPORT_STAFF";
+    role: "TEACHER" | "NURSE" | "FINANCE";
     is_active: boolean;
     created_at: string;
 }
@@ -26,7 +26,7 @@ export interface ListMembersResponse {
 }
 
 export interface BulkInviteRequest {
-    role: "TEACHER" | "SUPPORT_STAFF";
+    role: "TEACHER" | "NURSE" | "FINANCE";
     invites: InviteItem[];
 }
 
@@ -51,7 +51,7 @@ export interface InviteErrorItem {
 
 /** List members by role with pagination and optional search. */
 export async function listMembers(
-    role: "TEACHER" | "SUPPORT_STAFF",
+    role: "TEACHER" | "NURSE" | "FINANCE",
     params: { page?: number; per_page?: number; search?: string } = {}
 ): Promise<ListMembersResponse> {
     const searchParams = new URLSearchParams({ role });

@@ -141,7 +141,7 @@ for GiST exclusion constraints on cbc_timetable_slots
 Enums (only these 3 — gender_type and enrollment_status are gone):
 
 CREATE TYPE user_role AS ENUM (
-'SYSTEM_ADMIN', 'SCHOOL_ADMIN', 'TEACHER', 'SUPPORT_STAFF'
+'SYSTEM_ADMIN', 'SCHOOL_ADMIN', 'TEACHER', 'NURSE', 'FINANCE'
 );
 
 CREATE TYPE attendance_status AS ENUM (

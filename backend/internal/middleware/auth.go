@@ -97,7 +97,8 @@ func loadSessionFromCookie(c *fiber.Ctx, pool *pgxpool.Pool) (*SessionInfo, erro
 		               WHEN 'SYSTEM_ADMIN' THEN 1
 		               WHEN 'SCHOOL_ADMIN' THEN 2
 		               WHEN 'TEACHER' THEN 3
-		               WHEN 'SUPPORT_STAFF' THEN 4
+		               WHEN 'NURSE' THEN 4
+		               WHEN 'FINANCE' THEN 5
 		             END
 		           LIMIT 1),
 		         'TEACHER'

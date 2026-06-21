@@ -18,7 +18,7 @@ import { ROLE_ROUTES, ROLE_DEFAULT_ROUTES } from "@/lib/auth";
 // ── Helpers that mirror the proxy's logic ──
 
 /** Set of all valid roles — must stay in sync with proxy.ts. */
-const VALID_ROLES = new Set(["SYSTEM_ADMIN", "SCHOOL_ADMIN", "TEACHER", "SUPPORT_STAFF"]);
+const VALID_ROLES = new Set(["SYSTEM_ADMIN", "SCHOOL_ADMIN", "TEACHER", "NURSE", "FINANCE"]);
 
 /**
  * Determines whether a user's role permits access to the dashboard at `/`.
@@ -41,7 +41,7 @@ function getDefaultRoute(role: string): string {
 // ── Tests ──
 
 describe("hasDashboardAccess — proxy check at /", () => {
-    it.each(["SYSTEM_ADMIN", "SCHOOL_ADMIN", "TEACHER", "SUPPORT_STAFF"])(
+    it.each(["SYSTEM_ADMIN", "SCHOOL_ADMIN", "TEACHER", "NURSE", "FINANCE"])(
         "allows %s to access dashboard at /",
         (role) => {
             expect(hasDashboardAccess(role)).toBe(true);
@@ -112,8 +112,12 @@ describe("ROLE_DEFAULT_ROUTES lookup helper", () => {
         expect(getDefaultRoute("TEACHER")).toBe("/");
     });
 
-    it("SUPPORT_STAFF defaults to /", () => {
-        expect(getDefaultRoute("SUPPORT_STAFF")).toBe("/");
+    it("NURSE defaults to /", () => {
+        expect(getDefaultRoute("NURSE")).toBe("/");
+    });
+
+    it("FINANCE defaults to /", () => {
+        expect(getDefaultRoute("FINANCE")).toBe("/");
     });
 
     it("unknown role falls back to /", () => {
@@ -193,12 +197,22 @@ describe("Proxy decision matrix at / (simulated)", () => {
         expect(result).toBe("next");
     });
 
-    it("allows authenticated SUPPORT_STAFF through to /", () => {
+    it("allows authenticated NURSE through to /", () => {
         const result = simulateProxyDecision({
             hasSession: true,
             hasRole: true,
             roleCookieValid: true,
-            roleValue: "SUPPORT_STAFF",
+            roleValue: "NURSE",
+        });
+        expect(result).toBe("next");
+    });
+
+    it("allows authenticated FINANCE through to /", () => {
+        const result = simulateProxyDecision({
+            hasSession: true,
+            hasRole: true,
+            roleCookieValid: true,
+            roleValue: "FINANCE",
         });
         expect(result).toBe("next");
     });

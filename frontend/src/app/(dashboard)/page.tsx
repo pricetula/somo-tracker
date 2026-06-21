@@ -3,7 +3,8 @@ import {
     SystemAdminDashboardPage,
     SchoolAdminDashboardPage,
     TeacherDashboardPage,
-    SupportStaffDashboardPage,
+    NurseDashboardPage,
+    FinanceDashboardPage,
 } from "@/features/dashboard";
 
 export default async function Home() {
@@ -26,8 +27,10 @@ export default async function Home() {
             return <SchoolAdminDashboardPage />;
         case "TEACHER":
             return <TeacherDashboardPage />;
-        case "SUPPORT_STAFF":
-            return <SupportStaffDashboardPage />;
+        case "NURSE":
+            return <NurseDashboardPage />;
+        case "FINANCE":
+            return <FinanceDashboardPage />;
         default:
             return (
                 <article>

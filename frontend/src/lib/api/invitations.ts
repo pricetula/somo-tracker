@@ -12,7 +12,7 @@ import { api } from "./client";
 
 export type InvitationStatus = "pending" | "accepted" | "expired" | "revoked";
 
-export type InvitationRole = "SYSTEM_ADMIN" | "SCHOOL_ADMIN" | "TEACHER" | "SUPPORT_STAFF";
+export type InvitationRole = "SYSTEM_ADMIN" | "SCHOOL_ADMIN" | "TEACHER" | "NURSE" | "FINANCE";
 
 export interface Invitation {
     id: string;

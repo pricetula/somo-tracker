@@ -60,7 +60,7 @@ async function verifySignedCookie(cookieValue: string, secret: string): Promise<
 
 describe("verifySignedCookie", () => {
     const secret = "test-secret-must-be-32-chars-long!";
-    const roles = ["SCHOOL_ADMIN", "TEACHER", "SYSTEM_ADMIN", "SUPPORT_STAFF"];
+    const roles = ["SCHOOL_ADMIN", "TEACHER", "SYSTEM_ADMIN", "NURSE", "FINANCE"];
 
     describe("valid cookies", () => {
         it.each(roles)("accepts a valid signed cookie for role %s", async (role) => {

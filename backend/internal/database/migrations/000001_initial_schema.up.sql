@@ -46,7 +46,7 @@ DROP TYPE IF EXISTS enrollment_status CASCADE;
 -- ============================================================================
 
 DO $$ BEGIN
-    CREATE TYPE user_role AS ENUM ('SYSTEM_ADMIN', 'SCHOOL_ADMIN', 'TEACHER', 'SUPPORT_STAFF', 'PARENT');
+    CREATE TYPE user_role AS ENUM ('SYSTEM_ADMIN', 'SCHOOL_ADMIN', 'TEACHER', 'NURSE', 'FINANCE', 'PARENT');
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
@@ -1110,6 +1110,20 @@ COMMENT ON TABLE cbc_term_competency_summaries IS
      EE/ME/AE/BE. Sub-levels (EE1 etc.) are only valid for the internal
      calculated_level and override_level fields. knec_synced_at is NULL until
      the first successful upload to cba.knec.ac.ke.';
+
+-- ============================================================================
+-- ROLE MIGRATION: SUPPORT_STAFF → NURSE, add FINANCE
+-- ============================================================================
+
+DO $$ BEGIN
+    ALTER TYPE user_role RENAME VALUE 'SUPPORT_STAFF' TO 'NURSE';
+EXCEPTION WHEN undefined_object THEN
+    NULL;
+END $$;
+
+DO $$ BEGIN
+    ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'FINANCE';
+END $$;
 
 -- ============================================================================
 -- END OF MIGRATION

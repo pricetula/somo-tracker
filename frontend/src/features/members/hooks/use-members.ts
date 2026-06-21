@@ -28,7 +28,7 @@ export const memberKeys = {
 
 /** Fetch members by role with pagination and search. */
 export function useMembers(
-    role: "TEACHER" | "SUPPORT_STAFF",
+    role: "TEACHER" | "NURSE" | "FINANCE",
     opts: { page?: number; per_page?: number; search?: string; enabled?: boolean } = {}
 ) {
     const { page = 1, per_page = 50, search = "", enabled = true } = opts;

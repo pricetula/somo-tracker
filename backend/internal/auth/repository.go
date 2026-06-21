@@ -169,7 +169,8 @@ func (r *SqlcRepository) GetSessionByToken(ctx context.Context, token string) (*
 					WHEN 'SYSTEM_ADMIN' THEN 1
 					WHEN 'SCHOOL_ADMIN' THEN 2
 					WHEN 'TEACHER' THEN 3
-					WHEN 'SUPPORT_STAFF' THEN 4
+					WHEN 'NURSE' THEN 4
+					WHEN 'FINANCE' THEN 5
 				END
 			LIMIT 1
 		) m ON true
@@ -404,7 +405,8 @@ func (r *SqlcRepository) GetMeInfo(ctx context.Context, token string) (*MeInfo, 
 					WHEN 'SYSTEM_ADMIN' THEN 1
 					WHEN 'SCHOOL_ADMIN' THEN 2
 					WHEN 'TEACHER' THEN 3
-					WHEN 'SUPPORT_STAFF' THEN 4
+					WHEN 'NURSE' THEN 4
+					WHEN 'FINANCE' THEN 5
 				END
 			LIMIT 1
 		) m ON true
@@ -452,7 +454,8 @@ func (r *SqlcRepository) GetUserHighestRole(ctx context.Context, userID string) 
 				WHEN 'SYSTEM_ADMIN' THEN 1
 				WHEN 'SCHOOL_ADMIN' THEN 2
 				WHEN 'TEACHER' THEN 3
-				WHEN 'SUPPORT_STAFF' THEN 4
+				WHEN 'NURSE' THEN 4
+				WHEN 'FINANCE' THEN 5
 			END
 		LIMIT 1
 	`

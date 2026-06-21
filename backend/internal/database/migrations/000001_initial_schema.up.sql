@@ -70,6 +70,112 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
+DO $$ BEGIN
+    CREATE TYPE cbc_grade_level AS ENUM (
+        'PP1','PP2',
+        'G1','G2','G3',
+        'G4','G5','G6',
+        'G7','G8','G9',
+        'G10','G11','G12'
+    );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE cbc_education_level AS ENUM (
+        'Early_Years',
+        'Upper_Primary',
+        'Junior_Secondary',
+        'Senior_School'
+    );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE cbc_school_type AS ENUM (
+        'Public',
+        'Private',
+        'Special_Needs_School'
+    );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE cbc_learning_pathway AS ENUM (
+        'Age_Based',
+        'Stage_Based'
+    );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE cbc_assessment_type AS ENUM (
+        'Formative_Classroom',
+        'KNEC_Written_Assessment',
+        'KNEC_SBA_Project',
+        'National_KPSEA',
+        'National_KJSEA',
+        'National_KSSEA'
+    );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE knec_target_exam AS ENUM (
+        'KPSEA',
+        'KJSEA',
+        'KSSEA',
+        'None'
+    );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE cbc_rubric_level AS ENUM (
+        'EE','ME','AE','BE'
+    );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE cbc_rubric_level_with_sub_levels AS ENUM (
+        'EE','ME','AE','BE',
+        'EE1','EE2',
+        'ME1','ME2',
+        'AE1','AE2',
+        'BE1','BE2'
+    );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE lrr_score_type AS ENUM (
+        'Numeric_Raw',
+        'Rubric_Direct'
+    );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE portfolio_evidence_type AS ENUM (
+        'Physical_File_Reference',
+        'Digital_Artifact_URL',
+        'Video_Recording',
+        'Audio_Log',
+        'Observation_Checklist'
+    );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE knec_sync_status AS ENUM (
+        'Pending',
+        'Synced',
+        'Failed'
+    );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
 -- ============================================================================
 -- LAYER 1 — PLATFORM INFRASTRUCTURE
 -- ============================================================================
@@ -169,12 +275,11 @@ CREATE TABLE IF NOT EXISTS cbc_schools (
     county                  VARCHAR(50)  NOT NULL,
     sub_county              VARCHAR(50)  NOT NULL,
     ward                    VARCHAR(50)  NULL,
-    school_type             VARCHAR(20)  NOT NULL,
+    school_type             cbc_school_type  NOT NULL,
     is_active               BOOLEAN      NOT NULL DEFAULT true,
     created_at              TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
 
-    CONSTRAINT uq_cbc_schools_tenant UNIQUE (tenant_id, id),
-    CONSTRAINT chk_cbc_school_type CHECK (school_type IN ('Public', 'Private', 'Special_Needs_School'))
+    CONSTRAINT uq_cbc_schools_tenant UNIQUE (tenant_id, id)
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_cbc_schools_knec_code
@@ -270,20 +375,13 @@ CREATE TABLE IF NOT EXISTS cbc_classes (
     school_id        UUID         NOT NULL,
     academic_year_id UUID         NOT NULL,
     name             VARCHAR(100) NOT NULL,
-    grade_level      VARCHAR(5)   NOT NULL,
+    grade_level      cbc_grade_level   NOT NULL,
     stream           VARCHAR(100) NOT NULL DEFAULT '',
     is_active        BOOLEAN      NOT NULL DEFAULT true,
 
     CONSTRAINT uq_cbc_classes_tenant UNIQUE (tenant_id, id),
     CONSTRAINT fk_cbc_classes_tenant_school FOREIGN KEY (tenant_id, school_id) REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_cbc_classes_tenant_academic_year FOREIGN KEY (tenant_id, academic_year_id) REFERENCES academic_years(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT chk_cbc_class_grade_level CHECK (grade_level IN (
-        'PP1','PP2',
-        'G1','G2','G3',
-        'G4','G5','G6',
-        'G7','G8','G9',
-        'G10','G11','G12'
-    ))
+    CONSTRAINT fk_cbc_classes_tenant_academic_year FOREIGN KEY (tenant_id, academic_year_id) REFERENCES academic_years(tenant_id, id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_cbc_classes_tenant_id        ON cbc_classes (tenant_id);
@@ -362,13 +460,12 @@ CREATE TABLE IF NOT EXISTS cbc_students (
     date_of_birth           DATE         NOT NULL,
     upi_number              VARCHAR(20)  NULL,
     knec_assessment_number  VARCHAR(15)  NULL,
-    learning_pathway        VARCHAR(15)  NOT NULL DEFAULT 'Age_Based',
+    learning_pathway        cbc_learning_pathway  NOT NULL DEFAULT 'Age_Based',
     is_active               BOOLEAN      NOT NULL DEFAULT true,
     created_at              TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
 
     CONSTRAINT uq_cbc_students_tenant UNIQUE (tenant_id, id),
-    CONSTRAINT chk_cbc_student_gender CHECK (gender IN ('M', 'F')),
-    CONSTRAINT chk_cbc_student_learning_pathway CHECK (learning_pathway IN ('Age_Based', 'Stage_Based'))
+    CONSTRAINT chk_cbc_student_gender CHECK (gender IN ('M', 'F'))
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_cbc_students_upi
@@ -481,16 +578,12 @@ CREATE TABLE IF NOT EXISTS fee_templates (
     tenant_id         UUID          NOT NULL,
     school_id         UUID          NOT NULL,
     academic_term_id  UUID          NOT NULL,
-    grade_level       VARCHAR(5)    NOT NULL,
+    grade_level       cbc_grade_level    NOT NULL,
     fee_category_id   UUID          NOT NULL REFERENCES fee_categories(id) ON DELETE CASCADE,
     amount            NUMERIC(12,2) NOT NULL CHECK (amount >= 0),
 
     CONSTRAINT fk_fee_templates_tenant_school FOREIGN KEY (tenant_id, school_id) REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_fee_templates_tenant_term FOREIGN KEY (tenant_id, school_id, academic_term_id) REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE,
-    CONSTRAINT chk_fee_template_grade_level CHECK (grade_level IN (
-        'PP1','PP2','G1','G2','G3','G4','G5','G6',
-        'G7','G8','G9','G10','G11','G12'
-    )),
     CONSTRAINT unique_fee_template_rule UNIQUE (academic_term_id, grade_level, fee_category_id)
 );
 
@@ -575,15 +668,9 @@ CREATE TABLE IF NOT EXISTS cbc_learning_areas (
     school_id        UUID         NOT NULL,
     name             VARCHAR(150) NOT NULL,
     code             VARCHAR(50)  NOT NULL,
-    education_level  VARCHAR(20)  NOT NULL,
+    education_level  cbc_education_level  NOT NULL,
 
     CONSTRAINT fk_cbc_learning_areas_tenant_school FOREIGN KEY (tenant_id, school_id) REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT chk_cbc_learning_area_level CHECK (education_level IN (
-        'Early_Years',        -- PP1, PP2, Grade 1–3
-        'Upper_Primary',      -- Grade 4–6
-        'Junior_Secondary',   -- Grade 7–9
-        'Senior_School'       -- Grade 10–12
-    )),
     CONSTRAINT uq_cbc_learning_area_school_code UNIQUE (tenant_id, school_id, code)
 );
 
@@ -777,22 +864,13 @@ END $$;
 
 CREATE TABLE IF NOT EXISTS assessment_weight_configs (
     id                   UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
-    grade_level          VARCHAR(5)    NOT NULL,
-    assessment_type_code VARCHAR(30)   NOT NULL,
-    target_exam          VARCHAR(20)   NOT NULL,
+    grade_level          cbc_grade_level    NOT NULL,
+    assessment_type_code cbc_assessment_type NOT NULL,
+    target_exam          knec_target_exam    NOT NULL,
     weight_percent       NUMERIC(5,2)  NOT NULL,
     effective_from       SMALLINT      NOT NULL,
     notes                TEXT          NULL,
 
-    CONSTRAINT chk_awc_grade_level CHECK (grade_level IN (
-        'PP1','PP2','G1','G2','G3','G4','G5','G6',
-        'G7','G8','G9','G10','G11','G12'
-    )),
-    CONSTRAINT chk_awc_assessment_type CHECK (assessment_type_code IN (
-        'Formative_Classroom', 'KNEC_Written_Assessment', 'KNEC_SBA_Project',
-        'National_KPSEA', 'National_KJSEA', 'National_KSSEA'
-    )),
-    CONSTRAINT chk_awc_target_exam CHECK (target_exam IN ('KPSEA', 'KJSEA', 'KSSEA', 'None')),
     CONSTRAINT chk_awc_weight_percent CHECK (weight_percent BETWEEN 0.00 AND 100.00),
     CONSTRAINT chk_awc_effective_from CHECK (effective_from >= 2017),
     CONSTRAINT uq_awc_grade_type_exam_effective UNIQUE (grade_level, assessment_type_code, target_exam, effective_from)
@@ -814,24 +892,12 @@ CREATE TABLE IF NOT EXISTS assessment_blueprints (
     tenant_id        UUID         NOT NULL,
     school_id        UUID         NOT NULL,
     title            VARCHAR(255) NOT NULL,
-    type             VARCHAR(30)  NOT NULL,
-    grade_level      VARCHAR(5)   NOT NULL,
+    type             cbc_assessment_type NOT NULL,
+    grade_level      cbc_grade_level   NOT NULL,
     academic_year    SMALLINT     NOT NULL,
     term             SMALLINT     NOT NULL,
 
     CONSTRAINT fk_blueprints_tenant_school FOREIGN KEY (tenant_id, school_id) REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT chk_blueprint_type CHECK (type IN (
-        'Formative_Classroom',
-        'KNEC_Written_Assessment',
-        'KNEC_SBA_Project',
-        'National_KPSEA',
-        'National_KJSEA',
-        'National_KSSEA'
-    )),
-    CONSTRAINT chk_blueprint_grade_level CHECK (grade_level IN (
-        'PP1','PP2','G1','G2','G3','G4','G5','G6',
-        'G7','G8','G9','G10','G11','G12'
-    )),
     CONSTRAINT chk_blueprint_term CHECK (term BETWEEN 1 AND 3),
     CONSTRAINT chk_blueprint_academic_year CHECK (academic_year >= 2017)
 );
@@ -902,14 +968,12 @@ CREATE TABLE IF NOT EXISTS learner_rubric_results (
     session_id                UUID         NOT NULL REFERENCES assessment_sessions(id) ON DELETE CASCADE,
     student_id                UUID         NOT NULL,
     indicator_id              UUID         NOT NULL REFERENCES performance_indicators(id) ON DELETE RESTRICT,
-    score_type                VARCHAR(20)  NOT NULL,
+    score_type                lrr_score_type  NOT NULL,
     raw_score                 NUMERIC(5,2) NULL,
-    rubric_level              VARCHAR(2)   NOT NULL,
+    rubric_level              cbc_rubric_level   NOT NULL,
     teacher_observation_notes TEXT         NULL,
 
     CONSTRAINT fk_lrr_tenant_student FOREIGN KEY (tenant_id, student_id) REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT chk_lrr_score_type CHECK (score_type IN ('Numeric_Raw', 'Rubric_Direct')),
-    CONSTRAINT chk_lrr_rubric_level CHECK (rubric_level IN ('EE', 'ME', 'AE', 'BE')),
     CONSTRAINT unique_lrr_per_student_indicator UNIQUE (session_id, student_id, indicator_id)
 );
 
@@ -938,20 +1002,13 @@ CREATE TABLE IF NOT EXISTS learner_portfolios (
     tenant_id        UUID        NOT NULL,
     student_id       UUID        NOT NULL,
     sub_strand_id    UUID        NOT NULL REFERENCES cbc_sub_strands(id) ON DELETE RESTRICT,
-    evidence_type    VARCHAR(30) NOT NULL,
+    evidence_type    portfolio_evidence_type NOT NULL,
     storage_pointer  TEXT        NOT NULL,
     linked_result_id UUID        NULL REFERENCES learner_rubric_results(id) ON DELETE SET NULL,
     date_collected   DATE        NULL,
     created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
-    CONSTRAINT fk_portfolios_tenant_student FOREIGN KEY (tenant_id, student_id) REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT chk_portfolio_evidence_type CHECK (evidence_type IN (
-        'Physical_File_Reference',  -- Binder, notebook, artwork held at school
-        'Digital_Artifact_URL',     -- Uploaded document, image, or project file
-        'Video_Recording',          -- Performance evidence: Creative Arts, PE, oral work
-        'Audio_Log',                -- Recorded oral reading, speech, or group discussion
-        'Observation_Checklist'     -- Teacher-completed form; especially for Stage-Based SNE
-    ))
+    CONSTRAINT fk_portfolios_tenant_student FOREIGN KEY (tenant_id, student_id) REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_portfolios_tenant     ON learner_portfolios (tenant_id);
@@ -980,24 +1037,14 @@ CREATE TABLE IF NOT EXISTS cbc_term_competency_summaries (
     class_id         UUID         NOT NULL,
     academic_year    SMALLINT     NOT NULL,
     term             SMALLINT     NOT NULL,
-    calculated_level VARCHAR(3)   NOT NULL,
-    override_level   VARCHAR(3)   NULL,
-    final_level      VARCHAR(2)   NOT NULL,
-    knec_sync_status VARCHAR(20)  NOT NULL DEFAULT 'Pending',
+    calculated_level cbc_rubric_level_with_sub_levels NOT NULL,
+    override_level   cbc_rubric_level_with_sub_levels NULL,
+    final_level      cbc_rubric_level NOT NULL,
+    knec_sync_status knec_sync_status NOT NULL DEFAULT 'Pending',
     knec_synced_at   TIMESTAMPTZ  NULL,
 
     CONSTRAINT fk_summaries_tenant_student FOREIGN KEY (tenant_id, student_id) REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_summaries_tenant_class FOREIGN KEY (tenant_id, class_id) REFERENCES cbc_classes(tenant_id, id) ON DELETE RESTRICT,
-    CONSTRAINT chk_summary_calculated_level CHECK (calculated_level IN (
-        'EE','ME','AE','BE',
-        'EE1','EE2','ME1','ME2','AE1','AE2','BE1','BE2'
-    )),
-    CONSTRAINT chk_summary_override_level CHECK (override_level IN (
-        'EE','ME','AE','BE',
-        'EE1','EE2','ME1','ME2','AE1','AE2','BE1','BE2'
-    )),
-    CONSTRAINT chk_summary_final_level CHECK (final_level IN ('EE','ME','AE','BE')),
-    CONSTRAINT chk_summary_knec_sync_status CHECK (knec_sync_status IN ('Pending','Synced','Failed')),
     CONSTRAINT chk_summary_term CHECK (term BETWEEN 1 AND 3),
     CONSTRAINT chk_summary_academic_year CHECK (academic_year >= 2017),
     CONSTRAINT unique_summary_per_student_area_term UNIQUE (student_id, learning_area_id, academic_year, term)

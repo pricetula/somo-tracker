@@ -91,6 +91,17 @@ DROP TYPE IF EXISTS cbc_enrollment_status CASCADE;
 DROP TYPE IF EXISTS invitation_status CASCADE;
 DROP TYPE IF EXISTS attendance_status CASCADE;
 DROP TYPE IF EXISTS user_role CASCADE;
+DROP TYPE IF EXISTS cbc_grade_level CASCADE;
+DROP TYPE IF EXISTS cbc_education_level CASCADE;
+DROP TYPE IF EXISTS cbc_school_type CASCADE;
+DROP TYPE IF EXISTS cbc_learning_pathway CASCADE;
+DROP TYPE IF EXISTS cbc_assessment_type CASCADE;
+DROP TYPE IF EXISTS knec_target_exam CASCADE;
+DROP TYPE IF EXISTS cbc_rubric_level CASCADE;
+DROP TYPE IF EXISTS cbc_rubric_level_with_sub_levels CASCADE;
+DROP TYPE IF EXISTS lrr_score_type CASCADE;
+DROP TYPE IF EXISTS portfolio_evidence_type CASCADE;
+DROP TYPE IF EXISTS knec_sync_status CASCADE;
 
 -- ============================================================================
 -- FUNCTIONS

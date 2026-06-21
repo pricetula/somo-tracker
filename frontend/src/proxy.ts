@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-    SESSION_COOKIE_NAME,
-    ROLE_COOKIE_NAME,
-    ROLE_ROUTES,
-    ROLE_DEFAULT_ROUTES,
-} from "@/lib/auth";
+import { SESSION_COOKIE_NAME, ROLE_COOKIE_NAME, ROLE_ROUTES } from "@/lib/auth";
 
 const PROTECTED_PREFIXES = ["/dashboard", "/settings", "/admin", "/admins", "/schools"];
 
@@ -117,7 +112,7 @@ function clearCookiesAndRedirect(req: NextRequest, pathname: string): NextRespon
  *   Unknown role → cookies cleared → redirect to /login.
  * - Verified role is checked against ROLE_ROUTES for the requested path.
  *   No entry in ROLE_ROUTES → deny (not silently allow).
- *   Not permitted → redirect to that role's default route.
+ *   Not permitted → redirect to /unauthorized.
  * - `/register` without `session_ref` → redirect to /login.
  * - `/login` with BOTH `somo_sid` and `somo_role` cookies → redirect to `/`.
  *   (Requiring both prevents a redirect loop when only one cookie is present.)
@@ -169,8 +164,7 @@ export async function proxy(req: NextRequest) {
             (route) => route === "/dashboard" || route === "/"
         );
         if (!hasDashboardAccess) {
-            const defaultRoute = ROLE_DEFAULT_ROUTES[verifiedRole] || "/";
-            return NextResponse.redirect(new URL(defaultRoute, req.url));
+            return NextResponse.redirect(new URL("/unauthorized", req.url));
         }
 
         return NextResponse.next();
@@ -213,8 +207,7 @@ export async function proxy(req: NextRequest) {
 
         const isAllowed = allowedRoutes.some((route) => pathname.startsWith(route));
         if (!isAllowed) {
-            const defaultRoute = ROLE_DEFAULT_ROUTES[verifiedRole] || "/";
-            return NextResponse.redirect(new URL(defaultRoute, req.url));
+            return NextResponse.redirect(new URL("/unauthorized", req.url));
         }
 
         return NextResponse.next();

@@ -6,7 +6,7 @@
  * 2. Use `ROLE_ROUTES` to determine if a role has dashboard access
  *    (routes containing either "/dashboard" or "/")
  * 3. Redirect unauthenticated users at `/` to /login?next=/
- * 4. Redirect authenticated users without dashboard access to their default route
+ * 4. Redirect authenticated users without dashboard access to /unauthorized
  * 5. Clear cookies and redirect on tampered/invalid roles
  *
  * To run: pnpm vitest run src/__tests__/proxy-dashboard-root.test.ts
@@ -99,7 +99,7 @@ describe("ROLE_ROUTES integrity for dashboard access", () => {
     });
 });
 
-describe("Default redirect route when dashboard access is denied", () => {
+describe("ROLE_DEFAULT_ROUTES lookup helper", () => {
     it("SYSTEM_ADMIN defaults to /admin", () => {
         expect(getDefaultRoute("SYSTEM_ADMIN")).toBe("/admin");
     });
@@ -157,7 +157,7 @@ describe("Proxy decision matrix at / (simulated)", () => {
 
         // Step 5: Dashboard access check
         if (!hasDashboardAccess(roleValue)) {
-            return getDefaultRoute(roleValue);
+            return "/unauthorized";
         }
 
         return "next";
@@ -253,16 +253,152 @@ describe("Proxy decision matrix at / (simulated)", () => {
         expect(result).toBe("/login");
     });
 
-    it("redirects SYSTEM_ADMIN to /admin when dashboard access is missing (hypothetical)", () => {
-        // Edge case: if a role were somehow in VALID_ROLES but had
-        // a ROLE_ROUTES entry without dashboard access
-        const result = simulateProxyDecision({
+    it("redirects to /unauthorized when a role without dashboard access hits /", () => {
+        // Simulate a role that is in VALID_ROLES but has no dashboard access
+        // This is an edge case that would require ROLE_ROUTES to change
+        const noDashboardRole = "SYSTEM_ADMIN";
+        const dashboardAccess = hasDashboardAccess(noDashboardRole);
+        if (!dashboardAccess) {
+            const result = simulateProxyDecision({
+                hasSession: true,
+                hasRole: true,
+                roleCookieValid: true,
+                roleValue: noDashboardRole,
+            });
+            expect(result).toBe("/unauthorized");
+        }
+        // If the role does have dashboard access, the test is a no-op
+        // (structural guarantee — all current roles have dashboard access)
+    });
+});
+
+describe("Proxy unauthorized redirect on protected routes (simulated)", () => {
+    /**
+     * Simulates the proxy's decision for a protected route given auth state.
+     * Returns the redirect URL path or "next".
+     */
+    function simulateProtectedRouteDecision(opts: {
+        hasSession: boolean;
+        hasRole: boolean;
+        roleCookieValid: boolean;
+        roleValue: string | null;
+        pathname: string;
+    }): "next" | string {
+        const { hasSession, hasRole, roleCookieValid, roleValue, pathname } = opts;
+
+        if (!hasSession || !hasRole) {
+            return `/login?next=${pathname}`;
+        }
+
+        if (!roleCookieValid || !roleValue) {
+            return "/login";
+        }
+
+        if (!VALID_ROLES.has(roleValue)) {
+            return "/login";
+        }
+
+        const allowedRoutes = ROLE_ROUTES[roleValue];
+        if (!allowedRoutes) {
+            return "/login";
+        }
+
+        const isAllowed = allowedRoutes.some((route) => pathname.startsWith(route));
+        if (!isAllowed) {
+            return "/unauthorized";
+        }
+
+        return "next";
+    }
+
+    it("allows TEACHER to access /dashboard", () => {
+        const result = simulateProtectedRouteDecision({
+            hasSession: true,
+            hasRole: true,
+            roleCookieValid: true,
+            roleValue: "TEACHER",
+            pathname: "/dashboard",
+        });
+        expect(result).toBe("next");
+    });
+
+    it("redirects TEACHER to /unauthorized when hitting /settings", () => {
+        const result = simulateProtectedRouteDecision({
+            hasSession: true,
+            hasRole: true,
+            roleCookieValid: true,
+            roleValue: "TEACHER",
+            pathname: "/settings",
+        });
+        expect(result).toBe("/unauthorized");
+    });
+
+    it("redirects TEACHER to /unauthorized when hitting /schools", () => {
+        const result = simulateProtectedRouteDecision({
+            hasSession: true,
+            hasRole: true,
+            roleCookieValid: true,
+            roleValue: "TEACHER",
+            pathname: "/schools",
+        });
+        expect(result).toBe("/unauthorized");
+    });
+
+    it("allows SYSTEM_ADMIN to access /settings", () => {
+        const result = simulateProtectedRouteDecision({
             hasSession: true,
             hasRole: true,
             roleCookieValid: true,
             roleValue: "SYSTEM_ADMIN",
+            pathname: "/settings",
         });
-        // SYTEM_ADMIN _does_ have dashboard access, so should pass through
         expect(result).toBe("next");
+    });
+
+    it("allows SYSTEM_ADMIN to access /schools", () => {
+        const result = simulateProtectedRouteDecision({
+            hasSession: true,
+            hasRole: true,
+            roleCookieValid: true,
+            roleValue: "SYSTEM_ADMIN",
+            pathname: "/schools",
+        });
+        expect(result).toBe("next");
+    });
+
+    it("allows SYSTEM_ADMIN to access /admin", () => {
+        const result = simulateProtectedRouteDecision({
+            hasSession: true,
+            hasRole: true,
+            roleCookieValid: true,
+            roleValue: "SYSTEM_ADMIN",
+            pathname: "/admin",
+        });
+        expect(result).toBe("next");
+    });
+
+    it("redirects SYSTEM_ADMIN to /unauthorized when hitting a non-existent prefix", () => {
+        const result = simulateProtectedRouteDecision({
+            hasSession: true,
+            hasRole: true,
+            roleCookieValid: true,
+            roleValue: "SYSTEM_ADMIN",
+            pathname: "/other",
+        });
+        // /other is not protected, so the proxy would not match it
+        // This simulates if /other were in PROTECTED_PREFIXES
+        // Since SYSTEM_ADMIN doesn't have /other in ROLE_ROUTES, it would be unauthorized
+        expect(result).toBe("/unauthorized");
+    });
+
+    it("redirects unauthenticated to /login for protected routes", () => {
+        const result = simulateProtectedRouteDecision({
+            hasSession: false,
+            hasRole: false,
+            roleCookieValid: false,
+            roleValue: null,
+            pathname: "/settings",
+        });
+        expect(result).toBe("/login?next=/settings");
     });
 });

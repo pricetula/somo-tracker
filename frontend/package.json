@@ -3,6 +3,7 @@
     "version": "0.1.0",
     "private": true,
     "scripts": {
+        "test": "vitest run",
         "dev": "next dev",
         "build": "next build",
         "start": "next start",
@@ -47,7 +48,6 @@
         "zod": "^3.25.76"
     },
     "engines": {
-        "node": ">=20.0.0 <22.0.0",
         "pnpm": ">=9.0.0"
     },
     "devDependencies": {

@@ -1,20 +1,10 @@
 import "@testing-library/jest-dom/vitest";
-import { vi } from "vitest";
+import { cleanup } from "@testing-library/react";
+import { afterEach } from "vitest";
 
-// ─── Global Mocks ─────────────────────────────────────────────────────────
+// ─── Auto-cleanup ─────────────────────────────────────────────────────────
 
-/**
- * Mock sonner toast to prevent rendering toast containers in test DOM.
- * Individual tests can still assert on calls via `vi.mocked(toast)`.
- */
-vi.mock("sonner", () => ({
-    toast: {
-        success: vi.fn(),
-        error: vi.fn(),
-        info: vi.fn(),
-        warning: vi.fn(),
-        loading: vi.fn(),
-        dismiss: vi.fn(),
-    },
-    Toaster: vi.fn(() => null),
-}));
+// Ensure React DOM is unmounted between tests to prevent state leakage.
+afterEach(() => {
+    cleanup();
+});

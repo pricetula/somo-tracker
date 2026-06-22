@@ -85,3 +85,18 @@ Fix misalignments before pushing.
 | Date | Change |
 |------|--------|
 | 2026-06-12 | `middleware.ts` renamed to `proxy.ts`; `middleware()` export renamed to `proxy()`. |
+
+---
+
+## 6. Listing
+
+For listing prefer to use tanstack virtualized lists since the query might have large amounts of data
+
+---
+
+## 7. Visual Guidance reducing border lines and cards
+
+- **Excessive use of Bborders are discouraged:** Avoid using alot of borders unless necessary or prompted to add them. Separate sections cleanly using margins and padding (`space-y-*`, `gap-*`, `p-*`).
+- Avoid excessive use of card component or elements `shadow` styling.
+- Build tables flat against the background container without encapsulating cell borders or surrounding row outlines. Use clean vertical alignment instead.
+- Avoid excessive use of horizontal `<Separator />` lines or explicit `<hr />` dividers. Maintain layout groupings purely through spatial rules unless when necessary or prompted to add.

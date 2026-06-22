@@ -1,0 +1,68 @@
+---
+title: Bulk Staff Invitation
+slug: bulk-staff-import
+description: Upload or manually enter staff records to bulk-invite new members with async processing and real-time progress tracking.
+tooltipSummary: Upload a CSV/XLSX file or manually enter staff details to bulk-invite new members as School Admins, Nurses, or Finance staff.
+---
+
+# Bulk Staff Invitation Utility
+
+The Bulk Staff Invitation Utility allows school administrators to invite multiple staff members at once through either a manual multi-add interface or by uploading a CSV/XLSX file.
+
+## Entry Points
+
+The dialog is accessible from role-specific add pages:
+
+- `/nurses/add` → role=`NURSE`
+- `/finance/add` → role=`FINANCE`
+- `/admins/add` → role=`SCHOOL_ADMIN`
+
+The role is applied uniformly to every invitee in the current session.
+
+## Two Entry Methods
+
+### Manual Multi-Add
+
+Dynamic inline repeating form rows that allow typing individual records. Each row includes:
+
+- First Name (required)
+- Last Name (required)
+- Email (required, must contain `@`)
+- Phone (optional, auto-normalized to E.164 with Kenya default)
+
+### File Upload
+
+Drag-and-drop zone that accepts CSV or XLSX files. Parsing runs inside a Web Worker to avoid blocking the main thread. Parsed rows stream into IndexedDB incrementally.
+
+## Validation Rules
+
+### Critical Errors (block submission)
+
+- Missing First Name or Last Name
+- Invalid email structure (missing `@`)
+- Duplicate email within the batch
+
+### Warnings & Auto-corrections
+
+- Phone numbers are normalized using libphonenumber-js (default country KE) into E.164 format
+- Unparseable phone values are set to NULL and highlighted as warnings
+- Auto-corrected cells are visually marked so the change is never invisible
+
+## Local Draft Persistence
+
+Drafts are saved to IndexedDB, namespaced by `tenant_id + user_id + role`. On dialog re-open, existing non-expired drafts (48-hour TTL) are offered for resume or clear.
+
+## Backend Processing
+
+### Async Pipeline
+
+1. **Stage 1** — Bulk DB ingestion: multi-row `INSERT ... ON CONFLICT DO NOTHING` into `invitations` table. Duplicates are counted as skipped.
+2. **Stage 2** — Stytch invitation send: bounded concurrency (8 workers) with retry logic and idempotency guards.
+
+### Real-time Progress
+
+Progress is broadcast over Redis pub/sub (keyed by `import_job_id`) and consumed by the frontend via Server-Sent Events. If the SSE connection drops, the client falls back to polling `import_jobs` status.
+
+## Post-Import Recovery
+
+Failed invitations can be corrected and resubmitted. Corrections create a new `import_jobs` row with `parent_import_job_id` for traceability.

@@ -57,7 +57,7 @@ export function NavUser({
                         </SidebarMenuButton>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent
-                        className="w-fit min-w-[200px]"
+                        className="w-fit min-w-50"
                         side={isMobile ? "bottom" : "right"}
                         align="end"
                         sideOffset={4}

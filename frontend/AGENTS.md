@@ -85,6 +85,7 @@ Fix misalignments before pushing.
 | Date | Change |
 |------|--------|
 | 2026-06-12 | `middleware.ts` renamed to `proxy.ts`; `middleware()` export renamed to `proxy()`. |
+| 2026-06-23 | Added Section 8 — Shadcn UI Components are never to be modified by hand. |
 
 ---
 
@@ -108,7 +109,17 @@ For listing prefer to use tanstack virtualized lists since the query might have 
 
 ---
 
-## 8. Error Handling
+## 8. Shadcn UI Components — Never Modify
+
+Files under `src/components/ui/` are auto-generated shadcn primitives. **Do not edit, refactor, or patch them.**
+
+- The sole exception is when running `pnpm dlx shadcn@latest add <component>` to add a new component.
+- Any bugs, type errors, or Tailwind warnings in these files must be resolved by re-adding or upgrading the component via shadcn CLI — never by hand.
+- If a shadcn component has a type mismatch with its underlying library (e.g. `react-day-picker`), update the library or re-add the component.
+
+---
+
+## 9. Error Handling
 
 ### ApiError class (`src/lib/api/client.ts`)
 

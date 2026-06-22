@@ -230,7 +230,7 @@ export function InvitationTable({
                 </div>
 
                 {/* Email filter */}
-                <div className="relative max-w-[200px] flex-1">
+                <div className="relative max-w-50 flex-1">
                     <Mail className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
                     <Input
                         placeholder="Filter by email..."
@@ -326,7 +326,7 @@ export function InvitationTable({
                 className="flex-1 overflow-auto px-6"
                 style={{ contain: "strict" }}
             >
-                <div className="min-w-[700px]">
+                <div className="min-w-175">
                     {/* Sticky Header */}
                     <div className="bg-background/95 sticky top-0 z-10 backdrop-blur-sm">
                         {table.getHeaderGroups().map((headerGroup) => (

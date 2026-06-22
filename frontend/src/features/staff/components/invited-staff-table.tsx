@@ -236,7 +236,7 @@ export function InvitedStaffTable({
                 className="flex-1 overflow-auto"
                 style={{ contain: "strict", minHeight: rows.length === 0 ? "200px" : undefined }}
             >
-                <div className="min-w-[700px]">
+                <div className="min-w-175">
                     {/* Sticky Header */}
                     <div className="bg-background/95 sticky top-0 z-10 backdrop-blur-sm">
                         {table.getHeaderGroups().map((headerGroup) => (

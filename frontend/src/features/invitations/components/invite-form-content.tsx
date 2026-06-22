@@ -104,7 +104,7 @@ export function InviteFormContent({ onSuccess }: InviteFormContentProps) {
 
     return (
         <>
-            <div className="max-h-[400px] space-y-3 overflow-y-auto px-4">
+            <div className="max-h-100 space-y-3 overflow-y-auto px-4">
                 {/* Header */}
                 <div className="grid grid-cols-[1fr_1fr_1.5fr_1fr_28px] gap-2 px-1">
                     <span className="text-muted-foreground text-xs font-medium">First Name</span>

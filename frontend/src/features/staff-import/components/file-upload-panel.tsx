@@ -220,10 +220,7 @@ export function FileUploadPanel({ onRowsReady, tenantID, userID, context }: File
                     </div>
 
                     {rows.length > 0 && (
-                        <div
-                            ref={parentRef}
-                            className="max-h-[300px] overflow-auto rounded-md border"
-                        >
+                        <div ref={parentRef} className="max-h-75 overflow-auto rounded-md border">
                             <table className="w-full text-left text-xs">
                                 <thead className="bg-muted/50 sticky top-0">
                                     <tr>

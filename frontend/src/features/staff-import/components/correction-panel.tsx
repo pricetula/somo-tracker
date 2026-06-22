@@ -145,7 +145,7 @@ export function CorrectionPanel({ jobID, role, onSubmit, onClose }: CorrectionPa
             </div>
 
             {/* Virtualized editable rows */}
-            <div ref={parentRef} className="max-h-[350px] overflow-auto">
+            <div ref={parentRef} className="max-h-87.5 overflow-auto">
                 <div
                     style={{
                         height: `${virtualizer.getTotalSize()}px`,

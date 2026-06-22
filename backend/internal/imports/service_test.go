@@ -76,7 +76,7 @@ func (m *MockRepository) BulkInsertInvitations(ctx context.Context, records []Im
 	}
 	inserted := make(map[string]string)
 	for _, rec := range records {
-		inserted[rec.Email] = "inv_" + rec.Email
+		inserted[rec.TempID] = "inv_" + rec.Email
 	}
 	return inserted, nil, nil
 }
@@ -114,6 +114,10 @@ func (m *MockRepository) SetInvitationFailed(ctx context.Context, id, errorMessa
 		return m.setInvitationFailedFn(ctx, id, errorMessage, attemptCount)
 	}
 	return nil
+}
+
+func (m *MockRepository) BulkUpdateInvitations(ctx context.Context, records []ImportStaffRecord, role, jobID string, now time.Time) (int, error) {
+	return len(records), nil
 }
 
 func (m *MockRepository) GetActiveSchoolID(ctx context.Context, tenantID, userID string) (string, error) {
@@ -223,7 +227,7 @@ func TestStartImport_HappyPath(t *testing.T) {
 
 	records := validRecords()
 
-	result, err := h.svc.StartImport(context.Background(), "tenant_001", "school_001", "user_001", "SCHOOL_ADMIN", records, resolver)
+	result, err := h.svc.StartImport(context.Background(), "tenant_001", "school_001", "user_001", "SCHOOL_ADMIN", records, resolver, "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -247,7 +251,7 @@ func TestStartImport_InvalidRole(t *testing.T) {
 	h := newTestHarness()
 	resolver := newResolver()
 
-	_, err := h.svc.StartImport(context.Background(), "tenant_001", "school_001", "user_001", "INVALID", validRecords(), resolver)
+	_, err := h.svc.StartImport(context.Background(), "tenant_001", "school_001", "user_001", "INVALID", validRecords(), resolver, "")
 	if err == nil {
 		t.Fatal("expected error for invalid role, got nil")
 	}
@@ -257,7 +261,7 @@ func TestStartImport_EmptyRecords(t *testing.T) {
 	h := newTestHarness()
 	resolver := newResolver()
 
-	_, err := h.svc.StartImport(context.Background(), "tenant_001", "school_001", "user_001", "NURSE", nil, resolver)
+	_, err := h.svc.StartImport(context.Background(), "tenant_001", "school_001", "user_001", "NURSE", nil, resolver, "")
 	if err == nil {
 		t.Fatal("expected error for empty records, got nil")
 	}
@@ -276,7 +280,7 @@ func TestStartImport_TooManyRecords(t *testing.T) {
 		}
 	}
 
-	_, err := h.svc.StartImport(context.Background(), "tenant_001", "school_001", "user_001", "FINANCE", records, resolver)
+	_, err := h.svc.StartImport(context.Background(), "tenant_001", "school_001", "user_001", "FINANCE", records, resolver, "")
 	if err == nil {
 		t.Fatal("expected error for too many records, got nil")
 	}
@@ -290,7 +294,7 @@ func TestStartImport_MissingEmail(t *testing.T) {
 		{Email: "", FirstName: "Alice", LastName: "Smith"},
 	}
 
-	_, err := h.svc.StartImport(context.Background(), "tenant_001", "school_001", "user_001", "NURSE", records, resolver)
+	_, err := h.svc.StartImport(context.Background(), "tenant_001", "school_001", "user_001", "NURSE", records, resolver, "")
 	if err == nil {
 		t.Fatal("expected error for missing email, got nil")
 	}
@@ -304,7 +308,7 @@ func TestStartImport_MissingFirstName(t *testing.T) {
 		{Email: "alice@school.com", FirstName: "", LastName: "Smith"},
 	}
 
-	_, err := h.svc.StartImport(context.Background(), "tenant_001", "school_001", "user_001", "NURSE", records, resolver)
+	_, err := h.svc.StartImport(context.Background(), "tenant_001", "school_001", "user_001", "NURSE", records, resolver, "")
 	if err == nil {
 		t.Fatal("expected error for missing first_name, got nil")
 	}
@@ -318,7 +322,7 @@ func TestStartImport_MissingLastName(t *testing.T) {
 		{Email: "alice@school.com", FirstName: "Alice", LastName: ""},
 	}
 
-	_, err := h.svc.StartImport(context.Background(), "tenant_001", "school_001", "user_001", "NURSE", records, resolver)
+	_, err := h.svc.StartImport(context.Background(), "tenant_001", "school_001", "user_001", "NURSE", records, resolver, "")
 	if err == nil {
 		t.Fatal("expected error for missing last_name, got nil")
 	}
@@ -333,7 +337,7 @@ func TestStartImport_StytchOrgResolveFails(t *testing.T) {
 		},
 	}
 
-	_, err := h.svc.StartImport(context.Background(), "tenant_001", "school_001", "user_001", "SCHOOL_ADMIN", validRecords(), resolver)
+	_, err := h.svc.StartImport(context.Background(), "tenant_001", "school_001", "user_001", "SCHOOL_ADMIN", validRecords(), resolver, "")
 	if err == nil {
 		t.Fatal("expected error for stytch org resolution failure, got nil")
 	}
@@ -347,7 +351,7 @@ func TestStartImport_DBCreateFails(t *testing.T) {
 		return errors.New("postgres connection error")
 	}
 
-	_, err := h.svc.StartImport(context.Background(), "tenant_001", "school_001", "user_001", "SCHOOL_ADMIN", validRecords(), resolver)
+	_, err := h.svc.StartImport(context.Background(), "tenant_001", "school_001", "user_001", "SCHOOL_ADMIN", validRecords(), resolver, "")
 	if err == nil {
 		t.Fatal("expected error for DB create failure, got nil")
 	}
@@ -361,7 +365,7 @@ func TestStartImport_AsynqEnqueueFails(t *testing.T) {
 		return nil, errors.New("redis connection refused")
 	}
 
-	result, err := h.svc.StartImport(context.Background(), "tenant_001", "school_001", "user_001", "SCHOOL_ADMIN", validRecords(), resolver)
+	result, err := h.svc.StartImport(context.Background(), "tenant_001", "school_001", "user_001", "SCHOOL_ADMIN", validRecords(), resolver, "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

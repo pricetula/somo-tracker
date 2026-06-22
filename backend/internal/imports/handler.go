@@ -110,7 +110,11 @@ func (h *Handler) StartImport(c *fiber.Ctx) error {
 	}
 
 	resolver := &stytchOrgResolver{repo: h.repo}
-	result, err := h.svc.StartImport(c.Context(), tenantID, schoolID, userID, req.Role, req.Records, resolver)
+	parentJobID := ""
+	if req.ParentImportJobID != nil {
+		parentJobID = *req.ParentImportJobID
+	}
+	result, err := h.svc.StartImport(c.Context(), tenantID, schoolID, userID, req.Role, req.Records, resolver, parentJobID)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorBody{
 			Error:   "invalid_input",

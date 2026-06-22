@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -35,6 +36,8 @@ type ProcessImportPayload struct {
 	StytchOrgID string `json:"stytch_org_id"`
 	// Frontend URL for invite redirect
 	FrontendURL string `json:"frontend_url"`
+	// ParentImportJobID links correction jobs to the original import
+	ParentImportJobID string `json:"parent_import_job_id,omitempty"`
 }
 
 // ─── Worker ──────────────────────────────────────────────────────────────
@@ -104,16 +107,42 @@ func (w *Worker) ProcessImport(ctx context.Context, t *asynq.Task) error {
 
 		// STAGE 1: Bulk DB ingestion
 		now := time.Now().UTC()
-		inserted, failures, err := w.repo.BulkInsertInvitations(
-			ctx, batch, payload.TenantID, payload.SchoolID,
-			payload.Role, payload.ImportJobID, now, payload.ImportJobID+"_",
-		)
-		if err != nil {
-			logger.Error("stage 1 batch failed", zap.Error(err))
+
+		var inserted map[string]string // temp_id -> invitation_id
+		var failures []FailedInsertion
+		var stage1Err error
+
+		if payload.ParentImportJobID != "" {
+			// Correction path: update existing invitation rows in-place
+			var updated int
+			updated, stage1Err = w.repo.BulkUpdateInvitations(
+				ctx, batch, payload.Role, payload.ImportJobID, now,
+			)
+			if stage1Err == nil {
+				// Build inserted map from batch; temp_id here IS the invitation DB ID
+				inserted = make(map[string]string, len(batch))
+				for _, rec := range batch {
+					inserted[rec.TempID] = rec.TempID
+				}
+				logger.Info("correction batch updated",
+					zap.Int("batch_size", len(batch)),
+					zap.Int("updated", updated),
+				)
+			}
+		} else {
+			// Normal path: fresh insert of invitations
+			inserted, failures, stage1Err = w.repo.BulkInsertInvitations(
+				ctx, batch, payload.TenantID, payload.SchoolID,
+				payload.Role, payload.ImportJobID, now, payload.ImportJobID+"_",
+			)
+		}
+
+		if stage1Err != nil {
+			logger.Error("stage 1 batch failed", zap.Error(stage1Err))
 			// Record individual failures for the batch
 			for _, rec := range batch {
 				raw, _ := json.Marshal(rec)
-				if err := w.repo.RecordImportFailure(ctx, payload.ImportJobID, string(raw), err.Error()); err != nil {
+				if err := w.repo.RecordImportFailure(ctx, payload.ImportJobID, string(raw), stage1Err.Error()); err != nil {
 					logger.Error("failed to record import failure", zap.Error(err))
 				}
 			}
@@ -122,7 +151,7 @@ func (w *Worker) ProcessImport(ctx context.Context, t *asynq.Task) error {
 			continue
 		}
 
-		// Count duplicates as failed
+		// Count duplicates as failed (normal path only)
 		for _, f := range failures {
 			logger.Info("duplicate skipped",
 				zap.String("email", f.Email),
@@ -133,9 +162,9 @@ func (w *Worker) ProcessImport(ctx context.Context, t *asynq.Task) error {
 		}
 
 		// Build Stage 2 input from inserted records
+		// Reconcile by temp_id (client-generated UUID), not by email string-match
 		for _, rec := range batch {
-			lowerEmail := toLowerEmail(rec.Email)
-			if invID, ok := inserted[lowerEmail]; ok {
+			if invID, ok := inserted[rec.TempID]; ok {
 				stage2Input = append(stage2Input, Stage2Record{
 					InvitationID: invID,
 					Email:        rec.Email,
@@ -328,35 +357,7 @@ func isPermanentStytchError(err error) bool {
 		"not_found",
 	}
 	for _, indicator := range permanentIndicators {
-		if contains(errStr, indicator) {
-			return true
-		}
-	}
-	return false
-}
-
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && searchString(s, substr)
-}
-
-func searchString(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		match := true
-		for j := 0; j < len(substr); j++ {
-			c1 := s[i+j]
-			c2 := substr[j]
-			if c1 >= 'A' && c1 <= 'Z' {
-				c1 += 32
-			}
-			if c2 >= 'A' && c2 <= 'Z' {
-				c2 += 32
-			}
-			if c1 != c2 {
-				match = false
-				break
-			}
-		}
-		if match {
+		if strings.Contains(strings.ToLower(errStr), indicator) {
 			return true
 		}
 	}

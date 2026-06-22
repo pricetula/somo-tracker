@@ -131,8 +131,8 @@ func validPayload() *ProcessImportPayload {
 		StytchOrgID: "org_stytch_001",
 		FrontendURL: "http://localhost:3000",
 		Records: []ImportStaffRecord{
-			{Email: "alice@school.com", FirstName: "Alice", LastName: "Smith"},
-			{Email: "bob@school.com", FirstName: "Bob", LastName: "Jones"},
+			{TempID: "tmp_alice", Email: "alice@school.com", FirstName: "Alice", LastName: "Smith"},
+			{TempID: "tmp_bob", Email: "bob@school.com", FirstName: "Bob", LastName: "Jones"},
 		},
 	}
 }
@@ -155,7 +155,7 @@ func TestProcessImport_AllSuccess(t *testing.T) {
 	) (map[string]string, []FailedInsertion, error) {
 		inserted := make(map[string]string)
 		for _, rec := range records {
-			inserted[rec.Email] = "inv_" + rec.Email
+			inserted[rec.TempID] = "inv_" + rec.Email
 		}
 		return inserted, nil, nil
 	}
@@ -233,7 +233,7 @@ func TestProcessImport_PartialDuplicates(t *testing.T) {
 					Reason: "duplicate",
 				})
 			} else {
-				inserted[rec.Email] = "inv_" + rec.Email
+				inserted[rec.TempID] = "inv_" + rec.Email
 			}
 		}
 		return inserted, failures, nil
@@ -280,7 +280,7 @@ func TestProcessImport_StytchInviteFails(t *testing.T) {
 	) (map[string]string, []FailedInsertion, error) {
 		inserted := make(map[string]string)
 		for _, rec := range records {
-			inserted[rec.Email] = "inv_" + rec.Email
+			inserted[rec.TempID] = "inv_" + rec.Email
 		}
 		return inserted, nil, nil
 	}
@@ -333,7 +333,7 @@ func TestProcessImport_StytchTransientThenSuccess(t *testing.T) {
 	) (map[string]string, []FailedInsertion, error) {
 		inserted := make(map[string]string)
 		for _, rec := range records {
-			inserted[rec.Email] = "inv_" + rec.Email
+			inserted[rec.TempID] = "inv_" + rec.Email
 		}
 		return inserted, nil, nil
 	}
@@ -381,7 +381,7 @@ func TestProcessImport_AlreadyInvited(t *testing.T) {
 	) (map[string]string, []FailedInsertion, error) {
 		inserted := make(map[string]string)
 		for _, rec := range records {
-			inserted[rec.Email] = "inv_" + rec.Email
+			inserted[rec.TempID] = "inv_" + rec.Email
 		}
 		return inserted, nil, nil
 	}
@@ -463,7 +463,7 @@ func TestProcessImport_LargeBatch(t *testing.T) {
 	) (map[string]string, []FailedInsertion, error) {
 		inserted := make(map[string]string)
 		for _, rec := range recs {
-			inserted[rec.Email] = "inv_" + rec.Email
+			inserted[rec.TempID] = "inv_" + rec.Email
 		}
 		return inserted, nil, nil
 	}

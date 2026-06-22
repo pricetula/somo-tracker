@@ -3,6 +3,7 @@ package imports
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -121,10 +122,12 @@ func (r *PgRepository) SetImportJobCompleted(ctx context.Context, id string, has
 	return nil
 }
 
-// ─── Invitations (bulk insert) ───────────────────────────────────────────
+// ─── Invitations (bulk insert with temp_id reconciliation) ────────────────
 
-// BulkInsertInvitations inserts a batch of invitations and returns the ones that
-// were actually inserted (not already existing as active). Returns map of email->id.
+// BulkInsertInvitations inserts a batch of invitations using a CTE that pairs
+// each row's client-generated temp_id with the inserted invitation id.
+// Returns a map[temp_id]invitation_id and a list of rows that were duplicates
+// (not inserted due to ON CONFLICT DO NOTHING).
 func (r *PgRepository) BulkInsertInvitations(
 	ctx context.Context, records []ImportStaffRecord,
 	tenantID, schoolID, role, jobID string,
@@ -134,18 +137,20 @@ func (r *PgRepository) BulkInsertInvitations(
 		return map[string]string{}, nil, nil
 	}
 
-	// Build multi-row VALUES clause
+	// Build CTE VALUES clause: 12 params per row (temp_id through token)
 	valueStrings := make([]string, 0, len(records))
-	args := make([]interface{}, 0, len(records)*10)
+	args := make([]interface{}, 0, len(records)*12)
 	argIdx := 1
 
 	for _, rec := range records {
+		// Each row: (temp_id, tenant_id, school_id, LOWER(email), role, expires_at, first_name, last_name, phone, registration_number, import_job_id, token)
 		valueStrings = append(valueStrings,
-			fmt.Sprintf("($%d::uuid, $%d::uuid, LOWER($%d), $%d::user_role, 'pending', $%d, $%d, $%d, $%d, $%d, $%d, $%d)",
-				argIdx, argIdx+1, argIdx+2, argIdx+3, argIdx+4, argIdx+5,
-				argIdx+6, argIdx+7, argIdx+8, argIdx+9, argIdx+10),
+			fmt.Sprintf("($%d::text, $%d::uuid, $%d::uuid, LOWER($%d), $%d::user_role, $%d::timestamptz, $%d, $%d, $%d, $%d, $%d::uuid, $%d)",
+				argIdx, argIdx+1, argIdx+2, argIdx+3, argIdx+4,
+				argIdx+5, argIdx+6, argIdx+7, argIdx+8, argIdx+9, argIdx+10, argIdx+11),
 		)
 		args = append(args,
+			rec.TempID, // temp_id — used for reconciliation
 			tenantID,
 			schoolID,
 			rec.Email,
@@ -158,17 +163,28 @@ func (r *PgRepository) BulkInsertInvitations(
 			jobID,
 			tokenPrefix+rec.TempID, // token
 		)
-		argIdx += 11
+		argIdx += 12
 	}
 
 	query := `
-		INSERT INTO invitations
-			(tenant_id, school_id, email, role, status, expires_at,
-			 first_name, last_name, phone, registration_number, import_job_id, token)
-		VALUES ` + joinStrings(valueStrings, ", ") + `
-		ON CONFLICT (tenant_id, school_id, email) WHERE status NOT IN ('expired', 'revoked')
-		DO NOTHING
-		RETURNING id, email
+		WITH input_rows (temp_id, tenant_id, school_id, email, role, expires_at, first_name, last_name, phone, registration_number, import_job_id, token) AS (
+			VALUES ` + strings.Join(valueStrings, ",\n			       ") + `
+		),
+		inserted AS (
+			INSERT INTO invitations
+				(tenant_id, school_id, email, role, status, expires_at,
+				 first_name, last_name, phone, registration_number, import_job_id, token)
+			SELECT tenant_id, school_id, email, role, 'pending'::invitation_status, expires_at,
+			       first_name, last_name, phone, registration_number, import_job_id, token
+			FROM input_rows
+			ON CONFLICT (tenant_id, school_id, email) WHERE status NOT IN ('expired', 'revoked')
+			DO NOTHING
+			RETURNING id, email
+		)
+		SELECT ir.temp_id, ins.id, ins.email
+		FROM input_rows ir
+		LEFT JOIN inserted ins ON LOWER(ir.email) = LOWER(ins.email)
+		ORDER BY ir.temp_id
 	`
 
 	rows, err := r.pool.Query(ctx, query, args...)
@@ -177,30 +193,28 @@ func (r *PgRepository) BulkInsertInvitations(
 	}
 	defer rows.Close()
 
-	inserted := make(map[string]string) // email -> id
+	inserted := make(map[string]string) // temp_id -> invitation_id
+	var failures []FailedInsertion
+
 	for rows.Next() {
-		var id, email string
-		if err := rows.Scan(&id, &email); err != nil {
+		var tempID, email string
+		var invIDPtr *string
+		if err := rows.Scan(&tempID, &invIDPtr, &email); err != nil {
 			return nil, nil, fmt.Errorf("scan inserted invitation: %w", err)
 		}
-		inserted[email] = id
-	}
-	if err := rows.Err(); err != nil {
-		return nil, nil, fmt.Errorf("rows iteration: %w", err)
-	}
-
-	// Collect records that were NOT inserted (duplicates)
-	// We reconcile by email since these are the RETURNING results
-	var failures []FailedInsertion
-	for _, rec := range records {
-		lowerEmail := toLowerEmail(rec.Email)
-		if _, ok := inserted[lowerEmail]; !ok {
+		if invIDPtr != nil {
+			inserted[tempID] = *invIDPtr
+		} else {
+			// temp_id was not inserted — duplicate
 			failures = append(failures, FailedInsertion{
-				TempID: rec.TempID,
-				Email:  rec.Email,
+				TempID: tempID,
+				Email:  email,
 				Reason: "duplicate",
 			})
 		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, nil, fmt.Errorf("rows iteration: %w", err)
 	}
 
 	return inserted, failures, nil
@@ -213,7 +227,7 @@ type FailedInsertion struct {
 	Reason string `json:"reason"`
 }
 
-// ─── Invitation updates (Stage 2) ────────────────────────────────────────
+// ─── Invitation updates (Stage 2 + correction resubmit) ──────────────────
 
 // SetInvitationStytchMemberID updates the stytch_member_id on an invitation.
 func (r *PgRepository) SetInvitationStytchMemberID(ctx context.Context, id, stytchMemberID string) error {
@@ -245,6 +259,73 @@ func (r *PgRepository) GetInvitationStytchMemberID(ctx context.Context, id strin
 		return "", fmt.Errorf("get stytch member id: %w", err)
 	}
 	return memberID, nil
+}
+
+// BulkUpdateInvitations updates existing invitation rows by ID (correction resubmit).
+// Used when re-running failed invitations: re-validates the partial unique index
+// constraint (active email uniqueness) before retrying Stage 2.
+// Returns the count of successfully updated rows.
+func (r *PgRepository) BulkUpdateInvitations(
+	ctx context.Context, records []ImportStaffRecord,
+	role, jobID string, now time.Time,
+) (int, error) {
+	if len(records) == 0 {
+		return 0, nil
+	}
+
+	// Build CTE VALUES clause
+	valueStrings := make([]string, 0, len(records))
+	args := make([]interface{}, 0, len(records)*7)
+	argIdx := 1
+
+	for _, rec := range records {
+		valueStrings = append(valueStrings,
+			fmt.Sprintf("($%d::uuid, LOWER($%d), $%d, $%d, $%d, $%d::user_role, $%d::uuid)",
+				argIdx, argIdx+1, argIdx+2, argIdx+3, argIdx+4, argIdx+5, argIdx+6),
+		)
+		args = append(args,
+			rec.TempID, // id of the invitation row (passed as temp_id in correction flow)
+			rec.Email,
+			rec.FirstName,
+			rec.LastName,
+			rec.Phone,
+			role,
+			jobID,
+		)
+		argIdx += 7
+	}
+
+	query := `
+		WITH corrections (id, email, first_name, last_name, phone, role, import_job_id) AS (
+			VALUES ` + strings.Join(valueStrings, ",\n			          ") + `
+		)
+		UPDATE invitations inv
+		SET
+			email         = LOWER(c.email),
+			first_name    = c.first_name,
+			last_name     = c.last_name,
+			phone         = c.phone,
+			role          = c.role::user_role,
+			status        = 'pending',
+			error_message = NULL,
+			attempt_count = 0,
+			import_job_id = c.import_job_id
+		FROM corrections c
+		WHERE inv.id = c.id
+		RETURNING inv.id
+	`
+
+	rows, err := r.pool.Query(ctx, query, args...)
+	if err != nil {
+		return 0, fmt.Errorf("bulk update invitations: %w", err)
+	}
+	defer rows.Close()
+
+	count := 0
+	for rows.Next() {
+		count++
+	}
+	return count, rows.Err()
 }
 
 // ─── Import Job Failures ─────────────────────────────────────────────────
@@ -287,18 +368,7 @@ func (r *PgRepository) GetFailedInvitationsByJob(ctx context.Context, jobID stri
 	return results, rows.Err()
 }
 
-// ─── Utilities ───────────────────────────────────────────────────────────
-
-func joinStrings(strs []string, sep string) string {
-	result := ""
-	for i, s := range strs {
-		if i > 0 {
-			result += sep
-		}
-		result += s
-	}
-	return result
-}
+// ─── School / Tenant helpers ─────────────────────────────────────────────
 
 // GetActiveSchoolID returns the active school ID for a user in a tenant.
 func (r *PgRepository) GetActiveSchoolID(ctx context.Context, tenantID, userID string) (string, error) {
@@ -339,16 +409,4 @@ func (r *PgRepository) GetTenantStytchOrgID(ctx context.Context, tenantID string
 		return "", fmt.Errorf("get tenant stytch org: %w", err)
 	}
 	return orgID, nil
-}
-
-func toLowerEmail(email string) string {
-	b := make([]byte, len(email))
-	for i := 0; i < len(email); i++ {
-		c := email[i]
-		if c >= 'A' && c <= 'Z' {
-			c += 32
-		}
-		b[i] = c
-	}
-	return string(b)
 }

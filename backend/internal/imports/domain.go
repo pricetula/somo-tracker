@@ -49,8 +49,9 @@ type ImportStaffRecord struct {
 // ─── HTTP request/response types ─────────────────────────────────────────
 
 type StartImportRequest struct {
-	Role    string              `json:"role"`
-	Records []ImportStaffRecord `json:"records"`
+	Role              string              `json:"role"`
+	Records           []ImportStaffRecord `json:"records"`
+	ParentImportJobID *string             `json:"parent_import_job_id,omitempty"`
 }
 
 type StartImportResponse struct {
@@ -121,12 +122,14 @@ type Repository interface {
 	UpdateImportJobStatus(ctx context.Context, id, status string, processed, successCount, failedCount int) error
 	SetImportJobStarted(ctx context.Context, id string) error
 	SetImportJobCompleted(ctx context.Context, id string, hasErrors bool) error
-	BulkInsertInvitations(ctx context.Context, records []ImportStaffRecord, tenantID, schoolID, role, jobID string, now time.Time, tokenPrefix string) (map[string]string, []FailedInsertion, error)
+	BulkInsertInvitations(ctx context.Context, records []ImportStaffRecord, tenantID, schoolID, role, jobID string, now time.Time, tokenPrefix string) (map[string]string, []FailedInsertion, error) // returns map[temp_id]invitation_id
 	RecordImportFailure(ctx context.Context, jobID, rawPayloadJSON, errMsg string) error
 	GetFailedInvitationsByJob(ctx context.Context, jobID string) ([]FailedInvitation, error)
 	GetInvitationStytchMemberID(ctx context.Context, id string) (string, error)
 	SetInvitationStytchMemberID(ctx context.Context, id, stytchMemberID string) error
 	SetInvitationFailed(ctx context.Context, id, errorMessage string, attemptCount int) error
+	// BulkUpdateInvitations updates existing invitation rows by ID (correction resubmit).
+	BulkUpdateInvitations(ctx context.Context, records []ImportStaffRecord, role, jobID string, now time.Time) (int, error)
 	GetActiveSchoolID(ctx context.Context, tenantID, userID string) (string, error)
 	GetTenantStytchOrgID(ctx context.Context, tenantID string) (string, error)
 }

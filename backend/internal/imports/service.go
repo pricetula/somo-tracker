@@ -38,11 +38,14 @@ type StytchOrgResolver interface {
 }
 
 // StartImport creates an import job and enqueues an Asynq task.
+// If parentImportJobID is non-empty, this is a correction resubmit and the
+// new job will be linked to the original import job for traceability.
 func (s *Service) StartImport(
 	ctx context.Context,
 	tenantID, schoolID, userID, role string,
 	records []ImportStaffRecord,
 	resolver StytchOrgResolver,
+	parentImportJobID string,
 ) (*StartImportResponse, error) {
 	// Validate role
 	if !AllowedRoles[role] {
@@ -81,18 +84,23 @@ func (s *Service) StartImport(
 	now := time.Now().UTC()
 
 	createdBy := userID
+	var parentJobID *string
+	if parentImportJobID != "" {
+		parentJobID = &parentImportJobID
+	}
 	job := &ImportJob{
-		ID:               jobID,
-		TenantID:         tenantID,
-		SchoolID:         schoolID,
-		Role:             role,
-		CreatedBy:        &createdBy,
-		Status:           "pending",
-		TotalRecords:     len(records),
-		ProcessedRecords: 0,
-		SuccessCount:     0,
-		FailedCount:      0,
-		CreatedAt:        now,
+		ID:                jobID,
+		TenantID:          tenantID,
+		SchoolID:          schoolID,
+		Role:              role,
+		CreatedBy:         &createdBy,
+		Status:            "pending",
+		TotalRecords:      len(records),
+		ProcessedRecords:  0,
+		SuccessCount:      0,
+		FailedCount:       0,
+		ParentImportJobID: parentJobID,
+		CreatedAt:         now,
 	}
 
 	if err := s.repo.CreateImportJob(ctx, job); err != nil {
@@ -101,13 +109,14 @@ func (s *Service) StartImport(
 
 	// Enqueue Asynq task
 	payload := ProcessImportPayload{
-		ImportJobID: jobID,
-		TenantID:    tenantID,
-		SchoolID:    schoolID,
-		Role:        role,
-		Records:     records,
-		StytchOrgID: stytchOrgID,
-		FrontendURL: s.cfg.FrontendURL,
+		ImportJobID:       jobID,
+		TenantID:          tenantID,
+		SchoolID:          schoolID,
+		Role:              role,
+		Records:           records,
+		StytchOrgID:       stytchOrgID,
+		FrontendURL:       s.cfg.FrontendURL,
+		ParentImportJobID: parentImportJobID,
 	}
 
 	payloadBytes, err := json.Marshal(payload)

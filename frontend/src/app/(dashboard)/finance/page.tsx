@@ -1,9 +1,7 @@
 /**
- * Admins listing page — two independent, paginated lists stacked vertically:
- *   1. Active Staff (from GET /api/v1/users?role=SCHOOL_ADMIN)
- *   2. Invited Staff (from GET /api/v1/invitations?role=SCHOOL_ADMIN&status[]=...)
- *
- * Each list manages its own loading, error, and empty states independently.
+ * Finance listing page — two independent, paginated lists stacked vertically:
+ *   1. Active Staff (from GET /api/v1/users?role=FINANCE)
+ *   2. Invited Staff (from GET /api/v1/invitations?role=FINANCE&status[]=...)
  */
 
 "use client";
@@ -21,32 +19,32 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { UserPlus } from "lucide-react";
 
-export default function AdminsPage() {
+export default function FinancePage() {
     const {
         data: usersData,
         isLoading: usersLoading,
         isError: usersError,
-    } = useStaffUsers("SCHOOL_ADMIN");
+    } = useStaffUsers("FINANCE");
 
     const {
         data: invitationsData,
         isLoading: invitationsLoading,
         isError: invitationsError,
-    } = useStaffInvitations("SCHOOL_ADMIN");
+    } = useStaffInvitations("FINANCE");
 
-    const roleLabel = "Admins";
+    const roleLabel = "Finance";
     const addHref = "./add";
 
     return (
         <div className="flex flex-1 flex-col">
             {/* Page header */}
             <div className="flex items-center gap-3 px-6 pt-6 pb-2">
-                <h1 className="text-2xl font-semibold tracking-tight">Admins</h1>
+                <h1 className="text-2xl font-semibold tracking-tight">Finance</h1>
                 <div className="ml-auto">
                     <Button size="sm" asChild>
                         <Link href={addHref}>
                             <UserPlus className="mr-1.5 size-3.5" />
-                            Invite Admins
+                            Invite Finance Staff
                         </Link>
                     </Button>
                 </div>
@@ -55,11 +53,11 @@ export default function AdminsPage() {
             <div className="flex flex-1 flex-col gap-8 px-6 py-4">
                 {/* List 1 — Active Staff */}
                 <section className="flex flex-col">
-                    <h2 className="mb-2 text-sm font-medium">Active {roleLabel}</h2>
+                    <h2 className="mb-2 text-sm font-medium">Active Finance Staff</h2>
                     {usersError ? (
                         <div className="flex items-center justify-center py-8">
                             <p className="text-destructive text-sm">
-                                Failed to load active {roleLabel.toLowerCase()}. Please try again.
+                                Failed to load active finance staff. Please try again.
                             </p>
                         </div>
                     ) : (
@@ -79,7 +77,7 @@ export default function AdminsPage() {
 
                 {/* List 2 — Invitations */}
                 <section className="flex flex-col">
-                    <h2 className="mb-2 text-sm font-medium">Invited {roleLabel}</h2>
+                    <h2 className="mb-2 text-sm font-medium">Invited Finance Staff</h2>
                     {invitationsError ? (
                         <div className="flex items-center justify-center py-8">
                             <p className="text-destructive text-sm">

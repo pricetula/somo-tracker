@@ -10,7 +10,7 @@ import { api } from "./client";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
-export type InvitationStatus = "pending" | "accepted" | "expired" | "revoked";
+export type InvitationStatus = "pending" | "accepted" | "expired" | "revoked" | "invite_failed";
 
 export type InvitationRole = "SYSTEM_ADMIN" | "SCHOOL_ADMIN" | "TEACHER" | "NURSE" | "FINANCE";
 
@@ -42,6 +42,14 @@ export interface ListInvitationsParams {
 export interface ListInvitationsResponse {
     invitations: Invitation[];
     total: number;
+}
+
+/** Params for the staff listing endpoint — excludes accepted by design. */
+export interface ListInvitationsByRoleParams {
+    role: "SCHOOL_ADMIN" | "NURSE" | "FINANCE";
+    status?: InvitationStatus[];
+    page?: number;
+    limit?: number;
 }
 
 export interface CreateInvitationItem {
@@ -85,4 +93,24 @@ export async function createInvitations(
     payload: CreateInvitationsRequest
 ): Promise<CreateInvitationsResponse> {
     return api.post<CreateInvitationsResponse>("/api/v1/invitations", payload);
+}
+
+/**
+ * List invitations by role with multi-value status filter.
+ * Used by the staff listing pages to show pending/expired/revoked/invite_failed
+ * invitations for a specific role. Never returns 'accepted' status.
+ */
+export async function listInvitationsByRole(
+    params: ListInvitationsByRoleParams
+): Promise<ListInvitationsResponse> {
+    const searchParams = new URLSearchParams();
+    searchParams.set("role", params.role);
+    if (params.status && params.status.length > 0) {
+        params.status.forEach((s) => searchParams.append("status[]", s));
+    }
+    if (params.page) searchParams.set("page", String(params.page));
+    if (params.limit) searchParams.set("limit", String(params.limit));
+
+    const qs = searchParams.toString();
+    return api.get<ListInvitationsResponse>(`/api/v1/invitations?${qs}`);
 }

@@ -41,6 +41,7 @@ const STATUS_LABELS: Record<
     accepted: { label: "Accepted", variant: "default" },
     expired: { label: "Expired", variant: "outline" },
     revoked: { label: "Revoked", variant: "destructive" },
+    invite_failed: { label: "Failed", variant: "destructive" },
 };
 
 const ROLE_LABELS: Record<InvitationRole, string> = {

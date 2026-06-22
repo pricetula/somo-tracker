@@ -8,12 +8,12 @@
 "use client";
 
 import * as React from "react";
-import { useVirtualizer } from "@tanstack/react-virtual";
-import { isValidPhoneNumber, parsePhoneNumber } from "libphonenumber-js";
 import { X, Plus, AlertCircle, PhoneOff } from "lucide-react";
 
 import { saveDraft, type ImportDraftRow } from "@/lib/db";
 import type { AllowedRole } from "./bulk-staff-import-dialog";
+import { ImportInput } from "./import-input";
+import { useVirtualizer, hasValidEmailStructure, normalizePhone } from "../lib/validation";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -56,7 +56,7 @@ export function ManualEntryPanel({
     // Track auto-corrected cells for visual highlighting
     const [correctedCells, setCorrectedCells] = React.useState<Set<string>>(new Set());
 
-    // eslint-disable-next-line react-hooks/incompatible-library
+     
     const virtualizer = useVirtualizer({
         count: rows.length,
         getScrollElement: () => parentRef.current,
@@ -214,40 +214,37 @@ export function ManualEntryPanel({
                                     className="grid gap-2 px-1 py-1"
                                     style={{ gridTemplateColumns: "1fr 1fr 1.5fr 1fr 28px" }}
                                 >
-                                    <Input
+                                    <ImportInput
                                         placeholder="Jane"
                                         value={row.first_name}
                                         onChange={(e) =>
                                             updateRow(row.temp_id, "first_name", e.target.value)
                                         }
                                         className={`h-9 text-sm ${val.nameError && row.first_name ? "border-destructive" : ""}`}
-                                        error={val.nameError}
                                     />
-                                    <Input
+                                    <ImportInput
                                         placeholder="Doe"
                                         value={row.last_name}
                                         onChange={(e) =>
                                             updateRow(row.temp_id, "last_name", e.target.value)
                                         }
                                         className={`h-9 text-sm ${val.nameError && row.last_name ? "border-destructive" : ""}`}
-                                        error={val.nameError}
                                     />
                                     <div className="relative">
-                                        <Input
+                                        <ImportInput
                                             placeholder="jane@school.edu"
                                             value={row.email}
                                             onChange={(e) =>
                                                 updateRow(row.temp_id, "email", e.target.value)
                                             }
                                             className={`h-9 text-sm ${val.emailError || val.duplicateError ? "border-destructive pr-7" : ""}`}
-                                            error={val.emailError || val.duplicateError}
                                         />
                                         {(val.emailError || val.duplicateError) && (
                                             <AlertCircle className="text-destructive absolute top-1/2 right-2 size-4 -translate-y-1/2" />
                                         )}
                                     </div>
                                     <div className="relative">
-                                        <Input
+                                        <ImportInput
                                             placeholder="+254 712 345 678"
                                             value={row.phone}
                                             onChange={(e) =>
@@ -298,57 +295,5 @@ export function ManualEntryPanel({
                 </div>
             </div>
         </div>
-    );
-}
-
-// ─── Validation helpers ───────────────────────────────────────────────────
-
-function hasValidEmailStructure(email: string): boolean {
-    if (!email || !email.includes("@")) return false;
-    const parts = email.split("@");
-    if (parts.length !== 2) return false;
-    const [local, domain] = parts;
-    if (local.length === 0 || domain.length === 0) return false;
-    if (!domain.includes(".")) return false;
-    return true;
-}
-
-function normalizePhone(phone: string): string | null {
-    if (!phone || phone.trim() === "") return null;
-    const cleaned = phone.trim();
-    try {
-        if (isValidPhoneNumber(cleaned, "KE")) {
-            return parsePhoneNumber(cleaned, "KE")!.format("E.164");
-        }
-        return null;
-    } catch {
-        return null;
-    }
-}
-
-// ─── Inline Input component with error state ──────────────────────────────
-
-function Input({
-    placeholder,
-    value,
-    onChange,
-    className = "",
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    error,
-}: {
-    placeholder?: string;
-    value: string;
-    onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-    className?: string;
-    error?: boolean;
-}) {
-    return (
-        <input
-            type="text"
-            placeholder={placeholder}
-            value={value}
-            onChange={onChange}
-            className={`border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring h-9 w-full rounded-md border px-3 text-sm transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
-        />
     );
 }

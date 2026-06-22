@@ -1,9 +1,7 @@
 /**
- * Admins listing page — two independent, paginated lists stacked vertically:
- *   1. Active Staff (from GET /api/v1/users?role=SCHOOL_ADMIN)
- *   2. Invited Staff (from GET /api/v1/invitations?role=SCHOOL_ADMIN&status[]=...)
- *
- * Each list manages its own loading, error, and empty states independently.
+ * Nurses listing page — two independent, paginated lists stacked vertically:
+ *   1. Active Staff (from GET /api/v1/users?role=NURSE)
+ *   2. Invited Staff (from GET /api/v1/invitations?role=NURSE&status[]=...)
  */
 
 "use client";
@@ -21,32 +19,32 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { UserPlus } from "lucide-react";
 
-export default function AdminsPage() {
+export default function NursesPage() {
     const {
         data: usersData,
         isLoading: usersLoading,
         isError: usersError,
-    } = useStaffUsers("SCHOOL_ADMIN");
+    } = useStaffUsers("NURSE");
 
     const {
         data: invitationsData,
         isLoading: invitationsLoading,
         isError: invitationsError,
-    } = useStaffInvitations("SCHOOL_ADMIN");
+    } = useStaffInvitations("NURSE");
 
-    const roleLabel = "Admins";
+    const roleLabel = "Nurses";
     const addHref = "./add";
 
     return (
         <div className="flex flex-1 flex-col">
             {/* Page header */}
             <div className="flex items-center gap-3 px-6 pt-6 pb-2">
-                <h1 className="text-2xl font-semibold tracking-tight">Admins</h1>
+                <h1 className="text-2xl font-semibold tracking-tight">Nurses</h1>
                 <div className="ml-auto">
                     <Button size="sm" asChild>
                         <Link href={addHref}>
                             <UserPlus className="mr-1.5 size-3.5" />
-                            Invite Admins
+                            Invite Nurses
                         </Link>
                     </Button>
                 </div>

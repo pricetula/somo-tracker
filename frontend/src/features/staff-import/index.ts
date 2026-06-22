@@ -1,5 +1,5 @@
-export { BulkStaffImportDialog } from "./components/bulk-staff-import-dialog";
-export type { AllowedRole } from "./components/bulk-staff-import-dialog";
+export { BulkStaffImport } from "./components/bulk-staff-import-dialog";
+export type { BulkStaffImportProps, AllowedRole } from "./components/bulk-staff-import-dialog";
 export type { ImportDraftRow } from "@/lib/db";
 
 export {

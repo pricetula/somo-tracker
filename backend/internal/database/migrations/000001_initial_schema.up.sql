@@ -56,7 +56,7 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 DO $$ BEGIN
-    CREATE TYPE invitation_status AS ENUM ('pending', 'accepted', 'expired', 'revoked');
+    CREATE TYPE invitation_status AS ENUM ('pending', 'accepted', 'expired', 'revoked', 'invite_failed');
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
@@ -436,15 +436,26 @@ CREATE TABLE IF NOT EXISTS invitations (
     phone               VARCHAR(50)       NULL,
     registration_number VARCHAR(100)      NULL,
     stytch_member_id    VARCHAR(255)      NULL,
+    import_job_id       UUID              NULL,
+    error_message       TEXT              NULL,
+    attempt_count       INT               NOT NULL DEFAULT 0,
     created_at          TIMESTAMPTZ       NOT NULL DEFAULT NOW(),
 
     CONSTRAINT fk_invitations_tenant_school FOREIGN KEY (tenant_id, school_id) REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE
 );
 
+ALTER TABLE invitations ADD CONSTRAINT fk_invitations_import_job
+    FOREIGN KEY (import_job_id) REFERENCES import_jobs(id) ON DELETE SET NULL;
+
 CREATE INDEX IF NOT EXISTS idx_invitations_tenant_id ON invitations (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_invitations_school_id ON invitations (school_id);
 CREATE INDEX IF NOT EXISTS idx_invitations_email     ON invitations (email);
 CREATE INDEX IF NOT EXISTS idx_invitations_status    ON invitations (status);
+CREATE INDEX IF NOT EXISTS idx_invitations_import_job ON invitations (import_job_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_invitations_active_email
+  ON invitations (tenant_id, school_id, email)
+  WHERE status NOT IN ('expired', 'revoked');
 
 -- ---------------------------------------------------------------------------
 -- CBC PARENTS (Profile Extension linking to core platform Users)
@@ -1110,6 +1121,48 @@ COMMENT ON TABLE cbc_term_competency_summaries IS
      EE/ME/AE/BE. Sub-levels (EE1 etc.) are only valid for the internal
      calculated_level and override_level fields. knec_synced_at is NULL until
      the first successful upload to cba.knec.ac.ke.';
+
+-- ============================================================================
+-- IMPORT JOBS — Bulk Staff Invitation async ingestion
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS import_jobs (
+    id                   UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id            UUID        NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    school_id            UUID        NOT NULL,
+    role                 user_role   NOT NULL,
+    created_by           UUID        REFERENCES users(id) ON DELETE SET NULL,
+    status               TEXT        NOT NULL DEFAULT 'pending',
+    total_records        INT         NOT NULL DEFAULT 0,
+    processed_records    INT         NOT NULL DEFAULT 0,
+    success_count        INT         NOT NULL DEFAULT 0,
+    failed_count         INT         NOT NULL DEFAULT 0,
+    parent_import_job_id UUID        NULL,
+    created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    started_at           TIMESTAMPTZ NULL,
+    completed_at         TIMESTAMPTZ NULL,
+
+    CONSTRAINT fk_import_jobs_tenant_school FOREIGN KEY (tenant_id, school_id) REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE
+);
+
+ALTER TABLE import_jobs ADD CONSTRAINT fk_import_jobs_parent
+    FOREIGN KEY (parent_import_job_id) REFERENCES import_jobs(id)
+    DEFERRABLE INITIALLY DEFERRED;
+
+CREATE INDEX IF NOT EXISTS idx_import_jobs_tenant_id ON import_jobs (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_import_jobs_school_id ON import_jobs (school_id);
+CREATE INDEX IF NOT EXISTS idx_import_jobs_created_by ON import_jobs (created_by);
+CREATE INDEX IF NOT EXISTS idx_import_jobs_status ON import_jobs (status);
+
+CREATE TABLE IF NOT EXISTS import_job_failures (
+    id             BIGSERIAL   PRIMARY KEY,
+    import_job_id  UUID        NOT NULL REFERENCES import_jobs(id) ON DELETE CASCADE,
+    raw_payload    JSONB       NOT NULL,
+    error_message  TEXT        NOT NULL,
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_import_job_failures_job_id ON import_job_failures (import_job_id);
 
 -- ============================================================================
 -- ROLE MIGRATION: SUPPORT_STAFF → NURSE, add FINANCE

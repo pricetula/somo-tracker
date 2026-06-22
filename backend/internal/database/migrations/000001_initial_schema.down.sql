@@ -79,6 +79,8 @@ DROP TABLE IF EXISTS cbc_schools CASCADE;
 -- LAYER 1 — PLATFORM INFRASTRUCTURE
 -- ============================================================================
 
+DROP TABLE IF EXISTS import_job_failures CASCADE;
+DROP TABLE IF EXISTS import_jobs CASCADE;
 DROP TABLE IF EXISTS invitations CASCADE;
 DROP TABLE IF EXISTS memberships CASCADE;
 DROP TABLE IF EXISTS sessions CASCADE;

@@ -1,4 +1,4 @@
-.PHONY: up up-d down ps logs-down logs-api logs-postgres logs-redis logs-frontend restart-api rebuild-api build-api generate-swagger generate-api-types help
+.PHONY: up up-d down ps logs-down logs-api logs-postgres logs-redis logs-frontend restart-api rebuild-api build-api generate-swagger generate-api-types lint vet help
 
 # ─── Docker Compose shortcuts ────────────────────────────────────────────────
 
@@ -41,6 +41,14 @@ rebuild-api:  ## Rebuild and recreate the API container
 
 build-api:    ## Build the API service (no start)
 	docker compose build somotracker_api
+
+# ─── Quality ────────────────────────────────────────────────────────────────
+
+lint:  ## Run golangci-lint (backend)
+	cd backend && golangci-lint run
+
+vet:   ## Run go vet (backend)
+	cd backend && go vet ./...
 
 # ─── Code generation ─────────────────────────────────────────────────────────
 

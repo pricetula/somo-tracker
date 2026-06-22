@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/hibiken/asynq"
 	"go.uber.org/zap"
@@ -24,7 +25,7 @@ type MockRepository struct {
 	updateImportJobStatusFn       func(ctx context.Context, id, status string, processed, successCount, failedCount int) error
 	setImportJobStartedFn         func(ctx context.Context, id string) error
 	setImportJobCompletedFn       func(ctx context.Context, id string, hasErrors bool) error
-	bulkInsertInvitationsFn       func(ctx context.Context, records []ImportStaffRecord, tenantID, schoolID, role, jobID string, now interface{}, tokenPrefix string) (map[string]string, []FailedInsertion, error)
+	bulkInsertInvitationsFn       func(ctx context.Context, records []ImportStaffRecord, tenantID, schoolID, role, jobID string, now time.Time, tokenPrefix string) (map[string]string, []FailedInsertion, error)
 	recordImportFailureFn         func(ctx context.Context, jobID, rawPayloadJSON, errMsg string) error
 	getFailedInvitationsByJobFn   func(ctx context.Context, jobID string) ([]FailedInvitation, error)
 	getInvitationStytchMemberIDFn func(ctx context.Context, id string) (string, error)
@@ -69,7 +70,7 @@ func (m *MockRepository) SetImportJobCompleted(ctx context.Context, id string, h
 	return nil
 }
 
-func (m *MockRepository) BulkInsertInvitations(ctx context.Context, records []ImportStaffRecord, tenantID, schoolID, role, jobID string, now interface{}, tokenPrefix string) (map[string]string, []FailedInsertion, error) {
+func (m *MockRepository) BulkInsertInvitations(ctx context.Context, records []ImportStaffRecord, tenantID, schoolID, role, jobID string, now time.Time, tokenPrefix string) (map[string]string, []FailedInsertion, error) {
 	if m.bulkInsertInvitationsFn != nil {
 		return m.bulkInsertInvitationsFn(ctx, records, tenantID, schoolID, role, jobID, now, tokenPrefix)
 	}

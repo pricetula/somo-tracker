@@ -326,7 +326,7 @@ func (h *Handler) CreateInvitations(c *fiber.Ctx) error {
 // Module is an fx-compatible module for the members domain.
 var Module = fx.Module("members",
 	fx.Provide(
-		NewRepository,
+		fx.Annotate(NewRepository, fx.As(new(Repository))),
 		NewService,
 		NewHandler,
 	),

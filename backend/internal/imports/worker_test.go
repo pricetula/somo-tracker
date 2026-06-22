@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/hibiken/asynq"
 	"github.com/redis/go-redis/v9"
@@ -150,7 +151,7 @@ func TestProcessImport_AllSuccess(t *testing.T) {
 
 	h.repo.bulkInsertInvitationsFn = func(
 		ctx context.Context, records []ImportStaffRecord,
-		tenantID, schoolID, role, jobID string, now interface{}, tokenPrefix string,
+		tenantID, schoolID, role, jobID string, now time.Time, tokenPrefix string,
 	) (map[string]string, []FailedInsertion, error) {
 		inserted := make(map[string]string)
 		for _, rec := range records {
@@ -192,7 +193,7 @@ func TestProcessImport_BulkInsertFails(t *testing.T) {
 
 	h.repo.bulkInsertInvitationsFn = func(
 		ctx context.Context, records []ImportStaffRecord,
-		tenantID, schoolID, role, jobID string, now interface{}, tokenPrefix string,
+		tenantID, schoolID, role, jobID string, now time.Time, tokenPrefix string,
 	) (map[string]string, []FailedInsertion, error) {
 		return nil, nil, errors.New("postgres connection lost")
 	}
@@ -220,7 +221,7 @@ func TestProcessImport_PartialDuplicates(t *testing.T) {
 
 	h.repo.bulkInsertInvitationsFn = func(
 		ctx context.Context, records []ImportStaffRecord,
-		tenantID, schoolID, role, jobID string, now interface{}, tokenPrefix string,
+		tenantID, schoolID, role, jobID string, now time.Time, tokenPrefix string,
 	) (map[string]string, []FailedInsertion, error) {
 		inserted := make(map[string]string)
 		var failures []FailedInsertion
@@ -275,7 +276,7 @@ func TestProcessImport_StytchInviteFails(t *testing.T) {
 
 	h.repo.bulkInsertInvitationsFn = func(
 		ctx context.Context, records []ImportStaffRecord,
-		tenantID, schoolID, role, jobID string, now interface{}, tokenPrefix string,
+		tenantID, schoolID, role, jobID string, now time.Time, tokenPrefix string,
 	) (map[string]string, []FailedInsertion, error) {
 		inserted := make(map[string]string)
 		for _, rec := range records {
@@ -328,7 +329,7 @@ func TestProcessImport_StytchTransientThenSuccess(t *testing.T) {
 
 	h.repo.bulkInsertInvitationsFn = func(
 		ctx context.Context, records []ImportStaffRecord,
-		tenantID, schoolID, role, jobID string, now interface{}, tokenPrefix string,
+		tenantID, schoolID, role, jobID string, now time.Time, tokenPrefix string,
 	) (map[string]string, []FailedInsertion, error) {
 		inserted := make(map[string]string)
 		for _, rec := range records {
@@ -376,7 +377,7 @@ func TestProcessImport_AlreadyInvited(t *testing.T) {
 
 	h.repo.bulkInsertInvitationsFn = func(
 		ctx context.Context, records []ImportStaffRecord,
-		tenantID, schoolID, role, jobID string, now interface{}, tokenPrefix string,
+		tenantID, schoolID, role, jobID string, now time.Time, tokenPrefix string,
 	) (map[string]string, []FailedInsertion, error) {
 		inserted := make(map[string]string)
 		for _, rec := range records {
@@ -458,7 +459,7 @@ func TestProcessImport_LargeBatch(t *testing.T) {
 
 	h.repo.bulkInsertInvitationsFn = func(
 		ctx context.Context, recs []ImportStaffRecord,
-		tenantID, schoolID, role, jobID string, now interface{}, tokenPrefix string,
+		tenantID, schoolID, role, jobID string, now time.Time, tokenPrefix string,
 	) (map[string]string, []FailedInsertion, error) {
 		inserted := make(map[string]string)
 		for _, rec := range recs {

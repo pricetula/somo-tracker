@@ -121,7 +121,7 @@ type Repository interface {
 	UpdateImportJobStatus(ctx context.Context, id, status string, processed, successCount, failedCount int) error
 	SetImportJobStarted(ctx context.Context, id string) error
 	SetImportJobCompleted(ctx context.Context, id string, hasErrors bool) error
-	BulkInsertInvitations(ctx context.Context, records []ImportStaffRecord, tenantID, schoolID, role, jobID string, now interface{}, tokenPrefix string) (map[string]string, []FailedInsertion, error)
+	BulkInsertInvitations(ctx context.Context, records []ImportStaffRecord, tenantID, schoolID, role, jobID string, now time.Time, tokenPrefix string) (map[string]string, []FailedInsertion, error)
 	RecordImportFailure(ctx context.Context, jobID, rawPayloadJSON, errMsg string) error
 	GetFailedInvitationsByJob(ctx context.Context, jobID string) ([]FailedInvitation, error)
 	GetInvitationStytchMemberID(ctx context.Context, id string) (string, error)

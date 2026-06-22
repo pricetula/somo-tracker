@@ -50,6 +50,17 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
+-- Ensure NURSE exists even if the enum was created before it was added to the CREATE TYPE
+DO $$ BEGIN
+    ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'NURSE';
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'FINANCE';
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
 DO $$ BEGIN
     CREATE TYPE attendance_status AS ENUM ('PRESENT', 'ABSENT', 'LATE', 'EXCUSED');
 EXCEPTION WHEN duplicate_object THEN NULL;

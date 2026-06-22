@@ -13,7 +13,7 @@ import (
 // Provides Repository, Service, Worker, and Handler.
 var Module = fx.Module("imports",
 	fx.Provide(
-		NewRepository,
+		fx.Annotate(NewRepository, fx.As(new(Repository))),
 		func(repo Repository, client *asynq.Client, cfg config.Config, logger *zap.Logger) *Service {
 			return NewService(repo, client, cfg, logger)
 		},

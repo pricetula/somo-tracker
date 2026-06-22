@@ -48,6 +48,7 @@ func main() {
 		auth.Module,
 		members.Module,
 		imports.AsynqModule,
+		imports.AsynqServerModule,
 		imports.Module,
 
 		fx.Provide(newLogger),

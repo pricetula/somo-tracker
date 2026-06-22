@@ -74,7 +74,7 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 // Module is an fx-compatible module for the tenant domain.
 var Module = fx.Module("tenant",
 	fx.Provide(
-		NewRepository,
+		fx.Annotate(NewRepository, fx.As(new(Repository))),
 		NewService,
 		NewHandler,
 	),

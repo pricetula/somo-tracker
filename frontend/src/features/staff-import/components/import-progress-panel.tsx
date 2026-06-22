@@ -85,16 +85,16 @@ export function ImportProgressPanel({ jobID, onDone, onClose }: ImportProgressPa
                         <span>
                             {processed} / {total} records
                         </span>
-                        {success > 0 && <span className="text-green-600">{success} sent</span>}
-                        {failed > 0 && <span className="text-red-600">{failed} failed</span>}
+                        {success > 0 && <span className="text-emerald-600">{success} sent</span>}
+                        {failed > 0 && <span className="text-destructive">{failed} failed</span>}
                     </div>
                 </>
             ) : (
                 <>
                     {failed > 0 ? (
-                        <AlertTriangle className="size-10 text-amber-500" />
+                        <AlertTriangle className="text-destructive size-10" />
                     ) : (
-                        <CheckCircle2 className="size-10 text-green-500" />
+                        <CheckCircle2 className="size-10 text-emerald-600" />
                     )}
 
                     <p className="text-lg font-medium">
@@ -103,8 +103,8 @@ export function ImportProgressPanel({ jobID, onDone, onClose }: ImportProgressPa
 
                     <div className="text-muted-foreground flex gap-6 text-sm">
                         <span>Total: {total}</span>
-                        <span className="text-green-600">Sent: {success}</span>
-                        {failed > 0 && <span className="text-red-600">Failed: {failed}</span>}
+                        <span className="text-emerald-600">Sent: {success}</span>
+                        {failed > 0 && <span className="text-destructive">Failed: {failed}</span>}
                     </div>
 
                     <div className="flex gap-3">

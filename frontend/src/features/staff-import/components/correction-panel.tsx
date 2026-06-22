@@ -125,7 +125,7 @@ export function CorrectionPanel({ jobID, role, onSubmit, onClose }: CorrectionPa
 
     return (
         <div className="flex flex-col gap-3">
-            <div className="flex items-start gap-2 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            <div className="bg-destructive/10 text-destructive flex items-start gap-2 rounded-md px-3 py-2 text-sm">
                 <AlertCircle className="mt-0.5 size-4 shrink-0" />
                 <span>
                     {rows.length} invitation{rows.length !== 1 ? "s" : ""} failed to send. Correct

@@ -66,7 +66,7 @@ export default async function DocPage({ params }: Props) {
     const { metadata, content } = doc;
 
     return (
-        <article className="prose prose-gray dark:prose-invert max-w-none">
+        <article className="prose prose-gray max-w-none">
             {/* Back link */}
             <Link
                 href="/docs"

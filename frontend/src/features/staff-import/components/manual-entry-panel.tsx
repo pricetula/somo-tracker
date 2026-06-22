@@ -56,7 +56,6 @@ export function ManualEntryPanel({
     // Track auto-corrected cells for visual highlighting
     const [correctedCells, setCorrectedCells] = React.useState<Set<string>>(new Set());
 
-     
     const virtualizer = useVirtualizer({
         count: rows.length,
         getScrollElement: () => parentRef.current,
@@ -250,10 +249,10 @@ export function ManualEntryPanel({
                                             onChange={(e) =>
                                                 updateRow(row.temp_id, "phone", e.target.value)
                                             }
-                                            className={`h-9 text-sm ${isPhoneCorrected || val.phoneWarning ? "pr-7" : ""} ${isPhoneCorrected ? "border-amber-400" : ""} ${val.phoneWarning ? "border-amber-400" : ""}`}
+                                            className={`h-9 text-sm ${isPhoneCorrected || val.phoneWarning ? "pr-7" : ""} ${isPhoneCorrected || val.phoneWarning ? "border-destructive/50" : ""}`}
                                         />
                                         {(isPhoneCorrected || val.phoneWarning) && (
-                                            <PhoneOff className="absolute top-1/2 right-2 size-4 -translate-y-1/2 text-amber-500" />
+                                            <PhoneOff className="text-destructive absolute top-1/2 right-2 size-4 -translate-y-1/2" />
                                         )}
                                     </div>
                                     <button

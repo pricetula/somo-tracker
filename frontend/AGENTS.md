@@ -100,3 +100,8 @@ For listing prefer to use tanstack virtualized lists since the query might have 
 - Avoid excessive use of card component or elements `shadow` styling.
 - Build tables flat against the background container without encapsulating cell borders or surrounding row outlines. Use clean vertical alignment instead.
 - Avoid excessive use of horizontal `<Separator />` lines or explicit `<hr />` dividers. Maintain layout groupings purely through spatial rules unless when necessary or prompted to add.
+
+**_ IMPORTANT _**
+
+- **Do not define multiple components in a .tsx file**: Every .tsx file should contain only one react component definition
+- **Avoid Div bloat**: do not make useless divs check

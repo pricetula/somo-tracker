@@ -213,7 +213,7 @@ export function FileUploadPanel({ onRowsReady, tenantID, userID, context }: File
             ) : uploadState === "complete" ? (
                 <div className="flex flex-col gap-3">
                     <div className="flex items-center gap-2">
-                        <CheckCircle2 className="size-5 text-green-500" />
+                        <CheckCircle2 className="size-5 text-emerald-600" />
                         <p className="text-sm font-medium">
                             {rows.length} row{rows.length !== 1 ? "s" : ""} parsed successfully
                         </p>

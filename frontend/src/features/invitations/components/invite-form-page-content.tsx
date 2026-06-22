@@ -32,9 +32,7 @@ export function InviteFormPageContent({ onSuccess }: InviteFormPageContentProps)
                     person.
                 </p>
             </div>
-            <div className="bg-card border-border/40 rounded-lg border p-4">
-                <InviteFormContent onSuccess={handleSuccess} />
-            </div>
+            <InviteFormContent onSuccess={handleSuccess} />
         </div>
     );
 }

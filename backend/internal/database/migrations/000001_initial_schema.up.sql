@@ -35,13 +35,6 @@ RETURNS tsrange AS $$
 $$ LANGUAGE sql IMMUTABLE;
 
 -- ============================================================================
--- DROP LEGACY ENUMS
--- ============================================================================
-
-DROP TYPE IF EXISTS gender_type CASCADE;
-DROP TYPE IF EXISTS enrollment_status CASCADE;
-
--- ============================================================================
 -- ENUMS
 -- ============================================================================
 
@@ -428,6 +421,45 @@ CREATE INDEX IF NOT EXISTS idx_memberships_user_id   ON memberships (user_id);
 CREATE INDEX IF NOT EXISTS idx_memberships_school_id ON memberships (school_id);
 
 -- ---------------------------------------------------------------------------
+-- IMPORT JOBS — Bulk Staff Invitation async ingestion
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS import_jobs (
+    id                   UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id            UUID        NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    school_id            UUID        NOT NULL,
+    role                 user_role   NOT NULL,
+    created_by           UUID        REFERENCES users(id) ON DELETE SET NULL,
+    status               TEXT        NOT NULL DEFAULT 'pending',
+    total_records        INT         NOT NULL DEFAULT 0,
+    processed_records    INT         NOT NULL DEFAULT 0,
+    success_count        INT         NOT NULL DEFAULT 0,
+    failed_count         INT         NOT NULL DEFAULT 0,
+    parent_import_job_id UUID        NULL,
+    created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    started_at           TIMESTAMPTZ NULL,
+    completed_at         TIMESTAMPTZ NULL,
+
+    CONSTRAINT fk_import_jobs_tenant_school FOREIGN KEY (tenant_id, school_id) REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_import_jobs_parent FOREIGN KEY (parent_import_job_id) REFERENCES import_jobs(id) DEFERRABLE INITIALLY DEFERRED
+);
+
+CREATE INDEX IF NOT EXISTS idx_import_jobs_tenant_id ON import_jobs (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_import_jobs_school_id ON import_jobs (school_id);
+CREATE INDEX IF NOT EXISTS idx_import_jobs_created_by ON import_jobs (created_by);
+CREATE INDEX IF NOT EXISTS idx_import_jobs_status ON import_jobs (status);
+
+CREATE TABLE IF NOT EXISTS import_job_failures (
+    id             BIGSERIAL   PRIMARY KEY,
+    import_job_id  UUID        NOT NULL REFERENCES import_jobs(id) ON DELETE CASCADE,
+    raw_payload    JSONB       NOT NULL,
+    error_message  TEXT        NOT NULL,
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_import_job_failures_job_id ON import_job_failures (import_job_id);
+
+-- ---------------------------------------------------------------------------
 -- INVITATIONS
 -- ---------------------------------------------------------------------------
 
@@ -452,7 +484,8 @@ CREATE TABLE IF NOT EXISTS invitations (
     attempt_count       INT               NOT NULL DEFAULT 0,
     created_at          TIMESTAMPTZ       NOT NULL DEFAULT NOW(),
 
-    CONSTRAINT fk_invitations_tenant_school FOREIGN KEY (tenant_id, school_id) REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE
+    CONSTRAINT fk_invitations_tenant_school FOREIGN KEY (tenant_id, school_id) REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_invitations_import_job FOREIGN KEY (import_job_id) REFERENCES import_jobs(id) ON DELETE SET NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_invitations_tenant_id ON invitations (tenant_id);
@@ -1130,50 +1163,7 @@ COMMENT ON TABLE cbc_term_competency_summaries IS
      calculated_level and override_level fields. knec_synced_at is NULL until
      the first successful upload to cba.knec.ac.ke.';
 
--- ============================================================================
--- IMPORT JOBS — Bulk Staff Invitation async ingestion
--- ============================================================================
 
-CREATE TABLE IF NOT EXISTS import_jobs (
-    id                   UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id            UUID        NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    school_id            UUID        NOT NULL,
-    role                 user_role   NOT NULL,
-    created_by           UUID        REFERENCES users(id) ON DELETE SET NULL,
-    status               TEXT        NOT NULL DEFAULT 'pending',
-    total_records        INT         NOT NULL DEFAULT 0,
-    processed_records    INT         NOT NULL DEFAULT 0,
-    success_count        INT         NOT NULL DEFAULT 0,
-    failed_count         INT         NOT NULL DEFAULT 0,
-    parent_import_job_id UUID        NULL,
-    created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    started_at           TIMESTAMPTZ NULL,
-    completed_at         TIMESTAMPTZ NULL,
-
-    CONSTRAINT fk_import_jobs_tenant_school FOREIGN KEY (tenant_id, school_id) REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE
-);
-
-ALTER TABLE import_jobs ADD CONSTRAINT fk_import_jobs_parent
-    FOREIGN KEY (parent_import_job_id) REFERENCES import_jobs(id)
-    DEFERRABLE INITIALLY DEFERRED;
-
-CREATE INDEX IF NOT EXISTS idx_import_jobs_tenant_id ON import_jobs (tenant_id);
-CREATE INDEX IF NOT EXISTS idx_import_jobs_school_id ON import_jobs (school_id);
-CREATE INDEX IF NOT EXISTS idx_import_jobs_created_by ON import_jobs (created_by);
-CREATE INDEX IF NOT EXISTS idx_import_jobs_status ON import_jobs (status);
-
-ALTER TABLE invitations ADD CONSTRAINT fk_invitations_import_job
-    FOREIGN KEY (import_job_id) REFERENCES import_jobs(id) ON DELETE SET NULL;
-
-CREATE TABLE IF NOT EXISTS import_job_failures (
-    id             BIGSERIAL   PRIMARY KEY,
-    import_job_id  UUID        NOT NULL REFERENCES import_jobs(id) ON DELETE CASCADE,
-    raw_payload    JSONB       NOT NULL,
-    error_message  TEXT        NOT NULL,
-    created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_import_job_failures_job_id ON import_job_failures (import_job_id);
 
 -- ============================================================================
 -- ROLE MIGRATION: SUPPORT_STAFF → NURSE, add FINANCE

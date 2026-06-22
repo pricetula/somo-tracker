@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"somotracker/backend/internal/middleware"
 )
 
 // ============================================================================
@@ -14,8 +16,12 @@ import (
 // ============================================================================
 
 var (
-	ErrInvalidInput              = errors.New("invalid_input")
-	ErrExpiredToken              = errors.New("expired_token")
+	ErrInvalidInput = errors.New("invalid_input")
+	// ErrExpiredToken wraps middleware.ErrUnauthorized so that errors.Is(err,
+	// middleware.ErrUnauthorized) returns true. This ensures the middleware's
+	// HTTPError maps it to 401 Unauthorized, which triggers the frontend's
+	// global 401 eviction (redirect to /logout).
+	ErrExpiredToken              = fmt.Errorf("expired_token: %w", middleware.ErrUnauthorized)
 	ErrMFARequired               = errors.New("mfa_required")
 	ErrOrgAlreadyExists          = errors.New("org_already_exists")
 	ErrJITProvisioningNotAllowed = errors.New("jit_provisioning_not_allowed")

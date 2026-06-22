@@ -455,9 +455,6 @@ CREATE TABLE IF NOT EXISTS invitations (
     CONSTRAINT fk_invitations_tenant_school FOREIGN KEY (tenant_id, school_id) REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE
 );
 
-ALTER TABLE invitations ADD CONSTRAINT fk_invitations_import_job
-    FOREIGN KEY (import_job_id) REFERENCES import_jobs(id) ON DELETE SET NULL;
-
 CREATE INDEX IF NOT EXISTS idx_invitations_tenant_id ON invitations (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_invitations_school_id ON invitations (school_id);
 CREATE INDEX IF NOT EXISTS idx_invitations_email     ON invitations (email);
@@ -1164,6 +1161,9 @@ CREATE INDEX IF NOT EXISTS idx_import_jobs_tenant_id ON import_jobs (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_import_jobs_school_id ON import_jobs (school_id);
 CREATE INDEX IF NOT EXISTS idx_import_jobs_created_by ON import_jobs (created_by);
 CREATE INDEX IF NOT EXISTS idx_import_jobs_status ON import_jobs (status);
+
+ALTER TABLE invitations ADD CONSTRAINT fk_invitations_import_job
+    FOREIGN KEY (import_job_id) REFERENCES import_jobs(id) ON DELETE SET NULL;
 
 CREATE TABLE IF NOT EXISTS import_job_failures (
     id             BIGSERIAL   PRIMARY KEY,

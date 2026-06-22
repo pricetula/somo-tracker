@@ -25,12 +25,14 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/hibiken/asynq"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 
 	"somotracker/backend/internal/auth"
 	"somotracker/backend/internal/config"
 	"somotracker/backend/internal/database"
+	"somotracker/backend/internal/imports"
 	"somotracker/backend/internal/members"
 	"somotracker/backend/internal/middleware"
 	"somotracker/backend/internal/tenant"
@@ -45,10 +47,13 @@ func main() {
 		tenant.Module,
 		auth.Module,
 		members.Module,
+		imports.AsynqModule,
+		imports.Module,
 
 		fx.Provide(newLogger),
 		fx.Invoke(runMigrations),
 		fx.Invoke(registerApp),
+		fx.Invoke(startAsynqWorker),
 		fx.Invoke(consumeSafeClient),
 	).Run()
 }
@@ -66,6 +71,30 @@ func errToStatus(err error) string {
 		return "healthy"
 	}
 	return "unhealthy: " + err.Error()
+}
+
+// startAsynqWorker starts the Asynq background worker for import processing.
+func startAsynqWorker(lc fx.Lifecycle, asynqServer *asynq.Server, importWorker *imports.Worker, logger *zap.Logger) {
+	// Register the import processor handler
+	mux := asynq.NewServeMux()
+	mux.HandleFunc(imports.TypeProcessImport, importWorker.ProcessImport)
+
+	lc.Append(fx.Hook{
+		OnStart: func(ctx context.Context) error {
+			go func() {
+				logger.Info("starting asynq worker")
+				if err := asynqServer.Start(mux); err != nil {
+					logger.Error("asynq server error", zap.Error(err))
+				}
+			}()
+			return nil
+		},
+		OnStop: func(ctx context.Context) error {
+			logger.Info("shutting down asynq worker")
+			asynqServer.Shutdown()
+			return nil
+		},
+	})
 }
 
 func consumeSafeClient(client *http.Client) {
@@ -91,6 +120,7 @@ func registerApp(
 	tenantHandler *tenant.Handler,
 	authHandler *auth.Handler,
 	membersHandler *members.Handler,
+	importsHandler *imports.Handler,
 ) {
 	app := fiber.New(fiber.Config{
 		AppName: "somotracker",
@@ -119,6 +149,7 @@ func registerApp(
 			tenantHandler.RegisterRoutes(app)
 			authHandler.RegisterRoutes(app)
 			membersHandler.RegisterRoutes(app)
+			importsHandler.RegisterRoutes(app)
 
 			// Start Fiber in a non-blocking goroutine
 			go func() {

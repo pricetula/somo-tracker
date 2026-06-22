@@ -1,6 +1,21 @@
 package members
 
-import "time"
+import (
+	"context"
+	"time"
+)
+
+// Repository defines the contract for member and invitation persistence.
+type Repository interface {
+	ListByRole(ctx context.Context, tenantID, schoolID, role string, offset, limit int, search string) ([]Member, int, error)
+	GetActiveSchoolID(ctx context.Context, tenantID, userID string) (string, error)
+	ListInvitations(ctx context.Context, tenantID, schoolID string, filter ListInvitationsFilter) ([]Invitation, int, error)
+	GetPendingInviteByEmail(ctx context.Context, schoolID, email string) (*Invitation, error)
+	GetMemberByEmail(ctx context.Context, schoolID, email string) (*Member, error)
+	GetTenantStytchOrgID(ctx context.Context, tenantID string) (string, error)
+	CreateInvitation(ctx context.Context, inv *Invitation, invitedBy string) error
+	SetInvitationStytchMemberID(ctx context.Context, id, stytchMemberID string) error
+}
 
 // ─── Member (user + membership join) ──────────────────────────────────────
 

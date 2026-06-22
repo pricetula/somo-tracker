@@ -1,0 +1,149 @@
+package imports
+
+import (
+	"context"
+	"time"
+
+	"github.com/hibiken/asynq"
+	"github.com/redis/go-redis/v9"
+)
+
+// ─── Allowed roles for bulk staff invitation ──────────────────────────────
+
+var AllowedRoles = map[string]bool{
+	"SCHOOL_ADMIN": true,
+	"NURSE":        true,
+	"FINANCE":      true,
+}
+
+// ─── ImportJob ────────────────────────────────────────────────────────────
+
+type ImportJob struct {
+	ID                string     `json:"id"`
+	TenantID          string     `json:"tenant_id"`
+	SchoolID          string     `json:"school_id"`
+	Role              string     `json:"role"`
+	CreatedBy         *string    `json:"created_by,omitempty"`
+	Status            string     `json:"status"`
+	TotalRecords      int        `json:"total_records"`
+	ProcessedRecords  int        `json:"processed_records"`
+	SuccessCount      int        `json:"success_count"`
+	FailedCount       int        `json:"failed_count"`
+	ParentImportJobID *string    `json:"parent_import_job_id,omitempty"`
+	CreatedAt         time.Time  `json:"created_at"`
+	StartedAt         *time.Time `json:"started_at,omitempty"`
+	CompletedAt       *time.Time `json:"completed_at,omitempty"`
+}
+
+// ─── ImportStaffRecord — a single invite row from the client ─────────────
+
+type ImportStaffRecord struct {
+	TempID             string `json:"temp_id"`
+	Email              string `json:"email"`
+	FirstName          string `json:"first_name"`
+	LastName           string `json:"last_name"`
+	Phone              string `json:"phone,omitempty"`
+	RegistrationNumber string `json:"registration_number,omitempty"`
+}
+
+// ─── HTTP request/response types ─────────────────────────────────────────
+
+type StartImportRequest struct {
+	Role    string              `json:"role"`
+	Records []ImportStaffRecord `json:"records"`
+}
+
+type StartImportResponse struct {
+	ImportJobID string `json:"import_job_id"`
+	Status      string `json:"status"`
+	Total       int    `json:"total"`
+}
+
+type TrackImportResponse struct {
+	Job           ImportJob `json:"job"`
+	FailedRecords int       `json:"failed_records"`
+}
+
+type ListFailedInvitationsResponse struct {
+	Invitations []FailedInvitation `json:"invitations"`
+}
+
+type FailedInvitation struct {
+	ID           string  `json:"id"`
+	Email        string  `json:"email"`
+	FirstName    *string `json:"first_name,omitempty"`
+	LastName     *string `json:"last_name,omitempty"`
+	Phone        *string `json:"phone,omitempty"`
+	ErrorMessage *string `json:"error_message,omitempty"`
+}
+
+type ImportProgressEvent struct {
+	Type             string `json:"type"`
+	ImportJobID      string `json:"import_job_id"`
+	Status           string `json:"status"`
+	ProcessedRecords int    `json:"processed_records"`
+	SuccessCount     int    `json:"success_count"`
+	FailedCount      int    `json:"failed_count"`
+	TotalRecords     int    `json:"total_records"`
+}
+
+// ─── SSE Event types ─────────────────────────────────────────────────────
+
+const (
+	EventProgress = "import_progress"
+	EventFinished = "import_finished"
+	EventError    = "import_error"
+)
+
+// ─── Redis keys ──────────────────────────────────────────────────────────
+
+const (
+	RedisChannelProgress = "import:progress:"
+	RedisKeyJobStatus    = "import:job:"
+)
+
+// ─── Repository interface ───────────────────────────────────────────────
+
+// TaskEnqueuer abstracts the Asynq client dependency.
+type TaskEnqueuer interface {
+	Enqueue(task *asynq.Task, opts ...asynq.Option) (*asynq.TaskInfo, error)
+}
+
+// ProgressPublisher abstracts the Redis pub/sub dependency.
+type ProgressPublisher interface {
+	Publish(ctx context.Context, channel string, message interface{}) *redis.IntCmd
+}
+
+// Repository defines the contract for import job persistence.
+type Repository interface {
+	CreateImportJob(ctx context.Context, job *ImportJob) error
+	GetImportJob(ctx context.Context, jobID string) (*ImportJob, error)
+	UpdateImportJobStatus(ctx context.Context, id, status string, processed, successCount, failedCount int) error
+	SetImportJobStarted(ctx context.Context, id string) error
+	SetImportJobCompleted(ctx context.Context, id string, hasErrors bool) error
+	BulkInsertInvitations(ctx context.Context, records []ImportStaffRecord, tenantID, schoolID, role, jobID string, now interface{}, tokenPrefix string) (map[string]string, []FailedInsertion, error)
+	RecordImportFailure(ctx context.Context, jobID, rawPayloadJSON, errMsg string) error
+	GetFailedInvitationsByJob(ctx context.Context, jobID string) ([]FailedInvitation, error)
+	GetInvitationStytchMemberID(ctx context.Context, id string) (string, error)
+	SetInvitationStytchMemberID(ctx context.Context, id, stytchMemberID string) error
+	SetInvitationFailed(ctx context.Context, id, errorMessage string, attemptCount int) error
+	GetActiveSchoolID(ctx context.Context, tenantID, userID string) (string, error)
+	GetTenantStytchOrgID(ctx context.Context, tenantID string) (string, error)
+}
+
+// ─── Constants ───────────────────────────────────────────────────────────
+
+const (
+	MaxRecordsPerImport = 5000
+	BatchSize           = 200
+	StytchConcurrency   = 8
+	StytchMaxRetries    = 3
+	InvitationTTL       = 7 * 24 * time.Hour
+)
+
+// ─── Error types ─────────────────────────────────────────────────────────
+
+type ErrorBody struct {
+	Error   string `json:"error"`
+	Message string `json:"message,omitempty"`
+}

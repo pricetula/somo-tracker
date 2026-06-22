@@ -15,11 +15,11 @@ import (
 type Handler struct {
 	svc     *Service
 	authSvc *auth.Service
-	repo    *Repository
+	repo    Repository
 }
 
 // NewHandler creates a new Handler.
-func NewHandler(svc *Service, authSvc *auth.Service, repo *Repository) *Handler {
+func NewHandler(svc *Service, authSvc *auth.Service, repo Repository) *Handler {
 	return &Handler{svc: svc, authSvc: authSvc, repo: repo}
 }
 

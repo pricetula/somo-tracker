@@ -9,11 +9,11 @@ import (
 
 // Service contains business logic for tenant operations.
 type Service struct {
-	repo *SqlcRepository
+	repo Repository
 }
 
 // NewService creates a new Service.
-func NewService(repo *SqlcRepository) *Service {
+func NewService(repo Repository) *Service {
 	return &Service{repo: repo}
 }
 

@@ -13,14 +13,14 @@ import (
 
 // Service contains business logic for the members domain.
 type Service struct {
-	repo   *Repository
+	repo   Repository
 	idp    auth.IdentityProvider
 	cfg    config.Config
 	logger *zap.Logger
 }
 
 // NewService creates a new Service.
-func NewService(repo *Repository, idp auth.IdentityProvider, cfg config.Config, logger *zap.Logger) *Service {
+func NewService(repo Repository, idp auth.IdentityProvider, cfg config.Config, logger *zap.Logger) *Service {
 	return &Service{repo: repo, idp: idp, cfg: cfg, logger: logger}
 }
 

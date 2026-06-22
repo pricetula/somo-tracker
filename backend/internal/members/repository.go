@@ -11,18 +11,18 @@ import (
 	"somotracker/backend/internal/database"
 )
 
-// Repository handles member and invitation database operations.
-type Repository struct {
+// PgRepository handles member and invitation database operations.
+type PgRepository struct {
 	pool *pgxpool.Pool
 }
 
-// NewRepository creates a new Repository.
-func NewRepository(pools *database.Pools) *Repository {
-	return &Repository{pool: pools.PG}
+// NewRepository creates a new PgRepository.
+func NewRepository(pools *database.Pools) *PgRepository {
+	return &PgRepository{pool: pools.PG}
 }
 
 // ListByRole returns paginated members (users with active memberships) for a given role.
-func (r *Repository) ListByRole(ctx context.Context, tenantID, schoolID, role string, offset, limit int, search string) ([]Member, int, error) {
+func (r *PgRepository) ListByRole(ctx context.Context, tenantID, schoolID, role string, offset, limit int, search string) ([]Member, int, error) {
 	// Count total
 	countQuery := `
 		SELECT COUNT(*)
@@ -85,7 +85,7 @@ func (r *Repository) ListByRole(ctx context.Context, tenantID, schoolID, role st
 }
 
 // GetActiveSchoolID returns the active school ID for a user in a tenant.
-func (r *Repository) GetActiveSchoolID(ctx context.Context, tenantID, userID string) (string, error) {
+func (r *PgRepository) GetActiveSchoolID(ctx context.Context, tenantID, userID string) (string, error) {
 	const query = `
 		SELECT school_id FROM memberships
 		WHERE tenant_id = $1 AND user_id = $2 AND is_active = true
@@ -111,7 +111,7 @@ func (r *Repository) GetActiveSchoolID(ctx context.Context, tenantID, userID str
 }
 
 // ListInvitations returns paginated invitations with optional filters.
-func (r *Repository) ListInvitations(ctx context.Context, tenantID, schoolID string, filter ListInvitationsFilter) ([]Invitation, int, error) {
+func (r *PgRepository) ListInvitations(ctx context.Context, tenantID, schoolID string, filter ListInvitationsFilter) ([]Invitation, int, error) {
 	// Build count query
 	countQuery := `SELECT COUNT(*) FROM invitations WHERE tenant_id = $1 AND school_id = $2`
 	dataQuery := `SELECT id, school_id, tenant_id, email, role::text, status::text, first_name, last_name, expires_at, created_at FROM invitations WHERE tenant_id = $1 AND school_id = $2`
@@ -194,7 +194,7 @@ func (r *Repository) ListInvitations(ctx context.Context, tenantID, schoolID str
 // GetPendingInviteByEmail checks if a pending invite exists for this email in the school.
 
 // GetTenantStytchOrgID returns the Stytch org ID for a tenant.
-func (r *Repository) GetTenantStytchOrgID(ctx context.Context, tenantID string) (string, error) {
+func (r *PgRepository) GetTenantStytchOrgID(ctx context.Context, tenantID string) (string, error) {
 	const query = `SELECT stytch_org_id FROM tenants WHERE id = $1`
 
 	var orgID string
@@ -210,7 +210,7 @@ func (r *Repository) GetTenantStytchOrgID(ctx context.Context, tenantID string) 
 
 // GetMemberByEmail returns the first active member with the given email in a school.
 // Returns nil if no active membership exists.
-func (r *Repository) GetMemberByEmail(ctx context.Context, schoolID, email string) (*Member, error) {
+func (r *PgRepository) GetMemberByEmail(ctx context.Context, schoolID, email string) (*Member, error) {
 	const query = `
 		SELECT u.id, u.email, u.first_name, u.last_name, m.role::text, m.is_active, m.created_at
 		FROM memberships m
@@ -231,7 +231,7 @@ func (r *Repository) GetMemberByEmail(ctx context.Context, schoolID, email strin
 }
 
 // GetPendingInviteByEmail checks if a pending invite exists for this email in the school.
-func (r *Repository) GetPendingInviteByEmail(ctx context.Context, schoolID, email string) (*Invitation, error) {
+func (r *PgRepository) GetPendingInviteByEmail(ctx context.Context, schoolID, email string) (*Invitation, error) {
 	const query = `
 		SELECT id, school_id, tenant_id, email, role::text, status::text, first_name, last_name, expires_at, created_at
 		FROM invitations
@@ -254,7 +254,7 @@ func (r *Repository) GetPendingInviteByEmail(ctx context.Context, schoolID, emai
 }
 
 // CreateInvitation inserts a new invitation record.
-func (r *Repository) CreateInvitation(ctx context.Context, inv *Invitation, invitedBy string) error {
+func (r *PgRepository) CreateInvitation(ctx context.Context, inv *Invitation, invitedBy string) error {
 	const query = `
 		INSERT INTO invitations (id, school_id, tenant_id, email, role, status, invited_by, token, expires_at, first_name, last_name)
 		VALUES ($1, $2, $3, $4, $5::user_role, 'pending', $6, $7, $8, $9, $10)
@@ -279,7 +279,7 @@ func (r *Repository) CreateInvitation(ctx context.Context, inv *Invitation, invi
 }
 
 // SetInvitationStytchMemberID stores the Stytch member ID on an invitation.
-func (r *Repository) SetInvitationStytchMemberID(ctx context.Context, id, stytchMemberID string) error {
+func (r *PgRepository) SetInvitationStytchMemberID(ctx context.Context, id, stytchMemberID string) error {
 	const query = `UPDATE invitations SET stytch_member_id = $1 WHERE id = $2`
 	_, err := r.pool.Exec(ctx, query, stytchMemberID, id)
 	if err != nil {

@@ -1,6 +1,17 @@
 package tenant
 
-import "time"
+import (
+	"context"
+	"time"
+)
+
+// Repository defines the contract for tenant persistence.
+type Repository interface {
+	ExistsByName(ctx context.Context, name string) (bool, error)
+	ExistsBySlug(ctx context.Context, slug string) (bool, error)
+	Create(ctx context.Context, name, slug string) (*Tenant, error)
+	GetByID(ctx context.Context, id string) (*Tenant, error)
+}
 
 // Tenant represents an educational institution or organisation using the platform.
 type Tenant struct {

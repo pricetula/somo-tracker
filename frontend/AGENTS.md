@@ -1,41 +1,87 @@
-# AI Agent Instructions: Next.js Feature-Module Architecture
+# Somotracker Frontend — Agent Architecture Contract
 
-A Next.js (App Router), TypeScript, and Domain-Driven/Feature-Module design. Maintain a highly scalable, cohesive, and loosely coupled codebase.
+Next.js (App Router), TypeScript, Feature-Module architecture.
 
 ---
 
-## 1. Core Architecture Style
+## 1. Core Architecture
 
-The project is organized by **Feature Modules** inside a top-level directory. `src/app` should only include routing files, no custom components.
+`src/app/` is routing only — no custom components or business logic live there.
 
-Each feature should be self-contained, encapsulating its own logic, UI, and state.
-
-### Directory Structure Blueprint
-
-When creating or modifying a feature, adhere strictly to this isolated module structure:
-
-```text
-src/
-├── app/                  # Next.js Routing Layer (Keep clean & lean)
-│   ├── layout.tsx
-│   ├── page.tsx          # Imports and renders Feature Containers
-│   └── dashboard/
-│       └── page.tsx      # Imports <DashboardContainer />
-│
-├── features/             # Feature-Module Layer (The Core Business Logic)
-│   ├── auth/             # Example Feature: Authentication
-│   └── analytics/        # Example Feature: Analytics
-│       ├── components/   # Feature-specific presentational UI
-│       │   ├── analytics-chart.tsx
-│       │   └── analytics-summary.tsx
-│       ├── hooks/        # Feature-specific hooks (data fetching/state)
-│       │   └── use-analytics-data.ts
-│       ├── services/     # API clients, server actions, or SDK wrappers
-│       │   └── analytics-api.ts
-│       ├── types/        # TypeScript interfaces unique to this feature
-│       │   └── index.ts
-│       └── index.ts      # PUBLIC API: Strict entry point for the feature
-│
-├── components/           # Truly GLOBAL, generic UI components only (e.g., Shadcn/Button)
-└── lib/                  # Truly GLOBAL utilities (e.g., prisma, tailwind-merge)
 ```
+src/
+├── app/                        # Next.js routing layer — keep lean
+│   ├── layout.tsx
+│   ├── page.tsx                # Imports and renders feature containers
+│   └── dashboard/
+│       └── page.tsx            # Imports <DashboardContainer />
+│
+├── features/                   # Feature-Module layer — core business logic
+│   └── analytics/              # Example feature
+│       ├── components/         # Presentational UI (feature-scoped)
+│       ├── hooks/              # Data fetching and local state
+│       ├── services/           # API clients, server actions, SDK wrappers
+│       ├── types/              # TypeScript interfaces for this feature
+│       └── index.ts            # Public API — the only import entry point
+│
+├── components/                 # Global, generic UI only (e.g. shadcn primitives)
+└── lib/                        # Global utilities (e.g. tailwind-merge, auth config)
+```
+
+- Each feature is **self-contained**: logic, UI, and state all live within its folder.
+- External code imports a feature **only** through its `index.ts` — never from internal paths.
+- Features must not import from each other. Shared logic belongs in `lib/`.
+
+---
+
+## 2. Package Manager
+
+Use **pnpm** exclusively — never `npm` or `yarn`.
+
+- `pnpm install` — local dev
+- `pnpm install --frozen-lockfile` — CI/Docker
+- `pnpm add <pkg>` / `pnpm add -D <pkg>` / `pnpm remove <pkg>`
+- `pnpm exec` / `pnpm dlx` for one-off commands (never global installs)
+- Use `--ignore-scripts` in CI/Docker unless a postinstall script is explicitly required.
+
+---
+
+## 3. React State-in-Effect Policy
+
+`setState` inside `useEffect` causes cascading renders and potential infinite loops.
+
+1. **Never call `setState` inside `useEffect`.** Derive values with `useMemo` or compute inline during render.
+2. **Use event handlers for reactive updates** (e.g. auto-filling end time when start time changes) — not effects.
+3. **Prefer `useMemo` over `useEffect + setState`** for any value computable from existing state or props.
+
+Run `pnpm lint` before pushing. The `react-hooks/set-state-in-effect` ESLint rule enforces this.
+
+---
+
+## 4. Documentation & Tooltip Synchronization
+
+All contextual inline UI help must derive from `content/docs/*.mdx` frontmatter via `<FeatureHelp slug="filename" anchorId="heading-anchor" />`.
+
+- Never hardcode descriptive text inside UI markup or labels.
+- Every doc file must declare a `tooltipSummary` string under 160 characters — plain text, no Markdown.
+
+Before completing any task touching routing, settings UI, or backend flag configuration, run:
+
+```bash
+npm run audit:docs
+```
+
+Fix misalignments before pushing.
+
+---
+
+## 5. Routing Conventions
+
+- `middleware.ts` → renamed to `proxy.ts`; export is `proxy()` not `middleware()`. Do not recreate `middleware.ts`.
+- Route handlers live in `app/api/…/route.ts` — never in `features/`.
+- Page files (`page.tsx`) render a single feature container. No logic in page files.
+
+**Changelog:**
+| Date | Change |
+|------|--------|
+| 2026-06-12 | `middleware.ts` renamed to `proxy.ts`; `middleware()` export renamed to `proxy()`. |

@@ -1,71 +1,94 @@
-Somotracker Backend Architecture Contract: Domain-Driven Package Layering
-This document establishes the structural patterns, dependency routing rules, and testing mandates for the Somotracker backend. All AI engineering agents must conform strictly to these layout boundaries to preserve code locality, performance velocity, and complete testability.
+# Somotracker Backend — Agent Architecture Contract
 
-🏗️ 1. Backend Directory Layout & Package Isolation
-The Go application implements a Functional Domain Package Layering pattern. Code is grouped by functional cohesion rather than infrastructural layers.
+Structural patterns, dependency rules, and testing mandates for backend.
 
-.
-├── cmd/
-│   └── api/
-│       └── main.go             # Entry point: Wire dependencies & boot Fiber
-└── internal/
-    ├── tenant/                 
-    ├── billing/                
-    └── analytics/              # Self-Contained Analytics Domain Package
-        ├── domain.go           # Core structures, Enums, and View Models (Pure Go)
-        ├── repository.go       # Database access layer (SQL Statements, Rows Scanning)
-        ├── service.go          # Pure business logic and calculation formulas
-        ├── handler.go          # Delivery Layer (Fiber router context endpoints)
-        ├── service_test.go     # Fast Unit Tests (In-memory mocks)
-        └── repository_test.go  # Live Integration Tests (Database/SQL verification)
+---
 
-Non-Negotiable Compilation Boundaries:
-Zero Circular Imports: Package student must never import package billing if package billing imports package student. Circular dependency tracking will forcefully halt compilation.
+## 1. Directory Layout & Package Isolation
 
-Locality of Behavior (LoB): All handler routes, business operations, and target SQL queries serving a single functional area must exist completely within that specific area's domain folder under ./backend/internal/.
+The Go application uses **Functional Domain Package Layering** — code grouped by functional cohesion, not infrastructural layer.
 
-🔍 2. Handling Data Combinations & SQL Joins
-When an operational workflow or user interface requires data spanning multiple database tables, agents must apply these strict routing paradigms:
+```
+cmd/
+└── api/
+    └── main.go                 # Entry point: wire dependencies, boot Fiber
 
-Scenario A: Same-Domain Joins
-If the required target tables fall natively under the responsibilities of a single package (e.g., combining analytics snapshots with academic term boundaries), the agent must write a native SQL JOIN query inside that package's repository.go layer.
+internal/
+├── tenant/
+├── billing/
+└── analytics/                  # Example domain package
+    ├── domain.go               # Core structs, enums, view models (pure Go)
+    ├── repository.go           # Database access (SQL, row scanning)
+    ├── service.go              # Business logic and calculation formulas
+    ├── handler.go              # Fiber route handlers
+    ├── service_test.go         # Unit tests (in-memory mocks)
+    └── repository_test.go      # Integration tests (live DB)
+```
 
-Scenario B: Cross-Domain Inter-Package Combinations
-If tables belong to completely separated packages (e.g., combining student profile metadata with accounting ledger lines), packages must remain strictly isolated. Agents are blocked from creating hard imports between them. Instead, choose one of these two options:
+- **Zero circular imports.** If `billing` imports `student`, then `student` must never import `billing`.
+- **Locality of Behavior.** All handlers, business logic, and SQL for a functional area must live entirely within that area's package under `./backend/internal/`.
 
-The Application Usecase Orchestrator: Create a specialized service orchestrator layer above the domain packages. This orchestrator calls both package repositories independently (utilizing concurrent Go routines or errgroup if performance critical) and aggregates the records into a single DTO in application memory.
+---
 
-The Database View Model Pattern (CQRS Read-Model): Define a read-only database VIEW at the PostgreSQL layer that spans the cross-domain rows. Inside the consuming reporting package (e.g., analytics), treat this view as a flat, single table mapped directly to a read-only Go struct definition.
+## 2. Cross-Domain Data & SQL Joins
 
-🛡️ 3. Dependency Injection Rules
-To guarantee complete control over state during testing loops, no package may use global states, database instances hidden in global variables, or implicit init() package functions.
+**Same-domain joins:** Write a native SQL `JOIN` inside that package's `repository.go`.
 
-All package structs must explicitly request their dependencies (database connections, external clients, internal interfaces) through concrete constructor functions named New...
+**Cross-domain joins:** No hard imports between domain packages. Use one of:
 
-Interfaces must be declared where they are consumed (the client side) rather than where the implementation is declared, following idiomatic Go conventions.
+1. **Orchestrator service** — sits above domain packages, calls both repositories independently (use `errgroup` for concurrency), assembles a DTO in memory.
+2. **Database View (CQRS read-model)** — define a read-only PostgreSQL `VIEW` spanning the domains; map it to a flat read-only Go struct in the consuming package.
 
-// Example Constructor enforcing Clean Mock Injection
-type Service struct {
-repo Repository // Interface declared locally within this package
-}
+---
+
+## 3. Dependency Injection
+
+- No global state, no package-level DB vars, no `init()` functions.
+- All structs receive dependencies via a `New…` constructor.
+- Interfaces are declared at the **consumer** side (not the implementation side).
+
+```go
+type Repository interface { /* declared inside this package */ }
+
+type Service struct { repo Repository }
 
 func NewService(r Repository) *Service {
-return &Service{repo: r}
+    return &Service{repo: r}
 }
+```
 
-🧪 4. Non-Negotiable Test Assertions
-Every feature generated or refactored by coding agents must accompany a complete testing profile split into two explicit execution suites using Go build tags:
+---
 
-1. Unit Tests (go test -short)
-Target File: *service_test.go or integrated test blocks.
+## 4. Database Migration Policy
 
-Execution Boundary: Pure, decoupled, in-memory domain logic valuation.
+All schema changes go directly into:
 
-Mandate: Zero network connections, zero disk access, and zero live database connections. If a service depends on a database repository, a clean in-memory map mock structure must be injected into the constructor. Execution window must resolve in milliseconds.
+**`internal/database/migrations/000001_initial_schema.up.sql`**
 
-2. Integration Tests (go test)
-Target File: *repository_test.go.
+- **Do NOT create new migration files.**
+- Add columns inline in `CREATE TABLE IF NOT EXISTS` statements.
+- Add new tables, indexes, constraints, and views inline in the same file.
+- For tables owned by future extensions, use `ALTER TABLE … ADD COLUMN IF NOT EXISTS`.
+- `000002_seed.up.sql` is the only separate file — data population only, not schema DDL.
 
-Execution Boundary: Verifying actual infrastructure integration against the database layer.
+**Changelog:**
+| Date | Change |
+|------|--------|
+| 2026-06-16 | Merged `000003` (`is_final`) and `000004` (`stream`) into `000001_initial_schema.up.sql` as inline column declarations. |
 
-Mandate: Must run against an active Postgres/Neon instance to execute raw SQL scripts, verifying that constraints, data types, composite unique indexes, and multi-tenant Row-Level Security (RLS) rules execute perfectly without regression.
+---
+
+## 5. Testing
+
+Every feature must ship both suites.
+
+**Unit tests** (`go test -short`) — `*_service_test.go`
+
+- Zero network, zero disk, zero live DB.
+- Inject in-memory map mocks via the constructor.
+- Must complete in milliseconds.
+
+**Integration tests** (`go test`) — `*_repository_test.go`
+
+- Run against an active Postgres instance.
+- Verify SQL constraints, data types, composite unique indexes, and RLS rules.

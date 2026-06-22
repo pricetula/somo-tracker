@@ -43,16 +43,7 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
--- Ensure NURSE exists even if the enum was created before it was added to the CREATE TYPE
-DO $$ BEGIN
-    ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'NURSE';
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
 
-DO $$ BEGIN
-    ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'FINANCE';
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
 
 DO $$ BEGIN
     CREATE TYPE attendance_status AS ENUM ('PRESENT', 'ABSENT', 'LATE', 'EXCUSED');
@@ -528,22 +519,6 @@ COMMENT ON TABLE cbc_parents IS
      directly to the platform users table to leverage Stytch B2B auth loops.';
 
 -- ---------------------------------------------------------------------------
--- CBC STUDENT PARENTS JUNCTION (Many-to-Many Relationship Mapping)
--- ---------------------------------------------------------------------------
-
-CREATE TABLE IF NOT EXISTS cbc_student_parents (
-    student_id    UUID        NOT NULL REFERENCES cbc_students(id) ON DELETE CASCADE,
-    parent_id     UUID        NOT NULL REFERENCES cbc_parents(id) ON DELETE CASCADE,
-    relationship  VARCHAR(50) NULL, -- 'Father', 'Mother', 'Guardian'
-    is_primary    BOOLEAN     NOT NULL DEFAULT true,
-    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-
-    PRIMARY KEY (student_id, parent_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_junction_parent ON cbc_student_parents (parent_id);
-
--- ---------------------------------------------------------------------------
 -- CBC STUDENTS (replaces generic students)
 -- ---------------------------------------------------------------------------
 
@@ -591,6 +566,22 @@ COMMENT ON COLUMN cbc_students.learning_pathway IS
      disabilities, governed by the CBAF-FL framework.';
 
 -- ---------------------------------------------------------------------------
+-- CBC STUDENT PARENTS JUNCTION (Many-to-Many Relationship Mapping)
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS cbc_student_parents (
+    student_id    UUID        NOT NULL REFERENCES cbc_students(id) ON DELETE CASCADE,
+    parent_id     UUID        NOT NULL REFERENCES cbc_parents(id) ON DELETE CASCADE,
+    relationship  VARCHAR(50) NULL, -- 'Father', 'Mother', 'Guardian'
+    is_primary    BOOLEAN     NOT NULL DEFAULT true,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    PRIMARY KEY (student_id, parent_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_junction_parent ON cbc_student_parents (parent_id);
+
+-- ---------------------------------------------------------------------------
 -- CBC STUDENT ENROLLMENTS (replaces generic student_enrollments)
 -- ---------------------------------------------------------------------------
 
@@ -622,19 +613,6 @@ CREATE INDEX IF NOT EXISTS idx_cbc_enrollments_class_id   ON cbc_student_enrollm
 -- ============================================================================
 
 -- ---------------------------------------------------------------------------
--- STUDENT HEALTH PROFILES
--- ---------------------------------------------------------------------------
-
-CREATE TABLE IF NOT EXISTS student_health_profiles (
-    id                     UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    student_id             UUID UNIQUE NOT NULL REFERENCES cbc_students(id) ON DELETE CASCADE,
-    blood_group            VARCHAR(5),
-    allergies              TEXT[],
-    chronic_conditions     TEXT[],
-    emergency_instructions TEXT
-);
-
--- ---------------------------------------------------------------------------
 -- MEDICAL INCIDENTS
 -- ---------------------------------------------------------------------------
 
@@ -648,6 +626,19 @@ CREATE TABLE IF NOT EXISTS medical_incidents (
 );
 
 CREATE INDEX IF NOT EXISTS idx_medical_incidents_student_id ON medical_incidents (student_id);
+
+-- ---------------------------------------------------------------------------
+-- STUDENT HEALTH PROFILES
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS student_health_profiles (
+    id                     UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id             UUID UNIQUE NOT NULL REFERENCES cbc_students(id) ON DELETE CASCADE,
+    blood_group            VARCHAR(5),
+    allergies              TEXT[],
+    chronic_conditions     TEXT[],
+    emergency_instructions TEXT
+);
 
 -- ---------------------------------------------------------------------------
 -- FEE CATEGORIES
@@ -665,10 +656,6 @@ CREATE TABLE IF NOT EXISTS fee_categories (
 
 CREATE INDEX IF NOT EXISTS idx_fee_categories_tenant    ON fee_categories (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_fee_categories_school_id ON fee_categories (school_id);
-
--- ---------------------------------------------------------------------------
--- FEE TEMPLATES (education_system_id and grade_id removed; grade_level CHECK added)
--- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS fee_templates (
     id                UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -758,10 +745,6 @@ CREATE INDEX IF NOT EXISTS idx_payments_parent     ON payments (parent_id);
 -- ============================================================================
 -- LAYER 5 — CBC CURRICULUM STRUCTURE
 -- ============================================================================
-
--- ---------------------------------------------------------------------------
--- CBC LEARNING AREAS (education_system_id and grade_id removed; education_level CHECK added)
--- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS cbc_learning_areas (
     id               UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1164,20 +1147,6 @@ COMMENT ON TABLE cbc_term_competency_summaries IS
      the first successful upload to cba.knec.ac.ke.';
 
 
-
--- ============================================================================
--- ROLE MIGRATION: SUPPORT_STAFF → NURSE, add FINANCE
--- ============================================================================
-
-DO $$ BEGIN
-    ALTER TYPE user_role RENAME VALUE 'SUPPORT_STAFF' TO 'NURSE';
-EXCEPTION WHEN undefined_object THEN
-    NULL;
-END $$;
-
-DO $$ BEGIN
-    ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'FINANCE';
-END $$;
 
 -- ============================================================================
 -- END OF MIGRATION

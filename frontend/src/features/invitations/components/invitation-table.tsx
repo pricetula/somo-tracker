@@ -191,7 +191,6 @@ export function InvitationTable({
     onRoleFilterChange,
     showExpired,
     onShowExpiredChange,
-    onInviteClick,
     isLoading,
 }: InvitationTableProps) {
     // eslint-disable-next-line react-hooks/incompatible-library
@@ -243,14 +242,16 @@ export function InvitationTable({
                 {/* Status filter */}
                 <div className="w-32">
                     <Select
-                        value={statusFilter}
-                        onValueChange={(val) => onStatusFilterChange(val as InvitationStatus | "")}
+                        value={statusFilter || "all"}
+                        onValueChange={(val) =>
+                            onStatusFilterChange(val === "all" ? "" : (val as InvitationStatus))
+                        }
                     >
                         <SelectTrigger className="bg-muted/50 h-9 text-sm">
                             <SelectValue placeholder="Status" />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="">All Statuses</SelectItem>
+                            <SelectItem value="all">All Statuses</SelectItem>
                             <SelectItem value="pending">Pending</SelectItem>
                             <SelectItem value="accepted">Accepted</SelectItem>
                             <SelectItem value="expired">Expired</SelectItem>
@@ -262,14 +263,16 @@ export function InvitationTable({
                 {/* Role filter */}
                 <div className="w-32">
                     <Select
-                        value={roleFilter}
-                        onValueChange={(val) => onRoleFilterChange(val as InvitationRole | "")}
+                        value={roleFilter || "all"}
+                        onValueChange={(val) =>
+                            onRoleFilterChange(val === "all" ? "" : (val as InvitationRole))
+                        }
                     >
                         <SelectTrigger className="bg-muted/50 h-9 text-sm">
                             <SelectValue placeholder="Role" />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="">All Roles</SelectItem>
+                            <SelectItem value="all">All Roles</SelectItem>
                             <SelectItem value="SCHOOL_ADMIN">School Admin</SelectItem>
                             <SelectItem value="TEACHER">Teacher</SelectItem>
                             <SelectItem value="NURSE">Nurse</SelectItem>
@@ -314,13 +317,6 @@ export function InvitationTable({
                         Clear filters
                     </Button>
                 )}
-
-                <div className="ml-auto flex items-center gap-2">
-                    <Button size="sm" onClick={onInviteClick}>
-                        <Mail className="mr-1.5 size-3.5" />
-                        Invite Users
-                    </Button>
-                </div>
             </div>
 
             {/* Table Canvas */}

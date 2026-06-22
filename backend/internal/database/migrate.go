@@ -2,7 +2,7 @@ package database
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"strings"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -12,7 +12,11 @@ import (
 
 // RunMigrations applies all pending up-migrations found in the migrations
 // directory against the given database URL. It uses golang-migrate under the
-// hood and logs each migration step.
+// hood.
+//
+// On failure, the error is returned so the caller can abort startup.
+// Migration failure must never be silently swallowed — it means the database
+// schema is in an unknown state.
 func RunMigrations(databaseURL string) error {
 	// Replace postgres:// or postgresql:// with pgx5:// safely
 	srcURL := databaseURL
@@ -27,22 +31,28 @@ func RunMigrations(databaseURL string) error {
 		srcURL, // pgx/v5 driver expects the "pgx5://" scheme
 	)
 	if err != nil {
-		return fmt.Errorf("init migrate: %w", err)
+		return fmt.Errorf("database.RunMigrations: init migrate: %w", err)
 	}
 
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
-		return fmt.Errorf("run migrations: %w", err)
+		return fmt.Errorf("database.RunMigrations: run migrations: %w", err)
 	}
 
 	version, dirty, err := m.Version()
 	if err != nil && err != migrate.ErrNilVersion {
-		return fmt.Errorf("get migration version: %w", err)
+		return fmt.Errorf("database.RunMigrations: get migration version: %w", err)
 	}
 
 	if err == migrate.ErrNoChange || err == migrate.ErrNilVersion {
-		log.Printf("[migrate] no new migrations to apply (version=%d, dirty=%v)", version, dirty)
+		slog.Info("no new migrations to apply",
+			"version", version,
+			"dirty", dirty,
+		)
 	} else {
-		log.Printf("[migrate] migrations applied successfully (version=%d, dirty=%v)", version, dirty)
+		slog.Info("migrations applied successfully",
+			"version", version,
+			"dirty", dirty,
+		)
 	}
 
 	return nil

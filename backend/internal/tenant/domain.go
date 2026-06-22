@@ -2,7 +2,18 @@ package tenant
 
 import (
 	"context"
+	"errors"
 	"time"
+)
+
+// Sentinel domain errors.
+var (
+	ErrNotFound      = errors.New("tenant not found")
+	ErrAlreadyExists = errors.New("tenant already exists")
+	ErrInvalidInput  = errors.New("invalid tenant input")
+	ErrUnauthorized  = errors.New("unauthorized")
+	ErrForbidden     = errors.New("forbidden")
+	ErrConflict      = errors.New("tenant conflict")
 )
 
 // Repository defines the contract for tenant persistence.

@@ -9,7 +9,8 @@
  *   DELETE /api/auth/session  — logout
  */
 
-import { api, ApiRequestError } from "./client";
+import { api, ApiError } from "./client";
+import { isApiError, getErrorMessage } from "../errors";
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -57,7 +58,7 @@ export async function register(payload: RegisterPayload): Promise<void> {
 
 /** Fetch the current session's user and tenant IDs. */
 export async function getMe(): Promise<MeResponse> {
-    return api.get<MeResponse>("/api/auth/me");
+    return api.get<MeResponse>("/api/auth/me", { skipGlobal401Handler: true });
 }
 
 /** Logout: destroy the current session. */
@@ -65,16 +66,6 @@ export async function logout(): Promise<void> {
     await api.delete("/api/auth/session");
 }
 
-// ─── Error helpers ────────────────────────────────────────────────────────
+// ─── Re-exported error helpers for backward compatibility ─────────────────
 
-export function isApiError(err: unknown): err is ApiRequestError {
-    return err instanceof ApiRequestError;
-}
-
-export function getApiErrorMessage(err: unknown): string {
-    if (isApiError(err)) {
-        return err.body.message ?? err.body.error ?? "An error occurred";
-    }
-    if (err instanceof Error) return err.message;
-    return "An unexpected error occurred";
-}
+export { ApiError, isApiError, getErrorMessage };

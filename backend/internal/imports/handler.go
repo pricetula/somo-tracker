@@ -13,6 +13,7 @@ import (
 
 	"somotracker/backend/internal/auth"
 	"somotracker/backend/internal/database"
+	"somotracker/backend/internal/middleware"
 )
 
 // Handler exposes import HTTP endpoints.
@@ -49,17 +50,17 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 func (h *Handler) requireAuth(c *fiber.Ctx) error {
 	token := c.Cookies("somo_sid")
 	if token == "" {
-		return c.Status(fiber.StatusUnauthorized).JSON(ErrorBody{
-			Error:   "unauthorized",
-			Message: "no session cookie found",
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"code":    "unauthorized",
+			"message": "no session cookie found",
 		})
 	}
 
 	session, err := h.authSvc.GetSession(c.Context(), token)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(ErrorBody{
-			Error:   "unauthorized",
-			Message: "invalid or expired session",
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"code":    "unauthorized",
+			"message": "invalid or expired session",
 		})
 	}
 
@@ -87,26 +88,23 @@ func (h *Handler) StartImport(c *fiber.Ctx) error {
 
 	var req StartImportRequest
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(ErrorBody{
-			Error:   "invalid_input",
-			Message: "invalid request body",
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "invalid request body",
 		})
 	}
 
 	if req.Role == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(ErrorBody{
-			Error:   "invalid_input",
-			Message: "role is required (SCHOOL_ADMIN, NURSE, or FINANCE)",
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "role is required (SCHOOL_ADMIN, NURSE, or FINANCE)",
 		})
 	}
 
 	// Resolve the user's active school
 	schoolID, err := h.resolveActiveSchool(c, tenantID, userID)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(ErrorBody{
-			Error:   "internal_error",
-			Message: "failed to resolve active school: " + err.Error(),
-		})
+		return middleware.HTTPError(c, err)
 	}
 
 	resolver := &stytchOrgResolver{repo: h.repo}
@@ -116,10 +114,7 @@ func (h *Handler) StartImport(c *fiber.Ctx) error {
 	}
 	result, err := h.svc.StartImport(c.Context(), tenantID, schoolID, userID, req.Role, req.Records, resolver, parentJobID)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(ErrorBody{
-			Error:   "invalid_input",
-			Message: err.Error(),
-		})
+		return middleware.HTTPError(c, err)
 	}
 
 	return c.Status(fiber.StatusAccepted).JSON(result)
@@ -129,18 +124,15 @@ func (h *Handler) StartImport(c *fiber.Ctx) error {
 func (h *Handler) TrackImport(c *fiber.Ctx) error {
 	jobID := c.Params("id")
 	if jobID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(ErrorBody{
-			Error:   "invalid_input",
-			Message: "import job ID is required",
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "import job ID is required",
 		})
 	}
 
 	result, err := h.svc.GetImportJob(c.Context(), jobID)
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(ErrorBody{
-			Error:   "not_found",
-			Message: err.Error(),
-		})
+		return middleware.HTTPError(c, err)
 	}
 
 	return c.JSON(result)
@@ -151,9 +143,9 @@ func (h *Handler) TrackImport(c *fiber.Ctx) error {
 func (h *Handler) SSETrackImport(c *fiber.Ctx) error {
 	jobID := c.Params("id")
 	if jobID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(ErrorBody{
-			Error:   "invalid_input",
-			Message: "import job ID is required",
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "import job ID is required",
 		})
 	}
 
@@ -175,7 +167,11 @@ func (h *Handler) SSETrackImport(c *fiber.Ctx) error {
 	c.Context().SetBodyStreamWriter(func(w *bufio.Writer) {
 		// Subscribe to Redis pub/sub channel
 		pubsub := h.rdb.Subscribe(c.Context(), RedisChannelProgress+jobID)
-		defer func() { _ = pubsub.Close() }()
+		defer func() {
+			if err := pubsub.Close(); err != nil {
+				h.logger.Error("imports.SSETrackImport: pubsub close failed", zap.Error(err))
+			}
+		}()
 
 		ch := pubsub.Channel(redis.WithChannelSize(100))
 
@@ -257,18 +253,15 @@ func (h *Handler) SSETrackImport(c *fiber.Ctx) error {
 func (h *Handler) ListFailedInvitations(c *fiber.Ctx) error {
 	jobID := c.Params("id")
 	if jobID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(ErrorBody{
-			Error:   "invalid_input",
-			Message: "import job ID is required",
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "import job ID is required",
 		})
 	}
 
 	result, err := h.svc.GetFailedInvitations(c.Context(), jobID)
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(ErrorBody{
-			Error:   "not_found",
-			Message: err.Error(),
-		})
+		return middleware.HTTPError(c, err)
 	}
 
 	return c.JSON(result)
@@ -279,7 +272,7 @@ func (h *Handler) ListFailedInvitations(c *fiber.Ctx) error {
 func (h *Handler) resolveActiveSchool(c *fiber.Ctx, tenantID, userID string) (string, error) {
 	schoolID, err := h.repo.GetActiveSchoolID(c.Context(), tenantID, userID)
 	if err != nil {
-		return "", fmt.Errorf("resolve active school: %w", err)
+		return "", fmt.Errorf("imports.Handler.resolveActiveSchool: %w", err)
 	}
 	return schoolID, nil
 }

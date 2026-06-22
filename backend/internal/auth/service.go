@@ -50,15 +50,15 @@ func NewService(
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			if err := pools.Redis.Ping(ctx).Err(); err != nil {
-				return fmt.Errorf("auth service: redis ping failed: %w", err)
+				return fmt.Errorf("auth.service.OnStart: redis ping failed: %w", err)
 			}
 			logger.Info("auth service: redis connection verified")
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {
 			if err := pools.Redis.Close(); err != nil {
-				logger.Error("auth service: redis close error", zap.Error(err))
-				return err
+				logger.Error("auth.service.OnStop: redis close error", zap.Error(err))
+				return fmt.Errorf("auth.service.OnStop: redis close: %w", err)
 			}
 			logger.Info("auth service: redis connection closed")
 			return nil
@@ -80,7 +80,7 @@ func (s *Service) Discover(ctx context.Context, email string) error {
 
 	if err := s.idp.SendDiscoveryEmail(ctx, email); err != nil {
 		s.logger.Error("auth: discovery send failed", zap.String("email", email), zap.Error(err))
-		return err
+		return fmt.Errorf("auth.Service.Discover: %w", err)
 	}
 
 	s.logger.Info("auth: discovery email sent", zap.String("email", email))
@@ -415,7 +415,7 @@ func (s *Service) Logout(ctx context.Context, token string) error {
 	// Delete from Postgres
 	if err := s.repo.DeleteSession(ctx, token); err != nil {
 		if !errors.Is(err, ErrNotFound) {
-			return err
+			return fmt.Errorf("auth.Service.Logout: delete session: %w", err)
 		}
 	}
 

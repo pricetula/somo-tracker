@@ -160,7 +160,7 @@ func (s *Service) StartImport(
 func (s *Service) GetImportJob(ctx context.Context, jobID string) (*TrackImportResponse, error) {
 	job, err := s.repo.GetImportJob(ctx, jobID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("imports.Service.GetImportJob: %w", err)
 	}
 
 	return &TrackImportResponse{
@@ -172,7 +172,7 @@ func (s *Service) GetImportJob(ctx context.Context, jobID string) (*TrackImportR
 func (s *Service) GetFailedInvitations(ctx context.Context, jobID string) (*ListFailedInvitationsResponse, error) {
 	invitations, err := s.repo.GetFailedInvitationsByJob(ctx, jobID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("imports.Service.GetFailedInvitations: %w", err)
 	}
 	if invitations == nil {
 		invitations = []FailedInvitation{}

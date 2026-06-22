@@ -4,14 +4,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
+import { getErrorMessage, isApiError } from "@/lib/errors";
+
 import {
     discover,
     getMe,
     logout,
     register,
     verifyToken,
-    getApiErrorMessage,
-    isApiError,
     type MeResponse,
     type RegisterPayload,
 } from "@/lib/api/auth";
@@ -50,7 +50,7 @@ export function useDiscover() {
         },
         onError: (err) => {
             toast.error("Failed to send magic link", {
-                description: getApiErrorMessage(err),
+                description: getErrorMessage(err),
             });
         },
     });
@@ -61,7 +61,7 @@ export function useVerifyToken() {
     return useMutation({
         mutationFn: (token: string) => verifyToken(token),
         onError: (err) => {
-            const msg = getApiErrorMessage(err);
+            const msg = getErrorMessage(err);
             if (msg.includes("expired")) {
                 toast.error("Link expired", {
                     description: "This magic link has expired. Please request a new one.",
@@ -102,7 +102,7 @@ export function useRegister() {
                 return;
             }
             toast.error("Registration failed", {
-                description: getApiErrorMessage(err),
+                description: getErrorMessage(err),
             });
         },
     });
@@ -123,7 +123,7 @@ export function useLogout() {
         },
         onError: (err) => {
             toast.error("Logout failed", {
-                description: getApiErrorMessage(err),
+                description: getErrorMessage(err),
             });
         },
     });

@@ -11,3 +11,37 @@
 ```
 
 **Strictly isolate all changes to their respective top-level directory.** Read that directory's `AGENTS.md` for rules before making any changes.
+
+---
+
+## Error Handling
+
+### Core rule
+Every error must be **returned up the call stack with context added**, OR **logged and acted upon**. Never both. Never neither.
+
+### Canonical error response contract
+Every non-2xx HTTP response from the backend MUST return this exact JSON body:
+
+```json
+{
+  "code":    "snake_case_error_code",
+  "message": "human readable message",
+  "errors":  { "field_name": ["Specific field validation message"] }
+}
+```
+
+- Backend reference: `internal/middleware/errors.go`
+- Frontend reference: `src/lib/api/client.ts`
+
+### Three universal forbidden patterns
+1. **Empty catch** — `catch (e) {}` or `if err != nil { }` — never silently drop an error.
+2. **Log-and-return** — logging an error and then also returning it up the stack duplicates the event. Log once at the handler/worker layer. Intermediate layers only wrap and return.
+3. **Silent `_`** — `_ = someFunc()` discards the error without action. In non-test code this is forbidden.
+
+### Layer-specific rules
+- **Backend:** See `backend/AGENTS.md` — Error Handling section.
+- **Frontend:** See `frontend/AGENTS.md` — Error Handling section.
+
+### Version & ownership
+- **Standard version:** 1.0.0 (June 2026)
+- **Owner:** Platform team. Any changes to this standard must be reviewed by the platform team and propagated to both AGENTS.md files.

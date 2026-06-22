@@ -20,11 +20,12 @@ package main
 import (
 	"context"
 	"errors"
-	"log"
+	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	fiberrecover "github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/hibiken/asynq"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
@@ -38,6 +39,45 @@ import (
 	"somotracker/backend/internal/tenant"
 	"somotracker/backend/internal/utils"
 )
+
+// Global Fiber error handler registered in fiber.Config.
+// This is the last-resort catcher for any error that escapes handler functions
+// (including panics caught by Fiber's recover middleware).
+// It logs with slog.ErrorContext and returns the standard error response body.
+func globalErrorHandler(c *fiber.Ctx, err error) error {
+	code := fiber.StatusInternalServerError
+	var message string
+	var errorCode string
+
+	// Try to get status code from Fiber's built-in error type
+	var fiberErr *fiber.Error
+	if errors.As(err, &fiberErr) {
+		code = fiberErr.Code
+		message = fiberErr.Message
+	}
+
+	// Default to internal_error
+	if message == "" {
+		message = "an unexpected error occurred"
+	}
+	if errorCode == "" {
+		errorCode = "internal_error"
+	}
+
+	// Log the error
+	slog.LogAttrs(c.Context(), slog.LevelError,
+		"global error handler",
+		slog.String("method", c.Method()),
+		slog.String("path", c.Path()),
+		slog.Int("status", code),
+		slog.String("error", err.Error()),
+	)
+
+	return c.Status(code).JSON(fiber.Map{
+		"code":    errorCode,
+		"message": message,
+	})
+}
 
 func main() {
 	fx.New(
@@ -102,16 +142,18 @@ func consumeSafeClient(client *http.Client) {
 	// intentional no-op: ensures the SSRF-safe client is wired into
 	// the fx container so it is available to future consumers without
 	// triggering an unused-provision warning.
-	_ = client
 }
 
 // runMigrations applies pending database migrations before the HTTP server
 // starts. Invoked via fx so it runs during the container startup phase, before
 // any lifecycle OnStart hooks.
-func runMigrations(cfg config.Config) {
+func runMigrations(cfg config.Config) error {
 	if err := database.RunMigrations(cfg.DatabaseURL); err != nil {
-		log.Fatalf("[migrate] fatal: %v", err)
+		// Log with slog and return the error so fx refuses to start the app
+		slog.Error("migration failed", "error", err)
+		return err
 	}
+	return nil
 }
 
 func registerApp(
@@ -124,8 +166,14 @@ func registerApp(
 	importsHandler *imports.Handler,
 ) {
 	app := fiber.New(fiber.Config{
-		AppName: "somotracker",
+		AppName:      "somotracker",
+		ErrorHandler: globalErrorHandler,
 	})
+
+	// Register Fiber's built-in recover middleware before all routes
+	// so that handler panics are caught and routed to the error handler
+	// rather than crashing the process.
+	app.Use(fiberrecover.New())
 
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
@@ -155,7 +203,8 @@ func registerApp(
 			// Start Fiber in a non-blocking goroutine
 			go func() {
 				if err := app.Listen(":" + cfg.Port); err != nil && !errors.Is(err, http.ErrServerClosed) {
-					log.Fatalf("fiber listen: %v", err)
+					// Log fatal since this means the server failed to start
+					slog.Error("fiber listen fatal", "error", err)
 				}
 			}()
 
@@ -179,6 +228,10 @@ func registerApp(
 			// 3. Close Redis client
 			if err := pools.Redis.Close(); err != nil {
 				shutdownErr = errors.Join(shutdownErr, err)
+			}
+
+			if shutdownErr != nil {
+				slog.ErrorContext(ctx, "registerApp.OnStop: shutdown error", "error", shutdownErr)
 			}
 
 			return shutdownErr

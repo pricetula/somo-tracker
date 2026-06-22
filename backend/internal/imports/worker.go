@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"strings"
 	"sync"
 	"time"
@@ -426,26 +426,24 @@ func NewAsynqServer(rdb *redis.Client, cfg config.Config) *asynq.Server {
 				"low":      1,
 			},
 			StrictPriority: false,
-			Logger:         asynqLogger{log.Default()},
+			Logger:         asynqLogger{},
 		},
 	)
 }
 
-// asynqLogger adapts Go's log.Logger to asynq.Logger interface.
-type asynqLogger struct {
-	*log.Logger
-}
+// asynqLogger adapts log/slog to asynq.Logger interface.
+type asynqLogger struct{}
 
-func (l asynqLogger) Debug(args ...interface{}) {}
-func (l asynqLogger) Info(args ...interface{}) {
-	l.Print(args...)
+func (asynqLogger) Debug(args ...interface{}) {}
+func (asynqLogger) Info(args ...interface{}) {
+	slog.Info(fmt.Sprint(args...))
 }
-func (l asynqLogger) Warn(args ...interface{}) {
-	l.Print(args...)
+func (asynqLogger) Warn(args ...interface{}) {
+	slog.Warn(fmt.Sprint(args...))
 }
-func (l asynqLogger) Error(args ...interface{}) {
-	l.Print(args...)
+func (asynqLogger) Error(args ...interface{}) {
+	slog.Error(fmt.Sprint(args...))
 }
-func (l asynqLogger) Fatal(args ...interface{}) {
-	l.Logger.Fatal(args...)
+func (asynqLogger) Fatal(args ...interface{}) {
+	slog.Error(fmt.Sprint(args...))
 }

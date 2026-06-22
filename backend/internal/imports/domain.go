@@ -2,10 +2,21 @@ package imports
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/hibiken/asynq"
 	"github.com/redis/go-redis/v9"
+)
+
+// Sentinel domain errors.
+var (
+	ErrNotFound      = errors.New("imports not found")
+	ErrAlreadyExists = errors.New("imports already exists")
+	ErrInvalidInput  = errors.New("invalid imports input")
+	ErrUnauthorized  = errors.New("unauthorized")
+	ErrForbidden     = errors.New("forbidden")
+	ErrConflict      = errors.New("imports conflict")
 )
 
 // ─── Allowed roles for bulk staff invitation ──────────────────────────────

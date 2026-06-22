@@ -233,7 +233,10 @@ type FailedInsertion struct {
 func (r *PgRepository) SetInvitationStytchMemberID(ctx context.Context, id, stytchMemberID string) error {
 	const query = `UPDATE invitations SET stytch_member_id = $1 WHERE id = $2`
 	_, err := r.pool.Exec(ctx, query, stytchMemberID, id)
-	return err
+	if err != nil {
+		return fmt.Errorf("imports.Repository.SetInvitationStytchMemberID: %w", err)
+	}
+	return nil
 }
 
 // SetInvitationFailed marks an invitation as permanently failed.
@@ -244,7 +247,10 @@ func (r *PgRepository) SetInvitationFailed(ctx context.Context, id, errorMessage
 		WHERE id = $1
 	`
 	_, err := r.pool.Exec(ctx, query, id, errorMessage, attemptCount)
-	return err
+	if err != nil {
+		return fmt.Errorf("imports.Repository.SetInvitationFailed: %w", err)
+	}
+	return nil
 }
 
 // GetInvitationStytchMemberID returns the stytch_member_id for a row (or empty string).
@@ -337,7 +343,10 @@ func (r *PgRepository) RecordImportFailure(ctx context.Context, jobID, rawPayloa
 		VALUES ($1, $2::jsonb, $3)
 	`
 	_, err := r.pool.Exec(ctx, query, jobID, rawPayloadJSON, errMsg)
-	return err
+	if err != nil {
+		return fmt.Errorf("imports.Repository.RecordImportFailure: %w", err)
+	}
+	return nil
 }
 
 // ─── Failed Invitations (post-import recovery) ───────────────────────────

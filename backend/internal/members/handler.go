@@ -9,6 +9,7 @@ import (
 	"go.uber.org/fx"
 
 	"somotracker/backend/internal/auth"
+	"somotracker/backend/internal/middleware"
 )
 
 // Handler exposes member HTTP endpoints.
@@ -39,17 +40,17 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 func (h *Handler) requireAuth(c *fiber.Ctx) error {
 	token := c.Cookies("somo_sid")
 	if token == "" {
-		return c.Status(fiber.StatusUnauthorized).JSON(ErrorBody{
-			Error:   "unauthorized",
-			Message: "no session cookie found",
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"code":    "unauthorized",
+			"message": "no session cookie found",
 		})
 	}
 
 	session, err := h.authSvc.GetSession(c.Context(), token)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(ErrorBody{
-			Error:   "unauthorized",
-			Message: "invalid or expired session",
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"code":    "unauthorized",
+			"message": "invalid or expired session",
 		})
 	}
 
@@ -62,7 +63,7 @@ func (h *Handler) requireAuth(c *fiber.Ctx) error {
 func (h *Handler) resolveActiveSchool(c *fiber.Ctx, tenantID, userID string) (string, error) {
 	schoolID, err := h.repo.GetActiveSchoolID(c.Context(), tenantID, userID)
 	if err != nil {
-		return "", fmt.Errorf("resolve active school: %w", err)
+		return "", fmt.Errorf("members.Handler.resolveActiveSchool: %w", err)
 	}
 	return schoolID, nil
 }
@@ -70,35 +71,21 @@ func (h *Handler) resolveActiveSchool(c *fiber.Ctx, tenantID, userID string) (st
 // ─── Handlers ──────────────────────────────────────────────────────────────
 
 // List handles GET /api/v1/members?role=TEACHER
-//
-// @Summary      List members by role
-// @Description  Returns paginated members (users with active memberships) filtered by role.
-// @Tags         Members
-// @Produce      json
-// @Param        role      query  string  true   "Role filter (TEACHER or NURSE)"
-// @Param        page      query  int     false  "Page number (1-indexed)"
-// @Param        per_page  query  int     false  "Items per page (max 100)"
-// @Param        search    query  string  false  "Search by name or email"
-// @Success      200  {object}  ListResponse
-// @Failure      400  {object}  ErrorBody  "Invalid input"
-// @Failure      401  {object}  ErrorBody  "Unauthorized"
-// @Failure      500  {object}  ErrorBody  "Internal error"
-// @Router       /api/v1/members [get]
 func (h *Handler) List(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
 	userID := c.Locals("user_id").(string)
 
 	role := strings.TrimSpace(c.Query("role", ""))
 	if role == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(ErrorBody{
-			Error:   "invalid_input",
-			Message: "role query parameter is required (TEACHER, NURSE, or FINANCE)",
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "role query parameter is required (TEACHER, NURSE, or FINANCE)",
 		})
 	}
 	if role != "TEACHER" && role != "NURSE" && role != "FINANCE" {
-		return c.Status(fiber.StatusBadRequest).JSON(ErrorBody{
-			Error:   "invalid_input",
-			Message: "role must be TEACHER, NURSE, or FINANCE",
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "role must be TEACHER, NURSE, or FINANCE",
 		})
 	}
 
@@ -117,85 +104,67 @@ func (h *Handler) List(c *fiber.Ctx) error {
 
 	schoolID, err := h.resolveActiveSchool(c, tenantID, userID)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(ErrorBody{
-			Error:   "internal_error",
-			Message: "failed to resolve active school: " + err.Error(),
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"code":    "internal_error",
+			"message": "failed to resolve active school",
 		})
 	}
 
-	members, total, err := h.svc.ListMembers(c.Context(), tenantID, schoolID, role, offset, perPage, search)
+	membersList, total, err := h.svc.ListMembers(c.Context(), tenantID, schoolID, role, offset, perPage, search)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(ErrorBody{
-			Error:   "internal_error",
-			Message: err.Error(),
-		})
+		return middleware.HTTPError(c, err)
 	}
 
 	return c.JSON(ListResponse{
-		Members: members,
+		Members: membersList,
 		Total:   total,
 	})
 }
 
 // BulkInvite handles POST /api/v1/members/invite
-//
-// @Summary      Bulk invite members
-// @Description  Sends invitation emails to multiple people to join the school with a given role.
-// @Tags         Members
-// @Accept       json
-// @Produce      json
-// @Param        body  body  BulkInviteRequest  true  "Bulk invite payload"
-// @Success      200  {object}  BulkInviteResponse
-// @Failure      400  {object}  ErrorBody  "Invalid input"
-// @Failure      401  {object}  ErrorBody  "Unauthorized"
-// @Failure      500  {object}  ErrorBody  "Internal error"
-// @Router       /api/v1/members/invite [post]
 func (h *Handler) BulkInvite(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
 	userID := c.Locals("user_id").(string)
 
 	var req BulkInviteRequest
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(ErrorBody{
-			Error:   "invalid_input",
-			Message: "invalid request body",
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "invalid request body",
 		})
 	}
 
 	if req.Role == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(ErrorBody{
-			Error:   "invalid_input",
-			Message: "role is required",
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "role is required",
 		})
 	}
 	if req.Role != "TEACHER" && req.Role != "NURSE" && req.Role != "FINANCE" {
-		return c.Status(fiber.StatusBadRequest).JSON(ErrorBody{
-			Error:   "invalid_input",
-			Message: "role must be TEACHER, NURSE, or FINANCE",
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "role must be TEACHER, NURSE, or FINANCE",
 		})
 	}
 
 	if len(req.Invites) == 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(ErrorBody{
-			Error:   "invalid_input",
-			Message: "at least one invite is required",
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "at least one invite is required",
 		})
 	}
 
 	schoolID, err := h.resolveActiveSchool(c, tenantID, userID)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(ErrorBody{
-			Error:   "internal_error",
-			Message: "failed to resolve active school: " + err.Error(),
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"code":    "internal_error",
+			"message": "failed to resolve active school",
 		})
 	}
 
 	result, err := h.svc.BulkInvite(c.Context(), tenantID, schoolID, req)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(ErrorBody{
-			Error:   "internal_error",
-			Message: err.Error(),
-		})
+		return middleware.HTTPError(c, err)
 	}
 
 	return c.JSON(result)
@@ -204,23 +173,6 @@ func (h *Handler) BulkInvite(c *fiber.Ctx) error {
 // ─── Invitation Handlers ────────────────────────────────────────────────────
 
 // ListInvitations handles GET /api/v1/invitations
-//
-// @Summary      List invitations
-// @Description  Returns paginated invitations with optional filters.
-// @Tags         Invitations
-// @Produce      json
-// @Param        search    query  string  false  "Search by name"
-// @Param        email     query  string  false  "Filter by email"
-// @Param        status    query  string  false  "Filter by status (pending, accepted, expired, revoked)"
-// @Param        role      query  string  false  "Filter by role (TEACHER, SCHOOL_ADMIN, NURSE, FINANCE)"
-// @Param        expired   query  bool    false  "Include expired invitations (default: false)"
-// @Param        page      query  int     false  "Page number (1-indexed)"
-// @Param        per_page  query  int     false  "Items per page (max 100)"
-// @Success      200  {object}  ListInvitationsResponse
-// @Failure      400  {object}  ErrorBody  "Invalid input"
-// @Failure      401  {object}  ErrorBody  "Unauthorized"
-// @Failure      500  {object}  ErrorBody  "Internal error"
-// @Router       /api/v1/invitations [get]
 func (h *Handler) ListInvitations(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
 	userID := c.Locals("user_id").(string)
@@ -244,9 +196,9 @@ func (h *Handler) ListInvitations(c *fiber.Ctx) error {
 
 	schoolID, err := h.resolveActiveSchool(c, tenantID, userID)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(ErrorBody{
-			Error:   "internal_error",
-			Message: "failed to resolve active school: " + err.Error(),
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"code":    "internal_error",
+			"message": "failed to resolve active school",
 		})
 	}
 
@@ -260,10 +212,7 @@ func (h *Handler) ListInvitations(c *fiber.Ctx) error {
 		Limit:   perPage,
 	})
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(ErrorBody{
-			Error:   "internal_error",
-			Message: err.Error(),
-		})
+		return middleware.HTTPError(c, err)
 	}
 
 	return c.JSON(ListInvitationsResponse{
@@ -273,51 +222,36 @@ func (h *Handler) ListInvitations(c *fiber.Ctx) error {
 }
 
 // CreateInvitations handles POST /api/v1/invitations
-//
-// @Summary      Create invitations
-// @Description  Creates new invitation records. This is the new endpoint that accepts per-invite roles.
-// @Tags         Invitations
-// @Accept       json
-// @Produce      json
-// @Param        body  body  CreateInvitationsRequest  true  "Invitations payload"
-// @Success      200  {object}  BulkInviteResponse
-// @Failure      400  {object}  ErrorBody  "Invalid input"
-// @Failure      401  {object}  ErrorBody  "Unauthorized"
-// @Failure      500  {object}  ErrorBody  "Internal error"
-// @Router       /api/v1/invitations [post]
 func (h *Handler) CreateInvitations(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
 	userID := c.Locals("user_id").(string)
 
 	var req CreateInvitationsRequest
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(ErrorBody{
-			Error:   "invalid_input",
-			Message: "invalid request body",
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "invalid request body",
 		})
 	}
 
 	if len(req.Invites) == 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(ErrorBody{
-			Error:   "invalid_input",
-			Message: "at least one invite is required",
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "at least one invite is required",
 		})
 	}
 
 	schoolID, err := h.resolveActiveSchool(c, tenantID, userID)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(ErrorBody{
-			Error:   "internal_error",
-			Message: "failed to resolve active school: " + err.Error(),
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"code":    "internal_error",
+			"message": "failed to resolve active school",
 		})
 	}
 
 	result, err := h.svc.CreateInvitations(c.Context(), tenantID, schoolID, userID, req)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(ErrorBody{
-			Error:   "internal_error",
-			Message: err.Error(),
-		})
+		return middleware.HTTPError(c, err)
 	}
 
 	return c.JSON(result)

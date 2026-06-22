@@ -2,7 +2,18 @@ package members
 
 import (
 	"context"
+	"errors"
 	"time"
+)
+
+// Sentinel domain errors.
+var (
+	ErrNotFound      = errors.New("members not found")
+	ErrAlreadyExists = errors.New("members already exists")
+	ErrInvalidInput  = errors.New("invalid members input")
+	ErrUnauthorized  = errors.New("unauthorized")
+	ErrForbidden     = errors.New("forbidden")
+	ErrConflict      = errors.New("members conflict")
 )
 
 // Repository defines the contract for member and invitation persistence.

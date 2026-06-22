@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap"
 
 	"somotracker/backend/internal/config"
+	"somotracker/backend/internal/middleware"
 )
 
 // ============================================================================
@@ -82,62 +83,35 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 }
 
 // Discover handles POST /api/auth/discover (PHASE 1).
-//
-// @Summary      Initiate magic-link discovery
-// @Description  Sends a magic-link email to the given address to discover or create an organization.
-// @Tags         Auth
-// @Accept       json
-// @Produce      json
-// @Param        body  body  DiscoveryPayload  true  "Email address to send magic link to"
-// @Success      200   "Magic link sent"
-// @Failure      422   {object}  ErrorBody  "Invalid input"
-// @Failure      500   {object}  ErrorBody  "Internal error"
-// @Router       /api/auth/discover [post]
 func (h *Handler) Discover(c *fiber.Ctx) error {
 	var payload DiscoveryPayload
 	if err := c.BodyParser(&payload); err != nil {
-		return c.Status(fiber.StatusUnprocessableEntity).JSON(ErrorBody{
-			Error:   "invalid_input",
-			Message: "invalid request body",
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "invalid request body",
 		})
 	}
 	if payload.Email == "" {
-		return c.Status(fiber.StatusUnprocessableEntity).JSON(ErrorBody{
-			Error:   "invalid_input",
-			Message: "email is required",
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "email is required",
 		})
 	}
 
 	if err := h.svc.Discover(c.Context(), payload.Email); err != nil {
-		status, body := h.mapError(err)
-		return c.Status(status).JSON(body)
+		return middleware.HTTPError(c, err)
 	}
 
 	return c.SendStatus(fiber.StatusOK)
 }
 
 // MagicLinkCallback handles GET /api/auth/callback.
-// Stytch redirects the user's browser here after clicking a magic link.
-// The URL includes ?token=...&stytch_token_type=discovery.
-// We verify the token, cache the IST in Redis, set CSRF cookie,
-// and redirect the browser to the frontend's /register page with the session_ref.
-//
-// @Summary      Magic-link callback
-// @Description  Stytch redirects users here after clicking a magic link. Verifies the token, caches the IST, and redirects to the frontend.
-// @Tags         Auth
-// @Accept       json
-// @Produce      json
-// @Param        token  query  string  true  "Stytch discovery magic link token"
-// @Success      302    "Redirects to frontend /register with session_ref"
-// @Failure      422    {object}  ErrorBody  "Invalid input"
-// @Failure      500    {object}  ErrorBody  "Internal error"
-// @Router       /api/auth/callback [get]
 func (h *Handler) MagicLinkCallback(c *fiber.Ctx) error {
 	token := c.Query("token")
 	if token == "" {
-		return c.Status(fiber.StatusUnprocessableEntity).JSON(ErrorBody{
-			Error:   "invalid_input",
-			Message: "token query parameter is required",
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "token query parameter is required",
 		})
 	}
 
@@ -146,8 +120,7 @@ func (h *Handler) MagicLinkCallback(c *fiber.Ctx) error {
 		h.logger.Error("auth: magic link callback verify failed",
 			zap.Error(err),
 		)
-		status, body := h.mapError(err)
-		return c.Status(status).JSON(body)
+		return middleware.HTTPError(c, err)
 	}
 
 	// Set a CSRF token cookie so the frontend can include it on mutating requests
@@ -171,39 +144,26 @@ func (h *Handler) MagicLinkCallback(c *fiber.Ctx) error {
 }
 
 // Verify handles POST /api/auth/verify (PHASE 2).
-//
-// @Summary      Verify magic-link token
-// @Description  Validates a magic-link discovery token and returns a session reference for the registration flow.
-// @Tags         Auth
-// @Accept       json
-// @Produce      json
-// @Param        body  body      VerifyPayload  true  "Magic link token"
-// @Success      200   {object}  VerifyResponse
-// @Failure      422   {object}  ErrorBody  "Invalid input"
-// @Failure      401   {object}  ErrorBody  "Token expired"
-// @Failure      500   {object}  ErrorBody  "Internal error"
-// @Router       /api/auth/verify [post]
 func (h *Handler) Verify(c *fiber.Ctx) error {
 	var payload struct {
 		Token string `json:"token"`
 	}
 	if err := c.BodyParser(&payload); err != nil {
-		return c.Status(fiber.StatusUnprocessableEntity).JSON(ErrorBody{
-			Error:   "invalid_input",
-			Message: "invalid request body",
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "invalid request body",
 		})
 	}
 	if payload.Token == "" {
-		return c.Status(fiber.StatusUnprocessableEntity).JSON(ErrorBody{
-			Error:   "invalid_input",
-			Message: "token is required",
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "token is required",
 		})
 	}
 
 	sessionRef, err := h.svc.Verify(c.Context(), payload.Token)
 	if err != nil {
-		status, body := h.mapError(err)
-		return c.Status(status).JSON(body)
+		return middleware.HTTPError(c, err)
 	}
 
 	return c.JSON(fiber.Map{
@@ -212,25 +172,12 @@ func (h *Handler) Verify(c *fiber.Ctx) error {
 }
 
 // Register handles POST /api/auth/register (PHASE 3).
-//
-// @Summary      Complete registration
-// @Description  Creates a tenant (school), user, and session. Sets the session cookie on success.
-// @Tags         Auth
-// @Accept       json
-// @Produce      json
-// @Param        body  body  RegistrationPayload  true  "Registration details"
-// @Success      204   "Session cookie set; no content"
-// @Failure      422   {object}  ErrorBody  "Invalid input"
-// @Failure      401   {object}  ErrorBody  "Token expired or MFA required"
-// @Failure      409   {object}  ErrorBody  "Organization already exists"
-// @Failure      500   {object}  ErrorBody  "Internal error"
-// @Router       /api/auth/register [post]
 func (h *Handler) Register(c *fiber.Ctx) error {
 	var payload RegistrationPayload
 	if err := c.BodyParser(&payload); err != nil {
-		return c.Status(fiber.StatusUnprocessableEntity).JSON(ErrorBody{
-			Error:   "invalid_input",
-			Message: "invalid request body",
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "invalid request body",
 		})
 	}
 
@@ -243,8 +190,7 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 			zap.Error(err),
 			zap.String("session_ref", payload.SessionRef),
 		)
-		status, body := h.mapError(err)
-		return c.Status(status).JSON(body)
+		return middleware.HTTPError(c, err)
 	}
 
 	// Issue HTTPOnly session cookie (requirement 4)
@@ -283,29 +229,18 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 }
 
 // Me handles GET /api/auth/me (requirement 6).
-//
-// @Summary      Get current session
-// @Description  Returns the authenticated user's profile including role, school, and name.
-// @Tags         Auth
-// @Accept       json
-// @Produce      json
-// @Success      200  {object}  MeResponse
-// @Failure      401  {object}  ErrorBody  "Session expired or missing"
-// @Failure      500  {object}  ErrorBody  "Internal error"
-// @Router       /api/auth/me [get]
 func (h *Handler) Me(c *fiber.Ctx) error {
 	token := c.Cookies(somoCookieName)
 	if token == "" {
-		return c.Status(fiber.StatusUnauthorized).JSON(ErrorBody{
-			Error:   "expired_token",
-			Message: "no session cookie found",
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"code":    "unauthorized",
+			"message": "no session cookie found",
 		})
 	}
 
 	info, err := h.svc.GetMe(c.Context(), token)
 	if err != nil {
-		status, body := h.mapError(err)
-		return c.Status(status).JSON(body)
+		return middleware.HTTPError(c, err)
 	}
 
 	return c.JSON(fiber.Map{
@@ -321,21 +256,11 @@ func (h *Handler) Me(c *fiber.Ctx) error {
 }
 
 // Logout handles DELETE /api/auth/session (requirement 7).
-//
-// @Summary      Logout
-// @Description  Destroys the current session and clears cookies.
-// @Tags         Auth
-// @Accept       json
-// @Produce      json
-// @Success      204  "Session destroyed; cookies cleared"
-// @Failure      500  {object}  ErrorBody  "Internal error"
-// @Router       /api/auth/session [delete]
 func (h *Handler) Logout(c *fiber.Ctx) error {
 	token := c.Cookies(somoCookieName)
 
 	if err := h.svc.Logout(c.Context(), token); err != nil {
-		status, body := h.mapError(err)
-		return c.Status(status).JSON(body)
+		return middleware.HTTPError(c, err)
 	}
 
 	// Clear the session cookie
@@ -375,74 +300,6 @@ func (h *Handler) Logout(c *fiber.Ctx) error {
 	})
 
 	return c.SendStatus(fiber.StatusNoContent)
-}
-
-// mapError maps domain errors to HTTP status codes and JSON bodies (requirement 14).
-func (h *Handler) mapError(err error) (int, ErrorBody) {
-	var validationErr *ValidationError
-	if errors.As(err, &validationErr) {
-		return fiber.StatusUnprocessableEntity, ErrorBody{
-			Error:   "invalid_input",
-			Message: validationErr.Message,
-		}
-	}
-
-	switch {
-	case errors.Is(err, ErrInvalidInput):
-		return fiber.StatusUnprocessableEntity, ErrorBody{
-			Error:   "invalid_input",
-			Message: err.Error(),
-		}
-	case errors.Is(err, ErrExpiredToken):
-		return fiber.StatusUnauthorized, ErrorBody{
-			Error:   "expired_token",
-			Message: "session expired or invalid",
-		}
-	case errors.Is(err, ErrMFARequired):
-		return fiber.StatusUnauthorized, ErrorBody{
-			Error:   "mfa_required",
-			Message: "multi-factor authentication challenge required",
-		}
-	case errors.Is(err, ErrJITProvisioningNotAllowed):
-		return fiber.StatusForbidden, ErrorBody{
-			Error:   "jit_provisioning_not_allowed",
-			Message: "email JIT provisioning is not allowed for this organization",
-		}
-	case errors.Is(err, ErrMemberNotFound):
-		return fiber.StatusForbidden, ErrorBody{
-			Error:   "member_not_found",
-			Message: "member not found in the target organization",
-		}
-	case errors.Is(err, ErrOrgNotFound):
-		return fiber.StatusNotFound, ErrorBody{
-			Error:   "org_not_found",
-			Message: "organization not found in the identity provider",
-		}
-	case errors.Is(err, ErrOrgAlreadyExists):
-		return fiber.StatusConflict, ErrorBody{
-			Error:   "org_already_exists",
-			Message: "organization already exists",
-		}
-	case errors.Is(err, ErrNotFound):
-		return fiber.StatusNotFound, ErrorBody{
-			Error:   "not_found",
-			Message: "resource not found",
-		}
-	case errors.Is(err, ErrInternal):
-		// Log internal errors so they're visible in server logs,
-		// but return a generic message to avoid leaking internals.
-		h.logger.Error("auth: internal error", zap.Error(err))
-		return fiber.StatusInternalServerError, ErrorBody{
-			Error:   "internal_error",
-			Message: "an unexpected error occurred",
-		}
-	default:
-		h.logger.Error("auth: unhandled error", zap.Error(err))
-		return fiber.StatusInternalServerError, ErrorBody{
-			Error:   "internal_error",
-			Message: "an unexpected error occurred",
-		}
-	}
 }
 
 // ============================================================================
@@ -487,3 +344,7 @@ func createSignedCookieValue(value, secret string) string {
 	sig := hex.EncodeToString(mac.Sum(nil))
 	return value + "." + sig
 }
+
+// Compile-time check that the removed mapError function is no longer used.
+// All error-to-HTTP mapping is now delegated to middleware.HTTPError.
+var _ = errors.Is

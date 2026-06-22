@@ -7,6 +7,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { getErrorMessage } from "@/lib/errors";
+
 import {
     listInvitations,
     createInvitations,
@@ -15,7 +17,6 @@ import {
     type CreateInvitationsRequest,
     type CreateInvitationsResponse,
 } from "@/lib/api/invitations";
-import { getApiErrorMessage } from "@/lib/api/auth";
 
 // ─── Query keys ───────────────────────────────────────────────────────────
 
@@ -46,6 +47,7 @@ export function useInvitations(opts: ListInvitationsParams & { enabled?: boolean
         queryFn: () => listInvitations(filters),
         placeholderData: (prev) => prev,
         enabled,
+        // TODO(error-standard): Components consuming this hook must handle isError state.
     });
 }
 
@@ -74,7 +76,7 @@ export function useCreateInvitations() {
         },
         onError: (err) => {
             toast.error("Failed to send invitations", {
-                description: getApiErrorMessage(err),
+                description: getErrorMessage(err),
             });
         },
     });

@@ -114,10 +114,13 @@ func TestHandler_CreateTenant_EmptyName(t *testing.T) {
 		t.Fatalf("expected 422 Unprocessable Entity, got %d", resp.StatusCode)
 	}
 
-	var errBody ErrorBody
+	var errBody struct {
+		Code    string `json:"code"`
+		Message string `json:"message"`
+	}
 	_ = json.NewDecoder(resp.Body).Decode(&errBody)
-	if errBody.Error != "invalid_input" {
-		t.Fatalf("expected error 'invalid_input', got %q", errBody.Error)
+	if errBody.Code != "invalid_input" {
+		t.Fatalf("expected code 'invalid_input', got %q", errBody.Code)
 	}
 }
 
@@ -158,9 +161,12 @@ func TestHandler_CreateTenant_ServiceError(t *testing.T) {
 		t.Fatalf("expected 500 Internal Server Error, got %d", resp.StatusCode)
 	}
 
-	var errBody ErrorBody
+	var errBody struct {
+		Code    string `json:"code"`
+		Message string `json:"message"`
+	}
 	_ = json.NewDecoder(resp.Body).Decode(&errBody)
-	if errBody.Error != "internal_error" {
-		t.Fatalf("expected error 'internal_error', got %q", errBody.Error)
+	if errBody.Code != "internal_error" {
+		t.Fatalf("expected code 'internal_error', got %q", errBody.Code)
 	}
 }

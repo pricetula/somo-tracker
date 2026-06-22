@@ -92,3 +92,80 @@ Every feature must ship both suites.
 
 - Run against an active Postgres instance.
 - Verify SQL constraints, data types, composite unique indexes, and RLS rules.
+
+---
+
+## 6. Error Handling
+
+### Canonical error response shape
+Every non-2xx HTTP response MUST return `{ "code": string, "message": string, "errors": object }`.
+Implementing code: `internal/middleware/errors.go` — `HTTPError()` helper.
+Frontend counterpart: `src/lib/api/client.ts`.
+
+### Sentinel errors in every domain.go
+Every module under `internal/` must declare these package-level sentinel errors:
+
+```go
+var (
+    ErrNotFound      = errors.New("<module> not found")
+    ErrAlreadyExists = errors.New("<module> already exists")
+    ErrInvalidInput  = errors.New("invalid <module> input")
+    ErrUnauthorized  = errors.New("unauthorized")
+    ErrForbidden     = errors.New("forbidden")
+    ErrConflict      = errors.New("<module> conflict")
+)
+```
+
+- `sql.ErrNoRows` must always be mapped to `ErrNotFound` inside the repository. It must never reach the service layer.
+- Module-specific sentinels (e.g. `ErrExpiredToken`) may be added alongside these.
+
+### Error wrapping at every layer boundary
+Naming convention: `<Package>.<Type>.<Method>: %w`
+
+```go
+// repository
+return nil, fmt.Errorf("members.Repository.FindByID: %w", err)
+// service
+return nil, fmt.Errorf("members.Service.GetMember: %w", err)
+```
+
+### HTTPError helper (`internal/middleware/errors.go`)
+- `HTTPError(c *fiber.Ctx, err error) error` is the **only** place HTTP status codes are decided for domain errors.
+- Uses `errors.Is()` to unwrap the full error chain.
+- Status mapping:
+  - `ErrNotFound` → 404, `ErrAlreadyExists` → 409, `ErrInvalidInput` → 400
+  - `ErrUnauthorized` → 401, `ErrForbidden` → 403, `ErrConflict` → 409
+  - `context.Canceled` → 499, `context.DeadlineExceeded` → 504
+  - everything else → 500 (logged, generic message)
+
+### Global Fiber error handler (`cmd/api/main.go`)
+- Registered in `fiber.Config.ErrorHandler`.
+- Last-resort catcher for any escaped error, including panics via `recover` middleware.
+- Logs with `slog.ErrorContext`, returns the standard JSON body.
+- Fiber's built-in `recover` middleware is registered before all routes.
+
+### Log-once rule
+- `log/slog` must be used throughout. No `log.Println`, `fmt.Println`, or `log.Printf` in non-test code.
+- Log once at the layer where the error is first **handled** (handler or worker).
+- Intermediate layers (repository, service) only wrap and return — they do **not** log.
+- Level usage: `Error` = unexpected failure, `Warn` = handled degradation, `Info` = significant state change, `Debug` = detailed tracing.
+
+### Forbidden patterns
+- `return err` without wrapping — always use `fmt.Errorf`.
+- `return nil, err` without wrapping — always use `fmt.Errorf`.
+- `err.Error() == "some string"` — use `errors.Is(err, ErrSomeSentinel)`.
+- Any `_ = someFunc()` in non-test code.
+- `log.Println` / `fmt.Println` in production code paths.
+- Empty `if err != nil { }` blocks — log and act.
+- Inline goroutines without a `defer recover()` that logs with `slog.ErrorContext`.
+- Calling `c.Next()` after a failed auth check.
+
+### Additional rules
+- **Transactions:** Every `tx.Begin()` must use the deferred rollback pattern with dual-error logging.
+- **External API calls:** Wrap external errors into module-local errors before propagating. Never leak external error messages to HTTP clients.
+- **fx lifecycle:** Every constructor returns `(T, error)`. Every `OnStart`/`OnStop` returns `error`. `OnStop` errors are logged AND returned.
+- **Migration failure:** Must cause startup to abort — error propagates to fx, which refuses to start.
+- **Background workers:** Log failures with `slog.ErrorContext`. Distinguish severity (warn vs error). Never silently continue.
+
+### When adding a new module
+Every new module must follow this standard from creation. No retrofitting later.

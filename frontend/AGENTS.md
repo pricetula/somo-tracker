@@ -105,3 +105,60 @@ For listing prefer to use tanstack virtualized lists since the query might have 
 
 - **Do not define multiple components in a .tsx file**: Every .tsx file should contain only one react component definition
 - **Avoid Div bloat**: do not make useless divs check
+
+---
+
+## 8. Error Handling
+
+### ApiError class (`src/lib/api/client.ts`)
+
+- `ApiError` is defined **only** in `src/lib/api/client.ts`.
+- Properties: `status: number`, `code: string`, `message: string`, `errors?: Record<string, string[]>`.
+- Every non-2xx response throws `ApiError`. If the body is unparseable, throws with fallback message "Unexpected error".
+- **Global 401 eviction:** On any 401, the client forces a redirect to `/logout` (unless `skipGlobal401Handler: true` is set).
+- Backend contract reference: `internal/middleware/errors.go`.
+
+### getErrorMessage utility (`src/lib/errors.ts`)
+
+- `getErrorMessage(err: unknown): string` — handles `ApiError`, `Error`, string, and unknown throws.
+- Never throws. Never returns `undefined`.
+- **All catch blocks must use `getErrorMessage(err)`** — `(err as Error).message` is forbidden.
+
+### React Query rules
+
+- **`useQuery`:** Every call site must handle the `isError` state. Rendering `null` or nothing when `isError` is true is forbidden. At minimum render an `<Alert>` component.
+- **`useMutation`:** Every data-modifying mutation must include an `onError` callback. An omitted `onError` on create/update/delete/import/upload is forbidden. The callback must at minimum call `toast.error(getErrorMessage(err))`.
+
+### Async handlers and hooks
+
+- Every async function not called through React Query must have a `try/catch`.
+- Forbidden: `void someAsyncFn()`, `fetch().then(r => r.json())` with no `.catch()`, empty catch blocks.
+- Background/polling async: retry up to defined max, then surface non-intrusive status indicator. Never silently drop the error.
+
+### Error boundaries
+
+- **Every major route or feature** must be wrapped in a React `ErrorBoundary` (`src/components/error-boundary.tsx`).
+- Distinguish:
+    - `ApiError` (operational): show `error.message` gracefully.
+    - Other errors (programming): report to error tracker, show generic "Something went wrong".
+- The global `src/app/error.tsx` follows the same distinction and reports to the error tracker.
+
+### Form validation errors (400 responses)
+
+- When a mutation receives an `ApiError` with `status === 400` and an `errors` map, it must drive field-level errors using `form.setError` — not a generic toast.
+- See `src/features/auth/components/register-form.tsx` for the canonical implementation pattern.
+
+### Web Worker errors (`src/workers/`)
+
+- Every worker must have `self.onerror` that posts a structured error message back to the main thread.
+- The main thread handler must display a visible error state to the user.
+
+### Forbidden patterns
+
+- `(err as Error).message` — use `getErrorMessage(err)` instead.
+- Empty `catch (e) {}` blocks.
+- `void someAsyncFn()` (fire-and-forget).
+- `fetch(...).then(r => r.json())` with no `.catch()`.
+- Omitted `onError` on data-modifying mutations.
+- `isError` state ignored in `useQuery`.
+- `ApiError` defined anywhere other than `src/lib/api/client.ts`.

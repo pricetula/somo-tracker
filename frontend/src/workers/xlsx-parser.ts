@@ -14,6 +14,22 @@
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 
+// ─── Global error handler for uncaught errors ────────────────────────────
+// Posts a structured error message back to the main thread so the UI
+// can surface it to the user — do not silently fail the operation.
+self.onerror = (event: Event | string) => {
+    const errorEvent = typeof event === "string" ? { message: event } : (event as ErrorEvent);
+    self.postMessage({
+        type: "error",
+        message: errorEvent.message || "Worker: unhandled error",
+        filename: (errorEvent as ErrorEvent).filename,
+        lineno: (errorEvent as ErrorEvent).lineno,
+        colno: (errorEvent as ErrorEvent).colno,
+    });
+    // Prevent the default error handling
+    return true;
+};
+
 // ─── Types ─────────────────────────────────────────────────────────────────
 
 interface ParsedRow {

@@ -7,6 +7,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { getErrorMessage } from "@/lib/errors";
+
 import {
     listMembers,
     bulkInvite,
@@ -14,7 +16,6 @@ import {
     type BulkInviteRequest,
     type BulkInviteResponse,
 } from "@/lib/api/members";
-import { getApiErrorMessage } from "@/lib/api/auth";
 
 // ─── Query keys ───────────────────────────────────────────────────────────
 
@@ -38,6 +39,7 @@ export function useMembers(
         queryFn: () => listMembers(role, { page, per_page, search }),
         placeholderData: (prev) => prev,
         enabled,
+        // TODO(error-standard): Components consuming this hook must handle isError state.
     });
 }
 
@@ -67,7 +69,7 @@ export function useBulkInvite() {
         },
         onError: (err) => {
             toast.error("Failed to send invitations", {
-                description: getApiErrorMessage(err),
+                description: getErrorMessage(err),
             });
         },
     });

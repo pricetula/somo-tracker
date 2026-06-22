@@ -22,6 +22,10 @@ var (
 	ErrMemberNotFound            = errors.New("member_not_found")
 	ErrOrgNotFound               = errors.New("org_not_found")
 	ErrNotFound                  = errors.New("not_found")
+	ErrAlreadyExists             = errors.New("already exists")
+	ErrUnauthorized              = errors.New("unauthorized")
+	ErrForbidden                 = errors.New("forbidden")
+	ErrConflict                  = errors.New("conflict")
 	ErrInternal                  = errors.New("internal_error")
 )
 

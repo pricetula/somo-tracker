@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { isApiError } from "@/lib/errors";
 import { useRegister } from "@/hooks/use-auth";
 import { DocTooltip } from "@/components/ui/DocTooltip";
 
@@ -83,12 +84,31 @@ export function RegisterForm({ tooltipSummary }: RegisterFormProps) {
     }
 
     function onSubmit(values: RegisterValues) {
-        registerMutation.mutate({
-            school_name: values.school_name,
-            session_ref: sessionRef!,
-            first_name: values.first_name,
-            last_name: values.last_name,
-        });
+        registerMutation.mutate(
+            {
+                school_name: values.school_name,
+                session_ref: sessionRef!,
+                first_name: values.first_name,
+                last_name: values.last_name,
+            },
+            {
+                onError: (err) => {
+                    // Map 400 field validation errors to form fields
+                    if (isApiError(err) && err.status === 400 && err.errors) {
+                        Object.entries(err.errors).forEach(([field, messages]) => {
+                            form.setError(field as keyof RegisterValues, {
+                                type: "server",
+                                message: messages[0],
+                            });
+                        });
+                    } else if (isApiError(err) && err.status === 401) {
+                        // Handled by useRegister's global onError
+                    } else {
+                        // Fallback: show a generic toast (handled by useRegister)
+                    }
+                },
+            }
+        );
     }
 
     return (

@@ -8,6 +8,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Observable } from "rxjs";
 import { toast } from "sonner";
 
+import { getErrorMessage } from "@/lib/errors";
+
 import {
     startImport,
     trackImport,
@@ -19,7 +21,6 @@ import {
     type TrackImportResponse,
     type ListFailedInvitationsResponse,
 } from "@/lib/api/imports";
-import { getApiErrorMessage } from "@/lib/api/auth";
 
 // ─── Query keys ─────────────────────────────────────────────────────────
 
@@ -45,7 +46,7 @@ export function useStartImport() {
         },
         onError: (err) => {
             toast.error("Failed to start import", {
-                description: getApiErrorMessage(err),
+                description: getErrorMessage(err),
             });
         },
     });

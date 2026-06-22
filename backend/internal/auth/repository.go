@@ -32,13 +32,12 @@ func NewSqlcRepository(lc fx.Lifecycle, pools *database.Pools, logger *zap.Logge
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			if err := pools.PG.Ping(ctx); err != nil {
-				return fmt.Errorf("auth repository: postgres ping failed: %w", err)
+				return fmt.Errorf("auth.repository.OnStart: postgres ping failed: %w", err)
 			}
 			logger.Info("auth repository: postgres connection verified")
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {
-			pools.PG.Close()
 			logger.Info("auth repository: postgres pool closed")
 			return nil
 		},
@@ -225,7 +224,12 @@ func (r *SqlcRepository) CreateTenantUserSession(
 					zap.Error(err),
 				)
 			}
-			_ = tx.Rollback(ctx)
+			if rbErr := tx.Rollback(ctx); rbErr != nil {
+				r.logger.Error("auth.CreateTenantUserSession: tx rollback failed",
+					zap.Error(rbErr),
+					zap.String("original_error", err.Error()),
+				)
+			}
 		}
 	}()
 
@@ -300,7 +304,12 @@ func (r *SqlcRepository) CreateUserSession(
 	}
 	defer func() {
 		if err != nil {
-			_ = tx.Rollback(ctx)
+			if rbErr := tx.Rollback(ctx); rbErr != nil {
+				r.logger.Error("auth.CreateUserSession: tx rollback failed",
+					zap.Error(rbErr),
+					zap.String("original_error", err.Error()),
+				)
+			}
 		}
 	}()
 

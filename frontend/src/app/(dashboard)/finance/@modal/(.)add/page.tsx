@@ -6,7 +6,7 @@
 
 import { useRouter } from "next/navigation";
 
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { BulkStaffImport } from "@/features/staff-import";
 
 export default function InterceptedFinanceAdd() {
@@ -23,7 +23,10 @@ export default function InterceptedFinanceAdd() {
                 if (!open) handleClose();
             }}
         >
-            <DialogContent className="max-w-4xl">
+            <DialogContent className="sm:max-w-3xl">
+                <DialogHeader className="sr-only">
+                    <DialogTitle>Invite Finance Staff</DialogTitle>
+                </DialogHeader>
                 <BulkStaffImport role="FINANCE" mode="dialog" onClose={handleClose} />
             </DialogContent>
         </Dialog>

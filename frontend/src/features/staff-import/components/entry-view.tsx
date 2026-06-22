@@ -42,11 +42,11 @@ export function EntryView({
 }: EntryViewProps) {
     if (hasResumePrompt) {
         return (
-            <div className="flex flex-col items-center justify-center gap-4 py-16">
-                <p className="text-muted-foreground text-sm">
+            <div className="flex h-36 flex-col items-center justify-between gap-4">
+                <p className="text-muted-foreground pt-4 text-sm">
                     You have an unfinished import draft. Would you like to resume it?
                 </p>
-                <div className="flex gap-3">
+                <div className="mb-4 flex gap-3">
                     <button
                         onClick={onResume}
                         className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 text-sm font-medium"

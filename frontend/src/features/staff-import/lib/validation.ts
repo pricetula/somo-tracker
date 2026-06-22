@@ -41,15 +41,18 @@ export function normalizePhone(phone: string): string | null {
     }
 }
 
-/** Count critical errors (block submission). */
+/** Count critical errors (block submission). Empty rows (no email) are skipped. */
 export function getCriticalErrorCount(rows: ImportDraftRow[]): number {
     let errors = 0;
     const emails = new Set<string>();
     for (const row of rows) {
+        const email = row.email.trim();
+        if (!email) continue; // skip empty rows
+
         if (!row.first_name) errors++;
         if (!row.last_name) errors++;
-        if (!hasValidEmailStructure(row.email)) errors++;
-        const lowerEmail = row.email.toLowerCase();
+        if (!hasValidEmailStructure(email)) errors++;
+        const lowerEmail = email.toLowerCase();
         if (emails.has(lowerEmail)) errors++;
         emails.add(lowerEmail);
     }

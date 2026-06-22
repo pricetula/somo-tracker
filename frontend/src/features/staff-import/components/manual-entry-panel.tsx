@@ -89,28 +89,20 @@ export function ManualEntryPanel({
     }
 
     function updateRow(tempID: string, field: keyof ImportDraftRow, value: string) {
-        setRows((prev) =>
-            prev.map((r) => {
-                if (r.temp_id !== tempID) return r;
+        setRows((prev) => prev.map((r) => (r.temp_id !== tempID ? r : { ...r, [field]: value })));
+    }
 
-                const updated = { ...r, [field]: value };
+    function handlePhoneBlur(tempID: string, e: React.FocusEvent<HTMLInputElement>) {
+        const value = e.target.value.trim();
+        if (!value) return;
 
-                // Auto-correct phone number when user finishes typing
-                if (field === "phone" && value.trim()) {
-                    const normalized = normalizePhone(value);
-                    if (normalized && normalized !== value) {
-                        updated.phone = normalized;
-                        setCorrectedCells((prev) => new Set(prev).add(`${tempID}:phone`));
-                    } else if (!normalized && value.trim()) {
-                        // Unparseable — set to empty string
-                        updated.phone = "";
-                        setCorrectedCells((prev) => new Set(prev).add(`${tempID}:phone`));
-                    }
-                }
-
-                return updated;
-            })
-        );
+        const normalized = normalizePhone(value);
+        if (normalized && normalized !== value) {
+            setRows((prev) =>
+                prev.map((r) => (r.temp_id !== tempID ? r : { ...r, phone: normalized }))
+            );
+            setCorrectedCells((prev) => new Set(prev).add(`${tempID}:phone`));
+        }
     }
 
     // Compute validation
@@ -130,12 +122,13 @@ export function ManualEntryPanel({
             const email = row.email.trim();
             const lowerEmail = email.toLowerCase();
 
+            const hasEmail = email !== "";
             return {
-                emailError: email !== "" && !hasValidEmailStructure(email),
-                nameError: row.first_name === "" || row.last_name === "",
+                emailError: hasEmail && !hasValidEmailStructure(email),
+                nameError: hasEmail && (row.first_name === "" || row.last_name === ""),
                 phoneWarning: row.phone !== "" && normalizePhone(row.phone) === null,
                 phoneNormalized: normalizePhone(row.phone),
-                duplicateError: email !== "" && (emailCounts.get(lowerEmail) ?? 0) > 1,
+                duplicateError: hasEmail && (emailCounts.get(lowerEmail) ?? 0) > 1,
             };
         });
     }, [rows, emailCounts]);
@@ -249,6 +242,7 @@ export function ManualEntryPanel({
                                             onChange={(e) =>
                                                 updateRow(row.temp_id, "phone", e.target.value)
                                             }
+                                            onBlur={(e) => handlePhoneBlur(row.temp_id, e)}
                                             className={`h-9 text-sm ${isPhoneCorrected || val.phoneWarning ? "pr-7" : ""} ${isPhoneCorrected || val.phoneWarning ? "border-destructive/50" : ""}`}
                                         />
                                         {(isPhoneCorrected || val.phoneWarning) && (

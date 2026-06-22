@@ -238,7 +238,7 @@ export function InvitedStaffTable({
             >
                 <div className="min-w-175">
                     {/* Sticky Header */}
-                    <div className="bg-background/95 sticky top-0 z-10 backdrop-blur-sm">
+                    <div className="bg-background/95 sticky top-0 z-10 rounded-lg backdrop-blur-sm">
                         {table.getHeaderGroups().map((headerGroup) => (
                             <div key={headerGroup.id} className="border-border/40 flex border-b">
                                 {headerGroup.headers.map((header) => (

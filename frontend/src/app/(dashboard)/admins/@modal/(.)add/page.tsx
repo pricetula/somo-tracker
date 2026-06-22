@@ -10,7 +10,7 @@
 
 import { useRouter } from "next/navigation";
 
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { BulkStaffImport } from "@/features/staff-import";
 
 export default function InterceptedAdminsAdd() {
@@ -27,7 +27,10 @@ export default function InterceptedAdminsAdd() {
                 if (!open) handleClose();
             }}
         >
-            <DialogContent className="max-w-4xl">
+            <DialogContent className="sm:max-w-3xl">
+                <DialogHeader className="sr-only">
+                    <DialogTitle>Invite School Admins</DialogTitle>
+                </DialogHeader>
                 <BulkStaffImport role="SCHOOL_ADMIN" mode="dialog" onClose={handleClose} />
             </DialogContent>
         </Dialog>

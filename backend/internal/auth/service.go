@@ -319,7 +319,7 @@ func (s *Service) Register(ctx context.Context, sessionRef string, payload Regis
 		role = "SCHOOL_ADMIN"
 	}
 
-	schoolID, err := s.repo.CreateSchool(ctx, tenantID, payload.SchoolName, payload.EducationSystemID)
+	schoolID, err := s.repo.CreateSchool(ctx, tenantID, payload.SchoolName)
 	if err != nil {
 		return "", "", fmt.Errorf("%w: create school: %v", ErrInternal, err)
 	}

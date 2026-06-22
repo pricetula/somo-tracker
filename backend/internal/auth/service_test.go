@@ -114,17 +114,12 @@ type MockRepository struct {
 	tenantExistsFn            func(ctx context.Context, orgID string) (bool, error)
 	tenantExistsByNameFn      func(ctx context.Context, name string) (bool, error)
 	getTenantByNameFn         func(ctx context.Context, name string) (string, string, error)
-	userExistsByExternalIDFn  func(ctx context.Context, externalAuthID string) (bool, error)
-	createTenantFn            func(ctx context.Context, params CreateTenantParams) (string, error)
-	createUserFn              func(ctx context.Context, params CreateUserParams) (string, error)
-	createSessionFn           func(ctx context.Context, params CreateSessionParams) error
 	getSessionByTokenFn       func(ctx context.Context, token string) (*UserSession, error)
 	deleteSessionFn           func(ctx context.Context, token string) error
 	createTenantUserSessionFn func(ctx context.Context, tp CreateTenantParams, up CreateUserParams, sp CreateSessionParams) (string, string, error)
 	createUserSessionFn       func(ctx context.Context, up CreateUserParams, sp CreateSessionParams) (string, error)
-	createSchoolFn            func(ctx context.Context, tenantID string, name string, educationSystemID string) (string, error)
+	createSchoolFn            func(ctx context.Context, tenantID string, name string) (string, error)
 	createMembershipFn        func(ctx context.Context, userID, schoolID, tenantID, role string) error
-	getUserHighestRoleFn      func(ctx context.Context, userID string) (string, error)
 	getMeInfoFn               func(ctx context.Context, token string) (*MeInfo, error)
 
 	sessions    map[string]*UserSession
@@ -174,42 +169,6 @@ func (m *MockRepository) CreateUserSession(ctx context.Context, up CreateUserPar
 	return "", nil
 }
 
-func (m *MockRepository) UserExistsByExternalID(ctx context.Context, externalAuthID string) (bool, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	if m.userExistsByExternalIDFn != nil {
-		return m.userExistsByExternalIDFn(ctx, externalAuthID)
-	}
-	return false, nil
-}
-
-func (m *MockRepository) CreateTenant(ctx context.Context, params CreateTenantParams) (string, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if m.createTenantFn != nil {
-		return m.createTenantFn(ctx, params)
-	}
-	return "tenant_test_123", nil
-}
-
-func (m *MockRepository) CreateUser(ctx context.Context, params CreateUserParams) (string, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if m.createUserFn != nil {
-		return m.createUserFn(ctx, params)
-	}
-	return "user_test_123", nil
-}
-
-func (m *MockRepository) CreateSession(ctx context.Context, params CreateSessionParams) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if m.createSessionFn != nil {
-		return m.createSessionFn(ctx, params)
-	}
-	return nil
-}
-
 func (m *MockRepository) GetSessionByToken(ctx context.Context, token string) (*UserSession, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -249,11 +208,11 @@ func (m *MockRepository) CreateTenantUserSession(ctx context.Context, tp CreateT
 	return userID, tenantID, nil
 }
 
-func (m *MockRepository) CreateSchool(ctx context.Context, tenantID string, name string, educationSystemID string) (string, error) {
+func (m *MockRepository) CreateSchool(ctx context.Context, tenantID string, name string) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.createSchoolFn != nil {
-		return m.createSchoolFn(ctx, tenantID, name, educationSystemID)
+		return m.createSchoolFn(ctx, tenantID, name)
 	}
 	return "school_" + tenantID, nil
 }
@@ -291,18 +250,6 @@ func (m *MockRepository) GetMeInfo(ctx context.Context, token string) (*MeInfo, 
 		}, nil
 	}
 	return nil, ErrNotFound
-}
-
-func (m *MockRepository) GetUserHighestRole(ctx context.Context, userID string) (string, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	if m.getUserHighestRoleFn != nil {
-		return m.getUserHighestRoleFn(ctx, userID)
-	}
-	if role, ok := m.memberships[userID]; ok {
-		return role, nil
-	}
-	return "TEACHER", nil
 }
 
 // ============================================================================
@@ -476,7 +423,7 @@ func (h *testHarness) registerViaMocks(ctx context.Context, sessionRef string, p
 	if !exists {
 		role = "SCHOOL_ADMIN"
 	}
-	schoolID, err := h.repo.CreateSchool(ctx, tenantID, payload.SchoolName, payload.EducationSystemID)
+	schoolID, err := h.repo.CreateSchool(ctx, tenantID, payload.SchoolName)
 	if err != nil {
 		return "", "", err
 	}
@@ -535,11 +482,10 @@ func TestRegister_ISTNotFound(t *testing.T) {
 
 	sessionRef := "550e8400-e29b-41d4-a716-446655440000"
 	payload := RegistrationPayload{
-		SchoolName:        "Test School",
-		SessionRef:        sessionRef,
-		FirstName:         "John",
-		LastName:          "Doe",
-		EducationSystemID: "550e8400-e29b-41d4-a716-446655440099",
+		SchoolName: "Test School",
+		SessionRef: sessionRef,
+		FirstName:  "John",
+		LastName:   "Doe",
 	}
 
 	// Don't pre-set IST — it won't be found (already consumed or never set)
@@ -571,11 +517,10 @@ func TestRegister_MFANotAuthenticated(t *testing.T) {
 	}
 
 	payload := RegistrationPayload{
-		SchoolName:        "Test School MFA",
-		SessionRef:        sessionRef,
-		FirstName:         "John",
-		LastName:          "Doe",
-		EducationSystemID: "550e8400-e29b-41d4-a716-446655440099",
+		SchoolName: "Test School MFA",
+		SessionRef: sessionRef,
+		FirstName:  "John",
+		LastName:   "Doe",
 	}
 
 	_, _, err := h.registerViaMocks(context.Background(), sessionRef, payload, "")
@@ -603,11 +548,10 @@ func TestRegister_PostgresWriteFailureAfterStytch(t *testing.T) {
 	}
 
 	payload := RegistrationPayload{
-		SchoolName:        "Postgres Fail School",
-		SessionRef:        sessionRef,
-		FirstName:         "John",
-		LastName:          "Doe",
-		EducationSystemID: "550e8400-e29b-41d4-a716-446655440099",
+		SchoolName: "Postgres Fail School",
+		SessionRef: sessionRef,
+		FirstName:  "John",
+		LastName:   "Doe",
 	}
 
 	_, _, err := h.registerViaMocks(context.Background(), sessionRef, payload, "")
@@ -650,11 +594,10 @@ func TestRegister_Idempotency(t *testing.T) {
 	}
 
 	payload := RegistrationPayload{
-		SchoolName:        "Duplicate School",
-		SessionRef:        sessionRef,
-		FirstName:         "John",
-		LastName:          "Doe",
-		EducationSystemID: "550e8400-e29b-41d4-a716-446655440099",
+		SchoolName: "Duplicate School",
+		SessionRef: sessionRef,
+		FirstName:  "John",
+		LastName:   "Doe",
 	}
 
 	token, role, err := h.registerViaMocks(context.Background(), sessionRef, payload, "")
@@ -727,15 +670,13 @@ func TestRegister_PayloadValidation(t *testing.T) {
 		name    string
 		payload RegistrationPayload
 	}{
-		{"empty school name", RegistrationPayload{SchoolName: "", SessionRef: "550e8400-e29b-41d4-a716-446655440000", EducationSystemID: "550e8400-e29b-41d4-a716-446655440099"}},
-		{"too short school name", RegistrationPayload{SchoolName: "A", SessionRef: "550e8400-e29b-41d4-a716-446655440000", EducationSystemID: "550e8400-e29b-41d4-a716-446655440099"}},
-		{"too long school name", RegistrationPayload{SchoolName: string(make([]byte, 101)), SessionRef: "550e8400-e29b-41d4-a716-446655440000", EducationSystemID: "550e8400-e29b-41d4-a716-446655440099"}},
-		{"all whitespace after trim", RegistrationPayload{SchoolName: "   ", SessionRef: "550e8400-e29b-41d4-a716-446655440000", EducationSystemID: "550e8400-e29b-41d4-a716-446655440099"}},
-		{"too short after trim", RegistrationPayload{SchoolName: "  A  ", SessionRef: "550e8400-e29b-41d4-a716-446655440000", EducationSystemID: "550e8400-e29b-41d4-a716-446655440099"}},
-		{"invalid session ref", RegistrationPayload{SchoolName: "Valid School", SessionRef: "not-a-uuid", EducationSystemID: "550e8400-e29b-41d4-a716-446655440099"}},
-		{"empty session ref", RegistrationPayload{SchoolName: "Valid School", SessionRef: "", EducationSystemID: "550e8400-e29b-41d4-a716-446655440099"}},
-		{"empty education system id", RegistrationPayload{SchoolName: "Valid School", SessionRef: "550e8400-e29b-41d4-a716-446655440000", EducationSystemID: ""}},
-		{"invalid education system id", RegistrationPayload{SchoolName: "Valid School", SessionRef: "550e8400-e29b-41d4-a716-446655440000", EducationSystemID: "not-a-uuid"}},
+		{"empty school name", RegistrationPayload{SchoolName: "", SessionRef: "550e8400-e29b-41d4-a716-446655440000"}},
+		{"too short school name", RegistrationPayload{SchoolName: "A", SessionRef: "550e8400-e29b-41d4-a716-446655440000"}},
+		{"too long school name", RegistrationPayload{SchoolName: string(make([]byte, 101)), SessionRef: "550e8400-e29b-41d4-a716-446655440000"}},
+		{"all whitespace after trim", RegistrationPayload{SchoolName: "   ", SessionRef: "550e8400-e29b-41d4-a716-446655440000"}},
+		{"too short after trim", RegistrationPayload{SchoolName: "  A  ", SessionRef: "550e8400-e29b-41d4-a716-446655440000"}},
+		{"invalid session ref", RegistrationPayload{SchoolName: "Valid School", SessionRef: "not-a-uuid"}},
+		{"empty session ref", RegistrationPayload{SchoolName: "Valid School", SessionRef: ""}},
 	}
 
 	for _, tt := range tests {
@@ -753,9 +694,8 @@ func TestRegister_PayloadValidation(t *testing.T) {
 
 func TestValidate_OK(t *testing.T) {
 	p := RegistrationPayload{
-		SchoolName:        "Valid School Name",
-		SessionRef:        "550e8400-e29b-41d4-a716-446655440000",
-		EducationSystemID: "550e8400-e29b-41d4-a716-446655440099",
+		SchoolName: "Valid School Name",
+		SessionRef: "550e8400-e29b-41d4-a716-446655440000",
 	}
 	if err := p.Validate(); err != nil {
 		t.Fatalf("unexpected error: %v", err)

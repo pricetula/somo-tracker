@@ -30,8 +30,6 @@ import (
 // Package-level test suite
 // ============================================================================
 
-const testEducationSystemID = "550e8400-e29b-41d4-a716-446655440009"
-
 var (
 	testSuite *IntegrationSuite
 )
@@ -251,19 +249,7 @@ func setupSuite(ctx context.Context) (*IntegrationSuite, error) {
 	// Update config with the mock server URL
 	suite.cfg.StytchBaseURL = suite.stytchURL
 
-	// ---------- 9. Seed reference data ----------
-	seedCtx := context.Background()
-	_, err = pool.Exec(seedCtx, `
-		INSERT INTO education_systems (id, name, country_code)
-		VALUES ($1, 'Kenya CBC', 'KE')
-		ON CONFLICT DO NOTHING
-	`, testEducationSystemID)
-	if err != nil {
-		suite.cleanup()
-		return nil, fmt.Errorf("seed education system: %w", err)
-	}
-
-	// ---------- 10. Build Service and Handler ----------
+	// ---------- 9. Build Service and Handler ----------
 	repo := &SqlcRepository{
 		pool:   pool,
 		logger: logger,

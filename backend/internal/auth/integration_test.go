@@ -103,11 +103,10 @@ func TestIntegration_Stytch_OrgCreationDuplicate(t *testing.T) {
 	}
 
 	payload := RegistrationPayload{
-		SchoolName:        "Duplicate School",
-		SessionRef:        sessionRef,
-		FirstName:         "Alice",
-		LastName:          "Smith",
-		EducationSystemID: testEducationSystemID,
+		SchoolName: "Duplicate School",
+		SessionRef: sessionRef,
+		FirstName:  "Alice",
+		LastName:   "Smith",
 	}
 
 	token, role, err := suite.svc.Register(context.Background(), sessionRef, payload, "fp-001")
@@ -132,11 +131,10 @@ func TestIntegration_Stytch_OrgCreationDuplicate(t *testing.T) {
 	}
 
 	payload2 := RegistrationPayload{
-		SchoolName:        "Duplicate School",
-		SessionRef:        sessionRef2,
-		FirstName:         "Bob",
-		LastName:          "Jones",
-		EducationSystemID: testEducationSystemID,
+		SchoolName: "Duplicate School",
+		SessionRef: sessionRef2,
+		FirstName:  "Bob",
+		LastName:   "Jones",
 	}
 
 	// Tenant already exists — this should still succeed (it handles existing tenants)
@@ -182,11 +180,10 @@ func TestIntegration_Stytch_OrgCreationFailure(t *testing.T) {
 	})
 
 	payload := RegistrationPayload{
-		SchoolName:        "Fail School",
-		SessionRef:        sessionRef,
-		FirstName:         "Charlie",
-		LastName:          "Brown",
-		EducationSystemID: testEducationSystemID,
+		SchoolName: "Fail School",
+		SessionRef: sessionRef,
+		FirstName:  "Charlie",
+		LastName:   "Brown",
 	}
 
 	_, _, err = suite.svc.Register(context.Background(), sessionRef, payload, "fp-003")
@@ -237,11 +234,10 @@ func TestIntegration_Stytch_ISTExchangeInvalid(t *testing.T) {
 	})
 
 	payload := RegistrationPayload{
-		SchoolName:        "Invalid IST School",
-		SessionRef:        sessionRef,
-		FirstName:         "Diana",
-		LastName:          "Prince",
-		EducationSystemID: testEducationSystemID,
+		SchoolName: "Invalid IST School",
+		SessionRef: sessionRef,
+		FirstName:  "Diana",
+		LastName:   "Prince",
 	}
 
 	_, _, err = suite.svc.Register(context.Background(), sessionRef, payload, "fp-004")
@@ -291,11 +287,10 @@ func TestIntegration_Stytch_ISTExchangeMFANotMet(t *testing.T) {
 	})
 
 	payload := RegistrationPayload{
-		SchoolName:        "MFA Required School",
-		SessionRef:        sessionRef,
-		FirstName:         "Eve",
-		LastName:          "Adams",
-		EducationSystemID: testEducationSystemID,
+		SchoolName: "MFA Required School",
+		SessionRef: sessionRef,
+		FirstName:  "Eve",
+		LastName:   "Adams",
 	}
 
 	_, _, err = suite.svc.Register(context.Background(), sessionRef, payload, "fp-005")
@@ -352,11 +347,10 @@ func TestIntegration_Stytch_CreateMember_Failure(t *testing.T) {
 	})
 
 	payload := RegistrationPayload{
-		SchoolName:        "Create Member Fail School",
-		SessionRef:        sessionRef,
-		FirstName:         "Hank",
-		LastName:          "Pym",
-		EducationSystemID: testEducationSystemID,
+		SchoolName: "Create Member Fail School",
+		SessionRef: sessionRef,
+		FirstName:  "Hank",
+		LastName:   "Pym",
 	}
 
 	_, _, err = suite.svc.Register(context.Background(), sessionRef, payload, "fp-cm-fail")
@@ -408,11 +402,10 @@ func TestIntegration_Stytch_Exchange_JITProvisioningNotAllowed(t *testing.T) {
 	})
 
 	payload := RegistrationPayload{
-		SchoolName:        "JIT Blocked School",
-		SessionRef:        sessionRef,
-		FirstName:         "Hank",
-		LastName:          "Pym",
-		EducationSystemID: testEducationSystemID,
+		SchoolName: "JIT Blocked School",
+		SessionRef: sessionRef,
+		FirstName:  "Hank",
+		LastName:   "Pym",
 	}
 
 	_, _, err = suite.svc.Register(context.Background(), sessionRef, payload, "fp-jit")
@@ -463,11 +456,10 @@ func TestIntegration_Stytch_Exchange_MemberNotFound(t *testing.T) {
 	})
 
 	payload := RegistrationPayload{
-		SchoolName:        "Member Not Found School",
-		SessionRef:        sessionRef,
-		FirstName:         "Tony",
-		LastName:          "Stark",
-		EducationSystemID: testEducationSystemID,
+		SchoolName: "Member Not Found School",
+		SessionRef: sessionRef,
+		FirstName:  "Tony",
+		LastName:   "Stark",
 	}
 
 	_, _, err = suite.svc.Register(context.Background(), sessionRef, payload, "fp-member-not-found")
@@ -510,11 +502,10 @@ func TestIntegration_Stytch_Exchange_OrgNotFound(t *testing.T) {
 	})
 
 	payload := RegistrationPayload{
-		SchoolName:        "Org Not Found School",
-		SessionRef:        sessionRef,
-		FirstName:         "Bruce",
-		LastName:          "Banner",
-		EducationSystemID: testEducationSystemID,
+		SchoolName: "Org Not Found School",
+		SessionRef: sessionRef,
+		FirstName:  "Bruce",
+		LastName:   "Banner",
 	}
 
 	_, _, err = suite.svc.Register(context.Background(), sessionRef, payload, "fp-org-not-found")
@@ -557,11 +548,10 @@ func TestIntegration_Stytch_Exchange_ExpiredIST(t *testing.T) {
 	})
 
 	payload := RegistrationPayload{
-		SchoolName:        "Expired IST School",
-		SessionRef:        sessionRef,
-		FirstName:         "Natasha",
-		LastName:          "Romanoff",
-		EducationSystemID: testEducationSystemID,
+		SchoolName: "Expired IST School",
+		SessionRef: sessionRef,
+		FirstName:  "Natasha",
+		LastName:   "Romanoff",
 	}
 
 	_, _, err = suite.svc.Register(context.Background(), sessionRef, payload, "fp-ist-expired")
@@ -595,11 +585,10 @@ func TestIntegration_Stytch_Exchange_ReturnsSessionJWT(t *testing.T) {
 	// Use default handlers (which return session_token) — we verify the token
 	// is stored and retrievable via GetSession.
 	payload := RegistrationPayload{
-		SchoolName:        "JWT Exchange School",
-		SessionRef:        sessionRef,
-		FirstName:         "Steve",
-		LastName:          "Rogers",
-		EducationSystemID: testEducationSystemID,
+		SchoolName: "JWT Exchange School",
+		SessionRef: sessionRef,
+		FirstName:  "Steve",
+		LastName:   "Rogers",
 	}
 
 	token, role, err := suite.svc.Register(context.Background(), sessionRef, payload, "fp-jwt")
@@ -661,11 +650,10 @@ func TestIntegration_Stytch_OrgCreationDuplicateSlug(t *testing.T) {
 	})
 
 	payload := RegistrationPayload{
-		SchoolName:        "Duplicate Slug School",
-		SessionRef:        sessionRef,
-		FirstName:         "Clint",
-		LastName:          "Barton",
-		EducationSystemID: testEducationSystemID,
+		SchoolName: "Duplicate Slug School",
+		SessionRef: sessionRef,
+		FirstName:  "Clint",
+		LastName:   "Barton",
 	}
 
 	_, _, err = suite.svc.Register(context.Background(), sessionRef, payload, "fp-slug")
@@ -717,11 +705,10 @@ func TestIntegration_Stytch_OrgCreationEmptyOrgID(t *testing.T) {
 	})
 
 	payload := RegistrationPayload{
-		SchoolName:        "Empty Org ID School",
-		SessionRef:        sessionRef,
-		FirstName:         "Wanda",
-		LastName:          "Maximoff",
-		EducationSystemID: testEducationSystemID,
+		SchoolName: "Empty Org ID School",
+		SessionRef: sessionRef,
+		FirstName:  "Wanda",
+		LastName:   "Maximoff",
 	}
 
 	_, _, err = suite.svc.Register(context.Background(), sessionRef, payload, "fp-empty-org")
@@ -765,11 +752,10 @@ func TestIntegration_ExistingOrg_SecondUserRegistration(t *testing.T) {
 	}
 
 	payload1 := RegistrationPayload{
-		SchoolName:        schoolName,
-		SessionRef:        sessionRef1,
-		FirstName:         "Peter",
-		LastName:          "Parker",
-		EducationSystemID: testEducationSystemID,
+		SchoolName: schoolName,
+		SessionRef: sessionRef1,
+		FirstName:  "Peter",
+		LastName:   "Parker",
 	}
 
 	token1, role1, err := suite.svc.Register(context.Background(), sessionRef1, payload1, "fp-first")
@@ -792,11 +778,10 @@ func TestIntegration_ExistingOrg_SecondUserRegistration(t *testing.T) {
 	}
 
 	payload2 := RegistrationPayload{
-		SchoolName:        schoolName,
-		SessionRef:        sessionRef2,
-		FirstName:         "Miles",
-		LastName:          "Morales",
-		EducationSystemID: testEducationSystemID,
+		SchoolName: schoolName,
+		SessionRef: sessionRef2,
+		FirstName:  "Miles",
+		LastName:   "Morales",
 	}
 
 	token2, role2, err := suite.svc.Register(context.Background(), sessionRef2, payload2, "fp-second")
@@ -1423,11 +1408,10 @@ func TestIntegration_DDoS_ConcurrentRegistration(t *testing.T) {
 		tasks = append(tasks, regTask{
 			sessionRef: sessionRef,
 			payload: RegistrationPayload{
-				SchoolName:        schoolName,
-				SessionRef:        sessionRef,
-				FirstName:         fmt.Sprintf("User%d", i),
-				LastName:          "Test",
-				EducationSystemID: testEducationSystemID,
+				SchoolName: schoolName,
+				SessionRef: sessionRef,
+				FirstName:  fmt.Sprintf("User%d", i),
+				LastName:   "Test",
 			},
 		})
 	}
@@ -1622,11 +1606,10 @@ func TestIntegration_EdgeCase_RegisterAfterLogout(t *testing.T) {
 	}
 
 	payload := RegistrationPayload{
-		SchoolName:        "Logout Reuse School",
-		SessionRef:        sessionRef,
-		FirstName:         "Frank",
-		LastName:          "Castle",
-		EducationSystemID: testEducationSystemID,
+		SchoolName: "Logout Reuse School",
+		SessionRef: sessionRef,
+		FirstName:  "Frank",
+		LastName:   "Castle",
 	}
 
 	token, _, err := suite.svc.Register(context.Background(), sessionRef, payload, "fp-logout-reuse")
@@ -1675,11 +1658,10 @@ func TestIntegration_EdgeCase_EmptyDeviceFingerprint(t *testing.T) {
 	}
 
 	payload := RegistrationPayload{
-		SchoolName:        "Empty FP School",
-		SessionRef:        sessionRef,
-		FirstName:         "Grace",
-		LastName:          "Hopper",
-		EducationSystemID: testEducationSystemID,
+		SchoolName: "Empty FP School",
+		SessionRef: sessionRef,
+		FirstName:  "Grace",
+		LastName:   "Hopper",
 	}
 
 	token, role, err := suite.svc.Register(context.Background(), sessionRef, payload, "")

@@ -86,69 +86,6 @@ func (r *SqlcRepository) GetTenantByName(ctx context.Context, name string) (stri
 	return id, orgID, nil
 }
 
-// UserExistsByExternalID checks if a user exists with the given Stytch user ID.
-func (r *SqlcRepository) UserExistsByExternalID(ctx context.Context, externalAuthID string) (bool, error) {
-	const query = `SELECT EXISTS(SELECT 1 FROM users WHERE external_auth_id = $1)`
-	var exists bool
-	err := r.pool.QueryRow(ctx, query, externalAuthID).Scan(&exists)
-	if err != nil {
-		return false, fmt.Errorf("%w: check user exists: %v", ErrInternal, err)
-	}
-	return exists, nil
-}
-
-// CreateTenant creates a new tenant and returns its ID.
-func (r *SqlcRepository) CreateTenant(ctx context.Context, params CreateTenantParams) (string, error) {
-	const query = `
-		INSERT INTO tenants (name, slug, stytch_org_id)
-		VALUES ($1, $2, $3)
-		RETURNING id
-	`
-	var id string
-	err := r.pool.QueryRow(ctx, query, params.Name, params.Slug, params.StytchOrgID).Scan(&id)
-	if err != nil {
-		return "", fmt.Errorf("%w: create tenant: %v", ErrInternal, err)
-	}
-	return id, nil
-}
-
-// CreateUser creates a new user and returns its ID.
-func (r *SqlcRepository) CreateUser(ctx context.Context, params CreateUserParams) (string, error) {
-	const query = `
-		INSERT INTO users (email, tenant_id, first_name, last_name, external_auth_id)
-		VALUES ($1, $2, $3, $4, $5)
-		RETURNING id
-	`
-	var id string
-	err := r.pool.QueryRow(ctx, query, params.Email, params.TenantID, params.FirstName, params.LastName, params.ExternalAuthID).Scan(&id)
-	if err != nil {
-		return "", fmt.Errorf("%w: create user: %v", ErrInternal, err)
-	}
-	return id, nil
-}
-
-// CreateSession persists a session record.
-func (r *SqlcRepository) CreateSession(ctx context.Context, params CreateSessionParams) error {
-	const query = `
-		INSERT INTO sessions (token, user_id, tenant_id, stytch_member_id, stytch_org_id, stytch_session_token, device_fingerprint, expires_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-	`
-	_, err := r.pool.Exec(ctx, query,
-		params.Token,
-		params.UserID,
-		params.TenantID,
-		params.StytchMemberID,
-		params.StytchOrgID,
-		params.StytchSessionToken,
-		params.DeviceFingerprint,
-		params.ExpiresAt,
-	)
-	if err != nil {
-		return fmt.Errorf("%w: create session: %v", ErrInternal, err)
-	}
-	return nil
-}
-
 // GetSessionByToken retrieves a session by its opaque token.
 // The user's role is sourced from their highest-privilege active membership.
 func (r *SqlcRepository) GetSessionByToken(ctx context.Context, token string) (*UserSession, error) {
@@ -359,17 +296,17 @@ func (r *SqlcRepository) CreateUserSession(
 	return userID, nil
 }
 
-// CreateSchool creates a new school for a tenant and returns its ID.
-func (r *SqlcRepository) CreateSchool(ctx context.Context, tenantID string, name string, educationSystemID string) (string, error) {
+// CreateSchool creates a new cbc_school for a tenant and returns its ID.
+func (r *SqlcRepository) CreateSchool(ctx context.Context, tenantID string, name string) (string, error) {
 	const query = `
-		INSERT INTO schools (name, tenant_id, education_system_id)
-		VALUES ($1, $2, $3)
+		INSERT INTO cbc_schools (tenant_id, name, county, sub_county, school_type)
+		VALUES ($1, $2, '', '', 'Public')
 		RETURNING id
 	`
 	var id string
-	err := r.pool.QueryRow(ctx, query, name, tenantID, educationSystemID).Scan(&id)
+	err := r.pool.QueryRow(ctx, query, tenantID, name).Scan(&id)
 	if err != nil {
-		return "", fmt.Errorf("%w: create school: %v", ErrInternal, err)
+		return "", fmt.Errorf("%w: create cbc_school: %v", ErrInternal, err)
 	}
 	return id, nil
 }
@@ -419,7 +356,7 @@ func (r *SqlcRepository) GetMeInfo(ctx context.Context, token string) (*MeInfo, 
 				END
 			LIMIT 1
 		) m ON true
-		LEFT JOIN schools sch ON sch.id = m.school_id
+		LEFT JOIN cbc_schools sch ON sch.id = m.school_id
 		WHERE s.token = $1 AND s.expires_at > NOW()
 	`
 
@@ -454,31 +391,6 @@ func (r *SqlcRepository) GetMeInfo(ctx context.Context, token string) (*MeInfo, 
 
 // GetUserHighestRole returns the highest (most privileged) role for a user
 // across all their active memberships.
-func (r *SqlcRepository) GetUserHighestRole(ctx context.Context, userID string) (string, error) {
-	const query = `
-		SELECT role::text FROM memberships
-		WHERE user_id = $1 AND is_active = true
-		ORDER BY
-			CASE role
-				WHEN 'SYSTEM_ADMIN' THEN 1
-				WHEN 'SCHOOL_ADMIN' THEN 2
-				WHEN 'TEACHER' THEN 3
-				WHEN 'NURSE' THEN 4
-				WHEN 'FINANCE' THEN 5
-			END
-		LIMIT 1
-	`
-	var role string
-	err := r.pool.QueryRow(ctx, query, userID).Scan(&role)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			return "TEACHER", nil // default if no membership found
-		}
-		return "", fmt.Errorf("%w: get user role: %v", ErrInternal, err)
-	}
-	return role, nil
-}
-
 // generateSlug creates a URL-friendly slug from a school name.
 func generateSlug(name string) string {
 	// Simple slug generation — lowercased, spaces to hyphens, remove non-alphanumeric

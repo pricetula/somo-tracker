@@ -23,7 +23,6 @@ export default function AdminsPage() {
     } = useStaffInvitations("SCHOOL_ADMIN");
 
     const roleLabel = "Admins";
-    const addHref = "./add";
 
     return (
         <div className="flex flex-1 flex-col">
@@ -32,7 +31,7 @@ export default function AdminsPage() {
                 <h1 className="text-2xl font-semibold tracking-tight">Admins</h1>
                 <div className="ml-auto">
                     <Button size="sm" asChild>
-                        <Link href={addHref}>
+                        <Link href="/admins/add">
                             <UserPlus className="mr-1.5 size-3.5" />
                             Invite Admins
                         </Link>

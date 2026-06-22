@@ -33,7 +33,7 @@ export default function FinancePage() {
     } = useStaffInvitations("FINANCE");
 
     const roleLabel = "Finance";
-    const addHref = "./add";
+    const addHref = "/finance/add";
 
     return (
         <div className="flex flex-1 flex-col">

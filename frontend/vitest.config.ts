@@ -4,9 +4,15 @@ import path from "path";
 export default defineConfig({
     test: {
         environment: "jsdom",
-        include: ["src/**/*.test.ts", "src/**/*.test.tsx", "src/**/*.spec.ts", "src/**/*.spec.tsx"],
-        setupFiles: ["./src/__tests__/setup.ts"],
-        // jsdom + React testing workaround for `@testing-library/react`
+        include: [
+            "src/**/*.test.ts",
+            "src/**/*.test.tsx",
+            "src/**/*.spec.ts",
+            "src/**/*.spec.tsx",
+            "__tests__/**/*.test.ts",
+            "__tests__/**/*.test.tsx",
+        ],
+        setupFiles: ["./__tests__/setup/vitest.setup.ts"],
         css: true,
     },
     resolve: {

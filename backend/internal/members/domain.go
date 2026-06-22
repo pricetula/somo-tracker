@@ -125,6 +125,6 @@ type CreateInviteItem struct {
 
 // ErrorBody is the JSON error response body.
 type ErrorBody struct {
-	Error   string `json:"error"`
+	Error   string `json:"code"`
 	Message string `json:"message,omitempty"`
 }

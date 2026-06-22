@@ -668,8 +668,8 @@ func (s *IntegrationSuite) freshDB(t *testing.T) {
 	if _, err := s.pgPool.Exec(ctx, "DELETE FROM memberships"); err != nil {
 		t.Fatalf("clean memberships: %v", err)
 	}
-	if _, err := s.pgPool.Exec(ctx, "DELETE FROM schools"); err != nil {
-		t.Fatalf("clean schools: %v", err)
+	if _, err := s.pgPool.Exec(ctx, "DELETE FROM cbc_schools"); err != nil {
+		t.Fatalf("clean cbc_schools: %v", err)
 	}
 	if _, err := s.pgPool.Exec(ctx, "DELETE FROM users"); err != nil {
 		t.Fatalf("clean users: %v", err)

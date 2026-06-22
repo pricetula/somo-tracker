@@ -34,13 +34,12 @@ vi.mock("next/navigation", () => ({
     useSearchParams: () => searchParamsRef.current,
 }));
 
+import { ApiError } from "@/lib/api/client";
+
 const mockRegisterFn = vi.fn();
 
 function createApiError(status: number, body: { error: string; message?: string }) {
-    const err = new Error(body.message ?? body.error);
-    (err as Record<string, unknown>).status = status;
-    (err as Record<string, unknown>).body = body;
-    return err;
+    return new ApiError(status, body.error, body.message ?? body.error);
 }
 
 vi.mock("@/lib/api/auth", () => ({

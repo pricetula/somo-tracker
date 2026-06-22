@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap"
 
 	"somotracker/backend/internal/config"
+	"somotracker/backend/internal/middleware"
 )
 
 // ============================================================================
@@ -150,7 +151,7 @@ func TestHandler_StartImport_ServiceError(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
 	h.repo.getTenantStytchOrgIDFn = func(ctx context.Context, tenantID string) (string, error) {
-		return "", errors.New("tenant not found")
+		return "", fmt.Errorf("tenant not found: %w", middleware.ErrInvalidInput)
 	}
 
 	body := StartImportRequest{
@@ -203,7 +204,7 @@ func TestHandler_TrackImport_NotFound(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
 	h.repo.getImportJobFn = func(ctx context.Context, jobID string) (*ImportJob, error) {
-		return nil, errors.New("import job not found")
+		return nil, fmt.Errorf("import job not found: %w", middleware.ErrNotFound)
 	}
 
 	resp := doRequest(h.app, "GET", "/api/v1/imports/staff/track/nonexistent", nil)
@@ -244,7 +245,7 @@ func TestHandler_ListFailedInvitations_NotFound(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
 	h.repo.getFailedInvitationsByJobFn = func(ctx context.Context, jobID string) ([]FailedInvitation, error) {
-		return nil, errors.New("import job not found")
+		return nil, fmt.Errorf("import job not found: %w", middleware.ErrNotFound)
 	}
 
 	resp := doRequest(h.app, "GET", "/api/v1/imports/staff/nonexistent/failures", nil)

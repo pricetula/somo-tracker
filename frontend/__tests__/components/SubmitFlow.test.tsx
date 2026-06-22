@@ -9,7 +9,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { renderWithProviders } from "../setup/test-utils";
+import { renderWithProviders, mockGetMe } from "../setup/test-utils";
 import { server } from "../setup/msw-server";
 import { http, HttpResponse } from "msw";
 
@@ -21,9 +21,16 @@ import type { ImportDraftRow } from "@/lib/db";
 // ─── Mock useVirtualizer ──────────────────────────────────────────────
 
 vi.mock("@tanstack/react-virtual", () => ({
-    useVirtualizer: () => ({
-        getVirtualItems: () => [],
-        getTotalSize: () => 0,
+    useVirtualizer: (opts: { count: number; estimateSize: () => number }) => ({
+        getVirtualItems: () =>
+            Array.from({ length: opts.count }, (_, index) => ({
+                index,
+                key: index,
+                start: index * opts.estimateSize(),
+                end: (index + 1) * opts.estimateSize(),
+                lane: 0,
+            })),
+        getTotalSize: () => opts.count * opts.estimateSize(),
         measureElement: vi.fn(),
     }),
 }));

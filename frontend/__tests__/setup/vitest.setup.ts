@@ -21,20 +21,17 @@ import "./mock-event-source";
 
 // fake-indexeddb/auto installs IDBFactory, IDBKeyRange, etc. globally.
 // Clear IndexedDB between tests to prevent draft state leakage.
-// NOTE: indexedDB.deleteDatabase returns an IDBOpenDBRequest (not a Promise),
-// so we must wrap it in a proper Promise to actually wait for deletion.
-function deleteDB(name: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-        const req = indexedDB.deleteDatabase(name);
-        req.onsuccess = () => resolve();
-        req.onerror = () => reject(req.error);
-        req.onblocked = () => resolve(); // Don't hang on blocked
-    });
-}
+//
+// We use idb-keyval's clear() instead of deleteDatabase() because
+// idb-keyval keeps a persistent connection open — deleteDatabase hangs
+// in fake-indexeddb when there are live connections.
+//
+// Similarly, indexedDB.databases() also hangs because it can't enumerate
+// databases with open connections in fake-indexeddb.
+import { clear } from "idb-keyval";
 
 beforeEach(async () => {
-    const dbs = await indexedDB.databases();
-    await Promise.all(dbs.map((db) => deleteDB(db.name)));
+    await clear();
 });
 
 // ─── MSW Server ────────────────────────────────────────────────────────

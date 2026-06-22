@@ -158,6 +158,6 @@ const (
 // ─── Error types ─────────────────────────────────────────────────────────
 
 type ErrorBody struct {
-	Error   string `json:"error"`
+	Error   string `json:"code"`
 	Message string `json:"message,omitempty"`
 }

@@ -19,18 +19,24 @@ function key(tenantId: string, userId: string, context: string): string {
 
 // ─── Tests ─────────────────────────────────────────────────────────────
 
+// Helper: advance Date.now() without freezing the event loop.
+// Using vi.useFakeTimers() blocks IndexedDB async resolution because
+// fake-indexeddb relies on native promises — locked timers stall
+// transaction lifecycle. We mock Date.now() directly instead.
+function mockNow(ts: number) {
+    vi.spyOn(Date, "now").mockReturnValue(ts);
+}
+
 describe("useIndexedDBDraft", () => {
     beforeEach(async () => {
-        // Use fake timers for TTL testing
-        vi.useFakeTimers({ shouldAdvanceTime: true });
-        vi.setSystemTime(new Date("2025-01-15T10:00:00Z").getTime());
-        // Clear IndexedDB to prevent state leakage
-        const dbs = await indexedDB.databases();
-        await Promise.all(dbs.map((db) => indexedDB.deleteDatabase(db.name)));
+        vi.restoreAllMocks();
+        // Set a fixed baseline for Date.now() — individual TTL tests
+        // will override this via mockNow().
+        mockNow(new Date("2025-01-15T10:00:00Z").getTime());
     });
 
     afterEach(() => {
-        vi.useRealTimers();
+        vi.restoreAllMocks();
     });
 
     it("returns null draft on first load — no prior data in IndexedDB; draft is null", async () => {
@@ -123,7 +129,7 @@ describe("useIndexedDBDraft", () => {
 
         // Advance time by 47 hours (within TTL)
         const later = now + 47 * 60 * 60 * 1000;
-        vi.setSystemTime(later);
+        mockNow(later);
 
         const draft = await loadDraft("tenant-abc", "user-xyz", "staff-import:NURSE");
         expect(draft).not.toBeNull();
@@ -146,7 +152,7 @@ describe("useIndexedDBDraft", () => {
 
         // Advance time by 49 hours (past TTL)
         const later = now + 49 * 60 * 60 * 1000;
-        vi.setSystemTime(later);
+        mockNow(later);
 
         const draft = await loadDraft("tenant-abc", "user-xyz", "staff-import:NURSE");
         expect(draft).toBeNull();

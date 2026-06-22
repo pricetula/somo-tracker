@@ -51,6 +51,7 @@ export interface ImportJob {
 
 export interface TrackImportResponse {
     job: ImportJob;
+    failed_records: number;
 }
 
 export interface ImportProgressEvent {

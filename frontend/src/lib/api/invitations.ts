@@ -44,14 +44,6 @@ export interface ListInvitationsResponse {
     total: number;
 }
 
-/** Params for the staff listing endpoint — excludes accepted by design. */
-export interface ListInvitationsByRoleParams {
-    role: "SCHOOL_ADMIN" | "NURSE" | "FINANCE";
-    status?: InvitationStatus[];
-    page?: number;
-    limit?: number;
-}
-
 export interface CreateInvitationItem {
     email: string;
     first_name?: string;
@@ -96,18 +88,21 @@ export async function createInvitations(
 }
 
 /**
- * List invitations by role with multi-value status filter.
- * Used by the staff listing pages to show pending/expired/revoked/invite_failed
- * invitations for a specific role. Never returns 'accepted' status.
+ * List invitations by role, optionally filtered by a single status.
+ *
+ * Note: The backend does NOT support multi-value status[] params.
+ * It accepts only a single `status` string value. To fetch multiple
+ * statuses, make separate calls or omit status to get all results.
  */
-export async function listInvitationsByRole(
-    params: ListInvitationsByRoleParams
-): Promise<ListInvitationsResponse> {
+export async function listInvitationsByRole(params: {
+    role: string;
+    status?: string;
+    page?: number;
+    limit?: number;
+}): Promise<ListInvitationsResponse> {
     const searchParams = new URLSearchParams();
     searchParams.set("role", params.role);
-    if (params.status && params.status.length > 0) {
-        params.status.forEach((s) => searchParams.append("status[]", s));
-    }
+    if (params.status) searchParams.set("status", params.status);
     if (params.page) searchParams.set("page", String(params.page));
     if (params.limit) searchParams.set("limit", String(params.limit));
 

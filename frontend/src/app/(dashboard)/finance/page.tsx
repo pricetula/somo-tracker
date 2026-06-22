@@ -1,7 +1,7 @@
 /**
  * Finance listing page — two independent, paginated lists stacked vertically:
- *   1. Active Staff (from GET /api/v1/users?role=FINANCE)
- *   2. Invited Staff (from GET /api/v1/invitations?role=FINANCE&status[]=...)
+ *   1. Active Staff (from GET /api/v1/members?role=FINANCE)
+ *   2. Invited Staff (from GET /api/v1/invitations?role=FINANCE)
  */
 
 "use client";
@@ -63,7 +63,7 @@ export default function FinancePage() {
                     ) : (
                         <div className="ring-foreground/10 rounded-lg ring-1">
                             <ActiveStaffTable
-                                users={usersData?.users ?? []}
+                                users={usersData?.members ?? []}
                                 total={usersData?.total ?? 0}
                                 roleLabel={roleLabel}
                                 addHref={addHref}

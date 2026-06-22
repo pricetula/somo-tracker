@@ -1,9 +1,9 @@
 /**
- * Admins listing page — two independent, paginated lists stacked vertically:
- *   1. Active Staff (from GET /api/v1/users?role=SCHOOL_ADMIN)
- *   2. Invited Staff (from GET /api/v1/invitations?role=SCHOOL_ADMIN&status[]=...)
+ * Admins listing page — shows pending invitations for SCHOOL_ADMIN role.
  *
- * Each list manages its own loading, error, and empty states independently.
+ * NOTE: The backend does not expose an endpoint to list active SCHOOL_ADMIN
+ * members (GET /api/v1/members only supports NURSE, FINANCE, TEACHER).
+ * Only the invitations table is shown here.
  */
 
 "use client";
@@ -11,23 +11,11 @@
 import * as React from "react";
 import Link from "next/link";
 
-import {
-    ActiveStaffTable,
-    InvitedStaffTable,
-    useStaffUsers,
-    useStaffInvitations,
-} from "@/features/staff";
+import { InvitedStaffTable, useStaffInvitations } from "@/features/staff";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { UserPlus } from "lucide-react";
 
 export default function AdminsPage() {
-    const {
-        data: usersData,
-        isLoading: usersLoading,
-        isError: usersError,
-    } = useStaffUsers("SCHOOL_ADMIN");
-
     const {
         data: invitationsData,
         isLoading: invitationsLoading,
@@ -53,31 +41,7 @@ export default function AdminsPage() {
             </div>
 
             <div className="flex flex-1 flex-col gap-8 px-6 py-4">
-                {/* List 1 — Active Staff */}
-                <section className="flex flex-col">
-                    <h2 className="mb-2 text-sm font-medium">Active {roleLabel}</h2>
-                    {usersError ? (
-                        <div className="flex items-center justify-center py-8">
-                            <p className="text-destructive text-sm">
-                                Failed to load active {roleLabel.toLowerCase()}. Please try again.
-                            </p>
-                        </div>
-                    ) : (
-                        <div className="ring-foreground/10 rounded-lg ring-1">
-                            <ActiveStaffTable
-                                users={usersData?.users ?? []}
-                                total={usersData?.total ?? 0}
-                                roleLabel={roleLabel}
-                                addHref={addHref}
-                                isLoading={usersLoading}
-                            />
-                        </div>
-                    )}
-                </section>
-
-                <Separator />
-
-                {/* List 2 — Invitations */}
+                {/* Invitations */}
                 <section className="flex flex-col">
                     <h2 className="mb-2 text-sm font-medium">Invited {roleLabel}</h2>
                     {invitationsError ? (

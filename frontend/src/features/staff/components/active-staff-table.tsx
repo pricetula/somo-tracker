@@ -2,7 +2,7 @@
  * Active Staff Table — displays active staff users by role.
  *
  * Uses TanStack Table + TanStack Virtual for performance.
- * Each row shows first_name, last_name, email, phone_number, created_at
+ * Each row shows first_name, last_name, email, created_at
  * with Edit and Deactivate action stubs.
  */
 
@@ -23,7 +23,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { MoreHorizontal, UserPlus } from "lucide-react";
 import Link from "next/link";
 
-import type { User } from "@/lib/api/users";
+import type { Member } from "@/lib/api/members";
+// Re-export Member as User for backward compatibility
+type User = Member;
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -56,15 +58,6 @@ function createColumns(): ColumnDef<User>[] {
             header: "Email",
             cell: ({ row }) => (
                 <span className="text-muted-foreground text-sm">{row.original.email}</span>
-            ),
-        },
-        {
-            accessorKey: "phone_number",
-            header: "Phone",
-            cell: ({ row }) => (
-                <span className="text-muted-foreground text-sm">
-                    {row.original.phone_number || "—"}
-                </span>
             ),
         },
         {
@@ -193,7 +186,6 @@ export function ActiveStaffTable({
                                     <Skeleton className="mr-3 h-4 w-20" />
                                     <Skeleton className="mr-3 h-4 w-20" />
                                     <Skeleton className="mr-3 h-4 w-36" />
-                                    <Skeleton className="mr-3 h-4 w-28" />
                                     <Skeleton className="mr-3 h-4 w-24" />
                                 </div>
                             ))

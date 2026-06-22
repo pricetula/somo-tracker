@@ -3,7 +3,6 @@
  *
  * Endpoints:
  *   GET  /api/v1/members?role=...  — list members by role
- *   POST /api/v1/members/invite    — bulk invite new members
  */
 
 import { api } from "./client";
@@ -25,28 +24,6 @@ export interface ListMembersResponse {
     total: number;
 }
 
-export interface BulkInviteRequest {
-    role: "TEACHER" | "NURSE" | "FINANCE";
-    invites: InviteItem[];
-}
-
-export interface InviteItem {
-    email: string;
-    first_name: string;
-    last_name: string;
-}
-
-export interface BulkInviteResponse {
-    sent: number;
-    failed: number;
-    errors?: InviteErrorItem[];
-}
-
-export interface InviteErrorItem {
-    email: string;
-    error: string;
-}
-
 // ─── API Functions ─────────────────────────────────────────────────────────
 
 /** List members by role with pagination and optional search. */
@@ -61,9 +38,4 @@ export async function listMembers(
 
     const qs = searchParams.toString();
     return api.get<ListMembersResponse>(`/api/v1/members?${qs}`);
-}
-
-/** Bulk invite new members with a given role. */
-export async function bulkInvite(payload: BulkInviteRequest): Promise<BulkInviteResponse> {
-    return api.post<BulkInviteResponse>("/api/v1/members/invite", payload);
 }

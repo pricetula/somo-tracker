@@ -22,7 +22,7 @@ export interface ImportStaffRecord {
 }
 
 export interface StartImportRequest {
-    role: "SCHOOL_ADMIN" | "NURSE" | "FINANCE";
+    role: "SCHOOL_ADMIN" | "NURSE" | "FINANCE" | "TEACHER";
     records: ImportStaffRecord[];
 }
 

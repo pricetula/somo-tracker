@@ -40,6 +40,7 @@ function buildNavItems(role: string): NavItem[] {
                 icon: <UsersIcon className="size-4" />,
                 items: [
                     { title: "Admins", url: "/admins" },
+                    { title: "Teachers", url: "/teachers" },
                     { title: "Nurses", url: "/nurses" },
                     { title: "Finance", url: "/finance" },
                     { title: "Invitations", url: "/admins/invitations" },

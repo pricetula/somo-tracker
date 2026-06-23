@@ -53,6 +53,8 @@ export function ReviewView({ rows, role, onSubmit, onBack }: ReviewViewProps) {
         }
     }
 
+    const isTeacher = role === "TEACHER";
+
     return (
         <div className="flex flex-col gap-4 p-4">
             <p className="text-muted-foreground text-sm">
@@ -67,6 +69,7 @@ export function ReviewView({ rows, role, onSubmit, onBack }: ReviewViewProps) {
                             <th className="px-3 py-2 font-medium">Email</th>
                             <th className="px-3 py-2 font-medium">First Name</th>
                             <th className="px-3 py-2 font-medium">Last Name</th>
+                            {isTeacher && <th className="px-3 py-2 font-medium">TSC Number</th>}
                             <th className="px-3 py-2 font-medium">Phone</th>
                         </tr>
                     </thead>
@@ -76,6 +79,9 @@ export function ReviewView({ rows, role, onSubmit, onBack }: ReviewViewProps) {
                                 <td className="px-3 py-2">{row.email}</td>
                                 <td className="px-3 py-2">{row.first_name}</td>
                                 <td className="px-3 py-2">{row.last_name}</td>
+                                {isTeacher && (
+                                    <td className="px-3 py-2">{row.registration_number || "—"}</td>
+                                )}
                                 <td className="px-3 py-2">{row.phone || "—"}</td>
                             </tr>
                         ))}

@@ -29,7 +29,7 @@ import { getCriticalErrorCount } from "../lib/validation";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
-export type AllowedRole = "SCHOOL_ADMIN" | "NURSE" | "FINANCE";
+export type AllowedRole = "SCHOOL_ADMIN" | "NURSE" | "FINANCE" | "TEACHER";
 
 export interface BulkStaffImportProps {
     role: AllowedRole;
@@ -151,7 +151,13 @@ export function BulkStaffImport({ role, mode, onSuccess, onClose }: BulkStaffImp
     }
 
     const roleLabel =
-        role === "SCHOOL_ADMIN" ? "School Admins" : role === "NURSE" ? "Nurses" : "Finance Staff";
+        role === "SCHOOL_ADMIN"
+            ? "School Admins"
+            : role === "TEACHER"
+              ? "Teachers"
+              : role === "NURSE"
+                ? "Nurses"
+                : "Finance Staff";
 
     if (sessionLoading) {
         return (

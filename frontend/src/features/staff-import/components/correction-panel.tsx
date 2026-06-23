@@ -33,6 +33,7 @@ interface CorrectedRow {
     first_name: string;
     last_name: string;
     phone: string;
+    registration_number: string;
 }
 
 // ─── Component ─────────────────────────────────────────────────────────────
@@ -53,6 +54,7 @@ export function CorrectionPanel({ jobID, role, onSubmit, onClose }: CorrectionPa
                     first_name: inv.first_name ?? "",
                     last_name: inv.last_name ?? "",
                     phone: inv.phone ?? "",
+                    registration_number: "",
                 }))
             );
         }
@@ -85,6 +87,7 @@ export function CorrectionPanel({ jobID, role, onSubmit, onClose }: CorrectionPa
                     first_name: r.first_name,
                     last_name: r.last_name,
                     phone: r.phone,
+                    registration_number: r.registration_number,
                 })),
             });
             onSubmit();
@@ -136,11 +139,15 @@ export function CorrectionPanel({ jobID, role, onSubmit, onClose }: CorrectionPa
             {/* Column headers */}
             <div
                 className="text-muted-foreground grid gap-2 px-1 text-xs font-medium"
-                style={{ gridTemplateColumns: "1.5fr 1fr 1fr 1fr" }}
+                style={{
+                    gridTemplateColumns:
+                        role === "TEACHER" ? "1.5fr 1fr 1fr 0.8fr 1fr" : "1.5fr 1fr 1fr 1fr",
+                }}
             >
                 <span>Email *</span>
                 <span>First Name</span>
                 <span>Last Name</span>
+                {role === "TEACHER" && <span>TSC Number</span>}
                 <span>Phone</span>
             </div>
 
@@ -167,7 +174,12 @@ export function CorrectionPanel({ jobID, role, onSubmit, onClose }: CorrectionPa
                             >
                                 <div
                                     className="grid gap-2 px-1 py-1"
-                                    style={{ gridTemplateColumns: "1.5fr 1fr 1fr 1fr" }}
+                                    style={{
+                                        gridTemplateColumns:
+                                            role === "TEACHER"
+                                                ? "1.5fr 1fr 1fr 0.8fr 1fr"
+                                                : "1.5fr 1fr 1fr 1fr",
+                                    }}
                                 >
                                     <input
                                         type="text"
@@ -191,6 +203,21 @@ export function CorrectionPanel({ jobID, role, onSubmit, onClose }: CorrectionPa
                                         }
                                         className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
                                     />
+                                    {role === "TEACHER" && (
+                                        <input
+                                            type="text"
+                                            value={row.registration_number}
+                                            onChange={(e) =>
+                                                updateRow(
+                                                    row.id,
+                                                    "registration_number",
+                                                    e.target.value
+                                                )
+                                            }
+                                            className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
+                                            placeholder="TSC-XXX-XXX"
+                                        />
+                                    )}
                                     <input
                                         type="text"
                                         value={row.phone}

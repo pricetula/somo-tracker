@@ -29,7 +29,13 @@ type UploadState = "idle" | "dragging" | "parsing" | "complete" | "error";
 
 // ─── Component ─────────────────────────────────────────────────────────────
 
-export function FileUploadPanel({ onRowsReady, tenantID, userID, context }: FileUploadPanelProps) {
+export function FileUploadPanel({
+    onRowsReady,
+    role,
+    tenantID,
+    userID,
+    context,
+}: FileUploadPanelProps) {
     const [uploadState, setUploadState] = React.useState<UploadState>("idle");
     const [rows, setRows] = React.useState<ImportDraftRow[]>([]);
     const [errorMessage, setErrorMessage] = React.useState<string>("");
@@ -156,6 +162,8 @@ export function FileUploadPanel({ onRowsReady, tenantID, userID, context }: File
     }
 
     // Virtualized preview when parsing is complete
+    const isTeacher = role === "TEACHER";
+
     // eslint-disable-next-line react-hooks/incompatible-library
     const virtualizer = useVirtualizer({
         count: Math.min(rows.length, 50), // preview up to 50 rows
@@ -228,6 +236,9 @@ export function FileUploadPanel({ onRowsReady, tenantID, userID, context }: File
                                         <th className="px-2 py-1.5 font-medium">Email</th>
                                         <th className="px-2 py-1.5 font-medium">First Name</th>
                                         <th className="px-2 py-1.5 font-medium">Last Name</th>
+                                        {isTeacher && (
+                                            <th className="px-2 py-1.5 font-medium">TSC Number</th>
+                                        )}
                                         <th className="px-2 py-1.5 font-medium">Phone</th>
                                     </tr>
                                 </thead>
@@ -249,6 +260,11 @@ export function FileUploadPanel({ onRowsReady, tenantID, userID, context }: File
                                                 <td className="px-2 py-1">{row.email}</td>
                                                 <td className="px-2 py-1">{row.first_name}</td>
                                                 <td className="px-2 py-1">{row.last_name}</td>
+                                                {isTeacher && (
+                                                    <td className="px-2 py-1">
+                                                        {row.registration_number || "—"}
+                                                    </td>
+                                                )}
                                                 <td className="px-2 py-1">{row.phone || "—"}</td>
                                             </tr>
                                         );

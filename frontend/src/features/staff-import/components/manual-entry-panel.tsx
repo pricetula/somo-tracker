@@ -37,6 +37,7 @@ interface RowValidation {
 
 export function ManualEntryPanel({
     onRowsReady,
+    role,
     tenantID,
     userID,
     context,
@@ -55,6 +56,8 @@ export function ManualEntryPanel({
 
     // Track auto-corrected cells for visual highlighting
     const [correctedCells, setCorrectedCells] = React.useState<Set<string>>(new Set());
+
+    const isTeacher = role === "TEACHER";
 
     const virtualizer = useVirtualizer({
         count: rows.length,
@@ -104,7 +107,6 @@ export function ManualEntryPanel({
             setCorrectedCells((prev) => new Set(prev).add(`${tempID}:phone`));
         }
     }
-
     // Compute validation
     const emailCounts = React.useMemo(() => {
         const counts = new Map<string, number>();
@@ -133,10 +135,30 @@ export function ManualEntryPanel({
         });
     }, [rows, emailCounts]);
 
-    // Count critical errors
+    // Compute TSC Number validation separately (only for TEACHER)
+    const tscErrors = React.useMemo(() => {
+        if (!isTeacher) return new Set<string>();
+        const errors = new Set<string>();
+        for (const row of rows) {
+            const email = row.email.trim();
+            if (!email) continue;
+            if (!row.registration_number?.trim()) {
+                errors.add(row.temp_id);
+            }
+        }
+        return errors;
+    }, [rows, isTeacher]);
+
+    // Count critical errors (include TSC errors for TEACHER)
     const criticalErrorCount = React.useMemo(() => {
-        return validations.filter((v) => v.emailError || v.nameError || v.duplicateError).length;
-    }, [validations]);
+        let count = validations.filter(
+            (v) => v.emailError || v.nameError || v.duplicateError
+        ).length;
+        if (isTeacher) {
+            count += tscErrors.size;
+        }
+        return count;
+    }, [validations, isTeacher, tscErrors]);
 
     const emptyRows = rows.filter((r) => !r.email.trim()).length;
     const ready = rows.length > 0 && rows.some((r) => r.email.trim()) && criticalErrorCount === 0;
@@ -165,15 +187,19 @@ export function ManualEntryPanel({
                     </span>
                 </div>
             )}
-
             {/* Column headers */}
             <div
                 className="text-muted-foreground grid gap-2 px-1 text-xs font-medium"
-                style={{ gridTemplateColumns: "1fr 1fr 1.5fr 1fr 28px" }}
+                style={{
+                    gridTemplateColumns: isTeacher
+                        ? "1fr 1fr 1.5fr 0.8fr 1fr 28px"
+                        : "1fr 1fr 1.5fr 1fr 28px",
+                }}
             >
                 <span>First Name *</span>
                 <span>Last Name *</span>
                 <span>Email *</span>
+                {isTeacher && <span>TSC Number *</span>}
                 <span>Phone</span>
                 <span />
             </div>
@@ -204,7 +230,11 @@ export function ManualEntryPanel({
                             >
                                 <div
                                     className="grid gap-2 px-1 py-1"
-                                    style={{ gridTemplateColumns: "1fr 1fr 1.5fr 1fr 28px" }}
+                                    style={{
+                                        gridTemplateColumns: isTeacher
+                                            ? "1fr 1fr 1.5fr 0.8fr 1fr 28px"
+                                            : "1fr 1fr 1.5fr 1fr 28px",
+                                    }}
                                 >
                                     <ImportInput
                                         placeholder="Jane"
@@ -235,6 +265,25 @@ export function ManualEntryPanel({
                                             <AlertCircle className="text-destructive absolute top-1/2 right-2 size-4 -translate-y-1/2" />
                                         )}
                                     </div>
+                                    {isTeacher && (
+                                        <div className="relative">
+                                            <ImportInput
+                                                placeholder="TSC-XXX-XXX"
+                                                value={row.registration_number}
+                                                onChange={(e) =>
+                                                    updateRow(
+                                                        row.temp_id,
+                                                        "registration_number",
+                                                        e.target.value
+                                                    )
+                                                }
+                                                className={`h-9 text-sm ${tscErrors.has(row.temp_id) ? "border-destructive pr-7" : ""}`}
+                                            />
+                                            {tscErrors.has(row.temp_id) && (
+                                                <AlertCircle className="text-destructive absolute top-1/2 right-2 size-4 -translate-y-1/2" />
+                                            )}
+                                        </div>
+                                    )}
                                     <div className="relative">
                                         <ImportInput
                                             placeholder="+254 712 345 678"

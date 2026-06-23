@@ -4,15 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
-	"go.uber.org/zap"
-
-	"somotracker/backend/internal/config"
 )
 
 // ============================================================================
@@ -30,15 +26,9 @@ func newHandlerTestHarness(t *testing.T) *handlerTestHarness {
 	t.Helper()
 
 	repo := &MockRepository{}
-	idp := &MockIDP{}
-	logger := zap.NewNop()
-	cfg := config.Config{AppEnv: "test", FrontendURL: "http://localhost:3000"}
 
 	svc := &Service{
-		repo:   repo,
-		idp:    idp,
-		cfg:    cfg,
-		logger: logger,
+		repo: repo,
 	}
 
 	handler := &Handler{
@@ -58,11 +48,9 @@ func newHandlerTestHarness(t *testing.T) *handlerTestHarness {
 	// Register routes manually (bypassing RegisterRoutes which embeds requireAuth)
 	members := app.Group("/api/v1/members", testAuth)
 	members.Get("/", handler.List)
-	members.Post("/invite", handler.BulkInvite)
 
 	invitations := app.Group("/api/v1/invitations", testAuth)
 	invitations.Get("/", handler.ListInvitations)
-	invitations.Post("/", handler.CreateInvitations)
 
 	return &handlerTestHarness{
 		app:     app,
@@ -137,7 +125,10 @@ func TestHandler_ListMembers_MissingRole(t *testing.T) {
 		t.Fatalf("expected 400 Bad Request, got %d", resp.StatusCode)
 	}
 
-	var errBody ErrorBody
+	var errBody struct {
+		Error   string `json:"code"`
+		Message string `json:"message"`
+	}
 	_ = json.NewDecoder(resp.Body).Decode(&errBody)
 	if errBody.Error != "invalid_input" {
 		t.Fatalf("expected error 'invalid_input', got %q", errBody.Error)
@@ -192,91 +183,6 @@ func TestHandler_ListMembers_Pagination(t *testing.T) {
 	resp := doRequest(h.app, "GET", "/api/v1/members/?role=TEACHER&page=2&per_page=20", nil)
 	if resp.StatusCode != fiber.StatusOK {
 		t.Fatalf("expected 200 OK, got %d", resp.StatusCode)
-	}
-}
-
-// ============================================================================
-// Tests: BulkInvite Handler (POST /api/v1/members/invite)
-// ============================================================================
-
-func TestHandler_BulkInvite_HappyPath(t *testing.T) {
-	h := newHandlerTestHarness(t)
-
-	body := BulkInviteRequest{
-		Role: "TEACHER",
-		Invites: []InviteItem{
-			{Email: "teacher@school.com", FirstName: "New", LastName: "Teacher"},
-		},
-	}
-	bodyBytes, _ := json.Marshal(body)
-
-	resp := doRequest(h.app, "POST", "/api/v1/members/invite", bodyBytes)
-	if resp.StatusCode != fiber.StatusOK {
-		t.Fatalf("expected 200 OK, got %d", resp.StatusCode)
-	}
-
-	var result BulkInviteResponse
-	_ = json.NewDecoder(resp.Body).Decode(&result)
-	if result.Sent != 1 {
-		t.Fatalf("expected 1 sent, got %d", result.Sent)
-	}
-}
-
-func TestHandler_BulkInvite_MissingRole(t *testing.T) {
-	h := newHandlerTestHarness(t)
-
-	body := BulkInviteRequest{
-		Role: "",
-		Invites: []InviteItem{
-			{Email: "teacher@school.com", FirstName: "New", LastName: "Teacher"},
-		},
-	}
-	bodyBytes, _ := json.Marshal(body)
-
-	resp := doRequest(h.app, "POST", "/api/v1/members/invite", bodyBytes)
-	if resp.StatusCode != fiber.StatusBadRequest {
-		t.Fatalf("expected 400 Bad Request, got %d", resp.StatusCode)
-	}
-}
-
-func TestHandler_BulkInvite_InvalidRole(t *testing.T) {
-	h := newHandlerTestHarness(t)
-
-	body := BulkInviteRequest{
-		Role: "PRINCIPAL",
-		Invites: []InviteItem{
-			{Email: "teacher@school.com", FirstName: "New", LastName: "Teacher"},
-		},
-	}
-	bodyBytes, _ := json.Marshal(body)
-
-	resp := doRequest(h.app, "POST", "/api/v1/members/invite", bodyBytes)
-	if resp.StatusCode != fiber.StatusBadRequest {
-		t.Fatalf("expected 400 Bad Request, got %d", resp.StatusCode)
-	}
-}
-
-func TestHandler_BulkInvite_EmptyInvites(t *testing.T) {
-	h := newHandlerTestHarness(t)
-
-	body := BulkInviteRequest{
-		Role:    "TEACHER",
-		Invites: []InviteItem{},
-	}
-	bodyBytes, _ := json.Marshal(body)
-
-	resp := doRequest(h.app, "POST", "/api/v1/members/invite", bodyBytes)
-	if resp.StatusCode != fiber.StatusBadRequest {
-		t.Fatalf("expected 400 Bad Request, got %d", resp.StatusCode)
-	}
-}
-
-func TestHandler_BulkInvite_InvalidJSON(t *testing.T) {
-	h := newHandlerTestHarness(t)
-
-	resp := doRequest(h.app, "POST", "/api/v1/members/invite", []byte("{invalid}"))
-	if resp.StatusCode != fiber.StatusBadRequest {
-		t.Fatalf("expected 400 Bad Request, got %d", resp.StatusCode)
 	}
 }
 
@@ -341,85 +247,5 @@ func TestHandler_ListInvitations_EmptyResults(t *testing.T) {
 	resp := doRequest(h.app, "GET", "/api/v1/invitations/?role=FINANCE", nil)
 	if resp.StatusCode != fiber.StatusOK {
 		t.Fatalf("expected 200 OK, got %d", resp.StatusCode)
-	}
-}
-
-// ============================================================================
-// Tests: CreateInvitations Handler (POST /api/v1/invitations)
-// ============================================================================
-
-func TestHandler_CreateInvitations_HappyPath(t *testing.T) {
-	h := newHandlerTestHarness(t)
-
-	body := CreateInvitationsRequest{
-		Invites: []CreateInviteItem{
-			{Email: "teacher@school.com", FirstName: "New", LastName: "Teacher", Role: "TEACHER"},
-		},
-	}
-	bodyBytes, _ := json.Marshal(body)
-
-	resp := doRequest(h.app, "POST", "/api/v1/invitations/", bodyBytes)
-	if resp.StatusCode != fiber.StatusOK {
-		t.Fatalf("expected 200 OK, got %d", resp.StatusCode)
-	}
-
-	var result BulkInviteResponse
-	_ = json.NewDecoder(resp.Body).Decode(&result)
-	if result.Sent != 1 {
-		t.Fatalf("expected 1 sent, got %d", result.Sent)
-	}
-}
-
-func TestHandler_CreateInvitations_EmptyInvites(t *testing.T) {
-	h := newHandlerTestHarness(t)
-
-	body := CreateInvitationsRequest{
-		Invites: []CreateInviteItem{},
-	}
-	bodyBytes, _ := json.Marshal(body)
-
-	resp := doRequest(h.app, "POST", "/api/v1/invitations/", bodyBytes)
-	if resp.StatusCode != fiber.StatusBadRequest {
-		t.Fatalf("expected 400 Bad Request, got %d", resp.StatusCode)
-	}
-}
-
-func TestHandler_CreateInvitations_InvalidJSON(t *testing.T) {
-	h := newHandlerTestHarness(t)
-
-	resp := doRequest(h.app, "POST", "/api/v1/invitations/", []byte("{bad}"))
-	if resp.StatusCode != fiber.StatusBadRequest {
-		t.Fatalf("expected 400 Bad Request, got %d", resp.StatusCode)
-	}
-}
-
-func TestHandler_CreateInvitations_PartialFailures(t *testing.T) {
-	h := newHandlerTestHarness(t)
-
-	// Individual invite failures return in the response body, not as HTTP errors
-	h.repo.getMemberByEmailFn = func(ctx context.Context, schoolID, email string) (*Member, error) {
-		return nil, errors.New("db error")
-	}
-
-	body := CreateInvitationsRequest{
-		Invites: []CreateInviteItem{
-			{Email: "fail@school.com", FirstName: "Fail", LastName: "User", Role: "TEACHER"},
-		},
-	}
-	bodyBytes, _ := json.Marshal(body)
-
-	resp := doRequest(h.app, "POST", "/api/v1/invitations/", bodyBytes)
-	// Handler returns 200 even when individual invites fail — errors are in the body
-	if resp.StatusCode != fiber.StatusOK {
-		t.Fatalf("expected 200 OK (errors in body), got %d", resp.StatusCode)
-	}
-
-	var result BulkInviteResponse
-	_ = json.NewDecoder(resp.Body).Decode(&result)
-	if result.Failed != 1 {
-		t.Fatalf("expected 1 failed, got %d", result.Failed)
-	}
-	if result.Sent != 0 {
-		t.Fatalf("expected 0 sent, got %d", result.Sent)
 	}
 }

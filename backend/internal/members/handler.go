@@ -28,11 +28,9 @@ func NewHandler(svc *Service, authSvc *auth.Service, repo Repository) *Handler {
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	members := router.Group("/api/v1/members")
 	members.Get("/", h.requireAuth, h.List)
-	members.Post("/invite", h.requireAuth, h.BulkInvite)
 
 	invitations := router.Group("/api/v1/invitations")
 	invitations.Get("/", h.requireAuth, h.ListInvitations)
-	invitations.Post("/", h.requireAuth, h.CreateInvitations)
 }
 
 // ─── Auth middleware ───────────────────────────────────────────────────────
@@ -121,55 +119,6 @@ func (h *Handler) List(c *fiber.Ctx) error {
 	})
 }
 
-// BulkInvite handles POST /api/v1/members/invite
-func (h *Handler) BulkInvite(c *fiber.Ctx) error {
-	tenantID := c.Locals("tenant_id").(string)
-	userID := c.Locals("user_id").(string)
-
-	var req BulkInviteRequest
-	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "invalid_input",
-			"message": "invalid request body",
-		})
-	}
-
-	if req.Role == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "invalid_input",
-			"message": "role is required",
-		})
-	}
-	if req.Role != "TEACHER" && req.Role != "NURSE" && req.Role != "FINANCE" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "invalid_input",
-			"message": "role must be TEACHER, NURSE, or FINANCE",
-		})
-	}
-
-	if len(req.Invites) == 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "invalid_input",
-			"message": "at least one invite is required",
-		})
-	}
-
-	schoolID, err := h.resolveActiveSchool(c, tenantID, userID)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"code":    "internal_error",
-			"message": "failed to resolve active school",
-		})
-	}
-
-	result, err := h.svc.BulkInvite(c.Context(), tenantID, schoolID, req)
-	if err != nil {
-		return middleware.HTTPError(c, err)
-	}
-
-	return c.JSON(result)
-}
-
 // ─── Invitation Handlers ────────────────────────────────────────────────────
 
 // ListInvitations handles GET /api/v1/invitations
@@ -219,42 +168,6 @@ func (h *Handler) ListInvitations(c *fiber.Ctx) error {
 		Invitations: invitations,
 		Total:       total,
 	})
-}
-
-// CreateInvitations handles POST /api/v1/invitations
-func (h *Handler) CreateInvitations(c *fiber.Ctx) error {
-	tenantID := c.Locals("tenant_id").(string)
-	userID := c.Locals("user_id").(string)
-
-	var req CreateInvitationsRequest
-	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "invalid_input",
-			"message": "invalid request body",
-		})
-	}
-
-	if len(req.Invites) == 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "invalid_input",
-			"message": "at least one invite is required",
-		})
-	}
-
-	schoolID, err := h.resolveActiveSchool(c, tenantID, userID)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"code":    "internal_error",
-			"message": "failed to resolve active school",
-		})
-	}
-
-	result, err := h.svc.CreateInvitations(c.Context(), tenantID, schoolID, userID, req)
-	if err != nil {
-		return middleware.HTTPError(c, err)
-	}
-
-	return c.JSON(result)
 }
 
 // Module is an fx-compatible module for the members domain.

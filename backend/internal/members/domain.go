@@ -21,11 +21,6 @@ type Repository interface {
 	ListByRole(ctx context.Context, tenantID, schoolID, role string, offset, limit int, search string) ([]Member, int, error)
 	GetActiveSchoolID(ctx context.Context, tenantID, userID string) (string, error)
 	ListInvitations(ctx context.Context, tenantID, schoolID string, filter ListInvitationsFilter) ([]Invitation, int, error)
-	GetPendingInviteByEmail(ctx context.Context, schoolID, email string) (*Invitation, error)
-	GetMemberByEmail(ctx context.Context, schoolID, email string) (*Member, error)
-	GetTenantStytchOrgID(ctx context.Context, tenantID string) (string, error)
-	CreateInvitation(ctx context.Context, inv *Invitation, invitedBy string) error
-	SetInvitationStytchMemberID(ctx context.Context, id, stytchMemberID string) error
 }
 
 // ─── Member (user + membership join) ──────────────────────────────────────
@@ -65,32 +60,6 @@ type ListResponse struct {
 	Total   int      `json:"total"`
 }
 
-// BulkInviteRequest is the request body for POST /api/v1/members/invite.
-type BulkInviteRequest struct {
-	Role    string       `json:"role"`
-	Invites []InviteItem `json:"invites"`
-}
-
-// InviteItem is a single invite entry.
-type InviteItem struct {
-	Email     string `json:"email"`
-	FirstName string `json:"first_name"`
-	LastName  string `json:"last_name"`
-}
-
-// BulkInviteResponse is the response for a bulk invite.
-type BulkInviteResponse struct {
-	Sent   int               `json:"sent"`
-	Failed int               `json:"failed"`
-	Errors []InviteErrorItem `json:"errors,omitempty"`
-}
-
-// InviteErrorItem captures a per-invite failure.
-type InviteErrorItem struct {
-	Email string `json:"email"`
-	Error string `json:"error"`
-}
-
 // ─── Invitation HTTP types ──────────────────────────────────────────────
 
 // ListInvitationsFilter defines filters for listing invitations.
@@ -108,23 +77,4 @@ type ListInvitationsFilter struct {
 type ListInvitationsResponse struct {
 	Invitations []Invitation `json:"invitations"`
 	Total       int          `json:"total"`
-}
-
-// CreateInvitationsRequest is the request body for POST /api/v1/invitations.
-type CreateInvitationsRequest struct {
-	Invites []CreateInviteItem `json:"invites"`
-}
-
-// CreateInviteItem is a single invite entry for the new endpoint.
-type CreateInviteItem struct {
-	Email     string `json:"email"`
-	FirstName string `json:"first_name,omitempty"`
-	LastName  string `json:"last_name,omitempty"`
-	Role      string `json:"role"`
-}
-
-// ErrorBody is the JSON error response body.
-type ErrorBody struct {
-	Error   string `json:"code"`
-	Message string `json:"message,omitempty"`
 }

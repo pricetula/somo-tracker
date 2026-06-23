@@ -147,6 +147,9 @@ type Repository interface {
 	GetInvitationStytchMemberID(ctx context.Context, id string) (string, error)
 	SetInvitationStytchMemberID(ctx context.Context, id, stytchMemberID string) error
 	SetInvitationFailed(ctx context.Context, id, errorMessage string, attemptCount int) error
+	// BulkRecordImportFailure inserts multiple failure records in a single query.
+	BulkRecordImportFailure(ctx context.Context, jobID string, records []ImportStaffRecord, errMsg string) error
+
 	// BulkUpdateInvitations updates existing invitation rows by ID (correction resubmit).
 	BulkUpdateInvitations(ctx context.Context, records []ImportStaffRecord, role, jobID string, now time.Time) (int, error)
 	GetActiveSchoolID(ctx context.Context, tenantID, userID string) (string, error)

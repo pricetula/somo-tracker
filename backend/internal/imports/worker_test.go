@@ -172,6 +172,13 @@ func stage2RecordsFromPayload(payload *ProcessImportPayload) []Stage2Record {
 func TestProcessImport_AllSuccess(t *testing.T) {
 	h := newWorkerTestHarness(t)
 
+	var capturedSuccess, capturedFailed int
+	h.repo.updateImportJobStatusFn = func(ctx context.Context, id, status string, processed, successCount, failedCount int) error {
+		capturedSuccess = successCount
+		capturedFailed = failedCount
+		return nil
+	}
+
 	h.repo.bulkInsertInvitationsFn = func(
 		ctx context.Context, records []ImportStaffRecord,
 		tenantID, schoolID, role, jobID string, now time.Time, tokenPrefix string,
@@ -204,6 +211,15 @@ func TestProcessImport_AllSuccess(t *testing.T) {
 		t.Fatalf("expected 2 Stytch invite calls, got %d", h.idp.inviteMemberByEmailCalls)
 	}
 
+	// overallSuccess counts Stage 2 (Stytch invites) only — Stage 1 inserts are
+	// intermediate state. Both alice and bob were invited in Stage 2.
+	if capturedSuccess != 2 {
+		t.Fatalf("expected overallSuccess=2 (2 Stage 2 invites), got %d", capturedSuccess)
+	}
+	if capturedFailed != 0 {
+		t.Fatalf("expected overallFailed=0, got %d", capturedFailed)
+	}
+
 	// Verify final status log
 	infoLogs := h.logs.FilterMessage("import job completed")
 	if infoLogs.Len() != 1 {
@@ -225,7 +241,7 @@ func TestProcessImport_BulkInsertFails(t *testing.T) {
 		return nil, nil, errors.New("postgres connection lost")
 	}
 
-	h.repo.recordImportFailureFn = func(ctx context.Context, jobID, rawPayloadJSON, errMsg string) error {
+	h.repo.bulkRecordImportFailureFn = func(ctx context.Context, jobID string, records []ImportStaffRecord, errMsg string) error {
 		return nil
 	}
 
@@ -246,10 +262,63 @@ func TestProcessImport_BulkInsertFails(t *testing.T) {
 	if h.idp.inviteMemberByEmailCalls != 0 {
 		t.Fatalf("expected 0 Stytch invite calls after bulk insert failure, got %d", h.idp.inviteMemberByEmailCalls)
 	}
+
+	// Verify BulkRecordImportFailure was called with all records (not N individual calls).
+	// No explicit assertion needed here as the mock function signature accepts a slice.
+}
+
+// TestProcessImport_BulkRecordImportFailure verifies that when Stage 1 fails,
+// failures are recorded in a single bulk call instead of N individual INSERTs.
+func TestProcessImport_BulkRecordImportFailure(t *testing.T) {
+	h := newWorkerTestHarness(t)
+
+	callCount := 0
+	var capturedRecords []ImportStaffRecord
+	h.repo.bulkRecordImportFailureFn = func(ctx context.Context, jobID string, records []ImportStaffRecord, errMsg string) error {
+		callCount++
+		capturedRecords = append(capturedRecords, records...)
+		return nil
+	}
+
+	// Three records split into two batches (BatchSize=2 in domain.go, but we
+	// force it smaller via a 2-record payload to verify single-batch behaviour).
+	h.repo.bulkInsertInvitationsFn = func(
+		ctx context.Context, records []ImportStaffRecord,
+		tenantID, schoolID, role, jobID string, now time.Time, tokenPrefix string,
+	) (map[string]string, []FailedInsertion, error) {
+		return nil, nil, errors.New("postgres connection lost")
+	}
+
+	h.repo.getPendingStage2RecordsFn = func(ctx context.Context, jobID string) ([]Stage2Record, error) {
+		return nil, nil
+	}
+
+	payload := validPayload() // 2 records
+	task := createTask(payload)
+
+	err := h.worker.ProcessImport(context.Background(), task)
+	if err != nil {
+		t.Fatalf("expected no error: %v", err)
+	}
+
+	// Should have made 1 bulk call (covering all 2 records in one batch)
+	if callCount != 1 {
+		t.Fatalf("expected 1 BulkRecordImportFailure call, got %d (would be 2 individual calls without the fix)", callCount)
+	}
+	if len(capturedRecords) != 2 {
+		t.Fatalf("expected 2 records in bulk failure call, got %d", len(capturedRecords))
+	}
 }
 
 func TestProcessImport_PartialDuplicates(t *testing.T) {
 	h := newWorkerTestHarness(t)
+
+	var capturedSuccess, capturedFailed int
+	h.repo.updateImportJobStatusFn = func(ctx context.Context, id, status string, processed, successCount, failedCount int) error {
+		capturedSuccess = successCount
+		capturedFailed = failedCount
+		return nil
+	}
 
 	h.repo.bulkInsertInvitationsFn = func(
 		ctx context.Context, records []ImportStaffRecord,
@@ -304,6 +373,15 @@ func TestProcessImport_PartialDuplicates(t *testing.T) {
 			t.Fatalf("expected status 'completed_with_errors', got %q", statusField.String)
 		}
 	}
+
+	// overallSuccess counts Stage 2 (Stytch invites) only — Stage 1 inserts are
+	// intermediate state. Alice was invited (1 success), Bob was a duplicate (1 fail).
+	if capturedSuccess != 1 {
+		t.Fatalf("expected overallSuccess=1 (alice Stage 2 invite), got %d", capturedSuccess)
+	}
+	if capturedFailed != 1 {
+		t.Fatalf("expected overallFailed=1 (bob duplicate), got %d", capturedFailed)
+	}
 }
 
 // ============================================================================
@@ -312,6 +390,13 @@ func TestProcessImport_PartialDuplicates(t *testing.T) {
 
 func TestProcessImport_StytchInviteFails(t *testing.T) {
 	h := newWorkerTestHarness(t)
+
+	var capturedSuccess, capturedFailed int
+	h.repo.updateImportJobStatusFn = func(ctx context.Context, id, status string, processed, successCount, failedCount int) error {
+		capturedSuccess = successCount
+		capturedFailed = failedCount
+		return nil
+	}
 
 	h.repo.bulkInsertInvitationsFn = func(
 		ctx context.Context, records []ImportStaffRecord,
@@ -364,6 +449,15 @@ func TestProcessImport_StytchInviteFails(t *testing.T) {
 		if statusField != nil && statusField.String != "completed_with_errors" {
 			t.Fatalf("expected status 'completed_with_errors', got %q", statusField.String)
 		}
+	}
+
+	// overallSuccess counts Stage 2 (Stytch invites) only. Alice was invited (1 success),
+	// Bob failed the Stytch invite (1 fail). Stage 1 inserts are intermediate state.
+	if capturedSuccess != 1 {
+		t.Fatalf("expected overallSuccess=1 (alice Stage 2 invite), got %d", capturedSuccess)
+	}
+	if capturedFailed != 1 {
+		t.Fatalf("expected overallFailed=1 (bob Stytch failure), got %d", capturedFailed)
 	}
 }
 

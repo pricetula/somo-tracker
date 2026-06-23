@@ -27,6 +27,7 @@ type MockRepository struct {
 	setImportJobCompletedFn       func(ctx context.Context, id string, hasErrors bool) error
 	bulkInsertInvitationsFn       func(ctx context.Context, records []ImportStaffRecord, tenantID, schoolID, role, jobID string, now time.Time, tokenPrefix string) (map[string]string, []FailedInsertion, error)
 	recordImportFailureFn         func(ctx context.Context, jobID, rawPayloadJSON, errMsg string) error
+	bulkRecordImportFailureFn     func(ctx context.Context, jobID string, records []ImportStaffRecord, errMsg string) error
 	getFailedInvitationsByJobFn   func(ctx context.Context, jobID string) ([]FailedInvitation, error)
 	getInvitationStytchMemberIDFn func(ctx context.Context, id string) (string, error)
 	setInvitationStytchMemberIDFn func(ctx context.Context, id, stytchMemberID string) error
@@ -86,6 +87,13 @@ func (m *MockRepository) BulkInsertInvitations(ctx context.Context, records []Im
 func (m *MockRepository) RecordImportFailure(ctx context.Context, jobID, rawPayloadJSON, errMsg string) error {
 	if m.recordImportFailureFn != nil {
 		return m.recordImportFailureFn(ctx, jobID, rawPayloadJSON, errMsg)
+	}
+	return nil
+}
+
+func (m *MockRepository) BulkRecordImportFailure(ctx context.Context, jobID string, records []ImportStaffRecord, errMsg string) error {
+	if m.bulkRecordImportFailureFn != nil {
+		return m.bulkRecordImportFailureFn(ctx, jobID, records, errMsg)
 	}
 	return nil
 }

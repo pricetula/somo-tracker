@@ -144,11 +144,9 @@ func (w *Worker) ProcessImport(ctx context.Context, t *asynq.Task) error {
 
 		if stage1Err != nil {
 			logger.Error("stage 1 batch failed", zap.Error(stage1Err))
-			for _, rec := range batch {
-				raw, _ := json.Marshal(rec)
-				if err := w.repo.RecordImportFailure(ctx, payload.ImportJobID, string(raw), stage1Err.Error()); err != nil {
-					logger.Error("failed to record import failure", zap.Error(err))
-				}
+			// Bulk-insert all failures in a single query instead of N round-trips.
+			if err := w.repo.BulkRecordImportFailure(ctx, payload.ImportJobID, batch, stage1Err.Error()); err != nil {
+				logger.Error("failed to bulk record import failures", zap.Error(err))
 			}
 			overallFailed += len(batch)
 			hasErrors = true
@@ -340,7 +338,6 @@ func (w *Worker) processStage2(
 			}
 
 			mu.Lock()
-			defer mu.Unlock()
 
 			if lastErr == nil && memberID != "" {
 				// Success — store Stytch member ID
@@ -367,9 +364,16 @@ func (w *Worker) processStage2(
 				*hasErrors = true
 			}
 
-			// Publish progress update (non-fatal if Redis is down)
+			// Snapshot counters under lock, then release before Redis I/O.
+			snapProcessed := *successCount + *failedCount
+			snapSuccess := *successCount
+			snapFailed := *failedCount
+			mu.Unlock()
+
+			// Publish progress update outside the critical section (non-fatal if Redis is down).
+			// Holding the mutex during Redis PUBLISH would serialise all Stage 2 goroutines.
 			w.publishProgress(ctx, payload.ImportJobID, "processing",
-				*successCount+*failedCount, *successCount, *failedCount, len(payload.Records))
+				snapProcessed, snapSuccess, snapFailed, len(payload.Records))
 		}(rec)
 	}
 

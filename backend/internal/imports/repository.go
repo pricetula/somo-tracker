@@ -2,6 +2,7 @@ package imports
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -389,6 +390,55 @@ func (r *PgRepository) RecordImportFailure(ctx context.Context, jobID, rawPayloa
 	_, err := r.pool.Exec(ctx, query, jobID, rawPayloadJSON, errMsg)
 	if err != nil {
 		return fmt.Errorf("imports.Repository.RecordImportFailure: %w", err)
+	}
+	return nil
+}
+
+// BulkRecordImportFailure inserts multiple failure records in a single query.
+// This replaces the previous per-record loop, reducing N round-trips to 1.
+func (r *PgRepository) BulkRecordImportFailure(
+	ctx context.Context, jobID string,
+	records []ImportStaffRecord, errMsg string,
+) error {
+	if len(records) == 0 {
+		return nil
+	}
+
+	// Build CTE VALUES clause: 2 params per row (raw_payload JSONB, error_message)
+	valueStrings := make([]string, 0, len(records))
+	args := make([]interface{}, 0, len(records)*2+1)
+	argIdx := 1
+
+	// First param is the shared import_job_id
+	args = append(args, jobID)
+	argIdx++
+
+	for _, rec := range records {
+		raw, err := json.Marshal(rec)
+		if err != nil {
+			// Marshal should never fail for our struct, but if it does,
+			// use a fallback so we don't lose the failure tracking.
+			raw = []byte(`{"marshal_error": "` + err.Error() + `"}`)
+		}
+		valueStrings = append(valueStrings,
+			fmt.Sprintf("($%d::jsonb, $%d)", argIdx, argIdx+1),
+		)
+		args = append(args, string(raw), errMsg)
+		argIdx += 2
+	}
+
+	query := `
+		WITH input_rows (raw_payload, error_message) AS (
+			VALUES ` + strings.Join(valueStrings, ",\n			       ") + `
+		)
+		INSERT INTO import_job_failures (import_job_id, raw_payload, error_message)
+		SELECT $1, raw_payload, error_message
+		FROM input_rows
+	`
+
+	_, err := r.pool.Exec(ctx, query, args...)
+	if err != nil {
+		return fmt.Errorf("imports.Repository.BulkRecordImportFailure: %w", err)
 	}
 	return nil
 }

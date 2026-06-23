@@ -5,7 +5,7 @@
  *   - mode='dialog': renders just the form body (caller provides the modal shell)
  *   - mode='page': renders the full form with inline success state
  *
- * Receives `role` prop from host page (e.g. /nurses/add → role="NURSE").
+ * Receives `role` prop from host page (e.g. /nurses/invitations → role="NURSE").
  * Resolves tenant_id and user_id internally from the session.
  *
  * The component never calls router.back() or router.push() — that is the

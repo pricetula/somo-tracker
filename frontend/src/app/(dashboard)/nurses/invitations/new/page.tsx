@@ -5,7 +5,7 @@
  * renders the BulkStaffImport component in mode='page' with breadcrumb
  * back-link and optional success banner.
  *
- * Mirrors the pattern established by /nurses/add/page.tsx.
+ * Mirrors the pattern established by /nurses/invitations/page.tsx.
  */
 
 "use client";

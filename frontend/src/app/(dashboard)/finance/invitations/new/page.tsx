@@ -5,14 +5,12 @@
  * renders the BulkStaffImport component in mode='page' with breadcrumb
  * back-link and optional success banner.
  *
- * Mirrors the pattern established by /finance/add/page.tsx.
+ * Mirrors the pattern established by /finance/invitations/page.tsx.
  */
 
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
 
 import { BulkStaffImport } from "@/features/staff-import";
 import { Badge } from "@/components/ui/badge";
@@ -22,17 +20,6 @@ export default function StandaloneFinanceBulkInvite() {
 
     return (
         <div className="mx-auto flex w-full max-w-4xl flex-col px-6 py-6">
-            {/* Breadcrumb back-link */}
-            <div className="mb-4">
-                <Link
-                    href="/finance/invitations"
-                    className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm transition-colors"
-                >
-                    <ChevronLeft className="size-4" />
-                    Back to Invitations
-                </Link>
-            </div>
-
             {/* Success banner */}
             {importComplete && (
                 <div className="mb-4">

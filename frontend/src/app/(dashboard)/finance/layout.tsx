@@ -1,7 +1,7 @@
 /**
  * Finance layout — renders the main content alongside the @modal parallel slot.
  *
- * The @modal slot intercepts /finance/add when navigated from within /finance,
+ * The @modal slot intercepts /finance/invitations when navigated from within /finance,
  * rendering the import form as a dialog overlay while keeping the listing
  * page mounted underneath.
  */

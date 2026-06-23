@@ -33,7 +33,7 @@ export default function NursesPage() {
     } = useStaffInvitations("NURSE");
 
     const roleLabel = "Nurses";
-    const addHref = "/nurses/add";
+    const addHref = "/nurses/invitations";
 
     return (
         <div className="flex flex-1 flex-col">

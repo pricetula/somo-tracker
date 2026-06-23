@@ -150,6 +150,21 @@ func createTask(payload *ProcessImportPayload) *asynq.Task {
 	return asynq.NewTask(TypeProcessImport, data)
 }
 
+// stage2RecordsFromPayload builds a []Stage2Record from payload records,
+// assuming all were inserted and each invitation ID is "inv_<email>".
+func stage2RecordsFromPayload(payload *ProcessImportPayload) []Stage2Record {
+	records := make([]Stage2Record, 0, len(payload.Records))
+	for _, rec := range payload.Records {
+		records = append(records, Stage2Record{
+			InvitationID: "inv_" + rec.Email,
+			Email:        rec.Email,
+			FirstName:    rec.FirstName,
+			LastName:     rec.LastName,
+		})
+	}
+	return records
+}
+
 // ============================================================================
 // Tests: ProcessImport — Happy Path
 // ============================================================================
@@ -173,6 +188,10 @@ func TestProcessImport_AllSuccess(t *testing.T) {
 	}
 
 	payload := validPayload()
+	h.repo.getPendingStage2RecordsFn = func(ctx context.Context, jobID string) ([]Stage2Record, error) {
+		return stage2RecordsFromPayload(payload), nil
+	}
+
 	task := createTask(payload)
 
 	err := h.worker.ProcessImport(context.Background(), task)
@@ -208,6 +227,11 @@ func TestProcessImport_BulkInsertFails(t *testing.T) {
 
 	h.repo.recordImportFailureFn = func(ctx context.Context, jobID, rawPayloadJSON, errMsg string) error {
 		return nil
+	}
+
+	// No records were inserted, so GetPendingStage2Records returns nil
+	h.repo.getPendingStage2RecordsFn = func(ctx context.Context, jobID string) ([]Stage2Record, error) {
+		return nil, nil
 	}
 
 	payload := validPayload()
@@ -249,6 +273,13 @@ func TestProcessImport_PartialDuplicates(t *testing.T) {
 
 	h.repo.getInvitationStytchMemberIDFn = func(ctx context.Context, id string) (string, error) {
 		return "", nil
+	}
+
+	// Only alice's record was inserted; bob was a duplicate and skipped
+	h.repo.getPendingStage2RecordsFn = func(ctx context.Context, jobID string) ([]Stage2Record, error) {
+		return []Stage2Record{
+			{InvitationID: "inv_alice@school.com", Email: "alice@school.com", FirstName: "Alice", LastName: "Smith"},
+		}, nil
 	}
 
 	payload := validPayload()
@@ -309,6 +340,10 @@ func TestProcessImport_StytchInviteFails(t *testing.T) {
 	}
 
 	payload := validPayload()
+	h.repo.getPendingStage2RecordsFn = func(ctx context.Context, jobID string) ([]Stage2Record, error) {
+		return stage2RecordsFromPayload(payload), nil
+	}
+
 	task := createTask(payload)
 
 	err := h.worker.ProcessImport(context.Background(), task)
@@ -363,6 +398,10 @@ func TestProcessImport_StytchTransientThenSuccess(t *testing.T) {
 	payload.Records = []ImportStaffRecord{
 		{Email: "retry@school.com", FirstName: "Retry", LastName: "User"},
 	}
+	h.repo.getPendingStage2RecordsFn = func(ctx context.Context, jobID string) ([]Stage2Record, error) {
+		return stage2RecordsFromPayload(payload), nil
+	}
+
 	task := createTask(payload)
 
 	err := h.worker.ProcessImport(context.Background(), task)
@@ -394,7 +433,14 @@ func TestProcessImport_AlreadyInvited(t *testing.T) {
 		return inserted, nil, nil
 	}
 
-	// All records already have a Stytch member ID
+	// All records already have a Stytch member ID, so GetPendingStage2Records
+	// returns nothing — the DB query filters them out.
+	h.repo.getPendingStage2RecordsFn = func(ctx context.Context, jobID string) ([]Stage2Record, error) {
+		return nil, nil
+	}
+
+	// This would never be called since there are no pending records, but
+	// set it for safety in case the logic changes.
 	h.repo.getInvitationStytchMemberIDFn = func(ctx context.Context, id string) (string, error) {
 		return "existing_member_id", nil
 	}
@@ -482,6 +528,19 @@ func TestProcessImport_LargeBatch(t *testing.T) {
 
 	payload := validPayload()
 	payload.Records = records
+	h.repo.getPendingStage2RecordsFn = func(ctx context.Context, jobID string) ([]Stage2Record, error) {
+		recs := make([]Stage2Record, len(records))
+		for i, rec := range records {
+			recs[i] = Stage2Record{
+				InvitationID: "inv_" + rec.Email,
+				Email:        rec.Email,
+				FirstName:    rec.FirstName,
+				LastName:     rec.LastName,
+			}
+		}
+		return recs, nil
+	}
+
 	task := createTask(payload)
 
 	err := h.worker.ProcessImport(context.Background(), task)
@@ -491,6 +550,266 @@ func TestProcessImport_LargeBatch(t *testing.T) {
 
 	if h.idp.inviteMemberByEmailCalls != numRecords {
 		t.Fatalf("expected %d Stytch invite calls, got %d", numRecords, h.idp.inviteMemberByEmailCalls)
+	}
+}
+
+// ============================================================================
+// Tests: HandleError — Dead-letter callback
+// ============================================================================
+
+func TestHandleError_UpdatesJobToFailed(t *testing.T) {
+	h := newWorkerTestHarness(t)
+
+	jobID := ""
+	h.repo.setImportJobFailedFn = func(ctx context.Context, id string) error {
+		jobID = id
+		return nil
+	}
+
+	payload := validPayload()
+	task := createTask(payload)
+
+	err := errors.New("max retries exceeded: postgres connection timeout")
+	h.worker.HandleError(context.Background(), task, err)
+
+	if jobID != "job_001" {
+		t.Fatalf("expected SetImportJobFailed to be called with 'job_001', got %q", jobID)
+	}
+}
+
+func TestHandleError_LogsOnUnmarshalFailure(t *testing.T) {
+	h := newWorkerTestHarness(t)
+
+	task := asynq.NewTask(TypeProcessImport, []byte("{invalid json}"))
+	err := errors.New("max retries exceeded")
+
+	h.worker.HandleError(context.Background(), task, err)
+
+	// Should not panic — failure to unmarshal is logged and the handler returns
+	errorLogs := h.logs.FilterLevelExact(zapcore.ErrorLevel).FilterMessage("asynq error handler: failed to unmarshal payload")
+	if errorLogs.Len() != 1 {
+		t.Fatalf("expected 1 error log for unmarshal failure, got %d", errorLogs.Len())
+	}
+}
+
+func TestHandleError_RepoFailureLogged(t *testing.T) {
+	h := newWorkerTestHarness(t)
+
+	h.repo.setImportJobFailedFn = func(ctx context.Context, id string) error {
+		return errors.New("postgres connection failed")
+	}
+
+	payload := validPayload()
+	task := createTask(payload)
+	err := errors.New("max retries exceeded")
+
+	h.worker.HandleError(context.Background(), task, err)
+
+	// Should log the repo failure
+	errorLogs := h.logs.FilterLevelExact(zapcore.ErrorLevel).FilterMessage("asynq error handler: failed to set job status to failed")
+	if errorLogs.Len() != 1 {
+		t.Fatalf("expected 1 error log for repo failure, got %d", errorLogs.Len())
+	}
+}
+
+// ============================================================================
+// Tests: Stage 2 resume on retry (DB-backed)
+// ============================================================================
+
+func TestProcessImport_Stage2ResumeSkipsAlreadyInvited(t *testing.T) {
+	h := newWorkerTestHarness(t)
+
+	h.repo.bulkInsertInvitationsFn = func(
+		ctx context.Context, records []ImportStaffRecord,
+		tenantID, schoolID, role, jobID string, now time.Time, tokenPrefix string,
+	) (map[string]string, []FailedInsertion, error) {
+		inserted := make(map[string]string)
+		for _, rec := range records {
+			inserted[rec.TempID] = "inv_" + rec.Email
+		}
+		return inserted, nil, nil
+	}
+
+	// GetPendingStage2Records simulates a retry — alice was already invited
+	// in a previous run so only bob is returned.
+	h.repo.getPendingStage2RecordsFn = func(ctx context.Context, jobID string) ([]Stage2Record, error) {
+		return []Stage2Record{
+			{InvitationID: "inv_bob@school.com", Email: "bob@school.com", FirstName: "Bob", LastName: "Jones"},
+		}, nil
+	}
+
+	h.repo.getInvitationStytchMemberIDFn = func(ctx context.Context, id string) (string, error) {
+		return "", nil
+	}
+
+	payload := validPayload()
+	task := createTask(payload)
+
+	err := h.worker.ProcessImport(context.Background(), task)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Only bob should be invited on the retry
+	if h.idp.inviteMemberByEmailCalls != 1 {
+		t.Fatalf("expected 1 Stytch invite call (bob only), got %d", h.idp.inviteMemberByEmailCalls)
+	}
+}
+
+func TestProcessImport_Stage2ResumeAfterPartialCompletion(t *testing.T) {
+	h := newWorkerTestHarness(t)
+
+	h.repo.bulkInsertInvitationsFn = func(
+		ctx context.Context, records []ImportStaffRecord,
+		tenantID, schoolID, role, jobID string, now time.Time, tokenPrefix string,
+	) (map[string]string, []FailedInsertion, error) {
+		inserted := make(map[string]string)
+		for _, rec := range records {
+			inserted[rec.TempID] = "inv_" + rec.Email
+		}
+		return inserted, nil, nil
+	}
+
+	// Simulate retry where bob failed the Stytch invite on the first run
+	// (status = 'invite_failed') — the DB query excludes those. Only
+	// alice and charlie remain pending.
+	h.repo.getPendingStage2RecordsFn = func(ctx context.Context, jobID string) ([]Stage2Record, error) {
+		return []Stage2Record{
+			{InvitationID: "inv_alice@school.com", Email: "alice@school.com", FirstName: "Alice", LastName: "Smith"},
+			{InvitationID: "inv_charlie@school.com", Email: "charlie@school.com", FirstName: "Charlie", LastName: "Brown"},
+		}, nil
+	}
+
+	h.repo.getInvitationStytchMemberIDFn = func(ctx context.Context, id string) (string, error) {
+		return "", nil
+	}
+
+	payload := validPayload()
+	payload.Records = []ImportStaffRecord{
+		{TempID: "tmp_alice", Email: "alice@school.com", FirstName: "Alice", LastName: "Smith"},
+		{TempID: "tmp_bob", Email: "bob@school.com", FirstName: "Bob", LastName: "Jones"},
+		{TempID: "tmp_charlie", Email: "charlie@school.com", FirstName: "Charlie", LastName: "Brown"},
+	}
+	task := createTask(payload)
+
+	err := h.worker.ProcessImport(context.Background(), task)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Only alice and charlie should be invited on the retry
+	if h.idp.inviteMemberByEmailCalls != 2 {
+		t.Fatalf("expected 2 Stytch invite calls (alice + charlie), got %d", h.idp.inviteMemberByEmailCalls)
+	}
+}
+
+func TestProcessImport_Stage2NoPendingRecords(t *testing.T) {
+	h := newWorkerTestHarness(t)
+
+	h.repo.bulkInsertInvitationsFn = func(
+		ctx context.Context, records []ImportStaffRecord,
+		tenantID, schoolID, role, jobID string, now time.Time, tokenPrefix string,
+	) (map[string]string, []FailedInsertion, error) {
+		inserted := make(map[string]string)
+		for _, rec := range records {
+			inserted[rec.TempID] = "inv_" + rec.Email
+		}
+		return inserted, nil, nil
+	}
+
+	// All records are already fully processed (have stytch_member_id or
+	// were invite_failed), so the retry has nothing left to do.
+	h.repo.getPendingStage2RecordsFn = func(ctx context.Context, jobID string) ([]Stage2Record, error) {
+		return nil, nil
+	}
+
+	payload := validPayload()
+	task := createTask(payload)
+
+	err := h.worker.ProcessImport(context.Background(), task)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if h.idp.inviteMemberByEmailCalls != 0 {
+		t.Fatalf("expected 0 Stytch invite calls (no pending records), got %d", h.idp.inviteMemberByEmailCalls)
+	}
+}
+
+// ============================================================================
+// Tests: ProcessImport — Context cancellation (task timeout)
+// ============================================================================
+
+func TestProcessImport_ContextCancelled(t *testing.T) {
+	h := newWorkerTestHarness(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // immediately cancelled
+
+	h.repo.bulkInsertInvitationsFn = func(
+		ctx context.Context, records []ImportStaffRecord,
+		tenantID, schoolID, role, jobID string, now time.Time, tokenPrefix string,
+	) (map[string]string, []FailedInsertion, error) {
+		return nil, nil, ctx.Err()
+	}
+
+	payload := validPayload()
+	task := createTask(payload)
+
+	err := h.worker.ProcessImport(ctx, task)
+	if err == nil {
+		t.Fatal("expected error for cancelled context, got nil")
+	}
+}
+
+// ============================================================================
+// Tests: Redis publish failure is non-fatal
+// ============================================================================
+
+func TestProcessImport_RedisPublishFails_DoesNotBlock(t *testing.T) {
+	h := newWorkerTestHarness(t)
+
+	// Simulate Redis being down for publishes
+	h.rdb.publishFn = func(ctx context.Context, channel string, message interface{}) *redis.IntCmd {
+		return redis.NewIntResult(0, errors.New("redis is down"))
+	}
+
+	h.repo.bulkInsertInvitationsFn = func(
+		ctx context.Context, records []ImportStaffRecord,
+		tenantID, schoolID, role, jobID string, now time.Time, tokenPrefix string,
+	) (map[string]string, []FailedInsertion, error) {
+		inserted := make(map[string]string)
+		for _, rec := range records {
+			inserted[rec.TempID] = "inv_" + rec.Email
+		}
+		return inserted, nil, nil
+	}
+
+	h.repo.getInvitationStytchMemberIDFn = func(ctx context.Context, id string) (string, error) {
+		return "", nil
+	}
+
+	payload := validPayload()
+	h.repo.getPendingStage2RecordsFn = func(ctx context.Context, jobID string) ([]Stage2Record, error) {
+		return stage2RecordsFromPayload(payload), nil
+	}
+
+	task := createTask(payload)
+
+	err := h.worker.ProcessImport(context.Background(), task)
+	if err != nil {
+		t.Fatalf("expected no error even when Redis publish fails: %v", err)
+	}
+
+	// Stytch invites should still be sent
+	if h.idp.inviteMemberByEmailCalls != 2 {
+		t.Fatalf("expected 2 Stytch invite calls despite Redis failure, got %d", h.idp.inviteMemberByEmailCalls)
+	}
+
+	// Should log the Redis failure as a warning
+	warnLogs := h.logs.FilterLevelExact(zapcore.WarnLevel).FilterMessage("redis publish failed (non-fatal)")
+	if warnLogs.Len() < 1 {
+		t.Fatal("expected at least 1 warning log for Redis publish failure")
 	}
 }
 

@@ -33,10 +33,12 @@ var AsynqModule = fx.Module("asynq",
 
 // AsynqServerModule provides and starts the Asynq background worker server.
 // This is invoked in the main function to keep the worker running.
+// The Worker (provided by imports.Module) is injected so its ErrorHandler
+// can be registered for dead-letter handling.
 var AsynqServerModule = fx.Module("asynq_server",
 	fx.Provide(
-		func(pools *database.Pools, cfg config.Config) *asynq.Server {
-			return NewAsynqServer(pools.Redis, cfg)
+		func(pools *database.Pools, cfg config.Config, worker *Worker) *asynq.Server {
+			return NewAsynqServer(pools.Redis, cfg, asynq.ErrorHandlerFunc(worker.HandleError))
 		},
 	),
 )

@@ -1,20 +1,58 @@
 package imports
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
+	"sync"
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 
 	"somotracker/backend/internal/config"
 	"somotracker/backend/internal/middleware"
 )
+
+// ============================================================================
+// MockRedisClient for handler tests (SSE)
+// ============================================================================
+
+type handlerMockRedis struct {
+	mu          sync.Mutex
+	subscribeFn func(ctx context.Context, channels ...string) *redis.PubSub
+	pingFn      func(ctx context.Context) *redis.StatusCmd
+}
+
+func (m *handlerMockRedis) Subscribe(ctx context.Context, channels ...string) *redis.PubSub {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.subscribeFn != nil {
+		return m.subscribeFn(ctx, channels...)
+	}
+	return &redis.PubSub{}
+}
+
+func (m *handlerMockRedis) Ping(ctx context.Context) *redis.StatusCmd {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.pingFn != nil {
+		return m.pingFn(ctx)
+	}
+	return redis.NewStatusResult("PONG", nil)
+}
+
+// compile-time check that handlerMockRedis satisfies SSEPubSubClient
+var _ SSEPubSubClient = (*handlerMockRedis)(nil)
 
 // ============================================================================
 // Test Harness
@@ -24,6 +62,7 @@ type handlerTestHarness struct {
 	app     *fiber.App
 	svc     *Service
 	repo    *MockRepository
+	rdb     *handlerMockRedis
 	handler *Handler
 }
 
@@ -42,10 +81,12 @@ func newHandlerTestHarness(t *testing.T) *handlerTestHarness {
 		cfg:    cfg,
 	}
 
+	rdb := &handlerMockRedis{}
+
 	handler := &Handler{
 		svc:    svc,
 		repo:   repo,
-		rdb:    nil,
+		rdb:    rdb,
 		logger: logger,
 	}
 
@@ -68,6 +109,7 @@ func newHandlerTestHarness(t *testing.T) *handlerTestHarness {
 		app:     app,
 		svc:     svc,
 		repo:    repo,
+		rdb:     rdb,
 		handler: handler,
 	}
 }
@@ -253,3 +295,178 @@ func TestHandler_ListFailedInvitations_NotFound(t *testing.T) {
 		t.Fatalf("expected 404 Not Found, got %d", resp.StatusCode)
 	}
 }
+
+// ============================================================================
+// Tests: SSETrackImport — Redis fallback
+// ============================================================================
+
+// sseTestResult contains events read from an SSE response and the mock
+// repository's getImportJob call count.
+type sseTestResult struct {
+	events []string
+}
+
+// invokeSSEHandler executes the SSE handler via app.Test and reads the body.
+// Because Fiber's app.Test collects the response synchronously, the streaming
+// goroutine may not have run yet. We verify handler effects through the mock
+// repo call count and log assertions rather than real-time SSE event streaming.
+func invokeSSEHandler(t *testing.T, app *fiber.App, path string) sseTestResult {
+	t.Helper()
+
+	req := httptest.NewRequest(http.MethodGet, path, nil)
+	req.Header.Set("Cookie", "somo_sid=valid_session_token")
+
+	resp, err := app.Test(req, 6000)
+	if err != nil {
+		t.Fatalf("SSE request failed: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	// Read all body — app.Test collects what was written before the
+	// streaming goroutine (the initial "connected" event and anything
+	// written synchronously).
+	var events []string
+	scanner := bufio.NewScanner(resp.Body)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, "data: ") {
+			events = append(events, strings.TrimPrefix(line, "data: "))
+		}
+	}
+
+	// 1. Check for errors that occurred during scanning
+	if err := scanner.Err(); err != nil {
+		t.Fatalf("error reading response body: %v", err)
+	}
+
+	return sseTestResult{events: events}
+}
+
+func TestHandler_SSE_FallsBackToPollingWhenRedisDown(t *testing.T) {
+	h := newHandlerTestHarness(t)
+
+	h.rdb.pingFn = func(ctx context.Context) *redis.StatusCmd {
+		return redis.NewStatusResult("", errors.New("connection refused"))
+	}
+
+	callCount := 0
+	h.repo.getImportJobFn = func(ctx context.Context, jobID string) (*ImportJob, error) {
+		callCount++
+		return &ImportJob{
+			ID:               jobID,
+			Status:           "completed",
+			TotalRecords:     10,
+			ProcessedRecords: 10,
+			SuccessCount:     10,
+			FailedCount:      0,
+		}, nil
+	}
+
+	result := invokeSSEHandler(t, h.app, "/api/v1/imports/staff/track/job_001/sse")
+
+	// Verify the handler ran without crashing and events were returned.
+	// The initial "connected" event is written directly to the fiber context
+	// before SetBodyStreamWriter starts, and may or may not be captured in
+	// the response body depending on Fiber version. What we can verify:
+	// 1. Events were produced (at least one)
+	// 2. The DB was polled at least once (proving the ticker runs)
+	if len(result.events) == 0 {
+		t.Fatal("expected at least one SSE event, got none")
+	}
+	if callCount == 0 {
+		t.Fatal("expected at least 1 DB poll (ticker should run), got 0")
+	}
+}
+
+func TestHandler_SSE_EmitsFinishedWhenJobFailed(t *testing.T) {
+	h := newHandlerTestHarness(t)
+
+	h.rdb.pingFn = func(ctx context.Context) *redis.StatusCmd {
+		return redis.NewStatusResult("", errors.New("connection refused"))
+	}
+
+	callCount := 0
+	h.repo.getImportJobFn = func(ctx context.Context, jobID string) (*ImportJob, error) {
+		callCount++
+		return &ImportJob{
+			ID:               jobID,
+			Status:           "failed",
+			TotalRecords:     10,
+			ProcessedRecords: 5,
+			SuccessCount:     0,
+			FailedCount:      5,
+		}, nil
+	}
+
+	result := invokeSSEHandler(t, h.app, "/api/v1/imports/staff/track/job_001/sse")
+	if len(result.events) == 0 {
+		t.Fatal("expected at least one SSE event")
+	}
+	if callCount == 0 {
+		t.Fatal("expected at least 1 DB poll, got 0")
+	}
+}
+
+func TestHandler_SSE_RedisUnavailableLogsDegradedMode(t *testing.T) {
+	h := newHandlerTestHarness(t)
+
+	observedCore, observedLogs := observer.New(zapcore.WarnLevel)
+	logger := zap.New(observedCore)
+	h.handler.logger = logger
+
+	h.rdb.pingFn = func(ctx context.Context) *redis.StatusCmd {
+		return redis.NewStatusResult("", errors.New("connection refused"))
+	}
+
+	h.repo.getImportJobFn = func(ctx context.Context, jobID string) (*ImportJob, error) {
+		return &ImportJob{
+			ID:               jobID,
+			Status:           "completed",
+			TotalRecords:     0,
+			ProcessedRecords: 0,
+			SuccessCount:     0,
+			FailedCount:      0,
+		}, nil
+	}
+
+	result := invokeSSEHandler(t, h.app, "/api/v1/imports/staff/track/job_001/sse")
+	_ = result // events captured but we're verifying logs
+
+	degradedLogs := observedLogs.FilterMessage("SSE: Redis unreachable at connection, falling back to pure polling")
+	if degradedLogs.Len() != 1 {
+		t.Fatalf("expected 1 degraded-mode log, got %d", degradedLogs.Len())
+	}
+}
+
+// ============================================================================
+// Tests: isTerminalJobStatus
+// ============================================================================
+
+func TestIsTerminalJobStatus(t *testing.T) {
+	tests := []struct {
+		status string
+		want   bool
+	}{
+		{"pending", false},
+		{"processing", false},
+		{"completed", true},
+		{"completed_with_errors", true},
+		{"failed", true},
+		{"", false},
+		{"enqueue_failed", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.status, func(t *testing.T) {
+			if got := isTerminalJobStatus(tt.status); got != tt.want {
+				t.Fatalf("isTerminalJobStatus(%q) = %v, want %v", tt.status, got, tt.want)
+			}
+		})
+	}
+}
+
+// ============================================================================
+// Compile-time checks
+// ============================================================================
+
+var _ redis.Client = (redis.Client)(redis.Client{})

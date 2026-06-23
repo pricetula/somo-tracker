@@ -127,6 +127,7 @@ func (s *Service) StartImport(
 	task := asynq.NewTask(TypeProcessImport, payloadBytes,
 		asynq.Queue("critical"),
 		asynq.MaxRetry(3),
+		asynq.Timeout(TaskTimeout),
 	)
 
 	info, err := s.client.Enqueue(task)

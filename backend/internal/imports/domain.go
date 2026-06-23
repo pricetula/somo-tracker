@@ -126,6 +126,12 @@ type ProgressPublisher interface {
 	Publish(ctx context.Context, channel string, message interface{}) *redis.IntCmd
 }
 
+// SSEPubSubClient abstracts the Redis methods needed by the SSE handler.
+type SSEPubSubClient interface {
+	Subscribe(ctx context.Context, channels ...string) *redis.PubSub
+	Ping(ctx context.Context) *redis.StatusCmd
+}
+
 // Repository defines the contract for import job persistence.
 type Repository interface {
 	CreateImportJob(ctx context.Context, job *ImportJob) error
@@ -133,6 +139,7 @@ type Repository interface {
 	UpdateImportJobStatus(ctx context.Context, id, status string, processed, successCount, failedCount int) error
 	SetImportJobStarted(ctx context.Context, id string) error
 	SetImportJobCompleted(ctx context.Context, id string, hasErrors bool) error
+	SetImportJobFailed(ctx context.Context, id string) error
 	BulkInsertInvitations(ctx context.Context, records []ImportStaffRecord, tenantID, schoolID, role, jobID string, now time.Time, tokenPrefix string) (map[string]string, []FailedInsertion, error) // returns map[temp_id]invitation_id
 	RecordImportFailure(ctx context.Context, jobID, rawPayloadJSON, errMsg string) error
 	GetFailedInvitationsByJob(ctx context.Context, jobID string) ([]FailedInvitation, error)
@@ -143,6 +150,9 @@ type Repository interface {
 	BulkUpdateInvitations(ctx context.Context, records []ImportStaffRecord, role, jobID string, now time.Time) (int, error)
 	GetActiveSchoolID(ctx context.Context, tenantID, userID string) (string, error)
 	GetTenantStytchOrgID(ctx context.Context, tenantID string) (string, error)
+	// GetPendingStage2Records returns invitations for a job that haven't yet been
+	// sent to Stytch (no stytch_member_id). Used to resume Stage 2 on task retry.
+	GetPendingStage2Records(ctx context.Context, jobID string) ([]Stage2Record, error)
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────
@@ -153,6 +163,10 @@ const (
 	StytchConcurrency   = 8
 	StytchMaxRetries    = 3
 	InvitationTTL       = 7 * 24 * time.Hour
+	// TaskTimeout is the maximum wall-clock time for a single Asynq task
+	// invocation. 45 minutes accounts for 5000 records at 8 concurrent
+	// Stytch workers with occasional retries.
+	TaskTimeout = 45 * time.Minute
 )
 
 // ─── Error types ─────────────────────────────────────────────────────────

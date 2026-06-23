@@ -83,29 +83,35 @@ func (w *Worker) ProcessImport(ctx context.Context, t *asynq.Task) error {
 		return fmt.Errorf("set started: %w", err)
 	}
 
-	// Publish initial progress
+	// Publish initial progress (non-fatal if Redis is down)
 	w.publishProgress(ctx, payload.ImportJobID, "processing", 0, 0, 0, len(payload.Records))
 
-	stage2Input := make([]Stage2Record, 0, len(payload.Records))
 	overallSuccess := 0
 	overallFailed := 0
 	overallProcessed := 0
 	hasErrors := false
 
-	// Process in micro-batches
+	// STAGE 1: Bulk DB ingestion (idempotent — ON CONFLICT DO NOTHING)
 	for i := 0; i < len(payload.Records); i += BatchSize {
+		// Check for task cancellation (e.g. Asynq timeout)
+		select {
+		case <-ctx.Done():
+			logger.Warn("stage 1 cancelled", zap.Error(ctx.Err()))
+			return ctx.Err()
+		default:
+		}
+
 		end := i + BatchSize
 		if end > len(payload.Records) {
 			end = len(payload.Records)
 		}
 		batch := payload.Records[i:end]
 
-		logger.Info("processing batch",
+		logger.Info("processing stage 1 batch",
 			zap.Int("batch_start", i),
 			zap.Int("batch_end", end),
 		)
 
-		// STAGE 1: Bulk DB ingestion
 		now := time.Now().UTC()
 
 		var inserted map[string]string // temp_id -> invitation_id
@@ -119,7 +125,6 @@ func (w *Worker) ProcessImport(ctx context.Context, t *asynq.Task) error {
 				ctx, batch, payload.Role, payload.ImportJobID, now,
 			)
 			if stage1Err == nil {
-				// Build inserted map from batch; temp_id here IS the invitation DB ID
 				inserted = make(map[string]string, len(batch))
 				for _, rec := range batch {
 					inserted[rec.TempID] = rec.TempID
@@ -139,7 +144,6 @@ func (w *Worker) ProcessImport(ctx context.Context, t *asynq.Task) error {
 
 		if stage1Err != nil {
 			logger.Error("stage 1 batch failed", zap.Error(stage1Err))
-			// Record individual failures for the batch
 			for _, rec := range batch {
 				raw, _ := json.Marshal(rec)
 				if err := w.repo.RecordImportFailure(ctx, payload.ImportJobID, string(raw), stage1Err.Error()); err != nil {
@@ -161,27 +165,25 @@ func (w *Worker) ProcessImport(ctx context.Context, t *asynq.Task) error {
 			hasErrors = true
 		}
 
-		// Build Stage 2 input from inserted records
-		// Reconcile by temp_id (client-generated UUID), not by email string-match
-		for _, rec := range batch {
-			if invID, ok := inserted[rec.TempID]; ok {
-				stage2Input = append(stage2Input, Stage2Record{
-					InvitationID: invID,
-					Email:        rec.Email,
-					FirstName:    rec.FirstName,
-					LastName:     rec.LastName,
-				})
-			}
-		}
-
 		overallProcessed += len(batch)
 	}
 
 	logger.Info("stage 1 complete",
-		zap.Int("stage2_candidates", len(stage2Input)),
+		zap.Int("records_attempted", len(payload.Records)),
 	)
 
-	// STAGE 2: Stytch invitation send
+	// STAGE 2: Query DB for unprocessed records (safe on retry — skips
+	// records that already have a stytch_member_id from a previous run).
+	stage2Input, err := w.repo.GetPendingStage2Records(ctx, payload.ImportJobID)
+	if err != nil {
+		logger.Error("failed to query pending stage 2 records", zap.Error(err))
+		return fmt.Errorf("get pending stage 2 records: %w", err)
+	}
+
+	logger.Info("stage 2 candidates",
+		zap.Int("pending_invitations", len(stage2Input)),
+	)
+
 	if len(stage2Input) > 0 {
 		w.processStage2(ctx, &payload, stage2Input, &overallSuccess, &overallFailed, &hasErrors, logger)
 	}
@@ -206,10 +208,35 @@ func (w *Worker) ProcessImport(ctx context.Context, t *asynq.Task) error {
 		zap.Int("failed", overallFailed),
 	)
 
-	// Broadcast finished event
+	// Broadcast finished event (non-fatal if Redis is down)
 	w.publishFinished(ctx, payload.ImportJobID, finalStatus, overallProcessed, overallSuccess, overallFailed, len(payload.Records))
 
 	return nil
+}
+
+// HandleError implements asynq.ErrorHandler. It is called when a task has
+// exhausted all retries (MaxRetry(3)). It updates the import job's status to
+// 'failed' so the job is not left stuck as 'processing'.
+func (w *Worker) HandleError(ctx context.Context, task *asynq.Task, err error) {
+	var payload ProcessImportPayload
+	if err := json.Unmarshal(task.Payload(), &payload); err != nil {
+		w.logger.Error("asynq error handler: failed to unmarshal payload",
+			zap.Error(err),
+		)
+		return
+	}
+
+	w.logger.Warn("asynq task failed after all retries",
+		zap.String("import_job_id", payload.ImportJobID),
+		zap.Error(err),
+	)
+
+	if repoErr := w.repo.SetImportJobFailed(ctx, payload.ImportJobID); repoErr != nil {
+		w.logger.Error("asynq error handler: failed to set job status to failed",
+			zap.String("import_job_id", payload.ImportJobID),
+			zap.Error(repoErr),
+		)
+	}
 }
 
 // Stage2Record holds data needed for the Stytch invitation step.
@@ -221,6 +248,9 @@ type Stage2Record struct {
 }
 
 // processStage2 sends Stytch invite emails with bounded concurrency.
+// Re-entry safe: each record checks stytch_member_id before sending, and
+// skips already-invited records. On task retry, only records without a
+// stytch_member_id are queried by the caller.
 func (w *Worker) processStage2(
 	ctx context.Context,
 	payload *ProcessImportPayload,
@@ -242,7 +272,9 @@ func (w *Worker) processStage2(
 			defer wg.Done()
 			defer func() { <-sem }() // release semaphore
 
-			// Idempotency guard: skip if already has stytch_member_id
+			// Idempotency guard: skip if already has stytch_member_id.
+			// This handles the edge case where a record was invited in a
+			// previous run but stytch_member_id was written just before a crash.
 			existingMemberID, err := w.repo.GetInvitationStytchMemberID(ctx, rec.InvitationID)
 			if err != nil {
 				logger.Error("idempotency check failed", zap.String("invitation_id", rec.InvitationID), zap.Error(err))
@@ -335,7 +367,7 @@ func (w *Worker) processStage2(
 				*hasErrors = true
 			}
 
-			// Publish progress update
+			// Publish progress update (non-fatal if Redis is down)
 			w.publishProgress(ctx, payload.ImportJobID, "processing",
 				*successCount+*failedCount, *successCount, *failedCount, len(payload.Records))
 		}(rec)
@@ -366,6 +398,8 @@ func isPermanentStytchError(err error) bool {
 
 // ─── Progress Publishing ─────────────────────────────────────────────────
 
+// publishProgress publishes a progress event. Failures are logged but never
+// returned — Redis unavailability must not block the import pipeline.
 func (w *Worker) publishProgress(ctx context.Context, jobID, status string, processed, success, failed, total int) {
 	event := ImportProgressEvent{
 		Type:             EventProgress,
@@ -379,6 +413,8 @@ func (w *Worker) publishProgress(ctx context.Context, jobID, status string, proc
 	w.publishEvent(ctx, jobID, event)
 }
 
+// publishFinished publishes a finished event. Same non-fatal semantics as
+// publishProgress.
 func (w *Worker) publishFinished(ctx context.Context, jobID, status string, processed, success, failed, total int) {
 	event := ImportProgressEvent{
 		Type:             EventFinished,
@@ -392,6 +428,10 @@ func (w *Worker) publishFinished(ctx context.Context, jobID, status string, proc
 	w.publishEvent(ctx, jobID, event)
 }
 
+// publishEvent serialises and publishes an event to Redis pub/sub.
+// If Redis is unavailable the error is logged and the call returns without
+// interrupting the caller — the SSE polling fallback will pick up the
+// progress from the database.
 func (w *Worker) publishEvent(ctx context.Context, jobID string, event ImportProgressEvent) {
 	data, err := json.Marshal(event)
 	if err != nil {
@@ -399,7 +439,10 @@ func (w *Worker) publishEvent(ctx context.Context, jobID string, event ImportPro
 		return
 	}
 	if err := w.rdb.Publish(ctx, RedisChannelProgress+jobID, string(data)).Err(); err != nil {
-		w.logger.Error("failed to publish progress event", zap.Error(err))
+		w.logger.Warn("redis publish failed (non-fatal)",
+			zap.String("channel", RedisChannelProgress+jobID),
+			zap.Error(err),
+		)
 	}
 }
 
@@ -413,7 +456,7 @@ func NewAsynqClient(rdb *redis.Client) *asynq.Client {
 
 // ─── Create Asynq Server ─────────────────────────────────────────────────
 
-func NewAsynqServer(rdb *redis.Client, cfg config.Config) *asynq.Server {
+func NewAsynqServer(rdb *redis.Client, cfg config.Config, errorHandler asynq.ErrorHandler) *asynq.Server {
 	return asynq.NewServer(
 		asynq.RedisClientOpt{
 			Addr: rdb.Options().Addr,
@@ -427,6 +470,7 @@ func NewAsynqServer(rdb *redis.Client, cfg config.Config) *asynq.Server {
 			},
 			StrictPriority: false,
 			Logger:         asynqLogger{},
+			ErrorHandler:   errorHandler,
 		},
 	)
 }

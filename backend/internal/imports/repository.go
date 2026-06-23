@@ -122,6 +122,18 @@ func (r *PgRepository) SetImportJobCompleted(ctx context.Context, id string, has
 	return nil
 }
 
+// SetImportJobFailed marks a job as failed after all retries are exhausted.
+func (r *PgRepository) SetImportJobFailed(ctx context.Context, id string) error {
+	const query = `
+		UPDATE import_jobs SET status = 'failed', completed_at = NOW() WHERE id = $1
+	`
+	_, err := r.pool.Exec(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("set import job failed: %w", err)
+	}
+	return nil
+}
+
 // ─── Invitations (bulk insert with temp_id reconciliation) ────────────────
 
 // BulkInsertInvitations inserts a batch of invitations using a CTE that pairs
@@ -265,6 +277,40 @@ func (r *PgRepository) GetInvitationStytchMemberID(ctx context.Context, id strin
 		return "", fmt.Errorf("get stytch member id: %w", err)
 	}
 	return memberID, nil
+}
+
+// GetPendingStage2Records returns invitations for this job that haven't yet been
+// sent to Stytch. Used on task retry to resume Stage 2 from where it left off
+// instead of re-processing already-invited records.
+func (r *PgRepository) GetPendingStage2Records(ctx context.Context, jobID string) ([]Stage2Record, error) {
+	const query = `
+		SELECT id, email, first_name, last_name
+		FROM invitations
+		WHERE import_job_id = $1
+		  AND (stytch_member_id IS NULL OR stytch_member_id = '')
+		  AND status != 'invite_failed'
+		ORDER BY created_at
+	`
+
+	rows, err := r.pool.Query(ctx, query, jobID)
+	if err != nil {
+		return nil, fmt.Errorf("get pending stage 2 records: %w", err)
+	}
+	defer rows.Close()
+
+	var records []Stage2Record
+	for rows.Next() {
+		var rec Stage2Record
+		if err := rows.Scan(&rec.InvitationID, &rec.Email, &rec.FirstName, &rec.LastName); err != nil {
+			return nil, fmt.Errorf("scan stage 2 record: %w", err)
+		}
+		records = append(records, rec)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration: %w", err)
+	}
+
+	return records, nil
 }
 
 // BulkUpdateInvitations updates existing invitation rows by ID (correction resubmit).

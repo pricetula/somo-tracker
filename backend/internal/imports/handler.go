@@ -21,7 +21,7 @@ type Handler struct {
 	svc     *Service
 	authSvc *auth.Service
 	repo    Repository
-	rdb     *redis.Client
+	rdb     SSEPubSubClient
 	logger  *zap.Logger
 }
 
@@ -138,8 +138,23 @@ func (h *Handler) TrackImport(c *fiber.Ctx) error {
 	return c.JSON(result)
 }
 
+// isTerminalJobStatus returns true if the status indicates the job is done
+// (whether successfully, with errors, or after all retries exhausted).
+func isTerminalJobStatus(status string) bool {
+	switch status {
+	case "completed", "completed_with_errors", "failed":
+		return true
+	}
+	return false
+}
+
 // SSETrackImport handles GET /api/v1/imports/staff/track/:id/sse
 // Server-Sent Events endpoint for real-time progress updates.
+//
+// It subscribes to Redis pub/sub for low-latency progress events and
+// simultaneously polls the database every 3 seconds as a fallback.
+// If Redis is unavailable at connection time, it falls back to pure
+// postgres polling immediately.
 func (h *Handler) SSETrackImport(c *fiber.Ctx) error {
 	jobID := c.Params("id")
 	if jobID == "" {
@@ -164,29 +179,58 @@ func (h *Handler) SSETrackImport(c *fiber.Ctx) error {
 	if _, err := fmt.Fprintf(c, "data: %s\n\n", string(initialData)); err != nil {
 		return nil
 	}
-	c.Context().SetBodyStreamWriter(func(w *bufio.Writer) {
-		// Subscribe to Redis pub/sub channel
-		pubsub := h.rdb.Subscribe(c.Context(), RedisChannelProgress+jobID)
-		defer func() {
-			if err := pubsub.Close(); err != nil {
-				h.logger.Error("imports.SSETrackImport: pubsub close failed", zap.Error(err))
-			}
-		}()
 
-		ch := pubsub.Channel(redis.WithChannelSize(100))
+	// Check Redis health on connection open
+	redisAvailable := true
+	if err := h.rdb.Ping(c.Context()).Err(); err != nil {
+		h.logger.Warn("SSE: Redis unreachable at connection, falling back to pure polling",
+			zap.String("import_job_id", jobID),
+			zap.Error(err),
+		)
+		redisAvailable = false
+	}
+
+	// Capture the request context before the streaming goroutine — in Fiber's
+	// test mode the fasthttp RequestCtx may be nil, so we guard against that.
+	reqCtx := c.Context()
+
+	c.Context().SetBodyStreamWriter(func(w *bufio.Writer) {
+		// Subscribe to Redis pub/sub channel (only if Redis was reachable)
+		var pubsubCh <-chan *redis.Message
+
+		if redisAvailable {
+			pubsub := h.rdb.Subscribe(c.Context(), RedisChannelProgress+jobID)
+			defer func() {
+				if err := pubsub.Close(); err != nil {
+					h.logger.Error("imports.SSETrackImport: pubsub close failed", zap.Error(err))
+				}
+			}()
+			pubsubCh = pubsub.Channel(redis.WithChannelSize(100))
+		}
 
 		ticker := time.NewTicker(3 * time.Second)
 		defer ticker.Stop()
 
-		done := c.Context().Done()
+		// The fasthttp Done channel may be nil in test mode; handle gracefully.
+		var done <-chan struct{}
+		if reqCtx != nil {
+			done = reqCtx.Done()
+		}
 
 		for {
 			select {
 			case <-done:
 				return
-			case msg, ok := <-ch:
+			case msg, ok := <-pubsubCh:
 				if !ok {
-					return
+					// Redis channel closed (e.g. Redis went down mid-stream).
+					// Set channel to nil so the select ignores it and
+					// continues with DB polling only.
+					h.logger.Warn("SSE: Redis pub/sub channel closed, continuing with DB polling",
+						zap.String("import_job_id", jobID),
+					)
+					pubsubCh = nil
+					continue
 				}
 				if _, err := fmt.Fprintf(w, "data: %s\n\n", msg.Payload); err != nil {
 					return
@@ -202,7 +246,7 @@ func (h *Handler) SSETrackImport(c *fiber.Ctx) error {
 					}
 				}
 			case <-ticker.C:
-				result, err := h.svc.GetImportJob(c.Context(), jobID)
+				result, err := h.svc.GetImportJob(context.Background(), jobID)
 				if err != nil {
 					continue
 				}
@@ -223,7 +267,7 @@ func (h *Handler) SSETrackImport(c *fiber.Ctx) error {
 					return
 				}
 
-				if result.Job.Status == "completed" || result.Job.Status == "completed_with_errors" {
+				if isTerminalJobStatus(result.Job.Status) {
 					finishedEvent := ImportProgressEvent{
 						Type:             EventFinished,
 						ImportJobID:      jobID,

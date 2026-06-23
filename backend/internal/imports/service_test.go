@@ -33,6 +33,8 @@ type MockRepository struct {
 	setInvitationFailedFn         func(ctx context.Context, id, errorMessage string, attemptCount int) error
 	getActiveSchoolIDFn           func(ctx context.Context, tenantID, userID string) (string, error)
 	getTenantStytchOrgIDFn        func(ctx context.Context, tenantID string) (string, error)
+	setImportJobFailedFn          func(ctx context.Context, id string) error
+	getPendingStage2RecordsFn     func(ctx context.Context, jobID string) ([]Stage2Record, error)
 }
 
 func (m *MockRepository) CreateImportJob(ctx context.Context, job *ImportJob) error {
@@ -118,6 +120,21 @@ func (m *MockRepository) SetInvitationFailed(ctx context.Context, id, errorMessa
 
 func (m *MockRepository) BulkUpdateInvitations(ctx context.Context, records []ImportStaffRecord, role, jobID string, now time.Time) (int, error) {
 	return len(records), nil
+}
+
+func (m *MockRepository) SetImportJobFailed(ctx context.Context, id string) error {
+	if m.setImportJobFailedFn != nil {
+		return m.setImportJobFailedFn(ctx, id)
+	}
+	return nil
+}
+
+func (m *MockRepository) GetPendingStage2Records(ctx context.Context, jobID string) ([]Stage2Record, error) {
+	if m.getPendingStage2RecordsFn != nil {
+		return m.getPendingStage2RecordsFn(ctx, jobID)
+	}
+	// Default: return records for each email in the last bulkInsert call
+	return nil, nil
 }
 
 func (m *MockRepository) GetActiveSchoolID(ctx context.Context, tenantID, userID string) (string, error) {

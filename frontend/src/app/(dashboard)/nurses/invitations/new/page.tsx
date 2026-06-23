@@ -1,5 +1,11 @@
 /**
- * Standalone /nurses/add — full-page version of the import form.
+ * Standalone /nurses/invitations/new — full-page bulk invite form.
+ *
+ * When accessed directly (hard reload, shared link, new tab), this page
+ * renders the BulkStaffImport component in mode='page' with breadcrumb
+ * back-link and optional success banner.
+ *
+ * Mirrors the pattern established by /nurses/add/page.tsx.
  */
 
 "use client";
@@ -11,7 +17,7 @@ import { ChevronLeft } from "lucide-react";
 import { BulkStaffImport } from "@/features/staff-import";
 import { Badge } from "@/components/ui/badge";
 
-export default function StandaloneNursesAdd() {
+export default function StandaloneNursesBulkInvite() {
     const [importComplete, setImportComplete] = React.useState(false);
 
     return (
@@ -19,11 +25,11 @@ export default function StandaloneNursesAdd() {
             {/* Breadcrumb back-link */}
             <div className="mb-4">
                 <Link
-                    href="/nurses"
+                    href="/nurses/invitations"
                     className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm transition-colors"
                 >
                     <ChevronLeft className="size-4" />
-                    Back to Nurses
+                    Back to Invitations
                 </Link>
             </div>
 
@@ -37,17 +43,17 @@ export default function StandaloneNursesAdd() {
                         Import completed successfully
                     </Badge>
                     <p className="text-muted-foreground mt-1 text-xs">
-                        All invitations have been processed. You can close this page or import more
-                        nurses below.
+                        All invitations have been processed. You can close this page or invite more
+                        staff below.
                     </p>
                 </div>
             )}
 
             {/* Page heading */}
             <div className="mb-6">
-                <h1 className="text-2xl font-semibold tracking-tight">Invite Nurses</h1>
+                <h1 className="text-2xl font-semibold tracking-tight">Bulk Invite Nurses</h1>
                 <p className="text-muted-foreground mt-1 text-sm">
-                    Add nursing staff manually or via file upload.
+                    Invite nurses manually or via file upload.
                 </p>
             </div>
 

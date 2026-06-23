@@ -1,5 +1,11 @@
 /**
- * Standalone /finance/add — full-page version of the import form.
+ * Standalone /finance/invitations/new — full-page bulk invite form.
+ *
+ * When accessed directly (hard reload, shared link, new tab), this page
+ * renders the BulkStaffImport component in mode='page' with breadcrumb
+ * back-link and optional success banner.
+ *
+ * Mirrors the pattern established by /finance/add/page.tsx.
  */
 
 "use client";
@@ -11,7 +17,7 @@ import { ChevronLeft } from "lucide-react";
 import { BulkStaffImport } from "@/features/staff-import";
 import { Badge } from "@/components/ui/badge";
 
-export default function StandaloneFinanceAdd() {
+export default function StandaloneFinanceBulkInvite() {
     const [importComplete, setImportComplete] = React.useState(false);
 
     return (
@@ -19,11 +25,11 @@ export default function StandaloneFinanceAdd() {
             {/* Breadcrumb back-link */}
             <div className="mb-4">
                 <Link
-                    href="/finance"
+                    href="/finance/invitations"
                     className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm transition-colors"
                 >
                     <ChevronLeft className="size-4" />
-                    Back to Finance
+                    Back to Invitations
                 </Link>
             </div>
 
@@ -37,7 +43,7 @@ export default function StandaloneFinanceAdd() {
                         Import completed successfully
                     </Badge>
                     <p className="text-muted-foreground mt-1 text-xs">
-                        All invitations have been processed. You can close this page or import more
+                        All invitations have been processed. You can close this page or invite more
                         staff below.
                     </p>
                 </div>
@@ -45,9 +51,9 @@ export default function StandaloneFinanceAdd() {
 
             {/* Page heading */}
             <div className="mb-6">
-                <h1 className="text-2xl font-semibold tracking-tight">Invite Finance Staff</h1>
+                <h1 className="text-2xl font-semibold tracking-tight">Bulk Invite Finance Staff</h1>
                 <p className="text-muted-foreground mt-1 text-sm">
-                    Add finance staff manually or via file upload.
+                    Invite finance staff manually or via file upload.
                 </p>
             </div>
 

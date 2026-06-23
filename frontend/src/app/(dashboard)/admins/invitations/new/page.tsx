@@ -1,11 +1,11 @@
 /**
- * Standalone /admins/add — full-page version of the import form.
+ * Standalone /admins/invitations/new — full-page bulk invite form.
  *
- * When accessed directly (hard reload, shared link, opening in new tab),
- * this page renders the BulkStaffImport component in mode='page' with a
- * standard page layout including heading and breadcrumb back-link.
+ * When accessed directly (hard reload, shared link, new tab), this page
+ * renders the BulkStaffImport component in mode='page' with breadcrumb
+ * back-link and optional success banner.
  *
- * onSuccess shows an inline success banner — no redirect, no router.push().
+ * Mirrors the pattern established by /admins/add/page.tsx.
  */
 
 "use client";
@@ -17,7 +17,7 @@ import { ChevronLeft } from "lucide-react";
 import { BulkStaffImport } from "@/features/staff-import";
 import { Badge } from "@/components/ui/badge";
 
-export default function StandaloneAdminsAdd() {
+export default function StandaloneAdminsBulkInvite() {
     const [importComplete, setImportComplete] = React.useState(false);
 
     return (
@@ -25,11 +25,11 @@ export default function StandaloneAdminsAdd() {
             {/* Breadcrumb back-link */}
             <div className="mb-4">
                 <Link
-                    href="/admins"
+                    href="/admins/invitations"
                     className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm transition-colors"
                 >
                     <ChevronLeft className="size-4" />
-                    Back to Admins
+                    Back to Invitations
                 </Link>
             </div>
 
@@ -43,7 +43,7 @@ export default function StandaloneAdminsAdd() {
                         Import completed successfully
                     </Badge>
                     <p className="text-muted-foreground mt-1 text-xs">
-                        All invitations have been processed. You can close this page or import more
+                        All invitations have been processed. You can close this page or invite more
                         staff below.
                     </p>
                 </div>
@@ -51,9 +51,9 @@ export default function StandaloneAdminsAdd() {
 
             {/* Page heading */}
             <div className="mb-6">
-                <h1 className="text-2xl font-semibold tracking-tight">Invite School Admins</h1>
+                <h1 className="text-2xl font-semibold tracking-tight">Bulk Invite Admins</h1>
                 <p className="text-muted-foreground mt-1 text-sm">
-                    Add school administrators manually or via file upload.
+                    Invite school administrators manually or via file upload.
                 </p>
             </div>
 

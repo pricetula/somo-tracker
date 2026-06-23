@@ -1,9 +1,11 @@
 /**
- * Intercepted /admins/add — renders as a dialog overlay via the @modal slot.
+ * Intercepted /finance/invitations/new — renders as a dialog overlay via the @modal slot.
  *
- * When users navigate to /admins/add from within /admins (Link click, soft nav),
- * Next.js intercepts the route and renders this page inside the @modal parallel
- * slot, overlaying the /admins listing page without unmounting it.
+ * When users navigate to /finance/invitations/new from within /finance (Link click, soft nav),
+ * Next.js intercepts the route and renders this page inside the @modal parallel slot,
+ * overlaying the /finance/invitations listing page without unmounting it.
+ *
+ * Mirrors the pattern established by /finance/@modal/(.)add/page.tsx.
  */
 
 "use client";
@@ -13,7 +15,7 @@ import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { BulkStaffImport } from "@/features/staff-import";
 
-export default function InterceptedAdminsAdd() {
+export default function InterceptedFinanceBulkInvite() {
     const router = useRouter();
 
     function handleClose() {
@@ -29,9 +31,9 @@ export default function InterceptedAdminsAdd() {
         >
             <DialogContent className="sm:max-w-3xl">
                 <DialogHeader className="sr-only">
-                    <DialogTitle>Invite School Admins</DialogTitle>
+                    <DialogTitle>Bulk Invite Finance Staff</DialogTitle>
                 </DialogHeader>
-                <BulkStaffImport role="SCHOOL_ADMIN" mode="dialog" onClose={handleClose} />
+                <BulkStaffImport role="FINANCE" mode="dialog" onClose={handleClose} />
             </DialogContent>
         </Dialog>
     );

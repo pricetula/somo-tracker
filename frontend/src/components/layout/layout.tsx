@@ -1,14 +1,7 @@
 import { AppSidebar } from "@/components/layout/app-sidebar";
-import {
-    Breadcrumb,
-    BreadcrumbItem,
-    BreadcrumbLink,
-    BreadcrumbList,
-    BreadcrumbPage,
-    BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { SmartBreadcrumb } from "../smart-breadcrumb";
 
 interface AppLayoutProps {
     children: React.ReactNode;
@@ -26,17 +19,7 @@ export function AppLayout({ children }: AppLayoutProps) {
                             orientation="vertical"
                             className="mr-2 data-vertical:h-4 data-vertical:self-auto"
                         />
-                        <Breadcrumb>
-                            <BreadcrumbList>
-                                <BreadcrumbItem className="hidden md:block">
-                                    <BreadcrumbLink href="#">Build Your Application</BreadcrumbLink>
-                                </BreadcrumbItem>
-                                <BreadcrumbSeparator className="hidden md:block" />
-                                <BreadcrumbItem>
-                                    <BreadcrumbPage>Data Fetching</BreadcrumbPage>
-                                </BreadcrumbItem>
-                            </BreadcrumbList>
-                        </Breadcrumb>
+                        <SmartBreadcrumb />
                     </div>
                 </header>
                 <div>{children}</div>

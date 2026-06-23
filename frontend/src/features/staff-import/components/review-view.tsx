@@ -60,10 +60,10 @@ export function ReviewView({ rows, role, onSubmit, onBack }: ReviewViewProps) {
                 first 5 rows below before submitting.
             </p>
 
-            <div className="bg-muted/30 overflow-hidden rounded-lg border">
+            <div className="bg-muted/30 max-h-72 overflow-auto rounded-lg border">
                 <table className="w-full text-left text-sm">
-                    <thead>
-                        <tr className="bg-muted/50 border-b">
+                    <thead className="bg-muted/50 sticky top-0">
+                        <tr className="border-b">
                             <th className="px-3 py-2 font-medium">Email</th>
                             <th className="px-3 py-2 font-medium">First Name</th>
                             <th className="px-3 py-2 font-medium">Last Name</th>

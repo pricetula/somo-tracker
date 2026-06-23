@@ -253,16 +253,17 @@ type Repository interface {
 // Invitation represents a pending invitation record used during the invite
 // acceptance flow. It mirrors the invitations table but in the auth domain.
 type Invitation struct {
-	ID             string    `json:"id"`
-	TenantID       string    `json:"tenant_id"`
-	SchoolID       string    `json:"school_id"`
-	Role           string    `json:"role"`
-	Email          string    `json:"email"`
-	FirstName      string    `json:"first_name"`
-	LastName       string    `json:"last_name"`
-	Status         string    `json:"status"`
-	StytchMemberID string    `json:"stytch_member_id"`
-	ExpiresAt      time.Time `json:"expires_at"`
+	ID                 string    `json:"id"`
+	TenantID           string    `json:"tenant_id"`
+	SchoolID           string    `json:"school_id"`
+	Role               string    `json:"role"`
+	Email              string    `json:"email"`
+	FirstName          string    `json:"first_name"`
+	LastName           string    `json:"last_name"`
+	Status             string    `json:"status"`
+	StytchMemberID     string    `json:"stytch_member_id"`
+	RegistrationNumber string    `json:"registration_number"`
+	ExpiresAt          time.Time `json:"expires_at"`
 }
 
 // CreateInvitedUserSessionArgs holds all parameters for creating a user session
@@ -282,6 +283,7 @@ type CreateInvitedUserSessionArgs struct {
 	StytchSessionToken string
 	DeviceFingerprint  string
 	ExpiresAt          time.Time
+	TSCNumber          string // Maps from invitations.registration_number for TEACHER role
 }
 
 // MeInfo is the result of GetMeInfo.

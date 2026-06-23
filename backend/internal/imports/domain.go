@@ -25,6 +25,7 @@ var AllowedRoles = map[string]bool{
 	"SCHOOL_ADMIN": true,
 	"NURSE":        true,
 	"FINANCE":      true,
+	"TEACHER":      true,
 }
 
 // ─── ImportJob ────────────────────────────────────────────────────────────

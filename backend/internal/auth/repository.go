@@ -394,7 +394,8 @@ func (r *SqlcRepository) GetInvitationByEmail(ctx context.Context, email string)
 	const query = `
 		SELECT id, tenant_id, school_id, role::text, email, COALESCE(first_name, '') as first_name,
 		       COALESCE(last_name, '') as last_name, status::text,
-		       COALESCE(stytch_member_id, '') as stytch_member_id, expires_at
+		       COALESCE(stytch_member_id, '') as stytch_member_id,
+		       COALESCE(registration_number, '') as registration_number, expires_at
 		FROM invitations
 		WHERE email = $1
 		  AND status = 'pending'
@@ -406,7 +407,8 @@ func (r *SqlcRepository) GetInvitationByEmail(ctx context.Context, email string)
 	var inv Invitation
 	err := r.pool.QueryRow(ctx, query, email).Scan(
 		&inv.ID, &inv.TenantID, &inv.SchoolID, &inv.Role, &inv.Email,
-		&inv.FirstName, &inv.LastName, &inv.Status, &inv.StytchMemberID, &inv.ExpiresAt,
+		&inv.FirstName, &inv.LastName, &inv.Status, &inv.StytchMemberID,
+		&inv.RegistrationNumber, &inv.ExpiresAt,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -453,14 +455,29 @@ func (r *SqlcRepository) CreateInvitedUserSession(ctx context.Context, args Crea
 
 	// 1. Insert user
 	var userID string
-	userQuery := `
-		INSERT INTO users (email, tenant_id, first_name, last_name, external_auth_id)
-		VALUES ($1, $2, $3, $4, $5)
-		RETURNING id
-	`
-	err = tx.QueryRow(ctx, userQuery,
-		args.Email, args.TenantID, args.FirstName, args.LastName, args.ExternalAuthID,
-	).Scan(&userID)
+
+	// For TEACHER role with a TSC number, include tsc_number in the insert.
+	// Other roles don't carry a TSC number, so use the standard insert.
+	if args.Role == "TEACHER" && args.TSCNumber != "" {
+		userQuery := `
+			INSERT INTO users (email, tenant_id, first_name, last_name, external_auth_id, tsc_number)
+			VALUES ($1, $2, $3, $4, $5, $6)
+			RETURNING id
+		`
+		err = tx.QueryRow(ctx, userQuery,
+			args.Email, args.TenantID, args.FirstName, args.LastName,
+			args.ExternalAuthID, args.TSCNumber,
+		).Scan(&userID)
+	} else {
+		userQuery := `
+			INSERT INTO users (email, tenant_id, first_name, last_name, external_auth_id)
+			VALUES ($1, $2, $3, $4, $5)
+			RETURNING id
+		`
+		err = tx.QueryRow(ctx, userQuery,
+			args.Email, args.TenantID, args.FirstName, args.LastName, args.ExternalAuthID,
+		).Scan(&userID)
+	}
 	if err != nil {
 		return fmt.Errorf("%w: create user in tx: %v", ErrInternal, err)
 	}

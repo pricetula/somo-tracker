@@ -71,6 +71,10 @@ func (s *Service) StartImport(
 		if rec.LastName == "" {
 			return nil, fmt.Errorf("last_name is required for all records")
 		}
+		// TSC Number (registration_number) is mandatory for TEACHER role
+		if role == "TEACHER" && rec.RegistrationNumber == "" {
+			return nil, fmt.Errorf("registration_number (TSC Number) is required for all teacher records")
+		}
 	}
 
 	// Resolve Stytch org ID

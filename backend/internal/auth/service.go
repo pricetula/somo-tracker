@@ -434,6 +434,7 @@ func (s *Service) AcceptInvite(ctx context.Context, token string, deviceFingerpr
 		StytchSessionToken: stytchSessionToken,
 		DeviceFingerprint:  deviceFingerprint,
 		ExpiresAt:          expiresAt,
+		TSCNumber:          inv.RegistrationNumber,
 	}
 
 	if err := s.repo.CreateInvitedUserSession(ctx, args); err != nil {

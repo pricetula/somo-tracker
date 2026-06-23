@@ -327,13 +327,13 @@ func (r *PgRepository) BulkUpdateInvitations(
 
 	// Build CTE VALUES clause
 	valueStrings := make([]string, 0, len(records))
-	args := make([]interface{}, 0, len(records)*7)
+	args := make([]interface{}, 0, len(records)*8)
 	argIdx := 1
 
 	for _, rec := range records {
 		valueStrings = append(valueStrings,
-			fmt.Sprintf("($%d::uuid, LOWER($%d), $%d, $%d, $%d, $%d::user_role, $%d::uuid)",
-				argIdx, argIdx+1, argIdx+2, argIdx+3, argIdx+4, argIdx+5, argIdx+6),
+			fmt.Sprintf("($%d::uuid, LOWER($%d), $%d, $%d, $%d, $%d, $%d::user_role, $%d::uuid)",
+				argIdx, argIdx+1, argIdx+2, argIdx+3, argIdx+4, argIdx+5, argIdx+6, argIdx+7),
 		)
 		args = append(args,
 			rec.TempID, // id of the invitation row (passed as temp_id in correction flow)
@@ -341,27 +341,29 @@ func (r *PgRepository) BulkUpdateInvitations(
 			rec.FirstName,
 			rec.LastName,
 			rec.Phone,
+			rec.RegistrationNumber,
 			role,
 			jobID,
 		)
-		argIdx += 7
+		argIdx += 8
 	}
 
 	query := `
-		WITH corrections (id, email, first_name, last_name, phone, role, import_job_id) AS (
-			VALUES ` + strings.Join(valueStrings, ",\n			          ") + `
+		WITH corrections (id, email, first_name, last_name, phone, registration_number, role, import_job_id) AS (
+			VALUES ` + strings.Join(valueStrings, ",\n			         ") + `
 		)
 		UPDATE invitations inv
 		SET
-			email         = LOWER(c.email),
-			first_name    = c.first_name,
-			last_name     = c.last_name,
-			phone         = c.phone,
-			role          = c.role::user_role,
-			status        = 'pending',
-			error_message = NULL,
-			attempt_count = 0,
-			import_job_id = c.import_job_id
+			email               = LOWER(c.email),
+			first_name          = c.first_name,
+			last_name           = c.last_name,
+			phone               = c.phone,
+			registration_number = c.registration_number,
+			role                = c.role::user_role,
+			status              = 'pending',
+			error_message       = NULL,
+			attempt_count       = 0,
+			import_job_id       = c.import_job_id
 		FROM corrections c
 		WHERE inv.id = c.id
 		RETURNING inv.id
@@ -379,10 +381,6 @@ func (r *PgRepository) BulkUpdateInvitations(
 	}
 	return count, rows.Err()
 }
-
-// ─── Import Job Failures ─────────────────────────────────────────────────
-
-// RecordImportFailure logs a structural DB failure during ingestion.
 func (r *PgRepository) RecordImportFailure(ctx context.Context, jobID, rawPayloadJSON, errMsg string) error {
 	const query = `
 		INSERT INTO import_job_failures (import_job_id, raw_payload, error_message)

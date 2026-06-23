@@ -1,6 +1,6 @@
 # Bulk Staff Invitations — Admin, Nurse & Finance
 
-> **Last updated:** 2026-06-24
+> **Last updated:** 2026-06-24 (TEACHER role & TSC Number support added)
 > **Owner:** Platform team
 
 This document describes how school administrators can invite staff members in bulk — covering both the **simple invitation creation** flow and the **high-volume bulk import** pipeline with async processing, real-time progress, and correction recovery.
@@ -33,15 +33,16 @@ School administrators can invite new staff members to join their school through 
 
 ### Supported roles
 
-Only three staff roles can be invited through these flows:
+Four staff roles can be invited through these flows:
 
 | Role | Allowed access | Typical use |
 |---|---|---|
 | `SCHOOL_ADMIN` | `/admin`, `/admins`, `/dashboard`, `/settings`, `/schools`, `/docs` | Deputy head, senior teachers, operations |
+| `TEACHER` | `/dashboard`, `/docs`, `/teachers` | Classroom teachers (KICD-compliant onboarding) |
 | `NURSE` | `/dashboard`, `/docs` | School nurse, healthcare staff |
 | `FINANCE` | `/dashboard`, `/docs` | Bursar, accounting staff |
 
-> **Note:** `TEACHER` and `SYSTEM_ADMIN` use separate invitation flows (see [Teacher invitations](TODO) and system admin provisioning).
+> **Note:** `SYSTEM_ADMIN` uses a separate provisioning flow outside this pipeline.
 
 ### Who can invite
 
@@ -135,7 +136,8 @@ The bulk import pipeline handles **up to 5,000 records** using an async worker a
 - `role` — must be `SCHOOL_ADMIN`, `NURSE`, or `FINANCE`.
 - `records` — array of records, max **5,000**.
 - `temp_id` — client-generated UUID for reconciliation (each row must have a unique one).
-- `phone` and `registration_number` are optional.
+- `phone` is optional.
+- `registration_number` (TSC Number) is **optional for SCHOOL_ADMIN, NURSE, FINANCE** but **mandatory for TEACHER**.
 
 #### Validation rules (backend)
 
@@ -144,7 +146,7 @@ The bulk import pipeline handles **up to 5,000 records** using an async worker a
 | `email` | Required, must be non-empty |
 | `first_name` | Required, must be non-empty |
 | `last_name` | Required, must be non-empty |
-| `role` | Must be one of `SCHOOL_ADMIN`, `NURSE`, `FINANCE` |
+| `role` | Must be one of `SCHOOL_ADMIN`, `TEACHER`, `NURSE`, `FINANCE` |
 | Record count | Between 1 and 5,000 |
 
 #### Response (202 Accepted)
@@ -551,7 +553,8 @@ The bulk import endpoint validates all records before creating a job. Errors are
 | `email is required for all records` | Empty email field in any record |
 | `first_name is required for all records` | Empty first_name in any record |
 | `last_name is required for all records` | Empty last_name in any record |
-| `invalid role: must be one of SCHOOL_ADMIN, NURSE, FINANCE` | Role not in allowed set |
+| `registration_number (TSC Number) is required for all teacher records` | Empty TSC Number when role is TEACHER |
+| `invalid role: must be one of SCHOOL_ADMIN, TEACHER, NURSE, FINANCE` | Role not in allowed set |
 | `at least one record is required` | Empty records array |
 | `maximum 5000 records per import` | Record count exceeds limit |
 
@@ -577,6 +580,45 @@ The worker classifies Stytch errors to avoid retrying hopeless cases:
 | `domain_not_allowed` | Unclassified errors |
 | `member_already_exists` | |
 | `not_found` | |
+
+---
+
+## TSC Number Promotion (TEACHER Role)
+
+When a TEACHER invitation is accepted, the `registration_number` value stored in the `invitations` table is automatically promoted to the `users.tsc_number` column for the newly created user account.
+
+### Flow
+
+```
+┌──────────────┐     ┌───────────────┐     ┌──────────────┐
+│  Bulk Import  │     │  Invite       │     │  User        │
+│  (worker)     │     │  Acceptance   │     │  Profile     │
+│               │     │  (auth svc)   │     │              │
+│ Writes        │     │               │     │              │
+│ registration_ │────>│ Reads inv.    │────>│ tsc_number   │
+│ number to     │     │ registration_ │     │ is populated │
+│ invitations   │     │ number        │     │              │
+└──────────────┘     └───────────────┘     └──────────────┘
+```
+
+### Implementation details
+
+1. **Backend Service** (`auth/service.go` — `AcceptInvite`): The `Invitation.RegistrationNumber` from the DB query is mapped to `CreateInvitedUserSessionArgs.TSCNumber`.
+
+2. **Backend Repository** (`auth/repository.go` — `CreateInvitedUserSession`): When `args.Role == "TEACHER"` and `args.TSCNumber != ""`, the INSERT statement includes the `tsc_number` column:
+   ```sql
+   INSERT INTO users (email, tenant_id, first_name, last_name, external_auth_id, tsc_number)
+   VALUES ($1, $2, $3, $4, $5, $6)
+   ```
+   For non-TEACHER roles, the standard 5-column insert is used (no TSC number).
+
+3. **Correction Resubmit** (`imports/repository.go` — `BulkUpdateInvitations`): The `registration_number` field is now included in the CTE update so corrected records persist the TSC number.
+
+### Database constraints
+
+- The `users.tsc_number` column has a **partial unique index**: `CREATE UNIQUE INDEX idx_users_tsc_number ON users (tsc_number) WHERE tsc_number IS NOT NULL`.
+- This means two teachers cannot share the same TSC number.
+- The column accepts `NULL` for non-TEACHER users.
 
 ---
 

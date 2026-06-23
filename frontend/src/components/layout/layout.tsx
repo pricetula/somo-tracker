@@ -1,7 +1,7 @@
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { SmartBreadcrumb } from "../smart-breadcrumb";
+import { SmartBreadcrumb } from "@/components/smart-breadcrumb";
 
 interface AppLayoutProps {
     children: React.ReactNode;

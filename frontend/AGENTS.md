@@ -109,9 +109,9 @@ For listing prefer to use tanstack virtualized lists since the query might have 
 
 ---
 
-## 8. Shadcn UI Components — Never Modify
+## 8. Shadcn UI Components — Never Modify, Never Add
 
-Files under `src/components/ui/` are auto-generated shadcn primitives. **Do not edit, refactor, or patch them.**
+Files under `src/components/ui/` are auto-generated shadcn primitives. **Do not add, edit, refactor, or patch them.**
 
 - The sole exception is when running `pnpm dlx shadcn@latest add <component>` to add a new component.
 - Any bugs, type errors, or Tailwind warnings in these files must be resolved by re-adding or upgrading the component via shadcn CLI — never by hand.

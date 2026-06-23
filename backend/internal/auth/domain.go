@@ -149,6 +149,18 @@ type IdentityProvider interface {
 	// InviteMemberByEmail sends a Stytch invite email to join an organization.
 	// Returns the Stytch member ID of the invited member.
 	InviteMemberByEmail(ctx context.Context, orgID, email, name, redirectURL string) (memberID string, err error)
+
+	// AuthenticateInviteToken validates a magic-link token sent via an invite email
+	// and returns the Intermediate Session Token (IST) and the verified email address.
+	// Uses the same Stytch Discovery Magic Links Authenticate endpoint as the
+	// discovery flow, but is exposed as a separate method for invite-flow clarity.
+	AuthenticateInviteToken(ctx context.Context, token string) (ist, email string, err error)
+
+	// ExchangeInviteSession exchanges an IST for a full Stytch session within a
+	// specific organization. Enforces MemberAuthenticated == true and returns the
+	// Stytch session token directly. Returns ErrMFARequired if the member has not
+	// completed MFA.
+	ExchangeInviteSession(ctx context.Context, ist, orgID string) (stytchSessionToken string, err error)
 }
 
 // ============================================================================
@@ -225,6 +237,51 @@ type Repository interface {
 	// GetMeInfo returns the full profile info for /me: user details, role,
 	// and the active school.
 	GetMeInfo(ctx context.Context, token string) (*MeInfo, error)
+
+	// GetInvitationByEmail looks up a pending, non-expired invitation by email.
+	// Returns the invitation record or ErrNotFound if none exists.
+	GetInvitationByEmail(ctx context.Context, email string) (*Invitation, error)
+
+	// GetTenantStytchOrgID returns the Stytch org ID for a tenant.
+	GetTenantStytchOrgID(ctx context.Context, tenantID string) (string, error)
+
+	// CreateInvitedUserSession runs a single transaction to create a user,
+	// session, membership, and mark the invitation as accepted.
+	CreateInvitedUserSession(ctx context.Context, args CreateInvitedUserSessionArgs) error
+}
+
+// Invitation represents a pending invitation record used during the invite
+// acceptance flow. It mirrors the invitations table but in the auth domain.
+type Invitation struct {
+	ID             string    `json:"id"`
+	TenantID       string    `json:"tenant_id"`
+	SchoolID       string    `json:"school_id"`
+	Role           string    `json:"role"`
+	Email          string    `json:"email"`
+	FirstName      string    `json:"first_name"`
+	LastName       string    `json:"last_name"`
+	Status         string    `json:"status"`
+	StytchMemberID string    `json:"stytch_member_id"`
+	ExpiresAt      time.Time `json:"expires_at"`
+}
+
+// CreateInvitedUserSessionArgs holds all parameters for creating a user session
+// during invite acceptance. All fields are required.
+type CreateInvitedUserSessionArgs struct {
+	InvitationID       string
+	Email              string
+	TenantID           string
+	SchoolID           string
+	Role               string
+	FirstName          string
+	LastName           string
+	ExternalAuthID     string
+	SessionToken       string
+	StytchMemberID     string
+	StytchOrgID        string
+	StytchSessionToken string
+	DeviceFingerprint  string
+	ExpiresAt          time.Time
 }
 
 // MeInfo is the result of GetMeInfo.

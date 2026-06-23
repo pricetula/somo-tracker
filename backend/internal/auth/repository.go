@@ -389,6 +389,135 @@ func (r *SqlcRepository) GetMeInfo(ctx context.Context, token string) (*MeInfo, 
 	return &info, nil
 }
 
+// GetInvitationByEmail looks up a pending, non-expired invitation by email.
+func (r *SqlcRepository) GetInvitationByEmail(ctx context.Context, email string) (*Invitation, error) {
+	const query = `
+		SELECT id, tenant_id, school_id, role::text, email, COALESCE(first_name, '') as first_name,
+		       COALESCE(last_name, '') as last_name, status::text,
+		       COALESCE(stytch_member_id, '') as stytch_member_id, expires_at
+		FROM invitations
+		WHERE email = $1
+		  AND status = 'pending'
+		  AND expires_at > NOW()
+		ORDER BY created_at DESC
+		LIMIT 1
+	`
+
+	var inv Invitation
+	err := r.pool.QueryRow(ctx, query, email).Scan(
+		&inv.ID, &inv.TenantID, &inv.SchoolID, &inv.Role, &inv.Email,
+		&inv.FirstName, &inv.LastName, &inv.Status, &inv.StytchMemberID, &inv.ExpiresAt,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("%w: invitation not found for email: %s", ErrNotFound, email)
+		}
+		return nil, fmt.Errorf("%w: get invitation by email: %v", ErrInternal, err)
+	}
+
+	return &inv, nil
+}
+
+// GetTenantStytchOrgID returns the Stytch org ID for a tenant.
+func (r *SqlcRepository) GetTenantStytchOrgID(ctx context.Context, tenantID string) (string, error) {
+	const query = `SELECT stytch_org_id FROM tenants WHERE id = $1`
+
+	var orgID string
+	err := r.pool.QueryRow(ctx, query, tenantID).Scan(&orgID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return "", fmt.Errorf("%w: tenant not found: %s", ErrNotFound, tenantID)
+		}
+		return "", fmt.Errorf("%w: get tenant stytch org: %v", ErrInternal, err)
+	}
+	return orgID, nil
+}
+
+// CreateInvitedUserSession runs a single transaction to create a user, session,
+// membership, and mark the invitation as accepted.
+func (r *SqlcRepository) CreateInvitedUserSession(ctx context.Context, args CreateInvitedUserSessionArgs) error {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return fmt.Errorf("%w: begin tx: %v", ErrInternal, err)
+	}
+	defer func() {
+		if err != nil {
+			if rbErr := tx.Rollback(ctx); rbErr != nil {
+				r.logger.Error("auth.CreateInvitedUserSession: tx rollback failed",
+					zap.Error(rbErr),
+					zap.String("original_error", err.Error()),
+				)
+			}
+		}
+	}()
+
+	// 1. Insert user
+	var userID string
+	userQuery := `
+		INSERT INTO users (email, tenant_id, first_name, last_name, external_auth_id)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING id
+	`
+	err = tx.QueryRow(ctx, userQuery,
+		args.Email, args.TenantID, args.FirstName, args.LastName, args.ExternalAuthID,
+	).Scan(&userID)
+	if err != nil {
+		return fmt.Errorf("%w: create user in tx: %v", ErrInternal, err)
+	}
+
+	// 2. Insert session
+	sessionQuery := `
+		INSERT INTO sessions (token, user_id, tenant_id, stytch_member_id, stytch_org_id,
+		                     stytch_session_token, device_fingerprint, expires_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+	`
+	_, err = tx.Exec(ctx, sessionQuery,
+		args.SessionToken, userID, args.TenantID,
+		args.StytchMemberID, args.StytchOrgID, args.StytchSessionToken,
+		args.DeviceFingerprint, args.ExpiresAt,
+	)
+	if err != nil {
+		return fmt.Errorf("%w: create session in tx: %v", ErrInternal, err)
+	}
+
+	// 3. Insert membership
+	membershipQuery := `
+		INSERT INTO memberships (user_id, school_id, tenant_id, role)
+		VALUES ($1, $2, $3, $4::user_role)
+	`
+	_, err = tx.Exec(ctx, membershipQuery, userID, args.SchoolID, args.TenantID, args.Role)
+	if err != nil {
+		return fmt.Errorf("%w: create membership in tx: %v", ErrInternal, err)
+	}
+
+	// 4. Update invitation status
+	updateQuery := `
+		UPDATE invitations
+		SET status = 'accepted', accepted_at = NOW(), stytch_member_id = $1
+		WHERE id = $2
+	`
+	_, err = tx.Exec(ctx, updateQuery, args.StytchMemberID, args.InvitationID)
+	if err != nil {
+		return fmt.Errorf("%w: update invitation in tx: %v", ErrInternal, err)
+	}
+
+	// Commit
+	err = tx.Commit(ctx)
+	if err != nil {
+		return fmt.Errorf("%w: commit tx: %v", ErrInternal, err)
+	}
+
+	r.logger.Info("invited user, session, membership created in single transaction",
+		zap.String("user_id", userID),
+		zap.String("tenant_id", args.TenantID),
+		zap.String("school_id", args.SchoolID),
+		zap.String("role", args.Role),
+		zap.String("invitation_id", args.InvitationID),
+	)
+
+	return nil
+}
+
 // GetUserHighestRole returns the highest (most privileged) role for a user
 // across all their active memberships.
 // generateSlug creates a URL-friendly slug from a school name.

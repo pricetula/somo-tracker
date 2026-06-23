@@ -211,6 +211,98 @@ func (s *StytchAdapter) ExchangeIntermediateSession(ctx context.Context, ist, or
 	return result, nil
 }
 
+// AuthenticateInviteToken validates a magic-link token sent via an invite email.
+// This is functionally identical to AuthenticateDiscoveryToken but exposed as
+// a separate method for invite-flow clarity.
+func (s *StytchAdapter) AuthenticateInviteToken(ctx context.Context, token string) (string, string, error) {
+	start := time.Now()
+	defer func() {
+		s.logger.Info("Stytch AuthenticateInviteToken completed",
+			zap.Duration("latency", time.Since(start)),
+		)
+	}()
+
+	params := &magiclinksdiscovery.AuthenticateParams{
+		DiscoveryMagicLinksToken: token,
+	}
+
+	resp, err := s.api.MagicLinks.Discovery.Authenticate(ctx, params)
+	if err != nil {
+		s.logger.Error("Stytch AuthenticateInviteToken failed",
+			zap.Error(err),
+		)
+
+		if isExpiredTokenError(err) {
+			return "", "", fmt.Errorf("%w: stytch invite token expired", ErrExpiredToken)
+		}
+		return "", "", fmt.Errorf("%w: stytch authenticate invite: %v", ErrInternal, err)
+	}
+
+	if resp.IntermediateSessionToken == "" {
+		return "", "", fmt.Errorf("%w: stytch response missing intermediate_session_token", ErrInternal)
+	}
+	if resp.EmailAddress == "" {
+		return "", "", fmt.Errorf("%w: stytch response missing email_address", ErrInternal)
+	}
+
+	return resp.IntermediateSessionToken, resp.EmailAddress, nil
+}
+
+// ExchangeInviteSession exchanges an IST for a full Stytch session within a
+// specific organization. Enforces MemberAuthenticated == true and returns the
+// Stytch session token directly.
+func (s *StytchAdapter) ExchangeInviteSession(ctx context.Context, ist, orgID string) (string, error) {
+	start := time.Now()
+	defer func() {
+		s.logger.Info("Stytch ExchangeInviteSession completed",
+			zap.String("org_id", orgID),
+			zap.Duration("latency", time.Since(start)),
+		)
+	}()
+
+	params := &intermediatesessions.ExchangeParams{
+		IntermediateSessionToken: ist,
+		OrganizationID:           orgID,
+	}
+
+	resp, err := s.api.Discovery.IntermediateSessions.Exchange(ctx, params)
+	if err != nil {
+		s.logger.Error("Stytch ExchangeInviteSession failed",
+			zap.String("org_id", orgID),
+			zap.Error(err),
+		)
+
+		if isJITProvisioningError(err) {
+			return "", fmt.Errorf("%w: stytch exchange invite: %v", ErrJITProvisioningNotAllowed, err)
+		}
+		if isMemberNotFoundError(err) {
+			return "", fmt.Errorf("%w: stytch exchange invite: %v", ErrMemberNotFound, err)
+		}
+		if isOrgNotFoundError(err) {
+			return "", fmt.Errorf("%w: stytch exchange invite: %v", ErrOrgNotFound, err)
+		}
+
+		return "", fmt.Errorf("%w: stytch exchange invite: %v", ErrInternal, err)
+	}
+
+	if !resp.MemberAuthenticated {
+		s.logger.Warn("Stytch ExchangeInviteSession: MFA not satisfied",
+			zap.String("org_id", orgID),
+		)
+		return "", ErrMFARequired
+	}
+
+	if resp.SessionToken == "" {
+		return "", fmt.Errorf("%w: stytch response missing session_token", ErrInternal)
+	}
+
+	s.logger.Info("IST exchange completed for invite flow",
+		zap.String("org_id", orgID),
+	)
+
+	return resp.SessionToken, nil
+}
+
 // isExpiredTokenError checks if the error is a Stytch expired magic link token error.
 func isExpiredTokenError(err error) bool {
 	var stytchErr stytcherror.Error

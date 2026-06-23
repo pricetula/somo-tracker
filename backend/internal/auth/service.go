@@ -375,6 +375,87 @@ func (s *Service) GetMe(ctx context.Context, token string) (*MeInfo, error) {
 	return info, nil
 }
 
+// AcceptInvite completes the invite acceptance flow. It validates the Stytch
+// magic-link token, looks up the pending invitation, exchanges the IST for a
+// full Stytch session, creates the user/session/membership in Postgres,
+// caches the session in Redis, and returns the opaque session token and role.
+func (s *Service) AcceptInvite(ctx context.Context, token string, deviceFingerprint string) (sessionToken string, role string, err error) {
+	s.logger.Info("auth: accept invite initiated")
+
+	// 1. Authenticate the Stytch magic-link token
+	ist, email, err := s.idp.AuthenticateInviteToken(ctx, token)
+	if err != nil {
+		return "", "", fmt.Errorf("auth.Service.AcceptInvite: %w", err)
+	}
+
+	// 2. Look up the pending invitation
+	inv, err := s.repo.GetInvitationByEmail(ctx, email)
+	if err != nil {
+		// Map not-found to ErrExpiredToken so the frontend gets a 401
+		if errors.Is(err, ErrNotFound) {
+			return "", "", fmt.Errorf("%w: no pending invitation for email: %s", ErrExpiredToken, email)
+		}
+		return "", "", fmt.Errorf("auth.Service.AcceptInvite: %w", err)
+	}
+
+	// 3. Resolve the Stytch org ID from the tenant
+	stytchOrgID, err := s.repo.GetTenantStytchOrgID(ctx, inv.TenantID)
+	if err != nil {
+		return "", "", fmt.Errorf("auth.Service.AcceptInvite: %w", err)
+	}
+
+	// 4. Exchange the IST for a full Stytch session (enforces MFA)
+	stytchSessionToken, err := s.idp.ExchangeInviteSession(ctx, ist, stytchOrgID)
+	if err != nil {
+		return "", "", fmt.Errorf("auth.Service.AcceptInvite: %w", err)
+	}
+
+	// 5. Generate opaque session token (32 random bytes, hex-encoded)
+	tokenBytes := make([]byte, 32)
+	if _, err := rand.Read(tokenBytes); err != nil {
+		return "", "", fmt.Errorf("%w: generate session token: %v", ErrInternal, err)
+	}
+	sessionToken = hex.EncodeToString(tokenBytes)
+
+	// 6. Assemble args and persist via the repository transaction
+	expiresAt := time.Now().Add(sessionTTL)
+	args := CreateInvitedUserSessionArgs{
+		InvitationID:       inv.ID,
+		Email:              inv.Email,
+		TenantID:           inv.TenantID,
+		SchoolID:           inv.SchoolID,
+		Role:               inv.Role,
+		FirstName:          inv.FirstName,
+		LastName:           inv.LastName,
+		ExternalAuthID:     inv.StytchMemberID,
+		SessionToken:       sessionToken,
+		StytchMemberID:     inv.StytchMemberID,
+		StytchOrgID:        stytchOrgID,
+		StytchSessionToken: stytchSessionToken,
+		DeviceFingerprint:  deviceFingerprint,
+		ExpiresAt:          expiresAt,
+	}
+
+	if err := s.repo.CreateInvitedUserSession(ctx, args); err != nil {
+		return "", "", fmt.Errorf("auth.Service.AcceptInvite: %w", err)
+	}
+
+	// 7. Persist session mapping in Redis: opaque key → Stytch session token
+	if err := s.rdb.Set(ctx, s.sessionKey(sessionToken), stytchSessionToken, sessionTTL).Err(); err != nil {
+		return "", "", fmt.Errorf("%w: cache session: %v", ErrInternal, err)
+	}
+
+	s.logger.Info("auth: invite acceptance complete — session issued",
+		zap.String("email", email),
+		zap.String("tenant_id", inv.TenantID),
+		zap.String("school_id", inv.SchoolID),
+		zap.String("role", inv.Role),
+		zap.String("session_token_preview", sessionToken[:8]+"..."),
+	)
+
+	return sessionToken, inv.Role, nil
+}
+
 // GetSession validates a session token and returns the user session.
 // Checks Redis first (fast path), then cross-references Postgres (requirement 6).
 func (s *Service) GetSession(ctx context.Context, token string) (*UserSession, error) {

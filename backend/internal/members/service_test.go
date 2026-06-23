@@ -120,6 +120,14 @@ func (m *MockIDP) CreateMember(ctx context.Context, orgID, email, name string) (
 	return "member_" + email, nil
 }
 
+func (m *MockIDP) AuthenticateInviteToken(ctx context.Context, token string) (string, string, error) {
+	return "ist_invite", "invited@example.com", nil
+}
+
+func (m *MockIDP) ExchangeInviteSession(ctx context.Context, ist, orgID string) (string, error) {
+	return "sty_sess_invite", nil
+}
+
 // ============================================================================
 // Test Harness
 // ============================================================================

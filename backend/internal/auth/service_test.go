@@ -30,6 +30,8 @@ type MockIdentityProvider struct {
 	createMemberFn                func(ctx context.Context, orgID, email, name string) (string, error)
 	exchangeIntermediateSessionFn func(ctx context.Context, ist, orgID string) (ExchangeResult, error)
 	inviteMemberByEmailFn         func(ctx context.Context, orgID, email, name, redirectURL string) (string, error)
+	authenticateInviteTokenFn     func(ctx context.Context, token string) (ist, email string, err error)
+	exchangeInviteSessionFn       func(ctx context.Context, ist, orgID string) (stytchSessionToken string, err error)
 
 	sendDiscoveryEmailCalls          int
 	authenticateDiscoveryTokenCalls  int
@@ -104,6 +106,24 @@ func (m *MockIdentityProvider) ExchangeIntermediateSession(ctx context.Context, 
 	}, nil
 }
 
+func (m *MockIdentityProvider) AuthenticateInviteToken(ctx context.Context, token string) (string, string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.authenticateInviteTokenFn != nil {
+		return m.authenticateInviteTokenFn(ctx, token)
+	}
+	return "ist_invite", "invited@example.com", nil
+}
+
+func (m *MockIdentityProvider) ExchangeInviteSession(ctx context.Context, ist, orgID string) (string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.exchangeInviteSessionFn != nil {
+		return m.exchangeInviteSessionFn(ctx, ist, orgID)
+	}
+	return "sty_sess_invite", nil
+}
+
 // ============================================================================
 // MockRepository
 // ============================================================================
@@ -111,16 +131,19 @@ func (m *MockIdentityProvider) ExchangeIntermediateSession(ctx context.Context, 
 type MockRepository struct {
 	mu sync.RWMutex
 
-	tenantExistsFn            func(ctx context.Context, orgID string) (bool, error)
-	tenantExistsByNameFn      func(ctx context.Context, name string) (bool, error)
-	getTenantByNameFn         func(ctx context.Context, name string) (string, string, error)
-	getSessionByTokenFn       func(ctx context.Context, token string) (*UserSession, error)
-	deleteSessionFn           func(ctx context.Context, token string) error
-	createTenantUserSessionFn func(ctx context.Context, tp CreateTenantParams, up CreateUserParams, sp CreateSessionParams) (string, string, error)
-	createUserSessionFn       func(ctx context.Context, up CreateUserParams, sp CreateSessionParams) (string, error)
-	createSchoolFn            func(ctx context.Context, tenantID string, name string) (string, error)
-	createMembershipFn        func(ctx context.Context, userID, schoolID, tenantID, role string) error
-	getMeInfoFn               func(ctx context.Context, token string) (*MeInfo, error)
+	tenantExistsFn             func(ctx context.Context, orgID string) (bool, error)
+	tenantExistsByNameFn       func(ctx context.Context, name string) (bool, error)
+	getTenantByNameFn          func(ctx context.Context, name string) (string, string, error)
+	getSessionByTokenFn        func(ctx context.Context, token string) (*UserSession, error)
+	deleteSessionFn            func(ctx context.Context, token string) error
+	createTenantUserSessionFn  func(ctx context.Context, tp CreateTenantParams, up CreateUserParams, sp CreateSessionParams) (string, string, error)
+	createUserSessionFn        func(ctx context.Context, up CreateUserParams, sp CreateSessionParams) (string, error)
+	createSchoolFn             func(ctx context.Context, tenantID string, name string) (string, error)
+	createMembershipFn         func(ctx context.Context, userID, schoolID, tenantID, role string) error
+	getMeInfoFn                func(ctx context.Context, token string) (*MeInfo, error)
+	getInvitationByEmailFn     func(ctx context.Context, email string) (*Invitation, error)
+	getTenantStytchOrgIDFn     func(ctx context.Context, tenantID string) (string, error)
+	createInvitedUserSessionFn func(ctx context.Context, args CreateInvitedUserSessionArgs) error
 
 	sessions    map[string]*UserSession
 	memberships map[string]string // userID -> role
@@ -250,6 +273,44 @@ func (m *MockRepository) GetMeInfo(ctx context.Context, token string) (*MeInfo, 
 		}, nil
 	}
 	return nil, ErrNotFound
+}
+
+func (m *MockRepository) GetInvitationByEmail(ctx context.Context, email string) (*Invitation, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if m.getInvitationByEmailFn != nil {
+		return m.getInvitationByEmailFn(ctx, email)
+	}
+	return &Invitation{
+		ID:             "invite_123",
+		TenantID:       "tenant_123",
+		SchoolID:       "school_123",
+		Role:           "TEACHER",
+		Email:          email,
+		FirstName:      "Invited",
+		LastName:       "User",
+		Status:         "pending",
+		StytchMemberID: "sty_member_123",
+		ExpiresAt:      time.Now().Add(24 * time.Hour),
+	}, nil
+}
+
+func (m *MockRepository) GetTenantStytchOrgID(ctx context.Context, tenantID string) (string, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if m.getTenantStytchOrgIDFn != nil {
+		return m.getTenantStytchOrgIDFn(ctx, tenantID)
+	}
+	return "sty_org_123", nil
+}
+
+func (m *MockRepository) CreateInvitedUserSession(ctx context.Context, args CreateInvitedUserSessionArgs) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.createInvitedUserSessionFn != nil {
+		return m.createInvitedUserSessionFn(ctx, args)
+	}
+	return nil
 }
 
 // ============================================================================

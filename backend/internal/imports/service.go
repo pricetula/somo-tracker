@@ -115,7 +115,7 @@ func (s *Service) StartImport(
 		Role:              role,
 		Records:           records,
 		StytchOrgID:       stytchOrgID,
-		FrontendURL:       s.cfg.FrontendURL,
+		BackendURL:        s.cfg.BackendURL,
 		ParentImportJobID: parentImportJobID,
 	}
 

@@ -35,7 +35,7 @@ type ProcessImportPayload struct {
 	// Stytch org ID resolved from tenant before enqueue
 	StytchOrgID string `json:"stytch_org_id"`
 	// Frontend URL for invite redirect
-	FrontendURL string `json:"frontend_url"`
+	BackendURL string `json:"backend_url"`
 	// ParentImportJobID links correction jobs to the original import
 	ParentImportJobID string `json:"parent_import_job_id,omitempty"`
 }
@@ -278,7 +278,7 @@ func (w *Worker) processStage2(
 		retryLoop:
 			for attempt := 1; attempt <= StytchMaxRetries; attempt++ {
 				memberID, lastErr = w.idp.InviteMemberByEmail(
-					ctx, payload.StytchOrgID, rec.Email, fullName, payload.FrontendURL+"/login",
+					ctx, payload.StytchOrgID, rec.Email, fullName, payload.BackendURL+"/api/auth/invite/callback",
 				)
 				if lastErr == nil {
 					break

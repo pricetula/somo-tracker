@@ -78,6 +78,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	auth.Post("/verify", h.Verify)
 	auth.Post("/register", h.Register)
 	auth.Get("/callback", h.MagicLinkCallback)
+	auth.Get("/invite/callback", h.AcceptInvite)
 	auth.Get("/me", h.Me)
 	auth.Delete("/session", h.Logout)
 }
@@ -141,6 +142,74 @@ func (h *Handler) MagicLinkCallback(c *fiber.Ctx) error {
 	)
 
 	return c.Redirect(redirectURL, fiber.StatusFound)
+}
+
+// AcceptInvite handles GET /api/auth/invite/callback.
+// This endpoint is called directly by Stytch after the user clicks the magic
+// link in the invite email. It authenticates the token, looks up the pending
+// invitation, creates the user/session/membership, sets session cookies,
+// and redirects the browser to the frontend dashboard.
+func (h *Handler) AcceptInvite(c *fiber.Ctx) error {
+	token := c.Query("token")
+	if token == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "token query parameter is required",
+		})
+	}
+
+	// Extract device fingerprint from security pipeline
+	deviceFingerprint, _ := c.Locals("device_fingerprint").(string)
+
+	sessionToken, role, err := h.svc.AcceptInvite(c.Context(), token, deviceFingerprint)
+	if err != nil {
+		h.logger.Error("auth: accept invite failed",
+			zap.Error(err),
+		)
+		return middleware.HTTPError(c, err)
+	}
+
+	// Set HttpOnly session cookie (same as registration flow)
+	c.Cookie(&fiber.Cookie{
+		Name:     somoCookieName,
+		Value:    sessionToken,
+		HTTPOnly: true,
+		Secure:   h.cfg.AppEnv != "development",
+		SameSite: "Lax",
+		Path:     "/",
+		Domain:   h.cfg.CookieDomain,
+		MaxAge:   cookieMaxAge,
+	})
+
+	// Set signed role cookie (not HttpOnly — frontend reads it for routing)
+	c.Cookie(&fiber.Cookie{
+		Name:     somoRoleCookieName,
+		Value:    createSignedCookieValue(role, h.cfg.CookieSecret),
+		HTTPOnly: false,
+		Secure:   h.cfg.AppEnv != "development",
+		SameSite: "Lax",
+		Path:     "/",
+		Domain:   h.cfg.CookieDomain,
+		MaxAge:   cookieMaxAge,
+	})
+
+	// Set CSRF token cookie (non-HttpOnly so frontend JS can read it)
+	csrfToken, err := generateCSRFToken()
+	if err != nil {
+		h.logger.Error("auth: failed to generate CSRF token", zap.Error(err))
+	} else {
+		h.setCSRFTokenCookie(c, csrfToken)
+	}
+
+	// Redirect to frontend dashboard
+	dashboardURL := h.cfg.FrontendURL + "/dashboard"
+
+	h.logger.Info("auth: invite accepted — redirecting to dashboard",
+		zap.String("role", role),
+		zap.String("redirect_url", dashboardURL),
+	)
+
+	return c.Redirect(dashboardURL, fiber.StatusFound)
 }
 
 // Verify handles POST /api/auth/verify (PHASE 2).

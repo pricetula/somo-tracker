@@ -133,7 +133,7 @@ func (s *Service) BulkInvite(ctx context.Context, tenantID, schoolID string, req
 			fullName += item.LastName
 		}
 
-		memberID, err := s.idp.InviteMemberByEmail(ctx, stytchOrgID, item.Email, fullName, s.cfg.FrontendURL+"/login")
+		memberID, err := s.idp.InviteMemberByEmail(ctx, stytchOrgID, item.Email, fullName, s.cfg.BackendURL+"/api/auth/invite/callback")
 		if err != nil {
 			s.logger.Warn("stytch invite failed, but invitation persisted",
 				zap.String("email", item.Email),

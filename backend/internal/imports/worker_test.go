@@ -59,6 +59,14 @@ func (m *MockIDP) CreateMember(ctx context.Context, orgID, email, name string) (
 	return "member_" + email, nil
 }
 
+func (m *MockIDP) AuthenticateInviteToken(ctx context.Context, token string) (string, string, error) {
+	return "ist_invite", "invited@example.com", nil
+}
+
+func (m *MockIDP) ExchangeInviteSession(ctx context.Context, ist, orgID string) (string, error) {
+	return "sty_sess_invite", nil
+}
+
 // ============================================================================
 // MockRedisClient
 // ============================================================================
@@ -99,8 +107,8 @@ func newWorkerTestHarness(t *testing.T) *workerTestHarness {
 	logger := zap.New(observedCore)
 
 	cfg := config.Config{
-		AppEnv:      "test",
-		FrontendURL: "http://localhost:3000",
+		AppEnv:     "test",
+		BackendURL: "http://localhost:3030",
 	}
 
 	worker := &Worker{
@@ -129,7 +137,7 @@ func validPayload() *ProcessImportPayload {
 		SchoolID:    "school_001",
 		Role:        "NURSE",
 		StytchOrgID: "org_stytch_001",
-		FrontendURL: "http://localhost:3000",
+		BackendURL:  "http://localhost:3030",
 		Records: []ImportStaffRecord{
 			{TempID: "tmp_alice", Email: "alice@school.com", FirstName: "Alice", LastName: "Smith"},
 			{TempID: "tmp_bob", Email: "bob@school.com", FirstName: "Bob", LastName: "Jones"},

@@ -22,6 +22,7 @@ type Config struct {
 	StytchEnv         string
 	StytchRedirectURL string
 	StytchBaseURL     string // optional: override Stytch API base URL (for testing)
+	BackendURL        string
 	FrontendURL       string
 	CookieSecret      string // HMAC-SHA256 key for signing somo_role cookie
 }
@@ -58,6 +59,7 @@ func Load() Config {
 		StytchEnv:         getEnv("STYTCH_ENV", "test"),
 		StytchRedirectURL: getEnv("STYTCH_REDIRECT_URL", "http://localhost:3030/api/auth/callback"),
 		StytchBaseURL:     getEnv("STYTCH_BASE_URL", ""),
+		BackendURL:        getEnv("BACKEND_URL", "http://localhost:3030"),
 		FrontendURL:       getEnv("FRONTEND_URL", "http://localhost:3000"),
 		CookieSecret:      getEnv("COOKIE_SECRET", "dev-insecure-change-in-production"),
 	}

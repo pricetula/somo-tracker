@@ -425,3 +425,5 @@ APPENDIX A: EDGE CASES & CLARIFICATIONS SUMMARY
 ================================================================================
 END OF SPECIFICATION
 ================================================================================
+
+**Important do not get lost or stuck rather stop. Before branching off to a new method of tackling an issue best to ask how to proceed**

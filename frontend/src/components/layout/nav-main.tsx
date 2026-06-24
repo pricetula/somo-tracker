@@ -44,6 +44,7 @@ function buildNavItems(role: string): NavItem[] {
                     { title: "Nurses", url: "/nurses" },
                     { title: "Finance", url: "/finance" },
                     { title: "Invitations", url: "/admins/invitations" },
+                    { title: "Students", url: "/students/import" },
                 ],
             },
             {

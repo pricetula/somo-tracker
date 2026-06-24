@@ -464,7 +464,7 @@ CREATE TABLE IF NOT EXISTS invitations (
     token               TEXT              NOT NULL,
     expires_at          TIMESTAMPTZ       NOT NULL,
     accepted_at         TIMESTAMPTZ       NULL,
-    full_name           VARCHAR(255)      NULL,
+    full_name           VARCHAR(255)      NOT NULL,
     phone               VARCHAR(50)       NULL,
     registration_number VARCHAR(100)      NULL,
     stytch_member_id    VARCHAR(255)      NULL,

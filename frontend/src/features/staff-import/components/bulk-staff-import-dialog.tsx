@@ -47,6 +47,8 @@ type DialogView =
 
 const CONTEXT_PREFIX = "staff-import";
 
+const TIME_OUT_AFTER_SUCCESS = 2500;
+
 // ─── Component ─────────────────────────────────────────────────────────────
 
 export function BulkStaffImport({ role, mode, onSuccess, onClose }: BulkStaffImportProps) {
@@ -131,7 +133,7 @@ export function BulkStaffImport({ role, mode, onSuccess, onClose }: BulkStaffImp
             });
             if (mode === "dialog") {
                 setView("done");
-                setTimeout(() => onClose?.(), 1500);
+                setTimeout(() => onClose?.(), TIME_OUT_AFTER_SUCCESS);
             } else {
                 onSuccess?.();
                 setView("done");
@@ -143,7 +145,7 @@ export function BulkStaffImport({ role, mode, onSuccess, onClose }: BulkStaffImp
         toast("Corrections submitted");
         if (mode === "dialog") {
             setView("done");
-            setTimeout(() => onClose?.(), 1500);
+            setTimeout(() => onClose?.(), TIME_OUT_AFTER_SUCCESS);
         } else {
             onSuccess?.();
             setView("done");

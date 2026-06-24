@@ -32,8 +32,8 @@ func (r *PgRepository) ListByRole(ctx context.Context, tenantID, schoolID, role 
 	args := []interface{}{tenantID, schoolID, role}
 	if search != "" {
 		pattern := "%" + search + "%"
-		countQuery += ` AND (u.first_name ILIKE $4 OR u.last_name ILIKE $5 OR u.email ILIKE $6)`
-		args = append(args, pattern, pattern, pattern)
+		countQuery += ` AND (u.full_name ILIKE $4 OR u.email ILIKE $5)`
+		args = append(args, pattern, pattern)
 	}
 
 	var total int
@@ -43,7 +43,7 @@ func (r *PgRepository) ListByRole(ctx context.Context, tenantID, schoolID, role 
 
 	// Fetch data
 	dataQuery := `
-		SELECT u.id, u.email, u.first_name, u.last_name, m.role::text, m.is_active, m.created_at
+		SELECT u.id, u.email, u.full_name, m.role::text, m.is_active, m.created_at
 		FROM memberships m
 		JOIN users u ON u.id = m.user_id
 		WHERE m.tenant_id = $1 AND m.school_id = $2 AND m.role::text = $3 AND m.is_active = true
@@ -51,11 +51,11 @@ func (r *PgRepository) ListByRole(ctx context.Context, tenantID, schoolID, role 
 	dataArgs := []interface{}{tenantID, schoolID, role}
 	if search != "" {
 		pattern := "%" + search + "%"
-		dataQuery += ` AND (u.first_name ILIKE $4 OR u.last_name ILIKE $5 OR u.email ILIKE $6)`
-		dataArgs = append(dataArgs, pattern, pattern, pattern)
+		dataQuery += ` AND (u.full_name ILIKE $4 OR u.email ILIKE $5)`
+		dataArgs = append(dataArgs, pattern, pattern)
 	}
 
-	dataQuery += ` ORDER BY u.first_name, u.last_name LIMIT $` + fmt.Sprintf("%d", len(dataArgs)+1) + ` OFFSET $` + fmt.Sprintf("%d", len(dataArgs)+2)
+	dataQuery += ` ORDER BY u.full_name LIMIT $` + fmt.Sprintf("%d", len(dataArgs)+1) + ` OFFSET $` + fmt.Sprintf("%d", len(dataArgs)+2)
 	dataArgs = append(dataArgs, limit, offset)
 
 	rows, err := r.pool.Query(ctx, dataQuery, dataArgs...)
@@ -67,7 +67,7 @@ func (r *PgRepository) ListByRole(ctx context.Context, tenantID, schoolID, role 
 	var members []Member
 	for rows.Next() {
 		var m Member
-		if err := rows.Scan(&m.ID, &m.Email, &m.FirstName, &m.LastName, &m.Role, &m.IsActive, &m.CreatedAt); err != nil {
+		if err := rows.Scan(&m.ID, &m.Email, &m.FullName, &m.Role, &m.IsActive, &m.CreatedAt); err != nil {
 			return nil, 0, fmt.Errorf("scan member: %w", err)
 		}
 		members = append(members, m)
@@ -113,7 +113,7 @@ func (r *PgRepository) GetActiveSchoolID(ctx context.Context, tenantID, userID s
 func (r *PgRepository) ListInvitations(ctx context.Context, tenantID, schoolID string, filter ListInvitationsFilter) ([]Invitation, int, error) {
 	// Build count query
 	countQuery := `SELECT COUNT(*) FROM invitations WHERE tenant_id = $1 AND school_id = $2`
-	dataQuery := `SELECT id, school_id, tenant_id, email, role::text, status::text, first_name, last_name, expires_at, created_at FROM invitations WHERE tenant_id = $1 AND school_id = $2`
+	dataQuery := `SELECT id, school_id, tenant_id, email, role::text, status::text, full_name, expires_at, created_at FROM invitations WHERE tenant_id = $1 AND school_id = $2`
 
 	args := []interface{}{tenantID, schoolID}
 	argIdx := 3
@@ -125,10 +125,10 @@ func (r *PgRepository) ListInvitations(ctx context.Context, tenantID, schoolID s
 
 	if filter.Search != "" {
 		pattern := "%" + filter.Search + "%"
-		countQuery += fmt.Sprintf(` AND (first_name ILIKE $%d OR last_name ILIKE $%d)`, argIdx, argIdx+1)
-		dataQuery += fmt.Sprintf(` AND (first_name ILIKE $%d OR last_name ILIKE $%d)`, argIdx, argIdx+1)
-		args = append(args, pattern, pattern)
-		argIdx += 2
+		countQuery += fmt.Sprintf(` AND (full_name ILIKE $%d)`, argIdx)
+		dataQuery += fmt.Sprintf(` AND (full_name ILIKE $%d)`, argIdx)
+		args = append(args, pattern)
+		argIdx++
 	}
 
 	if filter.Email != "" {
@@ -174,7 +174,7 @@ func (r *PgRepository) ListInvitations(ctx context.Context, tenantID, schoolID s
 	for rows.Next() {
 		var inv Invitation
 		if err := rows.Scan(&inv.ID, &inv.SchoolID, &inv.TenantID, &inv.Email, &inv.Role, &inv.Status,
-			&inv.FirstName, &inv.LastName, &inv.ExpiresAt, &inv.CreatedAt); err != nil {
+			&inv.FullName, &inv.ExpiresAt, &inv.CreatedAt); err != nil {
 			return nil, 0, fmt.Errorf("scan invitation: %w", err)
 		}
 		invitations = append(invitations, inv)

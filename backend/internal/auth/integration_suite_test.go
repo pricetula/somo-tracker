@@ -721,8 +721,8 @@ func (s *IntegrationSuite) insertUser(t *testing.T, id, email, tenantID, externa
 	t.Helper()
 	ctx := context.Background()
 	_, err := s.pgPool.Exec(ctx, `
-		INSERT INTO users (id, email, tenant_id, first_name, last_name, external_auth_id)
-		VALUES ($1, $2, $3, '', '', $4)
+		INSERT INTO users (id, email, tenant_id, full_name, external_auth_id)
+		VALUES ($1, $2, $3, '', $4)
 	`, id, email, tenantID, externalAuthID)
 	if err != nil {
 		t.Fatalf("insert user: %v", err)

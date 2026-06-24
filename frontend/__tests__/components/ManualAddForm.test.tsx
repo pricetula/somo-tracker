@@ -57,7 +57,7 @@ describe("ManualAddForm — row management", () => {
         vi.clearAllMocks();
     });
 
-    it("renders one empty row on mount — first_name, last_name, email, phone inputs are present", () => {
+    it("renders one empty row on mount — full_name, full_name, email, phone inputs are present", () => {
         renderManualForm();
 
         expect(screen.getByPlaceholderText("Jane")).toBeInTheDocument();
@@ -124,10 +124,10 @@ describe("ManualAddForm — validation", () => {
         vi.clearAllMocks();
     });
 
-    it("first_name is required — submitting with empty first_name shows submit disabled", async () => {
+    it("full_name is required — submitting with empty full_name shows submit disabled", async () => {
         renderManualForm();
 
-        // Fill email but leave first_name empty
+        // Fill email but leave full_name empty
         fireEvent.change(screen.getByPlaceholderText("jane@school.edu"), {
             target: { value: "test@school.edu" },
         });
@@ -137,17 +137,17 @@ describe("ManualAddForm — validation", () => {
         expect(submitBtn).toBeDisabled();
     });
 
-    it("last_name is required — submitting with empty last_name shows submit disabled", async () => {
+    it("full_name is required — submitting with empty full_name shows submit disabled", async () => {
         const user = userEvent.setup();
         renderManualForm();
 
-        // Fill first_name and email, leave last_name empty
+        // Fill full_name and email, leave full_name empty
         await user.type(screen.getByPlaceholderText("Jane"), "John");
         fireEvent.change(screen.getByPlaceholderText("jane@school.edu"), {
             target: { value: "john@school.edu" },
         });
 
-        // Submit button should be disabled due to missing last_name
+        // Submit button should be disabled due to missing full_name
         const submitBtn = screen.getByText("Review & Submit");
         expect(submitBtn).toBeDisabled();
     });
@@ -275,7 +275,7 @@ describe("ManualAddForm — callbacks and limits", () => {
             expect(onRowsReady).toHaveBeenCalledTimes(1);
             const emitted = onRowsReady.mock.calls[0][0];
             expect(emitted).toHaveLength(1);
-            expect(emitted[0].first_name).toBe("Alice");
+            expect(emitted[0].full_name).toBe("Alice");
             expect(emitted[0].email).toBe("alice@school.edu");
         });
     });
@@ -310,11 +310,11 @@ describe("ManualAddForm — callbacks and limits", () => {
         const phoneInputs = screen.getAllByPlaceholderText("+254 712 345 678");
         phoneInputs[0].focus();
 
-        // Tab should move to the remove button of row 1, then to first_name of row 2
+        // Tab should move to the remove button of row 1, then to full_name of row 2
         await user.tab();
         await user.tab();
 
-        // After tabbing twice, focus should be on the first_name input of row 2
+        // After tabbing twice, focus should be on the full_name input of row 2
         const firstNameInputs = screen.getAllByPlaceholderText("Jane");
         expect(document.activeElement).toBe(firstNameInputs[1]);
     });

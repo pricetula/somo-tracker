@@ -65,11 +65,8 @@ func (s *Service) StartImport(
 		if rec.Email == "" {
 			return nil, fmt.Errorf("email is required for all records")
 		}
-		if rec.FirstName == "" {
-			return nil, fmt.Errorf("first_name is required for all records")
-		}
-		if rec.LastName == "" {
-			return nil, fmt.Errorf("last_name is required for all records")
+		if rec.FullName == "" {
+			return nil, fmt.Errorf("full_name is required for all records")
 		}
 		// TSC Number (registration_number) is mandatory for TEACHER role
 		if role == "TEACHER" && rec.RegistrationNumber == "" {

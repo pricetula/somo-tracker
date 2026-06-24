@@ -2,7 +2,7 @@
  * Active Staff Table — displays active staff users by role.
  *
  * Uses TanStack Table + TanStack Virtual for performance.
- * Each row shows first_name, last_name, email, created_at
+ * Each row shows full_name, full_name, email, created_at
  * with Edit and Deactivate action stubs.
  */
 
@@ -42,16 +42,11 @@ function formatDate(iso: string): string {
 function createColumns(): ColumnDef<User>[] {
     return [
         {
-            accessorKey: "first_name",
-            header: "First Name",
+            accessorKey: "full_name",
+            header: "Full Name",
             cell: ({ row }) => (
-                <span className="text-sm font-medium">{row.original.first_name || "—"}</span>
+                <span className="text-sm font-medium">{row.original.full_name || "—"}</span>
             ),
-        },
-        {
-            accessorKey: "last_name",
-            header: "Last Name",
-            cell: ({ row }) => <span className="text-sm">{row.original.last_name || "—"}</span>,
         },
         {
             accessorKey: "email",

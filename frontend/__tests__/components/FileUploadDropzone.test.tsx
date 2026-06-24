@@ -24,7 +24,7 @@ vi.mock("@tanstack/react-virtual", () => ({
 
 function createMockFile(name: string, mimeType: string): File {
     const blob = new Blob(
-        ["first_name,last_name,email,phone\nJane,Doe,jane@school.edu,+254712345678"],
+        ["full_name,full_name,email,phone\nJane,Doe,jane@school.edu,+254712345678"],
         {
             type: mimeType,
         }

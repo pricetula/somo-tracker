@@ -80,7 +80,7 @@ func TestHandler_ListMembers_HappyPath(t *testing.T) {
 
 	h.repo.listByRoleFn = func(ctx context.Context, tenantID, schoolID, role string, offset, limit int, search string) ([]Member, int, error) {
 		return []Member{
-			{ID: "user_001", Email: "alice@school.com", FirstName: "Alice", LastName: "Smith", Role: "TEACHER", IsActive: true},
+			{ID: "user_001", Email: "alice@school.com", FullName: "Alice Smith", Role: "TEACHER", IsActive: true},
 		}, 1, nil
 	}
 
@@ -107,7 +107,7 @@ func TestHandler_ListMembers_WithSearch(t *testing.T) {
 			t.Errorf("expected search 'Alice', got %q", search)
 		}
 		return []Member{
-			{ID: "user_001", Email: "alice@school.com", FirstName: "Alice", LastName: "Smith", Role: "TEACHER", IsActive: true},
+			{ID: "user_001", Email: "alice@school.com", FullName: "Alice Smith", Role: "TEACHER", IsActive: true},
 		}, 1, nil
 	}
 
@@ -193,10 +193,10 @@ func TestHandler_ListMembers_Pagination(t *testing.T) {
 func TestHandler_ListInvitations_HappyPath(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
-	firstName := "Alice"
+	fullName := "Alice"
 	h.repo.listInvitationsFn = func(ctx context.Context, tenantID, schoolID string, filter ListInvitationsFilter) ([]Invitation, int, error) {
 		return []Invitation{
-			{ID: "inv_001", Email: "alice@school.com", Role: "TEACHER", Status: "pending", FirstName: &firstName},
+			{ID: "inv_001", Email: "alice@school.com", Role: "TEACHER", Status: "pending", FullName: &fullName},
 		}, 1, nil
 	}
 
@@ -218,7 +218,7 @@ func TestHandler_ListInvitations_HappyPath(t *testing.T) {
 func TestHandler_ListInvitations_WithFilters(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
-	firstName := "Bob"
+	fullName := "Bob"
 	h.repo.listInvitationsFn = func(ctx context.Context, tenantID, schoolID string, filter ListInvitationsFilter) ([]Invitation, int, error) {
 		if filter.Status != "pending" {
 			t.Errorf("expected status 'pending', got %q", filter.Status)
@@ -227,7 +227,7 @@ func TestHandler_ListInvitations_WithFilters(t *testing.T) {
 			t.Errorf("expected role 'NURSE', got %q", filter.Role)
 		}
 		return []Invitation{
-			{ID: "inv_002", Email: "bob@school.com", Role: "NURSE", Status: "pending", FirstName: &firstName},
+			{ID: "inv_002", Email: "bob@school.com", Role: "NURSE", Status: "pending", FullName: &fullName},
 		}, 1, nil
 	}
 

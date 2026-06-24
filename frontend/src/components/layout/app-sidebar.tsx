@@ -16,9 +16,7 @@ import { useMe } from "@/hooks/use-auth";
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     const { data: me } = useMe();
 
-    const userDisplayName = me
-        ? [me.first_name, me.last_name].filter(Boolean).join(" ") || me.email || "User"
-        : "User";
+    const userDisplayName = me ? me.full_name || me.email || "User" : "User";
 
     return (
         <Sidebar collapsible="icon" {...props}>

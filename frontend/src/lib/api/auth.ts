@@ -25,16 +25,14 @@ export interface VerifyResponse {
 export interface RegisterPayload {
     school_name: string;
     session_ref: string;
-    first_name: string;
-    last_name: string;
+    full_name: string;
 }
 
 export interface MeResponse {
     user_id: string;
     tenant_id: string;
     school_id: string;
-    first_name: string;
-    last_name: string;
+    full_name: string;
     email: string;
     role: string;
 }

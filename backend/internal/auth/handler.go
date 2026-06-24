@@ -49,8 +49,7 @@ type MeResponse struct {
 	Role       string `json:"role"`
 	SchoolID   string `json:"school_id,omitempty"`
 	SchoolName string `json:"school_name,omitempty"`
-	FirstName  string `json:"first_name,omitempty"`
-	LastName   string `json:"last_name,omitempty"`
+	FullName   string `json:"full_name,omitempty"`
 	Email      string `json:"email,omitempty"`
 }
 
@@ -318,8 +317,7 @@ func (h *Handler) Me(c *fiber.Ctx) error {
 		"role":        info.Role,
 		"school_id":   info.SchoolID,
 		"school_name": info.SchoolName,
-		"first_name":  info.FirstName,
-		"last_name":   info.LastName,
+		"full_name":   info.FullName,
 		"email":       info.Email,
 	})
 }

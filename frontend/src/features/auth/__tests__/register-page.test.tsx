@@ -86,12 +86,8 @@ function getSchoolNameInput() {
     return screen.getByPlaceholderText(/e\.g\. Lincoln High School/i);
 }
 
-function getFirstNameInput() {
-    return screen.getByPlaceholderText(/jane/i);
-}
-
-function getLastNameInput() {
-    return screen.getByPlaceholderText(/doe/i);
+function getFullNameInput() {
+    return screen.getByPlaceholderText(/jane doe/i);
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────
@@ -133,8 +129,7 @@ describe("RegisterPage", () => {
                 screen.getByText(/set up your school or educational organization/i)
             ).toBeInTheDocument();
             expect(getSchoolNameInput()).toBeInTheDocument();
-            expect(getFirstNameInput()).toBeInTheDocument();
-            expect(getLastNameInput()).toBeInTheDocument();
+            expect(getFullNameInput()).toBeInTheDocument();
             expect(screen.getByRole("button", { name: /create account/i })).toBeInTheDocument();
         });
 
@@ -153,8 +148,7 @@ describe("RegisterPage", () => {
             expect(
                 await screen.findByText(/school name must be at least 2 characters/i)
             ).toBeInTheDocument();
-            expect(screen.getByText(/first name is required/i)).toBeInTheDocument();
-            expect(screen.getByText(/last name is required/i)).toBeInTheDocument();
+            expect(screen.getByText(/full name is required/i)).toBeInTheDocument();
             expect(mockRegisterFn).not.toHaveBeenCalled();
         });
 
@@ -163,8 +157,7 @@ describe("RegisterPage", () => {
             renderRegisterPage();
 
             await user.type(getSchoolNameInput(), "A");
-            await user.type(getFirstNameInput(), "Jane");
-            await user.type(getLastNameInput(), "Doe");
+            await user.type(getFullNameInput(), "Jane Doe");
 
             await user.click(screen.getByRole("button", { name: /create account/i }));
 
@@ -181,8 +174,7 @@ describe("RegisterPage", () => {
             renderRegisterPage();
 
             await user.type(getSchoolNameInput(), "Lincoln High School");
-            await user.type(getFirstNameInput(), "Jane");
-            await user.type(getLastNameInput(), "Doe");
+            await user.type(getFullNameInput(), "Jane Doe");
 
             await user.click(screen.getByRole("button", { name: /create account/i }));
 
@@ -191,8 +183,7 @@ describe("RegisterPage", () => {
                 expect(mockRegisterFn).toHaveBeenCalledWith({
                     school_name: "Lincoln High School",
                     session_ref: "ref_abc123",
-                    first_name: "Jane",
-                    last_name: "Doe",
+                    full_name: "Jane Doe",
                 });
             });
         });
@@ -204,8 +195,7 @@ describe("RegisterPage", () => {
             renderRegisterPage();
 
             await user.type(getSchoolNameInput(), "Lincoln High School");
-            await user.type(getFirstNameInput(), "Jane");
-            await user.type(getLastNameInput(), "Doe");
+            await user.type(getFullNameInput(), "Jane Doe");
 
             const submitButton = screen.getByRole("button", { name: /create account/i });
             await user.click(submitButton);
@@ -225,8 +215,7 @@ describe("RegisterPage", () => {
             renderRegisterPage();
 
             await user.type(getSchoolNameInput(), "Lincoln High School");
-            await user.type(getFirstNameInput(), "Jane");
-            await user.type(getLastNameInput(), "Doe");
+            await user.type(getFullNameInput(), "Jane Doe");
 
             await user.click(screen.getByRole("button", { name: /create account/i }));
 
@@ -242,8 +231,7 @@ describe("RegisterPage", () => {
             renderRegisterPage();
 
             await user.type(getSchoolNameInput(), "Lincoln High School");
-            await user.type(getFirstNameInput(), "Jane");
-            await user.type(getLastNameInput(), "Doe");
+            await user.type(getFullNameInput(), "Jane Doe");
 
             const submitButton = screen.getByRole("button", { name: /create account/i });
             await user.click(submitButton);
@@ -266,8 +254,7 @@ describe("RegisterPage", () => {
             renderRegisterPage();
 
             await user.type(getSchoolNameInput(), "Lincoln High School");
-            await user.type(getFirstNameInput(), "Jane");
-            await user.type(getLastNameInput(), "Doe");
+            await user.type(getFullNameInput(), "Jane Doe");
 
             await user.click(screen.getByRole("button", { name: /create account/i }));
 

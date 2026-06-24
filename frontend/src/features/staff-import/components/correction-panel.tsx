@@ -30,8 +30,7 @@ interface CorrectionPanelProps {
 interface CorrectedRow {
     id: string;
     email: string;
-    first_name: string;
-    last_name: string;
+    full_name: string;
     phone: string;
     registration_number: string;
 }
@@ -51,8 +50,7 @@ export function CorrectionPanel({ jobID, role, onSubmit, onClose }: CorrectionPa
                 data.invitations.map((inv: FailedInvitation) => ({
                     id: inv.id,
                     email: inv.email,
-                    first_name: inv.first_name ?? "",
-                    last_name: inv.last_name ?? "",
+                    full_name: inv.full_name ?? "",
                     phone: inv.phone ?? "",
                     registration_number: "",
                 }))
@@ -84,8 +82,7 @@ export function CorrectionPanel({ jobID, role, onSubmit, onClose }: CorrectionPa
                 records: rows.map((r) => ({
                     temp_id: r.id,
                     email: r.email,
-                    first_name: r.first_name,
-                    last_name: r.last_name,
+                    full_name: r.full_name,
                     phone: r.phone,
                     registration_number: r.registration_number,
                 })),
@@ -141,12 +138,11 @@ export function CorrectionPanel({ jobID, role, onSubmit, onClose }: CorrectionPa
                 className="text-muted-foreground grid gap-2 px-1 text-xs font-medium"
                 style={{
                     gridTemplateColumns:
-                        role === "TEACHER" ? "1.5fr 1fr 1fr 0.8fr 1fr" : "1.5fr 1fr 1fr 1fr",
+                        role === "TEACHER" ? "1.5fr 1fr 0.8fr 1fr" : "1.5fr 1fr 1fr",
                 }}
             >
                 <span>Email *</span>
-                <span>First Name</span>
-                <span>Last Name</span>
+                <span>Full Name</span>
                 {role === "TEACHER" && <span>TSC Number</span>}
                 <span>Phone</span>
             </div>
@@ -177,8 +173,8 @@ export function CorrectionPanel({ jobID, role, onSubmit, onClose }: CorrectionPa
                                     style={{
                                         gridTemplateColumns:
                                             role === "TEACHER"
-                                                ? "1.5fr 1fr 1fr 0.8fr 1fr"
-                                                : "1.5fr 1fr 1fr 1fr",
+                                                ? "1.5fr 1fr 0.8fr 1fr"
+                                                : "1.5fr 1fr 1fr",
                                     }}
                                 >
                                     <input
@@ -189,19 +185,12 @@ export function CorrectionPanel({ jobID, role, onSubmit, onClose }: CorrectionPa
                                     />
                                     <input
                                         type="text"
-                                        value={row.first_name}
+                                        value={row.full_name}
                                         onChange={(e) =>
-                                            updateRow(row.id, "first_name", e.target.value)
+                                            updateRow(row.id, "full_name", e.target.value)
                                         }
                                         className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
-                                    />
-                                    <input
-                                        type="text"
-                                        value={row.last_name}
-                                        onChange={(e) =>
-                                            updateRow(row.id, "last_name", e.target.value)
-                                        }
-                                        className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
+                                        placeholder="Jane Doe"
                                     />
                                     {role === "TEACHER" && (
                                         <input

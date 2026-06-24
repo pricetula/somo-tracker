@@ -82,8 +82,8 @@ describe("SubmitFlow — ReviewView submit", () => {
         );
 
         const rows = [
-            buildRow({ temp_id: "row-1", email: "a@b.com", first_name: "A", last_name: "B" }),
-            buildRow({ temp_id: "row-2", email: "c@d.com", first_name: "C", last_name: "D" }),
+            buildRow({ temp_id: "row-1", email: "a@b.com", full_name: "A", full_name: "B" }),
+            buildRow({ temp_id: "row-2", email: "c@d.com", full_name: "C", full_name: "D" }),
         ];
         const { onSubmit } = renderReviewView(rows);
 

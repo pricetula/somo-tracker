@@ -52,8 +52,7 @@ type ImportJob struct {
 type ImportStaffRecord struct {
 	TempID             string `json:"temp_id"`
 	Email              string `json:"email"`
-	FirstName          string `json:"first_name"`
-	LastName           string `json:"last_name"`
+	FullName           string `json:"full_name"`
 	Phone              string `json:"phone,omitempty"`
 	RegistrationNumber string `json:"registration_number,omitempty"`
 }
@@ -84,8 +83,7 @@ type ListFailedInvitationsResponse struct {
 type FailedInvitation struct {
 	ID           string  `json:"id"`
 	Email        string  `json:"email"`
-	FirstName    *string `json:"first_name,omitempty"`
-	LastName     *string `json:"last_name,omitempty"`
+	FullName     *string `json:"full_name,omitempty"`
 	Phone        *string `json:"phone,omitempty"`
 	ErrorMessage *string `json:"error_message,omitempty"`
 }

@@ -21,8 +21,8 @@ import * as XLSX from "xlsx";
 
 const COLUMN_ALIASES: Record<string, string[]> = {
     email: ["email", "e-mail", "e_mail", "mail"],
-    first_name: ["first_name", "firstname", "first name", "given_name", "given name"],
-    last_name: ["last_name", "lastname", "last name", "surname", "family_name", "family name"],
+    full_name: ["full_name", "firstname", "first name", "given_name", "given name"],
+    full_name: ["full_name", "lastname", "last name", "surname", "family_name", "family name"],
     phone: [
         "phone",
         "phone_number",
@@ -46,8 +46,8 @@ const COLUMN_ALIASES: Record<string, string[]> = {
 interface ParsedRow {
     temp_id: string;
     email: string;
-    first_name: string;
-    last_name: string;
+    full_name: string;
+    full_name: string;
     phone: string;
     registration_number: string;
 }
@@ -73,8 +73,8 @@ function normalizeRow(data: Record<string, string>): ParsedRow | null {
     return {
         temp_id: crypto.randomUUID(),
         email: row.email || "",
-        first_name: row.first_name || "",
-        last_name: row.last_name || "",
+        full_name: row.full_name || "",
+        full_name: row.full_name || "",
         phone: row.phone || "",
         registration_number: row.registration_number || "",
     };
@@ -118,11 +118,11 @@ function parseCSVRows(csv: string): ParsedRow[] {
 // ─── Tests ─────────────────────────────────────────────────────────────
 
 describe("CSV parsing produces correct row shape", () => {
-    it("given a CSV with headers first_name,last_name,email,phone, the worker output rows each have those four keys plus a client-generated rowId (UUID format)", () => {
+    it("given a CSV with headers full_name,full_name,email,phone, the worker output rows each have those four keys plus a client-generated rowId (UUID format)", () => {
         const csvData = [
             {
-                first_name: "Jane",
-                last_name: "Doe",
+                full_name: "Jane",
+                full_name: "Doe",
                 email: "jane@school.edu",
                 phone: "+254712345678",
             },
@@ -132,8 +132,8 @@ describe("CSV parsing produces correct row shape", () => {
 
         expect(rows).toHaveLength(1);
         expect(rows[0]).toHaveProperty("email", "jane@school.edu");
-        expect(rows[0]).toHaveProperty("first_name", "Jane");
-        expect(rows[0]).toHaveProperty("last_name", "Doe");
+        expect(rows[0]).toHaveProperty("full_name", "Jane");
+        expect(rows[0]).toHaveProperty("full_name", "Doe");
         expect(rows[0]).toHaveProperty("phone", "+254712345678");
         expect(rows[0]).toHaveProperty("registration_number");
         // temp_id should be a UUID format
@@ -149,8 +149,8 @@ describe("XLSX parsing produces correct row shape", () => {
         const wb = XLSX.utils.book_new();
         const ws = XLSX.utils.json_to_sheet([
             {
-                first_name: "John",
-                last_name: "Smith",
+                full_name: "John",
+                full_name: "Smith",
                 email: "john@school.edu",
                 phone: "+254700000000",
             },
@@ -167,8 +167,8 @@ describe("XLSX parsing produces correct row shape", () => {
 
         expect(rows).toHaveLength(1);
         expect(rows[0].email).toBe("john@school.edu");
-        expect(rows[0].first_name).toBe("John");
-        expect(rows[0].last_name).toBe("Smith");
+        expect(rows[0].full_name).toBe("John");
+        expect(rows[0].full_name).toBe("Smith");
         expect(rows[0].phone).toBe("+254700000000");
         expect(rows[0].temp_id).toMatch(
             /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
@@ -177,15 +177,15 @@ describe("XLSX parsing produces correct row shape", () => {
 });
 
 describe("Missing header columns are tolerated", () => {
-    it("a CSV with only first_name,email produces rows with last_name: '' and phone: '' without throwing", () => {
-        const csvData = [{ first_name: "Jane", email: "jane@school.edu" }];
+    it("a CSV with only full_name,email produces rows with full_name: '' and phone: '' without throwing", () => {
+        const csvData = [{ full_name: "Jane", email: "jane@school.edu" }];
         const csv = makeCSV(csvData);
         const rows = parseCSVRows(csv);
 
         expect(rows).toHaveLength(1);
-        expect(rows[0].first_name).toBe("Jane");
+        expect(rows[0].full_name).toBe("Jane");
         expect(rows[0].email).toBe("jane@school.edu");
-        expect(rows[0].last_name).toBe("");
+        expect(rows[0].full_name).toBe("");
         expect(rows[0].phone).toBe("");
         expect(rows[0].registration_number).toBe("");
     });
@@ -195,8 +195,8 @@ describe("Extra/unknown columns are ignored", () => {
     it("a CSV with a department column not in the schema produces rows without a department key", () => {
         const csvData = [
             {
-                first_name: "Jane",
-                last_name: "Doe",
+                full_name: "Jane",
+                full_name: "Doe",
                 email: "jane@school.edu",
                 phone: "+254712345678",
                 department: "Science",
@@ -219,8 +219,8 @@ describe("Rows are emitted in batches of ≤ 200", () => {
         // (it sends each row individually as { type: 'row', row }). For the
         // batching assertion we verify the count.
         const rows = Array.from({ length: 450 }, (_, i) => ({
-            first_name: `First${i}`,
-            last_name: `Last${i}`,
+            full_name: `First${i}`,
+            full_name: `Last${i}`,
             email: `user${i}@school.edu`,
             phone: "+254712345678",
         }));
@@ -235,8 +235,8 @@ describe("Rows are emitted in batches of ≤ 200", () => {
 describe("rowId is unique per row", () => {
     it("all emitted rowId values across all batches are unique (no duplicates in a Set)", () => {
         const rows = Array.from({ length: 100 }, (_, i) => ({
-            first_name: `First${i}`,
-            last_name: `Last${i}`,
+            full_name: `First${i}`,
+            full_name: `Last${i}`,
             email: `user${i}@school.edu`,
             phone: "+254712345678",
         }));
@@ -253,7 +253,7 @@ describe("rowId is unique per row", () => {
 describe("Empty rows are skipped", () => {
     it("a CSV with two blank lines between data rows does not produce empty row objects", () => {
         const csv =
-            "first_name,last_name,email,phone\nJane,Doe,jane@school.edu,+254712345678\n\n\nJohn,Smith,john@school.edu,+254700000000\n";
+            "full_name,full_name,email,phone\nJane,Doe,jane@school.edu,+254712345678\n\n\nJohn,Smith,john@school.edu,+254700000000\n";
         const rows = parseCSVRows(csv);
 
         expect(rows).toHaveLength(2);
@@ -265,14 +265,14 @@ describe("Empty rows are skipped", () => {
 describe("BOM-prefixed CSV is handled correctly", () => {
     it("a CSV starting with UTF-8 BOM (\\uFEFF) does not corrupt the first header name", () => {
         const csvContent =
-            "first_name,last_name,email,phone\nJane,Doe,jane@school.edu,+254712345678\n";
+            "full_name,full_name,email,phone\nJane,Doe,jane@school.edu,+254712345678\n";
         const bomCsv = "\uFEFF" + csvContent;
         const rows = parseCSVRows(bomCsv);
 
         expect(rows).toHaveLength(1);
         expect(rows[0].email).toBe("jane@school.edu");
-        expect(rows[0].first_name).toBe("Jane");
-        expect(rows[0].last_name).toBe("Doe");
+        expect(rows[0].full_name).toBe("Jane");
+        expect(rows[0].full_name).toBe("Doe");
     });
 });
 
@@ -296,8 +296,8 @@ describe("Row limit enforcement", () => {
 
     it("exactly 5,000 rows parses successfully without error", () => {
         const rows = Array.from({ length: 5000 }, (_, i) => ({
-            first_name: `First${i}`,
-            last_name: `Last${i}`,
+            full_name: `First${i}`,
+            full_name: `Last${i}`,
             email: `user${i}@school.edu`,
             phone: "+254712345678",
         }));
@@ -310,17 +310,17 @@ describe("Row limit enforcement", () => {
 });
 
 describe("Column alias mapping", () => {
-    it("maps 'given_name' to first_name", () => {
+    it("maps 'given_name' to full_name", () => {
         const csvData = [{ given_name: "Jane", email: "jane@school.edu" }];
         const csv = makeCSV(csvData);
         const rows = parseCSVRows(csv);
 
         expect(rows).toHaveLength(1);
-        expect(rows[0].first_name).toBe("Jane");
+        expect(rows[0].full_name).toBe("Jane");
     });
 
     it("maps 'e-mail' to email", () => {
-        const csvData = [{ "e-mail": "jane@school.edu", first_name: "Jane" }];
+        const csvData = [{ "e-mail": "jane@school.edu", full_name: "Jane" }];
         const csv = makeCSV(csvData);
         const rows = parseCSVRows(csv);
 
@@ -328,19 +328,19 @@ describe("Column alias mapping", () => {
         expect(rows[0].email).toBe("jane@school.edu");
     });
 
-    it("maps 'surname' to last_name", () => {
+    it("maps 'surname' to full_name", () => {
         const csvData = [{ surname: "Doe", email: "jane@school.edu" }];
         const csv = makeCSV(csvData);
         const rows = parseCSVRows(csv);
 
         expect(rows).toHaveLength(1);
-        expect(rows[0].last_name).toBe("Doe");
+        expect(rows[0].full_name).toBe("Doe");
     });
 });
 
 describe("Row without email is skipped", () => {
     it("a row missing the email field is not included in output", () => {
-        const csvData = [{ first_name: "Jane", last_name: "Doe" }];
+        const csvData = [{ full_name: "Jane", full_name: "Doe" }];
         const csv = makeCSV(csvData);
         const rows = parseCSVRows(csv);
 

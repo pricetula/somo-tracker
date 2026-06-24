@@ -68,7 +68,7 @@ func TestListMembers_HappyPath(t *testing.T) {
 
 	h.repo.listByRoleFn = func(ctx context.Context, tenantID, schoolID, role string, offset, limit int, search string) ([]Member, int, error) {
 		return []Member{
-			{ID: "user_001", Email: "alice@school.com", FirstName: "Alice", LastName: "Smith", Role: "TEACHER", IsActive: true},
+			{ID: "user_001", Email: "alice@school.com", FullName: "Alice Smith", Role: "TEACHER", IsActive: true},
 		}, 1, nil
 	}
 
@@ -95,7 +95,7 @@ func TestListMembers_WithSearch(t *testing.T) {
 			return nil, 0, nil
 		}
 		return []Member{
-			{ID: "user_001", Email: "alice@school.com", FirstName: "Alice", LastName: "Smith", Role: "TEACHER", IsActive: true},
+			{ID: "user_001", Email: "alice@school.com", FullName: "Alice Smith", Role: "TEACHER", IsActive: true},
 		}, 1, nil
 	}
 
@@ -171,9 +171,9 @@ func TestListInvitations_HappyPath(t *testing.T) {
 	h := newTestHarness()
 
 	h.repo.listInvitationsFn = func(ctx context.Context, tenantID, schoolID string, filter ListInvitationsFilter) ([]Invitation, int, error) {
-		firstName := "Alice"
+		fullName := "Alice"
 		return []Invitation{
-			{ID: "inv_001", Email: "alice@school.com", Role: "TEACHER", Status: "pending", FirstName: &firstName},
+			{ID: "inv_001", Email: "alice@school.com", Role: "TEACHER", Status: "pending", FullName: &fullName},
 		}, 1, nil
 	}
 
@@ -222,9 +222,9 @@ func TestListInvitations_WithFilters(t *testing.T) {
 		if filter.Role != "TEACHER" {
 			return nil, 0, fmt.Errorf("expected role filter 'TEACHER', got %q", filter.Role)
 		}
-		firstName := "Alice"
+		fullName := "Alice"
 		return []Invitation{
-			{ID: "inv_001", Email: "alice@school.com", Role: "TEACHER", Status: "pending", FirstName: &firstName},
+			{ID: "inv_001", Email: "alice@school.com", Role: "TEACHER", Status: "pending", FullName: &fullName},
 		}, 1, nil
 	}
 

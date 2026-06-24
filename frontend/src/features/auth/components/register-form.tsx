@@ -37,14 +37,10 @@ const registerSchema = z.object({
         .string()
         .min(2, "School name must be at least 2 characters")
         .max(100, "School name must be less than 100 characters"),
-    first_name: z
+    full_name: z
         .string()
-        .min(1, "First name is required")
-        .max(100, "First name must be less than 100 characters"),
-    last_name: z
-        .string()
-        .min(1, "Last name is required")
-        .max(100, "Last name must be less than 100 characters"),
+        .min(1, "Full name is required")
+        .max(200, "Full name must be less than 200 characters"),
 });
 
 type RegisterValues = z.infer<typeof registerSchema>;
@@ -67,8 +63,7 @@ export function RegisterForm({ tooltipSummary }: RegisterFormProps) {
         resolver: zodResolver(registerSchema),
         defaultValues: {
             school_name: "",
-            first_name: "",
-            last_name: "",
+            full_name: "",
         },
     });
 
@@ -88,8 +83,7 @@ export function RegisterForm({ tooltipSummary }: RegisterFormProps) {
             {
                 school_name: values.school_name,
                 session_ref: sessionRef!,
-                first_name: values.first_name,
-                last_name: values.last_name,
+                full_name: values.full_name,
             },
             {
                 onError: (err) => {
@@ -146,34 +140,19 @@ export function RegisterForm({ tooltipSummary }: RegisterFormProps) {
                                     </FormItem>
                                 )}
                             />
-                            <div className="grid grid-cols-2 gap-3">
-                                <FormField
-                                    control={form.control}
-                                    name="first_name"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>First Name</FormLabel>
-                                            <FormControl>
-                                                <Input placeholder="Jane" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <FormField
-                                    control={form.control}
-                                    name="last_name"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Last Name</FormLabel>
-                                            <FormControl>
-                                                <Input placeholder="Doe" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                            </div>
+                            <FormField
+                                control={form.control}
+                                name="full_name"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Full Name</FormLabel>
+                                        <FormControl>
+                                            <Input placeholder="Jane Doe" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
                             <Button
                                 type="submit"
                                 className="w-full"

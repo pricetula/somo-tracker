@@ -234,8 +234,7 @@ export function FileUploadPanel({
                                     <tr>
                                         <th className="px-2 py-1.5 font-medium">#</th>
                                         <th className="px-2 py-1.5 font-medium">Email</th>
-                                        <th className="px-2 py-1.5 font-medium">First Name</th>
-                                        <th className="px-2 py-1.5 font-medium">Last Name</th>
+                                        <th className="px-2 py-1.5 font-medium">Full Name</th>
                                         {isTeacher && (
                                             <th className="px-2 py-1.5 font-medium">TSC Number</th>
                                         )}
@@ -258,8 +257,7 @@ export function FileUploadPanel({
                                                     {virtualItem.index + 1}
                                                 </td>
                                                 <td className="px-2 py-1">{row.email}</td>
-                                                <td className="px-2 py-1">{row.first_name}</td>
-                                                <td className="px-2 py-1">{row.last_name}</td>
+                                                <td className="px-2 py-1">{row.full_name}</td>
                                                 {isTeacher && (
                                                     <td className="px-2 py-1">
                                                         {row.registration_number || "—"}

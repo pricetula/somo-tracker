@@ -73,8 +73,7 @@ type DiscoveryPayload struct {
 type RegistrationPayload struct {
 	SchoolName string `json:"school_name"`
 	SessionRef string `json:"session_ref"`
-	FirstName  string `json:"first_name"`
-	LastName   string `json:"last_name"`
+	FullName   string `json:"full_name"`
 }
 
 var uuidV4Regex = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
@@ -178,8 +177,7 @@ type CreateTenantParams struct {
 type CreateUserParams struct {
 	Email          string
 	TenantID       string
-	FirstName      string
-	LastName       string
+	FullName       string
 	ExternalAuthID string
 }
 
@@ -258,8 +256,7 @@ type Invitation struct {
 	SchoolID           string    `json:"school_id"`
 	Role               string    `json:"role"`
 	Email              string    `json:"email"`
-	FirstName          string    `json:"first_name"`
-	LastName           string    `json:"last_name"`
+	FullName           string    `json:"full_name"`
 	Status             string    `json:"status"`
 	StytchMemberID     string    `json:"stytch_member_id"`
 	RegistrationNumber string    `json:"registration_number"`
@@ -274,8 +271,7 @@ type CreateInvitedUserSessionArgs struct {
 	TenantID           string
 	SchoolID           string
 	Role               string
-	FirstName          string
-	LastName           string
+	FullName           string
 	ExternalAuthID     string
 	SessionToken       string
 	StytchMemberID     string
@@ -293,8 +289,7 @@ type MeInfo struct {
 	Role       string
 	SchoolID   string
 	SchoolName string
-	FirstName  string
-	LastName   string
+	FullName   string
 	Email      string
 }
 

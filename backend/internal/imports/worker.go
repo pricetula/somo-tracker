@@ -241,8 +241,7 @@ func (w *Worker) HandleError(ctx context.Context, task *asynq.Task, err error) {
 type Stage2Record struct {
 	InvitationID string
 	Email        string
-	FirstName    string
-	LastName     string
+	FullName     string
 }
 
 // processStage2 sends Stytch invite emails with bounded concurrency.
@@ -293,14 +292,8 @@ func (w *Worker) processStage2(
 				return
 			}
 
-			// Build full name
-			fullName := rec.FirstName
-			if rec.LastName != "" {
-				if fullName != "" {
-					fullName += " "
-				}
-				fullName += rec.LastName
-			}
+			// Full name from the record
+			fullName := rec.FullName
 
 			// Send Stytch invite with retry
 			var memberID string

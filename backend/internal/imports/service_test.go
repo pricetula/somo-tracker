@@ -233,8 +233,8 @@ func newTestHarness() *testHarness {
 
 func validRecords() []ImportStaffRecord {
 	return []ImportStaffRecord{
-		{Email: "alice@school.com", FirstName: "Alice", LastName: "Smith", Phone: "+12345", RegistrationNumber: "REG-001"},
-		{Email: "bob@school.com", FirstName: "Bob", LastName: "Jones", Phone: "+67890", RegistrationNumber: "REG-002"},
+		{Email: "alice@school.com", FullName: "Alice Smith", Phone: "+12345", RegistrationNumber: "REG-001"},
+		{Email: "bob@school.com", FullName: "Bob Jones", Phone: "+67890", RegistrationNumber: "REG-002"},
 	}
 }
 
@@ -299,9 +299,8 @@ func TestStartImport_TooManyRecords(t *testing.T) {
 	records := make([]ImportStaffRecord, MaxRecordsPerImport+1)
 	for i := range records {
 		records[i] = ImportStaffRecord{
-			Email:     fmt.Sprintf("user%d@school.com", i),
-			FirstName: "User",
-			LastName:  fmt.Sprintf("%d", i),
+			Email:    fmt.Sprintf("user%d@school.com", i),
+			FullName: fmt.Sprintf("User %d", i),
 		}
 	}
 
@@ -316,7 +315,7 @@ func TestStartImport_MissingEmail(t *testing.T) {
 	resolver := newResolver()
 
 	records := []ImportStaffRecord{
-		{Email: "", FirstName: "Alice", LastName: "Smith"},
+		{Email: "", FullName: "Alice Smith"},
 	}
 
 	_, err := h.svc.StartImport(context.Background(), "tenant_001", "school_001", "user_001", "NURSE", records, resolver, "")
@@ -325,31 +324,17 @@ func TestStartImport_MissingEmail(t *testing.T) {
 	}
 }
 
-func TestStartImport_MissingFirstName(t *testing.T) {
+func TestStartImport_MissingFullName(t *testing.T) {
 	h := newTestHarness()
 	resolver := newResolver()
 
 	records := []ImportStaffRecord{
-		{Email: "alice@school.com", FirstName: "", LastName: "Smith"},
+		{Email: "alice@school.com", FullName: ""},
 	}
 
 	_, err := h.svc.StartImport(context.Background(), "tenant_001", "school_001", "user_001", "NURSE", records, resolver, "")
 	if err == nil {
-		t.Fatal("expected error for missing first_name, got nil")
-	}
-}
-
-func TestStartImport_MissingLastName(t *testing.T) {
-	h := newTestHarness()
-	resolver := newResolver()
-
-	records := []ImportStaffRecord{
-		{Email: "alice@school.com", FirstName: "Alice", LastName: ""},
-	}
-
-	_, err := h.svc.StartImport(context.Background(), "tenant_001", "school_001", "user_001", "NURSE", records, resolver, "")
-	if err == nil {
-		t.Fatal("expected error for missing last_name, got nil")
+		t.Fatal("expected error for missing full_name, got nil")
 	}
 }
 
@@ -465,8 +450,7 @@ func TestGetImportJob_NotFound(t *testing.T) {
 func TestGetFailedInvitations_HappyPath(t *testing.T) {
 	h := newTestHarness()
 
-	firstName := "Alice"
-	lastName := "Smith"
+	fullName := "Alice Smith"
 	errMsg := "stytch invite failed: invalid email"
 
 	h.repo.getFailedInvitationsByJobFn = func(ctx context.Context, jobID string) ([]FailedInvitation, error) {
@@ -474,8 +458,7 @@ func TestGetFailedInvitations_HappyPath(t *testing.T) {
 			{
 				ID:           "inv_001",
 				Email:        "alice@bad.com",
-				FirstName:    &firstName,
-				LastName:     &lastName,
+				FullName:     &fullName,
 				ErrorMessage: &errMsg,
 			},
 		}, nil

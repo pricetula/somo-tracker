@@ -49,8 +49,7 @@ export function getCriticalErrorCount(rows: ImportDraftRow[]): number {
         const email = row.email.trim();
         if (!email) continue; // skip empty rows
 
-        if (!row.first_name) errors++;
-        if (!row.last_name) errors++;
+        if (!row.full_name) errors++;
         if (!hasValidEmailStructure(email)) errors++;
         const lowerEmail = email.toLowerCase();
         if (emails.has(lowerEmail)) errors++;

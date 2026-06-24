@@ -20,8 +20,7 @@ export interface Invitation {
     email: string;
     role: InvitationRole;
     status: InvitationStatus;
-    first_name?: string;
-    last_name?: string;
+    full_name?: string;
     invited_by?: string;
     expires_at: string;
     accepted_at?: string;

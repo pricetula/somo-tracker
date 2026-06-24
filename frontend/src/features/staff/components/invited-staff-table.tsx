@@ -2,7 +2,7 @@
  * Invited Staff Table — displays non-accepted invitations by role.
  *
  * Shows pending, expired, revoked, and invite_failed invitations.
- * Each row shows first_name, last_name, email, status (badge),
+ * Each row shows full_name, full_name, email, status (badge),
  * expires_at, created_at with role-specific actions.
  */
 
@@ -57,21 +57,11 @@ function isExpired(expiresAt: string): boolean {
 function createColumns(): ColumnDef<Invitation>[] {
     return [
         {
-            accessorKey: "first_name",
-            header: "First Name",
+            accessorKey: "full_name",
+            header: "Full Name",
             cell: ({ row }) => {
-                const first = row.original.first_name;
-                const last = row.original.last_name;
-                const name = [first, last].filter(Boolean).join(" ");
+                const name = row.original.full_name;
                 return <span className="text-sm font-medium">{name || "—"}</span>;
-            },
-        },
-        {
-            accessorKey: "last_name",
-            header: "Last Name",
-            cell: ({ row }) => {
-                const last = row.original.last_name;
-                return <span className="text-sm">{last || "—"}</span>;
             },
         },
         {

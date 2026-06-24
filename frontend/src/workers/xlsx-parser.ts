@@ -6,7 +6,7 @@
  *
  * Messages from worker (streaming):
  *   { type: "progress", parsed: number, total: number }
- *   { type: "row", row: { temp_id, email, first_name, last_name, phone, registration_number } }
+ *   { type: "row", row: { temp_id, email, full_name, phone, registration_number } }
  *   { type: "error", message: string }
  *   { type: "complete", total: number }
  */
@@ -35,8 +35,7 @@ self.onerror = (event: Event | string) => {
 interface ParsedRow {
     temp_id: string;
     email: string;
-    first_name: string;
-    last_name: string;
+    full_name: string;
     phone: string;
     registration_number: string;
 }
@@ -147,8 +146,23 @@ function parseXLSX(file: ArrayBuffer) {
 /** Column name aliases for flexible import. */
 const COLUMN_ALIASES: Record<string, string[]> = {
     email: ["email", "e-mail", "e_mail", "mail"],
-    first_name: ["first_name", "firstname", "first name", "given_name", "given name"],
-    last_name: ["last_name", "lastname", "last name", "surname", "family_name", "family name"],
+    full_name: [
+        "full_name",
+        "fullname",
+        "full name",
+        "name",
+        "first_name",
+        "firstname",
+        "first name",
+        "given_name",
+        "given name",
+        "last_name",
+        "lastname",
+        "last name",
+        "surname",
+        "family_name",
+        "family name",
+    ],
     phone: [
         "phone",
         "phone_number",
@@ -193,8 +207,7 @@ function normalizeRow(data: Record<string, string>): ParsedRow | null {
     return {
         temp_id: crypto.randomUUID(),
         email: row.email || "",
-        first_name: row.first_name || "",
-        last_name: row.last_name || "",
+        full_name: row.full_name || "",
         phone: row.phone || "",
         registration_number: row.registration_number || "",
     };

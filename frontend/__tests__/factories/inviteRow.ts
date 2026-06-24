@@ -4,7 +4,7 @@
  * Usage:
  *   buildRow()                         // default valid row
  *   buildRow({ email: '' })           // missing email
- *   buildRow({ first_name: '', last_name: '' })  // missing name fields
+ *   buildRow({ full_name: '', full_name: '' })  // missing name fields
  */
 
 import type { ImportDraftRow } from "@/lib/db";
@@ -16,8 +16,8 @@ export function buildRow(overrides?: Partial<ImportDraftRow>): ImportDraftRow {
     return {
         temp_id: `test-row-id-${counter}-${crypto.randomUUID()}`,
         email: `teacher${counter}@school.edu`,
-        first_name: "Jane",
-        last_name: `Doe${counter}`,
+        full_name: "Jane",
+        full_name: `Doe${counter}`,
         phone: "+254712345678",
         registration_number: `REG-${counter}`,
         ...overrides,

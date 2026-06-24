@@ -11,8 +11,7 @@ import { get, set, del } from "idb-keyval";
 export interface ImportDraftRow {
     temp_id: string;
     email: string;
-    first_name: string;
-    last_name: string;
+    full_name: string;
     phone: string;
     registration_number: string;
 }

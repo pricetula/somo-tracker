@@ -47,8 +47,7 @@ export function ManualEntryPanel({
         {
             temp_id: crypto.randomUUID(),
             email: "",
-            first_name: "",
-            last_name: "",
+            full_name: "",
             phone: "",
             registration_number: "",
         },
@@ -79,8 +78,7 @@ export function ManualEntryPanel({
             {
                 temp_id: crypto.randomUUID(),
                 email: "",
-                first_name: "",
-                last_name: "",
+                full_name: "",
                 phone: "",
                 registration_number: "",
             },
@@ -127,7 +125,7 @@ export function ManualEntryPanel({
             const hasEmail = email !== "";
             return {
                 emailError: hasEmail && !hasValidEmailStructure(email),
-                nameError: hasEmail && (row.first_name === "" || row.last_name === ""),
+                nameError: hasEmail && row.full_name === "",
                 phoneWarning: row.phone !== "" && normalizePhone(row.phone) === null,
                 phoneNormalized: normalizePhone(row.phone),
                 duplicateError: hasEmail && (emailCounts.get(lowerEmail) ?? 0) > 1,
@@ -192,12 +190,11 @@ export function ManualEntryPanel({
                 className="text-muted-foreground grid gap-2 px-1 text-xs font-medium"
                 style={{
                     gridTemplateColumns: isTeacher
-                        ? "1fr 1fr 1.5fr 0.8fr 1fr 28px"
-                        : "1fr 1fr 1.5fr 1fr 28px",
+                        ? "1fr 1.5fr 0.8fr 1fr 28px"
+                        : "1fr 1.5fr 1fr 28px",
                 }}
             >
-                <span>First Name *</span>
-                <span>Last Name *</span>
+                <span>Full Name *</span>
                 <span>Email *</span>
                 {isTeacher && <span>TSC Number *</span>}
                 <span>Phone</span>
@@ -232,25 +229,17 @@ export function ManualEntryPanel({
                                     className="grid gap-2 px-1 py-1"
                                     style={{
                                         gridTemplateColumns: isTeacher
-                                            ? "1fr 1fr 1.5fr 0.8fr 1fr 28px"
-                                            : "1fr 1fr 1.5fr 1fr 28px",
+                                            ? "1fr 1.5fr 0.8fr 1fr 28px"
+                                            : "1fr 1.5fr 1fr 28px",
                                     }}
                                 >
                                     <ImportInput
-                                        placeholder="Jane"
-                                        value={row.first_name}
+                                        placeholder="Jane Doe"
+                                        value={row.full_name}
                                         onChange={(e) =>
-                                            updateRow(row.temp_id, "first_name", e.target.value)
+                                            updateRow(row.temp_id, "full_name", e.target.value)
                                         }
-                                        className={`h-9 text-sm ${val.nameError && row.first_name ? "border-destructive" : ""}`}
-                                    />
-                                    <ImportInput
-                                        placeholder="Doe"
-                                        value={row.last_name}
-                                        onChange={(e) =>
-                                            updateRow(row.temp_id, "last_name", e.target.value)
-                                        }
-                                        className={`h-9 text-sm ${val.nameError && row.last_name ? "border-destructive" : ""}`}
+                                        className={`h-9 text-sm ${val.nameError && row.full_name ? "border-destructive" : ""}`}
                                     />
                                     <div className="relative">
                                         <ImportInput

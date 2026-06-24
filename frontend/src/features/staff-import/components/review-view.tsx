@@ -39,8 +39,7 @@ export function ReviewView({ rows, role, onSubmit, onBack }: ReviewViewProps) {
                 records: rows.map((r) => ({
                     temp_id: r.temp_id,
                     email: r.email,
-                    first_name: r.first_name,
-                    last_name: r.last_name,
+                    full_name: r.full_name,
                     phone: r.phone,
                     registration_number: r.registration_number,
                 })),
@@ -67,8 +66,7 @@ export function ReviewView({ rows, role, onSubmit, onBack }: ReviewViewProps) {
                     <thead className="bg-muted/50 sticky top-0">
                         <tr className="border-b">
                             <th className="px-3 py-2 font-medium">Email</th>
-                            <th className="px-3 py-2 font-medium">First Name</th>
-                            <th className="px-3 py-2 font-medium">Last Name</th>
+                            <th className="px-3 py-2 font-medium">Full Name</th>
                             {isTeacher && <th className="px-3 py-2 font-medium">TSC Number</th>}
                             <th className="px-3 py-2 font-medium">Phone</th>
                         </tr>
@@ -77,8 +75,7 @@ export function ReviewView({ rows, role, onSubmit, onBack }: ReviewViewProps) {
                         {sampleRows.map((row) => (
                             <tr key={row.temp_id} className="border-b last:border-0">
                                 <td className="px-3 py-2">{row.email}</td>
-                                <td className="px-3 py-2">{row.first_name}</td>
-                                <td className="px-3 py-2">{row.last_name}</td>
+                                <td className="px-3 py-2">{row.full_name}</td>
                                 {isTeacher && (
                                     <td className="px-3 py-2">{row.registration_number || "—"}</td>
                                 )}

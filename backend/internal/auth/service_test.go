@@ -267,8 +267,7 @@ func (m *MockRepository) GetMeInfo(ctx context.Context, token string) (*MeInfo, 
 			Role:       role,
 			SchoolID:   "school_" + s.TenantID,
 			SchoolName: "Test School",
-			FirstName:  "Test",
-			LastName:   "User",
+			FullName:   "Test User",
 			Email:      "test@example.com",
 		}, nil
 	}
@@ -287,8 +286,7 @@ func (m *MockRepository) GetInvitationByEmail(ctx context.Context, email string)
 		SchoolID:       "school_123",
 		Role:           "TEACHER",
 		Email:          email,
-		FirstName:      "Invited",
-		LastName:       "User",
+		FullName:       "Invited User",
 		Status:         "pending",
 		StytchMemberID: "sty_member_123",
 		ExpiresAt:      time.Now().Add(24 * time.Hour),
@@ -460,8 +458,7 @@ func (h *testHarness) registerViaMocks(ctx context.Context, sessionRef string, p
 	}
 
 	userParams := CreateUserParams{
-		FirstName:      payload.FirstName,
-		LastName:       payload.LastName,
+		FullName:       payload.FullName,
 		ExternalAuthID: result.MemberID,
 	}
 
@@ -545,8 +542,7 @@ func TestRegister_ISTNotFound(t *testing.T) {
 	payload := RegistrationPayload{
 		SchoolName: "Test School",
 		SessionRef: sessionRef,
-		FirstName:  "John",
-		LastName:   "Doe",
+		FullName:   "John Doe",
 	}
 
 	// Don't pre-set IST — it won't be found (already consumed or never set)
@@ -580,8 +576,7 @@ func TestRegister_MFANotAuthenticated(t *testing.T) {
 	payload := RegistrationPayload{
 		SchoolName: "Test School MFA",
 		SessionRef: sessionRef,
-		FirstName:  "John",
-		LastName:   "Doe",
+		FullName:   "John Doe",
 	}
 
 	_, _, err := h.registerViaMocks(context.Background(), sessionRef, payload, "")
@@ -611,8 +606,7 @@ func TestRegister_PostgresWriteFailureAfterStytch(t *testing.T) {
 	payload := RegistrationPayload{
 		SchoolName: "Postgres Fail School",
 		SessionRef: sessionRef,
-		FirstName:  "John",
-		LastName:   "Doe",
+		FullName:   "John Doe",
 	}
 
 	_, _, err := h.registerViaMocks(context.Background(), sessionRef, payload, "")
@@ -657,8 +651,7 @@ func TestRegister_Idempotency(t *testing.T) {
 	payload := RegistrationPayload{
 		SchoolName: "Duplicate School",
 		SessionRef: sessionRef,
-		FirstName:  "John",
-		LastName:   "Doe",
+		FullName:   "John Doe",
 	}
 
 	token, role, err := h.registerViaMocks(context.Background(), sessionRef, payload, "")

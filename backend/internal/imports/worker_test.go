@@ -139,8 +139,8 @@ func validPayload() *ProcessImportPayload {
 		StytchOrgID: "org_stytch_001",
 		BackendURL:  "http://localhost:3030",
 		Records: []ImportStaffRecord{
-			{TempID: "tmp_alice", Email: "alice@school.com", FirstName: "Alice", LastName: "Smith"},
-			{TempID: "tmp_bob", Email: "bob@school.com", FirstName: "Bob", LastName: "Jones"},
+			{TempID: "tmp_alice", Email: "alice@school.com", FullName: "Alice Smith"},
+			{TempID: "tmp_bob", Email: "bob@school.com", FullName: "Bob Jones"},
 		},
 	}
 }
@@ -158,8 +158,7 @@ func stage2RecordsFromPayload(payload *ProcessImportPayload) []Stage2Record {
 		records = append(records, Stage2Record{
 			InvitationID: "inv_" + rec.Email,
 			Email:        rec.Email,
-			FirstName:    rec.FirstName,
-			LastName:     rec.LastName,
+			FullName:     rec.FullName,
 		})
 	}
 	return records
@@ -347,7 +346,7 @@ func TestProcessImport_PartialDuplicates(t *testing.T) {
 	// Only alice's record was inserted; bob was a duplicate and skipped
 	h.repo.getPendingStage2RecordsFn = func(ctx context.Context, jobID string) ([]Stage2Record, error) {
 		return []Stage2Record{
-			{InvitationID: "inv_alice@school.com", Email: "alice@school.com", FirstName: "Alice", LastName: "Smith"},
+			{InvitationID: "inv_alice@school.com", Email: "alice@school.com", FullName: "Alice Smith"},
 		}, nil
 	}
 
@@ -490,7 +489,7 @@ func TestProcessImport_StytchTransientThenSuccess(t *testing.T) {
 
 	payload := validPayload()
 	payload.Records = []ImportStaffRecord{
-		{Email: "retry@school.com", FirstName: "Retry", LastName: "User"},
+		{Email: "retry@school.com", FullName: "Retry User"},
 	}
 	h.repo.getPendingStage2RecordsFn = func(ctx context.Context, jobID string) ([]Stage2Record, error) {
 		return stage2RecordsFromPayload(payload), nil
@@ -599,9 +598,8 @@ func TestProcessImport_LargeBatch(t *testing.T) {
 	records := make([]ImportStaffRecord, numRecords)
 	for i := 0; i < numRecords; i++ {
 		records[i] = ImportStaffRecord{
-			Email:     fmt.Sprintf("user%d@school.com", i),
-			FirstName: "User",
-			LastName:  fmt.Sprintf("%d", i),
+			Email:    fmt.Sprintf("user%d@school.com", i),
+			FullName: fmt.Sprintf("User %d", i),
 		}
 	}
 
@@ -628,8 +626,7 @@ func TestProcessImport_LargeBatch(t *testing.T) {
 			recs[i] = Stage2Record{
 				InvitationID: "inv_" + rec.Email,
 				Email:        rec.Email,
-				FirstName:    rec.FirstName,
-				LastName:     rec.LastName,
+				FullName:     rec.FullName,
 			}
 		}
 		return recs, nil
@@ -728,7 +725,7 @@ func TestProcessImport_Stage2ResumeSkipsAlreadyInvited(t *testing.T) {
 	// in a previous run so only bob is returned.
 	h.repo.getPendingStage2RecordsFn = func(ctx context.Context, jobID string) ([]Stage2Record, error) {
 		return []Stage2Record{
-			{InvitationID: "inv_bob@school.com", Email: "bob@school.com", FirstName: "Bob", LastName: "Jones"},
+			{InvitationID: "inv_bob@school.com", Email: "bob@school.com", FullName: "Bob Jones"},
 		}, nil
 	}
 
@@ -769,8 +766,8 @@ func TestProcessImport_Stage2ResumeAfterPartialCompletion(t *testing.T) {
 	// alice and charlie remain pending.
 	h.repo.getPendingStage2RecordsFn = func(ctx context.Context, jobID string) ([]Stage2Record, error) {
 		return []Stage2Record{
-			{InvitationID: "inv_alice@school.com", Email: "alice@school.com", FirstName: "Alice", LastName: "Smith"},
-			{InvitationID: "inv_charlie@school.com", Email: "charlie@school.com", FirstName: "Charlie", LastName: "Brown"},
+			{InvitationID: "inv_alice@school.com", Email: "alice@school.com", FullName: "Alice Smith"},
+			{InvitationID: "inv_charlie@school.com", Email: "charlie@school.com", FullName: "Charlie Brown"},
 		}, nil
 	}
 
@@ -780,9 +777,9 @@ func TestProcessImport_Stage2ResumeAfterPartialCompletion(t *testing.T) {
 
 	payload := validPayload()
 	payload.Records = []ImportStaffRecord{
-		{TempID: "tmp_alice", Email: "alice@school.com", FirstName: "Alice", LastName: "Smith"},
-		{TempID: "tmp_bob", Email: "bob@school.com", FirstName: "Bob", LastName: "Jones"},
-		{TempID: "tmp_charlie", Email: "charlie@school.com", FirstName: "Charlie", LastName: "Brown"},
+		{TempID: "tmp_alice", Email: "alice@school.com", FullName: "Alice Smith"},
+		{TempID: "tmp_bob", Email: "bob@school.com", FullName: "Bob Jones"},
+		{TempID: "tmp_charlie", Email: "charlie@school.com", FullName: "Charlie Brown"},
 	}
 	task := createTask(payload)
 

@@ -198,8 +198,7 @@ CREATE TABLE IF NOT EXISTS users (
     id                  UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     email               VARCHAR(255) NOT NULL,
     tenant_id           UUID         NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    first_name          VARCHAR(255) NOT NULL DEFAULT '',
-    last_name           VARCHAR(255) NOT NULL DEFAULT '',
+    full_name           VARCHAR(255) NOT NULL DEFAULT '',
     is_active           BOOLEAN      NOT NULL DEFAULT TRUE,
     external_auth_id    VARCHAR(255) UNIQUE,
     tsc_number          VARCHAR(15)  NULL,
@@ -230,6 +229,37 @@ COMMENT ON COLUMN users.knec_panel_assessor_id IS
     'Assigned ONLY to teachers formally appointed to KNEC national exam panels
      (KPSEA, KJSEA, KSSEA invigilation or marking). NOT required for classroom
      SBA delivery — all SBA uploads use the school knec_school_code, not teacher IDs.';
+
+-- Migrate existing first_name/last_name → full_name
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='first_name') THEN
+        ALTER TABLE users RENAME COLUMN first_name TO full_name;
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='last_name') THEN
+        ALTER TABLE users DROP COLUMN last_name;
+    END IF;
+END $$;
+
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='invitations' AND column_name='first_name') THEN
+        ALTER TABLE invitations RENAME COLUMN first_name TO full_name;
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='invitations' AND column_name='last_name') THEN
+        ALTER TABLE invitations DROP COLUMN last_name;
+    END IF;
+END $$;
+
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='cbc_students' AND column_name='first_name') THEN
+        ALTER TABLE cbc_students RENAME COLUMN first_name TO full_name;
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='cbc_students' AND column_name='middle_name') THEN
+        ALTER TABLE cbc_students DROP COLUMN middle_name;
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='cbc_students' AND column_name='last_name') THEN
+        ALTER TABLE cbc_students DROP COLUMN last_name;
+    END IF;
+END $$;
 
 -- ---------------------------------------------------------------------------
 -- SESSIONS
@@ -465,8 +495,7 @@ CREATE TABLE IF NOT EXISTS invitations (
     token               TEXT              NOT NULL,
     expires_at          TIMESTAMPTZ       NOT NULL,
     accepted_at         TIMESTAMPTZ       NULL,
-    first_name          VARCHAR(255)      NULL,
-    last_name           VARCHAR(255)      NULL,
+    full_name           VARCHAR(255)      NULL,
     phone               VARCHAR(50)       NULL,
     registration_number VARCHAR(100)      NULL,
     stytch_member_id    VARCHAR(255)      NULL,
@@ -525,9 +554,7 @@ COMMENT ON TABLE cbc_parents IS
 CREATE TABLE IF NOT EXISTS cbc_students (
     id                      UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id               UUID         NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    first_name              VARCHAR(100) NOT NULL,
-    middle_name             VARCHAR(100) NULL,
-    last_name               VARCHAR(100) NOT NULL,
+    full_name               VARCHAR(255) NOT NULL,
     gender                  CHAR(1)      NOT NULL,
     date_of_birth           DATE         NULL,
     upi_number              VARCHAR(20)  NULL,

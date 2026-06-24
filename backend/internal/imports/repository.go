@@ -150,17 +150,17 @@ func (r *PgRepository) BulkInsertInvitations(
 		return map[string]string{}, nil, nil
 	}
 
-	// Build CTE VALUES clause: 12 params per row (temp_id through token)
+	// Build CTE VALUES clause: 11 params per row (temp_id through token)
 	valueStrings := make([]string, 0, len(records))
-	args := make([]interface{}, 0, len(records)*12)
+	args := make([]interface{}, 0, len(records)*11)
 	argIdx := 1
 
 	for _, rec := range records {
-		// Each row: (temp_id, tenant_id, school_id, LOWER(email), role, expires_at, first_name, last_name, phone, registration_number, import_job_id, token)
+		// Each row: (temp_id, tenant_id, school_id, LOWER(email), role, expires_at, full_name, phone, registration_number, import_job_id, token)
 		valueStrings = append(valueStrings,
-			fmt.Sprintf("($%d::text, $%d::uuid, $%d::uuid, LOWER($%d), $%d::user_role, $%d::timestamptz, $%d, $%d, $%d, $%d, $%d::uuid, $%d)",
+			fmt.Sprintf("($%d::text, $%d::uuid, $%d::uuid, LOWER($%d), $%d::user_role, $%d::timestamptz, $%d, $%d, $%d, $%d::uuid, $%d)",
 				argIdx, argIdx+1, argIdx+2, argIdx+3, argIdx+4,
-				argIdx+5, argIdx+6, argIdx+7, argIdx+8, argIdx+9, argIdx+10, argIdx+11),
+				argIdx+5, argIdx+6, argIdx+7, argIdx+8, argIdx+9, argIdx+10),
 		)
 		args = append(args,
 			rec.TempID, // temp_id — used for reconciliation
@@ -169,26 +169,25 @@ func (r *PgRepository) BulkInsertInvitations(
 			rec.Email,
 			role,
 			now.Add(InvitationTTL), // expires_at
-			rec.FirstName,
-			rec.LastName,
+			rec.FullName,
 			rec.Phone,
 			rec.RegistrationNumber,
 			jobID,
 			tokenPrefix+rec.TempID, // token
 		)
-		argIdx += 12
+		argIdx += 11
 	}
 
 	query := `
-		WITH input_rows (temp_id, tenant_id, school_id, email, role, expires_at, first_name, last_name, phone, registration_number, import_job_id, token) AS (
+		WITH input_rows (temp_id, tenant_id, school_id, email, role, expires_at, full_name, phone, registration_number, import_job_id, token) AS (
 			VALUES ` + strings.Join(valueStrings, ",\n			       ") + `
 		),
 		inserted AS (
 			INSERT INTO invitations
 				(tenant_id, school_id, email, role, status, expires_at,
-				 first_name, last_name, phone, registration_number, import_job_id, token)
+				 full_name, phone, registration_number, import_job_id, token)
 			SELECT tenant_id, school_id, email, role, 'pending'::invitation_status, expires_at,
-			       first_name, last_name, phone, registration_number, import_job_id, token
+			       full_name, phone, registration_number, import_job_id, token
 			FROM input_rows
 			ON CONFLICT (tenant_id, school_id, email) WHERE status NOT IN ('expired', 'revoked')
 			DO NOTHING
@@ -285,7 +284,7 @@ func (r *PgRepository) GetInvitationStytchMemberID(ctx context.Context, id strin
 // instead of re-processing already-invited records.
 func (r *PgRepository) GetPendingStage2Records(ctx context.Context, jobID string) ([]Stage2Record, error) {
 	const query = `
-		SELECT id, email, first_name, last_name
+		SELECT id, email, full_name
 		FROM invitations
 		WHERE import_job_id = $1
 		  AND (stytch_member_id IS NULL OR stytch_member_id = '')
@@ -302,7 +301,7 @@ func (r *PgRepository) GetPendingStage2Records(ctx context.Context, jobID string
 	var records []Stage2Record
 	for rows.Next() {
 		var rec Stage2Record
-		if err := rows.Scan(&rec.InvitationID, &rec.Email, &rec.FirstName, &rec.LastName); err != nil {
+		if err := rows.Scan(&rec.InvitationID, &rec.Email, &rec.FullName); err != nil {
 			return nil, fmt.Errorf("scan stage 2 record: %w", err)
 		}
 		records = append(records, rec)
@@ -328,36 +327,34 @@ func (r *PgRepository) BulkUpdateInvitations(
 
 	// Build CTE VALUES clause
 	valueStrings := make([]string, 0, len(records))
-	args := make([]interface{}, 0, len(records)*8)
+	args := make([]interface{}, 0, len(records)*7)
 	argIdx := 1
 
 	for _, rec := range records {
 		valueStrings = append(valueStrings,
-			fmt.Sprintf("($%d::uuid, LOWER($%d), $%d, $%d, $%d, $%d, $%d::user_role, $%d::uuid)",
-				argIdx, argIdx+1, argIdx+2, argIdx+3, argIdx+4, argIdx+5, argIdx+6, argIdx+7),
+			fmt.Sprintf("($%d::uuid, LOWER($%d), $%d, $%d, $%d, $%d::user_role, $%d::uuid)",
+				argIdx, argIdx+1, argIdx+2, argIdx+3, argIdx+4, argIdx+5, argIdx+6),
 		)
 		args = append(args,
 			rec.TempID, // id of the invitation row (passed as temp_id in correction flow)
 			rec.Email,
-			rec.FirstName,
-			rec.LastName,
+			rec.FullName,
 			rec.Phone,
 			rec.RegistrationNumber,
 			role,
 			jobID,
 		)
-		argIdx += 8
+		argIdx += 7
 	}
 
 	query := `
-		WITH corrections (id, email, first_name, last_name, phone, registration_number, role, import_job_id) AS (
+		WITH corrections (id, email, full_name, phone, registration_number, role, import_job_id) AS (
 			VALUES ` + strings.Join(valueStrings, ",\n			         ") + `
 		)
 		UPDATE invitations inv
 		SET
 			email               = LOWER(c.email),
-			first_name          = c.first_name,
-			last_name           = c.last_name,
+			full_name           = c.full_name,
 			phone               = c.phone,
 			registration_number = c.registration_number,
 			role                = c.role::user_role,
@@ -448,7 +445,7 @@ func (r *PgRepository) BulkRecordImportFailure(
 // GetFailedInvitationsByJob returns invitations that failed during Stytch invite.
 func (r *PgRepository) GetFailedInvitationsByJob(ctx context.Context, jobID string) ([]FailedInvitation, error) {
 	const query = `
-		SELECT id, email, first_name, last_name, phone, error_message
+		SELECT id, email, full_name, phone, error_message
 		FROM invitations
 		WHERE import_job_id = $1 AND status = 'invite_failed'
 		ORDER BY created_at
@@ -463,7 +460,7 @@ func (r *PgRepository) GetFailedInvitationsByJob(ctx context.Context, jobID stri
 	var results []FailedInvitation
 	for rows.Next() {
 		var fi FailedInvitation
-		if err := rows.Scan(&fi.ID, &fi.Email, &fi.FirstName, &fi.LastName, &fi.Phone, &fi.ErrorMessage); err != nil {
+		if err := rows.Scan(&fi.ID, &fi.Email, &fi.FullName, &fi.Phone, &fi.ErrorMessage); err != nil {
 			return nil, fmt.Errorf("scan failed invitation: %w", err)
 		}
 		results = append(results, fi)

@@ -206,7 +206,7 @@ func (s *Service) Register(ctx context.Context, sessionRef string, payload Regis
 	// 5. Create member in the Stytch org before exchanging the IST.
 	//    This ensures the member exists in the org so IST exchange doesn't
 	//    fail with email_jit_provisioning_not_allowed.
-	memberName := payload.FirstName + " " + payload.LastName
+	memberName := payload.FullName
 	if _, err := s.idp.CreateMember(ctx, orgID, email, memberName); err != nil {
 		s.logger.Error("auth: create member failed",
 			zap.String("org_id", orgID),
@@ -261,8 +261,7 @@ func (s *Service) Register(ctx context.Context, sessionRef string, payload Regis
 	userParams := CreateUserParams{
 		Email:          email, // from Stytch discovery authentication
 		TenantID:       "",    // set after tenant creation
-		FirstName:      payload.FirstName,
-		LastName:       payload.LastName,
+		FullName:       payload.FullName,
 		ExternalAuthID: result.MemberID,
 	}
 
@@ -425,8 +424,7 @@ func (s *Service) AcceptInvite(ctx context.Context, token string, deviceFingerpr
 		TenantID:           inv.TenantID,
 		SchoolID:           inv.SchoolID,
 		Role:               inv.Role,
-		FirstName:          inv.FirstName,
-		LastName:           inv.LastName,
+		FullName:           inv.FullName,
 		ExternalAuthID:     inv.StytchMemberID,
 		SessionToken:       sessionToken,
 		StytchMemberID:     inv.StytchMemberID,

@@ -135,7 +135,7 @@ func TestHandler_StartImport_HappyPath(t *testing.T) {
 	body := StartImportRequest{
 		Role: "SCHOOL_ADMIN",
 		Records: []ImportStaffRecord{
-			{Email: "alice@school.com", FirstName: "Alice", LastName: "Smith"},
+			{Email: "alice@school.com", FullName: "Alice Smith"},
 		},
 	}
 	bodyBytes, _ := json.Marshal(body)
@@ -163,7 +163,7 @@ func TestHandler_StartImport_MissingRole(t *testing.T) {
 	body := StartImportRequest{
 		Role: "",
 		Records: []ImportStaffRecord{
-			{Email: "alice@school.com", FirstName: "Alice", LastName: "Smith"},
+			{Email: "alice@school.com", FullName: "Alice Smith"},
 		},
 	}
 	bodyBytes, _ := json.Marshal(body)
@@ -199,7 +199,7 @@ func TestHandler_StartImport_ServiceError(t *testing.T) {
 	body := StartImportRequest{
 		Role: "NURSE",
 		Records: []ImportStaffRecord{
-			{Email: "nurse@school.com", FirstName: "Nurse", LastName: "Betty"},
+			{Email: "nurse@school.com", FullName: "Nurse Betty"},
 		},
 	}
 	bodyBytes, _ := json.Marshal(body)
@@ -262,12 +262,12 @@ func TestHandler_TrackImport_NotFound(t *testing.T) {
 func TestHandler_ListFailedInvitations_HappyPath(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
-	firstName := "Alice"
+	fullName := "Alice"
 	errMsg := "stytch invite failed"
 
 	h.repo.getFailedInvitationsByJobFn = func(ctx context.Context, jobID string) ([]FailedInvitation, error) {
 		return []FailedInvitation{
-			{ID: "inv_001", Email: "alice@bad.com", FirstName: &firstName, ErrorMessage: &errMsg},
+			{ID: "inv_001", Email: "alice@bad.com", FullName: &fullName, ErrorMessage: &errMsg},
 		}, nil
 	}
 

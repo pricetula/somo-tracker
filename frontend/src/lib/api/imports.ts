@@ -15,8 +15,7 @@ import { api } from "./client";
 export interface ImportStaffRecord {
     temp_id: string;
     email: string;
-    first_name: string;
-    last_name: string;
+    full_name: string;
     phone?: string;
     registration_number?: string;
 }
@@ -67,8 +66,7 @@ export interface ImportProgressEvent {
 export interface FailedInvitation {
     id: string;
     email: string;
-    first_name?: string;
-    last_name?: string;
+    full_name?: string;
     phone?: string;
     error_message?: string;
 }

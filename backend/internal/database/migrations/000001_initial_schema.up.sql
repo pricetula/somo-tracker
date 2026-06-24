@@ -56,6 +56,11 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 DO $$ BEGIN
+    CREATE TYPE gender_type AS ENUM ('M', 'F');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
     CREATE TYPE cbc_enrollment_status AS ENUM (
         'ACTIVE',            -- Currently enrolled and attending
         'SUSPENDED',         -- Temporarily removed from active learning
@@ -524,7 +529,7 @@ CREATE TABLE IF NOT EXISTS cbc_students (
     id                      UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id               UUID         NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     full_name               VARCHAR(255) NOT NULL,
-    gender                  CHAR(1)      NOT NULL,
+    gender                  gender_type      NOT NULL,
     date_of_birth           DATE         NULL,
     upi_number              VARCHAR(20)  NULL,
     knec_assessment_number  VARCHAR(15)  NULL,

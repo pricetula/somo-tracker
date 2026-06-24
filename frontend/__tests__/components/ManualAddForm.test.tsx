@@ -76,8 +76,8 @@ describe("ManualAddForm — row management", () => {
 
         // There should now be at least 2 rows worth of inputs — we can verify by
         // checking that there are 2 first-name placeholders rendered
-        const firstNameInputs = screen.getAllByPlaceholderText("Jane");
-        expect(firstNameInputs).toHaveLength(2);
+        const fullNameInputs = screen.getAllByPlaceholderText("Jane");
+        expect(fullNameInputs).toHaveLength(2);
     });
 
     it("Remove Row button deletes that row — row count decrements; remaining rows are unchanged", async () => {
@@ -101,8 +101,8 @@ describe("ManualAddForm — row management", () => {
         }
 
         // After removing one row, back to 1 row
-        const firstNameInputs = screen.getAllByPlaceholderText("Jane");
-        expect(firstNameInputs).toHaveLength(1);
+        const fullNameInputs = screen.getAllByPlaceholderText("Jane");
+        expect(fullNameInputs).toHaveLength(1);
     });
 
     it("cannot remove the last row — the Remove button on the only remaining row is disabled or absent", () => {
@@ -292,8 +292,8 @@ describe("ManualAddForm — callbacks and limits", () => {
         }
 
         // Should now have 11 rows (1 default + 10 added)
-        const firstNameInputs = screen.getAllByPlaceholderText("Jane");
-        expect(firstNameInputs).toHaveLength(11);
+        const fullNameInputs = screen.getAllByPlaceholderText("Jane");
+        expect(fullNameInputs).toHaveLength(11);
 
         // The "Add another" button should still be enabled
         expect(addButton).not.toBeDisabled();
@@ -315,7 +315,7 @@ describe("ManualAddForm — callbacks and limits", () => {
         await user.tab();
 
         // After tabbing twice, focus should be on the full_name input of row 2
-        const firstNameInputs = screen.getAllByPlaceholderText("Jane");
-        expect(document.activeElement).toBe(firstNameInputs[1]);
+        const fullNameInputs = screen.getAllByPlaceholderText("Jane");
+        expect(document.activeElement).toBe(fullNameInputs[1]);
     });
 });

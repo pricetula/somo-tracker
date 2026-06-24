@@ -64,25 +64,25 @@ A user signs in by entering their email on the login page. The system sends a **
 
 ### Key components
 
-| Component | File | Responsibility |
-|---|---|---|
-| **Backend handler** | `backend/internal/auth/handler.go` | HTTP route handlers for /api/auth/* |
-| **Backend service** | `backend/internal/auth/service.go` | Business logic: verify, register, accept invite, logout |
-| **Backend repository** | `backend/internal/auth/repository.go` | Postgres persistence (Pgx + sqlc patterns) |
-| **Stytch adapter** | `backend/internal/auth/stytch.go` | Stytch B2B API client (the only file importing the Stytch SDK) |
-| **Identity provider interface** | `backend/internal/auth/domain.go` | `IdentityProvider` contract for Stytch abstraction |
-| **Repository interface** | `backend/internal/auth/domain.go` | Persistence contract |
-| **Members service** | `backend/internal/members/service.go` | Invitation creation and bulk invite logic |
-| **Members handler** | `backend/internal/members/handler.go` | HTTP routes for /api/v1/members and /api/v1/invitations |
-| **Frontend API client** | `frontend/src/lib/api/client.ts` | `fetch` wrapper with credentials, CSRF, and global 401 eviction |
-| **Frontend auth utilities** | `frontend/src/lib/auth.ts` | Session/role cookie constants and role-to-route mappings |
-| **Frontend server auth** | `frontend/src/lib/auth-server.ts` | HMAC verification for Node.js runtime (server components) |
-| **Frontend proxy** | `frontend/src/proxy.ts` | Edge runtime middleware that guards routes using signed role cookies |
-| **Frontend auth hooks** | `frontend/src/hooks/use-auth.ts` | React Query mutations for discover, verify, register, logout |
-| **Frontend login page** | `frontend/src/features/auth/components/login-page.tsx` | Email input form |
-| **Frontend register form** | `frontend/src/features/auth/components/register-form.tsx` | School + name registration form |
-| **Error middleware** | `backend/internal/middleware/errors.go` | Canonical HTTPError helper |
-| **Schema migration** | `backend/internal/database/migrations/000001_initial_schema.up.sql` | tenants, users, sessions, memberships, invitations tables |
+| Component                       | File                                                                | Responsibility                                                       |
+| ------------------------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| **Backend handler**             | `backend/internal/auth/handler.go`                                  | HTTP route handlers for /api/auth/\*                                 |
+| **Backend service**             | `backend/internal/auth/service.go`                                  | Business logic: verify, register, accept invite, logout              |
+| **Backend repository**          | `backend/internal/auth/repository.go`                               | Postgres persistence (Pgx + sqlc patterns)                           |
+| **Stytch adapter**              | `backend/internal/auth/stytch.go`                                   | Stytch B2B API client (the only file importing the Stytch SDK)       |
+| **Identity provider interface** | `backend/internal/auth/domain.go`                                   | `IdentityProvider` contract for Stytch abstraction                   |
+| **Repository interface**        | `backend/internal/auth/domain.go`                                   | Persistence contract                                                 |
+| **Members service**             | `backend/internal/members/service.go`                               | Invitation creation and bulk invite logic                            |
+| **Members handler**             | `backend/internal/members/handler.go`                               | HTTP routes for /api/v1/members and /api/v1/invitations              |
+| **Frontend API client**         | `frontend/src/lib/api/client.ts`                                    | `fetch` wrapper with credentials, CSRF, and global 401 eviction      |
+| **Frontend auth utilities**     | `frontend/src/lib/auth.ts`                                          | Session/role cookie constants and role-to-route mappings             |
+| **Frontend server auth**        | `frontend/src/lib/auth-server.ts`                                   | HMAC verification for Node.js runtime (server components)            |
+| **Frontend proxy**              | `frontend/src/proxy.ts`                                             | Edge runtime middleware that guards routes using signed role cookies |
+| **Frontend auth hooks**         | `frontend/src/hooks/use-auth.ts`                                    | React Query mutations for discover, verify, register, logout         |
+| **Frontend login page**         | `frontend/src/features/auth/components/login-page.tsx`              | Email input form                                                     |
+| **Frontend register form**      | `frontend/src/features/auth/components/register-form.tsx`           | School + name registration form                                      |
+| **Error middleware**            | `backend/internal/middleware/errors.go`                             | Canonical HTTPError helper                                           |
+| **Schema migration**            | `backend/internal/database/migrations/000001_initial_schema.up.sql` | tenants, users, sessions, memberships, invitations tables            |
 
 ---
 
@@ -92,15 +92,15 @@ The system uses a **three-cookie** strategy:
 
 ### `somo_sid` — HttpOnly session token
 
-| Attribute | Value |
-|---|---|
-| Name | `somo_sid` |
-| Content | 64-character hex string (32 random bytes) |
-| HttpOnly | ✅ Yes |
-| Secure | ✅ Yes (except development) |
-| SameSite | `Lax` |
-| Path | `/` |
-| Max-Age | 30 days |
+| Attribute | Value                                     |
+| --------- | ----------------------------------------- |
+| Name      | `somo_sid`                                |
+| Content   | 64-character hex string (32 random bytes) |
+| HttpOnly  | ✅ Yes                                    |
+| Secure    | ✅ Yes (except development)               |
+| SameSite  | `Lax`                                     |
+| Path      | `/`                                       |
+| Max-Age   | 30 days                                   |
 
 - The opaque token is the primary authentication credential.
 - It is **never readable by JavaScript** (`HttpOnly`).
@@ -109,12 +109,12 @@ The system uses a **three-cookie** strategy:
 
 ### `somo_role` — Signed role cookie
 
-| Attribute | Value |
-|---|---|
-| Name | `somo_role` |
-| Content | `{role}.{hmac_sha256_signature}` |
-| HttpOnly | ❌ No (readable by JS proxy) |
-| Secure | ✅ Yes (except development) |
+| Attribute | Value                            |
+| --------- | -------------------------------- |
+| Name      | `somo_role`                      |
+| Content   | `{role}.{hmac_sha256_signature}` |
+| HttpOnly  | ❌ No (readable by JS proxy)     |
+| Secure    | ✅ Yes (except development)      |
 
 - **Not a security credential** — it is a routing hint for the Next.js Edge proxy.
 - Signed with HMAC-SHA256 using `COOKIE_SECRET`.
@@ -123,12 +123,12 @@ The system uses a **three-cookie** strategy:
 
 ### `csrf_token` — Double-submit CSRF token
 
-| Attribute | Value |
-|---|---|
-| Name | `csrf_token` |
-| Content | 32 random bytes, base64url-encoded |
-| HttpOnly | ❌ No |
-| Secure | ✅ Yes (except development) |
+| Attribute | Value                              |
+| --------- | ---------------------------------- |
+| Name      | `csrf_token`                       |
+| Content   | 32 random bytes, base64url-encoded |
+| HttpOnly  | ❌ No                              |
+| Secure    | ✅ Yes (except development)        |
 
 - The frontend reads this cookie and includes its value as the `X-CSRF-Token` header on all mutating requests (`POST`, `PUT`, `PATCH`, `DELETE`).
 - The backend verifies the header matches the cookie value.
@@ -168,6 +168,7 @@ The registration flow has **three phases**, each corresponding to a frontend pag
 ### Phase 2: Magic Link Callback — `GET /api/auth/callback?token=...`
 
 **Trigger:** User clicks the magic link in their email, which points to:
+
 ```
 {backendURL}/api/auth/callback?token={stytch_token}
 ```
@@ -284,14 +285,13 @@ Called on every authenticated page load (including `/` root route).
 
 ```json
 {
-  "user_id":     "uuid",
-  "tenant_id":   "uuid",
-  "role":        "SCHOOL_ADMIN",
-  "school_id":   "uuid",
+  "user_id": "uuid",
+  "tenant_id": "uuid",
+  "role": "SCHOOL_ADMIN",
+  "school_id": "uuid",
   "school_name": "Lincoln High School",
-  "first_name":  "Jane",
-  "last_name":   "Doe",
-  "email":       "jane@school.edu"
+  "full_name": "Jane",
+  "email": "jane@school.edu"
 }
 ```
 
@@ -328,12 +328,17 @@ The invitation flow allows existing school administrators to invite new staff me
 ```json
 {
   "invites": [
-    { "email": "newteacher@school.edu", "first_name": "John", "last_name": "Smith", "role": "TEACHER" }
+    {
+      "email": "newteacher@school.edu",
+      "full_name": "John",
+      "role": "TEACHER"
+    }
   ]
 }
 ```
 
 Backend steps:
+
 1. Validate each invite: email required, role must be `TEACHER`, `NURSE`, `FINANCE`, or `SCHOOL_ADMIN`.
 2. Check for existing membership (user already in school).
 3. Check for existing pending invitation (duplicate guard).
@@ -416,8 +421,7 @@ CREATE TABLE IF NOT EXISTS invitations (
     token               TEXT              NOT NULL,
     expires_at          TIMESTAMPTZ       NOT NULL,
     accepted_at         TIMESTAMPTZ       NULL,
-    first_name          VARCHAR(255)      NULL,
-    last_name           VARCHAR(255)      NULL,
+    full_name          VARCHAR(255)      NULL,
     phone               VARCHAR(50)       NULL,
     registration_number VARCHAR(100)      NULL,
     stytch_member_id    VARCHAR(255)      NULL,
@@ -443,37 +447,37 @@ The Next.js Edge middleware (`frontend/src/proxy.ts`) intercepts all requests an
 
 The proxy determines the current auth stage from cookies and query params:
 
-| Stage | `somo_sid` cookie | `somo_role` cookie | `session_ref` query param |
-|---|---|---|---|
-| **Not authenticated** | ❌ | ❌ | ❌ |
-| **IST stage** | ❌ | ❌ | ✅ (on /register) |
-| **Authenticated** | ✅ | ✅ | — |
+| Stage                 | `somo_sid` cookie | `somo_role` cookie | `session_ref` query param |
+| --------------------- | ----------------- | ------------------ | ------------------------- |
+| **Not authenticated** | ❌                | ❌                 | ❌                        |
+| **IST stage**         | ❌                | ❌                 | ✅ (on /register)         |
+| **Authenticated**     | ✅                | ✅                 | —                         |
 
 ### Route protection matrix
 
-| Route | Guard | Action |
-|---|---|---|
-| `/` (root dashboard) | Requires both cookies + valid role with dashboard access | Allow or redirect to `/login` |
-| `/dashboard/*` | Requires both cookies + valid role with dashboard access | Allow or redirect to `/login` |
-| `/settings/*` | Requires both cookies + valid role | Allow or redirect to `/login` |
-| `/admin/*` | Requires both cookies + SYSTEM_ADMIN or SCHOOL_ADMIN | Allow, redirect to `/login`, or `/unauthorized` |
-| `/schools/*` | Requires both cookies + SYSTEM_ADMIN or SCHOOL_ADMIN | Allow, redirect to `/login`, or `/unauthorized` |
-| `/login` | Both cookies present → redirect to `/` | Otherwise allow |
-| `/register` | Has `somo_sid` → redirect to `/`. No `session_ref` → redirect to `/login` | Otherwise allow |
-| `/logout` | Always allowed | Destroys session |
-| `/unauthorized` | Always allowed | Shows forbidden message |
+| Route                | Guard                                                                     | Action                                          |
+| -------------------- | ------------------------------------------------------------------------- | ----------------------------------------------- |
+| `/` (root dashboard) | Requires both cookies + valid role with dashboard access                  | Allow or redirect to `/login`                   |
+| `/dashboard/*`       | Requires both cookies + valid role with dashboard access                  | Allow or redirect to `/login`                   |
+| `/settings/*`        | Requires both cookies + valid role                                        | Allow or redirect to `/login`                   |
+| `/admin/*`           | Requires both cookies + SYSTEM_ADMIN or SCHOOL_ADMIN                      | Allow, redirect to `/login`, or `/unauthorized` |
+| `/schools/*`         | Requires both cookies + SYSTEM_ADMIN or SCHOOL_ADMIN                      | Allow, redirect to `/login`, or `/unauthorized` |
+| `/login`             | Both cookies present → redirect to `/`                                    | Otherwise allow                                 |
+| `/register`          | Has `somo_sid` → redirect to `/`. No `session_ref` → redirect to `/login` | Otherwise allow                                 |
+| `/logout`            | Always allowed                                                            | Destroys session                                |
+| `/unauthorized`      | Always allowed                                                            | Shows forbidden message                         |
 
 ### Role-based route access
 
 Defined in `frontend/src/lib/auth.ts` `ROLE_ROUTES`:
 
-| Role | Allowed route prefixes |
-|---|---|
+| Role           | Allowed route prefixes                                              |
+| -------------- | ------------------------------------------------------------------- |
 | `SYSTEM_ADMIN` | `/admin`, `/admins`, `/dashboard`, `/settings`, `/schools`, `/docs` |
 | `SCHOOL_ADMIN` | `/admin`, `/admins`, `/dashboard`, `/settings`, `/schools`, `/docs` |
-| `TEACHER` | `/dashboard`, `/docs` |
-| `NURSE` | `/dashboard`, `/docs` |
-| `FINANCE` | `/dashboard`, `/docs` |
+| `TEACHER`      | `/dashboard`, `/docs`                                               |
+| `NURSE`        | `/dashboard`, `/docs`                                               |
+| `FINANCE`      | `/dashboard`, `/docs`                                               |
 
 ### Cookie signature verification
 
@@ -482,8 +486,11 @@ The proxy verifies the `somo_role` cookie signature using the Web Crypto API:
 ```typescript
 // proxy.ts (Edge runtime)
 const key = await crypto.subtle.importKey(
-  "raw", encoder.encode(COOKIE_SECRET),
-  { name: "HMAC", hash: "SHA-256" }, false, ["verify"]
+  "raw",
+  encoder.encode(COOKIE_SECRET),
+  { name: "HMAC", hash: "SHA-256" },
+  false,
+  ["verify"],
 );
 const isValid = await crypto.subtle.verify("HMAC", key, sigBytes, valueBytes);
 ```
@@ -500,27 +507,27 @@ Every non-2xx HTTP response returns:
 
 ```json
 {
-  "code":    "snake_case_error_code",
+  "code": "snake_case_error_code",
   "message": "human readable message",
-  "errors":  { "field_name": ["Specific field validation message"] }
+  "errors": { "field_name": ["Specific field validation message"] }
 }
 ```
 
 ### Error code to HTTP status mapping
 
-| Error code | HTTP status | Description |
-|---|---|---|
-| `not_found` | 404 | Resource not found |
-| `already_exists` | 409 | Duplicate resource |
-| `invalid_input` | 400 | Validation failure (with optional `errors` map) |
-| `unauthorized` | 401 | Missing or invalid session |
-| `expired_token` | 401 | Magic link or IST expired |
-| `mfa_required` | 403 | MFA not completed |
-| `forbidden` | 403 | Insufficient permissions |
-| `conflict` | 409 | Concurrent modification |
-| `request_canceled` | 499 | Client canceled request |
-| `timeout` | 504 | Request timeout |
-| `internal_error` | 500 | Unexpected error (logged, generic message) |
+| Error code         | HTTP status | Description                                     |
+| ------------------ | ----------- | ----------------------------------------------- |
+| `not_found`        | 404         | Resource not found                              |
+| `already_exists`   | 409         | Duplicate resource                              |
+| `invalid_input`    | 400         | Validation failure (with optional `errors` map) |
+| `unauthorized`     | 401         | Missing or invalid session                      |
+| `expired_token`    | 401         | Magic link or IST expired                       |
+| `mfa_required`     | 403         | MFA not completed                               |
+| `forbidden`        | 403         | Insufficient permissions                        |
+| `conflict`         | 409         | Concurrent modification                         |
+| `request_canceled` | 499         | Client canceled request                         |
+| `timeout`          | 504         | Request timeout                                 |
+| `internal_error`   | 500         | Unexpected error (logged, generic message)      |
 
 ### Global 401 eviction
 
@@ -534,16 +541,16 @@ The frontend API client (`client.ts`) has a global interceptor: if **any** API r
 
 ### Frontend error display
 
-| Error scenario | User-facing message |
-|---|---|
-| Magic link sent successfully | Toast: "Magic link sent! Check your inbox." |
-| Magic link expired (callback) | "This magic link has expired. Please request a new one." |
-| IST expired (registration) | "This registration session has expired. Please request a new magic link." |
-| Registration field error | Inline form validation: "School name must be at least 2 characters" |
-| Registration success | Toast: "Account created! Welcome to Somotracker." → redirect to `/` |
-| Invite token expired | 401 → Global eviction → `/logout` |
-| Logout success | Toast: "Logged out" → redirect to `/login` |
-| Any 401 | Auto-redirect to `/logout` |
+| Error scenario                | User-facing message                                                       |
+| ----------------------------- | ------------------------------------------------------------------------- |
+| Magic link sent successfully  | Toast: "Magic link sent! Check your inbox."                               |
+| Magic link expired (callback) | "This magic link has expired. Please request a new one."                  |
+| IST expired (registration)    | "This registration session has expired. Please request a new magic link." |
+| Registration field error      | Inline form validation: "School name must be at least 2 characters"       |
+| Registration success          | Toast: "Account created! Welcome to Somotracker." → redirect to `/`       |
+| Invite token expired          | 401 → Global eviction → `/logout`                                         |
+| Logout success                | Toast: "Logged out" → redirect to `/login`                                |
+| Any 401                       | Auto-redirect to `/logout`                                                |
 
 ---
 
@@ -586,22 +593,22 @@ Your Stytch organization has Multi-Factor Authentication enabled. Complete the M
 
 ## Related files
 
-| File | Purpose |
-|---|---|
-| `backend/internal/auth/domain.go` | Domain models, sentinel errors, `IdentityProvider` and `Repository` interfaces |
-| `backend/internal/auth/handler.go` | HTTP handlers: Discover, Verify, Register, MagicLinkCallback, AcceptInvite, Me, Logout |
-| `backend/internal/auth/service.go` | Business logic: IST caching, registration orchestration, invite acceptance |
-| `backend/internal/auth/repository.go` | Pgx-backed Postgres repository |
-| `backend/internal/auth/stytch.go` | Stytch B2B API adapter |
-| `backend/internal/middleware/errors.go` | `HTTPError` — the single error-to-HTTP mapper |
-| `backend/internal/middleware/auth.go` | `RequireRole` middleware for route-level RBAC |
-| `backend/internal/members/domain.go` | Member and invitation domain models |
-| `backend/internal/members/handler.go` | HTTP handlers for /api/v1/members and /api/v1/invitations |
-| `backend/internal/members/service.go` | Invitation creation and bulk invite business logic |
-| `frontend/src/lib/api/client.ts` | API fetch wrapper with CSRF and 401 eviction |
-| `frontend/src/lib/auth.ts` | Cookie constants and role-to-route mappings |
-| `frontend/src/lib/auth-server.ts` | Server-side HMAC verification (Node.js) |
-| `frontend/src/proxy.ts` | Edge middleware — route protection and cookie verification |
-| `frontend/src/hooks/use-auth.ts` | React Query hooks for auth mutations |
-| `frontend/src/features/auth/components/login-page.tsx` | Login page UI |
-| `frontend/src/features/auth/components/register-form.tsx` | Registration form UI |
+| File                                                      | Purpose                                                                                |
+| --------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `backend/internal/auth/domain.go`                         | Domain models, sentinel errors, `IdentityProvider` and `Repository` interfaces         |
+| `backend/internal/auth/handler.go`                        | HTTP handlers: Discover, Verify, Register, MagicLinkCallback, AcceptInvite, Me, Logout |
+| `backend/internal/auth/service.go`                        | Business logic: IST caching, registration orchestration, invite acceptance             |
+| `backend/internal/auth/repository.go`                     | Pgx-backed Postgres repository                                                         |
+| `backend/internal/auth/stytch.go`                         | Stytch B2B API adapter                                                                 |
+| `backend/internal/middleware/errors.go`                   | `HTTPError` — the single error-to-HTTP mapper                                          |
+| `backend/internal/middleware/auth.go`                     | `RequireRole` middleware for route-level RBAC                                          |
+| `backend/internal/members/domain.go`                      | Member and invitation domain models                                                    |
+| `backend/internal/members/handler.go`                     | HTTP handlers for /api/v1/members and /api/v1/invitations                              |
+| `backend/internal/members/service.go`                     | Invitation creation and bulk invite business logic                                     |
+| `frontend/src/lib/api/client.ts`                          | API fetch wrapper with CSRF and 401 eviction                                           |
+| `frontend/src/lib/auth.ts`                                | Cookie constants and role-to-route mappings                                            |
+| `frontend/src/lib/auth-server.ts`                         | Server-side HMAC verification (Node.js)                                                |
+| `frontend/src/proxy.ts`                                   | Edge middleware — route protection and cookie verification                             |
+| `frontend/src/hooks/use-auth.ts`                          | React Query hooks for auth mutations                                                   |
+| `frontend/src/features/auth/components/login-page.tsx`    | Login page UI                                                                          |
+| `frontend/src/features/auth/components/register-form.tsx` | Registration form UI                                                                   |

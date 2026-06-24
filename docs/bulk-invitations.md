@@ -26,21 +26,21 @@ This document describes how school administrators can invite staff members in bu
 
 School administrators can invite new staff members to join their school through two complementary approaches:
 
-| Approach | Max records | Invite email sent? | Processing | Best for |
-|---|---|---|---|---|
-| **Quick invite** — ad-hoc creation | ~100 | No (manual Stytch send on demand) | Synchronous | Small batches, individual invites |
-| **Bulk import** — `POST /api/v1/imports/staff` | 5,000 | ✅ Yes (Stage 2 Stytch send) | Async (Asynq worker) | Large CSVs, hundreds of staff members |
+| Approach                                       | Max records | Invite email sent?                | Processing           | Best for                              |
+| ---------------------------------------------- | ----------- | --------------------------------- | -------------------- | ------------------------------------- |
+| **Quick invite** — ad-hoc creation             | ~100        | No (manual Stytch send on demand) | Synchronous          | Small batches, individual invites     |
+| **Bulk import** — `POST /api/v1/imports/staff` | 5,000       | ✅ Yes (Stage 2 Stytch send)      | Async (Asynq worker) | Large CSVs, hundreds of staff members |
 
 ### Supported roles
 
 Four staff roles can be invited through these flows:
 
-| Role | Allowed access | Typical use |
-|---|---|---|
-| `SCHOOL_ADMIN` | `/admin`, `/admins`, `/dashboard`, `/settings`, `/schools`, `/docs` | Deputy head, senior teachers, operations |
-| `TEACHER` | `/dashboard`, `/docs`, `/teachers` | Classroom teachers (KICD-compliant onboarding) |
-| `NURSE` | `/dashboard`, `/docs` | School nurse, healthcare staff |
-| `FINANCE` | `/dashboard`, `/docs` | Bursar, accounting staff |
+| Role           | Allowed access                                                      | Typical use                                    |
+| -------------- | ------------------------------------------------------------------- | ---------------------------------------------- |
+| `SCHOOL_ADMIN` | `/admin`, `/admins`, `/dashboard`, `/settings`, `/schools`, `/docs` | Deputy head, senior teachers, operations       |
+| `TEACHER`      | `/dashboard`, `/docs`, `/teachers`                                  | Classroom teachers (KICD-compliant onboarding) |
+| `NURSE`        | `/dashboard`, `/docs`                                               | School nurse, healthcare staff                 |
+| `FINANCE`      | `/dashboard`, `/docs`                                               | Bursar, accounting staff                       |
 
 > **Note:** `SYSTEM_ADMIN` uses a separate provisioning flow outside this pipeline.
 
@@ -106,12 +106,12 @@ The bulk import pipeline handles **up to 5,000 records** using an async worker a
 
 ### Endpoints
 
-| Method | Path | Purpose |
-|---|---|---|
-| `POST` | `/api/v1/imports/staff` | Start a bulk import job |
-| `GET` | `/api/v1/imports/staff/track/:id` | Poll job status |
-| `GET` | `/api/v1/imports/staff/track/:id/sse` | Real-time SSE progress stream |
-| `GET` | `/api/v1/imports/staff/:id/failures` | Fetch failed invitations for correction |
+| Method | Path                                  | Purpose                                 |
+| ------ | ------------------------------------- | --------------------------------------- |
+| `POST` | `/api/v1/imports/staff`               | Start a bulk import job                 |
+| `GET`  | `/api/v1/imports/staff/track/:id`     | Poll job status                         |
+| `GET`  | `/api/v1/imports/staff/track/:id/sse` | Real-time SSE progress stream           |
+| `GET`  | `/api/v1/imports/staff/:id/failures`  | Fetch failed invitations for correction |
 
 ### Step 1: Start Import — `POST /api/v1/imports/staff`
 
@@ -124,8 +124,7 @@ The bulk import pipeline handles **up to 5,000 records** using an async worker a
     {
       "temp_id": "a1b2c3d4-...",
       "email": "nurse1@school.edu",
-      "first_name": "Grace",
-      "last_name": "Mwangi",
+      "full_name": "Mwangi",
       "phone": "+254712345678",
       "registration_number": "NRS-001"
     }
@@ -141,13 +140,12 @@ The bulk import pipeline handles **up to 5,000 records** using an async worker a
 
 #### Validation rules (backend)
 
-| Field | Rule |
-|---|---|
-| `email` | Required, must be non-empty |
-| `first_name` | Required, must be non-empty |
-| `last_name` | Required, must be non-empty |
-| `role` | Must be one of `SCHOOL_ADMIN`, `TEACHER`, `NURSE`, `FINANCE` |
-| Record count | Between 1 and 5,000 |
+| Field        | Rule                                                         |
+| ------------ | ------------------------------------------------------------ |
+| `email`      | Required, must be non-empty                                  |
+| `full_name`  | Required, must be non-empty                                  |
+| `role`       | Must be one of `SCHOOL_ADMIN`, `TEACHER`, `NURSE`, `FINANCE` |
+| Record count | Between 1 and 5,000                                          |
 
 #### Response (202 Accepted)
 
@@ -188,6 +186,7 @@ Stage 2 is **re-entry safe**: before sending each invite, the worker queries `Ge
 - **On correction resubmit**: `BulkUpdateInvitations` resets records back to `status = 'pending'` and clears `stytch_member_id` and `error_message`, so `GetPendingStage2Records` picks them up again.
 
 Processing details:
+
 - Sends Stytch invite emails with **bounded concurrency** (8 goroutines via a buffered channel semaphore).
 - Each call has **3 retries** (`StytchMaxRetries`) with exponential backoff (2s, 4s, 6s).
 - Permanent Stytch errors (invalid email, blocked domain, member already exists) are detected via `isPermanentStytchError` and **not retried**.
@@ -219,14 +218,14 @@ If an Asynq task exhausts all 3 retries, the `HandleError` method (implementing 
 
 Job statuses:
 
-| Status | Meaning |
-|---|---|
-| `pending` | Job created, not yet picked up by worker |
-| `enqueue_failed` | Asynq task could not be enqueued (Redis/queue issue); retry via a fresh import |
-| `processing` | Worker is actively processing |
-| `completed` | All records processed successfully |
-| `completed_with_errors` | Some records failed (check failures endpoint) |
-| `failed` | All 3 Asynq retries exhausted (e.g., persistent DB or Stytch errors) — job never fully completed |
+| Status                  | Meaning                                                                                          |
+| ----------------------- | ------------------------------------------------------------------------------------------------ |
+| `pending`               | Job created, not yet picked up by worker                                                         |
+| `enqueue_failed`        | Asynq task could not be enqueued (Redis/queue issue); retry via a fresh import                   |
+| `processing`            | Worker is actively processing                                                                    |
+| `completed`             | All records processed successfully                                                               |
+| `completed_with_errors` | Some records failed (check failures endpoint)                                                    |
+| `failed`                | All 3 Asynq retries exhausted (e.g., persistent DB or Stytch errors) — job never fully completed |
 
 #### SSE — `GET /api/v1/imports/staff/track/:id/sse`
 
@@ -246,6 +245,7 @@ All events use the same `ImportProgressEvent` JSON struct with a `type` discrimi
 ```
 
 The SSE stream:
+
 1. Sends a `connected` event immediately using the `ImportProgressEvent` struct.
 2. Pings Redis; if reachable, subscribes to pub/sub channel `import:progress:{jobID}` for real-time events. If Redis is unreachable, falls back to pure DB polling immediately.
 3. Falls back to 3-second polling ticks (via `GetImportJob`) as a heartbeat, continuing to send `import_progress` events.
@@ -260,8 +260,7 @@ The SSE stream:
     {
       "id": "invitation-uuid",
       "email": "failed@somedomain.com",
-      "first_name": "John",
-      "last_name": "Doe",
+      "full_name": "Doe",
       "phone": "+254700000000",
       "error_message": "stytch invite failed: invalid_email"
     }
@@ -279,14 +278,14 @@ The bulk import UI lives in `frontend/src/features/staff-import/` and is a **mul
 
 ### Entry points
 
-| Route | Role scope | Mode |
-|---|---|---|
-| `/admins/invitations/new` | `SCHOOL_ADMIN` | Dialog (via `@modal` intercepting route) |
-| `/admins/invitations` | `SCHOOL_ADMIN` | Page |
-| `/nurses/invitations/new` | `NURSE` | Dialog (via `@modal` intercepting route) |
-| `/nurses/invitations` | `NURSE` | Page |
-| `/finance/invitations/new` | `FINANCE` | Dialog (via `@modal` intercepting route) |
-| `/finance/invitations` | `FINANCE` | Page |
+| Route                      | Role scope     | Mode                                     |
+| -------------------------- | -------------- | ---------------------------------------- |
+| `/admins/invitations/new`  | `SCHOOL_ADMIN` | Dialog (via `@modal` intercepting route) |
+| `/admins/invitations`      | `SCHOOL_ADMIN` | Page                                     |
+| `/nurses/invitations/new`  | `NURSE`        | Dialog (via `@modal` intercepting route) |
+| `/nurses/invitations`      | `NURSE`        | Page                                     |
+| `/finance/invitations/new` | `FINANCE`      | Dialog (via `@modal` intercepting route) |
+| `/finance/invitations`     | `FINANCE`      | Page                                     |
 
 ### Views (dialog states)
 
@@ -303,12 +302,13 @@ ENTRY ──(valid rows)──> REVIEW ──(submit)──> PROGRESS ──(don
 
 Two tabs for data entry:
 
-| Tab | Component | Description |
-|---|---|---|
+| Tab              | Component                | Description                                                          |
+| ---------------- | ------------------------ | -------------------------------------------------------------------- |
 | **Add Manually** | `manual-entry-panel.tsx` | Row-by-row form with email, first name, last name, phone (optional). |
-| **Upload File** | `file-upload-panel.tsx` | CSV/XLSX file upload with client-side parsing. |
+| **Upload File**  | `file-upload-panel.tsx`  | CSV/XLSX file upload with client-side parsing.                       |
 
 Features:
+
 - **Draft persistence** — rows are saved to IndexedDB (`@/lib/db`) every time they're edited. On reload, shows a "Resume Draft?" prompt.
 - **Client-side validation** — checks email structure (`@`, domain with `.`), required first/last name, duplicate email detection.
 - Phone numbers are normalized to E.164 format using `libphonenumber-js` with Kenyan country code default.
@@ -318,6 +318,7 @@ Features:
 Shows a **5-row sample** of the data for visual confirmation before submission.
 
 Buttons:
+
 - **Back** — return to entry view.
 - **Submit {N} Invitations** — calls `useStartImport` mutation → `POST /api/v1/imports/staff`.
 
@@ -347,7 +348,7 @@ Displays failed invitations for selective retry:
 
 #### 5. Done View
 
-Simple success message: *"Import Complete — All invitations have been processed successfully."*
+Simple success message: _"Import Complete — All invitations have been processed successfully."_
 
 ---
 
@@ -355,22 +356,22 @@ Simple success message: *"Import Complete — All invitations have been processe
 
 ### Files
 
-| File | Purpose |
-|---|---|
-| `backend/internal/imports/domain.go` | Models (`ImportJob`, `ImportStaffRecord`), sentinel errors, constants (`MaxRecordsPerImport`, `BatchSize`, `StytchConcurrency`, `StytchMaxRetries`, `InvitationTTL`, `TaskTimeout`), repository interface |
-| `backend/internal/imports/handler.go` | HTTP handlers: StartImport, TrackImport, SSETrackImport, ListFailedInvitations. Includes `requireAuth` middleware and SSE body stream writer |
-| `backend/internal/imports/handler_test.go` | Integration tests for all import endpoints |
-| `backend/internal/imports/service.go` | Business logic: create job, enqueue Asynq task (with `TypeProcessImport`), get failures |
-| `backend/internal/imports/service_test.go` | Unit tests for StartImport validation and job creation |
-| `backend/internal/imports/worker.go` | Asynq task handler: ProcessImport (Stage 1 + Stage 2), `HandleError` (retry exhaustion), progress publishing (`publishProgress`, `publishFinished`) |
-| `backend/internal/imports/worker_test.go` | Tests for worker processing and error handling |
-| `backend/internal/imports/repository.go` | Pgx-backed Postgres operations: bulk CTE insert (`BulkInsertInvitations`), correction update (`BulkUpdateInvitations`), Stage 2 idempotency query (`GetPendingStage2Records`) |
-| `backend/internal/imports/module.go` | fx dependency injection module |
-| `frontend/src/features/staff-import/` | React components (bulk-staff-import-dialog, entry-view, review-view, etc.) |
-| `frontend/src/features/staff-import/hooks/use-staff-import.ts` | React Query hooks (`useStartImport`, `useTrackImport`, `useImportFailures`) + RxJS `createImportProgressStream` SSE Observable |
-| `frontend/src/features/staff-import/lib/validation.ts` | Client-side email/phone validation (E.164, Kenyan country code default) |
-| `frontend/src/lib/api/imports.ts` | Frontend API functions: `startImport`, `trackImport`, `listFailedInvitations`, `createImportSSE` |
-| `frontend/src/lib/api/invitations.ts` | Frontend API functions: `listInvitationsByRole` (list-only, no create) |
+| File                                                           | Purpose                                                                                                                                                                                                   |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `backend/internal/imports/domain.go`                           | Models (`ImportJob`, `ImportStaffRecord`), sentinel errors, constants (`MaxRecordsPerImport`, `BatchSize`, `StytchConcurrency`, `StytchMaxRetries`, `InvitationTTL`, `TaskTimeout`), repository interface |
+| `backend/internal/imports/handler.go`                          | HTTP handlers: StartImport, TrackImport, SSETrackImport, ListFailedInvitations. Includes `requireAuth` middleware and SSE body stream writer                                                              |
+| `backend/internal/imports/handler_test.go`                     | Integration tests for all import endpoints                                                                                                                                                                |
+| `backend/internal/imports/service.go`                          | Business logic: create job, enqueue Asynq task (with `TypeProcessImport`), get failures                                                                                                                   |
+| `backend/internal/imports/service_test.go`                     | Unit tests for StartImport validation and job creation                                                                                                                                                    |
+| `backend/internal/imports/worker.go`                           | Asynq task handler: ProcessImport (Stage 1 + Stage 2), `HandleError` (retry exhaustion), progress publishing (`publishProgress`, `publishFinished`)                                                       |
+| `backend/internal/imports/worker_test.go`                      | Tests for worker processing and error handling                                                                                                                                                            |
+| `backend/internal/imports/repository.go`                       | Pgx-backed Postgres operations: bulk CTE insert (`BulkInsertInvitations`), correction update (`BulkUpdateInvitations`), Stage 2 idempotency query (`GetPendingStage2Records`)                             |
+| `backend/internal/imports/module.go`                           | fx dependency injection module                                                                                                                                                                            |
+| `frontend/src/features/staff-import/`                          | React components (bulk-staff-import-dialog, entry-view, review-view, etc.)                                                                                                                                |
+| `frontend/src/features/staff-import/hooks/use-staff-import.ts` | React Query hooks (`useStartImport`, `useTrackImport`, `useImportFailures`) + RxJS `createImportProgressStream` SSE Observable                                                                            |
+| `frontend/src/features/staff-import/lib/validation.ts`         | Client-side email/phone validation (E.164, Kenyan country code default)                                                                                                                                   |
+| `frontend/src/lib/api/imports.ts`                              | Frontend API functions: `startImport`, `trackImport`, `listFailedInvitations`, `createImportSSE`                                                                                                          |
+| `frontend/src/lib/api/invitations.ts`                          | Frontend API functions: `listInvitationsByRole` (list-only, no create)                                                                                                                                    |
 
 ### Worker architecture
 
@@ -403,27 +404,27 @@ On retry exhaustion (3 attempts), `Worker.HandleError` (implementing `asynq.Erro
 
 Key constants (all defined in `domain.go`):
 
-| Constant | Value | Description |
-|---|---|---|
-| `MaxRecordsPerImport` | 5,000 | Max records per import job |
-| `BatchSize` | 200 | Records per DB batch insert |
-| `StytchConcurrency` | 8 | Max concurrent Stytch API calls (buffered channel semaphore) |
-| `StytchMaxRetries` | 3 | Retry attempts for transient Stytch errors |
-| `InvitationTTL` | 7 days | How long pending invitations are valid (`expires_at = now + 7 days`) |
-| `TaskTimeout` | 45 minutes | Asynq task timeout (accounts for 5000 records × 8 concurrent workers with retries) |
+| Constant              | Value      | Description                                                                        |
+| --------------------- | ---------- | ---------------------------------------------------------------------------------- |
+| `MaxRecordsPerImport` | 5,000      | Max records per import job                                                         |
+| `BatchSize`           | 200        | Records per DB batch insert                                                        |
+| `StytchConcurrency`   | 8          | Max concurrent Stytch API calls (buffered channel semaphore)                       |
+| `StytchMaxRetries`    | 3          | Retry attempts for transient Stytch errors                                         |
+| `InvitationTTL`       | 7 days     | How long pending invitations are valid (`expires_at = now + 7 days`)               |
+| `TaskTimeout`         | 45 minutes | Asynq task timeout (accounts for 5000 records × 8 concurrent workers with retries) |
 
 #### Task type reference
 
-| Constant | Value | Queue | MaxRetry | Timeout |
-|---|---|---|---|---|
-| `TypeProcessImport` | `"imports:process"` | `critical` | 3 | 45 minutes |
+| Constant            | Value               | Queue      | MaxRetry | Timeout    |
+| ------------------- | ------------------- | ---------- | -------- | ---------- |
+| `TypeProcessImport` | `"imports:process"` | `critical` | 3        | 45 minutes |
 
 ### Temporary ID reconciliation
 
 Each import record carries a **`temp_id`** — a UUID generated by the frontend. This is crucial for two reasons:
 
 1. **DB-to-client reconciliation** — after bulk insert, the CTE returns a `map[temp_id]invitation_id` so the frontend can track which records succeeded and which were duplicates.
-2. **Correction resubmit** — on correction, the `temp_id` *is* the `invitation_id` (the DB primary key of the failed row), so the backend knows exactly which rows to update via `BulkUpdateInvitations`.
+2. **Correction resubmit** — on correction, the `temp_id` _is_ the `invitation_id` (the DB primary key of the failed row), so the backend knows exactly which rows to update via `BulkUpdateInvitations`.
 
 ### Redis pub/sub for SSE
 
@@ -505,8 +506,7 @@ CREATE TABLE IF NOT EXISTS invitations (
     token               TEXT              NOT NULL,
     expires_at          TIMESTAMPTZ       NOT NULL,
     accepted_at         TIMESTAMPTZ       NULL,
-    first_name          VARCHAR(255)      NULL,
-    last_name           VARCHAR(255)      NULL,
+    full_name           VARCHAR(255)      NOT NULL,
     phone               VARCHAR(50)       NULL,
     registration_number VARCHAR(100)      NULL,
     stytch_member_id    VARCHAR(255)      NULL,
@@ -523,12 +523,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_invitations_active_email
 
 ### Invitation statuses (`invitation_status` enum)
 
-| Status | Meaning |
-|---|---|
-| `pending` | Created, awaiting the invitee to click the magic link |
-| `accepted` | Invitee has clicked the link and created their account |
-| `expired` | TTL (7 days) has passed since creation |
-| `revoked` | Manually revoked by an admin |
+| Status          | Meaning                                                 |
+| --------------- | ------------------------------------------------------- |
+| `pending`       | Created, awaiting the invitee to click the magic link   |
+| `accepted`      | Invitee has clicked the link and created their account  |
+| `expired`       | TTL (7 days) has passed since creation                  |
+| `revoked`       | Manually revoked by an admin                            |
 | `invite_failed` | Stytch email send permanently failed (bulk import only) |
 
 ---
@@ -537,26 +537,25 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_invitations_active_email
 
 ### Error codes
 
-| Error | HTTP | Scenario |
-|---|---|---|
-| `unauthorized` | 401 | No session cookie or invalid session |
-| `invalid_input` | 400 | Missing/invalid fields in the request |
-| `not_found` | 404 | Job ID, tenant, or school not found |
-| `internal_error` | 500 | DB or Stytch API failure |
+| Error            | HTTP | Scenario                              |
+| ---------------- | ---- | ------------------------------------- |
+| `unauthorized`   | 401  | No session cookie or invalid session  |
+| `invalid_input`  | 400  | Missing/invalid fields in the request |
+| `not_found`      | 404  | Job ID, tenant, or school not found   |
+| `internal_error` | 500  | DB or Stytch API failure              |
 
 ### Bulk import validation errors (input stage)
 
 The bulk import endpoint validates all records before creating a job. Errors are returned immediately as `400 Bad Request` with an `invalid_input` code:
 
-| Error message | Cause |
-|---|---|
-| `email is required for all records` | Empty email field in any record |
-| `first_name is required for all records` | Empty first_name in any record |
-| `last_name is required for all records` | Empty last_name in any record |
+| Error message                                                          | Cause                                 |
+| ---------------------------------------------------------------------- | ------------------------------------- |
+| `email is required for all records`                                    | Empty email field in any record       |
+| `full_name is required for all records`                                | Empty full_name in any record         |
 | `registration_number (TSC Number) is required for all teacher records` | Empty TSC Number when role is TEACHER |
-| `invalid role: must be one of SCHOOL_ADMIN, TEACHER, NURSE, FINANCE` | Role not in allowed set |
-| `at least one record is required` | Empty records array |
-| `maximum 5000 records per import` | Record count exceeds limit |
+| `invalid role: must be one of SCHOOL_ADMIN, TEACHER, NURSE, FINANCE`   | Role not in allowed set               |
+| `at least one record is required`                                      | Empty records array                   |
+| `maximum 5000 records per import`                                      | Record count exceeds limit            |
 
 Duplicates (existing active invites) are counted as failed records post-ingestion, not rejected upfront.
 
@@ -572,14 +571,14 @@ Stytch invite failures are stored directly on the `invitations` row:
 
 The worker classifies Stytch errors to avoid retrying hopeless cases:
 
-| Permanent (no retry) | Transient (retry up to 3 times) |
-|---|---|
-| `invalid_email` | Rate-limit errors |
-| `email_invalid` | Network timeouts |
-| `blocked_domain` | Server errors (5xx) |
-| `domain_not_allowed` | Unclassified errors |
-| `member_already_exists` | |
-| `not_found` | |
+| Permanent (no retry)    | Transient (retry up to 3 times) |
+| ----------------------- | ------------------------------- |
+| `invalid_email`         | Rate-limit errors               |
+| `email_invalid`         | Network timeouts                |
+| `blocked_domain`        | Server errors (5xx)             |
+| `domain_not_allowed`    | Unclassified errors             |
+| `member_already_exists` |                                 |
+| `not_found`             |                                 |
 
 ---
 
@@ -606,10 +605,12 @@ When a TEACHER invitation is accepted, the `registration_number` value stored in
 1. **Backend Service** (`auth/service.go` — `AcceptInvite`): The `Invitation.RegistrationNumber` from the DB query is mapped to `CreateInvitedUserSessionArgs.TSCNumber`.
 
 2. **Backend Repository** (`auth/repository.go` — `CreateInvitedUserSession`): When `args.Role == "TEACHER"` and `args.TSCNumber != ""`, the INSERT statement includes the `tsc_number` column:
+
    ```sql
-   INSERT INTO users (email, tenant_id, first_name, last_name, external_auth_id, tsc_number)
+   INSERT INTO users (email, tenant_id, full_name, external_auth_id, tsc_number)
    VALUES ($1, $2, $3, $4, $5, $6)
    ```
+
    For non-TEACHER roles, the standard 5-column insert is used (no TSC number).
 
 3. **Correction Resubmit** (`imports/repository.go` — `BulkUpdateInvitations`): The `registration_number` field is now included in the CTE update so corrected records persist the TSC number.
@@ -653,6 +654,7 @@ No. If the email already has an active `memberships` row for the school, the sys
 ### "How long does a bulk import take?"
 
 For 5,000 records:
+
 - Stage 1 (DB insert): ~1–2 seconds (batch CTE).
 - Stage 2 (Stytch send): ~2–5 minutes (8 concurrent goroutines, each Stytch call is ~200–500ms).
 
@@ -666,19 +668,19 @@ Not yet. If you started an import with bad data, wait for it to complete, then u
 
 ## Related files
 
-| File | Purpose |
-|---|---|
-| `backend/internal/imports/domain.go` | Models, constants, sentinel errors, repository interface |
-| `backend/internal/imports/handler.go` | HTTP handlers for all import endpoints (StartImport, TrackImport, SSE, Failures) |
-| `backend/internal/imports/handler_test.go` | Integration tests for import endpoints |
-| `backend/internal/imports/service.go` | Business logic + Asynq task enqueue |
-| `backend/internal/imports/service_test.go` | Unit tests for StartImport validation |
-| `backend/internal/imports/worker.go` | Async processing (Stage 1 + Stage 2) + HandleError |
-| `backend/internal/imports/worker_test.go` | Tests for worker processing and error handling |
-| `backend/internal/imports/repository.go` | Pgx DB operations including CTE bulk insert, correction update, Stage 2 query |
-| `backend/internal/members/domain.go` | Invitation model (`members` domain) |
-| `frontend/src/features/staff-import/` | Full React component tree for bulk import UX |
-| `frontend/src/features/staff-import/hooks/use-staff-import.ts` | React Query hooks + RxJS SSE Observable |
-| `frontend/src/lib/api/imports.ts` | Frontend API functions for import endpoints |
-| `frontend/src/lib/api/invitations.ts` | Frontend API functions for invitation listing (list only) |
-| `backend/internal/database/migrations/000001_initial_schema.up.sql` | `import_jobs`, `import_job_failures`, `invitations` table definitions |
+| File                                                                | Purpose                                                                          |
+| ------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `backend/internal/imports/domain.go`                                | Models, constants, sentinel errors, repository interface                         |
+| `backend/internal/imports/handler.go`                               | HTTP handlers for all import endpoints (StartImport, TrackImport, SSE, Failures) |
+| `backend/internal/imports/handler_test.go`                          | Integration tests for import endpoints                                           |
+| `backend/internal/imports/service.go`                               | Business logic + Asynq task enqueue                                              |
+| `backend/internal/imports/service_test.go`                          | Unit tests for StartImport validation                                            |
+| `backend/internal/imports/worker.go`                                | Async processing (Stage 1 + Stage 2) + HandleError                               |
+| `backend/internal/imports/worker_test.go`                           | Tests for worker processing and error handling                                   |
+| `backend/internal/imports/repository.go`                            | Pgx DB operations including CTE bulk insert, correction update, Stage 2 query    |
+| `backend/internal/members/domain.go`                                | Invitation model (`members` domain)                                              |
+| `frontend/src/features/staff-import/`                               | Full React component tree for bulk import UX                                     |
+| `frontend/src/features/staff-import/hooks/use-staff-import.ts`      | React Query hooks + RxJS SSE Observable                                          |
+| `frontend/src/lib/api/imports.ts`                                   | Frontend API functions for import endpoints                                      |
+| `frontend/src/lib/api/invitations.ts`                               | Frontend API functions for invitation listing (list only)                        |
+| `backend/internal/database/migrations/000001_initial_schema.up.sql` | `import_jobs`, `import_job_failures`, `invitations` table definitions            |

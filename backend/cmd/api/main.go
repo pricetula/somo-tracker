@@ -30,6 +30,7 @@ import (
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 
+	"somotracker/backend/internal/activeschool"
 	"somotracker/backend/internal/auth"
 	"somotracker/backend/internal/cbcschools"
 	"somotracker/backend/internal/config"
@@ -91,6 +92,7 @@ func main() {
 		auth.Module,
 		invitations.Module,
 		members.Module,
+		activeschool.Module,
 
 		// Cross-domain interface wiring: school resolver from members,
 		// school creator from cbcschools.
@@ -184,6 +186,8 @@ func registerApp(
 	invitationsHandler *invitations.Handler,
 	membersHandler *members.Handler,
 	importsHandler *imports.Handler,
+	cbcschoolsHandler *cbcschools.Handler,
+	activeschoolHandler *activeschool.Handler,
 ) {
 	app := fiber.New(fiber.Config{
 		AppName:      "somotracker",
@@ -220,6 +224,8 @@ func registerApp(
 			membersHandler.RegisterRoutes(app)
 			invitationsHandler.RegisterRoutes(app)
 			importsHandler.RegisterRoutes(app)
+			cbcschoolsHandler.RegisterRoutes(app)
+			activeschoolHandler.RegisterRoutes(app)
 
 			// Start Fiber in a non-blocking goroutine
 			go func() {

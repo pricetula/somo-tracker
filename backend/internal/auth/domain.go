@@ -226,9 +226,6 @@ type Repository interface {
 	// for an existing tenant (no tenant insert). Returns the user ID.
 	CreateUserSession(ctx context.Context, userParams CreateUserParams, sessionParams CreateSessionParams) (userID string, err error)
 
-	// CreateSchool creates a new cbc_school for a tenant and returns its ID.
-	CreateSchool(ctx context.Context, tenantID string, name string) (schoolID string, err error)
-
 	// CreateMembership creates a membership linking a user to a school with a role.
 	CreateMembership(ctx context.Context, userID, schoolID, tenantID, role string) error
 
@@ -291,6 +288,11 @@ type MeInfo struct {
 	SchoolName string
 	FullName   string
 	Email      string
+}
+
+// SchoolCreator abstracts school creation so auth does not import cbcschools.
+type SchoolCreator interface {
+	Create(ctx context.Context, tenantID string, name string) (string, error)
 }
 
 // StytchOrgIDKey is the context key used to pass the stytch_org_id through

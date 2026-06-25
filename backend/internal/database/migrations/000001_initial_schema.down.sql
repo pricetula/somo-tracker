@@ -5,12 +5,22 @@
 
 BEGIN;
 
-DROP TRIGGER IF EXISTS trg_cbc_students_counts_update ON cbc_students;
-DROP TRIGGER IF EXISTS trg_cbc_students_counts_insert_delete ON cbc_students;
+DROP TRIGGER IF EXISTS trg_users_updated_at                  ON users;
+DROP TRIGGER IF EXISTS trg_cbc_schools_updated_at            ON cbc_schools;
+DROP TRIGGER IF EXISTS trg_cbc_parents_updated_at            ON cbc_parents;
+DROP TRIGGER IF EXISTS trg_cbc_students_updated_at           ON cbc_students;
+DROP TRIGGER IF EXISTS trg_cbc_students_counts_update        ON cbc_students;
+DROP TRIGGER IF EXISTS trg_cbc_students_counts_insert     ON cbc_students;
+DROP TRIGGER IF EXISTS trg_cbc_students_counts_delete     ON cbc_students;
 DROP FUNCTION IF EXISTS fn_sync_school_student_counts();
-DROP TRIGGER IF EXISTS trg_memberships_counts_update ON memberships;
-DROP TRIGGER IF EXISTS trg_memberships_counts_insert_delete ON memberships;
+DROP TRIGGER IF EXISTS trg_memberships_counts_update      ON memberships;
+DROP TRIGGER IF EXISTS trg_memberships_counts_insert      ON memberships;
+DROP TRIGGER IF EXISTS trg_memberships_counts_delete      ON memberships;
 DROP FUNCTION IF EXISTS fn_sync_school_staff_counts();
+DROP TRIGGER IF EXISTS trg_sync_invoice_payment_status_update ON payments;
+DROP TRIGGER IF EXISTS trg_sync_invoice_payment_status_insert ON payments;
+DROP TRIGGER IF EXISTS trg_sync_invoice_payment_status_delete  ON payments;
+DROP FUNCTION IF EXISTS fn_sync_invoice_payment_status();
 
 -- ============================================================================
 -- LAYER 9 — REPORTING
@@ -121,6 +131,7 @@ DROP TYPE IF EXISTS cbc_rubric_level_with_sub_levels CASCADE;
 DROP TYPE IF EXISTS lrr_score_type CASCADE;
 DROP TYPE IF EXISTS portfolio_evidence_type CASCADE;
 DROP TYPE IF EXISTS knec_sync_status CASCADE;
+DROP TYPE IF EXISTS invoice_payment_status CASCADE;
 
 -- ============================================================================
 -- FUNCTIONS

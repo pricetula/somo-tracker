@@ -30,11 +30,12 @@ const (
 
 // Service holds business logic dependencies.
 type Service struct {
-	idp    IdentityProvider
-	repo   Repository
-	rdb    *redis.Client
-	logger *zap.Logger
-	cfg    config.Config
+	idp           IdentityProvider
+	repo          Repository
+	rdb           *redis.Client
+	logger        *zap.Logger
+	cfg           config.Config
+	schoolCreator SchoolCreator
 }
 
 // NewService creates a new Service with fx lifecycle hooks for Redis.
@@ -42,6 +43,7 @@ func NewService(
 	lc fx.Lifecycle,
 	idp IdentityProvider,
 	repo Repository,
+	schoolCreator SchoolCreator,
 	pools *database.Pools,
 	logger *zap.Logger,
 	cfg config.Config,
@@ -66,11 +68,12 @@ func NewService(
 	})
 
 	return &Service{
-		idp:    idp,
-		repo:   repo,
-		rdb:    pools.Redis,
-		logger: logger,
-		cfg:    cfg,
+		idp:           idp,
+		repo:          repo,
+		rdb:           pools.Redis,
+		logger:        logger,
+		cfg:           cfg,
+		schoolCreator: schoolCreator,
 	}
 }
 
@@ -318,7 +321,7 @@ func (s *Service) Register(ctx context.Context, sessionRef string, payload Regis
 		role = "SCHOOL_ADMIN"
 	}
 
-	schoolID, err := s.repo.CreateSchool(ctx, tenantID, payload.SchoolName)
+	schoolID, err := s.schoolCreator.Create(ctx, tenantID, payload.SchoolName)
 	if err != nil {
 		return "", "", fmt.Errorf("%w: create school: %v", ErrInternal, err)
 	}

@@ -176,6 +176,16 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
+DO $$ BEGIN
+    CREATE TYPE invoice_payment_status AS ENUM (
+        'UNPAID',    -- No payments recorded yet
+        'PARTIAL',   -- Some payment made, balance remains
+        'PAID',      -- Fully settled
+        'WAIVED'     -- Debt forgiven by finance admin
+    );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
 -- ============================================================================
 -- LAYER 1 — PLATFORM INFRASTRUCTURE
 -- ============================================================================
@@ -277,6 +287,7 @@ CREATE TABLE IF NOT EXISTS cbc_schools (
     school_type             cbc_school_type  NOT NULL,
     is_active               BOOLEAN      NOT NULL DEFAULT true,
     created_at              TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at              TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
 
     CONSTRAINT uq_cbc_schools_tenant UNIQUE (tenant_id, id)
 );
@@ -286,6 +297,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_cbc_schools_knec_code
 CREATE UNIQUE INDEX IF NOT EXISTS idx_cbc_schools_nemis_code
     ON cbc_schools (nemis_institution_code) WHERE nemis_institution_code IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_cbc_schools_tenant_id ON cbc_schools (tenant_id);
+
+DROP TRIGGER IF EXISTS trg_cbc_schools_updated_at ON cbc_schools;
+CREATE TRIGGER trg_cbc_schools_updated_at
+    BEFORE UPDATE ON cbc_schools
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
 
 COMMENT ON COLUMN cbc_schools.knec_school_code IS
     'Official KNEC center code (8–10 digit numeric string). Used as the school
@@ -544,6 +560,7 @@ COMMENT ON TABLE cbc_parents IS
 CREATE TABLE IF NOT EXISTS cbc_students (
     id                      UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id               UUID         NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    school_id               UUID         NOT NULL REFERENCES cbc_schools(id) ON DELETE RESTRICT,
     full_name               VARCHAR(255) NOT NULL,
     gender                  gender_type      NOT NULL,
     date_of_birth           DATE         NULL,
@@ -552,6 +569,7 @@ CREATE TABLE IF NOT EXISTS cbc_students (
     learning_pathway        cbc_learning_pathway  NOT NULL DEFAULT 'Age_Based',
     is_active               BOOLEAN      NOT NULL DEFAULT true,
     created_at              TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at              TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
 
     CONSTRAINT uq_cbc_students_tenant UNIQUE (tenant_id, id),
     CONSTRAINT chk_cbc_student_gender CHECK (gender IN ('M', 'F'))
@@ -562,6 +580,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_cbc_students_upi
 CREATE UNIQUE INDEX IF NOT EXISTS idx_cbc_students_knec_assessment_number
     ON cbc_students (knec_assessment_number) WHERE knec_assessment_number IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_cbc_students_tenant_id ON cbc_students (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_cbc_students_school_id  ON cbc_students (school_id);
+
+DROP TRIGGER IF EXISTS trg_cbc_students_updated_at ON cbc_students;
+CREATE TRIGGER trg_cbc_students_updated_at
+    BEFORE UPDATE ON cbc_students
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
 
 COMMENT ON COLUMN cbc_students.gender IS
     'CBC/NEMIS-compliant gender field. M=Male, F=Female only. KNEC registration
@@ -581,6 +605,10 @@ COMMENT ON COLUMN cbc_students.learning_pathway IS
      Age_Based: standard mainstream CBC curriculum (vast majority).
      Stage_Based: SNE pathway for learners with severe cognitive or multiple
      disabilities, governed by the CBAF-FL framework.';
+
+COMMENT ON COLUMN cbc_students.school_id IS
+    'Home school for this student. Set at first enrollment and updated on transfer.
+     Use cbc_student_enrollments for full term-by-term history.';
 
 -- ---------------------------------------------------------------------------
 -- CBC STUDENT PARENTS JUNCTION (Many-to-Many Relationship Mapping)
@@ -635,6 +663,7 @@ CREATE INDEX IF NOT EXISTS idx_cbc_enrollments_class_id   ON cbc_student_enrollm
 
 CREATE TABLE IF NOT EXISTS medical_incidents (
     id                 UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id          UUID        NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     student_id         UUID        NOT NULL REFERENCES cbc_students(id) ON DELETE CASCADE,
     incident_timestamp TIMESTAMPTZ NOT NULL,
     symptoms           TEXT        NOT NULL,
@@ -642,6 +671,7 @@ CREATE TABLE IF NOT EXISTS medical_incidents (
     logged_by          UUID        NOT NULL REFERENCES users(id)
 );
 
+CREATE INDEX IF NOT EXISTS idx_medical_incidents_tenant_id  ON medical_incidents (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_medical_incidents_student_id ON medical_incidents (student_id);
 
 -- ---------------------------------------------------------------------------
@@ -650,12 +680,15 @@ CREATE INDEX IF NOT EXISTS idx_medical_incidents_student_id ON medical_incidents
 
 CREATE TABLE IF NOT EXISTS student_health_profiles (
     id                     UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id              UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     student_id             UUID UNIQUE NOT NULL REFERENCES cbc_students(id) ON DELETE CASCADE,
     blood_group            VARCHAR(5),
     allergies              TEXT[],
     chronic_conditions     TEXT[],
     emergency_instructions TEXT
 );
+
+CREATE INDEX IF NOT EXISTS idx_student_health_profiles_tenant_id ON student_health_profiles (tenant_id);
 
 -- ---------------------------------------------------------------------------
 -- FEE CATEGORIES
@@ -697,14 +730,17 @@ CREATE INDEX IF NOT EXISTS idx_fee_templates_grade_level ON fee_templates (grade
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS invoices (
-    id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id        UUID        NOT NULL,
-    student_id       UUID        NOT NULL,
-    school_id        UUID        NOT NULL,
-    academic_term_id UUID        NOT NULL,
-    parent_id        UUID        NULL REFERENCES cbc_parents(id) ON DELETE SET NULL,
-    invoice_label    VARCHAR(255) NULL,
-    created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    id               UUID                   PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id        UUID                   NOT NULL,
+    student_id       UUID                   NOT NULL,
+    school_id        UUID                   NOT NULL,
+    academic_term_id UUID                   NOT NULL,
+    parent_id        UUID                   NULL REFERENCES cbc_parents(id) ON DELETE SET NULL,
+    invoice_label    VARCHAR(255)           NULL,
+    payment_status   invoice_payment_status NOT NULL DEFAULT 'UNPAID',
+    amount_due       NUMERIC(12,2)          NOT NULL DEFAULT 0 CHECK (amount_due >= 0),
+    amount_paid      NUMERIC(12,2)          NOT NULL DEFAULT 0 CHECK (amount_paid >= 0),
+    created_at       TIMESTAMPTZ            NOT NULL DEFAULT NOW(),
 
     CONSTRAINT uq_invoices_tenant UNIQUE (tenant_id, id),
     CONSTRAINT fk_invoices_tenant_student FOREIGN KEY (tenant_id, student_id) REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE,
@@ -713,9 +749,21 @@ CREATE TABLE IF NOT EXISTS invoices (
     CONSTRAINT unique_invoice_per_student_term UNIQUE (student_id, academic_term_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_invoices_tenant       ON invoices (tenant_id);
-CREATE INDEX IF NOT EXISTS idx_invoices_student_term ON invoices (student_id, academic_term_id);
-CREATE INDEX IF NOT EXISTS idx_invoices_parent       ON invoices (parent_id);
+CREATE INDEX IF NOT EXISTS idx_invoices_tenant         ON invoices (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_invoices_student_term   ON invoices (student_id, academic_term_id);
+CREATE INDEX IF NOT EXISTS idx_invoices_parent         ON invoices (parent_id);
+CREATE INDEX IF NOT EXISTS idx_invoices_payment_status ON invoices (tenant_id, payment_status);
+
+COMMENT ON COLUMN invoices.payment_status IS
+    'Denormalised for fast lookups. Kept in sync by trg_sync_invoice_payment_status
+     trigger on payments. WAIVED is set only by application logic — the trigger
+     never overwrites a WAIVED status.';
+COMMENT ON COLUMN invoices.amount_due IS
+    'Sum of all invoice_items.amount for this invoice. Set by the application
+     when the invoice is finalised. Not updated automatically.';
+COMMENT ON COLUMN invoices.amount_paid IS
+    'Running total of confirmed payments. Updated automatically by
+     trg_sync_invoice_payment_status on every insert/delete on payments.';
 
 -- ---------------------------------------------------------------------------
 -- INVOICE ITEMS
@@ -758,6 +806,60 @@ CREATE TABLE IF NOT EXISTS payments (
 CREATE INDEX IF NOT EXISTS idx_payments_tenant     ON payments (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_payments_invoice_id ON payments (invoice_id);
 CREATE INDEX IF NOT EXISTS idx_payments_parent     ON payments (parent_id);
+
+-- ============================================================
+-- TRIGGER: Sync invoice payment_status and amount_paid
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION fn_sync_invoice_payment_status()
+RETURNS TRIGGER AS $$
+BEGIN
+    WITH affected_invoices AS (
+        SELECT DISTINCT invoice_id FROM inserted_rows
+        UNION
+        SELECT DISTINCT invoice_id FROM deleted_rows
+    )
+    UPDATE invoices i
+    SET
+        amount_paid    = COALESCE(p.total_paid, 0),
+        payment_status = CASE
+            WHEN i.payment_status = 'WAIVED'              THEN 'WAIVED'
+            WHEN COALESCE(p.total_paid, 0) = 0            THEN 'UNPAID'
+            WHEN COALESCE(p.total_paid, 0) >= i.amount_due THEN 'PAID'
+            ELSE 'PARTIAL'
+        END
+    FROM affected_invoices ai
+    LEFT JOIN (
+        SELECT invoice_id, SUM(amount) AS total_paid
+        FROM payments
+        GROUP BY invoice_id
+    ) p ON p.invoice_id = ai.invoice_id
+    WHERE i.id = ai.invoice_id;
+
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Fires on INSERT
+CREATE TRIGGER trg_sync_invoice_payment_status_insert
+    AFTER INSERT ON payments
+    REFERENCING NEW TABLE AS inserted_rows
+    FOR EACH STATEMENT
+    EXECUTE FUNCTION fn_sync_invoice_payment_status();
+
+-- Fires on DELETE
+CREATE TRIGGER trg_sync_invoice_payment_status_delete
+    AFTER DELETE ON payments
+    REFERENCING OLD TABLE AS deleted_rows
+    FOR EACH STATEMENT
+    EXECUTE FUNCTION fn_sync_invoice_payment_status();
+
+-- Fires on UPDATE
+CREATE TRIGGER trg_sync_invoice_payment_status_update
+    AFTER UPDATE ON payments
+    REFERENCING NEW TABLE AS inserted_rows OLD TABLE AS deleted_rows
+    FOR EACH STATEMENT
+    EXECUTE FUNCTION fn_sync_invoice_payment_status();
 
 -- ============================================================================
 -- LAYER 5 — CBC CURRICULUM STRUCTURE
@@ -1164,7 +1266,7 @@ COMMENT ON TABLE cbc_term_competency_summaries IS
      the first successful upload to cba.knec.ac.ke.';
 
 CREATE TABLE school_member_counts (
-    school_id UUID PRIMARY KEY REFERENCES schools(id) ON DELETE CASCADE,
+    school_id UUID PRIMARY KEY REFERENCES cbc_schools(id) ON DELETE CASCADE,
     admins INT NOT NULL DEFAULT 0,
     teachers INT NOT NULL DEFAULT 0,
     nurses INT NOT NULL DEFAULT 0,
@@ -1174,7 +1276,7 @@ CREATE TABLE school_member_counts (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_school_member_counts ON school_member_counts (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_school_member_counts ON school_member_counts (school_id);
 
 -- ============================================================
 -- TRIGGER: Sync school staff/parent counts from memberships
@@ -1200,7 +1302,7 @@ BEGIN
     FROM affected_schools s
     LEFT JOIN memberships m
         ON m.school_id = s.school_id
-        AND m.deleted_at IS NULL
+        AND m.is_active = true
     GROUP BY s.school_id
     ON CONFLICT (school_id) DO UPDATE SET
         admins     = EXCLUDED.admins,
@@ -1214,16 +1316,23 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Fires on INSERT and DELETE
-CREATE TRIGGER trg_memberships_counts_insert_delete
-    AFTER INSERT OR DELETE ON memberships
-    REFERENCING NEW TABLE AS inserted_rows OLD TABLE AS deleted_rows
+-- Fires on INSERT
+CREATE TRIGGER trg_memberships_counts_insert
+    AFTER INSERT ON memberships
+    REFERENCING NEW TABLE AS inserted_rows
     FOR EACH STATEMENT
     EXECUTE FUNCTION fn_sync_school_staff_counts();
 
--- Fires on UPDATE only when relevant columns change (soft delete or role change)
+-- Fires on DELETE
+CREATE TRIGGER trg_memberships_counts_delete
+    AFTER DELETE ON memberships
+    REFERENCING OLD TABLE AS deleted_rows
+    FOR EACH STATEMENT
+    EXECUTE FUNCTION fn_sync_school_staff_counts();
+
+-- Fires on UPDATE
 CREATE TRIGGER trg_memberships_counts_update
-    AFTER UPDATE OF deleted_at, role ON memberships
+    AFTER UPDATE ON memberships
     REFERENCING NEW TABLE AS inserted_rows OLD TABLE AS deleted_rows
     FOR EACH STATEMENT
     EXECUTE FUNCTION fn_sync_school_staff_counts();
@@ -1249,7 +1358,7 @@ BEGIN
     FROM affected_schools s
     LEFT JOIN cbc_students st
         ON st.school_id = s.school_id
-        AND st.deleted_at IS NULL
+        AND st.is_active = true
     GROUP BY s.school_id
     ON CONFLICT (school_id) DO UPDATE SET
         students   = EXCLUDED.students,
@@ -1259,20 +1368,65 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Fires on INSERT and DELETE
-CREATE TRIGGER trg_cbc_students_counts_insert_delete
-    AFTER INSERT OR DELETE ON cbc_students
-    REFERENCING NEW TABLE AS inserted_rows OLD TABLE AS deleted_rows
+-- Fires on INSERT
+CREATE TRIGGER trg_cbc_students_counts_insert
+    AFTER INSERT ON cbc_students
+    REFERENCING NEW TABLE AS inserted_rows
     FOR EACH STATEMENT
     EXECUTE FUNCTION fn_sync_school_student_counts();
 
--- Fires on UPDATE only when relevant columns change (soft delete)
+-- Fires on DELETE
+CREATE TRIGGER trg_cbc_students_counts_delete
+    AFTER DELETE ON cbc_students
+    REFERENCING OLD TABLE AS deleted_rows
+    FOR EACH STATEMENT
+    EXECUTE FUNCTION fn_sync_school_student_counts();
+
+-- Fires on UPDATE
 CREATE TRIGGER trg_cbc_students_counts_update
-    AFTER UPDATE OF deleted_at ON cbc_students
+    AFTER UPDATE ON cbc_students
     REFERENCING NEW TABLE AS inserted_rows OLD TABLE AS deleted_rows
     FOR EACH STATEMENT
     EXECUTE FUNCTION fn_sync_school_student_counts();
 
+
+-- ============================================================================
+-- LAYER 10 — USER ACTIVE SCHOOL CONTEXT
+-- ============================================================================
+
+-- ---------------------------------------------------------------------------
+-- MEMBER ACTIVE SCHOOL
+-- ---------------------------------------------------------------------------
+-- Tracks which school is the current working context for a user.
+-- A user belonging to multiple schools in one tenant can switch context freely.
+-- Application upsert pattern:
+--   INSERT INTO member_active_school (user_id, tenant_id, school_id, switched_at)
+--   VALUES ($1, $2, $3, NOW())
+--   ON CONFLICT (user_id) DO UPDATE
+--     SET school_id   = EXCLUDED.school_id,
+--         tenant_id   = EXCLUDED.tenant_id,
+--         switched_at = NOW();
+
+CREATE TABLE IF NOT EXISTS member_active_school (
+    user_id     UUID        NOT NULL,
+    tenant_id   UUID        NOT NULL,
+    school_id   UUID        NOT NULL,
+    switched_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    PRIMARY KEY (user_id),
+
+    CONSTRAINT fk_mas_user            FOREIGN KEY (user_id)              REFERENCES users(id)                     ON DELETE CASCADE,
+    CONSTRAINT fk_mas_tenant_user     FOREIGN KEY (tenant_id, user_id)   REFERENCES users(tenant_id, id)          ON DELETE CASCADE,
+    CONSTRAINT fk_mas_tenant_school   FOREIGN KEY (tenant_id, school_id) REFERENCES cbc_schools(tenant_id, id)    ON DELETE CASCADE,
+    CONSTRAINT fk_mas_membership      FOREIGN KEY (user_id, school_id)   REFERENCES memberships(user_id, school_id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_mas_tenant_id ON member_active_school (tenant_id);
+
+COMMENT ON TABLE member_active_school IS
+    'Tracks the currently active school context for each user within a tenant.
+     One row per user. Upsert on school switch. The chosen school_id is
+     constrained to schools the user is an active member of via fk_mas_membership.';
 
 -- ============================================================================
 -- END OF MIGRATION

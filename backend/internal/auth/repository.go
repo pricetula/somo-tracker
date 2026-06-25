@@ -296,21 +296,6 @@ func (r *SqlcRepository) CreateUserSession(
 	return userID, nil
 }
 
-// CreateSchool creates a new cbc_school for a tenant and returns its ID.
-func (r *SqlcRepository) CreateSchool(ctx context.Context, tenantID string, name string) (string, error) {
-	const query = `
-		INSERT INTO cbc_schools (tenant_id, name, county, sub_county, school_type)
-		VALUES ($1, $2, '', '', 'Public')
-		RETURNING id
-	`
-	var id string
-	err := r.pool.QueryRow(ctx, query, tenantID, name).Scan(&id)
-	if err != nil {
-		return "", fmt.Errorf("%w: create cbc_school: %v", ErrInternal, err)
-	}
-	return id, nil
-}
-
 // CreateMembership creates a membership linking a user to a school with a role.
 func (r *SqlcRepository) CreateMembership(ctx context.Context, userID, schoolID, tenantID, role string) error {
 	const query = `

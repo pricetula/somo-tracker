@@ -31,9 +31,11 @@ import (
 	"go.uber.org/zap"
 
 	"somotracker/backend/internal/auth"
+	"somotracker/backend/internal/cbcschools"
 	"somotracker/backend/internal/config"
 	"somotracker/backend/internal/database"
 	"somotracker/backend/internal/imports"
+	"somotracker/backend/internal/invitations"
 	"somotracker/backend/internal/members"
 	"somotracker/backend/internal/middleware"
 	"somotracker/backend/internal/tenant"
@@ -85,8 +87,24 @@ func main() {
 		database.Module,
 		utils.Module,
 		tenant.Module,
+		cbcschools.Module,
 		auth.Module,
+		invitations.Module,
 		members.Module,
+
+		// Cross-domain interface wiring: school resolver from members,
+		// school creator from cbcschools.
+		fx.Provide(
+			func(repo members.Repository) invitations.SchoolResolver {
+				return repo
+			},
+			func(repo members.Repository) imports.SchoolResolver {
+				return repo
+			},
+			func(repo cbcschools.Repository) auth.SchoolCreator {
+				return repo
+			},
+		),
 		imports.AsynqModule,
 		imports.AsynqServerModule,
 		imports.Module,
@@ -163,6 +181,7 @@ func registerApp(
 	pools *database.Pools,
 	tenantHandler *tenant.Handler,
 	authHandler *auth.Handler,
+	invitationsHandler *invitations.Handler,
 	membersHandler *members.Handler,
 	importsHandler *imports.Handler,
 ) {
@@ -199,6 +218,7 @@ func registerApp(
 			tenantHandler.RegisterRoutes(app)
 			authHandler.RegisterRoutes(app)
 			membersHandler.RegisterRoutes(app)
+			invitationsHandler.RegisterRoutes(app)
 			importsHandler.RegisterRoutes(app)
 
 			// Start Fiber in a non-blocking goroutine

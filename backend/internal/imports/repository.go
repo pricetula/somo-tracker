@@ -470,32 +470,6 @@ func (r *PgRepository) GetFailedInvitationsByJob(ctx context.Context, jobID stri
 
 // ─── School / Tenant helpers ─────────────────────────────────────────────
 
-// GetActiveSchoolID returns the active school ID for a user in a tenant.
-func (r *PgRepository) GetActiveSchoolID(ctx context.Context, tenantID, userID string) (string, error) {
-	const query = `
-		SELECT school_id FROM memberships
-		WHERE tenant_id = $1 AND user_id = $2 AND is_active = true
-		ORDER BY
-			CASE role
-				WHEN 'SCHOOL_ADMIN'::user_role THEN 1
-				WHEN 'TEACHER'::user_role THEN 2
-				WHEN 'NURSE'::user_role THEN 3
-				WHEN 'FINANCE'::user_role THEN 4
-			END
-		LIMIT 1
-	`
-
-	var schoolID string
-	err := r.pool.QueryRow(ctx, query, tenantID, userID).Scan(&schoolID)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			return "", fmt.Errorf("no active membership found")
-		}
-		return "", fmt.Errorf("get active school: %w", err)
-	}
-	return schoolID, nil
-}
-
 // GetTenantStytchOrgID returns the Stytch org ID for a tenant.
 func (r *PgRepository) GetTenantStytchOrgID(ctx context.Context, tenantID string) (string, error) {
 	const query = `SELECT stytch_org_id FROM tenants WHERE id = $1`

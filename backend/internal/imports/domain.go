@@ -231,7 +231,6 @@ type Repository interface {
 
 	// BulkUpdateInvitations updates existing invitation rows by ID (correction resubmit).
 	BulkUpdateInvitations(ctx context.Context, records []ImportStaffRecord, role, jobID string, now time.Time) (int, error)
-	GetActiveSchoolID(ctx context.Context, tenantID, userID string) (string, error)
 	GetTenantStytchOrgID(ctx context.Context, tenantID string) (string, error)
 	// GetPendingStage2Records returns invitations for a job that haven't yet been
 	// sent to Stytch (no stytch_member_id). Used to resume Stage 2 on task retry.
@@ -331,6 +330,12 @@ type AcademicPeriodRecord struct {
 	StartDate  string `json:"start_date"`
 	EndDate    string `json:"end_date"`
 	IsCurrent  bool   `json:"is_current"`
+}
+
+// SchoolResolver resolves the active school for an authenticated user.
+// Declared at the consumer side per the architecture contract.
+type SchoolResolver interface {
+	GetActiveSchoolID(ctx context.Context, tenantID, userID string) (string, error)
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────

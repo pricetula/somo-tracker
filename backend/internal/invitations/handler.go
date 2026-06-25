@@ -1,4 +1,4 @@
-package members
+package invitations
 
 import (
 	"fmt"
@@ -12,22 +12,23 @@ import (
 	"somotracker/backend/internal/middleware"
 )
 
-// Handler exposes member HTTP endpoints.
+// Handler exposes invitation HTTP endpoints.
 type Handler struct {
-	svc     *Service
-	authSvc *auth.Service
-	repo    Repository
+	svc      *Service
+	authSvc  *auth.Service
+	repo     Repository
+	resolver SchoolResolver
 }
 
 // NewHandler creates a new Handler.
-func NewHandler(svc *Service, authSvc *auth.Service, repo Repository) *Handler {
-	return &Handler{svc: svc, authSvc: authSvc, repo: repo}
+func NewHandler(svc *Service, authSvc *auth.Service, resolver SchoolResolver, repo Repository) *Handler {
+	return &Handler{svc: svc, authSvc: authSvc, repo: repo, resolver: resolver}
 }
 
-// RegisterRoutes mounts member routes on the given router.
+// RegisterRoutes mounts invitation routes on the given router.
 func (h *Handler) RegisterRoutes(router fiber.Router) {
-	members := router.Group("/api/v1/members")
-	members.Get("/", h.requireAuth, h.List)
+	invitations := router.Group("/api/v1/invitations")
+	invitations.Get("/", h.requireAuth, h.ListInvitations)
 }
 
 // ─── Auth middleware ───────────────────────────────────────────────────────
@@ -56,37 +57,27 @@ func (h *Handler) requireAuth(c *fiber.Ctx) error {
 
 // resolveActiveSchool gets the user's active school ID from their session.
 func (h *Handler) resolveActiveSchool(c *fiber.Ctx, tenantID, userID string) (string, error) {
-	schoolID, err := h.repo.GetActiveSchoolID(c.Context(), tenantID, userID)
+	schoolID, err := h.resolver.GetActiveSchoolID(c.Context(), tenantID, userID)
 	if err != nil {
-		return "", fmt.Errorf("members.Handler.resolveActiveSchool: %w", err)
+		return "", fmt.Errorf("invitations.Handler.resolveActiveSchool: %w", err)
 	}
 	return schoolID, nil
 }
 
 // ─── Handlers ──────────────────────────────────────────────────────────────
 
-// List handles GET /api/v1/members?role=TEACHER
-func (h *Handler) List(c *fiber.Ctx) error {
+// ListInvitations handles GET /api/v1/invitations
+func (h *Handler) ListInvitations(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
 	userID := c.Locals("user_id").(string)
-
-	role := strings.TrimSpace(c.Query("role", ""))
-	if role == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "invalid_input",
-			"message": "role query parameter is required (TEACHER, NURSE, or FINANCE)",
-		})
-	}
-	if role != "TEACHER" && role != "NURSE" && role != "FINANCE" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "invalid_input",
-			"message": "role must be TEACHER, NURSE, or FINANCE",
-		})
-	}
 
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	perPage, _ := strconv.Atoi(c.Query("per_page", "50"))
 	search := strings.TrimSpace(c.Query("search", ""))
+	email := strings.TrimSpace(c.Query("email", ""))
+	status := strings.TrimSpace(c.Query("status", ""))
+	role := strings.TrimSpace(c.Query("role", ""))
+	expired := strings.ToLower(c.Query("expired", "false")) == "true"
 
 	if page < 1 {
 		page = 1
@@ -105,19 +96,27 @@ func (h *Handler) List(c *fiber.Ctx) error {
 		})
 	}
 
-	membersList, total, err := h.svc.ListMembers(c.Context(), tenantID, schoolID, role, offset, perPage, search)
+	invitations, total, err := h.svc.ListInvitations(c.Context(), tenantID, schoolID, ListInvitationsFilter{
+		Search:  search,
+		Email:   email,
+		Status:  status,
+		Role:    role,
+		Expired: expired,
+		Offset:  offset,
+		Limit:   perPage,
+	})
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
 
-	return c.JSON(ListResponse{
-		Members: membersList,
-		Total:   total,
+	return c.JSON(ListInvitationsResponse{
+		Invitations: invitations,
+		Total:       total,
 	})
 }
 
-// Module is an fx-compatible module for the members domain.
-var Module = fx.Module("members",
+// Module is an fx-compatible module for the invitations domain.
+var Module = fx.Module("invitations",
 	fx.Provide(
 		fx.Annotate(NewRepository, fx.As(new(Repository))),
 		NewService,

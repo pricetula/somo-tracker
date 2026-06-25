@@ -24,6 +24,21 @@ import (
 )
 
 // ============================================================================
+// MockSchoolResolver for handler tests
+// ============================================================================
+
+type MockSchoolResolver struct {
+	getActiveSchoolIDFn func(ctx context.Context, tenantID, userID string) (string, error)
+}
+
+func (m *MockSchoolResolver) GetActiveSchoolID(ctx context.Context, tenantID, userID string) (string, error) {
+	if m.getActiveSchoolIDFn != nil {
+		return m.getActiveSchoolIDFn(ctx, tenantID, userID)
+	}
+	return "school_001", nil
+}
+
+// ============================================================================
 // MockRedisClient for handler tests (SSE)
 // ============================================================================
 
@@ -59,11 +74,12 @@ var _ SSEPubSubClient = (*handlerMockRedis)(nil)
 // ============================================================================
 
 type handlerTestHarness struct {
-	app     *fiber.App
-	svc     *Service
-	repo    *MockRepository
-	rdb     *handlerMockRedis
-	handler *Handler
+	app      *fiber.App
+	svc      *Service
+	repo     *MockRepository
+	resolver *MockSchoolResolver
+	rdb      *handlerMockRedis
+	handler  *Handler
 }
 
 func newHandlerTestHarness(t *testing.T) *handlerTestHarness {
@@ -83,11 +99,14 @@ func newHandlerTestHarness(t *testing.T) *handlerTestHarness {
 
 	rdb := &handlerMockRedis{}
 
+	resolver := &MockSchoolResolver{}
+
 	handler := &Handler{
-		svc:    svc,
-		repo:   repo,
-		rdb:    rdb,
-		logger: logger,
+		svc:      svc,
+		repo:     repo,
+		resolver: resolver,
+		rdb:      rdb,
+		logger:   logger,
 	}
 
 	app := fiber.New()
@@ -106,11 +125,12 @@ func newHandlerTestHarness(t *testing.T) *handlerTestHarness {
 	imports.Get("/:id/failures", handler.ListFailedInvitations)
 
 	return &handlerTestHarness{
-		app:     app,
-		svc:     svc,
-		repo:    repo,
-		rdb:     rdb,
-		handler: handler,
+		app:      app,
+		svc:      svc,
+		repo:     repo,
+		resolver: resolver,
+		rdb:      rdb,
+		handler:  handler,
 	}
 }
 

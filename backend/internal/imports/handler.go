@@ -18,23 +18,25 @@ import (
 
 // Handler exposes import HTTP endpoints.
 type Handler struct {
-	svc     *Service
-	authSvc *auth.Service
-	repo    Repository
-	rdb     SSEPubSubClient
-	redis   *redis.Client // full Redis client for hashes/pubsub catch-up
-	logger  *zap.Logger
+	svc      *Service
+	authSvc  *auth.Service
+	repo     Repository
+	resolver SchoolResolver
+	rdb      SSEPubSubClient
+	redis    *redis.Client // full Redis client for hashes/pubsub catch-up
+	logger   *zap.Logger
 }
 
 // NewHandler creates a new Handler.
-func NewHandler(svc *Service, authSvc *auth.Service, repo Repository, pools *database.Pools, logger *zap.Logger) *Handler {
+func NewHandler(svc *Service, authSvc *auth.Service, resolver SchoolResolver, repo Repository, pools *database.Pools, logger *zap.Logger) *Handler {
 	return &Handler{
-		svc:     svc,
-		authSvc: authSvc,
-		repo:    repo,
-		rdb:     pools.Redis,
-		redis:   pools.Redis,
-		logger:  logger,
+		svc:      svc,
+		authSvc:  authSvc,
+		repo:     repo,
+		resolver: resolver,
+		rdb:      pools.Redis,
+		redis:    pools.Redis,
+		logger:   logger,
 	}
 }
 
@@ -332,7 +334,7 @@ func (h *Handler) ListFailedInvitations(c *fiber.Ctx) error {
 // ─── Helpers ─────────────────────────────────────────────────────────────
 
 func (h *Handler) resolveActiveSchool(c *fiber.Ctx, tenantID, userID string) (string, error) {
-	schoolID, err := h.repo.GetActiveSchoolID(c.Context(), tenantID, userID)
+	schoolID, err := h.resolver.GetActiveSchoolID(c.Context(), tenantID, userID)
 	if err != nil {
 		return "", fmt.Errorf("imports.Handler.resolveActiveSchool: %w", err)
 	}

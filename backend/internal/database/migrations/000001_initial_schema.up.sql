@@ -262,7 +262,7 @@ CREATE INDEX IF NOT EXISTS idx_sessions_stytch_session_token ON sessions (stytch
 -- ============================================================================
 
 -- ---------------------------------------------------------------------------
--- CBC SCHOOLS (replaces generic schools)
+-- CBC SCHOOLS
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS cbc_schools (

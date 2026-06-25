@@ -455,6 +455,22 @@ CREATE TABLE IF NOT EXISTS import_job_failures (
 CREATE INDEX IF NOT EXISTS idx_import_job_failures_job_id ON import_job_failures (import_job_id);
 
 -- ---------------------------------------------------------------------------
+-- IMPORT JOB STAGING — Student bulk import staging rows
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS import_job_staging (
+    id         UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    job_id     UUID         NOT NULL REFERENCES import_jobs(id) ON DELETE CASCADE,
+    tenant_id  UUID         NOT NULL,
+    school_id  UUID         NOT NULL,
+    row_number INT          NOT NULL,
+    raw_data   JSONB        NOT NULL,
+    created_at TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_import_job_staging_job_id ON import_job_staging (job_id);
+
+-- ---------------------------------------------------------------------------
 -- INVITATIONS
 -- ---------------------------------------------------------------------------
 

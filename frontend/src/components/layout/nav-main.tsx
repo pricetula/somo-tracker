@@ -43,8 +43,7 @@ function buildNavItems(role: string): NavItem[] {
                     { title: "Teachers", url: "/teachers" },
                     { title: "Nurses", url: "/nurses" },
                     { title: "Finance", url: "/finance" },
-                    { title: "Invitations", url: "/admins/invitations" },
-                    { title: "Students", url: "/students/import" },
+                    { title: "Students", url: "/students" },
                 ],
             },
             {

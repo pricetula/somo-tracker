@@ -1282,7 +1282,67 @@ CREATE INDEX IF NOT EXISTS idx_school_member_counts ON school_member_counts (sch
 -- TRIGGER: Sync school staff/parent counts from memberships
 -- ============================================================
 
-CREATE OR REPLACE FUNCTION fn_sync_school_staff_counts()
+-- Separate functions so each trigger only references the transition tables it has access to.
+
+CREATE OR REPLACE FUNCTION fn_sync_school_staff_counts_insert()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO school_member_counts (school_id, admins, teachers, nurses, finance, parents, updated_at)
+    SELECT
+        s.school_id,
+        COUNT(*) FILTER (WHERE m.role = 'SCHOOL_ADMIN') AS admins,
+        COUNT(*) FILTER (WHERE m.role = 'TEACHER')      AS teachers,
+        COUNT(*) FILTER (WHERE m.role = 'NURSE')        AS nurses,
+        COUNT(*) FILTER (WHERE m.role = 'FINANCE')      AS finance,
+        COUNT(*) FILTER (WHERE m.role = 'PARENT')       AS parents,
+        NOW()
+    FROM (SELECT DISTINCT school_id FROM inserted_rows) s
+    LEFT JOIN memberships m
+        ON m.school_id = s.school_id
+        AND m.is_active = true
+    GROUP BY s.school_id
+    ON CONFLICT (school_id) DO UPDATE SET
+        admins     = EXCLUDED.admins,
+        teachers   = EXCLUDED.teachers,
+        nurses     = EXCLUDED.nurses,
+        finance    = EXCLUDED.finance,
+        parents    = EXCLUDED.parents,
+        updated_at = NOW();
+
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION fn_sync_school_staff_counts_delete()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO school_member_counts (school_id, admins, teachers, nurses, finance, parents, updated_at)
+    SELECT
+        s.school_id,
+        COUNT(*) FILTER (WHERE m.role = 'SCHOOL_ADMIN') AS admins,
+        COUNT(*) FILTER (WHERE m.role = 'TEACHER')      AS teachers,
+        COUNT(*) FILTER (WHERE m.role = 'NURSE')        AS nurses,
+        COUNT(*) FILTER (WHERE m.role = 'FINANCE')      AS finance,
+        COUNT(*) FILTER (WHERE m.role = 'PARENT')       AS parents,
+        NOW()
+    FROM (SELECT DISTINCT school_id FROM deleted_rows) s
+    LEFT JOIN memberships m
+        ON m.school_id = s.school_id
+        AND m.is_active = true
+    GROUP BY s.school_id
+    ON CONFLICT (school_id) DO UPDATE SET
+        admins     = EXCLUDED.admins,
+        teachers   = EXCLUDED.teachers,
+        nurses     = EXCLUDED.nurses,
+        finance    = EXCLUDED.finance,
+        parents    = EXCLUDED.parents,
+        updated_at = NOW();
+
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION fn_sync_school_staff_counts_update()
 RETURNS TRIGGER AS $$
 BEGIN
     WITH affected_schools AS (
@@ -1321,28 +1381,72 @@ CREATE TRIGGER trg_memberships_counts_insert
     AFTER INSERT ON memberships
     REFERENCING NEW TABLE AS inserted_rows
     FOR EACH STATEMENT
-    EXECUTE FUNCTION fn_sync_school_staff_counts();
+    EXECUTE FUNCTION fn_sync_school_staff_counts_insert();
 
 -- Fires on DELETE
 CREATE TRIGGER trg_memberships_counts_delete
     AFTER DELETE ON memberships
     REFERENCING OLD TABLE AS deleted_rows
     FOR EACH STATEMENT
-    EXECUTE FUNCTION fn_sync_school_staff_counts();
+    EXECUTE FUNCTION fn_sync_school_staff_counts_delete();
 
 -- Fires on UPDATE
 CREATE TRIGGER trg_memberships_counts_update
     AFTER UPDATE ON memberships
     REFERENCING NEW TABLE AS inserted_rows OLD TABLE AS deleted_rows
     FOR EACH STATEMENT
-    EXECUTE FUNCTION fn_sync_school_staff_counts();
+    EXECUTE FUNCTION fn_sync_school_staff_counts_update();
 
 
 -- ============================================================
 -- TRIGGER: Sync school student counts from cbc_students
 -- ============================================================
 
-CREATE OR REPLACE FUNCTION fn_sync_school_student_counts()
+-- Separate functions so each trigger only references the transition tables it has access to.
+
+CREATE OR REPLACE FUNCTION fn_sync_school_student_counts_insert()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO school_member_counts (school_id, students, updated_at)
+    SELECT
+        s.school_id,
+        COUNT(st.id) AS students,
+        NOW()
+    FROM (SELECT DISTINCT school_id FROM inserted_rows) s
+    LEFT JOIN cbc_students st
+        ON st.school_id = s.school_id
+        AND st.is_active = true
+    GROUP BY s.school_id
+    ON CONFLICT (school_id) DO UPDATE SET
+        students   = EXCLUDED.students,
+        updated_at = NOW();
+
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION fn_sync_school_student_counts_delete()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO school_member_counts (school_id, students, updated_at)
+    SELECT
+        s.school_id,
+        COUNT(st.id) AS students,
+        NOW()
+    FROM (SELECT DISTINCT school_id FROM deleted_rows) s
+    LEFT JOIN cbc_students st
+        ON st.school_id = s.school_id
+        AND st.is_active = true
+    GROUP BY s.school_id
+    ON CONFLICT (school_id) DO UPDATE SET
+        students   = EXCLUDED.students,
+        updated_at = NOW();
+
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION fn_sync_school_student_counts_update()
 RETURNS TRIGGER AS $$
 BEGIN
     WITH affected_schools AS (
@@ -1373,21 +1477,20 @@ CREATE TRIGGER trg_cbc_students_counts_insert
     AFTER INSERT ON cbc_students
     REFERENCING NEW TABLE AS inserted_rows
     FOR EACH STATEMENT
-    EXECUTE FUNCTION fn_sync_school_student_counts();
+    EXECUTE FUNCTION fn_sync_school_student_counts_insert();
 
 -- Fires on DELETE
 CREATE TRIGGER trg_cbc_students_counts_delete
     AFTER DELETE ON cbc_students
     REFERENCING OLD TABLE AS deleted_rows
     FOR EACH STATEMENT
-    EXECUTE FUNCTION fn_sync_school_student_counts();
-
+    EXECUTE FUNCTION fn_sync_school_student_counts_delete();
 -- Fires on UPDATE
 CREATE TRIGGER trg_cbc_students_counts_update
     AFTER UPDATE ON cbc_students
     REFERENCING NEW TABLE AS inserted_rows OLD TABLE AS deleted_rows
     FOR EACH STATEMENT
-    EXECUTE FUNCTION fn_sync_school_student_counts();
+    EXECUTE FUNCTION fn_sync_school_student_counts_update();
 
 
 -- ============================================================================

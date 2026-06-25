@@ -61,6 +61,12 @@ type IntegrationSuite struct {
 	stytchCreateOrgCallCount    int
 	stytchCreateMemberCallCount int
 	stytchExchangeISTCallCount  int
+
+	// Member ID counter ensures unique member IDs across mock calls
+	stytchMemberCounter int
+
+	// Org name → ID map ensures idempotent org creation in mock
+	stytchOrgsByName map[string]string
 }
 
 // ============================================================================
@@ -178,7 +184,8 @@ func setupSuite(ctx context.Context) (*IntegrationSuite, error) {
 		logger:         logger,
 		observedLogs:   observedLogs,
 
-		// Default Stytch mock behaviors
+		// Default Stytch mock behaviors — simple functions that don't reference s
+		stytchOrgsByName: make(map[string]string),
 		stytchDiscoverySendFn: func(email string) (int, any) {
 			return http.StatusOK, map[string]any{
 				"request_id":  "req-discovery-send-ok",
@@ -194,53 +201,74 @@ func setupSuite(ctx context.Context) (*IntegrationSuite, error) {
 				"discovered_organizations":   []any{},
 			}
 		},
-		stytchCreateOrgFn: func(name string) (int, any) {
-			orgID := fmt.Sprintf("org_test_%08x", rand.Uint32())
+	}
+
+	// Initialize handler functions that reference s (can't be set in struct literal)
+	suite.stytchCreateOrgFn = func(name string) (int, any) {
+		suite.stytchMu.Lock()
+		if id, ok := suite.stytchOrgsByName[name]; ok {
+			suite.stytchMu.Unlock()
 			return http.StatusOK, map[string]any{
 				"request_id":  "req-create-org-ok",
 				"status_code": 200,
 				"organization": map[string]any{
-					"organization_id":   orgID,
+					"organization_id":   id,
 					"organization_name": name,
 					"organization_slug": strings.ToLower(strings.ReplaceAll(name, " ", "-")),
 				},
 			}
-		},
-		stytchExchangeISTFn: func(ist, orgID string) (int, any) {
-			return http.StatusOK, map[string]any{
-				"request_id":                 "req-exchange-ist-ok",
-				"status_code":                200,
-				"member_id":                  "member_test_" + orgID,
-				"session_token":              "sess_test_" + ist,
-				"session_jwt":                "",
-				"member_authenticated":       true,
-				"intermediate_session_token": ist,
-				"member": map[string]any{
-					"member_id":     "member_test_" + orgID,
-					"email_address": "test@example.com",
-					"status":        "active",
-				},
-				"organization": map[string]any{
-					"organization_id": orgID,
-				},
-			}
-		},
-		stytchCreateMemberFn: func(orgID, email, name string) (int, any) {
-			return http.StatusOK, map[string]any{
-				"request_id":  "req-create-member-ok",
-				"status_code": 200,
-				"member_id":   "member_test_" + orgID,
-				"member": map[string]any{
-					"member_id":     "member_test_" + orgID,
-					"email_address": email,
-					"name":          name,
-					"status":        "active",
-				},
-				"organization": map[string]any{
-					"organization_id": orgID,
-				},
-			}
-		},
+		}
+		orgID := fmt.Sprintf("org_test_%08x", rand.Uint32())
+		suite.stytchOrgsByName[name] = orgID
+		suite.stytchMu.Unlock()
+		return http.StatusOK, map[string]any{
+			"request_id":  "req-create-org-ok",
+			"status_code": 200,
+			"organization": map[string]any{
+				"organization_id":   orgID,
+				"organization_name": name,
+				"organization_slug": strings.ToLower(strings.ReplaceAll(name, " ", "-")),
+			},
+		}
+	}
+	suite.stytchExchangeISTFn = func(ist, orgID string) (int, any) {
+		suite.stytchMemberCounter++
+		memberID := fmt.Sprintf("member_test_%s_%d", orgID, suite.stytchMemberCounter)
+		return http.StatusOK, map[string]any{
+			"request_id":                 "req-exchange-ist-ok",
+			"status_code":                200,
+			"member_id":                  memberID,
+			"session_token":              "sess_test_" + ist,
+			"session_jwt":                "",
+			"member_authenticated":       true,
+			"intermediate_session_token": ist,
+			"member": map[string]any{
+				"member_id":     memberID,
+				"email_address": "test@example.com",
+				"status":        "active",
+			},
+			"organization": map[string]any{
+				"organization_id": orgID,
+			},
+		}
+	}
+	suite.stytchCreateMemberFn = func(orgID, email, name string) (int, any) {
+		suite.stytchMemberCounter++
+		memberID := fmt.Sprintf("member_test_%s_%d", orgID, suite.stytchMemberCounter)
+		return http.StatusOK, map[string]any{
+			"request_id":  "req-create-member-ok",
+			"status_code": 200,
+			"member_id":   memberID,
+			"member": map[string]any{
+				"member_id":     memberID,
+				"email_address": email,
+				"name":          name,
+				"status":        "active",
+			},
+			"organization": map[string]any{
+				"organization_id": orgID,
+			},
+		}
 	}
 
 	// ---------- 8. Start mock Stytch server ----------
@@ -261,13 +289,17 @@ func setupSuite(ctx context.Context) (*IntegrationSuite, error) {
 		return nil, fmt.Errorf("create stytch adapter: %w", err)
 	}
 
+	// Create a school creator adapter that writes directly to Postgres
+	schoolCreator := &schoolCreatorAdapter{pool: pool}
+
 	// Manually create service without fx lifecycle
 	svc := &Service{
-		idp:    idp,
-		repo:   repo,
-		rdb:    rdb,
-		logger: logger,
-		cfg:    suite.cfg,
+		idp:           idp,
+		repo:          repo,
+		rdb:           rdb,
+		logger:        logger,
+		cfg:           suite.cfg,
+		schoolCreator: schoolCreator,
 	}
 	suite.svc = svc
 
@@ -549,7 +581,22 @@ func (s *IntegrationSuite) resetStytchHandlers() {
 		}
 	}
 	s.stytchCreateOrgFn = func(name string) (int, any) {
+		s.stytchMu.Lock()
+		if id, ok := s.stytchOrgsByName[name]; ok {
+			s.stytchMu.Unlock()
+			return http.StatusOK, map[string]any{
+				"request_id":  "req-create-org-ok",
+				"status_code": 200,
+				"organization": map[string]any{
+					"organization_id":   id,
+					"organization_name": name,
+					"organization_slug": strings.ToLower(strings.ReplaceAll(name, " ", "-")),
+				},
+			}
+		}
 		orgID := fmt.Sprintf("org_test_%08x", rand.Uint32())
+		s.stytchOrgsByName[name] = orgID
+		s.stytchMu.Unlock()
 		return http.StatusOK, map[string]any{
 			"request_id":  "req-create-org-ok",
 			"status_code": 200,
@@ -561,15 +608,17 @@ func (s *IntegrationSuite) resetStytchHandlers() {
 		}
 	}
 	s.stytchExchangeISTFn = func(ist, orgID string) (int, any) {
+		s.stytchMemberCounter++
+		memberID := fmt.Sprintf("member_test_%s_%d", orgID, s.stytchMemberCounter)
 		return http.StatusOK, map[string]any{
 			"request_id":                 "req-exchange-ist-ok",
 			"status_code":                200,
-			"member_id":                  "member_test_" + orgID,
+			"member_id":                  memberID,
 			"session_token":              "sess_test_" + ist,
 			"member_authenticated":       true,
 			"intermediate_session_token": ist,
 			"member": map[string]any{
-				"member_id":     "member_test_" + orgID,
+				"member_id":     memberID,
 				"email_address": "test@example.com",
 				"status":        "active",
 			},
@@ -579,12 +628,14 @@ func (s *IntegrationSuite) resetStytchHandlers() {
 		}
 	}
 	s.stytchCreateMemberFn = func(orgID, email, name string) (int, any) {
+		s.stytchMemberCounter++
+		memberID := fmt.Sprintf("member_test_%s_%d", orgID, s.stytchMemberCounter)
 		return http.StatusOK, map[string]any{
 			"request_id":  "req-create-member-ok",
 			"status_code": 200,
-			"member_id":   "member_test_" + orgID,
+			"member_id":   memberID,
 			"member": map[string]any{
-				"member_id":     "member_test_" + orgID,
+				"member_id":     memberID,
 				"email_address": email,
 				"name":          name,
 				"status":        "active",
@@ -597,6 +648,8 @@ func (s *IntegrationSuite) resetStytchHandlers() {
 	s.stytchCreateOrgCallCount = 0
 	s.stytchCreateMemberCallCount = 0
 	s.stytchExchangeISTCallCount = 0
+	s.stytchMemberCounter = 0
+	s.stytchOrgsByName = make(map[string]string)
 }
 
 // StytchMockHandlers holds optional handler overrides for the mock Stytch server.
@@ -625,6 +678,29 @@ func writeStytchError(w http.ResponseWriter, status int, errType, message string
 		"error_message": message,
 		"request_id":    "req-error-" + fmt.Sprintf("%08x", rand.Uint32()),
 	})
+}
+
+// ============================================================================
+// schoolCreatorAdapter implements SchoolCreator by writing directly to Postgres.
+// ============================================================================
+
+type schoolCreatorAdapter struct {
+	pool *pgxpool.Pool
+}
+
+func (a *schoolCreatorAdapter) Create(ctx context.Context, tenantID string, name string) (string, error) {
+	// The application-level school creator (cbcschools.Service) validates fields
+	// and enriches the record. For integration tests, we insert a minimal row.
+	var id string
+	err := a.pool.QueryRow(ctx, `
+		INSERT INTO cbc_schools (tenant_id, name, county, sub_county, school_type)
+		VALUES ($1, $2, 'Default County', 'Default Sub-County', 'Public')
+		RETURNING id
+	`, tenantID, name).Scan(&id)
+	if err != nil {
+		return "", err
+	}
+	return id, nil
 }
 
 // ============================================================================
@@ -736,6 +812,21 @@ func (s *IntegrationSuite) setRedisSession(t *testing.T, token, stytchSessionTok
 	err := s.rdb.Set(ctx, "session:"+token, stytchSessionToken, 30*24*time.Hour).Err()
 	if err != nil {
 		t.Fatalf("set redis session: %v", err)
+	}
+}
+
+// setRedisIST stores an IST + email in Redis as JSON (the format the service expects).
+func (s *IntegrationSuite) setRedisIST(t *testing.T, sessionRef, email string) {
+	t.Helper()
+	ctx := context.Background()
+	istKey := fmt.Sprintf("%stest:%s", istKeyPrefix, sessionRef)
+	data, _ := json.Marshal(map[string]string{
+		"ist":   "ist_test_" + sessionRef,
+		"email": email,
+	})
+	err := s.rdb.Set(ctx, istKey, string(data), istTTL).Err()
+	if err != nil {
+		t.Fatalf("set redis IST: %v", err)
 	}
 }
 

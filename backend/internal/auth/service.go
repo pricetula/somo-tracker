@@ -465,25 +465,35 @@ func (s *Service) GetSession(ctx context.Context, token string) (*UserSession, e
 		return nil, ErrExpiredToken
 	}
 
-	// Check Redis first (fast path)
+	// Fast path: Redis hit — cross-reference with Postgres
 	exists, err := s.rdb.Exists(ctx, s.sessionKey(token)).Result()
 	if err != nil {
 		return nil, fmt.Errorf("%w: check session in cache: %v", ErrInternal, err)
 	}
-	if exists == 0 {
-		return nil, ErrExpiredToken
+	if exists == 1 {
+		session, err := s.repo.GetSessionByToken(ctx, token)
+		if err != nil {
+			if errors.Is(err, ErrNotFound) {
+				// Token in Redis but not in Postgres — clean up stale Redis entry
+				_ = s.rdb.Del(ctx, s.sessionKey(token)).Err()
+				return nil, ErrExpiredToken
+			}
+			return nil, err
+		}
+		return session, nil
 	}
 
-	// Cross-reference with Postgres
+	// Cache miss — fall back to Postgres (cold start or stale cache)
 	session, err := s.repo.GetSessionByToken(ctx, token)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
-			// Token in Redis but not in Postgres — clean up stale Redis entry
-			_ = s.rdb.Del(ctx, s.sessionKey(token)).Err()
 			return nil, ErrExpiredToken
 		}
 		return nil, err
 	}
+
+	// Repopulate Redis from Postgres for subsequent requests
+	_ = s.rdb.Set(ctx, s.sessionKey(token), session.StytchSessionToken, sessionTTL).Err()
 
 	return session, nil
 }

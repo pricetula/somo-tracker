@@ -47,6 +47,7 @@ func (r *SqlcRepository) Create(ctx context.Context, name, slug string) (*Tenant
 	const query = `
 		INSERT INTO tenants (name, slug, stytch_org_id)
 		VALUES ($1, $2, $3)
+		ON CONFLICT (slug) DO UPDATE SET slug = EXCLUDED.slug
 		RETURNING id, name, slug, created_at
 	`
 	// Use the slug itself as a placeholder stytch_org_id for admin-created tenants.

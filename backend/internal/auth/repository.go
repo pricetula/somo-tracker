@@ -314,33 +314,24 @@ func (r *SqlcRepository) CreateMembership(ctx context.Context, userID, schoolID,
 }
 
 // GetMeInfo returns the full profile info for /me: user details, role,
-// and the active school.
+// and the active school (resolved from member_active_school).
 func (r *SqlcRepository) GetMeInfo(ctx context.Context, token string) (*MeInfo, error) {
 	const query = `
 		SELECT
 			s.user_id,
 			s.tenant_id,
-			COALESCE(m.role::text, 'TEACHER') as role,
+			m.role,
 			u.full_name,
 			u.email,
-			sch.id as school_id,
+			mas.school_id,
 			sch.name as school_name
 		FROM sessions s
 		JOIN users u ON u.id = s.user_id
-		LEFT JOIN LATERAL (
-			SELECT role, school_id FROM memberships
-			WHERE user_id = s.user_id AND is_active = true
-			ORDER BY
-				CASE role
-					WHEN 'SYSTEM_ADMIN' THEN 1
-					WHEN 'SCHOOL_ADMIN' THEN 2
-					WHEN 'TEACHER' THEN 3
-					WHEN 'NURSE' THEN 4
-					WHEN 'FINANCE' THEN 5
-				END
-			LIMIT 1
-		) m ON true
-		LEFT JOIN cbc_schools sch ON sch.id = m.school_id
+		LEFT JOIN member_active_school mas ON mas.user_id = s.user_id
+		LEFT JOIN cbc_schools sch ON sch.id = mas.school_id
+		LEFT JOIN memberships m ON m.user_id = s.user_id
+			AND m.school_id = mas.school_id
+			AND m.is_active = true
 		WHERE s.token = $1 AND s.expires_at > NOW()
 	`
 

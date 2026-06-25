@@ -119,6 +119,7 @@ func startAsynqWorker(lc fx.Lifecycle, asynqServer *asynq.Server, importWorker *
 	// Register the import processor handler
 	mux := asynq.NewServeMux()
 	mux.HandleFunc(imports.TypeProcessImport, importWorker.ProcessImport)
+	mux.HandleFunc(imports.TypeProcessStudents, importWorker.ProcessStudentImport)
 
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {

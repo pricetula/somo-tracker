@@ -1163,6 +1163,18 @@ COMMENT ON TABLE cbc_term_competency_summaries IS
      calculated_level and override_level fields. knec_synced_at is NULL until
      the first successful upload to cba.knec.ac.ke.';
 
+CREATE TABLE school_member_counts (
+    school_id UUID PRIMARY KEY REFERENCES schools(id) ON DELETE CASCADE,
+    admins INT NOT NULL DEFAULT 0,
+    teachers INT NOT NULL DEFAULT 0,
+    nurses INT NOT NULL DEFAULT 0,
+    finance INT NOT NULL DEFAULT 0,
+    parents INT NOT NULL DEFAULT 0,
+    students INT NOT NULL DEFAULT 0,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_school_member_counts ON school_member_counts (tenant_id);
 
 -- ============================================================
 -- TRIGGER: Sync school staff/parent counts from memberships

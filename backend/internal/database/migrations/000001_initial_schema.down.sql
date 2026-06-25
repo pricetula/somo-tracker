@@ -86,6 +86,7 @@ DROP TABLE IF EXISTS cbc_schools CASCADE;
 -- LAYER 1 — PLATFORM INFRASTRUCTURE
 -- ============================================================================
 
+DROP TABLE IF EXISTS import_job_staging CASCADE;
 DROP TABLE IF EXISTS import_job_failures CASCADE;
 DROP TABLE IF EXISTS import_jobs CASCADE;
 DROP TABLE IF EXISTS invitations CASCADE;
@@ -95,6 +96,12 @@ DROP TABLE IF EXISTS users CASCADE;
 DROP TABLE IF EXISTS tenants CASCADE;
 
 -- ============================================================================
+-- COUNTS TABLE
+-- ============================================================================
+
+DROP TABLE IF EXISTS school_member_counts CASCADE;
+
+-- ============================================================================
 -- ENUMS
 -- ============================================================================
 
@@ -102,6 +109,7 @@ DROP TYPE IF EXISTS cbc_enrollment_status CASCADE;
 DROP TYPE IF EXISTS invitation_status CASCADE;
 DROP TYPE IF EXISTS attendance_status CASCADE;
 DROP TYPE IF EXISTS user_role CASCADE;
+DROP TYPE IF EXISTS gender_type CASCADE;
 DROP TYPE IF EXISTS cbc_grade_level CASCADE;
 DROP TYPE IF EXISTS cbc_education_level CASCADE;
 DROP TYPE IF EXISTS cbc_school_type CASCADE;

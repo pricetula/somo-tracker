@@ -83,29 +83,26 @@ describe("FileDropzone", () => {
 
     it("rejects file > 10MB with a toast error", async () => {
         const onFileParsed = vi.fn();
-        const user = userEvent.setup();
 
         renderWithQuery(<FileDropzone onFileParsed={onFileParsed} onBack={vi.fn()} />);
 
         // Create a file larger than 10MB
+        const largeFile = new File([new ArrayBuffer(11 * 1024 * 1024)], "large-file.csv", {
+            type: "text/csv",
+        });
 
-        // Simulate file drop
-        await user
-            .upload
-            // Upload via the hidden input — we'll mock it differently
-            ?.();
-
-        // Instead of triggering the actual drop, verify the size validation
-        // by checking the toast is configured to show
+        // Grab the hidden file input and trigger a change event
         const fileInput = document.querySelector<HTMLInputElement>('input[type="file"]');
         if (fileInput) {
-            // We can't actually drop via testing-library easily for large files
-            // This test verifies the toast.error is available for the validation
-            // Skip actual drop — the logic is tested by the guard in the component
+            // Use fireEvent to simulate file selection
+            const { fireEvent } = await import("@testing-library/react");
+            fireEvent.change(fileInput, { target: { files: [largeFile] } });
         }
 
-        // The 10MB limit text is visible in the UI info
-        expect(screen.getByText(/10MB/i)).toBeInTheDocument();
+        // Toast.error should be called with a size validation message
+        const { toast } = await import("sonner");
+        expect(toast.error).toHaveBeenCalledWith(expect.stringContaining("10MB"));
+        expect(onFileParsed).not.toHaveBeenCalled();
     });
 
     it("shows parsing progress indicator while processing", async () => {

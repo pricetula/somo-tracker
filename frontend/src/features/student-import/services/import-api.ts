@@ -3,8 +3,8 @@
  *
  * Endpoints:
  *   POST /api/v1/imports/students         — bulk import students
- *   GET  /api/v1/students/parents         — list parents for lookup
- *   GET  /api/v1/students/classes         — list active classes
+ *   GET  /api/v1/parents                  — list parents for lookup
+ *   GET  /api/v1/classes                  — list active classes
  *   GET  /api/v1/students                 — list existing students (for duplicate detection)
  */
 
@@ -12,12 +12,29 @@ import { api } from "@/lib/api/client";
 import { getErrorMessage } from "@/lib/errors";
 import type {
     StudentImportPayload,
+    StudentBulkImportRequest,
     ImportResultSummary,
     ImportResponseRow,
     ParentRecord,
     ClassRecord,
     ExistingStudent,
+    AcademicYearRecord,
+    AcademicPeriodRecord,
 } from "../types";
+
+// ─── Academic Reference Data ─────────────────────────────────────────────
+
+export async function fetchAcademicYears(): Promise<AcademicYearRecord[]> {
+    return api.get<AcademicYearRecord[]>("/api/v1/academic/years");
+}
+
+export async function fetchAcademicPeriods(
+    academicYearId: string
+): Promise<AcademicPeriodRecord[]> {
+    return api.get<AcademicPeriodRecord[]>(
+        `/api/v1/academic/periods?academic_year_id=${encodeURIComponent(academicYearId)}`
+    );
+}
 
 // ─── Constants ─────────────────────────────────────────────────────────────
 
@@ -26,13 +43,13 @@ const POST_TIMEOUT_MS = 30_000;
 // ─── Parent Lookup ────────────────────────────────────────────────────────
 
 export async function fetchParents(): Promise<ParentRecord[]> {
-    return api.get<ParentRecord[]>("/api/v1/students/parents");
+    return api.get<ParentRecord[]>("/api/v1/parents");
 }
 
 // ─── Class Lookup ─────────────────────────────────────────────────────────
 
 export async function fetchClasses(): Promise<ClassRecord[]> {
-    return api.get<ClassRecord[]>("/api/v1/students/classes");
+    return api.get<ClassRecord[]>("/api/v1/classes");
 }
 
 // ─── Existing Students (for duplicate detection) ─────────────────────────
@@ -48,9 +65,19 @@ export interface BulkPostResult {
     rawResponse?: unknown;
 }
 
-export async function submitBulkImport(payload: StudentImportPayload[]): Promise<BulkPostResult> {
+export async function submitBulkImport(
+    academicYear: string,
+    term: string,
+    students: StudentImportPayload[]
+): Promise<BulkPostResult> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), POST_TIMEOUT_MS);
+
+    const body: StudentBulkImportRequest = {
+        academic_year: academicYear,
+        term,
+        students,
+    };
 
     try {
         const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
@@ -60,7 +87,7 @@ export async function submitBulkImport(payload: StudentImportPayload[]): Promise
             method: "POST",
             headers: { "Content-Type": "application/json" },
             credentials: "include",
-            body: JSON.stringify(payload),
+            body: JSON.stringify(body),
             signal: controller.signal,
         });
 
@@ -70,8 +97,8 @@ export async function submitBulkImport(payload: StudentImportPayload[]): Promise
         if (res.status === 200 || res.status === 201) {
             return {
                 summary: {
-                    total: payload.length,
-                    successCount: payload.length,
+                    total: students.length,
+                    successCount: students.length,
                     failureCount: 0,
                     failures: [],
                     status: "success",
@@ -97,26 +124,26 @@ export async function submitBulkImport(payload: StudentImportPayload[]): Promise
         }
 
         // -- 4xx/5xx --
-        let body: { message?: string; code?: string } = {};
+        let responseBody: { message?: string; code?: string } = {};
         try {
-            body = await res.json();
+            responseBody = await res.json();
         } catch {
             // ignore parse failure
         }
 
         return {
             summary: {
-                total: payload.length,
+                total: students.length,
                 successCount: 0,
-                failureCount: payload.length,
-                failures: payload.map((p, i) => ({
+                failureCount: students.length,
+                failures: students.map((p, i) => ({
                     index: i,
                     status: "error" as const,
                     full_name: p.full_name,
-                    error_message: body.message ?? `HTTP ${res.status}: ${res.statusText}`,
+                    error_message: responseBody.message ?? `HTTP ${res.status}: ${res.statusText}`,
                 })),
                 status: "error",
-                message: body.message ?? `HTTP ${res.status}: ${res.statusText}`,
+                message: responseBody.message ?? `HTTP ${res.status}: ${res.statusText}`,
             },
         };
     } catch (err: unknown) {
@@ -125,10 +152,10 @@ export async function submitBulkImport(payload: StudentImportPayload[]): Promise
         if ((err as DOMException)?.name === "AbortError") {
             return {
                 summary: {
-                    total: payload.length,
+                    total: students.length,
                     successCount: 0,
-                    failureCount: payload.length,
-                    failures: payload.map((p, i) => ({
+                    failureCount: students.length,
+                    failures: students.map((p, i) => ({
                         index: i,
                         status: "error" as const,
                         full_name: p.full_name,
@@ -142,10 +169,10 @@ export async function submitBulkImport(payload: StudentImportPayload[]): Promise
 
         return {
             summary: {
-                total: payload.length,
+                total: students.length,
                 successCount: 0,
-                failureCount: payload.length,
-                failures: payload.map((p, i) => ({
+                failureCount: students.length,
+                failures: students.map((p, i) => ({
                     index: i,
                     status: "error" as const,
                     full_name: p.full_name,

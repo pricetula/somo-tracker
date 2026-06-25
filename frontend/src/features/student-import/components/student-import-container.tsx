@@ -16,6 +16,7 @@ import { FileDropzone } from "./file-dropzone";
 import { ColumnWizard } from "./column-wizard";
 import { ValidationMotor } from "./validation-motor";
 import { ResultsSummary } from "./results-summary";
+import { TermSelectionStep } from "./term-selection-step";
 import { useSessionRecovery } from "../hooks/use-session-recovery";
 import { useLookups } from "../hooks/use-lookups";
 import { useStudentImport } from "../hooks/use-student-import";
@@ -62,10 +63,15 @@ export function StudentImportContainer() {
         wizard.resetImport();
     }
 
+    // ── Term Selected → Show Ingestion Selector ──────────────────────────
+
+    function handleTermContinue() {
+        wizard.setStep("selector");
+    }
+
     // ── Pattern A: Manual Entry → Stage ───────────────────────────────────
 
     function handleManualProceed() {
-        wizard.setIngestionPattern("manual");
         wizard.stageRecords();
     }
 
@@ -137,7 +143,7 @@ export function StudentImportContainer() {
             )}
 
             {/* Loading state for lookups */}
-            {isLookupsLoading && wizard.step === "selector" && (
+            {isLookupsLoading && (wizard.step === "term-select" || wizard.step === "selector") && (
                 <div className="bg-muted/20 text-muted-foreground px-3 py-1.5 text-xs">
                     Loading reference data…
                 </div>
@@ -145,6 +151,16 @@ export function StudentImportContainer() {
 
             {/* Main content */}
             <div className="flex-1 px-4 py-4">
+                {wizard.step === "term-select" && (
+                    <TermSelectionStep
+                        academicYear={wizard.academicYear}
+                        term={wizard.term}
+                        onAcademicYearChange={wizard.setAcademicYear}
+                        onTermChange={wizard.setTerm}
+                        onContinue={handleTermContinue}
+                    />
+                )}
+
                 {wizard.step === "selector" && !isLookupsLoading && (
                     <IngestionSelector
                         onSelect={(mode) => {

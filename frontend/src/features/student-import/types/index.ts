@@ -78,10 +78,13 @@ export interface ImportSession {
     totalRecords: number;
     ingestionPattern: "manual" | "csv";
     mappingConfig: MappingConfig;
+    academicYear: string;
+    term: string;
 }
 
 export type ImportStep =
     | "selector" // Choose manual vs file
+    | "term-select" // Select academic year & term
     | "manual-entry" // Pattern A: manual grid
     | "file-wizard" // Pattern B: file column wizard
     | "staging" // Background processing
@@ -111,6 +114,14 @@ export interface StudentImportPayload {
     class_id?: string | null;
 }
 
+// ─── Import Request (wraps students + academic context) ────────────────
+
+export interface StudentBulkImportRequest {
+    academic_year: string;
+    term: string;
+    students: StudentImportPayload[];
+}
+
 export interface ImportResponseRow {
     index: number;
     status: "success" | "error";
@@ -128,6 +139,25 @@ export interface ImportResultSummary {
     failures: ImportResponseRow[];
     status: "success" | "partial" | "error";
     message?: string;
+}
+
+// ─── Academic Reference Data ─────────────────────────────────────────────
+
+export interface AcademicYearRecord {
+    id: string;
+    name: string;
+    start_date: string;
+    end_date: string;
+    is_current: boolean;
+}
+
+export interface AcademicPeriodRecord {
+    id: string;
+    name: string;
+    term_number: number;
+    start_date: string;
+    end_date: string;
+    is_current: boolean;
 }
 
 // ─── Wizard Step Types (Pattern B) ───────────────────────────────────────

@@ -34,6 +34,8 @@ function createSampleSession(): ImportSession {
             parentColumns: ["parent_name"],
             classColumns: ["class_name"],
         },
+        academicYear: "2026",
+        term: "Term 2",
     };
 }
 
@@ -106,8 +108,10 @@ describe("useSessionRecovery", () => {
 
         await result.current.discard();
 
-        expect(result.current.session).toBeNull();
-        expect(result.current.action).toBe("clear");
+        await waitFor(() => {
+            expect(result.current.session).toBeNull();
+            expect(result.current.action).toBe("clear");
+        });
 
         // Verify IndexedDB is actually cleared
         const { hasStoredSession } = await import("../lib/indexeddb");

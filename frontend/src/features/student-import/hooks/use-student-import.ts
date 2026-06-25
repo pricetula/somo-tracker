@@ -24,6 +24,27 @@ import type {
     ClassesMap,
     StudentImportPayload,
 } from "../types";
+
+// ─── Academic term helpers ─────────────────────────────────────────────────
+
+export type AcademicTerm = "Term 1" | "Term 2" | "Term 3";
+
+export const VALID_ACADEMIC_YEARS = ["2024", "2025", "2026", "2027"];
+
+export function getCurrentAcademicYear(): string {
+    const now = new Date();
+    const year = now.getFullYear();
+    // Kenyan academic year typically runs Jan-Dec; if we're past June,
+    // the current academic year is the calendar year.
+    return String(year);
+}
+
+export function getCurrentTerm(): AcademicTerm {
+    const month = new Date().getMonth() + 1; // 1-indexed
+    if (month >= 1 && month <= 4) return "Term 1";
+    if (month >= 5 && month <= 8) return "Term 2";
+    return "Term 3";
+}
 import {
     saveSession,
     loadSession,
@@ -96,7 +117,7 @@ export function useStudentImport(
     classesMap: ClassesMap,
     existingStudents: ExistingStudent[]
 ) {
-    const [step, setStep] = React.useState<ImportStep>("selector");
+    const [step, setStep] = React.useState<ImportStep>("term-select");
     const [ingestionPattern, setIngestionPattern] = React.useState<"manual" | "csv" | null>(null);
     const [manualRows, setManualRows] = React.useState<ManualRow[]>([
         {
@@ -116,6 +137,8 @@ export function useStudentImport(
     const [viewFilter, setViewFilter] = React.useState<"errors" | "all">("errors");
     const [submitting, setSubmitting] = React.useState(false);
     const [resultSummary, setResultSummary] = React.useState<ImportResultSummary | null>(null);
+    const [academicYear, setAcademicYear] = React.useState<string>(getCurrentAcademicYear());
+    const [term, setTerm] = React.useState<string>(getCurrentTerm());
     const [sessionId] = React.useState(generateSessionId);
 
     // ── Session Persistence ──────────────────────────────────────────────
@@ -130,10 +153,20 @@ export function useStudentImport(
                 totalRecords: stagedRecords.length || manualRows.length,
                 ingestionPattern: ingestionPattern ?? "manual",
                 mappingConfig,
+                academicYear: academicYear,
+                term,
             };
             await saveSession(session);
         },
-        [sessionId, stagedRecords.length, manualRows.length, ingestionPattern, mappingConfig]
+        [
+            sessionId,
+            stagedRecords.length,
+            manualRows.length,
+            ingestionPattern,
+            mappingConfig,
+            academicYear,
+            term,
+        ]
     );
 
     // Persist on step changes
@@ -152,6 +185,8 @@ export function useStudentImport(
         setStep(session.currentStep);
         setIngestionPattern(session.ingestionPattern);
         setMappingConfig(session.mappingConfig);
+        setAcademicYear(session.academicYear ?? getCurrentAcademicYear());
+        setTerm(session.term ?? getCurrentTerm());
 
         const records = await loadRecords();
         if (records.length > 0) {
@@ -348,7 +383,7 @@ export function useStudentImport(
                 return;
             }
 
-            const result = await submitBulkImport(payload);
+            const result = await submitBulkImport(academicYear, term, payload);
 
             setResultSummary(result.summary);
             setStep("results");
@@ -370,14 +405,16 @@ export function useStudentImport(
         } finally {
             setSubmitting(false);
         }
-    }, [stagedRecords]);
+    }, [stagedRecords, academicYear, term]);
 
     // ── Reset ────────────────────────────────────────────────────────────
 
     const resetImport = React.useCallback(async () => {
         await clearSession();
-        setStep("selector");
+        setStep("term-select");
         setIngestionPattern(null);
+        setAcademicYear(getCurrentAcademicYear());
+        setTerm(getCurrentTerm());
         setManualRows([
             {
                 _rowIndex: 0,
@@ -412,10 +449,14 @@ export function useStudentImport(
         errorAndWarningCount,
         visibleRecords,
         resolvedRecords,
+        academicYear,
+        term,
 
         // Actions
         setStep,
         setIngestionPattern,
+        setAcademicYear,
+        setTerm,
         addManualRow,
         removeManualRow,
         updateManualRow,

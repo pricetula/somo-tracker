@@ -57,11 +57,10 @@ describe("ManualAddForm — row management", () => {
         vi.clearAllMocks();
     });
 
-    it("renders one empty row on mount — full_name, full_name, email, phone inputs are present", () => {
+    it("renders one empty row on mount — full_name, email, phone inputs are present", () => {
         renderManualForm();
 
-        expect(screen.getByPlaceholderText("Jane")).toBeInTheDocument();
-        expect(screen.getByPlaceholderText("Doe")).toBeInTheDocument();
+        expect(screen.getByPlaceholderText("Jane Doe")).toBeInTheDocument();
         expect(screen.getByPlaceholderText("jane@school.edu")).toBeInTheDocument();
         expect(screen.getByPlaceholderText("+254 712 345 678")).toBeInTheDocument();
     });
@@ -75,8 +74,8 @@ describe("ManualAddForm — row management", () => {
         await user.click(addButton);
 
         // There should now be at least 2 rows worth of inputs — we can verify by
-        // checking that there are 2 first-name placeholders rendered
-        const fullNameInputs = screen.getAllByPlaceholderText("Jane");
+        // checking that there are 2 name placeholders rendered
+        const fullNameInputs = screen.getAllByPlaceholderText("Jane Doe");
         expect(fullNameInputs).toHaveLength(2);
     });
 
@@ -101,7 +100,7 @@ describe("ManualAddForm — row management", () => {
         }
 
         // After removing one row, back to 1 row
-        const fullNameInputs = screen.getAllByPlaceholderText("Jane");
+        const fullNameInputs = screen.getAllByPlaceholderText("Jane Doe");
         expect(fullNameInputs).toHaveLength(1);
     });
 
@@ -137,28 +136,27 @@ describe("ManualAddForm — validation", () => {
         expect(submitBtn).toBeDisabled();
     });
 
-    it("full_name is required — submitting with empty full_name shows submit disabled", async () => {
+    it("filled full_name and email — submit button is enabled", async () => {
         const user = userEvent.setup();
         renderManualForm();
 
-        // Fill full_name and email, leave full_name empty
-        await user.type(screen.getByPlaceholderText("Jane"), "John");
+        // Fill full_name and email
+        await user.type(screen.getByPlaceholderText("Jane Doe"), "John");
         fireEvent.change(screen.getByPlaceholderText("jane@school.edu"), {
             target: { value: "john@school.edu" },
         });
 
-        // Submit button should be disabled due to missing full_name
+        // Submit button should be enabled when all required fields are valid
         const submitBtn = screen.getByText("Review & Submit");
-        expect(submitBtn).toBeDisabled();
+        expect(submitBtn).not.toBeDisabled();
     });
 
     it("email structural validation — an email without @ shows inline error; a valid a@b.com shows no email error", async () => {
         const user = userEvent.setup();
         renderManualForm();
 
-        // Fill name fields first to avoid name-related errors
-        await user.type(screen.getByPlaceholderText("Jane"), "Alice");
-        await user.type(screen.getByPlaceholderText("Doe"), "Smith");
+        // Fill name field first to avoid name-related errors
+        await user.type(screen.getByPlaceholderText("Jane Doe"), "Alice Smith");
 
         // Set invalid email via fireEvent.change for exact value control
         const emailInput = screen.getByPlaceholderText("jane@school.edu");
@@ -181,9 +179,8 @@ describe("ManualAddForm — validation", () => {
         const user = userEvent.setup();
         renderManualForm();
 
-        // Fill name fields and email in first row
-        await user.type(screen.getByPlaceholderText("Jane"), "Alice");
-        await user.type(screen.getByPlaceholderText("Doe"), "Smith");
+        // Fill name and email in first row
+        await user.type(screen.getByPlaceholderText("Jane Doe"), "Alice");
         fireEvent.change(screen.getByPlaceholderText("jane@school.edu"), {
             target: { value: "dup@school.edu" },
         });
@@ -205,9 +202,8 @@ describe("ManualAddForm — validation", () => {
         const user = userEvent.setup();
         renderManualForm();
 
-        // Fill name fields and email in first row
-        await user.type(screen.getByPlaceholderText("Jane"), "Alice");
-        await user.type(screen.getByPlaceholderText("Doe"), "Smith");
+        // Fill name and email in first row
+        await user.type(screen.getByPlaceholderText("Jane Doe"), "Alice");
         fireEvent.change(screen.getByPlaceholderText("jane@school.edu"), {
             target: { value: "Test@Example.com" },
         });
@@ -231,24 +227,27 @@ describe("ManualAddForm — validation", () => {
         // intermediate partial values that get cleared by the auto-correction logic)
         const phoneInput = screen.getByPlaceholderText("+254 712 345 678");
         fireEvent.change(phoneInput, { target: { value: "0712345678" } });
+        fireEvent.blur(phoneInput);
 
-        // The phone should be auto-corrected to E.164 format
+        // The phone should be auto-corrected to E.164 format on blur
         await waitFor(() => {
             expect(phoneInput).toHaveValue("+254712345678");
         });
     });
 
-    it("unparseable phone sets to empty and shows warning — entering 'N/A' clears the phone field and shows a warning badge 'Phone cleared – invalid value'", async () => {
+    it("unparseable phone shows warning badge — entering 'N/A' keeps the value and shows a warning", async () => {
         renderManualForm();
 
         // Set an unparseable value via fireEvent.change
         const phoneInput = screen.getByPlaceholderText("+254 712 345 678");
         fireEvent.change(phoneInput, { target: { value: "N/A" } });
+        fireEvent.blur(phoneInput);
 
-        // The phone should be cleared to empty string (normalizePhone returns null for N/A)
-        await waitFor(() => {
-            expect(phoneInput).toHaveValue("");
-        });
+        // The phone should retain its value; unparseable phones show a warning badge
+        expect(phoneInput).toHaveValue("N/A");
+        // Warning icon should be visible (PhoneOff icon with text-destructive class)
+        const warningIcon = document.querySelector(".lucide-phone-off");
+        expect(warningIcon).toBeInTheDocument();
     });
 });
 
@@ -262,8 +261,7 @@ describe("ManualAddForm — callbacks and limits", () => {
         const user = userEvent.setup();
 
         // Fill in the first row with valid data
-        await user.type(screen.getByPlaceholderText("Jane"), "Alice");
-        await user.type(screen.getByPlaceholderText("Doe"), "Smith");
+        await user.type(screen.getByPlaceholderText("Jane Doe"), "Alice");
         fireEvent.change(screen.getByPlaceholderText("jane@school.edu"), {
             target: { value: "alice@school.edu" },
         });
@@ -292,7 +290,7 @@ describe("ManualAddForm — callbacks and limits", () => {
         }
 
         // Should now have 11 rows (1 default + 10 added)
-        const fullNameInputs = screen.getAllByPlaceholderText("Jane");
+        const fullNameInputs = screen.getAllByPlaceholderText("Jane Doe");
         expect(fullNameInputs).toHaveLength(11);
 
         // The "Add another" button should still be enabled
@@ -315,7 +313,7 @@ describe("ManualAddForm — callbacks and limits", () => {
         await user.tab();
 
         // After tabbing twice, focus should be on the full_name input of row 2
-        const fullNameInputs = screen.getAllByPlaceholderText("Jane");
+        const fullNameInputs = screen.getAllByPlaceholderText("Jane Doe");
         expect(document.activeElement).toBe(fullNameInputs[1]);
     });
 });

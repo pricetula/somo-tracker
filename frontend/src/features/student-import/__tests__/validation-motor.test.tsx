@@ -15,6 +15,28 @@ import { renderWithQuery } from "@/__tests__/test-utils";
 import { ValidationMotor } from "../components/validation-motor";
 import type { StagedStudentRecord } from "../types";
 
+// Mock TanStack Virtual to render all items in jsdom (no computed layout)
+vi.mock("@tanstack/react-virtual", () => ({
+    useVirtualizer: (opts: {
+        count: number;
+        getScrollElement: () => HTMLDivElement | null;
+        estimateSize: () => number;
+        overscan: number;
+    }) => ({
+        getVirtualItems: () =>
+            Array.from({ length: opts.count }, (_, index) => ({
+                index,
+                key: index,
+                start: index * opts.estimateSize(),
+                size: opts.estimateSize(),
+                end: (index + 1) * opts.estimateSize(),
+                lane: 0,
+            })),
+        getTotalSize: () => opts.count * opts.estimateSize(),
+        measureElement: vi.fn(),
+    }),
+}));
+
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
 function createRecord(
@@ -224,7 +246,7 @@ describe("ValidationMotor", () => {
         );
 
         expect(screen.getByRole("button", { name: /submit import/i })).toBeInTheDocument();
-        expect(screen.getByText(/3/)).toBeInTheDocument();
+        expect(screen.getAllByText(/3/).length).toBeGreaterThan(0);
     });
 
     it("disables Submit Import when there are errors", () => {
@@ -382,7 +404,10 @@ describe("ValidationMotor", () => {
         );
 
         expect(screen.getByText(/possible duplicate/i)).toBeInTheDocument();
-        expect(screen.getByText(/import anyway/i)).toBeInTheDocument();
+        // "import anyway" is split by <br> in the label
+        expect(
+            screen.getByText((content) => content.includes("Import") && content.includes("anyway"))
+        ).toBeInTheDocument();
     });
 
     it("calls onToggleImportAnyway when checkbox is clicked", async () => {

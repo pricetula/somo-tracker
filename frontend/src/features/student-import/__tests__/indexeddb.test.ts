@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect, beforeEach } from "vitest";
-import { clear } from "idb-keyval";
+import { clear as clearDefault } from "idb-keyval";
 import {
     saveSession,
     loadSession,
@@ -32,7 +32,9 @@ import type { ImportSession, StagedStudentRecord, ParsedFileResult } from "../ty
 
 describe("IndexedDB: Session Operations", () => {
     beforeEach(async () => {
-        await clear();
+        await clearDefault();
+        // Also clear the custom store used by the indexeddb service
+        await clearSession();
     });
 
     const sampleSession: ImportSession = {
@@ -51,6 +53,8 @@ describe("IndexedDB: Session Operations", () => {
             parentColumns: ["parent_name"],
             classColumns: ["class_name"],
         },
+        academicYear: "2026",
+        term: "Term 2",
     };
 
     it("saves and loads a session", async () => {
@@ -114,7 +118,8 @@ describe("IndexedDB: Session Operations", () => {
 
 describe("IndexedDB: Records Operations", () => {
     beforeEach(async () => {
-        await clear();
+        await clearDefault();
+        await clearSession();
     });
 
     const sampleRecords: StagedStudentRecord[] = [
@@ -231,7 +236,8 @@ describe("IndexedDB: Records Operations", () => {
 
 describe("IndexedDB: Parsed File Meta", () => {
     beforeEach(async () => {
-        await clear();
+        await clearDefault();
+        await clearSession();
     });
 
     const sampleMeta: ParsedFileResult = {

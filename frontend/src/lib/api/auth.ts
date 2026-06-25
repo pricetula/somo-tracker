@@ -54,9 +54,21 @@ export async function register(payload: RegisterPayload): Promise<void> {
     await api.post("/api/auth/register", payload);
 }
 
-/** Fetch the current session's user and tenant IDs. */
+/** Fetch the current session's user and tenant IDs.
+ *
+ * If the request fails for any reason (network error, 401, 500, etc.),
+ * the user is redirected to /logout. A failing /me means the session
+ * is invalid or unreachable, so we treat the user as logged out.
+ */
 export async function getMe(): Promise<MeResponse> {
-    return api.get<MeResponse>("/api/auth/me", { skipGlobal401Handler: true });
+    try {
+        return await api.get<MeResponse>("/api/auth/me");
+    } catch (err) {
+        // Any error means the session is invalid or unreachable —
+        // redirect to /logout to clear state and force re-auth.
+        window.location.href = "/logout";
+        throw err;
+    }
 }
 
 /** Logout: destroy the current session. */

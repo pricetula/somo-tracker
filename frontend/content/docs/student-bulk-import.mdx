@@ -1,0 +1,124 @@
+---
+title: Student Bulk Import API
+slug: student-bulk-import
+description: Bulk import student records with academic year and term context via POST /api/v1/imports/students.
+tooltipSummary: POST student records (CSV/manual) to the import endpoint with academic year and term context for async processing with real-time progress tracking.
+---
+
+# Student Bulk Import API
+
+The Student Bulk Import endpoint accepts a batch of student records wrapped in an academic year and term context, processes them asynchronously, and streams progress updates via Server-Sent Events.
+
+## Endpoint
+
+```
+POST /api/v1/imports/students
+```
+
+## Request Body
+
+```json
+{
+    "academic_year": "2026",
+    "term": "Term 2",
+    "students": [
+        {
+            "full_name": "Jane Doe",
+            "gender": "F",
+            "date_of_birth": "2010-05-14",
+            "upi_number": "KP1234567A",
+            "knec_assessment_number": "KNEC001234",
+            "cbc_student_parents_id": null,
+            "class_id": "550e8400-e29b-41d4-a716-446655440000"
+        }
+    ]
+}
+```
+
+### Fields
+
+| Field                               | Type          | Required | Description                                        |
+| ----------------------------------- | ------------- | -------- | -------------------------------------------------- |
+| `academic_year`                     | string        | yes      | The academic year (e.g. "2024", "2025", "2026")    |
+| `term`                              | string        | yes      | Must be one of: `"Term 1"`, `"Term 2"`, `"Term 3"` |
+| `students`                          | array         | yes      | Array of student record objects, max 5000 entries  |
+| `students[].full_name`              | string        | yes      | Student's full name                                |
+| `students[].gender`                 | string        | yes      | Must be `"M"` or `"F"`                             |
+| `students[].date_of_birth`          | string        | no       | ISO format `YYYY-MM-DD`                            |
+| `students[].upi_number`             | string        | no       | Kenya NEMIS UPI code (10-char alphanumeric)        |
+| `students[].knec_assessment_number` | string        | no       | KNEC assessment number                             |
+| `students[].cbc_student_parents_id` | string (uuid) | no       | UUID of linked parent record                       |
+| `students[].class_id`               | string (uuid) | no       | UUID of target class                               |
+
+### Validation Rules
+
+- `academic_year` is required.
+- `term` must be one of: `Term 1`, `Term 2`, `Term 3`.
+- `students` array must not be empty and must not exceed 5000 entries.
+- Each student record must have a non-empty `full_name`.
+- `gender` must be `"M"` or `"F"`.
+
+## Response — 202 Accepted
+
+```json
+{
+    "job_id": "550e8400-e29b-41d4-a716-446655440000",
+    "status": "pending"
+}
+```
+
+| Field    | Type   | Description                                                                          |
+| -------- | ------ | ------------------------------------------------------------------------------------ |
+| `job_id` | string | UUID of the created import job                                                       |
+| `status` | string | `"pending"` on success, `"enqueue_failed"` if job created but task failed to enqueue |
+
+## Errors
+
+### 400 Bad Request
+
+```json
+{
+    "code": "invalid_input",
+    "message": "academic_year is required"
+}
+```
+
+### 409 Conflict
+
+```json
+{
+    "code": "conflict",
+    "message": "An import is already in progress for this organisation. Please wait for it to complete."
+}
+```
+
+### 413 Payload Too Large
+
+```json
+{
+    "code": "payload_too_large",
+    "message": "maximum 5000 students per import"
+}
+```
+
+## Progress Tracking (SSE)
+
+Once the import job is accepted, progress can be tracked via Server-Sent Events.
+
+```
+GET /api/v1/imports/students/stream?job_id={job_id}
+```
+
+Events are streamed as `data: {...}\n\n` with the following frame:
+
+```json
+{
+    "status": "processing",
+    "processed": 150,
+    "total": 500,
+    "success_count": 148,
+    "failed_count": 2
+}
+```
+
+When processing completes, the `status` field will be `"completed"` or `"failed"` and the stream will close.

@@ -33,6 +33,8 @@ function createSampleSession(overrides: Partial<ImportSession> = {}): ImportSess
             parentColumns: ["parent_name"],
             classColumns: ["class_name"],
         },
+        academicYear: "2026",
+        term: "Term 2",
         ...overrides,
     };
 }

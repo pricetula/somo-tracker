@@ -45,8 +45,7 @@ vi.mock("@tanstack/react-virtual", () => ({
 const mockFailedRow1 = {
     id: "inv-001",
     email: "failed@school.edu",
-    full_name: "Failed",
-    full_name: "User",
+    full_name: "Failed User",
     phone: "+254700000000",
     error_message: "Invalid email",
 };
@@ -54,8 +53,7 @@ const mockFailedRow1 = {
 const mockFailedRow2 = {
     id: "inv-002",
     email: "second@school.edu",
-    full_name: "Second",
-    full_name: "User",
+    full_name: "Second User",
     phone: "+254711111111",
     error_message: "Duplicate email",
 };
@@ -112,7 +110,7 @@ describe("FailedRowsRecovery", () => {
         });
     });
 
-    it("failed rows are pre-populated with original values — full_name, full_name, email fields match the API response", async () => {
+    it("failed rows are pre-populated with original values — full_name, email fields match the API response", async () => {
         server.use(
             http.get("http://localhost:3000/api/v1/imports/staff/job-001/failures", () => {
                 return HttpResponse.json({
@@ -125,8 +123,7 @@ describe("FailedRowsRecovery", () => {
 
         await waitFor(() => {
             expect(screen.getByDisplayValue("failed@school.edu")).toBeInTheDocument();
-            expect(screen.getByDisplayValue("Failed")).toBeInTheDocument();
-            expect(screen.getByDisplayValue("User")).toBeInTheDocument();
+            expect(screen.getByDisplayValue("Failed User")).toBeInTheDocument();
         });
     });
 

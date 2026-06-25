@@ -12,7 +12,7 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
-import { server } from "@/__tests__/setup/msw-server";
+import { server } from "../../../../__tests__/setup/msw-server";
 import {
     useParentLookup,
     useClassLookup,
@@ -26,7 +26,7 @@ const API_BASE = "http://localhost:3000";
 
 function mockParentsEndpoint(response: unknown, status = 200) {
     server.use(
-        http.get(`${API_BASE}/api/v1/students/parents`, () => {
+        http.get(`${API_BASE}/api/v1/parents`, () => {
             if (status !== 200) {
                 return HttpResponse.json(response, { status });
             }
@@ -37,7 +37,7 @@ function mockParentsEndpoint(response: unknown, status = 200) {
 
 function mockClassesEndpoint(response: unknown, status = 200) {
     server.use(
-        http.get(`${API_BASE}/api/v1/students/classes`, () => {
+        http.get(`${API_BASE}/api/v1/classes`, () => {
             if (status !== 200) {
                 return HttpResponse.json(response, { status });
             }

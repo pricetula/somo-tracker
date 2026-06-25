@@ -92,7 +92,16 @@ describe("ResultsSummary — Success", () => {
             />
         );
 
-        expect(screen.getByText(/1 student/i)).toBeInTheDocument();
+        // Text is split across <span> elements, use function matcher
+        expect(
+            screen.getByText((_content, element) => {
+                return (
+                    element?.tagName === "P" &&
+                    element.textContent?.includes("1") &&
+                    element.textContent?.includes("student")
+                );
+            })
+        ).toBeInTheDocument();
     });
 
     it("renders 'Start New Import' button in success state", () => {

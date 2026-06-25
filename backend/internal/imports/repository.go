@@ -648,7 +648,7 @@ func (r *PgRepository) GetValidParentIDs(ctx context.Context, tenantID string, p
 }
 
 // BulkInsertStudents inserts validated students and returns (id, class_id) pairs.
-func (r *PgRepository) BulkInsertStudents(ctx context.Context, tenantID string, students []ValidStudent) ([]StudentResult, error) {
+func (r *PgRepository) BulkInsertStudents(ctx context.Context, tenantID, schoolID string, students []ValidStudent) ([]StudentResult, error) {
 	if len(students) == 0 {
 		return nil, nil
 	}
@@ -678,9 +678,9 @@ func (r *PgRepository) BulkInsertStudents(ctx context.Context, tenantID string, 
 
 	// Rewrite: use a VALUES-based CTE approach
 	valueStrings := make([]string, 0, studentCount)
-	args := make([]interface{}, 0, studentCount*7+1)
-	args = append(args, tenantID)
-	argIdx := 2
+	args := make([]interface{}, 0, studentCount*7+2)
+	args = append(args, tenantID, schoolID)
+	argIdx := 3
 
 	for i, s := range students {
 		valueStrings = append(valueStrings,
@@ -713,8 +713,8 @@ func (r *PgRepository) BulkInsertStudents(ctx context.Context, tenantID string, 
 			VALUES ` + strings.Join(valueStrings, ",\n			       ") + `
 		),
 		inserted AS (
-			INSERT INTO cbc_students (tenant_id, full_name, gender, date_of_birth, upi_number, knec_assessment_number)
-			SELECT $1, ir.full_name, ir.gender, ir.date_of_birth, ir.upi_number, ir.knec_assessment_number
+			INSERT INTO cbc_students (tenant_id, school_id, full_name, gender, date_of_birth, upi_number, knec_assessment_number)
+			SELECT $1, $2, ir.full_name, ir.gender, ir.date_of_birth, ir.upi_number, ir.knec_assessment_number
 			FROM input_rows ir
 			RETURNING id, full_name
 		)
@@ -920,15 +920,20 @@ func (r *PgRepository) GetAcademicPeriods(ctx context.Context, tenantID, schoolI
 // ListParents returns all active parents for a tenant+school.
 func (r *PgRepository) ListParents(ctx context.Context, tenantID, schoolID string) ([]ParentRecord, error) {
 	const query = `
-		SELECT p.id::text, u.full_name, p.phone_number, u.email
+		SELECT DISTINCT p.id::text, u.full_name, p.phone_number, u.email
 		FROM cbc_parents p
 		JOIN users u ON u.id = p.user_id AND u.tenant_id = p.tenant_id
+		JOIN memberships m ON m.user_id = u.id
+			AND m.tenant_id = p.tenant_id
+			AND m.school_id = $2
+			AND m.is_active = true
+			AND m.role = 'PARENT'
 		WHERE p.tenant_id = $1
 		  AND p.is_active = true
 		ORDER BY u.full_name ASC
 	`
 
-	rows, err := r.pool.Query(ctx, query, tenantID)
+	rows, err := r.pool.Query(ctx, query, tenantID, schoolID)
 	if err != nil {
 		return nil, fmt.Errorf("imports.Repository.ListParents: %w", err)
 	}

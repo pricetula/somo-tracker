@@ -255,7 +255,7 @@ type Repository interface {
 	GetValidParentIDs(ctx context.Context, tenantID string, parentIDs []string) (map[string]bool, error)
 
 	// BulkInsertStudents inserts students and returns their generated IDs with class_id.
-	BulkInsertStudents(ctx context.Context, tenantID string, students []ValidStudent) ([]StudentResult, error)
+	BulkInsertStudents(ctx context.Context, tenantID, schoolID string, students []ValidStudent) ([]StudentResult, error)
 
 	// BulkInsertEnrollments inserts enrollment rows for newly created students.
 	BulkInsertEnrollments(ctx context.Context, tenantID, schoolID, academicTermID string, enrollments []StudentResult) error

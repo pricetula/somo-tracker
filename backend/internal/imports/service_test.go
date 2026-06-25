@@ -201,7 +201,7 @@ func (m *MockRepository) GetValidParentIDs(ctx context.Context, tenantID string,
 	}
 	return map[string]bool{}, nil
 }
-func (m *MockRepository) BulkInsertStudents(ctx context.Context, tenantID string, students []ValidStudent) ([]StudentResult, error) {
+func (m *MockRepository) BulkInsertStudents(ctx context.Context, tenantID, schoolID string, students []ValidStudent) ([]StudentResult, error) {
 	if m.bulkInsertStudentsFn != nil {
 		return m.bulkInsertStudentsFn(ctx, tenantID, students)
 	}

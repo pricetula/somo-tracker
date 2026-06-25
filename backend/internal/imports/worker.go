@@ -721,7 +721,7 @@ func (w *Worker) ProcessStudentImport(ctx context.Context, t *asynq.Task) error 
 		chunk := validStudents[i:end]
 
 		// Try bulk insert first
-		results, insertErr := w.repo.BulkInsertStudents(ctx, payload.TenantID, chunk)
+		results, insertErr := w.repo.BulkInsertStudents(ctx, payload.TenantID, schoolID, chunk)
 		if insertErr != nil {
 			// Rollback failed — need per-row fallback
 			logger.Warn("bulk student insert failed, falling back to per-row",
@@ -731,7 +731,7 @@ func (w *Worker) ProcessStudentImport(ctx context.Context, t *asynq.Task) error 
 
 			for _, s := range chunk {
 				// Try each student individually
-				result, perErr := w.repo.BulkInsertStudents(ctx, payload.TenantID, []ValidStudent{s})
+				result, perErr := w.repo.BulkInsertStudents(ctx, payload.TenantID, schoolID, []ValidStudent{s})
 				if perErr != nil {
 					// Extract human-readable Postgres error
 					errMsg := perErr.Error()

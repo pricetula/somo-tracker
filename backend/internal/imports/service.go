@@ -181,3 +181,89 @@ func (s *Service) GetFailedInvitations(ctx context.Context, jobID string) (*List
 	}
 	return &ListFailedInvitationsResponse{Invitations: invitations}, nil
 }
+
+// ============================================================================
+// Student Import Service
+// ============================================================================
+
+// StartStudentImport validates, creates a job, persists staging rows, and enqueues.
+func (s *Service) StartStudentImport(ctx context.Context, tenantID, schoolID, userID, role string, req *StartStudentImportRequest) (*StartStudentImportResponse, error) {
+	// Step 2 — Concurrent-import guard
+	hasActive, err := s.repo.CheckConcurrentImport(ctx, tenantID, schoolID)
+	if err != nil {
+		return nil, fmt.Errorf("imports.Service.StartStudentImport: check concurrent: %w", err)
+	}
+	if hasActive {
+		return nil, fmt.Errorf("imports.Service.StartStudentImport: %w", ErrImportInFlight)
+	}
+
+	// Step 3 — Create job row
+	jobID := uuid.New().String()
+	now := time.Now().UTC()
+	cb := userID
+	job := &ImportJob{
+		ID:               jobID,
+		TenantID:         tenantID,
+		SchoolID:         schoolID,
+		Role:             role,
+		CreatedBy:        &cb,
+		Status:           "pending",
+		TotalRecords:     len(req.Students),
+		ProcessedRecords: 0,
+		SuccessCount:     0,
+		FailedCount:      0,
+		CreatedAt:        now,
+	}
+
+	if err := s.repo.CreateImportJob(ctx, job); err != nil {
+		return nil, fmt.Errorf("imports.Service.StartStudentImport: create job: %w", err)
+	}
+
+	// Step 4 — Persist staging rows (single bulk insert with academic_year & term stamped)
+	if err := s.repo.BulkInsertStaging(ctx, jobID, tenantID, schoolID, req.Students, req.AcademicYear, req.Term); err != nil {
+		return nil, fmt.Errorf("imports.Service.StartStudentImport: bulk insert staging: %w", err)
+	}
+
+	// Step 5 — Enqueue Asynq task (no row data, just job_id + tenant_id)
+	payload := StudentImportPayload{
+		JobID:    jobID,
+		TenantID: tenantID,
+	}
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("imports.Service.StartStudentImport: marshal payload: %w", err)
+	}
+
+	task := asynq.NewTask(TypeProcessStudents, payloadBytes,
+		asynq.Queue("critical"),
+		asynq.MaxRetry(1),
+	)
+
+	if _, err := s.client.Enqueue(task); err != nil {
+		s.logger.Error("failed to enqueue student import task",
+			zap.String("job_id", jobID),
+			zap.Error(err),
+		)
+		// Job created + staging persisted, but enqueue failed.
+		// Return the job ID so the user can check status later.
+		return &StartStudentImportResponse{
+			JobID:  jobID,
+			Status: "enqueue_failed",
+		}, nil
+	}
+
+	s.logger.Info("student import task enqueued",
+		zap.String("job_id", jobID),
+		zap.Int("total_records", len(req.Students)),
+	)
+
+	return &StartStudentImportResponse{
+		JobID:  jobID,
+		Status: "pending",
+	}, nil
+}
+
+// GetImportJob retrieves an import job by ID for the student import track endpoint.
+func (s *Service) GetImportJobByID(ctx context.Context, jobID string) (*ImportJob, error) {
+	return s.repo.GetImportJob(ctx, jobID)
+}

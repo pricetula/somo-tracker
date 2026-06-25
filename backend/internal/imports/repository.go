@@ -510,3 +510,556 @@ func (r *PgRepository) GetTenantStytchOrgID(ctx context.Context, tenantID string
 	}
 	return orgID, nil
 }
+
+// ============================================================================
+// Student Import Repository Methods
+// ============================================================================
+
+// CheckConcurrentImport returns true if an import is already in progress
+// (pending or processing) for this tenant+school.
+func (r *PgRepository) CheckConcurrentImport(ctx context.Context, tenantID, schoolID string) (bool, error) {
+	const query = `
+		SELECT id FROM import_jobs
+		WHERE tenant_id = $1
+		  AND school_id = $2
+		  AND status IN ('pending', 'processing')
+		LIMIT 1
+	`
+	var id string
+	err := r.pool.QueryRow(ctx, query, tenantID, schoolID).Scan(&id)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return false, nil
+		}
+		return false, fmt.Errorf("imports.Repository.CheckConcurrentImport: %w", err)
+	}
+	return true, nil
+}
+
+// BulkInsertStaging inserts student records into import_job_staging in a single query.
+func (r *PgRepository) BulkInsertStaging(ctx context.Context, jobID, tenantID, schoolID string, records []StudentRecord, academicYear, term string) error {
+	if len(records) == 0 {
+		return nil
+	}
+
+	valueStrings := make([]string, 0, len(records))
+	args := make([]interface{}, 0, len(records)*6)
+	argIdx := 1
+
+	for i, rec := range records {
+		// Build raw_data JSONB: student fields + academic_year + term
+		raw := map[string]interface{}{
+			"full_name":              rec.FullName,
+			"gender":                 rec.Gender,
+			"date_of_birth":          rec.DateOfBirth,
+			"upi_number":             rec.UPINumber,
+			"knec_assessment_number": rec.KNECAssessmentNumber,
+			"cbc_student_parents_id": rec.CBCStudentParentsID,
+			"class_id":               rec.ClassID,
+			"academic_year":          academicYear,
+			"term":                   term,
+		}
+		rawJSON, err := json.Marshal(raw)
+		if err != nil {
+			return fmt.Errorf("imports.Repository.BulkInsertStaging: marshal raw_data: %w", err)
+		}
+
+		valueStrings = append(valueStrings,
+			fmt.Sprintf("($%d::uuid, $%d::uuid, $%d::uuid, $%d, $%d::jsonb)",
+				argIdx, argIdx+1, argIdx+2, argIdx+3, argIdx+4),
+		)
+		args = append(args, jobID, tenantID, schoolID, i+1, string(rawJSON))
+		argIdx += 5
+	}
+
+	query := `
+		INSERT INTO import_job_staging (job_id, tenant_id, school_id, row_number, raw_data)
+		VALUES ` + strings.Join(valueStrings, ",\n		       ") + `
+	`
+
+	_, err := r.pool.Exec(ctx, query, args...)
+	if err != nil {
+		return fmt.Errorf("imports.Repository.BulkInsertStaging: %w", err)
+	}
+	return nil
+}
+
+// GetStagingRows loads all staging rows for a job, ordered by row_number.
+func (r *PgRepository) GetStagingRows(ctx context.Context, jobID string) ([]StagingRow, error) {
+	const query = `
+		SELECT row_number, raw_data
+		FROM import_job_staging
+		WHERE job_id = $1
+		ORDER BY row_number ASC
+	`
+
+	rows, err := r.pool.Query(ctx, query, jobID)
+	if err != nil {
+		return nil, fmt.Errorf("imports.Repository.GetStagingRows: %w", err)
+	}
+	defer rows.Close()
+
+	var results []StagingRow
+	for rows.Next() {
+		var sr StagingRow
+		var rawJSON []byte
+		if err := rows.Scan(&sr.RowNumber, &rawJSON); err != nil {
+			return nil, fmt.Errorf("imports.Repository.GetStagingRows: scan: %w", err)
+		}
+		if err := json.Unmarshal(rawJSON, &sr.RawData); err != nil {
+			return nil, fmt.Errorf("imports.Repository.GetStagingRows: unmarshal: %w", err)
+		}
+		results = append(results, sr)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("imports.Repository.GetStagingRows: rows: %w", err)
+	}
+	return results, nil
+}
+
+// GetValidClasses returns a set of valid (active) class IDs for this tenant+school.
+func (r *PgRepository) GetValidClasses(ctx context.Context, tenantID, schoolID string, classIDs []string) (map[string]bool, error) {
+	if len(classIDs) == 0 {
+		return map[string]bool{}, nil
+	}
+
+	query := `
+		SELECT id::text FROM cbc_classes
+		WHERE tenant_id = $1 AND school_id = $2 AND id = ANY($3) AND is_active = true
+	`
+
+	rows, err := r.pool.Query(ctx, query, tenantID, schoolID, classIDs)
+	if err != nil {
+		return nil, fmt.Errorf("imports.Repository.GetValidClasses: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[string]bool, len(classIDs))
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("imports.Repository.GetValidClasses: scan: %w", err)
+		}
+		result[id] = true
+	}
+	return result, rows.Err()
+}
+
+// GetValidParentIDs returns a set of valid active parent IDs for this tenant.
+func (r *PgRepository) GetValidParentIDs(ctx context.Context, tenantID string, parentIDs []string) (map[string]bool, error) {
+	if len(parentIDs) == 0 {
+		return map[string]bool{}, nil
+	}
+
+	query := `
+		SELECT id::text FROM cbc_parents
+		WHERE tenant_id = $1 AND id = ANY($2) AND is_active = true
+	`
+
+	rows, err := r.pool.Query(ctx, query, tenantID, parentIDs)
+	if err != nil {
+		return nil, fmt.Errorf("imports.Repository.GetValidParentIDs: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[string]bool, len(parentIDs))
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("imports.Repository.GetValidParentIDs: scan: %w", err)
+		}
+		result[id] = true
+	}
+	return result, rows.Err()
+}
+
+// BulkInsertStudents inserts validated students and returns (id, class_id) pairs.
+func (r *PgRepository) BulkInsertStudents(ctx context.Context, tenantID string, students []ValidStudent) ([]StudentResult, error) {
+	if len(students) == 0 {
+		return nil, nil
+	}
+
+	// Use CTE with unnest arrays for bulk insert + RETURNING
+	studentCount := len(students)
+	fullNames := make([]string, studentCount)
+	genders := make([]string, studentCount)
+	dateOfBirths := make([]*string, studentCount)
+	upiNumbers := make([]*string, studentCount)
+	knecNumbers := make([]*string, studentCount)
+	classIDs := make([]*string, studentCount)
+
+	for i, s := range students {
+		fullNames[i] = s.FullName
+		genders[i] = s.Gender
+		dateOfBirths[i] = s.DateOfBirth
+		upiNumbers[i] = s.UPINumber
+		knecNumbers[i] = s.KNECAssessmentNumber
+		classIDs[i] = s.ClassID
+	}
+
+	// Build a row_number -> class_id mapping using the same row_number ordering
+	// Actually, we can't join back easily. Let's use a different approach:
+	// Insert all students, then query back using full_name (not ideal).
+	// Better: use RETURNING with a CTE that pairs input rows.
+
+	// Rewrite: use a VALUES-based CTE approach
+	valueStrings := make([]string, 0, studentCount)
+	args := make([]interface{}, 0, studentCount*7+1)
+	args = append(args, tenantID)
+	argIdx := 2
+
+	for i, s := range students {
+		valueStrings = append(valueStrings,
+			fmt.Sprintf("($%d::int, $%d::text, $%d::gender_type, $%d::date, $%d::text, $%d::text, $%d::text)",
+				argIdx, argIdx+1, argIdx+2, argIdx+3, argIdx+4, argIdx+5, argIdx+6),
+		)
+		dob := interface{}(nil)
+		if s.DateOfBirth != nil {
+			dob = *s.DateOfBirth
+		}
+		upi := interface{}(nil)
+		if s.UPINumber != nil {
+			upi = *s.UPINumber
+		}
+		knec := interface{}(nil)
+		if s.KNECAssessmentNumber != nil {
+			knec = *s.KNECAssessmentNumber
+		}
+		classID := interface{}(nil)
+		if s.ClassID != nil {
+			classID = *s.ClassID
+		}
+
+		args = append(args, i, s.FullName, s.Gender, dob, upi, knec, classID)
+		argIdx += 7
+	}
+
+	query := `
+		WITH input_rows (rn, full_name, gender, date_of_birth, upi_number, knec_assessment_number, class_id) AS (
+			VALUES ` + strings.Join(valueStrings, ",\n			       ") + `
+		),
+		inserted AS (
+			INSERT INTO cbc_students (tenant_id, full_name, gender, date_of_birth, upi_number, knec_assessment_number)
+			SELECT $1, ir.full_name, ir.gender, ir.date_of_birth, ir.upi_number, ir.knec_assessment_number
+			FROM input_rows ir
+			RETURNING id, full_name
+		)
+		SELECT i.id::text, ir.class_id
+		FROM inserted i
+		JOIN input_rows ir ON i.full_name = ir.full_name
+		   AND (i.date_of_birth IS NOT DISTINCT FROM ir.date_of_birth)
+		ORDER BY ir.rn
+	`
+
+	rows, err := r.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("imports.Repository.BulkInsertStudents: %w", err)
+	}
+	defer rows.Close()
+
+	results := make([]StudentResult, 0, studentCount)
+	for rows.Next() {
+		var sr StudentResult
+		var classID *string
+		if err := rows.Scan(&sr.StudentID, &classID); err != nil {
+			return nil, fmt.Errorf("imports.Repository.BulkInsertStudents: scan: %w", err)
+		}
+		if classID != nil && *classID != "" {
+			sr.ClassID = classID
+		}
+		results = append(results, sr)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("imports.Repository.BulkInsertStudents: rows: %w", err)
+	}
+	return results, nil
+}
+
+// BulkInsertEnrollments inserts enrollment rows in a single bulk query.
+func (r *PgRepository) BulkInsertEnrollments(ctx context.Context, tenantID, schoolID, academicTermID string, enrollments []StudentResult) error {
+	if len(enrollments) == 0 {
+		return nil
+	}
+
+	valueStrings := make([]string, 0, len(enrollments))
+	args := make([]interface{}, 0, len(enrollments)*4+1)
+	args = append(args, academicTermID, tenantID, schoolID)
+	argIdx := 4
+
+	for _, e := range enrollments {
+		if e.ClassID == nil {
+			continue
+		}
+		valueStrings = append(valueStrings,
+			fmt.Sprintf("($%d::uuid, $%d::uuid)", argIdx, argIdx+1),
+		)
+		args = append(args, e.StudentID, *e.ClassID)
+		argIdx += 2
+	}
+
+	if len(valueStrings) == 0 {
+		return nil
+	}
+
+	query := `
+		INSERT INTO cbc_student_enrollments (tenant_id, school_id, student_id, academic_term_id, class_id)
+		SELECT $2, $3, v.student_id, $1, v.class_id
+		FROM (VALUES ` + strings.Join(valueStrings, ",\n		       ") + `
+		) AS v(student_id, class_id)
+		ON CONFLICT (student_id, academic_term_id) DO NOTHING
+	`
+
+	_, err := r.pool.Exec(ctx, query, args...)
+	if err != nil {
+		return fmt.Errorf("imports.Repository.BulkInsertEnrollments: %w", err)
+	}
+	return nil
+}
+
+// ResolveAcademicTerm resolves academic_year name + term name to an academic_term_id UUID.
+func (r *PgRepository) ResolveAcademicTerm(ctx context.Context, tenantID, schoolID, academicYear, term string) (string, error) {
+	const query = `
+		SELECT t.id::text FROM academic_terms t
+		JOIN academic_years y ON t.academic_year_id = y.id
+		WHERE y.tenant_id = $1 AND y.school_id = $2 AND y.name = $3 AND t.name = $4
+		LIMIT 1
+	`
+
+	var id string
+	err := r.pool.QueryRow(ctx, query, tenantID, schoolID, academicYear, term).Scan(&id)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return "", fmt.Errorf("imports.Repository.ResolveAcademicTerm: academic term not found for year=%q term=%q", academicYear, term)
+		}
+		return "", fmt.Errorf("imports.Repository.ResolveAcademicTerm: %w", err)
+	}
+	return id, nil
+}
+
+// BulkInsertFailures inserts failure rows in a single query.
+func (r *PgRepository) BulkInsertFailures(ctx context.Context, jobID string, failures []FailedRow) error {
+	if len(failures) == 0 {
+		return nil
+	}
+
+	valueStrings := make([]string, 0, len(failures))
+	args := make([]interface{}, 0, len(failures)*2+1)
+	args = append(args, jobID)
+	argIdx := 2
+
+	for _, f := range failures {
+		rawJSON, err := json.Marshal(f.RawData)
+		if err != nil {
+			rawJSON = []byte(`{"marshal_error": "` + err.Error() + `"}`)
+		}
+		valueStrings = append(valueStrings,
+			fmt.Sprintf("($1, $%d::jsonb, $%d)", argIdx, argIdx+1),
+		)
+		args = append(args, string(rawJSON), f.ErrorMessage)
+		argIdx += 2
+	}
+
+	query := `
+		INSERT INTO import_job_failures (import_job_id, raw_payload, error_message)
+		VALUES ` + strings.Join(valueStrings, ",\n		       ") + `
+	`
+
+	_, err := r.pool.Exec(ctx, query, args...)
+	if err != nil {
+		return fmt.Errorf("imports.Repository.BulkInsertFailures: %w", err)
+	}
+	return nil
+}
+
+// PurgeStaging deletes all staging rows for a completed job.
+func (r *PgRepository) PurgeStaging(ctx context.Context, jobID string) error {
+	const query = `DELETE FROM import_job_staging WHERE job_id = $1`
+	_, err := r.pool.Exec(ctx, query, jobID)
+	if err != nil {
+		return fmt.Errorf("imports.Repository.PurgeStaging: %w", err)
+	}
+	return nil
+}
+
+// GetAcademicYears returns all academic years for a tenant+school.
+func (r *PgRepository) GetAcademicYears(ctx context.Context, tenantID, schoolID string) ([]AcademicYearRecord, error) {
+	const query = `
+		SELECT id::text, name, start_date::text, end_date::text, is_current
+		FROM academic_years
+		WHERE tenant_id = $1 AND school_id = $2
+		ORDER BY start_date DESC
+	`
+
+	rows, err := r.pool.Query(ctx, query, tenantID, schoolID)
+	if err != nil {
+		return nil, fmt.Errorf("imports.Repository.GetAcademicYears: %w", err)
+	}
+	defer rows.Close()
+
+	var results []AcademicYearRecord
+	for rows.Next() {
+		var rec AcademicYearRecord
+		if err := rows.Scan(&rec.ID, &rec.Name, &rec.StartDate, &rec.EndDate, &rec.IsCurrent); err != nil {
+			return nil, fmt.Errorf("imports.Repository.GetAcademicYears: scan: %w", err)
+		}
+		results = append(results, rec)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("imports.Repository.GetAcademicYears: rows: %w", err)
+	}
+	return results, nil
+}
+
+// GetAcademicPeriods returns all academic periods (terms) for a given academic year.
+func (r *PgRepository) GetAcademicPeriods(ctx context.Context, tenantID, schoolID, academicYearID string) ([]AcademicPeriodRecord, error) {
+	const query = `
+		SELECT id::text, name, term_number, start_date::text, end_date::text, is_current
+		FROM academic_terms
+		WHERE tenant_id = $1 AND school_id = $2 AND academic_year_id = $3
+		ORDER BY term_number ASC
+	`
+
+	rows, err := r.pool.Query(ctx, query, tenantID, schoolID, academicYearID)
+	if err != nil {
+		return nil, fmt.Errorf("imports.Repository.GetAcademicPeriods: %w", err)
+	}
+	defer rows.Close()
+
+	var results []AcademicPeriodRecord
+	for rows.Next() {
+		var rec AcademicPeriodRecord
+		if err := rows.Scan(&rec.ID, &rec.Name, &rec.TermNumber, &rec.StartDate, &rec.EndDate, &rec.IsCurrent); err != nil {
+			return nil, fmt.Errorf("imports.Repository.GetAcademicPeriods: scan: %w", err)
+		}
+		results = append(results, rec)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("imports.Repository.GetAcademicPeriods: rows: %w", err)
+	}
+	return results, nil
+}
+
+// ============================================================================
+// Lookup Methods for Student Import
+// ============================================================================
+
+// ListParents returns all active parents for a tenant+school.
+func (r *PgRepository) ListParents(ctx context.Context, tenantID, schoolID string) ([]ParentRecord, error) {
+	const query = `
+		SELECT p.id::text, u.full_name, p.phone_number, u.email
+		FROM cbc_parents p
+		JOIN users u ON u.id = p.user_id AND u.tenant_id = p.tenant_id
+		WHERE p.tenant_id = $1
+		  AND p.is_active = true
+		ORDER BY u.full_name ASC
+	`
+
+	rows, err := r.pool.Query(ctx, query, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("imports.Repository.ListParents: %w", err)
+	}
+	defer rows.Close()
+
+	var results []ParentRecord
+	for rows.Next() {
+		var rec ParentRecord
+		if err := rows.Scan(&rec.ID, &rec.FullName, &rec.Phone, &rec.Email); err != nil {
+			return nil, fmt.Errorf("imports.Repository.ListParents: scan: %w", err)
+		}
+		results = append(results, rec)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("imports.Repository.ListParents: rows: %w", err)
+	}
+	if results == nil {
+		results = []ParentRecord{}
+	}
+	return results, nil
+}
+
+// ListClasses returns all active classes for a tenant+school.
+func (r *PgRepository) ListClasses(ctx context.Context, tenantID, schoolID string) ([]ClassRecord, error) {
+	const query = `
+		SELECT id::text, name
+		FROM cbc_classes
+		WHERE tenant_id = $1 AND school_id = $2 AND is_active = true
+		ORDER BY grade_level ASC, stream ASC, name ASC
+	`
+
+	rows, err := r.pool.Query(ctx, query, tenantID, schoolID)
+	if err != nil {
+		return nil, fmt.Errorf("imports.Repository.ListClasses: %w", err)
+	}
+	defer rows.Close()
+
+	var results []ClassRecord
+	for rows.Next() {
+		var rec ClassRecord
+		if err := rows.Scan(&rec.ID, &rec.Name); err != nil {
+			return nil, fmt.Errorf("imports.Repository.ListClasses: scan: %w", err)
+		}
+		results = append(results, rec)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("imports.Repository.ListClasses: rows: %w", err)
+	}
+	if results == nil {
+		results = []ClassRecord{}
+	}
+	return results, nil
+}
+
+// ListExistingStudents returns all existing students for a tenant+school
+// for duplicate detection during import.
+func (r *PgRepository) ListExistingStudents(ctx context.Context, tenantID, schoolID string) ([]ExistingStudentRecord, error) {
+	const query = `
+		SELECT s.full_name, s.date_of_birth::text, s.upi_number
+		FROM cbc_students s
+		JOIN cbc_student_enrollments e ON e.student_id = s.id AND e.tenant_id = s.tenant_id
+		WHERE s.tenant_id = $1
+		  AND e.school_id = $2
+		GROUP BY s.id, s.full_name, s.date_of_birth, s.upi_number
+		ORDER BY s.full_name ASC
+	`
+
+	rows, err := r.pool.Query(ctx, query, tenantID, schoolID)
+	if err != nil {
+		return nil, fmt.Errorf("imports.Repository.ListExistingStudents: %w", err)
+	}
+	defer rows.Close()
+
+	var results []ExistingStudentRecord
+	for rows.Next() {
+		var rec ExistingStudentRecord
+		if err := rows.Scan(&rec.FullName, &rec.DateOfBirth, &rec.UPINumber); err != nil {
+			return nil, fmt.Errorf("imports.Repository.ListExistingStudents: scan: %w", err)
+		}
+		results = append(results, rec)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("imports.Repository.ListExistingStudents: rows: %w", err)
+	}
+	if results == nil {
+		results = []ExistingStudentRecord{}
+	}
+	return results, nil
+}
+
+// GetImportJobStatus returns the current status, total_records, and school_id of a job.
+func (r *PgRepository) GetImportJobStatus(ctx context.Context, jobID string) (string, int, string, error) {
+	const query = `
+		SELECT status, total_records, school_id FROM import_jobs WHERE id = $1
+	`
+
+	var status string
+	var totalRecords int
+	var schoolID string
+	err := r.pool.QueryRow(ctx, query, jobID).Scan(&status, &totalRecords, &schoolID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return "", 0, "", fmt.Errorf("imports.Repository.GetImportJobStatus: %w", ErrNotFound)
+		}
+		return "", 0, "", fmt.Errorf("imports.Repository.GetImportJobStatus: %w", err)
+	}
+	return status, totalRecords, schoolID, nil
+}

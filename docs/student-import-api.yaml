@@ -1,0 +1,227 @@
+openapi: "3.0.3"
+info:
+  title: Somotracker Student Bulk Import API
+  description: |
+    Endpoint for bulk-importing student records with academic year and term context.
+    Processing is asynchronous; progress can be tracked via Server-Sent Events.
+  version: "1.0.0"
+  contact:
+    name: Platform Team
+
+servers:
+  - url: https://api.somotracker.com
+    description: Production server
+  - url: http://localhost:8080
+    description: Local development
+
+paths:
+  /api/v1/imports/students:
+    post:
+      summary: Bulk import students
+      description: >
+        Accepts a batch of student records wrapped in academic year and term context.
+        Creates an import job, persists staging rows, and enqueues an asynchronous 
+        processing task. Returns a job_id for progress tracking.
+      operationId: bulkImportStudents
+      tags:
+        - Imports
+        - Students
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartStudentImportRequest"
+      responses:
+        "202":
+          description: Import job accepted and enqueued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StartStudentImportResponse"
+        "400":
+          description: Invalid input (missing fields, invalid term, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: An import is already in progress for this organisation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "413":
+          description: Payload exceeds maximum size
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/imports/students/stream:
+    get:
+      summary: Track student import progress via SSE
+      description: >
+        Opens a Server-Sent Events stream for real-time progress updates on a
+        student import job. Events are pushed as JSON-encoded ProgressFrame objects.
+      operationId: streamStudentImportProgress
+      tags:
+        - Imports
+        - Students
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: job_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The import job UUID returned from the POST endpoint
+      responses:
+        "200":
+          description: SSE stream of progress events
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: >
+                  Lines in the format `data: {json}\n\n` where the JSON payload
+                  conforms to ProgressFrame.
+        "400":
+          description: Missing or invalid job_id parameter
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: somo_sid
+
+  schemas:
+    StudentRecord:
+      type: object
+      required:
+        - full_name
+        - gender
+      properties:
+        full_name:
+          type: string
+          description: Student's full name
+          example: "Jane Doe"
+        gender:
+          type: string
+          enum: ["M", "F"]
+          description: Student's gender
+        date_of_birth:
+          type: string
+          format: date
+          nullable: true
+          description: Date of birth in YYYY-MM-DD format
+          example: "2010-05-14"
+        upi_number:
+          type: string
+          nullable: true
+          description: Kenya NEMIS UPI code (10-character alphanumeric)
+          example: "KP1234567A"
+        knec_assessment_number:
+          type: string
+          nullable: true
+          description: KNEC assessment number
+          example: "KNEC001234"
+        cbc_student_parents_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: UUID of linked parent record
+        class_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: UUID of target class
+
+    StartStudentImportRequest:
+      type: object
+      required:
+        - academic_year
+        - term
+        - students
+      properties:
+        academic_year:
+          type: string
+          description: Academic year (e.g. "2024", "2025", "2026")
+          example: "2026"
+        term:
+          type: string
+          enum: ["Term 1", "Term 2", "Term 3"]
+          description: Academic term
+          example: "Term 2"
+        students:
+          type: array
+          items:
+            $ref: "#/components/schemas/StudentRecord"
+          minItems: 1
+          maxItems: 5000
+          description: Array of student records to import (max 5000)
+
+    StartStudentImportResponse:
+      type: object
+      properties:
+        job_id:
+          type: string
+          format: uuid
+          description: UUID of the created import job
+        status:
+          type: string
+          enum: ["pending", "enqueue_failed"]
+          description: |
+            "pending" if the job was created and the task enqueued successfully,
+            "enqueue_failed" if the job was created but the async task could not be enqueued
+      example:
+        job_id: "550e8400-e29b-41d4-a716-446655440000"
+        status: "pending"
+
+    ProgressFrame:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Current job status
+          example: "processing"
+        processed:
+          type: integer
+          description: Number of records processed so far
+        total:
+          type: integer
+          description: Total number of records in the import
+        success_count:
+          type: integer
+          description: Number of successfully imported records
+        failed_count:
+          type: integer
+          description: Number of records that failed to import
+
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Machine-readable error code
+          example: "invalid_input"
+        message:
+          type: string
+          description: Human-readable error message
+          example: "academic_year is required"
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Optional field-level validation errors

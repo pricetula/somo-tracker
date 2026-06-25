@@ -36,6 +36,17 @@ type MockRepository struct {
 	getTenantStytchOrgIDFn        func(ctx context.Context, tenantID string) (string, error)
 	setImportJobFailedFn          func(ctx context.Context, id string) error
 	getPendingStage2RecordsFn     func(ctx context.Context, jobID string) ([]Stage2Record, error)
+
+	// Student import mock fields
+	checkConcurrentImportFn func(ctx context.Context, tenantID, schoolID string) (bool, error)
+	getStagingRowsFn        func(ctx context.Context, jobID string) ([]StagingRow, error)
+	getValidClassesFn       func(ctx context.Context, tenantID, schoolID string, classIDs []string) (map[string]bool, error)
+	getValidParentIDsFn     func(ctx context.Context, tenantID string, parentIDs []string) (map[string]bool, error)
+	bulkInsertStudentsFn    func(ctx context.Context, tenantID string, students []ValidStudent) ([]StudentResult, error)
+	bulkInsertEnrollmentsFn func(ctx context.Context, tenantID, schoolID, academicTermID string, enrollments []StudentResult) error
+	resolveAcademicTermFn   func(ctx context.Context, tenantID, schoolID, academicYear, term string) (string, error)
+	bulkInsertFailuresFn    func(ctx context.Context, jobID string, failures []FailedRow) error
+	getImportJobStatusFn    func(ctx context.Context, jobID string) (string, int, string, error)
 }
 
 func (m *MockRepository) CreateImportJob(ctx context.Context, job *ImportJob) error {
@@ -157,6 +168,106 @@ func (m *MockRepository) GetTenantStytchOrgID(ctx context.Context, tenantID stri
 		return m.getTenantStytchOrgIDFn(ctx, tenantID)
 	}
 	return "org_stytch_001", nil
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Student Import Repository Methods (stubs for service tests)
+// ═══════════════════════════════════════════════════════════════════════════
+
+func (m *MockRepository) CheckConcurrentImport(ctx context.Context, tenantID, schoolID string) (bool, error) {
+	if m.checkConcurrentImportFn != nil {
+		return m.checkConcurrentImportFn(ctx, tenantID, schoolID)
+	}
+	return false, nil
+}
+func (m *MockRepository) BulkInsertStaging(ctx context.Context, jobID, tenantID, schoolID string, records []StudentRecord, academicYear, term string) error {
+	return nil
+}
+func (m *MockRepository) GetStagingRows(ctx context.Context, jobID string) ([]StagingRow, error) {
+	if m.getStagingRowsFn != nil {
+		return m.getStagingRowsFn(ctx, jobID)
+	}
+	return nil, nil
+}
+func (m *MockRepository) GetValidClasses(ctx context.Context, tenantID, schoolID string, classIDs []string) (map[string]bool, error) {
+	if m.getValidClassesFn != nil {
+		return m.getValidClassesFn(ctx, tenantID, schoolID, classIDs)
+	}
+	return map[string]bool{}, nil
+}
+func (m *MockRepository) GetValidParentIDs(ctx context.Context, tenantID string, parentIDs []string) (map[string]bool, error) {
+	if m.getValidParentIDsFn != nil {
+		return m.getValidParentIDsFn(ctx, tenantID, parentIDs)
+	}
+	return map[string]bool{}, nil
+}
+func (m *MockRepository) BulkInsertStudents(ctx context.Context, tenantID string, students []ValidStudent) ([]StudentResult, error) {
+	if m.bulkInsertStudentsFn != nil {
+		return m.bulkInsertStudentsFn(ctx, tenantID, students)
+	}
+	return nil, nil
+}
+func (m *MockRepository) BulkInsertEnrollments(ctx context.Context, tenantID, schoolID, academicTermID string, enrollments []StudentResult) error {
+	if m.bulkInsertEnrollmentsFn != nil {
+		return m.bulkInsertEnrollmentsFn(ctx, tenantID, schoolID, academicTermID, enrollments)
+	}
+	return nil
+}
+func (m *MockRepository) ResolveAcademicTerm(ctx context.Context, tenantID, schoolID, academicYear, term string) (string, error) {
+	if m.resolveAcademicTermFn != nil {
+		return m.resolveAcademicTermFn(ctx, tenantID, schoolID, academicYear, term)
+	}
+	return "term_001", nil
+}
+func (m *MockRepository) BulkInsertFailures(ctx context.Context, jobID string, failures []FailedRow) error {
+	if m.bulkInsertFailuresFn != nil {
+		return m.bulkInsertFailuresFn(ctx, jobID, failures)
+	}
+	return nil
+}
+func (m *MockRepository) PurgeStaging(ctx context.Context, jobID string) error { return nil }
+func (m *MockRepository) GetImportJobStatus(ctx context.Context, jobID string) (string, int, string, error) {
+	if m.getImportJobStatusFn != nil {
+		return m.getImportJobStatusFn(ctx, jobID)
+	}
+	return "pending", 0, "school_001", nil
+}
+
+func (m *MockRepository) GetAcademicYears(ctx context.Context, tenantID, schoolID string) ([]AcademicYearRecord, error) {
+	return []AcademicYearRecord{
+		{ID: "year_001", Name: "2025", StartDate: "2025-01-01", EndDate: "2025-12-31", IsCurrent: true},
+	}, nil
+}
+
+func (m *MockRepository) GetAcademicPeriods(ctx context.Context, tenantID, schoolID, academicYearID string) ([]AcademicPeriodRecord, error) {
+	return []AcademicPeriodRecord{
+		{ID: "period_001", Name: "Term 1", TermNumber: 1, StartDate: "2025-01-15", EndDate: "2025-04-11", IsCurrent: true},
+		{ID: "period_002", Name: "Term 2", TermNumber: 2, StartDate: "2025-05-05", EndDate: "2025-08-08", IsCurrent: false},
+		{ID: "period_003", Name: "Term 3", TermNumber: 3, StartDate: "2025-09-01", EndDate: "2025-11-21", IsCurrent: false},
+	}, nil
+}
+
+func (m *MockRepository) ListParents(ctx context.Context, tenantID, schoolID string) ([]ParentRecord, error) {
+	phone := "+254700000001"
+	email := "parent@school.com"
+	return []ParentRecord{
+		{ID: "parent_001", FullName: "Jane Doe", Phone: &phone, Email: &email},
+	}, nil
+}
+
+func (m *MockRepository) ListClasses(ctx context.Context, tenantID, schoolID string) ([]ClassRecord, error) {
+	return []ClassRecord{
+		{ID: "class_001", Name: "Grade 1"},
+		{ID: "class_002", Name: "Grade 2"},
+	}, nil
+}
+
+func (m *MockRepository) ListExistingStudents(ctx context.Context, tenantID, schoolID string) ([]ExistingStudentRecord, error) {
+	dob := "2015-01-15"
+	upi := "KP1234567A"
+	return []ExistingStudentRecord{
+		{FullName: "Alice Existing", DateOfBirth: &dob, UPINumber: &upi},
+	}, nil
 }
 
 // ============================================================================

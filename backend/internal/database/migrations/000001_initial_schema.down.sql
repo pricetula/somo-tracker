@@ -5,6 +5,13 @@
 
 BEGIN;
 
+DROP TRIGGER IF EXISTS trg_cbc_students_counts_update ON cbc_students;
+DROP TRIGGER IF EXISTS trg_cbc_students_counts_insert_delete ON cbc_students;
+DROP FUNCTION IF EXISTS fn_sync_school_student_counts();
+DROP TRIGGER IF EXISTS trg_memberships_counts_update ON memberships;
+DROP TRIGGER IF EXISTS trg_memberships_counts_insert_delete ON memberships;
+DROP FUNCTION IF EXISTS fn_sync_school_staff_counts();
+
 -- ============================================================================
 -- LAYER 9 — REPORTING
 -- ============================================================================

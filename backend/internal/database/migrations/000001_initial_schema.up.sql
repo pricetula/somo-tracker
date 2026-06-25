@@ -1164,6 +1164,103 @@ COMMENT ON TABLE cbc_term_competency_summaries IS
      the first successful upload to cba.knec.ac.ke.';
 
 
+-- ============================================================
+-- TRIGGER: Sync school staff/parent counts from memberships
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION fn_sync_school_staff_counts()
+RETURNS TRIGGER AS $$
+BEGIN
+    WITH affected_schools AS (
+        SELECT DISTINCT school_id FROM inserted_rows
+        UNION
+        SELECT DISTINCT school_id FROM deleted_rows
+    )
+    INSERT INTO school_member_counts (school_id, admins, teachers, nurses, finance, parents, updated_at)
+    SELECT
+        s.school_id,
+        COUNT(*) FILTER (WHERE m.role = 'SCHOOL_ADMIN') AS admins,
+        COUNT(*) FILTER (WHERE m.role = 'TEACHER')      AS teachers,
+        COUNT(*) FILTER (WHERE m.role = 'NURSE')        AS nurses,
+        COUNT(*) FILTER (WHERE m.role = 'FINANCE')      AS finance,
+        COUNT(*) FILTER (WHERE m.role = 'PARENT')       AS parents,
+        NOW()
+    FROM affected_schools s
+    LEFT JOIN memberships m
+        ON m.school_id = s.school_id
+        AND m.deleted_at IS NULL
+    GROUP BY s.school_id
+    ON CONFLICT (school_id) DO UPDATE SET
+        admins     = EXCLUDED.admins,
+        teachers   = EXCLUDED.teachers,
+        nurses     = EXCLUDED.nurses,
+        finance    = EXCLUDED.finance,
+        parents    = EXCLUDED.parents,
+        updated_at = NOW();
+
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Fires on INSERT and DELETE
+CREATE TRIGGER trg_memberships_counts_insert_delete
+    AFTER INSERT OR DELETE ON memberships
+    REFERENCING NEW TABLE AS inserted_rows OLD TABLE AS deleted_rows
+    FOR EACH STATEMENT
+    EXECUTE FUNCTION fn_sync_school_staff_counts();
+
+-- Fires on UPDATE only when relevant columns change (soft delete or role change)
+CREATE TRIGGER trg_memberships_counts_update
+    AFTER UPDATE OF deleted_at, role ON memberships
+    REFERENCING NEW TABLE AS inserted_rows OLD TABLE AS deleted_rows
+    FOR EACH STATEMENT
+    EXECUTE FUNCTION fn_sync_school_staff_counts();
+
+
+-- ============================================================
+-- TRIGGER: Sync school student counts from cbc_students
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION fn_sync_school_student_counts()
+RETURNS TRIGGER AS $$
+BEGIN
+    WITH affected_schools AS (
+        SELECT DISTINCT school_id FROM inserted_rows
+        UNION
+        SELECT DISTINCT school_id FROM deleted_rows
+    )
+    INSERT INTO school_member_counts (school_id, students, updated_at)
+    SELECT
+        s.school_id,
+        COUNT(st.id) AS students,
+        NOW()
+    FROM affected_schools s
+    LEFT JOIN cbc_students st
+        ON st.school_id = s.school_id
+        AND st.deleted_at IS NULL
+    GROUP BY s.school_id
+    ON CONFLICT (school_id) DO UPDATE SET
+        students   = EXCLUDED.students,
+        updated_at = NOW();
+
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Fires on INSERT and DELETE
+CREATE TRIGGER trg_cbc_students_counts_insert_delete
+    AFTER INSERT OR DELETE ON cbc_students
+    REFERENCING NEW TABLE AS inserted_rows OLD TABLE AS deleted_rows
+    FOR EACH STATEMENT
+    EXECUTE FUNCTION fn_sync_school_student_counts();
+
+-- Fires on UPDATE only when relevant columns change (soft delete)
+CREATE TRIGGER trg_cbc_students_counts_update
+    AFTER UPDATE OF deleted_at ON cbc_students
+    REFERENCING NEW TABLE AS inserted_rows OLD TABLE AS deleted_rows
+    FOR EACH STATEMENT
+    EXECUTE FUNCTION fn_sync_school_student_counts();
+
 
 -- ============================================================================
 -- END OF MIGRATION

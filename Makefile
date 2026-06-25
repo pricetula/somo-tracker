@@ -1,4 +1,4 @@
-.PHONY: up up-d down ps logs-down logs-api logs-postgres logs-redis logs-frontend restart-api rebuild-api build-api generate-swagger generate-api-types lint vet help
+.PHONY: up up-d down ps logs-down logs-api logs-postgres logs-redis logs-frontend restart-api rebuild-api build-api generate-swagger generate-api-types lint vet test test-short test-integration test-verbose test-all help
 
 # ─── Docker Compose shortcuts ────────────────────────────────────────────────
 
@@ -49,6 +49,21 @@ lint:  ## Run golangci-lint (backend)
 
 vet:   ## Run go vet (backend)
 	cd backend && go vet ./...
+
+# ─── Tests ───────────────────────────────────────────────────────────────────
+
+test: test-short  ## Run unit tests (short mode, skips integration)
+
+test-short:  ## Run unit tests only (short mode, fast)
+	cd backend && go test -short -count=1 ./...
+
+test-integration:  ## Run integration tests (requires Docker)
+	cd backend && go test -count=1 ./...
+
+test-verbose:  ## Run all tests with verbose output
+	cd backend && go test -count=1 -v ./...
+
+test-all: test-short test-integration  ## Run unit + integration tests
 
 # ─── Code generation ─────────────────────────────────────────────────────────
 

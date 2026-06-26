@@ -5,22 +5,45 @@
 
 BEGIN;
 
-DROP TRIGGER IF EXISTS trg_users_updated_at                  ON users;
-DROP TRIGGER IF EXISTS trg_cbc_schools_updated_at            ON cbc_schools;
-DROP TRIGGER IF EXISTS trg_cbc_parents_updated_at            ON cbc_parents;
-DROP TRIGGER IF EXISTS trg_cbc_students_updated_at           ON cbc_students;
-DROP TRIGGER IF EXISTS trg_cbc_students_counts_update        ON cbc_students;
-DROP TRIGGER IF EXISTS trg_cbc_students_counts_insert     ON cbc_students;
-DROP TRIGGER IF EXISTS trg_cbc_students_counts_delete     ON cbc_students;
-DROP FUNCTION IF EXISTS fn_sync_school_student_counts();
-DROP TRIGGER IF EXISTS trg_memberships_counts_update      ON memberships;
-DROP TRIGGER IF EXISTS trg_memberships_counts_insert      ON memberships;
-DROP TRIGGER IF EXISTS trg_memberships_counts_delete      ON memberships;
-DROP FUNCTION IF EXISTS fn_sync_school_staff_counts();
-DROP TRIGGER IF EXISTS trg_sync_invoice_payment_status_update ON payments;
-DROP TRIGGER IF EXISTS trg_sync_invoice_payment_status_insert ON payments;
-DROP TRIGGER IF EXISTS trg_sync_invoice_payment_status_delete  ON payments;
-DROP FUNCTION IF EXISTS fn_sync_invoice_payment_status();
+-- ============================================================================
+-- TRIGGERS (dropped before their tables / functions)
+-- ============================================================================
+
+DROP TRIGGER IF EXISTS trg_users_updated_at                       ON users;
+DROP TRIGGER IF EXISTS trg_cbc_schools_updated_at                 ON cbc_schools;
+DROP TRIGGER IF EXISTS trg_cbc_parents_updated_at                 ON cbc_parents;
+DROP TRIGGER IF EXISTS trg_cbc_students_updated_at                ON cbc_students;
+DROP TRIGGER IF EXISTS trg_cbc_students_counts_update             ON cbc_students;
+DROP TRIGGER IF EXISTS trg_cbc_students_counts_insert             ON cbc_students;
+DROP TRIGGER IF EXISTS trg_cbc_students_counts_delete             ON cbc_students;
+DROP TRIGGER IF EXISTS trg_memberships_counts_update              ON memberships;
+DROP TRIGGER IF EXISTS trg_memberships_counts_insert              ON memberships;
+DROP TRIGGER IF EXISTS trg_memberships_counts_delete              ON memberships;
+DROP TRIGGER IF EXISTS trg_sync_invoice_payment_status_update     ON payments;
+DROP TRIGGER IF EXISTS trg_sync_invoice_payment_status_insert     ON payments;
+DROP TRIGGER IF EXISTS trg_sync_invoice_payment_status_delete     ON payments;
+DROP TRIGGER IF EXISTS trg_auto_register_subject_teacher          ON cbc_timetable_slots;
+
+-- ============================================================================
+-- FUNCTIONS (dropped after their triggers, before dependent views/tables)
+-- ============================================================================
+
+DROP FUNCTION IF EXISTS fn_set_updated_at            CASCADE;
+DROP FUNCTION IF EXISTS fn_timerange                 CASCADE;
+DROP FUNCTION IF EXISTS fn_sync_invoice_payment_status CASCADE;
+DROP FUNCTION IF EXISTS fn_sync_school_staff_counts_insert  CASCADE;
+DROP FUNCTION IF EXISTS fn_sync_school_staff_counts_delete  CASCADE;
+DROP FUNCTION IF EXISTS fn_sync_school_staff_counts_update  CASCADE;
+DROP FUNCTION IF EXISTS fn_sync_school_student_counts_insert CASCADE;
+DROP FUNCTION IF EXISTS fn_sync_school_student_counts_delete CASCADE;
+DROP FUNCTION IF EXISTS fn_sync_school_student_counts_update CASCADE;
+DROP FUNCTION IF EXISTS fn_auto_register_subject_teacher     CASCADE;
+
+-- ============================================================================
+-- LAYER 10 — USER ACTIVE SCHOOL CONTEXT
+-- ============================================================================
+
+DROP TABLE IF EXISTS member_active_school CASCADE;
 
 -- ============================================================================
 -- LAYER 9 — REPORTING
@@ -93,6 +116,12 @@ DROP TABLE IF EXISTS cbc_classes CASCADE;
 DROP TABLE IF EXISTS cbc_schools CASCADE;
 
 -- ============================================================================
+-- COUNTS TABLE
+-- ============================================================================
+
+DROP TABLE IF EXISTS school_member_counts CASCADE;
+
+-- ============================================================================
 -- LAYER 1 — PLATFORM INFRASTRUCTURE
 -- ============================================================================
 
@@ -104,12 +133,6 @@ DROP TABLE IF EXISTS memberships CASCADE;
 DROP TABLE IF EXISTS sessions CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 DROP TABLE IF EXISTS tenants CASCADE;
-
--- ============================================================================
--- COUNTS TABLE
--- ============================================================================
-
-DROP TABLE IF EXISTS school_member_counts CASCADE;
 
 -- ============================================================================
 -- ENUMS
@@ -132,13 +155,6 @@ DROP TYPE IF EXISTS lrr_score_type CASCADE;
 DROP TYPE IF EXISTS portfolio_evidence_type CASCADE;
 DROP TYPE IF EXISTS knec_sync_status CASCADE;
 DROP TYPE IF EXISTS invoice_payment_status CASCADE;
-
--- ============================================================================
--- FUNCTIONS
--- ============================================================================
-
-DROP FUNCTION IF EXISTS fn_timerange CASCADE;
-DROP FUNCTION IF EXISTS fn_set_updated_at CASCADE;
 
 -- ============================================================================
 -- EXTENSIONS (optional — only drop if no other objects depend on it)

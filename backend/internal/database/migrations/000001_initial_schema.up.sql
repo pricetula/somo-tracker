@@ -92,6 +92,15 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 DO $$ BEGIN
+    CREATE TYPE teacher_role AS ENUM (
+        'PRIMARY_CLASS_TEACHER',
+        'SUBJECT_TEACHER',
+        'SUBSTITUTE_TEACHER'
+    );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
     CREATE TYPE cbc_school_type AS ENUM (
         'Public',
         'Private',
@@ -644,6 +653,9 @@ CREATE TABLE IF NOT EXISTS cbc_student_enrollments (
     CONSTRAINT fk_enrollments_tenant_student FOREIGN KEY (tenant_id, student_id) REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_enrollments_tenant_school FOREIGN KEY (tenant_id, school_id) REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_enrollments_tenant_school_term FOREIGN KEY (tenant_id, school_id, academic_term_id) REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE,
+    -- Data-detachment intent: when class_id is set to NULL (mid-term removal),
+    -- cbc_attendance_logs rows are preserved. The FK uses ON DELETE SET NULL
+    -- so that student attendance history is never cascaded away.
     CONSTRAINT fk_enrollments_tenant_class FOREIGN KEY (tenant_id, class_id) REFERENCES cbc_classes(tenant_id, id) ON DELETE SET NULL,
     CONSTRAINT unique_student_term_enrollment UNIQUE (student_id, academic_term_id)
 );
@@ -942,40 +954,49 @@ COMMENT ON TABLE performance_indicators IS
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS cbc_class_teachers (
-    id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id        UUID        NOT NULL,
-    class_id         UUID        NOT NULL,
-    user_id          UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    learning_area_id UUID        NOT NULL REFERENCES cbc_learning_areas(id) ON DELETE CASCADE,
-    is_primary       BOOLEAN     NOT NULL DEFAULT false,
-    created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    id               UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id        UUID         NOT NULL,
+    class_id         UUID         NOT NULL,
+    user_id          UUID         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    learning_area_id UUID         NULL REFERENCES cbc_learning_areas(id) ON DELETE SET NULL,
+    teacher_role     teacher_role NOT NULL DEFAULT 'SUBJECT_TEACHER',
+    created_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
 
     CONSTRAINT fk_cbc_class_teachers_tenant_class FOREIGN KEY (tenant_id, class_id) REFERENCES cbc_classes(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT chk_cct_primary_no_area CHECK (
+        teacher_role != 'PRIMARY_CLASS_TEACHER' OR learning_area_id IS NULL
+    ),
+    CONSTRAINT chk_cct_subject_area_required CHECK (
+        teacher_role != 'SUBJECT_TEACHER' OR learning_area_id IS NOT NULL
+    ),
     CONSTRAINT unique_cbc_class_teacher UNIQUE (class_id, user_id, learning_area_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_cbc_class_teachers_tenant   ON cbc_class_teachers (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_cbc_class_teachers_class_id ON cbc_class_teachers (class_id);
 CREATE INDEX IF NOT EXISTS idx_cbc_class_teachers_user_id  ON cbc_class_teachers (user_id);
-CREATE INDEX IF NOT EXISTS idx_cbc_class_teachers_area_id  ON cbc_class_teachers (learning_area_id);
+CREATE INDEX IF NOT EXISTS idx_cbc_class_teachers_role     ON cbc_class_teachers (teacher_role);
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_cbc_one_primary_per_area
-    ON cbc_class_teachers (class_id, learning_area_id) WHERE is_primary = true;
+-- Only one PRIMARY_CLASS_TEACHER per class
+CREATE UNIQUE INDEX IF NOT EXISTS idx_cbc_one_primary_per_class
+    ON cbc_class_teachers (class_id)
+    WHERE teacher_role = 'PRIMARY_CLASS_TEACHER';
 
 -- ---------------------------------------------------------------------------
 -- CBC ATTENDANCE PERIODS
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS cbc_attendance_periods (
-    id                   UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id            UUID        NOT NULL,
-    school_id            UUID        NOT NULL,
-    academic_term_id     UUID        NOT NULL,
-    class_id             UUID        NOT NULL,
-    cbc_learning_area_id UUID        NOT NULL REFERENCES cbc_learning_areas(id) ON DELETE CASCADE,
-    date_recorded        DATE        NOT NULL,
-    recorded_by          UUID        NOT NULL REFERENCES users(id),
-    created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    id                   UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id            UUID          NOT NULL,
+    school_id            UUID          NOT NULL,
+    academic_term_id     UUID          NOT NULL,
+    class_id             UUID          NOT NULL,
+    cbc_learning_area_id UUID          NOT NULL REFERENCES cbc_learning_areas(id) ON DELETE CASCADE,
+    date_recorded        DATE          NOT NULL,
+    recorded_by          UUID          NOT NULL REFERENCES users(id),
+    authorized_by_role   teacher_role  NULL,
+    created_at           TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
 
     CONSTRAINT uq_cbc_attendance_periods_tenant UNIQUE (tenant_id, id),
     CONSTRAINT fk_cbc_att_periods_tenant_school FOREIGN KEY (tenant_id, school_id) REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
@@ -1019,6 +1040,7 @@ CREATE TABLE IF NOT EXISTS cbc_timetable_slots (
     tenant_id            UUID        NOT NULL,
     school_id            UUID        NOT NULL,
     academic_year_id     UUID        NOT NULL,
+    academic_term_id     UUID        NOT NULL,
     class_id             UUID        NOT NULL,
     teacher_id           UUID        NOT NULL,
     cbc_learning_area_id UUID        NULL REFERENCES cbc_learning_areas(id) ON DELETE SET NULL,
@@ -1029,6 +1051,7 @@ CREATE TABLE IF NOT EXISTS cbc_timetable_slots (
 
     CONSTRAINT fk_cbc_timetable_tenant_school FOREIGN KEY (tenant_id, school_id) REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_cbc_timetable_tenant_year FOREIGN KEY (tenant_id, academic_year_id) REFERENCES academic_years(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_cbc_timetable_tenant_term FOREIGN KEY (tenant_id, school_id, academic_term_id) REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_cbc_timetable_tenant_class FOREIGN KEY (tenant_id, class_id) REFERENCES cbc_classes(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_cbc_timetable_tenant_teacher FOREIGN KEY (tenant_id, teacher_id) REFERENCES users(tenant_id, id) ON DELETE CASCADE
 );
@@ -1057,6 +1080,41 @@ DO $$ BEGIN
         );
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
+
+-- ---------------------------------------------------------------------------
+-- AUTO-REGISTER SUBJECT TEACHER TRIGGER
+-- When a timetable slot is inserted or updated with a learning_area_id,
+-- ensures the teacher is registered as a SUBJECT_TEACHER for that
+-- (class_id, learning_area_id) pair. Skips if they already exist with
+-- PRIMARY_CLASS_TEACHER or SUBSTITUTE_TEACHER roles.
+-- ---------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION fn_auto_register_subject_teacher()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Only act when a learning area is specified
+    IF NEW.cbc_learning_area_id IS NOT NULL THEN
+        -- Check if teacher is already registered on this class (any role)
+        IF NOT EXISTS (
+            SELECT 1 FROM cbc_class_teachers
+            WHERE tenant_id = NEW.tenant_id
+              AND class_id = NEW.class_id
+              AND user_id = NEW.teacher_id
+        ) THEN
+            -- Insert as SUBJECT_TEACHER
+            INSERT INTO cbc_class_teachers (tenant_id, class_id, user_id, learning_area_id, teacher_role)
+            VALUES (NEW.tenant_id, NEW.class_id, NEW.teacher_id, NEW.cbc_learning_area_id, 'SUBJECT_TEACHER');
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_auto_register_subject_teacher ON cbc_timetable_slots;
+CREATE TRIGGER trg_auto_register_subject_teacher
+    AFTER INSERT OR UPDATE OF teacher_id, cbc_learning_area_id ON cbc_timetable_slots
+    FOR EACH ROW
+    EXECUTE FUNCTION fn_auto_register_subject_teacher();
 
 -- ============================================================================
 -- LAYER 7 — CBC ASSESSMENT ARCHITECTURE

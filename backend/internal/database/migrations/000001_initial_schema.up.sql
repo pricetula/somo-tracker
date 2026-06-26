@@ -1533,6 +1533,80 @@ COMMENT ON TABLE member_active_school IS
      constrained to schools the user is an active member of via fk_mas_membership.';
 
 -- ============================================================================
+-- ACADEMIC CALENDAR ENHANCEMENTS (2026-06-26)
+--   - Optimistic locking, soft delete, audit trail
+--   - Updated partial unique indexes for soft-delete awareness
+--   - FK changed to RESTRICT (CASCADE incompatible with soft delete)
+-- ============================================================================
+
+-- ---------------------------------------------------------------------------
+-- ACADEMIC YEARS — Add versioning, soft delete, audit columns
+-- ---------------------------------------------------------------------------
+
+ALTER TABLE academic_years
+  ADD COLUMN IF NOT EXISTS version    INTEGER              NOT NULL DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS created_by UUID                 NOT NULL REFERENCES users(id),
+  ADD COLUMN IF NOT EXISTS updated_by UUID                 NOT NULL REFERENCES users(id);
+
+-- Drop the old partial unique index and replace with one that excludes
+-- soft-deleted rows. The old index used WHERE is_current = true;
+DROP INDEX IF EXISTS idx_one_current_year_per_school;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_one_current_year_per_school
+  ON academic_years (school_id)
+  WHERE is_current = TRUE AND deleted_at IS NULL;
+
+-- Rename / normalise the check constraint (was end_date > start_date)
+ALTER TABLE academic_years
+  DROP CONSTRAINT IF EXISTS chk_academic_year_dates,
+  ADD CONSTRAINT chk_year_dates CHECK (start_date < end_date);
+
+-- ---------------------------------------------------------------------------
+-- ACADEMIC TERMS — Add versioning, soft delete, audit columns
+-- ---------------------------------------------------------------------------
+
+ALTER TABLE academic_terms
+  ADD COLUMN IF NOT EXISTS version    INTEGER              NOT NULL DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS created_by UUID                 NOT NULL REFERENCES users(id),
+  ADD COLUMN IF NOT EXISTS updated_by UUID                 NOT NULL REFERENCES users(id);
+
+-- Drop old partial unique index on current term, replace with soft-delete-aware
+DROP INDEX IF EXISTS idx_one_current_term_per_year;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_one_current_term_per_year
+  ON academic_terms (academic_year_id)
+  WHERE is_current = TRUE AND deleted_at IS NULL;
+
+-- Drop old full unique constraint on (academic_year_id, term_number) and
+-- replace with a partial unique index that excludes soft-deleted rows.
+ALTER TABLE academic_terms
+  DROP CONSTRAINT IF EXISTS uq_academic_year_term_number;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_term_number_per_year
+  ON academic_terms (academic_year_id, term_number)
+  WHERE deleted_at IS NULL;
+
+-- Normalise check constraint names
+ALTER TABLE academic_terms
+  DROP CONSTRAINT IF EXISTS chk_academic_term_dates,
+  ADD CONSTRAINT chk_term_dates CHECK (start_date < end_date);
+
+ALTER TABLE academic_terms
+  DROP CONSTRAINT IF EXISTS chk_academic_term_number;
+
+-- chk_term_number already named correctly in the original CREATE TABLE, but
+-- in case the previous DROP removed it, re-add:
+ALTER TABLE academic_terms
+  ADD CONSTRAINT IF NOT EXISTS chk_term_number CHECK (term_number BETWEEN 1 AND 3);
+
+-- Change FK from CASCADE to RESTRICT (soft-delete replaces cascade deletion)
+ALTER TABLE academic_terms
+  DROP CONSTRAINT IF EXISTS fk_academic_terms_tenant_year,
+  ADD CONSTRAINT fk_academic_terms_tenant_year
+    FOREIGN KEY (tenant_id, academic_year_id)
+    REFERENCES academic_years(tenant_id, id)
+    ON DELETE RESTRICT;
+
+-- ============================================================================
 -- END OF MIGRATION
 -- ============================================================================
 

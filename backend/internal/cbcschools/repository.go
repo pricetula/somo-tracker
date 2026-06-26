@@ -43,15 +43,15 @@ func (r *PgRepository) ListByTenantID(ctx context.Context, tenantID, userID stri
 			cs.id, cs.tenant_id, cs.name, cs.knec_school_code,
 			cs.county, cs.sub_county, cs.ward,
 			cs.school_type::text, cs.is_active, cs.created_at, cs.updated_at,
-			COALESCE(mc.total_members, 0) AS total_members,
+			COALESCE(smc.admins, 0) AS admins,
+			COALESCE(smc.teachers, 0) AS teachers,
+			COALESCE(smc.nurses, 0) AS nurses,
+			COALESCE(smc.finance, 0) AS finance,
+			COALESCE(smc.parents, 0) AS parents,
+			COALESCE(smc.students, 0) AS students,
 			CASE WHEN mas.school_id IS NOT NULL THEN true ELSE false END AS is_member_active_school
 		FROM cbc_schools cs
-		LEFT JOIN (
-			SELECT school_id, COUNT(*) AS total_members
-			FROM memberships
-			WHERE is_active = true
-			GROUP BY school_id
-		) mc ON mc.school_id = cs.id
+		LEFT JOIN school_member_counts smc ON smc.school_id = cs.id
 		LEFT JOIN member_active_school mas ON mas.school_id = cs.id AND mas.user_id = $2
 		WHERE cs.tenant_id = $1
 		ORDER BY cs.name ASC
@@ -69,7 +69,8 @@ func (r *PgRepository) ListByTenantID(ctx context.Context, tenantID, userID stri
 			&s.ID, &s.TenantID, &s.Name, &s.KnecSchoolCode,
 			&s.County, &s.SubCounty, &s.Ward,
 			&s.SchoolType, &s.IsActive, &s.CreatedAt, &s.UpdatedAt,
-			&s.TotalMembers, &s.IsMemberActiveSchool,
+			&s.Admins, &s.Teachers, &s.Nurses, &s.Finance, &s.Parents, &s.Students,
+			&s.IsMemberActiveSchool,
 		); err != nil {
 			return nil, fmt.Errorf("cbcschools.Repository.ListByTenantID: scan: %w", err)
 		}

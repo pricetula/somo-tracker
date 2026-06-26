@@ -50,7 +50,12 @@ type SchoolWithMemberCount struct {
 	IsActive             bool      `db:"is_active"  json:"is_active"`
 	CreatedAt            time.Time `db:"created_at" json:"created_at"`
 	UpdatedAt            time.Time `db:"updated_at" json:"updated_at"`
-	TotalMembers         int       `db:"total_members" json:"total_members"`
+	Admins               int       `db:"admins"     json:"admins"`
+	Teachers             int       `db:"teachers"   json:"teachers"`
+	Nurses               int       `db:"nurses"     json:"nurses"`
+	Finance              int       `db:"finance"    json:"finance"`
+	Parents              int       `db:"parents"    json:"parents"`
+	Students             int       `db:"students"   json:"students"`
 	IsMemberActiveSchool bool      `db:"is_member_active_school" json:"is_member_active_school"`
 }
 

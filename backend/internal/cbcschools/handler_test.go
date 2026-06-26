@@ -132,12 +132,14 @@ func TestHandler_ListSchools_HappyPath(t *testing.T) {
 		{
 			ID: "school_001", TenantID: "tenant_001", Name: "Green Valley",
 			County: "Nairobi", SubCounty: "Westlands", SchoolType: "Public",
-			IsActive: true, CreatedAt: now, UpdatedAt: now, TotalMembers: 15,
+			IsActive: true, CreatedAt: now, UpdatedAt: now,
+			Teachers: 15,
 		},
 		{
 			ID: "school_002", TenantID: "tenant_001", Name: "Riverside Academy",
 			County: "Nairobi", SubCounty: "Kilimani", SchoolType: "Private",
-			IsActive: true, CreatedAt: now, UpdatedAt: now, TotalMembers: 42,
+			IsActive: true, CreatedAt: now, UpdatedAt: now,
+			Teachers: 40, Parents: 2,
 		},
 	}
 
@@ -167,8 +169,8 @@ func TestHandler_ListSchools_HappyPath(t *testing.T) {
 	if len(result.Schools) != 2 {
 		t.Fatalf("expected 2 schools, got %d", len(result.Schools))
 	}
-	if result.Schools[0].TotalMembers != 15 {
-		t.Fatalf("expected TotalMembers 15, got %d", result.Schools[0].TotalMembers)
+	if result.Schools[0].Teachers != 15 {
+		t.Fatalf("expected Teachers 15, got %d", result.Schools[0].Teachers)
 	}
 }
 

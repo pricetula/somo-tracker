@@ -957,12 +957,20 @@ func (r *PgRepository) ListParents(ctx context.Context, tenantID, schoolID strin
 }
 
 // ListClasses returns all active classes for a tenant+school.
+// After migration 000003, cbc_classes no longer has 'name' or 'stream' columns.
+// The display label is synthesized from grade_level and stream name.
 func (r *PgRepository) ListClasses(ctx context.Context, tenantID, schoolID string) ([]ClassRecord, error) {
 	const query = `
-		SELECT id::text, name
-		FROM cbc_classes
-		WHERE tenant_id = $1 AND school_id = $2 AND is_active = true
-		ORDER BY grade_level ASC, stream ASC, name ASC
+		SELECT
+			c.id::text,
+			c.grade_level || ' ' || COALESCE(s.name, '') AS display_name,
+			c.grade_level::text,
+			COALESCE(s.name, '') AS stream_name,
+			c.grade_level || ' ' || COALESCE(s.name, '') AS display_label
+		FROM cbc_classes c
+		JOIN cbc_streams s ON s.id = c.stream_id
+		WHERE c.tenant_id = $1 AND c.school_id = $2 AND c.is_active = true
+		ORDER BY c.grade_level ASC, s.name ASC
 	`
 
 	rows, err := r.pool.Query(ctx, query, tenantID, schoolID)
@@ -974,7 +982,7 @@ func (r *PgRepository) ListClasses(ctx context.Context, tenantID, schoolID strin
 	var results []ClassRecord
 	for rows.Next() {
 		var rec ClassRecord
-		if err := rows.Scan(&rec.ID, &rec.Name); err != nil {
+		if err := rows.Scan(&rec.ID, &rec.Name, &rec.GradeLevel, &rec.StreamName, &rec.DisplayLabel); err != nil {
 			return nil, fmt.Errorf("imports.Repository.ListClasses: scan: %w", err)
 		}
 		results = append(results, rec)

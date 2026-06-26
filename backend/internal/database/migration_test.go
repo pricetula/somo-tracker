@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
@@ -372,6 +373,370 @@ func TestMigrationsIntegration_ApplyAll(t *testing.T) {
 
 	// Seed data verification (CBC-only schema — education_systems and grades tables are not present)
 	t.Logf("seed migration applied successfully, %d tables created", len(tables))
+}
+
+// ============================================================================
+// M1 & M2 — Apply 000003 up, reverse, re-apply
+// ============================================================================
+
+func TestMigrationsIntegration_ApplyUpAndDown_M1_M2(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	ctx := context.Background()
+	pgC, hostPort, err := startPG(ctx)
+	require.NoError(t, err)
+	defer func() { _ = pgC.Terminate(ctx) }()
+
+	dbURL := fmt.Sprintf("postgres://somo_admin:somo_secure_password@%s/somotracker_test?sslmode=disable", hostPort)
+	pool, err := pgxpool.New(ctx, dbURL)
+	require.NoError(t, err)
+	defer pool.Close()
+
+	// Apply 000001 + 000002 first (prerequisite for 000003)
+	for _, f := range []string{"000001_initial_schema.up.sql", "000002_seed.up.sql"} {
+		sql, err := os.ReadFile(filepath.Join(migrationsDir(), f))
+		require.NoError(t, err, "read %s", f)
+		_, err = pool.Exec(ctx, string(sql))
+		require.NoError(t, err, "apply %s", f)
+	}
+
+	// ── M1: Apply 000003 up ──
+	upSQL, err := os.ReadFile(filepath.Join(migrationsDir(), "000003_cbc_streams_and_classes.up.sql"))
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, string(upSQL))
+	require.NoError(t, err, "M1: apply 000003 up")
+	t.Log("✓ M1: 000003 up migration executed cleanly")
+
+	// Verify cbc_streams table exists
+	var hasStreams bool
+	err = pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM information_schema.tables
+			WHERE table_schema = 'public' AND table_name = 'cbc_streams'
+		)
+	`).Scan(&hasStreams)
+	require.NoError(t, err)
+	require.True(t, hasStreams, "cbc_streams table should exist after 000003 up")
+
+	// Verify cbc_classes has stream_id column
+	var hasStreamID bool
+	err = pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM information_schema.columns
+			WHERE table_schema = 'public' AND table_name = 'cbc_classes' AND column_name = 'stream_id'
+		)
+	`).Scan(&hasStreamID)
+	require.NoError(t, err)
+	require.True(t, hasStreamID, "cbc_classes.stream_id should exist after 000003 up")
+
+	// Verify old columns are gone
+	var hasOldName bool
+	err = pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM information_schema.columns
+			WHERE table_schema = 'public' AND table_name = 'cbc_classes' AND column_name = 'name'
+		)
+	`).Scan(&hasOldName)
+	require.NoError(t, err)
+	require.False(t, hasOldName, "cbc_classes.name should be dropped after 000003 up")
+
+	var hasOldStream bool
+	err = pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM information_schema.columns
+			WHERE table_schema = 'public' AND table_name = 'cbc_classes' AND column_name = 'stream'
+		)
+	`).Scan(&hasOldStream)
+	require.NoError(t, err)
+	require.False(t, hasOldStream, "cbc_classes.stream should be dropped after 000003 up")
+
+	// ── M2: Apply 000003 down ──
+	downSQL, err := os.ReadFile(filepath.Join(migrationsDir(), "000003_cbc_streams_and_classes.down.sql"))
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, string(downSQL))
+	require.NoError(t, err, "M2: apply 000003 down")
+	t.Log("✓ M2: 000003 down migration executed cleanly")
+
+	// Verify cbc_streams is dropped
+	err = pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM information_schema.tables
+			WHERE table_schema = 'public' AND table_name = 'cbc_streams'
+		)
+	`).Scan(&hasStreams)
+	require.NoError(t, err)
+	require.False(t, hasStreams, "cbc_streams table should be dropped after 000003 down")
+
+	// Verify old columns restored
+	err = pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM information_schema.columns
+			WHERE table_schema = 'public' AND table_name = 'cbc_classes' AND column_name = 'name'
+		)
+	`).Scan(&hasOldName)
+	require.NoError(t, err)
+	require.True(t, hasOldName, "cbc_classes.name should be restored after 000003 down")
+
+	err = pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM information_schema.columns
+			WHERE table_schema = 'public' AND table_name = 'cbc_classes' AND column_name = 'stream'
+		)
+	`).Scan(&hasOldStream)
+	require.NoError(t, err)
+	require.True(t, hasOldStream, "cbc_classes.stream should be restored after 000003 down")
+
+	// Re-apply up (verify clean re-apply)
+	_, err = pool.Exec(ctx, string(upSQL))
+	require.NoError(t, err, "M2: re-apply 000003 up after down")
+	t.Log("✓ M2: re-apply 000003 up after down — clean")
+}
+
+// ============================================================================
+// M3–M13 — Constraint and index verification
+// ============================================================================
+
+func TestMigrationsIntegration_ConstraintsAndIndexes_M3_to_M13(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	ctx := context.Background()
+	pgC, hostPort, err := startPG(ctx)
+	require.NoError(t, err)
+	defer func() { _ = pgC.Terminate(ctx) }()
+
+	dbURL := fmt.Sprintf("postgres://somo_admin:somo_secure_password@%s/somotracker_test?sslmode=disable", hostPort)
+	pool, err := pgxpool.New(ctx, dbURL)
+	require.NoError(t, err)
+	defer pool.Close()
+
+	// Apply all migrations
+	for _, f := range []string{"000001_initial_schema.up.sql", "000002_seed.up.sql", "000003_cbc_streams_and_classes.up.sql"} {
+		sql, err := os.ReadFile(filepath.Join(migrationsDir(), f))
+		require.NoError(t, err, "read %s", f)
+		_, err = pool.Exec(ctx, string(sql))
+		require.NoError(t, err, "apply %s", f)
+	}
+
+	// ======================================================================
+	// Seed fixture data
+	// ======================================================================
+
+	// Tenants
+	tenantA := uuid.New().String()
+	tenantB := uuid.New().String()
+	for _, tid := range []string{tenantA, tenantB} {
+		_, err := pool.Exec(ctx, `INSERT INTO tenants (id, name, slug, stytch_org_id) VALUES ($1, $2, $3, $4)`,
+			tid, "Test Tenant", "tenant-slug-"+tid[:8], "stytch-"+tid[:8])
+		require.NoError(t, err)
+	}
+
+	// Schools
+	schoolA1 := uuid.New().String() // tenantA, school 1
+	schoolA2 := uuid.New().String() // tenantA, school 2
+	schoolB1 := uuid.New().String() // tenantB, school 1
+	for _, s := range []struct{ id, tid string }{
+		{schoolA1, tenantA}, {schoolA2, tenantA}, {schoolB1, tenantB},
+	} {
+		_, err := pool.Exec(ctx, `INSERT INTO cbc_schools (id, tenant_id, name, county, sub_county, school_type, is_active)
+			VALUES ($1, $2, $3, 'Nairobi', 'Westlands', 'Public', true)`,
+			s.id, s.tid, "School "+s.id[:8])
+		require.NoError(t, err)
+	}
+
+	// ======================================================================
+	// M3: uq_cbc_streams_tenant_school_name rejects duplicate stream name
+	//     within same tenant + school
+	// ======================================================================
+
+	stream1 := uuid.New().String()
+	_, err = pool.Exec(ctx, `INSERT INTO cbc_streams (id, tenant_id, school_id, name) VALUES ($1, $2, $3, 'Blue')`,
+		stream1, tenantA, schoolA1)
+	require.NoError(t, err, "M3: first insert should succeed")
+
+	_, err = pool.Exec(ctx, `INSERT INTO cbc_streams (id, tenant_id, school_id, name) VALUES ($1, $2, $3, 'Blue')`,
+		uuid.New().String(), tenantA, schoolA1)
+	require.Error(t, err, "M3: duplicate stream name should be rejected")
+	require.Contains(t, err.Error(), "uq_cbc_streams_tenant_school_name",
+		"M3: error should reference the unique constraint")
+	t.Log("✓ M3: duplicate stream name rejected by uq_cbc_streams_tenant_school_name")
+
+	// ======================================================================
+	// M4: Same stream name is allowed across different schools
+	// ======================================================================
+
+	_, err = pool.Exec(ctx, `INSERT INTO cbc_streams (id, tenant_id, school_id, name) VALUES ($1, $2, $3, 'Blue')`,
+		uuid.New().String(), tenantA, schoolA2)
+	require.NoError(t, err, "M4: same name in different school should succeed")
+	t.Log("✓ M4: same stream name allowed across different schools")
+
+	// ======================================================================
+	// M5: Same stream name is allowed across different tenants
+	// ======================================================================
+
+	_, err = pool.Exec(ctx, `INSERT INTO cbc_streams (id, tenant_id, school_id, name) VALUES ($1, $2, $3, 'Blue')`,
+		uuid.New().String(), tenantB, schoolB1)
+	require.NoError(t, err, "M5: same name in different tenant should succeed")
+	t.Log("✓ M5: same stream name allowed across different tenants")
+
+	// ======================================================================
+	// M6: Deleting a cbc_school does NOT cascade-delete its streams
+	//     (ON DELETE NO ACTION)
+	// ======================================================================
+
+	_, err = pool.Exec(ctx, `DELETE FROM cbc_schools WHERE id = $1`, schoolA1)
+	require.Error(t, err, "M6: deleting a school with streams should be blocked")
+	require.Contains(t, err.Error(), "fk_cbc_streams_school",
+		"M6: error should reference the FK constraint")
+	t.Log("✓ M6: deleting school with streams blocked by fk_cbc_streams_school (NO ACTION)")
+
+	// ======================================================================
+	// M7: Deleting a cbc_stream that is referenced by a class is blocked
+	//     at DB level (ON DELETE RESTRICT)
+	// ======================================================================
+
+	// Need an academic year and term first
+	yearID := uuid.New().String()
+	termID := uuid.New().String()
+	_, err = pool.Exec(ctx, `INSERT INTO academic_years (id, tenant_id, school_id, name, start_date, end_date)
+		VALUES ($1, $2, $3, '2026', '2026-01-01', '2026-12-31')`,
+		yearID, tenantA, schoolA2)
+	require.NoError(t, err)
+
+	_, err = pool.Exec(ctx, `INSERT INTO academic_terms (id, tenant_id, school_id, academic_year_id, name, term_number, start_date, end_date)
+		VALUES ($1, $2, $3, $4, 'Term 1', 1, '2026-01-01', '2026-04-30')`,
+		termID, tenantA, schoolA2, yearID)
+	require.NoError(t, err)
+
+	streamRef := uuid.New().String()
+	_, err = pool.Exec(ctx, `INSERT INTO cbc_streams (id, tenant_id, school_id, name) VALUES ($1, $2, $3, 'Red')`,
+		streamRef, tenantA, schoolA2)
+	require.NoError(t, err)
+
+	classID := uuid.New().String()
+	_, err = pool.Exec(ctx, `INSERT INTO cbc_classes (id, tenant_id, school_id, academic_year_id, grade_level, stream_id)
+		VALUES ($1, $2, $3, $4, 'G4', $5)`,
+		classID, tenantA, schoolA2, yearID, streamRef)
+	require.NoError(t, err)
+
+	_, err = pool.Exec(ctx, `DELETE FROM cbc_streams WHERE id = $1`, streamRef)
+	require.Error(t, err, "M7: deleting a stream referenced by class should be blocked")
+	require.Contains(t, err.Error(), "fk_cbc_classes_stream",
+		"M7: error should reference the FK constraint on cbc_classes.stream_id")
+	t.Log("✓ M7: deleting stream with class references blocked by fk_cbc_classes_stream (RESTRICT)")
+
+	// ======================================================================
+	// M8: Deleting a cbc_stream with no class references succeeds at DB level
+	// ======================================================================
+
+	streamFree := uuid.New().String()
+	_, err = pool.Exec(ctx, `INSERT INTO cbc_streams (id, tenant_id, school_id, name) VALUES ($1, $2, $3, 'Green')`,
+		streamFree, tenantA, schoolA2)
+	require.NoError(t, err)
+
+	result, err := pool.Exec(ctx, `DELETE FROM cbc_streams WHERE id = $1`, streamFree)
+	require.NoError(t, err, "M8: deleting stream without class refs should succeed")
+	require.Equal(t, int64(1), result.RowsAffected(), "M8: exactly one row should be deleted")
+	t.Log("✓ M8: deleting stream with no class references succeeds")
+
+	// ======================================================================
+	// M9: uq_cbc_classes_tier_stream rejects duplicate
+	//     (school_id, academic_year_id, grade_level, stream_id)
+	// ======================================================================
+
+	// Create a fresh stream
+	streamDup := uuid.New().String()
+	_, err = pool.Exec(ctx, `INSERT INTO cbc_streams (id, tenant_id, school_id, name) VALUES ($1, $2, $3, 'Orange')`,
+		streamDup, tenantA, schoolA2)
+	require.NoError(t, err)
+
+	classDup1 := uuid.New().String()
+	_, err = pool.Exec(ctx, `INSERT INTO cbc_classes (id, tenant_id, school_id, academic_year_id, grade_level, stream_id)
+		VALUES ($1, $2, $3, $4, 'G4', $5)`,
+		classDup1, tenantA, schoolA2, yearID, streamDup)
+	require.NoError(t, err, "M9: first class insert should succeed")
+
+	classDup2 := uuid.New().String()
+	_, err = pool.Exec(ctx, `INSERT INTO cbc_classes (id, tenant_id, school_id, academic_year_id, grade_level, stream_id)
+		VALUES ($1, $2, $3, $4, 'G4', $5)`,
+		classDup2, tenantA, schoolA2, yearID, streamDup)
+	require.Error(t, err, "M9: duplicate (school, year, grade, stream) should be rejected")
+	require.Contains(t, err.Error(), "uq_cbc_classes_tier_stream",
+		"M9: error should reference the unique constraint")
+	t.Log("✓ M9: duplicate class (school, year, grade, stream) rejected")
+
+	// ======================================================================
+	// M10: Same grade + stream combination is allowed across different
+	//      academic years
+	// ======================================================================
+
+	yearID2 := uuid.New().String()
+	_, err = pool.Exec(ctx, `INSERT INTO academic_years (id, tenant_id, school_id, name, start_date, end_date)
+		VALUES ($1, $2, $3, '2027', '2027-01-01', '2027-12-31')`,
+		yearID2, tenantA, schoolA2)
+	require.NoError(t, err)
+
+	classDiffYear := uuid.New().String()
+	_, err = pool.Exec(ctx, `INSERT INTO cbc_classes (id, tenant_id, school_id, academic_year_id, grade_level, stream_id)
+		VALUES ($1, $2, $3, $4, 'G4', $5)`,
+		classDiffYear, tenantA, schoolA2, yearID2, streamDup)
+	require.NoError(t, err, "M10: same grade+stream, different year should succeed")
+	t.Log("✓ M10: same grade+stream allowed across different academic years")
+
+	// ======================================================================
+	// M11: Same grade + stream combination is allowed across different schools
+	// ======================================================================
+
+	yearA1 := uuid.New().String() // academic year for schoolA1
+	_, err = pool.Exec(ctx, `INSERT INTO academic_years (id, tenant_id, school_id, name, start_date, end_date)
+		VALUES ($1, $2, $3, '2026', '2026-01-01', '2026-12-31')`,
+		yearA1, tenantA, schoolA1)
+	require.NoError(t, err)
+
+	// Create a stream in schoolA1
+	streamA1 := uuid.New().String()
+	_, err = pool.Exec(ctx, `INSERT INTO cbc_streams (id, tenant_id, school_id, name) VALUES ($1, $2, $3, 'Purple')`,
+		streamA1, tenantA, schoolA1)
+	require.NoError(t, err)
+
+	// Create class with same (grade, stream) in schoolA1
+	classDiffSchool := uuid.New().String()
+	_, err = pool.Exec(ctx, `INSERT INTO cbc_classes (id, tenant_id, school_id, academic_year_id, grade_level, stream_id)
+		VALUES ($1, $2, $3, $4, 'G4', $5)`,
+		classDiffSchool, tenantA, schoolA1, yearA1, streamA1)
+	require.NoError(t, err, "M11: same grade+stream, different school should succeed")
+	t.Log("✓ M11: same grade+stream allowed across different schools")
+
+	// ======================================================================
+	// M12: idx_cbc_classes_school_year_grade_stream exists after migration
+	// M13: idx_cbc_streams_school_id and idx_cbc_streams_tenant_id exist
+	// ======================================================================
+
+	expectedIndexes := []struct {
+		indexName string
+		tableName string
+		label     string
+	}{
+		{"idx_cbc_classes_school_year_grade_stream", "cbc_classes", "M12"},
+		{"idx_cbc_streams_school_id", "cbc_streams", "M13"},
+		{"idx_cbc_streams_tenant_id", "cbc_streams", "M13"},
+	}
+
+	for _, idx := range expectedIndexes {
+		var exists bool
+		err := pool.QueryRow(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM pg_indexes
+				WHERE schemaname = 'public' AND tablename = $1 AND indexname = $2
+			)
+		`, idx.tableName, idx.indexName).Scan(&exists)
+		require.NoError(t, err, "%s: check index %s", idx.label, idx.indexName)
+		require.True(t, exists, "%s: index %s should exist on %s", idx.label, idx.indexName, idx.tableName)
+		t.Logf("✓ %s: index %s exists on %s", idx.label, idx.indexName, idx.tableName)
+	}
 }
 
 // startPG starts a PostgreSQL testcontainer and returns the container + host:port.

@@ -33,7 +33,9 @@ import (
 	"somotracker/backend/internal/academicyears"
 	"somotracker/backend/internal/activeschool"
 	"somotracker/backend/internal/auth"
+	"somotracker/backend/internal/cbcclasses"
 	"somotracker/backend/internal/cbcschools"
+	"somotracker/backend/internal/cbcstreams"
 	"somotracker/backend/internal/config"
 	"somotracker/backend/internal/database"
 	"somotracker/backend/internal/imports"
@@ -91,6 +93,8 @@ func main() {
 		academicyears.Module,
 		tenant.Module,
 		cbcschools.Module,
+		cbcstreams.Module,
+		cbcclasses.Module,
 		auth.Module,
 		invitations.Module,
 		members.Module,
@@ -190,6 +194,8 @@ func registerApp(
 	membersHandler *members.Handler,
 	importsHandler *imports.Handler,
 	cbcschoolsHandler *cbcschools.Handler,
+	cbcstreamsHandler *cbcstreams.Handler,
+	cbcclassesHandler *cbcclasses.Handler,
 	activeschoolHandler *activeschool.Handler,
 ) {
 	app := fiber.New(fiber.Config{
@@ -229,6 +235,8 @@ func registerApp(
 			invitationsHandler.RegisterRoutes(app)
 			importsHandler.RegisterRoutes(app)
 			cbcschoolsHandler.RegisterRoutes(app)
+			cbcstreamsHandler.RegisterRoutes(app)
+			cbcclassesHandler.RegisterRoutes(app)
 			activeschoolHandler.RegisterRoutes(app)
 
 			// Start Fiber in a non-blocking goroutine

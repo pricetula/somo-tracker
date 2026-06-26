@@ -301,8 +301,11 @@ type ParentRecord struct {
 }
 
 type ClassRecord struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+	GradeLevel   string `json:"grade_level"`
+	StreamName   string `json:"stream_name"`
+	DisplayLabel string `json:"display_label"`
 }
 
 // ─── Existing Student Response Type ────────────────────────────────────

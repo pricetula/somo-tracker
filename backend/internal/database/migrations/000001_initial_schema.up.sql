@@ -361,12 +361,13 @@ CREATE TABLE IF NOT EXISTS academic_terms (
     CONSTRAINT chk_academic_term_number CHECK (term_number BETWEEN 1 AND 3),
     CONSTRAINT uq_academic_terms_tenant UNIQUE (tenant_id, id),
     CONSTRAINT uq_academic_terms_tenant_school UNIQUE (tenant_id, school_id, id),
+    CONSTRAINT uq_academic_year_term_number UNIQUE (academic_year_id, term_number), 
     CONSTRAINT fk_academic_terms_tenant_school FOREIGN KEY (tenant_id, school_id) REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_academic_terms_tenant_year FOREIGN KEY (tenant_id, academic_year_id) REFERENCES academic_years(tenant_id, id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_academic_terms_tenant_id ON academic_terms (tenant_id);
-CREATE INDEX IF NOT EXISTS idx_academic_terms_school_id ON academic_terms (school_id);
+CREATE INDEX IF NOT EXISTS idx_academic_terms_school_id ON academic_years (school_id);
 CREATE INDEX IF NOT EXISTS idx_academic_terms_year_id   ON academic_terms (academic_year_id);
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_one_current_term_per_year

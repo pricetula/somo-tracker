@@ -75,6 +75,7 @@ All schema changes go directly into:
 | Date | Change |
 |------|--------|
 | 2026-06-16 | Merged `000003` (`is_final`) and `000004` (`stream`) into `000001_initial_schema.up.sql` as inline column declarations. |
+| 2026-06-26 | Squashed `000003_cbc_streams_and_classes` into `000001_initial_schema.up.sql`: added `cbc_streams` table, refactored `cbc_classes` to use `stream_id` FK, replaced `uq_cbc_classes_tenant` with `uq_cbc_classes_tier_stream`. |
 
 ---
 

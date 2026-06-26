@@ -22,6 +22,7 @@ DROP TRIGGER IF EXISTS trg_memberships_counts_delete              ON memberships
 DROP TRIGGER IF EXISTS trg_sync_invoice_payment_status_update     ON payments;
 DROP TRIGGER IF EXISTS trg_sync_invoice_payment_status_insert     ON payments;
 DROP TRIGGER IF EXISTS trg_sync_invoice_payment_status_delete     ON payments;
+DROP TRIGGER IF EXISTS trg_cbc_streams_updated_at                 ON cbc_streams;
 DROP TRIGGER IF EXISTS trg_auto_register_subject_teacher          ON cbc_timetable_slots;
 
 -- ============================================================================
@@ -112,6 +113,7 @@ DROP TABLE IF EXISTS cbc_student_enrollments CASCADE;
 DROP TABLE IF EXISTS cbc_student_parents CASCADE;
 DROP TABLE IF EXISTS cbc_students CASCADE;
 DROP TABLE IF EXISTS cbc_parents CASCADE;
+DROP TABLE IF EXISTS cbc_streams CASCADE;
 DROP TABLE IF EXISTS cbc_classes CASCADE;
 DROP TABLE IF EXISTS cbc_schools CASCADE;
 

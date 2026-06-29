@@ -162,25 +162,25 @@ func seedSchool(t *testing.T, ctx context.Context, pool *pgxpool.Pool, id, tenan
 	}
 }
 
-func seedYear(t *testing.T, ctx context.Context, pool *pgxpool.Pool, id, tenantID, schoolID string) {
+func seedYear(t *testing.T, ctx context.Context, pool *pgxpool.Pool, id, tenantID, schoolID, userID string) {
 	t.Helper()
 	_, err := pool.Exec(ctx, `
 		INSERT INTO academic_years (id, tenant_id, school_id, name, start_date, end_date, is_current, created_by, updated_by)
-		VALUES ($1, $2, $3, '2026', '2026-01-01', '2026-12-31', true, '00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000000')
+		VALUES ($1, $2, $3, '2026', '2026-01-01', '2026-12-31', true, $4, $4)
 		ON CONFLICT (id) DO NOTHING
-	`, id, tenantID, schoolID)
+	`, id, tenantID, schoolID, userID)
 	if err != nil {
 		t.Fatalf("seed year: %v", err)
 	}
 }
 
-func seedTerm(t *testing.T, ctx context.Context, pool *pgxpool.Pool, id, tenantID, schoolID, yearID string) {
+func seedTerm(t *testing.T, ctx context.Context, pool *pgxpool.Pool, id, tenantID, schoolID, yearID, userID string) {
 	t.Helper()
 	_, err := pool.Exec(ctx, `
 		INSERT INTO academic_terms (id, tenant_id, school_id, academic_year_id, name, term_number, start_date, end_date, is_current, created_by, updated_by)
-		VALUES ($1, $2, $3, $4, 'Term 1', 1, '2026-01-01', '2026-04-30', true, '00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000000')
+		VALUES ($1, $2, $3, $4, 'Term 1', 1, '2026-01-01', '2026-04-30', true, $5, $5)
 		ON CONFLICT (id) DO NOTHING
-	`, id, tenantID, schoolID, yearID)
+	`, id, tenantID, schoolID, yearID, userID)
 	if err != nil {
 		t.Fatalf("seed term: %v", err)
 	}
@@ -270,12 +270,12 @@ func seedAttendancePeriod(t *testing.T, ctx context.Context, pool *pgxpool.Pool,
 	}
 }
 
-func seedAttendanceLog(t *testing.T, ctx context.Context, pool *pgxpool.Pool, tenantID, periodID, studentID string) {
+func seedAttendanceLog(t *testing.T, ctx context.Context, pool *pgxpool.Pool, tenantID, periodID, studentID, userID string) {
 	t.Helper()
 	_, err := pool.Exec(ctx, `
 		INSERT INTO cbc_attendance_logs (tenant_id, cbc_attendance_period_id, student_id, status, recorded_by)
-		VALUES ($1, $2, $3, 'PRESENT', '00000000-0000-0000-0000-000000000000')
-	`, tenantID, periodID, studentID)
+		VALUES ($1, $2, $3, 'PRESENT', $4)
+	`, tenantID, periodID, studentID, userID)
 	if err != nil {
 		t.Fatalf("seed attendance log: %v", err)
 	}
@@ -307,16 +307,16 @@ func TestIntegration_DataSafety_DetachStudentPreservesLogs(t *testing.T) {
 
 	seedTenant(t, ctx, pool, tenantID)
 	seedSchool(t, ctx, pool, schoolID, tenantID)
-	seedYear(t, ctx, pool, yearID, tenantID, schoolID)
-	seedTerm(t, ctx, pool, termID, tenantID, schoolID, yearID)
+	seedUser(t, ctx, pool, userID, tenantID, "teacher@test.com")
+	seedYear(t, ctx, pool, yearID, tenantID, schoolID, userID)
+	seedTerm(t, ctx, pool, termID, tenantID, schoolID, yearID, userID)
 	seedStream(t, ctx, pool, streamID, tenantID, schoolID)
 	seedClass(t, ctx, pool, classID, tenantID, schoolID, yearID, streamID)
 	seedStudent(t, ctx, pool, studentID, tenantID, schoolID)
-	seedUser(t, ctx, pool, userID, tenantID, "teacher@test.com")
 	seedLearningArea(t, ctx, pool, areaID, tenantID, schoolID)
 	seedEnrollment(t, ctx, pool, enrollmentID, tenantID, studentID, schoolID, termID, classID)
 	seedAttendancePeriod(t, ctx, pool, periodID, tenantID, schoolID, termID, classID, areaID, userID, "2026-06-26")
-	seedAttendanceLog(t, ctx, pool, tenantID, periodID, studentID)
+	seedAttendanceLog(t, ctx, pool, tenantID, periodID, studentID, userID)
 
 	t.Run("setting class_id to NULL does not delete attendance logs", func(t *testing.T) {
 		// Detach student from class
@@ -380,16 +380,16 @@ func TestIntegration_DataSafety_CascadeDeletes(t *testing.T) {
 
 	seedTenant(t, ctx, pool, tenantID)
 	seedSchool(t, ctx, pool, schoolID, tenantID)
-	seedYear(t, ctx, pool, yearID, tenantID, schoolID)
-	seedTerm(t, ctx, pool, termID, tenantID, schoolID, yearID)
+	seedUser(t, ctx, pool, userID, tenantID, "teacher@test.com")
+	seedYear(t, ctx, pool, yearID, tenantID, schoolID, userID)
+	seedTerm(t, ctx, pool, termID, tenantID, schoolID, yearID, userID)
 	seedStream(t, ctx, pool, streamID, tenantID, schoolID)
 	seedClass(t, ctx, pool, classID, tenantID, schoolID, yearID, streamID)
 	seedStudent(t, ctx, pool, studentID, tenantID, schoolID)
-	seedUser(t, ctx, pool, userID, tenantID, "teacher@test.com")
 	seedLearningArea(t, ctx, pool, areaID, tenantID, schoolID)
 	seedEnrollment(t, ctx, pool, enrollmentID, tenantID, studentID, schoolID, termID, classID)
 	seedAttendancePeriod(t, ctx, pool, periodID, tenantID, schoolID, termID, classID, areaID, userID, "2026-06-26")
-	seedAttendanceLog(t, ctx, pool, tenantID, periodID, studentID)
+	seedAttendanceLog(t, ctx, pool, tenantID, periodID, studentID, userID)
 
 	t.Run("deleting an attendance period cascades to its child logs", func(t *testing.T) {
 		// Delete the period
@@ -419,7 +419,7 @@ func TestIntegration_DataSafety_CascadeDeletes(t *testing.T) {
 
 		seedClass(t, ctx, pool, class2ID, tenantID, schoolID, yearID, streamID)
 		seedAttendancePeriod(t, ctx, pool, period2ID, tenantID, schoolID, termID, class2ID, areaID, userID, "2026-06-27")
-		seedAttendanceLog(t, ctx, pool, tenantID, period2ID, studentID)
+		seedAttendanceLog(t, ctx, pool, tenantID, period2ID, studentID, userID)
 
 		// Delete the class
 		_, err := pool.Exec(ctx, `DELETE FROM cbc_classes WHERE id = $1`, class2ID)
@@ -493,12 +493,12 @@ func TestIntegration_TenantIsolation_Attendance(t *testing.T) {
 	// Seed Tenant A
 	seedTenant(t, ctx, pool, tenantA)
 	seedSchool(t, ctx, pool, schoolA, tenantA)
-	seedYear(t, ctx, pool, yearA, tenantA, schoolA)
-	seedTerm(t, ctx, pool, termA, tenantA, schoolA, yearA)
+	seedUser(t, ctx, pool, userA, tenantA, "admin-a@test.com")
+	seedYear(t, ctx, pool, yearA, tenantA, schoolA, userA)
+	seedTerm(t, ctx, pool, termA, tenantA, schoolA, yearA, userA)
 	seedStream(t, ctx, pool, streamA, tenantA, schoolA)
 	seedClass(t, ctx, pool, classA, tenantA, schoolA, yearA, streamA)
 	seedStudent(t, ctx, pool, studentA, tenantA, schoolA)
-	seedUser(t, ctx, pool, userA, tenantA, "admin-a@test.com")
 	seedLearningArea(t, ctx, pool, areaA, tenantA, schoolA)
 	seedEnrollment(t, ctx, pool, enrollA, tenantA, studentA, schoolA, termA, classA)
 	seedAttendancePeriod(t, ctx, pool, periodA, tenantA, schoolA, termA, classA, areaA, userA, "2026-06-26")
@@ -506,12 +506,12 @@ func TestIntegration_TenantIsolation_Attendance(t *testing.T) {
 	// Seed Tenant B
 	seedTenant(t, ctx, pool, tenantB)
 	seedSchool(t, ctx, pool, schoolB, tenantB)
-	seedYear(t, ctx, pool, yearB, tenantB, schoolB)
-	seedTerm(t, ctx, pool, termB, tenantB, schoolB, yearB)
+	seedUser(t, ctx, pool, userB, tenantB, "admin-b@test.com")
+	seedYear(t, ctx, pool, yearB, tenantB, schoolB, userB)
+	seedTerm(t, ctx, pool, termB, tenantB, schoolB, yearB, userB)
 	seedStream(t, ctx, pool, streamB, tenantB, schoolB)
 	seedClass(t, ctx, pool, classB, tenantB, schoolB, yearB, streamB)
 	seedStudent(t, ctx, pool, studentB, tenantB, schoolB)
-	seedUser(t, ctx, pool, userB, tenantB, "admin-b@test.com")
 	seedLearningArea(t, ctx, pool, areaB, tenantB, schoolB)
 	seedEnrollment(t, ctx, pool, enrollB, tenantB, studentB, schoolB, termB, classB)
 	seedAttendancePeriod(t, ctx, pool, periodB, tenantB, schoolB, termB, classB, areaB, userB, "2026-06-26")
@@ -585,15 +585,15 @@ func TestIntegration_CrossSchoolIsolation_SameTenant(t *testing.T) {
 	seedTenant(t, ctx, pool, tenantID)
 	seedSchool(t, ctx, pool, schoolX, tenantID)
 	seedSchool(t, ctx, pool, schoolY, tenantID)
-	seedYear(t, ctx, pool, yearID, tenantID, schoolX)
-	seedTerm(t, ctx, pool, termID, tenantID, schoolX, yearID)
+	seedUser(t, ctx, pool, adminUserID, tenantID, "admin@test.com")
+	seedYear(t, ctx, pool, yearID, tenantID, schoolX, adminUserID)
+	seedTerm(t, ctx, pool, termID, tenantID, schoolX, yearID, adminUserID)
 	seedStream(t, ctx, pool, streamX, tenantID, schoolX)
 	seedStream(t, ctx, pool, streamY, tenantID, schoolY)
 	seedClass(t, ctx, pool, classX, tenantID, schoolX, yearID, streamX)
 	seedClass(t, ctx, pool, classY, tenantID, schoolY, yearID, streamY)
 	seedLearningArea(t, ctx, pool, areaX, tenantID, schoolX)
 	seedLearningArea(t, ctx, pool, areaY, tenantID, schoolY)
-	seedUser(t, ctx, pool, adminUserID, tenantID, "admin@test.com")
 
 	// Assign admin as SCHOOL_ADMIN in School X only
 	_, err := pool.Exec(ctx, `

@@ -376,123 +376,10 @@ func TestMigrationsIntegration_ApplyAll(t *testing.T) {
 }
 
 // ============================================================================
-// M1 & M2 — Apply 000003 up, reverse, re-apply
+// M1 & M2 — Squashed into 000001 (000003_cbc_streams_and_classes was merged
+// into 000001_initial_schema.up.sql on 2026-06-26). These tests are no longer
+// relevant as a standalone migration.
 // ============================================================================
-
-func TestMigrationsIntegration_ApplyUpAndDown_M1_M2(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
-	}
-
-	ctx := context.Background()
-	pgC, hostPort, err := startPG(ctx)
-	require.NoError(t, err)
-	defer func() { _ = pgC.Terminate(ctx) }()
-
-	dbURL := fmt.Sprintf("postgres://somo_admin:somo_secure_password@%s/somotracker_test?sslmode=disable", hostPort)
-	pool, err := pgxpool.New(ctx, dbURL)
-	require.NoError(t, err)
-	defer pool.Close()
-
-	// Apply 000001 + 000002 first (prerequisite for 000003)
-	for _, f := range []string{"000001_initial_schema.up.sql", "000002_seed.up.sql"} {
-		sql, err := os.ReadFile(filepath.Join(migrationsDir(), f))
-		require.NoError(t, err, "read %s", f)
-		_, err = pool.Exec(ctx, string(sql))
-		require.NoError(t, err, "apply %s", f)
-	}
-
-	// ── M1: Apply 000003 up ──
-	upSQL, err := os.ReadFile(filepath.Join(migrationsDir(), "000003_cbc_streams_and_classes.up.sql"))
-	require.NoError(t, err)
-	_, err = pool.Exec(ctx, string(upSQL))
-	require.NoError(t, err, "M1: apply 000003 up")
-	t.Log("✓ M1: 000003 up migration executed cleanly")
-
-	// Verify cbc_streams table exists
-	var hasStreams bool
-	err = pool.QueryRow(ctx, `
-		SELECT EXISTS (
-			SELECT 1 FROM information_schema.tables
-			WHERE table_schema = 'public' AND table_name = 'cbc_streams'
-		)
-	`).Scan(&hasStreams)
-	require.NoError(t, err)
-	require.True(t, hasStreams, "cbc_streams table should exist after 000003 up")
-
-	// Verify cbc_classes has stream_id column
-	var hasStreamID bool
-	err = pool.QueryRow(ctx, `
-		SELECT EXISTS (
-			SELECT 1 FROM information_schema.columns
-			WHERE table_schema = 'public' AND table_name = 'cbc_classes' AND column_name = 'stream_id'
-		)
-	`).Scan(&hasStreamID)
-	require.NoError(t, err)
-	require.True(t, hasStreamID, "cbc_classes.stream_id should exist after 000003 up")
-
-	// Verify old columns are gone
-	var hasOldName bool
-	err = pool.QueryRow(ctx, `
-		SELECT EXISTS (
-			SELECT 1 FROM information_schema.columns
-			WHERE table_schema = 'public' AND table_name = 'cbc_classes' AND column_name = 'name'
-		)
-	`).Scan(&hasOldName)
-	require.NoError(t, err)
-	require.False(t, hasOldName, "cbc_classes.name should be dropped after 000003 up")
-
-	var hasOldStream bool
-	err = pool.QueryRow(ctx, `
-		SELECT EXISTS (
-			SELECT 1 FROM information_schema.columns
-			WHERE table_schema = 'public' AND table_name = 'cbc_classes' AND column_name = 'stream'
-		)
-	`).Scan(&hasOldStream)
-	require.NoError(t, err)
-	require.False(t, hasOldStream, "cbc_classes.stream should be dropped after 000003 up")
-
-	// ── M2: Apply 000003 down ──
-	downSQL, err := os.ReadFile(filepath.Join(migrationsDir(), "000003_cbc_streams_and_classes.down.sql"))
-	require.NoError(t, err)
-	_, err = pool.Exec(ctx, string(downSQL))
-	require.NoError(t, err, "M2: apply 000003 down")
-	t.Log("✓ M2: 000003 down migration executed cleanly")
-
-	// Verify cbc_streams is dropped
-	err = pool.QueryRow(ctx, `
-		SELECT EXISTS (
-			SELECT 1 FROM information_schema.tables
-			WHERE table_schema = 'public' AND table_name = 'cbc_streams'
-		)
-	`).Scan(&hasStreams)
-	require.NoError(t, err)
-	require.False(t, hasStreams, "cbc_streams table should be dropped after 000003 down")
-
-	// Verify old columns restored
-	err = pool.QueryRow(ctx, `
-		SELECT EXISTS (
-			SELECT 1 FROM information_schema.columns
-			WHERE table_schema = 'public' AND table_name = 'cbc_classes' AND column_name = 'name'
-		)
-	`).Scan(&hasOldName)
-	require.NoError(t, err)
-	require.True(t, hasOldName, "cbc_classes.name should be restored after 000003 down")
-
-	err = pool.QueryRow(ctx, `
-		SELECT EXISTS (
-			SELECT 1 FROM information_schema.columns
-			WHERE table_schema = 'public' AND table_name = 'cbc_classes' AND column_name = 'stream'
-		)
-	`).Scan(&hasOldStream)
-	require.NoError(t, err)
-	require.True(t, hasOldStream, "cbc_classes.stream should be restored after 000003 down")
-
-	// Re-apply up (verify clean re-apply)
-	_, err = pool.Exec(ctx, string(upSQL))
-	require.NoError(t, err, "M2: re-apply 000003 up after down")
-	t.Log("✓ M2: re-apply 000003 up after down — clean")
-}
 
 // ============================================================================
 // M3–M13 — Constraint and index verification
@@ -513,8 +400,8 @@ func TestMigrationsIntegration_ConstraintsAndIndexes_M3_to_M13(t *testing.T) {
 	require.NoError(t, err)
 	defer pool.Close()
 
-	// Apply all migrations
-	for _, f := range []string{"000001_initial_schema.up.sql", "000002_seed.up.sql", "000003_cbc_streams_and_classes.up.sql"} {
+	// Apply all migrations (000003 was squashed into 000001)
+	for _, f := range []string{"000001_initial_schema.up.sql", "000002_seed.up.sql"} {
 		sql, err := os.ReadFile(filepath.Join(migrationsDir(), f))
 		require.NoError(t, err, "read %s", f)
 		_, err = pool.Exec(ctx, string(sql))
@@ -598,17 +485,23 @@ func TestMigrationsIntegration_ConstraintsAndIndexes_M3_to_M13(t *testing.T) {
 	//     at DB level (ON DELETE RESTRICT)
 	// ======================================================================
 
+	// Create a system user for created_by/updated_by FK references
+	systemUserID := uuid.New().String()
+	_, err = pool.Exec(ctx, `INSERT INTO users (id, email, tenant_id, full_name) VALUES ($1, $2, $3, 'System')`,
+		systemUserID, "system-"+systemUserID+"@test.com", tenantA)
+	require.NoError(t, err)
+
 	// Need an academic year and term first
 	yearID := uuid.New().String()
 	termID := uuid.New().String()
-	_, err = pool.Exec(ctx, `INSERT INTO academic_years (id, tenant_id, school_id, name, start_date, end_date)
-		VALUES ($1, $2, $3, '2026', '2026-01-01', '2026-12-31')`,
-		yearID, tenantA, schoolA2)
+	_, err = pool.Exec(ctx, `INSERT INTO academic_years (id, tenant_id, school_id, name, start_date, end_date, created_by, updated_by)
+		VALUES ($1, $2, $3, '2026', '2026-01-01', '2026-12-31', $4, $4)`,
+		yearID, tenantA, schoolA2, systemUserID)
 	require.NoError(t, err)
 
-	_, err = pool.Exec(ctx, `INSERT INTO academic_terms (id, tenant_id, school_id, academic_year_id, name, term_number, start_date, end_date)
-		VALUES ($1, $2, $3, $4, 'Term 1', 1, '2026-01-01', '2026-04-30')`,
-		termID, tenantA, schoolA2, yearID)
+	_, err = pool.Exec(ctx, `INSERT INTO academic_terms (id, tenant_id, school_id, academic_year_id, name, term_number, start_date, end_date, created_by, updated_by)
+		VALUES ($1, $2, $3, $4, 'Term 1', 1, '2026-01-01', '2026-04-30', $5, $5)`,
+		termID, tenantA, schoolA2, yearID, systemUserID)
 	require.NoError(t, err)
 
 	streamRef := uuid.New().String()
@@ -674,9 +567,9 @@ func TestMigrationsIntegration_ConstraintsAndIndexes_M3_to_M13(t *testing.T) {
 	// ======================================================================
 
 	yearID2 := uuid.New().String()
-	_, err = pool.Exec(ctx, `INSERT INTO academic_years (id, tenant_id, school_id, name, start_date, end_date)
-		VALUES ($1, $2, $3, '2027', '2027-01-01', '2027-12-31')`,
-		yearID2, tenantA, schoolA2)
+	_, err = pool.Exec(ctx, `INSERT INTO academic_years (id, tenant_id, school_id, name, start_date, end_date, created_by, updated_by)
+		VALUES ($1, $2, $3, '2027', '2027-01-01', '2027-12-31', $4, $4)`,
+		yearID2, tenantA, schoolA2, systemUserID)
 	require.NoError(t, err)
 
 	classDiffYear := uuid.New().String()
@@ -691,9 +584,9 @@ func TestMigrationsIntegration_ConstraintsAndIndexes_M3_to_M13(t *testing.T) {
 	// ======================================================================
 
 	yearA1 := uuid.New().String() // academic year for schoolA1
-	_, err = pool.Exec(ctx, `INSERT INTO academic_years (id, tenant_id, school_id, name, start_date, end_date)
-		VALUES ($1, $2, $3, '2026', '2026-01-01', '2026-12-31')`,
-		yearA1, tenantA, schoolA1)
+	_, err = pool.Exec(ctx, `INSERT INTO academic_years (id, tenant_id, school_id, name, start_date, end_date, created_by, updated_by)
+		VALUES ($1, $2, $3, '2026', '2026-01-01', '2026-12-31', $4, $4)`,
+		yearA1, tenantA, schoolA1, systemUserID)
 	require.NoError(t, err)
 
 	// Create a stream in schoolA1

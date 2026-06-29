@@ -307,7 +307,7 @@ func TestIntegration_DataSafety_DetachStudentPreservesLogs(t *testing.T) {
 
 	seedTenant(t, ctx, pool, tenantID)
 	seedSchool(t, ctx, pool, schoolID, tenantID)
-	seedUser(t, ctx, pool, userID, tenantID, "teacher@test.com")
+	seedUser(t, ctx, pool, userID, tenantID, "teacher-detach@test.com")
 	seedYear(t, ctx, pool, yearID, tenantID, schoolID, userID)
 	seedTerm(t, ctx, pool, termID, tenantID, schoolID, yearID, userID)
 	seedStream(t, ctx, pool, streamID, tenantID, schoolID)
@@ -380,7 +380,7 @@ func TestIntegration_DataSafety_CascadeDeletes(t *testing.T) {
 
 	seedTenant(t, ctx, pool, tenantID)
 	seedSchool(t, ctx, pool, schoolID, tenantID)
-	seedUser(t, ctx, pool, userID, tenantID, "teacher@test.com")
+	seedUser(t, ctx, pool, userID, tenantID, "teacher-cascade@test.com")
 	seedYear(t, ctx, pool, yearID, tenantID, schoolID, userID)
 	seedTerm(t, ctx, pool, termID, tenantID, schoolID, yearID, userID)
 	seedStream(t, ctx, pool, streamID, tenantID, schoolID)
@@ -414,10 +414,20 @@ func TestIntegration_DataSafety_CascadeDeletes(t *testing.T) {
 
 	t.Run("deleting a class cascades to attendance periods and their logs", func(t *testing.T) {
 		// Re-seed period and log under a fresh class
+		// Use a different stream to avoid uq_cbc_classes_tier_stream violation
+		stream2ID := "eeeeeeee-0000-0000-0000-000000000014"
 		class2ID := "eeeeeeee-0000-0000-0000-000000000012"
 		period2ID := "eeeeeeee-0000-0000-0000-000000000013"
 
-		seedClass(t, ctx, pool, class2ID, tenantID, schoolID, yearID, streamID)
+		// Inline stream insert with unique name to avoid uq_cbc_streams_tenant_school_name
+		if _, sErr := pool.Exec(ctx, `
+			INSERT INTO cbc_streams (id, tenant_id, school_id, name)
+			VALUES ($1, $2, $3, 'Test Stream 2')
+			ON CONFLICT (id) DO NOTHING
+		`, stream2ID, tenantID, schoolID); sErr != nil {
+			t.Fatalf("seed stream2: %v", sErr)
+		}
+		seedClass(t, ctx, pool, class2ID, tenantID, schoolID, yearID, stream2ID)
 		seedAttendancePeriod(t, ctx, pool, period2ID, tenantID, schoolID, termID, class2ID, areaID, userID, "2026-06-27")
 		seedAttendanceLog(t, ctx, pool, tenantID, period2ID, studentID, userID)
 
@@ -468,27 +478,27 @@ func TestIntegration_TenantIsolation_Attendance(t *testing.T) {
 	pool := integrationPool
 
 	tenantA := "ff000000-0000-0000-0000-000000000001"
-	tenantB := "ff000000-0000-0000-0000-000000000002"
+	tenantB := "ffffffff-0000-0000-0000-000000000002"
 	schoolA := "ff000000-0000-0000-0000-000000000003"
-	schoolB := "ff000000-0000-0000-0000-000000000004"
+	schoolB := "ffffffff-0000-0000-0000-000000000004"
 	yearA := "ff000000-0000-0000-0000-000000000005"
-	yearB := "ff000000-0000-0000-0000-000000000006"
+	yearB := "ffffffff-0000-0000-0000-000000000006"
 	termA := "ff000000-0000-0000-0000-000000000007"
-	termB := "ff000000-0000-0000-0000-000000000008"
+	termB := "ffffffff-0000-0000-0000-000000000008"
 	classA := "ff000000-0000-0000-0000-000000000009"
-	classB := "ff000000-0000-0000-0000-000000000010"
+	classB := "ffffffff-0000-0000-0000-000000000010"
 	streamA := "ff000000-0000-0000-0000-000000000011"
-	streamB := "ff000000-0000-0000-0000-000000000012"
+	streamB := "ffffffff-0000-0000-0000-000000000012"
 	studentA := "ff000000-0000-0000-0000-000000000013"
-	studentB := "ff000000-0000-0000-0000-000000000014"
+	studentB := "ffffffff-0000-0000-0000-000000000014"
 	areaA := "ff000000-0000-0000-0000-000000000015"
-	areaB := "ff000000-0000-0000-0000-000000000016"
+	areaB := "ffffffff-0000-0000-0000-000000000016"
 	userA := "ff000000-0000-0000-0000-000000000017"
-	userB := "ff000000-0000-0000-0000-000000000018"
+	userB := "ffffffff-0000-0000-0000-000000000018"
 	enrollA := "ff000000-0000-0000-0000-000000000019"
-	enrollB := "ff000000-0000-0000-0000-000000000020"
+	enrollB := "ffffffff-0000-0000-0000-000000000020"
 	periodA := "ff000000-0000-0000-0000-000000000021"
-	periodB := "ff000000-0000-0000-0000-000000000022"
+	periodB := "ffffffff-0000-0000-0000-000000000022"
 
 	// Seed Tenant A
 	seedTenant(t, ctx, pool, tenantA)

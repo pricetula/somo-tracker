@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -141,26 +142,47 @@ func runMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 
 func seedTerm(t *testing.T, ctx context.Context, pool *pgxpool.Pool, tenantID, schoolID, yearID, termID, termName string) {
 	t.Helper()
+	// Use the full UUID (without dashes) for unique slug generation
+	slug := "test-tenant-" + strings.ReplaceAll(tenantID, "-", "")
+	stytchOrgID := "org_" + strings.ReplaceAll(tenantID, "-", "")
+
 	// Insert a tenant if not exists
-	_, _ = pool.Exec(ctx, `
+	_, err := pool.Exec(ctx, `
 		INSERT INTO tenants (id, name, slug, stytch_org_id)
 		VALUES ($1, 'Test Tenant', $2, $3)
 		ON CONFLICT (id) DO NOTHING
-	`, tenantID, "test-tenant-"+tenantID[:8], "org_"+tenantID[:8])
+	`, tenantID, slug, stytchOrgID)
+	if err != nil {
+		t.Fatalf("seed tenant: %v", err)
+	}
 
 	// Insert a school if not exists
-	_, _ = pool.Exec(ctx, `
+	_, err = pool.Exec(ctx, `
 		INSERT INTO cbc_schools (id, tenant_id, name, county, sub_county, school_type)
 		VALUES ($1, $2, 'Test School', 'County', 'SubCounty', 'Public')
 		ON CONFLICT (id) DO NOTHING
 	`, schoolID, tenantID)
+	if err != nil {
+		t.Fatalf("seed school: %v", err)
+	}
+
+	// Create a system user for created_by/updated_by FK references
+	systemUserID := "00000000-0000-0000-0000-000000000000"
+	_, err = pool.Exec(ctx, `
+		INSERT INTO users (id, email, tenant_id, full_name)
+		VALUES ($1, $2, $3, 'System')
+		ON CONFLICT (id) DO NOTHING
+	`, systemUserID, "system-"+slug+"@test.com", tenantID)
+	if err != nil {
+		t.Fatalf("seed system user: %v", err)
+	}
 
 	if yearID != "" {
 		_, err := pool.Exec(ctx, `
 			INSERT INTO academic_years (id, tenant_id, school_id, name, start_date, end_date, is_current, created_by, updated_by)
-			VALUES ($1, $2, $3, '2026', '2026-01-01', '2026-12-31', true, '00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000000')
+			VALUES ($1, $2, $3, '2026', '2026-01-01', '2026-12-31', true, $4, $4)
 			ON CONFLICT (id) DO NOTHING
-		`, yearID, tenantID, schoolID)
+		`, yearID, tenantID, schoolID, systemUserID)
 		if err != nil {
 			t.Fatalf("seed academic year: %v", err)
 		}
@@ -169,9 +191,9 @@ func seedTerm(t *testing.T, ctx context.Context, pool *pgxpool.Pool, tenantID, s
 	if termID != "" {
 		_, err := pool.Exec(ctx, `
 			INSERT INTO academic_terms (id, tenant_id, school_id, academic_year_id, name, term_number, start_date, end_date, is_current, created_by, updated_by)
-			VALUES ($1, $2, $3, $4, $5, 1, '2026-01-01', '2026-04-30', true, '00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000000')
+			VALUES ($1, $2, $3, $4, $5, 1, '2026-01-01', '2026-04-30', true, $6, $6)
 			ON CONFLICT (id) DO NOTHING
-		`, termID, tenantID, schoolID, yearID, termName)
+		`, termID, tenantID, schoolID, yearID, termName, systemUserID)
 		if err != nil {
 			t.Fatalf("seed academic term: %v", err)
 		}
@@ -235,7 +257,14 @@ func TestIntegration_BulkSlots_TermIsolation(t *testing.T) {
 	streamID := "70000000-0000-0000-0000-000000000001"
 
 	seedTerm(t, ctx, pool, tenantID, schoolID, yearID, term1ID, "Term 1")
-	seedTerm(t, ctx, pool, tenantID, schoolID, yearID, term2ID, "Term 2")
+	// Second term must have is_current=false to avoid idx_one_current_term_per_year violation
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO academic_terms (id, tenant_id, school_id, academic_year_id, name, term_number, start_date, end_date, is_current, created_by, updated_by)
+		VALUES ($1, $2, $3, $4, 'Term 2', 2, '2026-05-01', '2026-08-31', false, $5, $5)
+		ON CONFLICT (id) DO NOTHING
+	`, term2ID, tenantID, schoolID, yearID, "00000000-0000-0000-0000-000000000000"); err != nil {
+		t.Fatalf("seed term2: %v", err)
+	}
 	seedUser(t, ctx, pool, teacherID, tenantID, "teacher@test.com")
 	seedClass(t, ctx, pool, classID, tenantID, schoolID, yearID, streamID)
 
@@ -452,6 +481,14 @@ func TestIntegration_GiST_TeacherDoubleBooking(t *testing.T) {
 	seedUser(t, ctx, pool, teacherID, tenantID, "teacher-double@test.com")
 	seedUser(t, ctx, pool, teacher2ID, tenantID, "teacher-other@test.com")
 	seedClass(t, ctx, pool, classID, tenantID, schoolID, yearID, streamID)
+	// Pre-seed stream2 with unique name so seedClass's ON CONFLICT skips it
+	if _, sErr := pool.Exec(ctx, `
+		INSERT INTO cbc_streams (id, tenant_id, school_id, name)
+		VALUES ($1, $2, $3, 'Stream B')
+		ON CONFLICT (id) DO NOTHING
+	`, stream2ID, tenantID, schoolID); sErr != nil {
+		t.Fatalf("seed stream2: %v", sErr)
+	}
 	seedClass(t, ctx, pool, class2ID, tenantID, schoolID, yearID, stream2ID)
 
 	// Insert first slot for teacher at 08:00-09:00 on Monday (day 1)
@@ -520,6 +557,14 @@ func TestIntegration_GiST_RoomDoubleBooking(t *testing.T) {
 	seedUser(t, ctx, pool, teacherID, tenantID, "teacher-room1@test.com")
 	seedUser(t, ctx, pool, teacher2ID, tenantID, "teacher-room2@test.com")
 	seedClass(t, ctx, pool, classID, tenantID, schoolID, yearID, streamID)
+	// Pre-seed stream2 with unique name so seedClass's ON CONFLICT skips it
+	if _, sErr := pool.Exec(ctx, `
+		INSERT INTO cbc_streams (id, tenant_id, school_id, name)
+		VALUES ($1, $2, $3, 'Room Stream B')
+		ON CONFLICT (id) DO NOTHING
+	`, stream2ID, tenantID, schoolID); sErr != nil {
+		t.Fatalf("seed stream2: %v", sErr)
+	}
 	seedClass(t, ctx, pool, class2ID, tenantID, schoolID, yearID, stream2ID)
 
 	// Insert first slot in Room A at 08:00-09:00 Monday
@@ -574,12 +619,12 @@ func TestIntegration_TenantIsolation_Slots(t *testing.T) {
 
 	// Seed Tenant A
 	seedTerm(t, ctx, pool, tenantA, schoolA, yearA, termA, "Term A")
-	seedUser(t, ctx, pool, teacherA, tenantA, "teacher-a@test.com")
+	seedUser(t, ctx, pool, teacherA, tenantA, "teacher-isolation-a@test.com")
 	seedClass(t, ctx, pool, classA, tenantA, schoolA, yearA, streamA)
 
 	// Seed Tenant B
 	seedTerm(t, ctx, pool, tenantB, schoolB, yearB, termB, "Term B")
-	seedUser(t, ctx, pool, teacherB, tenantB, "teacher-b@test.com")
+	seedUser(t, ctx, pool, teacherB, tenantB, "teacher-isolation-b@test.com")
 	seedClass(t, ctx, pool, classB, tenantB, schoolB, yearB, streamB)
 
 	// Insert slot for Tenant A

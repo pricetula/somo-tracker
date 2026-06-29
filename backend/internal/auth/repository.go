@@ -320,7 +320,7 @@ func (r *SqlcRepository) GetMeInfo(ctx context.Context, token string) (*MeInfo, 
 		SELECT
 			s.user_id,
 			s.tenant_id,
-			m.role,
+			COALESCE(m.role::text, 'TEACHER') as role,
 			u.full_name,
 			u.email,
 			mas.school_id,

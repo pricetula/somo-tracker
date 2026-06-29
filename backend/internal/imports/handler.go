@@ -158,14 +158,9 @@ func (h *Handler) TrackImport(c *fiber.Ctx) error {
 	return c.JSON(result)
 }
 
-// isTerminalJobStatus returns true if the status indicates the job is done
-// (whether successfully, with errors, or after all retries exhausted).
+// isTerminalJobStatus returns true if the status indicates the job is done.
 func isTerminalJobStatus(status string) bool {
-	switch status {
-	case "completed", "completed_with_errors", "failed":
-		return true
-	}
-	return false
+	return ImportJobStatus(status).IsTerminal()
 }
 
 // SSETrackImport handles GET /api/v1/imports/staff/track/:id/sse
@@ -529,7 +524,7 @@ func (h *Handler) SSEStudentImportStream(c *fiber.Ctx) error {
 				}
 
 				// If terminal, exit immediately
-				if cf.Status == "completed" || cf.Status == "failed" {
+				if isTerminalJobStatus(cf.Status) {
 					return
 				}
 			}
@@ -554,7 +549,7 @@ func (h *Handler) SSEStudentImportStream(c *fiber.Ctx) error {
 					return
 				}
 
-				if cf.Status == "completed" || cf.Status == "completed_with_errors" || cf.Status == "failed" {
+				if isTerminalJobStatus(cf.Status) {
 					return
 				}
 			}
@@ -593,7 +588,7 @@ func (h *Handler) SSEStudentImportStream(c *fiber.Ctx) error {
 				// Check if terminal
 				var frame ProgressFrame
 				if err := json.Unmarshal([]byte(msg.Payload), &frame); err == nil {
-					if frame.Status == "completed" || frame.Status == "failed" {
+					if isTerminalJobStatus(frame.Status) {
 						return
 					}
 				}

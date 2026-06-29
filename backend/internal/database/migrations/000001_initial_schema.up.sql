@@ -2,6 +2,31 @@
 -- SomoTracker — Kenya CBC/CBE academic platform (CBC-only, v5)
 -- Drops all generic education system abstractions.
 -- Rebuilds as a purpose-built, single-system CBC schema.
+--
+-- Changes from original (v5 → v6):
+--   BUG FIX  Line ~379 : idx_academic_terms_school_id targeted academic_years — fixed to academic_terms
+--   BUG FIX  Layer order: cbc_learning_areas (Layer 5) moved before Layer 6 tables that FK-reference it
+--   BUG FIX  fn_sync_invoice_payment_status split into 3 functions (insert/delete/update) to avoid
+--            referencing absent transition tables per trigger event
+--   BUG FIX  chk_term_number: dropped chk_academic_term_number before re-adding as chk_term_number to
+--            prevent duplicate check constraints after the ALTER TABLE block
+--   IMPROVE  school_member_counts: added IF NOT EXISTS (was the only table missing it)
+--   IMPROVE  cbc_timetable_slots: added CHECK (end_time > start_time)
+--   IMPROVE  learner_rubric_results.raw_score: added CHECK (raw_score >= 0)
+--   IMPROVE  assessment_blueprints: added unique constraint on (school_id,title,type,grade_level,academic_year,term)
+--   IMPROVE  cbc_classes: added created_at / updated_at + updated_at trigger
+--   IMPROVE  academic_years: added created_at / updated_at (the ALTER block adds created_by/updated_by
+--            but the base columns were absent)
+--   IMPROVE  cbc_student_enrollments: added updated_at + updated_at trigger
+--   IMPROVE  memberships: added updated_at + updated_at trigger
+--   IMPROVE  import_jobs.status: changed from TEXT to import_job_status enum with valid values
+--   IMPROVE  payments: added partial unique index on reference_code WHERE NOT NULL
+--   IMPROVE  cbc_term_competency_summaries: added index on (student_id, learning_area_id)
+--   IMPROVE  learner_rubric_results: added index on (session_id, student_id)
+--   IMPROVE  trg_auto_register_subject_teacher: extended to clean up stale SUBJECT_TEACHER registrations
+--            when teacher_id or cbc_learning_area_id changes on a timetable slot
+--   IMPROVE  academic_terms.is_final: added COMMENT explaining its purpose
+--   IMPROVE  cbc_attendance_periods.authorized_by_role: added COMMENT
 
 BEGIN;
 
@@ -42,8 +67,6 @@ DO $$ BEGIN
     CREATE TYPE user_role AS ENUM ('SYSTEM_ADMIN', 'SCHOOL_ADMIN', 'TEACHER', 'NURSE', 'FINANCE', 'PARENT');
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
-
-
 
 DO $$ BEGIN
     CREATE TYPE attendance_status AS ENUM ('PRESENT', 'ABSENT', 'LATE', 'EXCUSED');
@@ -195,6 +218,23 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
+-- IMPROVE: import_job_status enum replaces unconstrained TEXT on import_jobs.status
+DO $$ BEGIN
+    CREATE TYPE import_job_status AS ENUM (
+        'pending',
+        'processing',
+        'completed',
+        'failed',
+        'cancelled'
+    );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+-- completed_with_errors is used by the application to distinguish successful
+-- imports that had partial failures (some records succeeded, some failed)
+-- from clean completed imports (all records succeeded).
+ALTER TYPE import_job_status ADD VALUE IF NOT EXISTS 'completed_with_errors';
+
 -- ============================================================================
 -- LAYER 1 — PLATFORM INFRASTRUCTURE
 -- ============================================================================
@@ -219,22 +259,22 @@ CREATE INDEX IF NOT EXISTS idx_tenants_stytch_org_id ON tenants (stytch_org_id);
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS users (
-    id                  UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
-    email               VARCHAR(255) NOT NULL,
-    tenant_id           UUID         NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    full_name           VARCHAR(255) NOT NULL DEFAULT '',
-    is_active           BOOLEAN      NOT NULL DEFAULT TRUE,
-    external_auth_id    VARCHAR(255) UNIQUE,
-    tsc_number          VARCHAR(15)  NULL,
-    knec_panel_assessor_id VARCHAR(20) NULL,
-    created_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-    updated_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    id                     UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    email                  VARCHAR(255) NOT NULL,
+    tenant_id              UUID         NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    full_name              VARCHAR(255) NOT NULL DEFAULT '',
+    is_active              BOOLEAN      NOT NULL DEFAULT TRUE,
+    external_auth_id       VARCHAR(255) UNIQUE,
+    tsc_number             VARCHAR(15)  NULL,
+    knec_panel_assessor_id VARCHAR(20)  NULL,
+    created_at             TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at             TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
 
     CONSTRAINT uq_users_tenant UNIQUE (tenant_id, id)
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email    ON users (email);
-CREATE INDEX        IF NOT EXISTS idx_users_tenant   ON users (tenant_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users (email);
+CREATE INDEX        IF NOT EXISTS idx_users_tenant ON users (tenant_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_tsc_number
     ON users (tsc_number) WHERE tsc_number IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_knec_panel_assessor_id
@@ -285,18 +325,18 @@ CREATE INDEX IF NOT EXISTS idx_sessions_stytch_session_token ON sessions (stytch
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS cbc_schools (
-    id                      UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id               UUID         NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    name                    VARCHAR(255) NOT NULL,
-    knec_school_code        VARCHAR(15)  NULL,
-    nemis_institution_code  VARCHAR(20)  NULL,
-    county                  VARCHAR(50)  NOT NULL,
-    sub_county              VARCHAR(50)  NOT NULL,
-    ward                    VARCHAR(50)  NULL,
-    school_type             cbc_school_type  NOT NULL,
-    is_active               BOOLEAN      NOT NULL DEFAULT true,
-    created_at              TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-    updated_at              TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    id                      UUID            PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id               UUID            NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    name                    VARCHAR(255)    NOT NULL,
+    knec_school_code        VARCHAR(15)     NULL,
+    nemis_institution_code  VARCHAR(20)     NULL,
+    county                  VARCHAR(50)     NOT NULL,
+    sub_county              VARCHAR(50)     NOT NULL,
+    ward                    VARCHAR(50)     NULL,
+    school_type             cbc_school_type NOT NULL,
+    is_active               BOOLEAN         NOT NULL DEFAULT true,
+    created_at              TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    updated_at              TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
 
     CONSTRAINT uq_cbc_schools_tenant UNIQUE (tenant_id, id)
 );
@@ -323,11 +363,13 @@ COMMENT ON COLUMN cbc_schools.nemis_institution_code IS
      NEMIS data synchronisation.';
 
 -- ============================================================================
--- LAYER 3 — ACADEMIC CALENDAR (placed here for FK ordering)
+-- LAYER 3 — ACADEMIC CALENDAR
 -- ============================================================================
 
 -- ---------------------------------------------------------------------------
 -- ACADEMIC YEARS
+-- IMPROVE: added created_at / updated_at (were absent; ALTER block later adds
+--          created_by/updated_by but the timestamp columns were never defined)
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS academic_years (
@@ -338,10 +380,14 @@ CREATE TABLE IF NOT EXISTS academic_years (
     start_date DATE        NOT NULL,
     end_date   DATE        NOT NULL,
     is_current BOOLEAN     NOT NULL DEFAULT false,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
     CONSTRAINT chk_academic_year_dates CHECK (end_date > start_date),
     CONSTRAINT uq_academic_years_tenant UNIQUE (tenant_id, id),
-    CONSTRAINT fk_academic_years_tenant_school FOREIGN KEY (tenant_id, school_id) REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE
+    CONSTRAINT fk_academic_years_tenant_school
+        FOREIGN KEY (tenant_id, school_id)
+        REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_academic_years_tenant_id ON academic_years (tenant_id);
@@ -349,6 +395,11 @@ CREATE INDEX IF NOT EXISTS idx_academic_years_school_id ON academic_years (schoo
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_one_current_year_per_school
     ON academic_years (school_id) WHERE is_current = true;
+
+DROP TRIGGER IF EXISTS trg_academic_years_updated_at ON academic_years;
+CREATE TRIGGER trg_academic_years_updated_at
+    BEFORE UPDATE ON academic_years
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
 
 -- ---------------------------------------------------------------------------
 -- ACADEMIC TERMS
@@ -366,17 +417,22 @@ CREATE TABLE IF NOT EXISTS academic_terms (
     is_current       BOOLEAN      NOT NULL DEFAULT false,
     is_final         BOOLEAN      NOT NULL DEFAULT false,
 
-    CONSTRAINT chk_academic_term_dates CHECK (end_date > start_date),
-    CONSTRAINT chk_academic_term_number CHECK (term_number BETWEEN 1 AND 3),
-    CONSTRAINT uq_academic_terms_tenant UNIQUE (tenant_id, id),
+    CONSTRAINT chk_academic_term_dates  CHECK (end_date > start_date),
+    CONSTRAINT chk_term_number          CHECK (term_number BETWEEN 1 AND 3),
+    CONSTRAINT uq_academic_terms_tenant        UNIQUE (tenant_id, id),
     CONSTRAINT uq_academic_terms_tenant_school UNIQUE (tenant_id, school_id, id),
-    CONSTRAINT uq_academic_year_term_number UNIQUE (academic_year_id, term_number), 
-    CONSTRAINT fk_academic_terms_tenant_school FOREIGN KEY (tenant_id, school_id) REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_academic_terms_tenant_year FOREIGN KEY (tenant_id, academic_year_id) REFERENCES academic_years(tenant_id, id) ON DELETE CASCADE
+    CONSTRAINT uq_academic_year_term_number    UNIQUE (academic_year_id, term_number),
+    CONSTRAINT fk_academic_terms_tenant_school
+        FOREIGN KEY (tenant_id, school_id)
+        REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_academic_terms_tenant_year
+        FOREIGN KEY (tenant_id, academic_year_id)
+        REFERENCES academic_years(tenant_id, id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_academic_terms_tenant_id ON academic_terms (tenant_id);
-CREATE INDEX IF NOT EXISTS idx_academic_terms_school_id ON academic_years (school_id);
+-- BUG FIX: was incorrectly targeting academic_years; fixed to academic_terms
+CREATE INDEX IF NOT EXISTS idx_academic_terms_school_id ON academic_terms (school_id);
 CREATE INDEX IF NOT EXISTS idx_academic_terms_year_id   ON academic_terms (academic_year_id);
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_one_current_term_per_year
@@ -385,6 +441,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_one_current_term_per_year
 COMMENT ON COLUMN academic_terms.term_number IS
     'Kenya CBC operates a 3-term academic year. term_number enforces this:
      1 = Term 1, 2 = Term 2, 3 = Term 3.';
+
+COMMENT ON COLUMN academic_terms.is_final IS
+    'Marks the last term of the academic year before a national KNEC exam cycle
+     (KPSEA at end of G6, KJSEA at end of G9, KSSEA at end of G12). The
+     application uses this flag to lock SBA submissions and trigger KNEC sync
+     workflows. Set to TRUE only on Term 3 of an exam year.';
 
 -- ============================================================================
 -- LAYER 2 — CORE CBC ACTORS (continued)
@@ -409,11 +471,8 @@ CREATE TABLE IF NOT EXISTS cbc_streams (
         UNIQUE (tenant_id, school_id, name)
 );
 
-CREATE INDEX IF NOT EXISTS idx_cbc_streams_school_id
-    ON cbc_streams (school_id);
-
-CREATE INDEX IF NOT EXISTS idx_cbc_streams_tenant_id
-    ON cbc_streams (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_cbc_streams_school_id ON cbc_streams (school_id);
+CREATE INDEX IF NOT EXISTS idx_cbc_streams_tenant_id ON cbc_streams (tenant_id);
 
 DROP TRIGGER IF EXISTS trg_cbc_streams_updated_at ON cbc_streams;
 CREATE TRIGGER trg_cbc_streams_updated_at
@@ -434,22 +493,36 @@ COMMENT ON CONSTRAINT fk_cbc_streams_school ON cbc_streams IS
      school must be handled explicitly upstream before streams can be removed.';
 
 -- ---------------------------------------------------------------------------
--- CBC CLASSES (replaces generic classes)
+-- CBC CLASSES
+-- IMPROVE: added created_at / updated_at (were absent despite being on every
+--          other major entity) and corresponding updated_at trigger
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS cbc_classes (
-    id               UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id        UUID         NOT NULL,
-    school_id        UUID         NOT NULL,
-    academic_year_id UUID         NOT NULL,
-    grade_level      cbc_grade_level   NOT NULL,
-    stream_id        UUID         NOT NULL,
-    is_active        BOOLEAN      NOT NULL DEFAULT true,
+    id               UUID            PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id        UUID            NOT NULL,
+    school_id        UUID            NOT NULL,
+    academic_year_id UUID            NOT NULL,
+    grade_level      cbc_grade_level NOT NULL,
+    stream_id        UUID            NOT NULL,
+    is_active        BOOLEAN         NOT NULL DEFAULT true,
+    created_at       TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    updated_at       TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
 
-    CONSTRAINT uq_cbc_classes_tier_stream UNIQUE (school_id, academic_year_id, grade_level, stream_id),
-    CONSTRAINT fk_cbc_classes_tenant_school FOREIGN KEY (tenant_id, school_id) REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_cbc_classes_tenant_academic_year FOREIGN KEY (tenant_id, academic_year_id) REFERENCES academic_years(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_cbc_classes_stream FOREIGN KEY (stream_id) REFERENCES cbc_streams(id) ON DELETE RESTRICT
+    CONSTRAINT uq_cbc_classes_tier_stream
+        UNIQUE (school_id, academic_year_id, grade_level, stream_id),
+    CONSTRAINT fk_cbc_classes_tenant_school
+        FOREIGN KEY (tenant_id, school_id)
+        REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_cbc_classes_tenant_academic_year
+        FOREIGN KEY (tenant_id, academic_year_id)
+        REFERENCES academic_years(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_cbc_classes_stream
+        FOREIGN KEY (stream_id) REFERENCES cbc_streams(id) ON DELETE RESTRICT,
+
+    -- IMPROVE: composite FK for tenant scoping (tenant_id, id) to allow other
+    -- tables to reference this pair directly
+    CONSTRAINT uq_cbc_classes_tenant UNIQUE (tenant_id, id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_cbc_classes_tenant_id        ON cbc_classes (tenant_id);
@@ -459,6 +532,11 @@ CREATE INDEX IF NOT EXISTS idx_cbc_classes_grade_level      ON cbc_classes (grad
 CREATE INDEX IF NOT EXISTS idx_cbc_classes_school_year_grade_stream
     ON cbc_classes (school_id, academic_year_id, grade_level, stream_id);
 
+DROP TRIGGER IF EXISTS trg_cbc_classes_updated_at ON cbc_classes;
+CREATE TRIGGER trg_cbc_classes_updated_at
+    BEFORE UPDATE ON cbc_classes
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+
 COMMENT ON COLUMN cbc_classes.grade_level IS
     'Official KNEC grade designation. Determines which assessment instruments,
      SBA projects, and KNEC portal upload windows apply to the class. Values
@@ -466,6 +544,7 @@ COMMENT ON COLUMN cbc_classes.grade_level IS
 
 -- ---------------------------------------------------------------------------
 -- MEMBERSHIPS
+-- IMPROVE: added updated_at (role changes / is_active toggling had no timestamp)
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS memberships (
@@ -476,8 +555,11 @@ CREATE TABLE IF NOT EXISTS memberships (
     role       user_role   NOT NULL,
     is_active  BOOLEAN     NOT NULL DEFAULT true,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
-    CONSTRAINT fk_memberships_tenant_school FOREIGN KEY (tenant_id, school_id) REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_memberships_tenant_school
+        FOREIGN KEY (tenant_id, school_id)
+        REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT unique_user_school_membership UNIQUE (user_id, school_id)
 );
 
@@ -485,41 +567,51 @@ CREATE INDEX IF NOT EXISTS idx_memberships_tenant_id ON memberships (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_memberships_user_id   ON memberships (user_id);
 CREATE INDEX IF NOT EXISTS idx_memberships_school_id ON memberships (school_id);
 
+DROP TRIGGER IF EXISTS trg_memberships_updated_at ON memberships;
+CREATE TRIGGER trg_memberships_updated_at
+    BEFORE UPDATE ON memberships
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+
 -- ---------------------------------------------------------------------------
 -- IMPORT JOBS — Bulk Staff Invitation async ingestion
+-- IMPROVE: status column changed from unconstrained TEXT to import_job_status enum
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS import_jobs (
-    id                   UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id            UUID        NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    school_id            UUID        NOT NULL,
-    role                 user_role   NOT NULL,
-    created_by           UUID        REFERENCES users(id) ON DELETE SET NULL,
-    status               TEXT        NOT NULL DEFAULT 'pending',
-    total_records        INT         NOT NULL DEFAULT 0,
-    processed_records    INT         NOT NULL DEFAULT 0,
-    success_count        INT         NOT NULL DEFAULT 0,
-    failed_count         INT         NOT NULL DEFAULT 0,
-    parent_import_job_id UUID        NULL,
-    created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    started_at           TIMESTAMPTZ NULL,
-    completed_at         TIMESTAMPTZ NULL,
+    id                   UUID              PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id            UUID              NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    school_id            UUID              NOT NULL,
+    role                 user_role         NOT NULL,
+    created_by           UUID              REFERENCES users(id) ON DELETE SET NULL,
+    status               import_job_status NOT NULL DEFAULT 'pending',
+    total_records        INT               NOT NULL DEFAULT 0,
+    processed_records    INT               NOT NULL DEFAULT 0,
+    success_count        INT               NOT NULL DEFAULT 0,
+    failed_count         INT               NOT NULL DEFAULT 0,
+    parent_import_job_id UUID              NULL,
+    created_at           TIMESTAMPTZ       NOT NULL DEFAULT NOW(),
+    started_at           TIMESTAMPTZ       NULL,
+    completed_at         TIMESTAMPTZ       NULL,
 
-    CONSTRAINT fk_import_jobs_tenant_school FOREIGN KEY (tenant_id, school_id) REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_import_jobs_parent FOREIGN KEY (parent_import_job_id) REFERENCES import_jobs(id) DEFERRABLE INITIALLY DEFERRED
+    CONSTRAINT fk_import_jobs_tenant_school
+        FOREIGN KEY (tenant_id, school_id)
+        REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_import_jobs_parent
+        FOREIGN KEY (parent_import_job_id)
+        REFERENCES import_jobs(id) DEFERRABLE INITIALLY DEFERRED
 );
 
-CREATE INDEX IF NOT EXISTS idx_import_jobs_tenant_id ON import_jobs (tenant_id);
-CREATE INDEX IF NOT EXISTS idx_import_jobs_school_id ON import_jobs (school_id);
+CREATE INDEX IF NOT EXISTS idx_import_jobs_tenant_id  ON import_jobs (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_import_jobs_school_id  ON import_jobs (school_id);
 CREATE INDEX IF NOT EXISTS idx_import_jobs_created_by ON import_jobs (created_by);
-CREATE INDEX IF NOT EXISTS idx_import_jobs_status ON import_jobs (status);
+CREATE INDEX IF NOT EXISTS idx_import_jobs_status     ON import_jobs (status);
 
 CREATE TABLE IF NOT EXISTS import_job_failures (
-    id             BIGSERIAL   PRIMARY KEY,
-    import_job_id  UUID        NOT NULL REFERENCES import_jobs(id) ON DELETE CASCADE,
-    raw_payload    JSONB       NOT NULL,
-    error_message  TEXT        NOT NULL,
-    created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    id            BIGSERIAL   PRIMARY KEY,
+    import_job_id UUID        NOT NULL REFERENCES import_jobs(id) ON DELETE CASCADE,
+    raw_payload   JSONB       NOT NULL,
+    error_message TEXT        NOT NULL,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_import_job_failures_job_id ON import_job_failures (import_job_id);
@@ -529,13 +621,13 @@ CREATE INDEX IF NOT EXISTS idx_import_job_failures_job_id ON import_job_failures
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS import_job_staging (
-    id         UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
-    job_id     UUID         NOT NULL REFERENCES import_jobs(id) ON DELETE CASCADE,
-    tenant_id  UUID         NOT NULL,
-    school_id  UUID         NOT NULL,
-    row_number INT          NOT NULL,
-    raw_data   JSONB        NOT NULL,
-    created_at TIMESTAMPTZ  NOT NULL DEFAULT now()
+    id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    job_id     UUID        NOT NULL REFERENCES import_jobs(id) ON DELETE CASCADE,
+    tenant_id  UUID        NOT NULL,
+    school_id  UUID        NOT NULL,
+    row_number INT         NOT NULL,
+    raw_data   JSONB       NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS idx_import_job_staging_job_id ON import_job_staging (job_id);
@@ -564,39 +656,45 @@ CREATE TABLE IF NOT EXISTS invitations (
     attempt_count       INT               NOT NULL DEFAULT 0,
     created_at          TIMESTAMPTZ       NOT NULL DEFAULT NOW(),
 
-    CONSTRAINT fk_invitations_tenant_school FOREIGN KEY (tenant_id, school_id) REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_invitations_import_job FOREIGN KEY (import_job_id) REFERENCES import_jobs(id) ON DELETE SET NULL
+    CONSTRAINT fk_invitations_tenant_school
+        FOREIGN KEY (tenant_id, school_id)
+        REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_invitations_import_job
+        FOREIGN KEY (import_job_id)
+        REFERENCES import_jobs(id) ON DELETE SET NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_invitations_tenant_id ON invitations (tenant_id);
-CREATE INDEX IF NOT EXISTS idx_invitations_school_id ON invitations (school_id);
-CREATE INDEX IF NOT EXISTS idx_invitations_email     ON invitations (email);
-CREATE INDEX IF NOT EXISTS idx_invitations_status    ON invitations (status);
+CREATE INDEX IF NOT EXISTS idx_invitations_tenant_id  ON invitations (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_invitations_school_id  ON invitations (school_id);
+CREATE INDEX IF NOT EXISTS idx_invitations_email      ON invitations (email);
+CREATE INDEX IF NOT EXISTS idx_invitations_status     ON invitations (status);
 CREATE INDEX IF NOT EXISTS idx_invitations_import_job ON invitations (import_job_id);
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_invitations_active_email
-  ON invitations (tenant_id, school_id, email)
-  WHERE status NOT IN ('expired', 'revoked');
+    ON invitations (tenant_id, school_id, email)
+    WHERE status NOT IN ('expired', 'revoked');
 
 -- ---------------------------------------------------------------------------
--- CBC PARENTS (Profile Extension linking to core platform Users)
+-- CBC PARENTS
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS cbc_parents (
-    id             UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id      UUID         NOT NULL,
-    user_id        UUID         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    phone_number   VARCHAR(20)  NOT NULL, -- Crucial for M-Pesa & SMS notifications
-    is_active      BOOLEAN      NOT NULL DEFAULT true,
-    created_at     TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-    updated_at     TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    id           UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id    UUID         NOT NULL,
+    user_id      UUID         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    phone_number VARCHAR(20)  NOT NULL, -- Crucial for M-Pesa & SMS notifications
+    is_active    BOOLEAN      NOT NULL DEFAULT true,
+    created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
 
     CONSTRAINT uq_cbc_parents_user UNIQUE (user_id),
-    CONSTRAINT fk_cbc_parents_tenant_user FOREIGN KEY (tenant_id, user_id) REFERENCES users(tenant_id, id) ON DELETE CASCADE
+    CONSTRAINT fk_cbc_parents_tenant_user
+        FOREIGN KEY (tenant_id, user_id)
+        REFERENCES users(tenant_id, id) ON DELETE CASCADE
 );
 
-CREATE INDEX IF NOT EXISTS idx_cbc_parents_phone ON cbc_parents (phone_number);
-CREATE INDEX IF NOT EXISTS idx_cbc_parents_tenant ON cbc_parents (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_cbc_parents_phone    ON cbc_parents (phone_number);
+CREATE INDEX IF NOT EXISTS idx_cbc_parents_tenant   ON cbc_parents (tenant_id);
 
 DROP TRIGGER IF EXISTS trg_cbc_parents_updated_at ON cbc_parents;
 CREATE TRIGGER trg_cbc_parents_updated_at
@@ -608,22 +706,22 @@ COMMENT ON TABLE cbc_parents IS
      directly to the platform users table to leverage Stytch B2B auth loops.';
 
 -- ---------------------------------------------------------------------------
--- CBC STUDENTS (replaces generic students)
+-- CBC STUDENTS
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS cbc_students (
-    id                      UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id               UUID         NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    school_id               UUID         NOT NULL REFERENCES cbc_schools(id) ON DELETE RESTRICT,
-    full_name               VARCHAR(255) NOT NULL,
-    gender                  gender_type      NOT NULL,
-    date_of_birth           DATE         NULL,
-    upi_number              VARCHAR(20)  NULL,
-    knec_assessment_number  VARCHAR(15)  NULL,
-    learning_pathway        cbc_learning_pathway  NOT NULL DEFAULT 'Age_Based',
-    is_active               BOOLEAN      NOT NULL DEFAULT true,
-    created_at              TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-    updated_at              TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    id                     UUID                 PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id              UUID                 NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    school_id              UUID                 NOT NULL REFERENCES cbc_schools(id) ON DELETE RESTRICT,
+    full_name              VARCHAR(255)         NOT NULL,
+    gender                 gender_type          NOT NULL,
+    date_of_birth          DATE                 NULL,
+    upi_number             VARCHAR(20)          NULL,
+    knec_assessment_number VARCHAR(15)          NULL,
+    learning_pathway       cbc_learning_pathway NOT NULL DEFAULT 'Age_Based',
+    is_active              BOOLEAN              NOT NULL DEFAULT true,
+    created_at             TIMESTAMPTZ          NOT NULL DEFAULT NOW(),
+    updated_at             TIMESTAMPTZ          NOT NULL DEFAULT NOW(),
 
     CONSTRAINT uq_cbc_students_tenant UNIQUE (tenant_id, id),
     CONSTRAINT chk_cbc_student_gender CHECK (gender IN ('M', 'F'))
@@ -634,7 +732,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_cbc_students_upi
 CREATE UNIQUE INDEX IF NOT EXISTS idx_cbc_students_knec_assessment_number
     ON cbc_students (knec_assessment_number) WHERE knec_assessment_number IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_cbc_students_tenant_id ON cbc_students (tenant_id);
-CREATE INDEX IF NOT EXISTS idx_cbc_students_school_id  ON cbc_students (school_id);
+CREATE INDEX IF NOT EXISTS idx_cbc_students_school_id ON cbc_students (school_id);
 
 DROP TRIGGER IF EXISTS trg_cbc_students_updated_at ON cbc_students;
 CREATE TRIGGER trg_cbc_students_updated_at
@@ -665,15 +763,15 @@ COMMENT ON COLUMN cbc_students.school_id IS
      Use cbc_student_enrollments for full term-by-term history.';
 
 -- ---------------------------------------------------------------------------
--- CBC STUDENT PARENTS JUNCTION (Many-to-Many Relationship Mapping)
+-- CBC STUDENT PARENTS JUNCTION
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS cbc_student_parents (
-    student_id    UUID        NOT NULL REFERENCES cbc_students(id) ON DELETE CASCADE,
-    parent_id     UUID        NOT NULL REFERENCES cbc_parents(id) ON DELETE CASCADE,
-    relationship  VARCHAR(50) NULL, -- 'Father', 'Mother', 'Guardian'
-    is_primary    BOOLEAN     NOT NULL DEFAULT true,
-    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    student_id   UUID        NOT NULL REFERENCES cbc_students(id) ON DELETE CASCADE,
+    parent_id    UUID        NOT NULL REFERENCES cbc_parents(id)  ON DELETE CASCADE,
+    relationship VARCHAR(50) NULL, -- 'Father', 'Mother', 'Guardian'
+    is_primary   BOOLEAN     NOT NULL DEFAULT true,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
     PRIMARY KEY (student_id, parent_id)
 );
@@ -681,26 +779,40 @@ CREATE TABLE IF NOT EXISTS cbc_student_parents (
 CREATE INDEX IF NOT EXISTS idx_junction_parent ON cbc_student_parents (parent_id);
 
 -- ---------------------------------------------------------------------------
--- CBC STUDENT ENROLLMENTS (replaces generic student_enrollments)
+-- CBC STUDENT ENROLLMENTS
+-- IMPROVE: added updated_at so status transitions (ACTIVE→SUSPENDED→TRANSFERRED)
+--          are timestamped at the row level
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS cbc_student_enrollments (
-    id               UUID                   PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id        UUID                   NOT NULL,
-    student_id       UUID                   NOT NULL,
-    school_id        UUID                   NOT NULL,
-    academic_term_id UUID                   NOT NULL,
-    class_id         UUID                   NULL,
-    status           cbc_enrollment_status  NOT NULL DEFAULT 'ACTIVE',
-    created_at       TIMESTAMPTZ            NOT NULL DEFAULT NOW(),
+    id               UUID                  PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id        UUID                  NOT NULL,
+    student_id       UUID                  NOT NULL,
+    school_id        UUID                  NOT NULL,
+    academic_term_id UUID                  NOT NULL,
+    class_id         UUID                  NULL,
+    status           cbc_enrollment_status NOT NULL DEFAULT 'ACTIVE',
+    created_at       TIMESTAMPTZ           NOT NULL DEFAULT NOW(),
+    updated_at       TIMESTAMPTZ           NOT NULL DEFAULT NOW(),
 
-    CONSTRAINT fk_enrollments_tenant_student FOREIGN KEY (tenant_id, student_id) REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_enrollments_tenant_school FOREIGN KEY (tenant_id, school_id) REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_enrollments_tenant_school_term FOREIGN KEY (tenant_id, school_id, academic_term_id) REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_enrollments_tenant_student
+        FOREIGN KEY (tenant_id, student_id)
+        REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_enrollments_tenant_school
+        FOREIGN KEY (tenant_id, school_id)
+        REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_enrollments_tenant_school_term
+        FOREIGN KEY (tenant_id, school_id, academic_term_id)
+        REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE,
     -- Data-detachment intent: when class_id is set to NULL (mid-term removal),
     -- cbc_attendance_logs rows are preserved. The FK uses ON DELETE SET NULL
     -- so that student attendance history is never cascaded away.
-    CONSTRAINT fk_enrollments_tenant_class FOREIGN KEY (tenant_id, class_id) REFERENCES cbc_classes(tenant_id, id) ON DELETE SET NULL,
+    -- NOTE: class_id going NULL leaves tenant_id set; the composite FK is then
+    -- skipped by Postgres (any NULL in the key = no FK check). The simple
+    -- school→class cascade on cbc_classes handles the referential side.
+    CONSTRAINT fk_enrollments_tenant_class
+        FOREIGN KEY (tenant_id, class_id)
+        REFERENCES cbc_classes(tenant_id, id) ON DELETE SET NULL,
     CONSTRAINT unique_student_term_enrollment UNIQUE (student_id, academic_term_id)
 );
 
@@ -709,6 +821,11 @@ CREATE INDEX IF NOT EXISTS idx_cbc_enrollments_student_id ON cbc_student_enrollm
 CREATE INDEX IF NOT EXISTS idx_cbc_enrollments_school_id  ON cbc_student_enrollments (school_id);
 CREATE INDEX IF NOT EXISTS idx_cbc_enrollments_term_id    ON cbc_student_enrollments (academic_term_id);
 CREATE INDEX IF NOT EXISTS idx_cbc_enrollments_class_id   ON cbc_student_enrollments (class_id);
+
+DROP TRIGGER IF EXISTS trg_cbc_student_enrollments_updated_at ON cbc_student_enrollments;
+CREATE TRIGGER trg_cbc_student_enrollments_updated_at
+    BEFORE UPDATE ON cbc_student_enrollments
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
 
 -- ============================================================================
 -- LAYER 4 — HEALTH & FINANCIALS
@@ -736,9 +853,9 @@ CREATE INDEX IF NOT EXISTS idx_medical_incidents_student_id ON medical_incidents
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS student_health_profiles (
-    id                     UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id              UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    student_id             UUID UNIQUE NOT NULL REFERENCES cbc_students(id) ON DELETE CASCADE,
+    id                     UUID    PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id              UUID    NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    student_id             UUID    UNIQUE NOT NULL REFERENCES cbc_students(id) ON DELETE CASCADE,
     blood_group            VARCHAR(5),
     allergies              TEXT[],
     chronic_conditions     TEXT[],
@@ -758,24 +875,35 @@ CREATE TABLE IF NOT EXISTS fee_categories (
     name         VARCHAR(150) NOT NULL,
     is_mandatory BOOLEAN      NOT NULL DEFAULT true,
 
-    CONSTRAINT fk_fee_categories_tenant_school FOREIGN KEY (tenant_id, school_id) REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE
+    CONSTRAINT fk_fee_categories_tenant_school
+        FOREIGN KEY (tenant_id, school_id)
+        REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_fee_categories_tenant    ON fee_categories (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_fee_categories_school_id ON fee_categories (school_id);
 
-CREATE TABLE IF NOT EXISTS fee_templates (
-    id                UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id         UUID          NOT NULL,
-    school_id         UUID          NOT NULL,
-    academic_term_id  UUID          NOT NULL,
-    grade_level       cbc_grade_level    NOT NULL,
-    fee_category_id   UUID          NOT NULL REFERENCES fee_categories(id) ON DELETE CASCADE,
-    amount            NUMERIC(12,2) NOT NULL CHECK (amount >= 0),
+-- ---------------------------------------------------------------------------
+-- FEE TEMPLATES
+-- ---------------------------------------------------------------------------
 
-    CONSTRAINT fk_fee_templates_tenant_school FOREIGN KEY (tenant_id, school_id) REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_fee_templates_tenant_term FOREIGN KEY (tenant_id, school_id, academic_term_id) REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE,
-    CONSTRAINT unique_fee_template_rule UNIQUE (academic_term_id, grade_level, fee_category_id)
+CREATE TABLE IF NOT EXISTS fee_templates (
+    id               UUID             PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id        UUID             NOT NULL,
+    school_id        UUID             NOT NULL,
+    academic_term_id UUID             NOT NULL,
+    grade_level      cbc_grade_level  NOT NULL,
+    fee_category_id  UUID             NOT NULL REFERENCES fee_categories(id) ON DELETE CASCADE,
+    amount           NUMERIC(12,2)    NOT NULL CHECK (amount >= 0),
+
+    CONSTRAINT fk_fee_templates_tenant_school
+        FOREIGN KEY (tenant_id, school_id)
+        REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_fee_templates_tenant_term
+        FOREIGN KEY (tenant_id, school_id, academic_term_id)
+        REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE,
+    CONSTRAINT unique_fee_template_rule
+        UNIQUE (academic_term_id, grade_level, fee_category_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_fee_templates_tenant      ON fee_templates (tenant_id);
@@ -800,9 +928,15 @@ CREATE TABLE IF NOT EXISTS invoices (
     created_at       TIMESTAMPTZ            NOT NULL DEFAULT NOW(),
 
     CONSTRAINT uq_invoices_tenant UNIQUE (tenant_id, id),
-    CONSTRAINT fk_invoices_tenant_student FOREIGN KEY (tenant_id, student_id) REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_invoices_tenant_school FOREIGN KEY (tenant_id, school_id) REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_invoices_tenant_term FOREIGN KEY (tenant_id, school_id, academic_term_id) REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_invoices_tenant_student
+        FOREIGN KEY (tenant_id, student_id)
+        REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_invoices_tenant_school
+        FOREIGN KEY (tenant_id, school_id)
+        REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_invoices_tenant_term
+        FOREIGN KEY (tenant_id, school_id, academic_term_id)
+        REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE,
     CONSTRAINT unique_invoice_per_student_term UNIQUE (student_id, academic_term_id)
 );
 
@@ -835,7 +969,9 @@ CREATE TABLE IF NOT EXISTS invoice_items (
     amount          NUMERIC(12,2) NOT NULL CHECK (amount >= 0),
     created_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
 
-    CONSTRAINT fk_invoice_items_tenant_invoice FOREIGN KEY (tenant_id, invoice_id) REFERENCES invoices(tenant_id, id) ON DELETE CASCADE
+    CONSTRAINT fk_invoice_items_tenant_invoice
+        FOREIGN KEY (tenant_id, invoice_id)
+        REFERENCES invoices(tenant_id, id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_invoice_items_tenant       ON invoice_items (tenant_id);
@@ -857,18 +993,75 @@ CREATE TABLE IF NOT EXISTS payments (
     recorded_by    UUID          NOT NULL REFERENCES users(id),
     created_at     TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
 
-    CONSTRAINT fk_payments_tenant_invoice FOREIGN KEY (tenant_id, invoice_id) REFERENCES invoices(tenant_id, id) ON DELETE CASCADE
+    CONSTRAINT fk_payments_tenant_invoice
+        FOREIGN KEY (tenant_id, invoice_id)
+        REFERENCES invoices(tenant_id, id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_payments_tenant     ON payments (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_payments_invoice_id ON payments (invoice_id);
 CREATE INDEX IF NOT EXISTS idx_payments_parent     ON payments (parent_id);
+-- IMPROVE: M-Pesa reconciliation lookups by reference_code; partial keeps index small
+CREATE UNIQUE INDEX IF NOT EXISTS idx_payments_reference_code
+    ON payments (reference_code) WHERE reference_code IS NOT NULL;
 
 -- ============================================================
 -- TRIGGER: Sync invoice payment_status and amount_paid
+-- BUG FIX: Split into 3 separate functions so each trigger only accesses the
+--          transition table(s) available to it. The original single function
+--          referenced both inserted_rows and deleted_rows regardless of the
+--          trigger event, which would fail at runtime for INSERT and DELETE.
 -- ============================================================
 
-CREATE OR REPLACE FUNCTION fn_sync_invoice_payment_status()
+CREATE OR REPLACE FUNCTION fn_sync_invoice_payment_status_insert()
+RETURNS TRIGGER AS $$
+BEGIN
+    UPDATE invoices i
+    SET
+        amount_paid    = COALESCE(p.total_paid, 0),
+        payment_status = CASE
+            WHEN i.payment_status = 'WAIVED'               THEN 'WAIVED'
+            WHEN COALESCE(p.total_paid, 0) = 0             THEN 'UNPAID'
+            WHEN COALESCE(p.total_paid, 0) >= i.amount_due THEN 'PAID'
+            ELSE 'PARTIAL'
+        END
+    FROM (SELECT DISTINCT invoice_id FROM inserted_rows) ai
+    LEFT JOIN (
+        SELECT invoice_id, SUM(amount) AS total_paid
+        FROM payments
+        GROUP BY invoice_id
+    ) p ON p.invoice_id = ai.invoice_id
+    WHERE i.id = ai.invoice_id;
+
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION fn_sync_invoice_payment_status_delete()
+RETURNS TRIGGER AS $$
+BEGIN
+    UPDATE invoices i
+    SET
+        amount_paid    = COALESCE(p.total_paid, 0),
+        payment_status = CASE
+            WHEN i.payment_status = 'WAIVED'               THEN 'WAIVED'
+            WHEN COALESCE(p.total_paid, 0) = 0             THEN 'UNPAID'
+            WHEN COALESCE(p.total_paid, 0) >= i.amount_due THEN 'PAID'
+            ELSE 'PARTIAL'
+        END
+    FROM (SELECT DISTINCT invoice_id FROM deleted_rows) ai
+    LEFT JOIN (
+        SELECT invoice_id, SUM(amount) AS total_paid
+        FROM payments
+        GROUP BY invoice_id
+    ) p ON p.invoice_id = ai.invoice_id
+    WHERE i.id = ai.invoice_id;
+
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION fn_sync_invoice_payment_status_update()
 RETURNS TRIGGER AS $$
 BEGIN
     WITH affected_invoices AS (
@@ -880,8 +1073,8 @@ BEGIN
     SET
         amount_paid    = COALESCE(p.total_paid, 0),
         payment_status = CASE
-            WHEN i.payment_status = 'WAIVED'              THEN 'WAIVED'
-            WHEN COALESCE(p.total_paid, 0) = 0            THEN 'UNPAID'
+            WHEN i.payment_status = 'WAIVED'               THEN 'WAIVED'
+            WHEN COALESCE(p.total_paid, 0) = 0             THEN 'UNPAID'
             WHEN COALESCE(p.total_paid, 0) >= i.amount_due THEN 'PAID'
             ELSE 'PARTIAL'
         END
@@ -902,36 +1095,44 @@ CREATE TRIGGER trg_sync_invoice_payment_status_insert
     AFTER INSERT ON payments
     REFERENCING NEW TABLE AS inserted_rows
     FOR EACH STATEMENT
-    EXECUTE FUNCTION fn_sync_invoice_payment_status();
+    EXECUTE FUNCTION fn_sync_invoice_payment_status_insert();
 
 -- Fires on DELETE
 CREATE TRIGGER trg_sync_invoice_payment_status_delete
     AFTER DELETE ON payments
     REFERENCING OLD TABLE AS deleted_rows
     FOR EACH STATEMENT
-    EXECUTE FUNCTION fn_sync_invoice_payment_status();
+    EXECUTE FUNCTION fn_sync_invoice_payment_status_delete();
 
 -- Fires on UPDATE
 CREATE TRIGGER trg_sync_invoice_payment_status_update
     AFTER UPDATE ON payments
     REFERENCING NEW TABLE AS inserted_rows OLD TABLE AS deleted_rows
     FOR EACH STATEMENT
-    EXECUTE FUNCTION fn_sync_invoice_payment_status();
+    EXECUTE FUNCTION fn_sync_invoice_payment_status_update();
 
 -- ============================================================================
 -- LAYER 5 — CBC CURRICULUM STRUCTURE
+-- BUG FIX: Moved from after Layer 6 to here. cbc_class_teachers,
+--          cbc_attendance_periods, and cbc_timetable_slots all FK-reference
+--          cbc_learning_areas; they must be created after it.
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS cbc_learning_areas (
-    id               UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id        UUID         NOT NULL,
-    school_id        UUID         NOT NULL,
-    name             VARCHAR(150) NOT NULL,
-    code             VARCHAR(50)  NOT NULL,
-    education_level  cbc_education_level  NOT NULL,
+    id              UUID                NOT NULL DEFAULT gen_random_uuid(),
+    tenant_id       UUID                NOT NULL,
+    school_id       UUID                NOT NULL,
+    name            VARCHAR(150)        NOT NULL,
+    code            VARCHAR(50)         NOT NULL,
+    education_level cbc_education_level NOT NULL,
 
-    CONSTRAINT fk_cbc_learning_areas_tenant_school FOREIGN KEY (tenant_id, school_id) REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT uq_cbc_learning_area_school_code UNIQUE (tenant_id, school_id, code)
+    PRIMARY KEY (id),
+    CONSTRAINT fk_cbc_learning_areas_tenant_school
+        FOREIGN KEY (tenant_id, school_id)
+        REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT uq_cbc_learning_area_school_code UNIQUE (tenant_id, school_id, code),
+    -- IMPROVE: expose (tenant_id, id) pair so downstream tables can composite-FK
+    CONSTRAINT uq_cbc_learning_areas_tenant UNIQUE (tenant_id, id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_cbc_learning_areas_tenant          ON cbc_learning_areas (tenant_id);
@@ -971,7 +1172,7 @@ CREATE TABLE IF NOT EXISTS cbc_sub_strands (
 CREATE INDEX IF NOT EXISTS idx_cbc_sub_strands_strand_id ON cbc_sub_strands (strand_id);
 
 -- ---------------------------------------------------------------------------
--- PERFORMANCE INDICATORS  (NEW — leaf node of the curriculum hierarchy)
+-- PERFORMANCE INDICATORS
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS performance_indicators (
@@ -1006,7 +1207,9 @@ CREATE TABLE IF NOT EXISTS cbc_class_teachers (
     teacher_role     teacher_role NOT NULL DEFAULT 'SUBJECT_TEACHER',
     created_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
 
-    CONSTRAINT fk_cbc_class_teachers_tenant_class FOREIGN KEY (tenant_id, class_id) REFERENCES cbc_classes(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_cbc_class_teachers_tenant_class
+        FOREIGN KEY (tenant_id, class_id)
+        REFERENCES cbc_classes(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT chk_cct_primary_no_area CHECK (
         teacher_role != 'PRIMARY_CLASS_TEACHER' OR learning_area_id IS NULL
     ),
@@ -1031,27 +1234,40 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_cbc_one_primary_per_class
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS cbc_attendance_periods (
-    id                   UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id            UUID          NOT NULL,
-    school_id            UUID          NOT NULL,
-    academic_term_id     UUID          NOT NULL,
-    class_id             UUID          NOT NULL,
-    cbc_learning_area_id UUID          NOT NULL REFERENCES cbc_learning_areas(id) ON DELETE CASCADE,
-    date_recorded        DATE          NOT NULL,
-    recorded_by          UUID          NOT NULL REFERENCES users(id),
-    authorized_by_role   teacher_role  NULL,
-    created_at           TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    id                   UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id            UUID         NOT NULL,
+    school_id            UUID         NOT NULL,
+    academic_term_id     UUID         NOT NULL,
+    class_id             UUID         NOT NULL,
+    cbc_learning_area_id UUID         NOT NULL REFERENCES cbc_learning_areas(id) ON DELETE CASCADE,
+    date_recorded        DATE         NOT NULL,
+    recorded_by          UUID         NOT NULL REFERENCES users(id),
+    authorized_by_role   teacher_role NULL,
+    created_at           TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
 
     CONSTRAINT uq_cbc_attendance_periods_tenant UNIQUE (tenant_id, id),
-    CONSTRAINT fk_cbc_att_periods_tenant_school FOREIGN KEY (tenant_id, school_id) REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_cbc_att_periods_tenant_term FOREIGN KEY (tenant_id, school_id, academic_term_id) REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_cbc_att_periods_tenant_class FOREIGN KEY (tenant_id, class_id) REFERENCES cbc_classes(tenant_id, id) ON DELETE CASCADE
+    CONSTRAINT fk_cbc_att_periods_tenant_school
+        FOREIGN KEY (tenant_id, school_id)
+        REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_cbc_att_periods_tenant_term
+        FOREIGN KEY (tenant_id, school_id, academic_term_id)
+        REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_cbc_att_periods_tenant_class
+        FOREIGN KEY (tenant_id, class_id)
+        REFERENCES cbc_classes(tenant_id, id) ON DELETE CASCADE
 );
 
 CREATE INDEX        IF NOT EXISTS idx_cbc_att_periods_tenant     ON cbc_attendance_periods (tenant_id);
 CREATE INDEX        IF NOT EXISTS idx_cbc_att_periods_class_date ON cbc_attendance_periods (class_id, date_recorded);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_cbc_unique_attendance_period
     ON cbc_attendance_periods (class_id, date_recorded, cbc_learning_area_id);
+
+COMMENT ON COLUMN cbc_attendance_periods.authorized_by_role IS
+    'The teacher_role that authorised this attendance period record. Populated
+     when a period recorded by a SUBSTITUTE_TEACHER is counter-signed by a
+     PRIMARY_CLASS_TEACHER. NULL means the recording teacher is also the
+     authorising teacher (normal case). Used for audit and KNEC compliance
+     reporting where substitute attendance requires authorisation.';
 
 -- ---------------------------------------------------------------------------
 -- CBC ATTENDANCE LOGS
@@ -1066,8 +1282,12 @@ CREATE TABLE IF NOT EXISTS cbc_attendance_logs (
     remarks                  VARCHAR(255)      NULL,
     recorded_by              UUID              NOT NULL REFERENCES users(id),
 
-    CONSTRAINT fk_cbc_att_logs_tenant_period FOREIGN KEY (tenant_id, cbc_attendance_period_id) REFERENCES cbc_attendance_periods(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_cbc_att_logs_tenant_student FOREIGN KEY (tenant_id, student_id) REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_cbc_att_logs_tenant_period
+        FOREIGN KEY (tenant_id, cbc_attendance_period_id)
+        REFERENCES cbc_attendance_periods(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_cbc_att_logs_tenant_student
+        FOREIGN KEY (tenant_id, student_id)
+        REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT unique_cbc_student_attendance_period UNIQUE (cbc_attendance_period_id, student_id)
 );
 
@@ -1076,7 +1296,9 @@ CREATE INDEX IF NOT EXISTS idx_cbc_att_logs_period  ON cbc_attendance_logs (cbc_
 CREATE INDEX IF NOT EXISTS idx_cbc_att_logs_student ON cbc_attendance_logs (student_id);
 
 -- ---------------------------------------------------------------------------
--- CBC TIMETABLE SLOTS (GiST exclusion constraints kept verbatim)
+-- CBC TIMETABLE SLOTS
+-- IMPROVE: added CHECK (end_time > start_time) — GiST exclusion prevents
+--          overlaps but nothing previously blocked end <= start on the row itself
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS cbc_timetable_slots (
@@ -1093,11 +1315,22 @@ CREATE TABLE IF NOT EXISTS cbc_timetable_slots (
     start_time           TIME        NOT NULL,
     end_time             TIME        NOT NULL,
 
-    CONSTRAINT fk_cbc_timetable_tenant_school FOREIGN KEY (tenant_id, school_id) REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_cbc_timetable_tenant_year FOREIGN KEY (tenant_id, academic_year_id) REFERENCES academic_years(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_cbc_timetable_tenant_term FOREIGN KEY (tenant_id, school_id, academic_term_id) REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_cbc_timetable_tenant_class FOREIGN KEY (tenant_id, class_id) REFERENCES cbc_classes(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_cbc_timetable_tenant_teacher FOREIGN KEY (tenant_id, teacher_id) REFERENCES users(tenant_id, id) ON DELETE CASCADE
+    CONSTRAINT chk_timetable_times CHECK (end_time > start_time),
+    CONSTRAINT fk_cbc_timetable_tenant_school
+        FOREIGN KEY (tenant_id, school_id)
+        REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_cbc_timetable_tenant_year
+        FOREIGN KEY (tenant_id, academic_year_id)
+        REFERENCES academic_years(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_cbc_timetable_tenant_term
+        FOREIGN KEY (tenant_id, school_id, academic_term_id)
+        REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_cbc_timetable_tenant_class
+        FOREIGN KEY (tenant_id, class_id)
+        REFERENCES cbc_classes(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_cbc_timetable_tenant_teacher
+        FOREIGN KEY (tenant_id, teacher_id)
+        REFERENCES users(tenant_id, id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_cbc_timetable_tenant      ON cbc_timetable_slots (tenant_id);
@@ -1126,30 +1359,54 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 -- ---------------------------------------------------------------------------
--- AUTO-REGISTER SUBJECT TEACHER TRIGGER
--- When a timetable slot is inserted or updated with a learning_area_id,
--- ensures the teacher is registered as a SUBJECT_TEACHER for that
--- (class_id, learning_area_id) pair. Skips if they already exist with
--- PRIMARY_CLASS_TEACHER or SUBSTITUTE_TEACHER roles.
+-- AUTO-REGISTER / AUTO-CLEAN SUBJECT TEACHER TRIGGER
+-- IMPROVE: Extended to also clean up stale SUBJECT_TEACHER registrations when
+--          a timetable slot's teacher_id or cbc_learning_area_id changes. The
+--          original only inserted, leaving ghost assignments on UPDATE.
 -- ---------------------------------------------------------------------------
 
 CREATE OR REPLACE FUNCTION fn_auto_register_subject_teacher()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- Only act when a learning area is specified
+    -- On UPDATE: remove the old SUBJECT_TEACHER registration if teacher or
+    -- learning area has changed, to avoid ghost assignments.
+    IF TG_OP = 'UPDATE' THEN
+        IF (OLD.teacher_id IS DISTINCT FROM NEW.teacher_id OR
+            OLD.cbc_learning_area_id IS DISTINCT FROM NEW.cbc_learning_area_id) AND
+            OLD.cbc_learning_area_id IS NOT NULL
+        THEN
+            -- Only remove if this slot was the sole reason for the assignment
+            -- (i.e. no other active slot ties this teacher+class+area together).
+            DELETE FROM cbc_class_teachers
+            WHERE tenant_id        = OLD.tenant_id
+              AND class_id         = OLD.class_id
+              AND user_id          = OLD.teacher_id
+              AND learning_area_id = OLD.cbc_learning_area_id
+              AND teacher_role     = 'SUBJECT_TEACHER'
+              AND NOT EXISTS (
+                  SELECT 1 FROM cbc_timetable_slots
+                  WHERE tenant_id            = OLD.tenant_id
+                    AND class_id             = OLD.class_id
+                    AND teacher_id           = OLD.teacher_id
+                    AND cbc_learning_area_id = OLD.cbc_learning_area_id
+                    AND id                  != OLD.id   -- exclude the row being updated
+              );
+        END IF;
+    END IF;
+
+    -- Insert new SUBJECT_TEACHER registration when a learning area is set
     IF NEW.cbc_learning_area_id IS NOT NULL THEN
-        -- Check if teacher is already registered on this class (any role)
         IF NOT EXISTS (
             SELECT 1 FROM cbc_class_teachers
             WHERE tenant_id = NEW.tenant_id
-              AND class_id = NEW.class_id
-              AND user_id = NEW.teacher_id
+              AND class_id  = NEW.class_id
+              AND user_id   = NEW.teacher_id
         ) THEN
-            -- Insert as SUBJECT_TEACHER
             INSERT INTO cbc_class_teachers (tenant_id, class_id, user_id, learning_area_id, teacher_role)
             VALUES (NEW.tenant_id, NEW.class_id, NEW.teacher_id, NEW.cbc_learning_area_id, 'SUBJECT_TEACHER');
         END IF;
     END IF;
+
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
@@ -1165,21 +1422,23 @@ CREATE TRIGGER trg_auto_register_subject_teacher
 -- ============================================================================
 
 -- ---------------------------------------------------------------------------
--- ASSESSMENT WEIGHT CONFIGS  (NEW — KNEC-defined contribution weights)
+-- ASSESSMENT WEIGHT CONFIGS
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS assessment_weight_configs (
-    id                   UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
-    grade_level          cbc_grade_level    NOT NULL,
+    id                   UUID                NOT NULL DEFAULT gen_random_uuid(),
+    grade_level          cbc_grade_level     NOT NULL,
     assessment_type_code cbc_assessment_type NOT NULL,
     target_exam          knec_target_exam    NOT NULL,
-    weight_percent       NUMERIC(5,2)  NOT NULL,
-    effective_from       SMALLINT      NOT NULL,
-    notes                TEXT          NULL,
+    weight_percent       NUMERIC(5,2)        NOT NULL,
+    effective_from       SMALLINT            NOT NULL,
+    notes                TEXT                NULL,
 
-    CONSTRAINT chk_awc_weight_percent CHECK (weight_percent BETWEEN 0.00 AND 100.00),
-    CONSTRAINT chk_awc_effective_from CHECK (effective_from >= 2017),
-    CONSTRAINT uq_awc_grade_type_exam_effective UNIQUE (grade_level, assessment_type_code, target_exam, effective_from)
+    PRIMARY KEY (id),
+    CONSTRAINT chk_awc_weight_percent    CHECK (weight_percent BETWEEN 0.00 AND 100.00),
+    CONSTRAINT chk_awc_effective_from    CHECK (effective_from >= 2017),
+    CONSTRAINT uq_awc_grade_type_exam_effective
+        UNIQUE (grade_level, assessment_type_code, target_exam, effective_from)
 );
 
 CREATE INDEX IF NOT EXISTS idx_awc_grade_exam ON assessment_weight_configs (grade_level, target_exam);
@@ -1187,33 +1446,43 @@ CREATE INDEX IF NOT EXISTS idx_awc_grade_exam ON assessment_weight_configs (grad
 COMMENT ON TABLE assessment_weight_configs IS
     'Official KNEC weighting formula per grade per assessment type. Seeded with
      the published KNEC formula. KPSEA: 60% SBA (G4+G5) + 40% KPSEA written (G6).
-     KJSEA: 20% SBA (G7+G8) + 20% KPSEA result + 60% KJSEA written (G9).';
+     KJSEA: 20% SBA (G7+G8) + 20% KPSEA result + 60% KJSEA written (G9).
+     This table is intentionally global (no tenant_id): KNEC weights are
+     nationally mandated and do not vary per school. Schema changes would be
+     required if per-school overrides are ever needed.';
 
 -- ---------------------------------------------------------------------------
--- ASSESSMENT BLUEPRINTS  (NEW — replaces defunct assessment_types lookup table)
+-- ASSESSMENT BLUEPRINTS
+-- IMPROVE: added unique constraint to prevent duplicate blueprints for the
+--          same school/grade/term combination
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS assessment_blueprints (
-    id               UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id        UUID         NOT NULL,
-    school_id        UUID         NOT NULL,
-    title            VARCHAR(255) NOT NULL,
-    type             cbc_assessment_type NOT NULL,
-    grade_level      cbc_grade_level   NOT NULL,
-    academic_year    SMALLINT     NOT NULL,
-    term             SMALLINT     NOT NULL,
+    id            UUID                NOT NULL DEFAULT gen_random_uuid(),
+    tenant_id     UUID                NOT NULL,
+    school_id     UUID                NOT NULL,
+    title         VARCHAR(255)        NOT NULL,
+    type          cbc_assessment_type NOT NULL,
+    grade_level   cbc_grade_level     NOT NULL,
+    academic_year SMALLINT            NOT NULL,
+    term          SMALLINT            NOT NULL,
 
-    CONSTRAINT fk_blueprints_tenant_school FOREIGN KEY (tenant_id, school_id) REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT chk_blueprint_term CHECK (term BETWEEN 1 AND 3),
-    CONSTRAINT chk_blueprint_academic_year CHECK (academic_year >= 2017)
+    PRIMARY KEY (id),
+    CONSTRAINT fk_blueprints_tenant_school
+        FOREIGN KEY (tenant_id, school_id)
+        REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT chk_blueprint_term          CHECK (term BETWEEN 1 AND 3),
+    CONSTRAINT chk_blueprint_academic_year CHECK (academic_year >= 2017),
+    CONSTRAINT uq_blueprint_per_school_grade_term
+        UNIQUE (school_id, title, type, grade_level, academic_year, term)
 );
 
-CREATE INDEX IF NOT EXISTS idx_blueprints_tenant      ON assessment_blueprints (tenant_id);
-CREATE INDEX IF NOT EXISTS idx_blueprints_school      ON assessment_blueprints (school_id);
-CREATE INDEX IF NOT EXISTS idx_blueprints_grade_year  ON assessment_blueprints (grade_level, academic_year, type);
+CREATE INDEX IF NOT EXISTS idx_blueprints_tenant     ON assessment_blueprints (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_blueprints_school     ON assessment_blueprints (school_id);
+CREATE INDEX IF NOT EXISTS idx_blueprints_grade_year ON assessment_blueprints (grade_level, academic_year, type);
 
 -- ---------------------------------------------------------------------------
--- ASSESSMENT BLUEPRINT INDICATORS  (NEW — junction table)
+-- ASSESSMENT BLUEPRINT INDICATORS
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS assessment_blueprint_indicators (
@@ -1231,7 +1500,7 @@ CREATE INDEX IF NOT EXISTS idx_blueprint_indicators_indicator
 -- ============================================================================
 
 -- ---------------------------------------------------------------------------
--- ASSESSMENT SESSIONS  (NEW — records one execution of a blueprint)
+-- ASSESSMENT SESSIONS
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS assessment_sessions (
@@ -1244,7 +1513,9 @@ CREATE TABLE IF NOT EXISTS assessment_sessions (
     knec_upload_reference VARCHAR(50) NULL,
     created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
-    CONSTRAINT fk_asessions_tenant_class FOREIGN KEY (tenant_id, class_id) REFERENCES cbc_classes(tenant_id, id) ON DELETE RESTRICT
+    CONSTRAINT fk_asessions_tenant_class
+        FOREIGN KEY (tenant_id, class_id)
+        REFERENCES cbc_classes(tenant_id, id) ON DELETE RESTRICT
 );
 
 CREATE INDEX IF NOT EXISTS idx_asessions_tenant     ON assessment_sessions (tenant_id);
@@ -1265,28 +1536,35 @@ COMMENT ON COLUMN assessment_sessions.knec_upload_reference IS
      uploaded to KNEC.';
 
 -- ---------------------------------------------------------------------------
--- LEARNER RUBRIC RESULTS  (NEW — atomic CBC assessment record)
+-- LEARNER RUBRIC RESULTS
+-- IMPROVE: added CHECK (raw_score >= 0) — NUMERIC(5,2) previously allowed
+--          negative marks; added index on (session_id, student_id) for the
+--          most common access pattern (all results for a student in a session)
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS learner_rubric_results (
-    id                        UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id                 UUID         NOT NULL,
-    session_id                UUID         NOT NULL REFERENCES assessment_sessions(id) ON DELETE CASCADE,
-    student_id                UUID         NOT NULL,
-    indicator_id              UUID         NOT NULL REFERENCES performance_indicators(id) ON DELETE RESTRICT,
-    score_type                lrr_score_type  NOT NULL,
-    raw_score                 NUMERIC(5,2) NULL,
-    rubric_level              cbc_rubric_level   NOT NULL,
-    teacher_observation_notes TEXT         NULL,
+    id                        UUID           PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id                 UUID           NOT NULL,
+    session_id                UUID           NOT NULL REFERENCES assessment_sessions(id) ON DELETE CASCADE,
+    student_id                UUID           NOT NULL,
+    indicator_id              UUID           NOT NULL REFERENCES performance_indicators(id) ON DELETE RESTRICT,
+    score_type                lrr_score_type NOT NULL,
+    raw_score                 NUMERIC(5,2)   NULL CHECK (raw_score >= 0),
+    rubric_level              cbc_rubric_level NOT NULL,
+    teacher_observation_notes TEXT           NULL,
 
-    CONSTRAINT fk_lrr_tenant_student FOREIGN KEY (tenant_id, student_id) REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_lrr_tenant_student
+        FOREIGN KEY (tenant_id, student_id)
+        REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT unique_lrr_per_student_indicator UNIQUE (session_id, student_id, indicator_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_lrr_tenant                ON learner_rubric_results (tenant_id);
-CREATE INDEX IF NOT EXISTS idx_lrr_session               ON learner_rubric_results (session_id);
-CREATE INDEX IF NOT EXISTS idx_lrr_student_indicator     ON learner_rubric_results (student_id, indicator_id);
-CREATE INDEX IF NOT EXISTS idx_lrr_indicator             ON learner_rubric_results (indicator_id);
+CREATE INDEX IF NOT EXISTS idx_lrr_tenant            ON learner_rubric_results (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_lrr_session           ON learner_rubric_results (session_id);
+-- IMPROVE: fast fetch of all results for a student within a session
+CREATE INDEX IF NOT EXISTS idx_lrr_session_student   ON learner_rubric_results (session_id, student_id);
+CREATE INDEX IF NOT EXISTS idx_lrr_student_indicator ON learner_rubric_results (student_id, indicator_id);
+CREATE INDEX IF NOT EXISTS idx_lrr_indicator         ON learner_rubric_results (indicator_id);
 
 COMMENT ON COLUMN learner_rubric_results.rubric_level IS
     'Official KNEC 4-level rubric outcome. EE/ME/AE/BE only. No sub-levels
@@ -1300,21 +1578,23 @@ COMMENT ON COLUMN learner_rubric_results.raw_score IS
      compliance violation.';
 
 -- ---------------------------------------------------------------------------
--- LEARNER PORTFOLIOS  (NEW — evidence artifacts)
+-- LEARNER PORTFOLIOS
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS learner_portfolios (
-    id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id        UUID        NOT NULL,
-    student_id       UUID        NOT NULL,
-    sub_strand_id    UUID        NOT NULL REFERENCES cbc_sub_strands(id) ON DELETE RESTRICT,
+    id               UUID                    PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id        UUID                    NOT NULL,
+    student_id       UUID                    NOT NULL,
+    sub_strand_id    UUID                    NOT NULL REFERENCES cbc_sub_strands(id) ON DELETE RESTRICT,
     evidence_type    portfolio_evidence_type NOT NULL,
-    storage_pointer  TEXT        NOT NULL,
-    linked_result_id UUID        NULL REFERENCES learner_rubric_results(id) ON DELETE SET NULL,
-    date_collected   DATE        NULL,
-    created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    storage_pointer  TEXT                    NOT NULL,
+    linked_result_id UUID                    NULL REFERENCES learner_rubric_results(id) ON DELETE SET NULL,
+    date_collected   DATE                    NULL,
+    created_at       TIMESTAMPTZ             NOT NULL DEFAULT NOW(),
 
-    CONSTRAINT fk_portfolios_tenant_student FOREIGN KEY (tenant_id, student_id) REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE
+    CONSTRAINT fk_portfolios_tenant_student
+        FOREIGN KEY (tenant_id, student_id)
+        REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_portfolios_tenant     ON learner_portfolios (tenant_id);
@@ -1332,34 +1612,43 @@ COMMENT ON COLUMN learner_portfolios.storage_pointer IS
 -- ============================================================================
 
 -- ---------------------------------------------------------------------------
--- CBC TERM COMPETENCY SUMMARIES  (NEW — definitive per-term competency record)
+-- CBC TERM COMPETENCY SUMMARIES
+-- IMPROVE: added index on (student_id, learning_area_id) for fetching all
+--          terms in a student's subject history
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS cbc_term_competency_summaries (
-    id               UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id        UUID         NOT NULL,
-    student_id       UUID         NOT NULL,
-    learning_area_id UUID         NOT NULL REFERENCES cbc_learning_areas(id) ON DELETE RESTRICT,
-    class_id         UUID         NOT NULL,
-    academic_year    SMALLINT     NOT NULL,
-    term             SMALLINT     NOT NULL,
+    id               UUID                             PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id        UUID                             NOT NULL,
+    student_id       UUID                             NOT NULL,
+    learning_area_id UUID                             NOT NULL REFERENCES cbc_learning_areas(id) ON DELETE RESTRICT,
+    class_id         UUID                             NOT NULL,
+    academic_year    SMALLINT                         NOT NULL,
+    term             SMALLINT                         NOT NULL,
     calculated_level cbc_rubric_level_with_sub_levels NOT NULL,
     override_level   cbc_rubric_level_with_sub_levels NULL,
-    final_level      cbc_rubric_level NOT NULL,
-    knec_sync_status knec_sync_status NOT NULL DEFAULT 'Pending',
-    knec_synced_at   TIMESTAMPTZ  NULL,
+    final_level      cbc_rubric_level                 NOT NULL,
+    knec_sync_status knec_sync_status                 NOT NULL DEFAULT 'Pending',
+    knec_synced_at   TIMESTAMPTZ                      NULL,
 
-    CONSTRAINT fk_summaries_tenant_student FOREIGN KEY (tenant_id, student_id) REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_summaries_tenant_class FOREIGN KEY (tenant_id, class_id) REFERENCES cbc_classes(tenant_id, id) ON DELETE RESTRICT,
-    CONSTRAINT chk_summary_term CHECK (term BETWEEN 1 AND 3),
+    CONSTRAINT fk_summaries_tenant_student
+        FOREIGN KEY (tenant_id, student_id)
+        REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_summaries_tenant_class
+        FOREIGN KEY (tenant_id, class_id)
+        REFERENCES cbc_classes(tenant_id, id) ON DELETE RESTRICT,
+    CONSTRAINT chk_summary_term         CHECK (term BETWEEN 1 AND 3),
     CONSTRAINT chk_summary_academic_year CHECK (academic_year >= 2017),
-    CONSTRAINT unique_summary_per_student_area_term UNIQUE (student_id, learning_area_id, academic_year, term)
+    CONSTRAINT unique_summary_per_student_area_term
+        UNIQUE (student_id, learning_area_id, academic_year, term)
 );
 
-CREATE INDEX IF NOT EXISTS idx_summaries_tenant          ON cbc_term_competency_summaries (tenant_id);
-CREATE INDEX IF NOT EXISTS idx_summaries_sync_batch      ON cbc_term_competency_summaries (academic_year, term, knec_sync_status);
-CREATE INDEX IF NOT EXISTS idx_summaries_student_year    ON cbc_term_competency_summaries (student_id, academic_year);
-CREATE INDEX IF NOT EXISTS idx_summaries_class           ON cbc_term_competency_summaries (class_id);
+CREATE INDEX IF NOT EXISTS idx_summaries_tenant       ON cbc_term_competency_summaries (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_summaries_sync_batch   ON cbc_term_competency_summaries (academic_year, term, knec_sync_status);
+CREATE INDEX IF NOT EXISTS idx_summaries_student_year ON cbc_term_competency_summaries (student_id, academic_year);
+CREATE INDEX IF NOT EXISTS idx_summaries_class        ON cbc_term_competency_summaries (class_id);
+-- IMPROVE: fast lookup of all terms for a student's subject history
+CREATE INDEX IF NOT EXISTS idx_summaries_student_area ON cbc_term_competency_summaries (student_id, learning_area_id);
 
 COMMENT ON TABLE cbc_term_competency_summaries IS
     'Definitive per-term competency record per learner per learning area.
@@ -1368,15 +1657,20 @@ COMMENT ON TABLE cbc_term_competency_summaries IS
      calculated_level and override_level fields. knec_synced_at is NULL until
      the first successful upload to cba.knec.ac.ke.';
 
-CREATE TABLE school_member_counts (
-    school_id UUID PRIMARY KEY REFERENCES cbc_schools(id) ON DELETE CASCADE,
-    admins INT NOT NULL DEFAULT 0,
-    teachers INT NOT NULL DEFAULT 0,
-    nurses INT NOT NULL DEFAULT 0,
-    finance INT NOT NULL DEFAULT 0,
-    parents INT NOT NULL DEFAULT 0,
-    students INT NOT NULL DEFAULT 0,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+-- ---------------------------------------------------------------------------
+-- SCHOOL MEMBER COUNTS
+-- IMPROVE: added IF NOT EXISTS (was the only CREATE TABLE in the file missing it)
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS school_member_counts (
+    school_id  UUID      PRIMARY KEY REFERENCES cbc_schools(id) ON DELETE CASCADE,
+    admins     INT       NOT NULL DEFAULT 0,
+    teachers   INT       NOT NULL DEFAULT 0,
+    nurses     INT       NOT NULL DEFAULT 0,
+    finance    INT       NOT NULL DEFAULT 0,
+    parents    INT       NOT NULL DEFAULT 0,
+    students   INT       NOT NULL DEFAULT 0,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_school_member_counts ON school_member_counts (school_id);
@@ -1384,8 +1678,6 @@ CREATE INDEX IF NOT EXISTS idx_school_member_counts ON school_member_counts (sch
 -- ============================================================
 -- TRIGGER: Sync school staff/parent counts from memberships
 -- ============================================================
-
--- Separate functions so each trigger only references the transition tables it has access to.
 
 CREATE OR REPLACE FUNCTION fn_sync_school_staff_counts_insert()
 RETURNS TRIGGER AS $$
@@ -1402,7 +1694,7 @@ BEGIN
     FROM (SELECT DISTINCT school_id FROM inserted_rows) s
     LEFT JOIN memberships m
         ON m.school_id = s.school_id
-        AND m.is_active = true
+       AND m.is_active  = true
     GROUP BY s.school_id
     ON CONFLICT (school_id) DO UPDATE SET
         admins     = EXCLUDED.admins,
@@ -1431,7 +1723,7 @@ BEGIN
     FROM (SELECT DISTINCT school_id FROM deleted_rows) s
     LEFT JOIN memberships m
         ON m.school_id = s.school_id
-        AND m.is_active = true
+       AND m.is_active  = true
     GROUP BY s.school_id
     ON CONFLICT (school_id) DO UPDATE SET
         admins     = EXCLUDED.admins,
@@ -1465,7 +1757,7 @@ BEGIN
     FROM affected_schools s
     LEFT JOIN memberships m
         ON m.school_id = s.school_id
-        AND m.is_active = true
+       AND m.is_active  = true
     GROUP BY s.school_id
     ON CONFLICT (school_id) DO UPDATE SET
         admins     = EXCLUDED.admins,
@@ -1500,12 +1792,9 @@ CREATE TRIGGER trg_memberships_counts_update
     FOR EACH STATEMENT
     EXECUTE FUNCTION fn_sync_school_staff_counts_update();
 
-
 -- ============================================================
 -- TRIGGER: Sync school student counts from cbc_students
 -- ============================================================
-
--- Separate functions so each trigger only references the transition tables it has access to.
 
 CREATE OR REPLACE FUNCTION fn_sync_school_student_counts_insert()
 RETURNS TRIGGER AS $$
@@ -1518,7 +1807,7 @@ BEGIN
     FROM (SELECT DISTINCT school_id FROM inserted_rows) s
     LEFT JOIN cbc_students st
         ON st.school_id = s.school_id
-        AND st.is_active = true
+       AND st.is_active  = true
     GROUP BY s.school_id
     ON CONFLICT (school_id) DO UPDATE SET
         students   = EXCLUDED.students,
@@ -1539,7 +1828,7 @@ BEGIN
     FROM (SELECT DISTINCT school_id FROM deleted_rows) s
     LEFT JOIN cbc_students st
         ON st.school_id = s.school_id
-        AND st.is_active = true
+       AND st.is_active  = true
     GROUP BY s.school_id
     ON CONFLICT (school_id) DO UPDATE SET
         students   = EXCLUDED.students,
@@ -1565,7 +1854,7 @@ BEGIN
     FROM affected_schools s
     LEFT JOIN cbc_students st
         ON st.school_id = s.school_id
-        AND st.is_active = true
+       AND st.is_active  = true
     GROUP BY s.school_id
     ON CONFLICT (school_id) DO UPDATE SET
         students   = EXCLUDED.students,
@@ -1588,6 +1877,7 @@ CREATE TRIGGER trg_cbc_students_counts_delete
     REFERENCING OLD TABLE AS deleted_rows
     FOR EACH STATEMENT
     EXECUTE FUNCTION fn_sync_school_student_counts_delete();
+
 -- Fires on UPDATE
 CREATE TRIGGER trg_cbc_students_counts_update
     AFTER UPDATE ON cbc_students
@@ -1595,23 +1885,9 @@ CREATE TRIGGER trg_cbc_students_counts_update
     FOR EACH STATEMENT
     EXECUTE FUNCTION fn_sync_school_student_counts_update();
 
-
 -- ============================================================================
 -- LAYER 10 — USER ACTIVE SCHOOL CONTEXT
 -- ============================================================================
-
--- ---------------------------------------------------------------------------
--- MEMBER ACTIVE SCHOOL
--- ---------------------------------------------------------------------------
--- Tracks which school is the current working context for a user.
--- A user belonging to multiple schools in one tenant can switch context freely.
--- Application upsert pattern:
---   INSERT INTO member_active_school (user_id, tenant_id, school_id, switched_at)
---   VALUES ($1, $2, $3, NOW())
---   ON CONFLICT (user_id) DO UPDATE
---     SET school_id   = EXCLUDED.school_id,
---         tenant_id   = EXCLUDED.tenant_id,
---         switched_at = NOW();
 
 CREATE TABLE IF NOT EXISTS member_active_school (
     user_id     UUID        NOT NULL,
@@ -1621,10 +1897,14 @@ CREATE TABLE IF NOT EXISTS member_active_school (
 
     PRIMARY KEY (user_id),
 
-    CONSTRAINT fk_mas_user            FOREIGN KEY (user_id)              REFERENCES users(id)                     ON DELETE CASCADE,
-    CONSTRAINT fk_mas_tenant_user     FOREIGN KEY (tenant_id, user_id)   REFERENCES users(tenant_id, id)          ON DELETE CASCADE,
-    CONSTRAINT fk_mas_tenant_school   FOREIGN KEY (tenant_id, school_id) REFERENCES cbc_schools(tenant_id, id)    ON DELETE CASCADE,
-    CONSTRAINT fk_mas_membership      FOREIGN KEY (user_id, school_id)   REFERENCES memberships(user_id, school_id) ON DELETE CASCADE
+    CONSTRAINT fk_mas_user
+        FOREIGN KEY (user_id)              REFERENCES users(id)                       ON DELETE CASCADE,
+    CONSTRAINT fk_mas_tenant_user
+        FOREIGN KEY (tenant_id, user_id)   REFERENCES users(tenant_id, id)            ON DELETE CASCADE,
+    CONSTRAINT fk_mas_tenant_school
+        FOREIGN KEY (tenant_id, school_id) REFERENCES cbc_schools(tenant_id, id)      ON DELETE CASCADE,
+    CONSTRAINT fk_mas_membership
+        FOREIGN KEY (user_id, school_id)   REFERENCES memberships(user_id, school_id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_mas_tenant_id ON member_active_school (tenant_id);
@@ -1646,19 +1926,19 @@ COMMENT ON TABLE member_active_school IS
 -- ---------------------------------------------------------------------------
 
 ALTER TABLE academic_years
-  ADD COLUMN IF NOT EXISTS version    INTEGER              NOT NULL DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS version    INTEGER     NOT NULL DEFAULT 1,
   ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ,
-  ADD COLUMN IF NOT EXISTS created_by UUID                 NOT NULL REFERENCES users(id),
-  ADD COLUMN IF NOT EXISTS updated_by UUID                 NOT NULL REFERENCES users(id);
+  ADD COLUMN IF NOT EXISTS created_by UUID        NOT NULL REFERENCES users(id),
+  ADD COLUMN IF NOT EXISTS updated_by UUID        NOT NULL REFERENCES users(id);
 
 -- Drop the old partial unique index and replace with one that excludes
--- soft-deleted rows. The old index used WHERE is_current = true;
+-- soft-deleted rows.
 DROP INDEX IF EXISTS idx_one_current_year_per_school;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_one_current_year_per_school
-  ON academic_years (school_id)
-  WHERE is_current = TRUE AND deleted_at IS NULL;
+    ON academic_years (school_id)
+    WHERE is_current = TRUE AND deleted_at IS NULL;
 
--- Rename / normalise the check constraint (was end_date > start_date)
+-- Rename / normalise the check constraint
 ALTER TABLE academic_years
   DROP CONSTRAINT IF EXISTS chk_academic_year_dates,
   ADD CONSTRAINT chk_year_dates CHECK (start_date < end_date);
@@ -1668,37 +1948,39 @@ ALTER TABLE academic_years
 -- ---------------------------------------------------------------------------
 
 ALTER TABLE academic_terms
-  ADD COLUMN IF NOT EXISTS version    INTEGER              NOT NULL DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS version    INTEGER     NOT NULL DEFAULT 1,
   ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ,
-  ADD COLUMN IF NOT EXISTS created_by UUID                 NOT NULL REFERENCES users(id),
-  ADD COLUMN IF NOT EXISTS updated_by UUID                 NOT NULL REFERENCES users(id);
+  ADD COLUMN IF NOT EXISTS created_by UUID        NOT NULL REFERENCES users(id),
+  ADD COLUMN IF NOT EXISTS updated_by UUID        NOT NULL REFERENCES users(id);
 
 -- Drop old partial unique index on current term, replace with soft-delete-aware
 DROP INDEX IF EXISTS idx_one_current_term_per_year;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_one_current_term_per_year
-  ON academic_terms (academic_year_id)
-  WHERE is_current = TRUE AND deleted_at IS NULL;
+    ON academic_terms (academic_year_id)
+    WHERE is_current = TRUE AND deleted_at IS NULL;
 
 -- Drop old full unique constraint on (academic_year_id, term_number) and
 -- replace with a partial unique index that excludes soft-deleted rows.
 ALTER TABLE academic_terms
   DROP CONSTRAINT IF EXISTS uq_academic_year_term_number;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_term_number_per_year
-  ON academic_terms (academic_year_id, term_number)
-  WHERE deleted_at IS NULL;
+    ON academic_terms (academic_year_id, term_number)
+    WHERE deleted_at IS NULL;
 
 -- Normalise check constraint names
 ALTER TABLE academic_terms
   DROP CONSTRAINT IF EXISTS chk_academic_term_dates,
   ADD CONSTRAINT chk_term_dates CHECK (start_date < end_date);
 
+-- BUG FIX: The original dropped chk_academic_term_number but re-added as
+-- chk_term_number without first dropping the base-table chk_term_number that
+-- this migration already created above. Drop both old names before re-adding.
 ALTER TABLE academic_terms
-  DROP CONSTRAINT IF EXISTS chk_academic_term_number;
+  DROP CONSTRAINT IF EXISTS chk_academic_term_number,
+  DROP CONSTRAINT IF EXISTS chk_term_number;
 
--- chk_term_number already named correctly in the original CREATE TABLE, but
--- in case the previous DROP removed it, re-add:
 ALTER TABLE academic_terms
-  ADD CONSTRAINT IF NOT EXISTS chk_term_number CHECK (term_number BETWEEN 1 AND 3);
+  ADD CONSTRAINT chk_term_number CHECK (term_number BETWEEN 1 AND 3);
 
 -- Change FK from CASCADE to RESTRICT (soft-delete replaces cascade deletion)
 ALTER TABLE academic_terms

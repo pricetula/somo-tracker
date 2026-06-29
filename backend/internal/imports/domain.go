@@ -102,6 +102,27 @@ type ProgressFrame struct {
 	FailedCount  int    `json:"failed_count"`
 }
 
+// ImportJobStatus mirrors the PostgreSQL import_job_status enum.
+type ImportJobStatus string
+
+const (
+	ImportStatusPending             ImportJobStatus = "pending"
+	ImportStatusProcessing          ImportJobStatus = "processing"
+	ImportStatusCompleted           ImportJobStatus = "completed"
+	ImportStatusCompletedWithErrors ImportJobStatus = "completed_with_errors"
+	ImportStatusFailed              ImportJobStatus = "failed"
+	ImportStatusCancelled           ImportJobStatus = "cancelled"
+)
+
+// IsTerminal returns true for statuses that indicate the job is finished.
+func (s ImportJobStatus) IsTerminal() bool {
+	switch s {
+	case ImportStatusCompleted, ImportStatusCompletedWithErrors, ImportStatusFailed:
+		return true
+	}
+	return false
+}
+
 // ─── ImportJob ────────────────────────────────────────────────────────────
 
 type ImportJob struct {

@@ -334,6 +334,12 @@ type SchoolCreator interface {
 	Create(ctx context.Context, tenantID string, name string) (string, error)
 }
 
+// AcademicYearCreator abstracts the creation of the initial academic year and
+// CBC terms so auth does not import academicyears.
+type AcademicYearCreator interface {
+	SetupInitialYear(ctx context.Context, tenantID, schoolID, actorID string, now *time.Time) error
+}
+
 // StytchOrgIDKey is the context key used to pass the stytch_org_id through
 // to the repository for reconciliation logging.
 type StytchOrgIDKey struct{}

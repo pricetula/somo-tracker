@@ -120,6 +120,9 @@ func main() {
 			func(repo cbcschools.Repository) auth.SchoolCreator {
 				return repo
 			},
+			func(svc *academicyears.Service) auth.AcademicYearCreator {
+				return svc
+			},
 		),
 		imports.AsynqModule,
 		imports.AsynqServerModule,

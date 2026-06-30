@@ -36,6 +36,7 @@ type Service struct {
 	logger        *zap.Logger
 	cfg           config.Config
 	schoolCreator SchoolCreator
+	yearCreator   AcademicYearCreator
 }
 
 // NewService creates a new Service with fx lifecycle hooks for Redis.
@@ -44,6 +45,7 @@ func NewService(
 	idp IdentityProvider,
 	repo Repository,
 	schoolCreator SchoolCreator,
+	yearCreator AcademicYearCreator,
 	pools *database.Pools,
 	logger *zap.Logger,
 	cfg config.Config,
@@ -74,6 +76,7 @@ func NewService(
 		logger:        logger,
 		cfg:           cfg,
 		schoolCreator: schoolCreator,
+		yearCreator:   yearCreator,
 	}
 }
 
@@ -477,7 +480,16 @@ func (s *Service) Register(ctx context.Context, sessionRef string, payload Regis
 		zap.String("role", role),
 	)
 
-	// 12. Persist session mapping in Redis: opaque key → Stytch session token (requirement 4)
+	// 12. Set up the initial academic year with 3 CBC terms for the new school.
+	//     This creates the first academic year (current calendar year) and the
+	//     three Kenya CBC terms (Term 1, Term 2, Term 3) with approximate
+	//     ministry-of-education date boundaries. SyncCurrentTerm sets the
+	//     appropriate term as is_current based on today's date.
+	if err := s.yearCreator.SetupInitialYear(ctx, tenantID, schoolID, userID, nil); err != nil {
+		return "", "", "", fmt.Errorf("%w: setup initial academic year: %v", ErrInternal, err)
+	}
+
+	// 13. Persist session mapping in Redis: opaque key → Stytch session token (requirement 4)
 	if err := s.rdb.Set(ctx, s.sessionKey(sessionToken), result.StytchSessionToken, sessionTTL).Err(); err != nil {
 		return "", "", "", fmt.Errorf("%w: cache session: %v", ErrInternal, err)
 	}

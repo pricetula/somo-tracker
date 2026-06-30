@@ -406,6 +406,121 @@ func (s *Service) DeleteTerm(ctx context.Context, id, tenantID, schoolID, actorI
 	return nil
 }
 
+// ============================================================================
+// SETUP INITIAL YEAR (used during tenant registration)
+// ============================================================================
+
+// SetupInitialYear creates the first academic year and three CBC terms for a
+// newly registered school. It computes dates dynamically based on the current
+// year and the typical Kenya CBC calendar, then syncs the current term.
+func (s *Service) SetupInitialYear(ctx context.Context, tenantID, schoolID, actorID string, now *time.Time) error {
+	if now == nil {
+		n := todayEAT()
+		now = &n
+	}
+
+	if tenantID == "" || schoolID == "" || actorID == "" {
+		return fmt.Errorf("academicyears.Service.SetupInitialYear: %w", ErrInvalidInput)
+	}
+
+	year := now.Year()
+
+	// Academic year spans the full calendar year (Kenya CBC uses Jan-Dec)
+	yearStart := time.Date(year, 1, 1, 0, 0, 0, 0, time.UTC)
+	yearEnd := time.Date(year, 12, 31, 0, 0, 0, 0, time.UTC)
+
+	// Create the academic year and set it as current
+	yearModel := &AcademicYear{
+		TenantID:  tenantID,
+		SchoolID:  schoolID,
+		Name:      fmt.Sprintf("Academic Year %d", year),
+		StartDate: yearStart,
+		EndDate:   yearEnd,
+		CreatedBy: actorID,
+		UpdatedBy: actorID,
+	}
+
+	yearID, err := s.Repo.CreateYear(ctx, yearModel)
+	if err != nil {
+		return fmt.Errorf("academicyears.Service.SetupInitialYear: %w", err)
+	}
+
+	// Mark the year as current
+	if _, err := s.Repo.SetCurrentYear(ctx, yearID, tenantID, schoolID, actorID); err != nil {
+		return fmt.Errorf("academicyears.Service.SetupInitialYear: set current year: %w", err)
+	}
+
+	// Kenya CBC operates a 3-term academic year. Compute approximate dates
+	// using typical ministry-of-education term boundaries:
+	//   Term 1: Late January → Late April
+	//   Term 2: Early May    → Early August
+	//   Term 3: Early September → Late November
+	type termDef struct {
+		Name       string
+		TermNumber int
+		StartDate  time.Time
+		EndDate    time.Time
+		IsFinal    bool
+	}
+
+	terms := []termDef{
+		{
+			Name:       "Term 1",
+			TermNumber: 1,
+			StartDate:  time.Date(year, 1, 26, 0, 0, 0, 0, time.UTC),
+			EndDate:    time.Date(year, 4, 24, 0, 0, 0, 0, time.UTC),
+			IsFinal:    false,
+		},
+		{
+			Name:       "Term 2",
+			TermNumber: 2,
+			StartDate:  time.Date(year, 5, 4, 0, 0, 0, 0, time.UTC),
+			EndDate:    time.Date(year, 8, 7, 0, 0, 0, 0, time.UTC),
+			IsFinal:    false,
+		},
+		{
+			Name:       "Term 3",
+			TermNumber: 3,
+			StartDate:  time.Date(year, 9, 1, 0, 0, 0, 0, time.UTC),
+			EndDate:    time.Date(year, 11, 27, 0, 0, 0, 0, time.UTC),
+			IsFinal:    false,
+		},
+	}
+
+	for _, t := range terms {
+		term := &AcademicTerm{
+			TenantID:       tenantID,
+			SchoolID:       schoolID,
+			AcademicYearID: yearID,
+			Name:           t.Name,
+			TermNumber:     t.TermNumber,
+			StartDate:      t.StartDate,
+			EndDate:        t.EndDate,
+			IsFinal:        t.IsFinal,
+			CreatedBy:      actorID,
+			UpdatedBy:      actorID,
+		}
+		if _, err := s.Repo.CreateTerm(ctx, term); err != nil {
+			return fmt.Errorf("academicyears.Service.SetupInitialYear: create %s: %w", t.Name, err)
+		}
+	}
+
+	// Sync the current term based on today's date — sets is_current on the
+	// term whose date range contains "now", clears others.
+	if err := s.Repo.SyncCurrentTerm(ctx, yearID, *now); err != nil {
+		return fmt.Errorf("academicyears.Service.SetupInitialYear: sync current term: %w", err)
+	}
+
+	slog.Info("academic_year.initial_setup",
+		"tenant_id", tenantID,
+		"school_id", schoolID,
+		"academic_year_id", yearID,
+		"year", year,
+	)
+
+	return nil
+}
+
 // isUniqueViolation heuristically checks if an error is a unique constraint
 // violation from pgx. In production, use pgerrcode.UniqueViolation.
 func isUniqueViolation(err error) bool {

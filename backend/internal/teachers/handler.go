@@ -1,4 +1,4 @@
-package members
+package teachers
 
 import (
 	"strconv"
@@ -10,7 +10,7 @@ import (
 	"somotracker/backend/internal/middleware"
 )
 
-// Handler exposes member HTTP endpoints.
+// Handler exposes teacher HTTP endpoints.
 type Handler struct {
 	svc *Service
 }
@@ -20,31 +20,24 @@ func NewHandler(svc *Service) *Handler {
 	return &Handler{svc: svc}
 }
 
-// RegisterRoutes mounts member routes on the given router.
+// RegisterRoutes mounts teacher routes on the given router.
 func (h *Handler) RegisterRoutes(router fiber.Router) {
-	members := router.Group("/api/v1/members")
-	members.Get("/", middleware.RequireAuth, h.List)
-	members.Patch("/:user_id/active", middleware.RequireAuth, h.ToggleActive)
+	teachers := router.Group("/api/v1/teachers")
+	teachers.Get("/", middleware.RequireAuth, h.List)
+	teachers.Patch("/:user_id/active", middleware.RequireAuth, h.ToggleActive)
 }
 
 // ─── Handlers ──────────────────────────────────────────────────────────────
 
-// List handles GET /api/v1/members?role=TEACHER&include_inactive=true
+// List handles GET /api/v1/teachers
 func (h *Handler) List(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
 
-	role := strings.TrimSpace(c.Query("role", ""))
-	if role == "" {
+	schoolID := c.Locals("active_school_id").(string)
+	if schoolID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"code":    "invalid_input",
-			"message": "role query parameter is required (TEACHER, NURSE, FINANCE, or SCHOOL_ADMIN)",
-		})
-	}
-	validRoles := map[string]bool{"TEACHER": true, "NURSE": true, "FINANCE": true, "SCHOOL_ADMIN": true}
-	if !validRoles[role] {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "invalid_input",
-			"message": "role must be TEACHER, NURSE, FINANCE, or SCHOOL_ADMIN",
+			"message": "active school not set",
 		})
 	}
 
@@ -62,34 +55,18 @@ func (h *Handler) List(c *fiber.Ctx) error {
 
 	offset := (page - 1) * perPage
 
-	schoolID := c.Locals("active_school_id").(string)
-	if schoolID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "invalid_input",
-			"message": "active school not set",
-		})
-	}
-
-	var membersList []Member
-	var total int
-	var err error
-
-	if includeInactive {
-		membersList, total, err = h.svc.ListMembersIncludingInactive(c.Context(), tenantID, schoolID, role, offset, perPage, search)
-	} else {
-		membersList, total, err = h.svc.ListMembers(c.Context(), tenantID, schoolID, role, offset, perPage, search)
-	}
+	teachersList, total, err := h.svc.ListTeachers(c.Context(), tenantID, schoolID, includeInactive, offset, perPage, search)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
 
 	return c.JSON(ListResponse{
-		Members: membersList,
-		Total:   total,
+		Teachers: teachersList,
+		Total:    total,
 	})
 }
 
-// ToggleActive handles PATCH /api/v1/members/:user_id/active
+// ToggleActive handles PATCH /api/v1/teachers/:user_id/active
 func (h *Handler) ToggleActive(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
 	userID := c.Params("user_id")
@@ -116,18 +93,14 @@ func (h *Handler) ToggleActive(c *fiber.Ctx) error {
 
 	return c.JSON(fiber.Map{
 		"code":    "ok",
-		"message": "member status updated",
+		"message": "teacher status updated",
 	})
 }
 
-// Module is an fx-compatible module for the members domain.
-var Module = fx.Module("members",
+// Module is an fx-compatible module for the teachers domain.
+var Module = fx.Module("teachers",
 	fx.Provide(
-		fx.Annotate(
-			NewRepository,
-			fx.As(new(Repository)),
-			fx.As(new(ServiceRepository)),
-		),
+		fx.Annotate(NewRepository, fx.As(new(Repository))),
 		NewService,
 		NewHandler,
 	),

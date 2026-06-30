@@ -161,6 +161,22 @@ export interface ListMembersResponse {
     total: number;
 }
 
+export interface TeacherMember {
+    id: string;
+    email: string;
+    full_name: string;
+    tsc_number: string | null;
+    knec_panel_assessor_id: string | null;
+    teacher_role: string | null;
+    is_active: boolean;
+    created_at: string;
+}
+
+export interface ListTeachersResponse {
+    teachers: TeacherMember[];
+    total: number;
+}
+
 export type InvitationStatus = "pending" | "accepted" | "expired" | "revoked" | "invite_failed";
 
 export type InvitationRole = "SYSTEM_ADMIN" | "SCHOOL_ADMIN" | "TEACHER" | "NURSE" | "FINANCE";

@@ -11,8 +11,10 @@ import (
 // ============================================================================
 
 type MockRepository struct {
-	listByRoleFn        func(ctx context.Context, tenantID, schoolID, role string, offset, limit int, search string) ([]Member, int, error)
-	getActiveSchoolIDFn func(ctx context.Context, tenantID, userID string) (string, error)
+	listByRoleFn                  func(ctx context.Context, tenantID, schoolID, role string, offset, limit int, search string) ([]Member, int, error)
+	listByRoleIncludingInactiveFn func(ctx context.Context, tenantID, schoolID, role string, offset, limit int, search string) ([]Member, int, error)
+	toggleActiveFn                func(ctx context.Context, tenantID, schoolID, userID string, isActive bool) error
+	getActiveSchoolIDFn           func(ctx context.Context, tenantID, userID string) (string, error)
 }
 
 func (m *MockRepository) ListByRole(ctx context.Context, tenantID, schoolID, role string, offset, limit int, search string) ([]Member, int, error) {
@@ -20,6 +22,20 @@ func (m *MockRepository) ListByRole(ctx context.Context, tenantID, schoolID, rol
 		return m.listByRoleFn(ctx, tenantID, schoolID, role, offset, limit, search)
 	}
 	return nil, 0, nil
+}
+
+func (m *MockRepository) ListByRoleIncludingInactive(ctx context.Context, tenantID, schoolID, role string, offset, limit int, search string) ([]Member, int, error) {
+	if m.listByRoleIncludingInactiveFn != nil {
+		return m.listByRoleIncludingInactiveFn(ctx, tenantID, schoolID, role, offset, limit, search)
+	}
+	return nil, 0, nil
+}
+
+func (m *MockRepository) ToggleActive(ctx context.Context, tenantID, schoolID, userID string, isActive bool) error {
+	if m.toggleActiveFn != nil {
+		return m.toggleActiveFn(ctx, tenantID, schoolID, userID, isActive)
+	}
+	return nil
 }
 
 func (m *MockRepository) GetActiveSchoolID(ctx context.Context, tenantID, userID string) (string, error) {

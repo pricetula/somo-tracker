@@ -1,7 +1,8 @@
 /**
- * Teachers listing page — active staff members for the TEACHER role.
+ * Teachers listing page — active teachers with extended educator fields.
  *
- * Maps to GET /api/v1/members?role=TEACHER.
+ * Uses its own dedicated teachers endpoint (GET /api/v1/teachers) with
+ * TSC Number, KNEC Panel Assessor ID, and Core Assignment Role.
  *
  * Invitations are listed on the dedicated /teachers/invitations page.
  */
@@ -10,16 +11,15 @@
 
 import * as React from "react";
 
-import { ActiveStaffTable, useStaffUsers } from "@/features/staff";
+import { TeachersTable } from "@/features/staff/components/teachers-table";
+import { useTeachers } from "@/features/staff/hooks/use-teachers";
 
 export default function TeachersPage() {
     const {
-        data: usersData,
-        isLoading: usersLoading,
-        isError: usersError,
-    } = useStaffUsers("TEACHER");
-
-    const roleLabel = "Teachers";
+        data: teachersData,
+        isLoading: teachersLoading,
+        isError: teachersError,
+    } = useTeachers({ includeInactive: true });
 
     return (
         <div className="flex flex-1 flex-col">
@@ -30,20 +30,18 @@ export default function TeachersPage() {
 
             <div className="flex flex-1 flex-col px-6 py-4">
                 <section className="flex flex-col">
-                    {usersError ? (
+                    {teachersError ? (
                         <div className="flex items-center justify-center py-8">
                             <p className="text-destructive text-sm">
-                                Failed to load active {roleLabel.toLowerCase()}. Please try again.
+                                Failed to load teachers. Please try again.
                             </p>
                         </div>
                     ) : (
                         <div className="ring-foreground/10 rounded-lg ring-1">
-                            <ActiveStaffTable
-                                users={usersData?.members ?? []}
-                                total={usersData?.total ?? 0}
-                                roleLabel={roleLabel}
-                                addHref="/teachers/invitations"
-                                isLoading={usersLoading}
+                            <TeachersTable
+                                teachers={teachersData?.teachers ?? []}
+                                total={teachersData?.total ?? 0}
+                                isLoading={teachersLoading}
                             />
                         </div>
                     )}

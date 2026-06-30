@@ -43,6 +43,38 @@ internal/
 
 ## 3. Dependency Injection
 
+### ⚠️ ABSOLUTE RULE: One `fx.Annotate` per constructor. Never register the same constructor twice.
+
+```go
+// ⛔ FORBIDDEN — duplicates the constructor, creates two pool connections
+fx.Provide(
+    fx.Annotate(NewRepository, fx.As(new(Repository))),
+    NewRepository,
+)
+
+// ⛔ FORBIDDEN — two fx.Annotate calls for the same constructor
+fx.Provide(
+    fx.Annotate(NewRepository, fx.As(new(Repository))),
+    fx.Annotate(NewRepository, fx.As(new(ServiceRepository))),
+)
+
+// ✅ REQUIRED — single fx.Annotate with multiple fx.As
+fx.Provide(
+    fx.Annotate(
+        NewRepository,
+        fx.As(new(Repository)),
+        fx.As(new(ServiceRepository)),
+    ),
+)
+
+// ✅ Also valid when only one interface is needed
+fx.Provide(
+    fx.Annotate(NewRepository, fx.As(new(Repository))),
+)
+```
+
+**If a constructor appears more than once in any `fx.Provide` block, the code review must be rejected.**
+
 - No global state, no package-level DB vars, no `init()` functions.
 - All structs receive dependencies via a `New…` constructor.
 - Interfaces are declared at the **consumer** side (not the implementation side).
@@ -56,6 +88,37 @@ func NewService(r Repository) *Service {
     return &Service{repo: r}
 }
 ```
+
+### `fx.As` — interface types only
+
+`fx.As(new(T))` requires `T` to be an **interface**. Using it with a concrete struct type causes a runtime panic:
+
+```go
+// BAD — *PgRepository is a concrete struct, not an interface
+fx.Annotate(NewRepository, fx.As(new(*PgRepository)))
+// → runtime panic: "fx.As: argument must be a pointer to an interface"
+```
+
+### Publishing a single constructor as multiple interfaces
+
+When the same repository struct implements multiple service-layer interfaces (e.g. `Repository` for cross-domain wiring and `ServiceRepository` for the local service), use multiple `fx.As` options on a single `fx.Annotate` call — **do not** register the constructor twice:
+
+```go
+// GOOD — single constructor, two interface bindings
+fx.Annotate(
+    NewRepository,
+    fx.As(new(Repository)),          // for cross-domain consumers
+    fx.As(new(ServiceRepository)),   // for local Service
+)
+
+// BAD — duplicate registration creates two pool connections
+fx.Provide(
+    fx.Annotate(NewRepository, fx.As(new(Repository))),
+    NewRepository,  // ← second call creates a second pool!
+)
+```
+
+**Rule:** One constructor call per lifecycle. Use multiple `fx.As(new(Interface))` to bind the same result to several interfaces. Never register the same constructor twice — fx calls it each time, creating duplicate resources (pools, clients, etc.).
 
 ---
 

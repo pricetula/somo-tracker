@@ -17,6 +17,7 @@ var (
 )
 
 // Repository defines the contract for member persistence.
+// Used by invitations.SchoolResolver and imports.SchoolResolver.
 type Repository interface {
 	ListByRole(ctx context.Context, tenantID, schoolID, role string, offset, limit int, search string) ([]Member, int, error)
 	GetActiveSchoolID(ctx context.Context, tenantID, userID string) (string, error)
@@ -40,4 +41,9 @@ type Member struct {
 type ListResponse struct {
 	Members []Member `json:"members"`
 	Total   int      `json:"total"`
+}
+
+// ToggleActiveRequest is the payload for activating/deactivating a member.
+type ToggleActiveRequest struct {
+	IsActive bool `json:"is_active"`
 }

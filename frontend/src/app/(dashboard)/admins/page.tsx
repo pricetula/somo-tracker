@@ -1,7 +1,8 @@
 /**
  * Admins listing page — active school administrators.
  *
- * Maps to GET /api/v1/members?role=SCHOOL_ADMIN.
+ * Uses its own query hook and table component — not the generic
+ * members module. Maps to GET /api/v1/members?role=SCHOOL_ADMIN.
  *
  * Invitations are listed on the dedicated /admins/invitations page.
  */
@@ -10,16 +11,15 @@
 
 import * as React from "react";
 
-import { ActiveStaffTable, useStaffUsers } from "@/features/staff";
+import { AdminsTable } from "@/features/staff/components/admins-table";
+import { useAdmins } from "@/features/staff/hooks/use-admins";
 
 export default function AdminsPage() {
     const {
-        data: usersData,
-        isLoading: usersLoading,
-        isError: usersError,
-    } = useStaffUsers("SCHOOL_ADMIN");
-
-    const roleLabel = "Admins";
+        data: adminsData,
+        isLoading: adminsLoading,
+        isError: adminsError,
+    } = useAdmins({ includeInactive: true });
 
     return (
         <div className="flex flex-1 flex-col">
@@ -30,20 +30,18 @@ export default function AdminsPage() {
 
             <div className="flex flex-1 flex-col px-6 py-4">
                 <section className="flex flex-col">
-                    {usersError ? (
+                    {adminsError ? (
                         <div className="flex items-center justify-center py-8">
                             <p className="text-destructive text-sm">
-                                Failed to load active {roleLabel.toLowerCase()}. Please try again.
+                                Failed to load admins. Please try again.
                             </p>
                         </div>
                     ) : (
                         <div className="ring-foreground/10 rounded-lg ring-1">
-                            <ActiveStaffTable
-                                users={usersData?.members ?? []}
-                                total={usersData?.total ?? 0}
-                                roleLabel={roleLabel}
-                                addHref="/admins/invitations"
-                                isLoading={usersLoading}
+                            <AdminsTable
+                                admins={adminsData?.members ?? []}
+                                total={adminsData?.total ?? 0}
+                                isLoading={adminsLoading}
                             />
                         </div>
                     )}

@@ -1,7 +1,8 @@
 /**
- * Nurses listing page — active staff members for the NURSE role.
+ * Nurses listing page — active nurse staff.
  *
- * Maps to GET /api/v1/members?role=NURSE.
+ * Uses its own query hook and table component — not the generic
+ * members module. Maps to GET /api/v1/members?role=NURSE.
  *
  * Invitations are listed on the dedicated /nurses/invitations page.
  */
@@ -10,16 +11,15 @@
 
 import * as React from "react";
 
-import { ActiveStaffTable, useStaffUsers } from "@/features/staff";
+import { NursesTable } from "@/features/staff/components/nurses-table";
+import { useNurses } from "@/features/staff/hooks/use-nurses";
 
 export default function NursesPage() {
     const {
-        data: usersData,
-        isLoading: usersLoading,
-        isError: usersError,
-    } = useStaffUsers("NURSE");
-
-    const roleLabel = "Nurses";
+        data: nursesData,
+        isLoading: nursesLoading,
+        isError: nursesError,
+    } = useNurses({ includeInactive: true });
 
     return (
         <div className="flex flex-1 flex-col">
@@ -30,20 +30,18 @@ export default function NursesPage() {
 
             <div className="flex flex-1 flex-col px-6 py-4">
                 <section className="flex flex-col">
-                    {usersError ? (
+                    {nursesError ? (
                         <div className="flex items-center justify-center py-8">
                             <p className="text-destructive text-sm">
-                                Failed to load active {roleLabel.toLowerCase()}. Please try again.
+                                Failed to load nurses. Please try again.
                             </p>
                         </div>
                     ) : (
                         <div className="ring-foreground/10 rounded-lg ring-1">
-                            <ActiveStaffTable
-                                users={usersData?.members ?? []}
-                                total={usersData?.total ?? 0}
-                                roleLabel={roleLabel}
-                                addHref="/nurses/invitations"
-                                isLoading={usersLoading}
+                            <NursesTable
+                                nurses={nursesData?.members ?? []}
+                                total={nursesData?.total ?? 0}
+                                isLoading={nursesLoading}
                             />
                         </div>
                     )}

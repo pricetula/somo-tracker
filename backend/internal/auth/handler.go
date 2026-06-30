@@ -115,7 +115,10 @@ func (h *Handler) MagicLinkCallback(c *fiber.Ctx) error {
 		})
 	}
 
-	sessionRef, err := h.svc.Verify(c.Context(), token)
+	// Extract device fingerprint from security pipeline
+	deviceFingerprint, _ := c.Locals("device_fingerprint").(string)
+
+	result, err := h.svc.Verify(c.Context(), token, deviceFingerprint)
 	if err != nil {
 		h.logger.Error("auth: magic link callback verify failed",
 			zap.Error(err),
@@ -131,13 +134,48 @@ func (h *Handler) MagicLinkCallback(c *fiber.Ctx) error {
 		h.setCSRFTokenCookie(c, csrfToken)
 	}
 
-	// Redirect browser to frontend registration page with session_ref
-	frontendRegisterURL := h.cfg.FrontendURL + "/register"
-	redirectURL := fmt.Sprintf("%s?session_ref=%s", frontendRegisterURL, sessionRef)
+	// Branch: existing user (has session_token) vs new user (has session_ref)
+	if result.SessionToken != "" {
+		// EXISTING USER PATH: set session cookies and redirect to dashboard
+		c.Cookie(&fiber.Cookie{
+			Name:     somoCookieName,
+			Value:    result.SessionToken,
+			HTTPOnly: true,
+			Secure:   h.cfg.AppEnv != "development",
+			SameSite: "Lax",
+			Path:     "/",
+			Domain:   h.cfg.CookieDomain,
+			MaxAge:   cookieMaxAge,
+		})
 
-	h.logger.Info("auth: magic link callback — redirecting to frontend",
-		zap.String("session_ref", sessionRef),
-		zap.String("redirect_url", frontendRegisterURL),
+		c.Cookie(&fiber.Cookie{
+			Name:     somoRoleCookieName,
+			Value:    createSignedCookieValue(result.Role, h.cfg.CookieSecret),
+			HTTPOnly: false,
+			Secure:   h.cfg.AppEnv != "development",
+			SameSite: "Lax",
+			Path:     "/",
+			Domain:   h.cfg.CookieDomain,
+			MaxAge:   cookieMaxAge,
+		})
+
+		dashboardURL := h.cfg.FrontendURL + "/dashboard"
+
+		h.logger.Info("auth: existing user — redirecting to dashboard",
+			zap.String("role", result.Role),
+			zap.String("redirect_url", dashboardURL),
+		)
+
+		return c.Redirect(dashboardURL, fiber.StatusFound)
+	}
+
+	// NEW USER PATH: redirect to frontend registration page with session_ref
+	frontendRegisterURL := h.cfg.FrontendURL + "/register"
+	redirectURL := fmt.Sprintf("%s?session_ref=%s", frontendRegisterURL, result.SessionRef)
+
+	h.logger.Info("auth: new user — redirecting to registration",
+		zap.String("session_ref", result.SessionRef),
+		zap.String("redirect_url", redirectURL),
 	)
 
 	return c.Redirect(redirectURL, fiber.StatusFound)
@@ -229,13 +267,25 @@ func (h *Handler) Verify(c *fiber.Ctx) error {
 		})
 	}
 
-	sessionRef, err := h.svc.Verify(c.Context(), payload.Token)
+	deviceFingerprint, _ := c.Locals("device_fingerprint").(string)
+
+	result, err := h.svc.Verify(c.Context(), payload.Token, deviceFingerprint)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
 
+	// For the POST /api/auth/verify endpoint (used by non-browser clients),
+	// return session_ref for new users or session_token + role for existing users
+	if result.SessionToken != "" {
+		return c.JSON(fiber.Map{
+			"session_token": result.SessionToken,
+			"role":          result.Role,
+			"email":         result.Email,
+		})
+	}
+
 	return c.JSON(fiber.Map{
-		"session_ref": sessionRef,
+		"session_ref": result.SessionRef,
 	})
 }
 

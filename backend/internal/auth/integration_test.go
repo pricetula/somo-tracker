@@ -74,7 +74,7 @@ func TestIntegration_Stytch_ExpiredMagicLinkToken(t *testing.T) {
 		},
 	})
 
-	_, err := suite.svc.Verify(context.Background(), "expired_token")
+	_, err := suite.svc.Verify(context.Background(), "expired_token", "")
 	if err == nil {
 		t.Fatal("expected error from expired token, got nil")
 	}

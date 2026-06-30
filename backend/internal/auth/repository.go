@@ -508,6 +508,58 @@ func (r *SqlcRepository) CreateInvitedUserSession(ctx context.Context, args Crea
 	return nil
 }
 
+// GetTenantByStytchOrgID retrieves a tenant's ID by Stytch org ID.
+func (r *SqlcRepository) GetTenantByStytchOrgID(ctx context.Context, stytchOrgID string) (string, error) {
+	const query = `SELECT id FROM tenants WHERE stytch_org_id = $1`
+	var tenantID string
+	err := r.pool.QueryRow(ctx, query, stytchOrgID).Scan(&tenantID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return "", fmt.Errorf("%w: tenant not found for stytch org: %s", ErrNotFound, stytchOrgID)
+		}
+		return "", fmt.Errorf("%w: get tenant by stytch org id: %v", ErrInternal, err)
+	}
+	return tenantID, nil
+}
+
+// GetUserByEmailAndTenant retrieves a user's ID, full name, and external auth ID
+// by email and tenant ID. Returns ErrNotFound if no matching user exists.
+func (r *SqlcRepository) GetUserByEmailAndTenant(ctx context.Context, email, tenantID string) (string, string, string, error) {
+	const query = `SELECT id, COALESCE(full_name, ''), COALESCE(external_auth_id, '') FROM users WHERE email = $1 AND tenant_id = $2`
+	var userID, fullName, externalAuthID string
+	err := r.pool.QueryRow(ctx, query, email, tenantID).Scan(&userID, &fullName, &externalAuthID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return "", "", "", fmt.Errorf("%w: user not found for email: %s in tenant: %s", ErrNotFound, email, tenantID)
+		}
+		return "", "", "", fmt.Errorf("%w: get user by email and tenant: %v", ErrInternal, err)
+	}
+	return userID, fullName, externalAuthID, nil
+}
+
+// CreateSessionOnly creates a new session record for an existing user
+// without creating a user or tenant. Used during re-login.
+func (r *SqlcRepository) CreateSessionOnly(ctx context.Context, params CreateSessionParams) error {
+	const query = `
+		INSERT INTO sessions (token, user_id, tenant_id, stytch_member_id, stytch_org_id, stytch_session_token, device_fingerprint, expires_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+	`
+	_, err := r.pool.Exec(ctx, query,
+		params.Token,
+		params.UserID,
+		params.TenantID,
+		params.StytchMemberID,
+		params.StytchOrgID,
+		params.StytchSessionToken,
+		params.DeviceFingerprint,
+		params.ExpiresAt,
+	)
+	if err != nil {
+		return fmt.Errorf("%w: create session only: %v", ErrInternal, err)
+	}
+	return nil
+}
+
 // GetUserHighestRole returns the highest (most privileged) role for a user
 // across all their active memberships.
 // generateSlug creates a URL-friendly slug from a school name.

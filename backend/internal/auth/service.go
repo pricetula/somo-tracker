@@ -96,46 +96,182 @@ type istCacheData struct {
 	Email string `json:"email"`
 }
 
-// Verify validates a magic-link token and caches the IST and email in Redis (PHASE 2).
-// Returns a session reference (UUID v4) that the frontend uses for registration.
-func (s *Service) Verify(ctx context.Context, token string) (string, error) {
+// Verify validates a magic-link token and determines whether the user is new or existing.
+//
+// For existing users (with discovered organizations): exchanges the IST, creates a session,
+// and returns a VerifyResult with SessionToken + Role for direct dashboard redirect.
+//
+// For new users (no discovered organizations): caches the IST and email in Redis and
+// returns a VerifyResult with SessionRef for the registration flow.
+func (s *Service) Verify(ctx context.Context, token string, deviceFingerprint string) (*VerifyResult, error) {
 	s.logger.Info("auth: verify initiated")
 
-	// Authenticate the discovery token with Stytch — now returns both IST and email
-	ist, email, err := s.idp.AuthenticateDiscoveryToken(ctx, token)
+	// Authenticate the discovery token with Stytch — now returns IST, email, and discovered orgs
+	ist, email, discoveredOrgs, err := s.idp.AuthenticateDiscoveryToken(ctx, token)
 	if err != nil {
 		// If it's an expired token error, propagate it directly
 		if errors.Is(err, ErrExpiredToken) {
-			return "", err
+			return nil, err
 		}
-		return "", err
+		return nil, err
 	}
 
-	// Generate a UUID v4 reference for the frontend
+	// Check if the user has discovered organizations (existing Stytch memberships)
+	if len(discoveredOrgs) > 0 {
+		// Existing user path: find matching tenant in our DB, exchange IST, create session
+		result, err := s.handleExistingUser(ctx, ist, email, discoveredOrgs, deviceFingerprint)
+		if err != nil {
+			return nil, err
+		}
+		return result, nil
+	}
+
+	// New user path: cache IST in Redis for the registration flow
 	sessionRef, err := generateUUID()
 	if err != nil {
-		return "", fmt.Errorf("%w: generate session ref: %v", ErrInternal, err)
+		return nil, fmt.Errorf("%w: generate session ref: %v", ErrInternal, err)
 	}
 
-	// Cache the IST and email as JSON in Redis with 10-minute TTL (requirement 2)
 	cacheData := istCacheData{IST: ist, Email: email}
 	cacheJSON, err := json.Marshal(cacheData)
 	if err != nil {
-		return "", fmt.Errorf("%w: marshal cache data: %v", ErrInternal, err)
+		return nil, fmt.Errorf("%w: marshal cache data: %v", ErrInternal, err)
 	}
 
 	istKey := fmt.Sprintf("%s%s:%s", istKeyPrefix, s.cfg.AppEnv, sessionRef)
 	if err := s.rdb.Set(ctx, istKey, string(cacheJSON), istTTL).Err(); err != nil {
-		return "", fmt.Errorf("%w: cache ist: %v", ErrInternal, err)
+		return nil, fmt.Errorf("%w: cache ist: %v", ErrInternal, err)
 	}
 
-	s.logger.Info("auth: IST and email cached in Redis",
+	s.logger.Info("auth: new user — IST and email cached in Redis",
 		zap.String("session_ref", sessionRef),
 		zap.String("email", email),
 		zap.Duration("ttl", istTTL),
 	)
 
-	return sessionRef, nil
+	return &VerifyResult{SessionRef: sessionRef, Email: email}, nil
+}
+
+// handleExistingUser processes login for a user who already has Stytch memberships.
+// It finds a matching tenant in our DB, exchanges the IST, creates a session,
+// and returns session + role for direct dashboard redirect.
+func (s *Service) handleExistingUser(ctx context.Context, ist, email string, discoveredOrgs []DiscoveredOrg, deviceFingerprint string) (*VerifyResult, error) {
+	s.logger.Info("auth: existing user detected — processing direct login",
+		zap.String("email", email),
+		zap.Int("discovered_orgs", len(discoveredOrgs)),
+	)
+
+	// Find the first discovered org that matches a tenant in our database
+	for _, org := range discoveredOrgs {
+		tenantID, err := s.repo.GetTenantByStytchOrgID(ctx, org.OrganizationID)
+		if err == nil && tenantID != "" {
+			// Look up the user in this tenant
+			userID, _, _, err := s.repo.GetUserByEmailAndTenant(ctx, email, tenantID)
+			if err == nil && userID != "" {
+				s.logger.Info("auth: found matching tenant and user",
+					zap.String("org_id", org.OrganizationID),
+					zap.String("tenant_id", tenantID),
+					zap.String("user_id", userID),
+					zap.String("stytch_member_id", org.MemberID),
+				)
+
+				// Exchange the IST against this organization
+				exchangeResult, err := s.idp.ExchangeIntermediateSession(ctx, ist, org.OrganizationID)
+				if err != nil {
+					return nil, fmt.Errorf("auth.Service.handleExistingUser: exchange IST: %w", err)
+				}
+
+				if !exchangeResult.MemberAuthenticated {
+					s.logger.Warn("auth: MFA required for existing user",
+						zap.String("email", email),
+						zap.String("org_id", org.OrganizationID),
+					)
+					return nil, ErrMFARequired
+				}
+
+				// Generate a session token
+				tokenBytes := make([]byte, 32)
+				if _, err := rand.Read(tokenBytes); err != nil {
+					return nil, fmt.Errorf("%w: generate session token: %v", ErrInternal, err)
+				}
+				sessionToken := hex.EncodeToString(tokenBytes)
+				expiresAt := time.Now().Add(sessionTTL)
+
+				// Get the user's current highest role
+				// We use a lightweight approach: look at the session we'll create,
+				// but first just create the session record
+				sessionParams := CreateSessionParams{
+					Token:              sessionToken,
+					UserID:             userID,
+					TenantID:           tenantID,
+					StytchMemberID:     exchangeResult.MemberID,
+					StytchOrgID:        org.OrganizationID,
+					StytchSessionToken: exchangeResult.StytchSessionToken,
+					DeviceFingerprint:  deviceFingerprint,
+					ExpiresAt:          expiresAt,
+				}
+
+				if err := s.repo.CreateSessionOnly(ctx, sessionParams); err != nil {
+					return nil, fmt.Errorf("auth.Service.handleExistingUser: create session: %w", err)
+				}
+
+				// Cache session in Redis
+				if err := s.rdb.Set(ctx, s.sessionKey(sessionToken), exchangeResult.StytchSessionToken, sessionTTL).Err(); err != nil {
+					return nil, fmt.Errorf("%w: cache session: %v", ErrInternal, err)
+				}
+
+				// Retrieve the user's role from the newly created session
+				session, err := s.repo.GetSessionByToken(ctx, sessionToken)
+				if err != nil {
+					return nil, fmt.Errorf("auth.Service.handleExistingUser: get session role: %w", err)
+				}
+
+				s.logger.Info("auth: existing user logged in successfully",
+					zap.String("user_id", userID),
+					zap.String("tenant_id", tenantID),
+					zap.String("role", session.Role),
+					zap.String("email", email),
+					zap.String("session_token_preview", sessionToken[:8]+"..."),
+				)
+
+				return &VerifyResult{
+					SessionToken: sessionToken,
+					Role:         session.Role,
+					Email:        email,
+				}, nil
+			}
+		}
+	}
+
+	// No matching org found in our database — log this and fall through to registration flow
+	s.logger.Info("auth: discovered orgs found but no matching tenant in DB — falling back to registration",
+		zap.String("email", email),
+		zap.Int("discovered_org_count", len(discoveredOrgs)),
+	)
+
+	// Fall back to registration flow: cache IST in Redis
+	sessionRef, err := generateUUID()
+	if err != nil {
+		return nil, fmt.Errorf("%w: generate session ref: %v", ErrInternal, err)
+	}
+
+	cacheData := istCacheData{IST: ist, Email: email}
+	cacheJSON, err := json.Marshal(cacheData)
+	if err != nil {
+		return nil, fmt.Errorf("%w: marshal cache data: %v", ErrInternal, err)
+	}
+
+	istKey := fmt.Sprintf("%s%s:%s", istKeyPrefix, s.cfg.AppEnv, sessionRef)
+	if err := s.rdb.Set(ctx, istKey, string(cacheJSON), istTTL).Err(); err != nil {
+		return nil, fmt.Errorf("%w: cache ist: %v", ErrInternal, err)
+	}
+
+	s.logger.Info("auth: IST cached for registration fallback",
+		zap.String("session_ref", sessionRef),
+		zap.String("email", email),
+	)
+
+	return &VerifyResult{SessionRef: sessionRef, Email: email}, nil
 }
 
 // Register completes the registration flow (PHASE 3).

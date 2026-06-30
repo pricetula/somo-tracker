@@ -87,8 +87,9 @@ func (s *StytchAdapter) SendDiscoveryEmail(ctx context.Context, email string) er
 	return nil
 }
 
-// AuthenticateDiscoveryToken validates a magic-link token and returns the IST and email.
-func (s *StytchAdapter) AuthenticateDiscoveryToken(ctx context.Context, token string) (string, string, error) {
+// AuthenticateDiscoveryToken validates a magic-link token and returns the IST,
+// email, and any discovered organizations the user already belongs to.
+func (s *StytchAdapter) AuthenticateDiscoveryToken(ctx context.Context, token string) (string, string, []DiscoveredOrg, error) {
 	start := time.Now()
 	defer func() {
 		s.logger.Info("Stytch AuthenticateDiscoveryToken completed",
@@ -107,19 +108,41 @@ func (s *StytchAdapter) AuthenticateDiscoveryToken(ctx context.Context, token st
 		)
 
 		if isExpiredTokenError(err) {
-			return "", "", fmt.Errorf("%w: stytch token expired", ErrExpiredToken)
+			return "", "", nil, fmt.Errorf("%w: stytch token expired", ErrExpiredToken)
 		}
-		return "", "", fmt.Errorf("%w: stytch authenticate: %v", ErrInternal, err)
+		return "", "", nil, fmt.Errorf("%w: stytch authenticate: %v", ErrInternal, err)
 	}
 
 	if resp.IntermediateSessionToken == "" {
-		return "", "", fmt.Errorf("%w: stytch response missing intermediate_session_token", ErrInternal)
+		return "", "", nil, fmt.Errorf("%w: stytch response missing intermediate_session_token", ErrInternal)
 	}
 	if resp.EmailAddress == "" {
-		return "", "", fmt.Errorf("%w: stytch response missing email_address", ErrInternal)
+		return "", "", nil, fmt.Errorf("%w: stytch response missing email_address", ErrInternal)
 	}
 
-	return resp.IntermediateSessionToken, resp.EmailAddress, nil
+	// Map Stytch discovered organizations to our domain type
+	discoveredOrgs := make([]DiscoveredOrg, 0, len(resp.DiscoveredOrganizations))
+	for _, do := range resp.DiscoveredOrganizations {
+		org := DiscoveredOrg{
+			MemberAuthenticated: do.MemberAuthenticated,
+		}
+		if do.Organization != nil {
+			org.OrganizationID = do.Organization.OrganizationID
+			org.OrganizationName = do.Organization.OrganizationName
+		}
+		if do.Membership != nil && do.Membership.Member != nil {
+			org.MemberID = do.Membership.Member.MemberID
+		}
+		discoveredOrgs = append(discoveredOrgs, org)
+	}
+
+	s.logger.Info("Stytch AuthenticateDiscoveryToken completed",
+		zap.String("email", resp.EmailAddress),
+		zap.Int("discovered_orgs", len(discoveredOrgs)),
+		zap.Duration("latency", time.Since(start)),
+	)
+
+	return resp.IntermediateSessionToken, resp.EmailAddress, discoveredOrgs, nil
 }
 
 // CreateOrganization provisions a new organization in Stytch.

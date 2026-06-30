@@ -112,6 +112,24 @@ func isPrintableUTF8(s string) bool {
 	return true
 }
 
+// DiscoveredOrg represents a Stytch organization the user already belongs to.
+type DiscoveredOrg struct {
+	OrganizationID      string
+	OrganizationName    string
+	MemberID            string
+	MemberAuthenticated bool
+}
+
+// VerifyResult tells the handler what to do next after verifying a magic-link token.
+type VerifyResult struct {
+	// For new user flow (registration): non-empty session_ref
+	SessionRef string
+	// For existing user flow (direct login): non-empty SessionToken + Role
+	SessionToken string
+	Role         string
+	Email        string
+}
+
 // ExchangeResult is the clean domain result from exchanging an IST.
 type ExchangeResult struct {
 	MemberAuthenticated bool
@@ -131,8 +149,9 @@ type IdentityProvider interface {
 	SendDiscoveryEmail(ctx context.Context, email string) error
 
 	// AuthenticateDiscoveryToken validates a magic-link token and returns
-	// the raw Intermediate Session Token (IST) and the verified email address.
-	AuthenticateDiscoveryToken(ctx context.Context, token string) (ist, email string, err error)
+	// the raw Intermediate Session Token (IST), the verified email address,
+	// and any discovered organizations the user already belongs to.
+	AuthenticateDiscoveryToken(ctx context.Context, token string) (ist, email string, discoveredOrgs []DiscoveredOrg, err error)
 
 	// CreateOrganization provisions a new organization in the identity provider.
 	CreateOrganization(ctx context.Context, name string) (orgID string, err error)
@@ -204,6 +223,17 @@ type Repository interface {
 
 	// GetTenantByName retrieves an existing tenant's ID and Stytch org ID by name.
 	GetTenantByName(ctx context.Context, name string) (string, string, error)
+
+	// GetTenantByStytchOrgID retrieves a tenant's ID by their Stytch org ID.
+	GetTenantByStytchOrgID(ctx context.Context, stytchOrgID string) (string, error)
+
+	// GetUserByEmailAndTenant retrieves a user's ID, full name, and external auth ID
+	// by email and tenant ID. Returns ErrNotFound if no matching user exists.
+	GetUserByEmailAndTenant(ctx context.Context, email, tenantID string) (userID, fullName, externalAuthID string, err error)
+
+	// CreateSessionOnly creates a new session record for an existing user
+	// without creating a user or tenant. Used during re-login.
+	CreateSessionOnly(ctx context.Context, params CreateSessionParams) error
 
 	// GetSessionByToken retrieves a session by its opaque token.
 	GetSessionByToken(ctx context.Context, token string) (*UserSession, error)

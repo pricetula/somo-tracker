@@ -43,8 +43,8 @@ func (m *MockIDP) SendDiscoveryEmail(ctx context.Context, email string) error {
 	return nil
 }
 
-func (m *MockIDP) AuthenticateDiscoveryToken(ctx context.Context, token string) (string, string, error) {
-	return "ist", "email", nil
+func (m *MockIDP) AuthenticateDiscoveryToken(ctx context.Context, token string) (string, string, []auth.DiscoveredOrg, error) {
+	return "ist", "email", nil, nil
 }
 
 func (m *MockIDP) CreateOrganization(ctx context.Context, name string) (string, error) {

@@ -25,7 +25,7 @@ type MockIdentityProvider struct {
 	mu sync.RWMutex
 
 	sendDiscoveryEmailFn          func(ctx context.Context, email string) error
-	authenticateDiscoveryTokenFn  func(ctx context.Context, token string) (ist, email string, err error)
+	authenticateDiscoveryTokenFn  func(ctx context.Context, token string) (ist, email string, discoveredOrgs []DiscoveredOrg, err error)
 	createOrganizationFn          func(ctx context.Context, name string) (string, error)
 	createMemberFn                func(ctx context.Context, orgID, email, name string) (string, error)
 	exchangeIntermediateSessionFn func(ctx context.Context, ist, orgID string) (ExchangeResult, error)
@@ -51,14 +51,14 @@ func (m *MockIdentityProvider) SendDiscoveryEmail(ctx context.Context, email str
 	return nil
 }
 
-func (m *MockIdentityProvider) AuthenticateDiscoveryToken(ctx context.Context, token string) (string, string, error) {
+func (m *MockIdentityProvider) AuthenticateDiscoveryToken(ctx context.Context, token string) (string, string, []DiscoveredOrg, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.authenticateDiscoveryTokenCalls++
 	if m.authenticateDiscoveryTokenFn != nil {
 		return m.authenticateDiscoveryTokenFn(ctx, token)
 	}
-	return "test_ist_token", "test@example.com", nil
+	return "test_ist_token", "test@example.com", nil, nil
 }
 
 func (m *MockIdentityProvider) CreateOrganization(ctx context.Context, name string) (string, error) {
@@ -134,6 +134,9 @@ type MockRepository struct {
 	tenantExistsFn             func(ctx context.Context, orgID string) (bool, error)
 	tenantExistsByNameFn       func(ctx context.Context, name string) (bool, error)
 	getTenantByNameFn          func(ctx context.Context, name string) (string, string, error)
+	getTenantByStytchOrgIDFn   func(ctx context.Context, stytchOrgID string) (string, error)
+	getUserByEmailAndTenantFn  func(ctx context.Context, email, tenantID string) (string, string, string, error)
+	createSessionOnlyFn        func(ctx context.Context, params CreateSessionParams) error
 	getSessionByTokenFn        func(ctx context.Context, token string) (*UserSession, error)
 	deleteSessionFn            func(ctx context.Context, token string) error
 	createTenantUserSessionFn  func(ctx context.Context, tp CreateTenantParams, up CreateUserParams, sp CreateSessionParams) (string, string, error)
@@ -307,6 +310,33 @@ func (m *MockRepository) CreateInvitedUserSession(ctx context.Context, args Crea
 	defer m.mu.Unlock()
 	if m.createInvitedUserSessionFn != nil {
 		return m.createInvitedUserSessionFn(ctx, args)
+	}
+	return nil
+}
+
+func (m *MockRepository) GetTenantByStytchOrgID(ctx context.Context, stytchOrgID string) (string, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if m.getTenantByStytchOrgIDFn != nil {
+		return m.getTenantByStytchOrgIDFn(ctx, stytchOrgID)
+	}
+	return "", fmt.Errorf("%w: tenant not found", ErrNotFound)
+}
+
+func (m *MockRepository) GetUserByEmailAndTenant(ctx context.Context, email, tenantID string) (string, string, string, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if m.getUserByEmailAndTenantFn != nil {
+		return m.getUserByEmailAndTenantFn(ctx, email, tenantID)
+	}
+	return "", "", "", fmt.Errorf("%w: user not found", ErrNotFound)
+}
+
+func (m *MockRepository) CreateSessionOnly(ctx context.Context, params CreateSessionParams) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.createSessionOnlyFn != nil {
+		return m.createSessionOnlyFn(ctx, params)
 	}
 	return nil
 }
@@ -502,11 +532,11 @@ func (h *testHarness) registerViaMocks(ctx context.Context, sessionRef string, p
 func TestVerify_StytchTimeout(t *testing.T) {
 	h := newTestHarness(t)
 
-	h.idp.authenticateDiscoveryTokenFn = func(ctx context.Context, token string) (string, string, error) {
-		return "", "", fmt.Errorf("%w: stytch timeout: context deadline exceeded", ErrInternal)
+	h.idp.authenticateDiscoveryTokenFn = func(ctx context.Context, token string) (string, string, []DiscoveredOrg, error) {
+		return "", "", nil, fmt.Errorf("%w: stytch timeout: context deadline exceeded", ErrInternal)
 	}
 
-	_, err := h.svc.Verify(context.Background(), "some_token")
+	_, err := h.svc.Verify(context.Background(), "some_token", "")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -518,11 +548,11 @@ func TestVerify_StytchTimeout(t *testing.T) {
 func TestVerify_StytchExpiredToken(t *testing.T) {
 	h := newTestHarness(t)
 
-	h.idp.authenticateDiscoveryTokenFn = func(ctx context.Context, token string) (string, string, error) {
-		return "", "", fmt.Errorf("%w: stytch token expired", ErrExpiredToken)
+	h.idp.authenticateDiscoveryTokenFn = func(ctx context.Context, token string) (string, string, []DiscoveredOrg, error) {
+		return "", "", nil, fmt.Errorf("%w: stytch token expired", ErrExpiredToken)
 	}
 
-	_, err := h.svc.Verify(context.Background(), "expired_token")
+	_, err := h.svc.Verify(context.Background(), "expired_token", "")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}

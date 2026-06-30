@@ -38,11 +38,11 @@ export const ROLE_COOKIE_NAME = "somo_role";
  * If a role is not listed, they get the default access from PROTECTED_PREFIXES.
  */
 export const ROLE_ROUTES: Record<string, string[]> = {
-    SYSTEM_ADMIN: ["/admin", "/admins", "/dashboard", "/settings", "/schools", "/docs"],
-    SCHOOL_ADMIN: ["/admin", "/admins", "/dashboard", "/settings", "/schools", "/docs"],
-    TEACHER: ["/dashboard", "/docs"],
-    NURSE: ["/dashboard", "/docs"],
-    FINANCE: ["/dashboard", "/docs"],
+    SYSTEM_ADMIN: ["/admin", "/admins", "/settings", "/schools", "/docs"],
+    SCHOOL_ADMIN: ["/admin", "/admins", "/settings", "/schools", "/docs"],
+    TEACHER: ["/docs"],
+    NURSE: ["/docs"],
+    FINANCE: ["/docs"],
 };
 
 /**

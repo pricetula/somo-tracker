@@ -6,7 +6,7 @@
  */
 import { cookies } from "next/headers";
 import crypto from "node:crypto";
-import { ROLE_COOKIE_NAME, ROLE_ROUTES } from "@/lib/auth";
+import { ROLE_COOKIE_NAME } from "@/lib/auth";
 
 /** All valid roles in the system. Must match proxy.ts VALID_ROLES. */
 const VALID_ROLES = new Set(["SYSTEM_ADMIN", "SCHOOL_ADMIN", "TEACHER", "NURSE", "FINANCE"]);
@@ -69,18 +69,4 @@ export async function getAuthUser(): Promise<AuthUser | null> {
     const role = await getVerifiedRole();
     if (!role) return null;
     return { role };
-}
-
-/**
- * Checks if the current user has access to the dashboard route.
- * Uses the same ROLE_ROUTES mapping as the proxy.
- */
-export async function userHasDashboardAccess(): Promise<boolean> {
-    const role = await getVerifiedRole();
-    if (!role) return false;
-
-    const allowedRoutes = ROLE_ROUTES[role];
-    if (!allowedRoutes) return false;
-
-    return allowedRoutes.some((route) => route === "/dashboard" || route === "/");
 }

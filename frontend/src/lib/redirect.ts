@@ -9,7 +9,7 @@
  * target originates from user input (query params, form data, etc.).
  */
 
-const ALLOWED_REDIRECT_PREFIXES = ["/dashboard", "/settings", "/tenants", "/register", "/login"];
+const ALLOWED_REDIRECT_PREFIXES = ["/settings", "/tenants", "/register", "/login"];
 
 /**
  * Sanitises a redirect target from user-supplied input.
@@ -27,7 +27,7 @@ export function sanitiseRedirect(raw: string | null | undefined): string {
 
     const normalised = decodeURIComponent(raw).split("?")[0];
 
-    // Allow root path (dashboard) explicitly
+    // Allow root path explicitly
     if (normalised === "/") return raw;
 
     const isAllowed = ALLOWED_REDIRECT_PREFIXES.some((p) => normalised.startsWith(p));

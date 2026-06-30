@@ -159,7 +159,7 @@ func (h *Handler) MagicLinkCallback(c *fiber.Ctx) error {
 			MaxAge:   cookieMaxAge,
 		})
 
-		dashboardURL := h.cfg.FrontendURL + "/dashboard"
+		dashboardURL := h.cfg.FrontendURL + "/"
 
 		h.logger.Info("auth: existing user — redirecting to dashboard",
 			zap.String("role", result.Role),
@@ -239,7 +239,7 @@ func (h *Handler) AcceptInvite(c *fiber.Ctx) error {
 	}
 
 	// Redirect to frontend dashboard
-	dashboardURL := h.cfg.FrontendURL + "/dashboard"
+	dashboardURL := h.cfg.FrontendURL + "/"
 
 	h.logger.Info("auth: invite accepted — redirecting to dashboard",
 		zap.String("role", role),

@@ -3,11 +3,10 @@
  *
  * After the dashboard migration to `/`, the proxy must:
  * 1. Treat `/` as a protected route requiring auth + valid role
- * 2. Use `ROLE_ROUTES` to determine if a role has dashboard access
- *    (routes containing either "/dashboard" or "/")
- * 3. Redirect unauthenticated users at `/` to /login?next=/
- * 4. Redirect authenticated users without dashboard access to /unauthorized
- * 5. Clear cookies and redirect on tampered/invalid roles
+ * 2. Redirect unauthenticated users at `/` to /login?next=/
+ * 3. Clear cookies and redirect on tampered/invalid roles
+ *
+ * All authenticated users with a valid role can access `/` (the dashboard).
  *
  * To run: pnpm vitest run src/__tests__/proxy-dashboard-root.test.ts
  */
@@ -21,16 +20,6 @@ import { ROLE_ROUTES, ROLE_DEFAULT_ROUTES } from "@/lib/auth";
 const VALID_ROLES = new Set(["SYSTEM_ADMIN", "SCHOOL_ADMIN", "TEACHER", "NURSE", "FINANCE"]);
 
 /**
- * Determines whether a user's role permits access to the dashboard at `/`.
- * Mirrors the proxy's `hasDashboardAccess` check.
- */
-function hasDashboardAccess(role: string): boolean {
-    const allowedRoutes = ROLE_ROUTES[role];
-    if (!allowedRoutes) return false;
-    return allowedRoutes.some((route) => route === "/dashboard" || route === "/");
-}
-
-/**
  * Returns where a user should be redirected if they lack dashboard access.
  * Mirrors the proxy's default-route fallback.
  */
@@ -40,32 +29,7 @@ function getDefaultRoute(role: string): string {
 
 // ── Tests ──
 
-describe("hasDashboardAccess — proxy check at /", () => {
-    it.each(["SYSTEM_ADMIN", "SCHOOL_ADMIN", "TEACHER", "NURSE", "FINANCE"])(
-        "allows %s to access dashboard at /",
-        (role) => {
-            expect(hasDashboardAccess(role)).toBe(true);
-        }
-    );
-
-    it("rejects a made-up role that isn't in ROLE_ROUTES", () => {
-        expect(hasDashboardAccess("SUPER_USER")).toBe(false);
-    });
-
-    it("rejects a valid role that somehow has no ROLE_ROUTES entry", () => {
-        // Simulate a role that is in VALID_ROLES but not in ROLE_ROUTES
-        const knownButMissing = Array.from(VALID_ROLES).find((r) => !ROLE_ROUTES[r]);
-        if (knownButMissing) {
-            expect(hasDashboardAccess(knownButMissing)).toBe(false);
-        }
-        // If all valid roles have entries, this is a structural guarantee check
-        for (const role of VALID_ROLES) {
-            expect(ROLE_ROUTES[role]).toBeDefined();
-        }
-    });
-});
-
-describe("ROLE_ROUTES integrity for dashboard access", () => {
+describe("ROLE_ROUTES integrity", () => {
     it("every valid role has a ROLE_ROUTES entry", () => {
         for (const role of VALID_ROLES) {
             expect(ROLE_ROUTES[role]).toBeDefined();
@@ -80,19 +44,19 @@ describe("ROLE_ROUTES integrity for dashboard access", () => {
         }
     });
 
-    it("every role's default route is reachable (prefix match or hasDashboardAccess)", () => {
+    it("every role's default route is reachable via prefix match or is /", () => {
         for (const role of VALID_ROLES) {
             const defaultRoute = ROLE_DEFAULT_ROUTES[role]!;
             const allowedRoutes = ROLE_ROUTES[role]!;
 
-            // The default route must be accessible by the role:
-            // - Exact match: `/` is the dashboard, checked via hasDashboardAccess
-            // - Prefix match: e.g. `/admin` starts with `/admin` in allowedRoutes
+            // `/` is served by the proxy's dedicated `/` handler (dashboard)
+            // and is accessible to all authenticated users — no ROLE_ROUTES entry needed.
+            if (defaultRoute === "/") continue;
+
             const byPrefixMatch = allowedRoutes.some((route) => defaultRoute.startsWith(route));
-            const byDashboardAccess = hasDashboardAccess(role) && defaultRoute === "/";
 
             expect(
-                byPrefixMatch || byDashboardAccess,
+                byPrefixMatch,
                 `role ${role}: default "${defaultRoute}" not reachable via ${JSON.stringify(allowedRoutes)}`
             ).toBe(true);
         }
@@ -157,11 +121,6 @@ describe("Proxy decision matrix at / (simulated)", () => {
         // Step 4: ROLE_ROUTES entry exists
         if (!ROLE_ROUTES[roleValue]) {
             return "/login";
-        }
-
-        // Step 5: Dashboard access check
-        if (!hasDashboardAccess(roleValue)) {
-            return "/unauthorized";
         }
 
         return "next";
@@ -266,24 +225,6 @@ describe("Proxy decision matrix at / (simulated)", () => {
         });
         expect(result).toBe("/login");
     });
-
-    it("redirects to /unauthorized when a role without dashboard access hits /", () => {
-        // Simulate a role that is in VALID_ROLES but has no dashboard access
-        // This is an edge case that would require ROLE_ROUTES to change
-        const noDashboardRole = "SYSTEM_ADMIN";
-        const dashboardAccess = hasDashboardAccess(noDashboardRole);
-        if (!dashboardAccess) {
-            const result = simulateProxyDecision({
-                hasSession: true,
-                hasRole: true,
-                roleCookieValid: true,
-                roleValue: noDashboardRole,
-            });
-            expect(result).toBe("/unauthorized");
-        }
-        // If the role does have dashboard access, the test is a no-op
-        // (structural guarantee — all current roles have dashboard access)
-    });
 });
 
 describe("Proxy unauthorized redirect on protected routes (simulated)", () => {
@@ -324,17 +265,6 @@ describe("Proxy unauthorized redirect on protected routes (simulated)", () => {
 
         return "next";
     }
-
-    it("allows TEACHER to access /dashboard", () => {
-        const result = simulateProtectedRouteDecision({
-            hasSession: true,
-            hasRole: true,
-            roleCookieValid: true,
-            roleValue: "TEACHER",
-            pathname: "/dashboard",
-        });
-        expect(result).toBe("next");
-    });
 
     it("redirects TEACHER to /unauthorized when hitting /settings", () => {
         const result = simulateProtectedRouteDecision({

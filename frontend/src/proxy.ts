@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE_NAME, ROLE_COOKIE_NAME, ROLE_ROUTES } from "@/lib/auth";
 
-const PROTECTED_PREFIXES = ["/dashboard", "/settings", "/admin", "/admins", "/schools"];
+const PROTECTED_PREFIXES = ["/settings", "/admin", "/admins", "/schools"];
 
 // Exhaustive set of valid roles — verifiedRole must be one of these or access is denied.
 // Keeps role checking honest even if ROLE_ROUTES is missing an entry.
@@ -117,7 +117,6 @@ function clearCookiesAndRedirect(req: NextRequest, pathname: string): NextRespon
  * - `/login` with BOTH `somo_sid` and `somo_role` cookies → redirect to `/`.
  *   (Requiring both prevents a redirect loop when only one cookie is present.)
  * - `/` → serves as the dashboard. Auth + role required, otherwise redirect to /login.
- *   Role must have `/dashboard` or `/` in its ROLE_ROUTES to pass.
  */
 export async function proxy(req: NextRequest) {
     const { pathname, searchParams } = req.nextUrl;
@@ -156,15 +155,6 @@ export async function proxy(req: NextRequest) {
         const allowedRoutes = ROLE_ROUTES[verifiedRole];
         if (!allowedRoutes) {
             return clearCookiesAndRedirect(req, pathname);
-        }
-
-        // A role has dashboard access if it has "/dashboard" in its ROLE_ROUTES
-        // (the conceptual dashboard indicator) or if it explicitly lists "/".
-        const hasDashboardAccess = allowedRoutes.some(
-            (route) => route === "/dashboard" || route === "/"
-        );
-        if (!hasDashboardAccess) {
-            return NextResponse.redirect(new URL("/unauthorized", req.url));
         }
 
         return NextResponse.next();

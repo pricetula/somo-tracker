@@ -11,9 +11,9 @@ import * as React from "react";
 import { useReactTable, getCoreRowModel, flexRender, type ColumnDef } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
-import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 
+import { StatusToggleCell } from "./status-toggle-cell";
 import type { Member } from "@/lib/api/admins";
 import { useToggleAdminActive } from "../hooks/use-admins";
 
@@ -29,7 +29,9 @@ function formatDate(iso: string): string {
 
 // ─── Columns ───────────────────────────────────────────────────────────────
 
-function createColumns(): ColumnDef<Member>[] {
+function createColumns(
+    toggleMutation: ReturnType<typeof useToggleAdminActive>
+): ColumnDef<Member>[] {
     return [
         {
             accessorKey: "full_name",
@@ -48,7 +50,17 @@ function createColumns(): ColumnDef<Member>[] {
         {
             id: "is_active",
             header: "Account Status",
-            cell: ({ row }) => <StatusToggleCell member={row.original} />,
+            cell: ({ row }) => (
+                <StatusToggleCell
+                    member={row.original}
+                    onToggle={(userId, isActive) => toggleMutation.mutate({ userId, isActive })}
+                    isPending={toggleMutation.isPending}
+                    label={{
+                        activate: "Activate admin",
+                        deactivate: "Deactivate admin",
+                    }}
+                />
+            ),
         },
         {
             accessorKey: "created_at",
@@ -62,36 +74,6 @@ function createColumns(): ColumnDef<Member>[] {
     ];
 }
 
-// ─── Status Toggle Cell ────────────────────────────────────────────────────
-
-function StatusToggleCell({ member }: { member: Member }) {
-    const toggleMutation = useToggleAdminActive();
-
-    const handleToggle = (checked: boolean) => {
-        toggleMutation.mutate({ userId: member.id, isActive: checked });
-    };
-
-    return (
-        <div className="flex items-center gap-2">
-            <Switch
-                checked={member.is_active}
-                onCheckedChange={handleToggle}
-                disabled={toggleMutation.isPending}
-                aria-label={member.is_active ? "Deactivate admin" : "Activate admin"}
-            />
-            <span
-                className={
-                    member.is_active
-                        ? "text-xs font-medium text-emerald-600"
-                        : "text-muted-foreground text-xs"
-                }
-            >
-                {member.is_active ? "Active" : "Inactive"}
-            </span>
-        </div>
-    );
-}
-
 // ─── Props ─────────────────────────────────────────────────────────────────
 
 interface AdminsTableProps {
@@ -103,7 +85,8 @@ interface AdminsTableProps {
 // ─── Component ─────────────────────────────────────────────────────────────
 
 export function AdminsTable({ admins, total, isLoading }: AdminsTableProps) {
-    const columns = React.useMemo(() => createColumns(), []);
+    const toggleMutation = useToggleAdminActive();
+    const columns = React.useMemo(() => createColumns(toggleMutation), [toggleMutation]);
 
     // eslint-disable-next-line react-hooks/incompatible-library
     const table = useReactTable({
@@ -130,7 +113,10 @@ export function AdminsTable({ admins, total, isLoading }: AdminsTableProps) {
             <div
                 ref={parentRef}
                 className="flex-1 overflow-auto"
-                style={{ contain: "strict", minHeight: rows.length === 0 ? "200px" : undefined }}
+                style={{
+                    contain: "layout paint",
+                    minHeight: rows.length === 0 ? "200px" : undefined,
+                }}
             >
                 <div className="min-w-175">
                     {/* Sticky Header */}
@@ -183,9 +169,14 @@ export function AdminsTable({ admins, total, isLoading }: AdminsTableProps) {
                                 const row = rows[virtualRow.index];
                                 return (
                                     <div
-                                        key={row.id}
-                                        className="group border-border/40 hover:bg-muted/30 absolute right-0 left-0 flex h-12 items-center border-b transition-colors"
+                                        key={virtualRow.key}
+                                        className="group border-border/40 hover:bg-muted/30 absolute right-0 left-0 flex items-center border-b transition-colors"
                                         style={{
+                                            position: "absolute",
+                                            top: 0,
+                                            left: 0,
+                                            width: "100%",
+                                            height: `${virtualRow.size}px`,
                                             transform: `translateY(${virtualRow.start}px)`,
                                         }}
                                     >

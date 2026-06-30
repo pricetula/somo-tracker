@@ -173,3 +173,10 @@ Files under `src/components/ui/` are auto-generated shadcn primitives. **Do not 
 - Omitted `onError` on data-modifying mutations.
 - `isError` state ignored in `useQuery`.
 - `ApiError` defined anywhere other than `src/lib/api/client.ts`.
+
+---
+
+## 10. Simplicity & References
+
+- **Don't overcomplicate.** When implementing a standard pattern (virtualized list, form, table, etc.), start from the library's canonical docs example and adapt — don't reverse-engineer or add speculative layers.
+- **When stuck, read the latest official docs first.** Before debugging assumptions about library behavior, fetch the current version's API reference and examples. The answer is usually in the docs, not in stack traces.

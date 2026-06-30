@@ -137,7 +137,10 @@ export function ActiveStaffTable({
             <div
                 ref={parentRef}
                 className="flex-1 overflow-auto"
-                style={{ contain: "strict", minHeight: rows.length === 0 ? "200px" : undefined }}
+                style={{
+                    contain: "layout paint",
+                    minHeight: rows.length === 0 ? "200px" : undefined,
+                }}
             >
                 <div className="min-w-150">
                     {/* Sticky Header */}
@@ -208,9 +211,14 @@ export function ActiveStaffTable({
                                 const row = rows[virtualRow.index];
                                 return (
                                     <div
-                                        key={row.id}
-                                        className="group border-border/40 hover:bg-muted/30 absolute right-0 left-0 flex h-12 items-center border-b transition-colors"
+                                        key={virtualRow.key}
+                                        className="group border-border/40 hover:bg-muted/30 absolute right-0 left-0 flex items-center border-b transition-colors"
                                         style={{
+                                            position: "absolute",
+                                            top: 0,
+                                            left: 0,
+                                            width: "100%",
+                                            height: `${virtualRow.size}px`,
                                             transform: `translateY(${virtualRow.start}px)`,
                                         }}
                                     >

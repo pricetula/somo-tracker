@@ -12,9 +12,9 @@ import * as React from "react";
 import { useReactTable, getCoreRowModel, flexRender, type ColumnDef } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
-import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 
+import { TeacherStatusToggleCell } from "./teacher-status-toggle-cell";
 import type { TeacherMember } from "@/lib/api/teachers";
 import { useToggleTeacherActive } from "../hooks/use-teachers";
 
@@ -33,7 +33,9 @@ function formatTeacherRole(role: string | null): string {
 
 // ─── Columns ───────────────────────────────────────────────────────────────
 
-function createColumns(): ColumnDef<TeacherMember>[] {
+function createColumns(
+    toggleMutation: ReturnType<typeof useToggleTeacherActive>
+): ColumnDef<TeacherMember>[] {
     return [
         {
             accessorKey: "full_name",
@@ -79,39 +81,15 @@ function createColumns(): ColumnDef<TeacherMember>[] {
         {
             id: "is_active",
             header: "Account Status",
-            cell: ({ row }) => <StatusToggleCell teacher={row.original} />,
+            cell: ({ row }) => (
+                <TeacherStatusToggleCell
+                    teacher={row.original}
+                    onToggle={(userId, isActive) => toggleMutation.mutate({ userId, isActive })}
+                    isPending={toggleMutation.isPending}
+                />
+            ),
         },
     ];
-}
-
-// ─── Status Toggle Cell ────────────────────────────────────────────────────
-
-function StatusToggleCell({ teacher }: { teacher: TeacherMember }) {
-    const toggleMutation = useToggleTeacherActive();
-
-    const handleToggle = (checked: boolean) => {
-        toggleMutation.mutate({ userId: teacher.id, isActive: checked });
-    };
-
-    return (
-        <div className="flex items-center gap-2">
-            <Switch
-                checked={teacher.is_active}
-                onCheckedChange={handleToggle}
-                disabled={toggleMutation.isPending}
-                aria-label={teacher.is_active ? "Deactivate teacher" : "Activate teacher"}
-            />
-            <span
-                className={
-                    teacher.is_active
-                        ? "text-xs font-medium text-emerald-600"
-                        : "text-muted-foreground text-xs"
-                }
-            >
-                {teacher.is_active ? "Active" : "Inactive"}
-            </span>
-        </div>
-    );
 }
 
 // ─── Props ─────────────────────────────────────────────────────────────────
@@ -125,7 +103,8 @@ interface TeachersTableProps {
 // ─── Component ─────────────────────────────────────────────────────────────
 
 export function TeachersTable({ teachers, total, isLoading }: TeachersTableProps) {
-    const columns = React.useMemo(() => createColumns(), []);
+    const toggleMutation = useToggleTeacherActive();
+    const columns = React.useMemo(() => createColumns(toggleMutation), [toggleMutation]);
 
     // eslint-disable-next-line react-hooks/incompatible-library
     const table = useReactTable({
@@ -152,7 +131,10 @@ export function TeachersTable({ teachers, total, isLoading }: TeachersTableProps
             <div
                 ref={parentRef}
                 className="flex-1 overflow-auto"
-                style={{ contain: "strict", minHeight: rows.length === 0 ? "200px" : undefined }}
+                style={{
+                    contain: "layout paint",
+                    minHeight: rows.length === 0 ? "200px" : undefined,
+                }}
             >
                 <div className="min-w-175">
                     {/* Sticky Header */}
@@ -207,9 +189,14 @@ export function TeachersTable({ teachers, total, isLoading }: TeachersTableProps
                                 const row = rows[virtualRow.index];
                                 return (
                                     <div
-                                        key={row.id}
-                                        className="group border-border/40 hover:bg-muted/30 absolute right-0 left-0 flex h-12 items-center border-b transition-colors"
+                                        key={virtualRow.key}
+                                        className="group border-border/40 hover:bg-muted/30 absolute right-0 left-0 flex items-center border-b transition-colors"
                                         style={{
+                                            position: "absolute",
+                                            top: 0,
+                                            left: 0,
+                                            width: "100%",
+                                            height: `${virtualRow.size}px`,
                                             transform: `translateY(${virtualRow.start}px)`,
                                         }}
                                     >

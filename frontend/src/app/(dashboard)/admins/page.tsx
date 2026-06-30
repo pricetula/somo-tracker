@@ -29,7 +29,7 @@ export default function AdminsPage() {
             </div>
 
             <div className="flex flex-1 flex-col px-6 py-4">
-                <section className="flex flex-col">
+                <section className="flex flex-1 flex-col">
                     {adminsError ? (
                         <div className="flex items-center justify-center py-8">
                             <p className="text-destructive text-sm">

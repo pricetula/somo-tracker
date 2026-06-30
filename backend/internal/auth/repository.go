@@ -91,7 +91,7 @@ func (r *SqlcRepository) GetTenantByName(ctx context.Context, name string) (stri
 func (r *SqlcRepository) GetSessionByToken(ctx context.Context, token string) (*UserSession, error) {
 	const query = `
 		SELECT s.id, s.token, s.user_id, s.tenant_id,
-		       COALESCE(m.role::text, 'TEACHER') as role,
+		       COALESCE(m.role::text, '') as role,
 		       s.stytch_member_id, s.stytch_org_id,
 		       COALESCE(s.stytch_session_token, '') as stytch_session_token,
 		       COALESCE(s.device_fingerprint, '') as device_fingerprint,
@@ -313,6 +313,23 @@ func (r *SqlcRepository) CreateMembership(ctx context.Context, userID, schoolID,
 	return nil
 }
 
+// SetActiveSchool upserts the member_active_school row for a user.
+func (r *SqlcRepository) SetActiveSchool(ctx context.Context, userID, tenantID, schoolID string) error {
+	const query = `
+		INSERT INTO member_active_school (user_id, tenant_id, school_id, switched_at)
+		VALUES ($1, $2, $3, NOW())
+		ON CONFLICT (user_id) DO UPDATE SET
+			school_id   = EXCLUDED.school_id,
+			tenant_id   = EXCLUDED.tenant_id,
+			switched_at = NOW()
+	`
+	_, err := r.pool.Exec(ctx, query, userID, tenantID, schoolID)
+	if err != nil {
+		return fmt.Errorf("%w: set active school: %v", ErrInternal, err)
+	}
+	return nil
+}
+
 // GetMeInfo returns the full profile info for /me: user details, role,
 // and the active school (resolved from member_active_school).
 func (r *SqlcRepository) GetMeInfo(ctx context.Context, token string) (*MeInfo, error) {
@@ -320,7 +337,19 @@ func (r *SqlcRepository) GetMeInfo(ctx context.Context, token string) (*MeInfo, 
 		SELECT
 			s.user_id,
 			s.tenant_id,
-			COALESCE(m.role::text, 'TEACHER') as role,
+			(
+				SELECT m.role::text FROM memberships m
+				WHERE m.user_id = s.user_id AND m.is_active = true
+				ORDER BY
+					CASE m.role
+						WHEN 'SYSTEM_ADMIN' THEN 1
+						WHEN 'SCHOOL_ADMIN' THEN 2
+						WHEN 'TEACHER' THEN 3
+						WHEN 'NURSE' THEN 4
+						WHEN 'FINANCE' THEN 5
+					END
+				LIMIT 1
+			) as role,
 			u.full_name,
 			u.email,
 			mas.school_id,
@@ -329,9 +358,6 @@ func (r *SqlcRepository) GetMeInfo(ctx context.Context, token string) (*MeInfo, 
 		JOIN users u ON u.id = s.user_id
 		LEFT JOIN member_active_school mas ON mas.user_id = s.user_id
 		LEFT JOIN cbc_schools sch ON sch.id = mas.school_id
-		LEFT JOIN memberships m ON m.user_id = s.user_id
-			AND m.school_id = mas.school_id
-			AND m.is_active = true
 		WHERE s.token = $1 AND s.expires_at > NOW()
 	`
 
@@ -480,7 +506,21 @@ func (r *SqlcRepository) CreateInvitedUserSession(ctx context.Context, args Crea
 		return fmt.Errorf("%w: create membership in tx: %v", ErrInternal, err)
 	}
 
-	// 4. Update invitation status
+	// 4. Set active school so GetMeInfo resolves the role correctly
+	activeSchoolQuery := `
+		INSERT INTO member_active_school (user_id, tenant_id, school_id, switched_at)
+		VALUES ($1, $2, $3, NOW())
+		ON CONFLICT (user_id) DO UPDATE SET
+			school_id   = EXCLUDED.school_id,
+			tenant_id   = EXCLUDED.tenant_id,
+			switched_at = NOW()
+	`
+	_, err = tx.Exec(ctx, activeSchoolQuery, userID, args.TenantID, args.SchoolID)
+	if err != nil {
+		return fmt.Errorf("%w: set active school in tx: %v", ErrInternal, err)
+	}
+
+	// 5. Update invitation status
 	updateQuery := `
 		UPDATE invitations
 		SET status = 'accepted', accepted_at = NOW(), stytch_member_id = $1

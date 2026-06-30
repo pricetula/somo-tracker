@@ -259,6 +259,9 @@ type Repository interface {
 	// CreateMembership creates a membership linking a user to a school with a role.
 	CreateMembership(ctx context.Context, userID, schoolID, tenantID, role string) error
 
+	// SetActiveSchool upserts the member_active_school row for a user.
+	SetActiveSchool(ctx context.Context, userID, tenantID, schoolID string) error
+
 	// GetMeInfo returns the full profile info for /me: user details, role,
 	// and the active school.
 	GetMeInfo(ctx context.Context, token string) (*MeInfo, error)

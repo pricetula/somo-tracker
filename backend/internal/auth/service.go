@@ -466,6 +466,11 @@ func (s *Service) Register(ctx context.Context, sessionRef string, payload Regis
 		return "", "", fmt.Errorf("%w: create membership: %v", ErrInternal, err)
 	}
 
+	// Set the school as the user's active school so GetMeInfo resolves the role correctly.
+	if err := s.repo.SetActiveSchool(ctx, userID, tenantID, schoolID); err != nil {
+		return "", "", fmt.Errorf("%w: set active school: %v", ErrInternal, err)
+	}
+
 	s.logger.Info("auth: school and membership created",
 		zap.String("school_id", schoolID),
 		zap.String("user_id", userID),

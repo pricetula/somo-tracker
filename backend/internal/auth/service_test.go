@@ -143,6 +143,7 @@ type MockRepository struct {
 	createUserSessionFn        func(ctx context.Context, up CreateUserParams, sp CreateSessionParams) (string, error)
 	createSchoolFn             func(ctx context.Context, tenantID string, name string) (string, error)
 	createMembershipFn         func(ctx context.Context, userID, schoolID, tenantID, role string) error
+	setActiveSchoolFn          func(ctx context.Context, userID, tenantID, schoolID string) error
 	getMeInfoFn                func(ctx context.Context, token string) (*MeInfo, error)
 	getInvitationByEmailFn     func(ctx context.Context, email string) (*Invitation, error)
 	getTenantStytchOrgIDFn     func(ctx context.Context, tenantID string) (string, error)
@@ -250,6 +251,15 @@ func (m *MockRepository) CreateMembership(ctx context.Context, userID, schoolID,
 		return m.createMembershipFn(ctx, userID, schoolID, tenantID, role)
 	}
 	m.memberships[userID] = role
+	return nil
+}
+
+func (m *MockRepository) SetActiveSchool(ctx context.Context, userID, tenantID, schoolID string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.setActiveSchoolFn != nil {
+		return m.setActiveSchoolFn(ctx, userID, tenantID, schoolID)
+	}
 	return nil
 }
 

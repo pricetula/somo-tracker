@@ -101,7 +101,7 @@ func loadSessionFromCookie(c *fiber.Ctx, pool *pgxpool.Pool) (*SessionInfo, erro
 		               WHEN 'FINANCE' THEN 5
 		             END
 		           LIMIT 1),
-		         'TEACHER'
+		         ''
 		       ) as role
 		FROM sessions s
 		WHERE s.token = $1 AND s.expires_at > NOW()

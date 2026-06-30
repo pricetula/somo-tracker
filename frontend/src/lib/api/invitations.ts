@@ -6,31 +6,16 @@
  */
 
 import { api } from "./client";
+import type {
+    Invitation,
+    InvitationStatus,
+    InvitationRole,
+    ListInvitationsResponse,
+} from "./generated";
 
-// ─── Types ─────────────────────────────────────────────────────────────────
+// ─── Re-export generated types ───────────────────────────────────────────
 
-export type InvitationStatus = "pending" | "accepted" | "expired" | "revoked" | "invite_failed";
-
-export type InvitationRole = "SYSTEM_ADMIN" | "SCHOOL_ADMIN" | "TEACHER" | "NURSE" | "FINANCE";
-
-export interface Invitation {
-    id: string;
-    school_id: string;
-    tenant_id: string;
-    email: string;
-    role: InvitationRole;
-    status: InvitationStatus;
-    full_name?: string;
-    invited_by?: string;
-    expires_at: string;
-    accepted_at?: string;
-    created_at: string;
-}
-
-export interface ListInvitationsResponse {
-    invitations: Invitation[];
-    total: number;
-}
+export type { Invitation, InvitationStatus, InvitationRole, ListInvitationsResponse };
 
 /**
  * List invitations by role, optionally filtered by a single status.

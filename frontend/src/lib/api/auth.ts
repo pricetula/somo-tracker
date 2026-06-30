@@ -11,31 +11,19 @@
 
 import { api, ApiError } from "./client";
 import { isApiError, getErrorMessage } from "../errors";
+import type { VerifyResponse, RegistrationPayload, MeResponse } from "./generated";
 
-// ─── Types ────────────────────────────────────────────────────────────────
+// ─── Re-export generated types used by consumers ─────────────────────────
 
-export interface DiscoverPayload {
-    email: string;
-}
+export type {
+    DiscoveryPayload,
+    VerifyResponse,
+    RegistrationPayload,
+    MeResponse,
+} from "./generated";
 
-export interface VerifyResponse {
-    session_ref: string;
-}
-
-export interface RegisterPayload {
-    school_name: string;
-    session_ref: string;
-    full_name: string;
-}
-
-export interface MeResponse {
-    user_id: string;
-    tenant_id: string;
-    school_id: string;
-    full_name: string;
-    email: string;
-    role: string;
-}
+/** @deprecated Use RegistrationPayload instead. */
+export type RegisterPayload = RegistrationPayload;
 
 // ─── Functions ────────────────────────────────────────────────────────────
 
@@ -50,7 +38,7 @@ export async function verifyToken(token: string): Promise<VerifyResponse> {
 }
 
 /** PHASE 3: Complete registration (creates tenant + user + session). */
-export async function register(payload: RegisterPayload): Promise<void> {
+export async function register(payload: RegistrationPayload): Promise<void> {
     await api.post("/api/auth/register", payload);
 }
 

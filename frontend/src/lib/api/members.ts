@@ -6,22 +6,11 @@
  */
 
 import { api } from "./client";
+import type { Member, ListMembersResponse } from "./generated";
 
-// ─── Types ─────────────────────────────────────────────────────────────────
+// ─── Re-export generated types ───────────────────────────────────────────
 
-export interface Member {
-    id: string;
-    email: string;
-    full_name: string;
-    role: "TEACHER" | "NURSE" | "FINANCE";
-    is_active: boolean;
-    created_at: string;
-}
-
-export interface ListMembersResponse {
-    members: Member[];
-    total: number;
-}
+export type { Member, ListMembersResponse };
 
 // ─── API Functions ─────────────────────────────────────────────────────────
 

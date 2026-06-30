@@ -9,71 +9,29 @@
  */
 
 import { api } from "./client";
+import type {
+    ImportStaffRecord,
+    StartImportRequest,
+    StartImportResponse,
+    ImportJob,
+    TrackImportResponse,
+    ImportProgressEvent,
+    FailedInvitation,
+    ListFailedInvitationsResponse,
+} from "./generated";
 
-// ─── Types ─────────────────────────────────────────────────────────────────
+// ─── Re-export generated types ───────────────────────────────────────────
 
-export interface ImportStaffRecord {
-    temp_id: string;
-    email: string;
-    full_name: string;
-    phone?: string;
-    registration_number?: string;
-}
-
-export interface StartImportRequest {
-    role: "SCHOOL_ADMIN" | "NURSE" | "FINANCE" | "TEACHER";
-    records: ImportStaffRecord[];
-}
-
-export interface StartImportResponse {
-    import_job_id: string;
-    status: string;
-    total: number;
-}
-
-export interface ImportJob {
-    id: string;
-    tenant_id: string;
-    school_id: string;
-    role: string;
-    created_by?: string;
-    status: string;
-    total_records: number;
-    processed_records: number;
-    success_count: number;
-    failed_count: number;
-    parent_import_job_id?: string;
-    created_at: string;
-    started_at?: string;
-    completed_at?: string;
-}
-
-export interface TrackImportResponse {
-    job: ImportJob;
-    failed_records: number;
-}
-
-export interface ImportProgressEvent {
-    type: "connected" | "import_progress" | "import_finished" | "import_error";
-    import_job_id: string;
-    status?: string;
-    processed_records?: number;
-    success_count?: number;
-    failed_count?: number;
-    total_records?: number;
-}
-
-export interface FailedInvitation {
-    id: string;
-    email: string;
-    full_name?: string;
-    phone?: string;
-    error_message?: string;
-}
-
-export interface ListFailedInvitationsResponse {
-    invitations: FailedInvitation[];
-}
+export type {
+    ImportStaffRecord,
+    StartImportRequest,
+    StartImportResponse,
+    ImportJob,
+    TrackImportResponse,
+    ImportProgressEvent,
+    FailedInvitation,
+    ListFailedInvitationsResponse,
+};
 
 // ─── API Functions ─────────────────────────────────────────────────────────
 

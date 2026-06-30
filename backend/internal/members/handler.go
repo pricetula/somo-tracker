@@ -74,13 +74,14 @@ func (h *Handler) List(c *fiber.Ctx) error {
 	if role == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"code":    "invalid_input",
-			"message": "role query parameter is required (TEACHER, NURSE, or FINANCE)",
+			"message": "role query parameter is required (TEACHER, NURSE, FINANCE, or SCHOOL_ADMIN)",
 		})
 	}
-	if role != "TEACHER" && role != "NURSE" && role != "FINANCE" {
+	validRoles := map[string]bool{"TEACHER": true, "NURSE": true, "FINANCE": true, "SCHOOL_ADMIN": true}
+	if !validRoles[role] {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"code":    "invalid_input",
-			"message": "role must be TEACHER, NURSE, or FINANCE",
+			"message": "role must be TEACHER, NURSE, FINANCE, or SCHOOL_ADMIN",
 		})
 	}
 

@@ -29,11 +29,10 @@ export const staffKeys = {
  * Fetch active staff users by role.
  *
  * Maps to GET /api/v1/members?role=... (the actual backend endpoint).
- * Supported roles: NURSE, FINANCE, TEACHER.
- * SCHOOL_ADMIN is NOT supported by the backend members handler.
+ * Supported roles: NURSE, FINANCE, TEACHER, SCHOOL_ADMIN.
  */
 export function useStaffUsers(
-    role: "NURSE" | "FINANCE" | "TEACHER",
+    role: "NURSE" | "FINANCE" | "TEACHER" | "SCHOOL_ADMIN",
     opts: { page?: number; limit?: number; enabled?: boolean } = {}
 ) {
     const { page = 1, limit = 50, enabled = true } = opts;

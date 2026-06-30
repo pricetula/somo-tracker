@@ -151,7 +151,7 @@ export interface Member {
     id: string;
     email: string;
     full_name: string;
-    role: "TEACHER" | "NURSE" | "FINANCE";
+    role: "TEACHER" | "NURSE" | "FINANCE" | "SCHOOL_ADMIN";
     is_active: boolean;
     created_at: string;
 }

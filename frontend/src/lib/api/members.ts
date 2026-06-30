@@ -16,7 +16,7 @@ export type { Member, ListMembersResponse };
 
 /** List members by role with pagination and optional search. */
 export async function listMembers(
-    role: "TEACHER" | "NURSE" | "FINANCE",
+    role: "TEACHER" | "NURSE" | "FINANCE" | "SCHOOL_ADMIN",
     params: { page?: number; per_page?: number; search?: string } = {}
 ): Promise<ListMembersResponse> {
     const searchParams = new URLSearchParams({ role });

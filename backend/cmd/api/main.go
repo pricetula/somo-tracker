@@ -43,6 +43,7 @@ import (
 	"somotracker/backend/internal/invitations"
 	"somotracker/backend/internal/members"
 	"somotracker/backend/internal/middleware"
+	"somotracker/backend/internal/students"
 	"somotracker/backend/internal/tenant"
 	"somotracker/backend/internal/timetable"
 	"somotracker/backend/internal/utils"
@@ -103,6 +104,7 @@ func main() {
 		activeschool.Module,
 		timetable.Module,
 		attendance.Module,
+		students.Module,
 
 		// Cross-domain interface wiring: school resolver from members,
 		// school creator from cbcschools.
@@ -203,6 +205,7 @@ func registerApp(
 	activeschoolHandler *activeschool.Handler,
 	timetableHandler *timetable.Handler,
 	attendanceHandler *attendance.Handler,
+	studentsHandler *students.Handler,
 ) {
 	app := fiber.New(fiber.Config{
 		AppName:      "somotracker",
@@ -246,6 +249,7 @@ func registerApp(
 			activeschoolHandler.RegisterRoutes(app)
 			timetableHandler.RegisterRoutes(app)
 			attendanceHandler.RegisterRoutes(app)
+			studentsHandler.RegisterRoutes(app)
 
 			// Start Fiber in a non-blocking goroutine
 			go func() {

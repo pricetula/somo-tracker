@@ -21,25 +21,10 @@ func NewHandler(svc *Service) *Handler {
 // RegisterRoutes mounts class routes on the given router.
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	classes := router.Group("/api/v1/classes")
-	classes.Get("/", h.requireAuth, h.List)
-	classes.Post("/", h.requireAuth, h.Create)
-	classes.Put("/:id", h.requireAuth, h.Update)
-	classes.Delete("/", h.requireAuth, h.BulkDelete)
-}
-
-// ─── Auth middleware ───────────────────────────────────────────────────────
-
-func (h *Handler) requireAuth(c *fiber.Ctx) error {
-	session := middleware.GetSession(c)
-	if session == nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"code":    "unauthorized",
-			"message": "authentication required",
-		})
-	}
-	c.Locals("tenant_id", session.TenantID)
-	c.Locals("user_id", session.UserID)
-	return c.Next()
+	classes.Get("/", middleware.RequireAuth, h.List)
+	classes.Post("/", middleware.RequireAuth, h.Create)
+	classes.Put("/:id", middleware.RequireAuth, h.Update)
+	classes.Delete("/", middleware.RequireAuth, h.BulkDelete)
 }
 
 // getActiveSchoolID extracts the active school_id from the request context.

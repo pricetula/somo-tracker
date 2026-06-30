@@ -40,25 +40,10 @@ func NewHandler(svc *Service) *Handler {
 // RegisterRoutes mounts school routes on the given router.
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	schools := router.Group("/api/v1/schools")
-	schools.Post("/", h.requireAuth, h.Create)
-	schools.Get("/", h.requireAuth, h.List)
-	schools.Put("/:id", h.requireAuth, h.Update)
-	schools.Delete("/:id", h.requireAuth, h.Delete)
-}
-
-// ─── Auth middleware ───────────────────────────────────────────────────────
-
-func (h *Handler) requireAuth(c *fiber.Ctx) error {
-	session := middleware.GetSession(c)
-	if session == nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"code":    "unauthorized",
-			"message": "authentication required",
-		})
-	}
-	c.Locals("tenant_id", session.TenantID)
-	c.Locals("user_id", session.UserID)
-	return c.Next()
+	schools.Post("/", middleware.RequireAuth, h.Create)
+	schools.Get("/", middleware.RequireAuth, h.List)
+	schools.Put("/:id", middleware.RequireAuth, h.Update)
+	schools.Delete("/:id", middleware.RequireAuth, h.Delete)
 }
 
 // ─── Handlers ──────────────────────────────────────────────────────────────

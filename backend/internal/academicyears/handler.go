@@ -2,7 +2,6 @@ package academicyears
 
 import (
 	"errors"
-	"strings"
 
 	"github.com/gofiber/fiber/v2"
 
@@ -27,58 +26,17 @@ func NewHandler(svc *Service) *Handler {
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	// Academic Years
 	years := router.Group("/api/v1/academic-years")
-	years.Get("/", h.requireAuth, h.ListYears)
-	years.Patch("/:id", h.requireAdmin, h.PatchYear)
-	years.Post("/:id/set-current", h.requireAdmin, h.SetCurrentYear)
-	years.Delete("/:id", h.requireAdmin, h.DeleteYear)
+	years.Get("/", middleware.RequireAuth, h.ListYears)
+	years.Patch("/:id", middleware.RequireRole("SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.PatchYear)
+	years.Post("/:id/set-current", middleware.RequireRole("SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.SetCurrentYear)
+	years.Delete("/:id", middleware.RequireRole("SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.DeleteYear)
 
 	// Academic Terms
 	terms := router.Group("/api/v1/academic-terms")
-	terms.Get("/", h.requireAuth, h.ListTerms)
-	terms.Post("/", h.requireAdmin, h.CreateTerm)
-	terms.Patch("/:id", h.requireAdmin, h.PatchTerm)
-	terms.Delete("/:id", h.requireAdmin, h.DeleteTerm)
-}
-
-// ============================================================================
-// Auth helpers
-// ============================================================================
-
-func (h *Handler) requireAuth(c *fiber.Ctx) error {
-	session := middleware.GetSession(c)
-	if session == nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"code":    "unauthorized",
-			"message": "authentication required",
-		})
-	}
-	c.Locals("tenant_id", session.TenantID)
-	c.Locals("user_id", session.UserID)
-	c.Locals("role", session.Role)
-	return c.Next()
-}
-
-func (h *Handler) requireAdmin(c *fiber.Ctx) error {
-	session := middleware.GetSession(c)
-	if session == nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"code":    "unauthorized",
-			"message": "authentication required",
-		})
-	}
-
-	role := strings.ToUpper(session.Role)
-	if role != "SCHOOL_ADMIN" && role != "SYSTEM_ADMIN" {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"code":    "forbidden",
-			"message": "insufficient permissions",
-		})
-	}
-
-	c.Locals("tenant_id", session.TenantID)
-	c.Locals("user_id", session.UserID)
-	c.Locals("role", session.Role)
-	return c.Next()
+	terms.Get("/", middleware.RequireAuth, h.ListTerms)
+	terms.Post("/", middleware.RequireRole("SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.CreateTerm)
+	terms.Patch("/:id", middleware.RequireRole("SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.PatchTerm)
+	terms.Delete("/:id", middleware.RequireRole("SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.DeleteTerm)
 }
 
 // ============================================================================

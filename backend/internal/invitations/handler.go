@@ -8,51 +8,25 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"go.uber.org/fx"
 
-	"somotracker/backend/internal/auth"
 	"somotracker/backend/internal/middleware"
 )
 
 // Handler exposes invitation HTTP endpoints.
 type Handler struct {
 	svc      *Service
-	authSvc  *auth.Service
 	repo     Repository
 	resolver SchoolResolver
 }
 
 // NewHandler creates a new Handler.
-func NewHandler(svc *Service, authSvc *auth.Service, resolver SchoolResolver, repo Repository) *Handler {
-	return &Handler{svc: svc, authSvc: authSvc, repo: repo, resolver: resolver}
+func NewHandler(svc *Service, resolver SchoolResolver, repo Repository) *Handler {
+	return &Handler{svc: svc, repo: repo, resolver: resolver}
 }
 
 // RegisterRoutes mounts invitation routes on the given router.
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	invitations := router.Group("/api/v1/invitations")
-	invitations.Get("/", h.requireAuth, h.ListInvitations)
-}
-
-// ─── Auth middleware ───────────────────────────────────────────────────────
-
-func (h *Handler) requireAuth(c *fiber.Ctx) error {
-	token := c.Cookies("somo_sid")
-	if token == "" {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"code":    "unauthorized",
-			"message": "no session cookie found",
-		})
-	}
-
-	session, err := h.authSvc.GetSession(c.Context(), token)
-	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"code":    "unauthorized",
-			"message": "invalid or expired session",
-		})
-	}
-
-	c.Locals("tenant_id", session.TenantID)
-	c.Locals("user_id", session.UserID)
-	return c.Next()
+	invitations.Get("/", middleware.RequireAuth, h.ListInvitations)
 }
 
 // resolveActiveSchool gets the user's active school ID from their session.

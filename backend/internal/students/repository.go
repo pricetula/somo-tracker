@@ -5,6 +5,8 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"somotracker/backend/internal/database"
 )
 
 // PgRepository implements StudentRepository backed by Postgres.
@@ -13,8 +15,8 @@ type PgRepository struct {
 }
 
 // NewRepository creates a new PgRepository.
-func NewRepository(pool *pgxpool.Pool) *PgRepository {
-	return &PgRepository{pool: pool}
+func NewRepository(pools *database.Pools) *PgRepository {
+	return &PgRepository{pool: pools.PG}
 }
 
 // List returns a paginated list of students enrolled at the given school,

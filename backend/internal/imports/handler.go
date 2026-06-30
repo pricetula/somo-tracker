@@ -11,7 +11,6 @@ import (
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 
-	"somotracker/backend/internal/auth"
 	"somotracker/backend/internal/database"
 	"somotracker/backend/internal/middleware"
 )
@@ -19,7 +18,6 @@ import (
 // Handler exposes import HTTP endpoints.
 type Handler struct {
 	svc      *Service
-	authSvc  *auth.Service
 	repo     Repository
 	resolver SchoolResolver
 	rdb      SSEPubSubClient
@@ -28,10 +26,9 @@ type Handler struct {
 }
 
 // NewHandler creates a new Handler.
-func NewHandler(svc *Service, authSvc *auth.Service, resolver SchoolResolver, repo Repository, pools *database.Pools, logger *zap.Logger) *Handler {
+func NewHandler(svc *Service, resolver SchoolResolver, repo Repository, pools *database.Pools, logger *zap.Logger) *Handler {
 	return &Handler{
 		svc:      svc,
-		authSvc:  authSvc,
 		repo:     repo,
 		resolver: resolver,
 		rdb:      pools.Redis,
@@ -43,50 +40,26 @@ func NewHandler(svc *Service, authSvc *auth.Service, resolver SchoolResolver, re
 // RegisterRoutes mounts import routes.
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	imports := router.Group("/api/v1/imports/staff")
-	imports.Post("/", h.requireAuth, h.StartImport)
-	imports.Get("/track/:id", h.requireAuth, h.TrackImport)
-	imports.Get("/track/:id/sse", h.requireAuth, h.SSETrackImport)
-	imports.Get("/:id/failures", h.requireAuth, h.ListFailedInvitations)
+	imports.Post("/", middleware.RequireAuth, h.StartImport)
+	imports.Get("/track/:id", middleware.RequireAuth, h.TrackImport)
+	imports.Get("/track/:id/sse", middleware.RequireAuth, h.SSETrackImport)
+	imports.Get("/:id/failures", middleware.RequireAuth, h.ListFailedInvitations)
 
 	// Student import routes (separate group)
 	studentImports := router.Group("/api/v1/imports/students")
-	studentImports.Post("/", h.requireAuth, h.StartStudentImport)
-	studentImports.Get("/stream", h.requireAuth, h.SSEStudentImportStream)
+	studentImports.Post("/", middleware.RequireAuth, h.StartStudentImport)
+	studentImports.Get("/stream", middleware.RequireAuth, h.SSEStudentImportStream)
 
 	// Student lookup endpoints (for import wizard)
 	students := router.Group("/api/v1")
-	students.Get("/parents", h.requireAuth, h.ListParents)
-	students.Get("/classes", h.requireAuth, h.ListClasses)
-	students.Get("/students", h.requireAuth, h.ListExistingStudents)
+	students.Get("/parents", middleware.RequireAuth, h.ListParents)
+	students.Get("/classes", middleware.RequireAuth, h.ListClasses)
+	students.Get("/students", middleware.RequireAuth, h.ListExistingStudents)
 
 	// Academic reference data endpoints
 	academic := router.Group("/api/v1/academic")
-	academic.Get("/years", h.requireAuth, h.ListAcademicYears)
-	academic.Get("/periods", h.requireAuth, h.ListAcademicPeriods)
-}
-
-// ─── Auth middleware ──────────────────────────────────────────────────────
-
-func (h *Handler) requireAuth(c *fiber.Ctx) error {
-	token := c.Cookies("somo_sid")
-	if token == "" {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"code":    "unauthorized",
-			"message": "no session cookie found",
-		})
-	}
-
-	session, err := h.authSvc.GetSession(c.Context(), token)
-	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"code":    "unauthorized",
-			"message": "invalid or expired session",
-		})
-	}
-
-	c.Locals("tenant_id", session.TenantID)
-	c.Locals("user_id", session.UserID)
-	return c.Next()
+	academic.Get("/years", middleware.RequireAuth, h.ListAcademicYears)
+	academic.Get("/periods", middleware.RequireAuth, h.ListAcademicPeriods)
 }
 
 // ─── StytchOrgResolver adapter ───────────────────────────────────────────

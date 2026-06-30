@@ -372,14 +372,9 @@ func (h *Handler) Me(c *fiber.Ctx) error {
 	})
 }
 
-// Logout handles DELETE /api/auth/session (requirement 7).
-func (h *Handler) Logout(c *fiber.Ctx) error {
-	token := c.Cookies(somoCookieName)
-
-	if err := h.svc.Logout(c.Context(), token); err != nil {
-		return middleware.HTTPError(c, err)
-	}
-
+// clearAuthCookies removes all auth-related cookies from the response.
+// Extracted so both Logout and the error path can clear cookies consistently.
+func (h *Handler) clearAuthCookies(c *fiber.Ctx) {
 	// Clear the session cookie
 	c.Cookie(&fiber.Cookie{
 		Name:     somoCookieName,
@@ -415,6 +410,22 @@ func (h *Handler) Logout(c *fiber.Ctx) error {
 		Domain:   h.cfg.CookieDomain,
 		MaxAge:   -1,
 	})
+}
+
+// Logout handles DELETE /api/auth/session (requirement 7).
+func (h *Handler) Logout(c *fiber.Ctx) error {
+	token := c.Cookies(somoCookieName)
+
+	err := h.svc.Logout(c.Context(), token)
+
+	// Always clear cookies — even if the service call fails (e.g. DB/Redis
+	// hiccup), we must avoid leaving stale cookies that cause a redirect
+	// loop (login → dashboard → logout → login → …).
+	h.clearAuthCookies(c)
+
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
 
 	return c.SendStatus(fiber.StatusNoContent)
 }

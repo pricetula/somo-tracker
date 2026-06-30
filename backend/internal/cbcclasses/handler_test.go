@@ -9,6 +9,8 @@ import (
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
+
+	"somotracker/backend/internal/middleware"
 )
 
 // ============================================================================
@@ -717,13 +719,13 @@ func testHandlerWithoutAuth(t *testing.T) *handlerTestHarness {
 
 	app := fiber.New()
 
-	// Register routes WITHOUT the test auth middleware — the real requireAuth
+	// Register routes WITHOUT the test auth middleware — the real RequireAuth
 	// will reject because there's no session in context.
 	classes := app.Group("/api/v1/classes")
-	classes.Get("/", handler.requireAuth, handler.List)
-	classes.Post("/", handler.requireAuth, handler.Create)
-	classes.Put("/:id", handler.requireAuth, handler.Update)
-	classes.Delete("/", handler.requireAuth, handler.BulkDelete)
+	classes.Get("/", middleware.RequireAuth, handler.List)
+	classes.Post("/", middleware.RequireAuth, handler.Create)
+	classes.Put("/:id", middleware.RequireAuth, handler.Update)
+	classes.Delete("/", middleware.RequireAuth, handler.BulkDelete)
 
 	return &handlerTestHarness{
 		app:     app,

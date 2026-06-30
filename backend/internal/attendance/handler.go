@@ -19,22 +19,8 @@ func NewHandler(svc *Service) *Handler {
 // RegisterRoutes mounts attendance routes on the given router.
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	att := router.Group("/api/v1/schools/:schoolId/attendance")
-	att.Post("/", h.requireAuth, h.SubmitAttendance)
-	att.Get("/periods/:periodId", h.requireAuth, h.GetPeriod)
-}
-
-// requireAuth extracts session info from context locals.
-func (h *Handler) requireAuth(c *fiber.Ctx) error {
-	session := middleware.GetSession(c)
-	if session == nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"code":    "unauthorized",
-			"message": "authentication required",
-		})
-	}
-	c.Locals("tenant_id", session.TenantID)
-	c.Locals("user_id", session.UserID)
-	return c.Next()
+	att.Post("/", middleware.RequireAuth, h.SubmitAttendance)
+	att.Get("/periods/:periodId", middleware.RequireAuth, h.GetPeriod)
 }
 
 // SubmitAttendance handles POST /api/v1/schools/:schoolId/attendance.

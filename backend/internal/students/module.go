@@ -5,7 +5,8 @@ import "go.uber.org/fx"
 // Module is an fx-compatible module for the students domain.
 var Module = fx.Module("students",
 	fx.Provide(
-		fx.Annotate(NewRepository, fx.As(new(StudentRepository))),
+		NewRepository,
+		func(repo *PgRepository) StudentRepository { return repo },
 		NewService,
 		NewHandler,
 	),

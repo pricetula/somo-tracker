@@ -6,6 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { logout } from "@/lib/api/auth";
+import { getErrorMessage } from "@/lib/errors";
 
 export default function LogoutPage() {
     const router = useRouter();
@@ -17,8 +18,11 @@ export default function LogoutPage() {
                 await logout();
                 queryClient.clear();
                 toast.success("Logged out");
-            } catch {
-                // Session may already be expired — still redirect
+            } catch (err) {
+                // Session may already be expired or backend unreachable —
+                // still redirect to /login. The backend always clears cookies
+                // even on error, so the redirect won't bounce back.
+                console.warn("logout: session deletion failed", getErrorMessage(err));
             } finally {
                 router.replace("/login");
             }

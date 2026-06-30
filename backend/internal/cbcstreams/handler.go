@@ -19,29 +19,10 @@ func NewHandler(svc *Service) *Handler {
 // RegisterRoutes mounts stream routes on the given router.
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	streams := router.Group("/api/v1/streams")
-	streams.Get("/", h.requireAuth, h.List)
-	streams.Post("/", h.requireAuth, h.Create)
-	streams.Put("/:id", h.requireAuth, h.Update)
-	streams.Delete("/:id", h.requireAuth, h.Delete)
-}
-
-// ─── Auth middleware ───────────────────────────────────────────────────────
-
-func (h *Handler) requireAuth(c *fiber.Ctx) error {
-	session := middleware.GetSession(c)
-	if session == nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"code":    "unauthorized",
-			"message": "authentication required",
-		})
-	}
-	c.Locals("tenant_id", session.TenantID)
-	c.Locals("user_id", session.UserID)
-
-	// school_id is required for all stream operations — it should be set by
-	// the active-school middleware or read from the session context.
-	// If not set, operations will fail with appropriate errors.
-	return c.Next()
+	streams.Get("/", middleware.RequireAuth, h.List)
+	streams.Post("/", middleware.RequireAuth, h.Create)
+	streams.Put("/:id", middleware.RequireAuth, h.Update)
+	streams.Delete("/:id", middleware.RequireAuth, h.Delete)
 }
 
 // getActiveSchoolID extracts the active school_id from the request context.

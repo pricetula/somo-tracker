@@ -21,26 +21,12 @@ func NewHandler(svc *Service) *Handler {
 // and /api/v1/schools/:schoolId/classes/:classId/teachers.
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	tt := router.Group("/api/v1/schools/:schoolId/timetable")
-	tt.Post("/slots/bulk", h.requireAuth, h.BulkCreateSlots)
-	tt.Get("/slots", h.requireAuth, h.ListSlots)
+	tt.Post("/slots/bulk", middleware.RequireAuth, h.BulkCreateSlots)
+	tt.Get("/slots", middleware.RequireAuth, h.ListSlots)
 
 	teachers := router.Group("/api/v1/schools/:schoolId/classes/:classId/teachers")
-	teachers.Post("/", h.requireAuth, h.AssignTeacher)
-	teachers.Delete("/:userId", h.requireAuth, h.RemoveTeacher)
-}
-
-// requireAuth extracts session info from context locals.
-func (h *Handler) requireAuth(c *fiber.Ctx) error {
-	session := middleware.GetSession(c)
-	if session == nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"code":    "unauthorized",
-			"message": "authentication required",
-		})
-	}
-	c.Locals("tenant_id", session.TenantID)
-	c.Locals("user_id", session.UserID)
-	return c.Next()
+	teachers.Post("/", middleware.RequireAuth, h.AssignTeacher)
+	teachers.Delete("/:userId", middleware.RequireAuth, h.RemoveTeacher)
 }
 
 // BulkCreateSlots handles POST /api/v1/schools/:schoolId/timetable/slots/bulk.

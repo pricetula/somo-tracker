@@ -21,21 +21,7 @@ func NewHandler(svc *Service) *Handler {
 // RegisterRoutes mounts student routes on the given router.
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	students := router.Group("/api/v1/students")
-	students.Get("/list", h.requireAuth, h.List)
-}
-
-// requireAuth extracts session info from the request context.
-func (h *Handler) requireAuth(c *fiber.Ctx) error {
-	session := middleware.GetSession(c)
-	if session == nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"code":    "unauthorized",
-			"message": "authentication required",
-		})
-	}
-	c.Locals("tenant_id", session.TenantID)
-	c.Locals("user_id", session.UserID)
-	return c.Next()
+	students.Get("/list", middleware.RequireAuth, h.List)
 }
 
 // getActiveSchoolID extracts the active school_id from the request context.

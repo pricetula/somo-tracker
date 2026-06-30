@@ -25,26 +25,12 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	streams.Delete("/:id", middleware.RequireAuth, h.Delete)
 }
 
-// schoolIDFromContext extracts the school ID from the request context.
-// Checks the query param first (explicit override), then falls back to
-// c.Locals("active_school_id") set by the security middleware from the
-// somo_school_id cookie.
-func schoolIDFromContext(c *fiber.Ctx) string {
-	if schoolID := c.Query("school_id"); schoolID != "" {
-		return schoolID
-	}
-	if schoolID, ok := c.Locals("active_school_id").(string); ok && schoolID != "" {
-		return schoolID
-	}
-	return ""
-}
-
 // ─── Handlers ──────────────────────────────────────────────────────────────
 
 // List handles GET /api/v1/streams.
 func (h *Handler) List(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
-	schoolID := schoolIDFromContext(c)
+	schoolID, _ := c.Locals("active_school_id").(string)
 	if schoolID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "VALIDATION_ERROR",
@@ -65,7 +51,7 @@ func (h *Handler) List(c *fiber.Ctx) error {
 // Create handles POST /api/v1/streams.
 func (h *Handler) Create(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
-	schoolID := schoolIDFromContext(c)
+	schoolID, _ := c.Locals("active_school_id").(string)
 	if schoolID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "VALIDATION_ERROR",
@@ -107,7 +93,7 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 // Update handles PUT /api/v1/streams/:id.
 func (h *Handler) Update(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
-	schoolID := schoolIDFromContext(c)
+	schoolID, _ := c.Locals("active_school_id").(string)
 	if schoolID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "VALIDATION_ERROR",
@@ -156,7 +142,7 @@ func (h *Handler) Update(c *fiber.Ctx) error {
 // Delete handles DELETE /api/v1/streams/:id.
 func (h *Handler) Delete(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
-	schoolID := schoolIDFromContext(c)
+	schoolID, _ := c.Locals("active_school_id").(string)
 	if schoolID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "VALIDATION_ERROR",

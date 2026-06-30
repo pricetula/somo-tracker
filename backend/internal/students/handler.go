@@ -24,21 +24,10 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	students.Get("/list", middleware.RequireAuth, h.List)
 }
 
-// schoolIDFromContext extracts the school ID from the request context.
-func schoolIDFromContext(c *fiber.Ctx) string {
-	if schoolID := c.Query("school_id"); schoolID != "" {
-		return schoolID
-	}
-	if schoolID, ok := c.Locals("active_school_id").(string); ok && schoolID != "" {
-		return schoolID
-	}
-	return ""
-}
-
 // List handles GET /api/v1/students/list.
 func (h *Handler) List(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
-	schoolID := schoolIDFromContext(c)
+	schoolID, _ := c.Locals("active_school_id").(string)
 	if schoolID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"code":    "invalid_input",

@@ -95,7 +95,7 @@ func (h *Handler) StartImport(c *fiber.Ctx) error {
 	}
 
 	// Resolve the user's active school
-	schoolID := h.resolveActiveSchool(c)
+	schoolID, _ := c.Locals("active_school_id").(string)
 	if schoolID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"code":    "invalid_input",
@@ -304,16 +304,6 @@ func (h *Handler) ListFailedInvitations(c *fiber.Ctx) error {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
 
-func (h *Handler) resolveActiveSchool(c *fiber.Ctx) string {
-	if schoolID := c.Query("school_id"); schoolID != "" {
-		return schoolID
-	}
-	if schoolID, ok := c.Locals("active_school_id").(string); ok && schoolID != "" {
-		return schoolID
-	}
-	return ""
-}
-
 // ============================================================================
 // Student Import Handlers
 // ============================================================================
@@ -323,7 +313,7 @@ func (h *Handler) resolveActiveSchool(c *fiber.Ctx) string {
 func (h *Handler) ListParents(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
 
-	schoolID := h.resolveActiveSchool(c)
+	schoolID, _ := c.Locals("active_school_id").(string)
 	if schoolID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"code":    "invalid_input",
@@ -344,7 +334,7 @@ func (h *Handler) ListParents(c *fiber.Ctx) error {
 func (h *Handler) ListClasses(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
 
-	schoolID := h.resolveActiveSchool(c)
+	schoolID, _ := c.Locals("active_school_id").(string)
 	if schoolID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"code":    "invalid_input",
@@ -365,7 +355,7 @@ func (h *Handler) ListClasses(c *fiber.Ctx) error {
 func (h *Handler) ListExistingStudents(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
 
-	schoolID := h.resolveActiveSchool(c)
+	schoolID, _ := c.Locals("active_school_id").(string)
 	if schoolID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"code":    "invalid_input",
@@ -387,7 +377,7 @@ func (h *Handler) StartStudentImport(c *fiber.Ctx) error {
 	userID := c.Locals("user_id").(string)
 
 	// Resolve the user's active school (same pattern as staff import)
-	schoolID := h.resolveActiveSchool(c)
+	schoolID, _ := c.Locals("active_school_id").(string)
 	if schoolID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"code":    "invalid_input",
@@ -600,7 +590,7 @@ func (h *Handler) SSEStudentImportStream(c *fiber.Ctx) error {
 func (h *Handler) ListAcademicYears(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
 
-	schoolID := h.resolveActiveSchool(c)
+	schoolID, _ := c.Locals("active_school_id").(string)
 	if schoolID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"code":    "invalid_input",
@@ -628,7 +618,7 @@ func (h *Handler) ListAcademicPeriods(c *fiber.Ctx) error {
 		})
 	}
 
-	schoolID := h.resolveActiveSchool(c)
+	schoolID, _ := c.Locals("active_school_id").(string)
 	if schoolID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"code":    "invalid_input",

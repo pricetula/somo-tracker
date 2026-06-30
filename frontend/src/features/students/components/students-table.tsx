@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import Link from "next/link";
 import { MoreHorizontal } from "lucide-react";
 
 import type { Student } from "../types";
@@ -215,6 +216,12 @@ export function StudentsTable({ students, total, isLoading }: StudentsTableProps
                                     <p className="text-muted-foreground mt-1 text-xs">
                                         Import students to get started.
                                     </p>
+                                    <Link
+                                        href="/students/import"
+                                        className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-sky-600 transition-colors hover:text-sky-700"
+                                    >
+                                        Bulk add students
+                                    </Link>
                                 </div>
                             </div>
                         ) : (

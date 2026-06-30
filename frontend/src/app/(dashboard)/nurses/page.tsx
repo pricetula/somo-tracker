@@ -10,9 +10,12 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 
 import { NursesTable } from "@/features/staff/components/nurses-table";
 import { useNurses } from "@/features/staff/hooks/use-nurses";
+import { Button } from "@/components/ui/button";
+import { Send } from "lucide-react";
 
 export default function NursesPage() {
     const {
@@ -26,6 +29,14 @@ export default function NursesPage() {
             {/* Page header */}
             <div className="flex items-center gap-3 px-6 pt-6 pb-2">
                 <h1 className="text-2xl font-semibold tracking-tight">Nurses</h1>
+                <div className="ml-auto">
+                    <Button variant="outline" size="sm" asChild>
+                        <Link href="/nurses/invitations">
+                            <Send className="mr-1.5 size-3.5" />
+                            Invitations
+                        </Link>
+                    </Button>
+                </div>
             </div>
 
             <div className="flex flex-1 flex-col px-6 py-4">

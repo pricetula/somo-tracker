@@ -40,7 +40,7 @@ export function TermSelectionStep({
 
     // Auto-select current year on load (maps name → name)
     React.useEffect(() => {
-        if (!academicYear && years.length > 0 && !yearsLoading) {
+        if (!academicYear && years?.length && years.length > 0 && !yearsLoading) {
             const current = years.find((y) => y.is_current) ?? years[0];
             onAcademicYearChange(current.name);
         }
@@ -48,32 +48,30 @@ export function TermSelectionStep({
 
     // Auto-select current period when periods load
     React.useEffect(() => {
-        if (!term && periods.length > 0 && !periodsLoading) {
+        if (!term && periods?.length && periods.length > 0 && !periodsLoading) {
             const current = periods.find((p) => p.is_current) ?? periods[0];
             onTermChange(current.name);
         }
     }, [periods, periodsLoading, term, onTermChange]);
 
     // Build combobox options using year name as value (matches wizard state)
-    const yearOptions: ComboboxOption[] = React.useMemo(
-        () =>
-            years.map((y) => ({
-                value: y.name,
-                label: y.name,
-                isCurrent: y.is_current,
-            })),
-        [years]
-    );
+    const yearOptions: ComboboxOption[] = React.useMemo(() => {
+        if (!years?.length) return [];
+        return years.map((y) => ({
+            value: y.name,
+            label: y.name,
+            isCurrent: y.is_current,
+        }));
+    }, [years]);
 
-    const periodOptions: ComboboxOption[] = React.useMemo(
-        () =>
-            periods.map((p) => ({
-                value: p.name,
-                label: p.name,
-                isCurrent: p.is_current,
-            })),
-        [periods]
-    );
+    const periodOptions: ComboboxOption[] = React.useMemo(() => {
+        if (!periods?.length) return [];
+        return periods.map((p) => ({
+            value: p.name,
+            label: p.name,
+            isCurrent: p.is_current,
+        }));
+    }, [periods]);
 
     return (
         <div className="space-y-6">

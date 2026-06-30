@@ -1,7 +1,6 @@
 package invitations
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -13,14 +12,12 @@ import (
 
 // Handler exposes invitation HTTP endpoints.
 type Handler struct {
-	svc      *Service
-	repo     Repository
-	resolver SchoolResolver
+	svc *Service
 }
 
 // NewHandler creates a new Handler.
-func NewHandler(svc *Service, resolver SchoolResolver, repo Repository) *Handler {
-	return &Handler{svc: svc, repo: repo, resolver: resolver}
+func NewHandler(svc *Service) *Handler {
+	return &Handler{svc: svc}
 }
 
 // RegisterRoutes mounts invitation routes on the given router.
@@ -29,21 +26,11 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	invitations.Get("/", middleware.RequireAuth, h.ListInvitations)
 }
 
-// resolveActiveSchool gets the user's active school ID from their session.
-func (h *Handler) resolveActiveSchool(c *fiber.Ctx, tenantID, userID string) (string, error) {
-	schoolID, err := h.resolver.GetActiveSchoolID(c.Context(), tenantID, userID)
-	if err != nil {
-		return "", fmt.Errorf("invitations.Handler.resolveActiveSchool: %w", err)
-	}
-	return schoolID, nil
-}
-
 // ─── Handlers ──────────────────────────────────────────────────────────────
 
 // ListInvitations handles GET /api/v1/invitations
 func (h *Handler) ListInvitations(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
-	userID := c.Locals("user_id").(string)
 
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	perPage, _ := strconv.Atoi(c.Query("per_page", "50"))
@@ -62,11 +49,11 @@ func (h *Handler) ListInvitations(c *fiber.Ctx) error {
 
 	offset := (page - 1) * perPage
 
-	schoolID, err := h.resolveActiveSchool(c, tenantID, userID)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"code":    "internal_error",
-			"message": "failed to resolve active school",
+	schoolID := c.Locals("active_school_id").(string)
+	if schoolID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "active school not set",
 		})
 	}
 

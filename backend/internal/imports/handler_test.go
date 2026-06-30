@@ -116,6 +116,7 @@ func newHandlerTestHarness(t *testing.T) *handlerTestHarness {
 	imports := app.Group("/api/v1/imports/staff", func(c *fiber.Ctx) error {
 		c.Locals("tenant_id", "tenant_001")
 		c.Locals("user_id", "user_001")
+		c.Locals("active_school_id", "school_001")
 		return c.Next()
 	})
 

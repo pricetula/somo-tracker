@@ -34,11 +34,11 @@ func newHandlerTestHarness(t *testing.T) *handlerTestHarness {
 
 	app := fiber.New()
 
-	// Test middleware that sets tenant_id and school_id (bypasses requireAuth)
+	// Test middleware that sets tenant_id and active_school_id (bypasses requireAuth)
 	testAuth := func(c *fiber.Ctx) error {
 		c.Locals("tenant_id", "tenant_001")
 		c.Locals("user_id", "user_001")
-		c.Locals("school_id", "school_001")
+		c.Locals("active_school_id", "school_001")
 		return c.Next()
 	}
 

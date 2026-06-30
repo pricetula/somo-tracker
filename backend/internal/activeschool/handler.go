@@ -3,17 +3,21 @@ package activeschool
 import (
 	"github.com/gofiber/fiber/v2"
 
+	"somotracker/backend/internal/config"
 	"somotracker/backend/internal/middleware"
 )
+
+const somoSchoolIDCookieName = "somo_school_id"
 
 // Handler exposes active-school HTTP endpoints.
 type Handler struct {
 	svc *Service
+	cfg config.Config
 }
 
 // NewHandler creates a new Handler.
-func NewHandler(svc *Service) *Handler {
-	return &Handler{svc: svc}
+func NewHandler(svc *Service, cfg config.Config) *Handler {
+	return &Handler{svc: svc, cfg: cfg}
 }
 
 // RegisterRoutes mounts active-school routes on the given router.
@@ -26,7 +30,8 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 // ─── Handlers ──────────────────────────────────────────────────────────────
 
 // Switch handles PUT /api/v1/active-school.
-// Updates the active school for the authenticated user (upsert).
+// Updates the active school for the authenticated user (upsert) and updates
+// the somo_school_id cookie so subsequent requests pick up the new school.
 func (h *Handler) Switch(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
 	userID := c.Locals("user_id").(string)
@@ -50,8 +55,22 @@ func (h *Handler) Switch(c *fiber.Ctx) error {
 		return middleware.HTTPError(c, err)
 	}
 
+	// Update the school ID cookie so the security middleware picks up the new
+	// active school on the next request.
+	c.Cookie(&fiber.Cookie{
+		Name:     somoSchoolIDCookieName,
+		Value:    payload.SchoolID,
+		HTTPOnly: false,
+		Secure:   h.cfg.AppEnv != "development",
+		SameSite: "Lax",
+		Path:     "/",
+		Domain:   h.cfg.CookieDomain,
+		MaxAge:   2592000, // 30 days
+	})
+
 	return c.JSON(fiber.Map{
-		"message": "active school updated",
+		"message":   "active school updated",
+		"school_id": payload.SchoolID,
 	})
 }
 

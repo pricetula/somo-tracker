@@ -114,7 +114,8 @@ func Register(app *fiber.App, pools *database.Pools, cfg config.Config) {
 
 	// Layer 6 — Session loading (for API routes)
 	// Reads the somo_sid cookie, looks up the session in Postgres,
-	// and stores it in c.Locals("session"). Skips non-API routes.
+	// stores it in c.Locals("session"), and reads the somo_school_id
+	// cookie to populate c.Locals("active_school_id"). Skips non-API routes.
 	app.Use(func(c *fiber.Ctx) error {
 		if !strings.HasPrefix(c.Path(), "/api/") {
 			return c.Next()
@@ -132,6 +133,14 @@ func Register(app *fiber.App, pools *database.Pools, cfg config.Config) {
 		}
 
 		c.Locals("session", s)
+
+		// Load the active school ID from cookie so API handlers can
+		// access it via c.Locals("active_school_id") without needing
+		// per-handler DB lookups or getActiveSchoolID helpers.
+		if schoolID := c.Cookies("somo_school_id"); schoolID != "" {
+			c.Locals("active_school_id", schoolID)
+		}
+
 		return c.Next()
 	})
 }

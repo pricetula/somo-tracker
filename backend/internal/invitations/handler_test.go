@@ -16,27 +16,27 @@ import (
 // ============================================================================
 
 type handlerTestHarness struct {
-	app      *fiber.App
-	svc      *Service
-	repo     *MockRepository
-	resolver *MockSchoolResolver
-	handler  *Handler
+	app     *fiber.App
+	svc     *Service
+	repo    *MockRepository
+	handler *Handler
 }
 
 func newHandlerTestHarness(t *testing.T) *handlerTestHarness {
 	t.Helper()
 
 	repo := &MockRepository{}
-	resolver := &MockSchoolResolver{}
 	svc := &Service{repo: repo}
-	handler := &Handler{svc: svc, repo: repo, resolver: resolver}
+	handler := &Handler{svc: svc}
 
 	app := fiber.New()
 
-	// Test middleware that sets tenant_id and user_id (bypasses requireAuth)
+	// Test middleware that sets tenant_id, user_id, and active_school_id
+	// (bypasses requireAuth and the security middleware session loading)
 	testAuth := func(c *fiber.Ctx) error {
 		c.Locals("tenant_id", "tenant_001")
 		c.Locals("user_id", "user_001")
+		c.Locals("active_school_id", "school_001")
 		return c.Next()
 	}
 
@@ -44,11 +44,10 @@ func newHandlerTestHarness(t *testing.T) *handlerTestHarness {
 	invitations.Get("/", handler.ListInvitations)
 
 	return &handlerTestHarness{
-		app:      app,
-		svc:      svc,
-		repo:     repo,
-		resolver: resolver,
-		handler:  handler,
+		app:     app,
+		svc:     svc,
+		repo:    repo,
+		handler: handler,
 	}
 }
 

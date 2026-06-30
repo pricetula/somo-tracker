@@ -10,6 +10,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
+	"somotracker/backend/internal/config"
 	"somotracker/backend/internal/middleware"
 )
 
@@ -29,7 +30,7 @@ func newHandlerTestHarness(t *testing.T) *handlerTestHarness {
 
 	repo := &MockRepository{}
 	svc := NewService(repo)
-	handler := NewHandler(svc)
+	handler := NewHandler(svc, config.Config{AppEnv: "test"})
 
 	app := fiber.New()
 

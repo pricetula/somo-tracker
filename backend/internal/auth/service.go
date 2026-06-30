@@ -278,7 +278,7 @@ func (s *Service) handleExistingUser(ctx context.Context, ist, email string, dis
 // Validates input, reads IST from Redis, creates org in Stytch,
 // exchanges IST, persists to Postgres, creates school + membership,
 // issues session token, and returns the user's assigned role.
-func (s *Service) Register(ctx context.Context, sessionRef string, payload RegistrationPayload, deviceFingerprint string) (sessionToken string, role string, err error) {
+func (s *Service) Register(ctx context.Context, sessionRef string, payload RegistrationPayload, deviceFingerprint string) (sessionToken string, role string, schoolID string, err error) {
 	s.logger.Info("auth: register initiated",
 		zap.String("session_ref", sessionRef),
 		zap.String("school_name", payload.SchoolName),
@@ -286,13 +286,13 @@ func (s *Service) Register(ctx context.Context, sessionRef string, payload Regis
 
 	// 1. Validate payload (requirement 13)
 	if err := payload.Validate(); err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 
 	// 2. Read AND DELETE IST and email from Redis atomically (requirement 2 — one-time use)
 	ist, email, err := s.readAndDeleteIST(ctx, sessionRef)
 	if err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 
 	// 3. Determine Stytch organization — either existing or new
@@ -306,7 +306,7 @@ func (s *Service) Register(ctx context.Context, sessionRef string, payload Regis
 	//    IST lookup — if the IST is already consumed, we return ErrExpiredToken.
 	tenantExistsByName, err := s.repo.TenantExistsByName(ctx, payload.SchoolName)
 	if err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 
 	var orgID string
@@ -319,7 +319,7 @@ func (s *Service) Register(ctx context.Context, sessionRef string, payload Regis
 		var stytchOrgID string
 		existingTenantID, stytchOrgID, err = s.repo.GetTenantByName(ctx, payload.SchoolName)
 		if err != nil {
-			return "", "", err
+			return "", "", "", err
 		}
 		orgID = stytchOrgID
 		s.logger.Info("auth: tenant already exists, using existing org",
@@ -335,7 +335,7 @@ func (s *Service) Register(ctx context.Context, sessionRef string, payload Regis
 				zap.String("school_name", payload.SchoolName),
 				zap.Error(err),
 			)
-			return "", "", err
+			return "", "", "", err
 		}
 	}
 
@@ -352,7 +352,7 @@ func (s *Service) Register(ctx context.Context, sessionRef string, payload Regis
 			zap.String("email", email),
 			zap.Error(err),
 		)
-		return "", "", err
+		return "", "", "", err
 	}
 
 	// 6. Exchange intermediate session (requirement 3 — MFA check)
@@ -362,7 +362,7 @@ func (s *Service) Register(ctx context.Context, sessionRef string, payload Regis
 			zap.String("org_id", orgID),
 			zap.Error(err),
 		)
-		return "", "", err
+		return "", "", "", err
 	}
 
 	// 6. Check MFA status (requirement 3)
@@ -371,19 +371,19 @@ func (s *Service) Register(ctx context.Context, sessionRef string, payload Regis
 			zap.String("member_id", result.MemberID),
 			zap.String("org_id", orgID),
 		)
-		return "", "", ErrMFARequired
+		return "", "", "", ErrMFARequired
 	}
 
 	// 7. Check for existing tenant (idempotency check after exchange — requirement 8)
 	tenantExists, err := s.repo.TenantExists(ctx, orgID)
 	if err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 
 	// 8. Generate opaque session token (requirement 4)
 	tokenBytes := make([]byte, 32)
 	if _, err := rand.Read(tokenBytes); err != nil {
-		return "", "", fmt.Errorf("%w: generate session token: %v", ErrInternal, err)
+		return "", "", "", fmt.Errorf("%w: generate session token: %v", ErrInternal, err)
 	}
 	sessionToken = hex.EncodeToString(tokenBytes)
 
@@ -427,7 +427,7 @@ func (s *Service) Register(ctx context.Context, sessionRef string, payload Regis
 			// Stytch dedup, but handle gracefully by looking up the tenant ID
 			fetchedID, _, err := s.repo.GetTenantByName(ctx, payload.SchoolName)
 			if err != nil {
-				return "", "", err
+				return "", "", "", err
 			}
 			tenantID = fetchedID
 		}
@@ -440,12 +440,12 @@ func (s *Service) Register(ctx context.Context, sessionRef string, payload Regis
 			zap.String("org_id", orgID),
 		)
 		if userID, err = s.repo.CreateUserSession(ctx, userParams, sessionParams); err != nil {
-			return "", "", err
+			return "", "", "", err
 		}
 	} else {
 		// Fresh registration — create all three in a single transaction
 		if userID, tenantID, err = s.repo.CreateTenantUserSession(ctx, tenantParams, userParams, sessionParams); err != nil {
-			return "", "", err
+			return "", "", "", err
 		}
 	}
 
@@ -457,18 +457,18 @@ func (s *Service) Register(ctx context.Context, sessionRef string, payload Regis
 		role = "SCHOOL_ADMIN"
 	}
 
-	schoolID, err := s.schoolCreator.Create(ctx, tenantID, payload.SchoolName)
+	schoolID, err = s.schoolCreator.Create(ctx, tenantID, payload.SchoolName)
 	if err != nil {
-		return "", "", fmt.Errorf("%w: create school: %v", ErrInternal, err)
+		return "", "", "", fmt.Errorf("%w: create school: %v", ErrInternal, err)
 	}
 
 	if err := s.repo.CreateMembership(ctx, userID, schoolID, tenantID, role); err != nil {
-		return "", "", fmt.Errorf("%w: create membership: %v", ErrInternal, err)
+		return "", "", "", fmt.Errorf("%w: create membership: %v", ErrInternal, err)
 	}
 
 	// Set the school as the user's active school so GetMeInfo resolves the role correctly.
 	if err := s.repo.SetActiveSchool(ctx, userID, tenantID, schoolID); err != nil {
-		return "", "", fmt.Errorf("%w: set active school: %v", ErrInternal, err)
+		return "", "", "", fmt.Errorf("%w: set active school: %v", ErrInternal, err)
 	}
 
 	s.logger.Info("auth: school and membership created",
@@ -479,16 +479,17 @@ func (s *Service) Register(ctx context.Context, sessionRef string, payload Regis
 
 	// 12. Persist session mapping in Redis: opaque key → Stytch session token (requirement 4)
 	if err := s.rdb.Set(ctx, s.sessionKey(sessionToken), result.StytchSessionToken, sessionTTL).Err(); err != nil {
-		return "", "", fmt.Errorf("%w: cache session: %v", ErrInternal, err)
+		return "", "", "", fmt.Errorf("%w: cache session: %v", ErrInternal, err)
 	}
 
 	s.logger.Info("auth: registration complete — session issued",
 		zap.String("org_id", orgID),
 		zap.String("session_token_preview", sessionToken[:8]+"..."),
 		zap.String("role", role),
+		zap.String("school_id", schoolID),
 	)
 
-	return sessionToken, role, nil
+	return sessionToken, role, schoolID, nil
 }
 
 // GetMe returns the full profile info for the authenticated user.
@@ -521,14 +522,15 @@ func (s *Service) GetMe(ctx context.Context, token string) (*MeInfo, error) {
 // AcceptInvite completes the invite acceptance flow. It validates the Stytch
 // magic-link token, looks up the pending invitation, exchanges the IST for a
 // full Stytch session, creates the user/session/membership in Postgres,
-// caches the session in Redis, and returns the opaque session token and role.
-func (s *Service) AcceptInvite(ctx context.Context, token string, deviceFingerprint string) (sessionToken string, role string, err error) {
+// caches the session in Redis, and returns the opaque session token, role,
+// and school ID.
+func (s *Service) AcceptInvite(ctx context.Context, token string, deviceFingerprint string) (sessionToken string, role string, schoolID string, err error) {
 	s.logger.Info("auth: accept invite initiated")
 
 	// 1. Authenticate the Stytch magic-link token
 	ist, email, err := s.idp.AuthenticateInviteToken(ctx, token)
 	if err != nil {
-		return "", "", fmt.Errorf("auth.Service.AcceptInvite: %w", err)
+		return "", "", "", fmt.Errorf("auth.Service.AcceptInvite: %w", err)
 	}
 
 	// 2. Look up the pending invitation
@@ -536,27 +538,27 @@ func (s *Service) AcceptInvite(ctx context.Context, token string, deviceFingerpr
 	if err != nil {
 		// Map not-found to ErrExpiredToken so the frontend gets a 401
 		if errors.Is(err, ErrNotFound) {
-			return "", "", fmt.Errorf("%w: no pending invitation for email: %s", ErrExpiredToken, email)
+			return "", "", "", fmt.Errorf("%w: no pending invitation for email: %s", ErrExpiredToken, email)
 		}
-		return "", "", fmt.Errorf("auth.Service.AcceptInvite: %w", err)
+		return "", "", "", fmt.Errorf("auth.Service.AcceptInvite: %w", err)
 	}
 
 	// 3. Resolve the Stytch org ID from the tenant
 	stytchOrgID, err := s.repo.GetTenantStytchOrgID(ctx, inv.TenantID)
 	if err != nil {
-		return "", "", fmt.Errorf("auth.Service.AcceptInvite: %w", err)
+		return "", "", "", fmt.Errorf("auth.Service.AcceptInvite: %w", err)
 	}
 
 	// 4. Exchange the IST for a full Stytch session (enforces MFA)
 	stytchSessionToken, err := s.idp.ExchangeInviteSession(ctx, ist, stytchOrgID)
 	if err != nil {
-		return "", "", fmt.Errorf("auth.Service.AcceptInvite: %w", err)
+		return "", "", "", fmt.Errorf("auth.Service.AcceptInvite: %w", err)
 	}
 
 	// 5. Generate opaque session token (32 random bytes, hex-encoded)
 	tokenBytes := make([]byte, 32)
 	if _, err := rand.Read(tokenBytes); err != nil {
-		return "", "", fmt.Errorf("%w: generate session token: %v", ErrInternal, err)
+		return "", "", "", fmt.Errorf("%w: generate session token: %v", ErrInternal, err)
 	}
 	sessionToken = hex.EncodeToString(tokenBytes)
 
@@ -580,12 +582,12 @@ func (s *Service) AcceptInvite(ctx context.Context, token string, deviceFingerpr
 	}
 
 	if err := s.repo.CreateInvitedUserSession(ctx, args); err != nil {
-		return "", "", fmt.Errorf("auth.Service.AcceptInvite: %w", err)
+		return "", "", "", fmt.Errorf("auth.Service.AcceptInvite: %w", err)
 	}
 
 	// 7. Persist session mapping in Redis: opaque key → Stytch session token
 	if err := s.rdb.Set(ctx, s.sessionKey(sessionToken), stytchSessionToken, sessionTTL).Err(); err != nil {
-		return "", "", fmt.Errorf("%w: cache session: %v", ErrInternal, err)
+		return "", "", "", fmt.Errorf("%w: cache session: %v", ErrInternal, err)
 	}
 
 	s.logger.Info("auth: invite acceptance complete — session issued",
@@ -596,7 +598,7 @@ func (s *Service) AcceptInvite(ctx context.Context, token string, deviceFingerpr
 		zap.String("session_token_preview", sessionToken[:8]+"..."),
 	)
 
-	return sessionToken, inv.Role, nil
+	return sessionToken, inv.Role, inv.SchoolID, nil
 }
 
 // GetSession validates a session token and returns the user session.

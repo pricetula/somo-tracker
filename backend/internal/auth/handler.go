@@ -21,9 +21,10 @@ import (
 // ============================================================================
 
 const (
-	somoCookieName     = "somo_sid"
-	somoRoleCookieName = "somo_role"
-	cookieMaxAge       = 2592000 // 30 days in seconds
+	somoCookieName         = "somo_sid"
+	somoRoleCookieName     = "somo_role"
+	somoSchoolIDCookieName = "somo_school_id"
+	cookieMaxAge           = 2592000 // 30 days in seconds
 )
 
 // ErrorBody is the JSON response body for error responses (requirement 14).
@@ -82,6 +83,47 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	auth.Delete("/session", h.Logout)
 }
 
+// setSessionCookies sets all three session cookies (session ID, role, school ID).
+func (h *Handler) setSessionCookies(c *fiber.Ctx, sessionToken, role, schoolID string) {
+	// HttpOnly session cookie
+	c.Cookie(&fiber.Cookie{
+		Name:     somoCookieName,
+		Value:    sessionToken,
+		HTTPOnly: true,
+		Secure:   h.cfg.AppEnv != "development",
+		SameSite: "Lax",
+		Path:     "/",
+		Domain:   h.cfg.CookieDomain,
+		MaxAge:   cookieMaxAge,
+	})
+
+	// Signed role cookie (not HttpOnly — frontend reads it for routing)
+	c.Cookie(&fiber.Cookie{
+		Name:     somoRoleCookieName,
+		Value:    createSignedCookieValue(role, h.cfg.CookieSecret),
+		HTTPOnly: false,
+		Secure:   h.cfg.AppEnv != "development",
+		SameSite: "Lax",
+		Path:     "/",
+		Domain:   h.cfg.CookieDomain,
+		MaxAge:   cookieMaxAge,
+	})
+
+	// School ID cookie (not HttpOnly — frontend can read it for context)
+	if schoolID != "" {
+		c.Cookie(&fiber.Cookie{
+			Name:     somoSchoolIDCookieName,
+			Value:    schoolID,
+			HTTPOnly: false,
+			Secure:   h.cfg.AppEnv != "development",
+			SameSite: "Lax",
+			Path:     "/",
+			Domain:   h.cfg.CookieDomain,
+			MaxAge:   cookieMaxAge,
+		})
+	}
+}
+
 // Discover handles POST /api/auth/discover (PHASE 1).
 func (h *Handler) Discover(c *fiber.Ctx) error {
 	var payload DiscoveryPayload
@@ -137,32 +179,13 @@ func (h *Handler) MagicLinkCallback(c *fiber.Ctx) error {
 	// Branch: existing user (has session_token) vs new user (has session_ref)
 	if result.SessionToken != "" {
 		// EXISTING USER PATH: set session cookies and redirect to dashboard
-		c.Cookie(&fiber.Cookie{
-			Name:     somoCookieName,
-			Value:    result.SessionToken,
-			HTTPOnly: true,
-			Secure:   h.cfg.AppEnv != "development",
-			SameSite: "Lax",
-			Path:     "/",
-			Domain:   h.cfg.CookieDomain,
-			MaxAge:   cookieMaxAge,
-		})
-
-		c.Cookie(&fiber.Cookie{
-			Name:     somoRoleCookieName,
-			Value:    createSignedCookieValue(result.Role, h.cfg.CookieSecret),
-			HTTPOnly: false,
-			Secure:   h.cfg.AppEnv != "development",
-			SameSite: "Lax",
-			Path:     "/",
-			Domain:   h.cfg.CookieDomain,
-			MaxAge:   cookieMaxAge,
-		})
+		h.setSessionCookies(c, result.SessionToken, result.Role, result.SchoolID)
 
 		dashboardURL := h.cfg.FrontendURL + "/"
 
 		h.logger.Info("auth: existing user — redirecting to dashboard",
 			zap.String("role", result.Role),
+			zap.String("school_id", result.SchoolID),
 			zap.String("redirect_url", dashboardURL),
 		)
 
@@ -198,7 +221,7 @@ func (h *Handler) AcceptInvite(c *fiber.Ctx) error {
 	// Extract device fingerprint from security pipeline
 	deviceFingerprint, _ := c.Locals("device_fingerprint").(string)
 
-	sessionToken, role, err := h.svc.AcceptInvite(c.Context(), token, deviceFingerprint)
+	sessionToken, role, schoolID, err := h.svc.AcceptInvite(c.Context(), token, deviceFingerprint)
 	if err != nil {
 		h.logger.Error("auth: accept invite failed",
 			zap.Error(err),
@@ -206,29 +229,8 @@ func (h *Handler) AcceptInvite(c *fiber.Ctx) error {
 		return middleware.HTTPError(c, err)
 	}
 
-	// Set HttpOnly session cookie (same as registration flow)
-	c.Cookie(&fiber.Cookie{
-		Name:     somoCookieName,
-		Value:    sessionToken,
-		HTTPOnly: true,
-		Secure:   h.cfg.AppEnv != "development",
-		SameSite: "Lax",
-		Path:     "/",
-		Domain:   h.cfg.CookieDomain,
-		MaxAge:   cookieMaxAge,
-	})
-
-	// Set signed role cookie (not HttpOnly — frontend reads it for routing)
-	c.Cookie(&fiber.Cookie{
-		Name:     somoRoleCookieName,
-		Value:    createSignedCookieValue(role, h.cfg.CookieSecret),
-		HTTPOnly: false,
-		Secure:   h.cfg.AppEnv != "development",
-		SameSite: "Lax",
-		Path:     "/",
-		Domain:   h.cfg.CookieDomain,
-		MaxAge:   cookieMaxAge,
-	})
+	// Set session, role, and school ID cookies
+	h.setSessionCookies(c, sessionToken, role, schoolID)
 
 	// Set CSRF token cookie (non-HttpOnly so frontend JS can read it)
 	csrfToken, err := generateCSRFToken()
@@ -243,6 +245,7 @@ func (h *Handler) AcceptInvite(c *fiber.Ctx) error {
 
 	h.logger.Info("auth: invite accepted — redirecting to dashboard",
 		zap.String("role", role),
+		zap.String("school_id", schoolID),
 		zap.String("redirect_url", dashboardURL),
 	)
 
@@ -277,11 +280,15 @@ func (h *Handler) Verify(c *fiber.Ctx) error {
 	// For the POST /api/auth/verify endpoint (used by non-browser clients),
 	// return session_ref for new users or session_token + role for existing users
 	if result.SessionToken != "" {
-		return c.JSON(fiber.Map{
+		resp := fiber.Map{
 			"session_token": result.SessionToken,
 			"role":          result.Role,
 			"email":         result.Email,
-		})
+		}
+		if result.SchoolID != "" {
+			resp["school_id"] = result.SchoolID
+		}
+		return c.JSON(resp)
 	}
 
 	return c.JSON(fiber.Map{
@@ -302,7 +309,7 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 	// Extract device fingerprint from security pipeline (requirement 5)
 	deviceFingerprint, _ := c.Locals("device_fingerprint").(string)
 
-	sessionToken, role, err := h.svc.Register(c.Context(), payload.SessionRef, payload, deviceFingerprint)
+	sessionToken, role, schoolID, err := h.svc.Register(c.Context(), payload.SessionRef, payload, deviceFingerprint)
 	if err != nil {
 		h.logger.Error("auth: registration failed",
 			zap.Error(err),
@@ -311,29 +318,8 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 		return middleware.HTTPError(c, err)
 	}
 
-	// Issue HTTPOnly session cookie (requirement 4)
-	c.Cookie(&fiber.Cookie{
-		Name:     somoCookieName,
-		Value:    sessionToken,
-		HTTPOnly: true,
-		Secure:   h.cfg.AppEnv != "development",
-		SameSite: "Lax",
-		Path:     "/",
-		Domain:   h.cfg.CookieDomain,
-		MaxAge:   cookieMaxAge,
-	})
-
-	// Issue signed role cookie (not HttpOnly — Next.js middleware reads it)
-	c.Cookie(&fiber.Cookie{
-		Name:     somoRoleCookieName,
-		Value:    createSignedCookieValue(role, h.cfg.CookieSecret),
-		HTTPOnly: false,
-		Secure:   h.cfg.AppEnv != "development",
-		SameSite: "Lax",
-		Path:     "/",
-		Domain:   h.cfg.CookieDomain,
-		MaxAge:   cookieMaxAge,
-	})
+	// Issue all session cookies (session ID, role, school ID)
+	h.setSessionCookies(c, sessionToken, role, schoolID)
 
 	// Issue non-HttpOnly CSRF token cookie so the frontend JS can read it
 	csrfToken, err := generateCSRFToken()
@@ -359,6 +345,20 @@ func (h *Handler) Me(c *fiber.Ctx) error {
 	info, err := h.svc.GetMe(c.Context(), token)
 	if err != nil {
 		return middleware.HTTPError(c, err)
+	}
+
+	// Also set the school ID cookie for existing sessions that don't have it yet
+	if info.SchoolID != "" {
+		c.Cookie(&fiber.Cookie{
+			Name:     somoSchoolIDCookieName,
+			Value:    info.SchoolID,
+			HTTPOnly: false,
+			Secure:   h.cfg.AppEnv != "development",
+			SameSite: "Lax",
+			Path:     "/",
+			Domain:   h.cfg.CookieDomain,
+			MaxAge:   cookieMaxAge,
+		})
 	}
 
 	return c.JSON(fiber.Map{
@@ -390,6 +390,18 @@ func (h *Handler) clearAuthCookies(c *fiber.Ctx) {
 	// Clear the role cookie
 	c.Cookie(&fiber.Cookie{
 		Name:     somoRoleCookieName,
+		Value:    "",
+		HTTPOnly: false,
+		Secure:   h.cfg.AppEnv != "development",
+		SameSite: "Lax",
+		Path:     "/",
+		Domain:   h.cfg.CookieDomain,
+		MaxAge:   -1,
+	})
+
+	// Clear the school ID cookie
+	c.Cookie(&fiber.Cookie{
+		Name:     somoSchoolIDCookieName,
 		Value:    "",
 		HTTPOnly: false,
 		Secure:   h.cfg.AppEnv != "development",

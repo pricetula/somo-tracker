@@ -296,6 +296,36 @@ func (r *SqlcRepository) CreateUserSession(
 	return userID, nil
 }
 
+// GetActiveSchoolID returns the active school ID for a user in a tenant.
+// Checks member_active_school first; if none exists, falls back to the
+// user's first active membership's school ID.
+func (r *SqlcRepository) GetActiveSchoolID(ctx context.Context, userID, tenantID string) (string, error) {
+	const query = `
+		SELECT COALESCE(
+			(SELECT school_id FROM member_active_school WHERE user_id = $1 AND tenant_id = $2),
+			(SELECT school_id FROM memberships WHERE user_id = $1 AND tenant_id = $2 AND is_active = true
+			 ORDER BY
+			   CASE role
+			     WHEN 'SCHOOL_ADMIN'::user_role THEN 1
+			     WHEN 'TEACHER'::user_role THEN 2
+			     WHEN 'NURSE'::user_role THEN 3
+			     WHEN 'FINANCE'::user_role THEN 4
+			   END
+			 LIMIT 1)
+		)
+	`
+
+	var schoolID string
+	err := r.pool.QueryRow(ctx, query, userID, tenantID).Scan(&schoolID)
+	if err != nil {
+		return "", fmt.Errorf("auth.Repository.GetActiveSchoolID: %w", ErrInternal)
+	}
+	if schoolID == "" {
+		return "", fmt.Errorf("auth.Repository.GetActiveSchoolID: %w", ErrNotFound)
+	}
+	return schoolID, nil
+}
+
 // CreateMembership creates a membership linking a user to a school with a role.
 func (r *SqlcRepository) CreateMembership(ctx context.Context, userID, schoolID, tenantID, role string) error {
 	const query = `

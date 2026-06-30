@@ -32,16 +32,17 @@ func newHandlerTestHarness(t *testing.T) *handlerTestHarness {
 	}
 
 	handler := &Handler{
-		svc:  svc,
-		repo: repo,
+		svc: svc,
 	}
 
 	app := fiber.New()
 
-	// Test middleware that sets tenant_id and user_id (bypasses requireAuth)
+	// Test middleware that sets tenant_id, user_id, and active_school_id
+	// (bypasses requireAuth and the security middleware session loading)
 	testAuth := func(c *fiber.Ctx) error {
 		c.Locals("tenant_id", "tenant_001")
 		c.Locals("user_id", "user_001")
+		c.Locals("active_school_id", "school_001")
 		return c.Next()
 	}
 

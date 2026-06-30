@@ -95,9 +95,12 @@ func (h *Handler) StartImport(c *fiber.Ctx) error {
 	}
 
 	// Resolve the user's active school
-	schoolID, err := h.resolveActiveSchool(c, tenantID, userID)
-	if err != nil {
-		return middleware.HTTPError(c, err)
+	schoolID := h.resolveActiveSchool(c)
+	if schoolID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "active school not set",
+		})
 	}
 
 	resolver := &stytchOrgResolver{repo: h.repo}
@@ -301,12 +304,14 @@ func (h *Handler) ListFailedInvitations(c *fiber.Ctx) error {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
 
-func (h *Handler) resolveActiveSchool(c *fiber.Ctx, tenantID, userID string) (string, error) {
-	schoolID, err := h.resolver.GetActiveSchoolID(c.Context(), tenantID, userID)
-	if err != nil {
-		return "", fmt.Errorf("imports.Handler.resolveActiveSchool: %w", err)
+func (h *Handler) resolveActiveSchool(c *fiber.Ctx) string {
+	if schoolID := c.Query("school_id"); schoolID != "" {
+		return schoolID
 	}
-	return schoolID, nil
+	if schoolID, ok := c.Locals("active_school_id").(string); ok && schoolID != "" {
+		return schoolID
+	}
+	return ""
 }
 
 // ============================================================================
@@ -317,11 +322,13 @@ func (h *Handler) resolveActiveSchool(c *fiber.Ctx, tenantID, userID string) (st
 // Returns all active parents for the user's active school.
 func (h *Handler) ListParents(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
-	userID := c.Locals("user_id").(string)
 
-	schoolID, err := h.resolveActiveSchool(c, tenantID, userID)
-	if err != nil {
-		return middleware.HTTPError(c, err)
+	schoolID := h.resolveActiveSchool(c)
+	if schoolID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "active school not set",
+		})
 	}
 
 	parents, err := h.repo.ListParents(c.Context(), tenantID, schoolID)
@@ -336,11 +343,13 @@ func (h *Handler) ListParents(c *fiber.Ctx) error {
 // Returns all active classes for the user's active school.
 func (h *Handler) ListClasses(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
-	userID := c.Locals("user_id").(string)
 
-	schoolID, err := h.resolveActiveSchool(c, tenantID, userID)
-	if err != nil {
-		return middleware.HTTPError(c, err)
+	schoolID := h.resolveActiveSchool(c)
+	if schoolID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "active school not set",
+		})
 	}
 
 	classes, err := h.repo.ListClasses(c.Context(), tenantID, schoolID)
@@ -355,11 +364,13 @@ func (h *Handler) ListClasses(c *fiber.Ctx) error {
 // Returns all existing students for the user's active school (for duplicate detection).
 func (h *Handler) ListExistingStudents(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
-	userID := c.Locals("user_id").(string)
 
-	schoolID, err := h.resolveActiveSchool(c, tenantID, userID)
-	if err != nil {
-		return middleware.HTTPError(c, err)
+	schoolID := h.resolveActiveSchool(c)
+	if schoolID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "active school not set",
+		})
 	}
 
 	students, err := h.repo.ListExistingStudents(c.Context(), tenantID, schoolID)
@@ -376,9 +387,12 @@ func (h *Handler) StartStudentImport(c *fiber.Ctx) error {
 	userID := c.Locals("user_id").(string)
 
 	// Resolve the user's active school (same pattern as staff import)
-	schoolID, err := h.resolveActiveSchool(c, tenantID, userID)
-	if err != nil {
-		return middleware.HTTPError(c, err)
+	schoolID := h.resolveActiveSchool(c)
+	if schoolID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "active school not set",
+		})
 	}
 
 	var req StartStudentImportRequest
@@ -585,11 +599,13 @@ func (h *Handler) SSEStudentImportStream(c *fiber.Ctx) error {
 // ListAcademicYears handles GET /api/v1/academic/years
 func (h *Handler) ListAcademicYears(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
-	userID := c.Locals("user_id").(string)
 
-	schoolID, err := h.resolveActiveSchool(c, tenantID, userID)
-	if err != nil {
-		return middleware.HTTPError(c, err)
+	schoolID := h.resolveActiveSchool(c)
+	if schoolID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "active school not set",
+		})
 	}
 
 	years, err := h.repo.GetAcademicYears(c.Context(), tenantID, schoolID)
@@ -603,7 +619,6 @@ func (h *Handler) ListAcademicYears(c *fiber.Ctx) error {
 // ListAcademicPeriods handles GET /api/v1/academic/periods?academic_year_id=xxx
 func (h *Handler) ListAcademicPeriods(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
-	userID := c.Locals("user_id").(string)
 
 	academicYearID := c.Query("academic_year_id")
 	if academicYearID == "" {
@@ -613,9 +628,12 @@ func (h *Handler) ListAcademicPeriods(c *fiber.Ctx) error {
 		})
 	}
 
-	schoolID, err := h.resolveActiveSchool(c, tenantID, userID)
-	if err != nil {
-		return middleware.HTTPError(c, err)
+	schoolID := h.resolveActiveSchool(c)
+	if schoolID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "active school not set",
+		})
 	}
 
 	periods, err := h.repo.GetAcademicPeriods(c.Context(), tenantID, schoolID, academicYearID)

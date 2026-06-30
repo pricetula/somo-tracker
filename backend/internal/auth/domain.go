@@ -128,6 +128,7 @@ type VerifyResult struct {
 	SessionToken string
 	Role         string
 	Email        string
+	SchoolID     string
 }
 
 // ExchangeResult is the clean domain result from exchanging an IST.
@@ -265,6 +266,11 @@ type Repository interface {
 	// GetMeInfo returns the full profile info for /me: user details, role,
 	// and the active school.
 	GetMeInfo(ctx context.Context, token string) (*MeInfo, error)
+
+	// GetActiveSchoolID returns the active school ID for a user in a tenant.
+	// Checks member_active_school first; if none exists, falls back to the
+	// user's first active membership's school ID.
+	GetActiveSchoolID(ctx context.Context, userID, tenantID string) (string, error)
 
 	// GetInvitationByEmail looks up a pending, non-expired invitation by email.
 	// Returns the invitation record or ErrNotFound if none exists.

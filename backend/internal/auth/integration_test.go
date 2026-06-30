@@ -104,7 +104,7 @@ func TestIntegration_Stytch_OrgCreationDuplicate(t *testing.T) {
 		FullName:   "Alice Smith",
 	}
 
-	token, role, err := suite.svc.Register(context.Background(), sessionRef, payload, "fp-001")
+	token, role, _, err := suite.svc.Register(context.Background(), sessionRef, payload, "fp-001")
 	if err != nil {
 		t.Fatalf("first registration failed: %v", err)
 	}
@@ -128,7 +128,7 @@ func TestIntegration_Stytch_OrgCreationDuplicate(t *testing.T) {
 	}
 
 	// Tenant already exists — this should still succeed (it handles existing tenants)
-	token2, _, err := suite.svc.Register(context.Background(), sessionRef2, payload2, "fp-002")
+	token2, _, _, err := suite.svc.Register(context.Background(), sessionRef2, payload2, "fp-002")
 	if err != nil {
 		t.Fatalf("second registration for same school failed: %v", err)
 	}
@@ -175,7 +175,7 @@ func TestIntegration_Stytch_OrgCreationFailure(t *testing.T) {
 		FullName:   "Charlie Brown",
 	}
 
-	_, _, err = suite.svc.Register(context.Background(), sessionRef, payload, "fp-003")
+	_, _, _, err = suite.svc.Register(context.Background(), sessionRef, payload, "fp-003")
 	if err == nil {
 		t.Fatal("expected error from org creation failure, got nil")
 	}
@@ -228,7 +228,7 @@ func TestIntegration_Stytch_ISTExchangeInvalid(t *testing.T) {
 		FullName:   "Diana Prince",
 	}
 
-	_, _, err = suite.svc.Register(context.Background(), sessionRef, payload, "fp-004")
+	_, _, _, err = suite.svc.Register(context.Background(), sessionRef, payload, "fp-004")
 	if err == nil {
 		t.Fatal("expected error from invalid IST, got nil")
 	}
@@ -280,7 +280,7 @@ func TestIntegration_Stytch_ISTExchangeMFANotMet(t *testing.T) {
 		FullName:   "Eve Adams",
 	}
 
-	_, _, err = suite.svc.Register(context.Background(), sessionRef, payload, "fp-005")
+	_, _, _, err = suite.svc.Register(context.Background(), sessionRef, payload, "fp-005")
 	if err == nil {
 		t.Fatal("expected ErrMFARequired, got nil")
 	}
@@ -339,7 +339,7 @@ func TestIntegration_Stytch_CreateMember_Failure(t *testing.T) {
 		FullName:   "Hank Pym",
 	}
 
-	_, _, err = suite.svc.Register(context.Background(), sessionRef, payload, "fp-cm-fail")
+	_, _, _, err = suite.svc.Register(context.Background(), sessionRef, payload, "fp-cm-fail")
 	if err == nil {
 		t.Fatal("expected error from member creation failure, got nil")
 	}
@@ -393,7 +393,7 @@ func TestIntegration_Stytch_Exchange_JITProvisioningNotAllowed(t *testing.T) {
 		FullName:   "Hank Pym",
 	}
 
-	_, _, err = suite.svc.Register(context.Background(), sessionRef, payload, "fp-jit")
+	_, _, _, err = suite.svc.Register(context.Background(), sessionRef, payload, "fp-jit")
 	if err == nil {
 		t.Fatal("expected error from JIT provisioning not allowed, got nil")
 	}
@@ -446,7 +446,7 @@ func TestIntegration_Stytch_Exchange_MemberNotFound(t *testing.T) {
 		FullName:   "Tony Stark",
 	}
 
-	_, _, err = suite.svc.Register(context.Background(), sessionRef, payload, "fp-member-not-found")
+	_, _, _, err = suite.svc.Register(context.Background(), sessionRef, payload, "fp-member-not-found")
 	if err == nil {
 		t.Fatal("expected error from member_not_found, got nil")
 	}
@@ -491,7 +491,7 @@ func TestIntegration_Stytch_Exchange_OrgNotFound(t *testing.T) {
 		FullName:   "Bruce Banner",
 	}
 
-	_, _, err = suite.svc.Register(context.Background(), sessionRef, payload, "fp-org-not-found")
+	_, _, _, err = suite.svc.Register(context.Background(), sessionRef, payload, "fp-org-not-found")
 	if err == nil {
 		t.Fatal("expected error from org_not_found, got nil")
 	}
@@ -536,7 +536,7 @@ func TestIntegration_Stytch_Exchange_ExpiredIST(t *testing.T) {
 		FullName:   "Natasha Romanoff",
 	}
 
-	_, _, err = suite.svc.Register(context.Background(), sessionRef, payload, "fp-ist-expired")
+	_, _, _, err = suite.svc.Register(context.Background(), sessionRef, payload, "fp-ist-expired")
 	if err == nil {
 		t.Fatal("expected error from expired IST, got nil")
 	}
@@ -572,7 +572,7 @@ func TestIntegration_Stytch_Exchange_ReturnsSessionJWT(t *testing.T) {
 		FullName:   "Steve Rogers",
 	}
 
-	token, role, err := suite.svc.Register(context.Background(), sessionRef, payload, "fp-jwt")
+	token, role, _, err := suite.svc.Register(context.Background(), sessionRef, payload, "fp-jwt")
 	if err != nil {
 		t.Fatalf("registration failed: %v", err)
 	}
@@ -636,7 +636,7 @@ func TestIntegration_Stytch_OrgCreationDuplicateSlug(t *testing.T) {
 		FullName:   "Clint Barton",
 	}
 
-	_, _, err = suite.svc.Register(context.Background(), sessionRef, payload, "fp-slug")
+	_, _, _, err = suite.svc.Register(context.Background(), sessionRef, payload, "fp-slug")
 	if err == nil {
 		t.Fatal("expected error from slug conflict, got nil")
 	}
@@ -690,7 +690,7 @@ func TestIntegration_Stytch_OrgCreationEmptyOrgID(t *testing.T) {
 		FullName:   "Wanda Maximoff",
 	}
 
-	_, _, err = suite.svc.Register(context.Background(), sessionRef, payload, "fp-empty-org")
+	_, _, _, err = suite.svc.Register(context.Background(), sessionRef, payload, "fp-empty-org")
 	if err == nil {
 		t.Fatal("expected error from empty org_id, got nil")
 	}
@@ -732,7 +732,7 @@ func TestIntegration_ExistingOrg_SecondUserRegistration(t *testing.T) {
 		FullName:   "Peter Parker",
 	}
 
-	token1, role1, err := suite.svc.Register(context.Background(), sessionRef1, payload1, "fp-first")
+	token1, role1, _, err := suite.svc.Register(context.Background(), sessionRef1, payload1, "fp-first")
 	if err != nil {
 		t.Fatalf("first registration failed: %v", err)
 	}
@@ -753,7 +753,7 @@ func TestIntegration_ExistingOrg_SecondUserRegistration(t *testing.T) {
 		FullName:   "Miles Morales",
 	}
 
-	token2, role2, err := suite.svc.Register(context.Background(), sessionRef2, payload2, "fp-second")
+	token2, role2, _, err := suite.svc.Register(context.Background(), sessionRef2, payload2, "fp-second")
 	if err != nil {
 		t.Fatalf("second registration failed: %v", err)
 	}
@@ -1389,7 +1389,7 @@ func TestIntegration_DDoS_EmptyToken(t *testing.T) {
 // 		wg.Add(1)
 // 		go func(tk regTask) {
 // 			defer wg.Done()
-// 			token, _, err := suite.svc.Register(context.Background(), tk.sessionRef, tk.payload, fmt.Sprintf("fp-concurrent-%s", tk.sessionRef[:8]))
+// 			token, _, _, err := suite.svc.Register(context.Background(), tk.sessionRef, tk.payload, fmt.Sprintf("fp-concurrent-%s", tk.sessionRef[:8]))
 // 			if err != nil {
 // 				errs <- fmt.Errorf("registration %s failed: %w", tk.sessionRef, err)
 // 				return
@@ -1575,7 +1575,7 @@ func TestIntegration_EdgeCase_RegisterAfterLogout(t *testing.T) {
 		FullName:   "Frank Castle",
 	}
 
-	token, _, err := suite.svc.Register(context.Background(), sessionRef, payload, "fp-logout-reuse")
+	token, _, _, err := suite.svc.Register(context.Background(), sessionRef, payload, "fp-logout-reuse")
 	if err != nil {
 		t.Fatalf("registration failed: %v", err)
 	}
@@ -1626,7 +1626,7 @@ func TestIntegration_EdgeCase_EmptyDeviceFingerprint(t *testing.T) {
 		FullName:   "Grace Hopper",
 	}
 
-	token, role, err := suite.svc.Register(context.Background(), sessionRef, payload, "")
+	token, role, _, err := suite.svc.Register(context.Background(), sessionRef, payload, "")
 	if err != nil {
 		t.Fatalf("registration with empty device fingerprint failed: %v", err)
 	}

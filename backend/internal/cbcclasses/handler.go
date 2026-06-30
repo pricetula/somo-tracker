@@ -27,20 +27,15 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	classes.Delete("/", middleware.RequireAuth, h.BulkDelete)
 }
 
-// getActiveSchoolID extracts the active school_id from the request context.
-// Checks multiple sources in order: query param, c.Locals("active_school_id"),
-// and c.Locals("school_id") (set by the school-scoping middleware).
-func getActiveSchoolID(c *fiber.Ctx) string {
-	// Query param (explicit override)
+// schoolIDFromContext extracts the school ID from the request context.
+// Checks the query param first (explicit override), then falls back to
+// c.Locals("active_school_id") set by the security middleware from the
+// somo_school_id cookie.
+func schoolIDFromContext(c *fiber.Ctx) string {
 	if schoolID := c.Query("school_id"); schoolID != "" {
 		return schoolID
 	}
-	// Active school context (set by active-school middleware)
 	if schoolID, ok := c.Locals("active_school_id").(string); ok && schoolID != "" {
-		return schoolID
-	}
-	// School ID from scoping middleware (set by global middleware)
-	if schoolID, ok := c.Locals("school_id").(string); ok && schoolID != "" {
 		return schoolID
 	}
 	return ""
@@ -51,7 +46,7 @@ func getActiveSchoolID(c *fiber.Ctx) string {
 // List handles GET /api/v1/classes.
 func (h *Handler) List(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
-	schoolID := getActiveSchoolID(c)
+	schoolID := schoolIDFromContext(c)
 	if schoolID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "VALIDATION_ERROR",
@@ -116,7 +111,7 @@ func (h *Handler) List(c *fiber.Ctx) error {
 // Create handles POST /api/v1/classes.
 func (h *Handler) Create(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
-	schoolID := getActiveSchoolID(c)
+	schoolID := schoolIDFromContext(c)
 	if schoolID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "VALIDATION_ERROR",
@@ -187,7 +182,7 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 // Update handles PUT /api/v1/classes/:id.
 func (h *Handler) Update(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
-	schoolID := getActiveSchoolID(c)
+	schoolID := schoolIDFromContext(c)
 	if schoolID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "VALIDATION_ERROR",
@@ -255,7 +250,7 @@ func (h *Handler) Update(c *fiber.Ctx) error {
 // BulkDelete handles DELETE /api/v1/classes.
 func (h *Handler) BulkDelete(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
-	schoolID := getActiveSchoolID(c)
+	schoolID := schoolIDFromContext(c)
 	if schoolID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "VALIDATION_ERROR",

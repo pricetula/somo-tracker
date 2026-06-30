@@ -1,7 +1,6 @@
 package members
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -13,13 +12,12 @@ import (
 
 // Handler exposes member HTTP endpoints.
 type Handler struct {
-	svc  *Service
-	repo Repository
+	svc *Service
 }
 
 // NewHandler creates a new Handler.
-func NewHandler(svc *Service, repo Repository) *Handler {
-	return &Handler{svc: svc, repo: repo}
+func NewHandler(svc *Service) *Handler {
+	return &Handler{svc: svc}
 }
 
 // RegisterRoutes mounts member routes on the given router.
@@ -28,21 +26,11 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	members.Get("/", middleware.RequireAuth, h.List)
 }
 
-// resolveActiveSchool gets the user's active school ID from their session.
-func (h *Handler) resolveActiveSchool(c *fiber.Ctx, tenantID, userID string) (string, error) {
-	schoolID, err := h.repo.GetActiveSchoolID(c.Context(), tenantID, userID)
-	if err != nil {
-		return "", fmt.Errorf("members.Handler.resolveActiveSchool: %w", err)
-	}
-	return schoolID, nil
-}
-
 // ─── Handlers ──────────────────────────────────────────────────────────────
 
 // List handles GET /api/v1/members?role=TEACHER
 func (h *Handler) List(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
-	userID := c.Locals("user_id").(string)
 
 	role := strings.TrimSpace(c.Query("role", ""))
 	if role == "" {
@@ -72,11 +60,11 @@ func (h *Handler) List(c *fiber.Ctx) error {
 
 	offset := (page - 1) * perPage
 
-	schoolID, err := h.resolveActiveSchool(c, tenantID, userID)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"code":    "internal_error",
-			"message": "failed to resolve active school",
+	schoolID := c.Locals("active_school_id").(string)
+	if schoolID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "active school not set",
 		})
 	}
 

@@ -1,8 +1,9 @@
 /**
- * Teachers invitations listing page — dedicated view for all sent invitations.
+ * Teachers invitations listing page — shows all sent invitations for the TEACHER role.
  *
- * TODO: Implement the full listing table with search, filtering, pagination,
- * and the ability to revoke / resend invitations.
+ * Maps to GET /api/v1/invitations?role=TEACHER.
+ *
+ * Active staff are listed on the dedicated /teachers page.
  */
 
 "use client";
@@ -10,10 +11,19 @@
 import * as React from "react";
 import Link from "next/link";
 
+import { InvitedStaffTable, useStaffInvitations } from "@/features/staff";
 import { Button } from "@/components/ui/button";
 import { UserPlus } from "lucide-react";
 
 export default function TeachersInvitationsPage() {
+    const {
+        data: invitationsData,
+        isLoading: invitationsLoading,
+        isError: invitationsError,
+    } = useStaffInvitations("TEACHER");
+
+    const roleLabel = "Teachers";
+
     return (
         <div className="flex flex-1 flex-col">
             {/* Page header */}
@@ -29,9 +39,25 @@ export default function TeachersInvitationsPage() {
                 </div>
             </div>
 
-            {/* Placeholder — will be replaced with a dedicated listing */}
-            <div className="text-muted-foreground flex flex-1 items-center justify-center px-6">
-                <p className="text-sm">Invitation listing coming soon.</p>
+            <div className="flex flex-1 flex-col px-6 py-4">
+                <section className="flex flex-col">
+                    {invitationsError ? (
+                        <div className="flex items-center justify-center py-8">
+                            <p className="text-destructive text-sm">
+                                Failed to load invitations. Please try again.
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="ring-foreground/10 rounded-lg ring-1">
+                            <InvitedStaffTable
+                                invitations={invitationsData?.invitations ?? []}
+                                total={invitationsData?.total ?? 0}
+                                roleLabel={roleLabel}
+                                isLoading={invitationsLoading}
+                            />
+                        </div>
+                    )}
+                </section>
             </div>
         </div>
     );

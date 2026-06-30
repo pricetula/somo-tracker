@@ -1,23 +1,16 @@
 /**
- * Nurses listing page — two independent, paginated lists stacked vertically:
- *   1. Active Staff (from GET /api/v1/members?role=NURSE)
- *   2. Invited Staff (from GET /api/v1/invitations?role=NURSE)
+ * Nurses listing page — active staff members for the NURSE role.
+ *
+ * Maps to GET /api/v1/members?role=NURSE.
+ *
+ * Invitations are listed on the dedicated /nurses/invitations page.
  */
 
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 
-import {
-    ActiveStaffTable,
-    InvitedStaffTable,
-    useStaffUsers,
-    useStaffInvitations,
-} from "@/features/staff";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { UserPlus } from "lucide-react";
+import { ActiveStaffTable, useStaffUsers } from "@/features/staff";
 
 export default function NursesPage() {
     const {
@@ -26,34 +19,17 @@ export default function NursesPage() {
         isError: usersError,
     } = useStaffUsers("NURSE");
 
-    const {
-        data: invitationsData,
-        isLoading: invitationsLoading,
-        isError: invitationsError,
-    } = useStaffInvitations("NURSE");
-
     const roleLabel = "Nurses";
-    const addHref = "/nurses/invitations";
 
     return (
         <div className="flex flex-1 flex-col">
             {/* Page header */}
             <div className="flex items-center gap-3 px-6 pt-6 pb-2">
                 <h1 className="text-2xl font-semibold tracking-tight">Nurses</h1>
-                <div className="ml-auto">
-                    <Button size="sm" asChild>
-                        <Link href={addHref}>
-                            <UserPlus className="mr-1.5 size-3.5" />
-                            Invite Nurses
-                        </Link>
-                    </Button>
-                </div>
             </div>
 
-            <div className="flex flex-1 flex-col gap-8 px-6 py-4">
-                {/* List 1 — Active Staff */}
+            <div className="flex flex-1 flex-col px-6 py-4">
                 <section className="flex flex-col">
-                    <h2 className="mb-2 text-sm font-medium">Active {roleLabel}</h2>
                     {usersError ? (
                         <div className="flex items-center justify-center py-8">
                             <p className="text-destructive text-sm">
@@ -66,31 +42,8 @@ export default function NursesPage() {
                                 users={usersData?.members ?? []}
                                 total={usersData?.total ?? 0}
                                 roleLabel={roleLabel}
-                                addHref={addHref}
+                                addHref="/nurses/invitations"
                                 isLoading={usersLoading}
-                            />
-                        </div>
-                    )}
-                </section>
-
-                <Separator />
-
-                {/* List 2 — Invitations */}
-                <section className="flex flex-col">
-                    <h2 className="mb-2 text-sm font-medium">Invited {roleLabel}</h2>
-                    {invitationsError ? (
-                        <div className="flex items-center justify-center py-8">
-                            <p className="text-destructive text-sm">
-                                Failed to load invitations. Please try again.
-                            </p>
-                        </div>
-                    ) : (
-                        <div className="ring-foreground/10 rounded-lg ring-1">
-                            <InvitedStaffTable
-                                invitations={invitationsData?.invitations ?? []}
-                                total={invitationsData?.total ?? 0}
-                                roleLabel={roleLabel}
-                                isLoading={invitationsLoading}
                             />
                         </div>
                     )}

@@ -1,43 +1,51 @@
 /**
- * Admins listing page — shows pending invitations for SCHOOL_ADMIN role.
+ * Admins listing page — active school administrators.
  *
- * NOTE: The backend does not expose an endpoint to list active SCHOOL_ADMIN
- * members (GET /api/v1/members only supports NURSE, FINANCE, TEACHER).
- * Only the invitations table is shown here.
+ * NOTE: The backend does not currently expose an endpoint to list active
+ * SCHOOL_ADMIN members (GET /api/v1/members only supports TEACHER, NURSE,
+ * FINANCE). This page shows a placeholder until the backend adds support.
+ *
+ * Invitations are listed on the dedicated /admins/invitations page.
  */
 
 "use client";
 
-import { InvitedStaffTable, useStaffInvitations } from "@/features/staff";
+import Link from "next/link";
+
+import { Button } from "@/components/ui/button";
+import { UserPlus } from "lucide-react";
 
 export default function AdminsPage() {
-    const {
-        data: invitationsData,
-        isLoading: invitationsLoading,
-        isError: invitationsError,
-    } = useStaffInvitations("SCHOOL_ADMIN");
-
-    const roleLabel = "Admins";
-
     return (
-        <section className="flex flex-col">
-            <h2 className="mb-2 text-sm font-medium">Invited {roleLabel}</h2>
-            {invitationsError ? (
-                <div className="flex items-center justify-center py-8">
-                    <p className="text-destructive text-sm">
-                        Failed to load invitations. Please try again.
-                    </p>
+        <div className="flex flex-1 flex-col">
+            {/* Page header */}
+            <div className="flex items-center gap-3 px-6 pt-6 pb-2">
+                <h1 className="text-2xl font-semibold tracking-tight">Admins</h1>
+                <div className="ml-auto">
+                    <Button size="sm" asChild>
+                        <Link href="/admins/invitations">
+                            <UserPlus className="mr-1.5 size-3.5" />
+                            Invite Admins
+                        </Link>
+                    </Button>
                 </div>
-            ) : (
-                <div className="ring-foreground/10 rounded-lg ring-1">
-                    <InvitedStaffTable
-                        invitations={invitationsData?.invitations ?? []}
-                        total={invitationsData?.total ?? 0}
-                        roleLabel={roleLabel}
-                        isLoading={invitationsLoading}
-                    />
-                </div>
-            )}
-        </section>
+            </div>
+
+            <div className="flex flex-1 flex-col px-6 py-4">
+                <section className="flex flex-col">
+                    <div className="ring-foreground/10 flex items-center justify-center rounded-lg py-16 ring-1">
+                        <div className="text-center">
+                            <p className="text-muted-foreground text-sm font-medium">
+                                Admin listing coming soon
+                            </p>
+                            <p className="text-muted-foreground mt-1 text-xs">
+                                Active school administrators will be listed here once the backend
+                                endpoint is available.
+                            </p>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
     );
 }

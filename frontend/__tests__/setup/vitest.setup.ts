@@ -64,6 +64,34 @@ class MockIntersectionObserver {
 }
 window.IntersectionObserver = MockIntersectionObserver as unknown as typeof IntersectionObserver;
 
+// ─── Radix UI Select polyfill ──────────────────────────────────────────
+
+// @radix-ui/react-select uses Element.prototype.hasPointerCapture which
+// is not implemented in jsdom. Polyfill it so dropdown interactions work in tests.
+if (!Element.prototype.hasPointerCapture) {
+    Element.prototype.hasPointerCapture = function () {
+        return false;
+    };
+}
+
+if (!Element.prototype.setPointerCapture) {
+    Element.prototype.setPointerCapture = function () {
+        // noop
+    };
+}
+
+if (!Element.prototype.scrollIntoView) {
+    Element.prototype.scrollIntoView = function () {
+        // noop
+    };
+}
+
+if (!Element.prototype.scrollBy) {
+    Element.prototype.scrollBy = function () {
+        // noop
+    };
+}
+
 // ─── Fixed Date ────────────────────────────────────────────────────────
 // NOTE: Fake timers are NOT enabled globally because they break existing tests.
 // Individual test files that need TTL testing should enable them with:

@@ -26,6 +26,8 @@ export {
     assessmentKeys,
 } from "./hooks/use-assessment";
 
+export { useActiveAcademicYear, useActiveTerm } from "./hooks/use-active-period";
+
 export type {
     AssessmentBlueprint,
     BlueprintDetail,

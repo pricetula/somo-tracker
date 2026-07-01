@@ -53,3 +53,14 @@ GOOD Implementation (Flat hierarchy, 100% theme variable driven):
     <span className="text-primary">Active</span> Assessment
   </p>
 </div>
+
+
+### Enforced Rules (must-follow)
+
+| Rule | Short Code |
+|------|------------|
+| No hard-coded colours | @noHardHexColors |
+| Flat layout only | @flatLayoutOnly |
+| Semantic CSS vars only | @semanticVarsOnly |
+
+*Violations will cause the skill to return a validation error and **no file will be written***

@@ -45,3 +45,25 @@ Every non-2xx HTTP response from the backend MUST return this exact JSON body:
 ### Version & ownership
 - **Standard version:** 1.0.0 (June 2026)
 - **Owner:** Platform team. Any changes to this standard must be reviewed by the platform team and propagated to both AGENTS.md files.
+
+### Isolation Rule
+> **Strictly edit only the AGENTS.md located in the top‑level directory that corresponds to the layer you are working on.**
+> • `backend/AGENTS.md` – backend contracts only.
+> • `frontend/AGENTS.md` – frontend contracts only.
+> • `public/AGENTS.md` – marketing site contracts only.
+> Do **not** modify other top‑level folders’ contracts.
+
+### Quick‑Start Commands (project‑wide)
+
+| Layer      | Command                     | Outcome                              |
+|------------|----------------------------|--------------------------------------|
+| Backend    | `make build-backend`        | Compiles Go binaries in `./backend` |
+| Frontend   | `npm run build:frontend`    | Builds Next.js production bundle     |
+| Docs       | `npm run docs:build`        | Generates MDX docs under `content/docs` |
+| All Tests  | `npm run test:all`          | Runs Go interop + Jest + Playwright |
+
+---
+
+### Version & ownership
+- **Standard version:** 1.0.0 (June 2026
+- **Owner:** Platform team. Any changes to this standard must be reviewed by the platform team and propagated to both AGENTS.md files.

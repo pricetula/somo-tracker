@@ -1487,6 +1487,159 @@ CREATE TABLE IF NOT EXISTS assessment_blueprint_indicators (
 CREATE INDEX IF NOT EXISTS idx_blueprint_indicators_indicator
     ON assessment_blueprint_indicators (indicator_id);
 
+-- ---------------------------------------------------------------------------
+-- CBC ASSESSMENT GRADING SCALES
+-- Maps raw-score percentages to KNEC rubric levels (EE/ME/AE/BE) per
+-- grade level. Each tenant+school defines its own bracket boundaries;
+-- the half-open numrange '[)' exclusion constraint guarantees that no
+-- two brackets for the same tenant/school/grade overlap. The top bracket
+-- closing at exactly 100.00 is handled at lookup time
+-- (fn_convert_raw_score_to_rubric) rather than by making the stored
+-- range inclusive on both ends, which would break the && overlap check.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS cbc_assessment_grading_scales (
+    id             UUID              PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id      UUID              NOT NULL,
+    school_id      UUID              NOT NULL,
+    grade_level    cbc_grade_level   NOT NULL,
+    rubric_level   cbc_rubric_level  NOT NULL,
+    min_percentage NUMERIC(5,2)      NOT NULL,
+    max_percentage NUMERIC(5,2)      NOT NULL,
+
+    CONSTRAINT fk_grading_scales_tenant_school
+        FOREIGN KEY (tenant_id, school_id)
+        REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
+
+    CONSTRAINT chk_grading_scale_range CHECK (
+        min_percentage >= 0
+        AND max_percentage <= 100
+        AND min_percentage < max_percentage
+    ),
+
+    -- Half-open '[)' exclusion: two ranges for the same tenant/school/grade
+    -- must not overlap. The top bracket (ending at 100.00) is handled by
+    -- fn_convert_raw_score_to_rubric treating percentage = 100.00 as
+    -- belonging to the highest bracket even though 100.00 is technically
+    -- outside the half-open interval.
+    CONSTRAINT excl_grading_scales_no_overlap
+        EXCLUDE USING gist (
+            tenant_id  WITH =,
+            school_id  WITH =,
+            grade_level WITH =,
+            numrange(min_percentage, max_percentage, '[)') WITH &&
+        )
+);
+
+CREATE INDEX IF NOT EXISTS idx_grading_scales_tenant
+    ON cbc_assessment_grading_scales (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_grading_scales_school
+    ON cbc_assessment_grading_scales (school_id);
+CREATE INDEX IF NOT EXISTS idx_grading_scales_lookup
+    ON cbc_assessment_grading_scales (tenant_id, school_id, grade_level, min_percentage);
+
+COMMENT ON TABLE cbc_assessment_grading_scales IS
+    'Per-tenant, per-school, per-grade grading scale that maps raw-score
+     percentages to KNEC rubric levels (EE/ME/AE/BE). Brackets are stored
+     as half-open intervals [min, max) so the GiST exclusion constraint can
+     reliably detect overlaps without false positives at adjacent boundaries.
+     The edge case of 100.00%% falling outside the half-open highest bracket
+     is resolved in the lookup function fn_convert_raw_score_to_rubric.
+     Seeded with KNEC-recommended default brackets on tenant+school creation;
+     schools may customise boundaries within the same non-overlap rules.';
+
+COMMENT ON CONSTRAINT excl_grading_scales_no_overlap ON cbc_assessment_grading_scales IS
+    'GiST exclusion constraint using half-open numrange(min, max, ''[)'').
+     Guarantees that for a given (tenant_id, school_id, grade_level) no two
+     rows have overlapping percentage brackets. The && (overlaps) operator
+     returns true when two ranges share any point; the '[)' format ensures
+     that adjacent brackets (e.g. [0,50) and [50,75)) are not considered
+     overlapping because 50 is excluded from the first range.';
+
+-- ============================================================
+-- FUNCTION: Convert raw score to rubric level
+-- ------------------------------------------------------------
+-- Computes percentage from obtained/total, then looks up the
+-- matching grading-scale bracket for the tenant/school/grade.
+-- Raises distinct errors for missing configuration, zero total,
+-- and out-of-range percentages so callers can distinguish between
+-- a setup gap and an actual data error.
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION fn_convert_raw_score_to_rubric(
+    p_tenant_id  UUID,
+    p_school_id  UUID,
+    p_grade_level cbc_grade_level,
+    p_obtained   NUMERIC,
+    p_total      NUMERIC
+)
+RETURNS cbc_rubric_level
+LANGUAGE plpgsql
+STABLE
+AS $$
+DECLARE
+    v_percentage NUMERIC(5,2);
+    v_result     cbc_rubric_level;
+BEGIN
+    -- Guard against zero / NULL total before division
+    IF p_total IS NULL OR p_total = 0 THEN
+        RAISE EXCEPTION
+            'fn_convert_raw_score_to_rubric: p_total must be > 0 (got %)',
+            p_total
+            USING ERRCODE = '22012';  -- division_by_zero
+    END IF;
+
+    -- Compute rounded percentage (2 decimal places)
+    v_percentage := ROUND((p_obtained / p_total) * 100, 2);
+
+    -- Clamp at 100.00 for the half-open top-bracket edge case:
+    -- if percentage = 100.00 it falls outside the last '[min, 100)' range,
+    -- so we treat it as exactly 99.9999 to match the highest bracket.
+    IF v_percentage > 100.00 THEN
+        v_percentage := 100.00;
+    END IF;
+
+    -- Look up the bracket (handle the top-boundary edge case)
+    SELECT gs.rubric_level INTO v_result
+    FROM cbc_assessment_grading_scales gs
+    WHERE gs.tenant_id   = p_tenant_id
+      AND gs.school_id   = p_school_id
+      AND gs.grade_level = p_grade_level
+      AND (
+          -- Normal half-open match
+          v_percentage >= gs.min_percentage
+          AND v_percentage < gs.max_percentage
+          -- Edge case: exactly 100.00 belongs to the bracket ending at 100
+          OR (v_percentage = 100.00 AND gs.max_percentage = 100.00)
+      );
+
+    IF NOT FOUND THEN
+        -- Check whether any scale exists at all for this tenant/school/grade
+        IF NOT EXISTS (
+            SELECT 1 FROM cbc_assessment_grading_scales
+            WHERE tenant_id   = p_tenant_id
+              AND school_id   = p_school_id
+              AND grade_level = p_grade_level
+        ) THEN
+            RAISE EXCEPTION
+                'fn_convert_raw_score_to_rubric: no grading scale configured for '
+                'tenant_id=% school_id=% grade_level=% — create entries in '
+                'cbc_assessment_grading_scales before calling this function',
+                p_tenant_id, p_school_id, p_grade_level
+                USING ERRCODE = 'P0001';  -- raise_exception
+        ELSE
+            RAISE EXCEPTION
+                'fn_convert_raw_score_to_rubric: percentage % does not fall within '
+                'any configured bracket for tenant_id=% school_id=% grade_level=%',
+                v_percentage, p_tenant_id, p_school_id, p_grade_level
+                USING ERRCODE = 'P0001';
+        END IF;
+    END IF;
+
+    RETURN v_result;
+END;
+$$;
+
 -- ============================================================================
 -- LAYER 8 — CBC ASSESSMENT EXECUTION & RESULTS
 -- ============================================================================
@@ -1604,50 +1757,506 @@ COMMENT ON COLUMN learner_portfolios.storage_pointer IS
 -- ============================================================================
 
 -- ---------------------------------------------------------------------------
+-- CBC TERM REPORT CARDS (MASTER / HEADER)
+-- IMPROVE: full final column set written at table creation — no staged
+--          migrations. Offline-computed attendance totals, class-teacher
+--          remarks, compilation timestamps, and a 4-state status enum
+--          are all present from day one. Mutability is status-gated:
+--          only DRAFT and COMPILED rows are editable.
+-- ---------------------------------------------------------------------------
+
+DO $$ BEGIN
+    CREATE TYPE cbc_report_card_status AS ENUM (
+        'DRAFT',                       -- Created, not yet compiled; freely editable
+        'COMPILED',                    -- Aggregations complete; awaiting teacher review
+        'APPROVED_BY_TEACHER',     -- Signed off; locked from all but the publish transition
+        'PUBLISHED_TO_PARENTS'         -- Distributed to parents; immutable
+    );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+CREATE TABLE IF NOT EXISTS cbc_term_report_cards (
+    id                    UUID                   PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id             UUID                   NOT NULL,
+    school_id             UUID                   NOT NULL,
+    student_id            UUID                   NOT NULL,
+    class_id              UUID                   NOT NULL,
+    academic_term_id      UUID                   NOT NULL,
+    status                cbc_report_card_status NOT NULL DEFAULT 'DRAFT',
+    compiled_at           TIMESTAMPTZ            NULL,
+    total_days_present    INT                    NOT NULL DEFAULT 0,
+    total_days_absent     INT                    NOT NULL DEFAULT 0,
+    total_days_excused    INT                    NOT NULL DEFAULT 0,
+    total_days_late       INT                    NOT NULL DEFAULT 0,
+    class_teacher_id      UUID                   NULL,
+    class_teacher_remarks TEXT                   NULL,
+    created_at            TIMESTAMPTZ            NOT NULL DEFAULT NOW(),
+    updated_at            TIMESTAMPTZ            NOT NULL DEFAULT NOW(),
+
+    -- (tenant_id, id) exposed so downstream tables (e.g.
+    -- cbc_term_competency_summaries.report_card_id) can attach a composite FK.
+    CONSTRAINT uq_cbc_term_report_cards_tenant UNIQUE (tenant_id, id),
+    CONSTRAINT uq_cbc_term_report_cards_student_term
+        UNIQUE (tenant_id, school_id, student_id, academic_term_id),
+
+    CONSTRAINT fk_trc_tenant_school
+        FOREIGN KEY (tenant_id, school_id)
+        REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_trc_tenant_student
+        FOREIGN KEY (tenant_id, student_id)
+        REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_trc_tenant_class
+        FOREIGN KEY (tenant_id, class_id)
+        REFERENCES cbc_classes(tenant_id, id) ON DELETE RESTRICT,
+    CONSTRAINT fk_trc_tenant_term
+        FOREIGN KEY (tenant_id, school_id, academic_term_id)
+        REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE RESTRICT,
+    -- class_teacher_id points at cbc_class_teachers (not users) so the
+    -- "exactly one PRIMARY_CLASS_TEACHER per class" partial unique index on
+    -- cbc_class_teachers remains the canonical source of truth. SET NULL on
+    -- teacher removal preserves the report card; class-level reassignment is
+    -- handled upstream.
+    CONSTRAINT fk_trc_class_teacher
+        FOREIGN KEY (class_teacher_id)
+        REFERENCES cbc_class_teachers(id) ON DELETE SET NULL,
+
+    CONSTRAINT chk_trc_attendance_nonneg CHECK (
+        total_days_present >= 0 AND
+        total_days_absent  >= 0 AND
+        total_days_excused >= 0 AND
+        total_days_late    >= 0
+    ),
+    CONSTRAINT chk_trc_compiled_status CHECK (
+        (status = 'DRAFT' AND compiled_at IS NULL) OR
+        (status <> 'DRAFT' AND compiled_at IS NOT NULL)
+    )
+);
+
+CREATE INDEX IF NOT EXISTS idx_trc_tenant_id   ON cbc_term_report_cards (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_trc_term_class  ON cbc_term_report_cards (school_id, academic_term_id);
+CREATE INDEX IF NOT EXISTS idx_trc_student     ON cbc_term_report_cards (student_id);
+
+DROP TRIGGER IF EXISTS trg_cbc_term_report_cards_updated_at ON cbc_term_report_cards;
+CREATE TRIGGER trg_cbc_term_report_cards_updated_at
+    BEFORE UPDATE ON cbc_term_report_cards
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+
+COMMENT ON TABLE cbc_term_report_cards IS
+    'Master / header row for a compiled CBC term report card. One row per
+     student per academic term. Aggregations (per-learning-area competency
+     summaries, attendance rollups, remarks) live in child tables that
+     composite-FK to (tenant_id, id). Status drives mutability:
+       DRAFT                  — freely editable
+       COMPILED               — editable (awaiting teacher sign-off)
+       APPROVED_BY_TEACHER — locked; only the publish transition is legal
+       PUBLISHED_TO_PARENTS    — fully immutable
+     Locked transitions are enforced by fn_block_locked_report_card_mutation,
+     which also bundles UPDATE-OR-DELETE blocking: any column change attempted
+     while locked is rejected, including harmless ones.';
+
+COMMENT ON COLUMN cbc_term_report_cards.total_days_late IS
+    'LATE attendance days are tracked individually here so the signal is not
+     lost, but they ALSO count toward total_days_present for attendance-rate
+     math (PRESENT + LATE = effectively present). The rollup that populates
+     this column — see fn_rollup_report_card_attendance — computes both the
+     raw late count and the adjusted present total in a single pass.';
+
+COMMENT ON COLUMN cbc_term_report_cards.class_teacher_id IS
+    'References cbc_class_teachers.id, not users.id. The "one and only one
+     PRIMARY_CLASS_TEACHER per class" invariant is owned by the partial
+     unique index idx_cbc_one_primary_per_class on cbc_class_teachers;
+     keeping the FK on that table ensures a report card cannot be assigned
+     a non-primary class teacher. ON DELETE SET NULL lets the report card
+     survive teacher reassignment; the next compile picks up the new primary.';
+
+COMMENT ON CONSTRAINT chk_trc_compiled_status ON cbc_term_report_cards IS
+    'Enforces the invariant: a non-DRAFT card must record when it was
+     compiled, and a DRAFT card must NOT carry a compiled_at timestamp
+     (compiled_at is a forward-only field). Backfilled values from older
+     school systems are not supported — the migration populates nulls and
+     the application sets compiled_at during the COMPILE transition.';
+
+-- ============================================================
+-- TRIGGER: Block mutation of locked report cards
+-- ------------------------------------------------------------
+-- APPROVED_BY_TEACHER and PUBLISHED_TO_PARENTS rows are immutable,
+-- with one legal exception: the publish transition
+-- APPROVED_BY_TEACHER → PUBLISHED_TO_PARENTS. Any other column
+-- change bundled into that same UPDATE will be rejected along with the
+-- status change.
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION fn_block_locked_report_card_mutation()
+RETURNS TRIGGER AS $$
+DECLARE
+    is_locked BOOLEAN := FALSE;
+BEGIN
+    IF TG_OP = 'UPDATE' THEN
+        -- Forward publish transition is the only legal post-approval write.
+        IF OLD.status = 'APPROVED_BY_TEACHER'
+           AND NEW.status = 'PUBLISHED_TO_PARENTS'
+        THEN
+            RETURN NEW;
+        END IF;
+        is_locked := OLD.status IN ('APPROVED_BY_TEACHER', 'PUBLISHED_TO_PARENTS');
+        IF is_locked THEN
+            RAISE EXCEPTION
+                'cbc_term_report_cards: cannot modify row in status % '
+                '(transition APPROVED_BY_TEACHER → PUBLISHED_TO_PARENTS is the '
+                'only legal write after lock)',
+                OLD.status
+                USING ERRCODE = '23514';
+        END IF;
+        RETURN NEW;
+    END IF;
+
+    IF TG_OP = 'DELETE' THEN
+        IF OLD.status IN ('APPROVED_BY_TEACHER', 'PUBLISHED_TO_PARENTS') THEN
+            RAISE EXCEPTION
+                'cbc_term_report_cards: cannot delete row in status % '
+                '(locked report cards are retention-protected)',
+                OLD.status
+                USING ERRCODE = '23514';
+        END IF;
+        RETURN OLD;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_block_locked_report_card_mutation ON cbc_term_report_cards;
+CREATE TRIGGER trg_block_locked_report_card_mutation
+    BEFORE UPDATE OR DELETE ON cbc_term_report_cards
+    FOR EACH ROW EXECUTE FUNCTION fn_block_locked_report_card_mutation();
+
+-- ============================================================
+-- TRIGGER: Validate class_teacher_id belongs to the report card's class
+-- ------------------------------------------------------------
+-- cbc_class_teachers.class_id and cbc_term_report_cards.class_id are
+-- not part of any shared composite key, so Postgres CHECK constraints
+-- cannot enforce cross-table column equality. This BEFORE INSERT OR
+-- UPDATE trigger performs that check at write time so a malformed
+-- assignment never lands in the table.
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION fn_validate_class_teacher_matches_card_class()
+RETURNS TRIGGER AS $$
+DECLARE
+    teacher_class_id UUID;
+BEGIN
+    IF NEW.class_teacher_id IS NULL THEN
+        RETURN NEW;
+    END IF;
+
+    SELECT class_id INTO teacher_class_id
+    FROM cbc_class_teachers
+    WHERE id = NEW.class_teacher_id;
+
+    IF teacher_class_id IS NULL THEN
+        RAISE EXCEPTION
+            'cbc_term_report_cards: class_teacher_id % does not exist',
+            NEW.class_teacher_id
+            USING ERRCODE = '23503';
+    END IF;
+
+    IF teacher_class_id <> NEW.class_id THEN
+        RAISE EXCEPTION
+            'cbc_term_report_cards: class_teacher_id % belongs to class % but '
+            'report card class_id is % (class teacher must match card class)',
+            NEW.class_teacher_id, teacher_class_id, NEW.class_id
+            USING ERRCODE = '23514';
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_validate_class_teacher_matches_card_class ON cbc_term_report_cards;
+CREATE TRIGGER trg_validate_class_teacher_matches_card_class
+    BEFORE INSERT OR UPDATE OF class_teacher_id, class_id ON cbc_term_report_cards
+    FOR EACH ROW EXECUTE FUNCTION fn_validate_class_teacher_matches_card_class();
+
+-- ---------------------------------------------------------------------------
 -- CBC TERM COMPETENCY SUMMARIES
--- IMPROVE: added index on (student_id, learning_area_id) for fetching all
---          terms in a student's subject history
+-- IMPROVE: linked to cbc_term_report_cards via report_card_id (nullable —
+--          individual competency rows can be recorded before the term's
+--          report card is compiled). school_id added to express the
+--          composite FK against academic_terms(tenant_id, school_id, id);
+--          academic_year and term replaced by the direct academic_term_id FK.
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS cbc_term_competency_summaries (
-    id               UUID                             PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id        UUID                             NOT NULL,
-    student_id       UUID                             NOT NULL,
-    learning_area_id UUID                             NOT NULL REFERENCES cbc_learning_areas(id) ON DELETE RESTRICT,
-    class_id         UUID                             NOT NULL,
-    academic_year    SMALLINT                         NOT NULL,
-    term             SMALLINT                         NOT NULL,
-    calculated_level cbc_rubric_level_with_sub_levels NOT NULL,
-    override_level   cbc_rubric_level_with_sub_levels NULL,
-    final_level      cbc_rubric_level                 NOT NULL,
-    knec_sync_status knec_sync_status                 NOT NULL DEFAULT 'Pending',
-    knec_synced_at   TIMESTAMPTZ                      NULL,
+    id                       UUID                             PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id                UUID                             NOT NULL,
+    school_id                UUID                             NOT NULL,
+    student_id               UUID                             NOT NULL,
+    learning_area_id         UUID                             NOT NULL REFERENCES cbc_learning_areas(id) ON DELETE RESTRICT,
+    class_id                 UUID                             NOT NULL,
+    academic_term_id         UUID                             NOT NULL,
+    report_card_id           UUID                             NULL REFERENCES cbc_term_report_cards(id) ON DELETE RESTRICT,
+    calculated_level         cbc_rubric_level_with_sub_levels NOT NULL,
+    override_level           cbc_rubric_level_with_sub_levels NULL,
+    final_level              cbc_rubric_level                 NOT NULL,
+    teacher_narrative_summary TEXT                             NULL,
+    knec_sync_status         knec_sync_status                 NOT NULL DEFAULT 'Pending',
+    knec_synced_at           TIMESTAMPTZ                      NULL,
 
+    CONSTRAINT fk_summaries_tenant_school
+        FOREIGN KEY (tenant_id, school_id)
+        REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_summaries_tenant_student
         FOREIGN KEY (tenant_id, student_id)
         REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_summaries_tenant_class
         FOREIGN KEY (tenant_id, class_id)
         REFERENCES cbc_classes(tenant_id, id) ON DELETE RESTRICT,
-    CONSTRAINT chk_summary_term         CHECK (term BETWEEN 1 AND 3),
-    CONSTRAINT chk_summary_academic_year CHECK (academic_year >= 2017),
+    CONSTRAINT fk_summaries_tenant_term
+        FOREIGN KEY (tenant_id, school_id, academic_term_id)
+        REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE RESTRICT,
     CONSTRAINT unique_summary_per_student_area_term
-        UNIQUE (student_id, learning_area_id, academic_year, term)
+        UNIQUE (student_id, learning_area_id, academic_term_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_summaries_tenant       ON cbc_term_competency_summaries (tenant_id);
-CREATE INDEX IF NOT EXISTS idx_summaries_sync_batch   ON cbc_term_competency_summaries (academic_year, term, knec_sync_status);
-CREATE INDEX IF NOT EXISTS idx_summaries_student_year ON cbc_term_competency_summaries (student_id, academic_year);
+CREATE INDEX IF NOT EXISTS idx_summaries_sync_batch   ON cbc_term_competency_summaries (academic_term_id, knec_sync_status);
+CREATE INDEX IF NOT EXISTS idx_summaries_student_year ON cbc_term_competency_summaries (student_id, academic_term_id);
 CREATE INDEX IF NOT EXISTS idx_summaries_class        ON cbc_term_competency_summaries (class_id);
 -- IMPROVE: fast lookup of all terms for a student's subject history
 CREATE INDEX IF NOT EXISTS idx_summaries_student_area ON cbc_term_competency_summaries (student_id, learning_area_id);
+CREATE INDEX IF NOT EXISTS idx_summaries_report_card  ON cbc_term_competency_summaries (report_card_id);
 
 COMMENT ON TABLE cbc_term_competency_summaries IS
     'Definitive per-term competency record per learner per learning area.
      final_level is the KNEC portal submission value — must always be one of
      EE/ME/AE/BE. Sub-levels (EE1 etc.) are only valid for the internal
      calculated_level and override_level fields. knec_synced_at is NULL until
-     the first successful upload to cba.knec.ac.ke.';
+     the first successful upload to cba.knec.ac.ke. The parent
+     cbc_term_report_cards row (via report_card_id) governs immutability:
+     if the parent is APPROVED_BY_TEACHER or PUBLISHED_TO_PARENTS, this
+     row is locked by fn_block_locked_summary_mutation.';
+
+COMMENT ON COLUMN cbc_term_competency_summaries.school_id IS
+    'Denormalised for multi-tenant filtering without joins, and required to
+     express the composite FK fk_summaries_tenant_term against
+     academic_terms(tenant_id, school_id, id). Mirrors the same pattern used
+     by every other major entity table in this schema.';
+
+COMMENT ON COLUMN cbc_term_competency_summaries.academic_term_id IS
+    'Direct FK to academic_terms, replacing the previous academic_year +
+     term pair. Provides referential integrity and a single join path to
+     term metadata (dates, is_current, is_final) for report-card compilation
+     and KNEC sync workflows.';
+
+COMMENT ON COLUMN cbc_term_competency_summaries.report_card_id IS
+    'Optional link to the parent cbc_term_report_cards row. NULL until the
+     term report card is compiled — individual competency assessments can
+     be recorded throughout the term, then linked to the report card at
+     compilation time. ON DELETE RESTRICT prevents deletion of a report
+     card while competency summaries still reference it.';
+
+COMMENT ON COLUMN cbc_term_competency_summaries.teacher_narrative_summary IS
+    'Free-text narrative note from the class teacher summarising the
+     learner's overall performance, effort, and areas for improvement in
+     this learning area for the term. Distinct from the per-subject
+     class_teacher_remarks on the report card header — this is a per-area
+     note recorded at the learning-area level by the subject teacher.';
+
+COMMENT ON COLUMN cbc_term_competency_summaries.knec_sync_status IS
+    'Tracks the KNEC CBA portal submission lifecycle for this
+     per-student-per-learning-area competency record. Pending = not yet
+     submitted; Synced = successfully uploaded; Failed = upload error.
+     The parent report card's status gates whether new submissions are
+     accepted.';
+
+-- ============================================================
+-- TRIGGER: Block mutation of competency summaries when parent
+--          report card is locked
+-- ------------------------------------------------------------
+-- This table carries no status column of its own — it inherits
+-- immutability from the parent cbc_term_report_cards row. A
+-- BEFORE UPDATE OR DELETE trigger looks up the parent status;
+-- if report_card_id IS NULL the mutation is allowed (no parent
+-- to protect yet). If the parent is APPROVED_BY_TEACHER or
+-- PUBLISHED_TO_PARENTS the operation is blocked.
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION fn_block_locked_summary_mutation()
+RETURNS TRIGGER AS $$
+DECLARE
+    parent_status cbc_report_card_status;
+BEGIN
+    -- Resolve the report_card_id to check — use NEW for UPDATE, OLD for DELETE.
+    -- (INSERT is always allowed; a row inserted without a report_card_id is
+    --  free-floating, and one inserted with a report_card_id is new data.)
+    IF TG_OP = 'UPDATE' THEN
+        IF NEW.report_card_id IS NULL THEN
+            RETURN NEW;
+        END IF;
+        SELECT status INTO parent_status
+        FROM cbc_term_report_cards
+        WHERE id = NEW.report_card_id;
+    ELSIF TG_OP = 'DELETE' THEN
+        IF OLD.report_card_id IS NULL THEN
+            RETURN OLD;
+        END IF;
+        SELECT status INTO parent_status
+        FROM cbc_term_report_cards
+        WHERE id = OLD.report_card_id;
+    ELSE
+        RETURN NEW;
+    END IF;
+
+    IF parent_status IN ('APPROVED_BY_TEACHER', 'PUBLISHED_TO_PARENTS') THEN
+        RAISE EXCEPTION
+            'cbc_term_competency_summaries: cannot % row because parent report card % '
+            'is in status % (locked report cards are immutable)',
+            TG_OP, COALESCE(NEW.report_card_id, OLD.report_card_id), parent_status
+            USING ERRCODE = '23514';
+    END IF;
+
+    IF TG_OP = 'UPDATE' THEN
+        RETURN NEW;
+    END IF;
+
+    RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_block_locked_summary_mutation ON cbc_term_competency_summaries;
+CREATE TRIGGER trg_block_locked_summary_mutation
+    BEFORE UPDATE OR DELETE ON cbc_term_competency_summaries
+    FOR EACH ROW EXECUTE FUNCTION fn_block_locked_summary_mutation();
+
+-- ============================================================
+-- FUNCTION: Refresh attendance summary on a report card
+-- ------------------------------------------------------------
+-- Collapses per-student-per-day attendance logs across all
+-- learning areas into a single verdict per calendar date,
+-- then aggregates across the full term to populate the four
+-- attendance columns on cbc_term_report_cards.
+--
+-- COLLAPSING RULE (applied per student per calendar date):
+--   1. If ANY log for the date is PRESENT or LATE
+--      → day counts as present
+--        (and also as late if all PRESENT/LATE logs were LATE
+--         with no plain PRESENT log for that date)
+--   2. Else if EVERY log is ABSENT   → day counts as absent
+--   3. Else if EVERY log is EXCUSED  → day counts as excused
+--   4. Otherwise (mixed ABSENT + EXCUSED, no PRESENT/LATE)
+--      → logged as a WARNING; day is NOT counted toward any
+--        column. This is a judgment call — see REVIEW NOTE
+--        below.
+--
+-- REVIEW NOTE: The mixed ABSENT+EXCUSED edge case occurs when
+-- a student is marked absent in one subject and excused in
+-- another on the same day, with no PRESENT/LATE anywhere.
+-- Reasonable alternatives include counting the day as absent
+-- (conservative) or folding it into excused (lenient). The
+-- current behaviour — skip, warn — is a neutral placeholder
+-- until a product decision is made.
+--
+-- USAGE: Called explicitly by the term-compilation service,
+-- NOT as a row-level trigger on cbc_attendance_logs. Running
+-- this on every single log insert would recreate the CPU/IO
+-- problem this architecture is designed to avoid.
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION fn_refresh_term_attendance_summary(
+    p_report_card_id UUID
+)
+RETURNS VOID
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_tenant_id        UUID;
+    v_school_id        UUID;
+    v_student_id       UUID;
+    v_academic_term_id UUID;
+
+    v_present INT := 0;
+    v_absent  INT := 0;
+    v_excused INT := 0;
+    v_late    INT := 0;
+    v_mixed   INT := 0;
+BEGIN
+    -- 1. Resolve parent row identifiers
+    SELECT tenant_id, school_id, student_id, academic_term_id
+    INTO STRICT v_tenant_id, v_school_id, v_student_id, v_academic_term_id
+    FROM cbc_term_report_cards
+    WHERE id = p_report_card_id;
+
+    -- 2. Collapse logs per student per calendar date into a single verdict
+    WITH date_verdicts AS (
+        SELECT
+            al.student_id,
+            ap.date_recorded,
+            -- Presence indicators
+            bool_or(al.status = 'PRESENT')              AS has_present,
+            bool_or(al.status = 'LATE')                 AS has_late,
+            -- All-same checks (only meaningful when has_present+has_late is false)
+            bool_and(al.status = 'ABSENT')               AS all_absent,
+            bool_and(al.status = 'EXCUSED')              AS all_excused
+        FROM cbc_attendance_logs al
+        JOIN cbc_attendance_periods ap
+            ON ap.id = al.cbc_attendance_period_id
+           AND ap.school_id        = v_school_id
+           AND ap.academic_term_id = v_academic_term_id
+        WHERE al.student_id  = v_student_id
+          AND al.tenant_id   = v_tenant_id
+        GROUP BY al.student_id, ap.date_recorded
+    ),
+    verdict_counts AS (
+        SELECT
+            COUNT(*) FILTER (
+                WHERE has_present OR has_late
+            ) AS days_present,
+            COUNT(*) FILTER (
+                WHERE NOT (has_present OR has_late)
+                  AND all_absent
+            ) AS days_absent,
+            COUNT(*) FILTER (
+                WHERE NOT (has_present OR has_late)
+                  AND NOT all_absent
+                  AND all_excused
+            ) AS days_excused,
+            COUNT(*) FILTER (
+                WHERE has_late AND NOT has_present
+            ) AS days_late,
+            COUNT(*) FILTER (
+                WHERE NOT (has_present OR has_late)
+                  AND NOT all_absent
+                  AND NOT all_excused
+            ) AS days_mixed
+        FROM date_verdicts
+    )
+    SELECT days_present, days_absent, days_excused, days_late, days_mixed
+    INTO v_present, v_absent, v_excused, v_late, v_mixed
+    FROM verdict_counts;
+
+    -- 3. Warn about dates that fell through all rules
+    IF v_mixed > 0 THEN
+        RAISE WARNING
+            'fn_refresh_term_attendance_summary: report_card_id % student_id % '
+            'has % date(s) with a mix of ABSENT and EXCUSED (no PRESENT/LATE). '
+            'These days are NOT counted toward any attendance column pending '
+            'a product decision on the collapsing rule.',
+            p_report_card_id, v_student_id, v_mixed;
+    END IF;
+
+    -- 4. Update the report card (immutability trigger fires normally)
+    UPDATE cbc_term_report_cards
+    SET
+        total_days_present = v_present,
+        total_days_absent  = v_absent,
+        total_days_excused = v_excused,
+        total_days_late    = v_late
+    WHERE id = p_report_card_id;
+
+    -- If the card was locked, the BEFORE UPDATE trigger raises — we let it
+    -- propagate. No explicit check needed here.
+END;
+$$;
 
 -- ---------------------------------------------------------------------------
 -- SCHOOL MEMBER COUNTS

@@ -23,7 +23,9 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 
+	"somotracker/backend/internal/academicyears"
 	"somotracker/backend/internal/config"
+	"somotracker/backend/internal/database"
 )
 
 // ============================================================================
@@ -292,6 +294,9 @@ func setupSuite(ctx context.Context) (*IntegrationSuite, error) {
 	// Create a school creator adapter that writes directly to Postgres
 	schoolCreator := &schoolCreatorAdapter{pool: pool}
 
+	// Create a no-op year creator — integration tests don't need academic year setup
+	yearCreator := &noopYearCreator{}
+
 	// Manually create service without fx lifecycle
 	svc := &Service{
 		idp:           idp,
@@ -300,6 +305,7 @@ func setupSuite(ctx context.Context) (*IntegrationSuite, error) {
 		logger:        logger,
 		cfg:           suite.cfg,
 		schoolCreator: schoolCreator,
+		yearCreator:   yearCreator,
 	}
 	suite.svc = svc
 
@@ -688,6 +694,32 @@ type schoolCreatorAdapter struct {
 	pool *pgxpool.Pool
 }
 
+// noopYearCreator implements AcademicYearCreator with a no-op.
+// Integration tests that do NOT need academic year verification use this.
+// ============================================================================
+
+type noopYearCreator struct{}
+
+func (n *noopYearCreator) SetupInitialYear(ctx context.Context, tenantID, schoolID, actorID string, now *time.Time) error {
+	return nil
+}
+
+// realYearCreator implements AcademicYearCreator by delegating to the real
+// academicyears.Service backed by the real PgRepository. Use this in
+// integration tests that verify academic years and terms are created during
+// tenant registration.
+// ============================================================================
+
+type realYearCreator struct {
+	pool *pgxpool.Pool
+}
+
+func (r *realYearCreator) SetupInitialYear(ctx context.Context, tenantID, schoolID, actorID string, now *time.Time) error {
+	ayRepo := academicyears.NewRepository(&database.Pools{PG: r.pool})
+	aySvc := academicyears.NewService(ayRepo)
+	return aySvc.SetupInitialYear(ctx, tenantID, schoolID, actorID, now)
+}
+
 func (a *schoolCreatorAdapter) Create(ctx context.Context, tenantID string, name string) (string, error) {
 	// The application-level school creator (cbcschools.Service) validates fields
 	// and enriches the record. For integration tests, we insert a minimal row.
@@ -839,4 +871,149 @@ func (s *IntegrationSuite) verifyRedisSession(t *testing.T, token string) bool {
 		t.Fatalf("check redis session: %v", err)
 	}
 	return exists == 1
+}
+
+// freshDBWithAcademicYears cleans all tables including academic_years and academic_terms.
+// Use this instead of freshDB for tests that create academic year data.
+func (s *IntegrationSuite) freshDBWithAcademicYears(t *testing.T) {
+	t.Helper()
+	ctx := context.Background()
+	if _, err := s.pgPool.Exec(ctx, "DELETE FROM academic_terms"); err != nil {
+		t.Fatalf("clean academic_terms: %v", err)
+	}
+	if _, err := s.pgPool.Exec(ctx, "DELETE FROM academic_years"); err != nil {
+		t.Fatalf("clean academic_years: %v", err)
+	}
+	if _, err := s.pgPool.Exec(ctx, "DELETE FROM sessions"); err != nil {
+		t.Fatalf("clean sessions: %v", err)
+	}
+	if _, err := s.pgPool.Exec(ctx, "DELETE FROM memberships"); err != nil {
+		t.Fatalf("clean memberships: %v", err)
+	}
+	if _, err := s.pgPool.Exec(ctx, "DELETE FROM cbc_schools"); err != nil {
+		t.Fatalf("clean cbc_schools: %v", err)
+	}
+	if _, err := s.pgPool.Exec(ctx, "DELETE FROM users"); err != nil {
+		t.Fatalf("clean users: %v", err)
+	}
+	if _, err := s.pgPool.Exec(ctx, "DELETE FROM tenants"); err != nil {
+		t.Fatalf("clean tenants: %v", err)
+	}
+}
+
+// createServiceWithRealYearCreator creates a new Service with the real year creator.
+// This must be called inside a test that already called freshDBWithAcademicYears.
+// The returned service uses the real academicyears.Service for SetupInitialYear.
+func (s *IntegrationSuite) createServiceWithRealYearCreator() *Service {
+	return &Service{
+		idp:           s.svc.idp,
+		repo:          s.svc.repo,
+		rdb:           s.svc.rdb,
+		logger:        s.svc.logger,
+		cfg:           s.svc.cfg,
+		schoolCreator: s.svc.schoolCreator,
+		yearCreator:   &realYearCreator{pool: s.pgPool},
+	}
+}
+
+// countAcademicYears returns the number of academic years for a tenant+school.
+func (s *IntegrationSuite) countAcademicYears(t *testing.T, tenantID, schoolID string) int {
+	t.Helper()
+	ctx := context.Background()
+	var count int
+	err := s.pgPool.QueryRow(ctx,
+		"SELECT COUNT(*) FROM academic_years WHERE tenant_id = $1 AND school_id = $2 AND deleted_at IS NULL",
+		tenantID, schoolID).Scan(&count)
+	if err != nil {
+		t.Fatalf("count academic years: %v", err)
+	}
+	return count
+}
+
+// countAcademicTerms returns the number of academic terms for a given academic year.
+func (s *IntegrationSuite) countAcademicTerms(t *testing.T, academicYearID string) int {
+	t.Helper()
+	ctx := context.Background()
+	var count int
+	err := s.pgPool.QueryRow(ctx,
+		"SELECT COUNT(*) FROM academic_terms WHERE academic_year_id = $1 AND deleted_at IS NULL",
+		academicYearID).Scan(&count)
+	if err != nil {
+		t.Fatalf("count academic terms: %v", err)
+	}
+	return count
+}
+
+// getAcademicYearIDs returns the IDs of all academic years for a tenant+school.
+func (s *IntegrationSuite) getAcademicYearIDs(t *testing.T, tenantID, schoolID string) []string {
+	t.Helper()
+	ctx := context.Background()
+	rows, err := s.pgPool.Query(ctx,
+		"SELECT id FROM academic_years WHERE tenant_id = $1 AND school_id = $2 AND deleted_at IS NULL ORDER BY start_date",
+		tenantID, schoolID)
+	if err != nil {
+		t.Fatalf("query academic years: %v", err)
+	}
+	defer rows.Close()
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			t.Fatalf("scan academic year id: %v", err)
+		}
+		ids = append(ids, id)
+	}
+	return ids
+}
+
+// getTermNames returns the names of all terms for a given academic year, ordered by term_number.
+func (s *IntegrationSuite) getTermNames(t *testing.T, academicYearID string) []string {
+	t.Helper()
+	ctx := context.Background()
+	rows, err := s.pgPool.Query(ctx,
+		"SELECT name FROM academic_terms WHERE academic_year_id = $1 AND deleted_at IS NULL ORDER BY term_number",
+		academicYearID)
+	if err != nil {
+		t.Fatalf("query academic terms: %v", err)
+	}
+	defer rows.Close()
+	var names []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			t.Fatalf("scan term name: %v", err)
+		}
+		names = append(names, name)
+	}
+	return names
+}
+
+// insertInvitation inserts a pending invitation directly into Postgres.
+func (s *IntegrationSuite) insertInvitation(t *testing.T, inv Invitation) {
+	t.Helper()
+	ctx := context.Background()
+	// Generate a placeholder token for the NOT NULL constraint
+	token := "token_" + inv.ID
+	_, err := s.pgPool.Exec(ctx, `
+		INSERT INTO invitations (id, tenant_id, school_id, role, email, full_name, status, token, stytch_member_id, expires_at, created_at)
+		VALUES ($1, $2, $3, $4::user_role, $5, $6, $7, $8, $9, $10, NOW())
+	`, inv.ID, inv.TenantID, inv.SchoolID, inv.Role, inv.Email, inv.FullName,
+		inv.Status, token, inv.StytchMemberID, inv.ExpiresAt)
+	if err != nil {
+		t.Fatalf("insert invitation: %v", err)
+	}
+}
+
+// getTenantAndSchoolIDs returns the tenant and school IDs from the service's session after registration.
+// It queries by token scanning the Postgres session row.
+func (s *IntegrationSuite) getTenantAndSchoolIDs(t *testing.T, token string) (tenantID, schoolID string) {
+	t.Helper()
+	ctx := context.Background()
+	err := s.pgPool.QueryRow(ctx,
+		"SELECT s.tenant_id, mas.school_id FROM sessions s LEFT JOIN member_active_school mas ON mas.user_id = s.user_id WHERE s.token = $1",
+		token).Scan(&tenantID, &schoolID)
+	if err != nil {
+		t.Fatalf("get tenant and school for token: %v", err)
+	}
+	return
 }

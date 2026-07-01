@@ -435,7 +435,9 @@ func newTestHarness(t *testing.T) *testHarness {
 		CookieDomain: "",
 	}
 
-	// Service with nil rdb — we test business logic via mocks directly
+	// Service with nil rdb — most unit tests don't need Redis.
+	// Tests that call AcceptInvite or handleExistingUser should use
+	// newTestHarnessWithRedis instead.
 	svc := &Service{
 		idp:    idp,
 		repo:   repo,
@@ -541,6 +543,13 @@ func (h *testHarness) registerViaMocks(ctx context.Context, sessionRef string, p
 
 	// 10. Cache session token
 	h.cache.Set(h.svc.sessionKey(sessionToken), sessionToken)
+
+	// 11. Call SetupInitialYear via the injected year creator
+	if h.svc.yearCreator != nil {
+		if err := h.svc.yearCreator.SetupInitialYear(ctx, tenantID, schoolID, userID, nil); err != nil {
+			return "", "", fmt.Errorf("%w: setup initial academic year: %v", ErrInternal, err)
+		}
+	}
 
 	return sessionToken, role, nil
 }
@@ -897,6 +906,557 @@ func TestGenerateSlug(t *testing.T) {
 			}
 		})
 	}
+}
+
+// ============================================================================
+// Tests: Register — yearCreator.SetupInitialYear invocation
+// ============================================================================
+
+func TestRegister_CallsSetupInitialYear(t *testing.T) {
+	h := newTestHarness(t)
+
+	sessionRef := "550e8400-e29b-41d4-a716-446655440999"
+	h.cache.Set(fmt.Sprintf("%s%s:%s", istKeyPrefix, "test", sessionRef), "test_ist_value")
+
+	var (
+		capturedTenantID string
+		capturedSchoolID string
+		capturedActorID  string
+	)
+
+	h.svc.yearCreator = &mockYearCreator{
+		setupFn: func(ctx context.Context, tenantID, schoolID, actorID string, now *time.Time) error {
+			capturedTenantID = tenantID
+			capturedSchoolID = schoolID
+			capturedActorID = actorID
+			return nil
+		},
+	}
+
+	payload := RegistrationPayload{
+		SchoolName: "Setup Initial Year School",
+		SessionRef: sessionRef,
+		FullName:   "Jane Doe",
+	}
+
+	_, _, err := h.registerViaMocks(context.Background(), sessionRef, payload, "fp-setup-year")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if capturedTenantID == "" {
+		t.Fatal("expected SetupInitialYear to be called with a non-empty tenantID")
+	}
+	if capturedSchoolID == "" {
+		t.Fatal("expected SetupInitialYear to be called with a non-empty schoolID")
+	}
+	if capturedActorID == "" {
+		t.Fatal("expected SetupInitialYear to be called with a non-empty actorID")
+	}
+}
+
+func TestRegister_SetupInitialYearFailurePropagatesError(t *testing.T) {
+	h := newTestHarness(t)
+
+	sessionRef := "550e8400-e29b-41d4-a716-446655440998"
+	h.cache.Set(fmt.Sprintf("%s%s:%s", istKeyPrefix, "test", sessionRef), "test_ist_value")
+
+	h.svc.yearCreator = &mockYearCreator{
+		setupFn: func(ctx context.Context, tenantID, schoolID, actorID string, now *time.Time) error {
+			return fmt.Errorf("db write error")
+		},
+	}
+
+	payload := RegistrationPayload{
+		SchoolName: "Year Setup Fail School",
+		SessionRef: sessionRef,
+		FullName:   "John Doe",
+	}
+
+	_, _, err := h.registerViaMocks(context.Background(), sessionRef, payload, "fp-year-fail")
+	if err == nil {
+		t.Fatal("expected error when SetupInitialYear fails, got nil")
+	}
+	if !strings.Contains(err.Error(), "setup initial academic year") {
+		t.Fatalf("expected error about year setup, got: %v", err)
+	}
+}
+
+// ============================================================================
+// Tests: AcceptInvite (service-level mocks-based)
+// ============================================================================
+
+// acceptInviteViaMocks replicates the AcceptInvite flow through mocked
+// IDP + repo + cache, mirroring the registerViaMocks pattern.
+func (h *testHarness) acceptInviteViaMocks(ctx context.Context, token, deviceFingerprint string) (sessionToken, role, schoolID string, err error) {
+	// 1. Authenticate the Stytch magic-link token
+	ist, email, err := h.idp.AuthenticateInviteToken(ctx, token)
+	if err != nil {
+		return "", "", "", err
+	}
+
+	// 2. Look up the pending invitation
+	inv, err := h.repo.GetInvitationByEmail(ctx, email)
+	if err != nil {
+		return "", "", "", fmt.Errorf("%w: no pending invitation for email: %s", ErrExpiredToken, email)
+	}
+
+	// 3. Resolve the Stytch org ID from the tenant
+	stytchOrgID, err := h.repo.GetTenantStytchOrgID(ctx, inv.TenantID)
+	if err != nil {
+		return "", "", "", err
+	}
+
+	// 4. Exchange the IST for a full Stytch session (enforces MFA)
+	stytchSessionToken, err := h.idp.ExchangeInviteSession(ctx, ist, stytchOrgID)
+	if err != nil {
+		return "", "", "", err
+	}
+
+	// 5. Generate opaque session token
+	sessionToken = fmt.Sprintf("sess_accept_%d", time.Now().UnixNano())
+
+	// 6. Assemble args and persist via the repository transaction
+	args := CreateInvitedUserSessionArgs{
+		InvitationID:       inv.ID,
+		Email:              inv.Email,
+		TenantID:           inv.TenantID,
+		SchoolID:           inv.SchoolID,
+		Role:               inv.Role,
+		FullName:           inv.FullName,
+		ExternalAuthID:     inv.StytchMemberID,
+		SessionToken:       sessionToken,
+		StytchMemberID:     inv.StytchMemberID,
+		StytchOrgID:        stytchOrgID,
+		StytchSessionToken: stytchSessionToken,
+		DeviceFingerprint:  deviceFingerprint,
+		TSCNumber:          inv.RegistrationNumber,
+	}
+
+	if err := h.repo.CreateInvitedUserSession(ctx, args); err != nil {
+		return "", "", "", err
+	}
+
+	// 7. Cache session in mock cache
+	h.cache.Set(h.svc.sessionKey(sessionToken), stytchSessionToken)
+
+	return sessionToken, inv.Role, inv.SchoolID, nil
+}
+
+func TestAcceptInviteViaMocks_HappyPath(t *testing.T) {
+	h := newTestHarness(t)
+
+	h.idp.authenticateInviteTokenFn = func(ctx context.Context, token string) (string, string, error) {
+		return "ist_invite_001", "invited@example.com", nil
+	}
+
+	h.idp.exchangeInviteSessionFn = func(ctx context.Context, ist, orgID string) (string, error) {
+		return "sty_sess_invite_001", nil
+	}
+
+	h.repo.getInvitationByEmailFn = func(ctx context.Context, email string) (*Invitation, error) {
+		return &Invitation{
+			ID:             "invite_001",
+			TenantID:       "tenant_001",
+			SchoolID:       "school_001",
+			Role:           "TEACHER",
+			Email:          "invited@example.com",
+			FullName:       "Invited Teacher",
+			Status:         "pending",
+			StytchMemberID: "member_invited_001",
+			ExpiresAt:      time.Now().Add(24 * time.Hour),
+		}, nil
+	}
+
+	h.repo.getTenantStytchOrgIDFn = func(ctx context.Context, tenantID string) (string, error) {
+		return "org_invite_001", nil
+	}
+
+	var capturedArgs CreateInvitedUserSessionArgs
+	h.repo.createInvitedUserSessionFn = func(ctx context.Context, args CreateInvitedUserSessionArgs) error {
+		capturedArgs = args
+		return nil
+	}
+
+	sessionToken, role, schoolID, err := h.acceptInviteViaMocks(context.Background(), "valid_invite_token", "fp-invite")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if sessionToken == "" {
+		t.Fatal("expected non-empty session token")
+	}
+	if role != "TEACHER" {
+		t.Fatalf("expected role 'TEACHER', got %q", role)
+	}
+	if schoolID != "school_001" {
+		t.Fatalf("expected school_id 'school_001', got %q", schoolID)
+	}
+
+	// Verify the args passed to CreateInvitedUserSession are correct
+	if capturedArgs.InvitationID != "invite_001" {
+		t.Fatalf("expected InvitationID 'invite_001', got %q", capturedArgs.InvitationID)
+	}
+	if capturedArgs.Email != "invited@example.com" {
+		t.Fatalf("expected Email 'invited@example.com', got %q", capturedArgs.Email)
+	}
+	if capturedArgs.Role != "TEACHER" {
+		t.Fatalf("expected Role 'TEACHER', got %q", capturedArgs.Role)
+	}
+	if capturedArgs.StytchMemberID != "member_invited_001" {
+		t.Fatalf("expected StytchMemberID 'member_invited_001', got %q", capturedArgs.StytchMemberID)
+	}
+}
+
+func TestAcceptInviteViaMocks_NoInvitation(t *testing.T) {
+	h := newTestHarness(t)
+
+	h.idp.authenticateInviteTokenFn = func(ctx context.Context, token string) (string, string, error) {
+		return "ist_no_invite", "unknown@example.com", nil
+	}
+
+	h.repo.getInvitationByEmailFn = func(ctx context.Context, email string) (*Invitation, error) {
+		return nil, ErrNotFound
+	}
+
+	_, _, _, err := h.acceptInviteViaMocks(context.Background(), "some_token", "fp-no-invite")
+	if err == nil {
+		t.Fatal("expected error when no invitation exists, got nil")
+	}
+	if !errors.Is(err, ErrExpiredToken) {
+		t.Fatalf("expected ErrExpiredToken, got %v", err)
+	}
+}
+
+func TestAcceptInviteViaMocks_ExpiredInvitation(t *testing.T) {
+	h := newTestHarness(t)
+
+	h.idp.authenticateInviteTokenFn = func(ctx context.Context, token string) (string, string, error) {
+		return "ist_expired", "expired@example.com", nil
+	}
+
+	h.repo.getInvitationByEmailFn = func(ctx context.Context, email string) (*Invitation, error) {
+		return nil, ErrNotFound
+	}
+
+	_, _, _, err := h.acceptInviteViaMocks(context.Background(), "expired_token", "fp-expired")
+	if err == nil {
+		t.Fatal("expected error for expired invitation, got nil")
+	}
+	if !errors.Is(err, ErrExpiredToken) {
+		t.Fatalf("expected ErrExpiredToken, got %v", err)
+	}
+}
+
+func TestAcceptInviteViaMocks_StytchExchangeMFAFailure(t *testing.T) {
+	h := newTestHarness(t)
+
+	h.idp.authenticateInviteTokenFn = func(ctx context.Context, token string) (string, string, error) {
+		return "ist_mfa", "mfa@example.com", nil
+	}
+
+	h.repo.getInvitationByEmailFn = func(ctx context.Context, email string) (*Invitation, error) {
+		return &Invitation{
+			ID:             "invite_mfa",
+			TenantID:       "tenant_mfa",
+			SchoolID:       "school_mfa",
+			Role:           "TEACHER",
+			Email:          "mfa@example.com",
+			FullName:       "MFA Teacher",
+			Status:         "pending",
+			StytchMemberID: "member_mfa",
+			ExpiresAt:      time.Now().Add(24 * time.Hour),
+		}, nil
+	}
+
+	h.repo.getTenantStytchOrgIDFn = func(ctx context.Context, tenantID string) (string, error) {
+		return "org_mfa_001", nil
+	}
+
+	h.idp.exchangeInviteSessionFn = func(ctx context.Context, ist, orgID string) (string, error) {
+		return "", ErrMFARequired
+	}
+
+	_, _, _, err := h.acceptInviteViaMocks(context.Background(), "mfa_token", "fp-mfa")
+	if err == nil {
+		t.Fatal("expected ErrMFARequired, got nil")
+	}
+	if !errors.Is(err, ErrMFARequired) {
+		t.Fatalf("expected ErrMFARequired, got %v", err)
+	}
+}
+
+// ============================================================================
+// Tests: Verify — existing user signin (mocks-based, no Redis)
+// ============================================================================
+
+// verifyExistingUserViaMocks replicates the existing-user path of Verify
+// through mocked IDP + repo + cache, without touching Redis.
+func (h *testHarness) verifyExistingUserViaMocks(ctx context.Context, token, deviceFingerprint string) (*VerifyResult, error) {
+	// 1. Authenticate the discovery token with Stytch
+	ist, email, discoveredOrgs, err := h.idp.AuthenticateDiscoveryToken(ctx, token)
+	if err != nil {
+		return nil, err
+	}
+
+	// 2. Check for discovered organizations (existing Stytch memberships)
+	if len(discoveredOrgs) == 0 {
+		// New user path: cache IST in mock cache and return sessionRef
+		sessionRef := fmt.Sprintf("ref_%d", time.Now().UnixNano())
+		istKey := fmt.Sprintf("%stest:%s", istKeyPrefix, sessionRef)
+		h.cache.Set(istKey, ist)
+		return &VerifyResult{SessionRef: sessionRef, Email: email}, nil
+	}
+
+	// 3. Try each discovered org for a matching tenant + user in our DB
+	for _, org := range discoveredOrgs {
+		tenantID, err := h.repo.GetTenantByStytchOrgID(ctx, org.OrganizationID)
+		if err == nil && tenantID != "" {
+			userID, _, _, err := h.repo.GetUserByEmailAndTenant(ctx, email, tenantID)
+			if err == nil && userID != "" {
+				// Found matching tenant + user — exchange IST
+				exchangeResult, err := h.idp.ExchangeIntermediateSession(ctx, ist, org.OrganizationID)
+				if err != nil {
+					return nil, err
+				}
+				if !exchangeResult.MemberAuthenticated {
+					return nil, ErrMFARequired
+				}
+
+				// Generate session token and persist via repo
+				sessionToken := fmt.Sprintf("sess_existing_%d", time.Now().UnixNano())
+				sessionParams := CreateSessionParams{
+					Token:              sessionToken,
+					UserID:             userID,
+					TenantID:           tenantID,
+					StytchMemberID:     exchangeResult.MemberID,
+					StytchOrgID:        org.OrganizationID,
+					StytchSessionToken: exchangeResult.StytchSessionToken,
+					DeviceFingerprint:  deviceFingerprint,
+					ExpiresAt:          time.Now().Add(sessionTTL),
+				}
+				if err := h.repo.CreateSessionOnly(ctx, sessionParams); err != nil {
+					return nil, err
+				}
+
+				// Cache session in mock cache
+				h.cache.Set(h.svc.sessionKey(sessionToken), exchangeResult.StytchSessionToken)
+
+				// Retrieve the role from the session
+				session, err := h.repo.GetSessionByToken(ctx, sessionToken)
+				if err != nil {
+					return nil, err
+				}
+
+				return &VerifyResult{
+					SessionToken: sessionToken,
+					Role:         session.Role,
+					Email:        email,
+				}, nil
+			}
+		}
+	}
+
+	// 4. No matching org found — fall back to registration flow
+	sessionRef := fmt.Sprintf("ref_%d", time.Now().UnixNano())
+	istKey := fmt.Sprintf("%stest:%s", istKeyPrefix, sessionRef)
+	h.cache.Set(istKey, ist)
+	return &VerifyResult{SessionRef: sessionRef, Email: email}, nil
+}
+
+func TestVerifyViaMocks_ExistingUser_DiscoveredOrgWithMatchingTenant(t *testing.T) {
+	h := newTestHarness(t)
+
+	h.idp.authenticateDiscoveryTokenFn = func(ctx context.Context, token string) (string, string, []DiscoveredOrg, error) {
+		return "ist_existing", "existing@example.com", []DiscoveredOrg{
+			{
+				OrganizationID:      "org_existing_001",
+				OrganizationName:    "Existing School",
+				MemberID:            "member_existing_001",
+				MemberAuthenticated: true,
+			},
+		}, nil
+	}
+
+	h.repo.getTenantByStytchOrgIDFn = func(ctx context.Context, stytchOrgID string) (string, error) {
+		if stytchOrgID == "org_existing_001" {
+			return "tenant_existing_001", nil
+		}
+		return "", ErrNotFound
+	}
+
+	h.repo.getUserByEmailAndTenantFn = func(ctx context.Context, email, tenantID string) (string, string, string, error) {
+		if email == "existing@example.com" && tenantID == "tenant_existing_001" {
+			return "user_existing_001", "Existing User", "ext_auth_existing", nil
+		}
+		return "", "", "", ErrNotFound
+	}
+
+	h.repo.createSessionOnlyFn = func(ctx context.Context, params CreateSessionParams) error {
+		// No lock needed: CreateSessionOnly already holds m.mu.Lock.
+		h.repo.sessions[params.Token] = &UserSession{
+			Token:    params.Token,
+			UserID:   "user_existing_001",
+			TenantID: "tenant_existing_001",
+			Role:     "SCHOOL_ADMIN",
+		}
+		return nil
+	}
+
+	result, err := h.verifyExistingUserViaMocks(context.Background(), "existing_user_token", "fp-existing")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.SessionToken == "" {
+		t.Fatal("expected a non-empty SessionToken for existing user")
+	}
+	if result.SessionRef != "" {
+		t.Fatalf("expected empty SessionRef for existing user, got %q", result.SessionRef)
+	}
+	if result.Role != "SCHOOL_ADMIN" {
+		t.Fatalf("expected role 'SCHOOL_ADMIN', got %q", result.Role)
+	}
+	if result.Email != "existing@example.com" {
+		t.Fatalf("expected email 'existing@example.com', got %q", result.Email)
+	}
+}
+
+func TestVerifyViaMocks_ExistingUser_NoMatchingTenantFallsBackToRegistration(t *testing.T) {
+	h := newTestHarness(t)
+
+	h.idp.authenticateDiscoveryTokenFn = func(ctx context.Context, token string) (string, string, []DiscoveredOrg, error) {
+		return "ist_orphan", "orphan@example.com", []DiscoveredOrg{
+			{
+				OrganizationID:      "org_orphan_001",
+				OrganizationName:    "Orphan School",
+				MemberID:            "member_orphan_001",
+				MemberAuthenticated: true,
+			},
+		}, nil
+	}
+
+	h.repo.getTenantByStytchOrgIDFn = func(ctx context.Context, stytchOrgID string) (string, error) {
+		return "", ErrNotFound
+	}
+
+	result, err := h.verifyExistingUserViaMocks(context.Background(), "orphan_token", "fp-orphan")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.SessionRef == "" {
+		t.Fatal("expected non-empty SessionRef for registration fallback")
+	}
+	if result.SessionToken != "" {
+		t.Fatalf("expected empty SessionToken for registration fallback, got %q", result.SessionToken)
+	}
+}
+
+func TestVerifyViaMocks_ExistingUser_UserNotFoundInTenantFallsBackToRegistration(t *testing.T) {
+	h := newTestHarness(t)
+
+	h.idp.authenticateDiscoveryTokenFn = func(ctx context.Context, token string) (string, string, []DiscoveredOrg, error) {
+		return "ist_tenant_but_no_user", "newuser@example.com", []DiscoveredOrg{
+			{
+				OrganizationID:      "org_tenant_001",
+				OrganizationName:    "Known School",
+				MemberID:            "member_tenant_001",
+				MemberAuthenticated: true,
+			},
+		}, nil
+	}
+
+	h.repo.getTenantByStytchOrgIDFn = func(ctx context.Context, stytchOrgID string) (string, error) {
+		if stytchOrgID == "org_tenant_001" {
+			return "tenant_known_001", nil
+		}
+		return "", ErrNotFound
+	}
+
+	h.repo.getUserByEmailAndTenantFn = func(ctx context.Context, email, tenantID string) (string, string, string, error) {
+		return "", "", "", ErrNotFound
+	}
+
+	result, err := h.verifyExistingUserViaMocks(context.Background(), "new_user_existing_tenant_token", "fp-new-to-tenant")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.SessionRef == "" {
+		t.Fatal("expected non-empty SessionRef when user not found in tenant")
+	}
+	if result.SessionToken != "" {
+		t.Fatalf("expected empty SessionToken for registration fallback, got %q", result.SessionToken)
+	}
+}
+
+func TestVerifyViaMocks_ExistingUser_MFANotAuthenticated(t *testing.T) {
+	h := newTestHarness(t)
+
+	h.idp.authenticateDiscoveryTokenFn = func(ctx context.Context, token string) (string, string, []DiscoveredOrg, error) {
+		return "ist_mfa_existing", "mfaexisting@example.com", []DiscoveredOrg{
+			{
+				OrganizationID:      "org_mfa_002",
+				OrganizationName:    "MFA School",
+				MemberID:            "member_mfa_002",
+				MemberAuthenticated: false,
+			},
+		}, nil
+	}
+
+	h.repo.getTenantByStytchOrgIDFn = func(ctx context.Context, stytchOrgID string) (string, error) {
+		return "tenant_mfa_002", nil
+	}
+	h.repo.getUserByEmailAndTenantFn = func(ctx context.Context, email, tenantID string) (string, string, string, error) {
+		return "user_mfa_002", "MFA User", "ext_auth_mfa", nil
+	}
+
+	// Exchange returns MemberAuthenticated: false → MFA required
+	h.idp.exchangeIntermediateSessionFn = func(ctx context.Context, ist, orgID string) (ExchangeResult, error) {
+		return ExchangeResult{MemberAuthenticated: false}, nil
+	}
+
+	_, err := h.verifyExistingUserViaMocks(context.Background(), "mfa_existing_token", "fp-mfa-existing")
+	if err == nil {
+		t.Fatal("expected ErrMFARequired, got nil")
+	}
+	if !errors.Is(err, ErrMFARequired) {
+		t.Fatalf("expected ErrMFARequired, got %v", err)
+	}
+}
+
+func TestVerifyViaMocks_NewUser_NoDiscoveredOrgs(t *testing.T) {
+	h := newTestHarness(t)
+
+	h.idp.authenticateDiscoveryTokenFn = func(ctx context.Context, token string) (string, string, []DiscoveredOrg, error) {
+		return "ist_new_user", "newuser@example.com", nil, nil
+	}
+
+	result, err := h.verifyExistingUserViaMocks(context.Background(), "new_user_token", "fp-new")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.SessionRef == "" {
+		t.Fatal("expected non-empty SessionRef for new user")
+	}
+	if result.SessionToken != "" {
+		t.Fatalf("expected empty SessionToken for new user, got %q", result.SessionToken)
+	}
+	if result.Email != "newuser@example.com" {
+		t.Fatalf("expected email 'newuser@example.com', got %q", result.Email)
+	}
+}
+
+// ============================================================================
+// mockYearCreator — implements AcademicYearCreator for unit tests
+// ============================================================================
+
+type mockYearCreator struct {
+	setupFn func(ctx context.Context, tenantID, schoolID, actorID string, now *time.Time) error
+}
+
+func (m *mockYearCreator) SetupInitialYear(ctx context.Context, tenantID, schoolID, actorID string, now *time.Time) error {
+	if m.setupFn != nil {
+		return m.setupFn(ctx, tenantID, schoolID, actorID, now)
+	}
+	return nil
 }
 
 // ============================================================================

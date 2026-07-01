@@ -395,6 +395,8 @@ CREATE TABLE IF NOT EXISTS academic_terms (
     is_current       BOOLEAN      NOT NULL DEFAULT false,
     is_final         BOOLEAN      NOT NULL DEFAULT false,
     version          INTEGER      NOT NULL DEFAULT 1,
+    created_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     deleted_at       TIMESTAMPTZ,
     created_by       UUID         NOT NULL REFERENCES users(id),
     updated_by       UUID         NOT NULL REFERENCES users(id),
@@ -418,6 +420,11 @@ CREATE INDEX IF NOT EXISTS idx_academic_terms_year_id   ON academic_terms (acade
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_one_current_term_per_year
     ON academic_terms (academic_year_id) WHERE is_current = TRUE AND deleted_at IS NULL;
+
+DROP TRIGGER IF EXISTS trg_academic_terms_updated_at ON academic_terms;
+CREATE TRIGGER trg_academic_terms_updated_at
+    BEFORE UPDATE ON academic_terms
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_term_number_per_year
     ON academic_terms (academic_year_id, term_number)

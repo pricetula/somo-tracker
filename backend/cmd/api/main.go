@@ -39,6 +39,7 @@ import (
 	"somotracker/backend/internal/cbcschools"
 	"somotracker/backend/internal/cbcstreams"
 	"somotracker/backend/internal/config"
+	"somotracker/backend/internal/curriculum"
 	"somotracker/backend/internal/database"
 	"somotracker/backend/internal/imports"
 	"somotracker/backend/internal/invitations"
@@ -99,6 +100,7 @@ func main() {
 		tenant.Module,
 		cbcschools.Module,
 		cbcstreams.Module,
+		curriculum.Module,
 		cbcclasses.Module,
 		auth.Module,
 		invitations.Module,
@@ -208,6 +210,7 @@ func registerApp(
 	importsHandler *imports.Handler,
 	cbcschoolsHandler *cbcschools.Handler,
 	cbcstreamsHandler *cbcstreams.Handler,
+	curriculumHandler *curriculum.Handler,
 	cbcclassesHandler *cbcclasses.Handler,
 	activeschoolHandler *activeschool.Handler,
 	timetableHandler *timetable.Handler,
@@ -256,6 +259,7 @@ func registerApp(
 			cbcstreamsHandler.RegisterRoutes(app)
 			cbcclassesHandler.RegisterRoutes(app)
 			activeschoolHandler.RegisterRoutes(app)
+			curriculumHandler.RegisterRoutes(app)
 			timetableHandler.RegisterRoutes(app)
 			attendanceHandler.RegisterRoutes(app)
 			studentsHandler.RegisterRoutes(app)

@@ -9,6 +9,8 @@ output_example: |
   tooltipSummary: "Overview of new feature"
   ---
 
+---
+
 # Skill Task Loop
 1. Parse user input to extract feature scope.
 2. Draft a fresh file under `content/docs/[slug].mdx` containing `title`, `description`, and a plain-text `tooltipSummary`.

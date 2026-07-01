@@ -42,7 +42,12 @@ function createColumns(): ColumnDef<Student>[] {
             accessorKey: "full_name",
             header: "Full Name",
             cell: ({ row }) => (
-                <span className="text-sm font-medium">{row.original.full_name}</span>
+                <Link
+                    href={`/students/${row.original.id}`}
+                    className="text-sm font-medium text-sky-600 transition-colors hover:text-sky-700"
+                >
+                    {row.original.full_name}
+                </Link>
             ),
         },
         {
@@ -93,7 +98,7 @@ function createColumns(): ColumnDef<Student>[] {
         {
             id: "actions",
             header: "",
-            cell: () => (
+            cell: ({ row }) => (
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <Button
@@ -106,10 +111,12 @@ function createColumns(): ColumnDef<Student>[] {
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-36">
-                        {/* TODO: View student profile */}
-                        <DropdownMenuItem>View Profile</DropdownMenuItem>
-                        {/* TODO: Edit student details */}
-                        <DropdownMenuItem>Edit</DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                            <Link href={`/students/${row.original.id}`}>View Profile</Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                            <Link href={`/students/${row.original.id}/edit`}>Edit</Link>
+                        </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
             ),

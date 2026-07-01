@@ -2,31 +2,6 @@
 -- SomoTracker — Kenya CBC/CBE academic platform (CBC-only, v5)
 -- Drops all generic education system abstractions.
 -- Rebuilds as a purpose-built, single-system CBC schema.
---
--- Changes from original (v5 → v6):
---   BUG FIX  Line ~379 : idx_academic_terms_school_id targeted academic_years — fixed to academic_terms
---   BUG FIX  Layer order: cbc_learning_areas (Layer 5) moved before Layer 6 tables that FK-reference it
---   BUG FIX  fn_sync_invoice_payment_status split into 3 functions (insert/delete/update) to avoid
---            referencing absent transition tables per trigger event
---   BUG FIX  chk_term_number: dropped chk_academic_term_number before re-adding as chk_term_number to
---            prevent duplicate check constraints after the ALTER TABLE block
---   IMPROVE  school_member_counts: added IF NOT EXISTS (was the only table missing it)
---   IMPROVE  cbc_timetable_slots: added CHECK (end_time > start_time)
---   IMPROVE  learner_rubric_results.raw_score: added CHECK (raw_score >= 0)
---   IMPROVE  assessment_blueprints: added unique constraint on (school_id,title,type,grade_level,academic_year,term)
---   IMPROVE  cbc_classes: added created_at / updated_at + updated_at trigger
---   IMPROVE  academic_years: added created_at / updated_at (the ALTER block adds created_by/updated_by
---            but the base columns were absent)
---   IMPROVE  cbc_student_enrollments: added updated_at + updated_at trigger
---   IMPROVE  memberships: added updated_at + updated_at trigger
---   IMPROVE  import_jobs.status: changed from TEXT to import_job_status enum with valid values
---   IMPROVE  payments: added partial unique index on reference_code WHERE NOT NULL
---   IMPROVE  cbc_term_competency_summaries: added index on (student_id, learning_area_id)
---   IMPROVE  learner_rubric_results: added index on (session_id, student_id)
---   IMPROVE  trg_auto_register_subject_teacher: extended to clean up stale SUBJECT_TEACHER registrations
---            when teacher_id or cbc_learning_area_id changes on a timetable slot
---   IMPROVE  academic_terms.is_final: added COMMENT explaining its purpose
---   IMPROVE  cbc_attendance_periods.authorized_by_role: added COMMENT
 
 BEGIN;
 
@@ -368,8 +343,7 @@ COMMENT ON COLUMN cbc_schools.nemis_institution_code IS
 
 -- ---------------------------------------------------------------------------
 -- ACADEMIC YEARS
--- IMPROVE: added created_at / updated_at (were absent; ALTER block later adds
---          created_by/updated_by but the timestamp columns were never defined)
+-- IMPROVE: added created_at / updated_at and audit columns (version, deleted_at, created_by, updated_by)
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS academic_years (
@@ -382,8 +356,12 @@ CREATE TABLE IF NOT EXISTS academic_years (
     is_current BOOLEAN     NOT NULL DEFAULT false,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    version    INTEGER     NOT NULL DEFAULT 1,
+    deleted_at TIMESTAMPTZ,
+    created_by UUID        NOT NULL REFERENCES users(id),
+    updated_by UUID        NOT NULL REFERENCES users(id),
 
-    CONSTRAINT chk_academic_year_dates CHECK (end_date > start_date),
+    CONSTRAINT chk_year_dates CHECK (start_date < end_date),
     CONSTRAINT uq_academic_years_tenant UNIQUE (tenant_id, id),
     CONSTRAINT fk_academic_years_tenant_school
         FOREIGN KEY (tenant_id, school_id)
@@ -394,7 +372,7 @@ CREATE INDEX IF NOT EXISTS idx_academic_years_tenant_id ON academic_years (tenan
 CREATE INDEX IF NOT EXISTS idx_academic_years_school_id ON academic_years (school_id);
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_one_current_year_per_school
-    ON academic_years (school_id) WHERE is_current = true;
+    ON academic_years (school_id) WHERE is_current = TRUE AND deleted_at IS NULL;
 
 DROP TRIGGER IF EXISTS trg_academic_years_updated_at ON academic_years;
 CREATE TRIGGER trg_academic_years_updated_at
@@ -416,18 +394,21 @@ CREATE TABLE IF NOT EXISTS academic_terms (
     end_date         DATE         NOT NULL,
     is_current       BOOLEAN      NOT NULL DEFAULT false,
     is_final         BOOLEAN      NOT NULL DEFAULT false,
+    version          INTEGER      NOT NULL DEFAULT 1,
+    deleted_at       TIMESTAMPTZ,
+    created_by       UUID         NOT NULL REFERENCES users(id),
+    updated_by       UUID         NOT NULL REFERENCES users(id),
 
-    CONSTRAINT chk_academic_term_dates  CHECK (end_date > start_date),
-    CONSTRAINT chk_term_number          CHECK (term_number BETWEEN 1 AND 3),
+    CONSTRAINT chk_term_dates   CHECK (start_date < end_date),
+    CONSTRAINT chk_term_number  CHECK (term_number BETWEEN 1 AND 3),
     CONSTRAINT uq_academic_terms_tenant        UNIQUE (tenant_id, id),
     CONSTRAINT uq_academic_terms_tenant_school UNIQUE (tenant_id, school_id, id),
-    CONSTRAINT uq_academic_year_term_number    UNIQUE (academic_year_id, term_number),
     CONSTRAINT fk_academic_terms_tenant_school
         FOREIGN KEY (tenant_id, school_id)
         REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_academic_terms_tenant_year
         FOREIGN KEY (tenant_id, academic_year_id)
-        REFERENCES academic_years(tenant_id, id) ON DELETE CASCADE
+        REFERENCES academic_years(tenant_id, id) ON DELETE RESTRICT
 );
 
 CREATE INDEX IF NOT EXISTS idx_academic_terms_tenant_id ON academic_terms (tenant_id);
@@ -436,7 +417,11 @@ CREATE INDEX IF NOT EXISTS idx_academic_terms_school_id ON academic_terms (schoo
 CREATE INDEX IF NOT EXISTS idx_academic_terms_year_id   ON academic_terms (academic_year_id);
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_one_current_term_per_year
-    ON academic_terms (academic_year_id) WHERE is_current = true;
+    ON academic_terms (academic_year_id) WHERE is_current = TRUE AND deleted_at IS NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_term_number_per_year
+    ON academic_terms (academic_year_id, term_number)
+    WHERE deleted_at IS NULL;
 
 COMMENT ON COLUMN academic_terms.term_number IS
     'Kenya CBC operates a 3-term academic year. term_number enforces this:
@@ -1913,82 +1898,6 @@ COMMENT ON TABLE member_active_school IS
     'Tracks the currently active school context for each user within a tenant.
      One row per user. Upsert on school switch. The chosen school_id is
      constrained to schools the user is an active member of via fk_mas_membership.';
-
--- ============================================================================
--- ACADEMIC CALENDAR ENHANCEMENTS (2026-06-26)
---   - Optimistic locking, soft delete, audit trail
---   - Updated partial unique indexes for soft-delete awareness
---   - FK changed to RESTRICT (CASCADE incompatible with soft delete)
--- ============================================================================
-
--- ---------------------------------------------------------------------------
--- ACADEMIC YEARS — Add versioning, soft delete, audit columns
--- ---------------------------------------------------------------------------
-
-ALTER TABLE academic_years
-  ADD COLUMN IF NOT EXISTS version    INTEGER     NOT NULL DEFAULT 1,
-  ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ,
-  ADD COLUMN IF NOT EXISTS created_by UUID        NOT NULL REFERENCES users(id),
-  ADD COLUMN IF NOT EXISTS updated_by UUID        NOT NULL REFERENCES users(id);
-
--- Drop the old partial unique index and replace with one that excludes
--- soft-deleted rows.
-DROP INDEX IF EXISTS idx_one_current_year_per_school;
-CREATE UNIQUE INDEX IF NOT EXISTS idx_one_current_year_per_school
-    ON academic_years (school_id)
-    WHERE is_current = TRUE AND deleted_at IS NULL;
-
--- Rename / normalise the check constraint
-ALTER TABLE academic_years
-  DROP CONSTRAINT IF EXISTS chk_academic_year_dates,
-  ADD CONSTRAINT chk_year_dates CHECK (start_date < end_date);
-
--- ---------------------------------------------------------------------------
--- ACADEMIC TERMS — Add versioning, soft delete, audit columns
--- ---------------------------------------------------------------------------
-
-ALTER TABLE academic_terms
-  ADD COLUMN IF NOT EXISTS version    INTEGER     NOT NULL DEFAULT 1,
-  ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ,
-  ADD COLUMN IF NOT EXISTS created_by UUID        NOT NULL REFERENCES users(id),
-  ADD COLUMN IF NOT EXISTS updated_by UUID        NOT NULL REFERENCES users(id);
-
--- Drop old partial unique index on current term, replace with soft-delete-aware
-DROP INDEX IF EXISTS idx_one_current_term_per_year;
-CREATE UNIQUE INDEX IF NOT EXISTS idx_one_current_term_per_year
-    ON academic_terms (academic_year_id)
-    WHERE is_current = TRUE AND deleted_at IS NULL;
-
--- Drop old full unique constraint on (academic_year_id, term_number) and
--- replace with a partial unique index that excludes soft-deleted rows.
-ALTER TABLE academic_terms
-  DROP CONSTRAINT IF EXISTS uq_academic_year_term_number;
-CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_term_number_per_year
-    ON academic_terms (academic_year_id, term_number)
-    WHERE deleted_at IS NULL;
-
--- Normalise check constraint names
-ALTER TABLE academic_terms
-  DROP CONSTRAINT IF EXISTS chk_academic_term_dates,
-  ADD CONSTRAINT chk_term_dates CHECK (start_date < end_date);
-
--- BUG FIX: The original dropped chk_academic_term_number but re-added as
--- chk_term_number without first dropping the base-table chk_term_number that
--- this migration already created above. Drop both old names before re-adding.
-ALTER TABLE academic_terms
-  DROP CONSTRAINT IF EXISTS chk_academic_term_number,
-  DROP CONSTRAINT IF EXISTS chk_term_number;
-
-ALTER TABLE academic_terms
-  ADD CONSTRAINT chk_term_number CHECK (term_number BETWEEN 1 AND 3);
-
--- Change FK from CASCADE to RESTRICT (soft-delete replaces cascade deletion)
-ALTER TABLE academic_terms
-  DROP CONSTRAINT IF EXISTS fk_academic_terms_tenant_year,
-  ADD CONSTRAINT fk_academic_terms_tenant_year
-    FOREIGN KEY (tenant_id, academic_year_id)
-    REFERENCES academic_years(tenant_id, id)
-    ON DELETE RESTRICT;
 
 -- ============================================================================
 -- END OF MIGRATION

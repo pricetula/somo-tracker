@@ -32,6 +32,7 @@ import (
 
 	"somotracker/backend/internal/academicyears"
 	"somotracker/backend/internal/activeschool"
+	"somotracker/backend/internal/assessment"
 	"somotracker/backend/internal/attendance"
 	"somotracker/backend/internal/auth"
 	"somotracker/backend/internal/billing"
@@ -45,7 +46,10 @@ import (
 	"somotracker/backend/internal/invitations"
 	"somotracker/backend/internal/members"
 	"somotracker/backend/internal/middleware"
+	"somotracker/backend/internal/parents"
+	"somotracker/backend/internal/portfolio"
 	"somotracker/backend/internal/students"
+	"somotracker/backend/internal/summaries"
 	"somotracker/backend/internal/teachers"
 	"somotracker/backend/internal/tenant"
 	"somotracker/backend/internal/timetable"
@@ -110,7 +114,11 @@ func main() {
 		timetable.Module,
 		attendance.Module,
 		billing.Module,
+		parents.Module,
 		students.Module,
+		assessment.Module,
+		portfolio.Module,
+		summaries.Module,
 
 		// Cross-domain interface wiring: school resolver from members,
 		// school creator from cbcschools.
@@ -126,6 +134,9 @@ func main() {
 			},
 			func(svc *academicyears.Service) auth.AcademicYearCreator {
 				return svc
+			},
+			func(repo curriculum.Repository) assessment.LearningAreaResolver {
+				return repo
 			},
 		),
 		imports.AsynqModule,
@@ -205,6 +216,7 @@ func registerApp(
 	tenantHandler *tenant.Handler,
 	authHandler *auth.Handler,
 	academicYearsHandler *academicyears.Handler,
+	assessmentHandler *assessment.Handler,
 	invitationsHandler *invitations.Handler,
 	membersHandler *members.Handler,
 	importsHandler *imports.Handler,
@@ -216,6 +228,9 @@ func registerApp(
 	timetableHandler *timetable.Handler,
 	attendanceHandler *attendance.Handler,
 	studentsHandler *students.Handler,
+	parentsHandler *parents.Handler,
+	portfolioHandler *portfolio.Handler,
+	summariesHandler *summaries.Handler,
 	teachersHandler *teachers.Handler,
 	billingHandler *billing.Handler,
 ) {
@@ -252,6 +267,7 @@ func registerApp(
 			tenantHandler.RegisterRoutes(app)
 			authHandler.RegisterRoutes(app)
 			academicYearsHandler.RegisterRoutes(app)
+			assessmentHandler.RegisterRoutes(app)
 			membersHandler.RegisterRoutes(app)
 			invitationsHandler.RegisterRoutes(app)
 			importsHandler.RegisterRoutes(app)
@@ -263,6 +279,9 @@ func registerApp(
 			timetableHandler.RegisterRoutes(app)
 			attendanceHandler.RegisterRoutes(app)
 			studentsHandler.RegisterRoutes(app)
+			parentsHandler.RegisterRoutes(app)
+			portfolioHandler.RegisterRoutes(app)
+			summariesHandler.RegisterRoutes(app)
 			teachersHandler.RegisterRoutes(app)
 			billingHandler.RegisterRoutes(app)
 

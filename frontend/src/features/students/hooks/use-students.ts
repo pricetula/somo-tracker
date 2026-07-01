@@ -8,8 +8,8 @@
 
 import { useQuery } from "@tanstack/react-query";
 
-import { listStudents } from "../services/students-api";
-import type { ListStudentsParams } from "../types";
+import { listStudents } from "@/lib/api/students";
+import type { ListStudentsParams, ListStudentsResponse } from "@/lib/api/students";
 
 // ─── Query keys ───────────────────────────────────────────────────────────
 
@@ -29,7 +29,7 @@ export function useStudents(params: ListStudentsParams = {}, opts: { enabled?: b
     const { page = 1, limit = 50, search, class_id, gender } = params;
     const { enabled = true } = opts;
 
-    return useQuery({
+    return useQuery<ListStudentsResponse>({
         queryKey: studentKeys.list({ page, limit, search, class_id, gender }),
         queryFn: () => listStudents({ page, limit, search, class_id, gender }),
         placeholderData: (prev) => prev,

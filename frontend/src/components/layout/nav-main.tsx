@@ -13,7 +13,13 @@ import {
     SidebarMenuSubButton,
     SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
-import { LayoutDashboardIcon, UsersIcon, Settings2Icon, ChevronRightIcon } from "lucide-react";
+import {
+    LayoutDashboardIcon,
+    UsersIcon,
+    Settings2Icon,
+    ChevronRightIcon,
+    BookOpenIcon,
+} from "lucide-react";
 
 interface NavItem {
     title: string;
@@ -25,15 +31,27 @@ interface NavItem {
 
 function buildNavItems(role: string): NavItem[] {
     const isAdmin = role === "SCHOOL_ADMIN" || role === "SYSTEM_ADMIN";
+    const canAccessCurriculum = isAdmin || role === "TEACHER";
+
+    const items: NavItem[] = [
+        {
+            title: "Dashboard",
+            url: "/",
+            icon: <LayoutDashboardIcon className="size-4" />,
+            isActive: true,
+        },
+    ];
+
+    if (canAccessCurriculum) {
+        items.push({
+            title: "Curriculum",
+            url: "/curriculum",
+            icon: <BookOpenIcon className="size-4" />,
+        });
+    }
 
     if (isAdmin) {
-        return [
-            {
-                title: "Dashboard",
-                url: "/",
-                icon: <LayoutDashboardIcon className="size-4" />,
-                isActive: true,
-            },
+        items.push(
             {
                 title: "Members",
                 url: "#",
@@ -51,19 +69,11 @@ function buildNavItems(role: string): NavItem[] {
                 url: "#",
                 icon: <Settings2Icon className="size-4" />,
                 items: [{ title: "General", url: "/settings" }],
-            },
-        ];
+            }
+        );
     }
 
-    // Default for non-admin roles
-    return [
-        {
-            title: "Dashboard",
-            url: "/",
-            icon: <LayoutDashboardIcon className="size-4" />,
-            isActive: true,
-        },
-    ];
+    return items;
 }
 
 export function NavMain({ role }: { role: string }) {

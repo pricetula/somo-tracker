@@ -26,33 +26,24 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	fiberrecover "github.com/gofiber/fiber/v2/middleware/recover"
-	"github.com/hibiken/asynq"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 
 	"somotracker/backend/internal/academicyears"
-	"somotracker/backend/internal/activeschool"
 	"somotracker/backend/internal/assessment"
-	"somotracker/backend/internal/attendance"
 	"somotracker/backend/internal/auth"
 	"somotracker/backend/internal/billing"
 	"somotracker/backend/internal/cbcclasses"
 	"somotracker/backend/internal/cbcschools"
-	"somotracker/backend/internal/cbcstreams"
 	"somotracker/backend/internal/config"
 	"somotracker/backend/internal/curriculum"
 	"somotracker/backend/internal/database"
-	"somotracker/backend/internal/imports"
 	"somotracker/backend/internal/invitations"
 	"somotracker/backend/internal/members"
 	"somotracker/backend/internal/middleware"
 	"somotracker/backend/internal/parents"
-	"somotracker/backend/internal/portfolio"
 	"somotracker/backend/internal/students"
-	"somotracker/backend/internal/summaries"
 	"somotracker/backend/internal/teachers"
-	"somotracker/backend/internal/tenant"
-	"somotracker/backend/internal/timetable"
 	"somotracker/backend/internal/utils"
 )
 
@@ -101,32 +92,22 @@ func main() {
 		database.Module,
 		utils.Module,
 		academicyears.Module,
-		tenant.Module,
-		cbcschools.Module,
-		cbcstreams.Module,
-		curriculum.Module,
-		cbcclasses.Module,
 		auth.Module,
-		invitations.Module,
-		members.Module,
-		teachers.Module,
-		activeschool.Module,
-		timetable.Module,
-		attendance.Module,
+		cbcschools.Module,
+		cbcclasses.Module,
+		curriculum.Module,
 		billing.Module,
 		parents.Module,
 		students.Module,
+		teachers.Module,
+		invitations.Module,
+		members.Module,
 		assessment.Module,
-		portfolio.Module,
-		summaries.Module,
 
 		// Cross-domain interface wiring: school resolver from members,
 		// school creator from cbcschools.
 		fx.Provide(
 			func(repo members.Repository) invitations.SchoolResolver {
-				return repo
-			},
-			func(repo members.Repository) imports.SchoolResolver {
 				return repo
 			},
 			func(repo cbcschools.Repository) auth.SchoolCreator {
@@ -139,14 +120,10 @@ func main() {
 				return repo
 			},
 		),
-		imports.AsynqModule,
-		imports.AsynqServerModule,
-		imports.Module,
 
 		fx.Provide(newLogger),
 		fx.Invoke(runMigrations),
 		fx.Invoke(registerApp),
-		fx.Invoke(startAsynqWorker),
 		fx.Invoke(consumeSafeClient),
 	).Run()
 }
@@ -164,31 +141,6 @@ func errToStatus(err error) string {
 		return "healthy"
 	}
 	return "unhealthy: " + err.Error()
-}
-
-// startAsynqWorker starts the Asynq background worker for import processing.
-func startAsynqWorker(lc fx.Lifecycle, asynqServer *asynq.Server, importWorker *imports.Worker, logger *zap.Logger) {
-	// Register the import processor handler
-	mux := asynq.NewServeMux()
-	mux.HandleFunc(imports.TypeProcessImport, importWorker.ProcessImport)
-	mux.HandleFunc(imports.TypeProcessStudents, importWorker.ProcessStudentImport)
-
-	lc.Append(fx.Hook{
-		OnStart: func(ctx context.Context) error {
-			go func() {
-				logger.Info("starting asynq worker")
-				if err := asynqServer.Start(mux); err != nil {
-					logger.Error("asynq server error", zap.Error(err))
-				}
-			}()
-			return nil
-		},
-		OnStop: func(ctx context.Context) error {
-			logger.Info("shutting down asynq worker")
-			asynqServer.Shutdown()
-			return nil
-		},
-	})
 }
 
 func consumeSafeClient(client *http.Client) {
@@ -213,24 +165,14 @@ func registerApp(
 	lc fx.Lifecycle,
 	cfg config.Config,
 	pools *database.Pools,
-	tenantHandler *tenant.Handler,
 	authHandler *auth.Handler,
 	academicYearsHandler *academicyears.Handler,
 	assessmentHandler *assessment.Handler,
 	invitationsHandler *invitations.Handler,
 	membersHandler *members.Handler,
-	importsHandler *imports.Handler,
-	cbcschoolsHandler *cbcschools.Handler,
-	cbcstreamsHandler *cbcstreams.Handler,
 	curriculumHandler *curriculum.Handler,
-	cbcclassesHandler *cbcclasses.Handler,
-	activeschoolHandler *activeschool.Handler,
-	timetableHandler *timetable.Handler,
-	attendanceHandler *attendance.Handler,
 	studentsHandler *students.Handler,
 	parentsHandler *parents.Handler,
-	portfolioHandler *portfolio.Handler,
-	summariesHandler *summaries.Handler,
 	teachersHandler *teachers.Handler,
 	billingHandler *billing.Handler,
 ) {
@@ -264,24 +206,14 @@ func registerApp(
 			})
 
 			// Mount domain routes
-			tenantHandler.RegisterRoutes(app)
 			authHandler.RegisterRoutes(app)
 			academicYearsHandler.RegisterRoutes(app)
 			assessmentHandler.RegisterRoutes(app)
 			membersHandler.RegisterRoutes(app)
 			invitationsHandler.RegisterRoutes(app)
-			importsHandler.RegisterRoutes(app)
-			cbcschoolsHandler.RegisterRoutes(app)
-			cbcstreamsHandler.RegisterRoutes(app)
-			cbcclassesHandler.RegisterRoutes(app)
-			activeschoolHandler.RegisterRoutes(app)
 			curriculumHandler.RegisterRoutes(app)
-			timetableHandler.RegisterRoutes(app)
-			attendanceHandler.RegisterRoutes(app)
 			studentsHandler.RegisterRoutes(app)
 			parentsHandler.RegisterRoutes(app)
-			portfolioHandler.RegisterRoutes(app)
-			summariesHandler.RegisterRoutes(app)
 			teachersHandler.RegisterRoutes(app)
 			billingHandler.RegisterRoutes(app)
 

@@ -31,14 +31,11 @@ import (
 	"go.uber.org/zap"
 
 	"somotracker/backend/internal/academicyears"
-	"somotracker/backend/internal/activeschool"
 	"somotracker/backend/internal/assessment"
-	"somotracker/backend/internal/attendance"
 	"somotracker/backend/internal/auth"
 	"somotracker/backend/internal/billing"
 	"somotracker/backend/internal/cbcclasses"
 	"somotracker/backend/internal/cbcschools"
-	"somotracker/backend/internal/cbcstreams"
 	"somotracker/backend/internal/config"
 	"somotracker/backend/internal/curriculum"
 	"somotracker/backend/internal/database"
@@ -47,12 +44,8 @@ import (
 	"somotracker/backend/internal/members"
 	"somotracker/backend/internal/middleware"
 	"somotracker/backend/internal/parents"
-	"somotracker/backend/internal/portfolio"
 	"somotracker/backend/internal/students"
-	"somotracker/backend/internal/summaries"
 	"somotracker/backend/internal/teachers"
-	"somotracker/backend/internal/tenant"
-	"somotracker/backend/internal/timetable"
 	"somotracker/backend/internal/utils"
 )
 
@@ -101,24 +94,17 @@ func main() {
 		database.Module,
 		utils.Module,
 		academicyears.Module,
-		tenant.Module,
-		cbcschools.Module,
-		cbcstreams.Module,
-		curriculum.Module,
-		cbcclasses.Module,
 		auth.Module,
-		invitations.Module,
-		members.Module,
-		teachers.Module,
-		activeschool.Module,
-		timetable.Module,
-		attendance.Module,
+		cbcschools.Module,
+		cbcclasses.Module,
+		curriculum.Module,
 		billing.Module,
 		parents.Module,
 		students.Module,
+		teachers.Module,
+		invitations.Module,
+		members.Module,
 		assessment.Module,
-		portfolio.Module,
-		summaries.Module,
 
 		// Cross-domain interface wiring: school resolver from members,
 		// school creator from cbcschools.
@@ -213,24 +199,15 @@ func registerApp(
 	lc fx.Lifecycle,
 	cfg config.Config,
 	pools *database.Pools,
-	tenantHandler *tenant.Handler,
 	authHandler *auth.Handler,
 	academicYearsHandler *academicyears.Handler,
 	assessmentHandler *assessment.Handler,
 	invitationsHandler *invitations.Handler,
 	membersHandler *members.Handler,
 	importsHandler *imports.Handler,
-	cbcschoolsHandler *cbcschools.Handler,
-	cbcstreamsHandler *cbcstreams.Handler,
 	curriculumHandler *curriculum.Handler,
-	cbcclassesHandler *cbcclasses.Handler,
-	activeschoolHandler *activeschool.Handler,
-	timetableHandler *timetable.Handler,
-	attendanceHandler *attendance.Handler,
 	studentsHandler *students.Handler,
 	parentsHandler *parents.Handler,
-	portfolioHandler *portfolio.Handler,
-	summariesHandler *summaries.Handler,
 	teachersHandler *teachers.Handler,
 	billingHandler *billing.Handler,
 ) {
@@ -264,24 +241,15 @@ func registerApp(
 			})
 
 			// Mount domain routes
-			tenantHandler.RegisterRoutes(app)
 			authHandler.RegisterRoutes(app)
 			academicYearsHandler.RegisterRoutes(app)
 			assessmentHandler.RegisterRoutes(app)
 			membersHandler.RegisterRoutes(app)
 			invitationsHandler.RegisterRoutes(app)
 			importsHandler.RegisterRoutes(app)
-			cbcschoolsHandler.RegisterRoutes(app)
-			cbcstreamsHandler.RegisterRoutes(app)
-			cbcclassesHandler.RegisterRoutes(app)
-			activeschoolHandler.RegisterRoutes(app)
 			curriculumHandler.RegisterRoutes(app)
-			timetableHandler.RegisterRoutes(app)
-			attendanceHandler.RegisterRoutes(app)
 			studentsHandler.RegisterRoutes(app)
 			parentsHandler.RegisterRoutes(app)
-			portfolioHandler.RegisterRoutes(app)
-			summariesHandler.RegisterRoutes(app)
 			teachersHandler.RegisterRoutes(app)
 			billingHandler.RegisterRoutes(app)
 

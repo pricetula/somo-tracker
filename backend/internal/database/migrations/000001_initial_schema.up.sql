@@ -710,6 +710,7 @@ CREATE TABLE IF NOT EXISTS cbc_students (
     date_of_birth          DATE                 NULL,
     upi_number             VARCHAR(20)          NULL,
     knec_assessment_number VARCHAR(15)          NULL,
+    admission_number       VARCHAR(20)          NULL,
     learning_pathway       cbc_learning_pathway NOT NULL DEFAULT 'Age_Based',
     is_active              BOOLEAN              NOT NULL DEFAULT true,
     created_at             TIMESTAMPTZ          NOT NULL DEFAULT NOW(),

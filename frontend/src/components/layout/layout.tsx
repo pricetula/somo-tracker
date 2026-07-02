@@ -22,7 +22,7 @@ export function AppLayout({ children }: AppLayoutProps) {
                         <SmartBreadcrumb />
                     </div>
                 </header>
-                <div className="flex flex-1 flex-col">{children}</div>
+                <div className="px-6">{children}</div>
             </SidebarInset>
         </SidebarProvider>
     );

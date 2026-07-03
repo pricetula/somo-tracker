@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { submitStudentImport, getImportJob } from "@/lib/api/imports";
 import { getErrorMessage } from "@/lib/errors";
 import type { ImportJobStatus, ImportRow } from "@/lib/api/imports";
-import { DataTable } from "@/components/shared/data-table/DataTable";
+import { StudentsTable } from "@/features/students/components/students-table";
 
 // ─── Status badge variant mapping ────────────────────────────────────────
 
@@ -227,7 +227,7 @@ export function SchoolAdminDashboardPage() {
                 </p>
             </div>
 
-            <DataTable />
+            <StudentsTable />
 
             {/* ── Bulk Student Import ── */}
             <section className="space-y-4">

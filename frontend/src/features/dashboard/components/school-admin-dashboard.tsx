@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { submitStudentImport, getImportJob } from "@/lib/api/imports";
 import { getErrorMessage } from "@/lib/errors";
 import type { ImportJobStatus, ImportRow } from "@/lib/api/imports";
+import { DataTable } from "@/components/shared/data-table/DataTable";
 
 // ─── Status badge variant mapping ────────────────────────────────────────
 
@@ -225,6 +226,8 @@ export function SchoolAdminDashboardPage() {
                     Welcome to SomoTracker. Manage your school, members, and settings.
                 </p>
             </div>
+
+            <DataTable />
 
             {/* ── Bulk Student Import ── */}
             <section className="space-y-4">

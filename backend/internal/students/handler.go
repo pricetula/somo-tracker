@@ -47,7 +47,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	students.Get("/:id/enrollments", middleware.RequireAuth, h.ListEnrollments)
 
 	// Bulk import
-	students.Post("/import", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN"), h.BulkImport)
+	students.Post("/import", middleware.RequireAuth, h.BulkImport)
 }
 
 // ============================================================================

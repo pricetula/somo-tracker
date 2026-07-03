@@ -1,22 +1,37 @@
 package students
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 
+	"somotracker/backend/internal/imports"
 	"somotracker/backend/internal/middleware"
 )
 
+// importServiceAdapter is the subset of imports.Service that the handler uses.
+type importServiceAdapter interface {
+	CreateJob(ctx context.Context, req imports.CreateJobRequest) (*imports.CreateJobResponse, error)
+}
+
 // Handler exposes student HTTP endpoints.
 type Handler struct {
-	svc *Service
+	svc    *Service
+	impSvc importServiceAdapter
 }
 
 // NewHandler creates a new Handler.
 func NewHandler(svc *Service) *Handler {
 	return &Handler{svc: svc}
+}
+
+// SetImportService sets the import service reference.
+func (h *Handler) SetImportService(impSvc importServiceAdapter) {
+	h.impSvc = impSvc
 }
 
 // RegisterRoutes mounts student routes on the given router.
@@ -30,6 +45,9 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	// Enrollments (nested under students)
 	students.Post("/:id/enrollments", middleware.RequireAuth, h.CreateEnrollment)
 	students.Get("/:id/enrollments", middleware.RequireAuth, h.ListEnrollments)
+
+	// Bulk import
+	students.Post("/import", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN"), h.BulkImport)
 }
 
 // ============================================================================
@@ -47,6 +65,113 @@ func writeError(c *fiber.Ctx, status int, code, message string, fieldErrors map[
 		Code:    code,
 		Message: message,
 		Errors:  fieldErrors,
+	})
+}
+
+// ─── Bulk Import ───────────────────────────────────────────────────────────
+
+// BulkImport handles POST /api/v1/students/import.
+func (h *Handler) BulkImport(c *fiber.Ctx) error {
+	tenantID := c.Locals("tenant_id").(string)
+	schoolID, _ := c.Locals("active_school_id").(string)
+	if schoolID == "" {
+		schoolID = c.Locals("school_id").(string)
+	}
+	if schoolID == "" {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input", "active school not set", nil)
+	}
+	userID := c.Locals("user_id").(string)
+
+	tenantUUID, err := uuid.Parse(tenantID)
+	if err != nil {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input", "invalid tenant", nil)
+	}
+	schoolUUID, err := uuid.Parse(schoolID)
+	if err != nil {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input", "invalid school", nil)
+	}
+	userUUID, err := uuid.Parse(userID)
+	if err != nil {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input", "invalid user", nil)
+	}
+
+	var body ImportRequest
+	if err := c.BodyParser(&body); err != nil {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input", "malformed request body", nil)
+	}
+
+	// Validate academic_term_id is present
+	if body.AcademicTermID == "" {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input", "academic_term_id is required",
+			map[string][]string{"academic_term_id": {"Academic term ID is required"}})
+	}
+
+	// Validate at least one row
+	if len(body.Rows) == 0 {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input", "rows array must not be empty",
+			map[string][]string{"rows": {"At least one row is required"}})
+	}
+
+	// Validate that the academic term exists and belongs to this school
+	repo := h.svc.GetRepo()
+	if repo == nil {
+		return writeError(c, fiber.StatusInternalServerError, "internal_error", "repository not available", nil)
+	}
+	termValid, err := repo.ValidateAcademicTerm(c.Context(), tenantID, schoolID, body.AcademicTermID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	if !termValid {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input",
+			"academic term not found, is deleted, or belongs to a different school",
+			map[string][]string{"academic_term_id": {"Invalid academic term"}})
+	}
+
+	// Need the academic year ID — look it up from the term
+	academicYearID, err := repo.GetAcademicYearIDForTerm(c.Context(), tenantID, schoolID, body.AcademicTermID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	// Build metadata with academic context
+	meta := map[string]string{
+		"academic_term_id": body.AcademicTermID,
+		"academic_year_id": academicYearID,
+	}
+	metaJSON, _ := json.Marshal(meta)
+
+	// Build raw rows for the import engine
+	rawRows := make([]json.RawMessage, len(body.Rows))
+	for i, row := range body.Rows {
+		data, _ := json.Marshal(row)
+		rawRows[i] = json.RawMessage(data)
+	}
+
+	// Create the import job via the engine
+	req := imports.CreateJobRequest{
+		TenantID:       tenantUUID,
+		SchoolID:       schoolUUID,
+		JobType:        imports.ImportJobTypeStudentImport,
+		CreatedBy:      userUUID,
+		Rows:           rawRows,
+		IDempotencyKey: body.IDempotencyKey,
+		Metadata:       metaJSON,
+	}
+
+	resp, err := h.impSvc.CreateJob(c.Context(), req)
+	if err != nil {
+		if errors.Is(err, imports.ErrDuplicateJob) {
+			return writeError(c, fiber.StatusConflict, "duplicate_import",
+				"A job with this idempotency key already exists.", nil)
+		}
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(ImportResponse{
+		JobID:        resp.JobID.String(),
+		TotalRecords: resp.TotalRecords,
+		TotalChunks:  resp.TotalChunks,
+		Status:       string(resp.Status),
 	})
 }
 

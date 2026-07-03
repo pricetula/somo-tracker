@@ -9,12 +9,23 @@ import (
 
 // Service implements student business logic.
 type Service struct {
-	repo StudentRepository
+	repo       StudentRepository
+	importRepo ImportRepository
 }
 
 // NewService creates a new Service.
 func NewService(repo StudentRepository) *Service {
 	return &Service{repo: repo}
+}
+
+// GetRepo returns the repository for advanced operations (import pre-checks).
+func (s *Service) GetRepo() ImportRepository {
+	return s.importRepo
+}
+
+// SetImportRepo sets the import repository (called during DI wiring).
+func (s *Service) SetImportRepo(repo ImportRepository) {
+	s.importRepo = repo
 }
 
 // ─── List ─────────────────────────────────────────────────────────────────

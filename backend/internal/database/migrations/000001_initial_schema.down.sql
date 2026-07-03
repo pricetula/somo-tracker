@@ -140,6 +140,9 @@ DROP TABLE IF EXISTS tenants CASCADE;
 -- ENUMS
 -- ============================================================================
 
+DROP TYPE IF EXISTS import_failure_type CASCADE;
+DROP TYPE IF EXISTS import_staging_status CASCADE;
+DROP TYPE IF EXISTS import_job_type CASCADE;
 DROP TYPE IF EXISTS cbc_enrollment_status CASCADE;
 DROP TYPE IF EXISTS invitation_status CASCADE;
 DROP TYPE IF EXISTS attendance_status CASCADE;

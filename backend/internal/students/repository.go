@@ -376,5 +376,79 @@ func searchString(s, substr string) bool {
 	return false
 }
 
-// compile-time interface check
+// ============================================================================
+// ImportRepository Implementation
+// ============================================================================
+
+// ResolveClassByGradeAndStream resolves (grade_level, stream_name) to a class_id.
+func (r *PgRepository) ResolveClassByGradeAndStream(ctx context.Context, tenantID, schoolID, academicYearID, gradeLevel, streamName string) (*string, error) {
+	query := `
+		SELECT cc.id
+		FROM cbc_classes cc
+		JOIN cbc_streams cs ON cs.id = cc.stream_id AND cs.tenant_id = cc.tenant_id
+		WHERE cc.tenant_id = $1
+		  AND cc.school_id = $2
+		  AND cc.academic_year_id = $3
+		  AND cc.grade_level::text = $4
+		  AND cs.name = $5
+	`
+	var id string
+	err := r.pool.QueryRow(ctx, query, tenantID, schoolID, academicYearID, gradeLevel, streamName).Scan(&id)
+	if err != nil {
+		if isNoRows(err) {
+			return nil, nil // not found — not an error
+		}
+		return nil, fmt.Errorf("students.Repository.ResolveClassByGradeAndStream: %w", err)
+	}
+	return &id, nil
+}
+
+// ValidateAcademicTerm checks that the term exists, is not soft-deleted, and belongs to the school.
+func (r *PgRepository) ValidateAcademicTerm(ctx context.Context, tenantID, schoolID, academicTermID string) (bool, error) {
+	query := `
+		SELECT EXISTS(
+			SELECT 1 FROM academic_terms
+			WHERE id = $1 AND tenant_id = $2 AND school_id = $3 AND deleted_at IS NULL
+		)
+	`
+	var exists bool
+	err := r.pool.QueryRow(ctx, query, academicTermID, tenantID, schoolID).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("students.Repository.ValidateAcademicTerm: %w", err)
+	}
+	return exists, nil
+}
+
+// GetAcademicYearIDForTerm returns the academic_year_id for a given term.
+func (r *PgRepository) GetAcademicYearIDForTerm(ctx context.Context, tenantID, schoolID, academicTermID string) (string, error) {
+	query := `SELECT academic_year_id FROM academic_terms WHERE id = $1 AND tenant_id = $2 AND school_id = $3 AND deleted_at IS NULL`
+	var id string
+	err := r.pool.QueryRow(ctx, query, academicTermID, tenantID, schoolID).Scan(&id)
+	if err != nil {
+		if isNoRows(err) {
+			return "", fmt.Errorf("students.Repository.GetAcademicYearIDForTerm: %w", ErrNotFound)
+		}
+		return "", fmt.Errorf("students.Repository.GetAcademicYearIDForTerm: %w", err)
+	}
+	return id, nil
+}
+
+// CheckSchoolAdminMembership verifies the caller has SCHOOL_ADMIN for the school.
+func (r *PgRepository) CheckSchoolAdminMembership(ctx context.Context, userID, tenantID, schoolID string) (bool, error) {
+	query := `
+		SELECT EXISTS(
+			SELECT 1 FROM memberships
+			WHERE user_id = $1 AND tenant_id = $2 AND school_id = $3 AND role = 'SCHOOL_ADMIN'::user_role AND is_active = true
+		)
+	`
+	var exists bool
+	err := r.pool.QueryRow(ctx, query, userID, tenantID, schoolID).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("students.Repository.CheckSchoolAdminMembership: %w", err)
+	}
+	return exists, nil
+}
+
+// compile-time interface checks
 var _ StudentRepository = (*PgRepository)(nil)
+var _ ImportRepository = (*PgRepository)(nil)

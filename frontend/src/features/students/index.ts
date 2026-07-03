@@ -7,6 +7,7 @@ export { StudentProfileCard } from "./components/student-profile-card";
 export { StudentForm } from "./components/student-form";
 export { EnrollmentTimeline } from "./components/enrollment-timeline";
 export { EnrollDialog } from "./components/enroll-dialog";
+export { ImportStudentsDialog } from "./components/import-students-dialog";
 
 export { useStudents, studentKeys } from "./hooks/use-students";
 export {
@@ -15,6 +16,9 @@ export {
     useUpdateStudent,
     useCreateEnrollment,
 } from "./hooks/use-student-detail";
+export { useImportJobStatus } from "./hooks/use-import-job-status";
+export { useImportStore, ImportStoreProvider } from "./hooks/use-import-store";
+
 export { listStudents } from "./services/students-api";
 
 export type {
@@ -27,3 +31,22 @@ export type {
     UpdateStudentPayload,
     CreateEnrollmentPayload,
 } from "./types";
+
+// Re-export import types for convenience
+export type {
+    ImportMeta,
+    StagedRow,
+    ColumnMapping,
+    ImportStage,
+    ClassCacheEntry,
+} from "@/lib/import-data/types";
+export type {
+    ImportRequest,
+    ImportResponse,
+    ImportJob,
+    ImportJobStatus,
+    ImportFailureType,
+    ImportProgressEvent,
+    ImportRowFailure,
+    ImportRow,
+} from "@/lib/api/imports";

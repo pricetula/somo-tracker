@@ -126,6 +126,8 @@ type ListFilter struct {
 // ============================================================================
 
 // ImportRow represents a single student row in a bulk import.
+// GradeLevel and StreamName are optional. When both are empty, the student
+// is created without an enrollment (no class assignment for the term).
 type ImportRow struct {
 	FullName             string  `json:"full_name"`
 	Gender               string  `json:"gender"`
@@ -133,8 +135,8 @@ type ImportRow struct {
 	UPINumber            *string `json:"upi_number,omitempty"`
 	KNECAssessmentNumber *string `json:"knec_assessment_number,omitempty"`
 	AdmissionNumber      *string `json:"admission_number,omitempty"`
-	GradeLevel           string  `json:"grade_level"`
-	StreamName           string  `json:"stream_name"`
+	GradeLevel           string  `json:"grade_level,omitempty"`
+	StreamName           string  `json:"stream_name,omitempty"`
 }
 
 // ImportRequest is the request body for POST /students/import.

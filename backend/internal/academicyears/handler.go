@@ -36,7 +36,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	terms.Get("/", middleware.RequireAuth, h.ListTerms)
 	terms.Post("/", middleware.RequireRole("SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.CreateTerm)
 	terms.Patch("/:id", middleware.RequireRole("SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.PatchTerm)
-	terms.Delete("/:id", middleware.RequireRole("SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.DeleteTerm)
+	// terms.Delete("/:id", middleware.RequireRole("SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.DeleteTerm)
 }
 
 // ============================================================================

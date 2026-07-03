@@ -141,7 +141,7 @@ type ChunkResult struct {
 	Failures  []RowFailure
 }
 
-// ProgressEvent is emitted via SSE and Redis Pub/Sub.
+// ProgressEvent is emitted via Redis Pub/Sub.
 type ProgressEvent struct {
 	JobID            string          `json:"job_id"`
 	Status           ImportJobStatus `json:"status"`
@@ -216,6 +216,9 @@ type ServiceRepository interface {
 
 	// GetJobByIDempotencyKey finds a job by tenant_id and idempotency_key.
 	GetJobByIDempotencyKey(ctx context.Context, tenantID uuid.UUID, idempotencyKey string) (*Job, error)
+
+	// GetFailures returns paginated failure records for a job.
+	GetFailures(ctx context.Context, jobID uuid.UUID, limit, offset int) ([]RowFailure, int, error)
 }
 
 // StagingRow represents a row in import_job_staging.

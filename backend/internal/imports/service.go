@@ -3,6 +3,7 @@ package imports
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -22,9 +23,6 @@ import (
 const (
 	// ChunkSize is the target number of rows per chunk.
 	ChunkSize = 100
-
-	// ProgressChannel is the Redis Pub/Sub channel for progress events.
-	ProgressChannel = "imports:progress"
 )
 
 // ============================================================================
@@ -35,7 +33,6 @@ const (
 type Service struct {
 	repo    ServiceRepository
 	pool    *pgxpool.Pool
-	rdb     *database.Pools
 	asynq   *asynq.Client
 	beginTx func(ctx context.Context) (pgx.Tx, error) // overridable for tests
 }
@@ -45,7 +42,6 @@ func NewService(repo ServiceRepository, pools *database.Pools, asynqClient *asyn
 	s := &Service{
 		repo:  repo,
 		pool:  pools.PG,
-		rdb:   pools,
 		asynq: asynqClient,
 	}
 	s.beginTx = func(ctx context.Context) (pgx.Tx, error) {
@@ -76,6 +72,7 @@ type CreateJobResponse struct {
 	TotalRecords int             `json:"total_records"`
 	TotalChunks  int             `json:"total_chunks"`
 	Status       ImportJobStatus `json:"status"`
+	StreamToken  string          `json:"stream_token"`
 }
 
 // CreateJob creates an import job, writes staging rows, and enqueues chunk tasks.
@@ -325,14 +322,11 @@ func (s *Service) ProcessChunk(ctx context.Context, payload ChunkTaskPayload) er
 
 	// Step 5: Atomic chunk completion
 	chunkProcessed := len(rows)
-	newStatus, isTerminal, err := s.repo.AtomicChunkCompletion(ctx, jobID,
+	newStatus, _, err := s.repo.AtomicChunkCompletion(ctx, jobID,
 		chunkProcessed, successCount, len(allFailures))
 	if err != nil {
 		return fmt.Errorf("imports.Service.ProcessChunk: atomic completion: %w", err)
 	}
-
-	// Step 6: Publish progress to Redis Pub/Sub
-	s.publishProgress(ctx, jobID, newStatus, job.TotalRecords, isTerminal)
 
 	slog.InfoContext(ctx, "imports.Service.ProcessChunk: chunk completed",
 		"job_id", jobID,
@@ -390,34 +384,8 @@ func (s *Service) insertWithSavepoints(
 	return failedCount, nil
 }
 
-// publishProgress sends a progress event via Redis Pub/Sub.
-func (s *Service) publishProgress(ctx context.Context, jobID uuid.UUID, status ImportJobStatus, totalRecords int, isTerminal bool) {
-	if s.rdb == nil || s.rdb.Redis == nil {
-		return // no Redis configured (unit test mode)
-	}
-
-	event := ProgressEvent{
-		JobID:        jobID.String(),
-		Status:       status,
-		TotalRecords: totalRecords,
-	}
-
-	data, err := json.Marshal(event)
-	if err != nil {
-		slog.ErrorContext(ctx, "imports.Service.publishProgress: marshal event", "error", err)
-		return
-	}
-
-	if err := s.rdb.Redis.Publish(ctx, ProgressChannel, string(data)).Err(); err != nil {
-		slog.WarnContext(ctx, "imports.Service.publishProgress: redis publish failed",
-			"job_id", jobID,
-			"error", err,
-		)
-	}
-}
-
 // ============================================================================
-// GetJob — retrieves current job state (for SSE resume)
+// GetJob — retrieves current job state
 // ============================================================================
 
 func (s *Service) GetJob(ctx context.Context, jobID uuid.UUID) (*Job, error) {
@@ -426,6 +394,20 @@ func (s *Service) GetJob(ctx context.Context, jobID uuid.UUID) (*Job, error) {
 		return nil, fmt.Errorf("imports.Service.GetJob: %w", err)
 	}
 	return job, nil
+}
+
+// ============================================================================
+// GetFailures — retrieves paginated failure records for a job
+// ============================================================================
+
+func (s *Service) GetFailures(ctx context.Context, jobID uuid.UUID, limit, offset int) ([]RowFailure, int, error) {
+	if limit <= 0 || limit > 5000 {
+		limit = 50
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	return s.repo.GetFailures(ctx, jobID, limit, offset)
 }
 
 // ============================================================================
@@ -439,5 +421,5 @@ func toBytes(v interface{}) []byte {
 
 func isNotFound(err error) bool {
 	return err != nil && (err.Error() == "no rows in result set" ||
-		err == ErrNotFound)
+		errors.Is(err, ErrNotFound))
 }

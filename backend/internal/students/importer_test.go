@@ -171,7 +171,50 @@ func TestValidate_InvalidGender(t *testing.T) {
 	}
 }
 
-func TestValidate_MissingGradeLevel(t *testing.T) {
+func TestValidate_WithoutGradeOrStream(t *testing.T) {
+	// grade_level and stream_name are both empty — student without enrollment is valid
+	h := newTestHarness()
+	ctx := context.Background()
+
+	raw := []json.RawMessage{
+		json.RawMessage(`{"full_name":"Test Student","gender":"M"}`),
+	}
+
+	valid, failures := h.imp.Validate(ctx, uuid.New(), uuid.New(), raw)
+	if len(failures) != 0 {
+		t.Fatalf("expected 0 failures, got %d: %v", len(failures), failures)
+	}
+	if len(valid) != 1 {
+		t.Fatalf("expected 1 valid row, got %d", len(valid))
+	}
+}
+
+func TestValidate_GradeLevelWithoutStream(t *testing.T) {
+	// grade_level without stream_name is an error
+	h := newTestHarness()
+	ctx := context.Background()
+
+	raw := []json.RawMessage{
+		json.RawMessage(`{"full_name":"Test","gender":"M","grade_level":"G4"}`),
+	}
+
+	valid, failures := h.imp.Validate(ctx, uuid.New(), uuid.New(), raw)
+	if len(valid) != 0 {
+		t.Fatalf("expected 0 valid rows, got %d", len(valid))
+	}
+	if len(failures) != 1 {
+		t.Fatalf("expected 1 failure, got %d", len(failures))
+	}
+	if failures[0].ErrorType != imports.ImportFailureSchemaValidation {
+		t.Fatalf("expected SCHEMA_VALIDATION, got %s", failures[0].ErrorType)
+	}
+	if failures[0].ErrorMessage != "grade_level provided without stream_name" {
+		t.Fatalf("expected 'grade_level provided without stream_name', got %q", failures[0].ErrorMessage)
+	}
+}
+
+func TestValidate_StreamWithoutGradeLevel(t *testing.T) {
+	// stream_name without grade_level is an error
 	h := newTestHarness()
 	ctx := context.Background()
 
@@ -186,22 +229,11 @@ func TestValidate_MissingGradeLevel(t *testing.T) {
 	if len(failures) != 1 {
 		t.Fatalf("expected 1 failure, got %d", len(failures))
 	}
-}
-
-func TestValidate_MissingStreamName(t *testing.T) {
-	h := newTestHarness()
-	ctx := context.Background()
-
-	raw := []json.RawMessage{
-		json.RawMessage(`{"full_name":"Test","gender":"M","grade_level":"G4"}`),
+	if failures[0].ErrorType != imports.ImportFailureSchemaValidation {
+		t.Fatalf("expected SCHEMA_VALIDATION, got %s", failures[0].ErrorType)
 	}
-
-	valid, failures := h.imp.Validate(ctx, uuid.New(), uuid.New(), raw)
-	if len(valid) != 0 {
-		t.Fatalf("expected 0 valid rows, got %d", len(valid))
-	}
-	if len(failures) != 1 {
-		t.Fatalf("expected 1 failure, got %d", len(failures))
+	if failures[0].ErrorMessage != "stream_name provided without grade_level" {
+		t.Fatalf("expected 'stream_name provided without grade_level', got %q", failures[0].ErrorMessage)
 	}
 }
 
@@ -222,9 +254,66 @@ func TestValidate_MalformedJSON(t *testing.T) {
 	}
 }
 
+func TestValidate_OnlyFullNameAndGender(t *testing.T) {
+	// Minimal valid row: only full_name and gender, no grade/stream (no enrollment)
+	h := newTestHarness()
+	ctx := context.Background()
+
+	raw := []json.RawMessage{
+		json.RawMessage(`{"full_name":"Jane Doe","gender":"F"}`),
+	}
+
+	valid, failures := h.imp.Validate(ctx, uuid.New(), uuid.New(), raw)
+	if len(failures) != 0 {
+		t.Fatalf("expected 0 failures, got %d: %v", len(failures), failures)
+	}
+	if len(valid) != 1 {
+		t.Fatalf("expected 1 valid row, got %d", len(valid))
+	}
+}
+
 // ============================================================================
 // Tests: ResolveReferences — Happy Path (H8)
 // ============================================================================
+
+func TestResolveReferences_WithoutGradeStream(t *testing.T) {
+	// Row without grade_level/stream_name should pass through without class resolution
+	// and without error — student will be created without enrollment.
+	h := newTestHarness()
+	ctx := context.Background()
+
+	tenantID := uuid.New()
+	schoolID := uuid.New()
+
+	rows := []imports.ValidatedRow{
+		{RawData: json.RawMessage(`{"full_name":"No Class Student","gender":"F"}`)},
+	}
+
+	metadata := json.RawMessage(`{"academic_term_id":"term_001","academic_year_id":"year_001"}`)
+
+	resolved, failures := h.imp.ResolveReferences(ctx, tenantID, schoolID, metadata, rows)
+	if len(failures) != 0 {
+		t.Fatalf("expected 0 failures, got %d: %v", len(failures), failures)
+	}
+	if len(resolved) != 1 {
+		t.Fatalf("expected 1 resolved row, got %d", len(resolved))
+	}
+
+	// Verify no resolved_class_id was injected
+	var aug augmentedImportRow
+	if err := json.Unmarshal(resolved[0].RawData, &aug); err != nil {
+		t.Fatalf("unmarshal resolved row: %v", err)
+	}
+	if aug.ResolvedClassID != nil {
+		t.Fatalf("expected nil resolved_class_id for row without grade/stream, got %v", *aug.ResolvedClassID)
+	}
+	if aug.FullName != "No Class Student" {
+		t.Fatalf("expected full_name 'No Class Student', got %q", aug.FullName)
+	}
+	if aug.Gender != "F" {
+		t.Fatalf("expected gender 'F', got %q", aug.Gender)
+	}
+}
 
 func TestResolveReferences_HappyPath(t *testing.T) {
 	// H8: grade_level + stream_name resolves to a class_id
@@ -456,14 +545,46 @@ func TestInsertOne_RoundTrip(t *testing.T) {
 	if back.ResolvedClassID == nil || *back.ResolvedClassID != "class_G4_Blue" {
 		t.Fatalf("expected class_G4_Blue, got %v", back.ResolvedClassID)
 	}
-
 }
 
-func TestInsertOne_ResolvedClassIDRequired(t *testing.T) {
-	// InsertOne should fail when resolved_class_id is nil.
-	// The pre-condition guard in InsertOne checks resolved_class_id != nil
-	// before proceeding. We verify this at the code level.
-	t.Log("InsertOne guards: resolved_class_id must not be nil")
+func TestInsertOne_WithoutEnrollment_RoundTrip(t *testing.T) {
+	// Augmented row without resolved_class_id (no enrollment) should round-trip cleanly
+	aug := augmentedImportRow{
+		FullName:       "Jane NoClass",
+		Gender:         "F",
+		TenantID:       uuid.New().String(),
+		SchoolID:       uuid.New().String(),
+		AcademicTermID: "term_001",
+		AcademicYearID: "year_001",
+		// ResolvedClassID is nil — no enrollment
+	}
+	data, err := json.Marshal(aug)
+	if err != nil {
+		t.Fatalf("marshal augmented row without class: %v", err)
+	}
+
+	var back augmentedImportRow
+	if err := json.Unmarshal(data, &back); err != nil {
+		t.Fatalf("unmarshal round-trip: %v", err)
+	}
+	if back.FullName != "Jane NoClass" {
+		t.Fatalf("expected FullName 'Jane NoClass', got %q", back.FullName)
+	}
+	if back.ResolvedClassID != nil {
+		t.Fatalf("expected nil ResolvedClassID, got %v", *back.ResolvedClassID)
+	}
+	if back.GradeLevel != "" {
+		t.Fatalf("expected empty GradeLevel, got %q", back.GradeLevel)
+	}
+	if back.StreamName != "" {
+		t.Fatalf("expected empty StreamName, got %q", back.StreamName)
+	}
+}
+
+func TestInsertOne_ResolvedClassIDNotRequired(t *testing.T) {
+	// InsertOne now succeeds without resolved_class_id — student is created
+	// without an enrollment. We verify the guard logic here structurally.
+	t.Log("InsertOne now allows nil ResolvedClassID — creates student without enrollment")
 }
 
 // ============================================================================

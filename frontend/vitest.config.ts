@@ -12,10 +12,7 @@ export default defineConfig({
             "__tests__/**/*.test.ts",
             "__tests__/**/*.test.tsx",
         ],
-        exclude: [
-            // StudentImportProgress component does not exist yet
-            "__tests__/sse/StudentImportProgress.test.tsx",
-        ],
+        exclude: [],
         setupFiles: ["./__tests__/setup/vitest.setup.ts"],
         css: true,
     },

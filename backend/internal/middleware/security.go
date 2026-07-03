@@ -137,8 +137,11 @@ func Register(app *fiber.App, pools *database.Pools, cfg config.Config) {
 		// Load the active school ID from cookie so API handlers can
 		// access it via c.Locals("active_school_id") without needing
 		// per-handler DB lookups or getActiveSchoolID helpers.
+		// Also set c.Locals("school_id") for legacy handlers that read
+		// that key directly (e.g. academicyears, students).
 		if schoolID := c.Cookies("somo_school_id"); schoolID != "" {
 			c.Locals("active_school_id", schoolID)
+			c.Locals("school_id", schoolID)
 		}
 
 		return c.Next()

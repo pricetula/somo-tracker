@@ -291,6 +291,49 @@ func (r *PgRepository) GetJobByIDempotencyKey(ctx context.Context, tenantID uuid
 	return &j, nil
 }
 
+// ─── GetFailures ───────────────────────────────────────────────────────────
+
+func (r *PgRepository) GetFailures(ctx context.Context, jobID uuid.UUID, limit, offset int) ([]RowFailure, int, error) {
+	// Get total count
+	countQuery := `SELECT COUNT(*) FROM import_job_failures WHERE import_job_id = $1`
+	var total int
+	if err := r.pool.QueryRow(ctx, countQuery, jobID).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("imports.Repository.GetFailures: count: %w", err)
+	}
+
+	query := `
+		SELECT row_number, raw_payload, error_message, error_type
+		FROM import_job_failures
+		WHERE import_job_id = $1
+		ORDER BY row_number ASC, id ASC
+		LIMIT $2 OFFSET $3
+	`
+	rows, err := r.pool.Query(ctx, query, jobID, limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("imports.Repository.GetFailures: query: %w", err)
+	}
+	defer rows.Close()
+
+	var failures []RowFailure
+	for rows.Next() {
+		var f RowFailure
+		var errType string
+		if err := rows.Scan(&f.RowNumber, &f.RawPayload, &f.ErrorMessage, &errType); err != nil {
+			return nil, 0, fmt.Errorf("imports.Repository.GetFailures: scan: %w", err)
+		}
+		f.ErrorType = ImportFailureType(errType)
+		failures = append(failures, f)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("imports.Repository.GetFailures: rows: %w", err)
+	}
+
+	if failures == nil {
+		failures = []RowFailure{}
+	}
+	return failures, total, nil
+}
+
 // ============================================================================
 // Helpers
 // ============================================================================

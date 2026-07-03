@@ -14,11 +14,10 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { StudentsTable, useStudents } from "@/features/students";
-import { Plus, Upload } from "lucide-react";
+import { Plus } from "lucide-react";
 
 export default function StudentsPage() {
     const router = useRouter();
@@ -35,12 +34,6 @@ export default function StudentsPage() {
             <div className="flex items-center gap-3 px-6 pt-6 pb-2">
                 <h1 className="text-2xl font-semibold tracking-tight">Students</h1>
                 <div className="ml-auto flex items-center gap-2">
-                    <Button variant="outline" size="sm" asChild>
-                        <Link href="/students/import">
-                            <Upload className="mr-1.5 size-3.5" />
-                            Import
-                        </Link>
-                    </Button>
                     <Button
                         variant="outline"
                         size="sm"

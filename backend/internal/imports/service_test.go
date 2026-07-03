@@ -30,6 +30,7 @@ type MockServiceRepository struct {
 	updateJobStatusFn        func(ctx context.Context, jobID uuid.UUID, status ImportJobStatus) error
 	getJobStagingRowCountFn  func(ctx context.Context, jobID uuid.UUID) (int, error)
 	getJobByIDempotencyKeyFn func(ctx context.Context, tenantID uuid.UUID, idempotencyKey string) (*Job, error)
+	getFailuresFn            func(ctx context.Context, jobID uuid.UUID, limit, offset int) ([]RowFailure, int, error)
 
 	// Tracking
 	createdJobs      []*Job
@@ -139,6 +140,15 @@ func (m *MockServiceRepository) GetJobStagingRowCount(ctx context.Context, jobID
 		return m.getJobStagingRowCountFn(ctx, jobID)
 	}
 	return len(m.insertedStaging), nil
+}
+
+func (m *MockServiceRepository) GetFailures(ctx context.Context, jobID uuid.UUID, limit, offset int) ([]RowFailure, int, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.getFailuresFn != nil {
+		return m.getFailuresFn(ctx, jobID, limit, offset)
+	}
+	return []RowFailure{}, 0, nil
 }
 
 func (m *MockServiceRepository) GetJobByIDempotencyKey(ctx context.Context, tenantID uuid.UUID, idempotencyKey string) (*Job, error) {

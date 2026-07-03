@@ -43,8 +43,10 @@ export interface ImportRow {
     upi_number?: string | null;
     knec_assessment_number?: string | null;
     admission_number?: string | null;
-    grade_level: string;
-    stream_name: string;
+    /** When both grade_level and stream_name are empty, the student is created without an enrollment. */
+    grade_level?: string;
+    /** When both grade_level and stream_name are empty, the student is created without an enrollment. */
+    stream_name?: string;
 }
 
 // ============================================================================
@@ -127,7 +129,7 @@ export interface ImportRowFailure {
  * Returns job_id, total_records, total_chunks, and initial status.
  */
 export async function submitStudentImport(body: ImportRequest): Promise<ImportResponse> {
-    return api.post<ImportResponse>("/students/import", body);
+    return api.post<ImportResponse>("/api/v1/students/import", body);
 }
 
 /**
@@ -144,19 +146,13 @@ export async function getImportFailures(
     const qs = searchParams.toString();
 
     return api.get<{ failures: ImportRowFailure[]; total: number }>(
-        `/imports/${jobId}/failures?${qs}`
+        `/api/v1/imports/${jobId}/failures?${qs}`
     );
 }
 
 /**
- * Build an EventSource URL for the SSE progress stream.
- * GET /imports/{job_id}/stream
- *
- * Note: EventSource does not support custom headers. Authentication must
- * be handled via HttpOnly cookie (somo_sid) or a signed query-param token.
- * This implementation assumes cookie-based session auth.
+ * GET /imports/{job_id} — retrieve current job state (for polling fallback).
  */
-export function buildImportStreamUrl(jobId: string): string {
-    const base = process.env.NEXT_PUBLIC_API_URL ?? "";
-    return `${base}/imports/${jobId}/stream`;
+export async function getImportJob(jobId: string): Promise<ImportJob> {
+    return api.get<ImportJob>(`/api/v1/imports/${jobId}`);
 }

@@ -60,6 +60,8 @@ func (si *StudentImporter) JobType() imports.ImportJobType {
 }
 
 // Validate checks each raw row for schema correctness and business rules.
+// grade_level and stream_name are optional — when both are empty, the student
+// is created without an enrollment.
 func (si *StudentImporter) Validate(ctx context.Context, tenantID, schoolID uuid.UUID, raw []json.RawMessage) ([]imports.ValidatedRow, []imports.RowFailure) {
 	var validated []imports.ValidatedRow
 	var failures []imports.RowFailure
@@ -97,21 +99,24 @@ func (si *StudentImporter) Validate(ctx context.Context, tenantID, schoolID uuid
 			continue
 		}
 
-		if row.GradeLevel == "" {
+		// grade_level and stream_name are optional. A row may specify:
+		//   - both grade_level and stream_name → will be enrolled in the resolved class
+		//   - grade_level only or stream_name only → validation error
+		//   - neither → student is created without an enrollment
+		if row.GradeLevel == "" && row.StreamName != "" {
 			failures = append(failures, imports.RowFailure{
 				RowNumber:    i,
 				RawPayload:   rawData,
-				ErrorMessage: "grade_level is required",
+				ErrorMessage: "stream_name provided without grade_level",
 				ErrorType:    imports.ImportFailureSchemaValidation,
 			})
 			continue
 		}
-
-		if row.StreamName == "" {
+		if row.GradeLevel != "" && row.StreamName == "" {
 			failures = append(failures, imports.RowFailure{
 				RowNumber:    i,
 				RawPayload:   rawData,
-				ErrorMessage: "stream_name is required",
+				ErrorMessage: "grade_level provided without stream_name",
 				ErrorType:    imports.ImportFailureSchemaValidation,
 			})
 			continue
@@ -134,6 +139,8 @@ func (si *StudentImporter) Validate(ctx context.Context, tenantID, schoolID uuid
 // ResolveReferences resolves grade_level + stream_name pairs to class_ids
 // by querying cbc_classes / cbc_streams in bulk, and injects the results
 // into each row's RawData.
+//
+// Rows without grade_level/stream_name are passed through as-is (no enrollment).
 func (si *StudentImporter) ResolveReferences(ctx context.Context, tenantID, schoolID uuid.UUID, metadata json.RawMessage, rows []imports.ValidatedRow) ([]imports.ValidatedRow, []imports.RowFailure) {
 	if len(rows) == 0 {
 		return rows, nil
@@ -146,83 +153,98 @@ func (si *StudentImporter) ResolveReferences(ctx context.Context, tenantID, scho
 	}
 	if err := json.Unmarshal(metadata, &meta); err != nil {
 		slog.Error("students.StudentImporter.ResolveReferences: invalid metadata", "error", err)
-		// Fail all rows
-		failures := make([]imports.RowFailure, 0, len(rows))
-		for i, row := range rows {
-			failures = append(failures, imports.RowFailure{
-				RowNumber:    i,
-				RawPayload:   row.RawData,
-				ErrorMessage: "job metadata missing academic_term_id or academic_year_id",
-				ErrorType:    imports.ImportFailureBusinessRule,
-			})
-		}
-		return nil, failures
+		return nil, allFail(rows, "job metadata is invalid")
 	}
 
 	if meta.AcademicTermID == "" || meta.AcademicYearID == "" {
-		failures := make([]imports.RowFailure, 0, len(rows))
-		for i, row := range rows {
-			failures = append(failures, imports.RowFailure{
-				RowNumber:    i,
-				RawPayload:   row.RawData,
-				ErrorMessage: "job metadata missing academic_term_id or academic_year_id",
-				ErrorType:    imports.ImportFailureBusinessRule,
-			})
-		}
-		return nil, failures
+		return nil, allFail(rows, "job metadata missing academic_term_id or academic_year_id")
 	}
 
-	// Step 1: Collect all distinct (grade_level, stream_name) pairs
+	// Step 1: Collect all distinct (grade_level, stream_name) pairs,
+	// skipping rows that have no grade/stream (no enrollment needed).
 	distinct := make(map[gradeStream]bool)
-	rowGrades := make([]gradeStream, len(rows))
+	rowInfos := make([]struct {
+		gs  gradeStream
+		row imports.ValidatedRow
+	}, len(rows))
+
 	for i, row := range rows {
 		var importRow ImportRow
 		if err := json.Unmarshal(row.RawData, &importRow); err != nil {
-			// Should not happen since Validate already succeeded
 			continue
 		}
 		gs := gradeStream{GradeLevel: importRow.GradeLevel, StreamName: importRow.StreamName}
-		distinct[gs] = true
-		rowGrades[i] = gs
+		rowInfos[i] = struct {
+			gs  gradeStream
+			row imports.ValidatedRow
+		}{gs: gs, row: row}
+
+		// Only collect for resolution if both grade_level and stream_name are present
+		if importRow.GradeLevel != "" && importRow.StreamName != "" {
+			distinct[gs] = true
+		}
 	}
 
 	// Step 2: Build a lookup map from distinct pairs
-	// Query cbc_classes JOIN cbc_streams to resolve (grade_level, stream_name) → class_id
 	lookup, err := si.buildClassLookup(ctx, tenantID.String(), schoolID.String(), meta.AcademicYearID, distinct)
 	if err != nil {
-		// Log but continue — unresolvable rows will fail individually
 		slog.ErrorContext(ctx, "students.StudentImporter.ResolveReferences: build class lookup failed",
 			"error", err,
 		)
 	}
 
-	// Step 3: Build resolved rows, failing any that can't be resolved
+	// Step 3: Build resolved rows
 	var resolved []imports.ValidatedRow
 	var failures []imports.RowFailure
 
-	for i, row := range rows {
-		gs := rowGrades[i]
-		classID, found := lookup[gs]
+	for i, info := range rowInfos {
+		gs := info.gs
+		row := info.row
 
-		aug := augmentedImportRow{
-			TenantID:        tenantID.String(),
-			SchoolID:        schoolID.String(),
-			AcademicTermID:  meta.AcademicTermID,
-			AcademicYearID:  meta.AcademicYearID,
-			ResolvedClassID: classID,
+		// Unmarshal the original row
+		var importRow ImportRow
+		if err := json.Unmarshal(row.RawData, &importRow); err != nil {
+			failures = append(failures, imports.RowFailure{
+				RowNumber:    i,
+				RawPayload:   row.RawData,
+				ErrorMessage: fmt.Sprintf("unmarshal row: %v", err),
+				ErrorType:    imports.ImportFailureSchemaValidation,
+			})
+			continue
 		}
 
-		// Unmarshal the original row into the augmented struct
-		var importRow ImportRow
-		if err := json.Unmarshal(row.RawData, &importRow); err == nil {
-			aug.FullName = importRow.FullName
-			aug.Gender = importRow.Gender
-			aug.DateOfBirth = importRow.DateOfBirth
-			aug.UPINumber = importRow.UPINumber
-			aug.KNECAssessmentNumber = importRow.KNECAssessmentNumber
-			aug.AdmissionNumber = importRow.AdmissionNumber
-			aug.GradeLevel = importRow.GradeLevel
-			aug.StreamName = importRow.StreamName
+		aug := augmentedImportRow{
+			TenantID:             tenantID.String(),
+			SchoolID:             schoolID.String(),
+			AcademicTermID:       meta.AcademicTermID,
+			AcademicYearID:       meta.AcademicYearID,
+			FullName:             importRow.FullName,
+			Gender:               importRow.Gender,
+			DateOfBirth:          importRow.DateOfBirth,
+			UPINumber:            importRow.UPINumber,
+			KNECAssessmentNumber: importRow.KNECAssessmentNumber,
+			AdmissionNumber:      importRow.AdmissionNumber,
+			GradeLevel:           importRow.GradeLevel,
+			StreamName:           importRow.StreamName,
+		}
+
+		// If grade_level and stream_name are both present, resolve to a class
+		if importRow.GradeLevel != "" && importRow.StreamName != "" {
+			classID, found := lookup[gs]
+			if !found || classID == nil {
+				var resolvedClassIDStr string
+				if classID != nil {
+					resolvedClassIDStr = *classID
+				}
+				failures = append(failures, imports.RowFailure{
+					RowNumber:    i,
+					RawPayload:   row.RawData,
+					ErrorMessage: fmt.Sprintf("grade_level %q + stream_name %q could not be resolved to a class (got %q)", gs.GradeLevel, gs.StreamName, resolvedClassIDStr),
+					ErrorType:    imports.ImportFailureBusinessRule,
+				})
+				continue
+			}
+			aug.ResolvedClassID = classID
 		}
 
 		augData, err := json.Marshal(aug)
@@ -232,20 +254,6 @@ func (si *StudentImporter) ResolveReferences(ctx context.Context, tenantID, scho
 				RawPayload:   row.RawData,
 				ErrorMessage: fmt.Sprintf("marshal augmented row: %v", err),
 				ErrorType:    imports.ImportFailureSchemaValidation,
-			})
-			continue
-		}
-
-		if !found || classID == nil {
-			var resolvedClassIDStr string
-			if classID != nil {
-				resolvedClassIDStr = *classID
-			}
-			failures = append(failures, imports.RowFailure{
-				RowNumber:    i,
-				RawPayload:   row.RawData,
-				ErrorMessage: fmt.Sprintf("grade_level %q + stream_name %q could not be resolved to a class (got %q)", gs.GradeLevel, gs.StreamName, resolvedClassIDStr),
-				ErrorType:    imports.ImportFailureBusinessRule,
 			})
 			continue
 		}
@@ -300,16 +308,12 @@ func (si *StudentImporter) BulkInsert(ctx context.Context, tx pgx.Tx, rows []imp
 	return 0, fmt.Errorf("student import requires per-row inserts for student+enrollment pair")
 }
 
-// InsertOne inserts a single student + enrollment pair inside a savepoint.
+// InsertOne inserts a single student (and optionally an enrollment) inside a savepoint.
+// If the row has no resolved_class_id, only the student record is created.
 func (si *StudentImporter) InsertOne(ctx context.Context, tx pgx.Tx, row imports.ValidatedRow) error {
 	var aug augmentedImportRow
 	if err := json.Unmarshal(row.RawData, &aug); err != nil {
 		return fmt.Errorf("unmarshal augmented row: %w", err)
-	}
-
-	// Guard: resolved_class_id must be present
-	if aug.ResolvedClassID == nil || *aug.ResolvedClassID == "" {
-		return fmt.Errorf("grade_level %q + stream_name %q could not be resolved to a class", aug.GradeLevel, aug.StreamName)
 	}
 
 	// Step 1: Insert the student record
@@ -318,9 +322,11 @@ func (si *StudentImporter) InsertOne(ctx context.Context, tx pgx.Tx, row imports
 		return fmt.Errorf("insert student: %w", err)
 	}
 
-	// Step 2: Insert the enrollment
-	if err := si.insertEnrollment(ctx, tx, studentID, aug); err != nil {
-		return fmt.Errorf("insert enrollment for student %s: %w", studentID, err)
+	// Step 2: Insert the enrollment only if a class was resolved
+	if aug.ResolvedClassID != nil && *aug.ResolvedClassID != "" {
+		if err := si.insertEnrollment(ctx, tx, studentID, aug); err != nil {
+			return fmt.Errorf("insert enrollment for student %s: %w", studentID, err)
+		}
 	}
 
 	return nil
@@ -358,6 +364,20 @@ func (si *StudentImporter) insertEnrollment(ctx context.Context, tx pgx.Tx, stud
 		return err
 	}
 	return nil
+}
+
+// allFail creates a failure for every row with the given message.
+func allFail(rows []imports.ValidatedRow, msg string) []imports.RowFailure {
+	failures := make([]imports.RowFailure, 0, len(rows))
+	for i, row := range rows {
+		failures = append(failures, imports.RowFailure{
+			RowNumber:    i,
+			RawPayload:   row.RawData,
+			ErrorMessage: msg,
+			ErrorType:    imports.ImportFailureBusinessRule,
+		})
+	}
+	return failures
 }
 
 // compile-time interface check

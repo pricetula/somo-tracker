@@ -6,6 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { logout } from "@/lib/api/auth";
+import { SESSION_COOKIE_NAME, ROLE_COOKIE_NAME } from "@/lib/auth";
 import { getErrorMessage } from "@/lib/errors";
 
 export default function LogoutPage() {
@@ -20,9 +21,14 @@ export default function LogoutPage() {
                 toast.success("Logged out");
             } catch (err) {
                 // Session may already be expired or backend unreachable —
-                // still redirect to /login. The backend always clears cookies
-                // even on error, so the redirect won't bounce back.
+                // still redirect to /login. When the API call fails (network
+                // error, backend down), cookies are NOT cleared server-side,
+                // so we clear them here to prevent the proxy middleware from
+                // seeing stale cookies and bouncing back from /login to /.
                 console.warn("logout: session deletion failed", getErrorMessage(err));
+                document.cookie = `${SESSION_COOKIE_NAME}=; path=/; max-age=0`;
+                document.cookie = `${ROLE_COOKIE_NAME}=; path=/; max-age=0`;
+                document.cookie = "csrf_token=; path=/; max-age=0";
             } finally {
                 router.replace("/login");
             }

@@ -38,6 +38,7 @@ import (
 	"somotracker/backend/internal/config"
 	"somotracker/backend/internal/curriculum"
 	"somotracker/backend/internal/database"
+	"somotracker/backend/internal/imports"
 	"somotracker/backend/internal/invitations"
 	"somotracker/backend/internal/members"
 	"somotracker/backend/internal/middleware"
@@ -103,6 +104,7 @@ func main() {
 		invitations.Module,
 		members.Module,
 		assessment.Module,
+		imports.Module,
 
 		// Cross-domain interface wiring: school resolver from members,
 		// school creator from cbcschools.
@@ -124,6 +126,7 @@ func main() {
 		fx.Provide(newLogger),
 		fx.Invoke(runMigrations),
 		fx.Invoke(registerApp),
+		fx.Invoke(imports.RegisterWorkerHooks),
 		fx.Invoke(consumeSafeClient),
 	).Run()
 }
@@ -168,6 +171,7 @@ func registerApp(
 	authHandler *auth.Handler,
 	academicYearsHandler *academicyears.Handler,
 	assessmentHandler *assessment.Handler,
+	importsHandler *imports.Handler,
 	invitationsHandler *invitations.Handler,
 	membersHandler *members.Handler,
 	curriculumHandler *curriculum.Handler,
@@ -212,6 +216,7 @@ func registerApp(
 			membersHandler.RegisterRoutes(app)
 			invitationsHandler.RegisterRoutes(app)
 			curriculumHandler.RegisterRoutes(app)
+			importsHandler.RegisterRoutes(app)
 			studentsHandler.RegisterRoutes(app)
 			parentsHandler.RegisterRoutes(app)
 			teachersHandler.RegisterRoutes(app)

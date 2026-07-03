@@ -122,6 +122,57 @@ type ListFilter struct {
 }
 
 // ============================================================================
+// Import Types — Bulk Student Import
+// ============================================================================
+
+// ImportRow represents a single student row in a bulk import.
+type ImportRow struct {
+	FullName             string  `json:"full_name"`
+	Gender               string  `json:"gender"`
+	DateOfBirth          *string `json:"date_of_birth,omitempty"`
+	UPINumber            *string `json:"upi_number,omitempty"`
+	KNECAssessmentNumber *string `json:"knec_assessment_number,omitempty"`
+	AdmissionNumber      *string `json:"admission_number,omitempty"`
+	GradeLevel           string  `json:"grade_level"`
+	StreamName           string  `json:"stream_name"`
+}
+
+// ImportRequest is the request body for POST /students/import.
+type ImportRequest struct {
+	IDempotencyKey *string     `json:"idempotency_key,omitempty"`
+	AcademicTermID string      `json:"academic_term_id"`
+	Rows           []ImportRow `json:"rows"`
+}
+
+// ImportResponse is returned after creating a student import job.
+type ImportResponse struct {
+	JobID        string `json:"job_id"`
+	TotalRecords int    `json:"total_records"`
+	TotalChunks  int    `json:"total_chunks"`
+	Status       string `json:"status"`
+}
+
+// ============================================================================
+// Import Repository Interface (for the student Importer)
+// ============================================================================
+
+// ImportRepository defines what the student Importer needs from the DB.
+type ImportRepository interface {
+	// ResolveClassByGradeAndStream resolves (grade_level, stream_name) to a class_id
+	// for the given tenant/school/academic_year. Returns nil if no match.
+	ResolveClassByGradeAndStream(ctx context.Context, tenantID, schoolID, academicYearID, gradeLevel, streamName string) (*string, error)
+
+	// ValidateAcademicTerm checks that the term exists, is not soft-deleted, and belongs to the school.
+	ValidateAcademicTerm(ctx context.Context, tenantID, schoolID, academicTermID string) (bool, error)
+
+	// CheckSchoolAdminMembership verifies the caller has SCHOOL_ADMIN for the school.
+	CheckSchoolAdminMembership(ctx context.Context, userID, tenantID, schoolID string) (bool, error)
+
+	// GetAcademicYearIDForTerm returns the academic_year_id for a given term.
+	GetAcademicYearIDForTerm(ctx context.Context, tenantID, schoolID, academicTermID string) (string, error)
+}
+
+// ============================================================================
 // Repository Interface
 // ============================================================================
 

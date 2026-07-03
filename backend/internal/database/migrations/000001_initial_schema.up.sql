@@ -210,6 +210,25 @@ END $$;
 -- from clean completed imports (all records succeeded).
 ALTER TYPE import_job_status ADD VALUE IF NOT EXISTS 'completed_with_errors';
 
+DO $$ BEGIN
+    CREATE TYPE import_job_type AS ENUM ('STAFF_INVITE', 'STUDENT_IMPORT');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE import_staging_status AS ENUM ('pending', 'succeeded', 'failed');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE import_failure_type AS ENUM (
+        'SCHEMA_VALIDATION',
+        'DATABASE_CONSTRAINT',
+        'BUSINESS_RULE_VIOLATION'
+    );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
 -- ============================================================================
 -- LAYER 1 — PLATFORM INFRASTRUCTURE
 -- ============================================================================
@@ -573,14 +592,18 @@ CREATE TABLE IF NOT EXISTS import_jobs (
     id                   UUID              PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id            UUID              NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     school_id            UUID              NOT NULL,
-    role                 user_role         NOT NULL,
+    job_type             import_job_type   NOT NULL,
+    role                 user_role         NULL,
     created_by           UUID              REFERENCES users(id) ON DELETE SET NULL,
     status               import_job_status NOT NULL DEFAULT 'pending',
     total_records        INT               NOT NULL DEFAULT 0,
     processed_records    INT               NOT NULL DEFAULT 0,
     success_count        INT               NOT NULL DEFAULT 0,
     failed_count         INT               NOT NULL DEFAULT 0,
-    parent_import_job_id UUID              NULL,
+    idempotency_key      TEXT              NULL,
+    total_chunks         INT               NOT NULL DEFAULT 0,
+    processed_chunks     INT               NOT NULL DEFAULT 0,
+    metadata             JSONB             NOT NULL DEFAULT '{}'::jsonb,
     created_at           TIMESTAMPTZ       NOT NULL DEFAULT NOW(),
     started_at           TIMESTAMPTZ       NULL,
     completed_at         TIMESTAMPTZ       NULL,
@@ -588,22 +611,26 @@ CREATE TABLE IF NOT EXISTS import_jobs (
     CONSTRAINT fk_import_jobs_tenant_school
         FOREIGN KEY (tenant_id, school_id)
         REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_import_jobs_parent
-        FOREIGN KEY (parent_import_job_id)
-        REFERENCES import_jobs(id) DEFERRABLE INITIALLY DEFERRED
+    CONSTRAINT chk_import_jobs_role_required_for_staff
+        CHECK (job_type <> 'STAFF_INVITE' OR role IS NOT NULL)
 );
 
 CREATE INDEX IF NOT EXISTS idx_import_jobs_tenant_id  ON import_jobs (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_import_jobs_school_id  ON import_jobs (school_id);
 CREATE INDEX IF NOT EXISTS idx_import_jobs_created_by ON import_jobs (created_by);
 CREATE INDEX IF NOT EXISTS idx_import_jobs_status     ON import_jobs (status);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_import_jobs_tenant_idempotency
+    ON import_jobs (tenant_id, idempotency_key)
+    WHERE idempotency_key IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS import_job_failures (
-    id            BIGSERIAL   PRIMARY KEY,
-    import_job_id UUID        NOT NULL REFERENCES import_jobs(id) ON DELETE CASCADE,
-    raw_payload   JSONB       NOT NULL,
-    error_message TEXT        NOT NULL,
-    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    id            BIGSERIAL            PRIMARY KEY,
+    import_job_id UUID                 NOT NULL REFERENCES import_jobs(id) ON DELETE CASCADE,
+    raw_payload   JSONB                NOT NULL,
+    error_message TEXT                 NOT NULL,
+    error_type    import_failure_type  NOT NULL DEFAULT 'DATABASE_CONSTRAINT',
+    row_number    INT                  NULL,
+    created_at    TIMESTAMPTZ          NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_import_job_failures_job_id ON import_job_failures (import_job_id);
@@ -613,16 +640,20 @@ CREATE INDEX IF NOT EXISTS idx_import_job_failures_job_id ON import_job_failures
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS import_job_staging (
-    id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    job_id     UUID        NOT NULL REFERENCES import_jobs(id) ON DELETE CASCADE,
-    tenant_id  UUID        NOT NULL,
-    school_id  UUID        NOT NULL,
-    row_number INT         NOT NULL,
-    raw_data   JSONB       NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    id            UUID                  PRIMARY KEY DEFAULT gen_random_uuid(),
+    job_id        UUID                  NOT NULL REFERENCES import_jobs(id) ON DELETE CASCADE,
+    tenant_id     UUID                  NOT NULL,
+    school_id     UUID                  NOT NULL,
+    row_number    INT                   NOT NULL,
+    raw_data      JSONB                 NOT NULL,
+    status        import_staging_status NOT NULL DEFAULT 'pending',
+    processed_at  TIMESTAMPTZ           NULL,
+    created_at    TIMESTAMPTZ           NOT NULL DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS idx_import_job_staging_job_id ON import_job_staging (job_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_import_job_staging_job_row
+    ON import_job_staging (job_id, row_number);
 
 -- ---------------------------------------------------------------------------
 -- INVITATIONS
@@ -1553,7 +1584,7 @@ COMMENT ON CONSTRAINT excl_grading_scales_no_overlap ON cbc_assessment_grading_s
     'GiST exclusion constraint using half-open numrange(min, max, ''[)'').
      Guarantees that for a given (tenant_id, school_id, grade_level) no two
      rows have overlapping percentage brackets. The && (overlaps) operator
-     returns true when two ranges share any point; the '[)' format ensures
+     returns true when two ranges share any point; the ''[)'' format ensures
      that adjacent brackets (e.g. [0,50) and [50,75)) are not considered
      overlapping because 50 is excluded from the first range.';
 
@@ -2058,7 +2089,7 @@ COMMENT ON COLUMN cbc_term_competency_summaries.report_card_id IS
 
 COMMENT ON COLUMN cbc_term_competency_summaries.teacher_narrative_summary IS
     'Free-text narrative note from the class teacher summarising the
-     learner's overall performance, effort, and areas for improvement in
+     learner''s overall performance, effort, and areas for improvement in
      this learning area for the term. Distinct from the per-subject
      class_teacher_remarks on the report card header — this is a per-area
      note recorded at the learning-area level by the subject teacher.';
@@ -2067,7 +2098,7 @@ COMMENT ON COLUMN cbc_term_competency_summaries.knec_sync_status IS
     'Tracks the KNEC CBA portal submission lifecycle for this
      per-student-per-learning-area competency record. Pending = not yet
      submitted; Synced = successfully uploaded; Failed = upload error.
-     The parent report card's status gates whether new submissions are
+     The parent report card''s status gates whether new submissions are
      accepted.';
 
 -- ============================================================

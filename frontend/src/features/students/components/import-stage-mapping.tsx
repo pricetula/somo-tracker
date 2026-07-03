@@ -566,7 +566,7 @@ export function ImportStageMapping({ onStageChange, onClose }: ImportStageMappin
                                 </SelectTrigger>
                                 <SelectContent>
                                     {terms.length === 0 ? (
-                                        <SelectItem value="" disabled>
+                                        <SelectItem value="__no_terms__" disabled>
                                             No terms available
                                         </SelectItem>
                                     ) : (
@@ -695,7 +695,6 @@ export function ImportStageMapping({ onStageChange, onClose }: ImportStageMappin
                                             <SelectValue placeholder="Unmapped" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="">Unmapped</SelectItem>
                                             {parsedHeaders.map((h) => (
                                                 <SelectItem key={h.original} value={h.original}>
                                                     {h.original}

@@ -2,20 +2,26 @@
  * Students listing page — active enrolled students.
  *
  * Maps to GET /api/v1/students/list.
+ *
+ * The Import button navigates to /students/import. When navigated from
+ * within this page, the @modal parallel slot intercepts the route and
+ * renders the import pipeline as a dialog overlay (keeping this listing
+ * mounted underneath). Direct navigation to /students/import renders
+ * as a full-page view.
  */
 
 "use client";
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
-import { StudentsTable, useStudents, ImportStudentsDialog } from "@/features/students";
+import { StudentsTable, useStudents } from "@/features/students";
 import { Plus, Upload } from "lucide-react";
 
 export default function StudentsPage() {
     const router = useRouter();
-    const [importOpen, setImportOpen] = React.useState(false);
 
     const {
         data: studentsData,
@@ -24,48 +30,47 @@ export default function StudentsPage() {
     } = useStudents();
 
     return (
-        <>
-            <ImportStudentsDialog open={importOpen} onOpenChange={setImportOpen} />
-            <div className="flex flex-1 flex-col">
-                {/* Page header */}
-                <div className="flex items-center gap-3 px-6 pt-6 pb-2">
-                    <h1 className="text-2xl font-semibold tracking-tight">Students</h1>
-                    <div className="ml-auto flex items-center gap-2">
-                        <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+        <div className="flex flex-1 flex-col">
+            {/* Page header */}
+            <div className="flex items-center gap-3 px-6 pt-6 pb-2">
+                <h1 className="text-2xl font-semibold tracking-tight">Students</h1>
+                <div className="ml-auto flex items-center gap-2">
+                    <Button variant="outline" size="sm" asChild>
+                        <Link href="/students/import">
                             <Upload className="mr-1.5 size-3.5" />
                             Import
-                        </Button>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => router.push("/students/new")}
-                        >
-                            <Plus className="mr-1.5 size-3.5" />
-                            Add Student
-                        </Button>
-                    </div>
-                </div>
-
-                <div className="flex flex-1 flex-col px-6 py-4">
-                    <section className="flex flex-col">
-                        {studentsError ? (
-                            <div className="flex items-center justify-center py-8">
-                                <p className="text-destructive text-sm">
-                                    Failed to load students. Please try again.
-                                </p>
-                            </div>
-                        ) : (
-                            <div className="ring-foreground/10 rounded-lg ring-1">
-                                <StudentsTable
-                                    students={studentsData?.students ?? []}
-                                    total={studentsData?.total ?? 0}
-                                    isLoading={studentsLoading}
-                                />
-                            </div>
-                        )}
-                    </section>
+                        </Link>
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => router.push("/students/new")}
+                    >
+                        <Plus className="mr-1.5 size-3.5" />
+                        Add Student
+                    </Button>
                 </div>
             </div>
-        </>
+
+            <div className="flex flex-1 flex-col px-6 py-4">
+                <section className="flex flex-col">
+                    {studentsError ? (
+                        <div className="flex items-center justify-center py-8">
+                            <p className="text-destructive text-sm">
+                                Failed to load students. Please try again.
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="ring-foreground/10 rounded-lg ring-1">
+                            <StudentsTable
+                                students={studentsData?.students ?? []}
+                                total={studentsData?.total ?? 0}
+                                isLoading={studentsLoading}
+                            />
+                        </div>
+                    )}
+                </section>
+            </div>
+        </div>
     );
 }

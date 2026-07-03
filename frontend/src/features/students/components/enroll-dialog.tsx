@@ -169,7 +169,7 @@ export function EnrollDialog({ open, onOpenChange, studentId }: EnrollDialogProp
                             </SelectTrigger>
                             <SelectContent>
                                 {classes.length === 0 ? (
-                                    <SelectItem value="" disabled>
+                                    <SelectItem value="__no_classes__" disabled>
                                         No classes available
                                     </SelectItem>
                                 ) : (

@@ -50,7 +50,7 @@ export default function AdminsPage() {
                     ) : (
                         <div className="ring-foreground/10 rounded-lg ring-1">
                             <AdminsTable
-                                admins={adminsData?.members ?? []}
+                                admins={adminsData?.items ?? []}
                                 total={adminsData?.total ?? 0}
                                 isLoading={adminsLoading}
                             />

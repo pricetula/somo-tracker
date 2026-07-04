@@ -43,7 +43,7 @@ export default function BlueprintsPage() {
 
     const deleteBlueprint = useDeleteBlueprint();
 
-    const blueprints = blueprintsData?.data ?? [];
+    const blueprints = blueprintsData?.items ?? [];
 
     const handleDelete = async (id: string) => {
         if (window.confirm("Delete this blueprint? This action cannot be undone.")) {

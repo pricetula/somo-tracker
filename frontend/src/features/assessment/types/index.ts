@@ -43,7 +43,7 @@ export interface CreateBlueprintPayload {
 }
 
 export interface ListBlueprintsResponse {
-    data: AssessmentBlueprint[];
+    items: AssessmentBlueprint[];
 }
 
 export interface BlueprintDetailResponse {
@@ -99,7 +99,7 @@ export interface CreateSessionResponse {
 }
 
 export interface ListSessionsResponse {
-    data: AssessmentSession[];
+    items: AssessmentSession[];
 }
 
 export interface SessionDetailResponse {
@@ -122,7 +122,7 @@ export interface BatchUpsertResultsPayload {
 }
 
 export interface ListResultsResponse {
-    data: LearnerRubricResult[];
+    items: LearnerRubricResult[];
 }
 
 // ─── Weight Configs ───────────────────────────────────────────────────────
@@ -137,7 +137,7 @@ export interface AssessmentWeightConfig {
 }
 
 export interface ListWeightConfigsResponse {
-    data: AssessmentWeightConfig[];
+    items: AssessmentWeightConfig[];
 }
 
 // ─── Enums / Constants ────────────────────────────────────────────────────

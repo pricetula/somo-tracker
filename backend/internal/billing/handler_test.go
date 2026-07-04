@@ -227,8 +227,8 @@ func TestHandler_ListFeeCategories_HappyPath(t *testing.T) {
 	if result.Total != 2 {
 		t.Fatalf("expected total 2, got %d", result.Total)
 	}
-	if len(result.FeeCategories) != 2 {
-		t.Fatalf("expected 2 categories, got %d", len(result.FeeCategories))
+	if len(result.Items) != 2 {
+		t.Fatalf("expected 2 categories, got %d", len(result.Items))
 	}
 }
 

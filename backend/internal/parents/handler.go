@@ -104,7 +104,7 @@ func (h *Handler) List(c *fiber.Ctx) error {
 		return middleware.HTTPError(c, err)
 	}
 
-	return c.JSON(ListParentsResponse{Data: parents})
+	return c.JSON(ListParentsResponse{Items: parents})
 }
 
 // ============================================================================

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { DataTable } from "@/components/shared/data-table";
 import { listStudents } from "@/lib/api/students";
 import type { Student } from "@/lib/api/students";
@@ -10,16 +10,15 @@ export function StudentsTable() {
     // and gets passed straight through as `params` to listClasses.
     const [search, setSearch] = useState("");
 
+    // Memoize to keep the object reference stable — otherwise DataTable's
+    // infinite query key changes every render, keeping isPending stuck true.
+    const params = useMemo(() => ({ search: search || undefined }), [search]);
+
     return (
         <DataTable
             queryKey={["students", search]}
             queryFn={listStudents}
-            params={{
-                // Drop this line if listStudents doesn't accept a `search` param —
-                // in that case, filter `rows` client-side instead, or add
-                // search support to the backend endpoint.
-                search: search || undefined,
-            }}
+            params={params}
             getRowId={(row) => row.id}
             onSearch={setSearch}
             searchPlaceholder="Search students..."

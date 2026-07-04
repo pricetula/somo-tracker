@@ -74,6 +74,6 @@ type SchoolUpdateFields struct {
 
 // ListSchoolsResponse wraps a list of schools.
 type ListSchoolsResponse struct {
-	Schools []SchoolWithMemberCount `json:"schools"`
-	Total   int                     `json:"total"`
+	Items []SchoolWithMemberCount `json:"items"`
+	Total int                     `json:"total"`
 }

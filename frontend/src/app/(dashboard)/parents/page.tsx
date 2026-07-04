@@ -27,7 +27,7 @@ export default function ParentsPage() {
 
     const deleteParent = useDeleteParent();
 
-    const parents = parentsData?.data ?? [];
+    const parents = parentsData?.items ?? [];
     const total = parents.length;
 
     const handleDelete = async (id: string) => {

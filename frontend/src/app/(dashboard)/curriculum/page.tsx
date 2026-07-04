@@ -73,7 +73,7 @@ export default function CurriculumPage() {
                     ) : (
                         <div className="ring-foreground/10 rounded-lg ring-1">
                             <LearningAreasTable
-                                learningAreas={areasData?.learning_areas ?? []}
+                                learningAreas={areasData?.items ?? []}
                                 total={areasData?.total ?? 0}
                                 isLoading={areasLoading}
                                 onCreateClick={() => setCreateOpen(true)}

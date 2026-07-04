@@ -56,7 +56,7 @@ export default function StudentsPage() {
                     ) : (
                         <div className="ring-foreground/10 rounded-lg ring-1">
                             <StudentsTable
-                                students={studentsData?.students ?? []}
+                                students={studentsData?.items ?? []}
                                 total={studentsData?.total ?? 0}
                                 isLoading={studentsLoading}
                             />

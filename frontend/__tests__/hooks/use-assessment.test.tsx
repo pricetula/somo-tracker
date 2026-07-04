@@ -53,7 +53,7 @@ describe("useBlueprints", () => {
             http.get(`${API_BASE}/api/v1/assessment/blueprints`, ({ request }) => {
                 const url = new URL(request.url);
                 expect(url.searchParams.toString()).toBe("");
-                return HttpResponse.json<ListBlueprintsResponse>({ data: blueprints });
+                return HttpResponse.json<ListBlueprintsResponse>({ items: blueprints });
             })
         );
 
@@ -61,7 +61,7 @@ describe("useBlueprints", () => {
             const query = useBlueprints();
             if (query.isLoading) return <div>Loading...</div>;
             if (query.isError) return <div>Error: {query.error?.message}</div>;
-            return <div data-testid="count">{query.data?.data.length}</div>;
+            return <div data-testid="count">{query.data?.items.length}</div>;
         }
 
         renderWithProviders(React.createElement(TestComponent));
@@ -77,7 +77,7 @@ describe("useBlueprints", () => {
                 const url = new URL(request.url);
                 expect(url.searchParams.get("grade_level")).toBe("G4");
                 expect(url.searchParams.get("type")).toBe("Formative_Classroom");
-                return HttpResponse.json<ListBlueprintsResponse>({ data: [] });
+                return HttpResponse.json<ListBlueprintsResponse>({ items: [] });
             })
         );
 
@@ -172,7 +172,7 @@ describe("useSessions", () => {
 
         server.use(
             http.get(`${API_BASE}/api/v1/assessment/sessions`, () => {
-                return HttpResponse.json<ListSessionsResponse>({ data: sessions });
+                return HttpResponse.json<ListSessionsResponse>({ items: sessions });
             })
         );
 
@@ -180,7 +180,7 @@ describe("useSessions", () => {
             const query = useSessions();
             if (query.isLoading) return <div>Loading...</div>;
             if (query.isError) return <div>Error</div>;
-            return <div data-testid="count">{query.data?.data.length}</div>;
+            return <div data-testid="count">{query.data?.items.length}</div>;
         }
 
         renderWithProviders(React.createElement(TestComponent));
@@ -229,7 +229,7 @@ describe("useSessionResults", () => {
 
         server.use(
             http.get(`${API_BASE}/api/v1/assessment/sessions/s-1/results`, () => {
-                return HttpResponse.json<ListResultsResponse>({ data: results });
+                return HttpResponse.json<ListResultsResponse>({ items: results });
             })
         );
 
@@ -237,7 +237,7 @@ describe("useSessionResults", () => {
             const query = useSessionResults("s-1");
             if (query.isLoading) return <div>Loading...</div>;
             if (query.isError) return <div>Error</div>;
-            return <div data-testid="count">{query.data?.data.length}</div>;
+            return <div data-testid="count">{query.data?.items.length}</div>;
         }
 
         renderWithProviders(React.createElement(TestComponent));
@@ -265,7 +265,7 @@ describe("useWeightConfigs", () => {
             http.get(`${API_BASE}/api/v1/assessment/weight-configs`, ({ request }) => {
                 const url = new URL(request.url);
                 expect(url.searchParams.get("grade_level")).toBe("G4");
-                return HttpResponse.json<ListWeightConfigsResponse>({ data: configs });
+                return HttpResponse.json<ListWeightConfigsResponse>({ items: configs });
             })
         );
 
@@ -273,7 +273,7 @@ describe("useWeightConfigs", () => {
             const query = useWeightConfigs({ grade_level: "G4" });
             if (query.isLoading) return <div>Loading...</div>;
             if (query.isError) return <div>Error</div>;
-            return <div data-testid="count">{query.data?.data.length}</div>;
+            return <div data-testid="count">{query.data?.items.length}</div>;
         }
 
         renderWithProviders(React.createElement(TestComponent));

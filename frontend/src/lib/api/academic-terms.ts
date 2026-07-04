@@ -38,15 +38,15 @@ export interface AcademicYear {
 /** List academic terms for the active school. */
 export async function listTerms(
     params: { academic_year_id?: string } = {}
-): Promise<{ data: AcademicTerm[] }> {
+): Promise<{ items: AcademicTerm[] }> {
     const searchParams = new URLSearchParams();
     if (params.academic_year_id) searchParams.set("academic_year_id", params.academic_year_id);
 
     const qs = searchParams.toString();
-    return api.get<{ data: AcademicTerm[] }>(`/api/v1/academic-terms?${qs}`);
+    return api.get<{ items: AcademicTerm[] }>(`/api/v1/academic-terms?${qs}`);
 }
 
 /** List academic years for the active school. */
-export async function listAcademicYears(): Promise<{ data: AcademicYear[] }> {
-    return api.get<{ data: AcademicYear[] }>("/api/v1/academic-years");
+export async function listAcademicYears(): Promise<{ items: AcademicYear[] }> {
+    return api.get<{ items: AcademicYear[] }>("/api/v1/academic-years");
 }

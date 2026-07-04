@@ -72,7 +72,7 @@ export function EnrollDialog({ open, onOpenChange, studentId }: EnrollDialogProp
                         data: [],
                     })),
                 ]);
-                setTerms(termsRes.data ?? []);
+                setTerms(termsRes.items ?? []);
                 // Classes data might be empty — set to empty array
                 setClasses([]);
             } catch {

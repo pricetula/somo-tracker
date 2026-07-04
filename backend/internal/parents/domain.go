@@ -82,7 +82,7 @@ type ParentDetailResponse struct {
 }
 
 type ListParentsResponse struct {
-	Data []Parent `json:"data"`
+	Items []Parent `json:"items"`
 }
 
 // ============================================================================

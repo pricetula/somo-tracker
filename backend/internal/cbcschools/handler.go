@@ -88,8 +88,8 @@ func (h *Handler) List(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(ListSchoolsResponse{
-		Schools: schools,
-		Total:   len(schools),
+		Items: schools,
+		Total: len(schools),
 	})
 }
 

@@ -56,7 +56,7 @@ export function SessionForm({ classes, classesLoading }: SessionFormProps) {
     const [date, setDate] = React.useState<Date | undefined>(undefined);
     const [error, setError] = React.useState<string | null>(null);
 
-    const blueprints = blueprintsData?.data ?? [];
+    const blueprints = blueprintsData?.items ?? [];
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

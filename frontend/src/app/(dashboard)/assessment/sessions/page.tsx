@@ -26,7 +26,7 @@ export default function SessionsPage() {
 
     const deleteSession = useDeleteSession();
 
-    const sessions = sessionsData?.data ?? [];
+    const sessions = sessionsData?.items ?? [];
 
     const handleDelete = async (id: string) => {
         if (window.confirm("Delete this session? This will also remove all recorded scores.")) {

@@ -71,7 +71,7 @@ export function LinkStudentDialog({ open, onOpenChange, parentId }: LinkStudentD
         { enabled: open }
     );
 
-    const students = studentsData?.students ?? [];
+    const students = studentsData?.items ?? [];
 
     // Reset state via onOpenChange instead of an effect
 

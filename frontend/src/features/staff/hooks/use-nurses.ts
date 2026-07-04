@@ -59,7 +59,7 @@ export function useToggleNurseActive() {
                 if (!old) return old;
                 return {
                     ...old,
-                    members: old.members.map((m) =>
+                    items: old.items.map((m) =>
                         m.id === userId ? { ...m, is_active: isActive } : m
                     ),
                 };

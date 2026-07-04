@@ -57,7 +57,7 @@ export interface StudentDetail {
 // ─── Response Types ───────────────────────────────────────────────────────
 
 export interface ListStudentsResponse {
-    students: Student[];
+    items: Student[];
     total: number;
     page: number;
     limit: number;
@@ -76,7 +76,7 @@ export interface CreateEnrollmentResponse {
 }
 
 export interface ListEnrollmentsResponse {
-    data: Enrollment[];
+    items: Enrollment[];
 }
 
 // ─── Payload Types ────────────────────────────────────────────────────────

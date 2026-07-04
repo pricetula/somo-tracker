@@ -378,5 +378,5 @@ func (h *Handler) ListEnrollments(c *fiber.Ctx) error {
 		return middleware.HTTPError(c, err)
 	}
 
-	return c.JSON(ListEnrollmentsResponse{Data: enrollments})
+	return c.JSON(ListEnrollmentsResponse{Items: enrollments})
 }

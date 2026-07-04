@@ -50,7 +50,7 @@ export default function NursesPage() {
                     ) : (
                         <div className="ring-foreground/10 rounded-lg ring-1">
                             <NursesTable
-                                nurses={nursesData?.members ?? []}
+                                nurses={nursesData?.items ?? []}
                                 total={nursesData?.total ?? 0}
                                 isLoading={nursesLoading}
                             />

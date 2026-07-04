@@ -124,8 +124,8 @@ func (h *Handler) ListLearningAreas(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(ListLearningAreasResponse{
-		LearningAreas: areas,
-		Total:         len(areas),
+		Items: areas,
+		Total: len(areas),
 	})
 }
 
@@ -285,8 +285,8 @@ func (h *Handler) ListStrands(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(ListStrandsResponse{
-		Strands: strands,
-		Total:   len(strands),
+		Items: strands,
+		Total: len(strands),
 	})
 }
 
@@ -372,8 +372,8 @@ func (h *Handler) ListSubStrands(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(ListSubStrandsResponse{
-		SubStrands: subs,
-		Total:      len(subs),
+		Items: subs,
+		Total: len(subs),
 	})
 }
 
@@ -459,8 +459,8 @@ func (h *Handler) ListPerformanceIndicators(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(ListPerformanceIndicatorsResponse{
-		PerformanceIndicators: indicators,
-		Total:                 len(indicators),
+		Items: indicators,
+		Total: len(indicators),
 	})
 }
 

@@ -192,8 +192,8 @@ type UpdateLearningAreaPayload struct {
 }
 
 type ListLearningAreasResponse struct {
-	LearningAreas []LearningArea `json:"learning_areas"`
-	Total         int            `json:"total"`
+	Items []LearningArea `json:"items"`
+	Total int            `json:"total"`
 }
 
 // Strand payloads
@@ -207,8 +207,8 @@ type UpdateStrandPayload struct {
 }
 
 type ListStrandsResponse struct {
-	Strands []Strand `json:"strands"`
-	Total   int      `json:"total"`
+	Items []Strand `json:"items"`
+	Total int      `json:"total"`
 }
 
 // Sub-Strand payloads
@@ -222,8 +222,8 @@ type UpdateSubStrandPayload struct {
 }
 
 type ListSubStrandsResponse struct {
-	SubStrands []SubStrand `json:"sub_strands"`
-	Total      int         `json:"total"`
+	Items []SubStrand `json:"items"`
+	Total int         `json:"total"`
 }
 
 // Performance Indicator payloads
@@ -239,6 +239,6 @@ type UpdatePerformanceIndicatorPayload struct {
 }
 
 type ListPerformanceIndicatorsResponse struct {
-	PerformanceIndicators []PerformanceIndicator `json:"performance_indicators"`
-	Total                 int                    `json:"total"`
+	Items []PerformanceIndicator `json:"items"`
+	Total int                    `json:"total"`
 }

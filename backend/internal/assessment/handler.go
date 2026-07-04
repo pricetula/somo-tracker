@@ -133,7 +133,7 @@ func (h *Handler) ListBlueprints(c *fiber.Ctx) error {
 		return middleware.HTTPError(c, err)
 	}
 
-	return c.JSON(ListBlueprintsResponse{Data: blueprints})
+	return c.JSON(ListBlueprintsResponse{Items: blueprints})
 }
 
 // GetBlueprintDetail handles GET /api/v1/assessment/blueprints/:id.
@@ -241,7 +241,7 @@ func (h *Handler) ListSessions(c *fiber.Ctx) error {
 		return middleware.HTTPError(c, err)
 	}
 
-	return c.JSON(ListSessionsResponse{Data: sessions})
+	return c.JSON(ListSessionsResponse{Items: sessions})
 }
 
 // GetSessionDetail handles GET /api/v1/assessment/sessions/:id.
@@ -328,7 +328,7 @@ func (h *Handler) ListResults(c *fiber.Ctx) error {
 		return middleware.HTTPError(c, err)
 	}
 
-	return c.JSON(ListResultsResponse{Data: results})
+	return c.JSON(ListResultsResponse{Items: results})
 }
 
 // ============================================================================
@@ -397,7 +397,7 @@ func (h *Handler) ListWeightConfigs(c *fiber.Ctx) error {
 		return middleware.HTTPError(c, err)
 	}
 
-	return c.JSON(ListWeightConfigsResponse{Data: configs})
+	return c.JSON(ListWeightConfigsResponse{Items: configs})
 }
 
 // ============================================================================

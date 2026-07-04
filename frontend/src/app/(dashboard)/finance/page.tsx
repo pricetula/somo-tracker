@@ -50,7 +50,7 @@ export default function FinancePage() {
                     ) : (
                         <div className="ring-foreground/10 rounded-lg ring-1">
                             <FinanceTable
-                                staff={financeData?.members ?? []}
+                                staff={financeData?.items ?? []}
                                 total={financeData?.total ?? 0}
                                 isLoading={financeLoading}
                             />

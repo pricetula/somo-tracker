@@ -61,7 +61,7 @@ export function useToggleTeacherActive() {
                     if (!old) return old;
                     return {
                         ...old,
-                        teachers: old.teachers.map((t) =>
+                        items: old.items.map((t) =>
                             t.id === userId ? { ...t, is_active: isActive } : t
                         ),
                     };

@@ -1,6 +1,6 @@
 import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
-import type { ListApiFn, NormalizedListResult } from "./types";
+import { type ListApiFn, type NormalizedListResult } from "./types";
 import { defaultNormalize } from "./utils";
 
 export interface UseInfiniteListQueryOptions<TItem, TParams extends object, TResult> {
@@ -39,35 +39,40 @@ export function useInfiniteListQuery<TItem, TParams extends object, TResult>({
             const normalized = normalize(lastPage);
 
             if (normalized.hasMore !== undefined) {
-                return normalized?.hasMore && allPages?.length ? allPages.length + 1 : undefined;
+                return normalized.hasMore ? allPages.length + 1 : undefined;
             }
 
-            if (normalized?.total !== undefined) {
-                const loaded = allPages?.reduce?.(
+            if (normalized.total !== undefined) {
+                const loaded = allPages.reduce(
                     (sum, page) => sum + normalize(page).items.length,
                     0
                 );
-                return loaded < normalized?.total && allPages?.length
-                    ? allPages.length + 1
-                    : undefined;
+                return loaded < normalized.total ? allPages.length + 1 : undefined;
             }
 
             // No total/hasMore to go on — assume a short page means the end.
-            return normalized?.items.length === limit && allPages?.length
-                ? allPages.length + 1
-                : undefined;
+            return normalized.items.length === limit ? allPages.length + 1 : undefined;
         },
         placeholderData: keepPreviousData,
         enabled,
     });
 
+    // TEMP DEBUG — remove once the stuck-loading issue is found
+    console.log("[useInfiniteListQuery]", {
+        status: query.status,
+        fetchStatus: query.fetchStatus,
+        error: query.error,
+        pageCount: query.data?.pages.length,
+        enabled,
+    });
+
     const rows = useMemo(
-        () => query?.data?.pages?.flatMap?.((page) => normalize(page).items) ?? [],
+        () => query.data?.pages.flatMap((page) => normalize(page).items) ?? [],
         [query.data, normalize]
     );
 
     const total = useMemo(
-        () => (query?.data ? normalize(query?.data?.pages?.[0])?.total : undefined),
+        () => (query.data ? normalize(query.data.pages[0]).total : undefined),
         [query.data, normalize]
     );
 

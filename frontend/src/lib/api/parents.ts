@@ -46,7 +46,7 @@ export interface ParentDetail {
 // ─── Response Types ───────────────────────────────────────────────────────
 
 export interface ListParentsResponse {
-    data: Parent[];
+    items: Parent[];
 }
 
 export interface ParentDetailResponse {

@@ -54,7 +54,7 @@ export function DataTable<TItem, TParams extends object, TResult>({
     const {
         rows,
         total,
-        isLoading,
+        isPending,
         isError,
         error,
         isFetchingNextPage,
@@ -67,6 +67,9 @@ export function DataTable<TItem, TParams extends object, TResult>({
         limit: pageSize,
         normalize,
     });
+
+    // TEMP DEBUG — remove once the stuck-loading issue is found
+    console.log("[DataTable]", { queryKey, params, isPending, rowsLength: rows.length });
 
     // --- search -------------------------------------------------------
     const [searchTerm, setSearchTerm] = useState("");
@@ -140,7 +143,7 @@ export function DataTable<TItem, TParams extends object, TResult>({
                     <div className="p-6 text-center text-sm text-red-600">
                         Failed to load data{error instanceof Error ? `: ${error.message}` : "."}
                     </div>
-                ) : isLoading ? (
+                ) : isPending ? (
                     <div className="p-6 text-center text-sm text-gray-500">Loading…</div>
                 ) : rows.length === 0 ? (
                     (emptyState ?? (

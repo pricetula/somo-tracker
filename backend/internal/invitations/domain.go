@@ -53,6 +53,6 @@ type ListInvitationsFilter struct {
 
 // ListInvitationsResponse wraps a paginated invitation list.
 type ListInvitationsResponse struct {
-	Invitations []Invitation `json:"invitations"`
-	Total       int          `json:"total"`
+	Items []Invitation `json:"items"`
+	Total int          `json:"total"`
 }

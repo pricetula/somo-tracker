@@ -256,7 +256,7 @@ export function IndicatorLinker({
         enabled: open, // Only fetch when dialog opens
     });
 
-    const learningAreas = learningAreasData?.learning_areas ?? [];
+    const learningAreas = learningAreasData?.items ?? [];
 
     // Build a filtered list of already-linked IDs for display
     const linkedSet = React.useMemo(() => new Set(alreadyLinked), [alreadyLinked]);

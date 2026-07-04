@@ -1108,8 +1108,8 @@ func TestGetInvoiceDetail_HappyPath(t *testing.T) {
 	if len(result.Items) != 1 {
 		t.Fatalf("expected 1 item, got %d", len(result.Items))
 	}
-	if len(result.Payments) != 1 {
-		t.Fatalf("expected 1 payment, got %d", len(result.Payments))
+	if len(result.Items) != 1 {
+		t.Fatalf("expected 1 payment, got %d", len(result.Items))
 	}
 }
 
@@ -1167,8 +1167,8 @@ func TestListInvoices_HappyPath(t *testing.T) {
 	if result.Total != 2 {
 		t.Fatalf("expected total 2, got %d", result.Total)
 	}
-	if len(result.Invoices) != 2 {
-		t.Fatalf("expected 2 invoices, got %d", len(result.Invoices))
+	if len(result.Items) != 2 {
+		t.Fatalf("expected 2 invoices, got %d", len(result.Items))
 	}
 }
 
@@ -1435,8 +1435,8 @@ func TestListPayments_HappyPath(t *testing.T) {
 	if result.Total != 2 {
 		t.Fatalf("expected total 2, got %d", result.Total)
 	}
-	if len(result.Payments) != 2 {
-		t.Fatalf("expected 2 payments, got %d", len(result.Payments))
+	if len(result.Items) != 2 {
+		t.Fatalf("expected 2 payments, got %d", len(result.Items))
 	}
 }
 

@@ -63,22 +63,22 @@ export interface LearningAreaTree {
 // ─── Response Types ───────────────────────────────────────────────────────
 
 export interface ListLearningAreasResponse {
-    learning_areas: LearningArea[];
+    items: LearningArea[];
     total: number;
 }
 
 export interface ListStrandsResponse {
-    strands: Strand[];
+    items: Strand[];
     total: number;
 }
 
 export interface ListSubStrandsResponse {
-    sub_strands: SubStrand[];
+    items: SubStrand[];
     total: number;
 }
 
 export interface ListPerformanceIndicatorsResponse {
-    performance_indicators: PerformanceIndicator[];
+    items: PerformanceIndicator[];
     total: number;
 }
 

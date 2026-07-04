@@ -30,7 +30,7 @@ export function useActiveAcademicYear() {
     return useQuery({
         queryKey: academicKeys.years(),
         queryFn: async (): Promise<AcademicYear | null> => {
-            const { data: years } = await listAcademicYears();
+            const { items: years } = await listAcademicYears();
             return years.find((y) => y.is_current) ?? years[0] ?? null;
         },
         staleTime: 30_000, // cache for 30s
@@ -45,7 +45,7 @@ export function useActiveTerm(academicYearId: string | undefined) {
         queryKey: academicKeys.terms(academicYearId ?? ""),
         queryFn: async (): Promise<AcademicTerm | null> => {
             if (!academicYearId) return null;
-            const { data: terms } = await listTerms({ academic_year_id: academicYearId });
+            const { items: terms } = await listTerms({ academic_year_id: academicYearId });
             return terms.find((t) => t.is_current) ?? terms[0] ?? null;
         },
         enabled: !!academicYearId,

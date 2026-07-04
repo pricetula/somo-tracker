@@ -50,7 +50,7 @@ export default function NursesInvitationsPage() {
                     ) : (
                         <div className="ring-foreground/10 rounded-lg ring-1">
                             <InvitedStaffTable
-                                invitations={invitationsData?.invitations ?? []}
+                                invitations={invitationsData?.items ?? []}
                                 total={invitationsData?.total ?? 0}
                                 roleLabel={roleLabel}
                                 isLoading={invitationsLoading}

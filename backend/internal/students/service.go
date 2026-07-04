@@ -45,10 +45,10 @@ func (s *Service) ListStudents(ctx context.Context, filter ListFilter) (ListStud
 	}
 
 	return ListStudentsResponse{
-		Students: students,
-		Total:    total,
-		Page:     filter.Page,
-		Limit:    filter.Limit,
+		Items: students,
+		Total: total,
+		Page:  filter.Page,
+		Limit: filter.Limit,
 	}, nil
 }
 

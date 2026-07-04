@@ -166,11 +166,11 @@ func TestHandler_ListSchools_HappyPath(t *testing.T) {
 	if result.Total != 2 {
 		t.Fatalf("expected total 2, got %d", result.Total)
 	}
-	if len(result.Schools) != 2 {
-		t.Fatalf("expected 2 schools, got %d", len(result.Schools))
+	if len(result.Items) != 2 {
+		t.Fatalf("expected 2 schools, got %d", len(result.Items))
 	}
-	if result.Schools[0].Teachers != 15 {
-		t.Fatalf("expected Teachers 15, got %d", result.Schools[0].Teachers)
+	if result.Items[0].Teachers != 15 {
+		t.Fatalf("expected Teachers 15, got %d", result.Items[0].Teachers)
 	}
 }
 
@@ -194,8 +194,8 @@ func TestHandler_ListSchools_Empty(t *testing.T) {
 	if result.Total != 0 {
 		t.Fatalf("expected total 0, got %d", result.Total)
 	}
-	if len(result.Schools) != 0 {
-		t.Fatalf("expected 0 schools, got %d", len(result.Schools))
+	if len(result.Items) != 0 {
+		t.Fatalf("expected 0 schools, got %d", len(result.Items))
 	}
 }
 

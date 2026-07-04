@@ -129,7 +129,7 @@ type CreateBlueprintResponse struct {
 }
 
 type ListBlueprintsResponse struct {
-	Data []AssessmentBlueprint `json:"data"`
+	Items []AssessmentBlueprint `json:"items"`
 }
 
 type BlueprintDetailResponse struct {
@@ -146,7 +146,7 @@ type ListWeightConfigsQuery struct {
 }
 
 type ListWeightConfigsResponse struct {
-	Data []AssessmentWeightConfig `json:"data"`
+	Items []AssessmentWeightConfig `json:"items"`
 }
 
 // ============================================================================
@@ -174,7 +174,7 @@ type CreateSessionResponse struct {
 }
 
 type ListSessionsResponse struct {
-	Data []AssessmentSession `json:"data"`
+	Items []AssessmentSession `json:"items"`
 }
 
 type SessionDetailResponse struct {
@@ -195,7 +195,7 @@ type BatchUpsertResultsPayload struct {
 }
 
 type ListResultsResponse struct {
-	Data []LearnerRubricResult `json:"data"`
+	Items []LearnerRubricResult `json:"items"`
 }
 
 // ============================================================================

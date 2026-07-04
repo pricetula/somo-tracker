@@ -71,8 +71,8 @@ func (h *Handler) ListInvitations(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(ListInvitationsResponse{
-		Invitations: invitations,
-		Total:       total,
+		Items: invitations,
+		Total: total,
 	})
 }
 

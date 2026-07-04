@@ -57,7 +57,7 @@ export default function ScorePage() {
         enabled: !!sessionId,
     });
 
-    const savedResults = React.useMemo(() => resultsData?.data ?? [], [resultsData]);
+    const savedResults = React.useMemo(() => resultsData?.items ?? [], [resultsData]);
 
     // Fetch students in the class via React Query
     const {
@@ -66,7 +66,7 @@ export default function ScorePage() {
         isError: studentsError,
     } = useStudents({ class_id: classId, limit: 200 }, { enabled: !!classId });
 
-    const students = studentsData?.students ?? [];
+    const students = studentsData?.items ?? [];
 
     const batchUpsert = useBatchUpsertResults();
 

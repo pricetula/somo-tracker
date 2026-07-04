@@ -95,8 +95,8 @@ func (h *Handler) ListFeeCategories(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(ListFeeCategoriesResponse{
-		FeeCategories: categories,
-		Total:         len(categories),
+		Items: categories,
+		Total: len(categories),
 	})
 }
 
@@ -216,8 +216,8 @@ func (h *Handler) ListFeeTemplates(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(ListFeeTemplatesResponse{
-		FeeTemplates: templates,
-		Total:        len(templates),
+		Items: templates,
+		Total: len(templates),
 	})
 }
 

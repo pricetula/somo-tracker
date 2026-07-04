@@ -64,10 +64,10 @@ type Enrollment struct {
 // ============================================================================
 
 type ListStudentsResponse struct {
-	Students []Student `json:"students"`
-	Total    int       `json:"total"`
-	Page     int       `json:"page"`
-	Limit    int       `json:"limit"`
+	Items []Student `json:"items"`
+	Total int       `json:"total"`
+	Page  int       `json:"page"`
+	Limit int       `json:"limit"`
 }
 
 type StudentDetailResponse struct {
@@ -107,7 +107,7 @@ type CreateEnrollmentResponse struct {
 }
 
 type ListEnrollmentsResponse struct {
-	Data []Enrollment `json:"data"`
+	Items []Enrollment `json:"items"`
 }
 
 // ListFilter holds query parameters for listing students.

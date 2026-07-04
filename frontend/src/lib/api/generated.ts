@@ -86,7 +86,7 @@ export interface SchoolWithMemberCount {
 }
 
 export interface ListSchoolsResponse {
-    schools: SchoolWithMemberCount[];
+    items: SchoolWithMemberCount[];
     total: number;
 }
 
@@ -106,7 +106,7 @@ export interface Stream {
 }
 
 export interface ListStreamsResponse {
-    data: Stream[];
+    items: Stream[];
 }
 
 export interface CreateClassPayload {
@@ -157,7 +157,7 @@ export interface Member {
 }
 
 export interface ListMembersResponse {
-    members: Member[];
+    items: Member[];
     total: number;
 }
 
@@ -173,7 +173,7 @@ export interface TeacherMember {
 }
 
 export interface ListTeachersResponse {
-    teachers: TeacherMember[];
+    items: TeacherMember[];
     total: number;
 }
 
@@ -194,7 +194,7 @@ export interface Invitation {
 }
 
 export interface ListInvitationsResponse {
-    invitations: Invitation[];
+    items: Invitation[];
     total: number;
 }
 
@@ -285,11 +285,11 @@ export interface PatchTermResponse {
 }
 
 export interface ListYearsResponse {
-    data: AcademicYear[];
+    items: AcademicYear[];
 }
 
 export interface ListTermsResponse {
-    data: AcademicTerm[];
+    items: AcademicTerm[];
 }
 
 export type TeacherRole = "PRIMARY_CLASS_TEACHER" | "SUBJECT_TEACHER" | "SUBSTITUTE_TEACHER";
@@ -326,7 +326,7 @@ export interface TimetableSlot {
 }
 
 export interface ListTimetableSlotsResponse {
-    data: TimetableSlot[];
+    items: TimetableSlot[];
 }
 
 export interface AssignTeacherPayload {
@@ -461,7 +461,7 @@ export interface FailedInvitation {
 }
 
 export interface ListFailedInvitationsResponse {
-    invitations: FailedInvitation[];
+    items: FailedInvitation[];
 }
 
 export interface StudentRecord {

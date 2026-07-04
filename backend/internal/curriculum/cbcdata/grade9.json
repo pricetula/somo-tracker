@@ -2,7 +2,7 @@
   {
     "name": "Mathematics",
     "code": "MATH_G9",
-    "education_level": "Junior_School",
+    "education_level": "Junior_Secondary",
     "strands": [
       {
         "name": "Numbers and Commercial Arithmetic",
@@ -48,7 +48,7 @@
   {
     "name": "English",
     "code": "ENG_G9",
-    "education_level": "Junior_School",
+    "education_level": "Junior_Secondary",
     "strands": [
       {
         "name": "Listening and Speaking",
@@ -91,7 +91,7 @@
   {
     "name": "Kiswahili",
     "code": "KISW_G9",
-    "education_level": "Junior_School",
+    "education_level": "Junior_Secondary",
     "strands": [
       {
         "name": "Kusikiliza na Kuzungumza",
@@ -134,7 +134,7 @@
   {
     "name": "Integrated Science",
     "code": "INT_SCI_G9",
-    "education_level": "Junior_School",
+    "education_level": "Junior_Secondary",
     "strands": [
       {
         "name": "Atomic Structure and Chemical Families",
@@ -178,7 +178,7 @@
   {
     "name": "Pre-Technical Studies",
     "code": "PRE_TECH_G9",
-    "education_level": "Junior_School",
+    "education_level": "Junior_Secondary",
     "strands": [
       {
         "name": "Engineering Design and Systems",
@@ -222,7 +222,7 @@
   {
     "name": "Agriculture and Nutrition",
     "code": "AGRI_NUTR_G9",
-    "education_level": "Junior_School",
+    "education_level": "Junior_Secondary",
     "strands": [
       {
         "name": "Sustainable Land and Crop Management",
@@ -266,7 +266,7 @@
   {
     "name": "Social Studies",
     "code": "SOC_STUD_G9",
-    "education_level": "Junior_School",
+    "education_level": "Junior_Secondary",
     "strands": [
       {
         "name": "Global Environments and Resources",
@@ -311,7 +311,7 @@
   {
     "name": "Creative Arts and Sports",
     "code": "CREAT_ART_SPORTS_G9",
-    "education_level": "Junior_School",
+    "education_level": "Junior_Secondary",
     "strands": [
       {
         "name": "Visual Arts and Product Design",
@@ -355,7 +355,7 @@
   {
     "name": "Religious Education",
     "code": "RE_G9",
-    "education_level": "Junior_School",
+    "education_level": "Junior_Secondary",
     "strands": [
       {
         "name": "Christian Religious Education",

@@ -2,7 +2,7 @@
   {
     "name": "Mathematical Activities",
     "code": "MATH_G2",
-    "education_level": "Lower_Primary",
+    "education_level": "Early_Years",
     "strands": [
       {
         "name": "Numbers",
@@ -71,7 +71,7 @@
   {
     "name": "English Language Activities",
     "code": "ENG_G2",
-    "education_level": "Lower_Primary",
+    "education_level": "Early_Years",
     "strands": [
       {
         "name": "Listening and Speaking",
@@ -124,7 +124,7 @@
   {
     "name": "Kiswahili Language Activities",
     "code": "KISW_G2",
-    "education_level": "Lower_Primary",
+    "education_level": "Early_Years",
     "strands": [
       {
         "name": "Kusikiliza na Kuzungumza",
@@ -169,7 +169,7 @@
   {
     "name": "Environmental Activities",
     "code": "ENV_G2",
-    "education_level": "Lower_Primary",
+    "education_level": "Early_Years",
     "strands": [
       {
         "name": "Natural and Local Resources",
@@ -216,7 +216,7 @@
   {
     "name": "Creative Activities",
     "code": "CREAT_G2",
-    "education_level": "Lower_Primary",
+    "education_level": "Early_Years",
     "strands": [
       {
         "name": "Arts and Crafts",
@@ -260,7 +260,7 @@
   {
     "name": "Religious Education",
     "code": "RE_G2",
-    "education_level": "Lower_Primary",
+    "education_level": "Early_Years",
     "strands": [
       {
         "name": "Christian Religious Education",
@@ -293,7 +293,7 @@
   {
     "name": "Pastoral Instruction Programme",
     "code": "PAST_G2",
-    "education_level": "Lower_Primary",
+    "education_level": "Early_Years",
     "strands": [
       {
         "name": "Value Formation and Guidance",

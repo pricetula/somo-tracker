@@ -2,7 +2,7 @@
   {
     "name": "Mathematical Activities",
     "code": "MATH_G1",
-    "education_level": "Lower_Primary",
+    "education_level": "Early_Years",
     "strands": [
       {
         "name": "Numbers",
@@ -56,7 +56,7 @@
   {
     "name": "English Language Activities",
     "code": "ENG_G1",
-    "education_level": "Lower_Primary",
+    "education_level": "Early_Years",
     "strands": [
       {
         "name": "Listening and Speaking",
@@ -109,7 +109,7 @@
   {
     "name": "Kiswahili Language Activities",
     "code": "KISW_G1",
-    "education_level": "Lower_Primary",
+    "education_level": "Early_Years",
     "strands": [
       {
         "name": "Kusikiliza na Kuzungumza",
@@ -154,7 +154,7 @@
   {
     "name": "Environmental Activities",
     "code": "ENV_G1",
-    "education_level": "Lower_Primary",
+    "education_level": "Early_Years",
     "strands": [
       {
         "name": "Natural and Built Environment",
@@ -201,7 +201,7 @@
   {
     "name": "Creative Activities",
     "code": "CREAT_G1",
-    "education_level": "Lower_Primary",
+    "education_level": "Early_Years",
     "strands": [
       {
         "name": "Arts and Crafts",
@@ -211,7 +211,7 @@
             "performance_indicators": [
               "Create two-dimensional drawings using lines and basic geometric shapes.",
               "Produce patterns using primary colors through stamp-printing techniques.",
-              "Model basic animal shapes using clay, plasticine, or paper mâché."
+              "Model basic animal shapes using clay, plasticine, or paper m\u00e2ch\u00e9."
             ]
           }
         ]
@@ -245,7 +245,7 @@
   {
     "name": "Religious Education",
     "code": "RE_G1",
-    "education_level": "Lower_Primary",
+    "education_level": "Early_Years",
     "strands": [
       {
         "name": "Christian Religious Education",
@@ -278,7 +278,7 @@
   {
     "name": "Pastoral Instruction Programme",
     "code": "PAST_G1",
-    "education_level": "Lower_Primary",
+    "education_level": "Early_Years",
     "strands": [
       {
         "name": "Value Formation and Guidance",

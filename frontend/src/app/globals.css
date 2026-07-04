@@ -136,7 +136,6 @@
     }
     html {
         @apply font-sans;
-        font-size: small;
     }
 
     /* ── Minimal elevation shadow for sheets/modals ──────────────────── */

@@ -68,9 +68,6 @@ export function DataTable<TItem, TParams extends object, TResult>({
         normalize,
     });
 
-    // TEMP DEBUG — remove once the stuck-loading issue is found
-    console.log("[DataTable]", { queryKey, params, isPending, rowsLength: rows.length });
-
     // --- search -------------------------------------------------------
     const [searchTerm, setSearchTerm] = useState("");
     const debouncedSearch = useDebouncedValue(searchTerm, 350);
@@ -116,15 +113,14 @@ export function DataTable<TItem, TParams extends object, TResult>({
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         placeholder={searchPlaceholder}
-                        className="w-full max-w-sm rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-gray-500"
+                        className="w-full max-w-sm rounded-md border px-3 py-2 text-sm outline-none"
                     />
                 </div>
             )}
-            {total}
-            <div className="rounded-md border border-gray-200">
+            <div className="rounded-md border">
                 {/* header */}
                 <div
-                    className="grid border-b border-gray-200 text-xs font-medium tracking-wide text-gray-500 uppercase"
+                    className="bg-muted/50 grid border-b text-xs font-medium tracking-wide uppercase"
                     style={{ gridTemplateColumns }}
                 >
                     {columns.map((col) => (
@@ -144,13 +140,9 @@ export function DataTable<TItem, TParams extends object, TResult>({
                         Failed to load data{error instanceof Error ? `: ${error.message}` : "."}
                     </div>
                 ) : isPending ? (
-                    <div className="p-6 text-center text-sm text-gray-500">Loading…</div>
+                    <div className="p-6 text-center text-sm">Loading…</div>
                 ) : rows.length === 0 ? (
-                    (emptyState ?? (
-                        <div className="p-6 text-center text-sm text-gray-500">
-                            No results found.
-                        </div>
-                    ))
+                    (emptyState ?? <div className="p-6 text-center text-sm">No results found.</div>)
                 ) : (
                     <div ref={parentRef} style={{ height, overflow: "auto" }}>
                         <div
@@ -170,11 +162,11 @@ export function DataTable<TItem, TParams extends object, TResult>({
                                         }
                                         data-index={virtualRow.index}
                                         ref={virtualizer.measureElement}
-                                        className="absolute top-0 left-0 w-full border-b border-gray-100"
+                                        className="absolute top-0 left-0 w-full border-b"
                                         style={{ transform: `translateY(${virtualRow.start}px)` }}
                                     >
                                         {isLoaderRow ? (
-                                            <div className="px-3 py-2 text-center text-xs text-gray-400">
+                                            <div className="px-3 py-2 text-center text-xs">
                                                 Loading more…
                                             </div>
                                         ) : (
@@ -182,7 +174,7 @@ export function DataTable<TItem, TParams extends object, TResult>({
                                                 {columns.map((col) => (
                                                     <div
                                                         key={col.id}
-                                                        className="truncate px-3 py-2 text-sm text-gray-800"
+                                                        className="truncate px-3 py-2 text-sm"
                                                         style={{ textAlign: col.align ?? "left" }}
                                                     >
                                                         {col.cell(row, virtualRow.index)}
@@ -199,7 +191,7 @@ export function DataTable<TItem, TParams extends object, TResult>({
             </div>
 
             {typeof total === "number" && (
-                <div className="mt-2 text-xs text-gray-400">
+                <div className="mt-2 text-xs">
                     {rows.length} of {total} loaded
                 </div>
             )}

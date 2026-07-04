@@ -1721,7 +1721,7 @@ func TestIntegration_Registration_AcademicYearIsCurrent(t *testing.T) {
 	ctx := context.Background()
 	var isCurrent bool
 	err = suite.pgPool.QueryRow(ctx,
-		"SELECT is_current FROM academic_years WHERE tenant_id = $1 AND school_id = $2 AND deleted_at IS NULL",
+		"SELECT is_current FROM academic_years WHERE tenant_id = $1 AND school_id = $2",
 		tenantID, schoolID).Scan(&isCurrent)
 	if err != nil {
 		t.Fatalf("query academic year is_current: %v", err)
@@ -1733,7 +1733,7 @@ func TestIntegration_Registration_AcademicYearIsCurrent(t *testing.T) {
 	// Verify the academic year name matches the current year
 	var yearName string
 	err = suite.pgPool.QueryRow(ctx,
-		"SELECT name FROM academic_years WHERE tenant_id = $1 AND school_id = $2 AND deleted_at IS NULL",
+		"SELECT name FROM academic_years WHERE tenant_id = $1 AND school_id = $2",
 		tenantID, schoolID).Scan(&yearName)
 	if err != nil {
 		t.Fatalf("query academic year name: %v", err)
@@ -1747,7 +1747,7 @@ func TestIntegration_Registration_AcademicYearIsCurrent(t *testing.T) {
 	// Verify at least one term is marked as is_current (based on current date)
 	var currentTermCount int
 	err = suite.pgPool.QueryRow(ctx,
-		"SELECT COUNT(*) FROM academic_terms WHERE academic_year_id = (SELECT id FROM academic_years WHERE tenant_id = $1 AND school_id = $2 AND deleted_at IS NULL LIMIT 1) AND is_current = TRUE",
+		"SELECT COUNT(*) FROM academic_terms WHERE academic_year_id = (SELECT id FROM academic_years WHERE tenant_id = $1 AND school_id = $2 LIMIT 1) AND is_current = TRUE",
 		tenantID, schoolID).Scan(&currentTermCount)
 	if err != nil {
 		t.Fatalf("query current term count: %v", err)
@@ -1790,7 +1790,7 @@ func TestIntegration_Registration_AcademicYearIntegrity(t *testing.T) {
 	year := time.Now().Year()
 	var startDate, endDate time.Time
 	err = suite.pgPool.QueryRow(ctx,
-		"SELECT start_date, end_date FROM academic_years WHERE tenant_id = $1 AND school_id = $2 AND deleted_at IS NULL",
+		"SELECT start_date, end_date FROM academic_years WHERE tenant_id = $1 AND school_id = $2",
 		tenantID, schoolID).Scan(&startDate, &endDate)
 	if err != nil {
 		t.Fatalf("query year dates: %v", err)
@@ -1809,8 +1809,8 @@ func TestIntegration_Registration_AcademicYearIntegrity(t *testing.T) {
 	var termCount int
 	rows, err := suite.pgPool.Query(ctx,
 		`SELECT term_number, start_date, end_date FROM academic_terms
-		 WHERE academic_year_id = (SELECT id FROM academic_years WHERE tenant_id = $1 AND school_id = $2 AND deleted_at IS NULL)
-		 AND deleted_at IS NULL ORDER BY term_number`,
+		 WHERE academic_year_id = (SELECT id FROM academic_years WHERE tenant_id = $1 AND school_id = $2)
+		 ORDER BY term_number`,
 		tenantID, schoolID)
 	if err != nil {
 		t.Fatalf("query terms: %v", err)

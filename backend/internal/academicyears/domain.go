@@ -37,19 +37,18 @@ var (
 
 // AcademicYear represents a single academic year in a school.
 type AcademicYear struct {
-	ID        string     `db:"id"         json:"id"`
-	TenantID  string     `db:"tenant_id"  json:"-"`
-	SchoolID  string     `db:"school_id"  json:"-"`
-	Name      string     `db:"name"       json:"name"`
-	StartDate time.Time  `db:"start_date" json:"start_date"`
-	EndDate   time.Time  `db:"end_date"   json:"end_date"`
-	IsCurrent bool       `db:"is_current" json:"is_current"`
-	Version   int        `db:"version"    json:"version"`
-	CreatedBy string     `db:"created_by" json:"-"`
-	UpdatedBy string     `db:"updated_by" json:"-"`
-	CreatedAt time.Time  `db:"created_at" json:"created_at"`
-	UpdatedAt time.Time  `db:"updated_at" json:"updated_at"`
-	DeletedAt *time.Time `db:"deleted_at" json:"-"`
+	ID        string    `db:"id"         json:"id"`
+	TenantID  string    `db:"tenant_id"  json:"-"`
+	SchoolID  string    `db:"school_id"  json:"-"`
+	Name      string    `db:"name"       json:"name"`
+	StartDate time.Time `db:"start_date" json:"start_date"`
+	EndDate   time.Time `db:"end_date"   json:"end_date"`
+	IsCurrent bool      `db:"is_current" json:"is_current"`
+	Version   int       `db:"version"    json:"version"`
+	CreatedBy string    `db:"created_by" json:"-"`
+	UpdatedBy string    `db:"updated_by" json:"-"`
+	CreatedAt time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt time.Time `db:"updated_at" json:"updated_at"`
 }
 
 // AcademicYearWithTerms extends AcademicYear with nested terms.
@@ -60,22 +59,21 @@ type AcademicYearWithTerms struct {
 
 // AcademicTerm represents a single term within an academic year.
 type AcademicTerm struct {
-	ID             string     `db:"id"                json:"id"`
-	TenantID       string     `db:"tenant_id"         json:"-"`
-	SchoolID       string     `db:"school_id"         json:"-"`
-	AcademicYearID string     `db:"academic_year_id"  json:"academic_year_id"`
-	Name           string     `db:"name"              json:"name"`
-	TermNumber     int        `db:"term_number"       json:"term_number"`
-	StartDate      time.Time  `db:"start_date"        json:"start_date"`
-	EndDate        time.Time  `db:"end_date"          json:"end_date"`
-	IsCurrent      bool       `db:"is_current"        json:"is_current"`
-	IsFinal        bool       `db:"is_final"          json:"is_final"`
-	Version        int        `db:"version"           json:"version"`
-	CreatedBy      string     `db:"created_by"        json:"-"`
-	UpdatedBy      string     `db:"updated_by"        json:"-"`
-	CreatedAt      time.Time  `db:"created_at"        json:"created_at"`
-	UpdatedAt      time.Time  `db:"updated_at"        json:"updated_at"`
-	DeletedAt      *time.Time `db:"deleted_at"        json:"-"`
+	ID             string    `db:"id"                json:"id"`
+	TenantID       string    `db:"tenant_id"         json:"-"`
+	SchoolID       string    `db:"school_id"         json:"-"`
+	AcademicYearID string    `db:"academic_year_id"  json:"academic_year_id"`
+	Name           string    `db:"name"              json:"name"`
+	TermNumber     int       `db:"term_number"       json:"term_number"`
+	StartDate      time.Time `db:"start_date"        json:"start_date"`
+	EndDate        time.Time `db:"end_date"          json:"end_date"`
+	IsCurrent      bool      `db:"is_current"        json:"is_current"`
+	IsFinal        bool      `db:"is_final"          json:"is_final"`
+	Version        int       `db:"version"           json:"version"`
+	CreatedBy      string    `db:"created_by"        json:"-"`
+	UpdatedBy      string    `db:"updated_by"        json:"-"`
+	CreatedAt      time.Time `db:"created_at"        json:"created_at"`
+	UpdatedAt      time.Time `db:"updated_at"        json:"updated_at"`
 }
 
 // ============================================================================
@@ -133,7 +131,7 @@ func (e *TermsOutOfRangeError) Error() string {
 	return "the new date range would strand existing terms"
 }
 
-// HasDependentsError is returned when a soft-delete would orphan FK records.
+// HasDependentsError is returned when a delete would orphan FK records.
 type HasDependentsError struct {
 	Message string
 }
@@ -177,7 +175,7 @@ type Repository interface {
 	GetYearByIDForUpdate(ctx context.Context, id, tenantID, schoolID string) (*AcademicYear, error)
 	CreateYear(ctx context.Context, year *AcademicYear) (string, error)
 	UpdateYear(ctx context.Context, year *AcademicYear) error
-	SoftDeleteYear(ctx context.Context, id, actorID string) error
+	DeleteYear(ctx context.Context, id string) error
 	ClearCurrentYear(ctx context.Context, schoolID, tenantID, excludeID, actorID string) error
 	SetCurrentYear(ctx context.Context, id, tenantID, schoolID, actorID string) (bool, error)
 
@@ -186,7 +184,7 @@ type Repository interface {
 	GetTermByIDForUpdate(ctx context.Context, id, tenantID, schoolID string) (*AcademicTerm, *AcademicYear, error)
 	CreateTerm(ctx context.Context, term *AcademicTerm) (string, error)
 	UpdateTerm(ctx context.Context, term *AcademicTerm) error
-	SoftDeleteTerm(ctx context.Context, id, actorID string) error
+	DeleteTerm(ctx context.Context, id string) error
 
 	// Term strandedness check
 	FindStrandedTerms(ctx context.Context, yearID string, newStart, newEnd time.Time) ([]ConflictingTerm, error)

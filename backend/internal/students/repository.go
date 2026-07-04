@@ -390,12 +390,12 @@ func (r *PgRepository) ResolveClassByGradeAndStream(ctx context.Context, tenantI
 	return &id, nil
 }
 
-// ValidateAcademicTerm checks that the term exists, is not soft-deleted, and belongs to the school.
+// ValidateAcademicTerm checks that the term exists and belongs to the school.
 func (r *PgRepository) ValidateAcademicTerm(ctx context.Context, tenantID, schoolID, academicTermID string) (bool, error) {
 	query := `
 		SELECT EXISTS(
 			SELECT 1 FROM academic_terms
-			WHERE id = $1 AND tenant_id = $2 AND school_id = $3 AND deleted_at IS NULL
+			WHERE id = $1 AND tenant_id = $2 AND school_id = $3
 		)
 	`
 	var exists bool
@@ -408,7 +408,7 @@ func (r *PgRepository) ValidateAcademicTerm(ctx context.Context, tenantID, schoo
 
 // GetAcademicYearIDForTerm returns the academic_year_id for a given term.
 func (r *PgRepository) GetAcademicYearIDForTerm(ctx context.Context, tenantID, schoolID, academicTermID string) (string, error) {
-	query := `SELECT academic_year_id FROM academic_terms WHERE id = $1 AND tenant_id = $2 AND school_id = $3 AND deleted_at IS NULL`
+	query := `SELECT academic_year_id FROM academic_terms WHERE id = $1 AND tenant_id = $2 AND school_id = $3`
 	var id string
 	err := r.pool.QueryRow(ctx, query, academicTermID, tenantID, schoolID).Scan(&id)
 	if err != nil {

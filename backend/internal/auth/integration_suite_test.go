@@ -922,7 +922,7 @@ func (s *IntegrationSuite) countAcademicYears(t *testing.T, tenantID, schoolID s
 	ctx := context.Background()
 	var count int
 	err := s.pgPool.QueryRow(ctx,
-		"SELECT COUNT(*) FROM academic_years WHERE tenant_id = $1 AND school_id = $2 AND deleted_at IS NULL",
+		"SELECT COUNT(*) FROM academic_years WHERE tenant_id = $1 AND school_id = $2",
 		tenantID, schoolID).Scan(&count)
 	if err != nil {
 		t.Fatalf("count academic years: %v", err)
@@ -936,7 +936,7 @@ func (s *IntegrationSuite) countAcademicTerms(t *testing.T, academicYearID strin
 	ctx := context.Background()
 	var count int
 	err := s.pgPool.QueryRow(ctx,
-		"SELECT COUNT(*) FROM academic_terms WHERE academic_year_id = $1 AND deleted_at IS NULL",
+		"SELECT COUNT(*) FROM academic_terms WHERE academic_year_id = $1",
 		academicYearID).Scan(&count)
 	if err != nil {
 		t.Fatalf("count academic terms: %v", err)
@@ -949,7 +949,7 @@ func (s *IntegrationSuite) getAcademicYearIDs(t *testing.T, tenantID, schoolID s
 	t.Helper()
 	ctx := context.Background()
 	rows, err := s.pgPool.Query(ctx,
-		"SELECT id FROM academic_years WHERE tenant_id = $1 AND school_id = $2 AND deleted_at IS NULL ORDER BY start_date",
+		"SELECT id FROM academic_years WHERE tenant_id = $1 AND school_id = $2 ORDER BY start_date",
 		tenantID, schoolID)
 	if err != nil {
 		t.Fatalf("query academic years: %v", err)
@@ -971,7 +971,7 @@ func (s *IntegrationSuite) getTermNames(t *testing.T, academicYearID string) []s
 	t.Helper()
 	ctx := context.Background()
 	rows, err := s.pgPool.Query(ctx,
-		"SELECT name FROM academic_terms WHERE academic_year_id = $1 AND deleted_at IS NULL ORDER BY term_number",
+		"SELECT name FROM academic_terms WHERE academic_year_id = $1 ORDER BY term_number",
 		academicYearID)
 	if err != nil {
 		t.Fatalf("query academic terms: %v", err)

@@ -116,7 +116,7 @@ func (s *Service) PatchYear(ctx context.Context, id, tenantID, schoolID string, 
 	return year, nil
 }
 
-// DeleteYear soft-deletes an academic year and all its terms.
+// DeleteYear hard-deletes an academic year. Terms are cascade-deleted by the DB.
 func (s *Service) DeleteYear(ctx context.Context, id, tenantID, schoolID, actorID string) error {
 	if id == "" || tenantID == "" || schoolID == "" {
 		return fmt.Errorf("academicyears.Service.DeleteYear: %w", ErrInvalidInput)
@@ -139,11 +139,8 @@ func (s *Service) DeleteYear(ctx context.Context, id, tenantID, schoolID, actorI
 		}
 	}
 
-	// Soft-delete all terms first, then the year
-	// In production, these would be in a transaction using Begin/Commit.
-	// For the current implementation we rely on individual calls.
-	// NOTE: In production, wrap in a transaction that does terms first.
-	if err := s.Repo.SoftDeleteYear(ctx, id, actorID); err != nil {
+	// Hard-delete the year — terms are cascade-deleted by DB (ON DELETE CASCADE)
+	if err := s.Repo.DeleteYear(ctx, id); err != nil {
 		return fmt.Errorf("academicyears.Service.DeleteYear: %w", err)
 	}
 
@@ -362,7 +359,7 @@ func (s *Service) PatchTerm(ctx context.Context, id, tenantID, schoolID string, 
 	return term, nil
 }
 
-// DeleteTerm soft-deletes a term and syncs current term.
+// DeleteTerm hard-deletes a term and syncs current term.
 func (s *Service) DeleteTerm(ctx context.Context, id, tenantID, schoolID, actorID string, now *time.Time) error {
 	if now == nil {
 		n := todayEAT()
@@ -386,7 +383,7 @@ func (s *Service) DeleteTerm(ctx context.Context, id, tenantID, schoolID, actorI
 		}
 	}
 
-	if err := s.Repo.SoftDeleteTerm(ctx, id, actorID); err != nil {
+	if err := s.Repo.DeleteTerm(ctx, id); err != nil {
 		return fmt.Errorf("academicyears.Service.DeleteTerm: %w", err)
 	}
 

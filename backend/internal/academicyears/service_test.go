@@ -17,7 +17,7 @@ type MockRepository struct {
 	getYearByIDForUpdateFn func(ctx context.Context, id, tenantID, schoolID string) (*AcademicYear, error)
 	createYearFn           func(ctx context.Context, year *AcademicYear) (string, error)
 	updateYearFn           func(ctx context.Context, year *AcademicYear) error
-	softDeleteYearFn       func(ctx context.Context, id, actorID string) error
+	deleteYearFn           func(ctx context.Context, id string) error
 	clearCurrentYearFn     func(ctx context.Context, schoolID, tenantID, excludeID, actorID string) error
 	setCurrentYearFn       func(ctx context.Context, id, tenantID, schoolID, actorID string) (bool, error)
 
@@ -25,7 +25,7 @@ type MockRepository struct {
 	getTermByIDForUpdateFn func(ctx context.Context, id, tenantID, schoolID string) (*AcademicTerm, *AcademicYear, error)
 	createTermFn           func(ctx context.Context, term *AcademicTerm) (string, error)
 	updateTermFn           func(ctx context.Context, term *AcademicTerm) error
-	softDeleteTermFn       func(ctx context.Context, id, actorID string) error
+	deleteTermFn           func(ctx context.Context, id string) error
 
 	findStrandedTermsFn    func(ctx context.Context, yearID string, newStart, newEnd time.Time) ([]ConflictingTerm, error)
 	findOverlappingTermsFn func(ctx context.Context, yearID, excludeID string, startDate, endDate time.Time) ([]AcademicTerm, error)
@@ -70,9 +70,9 @@ func (m *MockRepository) UpdateYear(ctx context.Context, year *AcademicYear) err
 	return nil
 }
 
-func (m *MockRepository) SoftDeleteYear(ctx context.Context, id, actorID string) error {
-	if m.softDeleteYearFn != nil {
-		return m.softDeleteYearFn(ctx, id, actorID)
+func (m *MockRepository) DeleteYear(ctx context.Context, id string) error {
+	if m.deleteYearFn != nil {
+		return m.deleteYearFn(ctx, id)
 	}
 	return nil
 }
@@ -128,9 +128,9 @@ func (m *MockRepository) UpdateTerm(ctx context.Context, term *AcademicTerm) err
 	return nil
 }
 
-func (m *MockRepository) SoftDeleteTerm(ctx context.Context, id, actorID string) error {
-	if m.softDeleteTermFn != nil {
-		return m.softDeleteTermFn(ctx, id, actorID)
+func (m *MockRepository) DeleteTerm(ctx context.Context, id string) error {
+	if m.deleteTermFn != nil {
+		return m.deleteTermFn(ctx, id)
 	}
 	return nil
 }
@@ -689,8 +689,8 @@ func TestPatchTerm_StaleVersion(t *testing.T) {
 	}
 }
 
-// B10 — Soft-deleted term does not block new term with same term_number
-func TestCreateTerm_AfterSoftDelete(t *testing.T) {
+// B10 — Deleted term does not block new term with same term_number
+func TestCreateTerm_AfterDelete(t *testing.T) {
 	h := newTestHarness()
 
 	h.repo.getYearByIDFn = func(ctx context.Context, id, tenantID, schoolID string) (*AcademicYear, error) {
@@ -701,7 +701,7 @@ func TestCreateTerm_AfterSoftDelete(t *testing.T) {
 		}, nil
 	}
 
-	// No overlap (the old one is soft-deleted and excluded by the index)
+	// No overlap (the old one is hard-deleted)
 	h.repo.findOverlappingTermsFn = func(ctx context.Context, yearID, excludeID string, startDate, endDate time.Time) ([]AcademicTerm, error) {
 		return nil, nil
 	}
@@ -713,7 +713,7 @@ func TestCreateTerm_AfterSoftDelete(t *testing.T) {
 	body := CreateTermBody{
 		AcademicYearID: "year_001",
 		Name:           "Term 1 (new)",
-		TermNumber:     1, // same as soft-deleted term
+		TermNumber:     1, // same as previously deleted term
 		StartDate:      "2025-01-06",
 		EndDate:        "2025-04-04",
 	}

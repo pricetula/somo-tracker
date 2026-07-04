@@ -128,16 +128,15 @@ func TestHandler_ListYears_WithTerms(t *testing.T) {
 }
 
 // ============================================================================
-// A2 — Soft delete cascades to terms
+// A2 — Hard delete cascades to terms
 // ============================================================================
 
-func TestHandler_DeleteYear_SoftDelete(t *testing.T) {
+func TestHandler_DeleteYear_HardDelete(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
-	var capturedID, capturedActor string
-	h.repo.softDeleteYearFn = func(ctx context.Context, id, actorID string) error {
+	var capturedID string
+	h.repo.deleteYearFn = func(ctx context.Context, id string) error {
 		capturedID = id
-		capturedActor = actorID
 		return nil
 	}
 
@@ -155,9 +154,6 @@ func TestHandler_DeleteYear_SoftDelete(t *testing.T) {
 	}
 	if capturedID != "year_001" {
 		t.Errorf("expected id 'year_001', got %q", capturedID)
-	}
-	if capturedActor != "user_001" {
-		t.Errorf("expected actor 'user_001', got %q", capturedActor)
 	}
 }
 

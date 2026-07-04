@@ -399,7 +399,7 @@ func (r *PgRepository) ValidateAcademicYear(ctx context.Context, id, tenantID, s
 	const query = `
 		SELECT EXISTS (
 			SELECT 1 FROM academic_years
-			WHERE id = $1 AND tenant_id = $2 AND school_id = $3 AND deleted_at IS NULL
+			WHERE id = $1 AND tenant_id = $2 AND school_id = $3
 		)
 	`
 	var exists bool
@@ -415,7 +415,7 @@ func (r *PgRepository) ValidateAcademicTerm(ctx context.Context, id, academicYea
 	const query = `
 		SELECT EXISTS (
 			SELECT 1 FROM academic_terms
-			WHERE id = $1 AND academic_year_id = $2 AND deleted_at IS NULL
+			WHERE id = $1 AND academic_year_id = $2
 		)
 	`
 	var exists bool

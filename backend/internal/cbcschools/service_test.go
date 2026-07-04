@@ -301,3 +301,134 @@ func TestDeleteSchool_EmptyID(t *testing.T) {
 		t.Fatalf("expected ErrInvalidInput, got %v", err)
 	}
 }
+
+// ============================================================================
+// MockCurriculumSeeder
+// ============================================================================
+
+// MockCurriculumSeeder records calls to SeedForSchool so tests can verify
+// that the curriculum was seeded after school creation.
+type MockCurriculumSeeder struct {
+	calls   []SeedCall
+	seedErr error // if set, SeedForSchool returns this error
+}
+
+type SeedCall struct {
+	Ctx      context.Context
+	TenantID string
+	SchoolID string
+}
+
+func (m *MockCurriculumSeeder) SeedForSchool(ctx context.Context, tenantID, schoolID string) error {
+	m.calls = append(m.calls, SeedCall{
+		Ctx:      ctx,
+		TenantID: tenantID,
+		SchoolID: schoolID,
+	})
+	return m.seedErr
+}
+
+// ============================================================================
+// Test Harness with Seeder
+// ============================================================================
+
+type testHarnessWithSeeder struct {
+	svc    *Service
+	repo   *MockRepository
+	seeder *MockCurriculumSeeder
+}
+
+func newTestHarnessWithSeeder() *testHarnessWithSeeder {
+	repo := &MockRepository{}
+	seeder := &MockCurriculumSeeder{}
+	svc := NewService(repo, seeder)
+	return &testHarnessWithSeeder{
+		svc:    svc,
+		repo:   repo,
+		seeder: seeder,
+	}
+}
+
+// ============================================================================
+// Tests: CreateSchool — Curriculum Seeding
+// ============================================================================
+
+func TestCreateSchool_SeedsCurriculum(t *testing.T) {
+	h := newTestHarnessWithSeeder()
+
+	const expectedTenantID = "tenant_abc"
+	const expectedSchoolID = "school_xyz"
+
+	h.repo.createFn = func(ctx context.Context, tenantID, name string) (string, error) {
+		return expectedSchoolID, nil
+	}
+
+	id, err := h.svc.CreateSchool(context.Background(), expectedTenantID, "Test School")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if id != expectedSchoolID {
+		t.Fatalf("expected school ID %q, got %q", expectedSchoolID, id)
+	}
+
+	// Verify seed was called exactly once
+	if len(h.seeder.calls) != 1 {
+		t.Fatalf("expected 1 call to SeedForSchool, got %d", len(h.seeder.calls))
+	}
+
+	// Verify the correct tenant ID and school ID were passed to the seeder
+	call := h.seeder.calls[0]
+	if call.TenantID != expectedTenantID {
+		t.Errorf("expected TenantID %q, got %q", expectedTenantID, call.TenantID)
+	}
+	if call.SchoolID != expectedSchoolID {
+		t.Errorf("expected SchoolID %q, got %q", expectedSchoolID, call.SchoolID)
+	}
+}
+
+func TestCreateSchool_SeedFailure_DoesNotFailSchoolCreation(t *testing.T) {
+	h := newTestHarnessWithSeeder()
+
+	h.repo.createFn = func(ctx context.Context, tenantID, name string) (string, error) {
+		return "school_001", nil
+	}
+
+	// Make the seeder return an error (simulates a transient DB issue)
+	h.seeder.seedErr = errors.New("database timeout")
+
+	// School creation should still succeed — seeding failure is logged, not fatal
+	id, err := h.svc.CreateSchool(context.Background(), "tenant_001", "Test School")
+	if err != nil {
+		t.Fatalf("school creation should succeed even when seeding fails, got error: %v", err)
+	}
+	if id != "school_001" {
+		t.Fatalf("expected school ID 'school_001', got %q", id)
+	}
+
+	// Verify the seeder was called (the error confirm the call was made)
+	if len(h.seeder.calls) != 1 {
+		t.Fatalf("expected 1 call to SeedForSchool, got %d", len(h.seeder.calls))
+	}
+}
+
+func TestCreateSchool_WithoutSeeder_DoesNotSeed(t *testing.T) {
+	// Use the standard harness which has NO seeder configured
+	h := newTestHarness()
+
+	h.repo.createFn = func(ctx context.Context, tenantID, name string) (string, error) {
+		return "school_001", nil
+	}
+
+	id, err := h.svc.CreateSchool(context.Background(), "tenant_001", "Test School")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if id != "school_001" {
+		t.Fatalf("expected school ID 'school_001', got %q", id)
+	}
+
+	// The seeder field is nil, so CreateSchool should never call SeedForSchool.
+	// There's no way to inspect this directly, but we verify the school was
+	// created successfully, which is the expected behavior when no seeder is
+	// wired.
+}

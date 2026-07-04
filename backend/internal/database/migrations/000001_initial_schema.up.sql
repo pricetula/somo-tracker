@@ -362,7 +362,7 @@ COMMENT ON COLUMN cbc_schools.nemis_institution_code IS
 
 -- ---------------------------------------------------------------------------
 -- ACADEMIC YEARS
--- IMPROVE: added created_at / updated_at and audit columns (version, deleted_at, created_by, updated_by)
+-- IMPROVE: added created_at / updated_at and audit columns (version, created_by, updated_by)
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS academic_years (
@@ -376,7 +376,6 @@ CREATE TABLE IF NOT EXISTS academic_years (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     version    INTEGER     NOT NULL DEFAULT 1,
-    deleted_at TIMESTAMPTZ,
     created_by UUID        NOT NULL REFERENCES users(id),
     updated_by UUID        NOT NULL REFERENCES users(id),
 
@@ -391,7 +390,7 @@ CREATE INDEX IF NOT EXISTS idx_academic_years_tenant_id ON academic_years (tenan
 CREATE INDEX IF NOT EXISTS idx_academic_years_school_id ON academic_years (school_id);
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_one_current_year_per_school
-    ON academic_years (school_id) WHERE is_current = TRUE AND deleted_at IS NULL;
+    ON academic_years (school_id) WHERE is_current = TRUE;
 
 DROP TRIGGER IF EXISTS trg_academic_years_updated_at ON academic_years;
 CREATE TRIGGER trg_academic_years_updated_at
@@ -416,7 +415,6 @@ CREATE TABLE IF NOT EXISTS academic_terms (
     version          INTEGER      NOT NULL DEFAULT 1,
     created_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-    deleted_at       TIMESTAMPTZ,
     created_by       UUID         NOT NULL REFERENCES users(id),
     updated_by       UUID         NOT NULL REFERENCES users(id),
 
@@ -429,7 +427,7 @@ CREATE TABLE IF NOT EXISTS academic_terms (
         REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_academic_terms_tenant_year
         FOREIGN KEY (tenant_id, academic_year_id)
-        REFERENCES academic_years(tenant_id, id) ON DELETE RESTRICT
+        REFERENCES academic_years(tenant_id, id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_academic_terms_tenant_id ON academic_terms (tenant_id);
@@ -438,7 +436,7 @@ CREATE INDEX IF NOT EXISTS idx_academic_terms_school_id ON academic_terms (schoo
 CREATE INDEX IF NOT EXISTS idx_academic_terms_year_id   ON academic_terms (academic_year_id);
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_one_current_term_per_year
-    ON academic_terms (academic_year_id) WHERE is_current = TRUE AND deleted_at IS NULL;
+    ON academic_terms (academic_year_id) WHERE is_current = TRUE;
 
 DROP TRIGGER IF EXISTS trg_academic_terms_updated_at ON academic_terms;
 CREATE TRIGGER trg_academic_terms_updated_at
@@ -446,8 +444,7 @@ CREATE TRIGGER trg_academic_terms_updated_at
     FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_term_number_per_year
-    ON academic_terms (academic_year_id, term_number)
-    WHERE deleted_at IS NULL;
+    ON academic_terms (academic_year_id, term_number);
 
 COMMENT ON COLUMN academic_terms.term_number IS
     'Kenya CBC operates a 3-term academic year. term_number enforces this:
@@ -476,7 +473,7 @@ CREATE TABLE IF NOT EXISTS cbc_streams (
     updated_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
 
     CONSTRAINT fk_cbc_streams_school
-        FOREIGN KEY (school_id) REFERENCES cbc_schools(id) ON DELETE NO ACTION,
+        FOREIGN KEY (school_id) REFERENCES cbc_schools(id) ON DELETE CASCADE,
 
     CONSTRAINT uq_cbc_streams_tenant_school_name
         UNIQUE (tenant_id, school_id, name)
@@ -500,8 +497,7 @@ COMMENT ON TABLE cbc_streams IS
 COMMENT ON CONSTRAINT fk_cbc_streams_school ON cbc_streams IS
     'school_id alone carries the tenancy relationship via cbc_schools. tenant_id
      is stored denormalised for fast multi-tenant filtering without joins.
-     ON DELETE NO ACTION — streams are never cascade-deleted. Deletion of a
-     school must be handled explicitly upstream before streams can be removed.';
+     ON DELETE CASCADE — streams are removed when their school is deleted.';
 
 -- ---------------------------------------------------------------------------
 -- CBC CLASSES
@@ -529,7 +525,7 @@ CREATE TABLE IF NOT EXISTS cbc_classes (
         FOREIGN KEY (tenant_id, academic_year_id)
         REFERENCES academic_years(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_cbc_classes_stream
-        FOREIGN KEY (stream_id) REFERENCES cbc_streams(id) ON DELETE RESTRICT,
+        FOREIGN KEY (stream_id) REFERENCES cbc_streams(id) ON DELETE CASCADE,
 
     -- IMPROVE: composite FK for tenant scoping (tenant_id, id) to allow other
     -- tables to reference this pair directly
@@ -735,7 +731,7 @@ COMMENT ON TABLE cbc_parents IS
 CREATE TABLE IF NOT EXISTS cbc_students (
     id                     UUID                 PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id              UUID                 NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    school_id              UUID                 NOT NULL REFERENCES cbc_schools(id) ON DELETE RESTRICT,
+    school_id              UUID                 NOT NULL REFERENCES cbc_schools(id) ON DELETE CASCADE,
     full_name              VARCHAR(255)         NOT NULL,
     gender                 gender_type          NOT NULL,
     date_of_birth          DATE                 NULL,
@@ -1683,7 +1679,7 @@ $$;
 CREATE TABLE IF NOT EXISTS assessment_sessions (
     id                    UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id             UUID        NOT NULL,
-    blueprint_id          UUID        NOT NULL REFERENCES assessment_blueprints(id) ON DELETE RESTRICT,
+    blueprint_id          UUID        NOT NULL REFERENCES assessment_blueprints(id) ON DELETE CASCADE,
     class_id              UUID        NOT NULL,
     assessed_by_user_id   UUID        NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
     date_administered     DATE        NOT NULL,   -- NO DEFAULT. Must be entered explicitly.
@@ -1692,7 +1688,7 @@ CREATE TABLE IF NOT EXISTS assessment_sessions (
 
     CONSTRAINT fk_asessions_tenant_class
         FOREIGN KEY (tenant_id, class_id)
-        REFERENCES cbc_classes(tenant_id, id) ON DELETE RESTRICT
+        REFERENCES cbc_classes(tenant_id, id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_asessions_tenant     ON assessment_sessions (tenant_id);
@@ -1724,7 +1720,7 @@ CREATE TABLE IF NOT EXISTS learner_rubric_results (
     tenant_id                 UUID           NOT NULL,
     session_id                UUID           NOT NULL REFERENCES assessment_sessions(id) ON DELETE CASCADE,
     student_id                UUID           NOT NULL,
-    indicator_id              UUID           NOT NULL REFERENCES performance_indicators(id) ON DELETE RESTRICT,
+    indicator_id              UUID           NOT NULL REFERENCES performance_indicators(id) ON DELETE CASCADE,
     score_type                lrr_score_type NOT NULL,
     raw_score                 NUMERIC(5,2)   NULL CHECK (raw_score >= 0),
     rubric_level              cbc_rubric_level NOT NULL,
@@ -1762,7 +1758,7 @@ CREATE TABLE IF NOT EXISTS learner_portfolios (
     id               UUID                    PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id        UUID                    NOT NULL,
     student_id       UUID                    NOT NULL,
-    sub_strand_id    UUID                    NOT NULL REFERENCES cbc_sub_strands(id) ON DELETE RESTRICT,
+    sub_strand_id    UUID                    NOT NULL REFERENCES cbc_sub_strands(id) ON DELETE CASCADE,
     evidence_type    portfolio_evidence_type NOT NULL,
     storage_pointer  TEXT                    NOT NULL,
     linked_result_id UUID                    NULL REFERENCES learner_rubric_results(id) ON DELETE SET NULL,
@@ -1839,10 +1835,10 @@ CREATE TABLE IF NOT EXISTS cbc_term_report_cards (
         REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_trc_tenant_class
         FOREIGN KEY (tenant_id, class_id)
-        REFERENCES cbc_classes(tenant_id, id) ON DELETE RESTRICT,
+        REFERENCES cbc_classes(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_trc_tenant_term
         FOREIGN KEY (tenant_id, school_id, academic_term_id)
-        REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE RESTRICT,
+        REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE,
     -- class_teacher_id points at cbc_class_teachers (not users) so the
     -- "exactly one PRIMARY_CLASS_TEACHER per class" partial unique index on
     -- cbc_class_teachers remains the canonical source of truth. SET NULL on
@@ -2023,10 +2019,10 @@ CREATE TABLE IF NOT EXISTS cbc_term_competency_summaries (
     tenant_id                UUID                             NOT NULL,
     school_id                UUID                             NOT NULL,
     student_id               UUID                             NOT NULL,
-    learning_area_id         UUID                             NOT NULL REFERENCES cbc_learning_areas(id) ON DELETE RESTRICT,
+    learning_area_id         UUID                             NOT NULL REFERENCES cbc_learning_areas(id) ON DELETE CASCADE,
     class_id                 UUID                             NOT NULL,
     academic_term_id         UUID                             NOT NULL,
-    report_card_id           UUID                             NULL REFERENCES cbc_term_report_cards(id) ON DELETE RESTRICT,
+    report_card_id           UUID                             NULL REFERENCES cbc_term_report_cards(id) ON DELETE CASCADE,
     calculated_level         cbc_rubric_level_with_sub_levels NOT NULL,
     override_level           cbc_rubric_level_with_sub_levels NULL,
     final_level              cbc_rubric_level                 NOT NULL,
@@ -2042,10 +2038,10 @@ CREATE TABLE IF NOT EXISTS cbc_term_competency_summaries (
         REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_summaries_tenant_class
         FOREIGN KEY (tenant_id, class_id)
-        REFERENCES cbc_classes(tenant_id, id) ON DELETE RESTRICT,
+        REFERENCES cbc_classes(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_summaries_tenant_term
         FOREIGN KEY (tenant_id, school_id, academic_term_id)
-        REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE RESTRICT,
+        REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE,
     CONSTRAINT unique_summary_per_student_area_term
         UNIQUE (student_id, learning_area_id, academic_term_id)
 );
@@ -2084,8 +2080,8 @@ COMMENT ON COLUMN cbc_term_competency_summaries.report_card_id IS
     'Optional link to the parent cbc_term_report_cards row. NULL until the
      term report card is compiled — individual competency assessments can
      be recorded throughout the term, then linked to the report card at
-     compilation time. ON DELETE RESTRICT prevents deletion of a report
-     card while competency summaries still reference it.';
+     compilation time. ON DELETE CASCADE — report cards are removed when
+     their competency summaries are cascade-deleted with the parent school.';
 
 COMMENT ON COLUMN cbc_term_competency_summaries.teacher_narrative_summary IS
     'Free-text narrative note from the class teacher summarising the

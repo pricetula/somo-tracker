@@ -1,5 +1,5 @@
 // types.test.ts
-import { defaultNormalize, normalizeListResponse } from "./utils";
+import { defaultNormalize, normalizeListResponse } from "../utils";
 
 describe("defaultNormalize", () => {
     it("returns input unchanged (identity passthrough)", () => {
@@ -74,7 +74,13 @@ describe("normalizeListResponse", () => {
                 page: 1,
                 limit: 50,
             };
-            const result = normalize(input);
+            const result = normalize(
+                input as Record<typeof key, typeof items> & {
+                    total: number;
+                    page: number;
+                    limit: number;
+                }
+            );
             expect(result.items).toBe(items);
             expect(result.total).toBe(100);
         });

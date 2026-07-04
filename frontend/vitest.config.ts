@@ -13,8 +13,9 @@ export default defineConfig({
             "__tests__/**/*.test.tsx",
         ],
         exclude: [],
-        setupFiles: ["./__tests__/setup/vitest.setup.ts"],
+        setupFiles: ["./vitest.setup.ts"],
         css: true,
+        globals: true,
     },
     resolve: {
         alias: {

@@ -8,5 +8,6 @@ var Module = fx.Module("curriculum",
 		fx.Annotate(NewRepository, fx.As(new(Repository))),
 		NewService,
 		NewHandler,
+		NewSeedingService,
 	),
 )

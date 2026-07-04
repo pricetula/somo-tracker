@@ -77,3 +77,10 @@ type ListSchoolsResponse struct {
 	Items []SchoolWithMemberCount `json:"items"`
 	Total int                     `json:"total"`
 }
+
+// CurriculumSeeder seeds the CBC curriculum for a newly created school.
+// Defined here as a consumer-side interface so cbcschools does not import
+// the curriculum package directly (DDD boundary rule).
+type CurriculumSeeder interface {
+	SeedForSchool(ctx context.Context, tenantID, schoolID string) error
+}

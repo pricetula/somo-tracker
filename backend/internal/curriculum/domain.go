@@ -242,3 +242,35 @@ type ListPerformanceIndicatorsResponse struct {
 	Items []PerformanceIndicator `json:"items"`
 	Total int                    `json:"total"`
 }
+
+// ── Seeding Input Structs (JSON payload) ──────────────────────────────────
+
+// CurriculumData wraps a slice of learning areas parsed from a single JSON file.
+type CurriculumData []LearningAreaInput
+
+// LearningAreaInput mirrors the JSON payload for a CBC learning area.
+type LearningAreaInput struct {
+	Name           string        `json:"name"`
+	Code           string        `json:"code"`
+	EducationLevel string        `json:"education_level"`
+	Pathway        string        `json:"pathway,omitempty"`
+	Strands        []StrandInput `json:"strands"`
+}
+
+// StrandInput mirrors the JSON payload for a strand within a learning area.
+type StrandInput struct {
+	Name       string           `json:"name"`
+	SubStrands []SubStrandInput `json:"sub_strands"`
+}
+
+// SubStrandInput mirrors the JSON payload for a sub-strand within a strand.
+type SubStrandInput struct {
+	Name                  string   `json:"name"`
+	PerformanceIndicators []string `json:"performance_indicators"`
+}
+
+// GradeFile maps a JSON file stem to a CBC grade level.
+type GradeFile struct {
+	Stem  string // file stem (e.g. "pp1", "grade4", "grade10.stem")
+	Grade string // normalized grade level (e.g. "PP1", "G4", "G10")
+}

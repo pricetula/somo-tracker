@@ -3,24 +3,52 @@ package cbcschools
 import (
 	"context"
 	"fmt"
+	"log/slog"
 )
 
 // Service contains business logic for the cbcschools domain.
 type Service struct {
-	Repo Repository
+	Repo   Repository
+	seeder CurriculumSeeder
 }
 
-// NewService creates a new Service.
-func NewService(repo Repository) *Service {
-	return &Service{Repo: repo}
+// NewService creates a new Service. If a CurriculumSeeder is provided (via the
+// optional second argument), the service will seed the CBC curriculum
+// immediately after a school is created.
+func NewService(repo Repository, seeders ...CurriculumSeeder) *Service {
+	svc := &Service{Repo: repo}
+	if len(seeders) > 0 {
+		svc.seeder = seeders[0]
+	}
+	return svc
 }
 
-// CreateSchool creates a new school and returns its ID.
+// CreateSchool creates a new school and returns its ID. If a CurriculumSeeder
+// is configured, the CBC curriculum is seeded for the new school automatically.
 func (s *Service) CreateSchool(ctx context.Context, tenantID string, name string) (string, error) {
 	if name == "" {
 		return "", fmt.Errorf("cbcschools.Service.CreateSchool: %w", ErrInvalidInput)
 	}
-	return s.Repo.Create(ctx, tenantID, name)
+
+	schoolID, err := s.Repo.Create(ctx, tenantID, name)
+	if err != nil {
+		return "", fmt.Errorf("cbcschools.Service.CreateSchool: %w", err)
+	}
+
+	// Seed curriculum automatically for the new school
+	if s.seeder != nil {
+		if seedErr := s.seeder.SeedForSchool(ctx, tenantID, schoolID); seedErr != nil {
+			// Log the seeding failure but do NOT fail school creation — the school
+			// was already persisted successfully. The admin can retry seeding later.
+			slog.WarnContext(ctx, "cbcschools: curriculum seeding failed for new school",
+				slog.String("tenant_id", tenantID),
+				slog.String("school_id", schoolID),
+				slog.String("error", seedErr.Error()),
+			)
+		}
+	}
+
+	return schoolID, nil
 }
 
 // ListSchoolsByTenantID returns all schools for a tenant with member counts

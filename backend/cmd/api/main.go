@@ -20,12 +20,14 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	fiberrecover "github.com/gofiber/fiber/v2/middleware/recover"
+	"github.com/google/uuid"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 
@@ -87,6 +89,28 @@ func globalErrorHandler(c *fiber.Ctx, err error) error {
 	})
 }
 
+// ── Cross-Domain Adapters ────────────────────────────────────────────────
+
+// curriculumSchoolSeeder adapts *curriculum.SeedingService to the
+// cbcschools.CurriculumSeeder interface used by school creation.
+type curriculumSchoolSeeder struct {
+	svc *curriculum.SeedingService
+}
+
+// SeedForSchool seeds the CBC curriculum for a newly created school using the
+// embedded curriculum JSON files compiled into the binary.
+func (a *curriculumSchoolSeeder) SeedForSchool(ctx context.Context, tenantID, schoolID string) error {
+	tenantUUID, err := uuid.Parse(tenantID)
+	if err != nil {
+		return fmt.Errorf("curriculumSchoolSeeder.SeedForSchool: parse tenant_id: %w", err)
+	}
+	schoolUUID, err := uuid.Parse(schoolID)
+	if err != nil {
+		return fmt.Errorf("curriculumSchoolSeeder.SeedForSchool: parse school_id: %w", err)
+	}
+	return a.svc.SeedSchoolCurriculumDefault(ctx, tenantUUID, schoolUUID)
+}
+
 func main() {
 	fx.New(
 		config.Module,
@@ -107,7 +131,7 @@ func main() {
 		imports.Module,
 
 		// Cross-domain interface wiring: school resolver from members,
-		// school creator from cbcschools.
+		// school creator from cbcschools, curriculum seeder for new schools.
 		fx.Provide(
 			func(repo members.Repository) invitations.SchoolResolver {
 				return repo
@@ -120,6 +144,11 @@ func main() {
 			},
 			func(repo curriculum.Repository) assessment.LearningAreaResolver {
 				return repo
+			},
+			// When a school is created, automatically seed its CBC curriculum
+			// from the embedded JSON files.
+			func(seeder *curriculum.SeedingService) cbcschools.CurriculumSeeder {
+				return &curriculumSchoolSeeder{svc: seeder}
 			},
 		),
 

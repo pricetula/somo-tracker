@@ -40,7 +40,6 @@ export function SchoolSwitcher() {
     const { mutate: switchSchool, isPending: isSwitching } = useSetActiveSchool();
     const [dialogOpen, setDialogOpen] = React.useState(false);
 
-    const userName = me?.full_name ?? me?.email ?? "User";
     const activeSchoolName = me?.school_name ?? "School";
     const activeSchoolId = me?.school_id ?? "";
     const schools = schoolsData?.items ?? [];
@@ -62,14 +61,13 @@ export function SchoolSwitcher() {
                                 size="lg"
                                 className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
                             >
-                                <Avatar className="h-8 w-8 rounded-lg">
+                                <Avatar className="h-8 w-8 overflow-hidden bg-transparent">
                                     <AvatarFallback className="rounded-lg">
                                         {initials}
                                     </AvatarFallback>
                                 </Avatar>
                                 <div className="grid flex-1 text-left text-sm leading-tight">
                                     <span className="truncate font-medium">{activeSchoolName}</span>
-                                    <span className="truncate text-xs">{userName}</span>
                                 </div>
                                 <ChevronsUpDownIcon className="ml-auto size-4" />
                             </SidebarMenuButton>
@@ -96,8 +94,8 @@ export function SchoolSwitcher() {
                                             className="flex items-center gap-2"
                                             onClick={() => switchSchool(school.id)}
                                         >
-                                            <Avatar className="h-7 w-7 rounded-md">
-                                                <AvatarFallback className="rounded-md text-xs">
+                                            <Avatar className="h-7 w-7 overflow-hidden bg-transparent">
+                                                <AvatarFallback className="rounded-lg text-xs">
                                                     {school.name
                                                         .split(" ")
                                                         .map((n) => n.charAt(0))

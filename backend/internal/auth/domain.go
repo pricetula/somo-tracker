@@ -272,6 +272,9 @@ type Repository interface {
 	// user's first active membership's school ID.
 	GetActiveSchoolID(ctx context.Context, userID, tenantID string) (string, error)
 
+	// GetUserRoleInTenant returns the highest-privilege role for a user in a tenant.
+	GetUserRoleInTenant(ctx context.Context, userID, tenantID string) (string, error)
+
 	// GetInvitationByEmail looks up a pending, non-expired invitation by email.
 	// Returns the invitation record or ErrNotFound if none exists.
 	GetInvitationByEmail(ctx context.Context, email string) (*Invitation, error)

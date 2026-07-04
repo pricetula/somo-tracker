@@ -150,6 +150,13 @@ func main() {
 			func(seeder *curriculum.SeedingService) cbcschools.CurriculumSeeder {
 				return &curriculumSchoolSeeder{svc: seeder}
 			},
+			// Provide the auth repository as a UserSchoolEnroller so that
+			// creating a school also enrolls the creator as SCHOOL_ADMIN
+			// and sets it as their active school. The concrete type
+			// *auth.SqlcRepository implements both interfaces.
+			func(repo auth.Repository) cbcschools.UserSchoolEnroller {
+				return repo.(cbcschools.UserSchoolEnroller)
+			},
 		),
 
 		fx.Provide(newLogger),
@@ -200,6 +207,7 @@ func registerApp(
 	authHandler *auth.Handler,
 	academicYearsHandler *academicyears.Handler,
 	assessmentHandler *assessment.Handler,
+	cbcschoolsHandler *cbcschools.Handler,
 	importsHandler *imports.Handler,
 	invitationsHandler *invitations.Handler,
 	membersHandler *members.Handler,
@@ -242,6 +250,7 @@ func registerApp(
 			authHandler.RegisterRoutes(app)
 			academicYearsHandler.RegisterRoutes(app)
 			assessmentHandler.RegisterRoutes(app)
+			cbcschoolsHandler.RegisterRoutes(app)
 			membersHandler.RegisterRoutes(app)
 			invitationsHandler.RegisterRoutes(app)
 			curriculumHandler.RegisterRoutes(app)

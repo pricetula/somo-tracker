@@ -147,6 +147,7 @@ type MockRepository struct {
 	getMeInfoFn                func(ctx context.Context, token string) (*MeInfo, error)
 	getInvitationByEmailFn     func(ctx context.Context, email string) (*Invitation, error)
 	getActiveSchoolIDFn        func(ctx context.Context, userID, tenantID string) (string, error)
+	getUserRoleInTenantFn      func(ctx context.Context, userID, tenantID string) (string, error)
 	getTenantStytchOrgIDFn     func(ctx context.Context, tenantID string) (string, error)
 	createInvitedUserSessionFn func(ctx context.Context, args CreateInvitedUserSessionArgs) error
 
@@ -332,6 +333,18 @@ func (m *MockRepository) GetActiveSchoolID(ctx context.Context, userID, tenantID
 		return m.getActiveSchoolIDFn(ctx, userID, tenantID)
 	}
 	return "school_" + tenantID, nil
+}
+
+func (m *MockRepository) GetUserRoleInTenant(ctx context.Context, userID, tenantID string) (string, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if m.getUserRoleInTenantFn != nil {
+		return m.getUserRoleInTenantFn(ctx, userID, tenantID)
+	}
+	if r, ok := m.memberships[userID]; ok {
+		return r, nil
+	}
+	return "", fmt.Errorf("%w: user not found", ErrNotFound)
 }
 
 func (m *MockRepository) GetTenantByStytchOrgID(ctx context.Context, stytchOrgID string) (string, error) {

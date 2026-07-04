@@ -341,7 +341,7 @@ type testHarnessWithSeeder struct {
 func newTestHarnessWithSeeder() *testHarnessWithSeeder {
 	repo := &MockRepository{}
 	seeder := &MockCurriculumSeeder{}
-	svc := NewService(repo, seeder)
+	svc := NewService(repo, WithCurriculumSeeder(seeder))
 	return &testHarnessWithSeeder{
 		svc:    svc,
 		repo:   repo,

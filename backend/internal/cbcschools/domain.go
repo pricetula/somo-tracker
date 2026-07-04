@@ -84,3 +84,12 @@ type ListSchoolsResponse struct {
 type CurriculumSeeder interface {
 	SeedForSchool(ctx context.Context, tenantID, schoolID string) error
 }
+
+// UserSchoolEnroller creates a membership and sets the active school for a user.
+// Defined here as a consumer-side interface to avoid importing the auth package
+// directly (DDD boundary rule).
+type UserSchoolEnroller interface {
+	CreateMembership(ctx context.Context, userID, schoolID, tenantID, role string) error
+	SetActiveSchool(ctx context.Context, userID, tenantID, schoolID string) error
+	GetUserRoleInTenant(ctx context.Context, userID, tenantID string) (string, error)
+}

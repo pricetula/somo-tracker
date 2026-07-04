@@ -12,7 +12,7 @@ import {
     SidebarRail,
 } from "@/components/ui/sidebar";
 import { useMe } from "@/hooks/use-auth";
-import { SchoolSwitcher } from "./school-switcher";
+import { SchoolSwitcher } from "@/features/school/components/school-switcher";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     const { data: me } = useMe();

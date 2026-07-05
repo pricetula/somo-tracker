@@ -38,12 +38,12 @@ type handlerTestHarness struct {
 
 // mockSchoolCreator implements SchoolCreator for handler tests.
 type mockSchoolCreator struct {
-	createFn func(ctx context.Context, tenantID string, name string) (string, error)
+	createFn func(ctx context.Context, tenantID string, name string, role string, creatorUserID ...string) (string, error)
 }
 
-func (m *mockSchoolCreator) Create(ctx context.Context, tenantID string, name string) (string, error) {
+func (m *mockSchoolCreator) CreateSchool(ctx context.Context, tenantID string, name string, role string, creatorUserID ...string) (string, error) {
 	if m.createFn != nil {
-		return m.createFn(ctx, tenantID, name)
+		return m.createFn(ctx, tenantID, name, role, creatorUserID...)
 	}
 	return "school_" + tenantID, nil
 }
@@ -79,7 +79,6 @@ func newHandlerTestHarness(t *testing.T) *handlerTestHarness {
 		logger:        logger,
 		cfg:           cfg,
 		schoolCreator: &mockSchoolCreator{},
-		yearCreator:   &mockYearCreator{},
 	}
 
 	handler := NewHandler(svc, logger, cfg)

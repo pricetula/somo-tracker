@@ -71,7 +71,7 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 		})
 	}
 
-	schoolID, err := h.svc.CreateSchool(c.Context(), tenantID, payload.Name, userID)
+	schoolID, err := h.svc.CreateSchool(c.Context(), tenantID, payload.Name, "SCHOOL_ADMIN", userID)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}

@@ -91,7 +91,7 @@ func TestCreateSchool_HappyPath(t *testing.T) {
 		return "school_001", nil
 	}
 
-	id, err := h.svc.CreateSchool(context.Background(), "tenant_001", "Green Valley Primary")
+	id, err := h.svc.CreateSchool(context.Background(), "tenant_001", "Green Valley Primary", "SCHOOL_ADMIN")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -103,7 +103,7 @@ func TestCreateSchool_HappyPath(t *testing.T) {
 func TestCreateSchool_EmptyName(t *testing.T) {
 	h := newTestHarness()
 
-	_, err := h.svc.CreateSchool(context.Background(), "tenant_001", "")
+	_, err := h.svc.CreateSchool(context.Background(), "tenant_001", "", "SCHOOL_ADMIN")
 	if err == nil {
 		t.Fatal("expected error for empty name, got nil")
 	}
@@ -363,7 +363,7 @@ func TestCreateSchool_SeedsCurriculum(t *testing.T) {
 		return expectedSchoolID, nil
 	}
 
-	id, err := h.svc.CreateSchool(context.Background(), expectedTenantID, "Test School")
+	id, err := h.svc.CreateSchool(context.Background(), expectedTenantID, "Test School", "SCHOOL_ADMIN")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -397,7 +397,7 @@ func TestCreateSchool_SeedFailure_DoesNotFailSchoolCreation(t *testing.T) {
 	h.seeder.seedErr = errors.New("database timeout")
 
 	// School creation should still succeed — seeding failure is logged, not fatal
-	id, err := h.svc.CreateSchool(context.Background(), "tenant_001", "Test School")
+	id, err := h.svc.CreateSchool(context.Background(), "tenant_001", "Test School", "SCHOOL_ADMIN")
 	if err != nil {
 		t.Fatalf("school creation should succeed even when seeding fails, got error: %v", err)
 	}
@@ -419,7 +419,7 @@ func TestCreateSchool_WithoutSeeder_DoesNotSeed(t *testing.T) {
 		return "school_001", nil
 	}
 
-	id, err := h.svc.CreateSchool(context.Background(), "tenant_001", "Test School")
+	id, err := h.svc.CreateSchool(context.Background(), "tenant_001", "Test School", "SCHOOL_ADMIN")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

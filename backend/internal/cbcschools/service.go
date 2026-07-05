@@ -8,9 +8,10 @@ import (
 
 // Service contains business logic for the cbcschools domain.
 type Service struct {
-	Repo     Repository
-	seeder   CurriculumSeeder
-	enroller UserSchoolEnroller
+	Repo       Repository
+	seeder     CurriculumSeeder
+	yearSeeder AcademicYearSeeder
+	enroller   UserSchoolEnroller
 }
 
 // ServiceOption is a functional option for configuring the Service.
@@ -30,6 +31,14 @@ func WithUserSchoolEnroller(enroller UserSchoolEnroller) ServiceOption {
 	}
 }
 
+// WithAcademicYearSeeder sets the academic year seeder for automatic
+// initial year and term setup when a new school is created.
+func WithAcademicYearSeeder(seeder AcademicYearSeeder) ServiceOption {
+	return func(s *Service) {
+		s.yearSeeder = seeder
+	}
+}
+
 // NewService creates a new Service with optional configuration.
 func NewService(repo Repository, opts ...ServiceOption) *Service {
 	svc := &Service{Repo: repo}
@@ -40,12 +49,15 @@ func NewService(repo Repository, opts ...ServiceOption) *Service {
 }
 
 // CreateSchool creates a new school and returns its ID.
-// If a creatorUserID is provided, the creator is enrolled as SCHOOL_ADMIN
+// If a creatorUserID is provided, the creator is enrolled with the given role
 // and the school is set as their active school. If a CurriculumSeeder is
 // configured, the CBC curriculum is seeded automatically.
-func (s *Service) CreateSchool(ctx context.Context, tenantID string, name string, creatorUserID ...string) (string, error) {
+func (s *Service) CreateSchool(ctx context.Context, tenantID string, name string, role string, creatorUserID ...string) (string, error) {
 	if name == "" {
 		return "", fmt.Errorf("cbcschools.Service.CreateSchool: %w", ErrInvalidInput)
+	}
+	if role == "" {
+		return "", fmt.Errorf("cbcschools.Service.CreateSchool: role is required: %w", ErrInvalidInput)
 	}
 
 	schoolID, err := s.Repo.Create(ctx, tenantID, name)
@@ -53,12 +65,13 @@ func (s *Service) CreateSchool(ctx context.Context, tenantID string, name string
 		return "", fmt.Errorf("cbcschools.Service.CreateSchool: %w", err)
 	}
 
-	// Enroll the creator as SCHOOL_ADMIN and set as active school
+	// Enroll the creator with the given role and set as active school
 	if len(creatorUserID) > 0 && creatorUserID[0] != "" && s.enroller != nil {
-		if enrollErr := s.enroller.CreateMembership(ctx, creatorUserID[0], schoolID, tenantID, "SCHOOL_ADMIN"); enrollErr != nil {
+		if enrollErr := s.enroller.CreateMembership(ctx, creatorUserID[0], schoolID, tenantID, role); enrollErr != nil {
 			slog.WarnContext(ctx, "cbcschools: failed to create membership for school creator",
 				slog.String("user_id", creatorUserID[0]),
 				slog.String("school_id", schoolID),
+				slog.String("role", role),
 				slog.String("error", enrollErr.Error()),
 			)
 		}
@@ -80,6 +93,20 @@ func (s *Service) CreateSchool(ctx context.Context, tenantID string, name string
 				slog.String("tenant_id", tenantID),
 				slog.String("school_id", schoolID),
 				slog.String("error", seedErr.Error()),
+			)
+		}
+	}
+
+	// Set up the initial academic year and CBC terms for the new school.
+	// Only runs when a creatorUserID is provided (we need an actor for the
+	// audit trail). Seeding failure is logged but does NOT fail school creation
+	// — the admin can set up academic years later via the UI.
+	if len(creatorUserID) > 0 && creatorUserID[0] != "" && s.yearSeeder != nil {
+		if yearErr := s.yearSeeder.SetupInitialYear(ctx, tenantID, schoolID, creatorUserID[0], nil); yearErr != nil {
+			slog.WarnContext(ctx, "cbcschools: academic year seeding failed for new school",
+				slog.String("tenant_id", tenantID),
+				slog.String("school_id", schoolID),
+				slog.String("error", yearErr.Error()),
 			)
 		}
 	}

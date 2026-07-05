@@ -1620,8 +1620,8 @@ func TestIntegration_Registration_CreatesAcademicYear(t *testing.T) {
 	suite.freshRedis(t)
 	defer suite.resetStytchHandlers()
 
-	// Create a service with the REAL year creator for this test
-	svc := suite.createServiceWithRealYearCreator()
+	// Create a service with real year seeding for this test
+	svc := suite.createServiceWithYearSeeder()
 
 	sessionRef := "550e8400-e29b-41d4-a716-446655440500"
 	suite.setRedisIST(t, sessionRef, "headteacher@example.com")
@@ -1699,7 +1699,7 @@ func TestIntegration_Registration_AcademicYearIsCurrent(t *testing.T) {
 	suite.freshRedis(t)
 	defer suite.resetStytchHandlers()
 
-	svc := suite.createServiceWithRealYearCreator()
+	svc := suite.createServiceWithYearSeeder()
 
 	sessionRef := "550e8400-e29b-41d4-a716-446655440510"
 	suite.setRedisIST(t, sessionRef, "principal@example.com")
@@ -1766,7 +1766,7 @@ func TestIntegration_Registration_AcademicYearIntegrity(t *testing.T) {
 	suite.freshRedis(t)
 	defer suite.resetStytchHandlers()
 
-	svc := suite.createServiceWithRealYearCreator()
+	svc := suite.createServiceWithYearSeeder()
 
 	sessionRef := "550e8400-e29b-41d4-a716-446655440520"
 	suite.setRedisIST(t, sessionRef, "integrity@example.com")
@@ -2220,7 +2220,7 @@ func TestIntegration_Registration_SecondUserDoesNotDuplicateAcademicYear(t *test
 	suite.freshRedis(t)
 	defer suite.resetStytchHandlers()
 
-	svc := suite.createServiceWithRealYearCreator()
+	svc := suite.createServiceWithYearSeeder()
 
 	schoolName := "One Year School"
 

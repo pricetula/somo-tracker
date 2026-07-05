@@ -93,3 +93,10 @@ type UserSchoolEnroller interface {
 	SetActiveSchool(ctx context.Context, userID, tenantID, schoolID string) error
 	GetUserRoleInTenant(ctx context.Context, userID, tenantID string) (string, error)
 }
+
+// AcademicYearSeeder seeds the initial academic year and CBC terms for a
+// newly created school. Defined here as a consumer-side interface so cbcschools
+// does not import the academicyears package directly (DDD boundary rule).
+type AcademicYearSeeder interface {
+	SetupInitialYear(ctx context.Context, tenantID, schoolID, actorID string, now *time.Time) error
+}

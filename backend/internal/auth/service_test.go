@@ -452,11 +452,12 @@ func newTestHarness(t *testing.T) *testHarness {
 	// Tests that call AcceptInvite or handleExistingUser should use
 	// newTestHarnessWithRedis instead.
 	svc := &Service{
-		idp:    idp,
-		repo:   repo,
-		logger: logger,
-		cfg:    cfg,
-		rdb:    nil,
+		idp:           idp,
+		repo:          repo,
+		logger:        logger,
+		cfg:           cfg,
+		rdb:           nil,
+		schoolCreator: &mockSchoolCreator{},
 	}
 
 	return &testHarness{
@@ -541,28 +542,18 @@ func (h *testHarness) registerViaMocks(ctx context.Context, sessionRef string, p
 		return "", "", err
 	}
 
-	// 9. Create school and membership
+	// 9. Create school and membership via the school creator (which handles
+	//    curriculum seeding and academic year setup in production).
 	role := "TEACHER"
 	if !exists {
 		role = "SCHOOL_ADMIN"
 	}
-	schoolID, err := h.repo.CreateSchool(ctx, tenantID, payload.SchoolName)
-	if err != nil {
-		return "", "", err
-	}
-	if err := h.repo.CreateMembership(ctx, userID, schoolID, tenantID, role); err != nil {
+	if _, err := h.svc.schoolCreator.CreateSchool(ctx, tenantID, payload.SchoolName, role, userID); err != nil {
 		return "", "", err
 	}
 
 	// 10. Cache session token
 	h.cache.Set(h.svc.sessionKey(sessionToken), sessionToken)
-
-	// 11. Call SetupInitialYear via the injected year creator
-	if h.svc.yearCreator != nil {
-		if err := h.svc.yearCreator.SetupInitialYear(ctx, tenantID, schoolID, userID, nil); err != nil {
-			return "", "", fmt.Errorf("%w: setup initial academic year: %v", ErrInternal, err)
-		}
-	}
 
 	return sessionToken, role, nil
 }
@@ -922,7 +913,7 @@ func TestGenerateSlug(t *testing.T) {
 }
 
 // ============================================================================
-// Tests: Register — yearCreator.SetupInitialYear invocation
+// Tests: Register — CreateSchool delegates academic year setup
 // ============================================================================
 
 func TestRegister_CallsSetupInitialYear(t *testing.T) {
@@ -933,16 +924,16 @@ func TestRegister_CallsSetupInitialYear(t *testing.T) {
 
 	var (
 		capturedTenantID string
-		capturedSchoolID string
 		capturedActorID  string
 	)
 
-	h.svc.yearCreator = &mockYearCreator{
-		setupFn: func(ctx context.Context, tenantID, schoolID, actorID string, now *time.Time) error {
+	// Override the school creator's CreateSchool to capture params and
+	// verify they're passed through (mimics what cbcschools.Service does).
+	h.svc.schoolCreator = &mockSchoolCreator{
+		createFn: func(ctx context.Context, tenantID, name, role string, creatorUserID ...string) (string, error) {
 			capturedTenantID = tenantID
-			capturedSchoolID = schoolID
-			capturedActorID = actorID
-			return nil
+			capturedActorID = creatorUserID[0]
+			return "school_" + tenantID, nil
 		},
 	}
 
@@ -958,13 +949,10 @@ func TestRegister_CallsSetupInitialYear(t *testing.T) {
 	}
 
 	if capturedTenantID == "" {
-		t.Fatal("expected SetupInitialYear to be called with a non-empty tenantID")
-	}
-	if capturedSchoolID == "" {
-		t.Fatal("expected SetupInitialYear to be called with a non-empty schoolID")
+		t.Fatal("expected CreateSchool to be called with a non-empty tenantID")
 	}
 	if capturedActorID == "" {
-		t.Fatal("expected SetupInitialYear to be called with a non-empty actorID")
+		t.Fatal("expected CreateSchool to be called with a non-empty creatorUserID")
 	}
 }
 
@@ -974,9 +962,9 @@ func TestRegister_SetupInitialYearFailurePropagatesError(t *testing.T) {
 	sessionRef := "550e8400-e29b-41d4-a716-446655440998"
 	h.cache.Set(fmt.Sprintf("%s%s:%s", istKeyPrefix, "test", sessionRef), "test_ist_value")
 
-	h.svc.yearCreator = &mockYearCreator{
-		setupFn: func(ctx context.Context, tenantID, schoolID, actorID string, now *time.Time) error {
-			return fmt.Errorf("db write error")
+	h.svc.schoolCreator = &mockSchoolCreator{
+		createFn: func(ctx context.Context, tenantID, name, role string, creatorUserID ...string) (string, error) {
+			return "", fmt.Errorf("cbcschools.Service.CreateSchool: internal error")
 		},
 	}
 
@@ -988,10 +976,7 @@ func TestRegister_SetupInitialYearFailurePropagatesError(t *testing.T) {
 
 	_, _, err := h.registerViaMocks(context.Background(), sessionRef, payload, "fp-year-fail")
 	if err == nil {
-		t.Fatal("expected error when SetupInitialYear fails, got nil")
-	}
-	if !strings.Contains(err.Error(), "setup initial academic year") {
-		t.Fatalf("expected error about year setup, got: %v", err)
+		t.Fatal("expected error when CreateSchool fails, got nil")
 	}
 }
 
@@ -1455,21 +1440,6 @@ func TestVerifyViaMocks_NewUser_NoDiscoveredOrgs(t *testing.T) {
 	if result.Email != "newuser@example.com" {
 		t.Fatalf("expected email 'newuser@example.com', got %q", result.Email)
 	}
-}
-
-// ============================================================================
-// mockYearCreator — implements AcademicYearCreator for unit tests
-// ============================================================================
-
-type mockYearCreator struct {
-	setupFn func(ctx context.Context, tenantID, schoolID, actorID string, now *time.Time) error
-}
-
-func (m *mockYearCreator) SetupInitialYear(ctx context.Context, tenantID, schoolID, actorID string, now *time.Time) error {
-	if m.setupFn != nil {
-		return m.setupFn(ctx, tenantID, schoolID, actorID, now)
-	}
-	return nil
 }
 
 // ============================================================================

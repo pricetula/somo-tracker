@@ -333,14 +333,11 @@ type MeInfo struct {
 }
 
 // SchoolCreator abstracts school creation so auth does not import cbcschools.
+// The CreateSchool method matches cbcschools.Service.CreateSchool so that the
+// full service pipeline (curriculum seeding, creator enrollment, active school)
+// is used instead of a bare repository insert.
 type SchoolCreator interface {
-	Create(ctx context.Context, tenantID string, name string) (string, error)
-}
-
-// AcademicYearCreator abstracts the creation of the initial academic year and
-// CBC terms so auth does not import academicyears.
-type AcademicYearCreator interface {
-	SetupInitialYear(ctx context.Context, tenantID, schoolID, actorID string, now *time.Time) error
+	CreateSchool(ctx context.Context, tenantID string, name string, role string, creatorUserID ...string) (string, error)
 }
 
 // StytchOrgIDKey is the context key used to pass the stytch_org_id through

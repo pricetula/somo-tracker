@@ -292,11 +292,6 @@ func setupSuite(ctx context.Context) (*IntegrationSuite, error) {
 	}
 
 	// Create a school creator adapter that writes directly to Postgres
-	schoolCreator := &schoolCreatorAdapter{pool: pool}
-
-	// Create a no-op year creator — integration tests don't need academic year setup
-	yearCreator := &noopYearCreator{}
-
 	// Manually create service without fx lifecycle
 	svc := &Service{
 		idp:           idp,
@@ -304,8 +299,7 @@ func setupSuite(ctx context.Context) (*IntegrationSuite, error) {
 		rdb:           rdb,
 		logger:        logger,
 		cfg:           suite.cfg,
-		schoolCreator: schoolCreator,
-		yearCreator:   yearCreator,
+		schoolCreator: newSchoolCreatorAdapter(pool),
 	}
 	suite.svc = svc
 
@@ -690,37 +684,30 @@ func writeStytchError(w http.ResponseWriter, status int, errType, message string
 // schoolCreatorAdapter implements SchoolCreator by writing directly to Postgres.
 // ============================================================================
 
+// academicYearSeeder is a local interface matching the cbcschools.AcademicYearSeeder
+// contract, used by schoolCreatorAdapter during integration tests.
+type academicYearSeeder interface {
+	SetupInitialYear(ctx context.Context, tenantID, schoolID, actorID string, now *time.Time) error
+}
+
+// schoolCreatorAdapter implements SchoolCreator by writing directly to Postgres.
+// It optionally delegates to an academicYearSeeder for year+term setup.
 type schoolCreatorAdapter struct {
-	pool *pgxpool.Pool
+	pool       *pgxpool.Pool
+	yearSeeder academicYearSeeder
 }
 
-// noopYearCreator implements AcademicYearCreator with a no-op.
-// Integration tests that do NOT need academic year verification use this.
-// ============================================================================
-
-type noopYearCreator struct{}
-
-func (n *noopYearCreator) SetupInitialYear(ctx context.Context, tenantID, schoolID, actorID string, now *time.Time) error {
-	return nil
+func newSchoolCreatorAdapter(pool *pgxpool.Pool) *schoolCreatorAdapter {
+	return &schoolCreatorAdapter{pool: pool}
 }
 
-// realYearCreator implements AcademicYearCreator by delegating to the real
-// academicyears.Service backed by the real PgRepository. Use this in
-// integration tests that verify academic years and terms are created during
-// tenant registration.
-// ============================================================================
-
-type realYearCreator struct {
-	pool *pgxpool.Pool
-}
-
-func (r *realYearCreator) SetupInitialYear(ctx context.Context, tenantID, schoolID, actorID string, now *time.Time) error {
-	ayRepo := academicyears.NewRepository(&database.Pools{PG: r.pool})
+func newSchoolCreatorAdapterWithYearSeeder(pool *pgxpool.Pool) *schoolCreatorAdapter {
+	ayRepo := academicyears.NewRepository(&database.Pools{PG: pool})
 	aySvc := academicyears.NewService(ayRepo)
-	return aySvc.SetupInitialYear(ctx, tenantID, schoolID, actorID, now)
+	return &schoolCreatorAdapter{pool: pool, yearSeeder: aySvc}
 }
 
-func (a *schoolCreatorAdapter) Create(ctx context.Context, tenantID string, name string) (string, error) {
+func (a *schoolCreatorAdapter) CreateSchool(ctx context.Context, tenantID string, name string, role string, creatorUserID ...string) (string, error) {
 	// The application-level school creator (cbcschools.Service) validates fields
 	// and enriches the record. For integration tests, we insert a minimal row.
 	var id string
@@ -732,6 +719,15 @@ func (a *schoolCreatorAdapter) Create(ctx context.Context, tenantID string, name
 	if err != nil {
 		return "", err
 	}
+
+	// Seed initial academic year if configured (mirrors what
+	// cbcschools.Service.CreateSchool does in production).
+	if len(creatorUserID) > 0 && creatorUserID[0] != "" && a.yearSeeder != nil {
+		if yearErr := a.yearSeeder.SetupInitialYear(ctx, tenantID, id, creatorUserID[0], nil); yearErr != nil {
+			return "", yearErr
+		}
+	}
+
 	return id, nil
 }
 
@@ -901,18 +897,19 @@ func (s *IntegrationSuite) freshDBWithAcademicYears(t *testing.T) {
 	}
 }
 
-// createServiceWithRealYearCreator creates a new Service with the real year creator.
-// This must be called inside a test that already called freshDBWithAcademicYears.
-// The returned service uses the real academicyears.Service for SetupInitialYear.
-func (s *IntegrationSuite) createServiceWithRealYearCreator() *Service {
+// createServiceWithYearSeeder creates a new Service with real year seeding.
+// createServiceWithYearSeeder returns a copy of the default service that uses
+// a schoolCreatorAdapter with the real academicyears.Service for year+term
+// setup. Use this in integration tests that verify academic year creation
+// during registration now that SetupInitialYear lives inside CreateSchool.
+func (s *IntegrationSuite) createServiceWithYearSeeder() *Service {
 	return &Service{
 		idp:           s.svc.idp,
 		repo:          s.svc.repo,
 		rdb:           s.svc.rdb,
 		logger:        s.svc.logger,
 		cfg:           s.svc.cfg,
-		schoolCreator: s.svc.schoolCreator,
-		yearCreator:   &realYearCreator{pool: s.pgPool},
+		schoolCreator: newSchoolCreatorAdapterWithYearSeeder(s.pgPool),
 	}
 }
 

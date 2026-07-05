@@ -131,15 +131,17 @@ func main() {
 		imports.Module,
 
 		// Cross-domain interface wiring: school resolver from members,
-		// school creator from cbcschools, curriculum seeder for new schools.
+		// school creator from cbcschools, curriculum seeder + academic year
+		// seeder for new schools.
 		fx.Provide(
 			func(repo members.Repository) invitations.SchoolResolver {
 				return repo
 			},
-			func(repo cbcschools.Repository) auth.SchoolCreator {
-				return repo
-			},
-			func(svc *academicyears.Service) auth.AcademicYearCreator {
+			// Wire the full cbcschools.Service (CreateSchool) as the SchoolCreator
+			// so that registering a new school seeds the CBC curriculum and
+			// academic years, enrolls the creator with the correct role, and sets
+			// the active school — instead of a bare repository INSERT.
+			func(svc *cbcschools.Service) auth.SchoolCreator {
 				return svc
 			},
 			func(repo curriculum.Repository) assessment.LearningAreaResolver {
@@ -150,10 +152,14 @@ func main() {
 			func(seeder *curriculum.SeedingService) cbcschools.CurriculumSeeder {
 				return &curriculumSchoolSeeder{svc: seeder}
 			},
+			// When a school is created, automatically set up the initial
+			// academic year and three CBC terms.
+			func(svc *academicyears.Service) cbcschools.AcademicYearSeeder {
+				return svc
+			},
 			// Provide the auth repository as a UserSchoolEnroller so that
-			// creating a school also enrolls the creator as SCHOOL_ADMIN
-			// and sets it as their active school. The concrete type
-			// *auth.SqlcRepository implements both interfaces.
+			// creating a school also enrolls the creator with the correct role
+			// and sets it as their active school.
 			func(repo auth.Repository) cbcschools.UserSchoolEnroller {
 				return repo.(cbcschools.UserSchoolEnroller)
 			},

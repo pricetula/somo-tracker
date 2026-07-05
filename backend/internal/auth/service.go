@@ -36,7 +36,6 @@ type Service struct {
 	logger        *zap.Logger
 	cfg           config.Config
 	schoolCreator SchoolCreator
-	yearCreator   AcademicYearCreator
 }
 
 // NewService creates a new Service with fx lifecycle hooks for Redis.
@@ -45,7 +44,6 @@ func NewService(
 	idp IdentityProvider,
 	repo Repository,
 	schoolCreator SchoolCreator,
-	yearCreator AcademicYearCreator,
 	pools *database.Pools,
 	logger *zap.Logger,
 	cfg config.Config,
@@ -76,7 +74,6 @@ func NewService(
 		logger:        logger,
 		cfg:           cfg,
 		schoolCreator: schoolCreator,
-		yearCreator:   yearCreator,
 	}
 }
 
@@ -452,26 +449,14 @@ func (s *Service) Register(ctx context.Context, sessionRef string, payload Regis
 		}
 	}
 
-	// 11. Create school and membership for the newly registered user.
-	// For a fresh tenant (first user), assign SCHOOL_ADMIN.
-	// For existing tenants (subsequent users), assign TEACHER.
-	role = "TEACHER"
-	if !tenantExists && !tenantExistsByName {
-		role = "SCHOOL_ADMIN"
-	}
+	// 11. Create school using the full cbcschools.Service.CreateSchool pipeline,
+	//     which seeds the CBC curriculum, enrolls the creator with the correct
+	//     role, and sets the active school — instead of a bare repository INSERT.
+	role = "SCHOOL_ADMIN"
 
-	schoolID, err = s.schoolCreator.Create(ctx, tenantID, payload.SchoolName)
+	schoolID, err = s.schoolCreator.CreateSchool(ctx, tenantID, payload.SchoolName, role, userID)
 	if err != nil {
 		return "", "", "", fmt.Errorf("%w: create school: %v", ErrInternal, err)
-	}
-
-	if err := s.repo.CreateMembership(ctx, userID, schoolID, tenantID, role); err != nil {
-		return "", "", "", fmt.Errorf("%w: create membership: %v", ErrInternal, err)
-	}
-
-	// Set the school as the user's active school so GetMeInfo resolves the role correctly.
-	if err := s.repo.SetActiveSchool(ctx, userID, tenantID, schoolID); err != nil {
-		return "", "", "", fmt.Errorf("%w: set active school: %v", ErrInternal, err)
 	}
 
 	s.logger.Info("auth: school and membership created",
@@ -480,16 +465,7 @@ func (s *Service) Register(ctx context.Context, sessionRef string, payload Regis
 		zap.String("role", role),
 	)
 
-	// 12. Set up the initial academic year with 3 CBC terms for the new school.
-	//     This creates the first academic year (current calendar year) and the
-	//     three Kenya CBC terms (Term 1, Term 2, Term 3) with approximate
-	//     ministry-of-education date boundaries. SyncCurrentTerm sets the
-	//     appropriate term as is_current based on today's date.
-	if err := s.yearCreator.SetupInitialYear(ctx, tenantID, schoolID, userID, nil); err != nil {
-		return "", "", "", fmt.Errorf("%w: setup initial academic year: %v", ErrInternal, err)
-	}
-
-	// 13. Persist session mapping in Redis: opaque key → Stytch session token (requirement 4)
+	// 12. Persist session mapping in Redis: opaque key → Stytch session token (requirement 4)
 	if err := s.rdb.Set(ctx, s.sessionKey(sessionToken), result.StytchSessionToken, sessionTTL).Err(); err != nil {
 		return "", "", "", fmt.Errorf("%w: cache session: %v", ErrInternal, err)
 	}

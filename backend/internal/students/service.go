@@ -18,11 +18,6 @@ func NewService(repo StudentRepository) *Service {
 	return &Service{repo: repo}
 }
 
-// GetRepo returns the repository for advanced operations (import pre-checks).
-func (s *Service) GetRepo() ImportRepository {
-	return s.importRepo
-}
-
 // SetImportRepo sets the import repository (called during DI wiring).
 func (s *Service) SetImportRepo(repo ImportRepository) {
 	s.importRepo = repo
@@ -164,6 +159,19 @@ func (s *Service) Update(ctx context.Context, id, tenantID, schoolID string, pay
 	)
 
 	return nil
+}
+
+// ─── Import pre-checks ─────────────────────────────────────────────────────
+
+// ValidateTerm checks that the academic term exists, is not soft-deleted,
+// and belongs to the given school.
+func (s *Service) ValidateTerm(ctx context.Context, tenantID, schoolID, academicTermID string) (bool, error) {
+	return s.importRepo.ValidateAcademicTerm(ctx, tenantID, schoolID, academicTermID)
+}
+
+// GetAcademicYearIDForTerm returns the academic_year_id for a given term.
+func (s *Service) GetAcademicYearIDForTerm(ctx context.Context, tenantID, schoolID, academicTermID string) (string, error) {
+	return s.importRepo.GetAcademicYearIDForTerm(ctx, tenantID, schoolID, academicTermID)
 }
 
 // ─── Enrollments ──────────────────────────────────────────────────────────

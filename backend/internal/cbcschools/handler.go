@@ -128,16 +128,9 @@ func (h *Handler) Update(c *fiber.Ctx) error {
 		})
 	}
 
-	// Verify the school belongs to this tenant
-	school, err := h.svc.Repo.GetByID(c.Context(), schoolID)
-	if err != nil {
+	// Verify the school exists and belongs to this tenant
+	if _, err := h.svc.GetSchool(c.Context(), schoolID, tenantID); err != nil {
 		return middleware.HTTPError(c, err)
-	}
-	if school.TenantID != tenantID {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"code":    "forbidden",
-			"message": "school does not belong to this tenant",
-		})
 	}
 
 	fields := SchoolUpdateFields{
@@ -219,16 +212,9 @@ func (h *Handler) Delete(c *fiber.Ctx) error {
 		})
 	}
 
-	// Verify the school belongs to this tenant
-	school, err := h.svc.Repo.GetByID(c.Context(), schoolID)
-	if err != nil {
+	// Verify the school exists and belongs to this tenant
+	if _, err := h.svc.GetSchool(c.Context(), schoolID, tenantID); err != nil {
 		return middleware.HTTPError(c, err)
-	}
-	if school.TenantID != tenantID {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"code":    "forbidden",
-			"message": "school does not belong to this tenant",
-		})
 	}
 
 	if err := h.svc.DeleteSchool(c.Context(), schoolID); err != nil {

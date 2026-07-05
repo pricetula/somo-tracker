@@ -8,7 +8,7 @@ import (
 
 // Service contains business logic for the cbcschools domain.
 type Service struct {
-	Repo       Repository
+	repo       Repository
 	seeder     CurriculumSeeder
 	yearSeeder AcademicYearSeeder
 	enroller   UserSchoolEnroller
@@ -41,7 +41,7 @@ func WithAcademicYearSeeder(seeder AcademicYearSeeder) ServiceOption {
 
 // NewService creates a new Service with optional configuration.
 func NewService(repo Repository, opts ...ServiceOption) *Service {
-	svc := &Service{Repo: repo}
+	svc := &Service{repo: repo}
 	for _, opt := range opts {
 		opt(svc)
 	}
@@ -60,7 +60,7 @@ func (s *Service) CreateSchool(ctx context.Context, tenantID string, name string
 		return "", fmt.Errorf("cbcschools.Service.CreateSchool: role is required: %w", ErrInvalidInput)
 	}
 
-	schoolID, err := s.Repo.Create(ctx, tenantID, name)
+	schoolID, err := s.repo.Create(ctx, tenantID, name)
 	if err != nil {
 		return "", fmt.Errorf("cbcschools.Service.CreateSchool: %w", err)
 	}
@@ -120,7 +120,7 @@ func (s *Service) ListSchoolsByTenantID(ctx context.Context, tenantID, userID st
 	if tenantID == "" {
 		return nil, fmt.Errorf("cbcschools.Service.ListSchoolsByTenantID: %w", ErrInvalidInput)
 	}
-	return s.Repo.ListByTenantID(ctx, tenantID, userID)
+	return s.repo.ListByTenantID(ctx, tenantID, userID)
 }
 
 // SetActiveSchool switches the user's active school to the given school.
@@ -132,7 +132,7 @@ func (s *Service) SetActiveSchool(ctx context.Context, userID, tenantID, schoolI
 	}
 
 	// Verify the school exists and belongs to the tenant
-	school, err := s.Repo.GetByID(ctx, schoolID)
+	school, err := s.repo.GetByID(ctx, schoolID)
 	if err != nil {
 		return fmt.Errorf("cbcschools.Service.SetActiveSchool: %w", err)
 	}
@@ -174,7 +174,7 @@ func (s *Service) UpdateSchool(ctx context.Context, school SchoolUpdateFields) e
 		school.SchoolType == nil && school.IsActive == nil {
 		return fmt.Errorf("cbcschools.Service.UpdateSchool: %w", ErrInvalidInput)
 	}
-	return s.Repo.Update(ctx, school)
+	return s.repo.Update(ctx, school)
 }
 
 // DeleteSchool removes a school by ID.
@@ -182,5 +182,22 @@ func (s *Service) DeleteSchool(ctx context.Context, id string) error {
 	if id == "" {
 		return fmt.Errorf("cbcschools.Service.DeleteSchool: %w", ErrInvalidInput)
 	}
-	return s.Repo.Delete(ctx, id)
+	return s.repo.Delete(ctx, id)
+}
+
+// GetSchool retrieves a school by ID and verifies it belongs to the tenant.
+// Returns ErrNotFound if the school doesn't exist, ErrForbidden if it belongs
+// to a different tenant.
+func (s *Service) GetSchool(ctx context.Context, id, tenantID string) (*School, error) {
+	if id == "" || tenantID == "" {
+		return nil, fmt.Errorf("cbcschools.Service.GetSchool: %w", ErrInvalidInput)
+	}
+	school, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("cbcschools.Service.GetSchool: %w", err)
+	}
+	if school.TenantID != tenantID {
+		return nil, fmt.Errorf("cbcschools.Service.GetSchool: %w", ErrForbidden)
+	}
+	return school, nil
 }

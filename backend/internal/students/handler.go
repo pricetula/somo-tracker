@@ -113,11 +113,7 @@ func (h *Handler) BulkImport(c *fiber.Ctx) error {
 	}
 
 	// Validate that the academic term exists and belongs to this school
-	repo := h.svc.GetRepo()
-	if repo == nil {
-		return writeError(c, fiber.StatusInternalServerError, "internal_error", "repository not available", nil)
-	}
-	termValid, err := repo.ValidateAcademicTerm(c.Context(), tenantID, schoolID, body.AcademicTermID)
+	termValid, err := h.svc.ValidateTerm(c.Context(), tenantID, schoolID, body.AcademicTermID)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
@@ -128,7 +124,7 @@ func (h *Handler) BulkImport(c *fiber.Ctx) error {
 	}
 
 	// Need the academic year ID — look it up from the term
-	academicYearID, err := repo.GetAcademicYearIDForTerm(c.Context(), tenantID, schoolID, body.AcademicTermID)
+	academicYearID, err := h.svc.GetAcademicYearIDForTerm(c.Context(), tenantID, schoolID, body.AcademicTermID)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}

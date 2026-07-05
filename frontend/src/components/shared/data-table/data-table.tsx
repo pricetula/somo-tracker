@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { useDebouncedValue } from "./use-debounced-value";
 import type { DataTableColumn, ListApiFn, NormalizedListResult } from "./types";
 import { useInfiniteListQuery } from "./use-infinite-list-query";
+import { Input } from "@/components/ui/input";
 
 export interface DataTableProps<TItem, TParams extends object, TResult> {
     /** Base query key, e.g. ["classes"]. */
@@ -108,12 +109,12 @@ export function DataTable<TItem, TParams extends object, TResult>({
         <div className={className}>
             {onSearch && (
                 <div className="mb-3">
-                    <input
+                    <Input
                         type="text"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         placeholder={searchPlaceholder}
-                        className="w-full max-w-sm rounded-md border px-3 py-2 text-sm outline-none"
+                        className="max-w-40"
                     />
                 </div>
             )}

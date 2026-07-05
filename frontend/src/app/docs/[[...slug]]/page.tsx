@@ -25,7 +25,7 @@ export default async function DocPage({ params }: Props) {
         return (
             <div>
                 <h1 className="mb-2 text-3xl font-bold tracking-tight">Documentation</h1>
-                <p className="text-muted-foreground mb-8 text-base leading-relaxed">
+                <p className="text-muted-foreground mb-8 leading-relaxed">
                     Browse the Somotracker documentation to learn about features, setup, and
                     configuration.
                 </p>
@@ -81,9 +81,7 @@ export default async function DocPage({ params }: Props) {
 
             {/* Description */}
             {metadata.description && (
-                <p className="text-muted-foreground mb-8 text-base leading-relaxed">
-                    {metadata.description}
-                </p>
+                <p className="text-muted-foreground mb-8 leading-relaxed">{metadata.description}</p>
             )}
 
             {/* MDX Content rendered as Markdown */}

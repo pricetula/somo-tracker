@@ -22,7 +22,7 @@ export default function UnauthorizedPage() {
 
                 <div className="space-y-2">
                     <h1 className="text-3xl font-bold tracking-tight">Access Denied</h1>
-                    <p className="text-muted-foreground text-base leading-relaxed">
+                    <p className="text-muted-foreground leading-relaxed">
                         You don&apos;t have permission to access this page. If you believe this is a
                         mistake, please contact your school administrator.
                     </p>

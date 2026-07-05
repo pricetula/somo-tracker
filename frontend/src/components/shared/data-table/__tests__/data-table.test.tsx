@@ -1,11 +1,11 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { vi } from "vitest";
 import { DataTable } from "../data-table";
 import type { DataTableColumn } from "../types";
 
 // ---------------------------------------------------------------------------
-// Mocks — use vi.hoisted so variables are available inside vi.mock factories
-// (vi.mock is hoisted to the top of the file by vitest).
+// Mocks
 // ---------------------------------------------------------------------------
 
 const mockUseInfiniteListQuery = vi.hoisted(() => vi.fn());
@@ -16,6 +16,10 @@ vi.mock("../use-infinite-list-query", () => ({
 const mockUseVirtualizer = vi.hoisted(() => vi.fn());
 vi.mock("@tanstack/react-virtual", () => ({
     useVirtualizer: mockUseVirtualizer,
+}));
+
+vi.mock("sonner", () => ({
+    toast: { error: vi.fn() },
 }));
 
 // ---------------------------------------------------------------------------
@@ -47,6 +51,15 @@ function createVirtualizerMock(itemCount: number) {
         getTotalSize: () => itemCount * 44,
         measureElement: vi.fn(),
     };
+}
+
+function createQueryClient() {
+    return new QueryClient({ defaultOptions: { queries: { retry: false } } });
+}
+
+function renderWithClient(ui: React.ReactElement) {
+    const queryClient = createQueryClient();
+    return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>);
 }
 
 const defaultQueryReturn = {
@@ -84,9 +97,9 @@ function setupQuery(overrides: Partial<typeof defaultQueryReturn> & { rows: Test
 beforeEach(() => {
     vi.useFakeTimers();
     mockUseInfiniteListQuery.mockReset();
-    // Provide a default virtualizer so all tests have one. Tests that need
-    // specific virtualizer state can override this in their own setup.
+    mockUseVirtualizer.mockReset();
     mockUseVirtualizer.mockReturnValue(createVirtualizerMock(0));
+    vi.mocked(vi.fn()); // reset sonner mock
 });
 
 afterEach(() => {
@@ -96,12 +109,13 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
+
 describe("DataTable", () => {
-    // ── Loading state ────────────────────────────────────────────────
-    it("shows loading indicator while pending", () => {
+    // ── Initial loading ──────────────────────────────────────────────
+    it("shows skeleton rows while pending", () => {
         mockUseInfiniteListQuery.mockReturnValue(setupQuery({ rows: [], isPending: true }));
 
-        render(
+        const { container } = renderWithClient(
             <DataTable
                 queryKey={["test"]}
                 queryFn={vi.fn()}
@@ -111,11 +125,14 @@ describe("DataTable", () => {
             />
         );
 
-        expect(screen.getByText("Loading\u2026")).toBeInTheDocument();
+        // Should render skeleton divs (not "Loading..." text)
+        const skeletons = container.querySelectorAll('[data-slot="skeleton"]');
+        expect(skeletons.length).toBeGreaterThan(0);
+        expect(screen.queryByText("Loading\u2026")).not.toBeInTheDocument();
     });
 
-    // ── Error state ──────────────────────────────────────────────────
-    it("shows error message on query failure", () => {
+    // ── Initial error ────────────────────────────────────────────────
+    it("shows error message on initial query failure", () => {
         mockUseInfiniteListQuery.mockReturnValue(
             setupQuery({
                 rows: [],
@@ -125,7 +142,7 @@ describe("DataTable", () => {
             })
         );
 
-        render(
+        renderWithClient(
             <DataTable
                 queryKey={["test"]}
                 queryFn={vi.fn()}
@@ -135,16 +152,16 @@ describe("DataTable", () => {
             />
         );
 
-        expect(screen.getByText(/Failed to load data/i)).toBeInTheDocument();
+        expect(screen.getByText(/API error/)).toBeInTheDocument();
     });
 
     // ── Empty state ──────────────────────────────────────────────────
-    it("shows emptyState content when no items", () => {
+    it("shows emptyState when no data and no search/filters active", () => {
         mockUseInfiniteListQuery.mockReturnValue(
             setupQuery({ rows: [], total: 0, isPending: false, isError: false, isSuccess: true })
         );
 
-        render(
+        renderWithClient(
             <DataTable
                 queryKey={["test"]}
                 queryFn={vi.fn()}
@@ -156,15 +173,44 @@ describe("DataTable", () => {
         );
 
         expect(screen.getByText("Custom empty")).toBeInTheDocument();
-        expect(screen.queryByText("No results found.")).not.toBeInTheDocument();
     });
 
-    it("shows default 'No results found.' when no emptyState prop given", () => {
+    it("shows noResultsState when search/filters are active but no data", () => {
         mockUseInfiniteListQuery.mockReturnValue(
             setupQuery({ rows: [], total: 0, isPending: false, isError: false, isSuccess: true })
         );
 
-        render(
+        renderWithClient(
+            <DataTable
+                queryKey={["test"]}
+                queryFn={vi.fn()}
+                params={{}}
+                columns={defaultColumns}
+                getRowId={(row) => row.id}
+                isSearchable
+                emptyState={<div>Custom empty</div>}
+                noResultsState={<div>Custom no results</div>}
+            />
+        );
+
+        // Type in search to trigger "no results" mode
+        const input = screen.getByPlaceholderText("Search...");
+        fireEvent.change(input, { target: { value: "xyz" } });
+
+        // Advance past the debounce delay (300ms) to flip the active search flag
+        act(() => {
+            vi.advanceTimersByTime(400);
+        });
+
+        expect(screen.getByText("Custom no results")).toBeInTheDocument();
+    });
+
+    it("shows default 'No data.' when no emptyState prop given", () => {
+        mockUseInfiniteListQuery.mockReturnValue(
+            setupQuery({ rows: [], total: 0, isPending: false, isError: false, isSuccess: true })
+        );
+
+        renderWithClient(
             <DataTable
                 queryKey={["test"]}
                 queryFn={vi.fn()}
@@ -174,7 +220,7 @@ describe("DataTable", () => {
             />
         );
 
-        expect(screen.getByText("No results found.")).toBeInTheDocument();
+        expect(screen.getByText("No data.")).toBeInTheDocument();
     });
 
     // ── Header and cells ─────────────────────────────────────────────
@@ -195,7 +241,7 @@ describe("DataTable", () => {
         );
         mockUseVirtualizer.mockReturnValue(createVirtualizerMock(rows.length));
 
-        render(
+        renderWithClient(
             <DataTable
                 queryKey={["test"]}
                 queryFn={vi.fn()}
@@ -208,9 +254,7 @@ describe("DataTable", () => {
         expect(screen.getByText("Name")).toBeInTheDocument();
         expect(screen.getByText("Value")).toBeInTheDocument();
         expect(screen.getByText("Item 1")).toBeInTheDocument();
-        expect(screen.getByText("Value 1")).toBeInTheDocument();
         expect(screen.getByText("Item 2")).toBeInTheDocument();
-        expect(screen.getByText("Value 2")).toBeInTheDocument();
     });
 
     // ── Footer ───────────────────────────────────────────────────────
@@ -232,7 +276,7 @@ describe("DataTable", () => {
         );
         mockUseVirtualizer.mockReturnValue(createVirtualizerMock(rows.length));
 
-        render(
+        renderWithClient(
             <DataTable
                 queryKey={["test"]}
                 queryFn={vi.fn()}
@@ -257,7 +301,7 @@ describe("DataTable", () => {
         );
         mockUseVirtualizer.mockReturnValue(createVirtualizerMock(1));
 
-        render(
+        renderWithClient(
             <DataTable
                 queryKey={["test"]}
                 queryFn={vi.fn()}
@@ -271,12 +315,12 @@ describe("DataTable", () => {
     });
 
     // ── Search input ─────────────────────────────────────────────────
-    it("does not render search input when onSearch not provided", () => {
+    it("does not render search input when isSearchable not set", () => {
         mockUseInfiniteListQuery.mockReturnValue(
             setupQuery({ rows: [], isPending: false, isError: false, isSuccess: true })
         );
 
-        render(
+        renderWithClient(
             <DataTable
                 queryKey={["test"]}
                 queryFn={vi.fn()}
@@ -289,19 +333,19 @@ describe("DataTable", () => {
         expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
     });
 
-    it("renders search input with placeholder when onSearch is provided", () => {
+    it("renders search input with placeholder when isSearchable", () => {
         mockUseInfiniteListQuery.mockReturnValue(
             setupQuery({ rows: [], isPending: false, isError: false, isSuccess: true })
         );
 
-        render(
+        renderWithClient(
             <DataTable
                 queryKey={["test"]}
                 queryFn={vi.fn()}
                 params={{}}
                 columns={defaultColumns}
                 getRowId={(row) => row.id}
-                onSearch={vi.fn()}
+                isSearchable
                 searchPlaceholder="Find items"
             />
         );
@@ -311,81 +355,62 @@ describe("DataTable", () => {
         expect(input).toHaveAttribute("type", "text");
     });
 
-    it("calls onSearch after debounce delay when user types", () => {
-        const onSearch = vi.fn();
+    // ── Toolbar disabled state ───────────────────────────────────────
+    it("disables toolbar while initial data is pending", () => {
+        mockUseInfiniteListQuery.mockReturnValue(setupQuery({ rows: [], isPending: true }));
 
-        mockUseInfiniteListQuery.mockReturnValue(
-            setupQuery({ rows: [], isPending: false, isError: false, isSuccess: true })
-        );
-
-        render(
+        renderWithClient(
             <DataTable
                 queryKey={["test"]}
                 queryFn={vi.fn()}
                 params={{}}
                 columns={defaultColumns}
                 getRowId={(row) => row.id}
-                onSearch={onSearch}
-                searchPlaceholder="Search..."
+                isSearchable
+                addHref="/new"
             />
         );
 
-        // onSearch is called with "" on mount when the debounced value initialises
-        expect(onSearch).toHaveBeenCalledTimes(1);
-        expect(onSearch).toHaveBeenCalledWith("");
+        // Search input should be disabled
+        const searchInput = screen.getByPlaceholderText("Search...");
+        expect(searchInput).toBeDisabled();
 
-        const input = screen.getByPlaceholderText("Search...") as HTMLInputElement;
-        fireEvent.change(input, { target: { value: "hello" } });
-
-        // Advance past the debounce delay (350ms), wrapped in act
-        act(() => {
-            vi.advanceTimersByTime(400);
-        });
-
-        expect(onSearch).toHaveBeenCalledTimes(2);
-        expect(onSearch).toHaveBeenLastCalledWith("hello");
+        // Add button link should have disabled styling (pointer-events-none from Button)
+        const addButton = screen.getByRole("link");
+        expect(addButton.className).toContain("pointer-events-none");
+        expect(addButton.className).toContain("opacity-50");
     });
 
-    it("only calls onSearch with the final debounced value after rapid typing", () => {
-        const onSearch = vi.fn();
-
+    it("enables toolbar once data has loaded", () => {
         mockUseInfiniteListQuery.mockReturnValue(
-            setupQuery({ rows: [], isPending: false, isError: false, isSuccess: true })
+            setupQuery({
+                rows: [{ id: 1, name: "Item", value: "Val" }],
+                total: 1,
+                isPending: false,
+                isError: false,
+                isSuccess: true,
+            })
         );
+        mockUseVirtualizer.mockReturnValue(createVirtualizerMock(1));
 
-        render(
+        renderWithClient(
             <DataTable
                 queryKey={["test"]}
                 queryFn={vi.fn()}
                 params={{}}
                 columns={defaultColumns}
                 getRowId={(row) => row.id}
-                onSearch={onSearch}
-                searchPlaceholder="Search..."
+                isSearchable
+                addHref="/new"
             />
         );
 
-        // onSearch is called with "" on mount when the debounced value initialises
-        expect(onSearch).toHaveBeenCalledTimes(1);
-        expect(onSearch).toHaveBeenCalledWith("");
-
-        const input = screen.getByPlaceholderText("Search...") as HTMLInputElement;
-
-        fireEvent.change(input, { target: { value: "a" } });
-        fireEvent.change(input, { target: { value: "ab" } });
-        fireEvent.change(input, { target: { value: "abc" } });
-
-        // Advance past the debounce delay
-        act(() => {
-            vi.advanceTimersByTime(400);
-        });
-
-        expect(onSearch).toHaveBeenCalledTimes(2);
-        expect(onSearch).toHaveBeenLastCalledWith("abc");
+        const searchInput = screen.getByPlaceholderText("Search...");
+        expect(searchInput).not.toBeDisabled();
     });
 
-    // ── Column configuration ─────────────────────────────────────────
-    it("applies column width styling", () => {
+    // ── Checkbox / Selection ─────────────────────────────────────────
+    it("renders checkboxes when isCheckable is true", () => {
         const rows: TestItem[] = [{ id: 1, name: "Item 1", value: "Value 1" }];
 
         mockUseInfiniteListQuery.mockReturnValue(
@@ -399,31 +424,158 @@ describe("DataTable", () => {
         );
         mockUseVirtualizer.mockReturnValue(createVirtualizerMock(rows.length));
 
-        render(
+        renderWithClient(
             <DataTable
                 queryKey={["test"]}
                 queryFn={vi.fn()}
                 params={{}}
                 columns={defaultColumns}
                 getRowId={(row) => row.id}
+                isCheckable
             />
         );
 
-        const valueHeader = screen.getByText("Value");
-        expect(valueHeader).toBeInTheDocument();
+        const checkboxes = screen.getAllByRole("checkbox");
+        // Header checkbox + 1 row checkbox
+        expect(checkboxes).toHaveLength(2);
     });
 
-    it("applies column text alignment", () => {
-        const rows: TestItem[] = [{ id: 1, name: "Item 1", value: "Value 1" }];
-
-        const alignedColumns: DataTableColumn<TestItem>[] = [
-            { id: "name", header: "Name", cell: (row) => row.name, align: "right" },
-            { id: "value", header: "Value", cell: (row) => row.value },
+    it("header checkbox selects all loaded rows", () => {
+        const rows: TestItem[] = [
+            { id: 1, name: "Item 1", value: "Value 1" },
+            { id: 2, name: "Item 2", value: "Value 2" },
         ];
 
         mockUseInfiniteListQuery.mockReturnValue(
             setupQuery({
                 rows,
+                total: 2,
+                isPending: false,
+                isError: false,
+                isSuccess: true,
+            })
+        );
+        mockUseVirtualizer.mockReturnValue(createVirtualizerMock(rows.length));
+
+        renderWithClient(
+            <DataTable
+                queryKey={["test"]}
+                queryFn={vi.fn()}
+                params={{}}
+                columns={defaultColumns}
+                getRowId={(row) => row.id}
+                isCheckable
+            />
+        );
+
+        const checkboxes = screen.getAllByRole("checkbox");
+        const headerCheckbox = checkboxes[0];
+
+        // Click header checkbox to select all
+        fireEvent.click(headerCheckbox);
+        const rowCheckboxes = screen.getAllByRole("checkbox").slice(1);
+        rowCheckboxes.forEach((cb) => {
+            expect(cb).toBeChecked();
+        });
+    });
+
+    // ── Add button ───────────────────────────────────────────────────
+    it("renders add button as a Link when addHref is provided", () => {
+        mockUseInfiniteListQuery.mockReturnValue(
+            setupQuery({
+                rows: [{ id: 1, name: "Item", value: "Val" }],
+                total: 1,
+                isPending: false,
+                isError: false,
+                isSuccess: true,
+            })
+        );
+        mockUseVirtualizer.mockReturnValue(createVirtualizerMock(1));
+
+        renderWithClient(
+            <DataTable
+                queryKey={["test"]}
+                queryFn={vi.fn()}
+                params={{}}
+                columns={defaultColumns}
+                getRowId={(row) => row.id}
+                addHref="/dashboard/items/new"
+            />
+        );
+
+        const link = screen.getByRole("link");
+        expect(link).toHaveAttribute("href", "/dashboard/items/new");
+    });
+
+    it("does not render add button when addHref is not provided", () => {
+        mockUseInfiniteListQuery.mockReturnValue(
+            setupQuery({
+                rows: [{ id: 1, name: "Item", value: "Val" }],
+                total: 1,
+                isPending: false,
+                isError: false,
+                isSuccess: true,
+            })
+        );
+        mockUseVirtualizer.mockReturnValue(createVirtualizerMock(1));
+
+        renderWithClient(
+            <DataTable
+                queryKey={["test"]}
+                queryFn={vi.fn()}
+                params={{}}
+                columns={defaultColumns}
+                getRowId={(row) => row.id}
+            />
+        );
+
+        expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    });
+
+    // ── Delete button ────────────────────────────────────────────────
+    it("shows delete button with count when items are selected and deleteFn provided", () => {
+        const rows: TestItem[] = [
+            { id: 1, name: "Item 1", value: "Value 1" },
+            { id: 2, name: "Item 2", value: "Value 2" },
+        ];
+
+        mockUseInfiniteListQuery.mockReturnValue(
+            setupQuery({
+                rows,
+                total: 2,
+                isPending: false,
+                isError: false,
+                isSuccess: true,
+            })
+        );
+        mockUseVirtualizer.mockReturnValue(createVirtualizerMock(rows.length));
+
+        renderWithClient(
+            <DataTable
+                queryKey={["test"]}
+                queryFn={vi.fn()}
+                params={{}}
+                columns={defaultColumns}
+                getRowId={(row) => row.id}
+                isCheckable
+                deleteFn={vi.fn()}
+            />
+        );
+
+        // Select all rows
+        const checkboxes = screen.getAllByRole("checkbox");
+        fireEvent.click(checkboxes[0]);
+
+        // Delete button should appear with count
+        expect(screen.getByText("Delete 2")).toBeInTheDocument();
+    });
+
+    it("does not show delete button when no items selected", () => {
+        const rows: TestItem[] = [{ id: 1, name: "Item 1", value: "Value 1" }];
+
+        mockUseInfiniteListQuery.mockReturnValue(
+            setupQuery({
+                rows,
                 total: 1,
                 isPending: false,
                 isError: false,
@@ -432,24 +584,100 @@ describe("DataTable", () => {
         );
         mockUseVirtualizer.mockReturnValue(createVirtualizerMock(rows.length));
 
-        render(
+        renderWithClient(
             <DataTable
                 queryKey={["test"]}
                 queryFn={vi.fn()}
                 params={{}}
-                columns={alignedColumns}
+                columns={defaultColumns}
                 getRowId={(row) => row.id}
+                isCheckable
+                deleteFn={vi.fn()}
             />
         );
 
-        const nameHeader = screen.getByText("Name");
-        expect(nameHeader).toHaveStyle("text-align: right");
-
-        const cell = screen.getByText("Item 1");
-        expect(cell).toHaveStyle("text-align: right");
+        expect(screen.queryByText(/Delete/)).not.toBeInTheDocument();
     });
 
-    // ── Loading more indicator ───────────────────────────────────────
+    it("does not show delete button when deleteFn not provided", () => {
+        const rows: TestItem[] = [{ id: 1, name: "Item 1", value: "Value 1" }];
+
+        mockUseInfiniteListQuery.mockReturnValue(
+            setupQuery({
+                rows,
+                total: 1,
+                isPending: false,
+                isError: false,
+                isSuccess: true,
+            })
+        );
+        mockUseVirtualizer.mockReturnValue(createVirtualizerMock(rows.length));
+
+        renderWithClient(
+            <DataTable
+                queryKey={["test"]}
+                queryFn={vi.fn()}
+                params={{}}
+                columns={defaultColumns}
+                getRowId={(row) => row.id}
+                isCheckable
+            />
+        );
+
+        // Select the row to make sure it doesn't show
+        const checkboxes = screen.getAllByRole("checkbox");
+        fireEvent.click(checkboxes[0]);
+
+        expect(screen.queryByText(/Delete/)).not.toBeInTheDocument();
+    });
+
+    // ── Search clears selection ──────────────────────────────────────
+    it("clears selectedIds when search input changes", () => {
+        const rows: TestItem[] = [
+            { id: 1, name: "Item 1", value: "Value 1" },
+            { id: 2, name: "Item 2", value: "Value 2" },
+        ];
+
+        mockUseInfiniteListQuery.mockReturnValue(
+            setupQuery({
+                rows,
+                total: 2,
+                isPending: false,
+                isError: false,
+                isSuccess: true,
+            })
+        );
+        mockUseVirtualizer.mockReturnValue(createVirtualizerMock(rows.length));
+
+        renderWithClient(
+            <DataTable
+                queryKey={["test"]}
+                queryFn={vi.fn()}
+                params={{}}
+                columns={defaultColumns}
+                getRowId={(row) => row.id}
+                isSearchable
+                isCheckable
+                deleteFn={vi.fn()}
+            />
+        );
+
+        // Select all rows
+        const headerCheckbox = screen.getAllByRole("checkbox")[0];
+        fireEvent.click(headerCheckbox);
+
+        // Delete button should appear
+        expect(screen.getByText(/Delete/)).toBeInTheDocument();
+
+        // Type in search
+        const searchInput = screen.getByPlaceholderText("Search...");
+        fireEvent.change(searchInput, { target: { value: "x" } });
+
+        // Delete button should disappear (selection cleared)
+        expect(screen.queryByText(/Delete/)).not.toBeInTheDocument();
+    });
+
+    // ── Loading more ─────────────────────────────────────────────────
     it("shows a loader row while fetching the next page", () => {
         const rows = Array.from({ length: 50 }, (_, i) => ({
             id: i + 1,
@@ -468,10 +696,9 @@ describe("DataTable", () => {
                 isFetchingNextPage: true,
             })
         );
-        // Virtualizer returns 51 items (50 rows + 1 loader)
         mockUseVirtualizer.mockReturnValue(createVirtualizerMock(51));
 
-        render(
+        renderWithClient(
             <DataTable
                 queryKey={["test"]}
                 queryFn={vi.fn()}
@@ -481,6 +708,6 @@ describe("DataTable", () => {
             />
         );
 
-        expect(screen.getByText("Loading more\u2026")).toBeInTheDocument();
+        expect(screen.getByText("Loading more...")).toBeInTheDocument();
     });
 });

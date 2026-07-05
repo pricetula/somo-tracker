@@ -239,7 +239,7 @@ describe("useInfiniteListQuery", () => {
     });
 
     // ── query key includes params and limit ──────────────────────────
-    it("includes params and limit in the query key", () => {
+    it("includes params, search, filters, and limit in the query key", () => {
         mockUseInfiniteQuery.mockReturnValue(buildQueryReturn());
 
         renderHook(() =>
@@ -253,7 +253,7 @@ describe("useInfiniteListQuery", () => {
 
         expect(mockUseInfiniteQuery).toHaveBeenCalledWith(
             expect.objectContaining({
-                queryKey: ["test", { search: "a" }, 50],
+                queryKey: ["test", { search: "a" }, "", {}, 50],
             })
         );
     });
@@ -331,8 +331,6 @@ describe("useInfiniteListQuery", () => {
 
     // ── getNextPageParam logic via the mock queryFn ──────────────────
     it("passes pageParam and params to queryFn", () => {
-        // We need to test that the hook correctly builds the queryFn.
-        // Since useInfiniteQuery is mocked, we can verify the options passed to it.
         const queryFn = vi.fn();
 
         mockUseInfiniteQuery.mockReturnValue(buildQueryReturn());
@@ -341,17 +339,42 @@ describe("useInfiniteListQuery", () => {
             useInfiniteListQuery({
                 queryKey: ["test"],
                 queryFn,
-                params: { search: "hello" },
+                params: { school_id: "1" },
                 limit: 25,
             })
         );
 
-        // The hook passes a wrapper queryFn that merges params with page/limit.
         const passedOptions = mockUseInfiniteQuery.mock.calls[0][0];
         expect(passedOptions.initialPageParam).toBe(1);
 
-        // Call the wrapper queryFn and verify it delegates correctly
         passedOptions.queryFn({ pageParam: 3, signal: undefined });
-        expect(queryFn).toHaveBeenCalledWith({ search: "hello", page: 3, limit: 25 });
+        expect(queryFn).toHaveBeenCalledWith({ school_id: "1", page: 3, limit: 25 });
+    });
+
+    it("passes search and filters to queryFn when provided", () => {
+        const queryFn = vi.fn();
+
+        mockUseInfiniteQuery.mockReturnValue(buildQueryReturn());
+
+        renderHook(() =>
+            useInfiniteListQuery({
+                queryKey: ["test"],
+                queryFn,
+                params: { school_id: "1" },
+                search: "john",
+                filters: { status: ["active"] },
+                limit: 25,
+            })
+        );
+
+        const passedOptions = mockUseInfiniteQuery.mock.calls[0][0];
+        passedOptions.queryFn({ pageParam: 1, signal: undefined });
+        expect(queryFn).toHaveBeenCalledWith({
+            school_id: "1",
+            search: "john",
+            filters: { status: ["active"] },
+            page: 1,
+            limit: 25,
+        });
     });
 });

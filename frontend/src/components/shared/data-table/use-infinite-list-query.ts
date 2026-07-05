@@ -4,12 +4,16 @@ import { type ListApiFn, type NormalizedListResult } from "./types";
 import { defaultNormalize } from "./utils";
 
 export interface UseInfiniteListQueryOptions<TItem, TParams extends object, TResult> {
-    /** Base query key, e.g. ["classes"]. `params` is appended automatically. */
+    /** Base query key, e.g. ["classes"]. `params`, `search`, and `filters` are appended automatically. */
     queryKey: readonly unknown[];
     /** Any generated `list*` function, e.g. `listClasses`. */
     queryFn: ListApiFn<TResult, TParams>;
-    /** Resource-specific filters (excluding page/limit). */
+    /** Resource-specific filters (excluding page/limit/search). */
     params: TParams;
+    /** Search term (debounced). When it changes, the query resets to page 1. */
+    search?: string;
+    /** Active filter values, keyed by filter group id. When it changes, the query resets to page 1. */
+    filters?: Record<string, string[]>;
     /** Rows fetched per page. Defaults to 50. */
     limit?: number;
     /** Only needed if the generated result's shape differs from NormalizedListResult. */
@@ -22,18 +26,30 @@ export interface UseInfiniteListQueryOptions<TItem, TParams extends object, TRes
  * useInfiniteQuery. Pairs with a row virtualizer: as the user scrolls near
  * the end of the rendered rows, the table calls fetchNextPage(), and the
  * new page's rows are appended to the flattened `rows` array below.
+ *
+ * The `search` and `filters` values are included in the query key so that
+ * changing either one causes a full refetch from page 1.
  */
 export function useInfiniteListQuery<TItem, TParams extends object, TResult>({
     queryKey,
     queryFn,
     params,
+    search,
+    filters,
     limit = 50,
     normalize = defaultNormalize<TItem, TResult>,
     enabled = true,
 }: UseInfiniteListQueryOptions<TItem, TParams, TResult>) {
     const query = useInfiniteQuery({
-        queryKey: [...queryKey, params, limit],
-        queryFn: ({ pageParam }) => queryFn({ ...params, page: pageParam, limit }),
+        queryKey: [...queryKey, params, search ?? "", filters ?? {}, limit],
+        queryFn: ({ pageParam }) =>
+            queryFn({
+                ...params,
+                ...(search ? { search } : {}),
+                ...(filters && Object.keys(filters).length > 0 ? { filters } : {}),
+                page: pageParam,
+                limit,
+            } as TParams & { page?: number; limit?: number }),
         initialPageParam: 1,
         getNextPageParam: (lastPage, allPages) => {
             const normalized = normalize(lastPage);
@@ -54,15 +70,6 @@ export function useInfiniteListQuery<TItem, TParams extends object, TResult>({
             return normalized.items.length === limit ? allPages.length + 1 : undefined;
         },
         placeholderData: keepPreviousData,
-        enabled,
-    });
-
-    // TEMP DEBUG — remove once the stuck-loading issue is found
-    console.log("[useInfiniteListQuery]", {
-        status: query.status,
-        fetchStatus: query.fetchStatus,
-        error: query.error,
-        pageCount: query.data?.pages.length,
         enabled,
     });
 

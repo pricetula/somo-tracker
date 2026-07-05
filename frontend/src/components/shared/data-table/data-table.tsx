@@ -1,41 +1,36 @@
 "use client";
 
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
+import { Search, Plus, Trash2 } from "lucide-react";
+
 import { useDebouncedValue } from "./use-debounced-value";
-import type { DataTableColumn, ListApiFn, NormalizedListResult } from "./types";
 import { useInfiniteListQuery } from "./use-infinite-list-query";
+import { FilterDropdown } from "./filter-dropdown";
+import { SkeletonRows } from "./skeleton-rows";
+import type { DataTableProps, NormalizedListResult } from "./types";
+
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { getErrorMessage } from "@/lib/errors";
+import { cn } from "@/lib/utils";
 
-export interface DataTableProps<TItem, TParams extends object, TResult> {
-    /** Base query key, e.g. ["classes"]. */
-    queryKey: readonly unknown[];
-    /** Any generated `list*` function, e.g. `listClasses`. */
-    queryFn: ListApiFn<TResult, TParams>;
-    /** Resource-specific filters (excluding page/limit/search). */
-    params: TParams;
-    columns: DataTableColumn<TItem>[];
-    getRowId: (row: TItem, index: number) => string | number;
-    /** Only needed if the generated result's shape isn't {items, total, page, limit}. */
-    normalize?: (result: TResult) => NormalizedListResult<TItem>;
-
-    /**
-     * If provided, a search input is shown above the table. The input's
-     * value is debounced (350ms) and passed to onSearch — typically you'd
-     * fold that back into `params` (e.g. a `search` field) in the parent.
-     */
-    onSearch?: (term: string) => void;
-    searchPlaceholder?: string;
-
-    /** Rows fetched per page. Defaults to 50. */
-    pageSize?: number;
-    /** Estimated row height in px, used by the virtualizer. Defaults to 44. */
-    rowHeight?: number;
-    /** Height of the scrollable viewport. Defaults to 600px. */
-    height?: number;
-    emptyState?: React.ReactNode;
-    className?: string;
-}
+// ─── Main DataTable ──────────────────────────────────────────────────────
 
 export function DataTable<TItem, TParams extends object, TResult>({
     queryKey,
@@ -44,14 +39,46 @@ export function DataTable<TItem, TParams extends object, TResult>({
     columns,
     getRowId,
     normalize,
-    onSearch,
+    isSearchable,
     searchPlaceholder = "Search...",
-    pageSize = 50,
+    filterGroups,
+    isCheckable,
+    deleteFn,
+    deleteParams,
+    addHref,
     rowHeight = 44,
     height = 600,
+    pageSize = 50,
     emptyState,
+    noResultsState,
     className,
 }: DataTableProps<TItem, TParams, TResult>) {
+    const queryClient = useQueryClient();
+
+    // ── Search state ─────────────────────────────────────────────────
+    const [searchTerm, setSearchTerm] = useState("");
+    const debouncedSearch = useDebouncedValue(searchTerm, 300);
+
+    // ── Filter state ─────────────────────────────────────────────────
+    const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>({});
+
+    // ── Selection state ──────────────────────────────────────────────
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+    // ── Delete confirm open ──────────────────────────────────────────
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+
+    // ── Infinite query ───────────────────────────────────────────────
+    const listQuery = useInfiniteListQuery({
+        queryKey,
+        queryFn,
+        params,
+        search: isSearchable ? debouncedSearch : undefined,
+        filters: filterGroups && Object.keys(activeFilters).length > 0 ? activeFilters : undefined,
+        limit: pageSize,
+        normalize,
+    });
+
     const {
         rows,
         total,
@@ -61,26 +88,162 @@ export function DataTable<TItem, TParams extends object, TResult>({
         isFetchingNextPage,
         hasNextPage,
         fetchNextPage,
-    } = useInfiniteListQuery({
-        queryKey,
-        queryFn,
-        params,
-        limit: pageSize,
-        normalize,
-    });
+    } = listQuery;
 
-    // --- search -------------------------------------------------------
-    const [searchTerm, setSearchTerm] = useState("");
-    const debouncedSearch = useDebouncedValue(searchTerm, 350);
-    const onSearchRef = useRef(onSearch);
-    useEffect(() => {
-        onSearchRef.current = onSearch;
-    });
-    useEffect(() => {
-        onSearchRef.current?.(debouncedSearch);
-    }, [debouncedSearch]);
+    // ── Track whether toolbar has ever been enabled ──────────────────
+    const hasLoadedOnceRef = useRef(false);
+    if (!isPending) {
+        hasLoadedOnceRef.current = true;
+    }
+    const isToolbarDisabled = !hasLoadedOnceRef.current && isPending;
 
-    // --- virtualization -------------------------------------------------
+    // ── Toast on pagination errors (page 2+) ─────────────────────────
+    const prevErrorRef = useRef<typeof error>(null);
+    if (isError && error && error !== prevErrorRef.current && !isPending) {
+        prevErrorRef.current = error;
+        // Defer toast to avoid setState-in-render issues
+        queueMicrotask(() => {
+            toast.error(getErrorMessage(error));
+        });
+    }
+    if (!isError) {
+        prevErrorRef.current = null;
+    }
+
+    // ── Event handlers ───────────────────────────────────────────────
+
+    const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        setSearchTerm(e.target.value);
+        setSelectedIds(new Set());
+    }, []);
+
+    const handleToggleFilterValue = useCallback((groupId: string, value: string) => {
+        setSelectedIds(new Set());
+        setActiveFilters((prev) => {
+            const current = prev[groupId] ?? [];
+            const next = current.includes(value)
+                ? current.filter((v) => v !== value)
+                : [...current, value];
+            return { ...prev, [groupId]: next.length > 0 ? next : [] };
+        });
+    }, []);
+
+    const handleSelectSingleFilter = useCallback((groupId: string, value: string) => {
+        setSelectedIds(new Set());
+        setActiveFilters((prev) => {
+            const current = prev[groupId] ?? [];
+            if (current.length === 1 && current[0] === value) {
+                // Deselect
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                const { [groupId]: _, ...rest } = prev;
+                return rest;
+            }
+            return { ...prev, [groupId]: [value] };
+        });
+    }, []);
+
+    const handleSelectAll = useCallback(
+        (checked: boolean) => {
+            if (checked) {
+                const ids = new Set(rows.map((row, i) => String(getRowId(row, i))));
+                setSelectedIds(ids);
+            } else {
+                setSelectedIds(new Set());
+            }
+        },
+        [rows, getRowId]
+    );
+
+    const handleSelectRow = useCallback((id: string) => {
+        setSelectedIds((prev) => {
+            const next = new Set(prev);
+            if (next.has(id)) {
+                next.delete(id);
+            } else {
+                next.add(id);
+            }
+            return next;
+        });
+    }, []);
+
+    // ── Delete mutation ──────────────────────────────────────────────
+    const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+
+    const handleDeleteConfirm = useCallback(async () => {
+        if (!deleteFn) return;
+
+        setDeleteConfirmOpen(false);
+        const idsToDelete = [...selectedIds];
+        const idSet = new Set(idsToDelete);
+
+        // Mark as deleting
+        setDeletingIds((prev) => {
+            const next = new Set(prev);
+            idsToDelete.forEach((id) => next.add(id));
+            return next;
+        });
+
+        // Optimistic removal from cache
+        await queryClient.cancelQueries({ queryKey });
+        const previousData = queryClient.getQueryData(queryKey);
+
+        queryClient.setQueryData(queryKey, (old: unknown) => {
+            if (!old) return old;
+            const data = old as {
+                pages: NormalizedListResult<TItem>[];
+                pageParams: unknown[];
+            };
+            return {
+                ...data,
+                pages: data.pages.map((page) => ({
+                    ...page,
+                    items: page.items.filter((row, i) => !idSet.has(String(getRowId(row, i)))),
+                })),
+            };
+        });
+
+        // Clear selection
+        setSelectedIds(new Set());
+
+        try {
+            // Delete sequentially
+            for (const id of idsToDelete) {
+                await deleteFn(id, deleteParams);
+            }
+            // Invalidate to get fresh data
+            queryClient.invalidateQueries({ queryKey });
+        } catch (err) {
+            // Rollback
+            if (previousData) {
+                queryClient.setQueryData(queryKey, previousData);
+            }
+            toast.error(getErrorMessage(err));
+        } finally {
+            setDeletingIds(new Set());
+        }
+    }, [deleteFn, deleteParams, queryClient, queryKey, selectedIds, getRowId]);
+
+    // ── Determine if "Check all" is checked / indeterminate ──────────
+    const selectableRows = useMemo(
+        () => rows.filter((row, i) => !deletingIds.has(String(getRowId(row, i)))),
+        [rows, deletingIds, getRowId]
+    );
+
+    const allSelected =
+        selectableRows.length > 0 &&
+        selectableRows.every((row, i) => selectedIds.has(String(getRowId(row, i))));
+    const someSelected =
+        selectableRows.some((row, i) => selectedIds.has(String(getRowId(row, i)))) && !allSelected;
+
+    // ── Grid template ────────────────────────────────────────────────
+    const gridTemplateColumns = useMemo(() => {
+        const cols: string[] = [];
+        if (isCheckable) cols.push("36px");
+        columns.forEach((col) => cols.push(col.width ?? "1fr"));
+        return cols.join(" ");
+    }, [isCheckable, columns]);
+
+    // ── Virtualizer ──────────────────────────────────────────────────
     const parentRef = useRef<HTMLDivElement>(null);
     const rowCount = hasNextPage ? rows.length + 1 : rows.length;
 
@@ -94,57 +257,158 @@ export function DataTable<TItem, TParams extends object, TResult>({
 
     const virtualItems = virtualizer.getVirtualItems();
 
-    // Fetch the next page once the user scrolls near the last loaded row.
-    useEffect(() => {
-        const lastItem = virtualItems[virtualItems.length - 1];
-        if (!lastItem) return;
-        if (lastItem.index >= rows.length - 1 && hasNextPage && !isFetchingNextPage) {
-            fetchNextPage();
-        }
-    }, [virtualItems, rows.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
+    // Fetch next page when scrolling near the last loaded row
+    const lastVirtualIndex =
+        virtualItems.length > 0 ? virtualItems[virtualItems.length - 1].index : -1;
 
-    const gridTemplateColumns = columns.map((col) => col.width ?? "1fr").join(" ");
+    if (lastVirtualIndex >= rows.length - 1 && hasNextPage && !isFetchingNextPage) {
+        fetchNextPage();
+    }
+
+    // ── State checks ─────────────────────────────────────────────────
+
+    const hasData = rows.length > 0;
+    const isInitialPending = isPending && !hasData;
+    const isInitialError = isError && !hasData;
+    const isSearchOrFilterActive =
+        (isSearchable && debouncedSearch.length > 0) ||
+        Object.values(activeFilters).some((v) => v.length > 0);
+
+    // ── Render ───────────────────────────────────────────────────────
 
     return (
-        <div className={className}>
-            {onSearch && (
-                <div className="mb-3">
-                    <Input
-                        type="text"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        placeholder={searchPlaceholder}
-                        className="max-w-40"
-                    />
-                </div>
-            )}
-            <div className="rounded-md border">
-                {/* header */}
-                <div
-                    className="bg-muted/50 grid border-b text-xs font-medium tracking-wide uppercase"
-                    style={{ gridTemplateColumns }}
-                >
-                    {columns.map((col) => (
-                        <div
-                            key={col.id}
-                            className="truncate px-3 py-2"
-                            style={{ textAlign: col.align ?? "left" }}
-                        >
-                            {col.header}
-                        </div>
-                    ))}
-                </div>
-
-                {/* body */}
-                {isError ? (
-                    <div className="p-6 text-center text-sm text-red-600">
-                        Failed to load data{error instanceof Error ? `: ${error.message}` : "."}
+        <div className={cn("flex flex-col gap-2", className)}>
+            {/* ── Toolbar ───────────────────────────────────────── */}
+            <div className="flex items-center gap-2">
+                {isSearchable && (
+                    <div className="relative max-w-60 flex-1">
+                        <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2" />
+                        <Input
+                            type="text"
+                            value={searchTerm}
+                            onChange={handleSearchChange}
+                            placeholder={searchPlaceholder}
+                            disabled={isToolbarDisabled}
+                            className="pl-7"
+                        />
                     </div>
-                ) : isPending ? (
-                    <div className="p-6 text-center text-sm">Loading…</div>
-                ) : rows.length === 0 ? (
-                    (emptyState ?? <div className="p-6 text-center text-sm">No results found.</div>)
-                ) : (
+                )}
+
+                {filterGroups && filterGroups.length > 0 && (
+                    <FilterDropdown
+                        groups={filterGroups}
+                        activeFilters={activeFilters}
+                        onToggleValue={handleToggleFilterValue}
+                        onSelectSingle={handleSelectSingleFilter}
+                        disabled={isToolbarDisabled}
+                    />
+                )}
+
+                <div className="ml-auto flex items-center gap-1.5">
+                    {selectedIds.size > 0 && deleteFn && (
+                        <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+                            <AlertDialogTrigger asChild>
+                                <Button
+                                    variant="destructive"
+                                    size="xs"
+                                    disabled={isToolbarDisabled}
+                                >
+                                    <Trash2 className="size-3" />
+                                    Delete {selectedIds.size}
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>
+                                        Delete {selectedIds.size} item
+                                        {selectedIds.size !== 1 ? "s" : ""}
+                                    </AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        This action cannot be undone. The selected items will be
+                                        permanently removed.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction
+                                        variant="destructive"
+                                        onClick={handleDeleteConfirm}
+                                    >
+                                        Delete
+                                    </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    )}
+
+                    {addHref && (
+                        <Button variant="outline" size="icon" disabled={isToolbarDisabled} asChild>
+                            <Link href={addHref}>
+                                <Plus className="size-3.5" />
+                            </Link>
+                        </Button>
+                    )}
+                </div>
+            </div>
+
+            {/* ── Body ──────────────────────────────────────────── */}
+            {isInitialError ? (
+                <div
+                    className="text-destructive flex items-center justify-center text-xs"
+                    style={{ height }}
+                >
+                    {error instanceof Error ? error.message : "Failed to load data."}
+                </div>
+            ) : isInitialPending ? (
+                <SkeletonRows
+                    rowHeight={rowHeight}
+                    height={height}
+                    columnCount={columns.length}
+                    isCheckable={!!isCheckable}
+                />
+            ) : !hasData ? (
+                <div
+                    className="text-muted-foreground flex items-center justify-center text-xs"
+                    style={{ height }}
+                >
+                    {isSearchOrFilterActive
+                        ? (noResultsState ?? "No results found.")
+                        : (emptyState ?? "No data.")}
+                </div>
+            ) : (
+                <>
+                    {/* ── Table header ──────────────────────────── */}
+                    <div
+                        className="text-muted-foreground grid items-center border-b text-[0.625rem] font-medium tracking-wide uppercase"
+                        style={{
+                            gridTemplateColumns,
+                            paddingRight: 8,
+                        }}
+                    >
+                        {isCheckable && (
+                            <div className="flex items-center justify-center py-1.5">
+                                <Checkbox
+                                    checked={
+                                        allSelected ? true : someSelected ? "indeterminate" : false
+                                    }
+                                    onCheckedChange={handleSelectAll}
+                                />
+                            </div>
+                        )}
+                        {columns.map((col) => (
+                            <div
+                                key={col.id}
+                                className="truncate px-3 py-1.5"
+                                style={{
+                                    textAlign: col.align ?? "left",
+                                }}
+                            >
+                                {col.header}
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* ── Virtualized rows ─────────────────────── */}
                     <div ref={parentRef} style={{ height, overflow: "auto" }}>
                         <div
                             style={{
@@ -155,46 +419,72 @@ export function DataTable<TItem, TParams extends object, TResult>({
                             {virtualItems.map((virtualRow) => {
                                 const isLoaderRow = virtualRow.index >= rows.length;
                                 const row = rows[virtualRow.index];
+                                const rowId = isLoaderRow
+                                    ? null
+                                    : String(getRowId(row, virtualRow.index));
+                                const isDeleting = !!rowId && deletingIds.has(rowId);
 
                                 return (
                                     <div
-                                        key={
-                                            isLoaderRow ? "loader" : getRowId(row, virtualRow.index)
-                                        }
+                                        key={isLoaderRow ? "loader" : rowId}
                                         data-index={virtualRow.index}
                                         ref={virtualizer.measureElement}
-                                        className="absolute top-0 left-0 w-full border-b"
-                                        style={{ transform: `translateY(${virtualRow.start}px)` }}
+                                        className={cn(
+                                            "hover:bg-muted/30 absolute top-0 left-0 grid w-full border-b text-xs/relaxed transition-colors",
+                                            isDeleting && "opacity-50"
+                                        )}
+                                        style={{
+                                            height: rowHeight,
+                                            transform: `translateY(${virtualRow.start}px)`,
+                                            gridTemplateColumns,
+                                        }}
                                     >
                                         {isLoaderRow ? (
-                                            <div className="px-3 py-2 text-center text-xs">
-                                                Loading more…
+                                            <div className="text-muted-foreground col-span-full flex items-center justify-center py-2 text-[0.625rem]">
+                                                Loading more...
                                             </div>
                                         ) : (
-                                            <div className="grid" style={{ gridTemplateColumns }}>
+                                            <>
+                                                {isCheckable && (
+                                                    <div className="flex items-center justify-center">
+                                                        <Checkbox
+                                                            checked={selectedIds.has(rowId!)}
+                                                            onCheckedChange={() =>
+                                                                handleSelectRow(rowId!)
+                                                            }
+                                                            disabled={isDeleting}
+                                                        />
+                                                    </div>
+                                                )}
                                                 {columns.map((col) => (
                                                     <div
                                                         key={col.id}
-                                                        className="truncate px-3 py-2 text-sm"
-                                                        style={{ textAlign: col.align ?? "left" }}
+                                                        className={cn(
+                                                            "truncate px-3 py-2",
+                                                            col.className
+                                                        )}
+                                                        style={{
+                                                            textAlign: col.align ?? "left",
+                                                        }}
                                                     >
                                                         {col.cell(row, virtualRow.index)}
                                                     </div>
                                                 ))}
-                                            </div>
+                                            </>
                                         )}
                                     </div>
                                 );
                             })}
                         </div>
                     </div>
-                )}
-            </div>
 
-            {typeof total === "number" && (
-                <div className="mt-2 text-xs">
-                    {rows.length} of {total} loaded
-                </div>
+                    {/* ── Footer ───────────────────────────────── */}
+                    {typeof total === "number" && (
+                        <div className="text-muted-foreground px-1 text-[0.625rem]">
+                            {rows.length} of {total} loaded
+                        </div>
+                    )}
+                </>
             )}
         </div>
     );

@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { submitStudentImport, getImportJob } from "@/lib/api/imports";
 import { getErrorMessage } from "@/lib/errors";
 import type { ImportJobStatus, ImportRow } from "@/lib/api/imports";
-import { StudentsTable } from "@/features/students/components/students-table";
+import { DataTable } from "@/components/shared/data-table";
+import { listStudents, type Student } from "@/lib/api/students";
 
 // ─── Status badge variant mapping ────────────────────────────────────────
 
@@ -227,16 +228,58 @@ export function SchoolAdminDashboardPage() {
                 </p>
             </div>
 
-            <StudentsTable
-                students={[]}
-                total={0}
-                isLoading={false}
-                search=""
-                onSearchChange={() => {}}
-                activeFilters={{}}
-                onToggleButton={() => {}}
-                onSelectSingle={() => {}}
-                onToggleMulti={() => {}}
+            <DataTable
+                queryKey={["students"]}
+                queryFn={listStudents}
+                columns={[
+                    {
+                        id: "full_name",
+                        header: "Name",
+                        cell: (row: Student) => (
+                            <span className="text-sm font-medium">{row.full_name}</span>
+                        ),
+                    },
+                    {
+                        id: "gender",
+                        header: "Gender",
+                        width: "80px",
+                        cell: (row: Student) => (
+                            <span className="text-muted-foreground text-xs">{row.gender}</span>
+                        ),
+                    },
+                    {
+                        id: "class_name",
+                        header: "Class",
+                        cell: (row: Student) => (
+                            <span className="text-muted-foreground text-xs">
+                                {row.class_name ?? "—"}
+                            </span>
+                        ),
+                    },
+                    {
+                        id: "is_active",
+                        header: "Status",
+                        width: "100px",
+                        cell: (row: Student) => (
+                            <span
+                                className={
+                                    row.is_active
+                                        ? "text-xs text-emerald-600"
+                                        : "text-muted-foreground text-xs"
+                                }
+                            >
+                                {row.is_active ? "Active" : "Inactive"}
+                            </span>
+                        ),
+                    },
+                ]}
+                getRowId={(row) => row.id}
+                isSearchable
+                searchPlaceholder="Search students..."
+                rowHeight={48}
+                height={300}
+                emptyState="No students yet."
+                noResultsState="No students match your search."
             />
 
             {/* ── Bulk Student Import ── */}

@@ -9,55 +9,6 @@
 
 "use client";
 
-import * as React from "react";
-import Link from "next/link";
-
-import { NursesTable } from "@/features/staff/components/nurses-table";
-import { useNurses } from "@/features/staff/hooks/use-nurses";
-import { Button } from "@/components/ui/button";
-import { Send } from "lucide-react";
-
 export default function NursesPage() {
-    const {
-        data: nursesData,
-        isLoading: nursesLoading,
-        isError: nursesError,
-    } = useNurses({ includeInactive: true });
-
-    return (
-        <div className="flex flex-1 flex-col">
-            {/* Page header */}
-            <div className="flex items-center gap-3 px-6 pt-6 pb-2">
-                <h1 className="text-2xl font-semibold tracking-tight">Nurses</h1>
-                <div className="ml-auto">
-                    <Button variant="outline" size="sm" asChild>
-                        <Link href="/nurses/invitations">
-                            <Send className="mr-1.5 size-3.5" />
-                            Invitations
-                        </Link>
-                    </Button>
-                </div>
-            </div>
-
-            <div className="flex flex-1 flex-col px-6 py-4">
-                <section className="flex flex-1 flex-col">
-                    {nursesError ? (
-                        <div className="flex items-center justify-center py-8">
-                            <p className="text-destructive text-sm">
-                                Failed to load nurses. Please try again.
-                            </p>
-                        </div>
-                    ) : (
-                        <div className="ring-foreground/10 rounded-lg ring-1">
-                            <NursesTable
-                                nurses={nursesData?.items ?? []}
-                                total={nursesData?.total ?? 0}
-                                isLoading={nursesLoading}
-                            />
-                        </div>
-                    )}
-                </section>
-            </div>
-        </div>
-    );
+    return <div />;
 }

@@ -18,8 +18,6 @@ import {
     curriculumKeys,
 } from "@/features/curriculum";
 import { listLearningAreas, type LearningArea } from "@/lib/api/curriculum";
-import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
 
 // ─── Education Level Labels ───────────────────────────────────────────────
 
@@ -145,40 +143,23 @@ export default function CurriculumPage() {
     const deleteMutation = useDeleteLearningArea();
 
     return (
-        <div className="flex flex-1 flex-col">
-            {/* Page header */}
-            <div className="flex items-center gap-3 px-6 pt-6 pb-2">
-                <h1 className="text-2xl font-semibold tracking-tight">Curriculum</h1>
-                <div className="ml-auto flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setCreateOpen(true)}>
-                        <Plus className="mr-1.5 size-3.5" />
-                        Add Learning Area
-                    </Button>
-                </div>
-            </div>
-
-            <div className="flex flex-1 flex-col px-6 py-4">
-                <section className="flex flex-1 flex-col">
-                    <DataTable
-                        queryKey={curriculumKeys.learningAreas.list()}
-                        queryFn={listLearningAreas}
-                        columns={columns}
-                        getRowId={(row) => row.id}
-                        isSearchable
-                        searchPlaceholder="Search learning areas..."
-                        filterGroups={filterGroups}
-                        isCheckable
-                        deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
-                        rowHeight={48}
-                        height={600}
-                        emptyState="No learning areas yet."
-                        noResultsState="No learning areas match your search or filters."
-                    />
-                </section>
-            </div>
-
-            {/* Create Learning Area Dialog */}
+        <>
+            <DataTable
+                queryKey={curriculumKeys.learningAreas.list()}
+                queryFn={listLearningAreas}
+                columns={columns}
+                getRowId={(row) => row.id}
+                isSearchable
+                searchPlaceholder="Search learning areas..."
+                filterGroups={filterGroups}
+                isCheckable
+                deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
+                rowHeight={48}
+                height={600}
+                emptyState="No learning areas yet."
+                noResultsState="No learning areas match your search or filters."
+            />
             <CreateLearningAreaDialog open={createOpen} onOpenChange={setCreateOpen} />
-        </div>
+        </>
     );
 }

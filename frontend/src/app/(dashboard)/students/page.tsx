@@ -12,38 +12,6 @@
 
 "use client";
 
-import * as React from "react";
-import { useRouter } from "next/navigation";
-
-import { Button } from "@/components/ui/button";
-import { StudentsTable } from "@/features/students";
-import { Plus } from "lucide-react";
-
 export default function StudentsPage() {
-    const router = useRouter();
-
-    return (
-        <div className="flex flex-1 flex-col">
-            {/* Page header */}
-            <div className="flex items-center gap-3 px-6 pt-6 pb-2">
-                <h1 className="text-2xl font-semibold tracking-tight">Students</h1>
-                <div className="ml-auto flex items-center gap-2">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => router.push("/students/new")}
-                    >
-                        <Plus className="mr-1.5 size-3.5" />
-                        Add Student
-                    </Button>
-                </div>
-            </div>
-
-            <div className="flex flex-1 flex-col px-6 py-4">
-                <section className="flex flex-col">
-                    <StudentsTable />
-                </section>
-            </div>
-        </div>
-    );
+    return <div />;
 }

@@ -338,6 +338,7 @@ func TestSeedSchoolCurriculum_HappyPath(t *testing.T) {
 	strandCount := 0
 	subStrandCount := 0
 	deletes := 0
+	laSQLTracked := false
 
 	commitCalled := false
 
@@ -351,6 +352,10 @@ func TestSeedSchoolCurriculum_HappyPath(t *testing.T) {
 		queryRowFunc: func(ctx context.Context, sql string, _ ...interface{}) pgx.Row {
 			if strings.Contains(sql, "cbc_learning_areas") {
 				laCount++
+				// Verify the INSERT contains grade_level column
+				if strings.Contains(sql, "grade_level") {
+					laSQLTracked = true
+				}
 				return &mockRow{id: fmt.Sprintf("la_%d", laCount)}
 			}
 			if strings.Contains(sql, "cbc_strands") {
@@ -380,6 +385,11 @@ func TestSeedSchoolCurriculum_HappyPath(t *testing.T) {
 
 	if !commitCalled {
 		t.Error("expected commit to be called")
+	}
+
+	// Verify grade_level is included in the learning area INSERT
+	if !laSQLTracked {
+		t.Error("expected learning area INSERT to contain grade_level column")
 	}
 
 	// Verify counts

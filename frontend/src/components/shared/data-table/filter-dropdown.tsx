@@ -1,6 +1,6 @@
 "use client";
 
-import type { FilterGroup, FilterItem } from "./types";
+import type { FilterGroup, FilterItem, SubFilterItem } from "./types";
 import { Button } from "@/components/ui/button";
 import {
     DropdownMenu,
@@ -19,48 +19,117 @@ import {
 import { Filter } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// ─── Helper: render filter items recursively ─────────────────────────────
+// ─── Props ───────────────────────────────────────────────────────────────
 
-function renderFilterItems(
+interface FilterDropdownProps {
+    groups: FilterGroup[];
+    /**
+     * Active filter values keyed by **item id** (not group id).
+     *
+     * - `"button"` items: store the item's own `value` string when active.
+     * - `"sub_menu_single"` items: store the selected `SubFilterItem.value` when one is chosen.
+     * - `"sub_menu_multi"` items: store an array of selected `SubFilterItem.values`.
+     */
+    activeFilters: Record<string, string | string[]>;
+    /**
+     * Called when a `"button"` item is toggled. Receives the item id.
+     * The consumer toggles that item's `value` on/off in activeFilters.
+     */
+    onToggleButton: (itemId: string, itemValue: string) => void;
+    /**
+     * Called when a `"sub_menu_single"` sub-item is selected.
+     * Receives the parent item id and the selected sub-item value.
+     * Passing the same value again deselects it (radio toggle-off).
+     */
+    onSelectSingle: (itemId: string, subValue: string) => void;
+    /**
+     * Called when a `"sub_menu_multi"` sub-item is toggled.
+     * Receives the parent item id and the toggled sub-item value.
+     */
+    onToggleMulti: (itemId: string, subValue: string) => void;
+    disabled?: boolean;
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────
+
+function isMulti(subFilterValue: unknown): subFilterValue is string[] {
+    return Array.isArray(subFilterValue);
+}
+
+// ─── Render sub-items ────────────────────────────────────────────────────
+
+function renderSubItems(
+    parentItem: FilterItem & { submenu: SubFilterItem[] },
+    activeFilters: Record<string, string | string[]>,
+    onSelectSingle: (itemId: string, subValue: string) => void,
+    onToggleMulti: (itemId: string, subValue: string) => void
+) {
+    const parentId = parentItem.id;
+
+    if (parentItem.type === "sub_menu_single") {
+        const currentValue = (activeFilters[parentId] as string | undefined) ?? "";
+
+        return (
+            <DropdownMenuRadioGroup
+                value={currentValue}
+                onValueChange={(value) => onSelectSingle(parentId, value)}
+            >
+                {parentItem.submenu.map((sub) => (
+                    <DropdownMenuRadioItem key={sub.id} value={sub.value}>
+                        {sub.icon && <sub.icon className="size-3.5" />}
+                        {sub.label}
+                    </DropdownMenuRadioItem>
+                ))}
+            </DropdownMenuRadioGroup>
+        );
+    }
+
+    // sub_menu_multi
+    const activeValues = isMulti(activeFilters[parentId])
+        ? (activeFilters[parentId] as string[])
+        : [];
+
+    return parentItem.submenu.map((sub) => {
+        const isChecked = activeValues.includes(sub.value);
+
+        return (
+            <DropdownMenuCheckboxItem
+                key={sub.id}
+                checked={isChecked}
+                onSelect={(e) => {
+                    e.preventDefault();
+                    onToggleMulti(parentId, sub.value);
+                }}
+            >
+                {sub.icon && <sub.icon className="size-3.5" />}
+                {sub.label}
+            </DropdownMenuCheckboxItem>
+        );
+    });
+}
+
+// ─── Render items (section contents, not wrapped in group) ───────────────
+
+function renderItems(
     items: FilterItem[],
-    groupId: string,
-    type: "single" | "multi",
-    activeValues: string[],
-    onToggleValue: (groupId: string, value: string) => void,
-    onSelectSingle: (groupId: string, value: string) => void
+    activeFilters: Record<string, string | string[]>,
+    onToggleButton: (itemId: string, itemValue: string) => void,
+    onSelectSingle: (itemId: string, subValue: string) => void,
+    onToggleMulti: (itemId: string, subValue: string) => void
 ) {
     return items.map((item) => {
-        if (item.submenu && item.submenu.length > 0) {
-            return (
-                <DropdownMenuSub key={item.id}>
-                    <DropdownMenuSubTrigger>
-                        {item.icon && <item.icon className="size-3.5" />}
-                        {item.label}
-                    </DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent>
-                        {renderFilterItems(
-                            item.submenu,
-                            groupId,
-                            type,
-                            activeValues,
-                            onToggleValue,
-                            onSelectSingle
-                        )}
-                    </DropdownMenuSubContent>
-                </DropdownMenuSub>
-            );
-        }
+        // ── Button item: toggle directly ────────────────────────────
+        if (item.type === "button") {
+            const isActive =
+                typeof activeFilters[item.id] === "string" && activeFilters[item.id] !== "";
 
-        const isActive = activeValues.includes(item.value);
-
-        if (type === "multi") {
             return (
                 <DropdownMenuCheckboxItem
                     key={item.id}
                     checked={isActive}
                     onSelect={(e) => {
                         e.preventDefault();
-                        onToggleValue(groupId, item.value);
+                        onToggleButton(item.id, item.value);
                     }}
                 >
                     {item.icon && <item.icon className="size-3.5" />}
@@ -69,27 +138,19 @@ function renderFilterItems(
             );
         }
 
+        // ── Sub-menu item: single or multi ──────────────────────────
         return (
-            <DropdownMenuRadioItem
-                key={item.id}
-                value={item.value}
-                onSelect={() => onSelectSingle(groupId, item.value)}
-            >
-                {item.icon && <item.icon className="size-3.5" />}
-                {item.label}
-            </DropdownMenuRadioItem>
+            <DropdownMenuSub key={item.id}>
+                <DropdownMenuSubTrigger>
+                    {item.icon && <item.icon className="size-3.5" />}
+                    {item.label}
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                    {renderSubItems(item, activeFilters, onSelectSingle, onToggleMulti)}
+                </DropdownMenuSubContent>
+            </DropdownMenuSub>
         );
     });
-}
-
-// ─── Props ───────────────────────────────────────────────────────────────
-
-interface FilterDropdownProps {
-    groups: FilterGroup[];
-    activeFilters: Record<string, string[]>;
-    onToggleValue: (groupId: string, value: string) => void;
-    onSelectSingle: (groupId: string, value: string) => void;
-    disabled?: boolean;
 }
 
 // ─── Component ───────────────────────────────────────────────────────────
@@ -97,11 +158,15 @@ interface FilterDropdownProps {
 export function FilterDropdown({
     groups,
     activeFilters,
-    onToggleValue,
+    onToggleButton,
     onSelectSingle,
+    onToggleMulti,
     disabled,
 }: FilterDropdownProps) {
-    const hasActiveFilters = Object.values(activeFilters).some((vals) => vals.length > 0);
+    const hasActiveFilters = Object.values(activeFilters).some((val) => {
+        if (Array.isArray(val)) return val.length > 0;
+        return val !== "";
+    });
 
     return (
         <DropdownMenu>
@@ -123,26 +188,12 @@ export function FilterDropdown({
                                 {group.icon && <group.icon className="mr-1.5 inline size-3.5" />}
                                 {group.label}
                             </DropdownMenuLabel>
-                            {group.type === "single" ? (
-                                <DropdownMenuRadioGroup value={activeFilters[group.id]?.[0] ?? ""}>
-                                    {renderFilterItems(
-                                        group.items,
-                                        group.id,
-                                        group.type,
-                                        activeFilters[group.id] ?? [],
-                                        onToggleValue,
-                                        onSelectSingle
-                                    )}
-                                </DropdownMenuRadioGroup>
-                            ) : (
-                                renderFilterItems(
-                                    group.items,
-                                    group.id,
-                                    group.type,
-                                    activeFilters[group.id] ?? [],
-                                    onToggleValue,
-                                    onSelectSingle
-                                )
+                            {renderItems(
+                                group.items,
+                                activeFilters,
+                                onToggleButton,
+                                onSelectSingle,
+                                onToggleMulti
                             )}
                         </DropdownMenuGroup>
                     </div>

@@ -66,21 +66,50 @@ export interface DataTableColumn<TItem> {
 
 // ─── Filter types ────────────────────────────────────────────────────────
 
-export interface FilterItem {
-    id: string;
-    label: string;
-    icon?: LucideIcon;
-    value: string;
-    /** If present, this item acts as a label-only grouping node (not selectable). */
-    submenu?: FilterItem[];
-}
-
+/**
+ * A visual grouping label in the filter dropdown.
+ * FilterGroup itself has no `value` and no `type` — it is purely a label.
+ */
 export interface FilterGroup {
     id: string;
     label: string;
     icon?: LucideIcon;
-    type: "single" | "multi";
     items: FilterItem[];
+}
+
+/**
+ * A single item inside a FilterGroup.
+ *
+ * - `"button"` items toggle their own `value` directly on click (no submenu).
+ * - `"sub_menu_single"` items open a submenu where **at most one**
+ *   SubFilterItem.value can be active (radio-like).
+ * - `"sub_menu_multi"` items open a submenu where **any number** of
+ *   SubFilterItem.values can be active (checkbox-like).
+ *
+ * `submenu` is required (not optional) on both `sub_menu_*` variants.
+ */
+export type FilterItem =
+    | {
+          id: string;
+          label: string;
+          icon?: LucideIcon;
+          type: "button";
+          value: string;
+      }
+    | {
+          id: string;
+          label: string;
+          icon?: LucideIcon;
+          type: "sub_menu_single" | "sub_menu_multi";
+          submenu: SubFilterItem[];
+      };
+
+/** A selectable entry inside a sub-menu. */
+export interface SubFilterItem {
+    id: string;
+    label: string;
+    icon?: LucideIcon;
+    value: string;
 }
 
 // ─── DataTable props ─────────────────────────────────────────────────────

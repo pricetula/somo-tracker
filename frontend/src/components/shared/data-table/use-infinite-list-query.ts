@@ -12,8 +12,14 @@ export interface UseInfiniteListQueryOptions<TItem, TParams extends object, TRes
     params?: TParams;
     /** Search term (debounced). When it changes, the query resets to page 1. */
     search?: string;
-    /** Active filter values, keyed by filter group id. When it changes, the query resets to page 1. */
-    filters?: Record<string, string[]>;
+    /**
+     * Active filter values keyed by FilterItem id.
+     *   - button items → string (the item's own value)
+     *   - sub_menu_single → string (the selected SubFilterItem.value)
+     *   - sub_menu_multi → string[] (selected SubFilterItem.values)
+     * When it changes, the query resets to page 1.
+     */
+    filters?: Record<string, string | string[]>;
     /** Rows fetched per page. Defaults to 50. */
     limit?: number;
     /** Only needed if the generated result's shape differs from NormalizedListResult. */

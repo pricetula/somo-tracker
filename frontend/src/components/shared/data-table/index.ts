@@ -7,5 +7,6 @@ export type {
     DeleteApiFn,
     FilterGroup,
     FilterItem,
+    SubFilterItem,
 } from "./types";
 export { defaultNormalize, normalizeListResponse } from "./utils";

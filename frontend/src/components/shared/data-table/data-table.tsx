@@ -60,7 +60,8 @@ export function DataTable<TItem, TParams extends object, TResult>({
     const debouncedSearch = useDebouncedValue(searchTerm, 300);
 
     // ── Filter state ─────────────────────────────────────────────────
-    const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>({});
+    // Keyed by FilterItem id. button → string, sub_menu_single → string, sub_menu_multi → string[].
+    const [activeFilters, setActiveFilters] = useState<Record<string, string | string[]>>({});
 
     // ── Selection state ──────────────────────────────────────────────
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -117,28 +118,49 @@ export function DataTable<TItem, TParams extends object, TResult>({
         setSelectedIds(new Set());
     }, []);
 
-    const handleToggleFilterValue = useCallback((groupId: string, value: string) => {
+    const handleToggleButton = useCallback((itemId: string, itemValue: string) => {
         setSelectedIds(new Set());
         setActiveFilters((prev) => {
-            const current = prev[groupId] ?? [];
-            const next = current.includes(value)
-                ? current.filter((v) => v !== value)
-                : [...current, value];
-            return { ...prev, [groupId]: next.length > 0 ? next : [] };
+            const current = prev[itemId];
+            if (typeof current === "string" && current === itemValue) {
+                // Toggle off
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                const { [itemId]: _, ...rest } = prev;
+                return rest;
+            }
+            // Toggle on
+            return { ...prev, [itemId]: itemValue };
         });
     }, []);
 
-    const handleSelectSingleFilter = useCallback((groupId: string, value: string) => {
+    const handleSelectSingle = useCallback((itemId: string, subValue: string) => {
         setSelectedIds(new Set());
         setActiveFilters((prev) => {
-            const current = prev[groupId] ?? [];
-            if (current.length === 1 && current[0] === value) {
+            const current = prev[itemId];
+            if (typeof current === "string" && current === subValue) {
                 // Deselect
                 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                const { [groupId]: _, ...rest } = prev;
+                const { [itemId]: _, ...rest } = prev;
                 return rest;
             }
-            return { ...prev, [groupId]: [value] };
+            return { ...prev, [itemId]: subValue };
+        });
+    }, []);
+
+    const handleToggleMulti = useCallback((itemId: string, subValue: string) => {
+        setSelectedIds(new Set());
+        setActiveFilters((prev) => {
+            const current = prev[itemId];
+            const arr = Array.isArray(current) ? current : [];
+            const next = arr.includes(subValue)
+                ? arr.filter((v) => v !== subValue)
+                : [...arr, subValue];
+            if (next.length === 0) {
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                const { [itemId]: _, ...rest } = prev;
+                return rest;
+            }
+            return { ...prev, [itemId]: next };
         });
     }, []);
 
@@ -272,7 +294,10 @@ export function DataTable<TItem, TParams extends object, TResult>({
     const isInitialError = isError && !hasData;
     const isSearchOrFilterActive =
         (isSearchable && debouncedSearch.length > 0) ||
-        Object.values(activeFilters).some((v) => v.length > 0);
+        Object.values(activeFilters).some((v) => {
+            if (Array.isArray(v)) return v.length > 0;
+            return v !== "";
+        });
 
     // ── Render ───────────────────────────────────────────────────────
 
@@ -298,8 +323,9 @@ export function DataTable<TItem, TParams extends object, TResult>({
                     <FilterDropdown
                         groups={filterGroups}
                         activeFilters={activeFilters}
-                        onToggleValue={handleToggleFilterValue}
-                        onSelectSingle={handleSelectSingleFilter}
+                        onToggleButton={handleToggleButton}
+                        onSelectSingle={handleSelectSingle}
+                        onToggleMulti={handleToggleMulti}
                         disabled={isToolbarDisabled}
                     />
                 )}

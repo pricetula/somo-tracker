@@ -16,17 +16,11 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
-import { StudentsTable, useStudents } from "@/features/students";
+import { StudentsTable } from "@/features/students";
 import { Plus } from "lucide-react";
 
 export default function StudentsPage() {
     const router = useRouter();
-
-    const {
-        data: studentsData,
-        isLoading: studentsLoading,
-        isError: studentsError,
-    } = useStudents();
 
     return (
         <div className="flex flex-1 flex-col">
@@ -47,21 +41,7 @@ export default function StudentsPage() {
 
             <div className="flex flex-1 flex-col px-6 py-4">
                 <section className="flex flex-col">
-                    {studentsError ? (
-                        <div className="flex items-center justify-center py-8">
-                            <p className="text-destructive text-sm">
-                                Failed to load students. Please try again.
-                            </p>
-                        </div>
-                    ) : (
-                        <div className="ring-foreground/10 rounded-lg ring-1">
-                            <StudentsTable
-                                students={studentsData?.items ?? []}
-                                total={studentsData?.total ?? 0}
-                                isLoading={studentsLoading}
-                            />
-                        </div>
-                    )}
+                    <StudentsTable />
                 </section>
             </div>
         </div>

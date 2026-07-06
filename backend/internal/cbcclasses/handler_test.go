@@ -74,14 +74,13 @@ func TestHandler_ListClasses_HappyPath(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
 	expectedResult := &ClassListResult{
-		Data: []Class{
+		Items: []Class{
 			{ID: "class_001", GradeLevel: "G4", StreamName: "Blue", DisplayLabel: "G4 Blue", StreamID: "stream_001", StudentCount: 32},
 			{ID: "class_002", GradeLevel: "G4", StreamName: "Red", DisplayLabel: "G4 Red", StreamID: "stream_002", StudentCount: 28},
 		},
-		TotalRecords: 2,
-		CurrentPage:  1,
-		Limit:        50,
-		TotalPages:   1,
+		Total: 2,
+		Page:  1,
+		Limit: 50,
 	}
 
 	h.repo.listFn = func(ctx context.Context, filter ClassListFilter) (*ClassListResult, error) {
@@ -110,14 +109,14 @@ func TestHandler_ListClasses_HappyPath(t *testing.T) {
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		t.Fatalf("CL1: failed to decode response: %v", err)
 	}
-	if len(result.Data) != 2 {
-		t.Fatalf("CL1: expected 2 classes, got %d", len(result.Data))
+	if len(result.Items) != 2 {
+		t.Fatalf("CL1: expected 2 classes, got %d", len(result.Items))
 	}
-	if result.Data[0].DisplayLabel != "G4 Blue" {
-		t.Fatalf("CL1: expected display_label 'G4 Blue', got %q", result.Data[0].DisplayLabel)
+	if result.Items[0].DisplayLabel != "G4 Blue" {
+		t.Fatalf("CL1: expected display_label 'G4 Blue', got %q", result.Items[0].DisplayLabel)
 	}
-	if result.Data[0].StudentCount != 32 {
-		t.Fatalf("CL1: expected student_count 32, got %d", result.Data[0].StudentCount)
+	if result.Items[0].StudentCount != 32 {
+		t.Fatalf("CL1: expected student_count 32, got %d", result.Items[0].StudentCount)
 	}
 }
 
@@ -132,11 +131,10 @@ func TestHandler_ListClasses_Metadata(t *testing.T) {
 			t.Errorf("expected limit 10, got %d", filter.Limit)
 		}
 		return &ClassListResult{
-			Data:         []Class{{ID: "class_003", GradeLevel: "G5", StreamName: "Green", DisplayLabel: "G5 Green", StreamID: "stream_003"}},
-			TotalRecords: 25,
-			CurrentPage:  2,
-			Limit:        10,
-			TotalPages:   3,
+			Items: []Class{{ID: "class_003", GradeLevel: "G5", StreamName: "Green", DisplayLabel: "G5 Green", StreamID: "stream_003"}},
+			Total: 25,
+			Page:  2,
+			Limit: 10,
 		}, nil
 	}
 
@@ -150,17 +148,14 @@ func TestHandler_ListClasses_Metadata(t *testing.T) {
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		t.Fatalf("CL2: failed to decode response: %v", err)
 	}
-	if result.TotalRecords != 25 {
-		t.Fatalf("CL2: expected total_records 25, got %d", result.TotalRecords)
+	if result.Total != 25 {
+		t.Fatalf("CL2: expected total 25, got %d", result.Total)
 	}
-	if result.CurrentPage != 2 {
-		t.Fatalf("CL2: expected current_page 2, got %d", result.CurrentPage)
+	if result.Page != 2 {
+		t.Fatalf("CL2: expected page 2, got %d", result.Page)
 	}
 	if result.Limit != 10 {
 		t.Fatalf("CL2: expected limit 10, got %d", result.Limit)
-	}
-	if result.TotalPages != 3 {
-		t.Fatalf("CL2: expected total_pages 3, got %d", result.TotalPages)
 	}
 }
 
@@ -172,13 +167,12 @@ func TestHandler_ListClasses_WithGradeLevelFilter(t *testing.T) {
 			t.Errorf("expected grade_level filter 'G4', got %v", filter.GradeLevel)
 		}
 		return &ClassListResult{
-			Data: []Class{
+			Items: []Class{
 				{ID: "class_001", GradeLevel: "G4", StreamName: "Blue", DisplayLabel: "G4 Blue", StreamID: "stream_001"},
 			},
-			TotalRecords: 1,
-			CurrentPage:  1,
-			Limit:        50,
-			TotalPages:   1,
+			Total: 1,
+			Page:  1,
+			Limit: 50,
 		}, nil
 	}
 
@@ -192,8 +186,8 @@ func TestHandler_ListClasses_WithGradeLevelFilter(t *testing.T) {
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		t.Fatalf("CL6: failed to decode response: %v", err)
 	}
-	if len(result.Data) != 1 {
-		t.Fatalf("CL6: expected 1 class, got %d", len(result.Data))
+	if len(result.Items) != 1 {
+		t.Fatalf("CL6: expected 1 class, got %d", len(result.Items))
 	}
 }
 
@@ -205,13 +199,12 @@ func TestHandler_ListClasses_WithStreamIDFilter(t *testing.T) {
 			t.Errorf("expected stream_id filter 'stream_001', got %v", filter.StreamID)
 		}
 		return &ClassListResult{
-			Data: []Class{
+			Items: []Class{
 				{ID: "class_001", GradeLevel: "G4", StreamName: "Blue", DisplayLabel: "G4 Blue", StreamID: "stream_001"},
 			},
-			TotalRecords: 1,
-			CurrentPage:  1,
-			Limit:        50,
-			TotalPages:   1,
+			Total: 1,
+			Page:  1,
+			Limit: 50,
 		}, nil
 	}
 
@@ -225,8 +218,8 @@ func TestHandler_ListClasses_WithStreamIDFilter(t *testing.T) {
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		t.Fatalf("CL7: failed to decode response: %v", err)
 	}
-	if len(result.Data) != 1 {
-		t.Fatalf("CL7: expected 1 class, got %d", len(result.Data))
+	if len(result.Items) != 1 {
+		t.Fatalf("CL7: expected 1 class, got %d", len(result.Items))
 	}
 }
 
@@ -235,11 +228,10 @@ func TestHandler_ListClasses_EmptyResults(t *testing.T) {
 
 	h.repo.listFn = func(ctx context.Context, filter ClassListFilter) (*ClassListResult, error) {
 		return &ClassListResult{
-			Data:         []Class{},
-			TotalRecords: 0,
-			CurrentPage:  1,
-			Limit:        50,
-			TotalPages:   1,
+			Items: []Class{},
+			Total: 0,
+			Page:  1,
+			Limit: 50,
 		}, nil
 	}
 
@@ -253,8 +245,8 @@ func TestHandler_ListClasses_EmptyResults(t *testing.T) {
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		t.Fatalf("CL15: failed to decode response: %v", err)
 	}
-	if len(result.Data) != 0 {
-		t.Fatalf("CL15: expected empty data array, got %d items", len(result.Data))
+	if len(result.Items) != 0 {
+		t.Fatalf("CL15: expected empty items array, got %d items", len(result.Items))
 	}
 }
 

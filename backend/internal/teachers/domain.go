@@ -37,8 +37,10 @@ type Teacher struct {
 
 // ListResponse wraps a paginated teacher list.
 type ListResponse struct {
-	Teachers []Teacher `json:"teachers"`
-	Total    int       `json:"total"`
+	Items []Teacher `json:"items"`
+	Total int       `json:"total"`
+	Page  int       `json:"page"`
+	Limit int       `json:"limit"`
 }
 
 // ToggleActiveRequest is the payload for activating/deactivating a teacher.

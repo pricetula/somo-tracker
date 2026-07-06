@@ -49,18 +49,18 @@ func (h *Handler) List(c *fiber.Ctx) error {
 	}
 
 	page, _ := strconv.Atoi(c.Query("page", "1"))
-	perPage, _ := strconv.Atoi(c.Query("per_page", "50"))
+	limit, _ := strconv.Atoi(c.Query("limit", "50"))
 	search := strings.TrimSpace(c.Query("search", ""))
 	includeInactive := strings.ToLower(c.Query("include_inactive", "false")) == "true"
 
 	if page < 1 {
 		page = 1
 	}
-	if perPage < 1 || perPage > 100 {
-		perPage = 50
+	if limit < 1 || limit > 100 {
+		limit = 50
 	}
 
-	offset := (page - 1) * perPage
+	offset := (page - 1) * limit
 
 	schoolID := c.Locals("active_school_id").(string)
 	if schoolID == "" {
@@ -75,17 +75,19 @@ func (h *Handler) List(c *fiber.Ctx) error {
 	var err error
 
 	if includeInactive {
-		membersList, total, err = h.svc.ListMembersIncludingInactive(c.Context(), tenantID, schoolID, role, offset, perPage, search)
+		membersList, total, err = h.svc.ListMembersIncludingInactive(c.Context(), tenantID, schoolID, role, offset, limit, search)
 	} else {
-		membersList, total, err = h.svc.ListMembers(c.Context(), tenantID, schoolID, role, offset, perPage, search)
+		membersList, total, err = h.svc.ListMembers(c.Context(), tenantID, schoolID, role, offset, limit, search)
 	}
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
 
 	return c.JSON(ListResponse{
-		Members: membersList,
-		Total:   total,
+		Items: membersList,
+		Total: total,
+		Page:  page,
+		Limit: limit,
 	})
 }
 

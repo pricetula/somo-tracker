@@ -89,8 +89,8 @@ func TestHandler_ListMembers_HappyPath(t *testing.T) {
 
 	var result ListResponse
 	_ = json.NewDecoder(resp.Body).Decode(&result)
-	if len(result.Members) != 1 {
-		t.Fatalf("expected 1 member, got %d", len(result.Members))
+	if len(result.Items) != 1 {
+		t.Fatalf("expected 1 member, got %d", len(result.Items))
 	}
 	if result.Total != 1 {
 		t.Fatalf("expected total 1, got %d", result.Total)
@@ -156,8 +156,8 @@ func TestHandler_ListMembers_EmptyResults(t *testing.T) {
 
 	var result ListResponse
 	_ = json.NewDecoder(resp.Body).Decode(&result)
-	if len(result.Members) != 0 {
-		t.Fatalf("expected 0 members, got %d", len(result.Members))
+	if len(result.Items) != 0 {
+		t.Fatalf("expected 0 members, got %d", len(result.Items))
 	}
 	if result.Total != 0 {
 		t.Fatalf("expected total 0, got %d", result.Total)

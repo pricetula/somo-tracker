@@ -33,7 +33,7 @@ func (h *Handler) ListInvitations(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
 
 	page, _ := strconv.Atoi(c.Query("page", "1"))
-	perPage, _ := strconv.Atoi(c.Query("per_page", "50"))
+	limit, _ := strconv.Atoi(c.Query("limit", "50"))
 	search := strings.TrimSpace(c.Query("search", ""))
 	email := strings.TrimSpace(c.Query("email", ""))
 	status := strings.TrimSpace(c.Query("status", ""))
@@ -43,11 +43,11 @@ func (h *Handler) ListInvitations(c *fiber.Ctx) error {
 	if page < 1 {
 		page = 1
 	}
-	if perPage < 1 || perPage > 100 {
-		perPage = 50
+	if limit < 1 || limit > 100 {
+		limit = 50
 	}
 
-	offset := (page - 1) * perPage
+	offset := (page - 1) * limit
 
 	schoolID := c.Locals("active_school_id").(string)
 	if schoolID == "" {
@@ -64,7 +64,7 @@ func (h *Handler) ListInvitations(c *fiber.Ctx) error {
 		Role:    role,
 		Expired: expired,
 		Offset:  offset,
-		Limit:   perPage,
+		Limit:   limit,
 	})
 	if err != nil {
 		return middleware.HTTPError(c, err)
@@ -73,6 +73,8 @@ func (h *Handler) ListInvitations(c *fiber.Ctx) error {
 	return c.JSON(ListInvitationsResponse{
 		Items: invitations,
 		Total: total,
+		Page:  page,
+		Limit: limit,
 	})
 }
 

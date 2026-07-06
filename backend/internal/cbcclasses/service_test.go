@@ -27,7 +27,7 @@ func (m *MockRepository) List(ctx context.Context, filter ClassListFilter) (*Cla
 	if m.listFn != nil {
 		return m.listFn(ctx, filter)
 	}
-	return &ClassListResult{Data: []Class{}, TotalRecords: 0, CurrentPage: 1, Limit: 50, TotalPages: 1}, nil
+	return &ClassListResult{Items: []Class{}, Total: 0, Page: 1, Limit: 50}, nil
 }
 
 func (m *MockRepository) GetByID(ctx context.Context, id, tenantID, schoolID string) (*Class, error) {
@@ -119,14 +119,13 @@ func TestListClasses_HappyPath(t *testing.T) {
 	h := newTestHarness()
 
 	expectedResult := &ClassListResult{
-		Data: []Class{
+		Items: []Class{
 			{ID: "class_001", GradeLevel: "G4", StreamName: "Blue", DisplayLabel: "G4 Blue", StreamID: "stream_001", StudentCount: 32},
 			{ID: "class_002", GradeLevel: "G4", StreamName: "Red", DisplayLabel: "G4 Red", StreamID: "stream_002", StudentCount: 28},
 		},
-		TotalRecords: 2,
-		CurrentPage:  1,
-		Limit:        50,
-		TotalPages:   1,
+		Total: 2,
+		Page:  1,
+		Limit: 50,
 	}
 
 	h.repo.listFn = func(ctx context.Context, filter ClassListFilter) (*ClassListResult, error) {
@@ -151,14 +150,14 @@ func TestListClasses_HappyPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(result.Data) != 2 {
-		t.Fatalf("expected 2 classes, got %d", len(result.Data))
+	if len(result.Items) != 2 {
+		t.Fatalf("expected 2 classes, got %d", len(result.Items))
 	}
-	if result.Data[0].DisplayLabel != "G4 Blue" {
-		t.Fatalf("expected display_label 'G4 Blue', got %q", result.Data[0].DisplayLabel)
+	if result.Items[0].DisplayLabel != "G4 Blue" {
+		t.Fatalf("expected display_label 'G4 Blue', got %q", result.Items[0].DisplayLabel)
 	}
-	if result.Data[0].StudentCount != 32 {
-		t.Fatalf("expected student_count 32, got %d", result.Data[0].StudentCount)
+	if result.Items[0].StudentCount != 32 {
+		t.Fatalf("expected student_count 32, got %d", result.Items[0].StudentCount)
 	}
 }
 
@@ -200,7 +199,7 @@ func TestListClasses_EmptyResults(t *testing.T) {
 	h := newTestHarness()
 
 	h.repo.listFn = func(ctx context.Context, filter ClassListFilter) (*ClassListResult, error) {
-		return &ClassListResult{Data: []Class{}, TotalRecords: 0, CurrentPage: 1, Limit: 50, TotalPages: 1}, nil
+		return &ClassListResult{Items: []Class{}, Total: 0, Page: 1, Limit: 50}, nil
 	}
 
 	result, err := h.svc.ListClasses(context.Background(), ClassListFilter{
@@ -212,8 +211,8 @@ func TestListClasses_EmptyResults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(result.Data) != 0 {
-		t.Fatalf("expected 0 classes, got %d", len(result.Data))
+	if len(result.Items) != 0 {
+		t.Fatalf("expected 0 classes, got %d", len(result.Items))
 	}
 }
 

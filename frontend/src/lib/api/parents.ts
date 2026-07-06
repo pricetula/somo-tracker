@@ -47,6 +47,9 @@ export interface ParentDetail {
 
 export interface ListParentsResponse {
     items: Parent[];
+    total: number;
+    page: number;
+    limit: number;
 }
 
 export interface ParentDetailResponse {
@@ -78,13 +81,15 @@ export interface LinkStudentPayload {
 
 // ─── API Functions ─────────────────────────────────────────────────────────
 
-/** List parents, optionally filtered by search or student_id. */
+/** List parents, optionally filtered by search or student_id, with pagination. */
 export async function listParents(
-    params: { search?: string; student_id?: string } = {}
+    params: { search?: string; student_id?: string; page?: number; limit?: number } = {}
 ): Promise<ListParentsResponse> {
     const searchParams = new URLSearchParams();
     if (params.search) searchParams.set("search", params.search);
     if (params.student_id) searchParams.set("student_id", params.student_id);
+    if (params.page) searchParams.set("page", String(params.page));
+    if (params.limit) searchParams.set("limit", String(params.limit));
 
     const qs = searchParams.toString();
     return api.get<ListParentsResponse>(`/api/v1/parents?${qs}`);

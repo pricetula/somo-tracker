@@ -90,8 +90,8 @@ export interface DataTableProps<TItem, TParams extends object, TResult> {
     queryKey: readonly unknown[];
     /** Any generated `list*` function, e.g. `listClasses`. */
     queryFn: ListApiFn<TResult, TParams>;
-    /** Resource-specific filters (excluding page/limit/search/user-filters). */
-    params: TParams;
+    /** Resource-specific filters (excluding page/limit/search/user-filters). Defaults to {}. */
+    params?: TParams;
     columns: DataTableColumn<TItem>[];
     /** Extracts a stable id from a row — used by selection and optimistic delete. */
     getRowId: (row: TItem, index: number) => string | number;

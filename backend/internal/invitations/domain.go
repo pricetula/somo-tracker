@@ -55,4 +55,6 @@ type ListInvitationsFilter struct {
 type ListInvitationsResponse struct {
 	Items []Invitation `json:"items"`
 	Total int          `json:"total"`
+	Page  int          `json:"page"`
+	Limit int          `json:"limit"`
 }

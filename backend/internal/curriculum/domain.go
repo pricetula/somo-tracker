@@ -26,7 +26,7 @@ type Repository interface {
 	// Learning Areas
 	CreateLearningArea(ctx context.Context, params CreateLearningAreaParams) (string, error)
 	GetLearningAreaByID(ctx context.Context, id, tenantID, schoolID string) (*LearningArea, error)
-	ListLearningAreas(ctx context.Context, tenantID, schoolID string, educationLevel *string) ([]LearningArea, error)
+	ListLearningAreas(ctx context.Context, tenantID, schoolID string, educationLevel *string, search string, page, limit int) ([]LearningArea, int, error)
 	UpdateLearningArea(ctx context.Context, params UpdateLearningAreaParams) error
 	DeleteLearningArea(ctx context.Context, id, tenantID, schoolID string) error
 
@@ -194,6 +194,8 @@ type UpdateLearningAreaPayload struct {
 type ListLearningAreasResponse struct {
 	Items []LearningArea `json:"items"`
 	Total int            `json:"total"`
+	Page  int            `json:"page"`
+	Limit int            `json:"limit"`
 }
 
 // Strand payloads

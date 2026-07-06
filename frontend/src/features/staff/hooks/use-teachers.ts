@@ -35,8 +35,7 @@ export function useTeachers(
 
     return useQuery<ListTeachersResponse>({
         queryKey: [...teachersKeys.list({ page, limit, search, includeInactive })],
-        queryFn: () =>
-            listTeachers({ page, per_page: limit, search, include_inactive: includeInactive }),
+        queryFn: () => listTeachers({ page, limit, search, include_inactive: includeInactive }),
         placeholderData: (prev) => prev,
         enabled,
     });

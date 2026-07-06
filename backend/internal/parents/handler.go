@@ -2,6 +2,8 @@ package parents
 
 import (
 	"errors"
+	"strconv"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"go.uber.org/fx"
@@ -96,15 +98,29 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 func (h *Handler) List(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
 
-	search := c.Query("search")
-	studentID := c.Query("student_id")
+	page, _ := strconv.Atoi(c.Query("page", "1"))
+	limit, _ := strconv.Atoi(c.Query("limit", "50"))
+	search := strings.TrimSpace(c.Query("search"))
+	studentID := strings.TrimSpace(c.Query("student_id"))
 
-	parents, err := h.svc.List(c.Context(), tenantID, search, studentID)
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 50
+	}
+
+	parents, total, err := h.svc.List(c.Context(), tenantID, search, studentID, page, limit)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
 
-	return c.JSON(ListParentsResponse{Items: parents})
+	return c.JSON(ListParentsResponse{
+		Items: parents,
+		Total: total,
+		Page:  page,
+		Limit: limit,
+	})
 }
 
 // ============================================================================

@@ -17,11 +17,11 @@ export type { TeacherMember, ListTeachersResponse };
 
 /** List teachers with extended fields (TSC, KNEC, teacher_role). */
 export async function listTeachers(
-    params: { page?: number; per_page?: number; search?: string; include_inactive?: boolean } = {}
+    params: { page?: number; limit?: number; search?: string; include_inactive?: boolean } = {}
 ): Promise<ListTeachersResponse> {
     const searchParams = new URLSearchParams();
     if (params.page) searchParams.set("page", String(params.page));
-    if (params.per_page) searchParams.set("per_page", String(params.per_page));
+    if (params.limit) searchParams.set("limit", String(params.limit));
     if (params.search) searchParams.set("search", params.search);
     if (params.include_inactive) searchParams.set("include_inactive", "true");
 

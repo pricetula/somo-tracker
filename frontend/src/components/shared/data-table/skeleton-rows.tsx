@@ -11,6 +11,11 @@ interface SkeletonRowsProps {
 
 export function SkeletonRows({ rowHeight, height, columnCount, isCheckable }: SkeletonRowsProps) {
     const count = Math.max(4, Math.ceil(height / rowHeight));
+
+    // Deterministic widths to avoid hydration mismatch from Math.random().
+    // Each column cycles through a fixed palette that still looks organic.
+    const WIDTHS = ["74%", "61%", "58%", "48%", "46%", "43%", "55%", "67%", "38%", "52%"];
+
     return (
         <div style={{ height }} className="flex flex-col">
             {Array.from({ length: count }, (_, i) => (
@@ -21,7 +26,7 @@ export function SkeletonRows({ rowHeight, height, columnCount, isCheckable }: Sk
                             key={j}
                             className="h-3.5 flex-1"
                             style={{
-                                maxWidth: `${40 + Math.random() * 40}%`,
+                                maxWidth: WIDTHS[(i * columnCount + j) % WIDTHS.length],
                             }}
                         />
                     ))}

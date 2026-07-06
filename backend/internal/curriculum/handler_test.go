@@ -154,8 +154,8 @@ func TestHandler_ListLearningAreas_HappyPath(t *testing.T) {
 		{ID: "area_002", Name: "Mathematics", Code: "MATH", EducationLevel: "Early_Years"},
 	}
 
-	h.repo.listLearningAreasFn = func(ctx context.Context, tenantID, schoolID string, educationLevel *string) ([]LearningArea, error) {
-		return expectedAreas, nil
+	h.repo.listLearningAreasFn = func(ctx context.Context, tenantID, schoolID string, educationLevel *string, search string, page, limit int) ([]LearningArea, int, error) {
+		return expectedAreas, len(expectedAreas), nil
 	}
 
 	resp := doRequest(h.app, "GET", "/api/v1/curriculum/learning-areas", nil)

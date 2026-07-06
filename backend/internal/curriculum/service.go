@@ -46,13 +46,19 @@ func (s *Service) GetLearningArea(ctx context.Context, id, tenantID, schoolID st
 	return s.Repo.GetLearningAreaByID(ctx, id, tenantID, schoolID)
 }
 
-// ListLearningAreas returns all learning areas for the given tenant and school,
-// optionally filtered by education_level.
-func (s *Service) ListLearningAreas(ctx context.Context, tenantID, schoolID string, educationLevel *string) ([]LearningArea, error) {
+// ListLearningAreas returns paginated learning areas for the given tenant and school,
+// optionally filtered by education_level and search term.
+func (s *Service) ListLearningAreas(ctx context.Context, tenantID, schoolID string, educationLevel *string, search string, page, limit int) ([]LearningArea, int, error) {
 	if tenantID == "" || schoolID == "" {
-		return nil, fmt.Errorf("curriculum.Service.ListLearningAreas: %w", ErrInvalidInput)
+		return nil, 0, fmt.Errorf("curriculum.Service.ListLearningAreas: %w", ErrInvalidInput)
 	}
-	return s.Repo.ListLearningAreas(ctx, tenantID, schoolID, educationLevel)
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 50
+	}
+	return s.Repo.ListLearningAreas(ctx, tenantID, schoolID, educationLevel, search, page, limit)
 }
 
 // UpdateLearningArea applies partial updates to a learning area.

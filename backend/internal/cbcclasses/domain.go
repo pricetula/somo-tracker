@@ -54,17 +54,17 @@ type ClassListFilter struct {
 	AcademicTermID string
 	GradeLevel     *string
 	StreamID       *string
+	Search         string
 	Page           int
 	Limit          int
 }
 
 // ClassListResult holds the paginated response for class listing.
 type ClassListResult struct {
-	Data         []Class `json:"data"`
-	TotalRecords int     `json:"total_records"`
-	CurrentPage  int     `json:"current_page"`
-	Limit        int     `json:"limit"`
-	TotalPages   int     `json:"total_pages"`
+	Items []Class `json:"items"`
+	Total int     `json:"total"`
+	Page  int     `json:"page"`
+	Limit int     `json:"limit"`
 }
 
 // CreateClassPayload is the request body for POST /api/v1/classes.

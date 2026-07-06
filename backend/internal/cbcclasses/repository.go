@@ -3,7 +3,6 @@ package cbcclasses
 import (
 	"context"
 	"fmt"
-	"math"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -50,17 +49,17 @@ func (r *PgRepository) List(ctx context.Context, filter ClassListFilter) (*Class
 	if filter.StreamID != nil {
 		countQuery += fmt.Sprintf(" AND c.stream_id = $%d", argIdx)
 		countArgs = append(countArgs, *filter.StreamID)
+		argIdx++
+	}
+	if filter.Search != "" {
+		countQuery += fmt.Sprintf(" AND (c.grade_level || ' ' || COALESCE(s.name, '')) ILIKE $%d", argIdx)
+		countArgs = append(countArgs, "%"+filter.Search+"%")
 	}
 
 	var totalRecords int
 	err := r.pool.QueryRow(ctx, countQuery, countArgs...).Scan(&totalRecords)
 	if err != nil {
 		return nil, fmt.Errorf("cbcclasses.Repository.List: count: %w", err)
-	}
-
-	totalPages := int(math.Ceil(float64(totalRecords) / float64(filter.Limit)))
-	if totalPages == 0 {
-		totalPages = 1
 	}
 
 	// Data query with student count per term
@@ -99,6 +98,11 @@ func (r *PgRepository) List(ctx context.Context, filter ClassListFilter) (*Class
 	if filter.StreamID != nil {
 		dataQuery += fmt.Sprintf(" AND c.stream_id = $%d", argIdx)
 		dataArgs = append(dataArgs, *filter.StreamID)
+		argIdx++
+	}
+	if filter.Search != "" {
+		dataQuery += fmt.Sprintf(" AND (c.grade_level || ' ' || COALESCE(s.name, '')) ILIKE $%d", argIdx)
+		dataArgs = append(dataArgs, "%"+filter.Search+"%")
 		argIdx++
 	}
 
@@ -140,11 +144,10 @@ func (r *PgRepository) List(ctx context.Context, filter ClassListFilter) (*Class
 	}
 
 	return &ClassListResult{
-		Data:         classes,
-		TotalRecords: totalRecords,
-		CurrentPage:  filter.Page,
-		Limit:        filter.Limit,
-		TotalPages:   totalPages,
+		Items: classes,
+		Total: totalRecords,
+		Page:  filter.Page,
+		Limit: filter.Limit,
 	}, nil
 }
 

@@ -39,8 +39,10 @@ type Member struct {
 
 // ListResponse wraps a paginated member list.
 type ListResponse struct {
-	Members []Member `json:"members"`
-	Total   int      `json:"total"`
+	Items []Member `json:"items"`
+	Total int      `json:"total"`
+	Page  int      `json:"page"`
+	Limit int      `json:"limit"`
 }
 
 // ToggleActiveRequest is the payload for activating/deactivating a member.

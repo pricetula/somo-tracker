@@ -75,6 +75,7 @@ func (h *Handler) List(c *fiber.Ctx) error {
 		SchoolID:       schoolID,
 		AcademicYearID: academicYearID,
 		AcademicTermID: academicTermID,
+		Search:         c.Query("search"),
 		Page:           page,
 		Limit:          limit,
 	}

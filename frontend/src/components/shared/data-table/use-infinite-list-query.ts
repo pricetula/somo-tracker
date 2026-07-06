@@ -8,8 +8,8 @@ export interface UseInfiniteListQueryOptions<TItem, TParams extends object, TRes
     queryKey: readonly unknown[];
     /** Any generated `list*` function, e.g. `listClasses`. */
     queryFn: ListApiFn<TResult, TParams>;
-    /** Resource-specific filters (excluding page/limit/search). */
-    params: TParams;
+    /** Resource-specific filters (excluding page/limit/search). Defaults to {}. */
+    params?: TParams;
     /** Search term (debounced). When it changes, the query resets to page 1. */
     search?: string;
     /** Active filter values, keyed by filter group id. When it changes, the query resets to page 1. */
@@ -33,7 +33,7 @@ export interface UseInfiniteListQueryOptions<TItem, TParams extends object, TRes
 export function useInfiniteListQuery<TItem, TParams extends object, TResult>({
     queryKey,
     queryFn,
-    params,
+    params = {} as TParams,
     search,
     filters,
     limit = 50,

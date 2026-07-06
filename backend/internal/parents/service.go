@@ -111,12 +111,18 @@ func (s *Service) GetDetail(ctx context.Context, id, tenantID string) (*ParentDe
 // LIST
 // ============================================================================
 
-// List returns parents optionally filtered by search or student_id.
-func (s *Service) List(ctx context.Context, tenantID string, search, studentID string) ([]Parent, error) {
+// List returns parents optionally filtered by search or student_id, with pagination.
+func (s *Service) List(ctx context.Context, tenantID string, search, studentID string, page, limit int) ([]Parent, int, error) {
 	if tenantID == "" {
-		return nil, fmt.Errorf("parents.Service.List: %w", ErrInvalidInput)
+		return nil, 0, fmt.Errorf("parents.Service.List: %w", ErrInvalidInput)
 	}
-	return s.Repo.List(ctx, tenantID, search, studentID)
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 50
+	}
+	return s.Repo.List(ctx, tenantID, search, studentID, page, limit)
 }
 
 // ============================================================================

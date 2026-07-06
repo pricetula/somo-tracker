@@ -23,49 +23,9 @@ func NewRepository(pools *database.Pools) *PgRepository {
 
 // List returns a paginated list of students enrolled at the given school.
 func (r *PgRepository) List(ctx context.Context, filter ListFilter) ([]Student, int, error) {
-	// countQuery := `
-	// 	SELECT COUNT(DISTINCT s.id)
-	// 	FROM cbc_students s
-	// 	JOIN cbc_student_enrollments e ON e.student_id = s.id AND e.tenant_id = s.tenant_id
-	// 	WHERE s.tenant_id = $1
-	// 	  AND e.school_id = $2
-	// 	  AND e.status = 'ACTIVE'
-	// `
-	countArgs := []interface{}{filter.TenantID, filter.SchoolID}
+	// TODO: Re-enable count query with proper filters when pagination is needed.
+	// For now the list endpoint returns all students unfiltered.
 
-	whereClause := ""
-	argIdx := 3
-
-	if filter.Search != "" {
-		whereClause += fmt.Sprintf(" AND s.full_name ILIKE $%d", argIdx)
-		countArgs = append(countArgs, "%"+filter.Search+"%")
-		argIdx++
-	}
-	if filter.ClassID != "" {
-		whereClause += fmt.Sprintf(" AND e.class_id = $%d", argIdx)
-		countArgs = append(countArgs, filter.ClassID)
-		argIdx++
-	}
-	if filter.Gender != "" {
-		whereClause += fmt.Sprintf(" AND s.gender = $%d", argIdx)
-		countArgs = append(countArgs, filter.Gender)
-		argIdx++
-	}
-
-	// countQuery += whereClause
-
-	// var total int
-	// err := r.pool.QueryRow(ctx, countQuery, countArgs...).Scan(&total)
-	// if err != nil {
-	// 	return nil, 0, fmt.Errorf("students.Repository.List: count: %w", err)
-	// }
-
-	// if total == 0 {
-	// 	return []Student{}, 0, nil
-	// }
-
-	// offset := (filter.Page - 1) * filter.Limit
-	// dataArgs := countArgs
 	dataQuery := `
 		SELECT s.id, s.full_name
 		FROM cbc_students s

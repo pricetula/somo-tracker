@@ -245,36 +245,56 @@ func (r *PgRepository) GetDetail(ctx context.Context, id, tenantID string) (*Par
 	}, nil
 }
 
-// List returns parents optionally filtered by search (name/email) or student_id.
-func (r *PgRepository) List(ctx context.Context, tenantID string, search, studentID string) ([]Parent, error) {
-	baseQuery := `SELECT ` + parentJoinColumns + parentJoin + ` WHERE cp.tenant_id = $1`
+// List returns parents optionally filtered by search (name/email) or student_id, with pagination.
+func (r *PgRepository) List(ctx context.Context, tenantID string, search, studentID string, page, limit int) ([]Parent, int, error) {
+	whereClause := `WHERE cp.tenant_id = $1`
 	args := []interface{}{tenantID}
 	argIdx := 2
 
 	if search != "" {
-		baseQuery += fmt.Sprintf(` AND (u.full_name ILIKE $%d OR u.email ILIKE $%d)`, argIdx, argIdx+1)
+		whereClause += fmt.Sprintf(` AND (u.full_name ILIKE $%d OR u.email ILIKE $%d)`, argIdx, argIdx+1)
 		searchPattern := "%" + search + "%"
 		args = append(args, searchPattern, searchPattern)
 		argIdx += 2
 	}
 
 	if studentID != "" {
-		baseQuery += fmt.Sprintf(` AND cp.id IN (
+		whereClause += fmt.Sprintf(` AND cp.id IN (
 			SELECT sp.parent_id FROM cbc_student_parents sp
 			WHERE sp.student_id = $%d
 		)`, argIdx)
 		args = append(args, studentID)
+		argIdx++
 	}
 
-	baseQuery += ` ORDER BY u.full_name ASC`
-
-	rows, err := r.pool.Query(ctx, baseQuery, args...)
+	// Count query
+	countQuery := `SELECT COUNT(*) FROM cbc_parents cp ` + parentJoin + ` ` + whereClause
+	var total int
+	err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&total)
 	if err != nil {
-		return nil, fmt.Errorf("parents.Repository.List: %w", err)
+		return nil, 0, fmt.Errorf("parents.Repository.List: count: %w", err)
+	}
+
+	if total == 0 {
+		return []Parent{}, 0, nil
+	}
+
+	offset := (page - 1) * limit
+	dataQuery := `SELECT ` + parentJoinColumns + ` FROM cbc_parents cp ` + parentJoin + ` ` + whereClause + ` ORDER BY u.full_name ASC LIMIT $` + fmt.Sprintf("%d", argIdx) + ` OFFSET $` + fmt.Sprintf("%d", argIdx+1)
+	dataArgs := append(args, limit, offset)
+
+	rows, err := r.pool.Query(ctx, dataQuery, dataArgs...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("parents.Repository.List: query: %w", err)
 	}
 	defer rows.Close()
 
-	return scanParentsRows(rows)
+	parents, err := scanParentsRows(rows)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return parents, total, nil
 }
 
 // ============================================================================

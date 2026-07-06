@@ -19,6 +19,7 @@ export async function listClasses(params: {
     academic_term_id: string;
     grade_level?: string;
     stream_id?: string;
+    search?: string;
     page?: number;
     limit?: number;
 }): Promise<ClassListResult> {
@@ -27,6 +28,7 @@ export async function listClasses(params: {
     searchParams.set("academic_term_id", params.academic_term_id);
     if (params.grade_level) searchParams.set("grade_level", params.grade_level);
     if (params.stream_id) searchParams.set("stream_id", params.stream_id);
+    if (params.search) searchParams.set("search", params.search);
     if (params.page) searchParams.set("page", String(params.page));
     if (params.limit) searchParams.set("limit", String(params.limit));
 

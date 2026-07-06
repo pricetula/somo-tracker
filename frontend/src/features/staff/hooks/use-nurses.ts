@@ -35,8 +35,7 @@ export function useNurses(
 
     return useQuery<ListMembersResponse>({
         queryKey: [...nursesKeys.list({ page, limit, search, includeInactive })],
-        queryFn: () =>
-            listNurses({ page, per_page: limit, search, include_inactive: includeInactive }),
+        queryFn: () => listNurses({ page, limit, search, include_inactive: includeInactive }),
         placeholderData: (prev) => prev,
         enabled,
     });

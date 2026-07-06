@@ -83,6 +83,9 @@ type ParentDetailResponse struct {
 
 type ListParentsResponse struct {
 	Items []Parent `json:"items"`
+	Total int      `json:"total"`
+	Page  int      `json:"page"`
+	Limit int      `json:"limit"`
 }
 
 // ============================================================================
@@ -110,8 +113,8 @@ type Repository interface {
 	// GetDetail retrieves a parent with linked students.
 	GetDetail(ctx context.Context, id, tenantID string) (*ParentDetail, error)
 
-	// List returns parents filtered by search or student_id.
-	List(ctx context.Context, tenantID string, search, studentID string) ([]Parent, error)
+	// List returns parents filtered by search or student_id, with pagination.
+	List(ctx context.Context, tenantID string, search, studentID string, page, limit int) ([]Parent, int, error)
 
 	// Update applies partial updates to a parent profile.
 	Update(ctx context.Context, id, tenantID string, payload UpdateParentPayload) error

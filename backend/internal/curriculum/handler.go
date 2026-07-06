@@ -1,6 +1,9 @@
 package curriculum
 
 import (
+	"strconv"
+	"strings"
+
 	"github.com/gofiber/fiber/v2"
 
 	"somotracker/backend/internal/middleware"
@@ -118,14 +121,27 @@ func (h *Handler) ListLearningAreas(c *fiber.Ctx) error {
 		educationLevel = &el
 	}
 
-	areas, err := h.svc.ListLearningAreas(c.Context(), tenantID, schoolID, educationLevel)
+	page, _ := strconv.Atoi(c.Query("page", "1"))
+	limit, _ := strconv.Atoi(c.Query("limit", "50"))
+	search := strings.TrimSpace(c.Query("search"))
+
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 50
+	}
+
+	areas, total, err := h.svc.ListLearningAreas(c.Context(), tenantID, schoolID, educationLevel, search, page, limit)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
 
 	return c.JSON(ListLearningAreasResponse{
 		Items: areas,
-		Total: len(areas),
+		Total: total,
+		Page:  page,
+		Limit: limit,
 	})
 }
 

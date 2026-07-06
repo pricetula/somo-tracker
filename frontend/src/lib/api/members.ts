@@ -17,11 +17,11 @@ export type { Member, ListMembersResponse };
 /** List members by role with pagination and optional search. */
 export async function listMembers(
     role: "TEACHER" | "NURSE" | "FINANCE" | "SCHOOL_ADMIN",
-    params: { page?: number; per_page?: number; search?: string } = {}
+    params: { page?: number; limit?: number; search?: string } = {}
 ): Promise<ListMembersResponse> {
     const searchParams = new URLSearchParams({ role });
     if (params.page) searchParams.set("page", String(params.page));
-    if (params.per_page) searchParams.set("per_page", String(params.per_page));
+    if (params.limit) searchParams.set("limit", String(params.limit));
     if (params.search) searchParams.set("search", params.search);
 
     const qs = searchParams.toString();

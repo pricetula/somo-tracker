@@ -131,10 +131,13 @@ export interface UpdatePerformanceIndicatorPayload {
 
 /** List all learning areas for the current school, optionally filtered by education_level. */
 export async function listLearningAreas(
-    params: { education_level?: string } = {}
+    params: { education_level?: string; search?: string; page?: number; limit?: number } = {}
 ): Promise<ListLearningAreasResponse> {
     const searchParams = new URLSearchParams();
     if (params.education_level) searchParams.set("education_level", params.education_level);
+    if (params.search) searchParams.set("search", params.search);
+    if (params.page) searchParams.set("page", String(params.page));
+    if (params.limit) searchParams.set("limit", String(params.limit));
 
     const qs = searchParams.toString();
     return api.get<ListLearningAreasResponse>(`/api/v1/curriculum/learning-areas?${qs}`);

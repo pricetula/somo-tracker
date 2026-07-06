@@ -86,26 +86,48 @@ func (r *PgRepository) GetLearningAreaByID(ctx context.Context, id, tenantID, sc
 	return &la, nil
 }
 
-// ListLearningAreas returns all learning areas for the given tenant and school,
-// optionally filtered by education_level.
-func (r *PgRepository) ListLearningAreas(ctx context.Context, tenantID, schoolID string, educationLevel *string) ([]LearningArea, error) {
-	query := `
-		SELECT id, tenant_id, school_id, name, code, education_level::text
-		FROM cbc_learning_areas
-		WHERE tenant_id = $1 AND school_id = $2
-	`
+// ListLearningAreas returns paginated learning areas for the given tenant and school,
+// optionally filtered by education_level and search (name or code).
+func (r *PgRepository) ListLearningAreas(ctx context.Context, tenantID, schoolID string, educationLevel *string, search string, page, limit int) ([]LearningArea, int, error) {
+	whereClause := `WHERE tenant_id = $1 AND school_id = $2`
 	args := []interface{}{tenantID, schoolID}
+	argIdx := 3
 
 	if educationLevel != nil && *educationLevel != "" {
 		args = append(args, *educationLevel)
-		query += fmt.Sprintf(" AND education_level = $%d::cbc_education_level", len(args))
+		whereClause += fmt.Sprintf(" AND education_level = $%d::cbc_education_level", argIdx)
+		argIdx++
 	}
 
-	query += " ORDER BY name ASC"
+	if search != "" {
+		pattern := "%" + search + "%"
+		args = append(args, pattern, pattern)
+		whereClause += fmt.Sprintf(" AND (name ILIKE $%d OR code ILIKE $%d)", argIdx, argIdx+1)
+		argIdx += 2
+	}
 
-	rows, err := r.pool.Query(ctx, query, args...)
+	// Count query
+	countQuery := `SELECT COUNT(*) FROM cbc_learning_areas ` + whereClause
+	var total int
+	err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&total)
 	if err != nil {
-		return nil, fmt.Errorf("curriculum.Repository.ListLearningAreas: %w", err)
+		return nil, 0, fmt.Errorf("curriculum.Repository.ListLearningAreas: count: %w", err)
+	}
+
+	if total == 0 {
+		return []LearningArea{}, 0, nil
+	}
+
+	// Data query
+	offset := (page - 1) * limit
+	dataQuery := `
+		SELECT id, tenant_id, school_id, name, code, education_level::text
+		FROM cbc_learning_areas ` + whereClause + ` ORDER BY name ASC LIMIT $` + fmt.Sprintf("%d", argIdx) + ` OFFSET $` + fmt.Sprintf("%d", argIdx+1)
+	dataArgs := append(args, limit, offset)
+
+	rows, err := r.pool.Query(ctx, dataQuery, dataArgs...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("curriculum.Repository.ListLearningAreas: query: %w", err)
 	}
 	defer rows.Close()
 
@@ -113,19 +135,19 @@ func (r *PgRepository) ListLearningAreas(ctx context.Context, tenantID, schoolID
 	for rows.Next() {
 		var la LearningArea
 		if err := rows.Scan(&la.ID, &la.TenantID, &la.SchoolID, &la.Name, &la.Code, &la.EducationLevel); err != nil {
-			return nil, fmt.Errorf("curriculum.Repository.ListLearningAreas: scan: %w", err)
+			return nil, 0, fmt.Errorf("curriculum.Repository.ListLearningAreas: scan: %w", err)
 		}
 		areas = append(areas, la)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("curriculum.Repository.ListLearningAreas: rows: %w", err)
+		return nil, 0, fmt.Errorf("curriculum.Repository.ListLearningAreas: rows: %w", err)
 	}
 
 	if areas == nil {
 		areas = []LearningArea{}
 	}
 
-	return areas, nil
+	return areas, total, nil
 }
 
 // UpdateLearningArea modifies learning area fields. Only non-nil fields are applied.

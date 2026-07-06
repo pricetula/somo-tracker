@@ -42,27 +42,29 @@ func (h *Handler) List(c *fiber.Ctx) error {
 	}
 
 	page, _ := strconv.Atoi(c.Query("page", "1"))
-	perPage, _ := strconv.Atoi(c.Query("per_page", "50"))
+	limit, _ := strconv.Atoi(c.Query("limit", "50"))
 	search := strings.TrimSpace(c.Query("search", ""))
 	includeInactive := strings.ToLower(c.Query("include_inactive", "false")) == "true"
 
 	if page < 1 {
 		page = 1
 	}
-	if perPage < 1 || perPage > 100 {
-		perPage = 50
+	if limit < 1 || limit > 100 {
+		limit = 50
 	}
 
-	offset := (page - 1) * perPage
+	offset := (page - 1) * limit
 
-	teachersList, total, err := h.svc.ListTeachers(c.Context(), tenantID, schoolID, includeInactive, offset, perPage, search)
+	teachersList, total, err := h.svc.ListTeachers(c.Context(), tenantID, schoolID, includeInactive, offset, limit, search)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
 
 	return c.JSON(ListResponse{
-		Teachers: teachersList,
-		Total:    total,
+		Items: teachersList,
+		Total: total,
+		Page:  page,
+		Limit: limit,
 	})
 }
 

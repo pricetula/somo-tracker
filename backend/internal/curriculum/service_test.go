@@ -13,7 +13,7 @@ import (
 type MockRepository struct {
 	createLearningAreaFn  func(ctx context.Context, params CreateLearningAreaParams) (string, error)
 	getLearningAreaByIDFn func(ctx context.Context, id, tenantID, schoolID string) (*LearningArea, error)
-	listLearningAreasFn   func(ctx context.Context, tenantID, schoolID string, educationLevel *string) ([]LearningArea, error)
+	listLearningAreasFn   func(ctx context.Context, tenantID, schoolID string, educationLevel *string, search string, page, limit int) ([]LearningArea, int, error)
 	updateLearningAreaFn  func(ctx context.Context, params UpdateLearningAreaParams) error
 	deleteLearningAreaFn  func(ctx context.Context, id, tenantID, schoolID string) error
 
@@ -66,11 +66,11 @@ func (m *MockRepository) GetLearningAreaByID(ctx context.Context, id, tenantID, 
 	return &LearningArea{ID: id, TenantID: tenantID, SchoolID: schoolID, Name: "Mathematics", Code: "MATH", EducationLevel: "Junior_Secondary"}, nil
 }
 
-func (m *MockRepository) ListLearningAreas(ctx context.Context, tenantID, schoolID string, educationLevel *string) ([]LearningArea, error) {
+func (m *MockRepository) ListLearningAreas(ctx context.Context, tenantID, schoolID string, educationLevel *string, search string, page, limit int) ([]LearningArea, int, error) {
 	if m.listLearningAreasFn != nil {
-		return m.listLearningAreasFn(ctx, tenantID, schoolID, educationLevel)
+		return m.listLearningAreasFn(ctx, tenantID, schoolID, educationLevel, search, page, limit)
 	}
-	return []LearningArea{}, nil
+	return []LearningArea{}, 0, nil
 }
 
 func (m *MockRepository) UpdateLearningArea(ctx context.Context, params UpdateLearningAreaParams) error {
@@ -836,19 +836,22 @@ func TestListLearningAreas_HappyPath(t *testing.T) {
 		{ID: "area_002", TenantID: "tenant_001", SchoolID: "school_001", Name: "Mathematics", Code: "MATH", EducationLevel: "Early_Years"},
 	}
 
-	h.repo.listLearningAreasFn = func(ctx context.Context, tenantID, schoolID string, educationLevel *string) ([]LearningArea, error) {
+	h.repo.listLearningAreasFn = func(ctx context.Context, tenantID, schoolID string, educationLevel *string, search string, page, limit int) ([]LearningArea, int, error) {
 		if tenantID != "tenant_001" {
 			t.Errorf("expected tenantID 'tenant_001', got %q", tenantID)
 		}
 		if schoolID != "school_001" {
 			t.Errorf("expected schoolID 'school_001', got %q", schoolID)
 		}
-		return expectedAreas, nil
+		return expectedAreas, len(expectedAreas), nil
 	}
 
-	areas, err := h.svc.ListLearningAreas(context.Background(), "tenant_001", "school_001", nil)
+	areas, total, err := h.svc.ListLearningAreas(context.Background(), "tenant_001", "school_001", nil, "", 1, 50)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+	if total != 2 {
+		t.Fatalf("expected total 2, got %d", total)
 	}
 	if len(areas) != 2 {
 		t.Fatalf("expected 2 areas, got %d", len(areas))

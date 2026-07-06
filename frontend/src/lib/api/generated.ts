@@ -140,11 +140,10 @@ export interface Class {
 }
 
 export interface ClassListResult {
-    data: Class[];
-    total_records: number;
-    current_page: number;
+    items: Class[];
+    total: number;
+    page: number;
     limit: number;
-    total_pages: number;
 }
 
 export interface Member {
@@ -159,6 +158,8 @@ export interface Member {
 export interface ListMembersResponse {
     items: Member[];
     total: number;
+    page: number;
+    limit: number;
 }
 
 export interface TeacherMember {
@@ -175,6 +176,8 @@ export interface TeacherMember {
 export interface ListTeachersResponse {
     items: TeacherMember[];
     total: number;
+    page: number;
+    limit: number;
 }
 
 export type InvitationStatus = "pending" | "accepted" | "expired" | "revoked" | "invite_failed";
@@ -196,6 +199,8 @@ export interface Invitation {
 export interface ListInvitationsResponse {
     items: Invitation[];
     total: number;
+    page: number;
+    limit: number;
 }
 
 export interface SwitchActiveSchoolPayload {

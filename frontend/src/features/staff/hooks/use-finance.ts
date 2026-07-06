@@ -35,8 +35,7 @@ export function useFinanceStaff(
 
     return useQuery<ListMembersResponse>({
         queryKey: [...financeKeys.list({ page, limit, search, includeInactive })],
-        queryFn: () =>
-            listFinanceStaff({ page, per_page: limit, search, include_inactive: includeInactive }),
+        queryFn: () => listFinanceStaff({ page, limit, search, include_inactive: includeInactive }),
         placeholderData: (prev) => prev,
         enabled,
     });

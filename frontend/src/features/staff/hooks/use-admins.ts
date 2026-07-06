@@ -35,8 +35,7 @@ export function useAdmins(
 
     return useQuery<ListMembersResponse>({
         queryKey: [...adminsKeys.list({ page, limit, search, includeInactive })],
-        queryFn: () =>
-            listAdmins({ page, per_page: limit, search, include_inactive: includeInactive }),
+        queryFn: () => listAdmins({ page, limit, search, include_inactive: includeInactive }),
         placeholderData: (prev) => prev,
         enabled,
     });

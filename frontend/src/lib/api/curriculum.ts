@@ -17,6 +17,7 @@ export interface LearningArea {
     name: string;
     code: string;
     education_level: string;
+    grade_level: string;
 }
 
 export interface Strand {
@@ -57,6 +58,7 @@ export interface LearningAreaTree {
     name: string;
     code: string;
     education_level: string;
+    grade_level: string;
     strands: StrandTree[];
 }
 
@@ -88,12 +90,14 @@ export interface CreateLearningAreaPayload {
     code: string;
     name: string;
     education_level: string;
+    grade_level: string;
 }
 
 export interface UpdateLearningAreaPayload {
     name?: string;
     code?: string;
     education_level?: string;
+    grade_level?: string;
 }
 
 export interface CreateStrandPayload {
@@ -129,12 +133,32 @@ export interface UpdatePerformanceIndicatorPayload {
 
 // ── Learning Areas ─────────────────────────────────────────────────────────
 
-/** List all learning areas for the current school, optionally filtered by education_level. */
+/** List all learning areas for the current school, optionally filtered by education_level, grade_level, and search. */
 export async function listLearningAreas(
-    params: { education_level?: string; search?: string; page?: number; limit?: number } = {}
+    params: {
+        education_level?: string;
+        grade_level?: string;
+        filters?: Record<string, string[]>;
+        search?: string;
+        page?: number;
+        limit?: number;
+    } = {}
 ): Promise<ListLearningAreasResponse> {
     const searchParams = new URLSearchParams();
-    if (params.education_level) searchParams.set("education_level", params.education_level);
+
+    // Support both legacy single-value params and DataTable filter groups
+    const edLevels =
+        params.filters?.education_level ?? (params.education_level ? [params.education_level] : []);
+    for (const el of edLevels) {
+        searchParams.append("education_level", el);
+    }
+
+    const grLevels =
+        params.filters?.grade_level ?? (params.grade_level ? [params.grade_level] : []);
+    for (const gl of grLevels) {
+        searchParams.append("grade_level", gl);
+    }
+
     if (params.search) searchParams.set("search", params.search);
     if (params.page) searchParams.set("page", String(params.page));
     if (params.limit) searchParams.set("limit", String(params.limit));

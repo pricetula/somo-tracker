@@ -15,6 +15,15 @@ var validEducationLevels = map[string]bool{
 	"Senior_School":    true,
 }
 
+// validGradeLevels contains the allowed cbc_grade_level enum values.
+var validGradeLevels = map[string]bool{
+	"PP1": true, "PP2": true,
+	"G1": true, "G2": true, "G3": true,
+	"G4": true, "G5": true, "G6": true,
+	"G7": true, "G8": true, "G9": true,
+	"G10": true, "G11": true, "G12": true,
+}
+
 // codePattern validates that code is uppercase alphanumeric + underscore.
 var codePattern = regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)
 
@@ -47,8 +56,8 @@ func (s *Service) GetLearningArea(ctx context.Context, id, tenantID, schoolID st
 }
 
 // ListLearningAreas returns paginated learning areas for the given tenant and school,
-// optionally filtered by education_level and search term.
-func (s *Service) ListLearningAreas(ctx context.Context, tenantID, schoolID string, educationLevel *string, search string, page, limit int) ([]LearningArea, int, error) {
+// optionally filtered by education_levels, grade_levels, and search term.
+func (s *Service) ListLearningAreas(ctx context.Context, tenantID, schoolID string, educationLevels, gradeLevels []string, search string, page, limit int) ([]LearningArea, int, error) {
 	if tenantID == "" || schoolID == "" {
 		return nil, 0, fmt.Errorf("curriculum.Service.ListLearningAreas: %w", ErrInvalidInput)
 	}
@@ -58,7 +67,7 @@ func (s *Service) ListLearningAreas(ctx context.Context, tenantID, schoolID stri
 	if limit < 1 || limit > 100 {
 		limit = 50
 	}
-	return s.Repo.ListLearningAreas(ctx, tenantID, schoolID, educationLevel, search, page, limit)
+	return s.Repo.ListLearningAreas(ctx, tenantID, schoolID, educationLevels, gradeLevels, search, page, limit)
 }
 
 // UpdateLearningArea applies partial updates to a learning area.
@@ -66,7 +75,7 @@ func (s *Service) UpdateLearningArea(ctx context.Context, params UpdateLearningA
 	if params.ID == "" || params.TenantID == "" || params.SchoolID == "" {
 		return fmt.Errorf("curriculum.Service.UpdateLearningArea: %w", ErrInvalidInput)
 	}
-	if params.Name == nil && params.Code == nil && params.EducationLevel == nil {
+	if params.Name == nil && params.Code == nil && params.EducationLevel == nil && params.GradeLevel == nil {
 		return fmt.Errorf("curriculum.Service.UpdateLearningArea: %w", ErrInvalidInput)
 	}
 	if params.Name != nil {
@@ -81,6 +90,11 @@ func (s *Service) UpdateLearningArea(ctx context.Context, params UpdateLearningA
 	}
 	if params.EducationLevel != nil {
 		if err := validateEducationLevel(*params.EducationLevel); err != nil {
+			return fmt.Errorf("curriculum.Service.UpdateLearningArea: %w", err)
+		}
+	}
+	if params.GradeLevel != nil {
+		if err := validateGradeLevel(*params.GradeLevel); err != nil {
 			return fmt.Errorf("curriculum.Service.UpdateLearningArea: %w", err)
 		}
 	}
@@ -321,6 +335,9 @@ func validateCreateLearningArea(params CreateLearningAreaParams) error {
 	if err := validateEducationLevel(params.EducationLevel); err != nil {
 		return err
 	}
+	if err := validateGradeLevel(params.GradeLevel); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -361,6 +378,23 @@ func validateEducationLevel(level string) error {
 		return fmt.Errorf(
 			"invalid education_level %q; must be one of: %s: %w",
 			level, strings.Join(valid, ", "), ErrInvalidInput,
+		)
+	}
+	return nil
+}
+
+func validateGradeLevel(grade string) error {
+	if grade == "" {
+		return fmt.Errorf("grade_level is required: %w", ErrInvalidInput)
+	}
+	if !validGradeLevels[grade] {
+		valid := make([]string, 0, len(validGradeLevels))
+		for k := range validGradeLevels {
+			valid = append(valid, k)
+		}
+		return fmt.Errorf(
+			"invalid grade_level %q; must be one of: %s: %w",
+			grade, strings.Join(valid, ", "), ErrInvalidInput,
 		)
 	}
 	return nil

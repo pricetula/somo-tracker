@@ -258,16 +258,17 @@ func (s *SeedingService) seedLearningArea(
 
 	// Upsert learning area: INSERT ON CONFLICT DO UPDATE so that RETURNING id
 	// always works, even on re-runs.
+	// grade_level is stored explicitly per grade file.
 	const upsertLA = `
-		INSERT INTO cbc_learning_areas (tenant_id, school_id, name, code, education_level)
-		VALUES ($1, $2, $3, $4, $5::cbc_education_level)
-		ON CONFLICT (tenant_id, school_id, code)
+		INSERT INTO cbc_learning_areas (tenant_id, school_id, name, code, education_level, grade_level)
+		VALUES ($1, $2, $3, $4, $5::cbc_education_level, $6::cbc_grade_level)
+		ON CONFLICT (tenant_id, school_id, code, grade_level)
 		DO UPDATE SET name = EXCLUDED.name, education_level = EXCLUDED.education_level
 		RETURNING id
 	`
 	var learningAreaID string
 	err := tx.QueryRow(ctx, upsertLA,
-		tenantID, schoolID, la.Name, la.Code, educationLevel,
+		tenantID, schoolID, la.Name, la.Code, educationLevel, grade,
 	).Scan(&learningAreaID)
 	if err != nil {
 		return fmt.Errorf("seeding.seedLearningArea: upsert %q: %w", la.Code, err)

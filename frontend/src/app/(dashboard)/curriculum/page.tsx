@@ -11,19 +11,13 @@ import * as React from "react";
 import Link from "next/link";
 
 import { DataTable, type DataTableColumn } from "@/components/shared/data-table";
+import type { FilterGroup } from "@/components/shared/data-table/types";
 import {
     CreateLearningAreaDialog,
     useDeleteLearningArea,
     curriculumKeys,
 } from "@/features/curriculum";
 import { listLearningAreas, type LearningArea } from "@/lib/api/curriculum";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 
@@ -39,6 +33,62 @@ const EDUCATION_LEVEL_LABELS: Record<string, string> = {
 function formatEducationLevel(level: string): string {
     return EDUCATION_LEVEL_LABELS[level] ?? level;
 }
+
+// ─── Grade Level Labels ───────────────────────────────────────────────────
+
+const GRADE_LEVEL_LABELS: Record<string, string> = {
+    PP1: "PP1",
+    PP2: "PP2",
+    G1: "Grade 1",
+    G2: "Grade 2",
+    G3: "Grade 3",
+    G4: "Grade 4",
+    G5: "Grade 5",
+    G6: "Grade 6",
+    G7: "Grade 7",
+    G8: "Grade 8",
+    G9: "Grade 9",
+    G10: "Grade 10",
+    G11: "Grade 11",
+    G12: "Grade 12",
+};
+
+// ─── Filter Groups ────────────────────────────────────────────────────────
+
+const filterGroups: FilterGroup[] = [
+    {
+        id: "education_level",
+        label: "Education Level",
+        type: "multi",
+        items: [
+            { id: "early_years", label: "Early Years", value: "Early_Years" },
+            { id: "upper_primary", label: "Upper Primary", value: "Upper_Primary" },
+            { id: "junior_secondary", label: "Junior Secondary", value: "Junior_Secondary" },
+            { id: "senior_school", label: "Senior School", value: "Senior_School" },
+        ],
+    },
+    {
+        id: "grade_level",
+        label: "Grade",
+        type: "multi",
+        items: [
+            { id: "pp1", label: "PP1", value: "PP1" },
+            { id: "pp2", label: "PP2", value: "PP2" },
+            { id: "g1", label: "Grade 1", value: "G1" },
+            { id: "g2", label: "Grade 2", value: "G2" },
+            { id: "g3", label: "Grade 3", value: "G3" },
+            { id: "g4", label: "Grade 4", value: "G4" },
+            { id: "g5", label: "Grade 5", value: "G5" },
+            { id: "g6", label: "Grade 6", value: "G6" },
+            { id: "g7", label: "Grade 7", value: "G7" },
+            { id: "g8", label: "Grade 8", value: "G8" },
+            { id: "g9", label: "Grade 9", value: "G9" },
+            { id: "g10", label: "Grade 10", value: "G10" },
+            { id: "g11", label: "Grade 11", value: "G11" },
+            { id: "g12", label: "Grade 12", value: "G12" },
+        ],
+    },
+];
 
 // ─── Columns ───────────────────────────────────────────────────────────────
 
@@ -75,20 +125,24 @@ const columns: DataTableColumn<LearningArea>[] = [
             </span>
         ),
     },
+    {
+        id: "grade_level",
+        header: "Grade",
+        width: "120px",
+        cell: (row) => (
+            <span className="text-muted-foreground text-sm">
+                {GRADE_LEVEL_LABELS[row.grade_level] ?? row.grade_level}
+            </span>
+        ),
+    },
 ];
 
 // ─── Page Component ────────────────────────────────────────────────────────
 
 export default function CurriculumPage() {
-    const [educationLevel, setEducationLevel] = React.useState<string>("");
     const [createOpen, setCreateOpen] = React.useState(false);
 
     const deleteMutation = useDeleteLearningArea();
-
-    const params = React.useMemo(
-        () => ({ education_level: educationLevel || undefined }),
-        [educationLevel]
-    );
 
     return (
         <div className="flex flex-1 flex-col">
@@ -96,21 +150,6 @@ export default function CurriculumPage() {
             <div className="flex items-center gap-3 px-6 pt-6 pb-2">
                 <h1 className="text-2xl font-semibold tracking-tight">Curriculum</h1>
                 <div className="ml-auto flex items-center gap-2">
-                    <Select
-                        value={educationLevel}
-                        onValueChange={(v) => setEducationLevel(v === "all" ? "" : v)}
-                    >
-                        <SelectTrigger className="h-8 w-44 text-xs">
-                            <SelectValue placeholder="All levels" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">All levels</SelectItem>
-                            <SelectItem value="Early_Years">Early Years</SelectItem>
-                            <SelectItem value="Upper_Primary">Upper Primary</SelectItem>
-                            <SelectItem value="Junior_Secondary">Junior Secondary</SelectItem>
-                            <SelectItem value="Senior_School">Senior School</SelectItem>
-                        </SelectContent>
-                    </Select>
                     <Button variant="outline" size="sm" onClick={() => setCreateOpen(true)}>
                         <Plus className="mr-1.5 size-3.5" />
                         Add Learning Area
@@ -121,19 +160,19 @@ export default function CurriculumPage() {
             <div className="flex flex-1 flex-col px-6 py-4">
                 <section className="flex flex-1 flex-col">
                     <DataTable
-                        queryKey={curriculumKeys.learningAreas.list(params)}
+                        queryKey={curriculumKeys.learningAreas.list()}
                         queryFn={listLearningAreas}
-                        params={params}
                         columns={columns}
                         getRowId={(row) => row.id}
                         isSearchable
                         searchPlaceholder="Search learning areas..."
+                        filterGroups={filterGroups}
                         isCheckable
                         deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
                         rowHeight={48}
                         height={600}
                         emptyState="No learning areas yet."
-                        noResultsState="No learning areas match your search."
+                        noResultsState="No learning areas match your search or filters."
                     />
                 </section>
             </div>

@@ -49,8 +49,8 @@ func joinClauses(clauses []string, sep string) string {
 // CreateLearningArea inserts a new cbc_learning_area and returns its ID.
 func (r *PgRepository) CreateLearningArea(ctx context.Context, params CreateLearningAreaParams) (string, error) {
 	const query = `
-		INSERT INTO cbc_learning_areas (tenant_id, school_id, name, code, education_level)
-		VALUES ($1, $2, $3, $4, $5::cbc_education_level)
+		INSERT INTO cbc_learning_areas (tenant_id, school_id, name, code, education_level, grade_level)
+		VALUES ($1, $2, $3, $4, $5::cbc_education_level, $6::cbc_grade_level)
 		RETURNING id
 	`
 	var id string
@@ -60,6 +60,7 @@ func (r *PgRepository) CreateLearningArea(ctx context.Context, params CreateLear
 		params.Name,
 		params.Code,
 		params.EducationLevel,
+		params.GradeLevel,
 	).Scan(&id)
 	if err != nil {
 		return "", fmt.Errorf("curriculum.Repository.CreateLearningArea: %w", err)
@@ -70,13 +71,13 @@ func (r *PgRepository) CreateLearningArea(ctx context.Context, params CreateLear
 // GetLearningAreaByID retrieves a single learning area by ID, scoped to tenant + school.
 func (r *PgRepository) GetLearningAreaByID(ctx context.Context, id, tenantID, schoolID string) (*LearningArea, error) {
 	const query = `
-		SELECT id, tenant_id, school_id, name, code, education_level::text
+		SELECT id, tenant_id, school_id, name, code, education_level::text, grade_level::text
 		FROM cbc_learning_areas
 		WHERE id = $1 AND tenant_id = $2 AND school_id = $3
 	`
 	var la LearningArea
 	err := r.pool.QueryRow(ctx, query, id, tenantID, schoolID).
-		Scan(&la.ID, &la.TenantID, &la.SchoolID, &la.Name, &la.Code, &la.EducationLevel)
+		Scan(&la.ID, &la.TenantID, &la.SchoolID, &la.Name, &la.Code, &la.EducationLevel, &la.GradeLevel)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, fmt.Errorf("curriculum.Repository.GetLearningAreaByID: %w", ErrNotFound)
@@ -87,15 +88,22 @@ func (r *PgRepository) GetLearningAreaByID(ctx context.Context, id, tenantID, sc
 }
 
 // ListLearningAreas returns paginated learning areas for the given tenant and school,
-// optionally filtered by education_level and search (name or code).
-func (r *PgRepository) ListLearningAreas(ctx context.Context, tenantID, schoolID string, educationLevel *string, search string, page, limit int) ([]LearningArea, int, error) {
+// optionally filtered by education_levels, grade_levels, and search (name or code).
+// Passing nil or empty slices for educationLevels/gradeLevels means no filter.
+func (r *PgRepository) ListLearningAreas(ctx context.Context, tenantID, schoolID string, educationLevels, gradeLevels []string, search string, page, limit int) ([]LearningArea, int, error) {
 	whereClause := `WHERE tenant_id = $1 AND school_id = $2`
 	args := []interface{}{tenantID, schoolID}
 	argIdx := 3
 
-	if educationLevel != nil && *educationLevel != "" {
-		args = append(args, *educationLevel)
-		whereClause += fmt.Sprintf(" AND education_level = $%d::cbc_education_level", argIdx)
+	if len(educationLevels) > 0 {
+		args = append(args, educationLevels)
+		whereClause += fmt.Sprintf(" AND education_level = ANY($%d::cbc_education_level[])", argIdx)
+		argIdx++
+	}
+
+	if len(gradeLevels) > 0 {
+		args = append(args, gradeLevels)
+		whereClause += fmt.Sprintf(" AND grade_level = ANY($%d::cbc_grade_level[])", argIdx)
 		argIdx++
 	}
 
@@ -121,8 +129,8 @@ func (r *PgRepository) ListLearningAreas(ctx context.Context, tenantID, schoolID
 	// Data query
 	offset := (page - 1) * limit
 	dataQuery := `
-		SELECT id, tenant_id, school_id, name, code, education_level::text
-		FROM cbc_learning_areas ` + whereClause + ` ORDER BY name ASC LIMIT $` + fmt.Sprintf("%d", argIdx) + ` OFFSET $` + fmt.Sprintf("%d", argIdx+1)
+		SELECT id, tenant_id, school_id, name, code, education_level::text, grade_level::text
+		FROM cbc_learning_areas ` + whereClause + ` ORDER BY name, grade_level ASC LIMIT $` + fmt.Sprintf("%d", argIdx) + ` OFFSET $` + fmt.Sprintf("%d", argIdx+1)
 	dataArgs := append(args, limit, offset)
 
 	rows, err := r.pool.Query(ctx, dataQuery, dataArgs...)
@@ -134,7 +142,7 @@ func (r *PgRepository) ListLearningAreas(ctx context.Context, tenantID, schoolID
 	var areas []LearningArea
 	for rows.Next() {
 		var la LearningArea
-		if err := rows.Scan(&la.ID, &la.TenantID, &la.SchoolID, &la.Name, &la.Code, &la.EducationLevel); err != nil {
+		if err := rows.Scan(&la.ID, &la.TenantID, &la.SchoolID, &la.Name, &la.Code, &la.EducationLevel, &la.GradeLevel); err != nil {
 			return nil, 0, fmt.Errorf("curriculum.Repository.ListLearningAreas: scan: %w", err)
 		}
 		areas = append(areas, la)
@@ -169,6 +177,11 @@ func (r *PgRepository) UpdateLearningArea(ctx context.Context, params UpdateLear
 	if params.EducationLevel != nil {
 		setClauses = append(setClauses, fmt.Sprintf("education_level = $%d::cbc_education_level", argIdx))
 		args = append(args, *params.EducationLevel)
+		argIdx++
+	}
+	if params.GradeLevel != nil {
+		setClauses = append(setClauses, fmt.Sprintf("grade_level = $%d::cbc_grade_level", argIdx))
+		args = append(args, *params.GradeLevel)
 		argIdx++
 	}
 
@@ -577,13 +590,13 @@ func (r *PgRepository) GetMaxSequenceOrder(ctx context.Context, subStrandID stri
 func (r *PgRepository) GetTree(ctx context.Context, learningAreaID string) (*LearningAreaTree, error) {
 	// 1. Fetch the learning area (without tenant/school filter — caller must validate)
 	const laQuery = `
-		SELECT id, tenant_id, school_id, name, code, education_level::text
+		SELECT id, tenant_id, school_id, name, code, education_level::text, grade_level::text
 		FROM cbc_learning_areas
 		WHERE id = $1
 	`
 	var la LearningArea
 	err := r.pool.QueryRow(ctx, laQuery, learningAreaID).
-		Scan(&la.ID, &la.TenantID, &la.SchoolID, &la.Name, &la.Code, &la.EducationLevel)
+		Scan(&la.ID, &la.TenantID, &la.SchoolID, &la.Name, &la.Code, &la.EducationLevel, &la.GradeLevel)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, fmt.Errorf("curriculum.Repository.GetTree: %w", ErrNotFound)

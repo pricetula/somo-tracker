@@ -26,7 +26,7 @@ type Repository interface {
 	// Learning Areas
 	CreateLearningArea(ctx context.Context, params CreateLearningAreaParams) (string, error)
 	GetLearningAreaByID(ctx context.Context, id, tenantID, schoolID string) (*LearningArea, error)
-	ListLearningAreas(ctx context.Context, tenantID, schoolID string, educationLevel *string, search string, page, limit int) ([]LearningArea, int, error)
+	ListLearningAreas(ctx context.Context, tenantID, schoolID string, educationLevels, gradeLevels []string, search string, page, limit int) ([]LearningArea, int, error)
 	UpdateLearningArea(ctx context.Context, params UpdateLearningAreaParams) error
 	DeleteLearningArea(ctx context.Context, id, tenantID, schoolID string) error
 
@@ -67,7 +67,8 @@ type Repository interface {
 
 // ── Domain Models ─────────────────────────────────────────────────────────
 
-// LearningArea represents a CBC learning area (subject) taught at a school.
+// LearningArea represents a CBC learning area (subject) taught at a school
+// for a specific grade level.
 type LearningArea struct {
 	ID             string `json:"id"`
 	TenantID       string `json:"-"`
@@ -75,6 +76,7 @@ type LearningArea struct {
 	Name           string `json:"name"`
 	Code           string `json:"code"`
 	EducationLevel string `json:"education_level"`
+	GradeLevel     string `json:"grade_level"`
 }
 
 // Strand represents a CBC strand within a learning area.
@@ -126,6 +128,7 @@ type CreateLearningAreaParams struct {
 	Name           string
 	Code           string
 	EducationLevel string
+	GradeLevel     string
 }
 
 // UpdateLearningAreaParams holds fields that can be updated on a learning area.
@@ -136,6 +139,7 @@ type UpdateLearningAreaParams struct {
 	Name           *string
 	Code           *string
 	EducationLevel *string
+	GradeLevel     *string
 }
 
 // CreateStrandParams holds the fields needed to create a strand.
@@ -183,12 +187,14 @@ type CreateLearningAreaPayload struct {
 	Code           string `json:"code"`
 	Name           string `json:"name"`
 	EducationLevel string `json:"education_level"`
+	GradeLevel     string `json:"grade_level"`
 }
 
 type UpdateLearningAreaPayload struct {
 	Name           *string `json:"name,omitempty"`
 	Code           *string `json:"code,omitempty"`
 	EducationLevel *string `json:"education_level,omitempty"`
+	GradeLevel     *string `json:"grade_level,omitempty"`
 }
 
 type ListLearningAreasResponse struct {

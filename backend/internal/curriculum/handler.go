@@ -79,6 +79,40 @@ func invalidBody(c *fiber.Ctx) error {
 	})
 }
 
+// parseRepeatedQuery reads all values for a given query parameter name.
+// If the param appears once but contains commas, it splits on commas
+// (for client-side convenience when using ?param=a,b,c).
+func parseRepeatedQuery(c *fiber.Ctx, name string) []string {
+	vals := c.Query(name, "")
+	if vals == "" {
+		// Check for repeated params (Fiber combines them with comma)
+		if all := c.Request().URI().QueryArgs().PeekMulti(name); len(all) > 0 {
+			result := make([]string, 0, len(all))
+			for _, v := range all {
+				s := strings.TrimSpace(string(v))
+				if s != "" {
+					result = append(result, s)
+				}
+			}
+			return result
+		}
+		return nil
+	}
+	// Single value — could be comma-separated
+	parts := strings.Split(vals, ",")
+	result := make([]string, 0, len(parts))
+	for _, p := range parts {
+		s := strings.TrimSpace(p)
+		if s != "" {
+			result = append(result, s)
+		}
+	}
+	if len(result) == 0 {
+		return nil
+	}
+	return result
+}
+
 // ── Learning Area Handlers ───────────────────────────────────────────────
 
 // CreateLearningArea handles POST /api/v1/curriculum/learning-areas.
@@ -99,6 +133,7 @@ func (h *Handler) CreateLearningArea(c *fiber.Ctx) error {
 		Name:           payload.Name,
 		Code:           payload.Code,
 		EducationLevel: payload.EducationLevel,
+		GradeLevel:     payload.GradeLevel,
 	})
 	if err != nil {
 		return middleware.HTTPError(c, err)
@@ -110,16 +145,19 @@ func (h *Handler) CreateLearningArea(c *fiber.Ctx) error {
 }
 
 // ListLearningAreas handles GET /api/v1/curriculum/learning-areas.
+// Supports optional multi-select filtering via repeated query params:
+//
+//	?education_level=Early_Years&education_level=Upper_Primary
+//	&grade_level=PP1&grade_level=G4
 func (h *Handler) ListLearningAreas(c *fiber.Ctx) error {
 	tenantID, schoolID, err := getTenantAndSchool(c)
 	if err != nil {
 		return err
 	}
 
-	var educationLevel *string
-	if el := c.Query("education_level"); el != "" {
-		educationLevel = &el
-	}
+	// Multi-select filters — parse repeated query params
+	educationLevels := parseRepeatedQuery(c, "education_level")
+	gradeLevels := parseRepeatedQuery(c, "grade_level")
 
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	limit, _ := strconv.Atoi(c.Query("limit", "50"))
@@ -132,7 +170,7 @@ func (h *Handler) ListLearningAreas(c *fiber.Ctx) error {
 		limit = 50
 	}
 
-	areas, total, err := h.svc.ListLearningAreas(c.Context(), tenantID, schoolID, educationLevel, search, page, limit)
+	areas, total, err := h.svc.ListLearningAreas(c.Context(), tenantID, schoolID, educationLevels, gradeLevels, search, page, limit)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
@@ -229,6 +267,9 @@ func (h *Handler) UpdateLearningArea(c *fiber.Ctx) error {
 	}
 	if payload.EducationLevel != nil {
 		params.EducationLevel = payload.EducationLevel
+	}
+	if payload.GradeLevel != nil {
+		params.GradeLevel = payload.GradeLevel
 	}
 
 	if err := h.svc.UpdateLearningArea(c.Context(), params); err != nil {

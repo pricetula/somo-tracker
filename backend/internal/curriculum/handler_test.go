@@ -108,10 +108,13 @@ func TestHandler_CreateLearningArea_HappyPath(t *testing.T) {
 		if params.EducationLevel != "Junior_Secondary" {
 			t.Errorf("expected EducationLevel 'Junior_Secondary', got %q", params.EducationLevel)
 		}
+		if params.GradeLevel != "G7" {
+			t.Errorf("expected GradeLevel 'G7', got %q", params.GradeLevel)
+		}
 		return "area_001", nil
 	}
 
-	body, _ := json.Marshal(CreateLearningAreaPayload{Name: "Mathematics", Code: "MATH", EducationLevel: "Junior_Secondary"})
+	body, _ := json.Marshal(CreateLearningAreaPayload{Name: "Mathematics", Code: "MATH", EducationLevel: "Junior_Secondary", GradeLevel: "G7"})
 	resp := doRequest(h.app, "POST", "/api/v1/curriculum/learning-areas", body)
 
 	if resp.StatusCode != fiber.StatusCreated {
@@ -131,7 +134,7 @@ func TestHandler_CreateLearningArea_HappyPath(t *testing.T) {
 
 func TestHandler_CreateLearningArea_MissingName(t *testing.T) {
 	h := newHandlerTestHarness(t)
-	body, _ := json.Marshal(CreateLearningAreaPayload{Name: "", Code: "MATH", EducationLevel: "Junior_Secondary"})
+	body, _ := json.Marshal(CreateLearningAreaPayload{Name: "", Code: "MATH", EducationLevel: "Junior_Secondary", GradeLevel: "G7"})
 	resp := doRequest(h.app, "POST", "/api/v1/curriculum/learning-areas", body)
 	if resp.StatusCode != fiber.StatusBadRequest {
 		t.Fatalf("expected 400 Bad Request, got %d", resp.StatusCode)
@@ -150,11 +153,11 @@ func TestHandler_ListLearningAreas_HappyPath(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
 	expectedAreas := []LearningArea{
-		{ID: "area_001", Name: "English", Code: "ENG", EducationLevel: "Early_Years"},
-		{ID: "area_002", Name: "Mathematics", Code: "MATH", EducationLevel: "Early_Years"},
+		{ID: "area_001", Name: "English", Code: "ENG", EducationLevel: "Early_Years", GradeLevel: "PP1"},
+		{ID: "area_002", Name: "Mathematics", Code: "MATH", EducationLevel: "Early_Years", GradeLevel: "PP1"},
 	}
 
-	h.repo.listLearningAreasFn = func(ctx context.Context, tenantID, schoolID string, educationLevel *string, search string, page, limit int) ([]LearningArea, int, error) {
+	h.repo.listLearningAreasFn = func(ctx context.Context, tenantID, schoolID string, educationLevels, gradeLevels []string, search string, page, limit int) ([]LearningArea, int, error) {
 		return expectedAreas, len(expectedAreas), nil
 	}
 
@@ -176,7 +179,7 @@ func TestHandler_GetLearningAreaByID_HappyPath(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
 	h.repo.getLearningAreaByIDFn = func(ctx context.Context, id, tenantID, schoolID string) (*LearningArea, error) {
-		return &LearningArea{ID: id, Name: "Mathematics", Code: "MATH", EducationLevel: "Junior_Secondary"}, nil
+		return &LearningArea{ID: id, Name: "Mathematics", Code: "MATH", EducationLevel: "Junior_Secondary", GradeLevel: "G7"}, nil
 	}
 
 	resp := doRequest(h.app, "GET", "/api/v1/curriculum/learning-areas/area_001", nil)
@@ -210,7 +213,7 @@ func TestHandler_UpdateLearningArea_HappyPath(t *testing.T) {
 	newName := "Advanced Mathematics"
 
 	h.repo.getLearningAreaByIDFn = func(ctx context.Context, id, tenantID, schoolID string) (*LearningArea, error) {
-		return &LearningArea{ID: id, TenantID: tenantID, SchoolID: schoolID, Name: "Mathematics", Code: "MATH", EducationLevel: "Junior_Secondary"}, nil
+		return &LearningArea{ID: id, TenantID: tenantID, SchoolID: schoolID, Name: "Mathematics", Code: "MATH", EducationLevel: "Junior_Secondary", GradeLevel: "G7"}, nil
 	}
 	h.repo.updateLearningAreaFn = func(ctx context.Context, params UpdateLearningAreaParams) error {
 		if params.Name == nil || *params.Name != "Advanced Mathematics" {
@@ -244,7 +247,7 @@ func TestHandler_GetTree_HappyPath(t *testing.T) {
 
 	h.repo.getTreeFn = func(ctx context.Context, learningAreaID string) (*LearningAreaTree, error) {
 		return &LearningAreaTree{
-			LearningArea: LearningArea{ID: "area_001", Name: "Mathematics", Code: "MATH", EducationLevel: "Junior_Secondary"},
+			LearningArea: LearningArea{ID: "area_001", Name: "Mathematics", Code: "MATH", EducationLevel: "Junior_Secondary", GradeLevel: "G7"},
 			Strands: []StrandTree{
 				{
 					Strand: Strand{ID: "strand_001", LearningAreaID: "area_001", Name: "Numbers"},
@@ -616,7 +619,7 @@ func TestHandler_NoActiveSchool(t *testing.T) {
 
 	app.Group("/api/v1/curriculum/learning-areas", testAuth).Post("/", handler.CreateLearningArea)
 
-	body, _ := json.Marshal(CreateLearningAreaPayload{Name: "Test", Code: "TEST", EducationLevel: "Early_Years"})
+	body, _ := json.Marshal(CreateLearningAreaPayload{Name: "Test", Code: "TEST", EducationLevel: "Early_Years", GradeLevel: "PP1"})
 	resp := doRequest(app, "POST", "/api/v1/curriculum/learning-areas", body)
 	if resp.StatusCode != fiber.StatusBadRequest {
 		t.Fatalf("expected 400 Bad Request for missing active school, got %d", resp.StatusCode)

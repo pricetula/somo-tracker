@@ -28,6 +28,25 @@ import {
 import { useCreateLearningArea } from "../hooks/use-curriculum";
 import { isApiError } from "@/lib/errors";
 
+// ─── Grade Level Options ──────────────────────────────────────────────────
+
+const GRADE_OPTIONS = [
+    { label: "PP1", value: "PP1" },
+    { label: "PP2", value: "PP2" },
+    { label: "Grade 1", value: "G1" },
+    { label: "Grade 2", value: "G2" },
+    { label: "Grade 3", value: "G3" },
+    { label: "Grade 4", value: "G4" },
+    { label: "Grade 5", value: "G5" },
+    { label: "Grade 6", value: "G6" },
+    { label: "Grade 7", value: "G7" },
+    { label: "Grade 8", value: "G8" },
+    { label: "Grade 9", value: "G9" },
+    { label: "Grade 10", value: "G10" },
+    { label: "Grade 11", value: "G11" },
+    { label: "Grade 12", value: "G12" },
+];
+
 // ─── Props ─────────────────────────────────────────────────────────────────
 
 interface CreateLearningAreaDialogProps {
@@ -50,11 +69,13 @@ export function CreateLearningAreaDialog({ open, onOpenChange }: CreateLearningA
         code: string;
         name: string;
         education_level: string;
+        grade_level: string;
     }>({
         defaultValues: {
             code: "",
             name: "",
             education_level: "",
+            grade_level: "",
         },
     });
 
@@ -70,12 +91,18 @@ export function CreateLearningAreaDialog({ open, onOpenChange }: CreateLearningA
                 code: data.code.toUpperCase(),
                 name: data.name,
                 education_level: data.education_level,
+                grade_level: data.grade_level,
             });
             onOpenChange(false);
         } catch (err) {
             if (isApiError(err) && err.status === 400 && err.errors) {
                 for (const [field, messages] of Object.entries(err.errors)) {
-                    if (field === "code" || field === "name" || field === "education_level") {
+                    if (
+                        field === "code" ||
+                        field === "name" ||
+                        field === "education_level" ||
+                        field === "grade_level"
+                    ) {
                         setError(field, { message: messages[0] });
                     }
                 }
@@ -135,6 +162,25 @@ export function CreateLearningAreaDialog({ open, onOpenChange }: CreateLearningA
                             <p className="text-destructive text-xs">
                                 {errors.education_level.message}
                             </p>
+                        )}
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="grade_level">Grade Level</Label>
+                        <Select onValueChange={(v) => setValue("grade_level", v)}>
+                            <SelectTrigger id="grade_level">
+                                <SelectValue placeholder="Select grade" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {GRADE_OPTIONS.map((opt) => (
+                                    <SelectItem key={opt.value} value={opt.value}>
+                                        {opt.label}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        {errors.grade_level && (
+                            <p className="text-destructive text-xs">{errors.grade_level.message}</p>
                         )}
                     </div>
 

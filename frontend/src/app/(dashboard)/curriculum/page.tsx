@@ -7,16 +7,11 @@
 
 "use client";
 
-import * as React from "react";
 import Link from "next/link";
 
 import { DataTable, type DataTableColumn } from "@/components/shared/data-table";
 import type { FilterGroup } from "@/components/shared/data-table/types";
-import {
-    CreateLearningAreaDialog,
-    useDeleteLearningArea,
-    curriculumKeys,
-} from "@/features/curriculum";
+import { useDeleteLearningArea, curriculumKeys } from "@/features/curriculum";
 import { listLearningAreas, type LearningArea } from "@/lib/api/curriculum";
 
 // ─── Education Level Labels ───────────────────────────────────────────────
@@ -148,28 +143,24 @@ const columns: DataTableColumn<LearningArea>[] = [
 // ─── Page Component ────────────────────────────────────────────────────────
 
 export default function CurriculumPage() {
-    const [createOpen, setCreateOpen] = React.useState(false);
-
     const deleteMutation = useDeleteLearningArea();
 
     return (
-        <>
-            <DataTable
-                queryKey={curriculumKeys.learningAreas.list()}
-                queryFn={listLearningAreas}
-                columns={columns}
-                getRowId={(row) => row.id}
-                isSearchable
-                searchPlaceholder="Search learning areas..."
-                filterGroups={filterGroups}
-                isCheckable
-                deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
-                rowHeight={48}
-                height={600}
-                emptyState="No learning areas yet."
-                noResultsState="No learning areas match your search or filters."
-            />
-            <CreateLearningAreaDialog open={createOpen} onOpenChange={setCreateOpen} />
-        </>
+        <DataTable
+            queryKey={curriculumKeys.learningAreas.list()}
+            queryFn={listLearningAreas}
+            columns={columns}
+            getRowId={(row) => row.id}
+            isSearchable
+            searchPlaceholder="Search learning areas..."
+            filterGroups={filterGroups}
+            isCheckable
+            deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
+            addHref="/curriculum/new"
+            rowHeight={48}
+            height={600}
+            emptyState="No learning areas yet."
+            noResultsState="No learning areas match your search or filters."
+        />
     );
 }

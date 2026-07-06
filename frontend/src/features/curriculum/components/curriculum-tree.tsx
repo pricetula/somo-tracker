@@ -8,6 +8,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { ChevronDown, ChevronRight, GripVertical, Plus, Pencil, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -25,8 +26,6 @@ import {
     useDeleteSubStrand,
     useDeletePerformanceIndicator,
 } from "../hooks/use-curriculum";
-import { CreateStrandDialog } from "./create-strand-dialog";
-import { CreateSubStrandDialog } from "./create-sub-strand-dialog";
 import { CreateIndicatorDialog } from "./create-indicator-dialog";
 import { DeleteConfirmDialog } from "./delete-confirm-dialog";
 
@@ -119,7 +118,6 @@ function SubStrandSection({
     onEditIndicator: (indicator: PerformanceIndicator) => void;
 }) {
     const [expanded, setExpanded] = React.useState(false);
-    const [createIndicatorOpen, setCreateIndicatorOpen] = React.useState(false);
     const deleteMutation = useDeleteSubStrand();
     const [deleteOpen, setDeleteOpen] = React.useState(false);
 
@@ -145,13 +143,10 @@ function SubStrandSection({
                     {indicatorCount} indicator{indicatorCount !== 1 ? "s" : ""}
                 </Badge>
                 <div className="ml-auto flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                    <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={() => setCreateIndicatorOpen(true)}
-                        aria-label="Add indicator"
-                    >
-                        <Plus className="size-3.5" />
+                    <Button variant="ghost" size="icon-sm" aria-label="Add indicator" asChild>
+                        <Link href={`/curriculum/new-indicator?subStrandId=${subStrand.id}`}>
+                            <Plus className="size-3.5" />
+                        </Link>
                     </Button>
                     <Button
                         variant="ghost"
@@ -186,13 +181,6 @@ function SubStrandSection({
                 </div>
             )}
 
-            {/* Create Indicator Dialog */}
-            <CreateIndicatorDialog
-                open={createIndicatorOpen}
-                onOpenChange={setCreateIndicatorOpen}
-                subStrandId={subStrand.id}
-            />
-
             {/* Delete Sub-Strand Dialog */}
             <DeleteConfirmDialog
                 open={deleteOpen}
@@ -215,12 +203,10 @@ function StrandSection({
     strand,
     learningAreaId,
     onEditIndicator,
-    onCreateSubStrand,
 }: {
     strand: StrandTree;
     learningAreaId: string;
     onEditIndicator: (indicator: PerformanceIndicator) => void;
-    onCreateSubStrand: (strandId: string) => void;
 }) {
     const [expanded, setExpanded] = React.useState(false);
     const deleteMutation = useDeleteStrand();
@@ -248,13 +234,10 @@ function StrandSection({
                     {subStrandCount} sub-strand{subStrandCount !== 1 ? "s" : ""}
                 </Badge>
                 <div className="ml-auto flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                    <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={() => onCreateSubStrand(strand.id)}
-                        aria-label="Add sub-strand"
-                    >
-                        <Plus className="size-3.5" />
+                    <Button variant="ghost" size="icon-sm" aria-label="Add sub-strand" asChild>
+                        <Link href={`/curriculum/new-sub-strand?strandId=${strand.id}`}>
+                            <Plus className="size-3.5" />
+                        </Link>
                     </Button>
                     <Button
                         variant="ghost"
@@ -326,10 +309,6 @@ function TreeSkeleton() {
 // ─── Main Component ────────────────────────────────────────────────────────
 
 export function CurriculumTree({ tree, isLoading, isError }: CurriculumTreeProps) {
-    const [createStrandOpen, setCreateStrandOpen] = React.useState(false);
-    const [createSubStrandStrandId, setCreateSubStrandStrandId] = React.useState<string | null>(
-        null
-    );
     const [editIndicator, setEditIndicator] = React.useState<PerformanceIndicator | null>(null);
 
     if (isLoading) {
@@ -362,9 +341,11 @@ export function CurriculumTree({ tree, isLoading, isError }: CurriculumTreeProps
                         </span>
                     </div>
                 </div>
-                <Button variant="outline" size="sm" onClick={() => setCreateStrandOpen(true)}>
-                    <Plus className="mr-1.5 size-3.5" />
-                    Add Strand
+                <Button variant="outline" size="sm" asChild>
+                    <Link href={`/curriculum/new-strand?learningAreaId=${tree.id}`}>
+                        <Plus className="mr-1.5 size-3.5" />
+                        Add Strand
+                    </Link>
                 </Button>
             </div>
 
@@ -378,14 +359,11 @@ export function CurriculumTree({ tree, isLoading, isError }: CurriculumTreeProps
                     <p className="text-muted-foreground text-xs">
                         Add a strand to start building your curriculum.
                     </p>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="mt-2"
-                        onClick={() => setCreateStrandOpen(true)}
-                    >
-                        <Plus className="mr-1.5 size-3.5" />
-                        Add Strand
+                    <Button variant="outline" size="sm" className="mt-2" asChild>
+                        <Link href={`/curriculum/new-strand?learningAreaId=${tree.id}`}>
+                            <Plus className="mr-1.5 size-3.5" />
+                            Add Strand
+                        </Link>
                     </Button>
                 </div>
             ) : (
@@ -396,27 +374,10 @@ export function CurriculumTree({ tree, isLoading, isError }: CurriculumTreeProps
                             strand={strand}
                             learningAreaId={tree.id}
                             onEditIndicator={setEditIndicator}
-                            onCreateSubStrand={(strandId) => setCreateSubStrandStrandId(strandId)}
                         />
                     ))}
                 </div>
             )}
-
-            {/* Create Strand Dialog */}
-            <CreateStrandDialog
-                open={createStrandOpen}
-                onOpenChange={setCreateStrandOpen}
-                learningAreaId={tree.id}
-            />
-
-            {/* Create Sub-Strand Dialog */}
-            <CreateSubStrandDialog
-                open={!!createSubStrandStrandId}
-                onOpenChange={(open) => {
-                    if (!open) setCreateSubStrandStrandId(null);
-                }}
-                strandId={createSubStrandStrandId ?? ""}
-            />
 
             {/* Edit Indicator Dialog */}
             <CreateIndicatorDialog

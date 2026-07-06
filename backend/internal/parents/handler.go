@@ -2,6 +2,7 @@ package parents
 
 import (
 	"errors"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -110,7 +111,25 @@ func (h *Handler) List(c *fiber.Ctx) error {
 		limit = 50
 	}
 
-	parents, total, err := h.svc.List(c.Context(), tenantID, search, studentID, page, limit)
+	filter := ListFilter{
+		TenantID:  tenantID,
+		Search:    search,
+		StudentID: studentID,
+		Page:      page,
+		Limit:     limit,
+	}
+
+	// Parse multi-value query params: ?education_level=Early_Years&education_level=Upper_Primary
+	if parsedURL, err := url.Parse(c.OriginalURL()); err == nil {
+		if vals := parsedURL.Query()["education_level"]; len(vals) > 0 {
+			filter.EducationLevels = vals
+		}
+		if vals := parsedURL.Query()["grade_level"]; len(vals) > 0 {
+			filter.GradeLevels = vals
+		}
+	}
+
+	parents, total, err := h.svc.List(c.Context(), filter)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}

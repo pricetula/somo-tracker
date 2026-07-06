@@ -111,18 +111,19 @@ func (s *Service) GetDetail(ctx context.Context, id, tenantID string) (*ParentDe
 // LIST
 // ============================================================================
 
-// List returns parents optionally filtered by search or student_id, with pagination.
-func (s *Service) List(ctx context.Context, tenantID string, search, studentID string, page, limit int) ([]Parent, int, error) {
-	if tenantID == "" {
+// List returns parents optionally filtered by search, student_id, or
+// curriculum filters (education_level, grade_level), with pagination.
+func (s *Service) List(ctx context.Context, filter ListFilter) ([]Parent, int, error) {
+	if filter.TenantID == "" {
 		return nil, 0, fmt.Errorf("parents.Service.List: %w", ErrInvalidInput)
 	}
-	if page < 1 {
-		page = 1
+	if filter.Page < 1 {
+		filter.Page = 1
 	}
-	if limit < 1 || limit > 100 {
-		limit = 50
+	if filter.Limit < 1 || filter.Limit > 100 {
+		filter.Limit = 50
 	}
-	return s.Repo.List(ctx, tenantID, search, studentID, page, limit)
+	return s.Repo.List(ctx, filter)
 }
 
 // ============================================================================

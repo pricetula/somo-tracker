@@ -34,6 +34,9 @@ export interface ParentDetail {
 
 export interface ListParentsResponse {
     items: Parent[];
+    total: number;
+    page: number;
+    limit: number;
 }
 
 export interface ParentDetailResponse {

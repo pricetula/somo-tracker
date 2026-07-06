@@ -98,6 +98,17 @@ type StudentResolver interface {
 	StudentExistsInTenant(ctx context.Context, studentID, tenantID string) (bool, error)
 }
 
+// ListFilter holds query parameters for listing parents.
+type ListFilter struct {
+	TenantID        string
+	Search          string
+	StudentID       string
+	Page            int
+	Limit           int
+	EducationLevels []string // multi-select education level filter
+	GradeLevels     []string // multi-select grade level filter
+}
+
 // ============================================================================
 // Repository Interface
 // ============================================================================
@@ -113,8 +124,8 @@ type Repository interface {
 	// GetDetail retrieves a parent with linked students.
 	GetDetail(ctx context.Context, id, tenantID string) (*ParentDetail, error)
 
-	// List returns parents filtered by search or student_id, with pagination.
-	List(ctx context.Context, tenantID string, search, studentID string, page, limit int) ([]Parent, int, error)
+	// List returns parents filtered by search, student_id, or curriculum filters, with pagination.
+	List(ctx context.Context, filter ListFilter) ([]Parent, int, error)
 
 	// Update applies partial updates to a parent profile.
 	Update(ctx context.Context, id, tenantID string, payload UpdateParentPayload) error

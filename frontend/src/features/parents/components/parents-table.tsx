@@ -1,8 +1,13 @@
 /**
  * Parents Table — displays parent/guardian profiles.
  *
- * Columns: Full Name, Email, Phone, Linked Students count, Active status.
- * Supports searching and navigating to detail.
+ * Columns: Full Name, Email, Phone, Status, Actions (delete).
+ * Search targets: User Name or Email Address.
+ * Curriculum filter: multi-select dropdown for Education Levels or Grade Levels
+ *   (filters parents whose linked children are in selected tiers).
+ * Bulk Import opens the intercepted parallel route modal.
+ *
+ * Uses TanStack Table + TanStack Virtual for performance.
  */
 
 "use client";
@@ -22,13 +27,74 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Plus, Search } from "lucide-react";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { FilterDropdown } from "@/components/shared/data-table/filter-dropdown";
+import type { FilterGroup } from "@/components/shared/data-table/types";
+import { MoreHorizontal, Search, Upload } from "lucide-react";
 
 import type { Parent } from "../types";
+import { useDeleteParent } from "../hooks/use-parents";
+
+// ─── Curriculum Filter Groups ─────────────────────────────────────────────
+// Matches the multi-select architecture from the Curriculum page.
+
+const CURRICULUM_FILTER_GROUPS: FilterGroup[] = [
+    {
+        id: "curriculum_filters",
+        label: "Curriculum Filters",
+        items: [
+            {
+                id: "education_level",
+                label: "Education Level",
+                type: "sub_menu_multi",
+                submenu: [
+                    { id: "early_years", label: "Early Years", value: "Early_Years" },
+                    { id: "upper_primary", label: "Upper Primary", value: "Upper_Primary" },
+                    {
+                        id: "junior_secondary",
+                        label: "Junior Secondary",
+                        value: "Junior_Secondary",
+                    },
+                    { id: "senior_school", label: "Senior School", value: "Senior_School" },
+                ],
+            },
+            {
+                id: "grade_level",
+                label: "Grade",
+                type: "sub_menu_multi",
+                submenu: [
+                    { id: "pp1", label: "PP1", value: "PP1" },
+                    { id: "pp2", label: "PP2", value: "PP2" },
+                    { id: "g1", label: "Grade 1", value: "G1" },
+                    { id: "g2", label: "Grade 2", value: "G2" },
+                    { id: "g3", label: "Grade 3", value: "G3" },
+                    { id: "g4", label: "Grade 4", value: "G4" },
+                    { id: "g5", label: "Grade 5", value: "G5" },
+                    { id: "g6", label: "Grade 6", value: "G6" },
+                    { id: "g7", label: "Grade 7", value: "G7" },
+                    { id: "g8", label: "Grade 8", value: "G8" },
+                    { id: "g9", label: "Grade 9", value: "G9" },
+                    { id: "g10", label: "Grade 10", value: "G10" },
+                    { id: "g11", label: "Grade 11", value: "G11" },
+                    { id: "g12", label: "Grade 12", value: "G12" },
+                ],
+            },
+        ],
+    },
+];
 
 // ─── Columns ───────────────────────────────────────────────────────────────
 
-function createColumns(onDelete: (id: string) => void): ColumnDef<Parent>[] {
+function createColumns(onDeleteRequest: (parent: Parent) => void): ColumnDef<Parent>[] {
     return [
         {
             accessorKey: "full_name",
@@ -36,7 +102,7 @@ function createColumns(onDelete: (id: string) => void): ColumnDef<Parent>[] {
             cell: ({ row }) => (
                 <Link
                     href={`/parents/${row.original.id}`}
-                    className="text-sm font-medium text-sky-600 transition-colors hover:text-sky-700"
+                    className="text-sm font-medium hover:underline"
                 >
                     {row.original.full_name || "—"}
                 </Link>
@@ -56,14 +122,6 @@ function createColumns(onDelete: (id: string) => void): ColumnDef<Parent>[] {
                 <span className="text-muted-foreground font-mono text-sm">
                     {row.original.phone_number || "—"}
                 </span>
-            ),
-        },
-        {
-            id: "linked_count",
-            header: "Students",
-            cell: () => (
-                // Count is not available in the list response; shown in detail
-                <span className="text-muted-foreground text-sm">—</span>
             ),
         },
         {
@@ -103,7 +161,7 @@ function createColumns(onDelete: (id: string) => void): ColumnDef<Parent>[] {
                         </DropdownMenuItem>
                         <DropdownMenuItem
                             className="text-destructive focus:text-destructive"
-                            onClick={() => onDelete(row.original.id)}
+                            onClick={() => onDeleteRequest(row.original)}
                         >
                             Delete
                         </DropdownMenuItem>
@@ -122,8 +180,11 @@ interface ParentsTableProps {
     isLoading: boolean;
     search: string;
     onSearchChange: (value: string) => void;
-    onDelete: (id: string) => void;
-    onCreateClick: () => void;
+    /** Active curriculum filter values keyed by FilterItem id. */
+    activeFilters: Record<string, string | string[]>;
+    onToggleButton: (itemId: string, itemValue: string) => void;
+    onSelectSingle: (itemId: string, subValue: string) => void;
+    onToggleMulti: (itemId: string, subValue: string) => void;
 }
 
 // ─── Component ─────────────────────────────────────────────────────────────
@@ -134,10 +195,15 @@ export function ParentsTable({
     isLoading,
     search,
     onSearchChange,
-    onDelete,
-    onCreateClick,
+    activeFilters,
+    onToggleButton,
+    onSelectSingle,
+    onToggleMulti,
 }: ParentsTableProps) {
-    const columns = React.useMemo(() => createColumns(onDelete), [onDelete]);
+    const deleteMutation = useDeleteParent();
+    const [parentToDelete, setParentToDelete] = React.useState<Parent | null>(null);
+
+    const columns = React.useMemo(() => createColumns(setParentToDelete), []);
 
     // eslint-disable-next-line react-hooks/incompatible-library
     const table = useReactTable({
@@ -158,6 +224,13 @@ export function ParentsTable({
 
     const skeletonRows = 8;
 
+    const handleDeleteConfirm = () => {
+        if (!parentToDelete) return;
+        deleteMutation.mutate(parentToDelete.id, {
+            onSettled: () => setParentToDelete(null),
+        });
+    };
+
     return (
         <div className="flex flex-1 flex-col">
             {/* Search bar */}
@@ -165,15 +238,24 @@ export function ParentsTable({
                 <div className="relative max-w-xs flex-1">
                     <Search className="text-muted-foreground absolute top-2.5 left-2.5 size-4" />
                     <Input
-                        placeholder="Search by name, email, or phone…"
+                        placeholder="Search by name or email…"
                         value={search}
                         onChange={(e) => onSearchChange(e.target.value)}
                         className="pl-8"
                     />
                 </div>
-                <Button variant="outline" size="sm" onClick={onCreateClick}>
-                    <Plus className="mr-1.5 size-3.5" />
-                    Add Parent
+                <FilterDropdown
+                    groups={CURRICULUM_FILTER_GROUPS}
+                    activeFilters={activeFilters}
+                    onToggleButton={onToggleButton}
+                    onSelectSingle={onSelectSingle}
+                    onToggleMulti={onToggleMulti}
+                />
+                <Button variant="outline" size="sm" asChild>
+                    <Link href="/parents/import">
+                        <Upload className="mr-1.5 size-3.5" />
+                        Bulk Import
+                    </Link>
                 </Button>
             </div>
 
@@ -186,9 +268,9 @@ export function ParentsTable({
                     minHeight: rows.length === 0 ? "200px" : undefined,
                 }}
             >
-                <div className="min-w-[600px]">
+                <div className="min-w-175">
                     {/* Sticky Header */}
-                    <div className="bg-background/95 sticky top-0 z-10 backdrop-blur-sm">
+                    <div className="bg-background/95 sticky top-0 z-10 rounded-lg backdrop-blur-sm">
                         {table.getHeaderGroups().map((headerGroup) => (
                             <div key={headerGroup.id} className="border-border/40 flex border-b">
                                 {headerGroup.headers.map((header) => (
@@ -210,7 +292,7 @@ export function ParentsTable({
                         ))}
                     </div>
 
-                    {/* Body */}
+                    {/* Virtualized Body */}
                     <div
                         style={{
                             height: `${virtualizer.getTotalSize()}px`,
@@ -227,6 +309,7 @@ export function ParentsTable({
                                     <Skeleton className="mr-3 h-4 w-32 flex-1" />
                                     <Skeleton className="mr-3 h-4 w-20 flex-1" />
                                     <Skeleton className="mr-3 h-6 w-16 flex-1" />
+                                    <Skeleton className="mr-3 h-4 w-4 flex-1" />
                                 </div>
                             ))
                         ) : rows.length === 0 ? (
@@ -240,17 +323,6 @@ export function ParentsTable({
                                             ? "Try a different search term."
                                             : "Add parents to manage guardian communication."}
                                     </p>
-                                    {!search && (
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="mt-4"
-                                            onClick={onCreateClick}
-                                        >
-                                            <Plus className="mr-1.5 size-3.5" />
-                                            Add Parent
-                                        </Button>
-                                    )}
                                 </div>
                             </div>
                         ) : (
@@ -307,6 +379,37 @@ export function ParentsTable({
                     {total} parent{total !== 1 ? "s" : ""}
                 </p>
             </div>
+
+            {/* Delete confirmation dialog */}
+            <AlertDialog
+                open={!!parentToDelete}
+                onOpenChange={(open) => {
+                    if (!open) setParentToDelete(null);
+                }}
+            >
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete parent</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to permanently delete{" "}
+                            <strong>{parentToDelete?.full_name || parentToDelete?.email}</strong>?
+                            This will unlink all associated students but preserve their user
+                            account.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={deleteMutation.isPending}>
+                            Cancel
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleDeleteConfirm}
+                            disabled={deleteMutation.isPending}
+                        >
+                            {deleteMutation.isPending ? "Deleting..." : "Delete"}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

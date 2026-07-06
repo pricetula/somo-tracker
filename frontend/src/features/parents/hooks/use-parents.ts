@@ -37,17 +37,23 @@ export const parentKeys = {
 
 // ─── Hooks: Parents List ─────────────────────────────────────────────────
 
-/** Fetch parents list, optionally filtered by search or student_id, with pagination. */
+/** Fetch parents list, optionally filtered by search, student_id, or curriculum filters (education_level, grade_level), with pagination. */
 export function useParents(
-    params: { search?: string; student_id?: string; page?: number; limit?: number } = {},
+    params: {
+        search?: string;
+        student_id?: string;
+        page?: number;
+        limit?: number;
+        filters?: Record<string, string[]>;
+    } = {},
     opts: { enabled?: boolean } = {}
 ) {
-    const { page = 1, limit = 50, search, student_id } = params;
+    const { page = 1, limit = 50, search, student_id, filters } = params;
     const { enabled = true } = opts;
 
     return useQuery<ListParentsResponse>({
-        queryKey: parentKeys.list({ page, limit, search, student_id }),
-        queryFn: () => listParents({ page, limit, search, student_id }),
+        queryKey: parentKeys.list({ page, limit, search, student_id, filters }),
+        queryFn: () => listParents({ page, limit, search, student_id, filters }),
         placeholderData: (prev) => prev,
         enabled,
     });

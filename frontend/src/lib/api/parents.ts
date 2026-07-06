@@ -81,11 +81,29 @@ export interface LinkStudentPayload {
 
 // ─── API Functions ─────────────────────────────────────────────────────────
 
-/** List parents, optionally filtered by search or student_id, with pagination. */
+/** List parents, optionally filtered by search, student_id, or curriculum filters (education_level, grade_level), with pagination. */
 export async function listParents(
-    params: { search?: string; student_id?: string; page?: number; limit?: number } = {}
+    params: {
+        search?: string;
+        student_id?: string;
+        page?: number;
+        limit?: number;
+        /** Filter values keyed by FilterItem id, e.g. { education_level: ["Early_Years"], grade_level: ["G1", "G2"] } */
+        filters?: Record<string, string[]>;
+    } = {}
 ): Promise<ListParentsResponse> {
     const searchParams = new URLSearchParams();
+
+    // Multi-value curriculum filters
+    const edLevels = params.filters?.education_level ?? [];
+    for (const el of edLevels) {
+        searchParams.append("education_level", el);
+    }
+    const grLevels = params.filters?.grade_level ?? [];
+    for (const gl of grLevels) {
+        searchParams.append("grade_level", gl);
+    }
+
     if (params.search) searchParams.set("search", params.search);
     if (params.student_id) searchParams.set("student_id", params.student_id);
     if (params.page) searchParams.set("page", String(params.page));

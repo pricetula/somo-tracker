@@ -45,6 +45,17 @@ func containsInner(s, substr string) bool {
 	return false
 }
 
+func joinORs(elems []string) string {
+	if len(elems) == 0 {
+		return ""
+	}
+	result := elems[0]
+	for i := 1; i < len(elems); i++ {
+		result += " OR " + elems[i]
+	}
+	return result
+}
+
 // ============================================================================
 // Cross-Domain Resolver: StudentResolver
 // ============================================================================
@@ -245,26 +256,62 @@ func (r *PgRepository) GetDetail(ctx context.Context, id, tenantID string) (*Par
 	}, nil
 }
 
-// List returns parents optionally filtered by search (name/email) or student_id, with pagination.
-func (r *PgRepository) List(ctx context.Context, tenantID string, search, studentID string, page, limit int) ([]Parent, int, error) {
+// List returns parents optionally filtered by search (name/email), student_id,
+// or curriculum filters (education_level, grade_level), with pagination.
+func (r *PgRepository) List(ctx context.Context, filter ListFilter) ([]Parent, int, error) {
 	whereClause := `WHERE cp.tenant_id = $1`
-	args := []interface{}{tenantID}
+	args := []interface{}{filter.TenantID}
 	argIdx := 2
 
-	if search != "" {
+	if filter.Search != "" {
 		whereClause += fmt.Sprintf(` AND (u.full_name ILIKE $%d OR u.email ILIKE $%d)`, argIdx, argIdx+1)
-		searchPattern := "%" + search + "%"
+		searchPattern := "%" + filter.Search + "%"
 		args = append(args, searchPattern, searchPattern)
 		argIdx += 2
 	}
 
-	if studentID != "" {
+	if filter.StudentID != "" {
 		whereClause += fmt.Sprintf(` AND cp.id IN (
 			SELECT sp.parent_id FROM cbc_student_parents sp
 			WHERE sp.student_id = $%d
 		)`, argIdx)
-		args = append(args, studentID)
+		args = append(args, filter.StudentID)
 		argIdx++
+	}
+
+	// ── Education Level multi-select ────────────────────────────────────
+	if len(filter.EducationLevels) > 0 {
+		ors := make([]string, len(filter.EducationLevels))
+		for i, el := range filter.EducationLevels {
+			ors[i] = fmt.Sprintf("la.education_level::text = $%d", argIdx)
+			args = append(args, el)
+			argIdx++
+		}
+		whereClause += ` AND cp.id IN (
+			SELECT sp.parent_id
+			FROM cbc_student_parents sp
+			JOIN cbc_student_enrollments se ON se.student_id = sp.student_id
+			JOIN cbc_classes cc ON cc.id = se.class_id
+			JOIN cbc_learning_areas la ON la.grade_level = cc.grade_level
+			WHERE ` + joinORs(ors) + `
+		)`
+	}
+
+	// ── Grade Level multi-select ────────────────────────────────────────
+	if len(filter.GradeLevels) > 0 {
+		ors := make([]string, len(filter.GradeLevels))
+		for i, gl := range filter.GradeLevels {
+			ors[i] = fmt.Sprintf("cc.grade_level::text = $%d", argIdx)
+			args = append(args, gl)
+			argIdx++
+		}
+		whereClause += ` AND cp.id IN (
+			SELECT sp.parent_id
+			FROM cbc_student_parents sp
+			JOIN cbc_student_enrollments se ON se.student_id = sp.student_id
+			JOIN cbc_classes cc ON cc.id = se.class_id
+			WHERE ` + joinORs(ors) + `
+		)`
 	}
 
 	// Count query
@@ -279,9 +326,9 @@ func (r *PgRepository) List(ctx context.Context, tenantID string, search, studen
 		return []Parent{}, 0, nil
 	}
 
-	offset := (page - 1) * limit
+	offset := (filter.Page - 1) * filter.Limit
 	dataQuery := `SELECT ` + parentJoinColumns + ` FROM cbc_parents cp ` + parentJoin + ` ` + whereClause + ` ORDER BY u.full_name ASC LIMIT $` + fmt.Sprintf("%d", argIdx) + ` OFFSET $` + fmt.Sprintf("%d", argIdx+1)
-	dataArgs := append(args, limit, offset)
+	dataArgs := append(args, filter.Limit, offset)
 
 	rows, err := r.pool.Query(ctx, dataQuery, dataArgs...)
 	if err != nil {

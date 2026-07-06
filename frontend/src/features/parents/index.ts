@@ -22,6 +22,7 @@ export type {
     Parent,
     ParentDetail,
     StudentLink,
+    ListParentsResponse,
     CreateParentPayload,
     UpdateParentPayload,
     LinkStudentPayload,

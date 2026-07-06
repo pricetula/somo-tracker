@@ -1,33 +1,66 @@
 /**
  * Admins listing page — active school administrators.
  *
- * Uses its own query hook and table component — not the generic
- * members module. Maps to GET /api/v1/members?role=SCHOOL_ADMIN.
+ * Uses the shared DataTable component.
+ * Maps to GET /api/v1/members?role=SCHOOL_ADMIN.
  *
  * Invitations are listed on the dedicated /admins/invitations page.
  */
 
 "use client";
 
-import * as React from "react";
-import { useAdmins } from "@/features/staff";
-import { AdminsTable } from "@/features/staff";
+import { DataTable } from "@/components/shared/data-table";
+import type { DataTableColumn } from "@/components/shared/data-table/types";
+import { Badge } from "@/components/ui/badge";
+import { listAdmins, type Member } from "@/lib/api/admins";
+import { useDeleteAdmin } from "@/features/staff";
+
+const columns: DataTableColumn<Member>[] = [
+    {
+        id: "full_name",
+        header: "Full Name",
+        cell: (row) => <span className="text-sm font-medium">{row.full_name || "—"}</span>,
+    },
+    {
+        id: "email",
+        header: "Email",
+        cell: (row) => <span className="text-muted-foreground text-sm">{row.email}</span>,
+    },
+    {
+        id: "is_active",
+        header: "Account Status",
+        cell: (row) => (
+            <Badge
+                variant="secondary"
+                className={
+                    row.is_active
+                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                        : "bg-muted text-muted-foreground"
+                }
+            >
+                {row.is_active ? "Active" : "Inactive"}
+            </Badge>
+        ),
+    },
+];
 
 export default function AdminsPage() {
-    const [search, setSearch] = React.useState("");
-
-    const { data, isLoading } = useAdmins({ search: search || undefined });
-
-    const admins = data?.items ?? [];
-    const total = data?.total ?? 0;
+    const deleteMutation = useDeleteAdmin();
 
     return (
-        <AdminsTable
-            admins={admins}
-            total={total}
-            isLoading={isLoading}
-            search={search}
-            onSearchChange={setSearch}
+        <DataTable
+            addHref="/admins/import"
+            queryKey={["admins"]}
+            queryFn={listAdmins}
+            columns={columns}
+            getRowId={(row) => row.id}
+            isSearchable
+            searchPlaceholder="Search by name or email…"
+            deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
+            rowHeight={48}
+            height={600}
+            emptyState="No admins yet."
+            noResultsState="No admins match your search."
         />
     );
 }

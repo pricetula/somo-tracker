@@ -21,6 +21,7 @@ import type {
     SubStrandTree,
     PerformanceIndicator,
 } from "@/lib/api/curriculum";
+import { formatEducationLevel } from "@/lib/curriculum-filters";
 import {
     useDeleteStrand,
     useDeleteSubStrand,
@@ -28,19 +29,6 @@ import {
 } from "../hooks/use-curriculum";
 import { CreateIndicatorDialog } from "./create-indicator-dialog";
 import { DeleteConfirmDialog } from "./delete-confirm-dialog";
-
-// ─── Education Level Labels ───────────────────────────────────────────────
-
-const EDUCATION_LEVEL_LABELS: Record<string, string> = {
-    Early_Years: "Early Years",
-    Upper_Primary: "Upper Primary",
-    Junior_Secondary: "Junior Secondary",
-    Senior_School: "Senior School",
-};
-
-function formatEducationLevel(level: string): string {
-    return EDUCATION_LEVEL_LABELS[level] ?? level;
-}
 
 // ─── Props ─────────────────────────────────────────────────────────────────
 

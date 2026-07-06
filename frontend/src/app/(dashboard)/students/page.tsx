@@ -1,10 +1,8 @@
 /**
  * Students listing page — active enrolled students.
  *
- * Maps to GET /api/v1/students/list with support for:
- *   - Search: Full Name, Admission Number, UPI Number, KNEC Assessment Number
- *   - Curriculum filters: Education Level, Grade Level (multi-select)
- *   - Lifecycle filter: Enrollment Status (Active, Suspended, Transferred)
+ * Uses the shared DataTable component with curriculum and lifecycle filters.
+ * Maps to GET /api/v1/students/list.
  *
  * The Import button navigates to /students/import. When navigated from
  * within this page, the @modal parallel slot intercepts the route and
@@ -15,97 +13,142 @@
 
 "use client";
 
-import * as React from "react";
-import { useStudents } from "@/features/students";
-import { StudentsTable } from "@/features/students";
+import Link from "next/link";
+import { DataTable } from "@/components/shared/data-table";
+import type { DataTableColumn } from "@/components/shared/data-table/types";
+import type { FilterGroup } from "@/components/shared/data-table/types";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Upload } from "lucide-react";
+import { listStudents, type Student } from "@/lib/api/students";
+import { CURRICULUM_FILTER_GROUPS } from "@/lib/curriculum-filters";
+import { useDeleteStudent } from "@/features/students";
 
-/** Omit a single key from a record. */
-function withoutKey<V>(obj: Record<string, V>, key: string): Record<string, V> {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { [key]: _omit, ...rest } = obj;
-    return rest;
-}
+// ─── Filter Groups (curriculum + lifecycle) ───────────────────────────────
+
+const filterGroups: FilterGroup[] = [
+    ...CURRICULUM_FILTER_GROUPS,
+    {
+        id: "lifecycle_group",
+        label: "Lifecycle Group",
+        items: [
+            {
+                id: "enrollment_status",
+                label: "Enrollment Status",
+                type: "sub_menu_single",
+                submenu: [
+                    { id: "active_status", label: "Active", value: "ACTIVE" },
+                    { id: "suspended_status", label: "Suspended", value: "SUSPENDED" },
+                    { id: "transferred_status", label: "Transferred", value: "TRANSFERRED" },
+                ],
+            },
+        ],
+    },
+];
+
+// ─── Columns ──────────────────────────────────────────────────────────────
+
+const columns: DataTableColumn<Student>[] = [
+    {
+        id: "full_name",
+        header: "Full Name",
+        cell: (row) => (
+            <Link href={`/students/${row.id}`} className="text-sm font-medium hover:underline">
+                {row.full_name}
+            </Link>
+        ),
+    },
+    {
+        id: "admission_number",
+        header: "Admission No.",
+        cell: (row) => (
+            <span className="text-muted-foreground font-mono text-sm">
+                {row.admission_number ?? "—"}
+            </span>
+        ),
+    },
+    {
+        id: "upi_number",
+        header: "UPI Number",
+        cell: (row) => (
+            <span className="text-muted-foreground font-mono text-sm">{row.upi_number ?? "—"}</span>
+        ),
+    },
+    {
+        id: "knec_assessment_number",
+        header: "KNEC No.",
+        cell: (row) => (
+            <span className="text-muted-foreground font-mono text-sm">
+                {row.knec_assessment_number ?? "—"}
+            </span>
+        ),
+    },
+    {
+        id: "class_name",
+        header: "Class",
+        cell: (row) => (
+            <span className="text-muted-foreground text-sm">{row.class_name ?? "—"}</span>
+        ),
+    },
+    {
+        id: "gender",
+        header: "Gender",
+        width: "80px",
+        cell: (row) => (
+            <span className="text-muted-foreground text-sm">
+                {row.gender === "M" ? "Male" : row.gender === "F" ? "Female" : "—"}
+            </span>
+        ),
+    },
+    {
+        id: "is_active",
+        header: "Status",
+        width: "100px",
+        cell: (row) => (
+            <Badge
+                variant="secondary"
+                className={
+                    row.is_active
+                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                        : "bg-muted text-muted-foreground"
+                }
+            >
+                {row.is_active ? "Active" : "Inactive"}
+            </Badge>
+        ),
+    },
+];
+
+// ─── Page ─────────────────────────────────────────────────────────────────
 
 export default function StudentsPage() {
-    const [search, setSearch] = React.useState("");
-    const [activeFilters, setActiveFilters] = React.useState<Record<string, string | string[]>>({});
-
-    // Derive filters object for the query hook
-    const queryFilters = React.useMemo(() => {
-        const filters: Record<string, string[]> = {};
-        for (const [key, value] of Object.entries(activeFilters)) {
-            if (Array.isArray(value) && value.length > 0) {
-                filters[key] = value;
-            }
-        }
-        return filters;
-    }, [activeFilters]);
-
-    // Extract enrollment_status for direct param (not a multi-value filter)
-    const enrollmentStatus =
-        typeof activeFilters.enrollment_status === "string"
-            ? activeFilters.enrollment_status
-            : undefined;
-
-    // Filter out lifecycle enrollment_status from the filters object (sent as direct param)
-    const curriculumFilters = React.useMemo(() => {
-        const rest = withoutKey(queryFilters, "enrollment_status");
-        return Object.keys(rest).length > 0 ? rest : undefined;
-    }, [queryFilters]);
-
-    const { data, isLoading } = useStudents({
-        search: search || undefined,
-        enrollment_status: enrollmentStatus,
-        filters: curriculumFilters,
-    });
-
-    const students = data?.items ?? [];
-    const total = data?.total ?? 0;
-
-    const handleToggleButton = React.useCallback((itemId: string, itemValue: string) => {
-        setActiveFilters((prev) => {
-            if (typeof prev[itemId] === "string" && prev[itemId] === itemValue) {
-                return withoutKey(prev, itemId);
-            }
-            return { ...prev, [itemId]: itemValue };
-        });
-    }, []);
-
-    const handleSelectSingle = React.useCallback((itemId: string, subValue: string) => {
-        setActiveFilters((prev) => {
-            if (typeof prev[itemId] === "string" && prev[itemId] === subValue) {
-                return withoutKey(prev, itemId);
-            }
-            return { ...prev, [itemId]: subValue };
-        });
-    }, []);
-
-    const handleToggleMulti = React.useCallback((itemId: string, subValue: string) => {
-        setActiveFilters((prev) => {
-            const current = prev[itemId];
-            const arr = Array.isArray(current) ? current : [];
-            if (arr.includes(subValue)) {
-                const next = arr.filter((v) => v !== subValue);
-                if (next.length === 0) {
-                    return withoutKey(prev, itemId);
-                }
-                return { ...prev, [itemId]: next };
-            }
-            return { ...prev, [itemId]: [...arr, subValue] };
-        });
-    }, []);
+    const deleteMutation = useDeleteStudent();
 
     return (
-        <StudentsTable
-            students={students}
-            total={total}
-            isLoading={isLoading}
-            search={search}
-            onSearchChange={setSearch}
-            activeFilters={activeFilters}
-            onToggleButton={handleToggleButton}
-            onSelectSingle={handleSelectSingle}
-            onToggleMulti={handleToggleMulti}
-        />
+        <div className="flex flex-1 flex-col gap-4">
+            <div className="flex items-center justify-between">
+                <h1 className="text-2xl font-semibold tracking-tight">Students</h1>
+                <Button variant="outline" size="sm" asChild>
+                    <Link href="/students/import">
+                        <Upload className="mr-1.5 size-3.5" />
+                        Bulk Import
+                    </Link>
+                </Button>
+            </div>
+            <DataTable
+                queryKey={["students"]}
+                queryFn={listStudents}
+                columns={columns}
+                getRowId={(row) => row.id}
+                isSearchable
+                searchPlaceholder="Search by name, admission no., UPI, or KNEC no…"
+                filterGroups={filterGroups}
+                deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
+                rowHeight={48}
+                height={600}
+                emptyState="No students yet."
+                noResultsState="No students match your search or filters."
+            />
+        </div>
     );
 }

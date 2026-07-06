@@ -2,6 +2,7 @@
  * Parents listing page.
  *
  * Shows all parent/guardian profiles with search and curriculum filter.
+ * Uses the shared DataTable component.
  * Maps to GET /api/v1/parents.
  *
  * Curriculum filter filters parents whose linked children are in
@@ -10,84 +11,91 @@
 
 "use client";
 
-import * as React from "react";
-import { useParents, ParentsTable } from "@/features/parents";
-import type { ListParentsResponse } from "@/features/parents";
+import Link from "next/link";
+import { DataTable } from "@/components/shared/data-table";
+import type { DataTableColumn } from "@/components/shared/data-table/types";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Upload } from "lucide-react";
+import { listParents, type Parent } from "@/lib/api/parents";
+import { CURRICULUM_FILTER_GROUPS } from "@/lib/curriculum-filters";
+import { useDeleteParent } from "@/features/parents";
 
-/** Omit a single key from a record. */
-function withoutKey<V>(obj: Record<string, V>, key: string): Record<string, V> {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { [key]: _omit, ...rest } = obj;
-    return rest;
-}
+// ─── Columns ──────────────────────────────────────────────────────────────
+
+const columns: DataTableColumn<Parent>[] = [
+    {
+        id: "full_name",
+        header: "Full Name",
+        cell: (row) => (
+            <Link href={`/parents/${row.id}`} className="text-sm font-medium hover:underline">
+                {row.full_name || "—"}
+            </Link>
+        ),
+    },
+    {
+        id: "email",
+        header: "Email",
+        cell: (row) => <span className="text-muted-foreground text-sm">{row.email}</span>,
+    },
+    {
+        id: "phone_number",
+        header: "Phone",
+        cell: (row) => (
+            <span className="text-muted-foreground font-mono text-sm">
+                {row.phone_number || "—"}
+            </span>
+        ),
+    },
+    {
+        id: "is_active",
+        header: "Status",
+        width: "100px",
+        cell: (row) => (
+            <Badge
+                variant="secondary"
+                className={
+                    row.is_active
+                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                        : "bg-muted text-muted-foreground"
+                }
+            >
+                {row.is_active ? "Active" : "Inactive"}
+            </Badge>
+        ),
+    },
+];
+
+// ─── Page ─────────────────────────────────────────────────────────────────
 
 export default function ParentsPage() {
-    const [search, setSearch] = React.useState("");
-    const [activeFilters, setActiveFilters] = React.useState<Record<string, string | string[]>>({});
-
-    // Derive filters object for the query hook
-    const queryFilters = React.useMemo(() => {
-        const filters: Record<string, string[]> = {};
-        for (const [key, value] of Object.entries(activeFilters)) {
-            if (Array.isArray(value) && value.length > 0) {
-                filters[key] = value;
-            }
-        }
-        return filters;
-    }, [activeFilters]);
-
-    const { data, isLoading } = useParents({
-        search: search || undefined,
-        filters: Object.keys(queryFilters).length > 0 ? queryFilters : undefined,
-    });
-
-    const parents = (data as ListParentsResponse | undefined)?.items ?? [];
-    const total = (data as ListParentsResponse | undefined)?.total ?? 0;
-
-    const handleToggleButton = React.useCallback((itemId: string, itemValue: string) => {
-        setActiveFilters((prev) => {
-            if (typeof prev[itemId] === "string" && prev[itemId] === itemValue) {
-                return withoutKey(prev, itemId);
-            }
-            return { ...prev, [itemId]: itemValue };
-        });
-    }, []);
-
-    const handleSelectSingle = React.useCallback((itemId: string, subValue: string) => {
-        setActiveFilters((prev) => {
-            if (typeof prev[itemId] === "string" && prev[itemId] === subValue) {
-                return withoutKey(prev, itemId);
-            }
-            return { ...prev, [itemId]: subValue };
-        });
-    }, []);
-
-    const handleToggleMulti = React.useCallback((itemId: string, subValue: string) => {
-        setActiveFilters((prev) => {
-            const current = prev[itemId];
-            const arr = Array.isArray(current) ? current : [];
-            if (arr.includes(subValue)) {
-                const next = arr.filter((v) => v !== subValue);
-                if (next.length === 0) {
-                    return withoutKey(prev, itemId);
-                }
-                return { ...prev, [itemId]: next };
-            }
-            return { ...prev, [itemId]: [...arr, subValue] };
-        });
-    }, []);
+    const deleteMutation = useDeleteParent();
 
     return (
-        <ParentsTable
-            parents={parents}
-            total={total}
-            isLoading={isLoading}
-            search={search}
-            onSearchChange={setSearch}
-            activeFilters={activeFilters}
-            onToggleButton={handleToggleButton}
-            onSelectSingle={handleSelectSingle}
-            onToggleMulti={handleToggleMulti}
-        />
+        <div className="flex flex-1 flex-col gap-4">
+            <div className="flex items-center justify-between">
+                <h1 className="text-2xl font-semibold tracking-tight">Parents</h1>
+                <Button variant="outline" size="sm" asChild>
+                    <Link href="/parents/import">
+                        <Upload className="mr-1.5 size-3.5" />
+                        Bulk Import
+                    </Link>
+                </Button>
+            </div>
+            <DataTable
+                queryKey={["parents"]}
+                queryFn={listParents}
+                columns={columns}
+                getRowId={(row) => row.id}
+                isSearchable
+                searchPlaceholder="Search by name or email…"
+                filterGroups={CURRICULUM_FILTER_GROUPS}
+                deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
+                rowHeight={48}
+                height={600}
+                emptyState="No parents yet."
+                noResultsState="No parents match your search or filters."
+            />
+        </div>
     );
 }

@@ -97,6 +97,15 @@ const filterGroups: FilterGroup[] = [
 
 const columns: DataTableColumn<LearningArea>[] = [
     {
+        id: "name",
+        header: "Name",
+        cell: (row) => (
+            <Link href={`/curriculum/${row.id}`} className="text-sm hover:underline">
+                {row.name}
+            </Link>
+        ),
+    },
+    {
         id: "code",
         header: "Code",
         width: "120px",
@@ -106,15 +115,6 @@ const columns: DataTableColumn<LearningArea>[] = [
                 className="font-mono text-sm font-medium hover:underline"
             >
                 {row.code}
-            </Link>
-        ),
-    },
-    {
-        id: "name",
-        header: "Name",
-        cell: (row) => (
-            <Link href={`/curriculum/${row.id}`} className="text-sm hover:underline">
-                {row.name}
             </Link>
         ),
     },

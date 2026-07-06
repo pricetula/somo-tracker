@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/url"
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
@@ -201,14 +202,26 @@ func (h *Handler) List(c *fiber.Ctx) error {
 		}
 	}
 
+	// Multi-value filter params
 	filter := ListFilter{
-		TenantID: tenantID,
-		SchoolID: schoolID,
-		Page:     page,
-		Limit:    limit,
-		Search:   c.Query("search"),
-		ClassID:  c.Query("class_id"),
-		Gender:   c.Query("gender"),
+		TenantID:         tenantID,
+		SchoolID:         schoolID,
+		Page:             page,
+		Limit:            limit,
+		Search:           c.Query("search"),
+		ClassID:          c.Query("class_id"),
+		Gender:           c.Query("gender"),
+		EnrollmentStatus: c.Query("enrollment_status"),
+	}
+
+	// Parse multi-value query params: ?education_level=Early_Years&education_level=Upper_Primary
+	if parsedURL, err := url.Parse(c.OriginalURL()); err == nil {
+		if vals := parsedURL.Query()["education_level"]; len(vals) > 0 {
+			filter.EducationLevels = vals
+		}
+		if vals := parsedURL.Query()["grade_level"]; len(vals) > 0 {
+			filter.GradeLevels = vals
+		}
 	}
 
 	result, err := h.svc.ListStudents(c.Context(), filter)
@@ -356,6 +369,29 @@ func (h *Handler) CreateEnrollment(c *fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(CreateEnrollmentResponse{ID: enrollment.ID})
+}
+
+// Delete handles DELETE /api/v1/students/:id
+func (h *Handler) Delete(c *fiber.Ctx) error {
+	tenantID := c.Locals("tenant_id").(string)
+	schoolID, _ := c.Locals("active_school_id").(string)
+	if schoolID == "" {
+		schoolID = c.Locals("school_id").(string)
+	}
+	id := c.Params("id")
+
+	if id == "" {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input", "student id is required", nil)
+	}
+
+	if err := h.svc.Delete(c.Context(), id, tenantID, schoolID); err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(fiber.Map{
+		"code":    "ok",
+		"message": "student deleted",
+	})
 }
 
 // ─── List Enrollments ─────────────────────────────────────────────────────

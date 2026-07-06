@@ -14,6 +14,7 @@ type MockRepository struct {
 	listByRoleFn                  func(ctx context.Context, tenantID, schoolID, role string, offset, limit int, search string) ([]Member, int, error)
 	listByRoleIncludingInactiveFn func(ctx context.Context, tenantID, schoolID, role string, offset, limit int, search string) ([]Member, int, error)
 	toggleActiveFn                func(ctx context.Context, tenantID, schoolID, userID string, isActive bool) error
+	deleteFn                      func(ctx context.Context, tenantID, schoolID, userID, role string) error
 	getActiveSchoolIDFn           func(ctx context.Context, tenantID, userID string) (string, error)
 }
 
@@ -34,6 +35,13 @@ func (m *MockRepository) ListByRoleIncludingInactive(ctx context.Context, tenant
 func (m *MockRepository) ToggleActive(ctx context.Context, tenantID, schoolID, userID string, isActive bool) error {
 	if m.toggleActiveFn != nil {
 		return m.toggleActiveFn(ctx, tenantID, schoolID, userID, isActive)
+	}
+	return nil
+}
+
+func (m *MockRepository) Delete(ctx context.Context, tenantID, schoolID, userID, role string) error {
+	if m.deleteFn != nil {
+		return m.deleteFn(ctx, tenantID, schoolID, userID, role)
 	}
 	return nil
 }

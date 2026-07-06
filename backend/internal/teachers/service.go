@@ -34,3 +34,11 @@ func (s *Service) ToggleActive(ctx context.Context, tenantID, schoolID, userID s
 	}
 	return s.repo.ToggleActive(ctx, tenantID, schoolID, userID, isActive)
 }
+
+// Delete hard-deletes a teacher's membership and user record.
+func (s *Service) Delete(ctx context.Context, tenantID, schoolID, userID string) error {
+	if userID == "" {
+		return fmt.Errorf("teachers.Service.Delete: %w", ErrInvalidInput)
+	}
+	return s.repo.Delete(ctx, tenantID, schoolID, userID)
+}

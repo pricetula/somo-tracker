@@ -1,36 +1,50 @@
 /**
  * Admins Listing Table — displays school admin users.
  *
- * Columns: Full Name, Email, Account Status (toggle), Creation Date.
+ * Columns: Full Name, Email, Account Status (toggle), Actions (delete).
+ * Search targets: User Name or Email Address.
+ * Bulk Import opens the intercepted parallel route modal.
+ *
  * Uses TanStack Table + TanStack Virtual for performance.
  */
 
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useReactTable, getCoreRowModel, flexRender, type ColumnDef } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { MoreHorizontal, Search, Upload } from "lucide-react";
 
 import { StatusToggleCell } from "./status-toggle-cell";
 import type { Member } from "@/lib/api/admins";
-import { useToggleAdminActive } from "../hooks/use-admins";
-
-// ─── Helpers ───────────────────────────────────────────────────────────────
-
-function formatDate(iso: string): string {
-    return new Date(iso).toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-    });
-}
+import { useToggleAdminActive, useDeleteAdmin } from "../hooks/use-admins";
 
 // ─── Columns ───────────────────────────────────────────────────────────────
 
 function createColumns(
-    toggleMutation: ReturnType<typeof useToggleAdminActive>
+    toggleMutation: ReturnType<typeof useToggleAdminActive>,
+    onDeleteRequest: (member: Member) => void
 ): ColumnDef<Member>[] {
     return [
         {
@@ -63,12 +77,29 @@ function createColumns(
             ),
         },
         {
-            accessorKey: "created_at",
-            header: "Creation Date",
+            id: "actions",
+            header: "",
             cell: ({ row }) => (
-                <span className="text-muted-foreground text-sm">
-                    {formatDate(row.original.created_at)}
-                </span>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            className="opacity-0 transition-opacity group-hover:opacity-100"
+                        >
+                            <MoreHorizontal className="size-4" />
+                            <span className="sr-only">Actions</span>
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-36">
+                        <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => onDeleteRequest(row.original)}
+                        >
+                            Delete
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
             ),
         },
     ];
@@ -80,13 +111,27 @@ interface AdminsTableProps {
     admins: Member[];
     total: number;
     isLoading: boolean;
+    search: string;
+    onSearchChange: (value: string) => void;
 }
 
 // ─── Component ─────────────────────────────────────────────────────────────
 
-export function AdminsTable({ admins, total, isLoading }: AdminsTableProps) {
+export function AdminsTable({
+    admins,
+    total,
+    isLoading,
+    search,
+    onSearchChange,
+}: AdminsTableProps) {
     const toggleMutation = useToggleAdminActive();
-    const columns = React.useMemo(() => createColumns(toggleMutation), [toggleMutation]);
+    const deleteMutation = useDeleteAdmin();
+    const [memberToDelete, setMemberToDelete] = React.useState<Member | null>(null);
+
+    const columns = React.useMemo(
+        () => createColumns(toggleMutation, setMemberToDelete),
+        [toggleMutation]
+    );
 
     // eslint-disable-next-line react-hooks/incompatible-library
     const table = useReactTable({
@@ -107,8 +152,34 @@ export function AdminsTable({ admins, total, isLoading }: AdminsTableProps) {
 
     const skeletonRows = 8;
 
+    const handleDeleteConfirm = () => {
+        if (!memberToDelete) return;
+        deleteMutation.mutate(memberToDelete.id, {
+            onSettled: () => setMemberToDelete(null),
+        });
+    };
+
     return (
         <div className="flex flex-1 flex-col">
+            {/* Search bar */}
+            <div className="mb-3 flex items-center gap-3">
+                <div className="relative max-w-xs flex-1">
+                    <Search className="text-muted-foreground absolute top-2.5 left-2.5 size-4" />
+                    <Input
+                        placeholder="Search by name or email…"
+                        value={search}
+                        onChange={(e) => onSearchChange(e.target.value)}
+                        className="pl-8"
+                    />
+                </div>
+                <Button variant="outline" size="sm" asChild>
+                    <Link href="/admins/import">
+                        <Upload className="mr-1.5 size-3.5" />
+                        Bulk Import
+                    </Link>
+                </Button>
+            </div>
+
             {/* Table Canvas */}
             <div
                 ref={parentRef}
@@ -127,7 +198,10 @@ export function AdminsTable({ admins, total, isLoading }: AdminsTableProps) {
                                     <div
                                         key={header.id}
                                         className="text-muted-foreground flex h-10 items-center px-3 text-xs font-medium tracking-wider uppercase"
-                                        style={{ flex: 1 }}
+                                        style={{
+                                            flex: header.id !== "actions" ? 1 : "0 0 auto",
+                                            width: header.id === "actions" ? 48 : "auto",
+                                        }}
                                     >
                                         {flexRender(
                                             header.column.columnDef.header,
@@ -155,14 +229,21 @@ export function AdminsTable({ admins, total, isLoading }: AdminsTableProps) {
                                     <Skeleton className="mr-3 h-4 w-20 flex-1" />
                                     <Skeleton className="mr-3 h-4 w-20 flex-1" />
                                     <Skeleton className="mr-3 h-6 w-16 flex-1" />
-                                    <Skeleton className="mr-3 h-4 w-24 flex-1" />
+                                    <Skeleton className="mr-3 h-4 w-4 flex-1" />
                                 </div>
                             ))
                         ) : rows.length === 0 ? (
                             <div className="flex items-center justify-center py-16">
-                                <p className="text-muted-foreground text-sm font-medium">
-                                    No admins yet
-                                </p>
+                                <div className="text-center">
+                                    <p className="text-muted-foreground text-sm font-medium">
+                                        {search ? "No admins match your search" : "No admins yet"}
+                                    </p>
+                                    <p className="text-muted-foreground mt-1 text-xs">
+                                        {search
+                                            ? "Try a different search term."
+                                            : "Invite admins to manage your school."}
+                                    </p>
+                                </div>
                             </div>
                         ) : (
                             virtualizer.getVirtualItems().map((virtualRow) => {
@@ -183,8 +264,20 @@ export function AdminsTable({ admins, total, isLoading }: AdminsTableProps) {
                                         {row.getVisibleCells().map((cell) => (
                                             <div
                                                 key={cell.id}
-                                                className="flex items-center truncate px-3 text-sm"
-                                                style={{ flex: 1 }}
+                                                className={
+                                                    "flex items-center truncate px-3 text-sm" +
+                                                    (cell.column.id === "actions"
+                                                        ? " justify-end"
+                                                        : "")
+                                                }
+                                                style={{
+                                                    flex:
+                                                        cell.column.id !== "actions"
+                                                            ? 1
+                                                            : "0 0 auto",
+                                                    width:
+                                                        cell.column.id === "actions" ? 48 : "auto",
+                                                }}
                                             >
                                                 {flexRender(
                                                     cell.column.columnDef.cell,
@@ -206,6 +299,36 @@ export function AdminsTable({ admins, total, isLoading }: AdminsTableProps) {
                     {total} admin{total !== 1 ? "s" : ""}
                 </p>
             </div>
+
+            {/* Delete confirmation dialog */}
+            <AlertDialog
+                open={!!memberToDelete}
+                onOpenChange={(open) => {
+                    if (!open) setMemberToDelete(null);
+                }}
+            >
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete admin</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to permanently delete{" "}
+                            <strong>{memberToDelete?.full_name || memberToDelete?.email}</strong>?
+                            This action cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={deleteMutation.isPending}>
+                            Cancel
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleDeleteConfirm}
+                            disabled={deleteMutation.isPending}
+                        >
+                            {deleteMutation.isPending ? "Deleting..." : "Delete"}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

@@ -22,16 +22,141 @@ func NewRepository(pools *database.Pools) *PgRepository {
 // ─── List ─────────────────────────────────────────────────────────────────
 
 // List returns a paginated list of students enrolled at the given school.
+// Supports search (full_name, upi_number, knec_assessment_number, admission_number),
+// curriculum filters (education_level, grade_level), and lifecycle filter (enrollment_status).
 func (r *PgRepository) List(ctx context.Context, filter ListFilter) ([]Student, int, error) {
-	// TODO: Re-enable count query with proper filters when pagination is needed.
-	// For now the list endpoint returns all students unfiltered.
+	// ── Build WHERE clauses ─────────────────────────────────────────────
+	var conditions []string
+	var args []interface{}
+	argIdx := 1
 
-	dataQuery := `
-		SELECT s.id, s.full_name
+	// Always scoped to tenant + school
+	conditions = append(conditions, fmt.Sprintf("s.tenant_id = $%d", argIdx))
+	args = append(args, filter.TenantID)
+	argIdx++
+
+	conditions = append(conditions, fmt.Sprintf("s.school_id = $%d", argIdx))
+	args = append(args, filter.SchoolID)
+	argIdx++
+
+	// ── Search (full_name, upi_number, knec_assessment_number, admission_number) ──
+	if filter.Search != "" {
+		pattern := "%" + filter.Search + "%"
+		conditions = append(conditions, fmt.Sprintf(`(
+			s.full_name ILIKE $%d OR
+			s.upi_number::text ILIKE $%d OR
+			s.knec_assessment_number::text ILIKE $%d OR
+			s.admission_number::text ILIKE $%d
+		)`, argIdx, argIdx+1, argIdx+2, argIdx+3))
+		args = append(args, pattern, pattern, pattern, pattern)
+		argIdx += 4
+	}
+
+	// ── Education Level multi-select ────────────────────────────────────
+	if len(filter.EducationLevels) > 0 {
+		ors := make([]string, len(filter.EducationLevels))
+		for i, el := range filter.EducationLevels {
+			ors[i] = fmt.Sprintf("la.education_level::text = $%d", argIdx)
+			args = append(args, el)
+			argIdx++
+		}
+		conditions = append(conditions, "("+joinStrings(ors, " OR ")+")")
+	}
+
+	// ── Grade Level multi-select ────────────────────────────────────────
+	if len(filter.GradeLevels) > 0 {
+		ors := make([]string, len(filter.GradeLevels))
+		for i, gl := range filter.GradeLevels {
+			ors[i] = fmt.Sprintf("c.grade_level::text = $%d", argIdx)
+			args = append(args, gl)
+			argIdx++
+		}
+		conditions = append(conditions, "("+joinStrings(ors, " OR ")+")")
+	}
+
+	// ── Enrollment Status filter (Lifecycle Group) ──────────────────────
+	if filter.EnrollmentStatus != "" {
+		conditions = append(conditions, fmt.Sprintf("e.status = $%d", argIdx))
+		args = append(args, filter.EnrollmentStatus)
+		argIdx++
+	}
+
+	// ── Build full query ────────────────────────────────────────────────
+	whereClause := joinStrings(conditions, " AND ")
+
+	countQuery := fmt.Sprintf(`
+		SELECT COUNT(DISTINCT s.id)
 		FROM cbc_students s
-	`
+		LEFT JOIN LATERAL (
+			SELECT e.status
+			FROM cbc_student_enrollments e
+			WHERE e.student_id = s.id
+			ORDER BY e.created_at DESC
+			LIMIT 1
+		) e ON TRUE
+		LEFT JOIN LATERAL (
+			SELECT cc.grade_level
+			FROM cbc_student_enrollments e2
+			JOIN cbc_classes cc ON cc.id = e2.class_id
+			WHERE e2.student_id = s.id
+			ORDER BY e2.created_at DESC
+			LIMIT 1
+		) c ON TRUE
+		LEFT JOIN LATERAL (
+			SELECT la.education_level
+			FROM cbc_student_enrollments e3
+			JOIN cbc_classes cc2 ON cc2.id = e3.class_id
+			JOIN cbc_learning_areas la ON la.id = cc2.learning_area_id
+			WHERE e3.student_id = s.id
+			ORDER BY e3.created_at DESC
+			LIMIT 1
+		) la ON TRUE
+		WHERE %s
+	`, whereClause)
 
-	rows, err := r.pool.Query(ctx, dataQuery)
+	var total int
+	if err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("students.Repository.List: count: %w", err)
+	}
+
+	// ── Data query ─────────────────────────────────────────────────────
+	dataQuery := fmt.Sprintf(`
+		SELECT s.id, s.full_name, s.gender, s.date_of_birth::text,
+		       s.upi_number, s.knec_assessment_number, s.admission_number,
+		       c.class_name, c.class_id, s.is_active, s.created_at::text
+		FROM cbc_students s
+		LEFT JOIN LATERAL (
+			SELECT cc.display_label AS class_name, cc.id AS class_id,
+			       cc.grade_level
+			FROM cbc_student_enrollments e
+			JOIN cbc_classes cc ON cc.id = e.class_id
+			WHERE e.student_id = s.id
+			ORDER BY e.created_at DESC
+			LIMIT 1
+		) c ON TRUE
+		LEFT JOIN LATERAL (
+			SELECT e.status
+			FROM cbc_student_enrollments e
+			WHERE e.student_id = s.id
+			ORDER BY e.created_at DESC
+			LIMIT 1
+		) e ON TRUE
+		LEFT JOIN LATERAL (
+			SELECT la.education_level
+			FROM cbc_student_enrollments e3
+			JOIN cbc_classes cc2 ON cc2.id = e3.class_id
+			JOIN cbc_learning_areas la ON la.id = cc2.learning_area_id
+			WHERE e3.student_id = s.id
+			ORDER BY e3.created_at DESC
+			LIMIT 1
+		) la ON TRUE
+		WHERE %s
+		ORDER BY s.full_name
+		LIMIT $%d OFFSET $%d
+	`, whereClause, argIdx, argIdx+1)
+	args = append(args, filter.Limit, (filter.Page-1)*filter.Limit)
+
+	rows, err := r.pool.Query(ctx, dataQuery, args...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("students.Repository.List: query: %w", err)
 	}
@@ -40,28 +165,33 @@ func (r *PgRepository) List(ctx context.Context, filter ListFilter) ([]Student, 
 	var students []Student
 	for rows.Next() {
 		var s Student
-		// var dateOfBirth, upiNumber, knecNumber, className, classID *string
+		var dateOfBirth, upiNumber, knecNumber, admissionNumber, className, classID *string
 		err := rows.Scan(
-			&s.ID, &s.FullName,
+			&s.ID, &s.FullName, &s.Gender, &dateOfBirth,
+			&upiNumber, &knecNumber, &admissionNumber,
+			&className, &classID, &s.IsActive, &s.CreatedAt,
 		)
 		if err != nil {
 			return nil, 0, fmt.Errorf("students.Repository.List: scan: %w", err)
 		}
-		// if dateOfBirth != nil {
-		// 	s.DateOfBirth = dateOfBirth
-		// }
-		// if upiNumber != nil {
-		// 	s.UPINumber = upiNumber
-		// }
-		// if knecNumber != nil {
-		// 	s.KNECAssessmentNumber = knecNumber
-		// }
-		// if className != nil {
-		// 	s.ClassName = className
-		// }
-		// if classID != nil {
-		// 	s.ClassID = classID
-		// }
+		if dateOfBirth != nil {
+			s.DateOfBirth = dateOfBirth
+		}
+		if upiNumber != nil {
+			s.UPINumber = upiNumber
+		}
+		if knecNumber != nil {
+			s.KNECAssessmentNumber = knecNumber
+		}
+		if admissionNumber != nil {
+			s.AdmissionNumber = admissionNumber
+		}
+		if className != nil {
+			s.ClassName = className
+		}
+		if classID != nil {
+			s.ClassID = classID
+		}
 		students = append(students, s)
 	}
 	if err := rows.Err(); err != nil {
@@ -72,7 +202,7 @@ func (r *PgRepository) List(ctx context.Context, filter ListFilter) ([]Student, 
 		students = []Student{}
 	}
 
-	return students, len(students), nil
+	return students, total, nil
 }
 
 // ─── Get By ID ────────────────────────────────────────────────────────────
@@ -183,6 +313,31 @@ func (r *PgRepository) Update(ctx context.Context, student *Student) error {
 		}
 		return fmt.Errorf("students.Repository.Update: %w", err)
 	}
+	return nil
+}
+
+// ─── Delete ────────────────────────────────────────────────────────────────
+
+// Delete hard-deletes a student record (and cascade-enrollments) by ID.
+func (r *PgRepository) Delete(ctx context.Context, id, tenantID, schoolID string) error {
+	// Delete enrollments first (cascade)
+	_, err := r.pool.Exec(ctx, `DELETE FROM cbc_student_enrollments WHERE student_id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("students.Repository.Delete: delete enrollments: %w", err)
+	}
+
+	const query = `
+		DELETE FROM cbc_students
+		WHERE id = $1 AND tenant_id = $2 AND school_id = $3
+	`
+	tag, err := r.pool.Exec(ctx, query, id, tenantID, schoolID)
+	if err != nil {
+		return fmt.Errorf("students.Repository.Delete: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("students.Repository.Delete: %w", ErrNotFound)
+	}
+
 	return nil
 }
 
@@ -321,6 +476,17 @@ func searchString(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+func joinStrings(elems []string, sep string) string {
+	if len(elems) == 0 {
+		return ""
+	}
+	result := elems[0]
+	for i := 1; i < len(elems); i++ {
+		result += sep + elems[i]
+	}
+	return result
 }
 
 // ============================================================================

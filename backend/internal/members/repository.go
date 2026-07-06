@@ -119,6 +119,24 @@ func (r *PgRepository) ToggleActive(ctx context.Context, tenantID, schoolID, use
 	return nil
 }
 
+// Delete hard-deletes a member's membership by user ID and role.
+func (r *PgRepository) Delete(ctx context.Context, tenantID, schoolID, userID, role string) error {
+	const query = `
+		DELETE FROM memberships
+		WHERE tenant_id = $1 AND school_id = $2 AND user_id = $3 AND role::text = $4
+	`
+
+	tag, err := r.pool.Exec(ctx, query, tenantID, schoolID, userID, role)
+	if err != nil {
+		return fmt.Errorf("members.Repository.Delete: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("members.Repository.Delete: %w", ErrNotFound)
+	}
+
+	return nil
+}
+
 // GetActiveSchoolID returns the active school ID for a user in a tenant.
 func (r *PgRepository) GetActiveSchoolID(ctx context.Context, tenantID, userID string) (string, error) {
 	const query = `

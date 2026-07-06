@@ -8,7 +8,12 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { listFinanceStaff, toggleFinanceActive, type ListMembersResponse } from "@/lib/api/finance";
+import {
+    listFinanceStaff,
+    toggleFinanceActive,
+    deleteFinanceStaff,
+    type ListMembersResponse,
+} from "@/lib/api/finance";
 import { getErrorMessage } from "@/lib/errors";
 import { toast } from "sonner";
 
@@ -38,6 +43,22 @@ export function useFinanceStaff(
         queryFn: () => listFinanceStaff({ page, limit, search, include_inactive: includeInactive }),
         placeholderData: (prev) => prev,
         enabled,
+    });
+}
+
+/** Hard-delete a finance staff member. */
+export function useDeleteFinanceStaff() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (userId: string) => deleteFinanceStaff(userId),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: financeKeys.all });
+            toast.success("Finance staff deleted");
+        },
+        onError: (err) => {
+            toast.error(getErrorMessage(err));
+        },
     });
 }
 

@@ -9,6 +9,25 @@
 
 "use client";
 
+import * as React from "react";
+import { useAdmins } from "@/features/staff";
+import { AdminsTable } from "@/features/staff";
+
 export default function AdminsPage() {
-    return <div />;
+    const [search, setSearch] = React.useState("");
+
+    const { data, isLoading } = useAdmins({ search: search || undefined });
+
+    const admins = data?.items ?? [];
+    const total = data?.total ?? 0;
+
+    return (
+        <AdminsTable
+            admins={admins}
+            total={total}
+            isLoading={isLoading}
+            search={search}
+            onSearchChange={setSearch}
+        />
+    );
 }

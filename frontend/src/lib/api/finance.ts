@@ -33,3 +33,8 @@ export async function listFinanceStaff(
 export async function toggleFinanceActive(userId: string, isActive: boolean): Promise<void> {
     return api.patch<void>(`/api/v1/members/${userId}/active`, { is_active: isActive });
 }
+
+/** Hard-delete a finance staff member. */
+export async function deleteFinanceStaff(userId: string): Promise<void> {
+    return api.delete<void>(`/api/v1/members/${userId}?role=FINANCE`);
+}

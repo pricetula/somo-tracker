@@ -25,6 +25,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	teachers := router.Group("/api/v1/teachers")
 	teachers.Get("/", middleware.RequireAuth, h.List)
 	teachers.Patch("/:user_id/active", middleware.RequireAuth, h.ToggleActive)
+	teachers.Delete("/:user_id", middleware.RequireAuth, h.Delete)
 }
 
 // ─── Handlers ──────────────────────────────────────────────────────────────
@@ -96,6 +97,29 @@ func (h *Handler) ToggleActive(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"code":    "ok",
 		"message": "teacher status updated",
+	})
+}
+
+// Delete handles DELETE /api/v1/teachers/:user_id
+func (h *Handler) Delete(c *fiber.Ctx) error {
+	tenantID := c.Locals("tenant_id").(string)
+	userID := c.Params("user_id")
+
+	schoolID := c.Locals("active_school_id").(string)
+	if schoolID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "active school not set",
+		})
+	}
+
+	if err := h.svc.Delete(c.Context(), tenantID, schoolID, userID); err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(fiber.Map{
+		"code":    "ok",
+		"message": "teacher deleted",
 	})
 }
 

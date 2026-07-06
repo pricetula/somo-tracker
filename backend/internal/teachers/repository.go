@@ -22,6 +22,7 @@ func NewRepository(pools *database.Pools) *PgRepository {
 
 // ListBySchool returns paginated teachers for a given school.
 // When includeInactive is true, both active and inactive memberships are returned.
+// Search targets u.full_name, u.email, and u.tsc_number.
 func (r *PgRepository) ListBySchool(ctx context.Context, tenantID, schoolID string, includeInactive bool, offset, limit int, search string) ([]Teacher, int, error) {
 	// Build the WHERE clause for active/inactive filter
 	activeFilter := "TRUE"
@@ -29,22 +30,24 @@ func (r *PgRepository) ListBySchool(ctx context.Context, tenantID, schoolID stri
 		activeFilter = "m.is_active = true"
 	}
 
+	searchClause := ""
+	var searchArgs []interface{}
+	if search != "" {
+		pattern := "%" + search + "%"
+		searchClause = ` AND (u.full_name ILIKE $3 OR u.email ILIKE $4 OR u.tsc_number::text ILIKE $5)`
+		searchArgs = []interface{}{pattern, pattern, pattern}
+	}
+
 	// Count total
 	countArgs := []interface{}{tenantID, schoolID}
+	countArgs = append(countArgs, searchArgs...)
 	countQuery := fmt.Sprintf(`
 		SELECT COUNT(*)
 		FROM memberships m
 		JOIN users u ON u.id = m.user_id
 		WHERE m.tenant_id = $1 AND m.school_id = $2 AND m.role::text = 'TEACHER'
-		  AND %s
-	`, activeFilter)
-
-	argIdx := 3
-	if search != "" {
-		pattern := "%" + search + "%"
-		countQuery += fmt.Sprintf(` AND (u.full_name ILIKE $%d OR u.email ILIKE $%d)`, argIdx, argIdx+1)
-		countArgs = append(countArgs, pattern, pattern)
-	}
+		  AND %s%s
+	`, activeFilter, searchClause)
 
 	var total int
 	if err := r.pool.QueryRow(ctx, countQuery, countArgs...).Scan(&total); err != nil {
@@ -53,6 +56,7 @@ func (r *PgRepository) ListBySchool(ctx context.Context, tenantID, schoolID stri
 
 	// Fetch data with teacher-specific fields
 	dataArgs := []interface{}{tenantID, schoolID}
+	dataArgs = append(dataArgs, searchArgs...)
 	dataQuery := fmt.Sprintf(`
 		SELECT u.id, u.email, u.full_name,
 		       u.tsc_number, u.knec_panel_assessor_id,
@@ -68,18 +72,11 @@ func (r *PgRepository) ListBySchool(ctx context.Context, tenantID, schoolID stri
 			LIMIT 1
 		) cct ON TRUE
 		WHERE m.tenant_id = $1 AND m.school_id = $2 AND m.role::text = 'TEACHER'
-		  AND %s
-	`, activeFilter)
+		  AND %s%s
+	`, activeFilter, searchClause)
 
-	dataArgIdx := 3
-	if search != "" {
-		pattern := "%" + search + "%"
-		dataQuery += fmt.Sprintf(` AND (u.full_name ILIKE $%d OR u.email ILIKE $%d)`, dataArgIdx, dataArgIdx+1)
-		dataArgs = append(dataArgs, pattern, pattern)
-		dataArgIdx += 2
-	}
-
-	dataQuery += fmt.Sprintf(` ORDER BY u.full_name LIMIT $%d OFFSET $%d`, dataArgIdx, dataArgIdx+1)
+	argIdx := 3 + len(searchArgs)
+	dataQuery += fmt.Sprintf(` ORDER BY u.full_name LIMIT $%d OFFSET $%d`, argIdx, argIdx+1)
 	dataArgs = append(dataArgs, limit, offset)
 
 	rows, err := r.pool.Query(ctx, dataQuery, dataArgs...)
@@ -126,6 +123,24 @@ func (r *PgRepository) ToggleActive(ctx context.Context, tenantID, schoolID, use
 	}
 	if tag.RowsAffected() == 0 {
 		return fmt.Errorf("teachers.Repository.ToggleActive: %w", ErrNotFound)
+	}
+
+	return nil
+}
+
+// Delete hard-deletes a teacher's membership and user record.
+func (r *PgRepository) Delete(ctx context.Context, tenantID, schoolID, userID string) error {
+	const query = `
+		DELETE FROM memberships
+		WHERE tenant_id = $1 AND school_id = $2 AND user_id = $3 AND role::text = 'TEACHER'
+	`
+
+	tag, err := r.pool.Exec(ctx, query, tenantID, schoolID, userID)
+	if err != nil {
+		return fmt.Errorf("teachers.Repository.Delete: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("teachers.Repository.Delete: %w", ErrNotFound)
 	}
 
 	return nil

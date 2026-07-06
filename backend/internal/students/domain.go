@@ -33,6 +33,7 @@ type Student struct {
 	DateOfBirth          *string `json:"date_of_birth,omitempty"`
 	UPINumber            *string `json:"upi_number,omitempty"`
 	KNECAssessmentNumber *string `json:"knec_assessment_number,omitempty"`
+	AdmissionNumber      *string `json:"admission_number,omitempty"`
 	ClassName            *string `json:"class_name,omitempty"`
 	ClassID              *string `json:"class_id,omitempty"`
 	IsActive             bool    `json:"is_active"`
@@ -112,13 +113,16 @@ type ListEnrollmentsResponse struct {
 
 // ListFilter holds query parameters for listing students.
 type ListFilter struct {
-	TenantID string
-	SchoolID string
-	Page     int
-	Limit    int
-	Search   string
-	ClassID  string
-	Gender   string
+	TenantID         string
+	SchoolID         string
+	Page             int
+	Limit            int
+	Search           string
+	ClassID          string
+	Gender           string
+	EducationLevels  []string // multi-select education level filter
+	GradeLevels      []string // multi-select grade level filter
+	EnrollmentStatus string   // ACTIVE, SUSPENDED, TRANSFERRED, or empty for all
 }
 
 // ============================================================================
@@ -184,6 +188,7 @@ type StudentRepository interface {
 	GetByID(ctx context.Context, id, tenantID, schoolID string) (*Student, error)
 	Create(ctx context.Context, student *Student) (string, error)
 	Update(ctx context.Context, student *Student) error
+	Delete(ctx context.Context, id, tenantID, schoolID string) error
 	GetDetail(ctx context.Context, id, tenantID, schoolID string) (*StudentDetail, error)
 
 	// Enrollments

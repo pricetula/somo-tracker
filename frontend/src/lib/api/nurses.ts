@@ -33,3 +33,8 @@ export async function listNurses(
 export async function toggleNurseActive(userId: string, isActive: boolean): Promise<void> {
     return api.patch<void>(`/api/v1/members/${userId}/active`, { is_active: isActive });
 }
+
+/** Hard-delete a nurse member. */
+export async function deleteNurse(userId: string): Promise<void> {
+    return api.delete<void>(`/api/v1/members/${userId}?role=NURSE`);
+}

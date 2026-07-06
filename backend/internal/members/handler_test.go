@@ -49,6 +49,7 @@ func newHandlerTestHarness(t *testing.T) *handlerTestHarness {
 	// Register routes manually (bypassing RegisterRoutes which embeds requireAuth)
 	members := app.Group("/api/v1/members", testAuth)
 	members.Get("/", handler.List)
+	members.Delete("/:user_id", handler.Delete)
 
 	return &handlerTestHarness{
 		app:     app,

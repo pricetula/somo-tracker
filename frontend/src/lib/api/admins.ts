@@ -33,3 +33,8 @@ export async function listAdmins(
 export async function toggleAdminActive(userId: string, isActive: boolean): Promise<void> {
     return api.patch<void>(`/api/v1/members/${userId}/active`, { is_active: isActive });
 }
+
+/** Hard-delete an admin member. */
+export async function deleteAdmin(userId: string): Promise<void> {
+    return api.delete<void>(`/api/v1/members/${userId}?role=SCHOOL_ADMIN`);
+}

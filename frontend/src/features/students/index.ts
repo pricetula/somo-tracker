@@ -8,7 +8,7 @@ export { StudentForm } from "./components/student-form";
 export { EnrollmentTimeline } from "./components/enrollment-timeline";
 export { EnrollDialog } from "./components/enroll-dialog";
 
-export { useStudents, studentKeys } from "./hooks/use-students";
+export { useStudents, useDeleteStudent, studentKeys } from "./hooks/use-students";
 export {
     useStudentDetail,
     useCreateStudent,

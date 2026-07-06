@@ -6,6 +6,7 @@
  *   POST /api/v1/students            — create student
  *   GET  /api/v1/students/:id        — student detail with enrollments
  *   PUT  /api/v1/students/:id        — update student
+ *   DELETE /api/v1/students/:id      — hard-delete student
  *   POST /api/v1/students/:id/enrollments    — create enrollment
  *   GET  /api/v1/students/:id/enrollments    — list enrollments
  */
@@ -21,6 +22,7 @@ export interface Student {
     date_of_birth?: string | null;
     upi_number?: string | null;
     knec_assessment_number?: string | null;
+    admission_number?: string | null;
     class_name?: string | null;
     class_id?: string | null;
     is_active: boolean;
@@ -47,6 +49,7 @@ export interface StudentDetail {
     date_of_birth?: string | null;
     upi_number?: string | null;
     knec_assessment_number?: string | null;
+    admission_number?: string | null;
     class_name?: string | null;
     class_id?: string | null;
     is_active: boolean;
@@ -87,6 +90,9 @@ export interface ListStudentsParams {
     search?: string;
     class_id?: string;
     gender?: string;
+    enrollment_status?: string;
+    /** Filter values keyed by FilterItem id, e.g. { education_level: ["Early_Years"], grade_level: ["G1", "G2"] } */
+    filters?: Record<string, string[]>;
 }
 
 export interface CreateStudentPayload {
@@ -118,11 +124,23 @@ export interface CreateEnrollmentPayload {
 /** List students with pagination and optional filters. */
 export async function listStudents(params: ListStudentsParams = {}): Promise<ListStudentsResponse> {
     const searchParams = new URLSearchParams();
+
+    // Multi-value filters
+    const edLevels = params.filters?.education_level ?? [];
+    for (const el of edLevels) {
+        searchParams.append("education_level", el);
+    }
+    const grLevels = params.filters?.grade_level ?? [];
+    for (const gl of grLevels) {
+        searchParams.append("grade_level", gl);
+    }
+
     if (params.page) searchParams.set("page", String(params.page));
     if (params.limit) searchParams.set("limit", String(params.limit));
     if (params.search) searchParams.set("search", params.search);
     if (params.class_id) searchParams.set("class_id", params.class_id);
     if (params.gender) searchParams.set("gender", params.gender);
+    if (params.enrollment_status) searchParams.set("enrollment_status", params.enrollment_status);
 
     const qs = searchParams.toString();
     return api.get<ListStudentsResponse>(`/api/v1/students/list?${qs}`);
@@ -141,6 +159,11 @@ export async function getStudentDetail(id: string): Promise<StudentDetailRespons
 /** Update a student. */
 export async function updateStudent(id: string, data: UpdateStudentPayload): Promise<void> {
     return api.put<void>(`/api/v1/students/${id}`, data);
+}
+
+/** Hard-delete a student. */
+export async function deleteStudent(id: string): Promise<void> {
+    return api.delete<void>(`/api/v1/students/${id}`);
 }
 
 /** Create an enrollment (enroll in class for a term). */

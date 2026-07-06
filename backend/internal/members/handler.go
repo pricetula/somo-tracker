@@ -25,6 +25,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	members := router.Group("/api/v1/members")
 	members.Get("/", middleware.RequireAuth, h.List)
 	members.Patch("/:user_id/active", middleware.RequireAuth, h.ToggleActive)
+	members.Delete("/:user_id", middleware.RequireAuth, h.Delete)
 }
 
 // ─── Handlers ──────────────────────────────────────────────────────────────
@@ -119,6 +120,37 @@ func (h *Handler) ToggleActive(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"code":    "ok",
 		"message": "member status updated",
+	})
+}
+
+// Delete handles DELETE /api/v1/members/:user_id
+func (h *Handler) Delete(c *fiber.Ctx) error {
+	tenantID := c.Locals("tenant_id").(string)
+	userID := c.Params("user_id")
+
+	role := strings.TrimSpace(c.Query("role", ""))
+	if role == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "role query parameter is required (TEACHER, NURSE, FINANCE, or SCHOOL_ADMIN)",
+		})
+	}
+
+	schoolID := c.Locals("active_school_id").(string)
+	if schoolID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "active school not set",
+		})
+	}
+
+	if err := h.svc.Delete(c.Context(), tenantID, schoolID, userID, role); err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(fiber.Map{
+		"code":    "ok",
+		"message": "member deleted",
 	})
 }
 

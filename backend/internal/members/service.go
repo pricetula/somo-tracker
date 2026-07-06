@@ -11,6 +11,7 @@ type ServiceRepository interface {
 	ListByRole(ctx context.Context, tenantID, schoolID, role string, offset, limit int, search string) ([]Member, int, error)
 	ListByRoleIncludingInactive(ctx context.Context, tenantID, schoolID, role string, offset, limit int, search string) ([]Member, int, error)
 	ToggleActive(ctx context.Context, tenantID, schoolID, userID string, isActive bool) error
+	Delete(ctx context.Context, tenantID, schoolID, userID, role string) error
 }
 
 // Service contains business logic for the members domain.
@@ -51,4 +52,12 @@ func (s *Service) ToggleActive(ctx context.Context, tenantID, schoolID, userID s
 		return fmt.Errorf("members.Service.ToggleActive: %w", ErrInvalidInput)
 	}
 	return s.repo.ToggleActive(ctx, tenantID, schoolID, userID, isActive)
+}
+
+// Delete hard-deletes a member's membership.
+func (s *Service) Delete(ctx context.Context, tenantID, schoolID, userID, role string) error {
+	if userID == "" {
+		return fmt.Errorf("members.Service.Delete: %w", ErrInvalidInput)
+	}
+	return s.repo.Delete(ctx, tenantID, schoolID, userID, role)
 }

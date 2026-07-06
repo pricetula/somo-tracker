@@ -5,4 +5,4 @@
  * the existing import path for backward compatibility.
  */
 
-export { listStudents } from "@/lib/api/students";
+export { listStudents, deleteStudent } from "@/lib/api/students";

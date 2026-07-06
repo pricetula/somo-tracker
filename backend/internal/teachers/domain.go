@@ -20,6 +20,7 @@ var (
 type Repository interface {
 	ListBySchool(ctx context.Context, tenantID, schoolID string, includeInactive bool, offset, limit int, search string) ([]Teacher, int, error)
 	ToggleActive(ctx context.Context, tenantID, schoolID, userID string, isActive bool) error
+	Delete(ctx context.Context, tenantID, schoolID, userID string) error
 }
 
 // Teacher represents a user with the TEACHER role, including

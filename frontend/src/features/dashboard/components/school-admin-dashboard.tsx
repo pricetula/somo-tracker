@@ -227,7 +227,17 @@ export function SchoolAdminDashboardPage() {
                 </p>
             </div>
 
-            <StudentsTable />
+            <StudentsTable
+                students={[]}
+                total={0}
+                isLoading={false}
+                search=""
+                onSearchChange={() => {}}
+                activeFilters={{}}
+                onToggleButton={() => {}}
+                onSelectSingle={() => {}}
+                onToggleMulti={() => {}}
+            />
 
             {/* ── Bulk Student Import ── */}
             <section className="space-y-4">

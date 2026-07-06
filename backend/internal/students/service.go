@@ -99,6 +99,14 @@ func (s *Service) Create(ctx context.Context, tenantID, schoolID string, payload
 
 // ─── Get Detail ───────────────────────────────────────────────────────────
 
+// Delete hard-deletes a student record.
+func (s *Service) Delete(ctx context.Context, id, tenantID, schoolID string) error {
+	if id == "" || tenantID == "" || schoolID == "" {
+		return fmt.Errorf("students.Service.Delete: %w", ErrInvalidInput)
+	}
+	return s.repo.Delete(ctx, id, tenantID, schoolID)
+}
+
 // GetDetail returns a student with enrollment history.
 func (s *Service) GetDetail(ctx context.Context, id, tenantID, schoolID string) (*StudentDetail, error) {
 	if id == "" || tenantID == "" || schoolID == "" {

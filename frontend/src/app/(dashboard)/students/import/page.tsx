@@ -4,6 +4,8 @@
  * Bulk import UI will be implemented later.
  */
 
+import { StudentsImportForm } from "@/features/students/components/students-import/students-import";
+
 export default function StudentsImportPage() {
-    return <div />;
+    return <StudentsImportForm isDialogVersion={false} />;
 }

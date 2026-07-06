@@ -80,25 +80,31 @@ func invalidBody(c *fiber.Ctx) error {
 }
 
 // parseRepeatedQuery reads all values for a given query parameter name.
-// If the param appears once but contains commas, it splits on commas
-// (for client-side convenience when using ?param=a,b,c).
+// Supports two styles:
+//   - repeated params: ?grade_level=G4&grade_level=G5
+//   - comma-separated: ?grade_level=G4,G5
 func parseRepeatedQuery(c *fiber.Ctx, name string) []string {
+	// Check for repeated query params first (e.g., ?grade=G4&grade=G5)
+	all := c.Request().URI().QueryArgs().PeekMulti(name)
+	if len(all) > 1 {
+		result := make([]string, 0, len(all))
+		for _, v := range all {
+			s := strings.TrimSpace(string(v))
+			if s != "" {
+				result = append(result, s)
+			}
+		}
+		return result
+	}
+
+	// Single value (or none) — could be comma-separated for client convenience
+	// (e.g., ?grade_level=G4,G5). c.Query returns only the first value, which
+	// is correct here since we already know there's at most one occurrence.
 	vals := c.Query(name, "")
 	if vals == "" {
-		// Check for repeated params (Fiber combines them with comma)
-		if all := c.Request().URI().QueryArgs().PeekMulti(name); len(all) > 0 {
-			result := make([]string, 0, len(all))
-			for _, v := range all {
-				s := strings.TrimSpace(string(v))
-				if s != "" {
-					result = append(result, s)
-				}
-			}
-			return result
-		}
 		return nil
 	}
-	// Single value — could be comma-separated
+
 	parts := strings.Split(vals, ",")
 	result := make([]string, 0, len(parts))
 	for _, p := range parts {

@@ -106,7 +106,7 @@ func (r *PgRepository) List(ctx context.Context, filter ListFilter) ([]Student, 
 			SELECT la.education_level
 			FROM cbc_student_enrollments e3
 			JOIN cbc_classes cc2 ON cc2.id = e3.class_id
-			JOIN cbc_learning_areas la ON la.id = cc2.learning_area_id
+			JOIN cbc_learning_areas la ON la.grade_level = cc2.grade_level
 			WHERE e3.student_id = s.id
 			ORDER BY e3.created_at DESC
 			LIMIT 1
@@ -126,10 +126,11 @@ func (r *PgRepository) List(ctx context.Context, filter ListFilter) ([]Student, 
 		       c.class_name, c.class_id, s.is_active, s.created_at::text
 		FROM cbc_students s
 		LEFT JOIN LATERAL (
-			SELECT cc.display_label AS class_name, cc.id AS class_id,
-			       cc.grade_level
+			SELECT cc.grade_level || ' ' || COALESCE(cs.name, '') AS class_name,
+			       cc.id AS class_id, cc.grade_level
 			FROM cbc_student_enrollments e
 			JOIN cbc_classes cc ON cc.id = e.class_id
+			LEFT JOIN cbc_streams cs ON cs.id = cc.stream_id AND cs.tenant_id = cc.tenant_id
 			WHERE e.student_id = s.id
 			ORDER BY e.created_at DESC
 			LIMIT 1
@@ -145,7 +146,7 @@ func (r *PgRepository) List(ctx context.Context, filter ListFilter) ([]Student, 
 			SELECT la.education_level
 			FROM cbc_student_enrollments e3
 			JOIN cbc_classes cc2 ON cc2.id = e3.class_id
-			JOIN cbc_learning_areas la ON la.id = cc2.learning_area_id
+			JOIN cbc_learning_areas la ON la.grade_level = cc2.grade_level
 			WHERE e3.student_id = s.id
 			ORDER BY e3.created_at DESC
 			LIMIT 1
@@ -380,12 +381,13 @@ func (r *PgRepository) ListEnrollments(ctx context.Context, studentID, tenantID 
 		SELECT e.id, e.student_id, e.class_id, e.academic_term_id,
 		       t.name AS term_name, t.term_number,
 		       ay.name AS academic_year,
-		       c.display_label AS class_name,
+		       c.grade_level || ' ' || COALESCE(cs.name, '') AS class_name,
 		       e.status, e.created_at::text
 		FROM cbc_student_enrollments e
 		LEFT JOIN academic_terms t ON t.id = e.academic_term_id
 		LEFT JOIN academic_years ay ON ay.id = t.academic_year_id
 		LEFT JOIN cbc_classes c ON c.id = e.class_id
+		LEFT JOIN cbc_streams cs ON cs.id = c.stream_id AND cs.tenant_id = c.tenant_id
 		WHERE e.student_id = $1
 		ORDER BY ay.start_date DESC, t.term_number DESC
 	`

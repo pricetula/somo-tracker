@@ -17,9 +17,7 @@ import Link from "next/link";
 import { DataTable } from "@/components/shared/data-table";
 import type { DataTableColumn } from "@/components/shared/data-table/types";
 import type { FilterGroup } from "@/components/shared/data-table/types";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Upload } from "lucide-react";
 import { listStudents, type Student } from "@/lib/api/students";
 import { CURRICULUM_FILTER_GROUPS } from "@/lib/curriculum-filters";
 import { useDeleteStudent } from "@/features/students";
@@ -125,30 +123,20 @@ export default function StudentsPage() {
     const deleteMutation = useDeleteStudent();
 
     return (
-        <div className="flex flex-1 flex-col gap-4">
-            <div className="flex items-center justify-between">
-                <h1 className="text-2xl font-semibold tracking-tight">Students</h1>
-                <Button variant="outline" size="sm" asChild>
-                    <Link href="/students/import">
-                        <Upload className="mr-1.5 size-3.5" />
-                        Bulk Import
-                    </Link>
-                </Button>
-            </div>
-            <DataTable
-                queryKey={["students"]}
-                queryFn={listStudents}
-                columns={columns}
-                getRowId={(row) => row.id}
-                isSearchable
-                searchPlaceholder="Search by name, admission no., UPI, or KNEC no…"
-                filterGroups={filterGroups}
-                deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
-                rowHeight={48}
-                height={600}
-                emptyState="No students yet."
-                noResultsState="No students match your search or filters."
-            />
-        </div>
+        <DataTable
+            addHref="/students/import"
+            queryKey={["students"]}
+            queryFn={listStudents}
+            columns={columns}
+            getRowId={(row) => row.id}
+            isSearchable
+            searchPlaceholder="Search by name, admission no., UPI, or KNEC no…"
+            filterGroups={filterGroups}
+            deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
+            rowHeight={48}
+            height={600}
+            emptyState="No students yet."
+            noResultsState="No students match your search or filters."
+        />
     );
 }

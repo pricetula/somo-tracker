@@ -9,12 +9,9 @@
 
 "use client";
 
-import Link from "next/link";
 import { DataTable } from "@/components/shared/data-table";
 import type { DataTableColumn } from "@/components/shared/data-table/types";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Upload } from "lucide-react";
 import { listTeachers, type TeacherMember } from "@/lib/api/teachers";
 import { CURRICULUM_FILTER_GROUPS } from "@/lib/curriculum-filters";
 import { useDeleteTeacher } from "@/features/staff";
@@ -94,30 +91,20 @@ export default function TeachersPage() {
     const deleteMutation = useDeleteTeacher();
 
     return (
-        <div className="flex flex-1 flex-col gap-4">
-            <div className="flex items-center justify-between">
-                <h1 className="text-2xl font-semibold tracking-tight">Teachers</h1>
-                <Button variant="outline" size="sm" asChild>
-                    <Link href="/teachers/import">
-                        <Upload className="mr-1.5 size-3.5" />
-                        Bulk Import
-                    </Link>
-                </Button>
-            </div>
-            <DataTable
-                queryKey={["teachers"]}
-                queryFn={listTeachers}
-                columns={columns}
-                getRowId={(row) => row.id}
-                isSearchable
-                searchPlaceholder="Search by name, email, or TSC number…"
-                filterGroups={CURRICULUM_FILTER_GROUPS}
-                deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
-                rowHeight={48}
-                height={600}
-                emptyState="No teachers yet."
-                noResultsState="No teachers match your search or filters."
-            />
-        </div>
+        <DataTable
+            addHref="/teachers/import"
+            queryKey={["teachers"]}
+            queryFn={listTeachers}
+            columns={columns}
+            getRowId={(row) => row.id}
+            isSearchable
+            searchPlaceholder="Search by name, email, or TSC number…"
+            filterGroups={CURRICULUM_FILTER_GROUPS}
+            deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
+            rowHeight={48}
+            height={600}
+            emptyState="No teachers yet."
+            noResultsState="No teachers match your search or filters."
+        />
     );
 }

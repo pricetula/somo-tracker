@@ -95,7 +95,7 @@ function ClassResolverRow({
     return (
         <div className="flex items-center gap-3 px-2 py-1.5">
             {/* Raw string */}
-            <div className="flex w-[200px] shrink-0 items-center gap-1.5">
+            <div className="flex w-50 shrink-0 items-center gap-1.5">
                 <span className="truncate text-sm">{entry.raw_string}</span>
                 {entry.count > 1 && (
                     <span className="text-muted-foreground shrink-0 text-[10px]">
@@ -350,7 +350,7 @@ export function StepClassResolve({
                 <div className="rounded-md border">
                     {/* Fixed header */}
                     <div className="bg-muted/50 text-muted-foreground flex items-center gap-3 border-b px-2 py-1.5 text-[10px] font-medium tracking-wider uppercase">
-                        <div className="w-[200px] shrink-0">Raw Value</div>
+                        <div className="w-50 shrink-0">Raw Value</div>
                         <div className="w-20 shrink-0">Status</div>
                         <div className="flex-1">Matched Class</div>
                     </div>

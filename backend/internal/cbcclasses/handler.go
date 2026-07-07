@@ -42,18 +42,28 @@ func (h *Handler) List(c *fiber.Ctx) error {
 
 	academicYearID := c.Query("academic_year_id")
 	if academicYearID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "VALIDATION_ERROR",
-			"message": "academic_year_id is required",
-		})
+		var err error
+		academicYearID, err = h.svc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
+		if err != nil {
+			return middleware.HTTPError(c, err)
+		}
+		// No current academic year configured — nothing to list
+		if academicYearID == "" {
+			return c.JSON(ClassListResult{Items: []Class{}, Total: 0, Page: 1, Limit: 50})
+		}
 	}
 
 	academicTermID := c.Query("academic_term_id")
 	if academicTermID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "VALIDATION_ERROR",
-			"message": "academic_term_id is required",
-		})
+		var err error
+		academicTermID, err = h.svc.GetCurrentAcademicTermID(c.Context(), academicYearID)
+		if err != nil {
+			return middleware.HTTPError(c, err)
+		}
+		// No current academic term configured — nothing to list
+		if academicTermID == "" {
+			return c.JSON(ClassListResult{Items: []Class{}, Total: 0, Page: 1, Limit: 50})
+		}
 	}
 
 	page := 1

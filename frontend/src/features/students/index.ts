@@ -11,11 +11,13 @@ export { useStudents, useDeleteStudent, studentKeys } from "./hooks/use-students
 export {
     useStudentDetail,
     useCreateStudent,
+    useCreateStudents,
     useUpdateStudent,
     useCreateEnrollment,
 } from "./hooks/use-student-detail";
 
 export { listStudents } from "./services/students-api";
+export { createStudents } from "@/lib/api/students";
 
 export type {
     Student,
@@ -24,6 +26,8 @@ export type {
     ListStudentsResponse,
     ListStudentsParams,
     CreateStudentPayload,
+    CreateStudentsPayload,
+    CreateStudentsResponse,
     UpdateStudentPayload,
     CreateEnrollmentPayload,
 } from "./types";

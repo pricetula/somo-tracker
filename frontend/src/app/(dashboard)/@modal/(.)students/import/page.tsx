@@ -20,7 +20,7 @@ export default function StudentsImportModal() {
                 if (!open) router.back();
             }}
         >
-            <DialogContent className="sm:max-w-2xl">
+            <DialogContent className="sm:max-w-4xl">
                 <DialogHeader>
                     <DialogTitle>Add students</DialogTitle>
                 </DialogHeader>

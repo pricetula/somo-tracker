@@ -429,6 +429,44 @@ func (r *PgRepository) ValidateAcademicTerm(ctx context.Context, id, academicYea
 	return exists, nil
 }
 
+// GetCurrentAcademicYearID returns the ID of the current academic year for the school.
+// Returns empty string if none is set.
+func (r *PgRepository) GetCurrentAcademicYearID(ctx context.Context, tenantID, schoolID string) (string, error) {
+	const query = `
+		SELECT id FROM academic_years
+		WHERE tenant_id = $1 AND school_id = $2 AND is_current = TRUE
+		LIMIT 1
+	`
+	var id string
+	err := r.pool.QueryRow(ctx, query, tenantID, schoolID).Scan(&id)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return "", nil
+		}
+		return "", fmt.Errorf("cbcclasses.Repository.GetCurrentAcademicYearID: %w", err)
+	}
+	return id, nil
+}
+
+// GetCurrentAcademicTermID returns the ID of the current term for the given academic year.
+// Returns empty string if none is set.
+func (r *PgRepository) GetCurrentAcademicTermID(ctx context.Context, academicYearID string) (string, error) {
+	const query = `
+		SELECT id FROM academic_terms
+		WHERE academic_year_id = $1 AND is_current = TRUE
+		LIMIT 1
+	`
+	var id string
+	err := r.pool.QueryRow(ctx, query, academicYearID).Scan(&id)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return "", nil
+		}
+		return "", fmt.Errorf("cbcclasses.Repository.GetCurrentAcademicTermID: %w", err)
+	}
+	return id, nil
+}
+
 // ValidateStream checks that the stream belongs to the tenant + school.
 func (r *PgRepository) ValidateStream(ctx context.Context, id, tenantID, schoolID string) (bool, error) {
 	const query = `

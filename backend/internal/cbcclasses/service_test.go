@@ -11,16 +11,18 @@ import (
 // ============================================================================
 
 type MockRepository struct {
-	listFn                  func(ctx context.Context, filter ClassListFilter) (*ClassListResult, error)
-	getByIDFn               func(ctx context.Context, id, tenantID, schoolID string) (*Class, error)
-	createFn                func(ctx context.Context, params CreateClassParams) (*Class, error)
-	updateFn                func(ctx context.Context, params UpdateClassParams) (*Class, error)
-	bulkDeleteFn            func(ctx context.Context, ids []string, tenantID, schoolID string) error
-	hasAssessmentSessionsFn func(ctx context.Context, classID, tenantID string) (bool, error)
-	hasAnyAssessmentFn      func(ctx context.Context, classIDs []string, tenantID string) (bool, error)
-	validateAcademicYearFn  func(ctx context.Context, id, tenantID, schoolID string) (bool, error)
-	validateAcademicTermFn  func(ctx context.Context, id, academicYearID string) (bool, error)
-	validateStreamFn        func(ctx context.Context, id, tenantID, schoolID string) (bool, error)
+	listFn                     func(ctx context.Context, filter ClassListFilter) (*ClassListResult, error)
+	getByIDFn                  func(ctx context.Context, id, tenantID, schoolID string) (*Class, error)
+	createFn                   func(ctx context.Context, params CreateClassParams) (*Class, error)
+	updateFn                   func(ctx context.Context, params UpdateClassParams) (*Class, error)
+	bulkDeleteFn               func(ctx context.Context, ids []string, tenantID, schoolID string) error
+	hasAssessmentSessionsFn    func(ctx context.Context, classID, tenantID string) (bool, error)
+	hasAnyAssessmentFn         func(ctx context.Context, classIDs []string, tenantID string) (bool, error)
+	validateAcademicYearFn     func(ctx context.Context, id, tenantID, schoolID string) (bool, error)
+	validateAcademicTermFn     func(ctx context.Context, id, academicYearID string) (bool, error)
+	validateStreamFn           func(ctx context.Context, id, tenantID, schoolID string) (bool, error)
+	getCurrentAcademicYearIDFn func(ctx context.Context, tenantID, schoolID string) (string, error)
+	getCurrentAcademicTermIDFn func(ctx context.Context, academicYearID string) (string, error)
 }
 
 func (m *MockRepository) List(ctx context.Context, filter ClassListFilter) (*ClassListResult, error) {
@@ -91,6 +93,20 @@ func (m *MockRepository) ValidateStream(ctx context.Context, id, tenantID, schoo
 		return m.validateStreamFn(ctx, id, tenantID, schoolID)
 	}
 	return true, nil
+}
+
+func (m *MockRepository) GetCurrentAcademicYearID(ctx context.Context, tenantID, schoolID string) (string, error) {
+	if m.getCurrentAcademicYearIDFn != nil {
+		return m.getCurrentAcademicYearIDFn(ctx, tenantID, schoolID)
+	}
+	return "year_001", nil
+}
+
+func (m *MockRepository) GetCurrentAcademicTermID(ctx context.Context, academicYearID string) (string, error) {
+	if m.getCurrentAcademicTermIDFn != nil {
+		return m.getCurrentAcademicTermIDFn(ctx, academicYearID)
+	}
+	return "term_001", nil
 }
 
 // ============================================================================

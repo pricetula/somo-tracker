@@ -169,6 +169,54 @@ func (s *Service) Update(ctx context.Context, id, tenantID, schoolID string, pay
 	return nil
 }
 
+// ─── Batch Create ─────────────────────────────────────────────────────────
+
+// CreateBatch creates multiple students in a single transaction.
+// Returns the IDs of all created students. On any validation failure
+// the entire batch is rejected (all-or-nothing).
+func (s *Service) CreateBatch(ctx context.Context, tenantID, schoolID string, payloads []CreateStudentPayload) (CreateStudentsResponse, error) {
+	if tenantID == "" || schoolID == "" {
+		return CreateStudentsResponse{}, fmt.Errorf("students.Service.CreateBatch: %w", ErrInvalidInput)
+	}
+
+	if len(payloads) == 0 {
+		return CreateStudentsResponse{}, fmt.Errorf("students.Service.CreateBatch: students list is empty: %w", ErrInvalidInput)
+	}
+
+	students := make([]*Student, 0, len(payloads))
+	for i, payload := range payloads {
+		fullName := strings.TrimSpace(payload.FullName)
+		if fullName == "" {
+			return CreateStudentsResponse{}, fmt.Errorf("students.Service.CreateBatch: students[%d].full_name is required: %w", i, ErrInvalidInput)
+		}
+
+		if payload.Gender != "" && payload.Gender != "M" && payload.Gender != "F" {
+			return CreateStudentsResponse{}, fmt.Errorf("students.Service.CreateBatch: students[%d] invalid gender %q: %w", i, payload.Gender, ErrInvalidInput)
+		}
+
+		students = append(students, &Student{
+			FullName:             fullName,
+			Gender:               payload.Gender,
+			DateOfBirth:          payload.DateOfBirth,
+			UPINumber:            payload.UPINumber,
+			KNECAssessmentNumber: payload.KNECAssessmentNumber,
+		})
+	}
+
+	ids, err := s.repo.CreateBatch(ctx, students)
+	if err != nil {
+		return CreateStudentsResponse{}, fmt.Errorf("students.Service.CreateBatch: %w", err)
+	}
+
+	slog.Info("students.batch.created",
+		"tenant_id", tenantID,
+		"school_id", schoolID,
+		"count", len(ids),
+	)
+
+	return CreateStudentsResponse{IDs: ids, Code: "ok"}, nil
+}
+
 // ─── Import pre-checks ─────────────────────────────────────────────────────
 
 // ValidateTerm checks that the academic term exists, is not soft-deleted,

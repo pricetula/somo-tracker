@@ -32,6 +32,8 @@ type Repository interface {
 	ValidateAcademicYear(ctx context.Context, id, tenantID, schoolID string) (bool, error)
 	ValidateAcademicTerm(ctx context.Context, id, academicYearID string) (bool, error)
 	ValidateStream(ctx context.Context, id, tenantID, schoolID string) (bool, error)
+	GetCurrentAcademicYearID(ctx context.Context, tenantID, schoolID string) (string, error)
+	GetCurrentAcademicTermID(ctx context.Context, academicYearID string) (string, error)
 }
 
 // Class represents a CBC class with its stream relationship.

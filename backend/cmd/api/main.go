@@ -214,6 +214,7 @@ func registerApp(
 	academicYearsHandler *academicyears.Handler,
 	assessmentHandler *assessment.Handler,
 	cbcschoolsHandler *cbcschools.Handler,
+	cbcclassesHandler *cbcclasses.Handler,
 	importsHandler *imports.Handler,
 	invitationsHandler *invitations.Handler,
 	membersHandler *members.Handler,
@@ -257,6 +258,7 @@ func registerApp(
 			academicYearsHandler.RegisterRoutes(app)
 			assessmentHandler.RegisterRoutes(app)
 			cbcschoolsHandler.RegisterRoutes(app)
+			cbcclassesHandler.RegisterRoutes(app)
 			membersHandler.RegisterRoutes(app)
 			invitationsHandler.RegisterRoutes(app)
 			curriculumHandler.RegisterRoutes(app)

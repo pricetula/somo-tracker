@@ -235,6 +235,8 @@ func (h *Handler) List(c *fiber.Ctx) error {
 // ─── Create ───────────────────────────────────────────────────────────────
 
 // Create handles POST /api/v1/students.
+// Accepts a batch payload: { "students": [{ ... }, ...] } and creates all
+// students in a single transaction. Returns the array of created IDs.
 func (h *Handler) Create(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
 	schoolID, _ := c.Locals("active_school_id").(string)
@@ -245,17 +247,29 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 		return writeError(c, fiber.StatusBadRequest, "invalid_input", "active school not set", nil)
 	}
 
-	var body CreateStudentPayload
+	var body CreateStudentsPayload
 	if err := c.BodyParser(&body); err != nil {
 		return writeError(c, fiber.StatusBadRequest, "invalid_input", "malformed request body", nil)
 	}
 
-	if body.FullName == "" {
-		return writeError(c, fiber.StatusBadRequest, "invalid_input", "full_name is required",
-			map[string][]string{"full_name": {"Full name is required"}})
+	if len(body.Students) == 0 {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input", "students array must not be empty",
+			map[string][]string{"students": {"At least one student is required"}})
 	}
 
-	student, err := h.svc.Create(c.Context(), tenantID, schoolID, body)
+	// Validate all entries have required fields before creating any
+	for i, s := range body.Students {
+		if s.FullName == "" {
+			return writeError(c, fiber.StatusBadRequest, "invalid_input",
+				"full_name is required for all students",
+				map[string][]string{
+					"students": {},
+				})
+		}
+		_ = i // used for potential future per-field error reporting
+	}
+
+	result, err := h.svc.CreateBatch(c.Context(), tenantID, schoolID, body.Students)
 	if err != nil {
 		if errors.Is(err, ErrDuplicateUPI) {
 			return writeError(c, fiber.StatusConflict, "duplicate_upi",
@@ -265,7 +279,7 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 		return middleware.HTTPError(c, err)
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(CreateStudentResponse{ID: student.ID})
+	return c.Status(fiber.StatusCreated).JSON(result)
 }
 
 // ─── Get Detail ───────────────────────────────────────────────────────────

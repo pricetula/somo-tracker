@@ -289,6 +289,53 @@ func (r *PgRepository) Create(ctx context.Context, student *Student) (string, er
 	return id, nil
 }
 
+// CreateBatch inserts multiple student records in a single transaction.
+// Returns the IDs of all successfully created students. On any failure,
+// the entire batch is rolled back (all-or-nothing).
+func (r *PgRepository) CreateBatch(ctx context.Context, students []*Student) ([]string, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("students.Repository.CreateBatch: begin tx: %w", err)
+	}
+	defer func() {
+		if rbErr := tx.Rollback(ctx); rbErr != nil {
+			_ = fmt.Errorf("students.Repository.CreateBatch: rollback: %w", rbErr)
+		}
+	}()
+
+	query := `
+		INSERT INTO cbc_students (tenant_id, full_name, gender, date_of_birth, upi_number, knec_assessment_number, is_active)
+		VALUES ($1, $2, $3, $4, $5, $6, true)
+		RETURNING id
+	`
+
+	ids := make([]string, 0, len(students))
+	for _, student := range students {
+		var id string
+		err := tx.QueryRow(ctx, query,
+			"",
+			student.FullName,
+			student.Gender,
+			student.DateOfBirth,
+			student.UPINumber,
+			student.KNECAssessmentNumber,
+		).Scan(&id)
+		if err != nil {
+			if isDuplicateUPI(err) {
+				return nil, fmt.Errorf("students.Repository.CreateBatch: %w (UPI: %s)", ErrDuplicateUPI, nullString(student.UPINumber))
+			}
+			return nil, fmt.Errorf("students.Repository.CreateBatch: %w", err)
+		}
+		ids = append(ids, id)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("students.Repository.CreateBatch: commit: %w", err)
+	}
+
+	return ids, nil
+}
+
 // ─── Update ───────────────────────────────────────────────────────────────
 
 // Update applies partial updates to a student record.
@@ -478,6 +525,13 @@ func searchString(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+func nullString(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }
 
 func joinStrings(elems []string, sep string) string {

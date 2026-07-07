@@ -1,14 +1,9 @@
 /**
- * ClassCombobox — reusable, performance-optimised class selector.
+ * ClassCombobox — reusable class selector built on Radix-only Combobox.
  *
- * Designed to be mounted 20–40× on a single page without input lag:
- *  • Fetches its own options internally — zero prop drilling
- *  • Stable TanStack Query key → 1 network call for N instances
- *  • Filtering handled natively by the Base UI Combobox
- *  • No React Context — each instance is fully isolated
- *
- * Follows the official shadcn combobox pattern:
- *   https://ui.shadcn.com/docs/components/base/combobox
+ * Fetches its own options internally — zero prop drilling.
+ * Stable TanStack Query key → 1 network call for N instances.
+ * No React Context — each instance is fully isolated.
  */
 
 "use client";
@@ -16,24 +11,12 @@
 import * as React from "react";
 
 import { cn } from "@/lib/utils";
-import {
-    Combobox,
-    ComboboxContent,
-    ComboboxEmpty,
-    ComboboxInput,
-    ComboboxItem,
-    ComboboxList,
-    ComboboxChip,
-    ComboboxChips,
-    ComboboxChipsInput,
-    ComboboxValue,
-} from "@/components/ui/combobox";
+import { Combobox, ComboboxChip } from "@/components/ui/combobox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { getErrorMessage } from "@/lib/errors";
 
 import { useClassList } from "../hooks/use-classes";
-import type { ClassOption } from "../types";
 
 // ─── Props ────────────────────────────────────────────────────────────────
 
@@ -72,7 +55,7 @@ export function ClassCombobox({
         );
     }
 
-    // ── Error state (required by frontend AGENTS.md §9) ──────────────────
+    // ── Error state ──────────────────────────────────────────────────────
     if (isError) {
         return (
             <div className={cn("w-full", className)}>
@@ -83,65 +66,50 @@ export function ClassCombobox({
         );
     }
 
-    // ── Single-select ─────────────────────────────────────────────────────
+    // ── Single-select ───────────────────────────────────────────────────
     if (!isMultiSelect) {
-        const selected = items.find((o) => o.value === value) ?? null;
-
         return (
             <Combobox
                 items={items}
-                itemToStringValue={(item) => item.label}
-                value={selected}
-                onValueChange={(next) => onChange(next ? next.value : "")}
-            >
-                <ComboboxInput
-                    className={cn("w-full", className)}
-                    placeholder={placeholder}
-                    showClear={!!selected}
-                />
-                <ComboboxContent>
-                    <ComboboxEmpty>No class found.</ComboboxEmpty>
-                    <ComboboxList>
-                        {(item: ClassOption) => (
-                            <ComboboxItem key={item.value} value={item}>
-                                {item.label}
-                            </ComboboxItem>
-                        )}
-                    </ComboboxList>
-                </ComboboxContent>
-            </Combobox>
+                value={value as string}
+                onValueChange={onChange}
+                placeholder={placeholder}
+                emptyText="No class found."
+                className={cn("w-full", className)}
+            />
         );
     }
 
-    // ── Multi-select ──────────────────────────────────────────────────────
-    const selectedItems = items.filter((o) => (value as string[]).includes(o.value));
-
+    // ── Multi-select ────────────────────────────────────────────────────
     return (
         <Combobox
             items={items}
-            itemToStringValue={(item) => item.label}
+            value={value as string[]}
+            onValueChange={onChange}
             multiple
-            value={selectedItems}
-            onValueChange={(next) => onChange(next.map((item: ClassOption) => item.value))}
-        >
-            <ComboboxChips className={cn("w-full", className)}>
-                <ComboboxValue>
-                    {selectedItems.map((item) => (
-                        <ComboboxChip key={item.value}>{item.label}</ComboboxChip>
-                    ))}
-                </ComboboxValue>
-                <ComboboxChipsInput placeholder={placeholder} />
-            </ComboboxChips>
-            <ComboboxContent>
-                <ComboboxEmpty>No class found.</ComboboxEmpty>
-                <ComboboxList>
-                    {(item: ClassOption) => (
-                        <ComboboxItem key={item.value} value={item}>
-                            {item.label}
-                        </ComboboxItem>
-                    )}
-                </ComboboxList>
-            </ComboboxContent>
-        </Combobox>
+            placeholder={placeholder}
+            emptyText="No class found."
+            className={cn("w-full", className)}
+            renderTrigger={({ selectedItems }) =>
+                selectedItems.length > 0 ? (
+                    <span className="flex flex-wrap gap-1">
+                        {selectedItems.map((item) => (
+                            <ComboboxChip
+                                key={item.value}
+                                value={item.value}
+                                onRemove={(v) => {
+                                    const next = (value as string[]).filter((id) => id !== v);
+                                    onChange(next);
+                                }}
+                            >
+                                {item.label}
+                            </ComboboxChip>
+                        ))}
+                    </span>
+                ) : (
+                    <span className="text-muted-foreground truncate">{placeholder}</span>
+                )
+            }
+        />
     );
 }

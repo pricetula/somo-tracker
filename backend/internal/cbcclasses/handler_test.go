@@ -253,20 +253,52 @@ func TestHandler_ListClasses_EmptyResults(t *testing.T) {
 func TestHandler_ListClasses_MissingAcademicYearID(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
+	// Simulate no current academic year configured
+	h.repo.getCurrentAcademicYearIDFn = func(ctx context.Context, tenantID, schoolID string) (string, error) {
+		return "", nil
+	}
+
 	resp := doRequest(h.app, "GET", "/api/v1/classes?academic_term_id=term_001", nil)
 
-	if resp.StatusCode != fiber.StatusBadRequest {
-		t.Fatalf("CL11: expected 400 Bad Request, got %d", resp.StatusCode)
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("CL11: expected 200 OK (empty result), got %d", resp.StatusCode)
+	}
+
+	var result ClassListResult
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("CL11: failed to decode response: %v", err)
+	}
+	if len(result.Items) != 0 {
+		t.Fatalf("CL11: expected empty items, got %d items", len(result.Items))
+	}
+	if result.Total != 0 {
+		t.Fatalf("CL11: expected total 0, got %d", result.Total)
 	}
 }
 
 func TestHandler_ListClasses_MissingAcademicTermID(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
+	// Simulate no current academic term configured
+	h.repo.getCurrentAcademicTermIDFn = func(ctx context.Context, academicYearID string) (string, error) {
+		return "", nil
+	}
+
 	resp := doRequest(h.app, "GET", "/api/v1/classes?academic_year_id=year_001", nil)
 
-	if resp.StatusCode != fiber.StatusBadRequest {
-		t.Fatalf("CL12: expected 400 Bad Request, got %d", resp.StatusCode)
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("CL12: expected 200 OK (empty result), got %d", resp.StatusCode)
+	}
+
+	var result ClassListResult
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("CL12: failed to decode response: %v", err)
+	}
+	if len(result.Items) != 0 {
+		t.Fatalf("CL12: expected empty items, got %d items", len(result.Items))
+	}
+	if result.Total != 0 {
+		t.Fatalf("CL12: expected total 0, got %d", result.Total)
 	}
 }
 

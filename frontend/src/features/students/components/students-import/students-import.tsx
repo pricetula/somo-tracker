@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { StudentsImportSelector } from "./import-selector";
-import { StudentManualImportForm } from "./manual-import-form";
+import { ManualImportForm } from "./manual-import-form";
 
 interface StudentsImportFormProps {
     isDialogVersion: boolean;
@@ -25,7 +25,7 @@ export function StudentsImportForm({ isDialogVersion }: StudentsImportFormProps)
     }
 
     if (selectedImportType === "manual") {
-        return <StudentManualImportForm onReset={handleReset} />;
+        return <ManualImportForm onReset={handleReset} />;
     }
 
     return <section></section>;

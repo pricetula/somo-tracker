@@ -3,7 +3,7 @@
  *
  * Endpoints:
  *   GET  /api/v1/students/list       — paginated student listing
- *   POST /api/v1/students            — create student
+ *   POST /api/v1/students            — batch create students (accepts array)
  *   GET  /api/v1/students/:id        — student detail with enrollments
  *   PUT  /api/v1/students/:id        — update student
  *   DELETE /api/v1/students/:id      — hard-delete student
@@ -70,8 +70,9 @@ export interface StudentDetailResponse {
     data: StudentDetail;
 }
 
-export interface CreateStudentResponse {
-    id: string;
+export interface CreateStudentsResponse {
+    ids: string[];
+    code: string;
 }
 
 export interface CreateEnrollmentResponse {
@@ -102,6 +103,11 @@ export interface CreateStudentPayload {
     upi_number?: string | null;
     knec_assessment_number?: string | null;
     class_id?: string | null;
+}
+
+/** Batch create request — wraps an array of students. */
+export interface CreateStudentsPayload {
+    students: CreateStudentPayload[];
 }
 
 export interface UpdateStudentPayload {
@@ -146,9 +152,23 @@ export async function listStudents(params: ListStudentsParams = {}): Promise<Lis
     return api.get<ListStudentsResponse>(`/api/v1/students/list?${qs}`);
 }
 
-/** Create a new student. */
-export async function createStudent(data: CreateStudentPayload): Promise<CreateStudentResponse> {
-    return api.post<CreateStudentResponse>("/api/v1/students", data);
+/**
+ * Create one or more students (batch).
+ *
+ * Sends `{ "students": [...] }` to POST /api/v1/students.
+ * Returns the array of created IDs.
+ */
+export async function createStudents(data: CreateStudentsPayload): Promise<CreateStudentsResponse> {
+    return api.post<CreateStudentsResponse>("/api/v1/students", data);
+}
+
+/**
+ * Convenience wrapper: create a single student.
+ * Sends the student wrapped in a batch and returns the single ID.
+ */
+export async function createStudent(data: CreateStudentPayload): Promise<{ id: string }> {
+    const result = await createStudents({ students: [data] });
+    return { id: result.ids[0] };
 }
 
 /** Get student detail with enrollment history. */

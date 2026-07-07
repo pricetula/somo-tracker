@@ -84,6 +84,12 @@ type CreateStudentPayload struct {
 	ClassID              *string `json:"class_id,omitempty"`
 }
 
+// CreateStudentsPayload is the request body for batch create (POST /api/v1/students).
+// Accepts an array of students instead of a single object.
+type CreateStudentsPayload struct {
+	Students []CreateStudentPayload `json:"students"`
+}
+
 type UpdateStudentPayload struct {
 	FullName             *string `json:"full_name,omitempty"`
 	Gender               *string `json:"gender,omitempty"`
@@ -95,6 +101,11 @@ type UpdateStudentPayload struct {
 
 type CreateStudentResponse struct {
 	ID string `json:"id"`
+}
+
+type CreateStudentsResponse struct {
+	IDs  []string `json:"ids"`
+	Code string   `json:"code"`
 }
 
 type CreateEnrollmentPayload struct {
@@ -187,6 +198,7 @@ type StudentRepository interface {
 	List(ctx context.Context, filter ListFilter) ([]Student, int, error)
 	GetByID(ctx context.Context, id, tenantID, schoolID string) (*Student, error)
 	Create(ctx context.Context, student *Student) (string, error)
+	CreateBatch(ctx context.Context, students []*Student) ([]string, error)
 	Update(ctx context.Context, student *Student) error
 	Delete(ctx context.Context, id, tenantID, schoolID string) error
 	GetDetail(ctx context.Context, id, tenantID, schoolID string) (*StudentDetail, error)

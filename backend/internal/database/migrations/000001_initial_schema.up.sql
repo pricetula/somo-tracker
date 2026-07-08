@@ -626,6 +626,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_import_jobs_tenant_idempotency
     ON import_jobs (tenant_id, idempotency_key)
     WHERE idempotency_key IS NOT NULL;
 
+-- At most one active (processing or cancelling) import job per school at a time.
+-- A new submission while one is active is rejected with import_already_in_progress.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_import_jobs_one_active_per_school
+    ON import_jobs (school_id)
+    WHERE status IN ('processing'::import_job_status, 'cancelling'::import_job_status);
+
 -- ---------------------------------------------------------------------------
 -- IMPORT JOB CHUNKS — Track chunk claim/redelivery safety
 -- ---------------------------------------------------------------------------

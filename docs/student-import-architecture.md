@@ -273,6 +273,15 @@ The parent orchestrator. Manages:
 
 When `activeJob` is set, renders `<ImportProgress>` instead of the child forms.
 
+**Active-job redirect on mount:**
+- On mount, `StudentsImportForm` calls `GET /api/v1/schools/:school_id/imports/active` using the current `school_id` from `useMe()`.
+- If an active job is returned, it immediately sets `activeJob` and renders `<ImportProgress>` — the user never sees the import selector.
+- This handles the common case: a user opens the import page while a colleague's import is already running.
+
+**Active-job redirect on submit error:**
+- When `submitStudentImport()` throws `import_already_in_progress` (a job was started between the mount check and the submit), both `manual-import-form.tsx` and `step-streaming.tsx` call `onJobCreated(activeJobId, totalRecords)` instead of showing a generic error toast.
+- This effectively "adopts" the existing job, transitioning the parent to show `<ImportProgress>` for that job.
+
 **Props:**
 - `isDialogVersion: boolean` — whether rendered inside a modal
 
@@ -425,6 +434,23 @@ Implements `imports.Importer` interface:
 - **ProcessChunk()**: The worker entry point. Checks parent job status before claiming the chunk — if `'cancelling'`, marks the chunk `'cancelled'` instead of processing it. Uses `ClaimChunk` → pending-only staging rows → savepoint insert+mark → idempotent `AtomicChunkCompletion` for redelivery safety.
 - **AtomicChunkCompletion()**: Idempotent — only increments job counters when transitioning the chunk from `'processing'` to `'completed'`. If the chunk is already `'completed'`, no-ops. Detects `'cancelling'` job status on the last chunk and transitions the job to `'cancelled'`.
 
+#### One active job per school
+
+`CreateJob()` enforces that at most one import job may be active (status `'processing'` or `'cancelling'`) per `school_id` at any time. Enforcement uses a **DB-level partial unique index** — not a check-then-insert pattern — ensuring race safety:
+
+```sql
+CREATE UNIQUE INDEX IF NOT EXISTS uq_import_jobs_one_active_per_school
+    ON import_jobs (school_id)
+    WHERE status IN ('processing'::import_job_status, 'cancelling'::import_job_status);
+```
+
+- `CreateJob` (repo) inserts the row with `status = 'processing'` directly (the old `'pending'` → `'processing'` transition is removed for new jobs; status is set at insert time).
+- If the partial index is violated, Postgres returns SQLSTATE 23505.
+- `CreateJob()` (service) catches this error and calls `GetActiveJobBySchoolID()` to retrieve the conflicting job.
+- Returns `*ImportInProgressError` (HTTP 409, code `import_already_in_progress`) with the active job's ID so the frontend can redirect to its progress.
+- The idempotent path (`CreateJobIdempotent`) also catches violations both at INSERT time (if the partial index fires before the idempotency-key index) and at `UpdateJobStatus` time (when transitioning from `'pending'` to `'processing'`). In all cases the same `ImportInProgressError` is returned.
+- See `isUniqueConstraintViolation()` in `service.go` for the Postgres error-code check.
+
 ### 6.3b Asynq queue / concurrency configuration
 
 Import chunk tasks are enqueued to the `"imports"` Asynq queue with a
@@ -491,6 +517,7 @@ POST /api/v1/students/import
 | `GET` | `/api/v1/imports/:job_id` | Poll job status | `ImportJob` (full state) |
 | `GET` | `/api/v1/imports/:job_id/failures` | Get failure details | `{ failures: [...], total: number }` |
 | `POST` | `/api/v1/imports/:job_id/cancel` | Cancel a running import | `ImportJob` (status: `cancelling`) |
+| `GET` | `/api/v1/schools/:school_id/imports/active` | Proactive check: is a job active for this school? | `{ active: true, job: ImportJob }` or `{ active: false, job: null }` |
 
 ---
 
@@ -543,6 +570,15 @@ POST /api/v1/students/import
 {
   "code": "duplicate_import",
   "message": "A job with this idempotency key already exists."
+}
+```
+
+**Response (409 — import already in progress):**
+```json
+{
+  "code": "import_already_in_progress",
+  "message": "An import job is already in progress for this school. Please wait for it to complete or cancel it.",
+  "active_job_id": "uuid"
 }
 ```
 
@@ -659,6 +695,38 @@ This eliminates TOCTOU race conditions that a check-then-insert pattern would ha
 | `DUPLICATE_UPI_NUMBER` | `ResolveReferences()` | A row's `upi_number` already exists in the DB (insert-time safety net) |
 | `DUPLICATE_KNEC_NUMBER` | `ResolveReferences()` | A row's `knec_assessment_number` already exists in the DB (insert-time safety net) |
 
+### GET /api/v1/schools/:school_id/imports/active
+
+**Response (200 — active job found):**
+```json
+{
+  "active": true,
+  "job": {
+    "id": "uuid",
+    "tenant_id": "uuid",
+    "school_id": "uuid",
+    "job_type": "STUDENT_IMPORT",
+    "status": "processing",
+    "total_records": 100,
+    "processed_records": 25,
+    "success_count": 22,
+    "failed_count": 3,
+    "total_chunks": 1,
+    "processed_chunks": 1,
+    "created_at": "2026-07-08T12:00:00Z",
+    "started_at": "2026-07-08T12:00:01Z"
+  }
+}
+```
+
+**Response (200 — no active job):**
+```json
+{
+  "active": false,
+  "job": null
+}
+```
+
 ### POST /api/v1/students/check-duplicates
 
 **Request:**
@@ -705,6 +773,7 @@ Every non-2xx response follows the canonical contract:
 | `no_active_academic_term` | 400 | No active term in the current academic year |
 | `request_too_large` | 413 | Request body exceeds `MaxImportBodyBytes` (15 MB). Scoped to the import endpoint via per-route middleware. |
 | `duplicate_import` | 409 | Idempotency key reused with a different payload. The same key was used for a different set of rows. |
+| `import_already_in_progress` | 409 | Another import job (status `'processing'` or `'cancelling'`) is already running for this school. The response body includes `active_job_id` so the frontend can redirect to the existing job's progress instead of showing a dead-end error. |
 
 ### Per-row failure types (`import_job_failures.error_type`)
 

@@ -199,6 +199,14 @@ func (h *Handler) BulkImport(c *fiber.Ctx) error {
 			return writeError(c, fiber.StatusConflict, "duplicate_import",
 				"A job with this idempotency key already exists.", nil)
 		}
+		var inProgressErr *imports.ImportInProgressError
+		if errors.As(err, &inProgressErr) {
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+				"code":          "import_already_in_progress",
+				"message":       "An import job is already in progress for this school. Please wait for it to complete or cancel it.",
+				"active_job_id": inProgressErr.ActiveJobID.String(),
+			})
+		}
 		return middleware.HTTPError(c, err)
 	}
 

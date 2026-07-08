@@ -8,7 +8,7 @@
  *   - backend/internal/imports/handler.go (GET /imports/:job_id/stream)
  */
 
-import { api } from "./client";
+import { api, ApiError } from "./client";
 
 // ============================================================================
 // Import Job Status (backend: ImportJobStatus — 6-value enum)
@@ -146,8 +146,47 @@ export interface CheckDuplicatesResponse {
 }
 
 // ============================================================================
+// Active Import Job Check
+// ============================================================================
+
+/**
+ * Response from GET /api/v1/schools/:school_id/imports/active.
+ * If active is true, job contains the currently-active import job.
+ */
+export interface ActiveImportJobResponse {
+    active: boolean;
+    job: ImportJob | null;
+}
+
+/**
+ * Type guard to check if an error is an import_already_in_progress response.
+ * The backend returns this when a CreateJob request is rejected because
+ * another job is already active for the same school.
+ * Returns the active_job_id if matched, or null otherwise.
+ */
+export function getImportAlreadyInProgress(err: unknown): string | null {
+    if (
+        err instanceof ApiError &&
+        err.code === "import_already_in_progress" &&
+        err.extra?.active_job_id
+    ) {
+        return String(err.extra.active_job_id);
+    }
+    return null;
+}
+
+// ============================================================================
 // API Functions
 // ============================================================================
+
+/**
+ * GET /schools/{school_id}/imports/active — proactively check if an import job
+ * is already running for the current school before showing the import form.
+ * Returns either the active job's state or a clear "no active job" response.
+ */
+export async function getActiveImportJob(schoolId: string): Promise<ActiveImportJobResponse> {
+    return api.get<ActiveImportJobResponse>(`/api/v1/schools/${schoolId}/imports/active`);
+}
 
 /**
  * POST /students/import — submit a bulk student import job.

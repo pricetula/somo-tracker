@@ -29,7 +29,11 @@ import { Label } from "@/components/ui/label";
 import { DatePicker } from "@/components/ui/date-picker";
 import { ClassCombobox } from "@/features/classes";
 
-import { submitStudentImport, checkDuplicates } from "@/lib/api/imports";
+import {
+    submitStudentImport,
+    checkDuplicates,
+    getImportAlreadyInProgress,
+} from "@/lib/api/imports";
 import type { ImportRow } from "@/lib/api/imports";
 import { getErrorMessage } from "@/lib/errors";
 
@@ -347,6 +351,13 @@ export function StudentManualImportForm({ onReset, onJobCreated }: StudentManual
             idempotencyKeyRef.current = null;
             onJobCreated(result.job_id, importRows.length);
         } catch (err) {
+            // Handle import_already_in_progress: redirect to existing job's progress
+            const activeJobId = getImportAlreadyInProgress(err);
+            if (activeJobId) {
+                onJobCreated(activeJobId, importRows.length);
+                return;
+            }
+
             // Keep the same key for retry (transient network failure)
             submittingRef.current = false;
             setSubmitting(false);

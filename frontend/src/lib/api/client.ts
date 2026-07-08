@@ -35,13 +35,22 @@ export class ApiError extends Error {
     public status: number;
     public code: string;
     public errors?: Record<string, string[]>;
+    /** Optional extra fields carried in the error body (e.g. active_job_id). */
+    public extra?: Record<string, unknown>;
 
-    constructor(status: number, code: string, message: string, errors?: Record<string, string[]>) {
+    constructor(
+        status: number,
+        code: string,
+        message: string,
+        errors?: Record<string, string[]>,
+        extra?: Record<string, unknown>
+    ) {
         super(message);
         this.name = "ApiError";
         this.status = status;
         this.code = code;
         this.errors = errors;
+        this.extra = extra;
     }
 }
 
@@ -91,11 +100,20 @@ async function request<T>(
             apiErr = { code: "unknown", message: res.statusText };
         }
 
+        // Collect any extra fields from the error body beyond the standard ones
+        // (e.g. active_job_id from import_already_in_progress) using delete
+        // to avoid unused variable warnings.
+        const extra: Record<string, unknown> = { ...apiErr };
+        delete extra.code;
+        delete extra.message;
+        delete extra.errors;
+
         const error = new ApiError(
             res.status,
             apiErr.code ?? "unknown",
             apiErr.message ?? "Unexpected error",
-            apiErr.errors
+            apiErr.errors,
+            Object.keys(extra).length > 0 ? extra : undefined
         );
 
         // ─── Global 401 Eviction ─────────────────────────────────────────

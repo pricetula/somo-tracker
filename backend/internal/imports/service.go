@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"somotracker/backend/internal/database"
@@ -163,6 +164,16 @@ func (s *Service) CreateJob(ctx context.Context, req CreateJobRequest) (*CreateJ
 
 		createdJob, isNew, err := s.repo.CreateJobIdempotent(ctx, job, payloadHash)
 		if err != nil {
+			// Check for unique constraint violation from the partial index
+			// uq_import_jobs_one_active_per_school (a different job is already
+			// active for this school).
+			if isUniqueConstraintViolation(err) {
+				activeJob, lookupErr := s.repo.GetActiveJobBySchoolID(ctx, req.SchoolID)
+				if lookupErr != nil {
+					return nil, fmt.Errorf("imports.Service.CreateJob: idempotent conflict but cannot look up active job: %w", lookupErr)
+				}
+				return nil, &ImportInProgressError{ActiveJobID: activeJob.ID}
+			}
 			return nil, fmt.Errorf("imports.Service.CreateJob: idempotent insert: %w", err)
 		}
 
@@ -205,6 +216,16 @@ func (s *Service) CreateJob(ctx context.Context, req CreateJobRequest) (*CreateJ
 			}
 
 			if err := s.repo.UpdateJobStatus(ctx, jobID, ImportJobStatusProcessing); err != nil {
+				// Check for unique constraint violation from the partial index
+				// uq_import_jobs_one_active_per_school — another job was activated
+				// for this school between our insert and this UPDATE.
+				if isUniqueConstraintViolation(err) {
+					activeJob, lookupErr := s.repo.GetActiveJobBySchoolID(ctx, req.SchoolID)
+					if lookupErr != nil {
+						return nil, fmt.Errorf("imports.Service.CreateJob: update status conflict but cannot look up active job: %w", lookupErr)
+					}
+					return nil, &ImportInProgressError{ActiveJobID: activeJob.ID}
+				}
 				return nil, fmt.Errorf("imports.Service.CreateJob: update status: %w", err)
 			}
 
@@ -279,6 +300,16 @@ func (s *Service) CreateJob(ctx context.Context, req CreateJobRequest) (*CreateJ
 
 	jobID, err := s.repo.CreateJob(ctx, job)
 	if err != nil {
+		// Check for unique constraint violation from the partial index
+		// uq_import_jobs_one_active_per_school. Rely on the DB constraint
+		// as the source of truth (not a check-then-insert pattern).
+		if isUniqueConstraintViolation(err) {
+			activeJob, lookupErr := s.repo.GetActiveJobBySchoolID(ctx, req.SchoolID)
+			if lookupErr != nil {
+				return nil, fmt.Errorf("imports.Service.CreateJob: conflict but cannot look up active job: %w", lookupErr)
+			}
+			return nil, &ImportInProgressError{ActiveJobID: activeJob.ID}
+		}
 		return nil, fmt.Errorf("imports.Service.CreateJob: create job: %w", err)
 	}
 	job.ID = jobID
@@ -317,11 +348,6 @@ func (s *Service) CreateJob(ctx context.Context, req CreateJobRequest) (*CreateJ
 			"job_id", jobID,
 			"error", err,
 		)
-	}
-
-	// Set status to processing
-	if err := s.repo.UpdateJobStatus(ctx, jobID, ImportJobStatusProcessing); err != nil {
-		return nil, fmt.Errorf("imports.Service.CreateJob: update status: %w", err)
 	}
 
 	slog.Info("imports.Service.CreateJob: job created",
@@ -649,6 +675,29 @@ func (s *Service) GetFailures(ctx context.Context, jobID uuid.UUID, limit, offse
 		offset = 0
 	}
 	return s.repo.GetFailures(ctx, jobID, limit, offset)
+}
+
+// isUniqueConstraintViolation checks if an error is a Postgres unique constraint
+// violation (SQLSTATE 23505). Used to detect conflicts on the partial unique index
+// uq_import_jobs_one_active_per_school without parsing error strings.
+func isUniqueConstraintViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.Code == "23505"
+	}
+	return false
+}
+
+// ============================================================================
+// GetActiveJobBySchool — returns the currently active job for a school
+// ============================================================================
+
+func (s *Service) GetActiveJobBySchool(ctx context.Context, schoolID uuid.UUID) (*Job, error) {
+	job, err := s.repo.GetActiveJobBySchoolID(ctx, schoolID)
+	if err != nil {
+		return nil, fmt.Errorf("imports.Service.GetActiveJobBySchool: %w", err)
+	}
+	return job, nil
 }
 
 // ============================================================================

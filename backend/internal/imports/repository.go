@@ -34,7 +34,7 @@ func (r *PgRepository) CreateJob(ctx context.Context, job *Job) (uuid.UUID, erro
 	query := `
 		INSERT INTO import_jobs (tenant_id, school_id, job_type, role, created_by, status,
 		                         total_records, idempotency_key, payload_hash, total_chunks, metadata)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		VALUES ($1, $2, $3, $4, $5, 'processing'::import_job_status, $6, $7, $8, $9, $10)
 		RETURNING id
 	`
 	var id uuid.UUID
@@ -44,7 +44,6 @@ func (r *PgRepository) CreateJob(ctx context.Context, job *Job) (uuid.UUID, erro
 		job.JobType,
 		job.Role,
 		job.CreatedBy,
-		job.Status,
 		job.TotalRecords,
 		job.IDempotencyKey,
 		job.PayloadHash,
@@ -474,6 +473,41 @@ func (r *PgRepository) GetJobByIDempotencyKey(ctx context.Context, tenantID uuid
 	}
 	j.Role = role
 	j.IDempotencyKey = idempotencyKeyOut
+	j.PayloadHash = payloadHash
+	j.CreatedBy = createdBy
+	return &j, nil
+}
+
+// ─── GetActiveJobBySchoolID ─────────────────────────────────────────────────
+
+func (r *PgRepository) GetActiveJobBySchoolID(ctx context.Context, schoolID uuid.UUID) (*Job, error) {
+	query := `
+		SELECT id, tenant_id, school_id, job_type, role, created_by, status,
+		       total_records, processed_records, success_count, failed_count,
+		       idempotency_key, payload_hash, total_chunks, processed_chunks, metadata,
+		       created_at, started_at, completed_at
+		FROM import_jobs
+		WHERE school_id = $1 AND status IN ('processing'::import_job_status, 'cancelling'::import_job_status)
+		ORDER BY created_at DESC
+		LIMIT 1
+	`
+	var j Job
+	var role, idempotencyKey, payloadHash *string
+	var createdBy *uuid.UUID
+	err := r.pool.QueryRow(ctx, query, schoolID).Scan(
+		&j.ID, &j.TenantID, &j.SchoolID, &j.JobType, &role, &createdBy, &j.Status,
+		&j.TotalRecords, &j.ProcessedRecords, &j.SuccessCount, &j.FailedCount,
+		&idempotencyKey, &payloadHash, &j.TotalChunks, &j.ProcessedChunks, &j.Metadata,
+		&j.CreatedAt, &j.StartedAt, &j.CompletedAt,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("imports.Repository.GetActiveJobBySchoolID: %w", ErrNotFound)
+		}
+		return nil, fmt.Errorf("imports.Repository.GetActiveJobBySchoolID: %w", err)
+	}
+	j.Role = role
+	j.IDempotencyKey = idempotencyKey
 	j.PayloadHash = payloadHash
 	j.CreatedBy = createdBy
 	return &j, nil

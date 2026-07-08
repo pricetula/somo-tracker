@@ -28,6 +28,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	router.Get("/api/v1/imports/:job_id", middleware.RequireAuth, h.GetJobAPI)
 	router.Get("/api/v1/imports/:job_id/failures", middleware.RequireAuth, h.GetFailures)
 	router.Post("/api/v1/imports/:job_id/cancel", middleware.RequireAuth, h.CancelJobAPI)
+	router.Get("/api/v1/schools/:school_id/imports/active", middleware.RequireAuth, h.GetActiveJobAPI)
 }
 
 // ============================================================================
@@ -87,6 +88,43 @@ func (h *Handler) CancelJobAPI(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(updated)
+}
+
+// ============================================================================
+// Get active job for school (proactive check before showing import form)
+// ============================================================================
+
+func (h *Handler) GetActiveJobAPI(c *fiber.Ctx) error {
+	schoolID, err := uuid.Parse(c.Params("school_id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "invalid_input", "message": "bad school_id"})
+	}
+
+	tenantID, _ := uuid.Parse(c.Locals("tenant_id").(string))
+
+	// Verify the school belongs to the caller's tenant
+	schoolTenantIDStr := c.Locals("school_tenant_id").(string)
+	if schoolTenantIDStr != "" {
+		schoolTenantID, _ := uuid.Parse(schoolTenantIDStr)
+		if schoolTenantID != uuid.Nil && schoolTenantID != tenantID {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"code": "forbidden", "message": "access denied"})
+		}
+	}
+
+	job, err := h.svc.GetActiveJobBySchool(c.Context(), schoolID)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return c.JSON(fiber.Map{"active": false, "job": nil})
+		}
+		return middleware.HTTPError(c, err)
+	}
+
+	// Verify tenant ownership
+	if job.TenantID != tenantID {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"code": "forbidden", "message": "access denied"})
+	}
+
+	return c.JSON(fiber.Map{"active": true, "job": job})
 }
 
 // ============================================================================

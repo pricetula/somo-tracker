@@ -38,6 +38,7 @@ type MockServiceRepository struct {
 	getJobStagingRowCountFn   func(ctx context.Context, jobID uuid.UUID) (int, error)
 	getJobByIDempotencyKeyFn  func(ctx context.Context, tenantID uuid.UUID, idempotencyKey string) (*Job, error)
 	getFailuresFn             func(ctx context.Context, jobID uuid.UUID, limit, offset int) ([]RowFailure, int, error)
+	getActiveJobBySchoolIDFn  func(ctx context.Context, schoolID uuid.UUID) (*Job, error)
 
 	// Tracking
 	createdJobs      []*Job
@@ -222,6 +223,15 @@ func (m *MockServiceRepository) GetFailures(ctx context.Context, jobID uuid.UUID
 		return m.getFailuresFn(ctx, jobID, limit, offset)
 	}
 	return []RowFailure{}, 0, nil
+}
+
+func (m *MockServiceRepository) GetActiveJobBySchoolID(ctx context.Context, schoolID uuid.UUID) (*Job, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.getActiveJobBySchoolIDFn != nil {
+		return m.getActiveJobBySchoolIDFn(ctx, schoolID)
+	}
+	return nil, ErrNotFound
 }
 
 func (m *MockServiceRepository) GetJobByIDempotencyKey(ctx context.Context, tenantID uuid.UUID, idempotencyKey string) (*Job, error) {
@@ -1401,6 +1411,286 @@ func TestChunkPartitioning_2050Rows(t *testing.T) {
 	expectedChunks := (totalRows + ChunkSize - 1) / ChunkSize
 	if expectedChunks != 21 {
 		t.Fatalf("2050 rows: expected 21 chunks, got %d", expectedChunks)
+	}
+}
+
+// ============================================================================
+// Tests: One-Active-Job-Per-School
+// ============================================================================
+
+// Test (a): Creating a job for a school with no active job succeeds normally.
+func TestCreateJob_NoActiveJob_Succeeds(t *testing.T) {
+	h := newTestHarness()
+	ctx := context.Background()
+
+	h.repo.createJobFn = func(_ context.Context, job *Job) (uuid.UUID, error) {
+		return uuid.New(), nil
+	}
+	h.repo.insertStagingRowsFn = func(_ context.Context, _ []StagingRow) error { return nil }
+	h.repo.insertChunkRowsFn = func(_ context.Context, _ []Chunk) error { return nil }
+
+	resp, err := h.svc.CreateJob(ctx, CreateJobRequest{
+		TenantID:  uuid.New(),
+		SchoolID:  uuid.New(),
+		JobType:   ImportJobTypeStudentImport,
+		CreatedBy: uuid.New(),
+		Rows:      makeFirstRows(),
+	})
+	if err != nil {
+		t.Fatalf("(a) CreateJob should succeed when no active job exists: %v", err)
+	}
+	if resp.Status != ImportJobStatusProcessing {
+		t.Fatalf("(a) expected status 'processing', got %q", resp.Status)
+	}
+}
+
+// Test (b): Creating a second job for a school that already has one 'processing'
+// returns ImportInProgressError with the correct active_job_id.
+func TestCreateJob_ActiveJobExists_ReturnsImportInProgress(t *testing.T) {
+	h := newTestHarness()
+	ctx := context.Background()
+
+	schoolID := uuid.New()
+	activeJobID := uuid.New()
+
+	// First call succeeds
+	var callCount int
+	h.repo.createJobFn = func(_ context.Context, job *Job) (uuid.UUID, error) {
+		callCount++
+		if callCount == 1 {
+			return activeJobID, nil
+		}
+		// Second call: simulate unique constraint violation from the partial index
+		return uuid.Nil, &pgconn.PgError{Code: "23505", ConstraintName: "uq_import_jobs_one_active_per_school"}
+	}
+
+	h.repo.insertStagingRowsFn = func(_ context.Context, _ []StagingRow) error { return nil }
+	h.repo.insertChunkRowsFn = func(_ context.Context, _ []Chunk) error { return nil }
+
+	h.repo.getActiveJobBySchoolIDFn = func(_ context.Context, sid uuid.UUID) (*Job, error) {
+		if sid != schoolID {
+			t.Fatalf("(b) expected schoolID %s, got %s", schoolID, sid)
+		}
+		return &Job{ID: activeJobID, Status: ImportJobStatusProcessing, SchoolID: schoolID, TenantID: uuid.New()}, nil
+	}
+
+	rows := makeFirstRows()
+
+	// First creates job successfully
+	_, err := h.svc.CreateJob(ctx, CreateJobRequest{
+		TenantID:  uuid.New(),
+		SchoolID:  schoolID,
+		JobType:   ImportJobTypeStudentImport,
+		CreatedBy: uuid.New(),
+		Rows:      rows,
+	})
+	if err != nil {
+		t.Fatalf("(b) first CreateJob should succeed: %v", err)
+	}
+
+	// Second should fail with ImportInProgressError
+	_, err = h.svc.CreateJob(ctx, CreateJobRequest{
+		TenantID:  uuid.New(),
+		SchoolID:  schoolID,
+		JobType:   ImportJobTypeStudentImport,
+		CreatedBy: uuid.New(),
+		Rows:      rows,
+	})
+	if err == nil {
+		t.Fatal("(b) second CreateJob should return error")
+	}
+	var inProgressErr *ImportInProgressError
+	if !errors.As(err, &inProgressErr) {
+		t.Fatalf("(b) expected *ImportInProgressError, got %T: %v", err, err)
+	}
+	if inProgressErr.ActiveJobID != activeJobID {
+		t.Fatalf("(b) expected activeJobID %s, got %s", activeJobID, inProgressErr.ActiveJobID)
+	}
+}
+
+// Test (c): Once the active job reaches a terminal status, a new job for that
+// school can be created successfully.
+func TestCreateJob_AfterTerminalJob_Succeeds(t *testing.T) {
+	h := newTestHarness()
+	ctx := context.Background()
+
+	schoolID := uuid.New()
+
+	// No active job (GetActiveJobBySchoolID returns ErrNotFound)
+	h.repo.getActiveJobBySchoolIDFn = func(_ context.Context, sid uuid.UUID) (*Job, error) {
+		return nil, ErrNotFound
+	}
+
+	var createCount int
+	h.repo.createJobFn = func(_ context.Context, job *Job) (uuid.UUID, error) {
+		createCount++
+		return uuid.New(), nil
+	}
+	h.repo.insertStagingRowsFn = func(_ context.Context, _ []StagingRow) error { return nil }
+	h.repo.insertChunkRowsFn = func(_ context.Context, _ []Chunk) error { return nil }
+
+	// Creating after terminal job succeeds
+	_, err := h.svc.CreateJob(ctx, CreateJobRequest{
+		TenantID:  uuid.New(),
+		SchoolID:  schoolID,
+		JobType:   ImportJobTypeStudentImport,
+		CreatedBy: uuid.New(),
+		Rows:      makeFirstRows(),
+	})
+	if err != nil {
+		t.Fatalf("(c) CreateJob should succeed after terminal job: %v", err)
+	}
+	if createCount != 1 {
+		t.Fatalf("(c) expected 1 CreateJob call, got %d", createCount)
+	}
+}
+
+// Test (d): Concurrent CreateJob() calls for the same school result in exactly
+// one job created, one conflict response — no duplicate active jobs.
+func TestCreateJob_ConcurrentRaces_SingleWinner(t *testing.T) {
+	h := newTestHarness()
+	ctx := context.Background()
+
+	schoolID := uuid.New()
+	winnerJobID := uuid.New()
+
+	// The first goroutine to call repo.CreateJob wins; subsequent get unique violation
+	var (
+		callMu  sync.Mutex
+		callIdx int
+	)
+
+	h.repo.createJobFn = func(_ context.Context, job *Job) (uuid.UUID, error) {
+		callMu.Lock()
+		defer callMu.Unlock()
+		callIdx++
+		if callIdx == 1 {
+			return winnerJobID, nil
+		}
+		return uuid.Nil, &pgconn.PgError{Code: "23505", ConstraintName: "uq_import_jobs_one_active_per_school"}
+	}
+
+	h.repo.getActiveJobBySchoolIDFn = func(_ context.Context, sid uuid.UUID) (*Job, error) {
+		return &Job{ID: winnerJobID, Status: ImportJobStatusProcessing, SchoolID: schoolID, TenantID: uuid.New()}, nil
+	}
+
+	h.repo.insertStagingRowsFn = func(_ context.Context, _ []StagingRow) error { return nil }
+	h.repo.insertChunkRowsFn = func(_ context.Context, _ []Chunk) error { return nil }
+
+	rows := makeFirstRows()
+	req := CreateJobRequest{
+		TenantID:  uuid.New(),
+		SchoolID:  schoolID,
+		JobType:   ImportJobTypeStudentImport,
+		CreatedBy: uuid.New(),
+		Rows:      rows,
+	}
+
+	var wg sync.WaitGroup
+	const goroutines = 5
+	type result struct {
+		resp *CreateJobResponse
+		err  error
+	}
+	results := make(chan result, goroutines)
+
+	for i := 0; i < goroutines; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			resp, err := h.svc.CreateJob(ctx, req)
+			results <- result{resp: resp, err: err}
+		}()
+	}
+	wg.Wait()
+	close(results)
+
+	var successCount int
+	var conflictCount int
+	var winnerIDs []uuid.UUID
+	for r := range results {
+		if r.err != nil {
+			var inProgressErr *ImportInProgressError
+			if errors.As(r.err, &inProgressErr) {
+				conflictCount++
+				if inProgressErr.ActiveJobID != winnerJobID {
+					t.Errorf("(d) expected active_job_id %s in conflict, got %s", winnerJobID, inProgressErr.ActiveJobID)
+				}
+			} else {
+				t.Errorf("(d) unexpected error: %v", r.err)
+			}
+			continue
+		}
+		successCount++
+		winnerIDs = append(winnerIDs, r.resp.JobID)
+	}
+
+	if successCount != 1 {
+		t.Fatalf("(d) expected exactly 1 success, got %d", successCount)
+	}
+	if conflictCount != goroutines-1 {
+		t.Fatalf("(d) expected %d conflicts, got %d", goroutines-1, conflictCount)
+	}
+	if winnerIDs[0] != winnerJobID {
+		t.Fatalf("(d) winner job ID should be %s, got %s", winnerJobID, winnerIDs[0])
+	}
+}
+
+// Test (e): A job in 'cancelling' status still blocks new submissions.
+func TestCreateJob_CancellingJob_BlocksNewSubmissions(t *testing.T) {
+	h := newTestHarness()
+	ctx := context.Background()
+
+	schoolID := uuid.New()
+	activeJobID := uuid.New()
+
+	// First call creates job
+	var callCount int
+	h.repo.createJobFn = func(_ context.Context, job *Job) (uuid.UUID, error) {
+		callCount++
+		if callCount == 1 {
+			return activeJobID, nil
+		}
+		return uuid.Nil, &pgconn.PgError{Code: "23505", ConstraintName: "uq_import_jobs_one_active_per_school"}
+	}
+
+	h.repo.insertStagingRowsFn = func(_ context.Context, _ []StagingRow) error { return nil }
+	h.repo.insertChunkRowsFn = func(_ context.Context, _ []Chunk) error { return nil }
+
+	// Active job is in 'cancelling' state
+	h.repo.getActiveJobBySchoolIDFn = func(_ context.Context, sid uuid.UUID) (*Job, error) {
+		return &Job{ID: activeJobID, Status: ImportJobStatusCancelling, SchoolID: schoolID, TenantID: uuid.New()}, nil
+	}
+
+	// First call succeeds
+	_, err := h.svc.CreateJob(ctx, CreateJobRequest{
+		TenantID:  uuid.New(),
+		SchoolID:  schoolID,
+		JobType:   ImportJobTypeStudentImport,
+		CreatedBy: uuid.New(),
+		Rows:      makeFirstRows(),
+	})
+	if err != nil {
+		t.Fatalf("(e) first CreateJob should succeed: %v", err)
+	}
+
+	// Second call should be blocked
+	_, err = h.svc.CreateJob(ctx, CreateJobRequest{
+		TenantID:  uuid.New(),
+		SchoolID:  schoolID,
+		JobType:   ImportJobTypeStudentImport,
+		CreatedBy: uuid.New(),
+		Rows:      makeFirstRows(),
+	})
+	if err == nil {
+		t.Fatal("(e) second CreateJob should be blocked while job is 'cancelling'")
+	}
+	var inProgressErr *ImportInProgressError
+	if !errors.As(err, &inProgressErr) {
+		t.Fatalf("(e) expected *ImportInProgressError, got %T: %v", err, err)
+	}
+	if inProgressErr.ActiveJobID != activeJobID {
+		t.Fatalf("(e) expected active_job_id %s, got %s", activeJobID, inProgressErr.ActiveJobID)
 	}
 }
 

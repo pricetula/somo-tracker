@@ -4,7 +4,7 @@ import * as React from "react";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getErrorMessage } from "@/lib/errors";
-import { submitStudentImport, type ImportRow } from "@/lib/api/imports";
+import { submitStudentImport, getImportAlreadyInProgress, type ImportRow } from "@/lib/api/imports";
 import { getStagedRecordsByStatus } from "./db";
 import type { StagedStudentRecord } from "./types";
 
@@ -68,6 +68,13 @@ export function StepStreaming({ onError, onJobCreated }: StepStreamingProps) {
             idempotencyKeyRef.current = null;
             onJobCreated(result.job_id, rows.length);
         } catch (err) {
+            // Handle import_already_in_progress: redirect to existing job's progress
+            const activeJobId = getImportAlreadyInProgress(err);
+            if (activeJobId) {
+                onJobCreated(activeJobId, rows.length);
+                return;
+            }
+
             // Keep the same key for retry (transient network failure)
             setSubmitting(false);
             onError(getErrorMessage(err));

@@ -36,6 +36,19 @@ var (
 	ErrNotCancellable   = fmt.Errorf("import job is not cancellable: %w", middleware.ErrConflict)
 )
 
+// ImportInProgressError is returned when a CreateJob request is rejected because
+// another job for the same school is already active (processing or cancelling).
+// It carries the active job's ID so the frontend can redirect to its progress.
+type ImportInProgressError struct {
+	ActiveJobID uuid.UUID
+}
+
+func (e *ImportInProgressError) Error() string {
+	return fmt.Sprintf("import already in progress for school: active job %s", e.ActiveJobID)
+}
+
+func (e *ImportInProgressError) Unwrap() error { return ErrImportInProgress }
+
 // ============================================================================
 // ImportJobType maps to the import_job_type DB enum.
 // ============================================================================
@@ -290,6 +303,10 @@ type ServiceRepository interface {
 
 	// GetFailures returns paginated failure records for a job.
 	GetFailures(ctx context.Context, jobID uuid.UUID, limit, offset int) ([]RowFailure, int, error)
+
+	// GetActiveJobBySchoolID returns the currently active job (status 'processing' or
+	// 'cancelling') for the given school, or ErrNotFound if none is active.
+	GetActiveJobBySchoolID(ctx context.Context, schoolID uuid.UUID) (*Job, error)
 }
 
 // StagingRow represents a row in import_job_staging.

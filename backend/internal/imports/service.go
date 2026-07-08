@@ -2,6 +2,8 @@ package imports
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -67,38 +69,39 @@ type CreateJobRequest struct {
 }
 
 // CreateJobResponse is returned after a successful job creation.
+// If IsReplay is true the response reflects a pre-existing job (idempotent
+// replay) rather than a newly created one.
 type CreateJobResponse struct {
 	JobID        uuid.UUID       `json:"job_id"`
 	TotalRecords int             `json:"total_records"`
 	TotalChunks  int             `json:"total_chunks"`
 	Status       ImportJobStatus `json:"status"`
 	StreamToken  string          `json:"stream_token"`
+	IsReplay     bool            `json:"is_replay"`
+}
+
+// computePayloadHash produces a deterministic hash of the row set.
+// The result is stable for identical serialized rows and can be used
+// to detect payload changes for idempotency checking.
+func computePayloadHash(rows []json.RawMessage) string {
+	data, err := json.Marshal(rows)
+	if err != nil {
+		// json.Marshal of []json.RawMessage should never fail under normal
+		// conditions, but if it does, fall back to a simple length-based hash
+		// so we still have deterministic behaviour.
+		data = []byte(fmt.Sprintf("fallback:%d", len(rows)))
+	}
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:])
 }
 
 // CreateJob creates an import job, writes staging rows, and enqueues chunk tasks.
+// When an idempotency_key is provided the method uses INSERT ... ON CONFLICT DO NOTHING
+// for concurrent-safe deduplication. See the idempotency rules documented in
+// docs/student-import-architecture.md.
 func (s *Service) CreateJob(ctx context.Context, req CreateJobRequest) (*CreateJobResponse, error) {
 	if len(req.Rows) == 0 {
 		return nil, fmt.Errorf("imports.Service.CreateJob: no rows provided: %w", ErrInvalidInput)
-	}
-
-	// Handle idempotency: check for existing job with same key
-	if req.IDempotencyKey != nil && *req.IDempotencyKey != "" {
-		existing, err := s.repo.GetJobByIDempotencyKey(ctx, req.TenantID, *req.IDempotencyKey)
-		if err != nil && !isNotFound(err) {
-			return nil, fmt.Errorf("imports.Service.CreateJob: idempotency check: %w", err)
-		}
-		if existing != nil {
-			slog.Info("imports.Service.CreateJob: idempotent resubmission",
-				"existing_job_id", existing.ID,
-				"idempotency_key", *req.IDempotencyKey,
-			)
-			return &CreateJobResponse{
-				JobID:        existing.ID,
-				TotalRecords: existing.TotalRecords,
-				TotalChunks:  existing.TotalChunks,
-				Status:       existing.Status,
-			}, nil
-		}
 	}
 
 	// Calculate chunk partitioning
@@ -110,7 +113,117 @@ func (s *Service) CreateJob(ctx context.Context, req CreateJobRequest) (*CreateJ
 		req.Metadata = json.RawMessage(`{}`)
 	}
 
-	// Create the job record
+	// Compute payload hash for idempotency (stable, deterministic hash of rows)
+	payloadHash := computePayloadHash(req.Rows)
+
+	// ── Idempotent path: idempotency_key present ──────────────────────
+	if req.IDempotencyKey != nil && *req.IDempotencyKey != "" {
+		job := &Job{
+			TenantID:       req.TenantID,
+			SchoolID:       req.SchoolID,
+			JobType:        req.JobType,
+			Role:           req.Role,
+			CreatedBy:      &req.CreatedBy,
+			Status:         ImportJobStatusPending,
+			TotalRecords:   totalRecords,
+			IDempotencyKey: req.IDempotencyKey,
+			TotalChunks:    totalChunks,
+			Metadata:       req.Metadata,
+		}
+
+		createdJob, isNew, err := s.repo.CreateJobIdempotent(ctx, job, payloadHash)
+		if err != nil {
+			return nil, fmt.Errorf("imports.Service.CreateJob: idempotent insert: %w", err)
+		}
+
+		if isNew {
+			// Newly created — proceed with regular flow (staging, chunking, enqueue)
+			jobID := createdJob.ID
+
+			// Build and write staging rows
+			stagingRows := make([]StagingRow, len(req.Rows))
+			for i, raw := range req.Rows {
+				stagingRows[i] = StagingRow{
+					JobID:     jobID,
+					TenantID:  req.TenantID,
+					SchoolID:  req.SchoolID,
+					RowNumber: i,
+					RawData:   raw,
+					Status:    ImportStagingStatusPending,
+				}
+			}
+
+			if err := s.repo.InsertStagingRows(ctx, stagingRows); err != nil {
+				return nil, fmt.Errorf("imports.Service.CreateJob: insert staging: %w", err)
+			}
+
+			// Enqueue chunk tasks
+			if err := s.enqueueChunks(ctx, jobID, totalChunks); err != nil {
+				slog.ErrorContext(ctx, "imports.Service.CreateJob: enqueue chunks failed (staging rows written)",
+					"job_id", jobID,
+					"error", err,
+				)
+			}
+
+			if err := s.repo.UpdateJobStatus(ctx, jobID, ImportJobStatusProcessing); err != nil {
+				return nil, fmt.Errorf("imports.Service.CreateJob: update status: %w", err)
+			}
+
+			slog.Info("imports.Service.CreateJob: job created",
+				"job_id", jobID,
+				"job_type", req.JobType,
+				"total_records", totalRecords,
+				"total_chunks", totalChunks,
+				"idempotency_key", *req.IDempotencyKey,
+			)
+
+			return &CreateJobResponse{
+				JobID:        jobID,
+				TotalRecords: totalRecords,
+				TotalChunks:  totalChunks,
+				Status:       ImportJobStatusProcessing,
+				IsReplay:     false,
+			}, nil
+		}
+
+		// INSERT conflicted — job with this key already exists
+		// Fetch the existing job to compare payload_hash
+		existing, err := s.repo.GetJobByIDempotencyKey(ctx, req.TenantID, *req.IDempotencyKey)
+		if err != nil {
+			return nil, fmt.Errorf("imports.Service.CreateJob: fetch existing: %w", err)
+		}
+
+		// Compare payload hashes
+		existingHash := ""
+		if existing.PayloadHash != nil {
+			existingHash = *existing.PayloadHash
+		}
+
+		if existingHash == payloadHash {
+			slog.Info("imports.Service.CreateJob: idempotent replay",
+				"existing_job_id", existing.ID,
+				"idempotency_key", *req.IDempotencyKey,
+			)
+			return &CreateJobResponse{
+				JobID:        existing.ID,
+				TotalRecords: existing.TotalRecords,
+				TotalChunks:  existing.TotalChunks,
+				Status:       existing.Status,
+				IsReplay:     true,
+			}, nil
+		}
+
+		// Same key, different payload — this is an error
+		slog.Warn("imports.Service.CreateJob: idempotency key reused with different payload",
+			"existing_job_id", existing.ID,
+			"idempotency_key", *req.IDempotencyKey,
+			"existing_hash", existingHash,
+			"new_hash", payloadHash,
+		)
+		return nil, fmt.Errorf("imports.Service.CreateJob: %w", ErrDuplicateJob)
+	}
+
+	// ── Non-idempotent path: no idempotency_key ───────────────────────
 	job := &Job{
 		TenantID:        req.TenantID,
 		SchoolID:        req.SchoolID,
@@ -119,7 +232,7 @@ func (s *Service) CreateJob(ctx context.Context, req CreateJobRequest) (*CreateJ
 		CreatedBy:       &req.CreatedBy,
 		Status:          ImportJobStatusPending,
 		TotalRecords:    totalRecords,
-		IDempotencyKey:  req.IDempotencyKey,
+		IDempotencyKey:  nil,
 		TotalChunks:     totalChunks,
 		ProcessedChunks: 0,
 		Metadata:        req.Metadata,
@@ -151,16 +264,13 @@ func (s *Service) CreateJob(ctx context.Context, req CreateJobRequest) (*CreateJ
 
 	// Enqueue chunk tasks
 	if err := s.enqueueChunks(ctx, jobID, totalChunks); err != nil {
-		// Staging rows durably persisted — log the enqueue failure but
-		// don't fail the request. The job will stay in 'pending' and
-		// can be retried via admin action.
 		slog.ErrorContext(ctx, "imports.Service.CreateJob: enqueue chunks failed (staging rows written)",
 			"job_id", jobID,
 			"error", err,
 		)
 	}
 
-	// Set status to processing if enqueuing succeeded
+	// Set status to processing
 	if err := s.repo.UpdateJobStatus(ctx, jobID, ImportJobStatusProcessing); err != nil {
 		return nil, fmt.Errorf("imports.Service.CreateJob: update status: %w", err)
 	}
@@ -177,6 +287,7 @@ func (s *Service) CreateJob(ctx context.Context, req CreateJobRequest) (*CreateJ
 		TotalRecords: totalRecords,
 		TotalChunks:  totalChunks,
 		Status:       ImportJobStatusProcessing,
+		IsReplay:     false,
 	}, nil
 }
 

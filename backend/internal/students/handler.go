@@ -172,11 +172,18 @@ func (h *Handler) BulkImport(c *fiber.Ctx) error {
 		return middleware.HTTPError(c, err)
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(ImportResponse{
+	// 200 for idempotent replay, 201 for new job
+	httpStatus := fiber.StatusCreated
+	if resp.IsReplay {
+		httpStatus = fiber.StatusOK
+	}
+
+	return c.Status(httpStatus).JSON(ImportResponse{
 		JobID:        resp.JobID.String(),
 		TotalRecords: resp.TotalRecords,
 		TotalChunks:  resp.TotalChunks,
 		Status:       string(resp.Status),
+		IsReplay:     resp.IsReplay,
 	})
 }
 

@@ -21,6 +21,7 @@ import (
 type MockServiceRepository struct {
 	mu                       sync.Mutex
 	createJobFn              func(ctx context.Context, job *Job) (uuid.UUID, error)
+	createJobIdempotentFn    func(ctx context.Context, job *Job, payloadHash string) (*Job, bool, error)
 	getJobByIDFn             func(ctx context.Context, jobID uuid.UUID) (*Job, error)
 	insertStagingRowsFn      func(ctx context.Context, rows []StagingRow) error
 	getStagingRowsFn         func(ctx context.Context, jobID uuid.UUID, rowStart, rowEnd int) ([]StagingRow, error)
@@ -55,6 +56,20 @@ func (m *MockServiceRepository) CreateJob(ctx context.Context, job *Job) (uuid.U
 	}
 	m.createdJobs = append(m.createdJobs, job)
 	return uuid.New(), nil
+}
+
+func (m *MockServiceRepository) CreateJobIdempotent(ctx context.Context, job *Job, payloadHash string) (*Job, bool, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.createJobIdempotentFn != nil {
+		return m.createJobIdempotentFn(ctx, job, payloadHash)
+	}
+	// Default: always create a new job
+	newJob := *job
+	newJob.ID = uuid.New()
+	newJob.PayloadHash = &payloadHash
+	m.createdJobs = append(m.createdJobs, &newJob)
+	return &newJob, true, nil
 }
 
 func (m *MockServiceRepository) GetJobByID(ctx context.Context, jobID uuid.UUID) (*Job, error) {
@@ -430,34 +445,56 @@ func TestCreateJob_EmptyRows(t *testing.T) {
 	}
 }
 
-func TestCreateJob_Idempotency(t *testing.T) {
-	// H4: Idempotent resubmission with same idempotency_key
+func TestCreateJob_Idempotency_FirstCreatesSecondReplays(t *testing.T) {
+	// (a) first submission creates a job, (b) resubmission with same key + same rows
+	// returns the same job_id with IsReplay=true
 	h := newTestHarness()
 	ctx := context.Background()
 
 	idempotencyKey := "test-key-001"
 	tenantID := uuid.New()
+	schoolID := uuid.New()
 
-	existingJobID := uuid.New()
-	callCount := 0
+	createdJobID := uuid.New()
+	var createCalled bool
+	var existingHash *string
 
-	h.repo.getJobByIDempotencyKeyFn = func(ctx context.Context, tid uuid.UUID, key string) (*Job, error) {
-		callCount++
-		if callCount > 1 {
-			// Second call: return the existing job
-			return &Job{
-				ID:             existingJobID,
-				TenantID:       tenantID,
-				TotalRecords:   50,
-				TotalChunks:    1,
-				Status:         ImportJobStatusProcessing,
-				IDempotencyKey: &idempotencyKey,
-			}, nil
+	// Set up mocks to simulate DB-level ON CONFLICT behavior
+	h.repo.createJobIdempotentFn = func(ctx context.Context, job *Job, payloadHash string) (*Job, bool, error) {
+		if !createCalled {
+			createCalled = true
+			createdJobID = uuid.New()
+			createdJob := *job
+			createdJob.ID = createdJobID
+			createdJob.PayloadHash = &payloadHash
+			existingHash = &payloadHash
+			return &createdJob, true, nil
 		}
-		return nil, ErrNotFound
+		// Second call: simulate ON CONFLICT DO NOTHING — no row inserted
+		return nil, false, nil
 	}
 
-	// First call — should create
+	h.repo.getJobByIDempotencyKeyFn = func(ctx context.Context, tid uuid.UUID, key string) (*Job, error) {
+		return &Job{
+			ID:             createdJobID,
+			TenantID:       tenantID,
+			SchoolID:       schoolID,
+			TotalRecords:   50,
+			TotalChunks:    1,
+			Status:         ImportJobStatusProcessing,
+			IDempotencyKey: &idempotencyKey,
+			PayloadHash:    existingHash,
+		}, nil
+	}
+
+	h.repo.insertStagingRowsFn = func(ctx context.Context, rows []StagingRow) error {
+		return nil
+	}
+	h.repo.updateJobStatusFn = func(ctx context.Context, jobID uuid.UUID, status ImportJobStatus) error {
+		return nil
+	}
+
+	// First call — should create a new job
 	rows := make([]json.RawMessage, 50)
 	for i := 0; i < 50; i++ {
 		rows[i] = json.RawMessage(`{"full_name":"S` + itoa(i) + `","gender":"F"}`)
@@ -465,34 +502,253 @@ func TestCreateJob_Idempotency(t *testing.T) {
 
 	resp1, err := h.svc.CreateJob(ctx, CreateJobRequest{
 		TenantID:       tenantID,
-		SchoolID:       uuid.New(),
+		SchoolID:       schoolID,
 		JobType:        ImportJobTypeStudentImport,
 		CreatedBy:      uuid.New(),
 		Rows:           rows,
 		IDempotencyKey: &idempotencyKey,
 	})
 	if err != nil {
-		t.Fatalf("H4: first CreateJob failed: %v", err)
+		t.Fatalf("(a) first CreateJob failed: %v", err)
 	}
-	if resp1 == nil {
-		t.Fatal("H4: first response is nil")
+	if resp1.JobID != createdJobID {
+		t.Fatalf("(a) expected job ID %s, got %s", createdJobID, resp1.JobID)
+	}
+	if resp1.IsReplay {
+		t.Fatal("(a) first submission should not be a replay")
 	}
 
-	// Second call with same key — should return existing
+	// Second call — same key, same rows — should return existing job as replay
 	resp2, err := h.svc.CreateJob(ctx, CreateJobRequest{
 		TenantID:       tenantID,
-		SchoolID:       uuid.New(),
+		SchoolID:       schoolID,
 		JobType:        ImportJobTypeStudentImport,
 		CreatedBy:      uuid.New(),
 		Rows:           rows,
 		IDempotencyKey: &idempotencyKey,
 	})
 	if err != nil {
-		t.Fatalf("H4: second CreateJob failed: %v", err)
+		t.Fatalf("(b) second CreateJob failed: %v", err)
 	}
-	if resp2.JobID != existingJobID {
-		t.Fatalf("H4: expected existing job ID %s, got %s", existingJobID, resp2.JobID)
+	if resp2.JobID != createdJobID {
+		t.Fatalf("(b) expected existing job ID %s, got %s", createdJobID, resp2.JobID)
 	}
+	if !resp2.IsReplay {
+		t.Fatal("(b) second submission should be marked as replay")
+	}
+}
+
+func TestCreateJob_Idempotency_DifferentPayloadReturns409(t *testing.T) {
+	// (c) resubmission with same key + different rows returns 409 duplicate_import
+	h := newTestHarness()
+	ctx := context.Background()
+
+	idempotencyKey := "test-key-002"
+	tenantID := uuid.New()
+	schoolID := uuid.New()
+
+	createdJobID := uuid.New()
+	var createCalled bool
+	existingHash := computePayloadHash(makeFirstRows())
+
+	h.repo.createJobIdempotentFn = func(ctx context.Context, job *Job, payloadHash string) (*Job, bool, error) {
+		if !createCalled {
+			createCalled = true
+			createdJobID = uuid.New()
+			createdJob := *job
+			createdJob.ID = createdJobID
+			createdJob.PayloadHash = &payloadHash
+			return &createdJob, true, nil
+		}
+		// Second call: simulate ON CONFLICT DO NOTHING
+		return nil, false, nil
+	}
+
+	h.repo.getJobByIDempotencyKeyFn = func(ctx context.Context, tid uuid.UUID, key string) (*Job, error) {
+		return &Job{
+			ID:             createdJobID,
+			TenantID:       tenantID,
+			SchoolID:       schoolID,
+			TotalRecords:   50,
+			TotalChunks:    1,
+			Status:         ImportJobStatusProcessing,
+			IDempotencyKey: &idempotencyKey,
+			PayloadHash:    &existingHash,
+		}, nil
+	}
+
+	h.repo.insertStagingRowsFn = func(ctx context.Context, rows []StagingRow) error {
+		return nil
+	}
+	h.repo.updateJobStatusFn = func(ctx context.Context, jobID uuid.UUID, status ImportJobStatus) error {
+		return nil
+	}
+
+	// First call with initial rows
+	firstRows := makeFirstRows()
+	_, err := h.svc.CreateJob(ctx, CreateJobRequest{
+		TenantID:       tenantID,
+		SchoolID:       schoolID,
+		JobType:        ImportJobTypeStudentImport,
+		CreatedBy:      uuid.New(),
+		Rows:           firstRows,
+		IDempotencyKey: &idempotencyKey,
+	})
+	if err != nil {
+		t.Fatalf("(c) first CreateJob failed: %v", err)
+	}
+
+	// Second call — same key, DIFFERENT rows — should return ErrDuplicateJob
+	secondRows := makeSecondRows()
+	_, err = h.svc.CreateJob(ctx, CreateJobRequest{
+		TenantID:       tenantID,
+		SchoolID:       schoolID,
+		JobType:        ImportJobTypeStudentImport,
+		CreatedBy:      uuid.New(),
+		Rows:           secondRows,
+		IDempotencyKey: &idempotencyKey,
+	})
+	if err == nil {
+		t.Fatal("(c) expected ErrDuplicateJob for different payload with same key")
+	}
+	if !errors.Is(err, ErrDuplicateJob) {
+		t.Fatalf("(c) expected ErrDuplicateJob, got %v", err)
+	}
+}
+
+func TestCreateJob_IdempotentConcurrentRaces(t *testing.T) {
+	// (d) concurrent requests with the same key racing each other — only one job
+	//     is created, both get the same job ID
+	h := newTestHarness()
+	ctx := context.Background()
+
+	idempotencyKey := "concurrent-key"
+	tenantID := uuid.New()
+	schoolID := uuid.New()
+
+	var (
+		callMu    sync.Mutex
+		callCount int
+		wonJobID  uuid.UUID
+	)
+
+	// Simulate DB-level INSERT ... ON CONFLICT DO NOTHING:
+	// - First caller gets a new job (true)
+	// - Subsequent callers get nil, false (conflict)
+	h.repo.createJobIdempotentFn = func(ctx context.Context, job *Job, payloadHash string) (*Job, bool, error) {
+		callMu.Lock()
+		defer callMu.Unlock()
+		callCount++
+		if callCount == 1 {
+			wonJobID = uuid.New()
+			createdJob := *job
+			createdJob.ID = wonJobID
+			createdJob.PayloadHash = &payloadHash
+			return &createdJob, true, nil
+		}
+		return nil, false, nil
+	}
+
+	// For conflict resolution: return the pre-existing job
+	h.repo.getJobByIDempotencyKeyFn = func(ctx context.Context, tid uuid.UUID, key string) (*Job, error) {
+		callMu.Lock()
+		defer callMu.Unlock()
+		return &Job{
+			ID:             wonJobID,
+			TenantID:       tenantID,
+			SchoolID:       schoolID,
+			TotalRecords:   10,
+			TotalChunks:    1,
+			Status:         ImportJobStatusProcessing,
+			IDempotencyKey: &idempotencyKey,
+			PayloadHash:    &[]string{computePayloadHash(makeFirstRows())}[0],
+		}, nil
+	}
+
+	h.repo.insertStagingRowsFn = func(ctx context.Context, rows []StagingRow) error {
+		return nil
+	}
+	h.repo.updateJobStatusFn = func(ctx context.Context, jobID uuid.UUID, status ImportJobStatus) error {
+		return nil
+	}
+
+	rows := makeFirstRows()
+	req := CreateJobRequest{
+		TenantID:       tenantID,
+		SchoolID:       schoolID,
+		JobType:        ImportJobTypeStudentImport,
+		CreatedBy:      uuid.New(),
+		Rows:           rows,
+		IDempotencyKey: &idempotencyKey,
+	}
+
+	// Run multiple concurrent creates
+	var wg sync.WaitGroup
+	const goroutines = 5
+	type result struct {
+		jobID uuid.UUID
+		err   error
+	}
+	results := make(chan result, goroutines)
+
+	for i := 0; i < goroutines; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			resp, err := h.svc.CreateJob(ctx, req)
+			if err != nil {
+				results <- result{err: err}
+				return
+			}
+			results <- result{jobID: resp.JobID}
+		}()
+	}
+	wg.Wait()
+	close(results)
+
+	// Exactly one goroutine should get isNew=true (its call won the INSERT race)
+	// The rest should get the same job ID via replay
+	// Assert: all goroutines either got the same job ID or got an error (no error expected in this scenario)
+	var successCount int
+	var idSet []uuid.UUID
+	for r := range results {
+		if r.err != nil {
+			t.Errorf("(d) concurrent CreateJob returned error: %v", r.err)
+			continue
+		}
+		successCount++
+		if len(idSet) == 0 {
+			idSet = append(idSet, r.jobID)
+		} else if idSet[0] != r.jobID {
+			idSet = append(idSet, r.jobID)
+		}
+	}
+
+	if successCount != goroutines {
+		t.Fatalf("(d) expected %d successful calls, got %d", goroutines, successCount)
+	}
+	if len(idSet) != 1 {
+		t.Fatalf("(d) all concurrent submissions should return the same job ID, got %d distinct IDs: %v", len(idSet), idSet)
+	}
+	if idSet[0] != wonJobID {
+		t.Fatalf("(d) expected job ID %s, got %s", wonJobID, idSet[0])
+	}
+}
+
+func makeFirstRows() []json.RawMessage {
+	rows := make([]json.RawMessage, 5)
+	for i := 0; i < 5; i++ {
+		rows[i] = json.RawMessage(`{"full_name":"Alice ` + itoa(i) + `","gender":"F"}`)
+	}
+	return rows
+}
+
+func makeSecondRows() []json.RawMessage {
+	rows := make([]json.RawMessage, 5)
+	for i := 0; i < 5; i++ {
+		rows[i] = json.RawMessage(`{"full_name":"Bob ` + itoa(i) + `","gender":"M"}`)
+	}
+	return rows
 }
 
 // ============================================================================
@@ -721,78 +977,6 @@ func TestChunkPartitioning_2050Rows(t *testing.T) {
 // ============================================================================
 // Tests: Idempotency edge cases
 // ============================================================================
-
-func TestIdempotency_ConcurrentSubmissions(t *testing.T) {
-	// S9: Two concurrent requests with the identical idempotency_key
-	// Only the first creates the job; the second should receive the existing one.
-	h := newTestHarness()
-	ctx := context.Background()
-
-	idempotencyKey := "concurrent-key"
-	tenantID := uuid.New()
-	existingJobID := uuid.New()
-
-	var callMu sync.Mutex
-	firstCall := true
-
-	h.repo.getJobByIDempotencyKeyFn = func(ctx context.Context, tid uuid.UUID, key string) (*Job, error) {
-		callMu.Lock()
-		defer callMu.Unlock()
-		if !firstCall {
-			return &Job{ID: existingJobID, IDempotencyKey: &idempotencyKey, TotalRecords: 10, TotalChunks: 1}, nil
-		}
-		firstCall = false
-		return nil, ErrNotFound
-	}
-
-	h.repo.createJobFn = func(ctx context.Context, job *Job) (uuid.UUID, error) {
-		return existingJobID, nil
-	}
-
-	rows := make([]json.RawMessage, 10)
-	for i := 0; i < 10; i++ {
-		rows[i] = json.RawMessage(`{"full_name":"S` + itoa(i) + `","gender":"M"}`)
-	}
-
-	req := CreateJobRequest{
-		TenantID:       tenantID,
-		SchoolID:       uuid.New(),
-		JobType:        ImportJobTypeStudentImport,
-		CreatedBy:      uuid.New(),
-		Rows:           rows,
-		IDempotencyKey: &idempotencyKey,
-	}
-
-	// Run two concurrent creates
-	var wg sync.WaitGroup
-	results := make(chan uuid.UUID, 2)
-	for i := 0; i < 2; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			resp, err := h.svc.CreateJob(ctx, req)
-			if err != nil {
-				t.Errorf("concurrent CreateJob failed: %v", err)
-				return
-			}
-			results <- resp.JobID
-		}()
-	}
-	wg.Wait()
-	close(results)
-
-	// Both responses should return the same job ID
-	var ids []uuid.UUID
-	for id := range results {
-		ids = append(ids, id)
-	}
-	if len(ids) != 2 {
-		t.Fatalf("S9: expected 2 results, got %d", len(ids))
-	}
-	if ids[0] != ids[1] {
-		t.Fatalf("S9: both concurrent submissions should return same job ID, got %s and %s", ids[0], ids[1])
-	}
-}
 
 // ============================================================================
 // Tests: AtomicChunkCompletion logic

@@ -161,11 +161,15 @@ type ImportRequest struct {
 }
 
 // ImportResponse is returned after creating a student import job.
+// IsReplay indicates the response reflects a pre-existing job (idempotent
+// replay) rather than a newly created one. When IsReplay is true the
+// HTTP status should be 200 instead of 201.
 type ImportResponse struct {
 	JobID        string `json:"job_id"`
 	TotalRecords int    `json:"total_records"`
 	TotalChunks  int    `json:"total_chunks"`
 	Status       string `json:"status"`
+	IsReplay     bool   `json:"is_replay"`
 }
 
 // ============================================================================

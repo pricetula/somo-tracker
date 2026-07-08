@@ -1,11 +1,4 @@
 import { getVerifiedRole } from "@/lib/auth-server";
-import {
-    SystemAdminDashboardPage,
-    SchoolAdminDashboardPage,
-    TeacherDashboardPage,
-    NurseDashboardPage,
-    FinanceDashboardPage,
-} from "@/features/dashboard";
 
 export default async function Home() {
     const role = await getVerifiedRole();
@@ -21,16 +14,31 @@ export default async function Home() {
     }
 
     switch (role) {
-        case "SYSTEM_ADMIN":
+        case "SYSTEM_ADMIN": {
+            const { SystemAdminDashboardPage } =
+                await import("@/features/dashboard/components/system-admin-dashboard");
             return <SystemAdminDashboardPage />;
-        case "SCHOOL_ADMIN":
+        }
+        case "SCHOOL_ADMIN": {
+            const { SchoolAdminDashboardPage } =
+                await import("@/features/dashboard/components/school-admin-dashboard");
             return <SchoolAdminDashboardPage />;
-        case "TEACHER":
+        }
+        case "TEACHER": {
+            const { TeacherDashboardPage } =
+                await import("@/features/dashboard/components/teacher-dashboard");
             return <TeacherDashboardPage />;
-        case "NURSE":
+        }
+        case "NURSE": {
+            const { NurseDashboardPage } =
+                await import("@/features/dashboard/components/nurse-dashboard");
             return <NurseDashboardPage />;
-        case "FINANCE":
+        }
+        case "FINANCE": {
+            const { FinanceDashboardPage } =
+                await import("@/features/dashboard/components/finance-dashboard");
             return <FinanceDashboardPage />;
+        }
         default:
             return (
                 <article>

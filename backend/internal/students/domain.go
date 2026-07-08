@@ -176,10 +176,48 @@ type ImportResponse struct {
 // Import Repository Interface (for the student Importer)
 // ============================================================================
 
+// ============================================================================
+// Check Duplicates Types
+// ============================================================================
+
+// CheckDuplicatesRequest is the body for POST /api/v1/students/check-duplicates.
+// All fields are optional; only provided values are checked.
+type CheckDuplicatesRequest struct {
+	AdmissionNumbers      []string `json:"admission_numbers,omitempty"`
+	UPINumbers            []string `json:"upi_numbers,omitempty"`
+	KNECAssessmentNumbers []string `json:"knec_assessment_numbers,omitempty"`
+}
+
+// CheckDuplicatesResponse returns only the values that already exist for the
+// caller's tenant/school.
+type CheckDuplicatesResponse struct {
+	ExistingAdmissionNumbers      []string `json:"existing_admission_numbers"`
+	ExistingUPINumbers            []string `json:"existing_upi_numbers"`
+	ExistingKNECAssessmentNumbers []string `json:"existing_knec_assessment_numbers"`
+}
+
+// ============================================================================
+// Import Repository Interface (for the student Importer)
+// ============================================================================
+
 // ImportRepository defines what the student Importer needs from the DB.
 type ImportRepository interface {
 	// CheckSchoolAdminMembership verifies the caller has SCHOOL_ADMIN for the school.
 	CheckSchoolAdminMembership(ctx context.Context, userID, tenantID, schoolID string) (bool, error)
+
+	// ValidateClassExists checks that a class exists and belongs to the given
+	// tenant and school. Used in ResolveReferences to fail-fast on invalid or
+	// cross-tenant class references rather than allowing a FK violation deeper
+	// in the insert path.
+	ValidateClassExists(ctx context.Context, tenantID, schoolID, classID string) (bool, error)
+
+	// CheckExistingFieldValues returns subsets of the input lists that already
+	// exist in cbc_students for the given tenant/school. Each returned list
+	// contains only the values that were found in the database. Empty/nil lists
+	// are returned when no values match.
+	CheckExistingFieldValues(ctx context.Context, tenantID, schoolID string,
+		admissionNumbers, upiNumbers, knecNumbers []string) (
+		existingAdmissionNumbers, existingUPINumbers, existingKnecNumbers []string, err error)
 }
 
 // ============================================================================

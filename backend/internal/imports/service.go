@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -525,12 +526,21 @@ func (s *Service) insertWithSavepoints(
 
 		err = imp.InsertOne(ctx, tx, vRow)
 		if err != nil {
-			// Check for duplicate UPI, unique constraint, etc.
+			// Use the typed error from InsertOne if available, otherwise
+			// fall back to a generic DB constraint failure.
+			var impErr *ImportError
+			errorType := ImportFailureDBConstraint
+			errorMsg := err.Error()
+			if errors.As(err, &impErr) {
+				errorType = impErr.Type
+				errorMsg = impErr.Message
+			}
+
 			*failures = append(*failures, RowFailure{
 				RowNumber:    stagingRows[i].RowNumber,
 				RawPayload:   vRow.RawData,
-				ErrorMessage: err.Error(),
-				ErrorType:    ImportFailureDBConstraint,
+				ErrorMessage: errorMsg,
+				ErrorType:    errorType,
 			})
 			failedCount++
 

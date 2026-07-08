@@ -1,6 +1,11 @@
 /**
  * StudentManualImportForm — bulk-add students via manual entry.
  *
+ * Validates:
+ * - Required fields (full_name)
+ * - Within-batch duplicates (admission_number, upi_number, knec_assessment_number)
+ * - Against-existing DB records (via POST /api/v1/students/check-duplicates on submit)
+ *
  * POSTs all rows to POST /api/v1/students/import (single request),
  * then delegates to the shared <ImportProgress /> for polling + results.
  */
@@ -24,7 +29,7 @@ import { Label } from "@/components/ui/label";
 import { DatePicker } from "@/components/ui/date-picker";
 import { ClassCombobox } from "@/features/classes";
 
-import { submitStudentImport } from "@/lib/api/imports";
+import { submitStudentImport, checkDuplicates } from "@/lib/api/imports";
 import type { ImportRow } from "@/lib/api/imports";
 import { getErrorMessage } from "@/lib/errors";
 
@@ -57,6 +62,74 @@ function freshRow(): StudentRow {
     };
 }
 
+// ─── Within-batch duplicate detection ─────────────────────────────────────
+
+interface BatchDupResult {
+    /** rowId -> { fieldName -> error message } */
+    errors: Record<string, Record<string, string>>;
+    hasErrors: boolean;
+}
+
+/**
+ * Detect within-batch duplicates among the current set of rows.
+ * Does NOT call the API — purely client-side.
+ */
+function detectWithinBatchDuplicates(rows: StudentRow[]): BatchDupResult {
+    const errors: Record<string, Record<string, string>> = {};
+    let hasErrors = false;
+
+    // Build value-to-row mappings for each tracked field (case-insensitive)
+    const admMap = new Map<string, string[]>(); // value -> rowIds
+    const upiMap = new Map<string, string[]>();
+    const knecMap = new Map<string, string[]>();
+
+    for (const row of rows) {
+        if (row.admissionNumber.trim()) {
+            const key = row.admissionNumber.trim().toLowerCase();
+            const ids = admMap.get(key) ?? [];
+            ids.push(row.id);
+            admMap.set(key, ids);
+        }
+        if (row.upiNumber.trim()) {
+            const key = row.upiNumber.trim().toLowerCase();
+            const ids = upiMap.get(key) ?? [];
+            ids.push(row.id);
+            upiMap.set(key, ids);
+        }
+        if (row.knecNumber.trim()) {
+            const key = row.knecNumber.trim().toLowerCase();
+            const ids = knecMap.get(key) ?? [];
+            ids.push(row.id);
+            knecMap.set(key, ids);
+        }
+    }
+
+    // Helper: for each duplicate map, assign error messages
+    function markFieldDups(map: Map<string, string[]>, fieldName: string, label: string) {
+        for (const [, rowIds] of map) {
+            if (rowIds.length <= 1) continue;
+            hasErrors = true;
+            for (const rowId of rowIds) {
+                const otherRowNumbers = rows
+                    .filter((r) => r.id !== rowId && rowIds.includes(r.id))
+                    .map((r) => rows.findIndex((x) => x.id === r.id) + 1)
+                    .filter((n) => n > 0);
+                if (otherRowNumbers.length === 0) continue;
+                if (!errors[rowId]) errors[rowId] = {};
+                const existing = errors[rowId][fieldName] ?? "";
+                const msg = `Duplicate ${label} — also used in row${otherRowNumbers.length > 1 ? "s" : ""} ${otherRowNumbers.join(", ")}`;
+                errors[rowId][fieldName] = existing ? `${existing}; ${msg}` : msg;
+            }
+        }
+    }
+
+    markFieldDups(admMap, "admissionNumber", "admission number");
+    markFieldDups(upiMap, "upiNumber", "UPI number");
+    markFieldDups(knecMap, "knecNumber", "KNEC number");
+
+    return { errors, hasErrors };
+}
+
 // ─── Props ────────────────────────────────────────────────────────────────
 
 interface StudentManualImportFormProps {
@@ -69,17 +142,53 @@ interface StudentManualImportFormProps {
 export function StudentManualImportForm({ onReset, onJobCreated }: StudentManualImportFormProps) {
     const [rows, setRows] = React.useState<StudentRow[]>([freshRow()]);
     const [submitting, setSubmitting] = React.useState(false);
+    const [checkingDuplicates, setCheckingDuplicates] = React.useState(false);
     const submittingRef = React.useRef(false);
-    const [fieldErrors, setFieldErrors] = React.useState<Record<string, Record<string, string[]>>>(
+    // rowId -> { fieldName -> error message }
+    const [fieldErrors, setFieldErrors] = React.useState<Record<string, Record<string, string>>>(
         {}
     );
-    // Idempotency key: generated at submit start, persists across retries during
-    // the in-flight request. A new key is generated if the user explicitly restarts.
+    // Idempotency key: generated at submit start, persists across retries
     const idempotencyKeyRef = React.useRef<string | null>(null);
+
+    // ── Within-batch duplicate detection (on every render) ─────────────
+    const batchDupResult = React.useMemo(() => detectWithinBatchDuplicates(rows), [rows]);
+    const hasWithinBatchDups = batchDupResult.hasErrors;
+
+    // Merge within-batch errors into fieldErrors for display.
+    // API (existing-record) errors are set separately during submit attempt.
+    const mergedFieldErrors = React.useMemo(() => {
+        const merged: Record<string, Record<string, string>> = {};
+        // Start with within-batch dups
+        for (const [rowId, fields] of Object.entries(batchDupResult.errors)) {
+            merged[rowId] = { ...fields };
+        }
+        // Overlay any API/existing errors
+        for (const [rowId, fields] of Object.entries(fieldErrors)) {
+            if (!merged[rowId]) merged[rowId] = {};
+            Object.assign(merged[rowId], fields);
+        }
+        return merged;
+    }, [batchDupResult, fieldErrors]);
 
     // ── Row mutation helpers ───────────────────────────────────────────
     const updateRow = React.useCallback((rowId: string, patch: Partial<StudentRow>) => {
         setRows((prev) => prev.map((r) => (r.id === rowId ? { ...r, ...patch } : r)));
+        // Clear existing-record errors for this field when user edits it
+        setFieldErrors((prev) => {
+            const rowErrors = prev[rowId];
+            if (!rowErrors) return prev;
+            const updated = { ...rowErrors };
+            for (const key of Object.keys(patch)) {
+                delete updated[key];
+            }
+            if (Object.keys(updated).length === 0) {
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                const { [rowId]: _removed, ...rest } = prev;
+                return rest;
+            }
+            return { ...prev, [rowId]: updated };
+        });
     }, []);
 
     const removeRow = React.useCallback((rowId: string) => {
@@ -90,21 +199,110 @@ export function StudentManualImportForm({ onReset, onJobCreated }: StudentManual
         setRows((prev) => [...prev, freshRow()]);
     }, []);
 
+    // ── Against-existing-records check ─────────────────────────────────
+    const checkExistingDuplicates = React.useCallback(async (): Promise<boolean> => {
+        const nonEmptyRows = rows.filter(
+            (r) => r.admissionNumber.trim() || r.upiNumber.trim() || r.knecNumber.trim()
+        );
+        if (nonEmptyRows.length === 0) return true; // nothing to check
+
+        const admNumbers = rows.map((r) => r.admissionNumber.trim()).filter(Boolean);
+        const upiNumbers = rows.map((r) => r.upiNumber.trim()).filter(Boolean);
+        const knecNumbers = rows.map((r) => r.knecNumber.trim()).filter(Boolean);
+
+        // If all are empty, skip
+        if (admNumbers.length === 0 && upiNumbers.length === 0 && knecNumbers.length === 0) {
+            return true;
+        }
+
+        setCheckingDuplicates(true);
+        try {
+            const result = await checkDuplicates({
+                admission_numbers: admNumbers,
+                upi_numbers: upiNumbers,
+                knec_assessment_numbers: knecNumbers,
+            });
+
+            const existingAdmSet = new Set(
+                result.existing_admission_numbers.map((v) => v.toLowerCase())
+            );
+            const existingUPISet = new Set(result.existing_upi_numbers.map((v) => v.toLowerCase()));
+            const existingKnecSet = new Set(
+                result.existing_knec_assessment_numbers.map((v) => v.toLowerCase())
+            );
+
+            const newErrors: Record<string, Record<string, string>> = {};
+            let hasConflicts = false;
+
+            for (const row of rows) {
+                if (
+                    row.admissionNumber.trim() &&
+                    existingAdmSet.has(row.admissionNumber.trim().toLowerCase())
+                ) {
+                    if (!newErrors[row.id]) newErrors[row.id] = {};
+                    newErrors[row.id].admissionNumber =
+                        `Admission number "${row.admissionNumber.trim()}" already exists for this school`;
+                    hasConflicts = true;
+                }
+                if (
+                    row.upiNumber.trim() &&
+                    existingUPISet.has(row.upiNumber.trim().toLowerCase())
+                ) {
+                    if (!newErrors[row.id]) newErrors[row.id] = {};
+                    newErrors[row.id].upiNumber =
+                        `UPI number "${row.upiNumber.trim()}" already exists for this school`;
+                    hasConflicts = true;
+                }
+                if (
+                    row.knecNumber.trim() &&
+                    existingKnecSet.has(row.knecNumber.trim().toLowerCase())
+                ) {
+                    if (!newErrors[row.id]) newErrors[row.id] = {};
+                    newErrors[row.id].knecNumber =
+                        `KNEC number "${row.knecNumber.trim()}" already exists for this school`;
+                    hasConflicts = true;
+                }
+            }
+
+            setFieldErrors(newErrors);
+            return !hasConflicts;
+        } catch (err) {
+            console.error("Failed to check duplicates:", err);
+            // If the check fails, allow submission to proceed (safety net handles it)
+            return true;
+        } finally {
+            setCheckingDuplicates(false);
+        }
+    }, [rows]);
+
     // ── Validation + Submit ────────────────────────────────────────────
     const handleImport = React.useCallback(async () => {
         if (submittingRef.current) return;
 
-        // Validate
-        const errors: Record<string, Record<string, string[]>> = {};
-        let valid = true;
+        // Validate required fields
+        const requiredErrors: Record<string, Record<string, string>> = {};
+        let hasRequiredErrors = false;
         rows.forEach((row) => {
             if (!row.fullName.trim()) {
-                errors[row.id] = { full_name: ["Full name is required"] };
-                valid = false;
+                requiredErrors[row.id] = { full_name: "Full name is required" };
+                hasRequiredErrors = true;
             }
         });
-        setFieldErrors(errors);
-        if (!valid) return;
+        setFieldErrors((prev) => ({ ...prev, ...requiredErrors }));
+
+        // Block if required fields missing or within-batch duplicates
+        if (hasRequiredErrors) return;
+        if (hasWithinBatchDups) {
+            toast.error("Please resolve duplicate values within the batch before submitting");
+            return;
+        }
+
+        // Check against existing records before submitting
+        const canProceed = await checkExistingDuplicates();
+        if (!canProceed) {
+            toast.error("Some values already exist for this school. Please correct them.");
+            return;
+        }
 
         submittingRef.current = true;
         setSubmitting(true);
@@ -129,7 +327,7 @@ export function StudentManualImportForm({ onReset, onJobCreated }: StudentManual
                 idempotency_key: idempotencyKeyRef.current,
                 rows: importRows,
             });
-            // Key consumed on success — next submit gets a fresh key
+            // Key consumed on success
             idempotencyKeyRef.current = null;
             onJobCreated(result.job_id, importRows.length);
         } catch (err) {
@@ -138,15 +336,37 @@ export function StudentManualImportForm({ onReset, onJobCreated }: StudentManual
             setSubmitting(false);
             toast.error(getErrorMessage(err));
         }
-    }, [rows, onJobCreated]);
+    }, [rows, onJobCreated, hasWithinBatchDups, checkExistingDuplicates]);
 
-    const isSubmitting = submitting;
+    const isSubmitting = submitting || checkingDuplicates;
+
+    // ── Determine blocking errors count ────────────────────────────────
+    const blockingCount = React.useMemo(() => {
+        let count = 0;
+        for (const row of rows) {
+            const errors = mergedFieldErrors[row.id];
+            if (errors && Object.keys(errors).length > 0) count++;
+        }
+        return count;
+    }, [rows, mergedFieldErrors]);
+
+    // ── Render helpers ─────────────────────────────────────────────────
+    function fieldError(rowId: string, field: string): string | undefined {
+        return mergedFieldErrors[rowId]?.[field];
+    }
 
     return (
         <div className="flex flex-col gap-4">
             {/* Header */}
             <div className="flex items-center justify-between">
-                <h3 className="text-sm font-medium">Manual Student Import</h3>
+                <div>
+                    <h3 className="text-sm font-medium">Manual Student Import</h3>
+                    {blockingCount > 0 && (
+                        <p className="text-destructive mt-0.5 text-xs">
+                            {blockingCount} row{blockingCount !== 1 ? "s" : ""} with errors
+                        </p>
+                    )}
+                </div>
                 <div className="flex items-center gap-2">
                     <Button variant="ghost" size="sm" onClick={addRow} disabled={isSubmitting}>
                         <Plus className="mr-1 size-3.5" />
@@ -169,151 +389,199 @@ export function StudentManualImportForm({ onReset, onJobCreated }: StudentManual
                 </div>
             ) : (
                 <div className="space-y-2">
-                    {rows.map((row, index) => (
-                        <div key={row.id} className="bg-muted/30 rounded-md p-3">
-                            <div className="mb-2 flex items-center justify-between">
-                                <span className="text-muted-foreground text-xs font-medium">
-                                    Student {index + 1}
-                                </span>
-                                <Button
-                                    variant="ghost"
-                                    size="icon-xs"
-                                    onClick={() => removeRow(row.id)}
-                                    disabled={isSubmitting || rows.length === 1}
-                                    className="text-muted-foreground hover:text-destructive size-6"
-                                    aria-label={`Remove row ${index + 1}`}
-                                >
-                                    <Trash2 className="size-3.5" />
-                                </Button>
-                            </div>
+                    {rows.map((row, index) => {
+                        const rowMergedErrors = mergedFieldErrors[row.id] ?? {};
+                        const hasRowErrors = Object.keys(rowMergedErrors).length > 0;
 
-                            {/* Full Name + Gender */}
-                            <div className="mb-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                                <div className="space-y-1">
-                                    <Label className="text-[0.625rem]" htmlFor={`name-${row.id}`}>
-                                        Full Name <span className="text-destructive">*</span>
-                                    </Label>
-                                    <Input
-                                        id={`name-${row.id}`}
-                                        value={row.fullName}
-                                        onChange={(e) =>
-                                            updateRow(row.id, { fullName: e.target.value })
-                                        }
-                                        placeholder="e.g. John Kiprop"
-                                        disabled={isSubmitting}
-                                        className="h-8 text-xs"
-                                    />
-                                    {fieldErrors[row.id]?.full_name && (
-                                        <p className="text-destructive text-[0.625rem]">
-                                            {fieldErrors[row.id].full_name[0]}
-                                        </p>
-                                    )}
-                                </div>
-                                <div className="space-y-1">
-                                    <Label className="text-[0.625rem]" htmlFor={`gender-${row.id}`}>
-                                        Gender
-                                    </Label>
-                                    <Select
-                                        value={row.gender}
-                                        onValueChange={(v) => updateRow(row.id, { gender: v })}
-                                        disabled={isSubmitting}
+                        return (
+                            <div
+                                key={row.id}
+                                className={`rounded-md p-3 ${hasRowErrors ? "bg-destructive/5 ring-destructive/20 ring-1" : "bg-muted/30"}`}
+                            >
+                                <div className="mb-2 flex items-center justify-between">
+                                    <span className="text-muted-foreground text-xs font-medium">
+                                        Student {index + 1}
+                                        {hasRowErrors && (
+                                            <span className="text-destructive ml-1">(errors)</span>
+                                        )}
+                                    </span>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon-xs"
+                                        onClick={() => removeRow(row.id)}
+                                        disabled={isSubmitting || rows.length === 1}
+                                        className="text-muted-foreground hover:text-destructive size-6"
+                                        aria-label={`Remove row ${index + 1}`}
                                     >
-                                        <SelectTrigger
-                                            id={`gender-${row.id}`}
-                                            className="h-8 text-xs"
+                                        <Trash2 className="size-3.5" />
+                                    </Button>
+                                </div>
+
+                                {/* Full Name + Gender */}
+                                <div className="mb-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                    <div className="space-y-1">
+                                        <Label
+                                            className="text-[0.625rem]"
+                                            htmlFor={`name-${row.id}`}
                                         >
-                                            <SelectValue placeholder="-" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="M">Male</SelectItem>
-                                            <SelectItem value="F">Female</SelectItem>
-                                        </SelectContent>
-                                    </Select>
+                                            Full Name <span className="text-destructive">*</span>
+                                        </Label>
+                                        <Input
+                                            id={`name-${row.id}`}
+                                            value={row.fullName}
+                                            onChange={(e) =>
+                                                updateRow(row.id, { fullName: e.target.value })
+                                            }
+                                            placeholder="e.g. John Kiprop"
+                                            disabled={isSubmitting}
+                                            className="h-8 text-xs"
+                                        />
+                                        {fieldError(row.id, "full_name") && (
+                                            <p className="text-destructive text-[0.625rem]">
+                                                {fieldError(row.id, "full_name")}
+                                            </p>
+                                        )}
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label
+                                            className="text-[0.625rem]"
+                                            htmlFor={`gender-${row.id}`}
+                                        >
+                                            Gender
+                                        </Label>
+                                        <Select
+                                            value={row.gender}
+                                            onValueChange={(v) => updateRow(row.id, { gender: v })}
+                                            disabled={isSubmitting}
+                                        >
+                                            <SelectTrigger
+                                                id={`gender-${row.id}`}
+                                                className="h-8 text-xs"
+                                            >
+                                                <SelectValue placeholder="-" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="M">Male</SelectItem>
+                                                <SelectItem value="F">Female</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
                                 </div>
-                            </div>
 
-                            {/* DOB + UPI */}
-                            <div className="mb-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                                <div className="space-y-1">
-                                    <Label className="text-[0.625rem]" htmlFor={`dob-${row.id}`}>
-                                        Date of Birth
-                                    </Label>
-                                    <DatePicker
-                                        id={`dob-${row.id}`}
-                                        value={row.dateOfBirth}
-                                        onChange={(v) => updateRow(row.id, { dateOfBirth: v })}
-                                        placeholder="-"
-                                        disabled={isSubmitting}
-                                    />
+                                {/* DOB + UPI */}
+                                <div className="mb-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                    <div className="space-y-1">
+                                        <Label
+                                            className="text-[0.625rem]"
+                                            htmlFor={`dob-${row.id}`}
+                                        >
+                                            Date of Birth
+                                        </Label>
+                                        <DatePicker
+                                            id={`dob-${row.id}`}
+                                            value={row.dateOfBirth}
+                                            onChange={(v) => updateRow(row.id, { dateOfBirth: v })}
+                                            placeholder="-"
+                                            disabled={isSubmitting}
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label
+                                            className="text-[0.625rem]"
+                                            htmlFor={`upi-${row.id}`}
+                                        >
+                                            UPI Number
+                                        </Label>
+                                        <Input
+                                            id={`upi-${row.id}`}
+                                            value={row.upiNumber}
+                                            onChange={(e) =>
+                                                updateRow(row.id, { upiNumber: e.target.value })
+                                            }
+                                            placeholder="e.g. UP123456789"
+                                            disabled={isSubmitting}
+                                            className={`h-8 text-xs ${fieldError(row.id, "upiNumber") ? "border-destructive" : ""}`}
+                                        />
+                                        {fieldError(row.id, "upiNumber") && (
+                                            <p className="text-destructive text-[0.625rem]">
+                                                {fieldError(row.id, "upiNumber")}
+                                            </p>
+                                        )}
+                                    </div>
                                 </div>
-                                <div className="space-y-1">
-                                    <Label className="text-[0.625rem]" htmlFor={`upi-${row.id}`}>
-                                        UPI Number
-                                    </Label>
-                                    <Input
-                                        id={`upi-${row.id}`}
-                                        value={row.upiNumber}
-                                        onChange={(e) =>
-                                            updateRow(row.id, { upiNumber: e.target.value })
-                                        }
-                                        placeholder="e.g. UP123456789"
-                                        disabled={isSubmitting}
-                                        className="h-8 text-xs"
-                                    />
-                                </div>
-                            </div>
 
-                            {/* KNEC + Admission */}
-                            <div className="mb-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                                <div className="space-y-1">
-                                    <Label className="text-[0.625rem]" htmlFor={`knec-${row.id}`}>
-                                        KNEC Number
-                                    </Label>
-                                    <Input
-                                        id={`knec-${row.id}`}
-                                        value={row.knecNumber}
-                                        onChange={(e) =>
-                                            updateRow(row.id, { knecNumber: e.target.value })
-                                        }
-                                        placeholder="e.g. KNEC123456"
-                                        disabled={isSubmitting}
-                                        className="h-8 text-xs"
-                                    />
+                                {/* KNEC + Admission */}
+                                <div className="mb-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                    <div className="space-y-1">
+                                        <Label
+                                            className="text-[0.625rem]"
+                                            htmlFor={`knec-${row.id}`}
+                                        >
+                                            KNEC Number
+                                        </Label>
+                                        <Input
+                                            id={`knec-${row.id}`}
+                                            value={row.knecNumber}
+                                            onChange={(e) =>
+                                                updateRow(row.id, { knecNumber: e.target.value })
+                                            }
+                                            placeholder="e.g. KNEC123456"
+                                            disabled={isSubmitting}
+                                            className={`h-8 text-xs ${fieldError(row.id, "knecNumber") ? "border-destructive" : ""}`}
+                                        />
+                                        {fieldError(row.id, "knecNumber") && (
+                                            <p className="text-destructive text-[0.625rem]">
+                                                {fieldError(row.id, "knecNumber")}
+                                            </p>
+                                        )}
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label
+                                            className="text-[0.625rem]"
+                                            htmlFor={`adm-${row.id}`}
+                                        >
+                                            Admission Number
+                                        </Label>
+                                        <Input
+                                            id={`adm-${row.id}`}
+                                            value={row.admissionNumber}
+                                            onChange={(e) =>
+                                                updateRow(row.id, {
+                                                    admissionNumber: e.target.value,
+                                                })
+                                            }
+                                            placeholder="e.g. ADM001"
+                                            disabled={isSubmitting}
+                                            className={`h-8 text-xs ${fieldError(row.id, "admissionNumber") ? "border-destructive" : ""}`}
+                                        />
+                                        {fieldError(row.id, "admissionNumber") && (
+                                            <p className="text-destructive text-[0.625rem]">
+                                                {fieldError(row.id, "admissionNumber")}
+                                            </p>
+                                        )}
+                                    </div>
                                 </div>
-                                <div className="space-y-1">
-                                    <Label className="text-[0.625rem]" htmlFor={`adm-${row.id}`}>
-                                        Admission Number
-                                    </Label>
-                                    <Input
-                                        id={`adm-${row.id}`}
-                                        value={row.admissionNumber}
-                                        onChange={(e) =>
-                                            updateRow(row.id, { admissionNumber: e.target.value })
-                                        }
-                                        placeholder="e.g. ADM001"
-                                        disabled={isSubmitting}
-                                        className="h-8 text-xs"
-                                    />
-                                </div>
-                            </div>
 
-                            {/* Class selector */}
-                            <div className="space-y-1">
-                                <Label className="text-[0.625rem]" htmlFor={`class-${row.id}`}>
-                                    Class
-                                </Label>
-                                <ClassCombobox
-                                    value={row.classId}
-                                    onChange={(v) => updateRow(row.id, { classId: v as string })}
-                                    placeholder="None (no enrollment)"
-                                    className="h-8"
-                                />
-                                <p className="text-muted-foreground text-[0.625rem]">
-                                    Leave blank to create without enrollment
-                                </p>
+                                {/* Class selector */}
+                                <div className="space-y-1">
+                                    <Label className="text-[0.625rem]" htmlFor={`class-${row.id}`}>
+                                        Class
+                                    </Label>
+                                    <ClassCombobox
+                                        value={row.classId}
+                                        onChange={(v) =>
+                                            updateRow(row.id, { classId: v as string })
+                                        }
+                                        placeholder="None (no enrollment)"
+                                        className="h-8"
+                                    />
+                                    <p className="text-muted-foreground text-[0.625rem]">
+                                        Leave blank to create without enrollment
+                                    </p>
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             )}
 
@@ -322,6 +590,11 @@ export function StudentManualImportForm({ onReset, onJobCreated }: StudentManual
                 <div className="flex items-center justify-between pt-1">
                     <div className="text-muted-foreground text-[0.625rem]">
                         {rows.length} student{rows.length !== 1 ? "s" : ""} ready
+                        {blockingCount > 0 && (
+                            <span className="text-destructive ml-1">
+                                · {blockingCount} with issues
+                            </span>
+                        )}
                     </div>
                     <div className="flex items-center gap-2">
                         <Button
@@ -335,11 +608,20 @@ export function StudentManualImportForm({ onReset, onJobCreated }: StudentManual
                         <Button
                             size="sm"
                             onClick={handleImport}
-                            disabled={isSubmitting || rows.length === 0}
+                            disabled={
+                                isSubmitting ||
+                                rows.length === 0 ||
+                                hasWithinBatchDups ||
+                                blockingCount > 0
+                            }
                         >
                             {submitting ? (
                                 <>
                                     <Loader2 className="mr-1.5 size-3.5 animate-spin" /> Submitting…
+                                </>
+                            ) : checkingDuplicates ? (
+                                <>
+                                    <Loader2 className="mr-1.5 size-3.5 animate-spin" /> Checking…
                                 </>
                             ) : (
                                 `Import ${rows.length} Student${rows.length !== 1 ? "s" : ""}`

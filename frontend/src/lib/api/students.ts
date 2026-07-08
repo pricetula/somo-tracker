@@ -102,6 +102,7 @@ export interface CreateStudentPayload {
     date_of_birth?: string | null;
     upi_number?: string | null;
     knec_assessment_number?: string | null;
+    admission_number?: string | null;
     class_id?: string | null;
 }
 

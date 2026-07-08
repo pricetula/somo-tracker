@@ -545,9 +545,41 @@ func joinStrings(elems []string, sep string) string {
 	return result
 }
 
+func uniqueStrings(items []string) []string {
+	seen := make(map[string]struct{}, len(items))
+	result := make([]string, 0, len(items))
+	for _, item := range items {
+		if item == "" {
+			continue
+		}
+		if _, ok := seen[item]; ok {
+			continue
+		}
+		seen[item] = struct{}{}
+		result = append(result, item)
+	}
+	return result
+}
+
 // ============================================================================
 // ImportRepository Implementation
 // ============================================================================
+
+// ValidateClassExists checks that a class exists and belongs to the given tenant and school.
+func (r *PgRepository) ValidateClassExists(ctx context.Context, tenantID, schoolID, classID string) (bool, error) {
+	query := `
+		SELECT EXISTS(
+			SELECT 1 FROM cbc_classes
+			WHERE id = $1 AND tenant_id = $2 AND school_id = $3
+		)
+	`
+	var exists bool
+	err := r.pool.QueryRow(ctx, query, classID, tenantID, schoolID).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("students.Repository.ValidateClassExists: %w", err)
+	}
+	return exists, nil
+}
 
 // CheckSchoolAdminMembership verifies the caller has SCHOOL_ADMIN for the school.
 func (r *PgRepository) CheckSchoolAdminMembership(ctx context.Context, userID, tenantID, schoolID string) (bool, error) {
@@ -563,6 +595,67 @@ func (r *PgRepository) CheckSchoolAdminMembership(ctx context.Context, userID, t
 		return false, fmt.Errorf("students.Repository.CheckSchoolAdminMembership: %w", err)
 	}
 	return exists, nil
+}
+
+// CheckExistingFieldValues checks which of the provided field values already
+// exist in cbc_students for the given tenant/school. Returns separate lists
+// of existing values for each field. All values in a single list are distinct.
+// Empty/nil inputs return empty results. The query is scoped by tenant and
+// school so values from other tenants/schools are never reported.
+func (r *PgRepository) CheckExistingFieldValues(ctx context.Context, tenantID, schoolID string,
+	admissionNumbers, upiNumbers, knecNumbers []string) (
+	existingAdmissionNumbers, existingUPINumbers, existingKnecNumbers []string, err error) {
+
+	// If all inputs are empty, return immediately with empty results
+	if len(admissionNumbers) == 0 && len(upiNumbers) == 0 && len(knecNumbers) == 0 {
+		return []string{}, []string{}, []string{}, nil
+	}
+
+	// Deduplicate inputs to avoid unnecessary array elements in the query
+	admSet := uniqueStrings(admissionNumbers)
+	upiSet := uniqueStrings(upiNumbers)
+	knecSet := uniqueStrings(knecNumbers)
+
+	query := `
+		SELECT
+			COALESCE(array_agg(DISTINCT admission_number) FILTER (WHERE admission_number = ANY($3)), ARRAY[]::text[]),
+			COALESCE(array_agg(DISTINCT upi_number) FILTER (WHERE upi_number = ANY($4)), ARRAY[]::text[]),
+			COALESCE(array_agg(DISTINCT knec_assessment_number) FILTER (WHERE knec_assessment_number = ANY($5)), ARRAY[]::text[])
+		FROM cbc_students
+		WHERE tenant_id = $1 AND school_id = $2
+		  AND (
+		    (admission_number IS NOT NULL AND admission_number = ANY($3)) OR
+		    (upi_number IS NOT NULL AND upi_number = ANY($4)) OR
+		    (knec_assessment_number IS NOT NULL AND knec_assessment_number = ANY($5))
+		  )
+	`
+
+	admPG := make([]string, len(admSet))
+	copy(admPG, admSet)
+	upiPG := make([]string, len(upiSet))
+	copy(upiPG, upiSet)
+	knecPG := make([]string, len(knecSet))
+	copy(knecPG, knecSet)
+
+	var admResult, upiResult, knecResult []string
+	err = r.pool.QueryRow(ctx, query,
+		tenantID, schoolID, admPG, upiPG, knecPG,
+	).Scan(&admResult, &upiResult, &knecResult)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("students.Repository.CheckExistingFieldValues: %w", err)
+	}
+
+	if admResult == nil {
+		admResult = []string{}
+	}
+	if upiResult == nil {
+		upiResult = []string{}
+	}
+	if knecResult == nil {
+		knecResult = []string{}
+	}
+
+	return admResult, upiResult, knecResult, nil
 }
 
 // compile-time interface checks

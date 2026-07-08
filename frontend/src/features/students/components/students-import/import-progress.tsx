@@ -13,8 +13,9 @@ import * as React from "react";
 import { CheckCircle2, XCircle, Loader2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { toast } from "sonner";
 
-import { getImportJob, getImportFailures } from "@/lib/api/imports";
+import { getImportJob, getImportFailures, checkDuplicates } from "@/lib/api/imports";
 import type { ImportJob, ImportJobStatus, ImportRowFailure } from "@/lib/api/imports";
 
 // ─── Constants ────────────────────────────────────────────────────────────
@@ -103,6 +104,71 @@ export function ImportProgress({ jobId, totalRecords, onDone, onRetry }: ImportP
                 .filter((p): p is Record<string, unknown> => p !== null && typeof p === "object"),
         [failures]
     );
+
+    const [retrying, setRetrying] = React.useState(false);
+
+    const handleRetry = React.useCallback(async () => {
+        if (!onRetry || retrying) return;
+
+        setRetrying(true);
+        try {
+            // Check for existing-record conflicts before retrying
+            const admNumbers = retryPayloads
+                .map((p) => (p.admission_number as string | undefined) ?? "")
+                .filter(Boolean);
+            const upiNumbers = retryPayloads
+                .map((p) => (p.upi_number as string | undefined) ?? "")
+                .filter(Boolean);
+            const knecNumbers = retryPayloads
+                .map((p) => (p.knec_assessment_number as string | undefined) ?? "")
+                .filter(Boolean);
+
+            if (admNumbers.length > 0 || upiNumbers.length > 0 || knecNumbers.length > 0) {
+                try {
+                    const result = await checkDuplicates({
+                        admission_numbers: admNumbers,
+                        upi_numbers: upiNumbers,
+                        knec_assessment_numbers: knecNumbers,
+                    });
+                    const hasConflicts =
+                        result.existing_admission_numbers.length > 0 ||
+                        result.existing_upi_numbers.length > 0 ||
+                        result.existing_knec_assessment_numbers.length > 0;
+
+                    if (hasConflicts) {
+                        const conflictMsgs: string[] = [];
+                        if (result.existing_admission_numbers.length > 0) {
+                            conflictMsgs.push(
+                                `Admission number(s) ${result.existing_admission_numbers.join(", ")} already exist`
+                            );
+                        }
+                        if (result.existing_upi_numbers.length > 0) {
+                            conflictMsgs.push(
+                                `UPI number(s) ${result.existing_upi_numbers.join(", ")} already exist`
+                            );
+                        }
+                        if (result.existing_knec_assessment_numbers.length > 0) {
+                            conflictMsgs.push(
+                                `KNEC number(s) ${result.existing_knec_assessment_numbers.join(", ")} already exist`
+                            );
+                        }
+                        toast.error(
+                            `Cannot retry — some values now conflict with existing records:\n${conflictMsgs.join("\n")}`
+                        );
+                        setRetrying(false);
+                        return;
+                    }
+                } catch {
+                    // If the check itself fails, allow retry to proceed
+                    console.warn("Duplicate check failed during retry, proceeding anyway");
+                }
+            }
+
+            onRetry(retryPayloads);
+        } finally {
+            setRetrying(false);
+        }
+    }, [retryPayloads, onRetry, retrying]);
 
     return (
         <div className="space-y-4">
@@ -200,9 +266,10 @@ export function ImportProgress({ jobId, totalRecords, onDone, onRetry }: ImportP
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => onRetry(retryPayloads)}
+                                    onClick={handleRetry}
+                                    disabled={retrying}
                                 >
-                                    Retry failed
+                                    {retrying ? "Checking…" : "Retry failed"}
                                 </Button>
                             )}
                         </div>

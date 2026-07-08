@@ -26,7 +26,13 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import type { StagedStudentRecord } from "./types";
 import { validateAndDetectDuplicates } from "./utils/validation-utils";
-import { getStagedRecordsPaginated, getStagedCountByStatus, updateStagedRecord } from "./db";
+import {
+    getStagedRecords,
+    getStagedRecordsPaginated,
+    getStagedCountByStatus,
+    updateStagedRecord,
+} from "./db";
+import { checkDuplicates } from "@/lib/api/imports";
 
 const PAGE_SIZE = 25;
 
@@ -323,6 +329,108 @@ export function StepDataReview({ onProceed, onBack }: StepDataReviewProps) {
             timers.clear();
         };
     }, []);
+
+    // ── Against-existing-records check (once on entering review step) ──
+    const existingCheckDone = React.useRef(false);
+    React.useEffect(() => {
+        if (existingCheckDone.current) return;
+
+        (async () => {
+            try {
+                const allRecords = await getStagedRecords();
+                const admNumbers = allRecords
+                    .map((r) => r.payload.admission_number)
+                    .filter(Boolean) as string[];
+                const upiNumbers = allRecords
+                    .map((r) => r.payload.upi_number)
+                    .filter(Boolean) as string[];
+                const knecNumbers = allRecords
+                    .map((r) => r.payload.knec_assessment_number)
+                    .filter(Boolean) as string[];
+
+                if (
+                    admNumbers.length === 0 &&
+                    upiNumbers.length === 0 &&
+                    knecNumbers.length === 0
+                ) {
+                    existingCheckDone.current = true;
+                    return;
+                }
+
+                const result = await checkDuplicates({
+                    admission_numbers: admNumbers,
+                    upi_numbers: upiNumbers,
+                    knec_assessment_numbers: knecNumbers,
+                });
+
+                const existingAdmSet = new Set(
+                    result.existing_admission_numbers.map((v) => v.toLowerCase())
+                );
+                const existingUPISet = new Set(
+                    result.existing_upi_numbers.map((v) => v.toLowerCase())
+                );
+                const existingKnecSet = new Set(
+                    result.existing_knec_assessment_numbers.map((v) => v.toLowerCase())
+                );
+
+                for (const record of allRecords) {
+                    let hasConflict = false;
+                    const newErrors: string[] = [];
+
+                    if (
+                        record.payload.admission_number &&
+                        existingAdmSet.has(record.payload.admission_number.toLowerCase())
+                    ) {
+                        newErrors.push(
+                            `Admission number "${record.payload.admission_number}" already exists for this school`
+                        );
+                        hasConflict = true;
+                    }
+                    if (
+                        record.payload.upi_number &&
+                        existingUPISet.has(record.payload.upi_number.toLowerCase())
+                    ) {
+                        newErrors.push(
+                            `UPI number "${record.payload.upi_number}" already exists for this school`
+                        );
+                        hasConflict = true;
+                    }
+                    if (
+                        record.payload.knec_assessment_number &&
+                        existingKnecSet.has(record.payload.knec_assessment_number.toLowerCase())
+                    ) {
+                        newErrors.push(
+                            `KNEC assessment number "${record.payload.knec_assessment_number}" already exists for this school`
+                        );
+                        hasConflict = true;
+                    }
+
+                    if (hasConflict && record.id !== undefined) {
+                        const updated = {
+                            ...record,
+                            status: "duplicate" as const,
+                            errors: [...record.errors, ...newErrors],
+                        };
+                        await updateStagedRecord(updated);
+                    }
+                }
+
+                existingCheckDone.current = true;
+            } catch (err) {
+                console.error("Failed to check existing duplicates:", err);
+                existingCheckDone.current = true;
+            } finally {
+                // Reload to reflect any changes
+                const [paginated, statusCounts] = await Promise.all([
+                    getStagedRecordsPaginated(page, PAGE_SIZE, filter),
+                    getStagedCountByStatus(),
+                ]);
+                setRecords(paginated.records);
+                setTotal(paginated.total);
+                setCounts(statusCounts);
+            }
+        })();
+    }, [page, filter]);
 
     const hasBlockingErrors = React.useMemo(
         () => counts.error > 0 || counts.duplicate > 0,

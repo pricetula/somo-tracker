@@ -61,6 +61,9 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 
 	// Bulk import
 	students.Post("/import", middleware.RequireAuth, h.BulkImport)
+
+	// Duplicate checking (proactive check used by frontend before submit)
+	students.Post("/check-duplicates", middleware.RequireAuth, h.CheckDuplicates)
 }
 
 // ============================================================================
@@ -184,6 +187,42 @@ func (h *Handler) BulkImport(c *fiber.Ctx) error {
 		TotalChunks:  resp.TotalChunks,
 		Status:       string(resp.Status),
 		IsReplay:     resp.IsReplay,
+	})
+}
+
+// ─── Check Duplicates ─────────────────────────────────────────────────────
+
+// CheckDuplicates handles POST /api/v1/students/check-duplicates.
+// For each provided list of values, returns only those that already exist
+// in cbc_students for the caller's tenant/school. All three fields are
+// optional — omitted fields are not checked.
+func (h *Handler) CheckDuplicates(c *fiber.Ctx) error {
+	tenantID := c.Locals("tenant_id").(string)
+	schoolID, _ := c.Locals("active_school_id").(string)
+	if schoolID == "" {
+		schoolID = c.Locals("school_id").(string)
+	}
+	if schoolID == "" {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input", "active school not set", nil)
+	}
+
+	var body CheckDuplicatesRequest
+	if err := c.BodyParser(&body); err != nil {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input", "malformed request body", nil)
+	}
+
+	existingAdm, existingUPI, existingKNEC, err := h.svc.CheckDuplicates(
+		c.Context(), tenantID, schoolID,
+		body.AdmissionNumbers, body.UPINumbers, body.KNECAssessmentNumbers,
+	)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(CheckDuplicatesResponse{
+		ExistingAdmissionNumbers:      existingAdm,
+		ExistingUPINumbers:            existingUPI,
+		ExistingKNECAssessmentNumbers: existingKNEC,
 	})
 }
 

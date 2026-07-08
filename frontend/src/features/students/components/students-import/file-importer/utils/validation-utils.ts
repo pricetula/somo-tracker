@@ -155,23 +155,40 @@ export interface DuplicateResult {
 /**
  * Detect duplicates within a set of staged records.
  *
- * Two types of duplicates:
- * 1. Same `upi_number` across different rows (when present)
- * 2. Same `full_name` + `date_of_birth` combination (when both present)
+ * Checks these fields for within-batch duplicates:
+ * 1. `admission_number`
+ * 2. `upi_number`
+ * 3. `knec_assessment_number`
+ * 4. `full_name` + `date_of_birth` combination (when both present)
  *
  * Returns records marked as "duplicate" with conflict info in errors.
+ *
+ * NOTE: No format/pattern validation is applied to admission_number, upi_number,
+ * or knec_assessment_number — their format is unknown/variable.
  */
 export function detectDuplicates(records: StagedStudentRecord[]): StagedStudentRecord[] {
+    // Build conflict maps — use unique temp ids for records without DB ids
+    const idToRowLabel = new Map<number, string>();
+    const admMap = new Map<string, number[]>();
     const upiMap = new Map<string, number[]>();
+    const knecMap = new Map<string, number[]>();
     const nameDobMap = new Map<string, number[]>();
 
-    // Build conflict maps — use unique temp ids for records without DB ids
     for (let i = 0; i < records.length; i++) {
         const record = records[i];
-        const id = record.id ?? -(i + 1); // negative index is unique, won't collide with autoIncrement
-        const { upi_number, full_name, date_of_birth } = record.payload;
+        const id = record.id ?? -(i + 1);
+        idToRowLabel.set(id, `row ${i + 1}`);
 
-        // UPI duplicates
+        const { admission_number, upi_number, knec_assessment_number, full_name, date_of_birth } =
+            record.payload;
+
+        if (admission_number && admission_number.trim().length > 0) {
+            const key = admission_number.trim().toLowerCase();
+            const existing = admMap.get(key) ?? [];
+            existing.push(id);
+            admMap.set(key, existing);
+        }
+
         if (upi_number && upi_number.trim().length > 0) {
             const key = upi_number.trim().toLowerCase();
             const existing = upiMap.get(key) ?? [];
@@ -179,7 +196,13 @@ export function detectDuplicates(records: StagedStudentRecord[]): StagedStudentR
             upiMap.set(key, existing);
         }
 
-        // Name + DOB duplicates
+        if (knec_assessment_number && knec_assessment_number.trim().length > 0) {
+            const key = knec_assessment_number.trim().toLowerCase();
+            const existing = knecMap.get(key) ?? [];
+            existing.push(id);
+            knecMap.set(key, existing);
+        }
+
         if (full_name && date_of_birth) {
             const key = `${full_name.trim().toLowerCase()}::${date_of_birth}`;
             const existing = nameDobMap.get(key) ?? [];
@@ -188,46 +211,51 @@ export function detectDuplicates(records: StagedStudentRecord[]): StagedStudentR
         }
     }
 
-    // Collect all conflicting IDs
+    // Collect conflicting IDs with field-specific messages
     const conflictIds = new Set<number>();
-    const idToConflictMap = new Map<number, number[]>();
+    const idToMsg = new Map<number, string>();
 
-    for (const [, ids] of upiMap) {
-        if (ids.length > 1) {
+    function addConflicts(
+        map: Map<string, number[]>,
+        fieldLabel: string,
+        msgTemplate: (labels: string) => string
+    ) {
+        for (const [, ids] of map) {
+            if (ids.length <= 1) continue;
             for (const id of ids) {
                 conflictIds.add(id);
-                const existingDups = idToConflictMap.get(id) ?? [];
-                idToConflictMap.set(id, [
-                    ...new Set([...existingDups, ...ids.filter((d) => d !== id)]),
-                ]);
+                if (!idToMsg.has(id)) {
+                    const others = ids.filter((d) => d !== id);
+                    const labels = others
+                        .map((oid) => idToRowLabel.get(oid) ?? `#${oid}`)
+                        .join(", ");
+                    idToMsg.set(id, msgTemplate(labels));
+                }
             }
         }
     }
 
-    for (const [, ids] of nameDobMap) {
-        if (ids.length > 1) {
-            for (const id of ids) {
-                conflictIds.add(id);
-                const existingDups = idToConflictMap.get(id) ?? [];
-                idToConflictMap.set(id, [
-                    ...new Set([...existingDups, ...ids.filter((d) => d !== id)]),
-                ]);
-            }
-        }
-    }
+    addConflicts(
+        admMap,
+        "admission",
+        (labels) => `Duplicate admission number — also used in ${labels}`
+    );
+    addConflicts(upiMap, "upi", (labels) => `Duplicate UPI number — also used in ${labels}`);
+    addConflicts(knecMap, "knec", (labels) => `Duplicate KNEC number — also used in ${labels}`);
+    addConflicts(
+        nameDobMap,
+        "name+dob",
+        (labels) => `Duplicate name + date of birth — also used in ${labels}`
+    );
 
-    // Mark duplicates
     return records.map((record, i) => {
         const id = record.id ?? -(i + 1);
         if (conflictIds.has(id)) {
-            const conflictIds_ = idToConflictMap.get(id) ?? [];
+            const msg = idToMsg.get(id) ?? "Duplicate record";
             return {
                 ...record,
                 status: "duplicate",
-                errors: [
-                    ...record.errors,
-                    `Duplicate: conflicts with row(s) ${conflictIds_.join(", ")}`,
-                ],
+                errors: [...record.errors, msg],
             };
         }
         return record;

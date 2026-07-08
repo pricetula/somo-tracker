@@ -83,9 +83,14 @@ const (
 type ImportFailureType string
 
 const (
-	ImportFailureSchemaValidation ImportFailureType = "SCHEMA_VALIDATION"
-	ImportFailureDBConstraint     ImportFailureType = "DATABASE_CONSTRAINT"
-	ImportFailureBusinessRule     ImportFailureType = "BUSINESS_RULE_VIOLATION"
+	ImportFailureSchemaValidation         ImportFailureType = "SCHEMA_VALIDATION"
+	ImportFailureDBConstraint             ImportFailureType = "DATABASE_CONSTRAINT"
+	ImportFailureBusinessRule             ImportFailureType = "BUSINESS_RULE_VIOLATION"
+	ImportFailureInvalidClassReference    ImportFailureType = "INVALID_CLASS_REFERENCE"
+	ImportFailureDBConstraintViolation    ImportFailureType = "DB_CONSTRAINT_VIOLATION"
+	ImportFailureDuplicateAdmissionNumber ImportFailureType = "DUPLICATE_ADMISSION_NUMBER"
+	ImportFailureDuplicateUPINumber       ImportFailureType = "DUPLICATE_UPI_NUMBER"
+	ImportFailureDuplicateKneCNumber      ImportFailureType = "DUPLICATE_KNEC_NUMBER"
 )
 
 // ============================================================================
@@ -164,6 +169,21 @@ type ProgressEvent struct {
 	FailedCount      int             `json:"failed_count"`
 	TotalChunks      int             `json:"total_chunks"`
 	ProcessedChunks  int             `json:"processed_chunks"`
+}
+
+// ============================================================================
+// ImportError — typed error for constraint violations and class reference
+// failures, allowing the service layer to extract the failure type without
+// inspecting raw driver errors.
+// ============================================================================
+
+type ImportError struct {
+	Type    ImportFailureType
+	Message string
+}
+
+func (e *ImportError) Error() string {
+	return e.Message
 }
 
 // ============================================================================

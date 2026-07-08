@@ -23,6 +23,16 @@ func (s *Service) SetImportRepo(repo ImportRepository) {
 	s.importRepo = repo
 }
 
+// ─── Check Duplicates ────────────────────────────────────────────────────
+
+// CheckDuplicates checks which of the provided field values already exist in
+// cbc_students for the given tenant/school. Delegates to the import repo.
+func (s *Service) CheckDuplicates(ctx context.Context, tenantID, schoolID string,
+	admissionNumbers, upiNumbers, knecNumbers []string) ([]string, []string, []string, error) {
+	return s.importRepo.CheckExistingFieldValues(ctx, tenantID, schoolID,
+		admissionNumbers, upiNumbers, knecNumbers)
+}
+
 // ─── List ─────────────────────────────────────────────────────────────────
 
 // ListStudents returns a paginated list of students.

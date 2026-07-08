@@ -272,6 +272,16 @@ Table-based form where users type student data. Each row has:
 - `onReset: () => void`
 - `onJobCreated: (jobId: string, totalRecords: number) => void`
 
+**Duplicate detection (client-side):**
+- **Within-batch duplicates** are detected on every render. Two or more rows sharing
+  the same non-empty `admission_number`, `upi_number`, or `knec_assessment_number` are
+  flagged inline with messages like "Duplicate admission number — also used in row 3".
+  Rows with unresolved duplicates block submission.
+- **Against-existing records** check runs once on submit click via
+  `POST /api/v1/students/check-duplicates`. If any values already exist in the DB,
+  matching rows are flagged inline ("already exists for this school") and submission
+  is blocked.
+
 ### 5.3 `ImportProgress` (`import-progress.tsx`)
 
 Shared progress component used by both import paths. Handles:
@@ -302,6 +312,19 @@ Minimal submit component for file import. Loads valid staged records from Indexe
 - Gender normalization: when mapping the gender column, the `normalizeGender()` function converts common variants ("Male", "Boy", "female", "F", etc.) to "M" or "F"
 - Builds staged records via `buildStagedRecords()` which applies column mappings, class resolution, and gender normalization
 - Validates records via `validateAndDetectDuplicates()` before the review step
+
+**Duplicate detection in file import:**
+- **Within-batch duplicates** are detected by `validateAndDetectDuplicates()` in
+  `file-importer/utils/validation-utils.ts`. The `detectDuplicates()` function checks
+  `admission_number`, `upi_number`, `knec_assessment_number`, and the
+  `full_name` + `date_of_birth` combination. Conflicting rows get a "duplicate" status
+  with messages naming the colliding rows (e.g. "Duplicate admission number — also used
+  in row 3").
+- **Against-existing records** check runs once when entering the review step
+  (`step-data-review.tsx`). All non-empty values are sent to
+  `POST /api/v1/students/check-duplicates`. Any values that already exist in the DB
+  cause the matching records to be marked with a distinguishable message
+  (e.g. "Admission number ADM001 already exists for this school").
 
 ---
 
@@ -338,10 +361,27 @@ type ImportResponse struct {
 
 Implements `imports.Importer` interface:
 
-- **Validate()**: Checks full_name is present, gender is "M" or "F". class_id is optional.
-- **ResolveReferences()**: Injects tenant_id, school_id, academic_term_id, academic_year_id from job metadata into each row.
+- **Validate()**: Per-row schema and business-rule checks:
+   - `full_name` must be non-empty
+   - `gender` must be "M" or "F"
+   - `date_of_birth` (if present) must be a parseable ISO date (`YYYY-MM-DD`), not in the
+     future, and not older than 25 years from today — all produce `SCHEMA_VALIDATION` failures.
+   - `class_id` (if present) must be a well-formed UUID — fail fast here rather than deeper
+     in `ResolveReferences` or `InsertOne`. A malformed class_id produces `SCHEMA_VALIDATION`.
+   - No format/pattern validation is applied to `admission_number`, `upi_number`, or
+     `knec_assessment_number`; their format is unknown/variable.
+- **ResolveReferences()**: Injects tenant_id, school_id, academic_term_id, academic_year_id
+   from job metadata into each row. **Class existence + tenant scope check**: if `class_id`
+   is present, queries `cbc_classes` to verify the class exists AND belongs to the same
+   `tenant_id`/`school_id`. If it doesn't, the row is failed with `INVALID_CLASS_REFERENCE`.
 - **BulkInsert()**: Returns error to force the per-row savepoint fallback.
-- **InsertOne()**: Inserts student into `cbc_students`. If class_id is present, also inserts enrollment into `cbc_student_enrollments`.
+- **InsertOne()**: Inserts student into `cbc_students`. If class_id is present, also inserts
+   enrollment into `cbc_student_enrollments`. **DB constraint translation**: Postgres driver
+   errors (`pgconn.PgError`) are inspected for constraint name — known constraints map to
+   friendly messages with typed error types (`INVALID_CLASS_REFERENCE` for FK violations on
+   `fk_enrollments_tenant_class`, `BUSINESS_RULE_VIOLATION` for
+   `unique_student_term_enrollment`). Any unmapped constraint falls back to
+   `DB_CONSTRAINT_VIOLATION` with a generic message — raw SQL/driver text is never leaked.
 
 ### 6.3 `internal/imports/service.go`
 
@@ -380,6 +420,7 @@ POST /api/v1/students/import
 | Method | Path | Purpose | Response |
 |--------|------|---------|----------|
 | `POST` | `/api/v1/students/import` | Create import job | `{ job_id, total_records, total_chunks, status }` |
+| `POST` | `/api/v1/students/check-duplicates` | Check which values already exist in DB | `{ existing_admission_numbers, existing_upi_numbers, existing_knec_assessment_numbers }` |
 | `GET` | `/api/v1/imports/:job_id` | Poll job status | `ImportJob` (full state) |
 | `GET` | `/api/v1/imports/:job_id/failures` | Get failure details | `{ failures: [...], total: number }` |
 
@@ -516,6 +557,42 @@ This eliminates TOCTOU race conditions that a check-then-insert pattern would ha
 }
 ```
 
+### Failure types (`error_type`)
+
+| Error Type | Source | Description |
+|------------|--------|-------------|
+| `SCHEMA_VALIDATION` | `Validate()` | Missing required fields (`full_name`), invalid gender, malformed `class_id` (not a UUID), unparseable/future/implausibly-old `date_of_birth` |
+| `BUSINESS_RULE_VIOLATION` | `ResolveReferences()` / `InsertOne()` | Missing job metadata, duplicate enrollment within the same term (`unique_student_term_enrollment`) |
+| `INVALID_CLASS_REFERENCE` | `ResolveReferences()` / `InsertOne()` | `class_id` references a class that does not exist or belongs to a different tenant/school (checked via DB lookup in `ResolveReferences` and also caught by FK `fk_enrollments_tenant_class` in `InsertOne`) |
+| `DATABASE_CONSTRAINT` | `InsertOne()` | Unmapped Postgres constraint violation (fallback when the error type cannot be determined); raw SQL text is never exposed |
+| `DB_CONSTRAINT_VIOLATION` | `InsertOne()` | Unmapped Postgres constraint violation with a generic message: "This record could not be saved due to a data conflict". Used when a `pgconn.PgError` is detected but the constraint name is unknown or missing |
+| `DUPLICATE_ADMISSION_NUMBER` | `ResolveReferences()` | A row's `admission_number` already exists in the DB (insert-time safety net) |
+| `DUPLICATE_UPI_NUMBER` | `ResolveReferences()` | A row's `upi_number` already exists in the DB (insert-time safety net) |
+| `DUPLICATE_KNEC_NUMBER` | `ResolveReferences()` | A row's `knec_assessment_number` already exists in the DB (insert-time safety net) |
+
+### POST /api/v1/students/check-duplicates
+
+**Request:**
+```json
+{
+  "admission_numbers": ["ADM001", "ADM002"],
+  "upi_numbers": ["UPI12345"],
+  "knec_assessment_numbers": ["KNEC67890"]
+}
+```
+All three arrays are optional. Only provided values are checked.
+
+**Response (200):**
+```json
+{
+  "existing_admission_numbers": ["ADM001"],
+  "existing_upi_numbers": [],
+  "existing_knec_assessment_numbers": []
+}
+```
+Returns only values that already exist for the caller's tenant/school. Empty arrays
+when no conflicts are found.
+
 ---
 
 ## 9. Error Handling
@@ -537,6 +614,25 @@ Every non-2xx response follows the canonical contract:
 | `no_active_academic_year` | 400 | School has no current academic year set |
 | `no_active_academic_term` | 400 | No active term in the current academic year |
 | `duplicate_import` | 409 | Idempotency key reused with a different payload. The same key was used for a different set of rows. |
+
+### Per-row failure types (`import_job_failures.error_type`)
+
+The following `error_type` values are used in import failure records returned by
+`GET /api/v1/imports/:job_id/failures`:
+
+| Error Type | Generated By | Typical Scenario |
+|------------|-------------|------------------|
+| `SCHEMA_VALIDATION` | `Validate()` | Missing `full_name`, invalid `gender`, malformed `class_id` (not UUID), future/unparseable `date_of_birth` |
+| `INVALID_CLASS_REFERENCE` | `ResolveReferences()` / `InsertOne()` | `class_id` references a class that does not exist or belongs to a different school |
+| `BUSINESS_RULE_VIOLATION` | `ResolveReferences()` / `InsertOne()` | Missing job metadata, duplicate enrollment for the same student+term |
+| `DATABASE_CONSTRAINT` | `InsertOne()` | Legacy fallback — used when an InsertOne error is not a typed `ImportError` |
+| `DB_CONSTRAINT_VIOLATION` | `InsertOne()` | Unmapped Postgres constraint violation (generic fallback) |
+| `DUPLICATE_ADMISSION_NUMBER` | `ResolveReferences()` | A row's `admission_number` already exists in the DB for this school |
+| `DUPLICATE_UPI_NUMBER` | `ResolveReferences()` | A row's `upi_number` already exists in the DB for this school |
+| `DUPLICATE_KNEC_NUMBER` | `ResolveReferences()` | A row's `knec_assessment_number` already exists in the DB for this school |
+
+> **Never leak raw SQL/driver text.** All constraint errors are translated into
+> friendly messages before being stored in `import_job_failures.error_message`.
 
 ### Frontend error handling
 - Submit failures → `toast.error()`

@@ -29,7 +29,12 @@ export type ImportJobStatus =
 export type ImportFailureType =
     | "SCHEMA_VALIDATION"
     | "DATABASE_CONSTRAINT"
-    | "BUSINESS_RULE_VIOLATION";
+    | "BUSINESS_RULE_VIOLATION"
+    | "INVALID_CLASS_REFERENCE"
+    | "DB_CONSTRAINT_VIOLATION"
+    | "DUPLICATE_ADMISSION_NUMBER"
+    | "DUPLICATE_UPI_NUMBER"
+    | "DUPLICATE_KNEC_NUMBER";
 
 // ============================================================================
 // Import Row — a single student row in a bulk import
@@ -124,6 +129,22 @@ export interface ImportRowFailure {
 }
 
 // ============================================================================
+// Check Duplicates Types (backend POST /api/v1/students/check-duplicates)
+// ============================================================================
+
+export interface CheckDuplicatesRequest {
+    admission_numbers?: string[];
+    upi_numbers?: string[];
+    knec_assessment_numbers?: string[];
+}
+
+export interface CheckDuplicatesResponse {
+    existing_admission_numbers: string[];
+    existing_upi_numbers: string[];
+    existing_knec_assessment_numbers: string[];
+}
+
+// ============================================================================
 // API Functions
 // ============================================================================
 
@@ -158,6 +179,16 @@ export async function getImportFailures(
     return api.get<{ failures: ImportRowFailure[]; total: number }>(
         `/api/v1/imports/${jobId}/failures?${qs}`
     );
+}
+
+/**
+ * POST /students/check-duplicates — check which values already exist in the DB.
+ * Returns only values that already exist for the current school.
+ */
+export async function checkDuplicates(
+    body: CheckDuplicatesRequest
+): Promise<CheckDuplicatesResponse> {
+    return api.post<CheckDuplicatesResponse>("/api/v1/students/check-duplicates", body);
 }
 
 /**

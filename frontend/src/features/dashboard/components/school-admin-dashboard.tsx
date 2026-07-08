@@ -188,10 +188,7 @@ export function SchoolAdminDashboardPage() {
         try {
             const rows = generateTestStudents(5000);
 
-            const response = await submitStudentImport({
-                academic_term_id: "ef8cd053-ac7b-496b-bd56-af2f2a820c5a",
-                rows,
-            });
+            const response = await submitStudentImport({ rows });
 
             setImportState({
                 jobId: response.job_id,

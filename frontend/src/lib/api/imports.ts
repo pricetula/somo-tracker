@@ -56,7 +56,6 @@ export interface ImportRow {
 
 export interface ImportRequest {
     idempotency_key?: string | null;
-    academic_term_id: string;
     rows: ImportRow[];
 }
 

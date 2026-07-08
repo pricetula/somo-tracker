@@ -52,7 +52,6 @@ async function processBatch(
     try {
         const payload: ImportRequest = {
             rows,
-            academic_term_id: "", // backend will determine or require this
         };
 
         const response = await submitStudentImport(payload);

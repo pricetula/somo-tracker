@@ -8,24 +8,41 @@ import type { CreateStudentPayload } from "@/lib/api/students";
 
 export interface StagedStudentRecord {
     id?: number;
+    school_id?: string;
     payload: CreateStudentPayload;
     raw_row_data: Record<string, string>;
     status: "valid" | "error" | "duplicate" | "submitted";
     errors: string[];
-    batch_id?: string;
 }
 
 export interface ImportSessionMeta {
-    id: "current_session";
+    id: `session:${string}`;
     current_step: WizardStep;
     file_name: string;
     source_sheet_name?: string;
     total_rows: number;
     column_mappings: Record<string, string | string[]>;
     class_mappings: Record<string, string>;
-    completed_batch_ids: string[];
-    last_active_tab_id?: string;
     updated_at: string;
+    school_id: string;
+    /**
+     * Size guard: if set, the parsed file row data was too large to persist,
+     * so resuming into column_mapping or class_resolving is not supported.
+     */
+    parsed_file_too_large?: boolean;
+}
+
+/**
+ * Storable subset of ParsedFileResult for IndexedDB persistence.
+ * Used to resume the wizard from column_mapping or class_resolving.
+ */
+export interface StoredParsedFile {
+    id: `parsed_file:${string}`;
+    file_name: string;
+    sheet_name?: string;
+    headers: string[];
+    rows: Record<string, string>[];
+    total_rows: number;
 }
 
 /** Unresolved class entry — aggregated from raw column data. */
@@ -51,6 +68,40 @@ export type WizardStep =
     | "class_resolving"
     | "data_review"
     | "streaming";
+
+/**
+ * Terminal import job statuses recognised by the frontend.
+ * When any of these is observed via polling, IndexedDB should be cleared.
+ */
+export const TERMINAL_JOB_STATUSES = [
+    "completed",
+    "completed_with_errors",
+    "failed",
+    "cancelled",
+] as const;
+
+/**
+ * Staleness threshold for import sessions.
+ * Sessions older than this are considered stale and will prompt the user
+ * to resume or discard rather than auto-resuming silently.
+ */
+export const SESSION_STALE_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+/**
+ * Maximum number of rows worth of parsed-file data to persist in IndexedDB.
+ * Files larger than this will skip persisting full row data, making the
+ * session non-resumable from column_mapping/class_resolving steps.
+ *
+ * Chosen as a conservative fraction of MaxImportRows (5000) to avoid
+ * overloading IndexedDB storage while still covering the common case.
+ */
+export const MAX_PERSISTED_ROWS = 500;
+
+/**
+ * Approximate per-row byte cost for the size guard.
+ * Accounts for the JSON-serialized raw_row_data + overhead.
+ */
+export const BYTES_PER_PERSISTED_ROW = 2048; // ~2 KB per row is a safe upper bound
 
 // ─── Parsed File Result ───────────────────────────────────────────────────
 
@@ -147,4 +198,15 @@ export interface StreamingProgress {
     current_batch: number;
     status: "idle" | "streaming" | "paused" | "completed" | "failed";
     error_message?: string;
+}
+
+// ─── Error types for quota handling ───────────────────────────────────────
+
+/** Check whether an error is a QuotaExceededError from IndexedDB. */
+export function isQuotaExceededError(err: unknown): boolean {
+    if (!err) return false;
+    if (err instanceof DOMException) {
+        return err.name === "QuotaExceededError" || err.name === "NS_ERROR_DOM_QUOTA_REACHED";
+    }
+    return false;
 }

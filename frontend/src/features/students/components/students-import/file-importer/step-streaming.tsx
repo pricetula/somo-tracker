@@ -12,6 +12,7 @@ interface StepStreamingProps {
     onComplete: () => void;
     onError: (error: string) => void;
     onJobCreated: (jobId: string, totalRecords: number) => void;
+    schoolId: string;
 }
 
 // ─── Helper: Build ImportRow from StagedStudentRecord ─────────────────────
@@ -29,7 +30,7 @@ function toImportRow(record: StagedStudentRecord): ImportRow {
 
 // ─── Main Component ───────────────────────────────────────────────────────
 
-export function StepStreaming({ onError, onJobCreated }: StepStreamingProps) {
+export function StepStreaming({ onError, onJobCreated, schoolId }: StepStreamingProps) {
     const [records, setRecords] = React.useState<StagedStudentRecord[]>([]);
     const [loading, setLoading] = React.useState(true);
     const [submitting, setSubmitting] = React.useState(false);
@@ -38,11 +39,11 @@ export function StepStreaming({ onError, onJobCreated }: StepStreamingProps) {
 
     // Load valid records on mount
     React.useEffect(() => {
-        getStagedRecordsByStatus("valid").then((valid) => {
+        getStagedRecordsByStatus(schoolId, "valid").then((valid) => {
             setRecords(valid);
             setLoading(false);
         });
-    }, []);
+    }, [schoolId]);
 
     const handleStartImport = React.useCallback(async () => {
         if (records.length === 0) {

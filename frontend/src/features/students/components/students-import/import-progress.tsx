@@ -37,7 +37,20 @@ const TERMINAL_STATUSES: ImportJobStatus[] = [
     "cancelled",
 ];
 
-const POLL_INTERVAL_MS = 1500;
+// Polling backoff schedule: fast while the job is expected to be quick,
+// then progressively lighter for long-running imports.
+// - 0–30s:     every 1.5s  (current default, unchanged)
+// - 30s–2min:  every 3s
+// - beyond:    every 10s   (ceiling, never grows unbounded)
+const POLL_INTERVAL_FAST = 1_500; // 0–30s
+const POLL_INTERVAL_MEDIUM = 3_000; // 30s–2min
+const POLL_INTERVAL_SLOW = 10_000; // beyond 2min
+const ELAPSED_MEDIUM_MS = 30_000; // 30 seconds
+const ELAPSED_SLOW_MS = 120_000; // 2 minutes
+
+// Stalled-job threshold: if last_progress_at is older than this while the
+// job is still processing/cancelling, show a non-alarming inline message.
+const STALLED_THRESHOLD_MS = 120_000; // 2 minutes
 
 // ─── Props ────────────────────────────────────────────────────────────────
 
@@ -46,15 +59,55 @@ interface ImportProgressProps {
     totalRecords: number;
     onDone: () => void;
     onRetry?: (failedPayloads: Record<string, unknown>[]) => void;
+    /**
+     * Fired when the polling loop first detects a terminal job status.
+     * Used by the parent to clean up IndexedDB sessions (G2).
+     * Will fire exactly once per mount, regardless of which button the
+     * user clicks afterward, so an abandoned tab also gets cleaned up.
+     */
+    onTerminalStatus?: () => void;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────
 
-export function ImportProgress({ jobId, totalRecords, onDone, onRetry }: ImportProgressProps) {
+export function ImportProgress({
+    jobId,
+    totalRecords,
+    onDone,
+    onRetry,
+    onTerminalStatus,
+}: ImportProgressProps) {
     const [job, setJob] = React.useState<ImportJob | null>(null);
     const [failures, setFailures] = React.useState<ImportRowFailure[]>([]);
     const [cancelling, setCancelling] = React.useState(false);
     const pollRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
+
+    // ── Polling backoff ──────────────────────────────────────────────────
+    // Calculate the appropriate poll interval based on elapsed time since
+    // the component mounted (≈ time since the job was submitted).
+    // Lazy initializer is called once and avoids an impure Date.now() in render.
+    const [mountTime] = React.useState(() => Date.now());
+
+    const [elapsedMs, setElapsedMs] = React.useState(0);
+    const [isStalled, setIsStalled] = React.useState(false);
+
+    // Update elapsed time every second so the poll interval can react to
+    // crossing the backoff thresholds.
+    React.useEffect(() => {
+        const timer = setInterval(() => {
+            setElapsedMs(Date.now() - mountTime);
+        }, 1000);
+        return () => clearInterval(timer);
+    }, [mountTime]);
+
+    const pollInterval = React.useMemo(() => {
+        if (elapsedMs < ELAPSED_MEDIUM_MS) return POLL_INTERVAL_FAST;
+        if (elapsedMs < ELAPSED_SLOW_MS) return POLL_INTERVAL_MEDIUM;
+        return POLL_INTERVAL_SLOW;
+    }, [elapsedMs]);
+
+    // Track whether onTerminalStatus has been called (exactly once)
+    const terminalFired = React.useRef(false);
 
     // Cleanup polling on unmount
     React.useEffect(() => {
@@ -63,17 +116,36 @@ export function ImportProgress({ jobId, totalRecords, onDone, onRetry }: ImportP
         };
     }, []);
 
-    // Start polling on mount
+    // Start polling on mount. The interval changes reactively via pollRef.
     React.useEffect(() => {
         const poll = async () => {
             try {
                 const current = await getImportJob(jobId);
                 setJob(current);
 
+                // Stalled-job detection: computed inside effect where
+                // Date.now() is acceptable (not during render).
+                if (
+                    !TERMINAL_STATUSES.includes(current.status) &&
+                    (current.status === "processing" || current.status === "cancelling") &&
+                    current.last_progress_at
+                ) {
+                    const elapsed = Date.now() - new Date(current.last_progress_at).getTime();
+                    setIsStalled(elapsed > STALLED_THRESHOLD_MS);
+                } else {
+                    setIsStalled(false);
+                }
+
                 if (TERMINAL_STATUSES.includes(current.status)) {
                     if (pollRef.current) {
                         clearInterval(pollRef.current);
                         pollRef.current = null;
+                    }
+
+                    // G2: Fire terminal-status callback exactly once
+                    if (!terminalFired.current) {
+                        terminalFired.current = true;
+                        onTerminalStatus?.();
                     }
 
                     // Fetch failures if the job completed with errors
@@ -92,12 +164,12 @@ export function ImportProgress({ jobId, totalRecords, onDone, onRetry }: ImportP
         };
 
         poll();
-        pollRef.current = setInterval(poll, POLL_INTERVAL_MS);
+        pollRef.current = setInterval(poll, pollInterval);
 
         return () => {
             if (pollRef.current) clearInterval(pollRef.current);
         };
-    }, [jobId]);
+    }, [jobId, onTerminalStatus, pollInterval, setIsStalled]);
 
     // Derive state
     const isTerminal = job && TERMINAL_STATUSES.includes(job.status);
@@ -248,6 +320,16 @@ export function ImportProgress({ jobId, totalRecords, onDone, onRetry }: ImportP
                     </>
                 )}
             </div>
+
+            {/* Stalled-job message — visible while processing/cancelling with no recent progress */}
+            {isStalled && (
+                <div className="flex items-start gap-2 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                    <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+                    <span>
+                        This import is taking longer than usual — you can keep waiting or cancel it.
+                    </span>
+                </div>
+            )}
 
             {/* Cancel button — visible only while status is 'processing' */}
             {job?.status === "processing" && (

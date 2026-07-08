@@ -22,6 +22,7 @@ var Module = fx.Module("imports",
 		),
 		NewAsynqClient,
 		NewAsynqServer,
+		NewCleanupScheduler,
 		NewService,
 		NewHandler,
 		NewWorker,
@@ -46,9 +47,9 @@ func NewAsynqClient(pools *database.Pools) *asynq.Client {
 // time.
 //
 // When additional queue types are added, increase Concurrency and use the
-// Queues map to assign relative priorities between queues. The "imports"
-// queue weight of 10 means it takes all available workers when it is the
-// only queue type in the system.
+// Queues map to assign relative priorities. The "imports" queue weight of
+// 10 means it takes all available workers when it is the only queue type
+// in the system.
 func NewAsynqServer(pools *database.Pools) *asynq.Server {
 	return asynq.NewServer(
 		asynq.RedisClientOpt{
@@ -62,6 +63,56 @@ func NewAsynqServer(pools *database.Pools) *asynq.Server {
 			Logger: asynqLogger{},
 		},
 	)
+}
+
+// NewCleanupScheduler creates a periodic task scheduler for the retention
+// cleanup job. It enqueues imports:cleanup_old_data once per day.
+func NewCleanupScheduler(pools *database.Pools, svc *Service) *CleanupScheduler {
+	return &CleanupScheduler{
+		pools: pools,
+		svc:   svc,
+	}
+}
+
+// CleanupScheduler manages the periodic retention cleanup of old import
+// staging and failure data. Uses Asynq's Scheduler to register a daily
+// recurring task.
+type CleanupScheduler struct {
+	pools *database.Pools
+	svc   *Service
+}
+
+// Start starts the periodic cleanup scheduler. Called via fx lifecycle.
+func (cs *CleanupScheduler) Start(ctx context.Context) error {
+	scheduler := asynq.NewScheduler(
+		asynq.RedisClientOpt{Addr: cs.pools.Redis.Options().Addr},
+		&asynq.SchedulerOpts{
+			Logger: asynqLogger{},
+		},
+	)
+
+	// Schedule the daily cleanup at 03:00 UTC (low-traffic window).
+	task := asynq.NewTask("imports:cleanup_old_data", nil)
+	entryID, err := scheduler.Register("@daily", task)
+	if err != nil {
+		return fmt.Errorf("imports.CleanupScheduler: register cleanup task: %w", err)
+	}
+
+	if err := scheduler.Start(); err != nil {
+		return fmt.Errorf("imports.CleanupScheduler: start: %w", err)
+	}
+
+	slog.InfoContext(ctx, "imports.CleanupScheduler: cleanup task registered",
+		"entry_id", entryID,
+		"schedule", "@daily",
+	)
+	return nil
+}
+
+// Stop stops the cleanup scheduler.
+func (cs *CleanupScheduler) Stop(ctx context.Context) error {
+	slog.InfoContext(ctx, "imports.CleanupScheduler: stopped")
+	return nil
 }
 
 // asynqLogger wraps slog to implement asynq.Logger.
@@ -93,7 +144,7 @@ type Worker struct {
 	mux    *asynq.ServeMux
 }
 
-// NewWorker creates a new Worker with chunk processing handler.
+// NewWorker creates a new Worker with chunk processing and cleanup handlers.
 func NewWorker(svc *Service, server *asynq.Server) *Worker {
 	mux := asynq.NewServeMux()
 	mux.HandleFunc("imports:process_chunk", func(ctx context.Context, t *asynq.Task) error {
@@ -102,6 +153,9 @@ func NewWorker(svc *Service, server *asynq.Server) *Worker {
 			return fmt.Errorf("imports:process_chunk: unmarshal payload: %w", err)
 		}
 		return svc.ProcessChunk(ctx, payload)
+	})
+	mux.HandleFunc("imports:cleanup_old_data", func(ctx context.Context, t *asynq.Task) error {
+		return svc.CleanupExpiredData(ctx)
 	})
 
 	return &Worker{
@@ -132,6 +186,14 @@ func RegisterWorkerHooks(lc fx.Lifecycle, worker *Worker) {
 	lc.Append(fx.Hook{
 		OnStart: worker.Start,
 		OnStop:  worker.Stop,
+	})
+}
+
+// RegisterCleanupSchedulerHooks registers lifecycle hooks for the cleanup scheduler.
+func RegisterCleanupSchedulerHooks(lc fx.Lifecycle, cs *CleanupScheduler) {
+	lc.Append(fx.Hook{
+		OnStart: cs.Start,
+		OnStop:  cs.Stop,
 	})
 }
 

@@ -39,6 +39,7 @@ const PAGE_SIZE = 25;
 interface StepDataReviewProps {
     onProceed: () => void;
     onBack: () => void;
+    schoolId: string;
 }
 
 // ─── Status Badge ─────────────────────────────────────────────────────────
@@ -249,7 +250,7 @@ function EditableRow({
 
 // ─── Main Component ───────────────────────────────────────────────────────
 
-export function StepDataReview({ onProceed, onBack }: StepDataReviewProps) {
+export function StepDataReview({ onProceed, onBack, schoolId }: StepDataReviewProps) {
     const [records, setRecords] = React.useState<StagedStudentRecord[]>([]);
     const [total, setTotal] = React.useState(0);
     const [page, setPage] = React.useState(1);
@@ -267,14 +268,14 @@ export function StepDataReview({ onProceed, onBack }: StepDataReviewProps) {
     // ── Data loading ───────────────────────────────────────────────────
     React.useEffect(() => {
         Promise.all([
-            getStagedRecordsPaginated(page, PAGE_SIZE, filter),
-            getStagedCountByStatus(),
+            getStagedRecordsPaginated(schoolId, page, PAGE_SIZE, filter),
+            getStagedCountByStatus(schoolId),
         ]).then(([paginated, statusCounts]) => {
             setRecords(paginated.records);
             setTotal(paginated.total);
             setCounts(statusCounts);
         });
-    }, [page, filter]);
+    }, [page, filter, schoolId]);
 
     const handleSaveRecord = React.useCallback(
         (updated: StagedStudentRecord) => {
@@ -288,7 +289,7 @@ export function StepDataReview({ onProceed, onBack }: StepDataReviewProps) {
             const timer = setTimeout(async () => {
                 try {
                     // Re-validate the record
-                    const allRecords = await (await import("./db")).getStagedRecords();
+                    const allRecords = await (await import("./db")).getStagedRecords(schoolId);
 
                     // Need to re-run dup check against all records
                     const otherRecords = allRecords.filter((r) => r.id !== recordId);
@@ -300,8 +301,8 @@ export function StepDataReview({ onProceed, onBack }: StepDataReviewProps) {
 
                     // Reload data after edit
                     const [paginated, statusCounts] = await Promise.all([
-                        getStagedRecordsPaginated(page, PAGE_SIZE, filter),
-                        getStagedCountByStatus(),
+                        getStagedRecordsPaginated(schoolId, page, PAGE_SIZE, filter),
+                        getStagedCountByStatus(schoolId),
                     ]);
                     setRecords(paginated.records);
                     setTotal(paginated.total);
@@ -316,7 +317,7 @@ export function StepDataReview({ onProceed, onBack }: StepDataReviewProps) {
             // Optimistically update local state
             setRecords((prev) => prev.map((r) => (r.id === recordId ? updated : r)));
         },
-        [page, filter]
+        [page, filter, schoolId]
     );
 
     // Cleanup debounce timers on unmount
@@ -337,7 +338,7 @@ export function StepDataReview({ onProceed, onBack }: StepDataReviewProps) {
 
         (async () => {
             try {
-                const allRecords = await getStagedRecords();
+                const allRecords = await getStagedRecords(schoolId);
                 const admNumbers = allRecords
                     .map((r) => r.payload.admission_number)
                     .filter(Boolean) as string[];
@@ -422,15 +423,15 @@ export function StepDataReview({ onProceed, onBack }: StepDataReviewProps) {
             } finally {
                 // Reload to reflect any changes
                 const [paginated, statusCounts] = await Promise.all([
-                    getStagedRecordsPaginated(page, PAGE_SIZE, filter),
-                    getStagedCountByStatus(),
+                    getStagedRecordsPaginated(schoolId, page, PAGE_SIZE, filter),
+                    getStagedCountByStatus(schoolId),
                 ]);
                 setRecords(paginated.records);
                 setTotal(paginated.total);
                 setCounts(statusCounts);
             }
         })();
-    }, [page, filter]);
+    }, [page, filter, schoolId]);
 
     const hasBlockingErrors = React.useMemo(
         () => counts.error > 0 || counts.duplicate > 0,

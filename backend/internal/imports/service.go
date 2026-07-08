@@ -39,6 +39,17 @@ const (
 	// for the import endpoint. Set to 15MB with generous headroom:
 	// 5000 rows × ~2KB/row ≈ 10MB + 50% margin.
 	// maxImportBodyBytes = 15 * 1024 * 1024 // 15 MB
+
+	// RetentionDays is the number of days after a terminal job's completion
+	// that its staging and failure rows are eligible for cleanup.
+	// import_jobs rows themselves are never deleted — they are small summary
+	// records worth keeping indefinitely for audit/history.
+	RetentionDays = 30
+
+	// CleanupBatchSize is the number of rows to delete in a single batch
+	// during the retention cleanup job. Keeps individual DELETE transactions
+	// short and prevents long-running locks.
+	CleanupBatchSize = 1000
 )
 
 // ============================================================================
@@ -579,6 +590,22 @@ func (s *Service) ProcessChunk(ctx context.Context, payload ChunkTaskPayload) er
 		return fmt.Errorf("imports.Service.ProcessChunk: atomic completion: %w", err)
 	}
 
+	// Touch last_progress_at if the job is still actively making progress
+	// (i.e. not yet terminal). This timestamp is used by the frontend to
+	// detect stalled jobs independently of created_at age.
+	isTerminal := newStatus == ImportJobStatusCompleted ||
+		newStatus == ImportJobStatusCompletedWithErrors ||
+		newStatus == ImportJobStatusFailed ||
+		newStatus == ImportJobStatusCancelled
+	if !isTerminal {
+		if touchErr := s.repo.TouchLastProgressAt(ctx, jobID); touchErr != nil {
+			slog.WarnContext(ctx, "imports.Service.ProcessChunk: touch last_progress_at",
+				"job_id", jobID,
+				"error", touchErr,
+			)
+		}
+	}
+
 	slog.InfoContext(ctx, "imports.Service.ProcessChunk: chunk completed",
 		"job_id", jobID,
 		"chunk", payload.ChunkIndex,
@@ -698,6 +725,42 @@ func (s *Service) GetActiveJobBySchool(ctx context.Context, schoolID uuid.UUID) 
 		return nil, fmt.Errorf("imports.Service.GetActiveJobBySchool: %w", err)
 	}
 	return job, nil
+}
+
+// ============================================================================
+// CleanupExpiredData — retention cleanup for staging and failure rows
+// ============================================================================
+
+// CleanupExpiredData deletes import_job_staging and import_job_failure rows
+// belonging to jobs that reached a terminal status more than RetentionDays
+// ago. Only terminal-status jobs are eligible — processing or cancelling jobs
+// are never touched, regardless of created_at age.
+//
+// import_jobs rows themselves are never deleted by this method.
+// Deletions run in batches of CleanupBatchSize to keep individual
+// transactions short.
+func (s *Service) CleanupExpiredData(ctx context.Context) error {
+	cutoff := time.Now().Add(-RetentionDays * 24 * time.Hour)
+
+	// Delete staging rows
+	stagingDeleted, err := s.repo.CleanupStagingData(ctx, cutoff, CleanupBatchSize)
+	if err != nil {
+		return fmt.Errorf("imports.Service.CleanupExpiredData: staging: %w", err)
+	}
+
+	// Delete failure rows
+	failuresDeleted, err := s.repo.CleanupFailureData(ctx, cutoff, CleanupBatchSize)
+	if err != nil {
+		return fmt.Errorf("imports.Service.CleanupExpiredData: failures: %w", err)
+	}
+
+	slog.InfoContext(ctx, "imports.Service.CleanupExpiredData: retention cleanup completed",
+		"retention_days", RetentionDays,
+		"cutoff", cutoff,
+		"staging_rows_deleted", stagingDeleted,
+		"failure_rows_deleted", failuresDeleted,
+	)
+	return nil
 }
 
 // ============================================================================

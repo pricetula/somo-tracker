@@ -33,7 +33,7 @@ Both paths ultimately call the same backend endpoint (`POST /api/v1/students/imp
 ### Design principles
 
 - **The frontend NEVER chunks data.** All rows are sent in a single POST request. The backend handles splitting into chunks for async processing.
-- **The frontend polls for progress.** After submitting, the frontend polls `GET /api/v1/imports/:job_id` every 1.5s until the job reaches a terminal status.
+- **The frontend polls for progress.** After submitting, the frontend polls `GET /api/v1/imports/:job_id` with a backoff schedule: every 1.5s for the first 30s, every 3s from 30s to 2min, then every 10s for long-running imports. This reduces load on both frontend and backend for jobs that take a while.
 - **Failures are fetched after completion.** The frontend calls `GET /api/v1/imports/:job_id/failures` to display per-row error details.
 
 ---
@@ -149,6 +149,25 @@ the handler level — see [Section 6.3](#63-internalimportsservicego).
 - `step-data-review.tsx` — record review/correction
 - `step-streaming.tsx` — submit button (minimal, delegates to parent)
 - `db.ts` — IndexedDB persistence for crash recovery
+
+#### IndexedDB crash recovery (`db.ts`)
+
+The wizard persists session state to IndexedDB for crash recovery across
+page reloads and browser restarts. Three object stores are used:
+
+| Store | Key | Contents |
+|-------|-----|----------|
+| `import_meta` | `session:<school_id>` | Current step, column/class mappings, file metadata, `updated_at` |
+| `student_import_staging` | Auto-increment ID | Per-row staged records with payload, raw data, validation status |
+| `parsed_file` | `parsed_file:<school_id>` | Raw parsed headers + rows (up to 500 rows; larger files skip persistence) |
+
+**Session lifecycle:**
+- **Saved after every step transition** — upload→mapping, mapping→class resolve, class resolve→data review, data review→streaming.
+- **Auto-restored on mount** if a session exists for the current `school_id` and is less than 24 hours old (see staleness below).
+- **Cleared on any terminal import status** — `completed`, `completed_with_errors`, `failed`, or `cancelled` — via the `onTerminalStatus` callback on `ImportProgress`, which fires as soon as the polling loop detects the terminal state.
+- **Size guard:** If a parsed file exceeds 500 rows, the full row data is not persisted. The session is marked `parsed_file_too_large`. On resume, the user sees a message explaining the draft cannot be fully restored and is prompted to start from upload.
+- **Foreign-school detection:** Sessions are keyed by `school_id`. If a persisted session exists for a different school than the currently active one, a distinct message is shown ("You have an unfinished import for a different school") with an option to discard it, rather than silently overwriting.
+- **Staleness threshold:** Sessions older than 24 hours (`SESSION_STALE_MS`) are not auto-resumed. Instead, a prompt asks "Resume this draft or start fresh?", giving the user a choice. This prevents stale data from silently resurfacing while still allowing intentional resume of older drafts.
 
 **Row limit (MaxImportRows = 5000):** The upload step (`step-upload.tsx`)
 checks the parsed row count immediately after file parsing. If it exceeds
@@ -313,20 +332,50 @@ Table-based form where users type student data. Each row has:
 ### 5.3 `ImportProgress` (`import-progress.tsx`)
 
 Shared progress component used by both import paths. Handles:
-- Polling `GET /api/v1/imports/:job_id` every 1.5s
+- Polling `GET /api/v1/imports/:job_id` with polling backoff (see below)
 - Displaying progress bar with `processed / total` counts
+- Showing stalled-job message when `last_progress_at` is stale (processing but no recent progress)
 - Showing result banner on completion (green/amber/slate for cancelled)
 - Fetching failures via `GET /api/v1/imports/:job_id/failures`
 - "Cancel Import" button (visible only while status is `'processing'`)
 - "Done" and "Retry failed" buttons
+
+**Polling backoff schedule:**
+
+To reduce load on long-running imports, the polling interval backs off over the job's total elapsed time (measured since the component mounted):
+
+| Elapsed time | Poll interval |
+|---|---|
+| 0–30s | 1.5s (unchanged, fast for small imports) |
+| 30s–2min | 3s |
+| Beyond 2min | 10s (ceiling — never grows unbounded) |
+
+The interval is recomputed every second. Once the job reaches a terminal status, polling stops entirely.
+
+**Stalled-job messaging:**
+
+While the job status is `'processing'` or `'cancelling'`, if `last_progress_at` is more than 2 minutes old (indicating no chunk has completed recently), a non-alarming inline message is shown:
+
+> "This import is taking longer than usual — you can keep waiting or cancel it."
+
+The amber banner appears alongside the progress bar and Cancel button. It disappears automatically when any of these conditions are met:
+- `last_progress_at` updates (a chunk completes, resuming progress)
+- The job reaches a terminal status
+
+This is purely a messaging addition — polling behavior is unchanged for stalled jobs beyond the existing backoff schedule.
+
+**`last_progress_at` field:**
+
+The backend sets `last_progress_at` on every successful chunk completion via `AtomicChunkCompletion()`. When the last chunk completes (job reaches a terminal status), `last_progress_at` is also set as part of the final UPDATE. This gives the frontend a reliable "last meaningful progress" signal regardless of `created_at` age.
 
 **Props:**
 - `jobId: string`
 - `totalRecords: number`
 - `onDone: () => void`
 - `onRetry?: (failedPayloads: Record<string, unknown>[]) => void`
+- `onTerminalStatus?: () => void` — fires exactly once when the polling loop first detects a terminal status (`completed`, `completed_with_errors`, `failed`, or `cancelled`). Used by the parent to trigger IndexedDB cleanup (G2). Fires regardless of which button the user clicks, so an abandoned tab also triggers cleanup.
 
-**Cancellation behavior:**
+**Cancellation behavior:
 - The "Cancel Import" button calls `POST /api/v1/imports/:job_id/cancel`.
 - On click, the button is immediately disabled (prevents double-clicks).
 - The existing polling loop picks up the `'cancelling'` → `'cancelled'` transition naturally — no special-case polling needed.
@@ -347,6 +396,12 @@ Minimal submit component for file import. Loads valid staged records from Indexe
 - Gender normalization: when mapping the gender column, the `normalizeGender()` function converts common variants ("Male", "Boy", "female", "F", etc.) to "M" or "F"
 - Builds staged records via `buildStagedRecords()` which applies column mappings, class resolution, and gender normalization
 - Validates records via `validateAndDetectDuplicates()` before the review step
+- **School isolation (G4):** The component reads `school_id` from `useMe()` and passes it to all IndexedDB operations. Session keys are scoped as `session:<school_id>`, so switching schools shows a foreign-session message rather than corrupting data.
+- **Session recovery on mount:** Checks for an existing IndexedDB session for the current `school_id`. If found and under 24 hours old, auto-restores the step, mappings, and (for early steps) the parsed file data. If over 24 hours old, shows a resume-or-restart prompt. If for a different school, shows a discard prompt.
+- **Parsed file persistence (G1):** The raw parsed file (headers + rows) is persisted to a `parsed_file` store for files up to 500 rows. On resume from `column_mapping` or `class_resolving`, this data is loaded back into the `parsedFile` state, allowing the user to continue without re-uploading. The parsed-file data is deleted once staged records are built in `handleClassResolveComplete`.
+- **Quota pre-check (G5):** Before `bulkWriteStagedRecords` writes validated records to IndexedDB, a `checkStorageForBulkWrite()` call estimates available storage and blocks the write if insufficient, showing a user-facing error message. The write itself is also wrapped in try/catch for `QuotaExceededError`.
+- **Error handling on save operations (G7):** All `saveSessionMeta`, `updateSessionStep`, and parsed-file write calls are wrapped in try/catch. On failure, a toast is shown ("Couldn't save your progress") but the wizard continues to function in-memory.
+- **Import-complete cleanup (G2):** When an import job reaches a terminal status, `clearAllSessions()` is called from the parent's `onTerminalStatus` callback on `ImportProgress`. A secondary safety net in `FileImporter` tracks `jobSubmittedRef` and clears sessions on reset if the primary callback missed it.
 
 **Duplicate detection in file import:**
 - **Within-batch duplicates** are detected by `validateAndDetectDuplicates()` in
@@ -489,7 +544,27 @@ are active.
 
 The `ClaimChunk` UPDATE (status = `'processing'`) and `AtomicChunkCompletion` UPDATE (status = `'completed'`) both use `WHERE status = 'previous_state'` with `RETURNING`, ensuring at-most-once semantics. If two workers race to claim the same chunk, exactly one succeeds. If `AtomicChunkCompletion` is called twice for the same chunk, the second call no-ops. A pending chunk that encounters a `'cancelling'` parent job is transitioned to `'cancelled'` via `CancelPendingChunk`.
 
-### 6.4 `internal/students/handler.go` (BulkImport)
+### 6.4 Retention policy & cleanup job
+
+**Policy:** `import_job_staging` and `import_job_failures` rows are retained for 30 days (`RetentionDays` = 30). After a job reaches a terminal status (`completed`, `completed_with_errors`, `failed`, `cancelled`) and its `completed_at` is older than the retention window, its associated staging and failure rows become eligible for deletion.
+
+**`import_jobs` rows are never deleted** — they are small summary records worth keeping indefinitely for audit/history (e.g. "did our import from March succeed?"). Only the heavier per-row staging/failure data is purged.
+
+**Rules:**
+
+1. Only terminal-status jobs are eligible. A job still `'processing'` or `'cancelling'` is never touched, regardless of its `created_at` age — even a very long-running or previously stuck job.
+2. `import_jobs` (the job summary rows) are never affected by this cleanup.
+3. Cleanup runs in batches of 1000 rows (`CleanupBatchSize`) using a loop — each iteration deletes up to 1000 rows and stops when 0 rows are affected, keeping individual transactions short.
+
+**Implementation:**
+
+- **`CleanupExpiredData(ctx)`** in `internal/imports/service.go` — the entry point. Computes the cutoff as `now - 30 days`, then calls both cleanup methods below. Logs a summary of rows deleted per run.
+- **`CleanupStagingData(ctx, cutoff, batchSize)`** in `internal/imports/repository.go` — `DELETE FROM import_job_staging WHERE job_id IN (SELECT id FROM import_jobs WHERE completed_at IS NOT NULL AND completed_at < $1 AND status IN ('completed', 'completed_with_errors', 'failed', 'cancelled')) LIMIT $2`. The subquery ensures only terminal jobs past the cutoff are included.
+- **`CleanupFailureData(ctx, cutoff, batchSize)`** in `internal/imports/repository.go` — same pattern for `import_job_failures`.
+
+**Scheduling:** The cleanup runs daily at 03:00 UTC via an Asynq periodic scheduler (`CleanupScheduler` in `internal/imports/module.go`). The scheduler registers a recurring task `imports:cleanup_old_data` with the `@daily` cronspec. The worker handler is registered alongside the chunk processing handler in the same Asynq mux. Lifecycle hooks are managed by fx.
+
+### 6.5 `internal/students/handler.go` (BulkImport)
 
 ```
 POST /api/v1/students/import
@@ -640,8 +715,12 @@ This eliminates TOCTOU race conditions that a check-then-insert pattern would ha
   "processed_chunks": 1,
   "created_at": "2026-07-08T12:00:00Z",
   "started_at": "2026-07-08T12:00:01Z",
-  "completed_at": "2026-07-08T12:00:30Z"
+  "completed_at": "2026-07-08T12:00:30Z",
+  "last_progress_at": "2026-07-08T12:00:28Z"
 }
+```
+
+**`last_progress_at`:** Updated by `AtomicChunkCompletion()` on every chunk completion. Null if no chunks have completed yet. Used by the frontend for stalled-job detection — if the job is still `'processing'` but `last_progress_at` is older than 2 minutes, a non-alarming inline message is shown. See [Section 5.3 — Polling backoff & stalled-job messaging](#53-importprogress-import-progresstsx).
 ```
 
 ### POST /api/v1/imports/:job_id/cancel

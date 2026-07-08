@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -71,7 +72,7 @@ func (r *PgRepository) CreateJobIdempotent(ctx context.Context, job *Job, payloa
 		RETURNING id, tenant_id, school_id, job_type, role, created_by, status,
 		          total_records, processed_records, success_count, failed_count,
 		          idempotency_key, payload_hash, total_chunks, processed_chunks, metadata,
-		          created_at, started_at, completed_at
+		          created_at, started_at, completed_at, last_progress_at
 	`
 	var j Job
 	var role, idempotencyKey, payloadHashOut *string
@@ -92,7 +93,7 @@ func (r *PgRepository) CreateJobIdempotent(ctx context.Context, job *Job, payloa
 		&j.ID, &j.TenantID, &j.SchoolID, &j.JobType, &role, &createdBy, &j.Status,
 		&j.TotalRecords, &j.ProcessedRecords, &j.SuccessCount, &j.FailedCount,
 		&idempotencyKey, &payloadHashOut, &j.TotalChunks, &j.ProcessedChunks, &j.Metadata,
-		&j.CreatedAt, &j.StartedAt, &j.CompletedAt,
+		&j.CreatedAt, &j.StartedAt, &j.CompletedAt, &j.LastProgressAt,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -115,7 +116,7 @@ func (r *PgRepository) GetJobByID(ctx context.Context, jobID uuid.UUID) (*Job, e
 		SELECT id, tenant_id, school_id, job_type, role, created_by, status,
 		       total_records, processed_records, success_count, failed_count,
 		       idempotency_key, payload_hash, total_chunks, processed_chunks, metadata,
-		       created_at, started_at, completed_at
+		       created_at, started_at, completed_at, last_progress_at
 		FROM import_jobs
 		WHERE id = $1
 	`
@@ -126,7 +127,7 @@ func (r *PgRepository) GetJobByID(ctx context.Context, jobID uuid.UUID) (*Job, e
 		&j.ID, &j.TenantID, &j.SchoolID, &j.JobType, &role, &createdBy, &j.Status,
 		&j.TotalRecords, &j.ProcessedRecords, &j.SuccessCount, &j.FailedCount,
 		&idempotencyKey, &payloadHash, &j.TotalChunks, &j.ProcessedChunks, &j.Metadata,
-		&j.CreatedAt, &j.StartedAt, &j.CompletedAt,
+		&j.CreatedAt, &j.StartedAt, &j.CompletedAt, &j.LastProgressAt,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -305,7 +306,7 @@ func (r *PgRepository) CancelJob(ctx context.Context, jobID uuid.UUID) (*Job, er
 		RETURNING id, tenant_id, school_id, job_type, role, created_by, status,
 		          total_records, processed_records, success_count, failed_count,
 		          idempotency_key, payload_hash, total_chunks, processed_chunks, metadata,
-		          created_at, started_at, completed_at
+		          created_at, started_at, completed_at, last_progress_at
 	`
 	var j Job
 	var role, idempotencyKey, payloadHash *string
@@ -314,7 +315,7 @@ func (r *PgRepository) CancelJob(ctx context.Context, jobID uuid.UUID) (*Job, er
 		&j.ID, &j.TenantID, &j.SchoolID, &j.JobType, &role, &createdBy, &j.Status,
 		&j.TotalRecords, &j.ProcessedRecords, &j.SuccessCount, &j.FailedCount,
 		&idempotencyKey, &payloadHash, &j.TotalChunks, &j.ProcessedChunks, &j.Metadata,
-		&j.CreatedAt, &j.StartedAt, &j.CompletedAt,
+		&j.CreatedAt, &j.StartedAt, &j.CompletedAt, &j.LastProgressAt,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -384,6 +385,7 @@ func (r *PgRepository) AtomicChunkCompletion(ctx context.Context, jobID uuid.UUI
 		    processed_chunks  = processed_chunks + 1,
 		    success_count     = success_count + $3,
 		    failed_count      = failed_count + $4,
+		    last_progress_at  = NOW(),
 		    status = CASE
 		        -- If the job is being cancelled and all chunks are done, transition to 'cancelled'
 		        WHEN processed_chunks + 1 = total_chunks AND import_jobs.status = 'cancelling'::import_job_status THEN 'cancelled'::import_job_status
@@ -452,7 +454,7 @@ func (r *PgRepository) GetJobByIDempotencyKey(ctx context.Context, tenantID uuid
 		SELECT id, tenant_id, school_id, job_type, role, created_by, status,
 		       total_records, processed_records, success_count, failed_count,
 		       idempotency_key, payload_hash, total_chunks, processed_chunks, metadata,
-		       created_at, started_at, completed_at
+		       created_at, started_at, completed_at, last_progress_at
 		FROM import_jobs
 		WHERE tenant_id = $1 AND idempotency_key = $2
 	`
@@ -463,7 +465,7 @@ func (r *PgRepository) GetJobByIDempotencyKey(ctx context.Context, tenantID uuid
 		&j.ID, &j.TenantID, &j.SchoolID, &j.JobType, &role, &createdBy, &j.Status,
 		&j.TotalRecords, &j.ProcessedRecords, &j.SuccessCount, &j.FailedCount,
 		&idempotencyKeyOut, &payloadHash, &j.TotalChunks, &j.ProcessedChunks, &j.Metadata,
-		&j.CreatedAt, &j.StartedAt, &j.CompletedAt,
+		&j.CreatedAt, &j.StartedAt, &j.CompletedAt, &j.LastProgressAt,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -485,7 +487,7 @@ func (r *PgRepository) GetActiveJobBySchoolID(ctx context.Context, schoolID uuid
 		SELECT id, tenant_id, school_id, job_type, role, created_by, status,
 		       total_records, processed_records, success_count, failed_count,
 		       idempotency_key, payload_hash, total_chunks, processed_chunks, metadata,
-		       created_at, started_at, completed_at
+		       created_at, started_at, completed_at, last_progress_at
 		FROM import_jobs
 		WHERE school_id = $1 AND status IN ('processing'::import_job_status, 'cancelling'::import_job_status)
 		ORDER BY created_at DESC
@@ -498,7 +500,7 @@ func (r *PgRepository) GetActiveJobBySchoolID(ctx context.Context, schoolID uuid
 		&j.ID, &j.TenantID, &j.SchoolID, &j.JobType, &role, &createdBy, &j.Status,
 		&j.TotalRecords, &j.ProcessedRecords, &j.SuccessCount, &j.FailedCount,
 		&idempotencyKey, &payloadHash, &j.TotalChunks, &j.ProcessedChunks, &j.Metadata,
-		&j.CreatedAt, &j.StartedAt, &j.CompletedAt,
+		&j.CreatedAt, &j.StartedAt, &j.CompletedAt, &j.LastProgressAt,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -511,6 +513,79 @@ func (r *PgRepository) GetActiveJobBySchoolID(ctx context.Context, schoolID uuid
 	j.PayloadHash = payloadHash
 	j.CreatedBy = createdBy
 	return &j, nil
+}
+
+// ─── CleanupStagingData ─────────────────────────────────────────────────────
+
+func (r *PgRepository) CleanupStagingData(ctx context.Context, cutoff time.Time, batchSize int) (int, error) {
+	query := `
+		DELETE FROM import_job_staging
+		WHERE job_id IN (
+			SELECT id FROM import_jobs
+			WHERE completed_at IS NOT NULL
+			  AND completed_at < $1
+			  AND status IN ('completed'::import_job_status, 'completed_with_errors'::import_job_status,
+			                'failed'::import_job_status, 'cancelled'::import_job_status)
+		)
+		LIMIT $2
+	`
+	totalDeleted := 0
+	for {
+		result, err := r.pool.Exec(ctx, query, cutoff, batchSize)
+		if err != nil {
+			return totalDeleted, fmt.Errorf("imports.Repository.CleanupStagingData: %w", err)
+		}
+		deleted := int(result.RowsAffected())
+		if deleted == 0 {
+			break
+		}
+		totalDeleted += deleted
+	}
+	return totalDeleted, nil
+}
+
+// ─── CleanupFailureData ─────────────────────────────────────────────────────
+
+func (r *PgRepository) CleanupFailureData(ctx context.Context, cutoff time.Time, batchSize int) (int, error) {
+	query := `
+		DELETE FROM import_job_failures
+		WHERE import_job_id IN (
+			SELECT id FROM import_jobs
+			WHERE completed_at IS NOT NULL
+			  AND completed_at < $1
+			  AND status IN ('completed'::import_job_status, 'completed_with_errors'::import_job_status,
+			                'failed'::import_job_status, 'cancelled'::import_job_status)
+		)
+		LIMIT $2
+	`
+	totalDeleted := 0
+	for {
+		result, err := r.pool.Exec(ctx, query, cutoff, batchSize)
+		if err != nil {
+			return totalDeleted, fmt.Errorf("imports.Repository.CleanupFailureData: %w", err)
+		}
+		deleted := int(result.RowsAffected())
+		if deleted == 0 {
+			break
+		}
+		totalDeleted += deleted
+	}
+	return totalDeleted, nil
+}
+
+// ─── TouchLastProgressAt ────────────────────────────────────────────────────
+
+func (r *PgRepository) TouchLastProgressAt(ctx context.Context, jobID uuid.UUID) error {
+	query := `
+		UPDATE import_jobs
+		SET last_progress_at = NOW()
+		WHERE id = $1
+	`
+	_, err := r.pool.Exec(ctx, query, jobID)
+	if err != nil {
+		return fmt.Errorf("imports.Repository.TouchLastProgressAt: %w", err)
+	}
+	return nil
 }
 
 // ─── GetFailures ───────────────────────────────────────────────────────────

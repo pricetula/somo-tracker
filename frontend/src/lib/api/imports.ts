@@ -99,6 +99,7 @@ export interface ImportJob {
     created_at: string;
     started_at?: string | null;
     completed_at?: string | null;
+    last_progress_at?: string | null;
 }
 
 // ============================================================================

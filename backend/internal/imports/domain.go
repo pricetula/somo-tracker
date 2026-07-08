@@ -141,6 +141,7 @@ type Job struct {
 	CreatedAt        time.Time       `json:"created_at"`
 	StartedAt        *time.Time      `json:"started_at,omitempty"`
 	CompletedAt      *time.Time      `json:"completed_at,omitempty"`
+	LastProgressAt   *time.Time      `json:"last_progress_at,omitempty"`
 }
 
 // Chunk describes a contiguous range of staging rows to process as one unit.
@@ -307,6 +308,19 @@ type ServiceRepository interface {
 	// GetActiveJobBySchoolID returns the currently active job (status 'processing' or
 	// 'cancelling') for the given school, or ErrNotFound if none is active.
 	GetActiveJobBySchoolID(ctx context.Context, schoolID uuid.UUID) (*Job, error)
+
+	// CleanupStagingData deletes import_job_staging rows belonging to jobs that
+	// reached a terminal status before the given cutoff time. Only terminal jobs
+	// (completed, completed_with_errors, failed, cancelled) are eligible — jobs
+	// still processing or cancelling are never touched. Returns the number of
+	// rows deleted. Runs in batches of batchSize.
+	CleanupStagingData(ctx context.Context, cutoff time.Time, batchSize int) (int, error)
+
+	// CleanupFailureData is like CleanupStagingData but for import_job_failures.
+	CleanupFailureData(ctx context.Context, cutoff time.Time, batchSize int) (int, error)
+
+	// TouchLastProgressAt sets last_progress_at = NOW() for the given job.
+	TouchLastProgressAt(ctx context.Context, jobID uuid.UUID) error
 }
 
 // StagingRow represents a row in import_job_staging.

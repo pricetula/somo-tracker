@@ -8,6 +8,7 @@ import { FileImporter } from "./file-importer";
 import { ImportProgress } from "./import-progress";
 import { getActiveImportJob } from "@/lib/api/imports";
 import { useMe } from "@/hooks/use-auth";
+import { clearAllSessions } from "./file-importer/db";
 
 // ─── State machine ────────────────────────────────────────────────────────
 
@@ -101,6 +102,13 @@ export function StudentsImportForm({ isDialogVersion }: StudentsImportFormProps)
         dispatch({ type: "RESET" });
     }
 
+    // G2: When an import job reaches terminal status, clear IndexedDB.
+    // This fires from the polling loop in ImportProgress, not from a
+    // button click, so it works for abandoned tabs too.
+    const handleImportTerminal = React.useCallback(() => {
+        clearAllSessions().catch(console.error);
+    }, []);
+
     // ── Render ────────────────────────────────────────────────────────
 
     // Loading state is derived purely from the useMe query — no local state needed.
@@ -120,6 +128,7 @@ export function StudentsImportForm({ isDialogVersion }: StudentsImportFormProps)
                 totalRecords={pageState.job.totalRecords}
                 onDone={handleReset}
                 onRetry={handleRetry}
+                onTerminalStatus={handleImportTerminal}
             />
         );
     }

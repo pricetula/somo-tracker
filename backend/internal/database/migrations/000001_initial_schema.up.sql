@@ -2593,6 +2593,13 @@ COMMENT ON TABLE member_active_school IS
      constrained to schools the user is an active member of via fk_mas_membership.';
 
 -- ============================================================================
+-- POST-LAUNCH ALTERATIONS (additive only)
+-- ============================================================================
+
+-- 2026-07-08: Add last_progress_at for stalled-job detection
+ALTER TABLE import_jobs ADD COLUMN IF NOT EXISTS last_progress_at TIMESTAMPTZ;
+
+-- ============================================================================
 -- END OF MIGRATION
 -- ============================================================================
 

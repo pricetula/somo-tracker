@@ -1,8 +1,8 @@
 /**
- * ManualImportForm — bulk-add students via stacked form cards.
+ * StudentManualImportForm — bulk-add students via manual entry.
  *
- * Each card represents a CreateStudentPayload (with class_id selected via
- * ClassCombobox). Users can add/remove students, then submit all at once.
+ * POSTs all rows to POST /api/v1/students/import (single request),
+ * then delegates to the shared <ImportProgress /> for polling + results.
  */
 
 "use client";
@@ -10,7 +10,6 @@
 import * as React from "react";
 import { Plus, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { useMutation } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,87 +23,60 @@ import {
 import { Label } from "@/components/ui/label";
 import { DatePicker } from "@/components/ui/date-picker";
 import { ClassCombobox } from "@/features/classes";
-import { createStudents } from "@/lib/api/students";
-import type { CreateStudentPayload, CreateStudentsResponse } from "@/lib/api/students";
+
+import { submitStudentImport } from "@/lib/api/imports";
+import type { ImportRow } from "@/lib/api/imports";
 import { getErrorMessage } from "@/lib/errors";
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
 interface StudentRow {
-    /** Stable local id for React keys and deletion tracking. */
     id: string;
-    data: CreateStudentPayload;
+    fullName: string;
+    gender: string;
+    dateOfBirth: string;
+    upiNumber: string;
+    knecNumber: string;
+    admissionNumber: string;
+    classId: string;
 }
 
 let rowCounter = 0;
-function nextRowId() {
-    rowCounter += 1;
-    return `row-${rowCounter}-${Date.now()}`;
-}
 
-function emptyRow(): StudentRow {
+function freshRow(): StudentRow {
+    rowCounter += 1;
     return {
-        id: nextRowId(),
-        data: {
-            full_name: "",
-            gender: undefined,
-            date_of_birth: null,
-            upi_number: null,
-            knec_assessment_number: null,
-            class_id: null,
-        },
+        id: `row-${rowCounter}-${Date.now()}`,
+        fullName: "",
+        gender: "",
+        dateOfBirth: "",
+        upiNumber: "",
+        knecNumber: "",
+        admissionNumber: "",
+        classId: "",
     };
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────
 
-interface ManualImportFormProps {
+interface StudentManualImportFormProps {
     onReset: () => void;
+    onJobCreated: (jobId: string, totalRecords: number) => void;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────
 
-export function ManualImportForm({ onReset }: ManualImportFormProps) {
-    const [rows, setRows] = React.useState<StudentRow[]>([emptyRow()]);
+export function StudentManualImportForm({ onReset, onJobCreated }: StudentManualImportFormProps) {
+    const [rows, setRows] = React.useState<StudentRow[]>([freshRow()]);
+    const [submitting, setSubmitting] = React.useState(false);
+    const submittingRef = React.useRef(false);
     const [fieldErrors, setFieldErrors] = React.useState<Record<string, Record<string, string[]>>>(
         {}
     );
 
-    const [firstErrorId, setFirstErrorId] = React.useState<string | null>(null);
-
-    // ── Batch submit mutation ──────────────────────────────────────────
-    const batchMutation = useMutation({
-        mutationFn: async (payloads: CreateStudentPayload[]): Promise<CreateStudentsResponse> => {
-            return createStudents({ students: payloads });
-        },
-        onSuccess: (result, payloads) => {
-            const successCount = result.ids.length;
-            const failCount = payloads.length - successCount;
-
-            if (successCount > 0) {
-                toast.success(`${successCount} student${successCount !== 1 ? "s" : ""} created`);
-            }
-            if (failCount > 0) {
-                toast.error(`${failCount} student${failCount !== 1 ? "s" : ""} failed`);
-            }
-
-            // All succeeded — reset form
-            setRows([emptyRow()]);
-            rowCounter = 0;
-        },
-        onError: (err) => {
-            toast.error(getErrorMessage(err));
-        },
-    });
-
     // ── Row mutation helpers ───────────────────────────────────────────
-    const updateRow = React.useCallback((rowId: string, patch: Partial<CreateStudentPayload>) => {
-        setFirstErrorId(null);
-        setRows((prev) =>
-            prev.map((row) =>
-                row.id === rowId ? { ...row, data: { ...row.data, ...patch } } : row
-            )
-        );
+    const updateRow = React.useCallback((rowId: string, patch: Partial<StudentRow>) => {
+        setRows((prev) => prev.map((r) => (r.id === rowId ? { ...r, ...patch } : r)));
     }, []);
 
     const removeRow = React.useCallback((rowId: string) => {
@@ -112,60 +84,54 @@ export function ManualImportForm({ onReset }: ManualImportFormProps) {
     }, []);
 
     const addRow = React.useCallback(() => {
-        setRows((prev) => [emptyRow(), ...prev]);
+        setRows((prev) => [...prev, freshRow()]);
     }, []);
 
-    const validate = React.useCallback((): boolean => {
+    // ── Validation + Submit ────────────────────────────────────────────
+    const handleImport = React.useCallback(async () => {
+        if (submittingRef.current) return;
+
+        // Validate
         const errors: Record<string, Record<string, string[]>> = {};
         let valid = true;
-        let firstId: string | null = null;
-
         rows.forEach((row) => {
-            const rowErrors: Record<string, string[]> = {};
-            if (!row.data.full_name.trim()) {
-                rowErrors.full_name = ["Full name is required"];
+            if (!row.fullName.trim()) {
+                errors[row.id] = { full_name: ["Full name is required"] };
                 valid = false;
             }
-            if (Object.keys(rowErrors).length > 0) {
-                errors[row.id] = rowErrors;
-                if (firstId === null) firstId = row.id;
-            }
         });
-
         setFieldErrors(errors);
-        setFirstErrorId(firstId);
-        return valid;
-    }, [rows]);
+        if (!valid) return;
 
-    // Scroll to the first errored card whenever it changes
-    React.useEffect(() => {
-        if (firstErrorId) {
-            const el = document.getElementById(`student-card-${firstErrorId}`);
-            el?.scrollIntoView({ behavior: "smooth", block: "center" });
-        }
-    }, [firstErrorId]);
+        submittingRef.current = true;
+        setSubmitting(true);
 
-    // ── Submit ─────────────────────────────────────────────────────────
-    const handleImport = React.useCallback(() => {
-        if (!validate()) return;
-        const payloads = rows.map((r) => ({
-            ...r.data,
-            full_name: r.data.full_name.trim(),
-            gender: r.data.gender || undefined,
-            date_of_birth: r.data.date_of_birth || null,
-            upi_number: r.data.upi_number || null,
-            knec_assessment_number: r.data.knec_assessment_number || null,
-            class_id: r.data.class_id || null,
+        const importRows: ImportRow[] = rows.map((r) => ({
+            full_name: r.fullName.trim(),
+            gender: (r.gender || "M") as "M" | "F",
+            date_of_birth: r.dateOfBirth || null,
+            upi_number: r.upiNumber || null,
+            knec_assessment_number: r.knecNumber || null,
+            admission_number: r.admissionNumber || null,
+            class_id: r.classId || undefined,
         }));
-        batchMutation.mutate(payloads);
-    }, [rows, validate, batchMutation]);
 
-    const isSubmitting = batchMutation.isPending;
+        try {
+            const result = await submitStudentImport({ rows: importRows });
+            onJobCreated(result.job_id, importRows.length);
+        } catch (err) {
+            submittingRef.current = false;
+            setSubmitting(false);
+            toast.error(getErrorMessage(err));
+        }
+    }, [rows, onJobCreated]);
 
-    // ── Render ─────────────────────────────────────────────────────────
+    const isSubmitting = submitting;
+
     return (
-        <div className="gap-4">
-            <div className="flex items-center justify-between pb-4">
+        <div className="flex flex-col gap-4">
+            {/* Header */}
+            <div className="flex items-center justify-between">
                 <h3 className="text-sm font-medium">Manual Student Import</h3>
                 <div className="flex items-center gap-2">
                     <Button variant="ghost" size="sm" onClick={addRow} disabled={isSubmitting}>
@@ -178,6 +144,7 @@ export function ManualImportForm({ onReset }: ManualImportFormProps) {
                 </div>
             </div>
 
+            {/* Rows */}
             {rows.length === 0 ? (
                 <div className="text-muted-foreground flex flex-col items-center gap-3 py-12 text-xs">
                     <p>No students added yet.</p>
@@ -187,168 +154,185 @@ export function ManualImportForm({ onReset }: ManualImportFormProps) {
                     </Button>
                 </div>
             ) : (
-                <>
-                    {/* ── Rows ── stacked guided layout ──────────── */}
-                    <div className="flex max-h-100 max-w-full flex-col gap-4 overflow-auto pt-4 pb-4">
-                        {rows.map((row, index) => (
-                            <div
-                                key={row.id}
-                                id={`student-card-${row.id}`}
-                                className="bg-card space-y-3 rounded-lg border p-4 text-sm"
-                            >
-                                {/* Full Name — full width */}
-                                <div>
-                                    <Label
-                                        htmlFor={`name-${row.id}`}
-                                        className="mb-1.5 block text-xs font-medium"
-                                    >
-                                        Full Name
+                <div className="space-y-2">
+                    {rows.map((row, index) => (
+                        <div key={row.id} className="bg-muted/30 rounded-md p-3">
+                            <div className="mb-2 flex items-center justify-between">
+                                <span className="text-muted-foreground text-xs font-medium">
+                                    Student {index + 1}
+                                </span>
+                                <Button
+                                    variant="ghost"
+                                    size="icon-xs"
+                                    onClick={() => removeRow(row.id)}
+                                    disabled={isSubmitting || rows.length === 1}
+                                    className="text-muted-foreground hover:text-destructive size-6"
+                                    aria-label={`Remove row ${index + 1}`}
+                                >
+                                    <Trash2 className="size-3.5" />
+                                </Button>
+                            </div>
+
+                            {/* Full Name + Gender */}
+                            <div className="mb-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                <div className="space-y-1">
+                                    <Label className="text-[0.625rem]" htmlFor={`name-${row.id}`}>
+                                        Full Name <span className="text-destructive">*</span>
                                     </Label>
                                     <Input
                                         id={`name-${row.id}`}
-                                        value={row.data.full_name}
+                                        value={row.fullName}
                                         onChange={(e) =>
-                                            updateRow(row.id, { full_name: e.target.value })
+                                            updateRow(row.id, { fullName: e.target.value })
                                         }
                                         placeholder="e.g. John Kiprop"
                                         disabled={isSubmitting}
-                                        className="h-9 text-sm"
+                                        className="h-8 text-xs"
                                     />
                                     {fieldErrors[row.id]?.full_name && (
-                                        <p className="text-destructive mt-1 text-xs">
+                                        <p className="text-destructive text-[0.625rem]">
                                             {fieldErrors[row.id].full_name[0]}
                                         </p>
                                     )}
                                 </div>
-
-                                {/* Gender | Date of Birth */}
-                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                    <div>
-                                        <Label className="mb-1.5 block text-xs font-medium">
-                                            Gender
-                                        </Label>
-                                        <Select
-                                            value={row.data.gender ?? ""}
-                                            onValueChange={(v) => updateRow(row.id, { gender: v })}
-                                            disabled={isSubmitting}
-                                        >
-                                            <SelectTrigger className="h-9 text-sm">
-                                                <SelectValue placeholder="-" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="M">Male</SelectItem>
-                                                <SelectItem value="F">Female</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div>
-                                        <Label className="mb-1.5 block text-xs font-medium">
-                                            Date of Birth
-                                        </Label>
-                                        <DatePicker
-                                            value={row.data.date_of_birth ?? ""}
-                                            onChange={(v) =>
-                                                updateRow(row.id, {
-                                                    date_of_birth: v || null,
-                                                })
-                                            }
-                                            placeholder="-"
-                                            disabled={isSubmitting}
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* UPI Number | KNEC Number */}
-                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                    <div>
-                                        <Label className="mb-1.5 block text-xs font-medium">
-                                            UPI Number
-                                        </Label>
-                                        <Input
-                                            value={row.data.upi_number ?? ""}
-                                            onChange={(e) =>
-                                                updateRow(row.id, {
-                                                    upi_number: e.target.value || null,
-                                                })
-                                            }
-                                            placeholder="e.g. UP123456789"
-                                            disabled={isSubmitting}
-                                            className="h-9 text-sm"
-                                        />
-                                    </div>
-                                    <div>
-                                        <Label className="mb-1.5 block text-xs font-medium">
-                                            KNEC Number
-                                        </Label>
-                                        <Input
-                                            value={row.data.knec_assessment_number ?? ""}
-                                            onChange={(e) =>
-                                                updateRow(row.id, {
-                                                    knec_assessment_number: e.target.value || null,
-                                                })
-                                            }
-                                            placeholder="e.g. KNEC123456"
-                                            disabled={isSubmitting}
-                                            className="h-9 text-sm"
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Class | [Delete] */}
-                                <div className="flex items-end gap-3">
-                                    <div className="flex-1">
-                                        <Label className="mb-1.5 block text-xs font-medium">
-                                            Class
-                                        </Label>
-                                        <ClassCombobox
-                                            value={row.data.class_id ?? ""}
-                                            onChange={(v) =>
-                                                updateRow(row.id, {
-                                                    class_id: (v as string) || null,
-                                                })
-                                            }
-                                            placeholder="-"
-                                            className="h-9"
-                                        />
-                                    </div>
-                                    <Button
-                                        variant="outline"
-                                        size="icon"
-                                        onClick={() => removeRow(row.id)}
-                                        disabled={isSubmitting || rows.length === 1}
-                                        className="text-muted-foreground hover:text-destructive hover:border-destructive size-9 shrink-0"
-                                        aria-label={`Remove student ${index + 1}`}
+                                <div className="space-y-1">
+                                    <Label className="text-[0.625rem]" htmlFor={`gender-${row.id}`}>
+                                        Gender
+                                    </Label>
+                                    <Select
+                                        value={row.gender}
+                                        onValueChange={(v) => updateRow(row.id, { gender: v })}
+                                        disabled={isSubmitting}
                                     >
-                                        <Trash2 className="size-4" />
-                                    </Button>
+                                        <SelectTrigger
+                                            id={`gender-${row.id}`}
+                                            className="h-8 text-xs"
+                                        >
+                                            <SelectValue placeholder="-" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="M">Male</SelectItem>
+                                            <SelectItem value="F">Female</SelectItem>
+                                        </SelectContent>
+                                    </Select>
                                 </div>
                             </div>
-                        ))}
-                    </div>
 
-                    {/* ── Footer ───────────────────────────────── */}
-                    <div className="flex items-center justify-between pt-1">
-                        <div className="text-muted-foreground text-[0.625rem]">
-                            {rows.length} student{rows.length !== 1 ? "s" : ""} ready to import
+                            {/* DOB + UPI */}
+                            <div className="mb-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                <div className="space-y-1">
+                                    <Label className="text-[0.625rem]" htmlFor={`dob-${row.id}`}>
+                                        Date of Birth
+                                    </Label>
+                                    <DatePicker
+                                        id={`dob-${row.id}`}
+                                        value={row.dateOfBirth}
+                                        onChange={(v) => updateRow(row.id, { dateOfBirth: v })}
+                                        placeholder="-"
+                                        disabled={isSubmitting}
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label className="text-[0.625rem]" htmlFor={`upi-${row.id}`}>
+                                        UPI Number
+                                    </Label>
+                                    <Input
+                                        id={`upi-${row.id}`}
+                                        value={row.upiNumber}
+                                        onChange={(e) =>
+                                            updateRow(row.id, { upiNumber: e.target.value })
+                                        }
+                                        placeholder="e.g. UP123456789"
+                                        disabled={isSubmitting}
+                                        className="h-8 text-xs"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* KNEC + Admission */}
+                            <div className="mb-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                <div className="space-y-1">
+                                    <Label className="text-[0.625rem]" htmlFor={`knec-${row.id}`}>
+                                        KNEC Number
+                                    </Label>
+                                    <Input
+                                        id={`knec-${row.id}`}
+                                        value={row.knecNumber}
+                                        onChange={(e) =>
+                                            updateRow(row.id, { knecNumber: e.target.value })
+                                        }
+                                        placeholder="e.g. KNEC123456"
+                                        disabled={isSubmitting}
+                                        className="h-8 text-xs"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label className="text-[0.625rem]" htmlFor={`adm-${row.id}`}>
+                                        Admission Number
+                                    </Label>
+                                    <Input
+                                        id={`adm-${row.id}`}
+                                        value={row.admissionNumber}
+                                        onChange={(e) =>
+                                            updateRow(row.id, { admissionNumber: e.target.value })
+                                        }
+                                        placeholder="e.g. ADM001"
+                                        disabled={isSubmitting}
+                                        className="h-8 text-xs"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Class selector */}
+                            <div className="space-y-1">
+                                <Label className="text-[0.625rem]" htmlFor={`class-${row.id}`}>
+                                    Class
+                                </Label>
+                                <ClassCombobox
+                                    value={row.classId}
+                                    onChange={(v) => updateRow(row.id, { classId: v as string })}
+                                    placeholder="None (no enrollment)"
+                                    className="h-8"
+                                />
+                                <p className="text-muted-foreground text-[0.625rem]">
+                                    Leave blank to create without enrollment
+                                </p>
+                            </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                            <Button
-                                size="sm"
-                                onClick={handleImport}
-                                disabled={isSubmitting || rows.length === 0}
-                            >
-                                {isSubmitting ? (
-                                    <>
-                                        <Loader2 className="mr-1.5 size-3.5 animate-spin" />
-                                        Importing…
-                                    </>
-                                ) : (
-                                    `Import ${rows.length} Student${rows.length !== 1 ? "s" : ""}`
-                                )}
-                            </Button>
-                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* Footer */}
+            {rows.length > 0 && (
+                <div className="flex items-center justify-between pt-1">
+                    <div className="text-muted-foreground text-[0.625rem]">
+                        {rows.length} student{rows.length !== 1 ? "s" : ""} ready
                     </div>
-                </>
+                    <div className="flex items-center gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={addRow}
+                            disabled={isSubmitting}
+                        >
+                            <Plus className="mr-1 size-3.5" /> Add Row
+                        </Button>
+                        <Button
+                            size="sm"
+                            onClick={handleImport}
+                            disabled={isSubmitting || rows.length === 0}
+                        >
+                            {submitting ? (
+                                <>
+                                    <Loader2 className="mr-1.5 size-3.5 animate-spin" /> Submitting…
+                                </>
+                            ) : (
+                                `Import ${rows.length} Student${rows.length !== 1 ? "s" : ""}`
+                            )}
+                        </Button>
+                    </div>
+                </div>
             )}
         </div>
     );

@@ -76,11 +76,12 @@ function generateTabId(): string {
 
 interface FileImporterProps {
     onReset: () => void;
+    onJobCreated: (jobId: string, totalRecords: number) => void;
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────
 
-export function FileImporter({ onReset }: FileImporterProps) {
+export function FileImporter({ onReset, onJobCreated }: FileImporterProps) {
     // ── State ──────────────────────────────────────────────────────────
     const [currentStep, setCurrentStep] = React.useState<WizardStep>("upload");
     const [tabId] = React.useState(generateTabId);
@@ -167,6 +168,16 @@ export function FileImporter({ onReset }: FileImporterProps) {
 
     // ── Handlers for step transitions ──────────────────────────────────
 
+    // ── Gender normalization ──────────────────────────────────────────
+    /** Normalize gender values from the file to "M" or "F". */
+    function normalizeGender(raw: string | undefined | null): string | undefined {
+        if (!raw) return undefined;
+        const lower = raw.trim().toLowerCase();
+        if (["m", "male", "boy", "masculine"].includes(lower)) return "M";
+        if (["f", "female", "girl", "feminine"].includes(lower)) return "F";
+        return raw.trim() || undefined;
+    }
+
     // ── Build staged records from parsed file + mappings ───────────────
 
     const buildStagedRecords = React.useCallback(
@@ -184,6 +195,9 @@ export function FileImporter({ onReset }: FileImporterProps) {
                         // Class resolution
                         const rawClass = (row[sourceValue as string] ?? "").trim();
                         payload.class_id = classMappings[rawClass] ?? null;
+                    } else if (targetKey === "gender") {
+                        // Normalize gender to M or F
+                        payload.gender = normalizeGender(row[sourceValue as string] as string);
                     } else if (Array.isArray(sourceValue)) {
                         // Multi-column concatenation (e.g., full_name)
                         const parts = sourceValue.map((h) => (row[h] ?? "").trim()).filter(Boolean);
@@ -434,7 +448,11 @@ export function FileImporter({ onReset }: FileImporterProps) {
             )}
 
             {currentStep === "streaming" && (
-                <StepStreaming onComplete={handleImportComplete} onError={handleImportError} />
+                <StepStreaming
+                    onComplete={handleImportComplete}
+                    onError={handleImportError}
+                    onJobCreated={onJobCreated}
+                />
             )}
         </section>
     );

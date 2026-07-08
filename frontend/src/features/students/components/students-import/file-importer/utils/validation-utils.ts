@@ -65,6 +65,17 @@ function validateField(value: string | undefined | null, targetKey: string): Fie
         }
     }
 
+    // ── gender ─────────────────────────────────────────────────────────
+    if (targetKey === "gender" && value && value.trim().length > 0) {
+        const lower = value.trim().toLowerCase();
+        if (lower !== "m" && lower !== "f") {
+            errors.push(
+                `Gender must be "M" or "F". Got "${value.trim()}". ` +
+                    `Common values like "Male", "Female", "Boy", "Girl" are auto-normalized.`
+            );
+        }
+    }
+
     // ── date_of_birth ──────────────────────────────────────────────────
     if (targetKey === "date_of_birth" && value && value.trim().length > 0) {
         const dateStr = value.trim();
@@ -113,7 +124,7 @@ export function validateRecord(record: StagedStudentRecord): StagedStudentRecord
 
     // Validate each mapped field
     for (const [key, value] of Object.entries(record.payload)) {
-        if (key === "full_name" || key === "date_of_birth") {
+        if (key === "full_name" || key === "date_of_birth" || key === "gender") {
             const result = validateField(value as string | undefined, key);
             errors.push(...result.errors);
             allWarnings.push(...result.warnings);

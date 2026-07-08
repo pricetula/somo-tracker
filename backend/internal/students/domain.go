@@ -141,8 +141,8 @@ type ListFilter struct {
 // ============================================================================
 
 // ImportRow represents a single student row in a bulk import.
-// GradeLevel and StreamName are optional. When both are empty, the student
-// is created without an enrollment (no class assignment for the term).
+// ClassID is optional. When empty, the student is created without an
+// enrollment (no class assignment for the term).
 type ImportRow struct {
 	FullName             string  `json:"full_name"`
 	Gender               string  `json:"gender"`
@@ -150,8 +150,7 @@ type ImportRow struct {
 	UPINumber            *string `json:"upi_number,omitempty"`
 	KNECAssessmentNumber *string `json:"knec_assessment_number,omitempty"`
 	AdmissionNumber      *string `json:"admission_number,omitempty"`
-	GradeLevel           string  `json:"grade_level,omitempty"`
-	StreamName           string  `json:"stream_name,omitempty"`
+	ClassID              string  `json:"class_id,omitempty"`
 }
 
 // ImportRequest is the request body for POST /students/import.
@@ -175,10 +174,6 @@ type ImportResponse struct {
 
 // ImportRepository defines what the student Importer needs from the DB.
 type ImportRepository interface {
-	// ResolveClassByGradeAndStream resolves (grade_level, stream_name) to a class_id
-	// for the given tenant/school/academic_year. Returns nil if no match.
-	ResolveClassByGradeAndStream(ctx context.Context, tenantID, schoolID, academicYearID, gradeLevel, streamName string) (*string, error)
-
 	// CheckSchoolAdminMembership verifies the caller has SCHOOL_ADMIN for the school.
 	CheckSchoolAdminMembership(ctx context.Context, userID, tenantID, schoolID string) (bool, error)
 }

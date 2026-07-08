@@ -8,7 +8,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
-import { ManualImportForm } from "../manual-import-form";
+import { StudentManualImportForm as ManualImportForm } from "../manual-import-form";
 
 // ── Mocks ─────────────────────────────────────────────────────────────────
 
@@ -127,7 +127,7 @@ vi.mock("@/components/ui/date-picker", () => ({
 
 function renderForm(onReset = vi.fn()) {
     const user = userEvent.setup();
-    const result = render(<ManualImportForm onReset={onReset} />);
+    const result = render(<ManualImportForm onReset={onReset} onJobCreated={vi.fn()} />);
     return { onReset, user, ...result };
 }
 

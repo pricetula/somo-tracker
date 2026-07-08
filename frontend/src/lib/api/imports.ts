@@ -43,10 +43,8 @@ export interface ImportRow {
     upi_number?: string | null;
     knec_assessment_number?: string | null;
     admission_number?: string | null;
-    /** When both grade_level and stream_name are empty, the student is created without an enrollment. */
-    grade_level?: string;
-    /** When both grade_level and stream_name are empty, the student is created without an enrollment. */
-    stream_name?: string;
+    /** Class ID to enroll the student in. Empty/omit to create without enrollment. */
+    class_id?: string;
 }
 
 // ============================================================================

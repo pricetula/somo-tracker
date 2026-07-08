@@ -1,5 +1,18 @@
-import React from "react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { FileQuestion } from "lucide-react";
 
 export default function DashboardNotFound() {
-    return <article>not found ooo</article>;
+    return (
+        <div className="flex min-h-100 flex-col items-center justify-center gap-4">
+            <FileQuestion className="text-muted-foreground h-12 w-12" />
+            <h1 className="text-2xl font-semibold tracking-tight">Page Not Found</h1>
+            <p className="text-muted-foreground max-w-md text-center text-sm">
+                The page you&apos;re looking for doesn&apos;t exist or has been moved.
+            </p>
+            <Button variant="outline" asChild>
+                <Link href="/">Go to Dashboard</Link>
+            </Button>
+        </div>
+    );
 }

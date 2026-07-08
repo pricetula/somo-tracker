@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -53,7 +52,7 @@ func NewService(repo ServiceRepository, pools *database.Pools, asynqClient *asyn
 }
 
 // ============================================================================
-// CreateJob — creates job + staging rows, enqueues chunk tasks
+// CreateJob — creates job + staging rows + chunk rows + enqueues chunk tasks
 // ============================================================================
 
 // CreateJobRequest is the input to create an import job.
@@ -95,7 +94,7 @@ func computePayloadHash(rows []json.RawMessage) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// CreateJob creates an import job, writes staging rows, and enqueues chunk tasks.
+// CreateJob creates an import job, writes staging rows, chunk rows, and enqueues chunk tasks.
 // When an idempotency_key is provided the method uses INSERT ... ON CONFLICT DO NOTHING
 // for concurrent-safe deduplication. See the idempotency rules documented in
 // docs/student-import-architecture.md.
@@ -115,6 +114,23 @@ func (s *Service) CreateJob(ctx context.Context, req CreateJobRequest) (*CreateJ
 
 	// Compute payload hash for idempotency (stable, deterministic hash of rows)
 	payloadHash := computePayloadHash(req.Rows)
+
+	// Build chunk definitions (used in both paths)
+	chunks := make([]Chunk, totalChunks)
+	for i := 0; i < totalChunks; i++ {
+		chunks[i] = Chunk{
+			ChunkIndex:     i,
+			RowNumberStart: i * ChunkSize,
+			RowNumberEnd:   (i * ChunkSize) + ChunkSize,
+		}
+	}
+	// Ensure the last chunk's RowNumberEnd doesn't exceed max int
+	if totalChunks > 0 {
+		last := &chunks[totalChunks-1]
+		if last.RowNumberEnd > totalRecords {
+			last.RowNumberEnd = totalRecords
+		}
+	}
 
 	// ── Idempotent path: idempotency_key present ──────────────────────
 	if req.IDempotencyKey != nil && *req.IDempotencyKey != "" {
@@ -139,6 +155,10 @@ func (s *Service) CreateJob(ctx context.Context, req CreateJobRequest) (*CreateJ
 		if isNew {
 			// Newly created — proceed with regular flow (staging, chunking, enqueue)
 			jobID := createdJob.ID
+			// Assign job ID to chunks
+			for i := range chunks {
+				chunks[i].JobID = jobID
+			}
 
 			// Build and write staging rows
 			stagingRows := make([]StagingRow, len(req.Rows))
@@ -155,6 +175,11 @@ func (s *Service) CreateJob(ctx context.Context, req CreateJobRequest) (*CreateJ
 
 			if err := s.repo.InsertStagingRows(ctx, stagingRows); err != nil {
 				return nil, fmt.Errorf("imports.Service.CreateJob: insert staging: %w", err)
+			}
+
+			// Write chunk rows
+			if err := s.repo.InsertChunkRows(ctx, chunks); err != nil {
+				return nil, fmt.Errorf("imports.Service.CreateJob: insert chunks: %w", err)
 			}
 
 			// Enqueue chunk tasks
@@ -244,6 +269,11 @@ func (s *Service) CreateJob(ctx context.Context, req CreateJobRequest) (*CreateJ
 	}
 	job.ID = jobID
 
+	// Assign job ID to chunks
+	for i := range chunks {
+		chunks[i].JobID = jobID
+	}
+
 	// Build staging rows
 	stagingRows := make([]StagingRow, len(req.Rows))
 	for i, raw := range req.Rows {
@@ -260,6 +290,11 @@ func (s *Service) CreateJob(ctx context.Context, req CreateJobRequest) (*CreateJ
 	// Write all staging rows in one batch
 	if err := s.repo.InsertStagingRows(ctx, stagingRows); err != nil {
 		return nil, fmt.Errorf("imports.Service.CreateJob: insert staging: %w", err)
+	}
+
+	// Write chunk rows
+	if err := s.repo.InsertChunkRows(ctx, chunks); err != nil {
+		return nil, fmt.Errorf("imports.Service.CreateJob: insert chunks: %w", err)
 	}
 
 	// Enqueue chunk tasks
@@ -295,7 +330,6 @@ func (s *Service) CreateJob(ctx context.Context, req CreateJobRequest) (*CreateJ
 func (s *Service) enqueueChunks(ctx context.Context, jobID uuid.UUID, totalChunks int) error {
 	for i := 0; i < totalChunks; i++ {
 		rowStart := i * ChunkSize
-		// Last chunk may be smaller — row count is handled by the executor when it queries
 
 		payload := ChunkTaskPayload{
 			JobID:          jobID.String(),
@@ -321,15 +355,31 @@ func (s *Service) enqueueChunks(ctx context.Context, jobID uuid.UUID, totalChunk
 }
 
 // ============================================================================
-// ProcessChunk — executed by the Asynq worker
+// ProcessChunk — executed by the Asynq worker (idempotent against redelivery)
 // ============================================================================
 
 // ProcessChunk handles a single chunk execution. This is the core of the
-// chunk executor.
+// chunk executor. It is safe against redelivery: chunk claiming, pending-only
+// row filtering, atomic insert+mark, and idempotent chunk completion ensure
+// a chunk is never processed twice in a way that duplicates data.
 func (s *Service) ProcessChunk(ctx context.Context, payload ChunkTaskPayload) error {
 	jobID, err := uuid.Parse(payload.JobID)
 	if err != nil {
 		return fmt.Errorf("imports.Service.ProcessChunk: parse job id: %w", err)
+	}
+
+	// ── Step 1: Atomically claim the chunk ────────────────────────────────
+	chunkID, err := s.repo.ClaimChunk(ctx, jobID, payload.ChunkIndex)
+	if err != nil {
+		return fmt.Errorf("imports.Service.ProcessChunk: claim chunk: %w", err)
+	}
+	if chunkID == uuid.Nil {
+		// Another attempt already claimed or completed this chunk — safe to skip
+		slog.InfoContext(ctx, "imports.Service.ProcessChunk: chunk already claimed or completed, skipping",
+			"job_id", jobID,
+			"chunk", payload.ChunkIndex,
+		)
+		return nil
 	}
 
 	// Look up the job to find its type and tenant/school
@@ -344,7 +394,7 @@ func (s *Service) ProcessChunk(ctx context.Context, payload ChunkTaskPayload) er
 		return fmt.Errorf("imports.Service.ProcessChunk: no importer registered for job type %q", job.JobType)
 	}
 
-	// Load staging rows for this chunk
+	// ── Step 2: Load staging rows (pending only) ─────────────────────────
 	rows, err := s.repo.GetStagingRows(ctx, jobID, payload.RowNumberStart, payload.RowNumberEnd)
 	if err != nil {
 		return fmt.Errorf("imports.Service.ProcessChunk: get staging rows: %w", err)
@@ -352,7 +402,7 @@ func (s *Service) ProcessChunk(ctx context.Context, payload ChunkTaskPayload) er
 
 	if len(rows) == 0 {
 		// No rows to process — mark chunk as completed with 0 results
-		_, _, err := s.repo.AtomicChunkCompletion(ctx, jobID, 0, 0, 0)
+		_, _, err := s.repo.AtomicChunkCompletion(ctx, jobID, chunkID, 0, 0, 0)
 		return err
 	}
 
@@ -362,35 +412,37 @@ func (s *Service) ProcessChunk(ctx context.Context, payload ChunkTaskPayload) er
 		rawRows[i] = row.RawData
 	}
 
-	// Step 1: Validate all rows
+	// Step 3: Validate all rows
 	validated, validationFailures := imp.Validate(ctx, job.TenantID, job.SchoolID, rawRows)
 
-	// Map validation failures to row numbers (using staging row indices)
+	// Attach staging row IDs to validated rows, and map validation failures
 	var allFailures []RowFailure
 	for _, f := range validationFailures {
-		// Find the actual row_number in staging
 		rowNum := f.RowNumber
 		if rowNum < len(rows) {
 			f.RowNumber = rows[rowNum].RowNumber
 		}
 		allFailures = append(allFailures, f)
 	}
+	for i := range validated {
+		if i < len(rows) {
+			validated[i].StagingRowID = rows[i].ID
+		}
+	}
 
-	// Step 1b: Resolve cross-table references (grade/stream → class_id, etc.)
+	// Step 4: Resolve cross-table references
 	resolved, resolveFailures := imp.ResolveReferences(ctx, job.TenantID, job.SchoolID, job.Metadata, validated)
 	allFailures = append(allFailures, resolveFailures...)
 
-	// Step 2: Attempt bulk insert
+	// Step 5: Attempt bulk insert with savepoint fallback
 	successCount := 0
 	dbFailures := 0
 
 	if len(resolved) > 0 {
-		// Start a transaction for this chunk
 		tx, err := s.beginTx(ctx)
 		if err != nil {
 			return fmt.Errorf("imports.Service.ProcessChunk: begin tx: %w", err)
 		}
-		// Use deferred rollback pattern
 		defer func() {
 			if err := tx.Rollback(ctx); err != nil && err != pgx.ErrTxClosed {
 				slog.ErrorContext(ctx, "imports.Service.ProcessChunk: deferred rollback",
@@ -418,23 +470,24 @@ func (s *Service) ProcessChunk(ctx context.Context, payload ChunkTaskPayload) er
 		}
 	}
 
-	// Step 3: Write failures
+	// Step 6: Write failures
 	if len(allFailures) > 0 {
 		if err := s.repo.InsertFailures(ctx, jobID, allFailures); err != nil {
 			return fmt.Errorf("imports.Service.ProcessChunk: insert failures: %w", err)
 		}
 	}
 
-	// Step 4: Mark staging rows as processed
-	if err := s.repo.MarkStagingRows(ctx, jobID, payload.RowNumberStart, payload.RowNumberEnd,
-		ImportStagingStatusSucceeded); err != nil {
-		return fmt.Errorf("imports.Service.ProcessChunk: mark staging rows: %w", err)
+	// Step 7: Atomic chunk completion (idempotent — guarded by chunk status)
+	// Use the total expected row count for the chunk (not just pending rows)
+	// so that processed_records reflects the full chunk, including rows that
+	// were already committed by a prior crashed attempt.
+	chunkTotal := payload.RowNumberEnd - payload.RowNumberStart
+	// Clamp to the job's total records for the last (partial) chunk
+	if job.TotalRecords > 0 && chunkTotal > job.TotalRecords-payload.RowNumberStart {
+		chunkTotal = job.TotalRecords - payload.RowNumberStart
 	}
-
-	// Step 5: Atomic chunk completion
-	chunkProcessed := len(rows)
-	newStatus, _, err := s.repo.AtomicChunkCompletion(ctx, jobID,
-		chunkProcessed, successCount, len(allFailures))
+	newStatus, _, err := s.repo.AtomicChunkCompletion(ctx, jobID, chunkID,
+		chunkTotal, successCount, len(allFailures))
 	if err != nil {
 		return fmt.Errorf("imports.Service.ProcessChunk: atomic completion: %w", err)
 	}
@@ -442,7 +495,7 @@ func (s *Service) ProcessChunk(ctx context.Context, payload ChunkTaskPayload) er
 	slog.InfoContext(ctx, "imports.Service.ProcessChunk: chunk completed",
 		"job_id", jobID,
 		"chunk", payload.ChunkIndex,
-		"processed", chunkProcessed,
+		"processed", chunkTotal,
 		"succeeded", successCount,
 		"failed", len(allFailures),
 		"status", newStatus,
@@ -452,6 +505,7 @@ func (s *Service) ProcessChunk(ctx context.Context, payload ChunkTaskPayload) er
 }
 
 // insertWithSavepoints falls back to per-row inserts when bulk insert fails.
+// Each savepoint atomically inserts the student + marks the staging row 'succeeded'.
 // Returns the number of rows that failed.
 func (s *Service) insertWithSavepoints(
 	ctx context.Context,
@@ -485,6 +539,12 @@ func (s *Service) insertWithSavepoints(
 				return 0, fmt.Errorf("rollback savepoint: %w", rbErr)
 			}
 		} else {
+			// Mark staging row as succeeded within the same savepoint
+			// (atomic insert + mark — no code path where insert commits but staging is left pending)
+			if err := s.repo.MarkStagingRowSucceeded(ctx, tx, vRow.StagingRowID); err != nil {
+				return 0, fmt.Errorf("mark staging row succeeded: %w", err)
+			}
+
 			_, relErr := tx.Exec(ctx, "RELEASE SAVEPOINT import_row")
 			if relErr != nil {
 				return 0, fmt.Errorf("release savepoint: %w", relErr)
@@ -528,9 +588,4 @@ func (s *Service) GetFailures(ctx context.Context, jobID uuid.UUID, limit, offse
 func toBytes(v interface{}) []byte {
 	data, _ := json.Marshal(v)
 	return data
-}
-
-func isNotFound(err error) bool {
-	return err != nil && (err.Error() == "no rows in result set" ||
-		errors.Is(err, ErrNotFound))
 }

@@ -17,7 +17,7 @@ import (
 // ============================================================================
 
 // augmentedImportRow extends ImportRow with the tenant/school/academic context
-// injected by ResolveReferences.
+// injected by ResolveReferences plus the staging row ID for idempotent inserts.
 type augmentedImportRow struct {
 	FullName             string  `json:"full_name"`
 	Gender               string  `json:"gender"`
@@ -26,6 +26,7 @@ type augmentedImportRow struct {
 	KNECAssessmentNumber *string `json:"knec_assessment_number,omitempty"`
 	AdmissionNumber      *string `json:"admission_number,omitempty"`
 	ClassID              string  `json:"class_id,omitempty"`
+	StagingRowID         string  `json:"staging_row_id,omitempty"`
 	TenantID             string  `json:"tenant_id"`
 	SchoolID             string  `json:"school_id"`
 	AcademicTermID       string  `json:"academic_term_id"`
@@ -105,8 +106,8 @@ func (si *StudentImporter) Validate(ctx context.Context, tenantID, schoolID uuid
 }
 
 // ResolveReferences injects metadata (tenant_id, school_id, academic_term_id,
-// academic_year_id) into each row. No class resolution is needed since
-// class_id is passed directly from the frontend.
+// academic_year_id) and staging_row_id into each row. No class resolution is
+// needed since class_id is passed directly from the frontend.
 func (si *StudentImporter) ResolveReferences(ctx context.Context, tenantID, schoolID uuid.UUID, metadata json.RawMessage, rows []imports.ValidatedRow) ([]imports.ValidatedRow, []imports.RowFailure) {
 	if len(rows) == 0 {
 		return rows, nil
@@ -154,6 +155,7 @@ func (si *StudentImporter) ResolveReferences(ctx context.Context, tenantID, scho
 			KNECAssessmentNumber: importRow.KNECAssessmentNumber,
 			AdmissionNumber:      importRow.AdmissionNumber,
 			ClassID:              importRow.ClassID,
+			StagingRowID:         row.StagingRowID.String(),
 		}
 
 		augData, err := json.Marshal(aug)
@@ -167,7 +169,10 @@ func (si *StudentImporter) ResolveReferences(ctx context.Context, tenantID, scho
 			continue
 		}
 
-		resolved = append(resolved, imports.ValidatedRow{RawData: augData})
+		resolved = append(resolved, imports.ValidatedRow{
+			RawData:      augData,
+			StagingRowID: row.StagingRowID,
+		})
 	}
 
 	return resolved, failures
@@ -183,14 +188,17 @@ func (si *StudentImporter) BulkInsert(ctx context.Context, tx pgx.Tx, rows []imp
 }
 
 // InsertOne inserts a single student (and optionally an enrollment) inside a savepoint.
-// If the row has no class_id, only the student record is created.
+// The student INSERT includes staging_row_id for idempotent redelivery safety.
+// If a (school_id, staging_row_id) unique constraint is violated (the row was
+// already inserted by a prior attempt), it is treated as success — the row is
+// not recorded as a failure.
 func (si *StudentImporter) InsertOne(ctx context.Context, tx pgx.Tx, row imports.ValidatedRow) error {
 	var aug augmentedImportRow
 	if err := json.Unmarshal(row.RawData, &aug); err != nil {
 		return fmt.Errorf("unmarshal augmented row: %w", err)
 	}
 
-	// Step 1: Insert the student record
+	// Step 1: Insert the student record with staging_row_id for idempotency
 	studentID, err := si.insertStudent(ctx, tx, aug)
 	if err != nil {
 		return fmt.Errorf("insert student: %w", err)
@@ -207,17 +215,25 @@ func (si *StudentImporter) InsertOne(ctx context.Context, tx pgx.Tx, row imports
 }
 
 // insertStudent inserts a single student row and returns the new ID.
+// Uses ON CONFLICT on (school_id, staging_row_id) for defense-in-depth:
+// if a row with this staging_row_id already exists (crash after insert but before
+// staging mark), the conflict is treated as a no-op success and the existing ID
+// is returned rather than surfacing a duplicate error.
 func (si *StudentImporter) insertStudent(ctx context.Context, tx pgx.Tx, aug augmentedImportRow) (string, error) {
 	query := `
 		INSERT INTO cbc_students (tenant_id, school_id, full_name, gender, date_of_birth,
-		                          upi_number, knec_assessment_number, admission_number, is_active)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)
+		                          upi_number, knec_assessment_number, admission_number,
+		                          staging_row_id, is_active)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, true)
+		ON CONFLICT (school_id, staging_row_id) WHERE staging_row_id IS NOT NULL
+		DO UPDATE SET staging_row_id = EXCLUDED.staging_row_id
 		RETURNING id
 	`
 	var id string
 	err := tx.QueryRow(ctx, query,
 		aug.TenantID, aug.SchoolID, aug.FullName, aug.Gender,
 		aug.DateOfBirth, aug.UPINumber, aug.KNECAssessmentNumber, aug.AdmissionNumber,
+		aug.StagingRowID,
 	).Scan(&id)
 	if err != nil {
 		return "", err

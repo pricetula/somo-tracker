@@ -221,6 +221,11 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 DO $$ BEGIN
+    CREATE TYPE import_chunk_status AS ENUM ('pending', 'processing', 'completed');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
     CREATE TYPE import_failure_type AS ENUM (
         'SCHEMA_VALIDATION',
         'DATABASE_CONSTRAINT',
@@ -620,6 +625,31 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_import_jobs_tenant_idempotency
     ON import_jobs (tenant_id, idempotency_key)
     WHERE idempotency_key IS NOT NULL;
 
+-- ---------------------------------------------------------------------------
+-- IMPORT JOB CHUNKS — Track chunk claim/redelivery safety
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS import_job_chunks (
+    id            UUID                PRIMARY KEY DEFAULT gen_random_uuid(),
+    job_id        UUID                NOT NULL REFERENCES import_jobs(id) ON DELETE CASCADE,
+    chunk_index   INT                 NOT NULL,
+    status        import_chunk_status NOT NULL DEFAULT 'pending',
+    row_start     INT                 NOT NULL DEFAULT 0,
+    row_end       INT                 NOT NULL DEFAULT 0,
+    claimed_at    TIMESTAMPTZ         NULL,
+    completed_at  TIMESTAMPTZ         NULL,
+    created_at    TIMESTAMPTZ         NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT uq_import_job_chunks_job_chunk UNIQUE (job_id, chunk_index)
+);
+
+CREATE INDEX IF NOT EXISTS idx_import_job_chunks_job_id ON import_job_chunks (job_id);
+CREATE INDEX IF NOT EXISTS idx_import_job_chunks_status ON import_job_chunks (job_id, status);
+
+-- ---------------------------------------------------------------------------
+-- IMPORT JOB FAILURES
+-- ---------------------------------------------------------------------------
+
 CREATE TABLE IF NOT EXISTS import_job_failures (
     id            BIGSERIAL            PRIMARY KEY,
     import_job_id UUID                 NOT NULL REFERENCES import_jobs(id) ON DELETE CASCADE,
@@ -740,6 +770,7 @@ CREATE TABLE IF NOT EXISTS cbc_students (
     knec_assessment_number VARCHAR(15)          NULL,
     admission_number       VARCHAR(20)          NULL,
     learning_pathway       cbc_learning_pathway NOT NULL DEFAULT 'Age_Based',
+    staging_row_id         UUID                 NULL REFERENCES import_job_staging(id) ON DELETE SET NULL,
     is_active              BOOLEAN              NOT NULL DEFAULT true,
     created_at             TIMESTAMPTZ          NOT NULL DEFAULT NOW(),
     updated_at             TIMESTAMPTZ          NOT NULL DEFAULT NOW(),
@@ -752,6 +783,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_cbc_students_upi
     ON cbc_students (upi_number) WHERE upi_number IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_cbc_students_knec_assessment_number
     ON cbc_students (knec_assessment_number) WHERE knec_assessment_number IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_cbc_students_school_staging_row
+    ON cbc_students (school_id, staging_row_id) WHERE staging_row_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_cbc_students_tenant_id ON cbc_students (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_cbc_students_school_id ON cbc_students (school_id);
 

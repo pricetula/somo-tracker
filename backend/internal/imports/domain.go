@@ -66,6 +66,16 @@ const (
 	ImportStagingStatusFailed    ImportStagingStatus = "failed"
 )
 
+// ImportChunkStatus maps to the import_chunk_status DB enum.
+
+type ImportChunkStatus string
+
+const (
+	ImportChunkStatusPending    ImportChunkStatus = "pending"
+	ImportChunkStatusProcessing ImportChunkStatus = "processing"
+	ImportChunkStatusCompleted  ImportChunkStatus = "completed"
+)
+
 // ============================================================================
 // ImportFailureType maps to the import_failure_type DB enum.
 // ============================================================================
@@ -130,8 +140,10 @@ type RowFailure struct {
 }
 
 // ValidatedRow is an opaque validated row — the engine does not inspect its contents.
+// StagingRowID links this row back to the import_job_staging row for idempotent insert tracking.
 type ValidatedRow struct {
-	RawData json.RawMessage
+	RawData      json.RawMessage
+	StagingRowID uuid.UUID
 }
 
 // ChunkResult is returned by a chunk executor after processing.
@@ -210,10 +222,22 @@ type ServiceRepository interface {
 	// InsertFailures inserts multiple failure records.
 	InsertFailures(ctx context.Context, jobID uuid.UUID, failures []RowFailure) error
 
-	// AtomicChunkCompletion runs the single UPDATE that advances counters and
-	// determines the new job status. Returns the updated status and a boolean
-	// indicating whether the job is terminal (completed/completed_with_errors/failed).
-	AtomicChunkCompletion(ctx context.Context, jobID uuid.UUID, chunkProcessed, chunkSuccess, chunkFailed int) (ImportJobStatus, bool, error)
+	// ClaimChunk atomically transitions a chunk from 'pending' to 'processing'.
+	// Returns the chunk ID if claimed, or uuid.Nil if another worker already claimed it.
+	ClaimChunk(ctx context.Context, jobID uuid.UUID, chunkIndex int) (uuid.UUID, error)
+
+	// InsertChunkRows inserts import_job_chunks rows for a job.
+	InsertChunkRows(ctx context.Context, chunks []Chunk) error
+
+	// AtomicChunkCompletion atomically transitions a chunk from 'processing' to 'completed'
+	// and, only on success, increments job counters. If the chunk is already 'completed'
+	// it is a no-op — counters are not re-incremented.
+	// Returns the updated status and a boolean indicating terminal state.
+	AtomicChunkCompletion(ctx context.Context, jobID uuid.UUID, chunkID uuid.UUID, chunkProcessed, chunkSuccess, chunkFailed int) (ImportJobStatus, bool, error)
+
+	// MarkStagingRowSucceeded sets a single staging row to 'succeeded' within the caller's
+	// transaction/savepoint. Used alongside InsertOne for atomic insert+mark.
+	MarkStagingRowSucceeded(ctx context.Context, tx pgx.Tx, stagingRowID uuid.UUID) error
 
 	// UpdateJobStatus sets the job status (for job-level fail).
 	UpdateJobStatus(ctx context.Context, jobID uuid.UUID, status ImportJobStatus) error

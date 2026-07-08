@@ -172,13 +172,44 @@ func (r *PgRepository) InsertStagingRows(ctx context.Context, rows []StagingRow)
 	return nil
 }
 
+// ─── InsertChunkRows ──────────────────────────────────────────────────────
+
+func (r *PgRepository) InsertChunkRows(ctx context.Context, chunks []Chunk) error {
+	if len(chunks) == 0 {
+		return nil
+	}
+
+	valueStrs := make([]string, len(chunks))
+	args := make([]interface{}, 0, len(chunks)*4)
+
+	for i, c := range chunks {
+		base := i * 4
+		valueStrs[i] = fmt.Sprintf("($%d, $%d, $%d, $%d)",
+			base+1, base+2, base+3, base+4)
+		args = append(args, c.JobID, c.ChunkIndex, c.RowNumberStart, c.RowNumberEnd)
+	}
+
+	query := fmt.Sprintf(`
+		INSERT INTO import_job_chunks (job_id, chunk_index, row_start, row_end)
+		VALUES %s
+	`, strings.Join(valueStrs, ", "))
+
+	_, err := r.pool.Exec(ctx, query, args...)
+	if err != nil {
+		return fmt.Errorf("imports.Repository.InsertChunkRows: %w", err)
+	}
+	return nil
+}
+
 // ─── GetStagingRows ────────────────────────────────────────────────────────
 
 func (r *PgRepository) GetStagingRows(ctx context.Context, jobID uuid.UUID, rowStart, rowEnd int) ([]StagingRow, error) {
+	// Filter to 'pending' only — rows already succeeded/failed from a prior
+	// partial attempt are skipped for redelivery safety.
 	query := `
 		SELECT id, job_id, tenant_id, school_id, row_number, raw_data, status
 		FROM import_job_staging
-		WHERE job_id = $1 AND row_number >= $2 AND row_number < $3
+		WHERE job_id = $1 AND row_number >= $2 AND row_number < $3 AND status = 'pending'
 		ORDER BY row_number ASC
 	`
 	rows, err := r.pool.Query(ctx, query, jobID, rowStart, rowEnd)
@@ -221,6 +252,21 @@ func (r *PgRepository) MarkStagingRows(ctx context.Context, jobID uuid.UUID, row
 	return nil
 }
 
+// ─── MarkStagingRowSucceeded ────────────────────────────────────────────────
+
+func (r *PgRepository) MarkStagingRowSucceeded(ctx context.Context, tx pgx.Tx, stagingRowID uuid.UUID) error {
+	query := `
+		UPDATE import_job_staging
+		SET status = 'succeeded', processed_at = NOW()
+		WHERE id = $1
+	`
+	_, err := tx.Exec(ctx, query, stagingRowID)
+	if err != nil {
+		return fmt.Errorf("imports.Repository.MarkStagingRowSucceeded: %w", err)
+	}
+	return nil
+}
+
 // ─── InsertFailures ────────────────────────────────────────────────────────
 
 func (r *PgRepository) InsertFailures(ctx context.Context, jobID uuid.UUID, failures []RowFailure) error {
@@ -250,10 +296,40 @@ func (r *PgRepository) InsertFailures(ctx context.Context, jobID uuid.UUID, fail
 	return nil
 }
 
+// ─── ClaimChunk ─────────────────────────────────────────────────────────────
+
+func (r *PgRepository) ClaimChunk(ctx context.Context, jobID uuid.UUID, chunkIndex int) (uuid.UUID, error) {
+	query := `
+		UPDATE import_job_chunks
+		SET status = 'processing', claimed_at = NOW()
+		WHERE job_id = $1 AND chunk_index = $2 AND status = 'pending'
+		RETURNING id
+	`
+	var id uuid.UUID
+	err := r.pool.QueryRow(ctx, query, jobID, chunkIndex).Scan(&id)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			// Chunk already claimed or completed — not an error, just no-op
+			return uuid.Nil, nil
+		}
+		return uuid.Nil, fmt.Errorf("imports.Repository.ClaimChunk: %w", err)
+	}
+	return id, nil
+}
+
 // ─── AtomicChunkCompletion ─────────────────────────────────────────────────
 
-func (r *PgRepository) AtomicChunkCompletion(ctx context.Context, jobID uuid.UUID, chunkProcessed, chunkSuccess, chunkFailed int) (ImportJobStatus, bool, error) {
+func (r *PgRepository) AtomicChunkCompletion(ctx context.Context, jobID uuid.UUID, chunkID uuid.UUID, chunkProcessed, chunkSuccess, chunkFailed int) (ImportJobStatus, bool, error) {
+	// First: transition the chunk from 'processing' to 'completed'.
+	// Only if that succeeds, increment job counters.
+	// If the chunk is already 'completed', this is a no-op.
 	query := `
+		WITH chunk_update AS (
+			UPDATE import_job_chunks
+			SET status = 'completed', completed_at = NOW()
+			WHERE id = $1 AND status = 'processing'
+			RETURNING id, job_id
+		)
 		UPDATE import_jobs
 		SET
 		    processed_records = processed_records + $2,
@@ -266,13 +342,23 @@ func (r *PgRepository) AtomicChunkCompletion(ctx context.Context, jobID uuid.UUI
 		        ELSE 'processing'::import_job_status
 		    END,
 		    completed_at = CASE WHEN processed_chunks + 1 = total_chunks THEN NOW() ELSE completed_at END
-		WHERE id = $1
-		RETURNING status, processed_chunks, total_chunks
+		FROM chunk_update
+		WHERE import_jobs.id = chunk_update.job_id
+		RETURNING import_jobs.status, import_jobs.processed_chunks, import_jobs.total_chunks
 	`
 	var status string
 	var processedChunks, totalChunks int
-	err := r.pool.QueryRow(ctx, query, jobID, chunkProcessed, chunkSuccess, chunkFailed).Scan(&status, &processedChunks, &totalChunks)
+	err := r.pool.QueryRow(ctx, query, chunkID, chunkProcessed, chunkSuccess, chunkFailed).Scan(&status, &processedChunks, &totalChunks)
 	if err != nil {
+		if err == pgx.ErrNoRows {
+			// Chunk is already completed — no-op. Return current state by fetching job.
+			job, fetchErr := r.GetJobByID(ctx, jobID)
+			if fetchErr != nil {
+				return "", false, fmt.Errorf("imports.Repository.AtomicChunkCompletion: fetch after no-op: %w", fetchErr)
+			}
+			isTerminal := job.ProcessedChunks >= job.TotalChunks
+			return job.Status, isTerminal, nil
+		}
 		return "", false, fmt.Errorf("imports.Repository.AtomicChunkCompletion: %w", err)
 	}
 
@@ -383,17 +469,4 @@ func (r *PgRepository) GetFailures(ctx context.Context, jobID uuid.UUID, limit, 
 		failures = []RowFailure{}
 	}
 	return failures, total, nil
-}
-
-// ============================================================================
-// Helpers
-// ============================================================================
-
-func isUniqueViolation(err error, constraint string) bool {
-	if err == nil {
-		return false
-	}
-	msg := err.Error()
-	return strings.Contains(msg, "duplicate key") &&
-		(constraint == "" || strings.Contains(msg, constraint))
 }

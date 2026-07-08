@@ -204,16 +204,33 @@ Every 1.5s until `status` is one of: `completed`, `completed_with_errors`, `fail
 ### Step 5: Async processing (Backend)
 
 Asynq worker picks up each chunk task:
-1. Loads staging rows for the chunk range
-2. Calls `StudentImporter.Validate()` — schema checks (full_name required, gender M/F, class_id optional)
-3. Calls `StudentImporter.ResolveReferences()` — injects tenant_id, school_id, academic_term_id, academic_year_id into each row
-4. Calls `StudentImporter.BulkInsert()` — returns error (forces savepoint fallback since student+enrollment needs per-row handling)
-5. Falls back to `insertWithSavepoints()` → calls `InsertOne()` per row
-6. Each `InsertOne()`:
-   - Inserts into `cbc_students`
+
+1. **Chunk claim** — Atomically transitions the chunk's `import_job_chunks.status` from `'pending'` to `'processing'` with a timestamp. If another worker or a redelivery already claimed the chunk, the UPDATE returns no rows and the worker exits immediately without processing, validating, or touching staging rows. (See `ClaimChunk` in `internal/imports/repository.go`.)
+
+2. **Loads staging rows** for the chunk range, filtered to `status = 'pending'` only. Rows that were already marked `'succeeded'` or `'failed'` by a prior partial attempt (worker crash mid-chunk) are skipped — they are never reprocessed.
+
+3. Calls `StudentImporter.Validate()` — schema checks (full_name required, gender M/F, class_id optional)
+
+4. Calls `StudentImporter.ResolveReferences()` — injects tenant_id, school_id, academic_term_id, academic_year_id, and the staging_row_id into each row
+
+5. Calls `StudentImporter.BulkInsert()` — returns error (forces savepoint fallback since student+enrollment needs per-row handling)
+
+6. Falls back to `insertWithSavepoints()` → calls `InsertOne()` per row:
+   - Each call opens a `SAVEPOINT`
+   - **Inserts** into `cbc_students` with `staging_row_id` included (uses `ON CONFLICT (school_id, staging_row_id) WHERE staging_row_id IS NOT NULL DO UPDATE SET staging_row_id = EXCLUDED.staging_row_id` for defense-in-depth — if the row was already inserted by a prior attempt, this is treated as success, not a duplicate error)
    - If `class_id` is present, also inserts into `cbc_student_enrollments`
+   - **Atomically marks** the staging row as `'succeeded'` via `MarkStagingRowSucceeded()` within the same savepoint — there is no code path where the insert commits but the staging row is left `'pending'`
+   - On failure, the savepoint is rolled back (staging row stays `'pending'` for reprocessing)
+   - On success, the savepoint is released
+
 7. Failures go to `import_job_failures`
-8. `AtomicChunkCompletion()` updates job counters atomically
+
+8. `AtomicChunkCompletion()` atomically transitions the chunk from `'processing'` to `'completed'` and, only on success, increments the job counters (`processed_records`, `success_count`, `failed_count`). If called on a chunk already `'completed'`, it no-ops — counters are never re-incremented. This mirrors the claim pattern: a single atomic `UPDATE import_job_chunks SET status = 'completed' WHERE id = $1 AND status = 'processing'` inside a CTE, gating the job counter UPDATE.
+
+**Redelivery safety guarantee:** A chunk can never be processed twice in a way that duplicates data or double-counts progress, even under:
+- Worker crash (mid-insert or mid-mark)
+- Asynq visibility-timeout retry (same task delivered to another worker)
+- Duplicate delivery (the same task arriving twice)
 
 ### Step 6: Completion (Frontend)
 
@@ -328,11 +345,22 @@ Implements `imports.Importer` interface:
 
 ### 6.3 `internal/imports/service.go`
 
-- **CreateJob()**: Creates import job, writes staging rows, splits into chunks, enqueues Asynq tasks.
+- **CreateJob()**: Creates import job, writes staging rows, writes chunk rows to `import_job_chunks`, splits into chunks, enqueues Asynq tasks.
   - `ChunkSize = 100` (rows per chunk)
 - **GetJob()**: Returns current job state (for polling).
 - **GetFailures()**: Returns paginated failure records.
-- **AtomicChunkCompletion()**: Atomically updates job counters and determines new status.
+- **ProcessChunk()**: The worker entry point. Uses `ClaimChunk` → pending-only staging rows → savepoint insert+mark → idempotent `AtomicChunkCompletion` for redelivery safety.
+- **AtomicChunkCompletion()**: Idempotent — only increments job counters when transitioning the chunk from `'processing'` to `'completed'`. If the chunk is already `'completed'`, no-ops.
+
+### 6.3a Chunk claim states (`import_job_chunks` table)
+
+| Status | Meaning |
+|--------|---------|
+| `pending` | Chunk created, waiting for worker to pick it up |
+| `processing` | Worker claimed this chunk and is processing rows |
+| `completed` | All rows in the chunk have been processed; counters applied to the job |
+
+The `ClaimChunk` UPDATE (status = `'processing'`) and `AtomicChunkCompletion` UPDATE (status = `'completed'`) both use `WHERE status = 'previous_state'` with `RETURNING`, ensuring at-most-once semantics. If two workers race to claim the same chunk, exactly one succeeds. If `AtomicChunkCompletion` is called twice for the same chunk, the second call no-ops.
 
 ### 6.4 `internal/students/handler.go` (BulkImport)
 

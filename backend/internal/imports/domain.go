@@ -96,6 +96,7 @@ type Job struct {
 	SuccessCount     int             `json:"success_count"`
 	FailedCount      int             `json:"failed_count"`
 	IDempotencyKey   *string         `json:"idempotency_key,omitempty"`
+	PayloadHash      *string         `json:"payload_hash,omitempty"`
 	TotalChunks      int             `json:"total_chunks"`
 	ProcessedChunks  int             `json:"processed_chunks"`
 	Metadata         json.RawMessage `json:"metadata"`
@@ -186,7 +187,13 @@ type Importer interface {
 
 type ServiceRepository interface {
 	// CreateJob creates a new import_job row and returns the ID.
+	// For jobs without an idempotency_key, this is a plain INSERT.
+	// For jobs with an idempotency_key, use CreateJobIdempotent instead.
 	CreateJob(ctx context.Context, job *Job) (uuid.UUID, error)
+
+	// CreateJobIdempotent inserts a new import_job row with ON CONFLICT DO NOTHING.
+	// Returns the newly created Job and true, or the existing Job and false.
+	CreateJobIdempotent(ctx context.Context, job *Job, payloadHash string) (*Job, bool, error)
 
 	// GetJobByID returns a single import job.
 	GetJobByID(ctx context.Context, jobID uuid.UUID) (*Job, error)

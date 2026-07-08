@@ -33,8 +33,8 @@ var _ ServiceRepository = (*PgRepository)(nil)
 func (r *PgRepository) CreateJob(ctx context.Context, job *Job) (uuid.UUID, error) {
 	query := `
 		INSERT INTO import_jobs (tenant_id, school_id, job_type, role, created_by, status,
-		                         total_records, idempotency_key, total_chunks, metadata)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		                         total_records, idempotency_key, payload_hash, total_chunks, metadata)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		RETURNING id
 	`
 	var id uuid.UUID
@@ -47,17 +47,66 @@ func (r *PgRepository) CreateJob(ctx context.Context, job *Job) (uuid.UUID, erro
 		job.Status,
 		job.TotalRecords,
 		job.IDempotencyKey,
+		job.PayloadHash,
 		job.TotalChunks,
 		job.Metadata,
 	).Scan(&id)
 	if err != nil {
-		// Check for unique violation on idempotency_key
-		if isUniqueViolation(err, "uq_import_jobs_tenant_idempotency") {
-			return uuid.Nil, fmt.Errorf("imports.Repository.CreateJob: %w", ErrDuplicateJob)
-		}
 		return uuid.Nil, fmt.Errorf("imports.Repository.CreateJob: %w", err)
 	}
 	return id, nil
+}
+
+// ─── CreateJobIdempotent ─────────────────────────────────────────────────────
+
+// CreateJobIdempotent inserts a new import_job row or returns the existing one
+// when a conflict on (tenant_id, school_id, idempotency_key) occurs.
+// bool is true when a new row was created, false when the existing one is returned.
+func (r *PgRepository) CreateJobIdempotent(ctx context.Context, job *Job, payloadHash string) (*Job, bool, error) {
+	query := `
+		INSERT INTO import_jobs (tenant_id, school_id, job_type, role, created_by, status,
+		                         total_records, idempotency_key, payload_hash, total_chunks, metadata)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		ON CONFLICT (tenant_id, school_id, idempotency_key) WHERE idempotency_key IS NOT NULL
+		DO NOTHING
+		RETURNING id, tenant_id, school_id, job_type, role, created_by, status,
+		          total_records, processed_records, success_count, failed_count,
+		          idempotency_key, payload_hash, total_chunks, processed_chunks, metadata,
+		          created_at, started_at, completed_at
+	`
+	var j Job
+	var role, idempotencyKey, payloadHashOut *string
+	var createdBy *uuid.UUID
+	err := r.pool.QueryRow(ctx, query,
+		job.TenantID,
+		job.SchoolID,
+		job.JobType,
+		job.Role,
+		job.CreatedBy,
+		job.Status,
+		job.TotalRecords,
+		job.IDempotencyKey,
+		payloadHash,
+		job.TotalChunks,
+		job.Metadata,
+	).Scan(
+		&j.ID, &j.TenantID, &j.SchoolID, &j.JobType, &role, &createdBy, &j.Status,
+		&j.TotalRecords, &j.ProcessedRecords, &j.SuccessCount, &j.FailedCount,
+		&idempotencyKey, &payloadHashOut, &j.TotalChunks, &j.ProcessedChunks, &j.Metadata,
+		&j.CreatedAt, &j.StartedAt, &j.CompletedAt,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			// Conflict — row already exists, caller should fetch by idempotency key
+			return nil, false, nil
+		}
+		return nil, false, fmt.Errorf("imports.Repository.CreateJobIdempotent: %w", err)
+	}
+	j.Role = role
+	j.IDempotencyKey = idempotencyKey
+	j.PayloadHash = payloadHashOut
+	j.CreatedBy = createdBy
+	return &j, true, nil
 }
 
 // ─── GetJobByID ────────────────────────────────────────────────────────────
@@ -66,18 +115,18 @@ func (r *PgRepository) GetJobByID(ctx context.Context, jobID uuid.UUID) (*Job, e
 	query := `
 		SELECT id, tenant_id, school_id, job_type, role, created_by, status,
 		       total_records, processed_records, success_count, failed_count,
-		       idempotency_key, total_chunks, processed_chunks, metadata,
+		       idempotency_key, payload_hash, total_chunks, processed_chunks, metadata,
 		       created_at, started_at, completed_at
 		FROM import_jobs
 		WHERE id = $1
 	`
 	var j Job
-	var role, idempotencyKey *string
+	var role, idempotencyKey, payloadHash *string
 	var createdBy *uuid.UUID
 	err := r.pool.QueryRow(ctx, query, jobID).Scan(
 		&j.ID, &j.TenantID, &j.SchoolID, &j.JobType, &role, &createdBy, &j.Status,
 		&j.TotalRecords, &j.ProcessedRecords, &j.SuccessCount, &j.FailedCount,
-		&idempotencyKey, &j.TotalChunks, &j.ProcessedChunks, &j.Metadata,
+		&idempotencyKey, &payloadHash, &j.TotalChunks, &j.ProcessedChunks, &j.Metadata,
 		&j.CreatedAt, &j.StartedAt, &j.CompletedAt,
 	)
 	if err != nil {
@@ -88,6 +137,7 @@ func (r *PgRepository) GetJobByID(ctx context.Context, jobID uuid.UUID) (*Job, e
 	}
 	j.Role = role
 	j.IDempotencyKey = idempotencyKey
+	j.PayloadHash = payloadHash
 	j.CreatedBy = createdBy
 	return &j, nil
 }
@@ -265,18 +315,18 @@ func (r *PgRepository) GetJobByIDempotencyKey(ctx context.Context, tenantID uuid
 	query := `
 		SELECT id, tenant_id, school_id, job_type, role, created_by, status,
 		       total_records, processed_records, success_count, failed_count,
-		       idempotency_key, total_chunks, processed_chunks, metadata,
+		       idempotency_key, payload_hash, total_chunks, processed_chunks, metadata,
 		       created_at, started_at, completed_at
 		FROM import_jobs
 		WHERE tenant_id = $1 AND idempotency_key = $2
 	`
 	var j Job
-	var role, idempotencyKeyOut *string
+	var role, idempotencyKeyOut, payloadHash *string
 	var createdBy *uuid.UUID
 	err := r.pool.QueryRow(ctx, query, tenantID, idempotencyKey).Scan(
 		&j.ID, &j.TenantID, &j.SchoolID, &j.JobType, &role, &createdBy, &j.Status,
 		&j.TotalRecords, &j.ProcessedRecords, &j.SuccessCount, &j.FailedCount,
-		&idempotencyKeyOut, &j.TotalChunks, &j.ProcessedChunks, &j.Metadata,
+		&idempotencyKeyOut, &payloadHash, &j.TotalChunks, &j.ProcessedChunks, &j.Metadata,
 		&j.CreatedAt, &j.StartedAt, &j.CompletedAt,
 	)
 	if err != nil {
@@ -287,6 +337,7 @@ func (r *PgRepository) GetJobByIDempotencyKey(ctx context.Context, tenantID uuid
 	}
 	j.Role = role
 	j.IDempotencyKey = idempotencyKeyOut
+	j.PayloadHash = payloadHash
 	j.CreatedBy = createdBy
 	return &j, nil
 }

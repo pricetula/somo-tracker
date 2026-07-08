@@ -17,7 +17,6 @@ export {
 } from "./hooks/use-student-detail";
 
 export { listStudents } from "./services/students-api";
-export { createStudents } from "@/lib/api/students";
 
 export type {
     Student,

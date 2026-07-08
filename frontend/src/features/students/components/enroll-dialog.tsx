@@ -31,10 +31,8 @@ import { Loader2 } from "lucide-react";
 
 import { useCreateEnrollment } from "../hooks/use-student-detail";
 import { listTerms } from "@/lib/api/academic-terms";
-import { listClasses } from "@/lib/api/classes";
 import { getErrorMessage } from "@/lib/errors";
 import type { AcademicTerm } from "@/lib/api/academic-terms";
-import type { Class } from "@/lib/api/classes";
 
 // ─── Props ─────────────────────────────────────────────────────────────────
 
@@ -48,42 +46,39 @@ interface EnrollDialogProps {
 
 export function EnrollDialog({ open, onOpenChange, studentId }: EnrollDialogProps) {
     const [terms, setTerms] = React.useState<AcademicTerm[]>([]);
-    const [classes, setClasses] = React.useState<Class[]>([]);
     const [termsLoading, setTermsLoading] = React.useState(false);
-    const [classesLoading, setClassesLoading] = React.useState(false);
 
     const [selectedTermId, setSelectedTermId] = React.useState("");
     const [selectedClassId, setSelectedClassId] = React.useState("");
+    // TODO: add classes fetching when the backend endpoint is ready
     const [error, setError] = React.useState<string | null>(null);
 
     const createEnrollment = useCreateEnrollment();
 
-    // Fetch terms and classes when dialog opens
+    // Fetch terms when dialog opens
     React.useEffect(() => {
         if (!open) return;
 
+        const abortController = new AbortController();
+
         const load = async () => {
             setTermsLoading(true);
-            setClassesLoading(true);
             try {
-                const [termsRes] = await Promise.all([
-                    listTerms(),
-                    listClasses({ academic_year_id: "", academic_term_id: "" }).catch(() => ({
-                        data: [],
-                    })),
-                ]);
+                const termsRes = await listTerms();
+                if (abortController.signal.aborted) return;
                 setTerms(termsRes.items ?? []);
-                // Classes data might be empty — set to empty array
-                setClasses([]);
             } catch {
+                if (abortController.signal.aborted) return;
                 setTerms([]);
-                setClasses([]);
             } finally {
-                setTermsLoading(false);
-                setClassesLoading(false);
+                if (!abortController.signal.aborted) {
+                    setTermsLoading(false);
+                }
             }
         };
         load();
+
+        return () => abortController.abort();
     }, [open]);
 
     const handleEnroll = async () => {
@@ -152,33 +147,21 @@ export function EnrollDialog({ open, onOpenChange, studentId }: EnrollDialogProp
                         </Select>
                     </div>
 
-                    {/* Class selection */}
+                    {/* Class selection — placeholder until classes endpoint is ready */}
                     <div className="space-y-1.5">
                         <Label htmlFor="class">Class</Label>
                         <Select
                             value={selectedClassId}
                             onValueChange={setSelectedClassId}
-                            disabled={classesLoading || createEnrollment.isPending}
+                            disabled={createEnrollment.isPending}
                         >
                             <SelectTrigger id="class">
-                                <SelectValue
-                                    placeholder={
-                                        classesLoading ? "Loading classes…" : "Select a class"
-                                    }
-                                />
+                                <SelectValue placeholder="Select a class" />
                             </SelectTrigger>
                             <SelectContent>
-                                {classes.length === 0 ? (
-                                    <SelectItem value="__no_classes__" disabled>
-                                        No classes available
-                                    </SelectItem>
-                                ) : (
-                                    classes.map((c) => (
-                                        <SelectItem key={c.id} value={c.id}>
-                                            {c.display_label}
-                                        </SelectItem>
-                                    ))
-                                )}
+                                <SelectItem value="__placeholder__" disabled>
+                                    Classes not yet available
+                                </SelectItem>
                             </SelectContent>
                         </Select>
                     </div>

@@ -97,10 +97,13 @@ export function SmartBreadcrumb({ maxVisible = 4 }: SmartBreadcrumbProps) {
                 <BreadcrumbItem>
                     <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
                         <DropdownMenuTrigger asChild>
-                            <span>
+                            <button
+                                type="button"
+                                className="flex items-center"
+                                aria-label="Show hidden breadcrumbs"
+                            >
                                 <BreadcrumbEllipsis />
-                                <span className="sr-only">Show hidden breadcrumbs</span>
-                            </span>
+                            </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="start">
                             {hidden.map((segment) => (

@@ -8,6 +8,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { FieldRow } from "./field-row";
 import type { StudentDetail } from "../types";
 
 // ─── Props ─────────────────────────────────────────────────────────────────
@@ -27,8 +28,6 @@ function formatDate(date: string | null | undefined): string {
         year: "numeric",
     });
 }
-
-import { FieldRow } from "./field-row";
 
 // ─── Component ─────────────────────────────────────────────────────────────
 

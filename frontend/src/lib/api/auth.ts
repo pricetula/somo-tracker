@@ -9,8 +9,7 @@
  *   DELETE /api/auth/session  — logout
  */
 
-import { api, ApiError } from "./client";
-import { isApiError, getErrorMessage } from "../errors";
+import { api } from "./client";
 import type { VerifyResponse, RegistrationPayload, MeResponse } from "./generated";
 
 // ─── Re-export generated types used by consumers ─────────────────────────
@@ -65,7 +64,3 @@ export async function getMe(): Promise<MeResponse> {
 export async function logout(): Promise<void> {
     await api.delete("/api/auth/session");
 }
-
-// ─── Re-exported error helpers for backward compatibility ─────────────────
-
-export { ApiError, isApiError, getErrorMessage };

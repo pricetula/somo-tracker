@@ -25,6 +25,8 @@ const STATUS_VARIANT: Record<ImportJobStatus, "default" | "secondary" | "destruc
     };
 
 // ─── Test data generator ─────────────────────────────────────────────────
+// TODO: Remove test data and this entire generator before production deploy.
+// This is currently used for demo/development only.
 
 const FIRST_NAMES = [
     "Alice",
@@ -173,8 +175,8 @@ export function SchoolAdminDashboardPage() {
                         stopPolling();
                         setImporting(false);
                     }
-                } catch {
-                    // Polling errors are non-fatal — stale state is acceptable
+                } catch (err) {
+                    console.warn("[ImportPoll] polling error:", err);
                 }
             }, 1500);
         },

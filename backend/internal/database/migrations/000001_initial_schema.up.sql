@@ -597,6 +597,7 @@ CREATE TABLE IF NOT EXISTS import_jobs (
     success_count        INT               NOT NULL DEFAULT 0,
     failed_count         INT               NOT NULL DEFAULT 0,
     idempotency_key      TEXT              NULL,
+    payload_hash         TEXT              NULL,
     total_chunks         INT               NOT NULL DEFAULT 0,
     processed_chunks     INT               NOT NULL DEFAULT 0,
     metadata             JSONB             NOT NULL DEFAULT '{}'::jsonb,

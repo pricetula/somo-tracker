@@ -137,7 +137,7 @@ func setupSuite() (*IntegrationSuite, error) {
 	asynqSrv := asynq.NewServer(
 		asynq.RedisClientOpt{Addr: redisAddr},
 		asynq.Config{
-			Concurrency: 10,
+			Concurrency: 3,
 			Queues:      map[string]int{"imports": 10},
 		},
 	)

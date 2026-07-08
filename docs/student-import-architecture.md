@@ -124,6 +124,11 @@ Both paths ultimately call the same backend endpoint (`POST /api/v1/students/imp
 - `manual-import-form.tsx` — the form component
 - `import-progress.tsx` — shared progress display
 
+**Row limit (MaxImportRows = 5000):** The manual entry form blocks adding
+rows once the count reaches `MaxImportRows`, showing a visible count of
+`N / 5,000 rows` in the footer. The backend also enforces this limit at
+the handler level — see [Section 6.3](#63-internalimportsservicego).
+
 ### 3.2 File Import (`/students/import`)
 
 **User flow:**
@@ -144,6 +149,13 @@ Both paths ultimately call the same backend endpoint (`POST /api/v1/students/imp
 - `step-data-review.tsx` — record review/correction
 - `step-streaming.tsx` — submit button (minimal, delegates to parent)
 - `db.ts` — IndexedDB persistence for crash recovery
+
+**Row limit (MaxImportRows = 5000):** The upload step (`step-upload.tsx`)
+checks the parsed row count immediately after file parsing. If it exceeds
+`MaxImportRows`, progression to column mapping is blocked and a clear
+error message is shown telling the user to split the file. The parsed
+count is displayed as `N / 5,000 rows` in the success alert for files
+under the limit. See also backend enforcement in [Section 6.3](#63-internalimportsservicego).
 
 ---
 
@@ -401,11 +413,44 @@ Implements `imports.Importer` interface:
 
 - **CreateJob()**: Creates import job, writes staging rows, writes chunk rows to `import_job_chunks`, splits into chunks, enqueues Asynq tasks.
   - `ChunkSize = 100` (rows per chunk)
+  - `MaxImportRows = 5000` — maximum rows accepted in a single import.
+    Enforced by the handler before `CreateJob()` is called. The handler
+    returns HTTP 400 with code `import_row_limit_exceeded`.
+  - `maxImportBodyBytes = 15 MB` — request body size cap for the import
+    endpoint. Sized for 5000 rows × ~2KB/row with 50% margin. Enforced
+    by a per-route middleware, not a codebase-wide limit.
 - **GetJob()**: Returns current job state (for polling).
 - **GetFailures()**: Returns paginated failure records.
 - **CancelJob()**: Atomically transitions a job from `'processing'` to `'cancelling'`. Returns the updated job immediately — does not wait for in-flight chunks.
 - **ProcessChunk()**: The worker entry point. Checks parent job status before claiming the chunk — if `'cancelling'`, marks the chunk `'cancelled'` instead of processing it. Uses `ClaimChunk` → pending-only staging rows → savepoint insert+mark → idempotent `AtomicChunkCompletion` for redelivery safety.
 - **AtomicChunkCompletion()**: Idempotent — only increments job counters when transitioning the chunk from `'processing'` to `'completed'`. If the chunk is already `'completed'`, no-ops. Detects `'cancelling'` job status on the last chunk and transitions the job to `'cancelled'`.
+
+### 6.3b Asynq queue / concurrency configuration
+
+Import chunk tasks are enqueued to the `"imports"` Asynq queue with a
+**global concurrency cap of 3** (`internal/imports/module.go`). This means
+at most 3 `imports:process_chunk` tasks can run simultaneously across all
+tenants, regardless of how many import jobs are enqueued or how many chunks
+they contain.
+
+```go
+asynq.Config{
+    Concurrency: 3,                          // max concurrent chunk workers
+    Queues: map[string]int{"imports": 10},  // single queue, weight=10
+}
+```
+
+**Reasoning:** With `ChunkSize = 100`, 3 concurrent workers can process
+up to 300 rows at a time — sufficient for `MaxImportRows = 5000` even
+with slow per-row inserts. The cap prevents a single large import from
+starving unrelated background work or other tenants' smaller imports
+enqueued at the same time.
+
+**Future expansion:** When additional queue types are added (e.g.,
+`"notifications"`, `"exports"`), increase `Concurrency` and use the
+`Queues` map to assign relative priorities. The `"imports"` queue weight
+of 10 gives it the highest priority among all queues when multiple types
+are active.
 
 ### 6.3a Chunk claim states (`import_job_chunks` table)
 
@@ -426,6 +471,12 @@ POST /api/v1/students/import
 
 - Resolves academic year and term from server-side (current active year/term)
 - Does NOT accept `academic_term_id` from the frontend — it's resolved automatically
+- **Row limit enforcement:** Before calling `CreateJob()`, validates that
+  `len(request.Rows) <= MaxImportRows`. Returns HTTP 400 with code
+  `import_row_limit_exceeded` if exceeded.
+- **Body size limit:** A per-route `bodySizeLimit` middleware checks
+  `Content-Length` header against `MaxImportBodyBytes()` (15 MB). Returns
+  HTTP 413 with code `request_too_large` if exceeded.
 - Creates import job via `imports.Service.CreateJob()`
 - Returns `ImportResponse` immediately (async processing)
 
@@ -649,8 +700,10 @@ Every non-2xx response follows the canonical contract:
 | Code | Status | Meaning |
 |------|--------|---------|
 | `invalid_input` | 400 | Malformed body or validation failure |
+| `import_row_limit_exceeded` | 400 | Row count exceeds `MaxImportRows` (5000). Message includes actual and max counts. |
 | `no_active_academic_year` | 400 | School has no current academic year set |
 | `no_active_academic_term` | 400 | No active term in the current academic year |
+| `request_too_large` | 413 | Request body exceeds `MaxImportBodyBytes` (15 MB). Scoped to the import endpoint via per-route middleware. |
 | `duplicate_import` | 409 | Idempotency key reused with a different payload. The same key was used for a different set of rows. |
 
 ### Per-row failure types (`import_job_failures.error_type`)

@@ -36,13 +36,26 @@ func NewAsynqClient(pools *database.Pools) *asynq.Client {
 }
 
 // NewAsynqServer creates an Asynq server for processing import chunks.
+//
+// Concurrency is capped at 3 to leave headroom for other background job
+// types (e.g., notifications, exports) that may share the same Asynq server.
+// At ChunkSize=100, 3 concurrent workers can process up to 300 rows at a
+// time — this is sufficient for MaxImportRows (5000) even with slow per-row
+// inserts, while preventing a single large import from starving unrelated
+// background work or other tenants' smaller imports enqueued at the same
+// time.
+//
+// When additional queue types are added, increase Concurrency and use the
+// Queues map to assign relative priorities between queues. The "imports"
+// queue weight of 10 means it takes all available workers when it is the
+// only queue type in the system.
 func NewAsynqServer(pools *database.Pools) *asynq.Server {
 	return asynq.NewServer(
 		asynq.RedisClientOpt{
 			Addr: pools.Redis.Options().Addr,
 		},
 		asynq.Config{
-			Concurrency: 10,
+			Concurrency: 3,
 			Queues: map[string]int{
 				"imports": 10,
 			},

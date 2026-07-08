@@ -10,6 +10,10 @@ import { parseFile, getSheetNames, type ParseOptions } from "./utils/parse-utils
 import { getStorageEstimate } from "./db";
 import type { ParsedFileResult } from "./types";
 
+// MAX_IMPORT_ROWS must stay in sync with backend imports.MaxImportRows (5000).
+// This is a proactive UX guard — the backend rejects anything above this limit.
+const MAX_IMPORT_ROWS = 5000;
+
 interface StepUploadProps {
     onParsed: (result: ParsedFileResult) => void;
     onBack?: () => void;
@@ -27,6 +31,7 @@ export function StepUpload({ onParsed, onBack, isResuming, resumeFileName }: Ste
     const [showSheetPicker, setShowSheetPicker] = React.useState(false);
     const [parseResult, setParseResult] = React.useState<ParsedFileResult | null>(null);
     const [nearQuota, setNearQuota] = React.useState(false);
+    const [rowLimitExceeded, setRowLimitExceeded] = React.useState(false);
     const inputRef = React.useRef<HTMLInputElement>(null);
 
     // Check storage quota on mount
@@ -48,6 +53,7 @@ export function StepUpload({ onParsed, onBack, isResuming, resumeFileName }: Ste
             setParsing(true);
             setParseProgress(10);
             setParseResult(null);
+            setRowLimitExceeded(false);
 
             try {
                 // Check for multiple sheets
@@ -72,6 +78,12 @@ export function StepUpload({ onParsed, onBack, isResuming, resumeFileName }: Ste
 
                 setParseResult(result.data);
                 setParsing(false);
+
+                // Block progression if row count exceeds the limit
+                if (result.data.total_rows > MAX_IMPORT_ROWS) {
+                    setRowLimitExceeded(true);
+                    return;
+                }
 
                 // Auto-proceed after brief delay
                 setTimeout(() => {
@@ -104,6 +116,13 @@ export function StepUpload({ onParsed, onBack, isResuming, resumeFileName }: Ste
 
                 setParseResult(result.data);
                 setParsing(false);
+
+                // Block progression if row count exceeds the limit
+                if (result.data.total_rows > MAX_IMPORT_ROWS) {
+                    setRowLimitExceeded(true);
+                    return;
+                }
+
                 setTimeout(() => onParsed(result.data), 300);
             } catch (err) {
                 setError(getErrorMessage(err));
@@ -225,16 +244,29 @@ export function StepUpload({ onParsed, onBack, isResuming, resumeFileName }: Ste
                 </div>
             )}
 
+            {/* Row limit exceeded error */}
+            {parseResult && !parsing && rowLimitExceeded && (
+                <Alert variant="destructive">
+                    <AlertCircle className="size-4" />
+                    <AlertTitle>Row limit exceeded</AlertTitle>
+                    <AlertDescription>
+                        This file contains {parseResult.total_rows.toLocaleString()} rows; the
+                        maximum is {MAX_IMPORT_ROWS.toLocaleString()}. Please split into smaller
+                        files and import each separately.
+                    </AlertDescription>
+                </Alert>
+            )}
+
             {/* Quick parse result */}
-            {parseResult && !parsing && (
+            {parseResult && !parsing && !rowLimitExceeded && (
                 <Alert>
                     <FileText className="size-4" />
                     <AlertTitle>File parsed successfully</AlertTitle>
                     <AlertDescription>
-                        {parseResult.total_rows} rows with {parseResult.headers.length} columns
+                        {parseResult.total_rows.toLocaleString()} /{" "}
+                        {MAX_IMPORT_ROWS.toLocaleString()} rows with {parseResult.headers.length}{" "}
+                        columns
                         {parseResult.sheet_name ? ` (sheet: ${parseResult.sheet_name})` : ""}
-                        {parseResult.total_rows >= 1000 &&
-                            " — Processing large file, this may take a moment..."}
                     </AlertDescription>
                 </Alert>
             )}

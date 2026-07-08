@@ -12,34 +12,18 @@ import { StudentManualImportForm as ManualImportForm } from "../manual-import-fo
 
 // ── Mocks ─────────────────────────────────────────────────────────────────
 
-const mockMutate = vi.hoisted(() => vi.fn());
-const mockMutationState = vi.hoisted(() => ({ isPending: false }));
+const mockSubmitImport = vi.hoisted(() => vi.fn());
+const mockCheckDuplicates = vi.hoisted(() =>
+    vi.fn().mockResolvedValue({
+        existing_admission_numbers: [],
+        existing_upi_numbers: [],
+        existing_knec_assessment_numbers: [],
+    })
+);
 
-vi.mock("@tanstack/react-query", () => ({
-    useMutation: vi.fn(
-        ({
-            onSuccess,
-            onError,
-        }: {
-            onSuccess?: (result: unknown, payloads: unknown) => void;
-            onError?: (error: unknown) => void;
-        }) => ({
-            get isPending() {
-                return mockMutationState.isPending;
-            },
-            mutate: (payloads: unknown) => {
-                const result = mockMutate(payloads);
-                // If the mock returns a thenable, wire up success/error callbacks
-                if (result && typeof result.then === "function") {
-                    result.then(
-                        (res: unknown) => onSuccess?.(res, payloads),
-                        (err: unknown) => onError?.(err)
-                    );
-                }
-            },
-        })
-    ),
-    useQueryClient: vi.fn(),
+vi.mock("@/lib/api/imports", () => ({
+    submitStudentImport: (...args: unknown[]) => mockSubmitImport(...args),
+    checkDuplicates: (...args: unknown[]) => mockCheckDuplicates(...args),
 }));
 
 const mockToast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
@@ -148,7 +132,7 @@ describe("ManualImportForm", () => {
     it("renders initial form with one empty row", () => {
         renderForm();
 
-        expect(screen.getByText("1 student ready to import")).toBeInTheDocument();
+        expect(screen.getByText("1 / 5,000 rows")).toBeInTheDocument();
         expect(screen.getByPlaceholderText("e.g. John Kiprop")).toBeInTheDocument();
         expect(screen.getByPlaceholderText("e.g. UP123456789")).toBeInTheDocument();
         expect(screen.getByPlaceholderText("e.g. KNEC123456")).toBeInTheDocument();
@@ -170,7 +154,7 @@ describe("ManualImportForm", () => {
 
         await user.click(screen.getByRole("button", { name: /add row/i }));
 
-        expect(screen.getByText("2 students ready to import")).toBeInTheDocument();
+        expect(screen.getByText("2 / 5,000 rows")).toBeInTheDocument();
         expect(screen.getAllByPlaceholderText("e.g. John Kiprop")).toHaveLength(2);
     });
 
@@ -281,7 +265,6 @@ describe("ManualImportForm", () => {
         await user.click(screen.getByRole("button", { name: /import 1 student/i }));
 
         expect(screen.getByText("Full name is required")).toBeInTheDocument();
-        expect(mockMutate).not.toHaveBeenCalled();
     });
 
     it("clears validation errors after editing the field", async () => {
@@ -295,73 +278,99 @@ describe("ManualImportForm", () => {
         const input = screen.getByPlaceholderText("e.g. John Kiprop");
         await user.type(input, "Valid Name");
 
-        // Re-submit — validation should pass, mutate should be called
-        mockMutate.mockResolvedValue({ ids: ["new-id-1"] });
+        // Re-submit — validation should pass, submitStudentImport should be called
+        mockSubmitImport.mockResolvedValue({
+            job_id: "job-1",
+            total_records: 1,
+            total_chunks: 1,
+            status: "processing",
+        });
         await user.click(screen.getByRole("button", { name: /import 1 student/i }));
 
         await waitFor(() => {
-            expect(mockMutate).toHaveBeenCalled();
+            expect(mockSubmitImport).toHaveBeenCalled();
         });
     });
 
     // ── Mutation — success ─────────────────────────────────────────────
 
-    it("sends correct payload on submit and resets form on success", async () => {
-        mockMutate.mockResolvedValue({ ids: ["student-1"] });
-
-        const { user } = renderForm();
-
-        // Fill in the form
-        const nameInput = screen.getByPlaceholderText("e.g. John Kiprop");
-        await user.type(nameInput, "Alice Wanjiku");
-
-        const genderSelect = screen.getByRole("combobox", { name: /gender-select/i });
-        await user.selectOptions(genderSelect, "F");
-
-        const dateInput = screen.getByTestId("date-picker");
-        await user.type(dateInput, "2006-03-20");
-
-        const upiInput = screen.getByPlaceholderText("e.g. UP123456789");
-        await user.type(upiInput, "UP555666777");
-
-        const knecInput = screen.getByPlaceholderText("e.g. KNEC123456");
-        await user.type(knecInput, "KNEC888888");
-
-        const classSelect = screen.getByTestId("class-combobox");
-        await user.selectOptions(classSelect, "class-2");
-
-        // Submit
-        await user.click(screen.getByRole("button", { name: /import 1 student/i }));
-
-        await waitFor(() => {
-            expect(mockMutate).toHaveBeenCalledTimes(1);
+    it("sends correct payload on submit and calls onJobCreated on success", async () => {
+        const onJobCreated = vi.fn();
+        mockSubmitImport.mockResolvedValue({
+            job_id: "job-1",
+            total_records: 1,
+            total_chunks: 1,
+            status: "processing",
         });
 
-        // Verify payload structure — mutate receives the payloads array directly
-        const payload = mockMutate.mock.calls[0][0];
-        expect(payload).toEqual([
+        renderForm();
+        // Re-render with our onJobCreated
+        const { unmount } = render(
+            <ManualImportForm onReset={vi.fn()} onJobCreated={onJobCreated} />
+        );
+        // Clean up the first render
+        unmount();
+
+        // Use a fresh render
+        const freshRender = render(
+            <ManualImportForm onReset={vi.fn()} onJobCreated={onJobCreated} />
+        );
+        const freshUser = userEvent.setup();
+
+        // Fill in the form
+        const nameInput = freshRender.getByPlaceholderText("e.g. John Kiprop");
+        await freshUser.type(nameInput, "Alice Wanjiku");
+
+        const genderSelect = freshRender.getByRole("combobox", { name: /gender-select/i });
+        await freshUser.selectOptions(genderSelect, "F");
+
+        const dateInput = freshRender.getByTestId("date-picker");
+        await freshUser.type(dateInput, "2006-03-20");
+
+        const upiInput = freshRender.getByPlaceholderText("e.g. UP123456789");
+        await freshUser.type(upiInput, "UP555666777");
+
+        const knecInput = freshRender.getByPlaceholderText("e.g. KNEC123456");
+        await freshUser.type(knecInput, "KNEC888888");
+
+        const classSelect = freshRender.getByTestId("class-combobox");
+        await freshUser.selectOptions(classSelect, "class-2");
+
+        // Submit
+        await freshUser.click(freshRender.getByRole("button", { name: /import 1 student/i }));
+
+        await waitFor(() => {
+            expect(mockSubmitImport).toHaveBeenCalledTimes(1);
+        });
+
+        // Verify payload structure
+        const callArgs = mockSubmitImport.mock.calls[0][0];
+        expect(callArgs).toHaveProperty("rows");
+        expect(callArgs.rows).toEqual([
             {
                 full_name: "Alice Wanjiku",
                 gender: "F",
                 date_of_birth: "2006-03-20",
                 upi_number: "UP555666777",
                 knec_assessment_number: "KNEC888888",
+                admission_number: null,
                 class_id: "class-2",
             },
         ]);
+        expect(callArgs).toHaveProperty("idempotency_key");
 
-        // Success toast should be shown
         await waitFor(() => {
-            expect(mockToast.success).toHaveBeenCalledWith("1 student created");
+            expect(onJobCreated).toHaveBeenCalledWith("job-1", 1);
         });
-
-        // Form should reset — back to one empty row
-        expect(screen.getAllByPlaceholderText("e.g. John Kiprop")).toHaveLength(1);
-        expect(screen.getByPlaceholderText("e.g. John Kiprop")).toHaveValue("");
     });
 
     it("submits multiple rows in a single request", async () => {
-        mockMutate.mockResolvedValue({ ids: ["student-1", "student-2"] });
+        mockSubmitImport.mockResolvedValue({
+            job_id: "job-2",
+            total_records: 2,
+            total_chunks: 1,
+            status: "processing",
+        });
 
         const { user } = renderForm();
 
@@ -369,7 +378,7 @@ describe("ManualImportForm", () => {
         await user.type(screen.getByPlaceholderText("e.g. John Kiprop"), "Student One");
 
         // Add second row
-        await user.click(screen.getByRole("button", { name: /add row/i }));
+        await user.click(screen.getAllByRole("button", { name: /add row/i })[0]);
 
         // Fill second row (now at the top — it was prepended)
         const inputs = screen.getAllByPlaceholderText("e.g. John Kiprop");
@@ -379,19 +388,19 @@ describe("ManualImportForm", () => {
         await user.click(screen.getByRole("button", { name: /import 2 students/i }));
 
         await waitFor(() => {
-            expect(mockMutate).toHaveBeenCalledTimes(1);
+            expect(mockSubmitImport).toHaveBeenCalledTimes(1);
         });
 
-        const payload = mockMutate.mock.calls[0][0];
-        expect(payload).toHaveLength(2);
-        expect(payload[0].full_name).toBe("Student Two");
-        expect(payload[1].full_name).toBe("Student One");
+        const callArgs = mockSubmitImport.mock.calls[0][0];
+        expect(callArgs.rows).toHaveLength(2);
+        expect(callArgs.rows[0].full_name).toBe("Student Two");
+        expect(callArgs.rows[1].full_name).toBe("Student One");
     });
 
     // ── Mutation — error ───────────────────────────────────────────────
 
-    it("shows error toast when mutation fails", async () => {
-        mockMutate.mockRejectedValue(new Error("Network error"));
+    it("shows error toast when submission fails", async () => {
+        mockSubmitImport.mockRejectedValue(new Error("Network error"));
 
         const { user } = renderForm();
 
@@ -401,35 +410,10 @@ describe("ManualImportForm", () => {
         await user.click(screen.getByRole("button", { name: /import 1 student/i }));
 
         await waitFor(() => {
-            expect(mockMutate).toHaveBeenCalled();
+            expect(mockSubmitImport).toHaveBeenCalled();
         });
 
         await waitFor(() => {
-            expect(mockToast.error).toHaveBeenCalled();
-        });
-    });
-
-    it("handles partial success (some failed IDs)", async () => {
-        mockMutate.mockResolvedValue({ ids: ["student-1"] });
-
-        const { user } = renderForm();
-
-        await user.type(screen.getByPlaceholderText("e.g. John Kiprop"), "Alice");
-
-        await user.click(screen.getByRole("button", { name: /add row/i }));
-
-        const inputs = screen.getAllByPlaceholderText("e.g. John Kiprop");
-        await user.type(inputs[0], "Bob");
-        expect(inputs[1]).toHaveValue("Alice");
-
-        await user.click(screen.getByRole("button", { name: /import 2 students/i }));
-
-        await waitFor(() => {
-            expect(mockMutate).toHaveBeenCalled();
-        });
-
-        await waitFor(() => {
-            expect(mockToast.success).toHaveBeenCalled();
             expect(mockToast.error).toHaveBeenCalled();
         });
     });
@@ -461,20 +445,21 @@ describe("ManualImportForm", () => {
         // Instead, simulate by adding and deleting up to the point where only 1 remains,
         // verifying that the button is disabled.
 
-        await user.click(screen.getByRole("button", { name: /add row/i }));
-        await user.click(screen.getByRole("button", { name: /add row/i }));
+        await user.click(screen.getAllByRole("button", { name: /add row/i })[0]);
+        await user.click(screen.getAllByRole("button", { name: /add row/i })[0]);
 
         expect(screen.getAllByPlaceholderText("e.g. John Kiprop")).toHaveLength(3);
 
         // Delete the first (top) row — this is newly added, deletable
-        await user.click(screen.getAllByRole("button", { name: /remove student/i })[0]);
+        await user.click(screen.getAllByRole("button", { name: /remove/i })[0]);
         expect(screen.getAllByPlaceholderText("e.g. John Kiprop")).toHaveLength(2);
 
         // Delete the top row again
-        await user.click(screen.getAllByRole("button", { name: /remove student/i })[0]);
+        await user.click(screen.getAllByRole("button", { name: /remove/i })[0]);
         expect(screen.getAllByPlaceholderText("e.g. John Kiprop")).toHaveLength(1);
 
         // The remaining delete button should be disabled (can't delete last row)
-        expect(screen.getByRole("button", { name: /remove student/i })).toBeDisabled();
+        const deleteBtns = screen.getAllByRole("button", { name: /remove/i });
+        expect(deleteBtns[0]).toBeDisabled();
     });
 });

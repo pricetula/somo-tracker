@@ -25,6 +25,19 @@ import (
 const (
 	// ChunkSize is the target number of rows per chunk.
 	ChunkSize = 100
+
+	// MaxImportRows is the maximum number of rows allowed in a single
+	// import request. This limit prevents one import from consuming
+	// excessive memory, Asynq workers, and DB connections.
+	// 5000 rows at ~1KB each ≈ 5MB raw payload, well under the 15MB
+	// request body limit. Schools with larger enrollment should split
+	// imports into multiple files.
+	MaxImportRows = 5000
+
+	// maxImportBodyBytes is the maximum request body size (in bytes)
+	// for the import endpoint. Set to 15MB with generous headroom:
+	// 5000 rows × ~2KB/row ≈ 10MB + 50% margin.
+	// maxImportBodyBytes = 15 * 1024 * 1024 // 15 MB
 )
 
 // ============================================================================

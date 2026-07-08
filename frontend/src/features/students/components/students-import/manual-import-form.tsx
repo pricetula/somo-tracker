@@ -33,6 +33,12 @@ import { submitStudentImport, checkDuplicates } from "@/lib/api/imports";
 import type { ImportRow } from "@/lib/api/imports";
 import { getErrorMessage } from "@/lib/errors";
 
+// ─── Constants ────────────────────────────────────────────────────────────
+
+// MAX_IMPORT_ROWS must stay in sync with backend imports.MaxImportRows (5000).
+// This is a proactive UX guard — the backend is the source of truth.
+const MAX_IMPORT_ROWS = 5000;
+
 // ─── Types ────────────────────────────────────────────────────────────────
 
 interface StudentRow {
@@ -195,8 +201,18 @@ export function StudentManualImportForm({ onReset, onJobCreated }: StudentManual
         setRows((prev) => prev.filter((r) => r.id !== rowId));
     }, []);
 
+    const atMaxRows = rows.length >= MAX_IMPORT_ROWS;
+
     const addRow = React.useCallback(() => {
-        setRows((prev) => [...prev, freshRow()]);
+        setRows((prev) => {
+            if (prev.length >= MAX_IMPORT_ROWS) {
+                toast.error(
+                    `Maximum of ${MAX_IMPORT_ROWS.toLocaleString()} rows reached. Please split into smaller imports.`
+                );
+                return prev;
+            }
+            return [...prev, freshRow()];
+        });
     }, []);
 
     // ── Against-existing-records check ─────────────────────────────────
@@ -368,7 +384,17 @@ export function StudentManualImportForm({ onReset, onJobCreated }: StudentManual
                     )}
                 </div>
                 <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="sm" onClick={addRow} disabled={isSubmitting}>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={addRow}
+                        disabled={isSubmitting || atMaxRows}
+                        title={
+                            atMaxRows
+                                ? `Maximum of ${MAX_IMPORT_ROWS.toLocaleString()} rows reached`
+                                : undefined
+                        }
+                    >
                         <Plus className="mr-1 size-3.5" />
                         Add Row
                     </Button>
@@ -589,7 +615,7 @@ export function StudentManualImportForm({ onReset, onJobCreated }: StudentManual
             {rows.length > 0 && (
                 <div className="flex items-center justify-between pt-1">
                     <div className="text-muted-foreground text-[0.625rem]">
-                        {rows.length} student{rows.length !== 1 ? "s" : ""} ready
+                        {rows.length.toLocaleString()} / {MAX_IMPORT_ROWS.toLocaleString()} rows
                         {blockingCount > 0 && (
                             <span className="text-destructive ml-1">
                                 · {blockingCount} with issues
@@ -601,7 +627,12 @@ export function StudentManualImportForm({ onReset, onJobCreated }: StudentManual
                             variant="outline"
                             size="sm"
                             onClick={addRow}
-                            disabled={isSubmitting}
+                            disabled={isSubmitting || atMaxRows}
+                            title={
+                                atMaxRows
+                                    ? `Maximum of ${MAX_IMPORT_ROWS.toLocaleString()} rows reached`
+                                    : undefined
+                            }
                         >
                             <Plus className="mr-1 size-3.5" /> Add Row
                         </Button>

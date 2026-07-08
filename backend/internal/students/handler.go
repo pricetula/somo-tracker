@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/url"
 	"strconv"
 
@@ -59,11 +60,30 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	students.Post("/:id/enrollments", middleware.RequireAuth, h.CreateEnrollment)
 	students.Get("/:id/enrollments", middleware.RequireAuth, h.ListEnrollments)
 
-	// Bulk import
-	students.Post("/import", middleware.RequireAuth, h.BulkImport)
+	// Bulk import (with request body size limit scoped to this route only)
+	students.Post("/import", middleware.RequireAuth, bodySizeLimit, h.BulkImport)
 
 	// Duplicate checking (proactive check used by frontend before submit)
 	students.Post("/check-duplicates", middleware.RequireAuth, h.CheckDuplicates)
+}
+
+// bodySizeLimit is a per-route middleware that rejects requests whose
+// Content-Length exceeds maxImportBodyBytes. This is scoped to the import
+// endpoint and does NOT apply a codebase-wide body limit.
+//
+// Assumption: 5000 rows × ~2KB/row ≈ 10MB. With 50% margin the cap is
+// 15MB (imports.maxImportBodyBytes). If the Content-Length header is
+// missing the body is parsed normally (Fiber clamps internally at 4MB by
+// default, but that default may change in future Fiber versions).
+func bodySizeLimit(c *fiber.Ctx) error {
+	if cl := c.Get("Content-Length"); cl != "" {
+		if size, err := strconv.Atoi(cl); err == nil && size > imports.MaxImportBodyBytes() {
+			return writeError(c, fiber.StatusRequestEntityTooLarge, "request_too_large",
+				fmt.Sprintf("Request body is too large (%d bytes). The maximum is %d bytes for student import. Please reduce the number of rows.",
+					size, imports.MaxImportBodyBytes()), nil)
+		}
+	}
+	return c.Next()
 }
 
 // ============================================================================
@@ -120,6 +140,13 @@ func (h *Handler) BulkImport(c *fiber.Ctx) error {
 	if len(body.Rows) == 0 {
 		return writeError(c, fiber.StatusBadRequest, "invalid_input", "rows array must not be empty",
 			map[string][]string{"rows": {"At least one row is required"}})
+	}
+
+	// Validate row count limit (before CreateJob, before any DB writes)
+	if len(body.Rows) > imports.MaxImportRows {
+		return writeError(c, fiber.StatusBadRequest, "import_row_limit_exceeded",
+			fmt.Sprintf("Import contains %d rows; the maximum is %d. Please split into smaller files.",
+				len(body.Rows), imports.MaxImportRows), nil)
 	}
 
 	// Resolve current active academic year and term server-side

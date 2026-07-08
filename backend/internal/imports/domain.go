@@ -16,6 +16,13 @@ import (
 // Sentinel Domain Errors
 // ============================================================================
 
+// MaxImportBodyBytes returns the maximum request body size (in bytes)
+// for the student import endpoint. Sized to accommodate MaxImportRows
+// worth of realistic student data with headroom.
+func MaxImportBodyBytes() int {
+	return 15 * 1024 * 1024 // 15 MB
+}
+
 var (
 	ErrNotFound         = fmt.Errorf("imports not found: %w", middleware.ErrNotFound)
 	ErrAlreadyExists    = fmt.Errorf("imports already exists: %w", middleware.ErrAlreadyExists)

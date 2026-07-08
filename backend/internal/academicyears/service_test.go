@@ -170,6 +170,14 @@ func (m *MockRepository) SyncCurrentTerm(ctx context.Context, academicYearID str
 	return nil
 }
 
+func (m *MockRepository) GetCurrentAcademicYearID(ctx context.Context, tenantID, schoolID string) (string, error) {
+	return "year_001", nil
+}
+
+func (m *MockRepository) GetCurrentAcademicTermID(ctx context.Context, academicYearID string) (string, error) {
+	return "term_001", nil
+}
+
 func (m *MockRepository) Begin(ctx context.Context) (Tx, error) {
 	if m.beginFn != nil {
 		return m.beginFn(ctx)

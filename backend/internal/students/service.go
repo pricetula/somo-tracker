@@ -217,19 +217,6 @@ func (s *Service) CreateBatch(ctx context.Context, tenantID, schoolID string, pa
 	return CreateStudentsResponse{IDs: ids, Code: "ok"}, nil
 }
 
-// ─── Import pre-checks ─────────────────────────────────────────────────────
-
-// ValidateTerm checks that the academic term exists, is not soft-deleted,
-// and belongs to the given school.
-func (s *Service) ValidateTerm(ctx context.Context, tenantID, schoolID, academicTermID string) (bool, error) {
-	return s.importRepo.ValidateAcademicTerm(ctx, tenantID, schoolID, academicTermID)
-}
-
-// GetAcademicYearIDForTerm returns the academic_year_id for a given term.
-func (s *Service) GetAcademicYearIDForTerm(ctx context.Context, tenantID, schoolID, academicTermID string) (string, error) {
-	return s.importRepo.GetAcademicYearIDForTerm(ctx, tenantID, schoolID, academicTermID)
-}
-
 // ─── Enrollments ──────────────────────────────────────────────────────────
 
 // CreateEnrollment enrolls a student in a class for a specific academic term.

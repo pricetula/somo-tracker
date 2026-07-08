@@ -199,6 +199,14 @@ type Repository interface {
 	// Sync current term
 	SyncCurrentTerm(ctx context.Context, academicYearID string, now time.Time) error
 
+	// GetCurrentAcademicYearID returns the ID of the current academic year for the school.
+	// Returns empty string if none is set.
+	GetCurrentAcademicYearID(ctx context.Context, tenantID, schoolID string) (string, error)
+
+	// GetCurrentAcademicTermID returns the ID of the current active term for the given academic year.
+	// Returns empty string if none is set.
+	GetCurrentAcademicTermID(ctx context.Context, academicYearID string) (string, error)
+
 	// Transaction helpers for composing operations
 	Begin(ctx context.Context) (Tx, error)
 }

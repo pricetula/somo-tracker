@@ -19,10 +19,17 @@ type importServiceAdapter interface {
 	CreateJob(ctx context.Context, req imports.CreateJobRequest) (*imports.CreateJobResponse, error)
 }
 
+// academicYearsAdapter is the subset of academicyears.Service that the handler uses.
+type academicYearsAdapter interface {
+	GetCurrentAcademicYearID(ctx context.Context, tenantID, schoolID string) (string, error)
+	GetCurrentAcademicTermID(ctx context.Context, academicYearID string) (string, error)
+}
+
 // Handler exposes student HTTP endpoints.
 type Handler struct {
-	svc    *Service
-	impSvc importServiceAdapter
+	svc              *Service
+	impSvc           importServiceAdapter
+	academicYearsSvc academicYearsAdapter
 }
 
 // NewHandler creates a new Handler.
@@ -33,6 +40,11 @@ func NewHandler(svc *Service) *Handler {
 // SetImportService sets the import service reference.
 func (h *Handler) SetImportService(impSvc importServiceAdapter) {
 	h.impSvc = impSvc
+}
+
+// SetAcademicYearsService sets the academicyears service reference.
+func (h *Handler) SetAcademicYearsService(aySvc academicYearsAdapter) {
+	h.academicYearsSvc = aySvc
 }
 
 // RegisterRoutes mounts student routes on the given router.
@@ -101,38 +113,34 @@ func (h *Handler) BulkImport(c *fiber.Ctx) error {
 		return writeError(c, fiber.StatusBadRequest, "invalid_input", "malformed request body", nil)
 	}
 
-	// Validate academic_term_id is present
-	if body.AcademicTermID == "" {
-		return writeError(c, fiber.StatusBadRequest, "invalid_input", "academic_term_id is required",
-			map[string][]string{"academic_term_id": {"Academic term ID is required"}})
-	}
-
 	// Validate at least one row
 	if len(body.Rows) == 0 {
 		return writeError(c, fiber.StatusBadRequest, "invalid_input", "rows array must not be empty",
 			map[string][]string{"rows": {"At least one row is required"}})
 	}
 
-	// Validate that the academic term exists and belongs to this school
-	termValid, err := h.svc.ValidateTerm(c.Context(), tenantID, schoolID, body.AcademicTermID)
+	// Resolve current active academic year and term server-side
+	academicYearID, err := h.academicYearsSvc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
-	if !termValid {
-		return writeError(c, fiber.StatusBadRequest, "invalid_input",
-			"academic term not found, is deleted, or belongs to a different school",
-			map[string][]string{"academic_term_id": {"Invalid academic term"}})
+	if academicYearID == "" {
+		return writeError(c, fiber.StatusBadRequest, "no_active_academic_year",
+			"No current academic year is set for this school. Please set one before importing.", nil)
 	}
 
-	// Need the academic year ID — look it up from the term
-	academicYearID, err := h.svc.GetAcademicYearIDForTerm(c.Context(), tenantID, schoolID, body.AcademicTermID)
+	academicTermID, err := h.academicYearsSvc.GetCurrentAcademicTermID(c.Context(), academicYearID)
 	if err != nil {
 		return middleware.HTTPError(c, err)
+	}
+	if academicTermID == "" {
+		return writeError(c, fiber.StatusBadRequest, "no_active_academic_term",
+			"No current academic term is active. Please set one before importing.", nil)
 	}
 
 	// Build metadata with academic context
 	meta := map[string]string{
-		"academic_term_id": body.AcademicTermID,
+		"academic_term_id": academicTermID,
 		"academic_year_id": academicYearID,
 	}
 	metaJSON, _ := json.Marshal(meta)

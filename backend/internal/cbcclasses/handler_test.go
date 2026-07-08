@@ -17,11 +17,32 @@ import (
 // Test Harness
 // ============================================================================
 
+// mockAcademicYearsAdapter implements academicYearsAdapter for testing.
+type mockAcademicYearsAdapter struct {
+	getCurrentAcademicYearIDFn func(ctx context.Context, tenantID, schoolID string) (string, error)
+	getCurrentAcademicTermIDFn func(ctx context.Context, academicYearID string) (string, error)
+}
+
+func (m *mockAcademicYearsAdapter) GetCurrentAcademicYearID(ctx context.Context, tenantID, schoolID string) (string, error) {
+	if m.getCurrentAcademicYearIDFn != nil {
+		return m.getCurrentAcademicYearIDFn(ctx, tenantID, schoolID)
+	}
+	return "year_001", nil
+}
+
+func (m *mockAcademicYearsAdapter) GetCurrentAcademicTermID(ctx context.Context, academicYearID string) (string, error) {
+	if m.getCurrentAcademicTermIDFn != nil {
+		return m.getCurrentAcademicTermIDFn(ctx, academicYearID)
+	}
+	return "term_001", nil
+}
+
 type handlerTestHarness struct {
-	app     *fiber.App
-	svc     *Service
-	repo    *MockRepository
-	handler *Handler
+	app               *fiber.App
+	svc               *Service
+	repo              *MockRepository
+	handler           *Handler
+	academicYearsMock *mockAcademicYearsAdapter
 }
 
 func newHandlerTestHarness(t *testing.T) *handlerTestHarness {
@@ -30,6 +51,9 @@ func newHandlerTestHarness(t *testing.T) *handlerTestHarness {
 	repo := &MockRepository{}
 	svc := NewService(repo)
 	handler := NewHandler(svc)
+
+	academicYearsMock := &mockAcademicYearsAdapter{}
+	handler.SetAcademicYearsService(academicYearsMock)
 
 	app := fiber.New()
 
@@ -49,10 +73,11 @@ func newHandlerTestHarness(t *testing.T) *handlerTestHarness {
 	classes.Delete("/", handler.BulkDelete)
 
 	return &handlerTestHarness{
-		app:     app,
-		svc:     svc,
-		repo:    repo,
-		handler: handler,
+		app:               app,
+		svc:               svc,
+		repo:              repo,
+		handler:           handler,
+		academicYearsMock: academicYearsMock,
 	}
 }
 
@@ -254,7 +279,7 @@ func TestHandler_ListClasses_MissingAcademicYearID(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
 	// Simulate no current academic year configured
-	h.repo.getCurrentAcademicYearIDFn = func(ctx context.Context, tenantID, schoolID string) (string, error) {
+	h.academicYearsMock.getCurrentAcademicYearIDFn = func(ctx context.Context, tenantID, schoolID string) (string, error) {
 		return "", nil
 	}
 
@@ -280,7 +305,7 @@ func TestHandler_ListClasses_MissingAcademicTermID(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
 	// Simulate no current academic term configured
-	h.repo.getCurrentAcademicTermIDFn = func(ctx context.Context, academicYearID string) (string, error) {
+	h.academicYearsMock.getCurrentAcademicTermIDFn = func(ctx context.Context, academicYearID string) (string, error) {
 		return "", nil
 	}
 

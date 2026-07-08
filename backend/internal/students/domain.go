@@ -155,9 +155,9 @@ type ImportRow struct {
 }
 
 // ImportRequest is the request body for POST /students/import.
+// academic_term_id is resolved server-side from the current active term.
 type ImportRequest struct {
 	IDempotencyKey *string     `json:"idempotency_key,omitempty"`
-	AcademicTermID string      `json:"academic_term_id"`
 	Rows           []ImportRow `json:"rows"`
 }
 
@@ -179,14 +179,8 @@ type ImportRepository interface {
 	// for the given tenant/school/academic_year. Returns nil if no match.
 	ResolveClassByGradeAndStream(ctx context.Context, tenantID, schoolID, academicYearID, gradeLevel, streamName string) (*string, error)
 
-	// ValidateAcademicTerm checks that the term exists, is not soft-deleted, and belongs to the school.
-	ValidateAcademicTerm(ctx context.Context, tenantID, schoolID, academicTermID string) (bool, error)
-
 	// CheckSchoolAdminMembership verifies the caller has SCHOOL_ADMIN for the school.
 	CheckSchoolAdminMembership(ctx context.Context, userID, tenantID, schoolID string) (bool, error)
-
-	// GetAcademicYearIDForTerm returns the academic_year_id for a given term.
-	GetAcademicYearIDForTerm(ctx context.Context, tenantID, schoolID, academicTermID string) (string, error)
 }
 
 // ============================================================================

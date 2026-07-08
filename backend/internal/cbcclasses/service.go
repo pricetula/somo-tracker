@@ -109,24 +109,6 @@ func (s *Service) UpdateClass(ctx context.Context, params UpdateClassParams) (*C
 	return class, nil
 }
 
-// GetCurrentAcademicYearID returns the current academic year ID for the school.
-func (s *Service) GetCurrentAcademicYearID(ctx context.Context, tenantID, schoolID string) (string, error) {
-	id, err := s.Repo.GetCurrentAcademicYearID(ctx, tenantID, schoolID)
-	if err != nil {
-		return "", fmt.Errorf("cbcclasses.Service.GetCurrentAcademicYearID: %w", err)
-	}
-	return id, nil
-}
-
-// GetCurrentAcademicTermID returns the current term ID for the given academic year.
-func (s *Service) GetCurrentAcademicTermID(ctx context.Context, academicYearID string) (string, error) {
-	id, err := s.Repo.GetCurrentAcademicTermID(ctx, academicYearID)
-	if err != nil {
-		return "", fmt.Errorf("cbcclasses.Service.GetCurrentAcademicTermID: %w", err)
-	}
-	return id, nil
-}
-
 // BulkDeleteClasses deletes multiple classes after pre-flight checks.
 func (s *Service) BulkDeleteClasses(ctx context.Context, classIDs []string, tenantID, schoolID string) error {
 	if len(classIDs) == 0 || tenantID == "" || schoolID == "" {

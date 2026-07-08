@@ -518,6 +518,20 @@ func (s *Service) SetupInitialYear(ctx context.Context, tenantID, schoolID, acto
 	return nil
 }
 
+// ============================================================================
+// Current Academic Year / Term Lookups
+// ============================================================================
+
+// GetCurrentAcademicYearID returns the ID of the current academic year for the school.
+func (s *Service) GetCurrentAcademicYearID(ctx context.Context, tenantID, schoolID string) (string, error) {
+	return s.Repo.GetCurrentAcademicYearID(ctx, tenantID, schoolID)
+}
+
+// GetCurrentAcademicTermID returns the ID of the current active term for the given academic year.
+func (s *Service) GetCurrentAcademicTermID(ctx context.Context, academicYearID string) (string, error) {
+	return s.Repo.GetCurrentAcademicTermID(ctx, academicYearID)
+}
+
 // isUniqueViolation heuristically checks if an error is a unique constraint
 // violation from pgx. In production, use pgerrcode.UniqueViolation.
 func isUniqueViolation(err error) bool {

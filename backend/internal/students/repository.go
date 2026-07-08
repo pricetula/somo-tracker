@@ -572,36 +572,6 @@ func (r *PgRepository) ResolveClassByGradeAndStream(ctx context.Context, tenantI
 	return &id, nil
 }
 
-// ValidateAcademicTerm checks that the term exists and belongs to the school.
-func (r *PgRepository) ValidateAcademicTerm(ctx context.Context, tenantID, schoolID, academicTermID string) (bool, error) {
-	query := `
-		SELECT EXISTS(
-			SELECT 1 FROM academic_terms
-			WHERE id = $1 AND tenant_id = $2 AND school_id = $3
-		)
-	`
-	var exists bool
-	err := r.pool.QueryRow(ctx, query, academicTermID, tenantID, schoolID).Scan(&exists)
-	if err != nil {
-		return false, fmt.Errorf("students.Repository.ValidateAcademicTerm: %w", err)
-	}
-	return exists, nil
-}
-
-// GetAcademicYearIDForTerm returns the academic_year_id for a given term.
-func (r *PgRepository) GetAcademicYearIDForTerm(ctx context.Context, tenantID, schoolID, academicTermID string) (string, error) {
-	query := `SELECT academic_year_id FROM academic_terms WHERE id = $1 AND tenant_id = $2 AND school_id = $3`
-	var id string
-	err := r.pool.QueryRow(ctx, query, academicTermID, tenantID, schoolID).Scan(&id)
-	if err != nil {
-		if isNoRows(err) {
-			return "", fmt.Errorf("students.Repository.GetAcademicYearIDForTerm: %w", ErrNotFound)
-		}
-		return "", fmt.Errorf("students.Repository.GetAcademicYearIDForTerm: %w", err)
-	}
-	return id, nil
-}
-
 // CheckSchoolAdminMembership verifies the caller has SCHOOL_ADMIN for the school.
 func (r *PgRepository) CheckSchoolAdminMembership(ctx context.Context, userID, tenantID, schoolID string) (bool, error) {
 	query := `

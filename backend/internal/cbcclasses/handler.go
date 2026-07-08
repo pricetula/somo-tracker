@@ -1,6 +1,7 @@
 package cbcclasses
 
 import (
+	"context"
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
@@ -8,14 +9,26 @@ import (
 	"somotracker/backend/internal/middleware"
 )
 
+// academicYearsAdapter is the subset of academicyears.Service that the handler uses.
+type academicYearsAdapter interface {
+	GetCurrentAcademicYearID(ctx context.Context, tenantID, schoolID string) (string, error)
+	GetCurrentAcademicTermID(ctx context.Context, academicYearID string) (string, error)
+}
+
 // Handler exposes class HTTP endpoints.
 type Handler struct {
-	svc *Service
+	svc              *Service
+	academicYearsSvc academicYearsAdapter
 }
 
 // NewHandler creates a new Handler.
 func NewHandler(svc *Service) *Handler {
 	return &Handler{svc: svc}
+}
+
+// SetAcademicYearsService sets the academicyears service reference.
+func (h *Handler) SetAcademicYearsService(aySvc academicYearsAdapter) {
+	h.academicYearsSvc = aySvc
 }
 
 // RegisterRoutes mounts class routes on the given router.
@@ -43,7 +56,7 @@ func (h *Handler) List(c *fiber.Ctx) error {
 	academicYearID := c.Query("academic_year_id")
 	if academicYearID == "" {
 		var err error
-		academicYearID, err = h.svc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
+		academicYearID, err = h.academicYearsSvc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
 		if err != nil {
 			return middleware.HTTPError(c, err)
 		}
@@ -56,7 +69,7 @@ func (h *Handler) List(c *fiber.Ctx) error {
 	academicTermID := c.Query("academic_term_id")
 	if academicTermID == "" {
 		var err error
-		academicTermID, err = h.svc.GetCurrentAcademicTermID(c.Context(), academicYearID)
+		academicTermID, err = h.academicYearsSvc.GetCurrentAcademicTermID(c.Context(), academicYearID)
 		if err != nil {
 			return middleware.HTTPError(c, err)
 		}

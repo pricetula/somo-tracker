@@ -73,6 +73,9 @@ export function StudentManualImportForm({ onReset, onJobCreated }: StudentManual
     const [fieldErrors, setFieldErrors] = React.useState<Record<string, Record<string, string[]>>>(
         {}
     );
+    // Idempotency key: generated at submit start, persists across retries during
+    // the in-flight request. A new key is generated if the user explicitly restarts.
+    const idempotencyKeyRef = React.useRef<string | null>(null);
 
     // ── Row mutation helpers ───────────────────────────────────────────
     const updateRow = React.useCallback((rowId: string, patch: Partial<StudentRow>) => {
@@ -106,6 +109,11 @@ export function StudentManualImportForm({ onReset, onJobCreated }: StudentManual
         submittingRef.current = true;
         setSubmitting(true);
 
+        // Generate idempotency key on first submit attempt; reuse on retry
+        if (!idempotencyKeyRef.current) {
+            idempotencyKeyRef.current = crypto.randomUUID();
+        }
+
         const importRows: ImportRow[] = rows.map((r) => ({
             full_name: r.fullName.trim(),
             gender: (r.gender || "M") as "M" | "F",
@@ -117,9 +125,15 @@ export function StudentManualImportForm({ onReset, onJobCreated }: StudentManual
         }));
 
         try {
-            const result = await submitStudentImport({ rows: importRows });
+            const result = await submitStudentImport({
+                idempotency_key: idempotencyKeyRef.current,
+                rows: importRows,
+            });
+            // Key consumed on success — next submit gets a fresh key
+            idempotencyKeyRef.current = null;
             onJobCreated(result.job_id, importRows.length);
         } catch (err) {
+            // Keep the same key for retry (transient network failure)
             submittingRef.current = false;
             setSubmitting(false);
             toast.error(getErrorMessage(err));

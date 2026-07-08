@@ -151,12 +151,20 @@ Both paths ultimately call the same backend endpoint (`POST /api/v1/students/imp
 
 ### Step 1: Submit (Frontend)
 
-Both paths convert student data to `ImportRow[]` and call:
+Both paths convert student data to `ImportRow[]` and generate an
+`idempotency_key` via `crypto.randomUUID()`, then call:
 
 ```typescript
-const result = await submitStudentImport({ rows: importRows });
-// result = { job_id, total_records, total_chunks, status: "processing" }
+const result = await submitStudentImport({
+    idempotency_key: idempotencyKeyRef.current,
+    rows: importRows,
+});
+// result = { job_id, total_records, total_chunks, status: "processing", is_replay: false }
 ```
+
+The key is kept in a `useRef` and reused if the submit is retried due to
+a transient network failure. See [Section 8 — Idempotency semantics](#idempotency-semantics)
+for the full key lifecycle.
 
 ### Step 2: Parent captures job (Frontend)
 
@@ -179,10 +187,18 @@ Every 1.5s until `status` is one of: `completed`, `completed_with_errors`, `fail
 3. Builds metadata with `academic_term_id` and `academic_year_id`
 4. Converts `ImportRow[]` → `json.RawMessage[]`
 5. Calls `imports.Service.CreateJob()` which:
-   - Creates `import_jobs` row with status `processing`
+   - Computes a `payload_hash` from the rows (SHA-256 of the serialized array)
+   - **If `idempotency_key` is present:** uses `INSERT ... ON CONFLICT DO NOTHING`
+     for concurrent-safe dedup. If the INSERT succeeds the job is new;
+     if it conflicts, fetches the existing job and compares `payload_hash`:
+     - Hash match → returns existing job with `is_replay: true` (HTTP 200)
+     - Hash mismatch → returns `duplicate_import` error (HTTP 409)
+   - **If no `idempotency_key`:** always creates a new job (plain INSERT)
+   - Creates `import_jobs` row with status `pending`
    - Writes all rows to `import_job_staging`
    - Splits into chunks of 100 (backend constant `ChunkSize`)
    - Enqueues Asynq tasks (1 per chunk)
+   - Sets status to `processing`
    - Returns immediately
 
 ### Step 5: Async processing (Backend)
@@ -348,6 +364,7 @@ POST /api/v1/students/import
 **Request:**
 ```json
 {
+  "idempotency_key": "uuid-v4-optional",
   "rows": [
     {
       "full_name": "Alice Wanjiku",
@@ -362,15 +379,75 @@ POST /api/v1/students/import
 }
 ```
 
-**Response (201):**
+**Response (201 — new job created):**
 ```json
 {
   "job_id": "uuid",
   "total_records": 100,
   "total_chunks": 1,
-  "status": "processing"
+  "status": "processing",
+  "is_replay": false
 }
 ```
+
+**Response (200 — idempotent replay):**
+```json
+{
+  "job_id": "uuid",
+  "total_records": 100,
+  "total_chunks": 1,
+  "status": "processing",
+  "is_replay": true
+}
+```
+
+**Response (409 — duplicate key, different payload):**
+```json
+{
+  "code": "duplicate_import",
+  "message": "A job with this idempotency key already exists."
+}
+```
+
+### Idempotency semantics
+
+When an `idempotency_key` is provided, the backend guarantees **exactly-once job creation**
+for the same key + payload combination. The implementation uses a DB-level
+`INSERT ... ON CONFLICT (tenant_id, school_id, idempotency_key) WHERE idempotency_key IS NOT NULL
+DO NOTHING RETURNING *` which provides concurrent-safe deduplication without
+application-level locking.
+
+| Scenario | HTTP Status | `is_replay` | Behavior |
+|----------|-------------|-------------|----------|
+| No key provided | 201 | `false` | Always creates a new job (no dedup) |
+| First submission with key | 201 | `false` | Job created, staging rows written, enqueued |
+| Resubmission: same key + same payload | 200 | `true` | Returns existing job, no side effects |
+| Resubmission: same key + different payload | 409 | — | Error (`duplicate_import`), no job created |
+
+#### Key generation (frontend)
+
+- Both `manual-import-form.tsx` and `step-streaming.tsx` generate the key via
+  `crypto.randomUUID()` at the start of the submit action.
+- The key is stored in a `useRef` that persists across re-renders during the
+  in-flight request.
+- On success the ref is cleared so the next submit gets a fresh key.
+- On transient network failure the key is **reused** so the retry is safe.
+- The ref is automatically reset when the component unmounts (user navigates
+  away or clicks Cancel/Done).
+
+#### Payload hash
+
+A `payload_hash` (SHA-256 of the JSON-serialized row array) is computed server-side
+and stored on the `import_jobs` row. When a conflict occurs the hash is compared:
+- **Match** → idempotent replay (HTTP 200)
+- **Mismatch** → `duplicate_import` error (HTTP 409)
+
+#### Concurrent safety
+
+The `INSERT ... ON CONFLICT DO NOTHING` pattern ensures that racing requests with the
+same key are serialized by the database. Only one succeeds in inserting the row;
+the rest see a conflict and either replay or reject based on the hash comparison.
+This eliminates TOCTOU race conditions that a check-then-insert pattern would have.
 
 ### GET /api/v1/imports/:job_id
 
@@ -431,7 +508,7 @@ Every non-2xx response follows the canonical contract:
 | `invalid_input` | 400 | Malformed body or validation failure |
 | `no_active_academic_year` | 400 | School has no current academic year set |
 | `no_active_academic_term` | 400 | No active term in the current academic year |
-| `duplicate_import` | 409 | Idempotency key already used |
+| `duplicate_import` | 409 | Idempotency key reused with a different payload. The same key was used for a different set of rows. |
 
 ### Frontend error handling
 - Submit failures → `toast.error()`
@@ -463,6 +540,21 @@ The frontend sends `class_id` directly in `ImportRow`. The backend does NOT reso
 
 ### Academic term is server-resolved
 The frontend does NOT send `academic_term_id`. The backend resolves the current active year and term from the school's configuration. If no active year/term is set, the import returns an error.
+
+### Idempotency — idempotency_key and payload_hash
+
+The import endpoint supports optional idempotency for safe retry semantics.
+See [Section 8 — Request/Response Contracts](#8-requestresponse-contracts) for
+the full specification. Key points:
+
+- **Frontend generates the key** with `crypto.randomUUID()` at submit start, not before.
+- **Backend stores the key** on `import_jobs.idempotency_key` with a unique
+  partial index on `(tenant_id, school_id, idempotency_key) WHERE idempotency_key IS NOT NULL`.
+- **Payload hash** (`import_jobs.payload_hash`) is a SHA-256 digest of the
+  JSON-serialized row array, compared on conflict to distinguish replay vs error.
+- **200 vs 201 vs 409:** see the table in Section 8.
+- **Concurrent safety:** guaranteed by `INSERT ... ON CONFLICT DO NOTHING`, not
+  by application-level locking.
 
 ### Key files to reference
 

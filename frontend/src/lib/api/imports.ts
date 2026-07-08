@@ -62,6 +62,12 @@ export interface ImportResponse {
     total_records: number;
     total_chunks: number;
     status: ImportJobStatus;
+    /**
+     * Indicates the response reflects a pre-existing job (idempotent replay)
+     * rather than a newly created one. When true the HTTP status was 200
+     * instead of 201.
+     */
+    is_replay?: boolean;
 }
 
 // ============================================================================
@@ -123,7 +129,14 @@ export interface ImportRowFailure {
 
 /**
  * POST /students/import — submit a bulk student import job.
- * Returns job_id, total_records, total_chunks, and initial status.
+ * Accepts an optional `idempotency_key` for safe retry semantics.
+ * When an idempotency_key is provided and the same payload was already
+ * submitted, the response will have `is_replay: true` and HTTP 200
+ * instead of 201.
+ *
+ * The idempotency_key should be generated with crypto.randomUUID() at
+ * the point the submit action begins and reused across retries for the
+ * same import action (not across distinct import flows).
  */
 export async function submitStudentImport(body: ImportRequest): Promise<ImportResponse> {
     return api.post<ImportResponse>("/api/v1/students/import", body);

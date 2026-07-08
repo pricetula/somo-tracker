@@ -33,6 +33,8 @@ export function StepStreaming({ onError, onJobCreated }: StepStreamingProps) {
     const [records, setRecords] = React.useState<StagedStudentRecord[]>([]);
     const [loading, setLoading] = React.useState(true);
     const [submitting, setSubmitting] = React.useState(false);
+    // Idempotency key: generated at submit start, persists across retries
+    const idempotencyKeyRef = React.useRef<string | null>(null);
 
     // Load valid records on mount
     React.useEffect(() => {
@@ -49,12 +51,24 @@ export function StepStreaming({ onError, onJobCreated }: StepStreamingProps) {
         }
 
         setSubmitting(true);
+
+        // Generate idempotency key on first attempt; reuse on retry
+        if (!idempotencyKeyRef.current) {
+            idempotencyKeyRef.current = crypto.randomUUID();
+        }
+
         const rows: ImportRow[] = records.map(toImportRow);
 
         try {
-            const result = await submitStudentImport({ rows });
+            const result = await submitStudentImport({
+                idempotency_key: idempotencyKeyRef.current,
+                rows,
+            });
+            // Key consumed on success
+            idempotencyKeyRef.current = null;
             onJobCreated(result.job_id, rows.length);
         } catch (err) {
+            // Keep the same key for retry (transient network failure)
             setSubmitting(false);
             onError(getErrorMessage(err));
         }

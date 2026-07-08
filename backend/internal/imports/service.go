@@ -356,6 +356,27 @@ func (s *Service) enqueueChunks(ctx context.Context, jobID uuid.UUID, totalChunk
 }
 
 // ============================================================================
+// CancelJob — requests cancellation of an import job
+// ============================================================================
+
+// CancelJob atomically transitions a job from 'processing' to 'cancelling'.
+// Returns the updated job with the new status. Returns ErrNotCancellable if
+// the job is not in a cancellable state (already terminal or not yet started).
+// The caller must verify tenant/school access before calling this method.
+func (s *Service) CancelJob(ctx context.Context, jobID uuid.UUID) (*Job, error) {
+	job, err := s.repo.CancelJob(ctx, jobID)
+	if err != nil {
+		return nil, fmt.Errorf("imports.Service.CancelJob: %w", err)
+	}
+
+	slog.InfoContext(ctx, "imports.Service.CancelJob: job cancellation requested",
+		"job_id", jobID,
+		"status", job.Status,
+	)
+	return job, nil
+}
+
+// ============================================================================
 // ProcessChunk — executed by the Asynq worker (idempotent against redelivery)
 // ============================================================================
 
@@ -363,10 +384,35 @@ func (s *Service) enqueueChunks(ctx context.Context, jobID uuid.UUID, totalChunk
 // chunk executor. It is safe against redelivery: chunk claiming, pending-only
 // row filtering, atomic insert+mark, and idempotent chunk completion ensure
 // a chunk is never processed twice in a way that duplicates data.
+//
+// Cancellation-aware: before claiming a chunk, checks the parent job status.
+// If the job is 'cancelling', the chunk is marked 'cancelled' instead of
+// claimed, and no rows are processed.
 func (s *Service) ProcessChunk(ctx context.Context, payload ChunkTaskPayload) error {
 	jobID, err := uuid.Parse(payload.JobID)
 	if err != nil {
 		return fmt.Errorf("imports.Service.ProcessChunk: parse job id: %w", err)
+	}
+
+	// ── Step 0: Check job status for cancellation ─────────────────────────
+	// Before attempting to claim the chunk, check if the parent job has been
+	// cancelled. If so, mark this chunk as 'cancelled' and exit without
+	// processing any rows. This is a cooperative cancellation — chunks already
+	// claimed/processing are allowed to finish normally.
+	job, err := s.repo.GetJobByID(ctx, jobID)
+	if err != nil {
+		return fmt.Errorf("imports.Service.ProcessChunk: get job: %w", err)
+	}
+	if job.Status == ImportJobStatusCancelling {
+		// Atomically cancel this pending chunk
+		if err := s.repo.CancelPendingChunk(ctx, jobID, payload.ChunkIndex); err != nil {
+			return fmt.Errorf("imports.Service.ProcessChunk: cancel pending chunk: %w", err)
+		}
+		slog.InfoContext(ctx, "imports.Service.ProcessChunk: chunk cancelled (job cancelled)",
+			"job_id", jobID,
+			"chunk", payload.ChunkIndex,
+		)
+		return nil
 	}
 
 	// ── Step 1: Atomically claim the chunk ────────────────────────────────
@@ -383,8 +429,9 @@ func (s *Service) ProcessChunk(ctx context.Context, payload ChunkTaskPayload) er
 		return nil
 	}
 
-	// Look up the job to find its type and tenant/school
-	job, err := s.repo.GetJobByID(ctx, jobID)
+	// Look up the job again (we already have it from the cancellation check above,
+	// but re-fetch for clarity in case the status changed between steps)
+	job, err = s.repo.GetJobByID(ctx, jobID)
 	if err != nil {
 		return fmt.Errorf("imports.Service.ProcessChunk: get job: %w", err)
 	}

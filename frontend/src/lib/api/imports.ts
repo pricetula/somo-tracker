@@ -20,6 +20,7 @@ export type ImportJobStatus =
     | "completed"
     | "completed_with_errors"
     | "failed"
+    | "cancelling"
     | "cancelled";
 
 // ============================================================================
@@ -196,4 +197,14 @@ export async function checkDuplicates(
  */
 export async function getImportJob(jobId: string): Promise<ImportJob> {
     return api.get<ImportJob>(`/api/v1/imports/${jobId}`);
+}
+
+/**
+ * POST /imports/{job_id}/cancel — request cancellation of a running import job.
+ * The job must be in 'processing' state to be cancellable.
+ * Returns the updated job with status 'cancelling' on success.
+ * Throws ApiError with code "job_not_cancellable" if the job cannot be cancelled.
+ */
+export async function cancelImportJob(jobId: string): Promise<ImportJob> {
+    return api.post<ImportJob>(`/api/v1/imports/${jobId}/cancel`);
 }

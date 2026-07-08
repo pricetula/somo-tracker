@@ -209,6 +209,7 @@ END $$;
 -- imports that had partial failures (some records succeeded, some failed)
 -- from clean completed imports (all records succeeded).
 ALTER TYPE import_job_status ADD VALUE IF NOT EXISTS 'completed_with_errors';
+ALTER TYPE import_job_status ADD VALUE IF NOT EXISTS 'cancelling';
 
 DO $$ BEGIN
     CREATE TYPE import_job_type AS ENUM ('STAFF_INVITE', 'STUDENT_IMPORT');
@@ -221,7 +222,7 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 DO $$ BEGIN
-    CREATE TYPE import_chunk_status AS ENUM ('pending', 'processing', 'completed');
+    CREATE TYPE import_chunk_status AS ENUM ('pending', 'processing', 'completed', 'cancelled');
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 

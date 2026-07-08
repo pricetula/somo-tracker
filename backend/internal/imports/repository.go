@@ -296,6 +296,55 @@ func (r *PgRepository) InsertFailures(ctx context.Context, jobID uuid.UUID, fail
 	return nil
 }
 
+// ─── CancelJob ────────────────────────────────────────────────────────────
+
+func (r *PgRepository) CancelJob(ctx context.Context, jobID uuid.UUID) (*Job, error) {
+	query := `
+		UPDATE import_jobs
+		SET status = 'cancelling'::import_job_status
+		WHERE id = $1 AND status = 'processing'::import_job_status
+		RETURNING id, tenant_id, school_id, job_type, role, created_by, status,
+		          total_records, processed_records, success_count, failed_count,
+		          idempotency_key, payload_hash, total_chunks, processed_chunks, metadata,
+		          created_at, started_at, completed_at
+	`
+	var j Job
+	var role, idempotencyKey, payloadHash *string
+	var createdBy *uuid.UUID
+	err := r.pool.QueryRow(ctx, query, jobID).Scan(
+		&j.ID, &j.TenantID, &j.SchoolID, &j.JobType, &role, &createdBy, &j.Status,
+		&j.TotalRecords, &j.ProcessedRecords, &j.SuccessCount, &j.FailedCount,
+		&idempotencyKey, &payloadHash, &j.TotalChunks, &j.ProcessedChunks, &j.Metadata,
+		&j.CreatedAt, &j.StartedAt, &j.CompletedAt,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("imports.Repository.CancelJob: %w", ErrNotCancellable)
+		}
+		return nil, fmt.Errorf("imports.Repository.CancelJob: %w", err)
+	}
+	j.Role = role
+	j.IDempotencyKey = idempotencyKey
+	j.PayloadHash = payloadHash
+	j.CreatedBy = createdBy
+	return &j, nil
+}
+
+// ─── CancelPendingChunk ────────────────────────────────────────────────────
+
+func (r *PgRepository) CancelPendingChunk(ctx context.Context, jobID uuid.UUID, chunkIndex int) error {
+	query := `
+		UPDATE import_job_chunks
+		SET status = 'cancelled'
+		WHERE job_id = $1 AND chunk_index = $2 AND status = 'pending'
+	`
+	_, err := r.pool.Exec(ctx, query, jobID, chunkIndex)
+	if err != nil {
+		return fmt.Errorf("imports.Repository.CancelPendingChunk: %w", err)
+	}
+	return nil
+}
+
 // ─── ClaimChunk ─────────────────────────────────────────────────────────────
 
 func (r *PgRepository) ClaimChunk(ctx context.Context, jobID uuid.UUID, chunkIndex int) (uuid.UUID, error) {
@@ -337,9 +386,11 @@ func (r *PgRepository) AtomicChunkCompletion(ctx context.Context, jobID uuid.UUI
 		    success_count     = success_count + $3,
 		    failed_count      = failed_count + $4,
 		    status = CASE
+		        -- If the job is being cancelled and all chunks are done, transition to 'cancelled'
+		        WHEN processed_chunks + 1 = total_chunks AND import_jobs.status = 'cancelling'::import_job_status THEN 'cancelled'::import_job_status
 		        WHEN processed_chunks + 1 = total_chunks AND failed_count + $4 = 0 THEN 'completed'::import_job_status
 		        WHEN processed_chunks + 1 = total_chunks THEN 'completed_with_errors'::import_job_status
-		        ELSE 'processing'::import_job_status
+		        ELSE import_jobs.status
 		    END,
 		    completed_at = CASE WHEN processed_chunks + 1 = total_chunks THEN NOW() ELSE completed_at END
 		FROM chunk_update
@@ -373,7 +424,7 @@ func (r *PgRepository) UpdateJobStatus(ctx context.Context, jobID uuid.UUID, sta
 		UPDATE import_jobs
 		SET status = $1,
 		    started_at = CASE WHEN $1 = 'processing'::import_job_status AND started_at IS NULL THEN NOW() ELSE started_at END,
-		    completed_at = CASE WHEN $1 IN ('completed'::import_job_status, 'completed_with_errors'::import_job_status, 'failed'::import_job_status) THEN NOW() ELSE completed_at END
+		    completed_at = CASE WHEN $1 IN ('completed'::import_job_status, 'completed_with_errors'::import_job_status, 'failed'::import_job_status, 'cancelled'::import_job_status) THEN NOW() ELSE completed_at END
 		WHERE id = $2
 	`
 	_, err := r.pool.Exec(ctx, query, string(status), jobID)

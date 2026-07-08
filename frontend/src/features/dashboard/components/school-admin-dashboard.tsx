@@ -21,6 +21,7 @@ const STATUS_VARIANT: Record<ImportJobStatus, "default" | "secondary" | "destruc
         completed_with_errors: "outline",
         failed: "destructive",
         cancelled: "outline",
+        cancelling: "default",
     };
 
 // ─── Test data generator ─────────────────────────────────────────────────

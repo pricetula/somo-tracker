@@ -205,7 +205,9 @@ Every 1.5s until `status` is one of: `completed`, `completed_with_errors`, `fail
 
 Asynq worker picks up each chunk task:
 
-1. **Chunk claim** — Atomically transitions the chunk's `import_job_chunks.status` from `'pending'` to `'processing'` with a timestamp. If another worker or a redelivery already claimed the chunk, the UPDATE returns no rows and the worker exits immediately without processing, validating, or touching staging rows. (See `ClaimChunk` in `internal/imports/repository.go`.)
+1. **Cancellation check** — Before attempting to claim the chunk, the worker checks the parent job's status. If the job status is `'cancelling'`, the chunk is atomically transitioned from `'pending'` to `'cancelled'` and the worker exits immediately without processing any rows. Chunks already `'processing'` when cancellation is requested are allowed to finish normally — cancellation is cooperative, not preemptive. (See `CancelPendingChunk` in `internal/imports/repository.go`.)
+
+2. **Chunk claim** — Atomically transitions the chunk's `import_job_chunks.status` from `'pending'` to `'processing'` with a timestamp. If another worker or a redelivery already claimed the chunk, the UPDATE returns no rows and the worker exits immediately without processing, validating, or touching staging rows. (See `ClaimChunk` in `internal/imports/repository.go`.)
 
 2. **Loads staging rows** for the chunk range, filtered to `status = 'pending'` only. Rows that were already marked `'succeeded'` or `'failed'` by a prior partial attempt (worker crash mid-chunk) are skipped — they are never reprocessed.
 
@@ -227,6 +229,8 @@ Asynq worker picks up each chunk task:
 
 8. `AtomicChunkCompletion()` atomically transitions the chunk from `'processing'` to `'completed'` and, only on success, increments the job counters (`processed_records`, `success_count`, `failed_count`). If called on a chunk already `'completed'`, it no-ops — counters are never re-incremented. This mirrors the claim pattern: a single atomic `UPDATE import_job_chunks SET status = 'completed' WHERE id = $1 AND status = 'processing'` inside a CTE, gating the job counter UPDATE.
 
+   **Cancellation detection:** When the last chunk for a job reaches a terminal state (`completed` or `cancelled`) and the job status is `'cancelling'`, `AtomicChunkCompletion` transitions the job to `'cancelled'`. Job counters reflect whatever actually completed before cancellation took effect — successfully-inserted rows are not zeroed out.
+
 **Redelivery safety guarantee:** A chunk can never be processed twice in a way that duplicates data or double-counts progress, even under:
 - Worker crash (mid-insert or mid-mark)
 - Asynq visibility-timeout retry (same task delivered to another worker)
@@ -240,7 +244,10 @@ When poll detects terminal status:
   - Success/failure counts
   - Failed rows list (from `getImportFailures`)
   - "Retry failed" button
+- If `cancelled`: slate banner with cancellation message indicating how many students were already added before cancellation took effect — no rollback occurred.
 - "Done" button resets to the import selector
+
+**Intermediate state:** The polling loop also recognizes `'cancelling'` as a non-terminal state. While `'cancelling'`, the progress bar continues to update, and a "Waiting for in-flight chunks to finish…" message is shown. Existing polling logic transitions naturally to `'cancelled'` once all chunks complete.
 
 ---
 
@@ -287,8 +294,9 @@ Table-based form where users type student data. Each row has:
 Shared progress component used by both import paths. Handles:
 - Polling `GET /api/v1/imports/:job_id` every 1.5s
 - Displaying progress bar with `processed / total` counts
-- Showing result banner on completion (green/amber)
+- Showing result banner on completion (green/amber/slate for cancelled)
 - Fetching failures via `GET /api/v1/imports/:job_id/failures`
+- "Cancel Import" button (visible only while status is `'processing'`)
 - "Done" and "Retry failed" buttons
 
 **Props:**
@@ -296,6 +304,12 @@ Shared progress component used by both import paths. Handles:
 - `totalRecords: number`
 - `onDone: () => void`
 - `onRetry?: (failedPayloads: Record<string, unknown>[]) => void`
+
+**Cancellation behavior:**
+- The "Cancel Import" button calls `POST /api/v1/imports/:job_id/cancel`.
+- On click, the button is immediately disabled (prevents double-clicks).
+- The existing polling loop picks up the `'cancelling'` → `'cancelled'` transition naturally — no special-case polling needed.
+- When the job reaches `'cancelled'`, the result banner displays: "Import cancelled — N students were already added before cancellation took effect." It does not imply a full rollback.
 
 ### 5.4 `StepStreaming` (`file-importer/step-streaming.tsx`)
 
@@ -389,8 +403,9 @@ Implements `imports.Importer` interface:
   - `ChunkSize = 100` (rows per chunk)
 - **GetJob()**: Returns current job state (for polling).
 - **GetFailures()**: Returns paginated failure records.
-- **ProcessChunk()**: The worker entry point. Uses `ClaimChunk` → pending-only staging rows → savepoint insert+mark → idempotent `AtomicChunkCompletion` for redelivery safety.
-- **AtomicChunkCompletion()**: Idempotent — only increments job counters when transitioning the chunk from `'processing'` to `'completed'`. If the chunk is already `'completed'`, no-ops.
+- **CancelJob()**: Atomically transitions a job from `'processing'` to `'cancelling'`. Returns the updated job immediately — does not wait for in-flight chunks.
+- **ProcessChunk()**: The worker entry point. Checks parent job status before claiming the chunk — if `'cancelling'`, marks the chunk `'cancelled'` instead of processing it. Uses `ClaimChunk` → pending-only staging rows → savepoint insert+mark → idempotent `AtomicChunkCompletion` for redelivery safety.
+- **AtomicChunkCompletion()**: Idempotent — only increments job counters when transitioning the chunk from `'processing'` to `'completed'`. If the chunk is already `'completed'`, no-ops. Detects `'cancelling'` job status on the last chunk and transitions the job to `'cancelled'`.
 
 ### 6.3a Chunk claim states (`import_job_chunks` table)
 
@@ -398,9 +413,10 @@ Implements `imports.Importer` interface:
 |--------|---------|
 | `pending` | Chunk created, waiting for worker to pick it up |
 | `processing` | Worker claimed this chunk and is processing rows |
+| `cancelled` | Chunk was pending when the parent job was cancelled; skipped without processing |
 | `completed` | All rows in the chunk have been processed; counters applied to the job |
 
-The `ClaimChunk` UPDATE (status = `'processing'`) and `AtomicChunkCompletion` UPDATE (status = `'completed'`) both use `WHERE status = 'previous_state'` with `RETURNING`, ensuring at-most-once semantics. If two workers race to claim the same chunk, exactly one succeeds. If `AtomicChunkCompletion` is called twice for the same chunk, the second call no-ops.
+The `ClaimChunk` UPDATE (status = `'processing'`) and `AtomicChunkCompletion` UPDATE (status = `'completed'`) both use `WHERE status = 'previous_state'` with `RETURNING`, ensuring at-most-once semantics. If two workers race to claim the same chunk, exactly one succeeds. If `AtomicChunkCompletion` is called twice for the same chunk, the second call no-ops. A pending chunk that encounters a `'cancelling'` parent job is transitioned to `'cancelled'` via `CancelPendingChunk`.
 
 ### 6.4 `internal/students/handler.go` (BulkImport)
 
@@ -423,6 +439,7 @@ POST /api/v1/students/import
 | `POST` | `/api/v1/students/check-duplicates` | Check which values already exist in DB | `{ existing_admission_numbers, existing_upi_numbers, existing_knec_assessment_numbers }` |
 | `GET` | `/api/v1/imports/:job_id` | Poll job status | `ImportJob` (full state) |
 | `GET` | `/api/v1/imports/:job_id/failures` | Get failure details | `{ failures: [...], total: number }` |
+| `POST` | `/api/v1/imports/:job_id/cancel` | Cancel a running import | `ImportJob` (status: `cancelling`) |
 
 ---
 
@@ -539,6 +556,27 @@ This eliminates TOCTOU race conditions that a check-then-insert pattern would ha
   "completed_at": "2026-07-08T12:00:30Z"
 }
 ```
+
+### POST /api/v1/imports/:job_id/cancel
+
+**Request:** No body required.
+
+**Response (200 — cancellation requested):** Returns the full `ImportJob` with status `"cancelling"`.
+
+**Response (409 — job not cancellable):**
+```json
+{
+  "code": "job_not_cancellable",
+  "message": "the job is not in a cancellable state (it may already be completed, failed, or cancelled)"
+}
+```
+
+**Semantics:**
+- Only a job with status `'processing'` can be cancelled.
+- The endpoint returns immediately with status `'cancelling'` — it does not wait for in-flight chunks to stop.
+- Pending chunks are skipped by the worker (cooperative cancellation); already-processing chunks finish normally.
+- Once all chunks reach a terminal state, the job auto-transitions from `'cancelling'` to `'cancelled'`.
+- Counters reflect only the work that actually completed before cancellation.
 
 ### GET /api/v1/imports/:job_id/failures
 

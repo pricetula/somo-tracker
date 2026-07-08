@@ -4,18 +4,28 @@
  * Polls GET /api/v1/imports/:job_id until terminal, fetches failures,
  * and displays progress bar, counts, and error details.
  *
+ * Supports cancelling an in-progress import via the "Cancel Import" button,
+ * visible only while the job status is 'processing'. After requesting
+ * cancellation, the button is disabled and the polling loop picks up the
+ * 'cancelling' -> 'cancelled' transition naturally.
+ *
  * Used by both Manual Import and File Import flows.
  */
 
 "use client";
 
 import * as React from "react";
-import { CheckCircle2, XCircle, Loader2, AlertTriangle } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2, AlertTriangle, Ban } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 
-import { getImportJob, getImportFailures, checkDuplicates } from "@/lib/api/imports";
+import {
+    getImportJob,
+    getImportFailures,
+    checkDuplicates,
+    cancelImportJob,
+} from "@/lib/api/imports";
 import type { ImportJob, ImportJobStatus, ImportRowFailure } from "@/lib/api/imports";
 
 // ─── Constants ────────────────────────────────────────────────────────────
@@ -43,6 +53,7 @@ interface ImportProgressProps {
 export function ImportProgress({ jobId, totalRecords, onDone, onRetry }: ImportProgressProps) {
     const [job, setJob] = React.useState<ImportJob | null>(null);
     const [failures, setFailures] = React.useState<ImportRowFailure[]>([]);
+    const [cancelling, setCancelling] = React.useState(false);
     const pollRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
 
     // Cleanup polling on unmount
@@ -65,7 +76,7 @@ export function ImportProgress({ jobId, totalRecords, onDone, onRetry }: ImportP
                         pollRef.current = null;
                     }
 
-                    // Fetch failures if any
+                    // Fetch failures if the job completed with errors
                     if (current.status === "completed_with_errors" || current.status === "failed") {
                         try {
                             const failResult = await getImportFailures(jobId, { limit: 200 });
@@ -92,6 +103,8 @@ export function ImportProgress({ jobId, totalRecords, onDone, onRetry }: ImportP
     const isTerminal = job && TERMINAL_STATUSES.includes(job.status);
     const isStreaming = job && !isTerminal;
     const allSucceeded = job?.status === "completed";
+    const isCancelled = job?.status === "cancelled";
+    const isCancelling = job?.status === "cancelling";
 
     const processed = job ? job.success_count + job.failed_count : 0;
     const percentComplete =
@@ -170,6 +183,21 @@ export function ImportProgress({ jobId, totalRecords, onDone, onRetry }: ImportP
         }
     }, [retryPayloads, onRetry, retrying]);
 
+    // ─── Cancel handler ─────────────────────────────────────────────────
+    const handleCancel = React.useCallback(async () => {
+        if (cancelling) return; // prevent double-clicks
+
+        setCancelling(true);
+        try {
+            await cancelImportJob(jobId);
+            // The polling loop will pick up 'cancelling' -> 'cancelled'
+            // transition naturally — no special handling needed here.
+        } catch {
+            setCancelling(false);
+            toast.error("Failed to cancel import. Please try again.");
+        }
+    }, [jobId, cancelling]);
+
     return (
         <div className="space-y-4">
             {/* Progress bar */}
@@ -177,8 +205,10 @@ export function ImportProgress({ jobId, totalRecords, onDone, onRetry }: ImportP
                 <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">
                         {!job && "Starting…"}
-                        {isStreaming && "Importing…"}
-                        {isTerminal && "Complete"}
+                        {isCancelling && "Cancelling…"}
+                        {isStreaming && !isCancelling && "Importing…"}
+                        {isTerminal && !isCancelled && "Complete"}
+                        {isCancelled && "Cancelled"}
                     </span>
                     <span className="font-medium">
                         {processed} / {totalRecords}
@@ -202,10 +232,16 @@ export function ImportProgress({ jobId, totalRecords, onDone, onRetry }: ImportP
                                     {job.failed_count} failed
                                 </span>
                             )}
-                            {isStreaming && (
+                            {isStreaming && !isCancelling && (
                                 <span className="text-muted-foreground flex items-center gap-1">
                                     <Loader2 className="size-3.5 animate-spin" />
                                     Processing chunk {job.processed_chunks} of {job.total_chunks}
+                                </span>
+                            )}
+                            {isCancelling && (
+                                <span className="text-muted-foreground flex items-center gap-1">
+                                    <Ban className="size-3.5" />
+                                    Waiting for in-flight chunks to finish…
                                 </span>
                             )}
                         </div>
@@ -213,17 +249,46 @@ export function ImportProgress({ jobId, totalRecords, onDone, onRetry }: ImportP
                 )}
             </div>
 
+            {/* Cancel button — visible only while status is 'processing' */}
+            {job?.status === "processing" && (
+                <div className="flex justify-end">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleCancel}
+                        disabled={cancelling}
+                        className="text-destructive hover:text-destructive"
+                    >
+                        {cancelling ? (
+                            <>
+                                <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                                Cancelling…
+                            </>
+                        ) : (
+                            <>
+                                <Ban className="mr-1.5 size-3.5" />
+                                Cancel Import
+                            </>
+                        )}
+                    </Button>
+                </div>
+            )}
+
             {/* Result banner */}
             {isTerminal && (
                 <div
                     className={`flex items-start gap-3 rounded-md px-4 py-3 text-sm ${
                         allSucceeded
                             ? "bg-emerald-50 text-emerald-800"
-                            : "bg-amber-50 text-amber-800"
+                            : isCancelled
+                              ? "bg-slate-50 text-slate-800"
+                              : "bg-amber-50 text-amber-800"
                     }`}
                 >
                     {allSucceeded ? (
                         <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" />
+                    ) : isCancelled ? (
+                        <Ban className="mt-0.5 size-4 shrink-0 text-slate-600" />
                     ) : (
                         <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600" />
                     )}
@@ -231,15 +296,29 @@ export function ImportProgress({ jobId, totalRecords, onDone, onRetry }: ImportP
                         <p className="font-medium">
                             {allSucceeded
                                 ? "Import completed successfully"
-                                : "Import completed with issues"}
+                                : isCancelled
+                                  ? "Import cancelled"
+                                  : "Import completed with issues"}
                         </p>
-                        <p className="mt-0.5 text-xs opacity-80">
-                            {job!.success_count} succeeded, {job!.failed_count} failed
-                            {job!.total_records > 0 && ` out of ${job!.total_records} total`}
-                        </p>
+                        {isCancelled ? (
+                            <p className="mt-0.5 text-xs opacity-80">
+                                {job!.success_count > 0
+                                    ? `${job!.success_count} student${job!.success_count === 1 ? "" : "s"} ${
+                                          job!.success_count === 1 ? "was" : "were"
+                                      } already added before cancellation took effect.`
+                                    : "No students were added."}
+                                {job!.failed_count > 0 &&
+                                    ` ${job!.failed_count} row${job!.failed_count === 1 ? "" : "s"} failed before cancellation.`}
+                            </p>
+                        ) : (
+                            <p className="mt-0.5 text-xs opacity-80">
+                                {job!.success_count} succeeded, {job!.failed_count} failed
+                                {job!.total_records > 0 && ` out of ${job!.total_records} total`}
+                            </p>
+                        )}
 
-                        {/* Failure details */}
-                        {failures.length > 0 && (
+                        {/* Failure details (only for completed_with_errors, not cancelled) */}
+                        {!isCancelled && failures.length > 0 && (
                             <div className="mt-2 space-y-1">
                                 <p className="text-xs font-medium">Failed rows:</p>
                                 <ul className="list-inside list-disc space-y-0.5 text-xs opacity-80">
@@ -262,7 +341,7 @@ export function ImportProgress({ jobId, totalRecords, onDone, onRetry }: ImportP
                             <Button variant="outline" size="sm" onClick={onDone}>
                                 Done
                             </Button>
-                            {retryPayloads.length > 0 && onRetry && (
+                            {!isCancelled && retryPayloads.length > 0 && onRetry && (
                                 <Button
                                     variant="outline"
                                     size="sm"

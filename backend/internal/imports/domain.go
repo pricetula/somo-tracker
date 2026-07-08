@@ -26,6 +26,7 @@ var (
 	ErrDuplicateJob     = fmt.Errorf("duplicate import job: %w", middleware.ErrConflict)
 	ErrImportInProgress = fmt.Errorf("import already in progress: %w", middleware.ErrConflict)
 	ErrJobTypeMismatch  = fmt.Errorf("job type mismatch: %w", middleware.ErrInvalidInput)
+	ErrNotCancellable   = fmt.Errorf("import job is not cancellable: %w", middleware.ErrConflict)
 )
 
 // ============================================================================
@@ -51,6 +52,7 @@ const (
 	ImportJobStatusCompleted           ImportJobStatus = "completed"
 	ImportJobStatusFailed              ImportJobStatus = "failed"
 	ImportJobStatusCancelled           ImportJobStatus = "cancelled"
+	ImportJobStatusCancelling          ImportJobStatus = "cancelling"
 	ImportJobStatusCompletedWithErrors ImportJobStatus = "completed_with_errors"
 )
 
@@ -74,6 +76,7 @@ const (
 	ImportChunkStatusPending    ImportChunkStatus = "pending"
 	ImportChunkStatusProcessing ImportChunkStatus = "processing"
 	ImportChunkStatusCompleted  ImportChunkStatus = "completed"
+	ImportChunkStatusCancelled  ImportChunkStatus = "cancelled"
 )
 
 // ============================================================================
@@ -254,6 +257,16 @@ type ServiceRepository interface {
 	// it is a no-op — counters are not re-incremented.
 	// Returns the updated status and a boolean indicating terminal state.
 	AtomicChunkCompletion(ctx context.Context, jobID uuid.UUID, chunkID uuid.UUID, chunkProcessed, chunkSuccess, chunkFailed int) (ImportJobStatus, bool, error)
+
+	// CancelJob atomically transitions the job from 'processing' to 'cancelling'.
+	// Returns the updated job if the transition succeeded, or nil if the job was
+	// already in a terminal state or another status (race-safe).
+	CancelJob(ctx context.Context, jobID uuid.UUID) (*Job, error)
+
+	// CancelPendingChunk atomically transitions a chunk from 'pending' to 'cancelled'
+	// if the parent job's status is 'cancelling'. No-op if the chunk was already
+	// claimed or completed.
+	CancelPendingChunk(ctx context.Context, jobID uuid.UUID, chunkIndex int) error
 
 	// MarkStagingRowSucceeded sets a single staging row to 'succeeded' within the caller's
 	// transaction/savepoint. Used alongside InsertOne for atomic insert+mark.

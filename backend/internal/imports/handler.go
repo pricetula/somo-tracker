@@ -1,6 +1,7 @@
 package imports
 
 import (
+	"errors"
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
@@ -26,6 +27,7 @@ func NewHandler(svc *Service) *Handler {
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	router.Get("/api/v1/imports/:job_id", middleware.RequireAuth, h.GetJobAPI)
 	router.Get("/api/v1/imports/:job_id/failures", middleware.RequireAuth, h.GetFailures)
+	router.Post("/api/v1/imports/:job_id/cancel", middleware.RequireAuth, h.CancelJobAPI)
 }
 
 // ============================================================================
@@ -48,6 +50,43 @@ func (h *Handler) GetJobAPI(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"code": "forbidden", "message": "access denied"})
 	}
 	return c.JSON(job)
+}
+
+// ============================================================================
+// Cancel a job
+// ============================================================================
+
+func (h *Handler) CancelJobAPI(c *fiber.Ctx) error {
+	jobID, err := uuid.Parse(c.Params("job_id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "invalid_input", "message": "bad job_id"})
+	}
+
+	tenantID, _ := uuid.Parse(c.Locals("tenant_id").(string))
+	schoolID, _ := uuid.Parse(c.Locals("school_id").(string))
+
+	// Verify the job exists and belongs to the caller's tenant/school
+	job, err := h.svc.GetJob(c.Context(), jobID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	if job.TenantID != tenantID || job.SchoolID != schoolID {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"code": "forbidden", "message": "access denied"})
+	}
+
+	// Attempt cancellation
+	updated, err := h.svc.CancelJob(c.Context(), jobID)
+	if err != nil {
+		if errors.Is(err, ErrNotCancellable) {
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+				"code":    "job_not_cancellable",
+				"message": "the job is not in a cancellable state (it may already be completed, failed, or cancelled)",
+			})
+		}
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(updated)
 }
 
 // ============================================================================

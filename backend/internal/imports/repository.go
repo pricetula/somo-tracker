@@ -67,7 +67,7 @@ func (r *PgRepository) CreateJobIdempotent(ctx context.Context, job *Job, payloa
 		INSERT INTO import_jobs (tenant_id, school_id, job_type, role, created_by, status,
 		                         total_records, idempotency_key, payload_hash, total_chunks, metadata)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-		ON CONFLICT (tenant_id, school_id, idempotency_key) WHERE idempotency_key IS NOT NULL
+		ON CONFLICT (tenant_id, idempotency_key) WHERE idempotency_key IS NOT NULL
 		DO NOTHING
 		RETURNING id, tenant_id, school_id, job_type, role, created_by, status,
 		          total_records, processed_records, success_count, failed_count,

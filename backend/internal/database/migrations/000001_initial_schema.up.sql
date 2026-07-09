@@ -200,16 +200,12 @@ DO $$ BEGIN
         'processing',
         'completed',
         'failed',
-        'cancelled'
+        'cancelled',
+        'completed_with_errors',
+        'cancelling'
     );
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
-
--- completed_with_errors is used by the application to distinguish successful
--- imports that had partial failures (some records succeeded, some failed)
--- from clean completed imports (all records succeeded).
-ALTER TYPE import_job_status ADD VALUE IF NOT EXISTS 'completed_with_errors';
-ALTER TYPE import_job_status ADD VALUE IF NOT EXISTS 'cancelling';
 
 DO $$ BEGIN
     CREATE TYPE import_job_type AS ENUM ('STAFF_INVITE', 'STUDENT_IMPORT');
@@ -610,6 +606,7 @@ CREATE TABLE IF NOT EXISTS import_jobs (
     created_at           TIMESTAMPTZ       NOT NULL DEFAULT NOW(),
     started_at           TIMESTAMPTZ       NULL,
     completed_at         TIMESTAMPTZ       NULL,
+    last_progress_at    TIMESTAMPTZ       NULL,
 
     CONSTRAINT fk_import_jobs_tenant_school
         FOREIGN KEY (tenant_id, school_id)
@@ -1385,6 +1382,18 @@ CREATE TABLE IF NOT EXISTS cbc_timetable_slots (
     end_time             TIME        NOT NULL,
 
     CONSTRAINT chk_timetable_times CHECK (end_time > start_time),
+    CONSTRAINT excl_cbc_timetable_teacher
+        EXCLUDE USING gist (
+            teacher_id       WITH =,
+            academic_year_id WITH =,
+            fn_timerange(day_of_week, start_time, end_time) WITH &&
+        ),
+    CONSTRAINT excl_cbc_timetable_room
+        EXCLUDE USING gist (
+            room_identifier  WITH =,
+            academic_year_id WITH =,
+            fn_timerange(day_of_week, start_time, end_time) WITH &&
+        ),
     CONSTRAINT fk_cbc_timetable_tenant_school
         FOREIGN KEY (tenant_id, school_id)
         REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
@@ -1406,26 +1415,6 @@ CREATE INDEX IF NOT EXISTS idx_cbc_timetable_tenant      ON cbc_timetable_slots 
 CREATE INDEX IF NOT EXISTS idx_cbc_timetable_school_year ON cbc_timetable_slots (school_id, academic_year_id);
 CREATE INDEX IF NOT EXISTS idx_cbc_timetable_class       ON cbc_timetable_slots (class_id);
 CREATE INDEX IF NOT EXISTS idx_cbc_timetable_teacher     ON cbc_timetable_slots (teacher_id);
-
-DO $$ BEGIN
-    ALTER TABLE cbc_timetable_slots ADD CONSTRAINT excl_cbc_timetable_teacher
-        EXCLUDE USING gist (
-            teacher_id       WITH =,
-            academic_year_id WITH =,
-            fn_timerange(day_of_week, start_time, end_time) WITH &&
-        );
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-
-DO $$ BEGIN
-    ALTER TABLE cbc_timetable_slots ADD CONSTRAINT excl_cbc_timetable_room
-        EXCLUDE USING gist (
-            room_identifier  WITH =,
-            academic_year_id WITH =,
-            fn_timerange(day_of_week, start_time, end_time) WITH &&
-        );
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
 
 -- ---------------------------------------------------------------------------
 -- AUTO-REGISTER / AUTO-CLEAN SUBJECT TEACHER TRIGGER
@@ -2591,13 +2580,6 @@ COMMENT ON TABLE member_active_school IS
     'Tracks the currently active school context for each user within a tenant.
      One row per user. Upsert on school switch. The chosen school_id is
      constrained to schools the user is an active member of via fk_mas_membership.';
-
--- ============================================================================
--- POST-LAUNCH ALTERATIONS (additive only)
--- ============================================================================
-
--- 2026-07-08: Add last_progress_at for stalled-job detection
-ALTER TABLE import_jobs ADD COLUMN IF NOT EXISTS last_progress_at TIMESTAMPTZ;
 
 -- ============================================================================
 -- END OF MIGRATION

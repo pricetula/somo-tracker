@@ -1,6 +1,6 @@
 # Student Import — Architecture & Data Flow
 
-> **Last updated:** 2026-07-08  
+> **Last updated:** 2026-07-09  
 > **Scope:** Frontend `features/students/components/students-import/` ↔ Backend `internal/students/` + `internal/imports/`  
 > **Owner:** Platform team
 
@@ -18,6 +18,15 @@
 8. [Request/Response Contracts](#8-requestresponse-contracts)
 9. [Error Handling](#9-error-handling)
 10. [Important Rules for Agents](#10-important-rules-for-agents)
+11. [Database Schema](#11-database-schema)
+12. [Importer Interface & Registry](#12-importer-interface--registry)
+13. [File Parsing Pipeline](#13-file-parsing-pipeline)
+14. [Duplicate Detection Matrix](#14-duplicate-detection-matrix)
+15. [Frontend Validation Rules](#15-frontend-validation-rules)
+16. [IndexedDB Store Schema](#16-indexeddb-store-schema)
+17. [Environment Configuration Reference](#17-environment-configuration-reference)
+18. [Asynq Module Wiring](#18-asynq-module-wiring-fx-lifecycle)
+19. [Testing Strategy](#19-testing-strategy)
 
 ---
 
@@ -921,19 +930,686 @@ the full specification. Key points:
 
 ### Key files to reference
 
+### Key files to reference
+
 **Frontend:**
 - `src/lib/api/imports.ts` — API client functions
 - `src/features/students/components/students-import/students-import.tsx` — Parent orchestrator
-- `src/features/students/components/students-import/import-progress.tsx` — Shared progress
-- `src/features/students/components/students-import/manual-import-form.tsx` — Manual entry
-- `src/features/students/components/students-import/file-importer/file-importer.tsx` — File import wizard
+- `src/features/students/components/students-import/import-progress.tsx` — Shared progress component
+- `src/features/students/components/students-import/manual-import-form.tsx` — Manual entry form
+- `src/features/students/components/students-import/file-importer/file-importer.tsx` — File import wizard orchestrator
+- `src/features/students/components/students-import/file-importer/step-upload.tsx` — File upload & parsing
+- `src/features/students/components/students-import/file-importer/step-column-mapping.tsx` — Column mapping UI
+- `src/features/students/components/students-import/file-importer/step-class-resolve.tsx` — Class name resolution
+- `src/features/students/components/students-import/file-importer/step-data-review.tsx` — Record review/correction
 - `src/features/students/components/students-import/file-importer/step-streaming.tsx` — Submit step
-- `src/features/students/components/students-import/file-importer/utils/validation-utils.ts` — Validation
+- `src/features/students/components/students-import/file-importer/db.ts` — IndexedDB persistence layer
+- `src/features/students/components/students-import/file-importer/types.ts` — All wizard types & constants
+- `src/features/students/components/students-import/file-importer/utils/parse-utils.ts` — CSV/Excel parsing engine
+- `src/features/students/components/students-import/file-importer/utils/validation-utils.ts` — Validation + duplicate detection
+- `src/features/students/components/students-import/file-importer/utils/class-resolver-utils.ts` — Class resolution helpers
 
 **Backend:**
-- `internal/students/handler.go` — BulkImport handler
-- `internal/students/domain.go` — Import types
-- `internal/students/importer.go` — StudentImporter implementation
-- `internal/imports/service.go` — Import job lifecycle
-- `internal/imports/domain.go` — Job, Chunk, Importer interface
-- `internal/imports/handler.go` — Job status + failures endpoints
+- `internal/students/handler.go` — BulkImport handler + route registration
+- `internal/students/domain.go` — ImportRow, ImportRequest, ImportResponse types
+- `internal/students/importer.go` — StudentImporter (Validate, ResolveReferences, InsertOne)
+- `internal/students/repository.go` — Student-specific DB queries (class lookup, duplicate check)
+- `internal/imports/service.go` — Import job lifecycle (CreateJob, ProcessChunk, CancelJob, CleanupExpiredData)
+- `internal/imports/domain.go` — Job, Chunk, RowFailure, ValidatedRow, Importer interface
+- `internal/imports/repository.go` — PgRepository (all import_job* CRUD operations)
+- `internal/imports/handler.go` — Job status + failures + cancel HTTP endpoints
+- `internal/imports/module.go` — fx module, Asynq server/worker, cleanup scheduler
+- `internal/database/migrations/000001_initial_schema.up.sql` — DDL for all import_* tables
+
+---
+
+## 11. Database Schema
+
+### 11.1 `import_jobs` — Job summary
+
+| Column | Type | Constraints | Notes |
+|--------|------|-------------|-------|
+| `id` | `UUID` | `PK DEFAULT gen_random_uuid()` | |
+| `tenant_id` | `UUID` | `NOT NULL → tenants(id) ON DELETE CASCADE` | |
+| `school_id` | `UUID` | `NOT NULL` | FK via composite `fk_import_jobs_tenant_school` |
+| `job_type` | `import_job_type` | `NOT NULL` | `STUDENT_IMPORT` or `STAFF_INVITE` |
+| `role` | `user_role` | `NULL` | Required when `job_type = 'STAFF_INVITE'` (CHECK constraint) |
+| `created_by` | `UUID` | `→ users(id) ON DELETE SET NULL` | |
+| `status` | `import_job_status` | `NOT NULL DEFAULT 'pending'` | See [status enum](#job-status-enum) |
+| `total_records` | `INT` | `NOT NULL DEFAULT 0` | |
+| `processed_records` | `INT` | `NOT NULL DEFAULT 0` | |
+| `success_count` | `INT` | `NOT NULL DEFAULT 0` | |
+| `failed_count` | `INT` | `NOT NULL DEFAULT 0` | |
+| `idempotency_key` | `TEXT` | `NULL` | Partial unique index |
+| `payload_hash` | `TEXT` | `NULL` | SHA-256 of JSON-serialized rows |
+| `total_chunks` | `INT` | `NOT NULL DEFAULT 0` | |
+| `processed_chunks` | `INT` | `NOT NULL DEFAULT 0` | |
+| `metadata` | `JSONB` | `NOT NULL DEFAULT '{}'` | Contains `academic_term_id`, `academic_year_id` |
+| `created_at` | `TIMESTAMPTZ` | `NOT NULL DEFAULT NOW()` | |
+| `started_at` | `TIMESTAMPTZ` | `NULL` | Set when first chunk is processed |
+| `completed_at` | `TIMESTAMPTZ` | `NULL` | Set when `processed_chunks = total_chunks` |
+| `last_progress_at` | `TIMESTAMPTZ` | `NULL` | Updated by every `AtomicChunkCompletion()` |
+
+**Indexes:**
+
+```sql
+CREATE INDEX idx_import_jobs_tenant_id  ON import_jobs (tenant_id);
+CREATE INDEX idx_import_jobs_school_id  ON import_jobs (school_id);
+CREATE INDEX idx_import_jobs_created_by ON import_jobs (created_by);
+CREATE INDEX idx_import_jobs_status     ON import_jobs (status);
+
+-- Idempotency dedup: one key per tenant
+CREATE UNIQUE INDEX uq_import_jobs_tenant_idempotency
+    ON import_jobs (tenant_id, idempotency_key)
+    WHERE idempotency_key IS NOT NULL;
+
+-- One active job per school at a time
+CREATE UNIQUE INDEX uq_import_jobs_one_active_per_school
+    ON import_jobs (school_id)
+    WHERE status IN ('processing', 'cancelling');
+```
+
+#### Job status enum (`import_job_status`)
+
+```sql
+CREATE TYPE import_job_status AS ENUM (
+    'pending',              -- Created, staging rows written, Asynq tasks enqueued
+    'processing',           -- First chunk has started
+    'completed',            -- All chunks processed, 0 failures
+    'completed_with_errors',-- All chunks processed, ≥1 failures
+    'failed',               -- Terminal error (not used by student import currently)
+    'cancelled',            -- User requested cancellation, all chunks finished
+    'cancelling'            -- User requested cancellation, some chunks still in-flight
+);
+```
+
+#### Job type enum (`import_job_type`)
+
+```sql
+CREATE TYPE import_job_type AS ENUM ('STAFF_INVITE', 'STUDENT_IMPORT');
+```
+
+---
+
+### 11.2 `import_job_staging` — Per-row staging data
+
+| Column | Type | Constraints | Notes |
+|--------|------|-------------|-------|
+| `id` | `UUID` | `PK DEFAULT gen_random_uuid()` | Referenced by `cbc_students.staging_row_id` |
+| `job_id` | `UUID` | `NOT NULL → import_jobs(id) ON DELETE CASCADE` | |
+| `tenant_id` | `UUID` | `NOT NULL` | Denormalized for query simplicity |
+| `school_id` | `UUID` | `NOT NULL` | Denormalized |
+| `row_number` | `INT` | `NOT NULL` | 0-indexed position in the original request |
+| `raw_data` | `JSONB` | `NOT NULL` | Original serialized `ImportRow` |
+| `status` | `import_staging_status` | `NOT NULL DEFAULT 'pending'` | `pending | succeeded | failed` |
+| `processed_at` | `TIMESTAMPTZ` | `NULL` | Set when status changes from `pending` |
+| `created_at` | `TIMESTAMPTZ` | `NOT NULL DEFAULT NOW()` | |
+
+**Indexes:**
+
+```sql
+CREATE INDEX idx_import_job_staging_job_id ON import_job_staging (job_id);
+CREATE UNIQUE INDEX uq_import_job_staging_job_row ON import_job_staging (job_id, row_number);
+```
+
+#### Staging row state machine
+
+```
+          ┌──────────────┐
+          │   pending    │
+          └──────┬───────┘
+                 │
+       ┌─────────┴──────────┐
+       │                    │
+       ▼                    ▼
+┌──────────────┐   ┌──────────────┐
+│  succeeded   │   │   failed     │
+└──────────────┘   └──────────────┘
+```
+
+- **`pending`** — Row is queued, waiting for a chunk worker.
+- **`succeeded`** — Row was successfully inserted into `cbc_students` (and optionally `cbc_student_enrollments`). Set atomically within the same savepoint as the insert — there is no code path where the insert commits but the staging row stays `pending`.
+- **`failed`** — Row failed validation, reference resolution, or insert. Error details are stored in `import_job_failures`.
+
+**Redelivery safety:** The worker only loads staging rows where `status = 'pending'`. Rows already marked `succeeded` or `failed` by a prior partial attempt (worker crash mid-chunk) are skipped — they are never reprocessed.
+
+---
+
+### 11.3 `import_job_chunks` — Chunk claim tracking
+
+| Column | Type | Constraints | Notes |
+|--------|------|-------------|-------|
+| `id` | `UUID` | `PK DEFAULT gen_random_uuid()` | |
+| `job_id` | `UUID` | `NOT NULL → import_jobs(id) ON DELETE CASCADE` | |
+| `chunk_index` | `INT` | `NOT NULL` | 0-based index within the job |
+| `status` | `import_chunk_status` | `NOT NULL DEFAULT 'pending'` | See [chunk status states](#chunk-status-states) |
+| `row_start` | `INT` | `NOT NULL DEFAULT 0` | Inclusive staging row number |
+| `row_end` | `INT` | `NOT NULL DEFAULT 0` | Exclusive staging row number |
+| `claimed_at` | `TIMESTAMPTZ` | `NULL` | Set when worker claims the chunk |
+| `completed_at` | `TIMESTAMPTZ` | `NULL` | Set when chunk finishes processing |
+| `created_at` | `TIMESTAMPTZ` | `NOT NULL DEFAULT NOW()` | |
+
+**Constraints:**
+
+```sql
+CONSTRAINT uq_import_job_chunks_job_chunk UNIQUE (job_id, chunk_index)
+```
+
+**Indexes:**
+
+```sql
+CREATE INDEX idx_import_job_chunks_job_id  ON import_job_chunks (job_id);
+CREATE INDEX idx_import_job_chunks_status ON import_job_chunks (job_id, status);
+```
+
+#### Chunk status states
+
+| Status | Meaning |
+|--------|---------|
+| `pending` | Chunk created, waiting for worker to pick it up |
+| `processing` | Worker claimed this chunk and is processing rows |
+| `completed` | All rows in the chunk have been processed; counters applied to the job |
+| `cancelled` | Chunk was pending when the parent job was cancelled; skipped without processing |
+
+**At-most-once guarantee:** Both `ClaimChunk` (`pending → processing`) and `AtomicChunkCompletion` (`processing → completed`) use `UPDATE ... WHERE status = 'previous_state'` with `RETURNING`. If two workers race to claim the same chunk, exactly one succeeds. If `AtomicChunkCompletion` is called twice for the same chunk, the second call no-ops.
+
+---
+
+### 11.4 `import_job_failures` — Per-row failure records
+
+| Column | Type | Constraints | Notes |
+|--------|------|-------------|-------|
+| `id` | `BIGSERIAL` | `PK` | |
+| `import_job_id` | `UUID` | `NOT NULL → import_jobs(id) ON DELETE CASCADE` | |
+| `raw_payload` | `JSONB` | `NOT NULL` | The original row data that failed |
+| `error_message` | `TEXT` | `NOT NULL` | Human-readable description |
+| `error_type` | `import_failure_type` | `NOT NULL DEFAULT 'DATABASE_CONSTRAINT'` | Categorised failure type |
+| `row_number` | `INT` | `NULL` | 0-indexed position in the original request |
+| `created_at` | `TIMESTAMPTZ` | `NOT NULL DEFAULT NOW()` | |
+
+**Indexes:**
+
+```sql
+CREATE INDEX idx_import_job_failures_job_id ON import_job_failures (import_job_id);
+```
+
+#### Failure type enum (`import_failure_type`)
+
+```sql
+CREATE TYPE import_failure_type AS ENUM (
+    'SCHEMA_VALIDATION',
+    'DATABASE_CONSTRAINT',
+    'BUSINESS_RULE_VIOLATION'
+);
+```
+
+The application extends this via typed `ImportError` values (see [Section 9 — Error Handling](#9-error-handling) for the full list of frontend-visible failure types). The enum covers the three DB-level categories; application code may emit any of the extended types listed in [Section 9](#9-error-handling).
+
+---
+
+### 11.5 `cbc_students.staging_row_id` — Idempotent insert anchor
+
+The `cbc_students` table includes a `staging_row_id` column used for defense-in-depth against duplicate inserts:
+
+```sql
+staging_row_id UUID REFERENCES import_job_staging(id) ON DELETE SET NULL
+```
+
+**Unique partial index:**
+
+```sql
+CREATE UNIQUE INDEX idx_cbc_students_school_staging_row
+    ON cbc_students (school_id, staging_row_id)
+    WHERE staging_row_id IS NOT NULL;
+```
+
+This means `INSERT INTO cbc_students (school_id, staging_row_id, ...) VALUES ($1, $2, ...) ON CONFLICT (school_id, staging_row_id) WHERE staging_row_id IS NOT NULL DO UPDATE SET staging_row_id = EXCLUDED.staging_row_id` is a no-op identity update — if the row was already inserted by a prior attempt, it is treated as success, not a duplicate error.
+
+---
+
+## 12. Importer Interface & Registry
+
+### 12.1 `Importer` interface contract
+
+The import engine is generic — it imports any domain type. The domain package (e.g., `students`) implements this interface and registers itself at startup.
+
+```go
+// Importer interface — implemented by domain packages (students, etc.)
+type Importer interface {
+    // JobType returns the import_job_type this importer handles.
+    JobType() ImportJobType
+
+    // Validate checks each raw row for schema-level correctness.
+    // Returns validated rows and any rows that failed validation.
+    Validate(ctx context.Context, tenantID, schoolID uuid.UUID, raw []json.RawMessage) ([]ValidatedRow, []RowFailure)
+
+    // ResolveReferences enriches the validated rows with any cross-table
+    // references that require DB lookups.
+    // metadata contains the job-level metadata (e.g., academic_term_id).
+    // Returns resolved rows and any rows that failed resolution.
+    // The engine calls this after Validate and before BulkInsert.
+    ResolveReferences(ctx context.Context, tenantID, schoolID uuid.UUID, metadata json.RawMessage, rows []ValidatedRow) ([]ValidatedRow, []RowFailure)
+
+    // BulkInsert attempts to insert all validated & resolved rows in one multi-row INSERT.
+    // Returns the number of rows inserted and any error.
+    BulkInsert(ctx context.Context, tx pgx.Tx, rows []ValidatedRow) (inserted int, err error)
+
+    // InsertOne inserts a single validated & resolved row inside a savepoint.
+    InsertOne(ctx context.Context, tx pgx.Tx, row ValidatedRow) error
+}
+```
+
+**Execution order inside `ProcessChunk()`:**
+
+1. `Validate()` — Schema checks (required fields, format, ranges)
+2. `ResolveReferences()` — Cross-table lookups (class existence, duplicate detection)
+3. `BulkInsert()` — Optimistic multi-row INSERT (expected to fail for per-row FK/savepoint handling)
+4. `InsertOne()` — Per-row savepoint fallback (called by the engine, not directly by domain code)
+
+### 12.2 ImporterRegistry pattern
+
+Domain packages register their importer at init time via a global registry:
+
+```go
+// ImporterRegistry holds all registered Importers, keyed by ImportJobType.
+var ImporterRegistry = map[ImportJobType]Importer{}
+
+// RegisterImporter registers an Importer for its JobType.
+// Panics if a duplicate JobType is registered.
+func RegisterImporter(imp Importer) {
+    jt := imp.JobType()
+    if _, exists := ImporterRegistry[jt]; exists {
+        panic(fmt.Sprintf("imports: duplicate importer registration for job type %q", jt))
+    }
+    ImporterRegistry[jt] = imp
+}
+```
+
+**Registration flow:**
+
+1. `internal/students/module.go` (or equivalent for each domain) calls `imports.RegisterImporter(NewStudentImporter(repo))` in its `Provide` or `Invoke`.
+2. `ImporterRegistry` is populated before any import jobs are created.
+3. `ProcessChunk()` looks up `ImporterRegistry[job.JobType]` to find the right handler.
+
+### 12.3 `StudentImporter` — Student-specific implementation
+
+Located in `internal/students/importer.go`:
+
+- **`Validate()`** — Per-row checks:
+  - `full_name` must be non-empty
+  - `gender` must be `"M"` or `"F"` (already normalized by frontend)
+  - `date_of_birth` (if present): parseable ISO date, not in the future, ≤25 years old
+  - `class_id` (if present): must be a well-formed UUID (fail fast)
+  - No format validation on `admission_number`, `upi_number`, or `knec_assessment_number`
+
+- **`ResolveReferences()`**:
+  - Injects `tenant_id`, `school_id`, `academic_term_id`, `academic_year_id` from job metadata
+  - **Class existence check:** if `class_id` is present, queries `cbc_classes` to verify the class exists AND belongs to the same `tenant_id`/`school_id`. Otherwise, fails with `INVALID_CLASS_REFERENCE`.
+  - Converts the row to `augmentedImportRow` (includes all context fields for direct insert)
+
+- **`BulkInsert()`** — Returns an error unconditionally to force the per-row savepoint fallback (the current implementation needs per-row FK/savepoint handling because of student + enrollment two-table insert).
+
+- **`InsertOne()`** — Within a savepoint:
+  1. Inserts into `cbc_students` with `staging_row_id` (ON CONFLICT identity-update for idempotency)
+  2. If `class_id` is present, inserts into `cbc_student_enrollments`
+  3. Translates Postgres constraint violations to typed `*ImportError` values
+     - `fk_enrollments_tenant_class` → `ImportFailureInvalidClassReference`
+     - `unique_student_term_enrollment` → `ImportFailureBusinessRule`
+     - Unmapped constraints → `ImportFailureDBConstraintViolation` (generic, no SQL leak)
+
+---
+
+## 13. File Parsing Pipeline
+
+All file parsing lives in `step-upload.tsx` → `parse-utils.ts`. The pipeline:
+
+### 13.1 File type detection
+
+```typescript
+function detectFileType(file: File): FileType {
+    const name = file.name.toLowerCase();
+    const ext = name.split(".").pop() ?? "";
+    if (["xlsx", "xls", "xlsm"].includes(ext)) return "excel";
+    if (ext === "ods") return "ods";
+    if (ext === "tsv" || ext === "tab") return "tsv";
+    return "csv"; // default
+}
+```
+
+### 13.2 CSV/TSV parsing
+
+- **Library:** `papaparse`
+- **Mode:** `header: true` (first row → column names), `dynamicTyping: false` (all values as strings)
+- **BOM stripping:** UTF-8 BOM (`0xFEFF`) is stripped before parsing
+- **Skip empty lines:** Enabled
+- **Delimiter:** Auto-detected for CSV; `\t` for TSV; caller can override
+- **Filtering:** Rows where every cell is empty after trimming are excluded
+
+### 13.3 Excel/ODS parsing
+
+- **Library:** `xlsx` (SheetJS)
+- **Mode:** `raw: true` (get raw values — numbers for dates), `cellDates: false` (manual date conversion)
+- **Sheet selection:** Picks the first non-empty sheet by default; user can pick from `availableSheets`
+- **Serial date conversion:** Excel serial dates (numbers like `44123`) are converted to ISO date strings via:
+  ```typescript
+  function excelSerialToDate(serial: number): string | null {
+      const ms = (serial - 1) * 86400000;
+      const date = new Date(Date.UTC(1899, 11, 31) + ms);
+      return date.toISOString().split("T")[0];
+  }
+  ```
+- **Text preservation for UPI/KNEC columns:** Columns whose headers contain "upi", "knec", or "assessment" are forced to string values to avoid losing leading zeros from numeric auto-conversion.
+
+### 13.4 Size limits and streaming threshold
+
+| Constant | Value | Purpose |
+|----------|-------|---------|
+| `MAX_FILE_SIZE_BYTES` | 15 MB | Hard cap on file size before any parsing |
+| `STREAMING_THRESHOLD` | 1,000 rows | Files above this show "large file" warning (main thread may block) |
+| `MAX_IMPORT_ROWS` | 5,000 | Syncs with backend `MaxImportRows`; blocks progression if exceeded |
+| `MAX_PERSISTED_ROWS` | 500 | Max rows persisted to IndexedDB for crash recovery |
+
+### 13.5 Gender normalization
+
+Located in `file-importer.tsx`. The `normalizeGender()` function maps common variants:
+
+```typescript
+function normalizeGender(raw: string | undefined | null): string | undefined {
+    if (!raw) return undefined;
+    const lower = raw.trim().toLowerCase();
+    if (["m", "male", "boy", "masculine"].includes(lower)) return "M";
+    if (["f", "female", "girl", "feminine"].includes(lower)) return "F";
+    return raw.trim() || undefined;  // pass through unrecognized (caught by validation)
+}
+```
+
+Unrecognized values pass through and are caught by backend validation. `undefined`/`null`/empty values leave the field unset.
+
+### 13.6 Smart column matching
+
+Defined in `types.ts`. When a file is uploaded, the `FileImporter` attempts to auto-map columns using a smart-match dictionary:
+
+```typescript
+export const SMART_MATCH_DICT: Record<string, string[]> = {
+    full_name: ["full name", "name", "jina kamili", "mwanafunzi", "student name", "student", "names", "jina", "learner name", "learner"],
+    gender: ["gender", "jinsia", "sex", "jeni"],
+    date_of_birth: ["dob", "date of birth", "tarehe ya kuzaliwa", "birth date", "birthday"],
+    upi_number: ["upi", "unique identifier", "nambari ya usajili", "upi number", "upi no", "upi#", "unique pupil identifier"],
+    knec_assessment_number: ["knec assessment number", "knec number", "knec no", "assessment number", "knec#", "knec", "nambari ya kn", "nambari ya mtihani"],
+    class_id: ["class", "stream", "grade", "class/stream", "darasa", "grade level", "level", "form", "class name", "stream name", "daraja", "kidato"],
+};
+```
+
+Matching is case-insensitive. The column mapping step (`step-column-mapping.tsx`) presents unmatched columns for manual assignment.
+
+---
+
+## 14. Duplicate Detection Matrix
+
+Duplicates are detected at **three separate points** in the pipeline, each with a different scope and timing:
+
+| Phase | Scope | Detection Point | Method | Fields Checked |
+|-------|-------|-----------------|--------|----------------|
+| **Within-file** | Current batch only | On render (file) / On submit (manual) | `detectDuplicates()` in `validation-utils.ts` | `admission_number`, `upi_number`, `knec_assessment_number`, `full_name`+`date_of_birth` combination |
+| **Against DB** | All records in the school | On submit click (manual) / On entering review step (file) | `POST /api/v1/students/check-duplicates` → backend DB query | Same 4 fields |
+| **Insert-time safety net** | All records in the school | During `ResolveReferences()` | DB query for existing values + typed `ImportError` | `admission_number`, `upi_number`, `knec_assessment_number` |
+
+**Client-side duplicate messages:**
+- "Duplicate admission number — also used in row 3"
+- "Duplicate UPI number — also used in row 3, 7"
+- "Duplicate name + date of birth — also used in row 5"
+
+**DB-existing messages:**
+- "Admission number ADM001 already exists for this school"
+- "UPI number UPI12345 already exists for this school"
+- "KNEC number KNEC67890 already exists for this school"
+
+**No format/pattern validation** is applied to `admission_number`, `upi_number`, or `knec_assessment_number` — their format is unknown/variable.
+
+---
+
+## 15. Frontend Validation Rules
+
+Located in `validation-utils.ts`. These run on the client before submission:
+
+### 15.1 `full_name`
+
+| Rule | Value | Action |
+|------|-------|--------|
+| Required | Non-empty after trim | Hard error |
+| Min length | 2 characters | Hard error if < 2 |
+| Max length | 100 characters | Hard error if > 100 |
+| Character set | Unicode letters, spaces, hyphens, apostrophes (`/^[\p{L}\p{M}'\-\s]+$/u`) | Hard error if contains digits or special characters |
+
+### 15.2 `date_of_birth`
+
+| Rule | Value | Action |
+|------|-------|--------|
+| Format | ISO date parseable by `new Date(s)` | Hard error if unparseable |
+| Future dates | Must be ≤ today | Hard error if future |
+| Too young | < 3 years old | Warning (not block) |
+| Too old | > 20 years old | Warning (not block) — "please verify" |
+
+### 15.3 `gender`
+
+| Value | Normalised |
+|-------|------------|
+| `M`, `Male`, `male`, `m`, `boy`, `masculine` | `M` |
+| `F`, `Female`, `female`, `f`, `girl`, `feminine` | `F` |
+| Anything else (still unrecognized after normalization) | Hard error if non-empty: "Gender must be \"M\" or \"F\"" |
+
+---
+
+## 16. IndexedDB Store Schema
+
+The wizard persists state to IndexedDB via `db.ts` using the `idb` library. Three object stores in database `somo_student_import` (version 3):
+
+### 16.1 `import_meta` — Session metadata
+
+| Key | Value |
+|-----|-------|
+| `id` | `session:<school_id>` (keyPath) |
+| `current_step` | `WizardStep` — current wizard step |
+| `file_name` | Original uploaded file name |
+| `source_sheet_name` | Selected sheet name for multi-sheet workbooks |
+| `total_rows` | Total parsed row count |
+| `column_mappings` | `Record<string, string \| string[]>` — file column → target field |
+| `class_mappings` | `Record<string, string>` — raw class name → resolved class UUID |
+| `updated_at` | ISO timestamp of last update |
+| `school_id` | School UUID (scoping key) |
+| `parsed_file_too_large` | `boolean` — set if file exceeded `MAX_PERSISTED_ROWS` |
+
+Saved after every step transition. Auto-restored on mount if < 24 hours old.
+
+### 16.2 `student_import_staging` — Staged student records
+
+| Key | Value |
+|-----|-------|
+| `id` | Auto-increment number (keyPath) |
+| `school_id` | School UUID |
+| `payload` | `CreateStudentPayload` — the structured import row |
+| `raw_row_data` | `Record<string, string>` — original file row |
+| `status` | `"valid" | "error" | "duplicate" | "submitted"` |
+| `errors` | `string[]` — validation/duplicate error messages |
+
+### 16.3 `parsed_file` — Raw parsed file data (crash recovery)
+
+| Key | Value |
+|-----|-------|
+| `id` | `parsed_file:<school_id>` (keyPath) |
+| `file_name` | Original file name |
+| `sheet_name` | Selected sheet name |
+| `headers` | `string[]` — column headers |
+| `rows` | `Record<string, string>[]` — all parsed rows (up to 500) |
+| `total_rows` | Total row count |
+
+Persisted only for files ≤ 500 rows (`MAX_PERSISTED_ROWS`). Larger files set `parsed_file_too_large` on the session meta instead.
+
+### Session lifecycle summary
+
+1. **Saved** after every step transition (upload→mapping→class→review→streaming)
+2. **Auto-restored** on mount if session exists for current `school_id` and age < 24h
+3. **Stale prompt** shown if session age > 24h (user can choose to resume or discard)
+4. **Foreign-school detection** — session for different `school_id` shows discard prompt
+5. **Cleared** on any terminal import status via `onTerminalStatus` callback
+6. **Size guard** — `checkStorageForBulkWrite()` pre-checks available IndexedDB quota before writing
+
+---
+
+## 17. Environment Configuration Reference
+
+All tunable constants, categorised by layer:
+
+### Backend constants (`internal/imports/service.go`)
+
+| Constant | Value | Location | Purpose |
+|----------|-------|----------|---------|
+| `ChunkSize` | `100` | `service.go` | Rows per Asynq chunk task |
+| `MaxImportRows` | `5000` | `service.go` | Maximum rows in a single import request |
+| `RetentionDays` | `30` | `service.go` | Days after terminal status before staging/failure rows are eligible for cleanup |
+| `CleanupBatchSize` | `1000` | `service.go` | Rows per DELETE batch during retention cleanup |
+| `MaxImportBodyBytes` | `15 MB` (returned by `MaxImportBodyBytes()`) | `domain.go` | Per-route request body size limit for import endpoint |
+| `maxStudentAgeYears` | `25` | `students/importer.go` | Upper bound for student age validation (date_of_birth) |
+
+### Asynq configuration (`internal/imports/module.go`)
+
+| Parameter | Value | Purpose |
+|-----------|-------|---------|
+| Concurrency | `3` | Max concurrent chunk workers across all tenants |
+| Queue | `"imports"` with weight `10` | Single queue; weight 10 = highest priority among all queue types |
+| MaxRetry | `3` | Asynq max retries per chunk task |
+| Unique TTL | `24h` | Asynq unique task TTL (prevents double-enqueue of same chunk) |
+| Cleanup schedule | `@daily` (03:00 UTC) | Periodic retention cleanup |
+
+### Frontend constants (`types.ts`, `parse-utils.ts`)
+
+| Constant | Value | Location | Purpose |
+|----------|-------|----------|---------|
+| `MAX_IMPORT_ROWS` | `5000` | `step-upload.tsx` | Syncs with backend MaxImportRows; blocks progression if exceeded |
+| `MAX_PERSISTED_ROWS` | `500` | `types.ts` | Max parsed file rows persisted to IndexedDB |
+| `BYTES_PER_PERSISTED_ROW` | `2048` | `types.ts` | ~2 KB per row for storage estimation |
+| `SESSION_STALE_MS` | `24h` | `types.ts` | Session staleness threshold |
+| `MAX_FILE_SIZE_BYTES` | `15 MB` | `parse-utils.ts` | Hard file size cap before parsing |
+| `STREAMING_THRESHOLD` | `1,000` | `parse-utils.ts` | Row count threshold for "large file" warning |
+| `FULL_NAME_MIN` | `2` | `validation-utils.ts` | Minimum full_name length |
+| `FULL_NAME_MAX` | `100` | `validation-utils.ts` | Maximum full_name length |
+| `MIN_AGE_YEARS` | `3` | `validation-utils.ts` | Minimum student age (warning threshold) |
+| `WARNING_AGE_YEARS` | `20` | `validation-utils.ts` | Maximum credible student age (warning threshold) |
+
+---
+
+## 18. Asynq Module Wiring (fx lifecycle)
+
+The import engine is wired into the application via `go.uber.org/fx` in `internal/imports/module.go`:
+
+```go
+var Module = fx.Module("imports",
+    fx.Provide(
+        fx.Annotate(NewRepository, fx.As(new(ServiceRepository))),
+        NewAsynqClient,
+        NewAsynqServer,
+        NewCleanupScheduler,
+        NewService,
+        NewHandler,
+        NewWorker,
+    ),
+)
+```
+
+### Component responsibilities
+
+| Component | Role |
+|-----------|------|
+| `NewRepository` | Creates `PgRepository` (implements `ServiceRepository`) |
+| `NewAsynqClient` | Creates `*asynq.Client` for enqueuing chunk tasks |
+| `NewAsynqServer` | Creates `*asynq.Server` with concurrency=3, imports queue weight=10 |
+| `NewCleanupScheduler` | Registers `imports:cleanup_old_data` task on `@daily` schedule |
+| `NewService` | Creates the import job lifecycle service |
+| `NewHandler` | HTTP handler for job status/failures/cancel endpoints |
+| `NewWorker` | Wraps `*asynq.Server` with task handlers + fx lifecycle hooks |
+
+### Worker lifecycle
+
+The `Worker` has `Start()` and `Stop()` methods registered via `fx.Lifecycle`:
+
+```go
+func RegisterWorkerHooks(lc fx.Lifecycle, worker *Worker) {
+    lc.Append(fx.Hook{
+        OnStart: worker.Start,  // w.server.Start(w.mux)
+        OnStop:  worker.Stop,   // w.server.Shutdown()
+    })
+}
+```
+
+### Task handlers (mux registration)
+
+```go
+mux := asynq.NewServeMux()
+mux.HandleFunc("imports:process_chunk", func(ctx context.Context, t *asynq.Task) error {
+    var payload ChunkTaskPayload
+    json.Unmarshal(t.Payload(), &payload)
+    return svc.ProcessChunk(ctx, payload)
+})
+mux.HandleFunc("imports:cleanup_old_data", func(ctx context.Context, t *asynq.Task) error {
+    return svc.CleanupExpiredData(ctx)
+})
+```
+
+### Task payload (ChunkTaskPayload)
+
+```go
+type ChunkTaskPayload struct {
+    JobID          string `json:"job_id"`
+    ChunkIndex     int    `json:"chunk_index"`
+    RowNumberStart int    `json:"row_number_start"`
+    RowNumberEnd   int    `json:"row_number_end"`
+}
+```
+
+### Enqueue flow (deterministic task IDs)
+
+```go
+func (s *Service) enqueueChunks(ctx context.Context, jobID uuid.UUID, totalChunks int) error {
+    for i := 0; i < totalChunks; i++ {
+        payload := ChunkTaskPayload{
+            JobID:          jobID.String(),
+            ChunkIndex:     i,
+            RowNumberStart: i * ChunkSize,
+            RowNumberEnd:   (i * ChunkSize) + ChunkSize,
+        }
+        task := asynq.NewTask("imports:process_chunk", toBytes(payload),
+            asynq.Queue("imports"),
+            asynq.MaxRetry(3),
+            asynq.Unique(24*time.Hour),
+        )
+        // Deterministic task ID for idempotent redelivery
+        taskID := fmt.Sprintf("import:%s:chunk:%d", jobID, i)
+        s.asynq.Enqueue(task, asynq.TaskID(taskID))
+    }
+}
+```
+
+---
+
+## 19. Testing Strategy
+
+### Unit tests
+- **`Service.ProcessChunk`** — Mock `ServiceRepository` to verify chunk claiming, row filtering, savepoint fallback, and counter increments
+- **`StudentImporter.Validate`** — Test invalid inputs (missing name, bad gender, future DOB) return correct `RowFailure` types
+- **`StudentImporter.ResolveReferences`** — Mock class lookup to test `INVALID_CLASS_REFERENCE` path
+- **`insertWithSavepoints`** — Verify that savepoint rollback does not affect other rows, and `MarkStagingRowSucceeded` is called atomically
+
+### Integration tests
+- **Full import E2E (Go side):** Create job → poll chunks → verify `cbc_students` and `cbc_student_enrollments` rows
+- **Idempotency:** Submit same key+payload twice → second returns `is_replay: true`
+- **Idempotency collision:** Submit same key+different payload → HTTP 409 `duplicate_import`
+- **One active job:** Submit two jobs for same school → second receives HTTP 409 `import_already_in_progress`
+- **Cancellation:** Submit job → cancel → verify chunks cancel cooperatively
+- **Retention cleanup:** Backdate `completed_at` to >30 days ago → run cleanup → verify staging/failure rows deleted
+
+### Frontend tests
+- **`validateRecord()`** — All field rules (required, length, character set, DOB bounds)
+- **`detectDuplicates()`** — Within-file duplicate detection for all 4 key combinations
+- **`parseFile()`** — CSV, Excel, TSV parsing correctness with edge cases (BOM, serial dates, multi-sheet)
+- **`normalizeGender()`** — All variant mappings
+- **IndexedDB** — Session save/restore/clear lifecycle

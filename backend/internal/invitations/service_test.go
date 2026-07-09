@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"testing"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // ============================================================================
@@ -23,7 +25,10 @@ func (m *MockSchoolResolver) GetActiveSchoolID(ctx context.Context, tenantID, us
 }
 
 type MockRepository struct {
-	listInvitationsFn func(ctx context.Context, tenantID, schoolID string, filter ListInvitationsFilter) ([]Invitation, int, error)
+	listInvitationsFn  func(ctx context.Context, tenantID, schoolID string, filter ListInvitationsFilter) ([]Invitation, int, error)
+	checkEmailsFn      func(ctx context.Context, tenantID, schoolID string, emails []string) ([]string, []string, error)
+	insertInvitationFn func(ctx context.Context, tx pgx.Tx, params InsertInvitationParams) error
+	getStytchOrgIDFn   func(ctx context.Context, tenantID string) (string, error)
 }
 
 func (m *MockRepository) ListInvitations(ctx context.Context, tenantID, schoolID string, filter ListInvitationsFilter) ([]Invitation, int, error) {
@@ -31,6 +36,27 @@ func (m *MockRepository) ListInvitations(ctx context.Context, tenantID, schoolID
 		return m.listInvitationsFn(ctx, tenantID, schoolID, filter)
 	}
 	return nil, 0, nil
+}
+
+func (m *MockRepository) CheckExistingEmails(ctx context.Context, tenantID, schoolID string, emails []string) ([]string, []string, error) {
+	if m.checkEmailsFn != nil {
+		return m.checkEmailsFn(ctx, tenantID, schoolID, emails)
+	}
+	return nil, nil, nil
+}
+
+func (m *MockRepository) InsertInvitation(ctx context.Context, tx pgx.Tx, params InsertInvitationParams) error {
+	if m.insertInvitationFn != nil {
+		return m.insertInvitationFn(ctx, tx, params)
+	}
+	return nil
+}
+
+func (m *MockRepository) GetStytchOrgID(ctx context.Context, tenantID string) (string, error) {
+	if m.getStytchOrgIDFn != nil {
+		return m.getStytchOrgIDFn(ctx, tenantID)
+	}
+	return "org_test_123", nil
 }
 
 // ============================================================================

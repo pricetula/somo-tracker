@@ -28,6 +28,9 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	router.Get("/api/v1/imports/:job_id", middleware.RequireAuth, h.GetJobAPI)
 	router.Get("/api/v1/imports/:job_id/failures", middleware.RequireAuth, h.GetFailures)
 	router.Post("/api/v1/imports/:job_id/cancel", middleware.RequireAuth, h.CancelJobAPI)
+	// Resolves active school from the authenticated session — no school_id in URL needed
+	router.Get("/api/v1/imports/active", middleware.RequireAuth, h.GetSessionActiveJobAPI)
+	// Legacy: explicit school_id param (for cross-school access or future multi-school users)
 	router.Get("/api/v1/schools/:school_id/imports/active", middleware.RequireAuth, h.GetActiveJobAPI)
 }
 
@@ -88,6 +91,43 @@ func (h *Handler) CancelJobAPI(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(updated)
+}
+
+// ============================================================================
+// Get active job from session (proactive check — no school_id in URL)
+// Resolves the active school from the authenticated session context.
+// ============================================================================
+
+func (h *Handler) GetSessionActiveJobAPI(c *fiber.Ctx) error {
+	schoolIDStr := c.Locals("active_school_id").(string)
+	if schoolIDStr == "" {
+		schoolIDStr = c.Locals("school_id").(string)
+	}
+	if schoolIDStr == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "invalid_input", "message": "active school not set"})
+	}
+
+	schoolID, err := uuid.Parse(schoolIDStr)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "invalid_input", "message": "invalid school id"})
+	}
+
+	tenantID, _ := uuid.Parse(c.Locals("tenant_id").(string))
+
+	job, err := h.svc.GetActiveJobBySchool(c.Context(), schoolID)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return c.JSON(fiber.Map{"active": false, "job": nil})
+		}
+		return middleware.HTTPError(c, err)
+	}
+
+	// Verify tenant ownership
+	if job.TenantID != tenantID {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"code": "forbidden", "message": "access denied"})
+	}
+
+	return c.JSON(fiber.Map{"active": true, "job": job})
 }
 
 // ============================================================================

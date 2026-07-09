@@ -1,14 +1,25 @@
+/**
+ * BulkInviteForm — parent orchestrator for inviting staff members.
+ *
+ * Follows the same pattern as StudentsImportForm:
+ *   - Active-job check on mount (GET /api/v1/imports/active)
+ *   - Selector: "Manual Entry" or "Import File"
+ *   - Manual: type emails in a table
+ *   - File: upload CSV/Excel → map columns → review → submit
+ *   - Shared ImportProgress for async progress tracking
+ *   - One-active-job-per-school enforced by backend
+ */
+
 "use client";
 
 import * as React from "react";
 import { Loader2 } from "lucide-react";
-import { StudentsImportSelector } from "./import-selector";
-import { StudentManualImportForm } from "./manual-import-form";
-import { FileImporter } from "./file-importer";
-import { ImportProgress } from "./import-progress";
+import { ImportProgress } from "@/features/students/components/students-import/import-progress";
 import { getActiveImportJob } from "@/lib/api/imports";
 import { useMe } from "@/hooks/use-auth";
-import { clearAllSessions } from "./file-importer/db";
+import { BulkInviteSelector } from "./bulk-invite-selector";
+import { BulkInviteManualForm } from "./bulk-invite-manual-form";
+import { BulkInviteFileImporter } from "./bulk-invite-file-importer";
 
 // ─── State machine ────────────────────────────────────────────────────────
 
@@ -45,13 +56,15 @@ function pageReducer(state: PageState, action: PageAction): PageState {
 
 // ─── Props ────────────────────────────────────────────────────────────────
 
-interface StudentsImportFormProps {
-    isDialogVersion: boolean;
+interface BulkInviteFormProps {
+    /** The role to pre-select. Determines who gets invited. */
+    role: "SCHOOL_ADMIN" | "TEACHER" | "NURSE" | "FINANCE";
+    isDialogVersion?: boolean;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────
 
-export function StudentsImportForm({ isDialogVersion }: StudentsImportFormProps) {
+export function BulkInviteForm({ role, isDialogVersion = false }: BulkInviteFormProps) {
     const { data: me } = useMe();
     const [pageState, dispatch] = React.useReducer(pageReducer, { phase: "idle", step: null });
 
@@ -59,7 +72,6 @@ export function StudentsImportForm({ isDialogVersion }: StudentsImportFormProps)
 
     // Fire active-job check once when me resolves.
     // The active school is resolved from the authenticated session on the backend.
-    // The cleanup flag prevents stale dispatches if unmounted mid-check.
     React.useEffect(() => {
         if (!meResolved) return;
 
@@ -79,7 +91,7 @@ export function StudentsImportForm({ isDialogVersion }: StudentsImportFormProps)
                 }
             })
             .catch(() => {
-                // Transient — fall through to normal flow (idle with no active job)
+                // Transient — fall through to normal flow
             });
 
         return () => {
@@ -101,16 +113,8 @@ export function StudentsImportForm({ isDialogVersion }: StudentsImportFormProps)
         dispatch({ type: "RESET" });
     }
 
-    // G2: When an import job reaches terminal status, clear IndexedDB.
-    // This fires from the polling loop in ImportProgress, not from a
-    // button click, so it works for abandoned tabs too.
-    const handleImportTerminal = React.useCallback(() => {
-        clearAllSessions().catch(console.error);
-    }, []);
-
     // ── Render ────────────────────────────────────────────────────────
 
-    // Loading state is derived purely from the useMe query — no local state needed.
     if (!meResolved) {
         return (
             <div className="flex items-center justify-center py-12">
@@ -127,7 +131,6 @@ export function StudentsImportForm({ isDialogVersion }: StudentsImportFormProps)
                 totalRecords={pageState.job.totalRecords}
                 onDone={handleReset}
                 onRetry={handleRetry}
-                onTerminalStatus={handleImportTerminal}
             />
         );
     }
@@ -135,7 +138,7 @@ export function StudentsImportForm({ isDialogVersion }: StudentsImportFormProps)
     // Idle: show import selector or child form
     if (!pageState.step) {
         return (
-            <StudentsImportSelector
+            <BulkInviteSelector
                 onSelect={(s) => dispatch({ type: "SELECT_STEP", step: s })}
                 isDialogVersion={isDialogVersion}
             />
@@ -143,11 +146,23 @@ export function StudentsImportForm({ isDialogVersion }: StudentsImportFormProps)
     }
 
     if (pageState.step === "manual") {
-        return <StudentManualImportForm onReset={handleReset} onJobCreated={handleJobCreated} />;
+        return (
+            <BulkInviteManualForm
+                role={role}
+                onReset={handleReset}
+                onJobCreated={handleJobCreated}
+            />
+        );
     }
 
     if (pageState.step === "file") {
-        return <FileImporter onReset={handleReset} onJobCreated={handleJobCreated} />;
+        return (
+            <BulkInviteFileImporter
+                role={role}
+                onReset={handleReset}
+                onJobCreated={handleJobCreated}
+            />
+        );
     }
 
     return <section />;

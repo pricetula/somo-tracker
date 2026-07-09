@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -515,10 +516,12 @@ func (s *Service) GetMe(ctx context.Context, token string) (*MeInfo, error) {
 func (s *Service) AcceptInvite(ctx context.Context, token string, deviceFingerprint string) (sessionToken string, role string, schoolID string, err error) {
 	s.logger.Info("auth: accept invite initiated")
 
-	// 1. Authenticate the Stytch magic-link token
-	ist, email, err := s.idp.AuthenticateInviteToken(ctx, token)
+	// 1. Authenticate the Stytch discovery magic-link token.
+	// This works even though the member hasn't been created in Stytch yet —
+	// discovery authentication returns an IST regardless of org membership.
+	ist, email, _, err := s.idp.AuthenticateDiscoveryToken(ctx, token)
 	if err != nil {
-		return "", "", "", fmt.Errorf("auth.Service.AcceptInvite: %w", err)
+		return "", "", "", fmt.Errorf("auth.Service.AcceptInvite: authenticate: %w", err)
 	}
 
 	// 2. Look up the pending invitation
@@ -528,29 +531,52 @@ func (s *Service) AcceptInvite(ctx context.Context, token string, deviceFingerpr
 		if errors.Is(err, ErrNotFound) {
 			return "", "", "", fmt.Errorf("%w: no pending invitation for email: %s", ErrExpiredToken, email)
 		}
-		return "", "", "", fmt.Errorf("auth.Service.AcceptInvite: %w", err)
+		return "", "", "", fmt.Errorf("auth.Service.AcceptInvite: lookup invitation: %w", err)
 	}
 
 	// 3. Resolve the Stytch org ID from the tenant
 	stytchOrgID, err := s.repo.GetTenantStytchOrgID(ctx, inv.TenantID)
 	if err != nil {
-		return "", "", "", fmt.Errorf("auth.Service.AcceptInvite: %w", err)
+		return "", "", "", fmt.Errorf("auth.Service.AcceptInvite: resolve org: %w", err)
 	}
 
-	// 4. Exchange the IST for a full Stytch session (enforces MFA)
-	stytchSessionToken, err := s.idp.ExchangeInviteSession(ctx, ist, stytchOrgID)
+	// 4. Create the member in Stytch for the target organization.
+	// Previously this was done during invite sending (via InviteMemberByEmail),
+	// but now it happens at acceptance time — the invite only sent an email.
+	memberID, err := s.idp.CreateMember(ctx, stytchOrgID, email, inv.FullName)
 	if err != nil {
-		return "", "", "", fmt.Errorf("auth.Service.AcceptInvite: %w", err)
+		// On retry (create succeeded but something after failed), the member
+		// may already exist. Look up the existing member ID.
+		if isMemberAlreadyExists(err) {
+			s.logger.Info("auth: member already exists, looking up existing member",
+				zap.String("email", email),
+			)
+			memberID, err = s.idp.GetMemberByEmail(ctx, stytchOrgID, email)
+			if err != nil {
+				return "", "", "", fmt.Errorf("auth.Service.AcceptInvite: lookup existing member: %w", err)
+			}
+		} else {
+			return "", "", "", fmt.Errorf("auth.Service.AcceptInvite: create member: %w", err)
+		}
 	}
 
-	// 5. Generate opaque session token (32 random bytes, hex-encoded)
+	// 5. Exchange the IST for a full Stytch session in the org.
+	// The member now exists, so the exchange will find them.
+	exchangeResult, err := s.idp.ExchangeIntermediateSession(ctx, ist, stytchOrgID)
+	if err != nil {
+		return "", "", "", fmt.Errorf("auth.Service.AcceptInvite: exchange session: %w", err)
+	}
+	stytchSessionToken := exchangeResult.StytchSessionToken
+
+	// 6. Generate opaque session token (32 random bytes, hex-encoded)
 	tokenBytes := make([]byte, 32)
 	if _, err := rand.Read(tokenBytes); err != nil {
 		return "", "", "", fmt.Errorf("%w: generate session token: %v", ErrInternal, err)
 	}
 	sessionToken = hex.EncodeToString(tokenBytes)
 
-	// 6. Assemble args and persist via the repository transaction
+	// 7. Assemble args and persist via the repository transaction.
+	// memberID comes from CreateMember (not from the invitation record).
 	expiresAt := time.Now().Add(sessionTTL)
 	args := CreateInvitedUserSessionArgs{
 		InvitationID:       inv.ID,
@@ -559,9 +585,9 @@ func (s *Service) AcceptInvite(ctx context.Context, token string, deviceFingerpr
 		SchoolID:           inv.SchoolID,
 		Role:               inv.Role,
 		FullName:           inv.FullName,
-		ExternalAuthID:     inv.StytchMemberID,
+		ExternalAuthID:     memberID,
 		SessionToken:       sessionToken,
-		StytchMemberID:     inv.StytchMemberID,
+		StytchMemberID:     memberID,
 		StytchOrgID:        stytchOrgID,
 		StytchSessionToken: stytchSessionToken,
 		DeviceFingerprint:  deviceFingerprint,
@@ -570,16 +596,17 @@ func (s *Service) AcceptInvite(ctx context.Context, token string, deviceFingerpr
 	}
 
 	if err := s.repo.CreateInvitedUserSession(ctx, args); err != nil {
-		return "", "", "", fmt.Errorf("auth.Service.AcceptInvite: %w", err)
+		return "", "", "", fmt.Errorf("auth.Service.AcceptInvite: create session: %w", err)
 	}
 
-	// 7. Persist session mapping in Redis: opaque key → Stytch session token
+	// 8. Persist session mapping in Redis: opaque key → Stytch session token
 	if err := s.rdb.Set(ctx, s.sessionKey(sessionToken), stytchSessionToken, sessionTTL).Err(); err != nil {
 		return "", "", "", fmt.Errorf("%w: cache session: %v", ErrInternal, err)
 	}
 
-	s.logger.Info("auth: invite acceptance complete — session issued",
+	s.logger.Info("auth: invite acceptance complete — member created and session issued",
 		zap.String("email", email),
+		zap.String("member_id", memberID),
 		zap.String("tenant_id", inv.TenantID),
 		zap.String("school_id", inv.SchoolID),
 		zap.String("role", inv.Role),
@@ -719,4 +746,17 @@ func generateUUID() (string, error) {
 	b[8] = (b[8] & 0x3f) | 0x80
 	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x",
 		b[0:4], b[4:6], b[6:8], b[8:10], b[10:16]), nil
+}
+
+// isMemberAlreadyExists checks if a Stytch error indicates that the member
+// already exists in the organization (member_already_exists error type).
+// This can happen on retry when CreateMember was successful in a previous
+// attempt but the session creation step failed afterwards.
+func isMemberAlreadyExists(err error) bool {
+	if err == nil {
+		return false
+	}
+	lower := strings.ToLower(err.Error())
+	return strings.Contains(lower, "member_already_exists") ||
+		strings.Contains(lower, "already exists")
 }

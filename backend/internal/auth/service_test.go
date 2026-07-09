@@ -28,6 +28,7 @@ type MockIdentityProvider struct {
 	authenticateDiscoveryTokenFn  func(ctx context.Context, token string) (ist, email string, discoveredOrgs []DiscoveredOrg, err error)
 	createOrganizationFn          func(ctx context.Context, name string) (string, error)
 	createMemberFn                func(ctx context.Context, orgID, email, name string) (string, error)
+	getMemberByEmailFn            func(ctx context.Context, orgID, email string) (string, error)
 	exchangeIntermediateSessionFn func(ctx context.Context, ist, orgID string) (ExchangeResult, error)
 	inviteMemberByEmailFn         func(ctx context.Context, orgID, email, name, redirectURL string) (string, error)
 	authenticateInviteTokenFn     func(ctx context.Context, token string) (ist, email string, err error)
@@ -37,6 +38,7 @@ type MockIdentityProvider struct {
 	authenticateDiscoveryTokenCalls  int
 	createOrganizationCalls          int
 	createMemberCalls                int
+	getMemberByEmailCalls            int
 	exchangeIntermediateSessionCalls int
 	inviteMemberByEmailCalls         int
 }
@@ -89,6 +91,16 @@ func (m *MockIdentityProvider) InviteMemberByEmail(ctx context.Context, orgID, e
 		return m.inviteMemberByEmailFn(ctx, orgID, email, name, redirectURL)
 	}
 	return "member_invited_" + orgID, nil
+}
+
+func (m *MockIdentityProvider) GetMemberByEmail(ctx context.Context, orgID, email string) (string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.getMemberByEmailCalls++
+	if m.getMemberByEmailFn != nil {
+		return m.getMemberByEmailFn(ctx, orgID, email)
+	}
+	return "member_test_" + orgID, nil
 }
 
 func (m *MockIdentityProvider) ExchangeIntermediateSession(ctx context.Context, ist, orgID string) (ExchangeResult, error) {

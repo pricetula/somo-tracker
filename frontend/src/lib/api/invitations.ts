@@ -3,9 +3,11 @@
  *
  * Endpoints:
  *   GET  /api/v1/invitations — list invitations with filters
+ *   POST /api/v1/staff/invite — bulk invite staff members
  */
 
-import { api } from "./client";
+import { api, ApiError } from "./client";
+import type { ImportResponse } from "./imports";
 import type {
     Invitation,
     InvitationStatus,
@@ -38,4 +40,45 @@ export async function listInvitationsByRole(params: {
 
     const qs = searchParams.toString();
     return api.get<ListInvitationsResponse>(`/api/v1/invitations?${qs}`);
+}
+
+// ============================================================================
+// Bulk Invitation Types
+// ============================================================================
+
+export interface InviteRow {
+    email: string;
+    full_name?: string;
+}
+
+export interface BulkInviteRequest {
+    role: string;
+    rows: InviteRow[];
+}
+
+/**
+ * POST /api/v1/staff/invite — submit a bulk staff invitation job.
+ * Accepts a role and an array of email rows. Returns immediately with a
+ * job_id for progress polling. Processing happens asynchronously via
+ * the same Asynq-based import engine used for student imports.
+ */
+export async function submitBulkInvite(body: BulkInviteRequest): Promise<ImportResponse> {
+    return api.post<ImportResponse>("/api/v1/staff/invite", body);
+}
+
+/**
+ * Type guard to check if an error is an import_already_in_progress response.
+ * The backend returns this when a CreateJob request is rejected because
+ * another job is already active for the same school.
+ * Returns the active_job_id if matched, or null otherwise.
+ */
+export function getImportAlreadyInProgress(err: unknown): string | null {
+    if (
+        err instanceof ApiError &&
+        err.code === "import_already_in_progress" &&
+        err.extra?.active_job_id
+    ) {
+        return String(err.extra.active_job_id);
+    }
+    return null;
 }

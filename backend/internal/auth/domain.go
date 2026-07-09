@@ -165,6 +165,11 @@ type IdentityProvider interface {
 	// CreateMember provisions a new member in an existing Stytch organization.
 	CreateMember(ctx context.Context, orgID, email, name string) (memberID string, err error)
 
+	// GetMemberByEmail retrieves an existing member's ID by email address.
+	// Used when an invite attempt returns duplicate_member_email and we need the
+	// member ID for our local invitation record.
+	GetMemberByEmail(ctx context.Context, orgID, email string) (memberID string, err error)
+
 	// InviteMemberByEmail sends a Stytch invite email to join an organization.
 	// Returns the Stytch member ID of the invited member.
 	InviteMemberByEmail(ctx context.Context, orgID, email, name, redirectURL string) (memberID string, err error)

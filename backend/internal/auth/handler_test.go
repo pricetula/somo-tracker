@@ -1131,35 +1131,37 @@ func TestHandler_InviteCallback_ExpiredInvitation(t *testing.T) {
 // the Stytch IST exchange fails due to MFA not being satisfied, the handler
 // returns 500 because auth.ErrMFARequired does not wrap
 // middleware.ErrUnauthorized (it falls through to the default case).
-func TestHandler_InviteCallback_StytchExchangeMFAFailure(t *testing.T) {
+func TestHandler_InviteCallback_CreateMemberFails(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
 	idp := h.svc.idp.(*MockIdentityProvider)
-	idp.authenticateInviteTokenFn = func(ctx context.Context, token string) (string, string, error) {
-		return "ist_mfa", "mfa@example.com", nil
+	idp.authenticateDiscoveryTokenFn = func(ctx context.Context, token string) (string, string, []DiscoveredOrg, error) {
+		return "ist_create_fail", "createfail@example.com", nil, nil
 	}
 	h.repo.getInvitationByEmailFn = func(ctx context.Context, email string) (*Invitation, error) {
 		return &Invitation{
-			ID:             "invite_mfa",
-			TenantID:       "tenant_mfa",
-			SchoolID:       "school_mfa",
-			Role:           "TEACHER",
-			Email:          "mfa@example.com",
-			FullName:       "MFA Teacher",
-			Status:         "pending",
-			StytchMemberID: "sty_member_mfa",
-			ExpiresAt:      time.Now().Add(24 * time.Hour),
+			ID:        "invite_create_fail",
+			TenantID:  "tenant_create_fail",
+			SchoolID:  "school_create_fail",
+			Role:      "TEACHER",
+			Email:     "createfail@example.com",
+			FullName:  "Fail Teacher",
+			Status:    "pending",
+			ExpiresAt: time.Now().Add(24 * time.Hour),
 		}, nil
 	}
 	h.repo.getTenantStytchOrgIDFn = func(ctx context.Context, tenantID string) (string, error) {
-		return "org_mfa", nil
+		return "org_create_fail", nil
 	}
-	idp.exchangeInviteSessionFn = func(ctx context.Context, ist, orgID string) (string, error) {
-		return "", ErrMFARequired
+	idp.createMemberFn = func(ctx context.Context, orgID, email, name string) (string, error) {
+		return "", fmt.Errorf("member_already_exists: the member already exists")
+	}
+	idp.getMemberByEmailFn = func(ctx context.Context, orgID, email string) (string, error) {
+		return "", fmt.Errorf("member_not_found: member with that email not found")
 	}
 
-	resp := h.doRequestWithQuery("GET", "/api/auth/invite/callback", "token=mfa_invite_token", "")
-	// ErrMFARequired does not wrap middleware.ErrUnauthorized → falls to 500
+	resp := h.doRequestWithQuery("GET", "/api/auth/invite/callback", "token=create_fail_token", "")
+	// CreateMember fails and GetMemberByEmail also fails → 500
 	if resp.StatusCode != fiber.StatusInternalServerError {
 		t.Fatalf("expected 500 Internal Server Error, got %d", resp.StatusCode)
 	}

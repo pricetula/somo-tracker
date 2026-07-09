@@ -114,6 +114,12 @@ const (
 	ImportFailureDuplicateAdmissionNumber ImportFailureType = "DUPLICATE_ADMISSION_NUMBER"
 	ImportFailureDuplicateUPINumber       ImportFailureType = "DUPLICATE_UPI_NUMBER"
 	ImportFailureDuplicateKneCNumber      ImportFailureType = "DUPLICATE_KNEC_NUMBER"
+
+	// Bulk invitation failure types
+	ImportFailureDuplicateEmail     ImportFailureType = "DUPLICATE_EMAIL"
+	ImportFailureInvalidEmailFormat ImportFailureType = "INVALID_EMAIL_FORMAT"
+	ImportFailureStytchAPIError     ImportFailureType = "STYTCH_API_ERROR"
+	ImportFailureInviteInsertFailed ImportFailureType = "INVITATION_INSERT_FAILED"
 )
 
 // ============================================================================

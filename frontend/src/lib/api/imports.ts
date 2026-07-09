@@ -35,7 +35,12 @@ export type ImportFailureType =
     | "DB_CONSTRAINT_VIOLATION"
     | "DUPLICATE_ADMISSION_NUMBER"
     | "DUPLICATE_UPI_NUMBER"
-    | "DUPLICATE_KNEC_NUMBER";
+    | "DUPLICATE_KNEC_NUMBER"
+    // Bulk invitation failure types
+    | "DUPLICATE_EMAIL"
+    | "INVALID_EMAIL_FORMAT"
+    | "STYTCH_API_ERROR"
+    | "INVITATION_INSERT_FAILED";
 
 // ============================================================================
 // Import Row — a single student row in a bulk import
@@ -181,12 +186,14 @@ export function getImportAlreadyInProgress(err: unknown): string | null {
 // ============================================================================
 
 /**
- * GET /schools/{school_id}/imports/active — proactively check if an import job
- * is already running for the current school before showing the import form.
+ * GET /imports/active — proactively check if an import job is already running
+ * for the current school before showing the import form.
+ * The active school is resolved from the authenticated session on the backend,
+ * so no school_id parameter is needed from the frontend.
  * Returns either the active job's state or a clear "no active job" response.
  */
-export async function getActiveImportJob(schoolId: string): Promise<ActiveImportJobResponse> {
-    return api.get<ActiveImportJobResponse>(`/api/v1/schools/${schoolId}/imports/active`);
+export async function getActiveImportJob(): Promise<ActiveImportJobResponse> {
+    return api.get<ActiveImportJobResponse>("/api/v1/imports/active");
 }
 
 /**

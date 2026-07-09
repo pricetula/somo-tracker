@@ -326,6 +326,26 @@ func (s *StytchAdapter) ExchangeInviteSession(ctx context.Context, ist, orgID st
 	return resp.SessionToken, nil
 }
 
+// sanitizeStytchError extracts a user-facing message from a Stytch error.
+// The raw Stytch error contains request IDs, status codes, and debug URLs
+// that are meaningless to end users. This helper returns just the human-readable
+// message (the ErrorMessage field) when the error is a Stytch error, or a
+// generic fallback otherwise.
+func sanitizeStytchError(err error) string {
+	var stytchErr stytcherror.Error
+	if errors.As(err, &stytchErr) {
+		// Stytch ErrorMessage already contains a human-readable description.
+		// If it's empty, fall back to the error type code.
+		msg := string(stytchErr.ErrorMessage)
+		if msg == "" {
+			msg = string(stytchErr.ErrorType)
+		}
+		return msg
+	}
+	// Non-Stytch errors: return a generic message to avoid leaking internals.
+	return "authentication provider error"
+}
+
 // isExpiredTokenError checks if the error is a Stytch expired magic link token error.
 func isExpiredTokenError(err error) bool {
 	var stytchErr stytcherror.Error
@@ -359,7 +379,7 @@ func (s *StytchAdapter) CreateMember(ctx context.Context, orgID, email, name str
 			zap.String("email", email),
 			zap.Error(err),
 		)
-		return "", fmt.Errorf("%w: stytch create member: %v", ErrInternal, err)
+		return "", fmt.Errorf("%w: stytch create member: %s", ErrInternal, sanitizeStytchError(err))
 	}
 
 	memberID := resp.Member.MemberID
@@ -376,6 +396,7 @@ func (s *StytchAdapter) CreateMember(ctx context.Context, orgID, email, name str
 	return memberID, nil
 }
 
+// InviteMemberByEmail sends a Stytch invite email to join an organization.
 // InviteMemberByEmail sends a Stytch invite email to join an organization.
 func (s *StytchAdapter) InviteMemberByEmail(ctx context.Context, orgID, email, name, redirectURL string) (string, error) {
 	start := time.Now()
@@ -394,7 +415,7 @@ func (s *StytchAdapter) InviteMemberByEmail(ctx context.Context, orgID, email, n
 			zap.String("email", email),
 			zap.Error(err),
 		)
-		return "", fmt.Errorf("%w: stytch invite member: %v", ErrInternal, err)
+		return "", fmt.Errorf("%w: stytch invite member: %s", ErrInternal, sanitizeStytchError(err))
 	}
 
 	memberID := resp.MemberID
@@ -410,6 +431,47 @@ func (s *StytchAdapter) InviteMemberByEmail(ctx context.Context, orgID, email, n
 	)
 
 	return memberID, nil
+}
+
+// GetMemberByEmail retrieves a Stytch member's ID by looking up their email
+// in the given organization. This is used when an invite attempt returns
+// duplicate_member_email (i.e., the member is already active) and we still
+// need the member ID for our local invitation record.
+func (s *StytchAdapter) GetMemberByEmail(ctx context.Context, orgID, email string) (string, error) {
+	start := time.Now()
+	defer func() {
+		s.logger.Info("Stytch GetMemberByEmail completed",
+			zap.String("org_id", orgID),
+			zap.String("email", email),
+			zap.Duration("latency", time.Since(start)),
+		)
+	}()
+
+	params := &members.GetParams{
+		OrganizationID: orgID,
+		EmailAddress:   email,
+	}
+
+	resp, err := s.api.Organizations.Members.Get(ctx, params)
+	if err != nil {
+		s.logger.Error("Stytch GetMemberByEmail failed",
+			zap.String("org_id", orgID),
+			zap.String("email", email),
+			zap.Error(err),
+		)
+		return "", fmt.Errorf("%w: stytch get member by email: %s", ErrInternal, sanitizeStytchError(err))
+	}
+
+	if resp.MemberID == "" {
+		return "", fmt.Errorf("%w: stytch response missing member_id", ErrInternal)
+	}
+
+	s.logger.Info("Stytch member found by email",
+		zap.String("member_id", resp.MemberID),
+		zap.String("email", email),
+	)
+
+	return resp.MemberID, nil
 }
 
 // Compile-time interface check.

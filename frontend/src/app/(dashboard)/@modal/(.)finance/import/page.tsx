@@ -1,19 +1,14 @@
 /**
- * Intercepted route for finance staff bulk import via the modal slot.
+ * Intercepted route for finance staff bulk invite via the modal slot.
  *
- * Renders an empty dialog overlay — bulk import UI will be implemented later.
+ * Renders BulkInviteForm inside a Dialog with role=FINANCE.
  */
 
 "use client";
 
 import { useRouter } from "next/navigation";
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { BulkInviteForm } from "@/features/staff/components/bulk-invite";
 
 export default function FinanceBulkImportModal() {
     const router = useRouter();
@@ -25,16 +20,11 @@ export default function FinanceBulkImportModal() {
                 if (!open) router.back();
             }}
         >
-            <DialogContent>
+            <DialogContent className="sm:max-w-3xl">
                 <DialogHeader>
-                    <DialogTitle>Bulk Import Finance Staff</DialogTitle>
-                    <DialogDescription>
-                        Bulk import functionality will be available soon.
-                    </DialogDescription>
+                    <DialogTitle>Invite Finance Staff</DialogTitle>
                 </DialogHeader>
-                <div className="text-muted-foreground flex items-center justify-center py-12 text-sm">
-                    Coming soon
-                </div>
+                <BulkInviteForm role="FINANCE" isDialogVersion />
             </DialogContent>
         </Dialog>
     );

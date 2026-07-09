@@ -302,9 +302,9 @@ export function DataTable<TItem, TParams extends object, TResult>({
     // ── Render ───────────────────────────────────────────────────────
 
     return (
-        <div className={cn("flex flex-col gap-2", className)}>
+        <div className={cn("flex flex-col", className)}>
             {/* ── Toolbar ───────────────────────────────────────── */}
-            <div className="flex items-center gap-2">
+            <div className="mb-2 flex items-center gap-2">
                 {isSearchable && (
                     <div className="relative max-w-60 flex-1">
                         <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2" />
@@ -405,7 +405,7 @@ export function DataTable<TItem, TParams extends object, TResult>({
                 <>
                     {/* ── Table header ──────────────────────────── */}
                     <div
-                        className="text-muted-foreground grid items-center border-b text-[0.625rem] font-medium tracking-wide uppercase"
+                        className="text-muted-foreground grid items-center border-b pb-2 text-[0.625rem] font-medium tracking-wide uppercase"
                         style={{
                             gridTemplateColumns,
                             paddingRight: 8,
@@ -435,7 +435,7 @@ export function DataTable<TItem, TParams extends object, TResult>({
                     </div>
 
                     {/* ── Virtualized rows ─────────────────────── */}
-                    <div ref={parentRef} style={{ height, overflow: "auto" }}>
+                    <div ref={parentRef} style={{ height, overflow: "auto" }} className="mb-4">
                         <div
                             style={{
                                 height: virtualizer.getTotalSize(),

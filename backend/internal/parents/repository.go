@@ -200,6 +200,10 @@ const parentJoin = `
 	JOIN users u ON u.id = cp.user_id AND u.tenant_id = cp.tenant_id
 `
 
+// ============================================================================
+// READ
+// ============================================================================
+
 // GetByID retrieves a single parent by primary key.
 func (r *PgRepository) GetByID(ctx context.Context, id, tenantID string) (*Parent, error) {
 	const query = `SELECT ` + parentJoinColumns + parentJoin + ` WHERE cp.id = $1 AND cp.tenant_id = $2`
@@ -315,7 +319,7 @@ func (r *PgRepository) List(ctx context.Context, filter ListFilter) ([]Parent, i
 	}
 
 	// Count query
-	countQuery := `SELECT COUNT(*) FROM cbc_parents cp ` + parentJoin + ` ` + whereClause
+	countQuery := `SELECT COUNT(*)` + parentJoin + ` ` + whereClause
 	var total int
 	err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&total)
 	if err != nil {
@@ -327,7 +331,7 @@ func (r *PgRepository) List(ctx context.Context, filter ListFilter) ([]Parent, i
 	}
 
 	offset := (filter.Page - 1) * filter.Limit
-	dataQuery := `SELECT ` + parentJoinColumns + ` FROM cbc_parents cp ` + parentJoin + ` ` + whereClause + ` ORDER BY u.full_name ASC LIMIT $` + fmt.Sprintf("%d", argIdx) + ` OFFSET $` + fmt.Sprintf("%d", argIdx+1)
+	dataQuery := `SELECT ` + parentJoinColumns + parentJoin + ` ` + whereClause + ` ORDER BY u.full_name ASC LIMIT $` + fmt.Sprintf("%d", argIdx) + ` OFFSET $` + fmt.Sprintf("%d", argIdx+1)
 	dataArgs := append(args, filter.Limit, offset)
 
 	rows, err := r.pool.Query(ctx, dataQuery, dataArgs...)

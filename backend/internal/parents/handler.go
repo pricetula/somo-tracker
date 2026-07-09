@@ -34,6 +34,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	parents.Get("/:id", middleware.RequireAuth, h.GetDetail)
 	parents.Put("/:id", middleware.RequireAuth, h.Update)
 	parents.Delete("/:id", middleware.RequireAuth, h.Delete)
+	parents.Post("/import", middleware.RequireAuth, h.BulkImport)
 	parents.Post("/:parent_id/students", middleware.RequireAuth, h.LinkStudent)
 	parents.Delete("/:parent_id/students/:student_id", middleware.RequireAuth, h.UnlinkStudent)
 }
@@ -89,6 +90,19 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(CreateParentResponse{ID: parent.ID})
+}
+
+// ============================================================================
+// BULK IMPORT — NOT YET IMPLEMENTED
+// ============================================================================
+
+// BulkImport handles POST /api/v1/parents/import.
+// Will be implemented following the students import pattern (ImportJob system).
+func (h *Handler) BulkImport(c *fiber.Ctx) error {
+	return c.Status(fiber.StatusNotImplemented).JSON(fiber.Map{
+		"code":    "not_implemented",
+		"message": "Bulk import for parents is not yet implemented. Please add parents individually.",
+	})
 }
 
 // ============================================================================

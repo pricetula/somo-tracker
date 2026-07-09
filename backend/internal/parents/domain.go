@@ -98,6 +98,10 @@ type StudentResolver interface {
 	StudentExistsInTenant(ctx context.Context, studentID, tenantID string) (bool, error)
 }
 
+// ============================================================================
+// ListFilter
+// ============================================================================
+
 // ListFilter holds query parameters for listing parents.
 type ListFilter struct {
 	TenantID        string

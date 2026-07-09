@@ -21,9 +21,12 @@ const mockCheckDuplicates = vi.hoisted(() =>
     })
 );
 
+const mockGetImportAlreadyInProgress = vi.hoisted(() => vi.fn());
+
 vi.mock("@/lib/api/imports", () => ({
     submitStudentImport: (...args: unknown[]) => mockSubmitImport(...args),
     checkDuplicates: (...args: unknown[]) => mockCheckDuplicates(...args),
+    getImportAlreadyInProgress: (...args: unknown[]) => mockGetImportAlreadyInProgress(...args),
 }));
 
 const mockToast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
@@ -143,7 +146,7 @@ describe("ManualImportForm", () => {
         renderForm();
 
         expect(screen.getByText("Manual Student Import")).toBeInTheDocument();
-        expect(screen.getByRole("button", { name: /add row/i })).toBeInTheDocument();
+        expect(screen.getAllByRole("button", { name: /add row/i })).toHaveLength(2);
         expect(screen.getByRole("button", { name: /cancel/i })).toBeInTheDocument();
     });
 
@@ -152,7 +155,7 @@ describe("ManualImportForm", () => {
     it("adds a new row at the top when Add Row is clicked", async () => {
         const { user } = renderForm();
 
-        await user.click(screen.getByRole("button", { name: /add row/i }));
+        await user.click(screen.getAllByRole("button", { name: /add row/i })[0]);
 
         expect(screen.getByText("2 / 5,000 rows")).toBeInTheDocument();
         expect(screen.getAllByPlaceholderText("e.g. John Kiprop")).toHaveLength(2);
@@ -166,7 +169,7 @@ describe("ManualImportForm", () => {
         await user.type(firstInput, "First Student");
 
         // Add a new row — it should appear at the top
-        await user.click(screen.getByRole("button", { name: /add row/i }));
+        await user.click(screen.getAllByRole("button", { name: /add row/i })[0]);
 
         const inputs = screen.getAllByPlaceholderText("e.g. John Kiprop");
         // The first input should be empty (new row) and second should have the typed text
@@ -187,8 +190,8 @@ describe("ManualImportForm", () => {
         const { user } = renderForm();
 
         // Add two rows
-        await user.click(screen.getByRole("button", { name: /add row/i }));
-        await user.click(screen.getByRole("button", { name: /add row/i }));
+        await user.click(screen.getAllByRole("button", { name: /add row/i })[0]);
+        await user.click(screen.getAllByRole("button", { name: /add row/i })[0]);
         expect(screen.getAllByPlaceholderText("e.g. John Kiprop")).toHaveLength(3);
 
         // Delete the second row
@@ -303,19 +306,10 @@ describe("ManualImportForm", () => {
             status: "processing",
         });
 
-        renderForm();
-        // Re-render with our onJobCreated
-        const { unmount } = render(
-            <ManualImportForm onReset={vi.fn()} onJobCreated={onJobCreated} />
-        );
-        // Clean up the first render
-        unmount();
-
-        // Use a fresh render
+        const freshUser = userEvent.setup();
         const freshRender = render(
             <ManualImportForm onReset={vi.fn()} onJobCreated={onJobCreated} />
         );
-        const freshUser = userEvent.setup();
 
         // Fill in the form
         const nameInput = freshRender.getByPlaceholderText("e.g. John Kiprop");

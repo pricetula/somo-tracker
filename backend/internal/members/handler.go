@@ -50,7 +50,7 @@ func (h *Handler) List(c *fiber.Ctx) error {
 	}
 
 	page, _ := strconv.Atoi(c.Query("page", "1"))
-	limit, _ := strconv.Atoi(c.Query("limit", "50"))
+	limit, _ := strconv.Atoi(c.Query("per_page", "50"))
 	search := strings.TrimSpace(c.Query("search", ""))
 	includeInactive := strings.ToLower(c.Query("include_inactive", "false")) == "true"
 

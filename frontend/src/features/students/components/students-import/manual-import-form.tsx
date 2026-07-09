@@ -190,7 +190,11 @@ export function StudentManualImportForm({ onReset, onJobCreated }: StudentManual
             if (!rowErrors) return prev;
             const updated = { ...rowErrors };
             for (const key of Object.keys(patch)) {
+                // Map camelCase JS property names to snake_case error keys
                 delete updated[key];
+                if (key === "fullName") {
+                    delete updated.full_name;
+                }
             }
             if (Object.keys(updated).length === 0) {
                 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -215,7 +219,7 @@ export function StudentManualImportForm({ onReset, onJobCreated }: StudentManual
                 );
                 return prev;
             }
-            return [...prev, freshRow()];
+            return [freshRow(), ...prev];
         });
     }, []);
 
@@ -448,7 +452,7 @@ export function StudentManualImportForm({ onReset, onJobCreated }: StudentManual
                                         onClick={() => removeRow(row.id)}
                                         disabled={isSubmitting || rows.length === 1}
                                         className="text-muted-foreground hover:text-destructive size-6"
-                                        aria-label={`Remove row ${index + 1}`}
+                                        aria-label={`Remove student ${index + 1}`}
                                     >
                                         <Trash2 className="size-3.5" />
                                     </Button>

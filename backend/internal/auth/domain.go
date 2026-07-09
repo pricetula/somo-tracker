@@ -117,6 +117,7 @@ type DiscoveredOrg struct {
 	OrganizationID      string
 	OrganizationName    string
 	MemberID            string
+	MemberName          string
 	MemberAuthenticated bool
 }
 

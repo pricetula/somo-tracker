@@ -244,35 +244,15 @@ func (s *Service) handleExistingUser(ctx context.Context, ist, email string, dis
 		}
 	}
 
-	// No matching org found in our database — log this and fall through to registration flow
-	s.logger.Info("auth: discovered orgs found but no matching tenant in DB — falling back to registration",
+	// No matching org found in our database — the Stytch org still exists but our DB
+	// was wiped (e.g. database reset). Re-use the existing Stytch org to reconstruct
+	// the tenant, user, session, and school in Postgres.
+	s.logger.Info("auth: discovered orgs found but no tenant in DB — reconstructing from Stytch",
 		zap.String("email", email),
 		zap.Int("discovered_org_count", len(discoveredOrgs)),
 	)
 
-	// Fall back to registration flow: cache IST in Redis
-	sessionRef, err := generateUUID()
-	if err != nil {
-		return nil, fmt.Errorf("%w: generate session ref: %v", ErrInternal, err)
-	}
-
-	cacheData := istCacheData{IST: ist, Email: email}
-	cacheJSON, err := json.Marshal(cacheData)
-	if err != nil {
-		return nil, fmt.Errorf("%w: marshal cache data: %v", ErrInternal, err)
-	}
-
-	istKey := fmt.Sprintf("%s%s:%s", istKeyPrefix, s.cfg.AppEnv, sessionRef)
-	if err := s.rdb.Set(ctx, istKey, string(cacheJSON), istTTL).Err(); err != nil {
-		return nil, fmt.Errorf("%w: cache ist: %v", ErrInternal, err)
-	}
-
-	s.logger.Info("auth: IST cached for registration fallback",
-		zap.String("session_ref", sessionRef),
-		zap.String("email", email),
-	)
-
-	return &VerifyResult{SessionRef: sessionRef, Email: email}, nil
+	return s.reconstructFromStytch(ctx, ist, email, discoveredOrgs, deviceFingerprint)
 }
 
 // Register completes the registration flow (PHASE 3).
@@ -682,6 +662,122 @@ func (s *Service) Logout(ctx context.Context, token string) error {
 // ============================================================================
 // Internal helpers
 // ============================================================================
+
+// reconstructFromStytch rebuilds local state from an existing Stytch organization when our
+// database has been wiped. Uses the first discovered org that has a member, exchanges the IST,
+// creates the tenant/user/session/school in Postgres, and returns a VerifyResult with a session
+// token for direct dashboard redirect.
+func (s *Service) reconstructFromStytch(ctx context.Context, ist, email string, discoveredOrgs []DiscoveredOrg, deviceFingerprint string) (*VerifyResult, error) {
+	// Pick the first discovered org with a member — all discovered orgs are valid
+	// since the user already has memberships in them.
+	org := discoveredOrgs[0]
+
+	if !org.MemberAuthenticated {
+		s.logger.Warn("auth: reconstruct: MFA required for existing Stytch member",
+			zap.String("email", email),
+			zap.String("org_id", org.OrganizationID),
+		)
+		return nil, ErrMFARequired
+	}
+
+	// Exchange the IST against this org to get a full Stytch session
+	exchangeResult, err := s.idp.ExchangeIntermediateSession(ctx, ist, org.OrganizationID)
+	if err != nil {
+		return nil, fmt.Errorf("auth.Service.reconstructFromStytch: exchange IST: %w", err)
+	}
+
+	if !exchangeResult.MemberAuthenticated {
+		s.logger.Warn("auth: reconstruct: MFA required after IST exchange",
+			zap.String("email", email),
+			zap.String("org_id", org.OrganizationID),
+		)
+		return nil, ErrMFARequired
+	}
+
+	// Use the Stytch org name as the school name for reconstruction
+	schoolName := org.OrganizationName
+	if schoolName == "" {
+		schoolName = email + "'s School"
+	}
+
+	// Generate opaque session token
+	tokenBytes := make([]byte, 32)
+	if _, err := rand.Read(tokenBytes); err != nil {
+		return nil, fmt.Errorf("%w: generate session token: %v", ErrInternal, err)
+	}
+	sessionToken := hex.EncodeToString(tokenBytes)
+	expiresAt := time.Now().Add(sessionTTL)
+
+	// Use the member name from Stytch if available, otherwise fall back to email local part
+	fullName := org.MemberName
+	if fullName == "" {
+		// Extract name from email (before @)
+		parts := strings.SplitN(email, "@", 2)
+		fullName = parts[0]
+	}
+
+	// Prepare persistence parameters
+	slug := generateSlug(schoolName)
+
+	tenantParams := CreateTenantParams{
+		Name:        schoolName,
+		Slug:        slug,
+		StytchOrgID: org.OrganizationID,
+	}
+
+	userParams := CreateUserParams{
+		Email:          email,
+		FullName:       fullName,
+		ExternalAuthID: exchangeResult.MemberID,
+	}
+
+	sessionParams := CreateSessionParams{
+		Token:              sessionToken,
+		StytchMemberID:     exchangeResult.MemberID,
+		StytchOrgID:        org.OrganizationID,
+		StytchSessionToken: exchangeResult.StytchSessionToken,
+		DeviceFingerprint:  deviceFingerprint,
+		ExpiresAt:          expiresAt,
+	}
+
+	// Set the stytch_org_id in context for reconciliation logging
+	ctx = context.WithValue(ctx, StytchOrgIDKey{}, org.OrganizationID)
+
+	// Create tenant + user + session in a single transaction
+	userID, tenantID, err := s.repo.CreateTenantUserSession(ctx, tenantParams, userParams, sessionParams)
+	if err != nil {
+		return nil, fmt.Errorf("auth.Service.reconstructFromStytch: create tenant/user/session: %w", err)
+	}
+
+	// Create the school using the full cbcschools.Service.CreateSchool pipeline
+	role := "SCHOOL_ADMIN"
+	schoolID, err := s.schoolCreator.CreateSchool(ctx, tenantID, schoolName, role, userID)
+	if err != nil {
+		return nil, fmt.Errorf("auth.Service.reconstructFromStytch: create school: %w", err)
+	}
+
+	// Cache session in Redis
+	if err := s.rdb.Set(ctx, s.sessionKey(sessionToken), exchangeResult.StytchSessionToken, sessionTTL).Err(); err != nil {
+		return nil, fmt.Errorf("%w: cache session: %v", ErrInternal, err)
+	}
+
+	s.logger.Info("auth: Stytch org reconstructed in DB — session issued",
+		zap.String("user_id", userID),
+		zap.String("tenant_id", tenantID),
+		zap.String("school_id", schoolID),
+		zap.String("role", role),
+		zap.String("email", email),
+		zap.String("stytch_org_id", org.OrganizationID),
+		zap.String("session_token_preview", sessionToken[:8]+"..."),
+	)
+
+	return &VerifyResult{
+		SessionToken: sessionToken,
+		Role:         role,
+		Email:        email,
+		SchoolID:     schoolID,
+	}, nil
+}
 
 // readAndDeleteIST atomically reads and deletes the IST+email JSON from Redis (requirement 2).
 func (s *Service) readAndDeleteIST(ctx context.Context, sessionRef string) (ist, email string, err error) {

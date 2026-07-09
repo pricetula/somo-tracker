@@ -132,6 +132,7 @@ func (s *StytchAdapter) AuthenticateDiscoveryToken(ctx context.Context, token st
 		}
 		if do.Membership != nil && do.Membership.Member != nil {
 			org.MemberID = do.Membership.Member.MemberID
+			org.MemberName = do.Membership.Member.Name
 		}
 		discoveredOrgs = append(discoveredOrgs, org)
 	}

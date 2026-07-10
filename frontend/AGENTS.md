@@ -84,9 +84,10 @@ still being finalized upstream.
 
 - **Location:** Since this project uses `frontend/src/app/`, proxy must live at
   `frontend/src/proxy.ts` (adjacent to `app/`), not `frontend/proxy.ts`.
-- **Export:** Default export or named export `proxy` — not `middleware()`. Only one
-  proxy function per file.
-- **Signature:** `export function proxy(request: NextRequest, event?: NextFetchEvent)`
+- **Export:** **Default export only** (Next.js 16.2 loads via `middlewareModule.default`;
+  named exports cause `adapterFn is not a function`). Named export `proxy` is not
+  supported in this version. Do NOT use `middleware()`.
+- **Signature:** `export default function proxy(request: NextRequest, event?: NextFetchEvent)`
 - **Runtime:** Node.js only — the `runtime` config option is not available in proxy
   files and will throw if set.
 - **Matcher is required.** Without it, proxy runs on every request including static

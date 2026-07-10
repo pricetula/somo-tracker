@@ -6,9 +6,7 @@ export default function SettingsPage() {
         <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 p-8">
             <div>
                 <h1 className="text-2xl font-semibold">Settings</h1>
-                <p className="text-muted-foreground mt-1 text-sm">
-                    Manage your application preferences.
-                </p>
+                <p className="text-muted-foreground mt-1">Manage your application preferences.</p>
             </div>
 
             <Card>
@@ -20,7 +18,7 @@ export default function SettingsPage() {
                 </CardHeader>
                 <CardContent>
                     <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">Theme</span>
+                        <span className="font-medium">Theme</span>
                         <ThemeSwitch />
                     </div>
                 </CardContent>

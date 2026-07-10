@@ -179,7 +179,7 @@ export function StepUpload({ onParsed, onBack, isResuming, resumeFileName }: Ste
             {/* Sheet picker */}
             {showSheetPicker && (
                 <div className="space-y-2">
-                    <p className="text-sm font-medium">Select a sheet to import:</p>
+                    <p className="font-medium">Select a sheet to import:</p>
                     <div className="flex flex-wrap gap-2">
                         {sheets.map((name) => (
                             <Button
@@ -206,9 +206,7 @@ export function StepUpload({ onParsed, onBack, isResuming, resumeFileName }: Ste
                 >
                     <Upload className="text-muted-foreground size-8" />
                     <div className="text-center">
-                        <p className="text-sm font-medium">
-                            Drop your file here, or click to browse
-                        </p>
+                        <p className="font-medium">Drop your file here, or click to browse</p>
                         <p className="text-muted-foreground mt-1 text-xs">
                             Supports CSV, TSV, Excel (.xlsx, .xls), and ODS files (max 15MB)
                         </p>
@@ -226,7 +224,7 @@ export function StepUpload({ onParsed, onBack, isResuming, resumeFileName }: Ste
             {/* Parse progress */}
             {parsing && (
                 <div className="space-y-2">
-                    <div className="text-muted-foreground flex items-center gap-2 text-sm">
+                    <div className="text-muted-foreground flex items-center gap-2">
                         <Loader2 className="size-4 animate-spin" />
                         <span>Parsing file...</span>
                     </div>

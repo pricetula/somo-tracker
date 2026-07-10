@@ -19,7 +19,7 @@ export function BulkInviteSelector({ onSelect }: BulkInviteSelectorProps) {
         <div className="space-y-6">
             <div className="space-y-1">
                 <h3 className="text-lg font-semibold">Invite Staff Members</h3>
-                <p className="text-muted-foreground text-sm">How would you like to add people?</p>
+                <p className="text-muted-foreground">How would you like to add people?</p>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">

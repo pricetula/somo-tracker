@@ -36,12 +36,12 @@ export default function ParentsImportModal() {
                         Add multiple parents at once. Bulk import will be available soon.
                     </DialogDescription>
                 </DialogHeader>
-                <div className="text-muted-foreground flex flex-col items-center gap-4 py-12 text-sm">
+                <div className="text-muted-foreground flex flex-col items-center gap-4 py-12">
                     <div className="bg-muted/50 flex size-12 items-center justify-center rounded-full">
                         <Upload className="text-muted-foreground size-5" />
                     </div>
                     <div className="text-center">
-                        <p className="text-sm font-medium">Coming soon</p>
+                        <p className="font-medium">Coming soon</p>
                         <p className="text-muted-foreground mt-0.5 text-xs">
                             You&apos;ll be able to import parents via CSV upload or manual entry.
                         </p>

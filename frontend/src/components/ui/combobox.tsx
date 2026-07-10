@@ -170,7 +170,7 @@ export function Combobox({
                 role="combobox"
                 aria-expanded={open}
                 className={cn(
-                    "h-9 w-full justify-between px-3 text-sm font-normal",
+                    "h-9 w-full justify-between px-3 font-normal",
                     !selectionLabel && "text-muted-foreground",
                     className
                 )}
@@ -247,7 +247,7 @@ export function ComboboxChips({
             variant="outline"
             role="combobox"
             className={cn(
-                "flex h-auto min-h-9 w-full flex-wrap items-center gap-1 px-3 py-1.5 text-sm font-normal",
+                "flex h-auto min-h-9 w-full flex-wrap items-center gap-1 px-3 py-1.5 font-normal",
                 className
             )}
         >

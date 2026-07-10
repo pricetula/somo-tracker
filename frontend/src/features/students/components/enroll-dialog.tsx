@@ -119,7 +119,7 @@ export function EnrollDialog({ open, onOpenChange, studentId }: EnrollDialogProp
 
                 <div className="space-y-4">
                     {error && (
-                        <div className="text-destructive bg-destructive/10 rounded-md px-3 py-2 text-sm">
+                        <div className="text-destructive bg-destructive/10 rounded-md px-3 py-2">
                             {error}
                         </div>
                     )}

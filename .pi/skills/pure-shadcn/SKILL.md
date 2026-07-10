@@ -40,7 +40,7 @@ BAD Implementation (Bloated DOM, breaking the global theme config):
 
 <div className="p-4 bg-[#fff] border border-gray-100 rounded-lg">
   <div className="flex items-center">
-    <div className="text-sm font-semibold text-slate-800">
+    <div className=" font-semibold text-slate-800">
       <span className="text-blue-500">Active</span> Assessment
     </div>
   </div>
@@ -49,18 +49,17 @@ BAD Implementation (Bloated DOM, breaking the global theme config):
 GOOD Implementation (Flat hierarchy, 100% theme variable driven):
 
 <div className="p-4 bg-background">
-  <p className="text-sm font-medium text-foreground">
+  <p className=" font-medium text-foreground">
     <span className="text-primary">Active</span> Assessment
   </p>
 </div>
 
-
 ### Enforced Rules (must-follow)
 
-| Rule | Short Code |
-|------|------------|
-| No hard-coded colours | @noHardHexColors |
-| Flat layout only | @flatLayoutOnly |
+| Rule                   | Short Code        |
+| ---------------------- | ----------------- |
+| No hard-coded colours  | @noHardHexColors  |
+| Flat layout only       | @flatLayoutOnly   |
 | Semantic CSS vars only | @semanticVarsOnly |
 
-*Violations will cause the skill to return a validation error and **no file will be written***
+\*Violations will cause the skill to return a validation error and **no file will be written\***

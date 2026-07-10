@@ -274,7 +274,7 @@ export function ImportProgress({
         <div className="space-y-4">
             {/* Progress bar */}
             <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">
                         {!job && "Starting…"}
                         {isCancelling && "Cancelling…"}
@@ -359,7 +359,7 @@ export function ImportProgress({
             {/* Result banner */}
             {isTerminal && (
                 <div
-                    className={`flex items-start gap-3 rounded-md px-4 py-3 text-sm ${
+                    className={`flex items-start gap-3 rounded-md px-4 py-3 ${
                         allSucceeded
                             ? "bg-emerald-50 text-emerald-800"
                             : isCancelled

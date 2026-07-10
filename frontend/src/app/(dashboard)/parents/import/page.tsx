@@ -29,7 +29,7 @@ export default function ParentsBulkImportPage() {
             {/* Header */}
             <div>
                 <h1 className="text-2xl font-semibold tracking-tight">Bulk Import Parents</h1>
-                <p className="text-muted-foreground mt-1 text-sm">
+                <p className="text-muted-foreground mt-1">
                     Add multiple parents at once by uploading a CSV file or entering details
                     manually.
                 </p>
@@ -41,7 +41,7 @@ export default function ParentsBulkImportPage() {
                     <Upload className="text-muted-foreground size-5" />
                 </div>
                 <div className="text-center">
-                    <p className="text-sm font-medium">Bulk import coming soon</p>
+                    <p className="font-medium">Bulk import coming soon</p>
                     <p className="text-muted-foreground mt-1 text-xs">
                         You&apos;ll be able to import parents via CSV upload or manual entry.
                     </p>

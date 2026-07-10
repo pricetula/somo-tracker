@@ -180,7 +180,7 @@ export function StepColumnMapping({
     return (
         <div className="space-y-6">
             <div>
-                <h3 className="text-sm font-medium">Map File Columns</h3>
+                <h3 className="font-medium">Map File Columns</h3>
                 <p className="text-muted-foreground mt-1 text-xs">
                     Match your file columns to the student fields below. Only &ldquo;Full
                     Name&rdquo; is required.
@@ -196,7 +196,7 @@ export function StepColumnMapping({
                     >
                         {/* Target field label */}
                         <div className="min-w-0">
-                            <span className="text-sm font-medium">{field.label}</span>
+                            <span className="font-medium">{field.label}</span>
                             {field.required && (
                                 <span className="text-destructive ml-1 text-xs">*</span>
                             )}
@@ -216,7 +216,7 @@ export function StepColumnMapping({
                                     role="combobox"
                                     aria-expanded={openPopover === field.target_key}
                                     className={cn(
-                                        "h-9 w-full justify-between px-3 text-sm font-normal",
+                                        "h-9 w-full justify-between px-3 font-normal",
                                         !mappings[field.target_key] && "text-muted-foreground"
                                     )}
                                 >

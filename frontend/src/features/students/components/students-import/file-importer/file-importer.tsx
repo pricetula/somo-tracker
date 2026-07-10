@@ -615,7 +615,7 @@ export function FileImporter({ onReset, onJobCreated }: FileImporterProps) {
     if (!schoolId) {
         return (
             <div className="flex items-center justify-center py-12">
-                <p className="text-muted-foreground text-sm">Loading user session...</p>
+                <p className="text-muted-foreground">Loading user session...</p>
             </div>
         );
     }
@@ -623,7 +623,7 @@ export function FileImporter({ onReset, onJobCreated }: FileImporterProps) {
     if (initializing) {
         return (
             <div className="flex items-center justify-center py-12">
-                <p className="text-muted-foreground text-sm">Restoring session...</p>
+                <p className="text-muted-foreground">Restoring session...</p>
             </div>
         );
     }

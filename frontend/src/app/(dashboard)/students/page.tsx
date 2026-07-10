@@ -51,7 +51,7 @@ const columns: DataTableColumn<Student>[] = [
         id: "full_name",
         header: "Full Name",
         cell: (row) => (
-            <Link href={`/students/${row.id}`} className="text-sm font-medium hover:underline">
+            <Link href={`/students/${row.id}`} className="font-medium hover:underline">
                 {row.full_name}
             </Link>
         ),
@@ -60,23 +60,21 @@ const columns: DataTableColumn<Student>[] = [
         id: "admission_number",
         header: "Admission No.",
         cell: (row) => (
-            <span className="text-muted-foreground font-mono text-sm">
-                {row.admission_number ?? "—"}
-            </span>
+            <span className="text-muted-foreground font-mono">{row.admission_number ?? "—"}</span>
         ),
     },
     {
         id: "upi_number",
         header: "UPI Number",
         cell: (row) => (
-            <span className="text-muted-foreground font-mono text-sm">{row.upi_number ?? "—"}</span>
+            <span className="text-muted-foreground font-mono">{row.upi_number ?? "—"}</span>
         ),
     },
     {
         id: "knec_assessment_number",
         header: "KNEC No.",
         cell: (row) => (
-            <span className="text-muted-foreground font-mono text-sm">
+            <span className="text-muted-foreground font-mono">
                 {row.knec_assessment_number ?? "—"}
             </span>
         ),
@@ -84,16 +82,14 @@ const columns: DataTableColumn<Student>[] = [
     {
         id: "class_name",
         header: "Class",
-        cell: (row) => (
-            <span className="text-muted-foreground text-sm">{row.class_name ?? "—"}</span>
-        ),
+        cell: (row) => <span className="text-muted-foreground">{row.class_name ?? "—"}</span>,
     },
     {
         id: "gender",
         header: "Gender",
         width: "80px",
         cell: (row) => (
-            <span className="text-muted-foreground text-sm">
+            <span className="text-muted-foreground">
                 {row.gender === "M" ? "Male" : row.gender === "F" ? "Female" : "—"}
             </span>
         ),

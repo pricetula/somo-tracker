@@ -96,7 +96,7 @@ function ClassResolverRow({
         <div className="flex items-center gap-3 px-2 py-1.5">
             {/* Raw string */}
             <div className="flex w-50 shrink-0 items-center gap-1.5">
-                <span className="truncate text-sm">{entry.raw_string}</span>
+                <span className="truncate">{entry.raw_string}</span>
                 {entry.count > 1 && (
                     <span className="text-muted-foreground shrink-0 text-[10px]">
                         ({entry.count})
@@ -110,9 +110,7 @@ function ClassResolverRow({
             {/* Resolver dropdown */}
             <div className="flex-1">
                 {entry.status === "matched" && localResolvedId ? (
-                    <span className="text-muted-foreground block truncate text-sm">
-                        {resolvedLabel}
-                    </span>
+                    <span className="text-muted-foreground block truncate">{resolvedLabel}</span>
                 ) : (
                     <Popover open={open} onOpenChange={setOpen}>
                         <PopoverTrigger asChild>
@@ -291,7 +289,7 @@ export function StepClassResolve({
         return (
             <div className="space-y-4">
                 <div>
-                    <h3 className="text-sm font-medium">Class Resolution</h3>
+                    <h3 className="font-medium">Class Resolution</h3>
                     <p className="text-muted-foreground mt-1 text-xs">
                         No class column was mapped, so all students will be created without a class
                         enrollment.
@@ -312,7 +310,7 @@ export function StepClassResolve({
     if (classesLoading) {
         return (
             <div className="flex items-center justify-center py-8">
-                <p className="text-muted-foreground text-sm">Loading classes...</p>
+                <p className="text-muted-foreground">Loading classes...</p>
             </div>
         );
     }
@@ -320,7 +318,7 @@ export function StepClassResolve({
     return (
         <div className="space-y-4">
             <div>
-                <h3 className="text-sm font-medium">Resolve Class/Stream Values</h3>
+                <h3 className="font-medium">Resolve Class/Stream Values</h3>
                 <p className="text-muted-foreground mt-1 text-xs">
                     Review how each unique class value from your file maps to a school class.
                     &ldquo;Auto&rdquo; matches are high-confidence. Review items that need
@@ -343,7 +341,7 @@ export function StepClassResolve({
 
             {/* Class resolution rows */}
             {unresolvedEntries.length === 0 ? (
-                <p className="text-muted-foreground py-4 text-center text-sm">
+                <p className="text-muted-foreground py-4 text-center">
                     No class values found in the data.
                 </p>
             ) : (

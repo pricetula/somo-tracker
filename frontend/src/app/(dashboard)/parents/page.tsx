@@ -28,7 +28,7 @@ const columns: DataTableColumn<Parent>[] = [
         id: "full_name",
         header: "Full Name",
         cell: (row) => (
-            <Link href={`/parents/${row.id}`} className="text-sm font-medium hover:underline">
+            <Link href={`/parents/${row.id}`} className="font-medium hover:underline">
                 {row.full_name || "—"}
             </Link>
         ),
@@ -36,15 +36,13 @@ const columns: DataTableColumn<Parent>[] = [
     {
         id: "email",
         header: "Email",
-        cell: (row) => <span className="text-muted-foreground text-sm">{row.email}</span>,
+        cell: (row) => <span className="text-muted-foreground">{row.email}</span>,
     },
     {
         id: "phone_number",
         header: "Phone",
         cell: (row) => (
-            <span className="text-muted-foreground font-mono text-sm">
-                {row.phone_number || "—"}
-            </span>
+            <span className="text-muted-foreground font-mono">{row.phone_number || "—"}</span>
         ),
     },
     {

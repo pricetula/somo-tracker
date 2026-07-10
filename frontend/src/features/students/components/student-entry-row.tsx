@@ -49,7 +49,7 @@ export function StudentEntryRow({
         <div className="bg-muted/30 space-y-4 rounded-md p-4">
             {/* Header row with entry number and remove button */}
             <div className="flex items-center justify-between gap-2">
-                <p className="text-muted-foreground text-sm font-medium">Student {index + 1}</p>
+                <p className="text-muted-foreground font-medium">Student {index + 1}</p>
                 {canRemove && (
                     <Button
                         type="button"

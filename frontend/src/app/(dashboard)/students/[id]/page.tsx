@@ -44,7 +44,7 @@ export default function StudentDetailPage() {
     if (isError || (!isLoading && !detail)) {
         return (
             <div className="flex flex-col items-center justify-center py-16">
-                <p className="text-destructive text-sm font-medium">Student not found</p>
+                <p className="text-destructive font-medium">Student not found</p>
                 <Button
                     variant="outline"
                     size="sm"
@@ -77,7 +77,7 @@ export default function StudentDetailPage() {
                         {detail?.full_name ?? "Student Detail"}
                     </h1>
                     {detail?.class_name && (
-                        <p className="text-muted-foreground mt-0.5 text-sm">{detail.class_name}</p>
+                        <p className="text-muted-foreground mt-0.5">{detail.class_name}</p>
                     )}
                 </div>
 

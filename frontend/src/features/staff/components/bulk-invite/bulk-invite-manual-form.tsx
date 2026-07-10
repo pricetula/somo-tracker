@@ -139,7 +139,7 @@ export function BulkInviteManualForm({ role, onReset, onJobCreated }: BulkInvite
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h3 className="text-sm font-medium">Manual Entry</h3>
+                    <h3 className="font-medium">Manual Entry</h3>
                     {hasErrors && (
                         <p className="text-destructive mt-0.5 text-xs">
                             {rowErrors.length} error{rowErrors.length !== 1 ? "s" : ""}

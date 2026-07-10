@@ -66,7 +66,7 @@ export function SchoolSwitcher() {
                                         {initials}
                                     </AvatarFallback>
                                 </Avatar>
-                                <div className="grid flex-1 text-left text-sm leading-tight">
+                                <div className="grid flex-1 text-left leading-tight">
                                     <span className="truncate font-medium">{activeSchoolName}</span>
                                 </div>
                                 <ChevronsUpDownIcon className="ml-auto size-4" />
@@ -104,9 +104,7 @@ export function SchoolSwitcher() {
                                                         .slice(0, 2)}
                                                 </AvatarFallback>
                                             </Avatar>
-                                            <span className="flex-1 truncate text-sm">
-                                                {school.name}
-                                            </span>
+                                            <span className="flex-1 truncate">{school.name}</span>
                                             {school.id === activeSchoolId && (
                                                 <Badge
                                                     variant="secondary"

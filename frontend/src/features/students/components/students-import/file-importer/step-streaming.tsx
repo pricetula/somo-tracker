@@ -93,7 +93,7 @@ export function StepStreaming({ onError, onJobCreated, schoolId }: StepStreaming
     return (
         <div className="space-y-4">
             <div>
-                <h3 className="text-sm font-medium">Ready to Import</h3>
+                <h3 className="font-medium">Ready to Import</h3>
                 <p className="text-muted-foreground mt-1 text-xs">
                     {records.length} student record{records.length !== 1 ? "s" : ""} will be sent in
                     a single request.

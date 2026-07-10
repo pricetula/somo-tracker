@@ -43,7 +43,7 @@ export function StrandSection({ strand, learningAreaId, onEditIndicator }: Stran
                     ) : (
                         <ChevronRight className="text-muted-foreground size-4" />
                     )}
-                    <span className="text-sm font-semibold">{strand.name}</span>
+                    <span className="font-semibold">{strand.name}</span>
                 </button>
                 <Badge className="text-xs font-normal">
                     {subStrandCount} sub-strand{subStrandCount !== 1 ? "s" : ""}

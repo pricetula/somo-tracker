@@ -118,7 +118,7 @@ function EditableRow({
     );
 
     const rowBase = cn(
-        "flex items-center gap-2 px-2 py-1.5 text-sm",
+        "flex items-center gap-2 px-2 py-1.5 ",
         record.status !== "valid" && !editing && "bg-destructive/5"
     );
 
@@ -302,7 +302,7 @@ export function StepDataReview({ onProceed, onBack, schoolId }: StepDataReviewPr
     return (
         <div className="space-y-4">
             <div>
-                <h3 className="text-sm font-medium">Review Staged Records</h3>
+                <h3 className="font-medium">Review Staged Records</h3>
                 <p className="text-muted-foreground mt-1 text-xs">
                     {counts.total} records loaded —{" "}
                     <span className="text-emerald-600">{counts.valid} valid</span>
@@ -357,11 +357,11 @@ export function StepDataReview({ onProceed, onBack, schoolId }: StepDataReviewPr
                 {/* Scrollable rows */}
                 <div className="max-h-80 overflow-y-auto">
                     {records.length === 0 && total === 0 ? (
-                        <div className="text-muted-foreground p-4 text-center text-sm">
+                        <div className="text-muted-foreground p-4 text-center">
                             Loading records...
                         </div>
                     ) : records.length === 0 ? (
-                        <div className="text-muted-foreground p-4 text-center text-sm">
+                        <div className="text-muted-foreground p-4 text-center">
                             No records found.
                         </div>
                     ) : (

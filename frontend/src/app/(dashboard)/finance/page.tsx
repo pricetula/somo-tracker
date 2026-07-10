@@ -19,12 +19,12 @@ const columns: DataTableColumn<Member>[] = [
     {
         id: "full_name",
         header: "Full Name",
-        cell: (row) => <span className="text-sm font-medium">{row.full_name || "—"}</span>,
+        cell: (row) => <span className="font-medium">{row.full_name || "—"}</span>,
     },
     {
         id: "email",
         header: "Email",
-        cell: (row) => <span className="text-muted-foreground text-sm">{row.email}</span>,
+        cell: (row) => <span className="text-muted-foreground">{row.email}</span>,
     },
     {
         id: "is_active",

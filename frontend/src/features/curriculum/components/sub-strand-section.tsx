@@ -47,7 +47,7 @@ export function SubStrandSection({
                     ) : (
                         <ChevronRight className="text-muted-foreground size-4" />
                     )}
-                    <span className="text-sm font-medium">{subStrand.name}</span>
+                    <span className="font-medium">{subStrand.name}</span>
                 </button>
                 <Badge variant="secondary" className="text-xs font-normal">
                     {indicatorCount} indicator{indicatorCount !== 1 ? "s" : ""}

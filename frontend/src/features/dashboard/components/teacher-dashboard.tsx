@@ -8,7 +8,7 @@ export function TeacherDashboardPage() {
                     Welcome back
                     <WelcomeGreeting />
                 </h1>
-                <p className="text-muted-foreground mt-1 text-sm">Welcome to SomoTracker.</p>
+                <p className="text-muted-foreground mt-1">Welcome to SomoTracker.</p>
             </div>
         </div>
     );

@@ -391,7 +391,7 @@ export function StudentManualImportForm({ onReset, onJobCreated }: StudentManual
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h3 className="text-sm font-medium">Manual Student Import</h3>
+                    <h3 className="font-medium">Manual Student Import</h3>
                     {blockingCount > 0 && (
                         <p className="text-destructive mt-0.5 text-xs">
                             {blockingCount} row{blockingCount !== 1 ? "s" : ""} with errors

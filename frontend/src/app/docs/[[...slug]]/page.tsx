@@ -43,9 +43,7 @@ export default async function DocPage({ params }: Props) {
                                     <h2 className="text-foreground group-hover:text-primary font-semibold transition-colors">
                                         {doc.title}
                                     </h2>
-                                    <p className="text-muted-foreground mt-1 text-sm">
-                                        {doc.description}
-                                    </p>
+                                    <p className="text-muted-foreground mt-1">{doc.description}</p>
                                 </div>
                             </div>
                         </Link>
@@ -70,7 +68,7 @@ export default async function DocPage({ params }: Props) {
             {/* Back link */}
             <Link
                 href="/docs"
-                className="text-muted-foreground hover:text-foreground mb-6 inline-flex items-center gap-1.5 text-sm no-underline transition-colors"
+                className="text-muted-foreground hover:text-foreground mb-6 inline-flex items-center gap-1.5 no-underline transition-colors"
             >
                 <ArrowLeft className="h-4 w-4" />
                 Back to docs
@@ -115,17 +113,14 @@ export default async function DocPage({ params }: Props) {
                         ),
                         code: ({ children, ...props }) => (
                             <code
-                                className="bg-muted text-foreground rounded px-1.5 py-0.5 font-mono text-sm"
+                                className="bg-muted text-foreground rounded px-1.5 py-0.5 font-mono"
                                 {...props}
                             >
                                 {children}
                             </code>
                         ),
                         pre: ({ children, ...props }) => (
-                            <pre
-                                className="bg-muted overflow-x-auto rounded-lg p-4 text-sm"
-                                {...props}
-                            >
+                            <pre className="bg-muted overflow-x-auto rounded-lg p-4" {...props}>
                                 {children}
                             </pre>
                         ),

@@ -20,7 +20,7 @@ function Calendar({
                 months: "flex flex-col gap-2",
                 month: "flex flex-col gap-2",
                 month_caption: "flex items-center justify-center py-1 relative",
-                caption_label: "text-sm font-medium",
+                caption_label: " font-medium",
                 nav: "flex items-center gap-1 absolute inset-x-0 top-0 justify-between",
                 button_previous: cn(
                     "hover:bg-muted size-6 rounded-md inline-flex items-center justify-center transition-colors",

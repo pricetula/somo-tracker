@@ -25,7 +25,7 @@ const columns: DataTableColumn<LearningArea>[] = [
         id: "name",
         header: "Name",
         cell: (row) => (
-            <Link href={`/curriculum/${row.id}`} className="text-sm hover:underline">
+            <Link href={`/curriculum/${row.id}`} className="hover:underline">
                 {row.name}
             </Link>
         ),
@@ -35,10 +35,7 @@ const columns: DataTableColumn<LearningArea>[] = [
         header: "Code",
         width: "120px",
         cell: (row) => (
-            <Link
-                href={`/curriculum/${row.id}`}
-                className="font-mono text-sm font-medium hover:underline"
-            >
+            <Link href={`/curriculum/${row.id}`} className="font-mono font-medium hover:underline">
                 {row.code}
             </Link>
         ),
@@ -48,7 +45,7 @@ const columns: DataTableColumn<LearningArea>[] = [
         header: "Education Level",
         width: "180px",
         cell: (row) => (
-            <span className="text-muted-foreground text-sm">
+            <span className="text-muted-foreground">
                 {formatEducationLevel(row.education_level)}
             </span>
         ),
@@ -58,9 +55,7 @@ const columns: DataTableColumn<LearningArea>[] = [
         header: "Grade",
         width: "120px",
         cell: (row) => (
-            <span className="text-muted-foreground text-sm">
-                {formatGradeLevel(row.grade_level)}
-            </span>
+            <span className="text-muted-foreground">{formatGradeLevel(row.grade_level)}</span>
         ),
     },
 ];

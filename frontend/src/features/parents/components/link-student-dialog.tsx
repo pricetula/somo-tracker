@@ -123,7 +123,7 @@ export function LinkStudentDialog({ open, onOpenChange, parentId }: LinkStudentD
 
                 <div className="space-y-4">
                     {error && (
-                        <div className="text-destructive bg-destructive/10 rounded-md px-3 py-2 text-sm">
+                        <div className="text-destructive bg-destructive/10 rounded-md px-3 py-2">
                             {error}
                         </div>
                     )}
@@ -152,7 +152,7 @@ export function LinkStudentDialog({ open, onOpenChange, parentId }: LinkStudentD
                                 <Loader2 className="text-muted-foreground size-5 animate-spin" />
                             </div>
                         ) : students.length === 0 ? (
-                            <p className="text-muted-foreground py-4 text-center text-sm">
+                            <p className="text-muted-foreground py-4 text-center">
                                 {search
                                     ? "No students match your search"
                                     : "Type to search for students"}
@@ -165,7 +165,7 @@ export function LinkStudentDialog({ open, onOpenChange, parentId }: LinkStudentD
                                         <button
                                             key={s.id}
                                             type="button"
-                                            className={`hover:bg-muted/50 flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors ${
+                                            className={`hover:bg-muted/50 flex w-full items-center gap-2 px-3 py-2 text-left transition-colors ${
                                                 isSelected ? "bg-muted font-medium" : ""
                                             }`}
                                             onClick={() => setSelectedStudentId(s.id)}
@@ -193,7 +193,7 @@ export function LinkStudentDialog({ open, onOpenChange, parentId }: LinkStudentD
 
                     {/* Selected student summary */}
                     {selectedStudent && (
-                        <div className="bg-muted/30 rounded-md px-3 py-2 text-sm">
+                        <div className="bg-muted/30 rounded-md px-3 py-2">
                             <span className="font-medium">Selected: </span>
                             {selectedStudent.full_name}
                             {selectedStudent.class_name && (
@@ -229,7 +229,7 @@ export function LinkStudentDialog({ open, onOpenChange, parentId }: LinkStudentD
                             checked={isPrimary}
                             onCheckedChange={setIsPrimary}
                         />
-                        <Label htmlFor="is_primary" className="text-sm">
+                        <Label htmlFor="is_primary" className="">
                             Primary guardian
                         </Label>
                     </div>

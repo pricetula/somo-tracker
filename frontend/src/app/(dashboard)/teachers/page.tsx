@@ -35,25 +35,25 @@ const columns: DataTableColumn<TeacherMember>[] = [
     {
         id: "full_name",
         header: "Full Name",
-        cell: (row) => <span className="text-sm font-medium">{row.full_name || "—"}</span>,
+        cell: (row) => <span className="font-medium">{row.full_name || "—"}</span>,
     },
     {
         id: "email",
         header: "Email",
-        cell: (row) => <span className="text-muted-foreground text-sm">{row.email}</span>,
+        cell: (row) => <span className="text-muted-foreground">{row.email}</span>,
     },
     {
         id: "tsc_number",
         header: "TSC Number",
         cell: (row) => (
-            <span className="text-muted-foreground font-mono text-sm">{row.tsc_number ?? "—"}</span>
+            <span className="text-muted-foreground font-mono">{row.tsc_number ?? "—"}</span>
         ),
     },
     {
         id: "knec_panel_assessor_id",
         header: "KNEC Panel Assessor ID",
         cell: (row) => (
-            <span className="text-muted-foreground font-mono text-sm">
+            <span className="text-muted-foreground font-mono">
                 {row.knec_panel_assessor_id ?? "—"}
             </span>
         ),
@@ -62,9 +62,7 @@ const columns: DataTableColumn<TeacherMember>[] = [
         id: "teacher_role",
         header: "Core Assignment Role",
         cell: (row) => (
-            <span className="text-muted-foreground text-sm">
-                {formatTeacherRole(row.teacher_role)}
-            </span>
+            <span className="text-muted-foreground">{formatTeacherRole(row.teacher_role)}</span>
         ),
     },
     {

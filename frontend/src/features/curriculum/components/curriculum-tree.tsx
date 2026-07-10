@@ -39,7 +39,7 @@ export function CurriculumTree({ tree, isLoading, isError }: CurriculumTreeProps
     if (isError || !tree) {
         return (
             <div className="flex items-center justify-center py-16">
-                <p className="text-destructive text-sm">
+                <p className="text-destructive">
                     Failed to load curriculum tree. Please try again.
                 </p>
             </div>
@@ -54,7 +54,7 @@ export function CurriculumTree({ tree, isLoading, isError }: CurriculumTreeProps
             <div className="flex items-start justify-between gap-4">
                 <div>
                     <h2 className="text-xl font-semibold">{tree.name}</h2>
-                    <div className="text-muted-foreground mt-1 flex items-center gap-3 text-sm">
+                    <div className="text-muted-foreground mt-1 flex items-center gap-3">
                         <span className="font-mono text-xs">{tree.code}</span>
                         <span>{formatEducationLevel(tree.education_level)}</span>
                         <span>
@@ -76,7 +76,7 @@ export function CurriculumTree({ tree, isLoading, isError }: CurriculumTreeProps
             {/* Strands */}
             {strandCount === 0 ? (
                 <div className="flex flex-col items-center gap-2 py-16">
-                    <p className="text-muted-foreground text-sm font-medium">No strands yet</p>
+                    <p className="text-muted-foreground font-medium">No strands yet</p>
                     <p className="text-muted-foreground text-xs">
                         Add a strand to start building your curriculum.
                     </p>

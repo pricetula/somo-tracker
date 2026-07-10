@@ -1028,13 +1028,16 @@ func TestHandler_Callback_ExpiredToken(t *testing.T) {
 func TestHandler_InviteCallback_HappyPath(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
-	// Configure mock IDP to return valid invite auth
+	// Configure mock IDP to authenticate via the org-scoped endpoint
 	idp := h.svc.idp.(*MockIdentityProvider)
-	idp.authenticateInviteTokenFn = func(ctx context.Context, token string) (string, string, error) {
-		return "ist_invite", "invited@example.com", nil
-	}
-	idp.exchangeInviteSessionFn = func(ctx context.Context, ist, orgID string) (string, error) {
-		return "sty_sess_invite", nil
+	idp.authenticateMagicLinkFn = func(ctx context.Context, token string) (*MagicLinkAuthResult, error) {
+		return &MagicLinkAuthResult{
+			MemberID:            "member_invited_001",
+			OrganizationID:      "org_invite",
+			Email:               "invited@example.com",
+			StytchSessionToken:  "sty_sess_invite",
+			MemberAuthenticated: true,
+		}, nil
 	}
 
 	// Configure repo to return a valid invitation
@@ -1047,12 +1050,9 @@ func TestHandler_InviteCallback_HappyPath(t *testing.T) {
 			Email:          "invited@example.com",
 			FullName:       "Invited Teacher",
 			Status:         "pending",
-			StytchMemberID: "sty_member_invited",
+			StytchMemberID: "member_invited_001",
 			ExpiresAt:      time.Now().Add(24 * time.Hour),
 		}, nil
-	}
-	h.repo.getTenantStytchOrgIDFn = func(ctx context.Context, tenantID string) (string, error) {
-		return "org_invite", nil
 	}
 
 	resp := h.doRequestWithQuery("GET", "/api/auth/invite/callback", "token=valid_invite_token", "")
@@ -1112,8 +1112,14 @@ func TestHandler_InviteCallback_ExpiredInvitation(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
 	idp := h.svc.idp.(*MockIdentityProvider)
-	idp.authenticateInviteTokenFn = func(ctx context.Context, token string) (string, string, error) {
-		return "ist_invite", "expired@example.com", nil
+	idp.authenticateMagicLinkFn = func(ctx context.Context, token string) (*MagicLinkAuthResult, error) {
+		return &MagicLinkAuthResult{
+			MemberID:            "member_expired",
+			OrganizationID:      "org_expired",
+			Email:               "expired@example.com",
+			StytchSessionToken:  "sess_expired",
+			MemberAuthenticated: true,
+		}, nil
 	}
 
 	// No invitation exists → service returns ErrExpiredToken wrapping middleware.ErrUnauthorized
@@ -1127,41 +1133,18 @@ func TestHandler_InviteCallback_ExpiredInvitation(t *testing.T) {
 	}
 }
 
-// TestHandler_InviteCallback_StytchExchangeMFAFailure verifies that when
-// the Stytch IST exchange fails due to MFA not being satisfied, the handler
-// returns 500 because auth.ErrMFARequired does not wrap
-// middleware.ErrUnauthorized (it falls through to the default case).
-func TestHandler_InviteCallback_CreateMemberFails(t *testing.T) {
+// TestHandler_InviteCallback_StytchExchangeFails verifies that when the Stytch
+// magic link authentication itself fails (wrong endpoint, invalid token), the
+// handler returns 500.
+func TestHandler_InviteCallback_StytchExchangeFails(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
 	idp := h.svc.idp.(*MockIdentityProvider)
-	idp.authenticateDiscoveryTokenFn = func(ctx context.Context, token string) (string, string, []DiscoveredOrg, error) {
-		return "ist_create_fail", "createfail@example.com", nil, nil
-	}
-	h.repo.getInvitationByEmailFn = func(ctx context.Context, email string) (*Invitation, error) {
-		return &Invitation{
-			ID:        "invite_create_fail",
-			TenantID:  "tenant_create_fail",
-			SchoolID:  "school_create_fail",
-			Role:      "TEACHER",
-			Email:     "createfail@example.com",
-			FullName:  "Fail Teacher",
-			Status:    "pending",
-			ExpiresAt: time.Now().Add(24 * time.Hour),
-		}, nil
-	}
-	h.repo.getTenantStytchOrgIDFn = func(ctx context.Context, tenantID string) (string, error) {
-		return "org_create_fail", nil
-	}
-	idp.createMemberFn = func(ctx context.Context, orgID, email, name string) (string, error) {
-		return "", fmt.Errorf("member_already_exists: the member already exists")
-	}
-	idp.getMemberByEmailFn = func(ctx context.Context, orgID, email string) (string, error) {
-		return "", fmt.Errorf("member_not_found: member with that email not found")
+	idp.authenticateMagicLinkFn = func(ctx context.Context, token string) (*MagicLinkAuthResult, error) {
+		return nil, fmt.Errorf("internal_error: stytch authenticate magic link: invalid token")
 	}
 
-	resp := h.doRequestWithQuery("GET", "/api/auth/invite/callback", "token=create_fail_token", "")
-	// CreateMember fails and GetMemberByEmail also fails → 500
+	resp := h.doRequestWithQuery("GET", "/api/auth/invite/callback", "token=invalid_token", "")
 	if resp.StatusCode != fiber.StatusInternalServerError {
 		t.Fatalf("expected 500 Internal Server Error, got %d", resp.StatusCode)
 	}

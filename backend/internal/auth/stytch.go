@@ -13,6 +13,7 @@ import (
 
 	"github.com/stytchauth/stytch-go/v16/stytch/b2b/b2bstytchapi"
 	intermediatesessions "github.com/stytchauth/stytch-go/v16/stytch/b2b/discovery/intermediatesessions"
+	b2bmagiclinks "github.com/stytchauth/stytch-go/v16/stytch/b2b/magiclinks"
 	magiclinksdiscovery "github.com/stytchauth/stytch-go/v16/stytch/b2b/magiclinks/discovery"
 	stytchemail "github.com/stytchauth/stytch-go/v16/stytch/b2b/magiclinks/email"
 	emaildiscovery "github.com/stytchauth/stytch-go/v16/stytch/b2b/magiclinks/email/discovery"
@@ -62,23 +63,41 @@ func NewStytchAdapter(cfg config.Config, logger *zap.Logger) (*StytchAdapter, er
 
 // SendDiscoveryEmail dispatches a discovery magic link via Stytch.
 func (s *StytchAdapter) SendDiscoveryEmail(ctx context.Context, email string) error {
+	return s.sendDiscoveryEmail(ctx, email, s.cfg.StytchRedirectURL)
+}
+
+// SendDiscoveryEmailWithRedirect dispatches a discovery magic link to the given
+// email with a custom redirect URL. Used by invite flows where the callback
+// endpoint differs from the default login callback.
+func (s *StytchAdapter) SendDiscoveryEmailWithRedirect(ctx context.Context, email, redirectURL string) error {
+	if redirectURL == "" {
+		redirectURL = s.cfg.StytchRedirectURL
+	}
+	return s.sendDiscoveryEmail(ctx, email, redirectURL)
+}
+
+// sendDiscoveryEmail is the shared implementation that sends a Stytch discovery
+// magic link with the given redirect URL.
+func (s *StytchAdapter) sendDiscoveryEmail(ctx context.Context, email, redirectURL string) error {
 	start := time.Now()
 	defer func() {
-		s.logger.Info("Stytch SendDiscoveryEmail completed",
+		s.logger.Info("Stytch sendDiscoveryEmail completed",
 			zap.String("email", email),
+			zap.String("redirect_url", redirectURL),
 			zap.Duration("latency", time.Since(start)),
 		)
 	}()
 
 	params := &emaildiscovery.SendParams{
 		EmailAddress:         email,
-		DiscoveryRedirectURL: s.cfg.StytchRedirectURL,
+		DiscoveryRedirectURL: redirectURL,
 	}
 
 	_, err := s.api.MagicLinks.Email.Discovery.Send(ctx, params)
 	if err != nil {
-		s.logger.Error("Stytch SendDiscoveryEmail failed",
+		s.logger.Error("Stytch sendDiscoveryEmail failed",
 			zap.String("email", email),
+			zap.String("redirect_url", redirectURL),
 			zap.Error(err),
 		)
 		return fmt.Errorf("%w: stytch send discovery email: %v", ErrInternal, err)
@@ -270,6 +289,76 @@ func (s *StytchAdapter) AuthenticateInviteToken(ctx context.Context, token strin
 	}
 
 	return resp.IntermediateSessionToken, resp.EmailAddress, nil
+}
+
+// AuthenticateMagicLink authenticates an org-scoped magic link token using the
+// correct Stytch B2B endpoint: POST /v1/b2b/magic_links/authenticate.
+//
+// This is the RIGHT endpoint for invite tokens (from InviteMemberByEmail) and
+// login/signup tokens. It is NOT the discovery authenticate endpoint
+// (POST /v1/b2b/magic_links/discovery/authenticate), which only handles
+// cross-org discovery flows and returns 404 for org-scoped invite tokens.
+//
+// If the member is fully authenticated (no MFA required), StytchSessionToken
+// is set in the result. If MFA is required, IntermediateSessionToken is set
+// and MemberAuthenticated is false — the caller should complete MFA and then
+// exchange the IST via ExchangeIntermediateSession.
+func (s *StytchAdapter) AuthenticateMagicLink(ctx context.Context, token string) (*MagicLinkAuthResult, error) {
+	start := time.Now()
+	defer func() {
+		s.logger.Info("Stytch AuthenticateMagicLink completed",
+			zap.Duration("latency", time.Since(start)),
+		)
+	}()
+
+	params := &b2bmagiclinks.AuthenticateParams{
+		MagicLinksToken: token,
+	}
+
+	resp, err := s.api.MagicLinks.Authenticate(ctx, params)
+	if err != nil {
+		s.logger.Error("Stytch AuthenticateMagicLink failed",
+			zap.Error(err),
+		)
+		return nil, fmt.Errorf("%w: stytch authenticate magic link: %v", ErrInternal, err)
+	}
+
+	if resp.MemberID == "" {
+		return nil, fmt.Errorf("%w: stytch response missing member_id", ErrInternal)
+	}
+
+	// Extract email from the member object in the response.
+	email := ""
+	if resp.Member.EmailAddress != "" {
+		email = resp.Member.EmailAddress
+	}
+
+	// Determine whether we got a full session or need MFA
+	stytchSessionToken := ""
+	intermediateSessionToken := ""
+	if resp.MemberAuthenticated {
+		stytchSessionToken = resp.SessionToken
+	} else {
+		intermediateSessionToken = resp.IntermediateSessionToken
+	}
+
+	result := &MagicLinkAuthResult{
+		MemberID:                 resp.MemberID,
+		OrganizationID:           resp.OrganizationID,
+		Email:                    email,
+		StytchSessionToken:       stytchSessionToken,
+		IntermediateSessionToken: intermediateSessionToken,
+		MemberAuthenticated:      resp.MemberAuthenticated,
+	}
+
+	s.logger.Info("Stytch AuthenticateMagicLink completed",
+		zap.String("member_id", result.MemberID),
+		zap.String("org_id", result.OrganizationID),
+		zap.String("email", result.Email),
+		zap.Bool("member_authenticated", result.MemberAuthenticated),
+	)
+
+	return result, nil
 }
 
 // ExchangeInviteSession exchanges an IST for a full Stytch session within a

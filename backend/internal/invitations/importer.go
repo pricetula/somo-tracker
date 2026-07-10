@@ -61,20 +61,16 @@ type augmentedInviteRow struct {
 // It validates emails, checks for duplicates, creates Stytch members,
 // sends invite emails, and persists invitation records.
 type StaffInviteImporter struct {
-	repo            Repository
-	stytch          StytchInviteSender
-	backendURL      string
-	sendDiscoveryFn func(ctx context.Context, email string) error
+	repo       Repository
+	stytch     StytchInviteSender
+	backendURL string
 }
 
 // NewStaffInviteImporter creates a new StaffInviteImporter.
 func NewStaffInviteImporter(repo Repository) *StaffInviteImporter {
-	imp := &StaffInviteImporter{
+	return &StaffInviteImporter{
 		repo: repo,
 	}
-	// Set default implementation (overridable for tests)
-	imp.sendDiscoveryFn = imp.defaultSendDiscovery
-	return imp
 }
 
 // SetStytchAdapter sets the Stytch identity provider adapter.
@@ -87,16 +83,6 @@ func (si *StaffInviteImporter) SetStytchAdapter(stytch StytchInviteSender) {
 // The discovery redirect URL must be registered in the Stytch dashboard.
 func (si *StaffInviteImporter) SetBackendURL(url string) {
 	si.backendURL = url
-}
-
-// defaultSendDiscovery calls Stytch to send a discovery magic link.
-// This sends an email WITHOUT creating a Stytch member. The member is created
-// only when the user validates the link and accepts the invitation.
-func (si *StaffInviteImporter) defaultSendDiscovery(ctx context.Context, email string) error {
-	if si.stytch == nil {
-		return fmt.Errorf("stytch adapter not configured")
-	}
-	return si.stytch.SendDiscoveryEmail(ctx, email)
 }
 
 // JobType returns STAFF_INVITE.
@@ -346,12 +332,9 @@ func (si *StaffInviteImporter) BulkInsert(ctx context.Context, tx pgx.Tx, rows [
 }
 
 // InsertOne processes a single invitation row:
-// 1. Creates a Stytch member (idempotent on retry — Stytch returns existing member)
-// 2. Sends a Stytch discovery magic link (does NOT create a Stytch member yet)
-// 3. Inserts an invitation record in the DB (within the savepoint)
-//
-// The Stytch member is created only when the user validates the magic link
-// and accepts the invitation via the callback handler.
+//  1. Creates a Stytch member and sends an invitation email via InviteMemberByEmail
+//  2. Inserts an invitation record in the DB (within the savepoint) with the
+//     Stytch member ID returned from the invite call
 //
 // If any step fails, the savepoint is rolled back and the staging row stays
 // 'pending' for retry via Asynq redelivery.
@@ -364,28 +347,41 @@ func (si *StaffInviteImporter) InsertOne(ctx context.Context, tx pgx.Tx, row imp
 		}
 	}
 
-	// Step 1: Send discovery magic link to the email.
-	// This only sends the email — no Stytch member is created.
-	// The member will be provisioned when the user clicks the link and accepts.
-	if err := si.sendDiscoveryFn(ctx, aug.Email); err != nil {
+	if si.stytch == nil {
+		return &imports.ImportError{
+			Type:    imports.ImportFailureStytchAPIError,
+			Message: "authentication provider not configured",
+		}
+	}
+
+	// Step 1: Create Stytch member and send invitation email.
+	// InviteMemberByEmail both creates the member in Stytch and dispatches
+	// a proper invitation email (not a login/discovery email).
+	inviteCallbackURL := si.backendURL + StaffInviteRedirectPath
+	stytchMemberID, err := si.stytch.InviteMemberByEmail(ctx, aug.StytchOrgID, aug.Email, aug.FullName, inviteCallbackURL)
+	if err != nil {
 		return &imports.ImportError{
 			Type:    imports.ImportFailureStytchAPIError,
 			Message: fmt.Sprintf("Could not send invitation email: %v", err),
 		}
 	}
 
-	// Step 2: Insert invitation record in DB (within savepoint)
-	// StytchMemberID is left empty — it will be populated when the user accepts.
+	// Step 2: Insert invitation record in DB (within savepoint) with the
+	// Stytch member ID from the invite call.
+	// Parse all UUID-valued columns from JSON strings to uuid.UUID.
+	// uuid.Parse of an invalid/empty string returns uuid.Nil, which is handled
+	// by uuidToPtr in the repository (nil → SQL NULL for nullable columns).
 	params := InsertInvitationParams{
-		Email:       aug.Email,
-		FullName:    aug.FullName,
-		TenantID:    aug.TenantID,
-		SchoolID:    aug.SchoolID,
-		Role:        aug.Role,
-		InvitedBy:   aug.InvitedBy,
-		Status:      "pending",
-		ExpiresAt:   time.Now().Add(invitationExpiryDays * 24 * time.Hour),
-		ImportJobID: aug.ImportJobID,
+		Email:          aug.Email,
+		FullName:       aug.FullName,
+		TenantID:       uuid.MustParse(aug.TenantID),
+		SchoolID:       uuid.MustParse(aug.SchoolID),
+		Role:           aug.Role,
+		InvitedBy:      mustParseUUID(aug.InvitedBy),
+		Status:         "pending",
+		StytchMemberID: stytchMemberID,
+		ExpiresAt:      time.Now().Add(invitationExpiryDays * 24 * time.Hour),
+		ImportJobID:    mustParseUUID(aug.ImportJobID),
 	}
 
 	if err := si.repo.InsertInvitation(ctx, tx, params); err != nil {
@@ -422,6 +418,17 @@ func allInviteFail(rows []imports.ValidatedRow, msg string) []imports.RowFailure
 		})
 	}
 	return failures
+}
+
+// mustParseUUID parses a UUID string, returning uuid.Nil for empty or invalid
+// inputs. This is used at JSON boundaries where UUID fields arrive as strings
+// and nullable columns should map to uuid.Nil (→ SQL NULL via uuidToPtr).
+func mustParseUUID(s string) uuid.UUID {
+	u, err := uuid.Parse(s)
+	if err != nil {
+		return uuid.Nil
+	}
+	return u
 }
 
 // sliceToSet converts a string slice to a set for O(1) lookups.

@@ -109,6 +109,12 @@ type CreateJobResponse struct {
 // The result is stable for identical serialized rows and can be used
 // to detect payload changes for idempotency checking.
 func computePayloadHash(rows []json.RawMessage) string {
+	// If the slice is empty, return a quick static hash
+	if len(rows) == 0 {
+		sum := sha256.Sum256([]byte("[]"))
+		return hex.EncodeToString(sum[:])
+	}
+
 	data, err := json.Marshal(rows)
 	if err != nil {
 		// json.Marshal of []json.RawMessage should never fail under normal
@@ -129,8 +135,18 @@ func (s *Service) CreateJob(ctx context.Context, req CreateJobRequest) (*CreateJ
 		return nil, fmt.Errorf("imports.Service.CreateJob: no rows provided: %w", ErrInvalidInput)
 	}
 
-	// Calculate chunk partitioning
+	// totalRecords holds the size of the incoming dataset.
 	totalRecords := len(req.Rows)
+
+	// totalChunks calculates how many partitions are needed to process all records.
+	// Math Explanation:
+	// We use integer division ceiling: (A + B - 1) / B
+	// This ensures that any leftover remainder properly rounds up to create an extra chunk.
+	//
+	// Examples:
+	// - 0 records   -> (0 + 99) / 100   = 0 chunks
+	// - 100 records -> (100 + 99) / 100 = 1 chunk
+	// - 101 records -> (101 + 99) / 100 = 2 chunks
 	totalChunks := (totalRecords + ChunkSize - 1) / ChunkSize
 
 	// Build metadata
@@ -143,7 +159,7 @@ func (s *Service) CreateJob(ctx context.Context, req CreateJobRequest) (*CreateJ
 
 	// Build chunk definitions (used in both paths)
 	chunks := make([]Chunk, totalChunks)
-	for i := 0; i < totalChunks; i++ {
+	for i := range totalChunks {
 		chunks[i] = Chunk{
 			ChunkIndex:     i,
 			RowNumberStart: i * ChunkSize,

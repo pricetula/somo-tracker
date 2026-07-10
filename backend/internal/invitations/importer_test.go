@@ -20,9 +20,11 @@ import (
 
 // mockStytch implements StytchInviteSender for testing.
 type mockStytch struct {
-	createMemberFn  func(ctx context.Context, orgID, email, name string) (string, error)
-	sendDiscoveryFn func(ctx context.Context, email string) error
-	getMemberFn     func(ctx context.Context, orgID, email string) (string, error)
+	createMemberFn         func(ctx context.Context, orgID, email, name string) (string, error)
+	sendDiscoveryFn        func(ctx context.Context, email string) error
+	sendDiscoveryWithURLFn func(ctx context.Context, email, redirectURL string) error
+	getMemberFn            func(ctx context.Context, orgID, email string) (string, error)
+	inviteMemberByEmailFn  func(ctx context.Context, orgID, email, name, redirectURL string) (string, error)
 }
 
 func (m *mockStytch) CreateMember(ctx context.Context, orgID, email, name string) (string, error) {
@@ -39,11 +41,29 @@ func (m *mockStytch) SendDiscoveryEmail(ctx context.Context, email string) error
 	return nil
 }
 
+func (m *mockStytch) SendDiscoveryEmailWithRedirect(ctx context.Context, email, redirectURL string) error {
+	if m.sendDiscoveryWithURLFn != nil {
+		return m.sendDiscoveryWithURLFn(ctx, email, redirectURL)
+	}
+	// Fall back to sendDiscoveryFn for backward compatibility
+	if m.sendDiscoveryFn != nil {
+		return m.sendDiscoveryFn(ctx, email)
+	}
+	return nil
+}
+
 func (m *mockStytch) GetMemberByEmail(ctx context.Context, orgID, email string) (string, error) {
 	if m.getMemberFn != nil {
 		return m.getMemberFn(ctx, orgID, email)
 	}
 	return "member_id", nil
+}
+
+func (m *mockStytch) InviteMemberByEmail(ctx context.Context, orgID, email, name, redirectURL string) (string, error) {
+	if m.inviteMemberByEmailFn != nil {
+		return m.inviteMemberByEmailFn(ctx, orgID, email, name, redirectURL)
+	}
+	return "stytch_member_abc123", nil
 }
 
 // mockImportTx implements pgx.Tx minimally for testing savepoints.
@@ -100,12 +120,15 @@ func (m *mockRepo) ListInvitations(ctx context.Context, tenantID, schoolID strin
 // ============================================================================
 
 func TestStaffInviteImporter_InsertOne_HappyPath(t *testing.T) {
+	var capturedOrgID, capturedEmail, capturedName, capturedRedirectURL string
+
 	stytch := &mockStytch{
-		sendDiscoveryFn: func(ctx context.Context, email string) error {
-			if email != "newteacher@school.com" {
-				t.Errorf("expected email newteacher@school.com, got %s", email)
-			}
-			return nil
+		inviteMemberByEmailFn: func(ctx context.Context, orgID, email, name, redirectURL string) (string, error) {
+			capturedOrgID = orgID
+			capturedEmail = email
+			capturedName = name
+			capturedRedirectURL = redirectURL
+			return "stytch_member_abc123", nil
 		},
 	}
 
@@ -124,8 +147,8 @@ func TestStaffInviteImporter_InsertOne_HappyPath(t *testing.T) {
 	aug := augmentedInviteRow{
 		Email:       "newteacher@school.com",
 		FullName:    "Jane Teacher",
-		TenantID:    "tenant_001",
-		SchoolID:    "school_001",
+		TenantID:    "11111111-1111-4111-8111-111111111111",
+		SchoolID:    "22222222-2222-4222-8222-222222222222",
 		Role:        "TEACHER",
 		StytchOrgID: "org_test_123",
 		InvitedBy:   "user_001",
@@ -151,20 +174,34 @@ func TestStaffInviteImporter_InsertOne_HappyPath(t *testing.T) {
 	if insertedInvitation.Status != "pending" {
 		t.Errorf("expected status pending, got %s", insertedInvitation.Status)
 	}
-	if insertedInvitation.StytchMemberID != "" {
-		t.Errorf("expected empty StytchMemberID (member created at acceptance, not during invite), got %s", insertedInvitation.StytchMemberID)
+	if insertedInvitation.StytchMemberID != "stytch_member_abc123" {
+		t.Errorf("expected StytchMemberID 'stytch_member_abc123', got %s", insertedInvitation.StytchMemberID)
+	}
+
+	// Verify InviteMemberByEmail was called with correct params
+	if capturedEmail != "newteacher@school.com" {
+		t.Errorf("expected email 'newteacher@school.com' passed to InviteMemberByEmail, got %q", capturedEmail)
+	}
+	if capturedOrgID != "org_test_123" {
+		t.Errorf("expected orgID 'org_test_123', got %q", capturedOrgID)
+	}
+	if capturedName != "Jane Teacher" {
+		t.Errorf("expected name 'Jane Teacher', got %q", capturedName)
+	}
+	if capturedRedirectURL != "http://localhost:3030"+StaffInviteRedirectPath {
+		t.Errorf("expected redirect URL ending with %q, got %q", StaffInviteRedirectPath, capturedRedirectURL)
 	}
 }
 
 // ============================================================================
-// Test: InsertOne — Stytch discovery email API error sanitized
+// Test: InsertOne — Stytch invite email API error sanitized
 // ============================================================================
 
 func TestStaffInviteImporter_InsertOne_StytchErrorSanitized(t *testing.T) {
-	// SendDiscoveryEmail fails with a verbose Stytch error
+	// InviteMemberByEmail fails with a verbose Stytch error
 	stytch := &mockStytch{
-		sendDiscoveryFn: func(ctx context.Context, email string) error {
-			return fmt.Errorf("internal_error: stytch discovery: A Stytch API error occurred")
+		inviteMemberByEmailFn: func(ctx context.Context, orgID, email, name, redirectURL string) (string, error) {
+			return "", fmt.Errorf("internal_error: stytch invite: A Stytch API error occurred")
 		},
 	}
 
@@ -176,8 +213,8 @@ func TestStaffInviteImporter_InsertOne_StytchErrorSanitized(t *testing.T) {
 	aug := augmentedInviteRow{
 		Email:       "badredirect@school.com",
 		FullName:    "Bad Redirect",
-		TenantID:    "tenant_001",
-		SchoolID:    "school_001",
+		TenantID:    "11111111-1111-4111-8111-111111111111",
+		SchoolID:    "22222222-2222-4222-8222-222222222222",
 		Role:        "TEACHER",
 		StytchOrgID: "org_test_123",
 		InvitedBy:   "user_001",
@@ -242,8 +279,8 @@ func containsStr(s, substr string) bool {
 
 func TestStaffInviteImporter_InsertOne_InviteEmailError(t *testing.T) {
 	stytch := &mockStytch{
-		sendDiscoveryFn: func(ctx context.Context, email string) error {
-			return fmt.Errorf("internal_error: stytch discovery: Some random Stytch failure")
+		inviteMemberByEmailFn: func(ctx context.Context, orgID, email, name, redirectURL string) (string, error) {
+			return "", fmt.Errorf("internal_error: stytch invite: Some random Stytch failure")
 		},
 	}
 
@@ -255,8 +292,8 @@ func TestStaffInviteImporter_InsertOne_InviteEmailError(t *testing.T) {
 	aug := augmentedInviteRow{
 		Email:       "failinvite@school.com",
 		FullName:    "Fail Invite",
-		TenantID:    "tenant_001",
-		SchoolID:    "school_001",
+		TenantID:    "11111111-1111-4111-8111-111111111111",
+		SchoolID:    "22222222-2222-4222-8222-222222222222",
 		Role:        "TEACHER",
 		StytchOrgID: "org_test_123",
 		InvitedBy:   "user_001",
@@ -267,7 +304,7 @@ func TestStaffInviteImporter_InsertOne_InviteEmailError(t *testing.T) {
 
 	err := imp.InsertOne(context.Background(), &mockImportTx{}, row)
 	if err == nil {
-		t.Fatal("expected error from SendDiscoveryEmail failure")
+		t.Fatal("expected error from InviteMemberByEmail failure")
 	}
 
 	var impErr *imports.ImportError
@@ -302,8 +339,8 @@ func TestStaffInviteImporter_InsertOne_DuplicateEmailDB(t *testing.T) {
 	aug := augmentedInviteRow{
 		Email:       "duplicate@school.com",
 		FullName:    "Dup User",
-		TenantID:    "tenant_001",
-		SchoolID:    "school_001",
+		TenantID:    "11111111-1111-4111-8111-111111111111",
+		SchoolID:    "22222222-2222-4222-8222-222222222222",
 		Role:        "TEACHER",
 		StytchOrgID: "org_test_123",
 		InvitedBy:   "user_001",
@@ -338,8 +375,8 @@ func TestStaffInviteImporter_InsertOne_StytchNotConfigured(t *testing.T) {
 	aug := augmentedInviteRow{
 		Email:       "nostytch@school.com",
 		FullName:    "No Stytch",
-		TenantID:    "tenant_001",
-		SchoolID:    "school_001",
+		TenantID:    "11111111-1111-4111-8111-111111111111",
+		SchoolID:    "22222222-2222-4222-8222-222222222222",
 		Role:        "TEACHER",
 		StytchOrgID: "org_test_123",
 		InvitedBy:   "user_001",
@@ -363,16 +400,17 @@ func TestStaffInviteImporter_InsertOne_StytchNotConfigured(t *testing.T) {
 }
 
 // ============================================================================
-// Test: InsertOne — Stytch discovery email sends to correct email
+// Test: InsertOne — Stytch invite email sends to correct email and org
 // ============================================================================
 
 func TestStaffInviteImporter_InsertOne_SendsToCorrectEmail(t *testing.T) {
-	var capturedEmail string
+	var capturedOrgID, capturedEmail string
 
 	stytch := &mockStytch{
-		sendDiscoveryFn: func(ctx context.Context, email string) error {
+		inviteMemberByEmailFn: func(ctx context.Context, orgID, email, name, redirectURL string) (string, error) {
+			capturedOrgID = orgID
 			capturedEmail = email
-			return nil
+			return "stytch_member_abc123", nil
 		},
 	}
 
@@ -384,8 +422,8 @@ func TestStaffInviteImporter_InsertOne_SendsToCorrectEmail(t *testing.T) {
 	aug := augmentedInviteRow{
 		Email:       "alice@school.com",
 		FullName:    "Alice Johnson",
-		TenantID:    "tenant_001",
-		SchoolID:    "school_001",
+		TenantID:    "11111111-1111-4111-8111-111111111111",
+		SchoolID:    "22222222-2222-4222-8222-222222222222",
 		Role:        "NURSE",
 		StytchOrgID: "org_test_123",
 		InvitedBy:   "user_001",
@@ -400,6 +438,9 @@ func TestStaffInviteImporter_InsertOne_SendsToCorrectEmail(t *testing.T) {
 	}
 
 	if capturedEmail != "alice@school.com" {
-		t.Errorf("expected email 'alice@school.com' passed to SendDiscoveryEmail, got %q", capturedEmail)
+		t.Errorf("expected email 'alice@school.com' passed to InviteMemberByEmail, got %q", capturedEmail)
+	}
+	if capturedOrgID != "org_test_123" {
+		t.Errorf("expected orgID 'org_test_123' passed to InviteMemberByEmail, got %q", capturedOrgID)
 	}
 }

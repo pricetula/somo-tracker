@@ -53,7 +53,15 @@ func (s *Service) GetStytchOrgID(ctx context.Context, tenantID string) (string, 
 type StytchInviteSender interface {
 	CreateMember(ctx context.Context, orgID, email, name string) (memberID string, err error)
 	SendDiscoveryEmail(ctx context.Context, email string) error
+	// SendDiscoveryEmailWithRedirect sends a discovery magic link with a custom
+	// redirect URL. Used by invite flows so the callback goes to the invite
+	// acceptance endpoint instead of the default login callback.
+	SendDiscoveryEmailWithRedirect(ctx context.Context, email, redirectURL string) error
 	GetMemberByEmail(ctx context.Context, orgID, email string) (memberID string, err error)
+	// InviteMemberByEmail sends a Stytch invite email to join an organization.
+	// This is the proper invitation email (not a login/discovery email).
+	// Creates the member in Stytch and sends the invite in one call.
+	InviteMemberByEmail(ctx context.Context, orgID, email, name, redirectURL string) (memberID string, err error)
 }
 
 // validateBulkInviteRole checks that the role string is a valid user_role.

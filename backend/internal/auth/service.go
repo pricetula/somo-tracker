@@ -496,67 +496,53 @@ func (s *Service) GetMe(ctx context.Context, token string) (*MeInfo, error) {
 func (s *Service) AcceptInvite(ctx context.Context, token string, deviceFingerprint string) (sessionToken string, role string, schoolID string, err error) {
 	s.logger.Info("auth: accept invite initiated")
 
-	// 1. Authenticate the Stytch discovery magic-link token.
-	// This works even though the member hasn't been created in Stytch yet —
-	// discovery authentication returns an IST regardless of org membership.
-	ist, email, _, err := s.idp.AuthenticateDiscoveryToken(ctx, token)
+	// 1. Authenticate the invite magic link token using the org-scoped endpoint
+	//    (POST /v1/b2b/magic_links/authenticate), NOT the discovery endpoint.
+	//    The member was already created by InviteMemberByEmail during the invite
+	//    sending phase, so the response includes their MemberID and OrganizationID
+	//    directly — no IST exchange or discovery flow needed.
+	result, err := s.idp.AuthenticateMagicLink(ctx, token)
 	if err != nil {
 		return "", "", "", fmt.Errorf("auth.Service.AcceptInvite: authenticate: %w", err)
 	}
 
-	// 2. Look up the pending invitation
-	inv, err := s.repo.GetInvitationByEmail(ctx, email)
+	// 2. If MFA is required, exchange the intermediate session token for a
+	//    full session. Otherwise use the session token from the auth response.
+	var stytchSessionToken string
+	if result.MemberAuthenticated {
+		stytchSessionToken = result.StytchSessionToken
+	} else {
+		s.logger.Info("auth: MFA required for invite acceptance",
+			zap.String("member_id", result.MemberID),
+		)
+		exchangeResult, err := s.idp.ExchangeIntermediateSession(ctx, result.IntermediateSessionToken, result.OrganizationID)
+		if err != nil {
+			return "", "", "", fmt.Errorf("auth.Service.AcceptInvite: exchange MFA session: %w", err)
+		}
+		stytchSessionToken = exchangeResult.StytchSessionToken
+	}
+
+	// 3. Look up the pending invitation by email (from the authenticated member)
+	inv, err := s.repo.GetInvitationByEmail(ctx, result.Email)
 	if err != nil {
 		// Map not-found to ErrExpiredToken so the frontend gets a 401
 		if errors.Is(err, ErrNotFound) {
-			return "", "", "", fmt.Errorf("%w: no pending invitation for email: %s", ErrExpiredToken, email)
+			return "", "", "", fmt.Errorf("%w: no pending invitation for email: %s", ErrExpiredToken, result.Email)
 		}
 		return "", "", "", fmt.Errorf("auth.Service.AcceptInvite: lookup invitation: %w", err)
 	}
 
-	// 3. Resolve the Stytch org ID from the tenant
-	stytchOrgID, err := s.repo.GetTenantStytchOrgID(ctx, inv.TenantID)
-	if err != nil {
-		return "", "", "", fmt.Errorf("auth.Service.AcceptInvite: resolve org: %w", err)
-	}
-
-	// 4. Create the member in Stytch for the target organization.
-	// Previously this was done during invite sending (via InviteMemberByEmail),
-	// but now it happens at acceptance time — the invite only sent an email.
-	memberID, err := s.idp.CreateMember(ctx, stytchOrgID, email, inv.FullName)
-	if err != nil {
-		// On retry (create succeeded but something after failed), the member
-		// may already exist. Look up the existing member ID.
-		if isMemberAlreadyExists(err) {
-			s.logger.Info("auth: member already exists, looking up existing member",
-				zap.String("email", email),
-			)
-			memberID, err = s.idp.GetMemberByEmail(ctx, stytchOrgID, email)
-			if err != nil {
-				return "", "", "", fmt.Errorf("auth.Service.AcceptInvite: lookup existing member: %w", err)
-			}
-		} else {
-			return "", "", "", fmt.Errorf("auth.Service.AcceptInvite: create member: %w", err)
-		}
-	}
-
-	// 5. Exchange the IST for a full Stytch session in the org.
-	// The member now exists, so the exchange will find them.
-	exchangeResult, err := s.idp.ExchangeIntermediateSession(ctx, ist, stytchOrgID)
-	if err != nil {
-		return "", "", "", fmt.Errorf("auth.Service.AcceptInvite: exchange session: %w", err)
-	}
-	stytchSessionToken := exchangeResult.StytchSessionToken
-
-	// 6. Generate opaque session token (32 random bytes, hex-encoded)
+	// 4. Generate opaque session token (32 random bytes, hex-encoded)
 	tokenBytes := make([]byte, 32)
 	if _, err := rand.Read(tokenBytes); err != nil {
 		return "", "", "", fmt.Errorf("%w: generate session token: %v", ErrInternal, err)
 	}
 	sessionToken = hex.EncodeToString(tokenBytes)
 
-	// 7. Assemble args and persist via the repository transaction.
-	// memberID comes from CreateMember (not from the invitation record).
+	// 5. Assemble args and persist via the repository transaction.
+	//    memberID comes from the AuthenticateMagicLink response — the member was
+	//    already provisioned by InviteMemberByEmail during the invite phase, so
+	//    no CreateMember/GetMemberByEmail call is needed here.
 	expiresAt := time.Now().Add(sessionTTL)
 	args := CreateInvitedUserSessionArgs{
 		InvitationID:       inv.ID,
@@ -565,10 +551,10 @@ func (s *Service) AcceptInvite(ctx context.Context, token string, deviceFingerpr
 		SchoolID:           inv.SchoolID,
 		Role:               inv.Role,
 		FullName:           inv.FullName,
-		ExternalAuthID:     memberID,
+		ExternalAuthID:     result.MemberID,
 		SessionToken:       sessionToken,
-		StytchMemberID:     memberID,
-		StytchOrgID:        stytchOrgID,
+		StytchMemberID:     result.MemberID,
+		StytchOrgID:        result.OrganizationID,
 		StytchSessionToken: stytchSessionToken,
 		DeviceFingerprint:  deviceFingerprint,
 		ExpiresAt:          expiresAt,
@@ -579,14 +565,15 @@ func (s *Service) AcceptInvite(ctx context.Context, token string, deviceFingerpr
 		return "", "", "", fmt.Errorf("auth.Service.AcceptInvite: create session: %w", err)
 	}
 
-	// 8. Persist session mapping in Redis: opaque key → Stytch session token
+	// 6. Persist session mapping in Redis: opaque key → Stytch session token
 	if err := s.rdb.Set(ctx, s.sessionKey(sessionToken), stytchSessionToken, sessionTTL).Err(); err != nil {
 		return "", "", "", fmt.Errorf("%w: cache session: %v", ErrInternal, err)
 	}
 
-	s.logger.Info("auth: invite acceptance complete — member created and session issued",
-		zap.String("email", email),
-		zap.String("member_id", memberID),
+	s.logger.Info("auth: invite acceptance complete — session issued for invited member",
+		zap.String("email", result.Email),
+		zap.String("member_id", result.MemberID),
+		zap.String("org_id", result.OrganizationID),
 		zap.String("tenant_id", inv.TenantID),
 		zap.String("school_id", inv.SchoolID),
 		zap.String("role", inv.Role),

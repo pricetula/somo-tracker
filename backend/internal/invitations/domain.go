@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -76,14 +77,14 @@ type BulkInviteResponse struct {
 type InsertInvitationParams struct {
 	Email          string
 	FullName       string
-	TenantID       string
-	SchoolID       string
+	TenantID       uuid.UUID // UUID columns use uuid.UUID; pgx maps them natively
+	SchoolID       uuid.UUID
 	Role           string
-	InvitedBy      string
+	InvitedBy      uuid.UUID // uuid.Nil → SQL NULL (nullable column)
 	Status         string
 	StytchMemberID string
 	ExpiresAt      time.Time
-	ImportJobID    string
+	ImportJobID    uuid.UUID // uuid.Nil → SQL NULL (nullable column)
 }
 
 // ListInvitationsFilter defines filters for listing invitations.

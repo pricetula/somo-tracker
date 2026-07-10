@@ -4,11 +4,21 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"somotracker/backend/internal/database"
 )
+
+// uuidToPtr converts a uuid.UUID to a *uuid.UUID, returning nil for uuid.Nil.
+// This is used for nullable UUID columns where Go zero (uuid.Nil) should map to SQL NULL.
+func uuidToPtr(u uuid.UUID) *uuid.UUID {
+	if u == uuid.Nil {
+		return nil
+	}
+	return &u
+}
 
 // PgRepository handles invitation database operations.
 type PgRepository struct {
@@ -147,8 +157,16 @@ func (r *PgRepository) InsertInvitation(ctx context.Context, tx pgx.Tx, params I
 		        gen_random_uuid()::text, $7, $8, $9, $10)
 	`
 	_, err := tx.Exec(ctx, query,
-		params.TenantID, params.SchoolID, params.Email, params.Role, params.Status, params.InvitedBy,
-		params.ExpiresAt, params.FullName, params.StytchMemberID, params.ImportJobID,
+		params.TenantID,
+		params.SchoolID,
+		params.Email,
+		params.Role,
+		params.Status,
+		uuidToPtr(params.InvitedBy), // nil → SQL NULL
+		params.ExpiresAt,
+		params.FullName,
+		params.StytchMemberID,
+		uuidToPtr(params.ImportJobID), // nil → SQL NULL
 	)
 	if err != nil {
 		return fmt.Errorf("insert invitation: %w", err)

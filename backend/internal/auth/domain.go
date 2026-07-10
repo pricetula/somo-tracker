@@ -140,6 +140,19 @@ type ExchangeResult struct {
 	OrganizationID      string
 }
 
+// MagicLinkAuthResult is the result of authenticating an org-scoped magic link
+// token (from invite or login emails). It contains the member identity, org,
+// and either a session token (if fully authenticated) or an intermediate
+// session token (if MFA is required).
+type MagicLinkAuthResult struct {
+	MemberID                 string
+	OrganizationID           string
+	Email                    string
+	StytchSessionToken       string
+	IntermediateSessionToken string
+	MemberAuthenticated      bool
+}
+
 // ============================================================================
 // IdentityProvider interface — abstracts Stytch B2B (requirement 1).
 // ============================================================================
@@ -148,7 +161,14 @@ type ExchangeResult struct {
 // All methods accept context.Context as first parameter (requirement 10).
 type IdentityProvider interface {
 	// SendDiscoveryEmail dispatches a magic link to the given email.
+	// The redirect URL is determined by the identity provider configuration.
 	SendDiscoveryEmail(ctx context.Context, email string) error
+
+	// SendDiscoveryEmailWithRedirect dispatches a magic link to the given email
+	// with a custom redirect URL. Used by invite flows where the callback must
+	// go to the invite acceptance endpoint (/api/auth/invite/callback) instead
+	// of the default login callback.
+	SendDiscoveryEmailWithRedirect(ctx context.Context, email, redirectURL string) error
 
 	// AuthenticateDiscoveryToken validates a magic-link token and returns
 	// the raw Intermediate Session Token (IST), the verified email address,
@@ -175,11 +195,13 @@ type IdentityProvider interface {
 	// Returns the Stytch member ID of the invited member.
 	InviteMemberByEmail(ctx context.Context, orgID, email, name, redirectURL string) (memberID string, err error)
 
-	// AuthenticateInviteToken validates a magic-link token sent via an invite email
-	// and returns the Intermediate Session Token (IST) and the verified email address.
-	// Uses the same Stytch Discovery Magic Links Authenticate endpoint as the
-	// discovery flow, but is exposed as a separate method for invite-flow clarity.
-	AuthenticateInviteToken(ctx context.Context, token string) (ist, email string, err error)
+	// AuthenticateMagicLink authenticates an org-scoped magic link token
+	// (from invite or login emails) against the proper Stytch B2B endpoint
+	// ("/v1/b2b/magic_links/authenticate", NOT the discovery endpoint).
+	// Returns the member identity, organization, and either a session token
+	// (if fully authenticated) or an intermediate session token (if MFA is
+	// required). Use ExchangeIntermediateSession to convert an IST after MFA.
+	AuthenticateMagicLink(ctx context.Context, token string) (*MagicLinkAuthResult, error)
 
 	// ExchangeInviteSession exchanges an IST for a full Stytch session within a
 	// specific organization. Enforces MemberAuthenticated == true and returns the

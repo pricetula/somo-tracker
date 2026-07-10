@@ -425,17 +425,25 @@ export function DataTable<TItem, TParams extends object, TResult>({
                                 />
                             </div>
                         )}
-                        {columns.map((col) => (
-                            <div
-                                key={col.id}
-                                className="flex h-full items-center truncate border-l px-3"
-                                style={{
-                                    textAlign: col.align ?? "left",
-                                }}
-                            >
-                                {col.header}
-                            </div>
-                        ))}
+                        {columns.map((col) => {
+                            const borderClass =
+                                !isCheckable && col.id === columns[0].id ? "" : "border-l";
+
+                            return (
+                                <div
+                                    key={col.id}
+                                    className={cn(
+                                        "flex h-full items-center truncate px-3",
+                                        borderClass
+                                    )}
+                                    style={{
+                                        textAlign: col.align ?? "left",
+                                    }}
+                                >
+                                    {col.header}
+                                </div>
+                            );
+                        })}
                     </div>
 
                     {isInitialPending ? (
@@ -511,20 +519,32 @@ export function DataTable<TItem, TParams extends object, TResult>({
                                                                 />
                                                             </div>
                                                         )}
-                                                        {columns.map((col) => (
-                                                            <div
-                                                                key={col.id}
-                                                                className={cn(
-                                                                    "flex items-center truncate border-l px-3",
-                                                                    col.className
-                                                                )}
-                                                                style={{
-                                                                    textAlign: col.align ?? "left",
-                                                                }}
-                                                            >
-                                                                {col.cell(row, virtualRow.index)}
-                                                            </div>
-                                                        ))}
+                                                        {columns.map((col) => {
+                                                            const borderClass =
+                                                                !isCheckable &&
+                                                                col.id === columns[0].id
+                                                                    ? ""
+                                                                    : "border-l";
+                                                            return (
+                                                                <div
+                                                                    key={col.id}
+                                                                    className={cn(
+                                                                        "flex items-center truncate px-3",
+                                                                        col.className,
+                                                                        borderClass
+                                                                    )}
+                                                                    style={{
+                                                                        textAlign:
+                                                                            col.align ?? "left",
+                                                                    }}
+                                                                >
+                                                                    {col.cell(
+                                                                        row,
+                                                                        virtualRow.index
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })}
                                                     </>
                                                 )}
                                             </div>

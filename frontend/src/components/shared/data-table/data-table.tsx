@@ -408,22 +408,6 @@ export function DataTable<TItem, TParams extends object, TResult>({
                 >
                     {error instanceof Error ? error.message : "Failed to load data."}
                 </div>
-            ) : isInitialPending ? (
-                <SkeletonRows
-                    rowHeight={rowHeight}
-                    height={height}
-                    columnCount={columns.length}
-                    isCheckable={!!isCheckable}
-                />
-            ) : !hasData ? (
-                <div
-                    className="text-muted-foreground flex items-center justify-center text-xs"
-                    style={{ height }}
-                >
-                    {isSearchOrFilterActive
-                        ? (noResultsState ?? "No results found.")
-                        : (emptyState ?? "No data.")}
-                </div>
             ) : (
                 <div className="rounded-md border">
                     {/* ── Table header ──────────────────────────── */}
@@ -454,83 +438,108 @@ export function DataTable<TItem, TParams extends object, TResult>({
                         ))}
                     </div>
 
-                    {/* ── Virtualized rows ─────────────────────── */}
-                    <div ref={parentRef} style={{ height, overflow: "auto" }} className="mb-4">
+                    {isInitialPending ? (
+                        /* ── Skeleton loading state ──────────────── */
+                        <SkeletonRows
+                            rowHeight={rowHeight}
+                            gridTemplateColumns={gridTemplateColumns}
+                            isCheckable={!!isCheckable}
+                        />
+                    ) : !hasData ? (
+                        /* ── Empty / no results state ──────────── */
                         <div
-                            style={{
-                                height: virtualizer.getTotalSize(),
-                                position: "relative",
-                            }}
+                            className="text-muted-foreground flex items-center justify-center text-xs"
+                            style={{ height }}
                         >
-                            {virtualItems.map((virtualRow) => {
-                                const isLoaderRow = virtualRow.index >= rows.length;
-                                const row = rows[virtualRow.index];
-                                const rowId = isLoaderRow
-                                    ? null
-                                    : String(getRowId(row, virtualRow.index));
-                                const isDeleting = !!rowId && deletingIds.has(rowId);
-                                const isChecked = !!rowId && selectedIds.has(rowId);
+                            {isSearchOrFilterActive
+                                ? (noResultsState ?? "No results found.")
+                                : (emptyState ?? "No data.")}
+                        </div>
+                    ) : (
+                        <>
+                            {/* ── Virtualized rows ──────────────── */}
+                            <div
+                                ref={parentRef}
+                                style={{ height, overflow: "auto" }}
+                                className="mb-4"
+                            >
+                                <div
+                                    style={{
+                                        height: virtualizer.getTotalSize(),
+                                        position: "relative",
+                                    }}
+                                >
+                                    {virtualItems.map((virtualRow) => {
+                                        const isLoaderRow = virtualRow.index >= rows.length;
+                                        const row = rows[virtualRow.index];
+                                        const rowId = isLoaderRow
+                                            ? null
+                                            : String(getRowId(row, virtualRow.index));
+                                        const isDeleting = !!rowId && deletingIds.has(rowId);
+                                        const isChecked = !!rowId && selectedIds.has(rowId);
 
-                                return (
-                                    <div
-                                        key={isLoaderRow ? "loader" : rowId}
-                                        data-index={virtualRow.index}
-                                        ref={virtualizer.measureElement}
-                                        className={cn(
-                                            "hover:bg-muted/30 absolute top-0 left-0 grid w-full border-b text-xs/relaxed transition-colors",
-                                            isDeleting && "opacity-50",
-                                            isChecked && "bg-muted/20"
-                                        )}
-                                        style={{
-                                            height: rowHeight,
-                                            transform: `translateY(${virtualRow.start}px)`,
-                                            gridTemplateColumns,
-                                        }}
-                                    >
-                                        {isLoaderRow ? (
-                                            <div className="text-muted-foreground col-span-full flex items-center justify-center py-2 text-[0.625rem]">
-                                                Loading more...
-                                            </div>
-                                        ) : (
-                                            <>
-                                                {isCheckable && (
-                                                    <div className="flex items-center justify-center">
-                                                        <Checkbox
-                                                            checked={isChecked}
-                                                            onCheckedChange={() =>
-                                                                handleSelectRow(rowId!)
-                                                            }
-                                                            disabled={isDeleting}
-                                                        />
-                                                    </div>
+                                        return (
+                                            <div
+                                                key={isLoaderRow ? "loader" : rowId}
+                                                data-index={virtualRow.index}
+                                                ref={virtualizer.measureElement}
+                                                className={cn(
+                                                    "hover:bg-muted/30 absolute top-0 left-0 grid w-full border-b text-xs/relaxed transition-colors",
+                                                    isDeleting && "opacity-50",
+                                                    isChecked && "bg-muted/20"
                                                 )}
-                                                {columns.map((col) => (
-                                                    <div
-                                                        key={col.id}
-                                                        className={cn(
-                                                            "flex items-center truncate border-l px-3",
-                                                            col.className
-                                                        )}
-                                                        style={{
-                                                            textAlign: col.align ?? "left",
-                                                        }}
-                                                    >
-                                                        {col.cell(row, virtualRow.index)}
+                                                style={{
+                                                    height: rowHeight,
+                                                    transform: `translateY(${virtualRow.start}px)`,
+                                                    gridTemplateColumns,
+                                                }}
+                                            >
+                                                {isLoaderRow ? (
+                                                    <div className="text-muted-foreground col-span-full flex items-center justify-center py-2 text-[0.625rem]">
+                                                        Loading more...
                                                     </div>
-                                                ))}
-                                            </>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
+                                                ) : (
+                                                    <>
+                                                        {isCheckable && (
+                                                            <div className="flex items-center justify-center">
+                                                                <Checkbox
+                                                                    checked={isChecked}
+                                                                    onCheckedChange={() =>
+                                                                        handleSelectRow(rowId!)
+                                                                    }
+                                                                    disabled={isDeleting}
+                                                                />
+                                                            </div>
+                                                        )}
+                                                        {columns.map((col) => (
+                                                            <div
+                                                                key={col.id}
+                                                                className={cn(
+                                                                    "flex items-center truncate border-l px-3",
+                                                                    col.className
+                                                                )}
+                                                                style={{
+                                                                    textAlign: col.align ?? "left",
+                                                                }}
+                                                            >
+                                                                {col.cell(row, virtualRow.index)}
+                                                            </div>
+                                                        ))}
+                                                    </>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
 
-                    {/* ── Footer ───────────────────────────────── */}
-                    {typeof total === "number" && (
-                        <div className="text-muted-foreground mb-2 px-3 text-[0.625rem]">
-                            {rows.length} of {total} loaded
-                        </div>
+                            {/* ── Footer ────────────────────────── */}
+                            {typeof total === "number" && (
+                                <div className="text-muted-foreground mb-2 px-3 text-[0.625rem]">
+                                    {rows.length} of {total} loaded
+                                </div>
+                            )}
+                        </>
                     )}
                 </div>
             )}

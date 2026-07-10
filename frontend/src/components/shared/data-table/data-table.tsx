@@ -402,10 +402,10 @@ export function DataTable<TItem, TParams extends object, TResult>({
                         : (emptyState ?? "No data.")}
                 </div>
             ) : (
-                <div className="bg-foreground/5">
+                <div className="rounded-md border">
                     {/* ── Table header ──────────────────────────── */}
                     <div
-                        className="text-muted-foreground grid items-center border-b text-[0.625rem] font-medium tracking-wide uppercase"
+                        className="text-muted-foreground bg-accent/50 grid items-center border-b text-[0.625rem] font-medium tracking-wide uppercase"
                         style={{ gridTemplateColumns, height: rowHeight }}
                     >
                         {isCheckable && (
@@ -421,7 +421,7 @@ export function DataTable<TItem, TParams extends object, TResult>({
                         {columns.map((col) => (
                             <div
                                 key={col.id}
-                                className="truncate border-l px-3"
+                                className="flex h-full items-center truncate border-l px-3"
                                 style={{
                                     textAlign: col.align ?? "left",
                                 }}
@@ -446,6 +446,7 @@ export function DataTable<TItem, TParams extends object, TResult>({
                                     ? null
                                     : String(getRowId(row, virtualRow.index));
                                 const isDeleting = !!rowId && deletingIds.has(rowId);
+                                const isChecked = !!rowId && selectedIds.has(rowId);
 
                                 return (
                                     <div
@@ -454,7 +455,8 @@ export function DataTable<TItem, TParams extends object, TResult>({
                                         ref={virtualizer.measureElement}
                                         className={cn(
                                             "hover:bg-muted/30 absolute top-0 left-0 grid w-full border-b text-xs/relaxed transition-colors",
-                                            isDeleting && "opacity-50"
+                                            isDeleting && "opacity-50",
+                                            isChecked && "bg-muted/20"
                                         )}
                                         style={{
                                             height: rowHeight,
@@ -471,7 +473,7 @@ export function DataTable<TItem, TParams extends object, TResult>({
                                                 {isCheckable && (
                                                     <div className="flex items-center justify-center">
                                                         <Checkbox
-                                                            checked={selectedIds.has(rowId!)}
+                                                            checked={isChecked}
                                                             onCheckedChange={() =>
                                                                 handleSelectRow(rowId!)
                                                             }
@@ -483,7 +485,7 @@ export function DataTable<TItem, TParams extends object, TResult>({
                                                     <div
                                                         key={col.id}
                                                         className={cn(
-                                                            "truncate border-l px-3",
+                                                            "flex items-center truncate border-l px-3",
                                                             col.className
                                                         )}
                                                         style={{

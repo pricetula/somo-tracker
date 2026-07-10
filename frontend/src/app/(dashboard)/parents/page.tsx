@@ -89,8 +89,6 @@ export default function ParentsPage() {
                 searchPlaceholder="Search by name or email…"
                 filterGroups={CURRICULUM_FILTER_GROUPS}
                 deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
-                rowHeight={48}
-                height={600}
                 emptyState="No parents yet."
                 noResultsState="No parents match your search or filters."
             />

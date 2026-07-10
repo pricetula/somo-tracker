@@ -57,8 +57,6 @@ export default function NursesPage() {
             isSearchable
             searchPlaceholder="Search by name or email…"
             deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
-            rowHeight={48}
-            height={600}
             emptyState="No nurses yet."
             noResultsState="No nurses match your search."
         />

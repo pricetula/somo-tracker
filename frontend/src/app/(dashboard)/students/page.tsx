@@ -129,8 +129,6 @@ export default function StudentsPage() {
             searchPlaceholder="Search by name, admission no., UPI, or KNEC no…"
             filterGroups={filterGroups}
             deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
-            rowHeight={48}
-            height={600}
             emptyState="No students yet."
             noResultsState="No students match your search or filters."
         />

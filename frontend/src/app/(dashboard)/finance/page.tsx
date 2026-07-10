@@ -57,8 +57,6 @@ export default function FinancePage() {
             isSearchable
             searchPlaceholder="Search by name or email…"
             deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
-            rowHeight={48}
-            height={600}
             emptyState="No finance staff yet."
             noResultsState="No finance staff match your search."
         />

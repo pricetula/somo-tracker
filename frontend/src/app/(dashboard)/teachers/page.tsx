@@ -99,8 +99,6 @@ export default function TeachersPage() {
             searchPlaceholder="Search by name, email, or TSC number…"
             filterGroups={CURRICULUM_FILTER_GROUPS}
             deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
-            rowHeight={48}
-            height={600}
             emptyState="No teachers yet."
             noResultsState="No teachers match your search or filters."
         />

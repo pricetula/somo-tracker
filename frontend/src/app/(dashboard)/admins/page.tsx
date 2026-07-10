@@ -57,8 +57,6 @@ export default function AdminsPage() {
             isSearchable
             searchPlaceholder="Search by name or email…"
             deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
-            rowHeight={48}
-            height={600}
             emptyState="No admins yet."
             noResultsState="No admins match your search."
         />

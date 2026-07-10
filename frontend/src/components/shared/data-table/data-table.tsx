@@ -164,6 +164,28 @@ export function DataTable<TItem, TParams extends object, TResult>({
         });
     }, []);
 
+    const handleRemoveFilter = useCallback((itemId: string, subValue?: string) => {
+        setSelectedIds(new Set());
+        setActiveFilters((prev) => {
+            if (subValue === undefined) {
+                // Remove entire filter (button or sub_menu_single)
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                const { [itemId]: _, ...rest } = prev;
+                return rest;
+            }
+            // Remove one value from a multi filter
+            const current = prev[itemId];
+            const arr = Array.isArray(current) ? current : [];
+            const next = arr.filter((v) => v !== subValue);
+            if (next.length === 0) {
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                const { [itemId]: _, ...rest } = prev;
+                return rest;
+            }
+            return { ...prev, [itemId]: next };
+        });
+    }, []);
+
     const handleSelectAll = useCallback(
         (checked: boolean) => {
             if (checked) {
@@ -326,6 +348,7 @@ export function DataTable<TItem, TParams extends object, TResult>({
                         onToggleButton={handleToggleButton}
                         onSelectSingle={handleSelectSingle}
                         onToggleMulti={handleToggleMulti}
+                        onRemoveFilter={handleRemoveFilter}
                         disabled={isToolbarDisabled}
                     />
                 )}

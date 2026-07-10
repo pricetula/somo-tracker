@@ -16,7 +16,7 @@ import {
     DropdownMenuSubTrigger,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Filter } from "lucide-react";
+import { Filter, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ─── Props ───────────────────────────────────────────────────────────────
@@ -47,6 +47,14 @@ interface FilterDropdownProps {
      * Receives the parent item id and the toggled sub-item value.
      */
     onToggleMulti: (itemId: string, subValue: string) => void;
+    /**
+     * Called when an active filter pill's remove button is clicked.
+     *
+     * - `"button"` items: `subValue` is omitted — the entire filter is removed.
+     * - `"sub_menu_single"` items: `subValue` is omitted — the entire filter is removed.
+     * - `"sub_menu_multi"` items: `subValue` is the specific sub-item value to remove.
+     */
+    onRemoveFilter: (itemId: string, subValue?: string) => void;
     disabled?: boolean;
 }
 
@@ -54,6 +62,46 @@ interface FilterDropdownProps {
 
 function isMulti(subFilterValue: unknown): subFilterValue is string[] {
     return Array.isArray(subFilterValue);
+}
+
+// ─── Active filter pills ────────────────────────────────────────────────
+
+interface ActiveFilterPill {
+    itemId: string;
+    label: string;
+    subValue?: string;
+}
+
+function resolveActivePills(
+    groups: FilterGroup[],
+    activeFilters: Record<string, string | string[]>
+): ActiveFilterPill[] {
+    const pills: ActiveFilterPill[] = [];
+
+    for (const group of groups) {
+        for (const item of group.items) {
+            const val = activeFilters[item.id];
+            if (val === undefined || val === "") continue;
+
+            if (item.type === "button") {
+                pills.push({ itemId: item.id, label: item.label });
+            } else if (item.type === "sub_menu_single" && typeof val === "string") {
+                const sub = item.submenu.find((s) => s.value === val);
+                if (sub) {
+                    pills.push({ itemId: item.id, label: sub.label, subValue: sub.value });
+                }
+            } else if (item.type === "sub_menu_multi" && isMulti(val)) {
+                for (const v of val) {
+                    const sub = item.submenu.find((s) => s.value === v);
+                    if (sub) {
+                        pills.push({ itemId: item.id, label: sub.label, subValue: sub.value });
+                    }
+                }
+            }
+        }
+    }
+
+    return pills;
 }
 
 // ─── Render sub-items ────────────────────────────────────────────────────
@@ -161,6 +209,7 @@ export function FilterDropdown({
     onToggleButton,
     onSelectSingle,
     onToggleMulti,
+    onRemoveFilter,
     disabled,
 }: FilterDropdownProps) {
     const hasActiveFilters = Object.values(activeFilters).some((val) => {
@@ -168,37 +217,63 @@ export function FilterDropdown({
         return val !== "";
     });
 
+    const activePills = resolveActivePills(groups, activeFilters);
+
     return (
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild disabled={disabled}>
-                <Button
-                    variant="outline"
-                    size="icon"
-                    className={cn(hasActiveFilters && "bg-muted")}
-                >
-                    <Filter className="size-3.5" />
-                </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-                {groups.map((group, idx) => (
-                    <div key={group.id}>
-                        {idx > 0 && <DropdownMenuSeparator />}
-                        <DropdownMenuGroup>
-                            <DropdownMenuLabel>
-                                {group.icon && <group.icon className="mr-1.5 inline size-3.5" />}
-                                {group.label}
-                            </DropdownMenuLabel>
-                            {renderItems(
-                                group.items,
-                                activeFilters,
-                                onToggleButton,
-                                onSelectSingle,
-                                onToggleMulti
-                            )}
-                        </DropdownMenuGroup>
-                    </div>
-                ))}
-            </DropdownMenuContent>
-        </DropdownMenu>
+        <>
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild disabled={disabled}>
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        className={cn(hasActiveFilters && "bg-muted")}
+                    >
+                        <Filter className="size-3.5" />
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                    {groups.map((group, idx) => (
+                        <div key={group.id}>
+                            {idx > 0 && <DropdownMenuSeparator />}
+                            <DropdownMenuGroup>
+                                <DropdownMenuLabel>
+                                    {group.icon && (
+                                        <group.icon className="mr-1.5 inline size-3.5" />
+                                    )}
+                                    {group.label}
+                                </DropdownMenuLabel>
+                                {renderItems(
+                                    group.items,
+                                    activeFilters,
+                                    onToggleButton,
+                                    onSelectSingle,
+                                    onToggleMulti
+                                )}
+                            </DropdownMenuGroup>
+                        </div>
+                    ))}
+                </DropdownMenuContent>
+            </DropdownMenu>
+
+            {activePills.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                    {activePills.map((pill) => (
+                        <span
+                            key={`${pill.itemId}${pill.subValue ? `:${pill.subValue}` : ""}`}
+                            className="bg-muted text-foreground inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium"
+                        >
+                            {pill.label}
+                            <button
+                                type="button"
+                                onClick={() => onRemoveFilter(pill.itemId, pill.subValue)}
+                                className="text-muted-foreground hover:text-foreground rounded-sm transition-colors"
+                            >
+                                <X className="size-3" />
+                            </button>
+                        </span>
+                    ))}
+                </div>
+            )}
+        </>
     );
 }

@@ -77,8 +77,6 @@ export default function CurriculumPage() {
             isCheckable
             deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
             addHref="/curriculum/new"
-            rowHeight={48}
-            height={600}
             emptyState="No learning areas yet."
             noResultsState="No learning areas match your search or filters."
         />

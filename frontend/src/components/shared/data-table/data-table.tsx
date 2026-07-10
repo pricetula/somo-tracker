@@ -46,7 +46,7 @@ export function DataTable<TItem, TParams extends object, TResult>({
     deleteFn,
     deleteParams,
     addHref,
-    rowHeight = 44,
+    rowHeight = 40,
     height = 600,
     pageSize = 50,
     emptyState,
@@ -402,17 +402,14 @@ export function DataTable<TItem, TParams extends object, TResult>({
                         : (emptyState ?? "No data.")}
                 </div>
             ) : (
-                <>
+                <div className="bg-foreground/5">
                     {/* ── Table header ──────────────────────────── */}
                     <div
-                        className="text-muted-foreground grid items-center border-b pb-2 text-[0.625rem] font-medium tracking-wide uppercase"
-                        style={{
-                            gridTemplateColumns,
-                            paddingRight: 8,
-                        }}
+                        className="text-muted-foreground grid items-center border-b text-[0.625rem] font-medium tracking-wide uppercase"
+                        style={{ gridTemplateColumns, height: rowHeight }}
                     >
                         {isCheckable && (
-                            <div className="flex items-center justify-center py-1.5">
+                            <div className="flex items-center justify-center">
                                 <Checkbox
                                     checked={
                                         allSelected ? true : someSelected ? "indeterminate" : false
@@ -424,7 +421,7 @@ export function DataTable<TItem, TParams extends object, TResult>({
                         {columns.map((col) => (
                             <div
                                 key={col.id}
-                                className="truncate px-3 py-1.5"
+                                className="truncate border-l px-3"
                                 style={{
                                     textAlign: col.align ?? "left",
                                 }}
@@ -486,7 +483,7 @@ export function DataTable<TItem, TParams extends object, TResult>({
                                                     <div
                                                         key={col.id}
                                                         className={cn(
-                                                            "truncate px-3 py-2",
+                                                            "truncate border-l px-3",
                                                             col.className
                                                         )}
                                                         style={{
@@ -510,7 +507,7 @@ export function DataTable<TItem, TParams extends object, TResult>({
                             {rows.length} of {total} loaded
                         </div>
                     )}
-                </>
+                </div>
             )}
         </div>
     );

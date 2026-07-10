@@ -304,7 +304,7 @@ export function DataTable<TItem, TParams extends object, TResult>({
     return (
         <div className={cn("flex flex-col", className)}>
             {/* ── Toolbar ───────────────────────────────────────── */}
-            <div className="mb-2 flex items-center gap-2">
+            <div className="mb-4 flex items-center gap-2">
                 {isSearchable && (
                     <div className="relative max-w-60 flex-1">
                         <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2" />
@@ -336,7 +336,7 @@ export function DataTable<TItem, TParams extends object, TResult>({
                             <AlertDialogTrigger asChild>
                                 <Button
                                     variant="destructive"
-                                    size="xs"
+                                    size="sm"
                                     disabled={isToolbarDisabled}
                                 >
                                     <Trash2 className="size-3" />
@@ -505,7 +505,7 @@ export function DataTable<TItem, TParams extends object, TResult>({
 
                     {/* ── Footer ───────────────────────────────── */}
                     {typeof total === "number" && (
-                        <div className="text-muted-foreground px-1 text-[0.625rem]">
+                        <div className="text-muted-foreground mb-2 px-3 text-[0.625rem]">
                             {rows.length} of {total} loaded
                         </div>
                     )}

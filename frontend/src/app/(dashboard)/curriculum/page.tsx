@@ -12,11 +12,9 @@ import Link from "next/link";
 import { DataTable, type DataTableColumn } from "@/components/shared/data-table";
 import { useDeleteLearningArea, curriculumKeys } from "@/features/curriculum";
 import { listLearningAreas, type LearningArea } from "@/lib/api/curriculum";
-import {
-    formatEducationLevel,
-    formatGradeLevel,
-    CURRICULUM_FILTER_GROUPS,
-} from "@/lib/curriculum-filters";
+import { CURRICULUM_FILTER_GROUPS } from "@/lib/curriculum-filters";
+import { EducationLevelPill } from "@/features/education-level";
+import { GradeLevelPill } from "@/features/grade-level";
 
 // ─── Columns ───────────────────────────────────────────────────────────────
 
@@ -33,7 +31,6 @@ const columns: DataTableColumn<LearningArea>[] = [
     {
         id: "code",
         header: "Code",
-        width: "120px",
         cell: (row) => (
             <Link href={`/curriculum/${row.id}`} className="font-mono font-medium hover:underline">
                 {row.code}
@@ -44,19 +41,13 @@ const columns: DataTableColumn<LearningArea>[] = [
         id: "education_level",
         header: "Education Level",
         width: "180px",
-        cell: (row) => (
-            <span className="text-muted-foreground">
-                {formatEducationLevel(row.education_level)}
-            </span>
-        ),
+        cell: (row) => <EducationLevelPill level={row.education_level} />,
     },
     {
         id: "grade_level",
         header: "Grade",
         width: "120px",
-        cell: (row) => (
-            <span className="text-muted-foreground">{formatGradeLevel(row.grade_level)}</span>
-        ),
+        cell: (row) => <GradeLevelPill grade={row.grade_level} />,
     },
 ];
 

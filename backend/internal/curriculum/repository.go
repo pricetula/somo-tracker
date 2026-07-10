@@ -130,7 +130,7 @@ func (r *PgRepository) ListLearningAreas(ctx context.Context, tenantID, schoolID
 	offset := (page - 1) * limit
 	dataQuery := `
 		SELECT id, tenant_id, school_id, name, code, education_level::text, grade_level::text
-		FROM cbc_learning_areas ` + whereClause + ` ORDER BY name, grade_level ASC LIMIT $` + fmt.Sprintf("%d", argIdx) + ` OFFSET $` + fmt.Sprintf("%d", argIdx+1)
+		FROM cbc_learning_areas ` + whereClause + ` ORDER BY grade_level ASC, name ASC, id ASC LIMIT $` + fmt.Sprintf("%d", argIdx) + ` OFFSET $` + fmt.Sprintf("%d", argIdx+1)
 	dataArgs := append(args, limit, offset)
 
 	rows, err := r.pool.Query(ctx, dataQuery, dataArgs...)

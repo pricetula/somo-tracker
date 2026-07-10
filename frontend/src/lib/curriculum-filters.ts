@@ -79,7 +79,7 @@ const GRADE_LEVEL_SUBMENU = [
 export const CURRICULUM_FILTER_GROUPS: FilterGroup[] = [
     {
         id: "curriculum_filters",
-        label: "Curriculum Filters",
+        label: "Filter by",
         items: [
             {
                 id: "education_level",

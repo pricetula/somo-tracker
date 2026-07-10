@@ -19,6 +19,10 @@ import {
     Settings2Icon,
     ChevronRightIcon,
     BookOpenIcon,
+    GraduationCapIcon,
+    ClipboardCheckIcon,
+    BarChart3Icon,
+    CalendarCheckIcon,
 } from "lucide-react";
 
 interface NavItem {
@@ -43,11 +47,33 @@ function buildNavItems(role: string): NavItem[] {
     ];
 
     if (canAccessCurriculum) {
-        items.push({
-            title: "Curriculum",
-            url: "/curriculum",
-            icon: <BookOpenIcon className="size-4" />,
-        });
+        items.push(
+            {
+                title: "Curriculum",
+                url: "/curriculum",
+                icon: <BookOpenIcon className="size-4" />,
+            },
+            {
+                title: "Classes",
+                url: "/classes",
+                icon: <GraduationCapIcon className="size-4" />,
+            },
+            {
+                title: "Assessments",
+                url: "/assessments",
+                icon: <ClipboardCheckIcon className="size-4" />,
+            },
+            {
+                title: "Reports",
+                url: "/reports",
+                icon: <BarChart3Icon className="size-4" />,
+            },
+            {
+                title: "Attendance",
+                url: "/attendance",
+                icon: <CalendarCheckIcon className="size-4" />,
+            }
+        );
     }
 
     if (isAdmin) {

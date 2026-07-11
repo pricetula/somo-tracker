@@ -24,3 +24,15 @@ export const EDUCATION_LEVEL_STYLES: Record<EducationLevel, { dot: string }> = {
     Junior_Secondary: { dot: "bg-amber-600" },
     Senior_School: { dot: "bg-violet-600" },
 };
+
+/**
+ * Hex dot colours for each education level — the inline-style equivalent of
+ * EDUCATION_LEVEL_STYLES (used by the FilterDropdown component which needs
+ * inline style={{ backgroundColor }} rather than a Tailwind class).
+ */
+export const EDUCATION_LEVEL_DOT_COLORS: Record<EducationLevel, string> = {
+    Early_Years: "#059669",
+    Upper_Primary: "#0284c7",
+    Junior_Secondary: "#d97706",
+    Senior_School: "#7c3aed",
+};

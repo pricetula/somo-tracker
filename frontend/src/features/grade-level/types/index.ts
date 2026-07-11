@@ -38,11 +38,10 @@ export const GRADE_LEVEL_LABELS: Record<string, string> = {
 };
 
 /**
- * Dot colours for each grade level — 14 independent colour variations.
+ * Dot colour (Tailwind class) for each grade level — 14 independent colour variations.
  *
- * Only the leading dot is coloured; the pill label remains neutral.
- * Each grade gets its own hue so they can be distinguished independently
- * of education-level grouping.
+ * Used by the GradeLevelPill component. Each grade gets its own hue so they
+ * can be distinguished independently of education-level grouping.
  */
 export const GRADE_LEVEL_STYLES: Record<string, { dot: string }> = {
     PP1: { dot: "bg-emerald-100" },
@@ -59,4 +58,26 @@ export const GRADE_LEVEL_STYLES: Record<string, { dot: string }> = {
     G10: { dot: "bg-violet-300" },
     G11: { dot: "bg-violet-400" },
     G12: { dot: "bg-violet-600" },
+};
+
+/**
+ * Hex dot colours for each grade level — the inline-style equivalent of
+ * GRADE_LEVEL_STYLES (used by the FilterDropdown component which needs
+ * inline style={{ backgroundColor }} rather than a Tailwind class).
+ */
+export const GRADE_LEVEL_DOT_COLORS: Record<string, string> = {
+    PP1: "#d1fae5",
+    PP2: "#a7f3d0",
+    G1: "#6ee7b7",
+    G2: "#34d399",
+    G3: "#059669",
+    G4: "#7dd3fc",
+    G5: "#38bdf8",
+    G6: "#0284c7",
+    G7: "#fcd34d",
+    G8: "#fbbf24",
+    G9: "#d97706",
+    G10: "#c4b5fd",
+    G11: "#a78bfa",
+    G12: "#7c3aed",
 };

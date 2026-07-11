@@ -7,4 +7,5 @@
 export { GradeLevelPill } from "./components/grade-level-pill";
 
 export type { GradeLevel } from "./types";
-export { GRADE_LEVEL_LABELS, GRADE_LEVEL_STYLES } from "./types";
+export { GRADE_LEVEL_LABELS, GRADE_LEVEL_STYLES, GRADE_LEVEL_DOT_COLORS } from "./types";
+export { getGradeLevelFilterSubmenu } from "./submenu";

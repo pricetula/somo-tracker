@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import type { FilterGroup, FilterItem, SubFilterItem } from "./types";
 import { Button } from "@/components/ui/button";
 import {
@@ -68,7 +69,7 @@ function isMulti(subFilterValue: unknown): subFilterValue is string[] {
 
 interface ActiveFilterPill {
     itemId: string;
-    label: string;
+    label: ReactNode;
     subValue?: string;
 }
 

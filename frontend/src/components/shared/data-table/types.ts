@@ -91,14 +91,14 @@ export interface FilterGroup {
 export type FilterItem =
     | {
           id: string;
-          label: string;
+          label: ReactNode;
           icon?: LucideIcon;
           type: "button";
           value: string;
       }
     | {
           id: string;
-          label: string;
+          label: ReactNode;
           icon?: LucideIcon;
           type: "sub_menu_single" | "sub_menu_multi";
           submenu: SubFilterItem[];
@@ -107,7 +107,7 @@ export type FilterItem =
 /** A selectable entry inside a sub-menu. */
 export interface SubFilterItem {
     id: string;
-    label: string;
+    label: ReactNode;
     icon?: LucideIcon;
     value: string;
     /** Optional hex colour for a leading dot indicator. */

@@ -52,8 +52,8 @@ type ClassListFilter struct {
 	SchoolID       string
 	AcademicYearID string
 	AcademicTermID string
-	GradeLevel     *string
-	StreamID       *string
+	GradeLevels    []string
+	StreamIDs      []string
 	Search         string
 	Page           int
 	Limit          int

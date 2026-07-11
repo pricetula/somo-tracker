@@ -9,6 +9,18 @@ import (
 	"somotracker/backend/internal/middleware"
 )
 
+// getQuerySlice returns all values for a given query parameter key.
+// Handles repeated keys like ?grade_level=G7&grade_level=G8.
+func getQuerySlice(c *fiber.Ctx, key string) []string {
+	var values []string
+	c.Request().URI().QueryArgs().VisitAll(func(k, v []byte) {
+		if string(k) == key {
+			values = append(values, string(v))
+		}
+	})
+	return values
+}
+
 // academicYearsAdapter is the subset of academicyears.Service that the handler uses.
 type academicYearsAdapter interface {
 	GetCurrentAcademicYearID(ctx context.Context, tenantID, schoolID string) (string, error)
@@ -103,11 +115,11 @@ func (h *Handler) List(c *fiber.Ctx) error {
 		Limit:          limit,
 	}
 
-	if gradeLevel := c.Query("grade_level"); gradeLevel != "" {
-		filter.GradeLevel = &gradeLevel
+	if gradeLevels := getQuerySlice(c, "grade_level"); len(gradeLevels) > 0 {
+		filter.GradeLevels = gradeLevels
 	}
-	if streamID := c.Query("stream_id"); streamID != "" {
-		filter.StreamID = &streamID
+	if streamIDs := getQuerySlice(c, "stream_id"); len(streamIDs) > 0 {
+		filter.StreamIDs = streamIDs
 	}
 
 	result, err := h.svc.ListClasses(c.Context(), filter)

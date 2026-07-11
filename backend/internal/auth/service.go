@@ -830,16 +830,3 @@ func generateUUID() (string, error) {
 	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x",
 		b[0:4], b[4:6], b[6:8], b[8:10], b[10:16]), nil
 }
-
-// isMemberAlreadyExists checks if a Stytch error indicates that the member
-// already exists in the organization (member_already_exists error type).
-// This can happen on retry when CreateMember was successful in a previous
-// attempt but the session creation step failed afterwards.
-func isMemberAlreadyExists(err error) bool {
-	if err == nil {
-		return false
-	}
-	lower := strings.ToLower(err.Error())
-	return strings.Contains(lower, "member_already_exists") ||
-		strings.Contains(lower, "already exists")
-}

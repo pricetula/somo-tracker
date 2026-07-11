@@ -3,6 +3,7 @@ package cbcclasses
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -41,18 +42,24 @@ func (r *PgRepository) List(ctx context.Context, filter ClassListFilter) (*Class
 	countArgs := []interface{}{filter.TenantID, filter.SchoolID, filter.AcademicYearID}
 	argIdx := 4
 
-	if filter.GradeLevel != nil {
-		countQuery += fmt.Sprintf(" AND c.grade_level = $%d", argIdx)
-		countArgs = append(countArgs, *filter.GradeLevel)
-		argIdx++
+	if len(filter.GradeLevels) > 0 {
+		placeholders := makeInPlaceholders(len(filter.GradeLevels), argIdx)
+		countQuery += fmt.Sprintf(" AND c.grade_level::text IN (%s)", placeholders)
+		for _, gl := range filter.GradeLevels {
+			countArgs = append(countArgs, gl)
+		}
+		argIdx += len(filter.GradeLevels)
 	}
-	if filter.StreamID != nil {
-		countQuery += fmt.Sprintf(" AND c.stream_id = $%d", argIdx)
-		countArgs = append(countArgs, *filter.StreamID)
-		argIdx++
+	if len(filter.StreamIDs) > 0 {
+		placeholders := makeInPlaceholders(len(filter.StreamIDs), argIdx)
+		countQuery += fmt.Sprintf(" AND c.stream_id IN (%s)", placeholders)
+		for _, sid := range filter.StreamIDs {
+			countArgs = append(countArgs, sid)
+		}
+		argIdx += len(filter.StreamIDs)
 	}
 	if filter.Search != "" {
-		countQuery += fmt.Sprintf(" AND (c.grade_level || ' ' || COALESCE(s.name, '')) ILIKE $%d", argIdx)
+		countQuery += fmt.Sprintf(" AND (c.grade_level::text || ' ' || COALESCE(s.name, '')) ILIKE $%d", argIdx)
 		countArgs = append(countArgs, "%"+filter.Search+"%")
 	}
 
@@ -90,18 +97,24 @@ func (r *PgRepository) List(ctx context.Context, filter ClassListFilter) (*Class
 	}
 	argIdx = 5
 
-	if filter.GradeLevel != nil {
-		dataQuery += fmt.Sprintf(" AND c.grade_level = $%d", argIdx)
-		dataArgs = append(dataArgs, *filter.GradeLevel)
-		argIdx++
+	if len(filter.GradeLevels) > 0 {
+		placeholders := makeInPlaceholders(len(filter.GradeLevels), argIdx)
+		dataQuery += fmt.Sprintf(" AND c.grade_level::text IN (%s)", placeholders)
+		for _, gl := range filter.GradeLevels {
+			dataArgs = append(dataArgs, gl)
+		}
+		argIdx += len(filter.GradeLevels)
 	}
-	if filter.StreamID != nil {
-		dataQuery += fmt.Sprintf(" AND c.stream_id = $%d", argIdx)
-		dataArgs = append(dataArgs, *filter.StreamID)
-		argIdx++
+	if len(filter.StreamIDs) > 0 {
+		placeholders := makeInPlaceholders(len(filter.StreamIDs), argIdx)
+		dataQuery += fmt.Sprintf(" AND c.stream_id IN (%s)", placeholders)
+		for _, sid := range filter.StreamIDs {
+			dataArgs = append(dataArgs, sid)
+		}
+		argIdx += len(filter.StreamIDs)
 	}
 	if filter.Search != "" {
-		dataQuery += fmt.Sprintf(" AND (c.grade_level || ' ' || COALESCE(s.name, '')) ILIKE $%d", argIdx)
+		dataQuery += fmt.Sprintf(" AND (c.grade_level::text || ' ' || COALESCE(s.name, '')) ILIKE $%d", argIdx)
 		dataArgs = append(dataArgs, "%"+filter.Search+"%")
 		argIdx++
 	}
@@ -443,4 +456,17 @@ func (r *PgRepository) ValidateStream(ctx context.Context, id, tenantID, schoolI
 		return false, fmt.Errorf("cbcclasses.Repository.ValidateStream: %w", err)
 	}
 	return exists, nil
+}
+
+// makeInPlaceholders generates a comma-separated list of pgx placeholders.
+// Example: makeInPlaceholders(3, 5) returns "$5, $6, $7".
+func makeInPlaceholders(count, startIdx int) string {
+	if count == 0 {
+		return ""
+	}
+	placeholders := make([]string, count)
+	for i := range placeholders {
+		placeholders[i] = fmt.Sprintf("$%d", startIdx+i)
+	}
+	return strings.Join(placeholders, ", ")
 }

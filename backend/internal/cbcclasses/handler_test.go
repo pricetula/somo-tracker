@@ -184,12 +184,12 @@ func TestHandler_ListClasses_Metadata(t *testing.T) {
 	}
 }
 
-func TestHandler_ListClasses_WithGradeLevelFilter(t *testing.T) {
+func TestHandler_ListClasses_WithSingleGradeLevelFilter(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
 	h.repo.listFn = func(ctx context.Context, filter ClassListFilter) (*ClassListResult, error) {
-		if filter.GradeLevel == nil || *filter.GradeLevel != "G4" {
-			t.Errorf("expected grade_level filter 'G4', got %v", filter.GradeLevel)
+		if len(filter.GradeLevels) != 1 || filter.GradeLevels[0] != "G4" {
+			t.Errorf("expected grade_levels ['G4'], got %v", filter.GradeLevels)
 		}
 		return &ClassListResult{
 			Items: []Class{
@@ -216,12 +216,45 @@ func TestHandler_ListClasses_WithGradeLevelFilter(t *testing.T) {
 	}
 }
 
-func TestHandler_ListClasses_WithStreamIDFilter(t *testing.T) {
+func TestHandler_ListClasses_WithMultipleGradeLevelsFilter(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
 	h.repo.listFn = func(ctx context.Context, filter ClassListFilter) (*ClassListResult, error) {
-		if filter.StreamID == nil || *filter.StreamID != "stream_001" {
-			t.Errorf("expected stream_id filter 'stream_001', got %v", filter.StreamID)
+		if len(filter.GradeLevels) != 2 || filter.GradeLevels[0] != "G7" || filter.GradeLevels[1] != "G8" {
+			t.Errorf("expected grade_levels ['G7', 'G8'], got %v", filter.GradeLevels)
+		}
+		return &ClassListResult{
+			Items: []Class{
+				{ID: "class_001", GradeLevel: "G7", StreamName: "Blue", DisplayLabel: "G7 Blue", StreamID: "stream_001"},
+				{ID: "class_002", GradeLevel: "G8", StreamName: "Red", DisplayLabel: "G8 Red", StreamID: "stream_002"},
+			},
+			Total: 2,
+			Page:  1,
+			Limit: 50,
+		}, nil
+	}
+
+	resp := doRequest(h.app, "GET", "/api/v1/classes?academic_year_id=year_001&academic_term_id=term_001&grade_level=G7&grade_level=G8", nil)
+
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", resp.StatusCode)
+	}
+
+	var result ClassListResult
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if len(result.Items) != 2 {
+		t.Fatalf("expected 2 classes, got %d", len(result.Items))
+	}
+}
+
+func TestHandler_ListClasses_WithSingleStreamIDFilter(t *testing.T) {
+	h := newHandlerTestHarness(t)
+
+	h.repo.listFn = func(ctx context.Context, filter ClassListFilter) (*ClassListResult, error) {
+		if len(filter.StreamIDs) != 1 || filter.StreamIDs[0] != "stream_001" {
+			t.Errorf("expected stream_ids ['stream_001'], got %v", filter.StreamIDs)
 		}
 		return &ClassListResult{
 			Items: []Class{
@@ -245,6 +278,39 @@ func TestHandler_ListClasses_WithStreamIDFilter(t *testing.T) {
 	}
 	if len(result.Items) != 1 {
 		t.Fatalf("CL7: expected 1 class, got %d", len(result.Items))
+	}
+}
+
+func TestHandler_ListClasses_WithMultipleStreamIDsFilter(t *testing.T) {
+	h := newHandlerTestHarness(t)
+
+	h.repo.listFn = func(ctx context.Context, filter ClassListFilter) (*ClassListResult, error) {
+		if len(filter.StreamIDs) != 2 || filter.StreamIDs[0] != "stream_001" || filter.StreamIDs[1] != "stream_002" {
+			t.Errorf("expected stream_ids ['stream_001', 'stream_002'], got %v", filter.StreamIDs)
+		}
+		return &ClassListResult{
+			Items: []Class{
+				{ID: "class_001", GradeLevel: "G4", StreamName: "Blue", DisplayLabel: "G4 Blue", StreamID: "stream_001"},
+				{ID: "class_002", GradeLevel: "G4", StreamName: "Red", DisplayLabel: "G4 Red", StreamID: "stream_002"},
+			},
+			Total: 2,
+			Page:  1,
+			Limit: 50,
+		}, nil
+	}
+
+	resp := doRequest(h.app, "GET", "/api/v1/classes?academic_year_id=year_001&academic_term_id=term_001&stream_id=stream_001&stream_id=stream_002", nil)
+
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", resp.StatusCode)
+	}
+
+	var result ClassListResult
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if len(result.Items) != 2 {
+		t.Fatalf("expected 2 classes, got %d", len(result.Items))
 	}
 }
 

@@ -13,19 +13,37 @@ import type { Class, ClassListResult } from "./generated";
 
 export type { Class, ClassListResult };
 
+/** List classes params, supporting filters from DataTable filter groups. */
+export interface ListClassesParams {
+    academic_year_id?: string;
+    academic_term_id?: string;
+    grade_level?: string;
+    stream_id?: string;
+    search?: string;
+    page?: number;
+    limit?: number;
+    /** Filter values keyed by FilterItem id, e.g. { grade_level: ["G1", "G2"], stream_id: ["id1"], academic_year_id: ["ay1"] } */
+    filters?: Record<string, string[]>;
+}
+
 /** List classes for the active school. */
-export async function listClasses(
-    params: {
-        academic_year_id?: string;
-        academic_term_id?: string;
-        grade_level?: string;
-        stream_id?: string;
-        search?: string;
-        page?: number;
-        limit?: number;
-    } = {}
-): Promise<ClassListResult> {
+export async function listClasses(params: ListClassesParams = {}): Promise<ClassListResult> {
     const searchParams = new URLSearchParams();
+
+    // Multi-value filters from DataTable
+    const gradeLevels = params.filters?.grade_level ?? [];
+    for (const gl of gradeLevels) {
+        searchParams.append("grade_level", gl);
+    }
+    const streamIds = params.filters?.stream_id ?? [];
+    for (const sid of streamIds) {
+        searchParams.append("stream_id", sid);
+    }
+    const academicYearIds = params.filters?.academic_year_id ?? [];
+    for (const ayid of academicYearIds) {
+        searchParams.append("academic_year_id", ayid);
+    }
+
     if (params.academic_year_id) searchParams.set("academic_year_id", params.academic_year_id);
     if (params.academic_term_id) searchParams.set("academic_term_id", params.academic_term_id);
     if (params.grade_level) searchParams.set("grade_level", params.grade_level);

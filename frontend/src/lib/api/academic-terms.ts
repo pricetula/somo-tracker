@@ -46,7 +46,11 @@ export async function listTerms(
     return api.get<{ items: AcademicTerm[] }>(`/api/v1/academic-terms?${qs}`);
 }
 
-/** List academic years for the active school. */
+/** List academic years for the active school.
+ *
+ * The backend returns { data: AcademicYearWithTerms[] }. This normalizes it
+ * to the { items: AcademicYear[] } shape expected by the frontend. */
 export async function listAcademicYears(): Promise<{ items: AcademicYear[] }> {
-    return api.get<{ items: AcademicYear[] }>("/api/v1/academic-years");
+    const raw = await api.get<{ data: AcademicYear[] }>("/api/v1/academic-years");
+    return { items: raw.data ?? [] };
 }

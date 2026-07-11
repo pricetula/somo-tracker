@@ -16,10 +16,12 @@
 
 import Link from "next/link";
 import { DataTable } from "@/components/shared/data-table";
-import type { DataTableColumn } from "@/components/shared/data-table/types";
+import type { DataTableColumn, FilterGroup } from "@/components/shared/data-table/types";
 import { Badge } from "@/components/ui/badge";
 import { listParents, type Parent } from "@/lib/api/parents";
-import { CURRICULUM_FILTER_GROUPS } from "@/lib/curriculum-filters";
+import { GraduationCap, BookOpen } from "lucide-react";
+import { getEducationLevelFilterSubmenu } from "@/features/education-level";
+import { getGradeLevelFilterSubmenu } from "@/features/grade-level";
 import { useDeleteParent } from "@/features/parents";
 
 // ─── Columns ──────────────────────────────────────────────────────────────
@@ -65,6 +67,31 @@ const columns: DataTableColumn<Parent>[] = [
     },
 ];
 
+// ─── Filter Groups ────────────────────────────────────────────────────────
+
+const filterGroups: FilterGroup[] = [
+    {
+        id: "curriculum_filters",
+        label: "Filter by",
+        items: [
+            {
+                id: "education_level",
+                label: "Education Level",
+                icon: BookOpen,
+                type: "sub_menu_multi",
+                submenu: getEducationLevelFilterSubmenu(),
+            },
+            {
+                id: "grade_level",
+                label: "Grade",
+                icon: GraduationCap,
+                type: "sub_menu_multi",
+                submenu: getGradeLevelFilterSubmenu(),
+            },
+        ],
+    },
+];
+
 // ─── Page ─────────────────────────────────────────────────────────────────
 
 export default function ParentsPage() {
@@ -79,7 +106,7 @@ export default function ParentsPage() {
             getRowId={(row) => row.id}
             isSearchable
             searchPlaceholder="Search by name or email…"
-            filterGroups={CURRICULUM_FILTER_GROUPS}
+            filterGroups={filterGroups}
             deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
             emptyState="No parents yet."
             noResultsState="No parents match your search or filters."

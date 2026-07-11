@@ -9,12 +9,38 @@
 
 import Link from "next/link";
 
+import { GraduationCap, BookOpen } from "lucide-react";
 import { DataTable, type DataTableColumn } from "@/components/shared/data-table";
+import type { FilterGroup } from "@/components/shared/data-table/types";
 import { useDeleteLearningArea, curriculumKeys } from "@/features/curriculum";
 import { listLearningAreas, type LearningArea } from "@/lib/api/curriculum";
-import { CURRICULUM_FILTER_GROUPS } from "@/lib/curriculum-filters";
+import { getEducationLevelFilterSubmenu } from "@/features/education-level";
+import { getGradeLevelFilterSubmenu } from "@/features/grade-level";
 import { EducationLevelPill } from "@/features/education-level";
 import { GradeLevelPill } from "@/features/grade-level";
+
+const filterGroups: FilterGroup[] = [
+    {
+        id: "curriculum_filters",
+        label: "Filter by",
+        items: [
+            {
+                id: "education_level",
+                label: "Education Level",
+                icon: BookOpen,
+                type: "sub_menu_multi",
+                submenu: getEducationLevelFilterSubmenu(),
+            },
+            {
+                id: "grade_level",
+                label: "Grade",
+                icon: GraduationCap,
+                type: "sub_menu_multi",
+                submenu: getGradeLevelFilterSubmenu(),
+            },
+        ],
+    },
+];
 
 // ─── Columns ───────────────────────────────────────────────────────────────
 
@@ -64,7 +90,7 @@ export default function CurriculumPage() {
             getRowId={(row) => row.id}
             isSearchable
             searchPlaceholder="Search learning areas..."
-            filterGroups={CURRICULUM_FILTER_GROUPS}
+            filterGroups={filterGroups}
             isCheckable
             deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
             addHref="/curriculum/new"

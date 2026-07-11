@@ -39,10 +39,7 @@ export function StreamPill({ name, color }: StreamPillProps) {
 
     return (
         <Badge variant="ghost" className="gap-1.5 p-0">
-            <span
-                className="inline-block size-1.5 rounded-full"
-                style={{ backgroundColor: color }}
-            />
+            <span className="inline-block size-1 rounded-full" style={{ backgroundColor: color }} />
             {name}
         </Badge>
     );

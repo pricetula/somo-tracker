@@ -10,10 +10,12 @@
 "use client";
 
 import { DataTable } from "@/components/shared/data-table";
-import type { DataTableColumn } from "@/components/shared/data-table/types";
+import type { DataTableColumn, FilterGroup } from "@/components/shared/data-table/types";
 import { Badge } from "@/components/ui/badge";
 import { listTeachers, type TeacherMember } from "@/lib/api/teachers";
-import { CURRICULUM_FILTER_GROUPS } from "@/lib/curriculum-filters";
+import { GraduationCap, BookOpen } from "lucide-react";
+import { getEducationLevelFilterSubmenu } from "@/features/education-level";
+import { getGradeLevelFilterSubmenu } from "@/features/grade-level";
 import { useDeleteTeacher } from "@/features/staff";
 
 // ─── Teacher Role Labels ──────────────────────────────────────────────────
@@ -83,6 +85,31 @@ const columns: DataTableColumn<TeacherMember>[] = [
     },
 ];
 
+// ─── Filter Groups ────────────────────────────────────────────────────────
+
+const filterGroups: FilterGroup[] = [
+    {
+        id: "curriculum_filters",
+        label: "Filter by",
+        items: [
+            {
+                id: "education_level",
+                label: "Education Level",
+                icon: BookOpen,
+                type: "sub_menu_multi",
+                submenu: getEducationLevelFilterSubmenu(),
+            },
+            {
+                id: "grade_level",
+                label: "Grade",
+                icon: GraduationCap,
+                type: "sub_menu_multi",
+                submenu: getGradeLevelFilterSubmenu(),
+            },
+        ],
+    },
+];
+
 // ─── Page ─────────────────────────────────────────────────────────────────
 
 export default function TeachersPage() {
@@ -97,7 +124,7 @@ export default function TeachersPage() {
             getRowId={(row) => row.id}
             isSearchable
             searchPlaceholder="Search by name, email, or TSC number…"
-            filterGroups={CURRICULUM_FILTER_GROUPS}
+            filterGroups={filterGroups}
             deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
             emptyState="No teachers yet."
             noResultsState="No teachers match your search or filters."

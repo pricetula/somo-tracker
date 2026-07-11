@@ -19,13 +19,34 @@ import type { DataTableColumn } from "@/components/shared/data-table/types";
 import type { FilterGroup } from "@/components/shared/data-table/types";
 import { Badge } from "@/components/ui/badge";
 import { listStudents, type Student } from "@/lib/api/students";
-import { CURRICULUM_FILTER_GROUPS } from "@/lib/curriculum-filters";
+import { GraduationCap, BookOpen } from "lucide-react";
+import { getEducationLevelFilterSubmenu } from "@/features/education-level";
+import { getGradeLevelFilterSubmenu } from "@/features/grade-level";
 import { useDeleteStudent } from "@/features/students";
 
 // ─── Filter Groups (curriculum + lifecycle) ───────────────────────────────
 
 const filterGroups: FilterGroup[] = [
-    ...CURRICULUM_FILTER_GROUPS,
+    {
+        id: "curriculum_filters",
+        label: "Filter by",
+        items: [
+            {
+                id: "education_level",
+                label: "Education Level",
+                icon: BookOpen,
+                type: "sub_menu_multi",
+                submenu: getEducationLevelFilterSubmenu(),
+            },
+            {
+                id: "grade_level",
+                label: "Grade",
+                icon: GraduationCap,
+                type: "sub_menu_multi",
+                submenu: getGradeLevelFilterSubmenu(),
+            },
+        ],
+    },
     {
         id: "lifecycle_group",
         label: "Lifecycle Group",

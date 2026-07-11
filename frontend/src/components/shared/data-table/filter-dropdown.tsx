@@ -124,6 +124,12 @@ function renderSubItems(
             >
                 {parentItem.submenu.map((sub) => (
                     <DropdownMenuRadioItem key={sub.id} value={sub.value}>
+                        {sub.dotColor && (
+                            <span
+                                className="inline-block size-1.5 rounded-full"
+                                style={{ backgroundColor: sub.dotColor }}
+                            />
+                        )}
                         {sub.icon && <sub.icon className="size-3.5" />}
                         {sub.label}
                     </DropdownMenuRadioItem>
@@ -149,6 +155,12 @@ function renderSubItems(
                     onToggleMulti(parentId, sub.value);
                 }}
             >
+                {sub.dotColor && (
+                    <span
+                        className="inline-block size-1.5 rounded-full"
+                        style={{ backgroundColor: sub.dotColor }}
+                    />
+                )}
                 {sub.icon && <sub.icon className="size-3.5" />}
                 {sub.label}
             </DropdownMenuCheckboxItem>

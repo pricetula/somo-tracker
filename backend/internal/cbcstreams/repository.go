@@ -2,8 +2,11 @@ package cbcstreams
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"somotracker/backend/internal/database"
@@ -22,7 +25,7 @@ func NewRepository(pools *database.Pools) *PgRepository {
 // List returns all streams for the given tenant and school.
 func (r *PgRepository) List(ctx context.Context, tenantID, schoolID string) ([]Stream, error) {
 	const query = `
-		SELECT id, name, created_at, updated_at
+		SELECT id, name, color, created_at, updated_at
 		FROM cbc_streams
 		WHERE tenant_id = $1 AND school_id = $2
 		ORDER BY name ASC
@@ -37,7 +40,7 @@ func (r *PgRepository) List(ctx context.Context, tenantID, schoolID string) ([]S
 	var streams []Stream
 	for rows.Next() {
 		var s Stream
-		if err := rows.Scan(&s.ID, &s.Name, &s.CreatedAt, &s.UpdatedAt); err != nil {
+		if err := rows.Scan(&s.ID, &s.Name, &s.Color, &s.CreatedAt, &s.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("cbcstreams.Repository.List: scan: %w", err)
 		}
 		streams = append(streams, s)
@@ -51,6 +54,89 @@ func (r *PgRepository) List(ctx context.Context, tenantID, schoolID string) ([]S
 	}
 
 	return streams, nil
+}
+
+// Create inserts a new stream and returns it.
+func (r *PgRepository) Create(ctx context.Context, tenantID, schoolID, name, color string) (*Stream, error) {
+	const query = `
+		INSERT INTO cbc_streams (tenant_id, school_id, name, color)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id, name, color, created_at, updated_at
+	`
+	var s Stream
+	err := r.pool.QueryRow(ctx, query, tenantID, schoolID, name, color).Scan(&s.ID, &s.Name, &s.Color, &s.CreatedAt, &s.UpdatedAt)
+	if err != nil {
+		if isUniqueViolation(err) {
+			return nil, fmt.Errorf("cbcstreams.Repository.Create: %w", ErrAlreadyExists)
+		}
+		return nil, fmt.Errorf("cbcstreams.Repository.Create: %w", err)
+	}
+	return &s, nil
+}
+
+// GetByID retrieves a stream by ID, scoped to tenant + school.
+func (r *PgRepository) GetByID(ctx context.Context, id, tenantID, schoolID string) (*Stream, error) {
+	const query = `
+		SELECT id, name, color, created_at, updated_at
+		FROM cbc_streams
+		WHERE id = $1 AND tenant_id = $2 AND school_id = $3
+	`
+	var s Stream
+	err := r.pool.QueryRow(ctx, query, id, tenantID, schoolID).Scan(&s.ID, &s.Name, &s.Color, &s.CreatedAt, &s.UpdatedAt)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("cbcstreams.Repository.GetByID: %w", ErrNotFound)
+		}
+		return nil, fmt.Errorf("cbcstreams.Repository.GetByID: %w", err)
+	}
+	return &s, nil
+}
+
+// Update modifies a stream's name and returns the updated record.
+func (r *PgRepository) Update(ctx context.Context, id, tenantID, schoolID, name, color string) (*Stream, error) {
+	const query = `
+		UPDATE cbc_streams
+		SET name = $1, color = $2, updated_at = NOW()
+		WHERE id = $3 AND tenant_id = $4 AND school_id = $5
+		RETURNING id, name, color, created_at, updated_at
+	`
+	var s Stream
+	err := r.pool.QueryRow(ctx, query, name, color, id, tenantID, schoolID).Scan(&s.ID, &s.Name, &s.Color, &s.CreatedAt, &s.UpdatedAt)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("cbcstreams.Repository.Update: %w", ErrNotFound)
+		}
+		if isUniqueViolation(err) {
+			return nil, fmt.Errorf("cbcstreams.Repository.Update: %w", ErrAlreadyExists)
+		}
+		return nil, fmt.Errorf("cbcstreams.Repository.Update: %w", err)
+	}
+	return &s, nil
+}
+
+// Delete removes a stream by ID (cascades to classes).
+func (r *PgRepository) Delete(ctx context.Context, id, tenantID, schoolID string) error {
+	const query = `
+		DELETE FROM cbc_streams
+		WHERE id = $1 AND tenant_id = $2 AND school_id = $3
+	`
+	tag, err := r.pool.Exec(ctx, query, id, tenantID, schoolID)
+	if err != nil {
+		return fmt.Errorf("cbcstreams.Repository.Delete: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("cbcstreams.Repository.Delete: %w", ErrNotFound)
+	}
+	return nil
+}
+
+// isUniqueViolation checks if an error is a PostgreSQL unique constraint violation (23505).
+func isUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.Code == "23505"
+	}
+	return false
 }
 
 // compile-time interface check

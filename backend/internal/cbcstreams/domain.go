@@ -22,6 +22,7 @@ var (
 type Stream struct {
 	ID        string    `json:"id"`
 	Name      string    `json:"name"`
+	Color     string    `json:"color"`
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	UpdatedAt time.Time `json:"updated_at,omitempty"`
 }
@@ -32,7 +33,23 @@ type StreamListResult struct {
 	Total int      `json:"total"`
 }
 
+// CreateStreamPayload is the request body for creating a stream.
+type CreateStreamPayload struct {
+	Name  string `json:"name"`
+	Color string `json:"color"`
+}
+
+// UpdateStreamPayload is the request body for updating a stream.
+type UpdateStreamPayload struct {
+	Name  string `json:"name"`
+	Color string `json:"color"`
+}
+
 // Repository defines the contract for stream persistence.
 type Repository interface {
 	List(ctx context.Context, tenantID, schoolID string) ([]Stream, error)
+	Create(ctx context.Context, tenantID, schoolID, name, color string) (*Stream, error)
+	GetByID(ctx context.Context, id, tenantID, schoolID string) (*Stream, error)
+	Update(ctx context.Context, id, tenantID, schoolID, name, color string) (*Stream, error)
+	Delete(ctx context.Context, id, tenantID, schoolID string) error
 }

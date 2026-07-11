@@ -132,6 +132,7 @@ export interface Class {
     id: string;
     grade_level: string;
     stream_name: string;
+    stream_color: string;
     display_label: string;
     stream_id: string;
     student_count?: number;

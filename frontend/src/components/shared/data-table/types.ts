@@ -110,6 +110,8 @@ export interface SubFilterItem {
     label: string;
     icon?: LucideIcon;
     value: string;
+    /** Optional hex colour for a leading dot indicator. */
+    dotColor?: string;
 }
 
 // ─── DataTable props ─────────────────────────────────────────────────────

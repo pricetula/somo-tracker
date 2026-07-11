@@ -39,6 +39,7 @@ type Class struct {
 	ID           string    `json:"id"`
 	GradeLevel   string    `json:"grade_level"`
 	StreamName   string    `json:"stream_name"`
+	StreamColor  string    `json:"stream_color"`
 	DisplayLabel string    `json:"display_label"`
 	StreamID     string    `json:"stream_id"`
 	StudentCount int       `json:"student_count,omitempty"`

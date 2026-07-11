@@ -31,3 +31,41 @@ func (s *Service) ListStreams(ctx context.Context, tenantID, schoolID string) (*
 		Total: len(streams),
 	}, nil
 }
+
+// CreateStream creates a new stream.
+func (s *Service) CreateStream(ctx context.Context, tenantID, schoolID, name, color string) (*Stream, error) {
+	if tenantID == "" || schoolID == "" || name == "" {
+		return nil, fmt.Errorf("cbcstreams.Service.CreateStream: %w", ErrInvalidInput)
+	}
+
+	stream, err := s.Repo.Create(ctx, tenantID, schoolID, name, color)
+	if err != nil {
+		return nil, fmt.Errorf("cbcstreams.Service.CreateStream: %w", err)
+	}
+	return stream, nil
+}
+
+// UpdateStream updates a stream's name and color.
+func (s *Service) UpdateStream(ctx context.Context, id, tenantID, schoolID, name, color string) (*Stream, error) {
+	if id == "" || tenantID == "" || schoolID == "" || name == "" {
+		return nil, fmt.Errorf("cbcstreams.Service.UpdateStream: %w", ErrInvalidInput)
+	}
+
+	stream, err := s.Repo.Update(ctx, id, tenantID, schoolID, name, color)
+	if err != nil {
+		return nil, fmt.Errorf("cbcstreams.Service.UpdateStream: %w", err)
+	}
+	return stream, nil
+}
+
+// DeleteStream deletes a stream by ID.
+func (s *Service) DeleteStream(ctx context.Context, id, tenantID, schoolID string) error {
+	if id == "" || tenantID == "" || schoolID == "" {
+		return fmt.Errorf("cbcstreams.Service.DeleteStream: %w", ErrInvalidInput)
+	}
+
+	if err := s.Repo.Delete(ctx, id, tenantID, schoolID); err != nil {
+		return fmt.Errorf("cbcstreams.Service.DeleteStream: %w", err)
+	}
+	return nil
+}

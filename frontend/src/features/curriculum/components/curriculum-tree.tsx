@@ -14,7 +14,7 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 import type { LearningAreaTree, PerformanceIndicator } from "@/lib/api/curriculum";
-import { formatEducationLevel } from "@/lib/curriculum-filters";
+import { EducationLevelPill } from "@/features/education-level";
 import { StrandSection } from "./strand-section";
 import { TreeSkeleton } from "./tree-skeleton";
 import { CreateIndicatorDialog } from "./create-indicator-dialog";
@@ -56,7 +56,7 @@ export function CurriculumTree({ tree, isLoading, isError }: CurriculumTreeProps
                     <h2 className="text-xl font-semibold">{tree.name}</h2>
                     <div className="text-muted-foreground mt-1 flex items-center gap-3">
                         <span className="font-mono text-xs">{tree.code}</span>
-                        <span>{formatEducationLevel(tree.education_level)}</span>
+                        <EducationLevelPill level={tree.education_level} />
                         <span>
                             {strandCount} strand{strandCount !== 1 ? "s" : ""}
                         </span>

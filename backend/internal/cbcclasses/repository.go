@@ -327,6 +327,7 @@ func (r *PgRepository) Update(ctx context.Context, params UpdateClassParams) (*C
 	// Fetch updated class
 	const fetchClass = `
 		SELECT c.id, c.grade_level, COALESCE(s.name, '') AS stream_name,
+		       COALESCE(s.color, '') AS stream_color,
 		       c.grade_level || ' ' || COALESCE(s.name, '') AS display_label,
 		       c.stream_id
 		FROM cbc_classes c
@@ -335,7 +336,7 @@ func (r *PgRepository) Update(ctx context.Context, params UpdateClassParams) (*C
 	`
 	var cls Class
 	err = r.pool.QueryRow(ctx, fetchClass, params.ClassID).Scan(
-		&cls.ID, &cls.GradeLevel, &cls.StreamName, &cls.DisplayLabel, &cls.StreamID,
+		&cls.ID, &cls.GradeLevel, &cls.StreamName, &cls.StreamColor, &cls.DisplayLabel, &cls.StreamID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("cbcclasses.Repository.Update: fetch class: %w", err)

@@ -20,9 +20,9 @@ export default function StudentsImportModal() {
                 if (!open) router.back();
             }}
         >
-            <DialogContent className="sm:max-w-4xl">
+            <DialogContent className="sm:max-w-3xl">
                 <DialogHeader>
-                    <DialogTitle>Add students</DialogTitle>
+                    <DialogTitle>Add Students</DialogTitle>
                 </DialogHeader>
                 <StudentsImportForm isDialogVersion={true} />
             </DialogContent>

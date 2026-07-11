@@ -528,3 +528,14 @@ func (r *PgRepository) CountLinksByStudent(ctx context.Context, studentID, tenan
 	}
 	return count, nil
 }
+
+// GetStytchOrgID retrieves the Stytch organization ID for a tenant.
+func (r *PgRepository) GetStytchOrgID(ctx context.Context, tenantID string) (string, error) {
+	const query = `SELECT stytch_org_id FROM tenants WHERE id = $1`
+	var orgID string
+	err := r.pool.QueryRow(ctx, query, tenantID).Scan(&orgID)
+	if err != nil {
+		return "", fmt.Errorf("parents.Repository.GetStytchOrgID: %w", err)
+	}
+	return orgID, nil
+}

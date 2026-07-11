@@ -58,6 +58,7 @@ type ImportJobType string
 const (
 	ImportJobTypeStaffInvite   ImportJobType = "STAFF_INVITE"
 	ImportJobTypeStudentImport ImportJobType = "STUDENT_IMPORT"
+	ImportJobTypeParentInvite  ImportJobType = "PARENT_INVITE"
 )
 
 // ============================================================================

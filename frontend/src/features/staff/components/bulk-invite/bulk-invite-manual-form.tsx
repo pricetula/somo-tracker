@@ -50,11 +50,18 @@ interface BulkInviteManualFormProps {
     role: string;
     onReset: () => void;
     onJobCreated: (jobId: string, totalRecords: number) => void;
+    /** Custom submit function for different invite endpoints (e.g., parents vs staff). */
+    submitFn?: typeof submitBulkInvite;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────
 
-export function BulkInviteManualForm({ role, onReset, onJobCreated }: BulkInviteManualFormProps) {
+export function BulkInviteManualForm({
+    role,
+    onReset,
+    onJobCreated,
+    submitFn = submitBulkInvite,
+}: BulkInviteManualFormProps) {
     const [rows, setRows] = React.useState<InviteFormRow[]>([freshRow()]);
     const [submitting, setSubmitting] = React.useState(false);
     const submittingRef = React.useRef(false);
@@ -119,7 +126,7 @@ export function BulkInviteManualForm({ role, onReset, onJobCreated }: BulkInvite
         }));
 
         try {
-            const result = await submitBulkInvite({ role, rows: inviteRows });
+            const result = await submitFn({ role, rows: inviteRows });
             onJobCreated(result.job_id, inviteRows.length);
         } catch (err) {
             const activeJobId = getImportAlreadyInProgress(err);

@@ -7,6 +7,9 @@
  *
  * Curriculum filter filters parents whose linked children are in
  * selected education levels or grades.
+ *
+ * Bulk import is linked via DataTable's addHref → /parents/import.
+ * Sent invitations are listed at /parents/invitations.
  */
 
 "use client";
@@ -14,9 +17,7 @@
 import Link from "next/link";
 import { DataTable } from "@/components/shared/data-table";
 import type { DataTableColumn } from "@/components/shared/data-table/types";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Upload } from "lucide-react";
 import { listParents, type Parent } from "@/lib/api/parents";
 import { CURRICULUM_FILTER_GROUPS } from "@/lib/curriculum-filters";
 import { useDeleteParent } from "@/features/parents";
@@ -70,28 +71,18 @@ export default function ParentsPage() {
     const deleteMutation = useDeleteParent();
 
     return (
-        <div className="flex flex-1 flex-col gap-4">
-            <div className="flex items-center justify-between">
-                <h1 className="text-2xl font-semibold tracking-tight">Parents</h1>
-                <Button variant="outline" size="sm" asChild>
-                    <Link href="/parents/import">
-                        <Upload className="mr-1.5 size-3.5" />
-                        Bulk Import
-                    </Link>
-                </Button>
-            </div>
-            <DataTable
-                queryKey={["parents"]}
-                queryFn={listParents}
-                columns={columns}
-                getRowId={(row) => row.id}
-                isSearchable
-                searchPlaceholder="Search by name or email…"
-                filterGroups={CURRICULUM_FILTER_GROUPS}
-                deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
-                emptyState="No parents yet."
-                noResultsState="No parents match your search or filters."
-            />
-        </div>
+        <DataTable
+            addHref="/parents/import"
+            queryKey={["parents"]}
+            queryFn={listParents}
+            columns={columns}
+            getRowId={(row) => row.id}
+            isSearchable
+            searchPlaceholder="Search by name or email…"
+            filterGroups={CURRICULUM_FILTER_GROUPS}
+            deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
+            emptyState="No parents yet."
+            noResultsState="No parents match your search or filters."
+        />
     );
 }

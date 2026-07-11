@@ -11,14 +11,21 @@ import { Button } from "@/components/ui/button";
 
 interface BulkInviteSelectorProps {
     onSelect: (type: "manual" | "file") => void;
-    isDialogVersion?: boolean;
+    /**
+     * Optional heading label. Defaults to "Invite Staff Members".
+     * Pass role-specific label (e.g. "Invite Parents") for non-staff roles.
+     */
+    title?: string;
 }
 
-export function BulkInviteSelector({ onSelect }: BulkInviteSelectorProps) {
+export function BulkInviteSelector({
+    onSelect,
+    title = "Invite Staff Members",
+}: BulkInviteSelectorProps) {
     return (
         <div className="space-y-6">
             <div className="space-y-1">
-                <h3 className="text-lg font-semibold">Invite Staff Members</h3>
+                <h3 className="text-lg font-semibold">{title}</h3>
                 <p className="text-muted-foreground">How would you like to add people?</p>
             </div>
 

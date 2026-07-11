@@ -252,9 +252,26 @@ var Module = fx.Module("invitations",
 	}),
 	// Register the StaffInvite importer in the global registry
 	fx.Invoke(registerStaffInviteImporter),
+	// Provide the ParentInviteImporter
+	fx.Provide(NewParentInviteImporter),
+	// Wire Stytch adapter into the ParentInviteImporter
+	fx.Invoke(func(pii *ParentInviteImporter, idp auth.IdentityProvider) {
+		pii.SetStytchAdapter(idp)
+	}),
+	// Wire backend URL into the ParentInviteImporter (for Stytch invite redirect URL)
+	fx.Invoke(func(pii *ParentInviteImporter, cfg config.Config) {
+		pii.SetBackendURL(cfg.BackendURL)
+	}),
+	// Register the ParentInvite importer in the global registry
+	fx.Invoke(registerParentInviteImporter),
 )
 
 // registerStaffInviteImporter registers the StaffInvite Importer.
 func registerStaffInviteImporter(sii *StaffInviteImporter) {
 	imports.RegisterImporter(sii)
+}
+
+// registerParentInviteImporter registers the ParentInvite importer.
+func registerParentInviteImporter(pii *ParentInviteImporter) {
+	imports.RegisterImporter(pii)
 }

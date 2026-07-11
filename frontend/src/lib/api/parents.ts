@@ -142,3 +142,50 @@ export async function linkStudent(parentId: string, data: LinkStudentPayload): P
 export async function unlinkStudent(parentId: string, studentId: string): Promise<void> {
     return api.delete<void>(`/api/v1/parents/${parentId}/students/${studentId}`);
 }
+
+// ============================================================================
+// Bulk Invite (Import system)
+// ============================================================================
+
+import type { ImportResponse } from "./imports";
+import { ApiError } from "./client";
+
+export interface InviteRow {
+    email: string;
+    full_name?: string;
+}
+
+export interface BulkParentInviteRequest {
+    rows: InviteRow[];
+}
+
+/**
+ * POST /api/v1/parents/invite — submit a bulk parent invitation job.
+ * Accepts an array of email rows. Returns immediately with a job_id for
+ * progress polling. Processing happens asynchronously via the Asynq import engine.
+ * Compatible with the BulkInviteForm's submitFn interface.
+ */
+export async function submitParentBulkInvite(body: {
+    role: string;
+    rows: Array<{ email: string; full_name?: string }>;
+}): Promise<ImportResponse> {
+    // The role field is accepted for compatibility with BulkInviteForm's submitFn
+    // interface but is ignored — the backend endpoint always creates PARENT invites.
+    return api.post<ImportResponse>("/api/v1/parents/invite", {
+        rows: body.rows,
+    });
+}
+
+/**
+ * Type guard to check if an error is an import_already_in_progress response.
+ */
+export function getParentImportAlreadyInProgress(err: unknown): string | null {
+    if (
+        err instanceof ApiError &&
+        err.code === "import_already_in_progress" &&
+        err.extra?.active_job_id
+    ) {
+        return String(err.extra.active_job_id);
+    }
+    return null;
+}

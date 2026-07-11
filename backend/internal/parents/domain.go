@@ -99,6 +99,30 @@ type StudentResolver interface {
 }
 
 // ============================================================================
+// Bulk Invite Types
+// ============================================================================
+
+// InviteRow is a single row in a bulk invitation request.
+type InviteRow struct {
+	Email    string  `json:"email"`
+	FullName *string `json:"full_name,omitempty"`
+}
+
+// BulkInviteRequest is the request body for POST /api/v1/parents/invite.
+type BulkInviteRequest struct {
+	Rows []InviteRow `json:"rows"`
+}
+
+// BulkInviteResponse is returned immediately after creating the bulk invite job.
+type BulkInviteResponse struct {
+	JobID        string `json:"job_id"`
+	TotalRecords int    `json:"total_records"`
+	TotalChunks  int    `json:"total_chunks"`
+	Status       string `json:"status"`
+	IsReplay     bool   `json:"is_replay,omitempty"`
+}
+
+// ============================================================================
 // ListFilter
 // ============================================================================
 
@@ -149,4 +173,7 @@ type Repository interface {
 
 	// CountLinksByStudent returns the number of parents linked to a student.
 	CountLinksByStudent(ctx context.Context, studentID, tenantID string) (int, error)
+
+	// GetStytchOrgID returns the Stytch organization ID for a tenant.
+	GetStytchOrgID(ctx context.Context, tenantID string) (string, error)
 }

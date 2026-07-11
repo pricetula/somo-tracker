@@ -15,7 +15,7 @@
 import * as React from "react";
 import { Loader2 } from "lucide-react";
 import { ImportProgress } from "@/features/students/components/students-import/import-progress";
-import { getActiveImportJob } from "@/lib/api/imports";
+import { getActiveImportJob, type ImportResponse } from "@/lib/api/imports";
 import { useMe } from "@/hooks/use-auth";
 import { BulkInviteSelector } from "./bulk-invite-selector";
 import { BulkInviteManualForm } from "./bulk-invite-manual-form";
@@ -56,15 +56,35 @@ function pageReducer(state: PageState, action: PageAction): PageState {
 
 // ─── Props ────────────────────────────────────────────────────────────────
 
+interface BulkInviteSubmitFn {
+    (body: {
+        role: string;
+        rows: Array<{ email: string; full_name?: string }>;
+    }): Promise<ImportResponse>;
+}
+
 interface BulkInviteFormProps {
     /** The role to pre-select. Determines who gets invited. */
-    role: "SCHOOL_ADMIN" | "TEACHER" | "NURSE" | "FINANCE";
-    isDialogVersion?: boolean;
+    role: "SCHOOL_ADMIN" | "TEACHER" | "NURSE" | "FINANCE" | "PARENT";
+    /** Custom submit function for different invite endpoints (e.g., parents vs staff). */
+    submitFn?: BulkInviteSubmitFn;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────
 
-export function BulkInviteForm({ role, isDialogVersion = false }: BulkInviteFormProps) {
+// ─── Role label map ──────────────────────────────────────────────────
+
+const ROLE_LABELS: Record<string, string> = {
+    TEACHER: "Invite Teachers",
+    SCHOOL_ADMIN: "Invite Admins",
+    NURSE: "Invite Nurses",
+    FINANCE: "Invite Finance Staff",
+    PARENT: "Invite Parents",
+};
+
+// ─── Component ────────────────────────────────────────────────────────────
+
+export function BulkInviteForm({ role, submitFn }: BulkInviteFormProps) {
     const { data: me } = useMe();
     const [pageState, dispatch] = React.useReducer(pageReducer, { phase: "idle", step: null });
 
@@ -140,7 +160,7 @@ export function BulkInviteForm({ role, isDialogVersion = false }: BulkInviteForm
         return (
             <BulkInviteSelector
                 onSelect={(s) => dispatch({ type: "SELECT_STEP", step: s })}
-                isDialogVersion={isDialogVersion}
+                title={ROLE_LABELS[role] ?? "Invite Staff Members"}
             />
         );
     }
@@ -151,6 +171,7 @@ export function BulkInviteForm({ role, isDialogVersion = false }: BulkInviteForm
                 role={role}
                 onReset={handleReset}
                 onJobCreated={handleJobCreated}
+                submitFn={submitFn}
             />
         );
     }
@@ -161,6 +182,7 @@ export function BulkInviteForm({ role, isDialogVersion = false }: BulkInviteForm
                 role={role}
                 onReset={handleReset}
                 onJobCreated={handleJobCreated}
+                submitFn={submitFn}
             />
         );
     }

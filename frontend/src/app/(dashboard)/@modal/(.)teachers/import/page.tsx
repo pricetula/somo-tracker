@@ -24,7 +24,7 @@ export default function TeachersImportModal() {
                 <DialogHeader>
                     <DialogTitle>Invite Teachers</DialogTitle>
                 </DialogHeader>
-                <BulkInviteForm role="TEACHER" isDialogVersion />
+                <BulkInviteForm role="TEACHER" />
             </DialogContent>
         </Dialog>
     );

@@ -309,6 +309,15 @@ func (m *mockRepo) CountLinksByStudent(ctx context.Context, studentID, tenantID 
 	return count, nil
 }
 
+func (m *mockRepo) GetStytchOrgID(ctx context.Context, tenantID string) (string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if tenantID == "" {
+		return "", fmt.Errorf("empty tenant")
+	}
+	return "stytch_org_" + tenantID, nil
+}
+
 // Ensure mockRepo implements Repository
 var _ Repository = (*mockRepo)(nil)
 

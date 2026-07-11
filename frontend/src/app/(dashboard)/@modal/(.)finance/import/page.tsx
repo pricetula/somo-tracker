@@ -24,7 +24,7 @@ export default function FinanceBulkImportModal() {
                 <DialogHeader>
                     <DialogTitle>Invite Finance Staff</DialogTitle>
                 </DialogHeader>
-                <BulkInviteForm role="FINANCE" isDialogVersion />
+                <BulkInviteForm role="FINANCE" />
             </DialogContent>
         </Dialog>
     );

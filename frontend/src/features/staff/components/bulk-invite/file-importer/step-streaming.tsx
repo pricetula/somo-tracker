@@ -18,11 +18,19 @@ interface StepStreamingProps {
     onJobCreated: (jobId: string, totalRecords: number) => void;
     schoolId: string;
     role: string;
+    /** Custom submit function for different invite endpoints (e.g., parents vs staff). */
+    submitFn?: typeof submitBulkInvite;
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────
 
-export function StepStreaming({ onError, onJobCreated, schoolId, role }: StepStreamingProps) {
+export function StepStreaming({
+    onError,
+    onJobCreated,
+    schoolId,
+    role,
+    submitFn = submitBulkInvite,
+}: StepStreamingProps) {
     const [records, setRecords] = React.useState<StagedInviteRecord[]>([]);
     const [loading, setLoading] = React.useState(true);
     const [submitting, setSubmitting] = React.useState(false);
@@ -54,7 +62,7 @@ export function StepStreaming({ onError, onJobCreated, schoolId, role }: StepStr
         }));
 
         try {
-            const result = await submitBulkInvite({
+            const result = await submitFn({
                 role,
                 rows: inviteRows,
             });
@@ -70,7 +78,7 @@ export function StepStreaming({ onError, onJobCreated, schoolId, role }: StepStr
             setSubmitting(false);
             onError(getErrorMessage(err));
         }
-    }, [records, role, onError, onJobCreated]);
+    }, [records, role, onError, onJobCreated, submitFn]);
 
     if (loading) {
         return (

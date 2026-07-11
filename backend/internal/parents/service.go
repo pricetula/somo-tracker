@@ -218,3 +218,15 @@ func (s *Service) UnlinkStudent(ctx context.Context, parentID, studentID, tenant
 	}
 	return s.Repo.UnlinkStudent(ctx, parentID, studentID, tenantID)
 }
+
+// ============================================================================
+// STYTCH ORG ID
+// ============================================================================
+
+// GetStytchOrgID returns the Stytch organization ID for a tenant.
+func (s *Service) GetStytchOrgID(ctx context.Context, tenantID string) (string, error) {
+	if tenantID == "" {
+		return "", fmt.Errorf("parents.Service.GetStytchOrgID: %w", ErrInvalidInput)
+	}
+	return s.Repo.GetStytchOrgID(ctx, tenantID)
+}

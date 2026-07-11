@@ -24,7 +24,7 @@ export default function NursesBulkImportModal() {
                 <DialogHeader>
                     <DialogTitle>Invite Nurses</DialogTitle>
                 </DialogHeader>
-                <BulkInviteForm role="NURSE" isDialogVersion />
+                <BulkInviteForm role="NURSE" />
             </DialogContent>
         </Dialog>
     );

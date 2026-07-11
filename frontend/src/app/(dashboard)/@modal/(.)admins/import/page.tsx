@@ -24,7 +24,7 @@ export default function AdminsBulkImportModal() {
                 <DialogHeader>
                     <DialogTitle>Invite Admins</DialogTitle>
                 </DialogHeader>
-                <BulkInviteForm role="SCHOOL_ADMIN" isDialogVersion />
+                <BulkInviteForm role="SCHOOL_ADMIN" />
             </DialogContent>
         </Dialog>
     );

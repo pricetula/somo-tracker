@@ -48,6 +48,7 @@ import {
 import { validateAndDetectDuplicates } from "./file-importer/validation-utils";
 import { useMe } from "@/hooks/use-auth";
 import { toast } from "sonner";
+import type { ImportResponse } from "@/lib/api/imports";
 import type {
     WizardStep,
     ParsedFileResult,
@@ -94,10 +95,19 @@ function formatSessionDate(iso: string): string {
 
 // ─── Props ────────────────────────────────────────────────────────────────
 
+interface BulkInviteSubmitFn {
+    (body: {
+        role: string;
+        rows: Array<{ email: string; full_name?: string }>;
+    }): Promise<ImportResponse>;
+}
+
 interface BulkInviteFileImporterProps {
     role: string;
     onReset: () => void;
     onJobCreated: (jobId: string, totalRecords: number) => void;
+    /** Custom submit function for different invite endpoints (e.g., parents vs staff). */
+    submitFn?: BulkInviteSubmitFn;
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────
@@ -106,6 +116,7 @@ export function BulkInviteFileImporter({
     role,
     onReset,
     onJobCreated,
+    submitFn,
 }: BulkInviteFileImporterProps) {
     const { data: me } = useMe();
     const schoolId = me?.school_id ?? "";
@@ -691,6 +702,7 @@ export function BulkInviteFileImporter({
                     onError={handleImportError}
                     onJobCreated={handleImportStarted}
                     schoolId={schoolId}
+                    submitFn={submitFn}
                 />
             )}
         </section>

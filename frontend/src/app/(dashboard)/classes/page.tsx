@@ -98,9 +98,8 @@ export default function ClassesPage() {
                 type: "sub_menu_multi",
                 submenu: streams.map((s) => ({
                     id: s.id,
-                    label: s.name,
+                    label: <StreamPill name={s.name} color={s.color} />,
                     value: s.id,
-                    dotColor: s.color || undefined,
                 })),
             });
         }

@@ -1,9 +1,13 @@
 /**
  * Education Level feature — type definitions.
+ *
+ * The EducationLevel union type is sourced from lib/api/generated.ts (the
+ * canonical API-generated type) — never redefine it here.
  */
 
-/** Canonical education level values used across the system. */
-export type EducationLevel = "Early_Years" | "Upper_Primary" | "Junior_Secondary" | "Senior_School";
+import type { EducationLevel } from "@/lib/api/generated";
+
+export type { EducationLevel };
 
 /** Human-readable labels for each education level. */
 export const EDUCATION_LEVEL_LABELS: Record<EducationLevel, string> = {
@@ -23,16 +27,4 @@ export const EDUCATION_LEVEL_STYLES: Record<EducationLevel, { dot: string }> = {
     Upper_Primary: { dot: "bg-sky-600" },
     Junior_Secondary: { dot: "bg-amber-600" },
     Senior_School: { dot: "bg-violet-600" },
-};
-
-/**
- * Hex dot colours for each education level — the inline-style equivalent of
- * EDUCATION_LEVEL_STYLES (used by the FilterDropdown component which needs
- * inline style={{ backgroundColor }} rather than a Tailwind class).
- */
-export const EDUCATION_LEVEL_DOT_COLORS: Record<EducationLevel, string> = {
-    Early_Years: "#059669",
-    Upper_Primary: "#0284c7",
-    Junior_Secondary: "#d97706",
-    Senior_School: "#7c3aed",
 };

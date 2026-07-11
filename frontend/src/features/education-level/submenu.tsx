@@ -4,22 +4,25 @@
  *
  * Every data table that filters by education level imports this function
  * instead of defining its own SubFilterItem array.
+ *
+ * The label renders an <EducationLevelPill /> so the colour definition lives
+ * only inside the pill component — the filter dropdown never touches colour.
  */
 
 import type { SubFilterItem } from "@/components/shared/data-table/types";
-import { EDUCATION_LEVEL_DOT_COLORS, EDUCATION_LEVEL_LABELS, type EducationLevel } from "./types";
+import { EDUCATION_LEVEL_LABELS, type EducationLevel } from "./types";
+import { EducationLevelPill } from "./components/education-level-pill";
 
 /**
  * Returns the canonical list of SubFilterItem entries for all education levels.
  *
- * The dotColor values are derived from EDUCATION_LEVEL_DOT_COLORS so the filter
- * dropdown stays in sync with the EducationLevelPill component.
+ * Colour and display text are handled entirely by the EducationLevelPill
+ * component — no dotColor or string label is passed to the filter.
  */
 export function getEducationLevelFilterSubmenu(): SubFilterItem[] {
     return (Object.keys(EDUCATION_LEVEL_LABELS) as EducationLevel[]).map((level) => ({
         id: level.toLowerCase(),
-        label: EDUCATION_LEVEL_LABELS[level],
+        label: <EducationLevelPill level={level} />,
         value: level,
-        dotColor: EDUCATION_LEVEL_DOT_COLORS[level],
     }));
 }

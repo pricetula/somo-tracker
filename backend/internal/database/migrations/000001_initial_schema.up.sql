@@ -208,7 +208,7 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 DO $$ BEGIN
-    CREATE TYPE import_job_type AS ENUM ('STAFF_INVITE', 'STUDENT_IMPORT');
+    CREATE TYPE import_job_type AS ENUM ('STAFF_INVITE', 'STUDENT_IMPORT', 'PARENT_INVITE');
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
@@ -226,7 +226,11 @@ DO $$ BEGIN
     CREATE TYPE import_failure_type AS ENUM (
         'SCHEMA_VALIDATION',
         'DATABASE_CONSTRAINT',
-        'BUSINESS_RULE_VIOLATION'
+        'BUSINESS_RULE_VIOLATION',
+        'DUPLICATE_EMAIL',
+        'INVALID_EMAIL_FORMAT',
+        'STYTCH_API_ERROR',
+        'INVITATION_INSERT_FAILED'
     );
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
@@ -471,6 +475,7 @@ CREATE TABLE IF NOT EXISTS cbc_streams (
     tenant_id  UUID         NOT NULL,
     school_id  UUID         NOT NULL,
     name       VARCHAR(100) NOT NULL,
+    color      VARCHAR(50)  NOT NULL DEFAULT '',
     created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
 
@@ -612,7 +617,10 @@ CREATE TABLE IF NOT EXISTS import_jobs (
         FOREIGN KEY (tenant_id, school_id)
         REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT chk_import_jobs_role_required_for_staff
-        CHECK (job_type <> 'STAFF_INVITE' OR role IS NOT NULL)
+        CHECK (
+            (job_type IN ('STAFF_INVITE', 'PARENT_INVITE') AND role IS NOT NULL)
+            OR (job_type NOT IN ('STAFF_INVITE', 'PARENT_INVITE'))
+        )
 );
 
 CREATE INDEX IF NOT EXISTS idx_import_jobs_tenant_id  ON import_jobs (tenant_id);
@@ -727,6 +735,12 @@ CREATE INDEX IF NOT EXISTS idx_invitations_import_job ON invitations (import_job
 CREATE UNIQUE INDEX IF NOT EXISTS uq_invitations_active_email
     ON invitations (tenant_id, school_id, email)
     WHERE status NOT IN ('expired', 'revoked');
+
+-- Prevents race conditions where two concurrent chunks try to invite
+-- the same email for the same school.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_invitations_school_email_pending
+    ON invitations (school_id, email)
+    WHERE status = 'pending';
 
 -- ---------------------------------------------------------------------------
 -- CBC PARENTS

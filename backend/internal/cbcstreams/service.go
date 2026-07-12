@@ -2,6 +2,7 @@ package cbcstreams
 
 import (
 	"context"
+	"errors"
 	"fmt"
 )
 
@@ -59,12 +60,26 @@ func (s *Service) UpdateStream(ctx context.Context, id, tenantID, schoolID, name
 }
 
 // DeleteStream deletes a stream by ID.
+// Returns ErrStreamHasActiveEnrollments (wrapping the stream name) if the
+// stream has classes with active student enrollments.
 func (s *Service) DeleteStream(ctx context.Context, id, tenantID, schoolID string) error {
 	if id == "" || tenantID == "" || schoolID == "" {
 		return fmt.Errorf("cbcstreams.Service.DeleteStream: %w", ErrInvalidInput)
 	}
 
+	// Fetch the stream first so we can include its name in error messages.
+	stream, err := s.Repo.GetByID(ctx, id, tenantID, schoolID)
+	if err != nil {
+		return fmt.Errorf("cbcstreams.Service.DeleteStream: %w", err)
+	}
+
 	if err := s.Repo.Delete(ctx, id, tenantID, schoolID); err != nil {
+		if errors.Is(err, ErrStreamHasActiveEnrollments) {
+			return fmt.Errorf(
+				"cannot delete stream %q: this stream is currently active and contains enrolled students in one or more classes. Please reassign or unenroll the students before deleting this stream: %w",
+				stream.Name, ErrStreamHasActiveEnrollments,
+			)
+		}
 		return fmt.Errorf("cbcstreams.Service.DeleteStream: %w", err)
 	}
 	return nil

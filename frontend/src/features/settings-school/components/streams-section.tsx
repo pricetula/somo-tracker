@@ -246,12 +246,12 @@ function DeleteStreamAlert({ stream }: { stream: Stream }) {
                 <AlertDialogHeader>
                     <AlertDialogTitle>Delete Stream</AlertDialogTitle>
                     <AlertDialogDescription>
-                        Are you sure you want to delete <strong>{stream.name}</strong>? This will
-                        also delete all classes in this stream.
+                        Are you sure you want to delete the stream <strong>{stream.name}</strong>?
+                        This action cannot be undone.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogCancel disabled={deleteStream.isPending}>Cancel</AlertDialogCancel>
                     <AlertDialogAction
                         onClick={() => deleteStream.mutate(stream.id)}
                         disabled={deleteStream.isPending}

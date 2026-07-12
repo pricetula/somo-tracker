@@ -114,8 +114,41 @@ func (r *PgRepository) Update(ctx context.Context, id, tenantID, schoolID, name,
 	return &s, nil
 }
 
-// Delete removes a stream by ID (cascades to classes).
+// HasActiveEnrollments checks whether any class referencing this stream has
+// active student enrollments (status = 'ACTIVE') in the current term.
+func (r *PgRepository) HasActiveEnrollments(ctx context.Context, id, tenantID, schoolID string) (bool, error) {
+	const query = `
+		SELECT EXISTS (
+			SELECT 1
+			FROM cbc_classes c
+			JOIN cbc_student_enrollments e ON e.class_id = c.id
+			WHERE c.stream_id = $1
+			  AND c.tenant_id = $2
+			  AND c.school_id = $3
+			  AND e.status = 'ACTIVE'
+		)
+	`
+	var exists bool
+	err := r.pool.QueryRow(ctx, query, id, tenantID, schoolID).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("cbcstreams.Repository.HasActiveEnrollments: %w", err)
+	}
+	return exists, nil
+}
+
+// Delete removes a stream by ID. Returns ErrStreamHasActiveEnrollments when
+// the stream has classes with active student enrollments — the transaction is
+// rolled back and the database is left untouched.
 func (r *PgRepository) Delete(ctx context.Context, id, tenantID, schoolID string) error {
+	// Check for active enrollments first — block deletion if found.
+	hasActive, err := r.HasActiveEnrollments(ctx, id, tenantID, schoolID)
+	if err != nil {
+		return fmt.Errorf("cbcstreams.Repository.Delete: %w", err)
+	}
+	if hasActive {
+		return fmt.Errorf("cbcstreams.Repository.Delete: %w", ErrStreamHasActiveEnrollments)
+	}
+
 	const query = `
 		DELETE FROM cbc_streams
 		WHERE id = $1 AND tenant_id = $2 AND school_id = $3

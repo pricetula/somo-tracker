@@ -1,6 +1,8 @@
 package cbcstreams
 
 import (
+	"errors"
+
 	"github.com/gofiber/fiber/v2"
 
 	"somotracker/backend/internal/middleware"
@@ -143,6 +145,13 @@ func (h *Handler) Delete(c *fiber.Ctx) error {
 	}
 
 	if err := h.svc.DeleteStream(c.Context(), streamID, tenantID, schoolID); err != nil {
+		// Stream has active enrollments — return a human-readable 409.
+		if errors.Is(err, ErrStreamHasActiveEnrollments) {
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+				"code":    "stream_has_active_enrollments",
+				"message": err.Error(),
+			})
+		}
 		return middleware.HTTPError(c, err)
 	}
 

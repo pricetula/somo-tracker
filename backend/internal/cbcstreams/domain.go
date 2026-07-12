@@ -16,6 +16,9 @@ var (
 	ErrUnauthorized  = fmt.Errorf("unauthorized: %w", middleware.ErrUnauthorized)
 	ErrForbidden     = fmt.Errorf("forbidden: %w", middleware.ErrForbidden)
 	ErrConflict      = fmt.Errorf("cbcstreams conflict: %w", middleware.ErrConflict)
+	// ErrStreamHasActiveEnrollments is returned when attempting to delete a stream
+	// that has classes with active student enrollments.
+	ErrStreamHasActiveEnrollments = fmt.Errorf("cbcstreams has active enrollments: %w", middleware.ErrConflict)
 )
 
 // Stream represents a named stream within a school.
@@ -52,4 +55,8 @@ type Repository interface {
 	GetByID(ctx context.Context, id, tenantID, schoolID string) (*Stream, error)
 	Update(ctx context.Context, id, tenantID, schoolID, name, color string) (*Stream, error)
 	Delete(ctx context.Context, id, tenantID, schoolID string) error
+
+	// HasActiveEnrollments checks whether any class referencing this stream has
+	// active student enrollments in the current term.
+	HasActiveEnrollments(ctx context.Context, id, tenantID, schoolID string) (bool, error)
 }

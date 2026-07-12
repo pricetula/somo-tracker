@@ -76,7 +76,7 @@ export function useDeleteStream() {
         mutationFn: (id: string) => deleteStream(id),
         onSuccess: () => {
             void queryClient.invalidateQueries({ queryKey: streamKeys.list() });
-            toast.success("Stream deleted");
+            toast.success("Stream deleted successfully");
         },
         onError: (err) => {
             toast.error(getErrorMessage(err));

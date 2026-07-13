@@ -15,13 +15,13 @@ func todayEAT() time.Time {
 	return time.Date(eat.Year(), eat.Month(), eat.Day(), 0, 0, 0, 0, time.UTC)
 }
 
-// parseDate parses a "YYYY-MM-DD" string into a time.Time.
-func parseDate(s string) (time.Time, error) {
+// parseDate parses a "YYYY-MM-DD" string into a DateOnly.
+func parseDate(s string) (DateOnly, error) {
 	t, err := time.Parse("2006-01-02", s)
 	if err != nil {
-		return time.Time{}, fmt.Errorf("invalid date format %q: %w", s, err)
+		return DateOnly{}, fmt.Errorf("invalid date format %q: %w", s, err)
 	}
-	return t, nil
+	return DateOnly{Time: t}, nil
 }
 
 // ============================================================================
@@ -86,7 +86,7 @@ func (s *Service) PatchYear(ctx context.Context, id, tenantID, schoolID string, 
 
 	// Step 3 — Term-strandedness check (if dates changed)
 	if body.StartDate != nil || body.EndDate != nil {
-		stranded, err := s.Repo.FindStrandedTerms(ctx, year.ID, year.StartDate, year.EndDate)
+		stranded, err := s.Repo.FindStrandedTerms(ctx, year.ID, year.StartDate.Time, year.EndDate.Time)
 		if err != nil {
 			return nil, nil // error propagated
 		}
@@ -228,7 +228,7 @@ func (s *Service) CreateTerm(ctx context.Context, body CreateTermBody, tenantID,
 	}
 
 	// Overlap check
-	overlapping, err := s.Repo.FindOverlappingTerms(ctx, body.AcademicYearID, "", startDate, endDate)
+	overlapping, err := s.Repo.FindOverlappingTerms(ctx, body.AcademicYearID, "", startDate.Time, endDate.Time)
 	if err != nil {
 		return nil, fmt.Errorf("academicyears.Service.CreateTerm: %w", err)
 	}
@@ -322,7 +322,7 @@ func (s *Service) PatchTerm(ctx context.Context, id, tenantID, schoolID string, 
 		}
 
 		// Overlap check (exclude self)
-		overlapping, err := s.Repo.FindOverlappingTerms(ctx, term.AcademicYearID, term.ID, term.StartDate, term.EndDate)
+		overlapping, err := s.Repo.FindOverlappingTerms(ctx, term.AcademicYearID, term.ID, term.StartDate.Time, term.EndDate.Time)
 		if err != nil {
 			return nil, fmt.Errorf("academicyears.Service.PatchTerm: %w", err)
 		}
@@ -423,8 +423,8 @@ func (s *Service) SetupInitialYear(ctx context.Context, tenantID, schoolID, acto
 	year := now.Year()
 
 	// Academic year spans the full calendar year (Kenya CBC uses Jan-Dec)
-	yearStart := time.Date(year, 1, 1, 0, 0, 0, 0, time.UTC)
-	yearEnd := time.Date(year, 12, 31, 0, 0, 0, 0, time.UTC)
+	yearStart := DateOnly{Time: time.Date(year, 1, 1, 0, 0, 0, 0, time.UTC)}
+	yearEnd := DateOnly{Time: time.Date(year, 12, 31, 0, 0, 0, 0, time.UTC)}
 
 	// Create the academic year and set it as current
 	yearModel := &AcademicYear{
@@ -455,8 +455,8 @@ func (s *Service) SetupInitialYear(ctx context.Context, tenantID, schoolID, acto
 	type termDef struct {
 		Name       string
 		TermNumber int
-		StartDate  time.Time
-		EndDate    time.Time
+		StartDate  DateOnly
+		EndDate    DateOnly
 		IsFinal    bool
 	}
 
@@ -464,22 +464,22 @@ func (s *Service) SetupInitialYear(ctx context.Context, tenantID, schoolID, acto
 		{
 			Name:       "Term 1",
 			TermNumber: 1,
-			StartDate:  time.Date(year, 1, 26, 0, 0, 0, 0, time.UTC),
-			EndDate:    time.Date(year, 4, 24, 0, 0, 0, 0, time.UTC),
+			StartDate:  DateOnly{Time: time.Date(year, 1, 26, 0, 0, 0, 0, time.UTC)},
+			EndDate:    DateOnly{Time: time.Date(year, 4, 24, 0, 0, 0, 0, time.UTC)},
 			IsFinal:    false,
 		},
 		{
 			Name:       "Term 2",
 			TermNumber: 2,
-			StartDate:  time.Date(year, 5, 4, 0, 0, 0, 0, time.UTC),
-			EndDate:    time.Date(year, 8, 7, 0, 0, 0, 0, time.UTC),
+			StartDate:  DateOnly{Time: time.Date(year, 5, 4, 0, 0, 0, 0, time.UTC)},
+			EndDate:    DateOnly{Time: time.Date(year, 8, 7, 0, 0, 0, 0, time.UTC)},
 			IsFinal:    false,
 		},
 		{
 			Name:       "Term 3",
 			TermNumber: 3,
-			StartDate:  time.Date(year, 9, 1, 0, 0, 0, 0, time.UTC),
-			EndDate:    time.Date(year, 11, 27, 0, 0, 0, 0, time.UTC),
+			StartDate:  DateOnly{Time: time.Date(year, 9, 1, 0, 0, 0, 0, time.UTC)},
+			EndDate:    DateOnly{Time: time.Date(year, 11, 27, 0, 0, 0, 0, time.UTC)},
 			IsFinal:    false,
 		},
 	}

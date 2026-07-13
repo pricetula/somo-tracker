@@ -109,6 +109,111 @@ func (s *Service) UpdateClass(ctx context.Context, params UpdateClassParams) (*C
 	return class, nil
 }
 
+// GetClass returns a single class by ID, scoped to tenant + school.
+func (s *Service) GetClass(ctx context.Context, classID, tenantID, schoolID string) (*Class, error) {
+	if classID == "" || tenantID == "" || schoolID == "" {
+		return nil, fmt.Errorf("cbcclasses.Service.GetClass: %w", ErrInvalidInput)
+	}
+
+	class, err := s.Repo.GetByID(ctx, classID, tenantID, schoolID)
+	if err != nil {
+		return nil, fmt.Errorf("cbcclasses.Service.GetClass: %w", err)
+	}
+	return class, nil
+}
+
+// ─── GetRoster ───────────────────────────────────────────────────────────
+
+// GetRoster returns a paginated roster of students enrolled in a class, with optional search.
+func (s *Service) GetRoster(ctx context.Context, classID, tenantID, schoolID, academicTermID string, page, limit int, search string) (*RosterListResult, error) {
+	if classID == "" || tenantID == "" || schoolID == "" || academicTermID == "" {
+		return nil, fmt.Errorf("cbcclasses.Service.GetRoster: %w", ErrInvalidInput)
+	}
+
+	if limit <= 0 {
+		limit = 50
+	}
+	if page <= 0 {
+		page = 1
+	}
+	offset := (page - 1) * limit
+
+	// Verify class exists and belongs to this tenant + school
+	_, err := s.Repo.GetByID(ctx, classID, tenantID, schoolID)
+	if err != nil {
+		return nil, fmt.Errorf("cbcclasses.Service.GetRoster: %w", err)
+	}
+
+	result, err := s.Repo.GetRoster(ctx, classID, tenantID, schoolID, academicTermID, limit, offset, search)
+	if err != nil {
+		return nil, fmt.Errorf("cbcclasses.Service.GetRoster: %w", err)
+	}
+	return result, nil
+}
+
+// ─── BatchEnroll ──────────────────────────────────────────────────────────
+
+// BatchEnroll atomically enrolls multiple students into a class for the active term.
+// If any student has a concurrent enrollment elsewhere, the entire batch rolls back.
+func (s *Service) BatchEnroll(ctx context.Context, classID, tenantID, schoolID, academicTermID string, studentIDs []string) (*BatchEnrollResponse, error) {
+	if classID == "" || tenantID == "" || schoolID == "" || academicTermID == "" {
+		return nil, fmt.Errorf("cbcclasses.Service.BatchEnroll: %w", ErrInvalidInput)
+	}
+	if len(studentIDs) == 0 {
+		return nil, fmt.Errorf("cbcclasses.Service.BatchEnroll: student_ids is required: %w", ErrInvalidInput)
+	}
+
+	// Verify class exists
+	_, err := s.Repo.GetByID(ctx, classID, tenantID, schoolID)
+	if err != nil {
+		return nil, fmt.Errorf("cbcclasses.Service.BatchEnroll: %w", err)
+	}
+
+	enrolledCount, err := s.Repo.BatchEnrollStudents(ctx, classID, tenantID, schoolID, academicTermID, studentIDs)
+	if err != nil {
+		return nil, fmt.Errorf("cbcclasses.Service.BatchEnroll: %w", err)
+	}
+
+	return &BatchEnrollResponse{
+		Code:          "enrollment_successful",
+		Message:       fmt.Sprintf("%d students successfully enrolled.", enrolledCount),
+		EnrolledCount: enrolledCount,
+	}, nil
+}
+
+// ─── UnenrollStudent ──────────────────────────────────────────────────────
+
+// UnenrollStudent removes a single student from this class.
+func (s *Service) UnenrollStudent(ctx context.Context, classID, studentID, tenantID, schoolID string) error {
+	if classID == "" || studentID == "" || tenantID == "" || schoolID == "" {
+		return fmt.Errorf("cbcclasses.Service.UnenrollStudent: %w", ErrInvalidInput)
+	}
+
+	if err := s.Repo.UnenrollStudent(ctx, classID, studentID, tenantID, schoolID); err != nil {
+		return fmt.Errorf("cbcclasses.Service.UnenrollStudent: %w", err)
+	}
+	return nil
+}
+
+// ─── GetAvailableStudents ─────────────────────────────────────────────────
+
+// GetAvailableStudents returns a paginated list of students not enrolled in this class
+// for the active term, with optional search.
+func (s *Service) GetAvailableStudents(ctx context.Context, filter AvailableStudentsFilter) (*AvailableStudentsResponse, error) {
+	if filter.TenantID == "" || filter.SchoolID == "" || filter.ClassID == "" || filter.AcademicTermID == "" {
+		return nil, fmt.Errorf("cbcclasses.Service.GetAvailableStudents: %w", ErrInvalidInput)
+	}
+
+	if filter.Limit <= 0 {
+		filter.Limit = 50
+	}
+	if filter.Page <= 0 {
+		filter.Page = 1
+	}
+
+	return s.Repo.GetAvailableStudents(ctx, filter)
+}
+
 // BulkDeleteClasses deletes multiple classes after pre-flight checks.
 func (s *Service) BulkDeleteClasses(ctx context.Context, classIDs []string, tenantID, schoolID string) error {
 	if len(classIDs) == 0 || tenantID == "" || schoolID == "" {

@@ -18,6 +18,8 @@ var (
 	ErrConflict            = fmt.Errorf("cbcclasses conflict: %w", middleware.ErrConflict)
 	ErrClassLocked         = fmt.Errorf("cbcclasses locked: %w", middleware.ErrConflict)
 	ErrClassHasAssessments = fmt.Errorf("cbcclasses has assessments: %w", middleware.ErrConflict)
+	ErrEnrollmentConflict  = fmt.Errorf("enrollment conflict: some students are already enrolled elsewhere: %w", middleware.ErrConflict)
+	ErrStudentNotInClass   = fmt.Errorf("student is not enrolled in this class: %w", middleware.ErrNotFound)
 )
 
 // Repository defines the contract for class persistence.
@@ -32,6 +34,23 @@ type Repository interface {
 	ValidateAcademicYear(ctx context.Context, id, tenantID, schoolID string) (bool, error)
 	ValidateAcademicTerm(ctx context.Context, id, academicYearID string) (bool, error)
 	ValidateStream(ctx context.Context, id, tenantID, schoolID string) (bool, error)
+
+	// Enrollment
+	GetRoster(ctx context.Context, classID, tenantID, schoolID, academicTermID string, limit, offset int, search string) (*RosterListResult, error)
+	BatchEnrollStudents(ctx context.Context, classID, tenantID, schoolID, academicTermID string, studentIDs []string) (int, error)
+	UnenrollStudent(ctx context.Context, classID, studentID, tenantID, schoolID string) error
+	GetAvailableStudents(ctx context.Context, filter AvailableStudentsFilter) (*AvailableStudentsResponse, error)
+}
+
+// AvailableStudentsFilter holds filtering and pagination for student search.
+type AvailableStudentsFilter struct {
+	TenantID       string
+	SchoolID       string
+	ClassID        string
+	AcademicTermID string
+	Search         string
+	Page           int
+	Limit          int
 }
 
 // Class represents a CBC class with its stream relationship.
@@ -110,4 +129,55 @@ type UpdateClassParams struct {
 // BulkDeletePayload is the request body for DELETE /api/v1/classes.
 type BulkDeletePayload struct {
 	ClassIDs []string `json:"class_ids"`
+}
+
+// ─── Roster / Enrollment Types ────────────────────────────────────────────
+
+// RosterListResult holds the paginated response for roster listing.
+type RosterListResult struct {
+	Items []RosterEntry `json:"items"`
+	Total int           `json:"total"`
+	Page  int           `json:"page"`
+	Limit int           `json:"limit"`
+}
+
+// RosterEntry represents a single student enrolled in a class.
+type RosterEntry struct {
+	ID              string `json:"id"`
+	FullName        string `json:"full_name"`
+	AdmissionNumber string `json:"admission_number,omitempty"`
+	UPINumber       string `json:"upi_number,omitempty"`
+	Gender          string `json:"gender"`
+	EnrolledAt      string `json:"enrolled_at,omitempty"`
+}
+
+// BatchEnrollPayload is the request body for POST /api/v1/classes/:id/enroll.
+type BatchEnrollPayload struct {
+	StudentIDs []string `json:"student_ids"`
+}
+
+// BatchEnrollResponse is returned after a successful batch enrollment.
+type BatchEnrollResponse struct {
+	Code          string `json:"code"`
+	Message       string `json:"message"`
+	EnrolledCount int    `json:"enrolled_count"`
+}
+
+// AvailableStudent represents a student who can be enrolled in the class.
+type AvailableStudent struct {
+	ID              string  `json:"id"`
+	FullName        string  `json:"full_name"`
+	AdmissionNumber *string `json:"admission_number,omitempty"`
+	UPINumber       *string `json:"upi_number,omitempty"`
+	Gender          string  `json:"gender"`
+	CurrentClass    *string `json:"current_class,omitempty"`
+	CurrentClassID  *string `json:"current_class_id,omitempty"`
+}
+
+// AvailableStudentsResponse holds the paginated list of available students.
+type AvailableStudentsResponse struct {
+	Items []AvailableStudent `json:"items"`
+	Total int                `json:"total"`
+	Page  int                `json:"page"`
+	Limit int                `json:"limit"`
 }

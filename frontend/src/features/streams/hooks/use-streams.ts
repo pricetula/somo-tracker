@@ -1,5 +1,8 @@
 /**
  * useStreams — TanStack Query hooks for managing streams.
+ *
+ * Moved from settings-school to its own streams feature module so all
+ * consumers import streams from one canonical place.
  */
 
 "use client";
@@ -9,7 +12,6 @@ import { toast } from "sonner";
 
 import { listStreams, createStream, updateStream, deleteStream } from "@/lib/api/streams";
 import { getErrorMessage } from "@/lib/errors";
-import type { Stream } from "../types";
 
 // ─── Query keys ───────────────────────────────────────────────────────────
 
@@ -27,10 +29,6 @@ export function useStreamList() {
         queryFn: () => listStreams(),
         staleTime: 5 * 60 * 1000,
         placeholderData: (prev) => prev,
-        select: (data): { items: Stream[]; total: number } => ({
-            items: data.items,
-            total: data.total,
-        }),
     });
 }
 

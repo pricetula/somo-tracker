@@ -38,7 +38,25 @@ src/
 
 ---
 
-## 2. Package Manager
+## 2. Page Creation — No Headers or Back Navigation
+
+When scaffolding a new page, the app shell (top bar, back button, global navigation) is
+owned by `src/app/layout.tsx` and the feature container's root layout — not by
+individual page or feature components.
+
+- **Do not** add a `<header>`, `<nav>`, back button, or any breadcrumb component inside
+  a page file (`page.tsx`) or a feature container rendered by one. Navigation is the
+  shell's responsibility.
+- **Do not** replicate the top app bar or any global navigation element. The shell
+  layout is inherited; pages are content panes only.
+- If a page needs a heading (e.g. a page title), use `h1` rendered as plain text —
+  never wrap it in a header/nav element or style it to look like a navigation bar.
+- Exception: standalone marketing pages under `public/` (separate project) may have
+  their own headers; this rule applies only to the `frontend/` Next.js app.
+
+---
+
+## 3. Package Manager
 
 Use **pnpm** exclusively — including for one-off/codemod commands (`pnpm dlx`) and
 npm-scripts (`pnpm run <script>`). Never invoke `npm` or `npx` directly.
@@ -50,7 +68,7 @@ npm-scripts (`pnpm run <script>`). Never invoke `npm` or `npx` directly.
 
 ---
 
-## 3. React State-in-Effect Policy
+## 4. React State-in-Effect Policy
 
 1. Never call `setState` inside `useEffect`. Derive values with `useMemo` or compute
    inline during render.
@@ -63,7 +81,7 @@ Run `pnpm lint` before pushing — the `react-hooks/set-state-in-effect` rule en
 
 ---
 
-## 4. Documentation & Tooltip Synchronization
+## 5. Documentation & Tooltip Synchronization
 
 All contextual inline UI help must derive from `content/docs/*.mdx` frontmatter via
 `<FeatureHelp slug="filename" anchorId="heading-anchor" />`.
@@ -76,7 +94,7 @@ All contextual inline UI help must derive from `content/docs/*.mdx` frontmatter 
 
 ---
 
-## 5. Routing — `proxy.ts`
+## 6. Routing — `proxy.ts`
 
 As of Next.js 16, `middleware.ts` is deprecated in favor of `proxy.ts`. For anything not
 covered below, check the current [Next.js proxy.js docs](https://nextjs.org/docs/app/api-reference/file-conventions/proxy) rather than relying on memory — behavior here is
@@ -112,14 +130,14 @@ automatically.
 
 ---
 
-## 6. Listing
+## 7. Listing
 
 Use TanStack virtualized lists for any list where the query may return large result
 sets.
 
 ---
 
-## 7. Visual Guidance — reduce borders and cards
+## 8. Visual Guidance — reduce borders and cards
 
 - Avoid excessive borders unless necessary or requested. Separate sections with
   margin/padding (`space-y-*`, `gap-*`, `p-*`) instead.
@@ -131,7 +149,7 @@ sets.
 
 ---
 
-## 8. Shadcn UI Components — never modify, never add by hand
+## 9. Shadcn UI Components — never modify, never add by hand
 
 Files under `src/components/ui/` are auto-generated shadcn primitives.
 
@@ -143,7 +161,7 @@ Files under `src/components/ui/` are auto-generated shadcn primitives.
 
 ---
 
-## 9. Error Handling
+## 10. Error Handling
 
 ### `ApiError` (`src/lib/api/client.ts`)
 
@@ -196,7 +214,7 @@ Files under `src/components/ui/` are auto-generated shadcn primitives.
 
 ---
 
-## 10. Simplicity & References
+## 11. Simplicity & References
 
 - Don't overcomplicate. For standard patterns (virtualized list, form, table), start
   from the library's canonical docs example and adapt — don't reverse-engineer or add

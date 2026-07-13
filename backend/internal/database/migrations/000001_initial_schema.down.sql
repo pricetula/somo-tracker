@@ -22,6 +22,12 @@ DROP TRIGGER IF EXISTS trg_sync_invoice_payment_status_insert     ON payments;
 DROP TRIGGER IF EXISTS trg_sync_invoice_payment_status_delete     ON payments;
 DROP TRIGGER IF EXISTS trg_cbc_streams_updated_at                 ON cbc_streams;
 DROP TRIGGER IF EXISTS trg_auto_register_subject_teacher          ON cbc_timetable_slots;
+DROP TRIGGER IF EXISTS trg_cbc_term_report_cards_updated_at           ON cbc_term_report_cards;
+DROP TRIGGER IF EXISTS trg_block_locked_report_card_mutation          ON cbc_term_report_cards;
+DROP TRIGGER IF EXISTS trg_validate_class_teacher_matches_card_class ON cbc_term_report_cards;
+DROP TRIGGER IF EXISTS trg_block_locked_summary_mutation             ON cbc_term_competency_summaries;
+DROP TRIGGER IF EXISTS trg_cbc_attendance_logs_updated_at            ON cbc_attendance_logs;
+DROP TRIGGER IF EXISTS trg_block_locked_attendance_mutation          ON cbc_attendance_logs;
 
 -- ============================================================================
 -- FUNCTIONS (dropped after their triggers, before dependent views/tables)
@@ -37,6 +43,14 @@ DROP FUNCTION IF EXISTS fn_sync_school_student_counts_insert CASCADE;
 DROP FUNCTION IF EXISTS fn_sync_school_student_counts_delete CASCADE;
 DROP FUNCTION IF EXISTS fn_sync_school_student_counts_update CASCADE;
 DROP FUNCTION IF EXISTS fn_auto_register_subject_teacher     CASCADE;
+DROP FUNCTION IF EXISTS fn_block_locked_report_card_mutation          CASCADE;
+DROP FUNCTION IF EXISTS fn_validate_class_teacher_matches_card_class CASCADE;
+DROP FUNCTION IF EXISTS fn_block_locked_summary_mutation              CASCADE;
+DROP FUNCTION IF EXISTS fn_refresh_term_attendance_summary            CASCADE;
+DROP FUNCTION IF EXISTS fn_compile_term_report_card                   CASCADE;
+DROP FUNCTION IF EXISTS fn_check_attendance_completeness              CASCADE;
+DROP FUNCTION IF EXISTS fn_check_enrollment_status_for_attendance     CASCADE;
+DROP FUNCTION IF EXISTS fn_block_locked_attendance_mutation           CASCADE;
 
 -- ============================================================================
 -- LAYER 10 — USER ACTIVE SCHOOL CONTEXT
@@ -73,6 +87,7 @@ DROP TABLE IF EXISTS assessment_weight_configs CASCADE;
 DROP TABLE IF EXISTS cbc_timetable_slots CASCADE;
 DROP TABLE IF EXISTS cbc_attendance_logs CASCADE;
 DROP TABLE IF EXISTS cbc_attendance_periods CASCADE;
+DROP TABLE IF EXISTS cbc_term_report_cards CASCADE;
 DROP TABLE IF EXISTS cbc_class_teachers CASCADE;
 
 -- ============================================================================
@@ -144,6 +159,7 @@ DROP TYPE IF EXISTS import_job_type CASCADE;
 DROP TYPE IF EXISTS cbc_enrollment_status CASCADE;
 DROP TYPE IF EXISTS invitation_status CASCADE;
 DROP TYPE IF EXISTS attendance_status CASCADE;
+DROP TYPE IF EXISTS cbc_report_card_status CASCADE;
 DROP TYPE IF EXISTS user_role CASCADE;
 DROP TYPE IF EXISTS gender_type CASCADE;
 DROP TYPE IF EXISTS cbc_grade_level CASCADE;

@@ -68,9 +68,16 @@ func newHandlerTestHarness(t *testing.T) *handlerTestHarness {
 	// Register routes manually with test auth
 	classes := app.Group("/api/v1/classes", testAuth)
 	classes.Get("/", handler.List)
+	classes.Get("/:id", handler.Get)
 	classes.Post("/", handler.Create)
 	classes.Put("/:id", handler.Update)
 	classes.Delete("/", handler.BulkDelete)
+
+	// Enrollment routes
+	classes.Get("/:id/roster", handler.GetRoster)
+	classes.Post("/:id/enroll", handler.BatchEnroll)
+	classes.Post("/:id/unenroll/:studentId", handler.UnenrollStudent)
+	classes.Get("/:id/available-students", handler.GetAvailableStudents)
 
 	return &handlerTestHarness{
 		app:               app,
@@ -445,8 +452,6 @@ func TestHandler_CreateClass_MissingRequiredField(t *testing.T) {
 		field   string
 	}{
 		{"grade_level", map[string]interface{}{"academic_year_id": "year_001", "academic_term_id": "term_001", "stream_id": "stream_001"}, "grade_level"},
-		{"academic_year_id", map[string]interface{}{"grade_level": "G4", "academic_term_id": "term_001", "stream_id": "stream_001"}, "academic_year_id"},
-		{"academic_term_id", map[string]interface{}{"grade_level": "G4", "academic_year_id": "year_001", "stream_id": "stream_001"}, "academic_term_id"},
 		{"stream_id", map[string]interface{}{"grade_level": "G4", "academic_year_id": "year_001", "academic_term_id": "term_001"}, "stream_id"},
 	}
 

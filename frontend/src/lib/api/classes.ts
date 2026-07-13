@@ -55,3 +55,118 @@ export async function listClasses(params: ListClassesParams = {}): Promise<Class
     const qs = searchParams.toString();
     return api.get<ClassListResult>(`/api/v1/classes?${qs}`);
 }
+
+/**
+ * Get a single class by ID.
+ * GET /api/v1/classes/:id
+ */
+export async function getClass(classId: string): Promise<Class> {
+    return api.get<Class>(`/api/v1/classes/${classId}`);
+}
+
+/**
+ * Create a new class.
+ * POST /api/v1/classes
+ */
+export async function createClass(payload: {
+    grade_level: string;
+    academic_year_id: string;
+    academic_term_id: string;
+    stream_id: string;
+    student_ids?: string[];
+}): Promise<Class> {
+    return api.post<Class>("/api/v1/classes", payload);
+}
+
+// ─── Enrollment Types ───────────────────────────────────────────────────────
+
+/** A single student enrolled in a class roster. */
+export interface RosterEntry {
+    id: string;
+    full_name: string;
+    admission_number?: string;
+    upi_number?: string;
+    gender: string;
+    enrolled_at?: string;
+}
+
+/** A student available for enrollment (not in this class). */
+export interface AvailableStudent {
+    id: string;
+    full_name: string;
+    admission_number?: string | null;
+    upi_number?: string | null;
+    gender: string;
+    current_class?: string | null;
+    current_class_id?: string | null;
+}
+
+/** Response for available students listing. */
+export interface AvailableStudentsResponse {
+    items: AvailableStudent[];
+    total: number;
+    page: number;
+    limit: number;
+}
+
+/** Response for batch enrollment. */
+export interface BatchEnrollResponse {
+    code: string;
+    message: string;
+    enrolled_count: number;
+}
+
+// ─── Enrollment API Functions ───────────────────────────────────────────────
+
+/**
+ * Get the roster of students enrolled in a class for the current term.
+ * GET /api/v1/classes/:id/roster
+ */
+export async function getClassRoster(
+    classId: string,
+    academicTermId?: string
+): Promise<RosterEntry[]> {
+    const params = new URLSearchParams();
+    if (academicTermId) params.set("academic_term_id", academicTermId);
+    const qs = params.toString();
+    return api.get<RosterEntry[]>(`/api/v1/classes/${classId}/roster?${qs}`);
+}
+
+/**
+ * Batch enroll students into a class.
+ * POST /api/v1/classes/:id/enroll
+ */
+export async function batchEnrollStudents(
+    classId: string,
+    studentIds: string[]
+): Promise<BatchEnrollResponse> {
+    return api.post<BatchEnrollResponse>(`/api/v1/classes/${classId}/enroll`, {
+        student_ids: studentIds,
+    });
+}
+
+/**
+ * Unenroll a single student from a class.
+ * POST /api/v1/classes/:id/unenroll/:studentId
+ */
+export async function unenrollStudent(classId: string, studentId: string): Promise<void> {
+    return api.post<void>(`/api/v1/classes/${classId}/unenroll/${studentId}`);
+}
+
+/**
+ * Get students available for enrollment (not in this class).
+ * GET /api/v1/classes/:id/available-students
+ */
+export async function getAvailableStudents(
+    classId: string,
+    params: { search?: string; page?: number; limit?: number } = {}
+): Promise<AvailableStudentsResponse> {
+    const searchParams = new URLSearchParams();
+    if (params.search) searchParams.set("search", params.search);
+    if (params.page) searchParams.set("page", String(params.page));
+    if (params.limit) searchParams.set("limit", String(params.limit));
+    const qs = searchParams.toString();
+    return api.get<AvailableStudentsResponse>(
+        `/api/v1/classes/${classId}/available-students?${qs}`
+    );
+}

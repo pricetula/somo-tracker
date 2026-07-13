@@ -2,12 +2,96 @@ package academicyears
 
 import (
 	"context"
+	"database/sql/driver"
 	"errors"
 	"fmt"
 	"time"
 
 	"somotracker/backend/internal/middleware"
 )
+
+// ============================================================================
+// DateOnly — a calendar date (YYYY-MM-DD) with no time component.
+// Handles both direct SQL scanning of DATE columns and JSON serialization.
+// ============================================================================
+
+// DateOnly wraps time.Time to represent a date-only value.
+// It implements sql.Scanner, driver.Valuer, json.Marshaler, and json.Unmarshaler
+// so it works correctly through both direct pgx scanning and JSON aggregation.
+type DateOnly struct{ time.Time }
+
+// Scan implements sql.Scanner for reading DATE values from PostgreSQL.
+func (d *DateOnly) Scan(src any) error {
+	if src == nil {
+		d.Time = time.Time{}
+		return nil
+	}
+	switch v := src.(type) {
+	case time.Time:
+		d.Time = v
+		return nil
+	case string:
+		t, err := time.Parse("2006-01-02", v)
+		if err != nil {
+			return fmt.Errorf("DateOnly.Scan: parse %q: %w", v, err)
+		}
+		d.Time = t
+		return nil
+	case []byte:
+		t, err := time.Parse("2006-01-02", string(v))
+		if err != nil {
+			return fmt.Errorf("DateOnly.Scan: parse %q: %w", string(v), err)
+		}
+		d.Time = t
+		return nil
+	default:
+		return fmt.Errorf("DateOnly.Scan: unsupported type %T", src)
+	}
+}
+
+// Value implements driver.Valuer for writing DateOnly to PostgreSQL as a DATE.
+func (d DateOnly) Value() (driver.Value, error) {
+	return d.Format("2006-01-02"), nil
+}
+
+// MarshalJSON implements json.Marshaler, outputting "YYYY-MM-DD".
+func (d DateOnly) MarshalJSON() ([]byte, error) {
+	return []byte(`"` + d.Format("2006-01-02") + `"`), nil
+}
+
+// UnmarshalJSON implements json.Unmarshaler, parsing "YYYY-MM-DD".
+func (d *DateOnly) UnmarshalJSON(b []byte) error {
+	s := string(b)
+	if len(s) >= 2 && s[0] == '"' && s[len(s)-1] == '"' {
+		s = s[1 : len(s)-1]
+	}
+	t, err := time.Parse("2006-01-02", s)
+	if err != nil {
+		return fmt.Errorf("DateOnly.UnmarshalJSON: parse %q: %w", s, err)
+	}
+	d.Time = t
+	return nil
+}
+
+// String returns the date in YYYY-MM-DD format.
+func (d DateOnly) String() string {
+	return d.Format("2006-01-02")
+}
+
+// Before reports whether d is before other.
+func (d DateOnly) Before(other DateOnly) bool {
+	return d.Time.Before(other.Time)
+}
+
+// After reports whether d is after other.
+func (d DateOnly) After(other DateOnly) bool {
+	return d.Time.After(other.Time)
+}
+
+// Equal reports whether d and other represent the same date.
+func (d DateOnly) Equal(other DateOnly) bool {
+	return d.Time.Equal(other.Time)
+}
 
 // ============================================================================
 // Sentinel Domain Errors
@@ -41,8 +125,8 @@ type AcademicYear struct {
 	TenantID  string    `db:"tenant_id"  json:"-"`
 	SchoolID  string    `db:"school_id"  json:"-"`
 	Name      string    `db:"name"       json:"name"`
-	StartDate time.Time `db:"start_date" json:"start_date"`
-	EndDate   time.Time `db:"end_date"   json:"end_date"`
+	StartDate DateOnly  `db:"start_date" json:"start_date"`
+	EndDate   DateOnly  `db:"end_date"   json:"end_date"`
 	IsCurrent bool      `db:"is_current" json:"is_current"`
 	Version   int       `db:"version"    json:"version"`
 	CreatedBy string    `db:"created_by" json:"-"`
@@ -65,8 +149,8 @@ type AcademicTerm struct {
 	AcademicYearID string    `db:"academic_year_id"  json:"academic_year_id"`
 	Name           string    `db:"name"              json:"name"`
 	TermNumber     int       `db:"term_number"       json:"term_number"`
-	StartDate      time.Time `db:"start_date"        json:"start_date"`
-	EndDate        time.Time `db:"end_date"          json:"end_date"`
+	StartDate      DateOnly  `db:"start_date"        json:"start_date"`
+	EndDate        DateOnly  `db:"end_date"          json:"end_date"`
 	IsCurrent      bool      `db:"is_current"        json:"is_current"`
 	IsFinal        bool      `db:"is_final"          json:"is_final"`
 	Version        int       `db:"version"           json:"version"`

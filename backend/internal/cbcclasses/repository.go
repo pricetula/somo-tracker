@@ -443,6 +443,297 @@ func (r *PgRepository) ValidateAcademicTerm(ctx context.Context, id, academicYea
 	return exists, nil
 }
 
+// ─── GetRoster ───────────────────────────────────────────────────────────
+
+// GetRoster returns the list of students enrolled in a class for the current term.
+func (r *PgRepository) GetRoster(ctx context.Context, classID, tenantID, schoolID, academicTermID string) ([]RosterEntry, error) {
+	const query = `
+		SELECT s.id, s.full_name, s.gender,
+		       COALESCE(s.admission_number, '') AS admission_number,
+		       COALESCE(s.upi_number, '') AS upi_number,
+		       e.created_at::text AS enrolled_at
+		FROM cbc_student_enrollments e
+		JOIN cbc_students s ON s.id = e.student_id
+		WHERE e.class_id = $1
+		  AND e.academic_term_id = $2
+		  AND e.tenant_id = $3
+		  AND s.is_active = true
+		ORDER BY s.full_name ASC
+	`
+	rows, err := r.pool.Query(ctx, query, classID, academicTermID, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("cbcclasses.Repository.GetRoster: %w", err)
+	}
+	defer rows.Close()
+
+	var entries []RosterEntry
+	for rows.Next() {
+		var e RosterEntry
+		if err := rows.Scan(&e.ID, &e.FullName, &e.Gender, &e.AdmissionNumber, &e.UPINumber, &e.EnrolledAt); err != nil {
+			return nil, fmt.Errorf("cbcclasses.Repository.GetRoster: scan: %w", err)
+		}
+		entries = append(entries, e)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("cbcclasses.Repository.GetRoster: rows: %w", err)
+	}
+
+	if entries == nil {
+		entries = []RosterEntry{}
+	}
+
+	return entries, nil
+}
+
+// ─── BatchEnrollStudents ──────────────────────────────────────────────────
+
+// BatchEnrollStudents atomically enrolls multiple students into a class for a term.
+// If any student is already enrolled in a DIFFERENT class for the same term,
+// the entire batch is rolled back and ErrEnrollmentConflict is returned.
+// Students already enrolled in THIS class are silently skipped (idempotent).
+func (r *PgRepository) BatchEnrollStudents(ctx context.Context, classID, tenantID, schoolID, academicTermID string, studentIDs []string) (int, error) {
+	if len(studentIDs) == 0 {
+		return 0, nil
+	}
+
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("cbcclasses.Repository.BatchEnrollStudents: begin tx: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback(ctx)
+		}
+	}()
+
+	// Step 1: Check for enrollment conflicts — students already enrolled in
+	// a DIFFERENT class for this term (not this class).
+	const checkConflicts = `
+		SELECT s.id, s.full_name, cc.grade_level || ' ' || COALESCE(cs.name, '') AS current_class
+		FROM cbc_student_enrollments e
+		JOIN cbc_students s ON s.id = e.student_id
+		JOIN cbc_classes cc ON cc.id = e.class_id
+		LEFT JOIN cbc_streams cs ON cs.id = cc.stream_id AND cs.tenant_id = cc.tenant_id
+		WHERE e.student_id = ANY($1::uuid[])
+		  AND e.academic_term_id = $2
+		  AND e.class_id != $3
+		  AND e.tenant_id = $4
+	`
+	rows, checkErr := tx.Query(ctx, checkConflicts, studentIDs, academicTermID, classID, tenantID)
+	if checkErr != nil {
+		return 0, fmt.Errorf("cbcclasses.Repository.BatchEnrollStudents: check conflicts: %w", checkErr)
+	}
+	defer rows.Close()
+
+	type conflictInfo struct {
+		id, name, currentClass string
+	}
+	var conflicts []conflictInfo
+	for rows.Next() {
+		var c conflictInfo
+		if scanErr := rows.Scan(&c.id, &c.name, &c.currentClass); scanErr != nil {
+			return 0, fmt.Errorf("cbcclasses.Repository.BatchEnrollStudents: scan conflict: %w", scanErr)
+		}
+		conflicts = append(conflicts, c)
+	}
+	if err := rows.Err(); err != nil {
+		return 0, fmt.Errorf("cbcclasses.Repository.BatchEnrollStudents: rows: %w", err)
+	}
+	rows.Close()
+
+	if len(conflicts) > 0 {
+		// Build a descriptive error message
+		conflictNames := make([]string, len(conflicts))
+		for i, c := range conflicts {
+			conflictNames[i] = c.name + " (currently in " + c.currentClass + ")"
+		}
+		err = fmt.Errorf("cbcclasses.Repository.BatchEnrollStudents: %w: conflicts: %s",
+			ErrEnrollmentConflict, strings.Join(conflictNames, ", "))
+		return 0, err
+	}
+
+	// Step 2: Insert enrollments (skip if already enrolled in this class)
+	const insertEnrollments = `
+		INSERT INTO cbc_student_enrollments (student_id, class_id, academic_term_id, tenant_id, school_id, status)
+		SELECT unnest($1::uuid[]), $2, $3, $4, $5, 'ACTIVE'
+		ON CONFLICT (student_id, academic_term_id)
+		DO UPDATE SET class_id = EXCLUDED.class_id, status = 'ACTIVE', updated_at = NOW()
+		WHERE cbc_student_enrollments.class_id IS DISTINCT FROM EXCLUDED.class_id
+	`
+	tag, insertErr := tx.Exec(ctx, insertEnrollments, studentIDs, classID, academicTermID, tenantID, schoolID)
+	if insertErr != nil {
+		return 0, fmt.Errorf("cbcclasses.Repository.BatchEnrollStudents: insert: %w", insertErr)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return 0, fmt.Errorf("cbcclasses.Repository.BatchEnrollStudents: commit: %w", err)
+	}
+
+	enrolledCount := int(tag.RowsAffected())
+	return enrolledCount, nil
+}
+
+// ─── UnenrollStudent ──────────────────────────────────────────────────────
+
+// UnenrollStudent removes a single student from a class for the active term.
+// Sets class_id to NULL on the enrollment record instead of deleting it,
+// preserving attendance history.
+func (r *PgRepository) UnenrollStudent(ctx context.Context, classID, studentID, tenantID, schoolID string) error {
+	const query = `
+		UPDATE cbc_student_enrollments
+		SET class_id = NULL, status = 'SUSPENDED', updated_at = NOW()
+		WHERE class_id = $1
+		  AND student_id = $2
+		  AND tenant_id = $3
+	`
+	tag, err := r.pool.Exec(ctx, query, classID, studentID, tenantID)
+	if err != nil {
+		return fmt.Errorf("cbcclasses.Repository.UnenrollStudent: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("cbcclasses.Repository.UnenrollStudent: %w", ErrStudentNotInClass)
+	}
+	return nil
+}
+
+// ─── GetAvailableStudents ─────────────────────────────────────────────────
+
+// GetAvailableStudents returns students NOT enrolled in the given class for the active term,
+// with optional search by name, admission_number, or upi_number.
+func (r *PgRepository) GetAvailableStudents(ctx context.Context, filter AvailableStudentsFilter) (*AvailableStudentsResponse, error) {
+	offset := (filter.Page - 1) * filter.Limit
+	if offset < 0 {
+		offset = 0
+	}
+
+	// ── Count query ──────────────────────────────────────────────────────
+	countQuery := `
+		SELECT COUNT(*)
+		FROM cbc_students s
+		WHERE s.tenant_id = $1
+		  AND s.school_id = $2
+		  AND s.is_active = true
+		  AND s.id NOT IN (
+		      SELECT e.student_id
+		      FROM cbc_student_enrollments e
+		      WHERE e.academic_term_id = $3
+		        AND e.class_id = $4
+		        AND e.tenant_id = $1
+		        AND e.status = 'ACTIVE'
+		  )
+	`
+	countArgs := []interface{}{filter.TenantID, filter.SchoolID, filter.AcademicTermID, filter.ClassID}
+	argIdx := 5
+
+	if filter.Search != "" {
+		countQuery += fmt.Sprintf(` AND (
+			s.full_name ILIKE $%d OR
+			s.admission_number::text ILIKE $%d OR
+			s.upi_number::text ILIKE $%d
+		)`, argIdx, argIdx+1, argIdx+2)
+		pattern := "%" + filter.Search + "%"
+		countArgs = append(countArgs, pattern, pattern, pattern)
+	}
+
+	var total int
+	err := r.pool.QueryRow(ctx, countQuery, countArgs...).Scan(&total)
+	if err != nil {
+		return nil, fmt.Errorf("cbcclasses.Repository.GetAvailableStudents: count: %w", err)
+	}
+
+	// ── Data query ───────────────────────────────────────────────────────
+	dataQuery := `
+		SELECT s.id, s.full_name, s.gender,
+		       s.admission_number, s.upi_number,
+		       cc.display_label AS current_class,
+		       cc.id AS current_class_id
+		FROM cbc_students s
+		LEFT JOIN LATERAL (
+			SELECT cc2.grade_level || ' ' || COALESCE(cs2.name, '') AS display_label,
+			       cc2.id
+			FROM cbc_student_enrollments e2
+			JOIN cbc_classes cc2 ON cc2.id = e2.class_id
+			LEFT JOIN cbc_streams cs2 ON cs2.id = cc2.stream_id
+			WHERE e2.student_id = s.id
+			  AND e2.academic_term_id = $3
+			  AND e2.status = 'ACTIVE'
+			LIMIT 1
+		) cc ON TRUE
+		WHERE s.tenant_id = $1
+		  AND s.school_id = $2
+		  AND s.is_active = true
+		  AND s.id NOT IN (
+		      SELECT e3.student_id
+		      FROM cbc_student_enrollments e3
+		      WHERE e3.academic_term_id = $3
+		        AND e3.class_id = $4
+		        AND e3.tenant_id = $1
+		        AND e3.status = 'ACTIVE'
+		  )
+	`
+	dataArgs := []interface{}{filter.TenantID, filter.SchoolID, filter.AcademicTermID, filter.ClassID}
+	dataArgIdx := 5
+
+	if filter.Search != "" {
+		dataQuery += fmt.Sprintf(` AND (
+			s.full_name ILIKE $%d OR
+			s.admission_number::text ILIKE $%d OR
+			s.upi_number::text ILIKE $%d
+		)`, dataArgIdx, dataArgIdx+1, dataArgIdx+2)
+		pattern := "%" + filter.Search + "%"
+		dataArgs = append(dataArgs, pattern, pattern, pattern)
+		dataArgIdx += 3
+	}
+
+	dataQuery += fmt.Sprintf(`
+		ORDER BY s.full_name ASC
+		LIMIT $%d OFFSET $%d
+	`, dataArgIdx, dataArgIdx+1)
+	dataArgs = append(dataArgs, filter.Limit, offset)
+
+	rows, err := r.pool.Query(ctx, dataQuery, dataArgs...)
+	if err != nil {
+		return nil, fmt.Errorf("cbcclasses.Repository.GetAvailableStudents: query: %w", err)
+	}
+	defer rows.Close()
+
+	var students []AvailableStudent
+	for rows.Next() {
+		var s AvailableStudent
+		var admissionNumber, upiNumber, currentClass, currentClassID *string
+		if err := rows.Scan(
+			&s.ID, &s.FullName, &s.Gender,
+			&admissionNumber, &upiNumber,
+			&currentClass, &currentClassID,
+		); err != nil {
+			return nil, fmt.Errorf("cbcclasses.Repository.GetAvailableStudents: scan: %w", err)
+		}
+		if admissionNumber != nil && *admissionNumber != "" {
+			s.AdmissionNumber = admissionNumber
+		}
+		if upiNumber != nil && *upiNumber != "" {
+			s.UPINumber = upiNumber
+		}
+		s.CurrentClass = currentClass
+		s.CurrentClassID = currentClassID
+		students = append(students, s)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("cbcclasses.Repository.GetAvailableStudents: rows: %w", err)
+	}
+
+	if students == nil {
+		students = []AvailableStudent{}
+	}
+
+	return &AvailableStudentsResponse{
+		Items: students,
+		Total: total,
+		Page:  filter.Page,
+		Limit: filter.Limit,
+	}, nil
+}
+
 // ValidateStream checks that the stream belongs to the tenant + school.
 func (r *PgRepository) ValidateStream(ctx context.Context, id, tenantID, schoolID string) (bool, error) {
 	const query = `

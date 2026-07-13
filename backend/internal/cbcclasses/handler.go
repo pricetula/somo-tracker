@@ -47,9 +47,16 @@ func (h *Handler) SetAcademicYearsService(aySvc academicYearsAdapter) {
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	classes := router.Group("/api/v1/classes")
 	classes.Get("/", middleware.RequireAuth, h.List)
+	classes.Get("/:id", middleware.RequireAuth, h.Get)
 	classes.Post("/", middleware.RequireAuth, h.Create)
 	classes.Put("/:id", middleware.RequireAuth, h.Update)
 	classes.Delete("/", middleware.RequireAuth, h.BulkDelete)
+
+	// Enrollment routes
+	classes.Get("/:id/roster", middleware.RequireAuth, h.GetRoster)
+	classes.Post("/:id/enroll", middleware.RequireAuth, h.BatchEnroll)
+	classes.Post("/:id/unenroll/:studentId", middleware.RequireAuth, h.UnenrollStudent)
+	classes.Get("/:id/available-students", middleware.RequireAuth, h.GetAvailableStudents)
 }
 
 // ─── Handlers ──────────────────────────────────────────────────────────────
@@ -130,6 +137,45 @@ func (h *Handler) List(c *fiber.Ctx) error {
 	return c.JSON(result)
 }
 
+// Get handles GET /api/v1/classes/:id.
+func (h *Handler) Get(c *fiber.Ctx) error {
+	tenantID := c.Locals("tenant_id").(string)
+	schoolID, _ := c.Locals("active_school_id").(string)
+	if schoolID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "active school not set",
+		})
+	}
+
+	classID := c.Params("id")
+	if classID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "class id is required",
+		})
+	}
+
+	class, err := h.svc.GetClass(c.Context(), classID, tenantID, schoolID)
+	if err != nil {
+		return mapClassError(c, err)
+	}
+
+	// Get student count from roster
+	academicYearID, yearErr := h.academicYearsSvc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
+	if yearErr == nil && academicYearID != "" {
+		academicTermID, termErr := h.academicYearsSvc.GetCurrentAcademicTermID(c.Context(), academicYearID)
+		if termErr == nil && academicTermID != "" {
+			roster, rosterErr := h.svc.GetRoster(c.Context(), classID, tenantID, schoolID, academicTermID)
+			if rosterErr == nil {
+				class.StudentCount = len(roster)
+			}
+		}
+	}
+
+	return c.JSON(class)
+}
+
 // Create handles POST /api/v1/classes.
 func (h *Handler) Create(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
@@ -157,26 +203,41 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 			"errors":  map[string][]string{"grade_level": {"Grade level is required"}},
 		})
 	}
-	if payload.AcademicYearID == "" {
-		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
-			"error":   "VALIDATION_ERROR",
-			"message": "academic_year_id is required",
-			"errors":  map[string][]string{"academic_year_id": {"Academic year is required"}},
-		})
-	}
-	if payload.AcademicTermID == "" {
-		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
-			"error":   "VALIDATION_ERROR",
-			"message": "academic_term_id is required",
-			"errors":  map[string][]string{"academic_term_id": {"Academic term is required"}},
-		})
-	}
 	if payload.StreamID == "" {
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
 			"error":   "VALIDATION_ERROR",
 			"message": "stream_id is required",
 			"errors":  map[string][]string{"stream_id": {"Stream is required"}},
 		})
+	}
+
+	// Resolve current academic year and term if not provided
+	if payload.AcademicYearID == "" {
+		yearID, err := h.academicYearsSvc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
+		if err != nil {
+			return middleware.HTTPError(c, err)
+		}
+		if yearID == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"code":    "NO_ACTIVE_ACADEMIC_YEAR",
+				"message": "No current academic year is set for this school.",
+			})
+		}
+		payload.AcademicYearID = yearID
+	}
+
+	if payload.AcademicTermID == "" {
+		termID, err := h.academicYearsSvc.GetCurrentAcademicTermID(c.Context(), payload.AcademicYearID)
+		if err != nil {
+			return middleware.HTTPError(c, err)
+		}
+		if termID == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"code":    "NO_ACTIVE_ACADEMIC_TERM",
+				"message": "No current academic term is active.",
+			})
+		}
+		payload.AcademicTermID = termID
 	}
 
 	if payload.StudentIDs == nil {
@@ -309,6 +370,223 @@ func (h *Handler) BulkDelete(c *fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusNoContent)
 }
 
+// ─── Get Roster ──────────────────────────────────────────────────────────
+
+// GetRoster handles GET /api/v1/classes/:id/roster.
+func (h *Handler) GetRoster(c *fiber.Ctx) error {
+	tenantID := c.Locals("tenant_id").(string)
+	schoolID, _ := c.Locals("active_school_id").(string)
+	if schoolID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "active school not set",
+		})
+	}
+
+	classID := c.Params("id")
+	if classID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "class id is required",
+		})
+	}
+
+	academicTermID := c.Query("academic_term_id")
+	if academicTermID == "" {
+		academicYearID, err := h.academicYearsSvc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
+		if err != nil {
+			return middleware.HTTPError(c, err)
+		}
+		if academicYearID == "" {
+			return c.JSON([]RosterEntry{})
+		}
+		academicTermID, err = h.academicYearsSvc.GetCurrentAcademicTermID(c.Context(), academicYearID)
+		if err != nil {
+			return middleware.HTTPError(c, err)
+		}
+		if academicTermID == "" {
+			return c.JSON([]RosterEntry{})
+		}
+	}
+
+	roster, err := h.svc.GetRoster(c.Context(), classID, tenantID, schoolID, academicTermID)
+	if err != nil {
+		return mapClassError(c, err)
+	}
+
+	return c.JSON(roster)
+}
+
+// ─── Batch Enroll ─────────────────────────────────────────────────────────
+
+// BatchEnroll handles POST /api/v1/classes/:id/enroll.
+func (h *Handler) BatchEnroll(c *fiber.Ctx) error {
+	tenantID := c.Locals("tenant_id").(string)
+	schoolID, _ := c.Locals("active_school_id").(string)
+	if schoolID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "active school not set",
+		})
+	}
+
+	classID := c.Params("id")
+	if classID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "class id is required",
+		})
+	}
+
+	// Resolve the active academic term
+	academicYearID, err := h.academicYearsSvc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	if academicYearID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "NO_ACTIVE_ACADEMIC_YEAR",
+			"message": "No current academic year is set for this school.",
+		})
+	}
+
+	academicTermID, err := h.academicYearsSvc.GetCurrentAcademicTermID(c.Context(), academicYearID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	if academicTermID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "NO_ACTIVE_ACADEMIC_TERM",
+			"message": "No current academic term is active.",
+		})
+	}
+
+	var payload BatchEnrollPayload
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "invalid request body",
+		})
+	}
+
+	if len(payload.StudentIDs) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "student_ids is required",
+		})
+	}
+
+	result, err := h.svc.BatchEnroll(c.Context(), classID, tenantID, schoolID, academicTermID, payload.StudentIDs)
+	if err != nil {
+		return mapClassError(c, err)
+	}
+
+	return c.Status(fiber.StatusOK).JSON(result)
+}
+
+// ─── Unenroll Student ─────────────────────────────────────────────────────
+
+// UnenrollStudent handles POST /api/v1/classes/:id/unenroll/:studentId.
+func (h *Handler) UnenrollStudent(c *fiber.Ctx) error {
+	tenantID := c.Locals("tenant_id").(string)
+	schoolID, _ := c.Locals("active_school_id").(string)
+	if schoolID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "active school not set",
+		})
+	}
+
+	classID := c.Params("id")
+	studentID := c.Params("studentId")
+
+	if classID == "" || studentID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "class id and student id are required",
+		})
+	}
+
+	if err := h.svc.UnenrollStudent(c.Context(), classID, studentID, tenantID, schoolID); err != nil {
+		return mapClassError(c, err)
+	}
+
+	return c.JSON(fiber.Map{
+		"code":    "ok",
+		"message": "Student successfully unenrolled.",
+	})
+}
+
+// ─── Get Available Students ───────────────────────────────────────────────
+
+// GetAvailableStudents handles GET /api/v1/classes/:id/available-students.
+func (h *Handler) GetAvailableStudents(c *fiber.Ctx) error {
+	tenantID := c.Locals("tenant_id").(string)
+	schoolID, _ := c.Locals("active_school_id").(string)
+	if schoolID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "active school not set",
+		})
+	}
+
+	classID := c.Params("id")
+	if classID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "class id is required",
+		})
+	}
+
+	// Resolve active academic term
+	academicYearID, err := h.academicYearsSvc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	if academicYearID == "" {
+		return c.JSON(AvailableStudentsResponse{Items: []AvailableStudent{}, Total: 0, Page: 1, Limit: 50})
+	}
+
+	academicTermID, err := h.academicYearsSvc.GetCurrentAcademicTermID(c.Context(), academicYearID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	if academicTermID == "" {
+		return c.JSON(AvailableStudentsResponse{Items: []AvailableStudent{}, Total: 0, Page: 1, Limit: 50})
+	}
+
+	page := 1
+	if p := c.Query("page"); p != "" {
+		if parsed, err := strconv.Atoi(p); err == nil && parsed > 0 {
+			page = parsed
+		}
+	}
+
+	limit := 50
+	if l := c.Query("limit"); l != "" {
+		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 && parsed <= 200 {
+			limit = parsed
+		}
+	}
+
+	filter := AvailableStudentsFilter{
+		TenantID:       tenantID,
+		SchoolID:       schoolID,
+		ClassID:        classID,
+		AcademicTermID: academicTermID,
+		Search:         c.Query("search"),
+		Page:           page,
+		Limit:          limit,
+	}
+
+	result, err := h.svc.GetAvailableStudents(c.Context(), filter)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(result)
+}
+
 // mapClassError maps domain errors to the spec's error response shape.
 func mapClassError(c *fiber.Ctx, err error) error {
 	if isErrClassLocked(err) {
@@ -321,6 +599,18 @@ func mapClassError(c *fiber.Ctx, err error) error {
 		return c.Status(fiber.StatusConflict).JSON(fiber.Map{
 			"error":   "CLASS_HAS_ASSESSMENTS",
 			"message": "One or more classes have assessment records and cannot be deleted.",
+		})
+	}
+	if isErrEnrollmentConflict(err) {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+			"code":    "ENROLLMENT_CONFLICT",
+			"message": "Enrollment failed. One or more selected students were updated elsewhere. Please refresh and try again.",
+		})
+	}
+	if isErrStudentNotInClass(err) {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"code":    "STUDENT_NOT_IN_CLASS",
+			"message": "The student is not enrolled in this class.",
 		})
 	}
 	// For validation errors from FieldError, return 422
@@ -353,6 +643,36 @@ func isErrClassLocked(err error) bool {
 func isErrClassHasAssessments(err error) bool {
 	for err != nil {
 		if err == ErrClassHasAssessments {
+			return true
+		}
+		if unwrapper, ok := err.(interface{ Unwrap() error }); ok {
+			err = unwrapper.Unwrap()
+		} else {
+			return false
+		}
+	}
+	return false
+}
+
+// isErrEnrollmentConflict checks if the error chain contains ErrEnrollmentConflict.
+func isErrEnrollmentConflict(err error) bool {
+	for err != nil {
+		if err == ErrEnrollmentConflict {
+			return true
+		}
+		if unwrapper, ok := err.(interface{ Unwrap() error }); ok {
+			err = unwrapper.Unwrap()
+		} else {
+			return false
+		}
+	}
+	return false
+}
+
+// isErrStudentNotInClass checks if the error chain contains ErrStudentNotInClass.
+func isErrStudentNotInClass(err error) bool {
+	for err != nil {
+		if err == ErrStudentNotInClass {
 			return true
 		}
 		if unwrapper, ok := err.(interface{ Unwrap() error }); ok {

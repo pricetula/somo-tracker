@@ -1,7 +1,21 @@
+/**
+ * Add Class Page — Full page render for /classes/add.
+ *
+ * On hard refresh, renders the add class form as a standalone page.
+ * When client-navigated from the classes table, it is intercepted
+ * by @modal/(.)classes/add and rendered as a dialog overlay.
+ */
+
+import { AddClassForm } from "@/features/classes";
+
 export default function AddClassPage() {
     return (
-        <div className="flex h-screen items-center justify-center">
-            <p className="text-center">Coming Soon</p>
+        <div className="mx-auto max-w-lg p-6">
+            <h1 className="mb-1 text-lg font-semibold">Create Class</h1>
+            <p className="text-muted-foreground mb-6 text-sm">
+                Create a new class by selecting a grade level, stream, and academic year.
+            </p>
+            <AddClassForm />
         </div>
     );
 }

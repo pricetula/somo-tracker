@@ -21,6 +21,10 @@ type MockRepository struct {
 	validateAcademicYearFn  func(ctx context.Context, id, tenantID, schoolID string) (bool, error)
 	validateAcademicTermFn  func(ctx context.Context, id, academicYearID string) (bool, error)
 	validateStreamFn        func(ctx context.Context, id, tenantID, schoolID string) (bool, error)
+	getRosterFn             func(ctx context.Context, classID, tenantID, schoolID, academicTermID string) ([]RosterEntry, error)
+	batchEnrollStudentsFn   func(ctx context.Context, classID, tenantID, schoolID, academicTermID string, studentIDs []string) (int, error)
+	unenrollStudentFn       func(ctx context.Context, classID, studentID, tenantID, schoolID string) error
+	getAvailableStudentsFn  func(ctx context.Context, filter AvailableStudentsFilter) (*AvailableStudentsResponse, error)
 }
 
 func (m *MockRepository) List(ctx context.Context, filter ClassListFilter) (*ClassListResult, error) {
@@ -91,6 +95,34 @@ func (m *MockRepository) ValidateStream(ctx context.Context, id, tenantID, schoo
 		return m.validateStreamFn(ctx, id, tenantID, schoolID)
 	}
 	return true, nil
+}
+
+func (m *MockRepository) GetRoster(ctx context.Context, classID, tenantID, schoolID, academicTermID string) ([]RosterEntry, error) {
+	if m.getRosterFn != nil {
+		return m.getRosterFn(ctx, classID, tenantID, schoolID, academicTermID)
+	}
+	return []RosterEntry{}, nil
+}
+
+func (m *MockRepository) BatchEnrollStudents(ctx context.Context, classID, tenantID, schoolID, academicTermID string, studentIDs []string) (int, error) {
+	if m.batchEnrollStudentsFn != nil {
+		return m.batchEnrollStudentsFn(ctx, classID, tenantID, schoolID, academicTermID, studentIDs)
+	}
+	return len(studentIDs), nil
+}
+
+func (m *MockRepository) UnenrollStudent(ctx context.Context, classID, studentID, tenantID, schoolID string) error {
+	if m.unenrollStudentFn != nil {
+		return m.unenrollStudentFn(ctx, classID, studentID, tenantID, schoolID)
+	}
+	return nil
+}
+
+func (m *MockRepository) GetAvailableStudents(ctx context.Context, filter AvailableStudentsFilter) (*AvailableStudentsResponse, error) {
+	if m.getAvailableStudentsFn != nil {
+		return m.getAvailableStudentsFn(ctx, filter)
+	}
+	return &AvailableStudentsResponse{Items: []AvailableStudent{}, Total: 0, Page: 1, Limit: 50}, nil
 }
 
 // ============================================================================

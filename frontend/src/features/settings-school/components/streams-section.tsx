@@ -1,5 +1,8 @@
 /**
- * StreamsSection — manage school streams (add, rename, delete).
+ * StreamsSection — manage school streams (rename, delete).
+ *
+ * Add stream has moved to /streams/add (intercepted modal).
+ * The listing, rename, and delete actions remain inline.
  */
 
 "use client";
@@ -30,13 +33,9 @@ import {
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-    useStreamList,
-    useCreateStream,
-    useUpdateStream,
-    useDeleteStream,
-} from "../hooks/use-streams";
-import type { Stream } from "../types";
+import { useStreamList, useUpdateStream, useDeleteStream } from "@/features/streams";
+import type { Stream } from "@/features/streams";
+import Link from "next/link";
 
 // ─── Color Swatch ─────────────────────────────────────────────────────────
 
@@ -98,65 +97,6 @@ function ColorPicker({ value, onChange }: { value: string; onChange: (color: str
                 </label>
             </div>
         </div>
-    );
-}
-
-// ─── Add Stream Dialog ────────────────────────────────────────────────────
-
-function AddStreamDialog() {
-    const [open, setOpen] = useState(false);
-    const [name, setName] = useState("");
-    const [color, setColor] = useState(COLOR_OPTIONS[0]);
-    const createStream = useCreateStream();
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!name.trim()) return;
-        await createStream.mutateAsync({ name: name.trim(), color });
-        setName("");
-        setColor(COLOR_OPTIONS[0]);
-        setOpen(false);
-    };
-
-    return (
-        <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                <Button size="sm" variant="outline">
-                    <Plus className="mr-1 h-4 w-4" />
-                    Add Stream
-                </Button>
-            </DialogTrigger>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Add Stream</DialogTitle>
-                </DialogHeader>
-                <form onSubmit={handleSubmit}>
-                    <div className="space-y-4 py-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="stream-name">Name</Label>
-                            <Input
-                                id="stream-name"
-                                placeholder="e.g. Blue, Red, Green"
-                                value={name}
-                                onChange={(e) => setName(e.target.value)}
-                                autoFocus
-                            />
-                        </div>
-                        <ColorPicker value={color} onChange={setColor} />
-                    </div>
-                    <DialogFooter>
-                        <DialogClose asChild>
-                            <Button type="button" variant="ghost">
-                                Cancel
-                            </Button>
-                        </DialogClose>
-                        <Button type="submit" disabled={!name.trim() || createStream.isPending}>
-                            {createStream.isPending ? "Adding…" : "Add"}
-                        </Button>
-                    </DialogFooter>
-                </form>
-            </DialogContent>
-        </Dialog>
     );
 }
 
@@ -296,7 +236,12 @@ export function StreamsSection() {
                         Manage the streams (sections) available in your school.
                     </p>
                 </div>
-                <AddStreamDialog />
+                <Button variant="outline" asChild>
+                    <Link href="/streams/add">
+                        <Plus className="mr-1 h-4 w-4" />
+                        Add Stream
+                    </Link>
+                </Button>
             </div>
 
             {isLoading ? (

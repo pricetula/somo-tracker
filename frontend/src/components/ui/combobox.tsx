@@ -82,6 +82,13 @@ export interface ComboboxProps {
     placeholder?: string;
     /** Custom empty state message. */
     emptyText?: string;
+    /**
+     * When set, shows a "Create 'search term'" button at the bottom of
+     * the dropdown when the search yields no matching items.
+     * Called with the current search text so the caller can navigate to
+     * an add form with it as a query param.
+     */
+    onCreateItem?: (search: string) => void;
     /** Class on the trigger button. */
     className?: string;
     /** Class on the popover content. */
@@ -104,6 +111,7 @@ export function Combobox({
     multiple = false,
     placeholder = "Select...",
     emptyText = "No items found.",
+    onCreateItem,
     className,
     contentClassName,
     renderTrigger,
@@ -191,7 +199,22 @@ export function Combobox({
             <Command shouldFilter={false}>
                 <CommandInput placeholder={`Search...`} value={search} onValueChange={setSearch} />
                 <CommandList>
-                    <CommandEmpty>{emptyText}</CommandEmpty>
+                    <CommandEmpty>
+                        <span>{emptyText}</span>
+                        {onCreateItem && search.trim() && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    onCreateItem(search.trim());
+                                    setOpen(false);
+                                    setSearch("");
+                                }}
+                                className="text-primary hover:bg-accent mx-auto mt-2 flex cursor-pointer items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium"
+                            >
+                                + Create &ldquo;{search.trim()}&rdquo;
+                            </button>
+                        )}
+                    </CommandEmpty>
                     <CommandGroup>
                         {filtered.map((item) => (
                             <CommandItem

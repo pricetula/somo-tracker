@@ -32,8 +32,9 @@ interface GradeLevelPillProps {
 // ─── Component ─────────────────────────────────────────────────────────────
 
 export function GradeLevelPill({ grade, label }: GradeLevelPillProps) {
-    const styles = GRADE_LEVEL_STYLES[grade];
-    const displayLabel = label ?? GRADE_LEVEL_LABELS[grade] ?? grade;
+    const g = grade as keyof typeof GRADE_LEVEL_STYLES;
+    const styles = GRADE_LEVEL_STYLES[g];
+    const displayLabel = label ?? (GRADE_LEVEL_LABELS as Record<string, string>)[grade] ?? grade;
 
     // Unknown grade — render a muted fallback with no dot
     if (!styles) {

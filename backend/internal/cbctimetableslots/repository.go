@@ -24,16 +24,29 @@ func NewRepository(pools *database.Pools) *PgRepository {
 	return &PgRepository{pool: pools.PG}
 }
 
+// slotColumns is the shared column list for SELECT queries on cbc_timetable_slots.
+const slotColumns = `id, tenant_id, school_id, academic_year_id, structure_id, class_id, learning_area_id, teacher_id, room_identifier, created_at, updated_at`
+
 // List returns slots matching the given filter.
 func (r *PgRepository) List(ctx context.Context, filter SlotFilter) ([]TimetableSlot, error) {
-	query := `
-		SELECT id, academic_year_id, structure_id, class_id, learning_area_id, teacher_id, room_identifier, created_at
+	query := fmt.Sprintf(`
+		SELECT %s
 		FROM cbc_timetable_slots
 		WHERE academic_year_id = $1
-	`
+	`, slotColumns)
 	args := []interface{}{filter.AcademicYearID}
 	argIdx := 2
 
+	if filter.TenantID != "" {
+		query += fmt.Sprintf(` AND tenant_id = $%d`, argIdx)
+		args = append(args, filter.TenantID)
+		argIdx++
+	}
+	if filter.SchoolID != "" {
+		query += fmt.Sprintf(` AND school_id = $%d`, argIdx)
+		args = append(args, filter.SchoolID)
+		argIdx++
+	}
 	if filter.StructureID != "" {
 		query += fmt.Sprintf(` AND structure_id = $%d`, argIdx)
 		args = append(args, filter.StructureID)
@@ -64,6 +77,8 @@ func (r *PgRepository) ListEnriched(ctx context.Context, filter SlotFilter) ([]S
 	query := `
 		SELECT
 			sl.id,
+			sl.tenant_id,
+			sl.school_id,
 			sl.academic_year_id,
 			sl.structure_id,
 			sl.class_id,
@@ -71,6 +86,7 @@ func (r *PgRepository) ListEnriched(ctx context.Context, filter SlotFilter) ([]S
 			sl.teacher_id,
 			sl.room_identifier,
 			sl.created_at,
+			sl.updated_at,
 			cls.grade_level || ' ' || COALESCE(str.name, '') AS class_name,
 			ts.period_name,
 			ts.day_of_week,
@@ -90,6 +106,16 @@ func (r *PgRepository) ListEnriched(ctx context.Context, filter SlotFilter) ([]S
 	args := []interface{}{filter.AcademicYearID}
 	argIdx := 2
 
+	if filter.TenantID != "" {
+		query += fmt.Sprintf(` AND sl.tenant_id = $%d`, argIdx)
+		args = append(args, filter.TenantID)
+		argIdx++
+	}
+	if filter.SchoolID != "" {
+		query += fmt.Sprintf(` AND sl.school_id = $%d`, argIdx)
+		args = append(args, filter.SchoolID)
+		argIdx++
+	}
 	if filter.StructureID != "" {
 		query += fmt.Sprintf(` AND sl.structure_id = $%d`, argIdx)
 		args = append(args, filter.StructureID)
@@ -120,7 +146,7 @@ func (r *PgRepository) querySlots(ctx context.Context, query string, args ...int
 	var slots []TimetableSlot
 	for rows.Next() {
 		var s TimetableSlot
-		if err := rows.Scan(&s.ID, &s.AcademicYearID, &s.StructureID, &s.ClassID, &s.LearningAreaID, &s.TeacherID, &s.RoomIdentifier, &s.CreatedAt); err != nil {
+		if err := rows.Scan(&s.ID, &s.TenantID, &s.SchoolID, &s.AcademicYearID, &s.StructureID, &s.ClassID, &s.LearningAreaID, &s.TeacherID, &s.RoomIdentifier, &s.CreatedAt, &s.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("cbctimetableslots.Repository.querySlots: scan: %w", err)
 		}
 		slots = append(slots, s)
@@ -148,8 +174,8 @@ func (r *PgRepository) queryEnrichedSlots(ctx context.Context, query string, arg
 		var s SlotWithEnrichedData
 		var startTime, endTime *time.Time
 		if err := rows.Scan(
-			&s.ID, &s.AcademicYearID, &s.StructureID, &s.ClassID,
-			&s.LearningAreaID, &s.TeacherID, &s.RoomIdentifier, &s.CreatedAt,
+			&s.ID, &s.TenantID, &s.SchoolID, &s.AcademicYearID, &s.StructureID, &s.ClassID,
+			&s.LearningAreaID, &s.TeacherID, &s.RoomIdentifier, &s.CreatedAt, &s.UpdatedAt,
 			&s.ClassName, &s.PeriodName, &s.DayOfWeek,
 			&startTime, &endTime, &s.IsBreak,
 			&s.LearningAreaName, &s.TeacherName,
@@ -177,15 +203,15 @@ func (r *PgRepository) queryEnrichedSlots(ctx context.Context, query string, arg
 
 // GetByID retrieves a single slot by ID.
 func (r *PgRepository) GetByID(ctx context.Context, id string) (*TimetableSlot, error) {
-	const query = `
-		SELECT id, academic_year_id, structure_id, class_id, learning_area_id, teacher_id, room_identifier, created_at
+	query := fmt.Sprintf(`
+		SELECT %s
 		FROM cbc_timetable_slots
 		WHERE id = $1
-	`
+	`, slotColumns)
 
 	var s TimetableSlot
 	err := r.pool.QueryRow(ctx, query, id).Scan(
-		&s.ID, &s.AcademicYearID, &s.StructureID, &s.ClassID, &s.LearningAreaID, &s.TeacherID, &s.RoomIdentifier, &s.CreatedAt,
+		&s.ID, &s.TenantID, &s.SchoolID, &s.AcademicYearID, &s.StructureID, &s.ClassID, &s.LearningAreaID, &s.TeacherID, &s.RoomIdentifier, &s.CreatedAt, &s.UpdatedAt,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -201,6 +227,8 @@ func (r *PgRepository) GetEnrichedByID(ctx context.Context, id string) (*SlotWit
 	const query = `
 		SELECT
 			sl.id,
+			sl.tenant_id,
+			sl.school_id,
 			sl.academic_year_id,
 			sl.structure_id,
 			sl.class_id,
@@ -208,6 +236,7 @@ func (r *PgRepository) GetEnrichedByID(ctx context.Context, id string) (*SlotWit
 			sl.teacher_id,
 			sl.room_identifier,
 			sl.created_at,
+			sl.updated_at,
 			cls.grade_level || ' ' || COALESCE(str.name, '') AS class_name,
 			ts.period_name,
 			ts.day_of_week,
@@ -228,8 +257,8 @@ func (r *PgRepository) GetEnrichedByID(ctx context.Context, id string) (*SlotWit
 	var s SlotWithEnrichedData
 	var startTime, endTime *time.Time
 	err := r.pool.QueryRow(ctx, query, id).Scan(
-		&s.ID, &s.AcademicYearID, &s.StructureID, &s.ClassID,
-		&s.LearningAreaID, &s.TeacherID, &s.RoomIdentifier, &s.CreatedAt,
+		&s.ID, &s.TenantID, &s.SchoolID, &s.AcademicYearID, &s.StructureID, &s.ClassID,
+		&s.LearningAreaID, &s.TeacherID, &s.RoomIdentifier, &s.CreatedAt, &s.UpdatedAt,
 		&s.ClassName, &s.PeriodName, &s.DayOfWeek,
 		&startTime, &endTime, &s.IsBreak,
 		&s.LearningAreaName, &s.TeacherName,
@@ -249,19 +278,19 @@ func (r *PgRepository) GetEnrichedByID(ctx context.Context, id string) (*SlotWit
 	return &s, nil
 }
 
-// Create inserts a new slot. Returns the created slot.
-func (r *PgRepository) Create(ctx context.Context, slot CreateSlotPayload) (*TimetableSlot, error) {
+// Create inserts a new slot with tenant/school scoping. Returns the created slot.
+func (r *PgRepository) Create(ctx context.Context, tenantID, schoolID string, slot CreateSlotPayload) (*TimetableSlot, error) {
 	const query = `
-		INSERT INTO cbc_timetable_slots (academic_year_id, structure_id, class_id, learning_area_id, teacher_id, room_identifier)
-		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id, academic_year_id, structure_id, class_id, learning_area_id, teacher_id, room_identifier, created_at
+		INSERT INTO cbc_timetable_slots (tenant_id, school_id, academic_year_id, structure_id, class_id, learning_area_id, teacher_id, room_identifier)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		RETURNING id, tenant_id, school_id, academic_year_id, structure_id, class_id, learning_area_id, teacher_id, room_identifier, created_at, updated_at
 	`
 
 	var s TimetableSlot
 	err := r.pool.QueryRow(ctx, query,
-		slot.AcademicYearID, slot.StructureID, slot.ClassID,
+		tenantID, schoolID, slot.AcademicYearID, slot.StructureID, slot.ClassID,
 		slot.LearningAreaID, slot.TeacherID, slot.RoomIdentifier,
-	).Scan(&s.ID, &s.AcademicYearID, &s.StructureID, &s.ClassID, &s.LearningAreaID, &s.TeacherID, &s.RoomIdentifier, &s.CreatedAt)
+	).Scan(&s.ID, &s.TenantID, &s.SchoolID, &s.AcademicYearID, &s.StructureID, &s.ClassID, &s.LearningAreaID, &s.TeacherID, &s.RoomIdentifier, &s.CreatedAt, &s.UpdatedAt)
 	if err != nil {
 		if isUniqueViolation(err) {
 			return nil, fmt.Errorf("cbctimetableslots.Repository.Create: %w", mapUniqueViolation(err))
@@ -271,8 +300,8 @@ func (r *PgRepository) Create(ctx context.Context, slot CreateSlotPayload) (*Tim
 	return &s, nil
 }
 
-// BatchCreate inserts multiple slots atomically.
-func (r *PgRepository) BatchCreate(ctx context.Context, slots []CreateSlotPayload) ([]TimetableSlot, error) {
+// BatchCreate inserts multiple slots atomically within a transaction.
+func (r *PgRepository) BatchCreate(ctx context.Context, tenantID, schoolID string, slots []CreateSlotPayload) ([]TimetableSlot, error) {
 	if len(slots) == 0 {
 		return []TimetableSlot{}, nil
 	}
@@ -286,18 +315,18 @@ func (r *PgRepository) BatchCreate(ctx context.Context, slots []CreateSlotPayloa
 	}()
 
 	const query = `
-		INSERT INTO cbc_timetable_slots (academic_year_id, structure_id, class_id, learning_area_id, teacher_id, room_identifier)
-		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id, academic_year_id, structure_id, class_id, learning_area_id, teacher_id, room_identifier, created_at
+		INSERT INTO cbc_timetable_slots (tenant_id, school_id, academic_year_id, structure_id, class_id, learning_area_id, teacher_id, room_identifier)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		RETURNING id, tenant_id, school_id, academic_year_id, structure_id, class_id, learning_area_id, teacher_id, room_identifier, created_at, updated_at
 	`
 
 	var results []TimetableSlot
 	for _, slot := range slots {
 		var s TimetableSlot
 		err := tx.QueryRow(ctx, query,
-			slot.AcademicYearID, slot.StructureID, slot.ClassID,
+			tenantID, schoolID, slot.AcademicYearID, slot.StructureID, slot.ClassID,
 			slot.LearningAreaID, slot.TeacherID, slot.RoomIdentifier,
-		).Scan(&s.ID, &s.AcademicYearID, &s.StructureID, &s.ClassID, &s.LearningAreaID, &s.TeacherID, &s.RoomIdentifier, &s.CreatedAt)
+		).Scan(&s.ID, &s.TenantID, &s.SchoolID, &s.AcademicYearID, &s.StructureID, &s.ClassID, &s.LearningAreaID, &s.TeacherID, &s.RoomIdentifier, &s.CreatedAt, &s.UpdatedAt)
 		if err != nil {
 			if isUniqueViolation(err) {
 				return nil, fmt.Errorf("cbctimetableslots.Repository.BatchCreate: %w", mapUniqueViolation(err))
@@ -357,12 +386,12 @@ func (r *PgRepository) Update(ctx context.Context, id string, slot UpdateSlotPay
 		UPDATE cbc_timetable_slots
 		SET %s
 		WHERE id = $%d
-		RETURNING id, academic_year_id, structure_id, class_id, learning_area_id, teacher_id, room_identifier, created_at
+		RETURNING id, tenant_id, school_id, academic_year_id, structure_id, class_id, learning_area_id, teacher_id, room_identifier, created_at, updated_at
 	`, strings.Join(sets, ", "), argIdx)
 
 	var s TimetableSlot
 	err := r.pool.QueryRow(ctx, query, args...).Scan(
-		&s.ID, &s.AcademicYearID, &s.StructureID, &s.ClassID, &s.LearningAreaID, &s.TeacherID, &s.RoomIdentifier, &s.CreatedAt,
+		&s.ID, &s.TenantID, &s.SchoolID, &s.AcademicYearID, &s.StructureID, &s.ClassID, &s.LearningAreaID, &s.TeacherID, &s.RoomIdentifier, &s.CreatedAt, &s.UpdatedAt,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {

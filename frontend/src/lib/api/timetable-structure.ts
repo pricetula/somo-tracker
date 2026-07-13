@@ -48,6 +48,17 @@ export interface CreateTimeBlockPayload {
     academic_year_id: string;
 }
 
+export interface UpdateTimeBlockPayload extends CreateTimeBlockPayload {
+    /**
+     * Propagation mode:
+     *   ""         — update only this block (default)
+     *   "all_days" — update all blocks with the same period_name on all days
+     */
+    propagate?: string;
+    /** Shift subsequent blocks on the same day by the time delta */
+    shift_following?: boolean;
+}
+
 export interface BatchCreateTimeBlockPayload {
     blocks: CreateTimeBlockPayload[];
 }
@@ -67,22 +78,30 @@ export interface DeleteResult {
 
 export interface TimetableSlot {
     id: string;
+    tenant_id: string;
+    school_id: string;
     academic_year_id: string;
     structure_id: string;
     class_id: string;
     learning_area_id?: string | null;
     teacher_id?: string | null;
     room_identifier?: string | null;
+    created_at?: string;
+    updated_at?: string;
 }
 
 export interface EnrichedSlot {
     id: string;
+    tenant_id: string;
+    school_id: string;
     academic_year_id: string;
     structure_id: string;
     class_id: string;
     learning_area_id?: string | null;
     teacher_id?: string | null;
     room_identifier?: string | null;
+    created_at?: string;
+    updated_at?: string;
     class_name: string;
     period_name: string;
     day_of_week: number;
@@ -186,12 +205,12 @@ export async function replicateDay(payload: ReplicateDayPayload): Promise<TimeBl
     return api.post<TimeBlockListResult>("/api/v1/timetable/structure/replicate", payload);
 }
 
-/** Update an existing time block. */
+/** Update an existing time block with optional cascade and shift. */
 export async function updateTimeBlock(
     id: string,
-    payload: CreateTimeBlockPayload
-): Promise<TimeBlock> {
-    return api.put<TimeBlock>(`/api/v1/timetable/structure/${id}`, payload);
+    payload: UpdateTimeBlockPayload
+): Promise<TimeBlockListResult> {
+    return api.put<TimeBlockListResult>(`/api/v1/timetable/structure/${id}`, payload);
 }
 
 /** Delete a time block by ID. */
@@ -203,6 +222,17 @@ export async function deleteTimeBlock(id: string): Promise<DeleteResult> {
 export async function deleteDayBlocks(day: number, academicYearID?: string): Promise<void> {
     const params = academicYearID ? `?academic_year_id=${encodeURIComponent(academicYearID)}` : "";
     return api.delete<void>(`/api/v1/timetable/structure/day/${day}${params}`);
+}
+
+/** Delete all time blocks with a given period name across all days. */
+export async function deleteTimeBlocksByName(
+    periodName: string,
+    academicYearID: string
+): Promise<DeleteResult> {
+    const params = `?academic_year_id=${encodeURIComponent(academicYearID)}`;
+    return api.delete<DeleteResult>(
+        `/api/v1/timetable/structure/by-name/${encodeURIComponent(periodName)}${params}`
+    );
 }
 
 // ─── API Functions: Allocation Slots ──────────────────────────────────────

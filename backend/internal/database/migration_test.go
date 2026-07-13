@@ -400,7 +400,9 @@ func TestMigrationsIntegration_ConstraintsAndIndexes_M3_to_M13(t *testing.T) {
 	require.NoError(t, err)
 	defer pool.Close()
 
-	// Apply all migrations (000003 was squashed into 000001)
+	// Apply all migrations (000003 is an upgrade-only migration for databases
+	// created with the old 000001 schema — new installations get the correct
+	// columns directly from the updated 000001_initial_schema.up.sql)
 	for _, f := range []string{"000001_initial_schema.up.sql", "000002_seed.up.sql"} {
 		sql, err := os.ReadFile(filepath.Join(migrationsDir(), f))
 		require.NoError(t, err, "read %s", f)

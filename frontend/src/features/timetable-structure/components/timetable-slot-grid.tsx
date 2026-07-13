@@ -1,26 +1,32 @@
 /**
  * TimetableSlotGrid — weekly grid for assigning classes to time blocks.
  *
- * Pick a class from the selector above the grid, then click cells to
- * assign that class (plus optional teacher/area/room) to any period.
- * Click an already-assigned cell to remove the assignment.
+ * Hover a period name to edit/delete (changes apply to all weekdays).
+ * Click cells to assign/remove class slots.
  */
 
 "use client";
 
 import { useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Pencil } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import {
     useEnrichedSlotList,
     useCreateSlot,
     useDeleteSlot,
+    useUpdateTimeBlock,
+    useDeleteTimeBlocksByName,
 } from "../hooks/use-timetable-structure";
 import { AddSlotDialog } from "./add-slot-dialog";
+import { EditBlockDialog } from "./edit-block-dialog";
 import { ClassCombobox } from "@/features/classes/components/class-combobox";
 
-import type { TimeBlock, CreateSlotPayload } from "@/lib/api/timetable-structure";
+import type {
+    TimeBlock,
+    CreateSlotPayload,
+    UpdateTimeBlockPayload,
+} from "@/lib/api/timetable-structure";
 import { getDayName, DAY_NAMES } from "@/lib/api/timetable-structure";
 import { ApiError } from "@/lib/api/client";
 import { toast } from "sonner";
@@ -65,13 +71,20 @@ export function TimetableSlotGrid({ blocks, academicYearID, isLoading }: Timetab
         viewBy
     );
     const createMutation = useCreateSlot();
-    const deleteMutation = useDeleteSlot();
+    const deleteSlotMutation = useDeleteSlot();
+    const updateBlockMutation = useUpdateTimeBlock();
+    const deleteBlocksByNameMutation = useDeleteTimeBlocksByName();
 
-    const [dialogOpen, setDialogOpen] = useState(false);
-    const [dialogStructureID, setDialogStructureID] = useState("");
-    const [dialogPeriod, setDialogPeriod] = useState("");
-    const [dialogDay, setDialogDay] = useState(1);
-    const [dialogTimeRange, setDialogTimeRange] = useState("");
+    // Slot assignment dialog state
+    const [assignOpen, setAssignOpen] = useState(false);
+    const [assignStructureID, setAssignStructureID] = useState("");
+    const [assignPeriod, setAssignPeriod] = useState("");
+    const [assignDay, setAssignDay] = useState(1);
+    const [assignTimeRange, setAssignTimeRange] = useState("");
+
+    // Block edit dialog state
+    const [editOpen, setEditOpen] = useState(false);
+    const [editBlock, setEditBlock] = useState<TimeBlock | null>(null);
 
     const allSlots = enrichedData?.items ?? [];
 
@@ -86,6 +99,8 @@ export function TimetableSlotGrid({ blocks, academicYearID, isLoading }: Timetab
     // Rows from Monday's blocks (all days share the same structure after replication)
     const mondayBlocks = dayGroups.get(1) ?? [];
 
+    // ── Slot assignment handlers ──
+
     const handleCellClick = (day: number, block: TimeBlock) => {
         if (block.is_break) return;
         const key = `${day}-${block.id}`;
@@ -93,7 +108,7 @@ export function TimetableSlotGrid({ blocks, academicYearID, isLoading }: Timetab
             const slot = allSlots.find((s) => s.day_of_week === day && s.structure_id === block.id);
             if (slot) {
                 if (window.confirm(`Remove ${slot.class_name} from ${block.period_name}?`)) {
-                    deleteMutation.mutate(slot.id, {
+                    deleteSlotMutation.mutate(slot.id, {
                         onError: (err) => toast.error(getErrorMessage(err)),
                     });
                 }
@@ -101,20 +116,49 @@ export function TimetableSlotGrid({ blocks, academicYearID, isLoading }: Timetab
             return;
         }
         if (!selectedClassID) return;
-        setDialogStructureID(block.id);
-        setDialogPeriod(block.period_name);
-        setDialogDay(day);
-        setDialogTimeRange(`${fmt(block.start_time)} – ${fmt(block.end_time)}`);
-        setDialogOpen(true);
+        setAssignStructureID(block.id);
+        setAssignPeriod(block.period_name);
+        setAssignDay(day);
+        setAssignTimeRange(`${fmt(block.start_time)} – ${fmt(block.end_time)}`);
+        setAssignOpen(true);
     };
 
     const handleCreateSlot = (payload: CreateSlotPayload) => {
         createMutation.mutate(payload, {
-            onSuccess: () => setDialogOpen(false),
+            onSuccess: () => setAssignOpen(false),
             onError: (err) => {
                 if (err instanceof ApiError) toast.error(err.message);
             },
         });
+    };
+
+    // ── Block edit/delete handlers (always all days) ──
+
+    const handleEditClick = (block: TimeBlock) => {
+        setEditBlock(block);
+        setEditOpen(true);
+    };
+
+    const handleUpdateBlock = (payload: UpdateTimeBlockPayload) => {
+        if (!editBlock) return;
+        updateBlockMutation.mutate(
+            { id: editBlock.id, ...payload },
+            {
+                onSuccess: () => setEditOpen(false),
+                onError: (err) => toast.error(getErrorMessage(err)),
+            }
+        );
+    };
+
+    const handleDeleteBlock = () => {
+        if (!editBlock) return;
+        deleteBlocksByNameMutation.mutate(
+            { periodName: editBlock.period_name, academicYearID },
+            {
+                onSuccess: () => setEditOpen(false),
+                onError: (err) => toast.error(getErrorMessage(err)),
+            }
+        );
     };
 
     if (isLoading || slotsLoading) {
@@ -133,7 +177,8 @@ export function TimetableSlotGrid({ blocks, academicYearID, isLoading }: Timetab
             <div>
                 <h3 className="text-foreground text-sm font-semibold">Class Assignments</h3>
                 <p className="text-muted-foreground mt-0.5 text-xs">
-                    Select a class below, then click any period cell to assign it.
+                    Select a class below, then click any period cell to assign it. Hover a period
+                    name to edit or delete (applies to all weekdays).
                 </p>
             </div>
 
@@ -151,7 +196,7 @@ export function TimetableSlotGrid({ blocks, academicYearID, isLoading }: Timetab
                 <table className="w-full min-w-[500px] text-sm">
                     <thead>
                         <tr className="bg-muted/20">
-                            <th className="bg-muted/20 text-muted-foreground border-border/40 sticky top-0 z-10 w-[160px] border-b px-3 py-2 text-left text-xs font-semibold">
+                            <th className="bg-muted/20 text-muted-foreground border-border/40 sticky top-0 z-10 w-[170px] border-b px-3 py-2 text-left text-xs font-semibold">
                                 Period
                             </th>
                             {DAYS.map((day) => (
@@ -168,15 +213,38 @@ export function TimetableSlotGrid({ blocks, academicYearID, isLoading }: Timetab
                         {mondayBlocks.map((refBlock, rowIdx) => {
                             const isBreak = refBlock.is_break;
                             return (
-                                <tr key={refBlock.id} className={cn(isBreak && "bg-muted/10")}>
-                                    <td className="border-border/20 text-foreground border-b px-3 py-2.5 text-xs font-medium">
-                                        <span className="block leading-tight">
-                                            {refBlock.period_name}
-                                        </span>
-                                        <span className="text-muted-foreground block text-[11px]">
-                                            {fmt(refBlock.start_time)} – {fmt(refBlock.end_time)}
-                                        </span>
+                                <tr
+                                    key={refBlock.id}
+                                    className={cn(isBreak && "bg-muted/10", "group")}
+                                >
+                                    {/* Period column with inline edit button */}
+                                    <td className="border-border/20 text-foreground relative border-b px-3 py-2.5 text-xs font-medium">
+                                        <div className="flex items-start justify-between gap-1">
+                                            <div className="min-w-0 flex-1">
+                                                <span className="block truncate leading-tight">
+                                                    {refBlock.period_name}
+                                                </span>
+                                                <span className="text-muted-foreground block text-[11px]">
+                                                    {fmt(refBlock.start_time)} –{" "}
+                                                    {fmt(refBlock.end_time)}
+                                                </span>
+                                            </div>
+                                            {/* Edit button — visible on row hover */}
+                                            <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleEditClick(refBlock)}
+                                                    className="hover:bg-primary/10 text-muted-foreground hover:text-foreground rounded p-1 transition-colors"
+                                                    aria-label="Edit period"
+                                                    title="Edit period"
+                                                >
+                                                    <Pencil className="h-3.5 w-3.5" />
+                                                </button>
+                                            </div>
+                                        </div>
                                     </td>
+
+                                    {/* Day cells */}
                                     {DAYS.map((day) => {
                                         const dayBlocks = dayGroups.get(day) ?? [];
                                         const block = dayBlocks[rowIdx];
@@ -241,18 +309,33 @@ export function TimetableSlotGrid({ blocks, academicYearID, isLoading }: Timetab
                 </table>
             </div>
 
+            {/* Slot assignment dialog */}
             <AddSlotDialog
-                open={dialogOpen}
-                onOpenChange={setDialogOpen}
-                structureID={dialogStructureID}
-                periodName={dialogPeriod}
-                dayName={DAY_NAMES[dialogDay] ?? ""}
-                timeRange={dialogTimeRange}
+                open={assignOpen}
+                onOpenChange={setAssignOpen}
+                structureID={assignStructureID}
+                periodName={assignPeriod}
+                dayName={DAY_NAMES[assignDay] ?? ""}
+                timeRange={assignTimeRange}
                 academicYearID={academicYearID}
                 isPending={createMutation.isPending}
                 classID={selectedClassID}
                 onSubmit={handleCreateSlot}
             />
+
+            {/* Block edit dialog */}
+            {editBlock && (
+                <EditBlockDialog
+                    open={editOpen}
+                    onOpenChange={setEditOpen}
+                    block={editBlock}
+                    academicYearID={academicYearID}
+                    isUpdatePending={updateBlockMutation.isPending}
+                    isDeletePending={deleteBlocksByNameMutation.isPending}
+                    onUpdate={handleUpdateBlock}
+                    onDelete={handleDeleteBlock}
+                />
+            )}
         </div>
     );
 }

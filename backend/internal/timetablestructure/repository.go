@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -471,6 +472,152 @@ func (r *PgRepository) findOverlappingInTx(ctx context.Context, tx pgx.Tx, tenan
 	b.StartTime = sTime.Format("15:04")
 	b.EndTime = eTime.Format("15:04")
 	return &b, nil
+}
+
+// ─── New methods for cascade, shift, and delete-by-name ──────────────────
+
+// ListByPeriodName returns all time blocks with the given period name,
+// optionally excluding a specific block ID.
+func (r *PgRepository) ListByPeriodName(ctx context.Context, tenantID, schoolID, academicYearID, periodName string, excludeID string) ([]TimeBlock, error) {
+	query := `
+		SELECT id, day_of_week, period_name, start_time, end_time, is_break, academic_year_id, created_at, updated_at
+		FROM timetable_structures
+		WHERE tenant_id = $1
+		  AND school_id = $2
+		  AND academic_year_id = $3::UUID
+		  AND period_name = $4
+	`
+	args := []interface{}{tenantID, schoolID, academicYearID, periodName}
+
+	if excludeID != "" {
+		query += ` AND id <> $5`
+		args = append(args, excludeID)
+	}
+
+	query += ` ORDER BY day_of_week ASC, start_time ASC`
+
+	return r.queryBlocks(ctx, query, args...)
+}
+
+// ListByDayAfter returns all time blocks on a given day whose start_time
+// is >= afterTime, optionally excluding a specific block ID.
+func (r *PgRepository) ListByDayAfter(ctx context.Context, tenantID, schoolID, academicYearID string, dayOfWeek int, afterTime string, excludeID string) ([]TimeBlock, error) {
+	query := `
+		SELECT id, day_of_week, period_name, start_time, end_time, is_break, academic_year_id, created_at, updated_at
+		FROM timetable_structures
+		WHERE tenant_id = $1
+		  AND school_id = $2
+		  AND academic_year_id = $3::UUID
+		  AND day_of_week = $4
+		  AND start_time >= $5::TIME
+	`
+	args := []interface{}{tenantID, schoolID, academicYearID, dayOfWeek, afterTime}
+
+	if excludeID != "" {
+		query += ` AND id <> $6`
+		args = append(args, excludeID)
+	}
+
+	query += ` ORDER BY start_time ASC`
+
+	return r.queryBlocks(ctx, query, args...)
+}
+
+// BatchUpdateBlocks updates the start_time and end_time for multiple blocks
+// atomically within a single transaction.
+func (r *PgRepository) BatchUpdateBlocks(ctx context.Context, tenantID, schoolID string, blocks []BatchBlockUpdate) ([]TimeBlock, error) {
+	if len(blocks) == 0 {
+		return []TimeBlock{}, nil
+	}
+
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("timetablestructure.Repository.BatchUpdateBlocks: begin tx: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	const query = `
+		UPDATE timetable_structures
+		SET start_time = $1::TIME, end_time = $2::TIME, updated_at = NOW()
+		WHERE id = $3 AND tenant_id = $4 AND school_id = $5
+		RETURNING id, day_of_week, period_name, start_time, end_time, is_break, academic_year_id, created_at, updated_at
+	`
+
+	var results []TimeBlock
+	for _, b := range blocks {
+		var tb TimeBlock
+		var st, et time.Time
+		err := tx.QueryRow(ctx, query, b.StartTime, b.EndTime, b.ID, tenantID, schoolID).Scan(
+			&tb.ID, &tb.DayOfWeek, &tb.PeriodName, &st, &et, &tb.IsBreak, &tb.AcademicYearID, &tb.CreatedAt, &tb.UpdatedAt,
+		)
+		if err != nil {
+			if err == pgx.ErrNoRows {
+				return nil, fmt.Errorf("timetablestructure.Repository.BatchUpdateBlocks: block %s not found: %w", b.ID, ErrNotFound)
+			}
+			if isOverlapViolation(err) {
+				return nil, fmt.Errorf("timetablestructure.Repository.BatchUpdateBlocks: %w", ErrBlockOverlap)
+			}
+			return nil, fmt.Errorf("timetablestructure.Repository.BatchUpdateBlocks: %w", err)
+		}
+		tb.StartTime = st.Format("15:04")
+		tb.EndTime = et.Format("15:04")
+		results = append(results, tb)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("timetablestructure.Repository.BatchUpdateBlocks: commit: %w", err)
+	}
+
+	return results, nil
+}
+
+// DeleteByPeriodName removes all blocks with the given period name within
+// an academic year. Returns the number of rows deleted.
+func (r *PgRepository) DeleteByPeriodName(ctx context.Context, tenantID, schoolID, academicYearID, periodName string) (int, error) {
+	const query = `
+		DELETE FROM timetable_structures
+		WHERE tenant_id = $1
+		  AND school_id = $2
+		  AND academic_year_id = $3::UUID
+		  AND period_name = $4
+	`
+	tag, err := r.pool.Exec(ctx, query, tenantID, schoolID, academicYearID, periodName)
+	if err != nil {
+		return 0, fmt.Errorf("timetablestructure.Repository.DeleteByPeriodName: %w", err)
+	}
+	return int(tag.RowsAffected()), nil
+}
+
+// HasLinkedLessonsForBlocks checks whether any cbc_timetable_slots reference
+// any of the given structure IDs.
+func (r *PgRepository) HasLinkedLessonsForBlocks(ctx context.Context, ids []string) (int, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+
+	args := make([]interface{}, len(ids))
+	for i, id := range ids {
+		args[i] = id
+	}
+
+	placeholders := make([]string, len(ids))
+	for i := range ids {
+		placeholders[i] = fmt.Sprintf("$%d", i+1)
+	}
+
+	query := fmt.Sprintf(`
+		SELECT COUNT(*) FROM cbc_timetable_slots
+		WHERE structure_id IN (%s)
+	`, strings.Join(placeholders, ", "))
+
+	var count int
+	err := r.pool.QueryRow(ctx, query, args...).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("timetablestructure.Repository.HasLinkedLessonsForBlocks: %w", err)
+	}
+	return count, nil
 }
 
 // isOverlapViolation checks if an error is the GiST exclusion constraint violation.

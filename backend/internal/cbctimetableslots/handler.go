@@ -30,6 +30,20 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	slots.Delete("/:id", middleware.RequireAuth, h.Delete)
 }
 
+// extractTenantSchool extracts tenant_id and school_id from the request context.
+// Returns an error if school_id is not set (required for write operations).
+func (h *Handler) extractTenantSchool(c *fiber.Ctx) (tenantID, schoolID string, err error) {
+	tenantID = c.Locals("tenant_id").(string)
+	schoolID, _ = c.Locals("active_school_id").(string)
+	if schoolID == "" {
+		return "", "", c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "active school not set",
+		})
+	}
+	return tenantID, schoolID, nil
+}
+
 // List handles GET /api/v1/timetable/slots.
 func (h *Handler) List(c *fiber.Ctx) error {
 	academicYearID := c.Query("academic_year_id")
@@ -40,8 +54,11 @@ func (h *Handler) List(c *fiber.Ctx) error {
 		})
 	}
 
+	tenantID, _ := c.Locals("tenant_id").(string)
+
 	filter := SlotFilter{
 		AcademicYearID: academicYearID,
+		TenantID:       tenantID,
 		StructureID:    c.Query("structure_id"),
 		ClassID:        c.Query("class_id"),
 		TeacherID:      c.Query("teacher_id"),
@@ -66,9 +83,12 @@ func (h *Handler) ListEnriched(c *fiber.Ctx) error {
 		})
 	}
 
+	tenantID, _ := c.Locals("tenant_id").(string)
+
 	viewBy := c.Query("view_by") // class, teacher, or room
 	filter := SlotFilter{
 		AcademicYearID: academicYearID,
+		TenantID:       tenantID,
 		StructureID:    c.Query("structure_id"),
 	}
 
@@ -109,6 +129,11 @@ func (h *Handler) GetByID(c *fiber.Ctx) error {
 
 // Create handles POST /api/v1/timetable/slots.
 func (h *Handler) Create(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.extractTenantSchool(c)
+	if err != nil {
+		return err
+	}
+
 	var payload CreateSlotPayload
 	if err := c.BodyParser(&payload); err != nil {
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
@@ -126,7 +151,7 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 		})
 	}
 
-	slot, err := h.svc.CreateSlot(c.Context(), payload)
+	slot, err := h.svc.CreateSlot(c.Context(), tenantID, schoolID, payload)
 	if err != nil {
 		if errors.Is(err, ErrClassSlotOccupied) {
 			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
@@ -154,6 +179,11 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 
 // BatchCreate handles POST /api/v1/timetable/slots/batch.
 func (h *Handler) BatchCreate(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.extractTenantSchool(c)
+	if err != nil {
+		return err
+	}
+
 	var payload BatchCreateSlotsPayload
 	if err := c.BodyParser(&payload); err != nil {
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
@@ -169,7 +199,7 @@ func (h *Handler) BatchCreate(c *fiber.Ctx) error {
 		})
 	}
 
-	result, err := h.svc.BatchCreateSlots(c.Context(), payload)
+	result, err := h.svc.BatchCreateSlots(c.Context(), tenantID, schoolID, payload)
 	if err != nil {
 		if errors.Is(err, ErrClassSlotOccupied) {
 			return c.Status(fiber.StatusConflict).JSON(fiber.Map{

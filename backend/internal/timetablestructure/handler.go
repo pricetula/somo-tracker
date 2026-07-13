@@ -30,6 +30,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	blocks.Put("/:id", middleware.RequireAuth, h.Update)
 	blocks.Delete("/:id", middleware.RequireAuth, h.Delete)
 	blocks.Delete("/day/:day", middleware.RequireAuth, h.DeleteDay)
+	blocks.Delete("/by-name/:period_name", middleware.RequireAuth, h.DeleteByName)
 }
 
 // extractTenantSchool extracts tenant_id and school_id from the request context.
@@ -219,6 +220,8 @@ func (h *Handler) ReplicateDay(c *fiber.Ctx) error {
 }
 
 // Update handles PUT /api/v1/timetable/structure/:id.
+// Accepts UpdateTimeBlockPayload which extends the base with propagate
+// ("all_days" to cascade) and shift_following options.
 func (h *Handler) Update(c *fiber.Ctx) error {
 	tenantID, schoolID, err := h.extractTenantSchool(c)
 	if err != nil {
@@ -233,7 +236,7 @@ func (h *Handler) Update(c *fiber.Ctx) error {
 		})
 	}
 
-	var payload CreateTimeBlockPayload
+	var payload UpdateTimeBlockPayload
 	if err := c.BodyParser(&payload); err != nil {
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
 			"code":    "VALIDATION_ERROR",
@@ -241,16 +244,15 @@ func (h *Handler) Update(c *fiber.Ctx) error {
 		})
 	}
 
-	fieldErrors := validateCreatePayload(payload)
-	if len(fieldErrors) > 0 {
+	// Validate propagate mode
+	if payload.Propagate != "" && payload.Propagate != "all_days" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"code":    "invalid_input",
-			"message": "validation failed",
-			"errors":  fieldErrors,
+			"message": "propagate must be 'all_days' or empty",
 		})
 	}
 
-	block, err := h.svc.UpdateBlock(c.Context(), blockID, tenantID, schoolID, payload)
+	result, err := h.svc.UpdateBlock(c.Context(), blockID, tenantID, schoolID, payload)
 	if err != nil {
 		if errors.Is(err, ErrBlockOverlap) {
 			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
@@ -261,7 +263,7 @@ func (h *Handler) Update(c *fiber.Ctx) error {
 		return middleware.HTTPError(c, err)
 	}
 
-	return c.JSON(block)
+	return c.JSON(result)
 }
 
 // Delete handles DELETE /api/v1/timetable/structure/:id.
@@ -328,6 +330,52 @@ func (h *Handler) DeleteDay(c *fiber.Ctx) error {
 		"code":    "ok",
 		"message": "Day blocks removed successfully",
 	})
+}
+
+// DeleteByName handles DELETE /api/v1/timetable/structure/by-name/:period_name.
+// Deletes all blocks with the given period name across all days.
+func (h *Handler) DeleteByName(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.extractTenantSchool(c)
+	if err != nil {
+		return err
+	}
+
+	academicYearID := c.Query("academic_year_id")
+	if academicYearID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "academic_year_id query parameter is required",
+		})
+	}
+
+	periodName := c.Params("period_name")
+	if periodName == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "period_name is required",
+		})
+	}
+
+	payload := DeleteByNamePayload{
+		PeriodName:     periodName,
+		AcademicYearID: academicYearID,
+	}
+
+	result, err := h.svc.DeleteBlocksByName(c.Context(), tenantID, schoolID, payload)
+	if err != nil {
+		if errors.Is(err, ErrBlockHasLessons) {
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+				"code":    "time_block_has_linked_lessons",
+				"message": result.Message,
+				"details": fiber.Map{
+					"linked_lessons": result.LinkedLessons,
+				},
+			})
+		}
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.Status(fiber.StatusOK).JSON(result)
 }
 
 // validateCreatePayload performs field-level validation for create/update payloads.

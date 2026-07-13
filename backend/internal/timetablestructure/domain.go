@@ -79,9 +79,46 @@ type ReplicateDayPayload struct {
 	TargetDays []int `json:"target_days"`
 }
 
+// UpdateTimeBlockPayload is the request body for updating a time block,
+// with optional propagation (cascade to same-named blocks on other days)
+// and shift-following (adjust subsequent blocks on the same day).
+type UpdateTimeBlockPayload struct {
+	DayOfWeek      int    `json:"day_of_week"`
+	PeriodName     string `json:"period_name"`
+	StartTime      string `json:"start_time"`
+	EndTime        string `json:"end_time"`
+	IsBreak        bool   `json:"is_break"`
+	AcademicYearID string `json:"academic_year_id"`
+
+	// Propagate controls which blocks are updated.
+	//   ""         — update only this specific block (default)
+	//   "all_days" — update all blocks with the same period_name on all days
+	Propagate string `json:"propagate,omitempty"`
+
+	// ShiftFollowing, when true, shifts all subsequent blocks on the same
+	// day by the same delta as this block's time change. Requires the
+	// block's original start/end times to compute the delta.
+	ShiftFollowing bool `json:"shift_following,omitempty"`
+}
+
+// DeleteByNamePayload is the request body for deleting blocks by period name.
+type DeleteByNamePayload struct {
+	PeriodName     string `json:"period_name"`
+	AcademicYearID string `json:"academic_year_id"`
+}
+
+// BatchBlockUpdate carries the fields needed for a single block update
+// within a batch update operation.
+type BatchBlockUpdate struct {
+	ID        string
+	StartTime string
+	EndTime   string
+}
+
 // DeleteResult carries the result of a delete attempt.
 type DeleteResult struct {
 	Deleted       bool   `json:"deleted"`
+	DeletedCount  int    `json:"deleted_count,omitempty"`
 	LinkedLessons int    `json:"linked_lessons,omitempty"`
 	Message       string `json:"message,omitempty"`
 }
@@ -106,4 +143,24 @@ type Repository interface {
 	// given time range on the same day, excluding the block with the given ID
 	// (used during updates). Returns nil if no overlap exists.
 	FindOverlappingBlock(ctx context.Context, tenantID, schoolID string, dayOfWeek int, startTime, endTime string, excludeID string) (*TimeBlock, error)
+
+	// ListByPeriodName returns all time blocks with the given period name
+	// within the same academic year, optionally excluding a specific block ID.
+	ListByPeriodName(ctx context.Context, tenantID, schoolID, academicYearID, periodName string, excludeID string) ([]TimeBlock, error)
+
+	// ListByDayAfter returns all time blocks on a given day whose start_time
+	// is >= afterTime, optionally excluding a specific block ID.
+	ListByDayAfter(ctx context.Context, tenantID, schoolID, academicYearID string, dayOfWeek int, afterTime string, excludeID string) ([]TimeBlock, error)
+
+	// BatchUpdateBlocks updates the start_time and end_time for a set of
+	// blocks atomically within a single transaction.
+	BatchUpdateBlocks(ctx context.Context, tenantID, schoolID string, blocks []BatchBlockUpdate) ([]TimeBlock, error)
+
+	// DeleteByPeriodName removes all blocks with the given period name.
+	// Returns the number of rows deleted.
+	DeleteByPeriodName(ctx context.Context, tenantID, schoolID, academicYearID, periodName string) (int, error)
+
+	// HasLinkedLessonsForBlocks checks whether any cbc_timetable_slots
+	// reference any of the given structure IDs. Returns a count.
+	HasLinkedLessonsForBlocks(ctx context.Context, ids []string) (int, error)
 }

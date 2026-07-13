@@ -29,6 +29,8 @@ var (
 // TimetableSlot represents a single allocation (class → teacher → area → room) for a structure block.
 type TimetableSlot struct {
 	ID             string    `json:"id"`
+	TenantID       string    `json:"tenant_id"`
+	SchoolID       string    `json:"school_id"`
 	AcademicYearID string    `json:"academic_year_id"`
 	StructureID    string    `json:"structure_id"`
 	ClassID        string    `json:"class_id"`
@@ -36,6 +38,7 @@ type TimetableSlot struct {
 	TeacherID      *string   `json:"teacher_id,omitempty"`
 	RoomIdentifier *string   `json:"room_identifier,omitempty"`
 	CreatedAt      time.Time `json:"created_at,omitempty"`
+	UpdatedAt      time.Time `json:"updated_at,omitempty"`
 }
 
 // SlotListResult holds the response for listing slots.
@@ -69,6 +72,8 @@ type UpdateSlotPayload struct {
 // SlotFilter are query parameters for filtering the slot list.
 type SlotFilter struct {
 	AcademicYearID string `json:"academic_year_id"`
+	TenantID       string `json:"tenant_id,omitempty"`
+	SchoolID       string `json:"school_id,omitempty"`
 	StructureID    string `json:"structure_id,omitempty"`
 	ClassID        string `json:"class_id,omitempty"`
 	TeacherID      string `json:"teacher_id,omitempty"`
@@ -100,8 +105,8 @@ type Repository interface {
 	ListEnriched(ctx context.Context, filter SlotFilter) ([]SlotWithEnrichedData, error)
 	GetByID(ctx context.Context, id string) (*TimetableSlot, error)
 	GetEnrichedByID(ctx context.Context, id string) (*SlotWithEnrichedData, error)
-	Create(ctx context.Context, slot CreateSlotPayload) (*TimetableSlot, error)
-	BatchCreate(ctx context.Context, slots []CreateSlotPayload) ([]TimetableSlot, error)
+	Create(ctx context.Context, tenantID, schoolID string, slot CreateSlotPayload) (*TimetableSlot, error)
+	BatchCreate(ctx context.Context, tenantID, schoolID string, slots []CreateSlotPayload) ([]TimetableSlot, error)
 	Update(ctx context.Context, id string, slot UpdateSlotPayload) (*TimetableSlot, error)
 	Delete(ctx context.Context, id string) error
 

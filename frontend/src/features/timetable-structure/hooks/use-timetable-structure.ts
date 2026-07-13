@@ -16,6 +16,7 @@ import {
     replicateDay,
     updateTimeBlock,
     deleteTimeBlock,
+    deleteTimeBlocksByName,
     listSlots,
     listEnrichedSlots,
     getSlot,
@@ -27,6 +28,7 @@ import {
 import { getErrorMessage } from "@/lib/errors";
 import type {
     CreateTimeBlockPayload,
+    UpdateTimeBlockPayload,
     BatchCreateTimeBlockPayload,
     ReplicateDayPayload,
     CreateSlotPayload,
@@ -123,16 +125,17 @@ export function useReplicateDay() {
     });
 }
 
-/** Update an existing time block. */
+/** Update an existing time block with optional cascade and shift. */
 export function useUpdateTimeBlock() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: ({ id, ...payload }: { id: string } & CreateTimeBlockPayload) =>
+        mutationFn: ({ id, ...payload }: { id: string } & UpdateTimeBlockPayload) =>
             updateTimeBlock(id, payload),
-        onSuccess: () => {
+        onSuccess: (data) => {
             void queryClient.invalidateQueries({ queryKey: timetableStructureKeys.all });
-            toast.success("Time block updated");
+            const count = data.items?.length ?? 1;
+            toast.success(`Time block updated (${count} block${count > 1 ? "s" : ""} affected)`);
         },
         onError: (err) => {
             toast.error(getErrorMessage(err));
@@ -149,6 +152,28 @@ export function useDeleteTimeBlock() {
         onSuccess: (data) => {
             void queryClient.invalidateQueries({ queryKey: timetableStructureKeys.all });
             toast.success(data.message ?? "Time block removed successfully");
+        },
+        onError: (err) => {
+            toast.error(getErrorMessage(err));
+        },
+    });
+}
+
+/** Delete all time blocks with a specific period name across all days. */
+export function useDeleteTimeBlocksByName() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({
+            periodName,
+            academicYearID,
+        }: {
+            periodName: string;
+            academicYearID: string;
+        }) => deleteTimeBlocksByName(periodName, academicYearID),
+        onSuccess: (data) => {
+            void queryClient.invalidateQueries({ queryKey: timetableStructureKeys.all });
+            toast.success(data.message ?? "Blocks removed");
         },
         onError: (err) => {
             toast.error(getErrorMessage(err));

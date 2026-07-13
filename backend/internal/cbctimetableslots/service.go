@@ -57,13 +57,17 @@ func (s *Service) GetSlot(ctx context.Context, id string) (*SlotWithEnrichedData
 	return slot, nil
 }
 
-// CreateSlot creates a single slot assignment.
-func (s *Service) CreateSlot(ctx context.Context, payload CreateSlotPayload) (*TimetableSlot, error) {
+// CreateSlot creates a single slot assignment with tenant and school scoping.
+func (s *Service) CreateSlot(ctx context.Context, tenantID, schoolID string, payload CreateSlotPayload) (*TimetableSlot, error) {
+	if tenantID == "" || schoolID == "" {
+		return nil, fmt.Errorf("cbctimetableslots.Service.CreateSlot: %w", ErrInvalidInput)
+	}
+
 	if err := validateCreatePayload(payload); err != nil {
 		return nil, fmt.Errorf("cbctimetableslots.Service.CreateSlot: %w", err)
 	}
 
-	slot, err := s.Repo.Create(ctx, payload)
+	slot, err := s.Repo.Create(ctx, tenantID, schoolID, payload)
 	if err != nil {
 		return nil, fmt.Errorf("cbctimetableslots.Service.CreateSlot: %w", err)
 	}
@@ -71,8 +75,12 @@ func (s *Service) CreateSlot(ctx context.Context, payload CreateSlotPayload) (*T
 	return slot, nil
 }
 
-// BatchCreateSlots creates multiple slots atomically.
-func (s *Service) BatchCreateSlots(ctx context.Context, payload BatchCreateSlotsPayload) (*SlotListResult, error) {
+// BatchCreateSlots creates multiple slots atomically with tenant and school scoping.
+func (s *Service) BatchCreateSlots(ctx context.Context, tenantID, schoolID string, payload BatchCreateSlotsPayload) (*SlotListResult, error) {
+	if tenantID == "" || schoolID == "" {
+		return nil, fmt.Errorf("cbctimetableslots.Service.BatchCreateSlots: %w", ErrInvalidInput)
+	}
+
 	if len(payload.Slots) == 0 {
 		return nil, fmt.Errorf("cbctimetableslots.Service.BatchCreateSlots: at least one slot required: %w", ErrInvalidInput)
 	}
@@ -83,7 +91,7 @@ func (s *Service) BatchCreateSlots(ctx context.Context, payload BatchCreateSlots
 		}
 	}
 
-	slots, err := s.Repo.BatchCreate(ctx, payload.Slots)
+	slots, err := s.Repo.BatchCreate(ctx, tenantID, schoolID, payload.Slots)
 	if err != nil {
 		return nil, fmt.Errorf("cbctimetableslots.Service.BatchCreateSlots: %w", err)
 	}

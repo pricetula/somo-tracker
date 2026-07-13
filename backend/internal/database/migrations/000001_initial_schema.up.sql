@@ -572,6 +572,9 @@ CREATE TABLE IF NOT EXISTS memberships (
     CONSTRAINT fk_memberships_tenant_school
         FOREIGN KEY (tenant_id, school_id)
         REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_memberships_tenant_user
+        FOREIGN KEY (tenant_id, user_id)
+        REFERENCES users(tenant_id, id),
     CONSTRAINT unique_user_school_membership UNIQUE (user_id, school_id)
 );
 
@@ -883,7 +886,7 @@ CREATE TABLE IF NOT EXISTS cbc_student_enrollments (
     CONSTRAINT fk_enrollments_tenant_class
         FOREIGN KEY (tenant_id, class_id)
         REFERENCES cbc_classes(tenant_id, id) ON DELETE SET NULL,
-    CONSTRAINT unique_student_term_enrollment UNIQUE (student_id, academic_term_id)
+    CONSTRAINT unique_student_term_enrollment UNIQUE (student_id, school_id, academic_term_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_cbc_enrollments_tenant_id  ON cbc_student_enrollments (tenant_id);
@@ -1285,6 +1288,9 @@ CREATE TABLE IF NOT EXISTS cbc_class_teachers (
     teacher_role     teacher_role NOT NULL DEFAULT 'SUBJECT_TEACHER',
     created_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
 
+    CONSTRAINT fk_cbc_class_teachers_tenant_user
+        FOREIGN KEY (tenant_id, user_id)
+        REFERENCES users(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_cbc_class_teachers_tenant_class
         FOREIGN KEY (tenant_id, class_id)
         REFERENCES cbc_classes(tenant_id, id) ON DELETE CASCADE,
@@ -1696,6 +1702,9 @@ CREATE TABLE IF NOT EXISTS assessment_sessions (
     knec_upload_reference VARCHAR(50) NULL,
     created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
+    CONSTRAINT fk_asessions_tenant_user
+        FOREIGN KEY (tenant_id, assessed_by_user_id)
+        REFERENCES users(tenant_id, id),
     CONSTRAINT fk_asessions_tenant_class
         FOREIGN KEY (tenant_id, class_id)
         REFERENCES cbc_classes(tenant_id, id) ON DELETE CASCADE
@@ -2124,6 +2133,154 @@ COMMENT ON TABLE member_active_school IS
     'Tracks the currently active school context for each user within a tenant.
      One row per user. Upsert on school switch. The chosen school_id is
      constrained to schools the user is an active member of via fk_mas_membership.';
+
+-- ============================================================================
+-- ROW-LEVEL SECURITY
+--
+-- Every table trusting the app layer to filter by tenant_id is one missed
+-- WHERE clause away from a cross-tenant data leak. RLS provides a second
+-- line of defence. The application must set app.current_tenant_id at the
+-- start of each request via SET LOCAL app.current_tenant_id = '<uuid>';
+-- before running any queries. The function fn_current_tenant_id() reads
+-- that parameter; RLS policies use it to silently filter rows.
+--
+-- IMPORTANT: The session user must have the TENANT_ISOLATION attribute
+-- set (ALTER ROLE ... SET app.current_tenant_id TO ...) or must call
+-- SET LOCAL before each transaction. Without this, ALL RLS-protected
+-- queries return zero rows.
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION fn_current_tenant_id()
+RETURNS UUID
+LANGUAGE plpgsql
+STABLE
+AS $$
+BEGIN
+    RETURN NULLIF(current_setting('app.current_tenant_id', TRUE), '')::UUID;
+EXCEPTION WHEN OTHERS THEN
+    RETURN NULL;
+END;
+$$;
+
+COMMENT ON FUNCTION fn_current_tenant_id() IS
+    'Returns the tenant_id set via app.current_tenant_id for the current
+     session. Returns NULL if not set (which causes RLS policies to filter
+     out ALL rows — safe by default). The application must SET LOCAL
+     app.current_tenant_id before each request.';
+
+-- ============================================================================
+-- RLS: ENABLE & POLICIES
+-- ============================================================================
+
+-- Apply RLS to all tenant-scoped data tables. Tables that hold student
+-- health records, financial data, and assessment results are the highest
+-- priority under Kenya''s Data Protection Act (2019).
+
+ALTER TABLE IF EXISTS academic_terms                    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS academic_years                    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS assessment_blueprints             ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS assessment_sessions                ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS cbc_assessment_grading_scales     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS cbc_classes                       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS cbc_class_teachers                ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS cbc_learning_areas                ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS cbc_parents                       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS cbc_student_enrollments           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS cbc_student_parents               ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS cbc_students                      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS cbc_schools                       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS cbc_streams                       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS cbc_term_competency_summaries     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS cbc_timetable_slots               ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS fee_categories                    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS fee_templates                     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS import_jobs                       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS import_job_staging                ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS invitations                       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS invoices                          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS invoice_items                     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS learner_portfolios                ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS learner_rubric_results            ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS medical_incidents                 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS member_active_school              ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS memberships                       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS payments                          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS school_member_counts              ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS student_health_profiles           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS timetable_structures              ENABLE ROW LEVEL SECURITY;
+
+-- Tenant-scoped policy function (reusable): returns a WHERE clause that
+-- filters to the current tenant. Tables without tenant_id get no policy;
+-- the default-deny behaviour means every query returns zero rows.
+CREATE OR REPLACE FUNCTION fn_rls_tenant_policy()
+RETURNS TEXT
+LANGUAGE plpgsql
+STABLE
+AS $$
+BEGIN
+    RETURN format('tenant_id = %L::UUID', fn_current_tenant_id());
+END;
+$$;
+
+DO $$ DECLARE
+    tbl TEXT;
+    policy_text TEXT;
+    current_id UUID;
+BEGIN
+    FOR tbl IN
+        SELECT unnest(ARRAY[
+            'academic_terms',
+            'academic_years',
+            'assessment_blueprints',
+            'assessment_sessions',
+            'cbc_assessment_grading_scales',
+            'cbc_classes',
+            'cbc_class_teachers',
+            'cbc_learning_areas',
+            'cbc_parents',
+            'cbc_student_enrollments',
+            'cbc_student_parents',
+            'cbc_students',
+            'cbc_schools',
+            'cbc_streams',
+            'cbc_term_competency_summaries',
+            'cbc_timetable_slots',
+            'fee_categories',
+            'fee_templates',
+            'import_jobs',
+            'import_job_staging',
+            'invitations',
+            'invoices',
+            'invoice_items',
+            'learner_portfolios',
+            'learner_rubric_results',
+            'medical_incidents',
+            'member_active_school',
+            'memberships',
+            'payments',
+            'school_member_counts',
+            'student_health_profiles',
+            'timetable_structures'
+        ])
+    LOOP
+        EXECUTE format(
+            'DROP POLICY IF EXISTS tenant_isolation_policy ON %I',
+            tbl
+        );
+        EXECUTE format(
+            'CREATE POLICY tenant_isolation_policy ON %I '
+            'FOR ALL '
+            'USING (tenant_id = fn_current_tenant_id()) '
+            'WITH CHECK (tenant_id = fn_current_tenant_id())',
+            tbl
+        );
+    END LOOP;
+END $$;
+
+COMMENT ON TABLE cbc_student_enrollments IS
+    'Per-term enrollment records. UNIQUE (student_id, school_id, academic_term_id)
+     allows same-term transfers (old school sets status=TRANSFERRED, new school
+     inserts its own row). RLS enforces tenant isolation at the database level.';
 
 -- ============================================================================
 -- END OF MIGRATION

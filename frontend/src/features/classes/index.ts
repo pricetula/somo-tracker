@@ -7,12 +7,7 @@
 export { AddClassForm } from "./components/add-class-form";
 export { ClassCombobox } from "./components/class-combobox";
 export { ClassDetailView, ClassDetailSkeleton } from "./components/class-detail-view";
-export {
-    ClassRoster,
-    RosterTable,
-    RosterSkeleton,
-    useClassRoster,
-} from "./components/class-roster";
+export { ClassRoster } from "./components/class-roster";
 export { EnrollStudentsPanel } from "./components/enroll-students-panel";
 export { useClassList, classKeys } from "./hooks/use-classes";
 

@@ -445,9 +445,32 @@ func (r *PgRepository) ValidateAcademicTerm(ctx context.Context, id, academicYea
 
 // ─── GetRoster ───────────────────────────────────────────────────────────
 
-// GetRoster returns the list of students enrolled in a class for the current term.
-func (r *PgRepository) GetRoster(ctx context.Context, classID, tenantID, schoolID, academicTermID string) ([]RosterEntry, error) {
-	const query = `
+// GetRoster returns a paginated list of students enrolled in a class for the current term.
+func (r *PgRepository) GetRoster(ctx context.Context, classID, tenantID, schoolID, academicTermID string, limit, offset int, search string) (*RosterListResult, error) {
+	// ── Count query ───────────────────────────────────────────
+	countQuery := `
+		SELECT COUNT(*)
+		FROM cbc_student_enrollments e
+		JOIN cbc_students s ON s.id = e.student_id
+		WHERE e.class_id = $1
+		  AND e.academic_term_id = $2
+		  AND e.tenant_id = $3
+		  AND s.is_active = true
+	`
+	countArgs := []interface{}{classID, academicTermID, tenantID}
+
+	if search != "" {
+		countQuery += ` AND (s.full_name ILIKE $4 OR s.admission_number ILIKE $4)`
+		countArgs = append(countArgs, "%"+search+"%")
+	}
+
+	var total int
+	if err := r.pool.QueryRow(ctx, countQuery, countArgs...).Scan(&total); err != nil {
+		return nil, fmt.Errorf("cbcclasses.Repository.GetRoster: count: %w", err)
+	}
+
+	// ── Data query ────────────────────────────────────────────
+	dataQuery := `
 		SELECT s.id, s.full_name, s.gender,
 		       COALESCE(s.admission_number, '') AS admission_number,
 		       COALESCE(s.upi_number, '') AS upi_number,
@@ -458,9 +481,18 @@ func (r *PgRepository) GetRoster(ctx context.Context, classID, tenantID, schoolI
 		  AND e.academic_term_id = $2
 		  AND e.tenant_id = $3
 		  AND s.is_active = true
-		ORDER BY s.full_name ASC
 	`
-	rows, err := r.pool.Query(ctx, query, classID, academicTermID, tenantID)
+	dataArgs := []interface{}{classID, academicTermID, tenantID}
+
+	if search != "" {
+		dataQuery += ` AND (s.full_name ILIKE $4 OR s.admission_number ILIKE $4)`
+		dataArgs = append(dataArgs, "%"+search+"%")
+	}
+
+	dataQuery += ` ORDER BY s.full_name ASC LIMIT $` + fmt.Sprintf("%d", len(dataArgs)+1) + ` OFFSET $` + fmt.Sprintf("%d", len(dataArgs)+2)
+	dataArgs = append(dataArgs, limit, offset)
+
+	rows, err := r.pool.Query(ctx, dataQuery, dataArgs...)
 	if err != nil {
 		return nil, fmt.Errorf("cbcclasses.Repository.GetRoster: %w", err)
 	}
@@ -482,7 +514,12 @@ func (r *PgRepository) GetRoster(ctx context.Context, classID, tenantID, schoolI
 		entries = []RosterEntry{}
 	}
 
-	return entries, nil
+	return &RosterListResult{
+		Items: entries,
+		Total: total,
+		Page:  offset/limit + 1,
+		Limit: limit,
+	}, nil
 }
 
 // ─── BatchEnrollStudents ──────────────────────────────────────────────────

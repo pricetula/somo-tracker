@@ -8,12 +8,10 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
-import { UserPlus, ArrowLeft, GraduationCap } from "lucide-react";
+import { GraduationCap } from "lucide-react";
 
 import { getClass } from "@/lib/api/classes";
-import { ClassRoster, RosterSkeleton } from "./class-roster";
-import { Button } from "@/components/ui/button";
+import { ClassRoster } from "./class-roster";
 import { Skeleton } from "@/components/ui/skeleton";
 
 // ─── Props ─────────────────────────────────────────────────────────────────
@@ -46,15 +44,19 @@ export function ClassDetailSkeleton() {
                     <Skeleton className="h-4 w-32" />
                 </div>
             </div>
-            <RosterSkeleton />
+            <div className="rounded-md border">
+                <Skeleton className="h-10 w-full rounded-none border-b" />
+                <Skeleton className="h-10 w-full rounded-none" />
+                <Skeleton className="h-10 w-full rounded-none" />
+                <Skeleton className="h-10 w-3/4 rounded-none" />
+            </div>
         </div>
     );
 }
 
 // ─── Component ─────────────────────────────────────────────────────────────
 
-export function ClassDetailView({ classId, showBackButton }: ClassDetailViewProps) {
-    const router = useRouter();
+export function ClassDetailView({ classId }: ClassDetailViewProps) {
     const { data: classData, isLoading, isError } = useClassDetail(classId);
 
     if (isLoading) return <ClassDetailSkeleton />;
@@ -62,17 +64,6 @@ export function ClassDetailView({ classId, showBackButton }: ClassDetailViewProp
     if (isError || !classData) {
         return (
             <div className="space-y-4">
-                {showBackButton && (
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => router.back()}
-                        className="-ml-2"
-                    >
-                        <ArrowLeft className="mr-2 h-4 w-4" />
-                        Back
-                    </Button>
-                )}
                 <p className="text-destructive py-8 text-center">
                     {isError ? "Failed to load class details." : "Class not found."}
                 </p>
@@ -81,41 +72,24 @@ export function ClassDetailView({ classId, showBackButton }: ClassDetailViewProp
     }
 
     return (
-        <div className="space-y-6">
+        <article className="space-y-6">
             {/* Header */}
-            <div className="flex items-start justify-between gap-4">
-                <div>
-                    {showBackButton && (
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => router.back()}
-                            className="mb-2 -ml-2"
-                        >
-                            <ArrowLeft className="mr-2 h-4 w-4" />
-                            Back
-                        </Button>
-                    )}
-                    <div className="flex items-center gap-2">
-                        <GraduationCap className="text-muted-foreground h-5 w-5" />
-                        <h1 className="text-lg font-semibold">{classData.display_label}</h1>
-                    </div>
-                    <p className="text-muted-foreground text-sm">
-                        {classData.student_count ?? 0} student
-                        {(classData.student_count ?? 0) !== 1 ? "s" : ""} enrolled
-                    </p>
+            <header className="flex items-start justify-between gap-4">
+                <div className="flex items-center gap-2">
+                    <GraduationCap className="text-muted-foreground h-5 w-5" />
+                    <h1 className="text-lg font-semibold">{classData.display_label}</h1>
                 </div>
-                <Button size="sm" onClick={() => router.push(`/classes/${classId}/enroll`)}>
-                    <UserPlus className="mr-2 h-4 w-4" />
-                    Enroll Students
-                </Button>
-            </div>
+                <p className="text-muted-foreground text-sm">
+                    {classData.student_count ?? 0} student
+                    {(classData.student_count ?? 0) !== 1 ? "s" : ""} enrolled
+                </p>
+            </header>
 
             {/* Roster */}
             <div>
                 <h2 className="text-muted-foreground mb-3 text-sm font-medium">Roster</h2>
                 <ClassRoster classId={classId} />
             </div>
-        </div>
+        </article>
     );
 }

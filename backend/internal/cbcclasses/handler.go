@@ -166,9 +166,9 @@ func (h *Handler) Get(c *fiber.Ctx) error {
 	if yearErr == nil && academicYearID != "" {
 		academicTermID, termErr := h.academicYearsSvc.GetCurrentAcademicTermID(c.Context(), academicYearID)
 		if termErr == nil && academicTermID != "" {
-			roster, rosterErr := h.svc.GetRoster(c.Context(), classID, tenantID, schoolID, academicTermID)
+			rosterResult, rosterErr := h.svc.GetRoster(c.Context(), classID, tenantID, schoolID, academicTermID, 1, 1, "")
 			if rosterErr == nil {
-				class.StudentCount = len(roster)
+				class.StudentCount = rosterResult.Total
 			}
 		}
 	}
@@ -398,23 +398,39 @@ func (h *Handler) GetRoster(c *fiber.Ctx) error {
 			return middleware.HTTPError(c, err)
 		}
 		if academicYearID == "" {
-			return c.JSON([]RosterEntry{})
+			return c.JSON(RosterListResult{Items: []RosterEntry{}, Total: 0, Page: 1, Limit: 50})
 		}
 		academicTermID, err = h.academicYearsSvc.GetCurrentAcademicTermID(c.Context(), academicYearID)
 		if err != nil {
 			return middleware.HTTPError(c, err)
 		}
 		if academicTermID == "" {
-			return c.JSON([]RosterEntry{})
+			return c.JSON(RosterListResult{Items: []RosterEntry{}, Total: 0, Page: 1, Limit: 50})
 		}
 	}
 
-	roster, err := h.svc.GetRoster(c.Context(), classID, tenantID, schoolID, academicTermID)
+	page := 1
+	if p := c.Query("page"); p != "" {
+		if parsed, err := strconv.Atoi(p); err == nil && parsed > 0 {
+			page = parsed
+		}
+	}
+
+	limit := 50
+	if l := c.Query("limit"); l != "" {
+		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 && parsed <= 200 {
+			limit = parsed
+		}
+	}
+
+	search := c.Query("search")
+
+	result, err := h.svc.GetRoster(c.Context(), classID, tenantID, schoolID, academicTermID, page, limit, search)
 	if err != nil {
 		return mapClassError(c, err)
 	}
 
-	return c.JSON(roster)
+	return c.JSON(result)
 }
 
 // ─── Batch Enroll ─────────────────────────────────────────────────────────

@@ -85,29 +85,38 @@ function scoreTokenAgainstClass(token: string, classInfo: Class): number {
     const isNumeric = /^\d+$/.test(token);
 
     // +2 if numeric token matches grade_level digits
+    const gradeLevel = classInfo.grade_level ?? "";
     if (isNumeric) {
-        const gradeDigits = classInfo.grade_level.replace(/\D/g, "");
+        const gradeDigits = gradeLevel.replace(/\D/g, "");
         if (gradeDigits.length > 0 && token === gradeDigits) {
             score += 2;
         }
     }
 
-    // +2 if token has ≥0.8 similarity to stream_name
-    const streamSimilarity = stringSimilarity(token, classInfo.stream_name.toLowerCase());
-    if (streamSimilarity >= 0.8) {
-        score += 2;
-    }
+    // Guard against null/undefined runtime values (type says string but API may return null)
+    const streamName = classInfo.stream_name ?? "";
+    const displayLabel = classInfo.display_label ?? "";
 
-    // +1 if token exactly equals a letter/word in stream_name
-    const streamTokens = classInfo.stream_name.toLowerCase().split(/[\s\-_/]+/);
-    if (streamTokens.some((st) => st === token)) {
-        score += 1;
+    // +2 if token has ≥0.8 similarity to stream_name
+    if (streamName.length > 0) {
+        const streamSimilarity = stringSimilarity(token, streamName.toLowerCase());
+        if (streamSimilarity >= 0.8) {
+            score += 2;
+        }
+
+        // +1 if token exactly equals a letter/word in stream_name
+        const streamTokens = streamName.toLowerCase().split(/[\s\-_/]+/);
+        if (streamTokens.some((st) => st === token)) {
+            score += 1;
+        }
     }
 
     // Also check if token matches display_label substrings
-    const displayTokens = classInfo.display_label.toLowerCase().split(/[\s\-_/]+/);
-    if (displayTokens.some((dt) => dt === token)) {
-        score += 1;
+    if (displayLabel.length > 0) {
+        const displayTokens = displayLabel.toLowerCase().split(/[\s\-_/]+/);
+        if (displayTokens.some((dt) => dt === token)) {
+            score += 1;
+        }
     }
 
     return score;

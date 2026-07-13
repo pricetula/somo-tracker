@@ -36,7 +36,7 @@ type Repository interface {
 	ValidateStream(ctx context.Context, id, tenantID, schoolID string) (bool, error)
 
 	// Enrollment
-	GetRoster(ctx context.Context, classID, tenantID, schoolID, academicTermID string) ([]RosterEntry, error)
+	GetRoster(ctx context.Context, classID, tenantID, schoolID, academicTermID string, limit, offset int, search string) (*RosterListResult, error)
 	BatchEnrollStudents(ctx context.Context, classID, tenantID, schoolID, academicTermID string, studentIDs []string) (int, error)
 	UnenrollStudent(ctx context.Context, classID, studentID, tenantID, schoolID string) error
 	GetAvailableStudents(ctx context.Context, filter AvailableStudentsFilter) (*AvailableStudentsResponse, error)
@@ -132,6 +132,14 @@ type BulkDeletePayload struct {
 }
 
 // ─── Roster / Enrollment Types ────────────────────────────────────────────
+
+// RosterListResult holds the paginated response for roster listing.
+type RosterListResult struct {
+	Items []RosterEntry `json:"items"`
+	Total int           `json:"total"`
+	Page  int           `json:"page"`
+	Limit int           `json:"limit"`
+}
 
 // RosterEntry represents a single student enrolled in a class.
 type RosterEntry struct {

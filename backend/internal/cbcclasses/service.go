@@ -124,11 +124,19 @@ func (s *Service) GetClass(ctx context.Context, classID, tenantID, schoolID stri
 
 // ─── GetRoster ───────────────────────────────────────────────────────────
 
-// GetRoster returns the roster of students enrolled in a class for the active term.
-func (s *Service) GetRoster(ctx context.Context, classID, tenantID, schoolID, academicTermID string) ([]RosterEntry, error) {
+// GetRoster returns a paginated roster of students enrolled in a class, with optional search.
+func (s *Service) GetRoster(ctx context.Context, classID, tenantID, schoolID, academicTermID string, page, limit int, search string) (*RosterListResult, error) {
 	if classID == "" || tenantID == "" || schoolID == "" || academicTermID == "" {
 		return nil, fmt.Errorf("cbcclasses.Service.GetRoster: %w", ErrInvalidInput)
 	}
+
+	if limit <= 0 {
+		limit = 50
+	}
+	if page <= 0 {
+		page = 1
+	}
+	offset := (page - 1) * limit
 
 	// Verify class exists and belongs to this tenant + school
 	_, err := s.Repo.GetByID(ctx, classID, tenantID, schoolID)
@@ -136,11 +144,11 @@ func (s *Service) GetRoster(ctx context.Context, classID, tenantID, schoolID, ac
 		return nil, fmt.Errorf("cbcclasses.Service.GetRoster: %w", err)
 	}
 
-	roster, err := s.Repo.GetRoster(ctx, classID, tenantID, schoolID, academicTermID)
+	result, err := s.Repo.GetRoster(ctx, classID, tenantID, schoolID, academicTermID, limit, offset, search)
 	if err != nil {
 		return nil, fmt.Errorf("cbcclasses.Service.GetRoster: %w", err)
 	}
-	return roster, nil
+	return result, nil
 }
 
 // ─── BatchEnroll ──────────────────────────────────────────────────────────

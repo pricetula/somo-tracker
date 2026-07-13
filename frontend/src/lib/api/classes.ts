@@ -90,6 +90,14 @@ export interface RosterEntry {
     enrolled_at?: string;
 }
 
+/** Paginated roster list result. */
+export interface RosterListResult {
+    items: RosterEntry[];
+    total: number;
+    page: number;
+    limit: number;
+}
+
 /** A student available for enrollment (not in this class). */
 export interface AvailableStudent {
     id: string;
@@ -124,12 +132,15 @@ export interface BatchEnrollResponse {
  */
 export async function getClassRoster(
     classId: string,
-    academicTermId?: string
-): Promise<RosterEntry[]> {
-    const params = new URLSearchParams();
-    if (academicTermId) params.set("academic_term_id", academicTermId);
-    const qs = params.toString();
-    return api.get<RosterEntry[]>(`/api/v1/classes/${classId}/roster?${qs}`);
+    params: { academic_term_id?: string; page?: number; limit?: number; search?: string } = {}
+): Promise<RosterListResult> {
+    const searchParams = new URLSearchParams();
+    if (params.academic_term_id) searchParams.set("academic_term_id", params.academic_term_id);
+    if (params.page) searchParams.set("page", String(params.page));
+    if (params.limit) searchParams.set("limit", String(params.limit));
+    if (params.search) searchParams.set("search", params.search);
+    const qs = searchParams.toString();
+    return api.get<RosterListResult>(`/api/v1/classes/${classId}/roster?${qs}`);
 }
 
 /**

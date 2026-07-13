@@ -1,26 +1,26 @@
 /**
  * ClassRoster — Displays the roster of students enrolled in a class.
  *
- * Shows a table with Student Name, Admission Number, and Unenroll action.
+ * Uses the shared DataTable component with paginated roster data.
+ * Student names are links to the student profile page (intercepted as side sheet).
  */
 
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, UserMinus } from "lucide-react";
+import Link from "next/link";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { UserMinus } from "lucide-react";
 
-import { getClassRoster, unenrollStudent, type RosterEntry } from "@/lib/api/classes";
-import { getErrorMessage } from "@/lib/errors";
+import { DataTable } from "@/components/shared/data-table";
+import type { DataTableColumn } from "@/components/shared/data-table/types";
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
+    getClassRoster,
+    unenrollStudent,
+    type RosterEntry,
+    type RosterListResult,
+} from "@/lib/api/classes";
+import { getErrorMessage } from "@/lib/errors";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -42,46 +42,15 @@ interface ClassRosterProps {
     academicTermId?: string;
 }
 
-// ─── Hook ──────────────────────────────────────────────────────────────────
+// ─── Columns ───────────────────────────────────────────────────────────────
 
-export function useClassRoster(classId: string, academicTermId?: string) {
-    return useQuery({
-        queryKey: ["class-roster", classId, academicTermId],
-        queryFn: () => getClassRoster(classId, academicTermId),
-        staleTime: 30_000,
-    });
-}
-
-// ─── Roster Skeleton ───────────────────────────────────────────────────────
-
-export function RosterSkeleton() {
-    return (
-        <div className="space-y-3">
-            <Skeleton className="h-8 w-full" />
-            <Skeleton className="h-8 w-full" />
-            <Skeleton className="h-8 w-full" />
-            <Skeleton className="h-8 w-3/4" />
-        </div>
-    );
-}
-
-// ─── Unenroll Button ───────────────────────────────────────────────────────
-
-function UnenrollButton({
-    classId,
-    studentId,
-    studentName,
-}: {
-    classId: string;
-    studentId: string;
-    studentName: string;
-}) {
+function UnenrollCell({ classId, student }: { classId: string; student: RosterEntry }) {
     const queryClient = useQueryClient();
 
     const unenrollMutation = useMutation({
-        mutationFn: () => unenrollStudent(classId, studentId),
+        mutationFn: () => unenrollStudent(classId, student.id),
         onSuccess: () => {
-            toast.success(`${studentName} successfully unenrolled.`);
+            toast.success(`${student.full_name} successfully unenrolled.`);
             queryClient.invalidateQueries({ queryKey: ["class-roster", classId] });
         },
         onError: (err) => {
@@ -98,20 +67,16 @@ function UnenrollButton({
                     disabled={unenrollMutation.isPending}
                     className="text-muted-foreground hover:text-destructive"
                 >
-                    {unenrollMutation.isPending ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                        <UserMinus className="h-4 w-4" />
-                    )}
-                    <span className="sr-only">Unenroll {studentName}</span>
+                    <UserMinus className="h-4 w-4" />
+                    <span className="sr-only">Unenroll {student.full_name}</span>
                 </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
                 <AlertDialogHeader>
                     <AlertDialogTitle>Unenroll Student</AlertDialogTitle>
                     <AlertDialogDescription>
-                        Are you sure you want to unenroll <strong>{studentName}</strong> from this
-                        class? Their enrollment record will be marked as suspended.
+                        Are you sure you want to unenroll <strong>{student.full_name}</strong> from
+                        this class? Their enrollment record will be marked as suspended.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -131,65 +96,86 @@ function UnenrollButton({
     );
 }
 
-// ─── Roster Table ──────────────────────────────────────────────────────────
-
-interface RosterTableProps {
-    roster: RosterEntry[];
-    classId: string;
+function buildColumns(classId: string): DataTableColumn<RosterEntry>[] {
+    return [
+        {
+            id: "full_name",
+            header: "Student Name",
+            cell: (row) => (
+                <Link
+                    href={`/students/${row.id}`}
+                    className="hover:text-primary font-medium transition-colors"
+                >
+                    {row.full_name}
+                </Link>
+            ),
+        },
+        {
+            id: "admission_number",
+            header: "Admission Number",
+            width: "160px",
+            cell: (row) => (
+                <span className="text-muted-foreground">{row.admission_number || "\u2014"}</span>
+            ),
+        },
+        {
+            id: "actions",
+            header: "",
+            width: "48px",
+            align: "right",
+            cell: (row) => <UnenrollCell classId={classId} student={row} />,
+        },
+    ];
 }
 
-export function RosterTable({ roster, classId }: RosterTableProps) {
-    if (roster.length === 0) {
-        return (
-            <p className="text-muted-foreground py-8 text-center">
-                No students enrolled in this class yet.
-            </p>
-        );
-    }
+// ─── normalize ─────────────────────────────────────────────────────────────
 
-    return (
-        <Table>
-            <TableHeader>
-                <TableRow>
-                    <TableHead>Student Name</TableHead>
-                    <TableHead>Admission Number</TableHead>
-                    <TableHead className="w-12 text-right">Action</TableHead>
-                </TableRow>
-            </TableHeader>
-            <TableBody>
-                {roster.map((student) => (
-                    <TableRow key={student.id}>
-                        <TableCell className="font-medium">{student.full_name}</TableCell>
-                        <TableCell className="text-muted-foreground">
-                            {student.admission_number || "\u2014"}
-                        </TableCell>
-                        <TableCell className="text-right">
-                            <UnenrollButton
-                                classId={classId}
-                                studentId={student.id}
-                                studentName={student.full_name}
-                            />
-                        </TableCell>
-                    </TableRow>
-                ))}
-            </TableBody>
-        </Table>
-    );
+function normalize(result: RosterListResult) {
+    return {
+        items: result.items,
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+    };
 }
 
-// ─── ClassRoster (composed) ────────────────────────────────────────────────
+// ─── Wrapper query function ────────────────────────────────────────────────
+
+/**
+ * Wraps getClassRoster into the ListApiFn signature expected by DataTable.
+ * The classId and academicTermId are baked in via a closure in the component.
+ */
+function createRosterQueryFn(classId: string, academicTermId?: string) {
+    return (params: { page?: number; limit?: number; search?: string }) =>
+        getClassRoster(classId, {
+            academic_term_id: academicTermId,
+            page: params.page,
+            limit: params.limit,
+            search: params.search,
+        });
+}
+
+// ─── ClassRoster (DataTable) ───────────────────────────────────────────────
 
 export function ClassRoster({ classId, academicTermId }: ClassRosterProps) {
-    const { data: roster, isLoading, isError } = useClassRoster(classId, academicTermId);
+    const columns = buildColumns(classId);
+    const rosterQueryFn = createRosterQueryFn(classId, academicTermId);
 
-    if (isLoading) return <RosterSkeleton />;
-    if (isError) {
-        return (
-            <p className="text-destructive py-8 text-center">
-                Failed to load roster. Please try again.
-            </p>
-        );
-    }
-
-    return <RosterTable roster={roster ?? []} classId={classId} />;
+    return (
+        <DataTable
+            addHref={`/classes/${classId}/enroll`}
+            queryKey={["class-roster", classId, academicTermId]}
+            queryFn={rosterQueryFn}
+            columns={columns}
+            getRowId={(row) => row.id}
+            normalize={normalize}
+            isSearchable
+            searchPlaceholder="Search by student name or admission number..."
+            pageSize={50}
+            rowHeight={44}
+            height={480}
+            emptyState="No students enrolled in this class yet."
+            noResultsState="No students match your search."
+        />
+    );
 }

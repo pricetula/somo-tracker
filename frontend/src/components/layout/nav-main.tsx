@@ -76,9 +76,8 @@ function buildNavItems(role: string): NavItem[] {
             },
             {
                 title: "Time table",
-                url: "#",
+                url: "/timetable",
                 icon: <CalendarDays className="size-4" />,
-                items: [{ title: "Structure", url: "/timetable/structure" }],
             }
         );
     }

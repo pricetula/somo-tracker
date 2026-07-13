@@ -3,11 +3,10 @@
  *
  * External code must import ONLY from this file — never from internal paths.
  *
- * NOTE: Stream hooks (useStreamList, useCreateStream, etc.) have moved to
- * @/features/streams. Import stream-related hooks and components from there.
+ * NOTE: Stream types, hooks, and combobox have moved to @/features/streams.
+ * Import stream-related types, hooks, and components from there instead.
+ * This barrel still exports the legacy StreamPill and StreamsSection components.
  */
 
 export { StreamsSection } from "./components/streams-section";
 export { StreamPill } from "./components/stream-pill";
-
-export type { Stream, StreamListResult } from "./types";

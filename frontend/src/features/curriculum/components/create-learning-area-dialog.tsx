@@ -5,7 +5,7 @@
 "use client";
 
 import * as React from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 
 import {
     Dialog,
@@ -18,34 +18,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
 import { useCreateLearningArea } from "../hooks/use-curriculum";
 import { isApiError } from "@/lib/errors";
-
-// ─── Grade Level Options ──────────────────────────────────────────────────
-
-const GRADE_OPTIONS = [
-    { label: "PP1", value: "PP1" },
-    { label: "PP2", value: "PP2" },
-    { label: "Grade 1", value: "G1" },
-    { label: "Grade 2", value: "G2" },
-    { label: "Grade 3", value: "G3" },
-    { label: "Grade 4", value: "G4" },
-    { label: "Grade 5", value: "G5" },
-    { label: "Grade 6", value: "G6" },
-    { label: "Grade 7", value: "G7" },
-    { label: "Grade 8", value: "G8" },
-    { label: "Grade 9", value: "G9" },
-    { label: "Grade 10", value: "G10" },
-    { label: "Grade 11", value: "G11" },
-    { label: "Grade 12", value: "G12" },
-];
+import { EducationLevelCombobox } from "@/features/education-level";
+import { GradeLevelCombobox } from "@/features/grade-level";
 
 // ─── Props ─────────────────────────────────────────────────────────────────
 
@@ -62,6 +38,7 @@ export function CreateLearningAreaDialog({ open, onOpenChange }: CreateLearningA
         register,
         handleSubmit,
         setValue,
+        control,
         setError,
         reset,
         formState: { errors, isSubmitting },
@@ -78,6 +55,9 @@ export function CreateLearningAreaDialog({ open, onOpenChange }: CreateLearningA
             grade_level: "",
         },
     });
+
+    const educationLevel = useWatch({ control, name: "education_level" });
+    const gradeLevel = useWatch({ control, name: "grade_level" });
 
     React.useEffect(() => {
         if (open) {
@@ -147,17 +127,11 @@ export function CreateLearningAreaDialog({ open, onOpenChange }: CreateLearningA
 
                     <div className="space-y-2">
                         <Label htmlFor="education_level">Education Level</Label>
-                        <Select onValueChange={(v) => setValue("education_level", v)}>
-                            <SelectTrigger id="education_level">
-                                <SelectValue placeholder="Select education level" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="Early_Years">Early Years</SelectItem>
-                                <SelectItem value="Upper_Primary">Upper Primary</SelectItem>
-                                <SelectItem value="Junior_Secondary">Junior Secondary</SelectItem>
-                                <SelectItem value="Senior_School">Senior School</SelectItem>
-                            </SelectContent>
-                        </Select>
+                        <EducationLevelCombobox
+                            value={educationLevel}
+                            onChange={(v) => setValue("education_level", v)}
+                            placeholder="Select education level"
+                        />
                         {errors.education_level && (
                             <p className="text-destructive text-xs">
                                 {errors.education_level.message}
@@ -167,18 +141,11 @@ export function CreateLearningAreaDialog({ open, onOpenChange }: CreateLearningA
 
                     <div className="space-y-2">
                         <Label htmlFor="grade_level">Grade Level</Label>
-                        <Select onValueChange={(v) => setValue("grade_level", v)}>
-                            <SelectTrigger id="grade_level">
-                                <SelectValue placeholder="Select grade" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {GRADE_OPTIONS.map((opt) => (
-                                    <SelectItem key={opt.value} value={opt.value}>
-                                        {opt.label}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        <GradeLevelCombobox
+                            value={gradeLevel}
+                            onChange={(v) => setValue("grade_level", v)}
+                            placeholder="Select grade"
+                        />
                         {errors.grade_level && (
                             <p className="text-destructive text-xs">{errors.grade_level.message}</p>
                         )}

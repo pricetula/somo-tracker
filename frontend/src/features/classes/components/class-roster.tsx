@@ -101,14 +101,7 @@ function buildColumns(classId: string): DataTableColumn<RosterEntry>[] {
         {
             id: "full_name",
             header: "Student Name",
-            cell: (row) => (
-                <Link
-                    href={`/students/${row.id}`}
-                    className="hover:text-primary font-medium transition-colors"
-                >
-                    {row.full_name}
-                </Link>
-            ),
+            cell: (row) => <Link href={`/students/${row.id}`}>{row.full_name}</Link>,
         },
         {
             id: "admission_number",
@@ -171,8 +164,7 @@ export function ClassRoster({ classId, academicTermId }: ClassRosterProps) {
             normalize={normalize}
             isSearchable
             searchPlaceholder="Search by student name or admission number..."
-            pageSize={50}
-            rowHeight={44}
+            pageSize={13}
             height={480}
             emptyState="No students enrolled in this class yet."
             noResultsState="No students match your search."

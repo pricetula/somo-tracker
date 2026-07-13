@@ -65,7 +65,7 @@ export function StreamCombobox({
             <Alert className="text-muted-foreground h-9 items-center py-0 text-xs">
                 <AlertDescription>
                     No streams configured.{" "}
-                    <Link href="/streams/add" className="text-primary underline underline-offset-2">
+                    <Link href="/streams/add" className="underline underline-offset-2">
                         Add one
                     </Link>
                     .

@@ -3,8 +3,6 @@
 -- Drops every object created by the initial schema migration,
 -- in strict reverse FK dependency order.
 
-BEGIN;
-
 -- ============================================================================
 -- TRIGGERS (dropped before their tables / functions)
 -- ============================================================================
@@ -166,5 +164,3 @@ DROP TYPE IF EXISTS invoice_payment_status CASCADE;
 -- ============================================================================
 
 DROP EXTENSION IF EXISTS btree_gist CASCADE;
-
-COMMIT;

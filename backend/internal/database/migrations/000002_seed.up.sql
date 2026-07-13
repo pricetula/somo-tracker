@@ -5,8 +5,6 @@
 -- CBC-only: no education_systems, curriculum_stages, grades, or other generic
 -- catalog tables exist. Only KNEC official formula data is seeded.
 
-BEGIN;
-
 -- ---------------------------------------------------------------------------
 -- A) ASSESSMENT WEIGHT CONFIGS — official KNEC weighting formula (7 rows)
 -- ---------------------------------------------------------------------------
@@ -55,5 +53,3 @@ SELECT
 FROM tenants t
 WHERE t.slug = 'demo-school-trust'
 ON CONFLICT (tenant_id, id) DO NOTHING;
-
-COMMIT;

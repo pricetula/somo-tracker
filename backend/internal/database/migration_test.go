@@ -470,15 +470,21 @@ func TestMigrationsIntegration_ConstraintsAndIndexes_M3_to_M13(t *testing.T) {
 	t.Log("✓ M5: same stream name allowed across different tenants")
 
 	// ======================================================================
-	// M6: Deleting a cbc_school does NOT cascade-delete its streams
-	//     (ON DELETE NO ACTION)
+	// M6: Deleting a cbc_school cascades to its streams
+	//     (ON DELETE CASCADE — documented in schema COMMENT ON CONSTRAINT)
 	// ======================================================================
 
-	_, err = pool.Exec(ctx, `DELETE FROM cbc_schools WHERE id = $1`, schoolA1)
-	require.Error(t, err, "M6: deleting a school with streams should be blocked")
-	require.Contains(t, err.Error(), "fk_cbc_streams_school",
-		"M6: error should reference the FK constraint")
-	t.Log("✓ M6: deleting school with streams blocked by fk_cbc_streams_school (NO ACTION)")
+	result, err := pool.Exec(ctx, `DELETE FROM cbc_schools WHERE id = $1`, schoolA1)
+	require.NoError(t, err, "M6: deleting a school should succeed (CASCADE)")
+	rowsDeleted := result.RowsAffected()
+	require.Equal(t, int64(1), rowsDeleted, "M6: exactly one school row should be deleted")
+
+	// Verify the stream was cascaded away
+	var streamCount int
+	err = pool.QueryRow(ctx, `SELECT COUNT(*) FROM cbc_streams WHERE school_id = $1`, schoolA1).Scan(&streamCount)
+	require.NoError(t, err)
+	require.Equal(t, 0, streamCount, "M6: streams should be cascade-deleted with school")
+	t.Log("✓ M6: deleting school cascades to delete its streams (fk_cbc_streams_school ON DELETE CASCADE)")
 
 	// ======================================================================
 	// M7: Deleting a cbc_stream that is referenced by a class is blocked
@@ -530,7 +536,7 @@ func TestMigrationsIntegration_ConstraintsAndIndexes_M3_to_M13(t *testing.T) {
 		streamFree, tenantA, schoolA2)
 	require.NoError(t, err)
 
-	result, err := pool.Exec(ctx, `DELETE FROM cbc_streams WHERE id = $1`, streamFree)
+	result, err = pool.Exec(ctx, `DELETE FROM cbc_streams WHERE id = $1`, streamFree)
 	require.NoError(t, err, "M8: deleting stream without class refs should succeed")
 	require.Equal(t, int64(1), result.RowsAffected(), "M8: exactly one row should be deleted")
 	t.Log("✓ M8: deleting stream with no class references succeeds")
@@ -583,23 +589,23 @@ func TestMigrationsIntegration_ConstraintsAndIndexes_M3_to_M13(t *testing.T) {
 	// M11: Same grade + stream combination is allowed across different schools
 	// ======================================================================
 
-	yearA1 := uuid.New().String() // academic year for schoolA1
+	yearB1 := uuid.New().String() // academic year for schoolB1 (tenantB)
 	_, err = pool.Exec(ctx, `INSERT INTO academic_years (id, tenant_id, school_id, name, start_date, end_date, created_by, updated_by)
 		VALUES ($1, $2, $3, '2026', '2026-01-01', '2026-12-31', $4, $4)`,
-		yearA1, tenantA, schoolA1, systemUserID)
+		yearB1, tenantB, schoolB1, systemUserID)
 	require.NoError(t, err)
 
-	// Create a stream in schoolA1
-	streamA1 := uuid.New().String()
+	// Create a stream in schoolB1
+	streamB1 := uuid.New().String()
 	_, err = pool.Exec(ctx, `INSERT INTO cbc_streams (id, tenant_id, school_id, name) VALUES ($1, $2, $3, 'Purple')`,
-		streamA1, tenantA, schoolA1)
+		streamB1, tenantB, schoolB1)
 	require.NoError(t, err)
 
-	// Create class with same (grade, stream) in schoolA1
+	// Create class with same (grade, stream) in schoolB1
 	classDiffSchool := uuid.New().String()
 	_, err = pool.Exec(ctx, `INSERT INTO cbc_classes (id, tenant_id, school_id, academic_year_id, grade_level, stream_id)
 		VALUES ($1, $2, $3, $4, 'G4', $5)`,
-		classDiffSchool, tenantA, schoolA1, yearA1, streamA1)
+		classDiffSchool, tenantB, schoolB1, yearB1, streamB1)
 	require.NoError(t, err, "M11: same grade+stream, different school should succeed")
 	t.Log("✓ M11: same grade+stream allowed across different schools")
 

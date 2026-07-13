@@ -5,7 +5,14 @@
  */
 
 export { AcademicYearCombobox } from "./components/academic-year-combobox";
-export { useAcademicYears, academicYearKeys } from "./hooks/use-academic-terms";
+export { AcademicTermCombobox } from "./components/academic-term-combobox";
+export {
+    useAcademicYears,
+    useAcademicTerms,
+    academicYearKeys,
+    academicTermKeys,
+} from "./hooks/use-academic-terms";
 
 export type { AcademicYearComboboxProps } from "./components/academic-year-combobox";
+export type { AcademicTermComboboxProps } from "./components/academic-term-combobox";
 export type { AcademicYear, AcademicTerm } from "./types";

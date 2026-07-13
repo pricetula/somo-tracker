@@ -9,6 +9,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 
 import { cn } from "@/lib/utils";
 import { Combobox, ComboboxChip } from "@/components/ui/combobox";
@@ -31,6 +32,11 @@ export interface ClassComboboxProps {
     className?: string;
     /** Allow selecting multiple classes (default: false). */
     isMultiSelect?: boolean;
+    /**
+     * When search yields no results, shows a "Create" option.
+     * If omitted, no create option is shown.
+     */
+    onCreateItem?: (search: string) => void;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────
@@ -41,6 +47,7 @@ export function ClassCombobox({
     placeholder = "Select a class...",
     className,
     isMultiSelect = false,
+    onCreateItem,
 }: ClassComboboxProps) {
     const { data, isLoading, isError, error } = useClassList();
 
@@ -66,6 +73,21 @@ export function ClassCombobox({
         );
     }
 
+    // ── No items at all (not just search miss) ───────────────────────────
+    if (items.length === 0) {
+        return (
+            <Alert className="text-muted-foreground h-9 items-center py-0 text-xs">
+                <AlertDescription>
+                    No classes configured.{" "}
+                    <Link href="/classes/add" className="underline underline-offset-2">
+                        Add one
+                    </Link>
+                    .
+                </AlertDescription>
+            </Alert>
+        );
+    }
+
     // ── Single-select ───────────────────────────────────────────────────
     if (!isMultiSelect) {
         return (
@@ -76,6 +98,7 @@ export function ClassCombobox({
                 placeholder={placeholder}
                 emptyText="No class found."
                 className={cn("w-full", className)}
+                onCreateItem={onCreateItem}
             />
         );
     }
@@ -90,6 +113,7 @@ export function ClassCombobox({
             placeholder={placeholder}
             emptyText="No class found."
             className={cn("w-full", className)}
+            onCreateItem={onCreateItem}
             renderTrigger={({ selectedItems }) =>
                 selectedItems.length > 0 ? (
                     <span className="flex flex-wrap gap-1">

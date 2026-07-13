@@ -18,21 +18,14 @@ import {
     DialogTitle,
     DialogDescription,
 } from "@/components/ui/dialog";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 
+import { AcademicTermCombobox } from "@/features/academic-terms";
+import { ClassCombobox } from "@/features/classes";
 import { useCreateEnrollment } from "../hooks/use-student-detail";
-import { listTerms } from "@/lib/api/academic-terms";
 import { getErrorMessage } from "@/lib/errors";
-import type { AcademicTerm } from "@/lib/api/academic-terms";
 
 // ─── Props ─────────────────────────────────────────────────────────────────
 
@@ -45,41 +38,11 @@ interface EnrollDialogProps {
 // ─── Component ─────────────────────────────────────────────────────────────
 
 export function EnrollDialog({ open, onOpenChange, studentId }: EnrollDialogProps) {
-    const [terms, setTerms] = React.useState<AcademicTerm[]>([]);
-    const [termsLoading, setTermsLoading] = React.useState(false);
-
     const [selectedTermId, setSelectedTermId] = React.useState("");
     const [selectedClassId, setSelectedClassId] = React.useState("");
-    // TODO: add classes fetching when the backend endpoint is ready
     const [error, setError] = React.useState<string | null>(null);
 
     const createEnrollment = useCreateEnrollment();
-
-    // Fetch terms when dialog opens
-    React.useEffect(() => {
-        if (!open) return;
-
-        const abortController = new AbortController();
-
-        const load = async () => {
-            setTermsLoading(true);
-            try {
-                const termsRes = await listTerms();
-                if (abortController.signal.aborted) return;
-                setTerms(termsRes.items ?? []);
-            } catch {
-                if (abortController.signal.aborted) return;
-                setTerms([]);
-            } finally {
-                if (!abortController.signal.aborted) {
-                    setTermsLoading(false);
-                }
-            }
-        };
-        load();
-
-        return () => abortController.abort();
-    }, [open]);
 
     const handleEnroll = async () => {
         if (!selectedTermId) {
@@ -126,44 +89,22 @@ export function EnrollDialog({ open, onOpenChange, studentId }: EnrollDialogProp
 
                     {/* Term selection */}
                     <div className="space-y-1.5">
-                        <Label htmlFor="term">Academic Term</Label>
-                        <Select
+                        <Label>Academic Term</Label>
+                        <AcademicTermCombobox
                             value={selectedTermId}
-                            onValueChange={setSelectedTermId}
-                            disabled={termsLoading || createEnrollment.isPending}
-                        >
-                            <SelectTrigger id="term">
-                                <SelectValue
-                                    placeholder={termsLoading ? "Loading terms…" : "Select a term"}
-                                />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {terms.map((t) => (
-                                    <SelectItem key={t.id} value={t.id}>
-                                        {t.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                            onChange={setSelectedTermId}
+                            placeholder="Select a term"
+                        />
                     </div>
 
-                    {/* Class selection — placeholder until classes endpoint is ready */}
+                    {/* Class selection */}
                     <div className="space-y-1.5">
-                        <Label htmlFor="class">Class</Label>
-                        <Select
+                        <Label>Class</Label>
+                        <ClassCombobox
                             value={selectedClassId}
-                            onValueChange={setSelectedClassId}
-                            disabled={createEnrollment.isPending}
-                        >
-                            <SelectTrigger id="class">
-                                <SelectValue placeholder="Select a class" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="__placeholder__" disabled>
-                                    Classes not yet available
-                                </SelectItem>
-                            </SelectContent>
-                        </Select>
+                            onChange={(v) => setSelectedClassId(v as string)}
+                            placeholder="Select a class"
+                        />
                     </div>
 
                     {/* Actions */}

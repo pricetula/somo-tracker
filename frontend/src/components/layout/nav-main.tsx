@@ -23,6 +23,7 @@ import {
     ClipboardCheckIcon,
     BarChart3Icon,
     CalendarCheckIcon,
+    CalendarDays,
 } from "lucide-react";
 
 interface NavItem {
@@ -72,6 +73,12 @@ function buildNavItems(role: string): NavItem[] {
                 title: "Attendance",
                 url: "/attendance",
                 icon: <CalendarCheckIcon className="size-4" />,
+            },
+            {
+                title: "Time table",
+                url: "#",
+                icon: <CalendarDays className="size-4" />,
+                items: [{ title: "Structure", url: "/timetable/structure" }],
             }
         );
     }

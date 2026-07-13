@@ -38,6 +38,7 @@ import (
 	"somotracker/backend/internal/cbcclasses"
 	"somotracker/backend/internal/cbcschools"
 	"somotracker/backend/internal/cbcstreams"
+	"somotracker/backend/internal/cbctimetableslots"
 	"somotracker/backend/internal/config"
 	"somotracker/backend/internal/curriculum"
 	"somotracker/backend/internal/database"
@@ -48,6 +49,7 @@ import (
 	"somotracker/backend/internal/parents"
 	"somotracker/backend/internal/students"
 	"somotracker/backend/internal/teachers"
+	"somotracker/backend/internal/timetablestructure"
 	"somotracker/backend/internal/utils"
 )
 
@@ -127,9 +129,11 @@ func main() {
 		parents.Module,
 		students.Module,
 		teachers.Module,
+		timetablestructure.Module,
 		invitations.Module,
 		members.Module,
 		assessment.Module,
+		cbctimetableslots.Module,
 		imports.Module,
 
 		// Cross-domain interface wiring: school resolver from members,
@@ -219,6 +223,7 @@ func registerApp(
 	cbcclassesHandler *cbcclasses.Handler,
 	importsHandler *imports.Handler,
 	cbcstreamsHandler *cbcstreams.Handler,
+	cbctimetableslotsHandler *cbctimetableslots.Handler,
 	invitationsHandler *invitations.Handler,
 	membersHandler *members.Handler,
 	curriculumHandler *curriculum.Handler,
@@ -226,6 +231,7 @@ func registerApp(
 	parentsHandler *parents.Handler,
 	teachersHandler *teachers.Handler,
 	billingHandler *billing.Handler,
+	timetablestructureHandler *timetablestructure.Handler,
 ) {
 	app := fiber.New(fiber.Config{
 		AppName:      "somotracker",
@@ -262,6 +268,7 @@ func registerApp(
 			assessmentHandler.RegisterRoutes(app)
 			cbcschoolsHandler.RegisterRoutes(app)
 			cbcstreamsHandler.RegisterRoutes(app)
+			cbctimetableslotsHandler.RegisterRoutes(app)
 			cbcclassesHandler.RegisterRoutes(app)
 			membersHandler.RegisterRoutes(app)
 			invitationsHandler.RegisterRoutes(app)
@@ -271,6 +278,7 @@ func registerApp(
 			parentsHandler.RegisterRoutes(app)
 			teachersHandler.RegisterRoutes(app)
 			billingHandler.RegisterRoutes(app)
+			timetablestructureHandler.RegisterRoutes(app)
 
 			// Start Fiber in a non-blocking goroutine
 			go func() {

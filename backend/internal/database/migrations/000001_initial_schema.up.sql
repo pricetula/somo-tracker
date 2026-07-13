@@ -3,8 +3,6 @@
 -- Drops all generic education system abstractions.
 -- Rebuilds as a purpose-built, single-system CBC schema.
 
-BEGIN;
-
 -- ============================================================================
 -- EXTENSIONS
 -- ============================================================================
@@ -219,6 +217,11 @@ END $$;
 
 DO $$ BEGIN
     CREATE TYPE import_chunk_status AS ENUM ('pending', 'processing', 'completed', 'cancelled');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE block_type AS ENUM ('Lesson', 'Break', 'Assembly', 'ExtraCurricular');
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
@@ -532,7 +535,7 @@ CREATE TABLE IF NOT EXISTS cbc_classes (
         FOREIGN KEY (tenant_id, academic_year_id)
         REFERENCES academic_years(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_cbc_classes_stream
-        FOREIGN KEY (stream_id) REFERENCES cbc_streams(id) ON DELETE CASCADE,
+        FOREIGN KEY (stream_id) REFERENCES cbc_streams(id) ON DELETE RESTRICT,
 
     -- IMPROVE: composite FK for tenant scoping (tenant_id, id) to allow other
     -- tables to reference this pair directly
@@ -1376,118 +1379,111 @@ CREATE INDEX IF NOT EXISTS idx_cbc_att_logs_period  ON cbc_attendance_logs (cbc_
 CREATE INDEX IF NOT EXISTS idx_cbc_att_logs_student ON cbc_attendance_logs (student_id);
 
 -- ---------------------------------------------------------------------------
--- CBC TIMETABLE SLOTS
--- IMPROVE: added CHECK (end_time > start_time) — GiST exclusion prevents
---          overlaps but nothing previously blocked end <= start on the row itself
+-- TIMETABLE STRUCTURES (Grid Definition Layer — Master Templates)
+-- Holds time ranges and rules. Decoupled from allocation slots.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS timetable_structures (
+    id               UUID             PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id        UUID             NOT NULL,
+    school_id        UUID             NOT NULL,
+    academic_year_id UUID             NOT NULL,
+    day_of_week      INT              NOT NULL CHECK (day_of_week BETWEEN 1 AND 7),
+    period_name      VARCHAR(50)      NOT NULL,
+    start_time       TIME             NOT NULL,
+    end_time         TIME             NOT NULL,
+    is_break         BOOLEAN          NOT NULL DEFAULT FALSE,
+    created_at       TIMESTAMPTZ      NOT NULL DEFAULT NOW(),
+    updated_at       TIMESTAMPTZ      NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT chk_timetable_structure_times CHECK (end_time > start_time),
+    CONSTRAINT excl_timetable_structure_overlap
+        EXCLUDE USING gist (
+            school_id WITH =,
+            academic_year_id WITH =,
+            day_of_week WITH =,
+            fn_timerange(day_of_week, start_time, end_time) WITH &&
+        ),
+    CONSTRAINT fk_timetable_structure_tenant_school
+        FOREIGN KEY (tenant_id, school_id)
+        REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_timetable_structure_academic_year
+        FOREIGN KEY (academic_year_id)
+        REFERENCES academic_years(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_timetable_structure_tenant
+    ON timetable_structures (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_timetable_structure_school_day
+    ON timetable_structures (school_id, day_of_week);
+CREATE INDEX IF NOT EXISTS idx_timetable_structure_academic_year
+    ON timetable_structures (academic_year_id);
+
+DROP TRIGGER IF EXISTS trg_timetable_structures_updated_at ON timetable_structures;
+CREATE TRIGGER trg_timetable_structures_updated_at
+    BEFORE UPDATE ON timetable_structures
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+
+COMMENT ON TABLE timetable_structures IS
+    'Structural day template (Grid Definition Layer). Defines the partitioned time
+     blocks (lessons, breaks, assemblies) that make up a standard school day per
+     academic year. The GiST exclusion constraint guarantees non-overlapping blocks
+     per school per academic year per day. Decoupled from cbc_timetable_slots —
+     allocations reference structure_id instead of carrying raw time ranges.';
+
+COMMENT ON COLUMN timetable_structures.day_of_week IS
+    '1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 5=Friday, 6=Saturday, 7=Sunday.
+     Most schools use Mon-Fri (1-5); weekends are allowed for special sessions.';
+
+COMMENT ON COLUMN timetable_structures.period_name IS
+    'Human-readable name for this time period, e.g. "Lesson 1", "Morning Break",
+     "Recess", "Assembly". Free-text — not an enum, to support school-specific naming.';
+
+COMMENT ON COLUMN timetable_structures.is_break IS
+    'Flags recess, lunch, or other non-instructional blocks. UI can use this to
+     disable assignment cells and render break rows in a distinct style.';
+
+-- ---------------------------------------------------------------------------
+-- CBC TIMETABLE SLOTS (Grid Allocation Layer — Lightweight Assignments)
+-- A lightweight relational mapping table using fast B-Tree composite unique
+-- constraints instead of GiST exclusion constraints. The grid definition
+-- (time ranges) lives in timetable_structures; this table only stores
+-- assignments of class → teacher → learning_area → room per structure block.
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS cbc_timetable_slots (
-    id                   UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id            UUID        NOT NULL,
-    school_id            UUID        NOT NULL,
-    academic_year_id     UUID        NOT NULL,
-    academic_term_id     UUID        NOT NULL,
-    class_id             UUID        NOT NULL,
-    teacher_id           UUID        NOT NULL,
-    cbc_learning_area_id UUID        NULL REFERENCES cbc_learning_areas(id) ON DELETE SET NULL,
-    room_identifier      VARCHAR(50) NULL,
-    day_of_week          INT         NOT NULL CHECK (day_of_week BETWEEN 1 AND 7),
-    start_time           TIME        NOT NULL,
-    end_time             TIME        NOT NULL,
+    id                UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    academic_year_id  UUID        NOT NULL,
+    structure_id      UUID        NOT NULL REFERENCES timetable_structures(id) ON DELETE CASCADE,
+    class_id          UUID        NOT NULL,
+    learning_area_id  UUID        NULL REFERENCES cbc_learning_areas(id) ON DELETE SET NULL,
+    teacher_id        UUID        NULL,
+    room_identifier   VARCHAR(50) NULL,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
-    CONSTRAINT chk_timetable_times CHECK (end_time > start_time),
-    CONSTRAINT excl_cbc_timetable_teacher
-        EXCLUDE USING gist (
-            teacher_id       WITH =,
-            academic_year_id WITH =,
-            fn_timerange(day_of_week, start_time, end_time) WITH &&
-        ),
-    CONSTRAINT excl_cbc_timetable_room
-        EXCLUDE USING gist (
-            room_identifier  WITH =,
-            academic_year_id WITH =,
-            fn_timerange(day_of_week, start_time, end_time) WITH &&
-        ),
-    CONSTRAINT fk_cbc_timetable_tenant_school
-        FOREIGN KEY (tenant_id, school_id)
-        REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_cbc_timetable_tenant_year
-        FOREIGN KEY (tenant_id, academic_year_id)
-        REFERENCES academic_years(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_cbc_timetable_tenant_term
-        FOREIGN KEY (tenant_id, school_id, academic_term_id)
-        REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_cbc_timetable_tenant_class
-        FOREIGN KEY (tenant_id, class_id)
-        REFERENCES cbc_classes(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_cbc_timetable_tenant_teacher
-        FOREIGN KEY (tenant_id, teacher_id)
-        REFERENCES users(tenant_id, id) ON DELETE CASCADE
+    -- CONSTRAINT 1: A class can only have ONE assignment per specific structure block
+    CONSTRAINT unique_class_slot
+        UNIQUE (academic_year_id, structure_id, class_id),
+
+    -- CONSTRAINT 2: A teacher cannot be double-booked during the same structure block
+    CONSTRAINT unique_teacher_slot
+        UNIQUE (academic_year_id, structure_id, teacher_id),
+
+    -- CONSTRAINT 3: A room cannot be double-booked during the same structure block
+    CONSTRAINT unique_room_slot
+        UNIQUE (academic_year_id, structure_id, room_identifier)
 );
 
-CREATE INDEX IF NOT EXISTS idx_cbc_timetable_tenant      ON cbc_timetable_slots (tenant_id);
-CREATE INDEX IF NOT EXISTS idx_cbc_timetable_school_year ON cbc_timetable_slots (school_id, academic_year_id);
-CREATE INDEX IF NOT EXISTS idx_cbc_timetable_class       ON cbc_timetable_slots (class_id);
-CREATE INDEX IF NOT EXISTS idx_cbc_timetable_teacher     ON cbc_timetable_slots (teacher_id);
+CREATE INDEX IF NOT EXISTS idx_cbc_timetable_slots_structure
+    ON cbc_timetable_slots (structure_id);
+CREATE INDEX IF NOT EXISTS idx_cbc_timetable_slots_class
+    ON cbc_timetable_slots (class_id);
+CREATE INDEX IF NOT EXISTS idx_cbc_timetable_slots_teacher
+    ON cbc_timetable_slots (teacher_id);
+CREATE INDEX IF NOT EXISTS idx_cbc_timetable_slots_academic_year
+    ON cbc_timetable_slots (academic_year_id);
 
--- ---------------------------------------------------------------------------
--- AUTO-REGISTER / AUTO-CLEAN SUBJECT TEACHER TRIGGER
--- IMPROVE: Extended to also clean up stale SUBJECT_TEACHER registrations when
---          a timetable slot's teacher_id or cbc_learning_area_id changes. The
---          original only inserted, leaving ghost assignments on UPDATE.
--- ---------------------------------------------------------------------------
 
-CREATE OR REPLACE FUNCTION fn_auto_register_subject_teacher()
-RETURNS TRIGGER AS $$
-BEGIN
-    -- On UPDATE: remove the old SUBJECT_TEACHER registration if teacher or
-    -- learning area has changed, to avoid ghost assignments.
-    IF TG_OP = 'UPDATE' THEN
-        IF (OLD.teacher_id IS DISTINCT FROM NEW.teacher_id OR
-            OLD.cbc_learning_area_id IS DISTINCT FROM NEW.cbc_learning_area_id) AND
-            OLD.cbc_learning_area_id IS NOT NULL
-        THEN
-            -- Only remove if this slot was the sole reason for the assignment
-            -- (i.e. no other active slot ties this teacher+class+area together).
-            DELETE FROM cbc_class_teachers
-            WHERE tenant_id        = OLD.tenant_id
-              AND class_id         = OLD.class_id
-              AND user_id          = OLD.teacher_id
-              AND learning_area_id = OLD.cbc_learning_area_id
-              AND teacher_role     = 'SUBJECT_TEACHER'
-              AND NOT EXISTS (
-                  SELECT 1 FROM cbc_timetable_slots
-                  WHERE tenant_id            = OLD.tenant_id
-                    AND class_id             = OLD.class_id
-                    AND teacher_id           = OLD.teacher_id
-                    AND cbc_learning_area_id = OLD.cbc_learning_area_id
-                    AND id                  != OLD.id   -- exclude the row being updated
-              );
-        END IF;
-    END IF;
-
-    -- Insert new SUBJECT_TEACHER registration when a learning area is set
-    IF NEW.cbc_learning_area_id IS NOT NULL THEN
-        IF NOT EXISTS (
-            SELECT 1 FROM cbc_class_teachers
-            WHERE tenant_id = NEW.tenant_id
-              AND class_id  = NEW.class_id
-              AND user_id   = NEW.teacher_id
-        ) THEN
-            INSERT INTO cbc_class_teachers (tenant_id, class_id, user_id, learning_area_id, teacher_role)
-            VALUES (NEW.tenant_id, NEW.class_id, NEW.teacher_id, NEW.cbc_learning_area_id, 'SUBJECT_TEACHER');
-        END IF;
-    END IF;
-
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS trg_auto_register_subject_teacher ON cbc_timetable_slots;
-CREATE TRIGGER trg_auto_register_subject_teacher
-    AFTER INSERT OR UPDATE OF teacher_id, cbc_learning_area_id ON cbc_timetable_slots
-    FOR EACH ROW
-    EXECUTE FUNCTION fn_auto_register_subject_teacher();
 
 -- ============================================================================
 -- LAYER 7 — CBC ASSESSMENT ARCHITECTURE
@@ -2598,5 +2594,3 @@ COMMENT ON TABLE member_active_school IS
 -- ============================================================================
 -- END OF MIGRATION
 -- ============================================================================
-
-COMMIT;

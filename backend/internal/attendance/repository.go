@@ -216,7 +216,7 @@ func (r *pgRepository) BulkUpsert(ctx context.Context, tenantID, schoolID string
 func (r *pgRepository) GetRecordsBySlotDate(ctx context.Context, timetableSlotID, date string) ([]AttendanceRecord, error) {
 	query := `
 		SELECT id, tenant_id, school_id, student_id, timetable_slot_id,
-		       academic_term_id, date, status, marked_by, marked_at, note, created_at
+		       academic_term_id, date::text, status, marked_by, marked_at, note, created_at, updated_at
 		FROM attendance_records
 		WHERE timetable_slot_id = $1 AND date = $2
 		ORDER BY student_id
@@ -232,7 +232,7 @@ func (r *pgRepository) GetRecordsBySlotDate(ctx context.Context, timetableSlotID
 		var rec AttendanceRecord
 		if err := rows.Scan(
 			&rec.ID, &rec.TenantID, &rec.SchoolID, &rec.StudentID, &rec.TimetableSlotID,
-			&rec.AcademicTermID, &rec.Date, &rec.Status, &rec.MarkedBy, &rec.MarkedAt, &rec.Note, &rec.CreatedAt,
+			&rec.AcademicTermID, &rec.Date, &rec.Status, &rec.MarkedBy, &rec.MarkedAt, &rec.Note, &rec.CreatedAt, &rec.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("attendance.Repository.GetRecordsBySlotDate: scan: %w", err)
 		}
@@ -244,14 +244,14 @@ func (r *pgRepository) GetRecordsBySlotDate(ctx context.Context, timetableSlotID
 func (r *pgRepository) GetRecordByID(ctx context.Context, id, tenantID string) (*AttendanceRecord, error) {
 	query := `
 		SELECT id, tenant_id, school_id, student_id, timetable_slot_id,
-		       academic_term_id, date::text, status, marked_by, marked_at, note, created_at
+		       academic_term_id, date::text, status, marked_by, marked_at, note, created_at, updated_at
 		FROM attendance_records
 		WHERE id = $1 AND tenant_id = $2
 	`
 	var rec AttendanceRecord
 	err := r.pool.QueryRow(ctx, query, id, tenantID).Scan(
 		&rec.ID, &rec.TenantID, &rec.SchoolID, &rec.StudentID, &rec.TimetableSlotID,
-		&rec.AcademicTermID, &rec.Date, &rec.Status, &rec.MarkedBy, &rec.MarkedAt, &rec.Note, &rec.CreatedAt,
+		&rec.AcademicTermID, &rec.Date, &rec.Status, &rec.MarkedBy, &rec.MarkedAt, &rec.Note, &rec.CreatedAt, &rec.UpdatedAt,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -265,7 +265,7 @@ func (r *pgRepository) GetRecordByID(ctx context.Context, id, tenantID string) (
 func (r *pgRepository) GetStudentHistory(ctx context.Context, tenantID, schoolID, studentID string, filter StudentHistoryFilter) ([]AttendanceRecord, error) {
 	query := `
 		SELECT ar.id, ar.tenant_id, ar.school_id, ar.student_id, ar.timetable_slot_id,
-		       ar.academic_term_id, ar.date, ar.status, ar.marked_by, ar.marked_at, ar.note, ar.created_at
+		       ar.academic_term_id, ar.date::text, ar.status, ar.marked_by, ar.marked_at, ar.note, ar.created_at, ar.updated_at
 		FROM attendance_records ar
 		WHERE ar.student_id = $1 AND ar.tenant_id = $2
 	`
@@ -300,7 +300,7 @@ func (r *pgRepository) GetStudentHistory(ctx context.Context, tenantID, schoolID
 		var rec AttendanceRecord
 		if err := rows.Scan(
 			&rec.ID, &rec.TenantID, &rec.SchoolID, &rec.StudentID, &rec.TimetableSlotID,
-			&rec.AcademicTermID, &rec.Date, &rec.Status, &rec.MarkedBy, &rec.MarkedAt, &rec.Note, &rec.CreatedAt,
+			&rec.AcademicTermID, &rec.Date, &rec.Status, &rec.MarkedBy, &rec.MarkedAt, &rec.Note, &rec.CreatedAt, &rec.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("attendance.Repository.GetStudentHistory: scan: %w", err)
 		}

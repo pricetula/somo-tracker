@@ -42,6 +42,15 @@ export interface Enrollment {
     created_at: string;
 }
 
+export interface BehaviorNoteItem {
+    id: string;
+    category_name: string;
+    description: string;
+    date: string;
+    status: string;
+    is_urgent: boolean;
+}
+
 export interface StudentDetail {
     id: string;
     full_name: string;
@@ -55,6 +64,7 @@ export interface StudentDetail {
     is_active: boolean;
     created_at: string;
     enrollments: Enrollment[];
+    behavior?: BehaviorNoteItem[];
 }
 
 // ─── Response Types ───────────────────────────────────────────────────────
@@ -175,6 +185,13 @@ export async function createStudent(data: CreateStudentPayload): Promise<{ id: s
 /** Get student detail with enrollment history. */
 export async function getStudentDetail(id: string): Promise<StudentDetailResponse> {
     return api.get<StudentDetailResponse>(`/api/v1/students/${id}`);
+}
+
+/** Convenience: get student detail, unwrapping the response. */
+export async function getStudent(id: string, termId?: string): Promise<StudentDetail> {
+    const params = termId ? `?term_id=${termId}` : "";
+    const resp = await api.get<StudentDetailResponse>(`/api/v1/students/${id}${params}`);
+    return resp.data;
 }
 
 /** Update a student. */

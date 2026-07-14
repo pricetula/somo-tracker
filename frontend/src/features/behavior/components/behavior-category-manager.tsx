@@ -69,7 +69,8 @@ export function BehaviorCategoryManager() {
         updateCategory.mutate({
             id,
             payload: {
-                default_severity: (severity as "MINOR" | "NEEDS_FOLLOW_UP") || null,
+                default_severity:
+                    severity === "__none__" ? null : (severity as "MINOR" | "NEEDS_FOLLOW_UP"),
             },
         });
     };
@@ -153,14 +154,14 @@ export function BehaviorCategoryManager() {
                                 <TableCell className="font-medium">{cat.name}</TableCell>
                                 <TableCell>
                                     <Select
-                                        value={cat.default_severity ?? ""}
+                                        value={cat.default_severity ?? "__none__"}
                                         onValueChange={(val) => handleSeverityChange(cat.id, val)}
                                     >
                                         <SelectTrigger className="h-8">
                                             <SelectValue placeholder="None" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="">None</SelectItem>
+                                            <SelectItem value="__none__">None</SelectItem>
                                             <SelectItem value="MINOR">Minor</SelectItem>
                                             <SelectItem value="NEEDS_FOLLOW_UP">
                                                 Needs Follow-up

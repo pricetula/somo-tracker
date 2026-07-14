@@ -24,6 +24,7 @@ import {
     BarChart3Icon,
     CalendarCheckIcon,
     CalendarDays,
+    AlertTriangleIcon,
 } from "lucide-react";
 
 interface NavItem {
@@ -71,8 +72,17 @@ function buildNavItems(role: string): NavItem[] {
             },
             {
                 title: "Attendance",
-                url: "/attendance",
+                url: "#",
                 icon: <CalendarCheckIcon className="size-4" />,
+                items: [
+                    { title: "Register", url: "/attendance" },
+                    { title: "History", url: "/attendance/history" },
+                ],
+            },
+            {
+                title: "Behavior",
+                url: "/behavior",
+                icon: <AlertTriangleIcon className="size-4" />,
             },
             {
                 title: "Time table",

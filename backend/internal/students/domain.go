@@ -40,10 +40,21 @@ type Student struct {
 	CreatedAt            string  `json:"created_at"`
 }
 
-// StudentDetail extends Student with enrollment history.
+// StudentDetail extends Student with enrollment history and behavior notes.
 type StudentDetail struct {
 	Student
-	Enrollments []Enrollment `json:"enrollments"`
+	Enrollments []Enrollment       `json:"enrollments"`
+	Behavior    []BehaviorNoteItem `json:"behavior"`
+}
+
+// BehaviorNoteItem is a lightweight behavior note for the student detail page.
+type BehaviorNoteItem struct {
+	ID           string `json:"id"`
+	CategoryName string `json:"category_name"`
+	Description  string `json:"description"`
+	Date         string `json:"date"`
+	Status       string `json:"status"`
+	IsUrgent     bool   `json:"is_urgent"`
 }
 
 // Enrollment represents a single term enrollment record.

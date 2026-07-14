@@ -26,11 +26,18 @@ type academicYearsAdapter interface {
 	GetCurrentAcademicTermID(ctx context.Context, academicYearID string) (string, error)
 }
 
+// BehaviorNotesProvider is a function-based adapter that the students handler
+// uses to fetch behavior notes for the student detail page. It is set via
+// SetBehaviorNotesProvider during fx wiring in main.go to avoid a direct
+// import dependency on the behavior package.
+type BehaviorNotesProvider func(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]BehaviorNoteItem, error)
+
 // Handler exposes student HTTP endpoints.
 type Handler struct {
 	svc              *Service
 	impSvc           importServiceAdapter
 	academicYearsSvc academicYearsAdapter
+	behaviorNotesFn  BehaviorNotesProvider
 }
 
 // NewHandler creates a new Handler.
@@ -46,6 +53,13 @@ func (h *Handler) SetImportService(impSvc importServiceAdapter) {
 // SetAcademicYearsService sets the academicyears service reference.
 func (h *Handler) SetAcademicYearsService(aySvc academicYearsAdapter) {
 	h.academicYearsSvc = aySvc
+}
+
+// SetBehaviorNotesProvider sets the function that fetches behavior notes
+// for the student detail page. This is wired from main.go to avoid a
+// direct import dependency between students and behavior packages.
+func (h *Handler) SetBehaviorNotesProvider(fn BehaviorNotesProvider) {
+	h.behaviorNotesFn = fn
 }
 
 // RegisterRoutes mounts student routes on the given router.
@@ -374,6 +388,7 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 // ─── Get Detail ───────────────────────────────────────────────────────────
 
 // GetDetail handles GET /api/v1/students/:id.
+// Supports optional ?term_id for scoping behavior notes and attendance records.
 func (h *Handler) GetDetail(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
 	schoolID, _ := c.Locals("active_school_id").(string)
@@ -395,6 +410,17 @@ func (h *Handler) GetDetail(c *fiber.Ctx) error {
 			})
 		}
 		return middleware.HTTPError(c, err)
+	}
+
+	// Fetch behavior notes if the provider is wired in
+	if h.behaviorNotesFn != nil {
+		termID := c.Query("term_id")
+		if termID != "" {
+			notes, err := h.behaviorNotesFn(c.Context(), tenantID, schoolID, id, termID)
+			if err == nil && notes != nil {
+				detail.Behavior = notes
+			}
+		}
 	}
 
 	return c.JSON(StudentDetailResponse{Data: *detail})

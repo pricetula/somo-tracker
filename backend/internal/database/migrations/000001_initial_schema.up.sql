@@ -1395,8 +1395,8 @@ CREATE TABLE IF NOT EXISTS cbc_timetable_slots (
     academic_year_id  UUID        NOT NULL,
     structure_id      UUID        NOT NULL REFERENCES timetable_structures(id) ON DELETE CASCADE,
     class_id          UUID        NOT NULL,
-    learning_area_id  UUID        NULL REFERENCES cbc_learning_areas(id) ON DELETE SET NULL,
-    teacher_id        UUID        NULL,
+    learning_area_id  UUID        NOT NULL REFERENCES cbc_learning_areas(id) ON DELETE CASCADE,
+    teacher_id        UUID        NOT NULL,
     room_identifier   VARCHAR(50) NULL,
     created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -1421,7 +1421,7 @@ CREATE TABLE IF NOT EXISTS cbc_timetable_slots (
         REFERENCES cbc_classes(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_cbc_timetable_slots_tenant_teacher
         FOREIGN KEY (tenant_id, teacher_id)
-        REFERENCES users(tenant_id, id) ON DELETE SET NULL,
+        REFERENCES users(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_cbc_timetable_slots_academic_year
         FOREIGN KEY (academic_year_id)
         REFERENCES academic_years(id) ON DELETE CASCADE

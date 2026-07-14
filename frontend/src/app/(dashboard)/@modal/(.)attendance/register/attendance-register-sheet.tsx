@@ -13,9 +13,11 @@ import { AttendanceRegisterContainer } from "@/features/attendance/components/at
 
 interface AttendanceRegisterSheetProps {
     role: string;
+    slotId: string;
+    date?: string;
 }
 
-export function AttendanceRegisterSheet({ role }: AttendanceRegisterSheetProps) {
+export function AttendanceRegisterSheet({ role, slotId, date }: AttendanceRegisterSheetProps) {
     const router = useRouter();
 
     return (
@@ -33,7 +35,7 @@ export function AttendanceRegisterSheet({ role }: AttendanceRegisterSheetProps) 
                     <SheetTitle>Attendance Register</SheetTitle>
                 </SheetHeader>
                 <div className="px-6 pb-6">
-                    <AttendanceRegisterContainer role={role} />
+                    <AttendanceRegisterContainer role={role} slotId={slotId} date={date} />
                 </div>
             </SheetContent>
         </Sheet>

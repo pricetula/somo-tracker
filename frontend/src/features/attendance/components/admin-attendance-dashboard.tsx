@@ -69,7 +69,7 @@ const columns: DataTableColumn<CompletionStatus>[] = [
     {
         id: "status",
         header: "Status",
-        width: "120px",
+        width: "100px",
         cell: (row) => (
             <Badge
                 variant={row.is_complete ? "default" : "secondary"}
@@ -81,13 +81,12 @@ const columns: DataTableColumn<CompletionStatus>[] = [
     },
     {
         id: "actions",
-        header: "",
-        width: "60px",
+        header: "Register",
+        width: "100px",
         align: "center",
         cell: (row) => (
             <Link
-                href={`/attendance/register?slot_id=${row.slot_id}&date=${todayStr()}`}
-                className="text-muted-foreground hover:text-foreground inline-flex items-center justify-center transition-colors"
+                href={`/attendance/register/${row.slot_id}?date=${todayStr()}`}
                 title={`Register attendance for ${row.class_name} · ${row.period_name}`}
             >
                 <Pencil className="h-4 w-4" />

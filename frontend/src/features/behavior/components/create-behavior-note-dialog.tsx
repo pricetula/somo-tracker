@@ -47,7 +47,7 @@ interface CreateBehaviorNoteDialogProps {
 }
 
 /** Inner form component — key changes force remount, resetting all state. */
-function BehaviorNoteForm({
+export function BehaviorNoteForm({
     timetableSlotId,
     studentId,
     date,

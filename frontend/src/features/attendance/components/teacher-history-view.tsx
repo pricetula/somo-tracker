@@ -190,7 +190,7 @@ export function TeacherHistoryView() {
                                         size="sm"
                                         onClick={() =>
                                             router.push(
-                                                `/attendance/register?slot_id=${slot.id}&date=${new Date().toISOString().split("T")[0]}`
+                                                `/attendance/register/${slot.id}?date=${new Date().toISOString().split("T")[0]}`
                                             )
                                         }
                                     >

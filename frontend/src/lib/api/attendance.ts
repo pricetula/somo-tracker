@@ -90,6 +90,7 @@ export interface AttendanceRecord {
     marked_at: string;
     note?: string | null;
     created_at: string;
+    updated_at: string;
 }
 
 // ─── API Functions ────────────────────────────────────────────────────────

@@ -173,6 +173,28 @@ func main() {
 			func(repo auth.Repository) cbcschools.UserSchoolEnroller {
 				return repo.(cbcschools.UserSchoolEnroller)
 			},
+			// Wire behavior notes provider into the students handler for the
+			// student detail page.
+			func(behSvc *behavior.Service) students.BehaviorNotesProvider {
+				return func(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]students.BehaviorNoteItem, error) {
+					notes, err := behSvc.GetNotesByStudentTerm(ctx, tenantID, schoolID, studentID, termID)
+					if err != nil {
+						return nil, err
+					}
+					items := make([]students.BehaviorNoteItem, len(notes))
+					for i, n := range notes {
+						items[i] = students.BehaviorNoteItem{
+							ID:           n.ID,
+							CategoryName: n.CategoryName,
+							Description:  n.Description,
+							Date:         n.Date.Format("2006-01-02"),
+							Status:       string(n.Status),
+							IsUrgent:     n.IsUrgent,
+						}
+					}
+					return items, nil
+				}
+			},
 		),
 
 		fx.Provide(newLogger),
@@ -181,6 +203,10 @@ func main() {
 		fx.Invoke(imports.RegisterWorkerHooks),
 		fx.Invoke(attendance.RegisterWorkerHooks),
 		fx.Invoke(consumeSafeClient),
+		// Wire behavior notes provider into students handler
+		fx.Invoke(func(h *students.Handler, fn students.BehaviorNotesProvider) {
+			h.SetBehaviorNotesProvider(fn)
+		}),
 	).Run()
 }
 

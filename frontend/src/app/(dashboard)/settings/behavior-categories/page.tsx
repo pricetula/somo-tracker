@@ -21,11 +21,11 @@ export default async function BehaviorCategoriesPage() {
     return (
         <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 p-8">
             <div>
-                <h1 className="text-2xl font-semibold">Behavior Categories</h1>
-                <p className="text-muted-foreground mt-1">
+                <h1 className="font-semibold">Behavior Categories</h1>
+                <div>
                     Manage the incident/behavior categories available in your school. Deactivating a
                     category preserves historical records.
-                </p>
+                </div>
             </div>
             <BehaviorCategoryManager />
 

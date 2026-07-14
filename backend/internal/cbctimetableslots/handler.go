@@ -296,6 +296,12 @@ func validateCreateSlotPayload(payload CreateSlotPayload) map[string][]string {
 	if payload.ClassID == "" {
 		errors["class_id"] = []string{"Class is required"}
 	}
+	if payload.LearningAreaID == "" {
+		errors["learning_area_id"] = []string{"Learning area is required"}
+	}
+	if payload.TeacherID == "" {
+		errors["teacher_id"] = []string{"Teacher is required"}
+	}
 
 	return errors
 }

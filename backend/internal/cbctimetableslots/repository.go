@@ -345,30 +345,14 @@ func (r *PgRepository) BatchCreate(ctx context.Context, tenantID, schoolID strin
 
 // Update modifies a slot's assignments.
 func (r *PgRepository) Update(ctx context.Context, id string, slot UpdateSlotPayload) (*TimetableSlot, error) {
-	// Build dynamic SET clause for optional fields
-	sets := []string{}
-	args := []interface{}{}
-	argIdx := 1
-
-	if slot.LearningAreaID != nil {
-		sets = append(sets, fmt.Sprintf("learning_area_id = $%d", argIdx))
-		args = append(args, *slot.LearningAreaID)
-		argIdx++
-	} else {
-		sets = append(sets, fmt.Sprintf("learning_area_id = $%d", argIdx))
-		args = append(args, nil)
-		argIdx++
+	// Build dynamic SET clause — learning_area_id and teacher_id are required,
+	// room_identifier is optional (nil = keep existing, non-nil = set value).
+	sets := []string{
+		"learning_area_id = $1",
+		"teacher_id = $2",
 	}
-
-	if slot.TeacherID != nil {
-		sets = append(sets, fmt.Sprintf("teacher_id = $%d", argIdx))
-		args = append(args, *slot.TeacherID)
-		argIdx++
-	} else {
-		sets = append(sets, fmt.Sprintf("teacher_id = $%d", argIdx))
-		args = append(args, nil)
-		argIdx++
-	}
+	args := []interface{}{slot.LearningAreaID, slot.TeacherID}
+	argIdx := 3
 
 	if slot.RoomIdentifier != nil {
 		sets = append(sets, fmt.Sprintf("room_identifier = $%d", argIdx))

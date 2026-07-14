@@ -25,13 +25,13 @@ var (
 
 // BehaviorCategory represents a school-configurable incident category.
 type BehaviorCategory struct {
-	ID              string  `json:"id"`
-	TenantID        string  `json:"tenant_id"`
-	SchoolID        string  `json:"school_id"`
-	Name            string  `json:"name"`
-	DefaultSeverity *string `json:"default_severity,omitempty"`
-	IsActive        bool    `json:"is_active"`
-	CreatedAt       string  `json:"created_at,omitempty"`
+	ID              string    `json:"id"`
+	TenantID        string    `json:"tenant_id"`
+	SchoolID        string    `json:"school_id"`
+	Name            string    `json:"name"`
+	DefaultSeverity *string   `json:"default_severity,omitempty"`
+	IsActive        bool      `json:"is_active"`
+	CreatedAt       time.Time `json:"created_at,omitempty"`
 }
 
 // CreateCategoryPayload is the request body for creating a behavior category.
@@ -64,7 +64,7 @@ type BehaviorNote struct {
 	SchoolID        string             `json:"school_id"`
 	StudentID       string             `json:"student_id"`
 	TimetableSlotID string             `json:"timetable_slot_id"`
-	Date            string             `json:"date"`
+	Date            time.Time          `json:"date"`
 	CategoryID      string             `json:"category_id"`
 	Description     string             `json:"description"`
 	IsUrgent        bool               `json:"is_urgent"`
@@ -104,7 +104,7 @@ type PendingNoteItem struct {
 	IsUrgent        bool               `json:"is_urgent"`
 	AuthoredByID    string             `json:"authored_by_id"`
 	AuthoredByName  string             `json:"authored_by_name"`
-	Date            string             `json:"date"`
+	Date            time.Time          `json:"date"`
 	Status          BehaviorNoteStatus `json:"status"`
 }
 

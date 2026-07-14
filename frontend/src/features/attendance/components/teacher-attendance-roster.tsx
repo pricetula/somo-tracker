@@ -26,6 +26,7 @@ import type { RosterStudent } from "@/lib/api/attendance";
 import { AttendanceEmptyState } from "./attendance-empty-state";
 import { useSlotRoster, useBulkMarkAttendance } from "../hooks/use-attendance";
 import type { AttendanceStatus } from "../types";
+import { CreateBehaviorNoteDialog } from "@/features/behavior/components/create-behavior-note-dialog";
 
 // ─── Props ────────────────────────────────────────────────────────────────
 
@@ -48,6 +49,7 @@ export function TeacherAttendanceRoster({
 
     const [statusMap, setStatusMap] = useState<Record<string, AttendanceStatus>>({});
     const [noteMap, setNoteMap] = useState<Record<string, string>>({});
+    const [behaviorStudent, setBehaviorStudent] = useState<RosterStudent | null>(null);
 
     // Initialise defaults from existing marks or "PRESENT"
     const effectiveStatus = useMemo(() => {
@@ -197,18 +199,14 @@ export function TeacherAttendanceRoster({
                         size="icon"
                         className="h-8 w-8"
                         aria-label="Log behavior note"
-                        asChild
+                        onClick={() => setBehaviorStudent(student)}
                     >
-                        <a
-                            href={`/behavior/new?timetable_slot_id=${roster?.timetable_slot_id ?? ""}&student_id=${student.student_id}&date=${roster?.date ?? ""}`}
-                        >
-                            <Flag className="h-4 w-4" />
-                        </a>
+                        <Flag className="h-4 w-4" />
                     </Button>
                 ),
             },
         ],
-        [isLocked, effectiveStatus, handleStatusChange, handleNoteChange, noteMap, roster]
+        [isLocked, effectiveStatus, handleStatusChange, handleNoteChange, noteMap]
     );
 
     // ── Empty / Loading / Error states ────────────────────────────────────
@@ -291,6 +289,19 @@ export function TeacherAttendanceRoster({
                         </span>
                     )}
                 </div>
+            )}
+
+            {/* Behavior note dialog */}
+            {behaviorStudent && (
+                <CreateBehaviorNoteDialog
+                    open
+                    onOpenChange={(open) => {
+                        if (!open) setBehaviorStudent(null);
+                    }}
+                    timetableSlotId={roster.timetable_slot_id}
+                    studentId={behaviorStudent.student_id}
+                    date={roster.date}
+                />
             )}
         </div>
     );

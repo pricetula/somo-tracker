@@ -48,6 +48,7 @@ type AttendanceRecord struct {
 	MarkedAt        time.Time        `json:"marked_at"`
 	Note            *string          `json:"note,omitempty"`
 	CreatedAt       time.Time        `json:"created_at,omitempty"`
+	UpdatedAt       time.Time        `json:"updated_at,omitempty"`
 }
 
 // RosterStudent represents a single student on a class roster for a given slot.

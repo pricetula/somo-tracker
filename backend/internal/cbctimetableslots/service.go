@@ -151,5 +151,11 @@ func validateCreatePayload(payload CreateSlotPayload) error {
 	if payload.ClassID == "" {
 		return fmt.Errorf("%w: class_id is required", ErrInvalidInput)
 	}
+	if payload.LearningAreaID == "" {
+		return fmt.Errorf("%w: learning_area_id is required", ErrInvalidInput)
+	}
+	if payload.TeacherID == "" {
+		return fmt.Errorf("%w: teacher_id is required", ErrInvalidInput)
+	}
 	return nil
 }

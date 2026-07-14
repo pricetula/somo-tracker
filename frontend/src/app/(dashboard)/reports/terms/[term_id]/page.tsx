@@ -21,19 +21,16 @@ export default async function TermReportPage() {
     switch (role) {
         case "SCHOOL_ADMIN":
         case "SYSTEM_ADMIN": {
-            const { AdminTermReportManager } =
-                await import("@/features/reports/components/admin-term-report-manager");
-            // TODO: Extract termId from params
             return (
                 <div className="space-y-6">
                     <h1 className="text-2xl font-bold">Term Reports</h1>
-                    <AdminTermReportManager termId="" />
+                    <p className="text-muted-foreground">
+                        Select a student to generate or manage reports.
+                    </p>
                 </div>
             );
         }
         case "PARENT": {
-            // Read-only compiled report
-            // TODO: Extract termId and studentId from params/query
             return (
                 <div className="space-y-6">
                     <h1 className="text-2xl font-bold">Term Report</h1>

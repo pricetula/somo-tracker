@@ -34,8 +34,8 @@ type TimetableSlot struct {
 	AcademicYearID string    `json:"academic_year_id"`
 	StructureID    string    `json:"structure_id"`
 	ClassID        string    `json:"class_id"`
-	LearningAreaID *string   `json:"learning_area_id,omitempty"`
-	TeacherID      *string   `json:"teacher_id,omitempty"`
+	LearningAreaID string    `json:"learning_area_id"`
+	TeacherID      string    `json:"teacher_id"`
 	RoomIdentifier *string   `json:"room_identifier,omitempty"`
 	CreatedAt      time.Time `json:"created_at,omitempty"`
 	UpdatedAt      time.Time `json:"updated_at,omitempty"`
@@ -52,8 +52,8 @@ type CreateSlotPayload struct {
 	AcademicYearID string  `json:"academic_year_id"`
 	StructureID    string  `json:"structure_id"`
 	ClassID        string  `json:"class_id"`
-	LearningAreaID *string `json:"learning_area_id,omitempty"`
-	TeacherID      *string `json:"teacher_id,omitempty"`
+	LearningAreaID string  `json:"learning_area_id"`
+	TeacherID      string  `json:"teacher_id"`
 	RoomIdentifier *string `json:"room_identifier,omitempty"`
 }
 
@@ -64,8 +64,8 @@ type BatchCreateSlotsPayload struct {
 
 // UpdateSlotPayload is the request body for updating an existing slot.
 type UpdateSlotPayload struct {
-	LearningAreaID *string `json:"learning_area_id,omitempty"`
-	TeacherID      *string `json:"teacher_id,omitempty"`
+	LearningAreaID string  `json:"learning_area_id"`
+	TeacherID      string  `json:"teacher_id"`
 	RoomIdentifier *string `json:"room_identifier,omitempty"`
 }
 

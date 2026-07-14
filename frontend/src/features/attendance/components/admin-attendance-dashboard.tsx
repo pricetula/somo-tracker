@@ -12,7 +12,7 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { GraduationCap, BookOpen, CheckCircle } from "lucide-react";
+import { GraduationCap, BookOpen, CheckCircle, Pencil } from "lucide-react";
 
 import { DataTable } from "@/components/shared/data-table";
 import type { DataTableColumn } from "@/components/shared/data-table/types";
@@ -24,6 +24,10 @@ import { getEducationLevelFilterSubmenu } from "@/features/education-level";
 import { getGradeLevelFilterSubmenu } from "@/features/grade-level";
 
 // ─── Columns ──────────────────────────────────────────────────────────────
+
+function todayStr(): string {
+    return new Date().toISOString().split("T")[0];
+}
 
 const columns: DataTableColumn<CompletionStatus>[] = [
     {
@@ -73,6 +77,21 @@ const columns: DataTableColumn<CompletionStatus>[] = [
             >
                 {row.is_complete ? "Complete" : "Incomplete"}
             </Badge>
+        ),
+    },
+    {
+        id: "actions",
+        header: "",
+        width: "60px",
+        align: "center",
+        cell: (row) => (
+            <Link
+                href={`/attendance/register?slot_id=${row.slot_id}&date=${todayStr()}`}
+                className="text-muted-foreground hover:text-foreground inline-flex items-center justify-center transition-colors"
+                title={`Register attendance for ${row.class_name} · ${row.period_name}`}
+            >
+                <Pencil className="h-4 w-4" />
+            </Link>
         ),
     },
 ];

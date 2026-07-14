@@ -123,6 +123,11 @@ export async function getParentDetail(id: string): Promise<ParentDetailResponse>
     return api.get<ParentDetailResponse>(`/api/v1/parents/${id}`);
 }
 
+/** Get the authenticated parent's own profile with linked children. */
+export async function getMyParentProfile(): Promise<ParentDetailResponse> {
+    return api.get<ParentDetailResponse>("/api/v1/parents/me");
+}
+
 /** Update a parent profile (phone_number, is_active). */
 export async function updateParent(id: string, data: UpdateParentPayload): Promise<void> {
     return api.put<void>(`/api/v1/parents/${id}`, data);

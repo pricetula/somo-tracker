@@ -18,7 +18,8 @@ type Repository interface {
 	GetRosterForSlot(ctx context.Context, tenantID, schoolID, timetableSlotID, date string) (*SlotRosterResponse, error)
 
 	// BulkUpsert inserts or updates attendance records for a given slot and date.
-	BulkUpsert(ctx context.Context, tenantID, schoolID string, payload BulkAttendancePayload, markedBy string) error
+	// Returns class_id and academic_term_id resolved from the timetable slot.
+	BulkUpsert(ctx context.Context, tenantID, schoolID string, payload BulkAttendancePayload, markedBy string) (classID, termID string, err error)
 
 	// GetStudentHistory returns a student's raw attendance records filtered by parameters.
 	GetStudentHistory(ctx context.Context, tenantID, schoolID, studentID string, filter StudentHistoryFilter) ([]AttendanceRecord, error)
@@ -27,7 +28,7 @@ type Repository interface {
 	UpdateRecord(ctx context.Context, id, tenantID string, payload UpdateAttendanceEntryPayload) error
 
 	// GetAdminDashboard returns completion status for all classes on a given date.
-	GetAdminDashboard(ctx context.Context, tenantID, schoolID, date string) (*AdminDashboardResponse, error)
+	GetAdminDashboard(ctx context.Context, tenantID, schoolID, date string, filter DashboardFilter) (*AdminDashboardResponse, error)
 
 	// GetChildAttendanceSummary returns a summarised attendance view for a parent's child.
 	GetChildAttendanceSummary(ctx context.Context, tenantID, schoolID, studentID, termID string) (*ChildAttendanceSummary, error)
@@ -36,8 +37,15 @@ type Repository interface {
 	// in a given school and term. Returns count of rows upserted.
 	ComputeTermSummaries(ctx context.Context, tenantID, schoolID, termID string) (int, error)
 
+	// ComputeClassSummaries recalculates attendance_term_summaries for students
+	// in a single class for the given term. Returns count of rows upserted.
+	ComputeClassSummaries(ctx context.Context, tenantID, schoolID, termID, classID string) (int, error)
+
 	// GetRecordsBySlotDate returns all attendance records for a given slot + date.
 	GetRecordsBySlotDate(ctx context.Context, timetableSlotID, date string) ([]AttendanceRecord, error)
+
+	// GetRecordByID returns a single attendance record by ID.
+	GetRecordByID(ctx context.Context, id, tenantID string) (*AttendanceRecord, error)
 }
 
 type pgRepository struct {
@@ -150,10 +158,10 @@ func (r *pgRepository) GetRosterForSlot(ctx context.Context, tenantID, schoolID,
 	}, nil
 }
 
-func (r *pgRepository) BulkUpsert(ctx context.Context, tenantID, schoolID string, payload BulkAttendancePayload, markedBy string) error {
+func (r *pgRepository) BulkUpsert(ctx context.Context, tenantID, schoolID string, payload BulkAttendancePayload, markedBy string) (classID, termID string, err error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
-		return fmt.Errorf("attendance.Repository.BulkUpsert: begin tx: %w", err)
+		return "", "", fmt.Errorf("attendance.Repository.BulkUpsert: begin tx: %w", err)
 	}
 	defer func() {
 		if err != nil {
@@ -161,19 +169,19 @@ func (r *pgRepository) BulkUpsert(ctx context.Context, tenantID, schoolID string
 		}
 	}()
 
-	// Get academic_term_id from the timetable slot
-	var termID string
-	termQuery := `
-		SELECT at.id
+	// Get academic_term_id and class_id from the timetable slot
+	var slotTermID, slotClassID string
+	slotQuery := `
+		SELECT ts.class_id, at.id
 		FROM cbc_timetable_slots ts
 		JOIN academic_terms at ON at.academic_year_id = ts.academic_year_id
 			AND at.school_id = $1 AND at.tenant_id = $2
 			AND at.is_current = true
 		WHERE ts.id = $3 AND ts.tenant_id = $2
 	`
-	err = tx.QueryRow(ctx, termQuery, schoolID, tenantID, payload.TimetableSlotID).Scan(&termID)
+	err = tx.QueryRow(ctx, slotQuery, schoolID, tenantID, payload.TimetableSlotID).Scan(&slotClassID, &slotTermID)
 	if err != nil {
-		return fmt.Errorf("attendance.Repository.BulkUpsert: resolve term: %w", err)
+		return "", "", fmt.Errorf("attendance.Repository.BulkUpsert: resolve slot/term: %w", err)
 	}
 
 	now := time.Now()
@@ -190,19 +198,19 @@ func (r *pgRepository) BulkUpsert(ctx context.Context, tenantID, schoolID string
 				marked_at  = EXCLUDED.marked_at,
 				note       = EXCLUDED.note
 		`,
-			tenantID, schoolID, entry.StudentID, payload.TimetableSlotID, termID,
+			tenantID, schoolID, entry.StudentID, payload.TimetableSlotID, slotTermID,
 			payload.Date, entry.Status, markedBy, now, entry.Note,
 		)
 		if err != nil {
-			return fmt.Errorf("attendance.Repository.BulkUpsert: upsert entry %s: %w", entry.StudentID, err)
+			return "", "", fmt.Errorf("attendance.Repository.BulkUpsert: upsert entry %s: %w", entry.StudentID, err)
 		}
 	}
 
 	if err = tx.Commit(ctx); err != nil {
-		return fmt.Errorf("attendance.Repository.BulkUpsert: commit: %w", err)
+		return "", "", fmt.Errorf("attendance.Repository.BulkUpsert: commit: %w", err)
 	}
 
-	return nil
+	return slotClassID, slotTermID, nil
 }
 
 func (r *pgRepository) GetRecordsBySlotDate(ctx context.Context, timetableSlotID, date string) ([]AttendanceRecord, error) {
@@ -231,6 +239,27 @@ func (r *pgRepository) GetRecordsBySlotDate(ctx context.Context, timetableSlotID
 		records = append(records, rec)
 	}
 	return records, rows.Err()
+}
+
+func (r *pgRepository) GetRecordByID(ctx context.Context, id, tenantID string) (*AttendanceRecord, error) {
+	query := `
+		SELECT id, tenant_id, school_id, student_id, timetable_slot_id,
+		       academic_term_id, date::text, status, marked_by, marked_at, note, created_at
+		FROM attendance_records
+		WHERE id = $1 AND tenant_id = $2
+	`
+	var rec AttendanceRecord
+	err := r.pool.QueryRow(ctx, query, id, tenantID).Scan(
+		&rec.ID, &rec.TenantID, &rec.SchoolID, &rec.StudentID, &rec.TimetableSlotID,
+		&rec.AcademicTermID, &rec.Date, &rec.Status, &rec.MarkedBy, &rec.MarkedAt, &rec.Note, &rec.CreatedAt,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("attendance.Repository.GetRecordByID: %w", ErrNotFound)
+		}
+		return nil, fmt.Errorf("attendance.Repository.GetRecordByID: %w", err)
+	}
+	return &rec, nil
 }
 
 func (r *pgRepository) GetStudentHistory(ctx context.Context, tenantID, schoolID, studentID string, filter StudentHistoryFilter) ([]AttendanceRecord, error) {
@@ -295,19 +324,97 @@ func (r *pgRepository) UpdateRecord(ctx context.Context, id, tenantID string, pa
 	return nil
 }
 
-func (r *pgRepository) GetAdminDashboard(ctx context.Context, tenantID, schoolID, date string) (*AdminDashboardResponse, error) {
-	// For the given date, find all non-break timetable slots for the school
-	// and count how many have attendance records marked.
-	query := `
+func (r *pgRepository) GetAdminDashboard(ctx context.Context, tenantID, schoolID, date string, filter DashboardFilter) (*AdminDashboardResponse, error) {
+	// ── Build dynamic WHERE conditions ────────────────────────────────────
+	args := []interface{}{tenantID, schoolID, date}
+	argIdx := 4
+
+	var conditions []string
+	var havingClause string
+
+	if filter.ClassID != "" {
+		conditions = append(conditions, fmt.Sprintf("ts.class_id = $%d", argIdx))
+		args = append(args, filter.ClassID)
+		argIdx++
+	}
+
+	if len(filter.EducationLevels) > 0 {
+		ors := make([]string, len(filter.EducationLevels))
+		for i, el := range filter.EducationLevels {
+			ors[i] = fmt.Sprintf("la.education_level::text = $%d", argIdx)
+			args = append(args, el)
+			argIdx++
+		}
+		conditions = append(conditions, "("+joinStrings(ors, " OR ")+")")
+	}
+
+	if len(filter.GradeLevels) > 0 {
+		ors := make([]string, len(filter.GradeLevels))
+		for i, gl := range filter.GradeLevels {
+			ors[i] = fmt.Sprintf("c.grade_level::text = $%d", argIdx)
+			args = append(args, gl)
+			argIdx++
+		}
+		conditions = append(conditions, "("+joinStrings(ors, " OR ")+")")
+	}
+
+	whereExtra := ""
+	if len(conditions) > 0 {
+		whereExtra = " AND " + joinStrings(conditions, " AND ")
+	}
+
+	// is_complete filter — use HAVING
+	switch filter.IsComplete {
+	case "complete":
+		havingClause = "HAVING COUNT(DISTINCT ar.student_id) FILTER (WHERE ar.id IS NOT NULL) >= COUNT(DISTINCT e.student_id)"
+	case "incomplete":
+		havingClause = "HAVING COUNT(DISTINCT ar.student_id) FILTER (WHERE ar.id IS NOT NULL) < COUNT(DISTINCT e.student_id)"
+	}
+
+	offset := (filter.Page - 1) * filter.Limit
+
+	// ── Count query ──────────────────────────────────────────────────────
+	countQuery := `
+		SELECT COUNT(*) FROM (
+			SELECT ts.id
+			FROM cbc_timetable_slots ts
+			JOIN cbc_classes c ON c.id = ts.class_id AND c.tenant_id = ts.tenant_id
+			LEFT JOIN cbc_streams str ON str.id = c.stream_id
+			LEFT JOIN cbc_learning_areas la ON la.id = ts.learning_area_id
+			JOIN timetable_structures ts_period ON ts_period.id = ts.structure_id
+				AND ts_period.tenant_id = ts.tenant_id
+				AND ts_period.is_break = false
+			JOIN cbc_student_enrollments e ON e.class_id = ts.class_id AND e.tenant_id = ts.tenant_id
+				AND e.status = 'ACTIVE'
+			LEFT JOIN attendance_records ar ON ar.timetable_slot_id = ts.id
+				AND ar.date = $3 AND ar.student_id = e.student_id
+			WHERE ts.tenant_id = $1 AND ts.school_id = $2` + whereExtra + `
+			GROUP BY ts.id
+			` + havingClause + `
+		) sub
+	`
+
+	var total int
+	err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&total)
+	if err != nil {
+		return nil, fmt.Errorf("attendance.Repository.GetAdminDashboard: count: %w", err)
+	}
+
+	// ── Data query ───────────────────────────────────────────────────────
+	dataQuery := `
 		SELECT
+			c.id AS class_id,
 			c.grade_level || ' ' || COALESCE(str.name, '') AS class_name,
 			ts.id AS slot_id,
 			ts_period.period_name,
+			COALESCE(la.name, '') AS learning_area,
+			COALESCE(la.id::text, '') AS learning_area_id,
 			COUNT(DISTINCT e.student_id) AS total_students,
 			COUNT(DISTINCT ar.student_id) FILTER (WHERE ar.id IS NOT NULL) AS marked_students
 		FROM cbc_timetable_slots ts
 		JOIN cbc_classes c ON c.id = ts.class_id AND c.tenant_id = ts.tenant_id
 		LEFT JOIN cbc_streams str ON str.id = c.stream_id
+		LEFT JOIN cbc_learning_areas la ON la.id = ts.learning_area_id
 		JOIN timetable_structures ts_period ON ts_period.id = ts.structure_id
 			AND ts_period.tenant_id = ts.tenant_id
 			AND ts_period.is_break = false
@@ -315,11 +422,15 @@ func (r *pgRepository) GetAdminDashboard(ctx context.Context, tenantID, schoolID
 			AND e.status = 'ACTIVE'
 		LEFT JOIN attendance_records ar ON ar.timetable_slot_id = ts.id
 			AND ar.date = $3 AND ar.student_id = e.student_id
-		WHERE ts.tenant_id = $1 AND ts.school_id = $2
-		GROUP BY c.grade_level || ' ' || COALESCE(str.name, ''), ts.id, ts_period.period_name
+		WHERE ts.tenant_id = $1 AND ts.school_id = $2` + whereExtra + `
+		GROUP BY c.id, c.grade_level || ' ' || COALESCE(str.name, ''), ts.id, ts_period.period_name, la.name, la.id
+		` + havingClause + `
 		ORDER BY ts_period.period_name
+		OFFSET $` + fmt.Sprintf("%d", argIdx) + ` LIMIT $` + fmt.Sprintf("%d", argIdx+1) + `
 	`
-	rows, err := r.pool.Query(ctx, query, tenantID, schoolID, date)
+	args = append(args, offset, filter.Limit)
+
+	rows, err := r.pool.Query(ctx, dataQuery, args...)
 	if err != nil {
 		return nil, fmt.Errorf("attendance.Repository.GetAdminDashboard: %w", err)
 	}
@@ -328,7 +439,7 @@ func (r *pgRepository) GetAdminDashboard(ctx context.Context, tenantID, schoolID
 	var classes []CompletionStatus
 	for rows.Next() {
 		var cs CompletionStatus
-		if err := rows.Scan(&cs.ClassName, &cs.SlotID, &cs.PeriodName, &cs.TotalSlots, &cs.MarkedSlots); err != nil {
+		if err := rows.Scan(&cs.ClassID, &cs.ClassName, &cs.SlotID, &cs.PeriodName, &cs.LearningArea, &cs.LearningAreaID, &cs.TotalSlots, &cs.MarkedSlots); err != nil {
 			return nil, fmt.Errorf("attendance.Repository.GetAdminDashboard: scan: %w", err)
 		}
 		cs.IsComplete = cs.MarkedSlots >= cs.TotalSlots
@@ -338,7 +449,25 @@ func (r *pgRepository) GetAdminDashboard(ctx context.Context, tenantID, schoolID
 		return nil, fmt.Errorf("attendance.Repository.GetAdminDashboard: rows iteration: %w", err)
 	}
 
-	return &AdminDashboardResponse{Date: date, Classes: classes}, nil
+	return &AdminDashboardResponse{
+		Date:  date,
+		Items: classes,
+		Total: total,
+		Page:  filter.Page,
+		Limit: filter.Limit,
+	}, nil
+}
+
+// joinStrings is a small helper to avoid importing strings just for Join.
+func joinStrings(elems []string, sep string) string {
+	if len(elems) == 0 {
+		return ""
+	}
+	result := elems[0]
+	for _, s := range elems[1:] {
+		result += sep + s
+	}
+	return result
 }
 
 func (r *pgRepository) GetChildAttendanceSummary(ctx context.Context, tenantID, schoolID, studentID, termID string) (*ChildAttendanceSummary, error) {
@@ -420,6 +549,52 @@ func (r *pgRepository) GetChildAttendanceSummary(ctx context.Context, tenantID, 
 		AttendancePercentage: percentage,
 		RecentPeriods:        recentPeriods,
 	}, nil
+}
+
+func (r *pgRepository) ComputeClassSummaries(ctx context.Context, tenantID, schoolID, termID, classID string) (int, error) {
+	query := `
+		INSERT INTO attendance_term_summaries
+			(tenant_id, school_id, student_id, academic_term_id, learning_area_id,
+			 periods_total, periods_present, periods_absent, periods_late,
+			 periods_excused, attendance_percentage, last_refreshed_at)
+		SELECT
+			$1 AS tenant_id,
+			$2 AS school_id,
+			ar.student_id,
+			$3 AS academic_term_id,
+			COALESCE(ts.learning_area_id, '00000000-0000-0000-0000-000000000000'::UUID) AS learning_area_id,
+			COUNT(*) AS periods_total,
+			COUNT(*) FILTER (WHERE ar.status = 'PRESENT') AS periods_present,
+			COUNT(*) FILTER (WHERE ar.status = 'ABSENT') AS periods_absent,
+			COUNT(*) FILTER (WHERE ar.status = 'LATE') AS periods_late,
+			COUNT(*) FILTER (WHERE ar.status = 'EXCUSED') AS periods_excused,
+			ROUND(
+				(COUNT(*) FILTER (WHERE ar.status = 'PRESENT')::NUMERIC / NULLIF(COUNT(*), 0)) * 100,
+				2
+			) AS attendance_percentage,
+			NOW() AS last_refreshed_at
+		FROM attendance_records ar
+		JOIN cbc_timetable_slots ts ON ts.id = ar.timetable_slot_id
+		WHERE ar.tenant_id = $1
+		  AND ar.school_id = $2
+		  AND ar.academic_term_id = $3
+		  AND ts.class_id = $4
+		GROUP BY ar.student_id, COALESCE(ts.learning_area_id, '00000000-0000-0000-0000-000000000000'::UUID)
+		ON CONFLICT (student_id, academic_term_id, learning_area_id)
+		DO UPDATE SET
+			periods_total        = EXCLUDED.periods_total,
+			periods_present      = EXCLUDED.periods_present,
+			periods_absent       = EXCLUDED.periods_absent,
+			periods_late         = EXCLUDED.periods_late,
+			periods_excused      = EXCLUDED.periods_excused,
+			attendance_percentage = EXCLUDED.attendance_percentage,
+			last_refreshed_at    = NOW()
+	`
+	result, err := r.pool.Exec(ctx, query, tenantID, schoolID, termID, classID)
+	if err != nil {
+		return 0, fmt.Errorf("attendance.Repository.ComputeClassSummaries: %w", err)
+	}
+	return int(result.RowsAffected()), nil
 }
 
 func (r *pgRepository) ComputeTermSummaries(ctx context.Context, tenantID, schoolID, termID string) (int, error) {

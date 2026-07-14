@@ -149,6 +149,9 @@ type Repository interface {
 	// GetByID retrieves a parent by primary key.
 	GetByID(ctx context.Context, id, tenantID string) (*Parent, error)
 
+	// GetByUserID retrieves a parent by the linked user_id.
+	GetByUserID(ctx context.Context, userID, tenantID string) (*Parent, error)
+
 	// GetDetail retrieves a parent with linked students.
 	GetDetail(ctx context.Context, id, tenantID string) (*ParentDetail, error)
 

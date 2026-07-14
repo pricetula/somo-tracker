@@ -5,8 +5,12 @@
 
 "use client";
 
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { ClipboardList } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { TeacherAttendanceRoster } from "./teacher-attendance-roster";
+import { AttendanceEmptyState } from "./attendance-empty-state";
 
 interface AttendanceRegisterContainerProps {
     role: string;
@@ -19,9 +23,15 @@ export function AttendanceRegisterContainer({ role }: AttendanceRegisterContaine
 
     if (!slotId) {
         return (
-            <div className="text-muted-foreground flex items-center justify-center py-16">
-                <p>No slot selected. Please navigate from the attendance dashboard.</p>
-            </div>
+            <AttendanceEmptyState
+                icon={ClipboardList}
+                title="No slot selected"
+                description="Select a class period from the attendance dashboard to view or mark attendance."
+            >
+                <Button variant="outline" size="sm" asChild>
+                    <Link href="/attendance">Go to dashboard</Link>
+                </Button>
+            </AttendanceEmptyState>
         );
     }
 

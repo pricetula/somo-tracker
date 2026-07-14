@@ -229,10 +229,11 @@ export async function deleteTimeBlocksByName(
     periodName: string,
     academicYearID: string
 ): Promise<DeleteResult> {
-    const params = `?academic_year_id=${encodeURIComponent(academicYearID)}`;
-    return api.delete<DeleteResult>(
-        `/api/v1/timetable/structure/by-name/${encodeURIComponent(periodName)}${params}`
-    );
+    const params = new URLSearchParams({
+        academic_year_id: academicYearID,
+        period_name: periodName,
+    });
+    return api.delete<DeleteResult>(`/api/v1/timetable/structure/by-name?${params.toString()}`);
 }
 
 // ─── API Functions: Allocation Slots ──────────────────────────────────────

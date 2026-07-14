@@ -7,6 +7,7 @@
 "use client";
 
 import { useState } from "react";
+import { CalendarX } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
     Table,
@@ -27,7 +28,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Loader2, Pencil } from "lucide-react";
 
+import { AttendanceEmptyState } from "./attendance-empty-state";
 import { useStudentHistory, useUpdateAttendanceRecord } from "../hooks/use-attendance";
+import { useAcademicTerms } from "@/features/academic-terms/hooks/use-academic-terms";
 import type { AttendanceStatus } from "../types";
 
 interface StudentHistoryViewProps {
@@ -37,6 +40,8 @@ interface StudentHistoryViewProps {
 
 export function StudentHistoryView({ studentId, termId }: StudentHistoryViewProps) {
     const [selectedTermId, setSelectedTermId] = useState(termId ?? "");
+    const { data: termsData } = useAcademicTerms();
+    const terms = termsData?.items ?? [];
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editStatus, setEditStatus] = useState<AttendanceStatus>("PRESENT");
 
@@ -91,16 +96,29 @@ export function StudentHistoryView({ studentId, termId }: StudentHistoryViewProp
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="">All terms</SelectItem>
-                        {/* Terms populated by parent component or via combobox */}
+                        {terms.map((term) => (
+                            <SelectItem key={term.id} value={term.id}>
+                                {term.name}
+                                {term.is_current ? " (current)" : ""}
+                            </SelectItem>
+                        ))}
                     </SelectContent>
                 </Select>
                 <p className="text-muted-foreground text-sm">{records.length} records</p>
             </div>
 
             {records.length === 0 ? (
-                <p className="text-muted-foreground py-8 text-center">
-                    No attendance records found.
-                </p>
+                <AttendanceEmptyState
+                    icon={CalendarX}
+                    title="No attendance records found"
+                    description="No attendance marks have been recorded for this student matching the current filters."
+                >
+                    {selectedTermId && (
+                        <Button variant="outline" size="sm" onClick={() => setSelectedTermId("")}>
+                            Show all terms
+                        </Button>
+                    )}
+                </AttendanceEmptyState>
             ) : (
                 <Table>
                     <TableHeader>

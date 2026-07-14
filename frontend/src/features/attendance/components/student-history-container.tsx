@@ -4,8 +4,12 @@
 
 "use client";
 
+import Link from "next/link";
 import { useParams } from "next/navigation";
+import { UserX } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { StudentHistoryView } from "./student-history-view";
+import { AttendanceEmptyState } from "./attendance-empty-state";
 
 export function StudentHistoryContainer() {
     const params = useParams();
@@ -13,9 +17,15 @@ export function StudentHistoryContainer() {
 
     if (!studentId) {
         return (
-            <div className="text-muted-foreground flex items-center justify-center py-16">
-                <p>No student selected.</p>
-            </div>
+            <AttendanceEmptyState
+                icon={UserX}
+                title="No student selected"
+                description="Select a student from the student list to view their attendance history."
+            >
+                <Button variant="outline" size="sm" asChild>
+                    <Link href="/students">Browse students</Link>
+                </Button>
+            </AttendanceEmptyState>
         );
     }
 

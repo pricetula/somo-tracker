@@ -1,6 +1,9 @@
 package attendance
 
 import (
+	"strconv"
+	"strings"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 
@@ -107,6 +110,13 @@ func (h *Handler) BulkMark(c *fiber.Ctx) error {
 }
 
 // AdminDashboard handles GET /api/v1/attendance/dashboard.
+// Supports pagination and multi-value filters via repeated query params:
+//
+//	?education_level=Early_Years&education_level=Upper_Primary
+//	&grade_level=G4&grade_level=G7
+//	&class_id=<uuid>
+//	&is_complete=complete|incomplete
+//	&page=1&limit=50
 func (h *Handler) AdminDashboard(c *fiber.Ctx) error {
 	tenantID, schoolID, err := h.attMiddleware(c)
 	if err != nil {
@@ -114,7 +124,26 @@ func (h *Handler) AdminDashboard(c *fiber.Ctx) error {
 	}
 
 	date := c.Query("date")
-	result, err := h.svc.GetAdminDashboard(c.Context(), tenantID, schoolID, date)
+
+	page, _ := strconv.Atoi(c.Query("page", "1"))
+	limit, _ := strconv.Atoi(c.Query("limit", "50"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 50
+	}
+
+	filter := DashboardFilter{
+		EducationLevels: parseRepeatedQuery(c, "education_level"),
+		GradeLevels:     parseRepeatedQuery(c, "grade_level"),
+		ClassID:         c.Query("class_id"),
+		IsComplete:      c.Query("is_complete"),
+		Page:            page,
+		Limit:           limit,
+	}
+
+	result, err := h.svc.GetAdminDashboard(c.Context(), tenantID, schoolID, date, filter)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
@@ -248,4 +277,42 @@ func (h *Handler) ComputeSummaries(c *fiber.Ctx) error {
 		"message": "Attendance summaries computed",
 		"count":   count,
 	})
+}
+
+// parseRepeatedQuery reads all values for a given query parameter name.
+// Supports two styles:
+//   - repeated params: ?education_level=Early_Years&education_level=Upper_Primary
+//   - comma-separated: ?education_level=Early_Years,Upper_Primary
+func parseRepeatedQuery(c *fiber.Ctx, name string) []string {
+	// Check for repeated query params first
+	all := c.Request().URI().QueryArgs().PeekMulti(name)
+	if len(all) > 1 {
+		result := make([]string, 0, len(all))
+		for _, v := range all {
+			s := strings.TrimSpace(string(v))
+			if s != "" {
+				result = append(result, s)
+			}
+		}
+		return result
+	}
+
+	// Single value (or none) — could be comma-separated
+	vals := c.Query(name, "")
+	if vals == "" {
+		return nil
+	}
+
+	parts := strings.Split(vals, ",")
+	result := make([]string, 0, len(parts))
+	for _, p := range parts {
+		s := strings.TrimSpace(p)
+		if s != "" {
+			result = append(result, s)
+		}
+	}
+	if len(result) == 0 {
+		return nil
+	}
+	return result
 }

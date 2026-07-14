@@ -205,6 +205,21 @@ const parentJoin = `
 // ============================================================================
 
 // GetByID retrieves a single parent by primary key.
+
+// GetByUserID retrieves a parent profile by the linked user_id.
+func (r *PgRepository) GetByUserID(ctx context.Context, userID, tenantID string) (*Parent, error) {
+	const query = `SELECT ` + parentJoinColumns + parentJoin + ` WHERE cp.user_id = $1 AND cp.tenant_id = $2`
+	p, err := scanParent(r.pool.QueryRow(ctx, query, userID, tenantID))
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("parents.Repository.GetByUserID: %w", ErrNotFound)
+		}
+		return nil, fmt.Errorf("parents.Repository.GetByUserID: %w", err)
+	}
+	return p, nil
+}
+
+// GetByID retrieves a single parent by primary key.
 func (r *PgRepository) GetByID(ctx context.Context, id, tenantID string) (*Parent, error) {
 	const query = `SELECT ` + parentJoinColumns + parentJoin + ` WHERE cp.id = $1 AND cp.tenant_id = $2`
 	p, err := scanParent(r.pool.QueryRow(ctx, query, id, tenantID))

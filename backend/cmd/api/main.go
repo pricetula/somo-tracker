@@ -179,6 +179,7 @@ func main() {
 		fx.Invoke(runMigrations),
 		fx.Invoke(registerApp),
 		fx.Invoke(imports.RegisterWorkerHooks),
+		fx.Invoke(attendance.RegisterWorkerHooks),
 		fx.Invoke(consumeSafeClient),
 	).Run()
 }

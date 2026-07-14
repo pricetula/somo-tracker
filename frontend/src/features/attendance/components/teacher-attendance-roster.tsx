@@ -9,7 +9,8 @@
 "use client";
 
 import { useState, useCallback, useMemo } from "react";
-import { Loader2, Flag, StickyNote } from "lucide-react";
+import Link from "next/link";
+import { Loader2, Flag, StickyNote, ClipboardList } from "lucide-react";
 
 import {
     Table,
@@ -26,6 +27,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 
+import { AttendanceEmptyState } from "./attendance-empty-state";
 import { useSlotRoster, useBulkMarkAttendance } from "../hooks/use-attendance";
 import type { AttendanceStatus } from "../types";
 
@@ -53,7 +55,7 @@ export function TeacherAttendanceRoster({
 
     // Initialise defaults from existing marks or "PRESENT"
     const effectiveStatus = useMemo(() => {
-        if (!roster) return statusMap;
+        if (!roster?.students) return statusMap;
         const map: Record<string, AttendanceStatus> = { ...statusMap };
         for (const student of roster.students) {
             if (!map[student.student_id]) {
@@ -64,7 +66,7 @@ export function TeacherAttendanceRoster({
     }, [roster, statusMap]);
 
     const handleMarkAllPresent = useCallback(() => {
-        if (!roster) return;
+        if (!roster?.students) return;
         const allPresent: Record<string, AttendanceStatus> = {};
         for (const student of roster.students) {
             allPresent[student.student_id] = "PRESENT";
@@ -81,7 +83,7 @@ export function TeacherAttendanceRoster({
     }, []);
 
     const handleSubmit = useCallback(() => {
-        if (!roster) return;
+        if (!roster?.students) return;
         const entries = roster.students.map((s) => ({
             student_id: s.student_id,
             status: effectiveStatus[s.student_id] ?? "PRESENT",
@@ -115,11 +117,17 @@ export function TeacherAttendanceRoster({
         );
     }
 
-    if (!roster || roster.students.length === 0) {
+    if (!roster?.students?.length) {
         return (
-            <div className="text-muted-foreground flex items-center justify-center py-16">
-                <p>No class in session right now.</p>
-            </div>
+            <AttendanceEmptyState
+                icon={ClipboardList}
+                title="No students enrolled"
+                description="This class doesn't have any active student enrollments for the current term."
+            >
+                <Button variant="outline" size="sm" asChild>
+                    <Link href="/students">Manage enrollments</Link>
+                </Button>
+            </AttendanceEmptyState>
         );
     }
 

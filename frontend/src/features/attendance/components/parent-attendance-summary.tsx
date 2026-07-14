@@ -6,6 +6,8 @@
 
 "use client";
 
+import { CalendarX, ClipboardList } from "lucide-react";
+
 import { Skeleton } from "@/components/ui/skeleton";
 import {
     Table,
@@ -17,6 +19,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 
+import { AttendanceEmptyState } from "./attendance-empty-state";
 import { useChildAttendanceSummary } from "../hooks/use-attendance";
 
 interface ParentAttendanceSummaryProps {
@@ -48,11 +51,15 @@ export function ParentAttendanceSummary({ studentId, termId }: ParentAttendanceS
 
     if (!data) {
         return (
-            <div className="text-muted-foreground flex items-center justify-center py-16">
-                <p>Attendance data will appear once the term is underway.</p>
-            </div>
+            <AttendanceEmptyState
+                icon={ClipboardList}
+                title="No attendance data yet"
+                description="Attendance records will appear here once the term is underway and marks have been recorded."
+            />
         );
     }
+
+    const recentPeriods = data.recent_periods ?? [];
 
     return (
         <div className="space-y-6">
@@ -69,8 +76,11 @@ export function ParentAttendanceSummary({ studentId, termId }: ParentAttendanceS
             {/* Recent periods */}
             <div>
                 <h3 className="mb-3 text-lg font-semibold">Recent Periods</h3>
-                {data.recent_periods.length === 0 ? (
-                    <p className="text-muted-foreground text-sm">No recent attendance records.</p>
+                {recentPeriods.length === 0 ? (
+                    <div className="text-muted-foreground flex flex-col items-center gap-2 py-8 text-center">
+                        <CalendarX className="size-6" />
+                        <p className="text-sm">No recent attendance records in the last 30 days.</p>
+                    </div>
                 ) : (
                     <Table>
                         <TableHeader>
@@ -81,7 +91,7 @@ export function ParentAttendanceSummary({ studentId, termId }: ParentAttendanceS
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {data.recent_periods.map((period, idx) => (
+                            {recentPeriods.map((period, idx) => (
                                 <TableRow key={`${period.date}-${period.subject}-${idx}`}>
                                     <TableCell>{period.date}</TableCell>
                                     <TableCell>{period.subject}</TableCell>

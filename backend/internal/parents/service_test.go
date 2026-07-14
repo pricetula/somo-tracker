@@ -86,6 +86,18 @@ func (m *mockRepo) GetByID(ctx context.Context, id, tenantID string) (*Parent, e
 	return &pCopy, nil
 }
 
+func (m *mockRepo) GetByUserID(ctx context.Context, userID, tenantID string) (*Parent, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, p := range m.parents {
+		if p.UserID == userID && p.TenantID == tenantID {
+			pCopy := *p
+			return &pCopy, nil
+		}
+	}
+	return nil, ErrNotFound
+}
+
 func (m *mockRepo) GetDetail(ctx context.Context, id, tenantID string) (*ParentDetail, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()

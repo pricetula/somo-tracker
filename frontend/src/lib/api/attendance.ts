@@ -58,9 +58,12 @@ export interface ChildAttendanceSummary {
 }
 
 export interface CompletionStatus {
+    class_id: string;
     class_name: string;
     slot_id: string;
     period_name: string;
+    learning_area: string;
+    learning_area_id: string;
     total_slots: number;
     marked_slots: number;
     is_complete: boolean;
@@ -68,7 +71,10 @@ export interface CompletionStatus {
 
 export interface AdminDashboardResponse {
     date: string;
-    classes: CompletionStatus[];
+    items: CompletionStatus[];
+    total: number;
+    page: number;
+    limit: number;
 }
 
 export interface AttendanceRecord {
@@ -107,7 +113,62 @@ export async function bulkMarkAttendance(
     return api.post<{ message: string; count: number }>("/api/v1/attendance/bulk", payload);
 }
 
-/** Get admin dashboard — completion status per class for a date. */
+/** Params for listing admin attendance dashboard items with pagination and filters. */
+export interface ListAdminAttendancesParams {
+    date?: string;
+    search?: string;
+    page?: number;
+    limit?: number;
+    /** Filter values keyed by FilterItem id, e.g. { education_level: ["Early_Years"], grade_level: ["G4"], class_id: "uuid", is_complete: "complete" } */
+    filters?: Record<string, string | string[]>;
+}
+
+/** List admin attendance dashboard items with pagination and filters. */
+export async function listAdminAttendances(
+    params: ListAdminAttendancesParams = {}
+): Promise<AdminDashboardResponse> {
+    const searchParams = new URLSearchParams();
+
+    if (params.date) searchParams.set("date", params.date);
+    if (params.page) searchParams.set("page", String(params.page));
+    if (params.limit) searchParams.set("limit", String(params.limit));
+
+    // Multi-value filters from DataTable filter groups
+    const filters = params.filters ?? {};
+
+    const edLevels = asFilterArray(filters, "education_level");
+    for (const el of edLevels) {
+        searchParams.append("education_level", el);
+    }
+
+    const grLevels = asFilterArray(filters, "grade_level");
+    for (const gl of grLevels) {
+        searchParams.append("grade_level", gl);
+    }
+
+    const classId = filters["class_id"];
+    if (typeof classId === "string" && classId) {
+        searchParams.set("class_id", classId);
+    }
+
+    const isComplete = filters["is_complete"];
+    if (typeof isComplete === "string" && isComplete) {
+        searchParams.set("is_complete", isComplete);
+    }
+
+    const qs = searchParams.toString();
+    return api.get<AdminDashboardResponse>(`/api/v1/attendance/dashboard?${qs}`);
+}
+
+/** Safely coerces a filter value to a string array. */
+function asFilterArray(filters: Record<string, string | string[]>, key: string): string[] {
+    const val = filters[key];
+    if (Array.isArray(val)) return val;
+    if (typeof val === "string" && val) return [val];
+    return [];
+}
+
+/** Get admin dashboard — completion status per class for a date (legacy). */
 export async function getAdminDashboard(date?: string): Promise<AdminDashboardResponse> {
     const params = new URLSearchParams();
     if (date) params.set("date", date);

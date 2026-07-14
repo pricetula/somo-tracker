@@ -78,12 +78,34 @@ export function BlueprintDialog({ open, onOpenChange, isPending, onSave }: Bluep
         onOpenChange(open);
     };
 
+    /** Extract the naming pattern from existing non-break blocks.
+     *  Looks for a common prefix + number pattern (e.g. "Somo 1", "Darasa 2")
+     *  so new blocks continue the sequence instead of hardcoding "Lesson".
+     *  Falls back to "Lesson" if no numeric pattern is found. */
+    function deriveNamingPattern(blocks: DraftBlock[]): { prefix: string; count: number } {
+        const nonBreak = blocks.filter((d) => !d.isBreak);
+        let bestPrefix = "Lesson";
+        let maxNum = nonBreak.length;
+
+        for (const block of nonBreak) {
+            const match = block.periodName.match(/^(.+?)\s*(\d+)$/);
+            if (match) {
+                const prefix = match[1].trim();
+                const num = parseInt(match[2], 10);
+                if (num > maxNum) maxNum = num;
+                bestPrefix = prefix;
+            }
+        }
+
+        return { prefix: bestPrefix, count: maxNum };
+    }
+
     function addBlock() {
         const last = drafts[drafts.length - 1];
         const nextStart = last ? last.endTime : "08:00";
-        const nextNum = drafts.filter((d) => !d.isBreak).length + 1;
         const nextEnd = addMinutes(nextStart, 30);
-        setDrafts([...drafts, createDraft(nextStart, nextEnd, `Lesson ${nextNum}`)]);
+        const { prefix, count } = deriveNamingPattern(drafts);
+        setDrafts([...drafts, createDraft(nextStart, nextEnd, `${prefix} ${count + 1}`)]);
     }
 
     function updateBlock(id: string, patch: Partial<DraftBlock>) {

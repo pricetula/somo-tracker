@@ -56,6 +56,10 @@ export function ParentTermReport({ termId, studentId }: ParentTermReportProps) {
         );
     }
 
+    const att = data.attendance;
+    const behaviorNotes = data.behavior_notes ?? [];
+    const competencySummary = data.competency_summary ?? [];
+
     return (
         <div className="space-y-8">
             <h1 className="text-2xl font-bold">Term Report</h1>
@@ -66,13 +70,13 @@ export function ParentTermReport({ termId, studentId }: ParentTermReportProps) {
                 <div className="rounded-lg border p-6">
                     <div className="flex items-baseline gap-2">
                         <span className="text-4xl font-bold">
-                            {data.attendance.attendance_percentage.toFixed(1)}%
+                            {att?.attendance_percentage.toFixed(1) ?? "N/A"}%
                         </span>
                         <span className="text-muted-foreground">attendance</span>
                     </div>
                     <div className="text-muted-foreground mt-3 flex gap-6 text-sm">
-                        <span>{data.attendance.absences_count} absences</span>
-                        <span>{data.attendance.late_count} late</span>
+                        <span>{att?.absences_count ?? 0} absences</span>
+                        <span>{att?.late_count ?? 0} late</span>
                     </div>
                 </div>
             </section>
@@ -80,7 +84,7 @@ export function ParentTermReport({ termId, studentId }: ParentTermReportProps) {
             {/* Behavior Notes Section */}
             <section className="space-y-3">
                 <h2 className="text-lg font-semibold">Behavior Notes</h2>
-                {data.behavior_notes.length === 0 ? (
+                {behaviorNotes.length === 0 ? (
                     <p className="text-muted-foreground text-sm">
                         No behavior notes for this term.
                     </p>
@@ -95,7 +99,7 @@ export function ParentTermReport({ termId, studentId }: ParentTermReportProps) {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {data.behavior_notes.map((note, idx) => (
+                            {behaviorNotes.map((note, idx) => (
                                 <TableRow key={idx}>
                                     <TableCell>{note.date}</TableCell>
                                     <TableCell>
@@ -113,7 +117,7 @@ export function ParentTermReport({ termId, studentId }: ParentTermReportProps) {
             {/* Competency Summary Section */}
             <section className="space-y-3">
                 <h2 className="text-lg font-semibold">Competency Summary</h2>
-                {data.competency_summary.length === 0 ? (
+                {competencySummary.length === 0 ? (
                     <p className="text-muted-foreground text-sm">
                         No competency data for this term.
                     </p>
@@ -127,7 +131,7 @@ export function ParentTermReport({ termId, studentId }: ParentTermReportProps) {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {data.competency_summary.map((comp, idx) => (
+                            {competencySummary.map((comp, idx) => (
                                 <TableRow key={idx}>
                                     <TableCell className="font-medium">
                                         {comp.learning_area_name}
@@ -147,7 +151,8 @@ export function ParentTermReport({ termId, studentId }: ParentTermReportProps) {
 
             {/* Status footer */}
             <p className="text-muted-foreground text-xs">
-                Generated {new Date(data.generated_at).toLocaleDateString()}
+                Generated{" "}
+                {data.generated_at ? new Date(data.generated_at).toLocaleDateString() : "N/A"}
                 {data.published_at
                     ? ` · Published ${new Date(data.published_at).toLocaleDateString()}`
                     : ""}

@@ -95,6 +95,14 @@ func (s *Service) GetByID(ctx context.Context, id, tenantID string) (*Parent, er
 	return s.Repo.GetByID(ctx, id, tenantID)
 }
 
+// GetByUserID returns a parent profile by the linked user_id.
+func (s *Service) GetByUserID(ctx context.Context, userID, tenantID string) (*Parent, error) {
+	if userID == "" || tenantID == "" {
+		return nil, fmt.Errorf("parents.Service.GetByUserID: %w", ErrInvalidInput)
+	}
+	return s.Repo.GetByUserID(ctx, userID, tenantID)
+}
+
 // ============================================================================
 // GET DETAIL
 // ============================================================================

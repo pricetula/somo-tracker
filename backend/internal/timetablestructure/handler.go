@@ -27,10 +27,10 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	blocks.Post("/", middleware.RequireAuth, h.Create)
 	blocks.Post("/batch", middleware.RequireAuth, h.BatchCreate)
 	blocks.Post("/replicate", middleware.RequireAuth, h.ReplicateDay)
+	blocks.Delete("/by-name", middleware.RequireAuth, h.DeleteByName)
 	blocks.Put("/:id", middleware.RequireAuth, h.Update)
 	blocks.Delete("/:id", middleware.RequireAuth, h.Delete)
 	blocks.Delete("/day/:day", middleware.RequireAuth, h.DeleteDay)
-	blocks.Delete("/by-name/:period_name", middleware.RequireAuth, h.DeleteByName)
 }
 
 // extractTenantSchool extracts tenant_id and school_id from the request context.
@@ -348,11 +348,11 @@ func (h *Handler) DeleteByName(c *fiber.Ctx) error {
 		})
 	}
 
-	periodName := c.Params("period_name")
+	periodName := c.Query("period_name")
 	if periodName == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"code":    "VALIDATION_ERROR",
-			"message": "period_name is required",
+			"message": "period_name query parameter is required",
 		})
 	}
 

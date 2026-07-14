@@ -43,15 +43,18 @@ func (h *Handler) SetImportService(impSvc importServiceAdapter) {
 }
 
 // RegisterRoutes mounts parent routes on the given router.
+// Note: static routes (/me) must be registered before parameterised routes (/:id)
+// to prevent path parameter matching.
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	parents := router.Group("/api/v1/parents")
 	parents.Post("/", middleware.RequireAuth, h.Create)
 	parents.Get("/", middleware.RequireAuth, h.List)
+	parents.Get("/me", middleware.RequireAuth, h.GetMyProfile)
+	parents.Post("/invite", middleware.RequireAuth, h.BulkInvite)
+	parents.Post("/import", middleware.RequireAuth, h.BulkImport)
 	parents.Get("/:id", middleware.RequireAuth, h.GetDetail)
 	parents.Put("/:id", middleware.RequireAuth, h.Update)
 	parents.Delete("/:id", middleware.RequireAuth, h.Delete)
-	parents.Post("/invite", middleware.RequireAuth, h.BulkInvite)
-	parents.Post("/import", middleware.RequireAuth, h.BulkImport)
 	parents.Post("/:parent_id/students", middleware.RequireAuth, h.LinkStudent)
 	parents.Delete("/:parent_id/students/:student_id", middleware.RequireAuth, h.UnlinkStudent)
 }
@@ -294,6 +297,25 @@ func (h *Handler) GetDetail(c *fiber.Ctx) error {
 	}
 
 	detail, err := h.svc.GetDetail(c.Context(), id, tenantID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(ParentDetailResponse{Data: *detail})
+}
+
+// GetMyProfile handles GET /api/v1/parents/me.
+// Returns the authenticated parent's profile with linked children.
+func (h *Handler) GetMyProfile(c *fiber.Ctx) error {
+	tenantID := c.Locals("tenant_id").(string)
+	userID := c.Locals("user_id").(string)
+
+	parent, err := h.svc.GetByUserID(c.Context(), userID, tenantID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	detail, err := h.svc.GetDetail(c.Context(), parent.ID, tenantID)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}

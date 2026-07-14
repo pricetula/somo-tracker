@@ -220,7 +220,7 @@ func (r *PgRepository) Create(ctx context.Context, params CreateClassParams) (*C
 		const enrollStudents = `
 			INSERT INTO cbc_student_enrollments (student_id, class_id, academic_term_id, tenant_id, school_id)
 			SELECT unnest($1::uuid[]), $2, $3, $4, $5
-			ON CONFLICT (student_id, academic_term_id)
+			ON CONFLICT (student_id, school_id, academic_term_id)
 			DO UPDATE SET class_id = EXCLUDED.class_id
 		`
 		_, err = tx.Exec(ctx, enrollStudents,
@@ -297,7 +297,7 @@ func (r *PgRepository) Update(ctx context.Context, params UpdateClassParams) (*C
 		const upsertStudents = `
 			INSERT INTO cbc_student_enrollments (student_id, class_id, academic_term_id, tenant_id, school_id)
 			SELECT unnest($1::uuid[]), $2, $3, $4, $5
-			ON CONFLICT (student_id, academic_term_id)
+			ON CONFLICT (student_id, school_id, academic_term_id)
 			DO UPDATE SET class_id = EXCLUDED.class_id
 		`
 		_, err = tx.Exec(ctx, upsertStudents,
@@ -593,7 +593,7 @@ func (r *PgRepository) BatchEnrollStudents(ctx context.Context, classID, tenantI
 	const insertEnrollments = `
 		INSERT INTO cbc_student_enrollments (student_id, class_id, academic_term_id, tenant_id, school_id, status)
 		SELECT unnest($1::uuid[]), $2, $3, $4, $5, 'ACTIVE'
-		ON CONFLICT (student_id, academic_term_id)
+		ON CONFLICT (student_id, school_id, academic_term_id)
 		DO UPDATE SET class_id = EXCLUDED.class_id, status = 'ACTIVE', updated_at = NOW()
 		WHERE cbc_student_enrollments.class_id IS DISTINCT FROM EXCLUDED.class_id
 	`

@@ -35,7 +35,9 @@ export interface AcademicYear {
 
 // ─── API Functions ─────────────────────────────────────────────────────────
 
-/** List academic terms for the active school. */
+/** List academic terms for the active school.
+ *
+ * The backend returns { data: AcademicTerm[] }. This normalizes to { items: AcademicTerm[] }. */
 export async function listTerms(
     params: { academic_year_id?: string } = {}
 ): Promise<{ items: AcademicTerm[] }> {
@@ -43,7 +45,8 @@ export async function listTerms(
     if (params.academic_year_id) searchParams.set("academic_year_id", params.academic_year_id);
 
     const qs = searchParams.toString();
-    return api.get<{ items: AcademicTerm[] }>(`/api/v1/academic-terms?${qs}`);
+    const raw = await api.get<{ data: AcademicTerm[] }>(`/api/v1/academic-terms?${qs}`);
+    return { items: raw.data ?? [] };
 }
 
 /** List academic years for the active school.

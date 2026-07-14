@@ -43,6 +43,7 @@ export const ROLE_ROUTES: Record<string, string[]> = {
     TEACHER: ["/docs"],
     NURSE: ["/docs"],
     FINANCE: ["/docs"],
+    PARENT: ["/reports", "/attendance"],
 };
 
 /**
@@ -54,4 +55,5 @@ export const ROLE_DEFAULT_ROUTES: Record<string, string> = {
     TEACHER: "/",
     NURSE: "/",
     FINANCE: "/",
+    PARENT: "/attendance",
 };

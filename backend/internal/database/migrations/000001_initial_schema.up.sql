@@ -2135,6 +2135,294 @@ COMMENT ON TABLE member_active_school IS
      constrained to schools the user is an active member of via fk_mas_membership.';
 
 -- ============================================================================
+-- LAYER 11 — ATTENDANCE & BEHAVIOR
+-- ============================================================================
+
+-- ---------------------------------------------------------------------------
+-- ATTENDANCE STATUS ENUM
+-- ---------------------------------------------------------------------------
+
+DO $$ BEGIN
+    CREATE TYPE attendance_status AS ENUM ('PRESENT', 'ABSENT', 'LATE', 'EXCUSED');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE behavior_note_status AS ENUM ('PENDING_REVIEW', 'APPROVED', 'REJECTED', 'INCLUDED_IN_REPORT');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE behavior_severity AS ENUM ('MINOR', 'NEEDS_FOLLOW_UP');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE term_report_status AS ENUM ('DRAFT', 'PUBLISHED');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+-- ---------------------------------------------------------------------------
+-- ATTENDANCE RECORDS
+-- One row per student, per timetable slot occurrence, per date.
+-- Uniqueness: one record per (student_id, timetable_slot_id, date).
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS attendance_records (
+    id                UUID              PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id         UUID              NOT NULL,
+    school_id         UUID              NOT NULL,
+    student_id        UUID              NOT NULL,
+    timetable_slot_id UUID              NOT NULL,
+    academic_term_id  UUID              NOT NULL,
+    date              DATE              NOT NULL,
+    status            attendance_status NOT NULL,
+    marked_by         UUID              NOT NULL,
+    marked_at         TIMESTAMPTZ       NOT NULL DEFAULT NOW(),
+    note              TEXT              NULL,
+    created_at        TIMESTAMPTZ       NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT uq_attendance_student_slot_date
+        UNIQUE (student_id, timetable_slot_id, date),
+    CONSTRAINT fk_attendance_tenant_student
+        FOREIGN KEY (tenant_id, student_id)
+        REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_attendance_timetable_slot
+        FOREIGN KEY (timetable_slot_id)
+        REFERENCES cbc_timetable_slots(id) ON DELETE CASCADE,
+    CONSTRAINT fk_attendance_tenant_term
+        FOREIGN KEY (tenant_id, school_id, academic_term_id)
+        REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_attendance_marked_by
+        FOREIGN KEY (tenant_id, marked_by)
+        REFERENCES users(tenant_id, id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_attendance_slot_date
+    ON attendance_records (timetable_slot_id, date);
+CREATE INDEX IF NOT EXISTS idx_attendance_student_term
+    ON attendance_records (student_id, academic_term_id);
+CREATE INDEX IF NOT EXISTS idx_attendance_tenant
+    ON attendance_records (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_attendance_school
+    ON attendance_records (school_id);
+
+COMMENT ON TABLE attendance_records IS
+    'Per-student, per-timetable-slot, per-date attendance records. The unique
+     constraint (student_id, timetable_slot_id, date) prevents duplicate marks.
+     Only created for slots where timetable_structures.is_break = false.';
+
+COMMENT ON COLUMN attendance_records.note IS
+    'Optional short free text (e.g. "left early, picked up by parent").';
+
+-- ---------------------------------------------------------------------------
+-- BEHAVIOR CATEGORIES
+-- School-managed reference list — admins define categories per school.
+-- Soft-delete via is_active = false to preserve historical notes.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS behavior_categories (
+    id               UUID                PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id        UUID                NOT NULL,
+    school_id        UUID                NOT NULL,
+    name             VARCHAR(100)        NOT NULL,
+    default_severity behavior_severity   NULL,
+    is_active        BOOLEAN             NOT NULL DEFAULT true,
+    created_at       TIMESTAMPTZ         NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_behavior_categories_tenant_school
+        FOREIGN KEY (tenant_id, school_id)
+        REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT uq_behavior_category_name
+        UNIQUE (tenant_id, school_id, name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_behavior_categories_tenant
+    ON behavior_categories (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_behavior_categories_school
+    ON behavior_categories (school_id);
+
+COMMENT ON TABLE behavior_categories IS
+    'School-configurable behavior/incident categories. Admins manage these
+     per school rather than a fixed platform-wide enum. Categories are soft-
+     deleted (is_active = false) to preserve historical behavior_notes.';
+
+-- ---------------------------------------------------------------------------
+-- BEHAVIOR NOTES
+-- Sparse — only exists when a teacher logs an incident.
+-- Goes through admin approval before being included in term reports.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS behavior_notes (
+    id                UUID                 PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id         UUID                 NOT NULL,
+    school_id         UUID                 NOT NULL,
+    student_id        UUID                 NOT NULL,
+    timetable_slot_id UUID                 NOT NULL,
+    date              DATE                 NOT NULL,
+    category_id       UUID                 NOT NULL,
+    description       TEXT                 NOT NULL,
+    is_urgent         BOOLEAN              NOT NULL DEFAULT false,
+    status            behavior_note_status NOT NULL DEFAULT 'PENDING_REVIEW',
+    authored_by_id    UUID                 NOT NULL,
+    reviewed_by_id    UUID                 NULL,
+    reviewed_at       TIMESTAMPTZ          NULL,
+    created_at        TIMESTAMPTZ          NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_behavior_notes_tenant_student
+        FOREIGN KEY (tenant_id, student_id)
+        REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_behavior_notes_timetable_slot
+        FOREIGN KEY (timetable_slot_id)
+        REFERENCES cbc_timetable_slots(id) ON DELETE CASCADE,
+    CONSTRAINT fk_behavior_notes_category
+        FOREIGN KEY (category_id)
+        REFERENCES behavior_categories(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_behavior_notes_authored_by
+        FOREIGN KEY (tenant_id, authored_by_id)
+        REFERENCES users(tenant_id, id) ON DELETE SET NULL,
+    CONSTRAINT fk_behavior_notes_reviewed_by
+        FOREIGN KEY (tenant_id, reviewed_by_id)
+        REFERENCES users(tenant_id, id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_behavior_notes_student
+    ON behavior_notes (student_id);
+CREATE INDEX IF NOT EXISTS idx_behavior_notes_status
+    ON behavior_notes (status);
+CREATE INDEX IF NOT EXISTS idx_behavior_notes_urgent
+    ON behavior_notes (is_urgent) WHERE is_urgent = true;
+CREATE INDEX IF NOT EXISTS idx_behavior_notes_slot_date
+    ON behavior_notes (timetable_slot_id, date);
+CREATE INDEX IF NOT EXISTS idx_behavior_notes_tenant
+    ON behavior_notes (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_behavior_notes_school
+    ON behavior_notes (school_id);
+
+COMMENT ON TABLE behavior_notes IS
+    'Sparse incident/behavior records logged by teachers. Each note is
+     associated with a specific student, timetable slot, and date. Notes
+     go through admin approval (PENDING_REVIEW → APPROVED/REJECTED) before
+     being included in term reports or reaching parents. Urgent notes bypass
+     term-end batching for immediate parent contact.';
+
+COMMENT ON COLUMN behavior_notes.is_urgent IS
+    'When true and approved, triggers immediate parent notification instead of
+     waiting for term-end compilation.';
+
+-- ---------------------------------------------------------------------------
+-- ATTENDANCE TERM SUMMARIES
+-- Materialised rollup per student per term per learning area.
+-- Populated by a background task (nightly or on-demand).
+-- Source of truth remains attendance_records; this is a speed cache.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS attendance_term_summaries (
+    id                   UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id            UUID          NOT NULL,
+    school_id            UUID          NOT NULL,
+    student_id           UUID          NOT NULL,
+    academic_term_id     UUID          NOT NULL,
+    learning_area_id     UUID          NOT NULL,
+    periods_total        INT           NOT NULL,
+    periods_present      INT           NOT NULL,
+    periods_absent       INT           NOT NULL,
+    periods_late         INT           NOT NULL,
+    periods_excused      INT           NOT NULL,
+    attendance_percentage NUMERIC(5,2) NOT NULL,
+    last_refreshed_at    TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_summaries_tenant_student
+        FOREIGN KEY (tenant_id, student_id)
+        REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_summaries_tenant_term
+        FOREIGN KEY (tenant_id, school_id, academic_term_id)
+        REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_summaries_learning_area
+        FOREIGN KEY (learning_area_id)
+        REFERENCES cbc_learning_areas(id) ON DELETE CASCADE,
+    CONSTRAINT uq_summary_student_term_area
+        UNIQUE (student_id, academic_term_id, learning_area_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_att_summaries_student_term
+    ON attendance_term_summaries (student_id, academic_term_id);
+CREATE INDEX IF NOT EXISTS idx_att_summaries_tenant
+    ON attendance_term_summaries (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_att_summaries_school
+    ON attendance_term_summaries (school_id);
+
+COMMENT ON TABLE attendance_term_summaries IS
+    'Materialised rollup of attendance records per student per term per learning
+     area. Populated by a background task (nightly or on-demand when an admin
+     generates a term report). Not authoritative — attendance_records is the
+     source of truth. Mirrors the same pattern as cbc_term_competency_summaries.';
+
+COMMENT ON COLUMN attendance_term_summaries.attendance_percentage IS
+    'Calculated as (periods_present / periods_total) * 100, stored as a
+     decimal with two fractional digits (e.g. 92.50).';
+
+-- ---------------------------------------------------------------------------
+-- TERM REPORTS
+-- Compiled snapshot of attendance + approved behavior + competency summary
+-- for a student in a given term. Generated on-demand by admin.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS term_reports (
+    id                  UUID                PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id           UUID                NOT NULL,
+    school_id           UUID                NOT NULL,
+    student_id          UUID                NOT NULL,
+    academic_term_id    UUID                NOT NULL,
+    attendance_snapshot JSONB               NOT NULL DEFAULT '{}',
+    behavior_snapshot   JSONB               NOT NULL DEFAULT '[]',
+    competency_snapshot JSONB               NOT NULL DEFAULT '[]',
+    status              term_report_status  NOT NULL DEFAULT 'DRAFT',
+    generated_at        TIMESTAMPTZ         NOT NULL DEFAULT NOW(),
+    published_at        TIMESTAMPTZ         NULL,
+    generated_by        UUID                NOT NULL,
+
+    CONSTRAINT fk_term_reports_tenant_student
+        FOREIGN KEY (tenant_id, student_id)
+        REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_term_reports_tenant_term
+        FOREIGN KEY (tenant_id, school_id, academic_term_id)
+        REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_term_reports_generated_by
+        FOREIGN KEY (tenant_id, generated_by)
+        REFERENCES users(tenant_id, id) ON DELETE SET NULL,
+    CONSTRAINT uq_term_report_student_term
+        UNIQUE (student_id, academic_term_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_term_reports_student_term
+    ON term_reports (student_id, academic_term_id);
+CREATE INDEX IF NOT EXISTS idx_term_reports_tenant
+    ON term_reports (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_term_reports_school
+    ON term_reports (school_id);
+CREATE INDEX IF NOT EXISTS idx_term_reports_status
+    ON term_reports (status);
+
+COMMENT ON TABLE term_reports IS
+    'Compiled snapshot report for a student per term. Stores attendance
+     summary, approved behavior notes, and competency summary as JSONB
+     snapshots frozen at generation time. One report per student per term.
+     DRAFT = being compiled, PUBLISHED = visible to parents.';
+
+COMMENT ON COLUMN term_reports.attendance_snapshot IS
+    'JSON object containing attendance_percentage, periods_total, periods_present,
+     periods_absent, periods_late, periods_excused at generation time.';
+
+COMMENT ON COLUMN term_reports.behavior_snapshot IS
+    'JSON array of approved behavior notes (category_name, description, date,
+     subject) frozen at generation time.';
+
+COMMENT ON COLUMN term_reports.competency_snapshot IS
+    'JSON array of competency summaries (learning_area_name, calculated_level,
+     final_level, teacher_narrative_summary) frozen at generation time.';
+
+-- ============================================================================
 -- ROW-LEVEL SECURITY
 --
 -- Every table trusting the app layer to filter by tenant_id is one missed
@@ -2208,6 +2496,11 @@ ALTER TABLE IF EXISTS payments                          ENABLE ROW LEVEL SECURIT
 ALTER TABLE IF EXISTS school_member_counts              ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS student_health_profiles           ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS timetable_structures              ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS attendance_records                  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS behavior_categories                 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS behavior_notes                      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS attendance_term_summaries            ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS term_reports                        ENABLE ROW LEVEL SECURITY;
 
 -- Tenant-scoped policy function (reusable): returns a WHERE clause that
 -- filters to the current tenant. Tables without tenant_id get no policy;
@@ -2260,20 +2553,33 @@ BEGIN
             'payments',
             'school_member_counts',
             'student_health_profiles',
-            'timetable_structures'
+            'timetable_structures',
+            'attendance_records',
+            'behavior_categories',
+            'behavior_notes',
+            'attendance_term_summaries',
+            'term_reports'
         ])
     LOOP
         EXECUTE format(
             'DROP POLICY IF EXISTS tenant_isolation_policy ON %I',
             tbl
         );
-        EXECUTE format(
-            'CREATE POLICY tenant_isolation_policy ON %I '
-            'FOR ALL '
-            'USING (tenant_id = fn_current_tenant_id()) '
-            'WITH CHECK (tenant_id = fn_current_tenant_id())',
-            tbl
-        );
+        -- Only create tenant-scoped policy if the table has a tenant_id column.
+        -- Junction tables (e.g. cbc_student_parents) and denormalised count
+        -- tables (e.g. school_member_counts) may not have one.
+        IF EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = tbl AND column_name = 'tenant_id'
+        ) THEN
+            EXECUTE format(
+                'CREATE POLICY tenant_isolation_policy ON %I '
+                'FOR ALL '
+                'USING (tenant_id = fn_current_tenant_id()) '
+                'WITH CHECK (tenant_id = fn_current_tenant_id())',
+                tbl
+            );
+        END IF;
     END LOOP;
 END $$;
 

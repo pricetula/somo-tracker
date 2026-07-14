@@ -9,9 +9,16 @@ import crypto from "node:crypto";
 import { ROLE_COOKIE_NAME } from "@/lib/auth";
 
 /** All valid roles in the system. Must match proxy.ts VALID_ROLES. */
-const VALID_ROLES = new Set(["SYSTEM_ADMIN", "SCHOOL_ADMIN", "TEACHER", "NURSE", "FINANCE"]);
+const VALID_ROLES = new Set([
+    "SYSTEM_ADMIN",
+    "SCHOOL_ADMIN",
+    "TEACHER",
+    "NURSE",
+    "FINANCE",
+    "PARENT",
+]);
 
-export type UserRole = "SYSTEM_ADMIN" | "SCHOOL_ADMIN" | "TEACHER" | "NURSE" | "FINANCE";
+export type UserRole = "SYSTEM_ADMIN" | "SCHOOL_ADMIN" | "TEACHER" | "NURSE" | "FINANCE" | "PARENT";
 
 export interface AuthUser {
     role: UserRole;

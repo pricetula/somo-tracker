@@ -5,23 +5,15 @@
  * or after a hard refresh (bypasses the intercepted modal route).
  */
 
-"use client";
-
-import { useRouter, useSearchParams } from "next/navigation";
-import { CreateStrandDialog } from "@/features/curriculum";
+import { Suspense } from "react";
+import { NewStrandPageContent } from "./content";
 
 export default function NewStrandPage() {
-    const router = useRouter();
-    const searchParams = useSearchParams();
-    const learningAreaId = searchParams.get("learningAreaId") ?? "";
-
     return (
-        <CreateStrandDialog
-            open
-            onOpenChange={(open: boolean) => {
-                if (!open) router.push("/curriculum");
-            }}
-            learningAreaId={learningAreaId}
-        />
+        <Suspense
+            fallback={<div className="text-muted-foreground py-8 text-center">Loading...</div>}
+        >
+            <NewStrandPageContent />
+        </Suspense>
     );
 }

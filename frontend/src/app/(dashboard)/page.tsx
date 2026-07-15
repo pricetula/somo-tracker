@@ -1,16 +1,11 @@
+import { redirect } from "next/navigation";
 import { getVerifiedRole } from "@/lib/auth-server";
 
 export default async function Home() {
     const role = await getVerifiedRole();
 
-    // The proxy ensures only authenticated users with a valid role reach here,
-    // but we handle the edge case gracefully.
     if (!role) {
-        return (
-            <article>
-                <p>Unable to verify your session. Please log in again.</p>
-            </article>
-        );
+        redirect("/logout");
     }
 
     switch (role) {

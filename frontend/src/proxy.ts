@@ -98,7 +98,7 @@ export const config = {
  *      to /login.
  *   3. Otherwise → allow (cookie exists or path is not explicitly protected).
  */
-export default function proxy(request: NextRequest) {
+export function proxy(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
     // ── Step 1: Always allow public routes ──────────────────────────────

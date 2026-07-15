@@ -25,6 +25,8 @@ import {
     CalendarCheckIcon,
     CalendarDays,
     AlertTriangleIcon,
+    HeartPulse,
+    UserCheck,
 } from "lucide-react";
 
 interface NavItem {
@@ -47,6 +49,14 @@ function buildNavItems(role: string): NavItem[] {
             isActive: true,
         },
     ];
+
+    if (role === "NURSE" || isAdmin) {
+        items.push({
+            title: "Health",
+            url: "/health",
+            icon: <HeartPulse className="size-4" />,
+        });
+    }
 
     if (canAccessCurriculum) {
         items.push(
@@ -102,6 +112,11 @@ function buildNavItems(role: string): NavItem[] {
 
     if (isAdmin) {
         items.push(
+            {
+                title: "Teacher Assignments",
+                url: "/class-teachers",
+                icon: <UserCheck className="size-4" />,
+            },
             {
                 title: "Members",
                 url: "#",

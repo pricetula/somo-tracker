@@ -67,10 +67,7 @@ func (h *Handler) GetRoster(c *fiber.Ctx) error {
 
 	timetableSlotID := c.Params("timetable_slot_id")
 	if timetableSlotID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "timetable_slot_id is required",
-		})
+		return middleware.HTTPError(c, fmt.Errorf("timetable_slot_id is required: %w", middleware.ErrInvalidInput))
 	}
 
 	date := c.Query("date")
@@ -336,18 +333,12 @@ func (h *Handler) GetSession(c *fiber.Ctx) error {
 
 	timetableSlotID := c.Params("timetable_slot_id")
 	if timetableSlotID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "timetable_slot_id is required",
-		})
+		return middleware.HTTPError(c, fmt.Errorf("timetable_slot_id is required: %w", middleware.ErrInvalidInput))
 	}
 
 	date := c.Query("date")
 	if date == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "date query parameter is required",
-		})
+		return middleware.HTTPError(c, fmt.Errorf("date query parameter is required: %w", middleware.ErrInvalidInput))
 	}
 
 	session, err := h.svc.GetSessionBySlotDate(c.Context(), tenantID, timetableSlotID, date)

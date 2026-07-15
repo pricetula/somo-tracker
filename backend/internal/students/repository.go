@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"somotracker/backend/internal/database"
@@ -513,18 +514,11 @@ func isNoRows(err error) bool {
 }
 
 func isDuplicateUPI(err error) bool {
-	return err != nil && contains(err.Error(), "uq_cbc_students_upi_number")
-}
-
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && searchString(s, substr)
-}
-
-func searchString(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.Code == "23505" &&
+			(pgErr.ConstraintName == "uq_cbc_students_upi" ||
+				pgErr.ConstraintName == "uq_cbc_students_upi_number")
 	}
 	return false
 }

@@ -24,11 +24,11 @@ var (
 	// HTTPError maps it to 401 Unauthorized, which triggers the frontend's
 	// global 401 eviction (redirect to /logout).
 	ErrExpiredToken              = fmt.Errorf("expired_token: %w", middleware.ErrUnauthorized)
-	ErrMFARequired               = errors.New("mfa_required")
-	ErrOrgAlreadyExists          = errors.New("org_already_exists")
-	ErrJITProvisioningNotAllowed = errors.New("jit_provisioning_not_allowed")
-	ErrMemberNotFound            = errors.New("member_not_found")
-	ErrOrgNotFound               = errors.New("org_not_found")
+	ErrMFARequired               = fmt.Errorf("mfa_required: %w", middleware.ErrUnauthorized)
+	ErrOrgAlreadyExists          = fmt.Errorf("org_already_exists: %w", middleware.ErrConflict)
+	ErrJITProvisioningNotAllowed = fmt.Errorf("jit_provisioning_not_allowed: %w", middleware.ErrForbidden)
+	ErrMemberNotFound            = fmt.Errorf("member_not_found: %w", middleware.ErrNotFound)
+	ErrOrgNotFound               = fmt.Errorf("org_not_found: %w", middleware.ErrNotFound)
 	// Required sentinel errors, each wrapping the corresponding middleware
 	// sentinel so that middleware.HTTPError can match them via errors.Is.
 	ErrNotFound      = fmt.Errorf("auth not found: %w", middleware.ErrNotFound)

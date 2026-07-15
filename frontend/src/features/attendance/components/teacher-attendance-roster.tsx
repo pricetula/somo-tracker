@@ -14,7 +14,15 @@
 
 import { useState, useCallback, useMemo } from "react";
 import Link from "next/link";
-import { Loader2, Flag, StickyNote, ClipboardList, AlertTriangle, RotateCcw } from "lucide-react";
+import {
+    Loader2,
+    Flag,
+    StickyNote,
+    ClipboardList,
+    AlertTriangle,
+    RotateCcw,
+    Lock,
+} from "lucide-react";
 
 import type { DataTableColumn } from "@/components/shared/data-table/types";
 import { StaticTable } from "@/components/shared/static-table";
@@ -488,10 +496,16 @@ export function TeacherAttendanceRoster({
                     This session was skipped. Use the undo button above to re-open it.
                 </p>
             ) : isLocked ? (
-                <p className="text-muted-foreground text-sm">
-                    This record is from a past date and is locked. Contact your admin if you need to
-                    make corrections.
-                </p>
+                <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                    <Lock className="mt-0.5 h-4 w-4 shrink-0" />
+                    <div>
+                        <p className="font-medium">Past date — records locked</p>
+                        <p className="mt-0.5 text-xs text-amber-700">
+                            Attendance for past dates can only be edited by a school admin. Contact
+                            your admin if corrections are needed.
+                        </p>
+                    </div>
+                </div>
             ) : (
                 <p className="text-muted-foreground text-xs">
                     Same-day records can be edited until midnight. Changes are saved per class

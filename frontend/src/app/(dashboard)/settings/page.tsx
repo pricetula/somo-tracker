@@ -30,6 +30,28 @@ export default function SettingsPage() {
                             <Link href="/settings/behavior-categories">Manage</Link>
                         </Button>
                     </div>
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="font-medium">Grading Scales</p>
+                            <p className="text-muted-foreground text-sm">
+                                Manage grading scale profiles and percentage-to-level mappings.
+                            </p>
+                        </div>
+                        <Button variant="outline" size="sm" asChild>
+                            <Link href="/settings/grading-scales">Manage</Link>
+                        </Button>
+                    </div>
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="font-medium">Streams</p>
+                            <p className="text-muted-foreground text-sm">
+                                Manage the streams (sections) available in your school.
+                            </p>
+                        </div>
+                        <Button variant="outline" size="sm" asChild>
+                            <Link href="/streams/add">Manage</Link>
+                        </Button>
+                    </div>
                 </CardContent>
             </Card>
 

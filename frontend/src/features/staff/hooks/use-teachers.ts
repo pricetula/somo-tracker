@@ -10,6 +10,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
     listTeachers,
+    getTeacher,
+    updateTeacher,
     toggleTeacherActive,
     deleteTeacher,
     type ListTeachersResponse,
@@ -95,6 +97,39 @@ export function useToggleTeacherActive() {
         onSettled: () => {
             queryClient.invalidateQueries({ queryKey: teachersKeys.all });
         },
+    });
+}
+
+/** Fetch a single teacher by ID. */
+export function useTeacherDetail(userId: string | undefined) {
+    return useQuery({
+        queryKey: [...teachersKeys.all, "detail", userId],
+        queryFn: () => getTeacher(userId!),
+        enabled: !!userId,
+    });
+}
+
+/** Update a teacher's profile. */
+export function useUpdateTeacher() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({
+            userId,
+            payload,
+        }: {
+            userId: string;
+            payload: {
+                full_name?: string;
+                tsc_number?: string | null;
+                knec_panel_assessor_id?: string | null;
+            };
+        }) => updateTeacher(userId, payload),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: teachersKeys.all });
+            toast.success("Teacher updated");
+        },
+        onError: (err) => toast.error(getErrorMessage(err)),
     });
 }
 

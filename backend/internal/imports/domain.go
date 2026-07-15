@@ -312,6 +312,9 @@ type ServiceRepository interface {
 	// GetFailures returns paginated failure records for a job.
 	GetFailures(ctx context.Context, jobID uuid.UUID, limit, offset int) ([]RowFailure, int, error)
 
+	// ListJobs returns paginated import jobs for a school, newest first.
+	ListJobs(ctx context.Context, tenantID, schoolID uuid.UUID, limit, offset int) ([]Job, int, error)
+
 	// GetActiveJobBySchoolID returns the currently active job (status 'processing' or
 	// 'cancelling') for the given school, or ErrNotFound if none is active.
 	GetActiveJobBySchoolID(ctx context.Context, schoolID uuid.UUID) (*Job, error)

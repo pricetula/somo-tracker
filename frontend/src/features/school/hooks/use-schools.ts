@@ -9,7 +9,13 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { listSchools, createSchool, setActiveSchool } from "@/lib/api/schools";
+import {
+    listSchools,
+    createSchool,
+    updateSchool,
+    deleteSchool,
+    setActiveSchool,
+} from "@/lib/api/schools";
 import { getErrorMessage } from "@/lib/errors";
 import { authKeys } from "@/hooks/use-auth";
 import type { ListSchoolsResponse, CreateSchoolPayload } from "../types";
@@ -53,6 +59,37 @@ export function useSetActiveSchool() {
         onError: (err) => {
             toast.error(getErrorMessage(err));
         },
+    });
+}
+
+/** Update a school's details. */
+export function useUpdateSchool() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ id, payload }: { id: string; payload: { name?: string; code?: string } }) =>
+            updateSchool(id, payload),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: schoolKeys.all });
+            queryClient.invalidateQueries({ queryKey: authKeys.me });
+            toast.success("School updated");
+        },
+        onError: (err) => toast.error(getErrorMessage(err)),
+    });
+}
+
+/** Delete a school. */
+export function useDeleteSchool() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (id: string) => deleteSchool(id),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: schoolKeys.all });
+            queryClient.invalidateQueries({ queryKey: authKeys.me });
+            toast.success("School deleted");
+        },
+        onError: (err) => toast.error(getErrorMessage(err)),
     });
 }
 

@@ -13,7 +13,6 @@ import {
     DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
     Select,
@@ -22,6 +21,9 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { ClassCombobox } from "@/features/classes/components/class-combobox";
+import { TeacherCombobox } from "@/features/staff/components/teacher-combobox";
+import { LearningAreaCombobox } from "@/features/curriculum/components/learning-area-combobox";
 import { toast } from "sonner";
 
 interface AssignTeacherDialogProps {
@@ -76,22 +78,20 @@ export function AssignTeacherDialog({
                 <form onSubmit={handleSubmit} className="space-y-4">
                     {!prefillClassId && (
                         <div className="space-y-1">
-                            <Label htmlFor="class_id">Class ID</Label>
-                            <Input
-                                id="class_id"
+                            <Label htmlFor="class_id">Class</Label>
+                            <ClassCombobox
                                 value={classId}
-                                onChange={(e) => setClassId(e.target.value)}
-                                placeholder="Enter class UUID"
+                                onChange={(v) => setClassId(v as string)}
+                                placeholder="Select a class..."
                             />
                         </div>
                     )}
                     <div className="space-y-1">
-                        <Label htmlFor="user_id">Teacher User ID</Label>
-                        <Input
-                            id="user_id"
+                        <Label htmlFor="user_id">Teacher</Label>
+                        <TeacherCombobox
                             value={userId}
-                            onChange={(e) => setUserId(e.target.value)}
-                            placeholder="Enter teacher user UUID"
+                            onChange={(v) => setUserId(v as string)}
+                            placeholder="Select a teacher..."
                         />
                     </div>
                     <div className="space-y-1">
@@ -113,12 +113,11 @@ export function AssignTeacherDialog({
                     </div>
                     {teacherRole === "SUBJECT_TEACHER" && (
                         <div className="space-y-1">
-                            <Label htmlFor="learning_area_id">Learning Area ID</Label>
-                            <Input
-                                id="learning_area_id"
+                            <Label htmlFor="learning_area_id">Learning Area</Label>
+                            <LearningAreaCombobox
                                 value={learningAreaId}
-                                onChange={(e) => setLearningAreaId(e.target.value)}
-                                placeholder="Enter learning area UUID"
+                                onChange={(v) => setLearningAreaId(v as string)}
+                                placeholder="Select a learning area..."
                             />
                         </div>
                     )}

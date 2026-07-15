@@ -447,6 +447,58 @@ func (r *PgRepository) GetJobStagingRowCount(ctx context.Context, jobID uuid.UUI
 	return count, nil
 }
 
+// ─── ListJobs ────────────────────────────────────────────────────────────────
+
+func (r *PgRepository) ListJobs(ctx context.Context, tenantID, schoolID uuid.UUID, limit, offset int) ([]Job, int, error) {
+	countQuery := `SELECT COUNT(*) FROM import_jobs WHERE tenant_id = $1 AND school_id = $2`
+	var total int
+	err := r.pool.QueryRow(ctx, countQuery, tenantID, schoolID).Scan(&total)
+	if err != nil {
+		return nil, 0, fmt.Errorf("imports.Repository.ListJobs: count: %w", err)
+	}
+
+	query := `
+		SELECT id, tenant_id, school_id, job_type, role, created_by, status,
+		       total_records, processed_records, success_count, failed_count,
+		       idempotency_key, payload_hash, total_chunks, processed_chunks, metadata,
+		       created_at, started_at, completed_at, last_progress_at
+		FROM import_jobs
+		WHERE tenant_id = $1 AND school_id = $2
+		ORDER BY created_at DESC
+		LIMIT $3 OFFSET $4
+	`
+	rows, err := r.pool.Query(ctx, query, tenantID, schoolID, limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("imports.Repository.ListJobs: %w", err)
+	}
+	defer rows.Close()
+
+	var jobs []Job
+	for rows.Next() {
+		var j Job
+		var role, idempotencyKey, payloadHash *string
+		var createdBy *uuid.UUID
+		if err := rows.Scan(
+			&j.ID, &j.TenantID, &j.SchoolID, &j.JobType, &role, &createdBy, &j.Status,
+			&j.TotalRecords, &j.ProcessedRecords, &j.SuccessCount, &j.FailedCount,
+			&idempotencyKey, &payloadHash, &j.TotalChunks, &j.ProcessedChunks, &j.Metadata,
+			&j.CreatedAt, &j.StartedAt, &j.CompletedAt, &j.LastProgressAt,
+		); err != nil {
+			return nil, 0, fmt.Errorf("imports.Repository.ListJobs: scan: %w", err)
+		}
+		j.Role = role
+		j.IDempotencyKey = idempotencyKey
+		j.PayloadHash = payloadHash
+		j.CreatedBy = createdBy
+		jobs = append(jobs, j)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("imports.Repository.ListJobs: rows: %w", err)
+	}
+
+	return jobs, total, nil
+}
+
 // ─── GetJobByIDempotencyKey ───────────────────────────────────────────────
 
 func (r *PgRepository) GetJobByIDempotencyKey(ctx context.Context, tenantID uuid.UUID, idempotencyKey string) (*Job, error) {

@@ -695,6 +695,14 @@ func (s *Service) insertWithSavepoints(
 }
 
 // ============================================================================
+// ListJobs — retrieves paginated import jobs for a school
+// ============================================================================
+
+func (s *Service) ListJobs(ctx context.Context, tenantID, schoolID uuid.UUID, limit, offset int) ([]Job, int, error) {
+	return s.repo.ListJobs(ctx, tenantID, schoolID, limit, offset)
+}
+
+// ============================================================================
 // GetJob — retrieves current job state
 // ============================================================================
 

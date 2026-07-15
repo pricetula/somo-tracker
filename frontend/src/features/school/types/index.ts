@@ -19,3 +19,14 @@ export type { ListSchoolsResponse, CreateSchoolResponse };
 // ─── Payload types ────────────────────────────────────────────────────────
 
 export type CreateSchoolPayload = ApiCreateSchoolPayload;
+
+export interface UpdateSchoolPayload {
+    name?: string;
+    county?: string;
+    sub_county?: string;
+    ward?: string;
+    knec_school_code?: string;
+    nemis_code?: string;
+    school_type?: string;
+    is_active?: boolean;
+}

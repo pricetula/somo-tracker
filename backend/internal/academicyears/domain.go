@@ -164,6 +164,13 @@ type AcademicTerm struct {
 // Request / Response Payloads
 // ============================================================================
 
+// CreateYearBody is the request body for POST /api/v1/academic-years.
+type CreateYearBody struct {
+	Name      string `json:"name"`
+	StartDate string `json:"start_date"` // "YYYY-MM-DD"
+	EndDate   string `json:"end_date"`   // "YYYY-MM-DD"
+}
+
 // PatchYearBody is the allowed request body for PATCH /api/v1/academic-years/:id.
 type PatchYearBody struct {
 	Name      *string `json:"name,omitempty"`

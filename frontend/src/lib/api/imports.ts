@@ -255,3 +255,25 @@ export async function getImportJob(jobId: string): Promise<ImportJob> {
 export async function cancelImportJob(jobId: string): Promise<ImportJob> {
     return api.post<ImportJob>(`/api/v1/imports/${jobId}/cancel`);
 }
+
+/**
+ * GET /imports — list paginated import jobs for the active school.
+ * Returns jobs ordered by created_at descending.
+ */
+export interface ListJobsResponse {
+    data: ImportJob[];
+    total: number;
+    page: number;
+    limit: number;
+}
+
+export async function listJobs(
+    params: { page?: number; limit?: number } = {}
+): Promise<ListJobsResponse> {
+    const searchParams = new URLSearchParams();
+    if (params.page) searchParams.set("page", String(params.page));
+    if (params.limit) searchParams.set("limit", String(params.limit));
+    const qs = searchParams.toString();
+
+    return api.get<ListJobsResponse>(`/api/v1/imports?${qs}`);
+}

@@ -25,11 +25,13 @@ func NewHandler(svc *Service) *Handler {
 
 // RegisterRoutes mounts all import endpoints.
 func (h *Handler) RegisterRoutes(router fiber.Router) {
+	// Order matters: /active before /:job_id to avoid route collision
+	router.Get("/api/v1/imports/active", middleware.RequireAuth, h.GetSessionActiveJobAPI)
 	router.Get("/api/v1/imports/:job_id", middleware.RequireAuth, h.GetJobAPI)
 	router.Get("/api/v1/imports/:job_id/failures", middleware.RequireAuth, h.GetFailures)
 	router.Post("/api/v1/imports/:job_id/cancel", middleware.RequireAuth, h.CancelJobAPI)
-	// Resolves active school from the authenticated session — no school_id in URL needed
-	router.Get("/api/v1/imports/active", middleware.RequireAuth, h.GetSessionActiveJobAPI)
+	// List all jobs for the school (paginated)
+	router.Get("/api/v1/imports", middleware.RequireAuth, h.ListJobsAPI)
 	// Legacy: explicit school_id param (for cross-school access or future multi-school users)
 	router.Get("/api/v1/schools/:school_id/imports/active", middleware.RequireAuth, h.GetActiveJobAPI)
 }
@@ -165,6 +167,42 @@ func (h *Handler) GetActiveJobAPI(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{"active": true, "job": job})
+}
+
+// ============================================================================
+// ============================================================================
+// ListJobs — paginated job list
+// ============================================================================
+
+func (h *Handler) ListJobsAPI(c *fiber.Ctx) error {
+	tenantID, _ := uuid.Parse(c.Locals("tenant_id").(string))
+	schoolID, _ := uuid.Parse(c.Locals("school_id").(string))
+
+	limit := 50
+	if l := c.Query("limit"); l != "" {
+		if v, e := strconv.Atoi(l); e == nil && v > 0 && v <= 100 {
+			limit = v
+		}
+	}
+	page := 1
+	if p := c.Query("page"); p != "" {
+		if v, e := strconv.Atoi(p); e == nil && v > 0 {
+			page = v
+		}
+	}
+	offset := (page - 1) * limit
+
+	jobs, total, err := h.svc.ListJobs(c.Context(), tenantID, schoolID, limit, offset)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(fiber.Map{
+		"data":  jobs,
+		"total": total,
+		"page":  page,
+		"limit": limit,
+	})
 }
 
 // ============================================================================

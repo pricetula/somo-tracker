@@ -27,6 +27,8 @@ import {
     AlertTriangleIcon,
     HeartPulse,
     UserCheck,
+    UploadIcon,
+    DollarSignIcon,
 } from "lucide-react";
 
 interface NavItem {
@@ -110,6 +112,14 @@ function buildNavItems(role: string): NavItem[] {
         });
     }
 
+    if (role === "FINANCE") {
+        items.push({
+            title: "Finance",
+            url: "/finance",
+            icon: <DollarSignIcon className="size-4" />,
+        });
+    }
+
     if (isAdmin) {
         items.push(
             {
@@ -131,10 +141,19 @@ function buildNavItems(role: string): NavItem[] {
                 ],
             },
             {
+                title: "Imports",
+                url: "/imports",
+                icon: <UploadIcon className="size-4" />,
+            },
+            {
                 title: "Settings",
                 url: "#",
                 icon: <Settings2Icon className="size-4" />,
-                items: [{ title: "General", url: "/settings" }],
+                items: [
+                    { title: "General", url: "/settings" },
+                    { title: "Academic Years", url: "/academic-years" },
+                    { title: "Grading Scales", url: "/settings/grading-scales" },
+                ],
             }
         );
     }

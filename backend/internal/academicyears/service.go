@@ -50,8 +50,57 @@ func (s *Service) ListYears(ctx context.Context, tenantID, schoolID string) ([]A
 	return s.Repo.ListYears(ctx, tenantID, schoolID)
 }
 
+// CreateYear creates a new academic year.
+func (s *Service) CreateYear(ctx context.Context, body CreateYearBody, tenantID, schoolID, actorID string) (string, error) {
+	if tenantID == "" || schoolID == "" || actorID == "" {
+		return "", fmt.Errorf("academicyears.Service.CreateYear: %w", ErrInvalidInput)
+	}
+	if body.Name == "" {
+		return "", fmt.Errorf("academicyears.Service.CreateYear: name is required: %w", ErrInvalidInput)
+	}
+
+	startDate, err := parseDate(body.StartDate)
+	if err != nil {
+		return "", fmt.Errorf("academicyears.Service.CreateYear: %w", ErrInvalidInput)
+	}
+	endDate, err := parseDate(body.EndDate)
+	if err != nil {
+		return "", fmt.Errorf("academicyears.Service.CreateYear: %w", ErrInvalidInput)
+	}
+
+	if !endDate.After(startDate) && !endDate.Equal(startDate) {
+		return "", fmt.Errorf("academicyears.Service.CreateYear: end_date must be on or after start_date: %w", ErrInvalidInput)
+	}
+
+	year := &AcademicYear{
+		TenantID:  tenantID,
+		SchoolID:  schoolID,
+		Name:      body.Name,
+		StartDate: startDate,
+		EndDate:   endDate,
+		CreatedBy: actorID,
+		UpdatedBy: actorID,
+	}
+
+	id, err := s.Repo.CreateYear(ctx, year)
+	if err != nil {
+		return "", fmt.Errorf("academicyears.Service.CreateYear: %w", err)
+	}
+
+	slog.Info("academic_year.created",
+		"tenant_id", tenantID,
+		"school_id", schoolID,
+		"resource_id", id,
+		"name", body.Name,
+		"actor_id", actorID,
+	)
+
+	return id, nil
+}
+
 // PatchYear applies partial updates to an academic year.
 func (s *Service) PatchYear(ctx context.Context, id, tenantID, schoolID string, body PatchYearBody, actorID string) (*AcademicYear, *TermsOutOfRangeError) {
+	// Step 1 — Fetch with FOR UPDATE
 	// Step 1 — Fetch with FOR UPDATE
 	year, err := s.Repo.GetYearByIDForUpdate(ctx, id, tenantID, schoolID)
 	if err != nil {

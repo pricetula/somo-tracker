@@ -48,6 +48,23 @@ export async function listTeachers(
     return api.get<ListTeachersResponse>(`/api/v1/teachers?${qs}`);
 }
 
+/** Get a single teacher by ID. */
+export async function getTeacher(userId: string): Promise<TeacherMember> {
+    return api.get<TeacherMember>(`/api/v1/teachers/${userId}`);
+}
+
+/** Update a teacher's profile (TSC number, KNEC panel assessor, name). */
+export async function updateTeacher(
+    userId: string,
+    payload: {
+        full_name?: string;
+        tsc_number?: string | null;
+        knec_panel_assessor_id?: string | null;
+    }
+): Promise<void> {
+    return api.put<void>(`/api/v1/teachers/${userId}`, payload);
+}
+
 /** Toggle teacher active status. */
 export async function toggleTeacherActive(userId: string, isActive: boolean): Promise<void> {
     return api.patch<void>(`/api/v1/teachers/${userId}/active`, { is_active: isActive });

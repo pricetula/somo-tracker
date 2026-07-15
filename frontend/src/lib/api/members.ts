@@ -14,6 +14,16 @@ export type { Member, ListMembersResponse };
 
 // ─── API Functions ─────────────────────────────────────────────────────────
 
+/** Get a single member by ID. */
+export async function getMember(userId: string): Promise<Member> {
+    return api.get<Member>(`/api/v1/members/${userId}`);
+}
+
+/** Update a member's profile (full_name). */
+export async function updateMember(userId: string, payload: { full_name: string }): Promise<void> {
+    return api.put<void>(`/api/v1/members/${userId}`, payload);
+}
+
 /** List members by role with pagination and optional search. */
 export async function listMembers(
     role: "TEACHER" | "NURSE" | "FINANCE" | "SCHOOL_ADMIN",

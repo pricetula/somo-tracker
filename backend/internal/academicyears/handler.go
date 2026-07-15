@@ -27,6 +27,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	// Academic Years
 	years := router.Group("/api/v1/academic-years")
 	years.Get("/", middleware.RequireAuth, h.ListYears)
+	years.Post("/", middleware.RequireRole("SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.CreateYear)
 	years.Patch("/:id", middleware.RequireRole("SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.PatchYear)
 	years.Post("/:id/set-current", middleware.RequireRole("SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.SetCurrentYear)
 	years.Delete("/:id", middleware.RequireRole("SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.DeleteYear)
@@ -82,6 +83,27 @@ func (h *Handler) ListYears(c *fiber.Ctx) error {
 
 	return c.JSON(fiber.Map{
 		"data": years,
+	})
+}
+
+// CreateYear handles POST /api/v1/academic-years.
+func (h *Handler) CreateYear(c *fiber.Ctx) error {
+	tenantID := c.Locals("tenant_id").(string)
+	userID := c.Locals("user_id").(string)
+	schoolID := c.Locals("school_id").(string)
+
+	var body CreateYearBody
+	if err := c.BodyParser(&body); err != nil {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input", "malformed request body", nil)
+	}
+
+	id, err := h.svc.CreateYear(c.Context(), body, tenantID, schoolID, userID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"id": id,
 	})
 }
 

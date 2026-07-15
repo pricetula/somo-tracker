@@ -140,6 +140,14 @@ export async function getBehaviorNote(id: string): Promise<BehaviorNote> {
     return api.get<BehaviorNote>(`/api/v1/behavior/notes/${id}`);
 }
 
+/** Update a behavior note's description. */
+export async function updateBehaviorNote(
+    id: string,
+    payload: { description: string }
+): Promise<{ message: string }> {
+    return api.put<{ message: string }>(`/api/v1/behavior/notes/${id}`, payload);
+}
+
 /** Review (approve/reject) a behavior note. */
 export async function reviewBehaviorNote(
     id: string,

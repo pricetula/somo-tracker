@@ -13,9 +13,9 @@ import {
     DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { StudentCombobox } from "@/features/students/components/student-combobox";
 import { toast } from "sonner";
 
 interface CreateIncidentDialogProps {
@@ -60,12 +60,11 @@ export function CreateIncidentDialog({ open, onOpenChange, studentId }: CreateIn
                 <form onSubmit={handleSubmit} className="space-y-4">
                     {!studentId && (
                         <div className="space-y-1">
-                            <Label htmlFor="student_id">Student ID</Label>
-                            <Input
-                                id="student_id"
+                            <Label htmlFor="student_id">Student</Label>
+                            <StudentCombobox
                                 value={studentIdInput}
-                                onChange={(e) => setStudentIdInput(e.target.value)}
-                                placeholder="Enter student UUID"
+                                onChange={(v) => setStudentIdInput(v as string)}
+                                placeholder="Select a student..."
                             />
                         </div>
                     )}

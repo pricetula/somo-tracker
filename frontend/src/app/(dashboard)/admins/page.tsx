@@ -9,11 +9,42 @@
 
 "use client";
 
+import { useState } from "react";
 import { DataTable } from "@/components/shared/data-table";
 import type { DataTableColumn } from "@/components/shared/data-table/types";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Pencil } from "lucide-react";
 import { listAdmins, type Member } from "@/lib/api/admins";
 import { useDeleteAdmin } from "@/features/staff";
+import { MemberEditDialog } from "@/features/staff/components/member-edit-dialog";
+
+// ─── Edit action cell ──────────────────────────────────────────────────────
+
+function EditCell({ row }: { row: Member }) {
+    const [editOpen, setEditOpen] = useState(false);
+    return (
+        <>
+            <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => setEditOpen(true)}
+                title="Edit admin"
+            >
+                <Pencil className="h-4 w-4" />
+                <span className="sr-only">Edit {row.full_name}</span>
+            </Button>
+            <MemberEditDialog
+                userId={row.id}
+                open={editOpen}
+                onOpenChange={setEditOpen}
+                invalidationKey={["admins"]}
+            />
+        </>
+    );
+}
+
+// ─── Columns ───────────────────────────────────────────────────────────────
 
 const columns: DataTableColumn<Member>[] = [
     {
@@ -44,6 +75,16 @@ const columns: DataTableColumn<Member>[] = [
     },
 ];
 
+const editActionColumn: DataTableColumn<Member> = {
+    id: "edit",
+    header: "",
+    width: "48px",
+    align: "right",
+    cell: (row) => <EditCell row={row} />,
+};
+
+// ─── Page ──────────────────────────────────────────────────────────────────
+
 export default function AdminsPage() {
     const deleteMutation = useDeleteAdmin();
 
@@ -52,7 +93,7 @@ export default function AdminsPage() {
             addHref="/admins/import"
             queryKey={["admins"]}
             queryFn={listAdmins}
-            columns={columns}
+            columns={[...columns, editActionColumn]}
             getRowId={(row) => row.id}
             isSearchable
             searchPlaceholder="Search by name or email…"

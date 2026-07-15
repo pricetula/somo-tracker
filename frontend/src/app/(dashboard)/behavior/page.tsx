@@ -42,13 +42,12 @@ export default async function BehaviorPage() {
             );
         }
         case "PARENT": {
-            // TODO: Show approved behavior notes for linked children
+            const { ParentBehaviorView } =
+                await import("@/features/behavior/components/parent-behavior-view");
             return (
                 <div className="space-y-6">
                     <h1 className="text-2xl font-bold">Behavior</h1>
-                    <p className="text-muted-foreground">
-                        Behavior notes are available in your child&apos;s term report.
-                    </p>
+                    <ParentBehaviorView />
                 </div>
             );
         }

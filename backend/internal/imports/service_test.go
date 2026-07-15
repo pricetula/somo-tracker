@@ -39,6 +39,7 @@ type MockServiceRepository struct {
 	getJobStagingRowCountFn   func(ctx context.Context, jobID uuid.UUID) (int, error)
 	getJobByIDempotencyKeyFn  func(ctx context.Context, tenantID uuid.UUID, idempotencyKey string) (*Job, error)
 	getFailuresFn             func(ctx context.Context, jobID uuid.UUID, limit, offset int) ([]RowFailure, int, error)
+	listJobsFn                func(ctx context.Context, tenantID, schoolID uuid.UUID, limit, offset int) ([]Job, int, error)
 	getActiveJobBySchoolIDFn  func(ctx context.Context, schoolID uuid.UUID) (*Job, error)
 	cleanupStagingDataFn      func(ctx context.Context, cutoff time.Time, batchSize int) (int, error)
 	cleanupFailureDataFn      func(ctx context.Context, cutoff time.Time, batchSize int) (int, error)
@@ -227,6 +228,15 @@ func (m *MockServiceRepository) GetFailures(ctx context.Context, jobID uuid.UUID
 		return m.getFailuresFn(ctx, jobID, limit, offset)
 	}
 	return []RowFailure{}, 0, nil
+}
+
+func (m *MockServiceRepository) ListJobs(ctx context.Context, tenantID, schoolID uuid.UUID, limit, offset int) ([]Job, int, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.listJobsFn != nil {
+		return m.listJobsFn(ctx, tenantID, schoolID, limit, offset)
+	}
+	return []Job{}, 0, nil
 }
 
 func (m *MockServiceRepository) GetActiveJobBySchoolID(ctx context.Context, schoolID uuid.UUID) (*Job, error) {

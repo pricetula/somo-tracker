@@ -37,6 +37,19 @@ export async function createSchool(data: CreateSchoolPayload): Promise<CreateSch
     return api.post<CreateSchoolResponse>("/api/v1/schools", data);
 }
 
+/** Update a school's details. */
+export async function updateSchool(
+    id: string,
+    payload: { name?: string; code?: string }
+): Promise<void> {
+    return api.put<void>(`/api/v1/schools/${id}`, payload);
+}
+
+/** Delete a school. */
+export async function deleteSchool(id: string): Promise<void> {
+    return api.delete<void>(`/api/v1/schools/${id}`);
+}
+
 /** Set a school as the active school for the current user. */
 export async function setActiveSchool(schoolId: string): Promise<void> {
     return api.post<void>(`/api/v1/schools/${schoolId}/activate`);

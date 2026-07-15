@@ -10,13 +10,23 @@
 import { use, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { User, BookOpen, AlertTriangle, CalendarCheck, Loader2, ArrowUpRight } from "lucide-react";
+import {
+    User,
+    BookOpen,
+    AlertTriangle,
+    CalendarCheck,
+    Loader2,
+    ArrowUpRight,
+    HeartPulse,
+    BarChart3,
+} from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getStudent, type StudentDetail } from "@/lib/api/students";
 import { getStudentHistory } from "@/lib/api/attendance";
+import { useStudentHealth } from "@/features/health";
 
 interface Props {
     params: Promise<{ id: string }>;
@@ -150,6 +160,8 @@ export default function StudentDetailPage({ params }: Props) {
                             </Badge>
                         )}
                     </TabsTrigger>
+                    <TabsTrigger value="health">Health</TabsTrigger>
+                    <TabsTrigger value="reports">Reports</TabsTrigger>
                     <TabsTrigger value="enrollments">Enrollments</TabsTrigger>
                 </TabsList>
 
@@ -232,11 +244,30 @@ export default function StudentDetailPage({ params }: Props) {
 
                 {/* ── Behavior Tab ─────────────────────────────────────── */}
                 <TabsContent value="behavior" className="space-y-4 pt-4">
+                    <div className="flex items-center justify-between">
+                        <p className="text-muted-foreground text-sm">
+                            {behaviorNotes.length > 0
+                                ? `${behaviorNotes.length} note${behaviorNotes.length !== 1 ? "s" : ""} on record`
+                                : "No behavior notes logged yet."}
+                        </p>
+                        {currentEnrollment && (
+                            <Button variant="outline" size="sm" asChild>
+                                <Link href={`/attendance?student_id=${id}`}>
+                                    <AlertTriangle className="mr-1 h-3 w-3" />
+                                    Log from Attendance
+                                </Link>
+                            </Button>
+                        )}
+                    </div>
+
                     {behaviorNotes.length === 0 ? (
                         <div className="text-muted-foreground flex flex-col items-center gap-2 py-12">
                             <AlertTriangle className="h-8 w-8" />
                             <p className="font-medium">No behavior notes</p>
-                            <p className="text-sm">Approved behavior notes will appear here.</p>
+                            <p className="text-sm">
+                                Teachers can log behavior notes during attendance marking. Approved
+                                notes will appear here.
+                            </p>
                         </div>
                     ) : (
                         behaviorNotes.map((note) => (
@@ -356,7 +387,152 @@ export default function StudentDetailPage({ params }: Props) {
                         </div>
                     )}
                 </TabsContent>
+                {/* ── Health Tab ──────────────────────────────────────── */}
+                <TabsContent value="health" className="space-y-4 pt-4">
+                    <HealthTabContent studentId={id} />
+                </TabsContent>
+
+                {/* ── Reports Tab ─────────────────────────────────────── */}
+                <TabsContent value="reports" className="space-y-4 pt-4">
+                    <div className="text-muted-foreground flex flex-col items-center gap-2 py-12">
+                        <BarChart3 className="h-8 w-8" />
+                        <p className="font-medium">Student Reports</p>
+                        <p className="text-sm">Generate and view term reports for this student.</p>
+                        <Button variant="outline" size="sm" asChild className="mt-2">
+                            <Link href={`/reports/student/${id}`}>
+                                <ArrowUpRight className="mr-1 h-4 w-4" />
+                                View Reports
+                            </Link>
+                        </Button>
+                    </div>
+                </TabsContent>
             </Tabs>
+        </div>
+    );
+}
+
+// ─── Health Tab Content ────────────────────────────────────────────────────
+
+function HealthTabContent({ studentId }: { studentId: string }) {
+    const { data: healthData, isLoading, isError } = useStudentHealth(studentId);
+
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center py-12">
+                <Loader2 className="text-muted-foreground h-6 w-6 animate-spin" />
+            </div>
+        );
+    }
+
+    if (isError) {
+        return (
+            <div className="text-muted-foreground flex flex-col items-center gap-2 py-12">
+                <HeartPulse className="h-8 w-8" />
+                <p className="font-medium">Failed to load health data</p>
+            </div>
+        );
+    }
+
+    const incidents = healthData?.incidents ?? [];
+    const profile = healthData?.profile;
+
+    return (
+        <div className="space-y-6">
+            {/* Health Profile */}
+            {profile && (
+                <div className="bg-muted/30 rounded-lg p-4">
+                    <h3 className="mb-2 text-sm font-semibold">Health Profile</h3>
+                    <div className="space-y-1 text-sm">
+                        {profile.blood_group && (
+                            <p>
+                                <span className="text-muted-foreground">Blood Group:</span>{" "}
+                                {profile.blood_group}
+                            </p>
+                        )}
+                        {profile.allergies && profile.allergies.length > 0 && (
+                            <p>
+                                <span className="text-muted-foreground">Allergies:</span>{" "}
+                                {profile.allergies.join(", ")}
+                            </p>
+                        )}
+                        {profile.chronic_conditions && profile.chronic_conditions.length > 0 && (
+                            <p>
+                                <span className="text-muted-foreground">Chronic Conditions:</span>{" "}
+                                {profile.chronic_conditions.join(", ")}
+                            </p>
+                        )}
+                        {profile.emergency_instructions && (
+                            <p>
+                                <span className="text-muted-foreground">Emergency Notes:</span>{" "}
+                                {profile.emergency_instructions}
+                            </p>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* Medical Incidents */}
+            <div>
+                <div className="mb-3 flex items-center justify-between">
+                    <h3 className="text-sm font-semibold">
+                        Medical Incidents
+                        {incidents.length > 0 && (
+                            <span className="text-muted-foreground ml-2 font-normal">
+                                ({incidents.length})
+                            </span>
+                        )}
+                    </h3>
+                    <Button variant="outline" size="sm" asChild>
+                        <Link href={`/health/students/${studentId}`}>
+                            <ArrowUpRight className="mr-1 h-3 w-3" />
+                            Full History
+                        </Link>
+                    </Button>
+                </div>
+
+                {incidents.length === 0 ? (
+                    <div className="text-muted-foreground flex flex-col items-center gap-2 py-8">
+                        <HeartPulse className="h-8 w-8" />
+                        <p className="font-medium">No medical incidents</p>
+                        <p className="text-sm">
+                            No health incidents have been logged for this student.
+                        </p>
+                    </div>
+                ) : (
+                    <div className="space-y-2">
+                        {incidents.slice(0, 10).map((incident) => (
+                            <div
+                                key={incident.id}
+                                className="border-border/50 rounded-lg border p-3"
+                            >
+                                <div className="flex items-start justify-between">
+                                    <div className="space-y-1">
+                                        <p className="text-sm font-medium">{incident.symptoms}</p>
+                                        <p className="text-muted-foreground text-xs">
+                                            {new Date(
+                                                incident.incident_timestamp
+                                            ).toLocaleDateString("en-US", {
+                                                month: "short",
+                                                day: "numeric",
+                                                year: "numeric",
+                                                hour: "2-digit",
+                                                minute: "2-digit",
+                                            })}
+                                            {incident.logged_by_name &&
+                                                ` \u00b7 ${incident.logged_by_name}`}
+                                        </p>
+                                        {incident.action_taken && (
+                                            <p className="text-muted-foreground mt-1 text-xs">
+                                                Action: {incident.action_taken}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

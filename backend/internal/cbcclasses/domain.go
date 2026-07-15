@@ -10,16 +10,14 @@ import (
 
 // Sentinel domain errors.
 var (
-	ErrNotFound            = fmt.Errorf("cbcclasses not found: %w", middleware.ErrNotFound)
-	ErrAlreadyExists       = fmt.Errorf("cbcclasses already exists: %w", middleware.ErrAlreadyExists)
-	ErrInvalidInput        = fmt.Errorf("invalid cbcclasses input: %w", middleware.ErrInvalidInput)
-	ErrUnauthorized        = fmt.Errorf("unauthorized: %w", middleware.ErrUnauthorized)
-	ErrForbidden           = fmt.Errorf("forbidden: %w", middleware.ErrForbidden)
-	ErrConflict            = fmt.Errorf("cbcclasses conflict: %w", middleware.ErrConflict)
-	ErrClassLocked         = fmt.Errorf("cbcclasses locked: %w", middleware.ErrConflict)
-	ErrClassHasAssessments = fmt.Errorf("cbcclasses has assessments: %w", middleware.ErrConflict)
-	ErrEnrollmentConflict  = fmt.Errorf("enrollment conflict: some students are already enrolled elsewhere: %w", middleware.ErrConflict)
-	ErrStudentNotInClass   = fmt.Errorf("student is not enrolled in this class: %w", middleware.ErrNotFound)
+	ErrNotFound           = fmt.Errorf("cbcclasses not found: %w", middleware.ErrNotFound)
+	ErrAlreadyExists      = fmt.Errorf("cbcclasses already exists: %w", middleware.ErrAlreadyExists)
+	ErrInvalidInput       = fmt.Errorf("invalid cbcclasses input: %w", middleware.ErrInvalidInput)
+	ErrUnauthorized       = fmt.Errorf("unauthorized: %w", middleware.ErrUnauthorized)
+	ErrForbidden          = fmt.Errorf("forbidden: %w", middleware.ErrForbidden)
+	ErrConflict           = fmt.Errorf("cbcclasses conflict: %w", middleware.ErrConflict)
+	ErrEnrollmentConflict = fmt.Errorf("enrollment conflict: some students are already enrolled elsewhere: %w", middleware.ErrConflict)
+	ErrStudentNotInClass  = fmt.Errorf("student is not enrolled in this class: %w", middleware.ErrNotFound)
 )
 
 // Repository defines the contract for class persistence.
@@ -29,8 +27,6 @@ type Repository interface {
 	Create(ctx context.Context, params CreateClassParams) (*Class, error)
 	Update(ctx context.Context, params UpdateClassParams) (*Class, error)
 	BulkDelete(ctx context.Context, ids []string, tenantID, schoolID string) error
-	HasAssessmentSessions(ctx context.Context, classID, tenantID string) (bool, error)
-	HasAnyAssessmentSessions(ctx context.Context, classIDs []string, tenantID string) (bool, error)
 	ValidateAcademicYear(ctx context.Context, id, tenantID, schoolID string) (bool, error)
 	ValidateAcademicTerm(ctx context.Context, id, academicYearID string) (bool, error)
 	ValidateStream(ctx context.Context, id, tenantID, schoolID string) (bool, error)

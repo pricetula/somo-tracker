@@ -354,7 +354,7 @@ func (r *PgRepository) Update(ctx context.Context, params UpdateClassParams) (*C
 	return &cls, nil
 }
 
-// BulkDelete removes multiple classes after ensuring no assessment records exist.
+// BulkDelete removes multiple classes.
 func (r *PgRepository) BulkDelete(ctx context.Context, ids []string, tenantID, schoolID string) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -385,43 +385,6 @@ func (r *PgRepository) BulkDelete(ctx context.Context, ids []string, tenantID, s
 		return fmt.Errorf("cbcclasses.Repository.BulkDelete: commit tx: %w", err)
 	}
 	return nil
-}
-
-// HasAssessmentSessions checks if a specific class has any assessment records.
-func (r *PgRepository) HasAssessmentSessions(ctx context.Context, classID, tenantID string) (bool, error) {
-	const query = `
-		SELECT EXISTS (
-			SELECT 1 FROM assessment_sessions
-			WHERE class_id = $1 AND tenant_id = $2
-		)
-	`
-	var exists bool
-	err := r.pool.QueryRow(ctx, query, classID, tenantID).Scan(&exists)
-	if err != nil {
-		return false, fmt.Errorf("cbcclasses.Repository.HasAssessmentSessions: %w", err)
-	}
-	return exists, nil
-}
-
-// HasAnyAssessmentSessions checks if any of the given classes have assessment records.
-func (r *PgRepository) HasAnyAssessmentSessions(ctx context.Context, classIDs []string, tenantID string) (bool, error) {
-	if len(classIDs) == 0 {
-		return false, nil
-	}
-
-	const query = `
-		SELECT EXISTS (
-			SELECT 1 FROM assessment_sessions
-			WHERE class_id = ANY($1::uuid[])
-			  AND tenant_id = $2
-		)
-	`
-	var exists bool
-	err := r.pool.QueryRow(ctx, query, classIDs, tenantID).Scan(&exists)
-	if err != nil {
-		return false, fmt.Errorf("cbcclasses.Repository.HasAnyAssessmentSessions: %w", err)
-	}
-	return exists, nil
 }
 
 // ValidateAcademicYear checks that the academic year belongs to the tenant + school.

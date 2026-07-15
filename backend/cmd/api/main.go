@@ -31,7 +31,6 @@ import (
 	"go.uber.org/zap"
 
 	"somotracker/backend/internal/academicyears"
-	"somotracker/backend/internal/assessment"
 	"somotracker/backend/internal/attendance"
 	"somotracker/backend/internal/auth"
 	"somotracker/backend/internal/behavior"
@@ -178,7 +177,6 @@ func main() {
 		timetablestructure.Module,
 		invitations.Module,
 		members.Module,
-		assessment.Module,
 		cbctimetableslots.Module,
 		imports.Module,
 
@@ -195,9 +193,6 @@ func main() {
 			// the active school — instead of a bare repository INSERT.
 			func(svc *cbcschools.Service) auth.SchoolCreator {
 				return svc
-			},
-			func(repo curriculum.Repository) assessment.LearningAreaResolver {
-				return repo
 			},
 			// When a school is created, automatically seed its CBC curriculum
 			// from the embedded JSON files.
@@ -291,7 +286,6 @@ func registerApp(
 	pools *database.Pools,
 	authHandler *auth.Handler,
 	academicYearsHandler *academicyears.Handler,
-	assessmentHandler *assessment.Handler,
 	attendanceHandler *attendance.Handler,
 	behaviorHandler *behavior.Handler,
 	cbcschoolsHandler *cbcschools.Handler,
@@ -338,7 +332,6 @@ func registerApp(
 			// Mount domain routes
 			authHandler.RegisterRoutes(app)
 			academicYearsHandler.RegisterRoutes(app)
-			assessmentHandler.RegisterRoutes(app)
 			cbcschoolsHandler.RegisterRoutes(app)
 			cbcstreamsHandler.RegisterRoutes(app)
 			cbctimetableslotsHandler.RegisterRoutes(app)

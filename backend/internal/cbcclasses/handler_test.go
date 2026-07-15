@@ -639,39 +639,6 @@ func TestHandler_UpdateClass_NotFound(t *testing.T) {
 	}
 }
 
-func TestHandler_UpdateClass_LockedByAssessments(t *testing.T) {
-	h := newHandlerTestHarness(t)
-
-	h.repo.hasAssessmentSessionsFn = func(ctx context.Context, classID, tenantID string) (bool, error) {
-		if classID == "class_001" {
-			return true, nil
-		}
-		return false, nil
-	}
-
-	body, _ := json.Marshal(UpdateClassPayload{
-		GradeLevel:     "G4",
-		StreamID:       "stream_001",
-		AcademicTermID: "term_001",
-	})
-
-	resp := doRequest(h.app, "PUT", "/api/v1/classes/class_001", body)
-
-	if resp.StatusCode != fiber.StatusConflict {
-		t.Fatalf("CU7: expected 409 Conflict (CLASS_LOCKED), got %d", resp.StatusCode)
-	}
-
-	var result struct {
-		Error string `json:"error"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		t.Fatalf("CU7: failed to decode response: %v", err)
-	}
-	if result.Error != "CLASS_LOCKED" {
-		t.Fatalf("CU7: expected error 'CLASS_LOCKED', got %q", result.Error)
-	}
-}
-
 func TestHandler_UpdateClass_DifferentialSync(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
@@ -765,34 +732,6 @@ func TestHandler_BulkDeleteClasses_OverLimit(t *testing.T) {
 	}
 	if result.Error != "LIMIT_EXCEEDED" {
 		t.Fatalf("CD7: expected error 'LIMIT_EXCEEDED', got %q", result.Error)
-	}
-}
-
-func TestHandler_BulkDeleteClasses_BlockedByAssessments(t *testing.T) {
-	h := newHandlerTestHarness(t)
-
-	h.repo.hasAnyAssessmentFn = func(ctx context.Context, classIDs []string, tenantID string) (bool, error) {
-		return true, nil
-	}
-
-	body, _ := json.Marshal(BulkDeletePayload{
-		ClassIDs: []string{"class_001"},
-	})
-
-	resp := doRequest(h.app, "DELETE", "/api/v1/classes", body)
-
-	if resp.StatusCode != fiber.StatusConflict {
-		t.Fatalf("CD3: expected 409 Conflict, got %d", resp.StatusCode)
-	}
-
-	var result struct {
-		Error string `json:"error"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		t.Fatalf("CD3: failed to decode response: %v", err)
-	}
-	if result.Error != "CLASS_HAS_ASSESSMENTS" {
-		t.Fatalf("CD3: expected error 'CLASS_HAS_ASSESSMENTS', got %q", result.Error)
 	}
 }
 

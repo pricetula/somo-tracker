@@ -605,18 +605,6 @@ func (h *Handler) GetAvailableStudents(c *fiber.Ctx) error {
 
 // mapClassError maps domain errors to the spec's error response shape.
 func mapClassError(c *fiber.Ctx, err error) error {
-	if isErrClassLocked(err) {
-		return c.Status(fiber.StatusConflict).JSON(fiber.Map{
-			"error":   "CLASS_LOCKED",
-			"message": "This class has assessment records and cannot be modified.",
-		})
-	}
-	if isErrClassHasAssessments(err) {
-		return c.Status(fiber.StatusConflict).JSON(fiber.Map{
-			"error":   "CLASS_HAS_ASSESSMENTS",
-			"message": "One or more classes have assessment records and cannot be deleted.",
-		})
-	}
 	if isErrEnrollmentConflict(err) {
 		return c.Status(fiber.StatusConflict).JSON(fiber.Map{
 			"code":    "ENROLLMENT_CONFLICT",
@@ -638,36 +626,6 @@ func mapClassError(c *fiber.Ctx, err error) error {
 		})
 	}
 	return middleware.HTTPError(c, err)
-}
-
-// isErrClassLocked checks if the error chain contains ErrClassLocked.
-func isErrClassLocked(err error) bool {
-	for err != nil {
-		if err == ErrClassLocked {
-			return true
-		}
-		if unwrapper, ok := err.(interface{ Unwrap() error }); ok {
-			err = unwrapper.Unwrap()
-		} else {
-			return false
-		}
-	}
-	return false
-}
-
-// isErrClassHasAssessments checks if the error chain contains ErrClassHasAssessments.
-func isErrClassHasAssessments(err error) bool {
-	for err != nil {
-		if err == ErrClassHasAssessments {
-			return true
-		}
-		if unwrapper, ok := err.(interface{ Unwrap() error }); ok {
-			err = unwrapper.Unwrap()
-		} else {
-			return false
-		}
-	}
-	return false
 }
 
 // isErrEnrollmentConflict checks if the error chain contains ErrEnrollmentConflict.

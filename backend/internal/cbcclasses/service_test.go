@@ -11,20 +11,18 @@ import (
 // ============================================================================
 
 type MockRepository struct {
-	listFn                  func(ctx context.Context, filter ClassListFilter) (*ClassListResult, error)
-	getByIDFn               func(ctx context.Context, id, tenantID, schoolID string) (*Class, error)
-	createFn                func(ctx context.Context, params CreateClassParams) (*Class, error)
-	updateFn                func(ctx context.Context, params UpdateClassParams) (*Class, error)
-	bulkDeleteFn            func(ctx context.Context, ids []string, tenantID, schoolID string) error
-	hasAssessmentSessionsFn func(ctx context.Context, classID, tenantID string) (bool, error)
-	hasAnyAssessmentFn      func(ctx context.Context, classIDs []string, tenantID string) (bool, error)
-	validateAcademicYearFn  func(ctx context.Context, id, tenantID, schoolID string) (bool, error)
-	validateAcademicTermFn  func(ctx context.Context, id, academicYearID string) (bool, error)
-	validateStreamFn        func(ctx context.Context, id, tenantID, schoolID string) (bool, error)
-	getRosterFn             func(ctx context.Context, classID, tenantID, schoolID, academicTermID string, limit, offset int, search string) (*RosterListResult, error)
-	batchEnrollStudentsFn   func(ctx context.Context, classID, tenantID, schoolID, academicTermID string, studentIDs []string) (int, error)
-	unenrollStudentFn       func(ctx context.Context, classID, studentID, tenantID, schoolID string) error
-	getAvailableStudentsFn  func(ctx context.Context, filter AvailableStudentsFilter) (*AvailableStudentsResponse, error)
+	listFn                 func(ctx context.Context, filter ClassListFilter) (*ClassListResult, error)
+	getByIDFn              func(ctx context.Context, id, tenantID, schoolID string) (*Class, error)
+	createFn               func(ctx context.Context, params CreateClassParams) (*Class, error)
+	updateFn               func(ctx context.Context, params UpdateClassParams) (*Class, error)
+	bulkDeleteFn           func(ctx context.Context, ids []string, tenantID, schoolID string) error
+	validateAcademicYearFn func(ctx context.Context, id, tenantID, schoolID string) (bool, error)
+	validateAcademicTermFn func(ctx context.Context, id, academicYearID string) (bool, error)
+	validateStreamFn       func(ctx context.Context, id, tenantID, schoolID string) (bool, error)
+	getRosterFn            func(ctx context.Context, classID, tenantID, schoolID, academicTermID string, limit, offset int, search string) (*RosterListResult, error)
+	batchEnrollStudentsFn  func(ctx context.Context, classID, tenantID, schoolID, academicTermID string, studentIDs []string) (int, error)
+	unenrollStudentFn      func(ctx context.Context, classID, studentID, tenantID, schoolID string) error
+	getAvailableStudentsFn func(ctx context.Context, filter AvailableStudentsFilter) (*AvailableStudentsResponse, error)
 }
 
 func (m *MockRepository) List(ctx context.Context, filter ClassListFilter) (*ClassListResult, error) {
@@ -60,20 +58,6 @@ func (m *MockRepository) BulkDelete(ctx context.Context, ids []string, tenantID,
 		return m.bulkDeleteFn(ctx, ids, tenantID, schoolID)
 	}
 	return nil
-}
-
-func (m *MockRepository) HasAssessmentSessions(ctx context.Context, classID, tenantID string) (bool, error) {
-	if m.hasAssessmentSessionsFn != nil {
-		return m.hasAssessmentSessionsFn(ctx, classID, tenantID)
-	}
-	return false, nil
-}
-
-func (m *MockRepository) HasAnyAssessmentSessions(ctx context.Context, classIDs []string, tenantID string) (bool, error) {
-	if m.hasAnyAssessmentFn != nil {
-		return m.hasAnyAssessmentFn(ctx, classIDs, tenantID)
-	}
-	return false, nil
 }
 
 func (m *MockRepository) ValidateAcademicYear(ctx context.Context, id, tenantID, schoolID string) (bool, error) {
@@ -445,29 +429,6 @@ func TestUpdateClass_EmptyID(t *testing.T) {
 	}
 }
 
-func TestUpdateClass_LockedByAssessments(t *testing.T) {
-	h := newTestHarness()
-
-	h.repo.hasAssessmentSessionsFn = func(ctx context.Context, classID, tenantID string) (bool, error) {
-		return true, nil
-	}
-
-	_, err := h.svc.UpdateClass(context.Background(), UpdateClassParams{
-		ClassID:        "class_001",
-		TenantID:       "tenant_001",
-		SchoolID:       "school_001",
-		GradeLevel:     "G4",
-		StreamID:       "stream_001",
-		AcademicTermID: "term_001",
-	})
-	if err == nil {
-		t.Fatal("expected error for locked class, got nil")
-	}
-	if !errors.Is(err, ErrClassLocked) {
-		t.Fatalf("expected ErrClassLocked, got %v", err)
-	}
-}
-
 func TestUpdateClass_NotFound(t *testing.T) {
 	h := newTestHarness()
 
@@ -542,23 +503,6 @@ func TestBulkDeleteClasses_OverLimit(t *testing.T) {
 		t.Fatalf("expected ErrInvalidInput, got %v", err)
 	}
 }
-
-func TestBulkDeleteClasses_BlockedByAssessments(t *testing.T) {
-	h := newTestHarness()
-
-	h.repo.hasAnyAssessmentFn = func(ctx context.Context, classIDs []string, tenantID string) (bool, error) {
-		return true, nil
-	}
-
-	err := h.svc.BulkDeleteClasses(context.Background(), []string{"class_001"}, "tenant_001", "school_001")
-	if err == nil {
-		t.Fatal("expected error for classes with assessments, got nil")
-	}
-	if !errors.Is(err, ErrClassHasAssessments) {
-		t.Fatalf("expected ErrClassHasAssessments, got %v", err)
-	}
-}
-
 func TestBulkDeleteClasses_EmptyTenantID(t *testing.T) {
 	h := newTestHarness()
 

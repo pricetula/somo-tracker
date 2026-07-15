@@ -365,15 +365,14 @@ func TestMigrationsIntegration_ApplyAll(t *testing.T) {
 
 	// Assert key tables exist
 	expectedTables := []string{
-		"academic_terms", "academic_years", "assessment_blueprint_indicators",
-		"assessment_blueprints", "assessment_sessions", "assessment_weight_configs",
-		"behavior_categories", "behavior_notes", "cbc_assessment_grading_scales",
+		"academic_terms", "academic_years",
+		"behavior_categories", "behavior_notes",
 		"cbc_class_teachers", "cbc_classes", "cbc_learning_areas", "cbc_parents",
 		"cbc_schools", "cbc_streams", "cbc_student_enrollments", "cbc_student_parents",
-		"cbc_students", "cbc_sub_strands", "cbc_term_competency_summaries",
+		"cbc_students", "cbc_sub_strands",
 		"cbc_timetable_slots", "fee_categories", "fee_templates", "import_job_chunks",
 		"import_job_failures", "import_job_staging", "import_jobs", "invoices",
-		"invoice_items", "invitations", "learner_portfolios", "learner_rubric_results",
+		"invoice_items", "invitations",
 		"medical_incidents", "member_active_school", "memberships", "payments",
 		"performance_indicators", "school_member_counts", "sessions",
 		"student_health_profiles", "tenants", "timetable_structures", "users",
@@ -389,13 +388,6 @@ func TestMigrationsIntegration_ApplyAll(t *testing.T) {
 	}
 
 	t.Logf("✓ All %d expected tables verified", len(expectedTables))
-
-	// Verify seed data: assessment_weight_configs
-	var weightCount int
-	err = pool.QueryRow(ctx, `SELECT COUNT(*) FROM assessment_weight_configs`).Scan(&weightCount)
-	require.NoError(t, err)
-	require.Equal(t, 7, weightCount, "expected 7 assessment weight config rows")
-	t.Log("✓ Seed: 7 KNEC assessment weight configs present")
 
 	// Verify seed data: demo tenant
 	var tenantCount int

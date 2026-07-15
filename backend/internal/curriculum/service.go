@@ -162,7 +162,7 @@ func (s *Service) UpdateStrand(ctx context.Context, params UpdateStrandParams) e
 	return s.Repo.UpdateStrand(ctx, params)
 }
 
-// DeleteStrand removes a strand by ID. If referenced by assessment blueprints, returns ErrReferenceProtected.
+// DeleteStrand removes a strand by ID. Returns ErrReferenceProtected if sub-strands exist.
 func (s *Service) DeleteStrand(ctx context.Context, id string) error {
 	if id == "" {
 		return fmt.Errorf("curriculum.Service.DeleteStrand: %w", ErrInvalidInput)

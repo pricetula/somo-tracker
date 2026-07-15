@@ -109,86 +109,6 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 DO $$ BEGIN
-    CREATE TYPE cbc_assessment_type AS ENUM (
-        'Formative_Classroom',
-        'KNEC_Written_Assessment',
-        'KNEC_SBA_Project',
-        'National_KPSEA',
-        'National_KJSEA',
-        'National_KSSEA'
-    );
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-
-DO $$ BEGIN
-    CREATE TYPE knec_target_exam AS ENUM (
-        'KPSEA',
-        'KJSEA',
-        'KSSEA',
-        'None'
-    );
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-
-DO $$ BEGIN
-    CREATE TYPE cbc_rubric_level AS ENUM (
-        'EE','ME','AE','BE'
-    );
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-
-DO $$ BEGIN
-    CREATE TYPE cbc_rubric_level_with_sub_levels AS ENUM (
-        'EE','ME','AE','BE',
-        'EE1','EE2',
-        'ME1','ME2',
-        'AE1','AE2',
-        'BE1','BE2'
-    );
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-
-DO $$ BEGIN
-    CREATE TYPE lrr_score_type AS ENUM (
-        'Numeric_Raw',
-        'Rubric_Direct'
-    );
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-
-DO $$ BEGIN
-    CREATE TYPE cbc_session_status AS ENUM (
-        'DRAFT',
-        'PENDING_REVIEW',
-        'APPROVED',
-        'PUBLISHED',
-        'REJECTED'
-    );
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-
-DO $$ BEGIN
-    CREATE TYPE portfolio_evidence_type AS ENUM (
-        'Physical_File_Reference',
-        'Digital_Artifact_URL',
-        'Video_Recording',
-        'Audio_Log',
-        'Observation_Checklist'
-    );
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-
-DO $$ BEGIN
-    CREATE TYPE knec_sync_status AS ENUM (
-        'Pending',
-        'Synced',
-        'Failed'
-    );
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-
-DO $$ BEGIN
-    CREATE TYPE invoice_payment_status AS ENUM (
         'UNPAID',    -- No payments recorded yet
         'PARTIAL',   -- Some payment made, balance remains
         'PAID',      -- Fully settled
@@ -1469,575 +1389,15 @@ CREATE INDEX IF NOT EXISTS idx_cbc_timetable_slots_school
 -- ============================================================================
 
 -- ---------------------------------------------------------------------------
--- ASSESSMENT WEIGHT CONFIGS
--- ---------------------------------------------------------------------------
-
-CREATE TABLE IF NOT EXISTS assessment_weight_configs (
-    id                   UUID                NOT NULL DEFAULT gen_random_uuid(),
-    grade_level          cbc_grade_level     NOT NULL,
-    assessment_type_code cbc_assessment_type NOT NULL,
-    target_exam          knec_target_exam    NOT NULL,
-    weight_percent       NUMERIC(5,2)        NOT NULL,
-    effective_from       SMALLINT            NOT NULL,
-    notes                TEXT                NULL,
-
-    PRIMARY KEY (id),
-    CONSTRAINT chk_awc_weight_percent    CHECK (weight_percent BETWEEN 0.00 AND 100.00),
-    CONSTRAINT chk_awc_effective_from    CHECK (effective_from >= 2017),
-    CONSTRAINT uq_awc_grade_type_exam_effective
-        UNIQUE (grade_level, assessment_type_code, target_exam, effective_from)
-);
-
-CREATE INDEX IF NOT EXISTS idx_awc_grade_exam ON assessment_weight_configs (grade_level, target_exam);
-
-COMMENT ON TABLE assessment_weight_configs IS
-    'Official KNEC weighting formula per grade per assessment type. Seeded with
-     the published KNEC formula. KPSEA: 60% SBA (G4+G5) + 40% KPSEA written (G6).
-     KJSEA: 20% SBA (G7+G8) + 20% KPSEA result + 60% KJSEA written (G9).
-     This table is intentionally global (no tenant_id): KNEC weights are
      nationally mandated and do not vary per school. Schema changes would be
      required if per-school overrides are ever needed.';
 
 -- ---------------------------------------------------------------------------
--- ASSESSMENT BLUEPRINTS
--- IMPROVE: added unique constraint to prevent duplicate blueprints for the
---          same school/grade/term combination
 -- ---------------------------------------------------------------------------
 
-CREATE TABLE IF NOT EXISTS assessment_blueprints (
-    id            UUID                NOT NULL DEFAULT gen_random_uuid(),
-    tenant_id     UUID                NOT NULL,
-    school_id     UUID                NOT NULL,
-    title         VARCHAR(255)        NOT NULL,
-    type          cbc_assessment_type NOT NULL,
-    grade_level   cbc_grade_level     NOT NULL,
-    academic_year SMALLINT            NOT NULL,
-    term          SMALLINT            NOT NULL,
-
-    PRIMARY KEY (id),
-    CONSTRAINT fk_blueprints_tenant_school
-        FOREIGN KEY (tenant_id, school_id)
-        REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT chk_blueprint_term          CHECK (term BETWEEN 1 AND 3),
-    CONSTRAINT chk_blueprint_academic_year CHECK (academic_year >= 2017),
-    CONSTRAINT uq_blueprint_per_school_grade_term
-        UNIQUE (school_id, type, grade_level, academic_year, term)
-);
-
-ALTER TABLE assessment_blueprints DROP CONSTRAINT IF EXISTS uq_blueprint_per_school_grade_term;
-ALTER TABLE assessment_blueprints ADD CONSTRAINT uq_blueprint_per_school_grade_term
-    UNIQUE (school_id, type, grade_level, academic_year, term);
-
-CREATE INDEX IF NOT EXISTS idx_blueprints_tenant     ON assessment_blueprints (tenant_id);
-CREATE INDEX IF NOT EXISTS idx_blueprints_school     ON assessment_blueprints (school_id);
-CREATE INDEX IF NOT EXISTS idx_blueprints_grade_year ON assessment_blueprints (grade_level, academic_year, type);
-
 -- ---------------------------------------------------------------------------
--- ASSESSMENT BLUEPRINT INDICATORS
--- ---------------------------------------------------------------------------
-
-CREATE TABLE IF NOT EXISTS assessment_blueprint_indicators (
-    blueprint_id UUID NOT NULL REFERENCES assessment_blueprints(id) ON DELETE CASCADE,
-    indicator_id UUID NOT NULL REFERENCES performance_indicators(id) ON DELETE CASCADE,
-
-    PRIMARY KEY (blueprint_id, indicator_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_blueprint_indicators_indicator
-    ON assessment_blueprint_indicators (indicator_id);
-
--- ---------------------------------------------------------------------------
--- CBC ASSESSMENT GRADING SCALES
--- Maps raw-score percentages to KNEC rubric levels (EE/ME/AE/BE) per
--- grade level. Each tenant+school defines its own bracket boundaries;
--- the half-open numrange '[)' exclusion constraint guarantees that no
--- two brackets for the same tenant/school/grade overlap. The top bracket
--- closing at exactly 100.00 is handled at lookup time
--- (fn_convert_raw_score_to_rubric) rather than by making the stored
--- range inclusive on both ends, which would break the && overlap check.
--- ---------------------------------------------------------------------------
-
-CREATE TABLE IF NOT EXISTS cbc_assessment_grading_scales (
-    id             UUID              PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id      UUID              NOT NULL,
-    school_id      UUID              NOT NULL,
-    grade_level    cbc_grade_level   NOT NULL,
-    rubric_level   cbc_rubric_level  NOT NULL,
-    min_percentage NUMERIC(5,2)      NOT NULL,
-    max_percentage NUMERIC(5,2)      NOT NULL,
-
-    CONSTRAINT fk_grading_scales_tenant_school
-        FOREIGN KEY (tenant_id, school_id)
-        REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
-
-    CONSTRAINT chk_grading_scale_range CHECK (
-        min_percentage >= 0
-        AND max_percentage <= 100
-        AND min_percentage < max_percentage
-    ),
-
-    -- Half-open '[)' exclusion: two ranges for the same tenant/school/grade
-    -- must not overlap. The top bracket (ending at 100.00) is handled by
-    -- fn_convert_raw_score_to_rubric treating percentage = 100.00 as
-    -- belonging to the highest bracket even though 100.00 is technically
-    -- outside the half-open interval.
-    CONSTRAINT excl_grading_scales_no_overlap
-        EXCLUDE USING gist (
-            tenant_id  WITH =,
-            school_id  WITH =,
-            grade_level WITH =,
-            numrange(min_percentage, max_percentage, '[)') WITH &&
-        )
-);
-
-CREATE INDEX IF NOT EXISTS idx_grading_scales_tenant
-    ON cbc_assessment_grading_scales (tenant_id);
-CREATE INDEX IF NOT EXISTS idx_grading_scales_school
-    ON cbc_assessment_grading_scales (school_id);
-CREATE INDEX IF NOT EXISTS idx_grading_scales_lookup
-    ON cbc_assessment_grading_scales (tenant_id, school_id, grade_level, min_percentage);
-
-COMMENT ON TABLE cbc_assessment_grading_scales IS
-    'Per-tenant, per-school, per-grade grading scale that maps raw-score
-     percentages to KNEC rubric levels (EE/ME/AE/BE). Brackets are stored
-     as half-open intervals [min, max) so the GiST exclusion constraint can
-     reliably detect overlaps without false positives at adjacent boundaries.
-     The edge case of 100.00%% falling outside the half-open highest bracket
-     is resolved in the lookup function fn_convert_raw_score_to_rubric.
-     Seeded with KNEC-recommended default brackets on tenant+school creation;
-     schools may customise boundaries within the same non-overlap rules.';
-
-COMMENT ON CONSTRAINT excl_grading_scales_no_overlap ON cbc_assessment_grading_scales IS
-    'GiST exclusion constraint using half-open numrange(min, max, ''[)'').
-     Guarantees that for a given (tenant_id, school_id, grade_level) no two
-     rows have overlapping percentage brackets. The && (overlaps) operator
-     returns true when two ranges share any point; the ''[)'' format ensures
-     that adjacent brackets (e.g. [0,50) and [50,75)) are not considered
-     overlapping because 50 is excluded from the first range.';
-
--- ============================================================
--- FUNCTION: Convert raw score to rubric level
--- ------------------------------------------------------------
--- Computes percentage from obtained/total, then looks up the
--- matching grading-scale bracket for the tenant/school/grade.
--- Raises distinct errors for missing configuration, zero total,
--- and out-of-range percentages so callers can distinguish between
--- a setup gap and an actual data error.
--- ============================================================
-
-CREATE OR REPLACE FUNCTION fn_convert_raw_score_to_rubric(
-    p_tenant_id  UUID,
-    p_school_id  UUID,
-    p_grade_level cbc_grade_level,
-    p_obtained   NUMERIC,
-    p_total      NUMERIC
-)
-RETURNS cbc_rubric_level
-LANGUAGE plpgsql
-STABLE
-AS $$
-DECLARE
-    v_percentage NUMERIC(5,2);
-    v_result     cbc_rubric_level;
-BEGIN
-    -- Guard against zero / NULL total before division
-    IF p_total IS NULL OR p_total = 0 THEN
-        RAISE EXCEPTION
-            'fn_convert_raw_score_to_rubric: p_total must be > 0 (got %)',
-            p_total
-            USING ERRCODE = '22012';  -- division_by_zero
-    END IF;
-
-    -- Compute rounded percentage (2 decimal places)
-    v_percentage := ROUND((p_obtained / p_total) * 100, 2);
-
-    -- Clamp at 100.00 for the half-open top-bracket edge case:
-    -- if percentage = 100.00 it falls outside the last '[min, 100)' range,
-    -- so we treat it as exactly 99.9999 to match the highest bracket.
-    IF v_percentage > 100.00 THEN
-        v_percentage := 100.00;
-    END IF;
-
-    -- Log a debug notice if clamping occurred (percentage > 100.00)
-    IF v_percentage > 100.00 THEN
-        RAISE DEBUG 'fn_convert_raw_score_to_rubric: clamped percentage % to 100.00 for tenant=% school=% grade=%',
-            ROUND((p_obtained / p_total) * 100, 4), p_tenant_id, p_school_id, p_grade_level;
-    END IF;
-
-    -- Look up the bracket (handle the top-boundary edge case)
-    SELECT gs.rubric_level INTO v_result
-    FROM cbc_assessment_grading_scales gs
-    WHERE gs.tenant_id   = p_tenant_id
-      AND gs.school_id   = p_school_id
-      AND gs.grade_level = p_grade_level
-      AND (
-          -- Normal half-open match
-          v_percentage >= gs.min_percentage
-          AND v_percentage < gs.max_percentage
-          -- Edge case: exactly 100.00 belongs to the bracket ending at 100
-          OR (v_percentage = 100.00 AND gs.max_percentage = 100.00)
-      );
-
-    IF NOT FOUND THEN
-        -- Check whether any scale exists at all for this tenant/school/grade
-        IF NOT EXISTS (
-            SELECT 1 FROM cbc_assessment_grading_scales
-            WHERE tenant_id   = p_tenant_id
-              AND school_id   = p_school_id
-              AND grade_level = p_grade_level
-        ) THEN
-            RAISE EXCEPTION
-                'fn_convert_raw_score_to_rubric: no grading scale configured for '
-                'tenant_id=% school_id=% grade_level=% — create entries in '
-                'cbc_assessment_grading_scales before calling this function',
-                p_tenant_id, p_school_id, p_grade_level
-                USING ERRCODE = 'P0001';  -- raise_exception
-        ELSE
-            RAISE EXCEPTION
-                'fn_convert_raw_score_to_rubric: percentage % does not fall within '
-                'any configured bracket for tenant_id=% school_id=% grade_level=%',
-                v_percentage, p_tenant_id, p_school_id, p_grade_level
-                USING ERRCODE = 'P0001';
-        END IF;
-    END IF;
-
-    RETURN v_result;
-END;
-$$;
 
 -- ============================================================================
--- LAYER 8 — CBC ASSESSMENT EXECUTION & RESULTS
--- ============================================================================
-
--- ---------------------------------------------------------------------------
--- ASSESSMENT SESSIONS
--- ---------------------------------------------------------------------------
-
-CREATE TABLE IF NOT EXISTS assessment_sessions (
-    id                    UUID                 PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id             UUID                 NOT NULL,
-    blueprint_id          UUID                 NOT NULL REFERENCES assessment_blueprints(id) ON DELETE CASCADE,
-    class_id              UUID                 NOT NULL,
-    assessed_by_user_id   UUID                 NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
-    date_administered     DATE                 NOT NULL,   -- NO DEFAULT. Must be entered explicitly.
-    knec_upload_reference VARCHAR(50)          NULL,
-    status                cbc_session_status   NOT NULL DEFAULT 'DRAFT',
-    submitted_at          TIMESTAMPTZ          NULL,
-    reviewed_by_user_id   UUID                 NULL,
-    reviewed_at           TIMESTAMPTZ          NULL,
-    rejection_reason      TEXT                 NULL,
-    published_by_user_id  UUID                 NULL,
-    published_at          TIMESTAMPTZ          NULL,
-    created_at            TIMESTAMPTZ          NOT NULL DEFAULT NOW(),
-
-    CONSTRAINT fk_asessions_tenant_user
-        FOREIGN KEY (tenant_id, assessed_by_user_id)
-        REFERENCES users(tenant_id, id),
-    CONSTRAINT fk_asessions_tenant_class
-        FOREIGN KEY (tenant_id, class_id)
-        REFERENCES cbc_classes(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_asessions_reviewed_by
-        FOREIGN KEY (tenant_id, reviewed_by_user_id)
-        REFERENCES users(tenant_id, id),
-    CONSTRAINT fk_asessions_published_by
-        FOREIGN KEY (tenant_id, published_by_user_id)
-        REFERENCES users(tenant_id, id),
-    CONSTRAINT chk_asessions_rejection_reason_required
-        CHECK (
-            status != 'REJECTED' OR rejection_reason IS NOT NULL
-        ),
-    CONSTRAINT chk_asessions_approved_has_reviewer
-        CHECK (
-            status NOT IN ('APPROVED', 'REJECTED') OR reviewed_by_user_id IS NOT NULL
-        ),
-    CONSTRAINT chk_asessions_published_has_publisher
-        CHECK (
-            status != 'PUBLISHED' OR published_by_user_id IS NOT NULL
-        )
-);
-
-CREATE INDEX IF NOT EXISTS idx_asessions_tenant         ON assessment_sessions (tenant_id);
-CREATE INDEX IF NOT EXISTS idx_asessions_blueprint      ON assessment_sessions (blueprint_id);
-CREATE INDEX IF NOT EXISTS idx_asessions_class          ON assessment_sessions (class_id);
-CREATE INDEX IF NOT EXISTS idx_asessions_teacher        ON assessment_sessions (assessed_by_user_id);
-CREATE INDEX IF NOT EXISTS idx_asessions_class_date     ON assessment_sessions (class_id, date_administered);
-
--- ============================================================================
--- ASSESSMENT SESSIONS — Migration for existing tables
--- These ALTER TABLE / ADD COLUMN statements are idempotent for fresh installs
--- and add the status-tracking columns to existing tables that were created
--- before this migration was added.
--- IMPORTANT: This block MUST come before any index/constraint that references
--- the new columns, or the migration will fail on existing databases.
--- ============================================================================
-
-ALTER TABLE assessment_sessions
-    ADD COLUMN IF NOT EXISTS status                cbc_session_status   NOT NULL DEFAULT 'DRAFT',
-    ADD COLUMN IF NOT EXISTS submitted_at          TIMESTAMPTZ          NULL,
-    ADD COLUMN IF NOT EXISTS reviewed_by_user_id   UUID                 NULL,
-    ADD COLUMN IF NOT EXISTS reviewed_at           TIMESTAMPTZ          NULL,
-    ADD COLUMN IF NOT EXISTS rejection_reason      TEXT                 NULL,
-    ADD COLUMN IF NOT EXISTS published_by_user_id  UUID                 NULL,
-    ADD COLUMN IF NOT EXISTS published_at          TIMESTAMPTZ          NULL;
-
--- Add foreign keys (IF NOT EXISTS not supported for FKs, so we use DO blocks)
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint WHERE conname = 'fk_asessions_reviewed_by'
-    ) THEN
-        ALTER TABLE assessment_sessions
-            ADD CONSTRAINT fk_asessions_reviewed_by
-            FOREIGN KEY (tenant_id, reviewed_by_user_id)
-            REFERENCES users(tenant_id, id);
-    END IF;
-END
-$$;
-
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint WHERE conname = 'fk_asessions_published_by'
-    ) THEN
-        ALTER TABLE assessment_sessions
-            ADD CONSTRAINT fk_asessions_published_by
-            FOREIGN KEY (tenant_id, published_by_user_id)
-            REFERENCES users(tenant_id, id);
-    END IF;
-END
-$$;
-
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint WHERE conname = 'chk_asessions_rejection_reason_required'
-    ) THEN
-        ALTER TABLE assessment_sessions
-            ADD CONSTRAINT chk_asessions_rejection_reason_required
-            CHECK (status != 'REJECTED' OR rejection_reason IS NOT NULL);
-    END IF;
-END
-$$;
-
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint WHERE conname = 'chk_asessions_approved_has_reviewer'
-    ) THEN
-        ALTER TABLE assessment_sessions
-            ADD CONSTRAINT chk_asessions_approved_has_reviewer
-            CHECK (status NOT IN ('APPROVED', 'REJECTED') OR reviewed_by_user_id IS NOT NULL);
-    END IF;
-END
-$$;
-
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint WHERE conname = 'chk_asessions_published_has_publisher'
-    ) THEN
-        ALTER TABLE assessment_sessions
-            ADD CONSTRAINT chk_asessions_published_has_publisher
-            CHECK (status != 'PUBLISHED' OR published_by_user_id IS NOT NULL);
-    END IF;
-END
-$$;
-
--- Indexes on the new columns — must come AFTER ALTER TABLE ADD COLUMN
-CREATE INDEX IF NOT EXISTS idx_asessions_status         ON assessment_sessions (status);
-CREATE INDEX IF NOT EXISTS idx_asessions_class_status   ON assessment_sessions (class_id, status);
-CREATE INDEX IF NOT EXISTS idx_asessions_reviewer       ON assessment_sessions (reviewed_by_user_id);
-CREATE INDEX IF NOT EXISTS idx_asessions_publisher      ON assessment_sessions (published_by_user_id);
-CREATE INDEX IF NOT EXISTS idx_asessions_status_published ON assessment_sessions (status) WHERE status = 'PUBLISHED'::cbc_session_status;
-
-COMMENT ON COLUMN assessment_sessions.date_administered IS
-    'The calendar date on which this assessment was administered. DATE type
-     (not TIMESTAMPTZ) because CBC records reference dates, not timestamps.
-     No DEFAULT: must be set explicitly. Retroactive entry is common in CBC
-     as teachers often batch-enter assessments at end of week.';
-
-COMMENT ON COLUMN assessment_sessions.knec_upload_reference IS
-    'Reference token returned by cba.knec.ac.ke after a successful SBA score
-     upload. NULL for Formative_Classroom type sessions, which are never
-     uploaded to KNEC.';
-
--- ---------------------------------------------------------------------------
--- LEARNER RUBRIC RESULTS
--- IMPROVE: added CHECK (raw_score >= 0) — NUMERIC(5,2) previously allowed
---          negative marks; added index on (session_id, student_id) for the
---          most common access pattern (all results for a student in a session)
--- ---------------------------------------------------------------------------
-
-CREATE TABLE IF NOT EXISTS learner_rubric_results (
-    id                        UUID           PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id                 UUID           NOT NULL,
-    session_id                UUID           NOT NULL REFERENCES assessment_sessions(id) ON DELETE CASCADE,
-    student_id                UUID           NOT NULL,
-    indicator_id              UUID           NOT NULL REFERENCES performance_indicators(id) ON DELETE CASCADE,
-    score_type                lrr_score_type NOT NULL,
-    raw_score                 NUMERIC(5,2)   NULL CHECK (raw_score >= 0),
-    rubric_level              cbc_rubric_level NOT NULL,
-    teacher_observation_notes TEXT           NULL,
-
-    CONSTRAINT fk_lrr_tenant_student
-        FOREIGN KEY (tenant_id, student_id)
-        REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT unique_lrr_per_student_indicator UNIQUE (session_id, student_id, indicator_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_lrr_tenant            ON learner_rubric_results (tenant_id);
-CREATE INDEX IF NOT EXISTS idx_lrr_session           ON learner_rubric_results (session_id);
--- IMPROVE: fast fetch of all results for a student within a session
-CREATE INDEX IF NOT EXISTS idx_lrr_session_student   ON learner_rubric_results (session_id, student_id);
-CREATE INDEX IF NOT EXISTS idx_lrr_student_indicator ON learner_rubric_results (student_id, indicator_id);
-CREATE INDEX IF NOT EXISTS idx_lrr_indicator         ON learner_rubric_results (indicator_id);
-
-COMMENT ON COLUMN learner_rubric_results.rubric_level IS
-    'Official KNEC 4-level rubric outcome. EE/ME/AE/BE only. No sub-levels
-     (EE1, ME2 etc.) are permitted here. Sub-levels may exist in internal
-     school tooling but are not valid in KNEC portal submissions.';
-
-COMMENT ON COLUMN learner_rubric_results.raw_score IS
-    'Pre-conversion numeric mark. Only populated when score_type = Numeric_Raw.
-     Represents the raw score before it is mapped to a rubric level. NEVER
-     summed or averaged across indicators — doing so would constitute a CBC
-     compliance violation.';
-
--- ---------------------------------------------------------------------------
--- LEARNER PORTFOLIOS
--- ---------------------------------------------------------------------------
-
-CREATE TABLE IF NOT EXISTS learner_portfolios (
-    id               UUID                    PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id        UUID                    NOT NULL,
-    student_id       UUID                    NOT NULL,
-    sub_strand_id    UUID                    NOT NULL REFERENCES cbc_sub_strands(id) ON DELETE CASCADE,
-    evidence_type    portfolio_evidence_type NOT NULL,
-    storage_pointer  TEXT                    NOT NULL,
-    linked_result_id UUID                    NULL REFERENCES learner_rubric_results(id) ON DELETE SET NULL,
-    date_collected   DATE                    NULL,
-    created_at       TIMESTAMPTZ             NOT NULL DEFAULT NOW(),
-
-    CONSTRAINT fk_portfolios_tenant_student
-        FOREIGN KEY (tenant_id, student_id)
-        REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE
-);
-
-CREATE INDEX IF NOT EXISTS idx_portfolios_tenant     ON learner_portfolios (tenant_id);
-CREATE INDEX IF NOT EXISTS idx_portfolios_student    ON learner_portfolios (student_id);
-CREATE INDEX IF NOT EXISTS idx_portfolios_sub_strand ON learner_portfolios (sub_strand_id);
-CREATE INDEX IF NOT EXISTS idx_portfolios_result     ON learner_portfolios (linked_result_id);
-
-COMMENT ON COLUMN learner_portfolios.storage_pointer IS
-    'For Digital_Artifact_URL and Video_Recording: full URL to stored file.
-     For Physical_File_Reference: descriptive location string
-     (e.g. "Portfolio Binder 2B, page 14, Teacher: J. Mwangi").';
-
--- ============================================================================
--- LAYER 9 — CBC AGGREGATION & REPORTING
--- ============================================================================
-
--- ---------------------------------------------------------------------------
--- CBC TERM COMPETENCY SUMMARIES
--- ---------------------------------------------------------------------------
-
-CREATE TABLE IF NOT EXISTS cbc_term_competency_summaries (
-    id                       UUID                             PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id                UUID                             NOT NULL,
-    school_id                UUID                             NOT NULL,
-    student_id               UUID                             NOT NULL,
-    learning_area_id         UUID                             NOT NULL REFERENCES cbc_learning_areas(id) ON DELETE CASCADE,
-    class_id                 UUID                             NOT NULL,
-    academic_term_id         UUID                             NOT NULL,
-    calculated_level         cbc_rubric_level_with_sub_levels NOT NULL,
-    override_level           cbc_rubric_level_with_sub_levels NULL,
-    final_level              cbc_rubric_level                 NOT NULL,
-    teacher_narrative_summary TEXT                             NULL,
-    knec_sync_status         knec_sync_status                 NOT NULL DEFAULT 'Pending',
-    knec_synced_at           TIMESTAMPTZ                      NULL,
-
-    CONSTRAINT fk_summaries_tenant_school
-        FOREIGN KEY (tenant_id, school_id)
-        REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_summaries_tenant_student
-        FOREIGN KEY (tenant_id, student_id)
-        REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_summaries_tenant_class
-        FOREIGN KEY (tenant_id, class_id)
-        REFERENCES cbc_classes(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_summaries_tenant_term
-        FOREIGN KEY (tenant_id, school_id, academic_term_id)
-        REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE,
-    CONSTRAINT unique_summary_per_student_area_term
-        UNIQUE (student_id, learning_area_id, academic_term_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_summaries_tenant       ON cbc_term_competency_summaries (tenant_id);
-CREATE INDEX IF NOT EXISTS idx_summaries_sync_batch   ON cbc_term_competency_summaries (academic_term_id, knec_sync_status);
-CREATE INDEX IF NOT EXISTS idx_summaries_student_year ON cbc_term_competency_summaries (student_id, academic_term_id);
-CREATE INDEX IF NOT EXISTS idx_summaries_class        ON cbc_term_competency_summaries (class_id);
--- IMPROVE: fast lookup of all terms for a student's subject history
-CREATE INDEX IF NOT EXISTS idx_summaries_student_area ON cbc_term_competency_summaries (student_id, learning_area_id);
-
-
-COMMENT ON TABLE cbc_term_competency_summaries IS
-    'Definitive per-term competency record per learner per learning area.
-     final_level is the KNEC portal submission value — must always be one of
-     EE/ME/AE/BE. Sub-levels (EE1 etc.) are only valid for the internal
-     calculated_level and override_level fields. knec_synced_at is NULL until
-     the first successful upload to cba.knec.ac.ke.';
-
-COMMENT ON COLUMN cbc_term_competency_summaries.school_id IS
-    'Denormalised for multi-tenant filtering without joins, and required to
-     express the composite FK fk_summaries_tenant_term against
-     academic_terms(tenant_id, school_id, id). Mirrors the same pattern used
-     by every other major entity table in this schema.';
-
-COMMENT ON COLUMN cbc_term_competency_summaries.academic_term_id IS
-    'Direct FK to academic_terms, replacing the previous academic_year +
-     term pair. Provides referential integrity and a single join path to
-     term metadata (dates, is_current, is_final) for term compilation
-     and KNEC sync workflows.';
-
-
-COMMENT ON COLUMN cbc_term_competency_summaries.teacher_narrative_summary IS
-    'Free-text narrative note from the class teacher summarising the
-     learner''s overall performance, effort, and areas for improvement in
-     this learning area for the term. This is a per-area
-     note recorded at the learning-area level by the subject teacher.';
-
-COMMENT ON COLUMN cbc_term_competency_summaries.knec_sync_status IS
-    'Tracks the KNEC CBA portal submission lifecycle for this
-     per-student-per-learning-area competency record. Pending = not yet
-     submitted; Synced = successfully uploaded; Failed = upload error.';
-
--- ---------------------------------------------------------------------------
--- SCHOOL MEMBER COUNTS
--- IMPROVE: added IF NOT EXISTS (was the only CREATE TABLE in the file missing it)
--- ---------------------------------------------------------------------------
-
-CREATE TABLE IF NOT EXISTS school_member_counts (
-    school_id  UUID      PRIMARY KEY REFERENCES cbc_schools(id) ON DELETE CASCADE,
-    admins     INT       NOT NULL DEFAULT 0,
-    teachers   INT       NOT NULL DEFAULT 0,
-    nurses     INT       NOT NULL DEFAULT 0,
-    finance    INT       NOT NULL DEFAULT 0,
-    parents    INT       NOT NULL DEFAULT 0,
-    students   INT       NOT NULL DEFAULT 0,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_school_member_counts ON school_member_counts (school_id);
-
--- ============================================================
--- TRIGGER: Sync school staff/parent counts from memberships
--- ============================================================
-
-CREATE OR REPLACE FUNCTION fn_sync_school_staff_counts_insert()
-RETURNS TRIGGER AS $$
-BEGIN
-    INSERT INTO school_member_counts (school_id, admins, teachers, nurses, finance, parents, updated_at)
-    SELECT
         s.school_id,
         COUNT(*) FILTER (WHERE m.role = 'SCHOOL_ADMIN') AS admins,
         COUNT(*) FILTER (WHERE m.role = 'TEACHER')      AS teachers,
@@ -2291,11 +1651,6 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
-DO $$ BEGIN
-    CREATE TYPE term_report_status AS ENUM ('DRAFT', 'PUBLISHED');
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-
 -- ---------------------------------------------------------------------------
 -- ATTENDANCE RECORDS
 -- One row per student, per timetable slot occurrence, per date.
@@ -2538,72 +1893,12 @@ COMMENT ON TABLE attendance_term_summaries IS
     'Materialised rollup of attendance records per student per term per learning
      area. Populated by a background task (nightly or on-demand when an admin
      generates a term report). Not authoritative — attendance_records is the
-     source of truth. Mirrors the same pattern as cbc_term_competency_summaries.';
 
 COMMENT ON COLUMN attendance_term_summaries.attendance_percentage IS
     'Calculated as (periods_present / periods_total) * 100, stored as a
      decimal with two fractional digits (e.g. 92.50).';
 
 -- ---------------------------------------------------------------------------
--- TERM REPORTS
--- Compiled snapshot of attendance + approved behavior + competency summary
--- for a student in a given term. Generated on-demand by admin.
--- ---------------------------------------------------------------------------
-
-CREATE TABLE IF NOT EXISTS term_reports (
-    id                  UUID                PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id           UUID                NOT NULL,
-    school_id           UUID                NOT NULL,
-    student_id          UUID                NOT NULL,
-    academic_term_id    UUID                NOT NULL,
-    attendance_snapshot JSONB               NOT NULL DEFAULT '{}',
-    behavior_snapshot   JSONB               NOT NULL DEFAULT '[]',
-    competency_snapshot JSONB               NOT NULL DEFAULT '[]',
-    status              term_report_status  NOT NULL DEFAULT 'DRAFT',
-    generated_at        TIMESTAMPTZ         NOT NULL DEFAULT NOW(),
-    published_at        TIMESTAMPTZ         NULL,
-    generated_by        UUID                NOT NULL,
-
-    CONSTRAINT fk_term_reports_tenant_student
-        FOREIGN KEY (tenant_id, student_id)
-        REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_term_reports_tenant_term
-        FOREIGN KEY (tenant_id, school_id, academic_term_id)
-        REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_term_reports_generated_by
-        FOREIGN KEY (tenant_id, generated_by)
-        REFERENCES users(tenant_id, id) ON DELETE RESTRICT,
-    CONSTRAINT uq_term_report_student_term
-        UNIQUE (student_id, academic_term_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_term_reports_student_term
-    ON term_reports (student_id, academic_term_id);
-CREATE INDEX IF NOT EXISTS idx_term_reports_tenant
-    ON term_reports (tenant_id);
-CREATE INDEX IF NOT EXISTS idx_term_reports_school
-    ON term_reports (school_id);
-CREATE INDEX IF NOT EXISTS idx_term_reports_status
-    ON term_reports (status);
-
-COMMENT ON TABLE term_reports IS
-    'Compiled snapshot report for a student per term. Stores attendance
-     summary, approved behavior notes, and competency summary as JSONB
-     snapshots frozen at generation time. One report per student per term.
-     DRAFT = being compiled, PUBLISHED = visible to parents.';
-
-COMMENT ON COLUMN term_reports.attendance_snapshot IS
-    'JSON object containing attendance_percentage, periods_total, periods_present,
-     periods_absent, periods_late, periods_excused at generation time.';
-
-COMMENT ON COLUMN term_reports.behavior_snapshot IS
-    'JSON array of approved behavior notes (category_name, description, date,
-     subject) frozen at generation time.';
-
-COMMENT ON COLUMN term_reports.competency_snapshot IS
-    'JSON array of competency summaries (learning_area_name, calculated_level,
-     final_level, teacher_narrative_summary) frozen at generation time.';
-
 -- ============================================================================
 -- updated_at COLUMNS & TRIGGERS (missing from initial CREATE TABLE definitions)
 --
@@ -2751,63 +2046,6 @@ CREATE TRIGGER trg_performance_indicators_updated_at
 COMMENT ON COLUMN performance_indicators.updated_at IS
     'Tracks performance indicator revisions and re-sequencing.';
 
-ALTER TABLE cbc_assessment_grading_scales ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
-DROP TRIGGER IF EXISTS trg_cbc_assessment_grading_scales_updated_at ON cbc_assessment_grading_scales;
-CREATE TRIGGER trg_cbc_assessment_grading_scales_updated_at
-    BEFORE UPDATE ON cbc_assessment_grading_scales
-    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
-COMMENT ON COLUMN cbc_assessment_grading_scales.updated_at IS
-    'Tracks grading bracket boundary changes.';
-
-ALTER TABLE assessment_blueprints ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
-DROP TRIGGER IF EXISTS trg_assessment_blueprints_updated_at ON assessment_blueprints;
-CREATE TRIGGER trg_assessment_blueprints_updated_at
-    BEFORE UPDATE ON assessment_blueprints
-    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
-COMMENT ON COLUMN assessment_blueprints.updated_at IS
-    'Tracks assessment blueprint revisions.';
-
-ALTER TABLE assessment_blueprint_indicators ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
-DROP TRIGGER IF EXISTS trg_assessment_blueprint_indicators_updated_at ON assessment_blueprint_indicators;
-CREATE TRIGGER trg_assessment_blueprint_indicators_updated_at
-    BEFORE UPDATE ON assessment_blueprint_indicators
-    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
-COMMENT ON COLUMN assessment_blueprint_indicators.updated_at IS
-    'Tracks blueprint-to-indicator mapping changes.';
-
-ALTER TABLE assessment_sessions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
-DROP TRIGGER IF EXISTS trg_assessment_sessions_updated_at ON assessment_sessions;
-CREATE TRIGGER trg_assessment_sessions_updated_at
-    BEFORE UPDATE ON assessment_sessions
-    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
-COMMENT ON COLUMN assessment_sessions.updated_at IS
-    'Tracks assessment lifecycle: DRAFT, PENDING_REVIEW, APPROVED, PUBLISHED, REJECTED.';
-
-ALTER TABLE learner_rubric_results ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
-DROP TRIGGER IF EXISTS trg_learner_rubric_results_updated_at ON learner_rubric_results;
-CREATE TRIGGER trg_learner_rubric_results_updated_at
-    BEFORE UPDATE ON learner_rubric_results
-    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
-COMMENT ON COLUMN learner_rubric_results.updated_at IS
-    'Tracks rubric result corrections and grade overrides.';
-
-ALTER TABLE learner_portfolios ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
-DROP TRIGGER IF EXISTS trg_learner_portfolios_updated_at ON learner_portfolios;
-CREATE TRIGGER trg_learner_portfolios_updated_at
-    BEFORE UPDATE ON learner_portfolios
-    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
-COMMENT ON COLUMN learner_portfolios.updated_at IS
-    'Tracks portfolio evidence updates and metadata changes.';
-
-ALTER TABLE cbc_term_competency_summaries ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
-DROP TRIGGER IF EXISTS trg_cbc_term_competency_summaries_updated_at ON cbc_term_competency_summaries;
-CREATE TRIGGER trg_cbc_term_competency_summaries_updated_at
-    BEFORE UPDATE ON cbc_term_competency_summaries
-    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
-COMMENT ON COLUMN cbc_term_competency_summaries.updated_at IS
-    'Tracks competency summary overrides and KNEC sync status changes.';
-
--- ---------------------------------------------------------------------------
 -- TEACHER ASSIGNMENTS & CBC ACTOR JUNCTIONS
 -- ---------------------------------------------------------------------------
 
@@ -2855,12 +2093,7 @@ CREATE TRIGGER trg_attendance_term_summaries_updated_at
 COMMENT ON COLUMN attendance_term_summaries.updated_at IS
     'Tracks materialised summary refresh cycles.';
 
-ALTER TABLE term_reports ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
-DROP TRIGGER IF EXISTS trg_term_reports_updated_at ON term_reports;
-CREATE TRIGGER trg_term_reports_updated_at
-    BEFORE UPDATE ON term_reports
     FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
-COMMENT ON COLUMN term_reports.updated_at IS
     'Tracks report compilation and publication.';
 
 -- ---------------------------------------------------------------------------
@@ -2919,9 +2152,6 @@ COMMENT ON FUNCTION fn_current_tenant_id() IS
 
 ALTER TABLE IF EXISTS academic_terms                    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS academic_years                    ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS assessment_blueprints             ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS assessment_sessions                ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS cbc_assessment_grading_scales     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS cbc_classes                       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS cbc_class_teachers                ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS cbc_learning_areas                ENABLE ROW LEVEL SECURITY;
@@ -2931,7 +2161,6 @@ ALTER TABLE IF EXISTS cbc_student_parents               ENABLE ROW LEVEL SECURIT
 ALTER TABLE IF EXISTS cbc_students                      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS cbc_schools                       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS cbc_streams                       ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS cbc_term_competency_summaries     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS cbc_timetable_slots               ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS fee_categories                    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS fee_templates                     ENABLE ROW LEVEL SECURITY;
@@ -2940,8 +2169,6 @@ ALTER TABLE IF EXISTS import_job_staging                ENABLE ROW LEVEL SECURIT
 ALTER TABLE IF EXISTS invitations                       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS invoices                          ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS invoice_items                     ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS learner_portfolios                ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS learner_rubric_results            ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS medical_incidents                 ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS member_active_school              ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS memberships                       ENABLE ROW LEVEL SECURITY;
@@ -2954,7 +2181,6 @@ ALTER TABLE IF EXISTS attendance_records                  ENABLE ROW LEVEL SECUR
 ALTER TABLE IF EXISTS behavior_categories                 ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS behavior_notes                      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS attendance_term_summaries            ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS term_reports                        ENABLE ROW LEVEL SECURITY;
 
 -- Tenant-scoped policy function (reusable): returns a WHERE clause that
 -- filters to the current tenant. Tables without tenant_id get no policy;
@@ -2978,9 +2204,6 @@ BEGIN
         SELECT unnest(ARRAY[
             'academic_terms',
             'academic_years',
-            'assessment_blueprints',
-            'assessment_sessions',
-            'cbc_assessment_grading_scales',
             'cbc_classes',
             'cbc_class_teachers',
             'cbc_learning_areas',
@@ -2990,7 +2213,6 @@ BEGIN
             'cbc_students',
             'cbc_schools',
             'cbc_streams',
-            'cbc_term_competency_summaries',
             'cbc_timetable_slots',
             'fee_categories',
             'fee_templates',
@@ -2999,8 +2221,6 @@ BEGIN
             'invitations',
             'invoices',
             'invoice_items',
-            'learner_portfolios',
-            'learner_rubric_results',
             'medical_incidents',
             'member_active_school',
             'memberships',
@@ -3013,7 +2233,6 @@ BEGIN
             'behavior_categories',
             'behavior_notes',
             'attendance_term_summaries',
-            'term_reports'
         ])
     LOOP
         EXECUTE format(
@@ -3036,23 +2255,6 @@ BEGIN
             );
         END IF;
 
-        -- Additional RLS policy for assessment_sessions: parent-scoped role
-        -- can only SELECT rows with status = PUBLISHED, enforced at the DB level.
-        -- The application sets app.current_user_role via SET LOCAL before queries.
-        IF tbl = 'assessment_sessions' THEN
-            EXECUTE format(
-                'CREATE POLICY parent_visibility_policy ON %I '
-                'FOR SELECT '
-                'USING (
-                    tenant_id = fn_current_tenant_id()
-                    AND (
-                        current_setting(''app.current_user_role'', TRUE) != ''PARENT''
-                        OR status = ''PUBLISHED''::cbc_session_status
-                    )
-                )',
-                tbl
-            );
-        END IF;
     END LOOP;
 END $$;
 

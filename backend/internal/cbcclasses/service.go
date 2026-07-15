@@ -93,15 +93,6 @@ func (s *Service) UpdateClass(ctx context.Context, params UpdateClassParams) (*C
 		return nil, fmt.Errorf("cbcclasses.Service.UpdateClass: %w", ErrNotFound)
 	}
 
-	// Immutability guard: check for assessment records
-	hasAssessments, err := s.Repo.HasAssessmentSessions(ctx, params.ClassID, params.TenantID)
-	if err != nil {
-		return nil, fmt.Errorf("cbcclasses.Service.UpdateClass: %w", err)
-	}
-	if hasAssessments {
-		return nil, fmt.Errorf("cbcclasses.Service.UpdateClass: class has assessment records: %w", ErrClassLocked)
-	}
-
 	class, err := s.Repo.Update(ctx, params)
 	if err != nil {
 		return nil, fmt.Errorf("cbcclasses.Service.UpdateClass: %w", err)
@@ -221,15 +212,6 @@ func (s *Service) BulkDeleteClasses(ctx context.Context, classIDs []string, tena
 	}
 	if len(classIDs) > 100 {
 		return fmt.Errorf("cbcclasses.Service.BulkDeleteClasses: max 100 class IDs per request: %w", ErrInvalidInput)
-	}
-
-	// Pre-flight: check for assessment sessions
-	hasAssessments, err := s.Repo.HasAnyAssessmentSessions(ctx, classIDs, tenantID)
-	if err != nil {
-		return fmt.Errorf("cbcclasses.Service.BulkDeleteClasses: %w", err)
-	}
-	if hasAssessments {
-		return fmt.Errorf("cbcclasses.Service.BulkDeleteClasses: one or more classes have assessment records: %w", ErrClassHasAssessments)
 	}
 
 	if err := s.Repo.BulkDelete(ctx, classIDs, tenantID, schoolID); err != nil {

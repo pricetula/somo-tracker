@@ -109,6 +109,7 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 DO $$ BEGIN
+    CREATE TYPE invoice_payment_status AS ENUM (
         'UNPAID',    -- No payments recorded yet
         'PARTIAL',   -- Some payment made, balance remains
         'PAID',      -- Fully settled
@@ -1389,15 +1390,66 @@ CREATE INDEX IF NOT EXISTS idx_cbc_timetable_slots_school
 -- ============================================================================
 
 -- ---------------------------------------------------------------------------
+-- ASSESSMENT WEIGHT CONFIGS — official KNEC weighting formulas
+-- KPSEA: 60% SBA (G4+G5) + 40% KPSEA written (G6)
+-- KJSEA: 20% SBA (G7+G8) + 20% KPSEA result + 60% KJSEA written (G9)
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS assessment_weight_configs (
+    id                   UUID           PRIMARY KEY DEFAULT gen_random_uuid(),
+    grade_level          cbc_grade_level NOT NULL,
+    assessment_type_code VARCHAR(50)    NOT NULL,
+    target_exam          VARCHAR(20)    NOT NULL,
+    weight_percent       NUMERIC(5,2)   NOT NULL CHECK (weight_percent > 0 AND weight_percent <= 100),
+    effective_from       INTEGER        NOT NULL,
+    notes                TEXT           NULL,
+    created_at           TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT uq_assessment_weight_config
+        UNIQUE (grade_level, assessment_type_code, target_exam, effective_from)
+);
+
+COMMENT ON TABLE assessment_weight_configs IS
+    'Official KNEC assessment weighting formulas per grade level. These are
      nationally mandated and do not vary per school. Schema changes would be
      required if per-school overrides are ever needed.';
 
--- ---------------------------------------------------------------------------
--- ---------------------------------------------------------------------------
-
--- ---------------------------------------------------------------------------
+COMMENT ON COLUMN assessment_weight_configs.assessment_type_code IS
+    'KNEC assessment type identifier, e.g. KNEC_SBA_Project, National_KPSEA, National_KJSEA.';
+COMMENT ON COLUMN assessment_weight_configs.target_exam IS
+    'The target national exam this weight contributes to: KPSEA, KJSEA, or KSSEA.';
+COMMENT ON COLUMN assessment_weight_configs.weight_percent IS
+    'Percentage contribution of this assessment component towards the target exam placement.';
+COMMENT ON COLUMN assessment_weight_configs.effective_from IS
+    'Academic year from which this weighting formula is effective.';
 
 -- ============================================================================
+-- SCHOOL MEMBER COUNTS — materialised denormalised counts
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS school_member_counts (
+    school_id  UUID         PRIMARY KEY,
+    admins     INTEGER      NOT NULL DEFAULT 0,
+    teachers   INTEGER      NOT NULL DEFAULT 0,
+    nurses     INTEGER      NOT NULL DEFAULT 0,
+    finance    INTEGER      NOT NULL DEFAULT 0,
+    parents    INTEGER      NOT NULL DEFAULT 0,
+    students   INTEGER      NOT NULL DEFAULT 0,
+    updated_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_school_member_counts_school
+        FOREIGN KEY (school_id) REFERENCES cbc_schools(id) ON DELETE CASCADE
+);
+
+-- ============================================================================
+-- TRIGGER: Sync school staff counts from memberships
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION fn_sync_school_staff_counts_insert()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO school_member_counts (school_id, admins, teachers, nurses, finance, parents, updated_at)
+    SELECT
         s.school_id,
         COUNT(*) FILTER (WHERE m.role = 'SCHOOL_ADMIN') AS admins,
         COUNT(*) FILTER (WHERE m.role = 'TEACHER')      AS teachers,
@@ -1893,6 +1945,7 @@ COMMENT ON TABLE attendance_term_summaries IS
     'Materialised rollup of attendance records per student per term per learning
      area. Populated by a background task (nightly or on-demand when an admin
      generates a term report). Not authoritative — attendance_records is the
+     source of truth for all attendance calculations.';
 
 COMMENT ON COLUMN attendance_term_summaries.attendance_percentage IS
     'Calculated as (periods_present / periods_total) * 100, stored as a
@@ -2166,9 +2219,6 @@ CREATE TRIGGER trg_cbc_attendance_sessions_updated_at
 COMMENT ON COLUMN cbc_attendance_sessions.updated_at IS
     'Tracks session status changes and skip reason updates.';
 
-    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
-    'Tracks report compilation and publication.';
-
 -- ---------------------------------------------------------------------------
 -- USER CONTEXT
 -- ---------------------------------------------------------------------------
@@ -2307,7 +2357,7 @@ BEGIN
             'behavior_categories',
             'behavior_notes',
             'attendance_term_summaries',
-            'cbc_attendance_sessions',
+            'cbc_attendance_sessions'
         ])
     LOOP
         EXECUTE format(

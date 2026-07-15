@@ -143,6 +143,14 @@ func (s *Service) enqueueClassRecompute(ctx context.Context, tenantID, schoolID,
 	return nil
 }
 
+// GetAttendanceRecordByID returns a single attendance record by ID.
+func (s *Service) GetAttendanceRecordByID(ctx context.Context, id, tenantID string) (*AttendanceRecord, error) {
+	if id == "" {
+		return nil, fmt.Errorf("attendance.Service.GetAttendanceRecordByID: %w", ErrInvalidInput)
+	}
+	return s.repo.GetRecordByID(ctx, id, tenantID)
+}
+
 // GetStudentHistory returns attendance history for a specific student.
 func (s *Service) GetStudentHistory(ctx context.Context, tenantID, schoolID, studentID string, filter StudentHistoryFilter) ([]AttendanceRecord, error) {
 	if studentID == "" {

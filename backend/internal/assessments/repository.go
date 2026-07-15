@@ -1038,6 +1038,32 @@ func (r *PgRepository) GetPublishedSessionsForParent(ctx context.Context, tenant
 // ASSESSMENT WEIGHT CONFIGS
 // ═══════════════════════════════════════════════════════════════════════════
 
+// CreateWeightConfig inserts a new weight config and returns its ID.
+func (r *PgRepository) CreateWeightConfig(ctx context.Context, params CreateWeightConfigParams) (string, error) {
+	const query = `
+		INSERT INTO assessment_weight_configs (grade_level, assessment_type_code, target_exam, weight_percent, effective_from, notes)
+		VALUES ($1::cbc_grade_level, $2, $3, $4, $5, $6)
+		RETURNING id
+	`
+	var id string
+	err := r.pool.QueryRow(ctx, query,
+		params.GradeLevel,
+		params.AssessmentTypeCode,
+		params.TargetExam,
+		params.WeightPercent,
+		params.EffectiveFrom,
+		params.Notes,
+	).Scan(&id)
+	if err != nil {
+		if isUniqueViolation(err) {
+			return "", fmt.Errorf("assessments.Repository.CreateWeightConfig: duplicate config for grade_level=%s, type=%s, exam=%s, effective_from=%d: %w",
+				params.GradeLevel, params.AssessmentTypeCode, params.TargetExam, params.EffectiveFrom, ErrAlreadyExists)
+		}
+		return "", fmt.Errorf("assessments.Repository.CreateWeightConfig: %w", err)
+	}
+	return id, nil
+}
+
 // ListWeightConfigs returns assessment weight configs matching the given filter.
 func (r *PgRepository) ListWeightConfigs(ctx context.Context, filter AssessmentWeightConfigFilter) ([]AssessmentWeightConfig, error) {
 	query := `SELECT id, grade_level::text, assessment_type_code, target_exam, weight_percent, effective_from, notes, created_at FROM assessment_weight_configs WHERE 1=1`

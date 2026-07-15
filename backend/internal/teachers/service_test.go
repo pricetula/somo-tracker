@@ -12,6 +12,8 @@ import (
 
 type MockRepository struct {
 	listBySchoolFn    func(ctx context.Context, tenantID, schoolID string, includeInactive bool, offset, limit int, search string) ([]Teacher, int, error)
+	getByIDFn         func(ctx context.Context, userID, tenantID, schoolID string) (*Teacher, error)
+	updateFn          func(ctx context.Context, userID, tenantID, schoolID string, payload UpdateTeacherPayload) error
 	toggleActiveFn    func(ctx context.Context, tenantID, schoolID, userID string, isActive bool) error
 	deleteFn          func(ctx context.Context, tenantID, schoolID, userID string) error
 	getActiveSchoolID func(ctx context.Context, tenantID, userID string) (string, error)
@@ -27,6 +29,20 @@ func (m *MockRepository) ListBySchool(ctx context.Context, tenantID, schoolID st
 func (m *MockRepository) ToggleActive(ctx context.Context, tenantID, schoolID, userID string, isActive bool) error {
 	if m.toggleActiveFn != nil {
 		return m.toggleActiveFn(ctx, tenantID, schoolID, userID, isActive)
+	}
+	return nil
+}
+
+func (m *MockRepository) GetByID(ctx context.Context, userID, tenantID, schoolID string) (*Teacher, error) {
+	if m.getByIDFn != nil {
+		return m.getByIDFn(ctx, userID, tenantID, schoolID)
+	}
+	return &Teacher{ID: userID, FullName: "Test Teacher", IsActive: true}, nil
+}
+
+func (m *MockRepository) Update(ctx context.Context, userID, tenantID, schoolID string, payload UpdateTeacherPayload) error {
+	if m.updateFn != nil {
+		return m.updateFn(ctx, userID, tenantID, schoolID, payload)
 	}
 	return nil
 }

@@ -146,6 +146,96 @@ func (r *PgRepository) Delete(ctx context.Context, tenantID, schoolID, userID st
 	return nil
 }
 
+// GetByID returns a single teacher by user ID, scoped to tenant + school.
+func (r *PgRepository) GetByID(ctx context.Context, userID, tenantID, schoolID string) (*Teacher, error) {
+	const query = `
+		SELECT u.id, u.email, u.full_name,
+		       u.tsc_number, u.knec_panel_assessor_id,
+		       cct.teacher_role,
+		       m.is_active, m.created_at
+		FROM memberships m
+		JOIN users u ON u.id = m.user_id
+		LEFT JOIN LATERAL (
+			SELECT teacher_role::text
+			FROM cbc_class_teachers
+			WHERE user_id = u.id
+			  AND tenant_id = $2
+			LIMIT 1
+		) cct ON TRUE
+		WHERE m.tenant_id = $2 AND m.school_id = $3 AND m.user_id = $1 AND m.role::text = 'TEACHER'
+	`
+
+	var t Teacher
+	err := r.pool.QueryRow(ctx, query, userID, tenantID, schoolID).Scan(
+		&t.ID, &t.Email, &t.FullName,
+		&t.TSCNumber, &t.KNECPanelAssessor,
+		&t.TeacherRole,
+		&t.IsActive, &t.CreatedAt,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("teachers.Repository.GetByID: %w", ErrNotFound)
+		}
+		return nil, fmt.Errorf("teachers.Repository.GetByID: %w", err)
+	}
+	return &t, nil
+}
+
+// Update applies partial updates to a teacher's user record.
+func (r *PgRepository) Update(ctx context.Context, userID, tenantID, schoolID string, payload UpdateTeacherPayload) error {
+	// Build dynamic SET clause from non-nil fields
+	var sets []string
+	args := []interface{}{userID}
+	argIdx := 2
+
+	if payload.FullName != nil {
+		sets = append(sets, fmt.Sprintf("full_name = $%d", argIdx))
+		args = append(args, *payload.FullName)
+		argIdx++
+	}
+	if payload.TSCNumber != nil {
+		sets = append(sets, fmt.Sprintf("tsc_number = $%d", argIdx))
+		args = append(args, *payload.TSCNumber)
+		argIdx++
+	}
+	if payload.KNECPanelAssessor != nil {
+		sets = append(sets, fmt.Sprintf("knec_panel_assessor_id = $%d", argIdx))
+		args = append(args, *payload.KNECPanelAssessor)
+	}
+
+	if len(sets) == 0 {
+		return fmt.Errorf("teachers.Repository.Update: %w", ErrInvalidInput)
+	}
+
+	query := fmt.Sprintf(`
+		UPDATE users
+		SET %s
+		WHERE id = $1
+	`, joinWithComma(sets))
+
+	tag, err := r.pool.Exec(ctx, query, args...)
+	if err != nil {
+		return fmt.Errorf("teachers.Repository.Update: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("teachers.Repository.Update: %w", ErrNotFound)
+	}
+
+	return nil
+}
+
+// joinWithComma joins a slice of strings with ", " separator.
+func joinWithComma(parts []string) string {
+	if len(parts) == 0 {
+		return ""
+	}
+	result := parts[0]
+	for i := 1; i < len(parts); i++ {
+		result += ", " + parts[i]
+	}
+	return result
+}
+
 // GetActiveSchoolID returns the active school ID for a user in a tenant.
 func (r *PgRepository) GetActiveSchoolID(ctx context.Context, tenantID, userID string) (string, error) {
 	const query = `

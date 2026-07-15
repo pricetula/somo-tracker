@@ -21,6 +21,8 @@ var (
 // Repository defines the contract for teacher persistence.
 type Repository interface {
 	ListBySchool(ctx context.Context, tenantID, schoolID string, includeInactive bool, offset, limit int, search string) ([]Teacher, int, error)
+	GetByID(ctx context.Context, userID, tenantID, schoolID string) (*Teacher, error)
+	Update(ctx context.Context, userID, tenantID, schoolID string, payload UpdateTeacherPayload) error
 	ToggleActive(ctx context.Context, tenantID, schoolID, userID string, isActive bool) error
 	Delete(ctx context.Context, tenantID, schoolID, userID string) error
 }
@@ -49,4 +51,11 @@ type ListResponse struct {
 // ToggleActiveRequest is the payload for activating/deactivating a teacher.
 type ToggleActiveRequest struct {
 	IsActive bool `json:"is_active"`
+}
+
+// UpdateTeacherPayload is the payload for updating a teacher's profile.
+type UpdateTeacherPayload struct {
+	FullName          *string `json:"full_name,omitempty"`
+	TSCNumber         *string `json:"tsc_number,omitempty"`
+	KNECPanelAssessor *string `json:"knec_panel_assessor_id,omitempty"`
 }

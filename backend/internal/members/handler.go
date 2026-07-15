@@ -24,6 +24,8 @@ func NewHandler(svc *Service) *Handler {
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	members := router.Group("/api/v1/members")
 	members.Get("/", middleware.RequireAuth, h.List)
+	members.Get("/:user_id", middleware.RequireAuth, h.GetByID)
+	members.Put("/:user_id", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.Update)
 	members.Patch("/:user_id/active", middleware.RequireAuth, h.ToggleActive)
 	members.Delete("/:user_id", middleware.RequireAuth, h.Delete)
 }
@@ -120,6 +122,58 @@ func (h *Handler) ToggleActive(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"code":    "ok",
 		"message": "member status updated",
+	})
+}
+
+// GetByID handles GET /api/v1/members/:user_id
+func (h *Handler) GetByID(c *fiber.Ctx) error {
+	tenantID := c.Locals("tenant_id").(string)
+	userID := c.Params("user_id")
+
+	schoolID := c.Locals("active_school_id").(string)
+	if schoolID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "active school not set",
+		})
+	}
+
+	member, err := h.svc.GetMemberByID(c.Context(), userID, tenantID, schoolID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(member)
+}
+
+// Update handles PUT /api/v1/members/:user_id
+func (h *Handler) Update(c *fiber.Ctx) error {
+	tenantID := c.Locals("tenant_id").(string)
+	userID := c.Params("user_id")
+
+	schoolID := c.Locals("active_school_id").(string)
+	if schoolID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "active school not set",
+		})
+	}
+
+	var payload UpdateMemberPayload
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "invalid request body",
+		})
+	}
+
+	if err := h.svc.UpdateMember(c.Context(), userID, tenantID, schoolID, payload); err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(fiber.Map{
+		"code":    "ok",
+		"message": "member updated",
 	})
 }
 

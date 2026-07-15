@@ -99,3 +99,14 @@ func (s *Service) ReviewNote(ctx context.Context, id, tenantID, reviewedBy strin
 func (s *Service) GetNotesByStudentTerm(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]PendingNoteItem, error) {
 	return s.repo.GetNotesByStudentTerm(ctx, tenantID, schoolID, studentID, termID)
 }
+
+// UpdateNote updates the description of a behavior note.
+func (s *Service) UpdateNote(ctx context.Context, id, tenantID string, description string) error {
+	if id == "" {
+		return fmt.Errorf("behavior.Service.UpdateNote: note id is required: %w", ErrInvalidInput)
+	}
+	if description == "" {
+		return fmt.Errorf("behavior.Service.UpdateNote: description is required: %w", ErrInvalidInput)
+	}
+	return s.repo.UpdateNote(ctx, id, tenantID, description)
+}

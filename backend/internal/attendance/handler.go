@@ -36,6 +36,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	// Admin-only routes
 	att.Get("/dashboard", middleware.RequireRole("SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.AdminDashboard)
 	att.Get("/students/:student_id", middleware.RequireRole("TEACHER", "SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.StudentHistory)
+	att.Get("/records/:id", middleware.RequireRole("TEACHER", "SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.GetRecordByID)
 	att.Put("/records/:id", middleware.RequireRole("SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.UpdateRecord)
 
 	// Parent-facing route
@@ -187,6 +188,26 @@ func (h *Handler) StudentHistory(c *fiber.Ctx) error {
 		"items": records,
 		"total": len(records),
 	})
+}
+
+// GetRecordByID handles GET /api/v1/attendance/records/:id.
+func (h *Handler) GetRecordByID(c *fiber.Ctx) error {
+	tenantID, _, err := h.attMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	recordID := c.Params("id")
+	if recordID == "" {
+		return middleware.HTTPError(c, fmt.Errorf("record id is required: %w", middleware.ErrInvalidInput))
+	}
+
+	record, err := h.svc.GetAttendanceRecordByID(c.Context(), recordID, tenantID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(record)
 }
 
 // UpdateRecord handles PUT /api/v1/attendance/records/:id.

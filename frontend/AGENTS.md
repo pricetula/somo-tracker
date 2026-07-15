@@ -223,3 +223,49 @@ Files under `src/components/ui/` are auto-generated shadcn primitives.
   debugging assumptions about library behavior.
 
 ---
+
+## 12. Guard Against Null/Undefined on Nested Property Access
+
+Never assume a deeply nested property is defined. Every chained access through
+`var.a.b.c` must be protected with one of:
+
+- **Optional chaining (`?.`):** `data?.items?.map(...)`
+- **Null guard + early return:** `if (!data?.items) return []; data.items.map(...)`
+- **Nullish coalescing (`??`):** `detail.linked_students?.length ?? 0`
+- **Error/loading state guard:** Components receiving query data must return an
+  `isLoading` skeleton or `isError` alert **before** accessing response properties.
+  Never render a partially-loaded state that accesses nested fields.
+
+### Forbidden patterns
+
+```ts
+// ❌ Unsafe — crashes if data or data.items is null/undefined
+data.items.map(...)
+
+// ❌ Unsafe — crashes if detail or detail.linked_students is null
+detail.linked_students.map(...)
+
+// ❌ Unsafe — crashes if error.extra is undefined
+error.extra.active_job_id
+```
+
+### Required patterns
+
+```ts
+// ✅ Optional chaining
+const items = data?.items?.map(...) ?? [];
+
+// ✅ Guard + access
+if (!data?.items) return [];
+return data.items.map(...);
+
+// ✅ Error/loading guard
+if (isLoading) return <Skeleton ... />;
+if (isError || !response?.data) return <ErrorState />;
+return <Main data={response.data} />;
+```
+
+This applies to **all** `.ts` and `.tsx` files under `src/` — including render
+code, hooks, optimistic updaters, and utility functions.
+
+---

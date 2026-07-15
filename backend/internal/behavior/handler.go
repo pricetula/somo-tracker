@@ -30,6 +30,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	notes.Post("/", middleware.RequireAuth, h.CreateNote)
 	notes.Get("/queue", middleware.RequireAuth, h.PendingQueue)
 	notes.Get("/:id", middleware.RequireAuth, h.GetNote)
+	notes.Put("/:id", middleware.RequireAuth, h.UpdateNote)
 	notes.Post("/:id/review", middleware.RequireAuth, h.ReviewNote)
 }
 
@@ -192,6 +193,40 @@ func (h *Handler) GetNote(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(note)
+}
+
+// UpdateNote handles PUT /api/v1/behavior/notes/:id.
+func (h *Handler) UpdateNote(c *fiber.Ctx) error {
+	tenantID, _, err := h.behMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	noteID := c.Params("id")
+	if noteID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "note id is required",
+		})
+	}
+
+	var payload struct {
+		Description string `json:"description"`
+	}
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "invalid request body",
+		})
+	}
+
+	if err := h.svc.UpdateNote(c.Context(), noteID, tenantID, payload.Description); err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "Behavior note updated",
+	})
 }
 
 // ReviewNote handles POST /api/v1/behavior/notes/:id/review.

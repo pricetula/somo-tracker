@@ -89,6 +89,7 @@ type Repository interface {
 	GetPublishedSessionsForParent(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]ParentAssessmentView, error)
 
 	// Assessment Weight Configs
+	CreateWeightConfig(ctx context.Context, params CreateWeightConfigParams) (string, error)
 	ListWeightConfigs(ctx context.Context, filter AssessmentWeightConfigFilter) ([]AssessmentWeightConfig, error)
 	GetWeightConfigByID(ctx context.Context, id string) (*AssessmentWeightConfig, error)
 }
@@ -182,6 +183,16 @@ type ParentAssessmentView struct {
 
 // ── Assessment Weight Configs ────────────────────────────────────────────
 
+// CreateWeightConfigPayload is the JSON body for creating a weight config.
+type CreateWeightConfigPayload struct {
+	GradeLevel         string  `json:"grade_level"`
+	AssessmentTypeCode string  `json:"assessment_type_code"`
+	TargetExam         string  `json:"target_exam"`
+	WeightPercent      float64 `json:"weight_percent"`
+	EffectiveFrom      int     `json:"effective_from"`
+	Notes              *string `json:"notes,omitempty"`
+}
+
 // AssessmentWeightConfig represents a KNEC weighting formula entry.
 type AssessmentWeightConfig struct {
 	ID                 string    `json:"id"`
@@ -199,6 +210,16 @@ type AssessmentWeightConfigFilter struct {
 	GradeLevel    *string
 	TargetExam    *string
 	EffectiveFrom *int
+}
+
+// CreateWeightConfigParams holds fields needed to create a weight config.
+type CreateWeightConfigParams struct {
+	GradeLevel         string
+	AssessmentTypeCode string
+	TargetExam         string
+	WeightPercent      float64
+	EffectiveFrom      int
+	Notes              *string
 }
 
 // ListWeightConfigsResponse wraps a list of weight configs.

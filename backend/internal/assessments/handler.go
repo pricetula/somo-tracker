@@ -1180,13 +1180,55 @@ func (h *Handler) GetStudentTermGrades(c *fiber.Ctx) error {
 // ═══════════════════════════════════════════════════════════════════════════
 
 // CreateWeightConfig handles POST /api/v1/assessments/weight-configs.
-// This is an admin-only endpoint for managing KNEC weighting formulas.
+//
+// Creates a new KNEC weight configuration entry. Weight configs are
+// system-level (not tenant-scoped) and define the national weighting
+// formulas that specify how different assessment types contribute to
+// the final target exam placement score.
+//
+// Only SYSTEM_ADMIN users can create weight configs.
+//
+// Request body (SYSTEM_ADMIN only):
+//
+//	{
+//	  "grade_level": "GRADE_4",
+//	  "assessment_type_code": "KNEC_SBA_Project",
+//	  "target_exam": "KPSEA",
+//	  "weight_percent": 20.0,
+//	  "effective_from": 2026,
+//	  "notes": "Grade 4 project component contributes 20% to KPSEA placement"
+//	}
+//
+// The combination (grade_level, assessment_type_code, target_exam,
+// effective_from) must be unique.
+//
+// Response (201):
+//
+//	{ "id": "uuid-of-new-weight-config" }
+//
+// Errors:
+//   - 400: validation failure (missing fields, invalid percentages, etc.)
+//   - 401: authentication required
+//   - 403: not a SYSTEM_ADMIN
+//   - 409: duplicate config (UNIQUE constraint violation)
+//
+// --------------------------------------------------------------------------
 func (h *Handler) CreateWeightConfig(c *fiber.Ctx) error {
-	// Weight configs are system-level (not tenant-scoped).
-	// Only SYSTEM_ADMIN can manage them.
-	return c.Status(fiber.StatusNotImplemented).JSON(fiber.Map{
-		"code":    "not_implemented",
-		"message": "Weight config creation is not yet implemented. Use database seed migrations to add configs.",
+	var payload CreateWeightConfigPayload
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "invalid request body",
+		})
+	}
+
+	id, err := h.svc.CreateWeightConfig(c.Context(), CreateWeightConfigParams(payload))
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"id": id,
 	})
 }
 

@@ -26,6 +26,11 @@ type Repository interface {
 	GetActiveSchoolID(ctx context.Context, tenantID, userID string) (string, error)
 }
 
+// UpdateMemberPayload is the payload for updating a member's profile.
+type UpdateMemberPayload struct {
+	FullName *string `json:"full_name,omitempty"`
+}
+
 // ─── Member (user + membership join) ──────────────────────────────────────
 
 // Member represents a user with an active membership in a school.

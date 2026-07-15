@@ -22,6 +22,7 @@ func NewHandler(svc *Service) *Handler {
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	streams := router.Group("/api/v1/streams")
 	streams.Get("/", middleware.RequireAuth, h.List)
+	streams.Get("/:id", middleware.RequireAuth, h.GetByID)
 	streams.Post("/", middleware.RequireAuth, h.Create)
 	streams.Put("/:id", middleware.RequireAuth, h.Update)
 	streams.Delete("/:id", middleware.RequireAuth, h.Delete)
@@ -44,6 +45,29 @@ func (h *Handler) List(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(result)
+}
+
+// GetByID handles GET /api/v1/streams/:id.
+func (h *Handler) GetByID(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.streamMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	streamID := c.Params("id")
+	if streamID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "stream id is required",
+		})
+	}
+
+	stream, err := h.svc.GetStreamByID(c.Context(), streamID, tenantID, schoolID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(stream)
 }
 
 // streamMiddleware extracts common tenant/school from context and validates active school.

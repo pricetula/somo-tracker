@@ -22,6 +22,7 @@ type MockRepository struct {
 	getNoteByIDFn           func(ctx context.Context, id, tenantID string) (*BehaviorNote, error)
 	reviewNoteFn            func(ctx context.Context, id, tenantID, reviewedBy string, decision ReviewDecisionPayload) error
 	getNotesByStudentTermFn func(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]PendingNoteItem, error)
+	updateNoteFn            func(ctx context.Context, id, tenantID string, description string) error
 }
 
 func (m *MockRepository) ListCategories(ctx context.Context, tenantID, schoolID string) ([]BehaviorCategory, error) {
@@ -95,6 +96,13 @@ func (m *MockRepository) GetNotesByStudentTerm(ctx context.Context, tenantID, sc
 		return m.getNotesByStudentTermFn(ctx, tenantID, schoolID, studentID, termID)
 	}
 	return []PendingNoteItem{}, nil
+}
+
+func (m *MockRepository) UpdateNote(ctx context.Context, id, tenantID string, description string) error {
+	if m.updateNoteFn != nil {
+		return m.updateNoteFn(ctx, id, tenantID, description)
+	}
+	return nil
 }
 
 // ============================================================================

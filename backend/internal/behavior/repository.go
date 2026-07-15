@@ -46,6 +46,9 @@ type Repository interface {
 
 	// GetNotesByStudentTerm returns approved notes for a student in a given term.
 	GetNotesByStudentTerm(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]PendingNoteItem, error)
+
+	// UpdateNote updates the description of a behavior note.
+	UpdateNote(ctx context.Context, id, tenantID string, description string) error
 }
 
 type pgRepository struct {
@@ -365,6 +368,21 @@ func (r *pgRepository) GetNotesByStudentTerm(ctx context.Context, tenantID, scho
 		notes = append(notes, item)
 	}
 	return notes, rows.Err()
+}
+
+func (r *pgRepository) UpdateNote(ctx context.Context, id, tenantID string, description string) error {
+	result, err := r.pool.Exec(ctx, `
+		UPDATE behavior_notes
+		SET description = $1, updated_at = NOW()
+		WHERE id = $2 AND tenant_id = $3
+	`, description, id, tenantID)
+	if err != nil {
+		return fmt.Errorf("behavior.Repository.UpdateNote: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("behavior.Repository.UpdateNote: %w", ErrNotFound)
+	}
+	return nil
 }
 
 // Ensure compile-time check that *pgRepository satisfies Repository.

@@ -472,6 +472,36 @@ func (s *Service) GetStudentTermGrades(ctx context.Context, tenantID, schoolID, 
 // ASSESSMENT WEIGHT CONFIGS
 // ═══════════════════════════════════════════════════════════════════════════
 
+// CreateWeightConfig creates a new weight config (system-level).
+func (s *Service) CreateWeightConfig(ctx context.Context, params CreateWeightConfigParams) (string, error) {
+	params.AssessmentTypeCode = strings.TrimSpace(params.AssessmentTypeCode)
+	params.TargetExam = strings.TrimSpace(params.TargetExam)
+
+	if params.GradeLevel == "" {
+		return "", fmt.Errorf("assessments.Service.CreateWeightConfig: grade_level is required: %w", ErrInvalidInput)
+	}
+	if params.AssessmentTypeCode == "" {
+		return "", fmt.Errorf("assessments.Service.CreateWeightConfig: assessment_type_code is required: %w", ErrInvalidInput)
+	}
+	if params.TargetExam == "" {
+		return "", fmt.Errorf("assessments.Service.CreateWeightConfig: target_exam is required: %w", ErrInvalidInput)
+	}
+	if params.WeightPercent <= 0 || params.WeightPercent > 100 {
+		return "", fmt.Errorf("assessments.Service.CreateWeightConfig: weight_percent must be between 0 and 100: %w", ErrInvalidInput)
+	}
+	if params.EffectiveFrom < 2024 || params.EffectiveFrom > 2100 {
+		return "", fmt.Errorf("assessments.Service.CreateWeightConfig: effective_from must be a valid academic year: %w", ErrInvalidInput)
+	}
+	if len(params.AssessmentTypeCode) > 50 {
+		return "", fmt.Errorf("assessments.Service.CreateWeightConfig: assessment_type_code must not exceed 50 characters: %w", ErrInvalidInput)
+	}
+	if len(params.TargetExam) > 20 {
+		return "", fmt.Errorf("assessments.Service.CreateWeightConfig: target_exam must not exceed 20 characters: %w", ErrInvalidInput)
+	}
+
+	return s.Repo.CreateWeightConfig(ctx, params)
+}
+
 // ListWeightConfigs returns assessment weight configs.
 func (s *Service) ListWeightConfigs(ctx context.Context, filter AssessmentWeightConfigFilter) (*ListWeightConfigsResponse, error) {
 	items, err := s.Repo.ListWeightConfigs(ctx, filter)

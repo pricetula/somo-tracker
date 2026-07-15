@@ -16,6 +16,14 @@ func NewService(repo Repository) *Service {
 	return &Service{Repo: repo}
 }
 
+// GetStreamByID returns a single stream by ID.
+func (s *Service) GetStreamByID(ctx context.Context, id, tenantID, schoolID string) (*Stream, error) {
+	if id == "" || tenantID == "" || schoolID == "" {
+		return nil, fmt.Errorf("cbcstreams.Service.GetStreamByID: %w", ErrInvalidInput)
+	}
+	return s.Repo.GetByID(ctx, id, tenantID, schoolID)
+}
+
 // ListStreams returns all streams for a tenant and school.
 func (s *Service) ListStreams(ctx context.Context, tenantID, schoolID string) (*StreamListResult, error) {
 	if tenantID == "" || schoolID == "" {

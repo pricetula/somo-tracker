@@ -87,6 +87,10 @@ type Repository interface {
 	// Report Card Aggregation
 	GetStudentTermGrades(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]StudentTermGrade, error)
 	GetPublishedSessionsForParent(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]ParentAssessmentView, error)
+
+	// Assessment Weight Configs
+	ListWeightConfigs(ctx context.Context, filter AssessmentWeightConfigFilter) ([]AssessmentWeightConfig, error)
+	GetWeightConfigByID(ctx context.Context, id string) (*AssessmentWeightConfig, error)
 }
 
 // ── Domain Models ────────────────────────────────────────────────────────
@@ -174,6 +178,32 @@ type ParentAssessmentView struct {
 	MaxPoints        *float64       `json:"max_points,omitempty"`
 	PerformanceLevel *string        `json:"performance_level,omitempty"`
 	OutcomeGrades    []OutcomeGrade `json:"outcome_grades,omitempty"`
+}
+
+// ── Assessment Weight Configs ────────────────────────────────────────────
+
+// AssessmentWeightConfig represents a KNEC weighting formula entry.
+type AssessmentWeightConfig struct {
+	ID                 string    `json:"id"`
+	GradeLevel         string    `json:"grade_level"`
+	AssessmentTypeCode string    `json:"assessment_type_code"`
+	TargetExam         string    `json:"target_exam"`
+	WeightPercent      float64   `json:"weight_percent"`
+	EffectiveFrom      int       `json:"effective_from"`
+	Notes              *string   `json:"notes,omitempty"`
+	CreatedAt          time.Time `json:"created_at"`
+}
+
+// AssessmentWeightConfigFilter holds filters for listing weight configs.
+type AssessmentWeightConfigFilter struct {
+	GradeLevel    *string
+	TargetExam    *string
+	EffectiveFrom *int
+}
+
+// ListWeightConfigsResponse wraps a list of weight configs.
+type ListWeightConfigsResponse struct {
+	Items []AssessmentWeightConfig `json:"items"`
 }
 
 // ── Params (internal) ────────────────────────────────────────────────────

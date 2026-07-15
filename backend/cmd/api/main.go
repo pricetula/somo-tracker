@@ -40,9 +40,11 @@ import (
 	"somotracker/backend/internal/cbcschools"
 	"somotracker/backend/internal/cbcstreams"
 	"somotracker/backend/internal/cbctimetableslots"
+	"somotracker/backend/internal/classteachers"
 	"somotracker/backend/internal/config"
 	"somotracker/backend/internal/curriculum"
 	"somotracker/backend/internal/database"
+	"somotracker/backend/internal/health"
 	"somotracker/backend/internal/imports"
 	"somotracker/backend/internal/invitations"
 	"somotracker/backend/internal/members"
@@ -180,6 +182,8 @@ func main() {
 		invitations.Module,
 		members.Module,
 		cbctimetableslots.Module,
+		classteachers.Module,
+		health.Module,
 		imports.Module,
 
 		// Cross-domain interface wiring: school resolver from members,

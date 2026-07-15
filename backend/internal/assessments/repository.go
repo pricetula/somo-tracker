@@ -1033,3 +1033,61 @@ func (r *PgRepository) GetPublishedSessionsForParent(ctx context.Context, tenant
 	}
 	return views, nil
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ASSESSMENT WEIGHT CONFIGS
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ListWeightConfigs returns assessment weight configs matching the given filter.
+func (r *PgRepository) ListWeightConfigs(ctx context.Context, filter AssessmentWeightConfigFilter) ([]AssessmentWeightConfig, error) {
+	query := `SELECT id, grade_level::text, assessment_type_code, target_exam, weight_percent, effective_from, notes, created_at FROM assessment_weight_configs WHERE 1=1`
+	var args []interface{}
+	argIdx := 1
+
+	if filter.GradeLevel != nil {
+		query += fmt.Sprintf(` AND grade_level = $%d`, argIdx)
+		args = append(args, *filter.GradeLevel)
+		argIdx++
+	}
+	if filter.TargetExam != nil {
+		query += fmt.Sprintf(` AND target_exam = $%d`, argIdx)
+		args = append(args, *filter.TargetExam)
+		argIdx++
+	}
+	if filter.EffectiveFrom != nil {
+		query += fmt.Sprintf(` AND effective_from = $%d`, argIdx)
+		args = append(args, *filter.EffectiveFrom)
+	}
+
+	query += ` ORDER BY grade_level, effective_from DESC, assessment_type_code`
+
+	rows, err := r.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("assessments.Repository.ListWeightConfigs: %w", err)
+	}
+	defer rows.Close()
+
+	var items []AssessmentWeightConfig
+	for rows.Next() {
+		var c AssessmentWeightConfig
+		if err := rows.Scan(&c.ID, &c.GradeLevel, &c.AssessmentTypeCode, &c.TargetExam, &c.WeightPercent, &c.EffectiveFrom, &c.Notes, &c.CreatedAt); err != nil {
+			return nil, fmt.Errorf("assessments.Repository.ListWeightConfigs: scan: %w", err)
+		}
+		items = append(items, c)
+	}
+	return items, nil
+}
+
+// GetWeightConfigByID returns a single weight config by ID.
+func (r *PgRepository) GetWeightConfigByID(ctx context.Context, id string) (*AssessmentWeightConfig, error) {
+	const query = `SELECT id, grade_level::text, assessment_type_code, target_exam, weight_percent, effective_from, notes, created_at FROM assessment_weight_configs WHERE id = $1`
+	var c AssessmentWeightConfig
+	err := r.pool.QueryRow(ctx, query, id).Scan(&c.ID, &c.GradeLevel, &c.AssessmentTypeCode, &c.TargetExam, &c.WeightPercent, &c.EffectiveFrom, &c.Notes, &c.CreatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("assessments.Repository.GetWeightConfigByID: %w", ErrNotFound)
+		}
+		return nil, fmt.Errorf("assessments.Repository.GetWeightConfigByID: %w", err)
+	}
+	return &c, nil
+}

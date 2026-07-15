@@ -467,3 +467,27 @@ func (s *Service) GetStudentTermGrades(ctx context.Context, tenantID, schoolID, 
 	}
 	return grades, nil
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ASSESSMENT WEIGHT CONFIGS
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ListWeightConfigs returns assessment weight configs.
+func (s *Service) ListWeightConfigs(ctx context.Context, filter AssessmentWeightConfigFilter) (*ListWeightConfigsResponse, error) {
+	items, err := s.Repo.ListWeightConfigs(ctx, filter)
+	if err != nil {
+		return nil, fmt.Errorf("assessments.Service.ListWeightConfigs: %w", err)
+	}
+	if items == nil {
+		items = []AssessmentWeightConfig{}
+	}
+	return &ListWeightConfigsResponse{Items: items}, nil
+}
+
+// GetWeightConfigByID returns a single weight config.
+func (s *Service) GetWeightConfigByID(ctx context.Context, id string) (*AssessmentWeightConfig, error) {
+	if id == "" {
+		return nil, fmt.Errorf("assessments.Service.GetWeightConfigByID: id is required: %w", ErrInvalidInput)
+	}
+	return s.Repo.GetWeightConfigByID(ctx, id)
+}

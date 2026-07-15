@@ -54,6 +54,12 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	parent := router.Group("/api/v1/parent")
 	parent.Get("/students/:studentId/assessments", middleware.RequireAuth, h.GetParentAssessments)
 	parent.Get("/students/:studentId/report-card", middleware.RequireAuth, h.GetStudentTermGrades)
+
+	// Assessment Weight Configs (system-level, read-only via API)
+	wcfg := router.Group("/api/v1/assessments/weight-configs")
+	wcfg.Get("/", middleware.RequireAuth, h.ListWeightConfigs)
+	wcfg.Get("/:id", middleware.RequireAuth, h.GetWeightConfig)
+	wcfg.Post("/", middleware.RequireAuth, middleware.RequireRole("SYSTEM_ADMIN"), h.CreateWeightConfig)
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────
@@ -1167,4 +1173,59 @@ func (h *Handler) GetStudentTermGrades(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(StudentTermGradesResponse{Items: grades})
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ASSESSMENT WEIGHT CONFIGS
+// ═══════════════════════════════════════════════════════════════════════════
+
+// CreateWeightConfig handles POST /api/v1/assessments/weight-configs.
+// This is an admin-only endpoint for managing KNEC weighting formulas.
+func (h *Handler) CreateWeightConfig(c *fiber.Ctx) error {
+	// Weight configs are system-level (not tenant-scoped).
+	// Only SYSTEM_ADMIN can manage them.
+	return c.Status(fiber.StatusNotImplemented).JSON(fiber.Map{
+		"code":    "not_implemented",
+		"message": "Weight config creation is not yet implemented. Use database seed migrations to add configs.",
+	})
+}
+
+// ListWeightConfigs handles GET /api/v1/assessments/weight-configs.
+func (h *Handler) ListWeightConfigs(c *fiber.Ctx) error {
+	var filter AssessmentWeightConfigFilter
+
+	if gl := c.Query("grade_level"); gl != "" {
+		filter.GradeLevel = &gl
+	}
+	if te := c.Query("target_exam"); te != "" {
+		filter.TargetExam = &te
+	}
+	if ef := c.Query("effective_from"); ef != "" {
+		if v, err := strconv.Atoi(ef); err == nil {
+			filter.EffectiveFrom = &v
+		}
+	}
+
+	result, err := h.svc.ListWeightConfigs(c.Context(), filter)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	return c.JSON(result)
+}
+
+// GetWeightConfig handles GET /api/v1/assessments/weight-configs/:id.
+func (h *Handler) GetWeightConfig(c *fiber.Ctx) error {
+	id := c.Params("id")
+	if id == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "id is required",
+		})
+	}
+
+	result, err := h.svc.GetWeightConfigByID(c.Context(), id)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	return c.JSON(result)
 }

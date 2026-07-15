@@ -128,7 +128,6 @@ export function StepColumnMapping({
 
             // Single-select: toggle off if same header
             if (current === header) {
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
                 const { [targetKey]: _, ...rest } = prev;
                 return rest;
             }

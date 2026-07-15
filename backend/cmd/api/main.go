@@ -31,6 +31,7 @@ import (
 	"go.uber.org/zap"
 
 	"somotracker/backend/internal/academicyears"
+	"somotracker/backend/internal/assessments"
 	"somotracker/backend/internal/attendance"
 	"somotracker/backend/internal/auth"
 	"somotracker/backend/internal/behavior"
@@ -163,6 +164,7 @@ func main() {
 		database.Module,
 		utils.Module,
 		academicyears.Module,
+		assessments.Module,
 		attendance.Module,
 		auth.Module,
 		behavior.Module,
@@ -284,6 +286,7 @@ func registerApp(
 	lc fx.Lifecycle,
 	cfg config.Config,
 	pools *database.Pools,
+	assessmentsHandler *assessments.Handler,
 	authHandler *auth.Handler,
 	academicYearsHandler *academicyears.Handler,
 	attendanceHandler *attendance.Handler,
@@ -330,6 +333,7 @@ func registerApp(
 			})
 
 			// Mount domain routes
+			assessmentsHandler.RegisterRoutes(app)
 			authHandler.RegisterRoutes(app)
 			academicYearsHandler.RegisterRoutes(app)
 			cbcschoolsHandler.RegisterRoutes(app)

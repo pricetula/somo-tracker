@@ -124,7 +124,7 @@ export function DataTable<TItem, TParams extends object, TResult>({
             const current = prev[itemId];
             if (typeof current === "string" && current === itemValue) {
                 // Toggle off
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
                 const { [itemId]: _, ...rest } = prev;
                 return rest;
             }
@@ -139,7 +139,7 @@ export function DataTable<TItem, TParams extends object, TResult>({
             const current = prev[itemId];
             if (typeof current === "string" && current === subValue) {
                 // Deselect
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
                 const { [itemId]: _, ...rest } = prev;
                 return rest;
             }
@@ -156,7 +156,6 @@ export function DataTable<TItem, TParams extends object, TResult>({
                 ? arr.filter((v) => v !== subValue)
                 : [...arr, subValue];
             if (next.length === 0) {
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
                 const { [itemId]: _, ...rest } = prev;
                 return rest;
             }
@@ -169,7 +168,6 @@ export function DataTable<TItem, TParams extends object, TResult>({
         setActiveFilters((prev) => {
             if (subValue === undefined) {
                 // Remove entire filter (button or sub_menu_single)
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
                 const { [itemId]: _, ...rest } = prev;
                 return rest;
             }
@@ -178,7 +176,6 @@ export function DataTable<TItem, TParams extends object, TResult>({
             const arr = Array.isArray(current) ? current : [];
             const next = arr.filter((v) => v !== subValue);
             if (next.length === 0) {
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
                 const { [itemId]: _, ...rest } = prev;
                 return rest;
             }

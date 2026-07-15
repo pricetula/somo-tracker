@@ -1,9 +1,42 @@
+/**
+ * Intercepted route — Create assessment session rendered as a dialog overlay.
+ *
+ * Slides in as a centered modal when the teacher clicks "Create"
+ * from the assessment sessions listing page.
+ * On hard refresh the full page at /assessments/add takes over.
+ */
+
+"use client";
+
+import { useRouter } from "next/navigation";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+} from "@/components/ui/dialog";
+import { CreateAssessmentSessionForm } from "@/features/assessments";
+
 export default function AddAssessmentModal() {
+    const router = useRouter();
+
     return (
-        <div className="fixed inset-0 z-10 flex items-center justify-center bg-black/50">
-            <div className="w-1/2 max-w-md rounded-lg bg-white p-6">
-                <p className="text-center">Coming Soon</p>
-            </div>
-        </div>
+        <Dialog
+            open
+            onOpenChange={(open) => {
+                if (!open) router.back();
+            }}
+        >
+            <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                    <DialogTitle>Create Assessment Session</DialogTitle>
+                    <DialogDescription>
+                        Choose marks-based (quantitative) or rubric (indicator-level) grading.
+                    </DialogDescription>
+                </DialogHeader>
+                <CreateAssessmentSessionForm />
+            </DialogContent>
+        </Dialog>
     );
 }

@@ -167,7 +167,6 @@ export async function bulkWriteStagedRecords(
     const ids: number[] = [];
 
     for (const record of records) {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { id: _id, ...rest } = record;
         const newId = (await store.add(rest)) as number;
         ids.push(newId);

@@ -2389,5 +2389,357 @@ COMMENT ON TABLE cbc_student_enrollments IS
      inserts its own row). RLS enforces tenant isolation at the database level.';
 
 -- ============================================================================
+-- LAYER 12 — ASSESSMENT & GRADING ENGINE
+-- ============================================================================
+
+-- ---------------------------------------------------------------------------
+-- ASSESSMENT ENUMS
+-- ---------------------------------------------------------------------------
+
+DO $$ BEGIN
+    CREATE TYPE cbc_performance_level AS ENUM ('EE', 'ME', 'AE', 'BE');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+COMMENT ON TYPE cbc_performance_level IS
+    'CBC rubric performance levels: EE = Exceeding Expectation, ME = Meeting
+     Expectation, AE = Approaching Expectation, BE = Below Expectation.';
+
+DO $$ BEGIN
+    CREATE TYPE assessment_session_status AS ENUM ('DRAFT', 'PENDING_APPROVAL', 'PUBLISHED');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+COMMENT ON TYPE assessment_session_status IS
+    'Lifecycle state for an assessment session: DRAFT (teacher editing),
+     PENDING_APPROVAL (submitted for admin review), PUBLISHED (finalised
+     and visible to parents).';
+
+DO $$ BEGIN
+    CREATE TYPE assessment_evaluation_method AS ENUM ('QUANTITATIVE', 'RUBRIC');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+COMMENT ON TYPE assessment_evaluation_method IS
+    'QUANTITATIVE: total-marks grading (raw_score + percentage → performance level).
+     RUBRIC: indicator-level grading (direct CBC level per performance_indicator).';
+
+-- ---------------------------------------------------------------------------
+-- GRADING SCALE PROFILES (The Directory)
+-- Immutable once created. Administrators toggle is_active to deprecate.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS grading_scale_profiles (
+    id         UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id  UUID         NOT NULL,
+    school_id  UUID         NOT NULL,
+    name       VARCHAR(255) NOT NULL,
+    is_active  BOOLEAN      NOT NULL DEFAULT true,
+    created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_grading_scale_profiles_tenant_school
+        FOREIGN KEY (tenant_id, school_id)
+        REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT uq_grading_scale_profiles_tenant UNIQUE (tenant_id, id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_grading_scale_profiles_tenant
+    ON grading_scale_profiles (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_grading_scale_profiles_school
+    ON grading_scale_profiles (school_id);
+
+DROP TRIGGER IF EXISTS trg_grading_scale_profiles_updated_at ON grading_scale_profiles;
+CREATE TRIGGER trg_grading_scale_profiles_updated_at
+    BEFORE UPDATE ON grading_scale_profiles
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+
+COMMENT ON TABLE grading_scale_profiles IS
+    'Directory of CBC grading scale profiles. Profiles define the translation
+     from numeric percentages to CBC rubric levels (EE, ME, AE, BE). Once
+     created, profile name and settings are read-only. To change a scale,
+     create a new profile and mark the old one is_active = false.';
+
+-- ---------------------------------------------------------------------------
+-- GRADING SCALE RANGES (The Rules)
+-- Write-once rows within each profile. PostgreSQL EXCLUDE constraint using
+-- numrange prevents overlapping percentage bands within the same profile.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS grading_scale_ranges (
+    id                        UUID                  PRIMARY KEY DEFAULT gen_random_uuid(),
+    profile_id                UUID                  NOT NULL REFERENCES grading_scale_profiles(id) ON DELETE CASCADE,
+    performance_level         cbc_performance_level NOT NULL,
+    min_percentage            NUMERIC(5,2)          NOT NULL CHECK (min_percentage >= 0 AND min_percentage <= 100),
+    max_percentage            NUMERIC(5,2)          NOT NULL CHECK (max_percentage >= 0 AND max_percentage <= 100),
+    default_percentage_mapping NUMERIC(5,2)          NULL,
+    created_at                TIMESTAMPTZ           NOT NULL DEFAULT NOW(),
+    updated_at                TIMESTAMPTZ           NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT chk_range_bounds CHECK (max_percentage > min_percentage),
+    CONSTRAINT uq_profile_level UNIQUE (profile_id, performance_level),
+    CONSTRAINT excl_profile_range_no_overlap
+        EXCLUDE USING gist (
+            profile_id WITH =,
+            numrange(min_percentage, max_percentage, '[]') WITH &&
+        )
+);
+
+DROP TRIGGER IF EXISTS trg_grading_scale_ranges_updated_at ON grading_scale_ranges;
+CREATE TRIGGER trg_grading_scale_ranges_updated_at
+    BEFORE UPDATE ON grading_scale_ranges
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+
+COMMENT ON TABLE grading_scale_ranges IS
+    'Range definitions within a grading scale profile. The EXCLUDE constraint
+     using numrange guarantees no overlapping percentage bands within the same
+     profile. Rows are write-once — UPDATE and DELETE are blocked at the
+     application layer once the profile is actively referenced by sessions.';
+
+COMMENT ON COLUMN grading_scale_ranges.default_percentage_mapping IS
+    'Optional midpoint value used as the default when converting a percentage
+     to a performance level. If NULL, the system uses the midpoint of the range.
+     Example: for range 80-100 → EE, default could be 90.';
+
+-- ---------------------------------------------------------------------------
+-- ASSESSMENT SESSIONS
+-- Tracks the lifecycle: DRAFT → PENDING_APPROVAL → PUBLISHED
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS assessment_sessions (
+    id                      UUID                        PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id               UUID                        NOT NULL,
+    school_id               UUID                        NOT NULL,
+    class_id                UUID                        NOT NULL,
+    learning_area_id        UUID                        NOT NULL,
+    academic_term_id        UUID                        NOT NULL,
+    academic_year_id        UUID                        NOT NULL,
+    name                    VARCHAR(255)                NOT NULL,
+    evaluation_method       assessment_evaluation_method NOT NULL,
+    max_points              NUMERIC(10,2)               NULL,
+    grading_scale_profile_id UUID                       NULL REFERENCES grading_scale_profiles(id) ON DELETE SET NULL,
+    status                  assessment_session_status   NOT NULL DEFAULT 'DRAFT',
+    rejection_comment       TEXT                        NULL,
+    submitted_by            UUID                        NULL REFERENCES users(id) ON DELETE SET NULL,
+    approved_by             UUID                        NULL REFERENCES users(id) ON DELETE SET NULL,
+    scheduled_date          DATE                        NULL,
+    created_at              TIMESTAMPTZ                 NOT NULL DEFAULT NOW(),
+    updated_at              TIMESTAMPTZ                 NOT NULL DEFAULT NOW(),
+    created_by              UUID                        NOT NULL REFERENCES users(id),
+
+    CONSTRAINT fk_assessment_sessions_tenant_school
+        FOREIGN KEY (tenant_id, school_id)
+        REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_assessment_sessions_tenant_class
+        FOREIGN KEY (tenant_id, class_id)
+        REFERENCES cbc_classes(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_assessment_sessions_tenant_term
+        FOREIGN KEY (tenant_id, school_id, academic_term_id)
+        REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_assessment_sessions_learning_area
+        FOREIGN KEY (learning_area_id)
+        REFERENCES cbc_learning_areas(id) ON DELETE CASCADE,
+    CONSTRAINT uq_assessment_sessions_tenant UNIQUE (tenant_id, id),
+    CONSTRAINT chk_quantitative_has_points CHECK (
+        evaluation_method != 'QUANTITATIVE' OR max_points IS NOT NULL
+    ),
+    CONSTRAINT chk_quantitative_has_scale CHECK (
+        evaluation_method != 'QUANTITATIVE' OR grading_scale_profile_id IS NOT NULL
+    ),
+    CONSTRAINT chk_rubric_no_points CHECK (
+        evaluation_method != 'RUBRIC' OR max_points IS NULL
+    ),
+    CONSTRAINT chk_rubric_no_scale CHECK (
+        evaluation_method != 'RUBRIC' OR grading_scale_profile_id IS NULL
+    )
+);
+
+CREATE INDEX IF NOT EXISTS idx_assessment_sessions_tenant
+    ON assessment_sessions (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_assessment_sessions_school
+    ON assessment_sessions (school_id);
+CREATE INDEX IF NOT EXISTS idx_assessment_sessions_class
+    ON assessment_sessions (class_id);
+CREATE INDEX IF NOT EXISTS idx_assessment_sessions_term
+    ON assessment_sessions (academic_term_id);
+CREATE INDEX IF NOT EXISTS idx_assessment_sessions_status
+    ON assessment_sessions (status);
+CREATE INDEX IF NOT EXISTS idx_assessment_sessions_learning_area
+    ON assessment_sessions (learning_area_id);
+
+DROP TRIGGER IF EXISTS trg_assessment_sessions_updated_at ON assessment_sessions;
+CREATE TRIGGER trg_assessment_sessions_updated_at
+    BEFORE UPDATE ON assessment_sessions
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+
+COMMENT ON TABLE assessment_sessions IS
+    'Tracks CBC assessment sessions through their lifecycle:
+     DRAFT (teacher creating/grading) → PENDING_APPROVAL (submitted to admin)
+     → PUBLISHED (approved, visible to parents). Rejection returns to DRAFT.
+     Supports two evaluation methods: QUANTITATIVE (total marks converted via
+     grading scale) and RUBRIC (direct indicator-level grading).';
+
+COMMENT ON COLUMN assessment_sessions.max_points IS
+    'Total possible marks for QUANTITATIVE sessions. NULL for RUBRIC sessions.
+     Cannot be updated once any student score rows exist.';
+
+COMMENT ON COLUMN assessment_sessions.rejection_comment IS
+    'Admin feedback when rejecting a session. Cleared on re-submission.';
+
+-- ---------------------------------------------------------------------------
+-- STUDENT ASSESSMENT SCORES
+-- Stores raw scores for QUANTITATIVE sessions. Snapshots final performance
+-- level at approval time for historical immutability.
+-- ---------------------------------------------------------------------------
+
+-- Create a helper function to validate raw_score <= max_points for the session
+CREATE OR REPLACE FUNCTION max_points_check(session_id UUID, raw_score NUMERIC)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+AS $$
+    SELECT raw_score <= COALESCE((SELECT max_points FROM assessment_sessions WHERE id = session_id), raw_score);
+$$;
+
+CREATE TABLE IF NOT EXISTS student_assessment_scores (
+    id                     UUID                  PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id              UUID                  NOT NULL,
+    session_id             UUID                  NOT NULL,
+    student_id             UUID                  NOT NULL,
+    raw_score              NUMERIC(10,2)         NULL,
+    calculated_percentage  NUMERIC(5,2)          NULL,
+    final_performance_level cbc_performance_level NULL,
+    enrollment_status      VARCHAR(20)           NOT NULL DEFAULT 'ACTIVE',
+    created_at             TIMESTAMPTZ           NOT NULL DEFAULT NOW(),
+    updated_at             TIMESTAMPTZ           NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_scores_tenant_session
+        FOREIGN KEY (tenant_id, session_id)
+        REFERENCES assessment_sessions(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_scores_tenant_student
+        FOREIGN KEY (tenant_id, student_id)
+        REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT uq_score_session_student UNIQUE (session_id, student_id),
+    CONSTRAINT chk_score_range CHECK (
+        raw_score IS NULL OR max_points_check(session_id, raw_score) OR raw_score >= 0
+    )
+);
+
+CREATE INDEX IF NOT EXISTS idx_student_scores_session
+    ON student_assessment_scores (session_id);
+CREATE INDEX IF NOT EXISTS idx_student_scores_student
+    ON student_assessment_scores (student_id);
+CREATE INDEX IF NOT EXISTS idx_student_scores_tenant
+    ON student_assessment_scores (tenant_id);
+
+DROP TRIGGER IF EXISTS trg_student_assessment_scores_updated_at ON student_assessment_scores;
+CREATE TRIGGER trg_student_assessment_scores_updated_at
+    BEFORE UPDATE ON student_assessment_scores
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+
+COMMENT ON TABLE student_assessment_scores IS
+    'Stores student scores for QUANTITATIVE assessment sessions. The
+     final_performance_level is written (snapshotted) at the moment of
+     admin approval — immune to later scale profile changes. NULL for
+     RUBRIC sessions (those use student_assessment_outcome_grades).';
+
+COMMENT ON COLUMN student_assessment_scores.enrollment_status IS
+    'Denormalised enrollment status at time of grading. Used to enforce
+     the No-Grade-Ghosting constraint: scores cannot be entered for
+     students marked ABSENT or EXEMPT. Values: ACTIVE, SUSPENDED,
+     TRANSFERRED, ABSENT, EXEMPT.';
+
+-- ---------------------------------------------------------------------------
+-- STUDENT ASSESSMENT OUTCOME GRADES
+-- Stores rubric-level grades for RUBRIC sessions, linking student to
+-- specific KICD performance indicators with the awarded CBC level.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS student_assessment_outcome_grades (
+    id                      UUID                  PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id               UUID                  NOT NULL,
+    session_id              UUID                  NOT NULL,
+    student_id              UUID                  NOT NULL,
+    performance_indicator_id UUID                 NOT NULL,
+    awarded_level           cbc_performance_level NOT NULL,
+    created_at              TIMESTAMPTZ           NOT NULL DEFAULT NOW(),
+    updated_at              TIMESTAMPTZ           NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_outcome_tenant_session
+        FOREIGN KEY (tenant_id, session_id)
+        REFERENCES assessment_sessions(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_outcome_tenant_student
+        FOREIGN KEY (tenant_id, student_id)
+        REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_outcome_performance_indicator
+        FOREIGN KEY (performance_indicator_id)
+        REFERENCES performance_indicators(id) ON DELETE CASCADE,
+    CONSTRAINT uq_outcome_session_student_indicator
+        UNIQUE (session_id, student_id, performance_indicator_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_outcome_grades_session
+    ON student_assessment_outcome_grades (session_id);
+CREATE INDEX IF NOT EXISTS idx_outcome_grades_student
+    ON student_assessment_outcome_grades (student_id);
+CREATE INDEX IF NOT EXISTS idx_outcome_grades_indicator
+    ON student_assessment_outcome_grades (performance_indicator_id);
+CREATE INDEX IF NOT EXISTS idx_outcome_grades_tenant
+    ON student_assessment_outcome_grades (tenant_id);
+
+DROP TRIGGER IF EXISTS trg_student_assessment_outcome_grades_updated_at ON student_assessment_outcome_grades;
+CREATE TRIGGER trg_student_assessment_outcome_grades_updated_at
+    BEFORE UPDATE ON student_assessment_outcome_grades
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+
+COMMENT ON TABLE student_assessment_outcome_grades IS
+    'Stores rubric-level grades for RUBRIC assessment sessions. Each row
+     maps a student to a specific KICD performance indicator with the
+     awarded CBC level (EE, ME, AE, BE). No raw scores or percentages
+     are stored — the teacher assigns the performance level directly.';
+
+-- ============================================================================
+-- RLS POLICIES — New Assessment & Grading Tables
+-- ============================================================================
+
+ALTER TABLE IF EXISTS grading_scale_profiles              ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS grading_scale_ranges                ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS assessment_sessions                 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS student_assessment_scores           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS student_assessment_outcome_grades   ENABLE ROW LEVEL SECURITY;
+
+-- Extend the RLS policy loop to include new assessment tables
+DO $$ DECLARE
+    tbl TEXT;
+BEGIN
+    FOR tbl IN
+        SELECT unnest(ARRAY[
+            'grading_scale_profiles',
+            'grading_scale_ranges',
+            'assessment_sessions',
+            'student_assessment_scores',
+            'student_assessment_outcome_grades'
+        ])
+    LOOP
+        EXECUTE format(
+            'DROP POLICY IF EXISTS tenant_isolation_policy ON %I',
+            tbl
+        );
+        IF EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = tbl AND column_name = 'tenant_id'
+        ) THEN
+            EXECUTE format(
+                'CREATE POLICY tenant_isolation_policy ON %I '
+                'FOR ALL '
+                'USING (tenant_id = fn_current_tenant_id()) '
+                'WITH CHECK (tenant_id = fn_current_tenant_id())',
+                tbl
+            );
+        END IF;
+    END LOOP;
+END $$;
+
+-- ============================================================================
 -- END OF MIGRATION
 -- ============================================================================

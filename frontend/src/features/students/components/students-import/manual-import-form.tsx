@@ -197,7 +197,6 @@ export function StudentManualImportForm({ onReset, onJobCreated }: StudentManual
                 }
             }
             if (Object.keys(updated).length === 0) {
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
                 const { [rowId]: _removed, ...rest } = prev;
                 return rest;
             }

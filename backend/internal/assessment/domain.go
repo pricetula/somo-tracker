@@ -22,13 +22,43 @@ var (
 
 // Module-specific sentinels.
 var (
-	ErrGradeLevelMismatch = fmt.Errorf("indicator grade level mismatch: %w", middleware.ErrInvalidInput)
-	ErrIndicatorLinked    = fmt.Errorf("indicator already linked: %w", middleware.ErrConflict)
-	ErrInvalidRubricLevel = fmt.Errorf("invalid rubric level: %w", middleware.ErrInvalidInput)
-	ErrScoreTypeMismatch  = fmt.Errorf("score type mismatch: %w", middleware.ErrInvalidInput)
-	ErrStudentNotInClass  = fmt.Errorf("student not in class: %w", middleware.ErrInvalidInput)
-	ErrIndicatorNotInBP   = fmt.Errorf("indicator not in blueprint: %w", middleware.ErrInvalidInput)
+	ErrGradeLevelMismatch      = fmt.Errorf("indicator grade level mismatch: %w", middleware.ErrInvalidInput)
+	ErrIndicatorLinked         = fmt.Errorf("indicator already linked: %w", middleware.ErrConflict)
+	ErrInvalidRubricLevel      = fmt.Errorf("invalid rubric level: %w", middleware.ErrInvalidInput)
+	ErrScoreTypeMismatch       = fmt.Errorf("score type mismatch: %w", middleware.ErrInvalidInput)
+	ErrStudentNotInClass       = fmt.Errorf("student not in class: %w", middleware.ErrInvalidInput)
+	ErrIndicatorNotInBP        = fmt.Errorf("indicator not in blueprint: %w", middleware.ErrInvalidInput)
+	ErrSessionLocked           = fmt.Errorf("session is locked for edits: %w", middleware.ErrForbidden)
+	ErrInvalidStatusTransition = fmt.Errorf("invalid status transition: %w", middleware.ErrInvalidInput)
+	ErrNoResultsToSubmit       = fmt.Errorf("session has no results: %w", middleware.ErrInvalidInput)
+	ErrRejectionReasonRequired = fmt.Errorf("rejection reason is required: %w", middleware.ErrInvalidInput)
+	ErrNotSessionOwner         = fmt.Errorf("not the session owner: %w", middleware.ErrForbidden)
+	ErrNotAdmin                = fmt.Errorf("admin role required: %w", middleware.ErrForbidden)
+	ErrBatchPublishEmpty       = fmt.Errorf("no session IDs provided for batch publish: %w", middleware.ErrInvalidInput)
 )
+
+// ============================================================================
+// Session Status
+// ============================================================================
+
+// ValidSessionStatuses is the set of valid cbc_session_status values.
+var ValidSessionStatuses = map[string]bool{
+	"DRAFT":          true,
+	"PENDING_REVIEW": true,
+	"APPROVED":       true,
+	"PUBLISHED":      true,
+	"REJECTED":       true,
+}
+
+// AllowedTransitions defines the valid state machine for session status.
+// Key = current status, value = set of allowed next statuses.
+var AllowedTransitions = map[string]map[string]bool{
+	"DRAFT":          {"PENDING_REVIEW": true},
+	"REJECTED":       {"PENDING_REVIEW": true},
+	"PENDING_REVIEW": {"APPROVED": true, "REJECTED": true},
+	"APPROVED":       {"PUBLISHED": true},
+	"PUBLISHED":      {}, // terminal state
+}
 
 // ============================================================================
 // Domain Models
@@ -68,6 +98,13 @@ type AssessmentSession struct {
 	AssessedByUserID    string  `json:"assessed_by_user_id"`
 	DateAdministered    string  `json:"date_administered"` // "YYYY-MM-DD"
 	KNECUploadReference *string `json:"knec_upload_reference,omitempty"`
+	Status              string  `json:"status"` // cbc_session_status
+	SubmittedAt         *string `json:"submitted_at,omitempty"`
+	ReviewedByUserID    *string `json:"reviewed_by_user_id,omitempty"`
+	ReviewedAt          *string `json:"reviewed_at,omitempty"`
+	RejectionReason     *string `json:"rejection_reason,omitempty"`
+	PublishedByUserID   *string `json:"published_by_user_id,omitempty"`
+	PublishedAt         *string `json:"published_at,omitempty"`
 	CreatedAt           string  `json:"created_at"`
 }
 
@@ -75,6 +112,21 @@ type AssessmentSession struct {
 type SessionDetail struct {
 	AssessmentSession
 	Results []LearnerRubricResult `json:"results"`
+}
+
+// SessionAdminView extends AssessmentSession with blueprint and teacher info
+// for admin queue listings.
+type SessionAdminView struct {
+	AssessmentSession
+	BlueprintTitle string `json:"blueprint_title"`
+	BlueprintType  string `json:"blueprint_type"`
+	GradeLevel     string `json:"grade_level"`
+	AcademicYear   int    `json:"academic_year"`
+	Term           int    `json:"term"`
+	ClassName      string `json:"class_name"`
+	StreamName     string `json:"stream_name"`
+	TeacherName    string `json:"teacher_name"`
+	ResultCount    int    `json:"result_count"`
 }
 
 // LearnerRubricResult represents a single student's rubric outcome for one
@@ -167,6 +219,29 @@ type UpdateSessionPayload struct {
 type ListSessionsQuery struct {
 	ClassID     string
 	BlueprintID string
+	Status      string
+	Page        int
+	PageSize    int
+}
+
+// AdminQueuesQuery captures filtering for admin queue views.
+type AdminQueuesQuery struct {
+	ClassID      string
+	GradeLevel   string
+	Term         int
+	AcademicYear int
+	Status       string // PENDING_REVIEW or APPROVED
+	Page         int
+	PageSize     int
+}
+
+// ParentSessionsQuery captures filtering for parent-facing results.
+type ParentSessionsQuery struct {
+	StudentID    string
+	AcademicYear int
+	Term         int
+	Page         int
+	PageSize     int
 }
 
 type CreateSessionResponse struct {
@@ -174,7 +249,10 @@ type CreateSessionResponse struct {
 }
 
 type ListSessionsResponse struct {
-	Items []AssessmentSession `json:"items"`
+	Items      []AssessmentSession `json:"items"`
+	TotalCount int                 `json:"total_count"`
+	Page       int                 `json:"page"`
+	PageSize   int                 `json:"page_size"`
 }
 
 type SessionDetailResponse struct {
@@ -195,7 +273,70 @@ type BatchUpsertResultsPayload struct {
 }
 
 type ListResultsResponse struct {
-	Items []LearnerRubricResult `json:"items"`
+	Items      []LearnerRubricResult `json:"items"`
+	TotalCount int                   `json:"total_count"`
+}
+
+// ============================================================================
+// Status Transition Payloads
+// ============================================================================
+
+type SubmitForReviewPayload struct {
+	SessionID string `json:"session_id"`
+}
+
+type ApproveSessionPayload struct {
+	SessionID string `json:"session_id"`
+}
+
+type RejectSessionPayload struct {
+	SessionID       string `json:"session_id"`
+	RejectionReason string `json:"rejection_reason"`
+}
+
+type PublishSessionPayload struct {
+	SessionID string `json:"session_id"`
+}
+
+type BatchPublishPayload struct {
+	SessionIDs []string `json:"session_ids"`
+}
+
+type BatchPublishResponse struct {
+	PublishedCount int      `json:"published_count"`
+	FailedIDs      []string `json:"failed_ids,omitempty"`
+}
+
+type StatusTransitionResponse struct {
+	ID     string `json:"id"`
+	Status string `json:"status"`
+}
+
+type AdminQueuesResponse struct {
+	Items      []SessionAdminView `json:"items"`
+	TotalCount int                `json:"total_count"`
+	Page       int                `json:"page"`
+	PageSize   int                `json:"page_size"`
+}
+
+type ParentPublishedResultsResponse struct {
+	Items      []ParentSessionResultView `json:"items"`
+	TotalCount int                       `json:"total_count"`
+	Page       int                       `json:"page"`
+	PageSize   int                       `json:"page_size"`
+}
+
+// ParentSessionResultView is the parent-facing view of a published result.
+// Never exposes raw scores or computed averages per CBC compliance rules.
+type ParentSessionResultView struct {
+	SessionID               string  `json:"session_id"`
+	DateAdministered        string  `json:"date_administered"`
+	LearningAreaName        string  `json:"learning_area_name"`
+	BlueprintTitle          string  `json:"blueprint_title"`
+	BlueprintType           string  `json:"blueprint_type"`
+	RubricLevel             string  `json:"rubric_level"`
+	IndicatorDescription    string  `json:"indicator_description"`
+	TeacherObservationNotes *string `json:"teacher_observation_notes,omitempty"`
 }
 
 // ============================================================================
@@ -253,12 +394,19 @@ type Repository interface {
 	// Sessions
 	CreateSession(ctx context.Context, s *AssessmentSession) (string, error)
 	GetSessionByID(ctx context.Context, id, tenantID string) (*AssessmentSession, error)
-	ListSessions(ctx context.Context, tenantID string, query ListSessionsQuery) ([]AssessmentSession, error)
+	ListSessions(ctx context.Context, tenantID string, query ListSessionsQuery) ([]AssessmentSession, int, error)
 	UpdateSession(ctx context.Context, s *AssessmentSession) error
 	DeleteSession(ctx context.Context, id, tenantID string) error
 
 	// Session Detail (with results)
 	GetSessionDetail(ctx context.Context, id, tenantID string) (*SessionDetail, error)
+
+	// Session Status Transitions
+	SubmitForReview(ctx context.Context, sessionID, tenantID string, submittedAt string) error
+	ApproveSession(ctx context.Context, sessionID, tenantID, reviewerUserID, reviewedAt string) error
+	RejectSession(ctx context.Context, sessionID, tenantID, reviewerUserID, reviewedAt, rejectionReason string) error
+	PublishSession(ctx context.Context, sessionID, tenantID, publisherUserID, publishedAt string) error
+	PublishSessions(ctx context.Context, sessionIDs []string, tenantID, publisherUserID, publishedAt string) (int, error)
 
 	// Results
 	BatchUpsertResults(ctx context.Context, sessionID, tenantID string, results []LearnerRubricResult) (int, error)
@@ -266,4 +414,10 @@ type Repository interface {
 
 	// Weight Configs (read-only)
 	ListWeightConfigs(ctx context.Context, query ListWeightConfigsQuery) ([]AssessmentWeightConfig, error)
+
+	// Admin Queues
+	ListSessionsForAdminQueue(ctx context.Context, tenantID string, query AdminQueuesQuery) ([]SessionAdminView, int, error)
+
+	// Parent-Facing
+	ListPublishedResultsForStudent(ctx context.Context, tenantID string, query ParentSessionsQuery) ([]ParentSessionResultView, int, error)
 }

@@ -157,6 +157,17 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 DO $$ BEGIN
+    CREATE TYPE cbc_session_status AS ENUM (
+        'DRAFT',
+        'PENDING_REVIEW',
+        'APPROVED',
+        'PUBLISHED',
+        'REJECTED'
+    );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
     CREATE TYPE portfolio_evidence_type AS ENUM (
         'Physical_File_Reference',
         'Digital_Artifact_URL',
@@ -478,7 +489,7 @@ CREATE TABLE IF NOT EXISTS cbc_streams (
     updated_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
 
     CONSTRAINT fk_cbc_streams_school
-        FOREIGN KEY (school_id) REFERENCES cbc_schools(id) ON DELETE CASCADE,
+        FOREIGN KEY (tenant_id, school_id) REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
 
     CONSTRAINT uq_cbc_streams_tenant_school_name
         UNIQUE (tenant_id, school_id, name)
@@ -500,9 +511,9 @@ COMMENT ON TABLE cbc_streams IS
      be deleted via the API.';
 
 COMMENT ON CONSTRAINT fk_cbc_streams_school ON cbc_streams IS
-    'school_id alone carries the tenancy relationship via cbc_schools. tenant_id
-     is stored denormalised for fast multi-tenant filtering without joins.
-     ON DELETE CASCADE — streams are removed when their school is deleted.';
+    'Composite FK (tenant_id, school_id) enforces tenant-scoped referential
+     integrity. ON DELETE CASCADE — streams are removed when their school is
+     deleted.';
 
 -- ---------------------------------------------------------------------------
 -- CBC CLASSES
@@ -1345,8 +1356,8 @@ CREATE TABLE IF NOT EXISTS timetable_structures (
         FOREIGN KEY (tenant_id, school_id)
         REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_timetable_structure_academic_year
-        FOREIGN KEY (academic_year_id)
-        REFERENCES academic_years(id) ON DELETE CASCADE
+        FOREIGN KEY (tenant_id, academic_year_id)
+        REFERENCES academic_years(tenant_id, id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_timetable_structure_tenant
@@ -1423,8 +1434,8 @@ CREATE TABLE IF NOT EXISTS cbc_timetable_slots (
         FOREIGN KEY (tenant_id, teacher_id)
         REFERENCES users(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_cbc_timetable_slots_academic_year
-        FOREIGN KEY (academic_year_id)
-        REFERENCES academic_years(id) ON DELETE CASCADE
+        FOREIGN KEY (tenant_id, academic_year_id)
+        REFERENCES academic_years(tenant_id, id) ON DELETE CASCADE
 );
 
 COMMENT ON TABLE cbc_timetable_slots IS
@@ -1693,28 +1704,141 @@ $$;
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS assessment_sessions (
-    id                    UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id             UUID        NOT NULL,
-    blueprint_id          UUID        NOT NULL REFERENCES assessment_blueprints(id) ON DELETE CASCADE,
-    class_id              UUID        NOT NULL,
-    assessed_by_user_id   UUID        NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
-    date_administered     DATE        NOT NULL,   -- NO DEFAULT. Must be entered explicitly.
-    knec_upload_reference VARCHAR(50) NULL,
-    created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    id                    UUID                 PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id             UUID                 NOT NULL,
+    blueprint_id          UUID                 NOT NULL REFERENCES assessment_blueprints(id) ON DELETE CASCADE,
+    class_id              UUID                 NOT NULL,
+    assessed_by_user_id   UUID                 NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    date_administered     DATE                 NOT NULL,   -- NO DEFAULT. Must be entered explicitly.
+    knec_upload_reference VARCHAR(50)          NULL,
+    status                cbc_session_status   NOT NULL DEFAULT 'DRAFT',
+    submitted_at          TIMESTAMPTZ          NULL,
+    reviewed_by_user_id   UUID                 NULL,
+    reviewed_at           TIMESTAMPTZ          NULL,
+    rejection_reason      TEXT                 NULL,
+    published_by_user_id  UUID                 NULL,
+    published_at          TIMESTAMPTZ          NULL,
+    created_at            TIMESTAMPTZ          NOT NULL DEFAULT NOW(),
 
     CONSTRAINT fk_asessions_tenant_user
         FOREIGN KEY (tenant_id, assessed_by_user_id)
         REFERENCES users(tenant_id, id),
     CONSTRAINT fk_asessions_tenant_class
         FOREIGN KEY (tenant_id, class_id)
-        REFERENCES cbc_classes(tenant_id, id) ON DELETE CASCADE
+        REFERENCES cbc_classes(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_asessions_reviewed_by
+        FOREIGN KEY (tenant_id, reviewed_by_user_id)
+        REFERENCES users(tenant_id, id),
+    CONSTRAINT fk_asessions_published_by
+        FOREIGN KEY (tenant_id, published_by_user_id)
+        REFERENCES users(tenant_id, id),
+    CONSTRAINT chk_asessions_rejection_reason_required
+        CHECK (
+            status != 'REJECTED' OR rejection_reason IS NOT NULL
+        ),
+    CONSTRAINT chk_asessions_approved_has_reviewer
+        CHECK (
+            status NOT IN ('APPROVED', 'REJECTED') OR reviewed_by_user_id IS NOT NULL
+        ),
+    CONSTRAINT chk_asessions_published_has_publisher
+        CHECK (
+            status != 'PUBLISHED' OR published_by_user_id IS NOT NULL
+        )
 );
 
-CREATE INDEX IF NOT EXISTS idx_asessions_tenant     ON assessment_sessions (tenant_id);
-CREATE INDEX IF NOT EXISTS idx_asessions_blueprint  ON assessment_sessions (blueprint_id);
-CREATE INDEX IF NOT EXISTS idx_asessions_class      ON assessment_sessions (class_id);
-CREATE INDEX IF NOT EXISTS idx_asessions_teacher    ON assessment_sessions (assessed_by_user_id);
-CREATE INDEX IF NOT EXISTS idx_asessions_class_date ON assessment_sessions (class_id, date_administered);
+CREATE INDEX IF NOT EXISTS idx_asessions_tenant         ON assessment_sessions (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_asessions_blueprint      ON assessment_sessions (blueprint_id);
+CREATE INDEX IF NOT EXISTS idx_asessions_class          ON assessment_sessions (class_id);
+CREATE INDEX IF NOT EXISTS idx_asessions_teacher        ON assessment_sessions (assessed_by_user_id);
+CREATE INDEX IF NOT EXISTS idx_asessions_class_date     ON assessment_sessions (class_id, date_administered);
+
+-- ============================================================================
+-- ASSESSMENT SESSIONS — Migration for existing tables
+-- These ALTER TABLE / ADD COLUMN statements are idempotent for fresh installs
+-- and add the status-tracking columns to existing tables that were created
+-- before this migration was added.
+-- IMPORTANT: This block MUST come before any index/constraint that references
+-- the new columns, or the migration will fail on existing databases.
+-- ============================================================================
+
+ALTER TABLE assessment_sessions
+    ADD COLUMN IF NOT EXISTS status                cbc_session_status   NOT NULL DEFAULT 'DRAFT',
+    ADD COLUMN IF NOT EXISTS submitted_at          TIMESTAMPTZ          NULL,
+    ADD COLUMN IF NOT EXISTS reviewed_by_user_id   UUID                 NULL,
+    ADD COLUMN IF NOT EXISTS reviewed_at           TIMESTAMPTZ          NULL,
+    ADD COLUMN IF NOT EXISTS rejection_reason      TEXT                 NULL,
+    ADD COLUMN IF NOT EXISTS published_by_user_id  UUID                 NULL,
+    ADD COLUMN IF NOT EXISTS published_at          TIMESTAMPTZ          NULL;
+
+-- Add foreign keys (IF NOT EXISTS not supported for FKs, so we use DO blocks)
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'fk_asessions_reviewed_by'
+    ) THEN
+        ALTER TABLE assessment_sessions
+            ADD CONSTRAINT fk_asessions_reviewed_by
+            FOREIGN KEY (tenant_id, reviewed_by_user_id)
+            REFERENCES users(tenant_id, id);
+    END IF;
+END
+$$;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'fk_asessions_published_by'
+    ) THEN
+        ALTER TABLE assessment_sessions
+            ADD CONSTRAINT fk_asessions_published_by
+            FOREIGN KEY (tenant_id, published_by_user_id)
+            REFERENCES users(tenant_id, id);
+    END IF;
+END
+$$;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'chk_asessions_rejection_reason_required'
+    ) THEN
+        ALTER TABLE assessment_sessions
+            ADD CONSTRAINT chk_asessions_rejection_reason_required
+            CHECK (status != 'REJECTED' OR rejection_reason IS NOT NULL);
+    END IF;
+END
+$$;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'chk_asessions_approved_has_reviewer'
+    ) THEN
+        ALTER TABLE assessment_sessions
+            ADD CONSTRAINT chk_asessions_approved_has_reviewer
+            CHECK (status NOT IN ('APPROVED', 'REJECTED') OR reviewed_by_user_id IS NOT NULL);
+    END IF;
+END
+$$;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'chk_asessions_published_has_publisher'
+    ) THEN
+        ALTER TABLE assessment_sessions
+            ADD CONSTRAINT chk_asessions_published_has_publisher
+            CHECK (status != 'PUBLISHED' OR published_by_user_id IS NOT NULL);
+    END IF;
+END
+$$;
+
+-- Indexes on the new columns — must come AFTER ALTER TABLE ADD COLUMN
+CREATE INDEX IF NOT EXISTS idx_asessions_status         ON assessment_sessions (status);
+CREATE INDEX IF NOT EXISTS idx_asessions_class_status   ON assessment_sessions (class_id, status);
+CREATE INDEX IF NOT EXISTS idx_asessions_reviewer       ON assessment_sessions (reviewed_by_user_id);
+CREATE INDEX IF NOT EXISTS idx_asessions_publisher      ON assessment_sessions (published_by_user_id);
+CREATE INDEX IF NOT EXISTS idx_asessions_status_published ON assessment_sessions (status) WHERE status = 'PUBLISHED'::cbc_session_status;
 
 COMMENT ON COLUMN assessment_sessions.date_administered IS
     'The calendar date on which this assessment was administered. DATE type
@@ -2195,7 +2319,7 @@ CREATE TABLE IF NOT EXISTS attendance_records (
         REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_attendance_marked_by
         FOREIGN KEY (tenant_id, marked_by)
-        REFERENCES users(tenant_id, id) ON DELETE SET NULL
+        REFERENCES users(tenant_id, id) ON DELETE RESTRICT
 );
 
 CREATE INDEX IF NOT EXISTS idx_attendance_slot_date
@@ -2280,7 +2404,7 @@ CREATE TABLE IF NOT EXISTS behavior_notes (
         REFERENCES behavior_categories(id) ON DELETE RESTRICT,
     CONSTRAINT fk_behavior_notes_authored_by
         FOREIGN KEY (tenant_id, authored_by_id)
-        REFERENCES users(tenant_id, id) ON DELETE SET NULL,
+        REFERENCES users(tenant_id, id) ON DELETE RESTRICT,
     CONSTRAINT fk_behavior_notes_reviewed_by
         FOREIGN KEY (tenant_id, reviewed_by_id)
         REFERENCES users(tenant_id, id) ON DELETE SET NULL
@@ -2390,7 +2514,7 @@ CREATE TABLE IF NOT EXISTS term_reports (
         REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_term_reports_generated_by
         FOREIGN KEY (tenant_id, generated_by)
-        REFERENCES users(tenant_id, id) ON DELETE SET NULL,
+        REFERENCES users(tenant_id, id) ON DELETE RESTRICT,
     CONSTRAINT uq_term_report_student_term
         UNIQUE (student_id, academic_term_id)
 );
@@ -2577,6 +2701,24 @@ BEGIN
                 'FOR ALL '
                 'USING (tenant_id = fn_current_tenant_id()) '
                 'WITH CHECK (tenant_id = fn_current_tenant_id())',
+                tbl
+            );
+        END IF;
+
+        -- Additional RLS policy for assessment_sessions: parent-scoped role
+        -- can only SELECT rows with status = PUBLISHED, enforced at the DB level.
+        -- The application sets app.current_user_role via SET LOCAL before queries.
+        IF tbl = 'assessment_sessions' THEN
+            EXECUTE format(
+                'CREATE POLICY parent_visibility_policy ON %I '
+                'FOR SELECT '
+                'USING (
+                    tenant_id = fn_current_tenant_id()
+                    AND (
+                        current_setting(''app.current_user_role'', TRUE) != ''PARENT''
+                        OR status = ''PUBLISHED''::cbc_session_status
+                    )
+                )',
                 tbl
             );
         END IF;

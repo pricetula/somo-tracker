@@ -10,6 +10,14 @@ import (
 	"somotracker/backend/internal/middleware"
 )
 
+// userRole is used for role checks in handlers.
+// Defined locally to avoid import cycle.
+const (
+	roleSchoolAdmin = "SCHOOL_ADMIN"
+	roleTeacher     = "TEACHER"
+	roleParent      = "PARENT"
+)
+
 // ============================================================================
 // Handler
 // ============================================================================
@@ -45,6 +53,21 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	sessions.Get("/:id", middleware.RequireAuth, h.GetSessionDetail)
 	sessions.Put("/:id", middleware.RequireAuth, h.UpdateSession)
 	sessions.Delete("/:id", middleware.RequireAuth, h.DeleteSession)
+
+	// Session Status Transitions
+	sessions.Post("/:id/submit", middleware.RequireAuth, h.SubmitForReview)
+	sessions.Post("/:id/approve", middleware.RequireRole(roleSchoolAdmin), h.ApproveSession)
+	sessions.Post("/:id/reject", middleware.RequireRole(roleSchoolAdmin), h.RejectSession)
+	sessions.Post("/:id/publish", middleware.RequireRole(roleSchoolAdmin), h.PublishSession)
+	sessions.Post("/batch-publish", middleware.RequireRole(roleSchoolAdmin), h.BatchPublishSessions)
+
+	// Admin Queues
+	admin := router.Group("/api/v1/assessment/admin")
+	admin.Get("/sessions", middleware.RequireRole(roleSchoolAdmin), h.ListAdminQueue)
+
+	// Parent-Facing
+	parent := router.Group("/api/v1/parent")
+	parent.Get("/students/:student_id/results", middleware.RequireRole(roleParent), h.ListPublishedResultsForStudent)
 
 	// Results (nested under sessions)
 	sessions.Post("/:id/results/batch", middleware.RequireAuth, h.BatchUpsertResults)
@@ -228,20 +251,29 @@ func (h *Handler) CreateSession(c *fiber.Ctx) error {
 }
 
 // ListSessions handles GET /api/v1/assessment/sessions.
+// Now supports status filter and pagination.
 func (h *Handler) ListSessions(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
 
 	query := ListSessionsQuery{
 		ClassID:     c.Query("class_id"),
 		BlueprintID: c.Query("blueprint_id"),
+		Status:      c.Query("status"),
+		Page:        parsePageParam(c.Query("page")),
+		PageSize:    parsePageSizeParam(c.Query("page_size")),
 	}
 
-	sessions, err := h.svc.ListSessions(c.Context(), tenantID, query)
+	sessions, totalCount, err := h.svc.ListSessions(c.Context(), tenantID, query)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
 
-	return c.JSON(ListSessionsResponse{Items: sessions})
+	return c.JSON(ListSessionsResponse{
+		Items:      sessions,
+		TotalCount: totalCount,
+		Page:       query.Page,
+		PageSize:   query.PageSize,
+	})
 }
 
 // GetSessionDetail handles GET /api/v1/assessment/sessions/:id.
@@ -290,6 +322,251 @@ func (h *Handler) DeleteSession(c *fiber.Ctx) error {
 	}
 
 	return c.SendStatus(fiber.StatusNoContent)
+}
+
+// ============================================================================
+// SESSION STATUS TRANSITIONS
+// ============================================================================
+
+// SubmitForReview handles POST /api/v1/assessment/sessions/:id/submit.
+func (h *Handler) SubmitForReview(c *fiber.Ctx) error {
+	tenantID := c.Locals("tenant_id").(string)
+	userID := c.Locals("user_id").(string)
+	sessionID := c.Params("id")
+
+	session, err := h.svc.SubmitForReview(c.Context(), sessionID, tenantID, userID)
+	if err != nil {
+		if errors.Is(err, ErrNoResultsToSubmit) {
+			return writeError(c, fiber.StatusBadRequest, "no_results",
+				"Cannot submit a session with no results. Add at least one result first.", nil)
+		}
+		if errors.Is(err, ErrInvalidStatusTransition) {
+			return writeError(c, fiber.StatusBadRequest, "invalid_status",
+				"Session is not in a submittable state (must be DRAFT or REJECTED).", nil)
+		}
+		if errors.Is(err, ErrNotSessionOwner) {
+			return writeError(c, fiber.StatusForbidden, "not_owner",
+				"Only the session owner can submit for review.", nil)
+		}
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(StatusTransitionResponse{
+		ID:     session.ID,
+		Status: session.Status,
+	})
+}
+
+// ApproveSession handles POST /api/v1/assessment/sessions/:id/approve.
+func (h *Handler) ApproveSession(c *fiber.Ctx) error {
+	tenantID := c.Locals("tenant_id").(string)
+	adminUserID := c.Locals("user_id").(string)
+	sessionID := c.Params("id")
+
+	session, err := h.svc.ApproveSession(c.Context(), sessionID, tenantID, adminUserID)
+	if err != nil {
+		if errors.Is(err, ErrInvalidStatusTransition) {
+			return writeError(c, fiber.StatusBadRequest, "invalid_status",
+				"Session must be in PENDING_REVIEW status to be approved.", nil)
+		}
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(StatusTransitionResponse{
+		ID:     session.ID,
+		Status: session.Status,
+	})
+}
+
+// RejectSession handles POST /api/v1/assessment/sessions/:id/reject.
+func (h *Handler) RejectSession(c *fiber.Ctx) error {
+	tenantID := c.Locals("tenant_id").(string)
+	adminUserID := c.Locals("user_id").(string)
+	sessionID := c.Params("id")
+
+	var body RejectSessionPayload
+	if err := c.BodyParser(&body); err != nil {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input", "malformed request body", nil)
+	}
+
+	if body.RejectionReason == "" {
+		return writeError(c, fiber.StatusBadRequest, "rejection_reason_required",
+			"A rejection reason is required when rejecting a session.",
+			map[string][]string{"rejection_reason": {"must not be empty"}})
+	}
+
+	session, err := h.svc.RejectSession(c.Context(), sessionID, tenantID, adminUserID, body.RejectionReason)
+	if err != nil {
+		if errors.Is(err, ErrInvalidStatusTransition) {
+			return writeError(c, fiber.StatusBadRequest, "invalid_status",
+				"Session must be in PENDING_REVIEW status to be rejected.", nil)
+		}
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(StatusTransitionResponse{
+		ID:     session.ID,
+		Status: session.Status,
+	})
+}
+
+// PublishSession handles POST /api/v1/assessment/sessions/:id/publish.
+func (h *Handler) PublishSession(c *fiber.Ctx) error {
+	tenantID := c.Locals("tenant_id").(string)
+	adminUserID := c.Locals("user_id").(string)
+	sessionID := c.Params("id")
+
+	session, err := h.svc.PublishSession(c.Context(), sessionID, tenantID, adminUserID)
+	if err != nil {
+		if errors.Is(err, ErrInvalidStatusTransition) {
+			return writeError(c, fiber.StatusBadRequest, "invalid_status",
+				"Session must be in APPROVED status to be published.", nil)
+		}
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(StatusTransitionResponse{
+		ID:     session.ID,
+		Status: session.Status,
+	})
+}
+
+// BatchPublishSessions handles POST /api/v1/assessment/sessions/batch-publish.
+func (h *Handler) BatchPublishSessions(c *fiber.Ctx) error {
+	tenantID := c.Locals("tenant_id").(string)
+	adminUserID := c.Locals("user_id").(string)
+
+	var body BatchPublishPayload
+	if err := c.BodyParser(&body); err != nil {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input", "malformed request body", nil)
+	}
+
+	if len(body.SessionIDs) == 0 {
+		return writeError(c, fiber.StatusBadRequest, "no_session_ids",
+			"At least one session_id is required for batch publish.", nil)
+	}
+
+	result, err := h.svc.PublishSessions(c.Context(), body.SessionIDs, tenantID, adminUserID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(result)
+}
+
+// ============================================================================
+// ADMIN QUEUES
+// ============================================================================
+
+// ListAdminQueue handles GET /api/v1/assessment/admin/sessions.
+// Supports filtering by status (PENDING_REVIEW or APPROVED), class_id,
+// grade_level, term, academic_year with pagination.
+func (h *Handler) ListAdminQueue(c *fiber.Ctx) error {
+	tenantID := c.Locals("tenant_id").(string)
+
+	status := c.Query("status", "PENDING_REVIEW")
+
+	query := AdminQueuesQuery{
+		ClassID:    c.Query("class_id"),
+		GradeLevel: c.Query("grade_level"),
+		Status:     status,
+		Page:       parsePageParam(c.Query("page")),
+		PageSize:   parsePageSizeParam(c.Query("page_size")),
+	}
+
+	if termStr := c.Query("term"); termStr != "" {
+		term, err := strconv.Atoi(termStr)
+		if err == nil {
+			query.Term = term
+		}
+	}
+	if yearStr := c.Query("academic_year"); yearStr != "" {
+		year, err := strconv.Atoi(yearStr)
+		if err == nil {
+			query.AcademicYear = year
+		}
+	}
+
+	items, totalCount, err := h.svc.ListSessionsForAdminQueue(c.Context(), tenantID, query)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(AdminQueuesResponse{
+		Items:      items,
+		TotalCount: totalCount,
+		Page:       query.Page,
+		PageSize:   query.PageSize,
+	})
+}
+
+// ============================================================================
+// PARENT-FACING RESULTS
+// ============================================================================
+
+// ListPublishedResultsForStudent handles GET /api/v1/parent/students/:student_id/results.
+// Returns only results from PUBLISHED sessions. Hard-filters status = PUBLISHED server-side.
+func (h *Handler) ListPublishedResultsForStudent(c *fiber.Ctx) error {
+	tenantID := c.Locals("tenant_id").(string)
+	studentID := c.Params("student_id")
+
+	query := ParentSessionsQuery{
+		Page:     parsePageParam(c.Query("page")),
+		PageSize: parsePageSizeParam(c.Query("page_size")),
+	}
+
+	if termStr := c.Query("term"); termStr != "" {
+		term, err := strconv.Atoi(termStr)
+		if err == nil {
+			query.Term = term
+		}
+	}
+	if yearStr := c.Query("academic_year"); yearStr != "" {
+		year, err := strconv.Atoi(yearStr)
+		if err == nil {
+			query.AcademicYear = year
+		}
+	}
+
+	items, totalCount, err := h.svc.ListPublishedResultsForStudent(c.Context(), tenantID, studentID, query)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(ParentPublishedResultsResponse{
+		Items:      items,
+		TotalCount: totalCount,
+		Page:       query.Page,
+		PageSize:   query.PageSize,
+	})
+}
+
+// ============================================================================
+// PARSING HELPERS
+// ============================================================================
+
+// parsePageParam parses the page query parameter, defaulting to 1.
+func parsePageParam(s string) int {
+	if s == "" {
+		return 1
+	}
+	page, err := strconv.Atoi(s)
+	if err != nil || page < 1 {
+		return 1
+	}
+	return page
+}
+
+// parsePageSizeParam parses the page_size query parameter, defaulting to 50.
+func parsePageSizeParam(s string) int {
+	if s == "" {
+		return 50
+	}
+	size, err := strconv.Atoi(s)
+	if err != nil || size < 1 || size > 100 {
+		return 50
+	}
+	return size
 }
 
 // ============================================================================

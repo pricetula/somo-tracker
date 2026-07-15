@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"time"
 )
 
 // gradeLevelToEducationLevel maps cbc_grade_level values to their
@@ -334,10 +335,10 @@ func (s *Service) CreateSession(ctx context.Context, tenantID, userID string, pa
 	return session, nil
 }
 
-// ListSessions returns sessions matching the given filters.
-func (s *Service) ListSessions(ctx context.Context, tenantID string, query ListSessionsQuery) ([]AssessmentSession, error) {
+// ListSessions returns sessions matching the given filters with pagination.
+func (s *Service) ListSessions(ctx context.Context, tenantID string, query ListSessionsQuery) ([]AssessmentSession, int, error) {
 	if tenantID == "" {
-		return nil, fmt.Errorf("assessment.Service.ListSessions: %w", ErrInvalidInput)
+		return nil, 0, fmt.Errorf("assessment.Service.ListSessions: %w", ErrInvalidInput)
 	}
 	return s.Repo.ListSessions(ctx, tenantID, query)
 }
@@ -402,6 +403,7 @@ func (s *Service) DeleteSession(ctx context.Context, id, tenantID string) error 
 // ============================================================================
 
 // BatchUpsertResults validates and upserts a batch of rubric results.
+// Only permitted when the session is DRAFT or REJECTED.
 func (s *Service) BatchUpsertResults(ctx context.Context, sessionID, tenantID string, payload BatchUpsertResultsPayload) (int, error) {
 	if sessionID == "" || tenantID == "" {
 		return 0, fmt.Errorf("assessment.Service.BatchUpsertResults: %w", ErrInvalidInput)
@@ -410,10 +412,16 @@ func (s *Service) BatchUpsertResults(ctx context.Context, sessionID, tenantID st
 		return 0, fmt.Errorf("assessment.Service.BatchUpsertResults: %w", ErrInvalidInput)
 	}
 
-	// Verify session exists
+	// Verify session exists and is editable
 	session, err := s.Repo.GetSessionByID(ctx, sessionID, tenantID)
 	if err != nil {
 		return 0, fmt.Errorf("assessment.Service.BatchUpsertResults: %w", err)
+	}
+
+	// Only allow upserts on DRAFT or REJECTED sessions
+	if session.Status != "DRAFT" && session.Status != "REJECTED" {
+		return 0, fmt.Errorf("assessment.Service.BatchUpsertResults: session %s is in status %s: %w",
+			sessionID, session.Status, ErrSessionLocked)
 	}
 
 	// Get the blueprint's linked indicators for validation
@@ -510,8 +518,254 @@ func (s *Service) ListResults(ctx context.Context, sessionID, tenantID string) (
 }
 
 // ============================================================================
+// SESSION STATUS TRANSITIONS
+// ============================================================================
+
+// SubmitForReview transitions a session from DRAFT/REJECTED to PENDING_REVIEW.
+// Requires at least one result to exist on the session.
+// Only the teacher who owns the session (or an admin) may do it.
+func (s *Service) SubmitForReview(ctx context.Context, sessionID, tenantID, userID string) (*AssessmentSession, error) {
+	if sessionID == "" || tenantID == "" || userID == "" {
+		return nil, fmt.Errorf("assessment.Service.SubmitForReview: %w", ErrInvalidInput)
+	}
+
+	session, err := s.Repo.GetSessionByID(ctx, sessionID, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("assessment.Service.SubmitForReview: %w", err)
+	}
+
+	// Validate current status allows transition
+	if !AllowedTransitions[session.Status]["PENDING_REVIEW"] {
+		return nil, fmt.Errorf("assessment.Service.SubmitForReview: session %s in status %s cannot transition to PENDING_REVIEW: %w",
+			sessionID, session.Status, ErrInvalidStatusTransition)
+	}
+
+	// Only the session owner or an admin may submit
+	if session.AssessedByUserID != userID {
+		return nil, fmt.Errorf("assessment.Service.SubmitForReview: user %s is not the owner of session %s: %w",
+			userID, sessionID, ErrNotSessionOwner)
+	}
+
+	// Must have at least one result
+	results, err := s.Repo.ListResults(ctx, sessionID, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("assessment.Service.SubmitForReview: %w", err)
+	}
+	if len(results) == 0 {
+		return nil, fmt.Errorf("assessment.Service.SubmitForReview: session %s has no results: %w",
+			sessionID, ErrNoResultsToSubmit)
+	}
+
+	now := nowFunc()
+	if err := s.Repo.SubmitForReview(ctx, sessionID, tenantID, now); err != nil {
+		return nil, fmt.Errorf("assessment.Service.SubmitForReview: %w", err)
+	}
+
+	session.Status = "PENDING_REVIEW"
+	session.SubmittedAt = &now
+
+	slog.Info("assessment_session.submitted_for_review",
+		"tenant_id", tenantID,
+		"user_id", userID,
+		"session_id", sessionID,
+	)
+
+	return session, nil
+}
+
+// ApproveSession transitions a session from PENDING_REVIEW to APPROVED.
+// Admin-only action.
+func (s *Service) ApproveSession(ctx context.Context, sessionID, tenantID, adminUserID string) (*AssessmentSession, error) {
+	if sessionID == "" || tenantID == "" || adminUserID == "" {
+		return nil, fmt.Errorf("assessment.Service.ApproveSession: %w", ErrInvalidInput)
+	}
+
+	session, err := s.Repo.GetSessionByID(ctx, sessionID, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("assessment.Service.ApproveSession: %w", err)
+	}
+
+	// Validate transition
+	if !AllowedTransitions[session.Status]["APPROVED"] {
+		return nil, fmt.Errorf("assessment.Service.ApproveSession: session %s in status %s cannot be approved: %w",
+			sessionID, session.Status, ErrInvalidStatusTransition)
+	}
+
+	now := nowFunc()
+	if err := s.Repo.ApproveSession(ctx, sessionID, tenantID, adminUserID, now); err != nil {
+		return nil, fmt.Errorf("assessment.Service.ApproveSession: %w", err)
+	}
+
+	session.Status = "APPROVED"
+	session.ReviewedByUserID = &adminUserID
+	session.ReviewedAt = &now
+	session.RejectionReason = nil
+
+	slog.Info("assessment_session.approved",
+		"tenant_id", tenantID,
+		"admin_user_id", adminUserID,
+		"session_id", sessionID,
+	)
+
+	return session, nil
+}
+
+// RejectSession transitions a session from PENDING_REVIEW to REJECTED with a required reason.
+// Admin-only action.
+func (s *Service) RejectSession(ctx context.Context, sessionID, tenantID, adminUserID, rejectionReason string) (*AssessmentSession, error) {
+	if sessionID == "" || tenantID == "" || adminUserID == "" {
+		return nil, fmt.Errorf("assessment.Service.RejectSession: %w", ErrInvalidInput)
+	}
+	if rejectionReason == "" {
+		return nil, fmt.Errorf("assessment.Service.RejectSession: %w", ErrRejectionReasonRequired)
+	}
+
+	session, err := s.Repo.GetSessionByID(ctx, sessionID, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("assessment.Service.RejectSession: %w", err)
+	}
+
+	// Validate transition
+	if !AllowedTransitions[session.Status]["REJECTED"] {
+		return nil, fmt.Errorf("assessment.Service.RejectSession: session %s in status %s cannot be rejected: %w",
+			sessionID, session.Status, ErrInvalidStatusTransition)
+	}
+
+	now := nowFunc()
+	if err := s.Repo.RejectSession(ctx, sessionID, tenantID, adminUserID, now, rejectionReason); err != nil {
+		return nil, fmt.Errorf("assessment.Service.RejectSession: %w", err)
+	}
+
+	session.Status = "REJECTED"
+	session.ReviewedByUserID = &adminUserID
+	session.ReviewedAt = &now
+	session.RejectionReason = &rejectionReason
+
+	slog.Info("assessment_session.rejected",
+		"tenant_id", tenantID,
+		"admin_user_id", adminUserID,
+		"session_id", sessionID,
+		"rejection_reason", rejectionReason,
+	)
+
+	return session, nil
+}
+
+// PublishSession transitions a single session from APPROVED to PUBLISHED.
+// Admin-only action.
+func (s *Service) PublishSession(ctx context.Context, sessionID, tenantID, adminUserID string) (*AssessmentSession, error) {
+	if sessionID == "" || tenantID == "" || adminUserID == "" {
+		return nil, fmt.Errorf("assessment.Service.PublishSession: %w", ErrInvalidInput)
+	}
+
+	session, err := s.Repo.GetSessionByID(ctx, sessionID, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("assessment.Service.PublishSession: %w", err)
+	}
+
+	// Validate transition — only APPROVED can be published
+	if !AllowedTransitions[session.Status]["PUBLISHED"] {
+		return nil, fmt.Errorf("assessment.Service.PublishSession: session %s in status %s cannot be published: %w",
+			sessionID, session.Status, ErrInvalidStatusTransition)
+	}
+
+	now := nowFunc()
+	if err := s.Repo.PublishSession(ctx, sessionID, tenantID, adminUserID, now); err != nil {
+		return nil, fmt.Errorf("assessment.Service.PublishSession: %w", err)
+	}
+
+	session.Status = "PUBLISHED"
+	session.PublishedByUserID = &adminUserID
+	session.PublishedAt = &now
+
+	slog.Info("assessment_session.published",
+		"tenant_id", tenantID,
+		"admin_user_id", adminUserID,
+		"session_id", sessionID,
+	)
+
+	return session, nil
+}
+
+// PublishSessions batch-publishes multiple sessions from APPROVED to PUBLISHED.
+// Admin-only action. Skips sessions that are not in APPROVED state (does not fail).
+func (s *Service) PublishSessions(ctx context.Context, sessionIDs []string, tenantID, adminUserID string) (*BatchPublishResponse, error) {
+	if len(sessionIDs) == 0 || tenantID == "" || adminUserID == "" {
+		return nil, fmt.Errorf("assessment.Service.PublishSessions: %w", ErrInvalidInput)
+	}
+
+	now := nowFunc()
+	publishedCount, err := s.Repo.PublishSessions(ctx, sessionIDs, tenantID, adminUserID, now)
+	if err != nil {
+		return nil, fmt.Errorf("assessment.Service.PublishSessions: %w", err)
+	}
+
+	// Identify failed IDs (those that were not in APPROVED state)
+	var failedIDs []string
+	if publishedCount < len(sessionIDs) {
+		for _, sid := range sessionIDs {
+			session, err := s.Repo.GetSessionByID(ctx, sid, tenantID)
+			if err != nil || session.Status != "PUBLISHED" {
+				failedIDs = append(failedIDs, sid)
+			}
+		}
+		if failedIDs == nil {
+			failedIDs = []string{}
+		}
+	}
+
+	slog.Info("assessment_sessions.batch_published",
+		"tenant_id", tenantID,
+		"admin_user_id", adminUserID,
+		"requested_count", len(sessionIDs),
+		"published_count", publishedCount,
+	)
+
+	return &BatchPublishResponse{
+		PublishedCount: publishedCount,
+		FailedIDs:      failedIDs,
+	}, nil
+}
+
+// ============================================================================
+// ADMIN QUEUE & PARENT-FACING QUERIES
+// ============================================================================
+
+// ListSessionsForAdminQueue returns sessions for the admin's needs-review or
+// ready-to-publish queue with pagination and filtering.
+func (s *Service) ListSessionsForAdminQueue(ctx context.Context, tenantID string, query AdminQueuesQuery) ([]SessionAdminView, int, error) {
+	if tenantID == "" {
+		return nil, 0, fmt.Errorf("assessment.Service.ListSessionsForAdminQueue: %w", ErrInvalidInput)
+	}
+	if query.Status != "PENDING_REVIEW" && query.Status != "APPROVED" {
+		return nil, 0, fmt.Errorf("assessment.Service.ListSessionsForAdminQueue: status must be PENDING_REVIEW or APPROVED: %w", ErrInvalidInput)
+	}
+	return s.Repo.ListSessionsForAdminQueue(ctx, tenantID, query)
+}
+
+// ListPublishedResultsForStudent returns only results from PUBLISHED sessions
+// for a given student. Hard-filters status = PUBLISHED server-side regardless
+// of any client-supplied status parameter.
+func (s *Service) ListPublishedResultsForStudent(ctx context.Context, tenantID, studentID string, query ParentSessionsQuery) ([]ParentSessionResultView, int, error) {
+	if tenantID == "" || studentID == "" {
+		return nil, 0, fmt.Errorf("assessment.Service.ListPublishedResultsForStudent: %w", ErrInvalidInput)
+	}
+
+	// Force the student ID in query to match parameter (defense in depth)
+	query.StudentID = studentID
+
+	return s.Repo.ListPublishedResultsForStudent(ctx, tenantID, query)
+}
+
+// ============================================================================
 // Helpers
 // ============================================================================
+
+// nowFunc is a variable so tests can override it with a fixed time.
+// Returns an ISO 8601 timestamp string compatible with PostgreSQL timestamptz.
+var nowFunc = func() string {
+	return time.Now().UTC().Format(time.RFC3339)
+}
 
 // isValidDate checks if the given string is a valid YYYY-MM-DD date.
 func isValidDate(s string) bool {

@@ -385,17 +385,8 @@ func (r *PgRepository) CreateSession(ctx context.Context, s *AssessmentSession) 
 
 // GetSessionByID retrieves a single session by primary key.
 func (r *PgRepository) GetSessionByID(ctx context.Context, id, tenantID string) (*AssessmentSession, error) {
-	const query = `
-		SELECT id, tenant_id, blueprint_id, class_id, assessed_by_user_id,
-		       date_administered::text, knec_upload_reference, created_at::text
-		FROM assessment_sessions
-		WHERE id = $1 AND tenant_id = $2
-	`
-	var s AssessmentSession
-	err := r.pool.QueryRow(ctx, query, id, tenantID).Scan(
-		&s.ID, &s.TenantID, &s.BlueprintID, &s.ClassID, &s.AssessedByUserID,
-		&s.DateAdministered, &s.KNECUploadReference, &s.CreatedAt,
-	)
+	const query = `SELECT` + sessionColumns + `FROM assessment_sessions WHERE id = $1 AND tenant_id = $2`
+	s, err := scanSession(r.pool.QueryRow(ctx, query, id, tenantID))
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, fmt.Errorf("assessment.Repository.GetSessionByID: %w", ErrNotFound)
@@ -405,53 +396,104 @@ func (r *PgRepository) GetSessionByID(ctx context.Context, id, tenantID string) 
 	return &s, nil
 }
 
+// sessionColumns is the shared column list for scanning assessment_sessions rows.
+const sessionColumns = `
+	id, tenant_id, blueprint_id, class_id, assessed_by_user_id,
+	date_administered::text, knec_upload_reference,
+	status::text, submitted_at::text,
+	reviewed_by_user_id, reviewed_at::text,
+	rejection_reason, published_by_user_id, published_at::text,
+	created_at::text
+`
+
+// scanSession scans an AssessmentSession from a row. Helper to avoid repetition.
+func scanSession(scanner interface {
+	Scan(dest ...interface{}) error
+}) (AssessmentSession, error) {
+	var s AssessmentSession
+	err := scanner.Scan(
+		&s.ID, &s.TenantID, &s.BlueprintID, &s.ClassID, &s.AssessedByUserID,
+		&s.DateAdministered, &s.KNECUploadReference,
+		&s.Status, &s.SubmittedAt,
+		&s.ReviewedByUserID, &s.ReviewedAt,
+		&s.RejectionReason, &s.PublishedByUserID, &s.PublishedAt,
+		&s.CreatedAt,
+	)
+	return s, err
+}
+
 // ListSessions returns sessions filtered by the given query parameters.
-func (r *PgRepository) ListSessions(ctx context.Context, tenantID string, query ListSessionsQuery) ([]AssessmentSession, error) {
-	baseQuery := `
-		SELECT id, tenant_id, blueprint_id, class_id, assessed_by_user_id,
-		       date_administered::text, knec_upload_reference, created_at::text
-		FROM assessment_sessions
-		WHERE tenant_id = $1
-	`
+func (r *PgRepository) ListSessions(ctx context.Context, tenantID string, query ListSessionsQuery) ([]AssessmentSession, int, error) {
+	countQuery := `SELECT COUNT(*) FROM assessment_sessions WHERE tenant_id = $1`
+	dataQuery := fmt.Sprintf(`SELECT%sFROM assessment_sessions WHERE tenant_id = $1`, sessionColumns)
+
 	args := []interface{}{tenantID}
 	argIdx := 2
 
 	if query.ClassID != "" {
-		baseQuery += fmt.Sprintf(" AND class_id = $%d", argIdx)
+		cond := fmt.Sprintf(" AND class_id = $%d", argIdx)
+		countQuery += cond
+		dataQuery += cond
 		args = append(args, query.ClassID)
 		argIdx++
 	}
 	if query.BlueprintID != "" {
-		baseQuery += fmt.Sprintf(" AND blueprint_id = $%d", argIdx)
+		cond := fmt.Sprintf(" AND blueprint_id = $%d", argIdx)
+		countQuery += cond
+		dataQuery += cond
 		args = append(args, query.BlueprintID)
+		argIdx++
+	}
+	if query.Status != "" {
+		cond := fmt.Sprintf(" AND status = $%d::cbc_session_status", argIdx)
+		countQuery += cond
+		dataQuery += cond
+		args = append(args, query.Status)
+		argIdx++
 	}
 
-	baseQuery += " ORDER BY date_administered DESC, created_at DESC"
-
-	rows, err := r.pool.Query(ctx, baseQuery, args...)
+	// Get total count
+	var totalCount int
+	err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&totalCount)
 	if err != nil {
-		return nil, fmt.Errorf("assessment.Repository.ListSessions: %w", err)
+		return nil, 0, fmt.Errorf("assessment.Repository.ListSessions: count: %w", err)
+	}
+
+	// Default pagination
+	page := query.Page
+	if page < 1 {
+		page = 1
+	}
+	pageSize := query.PageSize
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 50
+	}
+	offset := (page - 1) * pageSize
+
+	dataQuery += fmt.Sprintf(" ORDER BY date_administered DESC, created_at DESC LIMIT $%d OFFSET $%d", argIdx, argIdx+1)
+	args = append(args, pageSize, offset)
+
+	rows, err := r.pool.Query(ctx, dataQuery, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("assessment.Repository.ListSessions: %w", err)
 	}
 	defer rows.Close()
 
 	var sessions []AssessmentSession
 	for rows.Next() {
-		var s AssessmentSession
-		if err := rows.Scan(
-			&s.ID, &s.TenantID, &s.BlueprintID, &s.ClassID, &s.AssessedByUserID,
-			&s.DateAdministered, &s.KNECUploadReference, &s.CreatedAt,
-		); err != nil {
-			return nil, fmt.Errorf("assessment.Repository.ListSessions: scan: %w", err)
+		s, err := scanSession(rows)
+		if err != nil {
+			return nil, 0, fmt.Errorf("assessment.Repository.ListSessions: scan: %w", err)
 		}
 		sessions = append(sessions, s)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("assessment.Repository.ListSessions: rows: %w", err)
+		return nil, 0, fmt.Errorf("assessment.Repository.ListSessions: rows: %w", err)
 	}
 	if sessions == nil {
 		sessions = []AssessmentSession{}
 	}
-	return sessions, nil
+	return sessions, totalCount, nil
 }
 
 // UpdateSession applies changes to a session (date_administered, knec_upload_reference).
@@ -472,6 +514,130 @@ func (r *PgRepository) UpdateSession(ctx context.Context, s *AssessmentSession) 
 		return fmt.Errorf("assessment.Repository.UpdateSession: %w", ErrNotFound)
 	}
 	return nil
+}
+
+// ============================================================================
+// SESSION STATUS TRANSITIONS
+// ============================================================================
+
+// SubmitForReview transitions a session from DRAFT/REJECTED to PENDING_REVIEW.
+func (r *PgRepository) SubmitForReview(ctx context.Context, sessionID, tenantID string, submittedAt string) error {
+	const query = `
+		UPDATE assessment_sessions
+		SET status = 'PENDING_REVIEW'::cbc_session_status,
+		    submitted_at = $3::timestamptz
+		WHERE id = $1 AND tenant_id = $2
+		  AND status IN ('DRAFT'::cbc_session_status, 'REJECTED'::cbc_session_status)
+	`
+	tag, err := r.pool.Exec(ctx, query, sessionID, tenantID, submittedAt)
+	if err != nil {
+		return fmt.Errorf("assessment.Repository.SubmitForReview: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		// Could be not found or invalid status — caller checks session first
+		return fmt.Errorf("assessment.Repository.SubmitForReview: %w", ErrNotFound)
+	}
+	return nil
+}
+
+// ApproveSession transitions a session from PENDING_REVIEW to APPROVED.
+func (r *PgRepository) ApproveSession(ctx context.Context, sessionID, tenantID, reviewerUserID, reviewedAt string) error {
+	const query = `
+		UPDATE assessment_sessions
+		SET status = 'APPROVED'::cbc_session_status,
+		    reviewed_by_user_id = $3::uuid,
+		    reviewed_at = $4::timestamptz,
+		    rejection_reason = NULL
+		WHERE id = $1 AND tenant_id = $2
+		  AND status = 'PENDING_REVIEW'::cbc_session_status
+	`
+	tag, err := r.pool.Exec(ctx, query, sessionID, tenantID, reviewerUserID, reviewedAt)
+	if err != nil {
+		return fmt.Errorf("assessment.Repository.ApproveSession: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("assessment.Repository.ApproveSession: %w", ErrNotFound)
+	}
+	return nil
+}
+
+// RejectSession transitions a session from PENDING_REVIEW to REJECTED with a reason.
+func (r *PgRepository) RejectSession(ctx context.Context, sessionID, tenantID, reviewerUserID, reviewedAt, rejectionReason string) error {
+	const query = `
+		UPDATE assessment_sessions
+		SET status = 'REJECTED'::cbc_session_status,
+		    reviewed_by_user_id = $3::uuid,
+		    reviewed_at = $4::timestamptz,
+		    rejection_reason = $5
+		WHERE id = $1 AND tenant_id = $2
+		  AND status = 'PENDING_REVIEW'::cbc_session_status
+	`
+	tag, err := r.pool.Exec(ctx, query, sessionID, tenantID, reviewerUserID, reviewedAt, rejectionReason)
+	if err != nil {
+		return fmt.Errorf("assessment.Repository.RejectSession: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("assessment.Repository.RejectSession: %w", ErrNotFound)
+	}
+	return nil
+}
+
+// PublishSession transitions a session from APPROVED to PUBLISHED.
+func (r *PgRepository) PublishSession(ctx context.Context, sessionID, tenantID, publisherUserID, publishedAt string) error {
+	const query = `
+		UPDATE assessment_sessions
+		SET status = 'PUBLISHED'::cbc_session_status,
+		    published_by_user_id = $3::uuid,
+		    published_at = $4::timestamptz
+		WHERE id = $1 AND tenant_id = $2
+		  AND status = 'APPROVED'::cbc_session_status
+	`
+	tag, err := r.pool.Exec(ctx, query, sessionID, tenantID, publisherUserID, publishedAt)
+	if err != nil {
+		return fmt.Errorf("assessment.Repository.PublishSession: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("assessment.Repository.PublishSession: %w", ErrNotFound)
+	}
+	return nil
+}
+
+// PublishSessions batch-publishes multiple sessions in a single transaction.
+// Returns count of successfully published sessions.
+func (r *PgRepository) PublishSessions(ctx context.Context, sessionIDs []string, tenantID, publisherUserID, publishedAt string) (int, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("assessment.Repository.PublishSessions: begin tx: %w", err)
+	}
+	defer func() {
+		if err := tx.Rollback(ctx); err != nil && err != pgx.ErrTxClosed {
+			_ = err
+		}
+	}()
+
+	const query = `
+		UPDATE assessment_sessions
+		SET status = 'PUBLISHED'::cbc_session_status,
+		    published_by_user_id = $2::uuid,
+		    published_at = $3::timestamptz
+		WHERE id = $1 AND tenant_id = $4
+		  AND status = 'APPROVED'::cbc_session_status
+	`
+
+	publishedCount := 0
+	for _, sid := range sessionIDs {
+		tag, err := tx.Exec(ctx, query, sid, publisherUserID, publishedAt, tenantID)
+		if err != nil {
+			return 0, fmt.Errorf("assessment.Repository.PublishSessions: exec: %w", err)
+		}
+		publishedCount += int(tag.RowsAffected())
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return 0, fmt.Errorf("assessment.Repository.PublishSessions: commit: %w", err)
+	}
+
+	return publishedCount, nil
 }
 
 // DeleteSession removes a session. The ON DELETE CASCADE on learner_rubric_results
@@ -513,6 +679,240 @@ func (r *PgRepository) GetSessionDetail(ctx context.Context, id, tenantID string
 		AssessmentSession: *s,
 		Results:           results,
 	}, nil
+}
+
+// ============================================================================
+// ADMIN QUEUES
+// ============================================================================
+
+// ListSessionsForAdminQueue returns sessions for the admin's needs-review or
+// ready-to-publish queue with pagination and filtering.
+func (r *PgRepository) ListSessionsForAdminQueue(ctx context.Context, tenantID string, query AdminQueuesQuery) ([]SessionAdminView, int, error) {
+	// Count query
+	countQuery := `
+		SELECT COUNT(*)
+		FROM assessment_sessions asess
+		WHERE asess.tenant_id = $1
+	`
+	// Data query — joins with blueprints, classes, streams, and users for display fields
+	dataQuery := `
+		SELECT` + sessionColumns + `,
+		ab.title,
+		ab.type::text,
+		ab.grade_level::text,
+		ab.academic_year,
+		ab.term,
+		cbc_classes.grade_level::text || ' ' || cbc_streams.name,
+		cbc_streams.name,
+		u.full_name,
+		(SELECT COUNT(*) FROM learner_rubric_results lrr WHERE lrr.session_id = asess.id)
+	FROM assessment_sessions asess
+	JOIN assessment_blueprints ab ON ab.id = asess.blueprint_id
+	JOIN cbc_classes ON cbc_classes.id = asess.class_id
+	JOIN cbc_streams ON cbc_streams.id = cbc_classes.stream_id
+	JOIN users u ON u.id = asess.assessed_by_user_id
+	WHERE asess.tenant_id = $1
+	`
+
+	args := []interface{}{tenantID}
+	argIdx := 2
+
+	if query.Status != "" {
+		cond := fmt.Sprintf(" AND asess.status = $%d::cbc_session_status", argIdx)
+		countQuery += cond
+		dataQuery += cond
+		args = append(args, query.Status)
+		argIdx++
+	}
+	if query.ClassID != "" {
+		cond := fmt.Sprintf(" AND asess.class_id = $%d", argIdx)
+		countQuery += cond
+		dataQuery += cond
+		args = append(args, query.ClassID)
+		argIdx++
+	}
+	if query.GradeLevel != "" {
+		cond := fmt.Sprintf(" AND ab.grade_level = $%d::cbc_grade_level", argIdx)
+		countQuery += cond
+		dataQuery += cond
+		args = append(args, query.GradeLevel)
+		argIdx++
+	}
+	if query.Term > 0 {
+		cond := fmt.Sprintf(" AND ab.term = $%d", argIdx)
+		countQuery += cond
+		dataQuery += cond
+		args = append(args, query.Term)
+		argIdx++
+	}
+	if query.AcademicYear > 0 {
+		cond := fmt.Sprintf(" AND ab.academic_year = $%d", argIdx)
+		countQuery += cond
+		dataQuery += cond
+		args = append(args, query.AcademicYear)
+		argIdx++
+	}
+
+	// Total count
+	var totalCount int
+	err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&totalCount)
+	if err != nil {
+		return nil, 0, fmt.Errorf("assessment.Repository.ListSessionsForAdminQueue: count: %w", err)
+	}
+
+	// Pagination
+	page := query.Page
+	if page < 1 {
+		page = 1
+	}
+	pageSize := query.PageSize
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 50
+	}
+	offset := (page - 1) * pageSize
+
+	dataQuery += fmt.Sprintf(" ORDER BY asess.date_administered DESC, asess.created_at DESC LIMIT $%d OFFSET $%d", argIdx, argIdx+1)
+	args = append(args, pageSize, offset)
+
+	rows, err := r.pool.Query(ctx, dataQuery, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("assessment.Repository.ListSessionsForAdminQueue: %w", err)
+	}
+	defer rows.Close()
+
+	var items []SessionAdminView
+	for rows.Next() {
+		var item SessionAdminView
+		// Scan all columns from the joined query in one call
+		err := rows.Scan(
+			&item.ID, &item.TenantID, &item.BlueprintID, &item.ClassID, &item.AssessedByUserID,
+			&item.DateAdministered, &item.KNECUploadReference,
+			&item.Status, &item.SubmittedAt,
+			&item.ReviewedByUserID, &item.ReviewedAt,
+			&item.RejectionReason, &item.PublishedByUserID, &item.PublishedAt,
+			&item.CreatedAt,
+			&item.BlueprintTitle, &item.BlueprintType,
+			&item.GradeLevel, &item.AcademicYear, &item.Term,
+			&item.ClassName, &item.StreamName,
+			&item.TeacherName, &item.ResultCount,
+		)
+		if err != nil {
+			return nil, 0, fmt.Errorf("assessment.Repository.ListSessionsForAdminQueue: scan: %w", err)
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("assessment.Repository.ListSessionsForAdminQueue: rows: %w", err)
+	}
+	if items == nil {
+		items = []SessionAdminView{}
+	}
+	return items, totalCount, nil
+}
+
+// ============================================================================
+// PARENT-FACING PUBLISHED RESULTS
+// ============================================================================
+
+// ListPublishedResultsForStudent returns all rubric results for a student that
+// belong to PUBLISHED sessions only. Hard-filters status = PUBLISHED server-side.
+func (r *PgRepository) ListPublishedResultsForStudent(ctx context.Context, tenantID string, query ParentSessionsQuery) ([]ParentSessionResultView, int, error) {
+	countQuery := `
+		SELECT COUNT(*)
+		FROM learner_rubric_results lrr
+		JOIN assessment_sessions asess ON asess.id = lrr.session_id AND asess.tenant_id = $1
+		JOIN assessment_blueprints ab ON ab.id = asess.blueprint_id
+		JOIN assessment_blueprint_indicators abi ON abi.blueprint_id = ab.id AND abi.indicator_id = lrr.indicator_id
+		JOIN performance_indicators pi ON pi.id = lrr.indicator_id
+		JOIN cbc_sub_strands ss ON ss.id = pi.sub_strand_id
+		JOIN cbc_strands s ON s.id = ss.strand_id
+		JOIN cbc_learning_areas la ON la.id = s.learning_area_id
+		WHERE asess.status = 'PUBLISHED'::cbc_session_status
+		  AND lrr.student_id = $2::uuid
+	`
+
+	dataQuery := `
+		SELECT asess.id, asess.date_administered::text,
+		       la.name, ab.title, ab.type::text,
+		       lrr.rubric_level::text,
+		       pi.description,
+		       lrr.teacher_observation_notes
+		FROM learner_rubric_results lrr
+		JOIN assessment_sessions asess ON asess.id = lrr.session_id AND asess.tenant_id = $1
+		JOIN assessment_blueprints ab ON ab.id = asess.blueprint_id
+		JOIN assessment_blueprint_indicators abi ON abi.blueprint_id = ab.id AND abi.indicator_id = lrr.indicator_id
+		JOIN performance_indicators pi ON pi.id = lrr.indicator_id
+		JOIN cbc_sub_strands ss ON ss.id = pi.sub_strand_id
+		JOIN cbc_strands s ON s.id = ss.strand_id
+		JOIN cbc_learning_areas la ON la.id = s.learning_area_id
+		WHERE asess.status = 'PUBLISHED'::cbc_session_status
+		  AND lrr.student_id = $2::uuid
+	`
+
+	args := []interface{}{tenantID, query.StudentID}
+	argIdx := 3
+
+	if query.AcademicYear > 0 {
+		cond := fmt.Sprintf(" AND ab.academic_year = $%d", argIdx)
+		countQuery += cond
+		dataQuery += cond
+		args = append(args, query.AcademicYear)
+		argIdx++
+	}
+	if query.Term > 0 {
+		cond := fmt.Sprintf(" AND ab.term = $%d", argIdx)
+		countQuery += cond
+		dataQuery += cond
+		args = append(args, query.Term)
+		argIdx++
+	}
+
+	var totalCount int
+	err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&totalCount)
+	if err != nil {
+		return nil, 0, fmt.Errorf("assessment.Repository.ListPublishedResultsForStudent: count: %w", err)
+	}
+
+	page := query.Page
+	if page < 1 {
+		page = 1
+	}
+	pageSize := query.PageSize
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 50
+	}
+	offset := (page - 1) * pageSize
+
+	dataQuery += fmt.Sprintf(" ORDER BY la.name, asess.date_administered DESC LIMIT $%d OFFSET $%d", argIdx, argIdx+1)
+	args = append(args, pageSize, offset)
+
+	rows, err := r.pool.Query(ctx, dataQuery, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("assessment.Repository.ListPublishedResultsForStudent: %w", err)
+	}
+	defer rows.Close()
+
+	var items []ParentSessionResultView
+	for rows.Next() {
+		var item ParentSessionResultView
+		if err := rows.Scan(
+			&item.SessionID, &item.DateAdministered,
+			&item.LearningAreaName, &item.BlueprintTitle, &item.BlueprintType,
+			&item.RubricLevel,
+			&item.IndicatorDescription,
+			&item.TeacherObservationNotes,
+		); err != nil {
+			return nil, 0, fmt.Errorf("assessment.Repository.ListPublishedResultsForStudent: scan: %w", err)
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("assessment.Repository.ListPublishedResultsForStudent: rows: %w", err)
+	}
+	if items == nil {
+		items = []ParentSessionResultView{}
+	}
+	return items, totalCount, nil
 }
 
 // ============================================================================

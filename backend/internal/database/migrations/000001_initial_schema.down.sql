@@ -28,13 +28,27 @@ DROP TRIGGER IF EXISTS trg_cbc_streams_updated_at                 ON cbc_streams
 
 DROP FUNCTION IF EXISTS fn_set_updated_at            CASCADE;
 DROP FUNCTION IF EXISTS fn_timerange                 CASCADE;
-DROP FUNCTION IF EXISTS fn_sync_invoice_payment_status CASCADE;
+DROP FUNCTION IF EXISTS fn_sync_invoice_payment_status_insert  CASCADE;
+DROP FUNCTION IF EXISTS fn_sync_invoice_payment_status_delete  CASCADE;
+DROP FUNCTION IF EXISTS fn_sync_invoice_payment_status_update CASCADE;
 DROP FUNCTION IF EXISTS fn_sync_school_staff_counts_insert  CASCADE;
 DROP FUNCTION IF EXISTS fn_sync_school_staff_counts_delete  CASCADE;
 DROP FUNCTION IF EXISTS fn_sync_school_staff_counts_update  CASCADE;
 DROP FUNCTION IF EXISTS fn_sync_school_student_counts_insert CASCADE;
 DROP FUNCTION IF EXISTS fn_sync_school_student_counts_delete CASCADE;
 DROP FUNCTION IF EXISTS fn_sync_school_student_counts_update CASCADE;
+DROP FUNCTION IF EXISTS fn_current_tenant_id CASCADE;
+DROP FUNCTION IF EXISTS fn_rls_tenant_policy CASCADE;
+
+-- ============================================================================
+-- LAYER 11 — ATTENDANCE & BEHAVIOR
+-- ============================================================================
+
+DROP TABLE IF EXISTS term_reports CASCADE;
+DROP TABLE IF EXISTS attendance_term_summaries CASCADE;
+DROP TABLE IF EXISTS behavior_notes CASCADE;
+DROP TABLE IF EXISTS behavior_categories CASCADE;
+DROP TABLE IF EXISTS attendance_records CASCADE;
 
 -- ============================================================================
 -- LAYER 10 — USER ACTIVE SCHOOL CONTEXT
@@ -153,6 +167,10 @@ DROP TYPE IF EXISTS lrr_score_type CASCADE;
 DROP TYPE IF EXISTS portfolio_evidence_type CASCADE;
 DROP TYPE IF EXISTS knec_sync_status CASCADE;
 DROP TYPE IF EXISTS invoice_payment_status CASCADE;
+DROP TYPE IF EXISTS attendance_status CASCADE;
+DROP TYPE IF EXISTS behavior_note_status CASCADE;
+DROP TYPE IF EXISTS behavior_severity CASCADE;
+DROP TYPE IF EXISTS term_report_status CASCADE;
 
 -- ============================================================================
 -- EXTENSIONS (optional — only drop if no other objects depend on it)

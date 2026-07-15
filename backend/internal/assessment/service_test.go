@@ -11,25 +11,32 @@ import (
 // ============================================================================
 
 type MockRepository struct {
-	createBlueprintFn         func(ctx context.Context, bp *AssessmentBlueprint) (string, error)
-	getBlueprintByIDFn        func(ctx context.Context, id, tenantID, schoolID string) (*AssessmentBlueprint, error)
-	listBlueprintsFn          func(ctx context.Context, tenantID string, query ListBlueprintsQuery) ([]AssessmentBlueprint, error)
-	updateBlueprintFn         func(ctx context.Context, bp *AssessmentBlueprint) error
-	deleteBlueprintFn         func(ctx context.Context, id, tenantID, schoolID string) error
-	getBlueprintDetailFn      func(ctx context.Context, id, tenantID, schoolID string) (*BlueprintDetail, error)
-	linkIndicatorsFn          func(ctx context.Context, blueprintID string, indicatorIDs []string) error
-	unlinkIndicatorFn         func(ctx context.Context, blueprintID, indicatorID string) error
-	isIndicatorLinkedFn       func(ctx context.Context, blueprintID, indicatorID string) (bool, error)
-	listBlueprintIndicatorsFn func(ctx context.Context, blueprintID string) ([]LinkedIndicator, error)
-	listWeightConfigsFn       func(ctx context.Context, query ListWeightConfigsQuery) ([]AssessmentWeightConfig, error)
-	createSessionFn           func(ctx context.Context, s *AssessmentSession) (string, error)
-	getSessionByIDFn          func(ctx context.Context, id, tenantID string) (*AssessmentSession, error)
-	listSessionsFn            func(ctx context.Context, tenantID string, query ListSessionsQuery) ([]AssessmentSession, error)
-	updateSessionFn           func(ctx context.Context, s *AssessmentSession) error
-	deleteSessionFn           func(ctx context.Context, id, tenantID string) error
-	getSessionDetailFn        func(ctx context.Context, id, tenantID string) (*SessionDetail, error)
-	batchUpsertResultsFn      func(ctx context.Context, sessionID, tenantID string, results []LearnerRubricResult) (int, error)
-	listResultsFn             func(ctx context.Context, sessionID, tenantID string) ([]LearnerRubricResult, error)
+	createBlueprintFn                func(ctx context.Context, bp *AssessmentBlueprint) (string, error)
+	getBlueprintByIDFn               func(ctx context.Context, id, tenantID, schoolID string) (*AssessmentBlueprint, error)
+	listBlueprintsFn                 func(ctx context.Context, tenantID string, query ListBlueprintsQuery) ([]AssessmentBlueprint, error)
+	updateBlueprintFn                func(ctx context.Context, bp *AssessmentBlueprint) error
+	deleteBlueprintFn                func(ctx context.Context, id, tenantID, schoolID string) error
+	getBlueprintDetailFn             func(ctx context.Context, id, tenantID, schoolID string) (*BlueprintDetail, error)
+	linkIndicatorsFn                 func(ctx context.Context, blueprintID string, indicatorIDs []string) error
+	unlinkIndicatorFn                func(ctx context.Context, blueprintID, indicatorID string) error
+	isIndicatorLinkedFn              func(ctx context.Context, blueprintID, indicatorID string) (bool, error)
+	listBlueprintIndicatorsFn        func(ctx context.Context, blueprintID string) ([]LinkedIndicator, error)
+	listWeightConfigsFn              func(ctx context.Context, query ListWeightConfigsQuery) ([]AssessmentWeightConfig, error)
+	createSessionFn                  func(ctx context.Context, s *AssessmentSession) (string, error)
+	getSessionByIDFn                 func(ctx context.Context, id, tenantID string) (*AssessmentSession, error)
+	listSessionsFn                   func(ctx context.Context, tenantID string, query ListSessionsQuery) ([]AssessmentSession, int, error)
+	updateSessionFn                  func(ctx context.Context, s *AssessmentSession) error
+	deleteSessionFn                  func(ctx context.Context, id, tenantID string) error
+	getSessionDetailFn               func(ctx context.Context, id, tenantID string) (*SessionDetail, error)
+	batchUpsertResultsFn             func(ctx context.Context, sessionID, tenantID string, results []LearnerRubricResult) (int, error)
+	listResultsFn                    func(ctx context.Context, sessionID, tenantID string) ([]LearnerRubricResult, error)
+	submitForReviewFn                func(ctx context.Context, sessionID, tenantID, submittedAt string) error
+	approveSessionFn                 func(ctx context.Context, sessionID, tenantID, reviewerUserID, reviewedAt string) error
+	rejectSessionFn                  func(ctx context.Context, sessionID, tenantID, reviewerUserID, reviewedAt, rejectionReason string) error
+	publishSessionFn                 func(ctx context.Context, sessionID, tenantID, publisherUserID, publishedAt string) error
+	publishSessionsFn                func(ctx context.Context, sessionIDs []string, tenantID, publisherUserID, publishedAt string) (int, error)
+	listSessionsForAdminQueueFn      func(ctx context.Context, tenantID string, query AdminQueuesQuery) ([]SessionAdminView, int, error)
+	listPublishedResultsForStudentFn func(ctx context.Context, tenantID string, query ParentSessionsQuery) ([]ParentSessionResultView, int, error)
 }
 
 func (m *MockRepository) CreateBlueprint(ctx context.Context, bp *AssessmentBlueprint) (string, error) {
@@ -130,11 +137,11 @@ func (m *MockRepository) GetSessionByID(ctx context.Context, id, tenantID string
 	}, nil
 }
 
-func (m *MockRepository) ListSessions(ctx context.Context, tenantID string, query ListSessionsQuery) ([]AssessmentSession, error) {
+func (m *MockRepository) ListSessions(ctx context.Context, tenantID string, query ListSessionsQuery) ([]AssessmentSession, int, error) {
 	if m.listSessionsFn != nil {
 		return m.listSessionsFn(ctx, tenantID, query)
 	}
-	return []AssessmentSession{}, nil
+	return []AssessmentSession{}, 0, nil
 }
 
 func (m *MockRepository) UpdateSession(ctx context.Context, s *AssessmentSession) error {
@@ -173,6 +180,55 @@ func (m *MockRepository) ListResults(ctx context.Context, sessionID, tenantID st
 		return m.listResultsFn(ctx, sessionID, tenantID)
 	}
 	return []LearnerRubricResult{}, nil
+}
+
+func (m *MockRepository) SubmitForReview(ctx context.Context, sessionID, tenantID, submittedAt string) error {
+	if m.submitForReviewFn != nil {
+		return m.submitForReviewFn(ctx, sessionID, tenantID, submittedAt)
+	}
+	return nil
+}
+
+func (m *MockRepository) ApproveSession(ctx context.Context, sessionID, tenantID, reviewerUserID, reviewedAt string) error {
+	if m.approveSessionFn != nil {
+		return m.approveSessionFn(ctx, sessionID, tenantID, reviewerUserID, reviewedAt)
+	}
+	return nil
+}
+
+func (m *MockRepository) RejectSession(ctx context.Context, sessionID, tenantID, reviewerUserID, reviewedAt, rejectionReason string) error {
+	if m.rejectSessionFn != nil {
+		return m.rejectSessionFn(ctx, sessionID, tenantID, reviewerUserID, reviewedAt, rejectionReason)
+	}
+	return nil
+}
+
+func (m *MockRepository) PublishSession(ctx context.Context, sessionID, tenantID, publisherUserID, publishedAt string) error {
+	if m.publishSessionFn != nil {
+		return m.publishSessionFn(ctx, sessionID, tenantID, publisherUserID, publishedAt)
+	}
+	return nil
+}
+
+func (m *MockRepository) PublishSessions(ctx context.Context, sessionIDs []string, tenantID, publisherUserID, publishedAt string) (int, error) {
+	if m.publishSessionsFn != nil {
+		return m.publishSessionsFn(ctx, sessionIDs, tenantID, publisherUserID, publishedAt)
+	}
+	return len(sessionIDs), nil
+}
+
+func (m *MockRepository) ListSessionsForAdminQueue(ctx context.Context, tenantID string, query AdminQueuesQuery) ([]SessionAdminView, int, error) {
+	if m.listSessionsForAdminQueueFn != nil {
+		return m.listSessionsForAdminQueueFn(ctx, tenantID, query)
+	}
+	return []SessionAdminView{}, 0, nil
+}
+
+func (m *MockRepository) ListPublishedResultsForStudent(ctx context.Context, tenantID string, query ParentSessionsQuery) ([]ParentSessionResultView, int, error) {
+	if m.listPublishedResultsForStudentFn != nil {
+		return m.listPublishedResultsForStudentFn(ctx, tenantID, query)
+	}
+	return []ParentSessionResultView{}, 0, nil
 }
 
 // ============================================================================
@@ -752,5 +808,483 @@ func TestDeleteBlueprint_Referenced(t *testing.T) {
 	}
 	if !errors.Is(err, ErrConflict) {
 		t.Fatalf("expected ErrConflict, got %v", err)
+	}
+}
+
+// ============================================================================
+// Suite E — Session Status Transitions (State Machine)
+// ============================================================================
+
+// E1 — Submit for review from DRAFT succeeds with results
+func TestSubmitForReview_FromDraft_Success(t *testing.T) {
+	h := newTestHarness()
+
+	// Fix the time for deterministic testing
+	nowFunc = func() string { return "2026-07-15T10:00:00Z" }
+
+	session := &AssessmentSession{
+		ID: "session_001", TenantID: "tenant_001",
+		Status: "DRAFT", AssessedByUserID: "user_001",
+	}
+	h.repo.getSessionByIDFn = func(ctx context.Context, id, tenantID string) (*AssessmentSession, error) {
+		return session, nil
+	}
+
+	// Session has results
+	h.repo.listResultsFn = func(ctx context.Context, sessionID, tenantID string) ([]LearnerRubricResult, error) {
+		return []LearnerRubricResult{
+			{ID: "result_001"},
+			{ID: "result_002"},
+		}, nil
+	}
+
+	var submitted bool
+	h.repo.submitForReviewFn = func(ctx context.Context, sessionID, tenantID, submittedAt string) error {
+		submitted = true
+		if submittedAt != "2026-07-15T10:00:00Z" {
+			t.Errorf("expected submittedAt '2026-07-15T10:00:00Z', got %q", submittedAt)
+		}
+		return nil
+	}
+
+	result, err := h.svc.SubmitForReview(context.Background(), "session_001", "tenant_001", "user_001")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !submitted {
+		t.Error("expected SubmitForReview to be called")
+	}
+	if result.Status != "PENDING_REVIEW" {
+		t.Errorf("expected status PENDING_REVIEW, got %q", result.Status)
+	}
+	if result.SubmittedAt == nil || *result.SubmittedAt != "2026-07-15T10:00:00Z" {
+		t.Errorf("expected submitted_at to be set")
+	}
+}
+
+// E2 — Submit for review from REJECTED succeeds
+func TestSubmitForReview_FromRejected_Success(t *testing.T) {
+	h := newTestHarness()
+
+	nowFunc = func() string { return "2026-07-15T10:00:00Z" }
+
+	reason := "Missing scores for indicator X"
+	session := &AssessmentSession{
+		ID: "session_001", TenantID: "tenant_001",
+		Status: "REJECTED", AssessedByUserID: "user_001",
+		RejectionReason: &reason,
+	}
+	h.repo.getSessionByIDFn = func(ctx context.Context, id, tenantID string) (*AssessmentSession, error) {
+		return session, nil
+	}
+
+	h.repo.listResultsFn = func(ctx context.Context, sessionID, tenantID string) ([]LearnerRubricResult, error) {
+		return []LearnerRubricResult{{ID: "result_001"}}, nil
+	}
+
+	var submitted bool
+	h.repo.submitForReviewFn = func(ctx context.Context, sessionID, tenantID, submittedAt string) error {
+		submitted = true
+		return nil
+	}
+
+	result, err := h.svc.SubmitForReview(context.Background(), "session_001", "tenant_001", "user_001")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !submitted {
+		t.Error("expected SubmitForReview to be called")
+	}
+	if result.Status != "PENDING_REVIEW" {
+		t.Errorf("expected status PENDING_REVIEW, got %q", result.Status)
+	}
+}
+
+// E3 — Submit for review with no results fails
+func TestSubmitForReview_NoResults(t *testing.T) {
+	h := newTestHarness()
+
+	nowFunc = func() string { return "2026-07-15T10:00:00Z" }
+
+	session := &AssessmentSession{
+		ID: "session_001", TenantID: "tenant_001",
+		Status: "DRAFT", AssessedByUserID: "user_001",
+	}
+	h.repo.getSessionByIDFn = func(ctx context.Context, id, tenantID string) (*AssessmentSession, error) {
+		return session, nil
+	}
+
+	// Empty results
+	h.repo.listResultsFn = func(ctx context.Context, sessionID, tenantID string) ([]LearnerRubricResult, error) {
+		return []LearnerRubricResult{}, nil
+	}
+
+	_, err := h.svc.SubmitForReview(context.Background(), "session_001", "tenant_001", "user_001")
+	if err == nil {
+		t.Fatal("expected error for session with no results, got nil")
+	}
+	if !errors.Is(err, ErrNoResultsToSubmit) {
+		t.Fatalf("expected ErrNoResultsToSubmit, got %v", err)
+	}
+}
+
+// E4 — Non-owner cannot submit for review
+func TestSubmitForReview_NotOwner(t *testing.T) {
+	h := newTestHarness()
+
+	nowFunc = func() string { return "2026-07-15T10:00:00Z" }
+
+	// Session owned by different user
+	session := &AssessmentSession{
+		ID: "session_001", TenantID: "tenant_001",
+		Status: "DRAFT", AssessedByUserID: "other_teacher",
+	}
+	h.repo.getSessionByIDFn = func(ctx context.Context, id, tenantID string) (*AssessmentSession, error) {
+		return session, nil
+	}
+
+	h.repo.listResultsFn = func(ctx context.Context, sessionID, tenantID string) ([]LearnerRubricResult, error) {
+		return []LearnerRubricResult{{ID: "result_001"}}, nil
+	}
+
+	_, err := h.svc.SubmitForReview(context.Background(), "session_001", "tenant_001", "user_001")
+	if err == nil {
+		t.Fatal("expected error for non-owner, got nil")
+	}
+	if !errors.Is(err, ErrNotSessionOwner) {
+		t.Fatalf("expected ErrNotSessionOwner, got %v", err)
+	}
+}
+
+// E5 — Submit from invalid status (APPROVED) fails
+func TestSubmitForReview_InvalidStatus(t *testing.T) {
+	h := newTestHarness()
+
+	nowFunc = func() string { return "2026-07-15T10:00:00Z" }
+
+	session := &AssessmentSession{
+		ID: "session_001", TenantID: "tenant_001",
+		Status: "APPROVED", AssessedByUserID: "user_001",
+	}
+	h.repo.getSessionByIDFn = func(ctx context.Context, id, tenantID string) (*AssessmentSession, error) {
+		return session, nil
+	}
+
+	_, err := h.svc.SubmitForReview(context.Background(), "session_001", "tenant_001", "user_001")
+	if err == nil {
+		t.Fatal("expected error for invalid status transition, got nil")
+	}
+	if !errors.Is(err, ErrInvalidStatusTransition) {
+		t.Fatalf("expected ErrInvalidStatusTransition, got %v", err)
+	}
+}
+
+// E6 — Approve session from PENDING_REVIEW succeeds
+func TestApproveSession_Success(t *testing.T) {
+	h := newTestHarness()
+
+	nowFunc = func() string { return "2026-07-15T10:00:00Z" }
+
+	session := &AssessmentSession{
+		ID: "session_001", TenantID: "tenant_001",
+		Status: "PENDING_REVIEW",
+	}
+	h.repo.getSessionByIDFn = func(ctx context.Context, id, tenantID string) (*AssessmentSession, error) {
+		return session, nil
+	}
+
+	var approved bool
+	h.repo.approveSessionFn = func(ctx context.Context, sessionID, tenantID, reviewerUserID, reviewedAt string) error {
+		approved = true
+		if reviewerUserID != "admin_001" {
+			t.Errorf("expected reviewer 'admin_001', got %q", reviewerUserID)
+		}
+		return nil
+	}
+
+	result, err := h.svc.ApproveSession(context.Background(), "session_001", "tenant_001", "admin_001")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !approved {
+		t.Error("expected ApproveSession to be called")
+	}
+	if result.Status != "APPROVED" {
+		t.Errorf("expected status APPROVED, got %q", result.Status)
+	}
+	if result.ReviewedByUserID == nil || *result.ReviewedByUserID != "admin_001" {
+		t.Errorf("expected reviewed_by to be set")
+	}
+}
+
+// E7 — Approve from non-PENDING_REVIEW fails
+func TestApproveSession_InvalidStatus(t *testing.T) {
+	h := newTestHarness()
+
+	nowFunc = func() string { return "2026-07-15T10:00:00Z" }
+
+	session := &AssessmentSession{
+		ID: "session_001", TenantID: "tenant_001",
+		Status: "DRAFT",
+	}
+	h.repo.getSessionByIDFn = func(ctx context.Context, id, tenantID string) (*AssessmentSession, error) {
+		return session, nil
+	}
+
+	_, err := h.svc.ApproveSession(context.Background(), "session_001", "tenant_001", "admin_001")
+	if err == nil {
+		t.Fatal("expected error for invalid status, got nil")
+	}
+	if !errors.Is(err, ErrInvalidStatusTransition) {
+		t.Fatalf("expected ErrInvalidStatusTransition, got %v", err)
+	}
+}
+
+// E8 — Reject session with reason succeeds
+func TestRejectSession_Success(t *testing.T) {
+	h := newTestHarness()
+
+	nowFunc = func() string { return "2026-07-15T10:00:00Z" }
+
+	session := &AssessmentSession{
+		ID: "session_001", TenantID: "tenant_001",
+		Status: "PENDING_REVIEW",
+	}
+	h.repo.getSessionByIDFn = func(ctx context.Context, id, tenantID string) (*AssessmentSession, error) {
+		return session, nil
+	}
+
+	var rejected bool
+	h.repo.rejectSessionFn = func(ctx context.Context, sessionID, tenantID, reviewerUserID, reviewedAt, rejectionReason string) error {
+		rejected = true
+		if rejectionReason != "Incorrect rubric levels applied" {
+			t.Errorf("expected reason 'Incorrect rubric levels applied', got %q", rejectionReason)
+		}
+		return nil
+	}
+
+	result, err := h.svc.RejectSession(context.Background(), "session_001", "tenant_001", "admin_001", "Incorrect rubric levels applied")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !rejected {
+		t.Error("expected RejectSession to be called")
+	}
+	if result.Status != "REJECTED" {
+		t.Errorf("expected status REJECTED, got %q", result.Status)
+	}
+	if result.RejectionReason == nil || *result.RejectionReason != "Incorrect rubric levels applied" {
+		t.Errorf("expected rejection_reason to be set")
+	}
+}
+
+// E9 — Reject without reason fails
+func TestRejectSession_NoReason(t *testing.T) {
+	h := newTestHarness()
+
+	nowFunc = func() string { return "2026-07-15T10:00:00Z" }
+
+	_, err := h.svc.RejectSession(context.Background(), "session_001", "tenant_001", "admin_001", "")
+	if err == nil {
+		t.Fatal("expected error for empty reason, got nil")
+	}
+	if !errors.Is(err, ErrRejectionReasonRequired) {
+		t.Fatalf("expected ErrRejectionReasonRequired, got %v", err)
+	}
+}
+
+// E10 — Publish session from APPROVED succeeds
+func TestPublishSession_Success(t *testing.T) {
+	h := newTestHarness()
+
+	nowFunc = func() string { return "2026-07-15T10:00:00Z" }
+
+	session := &AssessmentSession{
+		ID: "session_001", TenantID: "tenant_001",
+		Status: "APPROVED",
+	}
+	h.repo.getSessionByIDFn = func(ctx context.Context, id, tenantID string) (*AssessmentSession, error) {
+		return session, nil
+	}
+
+	var published bool
+	h.repo.publishSessionFn = func(ctx context.Context, sessionID, tenantID, publisherUserID, publishedAt string) error {
+		published = true
+		if publisherUserID != "admin_001" {
+			t.Errorf("expected publisher 'admin_001', got %q", publisherUserID)
+		}
+		return nil
+	}
+
+	result, err := h.svc.PublishSession(context.Background(), "session_001", "tenant_001", "admin_001")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !published {
+		t.Error("expected PublishSession to be called")
+	}
+	if result.Status != "PUBLISHED" {
+		t.Errorf("expected status PUBLISHED, got %q", result.Status)
+	}
+	if result.PublishedByUserID == nil || *result.PublishedByUserID != "admin_001" {
+		t.Errorf("expected published_by to be set")
+	}
+}
+
+// E11 — Publish from non-APPROVED fails
+func TestPublishSession_InvalidStatus(t *testing.T) {
+	h := newTestHarness()
+
+	nowFunc = func() string { return "2026-07-15T10:00:00Z" }
+
+	session := &AssessmentSession{
+		ID: "session_001", TenantID: "tenant_001",
+		Status: "PENDING_REVIEW",
+	}
+	h.repo.getSessionByIDFn = func(ctx context.Context, id, tenantID string) (*AssessmentSession, error) {
+		return session, nil
+	}
+
+	_, err := h.svc.PublishSession(context.Background(), "session_001", "tenant_001", "admin_001")
+	if err == nil {
+		t.Fatal("expected error for invalid status, got nil")
+	}
+	if !errors.Is(err, ErrInvalidStatusTransition) {
+		t.Fatalf("expected ErrInvalidStatusTransition, got %v", err)
+	}
+}
+
+// E12 — Batch publish sessions succeeds
+func TestPublishSessions_Success(t *testing.T) {
+	h := newTestHarness()
+
+	nowFunc = func() string { return "2026-07-15T10:00:00Z" }
+
+	h.repo.publishSessionsFn = func(ctx context.Context, sessionIDs []string, tenantID, publisherUserID, publishedAt string) (int, error) {
+		if len(sessionIDs) != 2 {
+			t.Errorf("expected 2 session IDs, got %d", len(sessionIDs))
+		}
+		return 2, nil
+	}
+
+	result, err := h.svc.PublishSessions(context.Background(), []string{"s1", "s2"}, "tenant_001", "admin_001")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.PublishedCount != 2 {
+		t.Errorf("expected 2 published, got %d", result.PublishedCount)
+	}
+	if len(result.FailedIDs) != 0 {
+		t.Errorf("expected 0 failed, got %d", len(result.FailedIDs))
+	}
+}
+
+// E13 — Batch publish with empty list fails
+func TestPublishSessions_Empty(t *testing.T) {
+	h := newTestHarness()
+
+	_, err := h.svc.PublishSessions(context.Background(), []string{}, "tenant_001", "admin_001")
+	if err == nil {
+		t.Fatal("expected error for empty session list, got nil")
+	}
+	if !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput, got %v", err)
+	}
+}
+
+// E14 — BatchUpsertResults blocked when session is not DRAFT or REJECTED
+func TestBatchUpsertResults_SessionLocked(t *testing.T) {
+	h := newTestHarness()
+
+	session := &AssessmentSession{
+		ID: "session_001", TenantID: "tenant_001",
+		Status: "PENDING_REVIEW", BlueprintID: "bp_001",
+	}
+	h.repo.getSessionByIDFn = func(ctx context.Context, id, tenantID string) (*AssessmentSession, error) {
+		return session, nil
+	}
+
+	payload := BatchUpsertResultsPayload{
+		Results: []BatchUpsertResultInput{
+			{StudentID: "stu_001", IndicatorID: "pi_001", ScoreType: "Rubric_Direct", RubricLevel: "ME"},
+		},
+	}
+
+	_, err := h.svc.BatchUpsertResults(context.Background(), "session_001", "tenant_001", payload)
+	if err == nil {
+		t.Fatal("expected error for locked session, got nil")
+	}
+	if !errors.Is(err, ErrSessionLocked) {
+		t.Fatalf("expected ErrSessionLocked, got %v", err)
+	}
+}
+
+// E15 — BatchUpsertResults allowed on REJECTED session
+func TestBatchUpsertResults_RejectedSessionAllowed(t *testing.T) {
+	h := newTestHarness()
+
+	reason := "Fix scores"
+	session := &AssessmentSession{
+		ID: "session_001", TenantID: "tenant_001",
+		Status: "REJECTED", BlueprintID: "bp_001", ClassID: "class_001",
+		RejectionReason: &reason,
+	}
+	h.repo.getSessionByIDFn = func(ctx context.Context, id, tenantID string) (*AssessmentSession, error) {
+		return session, nil
+	}
+
+	h.repo.listBlueprintIndicatorsFn = func(ctx context.Context, blueprintID string) ([]LinkedIndicator, error) {
+		return []LinkedIndicator{{ID: "pi_001", Description: "Test indicator"}}, nil
+	}
+
+	h.csResolver.isStudentInClassFn = func(ctx context.Context, studentID, classID string) (bool, error) {
+		return true, nil
+	}
+
+	payload := BatchUpsertResultsPayload{
+		Results: []BatchUpsertResultInput{
+			{StudentID: "stu_001", IndicatorID: "pi_001", ScoreType: "Rubric_Direct", RubricLevel: "ME"},
+		},
+	}
+
+	count, err := h.svc.BatchUpsertResults(context.Background(), "session_001", "tenant_001", payload)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if count != 1 {
+		t.Errorf("expected 1 affected row, got %d", count)
+	}
+}
+
+// E16 — Allowed transitions map is correct
+func TestAllowedTransitions_Complete(t *testing.T) {
+	// Verify the state machine covers all valid statuses
+	for status := range ValidSessionStatuses {
+		_, ok := AllowedTransitions[status]
+		if !ok {
+			t.Errorf("AllowedTransitions missing entry for status %q", status)
+		}
+	}
+
+	// Verify terminal states
+	if len(AllowedTransitions["PUBLISHED"]) != 0 {
+		t.Error("PUBLISHED should be a terminal state with no outgoing transitions")
+	}
+
+	// Verify no illegal transitions exist
+	if AllowedTransitions["DRAFT"]["APPROVED"] {
+		t.Error("DRAFT should not be able to skip to APPROVED")
+	}
+	if AllowedTransitions["DRAFT"]["PUBLISHED"] {
+		t.Error("DRAFT should not be able to skip to PUBLISHED")
+	}
+	if AllowedTransitions["PENDING_REVIEW"]["PUBLISHED"] {
+		t.Error("PENDING_REVIEW should not be able to skip to PUBLISHED")
+	}
+	if AllowedTransitions["REJECTED"]["APPROVED"] {
+		t.Error("REJECTED should not be able to skip to APPROVED")
+	}
+	if AllowedTransitions["APPROVED"]["PENDING_REVIEW"] {
+		t.Error("APPROVED should not go back to PENDING_REVIEW")
 	}
 }

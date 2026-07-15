@@ -39,6 +39,8 @@ DROP FUNCTION IF EXISTS fn_sync_school_student_counts_delete CASCADE;
 DROP FUNCTION IF EXISTS fn_sync_school_student_counts_update CASCADE;
 DROP FUNCTION IF EXISTS fn_current_tenant_id CASCADE;
 DROP FUNCTION IF EXISTS fn_rls_tenant_policy CASCADE;
+DROP FUNCTION IF EXISTS fn_check_non_break_slot CASCADE;
+DROP FUNCTION IF EXISTS max_points_check CASCADE;
 
 -- ============================================================================
 -- LAYER 11 — ATTENDANCE & BEHAVIOR
@@ -69,6 +71,16 @@ DROP TABLE IF EXISTS assessment_weight_configs CASCADE;
 DROP TABLE IF EXISTS cbc_timetable_slots CASCADE;
 DROP TABLE IF EXISTS timetable_structures CASCADE;
 DROP TABLE IF EXISTS cbc_class_teachers CASCADE;
+
+-- ============================================================================
+-- LAYER 12 — ASSESSMENT & GRADING ENGINE
+-- ============================================================================
+
+DROP TABLE IF EXISTS student_assessment_outcome_grades CASCADE;
+DROP TABLE IF EXISTS student_assessment_scores CASCADE;
+DROP TABLE IF EXISTS assessment_sessions CASCADE;
+DROP TABLE IF EXISTS grading_scale_ranges CASCADE;
+DROP TABLE IF EXISTS grading_scale_profiles CASCADE;
 
 -- ============================================================================
 -- LAYER 5 — CURRICULUM
@@ -152,6 +164,9 @@ DROP TYPE IF EXISTS invoice_payment_status CASCADE;
 DROP TYPE IF EXISTS attendance_status CASCADE;
 DROP TYPE IF EXISTS behavior_note_status CASCADE;
 DROP TYPE IF EXISTS behavior_severity CASCADE;
+DROP TYPE IF EXISTS cbc_performance_level CASCADE;
+DROP TYPE IF EXISTS assessment_session_status CASCADE;
+DROP TYPE IF EXISTS assessment_evaluation_method CASCADE;
 
 -- ============================================================================
 -- EXTENSIONS (optional — only drop if no other objects depend on it)

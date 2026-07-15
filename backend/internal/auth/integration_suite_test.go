@@ -60,6 +60,7 @@ type IntegrationSuite struct {
 	stytchCreateOrgFn           func(name string) (int, any)
 	stytchExchangeISTFn         func(ist, orgID string) (int, any)
 	stytchCreateMemberFn        func(orgID, email, name string) (int, any)
+	stytchMagicLinkAuthFn       func(token string) (int, any)
 	stytchCreateOrgCallCount    int
 	stytchCreateMemberCallCount int
 	stytchExchangeISTCallCount  int
@@ -275,6 +276,8 @@ func setupSuite(ctx context.Context) (*IntegrationSuite, error) {
 
 	// ---------- 8. Start mock Stytch server ----------
 	suite.startMockStytchServer()
+	// Initialize default Stytch mock handlers (sets all handler funcs)
+	suite.resetStytchHandlers()
 
 	// Update config with the mock server URL
 	suite.cfg.StytchBaseURL = suite.stytchURL
@@ -453,6 +456,30 @@ func (s *IntegrationSuite) startMockStytchServer() {
 		writeStytchJSON(w, status, body)
 	})
 
+	// POST /v1/b2b/magic_links/authenticate — org-scoped magic link auth
+	// Used by AuthenticateMagicLink (the invite acceptance flow).
+	mux.HandleFunc("/v1/b2b/magic_links/authenticate", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			writeStytchError(w, http.StatusMethodNotAllowed, "method_not_allowed", "expected POST")
+			return
+		}
+
+		var req struct {
+			Token string `json:"magic_links_token"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeStytchError(w, http.StatusBadRequest, "invalid_request", "bad JSON")
+			return
+		}
+
+		s.stytchMu.Lock()
+		fn := s.stytchMagicLinkAuthFn
+		s.stytchMu.Unlock()
+
+		status, body := fn(req.Token)
+		writeStytchJSON(w, status, body)
+	})
+
 	// POST /v1/b2b/organizations
 	mux.HandleFunc("/v1/b2b/organizations", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -559,6 +586,9 @@ func (s *IntegrationSuite) setStytchHandlers(h StytchMockHandlers) {
 	if h.ExchangeISTFn != nil {
 		s.stytchExchangeISTFn = h.ExchangeISTFn
 	}
+	if h.MagicLinkAuthFn != nil {
+		s.stytchMagicLinkAuthFn = h.MagicLinkAuthFn
+	}
 }
 
 // resetStytchHandlers resets all mock handlers to their default success behaviors.
@@ -645,6 +675,25 @@ func (s *IntegrationSuite) resetStytchHandlers() {
 			},
 		}
 	}
+	s.stytchMagicLinkAuthFn = func(token string) (int, any) {
+		memberID := fmt.Sprintf("member_test_ml_%08x", rand.Uint32())
+		return http.StatusOK, map[string]any{
+			"request_id":           "req-ml-auth-ok",
+			"status_code":          200,
+			"member_id":            memberID,
+			"organization_id":      "org_test_ml",
+			"member_authenticated": true,
+			"session_token":        "sess_ml_" + token,
+			"member": map[string]any{
+				"member_id":     memberID,
+				"email_address": "test@example.com",
+				"status":        "active",
+			},
+			"organization": map[string]any{
+				"organization_id": "org_test_ml",
+			},
+		}
+	}
 	s.stytchCreateOrgCallCount = 0
 	s.stytchCreateMemberCallCount = 0
 	s.stytchExchangeISTCallCount = 0
@@ -659,6 +708,7 @@ type StytchMockHandlers struct {
 	CreateOrgFn     func(name string) (statusCode int, response any)
 	CreateMemberFn  func(orgID, email, name string) (statusCode int, response any)
 	ExchangeISTFn   func(ist, orgID string) (statusCode int, response any)
+	MagicLinkAuthFn func(token string) (statusCode int, response any)
 }
 
 // ============================================================================
@@ -718,6 +768,27 @@ func (a *schoolCreatorAdapter) CreateSchool(ctx context.Context, tenantID string
 	`, tenantID, name).Scan(&id)
 	if err != nil {
 		return "", err
+	}
+
+	// Create membership and set active school (mirrors what
+	// cbcschools.Service.CreateSchool does in production).
+	if len(creatorUserID) > 0 && creatorUserID[0] != "" {
+		if _, memErr := a.pool.Exec(ctx, `
+			INSERT INTO memberships (id, tenant_id, user_id, school_id, role)
+			VALUES (gen_random_uuid(), $1, $2, $3, $4::user_role)
+		`, tenantID, creatorUserID[0], id, role); memErr != nil {
+			return "", memErr
+		}
+		if _, activeErr := a.pool.Exec(ctx, `
+			INSERT INTO member_active_school (user_id, tenant_id, school_id, switched_at)
+			VALUES ($1, $2, $3, NOW())
+			ON CONFLICT (user_id) DO UPDATE SET
+				school_id   = EXCLUDED.school_id,
+				tenant_id   = EXCLUDED.tenant_id,
+				switched_at = NOW()
+		`, creatorUserID[0], tenantID, id); activeErr != nil {
+			return "", activeErr
+		}
 	}
 
 	// Seed initial academic year if configured (mirrors what

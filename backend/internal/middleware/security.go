@@ -5,12 +5,14 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	fibermiddleware "github.com/gofiber/fiber/v2/middleware/recover"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 
@@ -156,6 +158,8 @@ type SessionInfo struct {
 }
 
 // loadSession looks up a session by token and returns session info.
+// Maps pgx.ErrNoRows to ErrNotFound so callers can differentiate between
+// "session not found" and actual database errors.
 func loadSession(ctx context.Context, pool *pgxpool.Pool, token string) (*SessionInfo, error) {
 	const query = `
 		SELECT s.user_id, s.tenant_id,
@@ -180,7 +184,10 @@ func loadSession(ctx context.Context, pool *pgxpool.Pool, token string) (*Sessio
 	var s SessionInfo
 	err := pool.QueryRow(ctx, query, token).Scan(&s.UserID, &s.TenantID, &s.Role)
 	if err != nil {
-		return nil, err
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("middleware.loadSession: %w", ErrNotFound)
+		}
+		return nil, fmt.Errorf("middleware.loadSession: %w", err)
 	}
 	return &s, nil
 }

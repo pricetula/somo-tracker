@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -46,7 +47,11 @@ func Connect(cfg config.Config) (*Pools, error) {
 
 	if err := rdb.Ping(ctx).Err(); err != nil {
 		pool.Close()
-		_ = rdb.Close()
+		if closeErr := rdb.Close(); closeErr != nil {
+			slog.WarnContext(ctx, "database.NewPools: failed to close redis after ping failure",
+				slog.String("error", closeErr.Error()),
+			)
+		}
 		return nil, fmt.Errorf("redis ping: %w", err)
 	}
 

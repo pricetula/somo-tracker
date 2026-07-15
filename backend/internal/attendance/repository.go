@@ -3,6 +3,7 @@ package attendance
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -165,7 +166,11 @@ func (r *pgRepository) BulkUpsert(ctx context.Context, tenantID, schoolID string
 	}
 	defer func() {
 		if err != nil {
-			_ = tx.Rollback(ctx)
+			if rbErr := tx.Rollback(ctx); rbErr != nil {
+				slog.WarnContext(ctx, "attendance.Repository.BulkUpsert: rollback error",
+					slog.String("error", rbErr.Error()),
+				)
+			}
 		}
 	}()
 

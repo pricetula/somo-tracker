@@ -2,8 +2,10 @@ package students
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"somotracker/backend/internal/database"
@@ -507,7 +509,7 @@ func (r *PgRepository) IsEnrolledInTerm(ctx context.Context, studentID, academic
 // ============================================================================
 
 func isNoRows(err error) bool {
-	return err != nil && err.Error() == "no rows in result set"
+	return err != nil && errors.Is(err, pgx.ErrNoRows)
 }
 
 func isDuplicateUPI(err error) bool {

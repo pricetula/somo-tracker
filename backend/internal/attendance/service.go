@@ -113,14 +113,22 @@ func (s *Service) enqueueClassRecompute(ctx context.Context, tenantID, schoolID,
 	data, err := json.Marshal(payload)
 	if err != nil {
 		// Clean up the pending flag so a future mark doesn't get silently dropped.
-		_ = s.redis.Del(ctx, dedupKey).Err()
+		if delErr := s.redis.Del(ctx, dedupKey).Err(); delErr != nil {
+			slog.WarnContext(ctx, "attendance.Service.enqueueClassRecompute: failed to clean dedup key on marshal error",
+				slog.String("error", delErr.Error()),
+			)
+		}
 		return fmt.Errorf("attendance.Service.enqueueClassRecompute: marshal: %w", err)
 	}
 
 	task := asynq.NewTask(TypeRecomputeClassSummaries, data)
 	if _, err := s.asynqc.Enqueue(task, asynq.MaxRetry(3), asynq.Queue("attendance")); err != nil {
 		// Clean up the pending flag so a future enqueue can retry.
-		_ = s.redis.Del(ctx, dedupKey).Err()
+		if delErr := s.redis.Del(ctx, dedupKey).Err(); delErr != nil {
+			slog.WarnContext(ctx, "attendance.Service.enqueueClassRecompute: failed to clean dedup key on enqueue error",
+				slog.String("error", delErr.Error()),
+			)
+		}
 		return fmt.Errorf("attendance.Service.enqueueClassRecompute: enqueue: %w", err)
 	}
 

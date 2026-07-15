@@ -3,6 +3,7 @@ package cbcclasses
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -196,7 +197,11 @@ func (r *PgRepository) Create(ctx context.Context, params CreateClassParams) (*C
 	}
 	defer func() {
 		if err != nil {
-			_ = tx.Rollback(ctx)
+			if rbErr := tx.Rollback(ctx); rbErr != nil {
+				slog.WarnContext(ctx, "cbcclasses.Repository.Create: rollback error",
+					slog.String("error", rbErr.Error()),
+				)
+			}
 		}
 	}()
 
@@ -264,7 +269,11 @@ func (r *PgRepository) Update(ctx context.Context, params UpdateClassParams) (*C
 	}
 	defer func() {
 		if err != nil {
-			_ = tx.Rollback(ctx)
+			if rbErr := tx.Rollback(ctx); rbErr != nil {
+				slog.WarnContext(ctx, "cbcclasses.Repository.Update: rollback error",
+					slog.String("error", rbErr.Error()),
+				)
+			}
 		}
 	}()
 
@@ -353,7 +362,11 @@ func (r *PgRepository) BulkDelete(ctx context.Context, ids []string, tenantID, s
 	}
 	defer func() {
 		if err != nil {
-			_ = tx.Rollback(ctx)
+			if rbErr := tx.Rollback(ctx); rbErr != nil {
+				slog.WarnContext(ctx, "cbcclasses.Repository.BulkDelete: rollback error",
+					slog.String("error", rbErr.Error()),
+				)
+			}
 		}
 	}()
 
@@ -539,7 +552,11 @@ func (r *PgRepository) BatchEnrollStudents(ctx context.Context, classID, tenantI
 	}
 	defer func() {
 		if err != nil {
-			_ = tx.Rollback(ctx)
+			if rbErr := tx.Rollback(ctx); rbErr != nil {
+				slog.WarnContext(ctx, "cbcclasses.Repository.BatchEnrollStudents: rollback error",
+					slog.String("error", rbErr.Error()),
+				)
+			}
 		}
 	}()
 

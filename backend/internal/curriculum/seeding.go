@@ -31,21 +31,22 @@ var cbcCurriculumFS embed.FS
 
 // gradeMapping translates file stems to CBC grade level identifiers.
 // E.g. "pp1" → "PP1", "grade4" → "G4", "grade10.stem" → "G10".
-var gradeMapping = map[string]string{
-	"pp1": "PP1",
-	"pp2": "PP2",
-}
-
-func init() {
+// Built via an IIFE to avoid a bare init() function.
+var gradeMapping = func() map[string]string {
+	m := map[string]string{
+		"pp1": "PP1",
+		"pp2": "PP2",
+	}
 	for i := 1; i <= 9; i++ {
-		gradeMapping[fmt.Sprintf("grade%d", i)] = fmt.Sprintf("G%d", i)
+		m[fmt.Sprintf("grade%d", i)] = fmt.Sprintf("G%d", i)
 	}
 	for i := 10; i <= 12; i++ {
 		for _, suffix := range []string{"stem", "socialscience", "artssportscience"} {
-			gradeMapping[fmt.Sprintf("grade%d.%s", i, suffix)] = fmt.Sprintf("G%d", i)
+			m[fmt.Sprintf("grade%d.%s", i, suffix)] = fmt.Sprintf("G%d", i)
 		}
 	}
-}
+	return m
+}()
 
 // ── SeedingService ─────────────────────────────────────────────────────────
 
@@ -68,16 +69,15 @@ func NewSeedingService(pools *database.Pools) *SeedingService {
 
 // defaultCBCFS is the sub-filesystem rooted at cbcdata/, used by
 // SeedSchoolCurriculumDefault. Exposed as a var so tests can override it.
-var defaultCBCFS fs.FS
-
-func init() {
+// Built via an IIFE to avoid a bare init() function.
+var defaultCBCFS = func() fs.FS {
 	sub, err := fs.Sub(cbcCurriculumFS, "cbcdata")
 	if err != nil {
 		// This should never happen — cbcdata/ is embedded and always present.
 		panic("curriculum: failed to create embedded sub-filesystem: " + err.Error())
 	}
-	defaultCBCFS = sub
-}
+	return sub
+}()
 
 // SeedSchoolCurriculumDefault seeds the curriculum using the embedded
 // cbcdata/ JSON files that are compiled into the binary. This is the

@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
-	"errors"
 	"fmt"
 
 	"github.com/gofiber/fiber/v2"
@@ -128,16 +127,10 @@ func (h *Handler) setSessionCookies(c *fiber.Ctx, sessionToken, role, schoolID s
 func (h *Handler) Discover(c *fiber.Ctx) error {
 	var payload DiscoveryPayload
 	if err := c.BodyParser(&payload); err != nil {
-		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
-			"code":    "invalid_input",
-			"message": "invalid request body",
-		})
+		return middleware.HTTPError(c, fmt.Errorf("invalid request body: %w", middleware.ErrInvalidInput))
 	}
 	if payload.Email == "" {
-		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
-			"code":    "invalid_input",
-			"message": "email is required",
-		})
+		return middleware.HTTPError(c, fmt.Errorf("email is required: %w", middleware.ErrInvalidInput))
 	}
 
 	if err := h.svc.Discover(c.Context(), payload.Email); err != nil {
@@ -151,10 +144,7 @@ func (h *Handler) Discover(c *fiber.Ctx) error {
 func (h *Handler) MagicLinkCallback(c *fiber.Ctx) error {
 	token := c.Query("token")
 	if token == "" {
-		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
-			"code":    "invalid_input",
-			"message": "token query parameter is required",
-		})
+		return middleware.HTTPError(c, fmt.Errorf("token query parameter is required: %w", middleware.ErrInvalidInput))
 	}
 
 	// Extract device fingerprint from security pipeline
@@ -212,10 +202,7 @@ func (h *Handler) MagicLinkCallback(c *fiber.Ctx) error {
 func (h *Handler) AcceptInvite(c *fiber.Ctx) error {
 	token := c.Query("token")
 	if token == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "invalid_input",
-			"message": "token query parameter is required",
-		})
+		return middleware.HTTPError(c, fmt.Errorf("token query parameter is required: %w", middleware.ErrInvalidInput))
 	}
 
 	// Extract device fingerprint from security pipeline
@@ -258,16 +245,10 @@ func (h *Handler) Verify(c *fiber.Ctx) error {
 		Token string `json:"token"`
 	}
 	if err := c.BodyParser(&payload); err != nil {
-		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
-			"code":    "invalid_input",
-			"message": "invalid request body",
-		})
+		return middleware.HTTPError(c, fmt.Errorf("invalid request body: %w", middleware.ErrInvalidInput))
 	}
 	if payload.Token == "" {
-		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
-			"code":    "invalid_input",
-			"message": "token is required",
-		})
+		return middleware.HTTPError(c, fmt.Errorf("token is required: %w", middleware.ErrInvalidInput))
 	}
 
 	deviceFingerprint, _ := c.Locals("device_fingerprint").(string)
@@ -300,10 +281,7 @@ func (h *Handler) Verify(c *fiber.Ctx) error {
 func (h *Handler) Register(c *fiber.Ctx) error {
 	var payload RegistrationPayload
 	if err := c.BodyParser(&payload); err != nil {
-		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
-			"code":    "invalid_input",
-			"message": "invalid request body",
-		})
+		return middleware.HTTPError(c, fmt.Errorf("invalid request body: %w", middleware.ErrInvalidInput))
 	}
 
 	// Extract device fingerprint from security pipeline (requirement 5)
@@ -336,10 +314,7 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 func (h *Handler) Me(c *fiber.Ctx) error {
 	token := c.Cookies(somoCookieName)
 	if token == "" {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"code":    "unauthorized",
-			"message": "no session cookie found",
-		})
+		return middleware.HTTPError(c, fmt.Errorf("no session cookie found: %w", middleware.ErrUnauthorized))
 	}
 
 	info, err := h.svc.GetMe(c.Context(), token)
@@ -485,6 +460,4 @@ func createSignedCookieValue(value, secret string) string {
 	return value + "." + sig
 }
 
-// Compile-time check that the removed mapError function is no longer used.
 // All error-to-HTTP mapping is now delegated to middleware.HTTPError.
-var _ = errors.Is

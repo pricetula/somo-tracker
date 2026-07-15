@@ -229,8 +229,8 @@ func TestHandler_Me_MissingCookie(t *testing.T) {
 	if body.Code != "unauthorized" {
 		t.Fatalf("expected code 'unauthorized', got %q", body.Code)
 	}
-	if body.Message != "no session cookie found" {
-		t.Fatalf("expected message 'no session cookie found', got %q", body.Message)
+	if body.Message != "authentication required" {
+		t.Fatalf("expected message 'authentication required', got %q", body.Message)
 	}
 }
 
@@ -524,13 +524,13 @@ func TestHandler_Discover_HappyPath(t *testing.T) {
 	}
 }
 
-// TestHandler_Discover_MissingEmail verifies that omitting email returns 422.
+// TestHandler_Discover_MissingEmail verifies that omitting email returns 400.
 func TestHandler_Discover_MissingEmail(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
 	resp := h.doRequestWithBody("POST", "/api/auth/discover", "", map[string]string{})
-	if resp.StatusCode != fiber.StatusUnprocessableEntity {
-		t.Fatalf("expected 422 Unprocessable Entity, got %d", resp.StatusCode)
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Fatalf("expected 400 Bad Request, got %d", resp.StatusCode)
 	}
 
 	var body struct {
@@ -543,8 +543,8 @@ func TestHandler_Discover_MissingEmail(t *testing.T) {
 	if body.Code != "invalid_input" {
 		t.Fatalf("expected code 'invalid_input', got %q", body.Code)
 	}
-	if body.Message != "email is required" {
-		t.Fatalf("expected message 'email is required', got %q", body.Message)
+	if body.Message != "email is required: invalid input" {
+		t.Fatalf("expected message 'email is required: invalid input', got %q", body.Message)
 	}
 }
 
@@ -556,8 +556,8 @@ func TestHandler_Discover_InvalidBody(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	resp, _ := h.app.Test(req)
 
-	if resp.StatusCode != fiber.StatusUnprocessableEntity {
-		t.Fatalf("expected 422 Unprocessable Entity, got %d", resp.StatusCode)
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Fatalf("expected 400 Bad Request, got %d", resp.StatusCode)
 	}
 }
 
@@ -673,8 +673,8 @@ func TestHandler_Register_InvalidBody(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	resp, _ := h.app.Test(req)
 
-	if resp.StatusCode != fiber.StatusUnprocessableEntity {
-		t.Fatalf("expected 422 Unprocessable Entity, got %d", resp.StatusCode)
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Fatalf("expected 400 Bad Request, got %d", resp.StatusCode)
 	}
 
 	var body struct {
@@ -834,8 +834,8 @@ func TestHandler_Verify_MissingToken(t *testing.T) {
 		Token: "",
 	})
 
-	if resp.StatusCode != fiber.StatusUnprocessableEntity {
-		t.Fatalf("expected 422 Unprocessable Entity, got %d", resp.StatusCode)
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Fatalf("expected 400 Bad Request, got %d", resp.StatusCode)
 	}
 
 	var body struct {
@@ -858,8 +858,8 @@ func TestHandler_Verify_InvalidBody(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	resp, _ := h.app.Test(req)
 
-	if resp.StatusCode != fiber.StatusUnprocessableEntity {
-		t.Fatalf("expected 422 Unprocessable Entity, got %d", resp.StatusCode)
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Fatalf("expected 400 Bad Request, got %d", resp.StatusCode)
 	}
 }
 
@@ -968,13 +968,13 @@ func TestHandler_Callback_ExistingUser(t *testing.T) {
 }
 
 // TestHandler_Callback_MissingToken verifies that a callback without a token
-// returns 422 Unprocessable Entity.
+// returns 400 Bad Request.
 func TestHandler_Callback_MissingToken(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
 	resp := h.doRequestWithQuery("GET", "/api/auth/callback", "", "")
-	if resp.StatusCode != fiber.StatusUnprocessableEntity {
-		t.Fatalf("expected 422 Unprocessable Entity, got %d", resp.StatusCode)
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Fatalf("expected 400 Bad Request, got %d", resp.StatusCode)
 	}
 
 	var body struct {
@@ -987,8 +987,8 @@ func TestHandler_Callback_MissingToken(t *testing.T) {
 	if body.Code != "invalid_input" {
 		t.Fatalf("expected code 'invalid_input', got %q", body.Code)
 	}
-	if body.Message != "token query parameter is required" {
-		t.Fatalf("expected message 'token query parameter is required', got %q", body.Message)
+	if body.Message != "token query parameter is required: invalid input" {
+		t.Fatalf("expected message 'token query parameter is required: invalid input', got %q", body.Message)
 	}
 }
 
@@ -1101,8 +1101,8 @@ func TestHandler_InviteCallback_MissingToken(t *testing.T) {
 	if body.Code != "invalid_input" {
 		t.Fatalf("expected code 'invalid_input', got %q", body.Code)
 	}
-	if body.Message != "token query parameter is required" {
-		t.Fatalf("expected message 'token query parameter is required', got %q", body.Message)
+	if body.Message != "token query parameter is required: invalid input" {
+		t.Fatalf("expected message 'token query parameter is required: invalid input', got %q", body.Message)
 	}
 }
 

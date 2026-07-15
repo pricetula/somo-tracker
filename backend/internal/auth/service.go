@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -479,7 +480,11 @@ func (s *Service) GetMe(ctx context.Context, token string) (*MeInfo, error) {
 	info, err := s.repo.GetMeInfo(ctx, token)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
-			_ = s.rdb.Del(ctx, s.sessionKey(token)).Err()
+			if delErr := s.rdb.Del(ctx, s.sessionKey(token)).Err(); delErr != nil {
+				slog.WarnContext(ctx, "auth.Service.GetMe: failed to remove stale session from cache",
+					slog.String("error", delErr.Error()),
+				)
+			}
 			return nil, ErrExpiredToken
 		}
 		return nil, err
@@ -600,7 +605,11 @@ func (s *Service) GetSession(ctx context.Context, token string) (*UserSession, e
 		if err != nil {
 			if errors.Is(err, ErrNotFound) {
 				// Token in Redis but not in Postgres — clean up stale Redis entry
-				_ = s.rdb.Del(ctx, s.sessionKey(token)).Err()
+				if delErr := s.rdb.Del(ctx, s.sessionKey(token)).Err(); delErr != nil {
+					slog.WarnContext(ctx, "auth.Service.GetSession: failed to remove stale session from cache",
+						slog.String("error", delErr.Error()),
+					)
+				}
 				return nil, ErrExpiredToken
 			}
 			return nil, err
@@ -618,7 +627,11 @@ func (s *Service) GetSession(ctx context.Context, token string) (*UserSession, e
 	}
 
 	// Repopulate Redis from Postgres for subsequent requests
-	_ = s.rdb.Set(ctx, s.sessionKey(token), session.StytchSessionToken, sessionTTL).Err()
+	if setErr := s.rdb.Set(ctx, s.sessionKey(token), session.StytchSessionToken, sessionTTL).Err(); setErr != nil {
+		slog.WarnContext(ctx, "auth.Service.GetSession: failed to repopulate session cache",
+			slog.String("error", setErr.Error()),
+		)
+	}
 
 	return session, nil
 }

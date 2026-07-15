@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -311,7 +312,11 @@ func (r *PgRepository) BatchCreate(ctx context.Context, tenantID, schoolID strin
 		return nil, fmt.Errorf("cbctimetableslots.Repository.BatchCreate: begin tx: %w", err)
 	}
 	defer func() {
-		_ = tx.Rollback(ctx)
+		if rbErr := tx.Rollback(ctx); rbErr != nil && !errors.Is(rbErr, pgx.ErrTxClosed) {
+			slog.WarnContext(ctx, "cbctimetableslots.Repository.BatchCreate: rollback error",
+				slog.String("error", rbErr.Error()),
+			)
+		}
 	}()
 
 	const query = `

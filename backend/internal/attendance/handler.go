@@ -1,6 +1,7 @@
 package attendance
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -160,10 +161,7 @@ func (h *Handler) StudentHistory(c *fiber.Ctx) error {
 
 	studentID := c.Params("student_id")
 	if studentID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "student_id is required",
-		})
+		return middleware.HTTPError(c, fmt.Errorf("student_id is required: %w", middleware.ErrInvalidInput))
 	}
 
 	filter := StudentHistoryFilter{
@@ -222,18 +220,12 @@ func (h *Handler) ChildSummary(c *fiber.Ctx) error {
 
 	studentID := c.Params("student_id")
 	if studentID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "student_id is required",
-		})
+		return middleware.HTTPError(c, fmt.Errorf("student_id is required: %w", middleware.ErrInvalidInput))
 	}
 
 	termID := c.Query("term_id")
 	if termID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "term_id is required",
-		})
+		return middleware.HTTPError(c, fmt.Errorf("term_id is required: %w", middleware.ErrInvalidInput))
 	}
 
 	summary, err := h.svc.GetChildAttendanceSummary(c.Context(), tenantID, schoolID, studentID, termID)
@@ -255,17 +247,11 @@ func (h *Handler) ComputeSummaries(c *fiber.Ctx) error {
 		TermID string `json:"term_id"`
 	}
 	if err := c.BodyParser(&payload); err != nil {
-		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "term_id is required",
-		})
+		return middleware.HTTPError(c, fmt.Errorf("invalid request body: %w", middleware.ErrInvalidInput))
 	}
 
 	if _, err := uuid.Parse(payload.TermID); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "invalid term_id",
-		})
+		return middleware.HTTPError(c, fmt.Errorf("invalid term_id: %w", middleware.ErrInvalidInput))
 	}
 
 	count, err := h.svc.ComputeTermSummaries(c.Context(), tenantID, schoolID, payload.TermID)

@@ -26,7 +26,6 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	fiberrecover "github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/google/uuid"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
@@ -314,10 +313,8 @@ func registerApp(
 		ErrorHandler: globalErrorHandler,
 	})
 
-	// Register Fiber's built-in recover middleware before all routes
-	// so that handler panics are caught and routed to the error handler
-	// rather than crashing the process.
-	app.Use(fiberrecover.New())
+	// Recover middleware is registered inside middleware.Register() as part of
+	// the security pipeline (Layer 1). It is NOT duplicated here.
 
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
@@ -360,6 +357,11 @@ func registerApp(
 
 			// Start Fiber in a non-blocking goroutine
 			go func() {
+				defer func() {
+					if r := recover(); r != nil {
+						slog.ErrorContext(ctx, "fiber listen panic", slog.Any("recover", r))
+					}
+				}()
 				if err := app.Listen(":" + cfg.Port); err != nil && !errors.Is(err, http.ErrServerClosed) {
 					// Log fatal since this means the server failed to start
 					slog.Error("fiber listen fatal", "error", err)

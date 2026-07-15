@@ -16,7 +16,9 @@ import (
 // ============================================================================
 
 var (
-	ErrInvalidInput = errors.New("invalid_input")
+	// ErrInvalidInput wraps middleware.ErrInvalidInput so that errors.Is(err,
+	// middleware.ErrInvalidInput) returns true for validation failures.
+	ErrInvalidInput = fmt.Errorf("invalid auth input: %w", middleware.ErrInvalidInput)
 	// ErrExpiredToken wraps middleware.ErrUnauthorized so that errors.Is(err,
 	// middleware.ErrUnauthorized) returns true. This ensures the middleware's
 	// HTTPError maps it to 401 Unauthorized, which triggers the frontend's
@@ -27,12 +29,16 @@ var (
 	ErrJITProvisioningNotAllowed = errors.New("jit_provisioning_not_allowed")
 	ErrMemberNotFound            = errors.New("member_not_found")
 	ErrOrgNotFound               = errors.New("org_not_found")
-	ErrNotFound                  = errors.New("not_found")
-	ErrAlreadyExists             = errors.New("already exists")
-	ErrUnauthorized              = errors.New("unauthorized")
-	ErrForbidden                 = errors.New("forbidden")
-	ErrConflict                  = errors.New("conflict")
-	ErrInternal                  = errors.New("internal_error")
+	// Required sentinel errors, each wrapping the corresponding middleware
+	// sentinel so that middleware.HTTPError can match them via errors.Is.
+	ErrNotFound      = fmt.Errorf("auth not found: %w", middleware.ErrNotFound)
+	ErrAlreadyExists = fmt.Errorf("auth already exists: %w", middleware.ErrAlreadyExists)
+	ErrUnauthorized  = fmt.Errorf("unauthorized: %w", middleware.ErrUnauthorized)
+	ErrForbidden     = fmt.Errorf("forbidden: %w", middleware.ErrForbidden)
+	ErrConflict      = fmt.Errorf("auth conflict: %w", middleware.ErrConflict)
+	// ErrInternal is intentionally a bare error — it should always fall through
+	// to the generic 500 response path and is not part of the required sentinel set.
+	ErrInternal = errors.New("internal_error")
 )
 
 // ValidationError carries a user-facing message alongside the sentinel.

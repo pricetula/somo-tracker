@@ -2,18 +2,20 @@ package teachers
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"time"
+
+	"somotracker/backend/internal/middleware"
 )
 
 // Sentinel domain errors.
 var (
-	ErrNotFound      = errors.New("teachers not found")
-	ErrAlreadyExists = errors.New("teachers already exists")
-	ErrInvalidInput  = errors.New("invalid teachers input")
-	ErrUnauthorized  = errors.New("unauthorized")
-	ErrForbidden     = errors.New("forbidden")
-	ErrConflict      = errors.New("teachers conflict")
+	ErrNotFound      = fmt.Errorf("teachers not found: %w", middleware.ErrNotFound)
+	ErrAlreadyExists = fmt.Errorf("teachers already exists: %w", middleware.ErrAlreadyExists)
+	ErrInvalidInput  = fmt.Errorf("invalid teachers input: %w", middleware.ErrInvalidInput)
+	ErrUnauthorized  = fmt.Errorf("unauthorized: %w", middleware.ErrUnauthorized)
+	ErrForbidden     = fmt.Errorf("forbidden: %w", middleware.ErrForbidden)
+	ErrConflict      = fmt.Errorf("teachers conflict: %w", middleware.ErrConflict)
 )
 
 // Repository defines the contract for teacher persistence.

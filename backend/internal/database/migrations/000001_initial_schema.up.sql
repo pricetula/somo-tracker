@@ -1521,8 +1521,12 @@ CREATE TABLE IF NOT EXISTS assessment_blueprints (
     CONSTRAINT chk_blueprint_term          CHECK (term BETWEEN 1 AND 3),
     CONSTRAINT chk_blueprint_academic_year CHECK (academic_year >= 2017),
     CONSTRAINT uq_blueprint_per_school_grade_term
-        UNIQUE (school_id, title, type, grade_level, academic_year, term)
+        UNIQUE (school_id, type, grade_level, academic_year, term)
 );
+
+ALTER TABLE assessment_blueprints DROP CONSTRAINT IF EXISTS uq_blueprint_per_school_grade_term;
+ALTER TABLE assessment_blueprints ADD CONSTRAINT uq_blueprint_per_school_grade_term
+    UNIQUE (school_id, type, grade_level, academic_year, term);
 
 CREATE INDEX IF NOT EXISTS idx_blueprints_tenant     ON assessment_blueprints (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_blueprints_school     ON assessment_blueprints (school_id);
@@ -1652,6 +1656,12 @@ BEGIN
     -- so we treat it as exactly 99.9999 to match the highest bracket.
     IF v_percentage > 100.00 THEN
         v_percentage := 100.00;
+    END IF;
+
+    -- Log a debug notice if clamping occurred (percentage > 100.00)
+    IF v_percentage > 100.00 THEN
+        RAISE DEBUG 'fn_convert_raw_score_to_rubric: clamped percentage % to 100.00 for tenant=% school=% grade=%',
+            ROUND((p_obtained / p_total) * 100, 4), p_tenant_id, p_school_id, p_grade_level;
     END IF;
 
     -- Look up the bracket (handle the top-boundary edge case)
@@ -2305,6 +2315,7 @@ CREATE TABLE IF NOT EXISTS attendance_records (
     marked_at         TIMESTAMPTZ       NOT NULL DEFAULT NOW(),
     note              TEXT              NULL,
     created_at        TIMESTAMPTZ       NOT NULL DEFAULT NOW(),
+    updated_at        TIMESTAMPTZ       NOT NULL DEFAULT NOW(),
 
     CONSTRAINT uq_attendance_student_slot_date
         UNIQUE (student_id, timetable_slot_id, date),
@@ -2338,6 +2349,53 @@ COMMENT ON TABLE attendance_records IS
 
 COMMENT ON COLUMN attendance_records.note IS
     'Optional short free text (e.g. "left early, picked up by parent").';
+
+-- ============================================================================
+-- updated_at TRIGGER + NON-BREAK CONSTRAINT (squashed from 000003)
+-- The updated_at column is already in the CREATE TABLE above.
+-- ============================================================================
+
+DROP TRIGGER IF EXISTS trg_attendance_records_updated_at ON attendance_records;
+CREATE TRIGGER trg_attendance_records_updated_at
+    BEFORE UPDATE ON attendance_records
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+
+COMMENT ON COLUMN attendance_records.updated_at IS
+    'Tracks when the record was last modified (status or note update).
+     Populated automatically by the trg_attendance_records_updated_at trigger.';
+
+-- ---------------------------------------------------------------------------
+-- Non-break slot enforcement: attendance can only be marked for instructional
+-- periods, not breaks, recess, or assemblies.
+-- ---------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION fn_check_non_break_slot()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM cbc_timetable_slots ts
+        JOIN timetable_structures tstr ON tstr.id = ts.structure_id
+        WHERE ts.id = NEW.timetable_slot_id
+          AND tstr.is_break = true
+    ) THEN
+        RAISE EXCEPTION 'Cannot create attendance record for a break period (timetable_slot_id: %)', NEW.timetable_slot_id
+            USING ERRCODE = 'P0001';
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_attendance_check_non_break_slot ON attendance_records;
+CREATE TRIGGER trg_attendance_check_non_break_slot
+    BEFORE INSERT OR UPDATE ON attendance_records
+    FOR EACH ROW
+    EXECUTE FUNCTION fn_check_non_break_slot();
+
+COMMENT ON TRIGGER trg_attendance_check_non_break_slot ON attendance_records IS
+    'Enforces that attendance records can only reference timetable slots
+     whose corresponding timetable_structures row has is_break = false.
+     Prevents system or application bugs from creating attendance marks
+     for break/assembly/recess periods.';
 
 -- ---------------------------------------------------------------------------
 -- BEHAVIOR CATEGORIES
@@ -2547,6 +2605,277 @@ COMMENT ON COLUMN term_reports.competency_snapshot IS
      final_level, teacher_narrative_summary) frozen at generation time.';
 
 -- ============================================================================
+-- updated_at COLUMNS & TRIGGERS (missing from initial CREATE TABLE definitions)
+--
+-- These ALTER TABLE statements add updated_at tracking to tables that were
+-- originally created without it. For fresh installs, the column already exists
+-- in the CREATE TABLE above, so ADD COLUMN IF NOT EXISTS is a no-op.
+-- For existing databases upgraded from an earlier schema version, this block
+-- adds the column and trigger idempotently.
+--
+-- Tables that already have updated_at inline: users, cbc_schools,
+-- academic_years, academic_terms, cbc_streams, cbc_classes, memberships,
+-- cbc_parents, cbc_students, cbc_student_enrollments, timetable_structures,
+-- cbc_timetable_slots, attendance_records, school_member_counts.
+-- ============================================================================
+
+-- ---------------------------------------------------------------------------
+-- PLATFORM INFRASTRUCTURE
+-- ---------------------------------------------------------------------------
+
+ALTER TABLE invitations ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_invitations_updated_at ON invitations;
+CREATE TRIGGER trg_invitations_updated_at
+    BEFORE UPDATE ON invitations
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN invitations.updated_at IS
+    'Tracks status transitions (pending, accepted, expired, revoked).';
+
+ALTER TABLE import_jobs ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_import_jobs_updated_at ON import_jobs;
+CREATE TRIGGER trg_import_jobs_updated_at
+    BEFORE UPDATE ON import_jobs
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN import_jobs.updated_at IS
+    'Tracks import lifecycle: pending, processing, completed, failed.';
+
+ALTER TABLE import_job_chunks ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_import_job_chunks_updated_at ON import_job_chunks;
+CREATE TRIGGER trg_import_job_chunks_updated_at
+    BEFORE UPDATE ON import_job_chunks
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN import_job_chunks.updated_at IS
+    'Tracks chunk processing: pending, processing, completed, cancelled.';
+
+ALTER TABLE import_job_staging ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_import_job_staging_updated_at ON import_job_staging;
+CREATE TRIGGER trg_import_job_staging_updated_at
+    BEFORE UPDATE ON import_job_staging
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN import_job_staging.updated_at IS
+    'Tracks staging row processing: pending, succeeded, failed.';
+
+ALTER TABLE import_job_failures ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_import_job_failures_updated_at ON import_job_failures;
+CREATE TRIGGER trg_import_job_failures_updated_at
+    BEFORE UPDATE ON import_job_failures
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN import_job_failures.updated_at IS
+    'Tracks when failure details were last modified.';
+
+-- ---------------------------------------------------------------------------
+-- HEALTH & FINANCIALS
+-- ---------------------------------------------------------------------------
+
+ALTER TABLE medical_incidents ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_medical_incidents_updated_at ON medical_incidents;
+CREATE TRIGGER trg_medical_incidents_updated_at
+    BEFORE UPDATE ON medical_incidents
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN medical_incidents.updated_at IS
+    'Tracks medical record corrections and follow-ups.';
+
+ALTER TABLE student_health_profiles ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_student_health_profiles_updated_at ON student_health_profiles;
+CREATE TRIGGER trg_student_health_profiles_updated_at
+    BEFORE UPDATE ON student_health_profiles
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN student_health_profiles.updated_at IS
+    'Tracks health profile updates (allergies, conditions, instructions).';
+
+ALTER TABLE fee_categories ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_fee_categories_updated_at ON fee_categories;
+CREATE TRIGGER trg_fee_categories_updated_at
+    BEFORE UPDATE ON fee_categories
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN fee_categories.updated_at IS
+    'Tracks fee category metadata changes.';
+
+ALTER TABLE fee_templates ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_fee_templates_updated_at ON fee_templates;
+CREATE TRIGGER trg_fee_templates_updated_at
+    BEFORE UPDATE ON fee_templates
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN fee_templates.updated_at IS
+    'Tracks fee amount and configuration changes per term.';
+
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_invoices_updated_at ON invoices;
+CREATE TRIGGER trg_invoices_updated_at
+    BEFORE UPDATE ON invoices
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN invoices.updated_at IS
+    'Tracks invoice modifications and payment status sync.';
+
+ALTER TABLE invoice_items ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_invoice_items_updated_at ON invoice_items;
+CREATE TRIGGER trg_invoice_items_updated_at
+    BEFORE UPDATE ON invoice_items
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN invoice_items.updated_at IS
+    'Tracks invoice line-item corrections.';
+
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_payments_updated_at ON payments;
+CREATE TRIGGER trg_payments_updated_at
+    BEFORE UPDATE ON payments
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN payments.updated_at IS
+    'Tracks payment record corrections and reconciliations.';
+
+-- ---------------------------------------------------------------------------
+-- CBC CURRICULUM STRUCTURE
+-- ---------------------------------------------------------------------------
+
+ALTER TABLE cbc_strands ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_cbc_strands_updated_at ON cbc_strands;
+CREATE TRIGGER trg_cbc_strands_updated_at
+    BEFORE UPDATE ON cbc_strands
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN cbc_strands.updated_at IS
+    'Tracks curriculum strand revisions.';
+
+ALTER TABLE cbc_sub_strands ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_cbc_sub_strands_updated_at ON cbc_sub_strands;
+CREATE TRIGGER trg_cbc_sub_strands_updated_at
+    BEFORE UPDATE ON cbc_sub_strands
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN cbc_sub_strands.updated_at IS
+    'Tracks curriculum sub-strand revisions.';
+
+ALTER TABLE performance_indicators ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_performance_indicators_updated_at ON performance_indicators;
+CREATE TRIGGER trg_performance_indicators_updated_at
+    BEFORE UPDATE ON performance_indicators
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN performance_indicators.updated_at IS
+    'Tracks performance indicator revisions and re-sequencing.';
+
+ALTER TABLE cbc_assessment_grading_scales ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_cbc_assessment_grading_scales_updated_at ON cbc_assessment_grading_scales;
+CREATE TRIGGER trg_cbc_assessment_grading_scales_updated_at
+    BEFORE UPDATE ON cbc_assessment_grading_scales
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN cbc_assessment_grading_scales.updated_at IS
+    'Tracks grading bracket boundary changes.';
+
+ALTER TABLE assessment_blueprints ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_assessment_blueprints_updated_at ON assessment_blueprints;
+CREATE TRIGGER trg_assessment_blueprints_updated_at
+    BEFORE UPDATE ON assessment_blueprints
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN assessment_blueprints.updated_at IS
+    'Tracks assessment blueprint revisions.';
+
+ALTER TABLE assessment_blueprint_indicators ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_assessment_blueprint_indicators_updated_at ON assessment_blueprint_indicators;
+CREATE TRIGGER trg_assessment_blueprint_indicators_updated_at
+    BEFORE UPDATE ON assessment_blueprint_indicators
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN assessment_blueprint_indicators.updated_at IS
+    'Tracks blueprint-to-indicator mapping changes.';
+
+ALTER TABLE assessment_sessions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_assessment_sessions_updated_at ON assessment_sessions;
+CREATE TRIGGER trg_assessment_sessions_updated_at
+    BEFORE UPDATE ON assessment_sessions
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN assessment_sessions.updated_at IS
+    'Tracks assessment lifecycle: DRAFT, PENDING_REVIEW, APPROVED, PUBLISHED, REJECTED.';
+
+ALTER TABLE learner_rubric_results ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_learner_rubric_results_updated_at ON learner_rubric_results;
+CREATE TRIGGER trg_learner_rubric_results_updated_at
+    BEFORE UPDATE ON learner_rubric_results
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN learner_rubric_results.updated_at IS
+    'Tracks rubric result corrections and grade overrides.';
+
+ALTER TABLE learner_portfolios ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_learner_portfolios_updated_at ON learner_portfolios;
+CREATE TRIGGER trg_learner_portfolios_updated_at
+    BEFORE UPDATE ON learner_portfolios
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN learner_portfolios.updated_at IS
+    'Tracks portfolio evidence updates and metadata changes.';
+
+ALTER TABLE cbc_term_competency_summaries ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_cbc_term_competency_summaries_updated_at ON cbc_term_competency_summaries;
+CREATE TRIGGER trg_cbc_term_competency_summaries_updated_at
+    BEFORE UPDATE ON cbc_term_competency_summaries
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN cbc_term_competency_summaries.updated_at IS
+    'Tracks competency summary overrides and KNEC sync status changes.';
+
+-- ---------------------------------------------------------------------------
+-- TEACHER ASSIGNMENTS & CBC ACTOR JUNCTIONS
+-- ---------------------------------------------------------------------------
+
+ALTER TABLE cbc_class_teachers ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_cbc_class_teachers_updated_at ON cbc_class_teachers;
+CREATE TRIGGER trg_cbc_class_teachers_updated_at
+    BEFORE UPDATE ON cbc_class_teachers
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN cbc_class_teachers.updated_at IS
+    'Tracks teacher assignment changes mid-term.';
+
+ALTER TABLE cbc_student_parents ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_cbc_student_parents_updated_at ON cbc_student_parents;
+CREATE TRIGGER trg_cbc_student_parents_updated_at
+    BEFORE UPDATE ON cbc_student_parents
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN cbc_student_parents.updated_at IS
+    'Tracks parent relationship and primary-contact changes.';
+
+-- ---------------------------------------------------------------------------
+-- ATTENDANCE & BEHAVIOR
+-- ---------------------------------------------------------------------------
+
+ALTER TABLE behavior_categories ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_behavior_categories_updated_at ON behavior_categories;
+CREATE TRIGGER trg_behavior_categories_updated_at
+    BEFORE UPDATE ON behavior_categories
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN behavior_categories.updated_at IS
+    'Tracks category name changes and soft-delete toggles.';
+
+ALTER TABLE behavior_notes ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_behavior_notes_updated_at ON behavior_notes;
+CREATE TRIGGER trg_behavior_notes_updated_at
+    BEFORE UPDATE ON behavior_notes
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN behavior_notes.updated_at IS
+    'Tracks approval workflow: PENDING_REVIEW, APPROVED, REJECTED.';
+
+ALTER TABLE attendance_term_summaries ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_attendance_term_summaries_updated_at ON attendance_term_summaries;
+CREATE TRIGGER trg_attendance_term_summaries_updated_at
+    BEFORE UPDATE ON attendance_term_summaries
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN attendance_term_summaries.updated_at IS
+    'Tracks materialised summary refresh cycles.';
+
+ALTER TABLE term_reports ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_term_reports_updated_at ON term_reports;
+CREATE TRIGGER trg_term_reports_updated_at
+    BEFORE UPDATE ON term_reports
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN term_reports.updated_at IS
+    'Tracks report compilation and publication.';
+
+-- ---------------------------------------------------------------------------
+-- USER CONTEXT
+-- ---------------------------------------------------------------------------
+
+ALTER TABLE member_active_school ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_member_active_school_updated_at ON member_active_school;
+CREATE TRIGGER trg_member_active_school_updated_at
+    BEFORE UPDATE ON member_active_school
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN member_active_school.updated_at IS
+    'Tracks active school context switches.';
+
+-- ============================================================================
 -- ROW-LEVEL SECURITY
 --
 -- Every table trusting the app layer to filter by tenant_id is one missed
@@ -2617,6 +2946,7 @@ ALTER TABLE IF EXISTS medical_incidents                 ENABLE ROW LEVEL SECURIT
 ALTER TABLE IF EXISTS member_active_school              ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS memberships                       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS payments                          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS users                             ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS school_member_counts              ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS student_health_profiles           ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS timetable_structures              ENABLE ROW LEVEL SECURITY;
@@ -2676,6 +3006,7 @@ BEGIN
             'memberships',
             'payments',
             'school_member_counts',
+            'users',
             'student_health_profiles',
             'timetable_structures',
             'attendance_records',

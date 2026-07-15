@@ -837,7 +837,11 @@ func testHandlerWithoutAuth(t *testing.T) *handlerTestHarness {
 	svc := NewService(repo)
 	handler := NewHandler(svc)
 
-	app := fiber.New()
+	app := fiber.New(fiber.Config{
+		// Route middleware-returned sentinel errors (ErrUnauthorized etc.)
+		// through the same mapping logic used in production.
+		ErrorHandler: middleware.HTTPError,
+	})
 
 	// Register routes WITHOUT the test auth middleware — the real RequireAuth
 	// will reject because there's no session in context.

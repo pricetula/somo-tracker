@@ -58,7 +58,10 @@ import (
 // Global Fiber error handler registered in fiber.Config.
 // This is the last-resort catcher for any error that escapes handler functions
 // (including panics caught by Fiber's recover middleware).
-// It logs with slog.ErrorContext and returns the standard error response body.
+// It logs with slog.ErrorContext and returns the canonical error response body.
+// It handles both *fiber.Error (from Fiber routing) and middleware-returned
+// sentinel errors (from RequireAuth, RequireRole) by matching against the
+// middleware.Err* sentinels via errors.Is.
 func globalErrorHandler(c *fiber.Ctx, err error) error {
 	code := fiber.StatusInternalServerError
 	var message string
@@ -71,7 +74,47 @@ func globalErrorHandler(c *fiber.Ctx, err error) error {
 		message = fiberErr.Message
 	}
 
-	// Default to internal_error
+	// If not a *fiber.Error, match against middleware sentinels so that
+	// middleware-returned errors (e.g. RequireAuth returning ErrUnauthorized)
+	// are mapped to the correct HTTP status and canonical JSON body.
+	if message == "" {
+		switch {
+		case errors.Is(err, middleware.ErrNotFound):
+			code = fiber.StatusNotFound
+			message = "the requested resource was not found"
+			errorCode = "not_found"
+		case errors.Is(err, middleware.ErrAlreadyExists):
+			code = fiber.StatusConflict
+			message = "the resource already exists"
+			errorCode = "already_exists"
+		case errors.Is(err, middleware.ErrInvalidInput):
+			code = fiber.StatusBadRequest
+			message = err.Error()
+			errorCode = "invalid_input"
+		case errors.Is(err, middleware.ErrUnauthorized):
+			code = fiber.StatusUnauthorized
+			message = "authentication required"
+			errorCode = "unauthorized"
+		case errors.Is(err, middleware.ErrForbidden):
+			code = fiber.StatusForbidden
+			message = "insufficient permissions"
+			errorCode = "forbidden"
+		case errors.Is(err, middleware.ErrConflict):
+			code = fiber.StatusConflict
+			message = "the resource was modified by another request"
+			errorCode = "conflict"
+		case errors.Is(err, context.Canceled):
+			code = 499
+			message = "the request was canceled"
+			errorCode = "request_canceled"
+		case errors.Is(err, context.DeadlineExceeded):
+			code = fiber.StatusGatewayTimeout
+			message = "the request timed out"
+			errorCode = "timeout"
+		}
+	}
+
+	// Default to internal_error for unrecognized errors
 	if message == "" {
 		message = "an unexpected error occurred"
 	}

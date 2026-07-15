@@ -2,11 +2,13 @@ package invitations
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"somotracker/backend/internal/middleware"
 )
 
 // SchoolResolver resolves the active school for an authenticated user.
@@ -17,12 +19,12 @@ type SchoolResolver interface {
 
 // Sentinel domain errors.
 var (
-	ErrNotFound      = errors.New("invitations not found")
-	ErrAlreadyExists = errors.New("invitations already exists")
-	ErrInvalidInput  = errors.New("invalid invitations input")
-	ErrUnauthorized  = errors.New("unauthorized")
-	ErrForbidden     = errors.New("forbidden")
-	ErrConflict      = errors.New("invitations conflict")
+	ErrNotFound      = fmt.Errorf("invitations not found: %w", middleware.ErrNotFound)
+	ErrAlreadyExists = fmt.Errorf("invitations already exists: %w", middleware.ErrAlreadyExists)
+	ErrInvalidInput  = fmt.Errorf("invalid invitations input: %w", middleware.ErrInvalidInput)
+	ErrUnauthorized  = fmt.Errorf("unauthorized: %w", middleware.ErrUnauthorized)
+	ErrForbidden     = fmt.Errorf("forbidden: %w", middleware.ErrForbidden)
+	ErrConflict      = fmt.Errorf("invitations conflict: %w", middleware.ErrConflict)
 )
 
 // Repository defines the contract for invitation persistence.
@@ -46,6 +48,7 @@ type Invitation struct {
 	FullName  *string   `json:"full_name,omitempty"`
 	ExpiresAt time.Time `json:"expires_at"`
 	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at,omitempty"`
 }
 
 // ============================================================================

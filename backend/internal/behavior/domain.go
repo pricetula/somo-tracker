@@ -32,6 +32,7 @@ type BehaviorCategory struct {
 	DefaultSeverity *string   `json:"default_severity,omitempty"`
 	IsActive        bool      `json:"is_active"`
 	CreatedAt       time.Time `json:"created_at,omitempty"`
+	UpdatedAt       time.Time `json:"updated_at,omitempty"`
 }
 
 // CreateCategoryPayload is the request body for creating a behavior category.
@@ -73,6 +74,7 @@ type BehaviorNote struct {
 	ReviewedByID    *string            `json:"reviewed_by_id,omitempty"`
 	ReviewedAt      *time.Time         `json:"reviewed_at,omitempty"`
 	CreatedAt       time.Time          `json:"created_at,omitempty"`
+	UpdatedAt       time.Time          `json:"updated_at,omitempty"`
 }
 
 // CreateNotePayload is the request body for creating a behavior note.

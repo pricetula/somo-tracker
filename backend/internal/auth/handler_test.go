@@ -660,8 +660,8 @@ func TestHandler_Register_ValidationError(t *testing.T) {
 	})
 
 	// ValidationError with ErrInvalidInput maps to 400
-	if resp.StatusCode != fiber.StatusInternalServerError {
-		t.Fatalf("expected 500 Internal Server Error, got %d", resp.StatusCode)
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Fatalf("expected 400 Bad Request, got %d", resp.StatusCode)
 	}
 }
 

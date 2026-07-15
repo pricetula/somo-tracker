@@ -21,9 +21,9 @@ export default async function AttendancePage() {
 
     switch (role) {
         case "TEACHER": {
-            const { TeacherAttendanceView } =
-                await import("@/features/attendance/components/teacher-attendance-view");
-            return <TeacherAttendanceView />;
+            const { TeacherAttendanceDashboard } =
+                await import("@/features/attendance/components/teacher-attendance-dashboard");
+            return <TeacherAttendanceDashboard />;
         }
         case "SCHOOL_ADMIN":
         case "SYSTEM_ADMIN": {

@@ -12,9 +12,11 @@ import { useState, useMemo } from "react";
 import { UserX, AlertCircle } from "lucide-react";
 import { useMe } from "@/hooks/use-auth";
 import { getMyParentProfile } from "@/lib/api/parents";
+import { getChildAttendanceSummary } from "@/lib/api/attendance";
 import { useAcademicTerms } from "@/features/academic-terms/hooks/use-academic-terms";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueries } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import {
     Select,
     SelectContent,
@@ -51,6 +53,16 @@ export function ParentAttendanceView() {
     // Auto-select first child when data loads
     const effectiveStudentId = selectedStudentId || children[0]?.student_id || "";
 
+    // Fetch summaries for ALL children for the aggregate overview
+    const childSummaries = useQueries({
+        queries: (children ?? []).map((child) => ({
+            queryKey: ["attendance", "child", child.student_id, currentTerm?.id],
+            queryFn: () => getChildAttendanceSummary(child.student_id, currentTerm!.id),
+            enabled: !!currentTerm && !!child.student_id,
+            staleTime: 60_000,
+        })),
+    });
+
     if (!me) return null;
 
     if (profileLoading || termsLoading) {
@@ -81,6 +93,48 @@ export function ParentAttendanceView() {
     return (
         <div className="space-y-6">
             <h1 className="text-2xl font-bold">Attendance</h1>
+
+            {/* Aggregate children overview cards */}
+            {currentTerm && children.length > 0 && (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {children.map((child, idx) => {
+                        const summary = childSummaries[idx]?.data;
+                        const loading = childSummaries[idx]?.isLoading;
+                        const isSelected = child.student_id === effectiveStudentId;
+                        return (
+                            <button
+                                key={child.student_id}
+                                type="button"
+                                onClick={() => setSelectedStudentId(child.student_id)}
+                                className={`hover:bg-accent cursor-pointer rounded-lg border p-3 text-left transition-colors ${
+                                    isSelected ? "ring-primary ring-2" : ""
+                                }`}
+                            >
+                                <p className="truncate text-sm font-medium">{child.full_name}</p>
+                                {loading ? (
+                                    <Skeleton className="mt-2 h-4 w-24" />
+                                ) : summary ? (
+                                    <>
+                                        <div className="mt-1 flex items-baseline gap-1">
+                                            <span className="text-lg font-bold">
+                                                {summary.attendance_percentage.toFixed(1)}%
+                                            </span>
+                                        </div>
+                                        <Progress
+                                            value={summary.attendance_percentage}
+                                            className="mt-2 h-1.5"
+                                        />
+                                    </>
+                                ) : (
+                                    <p className="text-muted-foreground mt-1 text-xs">
+                                        No data yet
+                                    </p>
+                                )}
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
 
             {children.length > 1 && (
                 <div className="w-64">

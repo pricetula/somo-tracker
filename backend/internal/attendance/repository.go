@@ -47,6 +47,23 @@ type Repository interface {
 
 	// GetRecordByID returns a single attendance record by ID.
 	GetRecordByID(ctx context.Context, id, tenantID string) (*AttendanceRecord, error)
+
+	// ── Attendance Session Methods ─────────────────────────────────────────
+
+	// SkipSession marks a timetable slot+date as SKIPPED (class did not hold).
+	// If a session row already exists, it updates the status and reason.
+	// Deletes all attendance_records for this slot+date.
+	// Returns classID and termID for recompute trigger, plus the session ID.
+	SkipSession(ctx context.Context, tenantID, schoolID, timetableSlotID, date, skipReason string) (sessionID, classID, termID string, err error)
+
+	// UnskipSession reverts a SKIPPED session back to SUBMITTED status.
+	// Clears the skip_reason field.
+	// Returns classID and termID for recompute trigger.
+	UnskipSession(ctx context.Context, tenantID, schoolID, timetableSlotID, date string) (classID, termID string, err error)
+
+	// GetSessionBySlotDate returns the attendance session for a given slot+date,
+	// or nil if no session record exists yet.
+	GetSessionBySlotDate(ctx context.Context, tenantID, timetableSlotID, date string) (*AttendanceSession, error)
 }
 
 type pgRepository struct {
@@ -272,6 +289,7 @@ func (r *pgRepository) GetStudentHistory(ctx context.Context, tenantID, schoolID
 		SELECT ar.id, ar.tenant_id, ar.school_id, ar.student_id, ar.timetable_slot_id,
 		       ar.academic_term_id, ar.date::text, ar.status, ar.marked_by, ar.marked_at, ar.note, ar.created_at, ar.updated_at
 		FROM attendance_records ar
+		LEFT JOIN cbc_timetable_slots ts ON ts.id = ar.timetable_slot_id
 		WHERE ar.student_id = $1 AND ar.tenant_id = $2
 	`
 	args := []interface{}{studentID, tenantID}
@@ -290,6 +308,11 @@ func (r *pgRepository) GetStudentHistory(ctx context.Context, tenantID, schoolID
 	if filter.EndDate != "" {
 		query += fmt.Sprintf(" AND ar.date <= $%d", argIdx)
 		args = append(args, filter.EndDate)
+		argIdx++
+	}
+	if filter.LearningAreaID != "" {
+		query += fmt.Sprintf(" AND ts.learning_area_id::text = $%d", argIdx)
+		args = append(args, filter.LearningAreaID)
 	}
 
 	query += " ORDER BY ar.date DESC, ar.timetable_slot_id"
@@ -558,6 +581,58 @@ func (r *pgRepository) GetChildAttendanceSummary(ctx context.Context, tenantID, 
 
 func (r *pgRepository) ComputeClassSummaries(ctx context.Context, tenantID, schoolID, termID, classID string) (int, error) {
 	query := `
+		WITH
+		-- Baseline: count expected occurrences of each timetable slot for this class in the term.
+		-- A slot occurs once per week on its assigned day, so we count the number of
+		-- weekdays falling within the term's date range for the slot's day_of_week.
+		slot_baselines AS (
+			SELECT
+				ts.id AS timetable_slot_id,
+				ts.learning_area_id,
+				tstr.day_of_week,
+				-- Count how many times this day_of_week occurs between term start and end
+				(SELECT COUNT(*) FROM generate_series(
+					(SELECT start_date FROM academic_terms WHERE id = $3),
+					(SELECT end_date FROM academic_terms WHERE id = $3),
+					'1 day'::interval
+				) d WHERE EXTRACT(DOW FROM d) = tstr.day_of_week % 7) AS expected_occurrences
+			FROM cbc_timetable_slots ts
+			JOIN timetable_structures tstr ON tstr.id = ts.structure_id
+			WHERE ts.class_id = $4
+			  AND ts.tenant_id = $1
+		),
+		-- Count how many of those expected occurrences were SKIPPED
+		skipped_counts AS (
+			SELECT
+				s.timetable_slot_id,
+				COUNT(*) AS skipped_sessions
+			FROM cbc_attendance_sessions s
+			JOIN cbc_timetable_slots ts ON ts.id = s.timetable_slot_id
+			WHERE ts.class_id = $4
+			  AND s.tenant_id = $1
+			  AND s.status = 'SKIPPED'
+			  AND s.date BETWEEN (SELECT start_date FROM academic_terms WHERE id = $3)
+			                  AND (SELECT end_date FROM academic_terms WHERE id = $3)
+			GROUP BY s.timetable_slot_id
+		),
+		-- Per-student attendance counts (numerator)
+		student_attendance AS (
+			SELECT
+				ar.student_id,
+				COALESCE(ts.learning_area_id, '00000000-0000-0000-0000-000000000000'::UUID) AS learning_area_id,
+				COUNT(*) FILTER (WHERE ar.status IN ('PRESENT', 'LATE')) AS periods_numerator,
+				COUNT(*) FILTER (WHERE ar.status = 'PRESENT') AS periods_present,
+				COUNT(*) FILTER (WHERE ar.status = 'ABSENT') AS periods_absent,
+				COUNT(*) FILTER (WHERE ar.status = 'LATE') AS periods_late,
+				COUNT(*) FILTER (WHERE ar.status = 'EXCUSED') AS periods_excused
+			FROM attendance_records ar
+			JOIN cbc_timetable_slots ts ON ts.id = ar.timetable_slot_id
+			WHERE ar.tenant_id = $1
+			  AND ar.school_id = $2
+			  AND ar.academic_term_id = $3
+			  AND ts.class_id = $4
+			GROUP BY ar.student_id, COALESCE(ts.learning_area_id, '00000000-0000-0000-0000-000000000000'::UUID)
+		)
 		INSERT INTO attendance_term_summaries
 			(tenant_id, school_id, student_id, academic_term_id, learning_area_id,
 			 periods_total, periods_present, periods_absent, periods_late,
@@ -565,26 +640,29 @@ func (r *pgRepository) ComputeClassSummaries(ctx context.Context, tenantID, scho
 		SELECT
 			$1 AS tenant_id,
 			$2 AS school_id,
-			ar.student_id,
+			sa.student_id,
 			$3 AS academic_term_id,
-			COALESCE(ts.learning_area_id, '00000000-0000-0000-0000-000000000000'::UUID) AS learning_area_id,
-			COUNT(*) AS periods_total,
-			COUNT(*) FILTER (WHERE ar.status = 'PRESENT') AS periods_present,
-			COUNT(*) FILTER (WHERE ar.status = 'ABSENT') AS periods_absent,
-			COUNT(*) FILTER (WHERE ar.status = 'LATE') AS periods_late,
-			COUNT(*) FILTER (WHERE ar.status = 'EXCUSED') AS periods_excused,
-			ROUND(
-				(COUNT(*) FILTER (WHERE ar.status = 'PRESENT')::NUMERIC / NULLIF(COUNT(*), 0)) * 100,
-				2
-			) AS attendance_percentage,
+			sa.learning_area_id,
+			-- Adjusted denominator = baseline expected - skipped
+			COALESCE(sb.expected_occurrences, 0) - COALESCE(sc.skipped_sessions, 0) AS periods_total,
+			sa.periods_present,
+			sa.periods_absent,
+			sa.periods_late,
+			sa.periods_excused,
+			-- Percentage = (numerator / adjusted_denominator) * 100, with edge case
+			CASE
+				WHEN COALESCE(sb.expected_occurrences, 0) - COALESCE(sc.skipped_sessions, 0) = 0
+				THEN 100.00
+				ELSE ROUND(
+					(sa.periods_numerator::NUMERIC /
+					 (COALESCE(sb.expected_occurrences, 0) - COALESCE(sc.skipped_sessions, 0))) * 100,
+					2
+				)
+			END AS attendance_percentage,
 			NOW() AS last_refreshed_at
-		FROM attendance_records ar
-		JOIN cbc_timetable_slots ts ON ts.id = ar.timetable_slot_id
-		WHERE ar.tenant_id = $1
-		  AND ar.school_id = $2
-		  AND ar.academic_term_id = $3
-		  AND ts.class_id = $4
-		GROUP BY ar.student_id, COALESCE(ts.learning_area_id, '00000000-0000-0000-0000-000000000000'::UUID)
+		FROM student_attendance sa
+		LEFT JOIN slot_baselines sb ON sb.learning_area_id = sa.learning_area_id
+		LEFT JOIN skipped_counts sc ON sc.timetable_slot_id = sb.timetable_slot_id
 		ON CONFLICT (student_id, academic_term_id, learning_area_id)
 		DO UPDATE SET
 			periods_total        = EXCLUDED.periods_total,
@@ -604,7 +682,61 @@ func (r *pgRepository) ComputeClassSummaries(ctx context.Context, tenantID, scho
 
 func (r *pgRepository) ComputeTermSummaries(ctx context.Context, tenantID, schoolID, termID string) (int, error) {
 	// Refresh materialised summaries for all students in this school/term
+	// Accounts for skipped sessions by reducing the expected denominator.
 	query := `
+		WITH
+		-- Baseline: expected occurrences per timetable slot for all classes in this school/term
+		slot_baselines AS (
+			SELECT
+				ts.id AS timetable_slot_id,
+				ts.class_id,
+				COALESCE(ts.learning_area_id, '00000000-0000-0000-0000-000000000000'::UUID) AS learning_area_id,
+				tstr.day_of_week,
+				(SELECT COUNT(*) FROM generate_series(
+					(SELECT start_date FROM academic_terms WHERE id = $3),
+					(SELECT end_date FROM academic_terms WHERE id = $3),
+					'1 day'::interval
+				) d WHERE EXTRACT(DOW FROM d) = tstr.day_of_week % 7) AS expected_occurrences
+			FROM cbc_timetable_slots ts
+			JOIN timetable_structures tstr ON tstr.id = ts.structure_id
+			WHERE ts.tenant_id = $1
+			  AND ts.school_id = $2
+		),
+		-- Skipped counts per slot within the term
+		skipped_counts AS (
+			SELECT
+				s.timetable_slot_id,
+				COUNT(*) AS skipped_sessions
+			FROM cbc_attendance_sessions s
+			WHERE s.tenant_id = $1
+			  AND s.status = 'SKIPPED'
+			  AND s.date BETWEEN (SELECT start_date FROM academic_terms WHERE id = $3)
+			                  AND (SELECT end_date FROM academic_terms WHERE id = $3)
+			GROUP BY s.timetable_slot_id
+		),
+		-- Per-student attendance counts per learning area
+		student_attendance AS (
+			SELECT
+				ar.student_id,
+				COALESCE(ts.learning_area_id, '00000000-0000-0000-0000-000000000000'::UUID) AS learning_area_id,
+				SUM(COALESCE(sb.expected_occurrences, 0)) AS baseline_total,
+				SUM(COALESCE(sc.skipped_sessions, 0)) AS skipped_total,
+				COUNT(*) FILTER (WHERE ar.status IN ('PRESENT', 'LATE')) AS periods_numerator,
+				COUNT(*) FILTER (WHERE ar.status = 'PRESENT') AS periods_present,
+				COUNT(*) FILTER (WHERE ar.status = 'ABSENT') AS periods_absent,
+				COUNT(*) FILTER (WHERE ar.status = 'LATE') AS periods_late,
+				COUNT(*) FILTER (WHERE ar.status = 'EXCUSED') AS periods_excused
+			FROM attendance_records ar
+			JOIN cbc_timetable_slots ts ON ts.id = ar.timetable_slot_id
+			LEFT JOIN slot_baselines sb ON sb.timetable_slot_id = ts.id
+				AND sb.class_id = ts.class_id
+				AND sb.learning_area_id = COALESCE(ts.learning_area_id, '00000000-0000-0000-0000-000000000000'::UUID)
+			LEFT JOIN skipped_counts sc ON sc.timetable_slot_id = ts.id
+			WHERE ar.tenant_id = $1
+			  AND ar.school_id = $2
+			  AND ar.academic_term_id = $3
+			GROUP BY ar.student_id, COALESCE(ts.learning_area_id, '00000000-0000-0000-0000-000000000000'::UUID)
+		)
 		INSERT INTO attendance_term_summaries
 			(tenant_id, school_id, student_id, academic_term_id, learning_area_id,
 			 periods_total, periods_present, periods_absent, periods_late,
@@ -612,25 +744,25 @@ func (r *pgRepository) ComputeTermSummaries(ctx context.Context, tenantID, schoo
 		SELECT
 			$1 AS tenant_id,
 			$2 AS school_id,
-			ar.student_id,
+			sa.student_id,
 			$3 AS academic_term_id,
-			COALESCE(ts.learning_area_id, '00000000-0000-0000-0000-000000000000'::UUID) AS learning_area_id,
-			COUNT(*) AS periods_total,
-			COUNT(*) FILTER (WHERE ar.status = 'PRESENT') AS periods_present,
-			COUNT(*) FILTER (WHERE ar.status = 'ABSENT') AS periods_absent,
-			COUNT(*) FILTER (WHERE ar.status = 'LATE') AS periods_late,
-			COUNT(*) FILTER (WHERE ar.status = 'EXCUSED') AS periods_excused,
-			ROUND(
-				(COUNT(*) FILTER (WHERE ar.status = 'PRESENT')::NUMERIC / NULLIF(COUNT(*), 0)) * 100,
-				2
-			) AS attendance_percentage,
+			sa.learning_area_id,
+			-- Adjusted denominator = baseline - skipped (aggregated across all slots for this learning area)
+			sa.baseline_total - sa.skipped_total AS periods_total,
+			sa.periods_present,
+			sa.periods_absent,
+			sa.periods_late,
+			sa.periods_excused,
+			-- Percentage with edge-case fallback
+			CASE
+				WHEN sa.baseline_total - sa.skipped_total = 0 THEN 100.00
+				ELSE ROUND(
+					(sa.periods_numerator::NUMERIC / (sa.baseline_total - sa.skipped_total)) * 100,
+					2
+				)
+			END AS attendance_percentage,
 			NOW() AS last_refreshed_at
-		FROM attendance_records ar
-		JOIN cbc_timetable_slots ts ON ts.id = ar.timetable_slot_id
-		WHERE ar.tenant_id = $1
-		  AND ar.school_id = $2
-		  AND ar.academic_term_id = $3
-		GROUP BY ar.student_id, COALESCE(ts.learning_area_id, '00000000-0000-0000-0000-000000000000'::UUID)
+		FROM student_attendance sa
 		ON CONFLICT (student_id, academic_term_id, learning_area_id)
 		DO UPDATE SET
 			periods_total        = EXCLUDED.periods_total,
@@ -643,10 +775,161 @@ func (r *pgRepository) ComputeTermSummaries(ctx context.Context, tenantID, schoo
 	`
 	result, err := r.pool.Exec(ctx, query, tenantID, schoolID, termID)
 	if err != nil {
-		// Handle the potential UUID cast error for learning_area_id = NULL gracefully
 		return 0, fmt.Errorf("attendance.Repository.ComputeTermSummaries: %w", err)
 	}
 	return int(result.RowsAffected()), nil
+}
+
+// ── Attendance Session Repository Implementations ───────────────────────
+
+func (r *pgRepository) SkipSession(ctx context.Context, tenantID, schoolID, timetableSlotID, date, skipReason string) (sessionID, classID, termID string, err error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return "", "", "", fmt.Errorf("attendance.Repository.SkipSession: begin tx: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			if rbErr := tx.Rollback(ctx); rbErr != nil {
+				slog.WarnContext(ctx, "attendance.Repository.SkipSession: rollback error",
+					slog.String("error", rbErr.Error()),
+				)
+			}
+		}
+	}()
+
+	// Resolve class_id and term_id from the timetable slot
+	err = tx.QueryRow(ctx, `
+		SELECT ts.class_id, at.id
+		FROM cbc_timetable_slots ts
+		JOIN academic_terms at ON at.academic_year_id = ts.academic_year_id
+			AND at.school_id = $1 AND at.tenant_id = $2
+			AND at.is_current = true
+		WHERE ts.id = $3 AND ts.tenant_id = $2
+	`, schoolID, tenantID, timetableSlotID).Scan(&classID, &termID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return "", "", "", fmt.Errorf("attendance.Repository.SkipSession: resolve slot/term: %w", ErrNotFound)
+		}
+		return "", "", "", fmt.Errorf("attendance.Repository.SkipSession: resolve slot/term: %w", err)
+	}
+
+	// Upsert the session row
+	err = tx.QueryRow(ctx, `
+		INSERT INTO cbc_attendance_sessions
+			(tenant_id, school_id, timetable_slot_id, date, status, skip_reason)
+		VALUES ($1, $2, $3, $4, 'SKIPPED', $5)
+		ON CONFLICT (school_id, timetable_slot_id, date)
+		DO UPDATE SET
+			status      = 'SKIPPED',
+			skip_reason = EXCLUDED.skip_reason
+		RETURNING id
+	`, tenantID, schoolID, timetableSlotID, date, skipReason).Scan(&sessionID)
+	if err != nil {
+		return "", "", "", fmt.Errorf("attendance.Repository.SkipSession: upsert session: %w", err)
+	}
+
+	// Link existing attendance records to the session before deleting
+	_, err = tx.Exec(ctx, `
+		UPDATE attendance_records
+		SET attendance_session_id = $1
+		WHERE timetable_slot_id = $2 AND date = $3 AND tenant_id = $4
+	`, sessionID, timetableSlotID, date, tenantID)
+	if err != nil {
+		return "", "", "", fmt.Errorf("attendance.Repository.SkipSession: link records: %w", err)
+	}
+
+	// Delete all attendance records for this slot+date (class didn't happen)
+	result, err := tx.Exec(ctx, `
+		DELETE FROM attendance_records
+		WHERE timetable_slot_id = $1 AND date = $2 AND tenant_id = $3
+	`, timetableSlotID, date, tenantID)
+	if err != nil {
+		return "", "", "", fmt.Errorf("attendance.Repository.SkipSession: delete records: %w", err)
+	}
+
+	slog.InfoContext(ctx, "attendance.Repository.SkipSession: attendance records deleted",
+		slog.String("timetable_slot_id", timetableSlotID),
+		slog.String("date", date),
+		slog.Int64("rows_affected", result.RowsAffected()),
+	)
+
+	if err = tx.Commit(ctx); err != nil {
+		return "", "", "", fmt.Errorf("attendance.Repository.SkipSession: commit: %w", err)
+	}
+
+	return sessionID, classID, termID, nil
+}
+
+func (r *pgRepository) UnskipSession(ctx context.Context, tenantID, schoolID, timetableSlotID, date string) (classID, termID string, err error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return "", "", fmt.Errorf("attendance.Repository.UnskipSession: begin tx: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			if rbErr := tx.Rollback(ctx); rbErr != nil {
+				slog.WarnContext(ctx, "attendance.Repository.UnskipSession: rollback error",
+					slog.String("error", rbErr.Error()),
+				)
+			}
+		}
+	}()
+
+	// Resolve class_id and term_id from the timetable slot
+	err = tx.QueryRow(ctx, `
+		SELECT ts.class_id, at.id
+		FROM cbc_timetable_slots ts
+		JOIN academic_terms at ON at.academic_year_id = ts.academic_year_id
+			AND at.school_id = $1 AND at.tenant_id = $2
+			AND at.is_current = true
+		WHERE ts.id = $3 AND ts.tenant_id = $2
+	`, schoolID, tenantID, timetableSlotID).Scan(&classID, &termID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return "", "", fmt.Errorf("attendance.Repository.UnskipSession: resolve slot/term: %w", ErrNotFound)
+		}
+		return "", "", fmt.Errorf("attendance.Repository.UnskipSession: resolve slot/term: %w", err)
+	}
+
+	// Update the session back to SUBMITTED and clear skip_reason
+	result, err := tx.Exec(ctx, `
+		UPDATE cbc_attendance_sessions
+		SET status = 'SUBMITTED', skip_reason = NULL
+		WHERE tenant_id = $1 AND timetable_slot_id = $2 AND date = $3 AND status = 'SKIPPED'
+	`, tenantID, timetableSlotID, date)
+	if err != nil {
+		return "", "", fmt.Errorf("attendance.Repository.UnskipSession: update: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return "", "", fmt.Errorf("attendance.Repository.UnskipSession: no skipped session found: %w", ErrNotFound)
+	}
+
+	if err = tx.Commit(ctx); err != nil {
+		return "", "", fmt.Errorf("attendance.Repository.UnskipSession: commit: %w", err)
+	}
+
+	return classID, termID, nil
+}
+
+func (r *pgRepository) GetSessionBySlotDate(ctx context.Context, tenantID, timetableSlotID, date string) (*AttendanceSession, error) {
+	query := `
+		SELECT id, tenant_id, school_id, timetable_slot_id,
+		       date::text, status, skip_reason, created_at, updated_at
+		FROM cbc_attendance_sessions
+		WHERE tenant_id = $1 AND timetable_slot_id = $2 AND date = $3
+	`
+	var s AttendanceSession
+	err := r.pool.QueryRow(ctx, query, tenantID, timetableSlotID, date).Scan(
+		&s.ID, &s.TenantID, &s.SchoolID, &s.TimetableSlotID,
+		&s.Date, &s.Status, &s.SkipReason, &s.CreatedAt, &s.UpdatedAt,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("attendance.Repository.GetSessionBySlotDate: %w", ErrNotFound)
+		}
+		return nil, fmt.Errorf("attendance.Repository.GetSessionBySlotDate: %w", err)
+	}
+	return &s, nil
 }
 
 // Ensure compile-time check that *pgRepository satisfies Repository.

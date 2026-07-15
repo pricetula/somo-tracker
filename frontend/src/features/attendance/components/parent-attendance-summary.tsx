@@ -6,9 +6,11 @@
 
 "use client";
 
-import { CalendarX, ClipboardList } from "lucide-react";
+import Link from "next/link";
+import { CalendarX, ClipboardList, Flag } from "lucide-react";
 
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import {
     Table,
     TableBody,
@@ -18,9 +20,12 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 
 import { AttendanceEmptyState } from "./attendance-empty-state";
 import { useChildAttendanceSummary } from "../hooks/use-attendance";
+import { attendanceBadgeProps, attendanceStatusLabel } from "../types";
+import type { AttendanceStatus } from "../types";
 
 interface ParentAttendanceSummaryProps {
     studentId: string;
@@ -60,17 +65,55 @@ export function ParentAttendanceSummary({ studentId, termId }: ParentAttendanceS
     }
 
     const recentPeriods = data.recent_periods ?? [];
+    const hasData = recentPeriods.length > 0 || data.attendance_percentage > 0;
+
+    // Compute status counts for context
+    const statusCounts: Record<string, number> = {};
+    for (const p of recentPeriods) {
+        statusCounts[p.status] = (statusCounts[p.status] || 0) + 1;
+    }
+
+    if (!hasData) {
+        return (
+            <AttendanceEmptyState
+                icon={ClipboardList}
+                title="No attendance data yet"
+                description="Attendance records will appear here once the term is underway and marks have been recorded."
+            />
+        );
+    }
 
     return (
         <div className="space-y-6">
             {/* Summary card */}
-            <div className="rounded-lg border p-6">
+            <div className="space-y-4 rounded-lg border p-6">
                 <div className="flex items-baseline gap-2">
                     <span className="text-4xl font-bold">
                         {data.attendance_percentage.toFixed(1)}%
                     </span>
                     <span className="text-muted-foreground">attendance</span>
                 </div>
+                <Progress value={data.attendance_percentage} className="h-2" />
+                {/* Status breakdown */}
+                {statusCounts.PRESENT > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                        {Object.entries(statusCounts)
+                            .filter(([, c]) => c > 0)
+                            .map(([status, count]) => (
+                                <Badge
+                                    key={status}
+                                    variant={
+                                        attendanceBadgeProps(status as AttendanceStatus).variant
+                                    }
+                                    className={
+                                        attendanceBadgeProps(status as AttendanceStatus).className
+                                    }
+                                >
+                                    {attendanceStatusLabel(status as AttendanceStatus)}: {count}
+                                </Badge>
+                            ))}
+                    </div>
+                )}
             </div>
 
             {/* Recent periods */}
@@ -98,14 +141,19 @@ export function ParentAttendanceSummary({ studentId, termId }: ParentAttendanceS
                                     <TableCell>
                                         <Badge
                                             variant={
-                                                period.status === "PRESENT"
-                                                    ? "default"
-                                                    : period.status === "ABSENT"
-                                                      ? "destructive"
-                                                      : "secondary"
+                                                attendanceBadgeProps(
+                                                    period.status as AttendanceStatus
+                                                ).variant
+                                            }
+                                            className={
+                                                attendanceBadgeProps(
+                                                    period.status as AttendanceStatus
+                                                ).className
                                             }
                                         >
-                                            {period.status}
+                                            {attendanceStatusLabel(
+                                                period.status as AttendanceStatus
+                                            )}
                                         </Badge>
                                     </TableCell>
                                 </TableRow>
@@ -113,6 +161,23 @@ export function ParentAttendanceSummary({ studentId, termId }: ParentAttendanceS
                         </TableBody>
                     </Table>
                 )}
+            </div>
+
+            {/* Behaviour cross-link */}
+            <div className="rounded-lg border p-4">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <Flag className="text-muted-foreground h-4 w-4" />
+                        <span className="text-sm font-medium">Behaviour Notes</span>
+                    </div>
+                    <Button variant="outline" size="sm" asChild>
+                        <Link href={`/behavior`}>View behaviour notes</Link>
+                    </Button>
+                </div>
+                <p className="text-muted-foreground mt-1 text-xs">
+                    Behaviour notes logged by teachers during the term are available in the
+                    behaviour section alongside attendance records.
+                </p>
             </div>
         </div>
     );

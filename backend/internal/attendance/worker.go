@@ -38,7 +38,8 @@ func newAsynqServer(pools *database.Pools) *asynq.Server {
 
 // recomputeHandler processes attendance:recompute_class_summaries tasks.
 type recomputeHandler struct {
-	svc *Service
+	svc   *Service
+	dedup Deduplicator
 }
 
 // handleClassRecompute recomputes attendance_term_summaries for the
@@ -56,7 +57,7 @@ func (h *recomputeHandler) handleClassRecompute(ctx context.Context, t *asynq.Ta
 	// preferable to leaving the flag alive and silently dropping future
 	// recomputes.
 	dedupKey := fmt.Sprintf("attendance:pending:%s:%s", payload.TermID, payload.ClassID)
-	if err := h.svc.redis.Del(ctx, dedupKey).Err(); err != nil {
+	if err := h.dedup.Del(ctx, dedupKey); err != nil {
 		slog.WarnContext(ctx, "attendance.recomputeHandler: clear pending flag failed",
 			slog.String("error", err.Error()),
 			slog.String("dedup_key", dedupKey),
@@ -89,9 +90,9 @@ type Worker struct {
 }
 
 // NewWorker creates a new Worker with the class recompute handler registered.
-func NewWorker(svc *Service, pools *database.Pools) *Worker {
+func NewWorker(svc *Service, dedup Deduplicator, pools *database.Pools) *Worker {
 	server := newAsynqServer(pools)
-	h := &recomputeHandler{svc: svc}
+	h := &recomputeHandler{svc: svc, dedup: dedup}
 	mux := asynq.NewServeMux()
 	mux.HandleFunc(TypeRecomputeClassSummaries, h.handleClassRecompute)
 	return &Worker{

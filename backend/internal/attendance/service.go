@@ -8,27 +8,36 @@ import (
 	"time"
 
 	"github.com/hibiken/asynq"
-	"github.com/redis/go-redis/v9"
-
-	"somotracker/backend/internal/database"
 )
+
+// Deduplicator is the interface for background-task deduplication.
+// Implementations use Redis SET NX or an equivalent distributed lock.
+type Deduplicator interface {
+	// SetNX atomically sets a key only if it does not already exist.
+	// Returns true if the key was set, false if it already existed.
+	SetNX(ctx context.Context, key string, value interface{}, expiration time.Duration) (bool, error)
+	// Del removes a key.
+	Del(ctx context.Context, key string) error
+}
+
+// TaskEnqueuer is the interface for enqueuing background tasks.
+type TaskEnqueuer interface {
+	EnqueueTask(payload []byte, opts ...asynq.Option) error
+}
 
 // Service handles business logic for attendance operations.
 type Service struct {
-	repo   Repository
-	redis  *redis.Client
-	asynqc *asynq.Client
+	repo  Repository
+	dedup Deduplicator
+	enq   TaskEnqueuer
 }
 
 // NewService creates a new attendance Service.
-func NewService(repo Repository, pools *database.Pools) *Service {
-	asynqc := asynq.NewClient(asynq.RedisClientOpt{
-		Addr: pools.Redis.Options().Addr,
-	})
+func NewService(repo Repository, dedup Deduplicator, enq TaskEnqueuer) *Service {
 	return &Service{
-		repo:   repo,
-		redis:  pools.Redis,
-		asynqc: asynqc,
+		repo:  repo,
+		dedup: dedup,
+		enq:   enq,
 	}
 }
 
@@ -95,7 +104,7 @@ func (s *Service) enqueueClassRecompute(ctx context.Context, tenantID, schoolID,
 	dedupKey := fmt.Sprintf("attendance:pending:%s:%s", termID, classID)
 
 	// Attempt to claim the pending flag. NX ensures only one caller succeeds.
-	set, err := s.redis.SetNX(ctx, dedupKey, "1", 5*time.Minute).Result()
+	set, err := s.dedup.SetNX(ctx, dedupKey, "1", 5*time.Minute)
 	if err != nil {
 		return fmt.Errorf("attendance.Service.enqueueClassRecompute: setnx: %w", err)
 	}
@@ -113,7 +122,7 @@ func (s *Service) enqueueClassRecompute(ctx context.Context, tenantID, schoolID,
 	data, err := json.Marshal(payload)
 	if err != nil {
 		// Clean up the pending flag so a future mark doesn't get silently dropped.
-		if delErr := s.redis.Del(ctx, dedupKey).Err(); delErr != nil {
+		if delErr := s.dedup.Del(ctx, dedupKey); delErr != nil {
 			slog.WarnContext(ctx, "attendance.Service.enqueueClassRecompute: failed to clean dedup key on marshal error",
 				slog.String("error", delErr.Error()),
 			)
@@ -121,10 +130,9 @@ func (s *Service) enqueueClassRecompute(ctx context.Context, tenantID, schoolID,
 		return fmt.Errorf("attendance.Service.enqueueClassRecompute: marshal: %w", err)
 	}
 
-	task := asynq.NewTask(TypeRecomputeClassSummaries, data)
-	if _, err := s.asynqc.Enqueue(task, asynq.MaxRetry(3), asynq.Queue("attendance")); err != nil {
+	if err := s.enq.EnqueueTask(data, asynq.MaxRetry(3), asynq.Queue("attendance")); err != nil {
 		// Clean up the pending flag so a future enqueue can retry.
-		if delErr := s.redis.Del(ctx, dedupKey).Err(); delErr != nil {
+		if delErr := s.dedup.Del(ctx, dedupKey); delErr != nil {
 			slog.WarnContext(ctx, "attendance.Service.enqueueClassRecompute: failed to clean dedup key on enqueue error",
 				slog.String("error", delErr.Error()),
 			)
@@ -179,6 +187,68 @@ func (s *Service) GetAdminDashboard(ctx context.Context, tenantID, schoolID, dat
 		filter.Limit = 50
 	}
 	return s.repo.GetAdminDashboard(ctx, tenantID, schoolID, date, filter)
+}
+
+// ── Attendance Session Methods ───────────────────────────────────────────
+
+// SkipSession marks a timetable slot+date as SKIPPED. Deletes existing
+// attendance records for that slot+date and triggers summary recompute.
+func (s *Service) SkipSession(ctx context.Context, tenantID, schoolID string, payload SkipSessionPayload) error {
+	if payload.TimetableSlotID == "" {
+		return fmt.Errorf("attendance.Service.SkipSession: timetable_slot_id is required: %w", ErrInvalidInput)
+	}
+	if payload.Date == "" {
+		return fmt.Errorf("attendance.Service.SkipSession: date is required: %w", ErrInvalidInput)
+	}
+	if payload.SkipReason == "" {
+		return fmt.Errorf("attendance.Service.SkipSession: skip_reason is required: %w", ErrInvalidInput)
+	}
+
+	sessionID, classID, termID, err := s.repo.SkipSession(ctx, tenantID, schoolID, payload.TimetableSlotID, payload.Date, payload.SkipReason)
+	if err != nil {
+		return fmt.Errorf("attendance.Service.SkipSession: %w", err)
+	}
+
+	// Enqueue background recompute for this class's summaries
+	if err := s.enqueueClassRecompute(ctx, tenantID, schoolID, termID, classID); err != nil {
+		slog.WarnContext(ctx, "attendance.Service.SkipSession: enqueue recompute failed",
+			slog.String("error", err.Error()),
+			slog.String("session_id", sessionID),
+			slog.String("tenant_id", tenantID),
+		)
+	}
+
+	return nil
+}
+
+// UnskipSession reverts a SKIPPED session back to SUBMITTED and triggers recompute.
+func (s *Service) UnskipSession(ctx context.Context, tenantID, schoolID, timetableSlotID, date string) error {
+	if timetableSlotID == "" {
+		return fmt.Errorf("attendance.Service.UnskipSession: timetable_slot_id is required: %w", ErrInvalidInput)
+	}
+	if date == "" {
+		return fmt.Errorf("attendance.Service.UnskipSession: date is required: %w", ErrInvalidInput)
+	}
+
+	classID, termID, err := s.repo.UnskipSession(ctx, tenantID, schoolID, timetableSlotID, date)
+	if err != nil {
+		return fmt.Errorf("attendance.Service.UnskipSession: %w", err)
+	}
+
+	// Enqueue background recompute for this class's summaries
+	if err := s.enqueueClassRecompute(ctx, tenantID, schoolID, termID, classID); err != nil {
+		slog.WarnContext(ctx, "attendance.Service.UnskipSession: enqueue recompute failed",
+			slog.String("error", err.Error()),
+			slog.String("tenant_id", tenantID),
+		)
+	}
+
+	return nil
+}
+
+// GetSessionBySlotDate returns the session status for a given slot+date.
+func (s *Service) GetSessionBySlotDate(ctx context.Context, tenantID, timetableSlotID, date string) (*AttendanceSession, error) {
+	return s.repo.GetSessionBySlotDate(ctx, tenantID, timetableSlotID, date)
 }
 
 // GetChildAttendanceSummary returns a parent-facing summary for their child.

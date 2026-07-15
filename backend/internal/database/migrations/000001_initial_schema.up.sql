@@ -1899,6 +1899,71 @@ COMMENT ON COLUMN attendance_term_summaries.attendance_percentage IS
      decimal with two fractional digits (e.g. 92.50).';
 
 -- ---------------------------------------------------------------------------
+-- CBC ATTENDANCE SESSIONS
+-- Tracks actual lesson execution instances so teachers can flag dates
+-- that did not hold (teacher absence, assembly, sports day, etc.).
+-- Skipped sessions are excluded from terminal attendance denominator
+-- calculations to avoid penalising students.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS cbc_attendance_sessions (
+    id                UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id         UUID         NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    school_id         UUID         NOT NULL,
+    timetable_slot_id UUID         NOT NULL REFERENCES cbc_timetable_slots(id) ON DELETE CASCADE,
+    date              DATE         NOT NULL,
+    status            VARCHAR(20)  NOT NULL DEFAULT 'SUBMITTED',
+    skip_reason       TEXT         NULL,
+    created_at        TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at        TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT chk_cbc_attendance_session_status
+        CHECK (status IN ('SUBMITTED', 'SKIPPED')),
+    CONSTRAINT uq_cbc_attendance_sessions_slot_date
+        UNIQUE (school_id, timetable_slot_id, date),
+    CONSTRAINT fk_cbc_attendance_sessions_tenant_school
+        FOREIGN KEY (tenant_id, school_id)
+        REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_cbc_attendance_sessions_slot_date
+    ON cbc_attendance_sessions (timetable_slot_id, date);
+CREATE INDEX IF NOT EXISTS idx_cbc_attendance_sessions_tenant
+    ON cbc_attendance_sessions (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_cbc_attendance_sessions_school
+    ON cbc_attendance_sessions (school_id);
+CREATE INDEX IF NOT EXISTS idx_cbc_attendance_sessions_status
+    ON cbc_attendance_sessions (status);
+
+COMMENT ON TABLE cbc_attendance_sessions IS
+    'Tracks actual lesson execution instances per timetable slot and date.
+     Teachers flag sessions as SKIPPED when a class did not hold (teacher
+     absence, school assembly, sports day, etc.). Skipped sessions exclude
+     their attendance records from terminal percentage calculations so
+     students are not penalised for cancelled lessons.';
+
+COMMENT ON COLUMN cbc_attendance_sessions.status IS
+    'SUBMITTED = lesson held as scheduled (default). SKIPPED = lesson did
+     not hold. Only SKIPPED sessions affect terminal attendance calculations
+     by reducing the expected denominator.';
+
+COMMENT ON COLUMN cbc_attendance_sessions.skip_reason IS
+    'Teacher-provided reason when status is SKIPPED. Examples: School
+     Assembly, Public Holiday, Teacher Absence, Sports/Field Event.';
+
+-- Add attendance_session_id FK to attendance_records
+ALTER TABLE attendance_records
+    ADD COLUMN IF NOT EXISTS attendance_session_id UUID
+    REFERENCES cbc_attendance_sessions(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS idx_attendance_records_session
+    ON attendance_records (attendance_session_id);
+
+COMMENT ON COLUMN attendance_records.attendance_session_id IS
+    'Optional reference to the cbc_attendance_sessions row. Populated when
+     session is marked as SKIPPED to link existing records. NULL for normal
+     (non-skipped) attendance marks.';
+
 -- ============================================================================
 -- updated_at COLUMNS & TRIGGERS (missing from initial CREATE TABLE definitions)
 --
@@ -2093,6 +2158,14 @@ CREATE TRIGGER trg_attendance_term_summaries_updated_at
 COMMENT ON COLUMN attendance_term_summaries.updated_at IS
     'Tracks materialised summary refresh cycles.';
 
+ALTER TABLE cbc_attendance_sessions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_cbc_attendance_sessions_updated_at ON cbc_attendance_sessions;
+CREATE TRIGGER trg_cbc_attendance_sessions_updated_at
+    BEFORE UPDATE ON cbc_attendance_sessions
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN cbc_attendance_sessions.updated_at IS
+    'Tracks session status changes and skip reason updates.';
+
     FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
     'Tracks report compilation and publication.';
 
@@ -2181,6 +2254,7 @@ ALTER TABLE IF EXISTS attendance_records                  ENABLE ROW LEVEL SECUR
 ALTER TABLE IF EXISTS behavior_categories                 ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS behavior_notes                      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS attendance_term_summaries            ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS cbc_attendance_sessions            ENABLE ROW LEVEL SECURITY;
 
 -- Tenant-scoped policy function (reusable): returns a WHERE clause that
 -- filters to the current tenant. Tables without tenant_id get no policy;
@@ -2233,6 +2307,7 @@ BEGIN
             'behavior_categories',
             'behavior_notes',
             'attendance_term_summaries',
+            'cbc_attendance_sessions',
         ])
     LOOP
         EXECUTE format(

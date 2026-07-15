@@ -210,6 +210,52 @@ export async function getChildAttendanceSummary(
     );
 }
 
+// ─── Attendance Session Types & API ──────────────────────────────────────
+
+export type SessionStatus = "SUBMITTED" | "SKIPPED";
+
+export interface AttendanceSession {
+    id: string;
+    tenant_id: string;
+    school_id: string;
+    timetable_slot_id: string;
+    date: string;
+    status: SessionStatus;
+    skip_reason?: string | null;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface SkipSessionPayload {
+    timetable_slot_id: string;
+    date: string;
+    skip_reason: string;
+}
+
+/** Mark a session as skipped (class did not hold). */
+export async function skipSession(payload: SkipSessionPayload): Promise<{ message: string }> {
+    return api.post<{ message: string }>("/api/v1/attendance/sessions/skip", payload);
+}
+
+/** Unskip a session (re-open so attendance can be marked again). */
+export async function unskipSession(payload: {
+    timetable_slot_id: string;
+    date: string;
+}): Promise<{ message: string }> {
+    return api.post<{ message: string }>("/api/v1/attendance/sessions/unskip", payload);
+}
+
+/** Get session status for a slot + date. Returns { session: AttendanceSession | null }. */
+export async function getSession(
+    timetableSlotId: string,
+    date: string
+): Promise<{ session: AttendanceSession | null }> {
+    const params = new URLSearchParams({ date });
+    return api.get<{ session: AttendanceSession | null }>(
+        `/api/v1/attendance/sessions/${timetableSlotId}?${params.toString()}`
+    );
+}
+
 /** Trigger recomputation of attendance term summaries. */
 export async function computeAttendanceSummaries(
     termId: string

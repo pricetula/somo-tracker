@@ -16,12 +16,18 @@ export function AttendanceRegisterContainer({
     slotId,
     date,
 }: AttendanceRegisterContainerProps) {
-    // Admins have elevated scope (no same-day restriction)
+    // Admins have no same-day restriction; teachers can edit today's records.
     const isAdmin = role === "SCHOOL_ADMIN" || role === "SYSTEM_ADMIN";
+    const today = new Date().toISOString().split("T")[0];
+    const isPastDate = Boolean(date && date !== today);
 
     return (
         <div className="space-y-6">
-            <TeacherAttendanceRoster timetableSlotId={slotId} date={date} isLocked={!isAdmin} />
+            <TeacherAttendanceRoster
+                timetableSlotId={slotId}
+                date={date}
+                isLocked={!isAdmin && isPastDate}
+            />
         </div>
     );
 }

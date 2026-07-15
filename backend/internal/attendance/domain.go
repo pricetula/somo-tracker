@@ -115,6 +115,36 @@ type AttendanceTermSummary struct {
 	LastRefreshedAt      time.Time `json:"last_refreshed_at"`
 }
 
+// ─── Attendance Session Types ──────────────────────────────────────────
+
+// SessionStatus represents the status of an attendance session.
+type SessionStatus string
+
+const (
+	SessionStatusSubmitted SessionStatus = "SUBMITTED"
+	SessionStatusSkipped   SessionStatus = "SKIPPED"
+)
+
+// AttendanceSession represents a lesson execution instance (actual class session).
+type AttendanceSession struct {
+	ID              string        `json:"id"`
+	TenantID        string        `json:"tenant_id"`
+	SchoolID        string        `json:"school_id"`
+	TimetableSlotID string        `json:"timetable_slot_id"`
+	Date            string        `json:"date"`
+	Status          SessionStatus `json:"status"`
+	SkipReason      *string       `json:"skip_reason,omitempty"`
+	CreatedAt       time.Time     `json:"created_at,omitempty"`
+	UpdatedAt       time.Time     `json:"updated_at,omitempty"`
+}
+
+// SkipSessionPayload is the request body for marking a session as skipped.
+type SkipSessionPayload struct {
+	TimetableSlotID string `json:"timetable_slot_id" validate:"required"`
+	Date            string `json:"date" validate:"required"`
+	SkipReason      string `json:"skip_reason" validate:"required"`
+}
+
 // ─── Asynq task types ───────────────────────────────────────────────
 
 // TypeRecomputeClassSummaries is the Asynq task type for recomputing

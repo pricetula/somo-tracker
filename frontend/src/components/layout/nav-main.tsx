@@ -92,6 +92,14 @@ function buildNavItems(role: string): NavItem[] {
         );
     }
 
+    if (role === "PARENT") {
+        items.push({
+            title: "Attendance",
+            url: "/attendance",
+            icon: <CalendarCheckIcon className="size-4" />,
+        });
+    }
+
     if (isAdmin) {
         items.push(
             {

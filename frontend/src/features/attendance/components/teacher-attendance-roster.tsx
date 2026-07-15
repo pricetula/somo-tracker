@@ -4,13 +4,17 @@
  * Shows the roster for the current/next period with a RadioGroup for status,
  * optional note per row (via popover), and a batch submit button.
  * Renders empty state when no slot is active.
+ *
+ * Includes skip/unskip functionality: teachers can flag a session as
+ * SKIPPED (class did not hold) which deletes attendance records and
+ * excludes those hours from terminal percentage calculations.
  */
 
 "use client";
 
 import { useState, useCallback, useMemo } from "react";
 import Link from "next/link";
-import { Loader2, Flag, StickyNote, ClipboardList } from "lucide-react";
+import { Loader2, Flag, StickyNote, ClipboardList, AlertTriangle, RotateCcw } from "lucide-react";
 
 import type { DataTableColumn } from "@/components/shared/data-table/types";
 import { StaticTable } from "@/components/shared/static-table";
@@ -21,11 +25,29 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 
 import type { RosterStudent } from "@/lib/api/attendance";
 import { AttendanceEmptyState } from "./attendance-empty-state";
-import { useSlotRoster, useBulkMarkAttendance } from "../hooks/use-attendance";
+import {
+    useSlotRoster,
+    useBulkMarkAttendance,
+    useSession,
+    useSkipSession,
+    useUnskipSession,
+} from "../hooks/use-attendance";
 import type { AttendanceStatus } from "../types";
+import { attendanceBadgeProps, attendanceStatusLabel } from "../types";
 import { CreateBehaviorNoteDialog } from "@/features/behavior/components/create-behavior-note-dialog";
 
 // ─── Props ────────────────────────────────────────────────────────────────
@@ -45,23 +67,98 @@ export function TeacherAttendanceRoster({
     isLocked = false,
 }: TeacherAttendanceRosterProps) {
     const { data: roster, isLoading, isError } = useSlotRoster(timetableSlotId, date);
+    const {
+        data: sessionData,
+        isError: sessionError,
+        isLoading: sessionLoading,
+    } = useSession(timetableSlotId, date);
     const bulkMark = useBulkMarkAttendance();
+    const skipSession = useSkipSession();
+    const unskipSession = useUnskipSession();
 
-    const [statusMap, setStatusMap] = useState<Record<string, AttendanceStatus>>({});
+    const [statusMap, setStatusMap] = useState<Record<string, AttendanceStatus | null>>({});
     const [noteMap, setNoteMap] = useState<Record<string, string>>({});
     const [behaviorStudent, setBehaviorStudent] = useState<RosterStudent | null>(null);
+    const [skipReason, setSkipReason] = useState("");
+    const [skipDialogOpen, setSkipDialogOpen] = useState(false);
+    const [confirmOpen, setConfirmOpen] = useState(false);
+    const [lastSavedCounts, setLastSavedCounts] = useState<Record<string, number> | null>(null);
 
-    // Initialise defaults from existing marks or "PRESENT"
+    const isSkipped = sessionData?.session?.status === "SKIPPED";
+    const skipReasonText = sessionData?.session?.skip_reason ?? null;
+
+    // ── Session actions ───────────────────────────────────────────────────
+
+    const handleSkip = useCallback(() => {
+        if (!skipReason.trim() || !roster) return;
+        skipSession.mutate(
+            {
+                timetable_slot_id: roster.timetable_slot_id,
+                date: roster.date,
+                skip_reason: skipReason.trim(),
+            },
+            {
+                onSettled: () => {
+                    setSkipDialogOpen(false);
+                    setSkipReason("");
+                },
+            }
+        );
+    }, [skipReason, roster, skipSession]);
+
+    const handleUnskip = useCallback(() => {
+        if (!roster) return;
+        unskipSession.mutate({
+            timetable_slot_id: roster.timetable_slot_id,
+            date: roster.date,
+        });
+    }, [roster, unskipSession]);
+
+    // Derive effective status: local overrides > server current_status > null (unset)
     const effectiveStatus = useMemo(() => {
-        if (!roster?.students) return statusMap;
-        const map: Record<string, AttendanceStatus> = { ...statusMap };
+        if (!roster?.students) return {} as Record<string, AttendanceStatus | null>;
+        const map: Record<string, AttendanceStatus | null> = {};
         for (const student of roster.students) {
-            if (!map[student.student_id]) {
-                map[student.student_id] = student.current_status ?? "PRESENT";
+            const localOverride = statusMap[student.student_id];
+            if (localOverride !== undefined && localOverride !== null) {
+                map[student.student_id] = localOverride;
+            } else if (student.current_status) {
+                map[student.student_id] = student.current_status;
+            } else {
+                map[student.student_id] = null; // unset — no default
             }
         }
         return map;
     }, [roster, statusMap]);
+
+    // Track the original server statuses so we can show a diff after save.
+    const serverStatuses = useMemo(() => {
+        if (!roster?.students) return {} as Record<string, AttendanceStatus | null>;
+        const m: Record<string, AttendanceStatus | null> = {};
+        for (const s of roster.students) {
+            m[s.student_id] = s.current_status ?? null;
+        }
+        return m;
+    }, [roster]);
+
+    // After successful save, reset local overrides so fresh server data shows through.
+    const handleSaveSuccess = useCallback(() => {
+        setStatusMap({});
+        setNoteMap({});
+        setConfirmOpen(false);
+        // Compute counts of what was just saved for feedback
+        if (roster?.students) {
+            const statusesMap = effectiveStatus; // already computed above
+            const counts: Record<string, number> = {};
+            for (const s of roster.students) {
+                const status = statusesMap[s.student_id] ?? "PRESENT";
+                counts[status] = (counts[status] || 0) + 1;
+            }
+            setLastSavedCounts(counts);
+            // Clear feedback after 8 seconds
+            setTimeout(() => setLastSavedCounts(null), 8000);
+        }
+    }, [roster, effectiveStatus]);
 
     const handleMarkAllPresent = useCallback(() => {
         if (!roster?.students) return;
@@ -80,50 +177,76 @@ export function TeacherAttendanceRoster({
         setNoteMap((prev) => ({ ...prev, [studentId]: note }));
     }, []);
 
-    const handleSubmit = useCallback(() => {
+    const handleSubmitConfirmed = useCallback(() => {
         if (!roster?.students) return;
         const entries = roster.students.map((s) => ({
             student_id: s.student_id,
             status: effectiveStatus[s.student_id] ?? "PRESENT",
             note: noteMap[s.student_id] || null,
         }));
-        bulkMark.mutate({
-            timetable_slot_id: roster.timetable_slot_id,
-            date: roster.date,
-            entries,
-        });
-    }, [roster, effectiveStatus, noteMap, bulkMark]);
+        bulkMark.mutate(
+            {
+                timetable_slot_id: roster.timetable_slot_id,
+                date: roster.date,
+                entries,
+            },
+            { onSuccess: handleSaveSuccess }
+        );
+    }, [roster, effectiveStatus, noteMap, bulkMark, handleSaveSuccess]);
 
-    // ── Columns (defined before early returns to keep hook order stable) ──
+    // Show confirmation dialog with a summary of changes
+    const pendingSummary = useMemo(() => {
+        if (!roster?.students) return null;
+        const counts: Record<string, number> = {};
+        let changed = 0;
+        for (const s of roster.students) {
+            const newStatus = effectiveStatus[s.student_id] ?? "PRESENT";
+            const oldStatus = serverStatuses[s.student_id];
+            counts[newStatus] = (counts[newStatus] || 0) + 1;
+            if (oldStatus !== newStatus) changed++;
+        }
+        return { counts, changed };
+    }, [roster, effectiveStatus, serverStatuses]);
+
+    const handleSubmit = useCallback(() => {
+        if (pendingSummary && pendingSummary.changed > 0) {
+            setConfirmOpen(true);
+        } else {
+            handleSubmitConfirmed();
+        }
+    }, [pendingSummary, handleSubmitConfirmed]);
+
+    // ── Columns ───────────────────────────────────────────────────────────
 
     const columns = useMemo<DataTableColumn<RosterStudent>[]>(
         () => [
             {
                 id: "student",
                 header: "Student",
-                cell: (student) => <span className="font-medium">{student.full_name}</span>,
+                cell: (student) => (
+                    <span className={isSkipped ? "text-muted-foreground" : "font-medium"}>
+                        {student.full_name}
+                    </span>
+                ),
             },
             {
                 id: "status",
                 header: "Status",
-                cell: (student) =>
-                    isLocked ? (
+                cell: (student) => {
+                    if (isSkipped) {
+                        return (
+                            <Badge variant="outline" className="text-muted-foreground">
+                                Skipped
+                            </Badge>
+                        );
+                    }
+                    const status = effectiveStatus[student.student_id];
+                    return isLocked ? (
                         <Badge
-                            variant={
-                                effectiveStatus[student.student_id] === "PRESENT"
-                                    ? "default"
-                                    : effectiveStatus[student.student_id] === "ABSENT"
-                                      ? "destructive"
-                                      : "secondary"
-                            }
+                            variant={status ? attendanceBadgeProps(status).variant : "secondary"}
+                            className={status ? attendanceBadgeProps(status).className : ""}
                         >
-                            {{
-                                PRESENT: "Present",
-                                ABSENT: "Absent",
-                                LATE: "Late",
-                                EXCUSED: "Excused",
-                            }[effectiveStatus[student.student_id]] ??
-                                effectiveStatus[student.student_id]}
+                            {status ? attendanceStatusLabel(status) : "Unset"}
                         </Badge>
                     ) : (
                         <RadioGroup
@@ -147,71 +270,75 @@ export function TeacherAttendanceRoster({
                                         value={option.value}
                                         id={`${student.student_id}-${option.value}`}
                                         className="size-4"
+                                        disabled={isSkipped}
                                     />
                                     <Label
                                         htmlFor={`${student.student_id}-${option.value}`}
-                                        className="cursor-pointer font-normal"
+                                        className={`cursor-pointer font-normal ${isSkipped ? "text-muted-foreground" : ""}`}
                                     >
                                         {option.label}
                                     </Label>
                                 </div>
                             ))}
                         </RadioGroup>
-                    ),
+                    );
+                },
             },
             {
                 id: "note",
                 header: "Note",
                 width: "100px",
                 align: "center",
-                cell: (student) => (
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                aria-label="Add note"
-                            >
-                                <StickyNote className="h-4 w-4" />
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-64" align="end">
-                            <Input
-                                placeholder="Add a note..."
-                                value={noteMap[student.student_id] ?? ""}
-                                onChange={(e) =>
-                                    handleNoteChange(student.student_id, e.target.value)
-                                }
-                            />
-                        </PopoverContent>
-                    </Popover>
-                ),
+                cell: (student) =>
+                    isSkipped ? null : (
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    aria-label="Add note"
+                                >
+                                    <StickyNote className="h-4 w-4" />
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-64" align="end">
+                                <Input
+                                    placeholder="Add a note..."
+                                    value={noteMap[student.student_id] ?? ""}
+                                    onChange={(e) =>
+                                        handleNoteChange(student.student_id, e.target.value)
+                                    }
+                                />
+                            </PopoverContent>
+                        </Popover>
+                    ),
             },
             {
                 id: "flag",
                 header: "Behaviour",
                 width: "100px",
                 align: "center",
-                cell: (student) => (
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        aria-label="Log behavior note"
-                        onClick={() => setBehaviorStudent(student)}
-                    >
-                        <Flag className="h-4 w-4" />
-                    </Button>
-                ),
+                cell: (student) =>
+                    isSkipped ? null : (
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            aria-label="Log behavior note"
+                            onClick={() => setBehaviorStudent(student)}
+                        >
+                            <Flag className="h-4 w-4" />
+                        </Button>
+                    ),
             },
         ],
-        [isLocked, effectiveStatus, handleStatusChange, handleNoteChange, noteMap]
+        [isSkipped, isLocked, effectiveStatus, handleStatusChange, handleNoteChange, noteMap]
     );
 
     // ── Empty / Loading / Error states ────────────────────────────────────
 
-    if (isLoading) {
+    if (isLoading || sessionLoading) {
         return (
             <div className="space-y-3">
                 <Skeleton className="h-8 w-64" />
@@ -222,7 +349,7 @@ export function TeacherAttendanceRoster({
         );
     }
 
-    if (isError) {
+    if (isError || sessionError) {
         return (
             <div className="border-destructive/50 text-destructive rounded-md border p-4">
                 Failed to load roster. Please try again.
@@ -248,6 +375,19 @@ export function TeacherAttendanceRoster({
 
     return (
         <div className="space-y-4">
+            {/* Skipped alert banner */}
+            {isSkipped && (
+                <Alert>
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle>Session skipped</AlertTitle>
+                    <AlertDescription>
+                        This session was marked as skipped due to{" "}
+                        <strong>{skipReasonText ?? "unspecified reason"}</strong>. These hours are
+                        omitted from students&apos; record cards.
+                    </AlertDescription>
+                </Alert>
+            )}
+
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
@@ -256,11 +396,81 @@ export function TeacherAttendanceRoster({
                         {roster.learning_area} &middot; {roster.date}
                     </p>
                 </div>
-                {!isLocked && (
-                    <Button variant="outline" size="sm" onClick={handleMarkAllPresent}>
-                        Mark all Present
-                    </Button>
-                )}
+                <div className="flex items-center gap-2">
+                    {!isSkipped && !isLocked && (
+                        <Button variant="outline" size="sm" onClick={handleMarkAllPresent}>
+                            Mark all Present
+                        </Button>
+                    )}
+
+                    {isSkipped ? (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleUnskip}
+                            disabled={unskipSession.isPending}
+                        >
+                            {unskipSession.isPending || skipSession.isPending ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                                <RotateCcw className="mr-2 h-4 w-4" />
+                            )}
+                            {skipSession.isPending
+                                ? "Skipping..."
+                                : "Undo Skip / Re-open Class Session"}
+                        </Button>
+                    ) : (
+                        <Dialog open={skipDialogOpen} onOpenChange={setSkipDialogOpen}>
+                            <DialogTrigger asChild>
+                                <Button variant="outline" size="sm" disabled={isLocked}>
+                                    <AlertTriangle className="mr-2 h-4 w-4" />
+                                    Class Did Not Hold? Skip This Date
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>Skip this session</DialogTitle>
+                                    <DialogDescription>
+                                        Mark this class session as skipped. All attendance records
+                                        for this date will be removed, and the hours will be
+                                        excluded from students&apos; terminal percentages.
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <div className="space-y-2">
+                                    <Label htmlFor="skip-reason">Reason for skipping</Label>
+                                    <Textarea
+                                        id="skip-reason"
+                                        placeholder="e.g. School Assembly, Public Holiday, Teacher Absence, Sports/Field Event"
+                                        value={skipReason}
+                                        onChange={(e) => setSkipReason(e.target.value)}
+                                        rows={3}
+                                    />
+                                </div>
+                                <DialogFooter>
+                                    <Button
+                                        variant="ghost"
+                                        onClick={() => {
+                                            setSkipDialogOpen(false);
+                                            setSkipReason("");
+                                        }}
+                                    >
+                                        Cancel
+                                    </Button>
+                                    <Button
+                                        variant="destructive"
+                                        onClick={handleSkip}
+                                        disabled={!skipReason.trim() || skipSession.isPending}
+                                    >
+                                        {skipSession.isPending && (
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        )}
+                                        Skip Session
+                                    </Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
+                    )}
+                </div>
             </div>
 
             {/* Table */}
@@ -273,23 +483,123 @@ export function TeacherAttendanceRoster({
             />
 
             {/* Submit or Locked notice */}
-            {isLocked ? (
-                <p className="text-muted-foreground">
-                    Locked &mdash; contact your admin for corrections.
+            {isSkipped ? (
+                <p className="text-muted-foreground italic">
+                    This session was skipped. Use the undo button above to re-open it.
+                </p>
+            ) : isLocked ? (
+                <p className="text-muted-foreground text-sm">
+                    This record is from a past date and is locked. Contact your admin if you need to
+                    make corrections.
                 </p>
             ) : (
-                <div className="flex items-center gap-3">
-                    <Button onClick={handleSubmit} disabled={bulkMark.isPending} size="lg">
-                        {bulkMark.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Save Attendance
-                    </Button>
-                    {bulkMark.isSuccess && (
-                        <span className="text-emerald-600">
-                            Saved &mdash; {bulkMark.data?.count ?? 0} students marked
-                        </span>
+                <p className="text-muted-foreground text-xs">
+                    Same-day records can be edited until midnight. Changes are saved per class
+                    session.
+                </p>
+            )}
+            {!isSkipped && !isLocked && (
+                <div className="space-y-3">
+                    {/* Save feedback with undo */}
+                    {lastSavedCounts && (
+                        <div className="flex items-center gap-3 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                            <span>
+                                Saved:{" "}
+                                {Object.entries(lastSavedCounts)
+                                    .filter(([, c]) => c > 0)
+                                    .map(([s, c]) => `${c} ${s.toLowerCase()}`)
+                                    .join(", ")}
+                            </span>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                    setStatusMap({});
+                                    setNoteMap({});
+                                    setLastSavedCounts(null);
+                                }}
+                                className="ml-auto h-7 text-xs"
+                            >
+                                <RotateCcw className="mr-1 h-3 w-3" />
+                                Undo
+                            </Button>
+                        </div>
                     )}
+
+                    <div className="flex items-center gap-3">
+                        <Button onClick={handleSubmit} disabled={bulkMark.isPending} size="lg">
+                            {bulkMark.isPending && (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            )}
+                            Save Attendance
+                        </Button>
+                        {pendingSummary && pendingSummary.changed > 0 && (
+                            <span className="text-muted-foreground text-xs">
+                                {pendingSummary.changed} change
+                                {pendingSummary.changed !== 1 ? "s" : ""} &middot;{" "}
+                                {Object.entries(pendingSummary.counts)
+                                    .filter(([, c]) => c > 0)
+                                    .map(([s, c]) => `${c}× ${s.toLowerCase()}`)
+                                    .join(", ")}
+                            </span>
+                        )}
+                    </div>
                 </div>
             )}
+
+            {/* Confirmation dialog before bulk save */}
+            <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Confirm attendance</DialogTitle>
+                        <DialogDescription>
+                            You are about to save attendance for {roster?.students?.length ?? 0}{" "}
+                            students.
+                            {pendingSummary && pendingSummary.changed > 0 && (
+                                <>
+                                    {" "}
+                                    {pendingSummary.changed} record
+                                    {pendingSummary.changed !== 1 ? "s" : ""} will be changed.
+                                </>
+                            )}
+                        </DialogDescription>
+                    </DialogHeader>
+                    {pendingSummary && (
+                        <div className="space-y-2">
+                            {Object.entries(pendingSummary.counts)
+                                .filter(([, c]) => c > 0)
+                                .map(([status, count]) => (
+                                    <div
+                                        key={status}
+                                        className="flex items-center justify-between text-sm"
+                                    >
+                                        <Badge
+                                            variant={
+                                                attendanceBadgeProps(status as AttendanceStatus)
+                                                    .variant
+                                            }
+                                            className={
+                                                attendanceBadgeProps(status as AttendanceStatus)
+                                                    .className
+                                            }
+                                        >
+                                            {attendanceStatusLabel(status as AttendanceStatus)}
+                                        </Badge>
+                                        <span>
+                                            {count} student{count !== 1 ? "s" : ""}
+                                        </span>
+                                    </div>
+                                ))}
+                        </div>
+                    )}
+                    <DialogFooter>
+                        <Button variant="ghost" onClick={() => setConfirmOpen(false)}>
+                            Cancel
+                        </Button>
+                        <Button onClick={handleSubmitConfirmed}>Confirm &amp; Save</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             {/* Behavior note dialog */}
             {behaviorStudent && (

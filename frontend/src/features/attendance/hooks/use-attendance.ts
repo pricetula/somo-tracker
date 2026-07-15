@@ -15,8 +15,12 @@ import {
     updateAttendanceRecord,
     getChildAttendanceSummary,
     computeAttendanceSummaries,
+    skipSession,
+    unskipSession,
+    getSession,
     type BulkAttendancePayload,
     type AttendanceStatus,
+    type SkipSessionPayload,
 } from "@/lib/api/attendance";
 import { getErrorMessage } from "@/lib/errors";
 
@@ -122,6 +126,62 @@ export function useChildAttendanceSummary(studentId: string, termId: string) {
         queryFn: () => getChildAttendanceSummary(studentId, termId),
         enabled: !!studentId && !!termId,
         staleTime: 60_000,
+    });
+}
+
+// ─── Session Hooks ───────────────────────────────────────────────────────
+
+export const attendanceSessionKeys = {
+    all: ["attendance-sessions"] as const,
+    bySlot: (slotId: string, date: string) => [...attendanceSessionKeys.all, slotId, date] as const,
+};
+
+/** Fetch the session status for a slot + date. */
+export function useSession(slotId: string, date?: string) {
+    return useQuery({
+        queryKey: attendanceSessionKeys.bySlot(slotId, date ?? ""),
+        queryFn: () => getSession(slotId, date ?? ""),
+        enabled: !!slotId && !!date,
+        staleTime: 30_000,
+    });
+}
+
+/** Mark a session as skipped. */
+export function useSkipSession() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (payload: SkipSessionPayload) => skipSession(payload),
+        onSuccess: () => {
+            void queryClient.invalidateQueries({ queryKey: attendanceKeys.all });
+            void queryClient.invalidateQueries({ queryKey: attendanceSessionKeys.all });
+            toast.success("Session marked as skipped. Attendance records have been removed.");
+        },
+        onError: (err) => {
+            toast.error("Failed to skip session", {
+                description: getErrorMessage(err),
+            });
+        },
+    });
+}
+
+/** Unskip a session (re-open it). */
+export function useUnskipSession() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (payload: { timetable_slot_id: string; date: string }) =>
+            unskipSession(payload),
+        onSuccess: () => {
+            void queryClient.invalidateQueries({ queryKey: attendanceKeys.all });
+            void queryClient.invalidateQueries({ queryKey: attendanceSessionKeys.all });
+            toast.success("Session re-opened. You can now mark attendance.");
+        },
+        onError: (err) => {
+            toast.error("Failed to unskip session", {
+                description: getErrorMessage(err),
+            });
+        },
     });
 }
 

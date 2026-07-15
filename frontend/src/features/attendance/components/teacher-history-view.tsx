@@ -33,6 +33,18 @@ function getCurrentDayOfWeek(): number {
     return jsDay === 0 ? 7 : jsDay;
 }
 
+/** Compute the calendar date (YYYY-MM-DD) for a given day_of_week (1=Mon..7=Sun)
+ *  in the current week (ending today). Past days keep their calendar date.
+ */
+function dateForDayOfWeek(dayOfWeek: number): string {
+    const today = new Date();
+    const currentDow = getCurrentDayOfWeek();
+    const diff = dayOfWeek - currentDow;
+    const target = new Date(today);
+    target.setDate(today.getDate() + diff);
+    return target.toISOString().split("T")[0];
+}
+
 export function TeacherHistoryView() {
     const router = useRouter();
     const { data: me, isLoading: meLoading } = useMe();
@@ -157,10 +169,14 @@ export function TeacherHistoryView() {
                 <TableBody>
                     {pastSlots.map((slot) => {
                         const isToday = slot.day_of_week === currentDay;
+                        const slotDate = dateForDayOfWeek(slot.day_of_week);
                         return (
                             <TableRow key={slot.id}>
                                 <TableCell>
                                     {dayNames[slot.day_of_week] ?? `Day ${slot.day_of_week}`}
+                                    <span className="text-muted-foreground ml-1 text-xs">
+                                        {slotDate}
+                                    </span>
                                     {isToday && (
                                         <Badge variant="outline" className="ml-2 text-xs">
                                             Today
@@ -173,16 +189,12 @@ export function TeacherHistoryView() {
                                     {slot.start_time} &ndash; {slot.end_time}
                                 </TableCell>
                                 <TableCell>
-                                    {isToday ? (
-                                        <Badge
-                                            variant="secondary"
-                                            className="bg-amber-100 text-amber-800"
-                                        >
-                                            Mark now
-                                        </Badge>
-                                    ) : (
-                                        <Badge variant="outline">Completed</Badge>
-                                    )}
+                                    <Badge
+                                        variant={isToday ? "secondary" : "outline"}
+                                        className={isToday ? "bg-amber-100 text-amber-800" : ""}
+                                    >
+                                        {isToday ? "Mark now / View" : "Completed"}
+                                    </Badge>
                                 </TableCell>
                                 <TableCell>
                                     <Button
@@ -190,7 +202,7 @@ export function TeacherHistoryView() {
                                         size="sm"
                                         onClick={() =>
                                             router.push(
-                                                `/attendance/register/${slot.id}?date=${new Date().toISOString().split("T")[0]}`
+                                                `/attendance/register/${slot.id}?date=${slotDate}`
                                             )
                                         }
                                     >

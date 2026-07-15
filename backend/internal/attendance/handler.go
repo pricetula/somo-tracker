@@ -1,6 +1,7 @@
 package attendance
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -24,15 +25,24 @@ func NewHandler(svc *Service) *Handler {
 // RegisterRoutes mounts attendance routes on the given router.
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	att := router.Group("/api/v1/attendance")
-	att.Get("/roster/:timetable_slot_id", middleware.RequireAuth, h.GetRoster)
-	att.Post("/bulk", middleware.RequireAuth, h.BulkMark)
-	att.Get("/dashboard", middleware.RequireAuth, h.AdminDashboard)
-	att.Get("/students/:student_id", middleware.RequireAuth, h.StudentHistory)
-	att.Put("/records/:id", middleware.RequireAuth, h.UpdateRecord)
-	att.Get("/children/:student_id/summary", middleware.RequireAuth, h.ChildSummary)
+
+	// Teacher+Admin routes
+	att.Get("/roster/:timetable_slot_id", middleware.RequireRole("TEACHER", "SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.GetRoster)
+	att.Post("/bulk", middleware.RequireRole("TEACHER", "SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.BulkMark)
+	att.Post("/sessions/skip", middleware.RequireRole("TEACHER", "SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.SkipSession)
+	att.Post("/sessions/unskip", middleware.RequireRole("TEACHER", "SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.UnskipSession)
+	att.Get("/sessions/:timetable_slot_id", middleware.RequireRole("TEACHER", "SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.GetSession)
+
+	// Admin-only routes
+	att.Get("/dashboard", middleware.RequireRole("SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.AdminDashboard)
+	att.Get("/students/:student_id", middleware.RequireRole("TEACHER", "SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.StudentHistory)
+	att.Put("/records/:id", middleware.RequireRole("SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.UpdateRecord)
+
+	// Parent-facing route
+	att.Get("/children/:student_id/summary", middleware.RequireRole("PARENT", "TEACHER", "SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.ChildSummary)
 
 	// Background task trigger — recompute attendance_term_summaries
-	att.Post("/summaries/compute", middleware.RequireAuth, h.ComputeSummaries)
+	att.Post("/summaries/compute", middleware.RequireRole("SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.ComputeSummaries)
 }
 
 // attMiddleware extracts common tenant/school from context.
@@ -165,9 +175,10 @@ func (h *Handler) StudentHistory(c *fiber.Ctx) error {
 	}
 
 	filter := StudentHistoryFilter{
-		TermID:    c.Query("term_id"),
-		StartDate: c.Query("start_date"),
-		EndDate:   c.Query("end_date"),
+		TermID:         c.Query("term_id"),
+		StartDate:      c.Query("start_date"),
+		EndDate:        c.Query("end_date"),
+		LearningAreaID: c.Query("learning_area_id"),
 	}
 
 	records, err := h.svc.GetStudentHistory(c.Context(), tenantID, schoolID, studentID, filter)
@@ -262,6 +273,96 @@ func (h *Handler) ComputeSummaries(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"message": "Attendance summaries computed",
 		"count":   count,
+	})
+}
+
+// SkipSession handles POST /api/v1/attendance/sessions/skip.
+func (h *Handler) SkipSession(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.attMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	var payload SkipSessionPayload
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "invalid request body",
+		})
+	}
+
+	if err := h.svc.SkipSession(c.Context(), tenantID, schoolID, payload); err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "Session marked as skipped. Attendance records deleted.",
+	})
+}
+
+// UnskipSession handles POST /api/v1/attendance/sessions/unskip.
+func (h *Handler) UnskipSession(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.attMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	var payload struct {
+		TimetableSlotID string `json:"timetable_slot_id"`
+		Date            string `json:"date"`
+	}
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "invalid request body",
+		})
+	}
+
+	if err := h.svc.UnskipSession(c.Context(), tenantID, schoolID, payload.TimetableSlotID, payload.Date); err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "Session re-opened. You can now mark attendance again.",
+	})
+}
+
+// GetSession handles GET /api/v1/attendance/sessions/:timetable_slot_id.
+func (h *Handler) GetSession(c *fiber.Ctx) error {
+	tenantID, _, err := h.attMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	timetableSlotID := c.Params("timetable_slot_id")
+	if timetableSlotID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "timetable_slot_id is required",
+		})
+	}
+
+	date := c.Query("date")
+	if date == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "date query parameter is required",
+		})
+	}
+
+	session, err := h.svc.GetSessionBySlotDate(c.Context(), tenantID, timetableSlotID, date)
+	if err != nil {
+		// If not found, return a null session rather than a 404
+		if errors.Is(err, ErrNotFound) {
+			return c.JSON(fiber.Map{
+				"session": nil,
+			})
+		}
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(fiber.Map{
+		"session": session,
 	})
 }
 

@@ -9,6 +9,7 @@
 import { useState } from "react";
 import { CalendarX } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent } from "@/components/ui/card";
 import {
     Table,
     TableBody,
@@ -26,12 +27,15 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Loader2, Pencil } from "lucide-react";
 
 import { AttendanceEmptyState } from "./attendance-empty-state";
 import { useStudentHistory, useUpdateAttendanceRecord } from "../hooks/use-attendance";
 import { useAcademicTerms } from "@/features/academic-terms/hooks/use-academic-terms";
 import type { AttendanceStatus } from "../types";
+import { attendanceBadgeProps, attendanceStatusLabel } from "../types";
 
 interface StudentHistoryViewProps {
     studentId: string;
@@ -40,6 +44,8 @@ interface StudentHistoryViewProps {
 
 export function StudentHistoryView({ studentId, termId }: StudentHistoryViewProps) {
     const [selectedTermId, setSelectedTermId] = useState(termId ?? "");
+    const [startDate, setStartDate] = useState("");
+    const [endDate, setEndDate] = useState("");
     const { data: termsData } = useAcademicTerms();
     const terms = termsData?.items ?? [];
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -47,6 +53,8 @@ export function StudentHistoryView({ studentId, termId }: StudentHistoryViewProp
 
     const { data, isLoading, isError } = useStudentHistory(studentId, {
         term_id: selectedTermId,
+        start_date: startDate || undefined,
+        end_date: endDate || undefined,
     });
     const updateRecord = useUpdateAttendanceRecord();
 
@@ -87,11 +95,61 @@ export function StudentHistoryView({ studentId, termId }: StudentHistoryViewProp
 
     const records = data?.items ?? [];
 
+    // Compute summary from records
+    const summary = (() => {
+        if (!records.length) return null;
+        const counts: Record<string, number> = {};
+        for (const r of records) {
+            counts[r.status] = (counts[r.status] || 0) + 1;
+        }
+        const total = records.length;
+        const present = counts.PRESENT || 0;
+        const percentage = total > 0 ? Math.round((present / total) * 100 * 10) / 10 : 0;
+        return {
+            total,
+            present,
+            absent: counts.ABSENT || 0,
+            late: counts.LATE || 0,
+            excused: counts.EXCUSED || 0,
+            percentage,
+        };
+    })();
+
     return (
         <div className="space-y-4">
-            <div className="flex items-center gap-3">
+            {/* Summary card */}
+            {summary && (
+                <Card size="sm">
+                    <CardContent className="flex items-center gap-6 py-3">
+                        <div className="flex items-baseline gap-1">
+                            <span className="text-2xl font-bold">{summary.percentage}%</span>
+                            <span className="text-muted-foreground text-xs">attendance</span>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                            {(["PRESENT", "ABSENT", "LATE", "EXCUSED"] as const)
+                                .filter((s) => summary[s.toLowerCase() as keyof typeof summary] > 0)
+                                .map((s) => (
+                                    <Badge
+                                        key={s}
+                                        variant={attendanceBadgeProps(s).variant}
+                                        className={attendanceBadgeProps(s).className}
+                                    >
+                                        {attendanceStatusLabel(s)}:{" "}
+                                        {summary[s.toLowerCase() as keyof typeof summary]}
+                                    </Badge>
+                                ))}
+                        </div>
+                        <span className="text-muted-foreground ml-auto text-xs">
+                            {summary.total} total periods
+                        </span>
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* Filters */}
+            <div className="flex flex-wrap items-center gap-3">
                 <Select value={selectedTermId} onValueChange={setSelectedTermId}>
-                    <SelectTrigger className="w-48">
+                    <SelectTrigger className="w-44">
                         <SelectValue placeholder="Select term" />
                     </SelectTrigger>
                     <SelectContent>
@@ -104,7 +162,38 @@ export function StudentHistoryView({ studentId, termId }: StudentHistoryViewProp
                         ))}
                     </SelectContent>
                 </Select>
+                <div className="flex items-center gap-2">
+                    <Label className="text-muted-foreground text-xs">From</Label>
+                    <Input
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                        className="w-40"
+                    />
+                </div>
+                <div className="flex items-center gap-2">
+                    <Label className="text-muted-foreground text-xs">To</Label>
+                    <Input
+                        type="date"
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                        className="w-40"
+                    />
+                </div>
                 <p className="text-muted-foreground text-sm">{records.length} records</p>
+                {(startDate || endDate) && (
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-xs"
+                        onClick={() => {
+                            setStartDate("");
+                            setEndDate("");
+                        }}
+                    >
+                        Clear dates
+                    </Button>
+                )}
             </div>
 
             {records.length === 0 ? (
@@ -153,15 +242,12 @@ export function StudentHistoryView({ studentId, termId }: StudentHistoryViewProp
                                         </Select>
                                     ) : (
                                         <Badge
-                                            variant={
-                                                record.status === "PRESENT"
-                                                    ? "default"
-                                                    : record.status === "ABSENT"
-                                                      ? "destructive"
-                                                      : "secondary"
+                                            variant={attendanceBadgeProps(record.status).variant}
+                                            className={
+                                                attendanceBadgeProps(record.status).className
                                             }
                                         >
-                                            {record.status}
+                                            {attendanceStatusLabel(record.status)}
                                         </Badge>
                                     )}
                                 </TableCell>

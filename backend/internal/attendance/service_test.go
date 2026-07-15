@@ -94,6 +94,18 @@ func (m *MockRepository) ComputeClassSummaries(ctx context.Context, tenantID, sc
 	return 0, nil
 }
 
+func (m *MockRepository) SkipSession(ctx context.Context, tenantID, schoolID, timetableSlotID, date, skipReason string) (sessionID, classID, termID string, err error) {
+	return "session_001", "class_001", "term_001", nil
+}
+
+func (m *MockRepository) UnskipSession(ctx context.Context, tenantID, schoolID, timetableSlotID, date string) (classID, termID string, err error) {
+	return "class_001", "term_001", nil
+}
+
+func (m *MockRepository) GetSessionBySlotDate(ctx context.Context, tenantID, timetableSlotID, date string) (*AttendanceSession, error) {
+	return nil, nil
+}
+
 // ============================================================================
 // Test Harness
 // ============================================================================
@@ -105,11 +117,13 @@ type testHarness struct {
 
 func newTestHarness() *testHarness {
 	repo := &MockRepository{}
-	// Create service with nil embedded to avoid needing real Redis connection.
-	// Only methods that don't call enqueueClassRecompute can be tested this way.
+	// Create service with nil Deduplicator and TaskEnqueuer to avoid needing
+	// real Redis/Asynq connections. Only methods that don't call
+	// enqueueClassRecompute can be tested this way.
 	svc := &Service{
 		repo:  repo,
-		redis: nil,
+		dedup: nil,
+		enq:   nil,
 	}
 	return &testHarness{
 		svc:  svc,

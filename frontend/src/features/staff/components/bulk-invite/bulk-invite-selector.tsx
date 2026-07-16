@@ -25,7 +25,7 @@ export function BulkInviteSelector({
     return (
         <div className="space-y-6">
             <div className="space-y-1">
-                <h3 className="text-lg font-semibold">{title}</h3>
+                <h3 className="font-semibold">{title}</h3>
                 <p className="text-muted-foreground">How would you like to add people?</p>
             </div>
 
@@ -36,9 +36,9 @@ export function BulkInviteSelector({
                     onClick={() => onSelect("manual")}
                     className="flex h-auto flex-col gap-3 p-6"
                 >
-                    <Keyboard className="size-8" />
+                    <Keyboard className="size-4" />
                     <div className="space-y-1">
-                        <p className="text-base font-medium">Manual Entry</p>
+                        <p className="font-medium">Manual Entry</p>
                         <p className="text-muted-foreground text-xs">
                             Type email addresses one by one
                         </p>
@@ -51,9 +51,9 @@ export function BulkInviteSelector({
                     onClick={() => onSelect("file")}
                     className="flex h-auto flex-col gap-3 p-6"
                 >
-                    <FileText className="size-8" />
+                    <FileText className="size-4" />
                     <div className="space-y-1">
-                        <p className="text-base font-medium">Import File</p>
+                        <p className="font-medium">Import File</p>
                         <p className="text-muted-foreground text-xs">Upload a CSV or Excel file</p>
                     </div>
                 </Button>

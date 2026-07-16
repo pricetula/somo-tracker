@@ -109,7 +109,7 @@ export function BulkInviteManualForm({
                 toast.error(`Maximum of ${MAX_INVITE_ROWS.toLocaleString()} rows reached.`);
                 return prev;
             }
-            return [...prev, freshRow()];
+            return [freshRow(), ...prev];
         });
     }
 
@@ -170,7 +170,7 @@ export function BulkInviteManualForm({
                     </Button>
                 </div>
             ) : (
-                <div className="space-y-2">
+                <div className="h-54 space-y-2 overflow-auto p-2">
                     {rows.map((row, index) => {
                         const emailErr = getRowError(row.id, "email");
                         const hasRowError = !!emailErr;

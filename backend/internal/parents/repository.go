@@ -187,28 +187,37 @@ func scanParentsRows(rows pgx.Rows) ([]Parent, error) {
 	return parents, nil
 }
 
-// parentJoinColumns is the common SELECT list for joining cbc_parents + users.
+// parentJoinColumns is the common SELECT list for membership-based parent queries.
+// Queries from memberships (role = 'PARENT') with LEFT JOIN to cbc_parents so that
+// parents without a student link (no cbc_parents record) are still found.
 const parentJoinColumns = `
-	cp.id, cp.tenant_id, cp.user_id,
-	u.full_name, u.email, cp.phone_number,
-	cp.is_active, cp.created_at::text
+	COALESCE(cp.id::text, u.id::text),
+	m.tenant_id,
+	m.user_id,
+	u.full_name,
+	u.email,
+	COALESCE(cp.phone_number, ''),
+	COALESCE(cp.is_active, u.is_active),
+	COALESCE(cp.created_at::text, u.created_at::text)
 `
 
-// parentJoin is the common FROM/JOIN clause.
+// parentJoin is the common FROM/JOIN clause for membership-based parent queries.
 const parentJoin = `
-	FROM cbc_parents cp
-	JOIN users u ON u.id = cp.user_id AND u.tenant_id = cp.tenant_id
+	FROM memberships m
+	JOIN users u ON u.id = m.user_id AND u.tenant_id = m.tenant_id
+	LEFT JOIN cbc_parents cp ON cp.user_id = m.user_id AND cp.tenant_id = m.tenant_id
 `
+
+// parentRoleFilter is the role filter clause appended to every parent query.
+const parentRoleFilter = `m.role = 'PARENT'`
 
 // ============================================================================
 // READ
 // ============================================================================
 
-// GetByID retrieves a single parent by primary key.
-
 // GetByUserID retrieves a parent profile by the linked user_id.
 func (r *PgRepository) GetByUserID(ctx context.Context, userID, tenantID string) (*Parent, error) {
-	const query = `SELECT ` + parentJoinColumns + parentJoin + ` WHERE cp.user_id = $1 AND cp.tenant_id = $2`
+	const query = `SELECT ` + parentJoinColumns + parentJoin + ` WHERE ` + parentRoleFilter + ` AND m.user_id = $1 AND m.tenant_id = $2`
 	p, err := scanParent(r.pool.QueryRow(ctx, query, userID, tenantID))
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -220,8 +229,10 @@ func (r *PgRepository) GetByUserID(ctx context.Context, userID, tenantID string)
 }
 
 // GetByID retrieves a single parent by primary key.
+// The id may be either a cbc_parents.id (for linked parents) or a users.id
+// (for parents without a student link). Both are accepted.
 func (r *PgRepository) GetByID(ctx context.Context, id, tenantID string) (*Parent, error) {
-	const query = `SELECT ` + parentJoinColumns + parentJoin + ` WHERE cp.id = $1 AND cp.tenant_id = $2`
+	const query = `SELECT ` + parentJoinColumns + parentJoin + ` WHERE ` + parentRoleFilter + ` AND m.tenant_id = $2 AND (cp.id::text = $1 OR u.id::text = $1)`
 	p, err := scanParent(r.pool.QueryRow(ctx, query, id, tenantID))
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -277,8 +288,11 @@ func (r *PgRepository) GetDetail(ctx context.Context, id, tenantID string) (*Par
 
 // List returns parents optionally filtered by search (name/email), student_id,
 // or curriculum filters (education_level, grade_level), with pagination.
+// The base source is the memberships table filtered to role = 'PARENT', so that
+// parents who have not been linked to students (no cbc_parents record) are also
+// included in the listing.
 func (r *PgRepository) List(ctx context.Context, filter ListFilter) ([]Parent, int, error) {
-	whereClause := `WHERE cp.tenant_id = $1`
+	whereClause := `WHERE ` + parentRoleFilter + ` AND m.tenant_id = $1`
 	args := []interface{}{filter.TenantID}
 	argIdx := 2
 

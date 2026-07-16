@@ -17,4 +17,6 @@ export type {
     PendingNoteItem,
     PendingNotesResponse,
     ReviewDecisionPayload,
+    TeacherNoteItem,
+    TeacherNotesResponse,
 } from "@/lib/api/behavior";

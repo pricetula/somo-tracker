@@ -114,3 +114,22 @@ type PendingNoteItem struct {
 type PendingNotesResponse struct {
 	Notes []PendingNoteItem `json:"notes"`
 }
+
+// TeacherNotesResponse is a teacher's own submitted notes.
+type TeacherNotesResponse struct {
+	Notes []TeacherNoteItem `json:"notes"`
+}
+
+// TeacherNoteItem is a note in the teacher's personal list,
+// enriched with student name, category name, and review outcome.
+type TeacherNoteItem struct {
+	ID              string             `json:"id"`
+	StudentID       string             `json:"student_id"`
+	StudentFullName string             `json:"student_full_name"`
+	ClassName       string             `json:"class_name"`
+	CategoryName    string             `json:"category_name"`
+	Description     string             `json:"description"`
+	IsUrgent        bool               `json:"is_urgent"`
+	Date            time.Time          `json:"date"`
+	Status          BehaviorNoteStatus `json:"status"`
+}

@@ -17,6 +17,7 @@ export {
     useCreateBehaviorNote,
     useBehaviorPendingQueue,
     useReviewBehaviorNote,
+    useTeacherNotes,
     behaviorKeys,
 } from "./hooks/use-behavior";
 
@@ -32,4 +33,6 @@ export type {
     PendingNoteItem,
     PendingNotesResponse,
     ReviewDecisionPayload,
+    TeacherNoteItem,
+    TeacherNotesResponse,
 } from "./types";

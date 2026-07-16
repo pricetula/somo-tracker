@@ -14,10 +14,12 @@ import {
     createBehaviorNote,
     getBehaviorPendingQueue,
     reviewBehaviorNote,
+    listTeacherNotes,
     type CreateCategoryPayload,
     type UpdateCategoryPayload,
     type CreateNotePayload,
     type ReviewDecisionPayload,
+    type TeacherNotesResponse,
 } from "@/lib/api/behavior";
 import { getErrorMessage } from "@/lib/errors";
 
@@ -99,6 +101,15 @@ export function useBehaviorPendingQueue() {
         queryFn: () => getBehaviorPendingQueue(),
         refetchInterval: 30_000,
         staleTime: 10_000,
+    });
+}
+
+/** Fetch the current user's (teacher's) own behavior notes. */
+export function useTeacherNotes() {
+    return useQuery<TeacherNotesResponse>({
+        queryKey: [...behaviorKeys.all, "my-notes"],
+        queryFn: () => listTeacherNotes(),
+        staleTime: 30_000,
     });
 }
 

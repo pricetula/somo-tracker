@@ -49,6 +49,9 @@ type Repository interface {
 
 	// UpdateNote updates the description of a behavior note.
 	UpdateNote(ctx context.Context, id, tenantID string, description string) error
+
+	// ListNotesByAuthor returns notes authored by a specific user.
+	ListNotesByAuthor(ctx context.Context, tenantID, schoolID, authoredBy string) ([]TeacherNoteItem, error)
 }
 
 type pgRepository struct {
@@ -368,6 +371,53 @@ func (r *pgRepository) GetNotesByStudentTerm(ctx context.Context, tenantID, scho
 		notes = append(notes, item)
 	}
 	return notes, rows.Err()
+}
+
+func (r *pgRepository) ListNotesByAuthor(ctx context.Context, tenantID, schoolID, authoredBy string) ([]TeacherNoteItem, error) {
+	query := `
+		SELECT
+			bn.id,
+			bn.student_id,
+			s.full_name AS student_full_name,
+			c.grade_level || ' ' || COALESCE(str.name, '') AS class_name,
+			bc.name AS category_name,
+			bn.description,
+			bn.is_urgent,
+			bn.date,
+			bn.status
+		FROM behavior_notes bn
+		JOIN cbc_students s ON s.id = bn.student_id AND s.tenant_id = bn.tenant_id
+		JOIN cbc_timetable_slots ts ON ts.id = bn.timetable_slot_id
+		JOIN cbc_classes c ON c.id = ts.class_id AND c.tenant_id = bn.tenant_id
+		LEFT JOIN cbc_streams str ON str.id = c.stream_id
+		JOIN behavior_categories bc ON bc.id = bn.category_id
+		WHERE bn.tenant_id = $1
+		  AND bn.school_id = $2
+		  AND bn.authored_by_id = $3
+		ORDER BY bn.created_at DESC
+	`
+	rows, err := r.pool.Query(ctx, query, tenantID, schoolID, authoredBy)
+	if err != nil {
+		return nil, fmt.Errorf("behavior.Repository.ListNotesByAuthor: %w", err)
+	}
+	defer rows.Close()
+
+	var notes []TeacherNoteItem
+	for rows.Next() {
+		var item TeacherNoteItem
+		if err := rows.Scan(
+			&item.ID, &item.StudentID, &item.StudentFullName, &item.ClassName,
+			&item.CategoryName, &item.Description, &item.IsUrgent,
+			&item.Date, &item.Status,
+		); err != nil {
+			return nil, fmt.Errorf("behavior.Repository.ListNotesByAuthor: scan: %w", err)
+		}
+		notes = append(notes, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("behavior.Repository.ListNotesByAuthor: rows: %w", err)
+	}
+	return notes, nil
 }
 
 func (r *pgRepository) UpdateNote(ctx context.Context, id, tenantID string, description string) error {

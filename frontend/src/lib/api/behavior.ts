@@ -86,6 +86,22 @@ export interface PendingNotesResponse {
     notes: PendingNoteItem[];
 }
 
+export interface TeacherNoteItem {
+    id: string;
+    student_id: string;
+    student_full_name: string;
+    class_name: string;
+    category_name: string;
+    description: string;
+    is_urgent: boolean;
+    date: string;
+    status: BehaviorNoteStatus;
+}
+
+export interface TeacherNotesResponse {
+    notes: TeacherNoteItem[];
+}
+
 export interface ReviewDecisionPayload {
     decision: "APPROVED" | "REJECTED";
     admin_note?: string;
@@ -146,6 +162,11 @@ export async function updateBehaviorNote(
     payload: { description: string }
 ): Promise<{ message: string }> {
     return api.put<{ message: string }>(`/api/v1/behavior/notes/${id}`, payload);
+}
+
+/** List notes authored by the current user (teacher view). */
+export async function listTeacherNotes(): Promise<TeacherNotesResponse> {
+    return api.get<TeacherNotesResponse>("/api/v1/behavior/notes");
 }
 
 /** Review (approve/reject) a behavior note. */

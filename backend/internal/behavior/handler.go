@@ -28,6 +28,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	// Behavior notes
 	notes := router.Group("/api/v1/behavior/notes")
 	notes.Post("/", middleware.RequireAuth, h.CreateNote)
+	notes.Get("/", middleware.RequireAuth, h.ListNotes)
 	notes.Get("/queue", middleware.RequireAuth, h.PendingQueue)
 	notes.Get("/:id", middleware.RequireAuth, h.GetNote)
 	notes.Put("/:id", middleware.RequireAuth, h.UpdateNote)
@@ -162,6 +163,30 @@ func (h *Handler) CreateNote(c *fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(note)
+}
+
+// ListNotes handles GET /api/v1/behavior/notes — returns notes authored
+// by the authenticated user (teacher view).
+func (h *Handler) ListNotes(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.behMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	userID, ok := c.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"code":    "UNAUTHORIZED",
+			"message": "user not authenticated",
+		})
+	}
+
+	result, err := h.svc.ListNotesByAuthor(c.Context(), tenantID, schoolID, userID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(result)
 }
 
 // PendingQueue handles GET /api/v1/behavior/notes/queue.

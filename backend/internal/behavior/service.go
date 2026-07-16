@@ -100,6 +100,21 @@ func (s *Service) GetNotesByStudentTerm(ctx context.Context, tenantID, schoolID,
 	return s.repo.GetNotesByStudentTerm(ctx, tenantID, schoolID, studentID, termID)
 }
 
+// ListNotesByAuthor returns notes authored by a specific user (teacher).
+func (s *Service) ListNotesByAuthor(ctx context.Context, tenantID, schoolID, authoredBy string) (*TeacherNotesResponse, error) {
+	if authoredBy == "" {
+		return nil, fmt.Errorf("behavior.Service.ListNotesByAuthor: authored_by is required: %w", ErrInvalidInput)
+	}
+	notes, err := s.repo.ListNotesByAuthor(ctx, tenantID, schoolID, authoredBy)
+	if err != nil {
+		return nil, err
+	}
+	if notes == nil {
+		notes = []TeacherNoteItem{}
+	}
+	return &TeacherNotesResponse{Notes: notes}, nil
+}
+
 // UpdateNote updates the description of a behavior note.
 func (s *Service) UpdateNote(ctx context.Context, id, tenantID string, description string) error {
 	if id == "" {

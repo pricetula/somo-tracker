@@ -164,7 +164,7 @@ export function BlueprintDialog({ open, onOpenChange, isPending, onSave }: Bluep
                                         onChange={(e) =>
                                             updateBlock(d.id, { periodName: e.target.value })
                                         }
-                                        className="h-8 flex-1 text-sm"
+                                        className="h-8 flex-1"
                                         placeholder="Period name"
                                     />
                                     <button
@@ -223,7 +223,7 @@ export function BlueprintDialog({ open, onOpenChange, isPending, onSave }: Bluep
                     <button
                         type="button"
                         onClick={addBlock}
-                        className="border-border/40 text-muted-foreground hover:bg-muted/30 flex w-full items-center gap-2 rounded-lg border border-dashed p-3 text-sm transition-colors"
+                        className="border-border/40 text-muted-foreground hover:bg-muted/30 flex w-full items-center gap-2 rounded-lg border border-dashed p-3 transition-colors"
                     >
                         <Plus className="h-4 w-4" />
                         Add block

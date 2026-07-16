@@ -45,7 +45,7 @@ export function TeacherBehaviorView() {
                 <ClipboardList className="h-10 w-10" />
                 <div className="text-center">
                     <p className="font-medium">No behavior notes yet</p>
-                    <p className="mt-1 max-w-sm text-sm">
+                    <p className="mt-1 max-w-sm">
                         You haven&apos;t submitted any behavior notes. Log notes while taking
                         attendance in your classes.
                     </p>
@@ -63,7 +63,7 @@ export function TeacherBehaviorView() {
     return (
         <div className="space-y-4">
             <div className="flex items-center justify-between">
-                <p className="text-muted-foreground text-sm">
+                <p className="text-muted-foreground">
                     Notes you have submitted. They appear here once reviewed by an admin.
                 </p>
                 <Button variant="outline" size="sm" asChild>
@@ -87,9 +87,7 @@ export function TeacherBehaviorView() {
                                     {note.class_name}
                                 </Badge>
                             </div>
-                            <p className="text-muted-foreground line-clamp-2 text-sm">
-                                {note.description}
-                            </p>
+                            <p className="text-muted-foreground line-clamp-2">{note.description}</p>
                             <div className="flex items-center gap-2">
                                 <Badge variant="secondary" className="text-[10px]">
                                     {note.category_name}

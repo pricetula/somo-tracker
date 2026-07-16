@@ -12,7 +12,7 @@ export default function AddClassPage() {
     return (
         <div className="mx-auto max-w-lg p-6">
             <h1 className="mb-1 text-lg font-semibold">Create Class</h1>
-            <p className="text-muted-foreground mb-6 text-sm">
+            <p className="text-muted-foreground mb-6">
                 Create a new class by selecting a grade level, stream, and academic year.
             </p>
             <AddClassForm />

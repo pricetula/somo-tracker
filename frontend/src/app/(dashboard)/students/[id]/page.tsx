@@ -98,7 +98,7 @@ export default function StudentDetailPage({ params }: Props) {
             <div className="flex items-start justify-between">
                 <div className="space-y-1">
                     <h1 className="text-foreground text-2xl font-bold">{student.full_name}</h1>
-                    <div className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                    <div className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1">
                         {student.admission_number && (
                             <span>
                                 Adm: <span className="font-mono">{student.admission_number}</span>
@@ -118,7 +118,7 @@ export default function StudentDetailPage({ params }: Props) {
                         <span>Gender: {student.gender === "M" ? "Male" : "Female"}</span>
                     </div>
                     {currentEnrollment && (
-                        <p className="text-muted-foreground text-sm">
+                        <p className="text-muted-foreground">
                             {currentEnrollment.class_name} &middot; {currentEnrollment.term_name}{" "}
                             {currentEnrollment.academic_year}
                             <Badge variant="secondary" className="ml-2 text-xs">
@@ -170,7 +170,7 @@ export default function StudentDetailPage({ params }: Props) {
                     <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
                         {/* Attendance summary card */}
                         <div className="bg-muted/30 rounded-lg p-4">
-                            <div className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
+                            <div className="text-muted-foreground flex items-center gap-2 font-medium">
                                 <CalendarCheck className="h-4 w-4" />
                                 Attendance
                             </div>
@@ -198,7 +198,7 @@ export default function StudentDetailPage({ params }: Props) {
 
                         {/* Behavior summary card */}
                         <div className="bg-muted/30 rounded-lg p-4">
-                            <div className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
+                            <div className="text-muted-foreground flex items-center gap-2 font-medium">
                                 <AlertTriangle className="h-4 w-4" />
                                 Behavior Notes
                             </div>
@@ -225,7 +225,7 @@ export default function StudentDetailPage({ params }: Props) {
 
                         {/* Enrollment summary card */}
                         <div className="bg-muted/30 rounded-lg p-4">
-                            <div className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
+                            <div className="text-muted-foreground flex items-center gap-2 font-medium">
                                 <BookOpen className="h-4 w-4" />
                                 Enrollments
                             </div>
@@ -245,7 +245,7 @@ export default function StudentDetailPage({ params }: Props) {
                 {/* ── Behavior Tab ─────────────────────────────────────── */}
                 <TabsContent value="behavior" className="space-y-4 pt-4">
                     <div className="flex items-center justify-between">
-                        <p className="text-muted-foreground text-sm">
+                        <p className="text-muted-foreground">
                             {behaviorNotes.length > 0
                                 ? `${behaviorNotes.length} note${behaviorNotes.length !== 1 ? "s" : ""} on record`
                                 : "No behavior notes logged yet."}
@@ -264,7 +264,7 @@ export default function StudentDetailPage({ params }: Props) {
                         <div className="text-muted-foreground flex flex-col items-center gap-2 py-12">
                             <AlertTriangle className="h-8 w-8" />
                             <p className="font-medium">No behavior notes</p>
-                            <p className="text-sm">
+                            <p className="">
                                 Teachers can log behavior notes during attendance marking. Approved
                                 notes will appear here.
                             </p>
@@ -289,9 +289,7 @@ export default function StudentDetailPage({ params }: Props) {
                                                 {note.status}
                                             </Badge>
                                         </div>
-                                        <p className="text-foreground text-sm">
-                                            {note.description}
-                                        </p>
+                                        <p className="text-foreground">{note.description}</p>
                                         <p className="text-muted-foreground text-xs">{note.date}</p>
                                     </div>
                                 </div>
@@ -306,13 +304,11 @@ export default function StudentDetailPage({ params }: Props) {
                         <div className="text-muted-foreground flex flex-col items-center gap-2 py-12">
                             <CalendarCheck className="h-8 w-8" />
                             <p className="font-medium">No attendance records</p>
-                            <p className="text-sm">
-                                Attendance history will appear here once marked.
-                            </p>
+                            <p className="">Attendance history will appear here once marked.</p>
                         </div>
                     ) : (
                         <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
+                            <table className="w-full">
                                 <thead>
                                     <tr className="text-muted-foreground border-b text-left">
                                         <th className="pb-2 font-medium">Date</th>
@@ -356,11 +352,11 @@ export default function StudentDetailPage({ params }: Props) {
                         <div className="text-muted-foreground flex flex-col items-center gap-2 py-12">
                             <BookOpen className="h-8 w-8" />
                             <p className="font-medium">No enrollments</p>
-                            <p className="text-sm">Enrollment history will appear here.</p>
+                            <p className="">Enrollment history will appear here.</p>
                         </div>
                     ) : (
                         <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
+                            <table className="w-full">
                                 <thead>
                                     <tr className="text-muted-foreground border-b text-left">
                                         <th className="pb-2 font-medium">Term</th>
@@ -397,7 +393,7 @@ export default function StudentDetailPage({ params }: Props) {
                     <div className="text-muted-foreground flex flex-col items-center gap-2 py-12">
                         <BarChart3 className="h-8 w-8" />
                         <p className="font-medium">Student Reports</p>
-                        <p className="text-sm">Generate and view term reports for this student.</p>
+                        <p className="">Generate and view term reports for this student.</p>
                         <Button variant="outline" size="sm" asChild className="mt-2">
                             <Link href={`/reports/student/${id}`}>
                                 <ArrowUpRight className="mr-1 h-4 w-4" />
@@ -441,8 +437,8 @@ function HealthTabContent({ studentId }: { studentId: string }) {
             {/* Health Profile */}
             {profile && (
                 <div className="bg-muted/30 rounded-lg p-4">
-                    <h3 className="mb-2 text-sm font-semibold">Health Profile</h3>
-                    <div className="space-y-1 text-sm">
+                    <h3 className="mb-2 font-semibold">Health Profile</h3>
+                    <div className="space-y-1">
                         {profile.blood_group && (
                             <p>
                                 <span className="text-muted-foreground">Blood Group:</span>{" "}
@@ -474,7 +470,7 @@ function HealthTabContent({ studentId }: { studentId: string }) {
             {/* Medical Incidents */}
             <div>
                 <div className="mb-3 flex items-center justify-between">
-                    <h3 className="text-sm font-semibold">
+                    <h3 className="font-semibold">
                         Medical Incidents
                         {incidents.length > 0 && (
                             <span className="text-muted-foreground ml-2 font-normal">
@@ -494,9 +490,7 @@ function HealthTabContent({ studentId }: { studentId: string }) {
                     <div className="text-muted-foreground flex flex-col items-center gap-2 py-8">
                         <HeartPulse className="h-8 w-8" />
                         <p className="font-medium">No medical incidents</p>
-                        <p className="text-sm">
-                            No health incidents have been logged for this student.
-                        </p>
+                        <p className="">No health incidents have been logged for this student.</p>
                     </div>
                 ) : (
                     <div className="space-y-2">
@@ -507,7 +501,7 @@ function HealthTabContent({ studentId }: { studentId: string }) {
                             >
                                 <div className="flex items-start justify-between">
                                     <div className="space-y-1">
-                                        <p className="text-sm font-medium">{incident.symptoms}</p>
+                                        <p className="font-medium">{incident.symptoms}</p>
                                         <p className="text-muted-foreground text-xs">
                                             {new Date(
                                                 incident.incident_timestamp

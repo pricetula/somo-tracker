@@ -180,7 +180,7 @@ export function StudentHistoryView({ studentId, termId }: StudentHistoryViewProp
                         className="w-40"
                     />
                 </div>
-                <p className="text-muted-foreground text-sm">{records.length} records</p>
+                <p className="text-muted-foreground">{records.length} records</p>
                 {(startDate || endDate) && (
                     <Button
                         variant="ghost"
@@ -251,7 +251,7 @@ export function StudentHistoryView({ studentId, termId }: StudentHistoryViewProp
                                         </Badge>
                                     )}
                                 </TableCell>
-                                <TableCell className="text-muted-foreground text-sm">
+                                <TableCell className="text-muted-foreground">
                                     {record.note ?? "—"}
                                 </TableCell>
                                 <TableCell>

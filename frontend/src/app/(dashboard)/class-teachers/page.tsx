@@ -32,7 +32,7 @@ export default async function ClassTeachersPage() {
     return (
         <div className="space-y-6">
             <h1 className="text-2xl font-bold">Teacher Assignments</h1>
-            <p className="text-muted-foreground text-sm">
+            <p className="text-muted-foreground">
                 Assign teachers to classes and manage their roles and subjects.
             </p>
             <ClassTeacherList />

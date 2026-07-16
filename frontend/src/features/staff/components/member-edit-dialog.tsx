@@ -102,7 +102,7 @@ export function MemberEditDialog({
                     <div className="space-y-4 py-2">
                         <div className="space-y-1.5">
                             <Label>Email</Label>
-                            <p className="text-muted-foreground text-sm">{member.email}</p>
+                            <p className="text-muted-foreground">{member.email}</p>
                         </div>
                         <div className="space-y-1.5">
                             <Label>Full Name</Label>
@@ -113,13 +113,13 @@ export function MemberEditDialog({
                             />
                         </div>
                         {updateMutation.error && (
-                            <p className="text-destructive text-sm">
+                            <p className="text-destructive">
                                 {getErrorMessage(updateMutation.error)}
                             </p>
                         )}
                     </div>
                 ) : (
-                    <p className="text-muted-foreground py-4 text-sm">Member not found.</p>
+                    <p className="text-muted-foreground py-4">Member not found.</p>
                 )}
 
                 <DialogFooter>

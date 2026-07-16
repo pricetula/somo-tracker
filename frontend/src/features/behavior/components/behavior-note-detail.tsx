@@ -79,9 +79,7 @@ function EditNoteDialog({
                         placeholder="Describe the behavior incident"
                     />
                     {updateMutation.error && (
-                        <p className="text-destructive text-sm">
-                            {getErrorMessage(updateMutation.error)}
-                        </p>
+                        <p className="text-destructive">{getErrorMessage(updateMutation.error)}</p>
                     )}
                 </div>
                 <DialogFooter>
@@ -156,7 +154,7 @@ export function BehaviorNoteDetail() {
                         <h1 className="text-foreground text-2xl font-semibold">Behavior Note</h1>
                         {statusBadge(note.status)}
                     </div>
-                    <p className="text-muted-foreground text-sm">
+                    <p className="text-muted-foreground">
                         Student ID: {note.student_id.slice(0, 8)}… &mdash; Category:{" "}
                         {note.category_id.slice(0, 8)}… &mdash; Date: {note.date}
                     </p>
@@ -171,14 +169,14 @@ export function BehaviorNoteDetail() {
 
             {/* ── Description ──────────────────────────────────────────── */}
             <div className="space-y-2">
-                <h2 className="text-foreground text-sm font-medium">Description</h2>
-                <p className="text-muted-foreground bg-muted/30 rounded-md px-4 py-3 text-sm">
+                <h2 className="text-foreground font-medium">Description</h2>
+                <p className="text-muted-foreground bg-muted/30 rounded-md px-4 py-3">
                     {note.description}
                 </p>
             </div>
 
             {/* ── Details ────────────────────────────────────────────────── */}
-            <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="grid grid-cols-2 gap-4">
                 <div>
                     <span className="text-muted-foreground">Status</span>
                     <p className="font-medium">{statusBadge(note.status)}</p>

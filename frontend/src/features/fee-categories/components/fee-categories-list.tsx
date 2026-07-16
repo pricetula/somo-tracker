@@ -128,7 +128,7 @@ export function FeeCategoriesList() {
                         checked={newMandatory}
                         onCheckedChange={(v) => setNewMandatory(v === true)}
                     />
-                    <Label htmlFor="new-mandatory" className="text-sm">
+                    <Label htmlFor="new-mandatory" className="">
                         Mandatory
                     </Label>
                 </div>
@@ -143,9 +143,7 @@ export function FeeCategoriesList() {
 
             {/* ── List ────────────────────────────────────────────────────── */}
             {categories.length === 0 ? (
-                <p className="text-muted-foreground text-sm">
-                    No fee categories yet. Create one above.
-                </p>
+                <p className="text-muted-foreground">No fee categories yet. Create one above.</p>
             ) : (
                 <Table>
                     <TableHeader>

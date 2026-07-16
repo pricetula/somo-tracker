@@ -92,7 +92,7 @@ export function AcademicYearForm({ year }: AcademicYearFormProps) {
     return (
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                {error && <p className="text-destructive text-sm">{getErrorMessage(error)}</p>}
+                {error && <p className="text-destructive">{getErrorMessage(error)}</p>}
 
                 <FormField
                     control={form.control}

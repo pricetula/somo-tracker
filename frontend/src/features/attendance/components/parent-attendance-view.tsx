@@ -110,7 +110,7 @@ export function ParentAttendanceView() {
                                     isSelected ? "ring-primary ring-2" : ""
                                 }`}
                             >
-                                <p className="truncate text-sm font-medium">{child.full_name}</p>
+                                <p className="truncate font-medium">{child.full_name}</p>
                                 {loading ? (
                                     <Skeleton className="mt-2 h-4 w-24" />
                                 ) : summary ? (

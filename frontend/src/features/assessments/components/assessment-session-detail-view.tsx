@@ -107,7 +107,7 @@ export function AssessmentSessionDetailView({ sessionId }: Props) {
 
             {/* Rejection comment */}
             {session.rejection_comment && (
-                <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm dark:bg-amber-950/20">
+                <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 dark:bg-amber-950/20">
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
                     <div>
                         <p className="font-medium text-amber-800 dark:text-amber-300">
@@ -123,7 +123,7 @@ export function AssessmentSessionDetailView({ sessionId }: Props) {
             {/* Scores / Grades table */}
             {isQuantitative ? (
                 <div className="space-y-2">
-                    <h2 className="text-sm font-medium">Student Scores</h2>
+                    <h2 className="font-medium">Student Scores</h2>
                     {scores.length === 0 ? (
                         <p className="text-muted-foreground py-4 text-center text-xs">
                             {isTeacherEditable
@@ -183,7 +183,7 @@ export function AssessmentSessionDetailView({ sessionId }: Props) {
                 </div>
             ) : (
                 <div className="space-y-2">
-                    <h2 className="text-sm font-medium">Rubric Grades</h2>
+                    <h2 className="font-medium">Rubric Grades</h2>
                     {grades.length === 0 ? (
                         <p className="text-muted-foreground py-4 text-center text-xs">
                             {isTeacherEditable

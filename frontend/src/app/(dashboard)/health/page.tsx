@@ -31,7 +31,7 @@ export default async function HealthPage() {
     return (
         <div className="space-y-6">
             <h1 className="text-2xl font-bold">Health</h1>
-            <p className="text-muted-foreground text-sm">
+            <p className="text-muted-foreground">
                 Log and manage medical incidents and student health profiles.
             </p>
             <IncidentList />

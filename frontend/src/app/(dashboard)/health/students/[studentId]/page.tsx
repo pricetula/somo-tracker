@@ -36,7 +36,7 @@ export default async function StudentHealthPage({
     return (
         <div className="space-y-6">
             <h1 className="text-2xl font-bold">Student Health</h1>
-            <p className="text-muted-foreground text-sm">Student ID: {studentId}</p>
+            <p className="text-muted-foreground">Student ID: {studentId}</p>
             <StudentHealthView studentId={studentId} />
         </div>
     );

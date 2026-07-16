@@ -97,7 +97,7 @@ export function AddClassForm({ onSuccess }: AddClassFormProps) {
 
             {/* Grade Level */}
             <div className="space-y-1.5">
-                <label className="text-sm font-medium">Grade Level</label>
+                <label className="font-medium">Grade Level</label>
                 <GradeLevelCombobox
                     value={gradeLevel}
                     onChange={(v) => {
@@ -112,7 +112,7 @@ export function AddClassForm({ onSuccess }: AddClassFormProps) {
 
             {/* Stream */}
             <div className="space-y-1.5">
-                <label className="text-sm font-medium">Stream</label>
+                <label className="font-medium">Stream</label>
                 <StreamCombobox
                     value={streamId}
                     onChange={(v) => {
@@ -130,7 +130,7 @@ export function AddClassForm({ onSuccess }: AddClassFormProps) {
 
             {/* Academic Year */}
             <div className="space-y-1.5">
-                <label className="text-sm font-medium">Academic Year</label>
+                <label className="font-medium">Academic Year</label>
                 <AcademicYearCombobox
                     value={academicYearId}
                     onChange={(v) => {

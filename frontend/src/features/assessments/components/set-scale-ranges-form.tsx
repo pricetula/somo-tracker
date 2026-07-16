@@ -152,7 +152,7 @@ export function SetScaleRangesForm({ profileId }: Props) {
     }
 
     if (isError) {
-        return <p className="text-destructive text-sm">Failed to load existing ranges.</p>;
+        return <p className="text-destructive">Failed to load existing ranges.</p>;
     }
 
     return (
@@ -181,7 +181,7 @@ export function SetScaleRangesForm({ profileId }: Props) {
 
                 {ranges.map((r) => (
                     <div key={r.performance_level} className="contents">
-                        <Label className="flex items-center gap-2 py-1 text-sm">
+                        <Label className="flex items-center gap-2 py-1">
                             <span className="font-semibold">{r.performance_level}</span>
                             <span className="text-muted-foreground font-normal">
                                 {PERFORMANCE_LEVEL_LABELS[r.performance_level]}

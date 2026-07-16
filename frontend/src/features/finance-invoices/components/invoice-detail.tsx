@@ -132,12 +132,10 @@ export function InvoiceDetail({ id }: InvoiceDetailProps) {
                         {invoice.payment_status}
                     </Badge>
                     {invoice.invoice_label && (
-                        <span className="text-muted-foreground text-sm">
-                            {invoice.invoice_label}
-                        </span>
+                        <span className="text-muted-foreground">{invoice.invoice_label}</span>
                     )}
                 </div>
-                <p className="text-muted-foreground text-sm">
+                <p className="text-muted-foreground">
                     Student: {invoice.student_id.slice(0, 8)}… &mdash; Term:{" "}
                     {invoice.academic_term_id.slice(0, 8)}…
                 </p>
@@ -195,7 +193,7 @@ export function InvoiceDetail({ id }: InvoiceDetailProps) {
                                     />
                                 </div>
                                 {payMutation.error && (
-                                    <p className="text-destructive text-sm">
+                                    <p className="text-destructive">
                                         {getErrorMessage(payMutation.error)}
                                     </p>
                                 )}
@@ -242,7 +240,7 @@ export function InvoiceDetail({ id }: InvoiceDetailProps) {
             <div className="space-y-3">
                 <h2 className="text-foreground text-lg font-medium">Line Items</h2>
                 {items.length === 0 ? (
-                    <p className="text-muted-foreground text-sm">No line items.</p>
+                    <p className="text-muted-foreground">No line items.</p>
                 ) : (
                     <Table>
                         <TableHeader>
@@ -271,7 +269,7 @@ export function InvoiceDetail({ id }: InvoiceDetailProps) {
                     Payment History ({payments.length})
                 </h2>
                 {payments.length === 0 ? (
-                    <p className="text-muted-foreground text-sm">No payments recorded.</p>
+                    <p className="text-muted-foreground">No payments recorded.</p>
                 ) : (
                     <Table>
                         <TableHeader>
@@ -288,7 +286,7 @@ export function InvoiceDetail({ id }: InvoiceDetailProps) {
                                     <TableCell className="font-medium">{p.amount}</TableCell>
                                     <TableCell>{p.payment_method || "—"}</TableCell>
                                     <TableCell>{p.reference_code || "—"}</TableCell>
-                                    <TableCell className="text-muted-foreground text-sm">
+                                    <TableCell className="text-muted-foreground">
                                         {p.created_at
                                             ? new Date(p.created_at).toLocaleDateString()
                                             : "—"}

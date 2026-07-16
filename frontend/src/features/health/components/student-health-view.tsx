@@ -86,7 +86,7 @@ export function StudentHealthView({ studentId }: StudentHealthViewProps) {
                 </div>
 
                 {!profile && !editing ? (
-                    <p className="text-muted-foreground text-sm">No health profile yet.</p>
+                    <p className="text-muted-foreground">No health profile yet.</p>
                 ) : editing ? (
                     <div className="bg-muted/30 space-y-3 rounded-md p-3">
                         <div className="grid grid-cols-2 gap-3">
@@ -138,7 +138,7 @@ export function StudentHealthView({ studentId }: StudentHealthViewProps) {
                         </div>
                     </div>
                 ) : (
-                    <div className="space-y-2 text-sm">
+                    <div className="space-y-2">
                         {profile?.blood_group && (
                             <p>
                                 <span className="text-muted-foreground">Blood Group:</span>{" "}

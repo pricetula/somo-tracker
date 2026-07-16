@@ -108,13 +108,13 @@ export function TeacherEditDialog({ userId, open, onOpenChange }: TeacherEditDia
                             />
                         </div>
                         {updateMutation.error && (
-                            <p className="text-destructive text-sm">
+                            <p className="text-destructive">
                                 {getErrorMessage(updateMutation.error)}
                             </p>
                         )}
                     </div>
                 ) : (
-                    <p className="text-muted-foreground py-4 text-sm">Teacher not found.</p>
+                    <p className="text-muted-foreground py-4">Teacher not found.</p>
                 )}
 
                 <DialogFooter>

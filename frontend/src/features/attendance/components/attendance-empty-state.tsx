@@ -28,7 +28,7 @@ export function AttendanceEmptyState({
             </div>
             <div className="max-w-sm space-y-1">
                 <h3 className="text-base font-semibold">{title}</h3>
-                {description && <p className="text-muted-foreground text-sm">{description}</p>}
+                {description && <p className="text-muted-foreground">{description}</p>}
             </div>
             {children && <div className="pt-2">{children}</div>}
         </div>

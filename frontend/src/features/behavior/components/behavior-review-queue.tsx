@@ -98,7 +98,7 @@ export function BehaviorReviewQueue() {
                                     </Badge>
                                 )}
                             </div>
-                            <p className="text-muted-foreground text-sm">{note.description}</p>
+                            <p className="text-muted-foreground">{note.description}</p>
                             <p className="text-muted-foreground text-xs">
                                 By {note.authored_by_name} &middot; {note.date}
                             </p>

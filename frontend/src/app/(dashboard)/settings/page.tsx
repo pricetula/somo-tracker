@@ -22,7 +22,7 @@ export default function SettingsPage() {
                     <div className="flex items-center justify-between">
                         <div>
                             <p className="font-medium">Behavior Categories</p>
-                            <p className="text-muted-foreground text-sm">
+                            <p className="text-muted-foreground">
                                 Manage incident/behavior categories for your school.
                             </p>
                         </div>
@@ -33,7 +33,7 @@ export default function SettingsPage() {
                     <div className="flex items-center justify-between">
                         <div>
                             <p className="font-medium">Grading Scales</p>
-                            <p className="text-muted-foreground text-sm">
+                            <p className="text-muted-foreground">
                                 Manage grading scale profiles and percentage-to-level mappings.
                             </p>
                         </div>
@@ -44,7 +44,7 @@ export default function SettingsPage() {
                     <div className="flex items-center justify-between">
                         <div>
                             <p className="font-medium">Streams</p>
-                            <p className="text-muted-foreground text-sm">
+                            <p className="text-muted-foreground">
                                 Manage the streams (sections) available in your school.
                             </p>
                         </div>

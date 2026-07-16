@@ -108,7 +108,7 @@ export function ImportJobDetail({ jobId }: ImportJobDetailProps) {
                     </h1>
                     {statusBadge(job.status)}
                 </div>
-                <p className="text-muted-foreground text-sm">
+                <p className="text-muted-foreground">
                     Created {new Date(job.created_at).toLocaleString()}
                     {job.completed_at &&
                         ` — Completed ${new Date(job.completed_at).toLocaleString()}`}
@@ -117,7 +117,7 @@ export function ImportJobDetail({ jobId }: ImportJobDetailProps) {
 
             {/* ── Progress ─────────────────────────────────────────────── */}
             <div className="space-y-3">
-                <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">
                         {!isTerminal && "Processing…"}
                         {isTerminal && !isCancelled && "Complete"}

@@ -43,7 +43,7 @@ export function ParentBehaviorView() {
             <div className="text-muted-foreground flex flex-col items-center gap-2 py-12">
                 <User className="h-8 w-8" />
                 <p className="font-medium">No linked children</p>
-                <p className="max-w-sm text-center text-sm">
+                <p className="max-w-sm text-center">
                     You don&apos;t have any children linked to your account. Contact the school to
                     link your children so you can view behavior notes.
                 </p>
@@ -53,7 +53,7 @@ export function ParentBehaviorView() {
 
     return (
         <div className="space-y-6">
-            <p className="text-muted-foreground text-sm">
+            <p className="text-muted-foreground">
                 Behavior notes logged by teachers for your children. Urgent notes require your
                 attention.
             </p>

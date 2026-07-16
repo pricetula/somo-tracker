@@ -37,16 +37,14 @@ export function IncidentList({ studentId }: { studentId?: string }) {
             </div>
 
             {incidents.length === 0 ? (
-                <p className="text-muted-foreground text-sm">No incidents recorded.</p>
+                <p className="text-muted-foreground">No incidents recorded.</p>
             ) : (
                 <div className="space-y-3">
                     {incidents.map((inc) => (
                         <div key={inc.id} className="bg-muted/30 space-y-1 rounded-md p-3">
                             <div className="flex items-start justify-between gap-2">
                                 <div className="space-y-1">
-                                    <p className="text-foreground text-sm font-medium">
-                                        {inc.symptoms}
-                                    </p>
+                                    <p className="text-foreground font-medium">{inc.symptoms}</p>
                                     <p className="text-muted-foreground text-xs">
                                         {new Date(inc.incident_timestamp).toLocaleString()}
                                         {inc.logged_by_name && ` — by ${inc.logged_by_name}`}

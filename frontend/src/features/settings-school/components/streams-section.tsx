@@ -212,7 +212,7 @@ function StreamRow({ stream }: { stream: Stream }) {
         <div className="hover:bg-muted/50 flex items-center justify-between gap-4 rounded-md px-3 py-2">
             <div className="flex items-center gap-3">
                 <ColorDot color={stream.color} />
-                <span className="text-foreground text-sm font-medium">{stream.name}</span>
+                <span className="text-foreground font-medium">{stream.name}</span>
             </div>
             <div className="flex items-center gap-1">
                 <RenameStreamDialog stream={stream} />
@@ -232,7 +232,7 @@ export function StreamsSection() {
             <div className="flex items-center justify-between">
                 <div>
                     <h2 className="text-foreground text-lg font-semibold">Streams</h2>
-                    <p className="text-muted-foreground text-sm">
+                    <p className="text-muted-foreground">
                         Manage the streams (sections) available in your school.
                     </p>
                 </div>
@@ -251,13 +251,9 @@ export function StreamsSection() {
                     <Skeleton className="h-10 w-full" />
                 </div>
             ) : isError ? (
-                <p className="text-destructive text-sm">
-                    {error?.message ?? "Failed to load streams."}
-                </p>
+                <p className="text-destructive">{error?.message ?? "Failed to load streams."}</p>
             ) : data && data.items.length === 0 ? (
-                <p className="text-muted-foreground text-sm">
-                    No streams yet. Add one to get started.
-                </p>
+                <p className="text-muted-foreground">No streams yet. Add one to get started.</p>
             ) : (
                 <div className="divide-border/50 border-border/50 divide-y rounded-md border">
                     {data?.items.map((stream) => (

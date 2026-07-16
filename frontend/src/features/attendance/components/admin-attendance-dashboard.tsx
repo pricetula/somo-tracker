@@ -249,7 +249,7 @@ export function AdminAttendanceDashboard() {
                 <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2">
                         <CalendarDays className="text-muted-foreground h-4 w-4" />
-                        <Label htmlFor="attendance-date" className="text-sm font-medium">
+                        <Label htmlFor="attendance-date" className="font-medium">
                             Date
                         </Label>
                     </div>
@@ -370,7 +370,7 @@ export function AdminAttendanceDashboard() {
                 filterGroups={filterGroups}
                 emptyState={
                     <div className="text-muted-foreground flex flex-col items-center gap-2 py-12">
-                        <p className="text-sm">No attendance records for {selectedDate}.</p>
+                        <p className="">No attendance records for {selectedDate}.</p>
                         <p className="text-xs">
                             Records will appear here once timetable slots are created and attendance
                             is marked.

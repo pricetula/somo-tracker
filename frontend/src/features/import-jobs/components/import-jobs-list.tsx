@@ -80,7 +80,7 @@ export function ImportJobsList() {
                 <div className="bg-muted/30 rounded-md px-4 py-3">
                     <div className="flex items-center justify-between">
                         <div className="space-y-1">
-                            <p className="text-foreground text-sm font-medium">Active Import Job</p>
+                            <p className="text-foreground font-medium">Active Import Job</p>
                             <p className="text-muted-foreground text-xs">
                                 {activeJob.job_type.replace(/_/g, " ")} &mdash;{" "}
                                 {activeJob.success_count + activeJob.failed_count} of{" "}
@@ -129,7 +129,7 @@ export function ImportJobsList() {
                                 <TableCell className="text-destructive">
                                     {job.failed_count > 0 ? job.failed_count : "—"}
                                 </TableCell>
-                                <TableCell className="text-muted-foreground text-sm">
+                                <TableCell className="text-muted-foreground">
                                     {job.created_at
                                         ? new Date(job.created_at).toLocaleDateString()
                                         : "—"}
@@ -147,7 +147,7 @@ export function ImportJobsList() {
 
             {/* ── Pagination ─────────────────────────────────────────────── */}
             {totalPages > 1 && (
-                <div className="text-muted-foreground flex items-center justify-between text-sm">
+                <div className="text-muted-foreground flex items-center justify-between">
                     <p>
                         Page {page} of {totalPages} ({total} total)
                     </p>

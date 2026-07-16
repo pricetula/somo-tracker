@@ -34,7 +34,7 @@ export default function AddStreamPage(props: AddStreamPageProps) {
                 Back
             </Button>
             <h1 className="mb-1 text-lg font-semibold">Add Stream</h1>
-            <p className="text-muted-foreground mb-6 text-sm">
+            <p className="text-muted-foreground mb-6">
                 Add a new stream (section) for your school.
             </p>
             <AddStreamForm defaultValue={defaultValue} />

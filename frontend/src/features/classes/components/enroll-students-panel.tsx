@@ -200,7 +200,7 @@ export function EnrollStudentsPanel({ classId, onSuccess }: EnrollStudentsPanelP
                                         disabled={!!student.current_class_id}
                                     />
                                     <div className="flex min-w-0 flex-1 flex-col">
-                                        <span className="truncate text-sm font-medium">
+                                        <span className="truncate font-medium">
                                             {student.full_name}
                                         </span>
                                         <span className="text-muted-foreground truncate text-xs">

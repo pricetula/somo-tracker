@@ -82,7 +82,7 @@ export function AcademicYearsList() {
     return (
         <div className="space-y-4">
             <div className="flex items-center justify-between">
-                <p className="text-muted-foreground text-sm">
+                <p className="text-muted-foreground">
                     {years.length} year{years.length !== 1 ? "s" : ""}
                 </p>
                 <Button asChild>
@@ -119,7 +119,7 @@ export function AcademicYearsList() {
                                 {year.is_current ? (
                                     <Badge variant="default">Current</Badge>
                                 ) : (
-                                    <span className="text-muted-foreground text-sm">Inactive</span>
+                                    <span className="text-muted-foreground">Inactive</span>
                                 )}
                             </TableCell>
                             <TableCell className="text-right">

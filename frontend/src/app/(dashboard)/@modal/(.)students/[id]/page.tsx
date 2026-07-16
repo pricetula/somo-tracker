@@ -112,9 +112,7 @@ export default function StudentDetailSheet({ params }: Props) {
                         {/* Behavior notes */}
                         {detail.behavior && detail.behavior.length > 0 && (
                             <div className="space-y-2">
-                                <h3 className="text-foreground text-sm font-medium">
-                                    Behavior Notes
-                                </h3>
+                                <h3 className="text-foreground font-medium">Behavior Notes</h3>
                                 {detail.behavior.slice(0, 5).map((note) => (
                                     <div
                                         key={note.id}
@@ -130,9 +128,7 @@ export default function StudentDetailSheet({ params }: Props) {
                                                 </Badge>
                                             )}
                                         </div>
-                                        <p className="text-foreground mt-1 text-sm">
-                                            {note.description}
-                                        </p>
+                                        <p className="text-foreground mt-1">{note.description}</p>
                                         <p className="text-muted-foreground mt-1 text-xs">
                                             {note.date}
                                         </p>
@@ -144,7 +140,7 @@ export default function StudentDetailSheet({ params }: Props) {
                         {/* Recent enrollments */}
                         {detail.enrollments && detail.enrollments.length > 0 && (
                             <div className="space-y-2">
-                                <h3 className="text-foreground text-sm font-medium">Enrollments</h3>
+                                <h3 className="text-foreground font-medium">Enrollments</h3>
                                 <div className="space-y-1">
                                     {detail.enrollments.slice(0, 5).map((e) => (
                                         <div
@@ -164,7 +160,7 @@ export default function StudentDetailSheet({ params }: Props) {
                         {/* View full profile link */}
                         <a
                             href={`/students/${id}`}
-                            className="text-primary text-sm font-medium hover:underline"
+                            className="text-primary font-medium hover:underline"
                             onClick={(e) => {
                                 e.preventDefault();
                                 router.push(`/students/${id}`);

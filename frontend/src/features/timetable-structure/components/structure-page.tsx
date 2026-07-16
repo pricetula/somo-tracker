@@ -91,7 +91,7 @@ export function StructurePage() {
                 <div className="flex flex-col items-center justify-center py-16 text-center">
                     <Calendar className="text-muted-foreground/40 mb-4 h-12 w-12" />
                     <h3 className="text-foreground text-lg font-medium">Select an Academic Year</h3>
-                    <p className="text-muted-foreground mt-1 max-w-sm text-sm">
+                    <p className="text-muted-foreground mt-1 max-w-sm">
                         Choose an academic year above to get started.
                     </p>
                 </div>
@@ -99,7 +99,7 @@ export function StructurePage() {
                 <div className="flex flex-col items-center justify-center py-16 text-center">
                     <Calendar className="text-muted-foreground/40 mb-4 h-12 w-12" />
                     <h3 className="text-foreground text-lg font-medium">No timetable yet</h3>
-                    <p className="text-muted-foreground mt-1 mb-4 max-w-sm text-sm">
+                    <p className="text-muted-foreground mt-1 mb-4 max-w-sm">
                         Create a blueprint to define the periods for each school day.
                     </p>
                     <Button

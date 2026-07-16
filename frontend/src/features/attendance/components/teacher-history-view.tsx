@@ -120,7 +120,7 @@ export function TeacherHistoryView() {
         return (
             <div className="space-y-6">
                 <h1 className="text-2xl font-bold">Attendance History</h1>
-                <p className="text-muted-foreground text-sm">
+                <p className="text-muted-foreground">
                     Past periods you have taught. Same-day edits are allowed; older records are
                     read-only. Contact your admin for corrections after the same-day window closes.
                 </p>
@@ -150,7 +150,7 @@ export function TeacherHistoryView() {
     return (
         <div className="space-y-6">
             <h1 className="text-2xl font-bold">Attendance History</h1>
-            <p className="text-muted-foreground text-sm">
+            <p className="text-muted-foreground">
                 Past periods you have taught. Same-day edits are allowed; older records are
                 read-only. Contact your admin for corrections after the same-day window closes.
             </p>

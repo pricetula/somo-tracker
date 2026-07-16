@@ -161,7 +161,7 @@ export function TemplateMenu({ isPending, academicYearID, onApplyTemplate }: Tem
                         disabled={isPending}
                         className="flex flex-col items-start gap-0.5"
                     >
-                        <span className="text-sm font-medium">{tpl.name}</span>
+                        <span className="font-medium">{tpl.name}</span>
                         <span className="text-muted-foreground text-xs">{tpl.description}</span>
                     </DropdownMenuItem>
                 ))}

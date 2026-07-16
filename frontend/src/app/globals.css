@@ -183,4 +183,7 @@
     button:disabled {
         cursor: not-allowed;
     }
+    p {
+        @apply text-sm;
+    }
 }

@@ -31,7 +31,7 @@ export default function EnrollStudentsPage({ params }: Props) {
             </Button>
             <div className="mx-auto max-w-lg">
                 <h1 className="mb-1 text-lg font-semibold">Enroll Students</h1>
-                <p className="text-muted-foreground mb-6 text-sm">
+                <p className="text-muted-foreground mb-6">
                     Search and select students to enroll in this class.
                 </p>
                 <EnrollStudentsPanel classId={id} onSuccess={() => router.back()} />

@@ -496,7 +496,7 @@ export function TeacherAttendanceRoster({
                     This session was skipped. Use the undo button above to re-open it.
                 </p>
             ) : isLocked ? (
-                <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800">
                     <Lock className="mt-0.5 h-4 w-4 shrink-0" />
                     <div>
                         <p className="font-medium">Past date — records locked</p>
@@ -516,7 +516,7 @@ export function TeacherAttendanceRoster({
                 <div className="space-y-3">
                     {/* Save feedback with undo */}
                     {lastSavedCounts && (
-                        <div className="flex items-center gap-3 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                        <div className="flex items-center gap-3 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800">
                             <span>
                                 Saved:{" "}
                                 {Object.entries(lastSavedCounts)
@@ -583,10 +583,7 @@ export function TeacherAttendanceRoster({
                             {Object.entries(pendingSummary.counts)
                                 .filter(([, c]) => c > 0)
                                 .map(([status, count]) => (
-                                    <div
-                                        key={status}
-                                        className="flex items-center justify-between text-sm"
-                                    >
+                                    <div key={status} className="flex items-center justify-between">
                                         <Badge
                                             variant={
                                                 attendanceBadgeProps(status as AttendanceStatus)

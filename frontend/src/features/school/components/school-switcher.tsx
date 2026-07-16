@@ -105,9 +105,7 @@ function EditSchoolDialog({
                         autoFocus
                     />
                     {updateMutation.error && (
-                        <p className="text-destructive text-sm">
-                            {getErrorMessage(updateMutation.error)}
-                        </p>
+                        <p className="text-destructive">{getErrorMessage(updateMutation.error)}</p>
                     )}
                 </div>
                 <AlertDialogFooter>

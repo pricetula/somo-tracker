@@ -38,7 +38,7 @@ export default function FinanceLayout({
                     <Link
                         key={tab.href}
                         href={tab.href}
-                        className={`border-b-2 px-1 pb-2 text-sm font-medium transition-colors ${
+                        className={`border-b-2 px-1 pb-2 font-medium transition-colors ${
                             isActive(tab.href)
                                 ? "text-foreground border-primary"
                                 : "text-muted-foreground hover:text-foreground hover:border-foreground border-transparent"

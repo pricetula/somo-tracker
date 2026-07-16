@@ -145,7 +145,7 @@ export function EditBlockDialog({
                                     step={300}
                                 />
                             </div>
-                            <span className="text-muted-foreground pb-2 text-sm">–</span>
+                            <span className="text-muted-foreground pb-2">–</span>
                             <div className="flex-1 space-y-1.5">
                                 <Label htmlFor="end-time">End Time</Label>
                                 <Input
@@ -164,7 +164,7 @@ export function EditBlockDialog({
                         )}
 
                         {/* Break toggle */}
-                        <label className="text-muted-foreground flex cursor-pointer items-center gap-2 text-sm">
+                        <label className="text-muted-foreground flex cursor-pointer items-center gap-2">
                             <Checkbox
                                 checked={isBreak}
                                 onCheckedChange={(v) => setIsBreak(v === true)}
@@ -175,7 +175,7 @@ export function EditBlockDialog({
                         {/* Shift option */}
                         <div className="bg-muted/20 space-y-2 rounded-lg border p-3">
                             <p className="text-foreground text-xs font-semibold">Options</p>
-                            <label className="text-muted-foreground flex cursor-pointer items-start gap-2 text-sm">
+                            <label className="text-muted-foreground flex cursor-pointer items-start gap-2">
                                 <Checkbox
                                     checked={shiftFollowing}
                                     onCheckedChange={(v) => setShiftFollowing(v === true)}

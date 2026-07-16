@@ -12,7 +12,7 @@ export default function AddAssessmentPage() {
     return (
         <div className="mx-auto max-w-lg p-6">
             <h1 className="mb-1 text-lg font-semibold">Create Assessment Session</h1>
-            <p className="text-muted-foreground mb-6 text-sm">
+            <p className="text-muted-foreground mb-6">
                 Create a new assessment session. Choose between marks-based (quantitative) grading
                 or rubric (indicator-level) grading.
             </p>

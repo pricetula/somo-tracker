@@ -109,7 +109,7 @@ export function ScaleProfileDetailView({ profileId }: Props) {
             {/* Existing ranges (read-only table) */}
             {profile.ranges && profile.ranges.length > 0 && (
                 <div className="space-y-2">
-                    <h2 className="text-sm font-medium">Current Ranges</h2>
+                    <h2 className="font-medium">Current Ranges</h2>
                     <StaticTable
                         columns={[
                             { id: "level", header: "Level", cell: (r) => r.performance_level },
@@ -141,7 +141,7 @@ export function ScaleProfileDetailView({ profileId }: Props) {
 
             {/* Edit ranges */}
             <div className="space-y-2">
-                <h2 className="text-sm font-medium">
+                <h2 className="font-medium">
                     {profile.ranges && profile.ranges.length > 0 ? "Update Ranges" : "Set Ranges"}
                 </h2>
                 <SetScaleRangesForm profileId={profileId} />

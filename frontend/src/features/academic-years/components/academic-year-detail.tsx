@@ -107,7 +107,7 @@ export function AcademicYearDetail({ id }: AcademicYearDetailProps) {
                     <h1 className="text-foreground text-2xl font-semibold">{year.name}</h1>
                     {year.is_current && <Badge variant="default">Current</Badge>}
                 </div>
-                <p className="text-muted-foreground text-sm">
+                <p className="text-muted-foreground">
                     {year.start_date} &mdash; {year.end_date}
                 </p>
             </div>
@@ -157,7 +157,7 @@ export function AcademicYearDetail({ id }: AcademicYearDetailProps) {
             {/* ── Edit Form (collapsible) ──────────────────────────────── */}
             {showEditForm && (
                 <div className="rounded-md border p-4">
-                    <h2 className="text-foreground mb-3 text-sm font-medium">Edit Academic Year</h2>
+                    <h2 className="text-foreground mb-3 font-medium">Edit Academic Year</h2>
                     <AcademicYearForm year={year} />
                 </div>
             )}
@@ -197,7 +197,7 @@ export function AcademicYearDetail({ id }: AcademicYearDetailProps) {
                 </div>
 
                 {terms.length === 0 ? (
-                    <p className="text-muted-foreground text-sm">
+                    <p className="text-muted-foreground">
                         No terms defined for this academic year.
                     </p>
                 ) : (
@@ -223,9 +223,7 @@ export function AcademicYearDetail({ id }: AcademicYearDetailProps) {
                                         {term.is_current ? (
                                             <Badge variant="default">Current</Badge>
                                         ) : (
-                                            <span className="text-muted-foreground text-sm">
-                                                Scheduled
-                                            </span>
+                                            <span className="text-muted-foreground">Scheduled</span>
                                         )}
                                     </TableCell>
                                     <TableCell className="text-right">

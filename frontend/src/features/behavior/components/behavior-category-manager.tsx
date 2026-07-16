@@ -100,7 +100,7 @@ export function BehaviorCategoryManager() {
             {/* Add new category row */}
             <div className="flex items-end gap-3">
                 <div className="flex-1 space-y-1">
-                    <label className="text-sm font-medium">Category Name</label>
+                    <label className="font-medium">Category Name</label>
                     <Input
                         placeholder="e.g. Noise Making"
                         value={newName}
@@ -108,7 +108,7 @@ export function BehaviorCategoryManager() {
                     />
                 </div>
                 <div className="w-40 space-y-1">
-                    <label className="text-sm font-medium">Default Severity</label>
+                    <label className="font-medium">Default Severity</label>
                     <Select value={newSeverity} onValueChange={setNewSeverity}>
                         <SelectTrigger>
                             <SelectValue placeholder="Optional" />

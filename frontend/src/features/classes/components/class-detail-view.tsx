@@ -79,7 +79,7 @@ export function ClassDetailView({ classId }: ClassDetailViewProps) {
                     <GraduationCap className="text-muted-foreground h-5 w-5" />
                     <h1 className="text-lg font-semibold">{classData.display_label}</h1>
                 </div>
-                <p className="text-muted-foreground text-sm">
+                <p className="text-muted-foreground">
                     {classData.student_count ?? 0} student
                     {(classData.student_count ?? 0) !== 1 ? "s" : ""} enrolled
                 </p>
@@ -87,7 +87,7 @@ export function ClassDetailView({ classId }: ClassDetailViewProps) {
 
             {/* Roster */}
             <div>
-                <h2 className="text-muted-foreground mb-3 text-sm font-medium">Roster</h2>
+                <h2 className="text-muted-foreground mb-3 font-medium">Roster</h2>
                 <ClassRoster classId={classId} />
             </div>
         </article>

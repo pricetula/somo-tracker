@@ -74,7 +74,7 @@ function DeleteCell({ profileId, profileName }: { profileId: string; profileName
                         Are you sure you want to delete <strong>{profileName}</strong>? This will
                         also remove all its percentage ranges.
                         {deleteMutation.isError && (
-                            <p className="text-destructive mt-2 text-sm">
+                            <p className="text-destructive mt-2">
                                 {getErrorMessage(deleteMutation.error)}
                             </p>
                         )}

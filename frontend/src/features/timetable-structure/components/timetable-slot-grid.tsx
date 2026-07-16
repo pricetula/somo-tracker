@@ -164,7 +164,7 @@ export function TimetableSlotGrid({ blocks, academicYearID, isLoading }: Timetab
     if (isLoading || slotsLoading) {
         return (
             <div className="space-y-3">
-                <h3 className="text-foreground text-sm font-semibold">Class Assignments</h3>
+                <h3 className="text-foreground font-semibold">Class Assignments</h3>
                 <Skeleton className="h-64 w-full rounded-lg" />
             </div>
         );
@@ -175,7 +175,7 @@ export function TimetableSlotGrid({ blocks, academicYearID, isLoading }: Timetab
     return (
         <div className="space-y-4">
             <div>
-                <h3 className="text-foreground text-sm font-semibold">Class Assignments</h3>
+                <h3 className="text-foreground font-semibold">Class Assignments</h3>
                 <p className="text-muted-foreground mt-0.5 text-xs">
                     Select a class below, then click any period cell to assign it. Hover a period
                     name to edit or delete (applies to all weekdays).
@@ -193,7 +193,7 @@ export function TimetableSlotGrid({ blocks, academicYearID, isLoading }: Timetab
 
             {/* Grid */}
             <div className="border-border/40 max-h-[600px] overflow-auto rounded-lg border">
-                <table className="w-full min-w-[500px] text-sm">
+                <table className="w-full min-w-[500px]">
                     <thead>
                         <tr className="bg-muted/20">
                             <th className="bg-muted/20 text-muted-foreground border-border/40 sticky top-0 z-10 w-[170px] border-b px-3 py-2 text-left text-xs font-semibold">

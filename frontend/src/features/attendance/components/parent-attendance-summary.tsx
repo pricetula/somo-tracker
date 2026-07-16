@@ -122,7 +122,7 @@ export function ParentAttendanceSummary({ studentId, termId }: ParentAttendanceS
                 {recentPeriods.length === 0 ? (
                     <div className="text-muted-foreground flex flex-col items-center gap-2 py-8 text-center">
                         <CalendarX className="size-6" />
-                        <p className="text-sm">No recent attendance records in the last 30 days.</p>
+                        <p className="">No recent attendance records in the last 30 days.</p>
                     </div>
                 ) : (
                     <Table>
@@ -168,7 +168,7 @@ export function ParentAttendanceSummary({ studentId, termId }: ParentAttendanceS
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <Flag className="text-muted-foreground h-4 w-4" />
-                        <span className="text-sm font-medium">Behaviour Notes</span>
+                        <span className="font-medium">Behaviour Notes</span>
                     </div>
                     <Button variant="outline" size="sm" asChild>
                         <Link href={`/behavior`}>View behaviour notes</Link>

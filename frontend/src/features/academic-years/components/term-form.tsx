@@ -107,7 +107,7 @@ export function TermForm({ academicYearId, term, onSuccess }: TermFormProps) {
     return (
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                {error && <p className="text-destructive text-sm">{getErrorMessage(error)}</p>}
+                {error && <p className="text-destructive">{getErrorMessage(error)}</p>}
 
                 <FormField
                     control={form.control}

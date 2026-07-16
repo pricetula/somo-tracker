@@ -165,7 +165,7 @@ export function FeeTemplatesList() {
             {/* ── Create Button / Form ────────────────────────────────────── */}
             {showForm ? (
                 <div className="space-y-4 rounded-md border p-4">
-                    <h3 className="text-foreground text-sm font-medium">New Fee Template</h3>
+                    <h3 className="text-foreground font-medium">New Fee Template</h3>
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1.5">
                             <Label>Fee Category</Label>
@@ -250,7 +250,7 @@ export function FeeTemplatesList() {
 
             {/* ── List ────────────────────────────────────────────────────── */}
             {templates.length === 0 && !showForm ? (
-                <p className="text-muted-foreground text-sm">
+                <p className="text-muted-foreground">
                     No fee templates yet. Create one to define fees for a grade and term.
                 </p>
             ) : (

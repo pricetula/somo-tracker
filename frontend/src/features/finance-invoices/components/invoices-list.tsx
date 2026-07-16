@@ -90,14 +90,14 @@ export function InvoicesList() {
                         <SelectItem value="WAIVED">Waived</SelectItem>
                     </SelectContent>
                 </Select>
-                <p className="text-muted-foreground text-sm">
+                <p className="text-muted-foreground">
                     {invoices.length} invoice{invoices.length !== 1 ? "s" : ""}
                 </p>
             </div>
 
             {/* ── Table ──────────────────────────────────────────────────── */}
             {invoices.length === 0 ? (
-                <p className="text-muted-foreground text-sm">
+                <p className="text-muted-foreground">
                     No invoices found. Generate invoices to get started.
                 </p>
             ) : (

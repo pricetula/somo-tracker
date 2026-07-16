@@ -36,7 +36,7 @@ export function ClassTeacherList() {
             <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-2">
                     <select
-                        className="border-input bg-background rounded-md border px-3 py-1.5 text-sm"
+                        className="border-input bg-background rounded-md border px-3 py-1.5"
                         value={mode}
                         onChange={(e) => setMode(e.target.value as ViewMode)}
                     >
@@ -44,7 +44,7 @@ export function ClassTeacherList() {
                         <option value="by-teacher">By Teacher</option>
                     </select>
                     <input
-                        className="border-input bg-background w-64 rounded-md border px-3 py-1.5 text-sm"
+                        className="border-input bg-background w-64 rounded-md border px-3 py-1.5"
                         placeholder={
                             mode === "by-class" ? "Enter Class ID…" : "Enter Teacher User ID…"
                         }
@@ -63,7 +63,7 @@ export function ClassTeacherList() {
             {isLoading ? (
                 <p className="text-muted-foreground">Loading assignments…</p>
             ) : items.length === 0 ? (
-                <p className="text-muted-foreground text-sm">
+                <p className="text-muted-foreground">
                     {entityId
                         ? "No assignments found."
                         : "Enter a class or teacher ID to view assignments."}
@@ -76,7 +76,7 @@ export function ClassTeacherList() {
                             className="bg-muted/30 flex items-center justify-between rounded-md p-3"
                         >
                             <div className="space-y-1">
-                                <p className="text-foreground text-sm font-medium">
+                                <p className="text-foreground font-medium">
                                     {ct.teacher_name ?? ct.user_id}
                                 </p>
                                 <div className="text-muted-foreground flex items-center gap-2 text-xs">

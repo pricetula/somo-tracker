@@ -12,7 +12,7 @@ export default function CreateScaleProfilePage() {
     return (
         <div className="mx-auto max-w-lg p-6">
             <h1 className="mb-1 text-lg font-semibold">Create Scale Profile</h1>
-            <p className="text-muted-foreground mb-6 text-sm">
+            <p className="text-muted-foreground mb-6">
                 Define a new set of percentage-to-CBC-level conversion rules. After creation, you
                 will set up the percentage ranges.
             </p>

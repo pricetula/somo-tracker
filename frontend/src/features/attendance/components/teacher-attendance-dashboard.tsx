@@ -49,7 +49,7 @@ const columns: DataTableColumn<TeacherSlotRow>[] = [
         header: "Time",
         width: "140px",
         cell: (row) => (
-            <span className="text-muted-foreground text-sm">
+            <span className="text-muted-foreground">
                 {row.start_time} – {row.end_time}
             </span>
         ),
@@ -146,7 +146,7 @@ export function TeacherAttendanceDashboard() {
     return (
         <div className="space-y-6">
             <h1 className="text-foreground text-2xl font-bold">My Attendance</h1>
-            <p className="text-muted-foreground text-sm">
+            <p className="text-muted-foreground">
                 {rows.length} period{rows.length !== 1 ? "s" : ""} today
             </p>
             <StaticTable

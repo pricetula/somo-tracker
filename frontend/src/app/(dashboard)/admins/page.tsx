@@ -13,7 +13,7 @@ import { DataTable } from "@/components/shared/data-table";
 import type { DataTableColumn } from "@/components/shared/data-table/types";
 import { Badge } from "@/components/ui/badge";
 import { listAdmins, type Member } from "@/lib/api/admins";
-import { useDeleteAdmin } from "@/features/staff";
+import { useDeleteAdmin } from "@/features/admin";
 import Link from "next/link";
 
 // ─── Columns ───────────────────────────────────────────────────────────────

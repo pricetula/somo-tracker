@@ -10,7 +10,7 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { BulkInviteForm } from "@/features/staff/components/bulk-invite";
+import { BulkInviteForm } from "@/components/shared/bulk-invite";
 
 export default function AdminsBulkImportPage() {
     return (

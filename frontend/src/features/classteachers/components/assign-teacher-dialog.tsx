@@ -22,7 +22,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { ClassCombobox } from "@/features/classes/components/class-combobox";
-import { TeacherCombobox } from "@/features/staff/components/teacher-combobox";
+import { TeacherCombobox } from "@/features/teachers/components/teacher-combobox";
 import { LearningAreaCombobox } from "@/features/curriculum/components/learning-area-combobox";
 import { toast } from "sonner";
 

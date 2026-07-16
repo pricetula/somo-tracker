@@ -1,33 +1,34 @@
 /**
- * TanStack Query hooks for the nurses listing page.
+ * TanStack Query hooks for the admins listing page.
  *
- * Uses its own query key and API module — does not re-use the generic
- * members hooks.
+ * Uses its own query key and API module.
  */
 
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-    listNurses,
-    toggleNurseActive,
-    deleteNurse,
+    listAdmins,
+    toggleAdminActive,
+    deleteAdmin,
     type ListMembersResponse,
-} from "@/lib/api/nurses";
+} from "@/lib/api/admins";
+import { getMember, updateMember } from "@/lib/api/members";
+
 import { getErrorMessage } from "@/lib/errors";
 import { toast } from "sonner";
 
 // ─── Query keys ───────────────────────────────────────────────────────────
 
-export const nursesKeys = {
-    all: ["nurses"] as const,
-    list: (params?: Record<string, unknown>) => ["nurses", "list", params] as const,
+export const adminsKeys = {
+    all: ["admins"] as const,
+    list: (params?: Record<string, unknown>) => ["admins", "list", params] as const,
 };
 
 // ─── Hooks ─────────────────────────────────────────────────────────────────
 
-/** Fetch nurses (NURSE role). */
-export function useNurses(
+/** Fetch admins (SCHOOL_ADMIN role). */
+export function useAdmins(
     opts: {
         page?: number;
         limit?: number;
@@ -39,22 +40,46 @@ export function useNurses(
     const { page = 1, limit = 50, search, includeInactive = false, enabled = true } = opts;
 
     return useQuery<ListMembersResponse>({
-        queryKey: [...nursesKeys.list({ page, limit, search, includeInactive })],
-        queryFn: () => listNurses({ page, limit, search, include_inactive: includeInactive }),
+        queryKey: [...adminsKeys.list({ page, limit, search, includeInactive })],
+        queryFn: () => listAdmins({ page, limit, search, include_inactive: includeInactive }),
         placeholderData: (prev) => prev,
         enabled,
     });
 }
 
-/** Hard-delete a nurse member. */
-export function useDeleteNurse() {
+/** Fetch a single admin by ID. */
+export function useAdminDetail(userId: string | undefined) {
+    return useQuery({
+        queryKey: [...adminsKeys.all, "detail", userId],
+        queryFn: () => getMember(userId!),
+        enabled: !!userId,
+    });
+}
+
+/** Update an admin's profile. */
+export function useUpdateAdmin() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: (userId: string) => deleteNurse(userId),
+        mutationFn: ({ userId, payload }: { userId: string; payload: { full_name?: string } }) =>
+            updateMember(userId, payload as { full_name: string }),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: nursesKeys.all });
-            toast.success("Nurse deleted");
+            queryClient.invalidateQueries({ queryKey: adminsKeys.all });
+            toast.success("Admin updated");
+        },
+        onError: (err) => toast.error(getErrorMessage(err)),
+    });
+}
+
+/** Hard-delete an admin member. */
+export function useDeleteAdmin() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (userId: string) => deleteAdmin(userId),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: adminsKeys.all });
+            toast.success("Admin deleted");
         },
         onError: (err) => {
             toast.error(getErrorMessage(err));
@@ -62,20 +87,20 @@ export function useDeleteNurse() {
     });
 }
 
-/** Toggle nurse active status with optimistic update. */
-export function useToggleNurseActive() {
+/** Toggle admin active status with optimistic update. */
+export function useToggleAdminActive() {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: ({ userId, isActive }: { userId: string; isActive: boolean }) =>
-            toggleNurseActive(userId, isActive),
+            toggleAdminActive(userId, isActive),
         onMutate: async ({ userId, isActive }) => {
-            await queryClient.cancelQueries({ queryKey: nursesKeys.all });
+            await queryClient.cancelQueries({ queryKey: adminsKeys.all });
             const previousQueries = queryClient.getQueriesData<ListMembersResponse>({
-                queryKey: nursesKeys.all,
+                queryKey: adminsKeys.all,
             });
 
-            queryClient.setQueriesData<ListMembersResponse>({ queryKey: nursesKeys.all }, (old) => {
+            queryClient.setQueriesData<ListMembersResponse>({ queryKey: adminsKeys.all }, (old) => {
                 if (!old) return old;
                 return {
                     ...old,
@@ -97,7 +122,7 @@ export function useToggleNurseActive() {
             toast.error(getErrorMessage(err));
         },
         onSettled: () => {
-            queryClient.invalidateQueries({ queryKey: nursesKeys.all });
+            queryClient.invalidateQueries({ queryKey: adminsKeys.all });
         },
     });
 }

@@ -1,8 +1,8 @@
 /**
- * AdminDetail — displays and edits an admin's profile.
+ * TeacherDetail — displays and edits a teacher's profile.
  *
- * Rendered both on the full page /admins/[id] and inside a
- * modal sheet when client-navigated from the admins listing.
+ * Rendered both on the full page /teachers/[id] and inside a
+ * modal sheet when client-navigated from the teachers listing.
  *
  * All forms are validated before submission.
  */
@@ -17,33 +17,39 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { getErrorMessage } from "@/lib/errors";
-import { useAdminDetail, useUpdateAdmin } from "../hooks/use-admins";
+import { useTeacherDetail, useUpdateTeacher } from "../hooks/use-teachers";
 
-interface AdminDetailProps {
+interface TeacherDetailProps {
     id: string;
 }
 
-export function AdminDetail({ id }: AdminDetailProps) {
-    const { data: admin, isLoading, isError, error } = useAdminDetail(id);
-    const updateMutation = useUpdateAdmin();
+export function TeacherDetail({ id }: TeacherDetailProps) {
+    const { data: teacher, isLoading, isError, error } = useTeacherDetail(id);
+    const updateMutation = useUpdateTeacher();
 
     const [fullName, setFullName] = useState("");
+    const [tscNumber, setTscNumber] = useState("");
+    const [knecAssessor, setKnecAssessor] = useState("");
     const [nameError, setNameError] = useState("");
     const [hasInitialized, setHasInitialized] = useState(false);
 
-    // Initialise form fields when data loads.
-    if (admin && !hasInitialized) {
-        setFullName(admin.full_name ?? "");
+    // Initialise form fields when teacher data loads.
+    if (teacher && !hasInitialized) {
+        setFullName(teacher.full_name ?? "");
+        setTscNumber(teacher.tsc_number ?? "");
+        setKnecAssessor(teacher.knec_panel_assessor_id ?? "");
         setHasInitialized(true);
     }
 
     function validate(): boolean {
+        let valid = true;
         if (!fullName.trim()) {
             setNameError("Full name is required");
-            return false;
+            valid = false;
+        } else {
+            setNameError("");
         }
-        setNameError("");
-        return true;
+        return valid;
     }
 
     function handleSave() {
@@ -51,7 +57,11 @@ export function AdminDetail({ id }: AdminDetailProps) {
 
         updateMutation.mutate({
             userId: id,
-            payload: { full_name: fullName.trim() },
+            payload: {
+                full_name: fullName.trim() || undefined,
+                tsc_number: tscNumber.trim() || null,
+                knec_panel_assessor_id: knecAssessor.trim() || null,
+            },
         });
     }
 
@@ -62,6 +72,8 @@ export function AdminDetail({ id }: AdminDetailProps) {
                 <Skeleton className="h-5 w-32" />
                 <Skeleton className="h-9 w-full" />
                 <Skeleton className="h-5 w-24" />
+                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-5 w-32" />
                 <Skeleton className="h-9 w-full" />
             </div>
         );
@@ -77,8 +89,8 @@ export function AdminDetail({ id }: AdminDetailProps) {
     }
 
     // ── Not found state ───────────────────────────────────────────────────
-    if (!admin) {
-        return <p className="text-muted-foreground py-4">Admin not found.</p>;
+    if (!teacher) {
+        return <p className="text-muted-foreground py-4">Teacher not found.</p>;
     }
 
     return (
@@ -89,19 +101,19 @@ export function AdminDetail({ id }: AdminDetailProps) {
                 <Badge
                     variant="secondary"
                     className={
-                        admin.is_active
+                        teacher.is_active
                             ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
                             : "bg-muted text-muted-foreground"
                     }
                 >
-                    {admin.is_active ? "Active" : "Inactive"}
+                    {teacher.is_active ? "Active" : "Inactive"}
                 </Badge>
             </div>
 
             {/* Read-only email */}
             <div className="space-y-1.5">
                 <Label>Email</Label>
-                <p className="text-muted-foreground text-sm">{admin.email}</p>
+                <p className="text-muted-foreground text-sm">{teacher.email}</p>
             </div>
 
             {/* Editable full name */}
@@ -120,6 +132,28 @@ export function AdminDetail({ id }: AdminDetailProps) {
                 {nameError && <p className="text-destructive text-sm">{nameError}</p>}
             </div>
 
+            {/* Editable TSC number */}
+            <div className="space-y-1.5">
+                <Label htmlFor="tsc-number">TSC Number</Label>
+                <Input
+                    id="tsc-number"
+                    value={tscNumber}
+                    onChange={(e) => setTscNumber(e.target.value)}
+                    placeholder="e.g. TSC123456"
+                />
+            </div>
+
+            {/* Editable KNEC Panel Assessor ID */}
+            <div className="space-y-1.5">
+                <Label htmlFor="knec-assessor">KNEC Panel Assessor ID</Label>
+                <Input
+                    id="knec-assessor"
+                    value={knecAssessor}
+                    onChange={(e) => setKnecAssessor(e.target.value)}
+                    placeholder="e.g. KNEC-12345"
+                />
+            </div>
+
             {/* Error from mutation */}
             {updateMutation.error && (
                 <p className="text-destructive text-sm">{getErrorMessage(updateMutation.error)}</p>
@@ -127,7 +161,7 @@ export function AdminDetail({ id }: AdminDetailProps) {
 
             {/* Success feedback */}
             {updateMutation.isSuccess && (
-                <p className="text-sm text-emerald-600">Admin updated successfully.</p>
+                <p className="text-sm text-emerald-600">Teacher updated successfully.</p>
             )}
 
             {/* Save button */}

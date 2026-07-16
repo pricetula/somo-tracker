@@ -1,8 +1,8 @@
 /**
  * TanStack Query hooks for the finance staff listing page.
  *
- * Uses its own query key and API module — does not re-use the generic
- * members hooks.
+ * Uses the generic members API for detail/update since finance staff
+ * are managed through the shared /api/v1/members endpoints.
  */
 
 "use client";
@@ -14,6 +14,8 @@ import {
     deleteFinanceStaff,
     type ListMembersResponse,
 } from "@/lib/api/finance";
+import { getMember, updateMember } from "@/lib/api/members";
+
 import { getErrorMessage } from "@/lib/errors";
 import { toast } from "sonner";
 
@@ -43,6 +45,30 @@ export function useFinanceStaff(
         queryFn: () => listFinanceStaff({ page, limit, search, include_inactive: includeInactive }),
         placeholderData: (prev) => prev,
         enabled,
+    });
+}
+
+/** Fetch a single finance staff member by ID (uses generic members API). */
+export function useFinanceDetail(userId: string | undefined) {
+    return useQuery({
+        queryKey: [...financeKeys.all, "detail", userId],
+        queryFn: () => getMember(userId!),
+        enabled: !!userId,
+    });
+}
+
+/** Update a finance staff member's profile (uses generic members API). */
+export function useUpdateFinance() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ userId, payload }: { userId: string; payload: { full_name?: string } }) =>
+            updateMember(userId, payload as { full_name: string }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: financeKeys.all });
+            toast.success("Finance staff updated");
+        },
+        onError: (err) => toast.error(getErrorMessage(err)),
     });
 }
 

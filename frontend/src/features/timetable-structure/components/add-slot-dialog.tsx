@@ -22,7 +22,7 @@ import {
 import { Combobox } from "@/components/ui/combobox";
 
 import type { CreateSlotPayload } from "@/lib/api/timetable-structure";
-import { useTeachers } from "@/features/staff/hooks/use-teachers";
+import { useTeachers } from "@/features/teachers/hooks/use-teachers";
 import { useLearningAreas } from "@/features/curriculum/hooks/use-curriculum";
 
 // ─── Props ─────────────────────────────────────────────────────────────────

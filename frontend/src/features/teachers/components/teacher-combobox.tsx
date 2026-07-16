@@ -15,7 +15,7 @@ import { Combobox, ComboboxChip } from "@/components/ui/combobox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { getErrorMessage } from "@/lib/errors";
-import { useTeachers } from "@/features/staff/hooks/use-teachers";
+import { useTeachers } from "../hooks/use-teachers";
 
 // ─── Props ────────────────────────────────────────────────────────────────
 

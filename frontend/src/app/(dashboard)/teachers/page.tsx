@@ -9,17 +9,15 @@
 
 "use client";
 
-import { useState } from "react";
 import { DataTable } from "@/components/shared/data-table";
 import type { DataTableColumn, FilterGroup } from "@/components/shared/data-table/types";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { listTeachers, type TeacherMember } from "@/lib/api/teachers";
-import { GraduationCap, BookOpen, Pencil } from "lucide-react";
+import { GraduationCap, BookOpen } from "lucide-react";
+import Link from "next/link";
 import { getEducationLevelFilterSubmenu } from "@/features/education-level";
 import { getGradeLevelFilterSubmenu } from "@/features/grade-level";
-import { useDeleteTeacher } from "@/features/staff";
-import { TeacherEditDialog } from "@/features/staff/components/teacher-edit-dialog";
+import { useDeleteTeacher } from "@/features/teachers";
 
 // ─── Teacher Role Labels ──────────────────────────────────────────────────
 
@@ -40,7 +38,11 @@ const columns: DataTableColumn<TeacherMember>[] = [
     {
         id: "full_name",
         header: "Full Name",
-        cell: (row) => <span className="font-medium">{row.full_name || "—"}</span>,
+        cell: (row) => (
+            <Link href={`/teachers/${row.id}`} className="font-medium hover:underline">
+                {row.full_name || "—"}
+            </Link>
+        ),
     },
     {
         id: "email",
@@ -113,34 +115,6 @@ const filterGroups: FilterGroup[] = [
     },
 ];
 
-// ─── Edit action cell component ──────────────────────────────────────────
-
-function EditCell({ row }: { row: TeacherMember }) {
-    const [editOpen, setEditOpen] = useState(false);
-    return (
-        <>
-            <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => setEditOpen(true)}
-                title="Edit teacher"
-            >
-                <Pencil className="h-4 w-4" />
-                <span className="sr-only">Edit {row.full_name}</span>
-            </Button>
-            <TeacherEditDialog userId={row.id} open={editOpen} onOpenChange={setEditOpen} />
-        </>
-    );
-}
-
-const editActionColumn: DataTableColumn<TeacherMember> = {
-    id: "edit",
-    header: "",
-    width: "48px",
-    align: "right",
-    cell: (row) => <EditCell row={row} />,
-};
-
 // ─── Page ─────────────────────────────────────────────────────────────────
 
 export default function TeachersPage() {
@@ -151,7 +125,7 @@ export default function TeachersPage() {
             addHref="/teachers/import"
             queryKey={["teachers"]}
             queryFn={listTeachers}
-            columns={[...columns, editActionColumn]}
+            columns={columns}
             getRowId={(row) => row.id}
             isSearchable
             searchPlaceholder="Search by name, email, or TSC number…"

@@ -1,8 +1,8 @@
 /**
- * AdminDetail — displays and edits an admin's profile.
+ * FinanceDetail — displays and edits a finance staff member's profile.
  *
- * Rendered both on the full page /admins/[id] and inside a
- * modal sheet when client-navigated from the admins listing.
+ * Rendered both on the full page /finance/[id] and inside a
+ * modal sheet when client-navigated from the finance listing.
  *
  * All forms are validated before submission.
  */
@@ -17,23 +17,23 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { getErrorMessage } from "@/lib/errors";
-import { useAdminDetail, useUpdateAdmin } from "../hooks/use-admins";
+import { useFinanceDetail, useUpdateFinance } from "../hooks/use-finance";
 
-interface AdminDetailProps {
+interface FinanceDetailProps {
     id: string;
 }
 
-export function AdminDetail({ id }: AdminDetailProps) {
-    const { data: admin, isLoading, isError, error } = useAdminDetail(id);
-    const updateMutation = useUpdateAdmin();
+export function FinanceDetail({ id }: FinanceDetailProps) {
+    const { data: member, isLoading, isError, error } = useFinanceDetail(id);
+    const updateMutation = useUpdateFinance();
 
     const [fullName, setFullName] = useState("");
     const [nameError, setNameError] = useState("");
     const [hasInitialized, setHasInitialized] = useState(false);
 
     // Initialise form fields when data loads.
-    if (admin && !hasInitialized) {
-        setFullName(admin.full_name ?? "");
+    if (member && !hasInitialized) {
+        setFullName(member.full_name ?? "");
         setHasInitialized(true);
     }
 
@@ -77,8 +77,8 @@ export function AdminDetail({ id }: AdminDetailProps) {
     }
 
     // ── Not found state ───────────────────────────────────────────────────
-    if (!admin) {
-        return <p className="text-muted-foreground py-4">Admin not found.</p>;
+    if (!member) {
+        return <p className="text-muted-foreground py-4">Finance staff not found.</p>;
     }
 
     return (
@@ -89,19 +89,19 @@ export function AdminDetail({ id }: AdminDetailProps) {
                 <Badge
                     variant="secondary"
                     className={
-                        admin.is_active
+                        member.is_active
                             ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
                             : "bg-muted text-muted-foreground"
                     }
                 >
-                    {admin.is_active ? "Active" : "Inactive"}
+                    {member.is_active ? "Active" : "Inactive"}
                 </Badge>
             </div>
 
             {/* Read-only email */}
             <div className="space-y-1.5">
                 <Label>Email</Label>
-                <p className="text-muted-foreground text-sm">{admin.email}</p>
+                <p className="text-muted-foreground text-sm">{member.email}</p>
             </div>
 
             {/* Editable full name */}
@@ -127,7 +127,7 @@ export function AdminDetail({ id }: AdminDetailProps) {
 
             {/* Success feedback */}
             {updateMutation.isSuccess && (
-                <p className="text-sm text-emerald-600">Admin updated successfully.</p>
+                <p className="text-sm text-emerald-600">Finance staff updated successfully.</p>
             )}
 
             {/* Save button */}

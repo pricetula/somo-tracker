@@ -19,6 +19,19 @@ import type {
 
 export type { Invitation, InvitationStatus, InvitationRole, ListInvitationsResponse };
 
+/** Response shape for GET /api/v1/invitations/count */
+export interface InvitationCountResponse {
+    total: number;
+}
+
+/**
+ * GET /api/v1/invitations/count?role=... — returns total non-expired invitation count for a role.
+ */
+export async function getInvitationCount(role: string): Promise<InvitationCountResponse> {
+    const qs = new URLSearchParams({ role }).toString();
+    return api.get<InvitationCountResponse>(`/api/v1/invitations/count?${qs}`);
+}
+
 /**
  * List invitations by role, optionally filtered by a single status.
  *

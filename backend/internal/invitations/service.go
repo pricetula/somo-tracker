@@ -28,6 +28,11 @@ func (s *Service) ListInvitations(ctx context.Context, tenantID, schoolID string
 	return s.repo.ListInvitations(ctx, tenantID, schoolID, filter)
 }
 
+// CountInvitations returns the total number of non-expired invitations for a given role.
+func (s *Service) CountInvitations(ctx context.Context, tenantID, schoolID string, role string) (int, error) {
+	return s.repo.CountInvitations(ctx, tenantID, schoolID, role)
+}
+
 // ============================================================================
 // Bulk Invitation Service Methods
 // ============================================================================

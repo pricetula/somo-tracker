@@ -47,6 +47,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	// Invitation list/management endpoints
 	invitations := router.Group("/api/v1/invitations")
 	invitations.Get("/", middleware.RequireAuth, h.ListInvitations)
+	invitations.Get("/count", middleware.RequireAuth, h.CountInvitations)
 }
 
 // ─── Error response helper ─────────────────────────────────────────────────
@@ -227,6 +228,30 @@ func (h *Handler) ListInvitations(c *fiber.Ctx) error {
 		Page:  page,
 		Limit: limit,
 	})
+}
+
+// ─── Count Invitations ─────────────────────────────────────────────────────
+
+// CountInvitations handles GET /api/v1/invitations/count?role=SCHOOL_ADMIN
+func (h *Handler) CountInvitations(c *fiber.Ctx) error {
+	tenantID := c.Locals("tenant_id").(string)
+	role := strings.TrimSpace(c.Query("role", ""))
+
+	if role == "" {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input", "role query parameter is required", nil)
+	}
+
+	schoolID := c.Locals("active_school_id").(string)
+	if schoolID == "" {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input", "active school not set", nil)
+	}
+
+	total, err := h.svc.CountInvitations(c.Context(), tenantID, schoolID, role)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(CountInvitationsResponse{Total: total})
 }
 
 // Module is an fx-compatible module for the invitations domain.

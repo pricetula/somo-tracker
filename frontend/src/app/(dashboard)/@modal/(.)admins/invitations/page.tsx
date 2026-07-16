@@ -1,17 +1,19 @@
 /**
- * Admins invitations listing page — shows all sent invitations for the SCHOOL_ADMIN role.
+ * Intercepted route — Admin invitations list rendered as a sliding side sheet.
  *
- * Uses the shared DataTable component.
- * Maps to GET /api/v1/invitations?role=SCHOOL_ADMIN.
- *
- * Active admins are listed on the dedicated /admins page.
+ * When a user clicks the invitation count badge in the admins table toolbar,
+ * this sheet slides out from the right showing the SCHOOL_ADMIN invitations
+ * list while keeping the admins table visible but dimmed.
+ * On hard refresh the full page at /admins/invitations takes over.
  */
 
 "use client";
 
+import { useRouter } from "next/navigation";
 import { DataTable } from "@/components/shared/data-table";
 import type { DataTableColumn } from "@/components/shared/data-table/types";
 import { Badge } from "@/components/ui/badge";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { listInvitationsByRole, type Invitation } from "@/lib/api/invitations";
 
 // ─── Status badge colours ─────────────────────────────────────────────────
@@ -53,7 +55,7 @@ const columns: DataTableColumn<Invitation>[] = [
     {
         id: "created_at",
         header: "Sent",
-        width: "160px",
+        width: "140px",
         cell: (row) => (
             <span className="text-muted-foreground">
                 {new Date(row.created_at).toLocaleDateString()}
@@ -62,19 +64,38 @@ const columns: DataTableColumn<Invitation>[] = [
     },
 ];
 
-// ─── Page ──────────────────────────────────────────────────────────────────
+// ─── Sheet ─────────────────────────────────────────────────────────────────
 
-export default function AdminsInvitationsPage() {
+export default function AdminsInvitationsSheet() {
+    const router = useRouter();
+
     return (
-        <DataTable
-            queryKey={["invitations", "SCHOOL_ADMIN"]}
-            queryFn={(params) => listInvitationsByRole({ ...params, role: "SCHOOL_ADMIN" })}
-            columns={columns}
-            getRowId={(row) => row.id}
-            isSearchable
-            searchPlaceholder="Search by email or name…"
-            emptyState="No admin invitations yet."
-            noResultsState="No invitations match your search."
-        />
+        <Sheet
+            open
+            onOpenChange={(open) => {
+                if (!open) router.back();
+            }}
+        >
+            <SheetContent side="right" className="w-full data-[side=right]:sm:max-w-xl">
+                <SheetHeader>
+                    <SheetTitle>Admin Invitations</SheetTitle>
+                </SheetHeader>
+                <div className="flex-1 overflow-y-auto px-6 pb-6">
+                    <DataTable
+                        queryKey={["invitations", "SCHOOL_ADMIN"]}
+                        queryFn={(params) =>
+                            listInvitationsByRole({ ...params, role: "SCHOOL_ADMIN" })
+                        }
+                        columns={columns}
+                        getRowId={(row) => row.id}
+                        isSearchable
+                        searchPlaceholder="Search by email or name…"
+                        emptyState="No admin invitations yet."
+                        noResultsState="No invitations match your search."
+                        height={480}
+                    />
+                </div>
+            </SheetContent>
+        </Sheet>
     );
 }

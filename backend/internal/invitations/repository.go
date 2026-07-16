@@ -111,6 +111,23 @@ func (r *PgRepository) ListInvitations(ctx context.Context, tenantID, schoolID s
 	return invitations, total, nil
 }
 
+// CountInvitations returns the total count of invitations for a given role.
+func (r *PgRepository) CountInvitations(ctx context.Context, tenantID, schoolID string, role string) (int, error) {
+	const query = `
+		SELECT COUNT(*)
+		FROM invitations
+		WHERE tenant_id = $1 AND school_id = $2 AND role::text = $3
+		  AND (status != 'expired' OR (status = 'pending' AND expires_at > NOW()))
+	`
+
+	var total int
+	if err := r.pool.QueryRow(ctx, query, tenantID, schoolID, role).Scan(&total); err != nil {
+		return 0, fmt.Errorf("count invitations: %w", err)
+	}
+
+	return total, nil
+}
+
 // ============================================================================
 // Bulk Invitation Repository Methods
 // ============================================================================

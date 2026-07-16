@@ -163,5 +163,8 @@ export interface DataTableProps<TItem, TParams extends object, TResult> {
     /** Shown when search/filters narrowed results to zero. */
     noResultsState?: ReactNode;
 
+    // ─── Toolbar component ──────────────────────────────────────────────────────
+    toolBarComponents?: ReactNode;
+
     className?: string;
 }

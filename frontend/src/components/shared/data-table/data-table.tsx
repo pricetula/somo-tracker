@@ -52,6 +52,7 @@ export function DataTable<TItem, TParams extends object, TResult>({
     emptyState,
     noResultsState,
     className,
+    toolBarComponents,
 }: DataTableProps<TItem, TParams, TResult>) {
     const queryClient = useQueryClient();
 
@@ -351,42 +352,7 @@ export function DataTable<TItem, TParams extends object, TResult>({
                 )}
 
                 <div className="ml-auto flex items-center gap-1.5">
-                    {selectedIds.size > 0 && deleteFn && (
-                        <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
-                            <AlertDialogTrigger asChild>
-                                <Button
-                                    variant="destructive"
-                                    size="sm"
-                                    disabled={isToolbarDisabled}
-                                >
-                                    <Trash2 className="size-3" />
-                                    Delete {selectedIds.size}
-                                </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>
-                                        Delete {selectedIds.size} item
-                                        {selectedIds.size !== 1 ? "s" : ""}
-                                    </AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        This action cannot be undone. The selected items will be
-                                        permanently removed.
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction
-                                        variant="destructive"
-                                        onClick={handleDeleteConfirm}
-                                    >
-                                        Delete
-                                    </AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
-                    )}
-
+                    {toolBarComponents}
                     {addHref && (
                         <Button variant="outline" size="icon" disabled={isToolbarDisabled} asChild>
                             <Link href={addHref}>
@@ -559,6 +525,36 @@ export function DataTable<TItem, TParams extends object, TResult>({
                         </>
                     )}
                 </div>
+            )}
+
+            {/* ── Alerts ────────────────────────── */}
+            {selectedIds.size > 0 && deleteFn && (
+                <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+                    <AlertDialogTrigger asChild>
+                        <Button variant="destructive" size="sm" disabled={isToolbarDisabled}>
+                            <Trash2 className="size-3" />
+                            Delete {selectedIds.size}
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>
+                                Delete {selectedIds.size} item
+                                {selectedIds.size !== 1 ? "s" : ""}
+                            </AlertDialogTitle>
+                            <AlertDialogDescription>
+                                This action cannot be undone. The selected items will be permanently
+                                removed.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction variant="destructive" onClick={handleDeleteConfirm}>
+                                Delete
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
             )}
         </div>
     );

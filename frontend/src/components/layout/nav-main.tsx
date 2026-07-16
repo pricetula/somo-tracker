@@ -26,8 +26,6 @@ import {
     CalendarDays,
     AlertTriangleIcon,
     HeartPulse,
-    UserCheck,
-    UploadIcon,
     DollarSignIcon,
 } from "lucide-react";
 
@@ -40,8 +38,7 @@ interface NavItem {
 }
 
 function buildNavItems(role: string): NavItem[] {
-    const isAdmin = role === "SCHOOL_ADMIN" || role === "SYSTEM_ADMIN";
-    const canAccessCurriculum = isAdmin || role === "TEACHER";
+    if (!role) return [];
 
     const items: NavItem[] = [
         {
@@ -50,113 +47,79 @@ function buildNavItems(role: string): NavItem[] {
             icon: <LayoutDashboardIcon className="size-4" />,
             isActive: true,
         },
-    ];
-
-    if (role === "NURSE" || isAdmin) {
-        items.push({
-            title: "Health",
-            url: "/health",
-            icon: <HeartPulse className="size-4" />,
-        });
-    }
-
-    if (canAccessCurriculum) {
-        items.push(
-            {
-                title: "Curriculum",
-                url: "/curriculum",
-                icon: <BookOpenIcon className="size-4" />,
-            },
-            {
-                title: "Classes",
-                url: "/classes",
-                icon: <GraduationCapIcon className="size-4" />,
-            },
-            {
-                title: "Assessments",
-                url: "/assessments",
-                icon: <ClipboardCheckIcon className="size-4" />,
-            },
-            {
-                title: "Reports",
-                url: "/reports",
-                icon: <BarChart3Icon className="size-4" />,
-            },
-            {
-                title: "Attendance",
-                url: "#",
-                icon: <CalendarCheckIcon className="size-4" />,
-                items: [
-                    { title: "Register", url: "/attendance" },
-                    { title: "History", url: "/attendance/history" },
-                ],
-            },
-            {
-                title: "Behavior",
-                url: "/behavior",
-                icon: <AlertTriangleIcon className="size-4" />,
-            },
-            {
-                title: "Time table",
-                url: "/timetable",
-                icon: <CalendarDays className="size-4" />,
-            }
-        );
-    }
-
-    if (role === "PARENT") {
-        items.push({
+        {
+            title: "Members",
+            url: "#",
+            icon: <UsersIcon className="size-4" />,
+            items: [
+                { title: "Admins", url: "/admins" },
+                { title: "Teachers", url: "/teachers" },
+                { title: "Nurses", url: "/nurses" },
+                { title: "Finance", url: "/finance" },
+                { title: "Parents", url: "/parents" },
+                { title: "Students", url: "/students" },
+            ],
+        },
+        {
+            title: "Curriculum",
+            url: "/curriculum",
+            icon: <BookOpenIcon className="size-4" />,
+        },
+        {
+            title: "Classes",
+            url: "/classes",
+            icon: <GraduationCapIcon className="size-4" />,
+        },
+        {
+            title: "Time table",
+            url: "/timetable",
+            icon: <CalendarDays className="size-4" />,
+        },
+        {
             title: "Attendance",
-            url: "/attendance",
+            url: "#",
             icon: <CalendarCheckIcon className="size-4" />,
-        });
-    }
-
-    if (role === "FINANCE") {
-        items.push({
+            items: [
+                { title: "Register", url: "/attendance" },
+                { title: "History", url: "/attendance/history" },
+            ],
+        },
+        {
+            title: "Assessments",
+            url: "/assessments",
+            icon: <ClipboardCheckIcon className="size-4" />,
+        },
+        {
+            title: "Reports",
+            url: "/reports",
+            icon: <BarChart3Icon className="size-4" />,
+        },
+        {
+            title: "Behavior",
+            url: "/behavior",
+            icon: <AlertTriangleIcon className="size-4" />,
+        },
+        {
             title: "Finance",
             url: "/finance",
             icon: <DollarSignIcon className="size-4" />,
-        });
-    }
-
-    if (isAdmin) {
-        items.push(
-            {
-                title: "Teacher Assignments",
-                url: "/class-teachers",
-                icon: <UserCheck className="size-4" />,
-            },
-            {
-                title: "Members",
-                url: "#",
-                icon: <UsersIcon className="size-4" />,
-                items: [
-                    { title: "Admins", url: "/admins" },
-                    { title: "Teachers", url: "/teachers" },
-                    { title: "Nurses", url: "/nurses" },
-                    { title: "Finance", url: "/finance" },
-                    { title: "Parents", url: "/parents" },
-                    { title: "Students", url: "/students" },
-                ],
-            },
-            {
-                title: "Imports",
-                url: "/imports",
-                icon: <UploadIcon className="size-4" />,
-            },
-            {
-                title: "Settings",
-                url: "#",
-                icon: <Settings2Icon className="size-4" />,
-                items: [
-                    { title: "General", url: "/settings" },
-                    { title: "Academic Years", url: "/academic-years" },
-                    { title: "Grading Scales", url: "/settings/grading-scales" },
-                ],
-            }
-        );
-    }
+        },
+        {
+            title: "Health",
+            url: "/health",
+            icon: <HeartPulse className="size-4" />,
+        },
+        {
+            title: "Settings",
+            url: "#",
+            icon: <Settings2Icon className="size-4" />,
+            items: [
+                { title: "General", url: "/settings" },
+                { title: "Academic Years", url: "/academic-years" },
+                { title: "Grading Scales", url: "/settings/grading-scales" },
+            ],
+        },
+    ];
 
     return items;
 }

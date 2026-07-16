@@ -9,10 +9,14 @@
 
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { DataTable } from "@/components/shared/data-table";
 import type { DataTableColumn } from "@/components/shared/data-table/types";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { listFinanceStaff, type Member } from "@/lib/api/finance";
+import { getInvitationCount } from "@/lib/api/invitations";
 import Link from "next/link";
 import { useDeleteFinanceStaff } from "@/features/finance";
 
@@ -51,6 +55,28 @@ const columns: DataTableColumn<Member>[] = [
     },
 ];
 
+// ─── Invitation Count Badge ────────────────────────────────────────────────
+
+function InvitationCountBadge() {
+    const { data, isLoading } = useQuery({
+        queryKey: ["invitations", "count", "FINANCE"],
+        queryFn: () => getInvitationCount("FINANCE"),
+    });
+
+    if (isLoading) {
+        return <Skeleton className="h-9 w-28" />;
+    }
+
+    const count = data?.total ?? 0;
+    const label = `${count} ${count === 1 ? "invitation" : "invitations"}`;
+
+    return (
+        <Button variant="outline" size="sm" asChild>
+            <Link href="/finance/invitations">{label}</Link>
+        </Button>
+    );
+}
+
 // ─── Page ──────────────────────────────────────────────────────────────────
 
 export default function FinancePage() {
@@ -68,6 +94,7 @@ export default function FinancePage() {
             deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
             emptyState="No finance staff yet."
             noResultsState="No finance staff match your search."
+            toolBarComponents={[<InvitationCountBadge key="invitation-count" />]}
         />
     );
 }

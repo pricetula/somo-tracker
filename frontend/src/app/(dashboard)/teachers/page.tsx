@@ -9,10 +9,14 @@
 
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { DataTable } from "@/components/shared/data-table";
 import type { DataTableColumn, FilterGroup } from "@/components/shared/data-table/types";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { listTeachers, type TeacherMember } from "@/lib/api/teachers";
+import { getInvitationCount } from "@/lib/api/invitations";
 import { GraduationCap, BookOpen } from "lucide-react";
 import Link from "next/link";
 import { getEducationLevelFilterSubmenu } from "@/features/education-level";
@@ -115,6 +119,28 @@ const filterGroups: FilterGroup[] = [
     },
 ];
 
+// ─── Invitation Count Badge ────────────────────────────────────────────────
+
+function InvitationCountBadge() {
+    const { data, isLoading } = useQuery({
+        queryKey: ["invitations", "count", "TEACHER"],
+        queryFn: () => getInvitationCount("TEACHER"),
+    });
+
+    if (isLoading) {
+        return <Skeleton className="h-9 w-28" />;
+    }
+
+    const count = data?.total ?? 0;
+    const label = `${count} ${count === 1 ? "invitation" : "invitations"}`;
+
+    return (
+        <Button variant="outline" size="sm" asChild>
+            <Link href="/teachers/invitations">{label}</Link>
+        </Button>
+    );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────
 
 export default function TeachersPage() {
@@ -133,6 +159,7 @@ export default function TeachersPage() {
             deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
             emptyState="No teachers yet."
             noResultsState="No teachers match your search or filters."
+            toolBarComponents={[<InvitationCountBadge key="invitation-count" />]}
         />
     );
 }

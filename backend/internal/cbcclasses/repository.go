@@ -77,6 +77,7 @@ func (r *PgRepository) List(ctx context.Context, filter ClassListFilter) (*Class
 			c.id,
 			c.grade_level,
 			COALESCE(s.name, '') AS stream_name,
+			COALESCE(s.color, '') AS stream_color,
 			c.grade_level || ' ' || COALESCE(s.name, '') AS display_label,
 			c.stream_id,
 			COUNT(e.student_id) AS student_count
@@ -121,7 +122,7 @@ func (r *PgRepository) List(ctx context.Context, filter ClassListFilter) (*Class
 	}
 
 	dataQuery += fmt.Sprintf(`
-		GROUP BY c.id, c.grade_level, s.name, c.stream_id
+		GROUP BY c.id, c.grade_level, s.name, s.color, c.stream_id
 		ORDER BY c.grade_level ASC, s.name ASC
 		LIMIT $%d OFFSET $%d
 	`, argIdx, argIdx+1)
@@ -141,6 +142,7 @@ func (r *PgRepository) List(ctx context.Context, filter ClassListFilter) (*Class
 			&cls.ID,
 			&cls.GradeLevel,
 			&cls.StreamName,
+			&cls.StreamColor,
 			&cls.DisplayLabel,
 			&cls.StreamID,
 			&cls.StudentCount,
@@ -169,6 +171,7 @@ func (r *PgRepository) List(ctx context.Context, filter ClassListFilter) (*Class
 func (r *PgRepository) GetByID(ctx context.Context, id, tenantID, schoolID string) (*Class, error) {
 	const query = `
 		SELECT c.id, c.grade_level, COALESCE(s.name, '') AS stream_name,
+		       COALESCE(s.color, '') AS stream_color,
 		       c.grade_level || ' ' || COALESCE(s.name, '') AS display_label,
 		       c.stream_id
 		FROM cbc_classes c
@@ -178,7 +181,7 @@ func (r *PgRepository) GetByID(ctx context.Context, id, tenantID, schoolID strin
 
 	var cls Class
 	err := r.pool.QueryRow(ctx, query, id, tenantID, schoolID).Scan(
-		&cls.ID, &cls.GradeLevel, &cls.StreamName, &cls.DisplayLabel, &cls.StreamID,
+		&cls.ID, &cls.GradeLevel, &cls.StreamName, &cls.StreamColor, &cls.DisplayLabel, &cls.StreamID,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -244,6 +247,7 @@ func (r *PgRepository) Create(ctx context.Context, params CreateClassParams) (*C
 	// Fetch the created class with display_label
 	const fetchClass = `
 		SELECT c.id, c.grade_level, COALESCE(s.name, '') AS stream_name,
+		       COALESCE(s.color, '') AS stream_color,
 		       c.grade_level || ' ' || COALESCE(s.name, '') AS display_label,
 		       c.stream_id
 		FROM cbc_classes c
@@ -252,7 +256,7 @@ func (r *PgRepository) Create(ctx context.Context, params CreateClassParams) (*C
 	`
 	var cls Class
 	err = r.pool.QueryRow(ctx, fetchClass, classID).Scan(
-		&cls.ID, &cls.GradeLevel, &cls.StreamName, &cls.DisplayLabel, &cls.StreamID,
+		&cls.ID, &cls.GradeLevel, &cls.StreamName, &cls.StreamColor, &cls.DisplayLabel, &cls.StreamID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("cbcclasses.Repository.Create: fetch class: %w", err)

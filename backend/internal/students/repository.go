@@ -654,6 +654,59 @@ func (r *PgRepository) CheckExistingFieldValues(ctx context.Context, tenantID, s
 	return admResult, upiResult, knecResult, nil
 }
 
+// ─── Batch Enrollments ───────────────────────────────────────────────────
+
+// CreateBatchEnrollments creates multiple enrollment records in a single transaction.
+// Skips students already enrolled in the given term/school. Returns IDs of all created records.
+func (r *PgRepository) CreateBatchEnrollments(ctx context.Context, enrollments []*Enrollment, tenantID, schoolID string) ([]string, error) {
+	if len(enrollments) == 0 {
+		return []string{}, nil
+	}
+
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("students.Repository.CreateBatchEnrollments: begin tx: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	query := `
+		INSERT INTO cbc_student_enrollments (student_id, class_id, academic_term_id, status, tenant_id, school_id)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		ON CONFLICT (student_id, school_id, academic_term_id)
+		DO NOTHING
+		RETURNING id
+	`
+
+	var ids []string
+	for _, enrollment := range enrollments {
+		var id string
+		err := tx.QueryRow(ctx, query,
+			enrollment.StudentID,
+			enrollment.ClassID,
+			enrollment.AcademicTermID,
+			enrollment.Status,
+			tenantID,
+			schoolID,
+		).Scan(&id)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				// Conflict — skip (already enrolled)
+				continue
+			}
+			return nil, fmt.Errorf("students.Repository.CreateBatchEnrollments: insert: %w", err)
+		}
+		ids = append(ids, id)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("students.Repository.CreateBatchEnrollments: commit: %w", err)
+	}
+
+	return ids, nil
+}
+
 // compile-time interface checks
 var _ StudentRepository = (*PgRepository)(nil)
 var _ ImportRepository = (*PgRepository)(nil)

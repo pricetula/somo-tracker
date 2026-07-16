@@ -13,12 +13,15 @@ import {
     createStudents,
     updateStudent,
     createEnrollment,
+    batchEnrollStudents,
     type StudentDetailResponse,
     type CreateStudentPayload,
     type CreateStudentsPayload,
     type CreateStudentsResponse,
     type UpdateStudentPayload,
     type CreateEnrollmentPayload,
+    type BatchEnrollRequest,
+    type BatchEnrollResponse,
 } from "@/lib/api/students";
 import { studentKeys } from "./use-students";
 import { getErrorMessage } from "@/lib/errors";
@@ -117,6 +120,24 @@ export function useCreateEnrollment() {
                 queryKey: studentDetailKeys.detail(variables.studentId),
             });
             toast.success("Student enrolled");
+        },
+        onError: (err) => {
+            toast.error(getErrorMessage(err));
+        },
+    });
+}
+
+/** Batch enroll multiple students in a class for the current academic term. */
+export function useBatchEnrollStudents() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (data: BatchEnrollRequest) => batchEnrollStudents(data),
+        onSuccess: (result: BatchEnrollResponse) => {
+            queryClient.invalidateQueries({ queryKey: ["students"] });
+            toast.success(
+                `${result.ids.length} student${result.ids.length === 1 ? "" : "s"} enrolled`
+            );
         },
         onError: (err) => {
             toast.error(getErrorMessage(err));

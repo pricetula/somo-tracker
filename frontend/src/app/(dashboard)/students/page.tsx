@@ -13,7 +13,9 @@
 
 "use client";
 
+import { useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { DataTable } from "@/components/shared/data-table";
 import type { DataTableColumn } from "@/components/shared/data-table/types";
 import type { FilterGroup } from "@/components/shared/data-table/types";
@@ -22,7 +24,7 @@ import { listStudents, type Student } from "@/lib/api/students";
 import { GraduationCap, BookOpen } from "lucide-react";
 import { getEducationLevelFilterSubmenu } from "@/features/education-level";
 import { getGradeLevelFilterSubmenu } from "@/features/grade-level";
-import { useDeleteStudent } from "@/features/students";
+import { useDeleteStudent, useEnrollmentStore } from "@/features/students";
 import { Button } from "@/components/ui/button";
 
 // ─── Filter Groups (curriculum + lifecycle) ───────────────────────────────
@@ -136,9 +138,17 @@ const columns: DataTableColumn<Student>[] = [
 ];
 
 function ToolBar({ selectedIds }: { selectedIds: Set<string> }) {
+    const router = useRouter();
+    const setSelectedStudentIds = useEnrollmentStore((s) => s.setSelectedStudentIds);
+    const handleEnroll = useCallback(() => {
+        setSelectedStudentIds([...selectedIds]);
+        router.push("/students/enroll");
+    }, [selectedIds, router, setSelectedStudentIds]);
+
     if (selectedIds.size === 0) return null;
+
     return (
-        <Button size="sm">
+        <Button size="sm" id="enroll-selected-students" onClick={handleEnroll}>
             <GraduationCap />
             <span>Enroll {`${selectedIds.size} Student${selectedIds.size === 1 ? "" : "s"}`}</span>
         </Button>

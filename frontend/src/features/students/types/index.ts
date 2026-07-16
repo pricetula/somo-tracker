@@ -16,4 +16,7 @@ export type {
     CreateStudentsResponse,
     UpdateStudentPayload,
     CreateEnrollmentPayload,
+    BatchEnrollItem,
+    BatchEnrollRequest,
+    BatchEnrollResponse,
 } from "@/lib/api/students";

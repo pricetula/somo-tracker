@@ -70,7 +70,8 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	students.Get("/:id", middleware.RequireAuth, h.GetDetail)
 	students.Put("/:id", middleware.RequireAuth, h.Update)
 
-	// Enrollments (nested under students)
+	// Enrollments
+	students.Post("/enrollments", middleware.RequireAuth, h.CreateBatchEnrollments)
 	students.Post("/:id/enrollments", middleware.RequireAuth, h.CreateEnrollment)
 	students.Get("/:id/enrollments", middleware.RequireAuth, h.ListEnrollments)
 
@@ -498,6 +499,72 @@ func (h *Handler) CreateEnrollment(c *fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(CreateEnrollmentResponse{ID: enrollment.ID})
+}
+
+// ─── Batch Enrollments ───────────────────────────────────────────────────
+
+// CreateBatchEnrollments handles POST /api/v1/students/enrollments.
+// Accepts a list of { student_id, class_id } pairs. Academic term is resolved
+// server-side from the current active term. Status defaults to ACTIVE.
+func (h *Handler) CreateBatchEnrollments(c *fiber.Ctx) error {
+	tenantID := c.Locals("tenant_id").(string)
+	schoolID, _ := c.Locals("active_school_id").(string)
+	if schoolID == "" {
+		schoolID = c.Locals("school_id").(string)
+	}
+	if schoolID == "" {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input", "active school not set", nil)
+	}
+
+	var body BatchEnrollRequest
+	if err := c.BodyParser(&body); err != nil {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input", "malformed request body", nil)
+	}
+
+	if len(body.Enrollments) == 0 {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input", "enrollments array must not be empty",
+			map[string][]string{"enrollments": {"At least one enrollment is required"}})
+	}
+
+	// Validate each item has required fields
+	for i, item := range body.Enrollments {
+		if item.StudentID == "" {
+			return writeError(c, fiber.StatusBadRequest, "invalid_input",
+				"student_id is required for all enrollments",
+				map[string][]string{fmt.Sprintf("enrollments[%d].student_id", i): {"This field is required"}})
+		}
+		if item.ClassID == "" {
+			return writeError(c, fiber.StatusBadRequest, "invalid_input",
+				"class_id is required for all enrollments",
+				map[string][]string{fmt.Sprintf("enrollments[%d].class_id", i): {"This field is required"}})
+		}
+	}
+
+	// Resolve current academic year and term server-side
+	academicYearID, err := h.academicYearsSvc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	if academicYearID == "" {
+		return writeError(c, fiber.StatusBadRequest, "no_active_academic_year",
+			"No current academic year is set for this school. Please set one before enrolling.", nil)
+	}
+
+	academicTermID, err := h.academicYearsSvc.GetCurrentAcademicTermID(c.Context(), academicYearID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	if academicTermID == "" {
+		return writeError(c, fiber.StatusBadRequest, "no_active_academic_term",
+			"No current academic term is active. Please set one before enrolling.", nil)
+	}
+
+	result, err := h.svc.CreateBatchEnrollments(c.Context(), tenantID, schoolID, academicTermID, body.Enrollments)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(result)
 }
 
 // Delete handles DELETE /api/v1/students/:id

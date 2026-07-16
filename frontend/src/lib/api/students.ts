@@ -136,6 +136,20 @@ export interface CreateEnrollmentPayload {
     status?: string;
 }
 
+export interface BatchEnrollItem {
+    student_id: string;
+    class_id: string;
+}
+
+export interface BatchEnrollRequest {
+    enrollments: BatchEnrollItem[];
+}
+
+export interface BatchEnrollResponse {
+    ids: string[];
+    code: string;
+}
+
 // ─── API Functions ─────────────────────────────────────────────────────────
 
 /** List students with pagination and optional filters. */
@@ -210,6 +224,11 @@ export async function createEnrollment(
     data: CreateEnrollmentPayload
 ): Promise<CreateEnrollmentResponse> {
     return api.post<CreateEnrollmentResponse>(`/api/v1/students/${studentId}/enrollments`, data);
+}
+
+/** Batch enroll multiple students in a class for the current academic term. */
+export async function batchEnrollStudents(data: BatchEnrollRequest): Promise<BatchEnrollResponse> {
+    return api.post<BatchEnrollResponse>("/api/v1/students/enrollments", data);
 }
 
 /** List enrollments for a student. */

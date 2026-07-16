@@ -129,6 +129,24 @@ type CreateEnrollmentResponse struct {
 	ID string `json:"id"`
 }
 
+// BatchEnrollItem represents one student+class pair in a batch enrollment request.
+type BatchEnrollItem struct {
+	StudentID string `json:"student_id"`
+	ClassID   string `json:"class_id"`
+}
+
+// BatchEnrollRequest is the request body for POST /api/v1/students/enrollments.
+// academic_term_id is resolved server-side from the current active term.
+type BatchEnrollRequest struct {
+	Enrollments []BatchEnrollItem `json:"enrollments"`
+}
+
+// BatchEnrollResponse returns the IDs of created enrollment records.
+type BatchEnrollResponse struct {
+	IDs  []string `json:"ids"`
+	Code string   `json:"code"`
+}
+
 type ListEnrollmentsResponse struct {
 	Items []Enrollment `json:"items"`
 }
@@ -247,6 +265,7 @@ type StudentRepository interface {
 
 	// Enrollments
 	CreateEnrollment(ctx context.Context, enrollment *Enrollment) (string, error)
+	CreateBatchEnrollments(ctx context.Context, enrollments []*Enrollment, tenantID, schoolID string) ([]string, error)
 	ListEnrollments(ctx context.Context, studentID, tenantID string) ([]Enrollment, error)
 	IsEnrolledInTerm(ctx context.Context, studentID, academicTermID, tenantID string) (bool, error)
 }

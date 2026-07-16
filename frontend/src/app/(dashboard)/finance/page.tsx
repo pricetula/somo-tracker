@@ -94,7 +94,7 @@ export default function FinancePage() {
             deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
             emptyState="No finance staff yet."
             noResultsState="No finance staff match your search."
-            toolBarComponents={[<InvitationCountBadge key="invitation-count" />]}
+            renderToolBarComponents={() => <InvitationCountBadge key="invitation-count" />}
         />
     );
 }

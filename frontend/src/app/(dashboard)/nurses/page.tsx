@@ -94,7 +94,7 @@ export default function NursesPage() {
             deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
             emptyState="No nurses yet."
             noResultsState="No nurses match your search."
-            toolBarComponents={[<InvitationCountBadge key="invitation-count" />]}
+            renderToolBarComponents={() => <InvitationCountBadge key="invitation-count" />}
         />
     );
 }

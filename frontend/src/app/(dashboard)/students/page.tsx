@@ -23,6 +23,7 @@ import { GraduationCap, BookOpen } from "lucide-react";
 import { getEducationLevelFilterSubmenu } from "@/features/education-level";
 import { getGradeLevelFilterSubmenu } from "@/features/grade-level";
 import { useDeleteStudent } from "@/features/students";
+import { Button } from "@/components/ui/button";
 
 // ─── Filter Groups (curriculum + lifecycle) ───────────────────────────────
 
@@ -134,6 +135,16 @@ const columns: DataTableColumn<Student>[] = [
     },
 ];
 
+function ToolBar({ selectedIds }: { selectedIds: Set<string> }) {
+    if (selectedIds.size === 0) return null;
+    return (
+        <Button size="sm">
+            <GraduationCap />
+            <span>Enroll {`${selectedIds.size} Student${selectedIds.size === 1 ? "" : "s"}`}</span>
+        </Button>
+    );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────
 
 export default function StudentsPage() {
@@ -141,6 +152,7 @@ export default function StudentsPage() {
 
     return (
         <DataTable
+            isCheckable
             addHref="/students/import"
             queryKey={["students"]}
             queryFn={listStudents}
@@ -152,6 +164,7 @@ export default function StudentsPage() {
             deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
             emptyState="No students yet."
             noResultsState="No students match your search or filters."
+            renderToolBarComponents={(s: Set<string>) => <ToolBar selectedIds={s} />}
         />
     );
 }

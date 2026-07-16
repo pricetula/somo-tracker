@@ -136,7 +136,7 @@ export default function ParentsPage() {
             deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
             emptyState="No parents yet."
             noResultsState="No parents match your search or filters."
-            toolBarComponents={[<InvitationCountBadge key="invitation-count" />]}
+            renderToolBarComponents={() => <InvitationCountBadge key="invitation-count" />}
         />
     );
 }

@@ -91,7 +91,7 @@ export default function AdminsPage() {
             deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
             emptyState="No admins yet."
             noResultsState="No admins match your search."
-            toolBarComponents={[<InvitationCountBadge key="invitation-count" />]}
+            renderToolBarComponents={() => <InvitationCountBadge key="invitation-count" />}
         />
     );
 }

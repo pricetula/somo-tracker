@@ -159,7 +159,7 @@ export default function TeachersPage() {
             deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
             emptyState="No teachers yet."
             noResultsState="No teachers match your search or filters."
-            toolBarComponents={[<InvitationCountBadge key="invitation-count" />]}
+            renderToolBarComponents={() => <InvitationCountBadge key="invitation-count" />}
         />
     );
 }

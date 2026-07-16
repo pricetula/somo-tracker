@@ -101,8 +101,13 @@ function buildNavItems(role: string): NavItem[] {
         },
         {
             title: "Finance",
-            url: "/finance",
+            url: "#",
             icon: <DollarSignIcon className="size-4" />,
+            items: [
+                { title: "Fee Categories", url: "/finance/fee-categories" },
+                { title: "Fee Templates", url: "/finance/fee-templates" },
+                { title: "Invoices", url: "/finance/invoices" },
+            ],
         },
         {
             title: "Health",

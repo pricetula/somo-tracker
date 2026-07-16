@@ -40,13 +40,16 @@ src/
 
 ## 2. Page Creation — No Headers or Back Navigation
 
-When scaffolding a new page, the app shell (top bar, back button, global navigation) is
+When scaffolding a new page, the app shell (top bar, back navigation, global navigation) is
 owned by `src/app/layout.tsx` and the feature container's root layout — not by
 individual page or feature components.
 
-- **Do not** add a `<header>`, `<nav>`, back button, or any breadcrumb component inside
-  a page file (`page.tsx`) or a feature container rendered by one. Navigation is the
-  shell's responsibility.
+- **Do not** add a `<header>`, `<nav>`, back button, "Back to" link, or any breadcrumb
+  component inside a page file (`page.tsx`) or a feature container rendered by one.
+  Navigation is the shell's responsibility.
+- **"Back to" links are forbidden everywhere.** No `<Link>` or `<button>` with the text
+  "Back to" anything. If you need to put them anywhere else, stop and think of a UX
+  that doesn't require the user to backtrack.
 - **Do not** replicate the top app bar or any global navigation element. The shell
   layout is inherited; pages are content panes only.
 - If a page needs a heading (e.g. a page title), use `h1` rendered as plain text —

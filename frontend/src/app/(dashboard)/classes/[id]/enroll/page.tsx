@@ -10,10 +10,8 @@
 
 import { use } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
 
 import { EnrollStudentsPanel } from "@/features/classes";
-import { Button } from "@/components/ui/button";
 
 interface Props {
     params: Promise<{ id: string }>;
@@ -25,10 +23,6 @@ export default function EnrollStudentsPage({ params }: Props) {
 
     return (
         <div className="p-6">
-            <Button variant="ghost" size="sm" onClick={() => router.back()} className="mb-4 -ml-2">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Class
-            </Button>
             <div className="mx-auto max-w-lg">
                 <h1 className="mb-1 text-lg font-semibold">Enroll Students</h1>
                 <p className="text-muted-foreground mb-6">

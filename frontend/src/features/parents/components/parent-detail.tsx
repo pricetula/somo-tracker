@@ -15,7 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Link2, Trash2, UserPlus } from "lucide-react";
+import { Link2, Trash2, UserPlus } from "lucide-react";
 
 import { useParentDetail, useUpdateParent, useUnlinkStudent } from "../hooks/use-parents";
 import { LinkStudentDialog } from "./link-student-dialog";
@@ -116,7 +116,7 @@ export function ParentDetailView({ parentId, onBack }: ParentDetailViewProps) {
                 <div className="text-center">
                     <p className="text-destructive font-medium">Failed to load parent details.</p>
                     <Button variant="outline" size="sm" className="mt-4" onClick={onBack}>
-                        Back to Parents
+                        Go to Parents
                     </Button>
                 </div>
             </div>
@@ -127,12 +127,6 @@ export function ParentDetailView({ parentId, onBack }: ParentDetailViewProps) {
 
     return (
         <div className="flex flex-1 flex-col px-6 pt-6 pb-8">
-            {/* Back link */}
-            <Button variant="ghost" size="sm" className="mb-4 w-fit" onClick={onBack}>
-                <ArrowLeft className="mr-1.5 size-4" />
-                Back to Parents
-            </Button>
-
             {/* Section 1: Parent Info */}
             <div className="mb-8">
                 <h1 className="text-2xl font-semibold tracking-tight">{detail.full_name}</h1>

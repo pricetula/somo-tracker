@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ArrowLeft, FileText } from "lucide-react";
+import { FileText } from "lucide-react";
 import { getDocData, getAllDocSlugs, getAllDocMetadata } from "@/lib/docs";
 
 interface Props {
@@ -65,15 +65,6 @@ export default async function DocPage({ params }: Props) {
 
     return (
         <article className="prose prose-gray max-w-none">
-            {/* Back link */}
-            <Link
-                href="/docs"
-                className="text-muted-foreground hover:text-foreground mb-6 inline-flex items-center gap-1.5 no-underline transition-colors"
-            >
-                <ArrowLeft className="h-4 w-4" />
-                Back to docs
-            </Link>
-
             {/* Title */}
             <h1 className="mb-2 text-3xl font-bold tracking-tight">{metadata.title}</h1>
 

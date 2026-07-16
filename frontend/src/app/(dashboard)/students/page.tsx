@@ -18,9 +18,8 @@ import { DataTable } from "@/components/shared/data-table";
 import type { DataTableColumn } from "@/components/shared/data-table/types";
 import type { FilterGroup } from "@/components/shared/data-table/types";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { listStudents, type Student } from "@/lib/api/students";
-import { GraduationCap, BookOpen, Pencil } from "lucide-react";
+import { GraduationCap, BookOpen } from "lucide-react";
 import { getEducationLevelFilterSubmenu } from "@/features/education-level";
 import { getGradeLevelFilterSubmenu } from "@/features/grade-level";
 import { useDeleteStudent } from "@/features/students";
@@ -135,23 +134,6 @@ const columns: DataTableColumn<Student>[] = [
     },
 ];
 
-// ─── Edit action column ───────────────────────────────────────────────────
-
-const editActionColumn: DataTableColumn<Student> = {
-    id: "edit",
-    header: "",
-    width: "48px",
-    align: "right",
-    cell: (row) => (
-        <Button variant="ghost" size="icon-sm" asChild title="Edit student">
-            <Link href={`/students/${row.id}/edit`}>
-                <Pencil className="h-4 w-4" />
-                <span className="sr-only">Edit {row.full_name}</span>
-            </Link>
-        </Button>
-    ),
-};
-
 // ─── Page ─────────────────────────────────────────────────────────────────
 
 export default function StudentsPage() {
@@ -162,7 +144,7 @@ export default function StudentsPage() {
             addHref="/students/import"
             queryKey={["students"]}
             queryFn={listStudents}
-            columns={[...columns, editActionColumn]}
+            columns={columns}
             getRowId={(row) => row.id}
             isSearchable
             searchPlaceholder="Search by name, admission no., UPI, or KNEC no…"

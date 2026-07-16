@@ -262,7 +262,7 @@ export function StepUpload({ onParsed, onBack, isResuming, resumeFileName }: Ste
             {/* Back button */}
             {onBack && !parsing && (
                 <Button variant="ghost" size="sm" onClick={onBack}>
-                    Back to import options
+                    Import options
                 </Button>
             )}
         </div>

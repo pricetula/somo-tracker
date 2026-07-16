@@ -18,6 +18,7 @@ import { Pencil } from "lucide-react";
 import { listAdmins, type Member } from "@/lib/api/admins";
 import { useDeleteAdmin } from "@/features/staff";
 import { MemberEditDialog } from "@/features/staff/components/member-edit-dialog";
+import Link from "next/link";
 
 // ─── Edit action cell ──────────────────────────────────────────────────────
 
@@ -50,7 +51,7 @@ const columns: DataTableColumn<Member>[] = [
     {
         id: "full_name",
         header: "Full Name",
-        cell: (row) => <span className="font-medium">{row.full_name || "—"}</span>,
+        cell: (row) => <Link href={`/admins/${row.id}`}>{row.full_name || "—"}</Link>,
     },
     {
         id: "email",

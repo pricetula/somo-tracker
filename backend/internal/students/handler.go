@@ -69,6 +69,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	students.Post("/", middleware.RequireAuth, h.Create)
 	students.Get("/:id", middleware.RequireAuth, h.GetDetail)
 	students.Put("/:id", middleware.RequireAuth, h.Update)
+	students.Delete("/:id", middleware.RequireAuth, h.Delete)
 
 	// Enrollments
 	students.Post("/enrollments", middleware.RequireAuth, h.CreateBatchEnrollments)

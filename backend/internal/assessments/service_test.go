@@ -44,15 +44,15 @@ func (m *mockRepo) IsTermFinalised(ctx context.Context, termID string) (bool, er
 	return false, nil
 }
 
-func (m *mockRepo) CreateScaleProfile(ctx context.Context, params CreateScaleProfileParams) (string, error) {
-	return "", errors.New("not implemented in mock")
+func (m *mockRepo) CreateScaleProfileWithRanges(ctx context.Context, params CreateScaleProfileParams) (string, []string, error) {
+	return "", nil, errors.New("not implemented in mock")
 }
 
-func (m *mockRepo) GetScaleProfileByID(ctx context.Context, id, tenantID, schoolID string) (*ScaleProfile, error) {
+func (m *mockRepo) GetScaleProfileByID(ctx context.Context, id, tenantID, schoolID string) (*ScaleProfileWithRanges, error) {
 	return nil, errors.New("not implemented in mock")
 }
 
-func (m *mockRepo) ListScaleProfiles(ctx context.Context, tenantID, schoolID string, activeOnly bool) ([]ScaleProfile, error) {
+func (m *mockRepo) ListScaleProfiles(ctx context.Context, tenantID, schoolID string, activeOnly bool) ([]ScaleProfileWithRanges, error) {
 	return nil, errors.New("not implemented in mock")
 }
 
@@ -62,22 +62,6 @@ func (m *mockRepo) ToggleScaleProfileActive(ctx context.Context, id, tenantID, s
 
 func (m *mockRepo) DeleteScaleProfile(ctx context.Context, id, tenantID, schoolID string) error {
 	return errors.New("not implemented in mock")
-}
-
-func (m *mockRepo) CreateScaleRange(ctx context.Context, params CreateScaleRangeParams) (string, error) {
-	return "", errors.New("not implemented in mock")
-}
-
-func (m *mockRepo) GetScaleRangesByProfile(ctx context.Context, profileID, tenantID, schoolID string) ([]ScaleRange, error) {
-	return nil, errors.New("not implemented in mock")
-}
-
-func (m *mockRepo) DeleteScaleRange(ctx context.Context, rangeID, profileID, tenantID, schoolID string) error {
-	return errors.New("not implemented in mock")
-}
-
-func (m *mockRepo) BulkSetScaleRanges(ctx context.Context, profileID string, ranges []CreateScaleRangeParams) ([]string, error) {
-	return nil, errors.New("not implemented in mock")
 }
 
 func (m *mockRepo) CreateSession(ctx context.Context, params CreateSessionParams) (string, error) {

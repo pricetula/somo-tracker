@@ -56,73 +56,82 @@ func (r *PgRepository) IsTermFinalised(ctx context.Context, termID string) (bool
 	return isFinal, nil
 }
 
-// getTenantSchoolFromProfile verifies a profile belongs to a tenant/school and returns its ID.
-func (r *PgRepository) getTenantSchoolFromProfile(ctx context.Context, profileID, tenantID, schoolID string) error {
-	const query = `
-		SELECT 1 FROM grading_scale_profiles
-		WHERE id = $1 AND tenant_id = $2 AND school_id = $3
-	`
-	var exists int
-	err := r.pool.QueryRow(ctx, query, profileID, tenantID, schoolID).Scan(&exists)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			return fmt.Errorf("assessments.Repository.getTenantSchoolFromProfile: %w", ErrNotFound)
-		}
-		return fmt.Errorf("assessments.Repository.getTenantSchoolFromProfile: %w", err)
-	}
-	return nil
-}
-
 // ============================================================================
 // GRADING SCALE PROFILES
 // ============================================================================
 
-// CreateScaleProfile inserts a new grading scale profile.
-func (r *PgRepository) CreateScaleProfile(ctx context.Context, params CreateScaleProfileParams) (string, error) {
-	const query = `
-		INSERT INTO grading_scale_profiles (tenant_id, school_id, name)
-		VALUES ($1, $2, $3)
-		RETURNING id
-	`
-	var id string
-	err := r.pool.QueryRow(ctx, query, params.TenantID, params.SchoolID, params.Name).Scan(&id)
-	if err != nil {
-		return "", fmt.Errorf("assessments.Repository.CreateScaleProfile: %w", err)
-	}
-	return id, nil
-}
-
 // GetScaleProfileByID retrieves a single scale profile by ID.
-func (r *PgRepository) GetScaleProfileByID(ctx context.Context, id, tenantID, schoolID string) (*ScaleProfile, error) {
+func (r *PgRepository) GetScaleProfileByID(ctx context.Context, id, tenantID, schoolID string) (*ScaleProfileWithRanges, error) {
 	const query = `
-		SELECT id, tenant_id, school_id, name, is_active, created_at, updated_at
-		FROM grading_scale_profiles
-		WHERE id = $1 AND tenant_id = $2 AND school_id = $3
+		SELECT p.id, p.tenant_id, p.school_id, p.name, p.is_active, p.created_at, p.updated_at,
+		       r.id AS range_id, r.profile_id, r.performance_level::text, r.min_percentage, r.max_percentage, r.default_percentage_mapping
+		FROM grading_scale_profiles p
+		LEFT JOIN grading_scale_ranges r ON r.profile_id = p.id
+		WHERE p.id = $1 AND p.tenant_id = $2 AND p.school_id = $3
+		ORDER BY r.min_percentage ASC
 	`
-	var p ScaleProfile
-	err := r.pool.QueryRow(ctx, query, id, tenantID, schoolID).
-		Scan(&p.ID, &p.TenantID, &p.SchoolID, &p.Name, &p.IsActive, &p.CreatedAt, &p.UpdatedAt)
+	rows, err := r.pool.Query(ctx, query, id, tenantID, schoolID)
 	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, fmt.Errorf("assessments.Repository.GetScaleProfileByID: %w", ErrNotFound)
-		}
 		return nil, fmt.Errorf("assessments.Repository.GetScaleProfileByID: %w", err)
 	}
-	return &p, nil
+	defer rows.Close()
+
+	var result *ScaleProfileWithRanges
+	for rows.Next() {
+		var p ScaleProfile
+		var rangeID, rangeProfileID *string
+		var performanceLevel *string
+		var minPct, maxPct *float64
+		var defaultPct **float64
+
+		if err := rows.Scan(&p.ID, &p.TenantID, &p.SchoolID, &p.Name, &p.IsActive, &p.CreatedAt, &p.UpdatedAt,
+			&rangeID, &rangeProfileID, &performanceLevel, &minPct, &maxPct, &defaultPct); err != nil {
+			return nil, fmt.Errorf("assessments.Repository.GetScaleProfileByID: %w", err)
+		}
+
+		if result == nil {
+			result = &ScaleProfileWithRanges{
+				ScaleProfile: p,
+				Ranges:       []ScaleRange{},
+			}
+		}
+
+		if rangeID != nil {
+			sr := ScaleRange{
+				ID:                       *rangeID,
+				ProfileID:                *rangeProfileID,
+				PerformanceLevel:         *performanceLevel,
+				MinPercentage:            *minPct,
+				MaxPercentage:            *maxPct,
+				DefaultPercentageMapping: nil,
+			}
+			if defaultPct != nil && *defaultPct != nil {
+				sr.DefaultPercentageMapping = *defaultPct
+			}
+			result.Ranges = append(result.Ranges, sr)
+		}
+	}
+
+	if result == nil {
+		return nil, fmt.Errorf("assessments.Repository.GetScaleProfileByID: %w", ErrNotFound)
+	}
+	return result, nil
 }
 
-// ListScaleProfiles returns all scale profiles for a tenant/school.
-func (r *PgRepository) ListScaleProfiles(ctx context.Context, tenantID, schoolID string, activeOnly bool) ([]ScaleProfile, error) {
+// ListScaleProfiles returns all scale profiles for a tenant/school with their ranges.
+func (r *PgRepository) ListScaleProfiles(ctx context.Context, tenantID, schoolID string, activeOnly bool) ([]ScaleProfileWithRanges, error) {
 	baseQuery := `
-		SELECT id, tenant_id, school_id, name, is_active, created_at, updated_at
-		FROM grading_scale_profiles
-		WHERE tenant_id = $1 AND school_id = $2
+		SELECT p.id, p.tenant_id, p.school_id, p.name, p.is_active, p.created_at, p.updated_at,
+		       r.id AS range_id, r.profile_id, r.performance_level::text, r.min_percentage, r.max_percentage, r.default_percentage_mapping
+		FROM grading_scale_profiles p
+		LEFT JOIN grading_scale_ranges r ON r.profile_id = p.id
+		WHERE p.tenant_id = $1 AND p.school_id = $2
 	`
 	args := []interface{}{tenantID, schoolID}
 	if activeOnly {
-		baseQuery += ` AND is_active = true`
+		baseQuery += ` AND p.is_active = true`
 	}
-	baseQuery += ` ORDER BY created_at DESC`
+	baseQuery += ` ORDER BY p.created_at DESC, r.min_percentage ASC`
 
 	rows, err := r.pool.Query(ctx, baseQuery, args...)
 	if err != nil {
@@ -130,15 +139,50 @@ func (r *PgRepository) ListScaleProfiles(ctx context.Context, tenantID, schoolID
 	}
 	defer rows.Close()
 
-	var profiles []ScaleProfile
+	profileMap := make(map[string]*ScaleProfileWithRanges)
+	var order []string
+
 	for rows.Next() {
 		var p ScaleProfile
-		if err := rows.Scan(&p.ID, &p.TenantID, &p.SchoolID, &p.Name, &p.IsActive, &p.CreatedAt, &p.UpdatedAt); err != nil {
+		var rangeID, rangeProfileID *string
+		var performanceLevel *string
+		var minPct, maxPct *float64
+		var defaultPct **float64
+
+		if err := rows.Scan(&p.ID, &p.TenantID, &p.SchoolID, &p.Name, &p.IsActive, &p.CreatedAt, &p.UpdatedAt,
+			&rangeID, &rangeProfileID, &performanceLevel, &minPct, &maxPct, &defaultPct); err != nil {
 			return nil, fmt.Errorf("assessments.Repository.ListScaleProfiles: %w", err)
 		}
-		profiles = append(profiles, p)
+
+		if _, exists := profileMap[p.ID]; !exists {
+			profileMap[p.ID] = &ScaleProfileWithRanges{
+				ScaleProfile: p,
+				Ranges:       []ScaleRange{},
+			}
+			order = append(order, p.ID)
+		}
+
+		if rangeID != nil {
+			sr := ScaleRange{
+				ID:                       *rangeID,
+				ProfileID:                *rangeProfileID,
+				PerformanceLevel:         *performanceLevel,
+				MinPercentage:            *minPct,
+				MaxPercentage:            *maxPct,
+				DefaultPercentageMapping: nil,
+			}
+			if defaultPct != nil && *defaultPct != nil {
+				sr.DefaultPercentageMapping = *defaultPct
+			}
+			profileMap[p.ID].Ranges = append(profileMap[p.ID].Ranges, sr)
+		}
 	}
-	return profiles, nil
+
+	result := make([]ScaleProfileWithRanges, 0, len(order))
+	for _, id := range order {
+		result = append(result, *profileMap[id])
+	}
+	return result, nil
 }
 
 // ToggleScaleProfileActive toggles the is_active flag on a profile.
@@ -186,109 +230,39 @@ func (r *PgRepository) DeleteScaleProfile(ctx context.Context, id, tenantID, sch
 // GRADING SCALE RANGES
 // ============================================================================
 
-// CreateScaleRange inserts a new range into a profile.
-func (r *PgRepository) CreateScaleRange(ctx context.Context, params CreateScaleRangeParams) (string, error) {
-	const query = `
-		INSERT INTO grading_scale_ranges (profile_id, performance_level, min_percentage, max_percentage, default_percentage_mapping)
-		VALUES ($1, $2::cbc_performance_level, $3, $4, $5)
-		RETURNING id
-	`
-	var id string
-	err := r.pool.QueryRow(ctx, query,
-		params.ProfileID,
-		params.PerformanceLevel,
-		params.MinPercentage,
-		params.MaxPercentage,
-		params.DefaultPercentageMapping,
-	).Scan(&id)
-	if err != nil {
-		if isExclusionViolation(err) {
-			return "", fmt.Errorf("assessments.Repository.CreateScaleRange: range overlaps with existing range: %w", ErrConflict)
-		}
-		if isUniqueViolation(err) {
-			return "", fmt.Errorf("assessments.Repository.CreateScaleRange: duplicate performance level for this profile: %w", ErrAlreadyExists)
-		}
-		return "", fmt.Errorf("assessments.Repository.CreateScaleRange: %w", err)
-	}
-	return id, nil
-}
-
-// GetScaleRangesByProfile returns all ranges for a profile.
-func (r *PgRepository) GetScaleRangesByProfile(ctx context.Context, profileID, tenantID, schoolID string) ([]ScaleRange, error) {
-	// First verify the profile belongs to the tenant/school
-	if err := r.getTenantSchoolFromProfile(ctx, profileID, tenantID, schoolID); err != nil {
-		return nil, err
-	}
-
-	const query = `
-		SELECT id, profile_id, performance_level::text, min_percentage, max_percentage, default_percentage_mapping
-		FROM grading_scale_ranges
-		WHERE profile_id = $1
-		ORDER BY min_percentage ASC
-	`
-	rows, err := r.pool.Query(ctx, query, profileID)
-	if err != nil {
-		return nil, fmt.Errorf("assessments.Repository.GetScaleRangesByProfile: %w", err)
-	}
-	defer rows.Close()
-
-	var ranges []ScaleRange
-	for rows.Next() {
-		var sr ScaleRange
-		if err := rows.Scan(&sr.ID, &sr.ProfileID, &sr.PerformanceLevel, &sr.MinPercentage, &sr.MaxPercentage, &sr.DefaultPercentageMapping); err != nil {
-			return nil, fmt.Errorf("assessments.Repository.GetScaleRangesByProfile: %w", err)
-		}
-		ranges = append(ranges, sr)
-	}
-	return ranges, nil
-}
-
-// DeleteScaleRange removes a single range from a profile.
-func (r *PgRepository) DeleteScaleRange(ctx context.Context, rangeID, profileID, tenantID, schoolID string) error {
-	if err := r.getTenantSchoolFromProfile(ctx, profileID, tenantID, schoolID); err != nil {
-		return err
-	}
-
-	const query = `
-		DELETE FROM grading_scale_ranges
-		WHERE id = $1 AND profile_id = $2
-	`
-	result, err := r.pool.Exec(ctx, query, rangeID, profileID)
-	if err != nil {
-		return fmt.Errorf("assessments.Repository.DeleteScaleRange: %w", err)
-	}
-	if result.RowsAffected() == 0 {
-		return fmt.Errorf("assessments.Repository.DeleteScaleRange: %w", ErrNotFound)
-	}
-	return nil
-}
-
-// BulkSetScaleRanges replaces all ranges for a profile in a transaction.
-func (r *PgRepository) BulkSetScaleRanges(ctx context.Context, profileID string, ranges []CreateScaleRangeParams) ([]string, error) {
+// CreateScaleProfileWithRanges creates a grading scale profile and its ranges
+// in a single atomic transaction.
+func (r *PgRepository) CreateScaleProfileWithRanges(ctx context.Context, params CreateScaleProfileParams) (string, []string, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("assessments.Repository.BulkSetScaleRanges: begin tx: %w", err)
+		return "", nil, fmt.Errorf("assessments.Repository.CreateScaleProfileWithRanges: begin tx: %w", err)
 	}
 	defer func() {
 		_ = tx.Rollback(ctx)
 	}()
 
-	// Delete existing ranges
-	_, err = tx.Exec(ctx, `DELETE FROM grading_scale_ranges WHERE profile_id = $1`, profileID)
+	// Insert the profile
+	const profileQuery = `
+		INSERT INTO grading_scale_profiles (tenant_id, school_id, name)
+		VALUES ($1, $2, $3)
+		RETURNING id
+	`
+	var profileID string
+	err = tx.QueryRow(ctx, profileQuery, params.TenantID, params.SchoolID, params.Name).Scan(&profileID)
 	if err != nil {
-		return nil, fmt.Errorf("assessments.Repository.BulkSetScaleRanges: delete existing: %w", err)
+		return "", nil, fmt.Errorf("assessments.Repository.CreateScaleProfileWithRanges: create profile: %w", err)
 	}
 
-	// Insert new ranges
-	ids := make([]string, 0, len(ranges))
-	for _, sr := range ranges {
-		const query = `
+	// Insert ranges
+	ids := make([]string, 0, len(params.Ranges))
+	for _, sr := range params.Ranges {
+		const rangeQuery = `
 			INSERT INTO grading_scale_ranges (profile_id, performance_level, min_percentage, max_percentage, default_percentage_mapping)
 			VALUES ($1, $2::cbc_performance_level, $3, $4, $5)
 			RETURNING id
 		`
 		var id string
-		err := tx.QueryRow(ctx, query,
+		err := tx.QueryRow(ctx, rangeQuery,
 			profileID,
 			sr.PerformanceLevel,
 			sr.MinPercentage,
@@ -297,17 +271,20 @@ func (r *PgRepository) BulkSetScaleRanges(ctx context.Context, profileID string,
 		).Scan(&id)
 		if err != nil {
 			if isExclusionViolation(err) {
-				return nil, fmt.Errorf("assessments.Repository.BulkSetScaleRanges: overlapping ranges: %w", ErrConflict)
+				return "", nil, fmt.Errorf("assessments.Repository.CreateScaleProfileWithRanges: overlapping ranges: %w", ErrConflict)
 			}
-			return nil, fmt.Errorf("assessments.Repository.BulkSetScaleRanges: %w", err)
+			if isUniqueViolation(err) {
+				return "", nil, fmt.Errorf("assessments.Repository.CreateScaleProfileWithRanges: duplicate performance level: %w", ErrAlreadyExists)
+			}
+			return "", nil, fmt.Errorf("assessments.Repository.CreateScaleProfileWithRanges: insert range: %w", err)
 		}
 		ids = append(ids, id)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return nil, fmt.Errorf("assessments.Repository.BulkSetScaleRanges: commit: %w", err)
+		return "", nil, fmt.Errorf("assessments.Repository.CreateScaleProfileWithRanges: commit: %w", err)
 	}
-	return ids, nil
+	return profileID, ids, nil
 }
 
 // ============================================================================

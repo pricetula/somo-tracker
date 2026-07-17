@@ -50,18 +50,14 @@ func IsValidPerformanceLevel(level string) bool {
 type Repository interface {
 	// Term finalisation check
 	IsTermFinalised(ctx context.Context, termID string) (bool, error)
-	// Grading Scale Profiles
-	CreateScaleProfile(ctx context.Context, params CreateScaleProfileParams) (string, error)
-	GetScaleProfileByID(ctx context.Context, id, tenantID, schoolID string) (*ScaleProfile, error)
-	ListScaleProfiles(ctx context.Context, tenantID, schoolID string, activeOnly bool) ([]ScaleProfile, error)
+	// Grading Scale Profiles (profiles are always created with their ranges)
+	CreateScaleProfileWithRanges(ctx context.Context, params CreateScaleProfileParams) (profileID string, rangeIDs []string, err error)
+	GetScaleProfileByID(ctx context.Context, id, tenantID, schoolID string) (*ScaleProfileWithRanges, error)
+	ListScaleProfiles(ctx context.Context, tenantID, schoolID string, activeOnly bool) ([]ScaleProfileWithRanges, error)
 	ToggleScaleProfileActive(ctx context.Context, id, tenantID, schoolID string, isActive bool) error
 	DeleteScaleProfile(ctx context.Context, id, tenantID, schoolID string) error
 
-	// Grading Scale Ranges
-	CreateScaleRange(ctx context.Context, params CreateScaleRangeParams) (string, error)
-	GetScaleRangesByProfile(ctx context.Context, profileID, tenantID, schoolID string) ([]ScaleRange, error)
-	DeleteScaleRange(ctx context.Context, rangeID, profileID, tenantID, schoolID string) error
-	BulkSetScaleRanges(ctx context.Context, profileID string, ranges []CreateScaleRangeParams) ([]string, error)
+	// Grading Scale Ranges (read from profile endpoint — no standalone range endpoint)
 
 	// Assessment Sessions
 	CreateSession(ctx context.Context, params CreateSessionParams) (string, error)
@@ -237,6 +233,7 @@ type CreateScaleProfileParams struct {
 	TenantID string
 	SchoolID string
 	Name     string
+	Ranges   []CreateScaleRangeParams
 }
 
 // CreateScaleRangeParams holds fields needed to create a scale range.
@@ -297,13 +294,10 @@ type SessionFilters struct {
 // ── HTTP Request / Response Payloads ─────────────────────────────────────
 
 // CreateScaleProfilePayload is the JSON body for creating a scale profile.
+// When ranges are included, the profile and its ranges are created atomically.
 type CreateScaleProfilePayload struct {
-	Name string `json:"name"`
-}
-
-// BulkSetRangesPayload is the JSON body for setting all ranges on a profile.
-type BulkSetRangesPayload struct {
-	Ranges []ScaleRangePayload `json:"ranges"`
+	Name   string              `json:"name"`
+	Ranges []ScaleRangePayload `json:"ranges,omitempty"`
 }
 
 // ScaleRangePayload is a single range definition in JSON.
@@ -316,10 +310,10 @@ type ScaleRangePayload struct {
 
 // ListScaleProfilesResponse is the response for listing scale profiles.
 type ListScaleProfilesResponse struct {
-	Items []ScaleProfile `json:"items"`
-	Total int            `json:"total"`
-	Page  int            `json:"page"`
-	Limit int            `json:"limit"`
+	Items []ScaleProfileWithRanges `json:"items"`
+	Total int                      `json:"total"`
+	Page  int                      `json:"page"`
+	Limit int                      `json:"limit"`
 }
 
 // ScaleProfileWithRanges is a profile with its ranges included.

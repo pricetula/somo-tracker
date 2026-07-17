@@ -28,11 +28,6 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	profiles.Put("/:id/toggle", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN"), h.ToggleScaleProfileActive)
 	profiles.Delete("/:id", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN"), h.DeleteScaleProfile)
 
-	// Grading Scale Ranges
-	profiles.Post("/:id/ranges", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN"), h.BulkSetScaleRanges)
-	profiles.Get("/:id/ranges", middleware.RequireAuth, h.GetScaleRanges)
-	profiles.Delete("/:profileId/ranges/:rangeId", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN"), h.DeleteScaleRange)
-
 	// Assessment Sessions
 	sessions := router.Group("/api/v1/assessments/sessions")
 	sessions.Post("/", middleware.RequireAuth, h.CreateSession)
@@ -96,26 +91,44 @@ func getUserID(c *fiber.Ctx) string {
 // ---------------------------------------------------------------------------
 // CreateScaleProfile — POST /api/v1/grading/profiles
 //
-// Creates a new grading scale profile (the directory entry). A scale profile
-// is a named collection of percentage-to-CBC-level rules. For example, a
-// "Grade 4 Standard Conversion" profile might hold the ranges that map
-// percentages to EE/ME/AE/BE for Grade 4 Mathematics.
+// Creates a new grading scale profile together with its percentage-to-level
+// ranges in a single atomic transaction. A scale profile is a named collection
+// of rules that map percentages to CBC rubric levels (EE/ME/AE/BE).
 //
-// Once created, the profile name is immutable — to change a scale, create a
+// Ranges are required — every profile must have at least EE, ME, and AE
+// ranges defined at creation time. This eliminates the two-step workflow of
+// creating a profile and then separately adding ranges.
+//
+// Once created, the profile name is immutable. To change a scale, create a
 // new profile and mark the old one as inactive via ToggleScaleProfileActive.
 //
 // Request body (SCHOOL_ADMIN only):
 //
-//	{ "name": "Grade 4 Standard Conversion" }
+//	{
+//	  "name": "Grade 4 Standard Conversion",
+//	  "ranges": [
+//	    { "performance_level": "EE", "min_percentage": 80, "max_percentage": 100 },
+//	    { "performance_level": "ME", "min_percentage": 60, "max_percentage": 79 },
+//	    { "performance_level": "AE", "min_percentage": 40, "max_percentage": 59 },
+//	    { "performance_level": "BE", "min_percentage": 0,  "max_percentage": 39 }
+//	  ]
+//	}
+//
+// Each range can optionally include "default_percentage_mapping" (e.g. 90
+// for EE), which serves as the midpoint used during conversion. If omitted,
+// the system calculates from the range bounds.
+//
+// At minimum EE, ME, and AE ranges are required. BE is recommended.
 //
 // Response (201):
 //
-//	{ "id": "uuid-of-new-profile" }
+//	{ "id": "uuid-of-new-profile", "range_ids": ["uuid-1", "uuid-2", ...] }
 //
 // Errors:
-//   - 400: name is required or exceeds 255 characters
+//   - 400: name is required, exceeds 255 characters, missing ranges, or ranges fail validation
 //   - 401: authentication required
 //   - 403: not a SCHOOL_ADMIN
+//   - 409: overlapping ranges or duplicate performance levels
 //
 // ---------------------------------------------------------------------------
 func (h *Handler) CreateScaleProfile(c *fiber.Ctx) error {
@@ -132,17 +145,30 @@ func (h *Handler) CreateScaleProfile(c *fiber.Ctx) error {
 		})
 	}
 
-	id, err := h.svc.CreateScaleProfile(c.Context(), CreateScaleProfileParams{
+	ranges := make([]CreateScaleRangeParams, len(payload.Ranges))
+	for i, r := range payload.Ranges {
+		ranges[i] = CreateScaleRangeParams{
+			ProfileID:                "", // filled by repo
+			PerformanceLevel:         r.PerformanceLevel,
+			MinPercentage:            r.MinPercentage,
+			MaxPercentage:            r.MaxPercentage,
+			DefaultPercentageMapping: r.DefaultPercentageMapping,
+		}
+	}
+
+	id, rangeIDs, err := h.svc.CreateScaleProfile(c.Context(), CreateScaleProfileParams{
 		TenantID: tenantID,
 		SchoolID: schoolID,
 		Name:     payload.Name,
+		Ranges:   ranges,
 	})
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-		"id": id,
+		"id":        id,
+		"range_ids": rangeIDs,
 	})
 }
 
@@ -193,18 +219,10 @@ func (h *Handler) ListScaleProfiles(c *fiber.Ctx) error {
 // ---------------------------------------------------------------------------
 // GetScaleProfile — GET /api/v1/grading/profiles/:id
 //
-// Retrieves a single grading scale profile by ID. By default returns only the
-// profile metadata. Use ?include_ranges=true to also return the nested ranges.
+// Retrieves a single grading scale profile by ID, including its percentage-to-
+// level ranges nested inside the profile object.
 //
-// Query parameters:
-//   - include_ranges (bool, optional): when "true", the response includes the
-//     profile's ranges array nested inside the profile object
-//
-// Response without ranges (200):
-//
-//	{ "id": "...", "name": "Grade 4 Standard Conversion", "is_active": true, ... }
-//
-// Response with ranges (200):
+// Response (200):
 //
 //	{
 //	  "id": "...", "name": "Grade 4 Standard Conversion", "is_active": true,
@@ -226,16 +244,6 @@ func (h *Handler) GetScaleProfile(c *fiber.Ctx) error {
 	}
 
 	id := c.Params("id")
-	includeRanges := c.Query("include_ranges") == "true"
-
-	if includeRanges {
-		profile, err := h.svc.GetScaleProfileWithRanges(c.Context(), id, tenantID, schoolID)
-		if err != nil {
-			return middleware.HTTPError(c, err)
-		}
-		return c.JSON(profile)
-	}
-
 	profile, err := h.svc.GetScaleProfile(c.Context(), id, tenantID, schoolID)
 	if err != nil {
 		return middleware.HTTPError(c, err)
@@ -310,155 +318,6 @@ func (h *Handler) DeleteScaleProfile(c *fiber.Ctx) error {
 		return middleware.HTTPError(c, err)
 	}
 	return c.JSON(fiber.Map{"message": "profile deleted"})
-}
-
-// ============================================================================
-// GRADING SCALE RANGES HANDLERS
-// ============================================================================
-
-// ---------------------------------------------------------------------------
-// BulkSetScaleRanges — POST /api/v1/grading/profiles/:id/ranges
-//
-// Replaces ALL ranges for a given profile in a single atomic transaction.
-// This is an idempotent set-replacement — existing ranges are deleted and
-// replaced with the provided set. The PostgreSQL exclusion constraint
-// (numrange GiST) guarantees no overlapping percentage bands after insert.
-//
-// At minimum EE, ME, and AE ranges are required. BE is recommended.
-//
-// Request body (SCHOOL_ADMIN only):
-//
-//	{
-//	  "ranges": [
-//	    { "performance_level": "EE", "min_percentage": 80, "max_percentage": 100 },
-//	    { "performance_level": "ME", "min_percentage": 60, "max_percentage": 79 },
-//	    { "performance_level": "AE", "min_percentage": 40, "max_percentage": 59 },
-//	    { "performance_level": "BE", "min_percentage": 0,  "max_percentage": 39 }
-//	  ]
-//	}
-//
-// Each range can optionally include "default_percentage_mapping" (e.g. 90 for
-// EE) which serves as the midpoint used during conversion. If omitted, the
-// system calculates from the range bounds.
-//
-// Response (201):
-//
-//	{ "ids": ["uuid-1", "uuid-2", "uuid-3", "uuid-4"] }
-//
-// Errors:
-//   - 400: missing required levels, overlapping ranges, invalid percentages
-//   - 401: authentication required
-//   - 403: not a SCHOOL_ADMIN
-//   - 404: profile not found
-//
-// ---------------------------------------------------------------------------
-func (h *Handler) BulkSetScaleRanges(c *fiber.Ctx) error {
-	tenantID, schoolID, err := getTenantAndSchool(c)
-	if err != nil {
-		return err
-	}
-
-	profileID := c.Params("id")
-
-	var payload BulkSetRangesPayload
-	if err := c.BodyParser(&payload); err != nil {
-		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
-			"code":    "invalid_input",
-			"message": "invalid request body",
-		})
-	}
-
-	ranges := make([]CreateScaleRangeParams, len(payload.Ranges))
-	for i, r := range payload.Ranges {
-		ranges[i] = CreateScaleRangeParams{
-			ProfileID:                profileID,
-			PerformanceLevel:         r.PerformanceLevel,
-			MinPercentage:            r.MinPercentage,
-			MaxPercentage:            r.MaxPercentage,
-			DefaultPercentageMapping: r.DefaultPercentageMapping,
-		}
-	}
-
-	ids, err := h.svc.BulkSetScaleRanges(c.Context(), profileID, tenantID, schoolID, ranges)
-	if err != nil {
-		return middleware.HTTPError(c, err)
-	}
-
-	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-		"ids": ids,
-	})
-}
-
-// ---------------------------------------------------------------------------
-// GetScaleRanges — GET /api/v1/grading/profiles/:id/ranges
-//
-// Returns all percentage-to-level ranges defined for a given profile, sorted
-// by min_percentage ascending. Each range maps a numeric interval to a CBC
-// rubric level (EE, ME, AE, BE).
-//
-// Response (200):
-//
-//	{
-//	  "items": [
-//	    { "id": "...", "profile_id": "...", "performance_level": "EE",
-//	      "min_percentage": 80, "max_percentage": 100,
-//	      "default_percentage_mapping": null }
-//	  ]
-//	}
-//
-// Errors:
-//   - 401: authentication required
-//   - 404: profile not found
-//
-// ---------------------------------------------------------------------------
-func (h *Handler) GetScaleRanges(c *fiber.Ctx) error {
-	tenantID, schoolID, err := getTenantAndSchool(c)
-	if err != nil {
-		return err
-	}
-
-	profileID := c.Params("id")
-	ranges, err := h.svc.GetScaleRanges(c.Context(), profileID, tenantID, schoolID)
-	if err != nil {
-		return middleware.HTTPError(c, err)
-	}
-
-	if ranges == nil {
-		ranges = []ScaleRange{}
-	}
-	return c.JSON(fiber.Map{"items": ranges})
-}
-
-// ---------------------------------------------------------------------------
-// DeleteScaleRange — DELETE /api/v1/grading/profiles/:profileId/ranges/:rangeId
-//
-// Deletes a single range from a profile. Use this to fix a misconfigured
-// range before the profile is actively used. Once sessions reference the
-// profile, prefer creating a new profile instead.
-//
-// Response (200):
-//
-//	{ "message": "range deleted" }
-//
-// Errors:
-//   - 401: authentication required
-//   - 403: not a SCHOOL_ADMIN
-//   - 404: range or profile not found
-//
-// ---------------------------------------------------------------------------
-func (h *Handler) DeleteScaleRange(c *fiber.Ctx) error {
-	tenantID, schoolID, err := getTenantAndSchool(c)
-	if err != nil {
-		return err
-	}
-
-	profileID := c.Params("profileId")
-	rangeID := c.Params("rangeId")
-
-	if err := h.svc.DeleteScaleRange(c.Context(), rangeID, profileID, tenantID, schoolID); err != nil {
-		return middleware.HTTPError(c, err)
-	}
-	return c.JSON(fiber.Map{"message": "range deleted"})
 }
 
 // ============================================================================

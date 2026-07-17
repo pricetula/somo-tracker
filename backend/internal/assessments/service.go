@@ -34,35 +34,90 @@ func NewService(repo Repository) *Service {
 // GRADING SCALE PROFILES
 // ============================================================================
 
-// CreateScaleProfile creates a new grading scale profile.
-func (s *Service) CreateScaleProfile(ctx context.Context, params CreateScaleProfileParams) (string, error) {
+// CreateScaleProfile creates a new grading scale profile with its ranges.
+// The profile and all its percentage-to-level ranges are created in a single
+// atomic transaction. At minimum EE, ME, and AE ranges must be provided.
+func (s *Service) CreateScaleProfile(ctx context.Context, params CreateScaleProfileParams) (string, []string, error) {
 	params.Name = strings.TrimSpace(params.Name)
 	if params.TenantID == "" || params.SchoolID == "" {
-		return "", fmt.Errorf("assessments.Service.CreateScaleProfile: %w", ErrInvalidInput)
+		return "", nil, fmt.Errorf("assessments.Service.CreateScaleProfile: %w", ErrInvalidInput)
 	}
 	if params.Name == "" {
-		return "", fmt.Errorf("assessments.Service.CreateScaleProfile: name is required: %w", ErrInvalidInput)
+		return "", nil, fmt.Errorf("assessments.Service.CreateScaleProfile: name is required: %w", ErrInvalidInput)
 	}
 	if len(params.Name) > 255 {
-		return "", fmt.Errorf("assessments.Service.CreateScaleProfile: name must not exceed 255 characters: %w", ErrInvalidInput)
+		return "", nil, fmt.Errorf("assessments.Service.CreateScaleProfile: name must not exceed 255 characters: %w", ErrInvalidInput)
 	}
-	return s.Repo.CreateScaleProfile(ctx, params)
+	if len(params.Ranges) == 0 {
+		return "", nil, fmt.Errorf("assessments.Service.CreateScaleProfile: grading scale profiles must include at least one range: %w", ErrInvalidInput)
+	}
+
+	if err := s.validateScaleRanges(params.Ranges); err != nil {
+		return "", nil, fmt.Errorf("assessments.Service.CreateScaleProfile: %w", err)
+	}
+
+	return s.Repo.CreateScaleProfileWithRanges(ctx, params)
 }
 
-// GetScaleProfile retrieves a single scale profile by ID.
-func (s *Service) GetScaleProfile(ctx context.Context, id, tenantID, schoolID string) (*ScaleProfile, error) {
+// validateScaleRanges checks that ranges are valid: coverage of required levels,
+// valid percentages, and non-overlapping bounds.
+func (s *Service) validateScaleRanges(ranges []CreateScaleRangeParams) error {
+	if len(ranges) == 0 {
+		return fmt.Errorf("at least one range is required: %w", ErrInvalidInput)
+	}
+
+	levelsPresent := make(map[string]bool)
+	for _, r := range ranges {
+		if r.MinPercentage < 0 || r.MinPercentage > 100 || r.MaxPercentage < 0 || r.MaxPercentage > 100 {
+			return fmt.Errorf("percentages must be between 0 and 100: %w", ErrInvalidInput)
+		}
+		if r.MaxPercentage <= r.MinPercentage {
+			return fmt.Errorf("max_percentage must be greater than min_percentage: %w", ErrInvalidInput)
+		}
+		if !IsValidPerformanceLevel(r.PerformanceLevel) {
+			return fmt.Errorf("invalid performance level %q: %w", r.PerformanceLevel, ErrInvalidInput)
+		}
+		levelsPresent[r.PerformanceLevel] = true
+	}
+
+	required := []string{"EE", "ME", "AE"}
+	for _, l := range required {
+		if !levelsPresent[l] {
+			return fmt.Errorf("missing required level %s: %w", l, ErrInvalidInput)
+		}
+	}
+
+	return nil
+}
+
+// GetScaleProfile retrieves a single scale profile by ID, including its ranges.
+func (s *Service) GetScaleProfile(ctx context.Context, id, tenantID, schoolID string) (*ScaleProfileWithRanges, error) {
 	if id == "" || tenantID == "" || schoolID == "" {
 		return nil, fmt.Errorf("assessments.Service.GetScaleProfile: %w", ErrInvalidInput)
 	}
-	return s.Repo.GetScaleProfileByID(ctx, id, tenantID, schoolID)
+	profile, err := s.Repo.GetScaleProfileByID(ctx, id, tenantID, schoolID)
+	if err != nil {
+		return nil, err
+	}
+	if profile.Ranges == nil {
+		profile.Ranges = []ScaleRange{}
+	}
+	return profile, nil
 }
 
-// ListScaleProfiles returns all scale profiles for a tenant/school.
-func (s *Service) ListScaleProfiles(ctx context.Context, tenantID, schoolID string, activeOnly bool) ([]ScaleProfile, error) {
+// ListScaleProfiles returns all scale profiles for a tenant/school, each with its ranges.
+func (s *Service) ListScaleProfiles(ctx context.Context, tenantID, schoolID string, activeOnly bool) ([]ScaleProfileWithRanges, error) {
 	if tenantID == "" || schoolID == "" {
 		return nil, fmt.Errorf("assessments.Service.ListScaleProfiles: %w", ErrInvalidInput)
 	}
-	return s.Repo.ListScaleProfiles(ctx, tenantID, schoolID, activeOnly)
+	profiles, err := s.Repo.ListScaleProfiles(ctx, tenantID, schoolID, activeOnly)
+	if err != nil {
+		return nil, err
+	}
+	if profiles == nil {
+		profiles = []ScaleProfileWithRanges{}
+	}
+	return profiles, nil
 }
 
 // ToggleScaleProfileActive toggles the is_active flag on a profile.
@@ -79,85 +134,6 @@ func (s *Service) DeleteScaleProfile(ctx context.Context, id, tenantID, schoolID
 		return fmt.Errorf("assessments.Service.DeleteScaleProfile: %w", ErrInvalidInput)
 	}
 	return s.Repo.DeleteScaleProfile(ctx, id, tenantID, schoolID)
-}
-
-// GetScaleProfileWithRanges returns a profile with its ranges.
-func (s *Service) GetScaleProfileWithRanges(ctx context.Context, id, tenantID, schoolID string) (*ScaleProfileWithRanges, error) {
-	profile, err := s.Repo.GetScaleProfileByID(ctx, id, tenantID, schoolID)
-	if err != nil {
-		return nil, fmt.Errorf("assessments.Service.GetScaleProfileWithRanges: %w", err)
-	}
-	ranges, err := s.Repo.GetScaleRangesByProfile(ctx, id, tenantID, schoolID)
-	if err != nil {
-		return nil, fmt.Errorf("assessments.Service.GetScaleProfileWithRanges: get ranges: %w", err)
-	}
-	result := &ScaleProfileWithRanges{
-		ScaleProfile: *profile,
-		Ranges:       ranges,
-	}
-	if result.Ranges == nil {
-		result.Ranges = []ScaleRange{}
-	}
-	return result, nil
-}
-
-// ============================================================================
-// GRADING SCALE RANGES
-// ============================================================================
-
-// BulkSetScaleRanges replaces all ranges for a profile, with validation.
-func (s *Service) BulkSetScaleRanges(ctx context.Context, profileID, tenantID, schoolID string, ranges []CreateScaleRangeParams) ([]string, error) {
-	// Verify profile exists and belongs to tenant
-	if _, err := s.Repo.GetScaleProfileByID(ctx, profileID, tenantID, schoolID); err != nil {
-		return nil, fmt.Errorf("assessments.Service.BulkSetScaleRanges: %w", err)
-	}
-
-	// Validate ranges
-	if len(ranges) == 0 {
-		return nil, fmt.Errorf("assessments.Service.BulkSetScaleRanges: at least one range is required: %w", ErrInvalidInput)
-	}
-
-	// Validate all four levels are covered
-	levelsPresent := make(map[string]bool)
-	for _, r := range ranges {
-		if r.MinPercentage < 0 || r.MinPercentage > 100 || r.MaxPercentage < 0 || r.MaxPercentage > 100 {
-			return nil, fmt.Errorf("assessments.Service.BulkSetScaleRanges: percentages must be between 0 and 100: %w", ErrInvalidInput)
-		}
-		if r.MaxPercentage <= r.MinPercentage {
-			return nil, fmt.Errorf("assessments.Service.BulkSetScaleRanges: max_percentage must be greater than min_percentage: %w", ErrInvalidInput)
-		}
-		if !IsValidPerformanceLevel(r.PerformanceLevel) {
-			return nil, fmt.Errorf("assessments.Service.BulkSetScaleRanges: invalid performance level %q: %w", r.PerformanceLevel, ErrInvalidInput)
-		}
-		levelsPresent[r.PerformanceLevel] = true
-	}
-
-	// Warn but don't block if not all levels are covered — the exclusion
-	// constraint handles gaps. But validate at least EE, ME, AE should be present.
-	required := []string{"EE", "ME", "AE"}
-	for _, l := range required {
-		if !levelsPresent[l] {
-			return nil, fmt.Errorf("assessments.Service.BulkSetScaleRanges: missing required level %s: %w", l, ErrInvalidInput)
-		}
-	}
-
-	return s.Repo.BulkSetScaleRanges(ctx, profileID, ranges)
-}
-
-// GetScaleRanges returns all ranges for a profile.
-func (s *Service) GetScaleRanges(ctx context.Context, profileID, tenantID, schoolID string) ([]ScaleRange, error) {
-	if profileID == "" || tenantID == "" || schoolID == "" {
-		return nil, fmt.Errorf("assessments.Service.GetScaleRanges: %w", ErrInvalidInput)
-	}
-	return s.Repo.GetScaleRangesByProfile(ctx, profileID, tenantID, schoolID)
-}
-
-// DeleteScaleRange removes a single range from a profile.
-func (s *Service) DeleteScaleRange(ctx context.Context, rangeID, profileID, tenantID, schoolID string) error {
-	if rangeID == "" || profileID == "" {
-		return fmt.Errorf("assessments.Service.DeleteScaleRange: %w", ErrInvalidInput)
-	}
-	return s.Repo.DeleteScaleRange(ctx, rangeID, profileID, tenantID, schoolID)
 }
 
 // ============================================================================
@@ -288,7 +264,7 @@ func (s *Service) ApproveSession(ctx context.Context, id, tenantID, schoolID, us
 		if err != nil {
 			return fmt.Errorf("assessments.Service.ApproveSession: get scale profile: %w", err)
 		}
-		if err := s.Repo.SnapshotPerformanceLevels(ctx, id, profile); err != nil {
+		if err := s.Repo.SnapshotPerformanceLevels(ctx, id, &profile.ScaleProfile); err != nil {
 			return fmt.Errorf("assessments.Service.ApproveSession: snapshot: %w", err)
 		}
 	}

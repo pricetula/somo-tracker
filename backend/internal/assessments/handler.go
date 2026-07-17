@@ -57,7 +57,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	wcfg := router.Group("/api/v1/assessments/weight-configs")
 	wcfg.Get("/", middleware.RequireAuth, h.ListWeightConfigs)
 	wcfg.Get("/:id", middleware.RequireAuth, h.GetWeightConfig)
-	wcfg.Post("/", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN"), h.CreateWeightConfig)
+	wcfg.Post("/", middleware.RequireAuth, middleware.RequireRole("SYSTEM_ADMIN"), h.CreateWeightConfig)
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────

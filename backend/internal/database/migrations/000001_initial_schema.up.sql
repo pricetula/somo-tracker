@@ -246,6 +246,20 @@ CREATE INDEX IF NOT EXISTS idx_sessions_user_id              ON sessions (user_i
 CREATE INDEX IF NOT EXISTS idx_sessions_tenant_id            ON sessions (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_stytch_session_token ON sessions (stytch_session_token);
 
+-- token_hash: SHA-256 hashed token for lookups (migration 000003)
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS token_hash TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_token_hash ON sessions (token_hash);
+
+COMMENT ON COLUMN sessions.token IS
+    'DEPRECATED — raw session token. New code should read token_hash instead.
+     This column will be dropped in a future migration after the app is
+     confirmed fully migrated to hash-based lookups. Do NOT write to this
+     column in new code.';
+
+COMMENT ON COLUMN sessions.token_hash IS
+    'SHA-256 hash of the session token (hex-encoded). Backfilled from token
+     column. Use this for token lookups instead of the raw token column.';
+
 -- ============================================================================
 -- LAYER 2 — CORE CBC ACTORS
 -- ============================================================================
@@ -674,6 +688,20 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_invitations_active_email
 CREATE UNIQUE INDEX IF NOT EXISTS uq_invitations_school_email_pending
     ON invitations (school_id, email)
     WHERE status = 'pending';
+
+-- token_hash: SHA-256 hashed token for lookups (migration 000003)
+ALTER TABLE invitations ADD COLUMN IF NOT EXISTS token_hash TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_invitations_token_hash ON invitations (token_hash);
+
+COMMENT ON COLUMN invitations.token IS
+    'DEPRECATED — raw invitation token. New code should read token_hash instead.
+     This column will be dropped in a future migration after the app is
+     confirmed fully migrated to hash-based lookups. Do NOT write to this
+     column in new code.';
+
+COMMENT ON COLUMN invitations.token_hash IS
+    'SHA-256 hash of the invitation token (hex-encoded). Backfilled from token
+     column. Use this for token lookups instead of the raw token column.';
 
 -- ---------------------------------------------------------------------------
 -- CBC PARENTS

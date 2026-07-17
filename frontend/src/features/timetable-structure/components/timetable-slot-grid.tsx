@@ -21,6 +21,7 @@ import {
 import { AddSlotDialog } from "./add-slot-dialog";
 import { EditBlockDialog } from "./edit-block-dialog";
 import { ClassCombobox } from "@/features/classes/components/class-combobox";
+import { useClassList } from "@/features/classes/hooks/use-classes";
 
 import type {
     TimeBlock,
@@ -65,7 +66,12 @@ const DAYS = [1, 2, 3, 4, 5];
 export function TimetableSlotGrid({ blocks, academicYearID, isLoading }: TimetableSlotGridProps) {
     const [selectedClassID, setSelectedClassID] = useState("");
 
-    const viewBy = selectedClassID ? { mode: "class" as const, id: selectedClassID } : undefined;
+    // Derive the effective class ID — defaults to the first class when data loads
+    const { data: classData } = useClassList();
+    const classItems = classData?.items ?? [];
+    const resolvedClassID = selectedClassID || classItems[0]?.value || "";
+
+    const viewBy = resolvedClassID ? { mode: "class" as const, id: resolvedClassID } : undefined;
     const { data: enrichedData, isLoading: slotsLoading } = useEnrichedSlotList(
         academicYearID,
         viewBy
@@ -115,7 +121,7 @@ export function TimetableSlotGrid({ blocks, academicYearID, isLoading }: Timetab
             }
             return;
         }
-        if (!selectedClassID) return;
+        if (!resolvedClassID) return;
         setAssignStructureID(block.id);
         setAssignPeriod(block.period_name);
         setAssignDay(day);
@@ -185,7 +191,7 @@ export function TimetableSlotGrid({ blocks, academicYearID, isLoading }: Timetab
             {/* Class selector */}
             <div className="max-w-xs">
                 <ClassCombobox
-                    value={selectedClassID}
+                    value={resolvedClassID}
                     onChange={(v) => setSelectedClassID(v as string)}
                     placeholder="Select a class to assign..."
                 />
@@ -294,7 +300,7 @@ export function TimetableSlotGrid({ blocks, academicYearID, isLoading }: Timetab
                                                 ) : (
                                                     <span className="text-muted-foreground/40 flex items-center gap-1 text-xs">
                                                         <Plus className="h-3 w-3" />
-                                                        {selectedClassID
+                                                        {resolvedClassID
                                                             ? "Assign"
                                                             : "Select class"}
                                                     </span>
@@ -319,7 +325,7 @@ export function TimetableSlotGrid({ blocks, academicYearID, isLoading }: Timetab
                 timeRange={assignTimeRange}
                 academicYearID={academicYearID}
                 isPending={createMutation.isPending}
-                classID={selectedClassID}
+                classID={resolvedClassID}
                 onSubmit={handleCreateSlot}
             />
 

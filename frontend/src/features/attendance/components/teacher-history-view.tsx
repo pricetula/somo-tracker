@@ -1,9 +1,6 @@
 /**
  * TeacherHistoryView — shows past periods the teacher has taught with
- * attendance marking status. Same-day edit allowed; after that, read-only.
- *
- * Fetches the teacher's enriched timetable slots for the current academic year,
- * filters to past slots (before today), and shows their attendance marking status.
+ * attendance marking status using the shared DataTable component.
  */
 
 "use client";
@@ -16,16 +13,10 @@ import { useAcademicYears } from "@/features/academic-terms/hooks/use-academic-t
 import Link from "next/link";
 import { AlertCircle, ClipboardList } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DataTable } from "@/components/shared/data-table";
+import type { DataTableColumn } from "@/components/shared/data-table/types";
 import { AttendanceEmptyState } from "./attendance-empty-state";
 
 function getCurrentDayOfWeek(): number {
@@ -33,9 +24,6 @@ function getCurrentDayOfWeek(): number {
     return jsDay === 0 ? 7 : jsDay;
 }
 
-/** Compute the calendar date (YYYY-MM-DD) for a given day_of_week (1=Mon..7=Sun)
- *  in the current week (ending today). Past days keep their calendar date.
- */
 function dateForDayOfWeek(dayOfWeek: number): string {
     const today = new Date();
     const currentDow = getCurrentDayOfWeek();
@@ -43,6 +31,27 @@ function dateForDayOfWeek(dayOfWeek: number): string {
     const target = new Date(today);
     target.setDate(today.getDate() + diff);
     return target.toISOString().split("T")[0];
+}
+
+const dayNames: Record<number, string> = {
+    1: "Monday",
+    2: "Tuesday",
+    3: "Wednesday",
+    4: "Thursday",
+    5: "Friday",
+    6: "Saturday",
+    7: "Sunday",
+};
+
+interface PastSlotRow {
+    id: string;
+    day_of_week: number;
+    slot_date: string;
+    period_name: string;
+    class_name: string;
+    start_time: string;
+    end_time: string;
+    is_today: boolean;
 }
 
 export function TeacherHistoryView() {
@@ -64,7 +73,7 @@ export function TeacherHistoryView() {
 
     const isLoading = meLoading || yearsLoading || slotsLoading;
 
-    const pastSlots = useMemo(() => {
+    const pastSlots = useMemo<PastSlotRow[]>(() => {
         if (!slotsData?.items) return [];
         return slotsData.items
             .filter(
@@ -80,14 +89,95 @@ export function TeacherHistoryView() {
             )
             .sort(
                 (a, b) => b.day_of_week - a.day_of_week || b.start_time.localeCompare(a.start_time)
-            );
+            )
+            .map((s) => ({
+                id: s.id,
+                day_of_week: s.day_of_week,
+                slot_date: dateForDayOfWeek(s.day_of_week),
+                period_name: s.period_name,
+                class_name: s.class_name,
+                start_time: s.start_time,
+                end_time: s.end_time,
+                is_today: s.day_of_week === currentDay,
+            }));
     }, [slotsData, currentDay]);
 
+    // ── Columns ───────────────────────────────────────────────────────
+    const columns: DataTableColumn<PastSlotRow>[] = [
+        {
+            id: "day",
+            header: "Day",
+            cell: (row) => (
+                <div className="flex items-center gap-2">
+                    <span>{dayNames[row.day_of_week] ?? `Day ${row.day_of_week}`}</span>
+                    <span className="text-muted-foreground text-xs">{row.slot_date}</span>
+                    {row.is_today && (
+                        <Badge variant="outline" className="text-xs">
+                            Today
+                        </Badge>
+                    )}
+                </div>
+            ),
+        },
+        {
+            id: "period",
+            header: "Period",
+            width: "120px",
+            cell: (row) => <span className="font-medium">{row.period_name}</span>,
+        },
+        {
+            id: "class",
+            header: "Class",
+            width: "minmax(120px, 1fr)",
+            cell: (row) => <span>{row.class_name}</span>,
+        },
+        {
+            id: "time",
+            header: "Time",
+            width: "140px",
+            cell: (row) => (
+                <span className="text-muted-foreground">
+                    {row.start_time} &ndash; {row.end_time}
+                </span>
+            ),
+        },
+        {
+            id: "status",
+            header: "Status",
+            width: "120px",
+            cell: (row) => (
+                <Badge
+                    variant={row.is_today ? "secondary" : "outline"}
+                    className={row.is_today ? "bg-amber-100 text-amber-800" : ""}
+                >
+                    {row.is_today ? "Mark now / View" : "Completed"}
+                </Badge>
+            ),
+        },
+        {
+            id: "actions",
+            header: "",
+            width: "80px",
+            align: "right",
+            cell: (row) => (
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() =>
+                        router.push(`/attendance/register/${row.id}?date=${row.slot_date}`)
+                    }
+                >
+                    View
+                </Button>
+            ),
+        },
+    ];
+
+    // ── Loading ───────────────────────────────────────────────────────
     if (isLoading) {
         return (
             <div className="space-y-4">
                 <Skeleton className="h-8 w-64" />
-                <Skeleton className="h-16 w-full rounded-lg" />
                 <Skeleton className="h-16 w-full rounded-lg" />
                 <Skeleton className="h-16 w-full rounded-lg" />
             </div>
@@ -122,12 +212,12 @@ export function TeacherHistoryView() {
                 <h1 className="text-2xl font-bold">Attendance History</h1>
                 <p className="text-muted-foreground">
                     Past periods you have taught. Same-day edits are allowed; older records are
-                    read-only. Contact your admin for corrections after the same-day window closes.
+                    read-only.
                 </p>
                 <AttendanceEmptyState
                     icon={ClipboardList}
                     title="No past periods this week"
-                    description="You don't have any completed periods for this week. History will populate once you've taught and marked attendance."
+                    description="You don't have any completed periods for this week."
                 >
                     <Button variant="outline" size="sm" asChild>
                         <Link href="/attendance">Return to attendance</Link>
@@ -137,15 +227,7 @@ export function TeacherHistoryView() {
         );
     }
 
-    const dayNames: Record<number, string> = {
-        1: "Monday",
-        2: "Tuesday",
-        3: "Wednesday",
-        4: "Thursday",
-        5: "Friday",
-        6: "Saturday",
-        7: "Sunday",
-    };
+    const queryFn = () => Promise.resolve({ items: pastSlots, total: pastSlots.length });
 
     return (
         <div className="space-y-6">
@@ -155,65 +237,16 @@ export function TeacherHistoryView() {
                 read-only. Contact your admin for corrections after the same-day window closes.
             </p>
 
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Day</TableHead>
-                        <TableHead>Period</TableHead>
-                        <TableHead>Class</TableHead>
-                        <TableHead>Time</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="w-20" />
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {pastSlots.map((slot) => {
-                        const isToday = slot.day_of_week === currentDay;
-                        const slotDate = dateForDayOfWeek(slot.day_of_week);
-                        return (
-                            <TableRow key={slot.id}>
-                                <TableCell>
-                                    {dayNames[slot.day_of_week] ?? `Day ${slot.day_of_week}`}
-                                    <span className="text-muted-foreground ml-1 text-xs">
-                                        {slotDate}
-                                    </span>
-                                    {isToday && (
-                                        <Badge variant="outline" className="ml-2 text-xs">
-                                            Today
-                                        </Badge>
-                                    )}
-                                </TableCell>
-                                <TableCell className="font-medium">{slot.period_name}</TableCell>
-                                <TableCell>{slot.class_name}</TableCell>
-                                <TableCell className="text-muted-foreground">
-                                    {slot.start_time} &ndash; {slot.end_time}
-                                </TableCell>
-                                <TableCell>
-                                    <Badge
-                                        variant={isToday ? "secondary" : "outline"}
-                                        className={isToday ? "bg-amber-100 text-amber-800" : ""}
-                                    >
-                                        {isToday ? "Mark now / View" : "Completed"}
-                                    </Badge>
-                                </TableCell>
-                                <TableCell>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() =>
-                                            router.push(
-                                                `/attendance/register/${slot.id}?date=${slotDate}`
-                                            )
-                                        }
-                                    >
-                                        View
-                                    </Button>
-                                </TableCell>
-                            </TableRow>
-                        );
-                    })}
-                </TableBody>
-            </Table>
+            <DataTable
+                queryKey={["teacher-history", me?.user_id, currentYear?.id]}
+                queryFn={queryFn}
+                columns={columns}
+                getRowId={(row) => row.id}
+                emptyState="No past periods this week."
+                noResultsState="No periods match your search."
+                pageSize={50}
+                height={Math.min(pastSlots.length * 44 + 60, 500)}
+            />
         </div>
     );
 }

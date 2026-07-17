@@ -7,6 +7,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,6 +56,7 @@ export function AddSlotDialog({
     classID,
     onSubmit,
 }: AddSlotDialogProps) {
+    const router = useRouter();
     const { data: teachersData } = useTeachers({ limit: 200 });
     const { data: learningAreasData } = useLearningAreas({});
 
@@ -126,6 +128,7 @@ export function AddSlotDialog({
                             placeholder="Select a learning area..."
                             emptyText="No learning area found."
                             className="w-full"
+                            onCreateItem={() => router.push("/curriculum/new")}
                         />
                     </div>
 

@@ -1,26 +1,22 @@
 /**
  * AcademicYearsList — lists all academic years with management actions.
  *
- * Renders a table of years with name, date range, current badge,
- * and actions (Set Current, Edit, Delete).
+ * Uses the shared DataTable component with per-row Set Current, Edit, Delete actions.
  */
 
 "use client";
 
 import Link from "next/link";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { DataTable } from "@/components/shared/data-table";
+import type { DataTableColumn } from "@/components/shared/data-table/types";
+import { listAcademicYears, setCurrentYear, deleteAcademicYear } from "@/lib/api/academic-terms";
+import type { AcademicYear } from "@/lib/api/academic-terms";
+import { getErrorMessage } from "@/lib/errors";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -32,150 +28,140 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { getErrorMessage } from "@/lib/errors";
-import {
-    useAcademicYearsManage,
-    useSetCurrentYear,
-    useDeleteAcademicYear,
-} from "../hooks/use-academic-years";
 
-export function AcademicYearsList() {
-    const { data, isLoading, isError, error } = useAcademicYearsManage();
-    const setCurrentMutation = useSetCurrentYear();
-    const deleteMutation = useDeleteAcademicYear();
+// ─── Actions cell ─────────────────────────────────────────────────────────
 
-    // ── Loading state ─────────────────────────────────────────────────────
-    if (isLoading) {
-        return (
-            <div className="space-y-3">
-                <Skeleton className="h-8 w-48" />
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-            </div>
-        );
-    }
+function ActionsCell({ year }: { year: AcademicYear }) {
+    const queryClient = useQueryClient();
 
-    // ── Error state ──────────────────────────────────────────────────────
-    if (isError) {
-        return (
-            <Alert variant="destructive">
-                <AlertDescription>{getErrorMessage(error)}</AlertDescription>
-            </Alert>
-        );
-    }
+    const setCurrentMutation = useMutation({
+        mutationFn: () => setCurrentYear(year.id),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["academic-years"] });
+            toast.success(`${year.name} set as current year.`);
+        },
+        onError: (err) => toast.error(getErrorMessage(err)),
+    });
 
-    const years = data?.items ?? [];
-
-    if (years.length === 0) {
-        return (
-            <div className="space-y-4">
-                <p className="text-muted-foreground">
-                    No academic years yet. Create your first academic year to get started.
-                </p>
-                <Button asChild>
-                    <Link href="/academic-years/new">Add Academic Year</Link>
-                </Button>
-            </div>
-        );
-    }
+    const deleteMutation = useMutation({
+        mutationFn: () => deleteAcademicYear(year.id),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["academic-years"] });
+            toast.success("Academic year deleted.");
+        },
+        onError: (err) => toast.error(getErrorMessage(err)),
+    });
 
     return (
-        <div className="space-y-4">
-            <div className="flex items-center justify-between">
-                <p className="text-muted-foreground">
-                    {years.length} year{years.length !== 1 ? "s" : ""}
-                </p>
-                <Button asChild>
-                    <Link href="/academic-years/new">Add Academic Year</Link>
+        <div className="flex items-center justify-end gap-2">
+            {!year.is_current && (
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentMutation.mutate()}
+                    disabled={setCurrentMutation.isPending}
+                >
+                    Set Current
                 </Button>
-            </div>
-
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Start Date</TableHead>
-                        <TableHead>End Date</TableHead>
-                        <TableHead>Terms</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {years.map((year) => (
-                        <TableRow key={year.id}>
-                            <TableCell className="font-medium">
-                                <Link
-                                    href={`/academic-years/${year.id}`}
-                                    className="hover:text-primary transition-colors"
-                                >
-                                    {year.name}
-                                </Link>
-                            </TableCell>
-                            <TableCell>{year.start_date}</TableCell>
-                            <TableCell>{year.end_date}</TableCell>
-                            <TableCell>{year.terms?.length ?? 0}</TableCell>
-                            <TableCell>
-                                {year.is_current ? (
-                                    <Badge variant="default">Current</Badge>
-                                ) : (
-                                    <span className="text-muted-foreground">Inactive</span>
-                                )}
-                            </TableCell>
-                            <TableCell className="text-right">
-                                <div className="flex items-center justify-end gap-2">
-                                    {!year.is_current && (
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => setCurrentMutation.mutate(year.id)}
-                                            disabled={setCurrentMutation.isPending}
-                                        >
-                                            Set Current
-                                        </Button>
-                                    )}
-                                    <Button variant="outline" size="sm" asChild>
-                                        <Link href={`/academic-years/${year.id}`}>Edit</Link>
-                                    </Button>
-                                    <AlertDialog>
-                                        <AlertDialogTrigger asChild>
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                className="text-destructive"
-                                                disabled={deleteMutation.isPending}
-                                            >
-                                                Delete
-                                            </Button>
-                                        </AlertDialogTrigger>
-                                        <AlertDialogContent>
-                                            <AlertDialogHeader>
-                                                <AlertDialogTitle>
-                                                    Delete Academic Year
-                                                </AlertDialogTitle>
-                                                <AlertDialogDescription>
-                                                    Are you sure you want to delete &ldquo;
-                                                    {year.name}&rdquo;? This will also delete all
-                                                    terms, assessments, and other linked records
-                                                    within this year. This action cannot be undone.
-                                                </AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                <AlertDialogAction
-                                                    onClick={() => deleteMutation.mutate(year.id)}
-                                                >
-                                                    Delete
-                                                </AlertDialogAction>
-                                            </AlertDialogFooter>
-                                        </AlertDialogContent>
-                                    </AlertDialog>
-                                </div>
-                            </TableCell>
-                        </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
+            )}
+            <Button variant="outline" size="sm" asChild>
+                <Link href={`/academic-years/${year.id}`}>Edit</Link>
+            </Button>
+            <AlertDialog>
+                <AlertDialogTrigger asChild>
+                    <Button variant="outline" size="sm" className="text-destructive">
+                        Delete
+                    </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Academic Year</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to delete &ldquo;{year.name}&rdquo;? This will
+                            also delete all terms, assessments, and other linked records within this
+                            year. This action cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => deleteMutation.mutate()}>
+                            Delete
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
+    );
+}
+
+// ─── Columns ──────────────────────────────────────────────────────────────
+
+const columns: DataTableColumn<AcademicYear>[] = [
+    {
+        id: "name",
+        header: "Name",
+        cell: (row) => (
+            <Link
+                href={`/academic-years/${row.id}`}
+                className="hover:text-primary font-medium transition-colors"
+            >
+                {row.name}
+            </Link>
+        ),
+    },
+    {
+        id: "start_date",
+        header: "Start Date",
+        width: "120px",
+        cell: (row) => <span className="text-muted-foreground">{row.start_date}</span>,
+    },
+    {
+        id: "end_date",
+        header: "End Date",
+        width: "120px",
+        cell: (row) => <span className="text-muted-foreground">{row.end_date}</span>,
+    },
+    {
+        id: "terms_count",
+        header: "Terms",
+        width: "80px",
+        align: "right",
+        cell: (row) => (
+            <span className="text-muted-foreground tabular-nums">{row.terms?.length ?? 0}</span>
+        ),
+    },
+    {
+        id: "is_current",
+        header: "Status",
+        width: "100px",
+        cell: (row) =>
+            row.is_current ? (
+                <Badge variant="default">Current</Badge>
+            ) : (
+                <span className="text-muted-foreground">Inactive</span>
+            ),
+    },
+    {
+        id: "actions",
+        header: "",
+        width: "280px",
+        align: "right",
+        cell: (row) => <ActionsCell year={row} />,
+    },
+];
+
+// ─── Component ────────────────────────────────────────────────────────────
+
+export function AcademicYearsList() {
+    return (
+        <DataTable
+            addHref="/academic-years/new"
+            queryKey={["academic-years"]}
+            queryFn={() => listAcademicYears()}
+            columns={columns}
+            getRowId={(row) => row.id}
+            emptyState="No academic years yet. Create your first academic year to get started."
+            noResultsState="No academic years match your search."
+        />
     );
 }

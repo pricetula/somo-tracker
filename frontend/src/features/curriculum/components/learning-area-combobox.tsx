@@ -30,6 +30,11 @@ export interface LearningAreaComboboxProps {
     className?: string;
     /** Allow selecting multiple (default: false). */
     isMultiSelect?: boolean;
+    /**
+     * When search yields no results, shows a "Create" option.
+     * If omitted, no create option is shown.
+     */
+    onCreateItem?: (search: string) => void;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────
@@ -40,6 +45,7 @@ export function LearningAreaCombobox({
     placeholder = "Select a learning area...",
     className,
     isMultiSelect = false,
+    onCreateItem,
 }: LearningAreaComboboxProps) {
     const { data, isLoading, isError, error } = useLearningAreas();
 
@@ -97,6 +103,7 @@ export function LearningAreaCombobox({
                 placeholder={placeholder}
                 emptyText="No learning area found."
                 className={cn("w-full", className)}
+                onCreateItem={onCreateItem}
             />
         );
     }
@@ -111,6 +118,7 @@ export function LearningAreaCombobox({
             placeholder={placeholder}
             emptyText="No learning area found."
             className={cn("w-full", className)}
+            onCreateItem={onCreateItem}
             renderTrigger={({ selectedItems }) =>
                 selectedItems.length > 0 ? (
                     <span className="flex flex-wrap gap-1">

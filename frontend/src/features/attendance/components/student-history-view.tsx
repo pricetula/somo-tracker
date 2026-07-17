@@ -1,24 +1,23 @@
 /**
  * StudentHistoryView — raw period-by-period attendance history for a student.
  *
- * Used by admins for manual interpretation. Includes term filter and inline edit.
+ * Uses the shared DataTable component with term filter and inline edit via dialog.
  */
 
 "use client";
 
 import { useState } from "react";
-import { CalendarX } from "lucide-react";
+import { CalendarX, Loader2, Pencil } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import {
+    Dialog,
+    DialogContent,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import {
     Select,
     SelectContent,
@@ -29,13 +28,27 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Pencil } from "lucide-react";
+import { DataTable } from "@/components/shared/data-table";
+import type { DataTableColumn } from "@/components/shared/data-table/types";
 
 import { AttendanceEmptyState } from "./attendance-empty-state";
 import { useStudentHistory, useUpdateAttendanceRecord } from "../hooks/use-attendance";
 import { useAcademicTerms } from "@/features/academic-terms/hooks/use-academic-terms";
-import type { AttendanceStatus } from "../types";
+import type { AttendanceStatus, AttendanceRecord } from "../types";
 import { attendanceBadgeProps, attendanceStatusLabel } from "../types";
+
+// ─── Status cell ──────────────────────────────────────────────────────────
+
+function StatusBadgeCell({ status }: { status: AttendanceStatus }) {
+    return (
+        <Badge
+            variant={attendanceBadgeProps(status).variant}
+            className={attendanceBadgeProps(status).className}
+        >
+            {attendanceStatusLabel(status)}
+        </Badge>
+    );
+}
 
 interface StudentHistoryViewProps {
     studentId: string;
@@ -48,54 +61,27 @@ export function StudentHistoryView({ studentId, termId }: StudentHistoryViewProp
     const [endDate, setEndDate] = useState("");
     const { data: termsData } = useAcademicTerms();
     const terms = termsData?.items ?? [];
-    const [editingId, setEditingId] = useState<string | null>(null);
+
+    // Edit dialog state
+    const [editRecord, setEditRecord] = useState<AttendanceRecord | null>(null);
     const [editStatus, setEditStatus] = useState<AttendanceStatus>("PRESENT");
+    const updateRecord = useUpdateAttendanceRecord();
 
     const { data, isLoading, isError } = useStudentHistory(studentId, {
         term_id: selectedTermId,
         start_date: startDate || undefined,
         end_date: endDate || undefined,
     });
-    const updateRecord = useUpdateAttendanceRecord();
-
-    const handleEdit = (recordId: string, currentStatus: AttendanceStatus) => {
-        setEditingId(recordId);
-        setEditStatus(currentStatus);
-    };
-
-    const handleSave = (recordId: string) => {
-        updateRecord.mutate(
-            { recordId, status: editStatus },
-            {
-                onSuccess: () => {
-                    setEditingId(null);
-                },
-            }
-        );
-    };
-
-    if (isLoading) {
-        return (
-            <div className="space-y-3">
-                <Skeleton className="h-8 w-48" />
-                <Skeleton className="h-8 w-full" />
-                <Skeleton className="h-8 w-full" />
-                <Skeleton className="h-8 w-full" />
-            </div>
-        );
-    }
-
-    if (isError) {
-        return (
-            <div className="border-destructive/50 text-destructive rounded-md border p-4">
-                Failed to load attendance history.
-            </div>
-        );
-    }
 
     const records = data?.items ?? [];
 
-    // Compute summary from records
+    // Wrapper function that filters by the selected filters
+    const queryFn = () => {
+        // The data is already fetched via the hook above
+        return Promise.resolve({ items: records, total: records.length });
+    };
+
+    // ── Computed summary ─────────────────────────────────────────────
     const summary = (() => {
         if (!records.length) return null;
         const counts: Record<string, number> = {};
@@ -114,6 +100,78 @@ export function StudentHistoryView({ studentId, termId }: StudentHistoryViewProp
             percentage,
         };
     })();
+
+    // ── Edit handlers ─────────────────────────────────────────────────
+    const openEdit = (record: AttendanceRecord) => {
+        setEditRecord(record);
+        setEditStatus(record.status);
+    };
+
+    const handleSaveEdit = () => {
+        if (!editRecord) return;
+        updateRecord.mutate(
+            { recordId: editRecord.id, status: editStatus },
+            { onSuccess: () => setEditRecord(null) }
+        );
+    };
+
+    // ── Columns ───────────────────────────────────────────────────────
+    const columns: DataTableColumn<AttendanceRecord>[] = [
+        {
+            id: "date",
+            header: "Date",
+            cell: (row) => <span>{row.date}</span>,
+        },
+        {
+            id: "status",
+            header: "Status",
+            width: "120px",
+            cell: (row) => <StatusBadgeCell status={row.status} />,
+        },
+        {
+            id: "note",
+            header: "Note",
+            width: "minmax(120px, 1fr)",
+            cell: (row) => <span className="text-muted-foreground">{row.note ?? "—"}</span>,
+        },
+        {
+            id: "actions",
+            header: "",
+            width: "60px",
+            align: "right",
+            cell: (row) => (
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => openEdit(row)}
+                >
+                    <Pencil className="h-4 w-4" />
+                </Button>
+            ),
+        },
+    ];
+
+    // ── Loading ───────────────────────────────────────────────────────
+    if (isLoading) {
+        return (
+            <div className="space-y-3">
+                <Skeleton className="h-8 w-48" />
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-8 w-full" />
+            </div>
+        );
+    }
+
+    // ── Error ─────────────────────────────────────────────────────────
+    if (isError) {
+        return (
+            <div className="border-destructive/50 text-destructive rounded-md border p-4">
+                Failed to load attendance history.
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-4">
@@ -180,7 +238,6 @@ export function StudentHistoryView({ studentId, termId }: StudentHistoryViewProp
                         className="w-40"
                     />
                 </div>
-                <p className="text-muted-foreground">{records.length} records</p>
                 {(startDate || endDate) && (
                     <Button
                         variant="ghost"
@@ -196,6 +253,7 @@ export function StudentHistoryView({ studentId, termId }: StudentHistoryViewProp
                 )}
             </div>
 
+            {/* Records table */}
             {records.length === 0 ? (
                 <AttendanceEmptyState
                     icon={CalendarX}
@@ -209,79 +267,66 @@ export function StudentHistoryView({ studentId, termId }: StudentHistoryViewProp
                     )}
                 </AttendanceEmptyState>
             ) : (
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Date</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Note</TableHead>
-                            <TableHead className="w-20" />
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {records.map((record) => (
-                            <TableRow key={record.id}>
-                                <TableCell>{record.date}</TableCell>
-                                <TableCell>
-                                    {editingId === record.id ? (
-                                        <Select
-                                            value={editStatus}
-                                            onValueChange={(val) =>
-                                                setEditStatus(val as AttendanceStatus)
-                                            }
-                                        >
-                                            <SelectTrigger className="w-32">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="PRESENT">Present</SelectItem>
-                                                <SelectItem value="ABSENT">Absent</SelectItem>
-                                                <SelectItem value="LATE">Late</SelectItem>
-                                                <SelectItem value="EXCUSED">Excused</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    ) : (
-                                        <Badge
-                                            variant={attendanceBadgeProps(record.status).variant}
-                                            className={
-                                                attendanceBadgeProps(record.status).className
-                                            }
-                                        >
-                                            {attendanceStatusLabel(record.status)}
-                                        </Badge>
-                                    )}
-                                </TableCell>
-                                <TableCell className="text-muted-foreground">
-                                    {record.note ?? "—"}
-                                </TableCell>
-                                <TableCell>
-                                    {editingId === record.id ? (
-                                        <Button
-                                            size="sm"
-                                            onClick={() => handleSave(record.id)}
-                                            disabled={updateRecord.isPending}
-                                        >
-                                            {updateRecord.isPending && (
-                                                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                                            )}
-                                            Save
-                                        </Button>
-                                    ) : (
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-8 w-8"
-                                            onClick={() => handleEdit(record.id, record.status)}
-                                        >
-                                            <Pencil className="h-4 w-4" />
-                                        </Button>
-                                    )}
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
+                <DataTable
+                    queryKey={[
+                        "attendance",
+                        "history",
+                        studentId,
+                        selectedTermId,
+                        startDate,
+                        endDate,
+                    ]}
+                    queryFn={queryFn}
+                    columns={columns}
+                    getRowId={(row) => row.id}
+                    height={Math.min(records.length * 44 + 50, 500)}
+                    pageSize={100}
+                    emptyState="No attendance records found."
+                    noResultsState="No records match your filters."
+                />
             )}
+
+            {/* Edit dialog */}
+            <Dialog
+                open={!!editRecord}
+                onOpenChange={(open) => {
+                    if (!open) setEditRecord(null);
+                }}
+            >
+                <DialogContent className="sm:max-w-sm">
+                    <DialogHeader>
+                        <DialogTitle>Edit Attendance Record</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-2">
+                        <Label>Status</Label>
+                        <Select
+                            value={editStatus}
+                            onValueChange={(val) => setEditStatus(val as AttendanceStatus)}
+                        >
+                            <SelectTrigger>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="PRESENT">Present</SelectItem>
+                                <SelectItem value="ABSENT">Absent</SelectItem>
+                                <SelectItem value="LATE">Late</SelectItem>
+                                <SelectItem value="EXCUSED">Excused</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setEditRecord(null)}>
+                            Cancel
+                        </Button>
+                        <Button onClick={handleSaveEdit} disabled={updateRecord.isPending}>
+                            {updateRecord.isPending && (
+                                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                            )}
+                            Save
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

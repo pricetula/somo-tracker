@@ -148,6 +148,7 @@ export function CreateAssessmentSessionForm({ onSuccess }: Props) {
                         setFieldErrors({});
                     }}
                     placeholder="Select a class..."
+                    onCreateItem={() => router.push("/classes/add")}
                 />
                 {fieldErrors.class_id && (
                     <p className="text-destructive text-xs">{fieldErrors.class_id[0]}</p>
@@ -164,6 +165,7 @@ export function CreateAssessmentSessionForm({ onSuccess }: Props) {
                         setFieldErrors({});
                     }}
                     placeholder="Select a learning area..."
+                    onCreateItem={() => router.push("/curriculum/new")}
                 />
                 {fieldErrors.learning_area_id && (
                     <p className="text-destructive text-xs">{fieldErrors.learning_area_id[0]}</p>
@@ -180,6 +182,7 @@ export function CreateAssessmentSessionForm({ onSuccess }: Props) {
                         setFieldErrors({});
                     }}
                     placeholder="Select an academic year..."
+                    onCreateItem={() => router.push("/academic-years/new")}
                 />
                 {fieldErrors.academic_year_id && (
                     <p className="text-destructive text-xs">{fieldErrors.academic_year_id[0]}</p>
@@ -196,6 +199,11 @@ export function CreateAssessmentSessionForm({ onSuccess }: Props) {
                         setFieldErrors({});
                     }}
                     placeholder="Select an academic term..."
+                    onCreateItem={(_search) =>
+                        router.push(
+                            `/academic-terms/new?academic_year_id=${encodeURIComponent(academicYearId)}`
+                        )
+                    }
                 />
                 {fieldErrors.academic_term_id && (
                     <p className="text-destructive text-xs">{fieldErrors.academic_term_id[0]}</p>

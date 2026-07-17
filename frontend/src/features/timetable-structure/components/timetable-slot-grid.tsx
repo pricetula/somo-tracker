@@ -8,6 +8,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Plus, Pencil } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -64,6 +65,7 @@ const DAYS = [1, 2, 3, 4, 5];
 // ─── Component ─────────────────────────────────────────────────────────────
 
 export function TimetableSlotGrid({ blocks, academicYearID, isLoading }: TimetableSlotGridProps) {
+    const router = useRouter();
     const [selectedClassID, setSelectedClassID] = useState("");
 
     // Derive the effective class ID — defaults to the first class when data loads
@@ -194,6 +196,7 @@ export function TimetableSlotGrid({ blocks, academicYearID, isLoading }: Timetab
                     value={resolvedClassID}
                     onChange={(v) => setSelectedClassID(v as string)}
                     placeholder="Select a class to assign..."
+                    onCreateItem={() => router.push("/classes/add")}
                 />
             </div>
 

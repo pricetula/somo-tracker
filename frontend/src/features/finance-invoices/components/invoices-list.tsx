@@ -1,5 +1,7 @@
 /**
- * InvoicesList — list of invoices with filter by status and term.
+ * InvoicesList — list of invoices with filter by status.
+ *
+ * Uses the shared DataTable component with filter groups.
  */
 
 "use client";
@@ -8,27 +10,11 @@ import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
-import { getErrorMessage } from "@/lib/errors";
-import { useInvoices } from "../hooks/use-finance-invoices";
-import { useState } from "react";
-import type { PaymentStatus } from "../types";
+import { DataTable } from "@/components/shared/data-table";
+import type { DataTableColumn } from "@/components/shared/data-table/types";
+import type { FilterGroup } from "@/components/shared/data-table/types";
+import { listInvoices } from "@/lib/api/billing";
+import type { Invoice, PaymentStatus } from "@/lib/api/billing";
 
 // ─── Status badge ─────────────────────────────────────────────────────────
 
@@ -43,95 +29,102 @@ function statusBadge(status: PaymentStatus) {
     return <Badge variant={statusColors[status] ?? "outline"}>{status}</Badge>;
 }
 
+// ─── Columns ──────────────────────────────────────────────────────────────
+
+const columns: DataTableColumn<Invoice>[] = [
+    {
+        id: "student_id",
+        header: "Student",
+        cell: (row) => <span className="font-medium">{row.student_id.slice(0, 8)}…</span>,
+    },
+    {
+        id: "academic_term_id",
+        header: "Term",
+        width: "120px",
+        cell: (row) => (
+            <span className="text-muted-foreground">{row.academic_term_id.slice(0, 8)}…</span>
+        ),
+    },
+    {
+        id: "payment_status",
+        header: "Status",
+        width: "100px",
+        cell: (row) => statusBadge(row.payment_status),
+    },
+    {
+        id: "amount_due",
+        header: "Amount Due",
+        width: "120px",
+        align: "right",
+        cell: (row) => <span className="font-medium tabular-nums">{row.amount_due}</span>,
+    },
+    {
+        id: "amount_paid",
+        header: "Amount Paid",
+        width: "120px",
+        align: "right",
+        cell: (row) => <span className="tabular-nums">{row.amount_paid}</span>,
+    },
+    {
+        id: "actions",
+        header: "",
+        width: "80px",
+        align: "right",
+        cell: (row) => (
+            <Button variant="outline" size="sm" asChild>
+                <Link href={`/finance/invoices/${row.id}`}>View</Link>
+            </Button>
+        ),
+    },
+];
+
+// ─── Filter Groups ────────────────────────────────────────────────────────
+
+const filterGroups: FilterGroup[] = [
+    {
+        id: "invoice_filters",
+        label: "Filter by",
+        items: [
+            {
+                id: "payment_status",
+                label: "Payment Status",
+                type: "sub_menu_single",
+                submenu: [
+                    { id: "all", label: "All Statuses", value: "" },
+                    { id: "UNPAID", label: "Unpaid", value: "UNPAID" },
+                    { id: "PARTIAL", label: "Partial", value: "PARTIAL" },
+                    { id: "PAID", label: "Paid", value: "PAID" },
+                    { id: "WAIVED", label: "Waived", value: "WAIVED" },
+                ],
+            },
+        ],
+    },
+];
+
 // ─── Component ────────────────────────────────────────────────────────────
 
 export function InvoicesList() {
-    const [statusFilter, setStatusFilter] = useState<string>("all");
-
-    const filter: { payment_status?: PaymentStatus } = {};
-    if (statusFilter !== "all") filter.payment_status = statusFilter as PaymentStatus;
-
-    const { data, isLoading, isError, error } = useInvoices(filter);
-
-    // ── Loading ──────────────────────────────────────────────────────────
-    if (isLoading) {
-        return (
-            <div className="space-y-3">
-                <Skeleton className="h-8 w-48" />
-                <Skeleton className="h-10 w-full" />
-            </div>
-        );
-    }
-
-    // ── Error ────────────────────────────────────────────────────────────
-    if (isError) {
-        return (
-            <Alert variant="destructive">
-                <AlertDescription>{getErrorMessage(error)}</AlertDescription>
-            </Alert>
-        );
-    }
-
-    const invoices = data?.items ?? [];
-
     return (
-        <div className="space-y-4">
-            {/* ── Filters ────────────────────────────────────────────────── */}
-            <div className="flex items-center gap-3">
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-40">
-                        <SelectValue placeholder="Filter by status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">All Statuses</SelectItem>
-                        <SelectItem value="UNPAID">Unpaid</SelectItem>
-                        <SelectItem value="PARTIAL">Partial</SelectItem>
-                        <SelectItem value="PAID">Paid</SelectItem>
-                        <SelectItem value="WAIVED">Waived</SelectItem>
-                    </SelectContent>
-                </Select>
-                <p className="text-muted-foreground">
-                    {invoices.length} invoice{invoices.length !== 1 ? "s" : ""}
-                </p>
-            </div>
-
-            {/* ── Table ──────────────────────────────────────────────────── */}
-            {invoices.length === 0 ? (
-                <p className="text-muted-foreground">
-                    No invoices found. Generate invoices to get started.
-                </p>
-            ) : (
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Student</TableHead>
-                            <TableHead>Term</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Amount Due</TableHead>
-                            <TableHead>Amount Paid</TableHead>
-                            <TableHead className="text-right">Actions</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {invoices.map((inv) => (
-                            <TableRow key={inv.id}>
-                                <TableCell className="font-medium">
-                                    {inv.student_id.slice(0, 8)}…
-                                </TableCell>
-                                <TableCell>{inv.academic_term_id.slice(0, 8)}…</TableCell>
-                                <TableCell>{statusBadge(inv.payment_status)}</TableCell>
-                                <TableCell>{inv.amount_due}</TableCell>
-                                <TableCell>{inv.amount_paid}</TableCell>
-                                <TableCell className="text-right">
-                                    <Button variant="outline" size="sm" asChild>
-                                        <Link href={`/finance/invoices/${inv.id}`}>View</Link>
-                                    </Button>
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-            )}
-        </div>
+        <DataTable
+            queryKey={["invoices"]}
+            queryFn={(
+                params: { filters?: Record<string, string | string[]> } & {
+                    page?: number;
+                    limit?: number;
+                }
+            ) => {
+                const filters = params.filters;
+                const paymentStatus = filters?.payment_status as PaymentStatus | undefined;
+                return listInvoices({
+                    ...(paymentStatus ? { payment_status: paymentStatus } : {}),
+                });
+            }}
+            columns={columns}
+            getRowId={(row) => row.id}
+            filterGroups={filterGroups}
+            emptyState="No invoices found. Generate invoices to get started."
+            noResultsState="No invoices match your filters."
+            pageSize={50}
+        />
     );
 }

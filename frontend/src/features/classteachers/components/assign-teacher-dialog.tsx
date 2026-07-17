@@ -4,6 +4,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useCreateClassTeacher } from "../hooks/use-classteachers";
 import {
     Dialog,
@@ -37,6 +38,7 @@ export function AssignTeacherDialog({
     onOpenChange,
     prefillClassId,
 }: AssignTeacherDialogProps) {
+    const router = useRouter();
     const mutation = useCreateClassTeacher();
     const [classId, setClassId] = useState(prefillClassId ?? "");
     const [userId, setUserId] = useState("");
@@ -83,6 +85,7 @@ export function AssignTeacherDialog({
                                 value={classId}
                                 onChange={(v) => setClassId(v as string)}
                                 placeholder="Select a class..."
+                                onCreateItem={() => router.push("/classes/add")}
                             />
                         </div>
                     )}
@@ -118,6 +121,7 @@ export function AssignTeacherDialog({
                                 value={learningAreaId}
                                 onChange={(v) => setLearningAreaId(v as string)}
                                 placeholder="Select a learning area..."
+                                onCreateItem={() => router.push("/curriculum/new")}
                             />
                         </div>
                     )}

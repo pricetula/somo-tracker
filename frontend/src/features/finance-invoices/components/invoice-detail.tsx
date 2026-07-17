@@ -1,7 +1,7 @@
 /**
  * InvoiceDetail — full invoice view with items, payments, and actions.
  *
- * Actions: Record Payment, Waive Invoice.
+ * Uses the shared DataTable component for line items and payment history.
  */
 
 "use client";
@@ -32,16 +32,11 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
+import { DataTable } from "@/components/shared/data-table";
+import type { DataTableColumn } from "@/components/shared/data-table/types";
 import { getErrorMessage } from "@/lib/errors";
 import { useInvoiceDetail, useWaiveInvoice, useRecordPayment } from "../hooks/use-finance-invoices";
+import type { InvoiceItem, Payment } from "@/lib/api/billing";
 
 // ─── Props ────────────────────────────────────────────────────────────────
 
@@ -57,6 +52,55 @@ const statusColors: Record<string, "default" | "secondary" | "destructive" | "ou
     PAID: "default",
     WAIVED: "outline",
 };
+
+// ─── Line item columns ────────────────────────────────────────────────────
+
+const lineItemColumns: DataTableColumn<InvoiceItem>[] = [
+    {
+        id: "description",
+        header: "Description",
+        cell: (row) => <span>{row.description || row.fee_category_id.slice(0, 8) + "…"}</span>,
+    },
+    {
+        id: "amount",
+        header: "Amount",
+        width: "120px",
+        align: "right",
+        cell: (row) => <span className="font-medium tabular-nums">{row.amount}</span>,
+    },
+];
+
+// ─── Payment columns ──────────────────────────────────────────────────────
+
+const paymentColumns: DataTableColumn<Payment>[] = [
+    {
+        id: "amount",
+        header: "Amount",
+        cell: (row) => <span className="font-medium">{row.amount}</span>,
+    },
+    {
+        id: "method",
+        header: "Method",
+        width: "120px",
+        cell: (row) => <span className="text-muted-foreground">{row.payment_method || "—"}</span>,
+    },
+    {
+        id: "reference",
+        header: "Reference",
+        width: "minmax(120px, 1fr)",
+        cell: (row) => <span className="text-muted-foreground">{row.reference_code || "—"}</span>,
+    },
+    {
+        id: "date",
+        header: "Date",
+        width: "120px",
+        cell: (row) => (
+            <span className="text-muted-foreground">
+                {row.created_at ? new Date(row.created_at).toLocaleDateString() : "—"}
+            </span>
+        ),
+    },
+];
 
 // ─── Component ────────────────────────────────────────────────────────────
 
@@ -242,24 +286,15 @@ export function InvoiceDetail({ id }: InvoiceDetailProps) {
                 {items.length === 0 ? (
                     <p className="text-muted-foreground">No line items.</p>
                 ) : (
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Description</TableHead>
-                                <TableHead className="text-right">Amount</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {items.map((item) => (
-                                <TableRow key={item.id}>
-                                    <TableCell>
-                                        {item.description || item.fee_category_id.slice(0, 8) + "…"}
-                                    </TableCell>
-                                    <TableCell className="text-right">{item.amount}</TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
+                    <DataTable
+                        queryKey={["invoice-items", id]}
+                        queryFn={() => Promise.resolve({ items, total: items.length })}
+                        columns={lineItemColumns}
+                        getRowId={(row) => row.id}
+                        height={Math.min(items.length * 44 + 50, 300)}
+                        pageSize={100}
+                        emptyState="No line items."
+                    />
                 )}
             </div>
 
@@ -271,30 +306,15 @@ export function InvoiceDetail({ id }: InvoiceDetailProps) {
                 {payments.length === 0 ? (
                     <p className="text-muted-foreground">No payments recorded.</p>
                 ) : (
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Amount</TableHead>
-                                <TableHead>Method</TableHead>
-                                <TableHead>Reference</TableHead>
-                                <TableHead>Date</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {payments.map((p) => (
-                                <TableRow key={p.id}>
-                                    <TableCell className="font-medium">{p.amount}</TableCell>
-                                    <TableCell>{p.payment_method || "—"}</TableCell>
-                                    <TableCell>{p.reference_code || "—"}</TableCell>
-                                    <TableCell className="text-muted-foreground">
-                                        {p.created_at
-                                            ? new Date(p.created_at).toLocaleDateString()
-                                            : "—"}
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
+                    <DataTable
+                        queryKey={["invoice-payments", id]}
+                        queryFn={() => Promise.resolve({ items: payments, total: payments.length })}
+                        columns={paymentColumns}
+                        getRowId={(row) => row.id}
+                        height={Math.min(payments.length * 44 + 50, 300)}
+                        pageSize={100}
+                        emptyState="No payments recorded."
+                    />
                 )}
             </div>
         </div>

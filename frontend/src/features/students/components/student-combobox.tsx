@@ -30,6 +30,11 @@ export interface StudentComboboxProps {
     className?: string;
     /** Allow selecting multiple students (default: false). */
     isMultiSelect?: boolean;
+    /**
+     * When search yields no results, shows a "Create" option.
+     * If omitted, no create option is shown.
+     */
+    onCreateItem?: (search: string) => void;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────
@@ -40,6 +45,7 @@ export function StudentCombobox({
     placeholder = "Select a student...",
     className,
     isMultiSelect = false,
+    onCreateItem,
 }: StudentComboboxProps) {
     const { data, isLoading, isError, error } = useStudents({ limit: 500 });
 
@@ -97,6 +103,7 @@ export function StudentCombobox({
                 placeholder={placeholder}
                 emptyText="No student found."
                 className={cn("w-full", className)}
+                onCreateItem={onCreateItem}
             />
         );
     }
@@ -111,6 +118,7 @@ export function StudentCombobox({
             placeholder={placeholder}
             emptyText="No student found."
             className={cn("w-full", className)}
+            onCreateItem={onCreateItem}
             renderTrigger={({ selectedItems }) =>
                 selectedItems.length > 0 ? (
                     <span className="flex flex-wrap gap-1">

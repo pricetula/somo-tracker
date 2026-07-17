@@ -71,6 +71,7 @@ function DatePicker({
                     onSelect={handleSelect}
                     autoFocus
                     disabled={disabled}
+                    captionLayout="dropdown"
                 />
             </PopoverContent>
         </Popover>

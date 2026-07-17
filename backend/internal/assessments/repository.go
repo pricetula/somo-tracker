@@ -1007,7 +1007,13 @@ func (r *PgRepository) GetStudentTermGrades(ctx context.Context, tenantID, schoo
 				latest_date,
 				ROW_NUMBER() OVER (
 					PARTITION BY learning_area_id
-					ORDER BY latest_date DESC, level DESC
+					ORDER BY latest_date DESC,
+						CASE level
+							WHEN 'EE' THEN 4
+							WHEN 'ME' THEN 3
+							WHEN 'AE' THEN 2
+							WHEN 'BE' THEN 1
+						END DESC
 				) AS rn
 			FROM tied_levels
 		)

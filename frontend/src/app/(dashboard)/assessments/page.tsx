@@ -1,14 +1,27 @@
 /**
- * Assessment Sessions listing page.
+ * Assessments page — role-agnostic route.
  *
- * Uses the shared DataTable component with status and type filters.
- * Click a session to view scores/grades and workflow actions.
- * The "Create" button navigates to /assessments/new (intercepted as a
- * dialog when navigated from this page).
+ * TEACHER / SCHOOL_ADMIN: Assessment sessions listing with DataTable
+ * PARENT: view published results and term report cards for children
  */
 
-import { AssessmentSessionsList } from "@/features/assessments";
+import { getVerifiedRole } from "@/lib/auth-server";
+import { AssessmentSessionsList, ParentAssessmentsView } from "@/features/assessments";
 
-export default function SessionsPage() {
+export default async function AssessmentsPage() {
+    const role = await getVerifiedRole();
+
+    if (!role) {
+        return (
+            <article>
+                <p>Unable to verify your session. Please log in again.</p>
+            </article>
+        );
+    }
+
+    if (role === "PARENT") {
+        return <ParentAssessmentsView />;
+    }
+
     return <AssessmentSessionsList />;
 }

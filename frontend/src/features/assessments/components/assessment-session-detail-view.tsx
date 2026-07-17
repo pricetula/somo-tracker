@@ -12,16 +12,16 @@
 import { useQuery } from "@tanstack/react-query";
 import { Calendar, FileSpreadsheet, FileCheck, AlertTriangle } from "lucide-react";
 
-import { getSession, getStudentScores, getOutcomeGrades } from "@/lib/api/assessments";
+import { getSession } from "@/lib/api/assessments";
 import { useSubmitSession } from "../hooks/use-assessments";
-import { PerformanceLevelBadge } from "./performance-level-badge";
+import { GradingSheet } from "./grading-sheet";
+import { RubricGradingMatrix } from "./rubric-grading-matrix";
 import { StatusBadge } from "./status-badge";
 import { ApprovalActions } from "./approval-actions";
 import { EVALUATION_METHOD_LABELS } from "../types";
 import { getErrorMessage } from "@/lib/errors";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { StaticTable } from "@/components/shared/static-table";
 import { toast } from "sonner";
 
 interface Props {
@@ -41,19 +41,6 @@ export function AssessmentSessionDetailView({ sessionId }: Props) {
     const { data: session, isLoading, isError } = useSessionDetail(sessionId);
     const submitMutation = useSubmitSession();
 
-    // Fetch scores or grades depending on method
-    const { data: scoresData } = useQuery({
-        queryKey: ["assessment-scores", sessionId],
-        queryFn: () => getStudentScores(sessionId),
-        enabled: !!sessionId && session?.evaluation_method === "QUANTITATIVE",
-    });
-
-    const { data: gradesData } = useQuery({
-        queryKey: ["outcome-grades", sessionId],
-        queryFn: () => getOutcomeGrades(sessionId),
-        enabled: !!sessionId && session?.evaluation_method === "RUBRIC",
-    });
-
     if (isLoading) {
         return (
             <div className="space-y-6">
@@ -72,9 +59,6 @@ export function AssessmentSessionDetailView({ sessionId }: Props) {
     }
 
     const isQuantitative = session.evaluation_method === "QUANTITATIVE";
-    const scores = scoresData?.items ?? [];
-    const grades = gradesData?.items ?? [];
-    const isTeacherEditable = session.status === "DRAFT";
 
     return (
         <article className="space-y-6">
@@ -120,100 +104,28 @@ export function AssessmentSessionDetailView({ sessionId }: Props) {
                 </div>
             )}
 
-            {/* Scores / Grades table */}
+            {/* Scores / Grades input */}
             {isQuantitative ? (
                 <div className="space-y-2">
                     <h2 className="font-medium">Student Scores</h2>
-                    {scores.length === 0 ? (
-                        <p className="text-muted-foreground py-4 text-center text-xs">
-                            {isTeacherEditable
-                                ? "No scores entered yet. Use the grading sheet to add scores."
-                                : "No scores recorded for this session."}
-                        </p>
-                    ) : (
-                        <StaticTable
-                            columns={[
-                                {
-                                    id: "student_id",
-                                    header: "Student ID",
-                                    cell: (r) => r.student_id,
-                                },
-                                {
-                                    id: "raw_score",
-                                    header: "Score",
-                                    align: "right",
-                                    cell: (r) =>
-                                        r.raw_score != null ? (
-                                            <span className="tabular-nums">
-                                                {r.raw_score}
-                                                {session.max_points
-                                                    ? ` / ${session.max_points}`
-                                                    : ""}
-                                            </span>
-                                        ) : (
-                                            <span className="text-muted-foreground">\u2014</span>
-                                        ),
-                                },
-                                {
-                                    id: "percentage",
-                                    header: "%",
-                                    align: "right",
-                                    cell: (r) =>
-                                        r.calculated_percentage != null ? (
-                                            <span className="tabular-nums">
-                                                {r.calculated_percentage.toFixed(1)}%
-                                            </span>
-                                        ) : (
-                                            <span className="text-muted-foreground">\u2014</span>
-                                        ),
-                                },
-                                {
-                                    id: "level",
-                                    header: "Level",
-                                    cell: (r) => (
-                                        <PerformanceLevelBadge level={r.final_performance_level} />
-                                    ),
-                                },
-                            ]}
-                            data={scores}
-                            getRowId={(r) => r.id}
-                            height={Math.min(scores.length * 44 + 44, 480)}
-                        />
-                    )}
+                    <GradingSheet
+                        sessionId={sessionId}
+                        classId={session.class_id}
+                        maxPoints={session.max_points ?? 0}
+                        status={session.status}
+                        academicTermId={session.academic_term_id}
+                    />
                 </div>
             ) : (
                 <div className="space-y-2">
                     <h2 className="font-medium">Rubric Grades</h2>
-                    {grades.length === 0 ? (
-                        <p className="text-muted-foreground py-4 text-center text-xs">
-                            {isTeacherEditable
-                                ? "No grades entered yet."
-                                : "No rubric grades recorded for this session."}
-                        </p>
-                    ) : (
-                        <StaticTable
-                            columns={[
-                                {
-                                    id: "student_id",
-                                    header: "Student ID",
-                                    cell: (r) => r.student_id,
-                                },
-                                {
-                                    id: "indicator",
-                                    header: "Indicator",
-                                    cell: (r) => r.performance_indicator_id,
-                                },
-                                {
-                                    id: "level",
-                                    header: "Awarded",
-                                    cell: (r) => <PerformanceLevelBadge level={r.awarded_level} />,
-                                },
-                            ]}
-                            data={grades}
-                            getRowId={(r) => r.id}
-                            height={Math.min(grades.length * 44 + 44, 480)}
-                        />
-                    )}
+                    <RubricGradingMatrix
+                        sessionId={sessionId}
+                        classId={session.class_id}
+                        learningAreaId={session.learning_area_id}
+                        status={session.status}
+                        academicTermId={session.academic_term_id}
+                    />
                 </div>
             )}
 

@@ -378,3 +378,63 @@ export async function getStudentTermGrades(
         `/api/v1/parent/students/${studentId}/report-card?academic_term_id=${academicTermId}`
     );
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+// ASSESSMENT WEIGHT CONFIGS
+// ════════════════════════════════════════════════════════════════════════════
+
+/** A KNEC weight configuration entry. */
+export interface AssessmentWeightConfig {
+    id: string;
+    grade_level: string;
+    assessment_type_code: string;
+    target_exam: string;
+    weight_percent: number;
+    effective_from: number;
+    notes: string | null;
+    created_at: string;
+}
+
+/** Payload for creating a weight config. */
+export interface CreateWeightConfigPayload {
+    grade_level: string;
+    assessment_type_code: string;
+    target_exam: string;
+    weight_percent: number;
+    effective_from: number;
+    notes?: string | null;
+}
+
+/** List result for weight configs. */
+export interface WeightConfigListResult {
+    items: AssessmentWeightConfig[];
+    total: number;
+    page: number;
+    limit: number;
+}
+
+/** List weight configs with optional filters. */
+export async function listWeightConfigs(params?: {
+    grade_level?: string;
+    target_exam?: string;
+    effective_from?: number;
+}): Promise<WeightConfigListResult> {
+    const searchParams = new URLSearchParams();
+    if (params?.grade_level) searchParams.set("grade_level", params.grade_level);
+    if (params?.target_exam) searchParams.set("target_exam", params.target_exam);
+    if (params?.effective_from) searchParams.set("effective_from", String(params.effective_from));
+    const qs = searchParams.toString();
+    return api.get(`/api/v1/assessments/weight-configs${qs ? `?${qs}` : ""}`);
+}
+
+/** Get a single weight config by ID. */
+export async function getWeightConfig(id: string): Promise<AssessmentWeightConfig> {
+    return api.get(`/api/v1/assessments/weight-configs/${id}`);
+}
+
+/** Create a new weight config. SCHOOL_ADMIN only. */
+export async function createWeightConfig(
+    payload: CreateWeightConfigPayload
+): Promise<{ id: string }> {
+    return api.post("/api/v1/assessments/weight-configs", payload);
+}

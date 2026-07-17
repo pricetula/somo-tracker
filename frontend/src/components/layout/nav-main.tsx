@@ -40,6 +40,39 @@ interface NavItem {
 function buildNavItems(role: string): NavItem[] {
     if (!role) return [];
 
+    // ── Parent role: simplified nav ────────────────────────────────
+    if (role === "PARENT") {
+        return [
+            {
+                title: "Dashboard",
+                url: "/",
+                icon: <LayoutDashboardIcon className="size-4" />,
+                isActive: true,
+            },
+            {
+                title: "Assessments",
+                url: "/assessments",
+                icon: <ClipboardCheckIcon className="size-4" />,
+            },
+            {
+                title: "Reports",
+                url: "/reports",
+                icon: <BarChart3Icon className="size-4" />,
+            },
+            {
+                title: "Attendance",
+                url: "/attendance",
+                icon: <CalendarCheckIcon className="size-4" />,
+            },
+            {
+                title: "Behavior",
+                url: "/behavior",
+                icon: <AlertTriangleIcon className="size-4" />,
+            },
+        ];
+    }
+
+    // ── School staff roles ─────────────────────────────────────────
     const items: NavItem[] = [
         {
             title: "Dashboard",

@@ -293,3 +293,33 @@ export function useStudentTermGrades(studentId: string, termId: string) {
         enabled: !!studentId && !!termId,
     });
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+// HOOKS — Weight Configs
+// ════════════════════════════════════════════════════════════════════════════
+
+/** Fetch weight configs with optional filters. */
+export function useWeightConfigList(params?: {
+    grade_level?: string;
+    target_exam?: string;
+    effective_from?: number;
+}) {
+    return useQuery({
+        queryKey: ["weight-configs", params],
+        queryFn: () => api.listWeightConfigs(params),
+        staleTime: 5 * 60 * 1000,
+    });
+}
+
+/** Create a new weight config. */
+export function useCreateWeightConfig() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (payload: api.CreateWeightConfigPayload) => api.createWeightConfig(payload),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["weight-configs"] });
+            toast.success("Weight configuration created.");
+        },
+        onError: (err) => toast.error(getErrorMessage(err)),
+    });
+}

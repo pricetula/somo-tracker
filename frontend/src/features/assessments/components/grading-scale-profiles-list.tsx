@@ -102,7 +102,10 @@ const columns: DataTableColumn<ScaleProfile>[] = [
         id: "name",
         header: "Profile Name",
         cell: (row) => (
-            <Link href={`/grading/${row.id}`} className="font-medium hover:underline">
+            <Link
+                href={`/assessments/grading-scales/${row.id}`}
+                className="font-medium hover:underline"
+            >
                 {row.name}
             </Link>
         ),
@@ -158,7 +161,7 @@ export function GradingScaleProfilesList() {
 
     return (
         <DataTable
-            addHref="/grading/new"
+            addHref="/assessments/grading-scales/new"
             queryKey={["scale-profiles"]}
             queryFn={profilesQueryFn}
             columns={columns}

@@ -287,6 +287,78 @@ func (r *PgRepository) CreateScaleProfileWithRanges(ctx context.Context, params 
 	return profileID, ids, nil
 }
 
+// GetScaleRanges returns all ranges for a given profile.
+func (r *PgRepository) GetScaleRanges(ctx context.Context, profileID string) ([]ScaleRange, error) {
+	const query = `
+		SELECT id, profile_id, performance_level::text, min_percentage, max_percentage, default_percentage_mapping
+		FROM grading_scale_ranges
+		WHERE profile_id = $1
+		ORDER BY min_percentage ASC
+	`
+	rows, err := r.pool.Query(ctx, query, profileID)
+	if err != nil {
+		return nil, fmt.Errorf("assessments.Repository.GetScaleRanges: %w", err)
+	}
+	defer rows.Close()
+
+	var ranges []ScaleRange
+	for rows.Next() {
+		var sr ScaleRange
+		if err := rows.Scan(&sr.ID, &sr.ProfileID, &sr.PerformanceLevel, &sr.MinPercentage, &sr.MaxPercentage, &sr.DefaultPercentageMapping); err != nil {
+			return nil, fmt.Errorf("assessments.Repository.GetScaleRanges: scan: %w", err)
+		}
+		ranges = append(ranges, sr)
+	}
+	return ranges, nil
+}
+
+// ReplaceScaleRanges deletes all existing ranges for a profile and inserts
+// new ones in a single atomic transaction.
+func (r *PgRepository) ReplaceScaleRanges(ctx context.Context, profileID string, ranges []CreateScaleRangeParams) ([]string, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("assessments.Repository.ReplaceScaleRanges: begin tx: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	// Delete existing ranges
+	const deleteQuery = `DELETE FROM grading_scale_ranges WHERE profile_id = $1`
+	if _, err := tx.Exec(ctx, deleteQuery, profileID); err != nil {
+		return nil, fmt.Errorf("assessments.Repository.ReplaceScaleRanges: delete: %w", err)
+	}
+
+	// Insert new ranges
+	ids := make([]string, 0, len(ranges))
+	for _, sr := range ranges {
+		const insertQuery = `
+			INSERT INTO grading_scale_ranges (profile_id, performance_level, min_percentage, max_percentage, default_percentage_mapping)
+			VALUES ($1, $2::cbc_performance_level, $3, $4, $5)
+			RETURNING id
+		`
+		var id string
+		if err := tx.QueryRow(ctx, insertQuery,
+			profileID,
+			sr.PerformanceLevel,
+			sr.MinPercentage,
+			sr.MaxPercentage,
+			sr.DefaultPercentageMapping,
+		).Scan(&id); err != nil {
+			if isExclusionViolation(err) {
+				return nil, fmt.Errorf("assessments.Repository.ReplaceScaleRanges: overlapping ranges: %w", ErrConflict)
+			}
+			return nil, fmt.Errorf("assessments.Repository.ReplaceScaleRanges: insert range: %w", err)
+		}
+		ids = append(ids, id)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("assessments.Repository.ReplaceScaleRanges: commit: %w", err)
+	}
+	return ids, nil
+}
+
 // ============================================================================
 // ASSESSMENT SESSIONS
 // ============================================================================

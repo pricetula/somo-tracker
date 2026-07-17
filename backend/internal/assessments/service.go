@@ -120,6 +120,35 @@ func (s *Service) ListScaleProfiles(ctx context.Context, tenantID, schoolID stri
 	return profiles, nil
 }
 
+// GetScaleRanges returns all ranges for a profile.
+func (s *Service) GetScaleRanges(ctx context.Context, profileID string) ([]ScaleRange, error) {
+	if profileID == "" {
+		return nil, fmt.Errorf("assessments.Service.GetScaleRanges: %w", ErrInvalidInput)
+	}
+	ranges, err := s.Repo.GetScaleRanges(ctx, profileID)
+	if err != nil {
+		return nil, err
+	}
+	if ranges == nil {
+		ranges = []ScaleRange{}
+	}
+	return ranges, nil
+}
+
+// ReplaceScaleRanges replaces all ranges for a profile (delete + insert).
+func (s *Service) ReplaceScaleRanges(ctx context.Context, profileID string, ranges []CreateScaleRangeParams) ([]string, error) {
+	if profileID == "" {
+		return nil, fmt.Errorf("assessments.Service.ReplaceScaleRanges: %w", ErrInvalidInput)
+	}
+	if len(ranges) == 0 {
+		return nil, fmt.Errorf("assessments.Service.ReplaceScaleRanges: at least one range is required: %w", ErrInvalidInput)
+	}
+	if err := s.validateScaleRanges(ranges); err != nil {
+		return nil, fmt.Errorf("assessments.Service.ReplaceScaleRanges: %w", err)
+	}
+	return s.Repo.ReplaceScaleRanges(ctx, profileID, ranges)
+}
+
 // ToggleScaleProfileActive toggles the is_active flag on a profile.
 func (s *Service) ToggleScaleProfileActive(ctx context.Context, id, tenantID, schoolID string, isActive bool) error {
 	if id == "" || tenantID == "" || schoolID == "" {

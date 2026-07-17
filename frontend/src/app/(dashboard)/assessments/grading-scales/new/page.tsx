@@ -1,9 +1,9 @@
 /**
- * Create Scale Profile page — Full page render for /grading/new.
+ * Create Scale Profile page — Full page render for /assessments/grading-scales/new.
  *
  * On hard refresh, renders the create profile form as a standalone page.
  * When client-navigated from the grading listing, it is intercepted
- * by @modal/(.)grading/new and rendered as a dialog overlay.
+ * by @modal/(.)assessments/grading-scales/new and rendered as a dialog overlay.
  */
 
 import { CreateScaleProfileForm } from "@/features/assessments";

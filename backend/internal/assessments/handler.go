@@ -1,6 +1,7 @@
 package assessments
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
@@ -22,11 +23,13 @@ func NewHandler(svc *Service) *Handler {
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	// Grading Scale Profiles
 	profiles := router.Group("/api/v1/grading/profiles")
-	profiles.Post("/", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN"), h.CreateScaleProfile)
-	profiles.Get("/", middleware.RequireAuth, h.ListScaleProfiles)
+	profiles.Post("", middleware.RequireAuth, h.CreateScaleProfile)
+	profiles.Get("", middleware.RequireAuth, h.ListScaleProfiles)
 	profiles.Get("/:id", middleware.RequireAuth, h.GetScaleProfile)
 	profiles.Put("/:id/toggle", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN"), h.ToggleScaleProfileActive)
 	profiles.Delete("/:id", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN"), h.DeleteScaleProfile)
+	profiles.Get("/:id/ranges", middleware.RequireAuth, h.GetScaleRanges)
+	profiles.Put("/:id/ranges", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN"), h.ReplaceScaleRanges)
 
 	// Assessment Sessions
 	sessions := router.Group("/api/v1/assessments/sessions")
@@ -132,6 +135,7 @@ func getUserID(c *fiber.Ctx) string {
 //
 // ---------------------------------------------------------------------------
 func (h *Handler) CreateScaleProfile(c *fiber.Ctx) error {
+	fmt.Println("/////////////////////////////////////////////////////////////////////-------0000")
 	tenantID, schoolID, err := getTenantAndSchool(c)
 	if err != nil {
 		return err
@@ -165,7 +169,7 @@ func (h *Handler) CreateScaleProfile(c *fiber.Ctx) error {
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
-
+	fmt.Println("/////////////////////////////////////////////////////////////////////------->>>>")
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"id":        id,
 		"range_ids": rangeIDs,
@@ -249,6 +253,111 @@ func (h *Handler) GetScaleProfile(c *fiber.Ctx) error {
 		return middleware.HTTPError(c, err)
 	}
 	return c.JSON(profile)
+}
+
+// ---------------------------------------------------------------------------
+// GetScaleRanges — GET /api/v1/grading/profiles/:id/ranges
+//
+// Returns all percentage-to-level ranges for a grading scale profile.
+//
+// Response (200):
+//
+//	{
+//	  "items": [
+//	    { "id": "...", "profile_id": "...", "performance_level": "EE",
+//	      "min_percentage": 80, "max_percentage": 100 }
+//	  ]
+//	}
+//
+// Errors:
+//   - 401: authentication required
+//   - 404: profile not found
+//
+// ---------------------------------------------------------------------------
+func (h *Handler) GetScaleRanges(c *fiber.Ctx) error {
+	profileID := c.Params("id")
+	if profileID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "profile id is required",
+		})
+	}
+
+	ranges, err := h.svc.GetScaleRanges(c.Context(), profileID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	return c.JSON(fiber.Map{"items": ranges})
+}
+
+// ---------------------------------------------------------------------------
+// ReplaceScaleRanges — PUT /api/v1/grading/profiles/:id/ranges
+//
+// Replaces all ranges for a grading scale profile (deletes existing ranges,
+// then inserts new ones). This is an atomic operation — if any range fails
+// validation, none are applied.
+//
+// Request body (SCHOOL_ADMIN only):
+//
+//	{
+//	  "ranges": [
+//	    { "performance_level": "EE", "min_percentage": 80, "max_percentage": 100 },
+//	    { "performance_level": "ME", "min_percentage": 60, "max_percentage": 79 },
+//	    { "performance_level": "AE", "min_percentage": 40, "max_percentage": 59 },
+//	    { "performance_level": "BE", "min_percentage": 0,  "max_percentage": 39 }
+//	  ]
+//	}
+//
+// At minimum EE, ME, and AE ranges are required.
+//
+// Response (200):
+//
+//	{ "ids": ["uuid-1", "uuid-2", ...] }
+//
+// Errors:
+//   - 400: validation failure (missing ranges, invalid values, overlaps)
+//   - 401: authentication required
+//   - 403: not a SCHOOL_ADMIN
+//   - 404: profile not found
+//   - 409: overlapping ranges
+//
+// ---------------------------------------------------------------------------
+func (h *Handler) ReplaceScaleRanges(c *fiber.Ctx) error {
+	profileID := c.Params("id")
+	if profileID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "profile id is required",
+		})
+	}
+
+	var payload struct {
+		Ranges []ScaleRangePayload `json:"ranges"`
+	}
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "invalid request body",
+		})
+	}
+
+	ranges := make([]CreateScaleRangeParams, len(payload.Ranges))
+	for i, r := range payload.Ranges {
+		ranges[i] = CreateScaleRangeParams{
+			ProfileID:                profileID,
+			PerformanceLevel:         r.PerformanceLevel,
+			MinPercentage:            r.MinPercentage,
+			MaxPercentage:            r.MaxPercentage,
+			DefaultPercentageMapping: r.DefaultPercentageMapping,
+		}
+	}
+
+	ids, err := h.svc.ReplaceScaleRanges(c.Context(), profileID, ranges)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(fiber.Map{"ids": ids})
 }
 
 // ---------------------------------------------------------------------------

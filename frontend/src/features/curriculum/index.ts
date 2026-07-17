@@ -3,6 +3,7 @@
  */
 
 export { CurriculumTree } from "./components/curriculum-tree";
+export { LearningAreaCombobox } from "./components/learning-area-combobox";
 export { CreateLearningAreaDialog } from "./components/create-learning-area-dialog";
 export { CreateStrandDialog } from "./components/create-strand-dialog";
 export { CreateSubStrandDialog } from "./components/create-sub-strand-dialog";

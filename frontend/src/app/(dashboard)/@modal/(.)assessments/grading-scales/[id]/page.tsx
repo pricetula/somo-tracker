@@ -2,7 +2,7 @@
  * Intercepted route — Grading profile detail rendered as a side sheet.
  *
  * When the admin clicks a profile name, this sheet slides out from the right.
- * On hard refresh the full page at /grading/[id] takes over.
+ * On hard refresh the full page at /assessments/grading-scales/[id] takes over.
  */
 
 "use client";

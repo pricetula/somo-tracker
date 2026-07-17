@@ -132,6 +132,14 @@ func (m *mockRepo) GetPublishedSessionsForParent(ctx context.Context, tenantID, 
 	return nil, errors.New("not implemented in mock")
 }
 
+func (m *mockRepo) GetScaleRanges(ctx context.Context, profileID string) ([]ScaleRange, error) {
+	return nil, errors.New("not implemented in mock")
+}
+
+func (m *mockRepo) ReplaceScaleRanges(ctx context.Context, profileID string, ranges []CreateScaleRangeParams) ([]string, error) {
+	return nil, errors.New("not implemented in mock")
+}
+
 // ============================================================================
 // Test Harness
 // ============================================================================

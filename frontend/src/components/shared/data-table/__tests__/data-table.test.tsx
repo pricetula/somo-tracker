@@ -2269,7 +2269,7 @@ describe("DataTable", () => {
                     queryKey={["test"]}
                     queryFn={vi.fn()}
                     params={{}}
-                    columns={columns as unknown as DataTableColumn<TestItem>[]}
+                    columns={columns as unknown as DataTableColumn<unknown>[]}
                     getRowId={(row: unknown) => (row as ZeroIdItem).id}
                     isCheckable
                 />

@@ -3,7 +3,7 @@
  *
  * Slides in as a centered modal when the admin clicks "Add Profile"
  * from the grading profiles listing page.
- * On hard refresh the full page at /grading/new takes over.
+ * On hard refresh the full page at /assessments/grading-scales/new takes over.
  */
 
 "use client";
@@ -28,7 +28,7 @@ export default function CreateScaleProfileModal() {
                 if (!open) router.back();
             }}
         >
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
                     <DialogTitle>Create Scale Profile</DialogTitle>
                     <DialogDescription>

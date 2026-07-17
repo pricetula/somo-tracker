@@ -86,8 +86,13 @@ function buildNavItems(role: string): NavItem[] {
         },
         {
             title: "Assessments",
-            url: "/assessments",
+            url: "#",
             icon: <ClipboardCheckIcon className="size-4" />,
+            items: [
+                { title: "Sessions", url: "/assessments" },
+                { title: "Grading Scales", url: "/assessments/grading-scales" },
+                { title: "Weight Configs", url: "/assessments/weight-configs" },
+            ],
         },
         {
             title: "Reports",
@@ -121,7 +126,6 @@ function buildNavItems(role: string): NavItem[] {
             items: [
                 { title: "General", url: "/settings" },
                 { title: "Academic Years", url: "/academic-years" },
-                { title: "Grading Scales", url: "/settings/grading-scales" },
             ],
         },
     ];

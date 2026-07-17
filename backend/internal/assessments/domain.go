@@ -57,7 +57,9 @@ type Repository interface {
 	ToggleScaleProfileActive(ctx context.Context, id, tenantID, schoolID string, isActive bool) error
 	DeleteScaleProfile(ctx context.Context, id, tenantID, schoolID string) error
 
-	// Grading Scale Ranges (read from profile endpoint — no standalone range endpoint)
+	// Grading Scale Ranges (standalone range endpoints)
+	GetScaleRanges(ctx context.Context, profileID string) ([]ScaleRange, error)
+	ReplaceScaleRanges(ctx context.Context, profileID string, ranges []CreateScaleRangeParams) ([]string, error)
 
 	// Assessment Sessions
 	CreateSession(ctx context.Context, params CreateSessionParams) (string, error)

@@ -133,6 +133,7 @@ export interface StudentTermGradesResult {
 
 export interface CreateScaleProfilePayload {
     name: string;
+    ranges?: ScaleRangePayload[];
 }
 
 export interface ScaleRangePayload {
@@ -243,7 +244,7 @@ export async function bulkSetScaleRanges(
     profileId: string,
     payload: BulkSetRangesPayload
 ): Promise<{ ids: string[] }> {
-    return api.post(`/api/v1/grading/profiles/${profileId}/ranges`, payload);
+    return api.put(`/api/v1/grading/profiles/${profileId}/ranges`, payload);
 }
 
 /** Get all ranges for a profile. */

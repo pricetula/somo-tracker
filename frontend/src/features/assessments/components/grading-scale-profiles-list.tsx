@@ -151,12 +151,6 @@ function createProfilesQueryFn() {
     return (_params: { page?: number; limit?: number }) => listScaleProfiles();
 }
 
-// ─── normalize ─────────────────────────────────────────────────────────────
-
-function normalize(result: { items: ScaleProfile[] }) {
-    return { items: result.items, total: result.items.length };
-}
-
 // ─── Component ────────────────────────────────────────────────────────────
 
 export function GradingScaleProfilesList() {
@@ -169,7 +163,6 @@ export function GradingScaleProfilesList() {
             queryFn={profilesQueryFn}
             columns={columns}
             getRowId={(row) => row.id}
-            normalize={normalize}
             emptyState="No grading scale profiles yet. Create one to define how percentages map to CBC levels."
             noResultsState="No profiles match your search."
         />

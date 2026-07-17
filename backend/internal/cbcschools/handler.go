@@ -106,6 +106,8 @@ func (h *Handler) List(c *fiber.Ctx) error {
 	return c.JSON(ListSchoolsResponse{
 		Items: schools,
 		Total: len(schools),
+		Page:  1,
+		Limit: len(schools),
 	})
 }
 

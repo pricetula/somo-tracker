@@ -182,7 +182,12 @@ func (h *Handler) ListScaleProfiles(c *fiber.Ctx) error {
 		return middleware.HTTPError(c, err)
 	}
 
-	return c.JSON(ListScaleProfilesResponse{Items: profiles})
+	return c.JSON(ListScaleProfilesResponse{
+		Items: profiles,
+		Total: len(profiles),
+		Page:  1,
+		Limit: len(profiles),
+	})
 }
 
 // ---------------------------------------------------------------------------

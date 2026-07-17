@@ -83,7 +83,12 @@ func (s *Service) ListIncidentsByStudent(ctx context.Context, studentID, tenantI
 	if err != nil {
 		return nil, fmt.Errorf("health.Service.ListIncidentsByStudent: %w", err)
 	}
-	return &MedicalIncidentListResponse{Items: items, Total: len(items)}, nil
+	return &MedicalIncidentListResponse{
+		Items: items,
+		Total: len(items),
+		Page:  1,
+		Limit: len(items),
+	}, nil
 }
 
 // ListIncidentsBySchool returns paginated incidents for a school.
@@ -103,7 +108,12 @@ func (s *Service) ListIncidentsBySchool(ctx context.Context, tenantID, schoolID 
 	if err != nil {
 		return nil, fmt.Errorf("health.Service.ListIncidentsBySchool: %w", err)
 	}
-	return &MedicalIncidentListResponse{Items: items, Total: total}, nil
+	return &MedicalIncidentListResponse{
+		Items: items,
+		Total: total,
+		Page:  page,
+		Limit: limit,
+	}, nil
 }
 
 // UpdateIncident updates a medical incident.

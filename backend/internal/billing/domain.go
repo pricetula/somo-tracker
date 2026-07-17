@@ -46,6 +46,8 @@ type UpdateFeeCategoryPayload struct {
 type ListFeeCategoriesResponse struct {
 	Items []FeeCategory `json:"items"`
 	Total int           `json:"total"`
+	Page  int           `json:"page"`
+	Limit int           `json:"limit"`
 }
 
 // ─── Fee Template ──────────────────────────────────────────────────────────
@@ -80,6 +82,8 @@ type UpdateFeeTemplatePayload struct {
 type ListFeeTemplatesResponse struct {
 	Items []FeeTemplate `json:"items"`
 	Total int           `json:"total"`
+	Page  int           `json:"page"`
+	Limit int           `json:"limit"`
 }
 
 // ─── Invoice ────────────────────────────────────────────────────────────────
@@ -169,12 +173,16 @@ type InvoiceDetailResponse struct {
 type ListInvoicesResponse struct {
 	Items []Invoice `json:"items"`
 	Total int       `json:"total"`
+	Page  int       `json:"page"`
+	Limit int       `json:"limit"`
 }
 
 // ListPaymentsResponse wraps a list of payments with a total count.
 type ListPaymentsResponse struct {
 	Items []Payment `json:"items"`
 	Total int       `json:"total"`
+	Page  int       `json:"page"`
+	Limit int       `json:"limit"`
 }
 
 // InvoiceFilter holds query parameters for listing invoices.

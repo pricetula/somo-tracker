@@ -124,8 +124,6 @@ export interface DataTableProps<TItem, TParams extends object, TResult> {
     columns: DataTableColumn<TItem>[];
     /** Extracts a stable id from a row — used by selection and optimistic delete. */
     getRowId: (row: TItem, index: number) => string | number;
-    /** Only needed if the generated result's shape isn't {items, total, page, limit}. */
-    normalize?: (result: TResult) => NormalizedListResult<TItem>;
 
     // ─── Search ──────────────────────────────────────────────────────
     isSearchable?: boolean;

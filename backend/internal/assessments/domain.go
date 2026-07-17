@@ -128,13 +128,13 @@ type AssessmentSession struct {
 	AcademicYearID        string    `json:"academic_year_id"`
 	Name                  string    `json:"name"`
 	EvaluationMethod      string    `json:"evaluation_method"`
-	MaxPoints             *float64  `json:"max_points,omitempty"`
-	GradingScaleProfileID *string   `json:"grading_scale_profile_id,omitempty"`
+	MaxPoints             *float64  `json:"max_points"`
+	GradingScaleProfileID *string   `json:"grading_scale_profile_id"`
 	Status                string    `json:"status"`
-	RejectionComment      *string   `json:"rejection_comment,omitempty"`
-	SubmittedBy           *string   `json:"submitted_by,omitempty"`
-	ApprovedBy            *string   `json:"approved_by,omitempty"`
-	ScheduledDate         *string   `json:"scheduled_date,omitempty"`
+	RejectionComment      *string   `json:"rejection_comment"`
+	SubmittedBy           *string   `json:"submitted_by"`
+	ApprovedBy            *string   `json:"approved_by"`
+	ScheduledDate         *string   `json:"scheduled_date"`
 	CreatedAt             time.Time `json:"created_at"`
 	UpdatedAt             time.Time `json:"updated_at"`
 	CreatedBy             string    `json:"-"`
@@ -225,6 +225,9 @@ type CreateWeightConfigParams struct {
 // ListWeightConfigsResponse wraps a list of weight configs.
 type ListWeightConfigsResponse struct {
 	Items []AssessmentWeightConfig `json:"items"`
+	Total int                      `json:"total"`
+	Page  int                      `json:"page"`
+	Limit int                      `json:"limit"`
 }
 
 // ── Params (internal) ────────────────────────────────────────────────────
@@ -314,6 +317,9 @@ type ScaleRangePayload struct {
 // ListScaleProfilesResponse is the response for listing scale profiles.
 type ListScaleProfilesResponse struct {
 	Items []ScaleProfile `json:"items"`
+	Total int            `json:"total"`
+	Page  int            `json:"page"`
+	Limit int            `json:"limit"`
 }
 
 // ScaleProfileWithRanges is a profile with its ranges included.

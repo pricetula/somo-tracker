@@ -13,12 +13,7 @@ import { UserMinus } from "lucide-react";
 
 import { DataTable } from "@/components/shared/data-table";
 import type { DataTableColumn } from "@/components/shared/data-table/types";
-import {
-    getClassRoster,
-    unenrollStudent,
-    type RosterEntry,
-    type RosterListResult,
-} from "@/lib/api/classes";
+import { getClassRoster, unenrollStudent, type RosterEntry } from "@/lib/api/classes";
 import { getErrorMessage } from "@/lib/errors";
 import { Button } from "@/components/ui/button";
 import {
@@ -121,17 +116,6 @@ function buildColumns(classId: string): DataTableColumn<RosterEntry>[] {
     ];
 }
 
-// ─── normalize ─────────────────────────────────────────────────────────────
-
-function normalize(result: RosterListResult) {
-    return {
-        items: result.items,
-        total: result.total,
-        page: result.page,
-        limit: result.limit,
-    };
-}
-
 // ─── Wrapper query function ────────────────────────────────────────────────
 
 /**
@@ -161,7 +145,6 @@ export function ClassRoster({ classId, academicTermId }: ClassRosterProps) {
             queryFn={rosterQueryFn}
             columns={columns}
             getRowId={(row) => row.id}
-            normalize={normalize}
             isSearchable
             searchPlaceholder="Search by student name or admission number..."
             pageSize={13}

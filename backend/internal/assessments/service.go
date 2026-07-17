@@ -511,7 +511,12 @@ func (s *Service) ListWeightConfigs(ctx context.Context, filter AssessmentWeight
 	if items == nil {
 		items = []AssessmentWeightConfig{}
 	}
-	return &ListWeightConfigsResponse{Items: items}, nil
+	return &ListWeightConfigsResponse{
+		Items: items,
+		Total: len(items),
+		Page:  1,
+		Limit: len(items),
+	}, nil
 }
 
 // GetWeightConfigByID returns a single weight config.

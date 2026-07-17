@@ -149,6 +149,9 @@ type BatchEnrollResponse struct {
 
 type ListEnrollmentsResponse struct {
 	Items []Enrollment `json:"items"`
+	Total int          `json:"total"`
+	Page  int          `json:"page"`
+	Limit int          `json:"limit"`
 }
 
 // ListFilter holds query parameters for listing students.

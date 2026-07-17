@@ -217,6 +217,8 @@ type UpdateStrandPayload struct {
 type ListStrandsResponse struct {
 	Items []Strand `json:"items"`
 	Total int      `json:"total"`
+	Page  int      `json:"page"`
+	Limit int      `json:"limit"`
 }
 
 // Sub-Strand payloads
@@ -232,6 +234,8 @@ type UpdateSubStrandPayload struct {
 type ListSubStrandsResponse struct {
 	Items []SubStrand `json:"items"`
 	Total int         `json:"total"`
+	Page  int         `json:"page"`
+	Limit int         `json:"limit"`
 }
 
 // Performance Indicator payloads
@@ -249,6 +253,8 @@ type UpdatePerformanceIndicatorPayload struct {
 type ListPerformanceIndicatorsResponse struct {
 	Items []PerformanceIndicator `json:"items"`
 	Total int                    `json:"total"`
+	Page  int                    `json:"page"`
+	Limit int                    `json:"limit"`
 }
 
 // ── Seeding Input Structs (JSON payload) ──────────────────────────────────

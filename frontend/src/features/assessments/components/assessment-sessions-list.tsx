@@ -114,17 +114,6 @@ const filterGroups: FilterGroup[] = [
     },
 ];
 
-// ─── normalize ─────────────────────────────────────────────────────────────
-
-function normalize(result: {
-    items: AssessmentSession[];
-    total: number;
-    page: number;
-    limit: number;
-}) {
-    return result;
-}
-
 // ─── Component ────────────────────────────────────────────────────────────
 
 export function AssessmentSessionsList() {
@@ -135,7 +124,6 @@ export function AssessmentSessionsList() {
             queryFn={listSessions}
             columns={columns}
             getRowId={(row) => row.id}
-            normalize={normalize}
             isSearchable
             searchPlaceholder="Search by assessment name..."
             filterGroups={filterGroups}

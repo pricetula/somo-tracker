@@ -97,6 +97,9 @@ export interface StudentTermGrade {
 
 export interface ScaleProfileListResult {
     items: ScaleProfile[];
+    total: number;
+    page: number;
+    limit: number;
 }
 
 export interface ScaleRangesListResult {

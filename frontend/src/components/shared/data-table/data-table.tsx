@@ -38,7 +38,6 @@ export function DataTable<TItem, TParams extends object, TResult>({
     params,
     columns,
     getRowId,
-    normalize,
     isSearchable,
     searchPlaceholder = "Search...",
     filterGroups,
@@ -71,14 +70,13 @@ export function DataTable<TItem, TParams extends object, TResult>({
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
     // ── Infinite query ───────────────────────────────────────────────
-    const listQuery = useInfiniteListQuery({
+    const listQuery = useInfiniteListQuery<TItem, TParams, TResult>({
         queryKey,
         queryFn,
         params,
         search: isSearchable ? debouncedSearch : undefined,
         filters: filterGroups && Object.keys(activeFilters).length > 0 ? activeFilters : undefined,
         limit: pageSize,
-        normalize,
     });
 
     const {
@@ -306,7 +304,6 @@ export function DataTable<TItem, TParams extends object, TResult>({
     if (lastVirtualIndex >= rows.length - 1 && hasNextPage && !isFetchingNextPage) {
         fetchNextPage();
     }
-
     // ── State checks ─────────────────────────────────────────────────
 
     const hasData = rows.length > 0;

@@ -708,7 +708,7 @@ func TestHandler_Register_ExpiredToken(t *testing.T) {
 }
 
 // TestHandler_Register_MFARequired verifies that an MFA-required error from
-// the IDP returns 500 because auth.ErrMFARequired does not wrap
+// the IDP returns 401 because auth.ErrMFARequired wraps
 // middleware.ErrUnauthorized.
 func TestHandler_Register_MFARequired(t *testing.T) {
 	h := newHandlerTestHarness(t)
@@ -732,9 +732,9 @@ func TestHandler_Register_MFARequired(t *testing.T) {
 		FullName:   "Jane Doe",
 	})
 
-	// ErrMFARequired does NOT wrap middleware.ErrUnauthorized → falls to 500
-	if resp.StatusCode != fiber.StatusInternalServerError {
-		t.Fatalf("expected 500 Internal Server Error, got %d", resp.StatusCode)
+	// ErrMFARequired wraps middleware.ErrUnauthorized → 401
+	if resp.StatusCode != fiber.StatusUnauthorized {
+		t.Fatalf("expected 401 Unauthorized, got %d", resp.StatusCode)
 	}
 }
 

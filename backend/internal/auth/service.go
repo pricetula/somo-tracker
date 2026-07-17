@@ -380,8 +380,8 @@ func (s *Service) Register(ctx context.Context, sessionRef string, payload Regis
 	}
 
 	userParams := CreateUserParams{
-		Email:          email, // from Stytch discovery authentication
-		TenantID:       "",    // set after tenant creation
+		Email:          strings.ToLower(email), // normalised for case-insensitive unique index
+		TenantID:       "",                     // set after tenant creation
 		FullName:       payload.FullName,
 		ExternalAuthID: result.MemberID,
 	}
@@ -726,7 +726,7 @@ func (s *Service) reconstructFromStytch(ctx context.Context, ist, email string, 
 	}
 
 	userParams := CreateUserParams{
-		Email:          email,
+		Email:          strings.ToLower(email), // normalised for case-insensitive unique index
 		FullName:       fullName,
 		ExternalAuthID: exchangeResult.MemberID,
 	}

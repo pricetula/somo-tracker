@@ -110,7 +110,7 @@ func (r *SqlcRepository) GetSessionByToken(ctx context.Context, token string) (*
 				END
 			LIMIT 1
 		) m ON true
-		WHERE s.token = $1 AND s.expires_at > NOW()
+		WHERE s.token_hash = encode(digest($1, 'sha256'), 'hex') AND s.expires_at > NOW()
 	`
 	var s UserSession
 	err := r.pool.QueryRow(ctx, query, token).Scan(
@@ -130,7 +130,7 @@ func (r *SqlcRepository) GetSessionByToken(ctx context.Context, token string) (*
 
 // DeleteSession removes a session record by token.
 func (r *SqlcRepository) DeleteSession(ctx context.Context, token string) error {
-	const query = `DELETE FROM sessions WHERE token = $1`
+	const query = `DELETE FROM sessions WHERE token_hash = encode(digest($1, 'sha256'), 'hex')`
 	_, err := r.pool.Exec(ctx, query, token)
 	if err != nil {
 		return fmt.Errorf("%w: delete session: %v", ErrInternal, err)
@@ -196,8 +196,8 @@ func (r *SqlcRepository) CreateTenantUserSession(
 
 	// 3. Insert session
 	sessionQuery := `
-		INSERT INTO sessions (token, user_id, tenant_id, stytch_member_id, stytch_org_id, stytch_session_token, device_fingerprint, expires_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		INSERT INTO sessions (token, token_hash, user_id, tenant_id, stytch_member_id, stytch_org_id, stytch_session_token, device_fingerprint, expires_at)
+		VALUES ($1, encode(digest($1, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7, $8)
 	`
 	_, err = tx.Exec(ctx, sessionQuery,
 		sessionParams.Token,
@@ -265,8 +265,8 @@ func (r *SqlcRepository) CreateUserSession(
 
 	// 2. Insert session
 	sessionQuery := `
-		INSERT INTO sessions (token, user_id, tenant_id, stytch_member_id, stytch_org_id, stytch_session_token, device_fingerprint, expires_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		INSERT INTO sessions (token, token_hash, user_id, tenant_id, stytch_member_id, stytch_org_id, stytch_session_token, device_fingerprint, expires_at)
+		VALUES ($1, encode(digest($1, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7, $8)
 	`
 	_, err = tx.Exec(ctx, sessionQuery,
 		sessionParams.Token,
@@ -414,7 +414,7 @@ func (r *SqlcRepository) GetMeInfo(ctx context.Context, token string) (*MeInfo, 
 		JOIN users u ON u.id = s.user_id
 		LEFT JOIN member_active_school mas ON mas.user_id = s.user_id
 		LEFT JOIN cbc_schools sch ON sch.id = mas.school_id
-		WHERE s.token = $1 AND s.expires_at > NOW()
+		WHERE s.token_hash = encode(digest($1, 'sha256'), 'hex') AND s.expires_at > NOW()
 	`
 
 	var info MeInfo
@@ -539,9 +539,9 @@ func (r *SqlcRepository) CreateInvitedUserSession(ctx context.Context, args Crea
 
 	// 2. Insert session
 	sessionQuery := `
-		INSERT INTO sessions (token, user_id, tenant_id, stytch_member_id, stytch_org_id,
+		INSERT INTO sessions (token, token_hash, user_id, tenant_id, stytch_member_id, stytch_org_id,
 		                     stytch_session_token, device_fingerprint, expires_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		VALUES ($1, encode(digest($1, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7, $8)
 	`
 	_, err = tx.Exec(ctx, sessionQuery,
 		args.SessionToken, userID, args.TenantID,
@@ -621,7 +621,7 @@ func (r *SqlcRepository) GetTenantByStytchOrgID(ctx context.Context, stytchOrgID
 // GetUserByEmailAndTenant retrieves a user's ID, full name, and external auth ID
 // by email and tenant ID. Returns ErrNotFound if no matching user exists.
 func (r *SqlcRepository) GetUserByEmailAndTenant(ctx context.Context, email, tenantID string) (string, string, string, error) {
-	const query = `SELECT id, COALESCE(full_name, ''), COALESCE(external_auth_id, '') FROM users WHERE email = $1 AND tenant_id = $2`
+	const query = `SELECT id, COALESCE(full_name, ''), COALESCE(external_auth_id, '') FROM users WHERE LOWER(email) = LOWER($1) AND tenant_id = $2`
 	var userID, fullName, externalAuthID string
 	err := r.pool.QueryRow(ctx, query, email, tenantID).Scan(&userID, &fullName, &externalAuthID)
 	if err != nil {
@@ -637,8 +637,8 @@ func (r *SqlcRepository) GetUserByEmailAndTenant(ctx context.Context, email, ten
 // without creating a user or tenant. Used during re-login.
 func (r *SqlcRepository) CreateSessionOnly(ctx context.Context, params CreateSessionParams) error {
 	const query = `
-		INSERT INTO sessions (token, user_id, tenant_id, stytch_member_id, stytch_org_id, stytch_session_token, device_fingerprint, expires_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		INSERT INTO sessions (token, token_hash, user_id, tenant_id, stytch_member_id, stytch_org_id, stytch_session_token, device_fingerprint, expires_at)
+		VALUES ($1, encode(digest($1, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7, $8)
 	`
 	_, err := r.pool.Exec(ctx, query,
 		params.Token,

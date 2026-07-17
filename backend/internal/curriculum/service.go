@@ -125,6 +125,7 @@ func (s *Service) CreateStrand(ctx context.Context, params CreateStrandParams, t
 		return "", fmt.Errorf("curriculum.Service.CreateStrand: %w", err)
 	}
 
+	params.TenantID = tenantID
 	id, err := s.Repo.CreateStrand(ctx, params)
 	if err != nil {
 		return "", fmt.Errorf("curriculum.Service.CreateStrand: %w", err)
@@ -132,42 +133,46 @@ func (s *Service) CreateStrand(ctx context.Context, params CreateStrandParams, t
 	return id, nil
 }
 
-// GetStrand retrieves a single strand, verifying tenant isolation.
-func (s *Service) GetStrand(ctx context.Context, id, tenantID, schoolID string) (*Strand, error) {
-	if id == "" {
+// GetStrand retrieves a single strand, scoped to tenant.
+func (s *Service) GetStrand(ctx context.Context, id, tenantID string) (*Strand, error) {
+	if id == "" || tenantID == "" {
 		return nil, fmt.Errorf("curriculum.Service.GetStrand: %w", ErrInvalidInput)
 	}
-	return s.Repo.GetStrandByID(ctx, id)
+	return s.Repo.GetStrandByID(ctx, id, tenantID)
 }
 
-// ListStrands returns strands filtered by learning_area_id (tenant-scoped via handler).
-func (s *Service) ListStrands(ctx context.Context, learningAreaID string) ([]Strand, error) {
-	if learningAreaID == "" {
-		return nil, fmt.Errorf("curriculum.Service.ListStrands: learning_area_id is required: %w", ErrInvalidInput)
+// ListStrands returns strands filtered by learning_area_id, scoped to tenant.
+func (s *Service) ListStrands(ctx context.Context, learningAreaID, tenantID string) ([]Strand, error) {
+	if learningAreaID == "" || tenantID == "" {
+		return nil, fmt.Errorf("curriculum.Service.ListStrands: learning_area_id and tenant_id are required: %w", ErrInvalidInput)
 	}
-	return s.Repo.ListStrandsByLearningArea(ctx, learningAreaID)
+	return s.Repo.ListStrandsByLearningArea(ctx, learningAreaID, tenantID)
 }
 
-// UpdateStrand updates a strand's name.
-func (s *Service) UpdateStrand(ctx context.Context, params UpdateStrandParams) error {
-	if params.ID == "" {
+// UpdateStrand updates a strand's name, scoped to tenant.
+func (s *Service) UpdateStrand(ctx context.Context, id, tenantID string, name *string) error {
+	if id == "" || tenantID == "" {
 		return fmt.Errorf("curriculum.Service.UpdateStrand: %w", ErrInvalidInput)
 	}
-	if params.Name == nil {
+	if name == nil {
 		return fmt.Errorf("curriculum.Service.UpdateStrand: %w", ErrInvalidInput)
 	}
-	if err := validateStrandName(*params.Name); err != nil {
+	if err := validateStrandName(*name); err != nil {
 		return fmt.Errorf("curriculum.Service.UpdateStrand: %w", err)
 	}
-	return s.Repo.UpdateStrand(ctx, params)
+	return s.Repo.UpdateStrand(ctx, UpdateStrandParams{
+		ID:       id,
+		TenantID: tenantID,
+		Name:     name,
+	})
 }
 
-// DeleteStrand removes a strand by ID. Returns ErrReferenceProtected if sub-strands exist.
-func (s *Service) DeleteStrand(ctx context.Context, id string) error {
-	if id == "" {
+// DeleteStrand removes a strand by ID, scoped to tenant. Returns ErrReferenceProtected if sub-strands exist.
+func (s *Service) DeleteStrand(ctx context.Context, id, tenantID string) error {
+	if id == "" || tenantID == "" {
 		return fmt.Errorf("curriculum.Service.DeleteStrand: %w", ErrInvalidInput)
 	}
-	return s.Repo.DeleteStrand(ctx, id)
+	return s.Repo.DeleteStrand(ctx, id, tenantID)
 }
 
 // ── Sub-Strands ───────────────────────────────────────────────────────────
@@ -186,6 +191,7 @@ func (s *Service) CreateSubStrand(ctx context.Context, params CreateSubStrandPar
 		return "", fmt.Errorf("curriculum.Service.CreateSubStrand: %w", err)
 	}
 
+	params.TenantID = tenantID
 	id, err := s.Repo.CreateSubStrand(ctx, params)
 	if err != nil {
 		return "", fmt.Errorf("curriculum.Service.CreateSubStrand: %w", err)
@@ -193,42 +199,46 @@ func (s *Service) CreateSubStrand(ctx context.Context, params CreateSubStrandPar
 	return id, nil
 }
 
-// GetSubStrand retrieves a single sub-strand by ID.
-func (s *Service) GetSubStrand(ctx context.Context, id string) (*SubStrand, error) {
-	if id == "" {
+// GetSubStrand retrieves a single sub-strand by ID, scoped to tenant.
+func (s *Service) GetSubStrand(ctx context.Context, id, tenantID string) (*SubStrand, error) {
+	if id == "" || tenantID == "" {
 		return nil, fmt.Errorf("curriculum.Service.GetSubStrand: %w", ErrInvalidInput)
 	}
-	return s.Repo.GetSubStrandByID(ctx, id)
+	return s.Repo.GetSubStrandByID(ctx, id, tenantID)
 }
 
-// ListSubStrands returns sub-strands filtered by strand_id.
-func (s *Service) ListSubStrands(ctx context.Context, strandID string) ([]SubStrand, error) {
-	if strandID == "" {
-		return nil, fmt.Errorf("curriculum.Service.ListSubStrands: strand_id is required: %w", ErrInvalidInput)
+// ListSubStrands returns sub-strands filtered by strand_id, scoped to tenant.
+func (s *Service) ListSubStrands(ctx context.Context, strandID, tenantID string) ([]SubStrand, error) {
+	if strandID == "" || tenantID == "" {
+		return nil, fmt.Errorf("curriculum.Service.ListSubStrands: strand_id and tenant_id are required: %w", ErrInvalidInput)
 	}
-	return s.Repo.ListSubStrandsByStrand(ctx, strandID)
+	return s.Repo.ListSubStrandsByStrand(ctx, strandID, tenantID)
 }
 
-// UpdateSubStrand updates a sub-strand's name.
-func (s *Service) UpdateSubStrand(ctx context.Context, params UpdateSubStrandParams) error {
-	if params.ID == "" {
+// UpdateSubStrand updates a sub-strand's name, scoped to tenant.
+func (s *Service) UpdateSubStrand(ctx context.Context, id, tenantID string, name *string) error {
+	if id == "" || tenantID == "" {
 		return fmt.Errorf("curriculum.Service.UpdateSubStrand: %w", ErrInvalidInput)
 	}
-	if params.Name == nil {
+	if name == nil {
 		return fmt.Errorf("curriculum.Service.UpdateSubStrand: %w", ErrInvalidInput)
 	}
-	if err := validateSubStrandName(*params.Name); err != nil {
+	if err := validateSubStrandName(*name); err != nil {
 		return fmt.Errorf("curriculum.Service.UpdateSubStrand: %w", err)
 	}
-	return s.Repo.UpdateSubStrand(ctx, params)
+	return s.Repo.UpdateSubStrand(ctx, UpdateSubStrandParams{
+		ID:       id,
+		TenantID: tenantID,
+		Name:     name,
+	})
 }
 
-// DeleteSubStrand removes a sub-strand by ID.
-func (s *Service) DeleteSubStrand(ctx context.Context, id string) error {
-	if id == "" {
+// DeleteSubStrand removes a sub-strand by ID, scoped to tenant.
+func (s *Service) DeleteSubStrand(ctx context.Context, id, tenantID string) error {
+	if id == "" || tenantID == "" {
 		return fmt.Errorf("curriculum.Service.DeleteSubStrand: %w", ErrInvalidInput)
 	}
-	return s.Repo.DeleteSubStrand(ctx, id)
+	return s.Repo.DeleteSubStrand(ctx, id, tenantID)
 }
 
 // ── Performance Indicators ────────────────────────────────────────────────
@@ -257,47 +267,53 @@ func (s *Service) CreatePerformanceIndicator(ctx context.Context, params CreateP
 		params.SequenceOrder = &next
 	}
 
+	params.TenantID = tenantID
 	return s.Repo.CreatePerformanceIndicator(ctx, params)
 }
 
-// GetPerformanceIndicator retrieves a single performance indicator by ID.
-func (s *Service) GetPerformanceIndicator(ctx context.Context, id string) (*PerformanceIndicator, error) {
-	if id == "" {
+// GetPerformanceIndicator retrieves a single performance indicator by ID, scoped to tenant.
+func (s *Service) GetPerformanceIndicator(ctx context.Context, id, tenantID string) (*PerformanceIndicator, error) {
+	if id == "" || tenantID == "" {
 		return nil, fmt.Errorf("curriculum.Service.GetPerformanceIndicator: %w", ErrInvalidInput)
 	}
-	return s.Repo.GetPerformanceIndicatorByID(ctx, id)
+	return s.Repo.GetPerformanceIndicatorByID(ctx, id, tenantID)
 }
 
-// ListPerformanceIndicators returns performance indicators filtered by sub_strand_id.
-func (s *Service) ListPerformanceIndicators(ctx context.Context, subStrandID string) ([]PerformanceIndicator, error) {
-	if subStrandID == "" {
-		return nil, fmt.Errorf("curriculum.Service.ListPerformanceIndicators: sub_strand_id is required: %w", ErrInvalidInput)
+// ListPerformanceIndicators returns performance indicators filtered by sub_strand_id, scoped to tenant.
+func (s *Service) ListPerformanceIndicators(ctx context.Context, subStrandID, tenantID string) ([]PerformanceIndicator, error) {
+	if subStrandID == "" || tenantID == "" {
+		return nil, fmt.Errorf("curriculum.Service.ListPerformanceIndicators: sub_strand_id and tenant_id are required: %w", ErrInvalidInput)
 	}
-	return s.Repo.ListPerformanceIndicatorsBySubStrand(ctx, subStrandID)
+	return s.Repo.ListPerformanceIndicatorsBySubStrand(ctx, subStrandID, tenantID)
 }
 
-// UpdatePerformanceIndicator updates a performance indicator's fields.
-func (s *Service) UpdatePerformanceIndicator(ctx context.Context, params UpdatePerformanceIndicatorParams) error {
-	if params.ID == "" {
+// UpdatePerformanceIndicator updates a performance indicator's fields, scoped to tenant.
+func (s *Service) UpdatePerformanceIndicator(ctx context.Context, id, tenantID string, description *string, sequenceOrder *int) error {
+	if id == "" || tenantID == "" {
 		return fmt.Errorf("curriculum.Service.UpdatePerformanceIndicator: %w", ErrInvalidInput)
 	}
-	if params.Description == nil && params.SequenceOrder == nil {
+	if description == nil && sequenceOrder == nil {
 		return fmt.Errorf("curriculum.Service.UpdatePerformanceIndicator: %w", ErrInvalidInput)
 	}
-	if params.Description != nil {
-		if err := validateDescription(*params.Description); err != nil {
+	if description != nil {
+		if err := validateDescription(*description); err != nil {
 			return fmt.Errorf("curriculum.Service.UpdatePerformanceIndicator: %w", err)
 		}
 	}
-	return s.Repo.UpdatePerformanceIndicator(ctx, params)
+	return s.Repo.UpdatePerformanceIndicator(ctx, UpdatePerformanceIndicatorParams{
+		ID:            id,
+		TenantID:      tenantID,
+		Description:   description,
+		SequenceOrder: sequenceOrder,
+	})
 }
 
-// DeletePerformanceIndicator removes a performance indicator by ID.
-func (s *Service) DeletePerformanceIndicator(ctx context.Context, id string) error {
-	if id == "" {
+// DeletePerformanceIndicator removes a performance indicator by ID, scoped to tenant.
+func (s *Service) DeletePerformanceIndicator(ctx context.Context, id, tenantID string) error {
+	if id == "" || tenantID == "" {
 		return fmt.Errorf("curriculum.Service.DeletePerformanceIndicator: %w", ErrInvalidInput)
 	}
-	return s.Repo.DeletePerformanceIndicator(ctx, id)
+	return s.Repo.DeletePerformanceIndicator(ctx, id, tenantID)
 }
 
 // ── Tree ──────────────────────────────────────────────────────────────────
@@ -313,7 +329,7 @@ func (s *Service) GetTree(ctx context.Context, learningAreaID, tenantID, schoolI
 		return nil, fmt.Errorf("curriculum.Service.GetTree: %w", err)
 	}
 
-	tree, err := s.Repo.GetTree(ctx, learningAreaID)
+	tree, err := s.Repo.GetTree(ctx, learningAreaID, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("curriculum.Service.GetTree: %w", err)
 	}

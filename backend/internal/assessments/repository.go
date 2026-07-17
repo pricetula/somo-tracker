@@ -64,7 +64,7 @@ func (r *PgRepository) IsTermFinalised(ctx context.Context, termID string) (bool
 func (r *PgRepository) GetScaleProfileByID(ctx context.Context, id, tenantID, schoolID string) (*ScaleProfileWithRanges, error) {
 	const query = `
 		SELECT p.id, p.tenant_id, p.school_id, p.name, p.is_active, p.created_at, p.updated_at,
-		       r.id AS range_id, r.profile_id, r.performance_level::text, r.min_percentage, r.max_percentage, r.default_percentage_mapping
+		       r.id AS range_id, r.tenant_id, r.profile_id, r.performance_level::text, r.min_percentage, r.max_percentage, r.default_percentage_mapping
 		FROM grading_scale_profiles p
 		LEFT JOIN grading_scale_ranges r ON r.profile_id = p.id
 		WHERE p.id = $1 AND p.tenant_id = $2 AND p.school_id = $3
@@ -79,13 +79,13 @@ func (r *PgRepository) GetScaleProfileByID(ctx context.Context, id, tenantID, sc
 	var result *ScaleProfileWithRanges
 	for rows.Next() {
 		var p ScaleProfile
-		var rangeID, rangeProfileID *string
+		var rangeID, rangeTenantID, rangeProfileID *string
 		var performanceLevel *string
 		var minPct, maxPct *float64
 		var defaultPct **float64
 
 		if err := rows.Scan(&p.ID, &p.TenantID, &p.SchoolID, &p.Name, &p.IsActive, &p.CreatedAt, &p.UpdatedAt,
-			&rangeID, &rangeProfileID, &performanceLevel, &minPct, &maxPct, &defaultPct); err != nil {
+			&rangeID, &rangeTenantID, &rangeProfileID, &performanceLevel, &minPct, &maxPct, &defaultPct); err != nil {
 			return nil, fmt.Errorf("assessments.Repository.GetScaleProfileByID: %w", err)
 		}
 
@@ -99,6 +99,7 @@ func (r *PgRepository) GetScaleProfileByID(ctx context.Context, id, tenantID, sc
 		if rangeID != nil {
 			sr := ScaleRange{
 				ID:                       *rangeID,
+				TenantID:                 *rangeTenantID,
 				ProfileID:                *rangeProfileID,
 				PerformanceLevel:         *performanceLevel,
 				MinPercentage:            *minPct,
@@ -122,7 +123,7 @@ func (r *PgRepository) GetScaleProfileByID(ctx context.Context, id, tenantID, sc
 func (r *PgRepository) ListScaleProfiles(ctx context.Context, tenantID, schoolID string, activeOnly bool) ([]ScaleProfileWithRanges, error) {
 	baseQuery := `
 		SELECT p.id, p.tenant_id, p.school_id, p.name, p.is_active, p.created_at, p.updated_at,
-		       r.id AS range_id, r.profile_id, r.performance_level::text, r.min_percentage, r.max_percentage, r.default_percentage_mapping
+		       r.id AS range_id, r.tenant_id, r.profile_id, r.performance_level::text, r.min_percentage, r.max_percentage, r.default_percentage_mapping
 		FROM grading_scale_profiles p
 		LEFT JOIN grading_scale_ranges r ON r.profile_id = p.id
 		WHERE p.tenant_id = $1 AND p.school_id = $2
@@ -144,13 +145,13 @@ func (r *PgRepository) ListScaleProfiles(ctx context.Context, tenantID, schoolID
 
 	for rows.Next() {
 		var p ScaleProfile
-		var rangeID, rangeProfileID *string
+		var rangeID, rangeTenantID, rangeProfileID *string
 		var performanceLevel *string
 		var minPct, maxPct *float64
 		var defaultPct **float64
 
 		if err := rows.Scan(&p.ID, &p.TenantID, &p.SchoolID, &p.Name, &p.IsActive, &p.CreatedAt, &p.UpdatedAt,
-			&rangeID, &rangeProfileID, &performanceLevel, &minPct, &maxPct, &defaultPct); err != nil {
+			&rangeID, &rangeTenantID, &rangeProfileID, &performanceLevel, &minPct, &maxPct, &defaultPct); err != nil {
 			return nil, fmt.Errorf("assessments.Repository.ListScaleProfiles: %w", err)
 		}
 
@@ -165,6 +166,7 @@ func (r *PgRepository) ListScaleProfiles(ctx context.Context, tenantID, schoolID
 		if rangeID != nil {
 			sr := ScaleRange{
 				ID:                       *rangeID,
+				TenantID:                 *rangeTenantID,
 				ProfileID:                *rangeProfileID,
 				PerformanceLevel:         *performanceLevel,
 				MinPercentage:            *minPct,
@@ -257,12 +259,13 @@ func (r *PgRepository) CreateScaleProfileWithRanges(ctx context.Context, params 
 	ids := make([]string, 0, len(params.Ranges))
 	for _, sr := range params.Ranges {
 		const rangeQuery = `
-			INSERT INTO grading_scale_ranges (profile_id, performance_level, min_percentage, max_percentage, default_percentage_mapping)
-			VALUES ($1, $2::cbc_performance_level, $3, $4, $5)
+			INSERT INTO grading_scale_ranges (tenant_id, profile_id, performance_level, min_percentage, max_percentage, default_percentage_mapping)
+			VALUES ($1, $2, $3::cbc_performance_level, $4, $5, $6)
 			RETURNING id
 		`
 		var id string
 		err := tx.QueryRow(ctx, rangeQuery,
+			params.TenantID,
 			profileID,
 			sr.PerformanceLevel,
 			sr.MinPercentage,
@@ -290,7 +293,7 @@ func (r *PgRepository) CreateScaleProfileWithRanges(ctx context.Context, params 
 // GetScaleRanges returns all ranges for a given profile.
 func (r *PgRepository) GetScaleRanges(ctx context.Context, profileID string) ([]ScaleRange, error) {
 	const query = `
-		SELECT id, profile_id, performance_level::text, min_percentage, max_percentage, default_percentage_mapping
+		SELECT id, tenant_id, profile_id, performance_level::text, min_percentage, max_percentage, default_percentage_mapping
 		FROM grading_scale_ranges
 		WHERE profile_id = $1
 		ORDER BY min_percentage ASC
@@ -304,7 +307,7 @@ func (r *PgRepository) GetScaleRanges(ctx context.Context, profileID string) ([]
 	var ranges []ScaleRange
 	for rows.Next() {
 		var sr ScaleRange
-		if err := rows.Scan(&sr.ID, &sr.ProfileID, &sr.PerformanceLevel, &sr.MinPercentage, &sr.MaxPercentage, &sr.DefaultPercentageMapping); err != nil {
+		if err := rows.Scan(&sr.ID, &sr.TenantID, &sr.ProfileID, &sr.PerformanceLevel, &sr.MinPercentage, &sr.MaxPercentage, &sr.DefaultPercentageMapping); err != nil {
 			return nil, fmt.Errorf("assessments.Repository.GetScaleRanges: scan: %w", err)
 		}
 		ranges = append(ranges, sr)
@@ -333,12 +336,13 @@ func (r *PgRepository) ReplaceScaleRanges(ctx context.Context, profileID string,
 	ids := make([]string, 0, len(ranges))
 	for _, sr := range ranges {
 		const insertQuery = `
-			INSERT INTO grading_scale_ranges (profile_id, performance_level, min_percentage, max_percentage, default_percentage_mapping)
-			VALUES ($1, $2::cbc_performance_level, $3, $4, $5)
+			INSERT INTO grading_scale_ranges (tenant_id, profile_id, performance_level, min_percentage, max_percentage, default_percentage_mapping)
+			VALUES ($1, $2, $3::cbc_performance_level, $4, $5, $6)
 			RETURNING id
 		`
 		var id string
 		if err := tx.QueryRow(ctx, insertQuery,
+			sr.TenantID,
 			profileID,
 			sr.PerformanceLevel,
 			sr.MinPercentage,

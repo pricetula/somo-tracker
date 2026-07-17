@@ -1024,12 +1024,12 @@ BEGIN
     UPDATE invoices i
     SET
         amount_paid    = COALESCE(p.total_paid, 0),
-        payment_status = CASE
-            WHEN i.payment_status = 'WAIVED'               THEN 'WAIVED'
-            WHEN COALESCE(p.total_paid, 0) = 0             THEN 'UNPAID'
-            WHEN COALESCE(p.total_paid, 0) >= i.amount_due THEN 'PAID'
-            ELSE 'PARTIAL'
-        END
+        payment_status = (CASE
+            WHEN i.payment_status = 'WAIVED'               THEN 'WAIVED'::invoice_payment_status
+            WHEN COALESCE(p.total_paid, 0) = 0             THEN 'UNPAID'::invoice_payment_status
+            WHEN COALESCE(p.total_paid, 0) >= i.amount_due THEN 'PAID'::invoice_payment_status
+            ELSE 'PARTIAL'::invoice_payment_status
+        END)
     FROM (SELECT DISTINCT invoice_id FROM inserted_rows) ai
     LEFT JOIN (
         SELECT invoice_id, SUM(amount) AS total_paid
@@ -1048,12 +1048,12 @@ BEGIN
     UPDATE invoices i
     SET
         amount_paid    = COALESCE(p.total_paid, 0),
-        payment_status = CASE
-            WHEN i.payment_status = 'WAIVED'               THEN 'WAIVED'
-            WHEN COALESCE(p.total_paid, 0) = 0             THEN 'UNPAID'
-            WHEN COALESCE(p.total_paid, 0) >= i.amount_due THEN 'PAID'
-            ELSE 'PARTIAL'
-        END
+        payment_status = (CASE
+            WHEN i.payment_status = 'WAIVED'               THEN 'WAIVED'::invoice_payment_status
+            WHEN COALESCE(p.total_paid, 0) = 0             THEN 'UNPAID'::invoice_payment_status
+            WHEN COALESCE(p.total_paid, 0) >= i.amount_due THEN 'PAID'::invoice_payment_status
+            ELSE 'PARTIAL'::invoice_payment_status
+        END)
     FROM (SELECT DISTINCT invoice_id FROM deleted_rows) ai
     LEFT JOIN (
         SELECT invoice_id, SUM(amount) AS total_paid
@@ -1077,12 +1077,12 @@ BEGIN
     UPDATE invoices i
     SET
         amount_paid    = COALESCE(p.total_paid, 0),
-        payment_status = CASE
-            WHEN i.payment_status = 'WAIVED'               THEN 'WAIVED'
-            WHEN COALESCE(p.total_paid, 0) = 0             THEN 'UNPAID'
-            WHEN COALESCE(p.total_paid, 0) >= i.amount_due THEN 'PAID'
-            ELSE 'PARTIAL'
-        END
+        payment_status = (CASE
+            WHEN i.payment_status = 'WAIVED'               THEN 'WAIVED'::invoice_payment_status
+            WHEN COALESCE(p.total_paid, 0) = 0             THEN 'UNPAID'::invoice_payment_status
+            WHEN COALESCE(p.total_paid, 0) >= i.amount_due THEN 'PAID'::invoice_payment_status
+            ELSE 'PARTIAL'::invoice_payment_status
+        END)
     FROM affected_invoices ai
     LEFT JOIN (
         SELECT invoice_id, SUM(amount) AS total_paid

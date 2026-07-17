@@ -108,6 +108,7 @@ type ScaleProfile struct {
 // ScaleRange represents a single percentage-to-level mapping within a profile.
 type ScaleRange struct {
 	ID                       string   `json:"id"`
+	TenantID                 string   `json:"-"`
 	ProfileID                string   `json:"profile_id"`
 	PerformanceLevel         string   `json:"performance_level"`
 	MinPercentage            float64  `json:"min_percentage"`
@@ -240,6 +241,7 @@ type CreateScaleProfileParams struct {
 
 // CreateScaleRangeParams holds fields needed to create a scale range.
 type CreateScaleRangeParams struct {
+	TenantID                 string
 	ProfileID                string
 	PerformanceLevel         string
 	MinPercentage            float64

@@ -330,11 +330,15 @@ func TestMigrationsIntegration_ApplyAll(t *testing.T) {
 	require.NoError(t, err)
 	defer pool.Close()
 
-	// Apply migrations. 000003 was squashed into 000001; only the two
-	// active migration files are applied.
+	// Apply the full migration chain:
+	//   000001 — initial schema (all tables, composite FKs, RLS)
+	//   000002 — seed data (tenant, school, KNEC weight configs)
+	//   000003 — review-findings fixes (idempotent on fresh install,
+	//             upgrades pre-squash databases with fixes for items 1–10)
 	migrations := []string{
 		"000001_initial_schema.up.sql",
 		"000002_seed.up.sql",
+		"000003_fix_review_findings.up.sql",
 	}
 
 	for _, f := range migrations {
@@ -366,16 +370,25 @@ func TestMigrationsIntegration_ApplyAll(t *testing.T) {
 	// Assert key tables exist
 	expectedTables := []string{
 		"academic_terms", "academic_years",
+		"assessment_sessions", "assessment_weight_configs",
+		"attendance_records", "attendance_term_summaries",
 		"behavior_categories", "behavior_notes",
+		"cbc_attendance_sessions",
 		"cbc_class_teachers", "cbc_classes", "cbc_learning_areas", "cbc_parents",
-		"cbc_schools", "cbc_streams", "cbc_student_enrollments", "cbc_student_parents",
+		"cbc_schools", "cbc_streams", "cbc_strands",
+		"cbc_student_enrollments", "cbc_student_parents",
 		"cbc_students", "cbc_sub_strands",
-		"cbc_timetable_slots", "fee_categories", "fee_templates", "import_job_chunks",
-		"import_job_failures", "import_job_staging", "import_jobs", "invoices",
-		"invoice_items", "invitations",
-		"medical_incidents", "member_active_school", "memberships", "payments",
-		"performance_indicators", "school_member_counts", "sessions",
-		"student_health_profiles", "tenants", "timetable_structures", "users",
+		"cbc_timetable_slots",
+		"fee_categories", "fee_templates",
+		"grading_scale_profiles", "grading_scale_ranges",
+		"import_job_chunks", "import_job_failures", "import_job_staging", "import_jobs",
+		"invoices", "invoice_items", "invitations",
+		"medical_incidents", "member_active_school", "memberships",
+		"payments", "performance_indicators",
+		"school_member_counts", "sessions",
+		"student_assessment_outcome_grades", "student_assessment_scores",
+		"student_health_profiles",
+		"tenants", "timetable_structures", "users",
 	}
 
 	tableSet := make(map[string]bool, len(tables))
@@ -429,10 +442,9 @@ func TestMigrationsIntegration_ConstraintsAndIndexes_M3_to_M13(t *testing.T) {
 	require.NoError(t, err)
 	defer pool.Close()
 
-	// Apply all migrations (000003 is an upgrade-only migration for databases
-	// created with the old 000001 schema — new installations get the correct
-	// columns directly from the updated 000001_initial_schema.up.sql)
-	for _, f := range []string{"000001_initial_schema.up.sql", "000002_seed.up.sql"} {
+	// Apply the full migration chain (000003 is idempotent on fresh installs
+	// — it fixes databases created with the old pre-squash 000001 schema)
+	for _, f := range []string{"000001_initial_schema.up.sql", "000002_seed.up.sql", "000003_fix_review_findings.up.sql"} {
 		sql, err := os.ReadFile(filepath.Join(migrationsDir(), f))
 		require.NoError(t, err, "read %s", f)
 		_, err = pool.Exec(ctx, string(sql))
@@ -688,7 +700,8 @@ func TestMigrationsIntegration_UniqueConstraints_M14_to_M17(t *testing.T) {
 	require.NoError(t, err)
 	defer pool.Close()
 
-	for _, f := range []string{"000001_initial_schema.up.sql"} {
+	// Apply base schema first, then the upgrade fix migration
+	for _, f := range []string{"000001_initial_schema.up.sql", "000003_fix_review_findings.up.sql"} {
 		sql, err := os.ReadFile(filepath.Join(migrationsDir(), f))
 		require.NoError(t, err, "read %s", f)
 		_, err = pool.Exec(ctx, string(sql))
@@ -782,7 +795,8 @@ func TestMigrationsIntegration_PartialUniqueIndexes_M18_to_M22(t *testing.T) {
 	require.NoError(t, err)
 	defer pool.Close()
 
-	for _, f := range []string{"000001_initial_schema.up.sql"} {
+	// Apply base schema first, then the upgrade fix migration
+	for _, f := range []string{"000001_initial_schema.up.sql", "000003_fix_review_findings.up.sql"} {
 		sql, err := os.ReadFile(filepath.Join(migrationsDir(), f))
 		require.NoError(t, err, "read %s", f)
 		_, err = pool.Exec(ctx, string(sql))

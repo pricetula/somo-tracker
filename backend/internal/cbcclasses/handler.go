@@ -523,7 +523,30 @@ func (h *Handler) UnenrollStudent(c *fiber.Ctx) error {
 		})
 	}
 
-	if err := h.svc.UnenrollStudent(c.Context(), classID, studentID, tenantID, schoolID); err != nil {
+	// Resolve the active academic term for this unenrollment
+	academicYearID, err := h.academicYearsSvc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	if academicYearID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "NO_ACTIVE_ACADEMIC_YEAR",
+			"message": "No current academic year is set for this school.",
+		})
+	}
+
+	academicTermID, err := h.academicYearsSvc.GetCurrentAcademicTermID(c.Context(), academicYearID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	if academicTermID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "NO_ACTIVE_ACADEMIC_TERM",
+			"message": "No current academic term is active.",
+		})
+	}
+
+	if err := h.svc.UnenrollStudent(c.Context(), classID, studentID, tenantID, schoolID, academicTermID); err != nil {
 		return mapClassError(c, err)
 	}
 

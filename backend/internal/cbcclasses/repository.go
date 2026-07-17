@@ -425,7 +425,7 @@ func (r *PgRepository) ValidateAcademicTerm(ctx context.Context, id, academicYea
 
 // ─── GetRoster ───────────────────────────────────────────────────────────
 
-// GetRoster returns a paginated list of students enrolled in a class for the current term.
+// GetRoster returns a paginated list of students enrolled in a class for the given term.
 func (r *PgRepository) GetRoster(ctx context.Context, classID, tenantID, schoolID, academicTermID string, limit, offset int, search string) (*RosterListResult, error) {
 	// ── Count query ───────────────────────────────────────────
 	countQuery := `
@@ -435,9 +435,11 @@ func (r *PgRepository) GetRoster(ctx context.Context, classID, tenantID, schoolI
 		WHERE e.class_id = $1
 		  AND e.academic_term_id = $2
 		  AND e.tenant_id = $3
+		  AND e.school_id = $4
+		  AND e.status = 'ACTIVE'
 		  AND s.is_active = true
 	`
-	countArgs := []interface{}{classID, academicTermID, tenantID}
+	countArgs := []interface{}{classID, academicTermID, tenantID, schoolID}
 
 	if search != "" {
 		countQuery += ` AND (s.full_name ILIKE $4 OR s.admission_number ILIKE $4)`
@@ -460,9 +462,11 @@ func (r *PgRepository) GetRoster(ctx context.Context, classID, tenantID, schoolI
 		WHERE e.class_id = $1
 		  AND e.academic_term_id = $2
 		  AND e.tenant_id = $3
+		  AND e.school_id = $4
+		  AND e.status = 'ACTIVE'
 		  AND s.is_active = true
 	`
-	dataArgs := []interface{}{classID, academicTermID, tenantID}
+	dataArgs := []interface{}{classID, academicTermID, tenantID, schoolID}
 
 	if search != "" {
 		dataQuery += ` AND (s.full_name ILIKE $4 OR s.admission_number ILIKE $4)`
@@ -596,18 +600,22 @@ func (r *PgRepository) BatchEnrollStudents(ctx context.Context, classID, tenantI
 
 // ─── UnenrollStudent ──────────────────────────────────────────────────────
 
-// UnenrollStudent removes a single student from a class for the active term.
+// UnenrollStudent removes a single student from a class for the given term.
 // Sets class_id to NULL on the enrollment record instead of deleting it,
 // preserving attendance history.
-func (r *PgRepository) UnenrollStudent(ctx context.Context, classID, studentID, tenantID, schoolID string) error {
+// The academic_term_id parameter is REQUIRED to scope the unenrollment to
+// a single term — omitting it would unenroll the student from ALL terms
+// for this class.
+func (r *PgRepository) UnenrollStudent(ctx context.Context, classID, studentID, tenantID, schoolID, academicTermID string) error {
 	const query = `
 		UPDATE cbc_student_enrollments
 		SET class_id = NULL, status = 'SUSPENDED', updated_at = NOW()
 		WHERE class_id = $1
 		  AND student_id = $2
 		  AND tenant_id = $3
+		  AND academic_term_id = $4
 	`
-	tag, err := r.pool.Exec(ctx, query, classID, studentID, tenantID)
+	tag, err := r.pool.Exec(ctx, query, classID, studentID, tenantID, academicTermID)
 	if err != nil {
 		return fmt.Errorf("cbcclasses.Repository.UnenrollStudent: %w", err)
 	}

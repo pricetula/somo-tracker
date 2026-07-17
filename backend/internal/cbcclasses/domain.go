@@ -34,7 +34,7 @@ type Repository interface {
 	// Enrollment
 	GetRoster(ctx context.Context, classID, tenantID, schoolID, academicTermID string, limit, offset int, search string) (*RosterListResult, error)
 	BatchEnrollStudents(ctx context.Context, classID, tenantID, schoolID, academicTermID string, studentIDs []string) (int, error)
-	UnenrollStudent(ctx context.Context, classID, studentID, tenantID, schoolID string) error
+	UnenrollStudent(ctx context.Context, classID, studentID, tenantID, schoolID, academicTermID string) error
 	GetAvailableStudents(ctx context.Context, filter AvailableStudentsFilter) (*AvailableStudentsResponse, error)
 }
 

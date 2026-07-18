@@ -16,6 +16,7 @@ import type { FilterGroup } from "@/components/shared/data-table/types";
 import { listSessions, type AssessmentSession } from "@/lib/api/assessments";
 import { StatusBadge } from "./status-badge";
 import { EVALUATION_METHOD_LABELS } from "../types";
+import { GradeLevelPill } from "@/features/grade-level";
 
 // ─── Columns ──────────────────────────────────────────────────────────────
 
@@ -32,7 +33,7 @@ const columns: DataTableColumn<AssessmentSession>[] = [
     {
         id: "class_name",
         header: "Class",
-        width: "140px",
+        width: "130px",
         align: "right",
         cell: (row) => (
             <Link href={`/classes/${row.class_id}`} className="font-medium hover:underline">
@@ -43,23 +44,36 @@ const columns: DataTableColumn<AssessmentSession>[] = [
     {
         id: "grade_level",
         header: "Grade",
-        width: "60px",
-        cell: (row) => (
-            <span className="text-muted-foreground tabular-nums">
-                {row.grade_level ?? "\u2014"}
-            </span>
-        ),
+        width: "130px",
+        cell: (row) => <GradeLevelPill grade={row.grade_level} />,
     },
     {
         id: "status",
         header: "Status",
-        width: "80px",
+        width: "130px",
         cell: (row) => <StatusBadge status={row.status} />,
+    },
+    {
+        id: "max_points",
+        header: "Max",
+        width: "130px",
+        align: "right",
+        cell: (row) => (
+            <span className="text-muted-foreground tabular-nums">{row.max_points ?? "\u2014"}</span>
+        ),
+    },
+    {
+        id: "scheduled_date",
+        header: "Scheduled Date",
+        width: "130px",
+        cell: (row) => (
+            <span className="text-muted-foreground">{row.scheduled_date ?? "\u2014"}</span>
+        ),
     },
     {
         id: "evaluation_method",
         header: "Type",
-        width: "130px",
+        width: "180px",
         cell: (row) => {
             const isQuant = row.evaluation_method === "QUANTITATIVE";
             return (
@@ -75,33 +89,6 @@ const columns: DataTableColumn<AssessmentSession>[] = [
                 </div>
             );
         },
-    },
-    {
-        id: "max_points",
-        header: "Max",
-        width: "60px",
-        align: "right",
-        cell: (row) => (
-            <span className="text-muted-foreground tabular-nums">{row.max_points ?? "\u2014"}</span>
-        ),
-    },
-    {
-        id: "scheduled_date",
-        header: "Date",
-        width: "110px",
-        cell: (row) => (
-            <span className="text-muted-foreground">{row.scheduled_date ?? "\u2014"}</span>
-        ),
-    },
-    {
-        id: "created_at",
-        header: "Created",
-        width: "110px",
-        cell: (row) => (
-            <span className="text-muted-foreground text-xs">
-                {new Date(row.created_at).toLocaleDateString()}
-            </span>
-        ),
     },
 ];
 

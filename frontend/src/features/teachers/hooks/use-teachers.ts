@@ -71,7 +71,13 @@ export function useTeacherMap() {
         staleTime: 5 * 60 * 1000,
         placeholderData: (prev) => prev,
         select: (data: ListTeachersResponse): Record<string, TeacherMember> =>
-            Object.fromEntries(data.items.map((t) => [t.id, t])),
+            data?.items?.reduce?.(
+                (acc, item) => {
+                    acc[item.id] = item;
+                    return acc;
+                },
+                {} as Record<string, TeacherMember>
+            ) ?? {},
     });
 }
 

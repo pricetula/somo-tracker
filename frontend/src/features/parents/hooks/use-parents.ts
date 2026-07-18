@@ -51,7 +51,13 @@ export function useParentMap() {
         staleTime: 5 * 60 * 1000,
         placeholderData: (prev) => prev,
         select: (data: ListParentsResponse): Record<string, Parent> =>
-            Object.fromEntries(data.items.map((p) => [p.id, p])),
+            data?.items?.reduce?.(
+                (acc, item) => {
+                    acc[item.id] = item;
+                    return acc;
+                },
+                {} as Record<string, Parent>
+            ) ?? {},
     });
 }
 

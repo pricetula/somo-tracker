@@ -69,7 +69,13 @@ export function useAcademicYearMap() {
         staleTime: 2 * 60 * 1000,
         placeholderData: (prev) => prev,
         select: (data: { items: AcademicYear[] }): Record<string, AcademicYear> =>
-            Object.fromEntries(data.items.map((y) => [y.id, y])),
+            data?.items?.reduce?.(
+                (acc, item) => {
+                    acc[item.id] = item;
+                    return acc;
+                },
+                {} as Record<string, AcademicYear>
+            ) ?? {},
     });
 }
 

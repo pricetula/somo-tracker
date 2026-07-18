@@ -59,6 +59,12 @@ export function useClassMap() {
         staleTime: 5 * 60 * 1000,
         placeholderData: (prev) => prev,
         select: (data): Record<string, Class> =>
-            Object.fromEntries(data.items.map((c) => [c.id, c])),
+            data?.items?.reduce?.(
+                (acc, item) => {
+                    acc[item.id] = item;
+                    return acc;
+                },
+                {} as Record<string, Class>
+            ) ?? {},
     });
 }

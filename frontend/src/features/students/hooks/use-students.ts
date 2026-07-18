@@ -62,7 +62,13 @@ export function useStudentMap() {
         staleTime: 5 * 60 * 1000,
         placeholderData: (prev) => prev,
         select: (data: ListStudentsResponse): Record<string, Student> =>
-            Object.fromEntries(data.items.map((s) => [s.id, s])),
+            data?.items?.reduce?.(
+                (acc, item) => {
+                    acc[item.id] = item;
+                    return acc;
+                },
+                {} as Record<string, Student>
+            ) ?? {},
     });
 }
 

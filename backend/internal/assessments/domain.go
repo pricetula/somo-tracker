@@ -137,6 +137,8 @@ type AssessmentSession struct {
 	CreatedAt             time.Time `json:"created_at"`
 	UpdatedAt             time.Time `json:"updated_at"`
 	CreatedBy             string    `json:"-"`
+	ClassName             string    `json:"class_name"`
+	GradeLevel            string    `json:"grade_level"`
 }
 
 // StudentScore holds a student's quantitative assessment result.

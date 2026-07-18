@@ -522,8 +522,12 @@ func (r *PgRepository) ListSessions(ctx context.Context, tenantID, schoolID stri
 		       s.academic_term_id, s.academic_year_id, s.name,
 		       s.evaluation_method::text, s.max_points, s.grading_scale_profile_id,
 		       s.status::text, s.rejection_comment, s.submitted_by, s.approved_by,
-		       s.scheduled_date, s.created_at, s.updated_at, s.created_by
+		       s.scheduled_date, s.created_at, s.updated_at, s.created_by,
+			   c.grade_level || ' ' || COALESCE(st.name, '') AS class_name,
+			   c.grade_level
 		FROM assessment_sessions s
+		JOIN cbc_classes c ON c.id = s.class_id
+		JOIN cbc_streams st ON st.id = c.stream_id
 		WHERE ` + whereClause + `
 		ORDER BY s.created_at DESC
 		LIMIT $` + fmt.Sprintf("%d", argIdx) + ` OFFSET $` + fmt.Sprintf("%d", argIdx+1)

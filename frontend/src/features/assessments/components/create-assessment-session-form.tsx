@@ -89,7 +89,7 @@ export function CreateAssessmentSessionForm({ onSuccess }: Props) {
             });
         },
         onSuccess: (result) => {
-            router.push(`/assessments/${result.id}`);
+            router.back();
             onSuccess?.(result as unknown as AssessmentSession);
         },
         onError: (err) => {

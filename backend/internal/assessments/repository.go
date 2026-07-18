@@ -550,6 +550,7 @@ func (r *PgRepository) ListSessions(ctx context.Context, tenantID, schoolID stri
 			&s.EvaluationMethod, &s.MaxPoints, &s.GradingScaleProfileID,
 			&s.Status, &s.RejectionComment, &s.SubmittedBy, &s.ApprovedBy,
 			&scheduledDate, &s.CreatedAt, &s.UpdatedAt, &s.CreatedBy,
+			&s.ClassName, &s.GradeLevel,
 		); err != nil {
 			return nil, 0, fmt.Errorf("assessments.Repository.ListSessions: scan: %w", err)
 		}

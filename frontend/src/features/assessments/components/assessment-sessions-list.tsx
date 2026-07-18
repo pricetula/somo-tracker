@@ -30,9 +30,30 @@ const columns: DataTableColumn<AssessmentSession>[] = [
         ),
     },
     {
+        id: "class_name",
+        header: "Class",
+        width: "140px",
+        align: "right",
+        cell: (row) => (
+            <Link href={`/classes/${row.class_id}`} className="font-medium hover:underline">
+                {row.class_name}
+            </Link>
+        ),
+    },
+    {
+        id: "grade_level",
+        header: "Grade",
+        width: "60px",
+        cell: (row) => (
+            <span className="text-muted-foreground tabular-nums">
+                {row.grade_level ?? "\u2014"}
+            </span>
+        ),
+    },
+    {
         id: "status",
         header: "Status",
-        width: "140px",
+        width: "80px",
         cell: (row) => <StatusBadge status={row.status} />,
     },
     {

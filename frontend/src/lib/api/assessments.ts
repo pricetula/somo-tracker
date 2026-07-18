@@ -54,6 +54,8 @@ export interface AssessmentSession {
     scheduled_date: string | null;
     created_at: string;
     updated_at: string;
+    class_name: string;
+    grade_level: string;
 }
 
 export interface StudentScore {

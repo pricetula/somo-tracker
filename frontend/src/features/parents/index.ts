@@ -8,6 +8,7 @@ export { LinkStudentDialog } from "./components/link-student-dialog";
 
 export {
     useParents,
+    useParentMap,
     useParentDetail,
     useCreateParent,
     useUpdateParent,

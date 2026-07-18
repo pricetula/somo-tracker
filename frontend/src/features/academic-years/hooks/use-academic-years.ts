@@ -56,6 +56,23 @@ export function useAcademicYearsManage() {
     });
 }
 
+/**
+ * Fetch all academic years as a Record<id, AcademicYear> for O(1) lookups.
+ *
+ * Shares the same cache entry as useAcademicYearsManage — no extra network
+ * request. Useful for cross-references from other entities.
+ */
+export function useAcademicYearMap() {
+    return useQuery({
+        queryKey: academicYearKeys.lists(),
+        queryFn: () => listAcademicYears(),
+        staleTime: 2 * 60 * 1000,
+        placeholderData: (prev) => prev,
+        select: (data: { items: AcademicYear[] }): Record<string, AcademicYear> =>
+            Object.fromEntries(data.items.map((y) => [y.id, y])),
+    });
+}
+
 /** Derive a single academic year (with terms) from the list query. */
 export function useAcademicYearDetail(id: string | undefined) {
     const { data, ...rest } = useAcademicYearsManage();

@@ -1,6 +1,7 @@
 export { NurseDetail } from "./components/nurse-detail";
 export {
     useNurses,
+    useNurseMap,
     useNurseDetail,
     useUpdateNurse,
     useDeleteNurse,

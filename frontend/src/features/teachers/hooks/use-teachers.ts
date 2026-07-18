@@ -15,6 +15,7 @@ import {
     toggleTeacherActive,
     deleteTeacher,
     type ListTeachersResponse,
+    type TeacherMember,
 } from "@/lib/api/teachers";
 import { getErrorMessage } from "@/lib/errors";
 import { toast } from "sonner";
@@ -54,6 +55,23 @@ export function useTeachers(
             }),
         placeholderData: (prev) => prev,
         enabled,
+    });
+}
+
+/**
+ * Fetch all teachers as a Record<id, TeacherMember> for O(1) lookups.
+ *
+ * Separate query key from the paginated useTeachers — fetches with a
+ * generous limit. Best for lookup tables and cross-references.
+ */
+export function useTeacherMap() {
+    return useQuery({
+        queryKey: [...teachersKeys.all, "map"] as const,
+        queryFn: () => listTeachers({ limit: 500 }),
+        staleTime: 5 * 60 * 1000,
+        placeholderData: (prev) => prev,
+        select: (data: ListTeachersResponse): Record<string, TeacherMember> =>
+            Object.fromEntries(data.items.map((t) => [t.id, t])),
     });
 }
 

@@ -9,7 +9,7 @@ export { EnrollDialog } from "./components/enroll-dialog";
 export { BatchEnrollForm } from "./components/batch-enroll-form";
 export { useEnrollmentStore } from "./store/enrollment-store";
 
-export { useStudents, useDeleteStudent, studentKeys } from "./hooks/use-students";
+export { useStudents, useStudentMap, useDeleteStudent, studentKeys } from "./hooks/use-students";
 export {
     useStudentDetail,
     useCreateStudent,

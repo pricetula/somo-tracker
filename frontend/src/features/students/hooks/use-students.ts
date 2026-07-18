@@ -11,7 +11,7 @@ import { toast } from "sonner";
 
 import { listStudents, deleteStudent } from "@/lib/api/students";
 import { getErrorMessage } from "@/lib/errors";
-import type { ListStudentsParams, ListStudentsResponse } from "@/lib/api/students";
+import type { ListStudentsParams, ListStudentsResponse, Student } from "@/lib/api/students";
 
 // ─── Query keys ───────────────────────────────────────────────────────────
 
@@ -46,6 +46,23 @@ export function useStudents(params: ListStudentsParams = {}, opts: { enabled?: b
             listStudents({ page, limit, search, class_id, gender, enrollment_status, filters }),
         placeholderData: (prev) => prev,
         enabled,
+    });
+}
+
+/**
+ * Fetch all students as a Record<id, Student> for O(1) lookups.
+ *
+ * Separate query key from the paginated useStudents — fetches with a
+ * generous limit. Best for lookup tables and cross-references.
+ */
+export function useStudentMap() {
+    return useQuery({
+        queryKey: [...studentKeys.all, "map"] as const,
+        queryFn: () => listStudents({ limit: 500 }),
+        staleTime: 5 * 60 * 1000,
+        placeholderData: (prev) => prev,
+        select: (data: ListStudentsResponse): Record<string, Student> =>
+            Object.fromEntries(data.items.map((s) => [s.id, s])),
     });
 }
 

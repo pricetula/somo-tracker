@@ -14,6 +14,7 @@ import {
     deleteNurse,
     type ListMembersResponse,
 } from "@/lib/api/nurses";
+import type { Member } from "@/lib/api/generated";
 import { getMember, updateMember } from "@/lib/api/members";
 
 import { getErrorMessage } from "@/lib/errors";
@@ -27,6 +28,23 @@ export const nursesKeys = {
 };
 
 // ─── Hooks ─────────────────────────────────────────────────────────────────
+
+/**
+ * Fetch all nurses as a Record<id, Member> for O(1) lookups.
+ *
+ * Separate query key from the paginated useNurses — fetches with a
+ * generous limit. Best for lookup tables and cross-references.
+ */
+export function useNurseMap() {
+    return useQuery({
+        queryKey: [...nursesKeys.all, "map"] as const,
+        queryFn: () => listNurses({ limit: 500 }),
+        staleTime: 5 * 60 * 1000,
+        placeholderData: (prev) => prev,
+        select: (data: ListMembersResponse): Record<string, Member> =>
+            Object.fromEntries(data.items.map((n) => [n.id, n])),
+    });
+}
 
 /** Fetch nurses (NURSE role). */
 export function useNurses(

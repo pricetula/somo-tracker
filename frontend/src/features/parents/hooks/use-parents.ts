@@ -25,6 +25,7 @@ import type {
     CreateParentPayload,
     UpdateParentPayload,
     LinkStudentPayload,
+    Parent,
 } from "../types";
 
 // ─── Query keys ───────────────────────────────────────────────────────────
@@ -36,6 +37,23 @@ export const parentKeys = {
 };
 
 // ─── Hooks: Parents List ─────────────────────────────────────────────────
+
+/**
+ * Fetch all parents as a Record<id, Parent> for O(1) lookups.
+ *
+ * Separate query key from the paginated useParents — fetches with a
+ * generous limit. Best for lookup tables and cross-references.
+ */
+export function useParentMap() {
+    return useQuery({
+        queryKey: [...parentKeys.all, "map"] as const,
+        queryFn: () => listParents({ limit: 500 }),
+        staleTime: 5 * 60 * 1000,
+        placeholderData: (prev) => prev,
+        select: (data: ListParentsResponse): Record<string, Parent> =>
+            Object.fromEntries(data.items.map((p) => [p.id, p])),
+    });
+}
 
 /** Fetch parents list, optionally filtered by search, student_id, or curriculum filters (education_level, grade_level), with pagination. */
 export function useParents(

@@ -16,7 +16,7 @@ export function NewSubStrandPageContent() {
         <CreateSubStrandDialog
             open
             onOpenChange={(open: boolean) => {
-                if (!open) router.push("/curriculum");
+                if (!open) router.back();
             }}
             strandId={strandId}
         />

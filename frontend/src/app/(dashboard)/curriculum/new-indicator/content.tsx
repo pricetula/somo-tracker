@@ -16,7 +16,7 @@ export function NewIndicatorPageContent() {
         <CreateIndicatorDialog
             open
             onOpenChange={(open: boolean) => {
-                if (!open) router.push("/curriculum");
+                if (!open) router.back();
             }}
             subStrandId={subStrandId}
         />

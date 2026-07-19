@@ -15,7 +15,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Link2, Trash2, UserPlus } from "lucide-react";
+import { Trash2, Link2, UserPlus } from "lucide-react";
+
+import { StaticTable } from "@/components/shared/static-table";
 
 import { useParentDetail, useUpdateParent, useUnlinkStudent } from "../hooks/use-parents";
 import { LinkStudentDialog } from "./link-student-dialog";
@@ -220,65 +222,62 @@ export function ParentDetailView({ parentId, onBack }: ParentDetailViewProps) {
                 {linkedCount === 0 ? (
                     <EmptyState onCreateLink={() => setLinkDialogOpen(true)} />
                 ) : (
-                    <div className="ring-foreground/10 rounded-lg ring-1">
-                        <table className="w-full">
-                            <thead>
-                                <tr className="border-border/40 border-b">
-                                    <th className="text-muted-foreground px-3 py-2 text-left text-xs font-medium tracking-wider uppercase">
-                                        Student Name
-                                    </th>
-                                    <th className="text-muted-foreground px-3 py-2 text-left text-xs font-medium tracking-wider uppercase">
-                                        Relationship
-                                    </th>
-                                    <th className="text-muted-foreground px-3 py-2 text-left text-xs font-medium tracking-wider uppercase">
-                                        Primary
-                                    </th>
-                                    <th className="w-16 px-3 py-2" />
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {detail.linked_students.map((link) => (
-                                    <tr
-                                        key={link.student_id}
-                                        className="group border-border/40 hover:bg-muted/30 border-b transition-colors"
+                    <StaticTable
+                        columns={[
+                            {
+                                id: "name",
+                                header: "Student Name",
+                                cell: (link) => (
+                                    <span className="font-medium">{link.full_name}</span>
+                                ),
+                            },
+                            {
+                                id: "relationship",
+                                header: "Relationship",
+                                cell: (link) => (
+                                    <span className="text-muted-foreground">
+                                        {link.relationship || "—"}
+                                    </span>
+                                ),
+                            },
+                            {
+                                id: "primary",
+                                header: "Primary",
+                                cell: (link) =>
+                                    link.is_primary ? (
+                                        <Badge
+                                            variant="secondary"
+                                            className="bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400"
+                                        >
+                                            Primary
+                                        </Badge>
+                                    ) : (
+                                        <span className="text-muted-foreground">—</span>
+                                    ),
+                            },
+                            {
+                                id: "actions",
+                                header: "",
+                                width: "64px",
+                                cell: (link) => (
+                                    <Button
+                                        variant="ghost"
+                                        size="icon-sm"
+                                        onClick={() =>
+                                            handleUnlink(link.student_id, link.full_name)
+                                        }
+                                        title="Unlink student"
                                     >
-                                        <td className="px-3 py-2.5 font-medium">
-                                            {link.full_name}
-                                        </td>
-                                        <td className="text-muted-foreground px-3 py-2.5">
-                                            {link.relationship || "—"}
-                                        </td>
-                                        <td className="px-3 py-2.5">
-                                            {link.is_primary ? (
-                                                <Badge
-                                                    variant="secondary"
-                                                    className="bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400"
-                                                >
-                                                    Primary
-                                                </Badge>
-                                            ) : (
-                                                <span className="text-muted-foreground">—</span>
-                                            )}
-                                        </td>
-                                        <td className="px-3 py-2.5">
-                                            <Button
-                                                variant="ghost"
-                                                size="icon-sm"
-                                                className="opacity-0 transition-opacity group-hover:opacity-100"
-                                                onClick={() =>
-                                                    handleUnlink(link.student_id, link.full_name)
-                                                }
-                                                title="Unlink student"
-                                            >
-                                                <Trash2 className="text-destructive size-3.5" />
-                                                <span className="sr-only">Unlink</span>
-                                            </Button>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                        <Trash2 className="text-destructive size-3.5" />
+                                        <span className="sr-only">Unlink</span>
+                                    </Button>
+                                ),
+                            },
+                        ]}
+                        data={detail.linked_students}
+                        getRowId={(link) => link.student_id}
+                        height={280}
+                    />
                 )}
             </div>
 

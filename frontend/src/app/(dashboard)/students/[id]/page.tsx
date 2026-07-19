@@ -24,6 +24,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { StaticTable } from "@/components/shared/static-table";
 import { getStudent, type StudentDetail } from "@/lib/api/students";
 import { getStudentHistory } from "@/lib/api/attendance";
 import { useStudentHealth } from "@/features/health";
@@ -307,36 +308,32 @@ export default function StudentDetailPage({ params }: Props) {
                             <p className="">Attendance history will appear here once marked.</p>
                         </div>
                     ) : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full">
-                                <thead>
-                                    <tr className="text-muted-foreground border-b text-left">
-                                        <th className="pb-2 font-medium">Date</th>
-                                        <th className="pb-2 font-medium">Status</th>
-                                        <th className="pb-2 font-medium">Note</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {attendanceRecords.slice(0, 50).map((rec) => (
-                                        <tr key={rec.id} className="border-b last:border-b-0">
-                                            <td className="text-foreground py-2">{rec.date}</td>
-                                            <td className="py-2">
-                                                <Badge
-                                                    className={
-                                                        statusBadge[rec.status]?.className ?? ""
-                                                    }
-                                                >
-                                                    {statusBadge[rec.status]?.label ?? rec.status}
-                                                </Badge>
-                                            </td>
-                                            <td className="text-muted-foreground py-2 text-xs">
-                                                {rec.note ?? "—"}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                        <StaticTable
+                            columns={[
+                                { id: "date", header: "Date", cell: (rec) => rec.date },
+                                {
+                                    id: "status",
+                                    header: "Status",
+                                    cell: (rec) => (
+                                        <Badge className={statusBadge[rec.status]?.className ?? ""}>
+                                            {statusBadge[rec.status]?.label ?? rec.status}
+                                        </Badge>
+                                    ),
+                                },
+                                {
+                                    id: "note",
+                                    header: "Note",
+                                    cell: (rec) => (
+                                        <span className="text-muted-foreground text-xs">
+                                            {rec.note ?? "—"}
+                                        </span>
+                                    ),
+                                },
+                            ]}
+                            data={attendanceRecords.slice(0, 50)}
+                            getRowId={(rec) => rec.id}
+                            height={280}
+                        />
                     )}
                     <Button variant="outline" size="sm" asChild>
                         <Link href={`/attendance/students/${id}`}>
@@ -355,32 +352,24 @@ export default function StudentDetailPage({ params }: Props) {
                             <p className="">Enrollment history will appear here.</p>
                         </div>
                     ) : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full">
-                                <thead>
-                                    <tr className="text-muted-foreground border-b text-left">
-                                        <th className="pb-2 font-medium">Term</th>
-                                        <th className="pb-2 font-medium">Class</th>
-                                        <th className="pb-2 font-medium">Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {enrollments.map((enr) => (
-                                        <tr key={enr.id} className="border-b last:border-b-0">
-                                            <td className="text-foreground py-2">
-                                                {enr.term_name} {enr.academic_year}
-                                            </td>
-                                            <td className="text-foreground py-2">
-                                                {enr.class_name}
-                                            </td>
-                                            <td className="py-2">
-                                                <Badge variant="secondary">{enr.status}</Badge>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                        <StaticTable
+                            columns={[
+                                {
+                                    id: "term",
+                                    header: "Term",
+                                    cell: (enr) => `${enr.term_name} ${enr.academic_year}`,
+                                },
+                                { id: "class", header: "Class", cell: (enr) => enr.class_name },
+                                {
+                                    id: "status",
+                                    header: "Status",
+                                    cell: (enr) => <Badge variant="secondary">{enr.status}</Badge>,
+                                },
+                            ]}
+                            data={enrollments}
+                            getRowId={(enr) => enr.id}
+                            height={200}
+                        />
                     )}
                 </TabsContent>
                 {/* ── Health Tab ──────────────────────────────────────── */}

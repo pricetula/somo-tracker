@@ -139,76 +139,86 @@ export function CreateAssessmentSessionForm({ onSuccess }: Props) {
                 )}
             </div>
 
-            {/* Class */}
-            <div className="space-y-1.5">
-                <Label>Class</Label>
-                <ClassCombobox
-                    value={classId}
-                    onChange={(v) => {
-                        setClassId(v as string);
-                        setFieldErrors({});
-                    }}
-                    placeholder="Select a class..."
-                    onCreateItem={() => router.push("/classes/add")}
-                />
-                {fieldErrors.class_id && (
-                    <p className="text-destructive text-xs">{fieldErrors.class_id[0]}</p>
-                )}
+            <div className="flex flex-col gap-4 md:flex-row">
+                {/* Class */}
+                <div className="w-full space-y-1.5">
+                    <Label>Class</Label>
+                    <ClassCombobox
+                        value={classId}
+                        onChange={(v) => {
+                            setClassId(v as string);
+                            setFieldErrors({});
+                        }}
+                        placeholder="Select a class..."
+                        onCreateItem={() => router.push("/classes/add")}
+                    />
+                    {fieldErrors.class_id && (
+                        <p className="text-destructive text-xs">{fieldErrors.class_id[0]}</p>
+                    )}
+                </div>
+
+                {/* Learning Area */}
+                <div className="w-full space-y-1.5">
+                    <Label>Learning Area / Subject</Label>
+                    <LearningAreaCombobox
+                        value={learningAreaId}
+                        onChange={(v) => {
+                            setLearningAreaId(v as string);
+                            setFieldErrors({});
+                        }}
+                        placeholder="Select a learning area..."
+                        onCreateItem={() => router.push("/curriculum/new")}
+                    />
+                    {fieldErrors.learning_area_id && (
+                        <p className="text-destructive text-xs">
+                            {fieldErrors.learning_area_id[0]}
+                        </p>
+                    )}
+                </div>
             </div>
 
-            {/* Learning Area */}
-            <div className="space-y-1.5">
-                <Label>Learning Area / Subject</Label>
-                <LearningAreaCombobox
-                    value={learningAreaId}
-                    onChange={(v) => {
-                        setLearningAreaId(v as string);
-                        setFieldErrors({});
-                    }}
-                    placeholder="Select a learning area..."
-                    onCreateItem={() => router.push("/curriculum/new")}
-                />
-                {fieldErrors.learning_area_id && (
-                    <p className="text-destructive text-xs">{fieldErrors.learning_area_id[0]}</p>
-                )}
-            </div>
+            <div className="flex flex-col gap-4 md:flex-row">
+                {/* Academic Year */}
+                <div className="w-full space-y-1.5">
+                    <Label>Academic Year</Label>
+                    <AcademicYearCombobox
+                        value={academicYearId}
+                        onChange={(v) => {
+                            setAcademicYearId(v);
+                            setFieldErrors({});
+                        }}
+                        placeholder="Select an academic year..."
+                        onCreateItem={() => router.push("/academic-years/new")}
+                    />
+                    {fieldErrors.academic_year_id && (
+                        <p className="text-destructive text-xs">
+                            {fieldErrors.academic_year_id[0]}
+                        </p>
+                    )}
+                </div>
 
-            {/* Academic Year */}
-            <div className="space-y-1.5">
-                <Label>Academic Year</Label>
-                <AcademicYearCombobox
-                    value={academicYearId}
-                    onChange={(v) => {
-                        setAcademicYearId(v);
-                        setFieldErrors({});
-                    }}
-                    placeholder="Select an academic year..."
-                    onCreateItem={() => router.push("/academic-years/new")}
-                />
-                {fieldErrors.academic_year_id && (
-                    <p className="text-destructive text-xs">{fieldErrors.academic_year_id[0]}</p>
-                )}
-            </div>
-
-            {/* Academic Term */}
-            <div className="space-y-1.5">
-                <Label>Academic Term</Label>
-                <AcademicTermCombobox
-                    value={academicTermId}
-                    onChange={(v) => {
-                        setAcademicTermId(v);
-                        setFieldErrors({});
-                    }}
-                    placeholder="Select an academic term..."
-                    onCreateItem={(_search) =>
-                        router.push(
-                            `/academic-terms/new?academic_year_id=${encodeURIComponent(academicYearId)}`
-                        )
-                    }
-                />
-                {fieldErrors.academic_term_id && (
-                    <p className="text-destructive text-xs">{fieldErrors.academic_term_id[0]}</p>
-                )}
+                {/* Academic Term */}
+                <div className="w-full space-y-1.5">
+                    <Label>Academic Term</Label>
+                    <AcademicTermCombobox
+                        value={academicTermId}
+                        onChange={(v) => {
+                            setAcademicTermId(v);
+                            setFieldErrors({});
+                        }}
+                        placeholder="Select an academic term..."
+                        onCreateItem={(_search) =>
+                            router.push(
+                                `/academic-terms/new?academic_year_id=${encodeURIComponent(academicYearId)}`
+                            )
+                        }
+                    />
+                    {fieldErrors.academic_term_id && (
+                        <p className="text-destructive text-xs">
+                            {fieldErrors.academic_term_id[0]}
+                        </p>
+                    )}
+                </div>
             </div>
 
             {/* Evaluation Method */}
@@ -240,9 +250,9 @@ export function CreateAssessmentSessionForm({ onSuccess }: Props) {
 
             {/* QUANTITATIVE-specific fields */}
             {evaluationMethod === "QUANTITATIVE" && (
-                <>
+                <div className="flex flex-col gap-4 md:flex-row">
                     {/* Max Points */}
-                    <div className="space-y-1.5">
+                    <div className="w-full space-y-1.5">
                         <Label htmlFor="maxPoints">Maximum Points</Label>
                         <Input
                             id="maxPoints"
@@ -260,7 +270,7 @@ export function CreateAssessmentSessionForm({ onSuccess }: Props) {
                     </div>
 
                     {/* Grading Scale Profile */}
-                    <div className="space-y-1.5">
+                    <div className="w-full space-y-1.5">
                         <Label>Grading Scale</Label>
                         <Select
                             value={gradingScaleProfileId}
@@ -286,7 +296,7 @@ export function CreateAssessmentSessionForm({ onSuccess }: Props) {
                             </p>
                         )}
                     </div>
-                </>
+                </div>
             )}
 
             {/* For RUBRIC, show a note */}

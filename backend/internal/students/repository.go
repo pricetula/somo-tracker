@@ -406,8 +406,8 @@ func (r *PgRepository) CreateEnrollment(ctx context.Context, enrollment *Enrollm
 	}
 
 	query := `
-		INSERT INTO cbc_student_enrollments (student_id, class_id, academic_term_id, status, tenant_id, school_id)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO cbc_student_enrollments (student_id, class_id, academic_term_id, academic_year_id, status, tenant_id, school_id)
+		VALUES ($1, $2, $3, (SELECT academic_year_id FROM academic_terms WHERE id = $3), $4, $5, $6)
 		RETURNING id
 	`
 	var id string
@@ -428,7 +428,7 @@ func (r *PgRepository) CreateEnrollment(ctx context.Context, enrollment *Enrollm
 // ListEnrollments returns all enrollments for a student, ordered by term recency.
 func (r *PgRepository) ListEnrollments(ctx context.Context, studentID, tenantID string) ([]Enrollment, error) {
 	query := `
-		SELECT e.id, e.student_id, e.class_id, e.academic_term_id,
+		SELECT e.id, e.student_id, e.class_id, e.academic_term_id, e.academic_year_id,
 		       t.name AS term_name, t.term_number,
 		       ay.name AS academic_year,
 		       c.grade_level || ' ' || COALESCE(cs.name, '') AS class_name,
@@ -453,7 +453,7 @@ func (r *PgRepository) ListEnrollments(ctx context.Context, studentID, tenantID 
 		var classID, termName, academicYear, className *string
 		var termNumber *int
 		err := rows.Scan(
-			&e.ID, &e.StudentID, &classID, &e.AcademicTermID,
+			&e.ID, &e.StudentID, &classID, &e.AcademicTermID, &e.AcademicYearID,
 			&termName, &termNumber,
 			&academicYear, &className,
 			&e.Status, &e.CreatedAt,
@@ -672,8 +672,8 @@ func (r *PgRepository) CreateBatchEnrollments(ctx context.Context, enrollments [
 	}()
 
 	query := `
-		INSERT INTO cbc_student_enrollments (student_id, class_id, academic_term_id, status, tenant_id, school_id)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO cbc_student_enrollments (student_id, class_id, academic_term_id, academic_year_id, status, tenant_id, school_id)
+		VALUES ($1, $2, $3, (SELECT academic_year_id FROM academic_terms WHERE id = $3), $4, $5, $6)
 		ON CONFLICT (student_id, school_id, academic_term_id)
 		DO NOTHING
 		RETURNING id

@@ -63,6 +63,7 @@ type Enrollment struct {
 	StudentID      string `json:"student_id"`
 	ClassID        string `json:"class_id"`
 	AcademicTermID string `json:"academic_term_id"`
+	AcademicYearID string `json:"academic_year_id"`
 	TermName       string `json:"term_name"`
 	TermNumber     int    `json:"term_number"`
 	AcademicYear   string `json:"academic_year"`

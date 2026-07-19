@@ -43,6 +43,7 @@ type AvailableStudentsFilter struct {
 	TenantID       string
 	SchoolID       string
 	ClassID        string
+	AcademicYearID string
 	AcademicTermID string
 	Search         string
 	Page           int
@@ -149,7 +150,8 @@ type RosterEntry struct {
 
 // BatchEnrollPayload is the request body for POST /api/v1/classes/:id/enroll.
 type BatchEnrollPayload struct {
-	StudentIDs []string `json:"student_ids"`
+	StudentIDs     []string `json:"student_ids"`
+	AcademicTermID string   `json:"academic_term_id"`
 }
 
 // BatchEnrollResponse is returned after a successful batch enrollment.

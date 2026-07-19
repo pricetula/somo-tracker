@@ -33,17 +33,27 @@ import { toast } from "sonner";
 
 interface ClassRosterProps {
     classId: string;
+    /** Optional academic year ID; if omitted the backend uses the current year. */
+    academicYearId?: string;
     /** Optional academic term ID; if omitted the backend uses the current term. */
     academicTermId?: string;
 }
 
 // ─── Columns ───────────────────────────────────────────────────────────────
 
-function UnenrollCell({ classId, student }: { classId: string; student: RosterEntry }) {
+function UnenrollCell({
+    classId,
+    student,
+    academicTermId,
+}: {
+    classId: string;
+    student: RosterEntry;
+    academicTermId?: string;
+}) {
     const queryClient = useQueryClient();
 
     const unenrollMutation = useMutation({
-        mutationFn: () => unenrollStudent(classId, student.id),
+        mutationFn: () => unenrollStudent(classId, student.id, academicTermId),
         onSuccess: () => {
             toast.success(`${student.full_name} successfully unenrolled.`);
             queryClient.invalidateQueries({ queryKey: ["class-roster", classId] });
@@ -91,7 +101,7 @@ function UnenrollCell({ classId, student }: { classId: string; student: RosterEn
     );
 }
 
-function buildColumns(classId: string): DataTableColumn<RosterEntry>[] {
+function buildColumns(classId: string, academicTermId?: string): DataTableColumn<RosterEntry>[] {
     return [
         {
             id: "full_name",
@@ -111,7 +121,9 @@ function buildColumns(classId: string): DataTableColumn<RosterEntry>[] {
             header: "",
             width: "48px",
             align: "right",
-            cell: (row) => <UnenrollCell classId={classId} student={row} />,
+            cell: (row) => (
+                <UnenrollCell classId={classId} student={row} academicTermId={academicTermId} />
+            ),
         },
     ];
 }
@@ -120,11 +132,12 @@ function buildColumns(classId: string): DataTableColumn<RosterEntry>[] {
 
 /**
  * Wraps getClassRoster into the ListApiFn signature expected by DataTable.
- * The classId and academicTermId are baked in via a closure in the component.
+ * The classId, academicYearId, and academicTermId are baked in via a closure.
  */
-function createRosterQueryFn(classId: string, academicTermId?: string) {
+function createRosterQueryFn(classId: string, academicYearId?: string, academicTermId?: string) {
     return (params: { page?: number; limit?: number; search?: string }) =>
         getClassRoster(classId, {
+            academic_year_id: academicYearId,
             academic_term_id: academicTermId,
             page: params.page,
             limit: params.limit,
@@ -134,14 +147,19 @@ function createRosterQueryFn(classId: string, academicTermId?: string) {
 
 // ─── ClassRoster (DataTable) ───────────────────────────────────────────────
 
-export function ClassRoster({ classId, academicTermId }: ClassRosterProps) {
-    const columns = buildColumns(classId);
-    const rosterQueryFn = createRosterQueryFn(classId, academicTermId);
+export function ClassRoster({ classId, academicYearId, academicTermId }: ClassRosterProps) {
+    const columns = buildColumns(classId, academicTermId);
+    const rosterQueryFn = createRosterQueryFn(classId, academicYearId, academicTermId);
+
+    // Build addHref with academic term if available
+    const addHref = academicTermId
+        ? `/classes/${classId}/enroll?academictermid=${encodeURIComponent(academicTermId)}`
+        : `/classes/${classId}/enroll`;
 
     return (
         <DataTable
-            addHref={`/classes/${classId}/enroll`}
-            queryKey={["class-roster", classId, academicTermId]}
+            addHref={addHref}
+            queryKey={["class-roster", classId, academicYearId, academicTermId]}
             queryFn={rosterQueryFn}
             columns={columns}
             getRowId={(row) => row.id}

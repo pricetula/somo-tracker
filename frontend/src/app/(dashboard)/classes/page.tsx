@@ -12,17 +12,16 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { GraduationCap, Calendar, Split } from "lucide-react";
 
 import { DataTable } from "@/components/shared/data-table";
 import type { DataTableColumn } from "@/components/shared/data-table/types";
 import type { FilterGroup } from "@/components/shared/data-table/types";
 import { listClasses, type Class } from "@/lib/api/classes";
-import { listStreams } from "@/lib/api/streams";
 import { StreamPill } from "@/features/settings-school";
 import { GradeLevelPill, getGradeLevelFilterSubmenu } from "@/features/grade-level";
-import { listAcademicYears } from "@/lib/api/academic-terms";
+import { useStreamList } from "@/features/streams";
+import { useAcademicYears } from "@/features/academic-terms";
 
 // ─── Columns ──────────────────────────────────────────────────────────────
 
@@ -63,17 +62,8 @@ const columns: DataTableColumn<Class>[] = [
 
 export default function ClassesPage() {
     // ── Fetch dynamic filter options ────────────────────────────────
-    const { data: streamsData } = useQuery({
-        queryKey: ["streams"],
-        queryFn: () => listStreams(),
-        staleTime: 5 * 60 * 1000,
-    });
-
-    const { data: academicYearsData } = useQuery({
-        queryKey: ["academic-years"],
-        queryFn: () => listAcademicYears(),
-        staleTime: 5 * 60 * 1000,
-    });
+    const { data: streamsData } = useStreamList();
+    const { data: academicYearsData } = useAcademicYears();
 
     // ── Build filter groups dynamically ─────────────────────────────
     const filterGroups = useMemo<FilterGroup[]>(() => {

@@ -9,14 +9,11 @@
 
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
 import { DataTable } from "@/components/shared/data-table";
 import type { DataTableColumn } from "@/components/shared/data-table/types";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { listAdmins, type Member } from "@/lib/api/admins";
-import { getInvitationCount } from "@/lib/api/invitations";
+import { InvitationCountBadge } from "@/features/invitations";
 import { useDeleteAdmin } from "@/features/admin";
 import Link from "next/link";
 
@@ -52,28 +49,6 @@ const columns: DataTableColumn<Member>[] = [
     },
 ];
 
-// ─── Invitation Count Badge ────────────────────────────────────────────────
-
-function InvitationCountBadge() {
-    const { data, isLoading } = useQuery({
-        queryKey: ["invitations", "count", "SCHOOL_ADMIN"],
-        queryFn: () => getInvitationCount("SCHOOL_ADMIN"),
-    });
-
-    if (isLoading) {
-        return <Skeleton className="h-9 w-28" />;
-    }
-
-    const count = data?.total ?? 0;
-    const label = `${count} ${count === 1 ? "invitation" : "invitations"}`;
-
-    return (
-        <Button variant="outline" size="sm" asChild>
-            <Link href="/admins/invitations">{label}</Link>
-        </Button>
-    );
-}
-
 // ─── Page ──────────────────────────────────────────────────────────────────
 
 export default function AdminsPage() {
@@ -91,7 +66,13 @@ export default function AdminsPage() {
             deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
             emptyState="No admins yet."
             noResultsState="No admins match your search."
-            renderToolBarComponents={() => <InvitationCountBadge key="invitation-count" />}
+            renderToolBarComponents={() => (
+                <InvitationCountBadge
+                    key="invitation-count"
+                    role="SCHOOL_ADMIN"
+                    href="/admins/invitations"
+                />
+            )}
         />
     );
 }

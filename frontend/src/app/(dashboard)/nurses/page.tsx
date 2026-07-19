@@ -9,15 +9,12 @@
 
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
 import { DataTable } from "@/components/shared/data-table";
 import type { DataTableColumn } from "@/components/shared/data-table/types";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { listNurses, type Member } from "@/lib/api/nurses";
-import { getInvitationCount } from "@/lib/api/invitations";
 import Link from "next/link";
+import { InvitationCountBadge } from "@/features/invitations";
 import { useDeleteNurse } from "@/features/nurses";
 
 // ─── Columns ───────────────────────────────────────────────────────────────
@@ -55,28 +52,6 @@ const columns: DataTableColumn<Member>[] = [
     },
 ];
 
-// ─── Invitation Count Badge ────────────────────────────────────────────────
-
-function InvitationCountBadge() {
-    const { data, isLoading } = useQuery({
-        queryKey: ["invitations", "count", "NURSE"],
-        queryFn: () => getInvitationCount("NURSE"),
-    });
-
-    if (isLoading) {
-        return <Skeleton className="h-9 w-28" />;
-    }
-
-    const count = data?.total ?? 0;
-    const label = `${count} ${count === 1 ? "invitation" : "invitations"}`;
-
-    return (
-        <Button variant="outline" size="sm" asChild>
-            <Link href="/nurses/invitations">{label}</Link>
-        </Button>
-    );
-}
-
 // ─── Page ──────────────────────────────────────────────────────────────────
 
 export default function NursesPage() {
@@ -94,7 +69,13 @@ export default function NursesPage() {
             deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
             emptyState="No nurses yet."
             noResultsState="No nurses match your search."
-            renderToolBarComponents={() => <InvitationCountBadge key="invitation-count" />}
+            renderToolBarComponents={() => (
+                <InvitationCountBadge
+                    key="invitation-count"
+                    role="NURSE"
+                    href="/nurses/invitations"
+                />
+            )}
         />
     );
 }

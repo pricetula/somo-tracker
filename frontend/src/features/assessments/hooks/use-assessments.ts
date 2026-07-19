@@ -8,6 +8,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import * as api from "@/lib/api/assessments";
 import { getErrorMessage } from "@/lib/errors";
+import { STALE_TIMES } from "@/lib/query-config";
 import type { ScaleProfile } from "@/lib/api/assessments";
 import { toast } from "sonner";
 
@@ -44,7 +45,7 @@ export function useScaleProfileList(activeOnly = false) {
     return useQuery({
         queryKey: assessmentKeys.profiles.list(activeOnly),
         queryFn: () => api.listScaleProfiles(activeOnly),
-        staleTime: 2 * 60 * 1000,
+        staleTime: STALE_TIMES.STANDARD,
     });
 }
 
@@ -56,7 +57,7 @@ export function useScaleProfile(id: string, includeRanges = false) {
             : assessmentKeys.profiles.detail(id),
         queryFn: () => api.getScaleProfile(id, includeRanges) as Promise<ScaleProfile>,
         enabled: !!id,
-        staleTime: 2 * 60 * 1000,
+        staleTime: STALE_TIMES.STANDARD,
     });
 }
 
@@ -143,7 +144,7 @@ export function useSessionList() {
     return useQuery({
         queryKey: assessmentKeys.sessions.list(),
         queryFn: () => api.listSessions(),
-        staleTime: 30_000,
+        staleTime: STALE_TIMES.FREQUENT,
     });
 }
 
@@ -153,7 +154,7 @@ export function useSession(id: string) {
         queryKey: assessmentKeys.sessions.detail(id),
         queryFn: () => api.getSession(id),
         enabled: !!id,
-        staleTime: 30_000,
+        staleTime: STALE_TIMES.FREQUENT,
     });
 }
 
@@ -163,7 +164,7 @@ export function useStudentScores(sessionId: string) {
         queryKey: assessmentKeys.sessions.scores(sessionId),
         queryFn: () => api.getStudentScores(sessionId),
         enabled: !!sessionId,
-        staleTime: 30_000,
+        staleTime: STALE_TIMES.FREQUENT,
     });
 }
 
@@ -173,7 +174,7 @@ export function useOutcomeGrades(sessionId: string) {
         queryKey: assessmentKeys.sessions.grades(sessionId),
         queryFn: () => api.getOutcomeGrades(sessionId),
         enabled: !!sessionId,
-        staleTime: 30_000,
+        staleTime: STALE_TIMES.FREQUENT,
     });
 }
 

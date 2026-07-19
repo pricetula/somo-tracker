@@ -14,6 +14,7 @@ import {
     deleteFeeCategory,
 } from "@/lib/api/billing";
 import { getErrorMessage } from "@/lib/errors";
+import { STALE_TIMES } from "@/lib/query-config";
 import type { CreateFeeCategoryPayload, UpdateFeeCategoryPayload } from "@/lib/api/billing";
 
 // ─── Query keys ───────────────────────────────────────────────────────────
@@ -29,7 +30,7 @@ export function useFeeCategories() {
     return useQuery({
         queryKey: feeCategoryKeys.lists(),
         queryFn: () => listFeeCategories(),
-        staleTime: 5 * 60 * 1000,
+        staleTime: STALE_TIMES.REFERENCE_DATA,
         placeholderData: (prev) => prev,
     });
 }

@@ -22,6 +22,7 @@ import {
     type TeacherNotesResponse,
 } from "@/lib/api/behavior";
 import { getErrorMessage } from "@/lib/errors";
+import { STALE_TIMES } from "@/lib/query-config";
 
 // ─── Query keys ───────────────────────────────────────────────────────────
 
@@ -39,7 +40,7 @@ export function useBehaviorCategories(activeOnly?: boolean) {
     return useQuery({
         queryKey: behaviorKeys.categories(activeOnly),
         queryFn: () => listBehaviorCategories(activeOnly),
-        staleTime: 5 * 60 * 1000,
+        staleTime: STALE_TIMES.REFERENCE_DATA,
     });
 }
 
@@ -100,7 +101,7 @@ export function useBehaviorPendingQueue() {
         queryKey: behaviorKeys.queue(),
         queryFn: () => getBehaviorPendingQueue(),
         refetchInterval: 30_000,
-        staleTime: 10_000,
+        staleTime: STALE_TIMES.LIVE,
     });
 }
 
@@ -109,7 +110,7 @@ export function useTeacherNotes() {
     return useQuery<TeacherNotesResponse>({
         queryKey: [...behaviorKeys.all, "my-notes"],
         queryFn: () => listTeacherNotes(),
-        staleTime: 30_000,
+        staleTime: STALE_TIMES.FREQUENT,
     });
 }
 

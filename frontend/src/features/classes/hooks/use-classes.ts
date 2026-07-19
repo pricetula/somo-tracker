@@ -11,6 +11,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { listClasses } from "@/lib/api/classes";
+import { STALE_TIMES } from "@/lib/query-config";
 import type { Class } from "../types";
 import type { ClassOption } from "../types";
 
@@ -30,7 +31,7 @@ export function useClassList() {
     return useQuery({
         queryKey: classKeys.list(),
         queryFn: () => listClasses({ limit: 500 }),
-        staleTime: 5 * 60 * 1000,
+        staleTime: STALE_TIMES.REFERENCE_DATA,
         placeholderData: (prev) => prev,
         select: (data): { items: ClassOption[] } => ({
             items: data.items.map((c) => ({
@@ -56,7 +57,7 @@ export function useClassMap() {
     return useQuery({
         queryKey: classKeys.list(),
         queryFn: () => listClasses({ limit: 500 }),
-        staleTime: 5 * 60 * 1000,
+        staleTime: STALE_TIMES.REFERENCE_DATA,
         placeholderData: (prev) => prev,
         select: (data): Record<string, Class> =>
             data?.items?.reduce?.(

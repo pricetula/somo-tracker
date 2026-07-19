@@ -12,6 +12,7 @@
 import Link from "next/link";
 import { useMemo, useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { STALE_TIMES } from "@/lib/query-config";
 import {
     CalendarDays,
     GraduationCap,
@@ -165,7 +166,7 @@ export function AdminAttendanceDashboard() {
     const { data: classesData } = useQuery({
         queryKey: ["classes", "all"],
         queryFn: () => listClasses({ limit: 200 }),
-        staleTime: 5 * 60 * 1000,
+        staleTime: STALE_TIMES.REFERENCE_DATA,
     });
 
     // ── Build filter groups dynamically ──────────────────────────

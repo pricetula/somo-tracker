@@ -15,17 +15,14 @@
 "use client";
 
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
 import { DataTable } from "@/components/shared/data-table";
 import type { DataTableColumn, FilterGroup } from "@/components/shared/data-table/types";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { listParents, type Parent } from "@/lib/api/parents";
-import { getInvitationCount } from "@/lib/api/invitations";
 import { GraduationCap, BookOpen } from "lucide-react";
+import { listParents, type Parent } from "@/lib/api/parents";
 import { getEducationLevelFilterSubmenu } from "@/features/education-level";
 import { getGradeLevelFilterSubmenu } from "@/features/grade-level";
+import { InvitationCountBadge } from "@/features/invitations";
 import { useDeleteParent } from "@/features/parents";
 
 // ─── Columns ──────────────────────────────────────────────────────────────
@@ -96,28 +93,6 @@ const filterGroups: FilterGroup[] = [
     },
 ];
 
-// ─── Invitation Count Badge ────────────────────────────────────────────────
-
-function InvitationCountBadge() {
-    const { data, isLoading } = useQuery({
-        queryKey: ["invitations", "count", "PARENT"],
-        queryFn: () => getInvitationCount("PARENT"),
-    });
-
-    if (isLoading) {
-        return <Skeleton className="h-9 w-28" />;
-    }
-
-    const count = data?.total ?? 0;
-    const label = `${count} ${count === 1 ? "invitation" : "invitations"}`;
-
-    return (
-        <Button variant="outline" size="sm" asChild>
-            <Link href="/parents/invitations">{label}</Link>
-        </Button>
-    );
-}
-
 // ─── Page ─────────────────────────────────────────────────────────────────
 
 export default function ParentsPage() {
@@ -136,7 +111,13 @@ export default function ParentsPage() {
             deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
             emptyState="No parents yet."
             noResultsState="No parents match your search or filters."
-            renderToolBarComponents={() => <InvitationCountBadge key="invitation-count" />}
+            renderToolBarComponents={() => (
+                <InvitationCountBadge
+                    key="invitation-count"
+                    role="PARENT"
+                    href="/parents/invitations"
+                />
+            )}
         />
     );
 }

@@ -14,6 +14,7 @@ import { Search, Loader2, Check, AlertTriangle } from "lucide-react";
 
 import { getAvailableStudents, batchEnrollStudents } from "@/lib/api/classes";
 import { getErrorMessage } from "@/lib/errors";
+import { STALE_TIMES } from "@/lib/query-config";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -65,7 +66,7 @@ export function EnrollStudentsPanel({ classId, onSuccess }: EnrollStudentsPanelP
     } = useQuery({
         queryKey: ["available-students", classId, debouncedSearch],
         queryFn: () => getAvailableStudents(classId, { search: debouncedSearch, limit: 200 }),
-        staleTime: 15_000,
+        staleTime: STALE_TIMES.LIVE,
     });
 
     // ── Batch enrollment mutation ────────────────────────────────────────

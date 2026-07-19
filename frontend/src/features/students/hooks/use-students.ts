@@ -11,6 +11,7 @@ import { toast } from "sonner";
 
 import { listStudents, deleteStudent } from "@/lib/api/students";
 import { getErrorMessage } from "@/lib/errors";
+import { STALE_TIMES } from "@/lib/query-config";
 import type { ListStudentsParams, ListStudentsResponse, Student } from "@/lib/api/students";
 
 // ─── Query keys ───────────────────────────────────────────────────────────
@@ -59,7 +60,7 @@ export function useStudentMap() {
     return useQuery({
         queryKey: [...studentKeys.all, "map"] as const,
         queryFn: () => listStudents({ limit: 500 }),
-        staleTime: 5 * 60 * 1000,
+        staleTime: STALE_TIMES.REFERENCE_DATA,
         placeholderData: (prev) => prev,
         select: (data: ListStudentsResponse): Record<string, Student> =>
             data?.items?.reduce?.(

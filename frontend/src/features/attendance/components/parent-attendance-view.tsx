@@ -13,6 +13,7 @@ import { UserX, AlertCircle } from "lucide-react";
 import { useMe } from "@/hooks/use-auth";
 import { getMyParentProfile } from "@/lib/api/parents";
 import { getChildAttendanceSummary } from "@/lib/api/attendance";
+import { STALE_TIMES } from "@/lib/query-config";
 import { useAcademicTerms } from "@/features/academic-terms/hooks/use-academic-terms";
 import { useQuery, useQueries } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -59,7 +60,7 @@ export function ParentAttendanceView() {
             queryKey: ["attendance", "child", child.student_id, currentTerm?.id],
             queryFn: () => getChildAttendanceSummary(child.student_id, currentTerm!.id),
             enabled: !!currentTerm && !!child.student_id,
-            staleTime: 60_000,
+            staleTime: STALE_TIMES.STANDARD,
         })),
     });
 

@@ -8,7 +8,6 @@
 "use client";
 
 import { use, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import {
     User,
@@ -25,8 +24,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StaticTable } from "@/components/shared/static-table";
-import { getStudent, type StudentDetail } from "@/lib/api/students";
-import { getStudentHistory } from "@/lib/api/attendance";
+import { useStudentDetail } from "@/features/students";
+import { useStudentHistory } from "@/features/attendance";
 import { useStudentHealth } from "@/features/health";
 
 interface Props {
@@ -57,18 +56,11 @@ export default function StudentDetailPage({ params }: Props) {
     const [activeTab, setActiveTab] = useState("overview");
 
     // Fetch student detail
-    const { data: detail, isLoading: detailLoading } = useQuery<StudentDetail>({
-        queryKey: ["student", id],
-        queryFn: () => getStudent(id),
-        enabled: !!id,
-    });
+    const { data: detailResponse, isLoading: detailLoading } = useStudentDetail(id);
+    const detail = detailResponse?.data;
 
     // Fetch recent attendance
-    const { data: attendanceData } = useQuery({
-        queryKey: ["attendance", "history", id],
-        queryFn: () => getStudentHistory(id, {}),
-        enabled: !!id,
-    });
+    const { data: attendanceData } = useStudentHistory(id);
 
     if (detailLoading) {
         return (

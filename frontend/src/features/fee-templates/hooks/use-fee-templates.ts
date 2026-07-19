@@ -14,6 +14,7 @@ import {
     deleteFeeTemplate,
 } from "@/lib/api/billing";
 import { getErrorMessage } from "@/lib/errors";
+import { STALE_TIMES } from "@/lib/query-config";
 import type { CreateFeeTemplatePayload, UpdateFeeTemplatePayload } from "@/lib/api/billing";
 
 // ─── Query keys ───────────────────────────────────────────────────────────
@@ -30,7 +31,7 @@ export function useFeeTemplates(filters: { academic_term_id?: string; grade_leve
     return useQuery({
         queryKey: feeTemplateKeys.lists(filters),
         queryFn: () => listFeeTemplates(filters),
-        staleTime: 5 * 60 * 1000,
+        staleTime: STALE_TIMES.REFERENCE_DATA,
         placeholderData: (prev) => prev,
     });
 }

@@ -11,6 +11,7 @@ import { useQuery } from "@tanstack/react-query";
 import { GraduationCap } from "lucide-react";
 
 import { getClass } from "@/lib/api/classes";
+import { STALE_TIMES } from "@/lib/query-config";
 import { ClassRoster } from "./class-roster";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -28,7 +29,7 @@ function useClassDetail(classId: string) {
     return useQuery({
         queryKey: ["class", classId],
         queryFn: () => getClass(classId),
-        staleTime: 30_000,
+        staleTime: STALE_TIMES.FREQUENT,
     });
 }
 

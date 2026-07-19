@@ -12,6 +12,7 @@ import { toast } from "sonner";
 
 import { listStreams, createStream, updateStream, deleteStream } from "@/lib/api/streams";
 import { getErrorMessage } from "@/lib/errors";
+import { STALE_TIMES } from "@/lib/query-config";
 
 // ─── Query keys ───────────────────────────────────────────────────────────
 
@@ -27,7 +28,7 @@ export function useStreamList() {
     return useQuery({
         queryKey: streamKeys.list(),
         queryFn: () => listStreams(),
-        staleTime: 5 * 60 * 1000,
+        staleTime: STALE_TIMES.REFERENCE_DATA,
         placeholderData: (prev) => prev,
     });
 }

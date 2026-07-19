@@ -16,6 +16,7 @@ import { Loader2 } from "lucide-react";
 import { createSession, listScaleProfiles } from "@/lib/api/assessments";
 import type { AssessmentSession } from "@/lib/api/assessments";
 import { getErrorMessage, isApiError } from "@/lib/errors";
+import { STALE_TIMES } from "@/lib/query-config";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -56,7 +57,7 @@ export function CreateAssessmentSessionForm({ onSuccess }: Props) {
     const { data: profilesData } = useQuery({
         queryKey: ["scale-profiles", "list", true],
         queryFn: () => listScaleProfiles(true),
-        staleTime: 5 * 60 * 1000,
+        staleTime: STALE_TIMES.REFERENCE_DATA,
     });
 
     // ── Mutation ──────────────────────────────────────────────────────

@@ -14,6 +14,7 @@ import { Calendar, FileSpreadsheet, FileCheck, AlertTriangle } from "lucide-reac
 
 import { getSession } from "@/lib/api/assessments";
 import { useSubmitSession } from "../hooks/use-assessments";
+import { STALE_TIMES } from "@/lib/query-config";
 import { GradingSheet } from "./grading-sheet";
 import { RubricGradingMatrix } from "./rubric-grading-matrix";
 import { StatusBadge } from "./status-badge";
@@ -33,7 +34,7 @@ function useSessionDetail(id: string) {
         queryKey: ["assessment-sessions", id],
         queryFn: () => getSession(id),
         enabled: !!id,
-        staleTime: 15_000,
+        staleTime: STALE_TIMES.LIVE,
     });
 }
 

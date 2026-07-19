@@ -23,6 +23,7 @@ import {
     type SkipSessionPayload,
 } from "@/lib/api/attendance";
 import { getErrorMessage } from "@/lib/errors";
+import { STALE_TIMES } from "@/lib/query-config";
 
 // ─── Query keys ───────────────────────────────────────────────────────────
 
@@ -77,7 +78,7 @@ export function useAdminDashboard(date?: string) {
     return useQuery({
         queryKey: attendanceKeys.dashboard(date),
         queryFn: () => getAdminDashboard(date),
-        staleTime: 30_000,
+        staleTime: STALE_TIMES.FREQUENT,
     });
 }
 
@@ -125,7 +126,7 @@ export function useChildAttendanceSummary(studentId: string, termId: string) {
         queryKey: attendanceKeys.childSummary(studentId, termId),
         queryFn: () => getChildAttendanceSummary(studentId, termId),
         enabled: !!studentId && !!termId,
-        staleTime: 60_000,
+        staleTime: STALE_TIMES.STANDARD,
     });
 }
 
@@ -142,7 +143,7 @@ export function useSession(slotId: string, date?: string) {
         queryKey: attendanceSessionKeys.bySlot(slotId, date ?? ""),
         queryFn: () => getSession(slotId, date ?? ""),
         enabled: !!slotId && !!date,
-        staleTime: 30_000,
+        staleTime: STALE_TIMES.FREQUENT,
     });
 }
 

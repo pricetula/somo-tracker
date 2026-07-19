@@ -23,6 +23,7 @@ import {
     updateTerm,
 } from "@/lib/api/academic-terms";
 import { getErrorMessage } from "@/lib/errors";
+import { STALE_TIMES } from "@/lib/query-config";
 import type {
     CreateAcademicYearPayload,
     UpdateAcademicYearPayload,
@@ -51,7 +52,7 @@ export function useAcademicYearsManage() {
     return useQuery({
         queryKey: academicYearKeys.lists(),
         queryFn: () => listAcademicYears(),
-        staleTime: 2 * 60 * 1000,
+        staleTime: STALE_TIMES.STANDARD,
         placeholderData: (prev) => prev,
     });
 }
@@ -66,7 +67,7 @@ export function useAcademicYearMap() {
     return useQuery({
         queryKey: academicYearKeys.lists(),
         queryFn: () => listAcademicYears(),
-        staleTime: 2 * 60 * 1000,
+        staleTime: STALE_TIMES.STANDARD,
         placeholderData: (prev) => prev,
         select: (data: { items: AcademicYear[] }): Record<string, AcademicYear> =>
             data?.items?.reduce?.(
@@ -96,7 +97,7 @@ export function useTermsManage(academicYearId?: string) {
     return useQuery({
         queryKey: academicTermKeys.list(academicYearId),
         queryFn: () => listTerms(academicYearId ? { academic_year_id: academicYearId } : {}),
-        staleTime: 2 * 60 * 1000,
+        staleTime: STALE_TIMES.STANDARD,
         placeholderData: (prev) => prev,
     });
 }

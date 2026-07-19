@@ -110,10 +110,8 @@ export function AssessmentSessionDetailView({ sessionId }: Props) {
                     <h2 className="font-medium">Student Scores</h2>
                     <GradingSheet
                         sessionId={sessionId}
-                        classId={session.class_id}
                         maxPoints={session.max_points ?? 0}
                         status={session.status}
-                        academicTermId={session.academic_term_id}
                     />
                 </div>
             ) : (
@@ -121,10 +119,8 @@ export function AssessmentSessionDetailView({ sessionId }: Props) {
                     <h2 className="font-medium">Rubric Grades</h2>
                     <RubricGradingMatrix
                         sessionId={sessionId}
-                        classId={session.class_id}
                         learningAreaId={session.learning_area_id}
                         status={session.status}
-                        academicTermId={session.academic_term_id}
                     />
                 </div>
             )}

@@ -4,6 +4,10 @@
  * Shows a table of enrolled students with raw score inputs. Teachers enter
  * scores, see a live preview of the calculated percentage, and save in bulk.
  * Only editable when the session is in DRAFT status.
+ *
+ * Data is fetched from GET /api/v1/assessments/sessions/:id/grading-data,
+ * which returns the session, roster, and existing scores merged into one
+ * response — no separate class roster call needed.
  */
 
 "use client";
@@ -11,8 +15,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { Loader2, Save } from "lucide-react";
 
-import { getClassRoster, type RosterEntry } from "@/lib/api/classes";
-import { getStudentScores, type StudentScore } from "@/lib/api/assessments";
+import { getGradingData, type GradingDataStudent } from "@/lib/api/assessments";
 import { useBulkUpsertScores } from "../hooks/use-assessments";
 import { PerformanceLevelBadge } from "./performance-level-badge";
 import { getErrorMessage, isApiError } from "@/lib/errors";
@@ -24,70 +27,50 @@ import { toast } from "sonner";
 
 interface Props {
     sessionId: string;
-    classId: string;
     maxPoints: number;
     status: string;
-    academicTermId: string;
 }
 
 /** Map of student_id → raw_score string for local editing state. */
 type ScoreDraft = Record<string, string>;
 
-export function GradingSheet({ sessionId, classId, maxPoints, status, academicTermId }: Props) {
+export function GradingSheet({ sessionId, maxPoints, status }: Props) {
     const isEditable = status === "DRAFT";
     const saveMutation = useBulkUpsertScores();
 
-    const [rosterState, setRosterState] = useState<{
-        loading: boolean;
-        error: string | null;
-        students: RosterEntry[];
-    }>({ loading: true, error: null, students: [] });
-
-    const [scoresState, setScoresState] = useState<{
-        loading: boolean;
-        error: string | null;
-        existing: StudentScore[];
-    }>({ loading: true, error: null, existing: [] });
+    const [students, setStudents] = useState<GradingDataStudent[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     const [draft, setDraft] = useState<ScoreDraft>({});
     const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
     const [saveError, setSaveError] = useState<string | null>(null);
 
-    // Fetch roster and scores, initialise draft from existing scores
+    // Fetch grading data (session + roster + scores in one call)
     useEffect(() => {
         let cancelled = false;
 
         async function load() {
             try {
-                const [roster, scores] = await Promise.all([
-                    getClassRoster(classId, {
-                        academic_term_id: academicTermId,
-                        limit: 200,
-                    }),
-                    getStudentScores(sessionId),
-                ]);
-
+                const data = await getGradingData(sessionId);
                 if (cancelled) return;
 
-                const students = roster.items ?? [];
-                const existing = scores.items ?? [];
-
-                setRosterState({ loading: false, error: null, students });
-                setScoresState({ loading: false, error: null, existing });
+                setStudents(data.students);
+                setLoading(false);
+                setError(null);
 
                 // Initialise draft from existing scores
                 const draftFromScores: ScoreDraft = {};
-                for (const s of existing) {
-                    if (s.raw_score != null) {
-                        draftFromScores[s.student_id] = String(s.raw_score);
+                for (const s of data.students) {
+                    if (s.score?.raw_score != null) {
+                        draftFromScores[s.student_id] = String(s.score.raw_score);
                     }
                 }
                 setDraft(draftFromScores);
             } catch (err) {
                 if (cancelled) return;
-                const msg = getErrorMessage(err);
-                setRosterState((prev) => ({ ...prev, loading: false, error: msg }));
-                setScoresState((prev) => ({ ...prev, loading: false, error: msg }));
+                setError(getErrorMessage(err));
+                setLoading(false);
             }
         }
 
@@ -95,12 +78,11 @@ export function GradingSheet({ sessionId, classId, maxPoints, status, academicTe
         return () => {
             cancelled = true;
         };
-    }, [classId, sessionId, academicTermId]);
+    }, [sessionId]);
 
     // ── Update a single student's score ──────────────────────────────
     const updateScore = useCallback((studentId: string, value: string) => {
         setDraft((prev) => ({ ...prev, [studentId]: value }));
-        // Clear field error on edit
         setFieldErrors((prev) => {
             if (prev[studentId]) {
                 const next = { ...prev };
@@ -117,15 +99,15 @@ export function GradingSheet({ sessionId, classId, maxPoints, status, academicTe
         const errors: Record<string, string[]> = {};
         let hasValue = false;
 
-        for (const student of rosterState.students) {
-            const val = draft[student.id];
+        for (const student of students) {
+            const val = draft[student.student_id];
             if (val !== undefined && val.trim() !== "") {
                 hasValue = true;
                 const num = parseFloat(val);
                 if (isNaN(num) || num < 0) {
-                    errors[student.id] = ["Must be ≥ 0"];
+                    errors[student.student_id] = ["Must be ≥ 0"];
                 } else if (num > maxPoints) {
-                    errors[student.id] = [`Max ${maxPoints}`];
+                    errors[student.student_id] = [`Max ${maxPoints}`];
                 }
             }
         }
@@ -137,19 +119,19 @@ export function GradingSheet({ sessionId, classId, maxPoints, status, academicTe
 
         setFieldErrors(errors);
         return Object.keys(errors).length === 0;
-    }, [draft, maxPoints, rosterState.students]);
+    }, [draft, maxPoints, students]);
 
     // ── Save ────────────────────────────────────────────────────────
     const handleSave = useCallback(() => {
         if (!validate()) return;
 
         const scores: { student_id: string; raw_score: number }[] = [];
-        for (const student of rosterState.students) {
-            const val = draft[student.id];
+        for (const student of students) {
+            const val = draft[student.student_id];
             if (val === undefined || val.trim() === "") continue;
             const num = parseFloat(val);
             if (isNaN(num)) continue;
-            scores.push({ student_id: student.id, raw_score: num });
+            scores.push({ student_id: student.student_id, raw_score: num });
         }
 
         saveMutation.mutate(
@@ -168,7 +150,7 @@ export function GradingSheet({ sessionId, classId, maxPoints, status, academicTe
                 },
             }
         );
-    }, [validate, draft, rosterState.students, sessionId, saveMutation]);
+    }, [validate, draft, students, sessionId, saveMutation]);
 
     // ── Preview percentage helper ────────────────────────────────────
     const previewPercentage = useCallback(
@@ -181,16 +163,8 @@ export function GradingSheet({ sessionId, classId, maxPoints, status, academicTe
         [maxPoints]
     );
 
-    // ── Find existing score for a student ────────────────────────────
-    const existingScore = useCallback(
-        (studentId: string): StudentScore | undefined => {
-            return scoresState.existing.find((s) => s.student_id === studentId);
-        },
-        [scoresState.existing]
-    );
-
     // ── Render states ────────────────────────────────────────────────
-    if (rosterState.loading || scoresState.loading) {
+    if (loading) {
         return (
             <div className="space-y-3">
                 <Skeleton className="h-10 w-full" />
@@ -201,17 +175,15 @@ export function GradingSheet({ sessionId, classId, maxPoints, status, academicTe
         );
     }
 
-    if (rosterState.error) {
+    if (error) {
         return (
             <Alert variant="destructive">
-                <AlertDescription>
-                    Failed to load class roster: {rosterState.error}
-                </AlertDescription>
+                <AlertDescription>Failed to load grading data: {error}</AlertDescription>
             </Alert>
         );
     }
 
-    if (rosterState.students.length === 0) {
+    if (students.length === 0) {
         return (
             <Alert>
                 <AlertDescription>
@@ -223,7 +195,8 @@ export function GradingSheet({ sessionId, classId, maxPoints, status, academicTe
 
     // ── Read-only view (published / pending approval) ────────────────
     if (!isEditable) {
-        if (scoresState.existing.length === 0) {
+        const scored = students.filter((s) => s.score?.raw_score != null);
+        if (scored.length === 0) {
             return (
                 <p className="text-muted-foreground py-4 text-center text-xs">
                     No scores recorded for this session.
@@ -251,33 +224,26 @@ export function GradingSheet({ sessionId, classId, maxPoints, status, academicTe
                         </tr>
                     </thead>
                     <tbody className="divide-y">
-                        {scoresState.existing.map((score) => {
-                            const student = rosterState.students.find(
-                                (s) => s.id === score.student_id
-                            );
-                            return (
-                                <tr key={score.id} className="hover:bg-muted/30">
-                                    <td className="px-3 py-2 font-medium">
-                                        {student?.full_name ?? score.student_id}
-                                    </td>
-                                    <td className="px-3 py-2 text-right tabular-nums">
-                                        {score.raw_score != null
-                                            ? `${score.raw_score} / ${maxPoints}`
-                                            : "\u2014"}
-                                    </td>
-                                    <td className="px-3 py-2 text-right tabular-nums">
-                                        {score.calculated_percentage != null
-                                            ? `${score.calculated_percentage.toFixed(1)}%`
-                                            : "\u2014"}
-                                    </td>
-                                    <td className="px-3 py-2">
-                                        <PerformanceLevelBadge
-                                            level={score.final_performance_level}
-                                        />
-                                    </td>
-                                </tr>
-                            );
-                        })}
+                        {scored.map((s) => (
+                            <tr key={s.student_id} className="hover:bg-muted/30">
+                                <td className="px-3 py-2 font-medium">{s.student_name}</td>
+                                <td className="px-3 py-2 text-right tabular-nums">
+                                    {s.score?.raw_score != null
+                                        ? `${s.score.raw_score} / ${maxPoints}`
+                                        : "\u2014"}
+                                </td>
+                                <td className="px-3 py-2 text-right tabular-nums">
+                                    {s.score?.calculated_percentage != null
+                                        ? `${s.score.calculated_percentage.toFixed(1)}%`
+                                        : "\u2014"}
+                                </td>
+                                <td className="px-3 py-2">
+                                    <PerformanceLevelBadge
+                                        level={s.score?.final_performance_level ?? null}
+                                    />
+                                </td>
+                            </tr>
+                        ))}
                     </tbody>
                 </table>
             </div>
@@ -313,20 +279,21 @@ export function GradingSheet({ sessionId, classId, maxPoints, status, academicTe
                         </tr>
                     </thead>
                     <tbody className="divide-y">
-                        {rosterState.students.map((student) => {
-                            const val = draft[student.id] ?? "";
+                        {students.map((student) => {
+                            const sid = student.student_id;
+                            const val = draft[sid] ?? "";
                             const pct = previewPercentage(val);
-                            const existing = existingScore(student.id);
-                            const hasError = !!fieldErrors[student.id];
-                            const errorMsg = fieldErrors[student.id]?.[0];
+                            const existingScore = student.score;
+                            const hasError = !!fieldErrors[sid];
+                            const errorMsg = fieldErrors[sid]?.[0];
 
                             return (
                                 <tr
-                                    key={student.id}
+                                    key={sid}
                                     className={`hover:bg-muted/30 ${hasError ? "bg-destructive/5" : ""}`}
                                 >
                                     <td className="px-3 py-2 font-medium">
-                                        {student.full_name}
+                                        {student.student_name}
                                         {student.admission_number && (
                                             <span className="text-muted-foreground ml-2 text-xs">
                                                 #{student.admission_number}
@@ -343,7 +310,7 @@ export function GradingSheet({ sessionId, classId, maxPoints, status, academicTe
                                                     step={0.5}
                                                     value={val}
                                                     onChange={(e) =>
-                                                        updateScore(student.id, e.target.value)
+                                                        updateScore(sid, e.target.value)
                                                     }
                                                     className={`h-8 text-right ${hasError ? "border-destructive" : ""}`}
                                                     placeholder="0"
@@ -359,13 +326,7 @@ export function GradingSheet({ sessionId, classId, maxPoints, status, academicTe
                                     </td>
                                     <td className="px-3 py-2 text-right tabular-nums">
                                         {pct !== null ? (
-                                            <span
-                                                className={
-                                                    pct >= 0
-                                                        ? "text-foreground"
-                                                        : "text-muted-foreground"
-                                                }
-                                            >
+                                            <span className="text-foreground">
                                                 {pct.toFixed(1)}%
                                             </span>
                                         ) : (
@@ -374,7 +335,7 @@ export function GradingSheet({ sessionId, classId, maxPoints, status, academicTe
                                     </td>
                                     <td className="px-3 py-2">
                                         <PerformanceLevelBadge
-                                            level={existing?.final_performance_level}
+                                            level={existingScore?.final_performance_level ?? null}
                                         />
                                     </td>
                                 </tr>
@@ -387,7 +348,7 @@ export function GradingSheet({ sessionId, classId, maxPoints, status, academicTe
             <div className="flex items-center justify-between">
                 <p className="text-muted-foreground text-xs">
                     {Object.values(draft).filter((v) => v.trim() !== "").length} of{" "}
-                    {rosterState.students.length} students scored
+                    {students.length} students scored
                 </p>
                 <Button size="sm" onClick={handleSave} disabled={saveMutation.isPending}>
                     {saveMutation.isPending ? (

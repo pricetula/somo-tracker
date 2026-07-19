@@ -5,6 +5,9 @@
  * session's learning area tree), Cells = EE/ME/AE/BE dropdown.
  * Teachers assign a level to each (student × indicator) combination.
  * Only editable when the session is in DRAFT status.
+ *
+ * Roster and existing grades are fetched from GET /assessments/sessions/:id/grading-data
+ * — no separate class roster call needed.
  */
 
 "use client";
@@ -12,10 +15,9 @@
 import { useState, useCallback, useEffect } from "react";
 import { Loader2, Save } from "lucide-react";
 
-import { getClassRoster, type RosterEntry } from "@/lib/api/classes";
+import { getGradingData, type GradingDataStudent } from "@/lib/api/assessments";
 import { getLearningAreaTree } from "@/lib/api/curriculum";
 import type { PerformanceIndicator } from "@/lib/api/curriculum";
-import { getOutcomeGrades, type OutcomeGrade } from "@/lib/api/assessments";
 import { useBulkUpsertOutcomeGrades } from "../hooks/use-assessments";
 import { PERFORMANCE_LEVELS, PERFORMANCE_LEVEL_LABELS } from "../types";
 import { getErrorMessage, isApiError } from "@/lib/errors";
@@ -35,10 +37,8 @@ import { toast } from "sonner";
 
 interface Props {
     sessionId: string;
-    classId: string;
     learningAreaId: string;
     status: string;
-    academicTermId: string;
 }
 
 /** Valid rubric levels */
@@ -72,34 +72,19 @@ function flattenIndicators(tree: {
     return all;
 }
 
-export function RubricGradingMatrix({
-    sessionId,
-    classId,
-    learningAreaId,
-    status,
-    academicTermId,
-}: Props) {
+export function RubricGradingMatrix({ sessionId, learningAreaId, status }: Props) {
     const isEditable = status === "DRAFT";
     const saveMutation = useBulkUpsertOutcomeGrades();
 
-    // ── Fetch data ────────────────────────────────────────────────────
-    const [rosterState, setRosterState] = useState<{
-        loading: boolean;
-        error: string | null;
-        students: RosterEntry[];
-    }>({ loading: true, error: null, students: [] });
+    const [students, setStudents] = useState<GradingDataStudent[]>([]);
+    const [studentsLoading, setStudentsLoading] = useState(true);
+    const [studentsError, setStudentsError] = useState<string | null>(null);
 
     const [indicatorsState, setIndicatorsState] = useState<{
         loading: boolean;
         error: string | null;
         indicators: PerformanceIndicator[];
     }>({ loading: true, error: null, indicators: [] });
-
-    const [gradesState, setGradesState] = useState<{
-        loading: boolean;
-        error: string | null;
-        existing: OutcomeGrade[];
-    }>({ loading: true, error: null, existing: [] });
 
     const [draft, setDraft] = useState<GradeDraft>({});
     const [saveError, setSaveError] = useState<string | null>(null);
@@ -110,41 +95,36 @@ export function RubricGradingMatrix({
 
         async function load() {
             try {
-                const [roster, tree, grades] = await Promise.all([
-                    getClassRoster(classId, {
-                        academic_term_id: academicTermId,
-                        limit: 200,
-                    }),
+                // Fetch grading data (roster + grades) and learning area tree in parallel
+                const [data, tree] = await Promise.all([
+                    getGradingData(sessionId),
                     getLearningAreaTree(learningAreaId),
-                    getOutcomeGrades(sessionId),
                 ]);
 
                 if (cancelled) return;
 
-                const students = roster.items ?? [];
-                const existingGrades = grades.items ?? [];
+                setStudents(data.students);
+                setStudentsLoading(false);
+                setStudentsError(null);
 
-                setRosterState({ loading: false, error: null, students });
-                setIndicatorsState({
-                    loading: false,
-                    error: null,
-                    indicators: flattenIndicators(tree),
-                });
-                setGradesState({ loading: false, error: null, existing: existingGrades });
+                const indicators = flattenIndicators(tree);
+                setIndicatorsState({ loading: false, error: null, indicators });
 
-                // Initialise draft from existing grades
+                // Initialise draft from existing grades (embedded in each student)
                 const draftFromGrades: GradeDraft = {};
-                for (const g of existingGrades) {
-                    draftFromGrades[draftKey(g.student_id, g.performance_indicator_id)] =
-                        g.awarded_level;
+                for (const s of data.students) {
+                    for (const g of s.grades ?? []) {
+                        draftFromGrades[draftKey(s.student_id, g.performance_indicator_id)] =
+                            g.awarded_level;
+                    }
                 }
                 setDraft(draftFromGrades);
             } catch (err) {
                 if (cancelled) return;
                 const msg = getErrorMessage(err);
-                setRosterState((prev) => ({ ...prev, loading: false, error: msg }));
+                setStudentsError(msg);
+                setStudentsLoading(false);
                 setIndicatorsState((prev) => ({ ...prev, loading: false, error: msg }));
-                setGradesState((prev) => ({ ...prev, loading: false, error: msg }));
             }
         }
 
@@ -152,7 +132,7 @@ export function RubricGradingMatrix({
         return () => {
             cancelled = true;
         };
-    }, [classId, learningAreaId, sessionId, academicTermId]);
+    }, [sessionId, learningAreaId]);
 
     // ── Update a single cell ──────────────────────────────────────────
     const updateCell = useCallback((studentId: string, indicatorId: string, level: string) => {
@@ -169,13 +149,13 @@ export function RubricGradingMatrix({
             awarded_level: RubricLevel;
         }[] = [];
 
-        for (const student of rosterState.students) {
+        for (const student of students) {
             for (const indicator of indicatorsState.indicators) {
-                const key = draftKey(student.id, indicator.id);
+                const key = draftKey(student.student_id, indicator.id);
                 const level = draft[key];
                 if (level && isRubricLevel(level)) {
                     grades.push({
-                        student_id: student.id,
+                        student_id: student.student_id,
                         performance_indicator_id: indicator.id,
                         awarded_level: level,
                     });
@@ -205,7 +185,7 @@ export function RubricGradingMatrix({
                 },
             }
         );
-    }, [draft, rosterState.students, indicatorsState.indicators, sessionId, saveMutation]);
+    }, [draft, students, indicatorsState.indicators, sessionId, saveMutation]);
 
     // ── Level colour map (mirrors PerformanceLevelBadge) ──────────────
     const levelColors: Record<string, string> = {
@@ -216,7 +196,7 @@ export function RubricGradingMatrix({
     };
 
     // ── Loading state ────────────────────────────────────────────────
-    if (rosterState.loading || indicatorsState.loading || gradesState.loading) {
+    if (studentsLoading || indicatorsState.loading) {
         return (
             <div className="space-y-3">
                 <Skeleton className="h-10 w-full" />
@@ -227,7 +207,7 @@ export function RubricGradingMatrix({
     }
 
     // ── Error state ──────────────────────────────────────────────────
-    const error = rosterState.error || indicatorsState.error || gradesState.error;
+    const error = studentsError || indicatorsState.error;
     if (error) {
         return (
             <Alert variant="destructive">
@@ -237,7 +217,7 @@ export function RubricGradingMatrix({
     }
 
     // ── Empty states ─────────────────────────────────────────────────
-    if (rosterState.students.length === 0) {
+    if (students.length === 0) {
         return (
             <Alert>
                 <AlertDescription>
@@ -260,7 +240,8 @@ export function RubricGradingMatrix({
 
     // ── Read-only view ───────────────────────────────────────────────
     if (!isEditable) {
-        if (gradesState.existing.length === 0) {
+        const hasGrades = students.some((s) => (s.grades?.length ?? 0) > 0);
+        if (!hasGrades) {
             return (
                 <p className="text-muted-foreground py-4 text-center text-xs">
                     No rubric grades recorded for this session.
@@ -291,14 +272,12 @@ export function RubricGradingMatrix({
                         </tr>
                     </thead>
                     <tbody className="divide-y">
-                        {rosterState.students.map((student) => (
-                            <tr key={student.id} className="hover:bg-muted/30">
-                                <td className="px-3 py-2 font-medium">{student.full_name}</td>
+                        {students.map((student) => (
+                            <tr key={student.student_id} className="hover:bg-muted/30">
+                                <td className="px-3 py-2 font-medium">{student.student_name}</td>
                                 {indicatorsState.indicators.map((indicator) => {
-                                    const grade = gradesState.existing.find(
-                                        (g) =>
-                                            g.student_id === student.id &&
-                                            g.performance_indicator_id === indicator.id
+                                    const grade = student.grades?.find(
+                                        (g) => g.performance_indicator_id === indicator.id
                                     );
                                     return (
                                         <td key={indicator.id} className="px-3 py-2">
@@ -371,20 +350,24 @@ export function RubricGradingMatrix({
                             </tr>
                         </thead>
                         <tbody className="divide-y">
-                            {rosterState.students.map((student) => (
-                                <tr key={student.id} className="hover:bg-muted/30">
+                            {students.map((student) => (
+                                <tr key={student.student_id} className="hover:bg-muted/30">
                                     <td className="text-muted-foreground bg-background sticky left-0 z-10 px-3 py-2 text-xs font-medium">
-                                        {student.full_name}
+                                        {student.student_name}
                                     </td>
                                     {indicatorsState.indicators.map((indicator) => {
-                                        const key = draftKey(student.id, indicator.id);
+                                        const key = draftKey(student.student_id, indicator.id);
                                         const value = draft[key] ?? "";
                                         return (
                                             <td key={indicator.id} className="px-2 py-1.5">
                                                 <Select
                                                     value={value}
                                                     onValueChange={(v) =>
-                                                        updateCell(student.id, indicator.id, v)
+                                                        updateCell(
+                                                            student.student_id,
+                                                            indicator.id,
+                                                            v
+                                                        )
                                                     }
                                                     disabled={saveMutation.isPending}
                                                 >
@@ -434,8 +417,7 @@ export function RubricGradingMatrix({
             <div className="flex items-center justify-between">
                 <p className="text-muted-foreground text-xs">
                     {Object.values(draft).filter((v) => v !== "").length} grades assigned across{" "}
-                    {rosterState.students.length} students × {indicatorsState.indicators.length}{" "}
-                    indicators
+                    {students.length} students × {indicatorsState.indicators.length} indicators
                 </p>
                 <Button size="sm" onClick={handleSave} disabled={saveMutation.isPending}>
                     {saveMutation.isPending ? (

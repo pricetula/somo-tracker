@@ -140,6 +140,28 @@ func globalErrorHandler(c *fiber.Ctx, err error) error {
 
 // ── Cross-Domain Adapters ────────────────────────────────────────────────
 
+// rosterAdapter adapts cbcclasses.Repository to assessments.RosterProvider.
+type rosterAdapter struct {
+	repo cbcclasses.Repository
+}
+
+func (a *rosterAdapter) GetRosterByClassAndTerm(ctx context.Context, classID, tenantID, schoolID, academicTermID string) ([]assessments.RosterStudent, error) {
+	result, err := a.repo.GetRoster(ctx, classID, tenantID, schoolID, academicTermID, 9999, 0, "")
+	if err != nil {
+		return nil, err
+	}
+	students := make([]assessments.RosterStudent, len(result.Items))
+	for i, e := range result.Items {
+		students[i] = assessments.RosterStudent{
+			StudentID:       e.ID,
+			StudentName:     e.FullName,
+			AdmissionNumber: e.AdmissionNumber,
+			Gender:          e.Gender,
+		}
+	}
+	return students, nil
+}
+
 // curriculumSchoolSeeder adapts *curriculum.SeedingService to the
 // cbcschools.CurriculumSeeder interface used by school creation.
 type curriculumSchoolSeeder struct {
@@ -216,6 +238,12 @@ func main() {
 			func(repo auth.Repository) cbcschools.UserSchoolEnroller {
 				return repo.(cbcschools.UserSchoolEnroller)
 			},
+			// Wire class roster provider into the assessments service so the
+			// grading-data endpoint can resolve rosters from the session's
+			// class_id and academic_term_id.
+			func(repo cbcclasses.Repository) assessments.RosterProvider {
+				return &rosterAdapter{repo: repo}
+			},
 			// Wire behavior notes provider into the students handler for the
 			// student detail page.
 			func(behSvc *behavior.Service) students.BehaviorNotesProvider {
@@ -249,6 +277,9 @@ func main() {
 		// Wire behavior notes provider into students handler
 		fx.Invoke(func(h *students.Handler, fn students.BehaviorNotesProvider) {
 			h.SetBehaviorNotesProvider(fn)
+		}),
+		fx.Invoke(func(svc *assessments.Service, rp assessments.RosterProvider) {
+			svc.SetRosterProvider(rp)
 		}),
 	).Run()
 }

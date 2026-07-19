@@ -36,6 +36,10 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	sessions.Post("/", middleware.RequireAuth, h.CreateSession)
 	sessions.Get("/", middleware.RequireAuth, h.ListSessions)
 	sessions.Get("/:id", middleware.RequireAuth, h.GetSession)
+
+	// Grading Data: returns session + roster + scores/grades in one call
+	sessions.Get("/:id/grading-data", middleware.RequireAuth, h.GetGradingData)
+
 	sessions.Post("/:id/submit", middleware.RequireAuth, h.SubmitSession)
 	sessions.Post("/:id/approve", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN"), h.ApproveSession)
 	sessions.Post("/:id/reject", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN"), h.RejectSession)
@@ -520,6 +524,56 @@ func (h *Handler) CreateSession(c *fiber.Ctx) error {
 }
 
 // ---------------------------------------------------------------------------
+// GetGradingData — GET /api/v1/assessments/sessions/:id/grading-data
+//
+// Returns session details, class roster (resolved from the session's class_id
+// and academic_term_id), and existing scores/grades merged into a single
+// response. The frontend no longer needs to call the class roster endpoint
+// separately.
+//
+// Response (200):
+//
+//	{
+//	  "session": { "id": "...", "class_id": "...", "academic_term_id": "...", ... },
+//	  "students": [
+//	    {
+//	      "student_id": "uuid",
+//	      "student_name": "Mary Wanjiku",
+//	      "admission_number": "CBC/2026/0142",
+//	      "gender": "F",
+//	      "enrollment_status": "ACTIVE",
+//	      "score": { "raw_score": 41, "calculated_percentage": 82.0, ... }
+//	    },
+//	    {
+//	      "student_id": "uuid",
+//	      "student_name": "John Kamau",
+//	      ...
+//	      "score": null  // not yet scored
+//	    }
+//	  ]
+//	}
+//
+// For RUBRIC sessions, "grades" replaces "score":
+//
+//	"grades": [{ "performance_indicator_id": "...", "awarded_level": "AE" }]
+//
+// Errors:
+//   - 401: authentication required
+//   - 404: session not found
+func (h *Handler) GetGradingData(c *fiber.Ctx) error {
+	tenantID, schoolID, err := getTenantAndSchool(c)
+	if err != nil {
+		return err
+	}
+
+	id := c.Params("id")
+	result, err := h.svc.GetGradingData(c.Context(), id, tenantID, schoolID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	return c.JSON(result)
+}
+
 // GetSession — GET /api/v1/assessments/sessions/:id
 //
 // Retrieves a single assessment session by ID, including its current status,

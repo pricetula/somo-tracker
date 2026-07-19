@@ -22,12 +22,18 @@ var allowedTransitions = map[string]map[string]bool{
 
 // Service contains business logic for the assessments domain.
 type Service struct {
-	Repo Repository
+	Repo           Repository
+	RosterProvider RosterProvider
 }
 
 // NewService creates a new Service.
 func NewService(repo Repository) *Service {
 	return &Service{Repo: repo}
+}
+
+// SetRosterProvider sets the roster provider for cross-domain roster lookups.
+func (s *Service) SetRosterProvider(rp RosterProvider) {
+	s.RosterProvider = rp
 }
 
 // ============================================================================
@@ -530,4 +536,96 @@ func (s *Service) GetWeightConfigByID(ctx context.Context, id string) (*Assessme
 		return nil, fmt.Errorf("assessments.Service.GetWeightConfigByID: id is required: %w", ErrInvalidInput)
 	}
 	return s.Repo.GetWeightConfigByID(ctx, id)
+}
+
+// ============================================================================
+// GRADING DATA (merged roster + scores/grades)
+// ============================================================================
+
+// GetGradingData returns the session, roster, and merged scores/grades in a
+// single response. The backend resolves the roster from the session's class_id
+// and academic_term_id, so the frontend doesn't need to pass them separately.
+func (s *Service) GetGradingData(ctx context.Context, sessionID, tenantID, schoolID string) (*GradingDataResponse, error) {
+	if sessionID == "" || tenantID == "" || schoolID == "" {
+		return nil, fmt.Errorf("assessments.Service.GetGradingData: %w", ErrInvalidInput)
+	}
+
+	// 1. Load the session to get class_id and academic_term_id
+	session, err := s.Repo.GetSessionByID(ctx, sessionID, tenantID, schoolID)
+	if err != nil {
+		return nil, fmt.Errorf("assessments.Service.GetGradingData: %w", err)
+	}
+
+	// 2. Load the roster from the class domain
+	roster, err := s.RosterProvider.GetRosterByClassAndTerm(ctx, session.ClassID, tenantID, schoolID, session.AcademicTermID)
+	if err != nil {
+		return nil, fmt.Errorf("assessments.Service.GetGradingData: %w", err)
+	}
+
+	// 3. Build merged student list
+	students := make([]GradingDataStudent, 0, len(roster))
+
+	if session.EvaluationMethod == "QUANTITATIVE" {
+		// Load scores and merge by student_id
+		scores, err := s.Repo.GetStudentScoresBySession(ctx, sessionID, tenantID, schoolID)
+		if err != nil {
+			return nil, fmt.Errorf("assessments.Service.GetGradingData: %w", err)
+		}
+
+		scoreByStudent := make(map[string]*StudentScore, len(scores))
+		for i := range scores {
+			scoreByStudent[scores[i].StudentID] = &scores[i]
+		}
+
+		for _, r := range roster {
+			s := GradingDataStudent{
+				StudentID:        r.StudentID,
+				StudentName:      r.StudentName,
+				AdmissionNumber:  r.AdmissionNumber,
+				Gender:           r.Gender,
+				EnrollmentStatus: "ACTIVE",
+			}
+			if sc, ok := scoreByStudent[r.StudentID]; ok {
+				s.Score = sc
+				if sc.EnrollmentStatus != "" {
+					s.EnrollmentStatus = sc.EnrollmentStatus
+				}
+			}
+			students = append(students, s)
+		}
+	} else {
+		// RUBRIC: load outcome grades
+		grades, err := s.Repo.GetOutcomeGradesBySession(ctx, sessionID, tenantID, schoolID)
+		if err != nil {
+			return nil, fmt.Errorf("assessments.Service.GetGradingData: %w", err)
+		}
+
+		gradesByStudent := make(map[string][]OutcomeGrade, len(grades))
+		for _, g := range grades {
+			gradesByStudent[g.StudentID] = append(gradesByStudent[g.StudentID], g)
+		}
+
+		for _, r := range roster {
+			s := GradingDataStudent{
+				StudentID:        r.StudentID,
+				StudentName:      r.StudentName,
+				AdmissionNumber:  r.AdmissionNumber,
+				Gender:           r.Gender,
+				EnrollmentStatus: "ACTIVE",
+			}
+			if gs, ok := gradesByStudent[r.StudentID]; ok {
+				s.Grades = gs
+			}
+			students = append(students, s)
+		}
+	}
+
+	if students == nil {
+		students = []GradingDataStudent{}
+	}
+
+	return &GradingDataResponse{
+		Session:  session,
+		Students: students,
+	}, nil
 }

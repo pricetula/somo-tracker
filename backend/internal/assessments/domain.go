@@ -231,6 +231,38 @@ type ListWeightConfigsResponse struct {
 	Limit int                      `json:"limit"`
 }
 
+// ── Grading Data (merged roster + scores) ───────────────────────────────
+
+// RosterStudent represents a student in the class roster for grading.
+type RosterStudent struct {
+	StudentID       string
+	StudentName     string
+	AdmissionNumber string
+	Gender          string
+}
+
+// RosterProvider provides class roster data for the assessments domain.
+type RosterProvider interface {
+	GetRosterByClassAndTerm(ctx context.Context, classID, tenantID, schoolID, academicTermID string) ([]RosterStudent, error)
+}
+
+// GradingDataStudent represents a student with their score or grades attached.
+type GradingDataStudent struct {
+	StudentID        string         `json:"student_id"`
+	StudentName      string         `json:"student_name"`
+	AdmissionNumber  string         `json:"admission_number"`
+	Gender           string         `json:"gender"`
+	EnrollmentStatus string         `json:"enrollment_status"`
+	Score            *StudentScore  `json:"score,omitempty"`
+	Grades           []OutcomeGrade `json:"grades,omitempty"`
+}
+
+// GradingDataResponse is the response for GET /assessments/sessions/:id/grading-data.
+type GradingDataResponse struct {
+	Session  *AssessmentSession   `json:"session"`
+	Students []GradingDataStudent `json:"students"`
+}
+
 // ── Params (internal) ────────────────────────────────────────────────────
 
 // CreateScaleProfileParams holds fields needed to create a scale profile.

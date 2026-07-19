@@ -123,6 +123,21 @@ export interface OutcomeGradesResult {
     items: OutcomeGrade[];
 }
 
+export interface GradingDataStudent {
+    student_id: string;
+    student_name: string;
+    admission_number: string;
+    gender: string;
+    enrollment_status: string;
+    score?: StudentScore | null;
+    grades?: OutcomeGrade[];
+}
+
+export interface GradingDataResponse {
+    session: AssessmentSession;
+    students: GradingDataStudent[];
+}
+
 export interface ParentAssessmentsResult {
     items: ParentAssessmentView[];
 }
@@ -355,6 +370,22 @@ export async function bulkUpsertOutcomeGrades(
 /** Get all outcome grades for a session. */
 export async function getOutcomeGrades(sessionId: string): Promise<OutcomeGradesResult> {
     return api.get(`/api/v1/assessments/sessions/${sessionId}/grades`);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// GRADING DATA (merged roster + scores/grades)
+// ════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Get session, class roster, and existing scores/grades in a single call.
+ *
+ * The backend resolves the roster from the session's class_id and
+ * academic_term_id — no need to pass them separately.
+ *
+ * GET /api/v1/assessments/sessions/:id/grading-data
+ */
+export async function getGradingData(sessionId: string): Promise<GradingDataResponse> {
+    return api.get(`/api/v1/assessments/sessions/${sessionId}/grading-data`);
 }
 
 // ════════════════════════════════════════════════════════════════════════════

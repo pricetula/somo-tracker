@@ -602,7 +602,7 @@ func (r *PgRepository) BatchEnrollStudents(ctx context.Context, classID, tenantI
 
 // UnenrollStudent removes a single student from a class for the given term.
 // Sets class_id to NULL on the enrollment record instead of deleting it,
-// preserving attendance history.
+// preserving the enrollment history.
 // The academic_term_id parameter is REQUIRED to scope the unenrollment to
 // a single term — omitting it would unenroll the student from ALL terms
 // for this class.

@@ -32,7 +32,6 @@ import (
 
 	"somotracker/backend/internal/academicyears"
 	"somotracker/backend/internal/assessments"
-	"somotracker/backend/internal/attendance"
 	"somotracker/backend/internal/auth"
 	"somotracker/backend/internal/behavior"
 	"somotracker/backend/internal/billing"
@@ -189,7 +188,6 @@ func main() {
 		utils.Module,
 		academicyears.Module,
 		assessments.Module,
-		attendance.Module,
 		auth.Module,
 		behavior.Module,
 		cbcschools.Module,
@@ -272,7 +270,6 @@ func main() {
 		fx.Invoke(runMigrations),
 		fx.Invoke(registerApp),
 		fx.Invoke(imports.RegisterWorkerHooks),
-		fx.Invoke(attendance.RegisterWorkerHooks),
 		fx.Invoke(consumeSafeClient),
 		// Wire behavior notes provider into students handler
 		fx.Invoke(func(h *students.Handler, fn students.BehaviorNotesProvider) {
@@ -324,7 +321,6 @@ func registerApp(
 	assessmentsHandler *assessments.Handler,
 	authHandler *auth.Handler,
 	academicYearsHandler *academicyears.Handler,
-	attendanceHandler *attendance.Handler,
 	behaviorHandler *behavior.Handler,
 	cbcschoolsHandler *cbcschools.Handler,
 	cbcclassesHandler *cbcclasses.Handler,
@@ -383,7 +379,6 @@ func registerApp(
 			parentsHandler.RegisterRoutes(app)
 			teachersHandler.RegisterRoutes(app)
 			billingHandler.RegisterRoutes(app)
-			attendanceHandler.RegisterRoutes(app)
 			behaviorHandler.RegisterRoutes(app)
 			timetablestructureHandler.RegisterRoutes(app)
 

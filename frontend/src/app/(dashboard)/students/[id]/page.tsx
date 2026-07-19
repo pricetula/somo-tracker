@@ -1,8 +1,8 @@
 /**
  * Student Detail Page — Full page render for /students/:id.
  *
- * Shows student profile, enrollment history, behavior notes, and
- * attendance summary for the current or selected term.
+ * Shows student profile, enrollment history, behavior notes,
+ * health information, and report links.
  */
 
 "use client";
@@ -13,7 +13,6 @@ import {
     User,
     BookOpen,
     AlertTriangle,
-    CalendarCheck,
     Loader2,
     ArrowUpRight,
     HeartPulse,
@@ -25,36 +24,11 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StaticTable } from "@/components/shared/static-table";
 import { useStudentDetail } from "@/features/students";
-import { useStudentHistory } from "@/features/attendance";
 import { useStudentHealth } from "@/features/health";
-
-// Default start date for attendance history: 30 days before module load.
-// Defined at module scope (not during render) to avoid impure function calls
-// in the component body.
-const THIRTY_DAYS_AGO = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 
 interface Props {
     params: Promise<{ id: string }>;
 }
-
-const statusBadge: Record<string, { label: string; className: string }> = {
-    PRESENT: {
-        label: "Present",
-        className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
-    },
-    ABSENT: {
-        label: "Absent",
-        className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-    },
-    LATE: {
-        label: "Late",
-        className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-    },
-    EXCUSED: {
-        label: "Excused",
-        className: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-    },
-};
 
 export default function StudentDetailPage({ params }: Props) {
     const { id } = use(params);
@@ -63,11 +37,6 @@ export default function StudentDetailPage({ params }: Props) {
     // Fetch student detail
     const { data: detailResponse, isLoading: detailLoading } = useStudentDetail(id);
     const detail = detailResponse?.data;
-
-    // Fetch recent attendance (last 30 days by default)
-    const { data: attendanceData } = useStudentHistory(id, {
-        start_date: THIRTY_DAYS_AGO,
-    });
 
     if (detailLoading) {
         return (
@@ -90,8 +59,6 @@ export default function StudentDetailPage({ params }: Props) {
     const enrollments = student.enrollments ?? [];
     const currentEnrollment = enrollments[0]; // most recent
     const behaviorNotes = student.behavior ?? [];
-    const attendanceRecords = attendanceData?.items ?? [];
-
     return (
         <div className="space-y-8">
             {/* ── Header ─────────────────────────────────────────────── */}
@@ -131,12 +98,6 @@ export default function StudentDetailPage({ params }: Props) {
                     <Button variant="outline" size="sm" asChild>
                         <Link href={`/students/${id}/edit`}>Edit profile</Link>
                     </Button>
-                    <Button variant="outline" size="sm" asChild>
-                        <Link href={`/attendance/students/${id}`}>
-                            <CalendarCheck className="mr-1 h-4 w-4" />
-                            Attendance
-                        </Link>
-                    </Button>
                 </div>
             </div>
 
@@ -152,14 +113,6 @@ export default function StudentDetailPage({ params }: Props) {
                             </Badge>
                         )}
                     </TabsTrigger>
-                    <TabsTrigger value="attendance">
-                        Attendance
-                        {attendanceRecords.length > 0 && (
-                            <Badge variant="secondary" className="ml-2">
-                                {attendanceRecords.length}
-                            </Badge>
-                        )}
-                    </TabsTrigger>
                     <TabsTrigger value="health">Health</TabsTrigger>
                     <TabsTrigger value="reports">Reports</TabsTrigger>
                     <TabsTrigger value="enrollments">Enrollments</TabsTrigger>
@@ -167,35 +120,7 @@ export default function StudentDetailPage({ params }: Props) {
 
                 {/* ── Overview Tab ─────────────────────────────────────── */}
                 <TabsContent value="overview" className="space-y-6 pt-4">
-                    <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-                        {/* Attendance summary card */}
-                        <div className="bg-muted/30 p-4">
-                            <div className="text-muted-foreground flex items-center gap-2 font-medium">
-                                <CalendarCheck className="h-4 w-4" />
-                                Attendance
-                            </div>
-                            <p className="text-foreground mt-2 text-2xl font-bold">
-                                {attendanceRecords.length > 0 ? (
-                                    <>
-                                        {Math.round(
-                                            (attendanceRecords.filter((r) => r.status === "PRESENT")
-                                                .length /
-                                                attendanceRecords.length) *
-                                                100
-                                        )}
-                                        <span className="text-muted-foreground text-base font-normal">
-                                            %
-                                        </span>
-                                    </>
-                                ) : (
-                                    <span className="text-muted-foreground text-base font-normal">
-                                        —
-                                    </span>
-                                )}
-                            </p>
-                            <p className="text-muted-foreground text-xs">Recent periods</p>
-                        </div>
-
+                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                         {/* Behavior summary card */}
                         <div className="bg-muted/30 p-4">
                             <div className="text-muted-foreground flex items-center gap-2 font-medium">
@@ -250,24 +175,12 @@ export default function StudentDetailPage({ params }: Props) {
                                 ? `${behaviorNotes.length} note${behaviorNotes.length !== 1 ? "s" : ""} on record`
                                 : "No behavior notes logged yet."}
                         </p>
-                        {currentEnrollment && (
-                            <Button variant="outline" size="sm" asChild>
-                                <Link href={`/attendance/students/${id}`}>
-                                    <CalendarCheck className="mr-1 h-3 w-3" />
-                                    View Attendance
-                                </Link>
-                            </Button>
-                        )}
                     </div>
 
                     {behaviorNotes.length === 0 ? (
                         <div className="text-muted-foreground flex flex-col items-center gap-2 py-12">
                             <AlertTriangle className="h-8 w-8" />
                             <p className="font-medium">No behavior notes</p>
-                            <p className="">
-                                Teachers can log behavior notes during attendance marking. Approved
-                                notes will appear here.
-                            </p>
                         </div>
                     ) : (
                         behaviorNotes.map((note) => (
@@ -296,50 +209,6 @@ export default function StudentDetailPage({ params }: Props) {
                             </div>
                         ))
                     )}
-                </TabsContent>
-
-                {/* ── Attendance Tab ───────────────────────────────────── */}
-                <TabsContent value="attendance" className="space-y-4 pt-4">
-                    {attendanceRecords.length === 0 ? (
-                        <div className="text-muted-foreground flex flex-col items-center gap-2 py-12">
-                            <CalendarCheck className="h-8 w-8" />
-                            <p className="font-medium">No attendance records</p>
-                            <p className="">Attendance history will appear here once marked.</p>
-                        </div>
-                    ) : (
-                        <StaticTable
-                            columns={[
-                                { id: "date", header: "Date", cell: (rec) => rec.date },
-                                {
-                                    id: "status",
-                                    header: "Status",
-                                    cell: (rec) => (
-                                        <Badge className={statusBadge[rec.status]?.className ?? ""}>
-                                            {statusBadge[rec.status]?.label ?? rec.status}
-                                        </Badge>
-                                    ),
-                                },
-                                {
-                                    id: "note",
-                                    header: "Note",
-                                    cell: (rec) => (
-                                        <span className="text-muted-foreground text-xs">
-                                            {rec.note ?? "—"}
-                                        </span>
-                                    ),
-                                },
-                            ]}
-                            data={attendanceRecords.slice(0, 50)}
-                            getRowId={(rec) => rec.id}
-                            height={280}
-                        />
-                    )}
-                    <Button variant="outline" size="sm" asChild>
-                        <Link href={`/attendance/students/${id}`}>
-                            <ArrowUpRight className="mr-1 h-4 w-4" />
-                            Full attendance history
-                        </Link>
-                    </Button>
                 </TabsContent>
 
                 {/* ── Enrollments Tab ──────────────────────────────────── */}

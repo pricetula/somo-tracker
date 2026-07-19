@@ -7,7 +7,7 @@
  *
  * Usage:
  *   <ErrorBoundary>
- *     <AttendanceFeature />
+ *     <MyFeature />
  *   </ErrorBoundary>
  *
  * See frontend/AGENTS.md — Error Handling section.

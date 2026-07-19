@@ -41,7 +41,7 @@ Every site below builds SQL strings dynamically but **only interpolates**:
 | File | Function(s) | Safe Because |
 |------|-------------|--------------|
 | `internal/assessments/repository.go` | `ListSessions` (lines 416–476), `ListWeightConfigs` (lines 1074–1088) | WHERE/ORDER BY fragments use `$N` placeholders; values in args slice |
-| `internal/attendance/repository.go` | `GetStudentHistory` (lines 299–318), `GetAdminDashboard` (lines 364–459) | Dynamic conditions use `$N`; all values parameterized; `IsComplete` mapped to static HAVING strings |
+
 | `internal/behavior/repository.go` | `UpdateCategory` (lines 156–178) | SET clause column names are hardcoded; values use `$N` placeholders |
 | `internal/billing/repository.go` | `Update` (lines 100–115), `ListFeeTemplates` (lines 175–187), `ListInvoices` (lines 348–371) | Same pattern — `$N` with args |
 | `internal/cbcclasses/repository.go` | `List` (lines 46–123), `GetAvailableStudents` (lines 646–705) | `IN (%s)` with generated `$N` placeholders, ILIKE with `$N` |
@@ -65,7 +65,6 @@ Every site below builds SQL strings dynamically but **only interpolates**:
 
 **Affected endpoints:**
 - `GET /api/v1/classes?grade_level=...&stream_id=...` (cbcclasses)
-- `GET /api/v1/attendance/dashboard?education_level=...&grade_level=...` (attendance)
 - `GET /api/v1/parents?education_level=...&grade_level=...` (parents)
 - `GET /api/v1/students?education_level=...&grade_level=...` (students)
 
@@ -127,7 +126,7 @@ The `sqlc.yaml` config is correctly configured and safe. The `internal/database/
 
 | Priority | Finding | Effort | Impact |
 |----------|---------|--------|--------|
-| **P1** | Add allow-list validation for enum filter params in cbcclasses, attendance, parents, students handlers/services | 1–2 days | Prevents information disclosure via enum cast errors; hardens against future injection regression |
+| **P1** | Add allow-list validation for enum filter params in cbcclasses, parents, students handlers/services | 1–2 days | Prevents information disclosure via enum cast errors; hardens against future injection regression |
 | **P2** | Add statement-level timeout (`pgxpool.Config.MaxConnLifetime` + `statement_timeout`) | 0.5 day | Prevents resource exhaustion from long-running queries |
 | **P3** | Run `sqlc generate` and manually verify 2–3 generated `*.sql.go` files emit `$N` placeholders | 0.5 day | Confirms sqlc codegen integrity |
 | **P4** | Add a linter rule (`gosec` or custom `go vet`) forbidding `"DELETE FROM " +` and similar patterns in non-test code | 0.5 day | Prevents future regressions |

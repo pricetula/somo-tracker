@@ -389,7 +389,7 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 // ─── Get Detail ───────────────────────────────────────────────────────────
 
 // GetDetail handles GET /api/v1/students/:id.
-// Supports optional ?term_id for scoping behavior notes and attendance records.
+// Supports optional ?term_id for scoping behavior notes.
 func (h *Handler) GetDetail(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
 	schoolID, _ := c.Locals("active_school_id").(string)

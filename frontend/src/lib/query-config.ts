@@ -8,7 +8,7 @@
  * Tiers:
  *   REFERENCE_DATA — data that rarely changes (streams, terms, fee-categories)
  *   STANDARD       — default for most lists (60s)
- *   FREQUENT       — data updated in real-time (attendance rosters)
+ *   FREQUENT       — data updated in real-time (e.g., class rosters)
  *   LIVE           — polling data (import progress, behavior queue)
  */
 

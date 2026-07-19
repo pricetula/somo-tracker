@@ -209,7 +209,7 @@ describe("DataTable", () => {
                     rows: [],
                     isPending: false,
                     isError: true,
-                    error: "string error message",
+                    error: new Error("string error message"),
                 })
             );
 

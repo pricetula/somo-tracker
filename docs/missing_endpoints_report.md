@@ -131,14 +131,11 @@ Most core domain entities appear to have dedicated handlers and at least partial
     *   **Coverage:** No explicit handler. Likely managed by `auth` or `members` module logic when a user switches their active school context.
     *   **Status:** *Internal state.* No direct API endpoints expected.
 
-### Layer 11 — Attendance & Behavior
+### Layer 11 — Behavior
 
-*   **`attendance_records`**, **`behavior_categories`**, **`behavior_notes`**, **`cbc_attendance_sessions`**:
-    *   **Coverage:** `attendance.Handler` and `behavior.Handler` are expected to provide comprehensive CRUD for these entities.
+*   **`behavior_categories`**, **`behavior_notes`**:
+    *   **Coverage:** `behavior.Handler` is expected to provide comprehensive CRUD for these entities.
     *   **Status:** *Likely comprehensive.*
-*   **`attendance_term_summaries`**:
-    *   **Coverage:** None directly expected. This is a materialized rollup, populated by background tasks.
-    *   **Status:** *Internal/Read-only aggregate.* Read access might be exposed through `students` or `reports` endpoints.
 
 ### Layer 12 — Assessment & Grading Engine
 
@@ -166,7 +163,7 @@ Most core domain entities appear to have dedicated handlers and at least partial
 
 The backend API generally provides good coverage for the core transactional entities in the schema. Areas noted as "missing" are often those that are either:
 *   Managed indirectly as part of a larger business flow (e.g., `tenants`, `users` through authentication/registration).
-*   Represent junction tables or materialized views whose data is manipulated through related domain entities (e.g., `cbc_student_parents`, `attendance_term_summaries`).
+*   Represent junction tables or materialized views whose data is manipulated through related domain entities (e.g., `cbc_student_parents`).
 *   Intentionally restricted (e.g., `assessment_weight_configs`, core curriculum elements) due to their nature as system-level or standardized data.
 
 The report highlights specific areas where explicit endpoints could be considered if the application's functional requirements evolve to need more direct manipulation of these underlying data structures.

@@ -1,28 +1,3 @@
-### Attendance
-
-**attendance_student_term_summary** → **Bar Chart** (stacked, present/absent/late/excused per term) or a simple **Radial Chart** for the single attendance % score on a student profile page.
-
-- Data shape: one row per term → { term: "Term 1", present: 45, absent: 3, late: 2, excused: 1 }
-- Table: attendance_student_term_summary — student_id, academic_term_id, periods_present, periods_absent, periods_late, periods_excused, attendance_percentage
-- Relationships: student_id → cbc_students, academic_term_id → academic_terms
-
-**attendance_class_term_summary** → **Bar Chart** (horizontal, one bar per class) for "which class has the worst attendance this term."
-
-- Data shape: { class: "6-Blue", avg_attendance: 91.2, chronic_absentees: 3 } per row, grouped by school/term
-- Table: attendance_class_term_summary — class_id, academic_term_id, avg_attendance_percentage, chronic_absentee_count, student_count
-- Relationships: class_id → cbc_classes (which carries grade_level, stream_id)
-
-**attendance_school_term_trend** → **Line Chart** (or Area Chart) for the multi-term trend on the admin dashboard.
-
-- Data shape: ordered by academic_year_id + term_number → { term: "2025 T3", attendance: 88 }, { term: "2026 T1", attendance: 90 }...
-- Table: attendance_school_term_trend — school_id, academic_term_id, term_number, academic_year_id, overall_attendance_percentage
-- Relationships: academic_term_id → academic_terms; ordering key is (academic_year_id, term_number)
-
-**attendance_daily_trend** → **Area Chart** for a daily/weekly line, good for spotting a specific bad week or correlating with health incidents.
-
-- Data shape: { date: "2026-01-05", present: 210, absent: 8, late: 4 } per day
-- Table: attendance_daily_trend — school_id, date, present_count, absent_count, late_count, excused_count
-
 ### Assessments
 
 **assessment_student_term_summary** → **Radar Chart** if broken out by subject (needs joining with the class-level table below for per-subject axes), or a single **Line Chart** point on a student's progress-over-terms view.
@@ -37,7 +12,7 @@
 - Table: assessment_class_learning_area_term_summary — class_id, learning_area_id, academic_term_id, mean_percentage, ee_count, me_count, ae_count, be_count, meeting_expectation_rate
 - Relationships: class_id → cbc_classes, learning_area_id → cbc_learning_areas (has name, grade_level)
 
-**assessment_school_term_trend** → **Line Chart** for the school-wide academic trend/projection, same shape as the attendance trend.
+**assessment_school_term_trend** → **Line Chart** for the school-wide academic trend/projection.
 
 - Data shape: { term: "2026 T1", mean_percentage: 72, meeting_expectation_rate: 68 }
 - Table: assessment_school_term_trend — school_id, academic_term_id, term_number, academic_year_id, mean_percentage, meeting_expectation_rate

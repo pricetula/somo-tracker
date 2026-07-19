@@ -342,13 +342,12 @@ func (r *pgRepository) GetNotesByStudentTerm(ctx context.Context, tenantID, scho
 		LEFT JOIN cbc_streams str ON str.id = c.stream_id
 		JOIN behavior_categories bc ON bc.id = bn.category_id
 		JOIN users u ON u.id = bn.authored_by_id AND u.tenant_id = bn.tenant_id
-		JOIN attendance_records ar ON ar.timetable_slot_id = bn.timetable_slot_id
-			AND ar.date = bn.date AND ar.student_id = bn.student_id
-		JOIN academic_terms at ON at.id = ar.academic_term_id
+		JOIN cbc_student_enrollments enr ON enr.student_id = bn.student_id
+			AND enr.school_id = bn.school_id
+			AND enr.academic_term_id = $4
 		WHERE bn.tenant_id = $1
 		  AND bn.school_id = $2
 		  AND bn.student_id = $3
-		  AND at.id = $4
 		  AND bn.status IN ('APPROVED', 'INCLUDED_IN_REPORT')
 		ORDER BY bn.date DESC
 	`

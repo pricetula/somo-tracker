@@ -6,11 +6,9 @@
 
 "use client";
 
-import Link from "next/link";
-import { Plus, AlertTriangle } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/shared/data-table";
 import type { DataTableColumn } from "@/components/shared/data-table/types";
 import { useTeacherNotes } from "../hooks/use-behavior";
@@ -135,26 +133,12 @@ export function TeacherBehaviorView() {
                     <div className="text-muted-foreground flex flex-col items-center gap-4 py-16">
                         <p className="font-medium">No behavior notes yet</p>
                         <p className="mt-1 max-w-sm text-center">
-                            You haven&apos;t submitted any behavior notes. Log notes while taking
-                            attendance in your classes.
+                            You haven&apos;t submitted any behavior notes yet.
                         </p>
-                        <Button asChild>
-                            <Link href="/attendance">
-                                <Plus className="mr-2 h-4 w-4" />
-                                Go to Attendance
-                            </Link>
-                        </Button>
                     </div>
                 }
                 noResultsState="No notes match your search."
-                renderToolBarComponents={() => (
-                    <Button key="new-note" variant="outline" size="sm" asChild>
-                        <Link href="/attendance">
-                            <Plus className="mr-2 h-4 w-4" />
-                            New Note
-                        </Link>
-                    </Button>
-                )}
+                renderToolBarComponents={() => null}
             />
         </div>
     );

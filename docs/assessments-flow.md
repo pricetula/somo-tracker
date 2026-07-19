@@ -710,7 +710,7 @@ Response:
 
 | Feature                         | Backend          | Frontend       | Status                                                                                             |
 | ------------------------------- | ---------------- | -------------- | -------------------------------------------------------------------------------------------------- |
-| `term_reports` table            | ✅ Schema exists | N/A            | Table defined with `attendance_snapshot`, `behavior_snapshot`, `competency_snapshot` JSONB columns |
+| `term_reports` table            | ✅ Schema exists | N/A            | Table defined with `behavior_snapshot`, `competency_snapshot` JSONB columns |
 | Term report generation service  | ❌ Missing       | ❌ Missing     | No service populates the `term_reports` table                                                      |
 | Term report publishing workflow | ❌ Missing       | ❌ Missing     | DRAFT → PUBLISHED not implemented                                                                  |
 | Student report page             | ✅ Route exists  | ❌ Placeholder | `/reports/student/[id]` shows "Select a term"                                                      |
@@ -724,11 +724,10 @@ Response:
 [Admin] → Select term → Select student(s)
   → POST /api/v1/reports/generate
     → Service:
-        1. Query attendance_term_summaries → attendance_snapshot
-        2. Query behavior_notes (approved) → behavior_snapshot
-        3. Query learner rubric results / term grades → competency_snapshot
-        4. INSERT / UPDATE term_reports
-        5. Status = DRAFT
+        1. Query behavior_notes (approved) → behavior_snapshot
+        2. Query learner rubric results / term grades → competency_snapshot
+        3. INSERT / UPDATE term_reports
+        4. Status = DRAFT
   → Admin reviews → POST /api/v1/reports/:id/publish
     → Status = PUBLISHED
   → Parent sees compiled report
@@ -856,7 +855,7 @@ Weight Configs define the KNEC-mandated national weighting formulas. They specif
 | `id`                                     | UUID PK                        |                           |
 | `tenant_id` / `school_id` / `student_id` | UUID                           |                           |
 | `academic_term_id`                       | UUID                           |                           |
-| `attendance_snapshot`                    | JSONB                          | Frozen attendance summary |
+
 | `behavior_snapshot`                      | JSONB                          | Frozen behaviour notes    |
 | `competency_snapshot`                    | JSONB                          | Frozen assessment grades  |
 | `status`                                 | term_report_status             | DRAFT / PUBLISHED         |

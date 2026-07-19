@@ -22,7 +22,6 @@ import {
     GraduationCapIcon,
     ClipboardCheckIcon,
     BarChart3Icon,
-    CalendarCheckIcon,
     CalendarDays,
     AlertTriangleIcon,
     HeartPulse,
@@ -58,11 +57,6 @@ function buildNavItems(role: string): NavItem[] {
                 title: "Reports",
                 url: "/reports",
                 icon: <BarChart3Icon className="size-4" />,
-            },
-            {
-                title: "Attendance",
-                url: "/attendance",
-                icon: <CalendarCheckIcon className="size-4" />,
             },
             {
                 title: "Behavior",
@@ -107,15 +101,6 @@ function buildNavItems(role: string): NavItem[] {
             title: "Time table",
             url: "/timetable",
             icon: <CalendarDays className="size-4" />,
-        },
-        {
-            title: "Attendance",
-            url: "#",
-            icon: <CalendarCheckIcon className="size-4" />,
-            items: [
-                { title: "Register", url: "/attendance" },
-                { title: "History", url: "/attendance/history" },
-            ],
         },
         {
             title: "Assessments",

@@ -140,7 +140,7 @@ For reference, here is every backend → frontend route pair verified:
 | `/api/v1/academic-years` | LIST, CREATE, PATCH, SET-CURRENT, DELETE | `academic-terms.ts` | ✅ |
 | `/api/v1/academic-terms` | LIST, CREATE, PATCH | `academic-terms.ts` | ✅ |
 | `/api/v1/assessments` | Full CRUD + submit/approve/reject + scores/grades | `assessments.ts` | ✅ |
-| `/api/v1/attendance` | Roster, bulk-mark, sessions, dashboard, history, summaries | `attendance.ts` | ✅ |
+
 | `/api/auth` | Discover, verify, register, callback, me, logout | `auth.ts` | ✅ |
 | `/api/v1/behavior` | Categories CRUD + Notes CRUD + review queue | `behavior.ts` | ✅ |
 | `/api/v1/billing` | Fee categories, templates, invoices, payments | `billing.ts` | ✅ |

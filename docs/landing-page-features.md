@@ -28,8 +28,8 @@
 - **Role-based access control** — distinct dashboards and permissions per role:
   - **System Admin** — super-admin oversight across schools.
   - **School Admin** — manages school-wide settings, staff, and curriculum.
-  - **Teacher** — classroom-facing tools (attendance, assessments, behavior).
-  - **Parent/Guardian** — read-only visibility into student performance, attendance, and health.
+  - **Teacher** — classroom-facing tools (assessments, behavior).
+  - **Parent/Guardian** — read-only visibility into student performance and health.
   - **Nurse** — health incident logging and student health profile management.
   - **Finance Staff** — billing, invoicing, and payment tracking.
 - **Invitation-based onboarding** — bulk staff invitations with role assignment.
@@ -81,20 +81,7 @@
 
 *Relevant files:* `backend/internal/curriculum/`, `backend/internal/assessments/`, `frontend/src/features/curriculum/`, `frontend/src/features/assessments/`
 
-### 2.5 Attendance Tracking
-
-- **Per-slot attendance** — mark attendance per student per timetable slot per date.
-- **Bulk marking** — mark all students in a roster at once.
-- **Attendance statuses:** Present, Absent, Late, Excused.
-- **Teacher attendance roster** — quick classroom attendance interface.
-- **Admin dashboard** — school-wide attendance completion metrics and oversight.
-- **Parent summary** — view child's attendance summary (absences, tardiness, etc.).
-- **Student history view** — longitudinal attendance record for an individual student.
-- **Compute summaries** — aggregate attendance statistics across terms.
-
-*Relevant files:* `backend/internal/attendance/`, `frontend/src/features/attendance/`
-
-### 2.6 Behaviour Management
+### 2.5 Behaviour Management
 
 - **Behaviour categories** — school-configurable incident types with optional default severity.
 - **Behaviour notes** — teacher-submitted incident reports.
@@ -166,11 +153,11 @@
 
 | Role              | Dashboard Components                      |
 |-------------------|-------------------------------------------|
-| **Teacher**       | Class roster, attendance marking, assessment grading, behavior notes |
-| **School Admin**  | School-wide attendance, assessment approvals, staff management, curriculum setup, behaviour queue |
+| **Teacher**       | Class roster, assessment grading, behavior notes |
+| **School Admin**  | Assessment approvals, staff management, curriculum setup, behaviour queue |
 | **System Admin**  | Cross-school oversight, school creation |
 | **Nurse**         | Health incident logging, student health profiles |
-| **Parent**        | Child attendance summary, published assessment results, health info |
+| **Parent**        | Published assessment results, health info |
 | **Finance Staff** | Invoice generation, payment recording, fee configuration |
 
 *Relevant files:* `frontend/src/features/dashboard/components/`
@@ -202,8 +189,7 @@ Based on the feature inventory above, the landing page could include:
 
 1. **Hero** — "Somo Tracker: Modern School Management"
 2. **Multi-Tenant / RBAC** — "Designed for every role — teachers, admins, parents, nurses, finance"
-3. **Attendance** — "Track attendance per period with bulk marking and parent visibility"
-4. **Curriculum & Assessment** — "CBC-aligned curriculum builder + full grading workflow"
+3. **Curriculum & Assessment** — "CBC-aligned curriculum builder + full grading workflow"
 5. **Behaviour** — "Manage behaviour notes with admin approval before parent notification"
 6. **Health** — "Student health profiles and medical incident logging"
 7. **Finance** — "Fee configuration, invoice generation, and payment tracking"

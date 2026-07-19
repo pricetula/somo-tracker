@@ -3,7 +3,6 @@
  *
  * SCHOOL_ADMIN: report generation dashboard
  * PARENT: list of available term reports for their children
- * TEACHER: minimal — redirects to attendance
  */
 
 import { getVerifiedRole } from "@/lib/auth-server";

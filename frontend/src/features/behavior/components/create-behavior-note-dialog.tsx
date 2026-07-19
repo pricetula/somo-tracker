@@ -38,7 +38,7 @@ import { useBehaviorCategories, useCreateBehaviorNote } from "../hooks/use-behav
 interface CreateBehaviorNoteDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    /** Pre-filled timetable slot ID (from attendance roster). */
+    /** Pre-filled timetable slot ID. */
     timetableSlotId: string;
     /** Pre-filled student ID. */
     studentId: string;

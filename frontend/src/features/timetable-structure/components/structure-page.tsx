@@ -81,10 +81,6 @@ export function StructurePage() {
                             academicYearID={academicYearID}
                             onApplyTemplate={handleApplyTemplate}
                         />
-                        <Button onClick={() => setBlueprintOpen(true)} size="sm">
-                            <Plus className="mr-1.5 h-4 w-4" />
-                            Add Blueprint
-                        </Button>
                     </div>
                 )}
             </div>

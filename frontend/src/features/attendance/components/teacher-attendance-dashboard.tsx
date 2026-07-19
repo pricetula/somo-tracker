@@ -1,8 +1,6 @@
 /**
  * TeacherAttendanceDashboard — teacher's personal attendance view.
- *
- * Shows the teacher's own timetable slots for today in a table.
- * Mirrors the admin dashboard look but is teacher-scoped.
+ * Pure shadcn: shows today's timetable slots; no cards/borders/hardcoded colours.
  */
 
 "use client";
@@ -50,7 +48,7 @@ const columns: DataTableColumn<TeacherSlotRow>[] = [
         width: "140px",
         cell: (row) => (
             <span className="text-muted-foreground">
-                {row.start_time} – {row.end_time}
+                {row.start_time} &ndash; {row.end_time}
             </span>
         ),
     },
@@ -59,7 +57,10 @@ const columns: DataTableColumn<TeacherSlotRow>[] = [
         header: "Class",
         width: "minmax(160px, 1fr)",
         cell: (row) => (
-            <Link href={`/classes/${row.id}`} className="font-medium hover:underline">
+            <Link
+                href={`/classes/${row.id}`}
+                className="text-foreground font-medium hover:underline"
+            >
                 {row.class_name}
             </Link>
         ),
@@ -68,7 +69,9 @@ const columns: DataTableColumn<TeacherSlotRow>[] = [
         id: "learning_area",
         header: "Subject",
         width: "minmax(160px, 1fr)",
-        cell: (row) => <span className="text-muted-foreground">{row.learning_area || "—"}</span>,
+        cell: (row) => (
+            <span className="text-muted-foreground">{row.learning_area || "\u2014"}</span>
+        ),
     },
     {
         id: "actions",
@@ -78,9 +81,9 @@ const columns: DataTableColumn<TeacherSlotRow>[] = [
         cell: (row) => (
             <Link
                 href={`/attendance/register/${row.id}?date=${todayStr()}`}
-                title={`Register attendance for ${row.class_name} · ${row.period_name}`}
+                title={`Register attendance for ${row.class_name} \u00b7 ${row.period_name}`}
             >
-                <Pencil className="h-4 w-4" />
+                <Pencil className="text-muted-foreground hover:text-foreground h-4 w-4" />
             </Link>
         ),
     },
@@ -104,7 +107,6 @@ export function TeacherAttendanceDashboard() {
 
     const isLoading = meLoading || slotsLoading;
 
-    // Filter to today's non-break periods and map to table rows
     const rows = useMemo<TeacherSlotRow[]>(() => {
         if (!slotsData?.items?.length) return [];
         return slotsData.items
@@ -124,11 +126,9 @@ export function TeacherAttendanceDashboard() {
         return (
             <div className="space-y-4">
                 <Skeleton className="h-8 w-48" />
-                <div className="space-y-2">
-                    {Array.from({ length: 4 }).map((_, i) => (
-                        <Skeleton key={i} className="h-10 w-full" />
-                    ))}
-                </div>
+                {Array.from({ length: 4 }).map((_, i) => (
+                    <Skeleton key={i} className="h-10 w-full" />
+                ))}
             </div>
         );
     }
@@ -145,7 +145,7 @@ export function TeacherAttendanceDashboard() {
 
     return (
         <div className="space-y-6">
-            <h1 className="text-foreground text-2xl font-bold">My Attendance</h1>
+            <p className="text-foreground text-2xl font-bold">My Attendance</p>
             <p className="text-muted-foreground">
                 {rows.length} period{rows.length !== 1 ? "s" : ""} today
             </p>

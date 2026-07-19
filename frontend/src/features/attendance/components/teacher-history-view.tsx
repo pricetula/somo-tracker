@@ -1,6 +1,6 @@
 /**
- * TeacherHistoryView — shows past periods the teacher has taught with
- * attendance marking status using the shared DataTable component.
+ * TeacherHistoryView — past periods the teacher has taught.
+ * Pure shadcn: no borders, no cards, no hardcoded colours.
  */
 
 "use client";
@@ -102,14 +102,15 @@ export function TeacherHistoryView() {
             }));
     }, [slotsData, currentDay]);
 
-    // ── Columns ───────────────────────────────────────────────────────
     const columns: DataTableColumn<PastSlotRow>[] = [
         {
             id: "day",
             header: "Day",
             cell: (row) => (
                 <div className="flex items-center gap-2">
-                    <span>{dayNames[row.day_of_week] ?? `Day ${row.day_of_week}`}</span>
+                    <span className="text-foreground">
+                        {dayNames[row.day_of_week] ?? `Day ${row.day_of_week}`}
+                    </span>
                     <span className="text-muted-foreground text-xs">{row.slot_date}</span>
                     {row.is_today && (
                         <Badge variant="outline" className="text-xs">
@@ -123,13 +124,13 @@ export function TeacherHistoryView() {
             id: "period",
             header: "Period",
             width: "120px",
-            cell: (row) => <span className="font-medium">{row.period_name}</span>,
+            cell: (row) => <span className="text-foreground font-medium">{row.period_name}</span>,
         },
         {
             id: "class",
             header: "Class",
             width: "minmax(120px, 1fr)",
-            cell: (row) => <span>{row.class_name}</span>,
+            cell: (row) => <span className="text-foreground">{row.class_name}</span>,
         },
         {
             id: "time",
@@ -146,10 +147,7 @@ export function TeacherHistoryView() {
             header: "Status",
             width: "120px",
             cell: (row) => (
-                <Badge
-                    variant={row.is_today ? "secondary" : "outline"}
-                    className={row.is_today ? "bg-amber-100 text-amber-800" : ""}
-                >
+                <Badge variant={row.is_today ? "outline" : "secondary"}>
                     {row.is_today ? "Mark now / View" : "Completed"}
                 </Badge>
             ),
@@ -173,20 +171,19 @@ export function TeacherHistoryView() {
         },
     ];
 
-    // ── Loading ───────────────────────────────────────────────────────
     if (isLoading) {
         return (
             <div className="space-y-4">
                 <Skeleton className="h-8 w-64" />
-                <Skeleton className="h-16 w-full rounded-lg" />
-                <Skeleton className="h-16 w-full rounded-lg" />
+                <Skeleton className="h-16 w-full" />
+                <Skeleton className="h-16 w-full" />
             </div>
         );
     }
 
     if (!me) {
         return (
-            <div className="border-destructive/50 text-destructive rounded-md border p-4">
+            <div className="text-destructive bg-destructive/10 p-4">
                 Unable to verify your session. Please log in again.
             </div>
         );
@@ -209,7 +206,7 @@ export function TeacherHistoryView() {
     if (pastSlots.length === 0) {
         return (
             <div className="space-y-6">
-                <h1 className="text-2xl font-bold">Attendance History</h1>
+                <p className="text-foreground text-2xl font-bold">Attendance History</p>
                 <p className="text-muted-foreground">
                     Past periods you have taught. Same-day edits are allowed; older records are
                     read-only.
@@ -231,7 +228,7 @@ export function TeacherHistoryView() {
 
     return (
         <div className="space-y-6">
-            <h1 className="text-2xl font-bold">Attendance History</h1>
+            <p className="text-foreground text-2xl font-bold">Attendance History</p>
             <p className="text-muted-foreground">
                 Past periods you have taught. Same-day edits are allowed; older records are
                 read-only. Contact your admin for corrections after the same-day window closes.

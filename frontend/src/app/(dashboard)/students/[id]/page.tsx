@@ -28,6 +28,11 @@ import { useStudentDetail } from "@/features/students";
 import { useStudentHistory } from "@/features/attendance";
 import { useStudentHealth } from "@/features/health";
 
+// Default start date for attendance history: 30 days before module load.
+// Defined at module scope (not during render) to avoid impure function calls
+// in the component body.
+const THIRTY_DAYS_AGO = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+
 interface Props {
     params: Promise<{ id: string }>;
 }
@@ -59,8 +64,10 @@ export default function StudentDetailPage({ params }: Props) {
     const { data: detailResponse, isLoading: detailLoading } = useStudentDetail(id);
     const detail = detailResponse?.data;
 
-    // Fetch recent attendance
-    const { data: attendanceData } = useStudentHistory(id);
+    // Fetch recent attendance (last 30 days by default)
+    const { data: attendanceData } = useStudentHistory(id, {
+        start_date: THIRTY_DAYS_AGO,
+    });
 
     if (detailLoading) {
         return (
@@ -162,7 +169,7 @@ export default function StudentDetailPage({ params }: Props) {
                 <TabsContent value="overview" className="space-y-6 pt-4">
                     <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
                         {/* Attendance summary card */}
-                        <div className="bg-muted/30 rounded-lg p-4">
+                        <div className="bg-muted/30 p-4">
                             <div className="text-muted-foreground flex items-center gap-2 font-medium">
                                 <CalendarCheck className="h-4 w-4" />
                                 Attendance
@@ -190,7 +197,7 @@ export default function StudentDetailPage({ params }: Props) {
                         </div>
 
                         {/* Behavior summary card */}
-                        <div className="bg-muted/30 rounded-lg p-4">
+                        <div className="bg-muted/30 p-4">
                             <div className="text-muted-foreground flex items-center gap-2 font-medium">
                                 <AlertTriangle className="h-4 w-4" />
                                 Behavior Notes
@@ -217,7 +224,7 @@ export default function StudentDetailPage({ params }: Props) {
                         </div>
 
                         {/* Enrollment summary card */}
-                        <div className="bg-muted/30 rounded-lg p-4">
+                        <div className="bg-muted/30 p-4">
                             <div className="text-muted-foreground flex items-center gap-2 font-medium">
                                 <BookOpen className="h-4 w-4" />
                                 Enrollments
@@ -245,9 +252,9 @@ export default function StudentDetailPage({ params }: Props) {
                         </p>
                         {currentEnrollment && (
                             <Button variant="outline" size="sm" asChild>
-                                <Link href={`/attendance?student_id=${id}`}>
-                                    <AlertTriangle className="mr-1 h-3 w-3" />
-                                    Log from Attendance
+                                <Link href={`/attendance/students/${id}`}>
+                                    <CalendarCheck className="mr-1 h-3 w-3" />
+                                    View Attendance
                                 </Link>
                             </Button>
                         )}
@@ -266,7 +273,7 @@ export default function StudentDetailPage({ params }: Props) {
                         behaviorNotes.map((note) => (
                             <div
                                 key={note.id}
-                                className={`rounded-lg border p-4 ${note.is_urgent ? "border-l-4 border-l-red-500" : "border-l-4 border-l-transparent"}`}
+                                className={`bg-muted/30 p-4 ${note.is_urgent ? "border-l-destructive border-l-2" : ""}`}
                             >
                                 <div className="flex items-start justify-between">
                                     <div className="space-y-1">
@@ -417,7 +424,7 @@ function HealthTabContent({ studentId }: { studentId: string }) {
         <div className="space-y-6">
             {/* Health Profile */}
             {profile && (
-                <div className="bg-muted/30 rounded-lg p-4">
+                <div className="bg-muted/30 p-4">
                     <h3 className="mb-2 font-semibold">Health Profile</h3>
                     <div className="space-y-1">
                         {profile.blood_group && (
@@ -476,10 +483,7 @@ function HealthTabContent({ studentId }: { studentId: string }) {
                 ) : (
                     <div className="space-y-2">
                         {incidents.slice(0, 10).map((incident) => (
-                            <div
-                                key={incident.id}
-                                className="border-border/50 rounded-lg border p-3"
-                            >
+                            <div key={incident.id} className="bg-muted/30 p-3">
                                 <div className="flex items-start justify-between">
                                     <div className="space-y-1">
                                         <p className="font-medium">{incident.symptoms}</p>

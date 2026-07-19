@@ -1,10 +1,6 @@
 /**
  * AdminAttendanceDashboard — school-wide attendance completion view.
- *
- * Uses the shared DataTable component with filters for education level,
- * grade level, class, and completion status.
- *
- * Maps to GET /api/v1/attendance/dashboard.
+ * Pure shadcn: no borders/cards, no hardcoded colours.
  */
 
 "use client";
@@ -21,7 +17,6 @@ import {
     Pencil,
     RotateCcw,
     Loader2,
-    Download,
     ChevronLeft,
     ChevronRight,
 } from "lucide-react";
@@ -31,8 +26,8 @@ import type { DataTableColumn } from "@/components/shared/data-table/types";
 import type { FilterGroup } from "@/components/shared/data-table/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
     Dialog,
     DialogContent,
@@ -48,19 +43,6 @@ import { getEducationLevelFilterSubmenu } from "@/features/education-level";
 import { getGradeLevelFilterSubmenu } from "@/features/grade-level";
 import { useAcademicTerms } from "@/features/academic-terms/hooks/use-academic-terms";
 import { useComputeAttendanceSummaries } from "../hooks/use-attendance";
-
-/** Create a file download from a text blob. */
-function downloadBlob(content: string, filename: string) {
-    const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
-}
-
-// ─── Columns ──────────────────────────────────────────────────────────────
 
 function todayStr(): string {
     return new Date().toISOString().split("T")[0];
@@ -78,7 +60,10 @@ const columns: DataTableColumn<CompletionStatus>[] = [
         header: "Class",
         width: "minmax(160px, 1fr)",
         cell: (row) => (
-            <Link href={`/classes/${row.class_id}`} className="font-medium hover:underline">
+            <Link
+                href={`/classes/${row.class_id}`}
+                className="text-foreground font-medium hover:underline"
+            >
                 {row.class_name}
             </Link>
         ),
@@ -89,17 +74,17 @@ const columns: DataTableColumn<CompletionStatus>[] = [
         width: "minmax(160px, 1fr)",
         cell: (row) => {
             if (!row.learning_area) {
-                return <span className="text-muted-foreground italic">—</span>;
+                return <span className="text-muted-foreground italic">\u2014</span>;
             }
             return row.learning_area_id ? (
                 <Link
                     href={`/curriculum/learning-areas/${row.learning_area_id}`}
-                    className="hover:underline"
+                    className="text-foreground hover:underline"
                 >
                     {row.learning_area}
                 </Link>
             ) : (
-                <span>{row.learning_area}</span>
+                <span className="text-foreground">{row.learning_area}</span>
             );
         },
     },
@@ -108,10 +93,7 @@ const columns: DataTableColumn<CompletionStatus>[] = [
         header: "Status",
         width: "100px",
         cell: (row) => (
-            <Badge
-                variant={row.is_complete ? "default" : "secondary"}
-                className={row.is_complete ? "" : "bg-amber-100 text-amber-800 hover:bg-amber-100"}
-            >
+            <Badge variant={row.is_complete ? "default" : "secondary"}>
                 {row.is_complete ? "Complete" : "Incomplete"}
             </Badge>
         ),
@@ -124,15 +106,13 @@ const columns: DataTableColumn<CompletionStatus>[] = [
         cell: (row) => (
             <Link
                 href={`/attendance/register/${row.slot_id}?date=${todayStr()}`}
-                title={`Register attendance for ${row.class_name} · ${row.period_name}`}
+                title={`Register attendance for ${row.class_name} \u00b7 ${row.period_name}`}
             >
-                <Pencil className="h-4 w-4" />
+                <Pencil className="text-muted-foreground hover:text-foreground h-4 w-4" />
             </Link>
         ),
     },
 ];
-
-// ─── Page ─────────────────────────────────────────────────────────────────
 
 export function AdminAttendanceDashboard() {
     const [selectedDate, setSelectedDate] = useState(todayStr());
@@ -145,7 +125,6 @@ export function AdminAttendanceDashboard() {
         [termsData]
     );
 
-    // ── Day navigation helpers ────────────────────────────────────
     const handlePrevDay = useCallback(() => {
         const d = new Date(selectedDate);
         d.setDate(d.getDate() - 1);
@@ -162,14 +141,12 @@ export function AdminAttendanceDashboard() {
         setSelectedDate(todayStr());
     }, []);
 
-    // ── Fetch classes for the class filter dropdown ──────────────
     const { data: classesData } = useQuery({
         queryKey: ["classes", "all"],
         queryFn: () => listClasses({ limit: 200 }),
         staleTime: STALE_TIMES.REFERENCE_DATA,
     });
 
-    // ── Build filter groups dynamically ──────────────────────────
     const filterGroups = useMemo<FilterGroup[]>(() => {
         const items: FilterGroup["items"] = [
             {
@@ -188,7 +165,6 @@ export function AdminAttendanceDashboard() {
             },
         ];
 
-        // Add class filter if data is available
         const allClasses = classesData?.items ?? [];
         if (allClasses.length > 0) {
             items.push({
@@ -204,7 +180,6 @@ export function AdminAttendanceDashboard() {
             });
         }
 
-        // Add completion status filter
         items.push({
             id: "is_complete",
             label: "Status",
@@ -223,10 +198,7 @@ export function AdminAttendanceDashboard() {
                 {
                     id: "incomplete",
                     label: (
-                        <Badge
-                            variant="secondary"
-                            className="pointer-events-none bg-amber-100 text-amber-800"
-                        >
+                        <Badge variant="secondary" className="pointer-events-none">
                             Incomplete
                         </Badge>
                     ),
@@ -250,9 +222,7 @@ export function AdminAttendanceDashboard() {
                 <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2">
                         <CalendarDays className="text-muted-foreground h-4 w-4" />
-                        <Label htmlFor="attendance-date" className="font-medium">
-                            Date
-                        </Label>
+                        <Label className="text-foreground font-medium">Date</Label>
                     </div>
                     <div className="flex items-center gap-1">
                         <Button
@@ -264,13 +234,7 @@ export function AdminAttendanceDashboard() {
                         >
                             <ChevronLeft className="size-4" />
                         </Button>
-                        <Input
-                            id="attendance-date"
-                            type="date"
-                            value={selectedDate}
-                            onChange={(e) => setSelectedDate(e.target.value)}
-                            className="w-44"
-                        />
+                        <DatePicker value={selectedDate} onChange={setSelectedDate} />
                         <Button
                             variant="outline"
                             size="icon"
@@ -286,7 +250,6 @@ export function AdminAttendanceDashboard() {
                     </div>
                 </div>
 
-                {/* Compute Summaries button */}
                 <Dialog open={computeDialogOpen} onOpenChange={setComputeDialogOpen}>
                     <DialogTrigger asChild>
                         <Button variant="outline" size="sm">
@@ -325,44 +288,8 @@ export function AdminAttendanceDashboard() {
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>
-
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                        // Build CSV from current rendered table
-                        const rows = document.querySelectorAll("table tbody tr");
-                        if (!rows.length) {
-                            // Fallback: empty CSV with headers
-                            const csv = ["Period,Class,Learning Area,Status"].join("\n");
-                            downloadBlob(csv, `attendance-${selectedDate}.csv`);
-                            return;
-                        }
-                        const headers = ["Period", "Class", "Learning Area", "Status"];
-                        const data: string[] = [];
-                        rows.forEach((row) => {
-                            const cells = row.querySelectorAll("td");
-                            if (cells.length >= 4) {
-                                data.push(
-                                    [
-                                        cells[0]?.textContent ?? "",
-                                        cells[1]?.textContent ?? "",
-                                        cells[2]?.textContent ?? "",
-                                        cells[3]?.textContent ?? "",
-                                    ]
-                                        .map((v) => `"${v.replace(/"/g, '""')}"`)
-                                        .join(",")
-                                );
-                            }
-                        });
-                        const csv = [headers.join(","), ...data].join("\n");
-                        downloadBlob(csv, `attendance-${selectedDate}.csv`);
-                    }}
-                >
-                    <Download className="mr-2 h-4 w-4" />
-                    Download CSV
-                </Button>
             </div>
+
             <DataTable
                 queryKey={["attendance", "dashboard", selectedDate]}
                 queryFn={(params) => listAdminAttendances({ ...params, date: selectedDate })}
@@ -371,7 +298,7 @@ export function AdminAttendanceDashboard() {
                 filterGroups={filterGroups}
                 emptyState={
                     <div className="text-muted-foreground flex flex-col items-center gap-2 py-12">
-                        <p className="">No attendance records for {selectedDate}.</p>
+                        <p>No attendance records for {selectedDate}.</p>
                         <p className="text-xs">
                             Records will appear here once timetable slots are created and attendance
                             is marked.

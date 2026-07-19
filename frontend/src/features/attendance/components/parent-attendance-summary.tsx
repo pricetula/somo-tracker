@@ -1,14 +1,12 @@
 /**
  * ParentAttendanceSummary — parent-facing view of a child's attendance.
- *
- * Shows attendance percentage from term summaries and a list of recent periods
- * using the shared DataTable component.
+ * Pure shadcn: no borders, no cards, no hardcoded colours.
  */
 
 "use client";
 
 import Link from "next/link";
-import { CalendarX, ClipboardList, Flag } from "lucide-react";
+import { CalendarX, Flag } from "lucide-react";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -27,19 +25,17 @@ interface ParentAttendanceSummaryProps {
     termId: string;
 }
 
-// ─── Columns for recent periods ───────────────────────────────────────────
-
 const recentPeriodsColumns: DataTableColumn<StudentAttendanceRecord>[] = [
     {
         id: "date",
         header: "Date",
-        cell: (row) => <span>{row.date}</span>,
+        cell: (row) => <span className="text-foreground">{row.date}</span>,
     },
     {
         id: "subject",
         header: "Subject",
         width: "minmax(120px, 1fr)",
-        cell: (row) => <span>{row.subject}</span>,
+        cell: (row) => <span className="text-muted-foreground">{row.subject}</span>,
     },
     {
         id: "status",
@@ -56,15 +52,13 @@ const recentPeriodsColumns: DataTableColumn<StudentAttendanceRecord>[] = [
     },
 ];
 
-// ─── Component ────────────────────────────────────────────────────────────
-
 export function ParentAttendanceSummary({ studentId, termId }: ParentAttendanceSummaryProps) {
     const { data, isLoading, isError } = useChildAttendanceSummary(studentId, termId);
 
     if (isLoading) {
         return (
             <div className="space-y-4">
-                <Skeleton className="h-24 w-full rounded-lg" />
+                <Skeleton className="h-24 w-full" />
                 <Skeleton className="h-8 w-48" />
                 <Skeleton className="h-8 w-full" />
                 <Skeleton className="h-8 w-full" />
@@ -74,7 +68,7 @@ export function ParentAttendanceSummary({ studentId, termId }: ParentAttendanceS
 
     if (isError) {
         return (
-            <div className="border-destructive/50 text-destructive rounded-md border p-4">
+            <div className="text-destructive bg-destructive/10 p-4">
                 Failed to load attendance data.
             </div>
         );
@@ -83,7 +77,7 @@ export function ParentAttendanceSummary({ studentId, termId }: ParentAttendanceS
     if (!data) {
         return (
             <AttendanceEmptyState
-                icon={ClipboardList}
+                icon={CalendarX}
                 title="No attendance data yet"
                 description="Attendance records will appear here once the term is underway and marks have been recorded."
             />
@@ -93,7 +87,6 @@ export function ParentAttendanceSummary({ studentId, termId }: ParentAttendanceS
     const recentPeriods = data.recent_periods ?? [];
     const hasData = recentPeriods.length > 0 || data.attendance_percentage > 0;
 
-    // Compute status counts for context
     const statusCounts: Record<string, number> = {};
     for (const p of recentPeriods) {
         statusCounts[p.status] = (statusCounts[p.status] || 0) + 1;
@@ -102,7 +95,7 @@ export function ParentAttendanceSummary({ studentId, termId }: ParentAttendanceS
     if (!hasData) {
         return (
             <AttendanceEmptyState
-                icon={ClipboardList}
+                icon={CalendarX}
                 title="No attendance data yet"
                 description="Attendance records will appear here once the term is underway and marks have been recorded."
             />
@@ -111,16 +104,15 @@ export function ParentAttendanceSummary({ studentId, termId }: ParentAttendanceS
 
     return (
         <div className="space-y-6">
-            {/* Summary card */}
-            <div className="space-y-4 rounded-lg border p-6">
+            {/* Summary — no card, just whitespace */}
+            <div className="bg-muted/30 space-y-4 p-6">
                 <div className="flex items-baseline gap-2">
-                    <span className="text-4xl font-bold">
+                    <span className="text-foreground text-4xl font-bold">
                         {data.attendance_percentage.toFixed(1)}%
                     </span>
                     <span className="text-muted-foreground">attendance</span>
                 </div>
                 <Progress value={data.attendance_percentage} className="h-2" />
-                {/* Status breakdown */}
                 {statusCounts.PRESENT > 0 && (
                     <div className="flex flex-wrap gap-2">
                         {Object.entries(statusCounts)
@@ -144,11 +136,11 @@ export function ParentAttendanceSummary({ studentId, termId }: ParentAttendanceS
 
             {/* Recent periods */}
             <div>
-                <h3 className="mb-3 text-lg font-semibold">Recent Periods</h3>
+                <p className="text-foreground mb-3 font-semibold">Recent Periods</p>
                 {recentPeriods.length === 0 ? (
                     <div className="text-muted-foreground flex flex-col items-center gap-2 py-8 text-center">
                         <CalendarX className="size-6" />
-                        <p className="">No recent attendance records in the last 30 days.</p>
+                        <p>No recent attendance records in the last 30 days.</p>
                     </div>
                 ) : (
                     <DataTable
@@ -166,15 +158,15 @@ export function ParentAttendanceSummary({ studentId, termId }: ParentAttendanceS
                 )}
             </div>
 
-            {/* Behaviour cross-link */}
-            <div className="rounded-lg border p-4">
+            {/* Behaviour cross-link — no border, no card */}
+            <div className="bg-muted/30 p-4">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <Flag className="text-muted-foreground h-4 w-4" />
-                        <span className="font-medium">Behaviour Notes</span>
+                        <span className="text-foreground font-medium">Behaviour Notes</span>
                     </div>
                     <Button variant="outline" size="sm" asChild>
-                        <Link href={`/behavior`}>View behaviour notes</Link>
+                        <Link href="/behavior">View behaviour notes</Link>
                     </Button>
                 </div>
                 <p className="text-muted-foreground mt-1 text-xs">

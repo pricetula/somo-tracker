@@ -37,7 +37,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	att.Get("/dashboard", middleware.RequireRole("SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.AdminDashboard)
 	att.Get("/students/:student_id", middleware.RequireRole("TEACHER", "SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.StudentHistory)
 	att.Get("/records/:id", middleware.RequireRole("TEACHER", "SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.GetRecordByID)
-	att.Put("/records/:id", middleware.RequireRole("SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.UpdateRecord)
+	att.Put("/records/:id", middleware.RequireRole("TEACHER", "SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.UpdateRecord)
 
 	// Parent-facing route
 	att.Get("/children/:student_id/summary", middleware.RequireRole("PARENT", "TEACHER", "SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.ChildSummary)
@@ -217,6 +217,8 @@ func (h *Handler) UpdateRecord(c *fiber.Ctx) error {
 		return err
 	}
 
+	userRole, _ := c.Locals("user_role").(string)
+
 	recordID := c.Params("id")
 	if recordID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -233,7 +235,7 @@ func (h *Handler) UpdateRecord(c *fiber.Ctx) error {
 		})
 	}
 
-	if err := h.svc.UpdateAttendanceRecord(c.Context(), recordID, tenantID, payload); err != nil {
+	if err := h.svc.UpdateAttendanceRecord(c.Context(), recordID, tenantID, userRole, payload); err != nil {
 		return middleware.HTTPError(c, err)
 	}
 

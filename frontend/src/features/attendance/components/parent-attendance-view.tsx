@@ -1,20 +1,18 @@
 /**
  * ParentAttendanceView — shows attendance for the parent's linked children.
- * If multiple children, shows a selector to switch between them.
- *
- * Fetches children from GET /api/v1/parents/me and the current term from
- * GET /api/v1/academic-terms with is_current filter.
+ * Pure shadcn: no borders, no cards, no hardcoded colours.
  */
 
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { UserX, AlertCircle } from "lucide-react";
 import { useMe } from "@/hooks/use-auth";
 import { getMyParentProfile } from "@/lib/api/parents";
 import { getChildAttendanceSummary } from "@/lib/api/attendance";
 import { STALE_TIMES } from "@/lib/query-config";
-import { useAcademicTerms } from "@/features/academic-terms/hooks/use-academic-terms";
+import { useAcademicTerms } from "@/features/academic-terms";
 import { useQuery, useQueries } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -30,31 +28,28 @@ import { ParentAttendanceSummary } from "./parent-attendance-summary";
 import { AttendanceEmptyState } from "./attendance-empty-state";
 
 export function ParentAttendanceView() {
+    const router = useRouter();
     const { data: me } = useMe();
 
-    // Fetch parent's own profile with linked children
     const { data: parentProfile, isLoading: profileLoading } = useQuery({
         queryKey: ["parent", "me"],
         queryFn: () => getMyParentProfile(),
         enabled: !!me,
     });
 
-    // Fetch all terms to find the current one
     const { data: termsData, isLoading: termsLoading } = useAcademicTerms();
 
     const [selectedStudentId, setSelectedStudentId] = useState<string>("");
 
     const children = parentProfile?.data?.linked_students ?? [];
 
-    // Find the current term — the one with is_current = true
-    const currentTerm = useMemo(() => {
-        return termsData?.items?.find((t) => t.is_current) ?? null;
-    }, [termsData]);
+    const currentTerm = useMemo(
+        () => termsData?.items?.find((t) => t.is_current) ?? null,
+        [termsData]
+    );
 
-    // Auto-select first child when data loads
     const effectiveStudentId = selectedStudentId || children[0]?.student_id || "";
 
-    // Fetch summaries for ALL children for the aggregate overview
     const childSummaries = useQueries({
         queries: (children ?? []).map((child) => ({
             queryKey: ["attendance", "child", child.student_id, currentTerm?.id],
@@ -64,13 +59,16 @@ export function ParentAttendanceView() {
         })),
     });
 
-    if (!me) return null;
+    if (!me) {
+        router.replace("/logout");
+        return null;
+    }
 
     if (profileLoading || termsLoading) {
         return (
             <div className="space-y-4">
                 <Skeleton className="h-8 w-48" />
-                <Skeleton className="h-24 w-full rounded-lg" />
+                <Skeleton className="h-24 w-full" />
                 <Skeleton className="h-8 w-full" />
                 <Skeleton className="h-8 w-full" />
             </div>
@@ -93,9 +91,8 @@ export function ParentAttendanceView() {
 
     return (
         <div className="space-y-6">
-            <h1 className="text-2xl font-bold">Attendance</h1>
+            <p className="text-foreground text-2xl font-bold">Attendance</p>
 
-            {/* Aggregate children overview cards */}
             {currentTerm && children.length > 0 && (
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     {children.map((child, idx) => {
@@ -107,17 +104,19 @@ export function ParentAttendanceView() {
                                 key={child.student_id}
                                 type="button"
                                 onClick={() => setSelectedStudentId(child.student_id)}
-                                className={`hover:bg-accent cursor-pointer rounded-lg border p-3 text-left transition-colors ${
+                                className={`bg-muted/30 hover:bg-muted/50 cursor-pointer rounded-md p-3 text-left transition-colors ${
                                     isSelected ? "ring-primary ring-2" : ""
                                 }`}
                             >
-                                <p className="truncate font-medium">{child.full_name}</p>
+                                <p className="text-foreground truncate font-medium">
+                                    {child.full_name}
+                                </p>
                                 {loading ? (
                                     <Skeleton className="mt-2 h-4 w-24" />
                                 ) : summary ? (
                                     <>
                                         <div className="mt-1 flex items-baseline gap-1">
-                                            <span className="text-lg font-bold">
+                                            <span className="text-foreground text-lg font-bold">
                                                 {summary.attendance_percentage.toFixed(1)}%
                                             </span>
                                         </div>

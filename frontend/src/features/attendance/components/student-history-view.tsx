@@ -1,7 +1,6 @@
 /**
  * StudentHistoryView — raw period-by-period attendance history for a student.
- *
- * Uses the shared DataTable component with term filter and inline edit via dialog.
+ * Pure shadcn: no cards/borders, no hardcoded colours.
  */
 
 "use client";
@@ -9,7 +8,6 @@
 import { useState } from "react";
 import { CalendarX, Loader2, Pencil } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
     Dialog,
@@ -35,15 +33,13 @@ import { AttendanceEmptyState } from "./attendance-empty-state";
 import { useStudentHistory, useUpdateAttendanceRecord } from "../hooks/use-attendance";
 import { useAcademicTerms } from "@/features/academic-terms/hooks/use-academic-terms";
 import type { AttendanceStatus, AttendanceRecord } from "../types";
-import { attendanceBadgeProps, attendanceStatusLabel } from "../types";
-
-// ─── Status cell ──────────────────────────────────────────────────────────
+import { attendanceBadgeProps, attendanceBadgeClass, attendanceStatusLabel } from "../types";
 
 function StatusBadgeCell({ status }: { status: AttendanceStatus }) {
     return (
         <Badge
             variant={attendanceBadgeProps(status).variant}
-            className={attendanceBadgeProps(status).className}
+            className={attendanceBadgeClass(status)}
         >
             {attendanceStatusLabel(status)}
         </Badge>
@@ -62,7 +58,6 @@ export function StudentHistoryView({ studentId, termId }: StudentHistoryViewProp
     const { data: termsData } = useAcademicTerms();
     const terms = termsData?.items ?? [];
 
-    // Edit dialog state
     const [editRecord, setEditRecord] = useState<AttendanceRecord | null>(null);
     const [editStatus, setEditStatus] = useState<AttendanceStatus>("PRESENT");
     const updateRecord = useUpdateAttendanceRecord();
@@ -75,13 +70,8 @@ export function StudentHistoryView({ studentId, termId }: StudentHistoryViewProp
 
     const records = data?.items ?? [];
 
-    // Wrapper function that filters by the selected filters
-    const queryFn = () => {
-        // The data is already fetched via the hook above
-        return Promise.resolve({ items: records, total: records.length });
-    };
+    const queryFn = () => Promise.resolve({ items: records, total: records.length });
 
-    // ── Computed summary ─────────────────────────────────────────────
     const summary = (() => {
         if (!records.length) return null;
         const counts: Record<string, number> = {};
@@ -101,7 +91,6 @@ export function StudentHistoryView({ studentId, termId }: StudentHistoryViewProp
         };
     })();
 
-    // ── Edit handlers ─────────────────────────────────────────────────
     const openEdit = (record: AttendanceRecord) => {
         setEditRecord(record);
         setEditStatus(record.status);
@@ -115,12 +104,11 @@ export function StudentHistoryView({ studentId, termId }: StudentHistoryViewProp
         );
     };
 
-    // ── Columns ───────────────────────────────────────────────────────
     const columns: DataTableColumn<AttendanceRecord>[] = [
         {
             id: "date",
             header: "Date",
-            cell: (row) => <span>{row.date}</span>,
+            cell: (row) => <span className="text-foreground">{row.date}</span>,
         },
         {
             id: "status",
@@ -132,7 +120,7 @@ export function StudentHistoryView({ studentId, termId }: StudentHistoryViewProp
             id: "note",
             header: "Note",
             width: "minmax(120px, 1fr)",
-            cell: (row) => <span className="text-muted-foreground">{row.note ?? "—"}</span>,
+            cell: (row) => <span className="text-muted-foreground">{row.note ?? "\u2014"}</span>,
         },
         {
             id: "actions",
@@ -152,22 +140,19 @@ export function StudentHistoryView({ studentId, termId }: StudentHistoryViewProp
         },
     ];
 
-    // ── Loading ───────────────────────────────────────────────────────
     if (isLoading) {
         return (
             <div className="space-y-3">
                 <Skeleton className="h-8 w-48" />
                 <Skeleton className="h-8 w-full" />
                 <Skeleton className="h-8 w-full" />
-                <Skeleton className="h-8 w-full" />
             </div>
         );
     }
 
-    // ── Error ─────────────────────────────────────────────────────────
     if (isError) {
         return (
-            <div className="border-destructive/50 text-destructive rounded-md border p-4">
+            <div className="text-destructive bg-destructive/10 p-4">
                 Failed to load attendance history.
             </div>
         );
@@ -175,33 +160,29 @@ export function StudentHistoryView({ studentId, termId }: StudentHistoryViewProp
 
     return (
         <div className="space-y-4">
-            {/* Summary card */}
+            {/* Summary — no Card, just subtle background */}
             {summary && (
-                <Card size="sm">
-                    <CardContent className="flex items-center gap-6 py-3">
-                        <div className="flex items-baseline gap-1">
-                            <span className="text-2xl font-bold">{summary.percentage}%</span>
-                            <span className="text-muted-foreground text-xs">attendance</span>
-                        </div>
-                        <div className="flex flex-wrap gap-1.5">
-                            {(["PRESENT", "ABSENT", "LATE", "EXCUSED"] as const)
-                                .filter((s) => summary[s.toLowerCase() as keyof typeof summary] > 0)
-                                .map((s) => (
-                                    <Badge
-                                        key={s}
-                                        variant={attendanceBadgeProps(s).variant}
-                                        className={attendanceBadgeProps(s).className}
-                                    >
-                                        {attendanceStatusLabel(s)}:{" "}
-                                        {summary[s.toLowerCase() as keyof typeof summary]}
-                                    </Badge>
-                                ))}
-                        </div>
-                        <span className="text-muted-foreground ml-auto text-xs">
-                            {summary.total} total periods
+                <div className="bg-muted/30 flex items-center gap-6 p-3">
+                    <div className="flex items-baseline gap-1">
+                        <span className="text-foreground text-2xl font-bold">
+                            {summary.percentage}%
                         </span>
-                    </CardContent>
-                </Card>
+                        <span className="text-muted-foreground text-xs">attendance</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                        {(["PRESENT", "ABSENT", "LATE", "EXCUSED"] as const)
+                            .filter((s) => summary[s.toLowerCase() as keyof typeof summary] > 0)
+                            .map((s) => (
+                                <Badge key={s} variant={attendanceBadgeProps(s).variant}>
+                                    {attendanceStatusLabel(s)}:{" "}
+                                    {summary[s.toLowerCase() as keyof typeof summary]}
+                                </Badge>
+                            ))}
+                    </div>
+                    <span className="text-muted-foreground ml-auto text-xs">
+                        {summary.total} total periods
+                    </span>
+                </div>
             )}
 
             {/* Filters */}
@@ -253,7 +234,6 @@ export function StudentHistoryView({ studentId, termId }: StudentHistoryViewProp
                 )}
             </div>
 
-            {/* Records table */}
             {records.length === 0 ? (
                 <AttendanceEmptyState
                     icon={CalendarX}
@@ -286,7 +266,6 @@ export function StudentHistoryView({ studentId, termId }: StudentHistoryViewProp
                 />
             )}
 
-            {/* Edit dialog */}
             <Dialog
                 open={!!editRecord}
                 onOpenChange={(open) => {
@@ -298,7 +277,7 @@ export function StudentHistoryView({ studentId, termId }: StudentHistoryViewProp
                         <DialogTitle>Edit Attendance Record</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-2">
-                        <Label>Status</Label>
+                        <Label className="text-foreground">Status</Label>
                         <Select
                             value={editStatus}
                             onValueChange={(val) => setEditStatus(val as AttendanceStatus)}

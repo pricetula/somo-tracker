@@ -1,6 +1,6 @@
 /**
  * AttendanceRegisterContainer — renders the roster for a specific slot/date.
- * `slotId` is required (from path param), `date` is optional (from query).
+ * Pure shadcn: passes role info down; visual concerns live in children.
  */
 
 import { TeacherAttendanceRoster } from "./teacher-attendance-roster";
@@ -16,7 +16,6 @@ export function AttendanceRegisterContainer({
     slotId,
     date,
 }: AttendanceRegisterContainerProps) {
-    // Admins have no same-day restriction; teachers can edit today's records.
     const isAdmin = role === "SCHOOL_ADMIN" || role === "SYSTEM_ADMIN";
     const today = new Date().toISOString().split("T")[0];
     const isPastDate = Boolean(date && date !== today);

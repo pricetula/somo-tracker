@@ -1,5 +1,6 @@
 /**
  * StudentHistoryContainer — reads student_id from params and renders history.
+ * Pure shadcn: thin container, no visual cruft.
  */
 
 "use client";
@@ -31,7 +32,7 @@ export function StudentHistoryContainer() {
 
     return (
         <div className="space-y-6">
-            <h1 className="text-2xl font-bold">Student Attendance History</h1>
+            <p className="text-foreground text-2xl font-bold">Student Attendance History</p>
             <StudentHistoryView studentId={studentId} />
         </div>
     );

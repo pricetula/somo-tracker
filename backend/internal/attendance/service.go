@@ -159,24 +159,31 @@ func (s *Service) GetStudentHistory(ctx context.Context, tenantID, schoolID, stu
 	return s.repo.GetStudentHistory(ctx, tenantID, schoolID, studentID, filter)
 }
 
-// UpdateAttendanceRecord updates a single attendance record (admin correction).
-// Same-day records can be edited by the teacher; older records require admin.
-func (s *Service) UpdateAttendanceRecord(ctx context.Context, id, tenantID string, payload UpdateAttendanceEntryPayload) error {
+// UpdateAttendanceRecord updates a single attendance record.
+// Admins (SCHOOL_ADMIN/SYSTEM_ADMIN) can edit any record regardless of date.
+// Teachers can only edit same-day records.
+func (s *Service) UpdateAttendanceRecord(ctx context.Context, id, tenantID, userRole string, payload UpdateAttendanceEntryPayload) error {
 	if id == "" {
 		return fmt.Errorf("attendance.Service.UpdateAttendanceRecord: id is required: %w", ErrInvalidInput)
 	}
 	if payload.Status == "" {
 		return fmt.Errorf("attendance.Service.UpdateAttendanceRecord: status is required: %w", ErrInvalidInput)
 	}
-	// Enforce same-day edit window: records dated before today cannot be edited.
+
 	record, err := s.repo.GetRecordByID(ctx, id, tenantID)
 	if err != nil {
 		return fmt.Errorf("attendance.Service.UpdateAttendanceRecord: %w", err)
 	}
-	today := time.Now().Format("2006-01-02")
-	if record.Date != today {
-		return fmt.Errorf("attendance.Service.UpdateAttendanceRecord: can only edit same-day records (record date: %s, today: %s): %w", record.Date, today, ErrForbidden)
+
+	// Admins can edit any record. Teachers can only edit same-day records.
+	isAdmin := userRole == "SCHOOL_ADMIN" || userRole == "SYSTEM_ADMIN"
+	if !isAdmin {
+		today := time.Now().Format("2006-01-02")
+		if record.Date != today {
+			return fmt.Errorf("attendance.Service.UpdateAttendanceRecord: teachers can only edit same-day records (record date: %s, today: %s): %w", record.Date, today, ErrForbidden)
+		}
 	}
+
 	return s.repo.UpdateRecord(ctx, id, tenantID, payload)
 }
 

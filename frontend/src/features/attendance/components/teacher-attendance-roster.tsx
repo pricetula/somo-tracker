@@ -1,13 +1,6 @@
 /**
- * TeacherAttendanceRoster — The teacher's view for marking attendance.
- *
- * Shows the roster for the current/next period with a RadioGroup for status,
- * optional note per row (via popover), and a batch submit button.
- * Renders empty state when no slot is active.
- *
- * Includes skip/unskip functionality: teachers can flag a session as
- * SKIPPED (class did not hold) which deletes attendance records and
- * excludes those hours from terminal percentage calculations.
+ * TeacherAttendanceRoster — mark attendance per student per period.
+ * Pure shadcn: no borders/cards, no hardcoded colours, flat layout.
  */
 
 "use client";
@@ -33,7 +26,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
     Dialog,
     DialogContent,
@@ -55,19 +47,14 @@ import {
     useUnskipSession,
 } from "../hooks/use-attendance";
 import type { AttendanceStatus } from "../types";
-import { attendanceBadgeProps, attendanceStatusLabel } from "../types";
+import { attendanceBadgeClass, attendanceStatusLabel } from "../types";
 import { CreateBehaviorNoteDialog } from "@/features/behavior/components/create-behavior-note-dialog";
-
-// ─── Props ────────────────────────────────────────────────────────────────
 
 interface TeacherAttendanceRosterProps {
     timetableSlotId: string;
     date?: string;
-    /** Whether this session is locked (past same-day window). */
     isLocked?: boolean;
 }
-
-// ─── Component ────────────────────────────────────────────────────────────
 
 export function TeacherAttendanceRoster({
     timetableSlotId,
@@ -95,8 +82,6 @@ export function TeacherAttendanceRoster({
     const isSkipped = sessionData?.session?.status === "SKIPPED";
     const skipReasonText = sessionData?.session?.skip_reason ?? null;
 
-    // ── Session actions ───────────────────────────────────────────────────
-
     const handleSkip = useCallback(() => {
         if (!skipReason.trim() || !roster) return;
         skipSession.mutate(
@@ -116,54 +101,41 @@ export function TeacherAttendanceRoster({
 
     const handleUnskip = useCallback(() => {
         if (!roster) return;
-        unskipSession.mutate({
-            timetable_slot_id: roster.timetable_slot_id,
-            date: roster.date,
-        });
+        unskipSession.mutate({ timetable_slot_id: roster.timetable_slot_id, date: roster.date });
     }, [roster, unskipSession]);
 
-    // Derive effective status: local overrides > server current_status > null (unset)
     const effectiveStatus = useMemo(() => {
         if (!roster?.students) return {} as Record<string, AttendanceStatus | null>;
         const map: Record<string, AttendanceStatus | null> = {};
         for (const student of roster.students) {
             const localOverride = statusMap[student.student_id];
-            if (localOverride !== undefined && localOverride !== null) {
-                map[student.student_id] = localOverride;
-            } else if (student.current_status) {
-                map[student.student_id] = student.current_status;
-            } else {
-                map[student.student_id] = null; // unset — no default
-            }
+            map[student.student_id] =
+                localOverride !== undefined && localOverride !== null
+                    ? localOverride
+                    : (student.current_status ?? null);
         }
         return map;
     }, [roster, statusMap]);
 
-    // Track the original server statuses so we can show a diff after save.
     const serverStatuses = useMemo(() => {
         if (!roster?.students) return {} as Record<string, AttendanceStatus | null>;
         const m: Record<string, AttendanceStatus | null> = {};
-        for (const s of roster.students) {
-            m[s.student_id] = s.current_status ?? null;
-        }
+        for (const s of roster.students) m[s.student_id] = s.current_status ?? null;
         return m;
     }, [roster]);
 
-    // After successful save, reset local overrides so fresh server data shows through.
     const handleSaveSuccess = useCallback(() => {
         setStatusMap({});
         setNoteMap({});
         setConfirmOpen(false);
-        // Compute counts of what was just saved for feedback
         if (roster?.students) {
-            const statusesMap = effectiveStatus; // already computed above
+            const statusesMap = effectiveStatus;
             const counts: Record<string, number> = {};
             for (const s of roster.students) {
                 const status = statusesMap[s.student_id] ?? "PRESENT";
                 counts[status] = (counts[status] || 0) + 1;
             }
             setLastSavedCounts(counts);
-            // Clear feedback after 8 seconds
             setTimeout(() => setLastSavedCounts(null), 8000);
         }
     }, [roster, effectiveStatus]);
@@ -171,9 +143,7 @@ export function TeacherAttendanceRoster({
     const handleMarkAllPresent = useCallback(() => {
         if (!roster?.students) return;
         const allPresent: Record<string, AttendanceStatus> = {};
-        for (const student of roster.students) {
-            allPresent[student.student_id] = "PRESENT";
-        }
+        for (const student of roster.students) allPresent[student.student_id] = "PRESENT";
         setStatusMap(allPresent);
     }, [roster]);
 
@@ -193,16 +163,11 @@ export function TeacherAttendanceRoster({
             note: noteMap[s.student_id] || null,
         }));
         bulkMark.mutate(
-            {
-                timetable_slot_id: roster.timetable_slot_id,
-                date: roster.date,
-                entries,
-            },
+            { timetable_slot_id: roster.timetable_slot_id, date: roster.date, entries },
             { onSuccess: handleSaveSuccess }
         );
     }, [roster, effectiveStatus, noteMap, bulkMark, handleSaveSuccess]);
 
-    // Show confirmation dialog with a summary of changes
     const pendingSummary = useMemo(() => {
         if (!roster?.students) return null;
         const counts: Record<string, number> = {};
@@ -217,14 +182,9 @@ export function TeacherAttendanceRoster({
     }, [roster, effectiveStatus, serverStatuses]);
 
     const handleSubmit = useCallback(() => {
-        if (pendingSummary && pendingSummary.changed > 0) {
-            setConfirmOpen(true);
-        } else {
-            handleSubmitConfirmed();
-        }
+        if (pendingSummary && pendingSummary.changed > 0) setConfirmOpen(true);
+        else handleSubmitConfirmed();
     }, [pendingSummary, handleSubmitConfirmed]);
-
-    // ── Columns ───────────────────────────────────────────────────────────
 
     const columns = useMemo<DataTableColumn<RosterStudent>[]>(
         () => [
@@ -232,7 +192,11 @@ export function TeacherAttendanceRoster({
                 id: "student",
                 header: "Student",
                 cell: (student) => (
-                    <span className={isSkipped ? "text-muted-foreground" : "font-medium"}>
+                    <span
+                        className={
+                            isSkipped ? "text-muted-foreground" : "text-foreground font-medium"
+                        }
+                    >
                         {student.full_name}
                     </span>
                 ),
@@ -251,8 +215,8 @@ export function TeacherAttendanceRoster({
                     const status = effectiveStatus[student.student_id];
                     return isLocked ? (
                         <Badge
-                            variant={status ? attendanceBadgeProps(status).variant : "secondary"}
-                            className={status ? attendanceBadgeProps(status).className : ""}
+                            variant={status ? "outline" : "secondary"}
+                            className={status ? attendanceBadgeClass(status) : ""}
                         >
                             {status ? attendanceStatusLabel(status) : "Unset"}
                         </Badge>
@@ -282,7 +246,7 @@ export function TeacherAttendanceRoster({
                                     />
                                     <Label
                                         htmlFor={`${student.student_id}-${option.value}`}
-                                        className={`cursor-pointer font-normal ${isSkipped ? "text-muted-foreground" : ""}`}
+                                        className={`cursor-pointer text-xs font-normal ${isSkipped ? "text-muted-foreground" : "text-foreground"}`}
                                     >
                                         {option.label}
                                     </Label>
@@ -307,7 +271,7 @@ export function TeacherAttendanceRoster({
                                     className="h-8 w-8"
                                     aria-label="Add note"
                                 >
-                                    <StickyNote className="h-4 w-4" />
+                                    <StickyNote className="text-muted-foreground h-4 w-4" />
                                 </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-64" align="end">
@@ -336,15 +300,13 @@ export function TeacherAttendanceRoster({
                             aria-label="Log behavior note"
                             onClick={() => setBehaviorStudent(student)}
                         >
-                            <Flag className="h-4 w-4" />
+                            <Flag className="text-muted-foreground h-4 w-4" />
                         </Button>
                     ),
             },
         ],
         [isSkipped, isLocked, effectiveStatus, handleStatusChange, handleNoteChange, noteMap]
     );
-
-    // ── Empty / Loading / Error states ────────────────────────────────────
 
     if (isLoading || sessionLoading) {
         return (
@@ -359,7 +321,7 @@ export function TeacherAttendanceRoster({
 
     if (isError || sessionError) {
         return (
-            <div className="border-destructive/50 text-destructive rounded-md border p-4">
+            <div className="text-destructive bg-destructive/10 p-4">
                 Failed to load roster. Please try again.
             </div>
         );
@@ -379,28 +341,30 @@ export function TeacherAttendanceRoster({
         );
     }
 
-    // ── Roster view ───────────────────────────────────────────────────────
-
     return (
         <div className="space-y-4">
-            {/* Skipped alert banner */}
+            {/* Skipped alert — no border, just semantic background */}
             {isSkipped && (
-                <Alert>
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertTitle>Session skipped</AlertTitle>
-                    <AlertDescription>
-                        This session was marked as skipped due to{" "}
-                        <strong>{skipReasonText ?? "unspecified reason"}</strong>. These hours are
-                        omitted from students&apos; record cards.
-                    </AlertDescription>
-                </Alert>
+                <div className="bg-muted/30 flex items-start gap-3 p-4">
+                    <AlertTriangle className="text-muted-foreground mt-0.5 h-4 w-4 shrink-0" />
+                    <div>
+                        <p className="text-foreground font-medium">Session skipped</p>
+                        <p className="text-muted-foreground text-sm">
+                            This session was marked as skipped due to{" "}
+                            <strong className="text-foreground">
+                                {skipReasonText ?? "unspecified reason"}
+                            </strong>
+                            . These hours are omitted from students&apos; record cards.
+                        </p>
+                    </div>
+                </div>
             )}
 
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="font-semibold">{roster.class_name}</h2>
-                    <p className="text-muted-foreground">
+                    <p className="text-foreground font-semibold">{roster.class_name}</p>
+                    <p className="text-muted-foreground text-sm">
                         {roster.learning_area} &middot; {roster.date}
                     </p>
                 </div>
@@ -423,16 +387,14 @@ export function TeacherAttendanceRoster({
                             ) : (
                                 <RotateCcw className="mr-2 h-4 w-4" />
                             )}
-                            {skipSession.isPending
-                                ? "Skipping..."
-                                : "Undo Skip / Re-open Class Session"}
+                            {skipSession.isPending ? "Skipping..." : "Undo Skip / Re-open"}
                         </Button>
                     ) : (
                         <Dialog open={skipDialogOpen} onOpenChange={setSkipDialogOpen}>
                             <DialogTrigger asChild>
                                 <Button variant="outline" size="sm" disabled={isLocked}>
                                     <AlertTriangle className="mr-2 h-4 w-4" />
-                                    Class Did Not Hold? Skip This Date
+                                    Class Did Not Hold?
                                 </Button>
                             </DialogTrigger>
                             <DialogContent>
@@ -445,7 +407,9 @@ export function TeacherAttendanceRoster({
                                     </DialogDescription>
                                 </DialogHeader>
                                 <div className="space-y-2">
-                                    <Label htmlFor="skip-reason">Reason for skipping</Label>
+                                    <Label htmlFor="skip-reason" className="text-foreground">
+                                        Reason for skipping
+                                    </Label>
                                     <Textarea
                                         id="skip-reason"
                                         placeholder="e.g. School Assembly, Public Holiday, Teacher Absence, Sports/Field Event"
@@ -490,17 +454,19 @@ export function TeacherAttendanceRoster({
                 height={334}
             />
 
-            {/* Submit or Locked notice */}
+            {/* Status messages — no borders, no cards */}
             {isSkipped ? (
                 <p className="text-muted-foreground italic">
                     This session was skipped. Use the undo button above to re-open it.
                 </p>
             ) : isLocked ? (
-                <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800">
-                    <Lock className="mt-0.5 h-4 w-4 shrink-0" />
+                <div className="bg-muted/30 flex items-start gap-2 p-4">
+                    <Lock className="text-muted-foreground mt-0.5 h-4 w-4 shrink-0" />
                     <div>
-                        <p className="font-medium">Past date — records locked</p>
-                        <p className="mt-0.5 text-xs text-amber-700">
+                        <p className="text-foreground font-medium">
+                            Past date &mdash; records locked
+                        </p>
+                        <p className="text-muted-foreground mt-0.5 text-xs">
                             Attendance for past dates can only be edited by a school admin. Contact
                             your admin if corrections are needed.
                         </p>
@@ -512,12 +478,12 @@ export function TeacherAttendanceRoster({
                     session.
                 </p>
             )}
+
             {!isSkipped && !isLocked && (
                 <div className="space-y-3">
-                    {/* Save feedback with undo */}
                     {lastSavedCounts && (
-                        <div className="flex items-center gap-3 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800">
-                            <span>
+                        <div className="bg-muted/30 flex items-center gap-3 p-4">
+                            <span className="text-emerald-600">
                                 Saved:{" "}
                                 {Object.entries(lastSavedCounts)
                                     .filter(([, c]) => c > 0)
@@ -553,7 +519,7 @@ export function TeacherAttendanceRoster({
                                 {pendingSummary.changed !== 1 ? "s" : ""} &middot;{" "}
                                 {Object.entries(pendingSummary.counts)
                                     .filter(([, c]) => c > 0)
-                                    .map(([s, c]) => `${c}× ${s.toLowerCase()}`)
+                                    .map(([s, c]) => `${c}\u00d7 ${s.toLowerCase()}`)
                                     .join(", ")}
                             </span>
                         )}
@@ -561,7 +527,6 @@ export function TeacherAttendanceRoster({
                 </div>
             )}
 
-            {/* Confirmation dialog before bulk save */}
             <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
                 <DialogContent>
                     <DialogHeader>
@@ -585,18 +550,14 @@ export function TeacherAttendanceRoster({
                                 .map(([status, count]) => (
                                     <div key={status} className="flex items-center justify-between">
                                         <Badge
-                                            variant={
-                                                attendanceBadgeProps(status as AttendanceStatus)
-                                                    .variant
-                                            }
-                                            className={
-                                                attendanceBadgeProps(status as AttendanceStatus)
-                                                    .className
-                                            }
+                                            variant="outline"
+                                            className={attendanceBadgeClass(
+                                                status as AttendanceStatus
+                                            )}
                                         >
                                             {attendanceStatusLabel(status as AttendanceStatus)}
                                         </Badge>
-                                        <span>
+                                        <span className="text-muted-foreground">
                                             {count} student{count !== 1 ? "s" : ""}
                                         </span>
                                     </div>
@@ -612,7 +573,6 @@ export function TeacherAttendanceRoster({
                 </DialogContent>
             </Dialog>
 
-            {/* Behavior note dialog */}
             {behaviorStudent && (
                 <CreateBehaviorNoteDialog
                     open

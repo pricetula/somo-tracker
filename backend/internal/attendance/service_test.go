@@ -308,7 +308,7 @@ func TestUpdateAttendanceRecord_HappyPath(t *testing.T) {
 	}
 
 	note := "Traffic delay"
-	err := h.svc.UpdateAttendanceRecord(context.Background(), "rec_001", "tenant_001", UpdateAttendanceEntryPayload{
+	err := h.svc.UpdateAttendanceRecord(context.Background(), "rec_001", "tenant_001", "TEACHER", UpdateAttendanceEntryPayload{
 		Status: StatusLate,
 		Note:   &note,
 	})
@@ -323,7 +323,7 @@ func TestUpdateAttendanceRecord_HappyPath(t *testing.T) {
 func TestUpdateAttendanceRecord_EmptyID(t *testing.T) {
 	h := newTestHarness()
 
-	err := h.svc.UpdateAttendanceRecord(context.Background(), "", "tenant_001", UpdateAttendanceEntryPayload{
+	err := h.svc.UpdateAttendanceRecord(context.Background(), "", "tenant_001", "TEACHER", UpdateAttendanceEntryPayload{
 		Status: StatusPresent,
 	})
 	if err == nil {
@@ -337,7 +337,7 @@ func TestUpdateAttendanceRecord_EmptyID(t *testing.T) {
 func TestUpdateAttendanceRecord_EmptyStatus(t *testing.T) {
 	h := newTestHarness()
 
-	err := h.svc.UpdateAttendanceRecord(context.Background(), "rec_001", "tenant_001", UpdateAttendanceEntryPayload{})
+	err := h.svc.UpdateAttendanceRecord(context.Background(), "rec_001", "tenant_001", "TEACHER", UpdateAttendanceEntryPayload{})
 	if err == nil {
 		t.Fatal("expected error for empty status, got nil")
 	}
@@ -346,7 +346,7 @@ func TestUpdateAttendanceRecord_EmptyStatus(t *testing.T) {
 	}
 }
 
-func TestUpdateAttendanceRecord_PastDate(t *testing.T) {
+func TestUpdateAttendanceRecord_PastDate_TeacherBlocked(t *testing.T) {
 	h := newTestHarness()
 
 	// Return a record with yesterday's date
@@ -355,14 +355,40 @@ func TestUpdateAttendanceRecord_PastDate(t *testing.T) {
 		return &AttendanceRecord{ID: id, TenantID: tenantID, Date: yesterday}, nil
 	}
 
-	err := h.svc.UpdateAttendanceRecord(context.Background(), "rec_001", "tenant_001", UpdateAttendanceEntryPayload{
+	err := h.svc.UpdateAttendanceRecord(context.Background(), "rec_001", "tenant_001", "TEACHER", UpdateAttendanceEntryPayload{
 		Status: StatusPresent,
 	})
 	if err == nil {
-		t.Fatal("expected error for past date record, got nil")
+		t.Fatal("expected error for past date record by teacher, got nil")
 	}
 	if !errors.Is(err, ErrForbidden) {
 		t.Fatalf("expected ErrForbidden, got %v", err)
+	}
+}
+
+func TestUpdateAttendanceRecord_PastDate_AdminAllowed(t *testing.T) {
+	h := newTestHarness()
+
+	// Return a record with yesterday's date
+	yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
+	h.repo.getRecordByIDFn = func(ctx context.Context, id, tenantID string) (*AttendanceRecord, error) {
+		return &AttendanceRecord{ID: id, TenantID: tenantID, Date: yesterday}, nil
+	}
+
+	called := false
+	h.repo.updateRecordFn = func(ctx context.Context, id, tenantID string, payload UpdateAttendanceEntryPayload) error {
+		called = true
+		return nil
+	}
+
+	err := h.svc.UpdateAttendanceRecord(context.Background(), "rec_001", "tenant_001", "SCHOOL_ADMIN", UpdateAttendanceEntryPayload{
+		Status: StatusPresent,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error for admin editing past record: %v", err)
+	}
+	if !called {
+		t.Fatal("expected updateRecordFn to be called for admin")
 	}
 }
 
@@ -373,7 +399,7 @@ func TestUpdateAttendanceRecord_RecordNotFound(t *testing.T) {
 		return nil, ErrNotFound
 	}
 
-	err := h.svc.UpdateAttendanceRecord(context.Background(), "rec_999", "tenant_001", UpdateAttendanceEntryPayload{
+	err := h.svc.UpdateAttendanceRecord(context.Background(), "rec_999", "tenant_001", "TEACHER", UpdateAttendanceEntryPayload{
 		Status: StatusPresent,
 	})
 	if err == nil {

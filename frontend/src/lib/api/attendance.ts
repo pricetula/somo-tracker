@@ -158,7 +158,8 @@ export async function listAdminAttendances(
     }
 
     const qs = searchParams.toString();
-    return api.get<AdminDashboardResponse>(`/api/v1/attendance/dashboard?${qs}`);
+    const path = qs ? `/api/v1/attendance/dashboard?${qs}` : "/api/v1/attendance/dashboard";
+    return api.get<AdminDashboardResponse>(path);
 }
 
 /** Safely coerces a filter value to a string array. */

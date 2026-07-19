@@ -1,8 +1,6 @@
 /**
  * AttendanceEmptyState — reusable empty state for attendance views.
- *
- * Provides a consistent icon + heading + description layout across all roles.
- * Optionally accepts children (e.g. a Button or Link for CTA).
+ * Pure shadcn: no borders, no cards, no hardcoded colours.
  */
 
 import type { ReactNode } from "react";
@@ -22,12 +20,12 @@ export function AttendanceEmptyState({
     children,
 }: AttendanceEmptyStateProps) {
     return (
-        <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+        <div className="flex flex-col items-center gap-3 py-16 text-center">
             <div className="bg-muted flex size-16 items-center justify-center rounded-full">
                 <Icon className="text-muted-foreground size-8" />
             </div>
             <div className="max-w-sm space-y-1">
-                <h3 className="text-base font-semibold">{title}</h3>
+                <p className="text-foreground font-semibold">{title}</p>
                 {description && <p className="text-muted-foreground">{description}</p>}
             </div>
             {children && <div className="pt-2">{children}</div>}

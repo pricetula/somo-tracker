@@ -363,7 +363,7 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 	}
 
 	// Validate all entries have required fields before creating any
-	for i, s := range body.Students {
+	for _, s := range body.Students {
 		if s.FullName == "" {
 			return writeError(c, fiber.StatusBadRequest, "invalid_input",
 				"full_name is required for all students",
@@ -371,7 +371,6 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 					"students": {},
 				})
 		}
-		_ = i // used for potential future per-field error reporting
 	}
 
 	result, err := h.svc.CreateBatch(c.Context(), tenantID, schoolID, body.Students)

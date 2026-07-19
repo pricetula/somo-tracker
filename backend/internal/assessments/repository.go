@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -240,7 +241,10 @@ func (r *PgRepository) CreateScaleProfileWithRanges(ctx context.Context, params 
 		return "", nil, fmt.Errorf("assessments.Repository.CreateScaleProfileWithRanges: begin tx: %w", err)
 	}
 	defer func() {
-		_ = tx.Rollback(ctx)
+		if rbErr := tx.Rollback(ctx); rbErr != nil && rbErr != pgx.ErrTxClosed {
+			slog.WarnContext(ctx, "assessments.Repository.CreateScaleProfileWithRanges: rollback",
+				slog.String("error", rbErr.Error()))
+		}
 	}()
 
 	// Insert the profile
@@ -323,7 +327,10 @@ func (r *PgRepository) ReplaceScaleRanges(ctx context.Context, profileID string,
 		return nil, fmt.Errorf("assessments.Repository.ReplaceScaleRanges: begin tx: %w", err)
 	}
 	defer func() {
-		_ = tx.Rollback(ctx)
+		if rbErr := tx.Rollback(ctx); rbErr != nil && rbErr != pgx.ErrTxClosed {
+			slog.WarnContext(ctx, "assessments.Repository.ReplaceScaleRanges: rollback",
+				slog.String("error", rbErr.Error()))
+		}
 	}()
 
 	// Delete existing ranges
@@ -696,7 +703,10 @@ func (r *PgRepository) BulkUpsertStudentScores(ctx context.Context, params []Ups
 		return fmt.Errorf("assessments.Repository.BulkUpsertStudentScores: begin tx: %w", err)
 	}
 	defer func() {
-		_ = tx.Rollback(ctx)
+		if rbErr := tx.Rollback(ctx); rbErr != nil && rbErr != pgx.ErrTxClosed {
+			slog.WarnContext(ctx, "assessments.Repository.BulkUpsertStudentScores: rollback",
+				slog.String("error", rbErr.Error()))
+		}
 	}()
 
 	// Get max_points for the session
@@ -852,7 +862,10 @@ func (r *PgRepository) BulkUpsertOutcomeGrades(ctx context.Context, params []Ups
 		return fmt.Errorf("assessments.Repository.BulkUpsertOutcomeGrades: begin tx: %w", err)
 	}
 	defer func() {
-		_ = tx.Rollback(ctx)
+		if rbErr := tx.Rollback(ctx); rbErr != nil && rbErr != pgx.ErrTxClosed {
+			slog.WarnContext(ctx, "assessments.Repository.BulkUpsertOutcomeGrades: rollback",
+				slog.String("error", rbErr.Error()))
+		}
 	}()
 
 	for _, p := range params {

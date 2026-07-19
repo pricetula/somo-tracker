@@ -1,7 +1,6 @@
 package assessments
 
 import (
-	"fmt"
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
@@ -139,7 +138,6 @@ func getUserID(c *fiber.Ctx) string {
 //
 // ---------------------------------------------------------------------------
 func (h *Handler) CreateScaleProfile(c *fiber.Ctx) error {
-	fmt.Println("/////////////////////////////////////////////////////////////////////-------0000")
 	tenantID, schoolID, err := getTenantAndSchool(c)
 	if err != nil {
 		return err
@@ -173,7 +171,6 @@ func (h *Handler) CreateScaleProfile(c *fiber.Ctx) error {
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
-	fmt.Println("/////////////////////////////////////////////////////////////////////------->>>>")
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"id":        id,
 		"range_ids": rangeIDs,

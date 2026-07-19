@@ -325,18 +325,22 @@ func TestPatchYear_TermStranding(t *testing.T) {
 	newEnd := "2025-08-31"
 	body := PatchYearBody{EndDate: &newEnd, Version: ptrInt(3)}
 
-	patchedYear, strandingErr := h.svc.PatchYear(context.Background(), "year_001", "tenant_001", "school_001", body, "user_001")
-	if strandingErr == nil {
+	patchedYear, err := h.svc.PatchYear(context.Background(), "year_001", "tenant_001", "school_001", body, "user_001")
+	if err == nil {
 		t.Fatal("expected TermsOutOfRangeError, got nil")
 	}
 	if patchedYear != nil {
 		t.Fatal("expected nil year on error")
 	}
-	if len(strandingErr.ConflictingTerms) != 1 {
-		t.Fatalf("expected 1 conflicting term, got %d", len(strandingErr.ConflictingTerms))
+	var termsErr *TermsOutOfRangeError
+	if !errors.As(err, &termsErr) {
+		t.Fatalf("expected *TermsOutOfRangeError, got %T", err)
 	}
-	if strandingErr.ConflictingTerms[0].ID != "term_001" {
-		t.Errorf("expected conflicting term 'term_001', got %q", strandingErr.ConflictingTerms[0].ID)
+	if len(termsErr.ConflictingTerms) != 1 {
+		t.Fatalf("expected 1 conflicting term, got %d", len(termsErr.ConflictingTerms))
+	}
+	if termsErr.ConflictingTerms[0].ID != "term_001" {
+		t.Errorf("expected conflicting term 'term_001', got %q", termsErr.ConflictingTerms[0].ID)
 	}
 }
 
@@ -355,12 +359,15 @@ func TestPatchYear_StaleVersion(t *testing.T) {
 
 	body := PatchYearBody{Version: ptrInt(3)} // stale
 
-	patchedYear, strandingErr := h.svc.PatchYear(context.Background(), "year_001", "tenant_001", "school_001", body, "user_001")
-	if strandingErr != nil {
-		t.Fatalf("expected no stranding error, got %v", strandingErr)
+	patchedYear, err := h.svc.PatchYear(context.Background(), "year_001", "tenant_001", "school_001", body, "user_001")
+	if err == nil {
+		t.Fatal("expected conflict error, got nil")
 	}
 	if patchedYear != nil {
 		t.Fatal("expected nil year (version mismatch treated as conflict)")
+	}
+	if !errors.Is(err, ErrConflict) {
+		t.Fatalf("expected ErrConflict, got %v", err)
 	}
 }
 

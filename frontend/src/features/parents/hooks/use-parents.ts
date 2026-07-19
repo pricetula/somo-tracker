@@ -13,6 +13,7 @@ import {
     listParents,
     createParent,
     getParentDetail,
+    getMyParentProfile,
     updateParent,
     deleteParent,
     linkStudent,
@@ -91,6 +92,17 @@ export function useParentDetail(id: string, opts: { enabled?: boolean } = {}) {
         queryKey: parentKeys.detail(id),
         queryFn: () => getParentDetail(id),
         enabled: enabled && !!id,
+    });
+}
+
+/** Fetch the authenticated parent's own profile with linked children. */
+export function useMyParentProfile(opts: { enabled?: boolean } = {}) {
+    const { enabled = true } = opts;
+
+    return useQuery<ParentDetailResponse>({
+        queryKey: [...parentKeys.all, "me"] as const,
+        queryFn: () => getMyParentProfile(),
+        enabled,
     });
 }
 

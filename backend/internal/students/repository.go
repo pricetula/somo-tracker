@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -301,8 +302,9 @@ func (r *PgRepository) CreateBatch(ctx context.Context, students []*Student) ([]
 		return nil, fmt.Errorf("students.Repository.CreateBatch: begin tx: %w", err)
 	}
 	defer func() {
-		if rbErr := tx.Rollback(ctx); rbErr != nil {
-			_ = fmt.Errorf("students.Repository.CreateBatch: rollback: %w", rbErr)
+		if rbErr := tx.Rollback(ctx); rbErr != nil && rbErr != pgx.ErrTxClosed {
+			slog.WarnContext(ctx, "students.Repository.CreateBatch: rollback",
+				slog.String("error", rbErr.Error()))
 		}
 	}()
 
@@ -668,7 +670,10 @@ func (r *PgRepository) CreateBatchEnrollments(ctx context.Context, enrollments [
 		return nil, fmt.Errorf("students.Repository.CreateBatchEnrollments: begin tx: %w", err)
 	}
 	defer func() {
-		_ = tx.Rollback(ctx)
+		if rbErr := tx.Rollback(ctx); rbErr != nil && rbErr != pgx.ErrTxClosed {
+			slog.WarnContext(ctx, "students.Repository.CreateBatchEnrollments: rollback",
+				slog.String("error", rbErr.Error()))
+		}
 	}()
 
 	query := `

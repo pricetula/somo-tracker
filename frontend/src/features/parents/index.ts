@@ -10,6 +10,7 @@ export {
     useParents,
     useParentMap,
     useParentDetail,
+    useMyParentProfile,
     useCreateParent,
     useUpdateParent,
     useDeleteParent,

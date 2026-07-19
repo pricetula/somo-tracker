@@ -182,7 +182,7 @@ func (r *PgRepository) ListFeeTemplates(ctx context.Context, tenantID, schoolID 
 		argIdx++
 	}
 
-	_ = argIdx
+	_ = argIdx //lint:ignore U1000 argIdx is reserved for future filter expansion
 
 	baseQuery += " ORDER BY grade_level ASC, fee_category_id ASC"
 
@@ -366,7 +366,7 @@ func (r *PgRepository) ListInvoices(ctx context.Context, tenantID, schoolID stri
 		argIdx++
 	}
 
-	_ = argIdx
+	_ = argIdx //lint:ignore U1000 argIdx is reserved for future filter expansion
 
 	dataQuery += " ORDER BY created_at DESC"
 

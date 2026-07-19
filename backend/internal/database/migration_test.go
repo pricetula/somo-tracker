@@ -371,9 +371,7 @@ func TestMigrationsIntegration_ApplyAll(t *testing.T) {
 	expectedTables := []string{
 		"academic_terms", "academic_years",
 		"assessment_sessions", "assessment_weight_configs",
-		"attendance_records", "attendance_term_summaries",
 		"behavior_categories", "behavior_notes",
-		"cbc_attendance_sessions",
 		"cbc_class_teachers", "cbc_classes", "cbc_learning_areas", "cbc_parents",
 		"cbc_schools", "cbc_streams", "cbc_strands",
 		"cbc_student_enrollments", "cbc_student_parents",

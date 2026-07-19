@@ -487,8 +487,6 @@ func (r *PgRepository) HasTermDependents(ctx context.Context, termID string) (bo
 		SELECT EXISTS (
 			SELECT 1 FROM cbc_student_enrollments WHERE academic_term_id = $1
 			UNION ALL
-			-- attendance check removed: cbc_attendance_periods table dropped
-			-- awaiting new attendance subsystem (SOM-XXX)
 			SELECT 1 FROM fee_templates WHERE academic_term_id = $1
 			UNION ALL
 			SELECT 1 FROM invoices WHERE academic_term_id = $1

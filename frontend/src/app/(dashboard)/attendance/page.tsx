@@ -6,41 +6,10 @@
  * PARENT: shows linked child attendance summary
  */
 
-import { getVerifiedRole } from "@/lib/auth-server";
-
 export default async function AttendancePage() {
-    const role = await getVerifiedRole();
-
-    if (!role) {
-        return (
-            <article>
-                <p>Unable to verify your session. Please log in again.</p>
-            </article>
-        );
-    }
-
-    switch (role) {
-        case "TEACHER": {
-            const { TeacherAttendanceDashboard } =
-                await import("@/features/attendance/components/teacher-attendance-dashboard");
-            return <TeacherAttendanceDashboard />;
-        }
-        case "SCHOOL_ADMIN":
-        case "SYSTEM_ADMIN": {
-            const { AdminAttendanceDashboard } =
-                await import("@/features/attendance/components/admin-attendance-dashboard");
-            return <AdminAttendanceDashboard />;
-        }
-        case "PARENT": {
-            const { ParentAttendanceView } =
-                await import("@/features/attendance/components/parent-attendance-view");
-            return <ParentAttendanceView />;
-        }
-        default:
-            return (
-                <article>
-                    <p>You do not have access to this page.</p>
-                </article>
-            );
-    }
+    return (
+        <article>
+            <p>You do not have access to this page.</p>
+        </article>
+    );
 }

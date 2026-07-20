@@ -1182,6 +1182,34 @@ func (r *PgRepository) ListWeightConfigs(ctx context.Context, filter AssessmentW
 }
 
 // GetWeightConfigByID returns a single weight config by ID.
+func (r *PgRepository) DeleteSession(ctx context.Context, id, tenantID, schoolID string) error {
+	result, err := r.pool.Exec(ctx, `
+		DELETE FROM assessment_sessions
+		WHERE id = $1 AND tenant_id = $2 AND school_id = $3
+	`, id, tenantID, schoolID)
+	if err != nil {
+		return fmt.Errorf("assessments.Repository.DeleteSession: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("assessments.Repository.DeleteSession: %w", ErrNotFound)
+	}
+	return nil
+}
+
+func (r *PgRepository) DeleteWeightConfig(ctx context.Context, id string) error {
+	result, err := r.pool.Exec(ctx, `
+		DELETE FROM assessment_weight_configs
+		WHERE id = $1
+	`, id)
+	if err != nil {
+		return fmt.Errorf("assessments.Repository.DeleteWeightConfig: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("assessments.Repository.DeleteWeightConfig: %w", ErrNotFound)
+	}
+	return nil
+}
+
 func (r *PgRepository) GetWeightConfigByID(ctx context.Context, id string) (*AssessmentWeightConfig, error) {
 	const query = `SELECT id, grade_level::text, assessment_type_code, target_exam, weight_percent, effective_from, notes, created_at FROM assessment_weight_configs WHERE id = $1`
 	var c AssessmentWeightConfig

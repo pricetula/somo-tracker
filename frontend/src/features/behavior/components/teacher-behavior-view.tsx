@@ -11,7 +11,7 @@ import { AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/shared/data-table";
 import type { DataTableColumn } from "@/components/shared/data-table/types";
-import { useTeacherNotes } from "../hooks/use-behavior";
+import { useTeacherNotes, useDeleteBehaviorNote } from "../hooks/use-behavior";
 import type { TeacherNoteItem } from "@/lib/api/behavior";
 
 // ─── Status Badge ─────────────────────────────────────────────────────────
@@ -111,6 +111,7 @@ const columns: DataTableColumn<TeacherNoteItem>[] = [
 
 export function TeacherBehaviorView() {
     const { data, isError } = useTeacherNotes();
+    const deleteMutation = useDeleteBehaviorNote();
 
     if (isError) {
         return (
@@ -125,10 +126,12 @@ export function TeacherBehaviorView() {
     return (
         <div className="space-y-4">
             <DataTable
+                isCheckable
                 queryKey={["behavior", "my-notes"]}
                 queryFn={() => Promise.resolve({ items: notes, total: notes.length })}
                 columns={columns}
                 getRowId={(row) => row.id}
+                deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
                 emptyState={
                     <div className="text-muted-foreground flex flex-col items-center gap-4 py-16">
                         <p className="font-medium">No behavior notes yet</p>

@@ -21,6 +21,7 @@ import {
     type ReviewDecisionPayload,
     type TeacherNotesResponse,
 } from "@/lib/api/behavior";
+import { deleteBehaviorNote } from "@/lib/api/behavior";
 import { getErrorMessage } from "@/lib/errors";
 import { STALE_TIMES } from "@/lib/query-config";
 
@@ -111,6 +112,22 @@ export function useTeacherNotes() {
         queryKey: [...behaviorKeys.all, "my-notes"],
         queryFn: () => listTeacherNotes(),
         staleTime: STALE_TIMES.FREQUENT,
+    });
+}
+
+/** Delete a behavior note permanently. */
+export function useDeleteBehaviorNote() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (id: string) => deleteBehaviorNote(id),
+        onSuccess: () => {
+            void queryClient.invalidateQueries({ queryKey: behaviorKeys.all });
+            toast.success("Behavior note deleted");
+        },
+        onError: (err) => {
+            toast.error(getErrorMessage(err));
+        },
     });
 }
 

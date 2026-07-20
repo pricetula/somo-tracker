@@ -9,6 +9,7 @@
 
 import { use, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
     User,
     BookOpen,
@@ -17,13 +18,25 @@ import {
     ArrowUpRight,
     HeartPulse,
     BarChart3,
+    Trash2,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StaticTable } from "@/components/shared/static-table";
-import { useStudentDetail } from "@/features/students";
+import { useStudentDetail, useDeleteStudent } from "@/features/students";
 import { useStudentHealth } from "@/features/health";
 
 interface Props {
@@ -31,11 +44,13 @@ interface Props {
 }
 
 export default function StudentDetailPage({ params }: Props) {
+    const router = useRouter();
     const { id } = use(params);
     const [activeTab, setActiveTab] = useState("overview");
 
     // Fetch student detail
     const { data: detailResponse, isLoading: detailLoading } = useStudentDetail(id);
+    const deleteMutation = useDeleteStudent();
     const detail = detailResponse?.data;
 
     if (detailLoading) {
@@ -98,6 +113,40 @@ export default function StudentDetailPage({ params }: Props) {
                     <Button variant="outline" size="sm" asChild>
                         <Link href={`/students/${id}/edit`}>Edit profile</Link>
                     </Button>
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="outline" size="sm" className="text-destructive">
+                                <Trash2 className="size-3.5" />
+                                Delete
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Delete Student</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    Are you sure you want to delete &ldquo;{student.full_name}
+                                    &rdquo;? This action cannot be undone.
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                    variant="destructive"
+                                    onClick={async () => {
+                                        try {
+                                            await deleteMutation.mutateAsync(id);
+                                            router.push("/students");
+                                        } catch {
+                                            // handled by hook onError
+                                        }
+                                    }}
+                                    disabled={deleteMutation.isPending}
+                                >
+                                    {deleteMutation.isPending ? "Deleting…" : "Delete"}
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
                 </div>
             </div>
 

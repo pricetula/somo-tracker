@@ -13,7 +13,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Calendar, FileSpreadsheet, FileCheck, AlertTriangle } from "lucide-react";
 
 import { getSession } from "@/lib/api/assessments";
-import { useSubmitSession } from "../hooks/use-assessments";
+import { useGradingData, useSubmitSession } from "../hooks/use-assessments";
 import { STALE_TIMES } from "@/lib/query-config";
 import { GradingSheet } from "./grading-sheet";
 import { RubricGradingMatrix } from "./rubric-grading-matrix";
@@ -41,6 +41,7 @@ function useSessionDetail(id: string) {
 export function AssessmentSessionDetailView({ sessionId }: Props) {
     const { data: session, isLoading, isError } = useSessionDetail(sessionId);
     const submitMutation = useSubmitSession();
+    const { data: gradingData } = useGradingData(sessionId);
 
     if (isLoading) {
         return (
@@ -60,6 +61,15 @@ export function AssessmentSessionDetailView({ sessionId }: Props) {
     }
 
     const isQuantitative = session.evaluation_method === "QUANTITATIVE";
+
+    // Determine whether any scores/grades have been saved
+    const hasSavedScores =
+        gradingData?.students.some((s) => {
+            if (isQuantitative) {
+                return s.score?.raw_score != null;
+            }
+            return (s.grades?.length ?? 0) > 0;
+        }) ?? false;
 
     return (
         <article className="space-y-6">
@@ -132,8 +142,8 @@ export function AssessmentSessionDetailView({ sessionId }: Props) {
 
             {/* Actions */}
             <div className="flex items-center justify-between border-t pt-4">
-                {/* Teacher: Submit for approval */}
-                {session.status === "DRAFT" && (
+                {/* Teacher: Submit for approval — only enabled after at least one score is saved */}
+                {session.status === "DRAFT" && hasSavedScores && (
                     <Button
                         size="sm"
                         onClick={() =>

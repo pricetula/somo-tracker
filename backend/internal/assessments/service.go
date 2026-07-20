@@ -329,6 +329,24 @@ func (s *Service) ApproveSession(ctx context.Context, id, tenantID, schoolID, us
 	return s.Repo.UpdateSessionStatus(ctx, id, tenantID, schoolID, "PUBLISHED", nil, &userID)
 }
 
+// DeleteSession hard-deletes a DRAFT assessment session and its scores/grades.
+func (s *Service) DeleteSession(ctx context.Context, id, tenantID, schoolID string) error {
+	if id == "" || tenantID == "" || schoolID == "" {
+		return fmt.Errorf("assessments.Service.DeleteSession: %w", ErrInvalidInput)
+	}
+
+	// Only allow deleting DRAFT sessions
+	session, err := s.Repo.GetSessionByID(ctx, id, tenantID, schoolID)
+	if err != nil {
+		return fmt.Errorf("assessments.Service.DeleteSession: %w", err)
+	}
+	if session.Status != "DRAFT" {
+		return fmt.Errorf("assessments.Service.DeleteSession: only DRAFT sessions can be deleted, session is %q: %w", session.Status, ErrInvalidInput)
+	}
+
+	return s.Repo.DeleteSession(ctx, id, tenantID, schoolID)
+}
+
 // RejectSession transitions a session from PENDING_APPROVAL back to DRAFT.
 func (s *Service) RejectSession(ctx context.Context, id, tenantID, schoolID, rejectionComment string) error {
 	if id == "" || tenantID == "" || schoolID == "" {
@@ -550,6 +568,14 @@ func (s *Service) ListWeightConfigs(ctx context.Context, filter AssessmentWeight
 		Page:  1,
 		Limit: len(items),
 	}, nil
+}
+
+// DeleteWeightConfig hard-deletes a weight config. SYSTEM_ADMIN only.
+func (s *Service) DeleteWeightConfig(ctx context.Context, id string) error {
+	if id == "" {
+		return fmt.Errorf("assessments.Service.DeleteWeightConfig: %w", ErrInvalidInput)
+	}
+	return s.Repo.DeleteWeightConfig(ctx, id)
 }
 
 // GetWeightConfigByID returns a single weight config.

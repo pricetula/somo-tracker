@@ -8,10 +8,12 @@
 
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
-import { listClasses } from "@/lib/api/classes";
+import { listClasses, bulkDeleteClasses } from "@/lib/api/classes";
 import { STALE_TIMES } from "@/lib/query-config";
+import { getErrorMessage } from "@/lib/errors";
 import type { Class } from "../types";
 import type { ClassOption } from "../types";
 
@@ -39,6 +41,22 @@ export function useClassList() {
                 label: c.display_label,
             })),
         }),
+    });
+}
+
+/** Bulk delete classes. */
+export function useDeleteClasses() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (ids: string[]) => bulkDeleteClasses(ids),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: classKeys.all });
+            toast.success("Classes deleted");
+        },
+        onError: (err) => {
+            toast.error(getErrorMessage(err));
+        },
     });
 }
 

@@ -36,7 +36,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 
 import type { AssessmentWeightConfig } from "@/lib/api/assessments";
 import { listWeightConfigs } from "@/lib/api/assessments";
-import { useCreateWeightConfig } from "../hooks/use-assessments";
+import { useCreateWeightConfig, useDeleteWeightConfig } from "../hooks/use-assessments";
 import { getErrorMessage } from "@/lib/errors";
 
 // ─── KNEX Target Exams ─────────────────────────────────────────────────
@@ -324,6 +324,7 @@ const filterGroups: FilterGroup[] = [
 
 export function WeightConfigsList() {
     const [createOpen, setCreateOpen] = useState(false);
+    const deleteMutation = useDeleteWeightConfig();
 
     return (
         <div className="space-y-4">
@@ -358,11 +359,13 @@ export function WeightConfigsList() {
             </div>
 
             <DataTable
+                isCheckable
                 queryKey={["weight-configs"]}
                 queryFn={() => listWeightConfigs()}
                 columns={columns}
                 getRowId={(row) => row.id}
                 filterGroups={filterGroups}
+                deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
                 emptyState="No weight configurations yet. Add one to define KNEC weighting formulas."
                 noResultsState="No configurations match your filters."
             />

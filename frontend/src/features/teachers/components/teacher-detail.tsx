@@ -10,22 +10,37 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { getErrorMessage } from "@/lib/errors";
-import { useTeacherDetail, useUpdateTeacher } from "../hooks/use-teachers";
+import { useTeacherDetail, useUpdateTeacher, useDeleteTeacher } from "../hooks/use-teachers";
 
 interface TeacherDetailProps {
     id: string;
 }
 
 export function TeacherDetail({ id }: TeacherDetailProps) {
+    const router = useRouter();
     const { data: teacher, isLoading, isError, error } = useTeacherDetail(id);
     const updateMutation = useUpdateTeacher();
+    const deleteMutation = useDeleteTeacher();
 
     const [fullName, setFullName] = useState("");
     const [tscNumber, setTscNumber] = useState("");
@@ -51,6 +66,15 @@ export function TeacherDetail({ id }: TeacherDetailProps) {
         }
         return valid;
     }
+
+    const handleDelete = async () => {
+        try {
+            await deleteMutation.mutateAsync(id);
+            router.push("/teachers");
+        } catch {
+            // Error handled by the hook
+        }
+    };
 
     function handleSave() {
         if (!validate()) return;
@@ -168,6 +192,35 @@ export function TeacherDetail({ id }: TeacherDetailProps) {
             <Button onClick={handleSave} disabled={updateMutation.isPending} className="w-full">
                 {updateMutation.isPending ? "Saving…" : "Save Changes"}
             </Button>
+
+            {/* Delete button */}
+            <AlertDialog>
+                <AlertDialogTrigger asChild>
+                    <Button variant="outline" size="sm" className="text-destructive w-full">
+                        <Trash2 className="mr-1.5 size-3.5" />
+                        Delete Teacher
+                    </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Teacher</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to delete &ldquo;{teacher.full_name}&rdquo;? This
+                            action cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            variant="destructive"
+                            onClick={handleDelete}
+                            disabled={deleteMutation.isPending}
+                        >
+                            {deleteMutation.isPending ? "Deleting…" : "Delete"}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

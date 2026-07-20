@@ -50,6 +50,9 @@ type Repository interface {
 	// UpdateNote updates the description of a behavior note.
 	UpdateNote(ctx context.Context, id, tenantID string, description string) error
 
+	// DeleteNote hard-deletes a behavior note.
+	DeleteNote(ctx context.Context, id, tenantID string) error
+
 	// ListNotesByAuthor returns notes authored by a specific user.
 	ListNotesByAuthor(ctx context.Context, tenantID, schoolID, authoredBy string) ([]TeacherNoteItem, error)
 }
@@ -435,4 +438,18 @@ func (r *pgRepository) UpdateNote(ctx context.Context, id, tenantID string, desc
 }
 
 // Ensure compile-time check that *pgRepository satisfies Repository.
+func (r *pgRepository) DeleteNote(ctx context.Context, id, tenantID string) error {
+	result, err := r.pool.Exec(ctx, `
+		DELETE FROM behavior_notes
+		WHERE id = $1 AND tenant_id = $2
+	`, id, tenantID)
+	if err != nil {
+		return fmt.Errorf("behavior.Repository.DeleteNote: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("behavior.Repository.DeleteNote: %w", ErrNotFound)
+	}
+	return nil
+}
+
 var _ Repository = (*pgRepository)(nil)

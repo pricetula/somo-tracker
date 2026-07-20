@@ -314,6 +314,10 @@ export async function listSessions(params: ListSessionsParams = {}): Promise<Ses
 }
 
 /** Get a single assessment session by ID. */
+export async function deleteSession(id: string): Promise<void> {
+    return api.delete<void>(`/api/v1/assessments/sessions/${id}`);
+}
+
 export async function getSession(id: string): Promise<AssessmentSession> {
     return api.get(`/api/v1/assessments/sessions/${id}`);
 }
@@ -466,6 +470,10 @@ export async function getWeightConfig(id: string): Promise<AssessmentWeightConfi
 }
 
 /** Create a new weight config. SCHOOL_ADMIN only. */
+export async function deleteWeightConfig(id: string): Promise<void> {
+    return api.delete<void>(`/api/v1/assessments/weight-configs/${id}`);
+}
+
 export async function createWeightConfig(
     payload: CreateWeightConfigPayload
 ): Promise<{ id: string }> {

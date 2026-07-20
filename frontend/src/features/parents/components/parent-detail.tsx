@@ -18,8 +18,24 @@ import { Input } from "@/components/ui/input";
 import { Trash2, Link2, UserPlus } from "lucide-react";
 
 import { StaticTable } from "@/components/shared/static-table";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
-import { useParentDetail, useUpdateParent, useUnlinkStudent } from "../hooks/use-parents";
+import {
+    useParentDetail,
+    useUpdateParent,
+    useUnlinkStudent,
+    useDeleteParent,
+} from "../hooks/use-parents";
 import { LinkStudentDialog } from "./link-student-dialog";
 
 // ─── Props ─────────────────────────────────────────────────────────────────
@@ -55,6 +71,7 @@ export function ParentDetailView({ parentId, onBack }: ParentDetailViewProps) {
 
     const updateParent = useUpdateParent();
     const unlinkStudent = useUnlinkStudent();
+    const deleteMutation = useDeleteParent();
 
     const [linkDialogOpen, setLinkDialogOpen] = React.useState(false);
     const [editPhone, setEditPhone] = React.useState<string | null>(null);
@@ -199,6 +216,42 @@ export function ParentDetailView({ parentId, onBack }: ParentDetailViewProps) {
                             {detail.is_active ? "Active" : "Inactive"}
                         </Label>
                     </div>
+
+                    {/* Delete parent */}
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="outline" size="sm" className="text-destructive">
+                                <Trash2 className="mr-1.5 size-3.5" />
+                                Delete Parent
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Delete Parent</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    Are you sure you want to delete &ldquo;{detail.full_name}
+                                    &rdquo;? This action cannot be undone.
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                    variant="destructive"
+                                    onClick={async () => {
+                                        try {
+                                            await deleteMutation.mutateAsync(parentId);
+                                            onBack();
+                                        } catch {
+                                            // handled by hook onError
+                                        }
+                                    }}
+                                    disabled={deleteMutation.isPending}
+                                >
+                                    {deleteMutation.isPending ? "Deleting…" : "Delete"}
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
                 </div>
             </div>
 

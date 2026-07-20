@@ -139,6 +139,16 @@ export function useBulkSetScaleRanges() {
 // HOOKS — Assessment Sessions
 // ════════════════════════════════════════════════════════════════════════════
 
+/** Fetch grading data (roster + existing scores/grades) for a session. */
+export function useGradingData(sessionId: string) {
+    return useQuery({
+        queryKey: ["grading-data", sessionId],
+        queryFn: () => api.getGradingData(sessionId),
+        enabled: !!sessionId,
+        staleTime: STALE_TIMES.FREQUENT,
+    });
+}
+
 /** Fetch paginated assessment sessions. */
 export function useSessionList() {
     return useQuery({
@@ -212,6 +222,20 @@ export function useApproveSession() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: assessmentKeys.sessions.all });
             toast.success("Session approved and published.");
+        },
+        onError: (err) => toast.error(getErrorMessage(err)),
+    });
+}
+
+/** Delete a DRAFT session permanently. */
+export function useDeleteSession() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (id: string) => api.deleteSession(id),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: assessmentKeys.sessions.all });
+            toast.success("Session deleted");
         },
         onError: (err) => toast.error(getErrorMessage(err)),
     });
@@ -309,6 +333,19 @@ export function useWeightConfigList(params?: {
         queryKey: ["weight-configs", params],
         queryFn: () => api.listWeightConfigs(params),
         staleTime: 5 * 60 * 1000,
+    });
+}
+
+/** Delete a weight config. SYSTEM_ADMIN only. */
+export function useDeleteWeightConfig() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (id: string) => api.deleteWeightConfig(id),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["weight-configs"] });
+            toast.success("Weight configuration deleted.");
+        },
+        onError: (err) => toast.error(getErrorMessage(err)),
     });
 }
 

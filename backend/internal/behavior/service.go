@@ -115,6 +115,14 @@ func (s *Service) ListNotesByAuthor(ctx context.Context, tenantID, schoolID, aut
 	return &TeacherNotesResponse{Notes: notes}, nil
 }
 
+// DeleteNote hard-deletes a behavior note.
+func (s *Service) DeleteNote(ctx context.Context, id, tenantID string) error {
+	if id == "" {
+		return fmt.Errorf("behavior.Service.DeleteNote: note id is required: %w", ErrInvalidInput)
+	}
+	return s.repo.DeleteNote(ctx, id, tenantID)
+}
+
 // UpdateNote updates the description of a behavior note.
 func (s *Service) UpdateNote(ctx context.Context, id, tenantID string, description string) error {
 	if id == "" {

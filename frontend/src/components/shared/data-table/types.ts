@@ -134,6 +134,9 @@ export interface DataTableProps<TItem, TParams extends object, TResult> {
 
     // ─── Checkbox / Selection ────────────────────────────────────────
     isCheckable?: boolean;
+    /** Optional per-row checkable guard. When provided, disables the checkbox
+     *  for rows that return false. Only checked when isCheckable is true. */
+    isRowCheckable?: (row: TItem, index: number) => boolean;
 
     // ─── Delete ──────────────────────────────────────────────────────
     /** Mutation key for the delete mutation, tracked independently from the list query. */

@@ -53,6 +53,8 @@ export {
     useSubmitSession,
     useApproveSession,
     useRejectSession,
+    useDeleteSession,
+    useDeleteWeightConfig,
     useBulkUpsertScores,
     useBulkUpsertOutcomeGrades,
     useParentAssessments,

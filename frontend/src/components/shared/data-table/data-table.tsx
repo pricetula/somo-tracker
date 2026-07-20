@@ -42,6 +42,7 @@ export function DataTable<TItem, TParams extends object, TResult>({
     searchPlaceholder = "Search...",
     filterGroups,
     isCheckable,
+    isRowCheckable,
     deleteFn,
     deleteParams,
     addHref,
@@ -185,13 +186,21 @@ export function DataTable<TItem, TParams extends object, TResult>({
     const handleSelectAll = useCallback(
         (checked: boolean) => {
             if (checked) {
-                const ids = new Set(rows.map((row, i) => String(getRowId(row, i))));
+                const ids = new Set(
+                    rows
+                        .map((row, i) => ({
+                            id: String(getRowId(row, i)),
+                            checkable: isRowCheckable ? isRowCheckable(row, i) : true,
+                        }))
+                        .filter((x) => x.checkable)
+                        .map((x) => x.id)
+                );
                 setSelectedIds(ids);
             } else {
                 setSelectedIds(new Set());
             }
         },
-        [rows, getRowId]
+        [rows, getRowId, isRowCheckable]
     );
 
     const handleSelectRow = useCallback((id: string) => {
@@ -205,6 +214,11 @@ export function DataTable<TItem, TParams extends object, TResult>({
             return next;
         });
     }, []);
+
+    const isRowCheckableFn = useCallback(
+        (row: TItem, index: number) => (isRowCheckable ? isRowCheckable(row, index) : true),
+        [isRowCheckable]
+    );
 
     // ── Delete mutation ──────────────────────────────────────────────
     const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
@@ -265,8 +279,13 @@ export function DataTable<TItem, TParams extends object, TResult>({
 
     // ── Determine if "Check all" is checked / indeterminate ──────────
     const selectableRows = useMemo(
-        () => rows.filter((row, i) => !deletingIds.has(String(getRowId(row, i)))),
-        [rows, deletingIds, getRowId]
+        () =>
+            rows.filter((row, i) => {
+                if (deletingIds.has(String(getRowId(row, i)))) return false;
+                if (isRowCheckable && !isRowCheckable(row, i)) return false;
+                return true;
+            }),
+        [rows, deletingIds, getRowId, isRowCheckable]
     );
 
     const allSelected =
@@ -511,9 +530,18 @@ export function DataTable<TItem, TParams extends object, TResult>({
                                                                 <Checkbox
                                                                     checked={isChecked}
                                                                     onCheckedChange={() =>
-                                                                        handleSelectRow(rowId!)
+                                                                        isRowCheckableFn(
+                                                                            row,
+                                                                            virtualRow.index
+                                                                        ) && handleSelectRow(rowId!)
                                                                     }
-                                                                    disabled={isDeleting}
+                                                                    disabled={
+                                                                        isDeleting ||
+                                                                        !isRowCheckableFn(
+                                                                            row,
+                                                                            virtualRow.index
+                                                                        )
+                                                                    }
                                                                 />
                                                             </div>
                                                         )}

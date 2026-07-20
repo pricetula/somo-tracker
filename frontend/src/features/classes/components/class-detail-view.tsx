@@ -10,7 +10,8 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { GraduationCap } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { GraduationCap, Trash2 } from "lucide-react";
 
 import { getClass } from "@/lib/api/classes";
 import { STALE_TIMES } from "@/lib/query-config";
@@ -22,6 +23,19 @@ import {
 } from "@/features/academic-terms";
 import { ClassRoster } from "./class-roster";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { useDeleteClasses } from "../hooks/use-classes";
 
 // ─── Props ─────────────────────────────────────────────────────────────────
 
@@ -68,8 +82,10 @@ export function ClassDetailSkeleton() {
 // ─── Component ─────────────────────────────────────────────────────────────
 
 export function ClassDetailView({ classId }: ClassDetailViewProps) {
+    const router = useRouter();
     const { data: classData, isLoading, isError } = useClassDetail(classId);
     const { data: yearsData } = useAcademicYears();
+    const deleteMutation = useDeleteClasses();
     const { data: termsData } = useAcademicTerms();
 
     // Selected academic year and term (controlled comboboxes)
@@ -106,6 +122,40 @@ export function ClassDetailView({ classId }: ClassDetailViewProps) {
                     <GraduationCap className="text-muted-foreground h-5 w-5" />
                     <h1 className="text-lg font-semibold">{classData.display_label}</h1>
                 </div>
+                <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <Button variant="outline" size="sm" className="text-destructive">
+                            <Trash2 className="mr-1.5 size-3.5" />
+                            Delete
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Class</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Are you sure you want to delete &ldquo;
+                                {classData.display_label}&rdquo;? This action cannot be undone.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                                variant="destructive"
+                                onClick={async () => {
+                                    try {
+                                        await deleteMutation.mutateAsync([classId]);
+                                        router.push("/classes");
+                                    } catch {
+                                        // handled by hook onError
+                                    }
+                                }}
+                                disabled={deleteMutation.isPending}
+                            >
+                                {deleteMutation.isPending ? "Deleting…" : "Delete"}
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
             </header>
 
             {/* Academic year / term selector */}

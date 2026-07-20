@@ -64,6 +64,11 @@ export async function getClass(classId: string): Promise<Class> {
     return api.get<Class>(`/api/v1/classes/${classId}`);
 }
 
+/** Bulk delete classes. */
+export async function bulkDeleteClasses(ids: string[]): Promise<void> {
+    await api.delete("/api/v1/classes", { class_ids: ids });
+}
+
 /**
  * Create a new class.
  * POST /api/v1/classes

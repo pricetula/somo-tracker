@@ -22,6 +22,7 @@ import { StreamPill } from "@/features/settings-school";
 import { GradeLevelPill, getGradeLevelFilterSubmenu } from "@/features/grade-level";
 import { useStreamList } from "@/features/streams";
 import { useAcademicYears } from "@/features/academic-terms";
+import { useDeleteClasses } from "@/features/classes";
 
 // ─── Columns ──────────────────────────────────────────────────────────────
 
@@ -119,8 +120,11 @@ export default function ClassesPage() {
         ];
     }, [streamsData, academicYearsData]);
 
+    const deleteMutation = useDeleteClasses();
+
     return (
         <DataTable
+            isCheckable
             addHref="/classes/add"
             queryKey={["classes"]}
             queryFn={listClasses}
@@ -129,6 +133,7 @@ export default function ClassesPage() {
             isSearchable
             searchPlaceholder="Search by class name..."
             filterGroups={filterGroups}
+            deleteFn={(id) => deleteMutation.mutateAsync([String(id)])}
             emptyState="No classes yet."
             noResultsState="No classes match your search or filters."
         />

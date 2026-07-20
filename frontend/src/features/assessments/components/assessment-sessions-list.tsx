@@ -14,6 +14,7 @@ import type { DataTableColumn } from "@/components/shared/data-table/types";
 import type { FilterGroup } from "@/components/shared/data-table/types";
 
 import { listSessions, type AssessmentSession } from "@/lib/api/assessments";
+import { useDeleteSession } from "../hooks/use-assessments";
 import { StatusBadge } from "./status-badge";
 import { EVALUATION_METHOD_LABELS } from "../types";
 import { GradeLevelPill } from "@/features/grade-level";
@@ -123,8 +124,12 @@ const filterGroups: FilterGroup[] = [
 // ─── Component ────────────────────────────────────────────────────────────
 
 export function AssessmentSessionsList() {
+    const deleteMutation = useDeleteSession();
+
     return (
         <DataTable
+            isCheckable
+            isRowCheckable={(row) => row.status === "DRAFT"}
             addHref="/assessments/add"
             queryKey={["assessment-sessions"]}
             queryFn={listSessions}
@@ -133,6 +138,7 @@ export function AssessmentSessionsList() {
             isSearchable
             searchPlaceholder="Search by assessment name..."
             filterGroups={filterGroups}
+            deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
             emptyState="No assessment sessions yet."
             noResultsState="No sessions match your search or filters."
         />

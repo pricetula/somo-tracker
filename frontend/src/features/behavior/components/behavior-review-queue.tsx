@@ -25,7 +25,11 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, AlertTriangle } from "lucide-react";
 
-import { useBehaviorPendingQueue, useReviewBehaviorNote } from "../hooks/use-behavior";
+import {
+    useBehaviorPendingQueue,
+    useReviewBehaviorNote,
+    useDeleteBehaviorNote,
+} from "../hooks/use-behavior";
 import type { PendingNoteItem } from "@/lib/api/behavior";
 
 // ─── Student Cell with badges ─────────────────────────────────────────────
@@ -150,6 +154,7 @@ const columns: DataTableColumn<PendingNoteItem>[] = [
 
 export function BehaviorReviewQueue() {
     const { data, isError } = useBehaviorPendingQueue();
+    const deleteMutation = useDeleteBehaviorNote();
 
     if (isError) {
         return (
@@ -164,10 +169,12 @@ export function BehaviorReviewQueue() {
     return (
         <div className="space-y-4">
             <DataTable
+                isCheckable
                 queryKey={["behavior", "queue"]}
                 queryFn={() => Promise.resolve({ items: notes, total: notes.length })}
                 columns={columns}
                 getRowId={(row) => row.id}
+                deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
                 emptyState="No behavior notes waiting for review."
                 noResultsState="No notes match your search."
                 pageSize={50}

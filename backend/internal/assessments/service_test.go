@@ -137,6 +137,14 @@ func (m *mockRepo) GetPublishedSessionsForParent(ctx context.Context, tenantID, 
 	return nil, errors.New("not implemented in mock")
 }
 
+func (m *mockRepo) DeleteSession(ctx context.Context, id, tenantID, schoolID string) error {
+	return errors.New("not implemented in mock")
+}
+
+func (m *mockRepo) DeleteWeightConfig(ctx context.Context, id string) error {
+	return errors.New("not implemented in mock")
+}
+
 func (m *mockRepo) GetScaleRanges(ctx context.Context, profileID string) ([]ScaleRange, error) {
 	return nil, errors.New("not implemented in mock")
 }

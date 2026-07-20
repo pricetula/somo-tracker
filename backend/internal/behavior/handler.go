@@ -32,6 +32,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	notes.Get("/queue", middleware.RequireAuth, h.PendingQueue)
 	notes.Get("/:id", middleware.RequireAuth, h.GetNote)
 	notes.Put("/:id", middleware.RequireAuth, h.UpdateNote)
+	notes.Delete("/:id", middleware.RequireAuth, h.DeleteNote)
 	notes.Post("/:id/review", middleware.RequireAuth, h.ReviewNote)
 }
 
@@ -252,6 +253,21 @@ func (h *Handler) UpdateNote(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"message": "Behavior note updated",
 	})
+}
+
+// DeleteNote handles DELETE /api/v1/behavior/notes/:id.
+func (h *Handler) DeleteNote(c *fiber.Ctx) error {
+	tenantID, _, err := h.behMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	id := c.Params("id")
+	if err := h.svc.DeleteNote(c.Context(), id, tenantID); err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.SendStatus(fiber.StatusNoContent)
 }
 
 // ReviewNote handles POST /api/v1/behavior/notes/:id/review.

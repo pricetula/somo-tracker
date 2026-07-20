@@ -67,6 +67,7 @@ type Repository interface {
 	GetSessionStatusAndTerm(ctx context.Context, id, tenantID string) (status, termID string, err error)
 	ListSessions(ctx context.Context, tenantID, schoolID string, filters SessionFilters) ([]AssessmentSession, int, error)
 	UpdateSessionStatus(ctx context.Context, id, tenantID, schoolID string, status string, rejectionComment *string, approvedBy *string) error
+	DeleteSession(ctx context.Context, id, tenantID, schoolID string) error
 	HasScoresForSession(ctx context.Context, sessionID string) (bool, error)
 	CountSessionsReferencingScale(ctx context.Context, profileID string) (int, error)
 
@@ -90,6 +91,7 @@ type Repository interface {
 	CreateWeightConfig(ctx context.Context, params CreateWeightConfigParams) (string, error)
 	ListWeightConfigs(ctx context.Context, filter AssessmentWeightConfigFilter) ([]AssessmentWeightConfig, error)
 	GetWeightConfigByID(ctx context.Context, id string) (*AssessmentWeightConfig, error)
+	DeleteWeightConfig(ctx context.Context, id string) error
 }
 
 // ── Domain Models ────────────────────────────────────────────────────────

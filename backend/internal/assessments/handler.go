@@ -36,6 +36,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	sessions.Post("/", middleware.RequireAuth, h.CreateSession)
 	sessions.Get("/", middleware.RequireAuth, h.ListSessions)
 	sessions.Get("/:id", middleware.RequireAuth, h.GetSession)
+	sessions.Delete("/:id", middleware.RequireAuth, h.DeleteSession)
 
 	// Grading Data: returns session + roster + scores/grades in one call
 	sessions.Get("/:id/grading-data", middleware.RequireAuth, h.GetGradingData)
@@ -62,6 +63,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	wcfg.Get("/", middleware.RequireAuth, h.ListWeightConfigs)
 	wcfg.Get("/:id", middleware.RequireAuth, h.GetWeightConfig)
 	wcfg.Post("/", middleware.RequireAuth, middleware.RequireRole("SYSTEM_ADMIN"), h.CreateWeightConfig)
+	wcfg.Delete("/:id", middleware.RequireAuth, middleware.RequireRole("SYSTEM_ADMIN"), h.DeleteWeightConfig)
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────
@@ -692,6 +694,34 @@ func (h *Handler) ListSessions(c *fiber.Ctx) error {
 }
 
 // ---------------------------------------------------------------------------
+// DeleteSession — DELETE /api/v1/assessments/sessions/:id
+//
+// Permanently deletes a DRAFT assessment session and all its scores/grades.
+// Sessions in PENDING_APPROVAL or PUBLISHED status cannot be deleted.
+//
+// Response (204 No Content).
+//
+// Errors:
+//   - 401: authentication required
+//   - 404: session not found
+//   - 409: session is not in DRAFT status
+//
+// ---------------------------------------------------------------------------
+func (h *Handler) DeleteSession(c *fiber.Ctx) error {
+	tenantID, schoolID, err := getTenantAndSchool(c)
+	if err != nil {
+		return err
+	}
+
+	id := c.Params("id")
+	if err := h.svc.DeleteSession(c.Context(), id, tenantID, schoolID); err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+// ---------------------------------------------------------------------------
 // SubmitSession — POST /api/v1/assessments/sessions/:id/submit
 //
 // Transitions a session from DRAFT → PENDING_APPROVAL. This locks the session
@@ -1277,6 +1307,24 @@ func (h *Handler) ListWeightConfigs(c *fiber.Ctx) error {
 		return middleware.HTTPError(c, err)
 	}
 	return c.JSON(result)
+}
+
+// DeleteWeightConfig handles DELETE /api/v1/assessments/weight-configs/:id.
+// SYSTEM_ADMIN only.
+func (h *Handler) DeleteWeightConfig(c *fiber.Ctx) error {
+	id := c.Params("id")
+	if id == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "id is required",
+		})
+	}
+
+	if err := h.svc.DeleteWeightConfig(c.Context(), id); err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.SendStatus(fiber.StatusNoContent)
 }
 
 // GetWeightConfig handles GET /api/v1/assessments/weight-configs/:id.

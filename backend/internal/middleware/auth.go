@@ -40,13 +40,10 @@ func RequireAuth(c *fiber.Ctx) error {
 //	router.Patch("/:id", middleware.RequireRole("SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.PatchYear)
 func RequireRole(roles ...string) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		if err := RequireAuth(c); err != nil {
-			return HTTPError(c, err)
-		}
 		if len(roles) > 0 {
 			role, ok := c.Locals("role").(string)
 			if !ok || !hasRole(role, roles) {
-				return HTTPError(c, ErrForbidden)
+				return ErrForbidden
 			}
 		}
 		return c.Next()

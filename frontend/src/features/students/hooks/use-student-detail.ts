@@ -17,11 +17,9 @@ import {
     type StudentDetailResponse,
     type CreateStudentPayload,
     type CreateStudentsPayload,
-    type CreateStudentsResponse,
     type UpdateStudentPayload,
     type CreateEnrollmentPayload,
     type BatchEnrollRequest,
-    type BatchEnrollResponse,
 } from "@/lib/api/students";
 import { studentKeys } from "./use-students";
 import { getErrorMessage } from "@/lib/errors";
@@ -48,99 +46,166 @@ export function useStudentDetail(id: string, opts: { enabled?: boolean } = {}) {
 
 // ─── Mutations: Create (single) ───────────────────────────────────────────
 
-/** Create a single student (convenience wrapper around batch). */
+/** Create a single student with optimistic update. */
 export function useCreateStudent() {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: (data: CreateStudentPayload) => createStudent(data),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: studentKeys.all });
-            toast.success("Student created");
+        onMutate: async () => {
+            await queryClient.cancelQueries({ queryKey: studentKeys.all });
+            const previousQueries = queryClient.getQueriesData({
+                queryKey: studentKeys.all,
+            });
+            return { previousQueries };
         },
-        onError: (err) => {
+        onError: (err, _data, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
             toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: studentKeys.all });
         },
     });
 }
 
 // ─── Mutations: Batch Create ──────────────────────────────────────────────
 
-/** Create multiple students in one request (batch). */
+/** Create multiple students in one request (batch) with optimistic update. */
 export function useCreateStudents() {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: (data: CreateStudentsPayload) => createStudents(data),
-        onSuccess: (result: CreateStudentsResponse) => {
-            queryClient.invalidateQueries({ queryKey: studentKeys.all });
-            toast.success(
-                `${result.ids.length} student${result.ids.length === 1 ? "" : "s"} created`
-            );
+        onMutate: async () => {
+            await queryClient.cancelQueries({ queryKey: studentKeys.all });
+            const previousQueries = queryClient.getQueriesData({
+                queryKey: studentKeys.all,
+            });
+            return { previousQueries };
         },
-        onError: (err) => {
+        onError: (err, _data, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
             toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: studentKeys.all });
         },
     });
 }
 
 // ─── Mutations: Update ────────────────────────────────────────────────────
 
-/** Update a student's demographics. */
+/** Update a student's demographics with optimistic update. */
 export function useUpdateStudent() {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: ({ id, data }: { id: string; data: UpdateStudentPayload }) =>
             updateStudent(id, data),
-        onSuccess: (_, variables) => {
+        onMutate: async ({ id, data }) => {
+            await queryClient.cancelQueries({ queryKey: studentKeys.all });
+            const previousQueries = queryClient.getQueriesData({
+                queryKey: studentKeys.all,
+            });
+
+            queryClient.setQueriesData(
+                { queryKey: studentKeys.all },
+                (old: { items: { id: string }[] } | undefined) => {
+                    if (!old) return old;
+                    return {
+                        ...old,
+                        items: old.items.map((item) =>
+                            item.id === id ? { ...item, ...data } : item
+                        ),
+                    };
+                }
+            );
+
+            return { previousQueries };
+        },
+        onError: (err, _vars, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
+            toast.error(getErrorMessage(err));
+        },
+        onSettled: (_data, _err, variables) => {
             queryClient.invalidateQueries({ queryKey: studentKeys.all });
             queryClient.invalidateQueries({
                 queryKey: studentDetailKeys.detail(variables.id),
             });
-            toast.success("Student updated");
-        },
-        onError: (err) => {
-            toast.error(getErrorMessage(err));
         },
     });
 }
 
 // ─── Mutations: Enrollments ───────────────────────────────────────────────
 
-/** Enroll a student in a class for a term. */
+/** Enroll a student in a class for a term with optimistic update. */
 export function useCreateEnrollment() {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: ({ studentId, data }: { studentId: string; data: CreateEnrollmentPayload }) =>
             createEnrollment(studentId, data),
-        onSuccess: (_, variables) => {
+        onMutate: async ({ studentId }) => {
+            await queryClient.cancelQueries({
+                queryKey: studentDetailKeys.detail(studentId),
+            });
+            const previousQueries = queryClient.getQueriesData({
+                queryKey: studentDetailKeys.detail(studentId),
+            });
+            return { previousQueries };
+        },
+        onError: (err, _vars, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
+            toast.error(getErrorMessage(err));
+        },
+        onSettled: (_data, _err, variables) => {
             queryClient.invalidateQueries({
                 queryKey: studentDetailKeys.detail(variables.studentId),
             });
-            toast.success("Student enrolled");
-        },
-        onError: (err) => {
-            toast.error(getErrorMessage(err));
         },
     });
 }
 
-/** Batch enroll multiple students in a class for the current academic term. */
+/** Batch enroll multiple students with optimistic update. */
 export function useBatchEnrollStudents() {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: (data: BatchEnrollRequest) => batchEnrollStudents(data),
-        onSuccess: (result: BatchEnrollResponse) => {
-            queryClient.invalidateQueries({ queryKey: ["students"] });
-            toast.success(
-                `${result.ids.length} student${result.ids.length === 1 ? "" : "s"} enrolled`
-            );
+        onMutate: async () => {
+            await queryClient.cancelQueries({ queryKey: studentKeys.all });
+            const previousQueries = queryClient.getQueriesData({
+                queryKey: studentKeys.all,
+            });
+            return { previousQueries };
         },
-        onError: (err) => {
+        onError: (err, _data, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
             toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: studentKeys.all });
         },
     });
 }

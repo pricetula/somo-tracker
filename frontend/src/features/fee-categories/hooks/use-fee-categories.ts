@@ -42,11 +42,24 @@ export function useCreateFeeCategory() {
 
     return useMutation({
         mutationFn: (payload: CreateFeeCategoryPayload) => createFeeCategory(payload),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: feeCategoryKeys.all });
-            toast.success("Fee category created");
+        onMutate: async () => {
+            await queryClient.cancelQueries({ queryKey: feeCategoryKeys.all });
+            const previousQueries = queryClient.getQueriesData({
+                queryKey: feeCategoryKeys.all,
+            });
+            return { previousQueries };
         },
-        onError: (err) => toast.error(getErrorMessage(err)),
+        onError: (err, _payload, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
+            toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: feeCategoryKeys.all });
+        },
     });
 }
 
@@ -56,11 +69,38 @@ export function useUpdateFeeCategory() {
     return useMutation({
         mutationFn: ({ id, payload }: { id: string; payload: UpdateFeeCategoryPayload }) =>
             updateFeeCategory(id, payload),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: feeCategoryKeys.all });
-            toast.success("Fee category updated");
+        onMutate: async ({ id, payload }) => {
+            await queryClient.cancelQueries({ queryKey: feeCategoryKeys.all });
+            const previousQueries = queryClient.getQueriesData<{ items: { id: string }[] }>({
+                queryKey: feeCategoryKeys.all,
+            });
+
+            queryClient.setQueriesData<{ items: { id: string }[] }>(
+                { queryKey: feeCategoryKeys.all },
+                (old) => {
+                    if (!old) return old;
+                    return {
+                        ...old,
+                        items: old.items.map((item) =>
+                            item.id === id ? { ...item, ...payload } : item
+                        ),
+                    };
+                }
+            );
+
+            return { previousQueries };
         },
-        onError: (err) => toast.error(getErrorMessage(err)),
+        onError: (err, _vars, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
+            toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: feeCategoryKeys.all });
+        },
     });
 }
 
@@ -69,10 +109,35 @@ export function useDeleteFeeCategory() {
 
     return useMutation({
         mutationFn: (id: string) => deleteFeeCategory(id),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: feeCategoryKeys.all });
-            toast.success("Fee category deleted");
+        onMutate: async (id) => {
+            await queryClient.cancelQueries({ queryKey: feeCategoryKeys.all });
+            const previousQueries = queryClient.getQueriesData<{ items: { id: string }[] }>({
+                queryKey: feeCategoryKeys.all,
+            });
+
+            queryClient.setQueriesData<{ items: { id: string }[] }>(
+                { queryKey: feeCategoryKeys.all },
+                (old) => {
+                    if (!old) return old;
+                    return {
+                        ...old,
+                        items: old.items.filter((item) => item.id !== id),
+                    };
+                }
+            );
+
+            return { previousQueries };
         },
-        onError: (err) => toast.error(getErrorMessage(err)),
+        onError: (err, _id, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
+            toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: feeCategoryKeys.all });
+        },
     });
 }

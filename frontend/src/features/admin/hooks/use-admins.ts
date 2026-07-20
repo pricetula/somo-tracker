@@ -56,33 +56,75 @@ export function useAdminDetail(userId: string | undefined) {
     });
 }
 
-/** Update an admin's profile. */
+/** Update an admin's profile with optimistic update. */
 export function useUpdateAdmin() {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: ({ userId, payload }: { userId: string; payload: { full_name?: string } }) =>
             updateMember(userId, payload as { full_name: string }),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: adminsKeys.all });
-            toast.success("Admin updated");
+        onMutate: async ({ userId, payload }) => {
+            await queryClient.cancelQueries({ queryKey: adminsKeys.all });
+            const previousQueries = queryClient.getQueriesData<ListMembersResponse>({
+                queryKey: adminsKeys.all,
+            });
+
+            queryClient.setQueriesData<ListMembersResponse>({ queryKey: adminsKeys.all }, (old) => {
+                if (!old) return old;
+                return {
+                    ...old,
+                    items: old.items.map((m) => (m.id === userId ? { ...m, ...payload } : m)),
+                };
+            });
+
+            return { previousQueries };
         },
-        onError: (err) => toast.error(getErrorMessage(err)),
+        onError: (err, _vars, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
+            toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: adminsKeys.all });
+        },
     });
 }
 
-/** Hard-delete an admin member. */
+/** Hard-delete an admin member with optimistic removal. */
 export function useDeleteAdmin() {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: (userId: string) => deleteAdmin(userId),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: adminsKeys.all });
-            toast.success("Admin deleted");
+        onMutate: async (userId) => {
+            await queryClient.cancelQueries({ queryKey: adminsKeys.all });
+            const previousQueries = queryClient.getQueriesData<ListMembersResponse>({
+                queryKey: adminsKeys.all,
+            });
+
+            queryClient.setQueriesData<ListMembersResponse>({ queryKey: adminsKeys.all }, (old) => {
+                if (!old) return old;
+                return {
+                    ...old,
+                    items: old.items.filter((item) => item.id !== userId),
+                };
+            });
+
+            return { previousQueries };
         },
-        onError: (err) => {
+        onError: (err, _userId, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
             toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: adminsKeys.all });
         },
     });
 }

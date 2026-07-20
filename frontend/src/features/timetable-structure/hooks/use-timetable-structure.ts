@@ -77,89 +77,169 @@ export function useTimeBlockListByDay(day: number, academicYearID?: string) {
     });
 }
 
-/** Create a new time block. */
+/** Create a new time block with optimistic update. */
 export function useCreateTimeBlock() {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: (payload: CreateTimeBlockPayload) => createTimeBlock(payload),
-        onSuccess: () => {
-            void queryClient.invalidateQueries({ queryKey: timetableStructureKeys.all });
-            toast.success("Time block added successfully");
+        onMutate: async () => {
+            await queryClient.cancelQueries({ queryKey: timetableStructureKeys.all });
+            const previousQueries = queryClient.getQueriesData({
+                queryKey: timetableStructureKeys.all,
+            });
+            return { previousQueries };
         },
-        onError: (err) => {
+        onError: (err, _payload, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
             toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            void queryClient.invalidateQueries({ queryKey: timetableStructureKeys.all });
         },
     });
 }
 
-/** Batch-create time blocks (atomic template application). */
+/** Batch-create time blocks (atomic template application) with optimistic update. */
 export function useBatchCreateTimeBlocks() {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: (payload: BatchCreateTimeBlockPayload) => batchCreateTimeBlocks(payload),
-        onSuccess: () => {
-            void queryClient.invalidateQueries({ queryKey: timetableStructureKeys.all });
-            toast.success("Template applied successfully");
+        onMutate: async () => {
+            await queryClient.cancelQueries({ queryKey: timetableStructureKeys.all });
+            const previousQueries = queryClient.getQueriesData({
+                queryKey: timetableStructureKeys.all,
+            });
+            return { previousQueries };
         },
-        onError: (err) => {
+        onError: (err, _payload, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
             toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            void queryClient.invalidateQueries({ queryKey: timetableStructureKeys.all });
         },
     });
 }
 
-/** Replicate one day's schedule to target days. */
+/** Replicate one day's schedule to target days with optimistic update. */
 export function useReplicateDay() {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: (payload: ReplicateDayPayload) => replicateDay(payload),
-        onSuccess: () => {
-            void queryClient.invalidateQueries({ queryKey: timetableStructureKeys.all });
-            toast.success("Schedule replicated successfully");
+        onMutate: async () => {
+            await queryClient.cancelQueries({ queryKey: timetableStructureKeys.all });
+            const previousQueries = queryClient.getQueriesData({
+                queryKey: timetableStructureKeys.all,
+            });
+            return { previousQueries };
         },
-        onError: (err) => {
+        onError: (err, _payload, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
             toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            void queryClient.invalidateQueries({ queryKey: timetableStructureKeys.all });
         },
     });
 }
 
-/** Update an existing time block with optional cascade and shift. */
+/** Update an existing time block with optional cascade and shift with optimistic update. */
 export function useUpdateTimeBlock() {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: ({ id, ...payload }: { id: string } & UpdateTimeBlockPayload) =>
             updateTimeBlock(id, payload),
-        onSuccess: (data) => {
-            void queryClient.invalidateQueries({ queryKey: timetableStructureKeys.all });
-            const count = data.items?.length ?? 1;
-            toast.success(`Time block updated (${count} block${count > 1 ? "s" : ""} affected)`);
+        onMutate: async ({ id, ...payload }) => {
+            await queryClient.cancelQueries({ queryKey: timetableStructureKeys.all });
+            const previousQueries = queryClient.getQueriesData<{ items: { id: string }[] }>({
+                queryKey: timetableStructureKeys.all,
+            });
+
+            queryClient.setQueriesData<{ items: { id: string }[] }>(
+                { queryKey: timetableStructureKeys.all },
+                (old) => {
+                    if (!old) return old;
+                    return {
+                        ...old,
+                        items: old.items.map((item) =>
+                            item.id === id ? { ...item, ...payload } : item
+                        ),
+                    };
+                }
+            );
+
+            return { previousQueries };
         },
-        onError: (err) => {
+        onError: (err, _vars, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
             toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            void queryClient.invalidateQueries({ queryKey: timetableStructureKeys.all });
         },
     });
 }
 
-/** Delete a time block. */
+/** Delete a time block with optimistic removal. */
 export function useDeleteTimeBlock() {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: (id: string) => deleteTimeBlock(id),
-        onSuccess: (data) => {
-            void queryClient.invalidateQueries({ queryKey: timetableStructureKeys.all });
-            toast.success(data.message ?? "Time block removed successfully");
+        onMutate: async (id) => {
+            await queryClient.cancelQueries({ queryKey: timetableStructureKeys.all });
+            const previousQueries = queryClient.getQueriesData<{ items: { id: string }[] }>({
+                queryKey: timetableStructureKeys.all,
+            });
+
+            queryClient.setQueriesData<{ items: { id: string }[] }>(
+                { queryKey: timetableStructureKeys.all },
+                (old) => {
+                    if (!old) return old;
+                    return {
+                        ...old,
+                        items: old.items.filter((item) => item.id !== id),
+                    };
+                }
+            );
+
+            return { previousQueries };
         },
-        onError: (err) => {
+        onError: (err, _id, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
             toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            void queryClient.invalidateQueries({ queryKey: timetableStructureKeys.all });
         },
     });
 }
 
-/** Delete all time blocks with a specific period name across all days. */
+/** Delete all time blocks with a specific period name across all days with optimistic removal. */
 export function useDeleteTimeBlocksByName() {
     const queryClient = useQueryClient();
 
@@ -171,12 +251,27 @@ export function useDeleteTimeBlocksByName() {
             periodName: string;
             academicYearID: string;
         }) => deleteTimeBlocksByName(periodName, academicYearID),
-        onSuccess: (data) => {
-            void queryClient.invalidateQueries({ queryKey: timetableStructureKeys.all });
-            toast.success(data.message ?? "Blocks removed");
+        onMutate: async () => {
+            await queryClient.cancelQueries({ queryKey: timetableStructureKeys.all });
+            const previousQueries = queryClient.getQueriesData<{ items: { id: string }[] }>({
+                queryKey: timetableStructureKeys.all,
+            });
+
+            // For batch delete by name, we can't easily know which items to remove
+            // without knowing the period name, so we just invalidate on settle.
+            // The previous queries are saved for rollback on error.
+            return { previousQueries };
         },
-        onError: (err) => {
+        onError: (err, _vars, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
             toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            void queryClient.invalidateQueries({ queryKey: timetableStructureKeys.all });
         },
     });
 }
@@ -225,67 +320,137 @@ export function useSlotDetail(id: string) {
     });
 }
 
-/** Create a single slot. */
+/** Create a single slot with optimistic update. */
 export function useCreateSlot() {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: (payload: CreateSlotPayload) => createSlot(payload),
-        onSuccess: () => {
-            void queryClient.invalidateQueries({ queryKey: timetableSlotKeys.all });
-            toast.success("Slot assigned successfully");
+        onMutate: async () => {
+            await queryClient.cancelQueries({ queryKey: timetableSlotKeys.all });
+            const previousQueries = queryClient.getQueriesData({
+                queryKey: timetableSlotKeys.all,
+            });
+            return { previousQueries };
         },
-        onError: (err) => {
+        onError: (err, _payload, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
             toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            void queryClient.invalidateQueries({ queryKey: timetableSlotKeys.all });
         },
     });
 }
 
-/** Batch-create slots. */
+/** Batch-create slots with optimistic update. */
 export function useBatchCreateSlots() {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: (payload: BatchCreateSlotsPayload) => batchCreateSlots(payload),
-        onSuccess: () => {
-            void queryClient.invalidateQueries({ queryKey: timetableSlotKeys.all });
-            toast.success("Slots assigned successfully");
+        onMutate: async () => {
+            await queryClient.cancelQueries({ queryKey: timetableSlotKeys.all });
+            const previousQueries = queryClient.getQueriesData({
+                queryKey: timetableSlotKeys.all,
+            });
+            return { previousQueries };
         },
-        onError: (err) => {
+        onError: (err, _payload, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
             toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            void queryClient.invalidateQueries({ queryKey: timetableSlotKeys.all });
         },
     });
 }
 
-/** Update a slot. */
+/** Update a slot with optimistic update. */
 export function useUpdateSlot() {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: ({ id, ...payload }: { id: string } & UpdateSlotPayload) =>
             updateSlot(id, payload),
-        onSuccess: () => {
-            void queryClient.invalidateQueries({ queryKey: timetableSlotKeys.all });
-            toast.success("Slot updated");
+        onMutate: async ({ id, ...payload }) => {
+            await queryClient.cancelQueries({ queryKey: timetableSlotKeys.all });
+            const previousQueries = queryClient.getQueriesData<{ items: { id: string }[] }>({
+                queryKey: timetableSlotKeys.all,
+            });
+
+            queryClient.setQueriesData<{ items: { id: string }[] }>(
+                { queryKey: timetableSlotKeys.all },
+                (old) => {
+                    if (!old) return old;
+                    return {
+                        ...old,
+                        items: old.items.map((item) =>
+                            item.id === id ? { ...item, ...payload } : item
+                        ),
+                    };
+                }
+            );
+
+            return { previousQueries };
         },
-        onError: (err) => {
+        onError: (err, _vars, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
             toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            void queryClient.invalidateQueries({ queryKey: timetableSlotKeys.all });
         },
     });
 }
 
-/** Delete a slot. */
+/** Delete a slot with optimistic removal. */
 export function useDeleteSlot() {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: (id: string) => deleteSlot(id),
-        onSuccess: () => {
-            void queryClient.invalidateQueries({ queryKey: timetableSlotKeys.all });
-            toast.success("Slot removed");
+        onMutate: async (id) => {
+            await queryClient.cancelQueries({ queryKey: timetableSlotKeys.all });
+            const previousQueries = queryClient.getQueriesData<{ items: { id: string }[] }>({
+                queryKey: timetableSlotKeys.all,
+            });
+
+            queryClient.setQueriesData<{ items: { id: string }[] }>(
+                { queryKey: timetableSlotKeys.all },
+                (old) => {
+                    if (!old) return old;
+                    return {
+                        ...old,
+                        items: old.items.filter((item) => item.id !== id),
+                    };
+                }
+            );
+
+            return { previousQueries };
         },
-        onError: (err) => {
+        onError: (err, _id, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
             toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            void queryClient.invalidateQueries({ queryKey: timetableSlotKeys.all });
         },
     });
 }

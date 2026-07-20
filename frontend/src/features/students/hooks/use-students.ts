@@ -73,18 +73,41 @@ export function useStudentMap() {
     });
 }
 
-/** Hard-delete a student. */
+/** Hard-delete a student with optimistic removal. */
 export function useDeleteStudent() {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: (id: string) => deleteStudent(id),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: studentKeys.all });
-            toast.success("Student deleted");
+        onMutate: async (id) => {
+            await queryClient.cancelQueries({ queryKey: studentKeys.all });
+            const previousQueries = queryClient.getQueriesData<ListStudentsResponse>({
+                queryKey: studentKeys.all,
+            });
+
+            queryClient.setQueriesData<ListStudentsResponse>(
+                { queryKey: studentKeys.all },
+                (old) => {
+                    if (!old) return old;
+                    return {
+                        ...old,
+                        items: old.items.filter((item) => item.id !== id),
+                    };
+                }
+            );
+
+            return { previousQueries };
         },
-        onError: (err) => {
+        onError: (err, _id, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
             toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: studentKeys.all });
         },
     });
 }

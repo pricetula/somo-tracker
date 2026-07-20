@@ -4,6 +4,8 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+
 import {
     createClassTeacher,
     deleteClassTeacher,
@@ -11,6 +13,7 @@ import {
     listClassTeachersByClass,
     listClassTeachersByTeacher,
 } from "@/lib/api/classteachers";
+import { getErrorMessage } from "@/lib/errors";
 import type { CreateClassTeacherPayload } from "@/lib/api/classteachers";
 
 // ─── Query Keys ───────────────────────────────────────────────────────────
@@ -53,23 +56,65 @@ export function useClassTeacher(id: string) {
 
 // ─── Mutations ────────────────────────────────────────────────────────────
 
-/** Assign a teacher to a class. */
+/** Assign a teacher to a class with optimistic update. */
 export function useCreateClassTeacher() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: (data: CreateClassTeacherPayload) => createClassTeacher(data),
-        onSuccess: () => {
+        onMutate: async () => {
+            await queryClient.cancelQueries({ queryKey: classTeacherKeys.all });
+            const previousQueries = queryClient.getQueriesData({
+                queryKey: classTeacherKeys.all,
+            });
+            return { previousQueries };
+        },
+        onError: (err, _data, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
+            toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
             queryClient.invalidateQueries({ queryKey: classTeacherKeys.all });
         },
     });
 }
 
-/** Remove a class teacher assignment. */
+/** Remove a class teacher assignment with optimistic removal. */
 export function useDeleteClassTeacher() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: (id: string) => deleteClassTeacher(id),
-        onSuccess: () => {
+        onMutate: async (id) => {
+            await queryClient.cancelQueries({ queryKey: classTeacherKeys.all });
+            const previousQueries = queryClient.getQueriesData<{ items: { id: string }[] }>({
+                queryKey: classTeacherKeys.all,
+            });
+
+            queryClient.setQueriesData<{ items: { id: string }[] }>(
+                { queryKey: classTeacherKeys.all },
+                (old) => {
+                    if (!old) return old;
+                    return {
+                        ...old,
+                        items: old.items.filter((item) => item.id !== id),
+                    };
+                }
+            );
+
+            return { previousQueries };
+        },
+        onError: (err, _id, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
+            toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
             queryClient.invalidateQueries({ queryKey: classTeacherKeys.all });
         },
     });

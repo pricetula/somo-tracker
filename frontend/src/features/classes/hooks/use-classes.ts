@@ -44,18 +44,39 @@ export function useClassList() {
     });
 }
 
-/** Bulk delete classes. */
+/** Bulk delete classes with optimistic removal. */
 export function useDeleteClasses() {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: (ids: string[]) => bulkDeleteClasses(ids),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: classKeys.all });
-            toast.success("Classes deleted");
+        onMutate: async (ids) => {
+            const idSet = new Set(ids);
+            await queryClient.cancelQueries({ queryKey: classKeys.all });
+            const previousQueries = queryClient.getQueriesData<{ items: Class[] }>({
+                queryKey: classKeys.all,
+            });
+
+            queryClient.setQueriesData<{ items: Class[] }>({ queryKey: classKeys.all }, (old) => {
+                if (!old) return old;
+                return {
+                    ...old,
+                    items: old.items.filter((item) => !idSet.has(item.id)),
+                };
+            });
+
+            return { previousQueries };
         },
-        onError: (err) => {
+        onError: (err, _ids, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
             toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: classKeys.all });
         },
     });
 }

@@ -43,69 +43,137 @@ export function useSchools(opts: { enabled?: boolean } = {}) {
 
 // ─── Mutations ────────────────────────────────────────────────────────────
 
-/** Switch the user's active school. Invalidates the me query to refresh cookies. */
+/** Switch the user's active school with optimistic update. Invalidates the me query to refresh cookies. */
 export function useSetActiveSchool() {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: (schoolId: string) => setActiveSchool(schoolId),
-        onSuccess: () => {
-            // Invalidate the me query so it re-fetches with the updated
-            // somo_school_id cookie and refreshes the active school info.
-            queryClient.invalidateQueries({ queryKey: authKeys.me });
-            queryClient.invalidateQueries({ queryKey: schoolKeys.list() });
-            toast.success("School switched");
+        onMutate: async () => {
+            await queryClient.cancelQueries({ queryKey: authKeys.me });
+            await queryClient.cancelQueries({ queryKey: schoolKeys.all });
+            const prevAuth = queryClient.getQueriesData({
+                queryKey: authKeys.me,
+            });
+            const prevSchool = queryClient.getQueriesData({
+                queryKey: schoolKeys.all,
+            });
+            return { previousQueries: [...prevAuth, ...prevSchool] };
         },
-        onError: (err) => {
+        onError: (err, _schoolId, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
             toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: authKeys.me });
+            queryClient.invalidateQueries({ queryKey: schoolKeys.all });
         },
     });
 }
 
-/** Update a school's details. */
+/** Update a school's details with optimistic update. */
 export function useUpdateSchool() {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: ({ id, payload }: { id: string; payload: { name?: string; code?: string } }) =>
             updateSchool(id, payload),
-        onSuccess: () => {
+        onMutate: async ({ id, payload }) => {
+            await queryClient.cancelQueries({ queryKey: schoolKeys.all });
+            const previousQueries = queryClient.getQueriesData<ListSchoolsResponse>({
+                queryKey: schoolKeys.all,
+            });
+
+            queryClient.setQueriesData<ListSchoolsResponse>({ queryKey: schoolKeys.all }, (old) => {
+                if (!old) return old;
+                return {
+                    ...old,
+                    items: old.items.map((s) => (s.id === id ? { ...s, ...payload } : s)),
+                };
+            });
+
+            return { previousQueries };
+        },
+        onError: (err, _vars, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
+            toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
             queryClient.invalidateQueries({ queryKey: schoolKeys.all });
             queryClient.invalidateQueries({ queryKey: authKeys.me });
-            toast.success("School updated");
         },
-        onError: (err) => toast.error(getErrorMessage(err)),
     });
 }
 
-/** Delete a school. */
+/** Delete a school with optimistic removal. */
 export function useDeleteSchool() {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: (id: string) => deleteSchool(id),
-        onSuccess: () => {
+        onMutate: async (id) => {
+            await queryClient.cancelQueries({ queryKey: schoolKeys.all });
+            const previousQueries = queryClient.getQueriesData<ListSchoolsResponse>({
+                queryKey: schoolKeys.all,
+            });
+
+            queryClient.setQueriesData<ListSchoolsResponse>({ queryKey: schoolKeys.all }, (old) => {
+                if (!old) return old;
+                return {
+                    ...old,
+                    items: old.items.filter((item) => item.id !== id),
+                };
+            });
+
+            return { previousQueries };
+        },
+        onError: (err, _id, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
+            toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
             queryClient.invalidateQueries({ queryKey: schoolKeys.all });
             queryClient.invalidateQueries({ queryKey: authKeys.me });
-            toast.success("School deleted");
         },
-        onError: (err) => toast.error(getErrorMessage(err)),
     });
 }
 
-/** Create a new school. Invalidates both the schools list and the me query. */
+/** Create a new school with optimistic update. Invalidates both the schools list and the me query. */
 export function useCreateSchool() {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: (data: CreateSchoolPayload) => createSchool(data),
-        onSuccess: () => {
+        onMutate: async () => {
+            await queryClient.cancelQueries({ queryKey: schoolKeys.all });
+            const previousQueries = queryClient.getQueriesData({
+                queryKey: schoolKeys.all,
+            });
+            return { previousQueries };
+        },
+        onError: (err, _data, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
+            toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
             queryClient.invalidateQueries({ queryKey: schoolKeys.all });
             queryClient.invalidateQueries({ queryKey: authKeys.me });
-            toast.success("School created");
-        },
-        onError: (err) => {
-            toast.error(getErrorMessage(err));
         },
     });
 }

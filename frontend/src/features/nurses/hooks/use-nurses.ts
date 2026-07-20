@@ -81,33 +81,75 @@ export function useNurseDetail(userId: string | undefined) {
     });
 }
 
-/** Update a nurse's profile (uses generic members API). */
+/** Update a nurse's profile (uses generic members API) with optimistic update. */
 export function useUpdateNurse() {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: ({ userId, payload }: { userId: string; payload: { full_name?: string } }) =>
             updateMember(userId, payload as { full_name: string }),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: nursesKeys.all });
-            toast.success("Nurse updated");
+        onMutate: async ({ userId, payload }) => {
+            await queryClient.cancelQueries({ queryKey: nursesKeys.all });
+            const previousQueries = queryClient.getQueriesData<ListMembersResponse>({
+                queryKey: nursesKeys.all,
+            });
+
+            queryClient.setQueriesData<ListMembersResponse>({ queryKey: nursesKeys.all }, (old) => {
+                if (!old) return old;
+                return {
+                    ...old,
+                    items: old.items.map((m) => (m.id === userId ? { ...m, ...payload } : m)),
+                };
+            });
+
+            return { previousQueries };
         },
-        onError: (err) => toast.error(getErrorMessage(err)),
+        onError: (err, _vars, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
+            toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: nursesKeys.all });
+        },
     });
 }
 
-/** Hard-delete a nurse member. */
+/** Hard-delete a nurse member with optimistic removal. */
 export function useDeleteNurse() {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: (userId: string) => deleteNurse(userId),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: nursesKeys.all });
-            toast.success("Nurse deleted");
+        onMutate: async (userId) => {
+            await queryClient.cancelQueries({ queryKey: nursesKeys.all });
+            const previousQueries = queryClient.getQueriesData<ListMembersResponse>({
+                queryKey: nursesKeys.all,
+            });
+
+            queryClient.setQueriesData<ListMembersResponse>({ queryKey: nursesKeys.all }, (old) => {
+                if (!old) return old;
+                return {
+                    ...old,
+                    items: old.items.filter((item) => item.id !== userId),
+                };
+            });
+
+            return { previousQueries };
         },
-        onError: (err) => {
+        onError: (err, _userId, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
             toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: nursesKeys.all });
         },
     });
 }

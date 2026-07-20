@@ -93,82 +93,158 @@ export function useLearningAreaTree(id: string, opts: { enabled?: boolean } = {}
     });
 }
 
-/** Create a learning area. */
+/** Create a learning area with optimistic update. */
 export function useCreateLearningArea() {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: (data: CreateLearningAreaPayload) => createLearningArea(data),
-        onSuccess: () => {
+        onMutate: async () => {
+            await queryClient.cancelQueries({
+                queryKey: curriculumKeys.learningAreas.all(),
+            });
+            const previousQueries = queryClient.getQueriesData({
+                queryKey: curriculumKeys.learningAreas.all(),
+            });
+            return { previousQueries };
+        },
+        onError: (err, _data, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
+            toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
             queryClient.invalidateQueries({
                 queryKey: curriculumKeys.learningAreas.all(),
             });
-            toast.success("Learning area created");
-        },
-        onError: (err) => {
-            toast.error(getErrorMessage(err));
         },
     });
 }
 
-/** Update a learning area. */
+/** Update a learning area with optimistic update. */
 export function useUpdateLearningArea() {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: ({ id, data }: { id: string; data: UpdateLearningAreaPayload }) =>
             updateLearningArea(id, data),
-        onSuccess: () => {
+        onMutate: async ({ id, data }) => {
+            await queryClient.cancelQueries({
+                queryKey: curriculumKeys.learningAreas.all(),
+            });
+            const previousQueries = queryClient.getQueriesData<ListLearningAreasResponse>({
+                queryKey: curriculumKeys.learningAreas.all(),
+            });
+
+            queryClient.setQueriesData<ListLearningAreasResponse>(
+                { queryKey: curriculumKeys.learningAreas.all() },
+                (old) => {
+                    if (!old) return old;
+                    return {
+                        ...old,
+                        items: old.items.map((la) => (la.id === id ? { ...la, ...data } : la)),
+                    };
+                }
+            );
+
+            return { previousQueries };
+        },
+        onError: (err, _vars, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
+            toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
             queryClient.invalidateQueries({
                 queryKey: curriculumKeys.learningAreas.all(),
             });
-            toast.success("Learning area updated");
-        },
-        onError: (err) => {
-            toast.error(getErrorMessage(err));
         },
     });
 }
 
-/** Delete a learning area. */
+/** Delete a learning area with optimistic removal. */
 export function useDeleteLearningArea() {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: (id: string) => deleteLearningArea(id),
-        onSuccess: () => {
+        onMutate: async (id) => {
+            await queryClient.cancelQueries({
+                queryKey: curriculumKeys.learningAreas.all(),
+            });
+            const previousQueries = queryClient.getQueriesData<ListLearningAreasResponse>({
+                queryKey: curriculumKeys.learningAreas.all(),
+            });
+
+            queryClient.setQueriesData<ListLearningAreasResponse>(
+                { queryKey: curriculumKeys.learningAreas.all() },
+                (old) => {
+                    if (!old) return old;
+                    return {
+                        ...old,
+                        items: old.items.filter((item) => item.id !== id),
+                    };
+                }
+            );
+
+            return { previousQueries };
+        },
+        onError: (err, _id, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
+            toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
             queryClient.invalidateQueries({
                 queryKey: curriculumKeys.learningAreas.all(),
             });
-            toast.success("Learning area deleted");
-        },
-        onError: (err) => {
-            toast.error(getErrorMessage(err));
         },
     });
 }
 
 // ─── Hooks: Strands ───────────────────────────────────────────────────────
 
-/** Create a strand. Invalidates the parent learning area tree. */
+/** Create a strand with optimistic update. Invalidates the parent learning area tree. */
 export function useCreateStrand() {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: (data: CreateStrandPayload) => createStrand(data),
-        onSuccess: (_, variables) => {
+        onMutate: async (data) => {
+            await queryClient.cancelQueries({
+                queryKey: curriculumKeys.learningAreas.tree(data.learning_area_id),
+            });
+            const previousQueries = queryClient.getQueriesData({
+                queryKey: curriculumKeys.learningAreas.tree(data.learning_area_id),
+            });
+            return { previousQueries };
+        },
+        onError: (err, _data, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
+            toast.error(getErrorMessage(err));
+        },
+        onSettled: (_data, _err, variables) => {
             queryClient.invalidateQueries({
                 queryKey: curriculumKeys.learningAreas.tree(variables.learning_area_id),
             });
-            toast.success("Strand created");
-        },
-        onError: (err) => {
-            toast.error(getErrorMessage(err));
         },
     });
 }
 
-/** Update a strand. */
+/** Update a strand with optimistic update. */
 export function useUpdateStrand() {
     const queryClient = useQueryClient();
 
@@ -182,58 +258,121 @@ export function useUpdateStrand() {
             data: UpdateStrandPayload;
             learningAreaId: string;
         }) => updateStrand(id, data).then(() => ({ learningAreaId })),
-        onSuccess: (result) => {
-            queryClient.invalidateQueries({
-                queryKey: curriculumKeys.learningAreas.tree(result.learningAreaId),
+        onMutate: async ({ id, data, learningAreaId }) => {
+            await queryClient.cancelQueries({
+                queryKey: curriculumKeys.learningAreas.tree(learningAreaId),
             });
-            toast.success("Strand updated");
+            const previousQueries = queryClient.getQueriesData<LearningAreaTree>({
+                queryKey: curriculumKeys.learningAreas.tree(learningAreaId),
+            });
+
+            queryClient.setQueriesData<LearningAreaTree>(
+                { queryKey: curriculumKeys.learningAreas.tree(learningAreaId) },
+                (old) => {
+                    if (!old) return old;
+                    return {
+                        ...old,
+                        strands: old.strands.map((s) => (s.id === id ? { ...s, ...data } : s)),
+                    };
+                }
+            );
+
+            return { previousQueries };
         },
-        onError: (err) => {
+        onError: (err, _vars, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
             toast.error(getErrorMessage(err));
+        },
+        onSettled: (_data, _err, vars) => {
+            queryClient.invalidateQueries({
+                queryKey: curriculumKeys.learningAreas.tree(vars.learningAreaId),
+            });
         },
     });
 }
 
-/** Delete a strand. */
+/** Delete a strand with optimistic removal from the learning area tree. */
 export function useDeleteStrand() {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: ({ id, learningAreaId }: { id: string; learningAreaId: string }) =>
             deleteStrand(id).then(() => ({ learningAreaId })),
-        onSuccess: (result) => {
-            queryClient.invalidateQueries({
-                queryKey: curriculumKeys.learningAreas.tree(result.learningAreaId),
+        onMutate: async ({ id, learningAreaId }) => {
+            await queryClient.cancelQueries({
+                queryKey: curriculumKeys.learningAreas.tree(learningAreaId),
             });
-            toast.success("Strand deleted");
+            const previousQueries = queryClient.getQueriesData<LearningAreaTree>({
+                queryKey: curriculumKeys.learningAreas.tree(learningAreaId),
+            });
+
+            queryClient.setQueriesData<LearningAreaTree>(
+                { queryKey: curriculumKeys.learningAreas.tree(learningAreaId) },
+                (old) => {
+                    if (!old) return old;
+                    return {
+                        ...old,
+                        strands: old.strands.filter((s) => s.id !== id),
+                    };
+                }
+            );
+
+            return { previousQueries };
         },
-        onError: (err) => {
+        onError: (err, _vars, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
             toast.error(getErrorMessage(err));
+        },
+        onSettled: (_data, _err, vars) => {
+            queryClient.invalidateQueries({
+                queryKey: curriculumKeys.learningAreas.tree(vars.learningAreaId),
+            });
         },
     });
 }
 
 // ─── Hooks: Sub-Strands ───────────────────────────────────────────────────
 
-/** Create a sub-strand. Invalidates the parent learning area tree. */
+/** Create a sub-strand with optimistic update. Invalidates the parent learning area tree. */
 export function useCreateSubStrand() {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: (data: CreateSubStrandPayload) => createSubStrand(data),
-        onSuccess: () => {
+        onMutate: async () => {
+            await queryClient.cancelQueries({
+                queryKey: curriculumKeys.learningAreas.all(),
+            });
+            const previousQueries = queryClient.getQueriesData({
+                queryKey: curriculumKeys.learningAreas.all(),
+            });
+            return { previousQueries };
+        },
+        onError: (err, _data, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
+            toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
             queryClient.invalidateQueries({
                 queryKey: curriculumKeys.learningAreas.all(),
             });
-            toast.success("Sub-strand created");
-        },
-        onError: (err) => {
-            toast.error(getErrorMessage(err));
         },
     });
 }
 
-/** Update a sub-strand. */
+/** Update a sub-strand with optimistic update. */
 export function useUpdateSubStrand() {
     const queryClient = useQueryClient();
 
@@ -247,58 +386,129 @@ export function useUpdateSubStrand() {
             data: UpdateSubStrandPayload;
             learningAreaId: string;
         }) => updateSubStrand(id, data).then(() => ({ learningAreaId })),
-        onSuccess: (result) => {
-            queryClient.invalidateQueries({
-                queryKey: curriculumKeys.learningAreas.tree(result.learningAreaId),
+        onMutate: async ({ id, data, learningAreaId }) => {
+            await queryClient.cancelQueries({
+                queryKey: curriculumKeys.learningAreas.tree(learningAreaId),
             });
-            toast.success("Sub-strand updated");
+            const previousQueries = queryClient.getQueriesData<LearningAreaTree>({
+                queryKey: curriculumKeys.learningAreas.tree(learningAreaId),
+            });
+
+            queryClient.setQueriesData<LearningAreaTree>(
+                { queryKey: curriculumKeys.learningAreas.tree(learningAreaId) },
+                (old) => {
+                    if (!old) return old;
+                    return {
+                        ...old,
+                        strands: old.strands.map((strand) => ({
+                            ...strand,
+                            sub_strands: strand.sub_strands.map((ss) =>
+                                ss.id === id ? { ...ss, ...data } : ss
+                            ),
+                        })),
+                    };
+                }
+            );
+
+            return { previousQueries };
         },
-        onError: (err) => {
+        onError: (err, _vars, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
             toast.error(getErrorMessage(err));
+        },
+        onSettled: (_data, _err, vars) => {
+            queryClient.invalidateQueries({
+                queryKey: curriculumKeys.learningAreas.tree(vars.learningAreaId),
+            });
         },
     });
 }
 
-/** Delete a sub-strand. */
+/** Delete a sub-strand with optimistic removal from the learning area tree. */
 export function useDeleteSubStrand() {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: ({ id, learningAreaId }: { id: string; learningAreaId: string }) =>
             deleteSubStrand(id).then(() => ({ learningAreaId })),
-        onSuccess: (result) => {
-            queryClient.invalidateQueries({
-                queryKey: curriculumKeys.learningAreas.tree(result.learningAreaId),
+        onMutate: async ({ id, learningAreaId }) => {
+            await queryClient.cancelQueries({
+                queryKey: curriculumKeys.learningAreas.tree(learningAreaId),
             });
-            toast.success("Sub-strand deleted");
+            const previousQueries = queryClient.getQueriesData<LearningAreaTree>({
+                queryKey: curriculumKeys.learningAreas.tree(learningAreaId),
+            });
+
+            queryClient.setQueriesData<LearningAreaTree>(
+                { queryKey: curriculumKeys.learningAreas.tree(learningAreaId) },
+                (old) => {
+                    if (!old) return old;
+                    return {
+                        ...old,
+                        strands: old.strands.map((strand) => ({
+                            ...strand,
+                            sub_strands: strand.sub_strands.filter((ss) => ss.id !== id),
+                        })),
+                    };
+                }
+            );
+
+            return { previousQueries };
         },
-        onError: (err) => {
+        onError: (err, _vars, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
             toast.error(getErrorMessage(err));
+        },
+        onSettled: (_data, _err, vars) => {
+            queryClient.invalidateQueries({
+                queryKey: curriculumKeys.learningAreas.tree(vars.learningAreaId),
+            });
         },
     });
 }
 
 // ─── Hooks: Performance Indicators ────────────────────────────────────────
 
-/** Create a performance indicator. Invalidates the parent tree. */
+/** Create a performance indicator with optimistic update. Invalidates the parent tree. */
 export function useCreatePerformanceIndicator() {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: (data: CreatePerformanceIndicatorPayload) => createPerformanceIndicator(data),
-        onSuccess: () => {
+        onMutate: async () => {
+            await queryClient.cancelQueries({
+                queryKey: curriculumKeys.learningAreas.all(),
+            });
+            const previousQueries = queryClient.getQueriesData({
+                queryKey: curriculumKeys.learningAreas.all(),
+            });
+            return { previousQueries };
+        },
+        onError: (err, _data, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
+            toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
             queryClient.invalidateQueries({
                 queryKey: curriculumKeys.learningAreas.all(),
             });
-            toast.success("Performance indicator created");
-        },
-        onError: (err) => {
-            toast.error(getErrorMessage(err));
         },
     });
 }
 
-/** Update a performance indicator. */
+/** Update a performance indicator with optimistic update. */
 export function useUpdatePerformanceIndicator() {
     const queryClient = useQueryClient();
 
@@ -312,33 +522,99 @@ export function useUpdatePerformanceIndicator() {
             data: UpdatePerformanceIndicatorPayload;
             learningAreaId: string;
         }) => updatePerformanceIndicator(id, data).then(() => ({ learningAreaId })),
-        onSuccess: (result) => {
-            queryClient.invalidateQueries({
-                queryKey: curriculumKeys.learningAreas.tree(result.learningAreaId),
+        onMutate: async ({ id, data, learningAreaId }) => {
+            await queryClient.cancelQueries({
+                queryKey: curriculumKeys.learningAreas.tree(learningAreaId),
             });
-            toast.success("Performance indicator updated");
+            const previousQueries = queryClient.getQueriesData<LearningAreaTree>({
+                queryKey: curriculumKeys.learningAreas.tree(learningAreaId),
+            });
+
+            queryClient.setQueriesData<LearningAreaTree>(
+                { queryKey: curriculumKeys.learningAreas.tree(learningAreaId) },
+                (old) => {
+                    if (!old) return old;
+                    return {
+                        ...old,
+                        strands: old.strands.map((strand) => ({
+                            ...strand,
+                            sub_strands: strand.sub_strands.map((ss) => ({
+                                ...ss,
+                                performance_indicators: ss.performance_indicators.map((pi) =>
+                                    pi.id === id ? { ...pi, ...data } : pi
+                                ),
+                            })),
+                        })),
+                    };
+                }
+            );
+
+            return { previousQueries };
         },
-        onError: (err) => {
+        onError: (err, _vars, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
             toast.error(getErrorMessage(err));
+        },
+        onSettled: (_data, _err, vars) => {
+            queryClient.invalidateQueries({
+                queryKey: curriculumKeys.learningAreas.tree(vars.learningAreaId),
+            });
         },
     });
 }
 
-/** Delete a performance indicator. */
+/** Delete a performance indicator with optimistic removal from the learning area tree. */
 export function useDeletePerformanceIndicator() {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: ({ id, learningAreaId }: { id: string; learningAreaId: string }) =>
             deletePerformanceIndicator(id).then(() => ({ learningAreaId })),
-        onSuccess: (result) => {
-            queryClient.invalidateQueries({
-                queryKey: curriculumKeys.learningAreas.tree(result.learningAreaId),
+        onMutate: async ({ id, learningAreaId }) => {
+            await queryClient.cancelQueries({
+                queryKey: curriculumKeys.learningAreas.tree(learningAreaId),
             });
-            toast.success("Performance indicator deleted");
+            const previousQueries = queryClient.getQueriesData<LearningAreaTree>({
+                queryKey: curriculumKeys.learningAreas.tree(learningAreaId),
+            });
+
+            queryClient.setQueriesData<LearningAreaTree>(
+                { queryKey: curriculumKeys.learningAreas.tree(learningAreaId) },
+                (old) => {
+                    if (!old) return old;
+                    return {
+                        ...old,
+                        strands: old.strands.map((strand) => ({
+                            ...strand,
+                            sub_strands: strand.sub_strands.map((ss) => ({
+                                ...ss,
+                                performance_indicators: ss.performance_indicators.filter(
+                                    (pi) => pi.id !== id
+                                ),
+                            })),
+                        })),
+                    };
+                }
+            );
+
+            return { previousQueries };
         },
-        onError: (err) => {
+        onError: (err, _vars, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
             toast.error(getErrorMessage(err));
+        },
+        onSettled: (_data, _err, vars) => {
+            queryClient.invalidateQueries({
+                queryKey: curriculumKeys.learningAreas.tree(vars.learningAreaId),
+            });
         },
     });
 }

@@ -56,11 +56,24 @@ export function useGenerateInvoice() {
 
     return useMutation({
         mutationFn: (payload: GenerateInvoicePayload) => generateInvoice(payload),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: invoiceKeys.all });
-            toast.success("Invoice generated");
+        onMutate: async () => {
+            await queryClient.cancelQueries({ queryKey: invoiceKeys.all });
+            const previousQueries = queryClient.getQueriesData({
+                queryKey: invoiceKeys.all,
+            });
+            return { previousQueries };
         },
-        onError: (err) => toast.error(getErrorMessage(err)),
+        onError: (err, _payload, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
+            toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: invoiceKeys.all });
+        },
     });
 }
 
@@ -69,11 +82,38 @@ export function useWaiveInvoice() {
 
     return useMutation({
         mutationFn: (id: string) => waiveInvoice(id),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: invoiceKeys.all });
-            toast.success("Invoice waived");
+        onMutate: async (id) => {
+            await queryClient.cancelQueries({ queryKey: invoiceKeys.all });
+            const previousQueries = queryClient.getQueriesData<{ items: { id: string }[] }>({
+                queryKey: invoiceKeys.all,
+            });
+
+            queryClient.setQueriesData<{ items: { id: string }[] }>(
+                { queryKey: invoiceKeys.all },
+                (old) => {
+                    if (!old) return old;
+                    return {
+                        ...old,
+                        items: old.items.map((item) =>
+                            item.id === id ? { ...item, waived: true } : item
+                        ),
+                    };
+                }
+            );
+
+            return { previousQueries };
         },
-        onError: (err) => toast.error(getErrorMessage(err)),
+        onError: (err, _id, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
+            toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: invoiceKeys.all });
+        },
     });
 }
 
@@ -82,10 +122,23 @@ export function useRecordPayment() {
 
     return useMutation({
         mutationFn: (payload: RecordPaymentPayload) => recordPayment(payload),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: invoiceKeys.all });
-            toast.success("Payment recorded");
+        onMutate: async () => {
+            await queryClient.cancelQueries({ queryKey: invoiceKeys.all });
+            const previousQueries = queryClient.getQueriesData({
+                queryKey: invoiceKeys.all,
+            });
+            return { previousQueries };
         },
-        onError: (err) => toast.error(getErrorMessage(err)),
+        onError: (err, _payload, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
+            toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: invoiceKeys.all });
+        },
     });
 }

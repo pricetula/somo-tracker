@@ -57,33 +57,81 @@ export function useFinanceDetail(userId: string | undefined) {
     });
 }
 
-/** Update a finance staff member's profile (uses generic members API). */
+/** Update a finance staff member's profile (uses generic members API) with optimistic update. */
 export function useUpdateFinance() {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: ({ userId, payload }: { userId: string; payload: { full_name?: string } }) =>
             updateMember(userId, payload as { full_name: string }),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: financeKeys.all });
-            toast.success("Finance staff updated");
+        onMutate: async ({ userId, payload }) => {
+            await queryClient.cancelQueries({ queryKey: financeKeys.all });
+            const previousQueries = queryClient.getQueriesData<ListMembersResponse>({
+                queryKey: financeKeys.all,
+            });
+
+            queryClient.setQueriesData<ListMembersResponse>(
+                { queryKey: financeKeys.all },
+                (old) => {
+                    if (!old) return old;
+                    return {
+                        ...old,
+                        items: old.items.map((m) => (m.id === userId ? { ...m, ...payload } : m)),
+                    };
+                }
+            );
+
+            return { previousQueries };
         },
-        onError: (err) => toast.error(getErrorMessage(err)),
+        onError: (err, _vars, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
+            toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: financeKeys.all });
+        },
     });
 }
 
-/** Hard-delete a finance staff member. */
+/** Hard-delete a finance staff member with optimistic removal. */
 export function useDeleteFinanceStaff() {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: (userId: string) => deleteFinanceStaff(userId),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: financeKeys.all });
-            toast.success("Finance staff deleted");
+        onMutate: async (userId) => {
+            await queryClient.cancelQueries({ queryKey: financeKeys.all });
+            const previousQueries = queryClient.getQueriesData<ListMembersResponse>({
+                queryKey: financeKeys.all,
+            });
+
+            queryClient.setQueriesData<ListMembersResponse>(
+                { queryKey: financeKeys.all },
+                (old) => {
+                    if (!old) return old;
+                    return {
+                        ...old,
+                        items: old.items.filter((item) => item.id !== userId),
+                    };
+                }
+            );
+
+            return { previousQueries };
         },
-        onError: (err) => {
+        onError: (err, _userId, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
             toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: financeKeys.all });
         },
     });
 }

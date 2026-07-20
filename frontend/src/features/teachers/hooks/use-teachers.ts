@@ -134,7 +134,7 @@ export function useTeacherDetail(userId: string | undefined) {
     });
 }
 
-/** Update a teacher's profile. */
+/** Update a teacher's profile with optimistic update. */
 export function useUpdateTeacher() {
     const queryClient = useQueryClient();
 
@@ -150,26 +150,74 @@ export function useUpdateTeacher() {
                 knec_panel_assessor_id?: string | null;
             };
         }) => updateTeacher(userId, payload),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: teachersKeys.all });
-            toast.success("Teacher updated");
+        onMutate: async ({ userId, payload }) => {
+            await queryClient.cancelQueries({ queryKey: teachersKeys.all });
+            const previousQueries = queryClient.getQueriesData<ListTeachersResponse>({
+                queryKey: teachersKeys.all,
+            });
+
+            queryClient.setQueriesData<ListTeachersResponse>(
+                { queryKey: teachersKeys.all },
+                (old) => {
+                    if (!old) return old;
+                    return {
+                        ...old,
+                        items: old.items.map((t) => (t.id === userId ? { ...t, ...payload } : t)),
+                    };
+                }
+            );
+
+            return { previousQueries };
         },
-        onError: (err) => toast.error(getErrorMessage(err)),
+        onError: (err, _vars, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
+            toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: teachersKeys.all });
+        },
     });
 }
 
-/** Hard-delete a teacher. */
+/** Hard-delete a teacher with optimistic removal. */
 export function useDeleteTeacher() {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: (userId: string) => deleteTeacher(userId),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: teachersKeys.all });
-            toast.success("Teacher deleted");
+        onMutate: async (userId) => {
+            await queryClient.cancelQueries({ queryKey: teachersKeys.all });
+            const previousQueries = queryClient.getQueriesData<ListTeachersResponse>({
+                queryKey: teachersKeys.all,
+            });
+
+            queryClient.setQueriesData<ListTeachersResponse>(
+                { queryKey: teachersKeys.all },
+                (old) => {
+                    if (!old) return old;
+                    return {
+                        ...old,
+                        items: old.items.filter((item) => item.id !== userId),
+                    };
+                }
+            );
+
+            return { previousQueries };
         },
-        onError: (err) => {
+        onError: (err, _userId, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
             toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: teachersKeys.all });
         },
     });
 }

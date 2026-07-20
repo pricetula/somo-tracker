@@ -71,47 +71,112 @@ export function useScaleRanges(profileId: string) {
     });
 }
 
-/** Create a new scale profile. */
+/** Create a new scale profile with optimistic update. */
 export function useCreateScaleProfile() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: (payload: api.CreateScaleProfilePayload) => api.createScaleProfile(payload),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: assessmentKeys.profiles.all });
-            toast.success("Scale profile created.");
+        onMutate: async () => {
+            await queryClient.cancelQueries({ queryKey: assessmentKeys.profiles.all });
+            const previousQueries = queryClient.getQueriesData({
+                queryKey: assessmentKeys.profiles.all,
+            });
+            return { previousQueries };
         },
-        onError: (err) => toast.error(getErrorMessage(err)),
+        onError: (err, _payload, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
+            toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: assessmentKeys.profiles.all });
+        },
     });
 }
 
-/** Toggle a profile's is_active flag. */
+/** Toggle a profile's is_active flag with optimistic update. */
 export function useToggleScaleProfile() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
             api.toggleScaleProfileActive(id, isActive),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: assessmentKeys.profiles.all });
-            toast.success("Profile updated.");
+        onMutate: async ({ id, isActive }) => {
+            await queryClient.cancelQueries({ queryKey: assessmentKeys.profiles.all });
+            const previousQueries = queryClient.getQueriesData<api.ScaleProfileListResult>({
+                queryKey: assessmentKeys.profiles.all,
+            });
+
+            queryClient.setQueriesData<api.ScaleProfileListResult>(
+                { queryKey: assessmentKeys.profiles.all },
+                (old) => {
+                    if (!old) return old;
+                    return {
+                        ...old,
+                        items: old.items.map((p) =>
+                            p.id === id ? { ...p, is_active: isActive } : p
+                        ),
+                    };
+                }
+            );
+
+            return { previousQueries };
         },
-        onError: (err) => toast.error(getErrorMessage(err)),
+        onError: (err, _vars, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
+            toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: assessmentKeys.profiles.all });
+        },
     });
 }
 
-/** Delete a scale profile. */
+/** Delete a scale profile with optimistic removal. */
 export function useDeleteScaleProfile() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: (id: string) => api.deleteScaleProfile(id),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: assessmentKeys.profiles.all });
-            toast.success("Profile deleted.");
+        onMutate: async (id) => {
+            await queryClient.cancelQueries({ queryKey: assessmentKeys.profiles.all });
+            const previousQueries = queryClient.getQueriesData<{ items: { id: string }[] }>({
+                queryKey: assessmentKeys.profiles.all,
+            });
+
+            queryClient.setQueriesData<{ items: { id: string }[] }>(
+                { queryKey: assessmentKeys.profiles.all },
+                (old) => {
+                    if (!old) return old;
+                    return {
+                        ...old,
+                        items: old.items.filter((item) => item.id !== id),
+                    };
+                }
+            );
+
+            return { previousQueries };
         },
-        onError: (err) => toast.error(getErrorMessage(err)),
+        onError: (err, _id, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
+            toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: assessmentKeys.profiles.all });
+        },
     });
 }
 
-/** Bulk-set ranges for a profile. */
+/** Bulk-set ranges for a profile with optimistic update. */
 export function useBulkSetScaleRanges() {
     const queryClient = useQueryClient();
     return useMutation({
@@ -122,16 +187,31 @@ export function useBulkSetScaleRanges() {
             profileId: string;
             payload: api.BulkSetRangesPayload;
         }) => api.bulkSetScaleRanges(profileId, payload),
-        onSuccess: (_data, variables) => {
+        onMutate: async ({ profileId }) => {
+            await queryClient.cancelQueries({
+                queryKey: assessmentKeys.profiles.ranges(profileId),
+            });
+            const previousQueries = queryClient.getQueriesData({
+                queryKey: assessmentKeys.profiles.ranges(profileId),
+            });
+            return { previousQueries };
+        },
+        onError: (err, _vars, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
+            toast.error(getErrorMessage(err));
+        },
+        onSettled: (_data, _err, variables) => {
             queryClient.invalidateQueries({
                 queryKey: assessmentKeys.profiles.ranges(variables.profileId),
             });
             queryClient.invalidateQueries({
                 queryKey: assessmentKeys.profiles.detail(variables.profileId),
             });
-            toast.success("Ranges saved.");
         },
-        onError: (err) => toast.error(getErrorMessage(err)),
     });
 }
 
@@ -188,74 +268,197 @@ export function useOutcomeGrades(sessionId: string) {
     });
 }
 
-/** Create a new assessment session. */
+/** Create a new assessment session with optimistic update. */
 export function useCreateSession() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: (payload: api.CreateSessionPayload) => api.createSession(payload),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: assessmentKeys.sessions.all });
-            toast.success("Assessment session created.");
+        onMutate: async () => {
+            await queryClient.cancelQueries({ queryKey: assessmentKeys.sessions.all });
+            const previousQueries = queryClient.getQueriesData({
+                queryKey: assessmentKeys.sessions.all,
+            });
+            return { previousQueries };
         },
-        onError: (err) => toast.error(getErrorMessage(err)),
+        onError: (err, _payload, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
+            toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: assessmentKeys.sessions.all });
+        },
     });
 }
 
-/** Submit a session for approval (DRAFT → PENDING_APPROVAL). */
+/** Submit a session for approval (DRAFT → PENDING_APPROVAL) with optimistic update. */
 export function useSubmitSession() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: (id: string) => api.submitSession(id),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: assessmentKeys.sessions.all });
-            toast.success("Session submitted for approval.");
+        onMutate: async (id) => {
+            await queryClient.cancelQueries({ queryKey: assessmentKeys.sessions.all });
+            const previousQueries = queryClient.getQueriesData<{
+                items: { id: string; status?: string }[];
+            }>({
+                queryKey: assessmentKeys.sessions.all,
+            });
+
+            queryClient.setQueriesData<{ items: { id: string; status?: string }[] }>(
+                { queryKey: assessmentKeys.sessions.all },
+                (old) => {
+                    if (!old) return old;
+                    return {
+                        ...old,
+                        items: old.items.map((s) =>
+                            s.id === id ? { ...s, status: "PENDING_APPROVAL" } : s
+                        ),
+                    };
+                }
+            );
+
+            return { previousQueries };
         },
-        onError: (err) => toast.error(getErrorMessage(err)),
+        onError: (err, _id, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
+            toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: assessmentKeys.sessions.all });
+        },
     });
 }
 
-/** Approve and publish a session. SCHOOL_ADMIN only. */
+/** Approve and publish a session with optimistic update. SCHOOL_ADMIN only. */
 export function useApproveSession() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: (id: string) => api.approveSession(id),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: assessmentKeys.sessions.all });
-            toast.success("Session approved and published.");
+        onMutate: async (id) => {
+            await queryClient.cancelQueries({ queryKey: assessmentKeys.sessions.all });
+            const previousQueries = queryClient.getQueriesData<{
+                items: { id: string; status?: string }[];
+            }>({
+                queryKey: assessmentKeys.sessions.all,
+            });
+
+            queryClient.setQueriesData<{ items: { id: string; status?: string }[] }>(
+                { queryKey: assessmentKeys.sessions.all },
+                (old) => {
+                    if (!old) return old;
+                    return {
+                        ...old,
+                        items: old.items.map((s) =>
+                            s.id === id ? { ...s, status: "APPROVED" } : s
+                        ),
+                    };
+                }
+            );
+
+            return { previousQueries };
         },
-        onError: (err) => toast.error(getErrorMessage(err)),
+        onError: (err, _id, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
+            toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: assessmentKeys.sessions.all });
+        },
     });
 }
 
-/** Delete a DRAFT session permanently. */
+/** Delete a DRAFT session permanently with optimistic removal. */
 export function useDeleteSession() {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: (id: string) => api.deleteSession(id),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: assessmentKeys.sessions.all });
-            toast.success("Session deleted");
+        onMutate: async (id) => {
+            await queryClient.cancelQueries({ queryKey: assessmentKeys.sessions.all });
+            const previousQueries = queryClient.getQueriesData<{ items: { id: string }[] }>({
+                queryKey: assessmentKeys.sessions.all,
+            });
+
+            queryClient.setQueriesData<{ items: { id: string }[] }>(
+                { queryKey: assessmentKeys.sessions.all },
+                (old) => {
+                    if (!old) return old;
+                    return {
+                        ...old,
+                        items: old.items.filter((item) => item.id !== id),
+                    };
+                }
+            );
+
+            return { previousQueries };
         },
-        onError: (err) => toast.error(getErrorMessage(err)),
+        onError: (err, _id, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
+            toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: assessmentKeys.sessions.all });
+        },
     });
 }
 
-/** Reject a session back to draft. SCHOOL_ADMIN only. */
+/** Reject a session back to draft with optimistic update. SCHOOL_ADMIN only. */
 export function useRejectSession() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: ({ id, rejection_comment }: { id: string; rejection_comment: string }) =>
             api.rejectSession(id, { rejection_comment }),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: assessmentKeys.sessions.all });
-            toast.success("Session rejected and returned to draft.");
+        onMutate: async ({ id }) => {
+            await queryClient.cancelQueries({ queryKey: assessmentKeys.sessions.all });
+            const previousQueries = queryClient.getQueriesData<{
+                items: { id: string; status?: string }[];
+            }>({
+                queryKey: assessmentKeys.sessions.all,
+            });
+
+            queryClient.setQueriesData<{ items: { id: string; status?: string }[] }>(
+                { queryKey: assessmentKeys.sessions.all },
+                (old) => {
+                    if (!old) return old;
+                    return {
+                        ...old,
+                        items: old.items.map((s) => (s.id === id ? { ...s, status: "DRAFT" } : s)),
+                    };
+                }
+            );
+
+            return { previousQueries };
         },
-        onError: (err) => toast.error(getErrorMessage(err)),
+        onError: (err, _vars, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
+            toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: assessmentKeys.sessions.all });
+        },
     });
 }
 
-/** Bulk-upsert quantitative scores. */
+/** Bulk-upsert quantitative scores with optimistic update. */
 export function useBulkUpsertScores() {
     const queryClient = useQueryClient();
     return useMutation({
@@ -266,17 +469,32 @@ export function useBulkUpsertScores() {
             sessionId: string;
             payload: api.BulkUpsertScoresPayload;
         }) => api.bulkUpsertScores(sessionId, payload),
-        onSuccess: (_data, variables) => {
+        onMutate: async ({ sessionId }) => {
+            await queryClient.cancelQueries({
+                queryKey: assessmentKeys.sessions.scores(sessionId),
+            });
+            const previousQueries = queryClient.getQueriesData({
+                queryKey: assessmentKeys.sessions.scores(sessionId),
+            });
+            return { previousQueries };
+        },
+        onError: (err, _vars, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
+            toast.error(getErrorMessage(err));
+        },
+        onSettled: (_data, _err, variables) => {
             queryClient.invalidateQueries({
                 queryKey: assessmentKeys.sessions.scores(variables.sessionId),
             });
-            toast.success("Scores saved.");
         },
-        onError: (err) => toast.error(getErrorMessage(err)),
     });
 }
 
-/** Bulk-upsert rubric outcome grades. */
+/** Bulk-upsert rubric outcome grades with optimistic update. */
 export function useBulkUpsertOutcomeGrades() {
     const queryClient = useQueryClient();
     return useMutation({
@@ -287,13 +505,28 @@ export function useBulkUpsertOutcomeGrades() {
             sessionId: string;
             payload: api.BulkUpsertOutcomeGradesPayload;
         }) => api.bulkUpsertOutcomeGrades(sessionId, payload),
-        onSuccess: (_data, variables) => {
+        onMutate: async ({ sessionId }) => {
+            await queryClient.cancelQueries({
+                queryKey: assessmentKeys.sessions.grades(sessionId),
+            });
+            const previousQueries = queryClient.getQueriesData({
+                queryKey: assessmentKeys.sessions.grades(sessionId),
+            });
+            return { previousQueries };
+        },
+        onError: (err, _vars, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
+            toast.error(getErrorMessage(err));
+        },
+        onSettled: (_data, _err, variables) => {
             queryClient.invalidateQueries({
                 queryKey: assessmentKeys.sessions.grades(variables.sessionId),
             });
-            toast.success("Grades saved.");
         },
-        onError: (err) => toast.error(getErrorMessage(err)),
     });
 }
 
@@ -336,28 +569,66 @@ export function useWeightConfigList(params?: {
     });
 }
 
-/** Delete a weight config. SYSTEM_ADMIN only. */
+/** Delete a weight config with optimistic removal. SYSTEM_ADMIN only. */
 export function useDeleteWeightConfig() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: (id: string) => api.deleteWeightConfig(id),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["weight-configs"] });
-            toast.success("Weight configuration deleted.");
+        onMutate: async (id) => {
+            await queryClient.cancelQueries({ queryKey: ["weight-configs"] });
+            const previousQueries = queryClient.getQueriesData<{ items: { id: string }[] }>({
+                queryKey: ["weight-configs"],
+            });
+
+            queryClient.setQueriesData<{ items: { id: string }[] }>(
+                { queryKey: ["weight-configs"] },
+                (old) => {
+                    if (!old) return old;
+                    return {
+                        ...old,
+                        items: old.items.filter((item) => item.id !== id),
+                    };
+                }
+            );
+
+            return { previousQueries };
         },
-        onError: (err) => toast.error(getErrorMessage(err)),
+        onError: (err, _id, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
+            toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: ["weight-configs"] });
+        },
     });
 }
 
-/** Create a new weight config. */
+/** Create a new weight config with optimistic update. */
 export function useCreateWeightConfig() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: (payload: api.CreateWeightConfigPayload) => api.createWeightConfig(payload),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["weight-configs"] });
-            toast.success("Weight configuration created.");
+        onMutate: async () => {
+            await queryClient.cancelQueries({ queryKey: ["weight-configs"] });
+            const previousQueries = queryClient.getQueriesData({
+                queryKey: ["weight-configs"],
+            });
+            return { previousQueries };
         },
-        onError: (err) => toast.error(getErrorMessage(err)),
+        onError: (err, _payload, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
+            toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: ["weight-configs"] });
+        },
     });
 }

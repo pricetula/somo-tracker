@@ -1,6 +1,7 @@
 package assessments
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
@@ -65,20 +66,19 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
+var (
+	ErrTenantMissing = fmt.Errorf("tenant_id not set: %w", middleware.ErrUnauthorized)
+	ErrSchoolMissing = fmt.Errorf("active_school_id not set: %w", middleware.ErrInvalidInput)
+)
+
 func getTenantAndSchool(c *fiber.Ctx) (string, string, error) {
 	tenantID, ok := c.Locals("tenant_id").(string)
 	if !ok || tenantID == "" {
-		return "", "", c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"code":    "unauthorized",
-			"message": "authentication required",
-		})
+		return "", "", ErrTenantMissing
 	}
 	schoolID, _ := c.Locals("active_school_id").(string)
 	if schoolID == "" {
-		return "", "", c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "invalid_input",
-			"message": "active school not set",
-		})
+		return "", "", ErrSchoolMissing
 	}
 	return tenantID, schoolID, nil
 }

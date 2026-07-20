@@ -108,7 +108,11 @@ func (s *Service) BatchMark(ctx context.Context, tenantID, schoolID string, payl
 		return nil, fmt.Errorf("attendance.Service.BatchMark: marked_by is required: %w", ErrInvalidInput)
 	}
 	if termID == "" {
-		return nil, fmt.Errorf("attendance.Service.BatchMark: academic_term_id is required: %w", ErrInvalidInput)
+		resolved, err := s.repo.GetTermIDByDate(ctx, tenantID, schoolID, payload.Date)
+		if err != nil {
+			return nil, fmt.Errorf("attendance.Service.BatchMark: resolve academic_term_id from date %s: %w", payload.Date, err)
+		}
+		termID = resolved
 	}
 
 	validStatuses := map[AttendanceStatus]bool{

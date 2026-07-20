@@ -9,51 +9,43 @@
  *   - Status badge: missed, active (now), upcoming, or completed
  *
  * Active slots show a "Mark Attendance" CTA to open the marking grid.
+ *
+ * This component makes a single API call: GET /api/v1/timetable/slots/enriched
+ * with the `date` parameter. The backend filters to the matching day-of-week
+ * and LEFT JOINs attendance_sessions to include session_status / skip_reason.
  */
 "use client";
 
 import * as React from "react";
 import { format } from "date-fns";
+import Link from "next/link";
 import { Clock, PlayCircle, CheckCircle2, AlertCircle, Coffee } from "lucide-react";
 
 import { ClassCombobox } from "@/features/classes/components/class-combobox";
 import { DatePicker } from "@/components/ui/date-picker";
 import { useAcademicYears } from "@/features/academic-terms/hooks/use-academic-terms";
 import { useEnrichedSlotList } from "@/features/timetable-structure/hooks/use-timetable-structure";
-import { useSessionsForClassDate } from "@/features/attendance/hooks/use-attendance";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-    Sheet,
-    SheetContent,
-    SheetDescription,
-    SheetHeader,
-    SheetTitle,
-    SheetTrigger,
-} from "@/components/ui/sheet";
-import { AttendanceGrid } from "./attendance-grid";
 import type { EnrichedSlot } from "@/lib/api/timetable-structure";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
 type SlotStatus = "active" | "missed" | "completed" | "upcoming" | "break";
 
-function getSlotStatus(
-    slot: EnrichedSlot,
-    completedSlotIds: Set<string>,
-    now: Date,
-    selectedDate: string
-): SlotStatus {
+function getSlotStatus(slot: EnrichedSlot, now: Date, selectedDate: string): SlotStatus {
     if (slot.is_break) return "break";
-    if (completedSlotIds.has(slot.id)) return "completed";
+
+    // session_status = "SUBMITTED" or "SKIPPED" means attendance was taken
+    if (slot.session_status) return "completed";
 
     const todayStr = now.toISOString().slice(0, 10);
 
     // Future date → all upcoming
     if (selectedDate > todayStr) return "upcoming";
 
-    // Past date → either completed (already caught above) or missed
+    // Past date → missed (no session means attendance wasn't taken)
     if (selectedDate < todayStr) return "missed";
 
     // Today → calculate based on current time
@@ -72,11 +64,6 @@ function formatTime(timeStr: string) {
     } catch {
         return timeStr;
     }
-}
-
-function dayOfWeekFromDate(dateStr: string): number {
-    // date-fns "i" token: 1=Mon ... 7=Sun (matches backend)
-    return parseInt(format(new Date(dateStr + "T00:00:00"), "i"), 10);
 }
 
 function todayDateString(): string {
@@ -99,12 +86,12 @@ const statusConfig: Record<SlotStatus, { icon: React.ReactNode; label: string; c
     completed: {
         icon: <CheckCircle2 className="size-4" />,
         label: "Completed",
-        color: "text-muted-foreground",
+        color: "text-blue-600",
     },
     upcoming: {
         icon: <Clock className="size-4" />,
         label: "Upcoming",
-        color: "text-muted-foreground",
+        color: "text-amber-600",
     },
     break: {
         icon: <Coffee className="size-4" />,
@@ -125,7 +112,6 @@ function TimelineItem({
     date: string;
 }) {
     const cfg = statusConfig[status];
-    const [sheetOpen, setSheetOpen] = React.useState(false);
 
     if (status === "break") {
         return (
@@ -143,10 +129,14 @@ function TimelineItem({
         <div
             className={`group relative border-l-2 px-4 py-3 ${
                 status === "active"
-                    ? "border-l-emerald-500 bg-emerald-50/50"
+                    ? "border-l-green-500 bg-green-600/5"
                     : status === "missed"
-                      ? "border-l-destructive bg-destructive/5"
-                      : "bg-muted/30 border-l-transparent"
+                      ? "border-l-red-500 bg-red-600/5"
+                      : status === "completed"
+                        ? "border-l-blue-500 bg-blue-600/5"
+                        : status === "upcoming"
+                          ? "border-l-amber-500 bg-amber-600/5"
+                          : "bg-muted/30 border-l-transparent"
             }`}
         >
             <div className="flex items-start justify-between gap-4">
@@ -174,27 +164,9 @@ function TimelineItem({
 
                 {/* Right: CTA for active / missed slots */}
                 {(status === "active" || status === "missed") && (
-                    <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-                        <SheetTrigger asChild>
-                            <Button variant="outline" size="sm" className="shrink-0">
-                                Mark Attendance
-                            </Button>
-                        </SheetTrigger>
-                        <SheetContent side="right" className="w-full sm:max-w-lg">
-                            <SheetHeader>
-                                <SheetTitle>
-                                    {slot.period_name} — {formatTime(slot.start_time)}–
-                                    {formatTime(slot.end_time)}
-                                </SheetTitle>
-                                <SheetDescription>
-                                    {slot.class_name} · {slot.teacher_name ?? "No teacher assigned"}
-                                </SheetDescription>
-                            </SheetHeader>
-                            <div className="mt-6">
-                                <AttendanceGrid timetableSlotId={slot.id} date={date} />
-                            </div>
-                        </SheetContent>
-                    </Sheet>
+                    <Button asChild variant="outline" size="sm" className="shrink-0">
+                        <Link href={`/attendance/mark/${slot.id}/${date}`}>Mark Attendance</Link>
+                    </Button>
                 )}
 
                 {status === "completed" && (
@@ -213,8 +185,6 @@ export function AttendanceTimeline() {
     const [classId, setClassId] = React.useState<string>("");
     const [selectedDate, setSelectedDate] = React.useState<string>(todayDateString());
 
-    const dayOfWeek = React.useMemo(() => dayOfWeekFromDate(selectedDate), [selectedDate]);
-
     // Fetch academic years to find the current one
     const { data: yearsData } = useAcademicYears();
 
@@ -226,31 +196,20 @@ export function AttendanceTimeline() {
         return "";
     }, [yearsData]);
 
-    // Fetch enriched slots for the selected class + academic year
+    // Single query: enriched slots for this class + date.
+    // The backend filters by day-of-week matching the date and includes
+    // session_status / skip_reason from the attendance_sessions table.
     const {
         data: slotsData,
-        isLoading: slotsLoading,
-        isError: slotsError,
-    } = useEnrichedSlotList(academicYearId, classId ? { mode: "class", id: classId } : undefined);
+        isLoading,
+        isError,
+    } = useEnrichedSlotList(academicYearId, classId ? { classId, date: selectedDate } : undefined);
 
-    // Fetch attendance sessions for this class on the selected date
-    const { data: sessionsData } = useSessionsForClassDate(classId, selectedDate);
-
-    // Filter slots to today's day of week and non-breaks (breaks shown separately)
+    // Slots are already filtered to the correct day-of-week by the backend.
     const allSlots = React.useMemo(() => {
         if (!slotsData?.items) return [];
-        return slotsData.items
-            .filter((s) => s.day_of_week === dayOfWeek)
-            .sort((a, b) => a.start_time.localeCompare(b.start_time));
-    }, [slotsData, dayOfWeek]);
-
-    // Build set of completed slot IDs
-    const completedSlotIds = React.useMemo(() => {
-        if (!sessionsData) return new Set<string>();
-        // sessionsData is an array of SessionWithEnrichedData → extract timetable_slot_id
-        const ids = Array.isArray(sessionsData) ? sessionsData.map((s) => s.timetable_slot_id) : [];
-        return new Set(ids);
-    }, [sessionsData]);
+        return [...slotsData.items].sort((a, b) => a.start_time.localeCompare(b.start_time));
+    }, [slotsData]);
 
     // Current time for status calculation
     const now = React.useMemo(() => new Date(), []);
@@ -261,7 +220,7 @@ export function AttendanceTimeline() {
     }, []);
 
     // ── Loading state ────────────────────────────────────────────────────
-    if (slotsLoading || !academicYearId) {
+    if (isLoading || !academicYearId) {
         return (
             <div className="space-y-4">
                 <Skeleton className="h-9 w-full max-w-xs" />
@@ -275,7 +234,7 @@ export function AttendanceTimeline() {
     }
 
     // ── Error state ──────────────────────────────────────────────────────
-    if (slotsError) {
+    if (isError) {
         return (
             <div className="bg-destructive/10 text-destructive p-4 text-sm">
                 Failed to load timetable. Please try again.
@@ -322,7 +281,7 @@ export function AttendanceTimeline() {
             {/* Timeline */}
             <div className="max-h-[calc(100vh-14rem)] space-y-1 pr-2">
                 {allSlots.map((slot, idx) => {
-                    const status = getSlotStatus(slot, completedSlotIds, now, selectedDate);
+                    const status = getSlotStatus(slot, now, selectedDate);
 
                     // Show a "now" divider only when viewing today
                     const isToday = selectedDate === now.toISOString().slice(0, 10);
@@ -330,12 +289,7 @@ export function AttendanceTimeline() {
                         isToday &&
                         status === "active" &&
                         (idx === 0 ||
-                            getSlotStatus(
-                                allSlots[idx - 1],
-                                completedSlotIds,
-                                now,
-                                selectedDate
-                            ) !== "active");
+                            getSlotStatus(allSlots[idx - 1], now, selectedDate) !== "active");
 
                     return (
                         <React.Fragment key={slot.id}>

@@ -78,6 +78,7 @@ type SlotFilter struct {
 	ClassID        string `json:"class_id,omitempty"`
 	TeacherID      string `json:"teacher_id,omitempty"`
 	RoomIdentifier string `json:"room_identifier,omitempty"`
+	Date           string `json:"date,omitempty"` // when set, filters by day_of_week and joins attendance_sessions
 }
 
 // SlotWithEnrichedData extends TimetableSlot with joined data from related tables.
@@ -91,6 +92,11 @@ type SlotWithEnrichedData struct {
 	IsBreak          bool    `json:"is_break,omitempty"`
 	LearningAreaName *string `json:"learning_area_name,omitempty"`
 	TeacherName      *string `json:"teacher_name,omitempty"`
+	// SessionStatus indicates whether attendance has been submitted for this slot+date.
+	// "SUBMITTED" means attendance was marked, "SKIPPED" means the lesson was skipped,
+	// null means no session record exists yet (attendance not taken).
+	SessionStatus *string `json:"session_status"`
+	SkipReason    *string `json:"skip_reason"`
 }
 
 // EnrichedSlotListResult holds the response for enriched listing.

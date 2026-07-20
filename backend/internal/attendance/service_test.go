@@ -25,6 +25,7 @@ type MockRepository struct {
 	listRecordsByStudentTermFn func(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]RecordWithEnrichedData, error)
 	listRecordsByClassDateFn   func(ctx context.Context, tenantID, schoolID, classID, date string) ([]RecordWithEnrichedData, error)
 	listRecordsFn              func(ctx context.Context, filter RecordFilter) ([]RecordWithEnrichedData, error)
+	getTermIDByDateFn          func(ctx context.Context, tenantID, schoolID, date string) (string, error)
 	getStudentTermSummaryFn    func(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]AttendanceTermSummary, error)
 	getClassTermSummaryFn      func(ctx context.Context, tenantID, schoolID, classID, termID string) ([]AttendanceTermSummary, error)
 	refreshSummariesFn         func(ctx context.Context, tenantID, schoolID, termID string) error
@@ -134,6 +135,13 @@ func (m *MockRepository) GetClassTermSummary(ctx context.Context, tenantID, scho
 		return m.getClassTermSummaryFn(ctx, tenantID, schoolID, classID, termID)
 	}
 	return []AttendanceTermSummary{}, nil
+}
+
+func (m *MockRepository) GetTermIDByDate(ctx context.Context, tenantID, schoolID, date string) (string, error) {
+	if m.getTermIDByDateFn != nil {
+		return m.getTermIDByDateFn(ctx, tenantID, schoolID, date)
+	}
+	return "term_001", nil
 }
 
 func (m *MockRepository) RefreshSummaries(ctx context.Context, tenantID, schoolID, termID string) error {
@@ -579,21 +587,30 @@ func TestBatchMark_EmptyMarkedBy(t *testing.T) {
 	}
 }
 
-func TestBatchMark_EmptyTermID(t *testing.T) {
+func TestBatchMark_EmptyTermID_AutoResolves(t *testing.T) {
 	h := newTestHarness()
 
-	_, err := h.svc.BatchMark(context.Background(), "tenant_001", "school_001", BatchMarkPayload{
+	var capturedTermID string
+	h.repo.batchMarkFn = func(ctx context.Context, tenantID, schoolID string, payload BatchMarkPayload, markedBy, termID string) (*BatchMarkResult, error) {
+		capturedTermID = termID
+		return &BatchMarkResult{Created: 1}, nil
+	}
+
+	result, err := h.svc.BatchMark(context.Background(), "tenant_001", "school_001", BatchMarkPayload{
 		TimetableSlotID: "slot_001",
 		Date:            "2026-07-15",
 		Records: []StudentAttendanceMark{
 			{StudentID: "stu_001", Status: StatusPresent},
 		},
 	}, "user_001", "")
-	if err == nil {
-		t.Fatal("expected error for empty termID, got nil")
+	if err != nil {
+		t.Fatalf("expected no error when termID auto-resolves, got %v", err)
 	}
-	if !errors.Is(err, ErrInvalidInput) {
-		t.Fatalf("expected ErrInvalidInput, got %v", err)
+	if result.Created != 1 {
+		t.Errorf("expected 1 created, got %d", result.Created)
+	}
+	if capturedTermID != "term_001" {
+		t.Errorf("expected auto-resolved term_001, got %q", capturedTermID)
 	}
 }
 

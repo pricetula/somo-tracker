@@ -110,6 +110,9 @@ export interface EnrichedSlot {
     is_break: boolean;
     learning_area_name?: string | null;
     teacher_name?: string | null;
+    /** Populated only when the date filter is set. */
+    session_status?: string | null;
+    skip_reason?: string | null;
 }
 
 export interface SlotListResult {
@@ -257,21 +260,27 @@ export async function listSlots(
     return api.get<SlotListResult>(`/api/v1/timetable/slots?${params.toString()}`);
 }
 
-/** List enriched slots with joined data for the scheduling board. */
+/** List enriched slots with joined data for the scheduling board.
+ *
+ * When `date` is provided:
+ *   - Only slots matching that date's day-of-week are returned.
+ *   - Each slot includes `session_status` (SUBMITTED/SKIPPED/null) and `skip_reason`
+ *     from the attendance sessions table.
+ */
 export async function listEnrichedSlots(
     academicYearID: string,
-    viewBy?: {
-        mode: "class" | "teacher" | "room";
-        id: string;
+    opts?: {
+        classId?: string;
+        teacherId?: string;
+        roomIdentifier?: string;
+        date?: string;
     }
 ): Promise<EnrichedSlotListResult> {
     const params = new URLSearchParams({ academic_year_id: academicYearID });
-    if (viewBy) {
-        params.set("view_by", viewBy.mode);
-        if (viewBy.mode === "class") params.set("class_id", viewBy.id);
-        else if (viewBy.mode === "teacher") params.set("teacher_id", viewBy.id);
-        else if (viewBy.mode === "room") params.set("room_identifier", viewBy.id);
-    }
+    if (opts?.classId) params.set("class_id", opts.classId);
+    if (opts?.teacherId) params.set("teacher_id", opts.teacherId);
+    if (opts?.roomIdentifier) params.set("room_identifier", opts.roomIdentifier);
+    if (opts?.date) params.set("date", opts.date);
     return api.get<EnrichedSlotListResult>(`/api/v1/timetable/slots/enriched?${params.toString()}`);
 }
 

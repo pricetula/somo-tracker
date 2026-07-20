@@ -295,17 +295,26 @@ export function useSlotList(
     });
 }
 
-/** Fetch enriched slots for the scheduling board. */
+/** Fetch enriched slots for the scheduling board.
+ *
+ * When `date` is provided, the endpoint returns only slots matching that day-of-week
+ * and includes session_status / skip_reason from the attendance sessions table.
+ */
 export function useEnrichedSlotList(
     academicYearID: string,
-    viewBy?: {
-        mode: "class" | "teacher" | "room";
-        id: string;
+    opts?: {
+        classId?: string;
+        teacherId?: string;
+        roomIdentifier?: string;
+        date?: string;
     }
 ) {
     return useQuery({
-        queryKey: timetableSlotKeys.enriched({ academicYearID, ...(viewBy ?? {}) }),
-        queryFn: () => listEnrichedSlots(academicYearID, viewBy),
+        queryKey: timetableSlotKeys.enriched({
+            academicYearID,
+            ...(opts ?? {}),
+        }),
+        queryFn: () => listEnrichedSlots(academicYearID, opts),
         enabled: !!academicYearID,
         staleTime: 5 * 60 * 1000,
     });

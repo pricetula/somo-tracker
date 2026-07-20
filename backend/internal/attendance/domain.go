@@ -269,6 +269,10 @@ type Repository interface {
 	// ListRecords returns records matching the filter.
 	ListRecords(ctx context.Context, filter RecordFilter) ([]RecordWithEnrichedData, error)
 
+	// GetTermIDByDate returns the academic term ID whose date range covers the
+	// given date for this school. Returns ErrInvalidInput if no term is found.
+	GetTermIDByDate(ctx context.Context, tenantID, schoolID, date string) (string, error)
+
 	// ── Summaries ─────────────────────────────────────────────────────
 
 	// GetStudentTermSummary returns summaries for a student in a term (all learning areas).

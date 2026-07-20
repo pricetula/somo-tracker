@@ -69,6 +69,7 @@ function DatePicker({
                     mode="single"
                     selected={date}
                     onSelect={handleSelect}
+                    required
                     autoFocus
                     disabled={disabled}
                     captionLayout="dropdown"

@@ -85,20 +85,14 @@ func (h *Handler) ListEnriched(c *fiber.Ctx) error {
 
 	tenantID, _ := c.Locals("tenant_id").(string)
 
-	viewBy := c.Query("view_by") // class, teacher, or room
 	filter := SlotFilter{
 		AcademicYearID: academicYearID,
 		TenantID:       tenantID,
 		StructureID:    c.Query("structure_id"),
-	}
-
-	switch viewBy {
-	case "class":
-		filter.ClassID = c.Query("class_id")
-	case "teacher":
-		filter.TeacherID = c.Query("teacher_id")
-	case "room":
-		filter.RoomIdentifier = c.Query("room_identifier")
+		ClassID:        c.Query("class_id"),
+		TeacherID:      c.Query("teacher_id"),
+		RoomIdentifier: c.Query("room_identifier"),
+		Date:           c.Query("date"),
 	}
 
 	result, err := h.svc.ListEnrichedSlots(c.Context(), filter)

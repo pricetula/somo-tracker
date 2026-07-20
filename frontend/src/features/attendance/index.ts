@@ -5,6 +5,7 @@
 export { SessionList } from "./components/session-list";
 export { AttendanceGrid } from "./components/attendance-grid";
 export { AttendanceTimeline } from "./components/attendance-timeline";
+export { AttendanceMarkPage } from "./components/attendance-mark-page";
 export { SummaryTable } from "./components/summary-table";
 
 export {

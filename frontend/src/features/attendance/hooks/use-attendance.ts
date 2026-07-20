@@ -27,6 +27,8 @@ import type {
     BatchMarkPayload,
     BatchMarkResult,
     CreateSessionPayload,
+    RecordListResponse,
+    RecordWithEnrichedData,
     UpdateRecordPayload,
     UpdateSessionPayload,
 } from "@/features/attendance/types";
@@ -198,14 +200,64 @@ export function useBatchMarkAttendance(termId?: string) {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: (data: BatchMarkPayload) => batchMarkAttendance(data, termId),
+        onMutate: async (data) => {
+            // Cancel any in-flight refetches so they don't overwrite our optimistc update
+            await queryClient.cancelQueries({ queryKey: attendanceKeys.records.all });
+
+            // Snapshot all record caches for rollback on error
+            const previousCaches = queryClient.getQueriesData({
+                queryKey: attendanceKeys.records.all,
+            });
+
+            // Optimistically update every record cache with the new statuses
+            queryClient.setQueriesData<RecordWithEnrichedData[] | RecordListResponse>(
+                { queryKey: attendanceKeys.records.all },
+                (old) => {
+                    if (!old) return old;
+
+                    if (Array.isArray(old)) {
+                        return old.map((record) => {
+                            const update = data.records.find(
+                                (r) => r.student_id === record.student_id
+                            );
+                            return update ? { ...record, status: update.status } : record;
+                        });
+                    }
+
+                    // RecordListResponse shape ({ items: [] })
+                    if ("items" in old && Array.isArray(old.items)) {
+                        return {
+                            ...old,
+                            items: old.items.map((record) => {
+                                const update = data.records.find(
+                                    (r) => r.student_id === record.student_id
+                                );
+                                return update ? { ...record, status: update.status } : record;
+                            }),
+                        };
+                    }
+
+                    return old;
+                }
+            );
+
+            return { previousCaches };
+        },
+        onError: (err, _data, context) => {
+            // Rollback all record caches to their pre-mutation state
+            if (context?.previousCaches) {
+                for (const [key, cache] of context.previousCaches) {
+                    queryClient.setQueryData(key, cache);
+                }
+            }
+            toast.error(getErrorMessage(err));
+        },
         onSuccess: (result: BatchMarkResult) => {
             toast.success(`Attendance saved: ${result.created} created, ${result.updated} updated`);
         },
-        onError: (err) => {
-            toast.error(getErrorMessage(err));
-        },
         onSettled: () => {
             queryClient.invalidateQueries({ queryKey: attendanceKeys.records.all });
+            queryClient.invalidateQueries({ queryKey: attendanceKeys.sessions.all });
             queryClient.invalidateQueries({ queryKey: attendanceKeys.summaries.all });
         },
     });

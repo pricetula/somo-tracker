@@ -242,8 +242,15 @@ func (r *pgRepository) GetSessionsForClassDate(ctx context.Context, tenantID, sc
 	// along with any existing session record.
 	query := `
 		SELECT
-			s.id, s.tenant_id, s.school_id, s.timetable_slot_id, s.date, COALESCE(s.status, 'SUBMITTED') AS status, s.skip_reason,
-			COALESCE(s.created_at, NOW()) AS created_at, COALESCE(s.updated_at, NOW()) AS updated_at,
+			COALESCE(s.id::text, gen_random_uuid()::text) AS id,
+			COALESCE(s.tenant_id, $1::uuid) AS tenant_id,
+			COALESCE(s.school_id, $2::uuid) AS school_id,
+			COALESCE(s.timetable_slot_id, ts.id) AS timetable_slot_id,
+			COALESCE(s.date::text, $4::text) AS date,
+			COALESCE(s.status, 'SUBMITTED') AS status,
+			s.skip_reason,
+			COALESCE(s.created_at, NOW()) AS created_at,
+			COALESCE(s.updated_at, NOW()) AS updated_at,
 			c.grade_level || ' ' || COALESCE(st.name, '') AS class_name,
 			COALESCE(st.name, '') AS stream_name,
 			c.grade_level,
@@ -345,6 +352,20 @@ func (r *pgRepository) BatchMark(ctx context.Context, tenantID, schoolID string,
 		}
 	}
 
+	// Upsert a session record so the timeline recognises this slot+date as completed.
+	// The unique constraint is on (school_id, timetable_slot_id, date).
+	_, err = tx.Exec(ctx, `
+		INSERT INTO cbc_attendance_sessions
+			(tenant_id, school_id, timetable_slot_id, date, status)
+		VALUES ($1, $2, $3, $4, 'SUBMITTED')
+		ON CONFLICT (school_id, timetable_slot_id, date)
+		DO UPDATE SET
+			status = 'SUBMITTED'
+	`, tenantID, schoolID, payload.TimetableSlotID, payload.Date)
+	if err != nil {
+		return nil, fmt.Errorf("attendance.Repository.BatchMark: upsert session: %w", err)
+	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("attendance.Repository.BatchMark: commit tx: %w", err)
 	}
@@ -421,9 +442,19 @@ func (r *pgRepository) GetRecordByID(ctx context.Context, id, tenantID string) (
 func (r *pgRepository) ListRecordsBySlotDate(ctx context.Context, tenantID, schoolID, timetableSlotID, date string) ([]RecordWithEnrichedData, error) {
 	query := `
 		SELECT
-			ar.id, ar.tenant_id, ar.school_id, ar.student_id, ar.timetable_slot_id,
-			ar.academic_term_id, ar.date, ar.status, ar.marked_by, ar.marked_at, ar.note,
-			ar.created_at, ar.updated_at,
+			COALESCE(ar.id::text, gen_random_uuid()::text) AS id,
+			$1::text AS tenant_id,
+			$2::text AS school_id,
+			s.id::text AS student_id,
+			ts.id::text AS timetable_slot_id,
+			COALESCE(ar.academic_term_id::text, enr.academic_term_id::text) AS academic_term_id,
+			$4::text AS date,
+			COALESCE(ar.status, 'PRESENT') AS status,
+			COALESCE(ar.marked_by::text, '') AS marked_by,
+			COALESCE(ar.marked_at::text, '') AS marked_at,
+			ar.note,
+			COALESCE(ar.created_at, NOW()) AS created_at,
+			COALESCE(ar.updated_at, NOW()) AS updated_at,
 			s.full_name AS student_full_name,
 			c.grade_level || ' ' || COALESCE(st.name, '') AS class_name,
 			c.grade_level,
@@ -434,15 +465,23 @@ func (r *pgRepository) ListRecordsBySlotDate(ctx context.Context, tenantID, scho
 			tstr.end_time::text,
 			ts.learning_area_id,
 			COALESCE(la.name, '') AS learning_area_name
-		FROM attendance_records ar
-		JOIN cbc_students s ON s.id = ar.student_id AND s.tenant_id = ar.tenant_id
-		JOIN cbc_timetable_slots ts ON ts.id = ar.timetable_slot_id
+		FROM cbc_timetable_slots ts
+		JOIN cbc_classes c ON c.id = ts.class_id AND c.tenant_id = $1
 		JOIN timetable_structures tstr ON tstr.id = ts.structure_id
-		JOIN cbc_classes c ON c.id = ts.class_id AND c.tenant_id = ar.tenant_id
 		LEFT JOIN cbc_streams st ON st.id = c.stream_id
 		LEFT JOIN cbc_learning_areas la ON la.id = ts.learning_area_id
-		WHERE ar.tenant_id = $1 AND ar.school_id = $2
-		  AND ar.timetable_slot_id = $3 AND ar.date = $4
+		JOIN cbc_student_enrollments enr
+			ON enr.class_id = c.id
+			AND enr.tenant_id = $1
+			AND enr.school_id = $2
+		JOIN cbc_students s ON s.id = enr.student_id AND s.tenant_id = $1
+		LEFT JOIN attendance_records ar
+			ON ar.student_id = s.id
+			AND ar.timetable_slot_id = ts.id
+			AND ar.date = $4::date
+			AND ar.tenant_id = $1
+		WHERE ts.id = $3
+		  AND ts.tenant_id = $1
 		ORDER BY s.full_name
 	`
 	return r.scanEnrichedRecords(ctx, query, tenantID, schoolID, timetableSlotID, date)
@@ -639,6 +678,28 @@ func (r *pgRepository) scanEnrichedRecords(ctx context.Context, query string, ar
 		return nil, fmt.Errorf("attendance.Repository.scanEnrichedRecords: rows: %w", err)
 	}
 	return results, nil
+}
+
+// ── Term Resolution ───────────────────────────────────────────────────────
+
+func (r *pgRepository) GetTermIDByDate(ctx context.Context, tenantID, schoolID, date string) (string, error) {
+	var id string
+	err := r.pool.QueryRow(ctx, `
+		SELECT at.id FROM academic_terms at
+		JOIN academic_years ay ON ay.id = at.academic_year_id
+		WHERE ay.tenant_id = $1
+		  AND ay.school_id = $2
+		  AND at.start_date <= $3::date
+		  AND at.end_date >= $3::date
+		LIMIT 1
+	`, tenantID, schoolID, date).Scan(&id)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return "", fmt.Errorf("attendance.Repository.GetTermIDByDate: no term found for date %s: %w", date, ErrInvalidInput)
+		}
+		return "", fmt.Errorf("attendance.Repository.GetTermIDByDate: %w", err)
+	}
+	return id, nil
 }
 
 // ── Summaries ─────────────────────────────────────────────────────────────

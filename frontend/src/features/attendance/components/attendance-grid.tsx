@@ -6,7 +6,7 @@
  */
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -37,6 +37,16 @@ export function AttendanceGrid({ timetableSlotId, date, termId }: AttendanceGrid
     const batchMark = useBatchMarkAttendance(termId);
 
     const [localStatuses, setLocalStatuses] = useState<Record<string, AttendanceStatus>>({});
+    const prevIsSuccessRef = useRef(false);
+
+    // Clear local pending changes after a successful save so the grid
+    // reflects the (now optimistically updated) cache.
+    useEffect(() => {
+        if (batchMark.isSuccess && !prevIsSuccessRef.current) {
+            setLocalStatuses({});
+        }
+        prevIsSuccessRef.current = batchMark.isSuccess;
+    }, [batchMark.isSuccess]);
 
     if (isLoading) {
         return (
@@ -126,11 +136,9 @@ export function AttendanceGrid({ timetableSlotId, date, termId }: AttendanceGrid
                 })}
             </div>
 
-            {hasChanges && (
-                <Button onClick={handleSubmit} disabled={batchMark.isPending}>
-                    {batchMark.isPending ? "Saving..." : "Save Attendance"}
-                </Button>
-            )}
+            <Button onClick={handleSubmit} disabled={!hasChanges || batchMark.isPending}>
+                {batchMark.isPending ? "Saving..." : "Save Attendance"}
+            </Button>
         </div>
     );
 }

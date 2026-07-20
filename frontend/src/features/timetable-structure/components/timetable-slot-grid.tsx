@@ -73,10 +73,9 @@ export function TimetableSlotGrid({ blocks, academicYearID, isLoading }: Timetab
     const classItems = classData?.items ?? [];
     const resolvedClassID = selectedClassID || classItems[0]?.value || "";
 
-    const viewBy = resolvedClassID ? { mode: "class" as const, id: resolvedClassID } : undefined;
     const { data: enrichedData, isLoading: slotsLoading } = useEnrichedSlotList(
         academicYearID,
-        viewBy
+        resolvedClassID ? { classId: resolvedClassID } : undefined
     );
     const createMutation = useCreateSlot();
     const deleteSlotMutation = useDeleteSlot();

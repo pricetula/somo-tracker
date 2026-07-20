@@ -11,12 +11,14 @@ import (
 // ============================================================================
 
 type MockRepository struct {
-	listBySchoolFn    func(ctx context.Context, tenantID, schoolID string, includeInactive bool, offset, limit int, search string) ([]Teacher, int, error)
-	getByIDFn         func(ctx context.Context, userID, tenantID, schoolID string) (*Teacher, error)
-	updateFn          func(ctx context.Context, userID, tenantID, schoolID string, payload UpdateTeacherPayload) error
-	toggleActiveFn    func(ctx context.Context, tenantID, schoolID, userID string, isActive bool) error
-	deleteFn          func(ctx context.Context, tenantID, schoolID, userID string) error
-	getActiveSchoolID func(ctx context.Context, tenantID, userID string) (string, error)
+	listBySchoolFn        func(ctx context.Context, tenantID, schoolID string, includeInactive bool, offset, limit int, search string) ([]Teacher, int, error)
+	getByIDFn             func(ctx context.Context, userID, tenantID, schoolID string) (*Teacher, error)
+	updateFn              func(ctx context.Context, userID, tenantID, schoolID string, payload UpdateTeacherPayload) error
+	toggleActiveFn        func(ctx context.Context, tenantID, schoolID, userID string, isActive bool) error
+	deleteFn              func(ctx context.Context, tenantID, schoolID, userID string) error
+	getActiveSchoolID     func(ctx context.Context, tenantID, userID string) (string, error)
+	listTeacherClassesFn  func(ctx context.Context, tenantID, schoolID, userID, termID string) ([]TeacherClassItem, error)
+	getTeacherTimetableFn func(ctx context.Context, tenantID, schoolID, userID string, dayOfWeek int) ([]TeacherTimetableSlot, error)
 }
 
 func (m *MockRepository) ListBySchool(ctx context.Context, tenantID, schoolID string, includeInactive bool, offset, limit int, search string) ([]Teacher, int, error) {
@@ -59,6 +61,20 @@ func (m *MockRepository) GetActiveSchoolID(ctx context.Context, tenantID, userID
 		return m.getActiveSchoolID(ctx, tenantID, userID)
 	}
 	return "", nil
+}
+
+func (m *MockRepository) ListTeacherClasses(ctx context.Context, tenantID, schoolID, userID, termID string) ([]TeacherClassItem, error) {
+	if m.listTeacherClassesFn != nil {
+		return m.listTeacherClassesFn(ctx, tenantID, schoolID, userID, termID)
+	}
+	return []TeacherClassItem{}, nil
+}
+
+func (m *MockRepository) GetTeacherTimetable(ctx context.Context, tenantID, schoolID, userID string, dayOfWeek int) ([]TeacherTimetableSlot, error) {
+	if m.getTeacherTimetableFn != nil {
+		return m.getTeacherTimetableFn(ctx, tenantID, schoolID, userID, dayOfWeek)
+	}
+	return []TeacherTimetableSlot{}, nil
 }
 
 // ============================================================================

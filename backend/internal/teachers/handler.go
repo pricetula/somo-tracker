@@ -28,6 +28,10 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	teachers.Put("/:user_id", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.Update)
 	teachers.Patch("/:user_id/active", middleware.RequireAuth, h.ToggleActive)
 	teachers.Delete("/", middleware.RequireAuth, h.Delete)
+
+	// Teacher-specific dashboard routes
+	teachers.Get("/:user_id/classes", middleware.RequireAuth, h.ListClasses)
+	teachers.Get("/:user_id/timetable", middleware.RequireAuth, h.GetTimetable)
 }
 
 // ─── Handlers ──────────────────────────────────────────────────────────────
@@ -190,6 +194,58 @@ func (h *Handler) Delete(c *fiber.Ctx) error {
 		"code":    "ok",
 		"message": "teacher deleted",
 	})
+}
+
+// ─── Teacher Dashboard Handlers ───────────────────────────────────────────
+
+// ListClasses handles GET /api/v1/teachers/:user_id/classes.
+func (h *Handler) ListClasses(c *fiber.Ctx) error {
+	tenantID := c.Locals("tenant_id").(string)
+	schoolID := c.Locals("active_school_id").(string)
+	if schoolID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "active school not set",
+		})
+	}
+
+	userID := c.Params("user_id")
+	termID := c.Query("term_id")
+
+	result, err := h.svc.ListTeacherClasses(c.Context(), tenantID, schoolID, userID, termID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(result)
+}
+
+// GetTimetable handles GET /api/v1/teachers/:user_id/timetable?day_of_week=1.
+func (h *Handler) GetTimetable(c *fiber.Ctx) error {
+	tenantID := c.Locals("tenant_id").(string)
+	schoolID := c.Locals("active_school_id").(string)
+	if schoolID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "active school not set",
+		})
+	}
+
+	userID := c.Params("user_id")
+	dayOfWeek, err := strconv.Atoi(c.Query("day_of_week", "1"))
+	if err != nil || dayOfWeek < 1 || dayOfWeek > 7 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "day_of_week must be 1 (Monday) through 7 (Sunday)",
+		})
+	}
+
+	result, err := h.svc.GetTeacherTimetable(c.Context(), tenantID, schoolID, userID, dayOfWeek)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(result)
 }
 
 // Module is an fx-compatible module for the teachers domain.

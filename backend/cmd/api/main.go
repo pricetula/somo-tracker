@@ -32,6 +32,7 @@ import (
 
 	"somotracker/backend/internal/academicyears"
 	"somotracker/backend/internal/assessments"
+	"somotracker/backend/internal/attendance"
 	"somotracker/backend/internal/auth"
 	"somotracker/backend/internal/behavior"
 	"somotracker/backend/internal/billing"
@@ -49,6 +50,7 @@ import (
 	"somotracker/backend/internal/members"
 	"somotracker/backend/internal/middleware"
 	"somotracker/backend/internal/parents"
+	"somotracker/backend/internal/reports"
 	"somotracker/backend/internal/students"
 	"somotracker/backend/internal/teachers"
 	"somotracker/backend/internal/timetablestructure"
@@ -189,6 +191,7 @@ func main() {
 		academicyears.Module,
 		assessments.Module,
 		auth.Module,
+		attendance.Module,
 		behavior.Module,
 		cbcschools.Module,
 		cbcstreams.Module,
@@ -205,6 +208,7 @@ func main() {
 		classteachers.Module,
 		health.Module,
 		imports.Module,
+		reports.Module,
 
 		// Cross-domain interface wiring: school resolver from members,
 		// school creator from cbcschools, curriculum seeder + academic year
@@ -212,6 +216,142 @@ func main() {
 		fx.Provide(
 			func(repo members.Repository) invitations.SchoolResolver {
 				return repo
+			},
+			// Wire reports providers (function adapters from domain services into reports).
+			// Each closure matches the function type defined in reports/domain.go.
+			func(svc *students.Service) reports.StudentProvider {
+				return func(ctx context.Context, studentID, tenantID, schoolID string) (*reports.TermReportStudent, error) {
+					detail, err := svc.GetDetail(ctx, studentID, tenantID, schoolID)
+					if err != nil {
+						return nil, err
+					}
+					// Find the active enrollment for the student's current class.
+					var className, gradeLevel, streamName string
+					for _, enr := range detail.Enrollments {
+						if enr.ClassName != "" {
+							className = enr.ClassName
+							break
+						}
+					}
+					return &reports.TermReportStudent{
+						ID:              detail.ID,
+						FullName:        detail.FullName,
+						Gender:          detail.Gender,
+						ClassName:       className,
+						GradeLevel:      gradeLevel,
+						StreamName:      streamName,
+						AdmissionNumber: detail.AdmissionNumber,
+						UPINumber:       detail.UPINumber,
+					}, nil
+				}
+			},
+			// TermProvider: queries the academicyears service via the repo.
+			func(pools *database.Pools) reports.TermProvider {
+				return func(ctx context.Context, termID, tenantID, schoolID string) (*reports.TermInfo, error) {
+					var info reports.TermInfo
+					err := pools.PG.QueryRow(ctx, `
+						SELECT at.id, at.name, at.term_number,
+						       ay.name AS academic_year,
+						       cs.name AS school_name
+						FROM academic_terms at
+						JOIN academic_years ay ON ay.id = at.academic_year_id
+						JOIN cbc_schools cs ON cs.id = at.school_id
+						WHERE at.id = $1 AND at.tenant_id = $2 AND at.school_id = $3
+					`, termID, tenantID, schoolID).Scan(
+						&info.TermID, &info.TermName, &info.TermNumber,
+						&info.AcademicYear, &info.SchoolName,
+					)
+					if err != nil {
+						return nil, err
+					}
+					return &info, nil
+				}
+			},
+			// AttendanceProvider: wraps attendance service summaries.
+			func(attSvc *attendance.Service) reports.AttendanceProvider {
+				return func(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]reports.AttendanceSummaryItem, error) {
+					resp, err := attSvc.GetStudentTermSummary(ctx, tenantID, schoolID, studentID, termID)
+					if err != nil {
+						return nil, err
+					}
+					items := make([]reports.AttendanceSummaryItem, len(resp.Items))
+					for i, s := range resp.Items {
+						items[i] = reports.AttendanceSummaryItem{
+							LearningAreaID:   s.LearningAreaID,
+							LearningAreaName: s.LearningAreaName,
+							PeriodsTotal:     s.PeriodsTotal,
+							PeriodsPresent:   s.PeriodsPresent,
+							PeriodsAbsent:    s.PeriodsAbsent,
+							PeriodsLate:      s.PeriodsLate,
+							PeriodsExcused:   s.PeriodsExcused,
+							Percentage:       s.AttendancePercentage,
+						}
+					}
+					return items, nil
+				}
+			},
+			// AssessmentProvider: wraps the assessments repository for term grades + sessions.
+			func(asmtRepo assessments.Repository) reports.AssessmentProvider {
+				return func(ctx context.Context, tenantID, schoolID, studentID, termID string) (*reports.AssessmentData, error) {
+					// Fetch compiled term grades per learning area.
+					grades, err := asmtRepo.GetStudentTermGrades(ctx, tenantID, schoolID, studentID, termID)
+					if err != nil {
+						return nil, err
+					}
+					// Fetch published assessment sessions.
+					sessions, err := asmtRepo.GetPublishedSessionsForParent(ctx, tenantID, schoolID, studentID, termID)
+					if err != nil {
+						return nil, err
+					}
+
+					las := make([]reports.LearningAreaAssessment, len(grades))
+					for i, g := range grades {
+						las[i] = reports.LearningAreaAssessment{
+							LearningAreaID:   g.LearningAreaID,
+							LearningAreaName: g.LearningAreaName,
+							FinalLevel:       g.FinalLevel,
+							AssessmentCount:  g.AssessmentCount,
+						}
+					}
+
+					sis := make([]reports.AssessmentSessionItem, len(sessions))
+					for i, s := range sessions {
+						sis[i] = reports.AssessmentSessionItem{
+							SessionID:        s.SessionID,
+							SessionName:      s.SessionName,
+							EvaluationMethod: s.EvaluationMethod,
+							ScheduledDate:    s.ScheduledDate,
+							RawScore:         s.RawScore,
+							MaxPoints:        s.MaxPoints,
+							PerformanceLevel: s.PerformanceLevel,
+						}
+					}
+
+					return &reports.AssessmentData{
+						LearningAreas: las,
+						Sessions:      sis,
+					}, nil
+				}
+			},
+			// BehaviorProvider: wraps behavior service notes.
+			func(behSvc *behavior.Service) reports.BehaviorProvider {
+				return func(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]reports.BehaviorNoteItem, error) {
+					notes, err := behSvc.GetNotesByStudentTerm(ctx, tenantID, schoolID, studentID, termID)
+					if err != nil {
+						return nil, err
+					}
+					items := make([]reports.BehaviorNoteItem, len(notes))
+					for i, n := range notes {
+						items[i] = reports.BehaviorNoteItem{
+							ID:           n.ID,
+							CategoryName: n.CategoryName,
+							Description:  n.Description,
+							Date:         n.Date.Format("2006-01-02"),
+							IsUrgent:     n.IsUrgent,
+						}
+					}
+					return items, nil
+				}
 			},
 			// Wire the full cbcschools.Service (CreateSchool) as the SchoolCreator
 			// so that registering a new school seeds the CBC curriculum and
@@ -264,6 +404,30 @@ func main() {
 					return items, nil
 				}
 			},
+			// Wire attendance summaries provider into the students handler for the
+			// student detail page.
+			func(attSvc *attendance.Service) students.AttendanceSummaryProvider {
+				return func(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]students.AttendanceSummaryItem, error) {
+					resp, err := attSvc.GetStudentTermSummary(ctx, tenantID, schoolID, studentID, termID)
+					if err != nil {
+						return nil, err
+					}
+					items := make([]students.AttendanceSummaryItem, len(resp.Items))
+					for i, s := range resp.Items {
+						items[i] = students.AttendanceSummaryItem{
+							LearningAreaID:   s.LearningAreaID,
+							LearningAreaName: s.LearningAreaName,
+							PeriodsTotal:     s.PeriodsTotal,
+							PeriodsPresent:   s.PeriodsPresent,
+							PeriodsAbsent:    s.PeriodsAbsent,
+							PeriodsLate:      s.PeriodsLate,
+							PeriodsExcused:   s.PeriodsExcused,
+							Percentage:       s.AttendancePercentage,
+						}
+					}
+					return items, nil
+				}
+			},
 		),
 
 		fx.Provide(newLogger),
@@ -274,6 +438,10 @@ func main() {
 		// Wire behavior notes provider into students handler
 		fx.Invoke(func(h *students.Handler, fn students.BehaviorNotesProvider) {
 			h.SetBehaviorNotesProvider(fn)
+		}),
+		// Wire attendance summaries provider into students handler
+		fx.Invoke(func(h *students.Handler, fn students.AttendanceSummaryProvider) {
+			h.SetAttendanceProvider(fn)
 		}),
 		fx.Invoke(func(svc *assessments.Service, rp assessments.RosterProvider) {
 			svc.SetRosterProvider(rp)
@@ -321,7 +489,9 @@ func registerApp(
 	assessmentsHandler *assessments.Handler,
 	authHandler *auth.Handler,
 	academicYearsHandler *academicyears.Handler,
+	attendanceHandler *attendance.Handler,
 	behaviorHandler *behavior.Handler,
+	reportsHandler *reports.Handler,
 	cbcschoolsHandler *cbcschools.Handler,
 	cbcclassesHandler *cbcclasses.Handler,
 	importsHandler *imports.Handler,
@@ -367,6 +537,8 @@ func registerApp(
 			assessmentsHandler.RegisterRoutes(app)
 			authHandler.RegisterRoutes(app)
 			academicYearsHandler.RegisterRoutes(app)
+			attendanceHandler.RegisterRoutes(app)
+			reportsHandler.RegisterRoutes(app)
 			cbcschoolsHandler.RegisterRoutes(app)
 			cbcstreamsHandler.RegisterRoutes(app)
 			cbctimetableslotsHandler.RegisterRoutes(app)

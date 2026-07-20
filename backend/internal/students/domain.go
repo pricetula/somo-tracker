@@ -41,12 +41,13 @@ type Student struct {
 }
 
 // StudentDetail extends Student with enrollment history, behavior notes,
-// and linked parent/guardian profiles.
+// attendance summaries, and linked parent/guardian profiles.
 type StudentDetail struct {
 	Student
-	Enrollments   []Enrollment       `json:"enrollments"`
-	Behavior      []BehaviorNoteItem `json:"behavior"`
-	LinkedParents []LinkedParent     `json:"linked_parents"`
+	Enrollments   []Enrollment            `json:"enrollments"`
+	Behavior      []BehaviorNoteItem      `json:"behavior"`
+	Attendance    []AttendanceSummaryItem `json:"attendance,omitempty"`
+	LinkedParents []LinkedParent          `json:"linked_parents"`
 }
 
 // LinkedParent represents a parent/guardian linked to a student.
@@ -67,6 +68,18 @@ type BehaviorNoteItem struct {
 	Date         string `json:"date"`
 	Status       string `json:"status"`
 	IsUrgent     bool   `json:"is_urgent"`
+}
+
+// AttendanceSummaryItem is a lightweight attendance summary for the student detail page.
+type AttendanceSummaryItem struct {
+	LearningAreaID   string  `json:"learning_area_id"`
+	LearningAreaName string  `json:"learning_area_name"`
+	PeriodsTotal     int     `json:"periods_total"`
+	PeriodsPresent   int     `json:"periods_present"`
+	PeriodsAbsent    int     `json:"periods_absent"`
+	PeriodsLate      int     `json:"periods_late"`
+	PeriodsExcused   int     `json:"periods_excused"`
+	Percentage       float64 `json:"percentage"`
 }
 
 // Enrollment represents a single term enrollment record.

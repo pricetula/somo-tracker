@@ -32,12 +32,18 @@ type academicYearsAdapter interface {
 // import dependency on the behavior package.
 type BehaviorNotesProvider func(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]BehaviorNoteItem, error)
 
+// AttendanceSummaryProvider is a function-based adapter that the students handler
+// uses to fetch attendance term summaries for the student detail page. It is set
+// via SetAttendanceProvider during fx wiring in main.go.
+type AttendanceSummaryProvider func(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]AttendanceSummaryItem, error)
+
 // Handler exposes student HTTP endpoints.
 type Handler struct {
 	svc              *Service
 	impSvc           importServiceAdapter
 	academicYearsSvc academicYearsAdapter
 	behaviorNotesFn  BehaviorNotesProvider
+	attendanceFn     AttendanceSummaryProvider
 }
 
 // NewHandler creates a new Handler.
@@ -60,6 +66,13 @@ func (h *Handler) SetAcademicYearsService(aySvc academicYearsAdapter) {
 // direct import dependency between students and behavior packages.
 func (h *Handler) SetBehaviorNotesProvider(fn BehaviorNotesProvider) {
 	h.behaviorNotesFn = fn
+}
+
+// SetAttendanceProvider sets the function that fetches attendance term summaries
+// for the student detail page. This is wired from main.go to avoid a direct
+// import dependency between students and attendance packages.
+func (h *Handler) SetAttendanceProvider(fn AttendanceSummaryProvider) {
+	h.attendanceFn = fn
 }
 
 // RegisterRoutes mounts student routes on the given router.
@@ -420,6 +433,17 @@ func (h *Handler) GetDetail(c *fiber.Ctx) error {
 			notes, err := h.behaviorNotesFn(c.Context(), tenantID, schoolID, id, termID)
 			if err == nil && notes != nil {
 				detail.Behavior = notes
+			}
+		}
+	}
+
+	// Fetch attendance summaries if the provider is wired in
+	if h.attendanceFn != nil {
+		termID := c.Query("term_id")
+		if termID != "" {
+			attendance, err := h.attendanceFn(c.Context(), tenantID, schoolID, id, termID)
+			if err == nil && attendance != nil {
+				detail.Attendance = attendance
 			}
 		}
 	}

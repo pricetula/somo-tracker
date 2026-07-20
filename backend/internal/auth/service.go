@@ -843,3 +843,15 @@ func generateUUID() (string, error) {
 	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x",
 		b[0:4], b[4:6], b[6:8], b[8:10], b[10:16]), nil
 }
+
+// SwitchActiveSchool switches the active school for a user.
+// Returns the new school_id on success.
+func (s *Service) SwitchActiveSchool(ctx context.Context, userID, tenantID, schoolID string) (string, error) {
+	if userID == "" || tenantID == "" || schoolID == "" {
+		return "", fmt.Errorf("auth.Service.SwitchActiveSchool: all parameters required: %w", ErrInvalidInput)
+	}
+	if err := s.repo.SetActiveSchool(ctx, userID, tenantID, schoolID); err != nil {
+		return "", fmt.Errorf("auth.Service.SwitchActiveSchool: %w", err)
+	}
+	return schoolID, nil
+}

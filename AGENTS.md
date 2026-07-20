@@ -1,5 +1,11 @@
 # Somotracker — Root Agent Contract
 
+## Golden Rule: Never Commit
+
+The AI agent must **never** run `git add`, `git commit`, or `git push`. All changes must be left as unstaged modifications in the working tree. Only the user decides when and what to commit.
+
+---
+
 ## Monorepo Structure
 
 ```

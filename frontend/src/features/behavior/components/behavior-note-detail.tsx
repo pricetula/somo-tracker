@@ -6,6 +6,7 @@
 
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { format } from "date-fns";
 import { Pencil, Trash2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -241,7 +242,9 @@ export function BehaviorNoteDetail() {
                 <div>
                     <span className="text-muted-foreground">Created</span>
                     <p className="font-medium">
-                        {note.created_at ? new Date(note.created_at).toLocaleString() : "—"}
+                        {note.created_at
+                            ? format(new Date(note.created_at), "MMM d, yyyy, h:mm a")
+                            : "—"}
                     </p>
                 </div>
                 {note.reviewed_by_id && (
@@ -250,7 +253,7 @@ export function BehaviorNoteDetail() {
                         <p className="font-medium">
                             {note.reviewed_by_id.slice(0, 8)}…
                             {note.reviewed_at &&
-                                ` at ${new Date(note.reviewed_at).toLocaleString()}`}
+                                ` at ${format(new Date(note.reviewed_at), "MMM d, yyyy, h:mm a")}`}
                         </p>
                     </div>
                 )}

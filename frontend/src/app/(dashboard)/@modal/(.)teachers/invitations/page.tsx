@@ -9,6 +9,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { format } from "date-fns";
 import { DataTable } from "@/components/shared/data-table";
 import type { DataTableColumn } from "@/components/shared/data-table/types";
 import { Badge } from "@/components/ui/badge";
@@ -57,7 +58,7 @@ const columns: DataTableColumn<Invitation>[] = [
         width: "140px",
         cell: (row) => (
             <span className="text-muted-foreground">
-                {new Date(row.created_at).toLocaleDateString()}
+                {format(new Date(row.created_at), "MMM d, yyyy")}
             </span>
         ),
     },

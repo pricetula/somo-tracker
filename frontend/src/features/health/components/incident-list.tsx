@@ -11,6 +11,7 @@
 import { useState, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { format } from "date-fns";
 import { Trash2, Plus } from "lucide-react";
 
 import { DataTable } from "@/components/shared/data-table";
@@ -103,7 +104,7 @@ const columns: DataTableColumn<MedicalIncident>[] = [
         width: "180px",
         cell: (row) => (
             <span className="text-muted-foreground text-xs">
-                {new Date(row.incident_timestamp).toLocaleString()}
+                {format(new Date(row.incident_timestamp), "MMM d, yyyy, h:mm a")}
                 {row.logged_by_name && ` — by ${row.logged_by_name}`}
             </span>
         ),

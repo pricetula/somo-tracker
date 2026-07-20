@@ -7,7 +7,7 @@
 
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 
 import { Combobox } from "@/components/ui/combobox";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -31,6 +31,11 @@ export interface AcademicTermComboboxProps {
      * If omitted, no create option is shown.
      */
     onCreateItem?: (search: string) => void;
+    /**
+     * When true, automatically selects the first option if no value is set.
+     * Defaults to false.
+     */
+    doPreselectFirstOption?: boolean;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────
@@ -41,6 +46,7 @@ export function AcademicTermCombobox({
     placeholder = "Select an academic term...",
     className,
     onCreateItem,
+    doPreselectFirstOption = false,
 }: AcademicTermComboboxProps) {
     const { data, isLoading, isError, error } = useAcademicTerms();
 
@@ -51,6 +57,18 @@ export function AcademicTermCombobox({
             label: t.name,
         }));
     }, [data]);
+
+    // ── Auto-preselect first option ──────────────────────────────────────
+    const hasPreselected = useRef(false);
+    useEffect(() => {
+        if (!doPreselectFirstOption || items.length === 0 || hasPreselected.current) return;
+        if (value) {
+            hasPreselected.current = true;
+            return;
+        }
+        hasPreselected.current = true;
+        onChange(items[0].value);
+    }, [doPreselectFirstOption, items, value, onChange]);
 
     // ── Loading state ─────────────────────────────────────────────────────
     if (isLoading) {

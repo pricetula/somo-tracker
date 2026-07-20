@@ -7,6 +7,7 @@
 
 "use client";
 
+import { format } from "date-fns";
 import { CheckCircle2, XCircle, Loader2, Ban, AlertTriangle } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -109,9 +110,9 @@ export function ImportJobDetail({ jobId }: ImportJobDetailProps) {
                     {statusBadge(job.status)}
                 </div>
                 <p className="text-muted-foreground">
-                    Created {new Date(job.created_at).toLocaleString()}
+                    Created {format(new Date(job.created_at), "MMM d, yyyy, h:mm a")}
                     {job.completed_at &&
-                        ` — Completed ${new Date(job.completed_at).toLocaleString()}`}
+                        ` — Completed ${format(new Date(job.completed_at), "MMM d, yyyy, h:mm a")}`}
                 </p>
             </div>
 

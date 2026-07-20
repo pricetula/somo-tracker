@@ -6,6 +6,7 @@
 
 "use client";
 
+import { format } from "date-fns";
 import { AlertTriangle } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -39,12 +40,7 @@ function StatusBadge({ status }: { status: string }) {
 
 function formatDate(dateStr: string): string {
     try {
-        const date = new Date(dateStr);
-        return date.toLocaleDateString(undefined, {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-        });
+        return format(new Date(dateStr), "MMM d, yyyy");
     } catch {
         return dateStr;
     }

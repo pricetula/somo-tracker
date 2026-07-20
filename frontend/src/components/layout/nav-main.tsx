@@ -23,6 +23,7 @@ import {
     ClipboardCheckIcon,
     BarChart3Icon,
     CalendarDays,
+    CalendarCheck,
     AlertTriangleIcon,
     HeartPulse,
     DollarSignIcon,
@@ -101,6 +102,15 @@ function buildNavItems(role: string): NavItem[] {
             title: "Time table",
             url: "/timetable",
             icon: <CalendarDays className="size-4" />,
+        },
+        {
+            title: "Attendance",
+            url: "/attendance",
+            icon: <CalendarCheck className="size-4" />,
+            items: [
+                { title: "Sessions", url: "/attendance" },
+                { title: "Summaries", url: "/attendance/summaries" },
+            ],
         },
         {
             title: "Assessments",

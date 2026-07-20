@@ -30,6 +30,11 @@ export interface TeacherComboboxProps {
     className?: string;
     /** Allow selecting multiple teachers (default: false). */
     isMultiSelect?: boolean;
+    /**
+     * When true, automatically selects the first option if no value is set.
+     * Defaults to false.
+     */
+    doPreselectFirstOption?: boolean;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────
@@ -40,6 +45,7 @@ export function TeacherCombobox({
     placeholder = "Select a teacher...",
     className,
     isMultiSelect = false,
+    doPreselectFirstOption = false,
 }: TeacherComboboxProps) {
     const { data, isLoading, isError, error } = useTeachers({ limit: 500 });
 
@@ -51,6 +57,22 @@ export function TeacherCombobox({
             })) ?? [],
         [data]
     );
+
+    // ── Auto-preselect first option ──────────────────────────────────────
+    const hasPreselected = React.useRef(false);
+    React.useEffect(() => {
+        if (!doPreselectFirstOption || items.length === 0 || hasPreselected.current) return;
+
+        const hasValue = isMultiSelect ? (value as string[]).length > 0 : (value as string) !== "";
+
+        if (hasValue) {
+            hasPreselected.current = true;
+            return;
+        }
+
+        hasPreselected.current = true;
+        onChange(isMultiSelect ? [items[0].value] : items[0].value);
+    }, [doPreselectFirstOption, items, isMultiSelect, value, onChange]);
 
     // ── Loading state ─────────────────────────────────────────────────────
     if (isLoading) {

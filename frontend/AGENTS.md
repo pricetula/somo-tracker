@@ -301,3 +301,27 @@ This applies to **all** `.ts` and `.tsx` files under `src/` — including render
 code, hooks, optimistic updaters, and utility functions.
 
 ---
+
+## 14. Time Formatting — date-fns only
+
+All date/time formatting in UI code must use **date-fns** functions (`format`,
+`formatDistanceToNow`, `formatRelative`, etc.).
+
+- Never create custom date formatting components, hooks, or utility wrappers.
+- Never use `Intl.DateTimeFormat` directly in UI code — date-fns provides a
+  consistent, tree-shakeable API.
+- Use date-fns's `format` with explicit format strings — avoid locale-dependent
+  defaults to ensure consistent display across environments.
+- Install date-fns if not already present: `pnpm add date-fns`.
+
+```ts
+// ✅ Good — date-fns format
+import { format } from "date-fns";
+format(new Date(started_at), "MMM d, yyyy h:mm a");
+
+// ❌ Bad — custom component or raw Intl
+formatDate(started_at);         // custom utility
+new Intl.DateTimeFormat(...);   // raw Intl in UI
+```
+
+---

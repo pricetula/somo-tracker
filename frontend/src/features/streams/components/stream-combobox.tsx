@@ -7,6 +7,7 @@
 
 "use client";
 
+import * as React from "react";
 import Link from "next/link";
 import { Combobox } from "@/components/ui/combobox";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -30,6 +31,11 @@ export interface StreamComboboxProps {
      * If omitted, no create option is shown.
      */
     onCreateItem?: (search: string) => void;
+    /**
+     * When true, automatically selects the first option if no value is set.
+     * Defaults to false.
+     */
+    doPreselectFirstOption?: boolean;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────
@@ -40,10 +46,24 @@ export function StreamCombobox({
     placeholder = "Select a stream...",
     className,
     onCreateItem,
+    doPreselectFirstOption = false,
 }: StreamComboboxProps) {
     const { data, isLoading, isError, error } = useStreamList();
 
     const items = data?.items ?? [];
+
+    // ── Auto-preselect first option ──────────────────────────────────────
+    const hasPreselected = React.useRef(false);
+    React.useEffect(() => {
+        const list = data?.items;
+        if (!doPreselectFirstOption || !list || list.length === 0 || hasPreselected.current) return;
+        if (value) {
+            hasPreselected.current = true;
+            return;
+        }
+        hasPreselected.current = true;
+        onChange(list[0].id);
+    }, [doPreselectFirstOption, data, value, onChange]);
 
     // ── Loading state ─────────────────────────────────────────────────────
     if (isLoading) {

@@ -139,6 +139,7 @@ type AssessmentSession struct {
 	CreatedBy             string    `json:"-"`
 	ClassName             string    `json:"class_name"`
 	GradeLevel            string    `json:"grade_level"`
+	EnrollStudentsURL     *string   `json:"enroll_students_url,omitempty"`
 }
 
 // StudentScore holds a student's quantitative assessment result.

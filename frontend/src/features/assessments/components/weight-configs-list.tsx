@@ -284,7 +284,7 @@ const columns: DataTableColumn<AssessmentWeightConfig>[] = [
             row.notes ? (
                 <span className="text-muted-foreground line-clamp-1 text-xs">{row.notes}</span>
             ) : (
-                <span className="text-muted-foreground">\u2014</span>
+                <span className="text-muted-foreground">-</span>
             ),
     },
 ];

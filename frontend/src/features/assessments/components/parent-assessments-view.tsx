@@ -100,7 +100,7 @@ function AssessmentResultCard({ assessment }: { assessment: ParentAssessmentView
                         <div className="flex flex-col">
                             <span className="text-muted-foreground text-xs">Score</span>
                             <span className="text-2xl font-bold tabular-nums">
-                                {assessment.raw_score != null ? assessment.raw_score : "\u2014"}
+                                {assessment.raw_score != null ? assessment.raw_score : "-"}
                             </span>
                             {assessment.max_points != null && (
                                 <span className="text-muted-foreground text-xs">

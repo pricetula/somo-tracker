@@ -3,6 +3,7 @@ package assessments
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 )
 
@@ -225,12 +226,33 @@ func (s *Service) CreateSession(ctx context.Context, params CreateSessionParams)
 	return s.Repo.CreateSession(ctx, params)
 }
 
-// GetSession retrieves a single assessment session.
+// GetSession retrieves a single assessment session, including an
+// enroll_students_url derived from the session's class_id and academic_term_id.
 func (s *Service) GetSession(ctx context.Context, id, tenantID, schoolID string) (*AssessmentSession, error) {
 	if id == "" || tenantID == "" || schoolID == "" {
 		return nil, fmt.Errorf("assessments.Service.GetSession: %w", ErrInvalidInput)
 	}
-	return s.Repo.GetSessionByID(ctx, id, tenantID, schoolID)
+	session, err := s.Repo.GetSessionByID(ctx, id, tenantID, schoolID)
+	if err != nil {
+		return nil, err
+	}
+
+	session.EnrollStudentsURL = buildEnrollStudentsURL(session.ClassID, session.AcademicYearID, session.AcademicTermID)
+
+	return session, nil
+}
+
+// buildEnrollStudentsURL constructs the frontend route for enrolling students
+// into a class for a specific academic term.
+// Route: /classes/{class_id}/enroll?academictermid={academic_term_id}
+func buildEnrollStudentsURL(classID, academicYearID, academicTermID string) *string {
+	if classID == "" || academicTermID == "" {
+		return nil
+	}
+	u := url.Values{}
+	u.Set("academictermid", academicTermID)
+	path := "/classes/" + classID + "/enroll?" + u.Encode()
+	return &path
 }
 
 // ListSessions returns paginated assessment sessions.

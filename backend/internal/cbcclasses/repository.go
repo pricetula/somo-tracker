@@ -226,14 +226,14 @@ func (r *PgRepository) Create(ctx context.Context, params CreateClassParams) (*C
 	// Step 2: Batch enroll students
 	if len(params.StudentIDs) > 0 {
 		const enrollStudents = `
-			INSERT INTO cbc_student_enrollments (student_id, class_id, academic_term_id, tenant_id, school_id)
-			SELECT unnest($1::uuid[]), $2, $3, $4, $5
+			INSERT INTO cbc_student_enrollments (student_id, class_id, academic_term_id, academic_year_id, tenant_id, school_id)
+			SELECT unnest($1::uuid[]), $2, $3, $4, $5, $6
 			ON CONFLICT (student_id, school_id, academic_term_id)
 			DO UPDATE SET class_id = EXCLUDED.class_id
 		`
 		_, err = tx.Exec(ctx, enrollStudents,
 			params.StudentIDs, classID, params.AcademicTermID,
-			params.TenantID, params.SchoolID,
+			params.AcademicYearID, params.TenantID, params.SchoolID,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("cbcclasses.Repository.Create: enroll students: %w", err)
@@ -308,8 +308,8 @@ func (r *PgRepository) Update(ctx context.Context, params UpdateClassParams) (*C
 	// Step 2: Upsert incoming roster
 	if len(params.StudentIDs) > 0 {
 		const upsertStudents = `
-			INSERT INTO cbc_student_enrollments (student_id, class_id, academic_term_id, tenant_id, school_id)
-			SELECT unnest($1::uuid[]), $2, $3, $4, $5
+			INSERT INTO cbc_student_enrollments (student_id, class_id, academic_term_id, academic_year_id, tenant_id, school_id)
+			SELECT unnest($1::uuid[]), $2, $3, (SELECT academic_year_id FROM academic_terms WHERE id = $3), $4, $5
 			ON CONFLICT (student_id, school_id, academic_term_id)
 			DO UPDATE SET class_id = EXCLUDED.class_id
 		`
@@ -579,8 +579,8 @@ func (r *PgRepository) BatchEnrollStudents(ctx context.Context, classID, tenantI
 
 	// Step 2: Insert enrollments (skip if already enrolled in this class)
 	const insertEnrollments = `
-		INSERT INTO cbc_student_enrollments (student_id, class_id, academic_term_id, tenant_id, school_id, status)
-		SELECT unnest($1::uuid[]), $2, $3, $4, $5, 'ACTIVE'
+		INSERT INTO cbc_student_enrollments (student_id, class_id, academic_term_id, academic_year_id, tenant_id, school_id, status)
+		SELECT unnest($1::uuid[]), $2, $3, (SELECT academic_year_id FROM academic_terms WHERE id = $3), $4, $5, 'ACTIVE'
 		ON CONFLICT (student_id, school_id, academic_term_id)
 		DO UPDATE SET class_id = EXCLUDED.class_id, status = 'ACTIVE', updated_at = NOW()
 		WHERE cbc_student_enrollments.class_id IS DISTINCT FROM EXCLUDED.class_id

@@ -113,7 +113,7 @@ function buildColumns(classId: string, academicTermId?: string): DataTableColumn
             header: "Admission Number",
             width: "160px",
             cell: (row) => (
-                <span className="text-muted-foreground">{row.admission_number || "\u2014"}</span>
+                <span className="text-muted-foreground">{row.admission_number || "-"}</span>
             ),
         },
         {

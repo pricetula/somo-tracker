@@ -59,16 +59,14 @@ const columns: DataTableColumn<AssessmentSession>[] = [
         width: "130px",
         align: "right",
         cell: (row) => (
-            <span className="text-muted-foreground tabular-nums">{row.max_points ?? "\u2014"}</span>
+            <span className="text-muted-foreground tabular-nums">{row.max_points ?? "-"}</span>
         ),
     },
     {
         id: "scheduled_date",
         header: "Scheduled Date",
         width: "130px",
-        cell: (row) => (
-            <span className="text-muted-foreground">{row.scheduled_date ?? "\u2014"}</span>
-        ),
+        cell: (row) => <span className="text-muted-foreground">{row.scheduled_date ?? "-"}</span>,
     },
     {
         id: "evaluation_method",

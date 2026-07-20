@@ -113,6 +113,8 @@ export function AssessmentSessionDetailView({ sessionId }: Props) {
                         sessionId={sessionId}
                         maxPoints={session.max_points ?? 0}
                         status={session.status}
+                        classId={session.class_id}
+                        academicTermId={session.academic_term_id}
                     />
                 </div>
             ) : (
@@ -122,6 +124,8 @@ export function AssessmentSessionDetailView({ sessionId }: Props) {
                         sessionId={sessionId}
                         learningAreaId={session.learning_area_id}
                         status={session.status}
+                        classId={session.class_id}
+                        academicTermId={session.academic_term_id}
                     />
                 </div>
             )}

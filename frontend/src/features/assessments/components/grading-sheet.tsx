@@ -19,6 +19,7 @@ import { getGradingData, type GradingDataStudent } from "@/lib/api/assessments";
 import { useBulkUpsertScores } from "../hooks/use-assessments";
 import { PerformanceLevelBadge } from "./performance-level-badge";
 import { getErrorMessage, isApiError } from "@/lib/errors";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -29,12 +30,14 @@ interface Props {
     sessionId: string;
     maxPoints: number;
     status: string;
+    classId: string;
+    academicTermId: string;
 }
 
 /** Map of student_id → raw_score string for local editing state. */
 type ScoreDraft = Record<string, string>;
 
-export function GradingSheet({ sessionId, maxPoints, status }: Props) {
+export function GradingSheet({ sessionId, maxPoints, status, classId, academicTermId }: Props) {
     const isEditable = status === "DRAFT";
     const saveMutation = useBulkUpsertScores();
 
@@ -184,10 +187,18 @@ export function GradingSheet({ sessionId, maxPoints, status }: Props) {
     }
 
     if (students.length === 0) {
+        const enrollUrl = `/classes/${classId}/enroll?academictermid=${academicTermId}`;
         return (
             <Alert>
                 <AlertDescription>
-                    No students are enrolled in this class. Enroll students before entering scores.
+                    No students are enrolled in this class.{" "}
+                    <Link
+                        href={enrollUrl}
+                        className="underline underline-offset-2 hover:text-blue-600"
+                    >
+                        Enroll students
+                    </Link>{" "}
+                    before entering scores.
                 </AlertDescription>
             </Alert>
         );
@@ -230,12 +241,12 @@ export function GradingSheet({ sessionId, maxPoints, status }: Props) {
                                 <td className="px-3 py-2 text-right tabular-nums">
                                     {s.score?.raw_score != null
                                         ? `${s.score.raw_score} / ${maxPoints}`
-                                        : "\u2014"}
+                                        : "-"}
                                 </td>
                                 <td className="px-3 py-2 text-right tabular-nums">
                                     {s.score?.calculated_percentage != null
                                         ? `${s.score.calculated_percentage.toFixed(1)}%`
-                                        : "\u2014"}
+                                        : "-"}
                                 </td>
                                 <td className="px-3 py-2">
                                     <PerformanceLevelBadge
@@ -330,7 +341,7 @@ export function GradingSheet({ sessionId, maxPoints, status }: Props) {
                                                 {pct.toFixed(1)}%
                                             </span>
                                         ) : (
-                                            <span className="text-muted-foreground">\u2014</span>
+                                            <span className="text-muted-foreground">-</span>
                                         )}
                                     </td>
                                     <td className="px-3 py-2">

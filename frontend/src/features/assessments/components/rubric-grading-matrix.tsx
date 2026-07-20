@@ -21,6 +21,7 @@ import type { PerformanceIndicator } from "@/lib/api/curriculum";
 import { useBulkUpsertOutcomeGrades } from "../hooks/use-assessments";
 import { PERFORMANCE_LEVELS, PERFORMANCE_LEVEL_LABELS } from "../types";
 import { getErrorMessage, isApiError } from "@/lib/errors";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
     Select,
@@ -39,6 +40,8 @@ interface Props {
     sessionId: string;
     learningAreaId: string;
     status: string;
+    classId: string;
+    academicTermId: string;
 }
 
 /** Valid rubric levels */
@@ -72,7 +75,13 @@ function flattenIndicators(tree: {
     return all;
 }
 
-export function RubricGradingMatrix({ sessionId, learningAreaId, status }: Props) {
+export function RubricGradingMatrix({
+    sessionId,
+    learningAreaId,
+    status,
+    classId,
+    academicTermId,
+}: Props) {
     const isEditable = status === "DRAFT";
     const saveMutation = useBulkUpsertOutcomeGrades();
 
@@ -218,10 +227,18 @@ export function RubricGradingMatrix({ sessionId, learningAreaId, status }: Props
 
     // ── Empty states ─────────────────────────────────────────────────
     if (students.length === 0) {
+        const enrollUrl = `/classes/${classId}/enroll?academictermid=${academicTermId}`;
         return (
             <Alert>
                 <AlertDescription>
-                    No students are enrolled in this class. Enroll students before assigning grades.
+                    No students are enrolled in this class.{" "}
+                    <Link
+                        href={enrollUrl}
+                        className="underline underline-offset-2 hover:text-blue-600"
+                    >
+                        Enroll students
+                    </Link>{" "}
+                    before assigning grades.
                 </AlertDescription>
             </Alert>
         );
@@ -292,9 +309,7 @@ export function RubricGradingMatrix({ sessionId, learningAreaId, status }: Props
                                                     {grade.awarded_level}
                                                 </Badge>
                                             ) : (
-                                                <span className="text-muted-foreground">
-                                                    \u2014
-                                                </span>
+                                                <span className="text-muted-foreground">-</span>
                                             )}
                                         </td>
                                     );
@@ -379,7 +394,7 @@ export function RubricGradingMatrix({ sessionId, learningAreaId, status }: Props
                                                                 : "text-muted-foreground border-dashed"
                                                         }`}
                                                     >
-                                                        <SelectValue placeholder="\u2014" />
+                                                        <SelectValue placeholder="-" />
                                                     </SelectTrigger>
                                                     <SelectContent>
                                                         {PERFORMANCE_LEVELS.map((level) => (

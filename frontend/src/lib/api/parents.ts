@@ -135,7 +135,7 @@ export async function updateParent(id: string, data: UpdateParentPayload): Promi
 
 /** Delete a parent profile. */
 export async function deleteParent(id: string): Promise<void> {
-    return api.delete<void>(`/api/v1/parents/${id}`);
+    return api.delete<void>(`/api/v1/parents`, { id });
 }
 
 /** Link a student to a parent. */
@@ -145,7 +145,10 @@ export async function linkStudent(parentId: string, data: LinkStudentPayload): P
 
 /** Unlink a student from a parent. */
 export async function unlinkStudent(parentId: string, studentId: string): Promise<void> {
-    return api.delete<void>(`/api/v1/parents/${parentId}/students/${studentId}`);
+    return api.delete<void>(`/api/v1/parents/student-link`, {
+        parent_id: parentId,
+        student_id: studentId,
+    });
 }
 
 // ============================================================================

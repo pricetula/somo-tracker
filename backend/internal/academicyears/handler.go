@@ -30,7 +30,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	years.Post("/", middleware.RequireRole("SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.CreateYear)
 	years.Patch("/:id", middleware.RequireRole("SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.PatchYear)
 	years.Post("/:id/set-current", middleware.RequireRole("SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.SetCurrentYear)
-	years.Delete("/:id", middleware.RequireRole("SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.DeleteYear)
+	years.Delete("/", middleware.RequireRole("SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.DeleteYear)
 
 	// Academic Terms
 	terms := router.Group("/api/v1/academic-terms")
@@ -179,10 +179,19 @@ func (h *Handler) SetCurrentYear(c *fiber.Ctx) error {
 func (h *Handler) DeleteYear(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
 	userID := c.Locals("user_id").(string)
-	id := c.Params("id")
 	schoolID := c.Locals("school_id").(string)
 
-	err := h.svc.DeleteYear(c.Context(), id, tenantID, schoolID, userID)
+	var payload struct {
+		ID string `json:"id"`
+	}
+	if err := c.BodyParser(&payload); err != nil {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input", "malformed request body", nil)
+	}
+	if payload.ID == "" {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input", "id is required", nil)
+	}
+
+	err := h.svc.DeleteYear(c.Context(), payload.ID, tenantID, schoolID, userID)
 	if err != nil {
 		var hasDeps *HasDependentsError
 		if errors.As(err, &hasDeps) {
@@ -322,10 +331,19 @@ func (h *Handler) PatchTerm(c *fiber.Ctx) error {
 func (h *Handler) DeleteTerm(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
 	userID := c.Locals("user_id").(string)
-	id := c.Params("id")
 	schoolID := c.Locals("school_id").(string)
 
-	err := h.svc.DeleteTerm(c.Context(), id, tenantID, schoolID, userID, nil)
+	var payload struct {
+		ID string `json:"id"`
+	}
+	if err := c.BodyParser(&payload); err != nil {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input", "malformed request body", nil)
+	}
+	if payload.ID == "" {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input", "id is required", nil)
+	}
+
+	err := h.svc.DeleteTerm(c.Context(), payload.ID, tenantID, schoolID, userID, nil)
 	if err != nil {
 		var hasDeps *HasDependentsError
 		if errors.As(err, &hasDeps) {

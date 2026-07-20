@@ -69,7 +69,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	students.Post("/", middleware.RequireAuth, h.Create)
 	students.Get("/:id", middleware.RequireAuth, h.GetDetail)
 	students.Put("/:id", middleware.RequireAuth, h.Update)
-	students.Delete("/:id", middleware.RequireAuth, h.Delete)
+	students.Delete("/", middleware.RequireAuth, h.Delete)
 
 	// Enrollments
 	students.Post("/enrollments", middleware.RequireAuth, h.CreateBatchEnrollments)
@@ -574,13 +574,18 @@ func (h *Handler) Delete(c *fiber.Ctx) error {
 	if schoolID == "" {
 		schoolID = c.Locals("school_id").(string)
 	}
-	id := c.Params("id")
 
-	if id == "" {
+	var payload struct {
+		ID string `json:"id"`
+	}
+	if err := c.BodyParser(&payload); err != nil {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input", "malformed request body", nil)
+	}
+	if payload.ID == "" {
 		return writeError(c, fiber.StatusBadRequest, "invalid_input", "student id is required", nil)
 	}
 
-	if err := h.svc.Delete(c.Context(), id, tenantID, schoolID); err != nil {
+	if err := h.svc.Delete(c.Context(), payload.ID, tenantID, schoolID); err != nil {
 		return middleware.HTTPError(c, err)
 	}
 

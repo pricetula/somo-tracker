@@ -25,6 +25,7 @@ export type {
     Student,
     StudentDetail,
     Enrollment,
+    LinkedParent,
     ListStudentsResponse,
     ListStudentsParams,
     CreateStudentPayload,

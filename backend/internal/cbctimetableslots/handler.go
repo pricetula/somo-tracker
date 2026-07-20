@@ -27,7 +27,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	slots.Post("/", middleware.RequireAuth, h.Create)
 	slots.Post("/batch", middleware.RequireAuth, h.BatchCreate)
 	slots.Put("/:id", middleware.RequireAuth, h.Update)
-	slots.Delete("/:id", middleware.RequireAuth, h.Delete)
+	slots.Delete("/", middleware.RequireAuth, h.Delete)
 }
 
 // extractTenantSchool extracts tenant_id and school_id from the request context.
@@ -265,15 +265,23 @@ func (h *Handler) Update(c *fiber.Ctx) error {
 
 // Delete handles DELETE /api/v1/timetable/slots/:id.
 func (h *Handler) Delete(c *fiber.Ctx) error {
-	id := c.Params("id")
-	if id == "" {
+	var payload struct {
+		ID string `json:"id"`
+	}
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "invalid request body",
+		})
+	}
+	if payload.ID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"code":    "VALIDATION_ERROR",
 			"message": "slot id is required",
 		})
 	}
 
-	if err := h.svc.DeleteSlot(c.Context(), id); err != nil {
+	if err := h.svc.DeleteSlot(c.Context(), payload.ID); err != nil {
 		return middleware.HTTPError(c, err)
 	}
 

@@ -100,7 +100,7 @@ export async function setCurrentYear(id: string): Promise<void> {
 
 /** Delete an academic year and its cascade-deleted terms. */
 export async function deleteAcademicYear(id: string): Promise<void> {
-    await api.delete(`/api/v1/academic-years/${id}`);
+    await api.delete(`/api/v1/academic-years`, { id });
 }
 
 // ─── API Functions — Academic Terms ───────────────────────────────────────

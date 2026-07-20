@@ -27,7 +27,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	profiles.Get("", middleware.RequireAuth, h.ListScaleProfiles)
 	profiles.Get("/:id", middleware.RequireAuth, h.GetScaleProfile)
 	profiles.Put("/:id/toggle", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN"), h.ToggleScaleProfileActive)
-	profiles.Delete("/:id", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN"), h.DeleteScaleProfile)
+	profiles.Delete("", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN"), h.DeleteScaleProfile)
 	profiles.Get("/:id/ranges", middleware.RequireAuth, h.GetScaleRanges)
 	profiles.Put("/:id/ranges", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN"), h.ReplaceScaleRanges)
 
@@ -36,7 +36,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	sessions.Post("/", middleware.RequireAuth, h.CreateSession)
 	sessions.Get("/", middleware.RequireAuth, h.ListSessions)
 	sessions.Get("/:id", middleware.RequireAuth, h.GetSession)
-	sessions.Delete("/:id", middleware.RequireAuth, h.DeleteSession)
+	sessions.Delete("/", middleware.RequireAuth, h.DeleteSession)
 
 	// Grading Data: returns session + roster + scores/grades in one call
 	sessions.Get("/:id/grading-data", middleware.RequireAuth, h.GetGradingData)
@@ -63,7 +63,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	wcfg.Get("/", middleware.RequireAuth, h.ListWeightConfigs)
 	wcfg.Get("/:id", middleware.RequireAuth, h.GetWeightConfig)
 	wcfg.Post("/", middleware.RequireAuth, middleware.RequireRole("SYSTEM_ADMIN"), h.CreateWeightConfig)
-	wcfg.Delete("/:id", middleware.RequireAuth, middleware.RequireRole("SYSTEM_ADMIN"), h.DeleteWeightConfig)
+	wcfg.Delete("/", middleware.RequireAuth, middleware.RequireRole("SYSTEM_ADMIN"), h.DeleteWeightConfig)
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────
@@ -425,8 +425,23 @@ func (h *Handler) DeleteScaleProfile(c *fiber.Ctx) error {
 		return err
 	}
 
-	id := c.Params("id")
-	if err := h.svc.DeleteScaleProfile(c.Context(), id, tenantID, schoolID); err != nil {
+	var payload struct {
+		ID string `json:"id"`
+	}
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "invalid request body",
+		})
+	}
+	if payload.ID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "id is required",
+		})
+	}
+
+	if err := h.svc.DeleteScaleProfile(c.Context(), payload.ID, tenantID, schoolID); err != nil {
 		return middleware.HTTPError(c, err)
 	}
 	return c.JSON(fiber.Map{"message": "profile deleted"})
@@ -713,8 +728,23 @@ func (h *Handler) DeleteSession(c *fiber.Ctx) error {
 		return err
 	}
 
-	id := c.Params("id")
-	if err := h.svc.DeleteSession(c.Context(), id, tenantID, schoolID); err != nil {
+	var payload struct {
+		ID string `json:"id"`
+	}
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "invalid request body",
+		})
+	}
+	if payload.ID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "id is required",
+		})
+	}
+
+	if err := h.svc.DeleteSession(c.Context(), payload.ID, tenantID, schoolID); err != nil {
 		return middleware.HTTPError(c, err)
 	}
 
@@ -1312,15 +1342,23 @@ func (h *Handler) ListWeightConfigs(c *fiber.Ctx) error {
 // DeleteWeightConfig handles DELETE /api/v1/assessments/weight-configs/:id.
 // SYSTEM_ADMIN only.
 func (h *Handler) DeleteWeightConfig(c *fiber.Ctx) error {
-	id := c.Params("id")
-	if id == "" {
+	var payload struct {
+		ID string `json:"id"`
+	}
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "invalid request body",
+		})
+	}
+	if payload.ID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"code":    "invalid_input",
 			"message": "id is required",
 		})
 	}
 
-	if err := h.svc.DeleteWeightConfig(c.Context(), id); err != nil {
+	if err := h.svc.DeleteWeightConfig(c.Context(), payload.ID); err != nil {
 		return middleware.HTTPError(c, err)
 	}
 

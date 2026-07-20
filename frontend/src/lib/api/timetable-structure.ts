@@ -215,13 +215,15 @@ export async function updateTimeBlock(
 
 /** Delete a time block by ID. */
 export async function deleteTimeBlock(id: string): Promise<DeleteResult> {
-    return api.delete<DeleteResult>(`/api/v1/timetable/structure/${id}`);
+    return api.delete<DeleteResult>(`/api/v1/timetable/structure`, { id });
 }
 
 /** Delete all time blocks for a specific day. */
 export async function deleteDayBlocks(day: number, academicYearID?: string): Promise<void> {
-    const params = academicYearID ? `?academic_year_id=${encodeURIComponent(academicYearID)}` : "";
-    return api.delete<void>(`/api/v1/timetable/structure/day/${day}${params}`);
+    return api.delete<void>(`/api/v1/timetable/structure/day`, {
+        day,
+        academic_year_id: academicYearID,
+    });
 }
 
 /** Delete all time blocks with a given period name across all days. */
@@ -229,11 +231,10 @@ export async function deleteTimeBlocksByName(
     periodName: string,
     academicYearID: string
 ): Promise<DeleteResult> {
-    const params = new URLSearchParams({
+    return api.delete<DeleteResult>(`/api/v1/timetable/structure/by-name`, {
         academic_year_id: academicYearID,
         period_name: periodName,
     });
-    return api.delete<DeleteResult>(`/api/v1/timetable/structure/by-name?${params.toString()}`);
 }
 
 // ─── API Functions: Allocation Slots ──────────────────────────────────────
@@ -296,5 +297,5 @@ export async function updateSlot(id: string, payload: UpdateSlotPayload): Promis
 
 /** Delete a slot by ID. */
 export async function deleteSlot(id: string): Promise<void> {
-    return api.delete<void>(`/api/v1/timetable/slots/${id}`);
+    return api.delete<void>(`/api/v1/timetable/slots`, { id });
 }

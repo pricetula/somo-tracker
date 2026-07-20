@@ -51,6 +51,15 @@ export interface BehaviorNoteItem {
     is_urgent: boolean;
 }
 
+export interface LinkedParent {
+    parent_id: string;
+    full_name: string;
+    email: string;
+    phone_number: string;
+    relationship?: string | null;
+    is_primary: boolean;
+}
+
 export interface StudentDetail {
     id: string;
     full_name: string;
@@ -65,6 +74,7 @@ export interface StudentDetail {
     created_at: string;
     enrollments: Enrollment[];
     behavior?: BehaviorNoteItem[];
+    linked_parents: LinkedParent[];
 }
 
 // ─── Response Types ───────────────────────────────────────────────────────
@@ -215,7 +225,7 @@ export async function updateStudent(id: string, data: UpdateStudentPayload): Pro
 
 /** Hard-delete a student. */
 export async function deleteStudent(id: string): Promise<void> {
-    return api.delete<void>(`/api/v1/students/${id}`);
+    return api.delete<void>(`/api/v1/students`, { id });
 }
 
 /** Create an enrollment (enroll in class for a term). */

@@ -47,7 +47,7 @@ export async function updateSchool(
 
 /** Delete a school. */
 export async function deleteSchool(id: string): Promise<void> {
-    return api.delete<void>(`/api/v1/schools/${id}`);
+    return api.delete<void>(`/api/v1/schools`, { id });
 }
 
 /** Set a school as the active school for the current user. */

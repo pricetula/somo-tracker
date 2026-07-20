@@ -32,7 +32,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	notes.Get("/queue", middleware.RequireAuth, h.PendingQueue)
 	notes.Get("/:id", middleware.RequireAuth, h.GetNote)
 	notes.Put("/:id", middleware.RequireAuth, h.UpdateNote)
-	notes.Delete("/:id", middleware.RequireAuth, h.DeleteNote)
+	notes.Delete("/", middleware.RequireAuth, h.DeleteNote)
 	notes.Post("/:id/review", middleware.RequireAuth, h.ReviewNote)
 }
 
@@ -262,8 +262,23 @@ func (h *Handler) DeleteNote(c *fiber.Ctx) error {
 		return err
 	}
 
-	id := c.Params("id")
-	if err := h.svc.DeleteNote(c.Context(), id, tenantID); err != nil {
+	var payload struct {
+		ID string `json:"id"`
+	}
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "invalid request body",
+		})
+	}
+	if payload.ID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "id is required",
+		})
+	}
+
+	if err := h.svc.DeleteNote(c.Context(), payload.ID, tenantID); err != nil {
 		return middleware.HTTPError(c, err)
 	}
 

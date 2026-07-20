@@ -246,7 +246,7 @@ func (r *PgRepository) GetByID(ctx context.Context, id, tenantID, schoolID strin
 
 // ─── Get Detail ───────────────────────────────────────────────────────────
 
-// GetDetail returns a student with enrollment history.
+// GetDetail returns a student with enrollment history and linked parents.
 func (r *PgRepository) GetDetail(ctx context.Context, id, tenantID, schoolID string) (*StudentDetail, error) {
 	// Fetch the student base record
 	student, err := r.GetByID(ctx, id, tenantID, schoolID)
@@ -260,10 +260,50 @@ func (r *PgRepository) GetDetail(ctx context.Context, id, tenantID, schoolID str
 		return nil, fmt.Errorf("students.Repository.GetDetail: %w", err)
 	}
 
+	// Fetch linked parents
+	linkedParents, err := r.ListLinkedParents(ctx, id, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("students.Repository.GetDetail: linked parents: %w", err)
+	}
+
 	return &StudentDetail{
-		Student:     *student,
-		Enrollments: enrollments,
+		Student:       *student,
+		Enrollments:   enrollments,
+		LinkedParents: linkedParents,
 	}, nil
+}
+
+// ListLinkedParents returns all parents linked to a student.
+func (r *PgRepository) ListLinkedParents(ctx context.Context, studentID, tenantID string) ([]LinkedParent, error) {
+	const query = `
+		SELECT cp.id, u.full_name, u.email, cp.phone_number, sp.relationship, sp.is_primary
+		FROM cbc_student_parents sp
+		JOIN cbc_parents cp ON cp.id = sp.parent_id
+		JOIN users u ON u.id = cp.user_id AND u.tenant_id = $2
+		WHERE sp.student_id = $1 AND cp.tenant_id = $2
+		ORDER BY sp.is_primary DESC, u.full_name ASC
+	`
+	rows, err := r.pool.Query(ctx, query, studentID, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("students.Repository.ListLinkedParents: %w", err)
+	}
+	defer rows.Close()
+
+	var parents []LinkedParent
+	for rows.Next() {
+		var lp LinkedParent
+		if err := rows.Scan(&lp.ParentID, &lp.FullName, &lp.Email, &lp.PhoneNumber, &lp.Relationship, &lp.IsPrimary); err != nil {
+			return nil, fmt.Errorf("students.Repository.ListLinkedParents: scan: %w", err)
+		}
+		parents = append(parents, lp)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("students.Repository.ListLinkedParents: rows: %w", err)
+	}
+	if parents == nil {
+		parents = []LinkedParent{}
+	}
+	return parents, nil
 }
 
 // ─── Create ───────────────────────────────────────────────────────────────

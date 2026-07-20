@@ -175,7 +175,7 @@ export async function listTeacherNotes(): Promise<TeacherNotesResponse> {
 
 /** Delete a behavior note permanently. */
 export async function deleteBehaviorNote(id: string): Promise<void> {
-    return api.delete<void>(`/api/v1/behavior/notes/${id}`);
+    return api.delete<void>(`/api/v1/behavior/notes`, { id });
 }
 
 /** Review (approve/reject) a behavior note. */

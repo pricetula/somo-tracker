@@ -7,9 +7,10 @@
 
 "use client";
 
-import { use, useState } from "react";
+import { use } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import {
     User,
     BookOpen,
@@ -19,6 +20,9 @@ import {
     HeartPulse,
     BarChart3,
     Trash2,
+    Link2,
+    UserPlus,
+    Users,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -34,10 +38,11 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 import { StaticTable } from "@/components/shared/static-table";
 import { useStudentDetail, useDeleteStudent } from "@/features/students";
 import { useStudentHealth } from "@/features/health";
+import { useUnlinkStudent } from "@/features/parents";
 
 interface Props {
     params: Promise<{ id: string }>;
@@ -46,11 +51,12 @@ interface Props {
 export default function StudentDetailPage({ params }: Props) {
     const router = useRouter();
     const { id } = use(params);
-    const [activeTab, setActiveTab] = useState("overview");
 
     // Fetch student detail
     const { data: detailResponse, isLoading: detailLoading } = useStudentDetail(id);
+    const queryClient = useQueryClient();
     const deleteMutation = useDeleteStudent();
+    const unlinkStudentMutation = useUnlinkStudent();
     const detail = detailResponse?.data;
 
     if (detailLoading) {
@@ -74,6 +80,20 @@ export default function StudentDetailPage({ params }: Props) {
     const enrollments = student.enrollments ?? [];
     const currentEnrollment = enrollments[0]; // most recent
     const behaviorNotes = student.behavior ?? [];
+    const linkedParents = student.linked_parents ?? [];
+
+    const handleUnlinkParent = async (parentId: string, parentName: string) => {
+        if (!window.confirm(`Unlink ${parentName} from this student?`)) {
+            return;
+        }
+        try {
+            await unlinkStudentMutation.mutateAsync({ parentId, studentId: id });
+            queryClient.invalidateQueries({ queryKey: ["students", "detail", id] });
+        } catch {
+            // handled by hook onError
+        }
+    };
+
     return (
         <div className="space-y-8">
             {/* ── Header ─────────────────────────────────────────────── */}
@@ -150,89 +170,74 @@ export default function StudentDetailPage({ params }: Props) {
                 </div>
             </div>
 
-            {/* ── Tabs ───────────────────────────────────────────────── */}
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList>
-                    <TabsTrigger value="overview">Overview</TabsTrigger>
-                    <TabsTrigger value="behavior">
-                        Behavior
-                        {behaviorNotes.length > 0 && (
-                            <Badge variant="secondary" className="ml-2">
-                                {behaviorNotes.length}
-                            </Badge>
-                        )}
-                    </TabsTrigger>
-                    <TabsTrigger value="health">Health</TabsTrigger>
-                    <TabsTrigger value="reports">Reports</TabsTrigger>
-                    <TabsTrigger value="enrollments">Enrollments</TabsTrigger>
-                </TabsList>
-
-                {/* ── Overview Tab ─────────────────────────────────────── */}
-                <TabsContent value="overview" className="space-y-6 pt-4">
-                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                        {/* Behavior summary card */}
-                        <div className="bg-muted/30 p-4">
-                            <div className="text-muted-foreground flex items-center gap-2 font-medium">
-                                <AlertTriangle className="h-4 w-4" />
-                                Behavior Notes
-                            </div>
-                            <p className="text-foreground mt-2 text-2xl font-bold">
-                                {behaviorNotes.length > 0 ? (
-                                    <>
-                                        {behaviorNotes.filter((n) => n.is_urgent).length > 0 && (
-                                            <span className="text-destructive">
-                                                {behaviorNotes.filter((n) => n.is_urgent).length}{" "}
-                                                urgent
-                                            </span>
-                                        )}
-                                        {behaviorNotes.filter((n) => n.is_urgent).length === 0 && (
-                                            <>{behaviorNotes.length} notes</>
-                                        )}
-                                    </>
-                                ) : (
-                                    <span className="text-muted-foreground text-base font-normal">
-                                        No notes
-                                    </span>
-                                )}
-                            </p>
+            {/* ── Overview ─────────────────────────────────────────── */}
+            <section>
+                <h2 className="text-muted-foreground mb-3 text-xs font-semibold tracking-wider uppercase">
+                    Overview
+                </h2>
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                    {/* Behavior summary */}
+                    <div className="bg-muted/30 p-4">
+                        <div className="text-muted-foreground flex items-center gap-2 font-medium">
+                            <AlertTriangle className="h-4 w-4" />
+                            Behavior Notes
                         </div>
-
-                        {/* Enrollment summary card */}
-                        <div className="bg-muted/30 p-4">
-                            <div className="text-muted-foreground flex items-center gap-2 font-medium">
-                                <BookOpen className="h-4 w-4" />
-                                Enrollments
-                            </div>
-                            <p className="text-foreground mt-2 text-2xl font-bold">
-                                {enrollments.length}{" "}
+                        <p className="text-foreground mt-2 text-2xl font-bold">
+                            {behaviorNotes.length > 0 ? (
+                                <>
+                                    {behaviorNotes.filter((n) => n.is_urgent).length > 0 && (
+                                        <span className="text-destructive">
+                                            {behaviorNotes.filter((n) => n.is_urgent).length} urgent
+                                        </span>
+                                    )}
+                                    {behaviorNotes.filter((n) => n.is_urgent).length === 0 && (
+                                        <>{behaviorNotes.length} notes</>
+                                    )}
+                                </>
+                            ) : (
                                 <span className="text-muted-foreground text-base font-normal">
-                                    terms
+                                    No notes
                                 </span>
-                            </p>
-                            <p className="text-muted-foreground text-xs">
-                                Latest: {currentEnrollment?.class_name ?? "—"}
-                            </p>
-                        </div>
-                    </div>
-                </TabsContent>
-
-                {/* ── Behavior Tab ─────────────────────────────────────── */}
-                <TabsContent value="behavior" className="space-y-4 pt-4">
-                    <div className="flex items-center justify-between">
-                        <p className="text-muted-foreground">
-                            {behaviorNotes.length > 0
-                                ? `${behaviorNotes.length} note${behaviorNotes.length !== 1 ? "s" : ""} on record`
-                                : "No behavior notes logged yet."}
+                            )}
                         </p>
                     </div>
 
-                    {behaviorNotes.length === 0 ? (
-                        <div className="text-muted-foreground flex flex-col items-center gap-2 py-12">
-                            <AlertTriangle className="h-8 w-8" />
-                            <p className="font-medium">No behavior notes</p>
+                    {/* Enrollment summary */}
+                    <div className="bg-muted/30 p-4">
+                        <div className="text-muted-foreground flex items-center gap-2 font-medium">
+                            <BookOpen className="h-4 w-4" />
+                            Enrollments
                         </div>
-                    ) : (
-                        behaviorNotes.map((note) => (
+                        <p className="text-foreground mt-2 text-2xl font-bold">
+                            {enrollments.length}{" "}
+                            <span className="text-muted-foreground text-base font-normal">
+                                terms
+                            </span>
+                        </p>
+                        <p className="text-muted-foreground text-xs">
+                            Latest: {currentEnrollment?.class_name ?? "—"}
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            {/* ── Behavior Notes ─────────────────────────────────────── */}
+            <section>
+                <h2 className="text-muted-foreground mb-3 text-xs font-semibold tracking-wider uppercase">
+                    Behavior Notes
+                    {behaviorNotes.length > 0 && (
+                        <span className="ml-2 font-normal">({behaviorNotes.length})</span>
+                    )}
+                </h2>
+
+                {behaviorNotes.length === 0 ? (
+                    <div className="text-muted-foreground flex flex-col items-center gap-2 py-12">
+                        <AlertTriangle className="h-8 w-8" />
+                        <p className="font-medium">No behavior notes</p>
+                    </div>
+                ) : (
+                    <div className="space-y-2">
+                        {behaviorNotes.map((note) => (
                             <div
                                 key={note.id}
                                 className={`bg-muted/30 p-4 ${note.is_urgent ? "border-l-destructive border-l-2" : ""}`}
@@ -256,59 +261,176 @@ export default function StudentDetailPage({ params }: Props) {
                                     </div>
                                 </div>
                             </div>
-                        ))
-                    )}
-                </TabsContent>
+                        ))}
+                    </div>
+                )}
+            </section>
 
-                {/* ── Enrollments Tab ──────────────────────────────────── */}
-                <TabsContent value="enrollments" className="space-y-4 pt-4">
-                    {enrollments.length === 0 ? (
-                        <div className="text-muted-foreground flex flex-col items-center gap-2 py-12">
-                            <BookOpen className="h-8 w-8" />
-                            <p className="font-medium">No enrollments</p>
-                            <p className="">Enrollment history will appear here.</p>
-                        </div>
-                    ) : (
-                        <StaticTable
-                            columns={[
-                                {
-                                    id: "term",
-                                    header: "Term",
-                                    cell: (enr) => `${enr.term_name} ${enr.academic_year}`,
-                                },
-                                { id: "class", header: "Class", cell: (enr) => enr.class_name },
-                                {
-                                    id: "status",
-                                    header: "Status",
-                                    cell: (enr) => <Badge variant="secondary">{enr.status}</Badge>,
-                                },
-                            ]}
-                            data={enrollments}
-                            getRowId={(enr) => enr.id}
-                            height={200}
-                        />
-                    )}
-                </TabsContent>
-                {/* ── Health Tab ──────────────────────────────────────── */}
-                <TabsContent value="health" className="space-y-4 pt-4">
-                    <HealthTabContent studentId={id} />
-                </TabsContent>
+            {/* ── Health ──────────────────────────────────────────────── */}
+            <section>
+                <h2 className="text-muted-foreground mb-3 text-xs font-semibold tracking-wider uppercase">
+                    Health
+                </h2>
+                <HealthTabContent studentId={id} />
+            </section>
 
-                {/* ── Reports Tab ─────────────────────────────────────── */}
-                <TabsContent value="reports" className="space-y-4 pt-4">
+            {/* ── Parents ────────────────────────────────────────────── */}
+            <section>
+                <div className="mb-3 flex items-center justify-between">
+                    <h2 className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
+                        Parents
+                        {linkedParents.length > 0 && (
+                            <span className="ml-2 font-normal">({linkedParents.length})</span>
+                        )}
+                    </h2>
+                    <Button variant="outline" size="sm" asChild>
+                        <Link href={`/students/${id}/link-parent`}>
+                            <Link2 className="mr-1.5 size-3.5" />
+                            Link Parent
+                        </Link>
+                    </Button>
+                </div>
+
+                {linkedParents.length === 0 ? (
                     <div className="text-muted-foreground flex flex-col items-center gap-2 py-12">
-                        <BarChart3 className="h-8 w-8" />
-                        <p className="font-medium">Student Reports</p>
-                        <p className="">Generate and view term reports for this student.</p>
-                        <Button variant="outline" size="sm" asChild className="mt-2">
-                            <Link href={`/reports/student/${id}`}>
-                                <ArrowUpRight className="mr-1 h-4 w-4" />
-                                View Reports
+                        <Users className="h-8 w-8" />
+                        <p className="font-medium">No linked parents</p>
+                        <p className="">
+                            Link a parent or guardian to manage family relationships.
+                        </p>
+                        <Button variant="outline" size="sm" className="mt-2" asChild>
+                            <Link href={`/students/${id}/link-parent`}>
+                                <UserPlus className="mr-1.5 size-3.5" />
+                                Link Parent
                             </Link>
                         </Button>
                     </div>
-                </TabsContent>
-            </Tabs>
+                ) : (
+                    <StaticTable
+                        columns={[
+                            {
+                                id: "name",
+                                header: "Parent Name",
+                                cell: (lp) => <span className="font-medium">{lp.full_name}</span>,
+                            },
+                            {
+                                id: "email",
+                                header: "Email",
+                                cell: (lp) => (
+                                    <span className="text-muted-foreground">{lp.email}</span>
+                                ),
+                            },
+                            {
+                                id: "phone",
+                                header: "Phone",
+                                cell: (lp) => (
+                                    <span className="text-muted-foreground">{lp.phone_number}</span>
+                                ),
+                            },
+                            {
+                                id: "relationship",
+                                header: "Relationship",
+                                cell: (lp) => (
+                                    <span className="text-muted-foreground">
+                                        {lp.relationship || "—"}
+                                    </span>
+                                ),
+                            },
+                            {
+                                id: "primary",
+                                header: "Primary",
+                                cell: (lp) =>
+                                    lp.is_primary ? (
+                                        <Badge
+                                            variant="secondary"
+                                            className="bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400"
+                                        >
+                                            Primary
+                                        </Badge>
+                                    ) : (
+                                        <span className="text-muted-foreground">—</span>
+                                    ),
+                            },
+                            {
+                                id: "actions",
+                                header: "",
+                                width: "64px",
+                                cell: (lp) => (
+                                    <Button
+                                        variant="ghost"
+                                        size="icon-sm"
+                                        onClick={() =>
+                                            handleUnlinkParent(lp.parent_id, lp.full_name)
+                                        }
+                                        title="Unlink parent"
+                                    >
+                                        <Trash2 className="text-destructive size-3.5" />
+                                        <span className="sr-only">Unlink</span>
+                                    </Button>
+                                ),
+                            },
+                        ]}
+                        data={linkedParents}
+                        getRowId={(lp) => lp.parent_id}
+                        height={280}
+                    />
+                )}
+            </section>
+
+            {/* ── Enrollments ──────────────────────────────────────────── */}
+            <section>
+                <h2 className="text-muted-foreground mb-3 text-xs font-semibold tracking-wider uppercase">
+                    Enrollments
+                    {enrollments.length > 0 && (
+                        <span className="ml-2 font-normal">({enrollments.length})</span>
+                    )}
+                </h2>
+
+                {enrollments.length === 0 ? (
+                    <div className="text-muted-foreground flex flex-col items-center gap-2 py-12">
+                        <BookOpen className="h-8 w-8" />
+                        <p className="font-medium">No enrollments</p>
+                        <p className="">Enrollment history will appear here.</p>
+                    </div>
+                ) : (
+                    <StaticTable
+                        columns={[
+                            {
+                                id: "term",
+                                header: "Term",
+                                cell: (enr) => `${enr.term_name} ${enr.academic_year}`,
+                            },
+                            { id: "class", header: "Class", cell: (enr) => enr.class_name },
+                            {
+                                id: "status",
+                                header: "Status",
+                                cell: (enr) => <Badge variant="secondary">{enr.status}</Badge>,
+                            },
+                        ]}
+                        data={enrollments}
+                        getRowId={(enr) => enr.id}
+                        height={200}
+                    />
+                )}
+            </section>
+
+            {/* ── Reports ─────────────────────────────────────────────── */}
+            <section>
+                <h2 className="text-muted-foreground mb-3 text-xs font-semibold tracking-wider uppercase">
+                    Reports
+                </h2>
+                <div className="text-muted-foreground flex flex-col items-center gap-2 py-12">
+                    <BarChart3 className="h-8 w-8" />
+                    <p className="font-medium">Student Reports</p>
+                    <p className="">Generate and view term reports for this student.</p>
+                    <Button variant="outline" size="sm" asChild className="mt-2">
+                        <Link href={`/reports/student/${id}`}>
+                            <ArrowUpRight className="mr-1 h-4 w-4" />
+                            View Reports
+                        </Link>
+                    </Button>
+                </div>
+            </section>
         </div>
     );
 }

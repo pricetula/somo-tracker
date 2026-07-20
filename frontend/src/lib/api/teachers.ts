@@ -72,5 +72,5 @@ export async function toggleTeacherActive(userId: string, isActive: boolean): Pr
 
 /** Hard-delete a teacher. */
 export async function deleteTeacher(userId: string): Promise<void> {
-    return api.delete<void>(`/api/v1/teachers/${userId}`);
+    return api.delete<void>(`/api/v1/teachers`, { user_id: userId });
 }

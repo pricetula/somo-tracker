@@ -54,9 +54,9 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	parents.Post("/import", middleware.RequireAuth, h.BulkImport)
 	parents.Get("/:id", middleware.RequireAuth, h.GetDetail)
 	parents.Put("/:id", middleware.RequireAuth, h.Update)
-	parents.Delete("/:id", middleware.RequireAuth, h.Delete)
+	parents.Delete("/", middleware.RequireAuth, h.Delete)
 	parents.Post("/:parent_id/students", middleware.RequireAuth, h.LinkStudent)
-	parents.Delete("/:parent_id/students/:student_id", middleware.RequireAuth, h.UnlinkStudent)
+	parents.Delete("/student-link", middleware.RequireAuth, h.UnlinkStudent)
 }
 
 // ============================================================================
@@ -360,13 +360,18 @@ func (h *Handler) Update(c *fiber.Ctx) error {
 // Delete handles DELETE /api/v1/parents/:id.
 func (h *Handler) Delete(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
-	id := c.Params("id")
 
-	if id == "" {
+	var payload struct {
+		ID string `json:"id"`
+	}
+	if err := c.BodyParser(&payload); err != nil {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input", "malformed request body", nil)
+	}
+	if payload.ID == "" {
 		return writeError(c, fiber.StatusBadRequest, "invalid_input", "parent id is required", nil)
 	}
 
-	if err := h.svc.Delete(c.Context(), id, tenantID); err != nil {
+	if err := h.svc.Delete(c.Context(), payload.ID, tenantID); err != nil {
 		return middleware.HTTPError(c, err)
 	}
 
@@ -417,14 +422,19 @@ func (h *Handler) LinkStudent(c *fiber.Ctx) error {
 // UnlinkStudent handles DELETE /api/v1/parents/:parent_id/students/:student_id.
 func (h *Handler) UnlinkStudent(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
-	parentID := c.Params("parent_id")
-	studentID := c.Params("student_id")
 
-	if parentID == "" || studentID == "" {
+	var payload struct {
+		ParentID  string `json:"parent_id"`
+		StudentID string `json:"student_id"`
+	}
+	if err := c.BodyParser(&payload); err != nil {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input", "malformed request body", nil)
+	}
+	if payload.ParentID == "" || payload.StudentID == "" {
 		return writeError(c, fiber.StatusBadRequest, "invalid_input", "parent_id and student_id are required", nil)
 	}
 
-	if err := h.svc.UnlinkStudent(c.Context(), parentID, studentID, tenantID); err != nil {
+	if err := h.svc.UnlinkStudent(c.Context(), payload.ParentID, payload.StudentID, tenantID); err != nil {
 		return middleware.HTTPError(c, err)
 	}
 

@@ -25,7 +25,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	streams.Get("/:id", middleware.RequireAuth, h.GetByID)
 	streams.Post("/", middleware.RequireAuth, h.Create)
 	streams.Put("/:id", middleware.RequireAuth, h.Update)
-	streams.Delete("/:id", middleware.RequireAuth, h.Delete)
+	streams.Delete("/", middleware.RequireAuth, h.Delete)
 }
 
 // List handles GET /api/v1/streams.
@@ -160,15 +160,23 @@ func (h *Handler) Delete(c *fiber.Ctx) error {
 		return err
 	}
 
-	streamID := c.Params("id")
-	if streamID == "" {
+	var payload struct {
+		ID string `json:"id"`
+	}
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "invalid request body",
+		})
+	}
+	if payload.ID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"code":    "VALIDATION_ERROR",
 			"message": "stream id is required",
 		})
 	}
 
-	if err := h.svc.DeleteStream(c.Context(), streamID, tenantID, schoolID); err != nil {
+	if err := h.svc.DeleteStream(c.Context(), payload.ID, tenantID, schoolID); err != nil {
 		// Stream has active enrollments — return a human-readable 409.
 		if errors.Is(err, ErrStreamHasActiveEnrollments) {
 			return c.Status(fiber.StatusConflict).JSON(fiber.Map{

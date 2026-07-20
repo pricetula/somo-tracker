@@ -27,7 +27,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	teachers.Get("/:user_id", middleware.RequireAuth, h.GetByID)
 	teachers.Put("/:user_id", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.Update)
 	teachers.Patch("/:user_id/active", middleware.RequireAuth, h.ToggleActive)
-	teachers.Delete("/:user_id", middleware.RequireAuth, h.Delete)
+	teachers.Delete("/", middleware.RequireAuth, h.Delete)
 }
 
 // ─── Handlers ──────────────────────────────────────────────────────────────
@@ -157,7 +157,22 @@ func (h *Handler) Update(c *fiber.Ctx) error {
 // Delete handles DELETE /api/v1/teachers/:user_id
 func (h *Handler) Delete(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
-	userID := c.Params("user_id")
+
+	var payload struct {
+		UserID string `json:"user_id"`
+	}
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "malformed request body",
+		})
+	}
+	if payload.UserID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "user_id is required",
+		})
+	}
 
 	schoolID := c.Locals("active_school_id").(string)
 	if schoolID == "" {
@@ -167,7 +182,7 @@ func (h *Handler) Delete(c *fiber.Ctx) error {
 		})
 	}
 
-	if err := h.svc.Delete(c.Context(), tenantID, schoolID, userID); err != nil {
+	if err := h.svc.Delete(c.Context(), tenantID, schoolID, payload.UserID); err != nil {
 		return middleware.HTTPError(c, err)
 	}
 

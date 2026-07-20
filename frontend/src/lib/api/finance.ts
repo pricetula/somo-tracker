@@ -36,5 +36,5 @@ export async function toggleFinanceActive(userId: string, isActive: boolean): Pr
 
 /** Hard-delete a finance staff member. */
 export async function deleteFinanceStaff(userId: string): Promise<void> {
-    return api.delete<void>(`/api/v1/members/${userId}?role=FINANCE`);
+    return api.delete<void>(`/api/v1/members`, { user_id: userId, role: "FINANCE" });
 }

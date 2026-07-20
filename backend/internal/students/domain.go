@@ -40,11 +40,23 @@ type Student struct {
 	CreatedAt            string  `json:"created_at"`
 }
 
-// StudentDetail extends Student with enrollment history and behavior notes.
+// StudentDetail extends Student with enrollment history, behavior notes,
+// and linked parent/guardian profiles.
 type StudentDetail struct {
 	Student
-	Enrollments []Enrollment       `json:"enrollments"`
-	Behavior    []BehaviorNoteItem `json:"behavior"`
+	Enrollments   []Enrollment       `json:"enrollments"`
+	Behavior      []BehaviorNoteItem `json:"behavior"`
+	LinkedParents []LinkedParent     `json:"linked_parents"`
+}
+
+// LinkedParent represents a parent/guardian linked to a student.
+type LinkedParent struct {
+	ParentID     string  `json:"parent_id"`
+	FullName     string  `json:"full_name"`
+	Email        string  `json:"email"`
+	PhoneNumber  string  `json:"phone_number"`
+	Relationship *string `json:"relationship,omitempty"`
+	IsPrimary    bool    `json:"is_primary"`
 }
 
 // BehaviorNoteItem is a lightweight behavior note for the student detail page.

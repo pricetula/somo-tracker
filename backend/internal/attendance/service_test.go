@@ -29,6 +29,9 @@ type MockRepository struct {
 	getStudentTermSummaryFn    func(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]AttendanceTermSummary, error)
 	getClassTermSummaryFn      func(ctx context.Context, tenantID, schoolID, classID, termID string) ([]AttendanceTermSummary, error)
 	refreshSummariesFn         func(ctx context.Context, tenantID, schoolID, termID string) error
+	getClassDailySummaryFn     func(ctx context.Context, tenantID, schoolID, classID, date string) (*ClassDailyAttendanceSummary, error)
+	refreshClassDailySummaryFn func(ctx context.Context, tenantID, schoolID, classID, date string) error
+	listClassDailySummariesFn  func(ctx context.Context, tenantID, schoolID, classID, startDate, endDate string) ([]ClassDailyAttendanceSummary, error)
 }
 
 func (m *MockRepository) CreateSession(ctx context.Context, tenantID, schoolID string, payload CreateSessionPayload) (*AttendanceSession, error) {
@@ -149,6 +152,27 @@ func (m *MockRepository) RefreshSummaries(ctx context.Context, tenantID, schoolI
 		return m.refreshSummariesFn(ctx, tenantID, schoolID, termID)
 	}
 	return nil
+}
+
+func (m *MockRepository) GetClassDailySummary(ctx context.Context, tenantID, schoolID, classID, date string) (*ClassDailyAttendanceSummary, error) {
+	if m.getClassDailySummaryFn != nil {
+		return m.getClassDailySummaryFn(ctx, tenantID, schoolID, classID, date)
+	}
+	return &ClassDailyAttendanceSummary{ClassID: classID, Date: date}, nil
+}
+
+func (m *MockRepository) RefreshClassDailySummary(ctx context.Context, tenantID, schoolID, classID, date string) error {
+	if m.refreshClassDailySummaryFn != nil {
+		return m.refreshClassDailySummaryFn(ctx, tenantID, schoolID, classID, date)
+	}
+	return nil
+}
+
+func (m *MockRepository) ListClassDailySummaries(ctx context.Context, tenantID, schoolID, classID, startDate, endDate string) ([]ClassDailyAttendanceSummary, error) {
+	if m.listClassDailySummariesFn != nil {
+		return m.listClassDailySummariesFn(ctx, tenantID, schoolID, classID, startDate, endDate)
+	}
+	return []ClassDailyAttendanceSummary{}, nil
 }
 
 // ============================================================================

@@ -102,6 +102,7 @@ type AttendanceTermSummary struct {
 	SchoolID             string    `json:"school_id"`
 	StudentID            string    `json:"student_id"`
 	AcademicTermID       string    `json:"academic_term_id"`
+	AcademicYearID       string    `json:"academic_year_id"`
 	LearningAreaID       string    `json:"learning_area_id"`
 	LearningAreaName     string    `json:"learning_area_name,omitempty"`
 	PeriodsTotal         int       `json:"periods_total"`
@@ -111,6 +112,7 @@ type AttendanceTermSummary struct {
 	PeriodsExcused       int       `json:"periods_excused"`
 	AttendancePercentage float64   `json:"attendance_percentage"`
 	LastRefreshedAt      time.Time `json:"last_refreshed_at,omitempty"`
+	CreatedAt            time.Time `json:"created_at,omitempty"`
 	UpdatedAt            time.Time `json:"updated_at,omitempty"`
 }
 
@@ -216,6 +218,33 @@ type SummaryListResponse struct {
 	Total int                     `json:"total"`
 }
 
+// ─── Class Daily Attendance Summary ──────────────────────────────────────
+
+// ClassDailyAttendanceSummary is a materialised rollup per class × date.
+type ClassDailyAttendanceSummary struct {
+	ID                  string    `json:"id"`
+	TenantID            string    `json:"tenant_id"`
+	SchoolID            string    `json:"school_id"`
+	ClassID             string    `json:"class_id"`
+	AcademicTermID      string    `json:"academic_term_id"`
+	Date                string    `json:"date"`
+	TotalEnrolled       int       `json:"total_enrolled"`
+	PresentCount        int       `json:"present_count"`
+	AbsentCount         int       `json:"absent_count"`
+	LateCount           int       `json:"late_count"`
+	ExcusedCount        int       `json:"excused_count"`
+	DailyAttendanceRate float64   `json:"daily_attendance_rate"`
+	LastRefreshedAt     time.Time `json:"last_refreshed_at,omitempty"`
+	CreatedAt           time.Time `json:"created_at,omitempty"`
+	UpdatedAt           time.Time `json:"updated_at,omitempty"`
+}
+
+// ClassDailySummaryListResponse wraps a list of class daily attendance summaries.
+type ClassDailySummaryListResponse struct {
+	Items []ClassDailyAttendanceSummary `json:"items"`
+	Total int                           `json:"total"`
+}
+
 // RefreshSummaryResponse is returned after triggering a summary refresh.
 type RefreshSummaryResponse struct {
 	Message string `json:"message"`
@@ -283,4 +312,15 @@ type Repository interface {
 
 	// RefreshSummaries recomputes the materialised summaries for a term (background task).
 	RefreshSummaries(ctx context.Context, tenantID, schoolID, termID string) error
+
+	// ── Class Daily Summaries ───────────────────────────────────────────
+
+	// GetClassDailySummary returns the daily attendance summary for a class on a date.
+	GetClassDailySummary(ctx context.Context, tenantID, schoolID, classID, date string) (*ClassDailyAttendanceSummary, error)
+
+	// RefreshClassDailySummary recomputes the daily summary for a class on a date.
+	RefreshClassDailySummary(ctx context.Context, tenantID, schoolID, classID, date string) error
+
+	// ListClassDailySummaries returns daily summaries for a class within a date range.
+	ListClassDailySummaries(ctx context.Context, tenantID, schoolID, classID, startDate, endDate string) ([]ClassDailyAttendanceSummary, error)
 }

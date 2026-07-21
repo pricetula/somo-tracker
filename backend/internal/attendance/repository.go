@@ -708,10 +708,11 @@ func (r *pgRepository) GetStudentTermSummary(ctx context.Context, tenantID, scho
 	query := `
 		SELECT
 			ats.id, ats.tenant_id, ats.school_id, ats.student_id, ats.academic_term_id,
+			ats.academic_year_id,
 			ats.learning_area_id, COALESCE(la.name, '') AS learning_area_name,
 			ats.periods_total, ats.periods_present, ats.periods_absent,
 			ats.periods_late, ats.periods_excused, ats.attendance_percentage,
-			ats.last_refreshed_at, ats.updated_at
+			ats.last_refreshed_at, ats.created_at, ats.updated_at
 		FROM attendance_term_summaries ats
 		LEFT JOIN cbc_learning_areas la ON la.id = ats.learning_area_id
 		WHERE ats.tenant_id = $1 AND ats.school_id = $2
@@ -725,10 +726,11 @@ func (r *pgRepository) GetClassTermSummary(ctx context.Context, tenantID, school
 	query := `
 		SELECT
 			ats.id, ats.tenant_id, ats.school_id, ats.student_id, ats.academic_term_id,
+			ats.academic_year_id,
 			ats.learning_area_id, COALESCE(la.name, '') AS learning_area_name,
 			ats.periods_total, ats.periods_present, ats.periods_absent,
 			ats.periods_late, ats.periods_excused, ats.attendance_percentage,
-			ats.last_refreshed_at, ats.updated_at
+			ats.last_refreshed_at, ats.created_at, ats.updated_at
 		FROM attendance_term_summaries ats
 		JOIN cbc_student_enrollments enr ON enr.student_id = ats.student_id
 			AND enr.academic_term_id = ats.academic_term_id
@@ -749,10 +751,11 @@ func (r *pgRepository) GetClassTermSummary(ctx context.Context, tenantID, school
 		var s AttendanceTermSummary
 		if err := rows.Scan(
 			&s.ID, &s.TenantID, &s.SchoolID, &s.StudentID, &s.AcademicTermID,
+			&s.AcademicYearID,
 			&s.LearningAreaID, &s.LearningAreaName,
 			&s.PeriodsTotal, &s.PeriodsPresent, &s.PeriodsAbsent,
 			&s.PeriodsLate, &s.PeriodsExcused, &s.AttendancePercentage,
-			&s.LastRefreshedAt, &s.UpdatedAt,
+			&s.LastRefreshedAt, &s.CreatedAt, &s.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("attendance.Repository.GetClassTermSummary: scan: %w", err)
 		}
@@ -766,11 +769,12 @@ func (r *pgRepository) GetClassTermSummary(ctx context.Context, tenantID, school
 
 func (r *pgRepository) RefreshSummaries(ctx context.Context, tenantID, schoolID, termID string) error {
 	// Recompute all attendance term summaries for a given term.
-	// This uses a single UPSERT query that aggregates raw attendance_records
-	// per student × term × learning area and materialises the result.
+	// Excludes attendance_records whose session is SKIPPED (cancelled lesson)
+	// so cancelled lessons don't count against the denominator.
 	_, err := r.pool.Exec(ctx, `
 		INSERT INTO attendance_term_summaries (
-			tenant_id, school_id, student_id, academic_term_id, learning_area_id,
+			tenant_id, school_id, student_id, academic_term_id, academic_year_id,
+			learning_area_id,
 			periods_total, periods_present, periods_absent, periods_late, periods_excused,
 			attendance_percentage, last_refreshed_at
 		)
@@ -779,6 +783,7 @@ func (r *pgRepository) RefreshSummaries(ctx context.Context, tenantID, schoolID,
 			ar.school_id,
 			ar.student_id,
 			ar.academic_term_id,
+			t.academic_year_id,
 			ts.learning_area_id,
 			COUNT(*)::INT AS periods_total,
 			COUNT(*) FILTER (WHERE ar.status = 'PRESENT')::INT AS periods_present,
@@ -792,10 +797,17 @@ func (r *pgRepository) RefreshSummaries(ctx context.Context, tenantID, schoolID,
 			NOW() AS last_refreshed_at
 		FROM attendance_records ar
 		JOIN cbc_timetable_slots ts ON ts.id = ar.timetable_slot_id
+		JOIN academic_terms t ON t.id = ar.academic_term_id
+		LEFT JOIN cbc_attendance_sessions s
+			ON s.timetable_slot_id = ar.timetable_slot_id
+			AND s.date = ar.date
+			AND s.tenant_id = ar.tenant_id
 		WHERE ar.tenant_id = $1 AND ar.school_id = $2 AND ar.academic_term_id = $3
-		GROUP BY ar.school_id, ar.student_id, ar.academic_term_id, ts.learning_area_id
+		  AND (s.status IS NULL OR s.status != 'SKIPPED')
+		GROUP BY ar.school_id, ar.student_id, ar.academic_term_id, t.academic_year_id, ts.learning_area_id
 		ON CONFLICT (student_id, academic_term_id, learning_area_id)
 		DO UPDATE SET
+			academic_year_id     = EXCLUDED.academic_year_id,
 			periods_total        = EXCLUDED.periods_total,
 			periods_present      = EXCLUDED.periods_present,
 			periods_absent       = EXCLUDED.periods_absent,
@@ -811,6 +823,10 @@ func (r *pgRepository) RefreshSummaries(ctx context.Context, tenantID, schoolID,
 }
 
 // scanSummaries is a shared helper for scanning summary rows.
+// Order must match SELECT: id, tenant_id, school_id, student_id, academic_term_id,
+// academic_year_id, learning_area_id, learning_area_name, periods_total,
+// periods_present, periods_absent, periods_late, periods_excused,
+// attendance_percentage, last_refreshed_at, created_at, updated_at.
 func (r *pgRepository) scanSummaries(ctx context.Context, query string, args ...interface{}) ([]AttendanceTermSummary, error) {
 	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {
@@ -823,10 +839,11 @@ func (r *pgRepository) scanSummaries(ctx context.Context, query string, args ...
 		var s AttendanceTermSummary
 		if err := rows.Scan(
 			&s.ID, &s.TenantID, &s.SchoolID, &s.StudentID, &s.AcademicTermID,
+			&s.AcademicYearID,
 			&s.LearningAreaID, &s.LearningAreaName,
 			&s.PeriodsTotal, &s.PeriodsPresent, &s.PeriodsAbsent,
 			&s.PeriodsLate, &s.PeriodsExcused, &s.AttendancePercentage,
-			&s.LastRefreshedAt, &s.UpdatedAt,
+			&s.LastRefreshedAt, &s.CreatedAt, &s.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("attendance.Repository.scanSummaries: scan: %w", err)
 		}
@@ -834,6 +851,115 @@ func (r *pgRepository) scanSummaries(ctx context.Context, query string, args ...
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("attendance.Repository.scanSummaries: rows: %w", err)
+	}
+	return results, nil
+}
+
+// ── Class Daily Summaries ─────────────────────────────────────────────────
+
+func (r *pgRepository) GetClassDailySummary(ctx context.Context, tenantID, schoolID, classID, date string) (*ClassDailyAttendanceSummary, error) {
+	var s ClassDailyAttendanceSummary
+	err := r.pool.QueryRow(ctx, `
+		SELECT id, tenant_id, school_id, class_id, academic_term_id, date,
+		       total_enrolled, present_count, absent_count, late_count, excused_count,
+		       daily_attendance_rate, last_refreshed_at, created_at, updated_at
+		FROM class_daily_attendance_summaries
+		WHERE tenant_id = $1 AND school_id = $2 AND class_id = $3 AND date = $4
+	`, tenantID, schoolID, classID, date).Scan(
+		&s.ID, &s.TenantID, &s.SchoolID, &s.ClassID, &s.AcademicTermID, &s.Date,
+		&s.TotalEnrolled, &s.PresentCount, &s.AbsentCount, &s.LateCount, &s.ExcusedCount,
+		&s.DailyAttendanceRate, &s.LastRefreshedAt, &s.CreatedAt, &s.UpdatedAt,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("attendance.Repository.GetClassDailySummary: %w", ErrNotFound)
+		}
+		return nil, fmt.Errorf("attendance.Repository.GetClassDailySummary: %w", err)
+	}
+	return &s, nil
+}
+
+func (r *pgRepository) RefreshClassDailySummary(ctx context.Context, tenantID, schoolID, classID, date string) error {
+	_, err := r.pool.Exec(ctx, `
+		INSERT INTO class_daily_attendance_summaries (
+			tenant_id, school_id, class_id, academic_term_id, date,
+			total_enrolled, present_count, absent_count, late_count, excused_count,
+			daily_attendance_rate, last_refreshed_at
+		)
+		SELECT
+			$1 AS tenant_id,
+			$2 AS school_id,
+			c.id AS class_id,
+			ar.academic_term_id,
+			ar.date,
+			COUNT(DISTINCT ar.student_id)::INT AS total_enrolled,
+			COUNT(*) FILTER (WHERE ar.status = 'PRESENT')::INT AS present_count,
+			COUNT(*) FILTER (WHERE ar.status = 'ABSENT')::INT AS absent_count,
+			COUNT(*) FILTER (WHERE ar.status = 'LATE')::INT AS late_count,
+			COUNT(*) FILTER (WHERE ar.status = 'EXCUSED')::INT AS excused_count,
+			ROUND(
+				(COUNT(*) FILTER (WHERE ar.status = 'PRESENT') * 100.0 / NULLIF(COUNT(*), 0)),
+				2
+			) AS daily_attendance_rate,
+			NOW() AS last_refreshed_at
+		FROM attendance_records ar
+		JOIN cbc_timetable_slots ts ON ts.id = ar.timetable_slot_id
+		JOIN cbc_classes c ON c.id = ts.class_id AND c.tenant_id = $1
+		LEFT JOIN cbc_attendance_sessions s
+			ON s.timetable_slot_id = ar.timetable_slot_id
+			AND s.date = ar.date
+			AND s.tenant_id = ar.tenant_id
+		WHERE ar.tenant_id = $1
+		  AND ar.school_id = $2
+		  AND c.id = $3
+		  AND ar.date = $4
+		  AND (s.status IS NULL OR s.status != 'SKIPPED')
+		GROUP BY c.id, ar.academic_term_id, ar.date
+		ON CONFLICT (class_id, date)
+		DO UPDATE SET
+			total_enrolled        = EXCLUDED.total_enrolled,
+			present_count         = EXCLUDED.present_count,
+			absent_count          = EXCLUDED.absent_count,
+			late_count            = EXCLUDED.late_count,
+			excused_count         = EXCLUDED.excused_count,
+			daily_attendance_rate = EXCLUDED.daily_attendance_rate,
+			last_refreshed_at     = EXCLUDED.last_refreshed_at
+	`, tenantID, schoolID, classID, date)
+	if err != nil {
+		return fmt.Errorf("attendance.Repository.RefreshClassDailySummary: %w", err)
+	}
+	return nil
+}
+
+func (r *pgRepository) ListClassDailySummaries(ctx context.Context, tenantID, schoolID, classID, startDate, endDate string) ([]ClassDailyAttendanceSummary, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT id, tenant_id, school_id, class_id, academic_term_id, date,
+		       total_enrolled, present_count, absent_count, late_count, excused_count,
+		       daily_attendance_rate, last_refreshed_at, created_at, updated_at
+		FROM class_daily_attendance_summaries
+		WHERE tenant_id = $1 AND school_id = $2 AND class_id = $3
+		  AND date >= $4 AND date <= $5
+		ORDER BY date ASC
+	`, tenantID, schoolID, classID, startDate, endDate)
+	if err != nil {
+		return nil, fmt.Errorf("attendance.Repository.ListClassDailySummaries: %w", err)
+	}
+	defer rows.Close()
+
+	var results []ClassDailyAttendanceSummary
+	for rows.Next() {
+		var s ClassDailyAttendanceSummary
+		if err := rows.Scan(
+			&s.ID, &s.TenantID, &s.SchoolID, &s.ClassID, &s.AcademicTermID, &s.Date,
+			&s.TotalEnrolled, &s.PresentCount, &s.AbsentCount, &s.LateCount, &s.ExcusedCount,
+			&s.DailyAttendanceRate, &s.LastRefreshedAt, &s.CreatedAt, &s.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("attendance.Repository.ListClassDailySummaries: scan: %w", err)
+		}
+		results = append(results, s)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("attendance.Repository.ListClassDailySummaries: rows: %w", err)
 	}
 	return results, nil
 }

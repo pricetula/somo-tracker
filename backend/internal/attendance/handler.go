@@ -40,6 +40,12 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	summaries.Get("/student/:student_id", middleware.RequireAuth, h.GetStudentTermSummary)
 	summaries.Get("/class/:class_id", middleware.RequireAuth, h.GetClassTermSummary)
 	summaries.Post("/refresh", middleware.RequireAuth, h.RefreshSummaries)
+
+	// Class daily attendance summaries
+	daily := router.Group("/api/v1/attendance/daily")
+	daily.Get("/class/:class_id/date/:date", middleware.RequireAuth, h.GetClassDailySummary)
+	daily.Post("/class/:class_id/date/:date/refresh", middleware.RequireAuth, h.RefreshClassDailySummary)
+	daily.Get("/class/:class_id", middleware.RequireAuth, h.ListClassDailySummaries)
 }
 
 // attMiddleware extracts common tenant/school context.
@@ -359,6 +365,63 @@ func (h *Handler) RefreshSummaries(c *fiber.Ctx) error {
 	}
 
 	result, err := h.svc.RefreshSummaries(c.Context(), tenantID, schoolID, payload.TermID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(result)
+}
+
+// ── Class Daily Summaries ─────────────────────────────────────────────────
+
+// GetClassDailySummary handles GET /api/v1/attendance/daily/class/:class_id/date/:date.
+func (h *Handler) GetClassDailySummary(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.attMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	classID := c.Params("class_id")
+	date := c.Params("date")
+
+	result, err := h.svc.GetClassDailySummary(c.Context(), tenantID, schoolID, classID, date)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(result)
+}
+
+// RefreshClassDailySummary handles POST /api/v1/attendance/daily/class/:class_id/date/:date/refresh.
+func (h *Handler) RefreshClassDailySummary(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.attMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	classID := c.Params("class_id")
+	date := c.Params("date")
+
+	result, err := h.svc.RefreshClassDailySummary(c.Context(), tenantID, schoolID, classID, date)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(result)
+}
+
+// ListClassDailySummaries handles GET /api/v1/attendance/daily/class/:class_id.
+func (h *Handler) ListClassDailySummaries(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.attMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	classID := c.Params("class_id")
+	startDate := c.Query("start_date")
+	endDate := c.Query("end_date")
+
+	result, err := h.svc.ListClassDailySummaries(c.Context(), tenantID, schoolID, classID, startDate, endDate)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}

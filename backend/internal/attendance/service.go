@@ -287,3 +287,54 @@ func (s *Service) RefreshSummaries(ctx context.Context, tenantID, schoolID, term
 		TermID:  termID,
 	}, nil
 }
+
+// ── Class Daily Summaries ─────────────────────────────────────────────────
+
+// GetClassDailySummary returns the daily attendance summary for a class on a date.
+func (s *Service) GetClassDailySummary(ctx context.Context, tenantID, schoolID, classID, date string) (*ClassDailyAttendanceSummary, error) {
+	if classID == "" {
+		return nil, fmt.Errorf("attendance.Service.GetClassDailySummary: class_id is required: %w", ErrInvalidInput)
+	}
+	if date == "" {
+		return nil, fmt.Errorf("attendance.Service.GetClassDailySummary: date is required: %w", ErrInvalidInput)
+	}
+	return s.repo.GetClassDailySummary(ctx, tenantID, schoolID, classID, date)
+}
+
+// RefreshClassDailySummary triggers a recomputation of the daily summary for a class on a date.
+func (s *Service) RefreshClassDailySummary(ctx context.Context, tenantID, schoolID, classID, date string) (*RefreshSummaryResponse, error) {
+	if classID == "" {
+		return nil, fmt.Errorf("attendance.Service.RefreshClassDailySummary: class_id is required: %w", ErrInvalidInput)
+	}
+	if date == "" {
+		return nil, fmt.Errorf("attendance.Service.RefreshClassDailySummary: date is required: %w", ErrInvalidInput)
+	}
+	if err := s.repo.RefreshClassDailySummary(ctx, tenantID, schoolID, classID, date); err != nil {
+		return nil, err
+	}
+	return &RefreshSummaryResponse{
+		Message: "Class daily attendance summary refreshed successfully",
+		TermID:  date,
+	}, nil
+}
+
+// ListClassDailySummaries returns daily summaries for a class within a date range.
+func (s *Service) ListClassDailySummaries(ctx context.Context, tenantID, schoolID, classID, startDate, endDate string) (*ClassDailySummaryListResponse, error) {
+	if classID == "" {
+		return nil, fmt.Errorf("attendance.Service.ListClassDailySummaries: class_id is required: %w", ErrInvalidInput)
+	}
+	if startDate == "" {
+		return nil, fmt.Errorf("attendance.Service.ListClassDailySummaries: start_date is required: %w", ErrInvalidInput)
+	}
+	if endDate == "" {
+		return nil, fmt.Errorf("attendance.Service.ListClassDailySummaries: end_date is required: %w", ErrInvalidInput)
+	}
+	items, err := s.repo.ListClassDailySummaries(ctx, tenantID, schoolID, classID, startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+	if items == nil {
+		items = []ClassDailyAttendanceSummary{}
+	}
+	return &ClassDailySummaryListResponse{Items: items, Total: len(items)}, nil
+}

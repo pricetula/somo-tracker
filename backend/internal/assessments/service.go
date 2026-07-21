@@ -704,6 +704,83 @@ func (s *Service) SetHeadteacherRemark(ctx context.Context, summaryID, tenantID,
 // GRADING DATA (merged roster + scores/grades)
 // ============================================================================
 
+// ═══════════════════════════════════════════════════════════════════════════
+// STUDENT SUBJECT STRAND SUMMARIES
+// ═══════════════════════════════════════════════════════════════════════════
+
+// RefreshSubjectStrandSummaries triggers a refresh of sub-strand summaries
+// for all students in the given session. Only affects RUBRIC sessions.
+func (s *Service) RefreshSubjectStrandSummaries(ctx context.Context, sessionID string) error {
+	if sessionID == "" {
+		return fmt.Errorf("assessments.Service.RefreshSubjectStrandSummaries: %w", ErrInvalidInput)
+	}
+	return s.Repo.RefreshSubjectStrandSummaries(ctx, sessionID)
+}
+
+// GetStudentSubjectStrandSummaries returns all sub-strand summaries for a
+// specific student in a specific term.
+func (s *Service) GetStudentSubjectStrandSummaries(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]StudentSubjectStrandSummary, error) {
+	if tenantID == "" || schoolID == "" || studentID == "" || termID == "" {
+		return nil, fmt.Errorf("assessments.Service.GetStudentSubjectStrandSummaries: %w", ErrInvalidInput)
+	}
+	items, err := s.Repo.GetStudentSubjectStrandSummaries(ctx, tenantID, schoolID, studentID, termID)
+	if err != nil {
+		return nil, fmt.Errorf("assessments.Service.GetStudentSubjectStrandSummaries: %w", err)
+	}
+	return items, nil
+}
+
+// GetSubjectStrandSummariesByTerm returns all sub-strand summaries for all
+// students in a given term (used for term-end batch reports).
+func (s *Service) GetSubjectStrandSummariesByTerm(ctx context.Context, tenantID, schoolID, termID string) ([]StudentSubjectStrandSummary, error) {
+	if tenantID == "" || schoolID == "" || termID == "" {
+		return nil, fmt.Errorf("assessments.Service.GetSubjectStrandSummariesByTerm: %w", ErrInvalidInput)
+	}
+	items, err := s.Repo.GetSubjectStrandSummariesByTerm(ctx, tenantID, schoolID, termID)
+	if err != nil {
+		return nil, fmt.Errorf("assessments.Service.GetSubjectStrandSummariesByTerm: %w", err)
+	}
+	return items, nil
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STUDENT PERFORMANCE PROJECTIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+// RefreshProjections triggers a batch computation of performance projections
+// for all students in the given academic term.
+func (s *Service) RefreshProjections(ctx context.Context, termID string) error {
+	if termID == "" {
+		return fmt.Errorf("assessments.Service.RefreshProjections: %w", ErrInvalidInput)
+	}
+	return s.Repo.RefreshProjections(ctx, termID)
+}
+
+// GetStudentProjection returns the performance projection for a specific
+// student+term, optionally scoped to a learning area.
+func (s *Service) GetStudentProjection(ctx context.Context, tenantID, schoolID, studentID, termID string, learningAreaID *string) (*StudentPerformanceProjection, error) {
+	if tenantID == "" || schoolID == "" || studentID == "" || termID == "" {
+		return nil, fmt.Errorf("assessments.Service.GetStudentProjection: %w", ErrInvalidInput)
+	}
+	return s.Repo.GetStudentProjection(ctx, tenantID, schoolID, studentID, termID, learningAreaID)
+}
+
+// ListStudentProjections returns all performance projections for a given term.
+func (s *Service) ListStudentProjections(ctx context.Context, tenantID, schoolID, termID string) ([]StudentPerformanceProjection, error) {
+	if tenantID == "" || schoolID == "" || termID == "" {
+		return nil, fmt.Errorf("assessments.Service.ListStudentProjections: %w", ErrInvalidInput)
+	}
+	items, err := s.Repo.ListStudentProjections(ctx, tenantID, schoolID, termID)
+	if err != nil {
+		return nil, fmt.Errorf("assessments.Service.ListStudentProjections: %w", err)
+	}
+	return items, nil
+}
+
+// ============================================================================
+// GRADING DATA (merged roster + scores/grades)
+// ============================================================================
+
 // GetGradingData returns the session, roster, and merged scores/grades in a
 // single response. The backend resolves the roster from the session's class_id
 // and academic_term_id, so the frontend doesn't need to pass them separately.

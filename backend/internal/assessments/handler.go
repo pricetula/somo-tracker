@@ -89,6 +89,18 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	wcfg.Get("/:id", middleware.RequireAuth, h.GetWeightConfig)
 	wcfg.Post("/", middleware.RequireAuth, middleware.RequireRole("SYSTEM_ADMIN"), h.CreateWeightConfig)
 	wcfg.Delete("/", middleware.RequireAuth, middleware.RequireRole("SYSTEM_ADMIN"), h.DeleteWeightConfig)
+
+	// Student Subject Strand Summaries (rubric-only sub-strand level)
+	strandSummaries := router.Group("/api/v1/assessments/subject-strand-summaries")
+	strandSummaries.Post("/refresh", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN"), h.RefreshStrandSummaries)
+	strandSummaries.Get("/:studentId/:termId", middleware.RequireAuth, h.GetStudentSubjectStrandSummaries)
+	strandSummaries.Get("/", middleware.RequireAuth, h.ListSubjectStrandSummariesByTerm)
+
+	// Student Performance Projections (periodic batch)
+	projections := router.Group("/api/v1/assessments/projections")
+	projections.Post("/refresh", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN"), h.RefreshProjections)
+	projections.Get("/:studentId/:termId", middleware.RequireAuth, h.GetStudentProjection)
+	projections.Get("/", middleware.RequireAuth, h.ListStudentProjections)
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────
@@ -1802,4 +1814,165 @@ func (h *Handler) SetHeadteacherRemark(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{"message": "headteacher remark updated"})
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STUDENT SUBJECT STRAND SUMMARIES HANDLERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+// RefreshStrandSummaries triggers a refresh of sub-strand summaries for a
+// given session. POST /api/v1/assessments/subject-strand-summaries/refresh
+// Body: { "session_id": "uuid" }
+func (h *Handler) RefreshStrandSummaries(c *fiber.Ctx) error {
+	var req struct {
+		SessionID string `json:"session_id"`
+	}
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "invalid request body",
+		})
+	}
+	if req.SessionID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "session_id is required",
+		})
+	}
+	if err := h.svc.RefreshSubjectStrandSummaries(c.Context(), req.SessionID); err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	return c.JSON(fiber.Map{"message": "sub-strand summaries refresh initiated"})
+}
+
+// GetStudentSubjectStrandSummaries returns sub-strand summaries for a
+// specific student+term. GET /api/v1/assessments/subject-strand-summaries/:studentId/:termId
+func (h *Handler) GetStudentSubjectStrandSummaries(c *fiber.Ctx) error {
+	tenantID, schoolID, err := getTenantAndSchool(c)
+	if err != nil {
+		return err
+	}
+	studentID := c.Params("studentId")
+	termID := c.Params("termId")
+	if studentID == "" || termID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "student_id and term_id are required",
+		})
+	}
+	items, err := h.svc.GetStudentSubjectStrandSummaries(c.Context(), tenantID, schoolID, studentID, termID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	return c.JSON(StudentSubjectStrandSummariesResponse{
+		Items: items,
+		Total: len(items),
+	})
+}
+
+// ListSubjectStrandSummariesByTerm returns all sub-strand summaries for a
+// given term. GET /api/v1/assessments/subject-strand-summaries/?term_id=xxx
+func (h *Handler) ListSubjectStrandSummariesByTerm(c *fiber.Ctx) error {
+	tenantID, schoolID, err := getTenantAndSchool(c)
+	if err != nil {
+		return err
+	}
+	termID := c.Query("term_id")
+	if termID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "term_id query parameter is required",
+		})
+	}
+	items, err := h.svc.GetSubjectStrandSummariesByTerm(c.Context(), tenantID, schoolID, termID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	return c.JSON(StudentSubjectStrandSummariesResponse{
+		Items: items,
+		Total: len(items),
+	})
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STUDENT PERFORMANCE PROJECTIONS HANDLERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+// RefreshProjections triggers a batch refresh of performance projections for
+// a given term. POST /api/v1/assessments/projections/refresh
+// Body: { "academic_term_id": "uuid" }
+func (h *Handler) RefreshProjections(c *fiber.Ctx) error {
+	var req RefreshProjectionsRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "invalid request body",
+		})
+	}
+	if req.AcademicTermID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "academic_term_id is required",
+		})
+	}
+	if err := h.svc.RefreshProjections(c.Context(), req.AcademicTermID); err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	return c.JSON(RefreshProjectionsResponse{
+		Message: "performance projections refresh initiated",
+		TermID:  req.AcademicTermID,
+	})
+}
+
+// GetStudentProjection returns the performance projection for a specific
+// student+term. GET /api/v1/assessments/projections/:studentId/:termId?learning_area_id=xxx
+func (h *Handler) GetStudentProjection(c *fiber.Ctx) error {
+	tenantID, schoolID, err := getTenantAndSchool(c)
+	if err != nil {
+		return err
+	}
+	studentID := c.Params("studentId")
+	termID := c.Params("termId")
+	if studentID == "" || termID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "student_id and term_id are required",
+		})
+	}
+
+	// Optional learning_area_id query param
+	var learningAreaID *string
+	if laID := c.Query("learning_area_id"); laID != "" {
+		learningAreaID = &laID
+	}
+
+	projection, err := h.svc.GetStudentProjection(c.Context(), tenantID, schoolID, studentID, termID, learningAreaID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	return c.JSON(PerformanceProjectionResponse{Data: *projection})
+}
+
+// ListStudentProjections returns all projections for a term.
+// GET /api/v1/assessments/projections/?term_id=xxx
+func (h *Handler) ListStudentProjections(c *fiber.Ctx) error {
+	tenantID, schoolID, err := getTenantAndSchool(c)
+	if err != nil {
+		return err
+	}
+	termID := c.Query("term_id")
+	if termID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "term_id query parameter is required",
+		})
+	}
+	items, err := h.svc.ListStudentProjections(c.Context(), tenantID, schoolID, termID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	return c.JSON(PerformanceProjectionListResponse{
+		Items: items,
+		Total: len(items),
+	})
 }

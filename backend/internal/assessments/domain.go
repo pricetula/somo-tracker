@@ -105,6 +105,16 @@ type Repository interface {
 	GetStudentTermOverallSummary(ctx context.Context, tenantID, schoolID, studentID, termID string) (*StudentTermOverallSummary, error)
 	ListStudentTermOverallSummaries(ctx context.Context, tenantID, schoolID, termID string) ([]StudentTermOverallSummary, error)
 	SetHeadteacherRemark(ctx context.Context, summaryID, tenantID, schoolID string, remark *string) error
+
+	// Student Subject Strand Summaries (rubric-only sub-strand level)
+	RefreshSubjectStrandSummaries(ctx context.Context, sessionID string) error
+	GetStudentSubjectStrandSummaries(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]StudentSubjectStrandSummary, error)
+	GetSubjectStrandSummariesByTerm(ctx context.Context, tenantID, schoolID, termID string) ([]StudentSubjectStrandSummary, error)
+
+	// Student Performance Projections (periodic batch)
+	RefreshProjections(ctx context.Context, termID string) error
+	GetStudentProjection(ctx context.Context, tenantID, schoolID, studentID, termID string, learningAreaID *string) (*StudentPerformanceProjection, error)
+	ListStudentProjections(ctx context.Context, tenantID, schoolID, termID string) ([]StudentPerformanceProjection, error)
 }
 
 // ── Domain Models ────────────────────────────────────────────────────────
@@ -475,6 +485,42 @@ type StudentTermSubjectSummariesResponse struct {
 	Items []StudentTermSubjectSummary `json:"items"`
 }
 
+// ── Student Subject Strand Summaries ───────────────────────────────────────
+
+// StudentSubjectStrandSummary represents the rubric-only sub-strand level
+// summary for a single student, term, and sub-strand. It counts how many
+// performance indicators were awarded at each CBC level and computes a
+// mastery_percentage.
+//
+// This table only ever has data where the subject was assessed via RUBRIC
+// sessions. For subjects taught purely quantitatively, has_data stays false
+// rather than showing a misleading 0%.
+type StudentSubjectStrandSummary struct {
+	ID                     string   `json:"id"`
+	TenantID               string   `json:"-"`
+	SchoolID               string   `json:"-"`
+	StudentID              string   `json:"student_id"`
+	AcademicTermID         string   `json:"academic_term_id"`
+	LearningAreaID         string   `json:"learning_area_id"`
+	StrandID               string   `json:"strand_id"`
+	SubStrandID            string   `json:"sub_strand_id"`
+	MasteryPercentage      *float64 `json:"mastery_percentage,omitempty"`
+	ExceedingCount         int      `json:"exceeding_count"`
+	MeetingCount           int      `json:"meeting_count"`
+	ApproachingCount       int      `json:"approaching_count"`
+	BelowCount             int      `json:"below_count"`
+	MappedPerformanceLevel *string  `json:"mapped_performance_level,omitempty"`
+	RequiresRemediation    bool     `json:"requires_remediation"`
+	HasData                bool     `json:"has_data"`
+	LastRefreshedAt        string   `json:"last_refreshed_at"`
+}
+
+// StudentSubjectStrandSummariesResponse wraps a list of strand summaries.
+type StudentSubjectStrandSummariesResponse struct {
+	Items []StudentSubjectStrandSummary `json:"items"`
+	Total int                           `json:"total"`
+}
+
 // ── Student Term Overall Summary ─────────────────────────────────────────
 
 // StudentTermOverallSummary represents the term-level rollup across all
@@ -512,6 +558,53 @@ type StudentTermOverallSummariesListResponse struct {
 // SetHeadteacherRemarkPayload is the request body for setting the headteacher remark.
 type SetHeadteacherRemarkPayload struct {
 	Remark *string `json:"remark"`
+}
+
+// ── Student Performance Projections ─────────────────────────────────────
+
+// StudentPerformanceProjection represents the computed performance projection
+// for a student in a term, optionally scoped to a specific learning area.
+//
+// Projections are computed via periodic batch (once per term close), NOT
+// incrementally. A single new score should not reshuffle a trend line.
+type StudentPerformanceProjection struct {
+	ID                        string   `json:"id"`
+	TenantID                  string   `json:"-"`
+	SchoolID                  string   `json:"-"`
+	StudentID                 string   `json:"student_id"`
+	AcademicTermID            string   `json:"academic_term_id"`
+	LearningAreaID            *string  `json:"learning_area_id,omitempty"`
+	MomentumScore             *float64 `json:"momentum_score,omitempty"`
+	ProjectedScore            *float64 `json:"projected_score,omitempty"`
+	ProjectedPerformanceLevel *string  `json:"projected_performance_level,omitempty"`
+	TargetGapPoints           *float64 `json:"target_gap_points,omitempty"`
+	RiskLevel                 string   `json:"risk_level"`
+	ConfidencePercentage      *float64 `json:"confidence_percentage,omitempty"`
+	LastRefreshedAt           string   `json:"last_refreshed_at"`
+	CreatedAt                 string   `json:"created_at,omitempty"`
+	UpdatedAt                 string   `json:"updated_at,omitempty"`
+}
+
+// PerformanceProjectionResponse wraps a single projection.
+type PerformanceProjectionResponse struct {
+	Data StudentPerformanceProjection `json:"data"`
+}
+
+// PerformanceProjectionListResponse wraps a list of projections.
+type PerformanceProjectionListResponse struct {
+	Items []StudentPerformanceProjection `json:"items"`
+	Total int                            `json:"total"`
+}
+
+// RefreshProjectionsRequest is the request body for triggering a projection refresh.
+type RefreshProjectionsRequest struct {
+	AcademicTermID string `json:"academic_term_id"`
+}
+
+// RefreshProjectionsResponse is returned after triggering a projection refresh.
+type RefreshProjectionsResponse struct {
+	Message string `json:"message"`
+	TermID  string `json:"term_id"`
 }
 
 // SetTeacherRemarkPayload is the request body for setting a teacher remark.

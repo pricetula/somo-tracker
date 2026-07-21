@@ -1445,3 +1445,198 @@ func (r *PgRepository) SetHeadteacherRemark(ctx context.Context, summaryID, tena
 	}
 	return nil
 }
+
+// ============================================================================
+// STUDENT SUBJECT STRAND SUMMARIES
+// ============================================================================
+
+// RefreshSubjectStrandSummaries calls the PL/pgSQL function to refresh
+// sub-strand-level summaries for all students in the given session.
+func (r *PgRepository) RefreshSubjectStrandSummaries(ctx context.Context, sessionID string) error {
+	_, err := r.pool.Exec(ctx, `SELECT fn_refresh_subject_strand_summary_for_session($1)`, sessionID)
+	if err != nil {
+		return fmt.Errorf("assessments.Repository.RefreshSubjectStrandSummaries: %w", err)
+	}
+	return nil
+}
+
+// GetStudentSubjectStrandSummaries returns all sub-strand summaries for a
+// specific student in a specific term.
+func (r *PgRepository) GetStudentSubjectStrandSummaries(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]StudentSubjectStrandSummary, error) {
+	const query = `
+		SELECT
+			id, tenant_id, school_id, student_id, academic_term_id,
+			learning_area_id, strand_id, sub_strand_id,
+			mastery_percentage,
+			exceeding_count, meeting_count, approaching_count, below_count,
+			mapped_performance_level,
+			requires_remediation, has_data,
+			last_refreshed_at
+		FROM student_subject_strand_summaries
+		WHERE tenant_id = $1 AND school_id = $2
+		  AND student_id = $3 AND academic_term_id = $4
+		ORDER BY strand_id, sub_strand_id
+	`
+	rows, err := r.pool.Query(ctx, query, tenantID, schoolID, studentID, termID)
+	if err != nil {
+		return nil, fmt.Errorf("assessments.Repository.GetStudentSubjectStrandSummaries: %w", err)
+	}
+	defer rows.Close()
+
+	var items []StudentSubjectStrandSummary
+	for rows.Next() {
+		var s StudentSubjectStrandSummary
+		if err := rows.Scan(
+			&s.ID, &s.TenantID, &s.SchoolID, &s.StudentID, &s.AcademicTermID,
+			&s.LearningAreaID, &s.StrandID, &s.SubStrandID,
+			&s.MasteryPercentage,
+			&s.ExceedingCount, &s.MeetingCount, &s.ApproachingCount, &s.BelowCount,
+			&s.MappedPerformanceLevel,
+			&s.RequiresRemediation, &s.HasData,
+			&s.LastRefreshedAt,
+		); err != nil {
+			return nil, fmt.Errorf("assessments.Repository.GetStudentSubjectStrandSummaries: scan: %w", err)
+		}
+		items = append(items, s)
+	}
+	if items == nil {
+		items = []StudentSubjectStrandSummary{}
+	}
+	return items, nil
+}
+
+// GetSubjectStrandSummariesByTerm returns all sub-strand summaries for all
+// students in a given term and school (used for term-end reports).
+func (r *PgRepository) GetSubjectStrandSummariesByTerm(ctx context.Context, tenantID, schoolID, termID string) ([]StudentSubjectStrandSummary, error) {
+	const query = `
+		SELECT
+			id, tenant_id, school_id, student_id, academic_term_id,
+			learning_area_id, strand_id, sub_strand_id,
+			mastery_percentage,
+			exceeding_count, meeting_count, approaching_count, below_count,
+			mapped_performance_level,
+			requires_remediation, has_data,
+			last_refreshed_at
+		FROM student_subject_strand_summaries
+		WHERE tenant_id = $1 AND school_id = $2
+		  AND academic_term_id = $3
+		ORDER BY student_id, strand_id, sub_strand_id
+	`
+	rows, err := r.pool.Query(ctx, query, tenantID, schoolID, termID)
+	if err != nil {
+		return nil, fmt.Errorf("assessments.Repository.GetSubjectStrandSummariesByTerm: %w", err)
+	}
+	defer rows.Close()
+
+	var items []StudentSubjectStrandSummary
+	for rows.Next() {
+		var s StudentSubjectStrandSummary
+		if err := rows.Scan(
+			&s.ID, &s.TenantID, &s.SchoolID, &s.StudentID, &s.AcademicTermID,
+			&s.LearningAreaID, &s.StrandID, &s.SubStrandID,
+			&s.MasteryPercentage,
+			&s.ExceedingCount, &s.MeetingCount, &s.ApproachingCount, &s.BelowCount,
+			&s.MappedPerformanceLevel,
+			&s.RequiresRemediation, &s.HasData,
+			&s.LastRefreshedAt,
+		); err != nil {
+			return nil, fmt.Errorf("assessments.Repository.GetSubjectStrandSummariesByTerm: scan: %w", err)
+		}
+		items = append(items, s)
+	}
+	if items == nil {
+		items = []StudentSubjectStrandSummary{}
+	}
+	return items, nil
+}
+
+// ============================================================================
+// STUDENT PERFORMANCE PROJECTIONS
+// ============================================================================
+
+// RefreshProjections calls the PL/pgSQL batch function to compute performance
+// projections for all students in the given academic term.
+func (r *PgRepository) RefreshProjections(ctx context.Context, termID string) error {
+	_, err := r.pool.Exec(ctx, `SELECT fn_compute_performance_projections_for_term($1)`, termID)
+	if err != nil {
+		return fmt.Errorf("assessments.Repository.RefreshProjections: %w", err)
+	}
+	return nil
+}
+
+// GetStudentProjection returns the performance projection for a specific
+// student in a specific term, optionally scoped to a learning area.
+func (r *PgRepository) GetStudentProjection(ctx context.Context, tenantID, schoolID, studentID, termID string, learningAreaID *string) (*StudentPerformanceProjection, error) {
+	const query = `
+		SELECT
+			id, tenant_id, school_id, student_id, academic_term_id,
+			learning_area_id,
+			momentum_score, projected_score, projected_performance_level,
+			target_gap_points, risk_level, confidence_percentage,
+			last_refreshed_at, created_at, updated_at
+		FROM student_performance_projections
+		WHERE tenant_id = $1 AND school_id = $2
+		  AND student_id = $3 AND academic_term_id = $4
+		  AND learning_area_id IS NOT DISTINCT FROM $5
+	`
+	var p StudentPerformanceProjection
+	var learningAreaIDScan *string
+	err := r.pool.QueryRow(ctx, query, tenantID, schoolID, studentID, termID, learningAreaID).Scan(
+		&p.ID, &p.TenantID, &p.SchoolID, &p.StudentID, &p.AcademicTermID,
+		&learningAreaIDScan,
+		&p.MomentumScore, &p.ProjectedScore, &p.ProjectedPerformanceLevel,
+		&p.TargetGapPoints, &p.RiskLevel, &p.ConfidencePercentage,
+		&p.LastRefreshedAt, &p.CreatedAt, &p.UpdatedAt,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("assessments.Repository.GetStudentProjection: %w", ErrNotFound)
+		}
+		return nil, fmt.Errorf("assessments.Repository.GetStudentProjection: %w", err)
+	}
+	p.LearningAreaID = learningAreaIDScan
+	return &p, nil
+}
+
+// ListStudentProjections returns all performance projections for all students
+// in a given term.
+func (r *PgRepository) ListStudentProjections(ctx context.Context, tenantID, schoolID, termID string) ([]StudentPerformanceProjection, error) {
+	const query = `
+		SELECT
+			id, tenant_id, school_id, student_id, academic_term_id,
+			learning_area_id,
+			momentum_score, projected_score, projected_performance_level,
+			target_gap_points, risk_level, confidence_percentage,
+			last_refreshed_at, created_at, updated_at
+		FROM student_performance_projections
+		WHERE tenant_id = $1 AND school_id = $2
+		  AND academic_term_id = $3
+		ORDER BY risk_level ASC, confidence_percentage DESC NULLS LAST
+	`
+	rows, err := r.pool.Query(ctx, query, tenantID, schoolID, termID)
+	if err != nil {
+		return nil, fmt.Errorf("assessments.Repository.ListStudentProjections: %w", err)
+	}
+	defer rows.Close()
+
+	var items []StudentPerformanceProjection
+	for rows.Next() {
+		var p StudentPerformanceProjection
+		var learningAreaIDScan *string
+		if err := rows.Scan(
+			&p.ID, &p.TenantID, &p.SchoolID, &p.StudentID, &p.AcademicTermID,
+			&learningAreaIDScan,
+			&p.MomentumScore, &p.ProjectedScore, &p.ProjectedPerformanceLevel,
+			&p.TargetGapPoints, &p.RiskLevel, &p.ConfidencePercentage,
+			&p.LastRefreshedAt, &p.CreatedAt, &p.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("assessments.Repository.ListStudentProjections: scan: %w", err)
+		}
+		p.LearningAreaID = learningAreaIDScan
+		items = append(items, p)
+	}
+	if items == nil {
+		items = []StudentPerformanceProjection{}
+	}
+	return items, nil
+}

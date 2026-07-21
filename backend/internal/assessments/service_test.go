@@ -189,6 +189,30 @@ func (m *mockRepo) SetHeadteacherRemark(ctx context.Context, summaryID, tenantID
 	return errors.New("not implemented in mock")
 }
 
+func (m *mockRepo) RefreshSubjectStrandSummaries(ctx context.Context, sessionID string) error {
+	return errors.New("not implemented in mock")
+}
+
+func (m *mockRepo) GetStudentSubjectStrandSummaries(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]StudentSubjectStrandSummary, error) {
+	return nil, errors.New("not implemented in mock")
+}
+
+func (m *mockRepo) GetSubjectStrandSummariesByTerm(ctx context.Context, tenantID, schoolID, termID string) ([]StudentSubjectStrandSummary, error) {
+	return nil, errors.New("not implemented in mock")
+}
+
+func (m *mockRepo) RefreshProjections(ctx context.Context, termID string) error {
+	return errors.New("not implemented in mock")
+}
+
+func (m *mockRepo) GetStudentProjection(ctx context.Context, tenantID, schoolID, studentID, termID string, learningAreaID *string) (*StudentPerformanceProjection, error) {
+	return nil, errors.New("not implemented in mock")
+}
+
+func (m *mockRepo) ListStudentProjections(ctx context.Context, tenantID, schoolID, termID string) ([]StudentPerformanceProjection, error) {
+	return nil, errors.New("not implemented in mock")
+}
+
 // ============================================================================
 // Test Harness
 // ============================================================================

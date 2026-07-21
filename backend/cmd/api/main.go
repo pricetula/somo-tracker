@@ -41,6 +41,7 @@ import (
 	"somotracker/backend/internal/cbcstreams"
 	"somotracker/backend/internal/cbctimetableslots"
 	"somotracker/backend/internal/classteachers"
+	"somotracker/backend/internal/cohortpositions"
 	"somotracker/backend/internal/config"
 	"somotracker/backend/internal/curriculum"
 	"somotracker/backend/internal/database"
@@ -209,6 +210,7 @@ func main() {
 		health.Module,
 		imports.Module,
 		reports.Module,
+		cohortpositions.Module,
 
 		// Cross-domain interface wiring: school resolver from members,
 		// school creator from cbcschools, curriculum seeder + academic year
@@ -434,6 +436,8 @@ func main() {
 		fx.Invoke(runMigrations),
 		fx.Invoke(registerApp),
 		fx.Invoke(imports.RegisterWorkerHooks),
+		fx.Invoke(cohortpositions.RegisterWorkerHooks),
+		fx.Invoke(cohortpositions.RegisterSchedulerHooks),
 		fx.Invoke(consumeSafeClient),
 		// Wire behavior notes provider into students handler
 		fx.Invoke(func(h *students.Handler, fn students.BehaviorNotesProvider) {
@@ -497,6 +501,7 @@ func registerApp(
 	importsHandler *imports.Handler,
 	cbcstreamsHandler *cbcstreams.Handler,
 	cbctimetableslotsHandler *cbctimetableslots.Handler,
+	cohortpositionsHandler *cohortpositions.Handler,
 	invitationsHandler *invitations.Handler,
 	membersHandler *members.Handler,
 	curriculumHandler *curriculum.Handler,
@@ -547,6 +552,7 @@ func registerApp(
 			invitationsHandler.RegisterRoutes(app)
 			curriculumHandler.RegisterRoutes(app)
 			importsHandler.RegisterRoutes(app)
+			cohortpositionsHandler.RegisterRoutes(app)
 			studentsHandler.RegisterRoutes(app)
 			parentsHandler.RegisterRoutes(app)
 			teachersHandler.RegisterRoutes(app)

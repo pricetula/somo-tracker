@@ -58,6 +58,31 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	parent.Get("/students/:studentId/assessments", middleware.RequireAuth, h.GetParentAssessments)
 	parent.Get("/students/:studentId/report-card", middleware.RequireAuth, h.GetStudentTermGrades)
 
+	// Student Term Subject Summaries
+	summaries := router.Group("/api/v1/assessments/term-subject-summaries")
+	summaries.Post("/refresh", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN"), h.RefreshSummary)
+
+	// Teacher remarks on summaries
+	summaries.Put("/:id/remark", middleware.RequireAuth, h.SetTeacherRemark)
+
+	// Student-scoped Summary endpoints
+	parent.Group("/students/:studentId/term-subject-summaries").
+		Get("", middleware.RequireAuth, h.GetStudentTermSubjectSummaries)
+
+	// Learning-area-scoped summaries (teacher dashboard view)
+	sessions.Get("/learning-area/:learningAreaId/term-subject-summaries",
+		middleware.RequireAuth, h.GetLearningAreaSummaries)
+
+	// Student Term Overall Summaries (term-level rollup across subjects)
+	overall := router.Group("/api/v1/assessments/term-overall-summaries")
+	overall.Post("/refresh", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN"), h.RefreshTermOverall)
+	overall.Post("/refresh-student", middleware.RequireAuth, h.RefreshSingleStudentOverall)
+	overall.Get("/:studentId/:termId", middleware.RequireAuth, h.GetStudentTermOverallSummary)
+	overall.Put("/:id/headteacher-remark", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN"), h.SetHeadteacherRemark)
+
+	// Bulk listing (headteacher dashboard view)
+	overall.Get("/", middleware.RequireAuth, h.ListStudentTermOverallSummaries)
+
 	// Assessment Weight Configs (system-level, read-only via API)
 	wcfg := router.Group("/api/v1/assessments/weight-configs")
 	wcfg.Get("/", middleware.RequireAuth, h.ListWeightConfigs)
@@ -1260,6 +1285,216 @@ func (h *Handler) GetStudentTermGrades(c *fiber.Ctx) error {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// STUDENT TERM SUBJECT SUMMARIES
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ---------------------------------------------------------------------------
+// GetStudentTermSubjectSummaries
+// GET /api/v1/parent/students/:studentId/term-subject-summaries
+//
+// Returns the blended assessment summaries for a student across all learning
+// areas in a given term. Each summary row contains the blended average
+// percentage (quantitative + rubric), the mapped performance level, source
+// counts, and source-type flags.
+//
+// Query parameters:
+//   - academic_term_id (required): the term to retrieve summaries for
+//
+// Example:
+//
+//	GET /api/v1/parent/students/student-uuid/term-subject-summaries?academic_term_id=term-uuid
+//
+// Response (200):
+//
+//	{
+//	  "items": [
+//	    {
+//	      "student_id": "uuid",
+//	      "academic_term_id": "term-uuid",
+//	      "learning_area_id": "la-uuid",
+//	      "average_percentage": 78.40,
+//	      "mapped_performance_level": "ME",
+//	      "quantitative_assessment_count": 3,
+//	      "rubric_assessment_count": 0,
+//	      "indicators_assessed_count": 0,
+//	      "has_quantitative_data": true,
+//	      "has_rubric_data": false,
+//	      "teacher_remark": null,
+//	      "last_refreshed_at": "2026-06-01T12:00:00Z"
+//	    }
+//	  ]
+//	}
+//
+// Errors:
+//   - 400: academic_term_id is required
+//   - 401: authentication required
+//
+// ---------------------------------------------------------------------------
+func (h *Handler) GetStudentTermSubjectSummaries(c *fiber.Ctx) error {
+	tenantID, schoolID, err := getTenantAndSchool(c)
+	if err != nil {
+		return err
+	}
+
+	studentID := c.Params("studentId")
+	termID := c.Query("academic_term_id")
+
+	if termID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "academic_term_id query parameter is required",
+		})
+	}
+
+	summaries, err := h.svc.GetStudentTermSubjectSummaries(c.Context(), tenantID, schoolID, studentID, termID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(StudentTermSubjectSummariesResponse{Items: summaries})
+}
+
+// ---------------------------------------------------------------------------
+// GetLearningAreaSummaries
+// GET /api/v1/assessments/sessions/learning-area/:learningAreaId/term-subject-summaries
+//
+// Returns summaries for all students in a specific learning area for a given
+// term. Useful for teacher dashboards showing class-level performance in a
+// single subject.
+//
+// Query parameters:
+//   - academic_term_id (required): the term to retrieve summaries for
+//
+// Example:
+//
+//	GET /api/v1/assessments/sessions/learning-area/la-uuid/term-subject-summaries?academic_term_id=term-uuid
+//
+// Response (200): same structure as per-student endpoint, but with all students
+//
+// Errors:
+//   - 400: academic_term_id is required
+//   - 401: authentication required
+//
+// ---------------------------------------------------------------------------
+func (h *Handler) GetLearningAreaSummaries(c *fiber.Ctx) error {
+	tenantID, schoolID, err := getTenantAndSchool(c)
+	if err != nil {
+		return err
+	}
+
+	learningAreaID := c.Params("learningAreaId")
+	termID := c.Query("academic_term_id")
+
+	if termID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "academic_term_id query parameter is required",
+		})
+	}
+
+	summaries, err := h.svc.GetLearningAreaSummaries(c.Context(), tenantID, schoolID, termID, learningAreaID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(StudentTermSubjectSummariesResponse{Items: summaries})
+}
+
+// ---------------------------------------------------------------------------
+// RefreshSummary
+// POST /api/v1/assessments/term-subject-summaries/refresh
+//
+// Manually triggers a refresh of student_term_subject_summaries for a given
+// session. This is useful when data integrity issues are suspected or after
+// backfill operations. School Admin only.
+//
+// Request body:
+//
+//	{ "session_id": "uuid-of-session" }
+//
+// Response (200):
+//
+//	{ "message": "summary refreshed" }
+//
+// Errors:
+//   - 400: session_id is required
+//   - 401: authentication required
+//   - 403: not a SCHOOL_ADMIN
+//
+// ---------------------------------------------------------------------------
+func (h *Handler) RefreshSummary(c *fiber.Ctx) error {
+	var payload struct {
+		SessionID string `json:"session_id"`
+	}
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "invalid request body",
+		})
+	}
+	if payload.SessionID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "session_id is required",
+		})
+	}
+
+	if err := h.svc.RefreshSessionSummary(c.Context(), payload.SessionID); err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(fiber.Map{"message": "summary refreshed"})
+}
+
+// ---------------------------------------------------------------------------
+// SetTeacherRemark
+// PUT /api/v1/assessments/term-subject-summaries/:id/remark
+//
+// Sets or clears the teacher_remark on a summary row. Pass a null remark to
+// clear the existing remark.
+//
+// Request body:
+//
+//	{ "remark": "Brian has shown consistent improvement this term." }
+//
+// To clear:
+//
+//	{ "remark": null }
+//
+// Response (200):
+//
+//	{ "message": "remark updated" }
+//
+// Errors:
+//   - 400: invalid input
+//   - 401: authentication required
+//   - 404: summary not found
+//
+// ---------------------------------------------------------------------------
+func (h *Handler) SetTeacherRemark(c *fiber.Ctx) error {
+	tenantID, schoolID, err := getTenantAndSchool(c)
+	if err != nil {
+		return err
+	}
+
+	summaryID := c.Params("id")
+
+	var payload SetTeacherRemarkPayload
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "invalid request body",
+		})
+	}
+
+	if err := h.svc.SetTeacherRemark(c.Context(), summaryID, tenantID, schoolID, payload.Remark); err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(fiber.Map{"message": "remark updated"})
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // ASSESSMENT WEIGHT CONFIGS
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1380,4 +1615,191 @@ func (h *Handler) GetWeightConfig(c *fiber.Ctx) error {
 		return middleware.HTTPError(c, err)
 	}
 	return c.JSON(result)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STUDENT TERM OVERALL SUMMARIES HANDLERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+// RefreshTermOverall handles POST /api/v1/assessments/term-overall-summaries/refresh.
+//
+// Triggers computation of overall summaries for ALL students in a term.
+// School Admin only.
+//
+// Request body:
+//
+//	{ "term_id": "uuid-of-term" }
+//
+// Response (200):
+//
+//	{ "message": "overall summaries refreshed" }
+//
+// Errors:
+//   - 400: term_id is required
+//   - 401: authentication required
+//   - 403: not a SCHOOL_ADMIN
+func (h *Handler) RefreshTermOverall(c *fiber.Ctx) error {
+	var payload struct {
+		TermID string `json:"term_id"`
+	}
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "invalid request body",
+		})
+	}
+	if payload.TermID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "term_id is required",
+		})
+	}
+
+	if err := h.svc.RefreshTermOverallSummaries(c.Context(), payload.TermID); err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(fiber.Map{"message": "overall summaries refreshed"})
+}
+
+// RefreshSingleStudentOverall handles POST /api/v1/assessments/term-overall-summaries/refresh-student.
+//
+// Triggers computation for a single student+term pair. Useful when a subject
+// summary is updated (e.g. after an assessment is published).
+//
+// Request body:
+//
+//	{ "student_id": "uuid", "term_id": "uuid" }
+//
+// Response (200):
+//
+//	{ "message": "student overall summary refreshed" }
+//
+// Errors:
+//   - 400: student_id or term_id is required
+//   - 401: authentication required
+func (h *Handler) RefreshSingleStudentOverall(c *fiber.Ctx) error {
+	var payload struct {
+		StudentID string `json:"student_id"`
+		TermID    string `json:"term_id"`
+	}
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "invalid request body",
+		})
+	}
+	if payload.StudentID == "" || payload.TermID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "student_id and term_id are required",
+		})
+	}
+
+	if err := h.svc.RefreshSingleStudentOverallSummary(c.Context(), payload.StudentID, payload.TermID); err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(fiber.Map{"message": "student overall summary refreshed"})
+}
+
+// GetStudentTermOverallSummary handles GET /api/v1/assessments/term-overall-summaries/:studentId/:termId.
+//
+// Returns the overall summary for a single student+term pair.
+//
+// Response (200):
+//
+//	{ "data": { ... } }
+//
+// Errors:
+//   - 401: authentication required
+//   - 404: summary not found (student has no data for this term)
+func (h *Handler) GetStudentTermOverallSummary(c *fiber.Ctx) error {
+	tenantID, schoolID, err := getTenantAndSchool(c)
+	if err != nil {
+		return err
+	}
+
+	studentID := c.Params("studentId")
+	termID := c.Params("termId")
+
+	summary, err := h.svc.GetStudentTermOverallSummary(c.Context(), tenantID, schoolID, studentID, termID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(StudentTermOverallSummaryResponse{Data: *summary})
+}
+
+// ListStudentTermOverallSummaries handles GET /api/v1/assessments/term-overall-summaries.
+//
+// Returns overall summaries for all students in the given term.
+// Query params: term_id (required), school_id (optional, defaults to active).
+//
+// Response (200):
+//
+//	{ "items": [ ... ] }
+//
+// Errors:
+//   - 400: term_id is required
+//   - 401: authentication required
+func (h *Handler) ListStudentTermOverallSummaries(c *fiber.Ctx) error {
+	tenantID, schoolID, err := getTenantAndSchool(c)
+	if err != nil {
+		return err
+	}
+
+	termID := c.Query("term_id")
+	if termID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "term_id query parameter is required",
+		})
+	}
+
+	items, err := h.svc.ListStudentTermOverallSummaries(c.Context(), tenantID, schoolID, termID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(StudentTermOverallSummariesListResponse{Items: items})
+}
+
+// SetHeadteacherRemark handles PUT /api/v1/assessments/term-overall-summaries/:id/headteacher-remark.
+//
+// Sets or clears the headteacher_remark on an overall summary row. Pass a
+// null remark to clear. School Admin only.
+//
+// Request body:
+//
+//	{ "remark": "Brian has performed well this term." }
+//
+// To clear:
+//
+//	{ "remark": null }
+//
+// Response (200):
+//
+//	{ "message": "headteacher remark updated" }
+func (h *Handler) SetHeadteacherRemark(c *fiber.Ctx) error {
+	tenantID, schoolID, err := getTenantAndSchool(c)
+	if err != nil {
+		return err
+	}
+
+	summaryID := c.Params("id")
+
+	var payload SetHeadteacherRemarkPayload
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "invalid request body",
+		})
+	}
+
+	if err := h.svc.SetHeadteacherRemark(c.Context(), summaryID, tenantID, schoolID, payload.Remark); err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(fiber.Map{"message": "headteacher remark updated"})
 }

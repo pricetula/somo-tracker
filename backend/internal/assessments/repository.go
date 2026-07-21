@@ -1112,6 +1112,121 @@ func (r *PgRepository) GetPublishedSessionsForParent(ctx context.Context, tenant
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// STUDENT TERM SUBJECT SUMMARIES
+// ═══════════════════════════════════════════════════════════════════════════
+
+// RefreshSessionSummary calls the PostgreSQL function that recomputes
+// student_term_subject_summaries for all students in the given session.
+func (r *PgRepository) RefreshSessionSummary(ctx context.Context, sessionID string) error {
+	const query = `SELECT fn_refresh_term_subject_summary_for_session($1)`
+	_, err := r.pool.Exec(ctx, query, sessionID)
+	if err != nil {
+		return fmt.Errorf("assessments.Repository.RefreshSessionSummary: %w", err)
+	}
+	return nil
+}
+
+// GetStudentTermSubjectSummaries returns all summaries for a student in a term.
+func (r *PgRepository) GetStudentTermSubjectSummaries(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]StudentTermSubjectSummary, error) {
+	const query = `
+		SELECT id, tenant_id, school_id, student_id, academic_term_id, learning_area_id,
+		       average_percentage, mapped_performance_level,
+		       quantitative_assessment_count, rubric_assessment_count,
+		       indicators_assessed_count,
+		       has_quantitative_data, has_rubric_data,
+		       teacher_remark, last_refreshed_at
+		FROM student_term_subject_summaries
+		WHERE tenant_id = $1 AND school_id = $2
+		  AND student_id = $3 AND academic_term_id = $4
+		ORDER BY learning_area_id ASC
+	`
+	rows, err := r.pool.Query(ctx, query, tenantID, schoolID, studentID, termID)
+	if err != nil {
+		return nil, fmt.Errorf("assessments.Repository.GetStudentTermSubjectSummaries: %w", err)
+	}
+	defer rows.Close()
+
+	var summaries []StudentTermSubjectSummary
+	for rows.Next() {
+		var s StudentTermSubjectSummary
+		if err := rows.Scan(
+			&s.ID, &s.TenantID, &s.SchoolID, &s.StudentID, &s.AcademicTermID, &s.LearningAreaID,
+			&s.AveragePercentage, &s.MappedPerformanceLevel,
+			&s.QuantitativeAssessmentCount, &s.RubricAssessmentCount,
+			&s.IndicatorsAssessedCount,
+			&s.HasQuantitativeData, &s.HasRubricData,
+			&s.TeacherRemark, &s.LastRefreshedAt,
+		); err != nil {
+			return nil, fmt.Errorf("assessments.Repository.GetStudentTermSubjectSummaries: scan: %w", err)
+		}
+		summaries = append(summaries, s)
+	}
+	if summaries == nil {
+		summaries = []StudentTermSubjectSummary{}
+	}
+	return summaries, nil
+}
+
+// GetLearningAreaSummaries returns all summaries for a learning area in a term
+// (all students in that subject).
+func (r *PgRepository) GetLearningAreaSummaries(ctx context.Context, tenantID, schoolID, termID, learningAreaID string) ([]StudentTermSubjectSummary, error) {
+	const query = `
+		SELECT id, tenant_id, school_id, student_id, academic_term_id, learning_area_id,
+		       average_percentage, mapped_performance_level,
+		       quantitative_assessment_count, rubric_assessment_count,
+		       indicators_assessed_count,
+		       has_quantitative_data, has_rubric_data,
+		       teacher_remark, last_refreshed_at
+		FROM student_term_subject_summaries
+		WHERE tenant_id = $1 AND school_id = $2
+		  AND academic_term_id = $3 AND learning_area_id = $4
+		ORDER BY student_id ASC
+	`
+	rows, err := r.pool.Query(ctx, query, tenantID, schoolID, termID, learningAreaID)
+	if err != nil {
+		return nil, fmt.Errorf("assessments.Repository.GetLearningAreaSummaries: %w", err)
+	}
+	defer rows.Close()
+
+	var summaries []StudentTermSubjectSummary
+	for rows.Next() {
+		var s StudentTermSubjectSummary
+		if err := rows.Scan(
+			&s.ID, &s.TenantID, &s.SchoolID, &s.StudentID, &s.AcademicTermID, &s.LearningAreaID,
+			&s.AveragePercentage, &s.MappedPerformanceLevel,
+			&s.QuantitativeAssessmentCount, &s.RubricAssessmentCount,
+			&s.IndicatorsAssessedCount,
+			&s.HasQuantitativeData, &s.HasRubricData,
+			&s.TeacherRemark, &s.LastRefreshedAt,
+		); err != nil {
+			return nil, fmt.Errorf("assessments.Repository.GetLearningAreaSummaries: scan: %w", err)
+		}
+		summaries = append(summaries, s)
+	}
+	if summaries == nil {
+		summaries = []StudentTermSubjectSummary{}
+	}
+	return summaries, nil
+}
+
+// SetTeacherRemark updates the teacher_remark on a summary row.
+func (r *PgRepository) SetTeacherRemark(ctx context.Context, summaryID, tenantID, schoolID string, remark *string) error {
+	const query = `
+		UPDATE student_term_subject_summaries
+		SET teacher_remark = $4, updated_at = NOW()
+		WHERE id = $1 AND tenant_id = $2 AND school_id = $3
+	`
+	result, err := r.pool.Exec(ctx, query, summaryID, tenantID, schoolID, remark)
+	if err != nil {
+		return fmt.Errorf("assessments.Repository.SetTeacherRemark: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("assessments.Repository.SetTeacherRemark: %w", ErrNotFound)
+	}
+	return nil
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // ASSESSMENT WEIGHT CONFIGS
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1221,4 +1336,112 @@ func (r *PgRepository) GetWeightConfigByID(ctx context.Context, id string) (*Ass
 		return nil, fmt.Errorf("assessments.Repository.GetWeightConfigByID: %w", err)
 	}
 	return &c, nil
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STUDENT TERM OVERALL SUMMARIES
+// ═══════════════════════════════════════════════════════════════════════════
+
+// RefreshTermOverallSummaries triggers computation of overall summaries for
+// ALL students in the given term. Calls the PostgreSQL function.
+func (r *PgRepository) RefreshTermOverallSummaries(ctx context.Context, termID string) error {
+	const query = `SELECT fn_compute_term_overall_summaries_for_term($1)`
+	_, err := r.pool.Exec(ctx, query, termID)
+	if err != nil {
+		return fmt.Errorf("assessments.Repository.RefreshTermOverallSummaries: %w", err)
+	}
+	return nil
+}
+
+// RefreshSingleStudentOverallSummary triggers computation for one student+term.
+func (r *PgRepository) RefreshSingleStudentOverallSummary(ctx context.Context, studentID, termID string) error {
+	const query = `SELECT fn_compute_single_student_term_overall_summary($1, $2)`
+	_, err := r.pool.Exec(ctx, query, studentID, termID)
+	if err != nil {
+		return fmt.Errorf("assessments.Repository.RefreshSingleStudentOverallSummary: %w", err)
+	}
+	return nil
+}
+
+// GetStudentTermOverallSummary returns the overall summary for a single
+// student+term pair.
+func (r *PgRepository) GetStudentTermOverallSummary(ctx context.Context, tenantID, schoolID, studentID, termID string) (*StudentTermOverallSummary, error) {
+	const query = `
+		SELECT id, tenant_id, school_id, student_id, academic_term_id,
+		       subjects_assessed_count, overall_mean_percentage, overall_performance_level,
+		       exceeding_count, meeting_count, approaching_count, below_count,
+		       is_weighted_exam_score, headteacher_remark, last_refreshed_at
+		FROM student_term_overall_summaries
+		WHERE tenant_id = $1 AND school_id = $2
+		  AND student_id = $3 AND academic_term_id = $4
+	`
+	var s StudentTermOverallSummary
+	err := r.pool.QueryRow(ctx, query, tenantID, schoolID, studentID, termID).Scan(
+		&s.ID, &s.TenantID, &s.SchoolID, &s.StudentID, &s.AcademicTermID,
+		&s.SubjectsAssessedCount, &s.OverallMeanPercentage, &s.OverallPerformanceLevel,
+		&s.ExceedingCount, &s.MeetingCount, &s.ApproachingCount, &s.BelowCount,
+		&s.IsWeightedExamScore, &s.HeadteacherRemark, &s.LastRefreshedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("assessments.Repository.GetStudentTermOverallSummary: %w", ErrNotFound)
+		}
+		return nil, fmt.Errorf("assessments.Repository.GetStudentTermOverallSummary: %w", err)
+	}
+	return &s, nil
+}
+
+// ListStudentTermOverallSummaries returns overall summaries for all students
+// in the given term (e.g. for a headteacher dashboard).
+func (r *PgRepository) ListStudentTermOverallSummaries(ctx context.Context, tenantID, schoolID, termID string) ([]StudentTermOverallSummary, error) {
+	const query = `
+		SELECT id, tenant_id, school_id, student_id, academic_term_id,
+		       subjects_assessed_count, overall_mean_percentage, overall_performance_level,
+		       exceeding_count, meeting_count, approaching_count, below_count,
+		       is_weighted_exam_score, headteacher_remark, last_refreshed_at
+		FROM student_term_overall_summaries
+		WHERE tenant_id = $1 AND school_id = $2
+		  AND academic_term_id = $3
+		ORDER BY overall_performance_level ASC NULLS LAST, overall_mean_percentage DESC NULLS LAST
+	`
+	rows, err := r.pool.Query(ctx, query, tenantID, schoolID, termID)
+	if err != nil {
+		return nil, fmt.Errorf("assessments.Repository.ListStudentTermOverallSummaries: %w", err)
+	}
+	defer rows.Close()
+
+	var items []StudentTermOverallSummary
+	for rows.Next() {
+		var s StudentTermOverallSummary
+		if err := rows.Scan(
+			&s.ID, &s.TenantID, &s.SchoolID, &s.StudentID, &s.AcademicTermID,
+			&s.SubjectsAssessedCount, &s.OverallMeanPercentage, &s.OverallPerformanceLevel,
+			&s.ExceedingCount, &s.MeetingCount, &s.ApproachingCount, &s.BelowCount,
+			&s.IsWeightedExamScore, &s.HeadteacherRemark, &s.LastRefreshedAt,
+		); err != nil {
+			return nil, fmt.Errorf("assessments.Repository.ListStudentTermOverallSummaries: scan: %w", err)
+		}
+		items = append(items, s)
+	}
+	if items == nil {
+		items = []StudentTermOverallSummary{}
+	}
+	return items, nil
+}
+
+// SetHeadteacherRemark updates the headteacher_remark on an overall summary row.
+func (r *PgRepository) SetHeadteacherRemark(ctx context.Context, summaryID, tenantID, schoolID string, remark *string) error {
+	const query = `
+		UPDATE student_term_overall_summaries
+		SET headteacher_remark = $4, updated_at = NOW()
+		WHERE id = $1 AND tenant_id = $2 AND school_id = $3
+	`
+	result, err := r.pool.Exec(ctx, query, summaryID, tenantID, schoolID, remark)
+	if err != nil {
+		return fmt.Errorf("assessments.Repository.SetHeadteacherRemark: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("assessments.Repository.SetHeadteacherRemark: %w", ErrNotFound)
+	}
+	return nil
 }

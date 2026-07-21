@@ -87,11 +87,24 @@ type Repository interface {
 	GetStudentTermGrades(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]StudentTermGrade, error)
 	GetPublishedSessionsForParent(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]ParentAssessmentView, error)
 
+	// Student Term Subject Summaries
+	RefreshSessionSummary(ctx context.Context, sessionID string) error
+	GetStudentTermSubjectSummaries(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]StudentTermSubjectSummary, error)
+	GetLearningAreaSummaries(ctx context.Context, tenantID, schoolID, termID, learningAreaID string) ([]StudentTermSubjectSummary, error)
+	SetTeacherRemark(ctx context.Context, summaryID, tenantID, schoolID string, remark *string) error
+
 	// Assessment Weight Configs
 	CreateWeightConfig(ctx context.Context, params CreateWeightConfigParams) (string, error)
 	ListWeightConfigs(ctx context.Context, filter AssessmentWeightConfigFilter) ([]AssessmentWeightConfig, error)
 	GetWeightConfigByID(ctx context.Context, id string) (*AssessmentWeightConfig, error)
 	DeleteWeightConfig(ctx context.Context, id string) error
+
+	// Student Term Overall Summaries (term-level rollup across subjects)
+	RefreshTermOverallSummaries(ctx context.Context, termID string) error
+	RefreshSingleStudentOverallSummary(ctx context.Context, studentID, termID string) error
+	GetStudentTermOverallSummary(ctx context.Context, tenantID, schoolID, studentID, termID string) (*StudentTermOverallSummary, error)
+	ListStudentTermOverallSummaries(ctx context.Context, tenantID, schoolID, termID string) ([]StudentTermOverallSummary, error)
+	SetHeadteacherRemark(ctx context.Context, summaryID, tenantID, schoolID string, remark *string) error
 }
 
 // ── Domain Models ────────────────────────────────────────────────────────
@@ -162,6 +175,31 @@ type OutcomeGrade struct {
 	StudentID              string `json:"student_id"`
 	PerformanceIndicatorID string `json:"performance_indicator_id"`
 	AwardedLevel           string `json:"awarded_level"`
+}
+
+// StudentTermSubjectSummary represents the blended summary of assessment
+// results for a single student, term, and learning area.
+//
+// Quantitative scores contribute their calculated_percentage directly.
+// Rubric outcome grades are converted via default_percentage_mapping.
+// Both sources are blended into average_percentage, with source-type flags
+// so reports can avoid implying false precision for rubric-only subjects.
+type StudentTermSubjectSummary struct {
+	ID                          string   `json:"id"`
+	TenantID                    string   `json:"-"`
+	SchoolID                    string   `json:"-"`
+	StudentID                   string   `json:"student_id"`
+	AcademicTermID              string   `json:"academic_term_id"`
+	LearningAreaID              string   `json:"learning_area_id"`
+	AveragePercentage           *float64 `json:"average_percentage,omitempty"`
+	MappedPerformanceLevel      *string  `json:"mapped_performance_level,omitempty"`
+	QuantitativeAssessmentCount int      `json:"quantitative_assessment_count"`
+	RubricAssessmentCount       int      `json:"rubric_assessment_count"`
+	IndicatorsAssessedCount     int      `json:"indicators_assessed_count"`
+	HasQuantitativeData         bool     `json:"has_quantitative_data"`
+	HasRubricData               bool     `json:"has_rubric_data"`
+	TeacherRemark               *string  `json:"teacher_remark,omitempty"`
+	LastRefreshedAt             string   `json:"last_refreshed_at"`
 }
 
 // StudentTermGrade represents the compiled term grade for a learning area.
@@ -430,4 +468,53 @@ type ParentTermAssessmentsResponse struct {
 // StudentTermGradesResponse is the compiled term grades response.
 type StudentTermGradesResponse struct {
 	Items []StudentTermGrade `json:"items"`
+}
+
+// StudentTermSubjectSummariesResponse wraps a list of summaries.
+type StudentTermSubjectSummariesResponse struct {
+	Items []StudentTermSubjectSummary `json:"items"`
+}
+
+// ── Student Term Overall Summary ─────────────────────────────────────────
+
+// StudentTermOverallSummary represents the term-level rollup across all
+// learning areas for a student. It aggregates the per-subject summaries
+// and applies KNEC weighting formulas when the term is a final exam term
+// (G6→KPSEA, G9→KJSEA, G12→KSSEA).
+type StudentTermOverallSummary struct {
+	ID                      string   `json:"id"`
+	TenantID                string   `json:"-"`
+	SchoolID                string   `json:"-"`
+	StudentID               string   `json:"student_id"`
+	AcademicTermID          string   `json:"academic_term_id"`
+	SubjectsAssessedCount   int      `json:"subjects_assessed_count"`
+	OverallMeanPercentage   *float64 `json:"overall_mean_percentage,omitempty"`
+	OverallPerformanceLevel *string  `json:"overall_performance_level,omitempty"`
+	ExceedingCount          int      `json:"exceeding_count"`
+	MeetingCount            int      `json:"meeting_count"`
+	ApproachingCount        int      `json:"approaching_count"`
+	BelowCount              int      `json:"below_count"`
+	IsWeightedExamScore     bool     `json:"is_weighted_exam_score"`
+	HeadteacherRemark       *string  `json:"headteacher_remark,omitempty"`
+	LastRefreshedAt         string   `json:"last_refreshed_at"`
+}
+
+// StudentTermOverallSummaryResponse wraps a single overall summary.
+type StudentTermOverallSummaryResponse struct {
+	Data StudentTermOverallSummary `json:"data"`
+}
+
+// StudentTermOverallSummariesListResponse wraps a list of overall summaries.
+type StudentTermOverallSummariesListResponse struct {
+	Items []StudentTermOverallSummary `json:"items"`
+}
+
+// SetHeadteacherRemarkPayload is the request body for setting the headteacher remark.
+type SetHeadteacherRemarkPayload struct {
+	Remark *string `json:"remark"`
+}
+
+// SetTeacherRemarkPayload is the request body for setting a teacher remark.
+type SetTeacherRemarkPayload struct {
+	Remark *string `json:"remark"`
 }

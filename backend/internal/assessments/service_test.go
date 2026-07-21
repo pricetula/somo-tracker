@@ -153,6 +153,42 @@ func (m *mockRepo) ReplaceScaleRanges(ctx context.Context, profileID string, ran
 	return nil, errors.New("not implemented in mock")
 }
 
+func (m *mockRepo) RefreshSessionSummary(ctx context.Context, sessionID string) error {
+	return errors.New("not implemented in mock")
+}
+
+func (m *mockRepo) GetStudentTermSubjectSummaries(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]StudentTermSubjectSummary, error) {
+	return nil, errors.New("not implemented in mock")
+}
+
+func (m *mockRepo) GetLearningAreaSummaries(ctx context.Context, tenantID, schoolID, termID, learningAreaID string) ([]StudentTermSubjectSummary, error) {
+	return nil, errors.New("not implemented in mock")
+}
+
+func (m *mockRepo) SetTeacherRemark(ctx context.Context, summaryID, tenantID, schoolID string, remark *string) error {
+	return errors.New("not implemented in mock")
+}
+
+func (m *mockRepo) RefreshTermOverallSummaries(ctx context.Context, termID string) error {
+	return errors.New("not implemented in mock")
+}
+
+func (m *mockRepo) RefreshSingleStudentOverallSummary(ctx context.Context, studentID, termID string) error {
+	return errors.New("not implemented in mock")
+}
+
+func (m *mockRepo) GetStudentTermOverallSummary(ctx context.Context, tenantID, schoolID, studentID, termID string) (*StudentTermOverallSummary, error) {
+	return nil, errors.New("not implemented in mock")
+}
+
+func (m *mockRepo) ListStudentTermOverallSummaries(ctx context.Context, tenantID, schoolID, termID string) ([]StudentTermOverallSummary, error) {
+	return nil, errors.New("not implemented in mock")
+}
+
+func (m *mockRepo) SetHeadteacherRemark(ctx context.Context, summaryID, tenantID, schoolID string, remark *string) error {
+	return errors.New("not implemented in mock")
+}
+
 // ============================================================================
 // Test Harness
 // ============================================================================

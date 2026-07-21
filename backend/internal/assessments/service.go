@@ -326,7 +326,20 @@ func (s *Service) ApproveSession(ctx context.Context, id, tenantID, schoolID, us
 		}
 	}
 
-	return s.Repo.UpdateSessionStatus(ctx, id, tenantID, schoolID, "PUBLISHED", nil, &userID)
+	// Update session status to PUBLISHED
+	if err := s.Repo.UpdateSessionStatus(ctx, id, tenantID, schoolID, "PUBLISHED", nil, &userID); err != nil {
+		return fmt.Errorf("assessments.Service.ApproveSession: %w", err)
+	}
+
+	// Refresh student_term_subject_summaries for all students in this session.
+	// The DB trigger (trg_assessment_sessions_refresh_summary) also runs, but
+	// calling it explicitly ensures the Go layer can depend on it without
+	// relying solely on trigger semantics.
+	if err := s.Repo.RefreshSessionSummary(ctx, id); err != nil {
+		return fmt.Errorf("assessments.Service.ApproveSession: refresh summary: %w", err)
+	}
+
+	return nil
 }
 
 // DeleteSession hard-deletes a DRAFT assessment session and its scores/grades.
@@ -520,6 +533,56 @@ func (s *Service) GetStudentTermGrades(ctx context.Context, tenantID, schoolID, 
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// STUDENT TERM SUBJECT SUMMARIES
+// ═══════════════════════════════════════════════════════════════════════════
+
+// RefreshSessionSummary triggers a recomputation of student_term_subject_summaries
+// for all students in the given session. This is typically called automatically
+// when a session transitions to PUBLISHED, but can also be invoked manually.
+func (s *Service) RefreshSessionSummary(ctx context.Context, sessionID string) error {
+	if sessionID == "" {
+		return fmt.Errorf("assessments.Service.RefreshSessionSummary: %w", ErrInvalidInput)
+	}
+	return s.Repo.RefreshSessionSummary(ctx, sessionID)
+}
+
+// GetStudentTermSubjectSummaries returns the blended summaries for a student
+// across all learning areas in a given term.
+func (s *Service) GetStudentTermSubjectSummaries(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]StudentTermSubjectSummary, error) {
+	if tenantID == "" || schoolID == "" || studentID == "" || termID == "" {
+		return nil, fmt.Errorf("assessments.Service.GetStudentTermSubjectSummaries: %w", ErrInvalidInput)
+	}
+
+	summaries, err := s.Repo.GetStudentTermSubjectSummaries(ctx, tenantID, schoolID, studentID, termID)
+	if err != nil {
+		return nil, fmt.Errorf("assessments.Service.GetStudentTermSubjectSummaries: %w", err)
+	}
+	return summaries, nil
+}
+
+// GetLearningAreaSummaries returns summaries for all students in a learning area
+// for a given term (e.g. teacher dashboard showing all students in Mathematics).
+func (s *Service) GetLearningAreaSummaries(ctx context.Context, tenantID, schoolID, termID, learningAreaID string) ([]StudentTermSubjectSummary, error) {
+	if tenantID == "" || schoolID == "" || termID == "" || learningAreaID == "" {
+		return nil, fmt.Errorf("assessments.Service.GetLearningAreaSummaries: %w", ErrInvalidInput)
+	}
+
+	summaries, err := s.Repo.GetLearningAreaSummaries(ctx, tenantID, schoolID, termID, learningAreaID)
+	if err != nil {
+		return nil, fmt.Errorf("assessments.Service.GetLearningAreaSummaries: %w", err)
+	}
+	return summaries, nil
+}
+
+// SetTeacherRemark updates the teacher_remark on a summary row.
+func (s *Service) SetTeacherRemark(ctx context.Context, summaryID, tenantID, schoolID string, remark *string) error {
+	if summaryID == "" || tenantID == "" || schoolID == "" {
+		return fmt.Errorf("assessments.Service.SetTeacherRemark: %w", ErrInvalidInput)
+	}
+	return s.Repo.SetTeacherRemark(ctx, summaryID, tenantID, schoolID, remark)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // ASSESSMENT WEIGHT CONFIGS
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -584,6 +647,57 @@ func (s *Service) GetWeightConfigByID(ctx context.Context, id string) (*Assessme
 		return nil, fmt.Errorf("assessments.Service.GetWeightConfigByID: id is required: %w", ErrInvalidInput)
 	}
 	return s.Repo.GetWeightConfigByID(ctx, id)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STUDENT TERM OVERALL SUMMARIES
+// ═══════════════════════════════════════════════════════════════════════════
+
+// RefreshTermOverallSummaries triggers computation of overall summaries
+// for ALL students in the given term.
+func (s *Service) RefreshTermOverallSummaries(ctx context.Context, termID string) error {
+	if termID == "" {
+		return fmt.Errorf("assessments.Service.RefreshTermOverallSummaries: %w", ErrInvalidInput)
+	}
+	return s.Repo.RefreshTermOverallSummaries(ctx, termID)
+}
+
+// RefreshSingleStudentOverallSummary triggers computation for one student+term.
+func (s *Service) RefreshSingleStudentOverallSummary(ctx context.Context, studentID, termID string) error {
+	if studentID == "" || termID == "" {
+		return fmt.Errorf("assessments.Service.RefreshSingleStudentOverallSummary: %w", ErrInvalidInput)
+	}
+	return s.Repo.RefreshSingleStudentOverallSummary(ctx, studentID, termID)
+}
+
+// GetStudentTermOverallSummary returns the overall summary for a single
+// student+term. Returns a pointer — nil when not found.
+func (s *Service) GetStudentTermOverallSummary(ctx context.Context, tenantID, schoolID, studentID, termID string) (*StudentTermOverallSummary, error) {
+	if tenantID == "" || schoolID == "" || studentID == "" || termID == "" {
+		return nil, fmt.Errorf("assessments.Service.GetStudentTermOverallSummary: %w", ErrInvalidInput)
+	}
+	return s.Repo.GetStudentTermOverallSummary(ctx, tenantID, schoolID, studentID, termID)
+}
+
+// ListStudentTermOverallSummaries returns overall summaries for all students
+// in the given term.
+func (s *Service) ListStudentTermOverallSummaries(ctx context.Context, tenantID, schoolID, termID string) ([]StudentTermOverallSummary, error) {
+	if tenantID == "" || schoolID == "" || termID == "" {
+		return nil, fmt.Errorf("assessments.Service.ListStudentTermOverallSummaries: %w", ErrInvalidInput)
+	}
+	items, err := s.Repo.ListStudentTermOverallSummaries(ctx, tenantID, schoolID, termID)
+	if err != nil {
+		return nil, fmt.Errorf("assessments.Service.ListStudentTermOverallSummaries: %w", err)
+	}
+	return items, nil
+}
+
+// SetHeadteacherRemark updates the headteacher_remark on an overall summary.
+func (s *Service) SetHeadteacherRemark(ctx context.Context, summaryID, tenantID, schoolID string, remark *string) error {
+	if summaryID == "" || tenantID == "" || schoolID == "" {
+		return fmt.Errorf("assessments.Service.SetHeadteacherRemark: %w", ErrInvalidInput)
+	}
+	return s.Repo.SetHeadteacherRemark(ctx, summaryID, tenantID, schoolID, remark)
 }
 
 // ============================================================================

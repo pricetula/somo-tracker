@@ -34,6 +34,11 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	notes.Put("/:id", middleware.RequireAuth, h.UpdateNote)
 	notes.Delete("/", middleware.RequireAuth, h.DeleteNote)
 	notes.Post("/:id/review", middleware.RequireAuth, h.ReviewNote)
+
+	// Student behavior term summaries
+	summaries := router.Group("/api/v1/behavior/summaries")
+	summaries.Get("/", middleware.RequireAuth, h.ListSummaries)
+	summaries.Get("/:student_id", middleware.RequireAuth, h.GetStudentSummary)
 }
 
 // behMiddleware extracts common tenant/school from context.
@@ -317,4 +322,67 @@ func (h *Handler) ReviewNote(c *fiber.Ctx) error {
 		"message":  "Behavior note reviewed",
 		"decision": payload.Decision,
 	})
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STUDENT BEHAVIOR TERM SUMMARIES
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ListSummaries handles GET /api/v1/behavior/summaries?term_id=xxx&student_id=xxx.
+func (h *Handler) ListSummaries(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.behMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	termID := c.Query("term_id")
+	if termID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "term_id is required",
+		})
+	}
+
+	var studentID *string
+	if sid := c.Query("student_id"); sid != "" {
+		studentID = &sid
+	}
+
+	result, err := h.svc.ListStudentBehaviorTermSummaries(c.Context(), tenantID, schoolID, termID, studentID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(result)
+}
+
+// GetStudentSummary handles GET /api/v1/behavior/summaries/:student_id?term_id=xxx.
+func (h *Handler) GetStudentSummary(c *fiber.Ctx) error {
+	_, _, err := h.behMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	studentID := c.Params("student_id")
+	if studentID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "student_id is required",
+		})
+	}
+
+	termID := c.Query("term_id")
+	if termID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "term_id is required",
+		})
+	}
+
+	summary, err := h.svc.GetStudentBehaviorTermSummary(c.Context(), studentID, termID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(summary)
 }

@@ -133,3 +133,32 @@ func (s *Service) UpdateNote(ctx context.Context, id, tenantID string, descripti
 	}
 	return s.repo.UpdateNote(ctx, id, tenantID, description)
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STUDENT BEHAVIOR TERM SUMMARIES
+// ═══════════════════════════════════════════════════════════════════════════
+
+// GetStudentBehaviorTermSummary returns the behavior summary for a specific
+// student+term. Returns nil when no summary exists.
+func (s *Service) GetStudentBehaviorTermSummary(ctx context.Context, studentID, termID string) (*StudentBehaviorTermSummary, error) {
+	if studentID == "" || termID == "" {
+		return nil, fmt.Errorf("behavior.Service.GetStudentBehaviorTermSummary: %w", ErrInvalidInput)
+	}
+	return s.repo.GetStudentBehaviorTermSummary(ctx, studentID, termID)
+}
+
+// ListStudentBehaviorTermSummaries returns all behavior summaries for a given
+// term, optionally filtered to a specific student.
+func (s *Service) ListStudentBehaviorTermSummaries(ctx context.Context, tenantID, schoolID, termID string, studentID *string) (*StudentBehaviorTermSummariesResponse, error) {
+	if tenantID == "" || schoolID == "" || termID == "" {
+		return nil, fmt.Errorf("behavior.Service.ListStudentBehaviorTermSummaries: %w", ErrInvalidInput)
+	}
+	items, err := s.repo.ListStudentBehaviorTermSummaries(ctx, tenantID, schoolID, termID, studentID)
+	if err != nil {
+		return nil, fmt.Errorf("behavior.Service.ListStudentBehaviorTermSummaries: %w", err)
+	}
+	return &StudentBehaviorTermSummariesResponse{
+		Items: items,
+		Total: len(items),
+	}, nil
+}

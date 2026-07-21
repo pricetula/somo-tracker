@@ -315,7 +315,7 @@ export function useEnrichedSlotList(
             ...(opts ?? {}),
         }),
         queryFn: () => listEnrichedSlots(academicYearID, opts),
-        enabled: !!academicYearID,
+        enabled: !!(academicYearID && opts?.classId && opts?.date),
         staleTime: 5 * 60 * 1000,
     });
 }

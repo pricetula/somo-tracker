@@ -5,6 +5,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 export interface IncidentDay {
     date: string;
@@ -29,7 +30,13 @@ export function BehaviorCalendarHeatmap({ data }: Props) {
 
     return (
         <div className="space-y-2">
-            <p className="text-foreground text-sm font-medium">Incident Calendar</p>
+            <p className="text-foreground text-sm font-medium">
+                Incident Calendar
+                <GraphHelp>
+                    Calendar heatmap showing when behaviour incidents occur throughout the term.
+                    Darker cells indicate more incidents.
+                </GraphHelp>
+            </p>
             <div className="grid grid-cols-7 gap-1">
                 {["M", "T", "W", "T", "F", "S", "S"].map((h) => (
                     <div key={h} className="text-muted-foreground h-5 text-center text-[10px]">

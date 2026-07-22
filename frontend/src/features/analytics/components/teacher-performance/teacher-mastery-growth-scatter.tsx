@@ -10,9 +10,10 @@ import {
     ChartTooltip,
     ChartTooltipContent,
 } from "@/components/ui/chart";
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 const chartConfig = {
-    teacher: { label: "Teacher", color: "hsl(var(--chart-2))" },
+    teacher: { label: "Teacher", color: "#22c55e" },
 } satisfies ChartConfig;
 
 export interface MasteryVsGrowthPoint {
@@ -30,7 +31,13 @@ export function TeacherMasteryGrowthScatter({ data }: Props) {
         return <p className="text-muted-foreground py-8 text-center text-sm">No data.</p>;
     return (
         <div className="space-y-2">
-            <p className="text-foreground text-sm font-medium">Mastery vs Growth</p>
+            <p className="text-foreground text-sm font-medium">
+                Mastery vs Growth
+                <GraphHelp>
+                    Scatter plot plotting each teacher&rsquo;s mastery rate against their growth
+                    rate. Identifies high-growth, high-mastery standouts.
+                </GraphHelp>
+            </p>
             <ChartContainer config={chartConfig} className="aspect-[4/3] w-full">
                 <ScatterChart margin={{ top: 8, left: 8, right: 8, bottom: 8 }}>
                     <CartesianGrid strokeDasharray="3 3" />
@@ -46,7 +53,7 @@ export function TeacherMasteryGrowthScatter({ data }: Props) {
                             value: "Mastery %",
                             position: "bottom",
                             offset: -4,
-                            style: { fontSize: 10, fill: "hsl(var(--muted-foreground))" },
+                            style: { fontSize: 10, fill: "#6b7280" },
                         }}
                     />
                     <YAxis
@@ -60,16 +67,16 @@ export function TeacherMasteryGrowthScatter({ data }: Props) {
                             value: "Growth (pts)",
                             angle: -90,
                             position: "left",
-                            style: { fontSize: 10, fill: "hsl(var(--muted-foreground))" },
+                            style: { fontSize: 10, fill: "#6b7280" },
                         }}
                     />
                     <ZAxis range={[80, 80]} />
-                    <ReferenceLine y={0} stroke="hsl(var(--border))" />
+                    <ReferenceLine y={0} stroke="#e5e7eb" />
                     <ChartTooltip
                         cursor={{ strokeDasharray: "3 3" }}
                         content={<ChartTooltipContent />}
                     />
-                    <Scatter data={data} fill="var(--color-teacher)" />
+                    <Scatter data={data} fill="#22c55e" />
                 </ScatterChart>
             </ChartContainer>
         </div>

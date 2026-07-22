@@ -14,21 +14,22 @@ import {
     ChartTooltip,
     ChartTooltipContent,
 } from "@/components/ui/chart";
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 // ─── Config ───────────────────────────────────────────────────────────────
 
 const chartConfig = {
     actual: {
         label: "Actual",
-        color: "hsl(var(--chart-2))",
+        color: "#22c55e",
     },
     projected: {
         label: "Projected",
-        color: "hsl(var(--chart-4))",
+        color: "#f59e0b",
     },
     trend: {
         label: "Trend",
-        color: "hsl(var(--muted-foreground))",
+        color: "#6b7280",
     },
 } satisfies ChartConfig;
 
@@ -82,6 +83,10 @@ export function ProjectionScatterTrend({ data }: ProjectionScatterTrendProps) {
         <div className="space-y-2">
             <p className="text-foreground text-sm font-medium">
                 Performance Projection{data.learningAreaName ? ` — ${data.learningAreaName}` : ""}
+                <GraphHelp>
+                    Historical scores plotted with a regression trend line and a projected point for
+                    the next term.
+                </GraphHelp>
             </p>
             <ChartContainer config={chartConfig} className="aspect-[3/1] w-full">
                 <LineChart data={chartData} margin={{ top: 8, left: 8, right: 8, bottom: 8 }}>
@@ -103,19 +108,17 @@ export function ProjectionScatterTrend({ data }: ProjectionScatterTrendProps) {
                     <Line
                         type="linear"
                         dataKey="score"
-                        stroke="var(--color-actual)"
+                        stroke="#22c55e"
                         strokeWidth={2}
                         data={chartData.filter((d) => !d.isProjected)}
-                        dot={({ payload }) => (
-                            <Dot key={payload.termName} r={5} fill="var(--color-actual)" />
-                        )}
+                        dot={({ payload }) => <Dot key={payload.termName} r={5} fill="#22c55e" />}
                     />
 
                     {/* Trend line (dashed from last actual to projected) */}
                     <Line
                         type="linear"
                         dataKey="score"
-                        stroke="var(--color-trend)"
+                        stroke="#6b7280"
                         strokeWidth={1.5}
                         strokeDasharray="4 4"
                         data={[

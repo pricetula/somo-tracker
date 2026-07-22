@@ -9,14 +9,15 @@
 import { Label, PolarGrid, PolarRadiusAxis, RadialBar, RadialBarChart } from "recharts";
 
 import { type ChartConfig, ChartContainer } from "@/components/ui/chart";
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 // ─── Level configuration ───────────────────────────────────────────────────
 
 const LEVEL_BANDS = [
-    { min: 80, max: 100, label: "EE", color: "hsl(var(--chart-2))" },
-    { min: 60, max: 80, label: "ME", color: "hsl(var(--chart-3))" },
-    { min: 40, max: 60, label: "AE", color: "hsl(var(--chart-4))" },
-    { min: 0, max: 40, label: "BE", color: "hsl(var(--chart-1))" },
+    { min: 80, max: 100, label: "EE", color: "#22c55e" },
+    { min: 60, max: 80, label: "ME", color: "#3b82f6" },
+    { min: 40, max: 60, label: "AE", color: "#f59e0b" },
+    { min: 0, max: 40, label: "BE", color: "#ef4444" },
 ] as const;
 
 function getLevelBand(score: number) {
@@ -69,6 +70,15 @@ export function OverallGauge({
     return (
         <div className="space-y-2">
             {studentName && <p className="text-foreground text-sm font-medium">{studentName}</p>}
+            {!studentName && (
+                <p className="text-foreground text-sm font-medium">
+                    Overall Performance
+                    <GraphHelp>
+                        Gauge chart showing the overall mean percentage with colour-coded level
+                        bands: EE (green), ME (blue), AE (amber), BE (red).
+                    </GraphHelp>
+                </p>
+            )}
             <ChartContainer
                 config={chartConfig}
                 className="mx-auto aspect-square max-h-[260px] w-full"
@@ -85,7 +95,7 @@ export function OverallGauge({
                     <PolarGrid
                         gridType="circle"
                         radialLines={false}
-                        stroke="hsl(var(--border))"
+                        stroke="#e5e7eb"
                         className="first:fill-muted last:fill-background"
                     />
                     <RadialBar dataKey="value" cornerRadius={10} />

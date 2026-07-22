@@ -12,11 +12,12 @@ import {
     ChartTooltip,
     ChartTooltipContent,
 } from "@/components/ui/chart";
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 const chartConfig = {
-    marked: { label: "Marked", color: "hsl(var(--chart-2))" },
-    missed: { label: "Missed", color: "hsl(var(--chart-1))" },
-    unaccounted: { label: "Unaccounted", color: "hsl(var(--chart-4))" },
+    marked: { label: "Marked", color: "#22c55e" },
+    missed: { label: "Missed", color: "#ef4444" },
+    unaccounted: { label: "Unaccounted", color: "#f59e0b" },
 } satisfies ChartConfig;
 
 export interface WeeklyDeliveryRow {
@@ -34,7 +35,13 @@ export function DeliveryWeeklyStackedBar({ data }: Props) {
         return <p className="text-muted-foreground py-8 text-center text-sm">No data.</p>;
     return (
         <div className="space-y-2">
-            <p className="text-foreground text-sm font-medium">Weekly Delivery Breakdown</p>
+            <p className="text-foreground text-sm font-medium">
+                Weekly Delivery Breakdown
+                <GraphHelp>
+                    Stacked bar chart showing weekly lesson delivery breakdown: Marked, Missed, and
+                    Unaccounted.
+                </GraphHelp>
+            </p>
             <ChartContainer config={chartConfig} className="aspect-[3/1] w-full">
                 <BarChart data={data} barCategoryGap="20%">
                     <CartesianGrid vertical={false} />
@@ -44,24 +51,9 @@ export function DeliveryWeeklyStackedBar({ data }: Props) {
                         content={<ChartTooltipContent indicator="dot" />}
                     />
                     <ChartLegend content={<ChartLegendContent />} />
-                    <Bar
-                        dataKey="marked"
-                        stackId="a"
-                        fill="var(--color-marked)"
-                        radius={[0, 0, 0, 0]}
-                    />
-                    <Bar
-                        dataKey="missed"
-                        stackId="a"
-                        fill="var(--color-missed)"
-                        radius={[0, 0, 0, 0]}
-                    />
-                    <Bar
-                        dataKey="unaccounted"
-                        stackId="a"
-                        fill="var(--color-unaccounted)"
-                        radius={[0, 4, 4, 0]}
-                    />
+                    <Bar dataKey="marked" stackId="a" fill="#22c55e" radius={[0, 0, 0, 0]} />
+                    <Bar dataKey="missed" stackId="a" fill="#ef4444" radius={[0, 0, 0, 0]} />
+                    <Bar dataKey="unaccounted" stackId="a" fill="#f59e0b" radius={[0, 4, 4, 0]} />
                 </BarChart>
             </ChartContainer>
         </div>

@@ -14,13 +14,14 @@ import {
     ChartTooltip,
     ChartTooltipContent,
 } from "@/components/ui/chart";
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 // ─── Config ───────────────────────────────────────────────────────────────
 
 const chartConfig = {
     attendance: {
         label: "Attendance %",
-        color: "hsl(var(--chart-2))",
+        color: "#22c55e",
     },
 } satisfies ChartConfig;
 
@@ -52,6 +53,10 @@ export function AttendanceVsOverallScatter({ data }: AttendanceVsOverallScatterP
         <div className="space-y-2">
             <p className="text-foreground text-sm font-medium">
                 Attendance vs Academic Performance
+                <GraphHelp>
+                    Scatter plot showing the correlation between attendance percentage and overall
+                    academic performance. Each dot represents a student.
+                </GraphHelp>
             </p>
             <p className="text-muted-foreground text-xs">
                 Each dot = a student. Correlation between attendance and overall score.
@@ -71,7 +76,7 @@ export function AttendanceVsOverallScatter({ data }: AttendanceVsOverallScatterP
                             value: "Attendance %",
                             position: "bottom",
                             offset: -4,
-                            style: { fontSize: 11, fill: "hsl(var(--muted-foreground))" },
+                            style: { fontSize: 11, fill: "#6b7280" },
                         }}
                     />
                     <YAxis
@@ -86,7 +91,7 @@ export function AttendanceVsOverallScatter({ data }: AttendanceVsOverallScatterP
                             value: "Overall Mean %",
                             angle: -90,
                             position: "left",
-                            style: { fontSize: 11, fill: "hsl(var(--muted-foreground))" },
+                            style: { fontSize: 11, fill: "#6b7280" },
                         }}
                     />
                     <ZAxis range={[64, 64]} />
@@ -115,7 +120,7 @@ export function AttendanceVsOverallScatter({ data }: AttendanceVsOverallScatterP
                             />
                         }
                     />
-                    <Scatter name="Students" data={data} fill="var(--color-attendance)" />
+                    <Scatter name="Students" data={data} fill="#22c55e" />
                 </ScatterChart>
             </ChartContainer>
         </div>

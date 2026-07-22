@@ -11,9 +11,10 @@ import {
     ChartTooltip,
     ChartTooltipContent,
 } from "@/components/ui/chart";
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 const chartConfig = {
-    count: { label: "Incidents", color: "hsl(var(--chart-1))" },
+    count: { label: "Incidents", color: "#ef4444" },
 } satisfies ChartConfig;
 
 export interface StudentIncidentCount {
@@ -37,7 +38,13 @@ export function ClassComparisonBoxPlot({ data, classAverage }: Props) {
 
     return (
         <div className="space-y-2">
-            <p className="text-foreground text-sm font-medium">Class Disciplinary Distribution</p>
+            <p className="text-foreground text-sm font-medium">
+                Class Disciplinary Distribution
+                <GraphHelp>
+                    Scatter plot showing disciplinary incident counts across all students in the
+                    class. The class average line helps identify outliers needing intervention.
+                </GraphHelp>
+            </p>
             <ChartContainer config={chartConfig} className="aspect-[3/1] w-full">
                 <ScatterChart margin={{ top: 8, left: 8, right: 8, bottom: 8 }}>
                     <CartesianGrid strokeDasharray="3 3" />
@@ -54,12 +61,12 @@ export function ClassComparisonBoxPlot({ data, classAverage }: Props) {
                     <ZAxis range={[80, 80]} />
                     <ReferenceLine
                         y={classAverage}
-                        stroke="hsl(var(--muted-foreground))"
+                        stroke="#6b7280"
                         strokeDasharray="4 4"
                         label={{
                             value: "Class Avg",
                             position: "right",
-                            fill: "hsl(var(--muted-foreground))",
+                            fill: "#6b7280",
                             fontSize: 10,
                         }}
                     />
@@ -67,7 +74,7 @@ export function ClassComparisonBoxPlot({ data, classAverage }: Props) {
                         cursor={{ strokeDasharray: "3 3" }}
                         content={<ChartTooltipContent />}
                     />
-                    <Scatter data={chartData} fill="var(--color-count)" />
+                    <Scatter data={chartData} fill="#ef4444" />
                 </ScatterChart>
             </ChartContainer>
         </div>

@@ -14,13 +14,14 @@ import {
     ChartTooltip,
     ChartTooltipContent,
 } from "@/components/ui/chart";
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 // ─── Config ───────────────────────────────────────────────────────────────
 
 const chartConfig = {
     mastery: {
         label: "Mastery",
-        color: "hsl(var(--chart-2))",
+        color: "#22c55e",
     },
 } satisfies ChartConfig;
 
@@ -48,21 +49,27 @@ export function SkillRadar({ data }: SkillRadarProps) {
 
     return (
         <div className="space-y-2">
-            <p className="text-foreground text-sm font-medium">Skill Profile</p>
+            <p className="text-foreground text-sm font-medium">
+                Skill Profile
+                <GraphHelp>
+                    Multi-axis radar chart comparing mastery across different sub-strands at a
+                    glance, helping identify strengths and areas needing improvement.
+                </GraphHelp>
+            </p>
             <ChartContainer
                 config={chartConfig}
                 className="mx-auto aspect-square max-h-[320px] w-full"
             >
                 <RadarChart data={data}>
-                    <PolarGrid stroke="hsl(var(--border))" />
+                    <PolarGrid stroke="#e5e7eb" />
                     <PolarAngleAxis
                         dataKey="subStrandName"
-                        tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                        tick={{ fontSize: 10, fill: "#6b7280" }}
                     />
                     <PolarRadiusAxis
                         angle={30}
                         domain={[0, 100]}
-                        tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                        tick={{ fontSize: 10, fill: "#6b7280" }}
                     />
                     <ChartTooltip
                         content={
@@ -77,8 +84,8 @@ export function SkillRadar({ data }: SkillRadarProps) {
                     <Radar
                         name="Mastery"
                         dataKey="masteryPercentage"
-                        stroke="var(--color-mastery)"
-                        fill="var(--color-mastery)"
+                        stroke="#22c55e"
+                        fill="#22c55e"
                         fillOpacity={0.2}
                     />
                 </RadarChart>

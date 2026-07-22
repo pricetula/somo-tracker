@@ -16,17 +16,18 @@ import {
     ChartTooltip,
     ChartTooltipContent,
 } from "@/components/ui/chart";
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 // ─── Config ───────────────────────────────────────────────────────────────
 
 const chartConfig = {
     quantitative: {
         label: "Quantitative",
-        color: "hsl(var(--chart-2))",
+        color: "#22c55e",
     },
     rubric: {
         label: "Rubric",
-        color: "hsl(var(--chart-4))",
+        color: "#f59e0b",
     },
 } satisfies ChartConfig;
 
@@ -55,7 +56,13 @@ export function SourceCompositionStackedBar({ data }: SourceCompositionStackedBa
 
     return (
         <div className="space-y-2">
-            <p className="text-foreground text-sm font-medium">Assessment Source Composition</p>
+            <p className="text-foreground text-sm font-medium">
+                Assessment Source Composition
+                <GraphHelp>
+                    Stacked bar chart showing how much of each subject&rsquo;s score comes from
+                    quantitative assessments versus rubric grades.
+                </GraphHelp>
+            </p>
             <ChartContainer config={chartConfig} className="aspect-[3/1] w-full">
                 <BarChart accessibilityLayer data={data} layout="vertical" barCategoryGap="20%">
                     <CartesianGrid horizontal={false} />
@@ -84,15 +91,10 @@ export function SourceCompositionStackedBar({ data }: SourceCompositionStackedBa
                     <Bar
                         dataKey="quantitativePct"
                         stackId="a"
-                        fill="var(--color-quantitative)"
+                        fill="#22c55e"
                         radius={[0, 0, 0, 0]}
                     />
-                    <Bar
-                        dataKey="rubricPct"
-                        stackId="a"
-                        fill="var(--color-rubric)"
-                        radius={[0, 4, 4, 0]}
-                    />
+                    <Bar dataKey="rubricPct" stackId="a" fill="#f59e0b" radius={[0, 4, 4, 0]} />
                 </BarChart>
             </ChartContainer>
         </div>

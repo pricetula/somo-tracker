@@ -14,6 +14,7 @@ import {
     ChartTooltip,
     ChartTooltipContent,
 } from "@/components/ui/chart";
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -26,10 +27,10 @@ export interface MasteryBarEntry {
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
 function barFill(pct: number): string {
-    if (pct >= 80) return "hsl(var(--chart-2))";
-    if (pct >= 60) return "hsl(var(--chart-3))";
-    if (pct >= 40) return "hsl(var(--chart-4))";
-    return "hsl(var(--chart-1))";
+    if (pct >= 80) return "#22c55e";
+    if (pct >= 60) return "#3b82f6";
+    if (pct >= 40) return "#f59e0b";
+    return "#ef4444";
 }
 
 // ─── Component ────────────────────────────────────────────────────────────
@@ -59,7 +60,13 @@ export function StrandMasteryBar({ data }: StrandMasteryBarProps) {
 
     return (
         <div className="space-y-2">
-            <p className="text-foreground text-sm font-medium">Mastery by Sub-Strand</p>
+            <p className="text-foreground text-sm font-medium">
+                Mastery by Sub-Strand
+                <GraphHelp>
+                    Horizontal bars showing mastery percentage per sub-strand with colour thresholds
+                    for performance levels.
+                </GraphHelp>
+            </p>
             <ChartContainer config={chartConfig} className="aspect-[3/2] w-full">
                 <BarChart data={sorted} layout="vertical" barCategoryGap="20%">
                     <CartesianGrid horizontal={false} />

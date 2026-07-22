@@ -10,6 +10,7 @@ import {
     ChartTooltip,
     ChartTooltipContent,
 } from "@/components/ui/chart";
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 export interface TeacherScoreEntry {
     teacherName: string;
@@ -34,8 +35,14 @@ export function TeacherComparisonBar({ data }: Props) {
 
     return (
         <div className="space-y-2">
-            <p className="text-foreground text-sm font-medium">Teacher Comparison</p>
-            <ChartContainer config={chartConfig} className="aspect-[3/2] w-full">
+            <p className="text-foreground text-sm font-medium">
+                Teacher Comparison
+                <GraphHelp>
+                    Horizontal bar chart comparing subject mean scores across all teachers in a
+                    grade. Bars are colour-coded by performance level.
+                </GraphHelp>
+            </p>
+            <ChartContainer config={chartConfig} className="aspect-3/2 w-full">
                 <BarChart data={sorted} layout="vertical" barCategoryGap="20%">
                     <CartesianGrid horizontal={false} />
                     <XAxis type="number" domain={[0, 100]} tickLine={false} axisLine={false} />
@@ -65,10 +72,10 @@ export function TeacherComparisonBar({ data }: Props) {
                                 key={e.teacherName}
                                 fill={
                                     e.subjectMeanScore >= 70
-                                        ? "hsl(var(--chart-2))"
+                                        ? "red"
                                         : e.subjectMeanScore >= 50
-                                          ? "hsl(var(--chart-3))"
-                                          : "hsl(var(--chart-1))"
+                                          ? "blue"
+                                          : "yellow"
                                 }
                             />
                         ))}
@@ -83,7 +90,7 @@ export function TeacherComparisonBarSkeleton() {
     return (
         <div className="space-y-2">
             <div className="bg-muted h-4 w-44 animate-pulse rounded" />
-            <div className="bg-muted aspect-[3/2] w-full animate-pulse rounded" />
+            <div className="bg-muted aspect-3/2 w-full animate-pulse rounded" />
         </div>
     );
 }

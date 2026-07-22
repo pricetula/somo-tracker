@@ -7,6 +7,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 // ─── Component ────────────────────────────────────────────────────────────
 
@@ -27,6 +28,11 @@ export function GapBarChart({ targetGapPoints, meThreshold = 60, subjectName }: 
             <div className="flex items-center justify-between">
                 <p className="text-foreground text-sm font-medium">
                     {subjectName ? `${subjectName} — ` : ""}Distance to ME Threshold
+                    <GraphHelp>
+                        Horizontal bar showing how far above or below the ME (Meeting Expectation)
+                        threshold the student&rsquo;s projected score is. Green = above, red =
+                        below.
+                    </GraphHelp>
                 </p>
                 <span className="text-muted-foreground text-xs">ME = {meThreshold}%</span>
             </div>

@@ -14,13 +14,14 @@ import {
     ChartTooltip,
     ChartTooltipContent,
 } from "@/components/ui/chart";
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 // ─── Config ───────────────────────────────────────────────────────────────
 
 const chartConfig = {
     density: {
         label: "Distribution",
-        color: "hsl(var(--chart-3))",
+        color: "#3b82f6",
     },
 } satisfies ChartConfig;
 
@@ -67,7 +68,14 @@ export function DistributionCurve({ data }: DistributionCurveProps) {
 
     return (
         <div className="space-y-2">
-            <p className="text-foreground text-sm font-medium">Grade Distribution</p>
+            <p className="text-foreground text-sm font-medium">
+                Grade Distribution
+                <GraphHelp>
+                    Bell curve showing the grade&rsquo;s score distribution with the student&rsquo;s
+                    position highlighted. Helps visualise where the student stands relative to
+                    peers.
+                </GraphHelp>
+            </p>
             <p className="text-muted-foreground text-xs">
                 Your score highlighted on the grade curve
             </p>
@@ -96,32 +104,32 @@ export function DistributionCurve({ data }: DistributionCurveProps) {
                     <Area
                         type="monotone"
                         dataKey="density"
-                        stroke="var(--color-density)"
-                        fill="var(--color-density)"
+                        stroke="#3b82f6"
+                        fill="#3b82f6"
                         fillOpacity={0.15}
                         strokeWidth={2}
                     />
                     {/* Grade average line */}
                     <ReferenceLine
                         x={gradeAverage}
-                        stroke="hsl(var(--muted-foreground))"
+                        stroke="#6b7280"
                         strokeDasharray="4 4"
                         label={{
                             value: "Avg",
                             position: "top",
-                            fill: "hsl(var(--muted-foreground))",
+                            fill: "#6b7280",
                             fontSize: 10,
                         }}
                     />
                     {/* Student score marker */}
                     <ReferenceLine
                         x={studentScore}
-                        stroke="hsl(var(--chart-2))"
+                        stroke="#22c55e"
                         strokeWidth={2}
                         label={{
                             value: "You",
                             position: "top",
-                            fill: "hsl(var(--chart-2))",
+                            fill: "#22c55e",
                             fontSize: 11,
                             fontWeight: 600,
                         }}
@@ -131,7 +139,7 @@ export function DistributionCurve({ data }: DistributionCurveProps) {
 
             <div className="flex items-center justify-center gap-6 text-xs">
                 <div className="flex items-center gap-1">
-                    <div className="h-2 w-4 rounded bg-[hsl(var(--chart-3))]" />
+                    <div className="h-2 w-4 rounded bg-[#3b82f6]" />
                     <span className="text-muted-foreground">Grade distribution</span>
                 </div>
                 <div className="flex items-center gap-1">
@@ -141,7 +149,7 @@ export function DistributionCurve({ data }: DistributionCurveProps) {
                     </span>
                 </div>
                 <div className="flex items-center gap-1">
-                    <div className="h-2 w-2 rounded-full bg-[hsl(var(--chart-2))]" />
+                    <div className="h-2 w-2 rounded-full bg-[#22c55e]" />
                     <span className="text-muted-foreground">You: {studentScore.toFixed(1)}%</span>
                 </div>
             </div>

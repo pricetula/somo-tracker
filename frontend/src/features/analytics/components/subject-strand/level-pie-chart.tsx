@@ -14,25 +14,26 @@ import {
     ChartTooltip,
     ChartTooltipContent,
 } from "@/components/ui/chart";
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 // ─── Config ───────────────────────────────────────────────────────────────
 
 const chartConfig = {
     exceeding: {
         label: "Exceeding (EE)",
-        color: "hsl(var(--chart-2))",
+        color: "#22c55e",
     },
     meeting: {
         label: "Meeting (ME)",
-        color: "hsl(var(--chart-3))",
+        color: "#3b82f6",
     },
     approaching: {
         label: "Approaching (AE)",
-        color: "hsl(var(--chart-4))",
+        color: "#f59e0b",
     },
     below: {
         label: "Below (BE)",
-        color: "hsl(var(--chart-1))",
+        color: "#ef4444",
     },
 } satisfies ChartConfig;
 
@@ -67,22 +68,22 @@ export function LevelPieChartView({ data }: LevelPieChartProps) {
         {
             name: "exceeding",
             value: data.exceedingCount,
-            fill: "var(--color-exceeding)",
+            fill: "#22c55e",
         },
         {
             name: "meeting",
             value: data.meetingCount,
-            fill: "var(--color-meeting)",
+            fill: "#3b82f6",
         },
         {
             name: "approaching",
             value: data.approachingCount,
-            fill: "var(--color-approaching)",
+            fill: "#f59e0b",
         },
         {
             name: "below",
             value: data.belowCount,
-            fill: "var(--color-below)",
+            fill: "#ef4444",
         },
     ].filter((d) => d.value > 0);
 
@@ -90,6 +91,10 @@ export function LevelPieChartView({ data }: LevelPieChartProps) {
         <div className="space-y-2">
             <p className="text-foreground text-sm font-medium">
                 Indicator Distribution — {data.subStrandName}
+                <GraphHelp>
+                    Pie chart showing the proportion of indicators at each performance level
+                    (EE/ME/AE/BE) for this sub-strand.
+                </GraphHelp>
             </p>
             <ChartContainer
                 config={chartConfig}
@@ -113,7 +118,7 @@ export function LevelPieChartView({ data }: LevelPieChartProps) {
                         innerRadius={50}
                         outerRadius={90}
                         strokeWidth={2}
-                        stroke="hsl(var(--background))"
+                        stroke="#ffffff"
                         paddingAngle={2}
                     />
                 </PieChart>

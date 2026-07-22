@@ -8,6 +8,7 @@
 
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
+import { GraphHelp } from "@/components/GraphHelp";
 import {
     type ChartConfig,
     ChartContainer,
@@ -38,18 +39,18 @@ function levelColor(level: string): string {
     switch (level) {
         case "Exceeding (EE)":
         case "EE":
-            return "hsl(var(--chart-2))";
+            return "#22c55e";
         case "Meeting (ME)":
         case "ME":
-            return "hsl(var(--chart-3))";
+            return "#3b82f6";
         case "Approaching (AE)":
         case "AE":
-            return "hsl(var(--chart-4))";
+            return "#f59e0b";
         case "Below (BE)":
         case "BE":
-            return "hsl(var(--chart-1))";
+            return "#ef4444";
         default:
-            return "hsl(var(--muted))";
+            return "#f3f4f6";
     }
 }
 
@@ -75,7 +76,13 @@ export function LevelDistributionBar({ data }: LevelDistributionBarProps) {
 
     return (
         <div className="space-y-2">
-            <p className="text-foreground text-sm font-medium">Subjects per Performance Level</p>
+            <p className="text-foreground text-sm font-medium">
+                Subjects per Performance Level
+                <GraphHelp>
+                    Horizontal bar chart showing how many subjects are at each performance level
+                    (EE, ME, AE, BE) &mdash; an at-a-glance report card.
+                </GraphHelp>
+            </p>
             <ChartContainer config={chartConfig} className="aspect-[3/1] w-full">
                 <BarChart accessibilityLayer data={ordered} layout="vertical" barCategoryGap="30%">
                     <CartesianGrid horizontal={false} />

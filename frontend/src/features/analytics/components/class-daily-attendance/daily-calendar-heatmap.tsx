@@ -8,6 +8,7 @@
 
 import { cn } from "@/lib/utils";
 import { format, parseISO, getDay, getDate, eachDayOfInterval } from "date-fns";
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -95,7 +96,13 @@ export function DailyCalendarHeatmap({ data, termLabel }: DailyCalendarHeatmapPr
     return (
         <div className="space-y-2">
             <div className="flex items-center justify-between">
-                <p className="text-foreground text-sm font-medium">Daily Attendance Calendar</p>
+                <p className="text-foreground text-sm font-medium">
+                    Daily Attendance Calendar
+                    <GraphHelp>
+                        Calendar heatmap of daily attendance rates over the term. Green shades
+                        indicate high attendance, red shades indicate low attendance.
+                    </GraphHelp>
+                </p>
                 {termLabel && <p className="text-muted-foreground text-xs">{termLabel}</p>}
             </div>
 

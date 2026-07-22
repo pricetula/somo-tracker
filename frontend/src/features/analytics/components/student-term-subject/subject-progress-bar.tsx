@@ -7,6 +7,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -65,7 +66,13 @@ export function SubjectProgressBar({ data }: SubjectProgressBarProps) {
 
     return (
         <div className="space-y-3">
-            <p className="text-foreground text-sm font-medium">Progress by Subject</p>
+            <p className="text-foreground text-sm font-medium">
+                Progress by Subject
+                <GraphHelp>
+                    Horizontal progress bars for each subject with threshold markers for EE, ME, and
+                    AE levels. Shows current score and level at a glance.
+                </GraphHelp>
+            </p>
             <div className="space-y-3">
                 {data.map((entry) => (
                     <div key={entry.subject} className="space-y-1">

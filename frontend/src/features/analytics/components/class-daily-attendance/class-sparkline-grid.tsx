@@ -9,13 +9,14 @@
 import { Line, LineChart } from "recharts";
 
 import { type ChartConfig, ChartContainer } from "@/components/ui/chart";
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 // ─── Config ───────────────────────────────────────────────────────────────
 
 const sparklineConfig = {
     rate: {
         label: "Rate",
-        color: "hsl(var(--chart-2))",
+        color: "#22c55e",
     },
 } satisfies ChartConfig;
 
@@ -59,7 +60,13 @@ export function ClassSparklineGrid({ data }: ClassSparklineGridProps) {
 
     return (
         <div className="space-y-2">
-            <p className="text-foreground text-sm font-medium">Class Attendance Trends</p>
+            <p className="text-foreground text-sm font-medium">
+                Class Attendance Trends
+                <GraphHelp>
+                    Mini sparkline trend charts for each class showing attendance rate over time.
+                    Arrows indicate improving or declining trends.
+                </GraphHelp>
+            </p>
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
                 {data.map((cls) => (
                     <div key={cls.className} className="bg-muted/30 space-y-1 rounded p-3">
@@ -81,7 +88,7 @@ export function ClassSparklineGrid({ data }: ClassSparklineGridProps) {
                                 <Line
                                     type="monotone"
                                     dataKey="rate"
-                                    stroke="var(--color-rate)"
+                                    stroke="#22c55e"
                                     strokeWidth={1.5}
                                     dot={false}
                                 />

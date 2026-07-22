@@ -14,6 +14,7 @@ import {
     ChartTooltip,
     ChartTooltipContent,
 } from "@/components/ui/chart";
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -26,9 +27,9 @@ export interface SubjectBarEntry {
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
 function levelColor(pct: number) {
-    if (pct >= 80) return "hsl(var(--chart-2))"; // EE/ME
-    if (pct >= 60) return "hsl(var(--chart-3))"; // AE
-    return "hsl(var(--chart-1))"; // BE
+    if (pct >= 80) return "#22c55e"; // EE/ME
+    if (pct >= 60) return "#3b82f6"; // AE
+    return "#ef4444"; // BE
 }
 
 // ─── Component ────────────────────────────────────────────────────────────
@@ -55,7 +56,13 @@ export function SubjectComparisonBar({ data }: SubjectComparisonBarProps) {
 
     return (
         <div className="space-y-2">
-            <p className="text-foreground text-sm font-medium">Subject Performance Comparison</p>
+            <p className="text-foreground text-sm font-medium">
+                Subject Performance Comparison
+                <GraphHelp>
+                    Bar chart comparing average percentages per learning area with threshold
+                    colouring for performance levels (EE/ME/AE/BE).
+                </GraphHelp>
+            </p>
             <ChartContainer config={chartConfig} className="aspect-[3/1] w-full">
                 <BarChart accessibilityLayer data={data} layout="vertical">
                     <CartesianGrid horizontal={false} />
@@ -94,9 +101,9 @@ export function SubjectComparisonBar({ data }: SubjectComparisonBarProps) {
             <div className="flex items-center gap-4">
                 <span className="text-muted-foreground text-xs">Levels:</span>
                 {[
-                    { label: "EE/ME (≥80%)", cls: "bg-[hsl(var(--chart-2))]" },
-                    { label: "AE (60-79%)", cls: "bg-[hsl(var(--chart-3))]" },
-                    { label: "BE (<60%)", cls: "bg-[hsl(var(--chart-1))]" },
+                    { label: "EE/ME (≥80%)", cls: "bg-[#22c55e]" },
+                    { label: "AE (60-79%)", cls: "bg-[#3b82f6]" },
+                    { label: "BE (<60%)", cls: "bg-[#ef4444]" },
                 ].map((entry) => (
                     <div key={entry.label} className="flex items-center gap-1">
                         <div className={entry.cls + " h-3 w-3 rounded"} />

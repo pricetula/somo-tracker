@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/chart";
 
 const chartConfig = {} satisfies ChartConfig;
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 interface Props {
     commendationsCount: number;
@@ -29,14 +30,18 @@ export function CommendationsVsDisciplinaryBar({
     studentName,
 }: Props) {
     const data = [
-        { label: "Commendations", value: commendationsCount, fill: "hsl(var(--chart-2))" },
-        { label: "Disciplinary", value: disciplinaryCount, fill: "hsl(var(--chart-1))" },
+        { label: "Commendations", value: commendationsCount, fill: "#22c55e" },
+        { label: "Disciplinary", value: disciplinaryCount, fill: "#ef4444" },
     ];
 
     return (
         <div className="space-y-2">
             <p className="text-foreground text-sm font-medium">
                 Commendations vs Disciplinary{studentName ? ` — ${studentName}` : ""}
+                <GraphHelp>
+                    Side-by-side bar chart comparing the number of commendations versus disciplinary
+                    incidents for a quick moral temperature check.
+                </GraphHelp>
             </p>
             <ChartContainer config={chartConfig} className="aspect-[3/1] w-full">
                 <BarChart data={data} barCategoryGap="40%">

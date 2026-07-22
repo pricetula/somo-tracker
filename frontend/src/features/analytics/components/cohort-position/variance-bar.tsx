@@ -7,6 +7,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 // ─── Component ────────────────────────────────────────────────────────────
 
@@ -23,7 +24,13 @@ export function VarianceBar({ variance, studentScore, gradeAverage }: VarianceBa
 
     return (
         <div className="space-y-2">
-            <p className="text-foreground text-sm font-medium">Variance from Grade Average</p>
+            <p className="text-foreground text-sm font-medium">
+                Variance from Grade Average
+                <GraphHelp>
+                    Green/red bar showing the distance between the student&rsquo;s score and the
+                    grade average. Green = above average, red = below average.
+                </GraphHelp>
+            </p>
 
             {/* Score comparison */}
             <div className="flex items-center justify-center gap-4 py-2">

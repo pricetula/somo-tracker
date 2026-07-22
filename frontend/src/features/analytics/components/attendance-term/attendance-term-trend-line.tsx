@@ -14,13 +14,14 @@ import {
     ChartTooltip,
     ChartTooltipContent,
 } from "@/components/ui/chart";
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 // ─── Config ───────────────────────────────────────────────────────────────
 
 const chartConfig = {
     attendance: {
         label: "Attendance",
-        color: "hsl(var(--chart-2))",
+        color: "#22c55e",
     },
 } satisfies ChartConfig;
 
@@ -48,7 +49,13 @@ export function AttendanceTermTrendLine({ data }: AttendanceTermTrendLineProps) 
 
     return (
         <div className="space-y-2">
-            <p className="text-foreground text-sm font-medium">Attendance Trend Across Terms</p>
+            <p className="text-foreground text-sm font-medium">
+                Attendance Trend Across Terms
+                <GraphHelp>
+                    Line chart displaying attendance trends across multiple terms, helping identify
+                    patterns of improvement or decline over time.
+                </GraphHelp>
+            </p>
             <ChartContainer config={chartConfig} className="aspect-[3/1] w-full">
                 <LineChart
                     accessibilityLayer
@@ -72,15 +79,10 @@ export function AttendanceTermTrendLine({ data }: AttendanceTermTrendLineProps) 
                     <Line
                         dataKey="percentage"
                         type="natural"
-                        stroke="var(--color-attendance)"
+                        stroke="#22c55e"
                         strokeWidth={2}
                         dot={({ payload }) => (
-                            <Dot
-                                key={payload.termName}
-                                r={5}
-                                fill="var(--color-attendance)"
-                                stroke="var(--color-attendance)"
-                            />
+                            <Dot key={payload.termName} r={5} fill="#22c55e" stroke="#22c55e" />
                         )}
                     />
                 </LineChart>

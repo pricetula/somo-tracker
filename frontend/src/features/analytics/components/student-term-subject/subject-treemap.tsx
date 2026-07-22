@@ -10,6 +10,7 @@ import React from "react";
 import { Treemap as RechartsTreemap } from "recharts";
 
 import { type ChartConfig, ChartContainer } from "@/components/ui/chart";
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 // ─── Config ───────────────────────────────────────────────────────────────
 
@@ -33,15 +34,15 @@ export interface SubjectTreemapEntry {
 function levelFill(level: string): string {
     switch (level) {
         case "EE":
-            return "hsl(var(--chart-2))";
+            return "#22c55e";
         case "ME":
-            return "hsl(var(--chart-3))";
+            return "#3b82f6";
         case "AE":
-            return "hsl(var(--chart-4))";
+            return "#f59e0b";
         case "BE":
-            return "hsl(var(--chart-1))";
+            return "#ef4444";
         default:
-            return "hsl(var(--muted))";
+            return "#f3f4f6";
     }
 }
 
@@ -62,7 +63,13 @@ export function SubjectTreemap({ data }: SubjectTreemapProps) {
 
     return (
         <div className="space-y-2">
-            <p className="text-foreground text-sm font-medium">Subject Contribution</p>
+            <p className="text-foreground text-sm font-medium">
+                Subject Contribution
+                <GraphHelp>
+                    Treemap where rectangle size represents a subject&rsquo;s score contribution and
+                    colour indicates performance level (EE/ME/AE/BE).
+                </GraphHelp>
+            </p>
             <p className="text-muted-foreground text-xs">
                 Rectangle size = score, colour = performance level
             </p>
@@ -71,7 +78,7 @@ export function SubjectTreemap({ data }: SubjectTreemapProps) {
                     data={data}
                     dataKey="size"
                     aspectRatio={4 / 3}
-                    stroke="hsl(var(--background))"
+                    stroke="#ffffff"
                     content={({ x, y, width, height, depth, name, payload }) => {
                         if (depth !== 1) return React.createElement(React.Fragment, null);
                         const lvl = (payload as SubjectTreemapEntry)?.level ?? "AE";
@@ -94,7 +101,7 @@ export function SubjectTreemap({ data }: SubjectTreemapProps) {
                                             x={x + width / 2}
                                             y={y + height / 2 - 4}
                                             textAnchor="middle"
-                                            fill="hsl(var(--background))"
+                                            fill="#ffffff"
                                             fontSize={12}
                                             fontWeight={600}
                                         >
@@ -104,7 +111,7 @@ export function SubjectTreemap({ data }: SubjectTreemapProps) {
                                             x={x + width / 2}
                                             y={y + height / 2 + 14}
                                             textAnchor="middle"
-                                            fill="hsl(var(--background))"
+                                            fill="#ffffff"
                                             fontSize={11}
                                             opacity={0.9}
                                         >
@@ -122,10 +129,10 @@ export function SubjectTreemap({ data }: SubjectTreemapProps) {
             <div className="flex items-center gap-4">
                 <span className="text-muted-foreground text-xs">Levels:</span>
                 {[
-                    { label: "EE", cls: "bg-[hsl(var(--chart-2))]" },
-                    { label: "ME", cls: "bg-[hsl(var(--chart-3))]" },
-                    { label: "AE", cls: "bg-[hsl(var(--chart-4))]" },
-                    { label: "BE", cls: "bg-[hsl(var(--chart-1))]" },
+                    { label: "EE", cls: "bg-[#22c55e]" },
+                    { label: "ME", cls: "bg-[#3b82f6]" },
+                    { label: "AE", cls: "bg-[#f59e0b]" },
+                    { label: "BE", cls: "bg-[#ef4444]" },
                 ].map((entry) => (
                     <div key={entry.label} className="flex items-center gap-1">
                         <div className={entry.cls + " h-3 w-3 rounded"} />

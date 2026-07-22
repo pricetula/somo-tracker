@@ -14,13 +14,14 @@ import {
     ChartTooltip,
     ChartTooltipContent,
 } from "@/components/ui/chart";
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 // ─── Config ───────────────────────────────────────────────────────────────
 
 const chartConfig = {
     rank: {
         label: "Class Rank",
-        color: "hsl(var(--chart-2))",
+        color: "#22c55e",
     },
 } satisfies ChartConfig;
 
@@ -52,7 +53,13 @@ export function RankOverTermsLine({ data }: RankOverTermsLineProps) {
     // Invert Y axis so rank 1 is at the top
     return (
         <div className="space-y-2">
-            <p className="text-foreground text-sm font-medium">Rank Trend Across Terms</p>
+            <p className="text-foreground text-sm font-medium">
+                Rank Trend Across Terms
+                <GraphHelp>
+                    Line chart showing how the student&rsquo;s class rank has changed across terms.
+                    Rank 1 at the top means best-performing.
+                </GraphHelp>
+            </p>
             <ChartContainer config={chartConfig} className="aspect-[3/1] w-full">
                 <LineChart
                     accessibilityLayer
@@ -71,7 +78,7 @@ export function RankOverTermsLine({ data }: RankOverTermsLineProps) {
                             value: "Rank (1 = best)",
                             angle: -90,
                             position: "left",
-                            style: { fontSize: 10, fill: "hsl(var(--muted-foreground))" },
+                            style: { fontSize: 10, fill: "#6b7280" },
                         }}
                     />
                     <ChartTooltip
@@ -92,11 +99,9 @@ export function RankOverTermsLine({ data }: RankOverTermsLineProps) {
                     <Line
                         dataKey="rank"
                         type="monotone"
-                        stroke="var(--color-rank)"
+                        stroke="#22c55e"
                         strokeWidth={2}
-                        dot={({ payload }) => (
-                            <Dot key={payload.termName} r={5} fill="var(--color-rank)" />
-                        )}
+                        dot={({ payload }) => <Dot key={payload.termName} r={5} fill="#22c55e" />}
                     />
                 </LineChart>
             </ChartContainer>

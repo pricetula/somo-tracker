@@ -1,5 +1,6 @@
 "use client";
 
+import { AttendanceCalendar } from "@/features/attendance";
 import { WelcomeGreeting } from "./welcome-greeting";
 import {
     useClassDailyAttendance,
@@ -165,11 +166,23 @@ export function SchoolAdminDashboardPage() {
                         </>
                     )}
                 </div>
-                {classDaily.isLoading ? (
-                    <DailyCalendarHeatmapSkeleton />
-                ) : (
-                    <DailyCalendarHeatmap data={calendarData} />
-                )}
+                <div className="mt-4 grid gap-6 lg:grid-cols-2">
+                    {classDaily.isLoading ? (
+                        <>
+                            <DailyCalendarHeatmapSkeleton />
+                            <div className="bg-muted h-72 animate-pulse rounded" />
+                        </>
+                    ) : (
+                        <>
+                            <DailyCalendarHeatmap data={calendarData} />
+                            <AttendanceCalendar
+                                attendanceRateMap={Object.fromEntries(
+                                    classDailyData.map((d) => [d.date, d.daily_attendance_rate])
+                                )}
+                            />
+                        </>
+                    )}
+                </div>
             </section>
 
             {/* Teacher Delivery */}

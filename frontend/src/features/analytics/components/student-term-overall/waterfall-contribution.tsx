@@ -8,6 +8,7 @@
 
 import { Bar, BarChart, CartesianGrid, Cell, XAxis, YAxis } from "recharts";
 
+import { GraphHelp } from "@/components/GraphHelp";
 import {
     type ChartConfig,
     ChartContainer,
@@ -113,7 +114,13 @@ export function WaterfallContribution({ overallMean, subjects }: WaterfallContri
 
     return (
         <div className="space-y-2">
-            <p className="text-foreground text-sm font-medium">Subject Contribution (Waterfall)</p>
+            <p className="text-foreground text-sm font-medium">
+                Subject Contribution (Waterfall)
+                <GraphHelp>
+                    Waterfall chart showing how each subject contributes to or drags down the
+                    overall mean score. Green bars = above average, red = below.
+                </GraphHelp>
+            </p>
             <ChartContainer config={chartConfig} className="aspect-[3/1] w-full">
                 <BarChart data={chartData} barCategoryGap="20%">
                     <CartesianGrid vertical={false} />
@@ -141,10 +148,10 @@ export function WaterfallContribution({ overallMean, subjects }: WaterfallContri
                                 key={i}
                                 fill={
                                     entry.isTotal
-                                        ? "hsl(var(--muted-foreground))"
+                                        ? "#6b7280"
                                         : entry.isPositive
-                                          ? "hsl(var(--chart-2))"
-                                          : "hsl(var(--chart-1))"
+                                          ? "#22c55e"
+                                          : "#ef4444"
                                 }
                             />
                         ))}
@@ -155,11 +162,11 @@ export function WaterfallContribution({ overallMean, subjects }: WaterfallContri
             <div className="flex items-center gap-4">
                 <span className="text-muted-foreground text-xs">Contribution:</span>
                 <div className="flex items-center gap-1">
-                    <div className="h-3 w-3 rounded bg-[hsl(var(--chart-2))]" />
+                    <div className="h-3 w-3 rounded bg-[#22c55e]" />
                     <span className="text-muted-foreground text-xs">Positive</span>
                 </div>
                 <div className="flex items-center gap-1">
-                    <div className="h-3 w-3 rounded bg-[hsl(var(--chart-1))]" />
+                    <div className="h-3 w-3 rounded bg-[#ef4444]" />
                     <span className="text-muted-foreground text-xs">Negative</span>
                 </div>
                 <div className="flex items-center gap-1">

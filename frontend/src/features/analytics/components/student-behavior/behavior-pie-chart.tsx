@@ -10,10 +10,11 @@ import {
     ChartTooltip,
     ChartTooltipContent,
 } from "@/components/ui/chart";
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 const chartConfig = {
-    commendations: { label: "Commendations", color: "hsl(var(--chart-2))" },
-    disciplinary: { label: "Disciplinary", color: "hsl(var(--chart-1))" },
+    commendations: { label: "Commendations", color: "#22c55e" },
+    disciplinary: { label: "Disciplinary", color: "#ef4444" },
 } satisfies ChartConfig;
 
 interface Props {
@@ -27,13 +28,19 @@ export function BehaviorPieChart({ commendationsCount, disciplinaryCount }: Prop
         return <p className="text-muted-foreground py-8 text-center text-sm">No behaviour data.</p>;
 
     const data = [
-        { name: "commendations", value: commendationsCount, fill: "var(--color-commendations)" },
-        { name: "disciplinary", value: disciplinaryCount, fill: "var(--color-disciplinary)" },
+        { name: "commendations", value: commendationsCount, fill: "#22c55e" },
+        { name: "disciplinary", value: disciplinaryCount, fill: "#ef4444" },
     ].filter((d) => d.value > 0);
 
     return (
         <div className="space-y-2">
-            <p className="text-foreground text-sm font-medium">Behaviour Composition</p>
+            <p className="text-foreground text-sm font-medium">
+                Behaviour Composition
+                <GraphHelp>
+                    Donut chart showing the proportion of commendations versus disciplinary
+                    incidents for the student.
+                </GraphHelp>
+            </p>
             <ChartContainer
                 config={chartConfig}
                 className="mx-auto aspect-square max-h-[240px] w-full"
@@ -56,7 +63,7 @@ export function BehaviorPieChart({ commendationsCount, disciplinaryCount }: Prop
                         innerRadius={50}
                         outerRadius={90}
                         strokeWidth={2}
-                        stroke="hsl(var(--background))"
+                        stroke="#ffffff"
                         paddingAngle={2}
                     />
                 </PieChart>

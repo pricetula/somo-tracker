@@ -7,6 +7,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -44,7 +45,13 @@ export function StreamComparisonHeatmap({ data }: StreamComparisonHeatmapProps) 
 
     return (
         <div className="space-y-2">
-            <p className="text-foreground text-sm font-medium">Stream Comparison</p>
+            <p className="text-foreground text-sm font-medium">
+                Stream Comparison
+                <GraphHelp>
+                    Heatmap grid comparing all streams in a grade by average score, score range, and
+                    student count. Green shades indicate higher average performance.
+                </GraphHelp>
+            </p>
             <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                     <thead>

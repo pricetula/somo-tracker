@@ -15,17 +15,18 @@ import {
     ChartTooltipContent,
 } from "@/components/ui/chart";
 import { format, parseISO } from "date-fns";
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 // ─── Config ───────────────────────────────────────────────────────────────
 
 const chartConfig = {
     rate: {
         label: "Attendance Rate",
-        color: "hsl(var(--chart-2))",
+        color: "#22c55e",
     },
     threshold: {
         label: "80% Threshold",
-        color: "hsl(var(--destructive))",
+        color: "#ef4444",
     },
 } satisfies ChartConfig;
 
@@ -60,7 +61,13 @@ export function DailyLineChart({ data, showThreshold = true }: DailyLineChartPro
 
     return (
         <div className="space-y-2">
-            <p className="text-foreground text-sm font-medium">Daily Attendance Rate</p>
+            <p className="text-foreground text-sm font-medium">
+                Daily Attendance Rate
+                <GraphHelp>
+                    Time-series line chart showing daily attendance rate with an optional 80%
+                    threshold line. Helps identify trends and problem days.
+                </GraphHelp>
+            </p>
             <ChartContainer config={chartConfig} className="aspect-[3/1] w-full">
                 <LineChart accessibilityLayer data={chartData}>
                     <CartesianGrid vertical={false} />
@@ -86,12 +93,12 @@ export function DailyLineChart({ data, showThreshold = true }: DailyLineChartPro
                     {showThreshold && (
                         <ReferenceLine
                             y={80}
-                            stroke="var(--color-threshold)"
+                            stroke="#ef4444"
                             strokeDasharray="4 4"
                             label={{
                                 value: "80%",
                                 position: "right",
-                                fill: "hsl(var(--destructive))",
+                                fill: "#ef4444",
                                 fontSize: 11,
                             }}
                         />
@@ -99,7 +106,7 @@ export function DailyLineChart({ data, showThreshold = true }: DailyLineChartPro
                     <Line
                         dataKey="rate"
                         type="natural"
-                        stroke="var(--color-rate)"
+                        stroke="#22c55e"
                         strokeWidth={2}
                         dot={false}
                     />

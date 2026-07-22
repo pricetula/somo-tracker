@@ -11,6 +11,7 @@ import {
     ChartTooltip,
     ChartTooltipContent,
 } from "@/components/ui/chart";
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 export interface CategoryCountEntry {
     categoryName: string;
@@ -33,7 +34,13 @@ export function CategoryBreakdownBar({ data }: Props) {
 
     return (
         <div className="space-y-2">
-            <p className="text-foreground text-sm font-medium">Behaviour Categories</p>
+            <p className="text-foreground text-sm font-medium">
+                Behaviour Categories
+                <GraphHelp>
+                    Horizontal bar chart showing counts for each behaviour category, colour-coded by
+                    type (green for commendations, red for disciplinary).
+                </GraphHelp>
+            </p>
             <ChartContainer config={chartConfig} className="aspect-[3/2] w-full">
                 <BarChart data={sorted} layout="vertical" barCategoryGap="20%">
                     <CartesianGrid horizontal={false} />
@@ -52,11 +59,7 @@ export function CategoryBreakdownBar({ data }: Props) {
                         {sorted.map((e) => (
                             <Cell
                                 key={e.categoryName}
-                                fill={
-                                    e.categoryType === "COMMENDATION"
-                                        ? "hsl(var(--chart-2))"
-                                        : "hsl(var(--chart-1))"
-                                }
+                                fill={e.categoryType === "COMMENDATION" ? "#22c55e" : "#ef4444"}
                             />
                         ))}
                     </Bar>

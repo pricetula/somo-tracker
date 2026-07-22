@@ -8,6 +8,7 @@
 
 import { Bar, BarChart, CartesianGrid, Cell, XAxis } from "recharts";
 
+import { GraphHelp } from "@/components/GraphHelp";
 import {
     type ChartConfig,
     ChartContainer,
@@ -52,6 +53,10 @@ export function ActualToProjectedWaterfall({ data }: ActualToProjectedWaterfallP
         <div className="space-y-2">
             <p className="text-foreground text-sm font-medium">
                 {subjectName ? `${subjectName} — ` : ""}Current vs Projected
+                <GraphHelp>
+                    Two-bar chart comparing the student&rsquo;s current score to their projected
+                    score for the next term.
+                </GraphHelp>
             </p>
             <ChartContainer config={chartConfig} className="aspect-[3/1] w-full">
                 <BarChart data={chartData} barCategoryGap="40%">
@@ -74,10 +79,10 @@ export function ActualToProjectedWaterfall({ data }: ActualToProjectedWaterfallP
                                 key={entry.label}
                                 fill={
                                     entry.label === "Current"
-                                        ? "hsl(var(--muted-foreground))"
+                                        ? "#6b7280"
                                         : isUp
-                                          ? "hsl(var(--chart-2))"
-                                          : "hsl(var(--chart-1))"
+                                          ? "#22c55e"
+                                          : "#ef4444"
                                 }
                             />
                         ))}

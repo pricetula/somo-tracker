@@ -10,6 +10,7 @@ import {
     ChartTooltip,
     ChartTooltipContent,
 } from "@/components/ui/chart";
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 export interface TeacherWorkloadEntry {
     teacherName: string;
@@ -32,7 +33,13 @@ export function WorkloadComparisonBar({ data }: Props) {
 
     return (
         <div className="space-y-2">
-            <p className="text-foreground text-sm font-medium">Teacher Workload Comparison</p>
+            <p className="text-foreground text-sm font-medium">
+                Teacher Workload Comparison
+                <GraphHelp>
+                    Horizontal bar chart comparing weekly assigned periods across all teachers.
+                    Green = within capacity, red = overcapacity.
+                </GraphHelp>
+            </p>
             <ChartContainer config={chartConfig} className="aspect-[3/2] w-full">
                 <BarChart data={sorted} layout="vertical" barCategoryGap="20%">
                     <CartesianGrid horizontal={false} />
@@ -51,9 +58,7 @@ export function WorkloadComparisonBar({ data }: Props) {
                         {sorted.map((e) => (
                             <Cell
                                 key={e.teacherName}
-                                fill={
-                                    e.isOvercapacity ? "hsl(var(--chart-1))" : "hsl(var(--chart-2))"
-                                }
+                                fill={e.isOvercapacity ? "#ef4444" : "#22c55e"}
                             />
                         ))}
                     </Bar>

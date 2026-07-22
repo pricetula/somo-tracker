@@ -16,10 +16,11 @@ import {
     ChartTooltip,
     ChartTooltipContent,
 } from "@/components/ui/chart";
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 const chartConfig = {
-    urgent: { label: "Urgent", color: "hsl(var(--chart-1))" },
-    nonUrgent: { label: "Non-Urgent", color: "hsl(var(--chart-3))" },
+    urgent: { label: "Urgent", color: "#ef4444" },
+    nonUrgent: { label: "Non-Urgent", color: "#3b82f6" },
 } satisfies ChartConfig;
 
 interface Props {
@@ -50,7 +51,13 @@ export function UrgentBreakdownStackedBar({
 
     return (
         <div className="space-y-2">
-            <p className="text-foreground text-sm font-medium">Urgency Breakdown</p>
+            <p className="text-foreground text-sm font-medium">
+                Urgency Breakdown
+                <GraphHelp>
+                    Stacked bar chart showing the breakdown of urgent versus non-urgent incidents
+                    within disciplinary and commendation categories.
+                </GraphHelp>
+            </p>
             <ChartContainer config={chartConfig} className="aspect-[3/1] w-full">
                 <BarChart data={data} barCategoryGap="40%">
                     <CartesianGrid vertical={false} />
@@ -61,18 +68,8 @@ export function UrgentBreakdownStackedBar({
                         content={<ChartTooltipContent indicator="dot" />}
                     />
                     <ChartLegend content={<ChartLegendContent />} />
-                    <Bar
-                        dataKey="urgent"
-                        stackId="a"
-                        fill="var(--color-urgent)"
-                        radius={[0, 0, 0, 0]}
-                    />
-                    <Bar
-                        dataKey="nonUrgent"
-                        stackId="a"
-                        fill="var(--color-nonUrgent)"
-                        radius={[0, 4, 4, 0]}
-                    />
+                    <Bar dataKey="urgent" stackId="a" fill="#ef4444" radius={[0, 0, 0, 0]} />
+                    <Bar dataKey="nonUrgent" stackId="a" fill="#3b82f6" radius={[0, 4, 4, 0]} />
                 </BarChart>
             </ChartContainer>
         </div>

@@ -14,6 +14,7 @@ import {
     ChartTooltip,
     ChartTooltipContent,
 } from "@/components/ui/chart";
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -26,10 +27,10 @@ export interface SubjectAttendanceEntry {
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
 function barColor(pct: number) {
-    if (pct >= 90) return "hsl(var(--chart-2))";
-    if (pct >= 75) return "hsl(var(--chart-3))";
-    if (pct >= 50) return "hsl(var(--chart-4))";
-    return "hsl(var(--chart-1))";
+    if (pct >= 90) return "#22c55e";
+    if (pct >= 75) return "#3b82f6";
+    if (pct >= 50) return "#f59e0b";
+    return "#ef4444";
 }
 
 // ─── Component ────────────────────────────────────────────────────────────
@@ -57,7 +58,13 @@ export function AttendanceSubjectComparisonBar({ data }: AttendanceSubjectCompar
 
     return (
         <div className="space-y-2">
-            <p className="text-foreground text-sm font-medium">Attendance by Learning Area</p>
+            <p className="text-foreground text-sm font-medium">
+                Attendance by Learning Area
+                <GraphHelp>
+                    Bar chart comparing attendance percentages by learning area, revealing
+                    subject-specific truancy patterns.
+                </GraphHelp>
+            </p>
             <ChartContainer config={chartConfig} className="aspect-[3/1] w-full">
                 <BarChart accessibilityLayer data={data} layout="vertical">
                     <CartesianGrid horizontal={false} />

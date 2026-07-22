@@ -23,13 +23,14 @@ import {
     ChartTooltip,
     ChartTooltipContent,
 } from "@/components/ui/chart";
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 // ─── Config ───────────────────────────────────────────────────────────────
 
 const chartConfig = {
     score: {
         label: "Score",
-        color: "hsl(var(--foreground))",
+        color: "#1f2937",
     },
 } satisfies ChartConfig;
 
@@ -59,6 +60,10 @@ export function SubjectDotPlot({ data }: SubjectDotPlotProps) {
         <div className="space-y-2">
             <p className="text-foreground text-sm font-medium">
                 Subject Scores with Level Thresholds
+                <GraphHelp>
+                    Dot plot with threshold bands showing each subject&rsquo;s score on a horizontal
+                    scale with EE/ME/AE/BE level zones for quick visual assessment.
+                </GraphHelp>
             </p>
             <ChartContainer config={chartConfig} className="aspect-[3/1] w-full">
                 <ScatterChart margin={{ top: 8, left: 8, right: 8, bottom: 8 }}>
@@ -82,30 +87,15 @@ export function SubjectDotPlot({ data }: SubjectDotPlotProps) {
                     <ZAxis range={[100, 100]} />
 
                     {/* Threshold bands */}
-                    <ReferenceArea x1={80} x2={100} fill="hsl(var(--chart-2))" fillOpacity={0.08} />
-                    <ReferenceArea x1={60} x2={80} fill="hsl(var(--chart-3))" fillOpacity={0.08} />
-                    <ReferenceArea x1={40} x2={60} fill="hsl(var(--chart-4))" fillOpacity={0.08} />
-                    <ReferenceArea x1={0} x2={40} fill="hsl(var(--chart-1))" fillOpacity={0.08} />
+                    <ReferenceArea x1={80} x2={100} fill="#22c55e" fillOpacity={0.08} />
+                    <ReferenceArea x1={60} x2={80} fill="#3b82f6" fillOpacity={0.08} />
+                    <ReferenceArea x1={40} x2={60} fill="#f59e0b" fillOpacity={0.08} />
+                    <ReferenceArea x1={0} x2={40} fill="#ef4444" fillOpacity={0.08} />
 
                     {/* Threshold lines */}
-                    <ReferenceLine
-                        x={80}
-                        stroke="hsl(var(--chart-2))"
-                        strokeDasharray="4 4"
-                        strokeWidth={1}
-                    />
-                    <ReferenceLine
-                        x={60}
-                        stroke="hsl(var(--chart-3))"
-                        strokeDasharray="4 4"
-                        strokeWidth={1}
-                    />
-                    <ReferenceLine
-                        x={40}
-                        stroke="hsl(var(--chart-4))"
-                        strokeDasharray="4 4"
-                        strokeWidth={1}
-                    />
+                    <ReferenceLine x={80} stroke="#22c55e" strokeDasharray="4 4" strokeWidth={1} />
+                    <ReferenceLine x={60} stroke="#3b82f6" strokeDasharray="4 4" strokeWidth={1} />
+                    <ReferenceLine x={40} stroke="#f59e0b" strokeDasharray="4 4" strokeWidth={1} />
 
                     {/* Band labels via reference lines with label */}
                     <ReferenceLine
@@ -114,7 +104,7 @@ export function SubjectDotPlot({ data }: SubjectDotPlotProps) {
                         label={{
                             value: "EE",
                             position: "top",
-                            fill: "hsl(var(--muted-foreground))",
+                            fill: "#6b7280",
                             fontSize: 10,
                         }}
                     />
@@ -124,7 +114,7 @@ export function SubjectDotPlot({ data }: SubjectDotPlotProps) {
                         label={{
                             value: "ME",
                             position: "top",
-                            fill: "hsl(var(--muted-foreground))",
+                            fill: "#6b7280",
                             fontSize: 10,
                         }}
                     />
@@ -134,7 +124,7 @@ export function SubjectDotPlot({ data }: SubjectDotPlotProps) {
                         label={{
                             value: "AE",
                             position: "top",
-                            fill: "hsl(var(--muted-foreground))",
+                            fill: "#6b7280",
                             fontSize: 10,
                         }}
                     />
@@ -144,7 +134,7 @@ export function SubjectDotPlot({ data }: SubjectDotPlotProps) {
                         label={{
                             value: "BE",
                             position: "top",
-                            fill: "hsl(var(--muted-foreground))",
+                            fill: "#6b7280",
                             fontSize: 10,
                         }}
                     />
@@ -160,7 +150,7 @@ export function SubjectDotPlot({ data }: SubjectDotPlotProps) {
                             />
                         }
                     />
-                    <Scatter data={data} fill="hsl(var(--foreground))" />
+                    <Scatter data={data} fill="#1f2937" />
                 </ScatterChart>
             </ChartContainer>
         </div>

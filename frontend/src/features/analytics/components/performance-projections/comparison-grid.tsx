@@ -16,7 +16,7 @@ import { type ChartConfig, ChartContainer } from "@/components/ui/chart";
 const sparkConfig = {
     score: {
         label: "Score",
-        color: "hsl(var(--chart-2))",
+        color: "#22c55e",
     },
 } satisfies ChartConfig;
 
@@ -120,7 +120,7 @@ export function ComparisonGrid({ data }: ComparisonGridProps) {
                                 <Line
                                     type="monotone"
                                     dataKey="score"
-                                    stroke="var(--color-score)"
+                                    stroke="#22c55e"
                                     strokeWidth={1.5}
                                     dot={false}
                                 />

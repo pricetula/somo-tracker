@@ -13,10 +13,11 @@ import {
     ChartTooltip,
     ChartTooltipContent,
 } from "@/components/ui/chart";
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 const chartConfig = {
-    commendations: { label: "Commendations", color: "hsl(var(--chart-2))" },
-    disciplinary: { label: "Disciplinary", color: "hsl(var(--chart-1))" },
+    commendations: { label: "Commendations", color: "#22c55e" },
+    disciplinary: { label: "Disciplinary", color: "#ef4444" },
 } satisfies ChartConfig;
 
 export interface BehaviorTrendPoint {
@@ -34,7 +35,13 @@ export function BehaviorTrendLine({ data }: Props) {
         return <p className="text-muted-foreground py-8 text-center text-sm">No trend data.</p>;
     return (
         <div className="space-y-2">
-            <p className="text-foreground text-sm font-medium">Behaviour Trend Across Terms</p>
+            <p className="text-foreground text-sm font-medium">
+                Behaviour Trend Across Terms
+                <GraphHelp>
+                    Line chart showing commendation and disciplinary counts across terms to track
+                    behaviour patterns over time.
+                </GraphHelp>
+            </p>
             <ChartContainer config={chartConfig} className="aspect-[3/1] w-full">
                 <LineChart data={data}>
                     <CartesianGrid vertical={false} />
@@ -47,14 +54,14 @@ export function BehaviorTrendLine({ data }: Props) {
                     <Line
                         type="monotone"
                         dataKey="commendations"
-                        stroke="var(--color-commendations)"
+                        stroke="#22c55e"
                         strokeWidth={2}
                         dot={false}
                     />
                     <Line
                         type="monotone"
                         dataKey="disciplinary"
-                        stroke="var(--color-disciplinary)"
+                        stroke="#ef4444"
                         strokeWidth={2}
                         dot={false}
                     />

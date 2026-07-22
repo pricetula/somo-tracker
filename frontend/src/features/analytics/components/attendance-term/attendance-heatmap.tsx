@@ -7,6 +7,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -61,6 +62,11 @@ export function AttendanceHeatmap({ data }: AttendanceHeatmapProps) {
         <div className="space-y-2">
             <p className="text-foreground text-sm font-medium">
                 Attendance Pattern by Day &amp; Slot
+                <GraphHelp>
+                    Heatmap showing attendance patterns by day of week and time slot. Colour
+                    intensity reflects attendance rate &mdash; green for high attendance, red for
+                    low.
+                </GraphHelp>
             </p>
             <p className="text-muted-foreground text-xs">
                 Colour intensity = attendance rate. Hover for details.

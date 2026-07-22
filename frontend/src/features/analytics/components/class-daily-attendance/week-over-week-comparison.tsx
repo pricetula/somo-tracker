@@ -16,21 +16,22 @@ import {
     ChartTooltip,
     ChartTooltipContent,
 } from "@/components/ui/chart";
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 // ─── Config ───────────────────────────────────────────────────────────────
 
 const chartConfig = {
     currentWeek: {
         label: "Current Week",
-        color: "hsl(var(--chart-2))",
+        color: "#22c55e",
     },
     previousWeek: {
         label: "Previous Week",
-        color: "hsl(var(--chart-3))",
+        color: "#3b82f6",
     },
     sameWeekLastTerm: {
         label: "Same Week Last Term",
-        color: "hsl(var(--chart-5))",
+        color: "#8b5cf6",
     },
 } satisfies ChartConfig;
 
@@ -60,7 +61,13 @@ export function WeekOverWeekComparison({ data }: WeekOverWeekComparisonProps) {
 
     return (
         <div className="space-y-2">
-            <p className="text-foreground text-sm font-medium">Week-over-Week Comparison</p>
+            <p className="text-foreground text-sm font-medium">
+                Week-over-Week Comparison
+                <GraphHelp>
+                    Bar chart comparing current week against the previous week and the same week
+                    last term to track attendance trends.
+                </GraphHelp>
+            </p>
             <ChartContainer config={chartConfig} className="aspect-[3/1] w-full">
                 <BarChart accessibilityLayer data={data} barCategoryGap="30%">
                     <CartesianGrid vertical={false} />
@@ -70,22 +77,10 @@ export function WeekOverWeekComparison({ data }: WeekOverWeekComparisonProps) {
                         content={<ChartTooltipContent indicator="dot" />}
                     />
                     <ChartLegend content={<ChartLegendContent />} />
-                    <Bar
-                        dataKey="currentWeek"
-                        fill="var(--color-currentWeek)"
-                        radius={[4, 4, 0, 0]}
-                    />
-                    <Bar
-                        dataKey="previousWeek"
-                        fill="var(--color-previousWeek)"
-                        radius={[4, 4, 0, 0]}
-                    />
+                    <Bar dataKey="currentWeek" fill="#22c55e" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="previousWeek" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                     {data[0]?.sameWeekLastTerm !== undefined && (
-                        <Bar
-                            dataKey="sameWeekLastTerm"
-                            fill="var(--color-sameWeekLastTerm)"
-                            radius={[4, 4, 0, 0]}
-                        />
+                        <Bar dataKey="sameWeekLastTerm" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
                     )}
                 </BarChart>
             </ChartContainer>

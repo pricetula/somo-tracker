@@ -5,6 +5,7 @@
 
 import { Label, PolarGrid, PolarRadiusAxis, RadialBar, RadialBarChart } from "recharts";
 import { type ChartConfig, ChartContainer } from "@/components/ui/chart";
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 interface Props {
     utilization: number;
@@ -13,12 +14,21 @@ interface Props {
 }
 
 export function WorkloadUtilizationGauge({ utilization, isOvercapacity, teacherName }: Props) {
-    const color = isOvercapacity ? "hsl(var(--chart-1))" : "hsl(var(--chart-2))";
+    const color = isOvercapacity ? "#ef4444" : "#22c55e";
     const config: ChartConfig = { utilization: { label: "Utilization", color } };
     const endAngle = 90 + (utilization / 100) * 270;
     return (
         <div className="space-y-2">
             {teacherName && <p className="text-foreground text-sm font-medium">{teacherName}</p>}
+            {!teacherName && (
+                <p className="text-foreground text-sm font-medium">
+                    Workload Utilization
+                    <GraphHelp>
+                        Gauge chart showing teacher workload utilisation percentage with an
+                        overcapacity threshold. Green = within capacity, red = overcapacity.
+                    </GraphHelp>
+                </p>
+            )}
             <ChartContainer config={config} className="mx-auto aspect-square max-h-[220px] w-full">
                 <RadialBarChart
                     data={[{ value: utilization }]}
@@ -31,7 +41,7 @@ export function WorkloadUtilizationGauge({ utilization, isOvercapacity, teacherN
                     <PolarGrid
                         gridType="circle"
                         radialLines={false}
-                        stroke="hsl(var(--border))"
+                        stroke="#e5e7eb"
                         className="first:fill-muted last:fill-background"
                     />
                     <RadialBar dataKey="value" cornerRadius={8} />

@@ -9,6 +9,7 @@
 import { Label, PolarGrid, PolarRadiusAxis, RadialBar, RadialBarChart } from "recharts";
 
 import { type ChartConfig, ChartContainer } from "@/components/ui/chart";
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -23,10 +24,10 @@ export interface StrandGaugeDatum {
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
 function gaugeColor(pct: number): string {
-    if (pct >= 80) return "hsl(var(--chart-2))";
-    if (pct >= 60) return "hsl(var(--chart-3))";
-    if (pct >= 40) return "hsl(var(--chart-4))";
-    return "hsl(var(--chart-1))";
+    if (pct >= 80) return "#22c55e";
+    if (pct >= 60) return "#3b82f6";
+    if (pct >= 40) return "#f59e0b";
+    return "#ef4444";
 }
 
 // ─── Component ────────────────────────────────────────────────────────────
@@ -46,7 +47,13 @@ export function StrandGauge({ data }: StrandGaugeProps) {
 
     return (
         <div className="space-y-2">
-            <p className="text-foreground text-sm font-medium">Sub-Strand Mastery Gauges</p>
+            <p className="text-foreground text-sm font-medium">
+                Sub-Strand Mastery Gauges
+                <GraphHelp>
+                    Compact gauges showing mastery percentage for each sub-strand. Colour
+                    thresholds: green (≥80%), yellow (≥60%), orange (≥40%), red (&lt;40%).
+                </GraphHelp>
+            </p>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
                 {data.map((item) => {
                     const color = gaugeColor(item.masteryPercentage);
@@ -77,7 +84,7 @@ export function StrandGauge({ data }: StrandGaugeProps) {
                                     <PolarGrid
                                         gridType="circle"
                                         radialLines={false}
-                                        stroke="hsl(var(--border))"
+                                        stroke="#e5e7eb"
                                         className="first:fill-muted last:fill-background"
                                     />
                                     <RadialBar dataKey="value" cornerRadius={4} />

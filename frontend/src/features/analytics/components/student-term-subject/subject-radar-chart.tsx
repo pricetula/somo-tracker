@@ -14,13 +14,14 @@ import {
     ChartTooltip,
     ChartTooltipContent,
 } from "@/components/ui/chart";
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 // ─── Config ───────────────────────────────────────────────────────────────
 
 const chartConfig = {
     score: {
         label: "Score",
-        color: "hsl(var(--chart-2))",
+        color: "#22c55e",
     },
 } satisfies ChartConfig;
 
@@ -49,21 +50,25 @@ export function SubjectRadarChartView({ data }: SubjectRadarChartProps) {
 
     return (
         <div className="space-y-2">
-            <p className="text-foreground text-sm font-medium">Performance Across Subjects</p>
+            <p className="text-foreground text-sm font-medium">
+                Performance Across Subjects
+                <GraphHelp>
+                    Multi-axis radar chart showing performance across all subjects. Each axis
+                    represents a subject; the area reveals the student&rsquo;s relative strengths
+                    and weaknesses.
+                </GraphHelp>
+            </p>
             <ChartContainer
                 config={chartConfig}
                 className="mx-auto aspect-square max-h-[320px] w-full"
             >
                 <RadarChart data={data}>
-                    <PolarGrid stroke="hsl(var(--border))" />
-                    <PolarAngleAxis
-                        dataKey="subject"
-                        tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
-                    />
+                    <PolarGrid stroke="#e5e7eb" />
+                    <PolarAngleAxis dataKey="subject" tick={{ fontSize: 11, fill: "#6b7280" }} />
                     <PolarRadiusAxis
                         angle={30}
                         domain={[0, 100]}
-                        tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                        tick={{ fontSize: 10, fill: "#6b7280" }}
                     />
                     <ChartTooltip
                         content={
@@ -78,8 +83,8 @@ export function SubjectRadarChartView({ data }: SubjectRadarChartProps) {
                     <Radar
                         name="Score"
                         dataKey="score"
-                        stroke="var(--color-score)"
-                        fill="var(--color-score)"
+                        stroke="#22c55e"
+                        fill="#22c55e"
                         fillOpacity={0.2}
                     />
                 </RadarChart>

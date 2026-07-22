@@ -14,13 +14,14 @@ import {
     ChartTooltip,
     ChartTooltipContent,
 } from "@/components/ui/chart";
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 // ─── Config ───────────────────────────────────────────────────────────────
 
 const chartConfig = {
     rate: {
         label: "Avg Attendance",
-        color: "hsl(var(--chart-2))",
+        color: "#22c55e",
     },
 } satisfies ChartConfig;
 
@@ -51,7 +52,13 @@ export function DayOfWeekBar({ data }: DayOfWeekBarProps) {
 
     return (
         <div className="space-y-2">
-            <p className="text-foreground text-sm font-medium">Average Attendance by Day of Week</p>
+            <p className="text-foreground text-sm font-medium">
+                Average Attendance by Day of Week
+                <GraphHelp>
+                    Bar chart showing average attendance rate for each day of the week. Helps
+                    identify patterns such as a &ldquo;Friday slump&rdquo;.
+                </GraphHelp>
+            </p>
             <ChartContainer config={chartConfig} className="aspect-[3/1] w-full">
                 <BarChart accessibilityLayer data={sorted}>
                     <CartesianGrid vertical={false} />
@@ -67,12 +74,7 @@ export function DayOfWeekBar({ data }: DayOfWeekBarProps) {
                             />
                         }
                     />
-                    <Bar
-                        dataKey="averageRate"
-                        fill="var(--color-rate)"
-                        radius={[4, 4, 0, 0]}
-                        barSize={40}
-                    />
+                    <Bar dataKey="averageRate" fill="#22c55e" radius={[4, 4, 0, 0]} barSize={40} />
                 </BarChart>
             </ChartContainer>
         </div>

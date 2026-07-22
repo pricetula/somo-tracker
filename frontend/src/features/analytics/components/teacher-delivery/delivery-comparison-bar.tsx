@@ -10,6 +10,7 @@ import {
     ChartTooltip,
     ChartTooltipContent,
 } from "@/components/ui/chart";
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 export interface TeacherDeliveryRate {
     teacherName: string;
@@ -30,7 +31,12 @@ export function DeliveryComparisonBar({ data }: Props) {
 
     return (
         <div className="space-y-2">
-            <p className="text-foreground text-sm font-medium">Teacher Delivery Rates</p>
+            <p className="text-foreground text-sm font-medium">
+                Teacher Delivery Rates
+                <GraphHelp>
+                    Side-by-side comparison of lesson delivery rates across teaching staff.
+                </GraphHelp>
+            </p>
             <ChartContainer config={chartConfig} className="aspect-[3/1] w-full">
                 <BarChart data={sorted} layout="vertical" barCategoryGap="20%">
                     <CartesianGrid horizontal={false} />
@@ -61,10 +67,10 @@ export function DeliveryComparisonBar({ data }: Props) {
                                 key={e.teacherName}
                                 fill={
                                     e.submissionRate >= 95
-                                        ? "hsl(var(--chart-2))"
+                                        ? "#22c55e"
                                         : e.submissionRate >= 80
-                                          ? "hsl(var(--chart-3))"
-                                          : "hsl(var(--chart-1))"
+                                          ? "#3b82f6"
+                                          : "#ef4444"
                                 }
                             />
                         ))}

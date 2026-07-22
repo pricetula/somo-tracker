@@ -609,7 +609,7 @@ function mockTeacherPerformanceSummaries(
         {
             id: "tp-2",
             user_id: "teacher-1",
-            teacher_name: "Mr. Kamau",
+            teacher_name: "Mr. Njogu",
             learning_area_id: "la-2",
             learning_area_name: "English",
             class_id: "class-1",

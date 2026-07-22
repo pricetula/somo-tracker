@@ -1,5 +1,6 @@
 "use client";
 
+import { AttendanceCalendar } from "@/features/attendance";
 import { WelcomeGreeting } from "./welcome-greeting";
 import {
     useClassDailyAttendance,
@@ -171,6 +172,18 @@ export function TeacherDashboardPage() {
                         </>
                     )}
                 </div>
+
+                {classDaily.isLoading ? (
+                    <div className="bg-muted mt-4 h-72 w-full max-w-md animate-pulse rounded" />
+                ) : (
+                    <div className="mt-4">
+                        <AttendanceCalendar
+                            attendanceRateMap={Object.fromEntries(
+                                classDailyData.map((d) => [d.date, d.daily_attendance_rate])
+                            )}
+                        />
+                    </div>
+                )}
             </section>
 
             {/* My Performance */}

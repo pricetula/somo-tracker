@@ -10,13 +10,14 @@ import { Line, LineChart } from "recharts";
 
 import { type ChartConfig, ChartContainer } from "@/components/ui/chart";
 import { cn } from "@/lib/utils";
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 // ─── Config ───────────────────────────────────────────────────────────────
 
 const sparkConfig = {
     score: {
         label: "Score",
-        color: "hsl(var(--chart-2))",
+        color: "#22c55e",
     },
 } satisfies ChartConfig;
 
@@ -64,7 +65,13 @@ export function ProjectionTableSparklines({ data }: ProjectionTableSparklinesPro
 
     return (
         <div className="space-y-2">
-            <p className="text-foreground text-sm font-medium">Subject Projections</p>
+            <p className="text-foreground text-sm font-medium">
+                Subject Projections
+                <GraphHelp>
+                    Dashboard table showing projected scores for each subject with inline mini trend
+                    charts (sparklines), risk levels, and confidence indicators.
+                </GraphHelp>
+            </p>
             <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                     <thead>
@@ -99,7 +106,7 @@ export function ProjectionTableSparklines({ data }: ProjectionTableSparklinesPro
                                             <Line
                                                 type="monotone"
                                                 dataKey="score"
-                                                stroke="var(--color-score)"
+                                                stroke="#22c55e"
                                                 strokeWidth={1.5}
                                                 dot={false}
                                             />

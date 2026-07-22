@@ -14,13 +14,14 @@ import {
     ChartTooltip,
     ChartTooltipContent,
 } from "@/components/ui/chart";
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 // ─── Config ───────────────────────────────────────────────────────────────
 
 const chartConfig = {
     score: {
         label: "Score",
-        color: "hsl(var(--chart-2))",
+        color: "#22c55e",
     },
 } satisfies ChartConfig;
 
@@ -61,7 +62,13 @@ export function ClassScoreScatter({ students, referenceLines }: ClassScoreScatte
 
     return (
         <div className="space-y-2">
-            <p className="text-foreground text-sm font-medium">Class Score Distribution</p>
+            <p className="text-foreground text-sm font-medium">
+                Class Score Distribution
+                <GraphHelp>
+                    Scatter plot of all students in a class showing individual scores. Reference
+                    lines mark class and grade averages to identify outliers.
+                </GraphHelp>
+            </p>
             <ChartContainer config={chartConfig} className="aspect-[3/1] w-full">
                 <ScatterChart margin={{ top: 8, left: 8, right: 8, bottom: 8 }}>
                     <CartesianGrid strokeDasharray="3 3" />
@@ -80,23 +87,23 @@ export function ClassScoreScatter({ students, referenceLines }: ClassScoreScatte
                     {/* Reference lines */}
                     <ReferenceLine
                         y={referenceLines.classAverage}
-                        stroke="hsl(var(--chart-2))"
+                        stroke="#22c55e"
                         strokeDasharray="4 4"
                         label={{
                             value: "Class Avg",
                             position: "right",
-                            fill: "hsl(var(--chart-2))",
+                            fill: "#22c55e",
                             fontSize: 10,
                         }}
                     />
                     <ReferenceLine
                         y={referenceLines.gradeAverage}
-                        stroke="hsl(var(--chart-4))"
+                        stroke="#f59e0b"
                         strokeDasharray="4 4"
                         label={{
                             value: "Grade Avg",
                             position: "right",
-                            fill: "hsl(var(--chart-4))",
+                            fill: "#f59e0b",
                             fontSize: 10,
                         }}
                     />
@@ -116,7 +123,7 @@ export function ClassScoreScatter({ students, referenceLines }: ClassScoreScatte
                             />
                         }
                     />
-                    <Scatter data={chartData} fill="var(--color-score)" />
+                    <Scatter data={chartData} fill="#22c55e" />
                 </ScatterChart>
             </ChartContainer>
         </div>

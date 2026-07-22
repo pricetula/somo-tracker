@@ -5,6 +5,7 @@
 
 import { Label, PolarGrid, PolarRadiusAxis, RadialBar, RadialBarChart } from "recharts";
 import { type ChartConfig, ChartContainer } from "@/components/ui/chart";
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 interface Props {
     rate: number;
@@ -13,17 +14,21 @@ interface Props {
 }
 
 export function DeliveryGauge({ rate, target = 95, teacherName }: Props) {
-    const color =
-        rate >= target
-            ? "hsl(var(--chart-2))"
-            : rate >= 80
-              ? "hsl(var(--chart-3))"
-              : "hsl(var(--chart-1))";
+    const color = rate >= target ? "#22c55e" : rate >= 80 ? "#3b82f6" : "#ef4444";
     const config: ChartConfig = { rate: { label: "Submission Rate", color } };
     const endAngle = 90 + (rate / 100) * 270;
     return (
         <div className="space-y-2">
             {teacherName && <p className="text-foreground text-sm font-medium">{teacherName}</p>}
+            {!teacherName && (
+                <p className="text-foreground text-sm font-medium">
+                    On-Time Submission Rate
+                    <GraphHelp>
+                        Gauge chart showing the on-time lesson submission rate with a target line.
+                        Green = on target, red = below threshold.
+                    </GraphHelp>
+                </p>
+            )}
             <ChartContainer config={config} className="mx-auto aspect-square max-h-[220px] w-full">
                 <RadialBarChart
                     data={[{ value: rate }]}
@@ -36,7 +41,7 @@ export function DeliveryGauge({ rate, target = 95, teacherName }: Props) {
                     <PolarGrid
                         gridType="circle"
                         radialLines={false}
-                        stroke="hsl(var(--border))"
+                        stroke="#e5e7eb"
                         className="first:fill-muted last:fill-background"
                     />
                     <RadialBar dataKey="value" cornerRadius={8} />

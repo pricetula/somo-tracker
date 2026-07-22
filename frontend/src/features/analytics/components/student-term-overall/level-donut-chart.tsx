@@ -16,25 +16,26 @@ import {
     ChartTooltip,
     ChartTooltipContent,
 } from "@/components/ui/chart";
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 // ─── Config ───────────────────────────────────────────────────────────────
 
 const chartConfig = {
     exceeding: {
         label: "Exceeding (EE)",
-        color: "hsl(var(--chart-2))",
+        color: "#22c55e",
     },
     meeting: {
         label: "Meeting (ME)",
-        color: "hsl(var(--chart-3))",
+        color: "#3b82f6",
     },
     approaching: {
         label: "Approaching (AE)",
-        color: "hsl(var(--chart-4))",
+        color: "#f59e0b",
     },
     below: {
         label: "Below (BE)",
-        color: "hsl(var(--chart-1))",
+        color: "#ef4444",
     },
 } satisfies ChartConfig;
 
@@ -65,15 +66,21 @@ export function LevelDonutChart({ data }: LevelDonutChartProps) {
     }
 
     const pieData = [
-        { name: "exceeding", value: data.exceeding, fill: "var(--color-exceeding)" },
-        { name: "meeting", value: data.meeting, fill: "var(--color-meeting)" },
-        { name: "approaching", value: data.approaching, fill: "var(--color-approaching)" },
-        { name: "below", value: data.below, fill: "var(--color-below)" },
+        { name: "exceeding", value: data.exceeding, fill: "#22c55e" },
+        { name: "meeting", value: data.meeting, fill: "#3b82f6" },
+        { name: "approaching", value: data.approaching, fill: "#f59e0b" },
+        { name: "below", value: data.below, fill: "#ef4444" },
     ].filter((d) => d.value > 0);
 
     return (
         <div className="space-y-2">
-            <p className="text-foreground text-sm font-medium">Performance Level Distribution</p>
+            <p className="text-foreground text-sm font-medium">
+                Performance Level Distribution
+                <GraphHelp>
+                    Donut chart showing the proportion of subjects at each performance level:
+                    Exceeding (EE), Meeting (ME), Approaching (AE), Below (BE).
+                </GraphHelp>
+            </p>
             <ChartContainer
                 config={chartConfig}
                 className="mx-auto aspect-square max-h-[260px] w-full"
@@ -98,7 +105,7 @@ export function LevelDonutChart({ data }: LevelDonutChartProps) {
                         innerRadius={60}
                         outerRadius={100}
                         strokeWidth={2}
-                        stroke="hsl(var(--background))"
+                        stroke="#ffffff"
                         paddingAngle={2}
                     />
                     <ChartLegend content={<ChartLegendContent />} />

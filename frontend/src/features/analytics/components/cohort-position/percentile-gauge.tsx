@@ -6,6 +6,8 @@
  */
 "use client";
 
+import { GraphHelp } from "@/features/analytics/components/graph-help";
+
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
 function performanceLabel(percentile: number): string {
@@ -39,6 +41,14 @@ export function PercentileGauge({
     return (
         <div className="space-y-4">
             {studentName && <p className="text-foreground text-sm font-medium">{studentName}</p>}
+
+            <p className="text-foreground text-sm font-medium">
+                Percentile Rank
+                <GraphHelp>
+                    Shows the student&rsquo;s percentile rank within their class and grade. Higher
+                    percentage means they are outperforming more peers.
+                </GraphHelp>
+            </p>
 
             <div className="grid grid-cols-2 gap-4">
                 {/* Class percentile */}

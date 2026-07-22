@@ -14,6 +14,7 @@ import {
     ChartTooltip,
     ChartTooltipContent,
 } from "@/components/ui/chart";
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 // ─── Config ───────────────────────────────────────────────────────────────
 
@@ -62,7 +63,13 @@ export function ClassVsGradeBar({ data }: ClassVsGradeBarProps) {
 
     return (
         <div className="space-y-2">
-            <p className="text-foreground text-sm font-medium">Class vs Grade Rank</p>
+            <p className="text-foreground text-sm font-medium">
+                Class vs Grade Rank
+                <GraphHelp>
+                    Side-by-side bar comparing the student&rsquo;s rank within their class versus
+                    their rank across the entire grade.
+                </GraphHelp>
+            </p>
             <ChartContainer config={chartConfig} className="aspect-[3/1] w-full">
                 <BarChart data={chartData} barCategoryGap="40%">
                     <CartesianGrid vertical={false} />
@@ -75,7 +82,7 @@ export function ClassVsGradeBar({ data }: ClassVsGradeBarProps) {
                             value: "Rank",
                             angle: -90,
                             position: "left",
-                            style: { fontSize: 10, fill: "hsl(var(--muted-foreground))" },
+                            style: { fontSize: 10, fill: "#6b7280" },
                         }}
                     />
                     <ChartTooltip
@@ -99,11 +106,7 @@ export function ClassVsGradeBar({ data }: ClassVsGradeBarProps) {
                         {chartData.map((entry) => (
                             <Cell
                                 key={entry.label}
-                                fill={
-                                    entry.label === "Class"
-                                        ? "hsl(var(--chart-2))"
-                                        : "hsl(var(--chart-4))"
-                                }
+                                fill={entry.label === "Class" ? "#22c55e" : "#f59e0b"}
                             />
                         ))}
                     </Bar>
@@ -112,13 +115,13 @@ export function ClassVsGradeBar({ data }: ClassVsGradeBarProps) {
 
             <div className="flex items-center justify-center gap-6 text-xs">
                 <div className="flex items-center gap-1">
-                    <div className="h-3 w-3 rounded bg-[hsl(var(--chart-2))]" />
+                    <div className="h-3 w-3 rounded bg-[#22c55e]" />
                     <span className="text-muted-foreground">
                         Class: #{data.classRank} of {data.classHeadcount}
                     </span>
                 </div>
                 <div className="flex items-center gap-1">
-                    <div className="h-3 w-3 rounded bg-[hsl(var(--chart-4))]" />
+                    <div className="h-3 w-3 rounded bg-[#f59e0b]" />
                     <span className="text-muted-foreground">
                         Grade: #{data.gradeRank} of {data.gradeHeadcount}
                     </span>

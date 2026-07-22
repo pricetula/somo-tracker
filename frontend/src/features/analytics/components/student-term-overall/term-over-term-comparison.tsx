@@ -14,13 +14,14 @@ import {
     ChartTooltip,
     ChartTooltipContent,
 } from "@/components/ui/chart";
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 // ─── Config ───────────────────────────────────────────────────────────────
 
 const chartConfig = {
     score: {
         label: "Overall %",
-        color: "hsl(var(--chart-2))",
+        color: "#22c55e",
     },
 } satisfies ChartConfig;
 
@@ -48,7 +49,13 @@ export function TermOverTermComparison({ data }: TermOverTermComparisonProps) {
 
     return (
         <div className="space-y-2">
-            <p className="text-foreground text-sm font-medium">Term-over-Term Comparison</p>
+            <p className="text-foreground text-sm font-medium">
+                Term-over-Term Comparison
+                <GraphHelp>
+                    Side-by-side bar chart comparing overall scores across terms (Term 1 vs Term 2
+                    vs Term 3) to show progress over time.
+                </GraphHelp>
+            </p>
             <ChartContainer config={chartConfig} className="aspect-[3/1] w-full">
                 <BarChart accessibilityLayer data={data} barCategoryGap="30%">
                     <CartesianGrid vertical={false} />
@@ -64,12 +71,7 @@ export function TermOverTermComparison({ data }: TermOverTermComparisonProps) {
                             />
                         }
                     />
-                    <Bar
-                        dataKey="score"
-                        fill="var(--color-score)"
-                        radius={[4, 4, 0, 0]}
-                        barSize={50}
-                    />
+                    <Bar dataKey="score" fill="#22c55e" radius={[4, 4, 0, 0]} barSize={50} />
                 </BarChart>
             </ChartContainer>
         </div>

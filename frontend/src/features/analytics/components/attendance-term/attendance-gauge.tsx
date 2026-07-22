@@ -9,13 +9,14 @@
 import { Label, PolarGrid, PolarRadiusAxis, RadialBar, RadialBarChart } from "recharts";
 
 import { type ChartConfig, ChartContainer } from "@/components/ui/chart";
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
 function gaugeColor(pct: number) {
-    if (pct >= 90) return "hsl(var(--emerald))";
-    if (pct >= 75) return "hsl(var(--amber))";
-    return "hsl(var(--destructive))";
+    if (pct >= 90) return "#10b981";
+    if (pct >= 75) return "#f59e0b";
+    return "#ef4444";
 }
 
 function gaugeLabel(pct: number) {
@@ -59,6 +60,11 @@ export function AttendanceGauge({
                 <p className="text-foreground text-sm font-medium">
                     {studentName && `${studentName}`}
                     {learningAreaName && ` — ${learningAreaName}`}
+                    <GraphHelp>
+                        Gauge chart showing a single student&rsquo;s attendance percentage for the
+                        current term. Colour indicates performance: green (≥90%), amber (≥75%), or
+                        red (&lt;75%).
+                    </GraphHelp>
                 </p>
             )}
             <ChartContainer config={config} className="mx-auto aspect-square max-h-[220px] w-full">
@@ -73,7 +79,7 @@ export function AttendanceGauge({
                     <PolarGrid
                         gridType="circle"
                         radialLines={false}
-                        stroke="hsl(var(--border))"
+                        stroke="#e5e7eb"
                         className="first:fill-muted last:fill-background"
                     />
                     <RadialBar dataKey="value" cornerRadius={8} />

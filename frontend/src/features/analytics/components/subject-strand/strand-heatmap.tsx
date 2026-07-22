@@ -7,6 +7,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -61,6 +62,10 @@ export function StrandHeatmap({ data }: StrandHeatmapProps) {
         <div className="space-y-2">
             <p className="text-foreground text-sm font-medium">
                 Strand Mastery Heatmap — {learningAreaName}
+                <GraphHelp>
+                    Colour-coded grid of all sub-strands, one row per strand. Green = high mastery,
+                    red = needs remediation.
+                </GraphHelp>
             </p>
             <div className="overflow-x-auto">
                 <table className="w-full text-sm">

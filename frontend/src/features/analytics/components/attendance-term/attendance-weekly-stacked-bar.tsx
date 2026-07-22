@@ -16,25 +16,26 @@ import {
     ChartTooltip,
     ChartTooltipContent,
 } from "@/components/ui/chart";
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 // ─── Config ───────────────────────────────────────────────────────────────
 
 const chartConfig = {
     present: {
         label: "Present",
-        color: "hsl(var(--chart-2))",
+        color: "#22c55e",
     },
     late: {
         label: "Late",
-        color: "hsl(var(--chart-3))",
+        color: "#3b82f6",
     },
     absent: {
         label: "Absent",
-        color: "hsl(var(--chart-1))",
+        color: "#ef4444",
     },
     excused: {
         label: "Excused",
-        color: "hsl(var(--chart-5))",
+        color: "#8b5cf6",
     },
 } satisfies ChartConfig;
 
@@ -66,7 +67,13 @@ export function AttendanceWeeklyStackedBar({ data }: AttendanceWeeklyStackedBarP
 
     return (
         <div className="space-y-2">
-            <p className="text-foreground text-sm font-medium">Weekly Attendance Breakdown</p>
+            <p className="text-foreground text-sm font-medium">
+                Weekly Attendance Breakdown
+                <GraphHelp>
+                    Stacked bar chart breaking down weekly attendance into Present, Late, Absent,
+                    and Excused categories.
+                </GraphHelp>
+            </p>
             <ChartContainer config={chartConfig} className="aspect-[3/1] w-full">
                 <BarChart accessibilityLayer data={data} barCategoryGap="20%">
                     <CartesianGrid vertical={false} />
@@ -76,30 +83,10 @@ export function AttendanceWeeklyStackedBar({ data }: AttendanceWeeklyStackedBarP
                         content={<ChartTooltipContent indicator="dot" />}
                     />
                     <ChartLegend content={<ChartLegendContent />} />
-                    <Bar
-                        dataKey="present"
-                        stackId="a"
-                        fill="var(--color-present)"
-                        radius={[0, 0, 0, 0]}
-                    />
-                    <Bar
-                        dataKey="late"
-                        stackId="a"
-                        fill="var(--color-late)"
-                        radius={[0, 0, 0, 0]}
-                    />
-                    <Bar
-                        dataKey="absent"
-                        stackId="a"
-                        fill="var(--color-absent)"
-                        radius={[0, 0, 0, 0]}
-                    />
-                    <Bar
-                        dataKey="excused"
-                        stackId="a"
-                        fill="var(--color-excused)"
-                        radius={[0, 0, 0, 0]}
-                    />
+                    <Bar dataKey="present" stackId="a" fill="#22c55e" radius={[0, 0, 0, 0]} />
+                    <Bar dataKey="late" stackId="a" fill="#3b82f6" radius={[0, 0, 0, 0]} />
+                    <Bar dataKey="absent" stackId="a" fill="#ef4444" radius={[0, 0, 0, 0]} />
+                    <Bar dataKey="excused" stackId="a" fill="#8b5cf6" radius={[0, 0, 0, 0]} />
                 </BarChart>
             </ChartContainer>
         </div>

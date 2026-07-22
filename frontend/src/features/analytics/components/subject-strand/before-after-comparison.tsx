@@ -16,17 +16,18 @@ import {
     ChartTooltip,
     ChartTooltipContent,
 } from "@/components/ui/chart";
+import { GraphHelp } from "@/features/analytics/components/graph-help";
 
 // ─── Config ───────────────────────────────────────────────────────────────
 
 const chartConfig = {
     before: {
         label: "Before",
-        color: "hsl(var(--chart-1))",
+        color: "#ef4444",
     },
     after: {
         label: "After",
-        color: "hsl(var(--chart-2))",
+        color: "#22c55e",
     },
 } satisfies ChartConfig;
 
@@ -55,7 +56,13 @@ export function BeforeAfterComparison({ data }: BeforeAfterComparisonProps) {
 
     return (
         <div className="space-y-2">
-            <p className="text-foreground text-sm font-medium">Remediation Impact</p>
+            <p className="text-foreground text-sm font-medium">
+                Remediation Impact
+                <GraphHelp>
+                    Bar chart comparing mastery percentages before and after remediation
+                    intervention, showing improvement for each sub-strand.
+                </GraphHelp>
+            </p>
             <ChartContainer config={chartConfig} className="aspect-[3/1] w-full">
                 <BarChart accessibilityLayer data={data} barCategoryGap="30%">
                     <CartesianGrid vertical={false} />
@@ -80,8 +87,8 @@ export function BeforeAfterComparison({ data }: BeforeAfterComparisonProps) {
                         }
                     />
                     <ChartLegend content={<ChartLegendContent />} />
-                    <Bar dataKey="beforePct" fill="var(--color-before)" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="afterPct" fill="var(--color-after)" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="beforePct" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="afterPct" fill="#22c55e" radius={[4, 4, 0, 0]} />
                 </BarChart>
             </ChartContainer>
 

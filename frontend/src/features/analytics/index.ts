@@ -53,8 +53,6 @@ export {
 
 // Components — Section 2.2 (Class Daily Attendance)
 export {
-    DailyCalendarHeatmap,
-    DailyCalendarHeatmapSkeleton,
     DailyLineChart,
     DailyLineChartSkeleton,
     DayOfWeekBar,
@@ -225,7 +223,6 @@ export type {
     TermAttendancePoint,
     SubjectAttendanceEntry,
     AttendanceVsPerformancePoint,
-    CalendarDayData,
     DailyAttendancePoint,
     DayOfWeekAverage,
     ClassSparklineData,

@@ -12,8 +12,6 @@ import {
     DailyLineChartSkeleton,
     DayOfWeekBar,
     DayOfWeekBarSkeleton,
-    DailyCalendarHeatmap,
-    DailyCalendarHeatmapSkeleton,
     DeliveryGauge,
     DeliveryGaugeSkeleton,
     DeliveryComparisonBar,
@@ -53,11 +51,6 @@ export function SchoolAdminDashboardPage() {
                 : 0;
         return { dayName: day, averageRate: avg };
     });
-
-    const calendarData = classDailyData.map((d) => ({
-        date: d.date,
-        rate: d.daily_attendance_rate,
-    }));
 
     const teacherPerfData = teacherPerf.data ?? [];
     const deliveryData = delivery.data ?? [];
@@ -166,21 +159,15 @@ export function SchoolAdminDashboardPage() {
                         </>
                     )}
                 </div>
-                <div className="mt-4 grid gap-6 lg:grid-cols-2">
+                <div className="mt-4">
                     {classDaily.isLoading ? (
-                        <>
-                            <DailyCalendarHeatmapSkeleton />
-                            <div className="bg-muted h-72 animate-pulse rounded" />
-                        </>
+                        <div className="bg-muted h-72 animate-pulse rounded" />
                     ) : (
-                        <>
-                            <DailyCalendarHeatmap data={calendarData} />
-                            <AttendanceCalendar
-                                attendanceRateMap={Object.fromEntries(
-                                    classDailyData.map((d) => [d.date, d.daily_attendance_rate])
-                                )}
-                            />
-                        </>
+                        <AttendanceCalendar
+                            attendanceRateMap={Object.fromEntries(
+                                classDailyData.map((d) => [d.date, d.daily_attendance_rate])
+                            )}
+                        />
                     )}
                 </div>
             </section>

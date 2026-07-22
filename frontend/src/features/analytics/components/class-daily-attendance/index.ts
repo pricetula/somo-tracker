@@ -2,9 +2,6 @@
  * Class Daily Attendance Summaries — Section 2.2 components barrel.
  */
 
-export { DailyCalendarHeatmap, DailyCalendarHeatmapSkeleton } from "./daily-calendar-heatmap";
-export type { CalendarDayData } from "./daily-calendar-heatmap";
-
 export { DailyLineChart, DailyLineChartSkeleton } from "./daily-line-chart";
 export type { DailyAttendancePoint } from "./daily-line-chart";
 

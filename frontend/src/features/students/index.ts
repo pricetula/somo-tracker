@@ -2,6 +2,7 @@
  * Students feature — public API barrel.
  */
 
+export { StudentDetailContent } from "./components/student-detail-content";
 export { StudentProfileCard } from "./components/student-profile-card";
 export { StudentForm } from "./components/student-form";
 export { EnrollmentTimeline } from "./components/enrollment-timeline";

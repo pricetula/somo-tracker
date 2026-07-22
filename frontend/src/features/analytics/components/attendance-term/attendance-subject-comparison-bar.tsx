@@ -1,0 +1,110 @@
+/**
+ * AttendanceSubjectComparisonBar — Bar chart comparing attendance % by learning area.
+ *
+ * Visualisation: Reveals subject-specific truancy patterns.
+ * Props: Array of { learningAreaName, percentage } entries.
+ */
+"use client";
+
+import { Bar, BarChart, CartesianGrid, XAxis } from "recharts";
+
+import {
+    type ChartConfig,
+    ChartContainer,
+    ChartTooltip,
+    ChartTooltipContent,
+} from "@/components/ui/chart";
+
+// ─── Types ────────────────────────────────────────────────────────────────
+
+export interface SubjectAttendanceEntry {
+    learningAreaName: string;
+    percentage: number;
+    color?: string;
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────
+
+function barColor(pct: number) {
+    if (pct >= 90) return "hsl(var(--chart-2))";
+    if (pct >= 75) return "hsl(var(--chart-3))";
+    if (pct >= 50) return "hsl(var(--chart-4))";
+    return "hsl(var(--chart-1))";
+}
+
+// ─── Component ────────────────────────────────────────────────────────────
+
+interface AttendanceSubjectComparisonBarProps {
+    data: SubjectAttendanceEntry[];
+}
+
+export function AttendanceSubjectComparisonBar({ data }: AttendanceSubjectComparisonBarProps) {
+    if (!data.length) {
+        return (
+            <p className="text-muted-foreground py-8 text-center text-sm">
+                No subject attendance data available.
+            </p>
+        );
+    }
+
+    const chartConfig: ChartConfig = {};
+    for (const entry of data) {
+        chartConfig[entry.learningAreaName] = {
+            label: entry.learningAreaName,
+            color: entry.color ?? barColor(entry.percentage),
+        };
+    }
+
+    return (
+        <div className="space-y-2">
+            <p className="text-foreground text-sm font-medium">Attendance by Learning Area</p>
+            <ChartContainer config={chartConfig} className="aspect-[3/1] w-full">
+                <BarChart accessibilityLayer data={data} layout="vertical">
+                    <CartesianGrid horizontal={false} />
+                    <XAxis type="number" domain={[0, 100]} tickLine={false} axisLine={false} />
+                    <YAxis
+                        dataKey="learningAreaName"
+                        type="category"
+                        tickLine={false}
+                        axisLine={false}
+                        tickMargin={8}
+                        width={100}
+                    />
+                    <ChartTooltip
+                        cursor={false}
+                        content={
+                            <ChartTooltipContent
+                                formatter={(value) => {
+                                    if (value == null || typeof value !== "number") return "";
+                                    return `${value.toFixed(1)}%`;
+                                }}
+                            />
+                        }
+                    />
+                    <Bar dataKey="percentage" radius={[0, 4, 4, 0]} barSize={20}>
+                        {data.map((entry) => (
+                            <Cell
+                                key={entry.learningAreaName}
+                                fill={entry.color ?? barColor(entry.percentage)}
+                            />
+                        ))}
+                    </Bar>
+                </BarChart>
+            </ChartContainer>
+        </div>
+    );
+}
+
+// ─── Skeleton ─────────────────────────────────────────────────────────────
+
+export function AttendanceSubjectComparisonBarSkeleton() {
+    return (
+        <div className="space-y-2">
+            <div className="bg-muted h-4 w-52 animate-pulse rounded" />
+            <div className="bg-muted aspect-[3/1] w-full animate-pulse rounded" />
+        </div>
+    );
+}
+
+// Import Cell from recharts for per-bar coloring
+import { Cell, YAxis } from "recharts";

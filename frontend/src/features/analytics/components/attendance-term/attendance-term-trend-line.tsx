@@ -1,0 +1,101 @@
+/**
+ * AttendanceTermTrendLine — Line chart showing attendance trend across terms.
+ *
+ * Visualisation: Attendance trend across multiple terms.
+ * Props: Array of { termName, percentage } points.
+ */
+"use client";
+
+import { CartesianGrid, Dot, Line, LineChart, XAxis } from "recharts";
+
+import {
+    type ChartConfig,
+    ChartContainer,
+    ChartTooltip,
+    ChartTooltipContent,
+} from "@/components/ui/chart";
+
+// ─── Config ───────────────────────────────────────────────────────────────
+
+const chartConfig = {
+    attendance: {
+        label: "Attendance",
+        color: "hsl(var(--chart-2))",
+    },
+} satisfies ChartConfig;
+
+// ─── Types ────────────────────────────────────────────────────────────────
+
+export interface TermAttendancePoint {
+    termName: string;
+    percentage: number;
+}
+
+// ─── Component ────────────────────────────────────────────────────────────
+
+interface AttendanceTermTrendLineProps {
+    data: TermAttendancePoint[];
+}
+
+export function AttendanceTermTrendLine({ data }: AttendanceTermTrendLineProps) {
+    if (!data.length) {
+        return (
+            <p className="text-muted-foreground py-8 text-center text-sm">
+                No attendance trend data available.
+            </p>
+        );
+    }
+
+    return (
+        <div className="space-y-2">
+            <p className="text-foreground text-sm font-medium">Attendance Trend Across Terms</p>
+            <ChartContainer config={chartConfig} className="aspect-[3/1] w-full">
+                <LineChart
+                    accessibilityLayer
+                    data={data}
+                    margin={{ top: 8, left: 8, right: 8, bottom: 8 }}
+                >
+                    <CartesianGrid vertical={false} />
+                    <XAxis dataKey="termName" tickLine={false} axisLine={false} tickMargin={8} />
+                    <ChartTooltip
+                        cursor={false}
+                        content={
+                            <ChartTooltipContent
+                                indicator="dot"
+                                formatter={(value) => {
+                                    if (value == null || typeof value !== "number") return "";
+                                    return `${value.toFixed(1)}%`;
+                                }}
+                            />
+                        }
+                    />
+                    <Line
+                        dataKey="percentage"
+                        type="natural"
+                        stroke="var(--color-attendance)"
+                        strokeWidth={2}
+                        dot={({ payload }) => (
+                            <Dot
+                                key={payload.termName}
+                                r={5}
+                                fill="var(--color-attendance)"
+                                stroke="var(--color-attendance)"
+                            />
+                        )}
+                    />
+                </LineChart>
+            </ChartContainer>
+        </div>
+    );
+}
+
+// ─── Skeleton ─────────────────────────────────────────────────────────────
+
+export function AttendanceTermTrendLineSkeleton() {
+    return (
+        <div className="space-y-2">
+            <div className="bg-muted h-4 w-52 animate-pulse rounded" />
+            <div className="bg-muted aspect-[3/1] w-full animate-pulse rounded" />
+        </div>
+    );
+}

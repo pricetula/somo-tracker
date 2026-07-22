@@ -12,6 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/shared/data-table";
 import type { DataTableColumn } from "@/components/shared/data-table/types";
+import { RowActions } from "@/components/shared/data-table/row-actions";
+import type { RowAction } from "@/components/shared/data-table/row-actions";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -23,7 +25,7 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, AlertTriangle } from "lucide-react";
+import { Loader2, AlertTriangle, Trash2 } from "lucide-react";
 
 import {
     useBehaviorPendingQueue,
@@ -144,11 +146,39 @@ const columns: DataTableColumn<PendingNoteItem>[] = [
     {
         id: "actions",
         header: "",
-        width: "200px",
+        width: "240px",
         align: "right",
-        cell: (row) => <ActionsCell note={row} />,
+        cell: (row) => (
+            <div className="flex items-center justify-end gap-1">
+                <ActionsCell note={row} />
+                <RowActionsCell note={row} />
+            </div>
+        ),
     },
 ];
+
+// ─── Row Actions wrapper for per-row delete ────────────────────────────────
+
+function RowActionsCell({ note }: { note: PendingNoteItem }) {
+    const deleteMutation = useDeleteBehaviorNote();
+
+    const rowActions: RowAction[] = [
+        {
+            label: "Delete",
+            icon: Trash2,
+            destructive: true,
+            onClick: () => deleteMutation.mutate(note.id),
+        },
+    ];
+
+    return (
+        <RowActions
+            rowId={note.id}
+            label={`behavior note for ${note.student_full_name}`}
+            actions={rowActions}
+        />
+    );
+}
 
 // ─── Component ────────────────────────────────────────────────────────────
 

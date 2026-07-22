@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { WelcomeGreeting } from "./welcome-greeting";
+import { QuickActions, PARENT_ACTIONS } from "..";
 import { useMyParentProfile } from "@/features/parents";
 import {
     useAttendanceTermSummaries,
@@ -93,6 +94,8 @@ export function ParentDashboardPage() {
           }
         : null;
 
+    const childrenCount = linkedStudents.length;
+
     return (
         <div className="flex flex-1 flex-col gap-8 p-6">
             {/* Header */}
@@ -105,6 +108,24 @@ export function ParentDashboardPage() {
                     Track your child&apos;s academic progress.
                 </p>
             </div>
+
+            {/* ── Functional Sections ── */}
+
+            <QuickActions actions={PARENT_ACTIONS} />
+
+            {!profileLoading && childrenCount > 0 && (
+                <section>
+                    <h2 className="mb-3 text-lg font-medium">At a Glance</h2>
+                    <div className="flex flex-wrap gap-x-10 gap-y-4">
+                        <div className="space-y-1">
+                            <p className="text-muted-foreground text-sm">Linked Children</p>
+                            <p className="text-3xl font-semibold tracking-tight tabular-nums">
+                                {childrenCount}
+                            </p>
+                        </div>
+                    </div>
+                </section>
+            )}
 
             {/* Student Selector */}
             {profileLoading ? (

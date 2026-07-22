@@ -32,6 +32,8 @@ type Repository interface {
 	ListInvitations(ctx context.Context, tenantID, schoolID string, filter ListInvitationsFilter) ([]Invitation, int, error)
 	CountInvitations(ctx context.Context, tenantID, schoolID string, role string) (int, error)
 
+	RevokeInvitation(ctx context.Context, id, schoolID string) error
+
 	// BulkInvite repository methods
 	CheckExistingEmails(ctx context.Context, tenantID, schoolID string, emails []string) (existingInUsers, existingInInvitations []string, err error)
 	InsertInvitation(ctx context.Context, tx pgx.Tx, params InsertInvitationParams) error

@@ -29,6 +29,11 @@ func (s *Service) ListInvitations(ctx context.Context, tenantID, schoolID string
 }
 
 // CountInvitations returns the total number of non-expired invitations for a given role.
+// RevokeInvitation revokes a pending invitation by ID.
+func (s *Service) RevokeInvitation(ctx context.Context, id, schoolID string) error {
+	return s.repo.RevokeInvitation(ctx, id, schoolID)
+}
+
 func (s *Service) CountInvitations(ctx context.Context, tenantID, schoolID string, role string) (int, error) {
 	return s.repo.CountInvitations(ctx, tenantID, schoolID, role)
 }

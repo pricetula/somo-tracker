@@ -7,28 +7,17 @@
 "use client";
 
 import Link from "next/link";
-import { ToggleLeft, ToggleRight, Trash2 } from "lucide-react";
+import { ToggleLeft, ToggleRight } from "lucide-react";
 
 import { DataTable } from "@/components/shared/data-table";
 import type { DataTableColumn } from "@/components/shared/data-table/types";
+import { RowActions } from "@/components/shared/data-table/row-actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 
 import type { ScaleProfile } from "@/lib/api/assessments";
 import { listScaleProfiles } from "@/lib/api/assessments";
 import { useToggleScaleProfile, useDeleteScaleProfile } from "../hooks/use-assessments";
-import { getErrorMessage } from "@/lib/errors";
 
 // ─── Columns ──────────────────────────────────────────────────────────────
 
@@ -56,44 +45,12 @@ function DeleteCell({ profileId, profileName }: { profileId: string; profileName
     const deleteMutation = useDeleteScaleProfile();
 
     return (
-        <AlertDialog>
-            <AlertDialogTrigger asChild>
-                <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    className="text-muted-foreground hover:text-destructive"
-                >
-                    <Trash2 className="h-4 w-4" />
-                    <span className="sr-only">Delete {profileName}</span>
-                </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                    <AlertDialogTitle>Delete Scale Profile</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        Are you sure you want to delete <strong>{profileName}</strong>? This will
-                        also remove all its percentage ranges.
-                        {deleteMutation.isError && (
-                            <p className="text-destructive mt-2">
-                                {getErrorMessage(deleteMutation.error)}
-                            </p>
-                        )}
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                        onClick={(e) => {
-                            e.preventDefault();
-                            deleteMutation.mutate(profileId);
-                        }}
-                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    >
-                        {deleteMutation.isPending ? "Deleting..." : "Delete"}
-                    </AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
+        <RowActions
+            rowId={profileId}
+            label={profileName}
+            onDelete={() => deleteMutation.mutate(profileId)}
+            disabled={deleteMutation.isPending}
+        />
     );
 }
 
@@ -135,7 +92,7 @@ const columns: DataTableColumn<ScaleProfile>[] = [
         cell: (row) => <ActiveToggle profile={row} />,
     },
     {
-        id: "delete",
+        id: "actions",
         header: "",
         width: "48px",
         align: "right",
@@ -159,13 +116,17 @@ function createProfilesQueryFn() {
 export function GradingScaleProfilesList() {
     const profilesQueryFn = createProfilesQueryFn();
 
+    const deleteMutation = useDeleteScaleProfile();
+
     return (
         <DataTable
+            isCheckable
             addHref="/assessments/grading-scales/new"
             queryKey={["scale-profiles"]}
             queryFn={profilesQueryFn}
             columns={columns}
             getRowId={(row) => row.id}
+            deleteFn={(id) => deleteMutation.mutateAsync(String(id)).then(() => {})}
             emptyState="No grading scale profiles yet. Create one to define how percentages map to CBC levels."
             noResultsState="No profiles match your search."
         />

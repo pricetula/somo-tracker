@@ -48,6 +48,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	invitations := router.Group("/api/v1/invitations")
 	invitations.Get("/", middleware.RequireAuth, h.ListInvitations)
 	invitations.Get("/count", middleware.RequireAuth, h.CountInvitations)
+	invitations.Patch("/:id/revoke", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN"), h.RevokeInvitation)
 }
 
 // ─── Error response helper ─────────────────────────────────────────────────
@@ -252,6 +253,28 @@ func (h *Handler) CountInvitations(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(CountInvitationsResponse{Total: total})
+}
+
+// RevokeInvitation handles PATCH /api/v1/invitations/:id/revoke
+func (h *Handler) RevokeInvitation(c *fiber.Ctx) error {
+	schoolID := c.Locals("active_school_id").(string)
+	if schoolID == "" {
+		schoolID = c.Locals("school_id").(string)
+	}
+	if schoolID == "" {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input", "active school not set", nil)
+	}
+
+	id := c.Params("id")
+	if id == "" {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input", "invitation id is required", nil)
+	}
+
+	if err := h.svc.RevokeInvitation(c.Context(), id, schoolID); err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.SendStatus(fiber.StatusNoContent)
 }
 
 // Module is an fx-compatible module for the invitations domain.

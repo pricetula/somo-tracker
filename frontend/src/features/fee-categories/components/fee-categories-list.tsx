@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DataTable } from "@/components/shared/data-table";
 import type { DataTableColumn } from "@/components/shared/data-table/types";
+import { RowActions } from "@/components/shared/data-table/row-actions";
 import {
     Dialog,
     DialogContent,
@@ -27,17 +28,6 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { getErrorMessage } from "@/lib/errors";
 import {
     listFeeCategories,
@@ -222,28 +212,7 @@ function DeleteCell({ category }: { category: FeeCategory }) {
         }
     }, [category.id, queryClient]);
 
-    return (
-        <AlertDialog>
-            <AlertDialogTrigger asChild>
-                <Button variant="outline" size="sm" className="text-destructive">
-                    Delete
-                </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                    <AlertDialogTitle>Delete Fee Category</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        Are you sure you want to delete &ldquo;{category.name}&rdquo;? This cannot
-                        be undone.
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
-    );
+    return <RowActions rowId={category.id} label={category.name} onDelete={handleDelete} />;
 }
 
 // ─── Columns ──────────────────────────────────────────────────────────────
@@ -268,7 +237,7 @@ function createColumns(onEdit: (cat: FeeCategory) => void): DataTableColumn<FeeC
         {
             id: "actions",
             header: "",
-            width: "160px",
+            width: "48px",
             align: "right",
             cell: (row) => (
                 <div className="flex items-center justify-end gap-2">
@@ -293,11 +262,13 @@ export function FeeCategoriesList() {
     return (
         <div className="space-y-4">
             <DataTable
+                isCheckable
                 addHref={undefined}
                 queryKey={["fee-categories"]}
                 queryFn={() => listFeeCategories()}
                 columns={columns}
                 getRowId={(row) => row.id}
+                deleteFn={(id) => deleteFeeCategory(String(id))}
                 emptyState="No fee categories yet. Create one to get started."
                 noResultsState="No fee categories match your search."
                 renderToolBarComponents={() => (

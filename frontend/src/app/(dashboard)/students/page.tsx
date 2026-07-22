@@ -1,14 +1,9 @@
 /**
  * Students listing page — active enrolled students.
  *
- * Uses the shared DataTable component with curriculum and lifecycle filters.
+ * Uses the shared DataTable component with curriculum and lifecycle filters,
+ * bulk delete, and per-row actions.
  * Maps to GET /api/v1/students/list.
- *
- * The Import button navigates to /students/import. When navigated from
- * within this page, the @modal parallel slot intercepts the route and
- * renders the import pipeline as a dialog overlay (keeping this listing
- * mounted underneath). Direct navigation to /students/import renders
- * as a full-page view.
  */
 
 "use client";
@@ -19,6 +14,7 @@ import { useRouter } from "next/navigation";
 import { DataTable } from "@/components/shared/data-table";
 import type { DataTableColumn } from "@/components/shared/data-table/types";
 import type { FilterGroup } from "@/components/shared/data-table/types";
+import { RowActions } from "@/components/shared/data-table/row-actions";
 import { Badge } from "@/components/ui/badge";
 import { listStudents, type Student } from "@/lib/api/students";
 import { GraduationCap, BookOpen } from "lucide-react";
@@ -68,74 +64,96 @@ const filterGroups: FilterGroup[] = [
     },
 ];
 
-// ─── Columns ──────────────────────────────────────────────────────────────
+// ─── Columns factory ──────────────────────────────────────────────────────
 
-const columns: DataTableColumn<Student>[] = [
-    {
-        id: "full_name",
-        header: "Full Name",
-        cell: (row) => (
-            <Link href={`/students/${row.id}`} className="font-medium hover:underline">
-                {row.full_name}
-            </Link>
-        ),
-    },
-    {
-        id: "admission_number",
-        header: "Admission No.",
-        cell: (row) => (
-            <span className="text-muted-foreground font-mono">{row.admission_number ?? "—"}</span>
-        ),
-    },
-    {
-        id: "upi_number",
-        header: "UPI Number",
-        cell: (row) => (
-            <span className="text-muted-foreground font-mono">{row.upi_number ?? "—"}</span>
-        ),
-    },
-    {
-        id: "knec_assessment_number",
-        header: "KNEC No.",
-        cell: (row) => (
-            <span className="text-muted-foreground font-mono">
-                {row.knec_assessment_number ?? "—"}
-            </span>
-        ),
-    },
-    {
-        id: "class_name",
-        header: "Class",
-        cell: (row) => <span className="text-muted-foreground">{row.class_name ?? "—"}</span>,
-    },
-    {
-        id: "gender",
-        header: "Gender",
-        width: "80px",
-        cell: (row) => (
-            <span className="text-muted-foreground">
-                {row.gender === "M" ? "Male" : row.gender === "F" ? "Female" : "—"}
-            </span>
-        ),
-    },
-    {
-        id: "is_active",
-        header: "Status",
-        width: "100px",
-        cell: (row) => (
-            <Badge
-                variant="secondary"
-                className={
-                    row.is_active
-                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                        : "bg-muted text-muted-foreground"
-                }
-            >
-                {row.is_active ? "Active" : "Inactive"}
-            </Badge>
-        ),
-    },
-];
+function createColumns(
+    deleteMutation: ReturnType<typeof useDeleteStudent>
+): DataTableColumn<Student>[] {
+    return [
+        {
+            id: "full_name",
+            header: "Full Name",
+            cell: (row) => (
+                <Link href={`/students/${row.id}`} className="font-medium hover:underline">
+                    {row.full_name}
+                </Link>
+            ),
+        },
+        {
+            id: "admission_number",
+            header: "Admission No.",
+            cell: (row) => (
+                <span className="text-muted-foreground font-mono">
+                    {row.admission_number ?? "—"}
+                </span>
+            ),
+        },
+        {
+            id: "upi_number",
+            header: "UPI Number",
+            cell: (row) => (
+                <span className="text-muted-foreground font-mono">{row.upi_number ?? "—"}</span>
+            ),
+        },
+        {
+            id: "knec_assessment_number",
+            header: "KNEC No.",
+            cell: (row) => (
+                <span className="text-muted-foreground font-mono">
+                    {row.knec_assessment_number ?? "—"}
+                </span>
+            ),
+        },
+        {
+            id: "class_name",
+            header: "Class",
+            cell: (row) => <span className="text-muted-foreground">{row.class_name ?? "—"}</span>,
+        },
+        {
+            id: "gender",
+            header: "Gender",
+            width: "80px",
+            cell: (row) => (
+                <span className="text-muted-foreground">
+                    {row.gender === "M" ? "Male" : row.gender === "F" ? "Female" : "—"}
+                </span>
+            ),
+        },
+        {
+            id: "is_active",
+            header: "Status",
+            width: "100px",
+            cell: (row) => (
+                <Badge
+                    variant="secondary"
+                    className={
+                        row.is_active
+                            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                            : "bg-muted text-muted-foreground"
+                    }
+                >
+                    {row.is_active ? "Active" : "Inactive"}
+                </Badge>
+            ),
+        },
+        {
+            id: "actions",
+            header: "",
+            width: "48px",
+            align: "right",
+            cell: (row) => (
+                <RowActions
+                    rowId={row.id}
+                    label={row.full_name}
+                    onDelete={() => deleteMutation.mutate(row.id)}
+                    disabled={deleteMutation.isPending}
+                />
+            ),
+        },
+    ];
+}
+
+// ─── Toolbar ──────────────────────────────────────────────────────────────
 
 function ToolBar({ selectedIds }: { selectedIds: Set<string> }) {
     const router = useRouter();
@@ -159,6 +177,7 @@ function ToolBar({ selectedIds }: { selectedIds: Set<string> }) {
 
 export default function StudentsPage() {
     const deleteMutation = useDeleteStudent();
+    const columns = createColumns(deleteMutation);
 
     return (
         <DataTable

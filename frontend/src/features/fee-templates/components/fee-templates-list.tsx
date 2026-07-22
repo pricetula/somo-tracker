@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DataTable } from "@/components/shared/data-table";
 import type { DataTableColumn } from "@/components/shared/data-table/types";
+import { RowActions } from "@/components/shared/data-table/row-actions";
 import {
     Dialog,
     DialogContent,
@@ -25,16 +26,6 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import {
     Select,
     SelectContent,
@@ -293,25 +284,11 @@ function DeleteCell({ template }: { template: FeeTemplate }) {
     }, [template.id, queryClient]);
 
     return (
-        <AlertDialog>
-            <AlertDialogTrigger asChild>
-                <Button variant="outline" size="sm" className="text-destructive">
-                    Delete
-                </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                    <AlertDialogTitle>Delete Fee Template</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        Are you sure you want to delete this fee template?
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-                <DialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
-                </DialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
+        <RowActions
+            rowId={template.id}
+            label={`${template.grade_level} template`}
+            onDelete={handleDelete}
+        />
     );
 }
 
@@ -359,7 +336,7 @@ function createColumns(
         {
             id: "actions",
             header: "",
-            width: "160px",
+            width: "140px",
             align: "right",
             cell: (row) => (
                 <div className="flex items-center justify-end gap-2">
@@ -390,10 +367,12 @@ export function FeeTemplatesList() {
     return (
         <div className="space-y-4">
             <DataTable
+                isCheckable
                 queryKey={["fee-templates"]}
                 queryFn={() => listFeeTemplates()}
                 columns={columns}
                 getRowId={(row) => row.id}
+                deleteFn={(id) => deleteFeeTemplate(String(id))}
                 emptyState="No fee templates yet. Create one to define fees for a grade and term."
                 noResultsState="No fee templates match your search."
                 renderToolBarComponents={() => (

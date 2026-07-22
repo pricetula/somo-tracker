@@ -2,6 +2,7 @@
 
 import { AttendanceCalendar } from "@/features/attendance";
 import { WelcomeGreeting } from "./welcome-greeting";
+import { QuickActions, TEACHER_ACTIONS } from "..";
 import {
     useClassDailyAttendance,
     useTeacherDeliverySummaries,
@@ -121,7 +122,6 @@ export function TeacherDashboardPage() {
         },
     ];
 
-    // Derive category breakdown from behavior data
     const categoryData = behaviorData.flatMap((b) =>
         b.primary_category_name
             ? [
@@ -155,6 +155,12 @@ export function TeacherDashboardPage() {
                 </h1>
                 <p className="text-muted-foreground mt-1">Your teaching dashboard.</p>
             </div>
+
+            {/* ── Functional Sections ── */}
+
+            <QuickActions actions={TEACHER_ACTIONS} />
+
+            {/* ── Analytics Sections ── */}
 
             {/* Class Daily Attendance */}
             <section>

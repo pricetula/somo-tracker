@@ -2,8 +2,9 @@
  * Invitations API functions.
  *
  * Endpoints:
- *   GET  /api/v1/invitations — list invitations with filters
- *   POST /api/v1/staff/invite — bulk invite staff members
+ *   GET   /api/v1/invitations — list invitations with filters
+ *   POST  /api/v1/staff/invite — bulk invite staff members
+ *   PATCH /api/v1/invitations/:id/revoke — revoke a pending invitation
  */
 
 import { api, ApiError } from "./client";
@@ -77,6 +78,14 @@ export interface BulkInviteRequest {
  */
 export async function submitBulkInvite(body: BulkInviteRequest): Promise<ImportResponse> {
     return api.post<ImportResponse>("/api/v1/staff/invite", body);
+}
+
+/**
+ * PATCH /api/v1/invitations/:id/revoke — revoke a pending invitation.
+ * Only SCHOOL_ADMIN can revoke invitations.
+ */
+export async function revokeInvitation(id: string): Promise<void> {
+    return api.patch<void>(`/api/v1/invitations/${id}/revoke`);
 }
 
 /**

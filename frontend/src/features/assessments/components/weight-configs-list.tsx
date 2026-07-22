@@ -13,6 +13,7 @@ import { Plus, Loader2 } from "lucide-react";
 import { DataTable } from "@/components/shared/data-table";
 import type { DataTableColumn } from "@/components/shared/data-table/types";
 import type { FilterGroup } from "@/components/shared/data-table/types";
+import { RowActions } from "@/components/shared/data-table/row-actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -233,61 +234,81 @@ function CreateWeightConfigForm({ onSuccess }: { onSuccess?: () => void }) {
     );
 }
 
-// ─── Columns ──────────────────────────────────────────────────────────────
+// ─── Columns factory ──────────────────────────────────────────────────────
 
-const columns: DataTableColumn<AssessmentWeightConfig>[] = [
-    {
-        id: "grade_level",
-        header: "Grade",
-        width: "80px",
-        cell: (row) => <Badge variant="secondary">{row.grade_level}</Badge>,
-    },
-    {
-        id: "assessment_type_code",
-        header: "Assessment Type",
-        cell: (row) => (
-            <span className="text-xs font-medium">
-                {row.assessment_type_code.replace(/_/g, " ")}
-            </span>
-        ),
-    },
-    {
-        id: "target_exam",
-        header: "Target Exam",
-        width: "100px",
-        cell: (row) => (
-            <Badge variant="outline" className="text-xs">
-                {row.target_exam}
-            </Badge>
-        ),
-    },
-    {
-        id: "weight_percent",
-        header: "Weight",
-        width: "80px",
-        align: "right",
-        cell: (row) => <span className="font-semibold tabular-nums">{row.weight_percent}%</span>,
-    },
-    {
-        id: "effective_from",
-        header: "From",
-        width: "80px",
-        align: "right",
-        cell: (row) => (
-            <span className="text-muted-foreground tabular-nums">{row.effective_from}</span>
-        ),
-    },
-    {
-        id: "notes",
-        header: "Notes",
-        cell: (row) =>
-            row.notes ? (
-                <span className="text-muted-foreground line-clamp-1 text-xs">{row.notes}</span>
-            ) : (
-                <span className="text-muted-foreground">-</span>
+function createColumns(
+    deleteMutation: ReturnType<typeof useDeleteWeightConfig>
+): DataTableColumn<AssessmentWeightConfig>[] {
+    return [
+        {
+            id: "grade_level",
+            header: "Grade",
+            width: "80px",
+            cell: (row) => <Badge variant="secondary">{row.grade_level}</Badge>,
+        },
+        {
+            id: "assessment_type_code",
+            header: "Assessment Type",
+            cell: (row) => (
+                <span className="text-xs font-medium">
+                    {row.assessment_type_code.replace(/_/g, " ")}
+                </span>
             ),
-    },
-];
+        },
+        {
+            id: "target_exam",
+            header: "Target Exam",
+            width: "100px",
+            cell: (row) => (
+                <Badge variant="outline" className="text-xs">
+                    {row.target_exam}
+                </Badge>
+            ),
+        },
+        {
+            id: "weight_percent",
+            header: "Weight",
+            width: "80px",
+            align: "right",
+            cell: (row) => (
+                <span className="font-semibold tabular-nums">{row.weight_percent}%</span>
+            ),
+        },
+        {
+            id: "effective_from",
+            header: "From",
+            width: "80px",
+            align: "right",
+            cell: (row) => (
+                <span className="text-muted-foreground tabular-nums">{row.effective_from}</span>
+            ),
+        },
+        {
+            id: "notes",
+            header: "Notes",
+            cell: (row) =>
+                row.notes ? (
+                    <span className="text-muted-foreground line-clamp-1 text-xs">{row.notes}</span>
+                ) : (
+                    <span className="text-muted-foreground">-</span>
+                ),
+        },
+        {
+            id: "actions",
+            header: "",
+            width: "48px",
+            align: "right",
+            cell: (row) => (
+                <RowActions
+                    rowId={row.id}
+                    label={`${row.grade_level} ${row.assessment_type_code}`}
+                    onDelete={() => deleteMutation.mutate(row.id)}
+                    disabled={deleteMutation.isPending}
+                />
+            ),
+        },
+    ];
+}
 
 // ─── Filter Groups ────────────────────────────────────────────────────────
 
@@ -325,6 +346,10 @@ const filterGroups: FilterGroup[] = [
 export function WeightConfigsList() {
     const [createOpen, setCreateOpen] = useState(false);
     const deleteMutation = useDeleteWeightConfig();
+    const columns = createColumns(deleteMutation);
+
+    // ─── Delete mutation wrapper for DataTable bulk delete ─────────────
+    const bulkDeleteFn = (id: string | number) => deleteMutation.mutateAsync(String(id));
 
     return (
         <div className="space-y-4">
@@ -365,7 +390,7 @@ export function WeightConfigsList() {
                 columns={columns}
                 getRowId={(row) => row.id}
                 filterGroups={filterGroups}
-                deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
+                deleteFn={bulkDeleteFn}
                 emptyState="No weight configurations yet. Add one to define KNEC weighting formulas."
                 noResultsState="No configurations match your filters."
             />

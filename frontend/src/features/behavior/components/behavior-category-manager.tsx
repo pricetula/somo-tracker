@@ -9,7 +9,7 @@
 
 import { useState, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Loader2, Plus } from "lucide-react";
+import { Loader2, Plus, ToggleLeft, ToggleRight } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -32,18 +32,14 @@ import {
 } from "@/components/ui/dialog";
 import { DataTable } from "@/components/shared/data-table";
 import type { DataTableColumn } from "@/components/shared/data-table/types";
+import { RowActions } from "@/components/shared/data-table/row-actions";
+import type { RowAction } from "@/components/shared/data-table/row-actions";
 import {
     useBehaviorCategories,
     useCreateBehaviorCategory,
     useUpdateBehaviorCategory,
 } from "../hooks/use-behavior";
 import type { BehaviorCategory } from "@/lib/api/behavior";
-
-// ─── Name Cell ────────────────────────────────────────────────────────────
-
-function NameCell({ category }: { category: BehaviorCategory }) {
-    return <span className="font-medium">{category.name}</span>;
-}
 
 // ─── Severity Cell ────────────────────────────────────────────────────────
 
@@ -113,27 +109,70 @@ function ActiveToggleCell({ category }: { category: BehaviorCategory }) {
     return <Switch checked={category.is_active} onCheckedChange={handleToggle} />;
 }
 
+// ─── Actions Cell ─────────────────────────────────────────────────────────
+
+function ActionsCell({ category }: { category: BehaviorCategory }) {
+    const updateCategory = useUpdateBehaviorCategory();
+    const queryClient = useQueryClient();
+
+    const actions: RowAction[] = [
+        {
+            label: category.is_active ? "Deactivate" : "Activate",
+            icon: category.is_active ? ToggleLeft : ToggleRight,
+            destructive: true,
+            confirmTitle: category.is_active ? "Deactivate Category" : "Activate Category",
+            confirmDescription: `Are you sure you want to ${
+                category.is_active ? "deactivate" : "activate"
+            } "${category.name}"?`,
+            onClick: () => {
+                updateCategory.mutate(
+                    { id: category.id, payload: { is_active: !category.is_active } },
+                    {
+                        onSuccess: () => {
+                            queryClient.invalidateQueries({ queryKey: ["behavior", "categories"] });
+                            toast.success(
+                                category.is_active ? "Category deactivated" : "Category activated"
+                            );
+                        },
+                    }
+                );
+            },
+        },
+    ];
+
+    return <RowActions rowId={category.id} label={category.name} actions={actions} />;
+}
+
 // ─── Columns ──────────────────────────────────────────────────────────────
 
-const columns: DataTableColumn<BehaviorCategory>[] = [
-    {
-        id: "name",
-        header: "Name",
-        cell: (row) => <NameCell category={row} />,
-    },
-    {
-        id: "default_severity",
-        header: "Default Severity",
-        width: "200px",
-        cell: (row) => <SeverityCell category={row} />,
-    },
-    {
-        id: "is_active",
-        header: "Active",
-        width: "100px",
-        cell: (row) => <ActiveToggleCell category={row} />,
-    },
-];
+function createColumns(): DataTableColumn<BehaviorCategory>[] {
+    return [
+        {
+            id: "name",
+            header: "Name",
+            cell: (row) => <span className="font-medium">{row.name}</span>,
+        },
+        {
+            id: "default_severity",
+            header: "Default Severity",
+            width: "200px",
+            cell: (row) => <SeverityCell category={row} />,
+        },
+        {
+            id: "is_active",
+            header: "Active",
+            width: "100px",
+            cell: (row) => <ActiveToggleCell category={row} />,
+        },
+        {
+            id: "actions",
+            header: "",
+            width: "48px",
+            align: "right",
+            cell: (row) => <ActionsCell category={row} />,
+        },
+    ];
+}
 
 // ─── Component ────────────────────────────────────────────────────────────
 
@@ -145,6 +184,7 @@ export function BehaviorCategoryManager() {
     const [newSeverity, setNewSeverity] = useState<string>("");
     const [dialogOpen, setDialogOpen] = useState(false);
 
+    const columns = createColumns();
     const categories = data?.items ?? [];
 
     const handleCreate = useCallback(() => {

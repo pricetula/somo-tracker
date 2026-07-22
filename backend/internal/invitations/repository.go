@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"somotracker/backend/internal/database"
+	"somotracker/backend/internal/middleware"
 )
 
 // uuidToPtr converts a uuid.UUID to a *uuid.UUID, returning nil for uuid.Nil.
@@ -187,6 +188,19 @@ func (r *PgRepository) InsertInvitation(ctx context.Context, tx pgx.Tx, params I
 	)
 	if err != nil {
 		return fmt.Errorf("insert invitation: %w", err)
+	}
+	return nil
+}
+
+// RevokeInvitation sets an invitation's status to 'revoked'.
+func (r *PgRepository) RevokeInvitation(ctx context.Context, id, schoolID string) error {
+	query := `UPDATE invitations SET status = 'revoked', updated_at = NOW() WHERE id = $1::uuid AND school_id = $2 AND status = 'pending'`
+	tag, err := r.pool.Exec(ctx, query, id, schoolID)
+	if err != nil {
+		return fmt.Errorf("revoke invitation: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("revoke invitation: %w", middleware.ErrNotFound)
 	}
 	return nil
 }

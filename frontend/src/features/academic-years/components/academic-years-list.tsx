@@ -14,20 +14,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/shared/data-table";
 import type { DataTableColumn } from "@/components/shared/data-table/types";
+import { RowActions } from "@/components/shared/data-table/row-actions";
 import { listAcademicYears, setCurrentYear, deleteAcademicYear } from "@/lib/api/academic-terms";
 import type { AcademicYear } from "@/lib/api/academic-terms";
 import { getErrorMessage } from "@/lib/errors";
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 
 // ─── Actions cell ─────────────────────────────────────────────────────────
 
@@ -67,29 +57,12 @@ function ActionsCell({ year }: { year: AcademicYear }) {
             <Button variant="outline" size="sm" asChild>
                 <Link href={`/academic-years/${year.id}`}>Edit</Link>
             </Button>
-            <AlertDialog>
-                <AlertDialogTrigger asChild>
-                    <Button variant="outline" size="sm" className="text-destructive">
-                        Delete
-                    </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Academic Year</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Are you sure you want to delete &ldquo;{year.name}&rdquo;? This will
-                            also delete all terms, assessments, and other linked records within this
-                            year. This action cannot be undone.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => deleteMutation.mutate()}>
-                            Delete
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+            <RowActions
+                rowId={year.id}
+                label={year.name}
+                onDelete={() => deleteMutation.mutate()}
+                disabled={deleteMutation.isPending}
+            />
         </div>
     );
 }
@@ -144,7 +117,7 @@ const columns: DataTableColumn<AcademicYear>[] = [
     {
         id: "actions",
         header: "",
-        width: "280px",
+        width: "180px",
         align: "right",
         cell: (row) => <ActionsCell year={row} />,
     },
@@ -155,11 +128,13 @@ const columns: DataTableColumn<AcademicYear>[] = [
 export function AcademicYearsList() {
     return (
         <DataTable
+            isCheckable
             addHref="/academic-years/new"
             queryKey={["academic-years"]}
             queryFn={() => listAcademicYears()}
             columns={columns}
             getRowId={(row) => row.id}
+            deleteFn={(id) => deleteAcademicYear(String(id))}
             emptyState="No academic years yet. Create your first academic year to get started."
             noResultsState="No academic years match your search."
         />

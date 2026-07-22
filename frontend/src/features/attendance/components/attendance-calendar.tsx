@@ -178,7 +178,8 @@ export function AttendanceCalendar({
     }, [dailySummaries, attendanceRateMap]);
 
     return (
-        <div className={cn("w-fit", className)}>
+        <section className={cn("w-fit", className)}>
+            <header>Attendace Calendar</header>
             <Calendar
                 dayContent={renderDayContent}
                 onDayClick={handleDayClick}
@@ -196,7 +197,7 @@ export function AttendanceCalendar({
                 <LegendDot color="bg-amber-400" label="≥50%" />
                 <LegendDot color="bg-red-500" label="<50%" />
             </div>
-        </div>
+        </section>
     );
 }
 

@@ -44,7 +44,7 @@ export function DeliveryGauge({ rate, target = 95, teacherName }: Props) {
                         stroke="#e5e7eb"
                         className="first:fill-muted last:fill-background"
                     />
-                    <RadialBar dataKey="value" cornerRadius={8} />
+                    <RadialBar dataKey="value" cornerRadius={8} fill="var(--color-rate)" />
                     <PolarRadiusAxis tick={false} tickLine={false} axisLine={false}>
                         <Label
                             content={({ viewBox }) => {

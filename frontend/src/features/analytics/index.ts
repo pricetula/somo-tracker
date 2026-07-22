@@ -29,6 +29,10 @@ export {
     useStudentCohortPosition,
     useStudentSubjectStrandSummaries,
     useStudentProjections,
+    useStudentBehaviorSummaries,
+    useTeacherPerformanceSummaries,
+    useTeacherDeliverySummaries,
+    useTeacherWorkloadSummaries,
 } from "./hooks";
 
 // Components — Section 2.1 (Attendance Term)
@@ -160,6 +164,58 @@ export {
     ActualToProjectedWaterfall,
     ActualToProjectedWaterfallSkeleton,
 } from "./components/performance-projections";
+
+// Components — Section 3.1 (Student Behavior)
+export {
+    CommendationsVsDisciplinaryBar,
+    CommendationsVsDisciplinaryBarSkeleton,
+    UrgentBreakdownStackedBar,
+    UrgentBreakdownStackedBarSkeleton,
+    BehaviorPieChart,
+    BehaviorPieChartSkeleton,
+    BehaviorTrendLine,
+    BehaviorTrendLineSkeleton,
+    CategoryBreakdownBar,
+    CategoryBreakdownBarSkeleton,
+    BehaviorAlertBadge,
+    BehaviorAlertBadgeSkeleton,
+    BehaviorCalendarHeatmap,
+    BehaviorCalendarHeatmapSkeleton,
+    ClassComparisonBoxPlot,
+    ClassComparisonBoxPlotSkeleton,
+    NetSentimentScore,
+    NetSentimentScoreSkeleton,
+} from "./components/student-behavior";
+
+// Components — Section 4.1 (Teacher Performance)
+export {
+    TeacherPerformanceRadar,
+    TeacherPerformanceRadarSkeleton,
+    TeacherKpiCards,
+    TeacherKpiCardsSkeleton,
+    TeacherComparisonBar,
+    TeacherComparisonBarSkeleton,
+    TeacherMasteryGrowthScatter,
+    TeacherMasteryGrowthScatterSkeleton,
+} from "./components/teacher-performance";
+
+// Components — Section 4.2 (Teacher Delivery)
+export {
+    DeliveryGauge,
+    DeliveryGaugeSkeleton,
+    DeliveryWeeklyStackedBar,
+    DeliveryWeeklyStackedBarSkeleton,
+    DeliveryComparisonBar,
+    DeliveryComparisonBarSkeleton,
+} from "./components/teacher-delivery";
+
+// Components — Section 4.3 (Teacher Workload)
+export {
+    WorkloadComparisonBar,
+    WorkloadComparisonBarSkeleton,
+    WorkloadUtilizationGauge,
+    WorkloadUtilizationGaugeSkeleton,
+} from "./components/teacher-workload";
 
 // Types for component props
 export type {

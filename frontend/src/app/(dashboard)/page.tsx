@@ -34,6 +34,11 @@ export default async function Home() {
                 await import("@/features/dashboard/components/finance-dashboard");
             return <FinanceDashboardPage />;
         }
+        case "PARENT": {
+            const { ParentDashboardPage } =
+                await import("@/features/dashboard/components/parent-dashboard");
+            return <ParentDashboardPage />;
+        }
         default:
             return (
                 <article>

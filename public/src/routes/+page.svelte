@@ -1,4 +1,3 @@
-<script>
-</script>
-
-<main></main>
+<article>
+	<section>hero</section>
+</article>

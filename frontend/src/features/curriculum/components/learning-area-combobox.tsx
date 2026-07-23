@@ -30,6 +30,16 @@ export interface LearningAreaComboboxProps {
     className?: string;
     /** Allow selecting multiple (default: false). */
     isMultiSelect?: boolean;
+    /**
+     * When search yields no results, shows a "Create" option.
+     * If omitted, no create option is shown.
+     */
+    onCreateItem?: (search: string) => void;
+    /**
+     * When true, automatically selects the first option if no value is set.
+     * Defaults to false.
+     */
+    doPreselectFirstOption?: boolean;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────
@@ -40,6 +50,8 @@ export function LearningAreaCombobox({
     placeholder = "Select a learning area...",
     className,
     isMultiSelect = false,
+    onCreateItem,
+    doPreselectFirstOption = false,
 }: LearningAreaComboboxProps) {
     const { data, isLoading, isError, error } = useLearningAreas();
 
@@ -51,6 +63,22 @@ export function LearningAreaCombobox({
             })) ?? [],
         [data]
     );
+
+    // ── Auto-preselect first option ──────────────────────────────────────
+    const hasPreselected = React.useRef(false);
+    React.useEffect(() => {
+        if (!doPreselectFirstOption || items.length === 0 || hasPreselected.current) return;
+
+        const hasValue = isMultiSelect ? (value as string[]).length > 0 : (value as string) !== "";
+
+        if (hasValue) {
+            hasPreselected.current = true;
+            return;
+        }
+
+        hasPreselected.current = true;
+        onChange(isMultiSelect ? [items[0].value] : items[0].value);
+    }, [doPreselectFirstOption, items, isMultiSelect, value, onChange]);
 
     // ── Loading state ─────────────────────────────────────────────────────
     if (isLoading) {
@@ -97,6 +125,7 @@ export function LearningAreaCombobox({
                 placeholder={placeholder}
                 emptyText="No learning area found."
                 className={cn("w-full", className)}
+                onCreateItem={onCreateItem}
             />
         );
     }
@@ -111,6 +140,7 @@ export function LearningAreaCombobox({
             placeholder={placeholder}
             emptyText="No learning area found."
             className={cn("w-full", className)}
+            onCreateItem={onCreateItem}
             renderTrigger={({ selectedItems }) =>
                 selectedItems.length > 0 ? (
                     <span className="flex flex-wrap gap-1">

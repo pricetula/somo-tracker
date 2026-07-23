@@ -192,7 +192,7 @@ export async function updateLearningArea(
 
 /** Delete a learning area. */
 export async function deleteLearningArea(id: string): Promise<void> {
-    return api.delete<void>(`/api/v1/curriculum/learning-areas/${id}`);
+    return api.delete<void>(`/api/v1/curriculum/learning-areas`, { id });
 }
 
 // ── Strands ───────────────────────────────────────────────────────────────
@@ -216,7 +216,7 @@ export async function updateStrand(id: string, data: UpdateStrandPayload): Promi
 
 /** Delete a strand. */
 export async function deleteStrand(id: string): Promise<void> {
-    return api.delete<void>(`/api/v1/curriculum/strands/${id}`);
+    return api.delete<void>(`/api/v1/curriculum/strands`, { id });
 }
 
 // ── Sub-Strands ───────────────────────────────────────────────────────────
@@ -240,7 +240,7 @@ export async function updateSubStrand(id: string, data: UpdateSubStrandPayload):
 
 /** Delete a sub-strand. */
 export async function deleteSubStrand(id: string): Promise<void> {
-    return api.delete<void>(`/api/v1/curriculum/sub-strands/${id}`);
+    return api.delete<void>(`/api/v1/curriculum/sub-strands`, { id });
 }
 
 // ── Performance Indicators ───────────────────────────────────────────────
@@ -271,5 +271,5 @@ export async function updatePerformanceIndicator(
 
 /** Delete a performance indicator. */
 export async function deletePerformanceIndicator(id: string): Promise<void> {
-    return api.delete<void>(`/api/v1/curriculum/performance-indicators/${id}`);
+    return api.delete<void>(`/api/v1/curriculum/performance-indicators`, { id });
 }

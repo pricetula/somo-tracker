@@ -7,6 +7,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,7 +23,7 @@ import {
 import { Combobox } from "@/components/ui/combobox";
 
 import type { CreateSlotPayload } from "@/lib/api/timetable-structure";
-import { useTeachers } from "@/features/staff/hooks/use-teachers";
+import { useTeachers } from "@/features/teachers/hooks/use-teachers";
 import { useLearningAreas } from "@/features/curriculum/hooks/use-curriculum";
 
 // ─── Props ─────────────────────────────────────────────────────────────────
@@ -55,6 +56,7 @@ export function AddSlotDialog({
     classID,
     onSubmit,
 }: AddSlotDialogProps) {
+    const router = useRouter();
     const { data: teachersData } = useTeachers({ limit: 200 });
     const { data: learningAreasData } = useLearningAreas({});
 
@@ -126,6 +128,7 @@ export function AddSlotDialog({
                             placeholder="Select a learning area..."
                             emptyText="No learning area found."
                             className="w-full"
+                            onCreateItem={() => router.push("/curriculum/new")}
                         />
                     </div>
 

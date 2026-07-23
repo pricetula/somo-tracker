@@ -115,6 +115,14 @@ func (s *Service) ListNotesByAuthor(ctx context.Context, tenantID, schoolID, aut
 	return &TeacherNotesResponse{Notes: notes}, nil
 }
 
+// DeleteNote hard-deletes a behavior note.
+func (s *Service) DeleteNote(ctx context.Context, id, tenantID string) error {
+	if id == "" {
+		return fmt.Errorf("behavior.Service.DeleteNote: note id is required: %w", ErrInvalidInput)
+	}
+	return s.repo.DeleteNote(ctx, id, tenantID)
+}
+
 // UpdateNote updates the description of a behavior note.
 func (s *Service) UpdateNote(ctx context.Context, id, tenantID string, description string) error {
 	if id == "" {
@@ -124,4 +132,33 @@ func (s *Service) UpdateNote(ctx context.Context, id, tenantID string, descripti
 		return fmt.Errorf("behavior.Service.UpdateNote: description is required: %w", ErrInvalidInput)
 	}
 	return s.repo.UpdateNote(ctx, id, tenantID, description)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STUDENT BEHAVIOR TERM SUMMARIES
+// ═══════════════════════════════════════════════════════════════════════════
+
+// GetStudentBehaviorTermSummary returns the behavior summary for a specific
+// student+term. Returns nil when no summary exists.
+func (s *Service) GetStudentBehaviorTermSummary(ctx context.Context, studentID, termID string) (*StudentBehaviorTermSummary, error) {
+	if studentID == "" || termID == "" {
+		return nil, fmt.Errorf("behavior.Service.GetStudentBehaviorTermSummary: %w", ErrInvalidInput)
+	}
+	return s.repo.GetStudentBehaviorTermSummary(ctx, studentID, termID)
+}
+
+// ListStudentBehaviorTermSummaries returns all behavior summaries for a given
+// term, optionally filtered to a specific student.
+func (s *Service) ListStudentBehaviorTermSummaries(ctx context.Context, tenantID, schoolID, termID string, studentID *string) (*StudentBehaviorTermSummariesResponse, error) {
+	if tenantID == "" || schoolID == "" || termID == "" {
+		return nil, fmt.Errorf("behavior.Service.ListStudentBehaviorTermSummaries: %w", ErrInvalidInput)
+	}
+	items, err := s.repo.ListStudentBehaviorTermSummaries(ctx, tenantID, schoolID, termID, studentID)
+	if err != nil {
+		return nil, fmt.Errorf("behavior.Service.ListStudentBehaviorTermSummaries: %w", err)
+	}
+	return &StudentBehaviorTermSummariesResponse{
+		Items: items,
+		Total: len(items),
+	}, nil
 }

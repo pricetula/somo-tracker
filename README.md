@@ -41,5 +41,5 @@ This project is organized as a monorepo splitting the public marketing presence,
 ## 🏛️ Core Architectural Principles
 
 * **Multi-Tenant Isolation:** Enforced strictly via PostgreSQL Row-Level Security (RLS) at the database layer. All queries must respect tenant boundaries.
-* **Asynchronous Operations:** Heavy analytical tasks, threshold evaluations (e.g., low-attendance tracking), and notifications are offloaded to background workers using `Asynq`.
+* **Asynchronous Operations:** Heavy analytical tasks, threshold evaluations, and notifications are offloaded to background workers using `Asynq`.
 * **State & Communication:** Keep the boundary between frontend and backend predictable. UI components rely on solid HTTP verbs; real-time streaming architectures are intentionally excluded to keep the stack lean and maintainable.

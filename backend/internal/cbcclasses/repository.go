@@ -77,6 +77,7 @@ func (r *PgRepository) List(ctx context.Context, filter ClassListFilter) (*Class
 			c.id,
 			c.grade_level,
 			COALESCE(s.name, '') AS stream_name,
+			COALESCE(s.color, '') AS stream_color,
 			c.grade_level || ' ' || COALESCE(s.name, '') AS display_label,
 			c.stream_id,
 			COUNT(e.student_id) AS student_count
@@ -121,7 +122,7 @@ func (r *PgRepository) List(ctx context.Context, filter ClassListFilter) (*Class
 	}
 
 	dataQuery += fmt.Sprintf(`
-		GROUP BY c.id, c.grade_level, s.name, c.stream_id
+		GROUP BY c.id, c.grade_level, s.name, s.color, c.stream_id
 		ORDER BY c.grade_level ASC, s.name ASC
 		LIMIT $%d OFFSET $%d
 	`, argIdx, argIdx+1)
@@ -141,6 +142,7 @@ func (r *PgRepository) List(ctx context.Context, filter ClassListFilter) (*Class
 			&cls.ID,
 			&cls.GradeLevel,
 			&cls.StreamName,
+			&cls.StreamColor,
 			&cls.DisplayLabel,
 			&cls.StreamID,
 			&cls.StudentCount,
@@ -169,6 +171,7 @@ func (r *PgRepository) List(ctx context.Context, filter ClassListFilter) (*Class
 func (r *PgRepository) GetByID(ctx context.Context, id, tenantID, schoolID string) (*Class, error) {
 	const query = `
 		SELECT c.id, c.grade_level, COALESCE(s.name, '') AS stream_name,
+		       COALESCE(s.color, '') AS stream_color,
 		       c.grade_level || ' ' || COALESCE(s.name, '') AS display_label,
 		       c.stream_id
 		FROM cbc_classes c
@@ -178,7 +181,7 @@ func (r *PgRepository) GetByID(ctx context.Context, id, tenantID, schoolID strin
 
 	var cls Class
 	err := r.pool.QueryRow(ctx, query, id, tenantID, schoolID).Scan(
-		&cls.ID, &cls.GradeLevel, &cls.StreamName, &cls.DisplayLabel, &cls.StreamID,
+		&cls.ID, &cls.GradeLevel, &cls.StreamName, &cls.StreamColor, &cls.DisplayLabel, &cls.StreamID,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -223,14 +226,14 @@ func (r *PgRepository) Create(ctx context.Context, params CreateClassParams) (*C
 	// Step 2: Batch enroll students
 	if len(params.StudentIDs) > 0 {
 		const enrollStudents = `
-			INSERT INTO cbc_student_enrollments (student_id, class_id, academic_term_id, tenant_id, school_id)
-			SELECT unnest($1::uuid[]), $2, $3, $4, $5
+			INSERT INTO cbc_student_enrollments (student_id, class_id, academic_term_id, academic_year_id, tenant_id, school_id)
+			SELECT unnest($1::uuid[]), $2, $3, $4, $5, $6
 			ON CONFLICT (student_id, school_id, academic_term_id)
 			DO UPDATE SET class_id = EXCLUDED.class_id
 		`
 		_, err = tx.Exec(ctx, enrollStudents,
 			params.StudentIDs, classID, params.AcademicTermID,
-			params.TenantID, params.SchoolID,
+			params.AcademicYearID, params.TenantID, params.SchoolID,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("cbcclasses.Repository.Create: enroll students: %w", err)
@@ -244,6 +247,7 @@ func (r *PgRepository) Create(ctx context.Context, params CreateClassParams) (*C
 	// Fetch the created class with display_label
 	const fetchClass = `
 		SELECT c.id, c.grade_level, COALESCE(s.name, '') AS stream_name,
+		       COALESCE(s.color, '') AS stream_color,
 		       c.grade_level || ' ' || COALESCE(s.name, '') AS display_label,
 		       c.stream_id
 		FROM cbc_classes c
@@ -252,7 +256,7 @@ func (r *PgRepository) Create(ctx context.Context, params CreateClassParams) (*C
 	`
 	var cls Class
 	err = r.pool.QueryRow(ctx, fetchClass, classID).Scan(
-		&cls.ID, &cls.GradeLevel, &cls.StreamName, &cls.DisplayLabel, &cls.StreamID,
+		&cls.ID, &cls.GradeLevel, &cls.StreamName, &cls.StreamColor, &cls.DisplayLabel, &cls.StreamID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("cbcclasses.Repository.Create: fetch class: %w", err)
@@ -304,8 +308,8 @@ func (r *PgRepository) Update(ctx context.Context, params UpdateClassParams) (*C
 	// Step 2: Upsert incoming roster
 	if len(params.StudentIDs) > 0 {
 		const upsertStudents = `
-			INSERT INTO cbc_student_enrollments (student_id, class_id, academic_term_id, tenant_id, school_id)
-			SELECT unnest($1::uuid[]), $2, $3, $4, $5
+			INSERT INTO cbc_student_enrollments (student_id, class_id, academic_term_id, academic_year_id, tenant_id, school_id)
+			SELECT unnest($1::uuid[]), $2, $3, (SELECT academic_year_id FROM academic_terms WHERE id = $3), $4, $5
 			ON CONFLICT (student_id, school_id, academic_term_id)
 			DO UPDATE SET class_id = EXCLUDED.class_id
 		`
@@ -421,7 +425,7 @@ func (r *PgRepository) ValidateAcademicTerm(ctx context.Context, id, academicYea
 
 // ─── GetRoster ───────────────────────────────────────────────────────────
 
-// GetRoster returns a paginated list of students enrolled in a class for the current term.
+// GetRoster returns a paginated list of students enrolled in a class for the given term.
 func (r *PgRepository) GetRoster(ctx context.Context, classID, tenantID, schoolID, academicTermID string, limit, offset int, search string) (*RosterListResult, error) {
 	// ── Count query ───────────────────────────────────────────
 	countQuery := `
@@ -431,9 +435,11 @@ func (r *PgRepository) GetRoster(ctx context.Context, classID, tenantID, schoolI
 		WHERE e.class_id = $1
 		  AND e.academic_term_id = $2
 		  AND e.tenant_id = $3
+		  AND e.school_id = $4
+		  AND e.status = 'ACTIVE'
 		  AND s.is_active = true
 	`
-	countArgs := []interface{}{classID, academicTermID, tenantID}
+	countArgs := []interface{}{classID, academicTermID, tenantID, schoolID}
 
 	if search != "" {
 		countQuery += ` AND (s.full_name ILIKE $4 OR s.admission_number ILIKE $4)`
@@ -456,9 +462,11 @@ func (r *PgRepository) GetRoster(ctx context.Context, classID, tenantID, schoolI
 		WHERE e.class_id = $1
 		  AND e.academic_term_id = $2
 		  AND e.tenant_id = $3
+		  AND e.school_id = $4
+		  AND e.status = 'ACTIVE'
 		  AND s.is_active = true
 	`
-	dataArgs := []interface{}{classID, academicTermID, tenantID}
+	dataArgs := []interface{}{classID, academicTermID, tenantID, schoolID}
 
 	if search != "" {
 		dataQuery += ` AND (s.full_name ILIKE $4 OR s.admission_number ILIKE $4)`
@@ -571,8 +579,8 @@ func (r *PgRepository) BatchEnrollStudents(ctx context.Context, classID, tenantI
 
 	// Step 2: Insert enrollments (skip if already enrolled in this class)
 	const insertEnrollments = `
-		INSERT INTO cbc_student_enrollments (student_id, class_id, academic_term_id, tenant_id, school_id, status)
-		SELECT unnest($1::uuid[]), $2, $3, $4, $5, 'ACTIVE'
+		INSERT INTO cbc_student_enrollments (student_id, class_id, academic_term_id, academic_year_id, tenant_id, school_id, status)
+		SELECT unnest($1::uuid[]), $2, $3, (SELECT academic_year_id FROM academic_terms WHERE id = $3), $4, $5, 'ACTIVE'
 		ON CONFLICT (student_id, school_id, academic_term_id)
 		DO UPDATE SET class_id = EXCLUDED.class_id, status = 'ACTIVE', updated_at = NOW()
 		WHERE cbc_student_enrollments.class_id IS DISTINCT FROM EXCLUDED.class_id
@@ -592,18 +600,22 @@ func (r *PgRepository) BatchEnrollStudents(ctx context.Context, classID, tenantI
 
 // ─── UnenrollStudent ──────────────────────────────────────────────────────
 
-// UnenrollStudent removes a single student from a class for the active term.
+// UnenrollStudent removes a single student from a class for the given term.
 // Sets class_id to NULL on the enrollment record instead of deleting it,
-// preserving attendance history.
-func (r *PgRepository) UnenrollStudent(ctx context.Context, classID, studentID, tenantID, schoolID string) error {
+// preserving the enrollment history.
+// The academic_term_id parameter is REQUIRED to scope the unenrollment to
+// a single term — omitting it would unenroll the student from ALL terms
+// for this class.
+func (r *PgRepository) UnenrollStudent(ctx context.Context, classID, studentID, tenantID, schoolID, academicTermID string) error {
 	const query = `
 		UPDATE cbc_student_enrollments
 		SET class_id = NULL, status = 'SUSPENDED', updated_at = NOW()
 		WHERE class_id = $1
 		  AND student_id = $2
 		  AND tenant_id = $3
+		  AND academic_term_id = $4
 	`
-	tag, err := r.pool.Exec(ctx, query, classID, studentID, tenantID)
+	tag, err := r.pool.Exec(ctx, query, classID, studentID, tenantID, academicTermID)
 	if err != nil {
 		return fmt.Errorf("cbcclasses.Repository.UnenrollStudent: %w", err)
 	}

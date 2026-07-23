@@ -32,28 +32,28 @@ type Repository interface {
 
 	// Strands
 	CreateStrand(ctx context.Context, params CreateStrandParams) (string, error)
-	GetStrandByID(ctx context.Context, id string) (*Strand, error)
-	ListStrandsByLearningArea(ctx context.Context, learningAreaID string) ([]Strand, error)
+	GetStrandByID(ctx context.Context, id, tenantID string) (*Strand, error)
+	ListStrandsByLearningArea(ctx context.Context, learningAreaID, tenantID string) ([]Strand, error)
 	UpdateStrand(ctx context.Context, params UpdateStrandParams) error
-	DeleteStrand(ctx context.Context, id string) error
+	DeleteStrand(ctx context.Context, id, tenantID string) error
 
 	// Sub-Strands
 	CreateSubStrand(ctx context.Context, params CreateSubStrandParams) (string, error)
-	GetSubStrandByID(ctx context.Context, id string) (*SubStrand, error)
-	ListSubStrandsByStrand(ctx context.Context, strandID string) ([]SubStrand, error)
+	GetSubStrandByID(ctx context.Context, id, tenantID string) (*SubStrand, error)
+	ListSubStrandsByStrand(ctx context.Context, strandID, tenantID string) ([]SubStrand, error)
 	UpdateSubStrand(ctx context.Context, params UpdateSubStrandParams) error
-	DeleteSubStrand(ctx context.Context, id string) error
+	DeleteSubStrand(ctx context.Context, id, tenantID string) error
 
 	// Performance Indicators
 	CreatePerformanceIndicator(ctx context.Context, params CreatePerformanceIndicatorParams) (string, error)
-	GetPerformanceIndicatorByID(ctx context.Context, id string) (*PerformanceIndicator, error)
-	ListPerformanceIndicatorsBySubStrand(ctx context.Context, subStrandID string) ([]PerformanceIndicator, error)
+	GetPerformanceIndicatorByID(ctx context.Context, id, tenantID string) (*PerformanceIndicator, error)
+	ListPerformanceIndicatorsBySubStrand(ctx context.Context, subStrandID, tenantID string) ([]PerformanceIndicator, error)
 	UpdatePerformanceIndicator(ctx context.Context, params UpdatePerformanceIndicatorParams) error
-	DeletePerformanceIndicator(ctx context.Context, id string) error
+	DeletePerformanceIndicator(ctx context.Context, id, tenantID string) error
 	GetMaxSequenceOrder(ctx context.Context, subStrandID string) (int, error)
 
 	// Tree
-	GetTree(ctx context.Context, learningAreaID string) (*LearningAreaTree, error)
+	GetTree(ctx context.Context, learningAreaID, tenantID string) (*LearningAreaTree, error)
 
 	// Parent-validation helpers (for tenant/school isolation)
 	VerifyLearningAreaBelongsToTenant(ctx context.Context, id, tenantID, schoolID string) error
@@ -82,6 +82,7 @@ type LearningArea struct {
 // Strand represents a CBC strand within a learning area.
 type Strand struct {
 	ID             string `json:"id"`
+	TenantID       string `json:"-"`
 	LearningAreaID string `json:"learning_area_id"`
 	Name           string `json:"name"`
 }
@@ -89,6 +90,7 @@ type Strand struct {
 // SubStrand represents a CBC sub-strand within a strand.
 type SubStrand struct {
 	ID       string `json:"id"`
+	TenantID string `json:"-"`
 	StrandID string `json:"strand_id"`
 	Name     string `json:"name"`
 }
@@ -96,6 +98,7 @@ type SubStrand struct {
 // PerformanceIndicator represents an atomic CBC learning outcome within a sub-strand.
 type PerformanceIndicator struct {
 	ID            string `json:"id"`
+	TenantID      string `json:"-"`
 	SubStrandID   string `json:"sub_strand_id"`
 	Description   string `json:"description"`
 	SequenceOrder int    `json:"sequence_order"`
@@ -144,30 +147,35 @@ type UpdateLearningAreaParams struct {
 
 // CreateStrandParams holds the fields needed to create a strand.
 type CreateStrandParams struct {
+	TenantID       string
 	LearningAreaID string
 	Name           string
 }
 
 // UpdateStrandParams holds fields that can be updated on a strand.
 type UpdateStrandParams struct {
-	ID   string
-	Name *string
+	ID       string
+	TenantID string
+	Name     *string
 }
 
 // CreateSubStrandParams holds the fields needed to create a sub-strand.
 type CreateSubStrandParams struct {
+	TenantID string
 	StrandID string
 	Name     string
 }
 
 // UpdateSubStrandParams holds fields that can be updated on a sub-strand.
 type UpdateSubStrandParams struct {
-	ID   string
-	Name *string
+	ID       string
+	TenantID string
+	Name     *string
 }
 
 // CreatePerformanceIndicatorParams holds the fields needed to create a performance indicator.
 type CreatePerformanceIndicatorParams struct {
+	TenantID      string
 	SubStrandID   string
 	Description   string
 	SequenceOrder *int // nil means auto-increment (last+1)
@@ -176,6 +184,7 @@ type CreatePerformanceIndicatorParams struct {
 // UpdatePerformanceIndicatorParams holds fields that can be updated on a performance indicator.
 type UpdatePerformanceIndicatorParams struct {
 	ID            string
+	TenantID      string
 	Description   *string
 	SequenceOrder *int
 }
@@ -217,6 +226,8 @@ type UpdateStrandPayload struct {
 type ListStrandsResponse struct {
 	Items []Strand `json:"items"`
 	Total int      `json:"total"`
+	Page  int      `json:"page"`
+	Limit int      `json:"limit"`
 }
 
 // Sub-Strand payloads
@@ -232,6 +243,8 @@ type UpdateSubStrandPayload struct {
 type ListSubStrandsResponse struct {
 	Items []SubStrand `json:"items"`
 	Total int         `json:"total"`
+	Page  int         `json:"page"`
+	Limit int         `json:"limit"`
 }
 
 // Performance Indicator payloads
@@ -249,6 +262,8 @@ type UpdatePerformanceIndicatorPayload struct {
 type ListPerformanceIndicatorsResponse struct {
 	Items []PerformanceIndicator `json:"items"`
 	Total int                    `json:"total"`
+	Page  int                    `json:"page"`
+	Limit int                    `json:"limit"`
 }
 
 // ── Seeding Input Structs (JSON payload) ──────────────────────────────────

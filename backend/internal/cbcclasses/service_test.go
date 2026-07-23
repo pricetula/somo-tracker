@@ -21,7 +21,7 @@ type MockRepository struct {
 	validateStreamFn       func(ctx context.Context, id, tenantID, schoolID string) (bool, error)
 	getRosterFn            func(ctx context.Context, classID, tenantID, schoolID, academicTermID string, limit, offset int, search string) (*RosterListResult, error)
 	batchEnrollStudentsFn  func(ctx context.Context, classID, tenantID, schoolID, academicTermID string, studentIDs []string) (int, error)
-	unenrollStudentFn      func(ctx context.Context, classID, studentID, tenantID, schoolID string) error
+	unenrollStudentFn      func(ctx context.Context, classID, studentID, tenantID, schoolID, academicTermID string) error
 	getAvailableStudentsFn func(ctx context.Context, filter AvailableStudentsFilter) (*AvailableStudentsResponse, error)
 }
 
@@ -95,9 +95,9 @@ func (m *MockRepository) BatchEnrollStudents(ctx context.Context, classID, tenan
 	return len(studentIDs), nil
 }
 
-func (m *MockRepository) UnenrollStudent(ctx context.Context, classID, studentID, tenantID, schoolID string) error {
+func (m *MockRepository) UnenrollStudent(ctx context.Context, classID, studentID, tenantID, schoolID, academicTermID string) error {
 	if m.unenrollStudentFn != nil {
-		return m.unenrollStudentFn(ctx, classID, studentID, tenantID, schoolID)
+		return m.unenrollStudentFn(ctx, classID, studentID, tenantID, schoolID, academicTermID)
 	}
 	return nil
 }

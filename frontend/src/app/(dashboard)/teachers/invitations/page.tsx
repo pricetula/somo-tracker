@@ -1,13 +1,17 @@
 /**
- * Teachers invitations listing page — shows all sent invitations for the TEACHER role.
+ * Teachers invitations listing page.
  *
- * Maps to GET /api/v1/invitations?role=TEACHER.
- *
- * Active staff are listed on the dedicated /teachers page.
+ * Shows all sent invitations for the TEACHER role with revoke support.
  */
 
-"use client";
+import { InvitationsList } from "@/features/invitations";
 
 export default function TeachersInvitationsPage() {
-    return <div />;
+    return (
+        <InvitationsList
+            role="TEACHER"
+            queryKey={["invitations", "TEACHER"]}
+            emptyState="No teacher invitations yet."
+        />
+    );
 }

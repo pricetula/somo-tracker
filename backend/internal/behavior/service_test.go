@@ -12,18 +12,21 @@ import (
 // ============================================================================
 
 type MockRepository struct {
-	listCategoriesFn        func(ctx context.Context, tenantID, schoolID string) ([]BehaviorCategory, error)
-	listActiveCategoriesFn  func(ctx context.Context, tenantID, schoolID string) ([]BehaviorCategory, error)
-	createCategoryFn        func(ctx context.Context, tenantID, schoolID, name string, defaultSeverity *string) (*BehaviorCategory, error)
-	getCategoryByIDFn       func(ctx context.Context, id, tenantID string) (*BehaviorCategory, error)
-	updateCategoryFn        func(ctx context.Context, id, tenantID string, payload UpdateCategoryPayload) (*BehaviorCategory, error)
-	createNoteFn            func(ctx context.Context, tenantID, schoolID string, payload CreateNotePayload, authoredBy string) (*BehaviorNote, error)
-	getPendingQueueFn       func(ctx context.Context, tenantID, schoolID string) (*PendingNotesResponse, error)
-	getNoteByIDFn           func(ctx context.Context, id, tenantID string) (*BehaviorNote, error)
-	reviewNoteFn            func(ctx context.Context, id, tenantID, reviewedBy string, decision ReviewDecisionPayload) error
-	getNotesByStudentTermFn func(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]PendingNoteItem, error)
-	updateNoteFn            func(ctx context.Context, id, tenantID string, description string) error
-	listNotesByAuthorFn     func(ctx context.Context, tenantID, schoolID, authoredBy string) ([]TeacherNoteItem, error)
+	listCategoriesFn                   func(ctx context.Context, tenantID, schoolID string) ([]BehaviorCategory, error)
+	listActiveCategoriesFn             func(ctx context.Context, tenantID, schoolID string) ([]BehaviorCategory, error)
+	createCategoryFn                   func(ctx context.Context, tenantID, schoolID, name string, defaultSeverity *string) (*BehaviorCategory, error)
+	getCategoryByIDFn                  func(ctx context.Context, id, tenantID string) (*BehaviorCategory, error)
+	updateCategoryFn                   func(ctx context.Context, id, tenantID string, payload UpdateCategoryPayload) (*BehaviorCategory, error)
+	createNoteFn                       func(ctx context.Context, tenantID, schoolID string, payload CreateNotePayload, authoredBy string) (*BehaviorNote, error)
+	getPendingQueueFn                  func(ctx context.Context, tenantID, schoolID string) (*PendingNotesResponse, error)
+	getNoteByIDFn                      func(ctx context.Context, id, tenantID string) (*BehaviorNote, error)
+	reviewNoteFn                       func(ctx context.Context, id, tenantID, reviewedBy string, decision ReviewDecisionPayload) error
+	getNotesByStudentTermFn            func(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]PendingNoteItem, error)
+	updateNoteFn                       func(ctx context.Context, id, tenantID string, description string) error
+	listNotesByAuthorFn                func(ctx context.Context, tenantID, schoolID, authoredBy string) ([]TeacherNoteItem, error)
+	deleteNoteFn                       func(ctx context.Context, id, tenantID string) error
+	getStudentBehaviorTermSummaryFn    func(ctx context.Context, studentID, termID string) (*StudentBehaviorTermSummary, error)
+	listStudentBehaviorTermSummariesFn func(ctx context.Context, tenantID, schoolID, termID string, studentID *string) ([]StudentBehaviorTermSummary, error)
 }
 
 func (m *MockRepository) ListCategories(ctx context.Context, tenantID, schoolID string) ([]BehaviorCategory, error) {
@@ -106,11 +109,32 @@ func (m *MockRepository) ListNotesByAuthor(ctx context.Context, tenantID, school
 	return []TeacherNoteItem{}, nil
 }
 
+func (m *MockRepository) DeleteNote(ctx context.Context, id, tenantID string) error {
+	if m.deleteNoteFn != nil {
+		return m.deleteNoteFn(ctx, id, tenantID)
+	}
+	return nil
+}
+
 func (m *MockRepository) UpdateNote(ctx context.Context, id, tenantID string, description string) error {
 	if m.updateNoteFn != nil {
 		return m.updateNoteFn(ctx, id, tenantID, description)
 	}
 	return nil
+}
+
+func (m *MockRepository) GetStudentBehaviorTermSummary(ctx context.Context, studentID, termID string) (*StudentBehaviorTermSummary, error) {
+	if m.getStudentBehaviorTermSummaryFn != nil {
+		return m.getStudentBehaviorTermSummaryFn(ctx, studentID, termID)
+	}
+	return nil, ErrNotFound
+}
+
+func (m *MockRepository) ListStudentBehaviorTermSummaries(ctx context.Context, tenantID, schoolID, termID string, studentID *string) ([]StudentBehaviorTermSummary, error) {
+	if m.listStudentBehaviorTermSummariesFn != nil {
+		return m.listStudentBehaviorTermSummariesFn(ctx, tenantID, schoolID, termID, studentID)
+	}
+	return []StudentBehaviorTermSummary{}, nil
 }
 
 // ============================================================================

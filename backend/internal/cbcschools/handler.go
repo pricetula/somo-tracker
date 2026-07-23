@@ -43,7 +43,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	schools.Post("/", middleware.RequireAuth, h.Create)
 	schools.Get("/", middleware.RequireAuth, h.List)
 	schools.Put("/:id", middleware.RequireAuth, h.Update)
-	schools.Delete("/:id", middleware.RequireAuth, h.Delete)
+	schools.Delete("/", middleware.RequireAuth, h.Delete)
 	schools.Post("/:id/activate", middleware.RequireAuth, h.SetActive)
 }
 
@@ -106,6 +106,8 @@ func (h *Handler) List(c *fiber.Ctx) error {
 	return c.JSON(ListSchoolsResponse{
 		Items: schools,
 		Total: len(schools),
+		Page:  1,
+		Limit: len(schools),
 	})
 }
 
@@ -204,8 +206,17 @@ func (h *Handler) SetActive(c *fiber.Ctx) error {
 // Delete handles DELETE /api/v1/schools/:id.
 func (h *Handler) Delete(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
-	schoolID := c.Params("id")
-	if schoolID == "" {
+
+	var payload struct {
+		ID string `json:"id"`
+	}
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "invalid request body",
+		})
+	}
+	if payload.ID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"code":    "invalid_input",
 			"message": "school id is required",
@@ -213,11 +224,11 @@ func (h *Handler) Delete(c *fiber.Ctx) error {
 	}
 
 	// Verify the school exists and belongs to this tenant
-	if _, err := h.svc.GetSchool(c.Context(), schoolID, tenantID); err != nil {
+	if _, err := h.svc.GetSchool(c.Context(), payload.ID, tenantID); err != nil {
 		return middleware.HTTPError(c, err)
 	}
 
-	if err := h.svc.DeleteSchool(c.Context(), schoolID); err != nil {
+	if err := h.svc.DeleteSchool(c.Context(), payload.ID); err != nil {
 		return middleware.HTTPError(c, err)
 	}
 

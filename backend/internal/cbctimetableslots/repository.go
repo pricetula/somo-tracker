@@ -74,39 +74,76 @@ func (r *PgRepository) List(ctx context.Context, filter SlotFilter) ([]Timetable
 }
 
 // ListEnriched returns slots with joined data from timetable_structures, classes, teachers.
+// When filter.Date is set, the query filters by day-of-week matching that date and LEFT JOINs
+// cbc_attendance_sessions to include session_status and skip_reason.
+// The session_status and skip_reason columns are always selected (NULL when no date filter).
 func (r *PgRepository) ListEnriched(ctx context.Context, filter SlotFilter) ([]SlotWithEnrichedData, error) {
-	query := `
-		SELECT
-			sl.id,
-			sl.tenant_id,
-			sl.school_id,
-			sl.academic_year_id,
-			sl.structure_id,
-			sl.class_id,
-			sl.learning_area_id,
-			sl.teacher_id,
-			sl.room_identifier,
-			sl.created_at,
-			sl.updated_at,
-			cls.grade_level || ' ' || COALESCE(str.name, '') AS class_name,
-			ts.period_name,
-			ts.day_of_week,
-			ts.start_time,
-			ts.end_time,
-			ts.is_break,
-			la.name AS learning_area_name,
-			u.full_name AS teacher_name
-		FROM cbc_timetable_slots sl
+	var hasDate bool
+	selectCols := `
+		sl.id,
+		sl.tenant_id,
+		sl.school_id,
+		sl.academic_year_id,
+		sl.structure_id,
+		sl.class_id,
+		sl.learning_area_id,
+		sl.teacher_id,
+		sl.room_identifier,
+		sl.created_at,
+		sl.updated_at,
+		cls.grade_level || ' ' || COALESCE(str.name, '') AS class_name,
+		ts.period_name,
+		ts.day_of_week,
+		ts.start_time,
+		ts.end_time,
+		ts.is_break,
+		la.name AS learning_area_name,
+		u.full_name AS teacher_name,
+		sess.status AS session_status,
+		sess.skip_reason
+	`
+	if filter.Date != "" {
+		hasDate = true
+	}
+
+	// ── Step 1: Build FROM and JOINs (no WHERE yet) ──
+	query := `SELECT` + selectCols + `FROM cbc_timetable_slots sl
 		JOIN timetable_structures ts ON ts.id = sl.structure_id
 		LEFT JOIN cbc_classes cls ON cls.id = sl.class_id
 		LEFT JOIN cbc_streams str ON str.id = cls.stream_id
 		LEFT JOIN cbc_learning_areas la ON la.id = sl.learning_area_id
 		LEFT JOIN users u ON u.id = sl.teacher_id
-		WHERE sl.academic_year_id = $1
 	`
-	args := []interface{}{filter.AcademicYearID}
-	argIdx := 2
+	args := []interface{}{}
+	argIdx := 1
 
+	// ── Step 2: LEFT JOIN cbc_attendance_sessions (always present, with date filter or without) ──
+	// Without a date, we still LEFT JOIN but the WHERE clause won't match any session rows
+	// (or the ON condition acts as a cross-check). We use a lateral approach:
+	// when no date is given, the JOIN matches nothing → sess.* are NULL.
+	// When date is given, the JOIN filters by date and matches the row.
+	if hasDate {
+		query += fmt.Sprintf(`
+			LEFT JOIN cbc_attendance_sessions sess
+				ON sess.timetable_slot_id = sl.id
+				AND sess.date = $%d::DATE
+				AND sess.tenant_id = sl.tenant_id
+		`, argIdx)
+		args = append(args, filter.Date)
+		argIdx++
+	} else {
+		query += `
+			LEFT JOIN cbc_attendance_sessions sess
+				ON FALSE
+		`
+	}
+
+	// ── Step 3: WHERE clause ──
+	query += fmt.Sprintf(` WHERE sl.academic_year_id = $%d`, argIdx)
+	args = append(args, filter.AcademicYearID)
+	argIdx++
+
+	// ── Step 4: Optional filters ──
 	if filter.TenantID != "" {
 		query += fmt.Sprintf(` AND sl.tenant_id = $%d`, argIdx)
 		args = append(args, filter.TenantID)
@@ -130,11 +167,26 @@ func (r *PgRepository) ListEnriched(ctx context.Context, filter SlotFilter) ([]S
 	if filter.TeacherID != "" {
 		query += fmt.Sprintf(` AND sl.teacher_id = $%d`, argIdx)
 		args = append(args, filter.TeacherID)
+		argIdx++
+	}
+
+	// ── Step 5: Day-of-week filter (also uses the date) ──
+	if hasDate {
+		// EXTRACT(DOW) returns 0=Sunday … 6=Saturday. Our day_of_week is 1=Monday … 7=Sunday.
+		query += fmt.Sprintf(`
+			AND ts.day_of_week = (
+				SELECT CASE EXTRACT(DOW FROM $%d::DATE)::INT
+					WHEN 0 THEN 7  -- Postgres Sunday → our Sunday (7)
+					ELSE EXTRACT(DOW FROM $%d::DATE)::INT
+				END
+			)
+		`, argIdx, argIdx)
+		args = append(args, filter.Date)
 	}
 
 	query += ` ORDER BY ts.day_of_week ASC, ts.start_time ASC, sl.class_id ASC`
 
-	return r.queryEnrichedSlots(ctx, query, args...)
+	return r.queryEnrichedSlots(ctx, query, hasDate, args...)
 }
 
 func (r *PgRepository) querySlots(ctx context.Context, query string, args ...interface{}) ([]TimetableSlot, error) {
@@ -163,7 +215,7 @@ func (r *PgRepository) querySlots(ctx context.Context, query string, args ...int
 	return slots, nil
 }
 
-func (r *PgRepository) queryEnrichedSlots(ctx context.Context, query string, args ...interface{}) ([]SlotWithEnrichedData, error) {
+func (r *PgRepository) queryEnrichedSlots(ctx context.Context, query string, hasDate bool, args ...interface{}) ([]SlotWithEnrichedData, error) {
 	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("cbctimetableslots.Repository.queryEnrichedSlots: %w", err)
@@ -174,15 +226,19 @@ func (r *PgRepository) queryEnrichedSlots(ctx context.Context, query string, arg
 	for rows.Next() {
 		var s SlotWithEnrichedData
 		var startTime, endTime *time.Time
+
+		// Always scan session_status and skip_reason — they are always in the SELECT now.
 		if err := rows.Scan(
 			&s.ID, &s.TenantID, &s.SchoolID, &s.AcademicYearID, &s.StructureID, &s.ClassID,
 			&s.LearningAreaID, &s.TeacherID, &s.RoomIdentifier, &s.CreatedAt, &s.UpdatedAt,
 			&s.ClassName, &s.PeriodName, &s.DayOfWeek,
 			&startTime, &endTime, &s.IsBreak,
 			&s.LearningAreaName, &s.TeacherName,
+			&s.SessionStatus, &s.SkipReason,
 		); err != nil {
 			return nil, fmt.Errorf("cbctimetableslots.Repository.queryEnrichedSlots: scan: %w", err)
 		}
+
 		if startTime != nil {
 			s.StartTime = startTime.Format("15:04")
 		}

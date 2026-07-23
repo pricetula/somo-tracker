@@ -99,17 +99,16 @@ func (s *Service) CreateYear(ctx context.Context, body CreateYearBody, tenantID,
 }
 
 // PatchYear applies partial updates to an academic year.
-func (s *Service) PatchYear(ctx context.Context, id, tenantID, schoolID string, body PatchYearBody, actorID string) (*AcademicYear, *TermsOutOfRangeError) {
-	// Step 1 — Fetch with FOR UPDATE
+func (s *Service) PatchYear(ctx context.Context, id, tenantID, schoolID string, body PatchYearBody, actorID string) (*AcademicYear, error) {
 	// Step 1 — Fetch with FOR UPDATE
 	year, err := s.Repo.GetYearByIDForUpdate(ctx, id, tenantID, schoolID)
 	if err != nil {
-		return nil, nil // error propagated as 404
+		return nil, fmt.Errorf("academicyears.Service.PatchYear: fetch year: %w", err)
 	}
 
 	// Step 2 — Optimistic lock check
 	if body.Version == nil || *body.Version != year.Version {
-		return nil, nil // error propagated as 409
+		return nil, fmt.Errorf("academicyears.Service.PatchYear: version mismatch: %w", ErrConflict)
 	}
 
 	// Apply changes
@@ -119,14 +118,14 @@ func (s *Service) PatchYear(ctx context.Context, id, tenantID, schoolID string, 
 	if body.StartDate != nil {
 		newStart, parseErr := parseDate(*body.StartDate)
 		if parseErr != nil {
-			return nil, nil // error propagated as invalid_input
+			return nil, fmt.Errorf("academicyears.Service.PatchYear: %w", ErrInvalidInput)
 		}
 		year.StartDate = newStart
 	}
 	if body.EndDate != nil {
 		newEnd, parseErr := parseDate(*body.EndDate)
 		if parseErr != nil {
-			return nil, nil // error propagated as invalid_input
+			return nil, fmt.Errorf("academicyears.Service.PatchYear: %w", ErrInvalidInput)
 		}
 		year.EndDate = newEnd
 	}
@@ -137,16 +136,16 @@ func (s *Service) PatchYear(ctx context.Context, id, tenantID, schoolID string, 
 	if body.StartDate != nil || body.EndDate != nil {
 		stranded, err := s.Repo.FindStrandedTerms(ctx, year.ID, year.StartDate.Time, year.EndDate.Time)
 		if err != nil {
-			return nil, nil // error propagated
+			return nil, fmt.Errorf("academicyears.Service.PatchYear: stranded check: %w", err)
 		}
 		if len(stranded) > 0 {
-			return nil, &TermsOutOfRangeError{ConflictingTerms: stranded}
+			return nil, fmt.Errorf("academicyears.Service.PatchYear: %w", &TermsOutOfRangeError{ConflictingTerms: stranded})
 		}
 	}
 
 	// Step 4 — Apply update
 	if err := s.Repo.UpdateYear(ctx, year); err != nil {
-		return nil, nil // error propagated
+		return nil, fmt.Errorf("academicyears.Service.PatchYear: update: %w", err)
 	}
 
 	// Log the mutation

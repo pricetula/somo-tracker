@@ -327,6 +327,8 @@ func (s *Service) ListInvoices(ctx context.Context, tenantID, schoolID string, f
 	return &ListInvoicesResponse{
 		Items: invoices,
 		Total: total,
+		Page:  1,
+		Limit: len(invoices),
 	}, nil
 }
 
@@ -412,5 +414,7 @@ func (s *Service) ListPayments(ctx context.Context, tenantID, invoiceID string) 
 	return &ListPaymentsResponse{
 		Items: payments,
 		Total: len(payments),
+		Page:  1,
+		Limit: len(payments),
 	}, nil
 }

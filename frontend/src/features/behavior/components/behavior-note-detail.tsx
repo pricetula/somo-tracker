@@ -5,8 +5,9 @@
 "use client";
 
 import { useState } from "react";
-import { useParams } from "next/navigation";
-import { Pencil } from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
+import { format } from "date-fns";
+import { Pencil, Trash2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,9 +24,25 @@ import {
     DialogClose,
 } from "@/components/ui/dialog";
 import { getErrorMessage } from "@/lib/errors";
-import { getBehaviorNote, updateBehaviorNote, type BehaviorNote } from "@/lib/api/behavior";
+import {
+    getBehaviorNote,
+    updateBehaviorNote,
+    deleteBehaviorNote,
+    type BehaviorNote,
+} from "@/lib/api/behavior";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 // ─── Status badge helper ──────────────────────────────────────────────────
 
@@ -101,6 +118,7 @@ function EditNoteDialog({
 // ─── Main Component ───────────────────────────────────────────────────────
 
 export function BehaviorNoteDetail() {
+    const router = useRouter();
     const params = useParams();
     const noteId = params?.id as string;
 
@@ -116,6 +134,7 @@ export function BehaviorNoteDetail() {
     });
 
     const [editOpen, setEditOpen] = useState(false);
+    const [deleteOpen, setDeleteOpen] = useState(false);
 
     // ── Loading ──────────────────────────────────────────────────────────
     if (isLoading) {
@@ -159,12 +178,47 @@ export function BehaviorNoteDetail() {
                         {note.category_id.slice(0, 8)}… &mdash; Date: {note.date}
                     </p>
                 </div>
-                {note.status === "PENDING_REVIEW" && (
-                    <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
-                        <Pencil className="mr-1.5 size-3.5" />
-                        Edit Description
-                    </Button>
-                )}
+                <div className="flex items-center gap-2">
+                    {note.status === "PENDING_REVIEW" && (
+                        <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+                            <Pencil className="mr-1.5 size-3.5" />
+                            Edit
+                        </Button>
+                    )}
+                    <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="outline" size="sm" className="text-destructive">
+                                <Trash2 className="size-3.5" />
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Delete Behavior Note</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    Are you sure you want to delete this behavior note? This action
+                                    cannot be undone.
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                    variant="destructive"
+                                    onClick={async () => {
+                                        try {
+                                            await deleteBehaviorNote(noteId);
+                                            toast.success("Behavior note deleted");
+                                            router.push("/behavior");
+                                        } catch {
+                                            // handled by catch below
+                                        }
+                                    }}
+                                >
+                                    Delete
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                </div>
             </div>
 
             {/* ── Description ──────────────────────────────────────────── */}
@@ -188,7 +242,9 @@ export function BehaviorNoteDetail() {
                 <div>
                     <span className="text-muted-foreground">Created</span>
                     <p className="font-medium">
-                        {note.created_at ? new Date(note.created_at).toLocaleString() : "—"}
+                        {note.created_at
+                            ? format(new Date(note.created_at), "MMM d, yyyy, h:mm a")
+                            : "—"}
                     </p>
                 </div>
                 {note.reviewed_by_id && (
@@ -197,7 +253,7 @@ export function BehaviorNoteDetail() {
                         <p className="font-medium">
                             {note.reviewed_by_id.slice(0, 8)}…
                             {note.reviewed_at &&
-                                ` at ${new Date(note.reviewed_at).toLocaleString()}`}
+                                ` at ${format(new Date(note.reviewed_at), "MMM d, yyyy, h:mm a")}`}
                         </p>
                     </div>
                 )}

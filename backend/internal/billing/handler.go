@@ -28,13 +28,13 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	billing.Post("/fee-categories", middleware.RequireRole("SCHOOL_ADMIN"), h.CreateFeeCategory)
 	billing.Get("/fee-categories", middleware.RequireAuth, h.ListFeeCategories)
 	billing.Put("/fee-categories/:id", middleware.RequireRole("SCHOOL_ADMIN"), h.UpdateFeeCategory)
-	billing.Delete("/fee-categories/:id", middleware.RequireRole("SCHOOL_ADMIN"), h.DeleteFeeCategory)
+	billing.Delete("/fee-categories", middleware.RequireRole("SCHOOL_ADMIN"), h.DeleteFeeCategory)
 
 	// Fee templates
 	billing.Post("/fee-templates", middleware.RequireRole("SCHOOL_ADMIN"), h.CreateFeeTemplate)
 	billing.Get("/fee-templates", middleware.RequireAuth, h.ListFeeTemplates)
 	billing.Put("/fee-templates/:id", middleware.RequireRole("SCHOOL_ADMIN"), h.UpdateFeeTemplate)
-	billing.Delete("/fee-templates/:id", middleware.RequireRole("SCHOOL_ADMIN"), h.DeleteFeeTemplate)
+	billing.Delete("/fee-templates", middleware.RequireRole("SCHOOL_ADMIN"), h.DeleteFeeTemplate)
 
 	// Invoices
 	billing.Post("/invoices/generate", middleware.RequireRole("SCHOOL_ADMIN"), h.GenerateInvoice)
@@ -97,6 +97,8 @@ func (h *Handler) ListFeeCategories(c *fiber.Ctx) error {
 	return c.JSON(ListFeeCategoriesResponse{
 		Items: categories,
 		Total: len(categories),
+		Page:  1,
+		Limit: len(categories),
 	})
 }
 
@@ -145,15 +147,23 @@ func (h *Handler) DeleteFeeCategory(c *fiber.Ctx) error {
 		})
 	}
 
-	categoryID := c.Params("id")
-	if categoryID == "" {
+	var payload struct {
+		ID string `json:"id"`
+	}
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "invalid request body",
+		})
+	}
+	if payload.ID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"code":    "invalid_input",
 			"message": "fee category id is required",
 		})
 	}
 
-	if err := h.svc.DeleteFeeCategory(c.Context(), categoryID, tenantID, schoolID); err != nil {
+	if err := h.svc.DeleteFeeCategory(c.Context(), payload.ID, tenantID, schoolID); err != nil {
 		return middleware.HTTPError(c, err)
 	}
 
@@ -218,6 +228,8 @@ func (h *Handler) ListFeeTemplates(c *fiber.Ctx) error {
 	return c.JSON(ListFeeTemplatesResponse{
 		Items: templates,
 		Total: len(templates),
+		Page:  1,
+		Limit: len(templates),
 	})
 }
 
@@ -266,15 +278,23 @@ func (h *Handler) DeleteFeeTemplate(c *fiber.Ctx) error {
 		})
 	}
 
-	templateID := c.Params("id")
-	if templateID == "" {
+	var payload struct {
+		ID string `json:"id"`
+	}
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "invalid request body",
+		})
+	}
+	if payload.ID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"code":    "invalid_input",
 			"message": "fee template id is required",
 		})
 	}
 
-	if err := h.svc.DeleteFeeTemplate(c.Context(), templateID, tenantID, schoolID); err != nil {
+	if err := h.svc.DeleteFeeTemplate(c.Context(), payload.ID, tenantID, schoolID); err != nil {
 		return middleware.HTTPError(c, err)
 	}
 

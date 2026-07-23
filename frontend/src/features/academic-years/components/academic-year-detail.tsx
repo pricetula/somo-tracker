@@ -3,23 +3,19 @@
  *
  * Includes actions: Set Current, Edit Year (inline form toggle),
  * Delete Year, Add Term (dialog), Edit Term (dialog).
+ * Uses the shared DataTable component for the terms listing.
  */
 
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -31,23 +27,46 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
+import { DataTable } from "@/components/shared/data-table";
+import type { DataTableColumn } from "@/components/shared/data-table/types";
 import { getErrorMessage } from "@/lib/errors";
 import {
     useAcademicYearDetail,
     useSetCurrentYear,
     useDeleteAcademicYear,
 } from "../hooks/use-academic-years";
+import { listTerms } from "@/lib/api/academic-terms";
+import type { AcademicTerm } from "@/lib/api/academic-terms";
 import { AcademicYearForm } from "./academic-year-form";
 import { TermForm } from "./term-form";
-import type { AcademicTerm } from "../types";
+
+// ─── Actions cell for terms ───────────────────────────────────────────────
+
+function TermActionsCell({
+    term,
+    onEdit,
+}: {
+    term: AcademicTerm;
+    onEdit: (term: AcademicTerm) => void;
+}) {
+    return (
+        <div className="flex items-center justify-end">
+            <Button variant="outline" size="sm" onClick={() => onEdit(term)}>
+                Edit
+            </Button>
+        </div>
+    );
+}
+
+// ─── Term status cell ─────────────────────────────────────────────────────
+
+function TermStatusCell({ term }: { term: AcademicTerm }) {
+    return term.is_current ? (
+        <Badge variant="default">Current</Badge>
+    ) : (
+        <span className="text-muted-foreground">Scheduled</span>
+    );
+}
 
 // ─── Props ────────────────────────────────────────────────────────────────
 
@@ -66,6 +85,74 @@ export function AcademicYearDetail({ id }: AcademicYearDetailProps) {
     const [showEditForm, setShowEditForm] = useState(false);
     const [termDialogOpen, setTermDialogOpen] = useState(false);
     const [editingTerm, setEditingTerm] = useState<AcademicTerm | null>(null);
+
+    // ── Handlers ───────────────────────────────────────────────────────
+    const handleEditTerm = (term: AcademicTerm) => {
+        setEditingTerm(term);
+        setTermDialogOpen(true);
+    };
+
+    const handleAddTerm = () => {
+        setEditingTerm(null);
+        setTermDialogOpen(true);
+    };
+
+    const handleTermDialogClose = () => {
+        setTermDialogOpen(false);
+        setEditingTerm(null);
+    };
+
+    const handleDelete = async () => {
+        try {
+            await deleteMutation.mutateAsync(id);
+            toast.success("Academic year deleted.");
+        } catch (err) {
+            toast.error(getErrorMessage(err));
+        }
+    };
+
+    // ── Term columns ───────────────────────────────────────────────────
+    const termColumns: DataTableColumn<AcademicTerm>[] = [
+        {
+            id: "term_number",
+            header: "#",
+            width: "50px",
+            cell: (row) => <span className="tabular-nums">{row.term_number}</span>,
+        },
+        {
+            id: "name",
+            header: "Name",
+            cell: (row) => <span className="font-medium">{row.name}</span>,
+        },
+        {
+            id: "start_date",
+            header: "Start Date",
+            width: "120px",
+            cell: (row) => <span className="text-muted-foreground">{row.start_date}</span>,
+        },
+        {
+            id: "end_date",
+            header: "End Date",
+            width: "120px",
+            cell: (row) => <span className="text-muted-foreground">{row.end_date}</span>,
+        },
+        {
+            id: "status",
+            header: "Status",
+            width: "100px",
+            cell: (row) => <TermStatusCell term={row} />,
+        },
+        {
+            id: "actions",
+            header: "",
+            width: "80px",
+            align: "right",
+            cell: (row) => <TermActionsCell term={row} onEdit={handleEditTerm} />,
+        },
+    ];
+
+    // ── Term query fn ──────────────────────────────────────────────────
+    const termQueryFn = () => listTerms({ academic_year_id: id });
 
     // ── Loading state ─────────────────────────────────────────────────────
     if (isLoading) {
@@ -95,8 +182,6 @@ export function AcademicYearDetail({ id }: AcademicYearDetailProps) {
         );
     }
 
-    const terms: AcademicTerm[] = (year.terms ?? []) as AcademicTerm[];
-
     // ── Render ────────────────────────────────────────────────────────────
 
     return (
@@ -118,7 +203,7 @@ export function AcademicYearDetail({ id }: AcademicYearDetailProps) {
                     <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setCurrentMutation.mutate(year.id)}
+                        onClick={() => setCurrentMutation.mutate(id)}
                         disabled={setCurrentMutation.isPending}
                     >
                         Set as Current Year
@@ -146,9 +231,7 @@ export function AcademicYearDetail({ id }: AcademicYearDetailProps) {
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                             <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => deleteMutation.mutate(year.id)}>
-                                Delete
-                            </AlertDialogAction>
+                            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
                         </AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>
@@ -166,109 +249,36 @@ export function AcademicYearDetail({ id }: AcademicYearDetailProps) {
             <div className="space-y-3">
                 <div className="flex items-center justify-between">
                     <h2 className="text-foreground text-lg font-medium">Terms</h2>
-                    <Dialog
-                        open={termDialogOpen && !editingTerm}
-                        onOpenChange={(open) => {
-                            setTermDialogOpen(open);
-                            if (!open) setEditingTerm(null);
-                        }}
-                    >
-                        <DialogTrigger asChild>
-                            <Button
-                                size="sm"
-                                onClick={() => {
-                                    setEditingTerm(null);
-                                    setTermDialogOpen(true);
-                                }}
-                            >
-                                Add Term
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle>Create Term</DialogTitle>
-                            </DialogHeader>
-                            <TermForm
-                                academicYearId={year.id}
-                                onSuccess={() => setTermDialogOpen(false)}
-                            />
-                        </DialogContent>
-                    </Dialog>
+                    <Button size="sm" onClick={handleAddTerm}>
+                        Add Term
+                    </Button>
                 </div>
 
-                {terms.length === 0 ? (
-                    <p className="text-muted-foreground">
-                        No terms defined for this academic year.
-                    </p>
-                ) : (
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>#</TableHead>
-                                <TableHead>Name</TableHead>
-                                <TableHead>Start Date</TableHead>
-                                <TableHead>End Date</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {terms.map((term) => (
-                                <TableRow key={term.id}>
-                                    <TableCell>{term.term_number}</TableCell>
-                                    <TableCell className="font-medium">{term.name}</TableCell>
-                                    <TableCell>{term.start_date}</TableCell>
-                                    <TableCell>{term.end_date}</TableCell>
-                                    <TableCell>
-                                        {term.is_current ? (
-                                            <Badge variant="default">Current</Badge>
-                                        ) : (
-                                            <span className="text-muted-foreground">Scheduled</span>
-                                        )}
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                        <Dialog
-                                            open={termDialogOpen && editingTerm?.id === term.id}
-                                            onOpenChange={(open) => {
-                                                if (!open) {
-                                                    setTermDialogOpen(false);
-                                                    setEditingTerm(null);
-                                                }
-                                            }}
-                                        >
-                                            <DialogTrigger asChild>
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={() => {
-                                                        setEditingTerm(term);
-                                                        setTermDialogOpen(true);
-                                                    }}
-                                                >
-                                                    Edit
-                                                </Button>
-                                            </DialogTrigger>
-                                            <DialogContent>
-                                                <DialogHeader>
-                                                    <DialogTitle>Edit Term</DialogTitle>
-                                                </DialogHeader>
-                                                <TermForm
-                                                    academicYearId={year.id}
-                                                    term={term}
-                                                    onSuccess={() => {
-                                                        setTermDialogOpen(false);
-                                                        setEditingTerm(null);
-                                                    }}
-                                                />
-                                            </DialogContent>
-                                        </Dialog>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                )}
+                <DataTable
+                    queryKey={["academic-terms", id]}
+                    queryFn={termQueryFn}
+                    columns={termColumns}
+                    getRowId={(row) => row.id}
+                    emptyState="No terms defined for this academic year."
+                    noResultsState="No terms match your search."
+                    height={250}
+                    pageSize={10}
+                />
             </div>
+
+            {/* ── Term Dialog ──────────────────────────────────────────── */}
+            <Dialog open={termDialogOpen} onOpenChange={setTermDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>{editingTerm ? "Edit Term" : "Create Term"}</DialogTitle>
+                    </DialogHeader>
+                    <TermForm
+                        academicYearId={id}
+                        term={editingTerm ?? undefined}
+                        onSuccess={handleTermDialogClose}
+                    />
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

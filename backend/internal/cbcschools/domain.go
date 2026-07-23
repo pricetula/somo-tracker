@@ -76,6 +76,8 @@ type SchoolUpdateFields struct {
 type ListSchoolsResponse struct {
 	Items []SchoolWithMemberCount `json:"items"`
 	Total int                     `json:"total"`
+	Page  int                     `json:"page"`
+	Limit int                     `json:"limit"`
 }
 
 // CurriculumSeeder seeds the CBC curriculum for a newly created school.

@@ -64,6 +64,11 @@ export async function getClass(classId: string): Promise<Class> {
     return api.get<Class>(`/api/v1/classes/${classId}`);
 }
 
+/** Bulk delete classes. */
+export async function bulkDeleteClasses(ids: string[]): Promise<void> {
+    await api.delete("/api/v1/classes", { class_ids: ids });
+}
+
 /**
  * Create a new class.
  * POST /api/v1/classes
@@ -127,14 +132,23 @@ export interface BatchEnrollResponse {
 // ─── Enrollment API Functions ───────────────────────────────────────────────
 
 /**
- * Get the roster of students enrolled in a class for the current term.
+ * Get the roster of students enrolled in a class for the given term.
+ * Accepts both academic_year_id and academic_term_id; if neither is provided
+ * the backend defaults to the current academic year/term.
  * GET /api/v1/classes/:id/roster
  */
 export async function getClassRoster(
     classId: string,
-    params: { academic_term_id?: string; page?: number; limit?: number; search?: string } = {}
+    params: {
+        academic_year_id?: string;
+        academic_term_id?: string;
+        page?: number;
+        limit?: number;
+        search?: string;
+    } = {}
 ): Promise<RosterListResult> {
     const searchParams = new URLSearchParams();
+    if (params.academic_year_id) searchParams.set("academic_year_id", params.academic_year_id);
     if (params.academic_term_id) searchParams.set("academic_term_id", params.academic_term_id);
     if (params.page) searchParams.set("page", String(params.page));
     if (params.limit) searchParams.set("limit", String(params.limit));
@@ -149,19 +163,26 @@ export async function getClassRoster(
  */
 export async function batchEnrollStudents(
     classId: string,
-    studentIds: string[]
+    studentIds: string[],
+    academicTermId?: string
 ): Promise<BatchEnrollResponse> {
     return api.post<BatchEnrollResponse>(`/api/v1/classes/${classId}/enroll`, {
         student_ids: studentIds,
+        academic_term_id: academicTermId,
     });
 }
 
 /**
- * Unenroll a single student from a class.
- * POST /api/v1/classes/:id/unenroll/:studentId
+ * Unenroll a single student from a class for a specific term.
+ * POST /api/v1/classes/:id/unenroll/:studentId?academic_term_id=...
  */
-export async function unenrollStudent(classId: string, studentId: string): Promise<void> {
-    return api.post<void>(`/api/v1/classes/${classId}/unenroll/${studentId}`);
+export async function unenrollStudent(
+    classId: string,
+    studentId: string,
+    academicTermId?: string
+): Promise<void> {
+    const qs = academicTermId ? `?academic_term_id=${encodeURIComponent(academicTermId)}` : "";
+    return api.post<void>(`/api/v1/classes/${classId}/unenroll/${studentId}${qs}`);
 }
 
 /**
@@ -170,12 +191,20 @@ export async function unenrollStudent(classId: string, studentId: string): Promi
  */
 export async function getAvailableStudents(
     classId: string,
-    params: { search?: string; page?: number; limit?: number } = {}
+    params: {
+        search?: string;
+        page?: number;
+        limit?: number;
+        academic_year_id?: string;
+        academic_term_id?: string;
+    } = {}
 ): Promise<AvailableStudentsResponse> {
     const searchParams = new URLSearchParams();
     if (params.search) searchParams.set("search", params.search);
     if (params.page) searchParams.set("page", String(params.page));
     if (params.limit) searchParams.set("limit", String(params.limit));
+    if (params.academic_year_id) searchParams.set("academic_year_id", params.academic_year_id);
+    if (params.academic_term_id) searchParams.set("academic_term_id", params.academic_term_id);
     const qs = searchParams.toString();
     return api.get<AvailableStudentsResponse>(
         `/api/v1/classes/${classId}/available-students?${qs}`

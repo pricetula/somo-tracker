@@ -58,7 +58,6 @@ const PUBLIC_ROUTES = new Set(["/login", "/register", "/logout", "/unauthorized"
 const PROTECTED_PREFIXES = [
     "/admins",
     "/assessments",
-    "/attendance",
     "/classes",
     "/curriculum",
     "/finance",

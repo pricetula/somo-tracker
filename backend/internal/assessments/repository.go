@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -56,73 +57,83 @@ func (r *PgRepository) IsTermFinalised(ctx context.Context, termID string) (bool
 	return isFinal, nil
 }
 
-// getTenantSchoolFromProfile verifies a profile belongs to a tenant/school and returns its ID.
-func (r *PgRepository) getTenantSchoolFromProfile(ctx context.Context, profileID, tenantID, schoolID string) error {
-	const query = `
-		SELECT 1 FROM grading_scale_profiles
-		WHERE id = $1 AND tenant_id = $2 AND school_id = $3
-	`
-	var exists int
-	err := r.pool.QueryRow(ctx, query, profileID, tenantID, schoolID).Scan(&exists)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			return fmt.Errorf("assessments.Repository.getTenantSchoolFromProfile: %w", ErrNotFound)
-		}
-		return fmt.Errorf("assessments.Repository.getTenantSchoolFromProfile: %w", err)
-	}
-	return nil
-}
-
 // ============================================================================
 // GRADING SCALE PROFILES
 // ============================================================================
 
-// CreateScaleProfile inserts a new grading scale profile.
-func (r *PgRepository) CreateScaleProfile(ctx context.Context, params CreateScaleProfileParams) (string, error) {
-	const query = `
-		INSERT INTO grading_scale_profiles (tenant_id, school_id, name)
-		VALUES ($1, $2, $3)
-		RETURNING id
-	`
-	var id string
-	err := r.pool.QueryRow(ctx, query, params.TenantID, params.SchoolID, params.Name).Scan(&id)
-	if err != nil {
-		return "", fmt.Errorf("assessments.Repository.CreateScaleProfile: %w", err)
-	}
-	return id, nil
-}
-
 // GetScaleProfileByID retrieves a single scale profile by ID.
-func (r *PgRepository) GetScaleProfileByID(ctx context.Context, id, tenantID, schoolID string) (*ScaleProfile, error) {
+func (r *PgRepository) GetScaleProfileByID(ctx context.Context, id, tenantID, schoolID string) (*ScaleProfileWithRanges, error) {
 	const query = `
-		SELECT id, tenant_id, school_id, name, is_active, created_at, updated_at
-		FROM grading_scale_profiles
-		WHERE id = $1 AND tenant_id = $2 AND school_id = $3
+		SELECT p.id, p.tenant_id, p.school_id, p.name, p.is_active, p.created_at, p.updated_at,
+		       r.id AS range_id, r.tenant_id, r.profile_id, r.performance_level::text, r.min_percentage, r.max_percentage, r.default_percentage_mapping
+		FROM grading_scale_profiles p
+		LEFT JOIN grading_scale_ranges r ON r.profile_id = p.id
+		WHERE p.id = $1 AND p.tenant_id = $2 AND p.school_id = $3
+		ORDER BY r.min_percentage ASC
 	`
-	var p ScaleProfile
-	err := r.pool.QueryRow(ctx, query, id, tenantID, schoolID).
-		Scan(&p.ID, &p.TenantID, &p.SchoolID, &p.Name, &p.IsActive, &p.CreatedAt, &p.UpdatedAt)
+	rows, err := r.pool.Query(ctx, query, id, tenantID, schoolID)
 	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, fmt.Errorf("assessments.Repository.GetScaleProfileByID: %w", ErrNotFound)
-		}
 		return nil, fmt.Errorf("assessments.Repository.GetScaleProfileByID: %w", err)
 	}
-	return &p, nil
+	defer rows.Close()
+
+	var result *ScaleProfileWithRanges
+	for rows.Next() {
+		var p ScaleProfile
+		var rangeID, rangeTenantID, rangeProfileID *string
+		var performanceLevel *string
+		var minPct, maxPct *float64
+		var defaultPct **float64
+
+		if err := rows.Scan(&p.ID, &p.TenantID, &p.SchoolID, &p.Name, &p.IsActive, &p.CreatedAt, &p.UpdatedAt,
+			&rangeID, &rangeTenantID, &rangeProfileID, &performanceLevel, &minPct, &maxPct, &defaultPct); err != nil {
+			return nil, fmt.Errorf("assessments.Repository.GetScaleProfileByID: %w", err)
+		}
+
+		if result == nil {
+			result = &ScaleProfileWithRanges{
+				ScaleProfile: p,
+				Ranges:       []ScaleRange{},
+			}
+		}
+
+		if rangeID != nil {
+			sr := ScaleRange{
+				ID:                       *rangeID,
+				TenantID:                 *rangeTenantID,
+				ProfileID:                *rangeProfileID,
+				PerformanceLevel:         *performanceLevel,
+				MinPercentage:            *minPct,
+				MaxPercentage:            *maxPct,
+				DefaultPercentageMapping: nil,
+			}
+			if defaultPct != nil && *defaultPct != nil {
+				sr.DefaultPercentageMapping = *defaultPct
+			}
+			result.Ranges = append(result.Ranges, sr)
+		}
+	}
+
+	if result == nil {
+		return nil, fmt.Errorf("assessments.Repository.GetScaleProfileByID: %w", ErrNotFound)
+	}
+	return result, nil
 }
 
-// ListScaleProfiles returns all scale profiles for a tenant/school.
-func (r *PgRepository) ListScaleProfiles(ctx context.Context, tenantID, schoolID string, activeOnly bool) ([]ScaleProfile, error) {
+// ListScaleProfiles returns all scale profiles for a tenant/school with their ranges.
+func (r *PgRepository) ListScaleProfiles(ctx context.Context, tenantID, schoolID string, activeOnly bool) ([]ScaleProfileWithRanges, error) {
 	baseQuery := `
-		SELECT id, tenant_id, school_id, name, is_active, created_at, updated_at
-		FROM grading_scale_profiles
-		WHERE tenant_id = $1 AND school_id = $2
+		SELECT p.id, p.tenant_id, p.school_id, p.name, p.is_active, p.created_at, p.updated_at,
+		       r.id AS range_id, r.tenant_id, r.profile_id, r.performance_level::text, r.min_percentage, r.max_percentage, r.default_percentage_mapping
+		FROM grading_scale_profiles p
+		LEFT JOIN grading_scale_ranges r ON r.profile_id = p.id
+		WHERE p.tenant_id = $1 AND p.school_id = $2
 	`
 	args := []interface{}{tenantID, schoolID}
 	if activeOnly {
-		baseQuery += ` AND is_active = true`
+		baseQuery += ` AND p.is_active = true`
 	}
-	baseQuery += ` ORDER BY created_at DESC`
+	baseQuery += ` ORDER BY p.created_at DESC, r.min_percentage ASC`
 
 	rows, err := r.pool.Query(ctx, baseQuery, args...)
 	if err != nil {
@@ -130,15 +141,51 @@ func (r *PgRepository) ListScaleProfiles(ctx context.Context, tenantID, schoolID
 	}
 	defer rows.Close()
 
-	var profiles []ScaleProfile
+	profileMap := make(map[string]*ScaleProfileWithRanges)
+	var order []string
+
 	for rows.Next() {
 		var p ScaleProfile
-		if err := rows.Scan(&p.ID, &p.TenantID, &p.SchoolID, &p.Name, &p.IsActive, &p.CreatedAt, &p.UpdatedAt); err != nil {
+		var rangeID, rangeTenantID, rangeProfileID *string
+		var performanceLevel *string
+		var minPct, maxPct *float64
+		var defaultPct **float64
+
+		if err := rows.Scan(&p.ID, &p.TenantID, &p.SchoolID, &p.Name, &p.IsActive, &p.CreatedAt, &p.UpdatedAt,
+			&rangeID, &rangeTenantID, &rangeProfileID, &performanceLevel, &minPct, &maxPct, &defaultPct); err != nil {
 			return nil, fmt.Errorf("assessments.Repository.ListScaleProfiles: %w", err)
 		}
-		profiles = append(profiles, p)
+
+		if _, exists := profileMap[p.ID]; !exists {
+			profileMap[p.ID] = &ScaleProfileWithRanges{
+				ScaleProfile: p,
+				Ranges:       []ScaleRange{},
+			}
+			order = append(order, p.ID)
+		}
+
+		if rangeID != nil {
+			sr := ScaleRange{
+				ID:                       *rangeID,
+				TenantID:                 *rangeTenantID,
+				ProfileID:                *rangeProfileID,
+				PerformanceLevel:         *performanceLevel,
+				MinPercentage:            *minPct,
+				MaxPercentage:            *maxPct,
+				DefaultPercentageMapping: nil,
+			}
+			if defaultPct != nil && *defaultPct != nil {
+				sr.DefaultPercentageMapping = *defaultPct
+			}
+			profileMap[p.ID].Ranges = append(profileMap[p.ID].Ranges, sr)
+		}
 	}
-	return profiles, nil
+
+	result := make([]ScaleProfileWithRanges, 0, len(order))
+	for _, id := range order {
+		result = append(result, *profileMap[id])
+	}
+	return result, nil
 }
 
 // ToggleScaleProfileActive toggles the is_active flag on a profile.
@@ -186,109 +233,43 @@ func (r *PgRepository) DeleteScaleProfile(ctx context.Context, id, tenantID, sch
 // GRADING SCALE RANGES
 // ============================================================================
 
-// CreateScaleRange inserts a new range into a profile.
-func (r *PgRepository) CreateScaleRange(ctx context.Context, params CreateScaleRangeParams) (string, error) {
-	const query = `
-		INSERT INTO grading_scale_ranges (profile_id, performance_level, min_percentage, max_percentage, default_percentage_mapping)
-		VALUES ($1, $2::cbc_performance_level, $3, $4, $5)
-		RETURNING id
-	`
-	var id string
-	err := r.pool.QueryRow(ctx, query,
-		params.ProfileID,
-		params.PerformanceLevel,
-		params.MinPercentage,
-		params.MaxPercentage,
-		params.DefaultPercentageMapping,
-	).Scan(&id)
-	if err != nil {
-		if isExclusionViolation(err) {
-			return "", fmt.Errorf("assessments.Repository.CreateScaleRange: range overlaps with existing range: %w", ErrConflict)
-		}
-		if isUniqueViolation(err) {
-			return "", fmt.Errorf("assessments.Repository.CreateScaleRange: duplicate performance level for this profile: %w", ErrAlreadyExists)
-		}
-		return "", fmt.Errorf("assessments.Repository.CreateScaleRange: %w", err)
-	}
-	return id, nil
-}
-
-// GetScaleRangesByProfile returns all ranges for a profile.
-func (r *PgRepository) GetScaleRangesByProfile(ctx context.Context, profileID, tenantID, schoolID string) ([]ScaleRange, error) {
-	// First verify the profile belongs to the tenant/school
-	if err := r.getTenantSchoolFromProfile(ctx, profileID, tenantID, schoolID); err != nil {
-		return nil, err
-	}
-
-	const query = `
-		SELECT id, profile_id, performance_level::text, min_percentage, max_percentage, default_percentage_mapping
-		FROM grading_scale_ranges
-		WHERE profile_id = $1
-		ORDER BY min_percentage ASC
-	`
-	rows, err := r.pool.Query(ctx, query, profileID)
-	if err != nil {
-		return nil, fmt.Errorf("assessments.Repository.GetScaleRangesByProfile: %w", err)
-	}
-	defer rows.Close()
-
-	var ranges []ScaleRange
-	for rows.Next() {
-		var sr ScaleRange
-		if err := rows.Scan(&sr.ID, &sr.ProfileID, &sr.PerformanceLevel, &sr.MinPercentage, &sr.MaxPercentage, &sr.DefaultPercentageMapping); err != nil {
-			return nil, fmt.Errorf("assessments.Repository.GetScaleRangesByProfile: %w", err)
-		}
-		ranges = append(ranges, sr)
-	}
-	return ranges, nil
-}
-
-// DeleteScaleRange removes a single range from a profile.
-func (r *PgRepository) DeleteScaleRange(ctx context.Context, rangeID, profileID, tenantID, schoolID string) error {
-	if err := r.getTenantSchoolFromProfile(ctx, profileID, tenantID, schoolID); err != nil {
-		return err
-	}
-
-	const query = `
-		DELETE FROM grading_scale_ranges
-		WHERE id = $1 AND profile_id = $2
-	`
-	result, err := r.pool.Exec(ctx, query, rangeID, profileID)
-	if err != nil {
-		return fmt.Errorf("assessments.Repository.DeleteScaleRange: %w", err)
-	}
-	if result.RowsAffected() == 0 {
-		return fmt.Errorf("assessments.Repository.DeleteScaleRange: %w", ErrNotFound)
-	}
-	return nil
-}
-
-// BulkSetScaleRanges replaces all ranges for a profile in a transaction.
-func (r *PgRepository) BulkSetScaleRanges(ctx context.Context, profileID string, ranges []CreateScaleRangeParams) ([]string, error) {
+// CreateScaleProfileWithRanges creates a grading scale profile and its ranges
+// in a single atomic transaction.
+func (r *PgRepository) CreateScaleProfileWithRanges(ctx context.Context, params CreateScaleProfileParams) (string, []string, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("assessments.Repository.BulkSetScaleRanges: begin tx: %w", err)
+		return "", nil, fmt.Errorf("assessments.Repository.CreateScaleProfileWithRanges: begin tx: %w", err)
 	}
 	defer func() {
-		_ = tx.Rollback(ctx)
+		if rbErr := tx.Rollback(ctx); rbErr != nil && rbErr != pgx.ErrTxClosed {
+			slog.WarnContext(ctx, "assessments.Repository.CreateScaleProfileWithRanges: rollback",
+				slog.String("error", rbErr.Error()))
+		}
 	}()
 
-	// Delete existing ranges
-	_, err = tx.Exec(ctx, `DELETE FROM grading_scale_ranges WHERE profile_id = $1`, profileID)
+	// Insert the profile
+	const profileQuery = `
+		INSERT INTO grading_scale_profiles (tenant_id, school_id, name)
+		VALUES ($1, $2, $3)
+		RETURNING id
+	`
+	var profileID string
+	err = tx.QueryRow(ctx, profileQuery, params.TenantID, params.SchoolID, params.Name).Scan(&profileID)
 	if err != nil {
-		return nil, fmt.Errorf("assessments.Repository.BulkSetScaleRanges: delete existing: %w", err)
+		return "", nil, fmt.Errorf("assessments.Repository.CreateScaleProfileWithRanges: create profile: %w", err)
 	}
 
-	// Insert new ranges
-	ids := make([]string, 0, len(ranges))
-	for _, sr := range ranges {
-		const query = `
-			INSERT INTO grading_scale_ranges (profile_id, performance_level, min_percentage, max_percentage, default_percentage_mapping)
-			VALUES ($1, $2::cbc_performance_level, $3, $4, $5)
+	// Insert ranges
+	ids := make([]string, 0, len(params.Ranges))
+	for _, sr := range params.Ranges {
+		const rangeQuery = `
+			INSERT INTO grading_scale_ranges (tenant_id, profile_id, performance_level, min_percentage, max_percentage, default_percentage_mapping)
+			VALUES ($1, $2, $3::cbc_performance_level, $4, $5, $6)
 			RETURNING id
 		`
 		var id string
-		err := tx.QueryRow(ctx, query,
+		err := tx.QueryRow(ctx, rangeQuery,
+			params.TenantID,
 			profileID,
 			sr.PerformanceLevel,
 			sr.MinPercentage,
@@ -297,15 +278,94 @@ func (r *PgRepository) BulkSetScaleRanges(ctx context.Context, profileID string,
 		).Scan(&id)
 		if err != nil {
 			if isExclusionViolation(err) {
-				return nil, fmt.Errorf("assessments.Repository.BulkSetScaleRanges: overlapping ranges: %w", ErrConflict)
+				return "", nil, fmt.Errorf("assessments.Repository.CreateScaleProfileWithRanges: overlapping ranges: %w", ErrConflict)
 			}
-			return nil, fmt.Errorf("assessments.Repository.BulkSetScaleRanges: %w", err)
+			if isUniqueViolation(err) {
+				return "", nil, fmt.Errorf("assessments.Repository.CreateScaleProfileWithRanges: duplicate performance level: %w", ErrAlreadyExists)
+			}
+			return "", nil, fmt.Errorf("assessments.Repository.CreateScaleProfileWithRanges: insert range: %w", err)
 		}
 		ids = append(ids, id)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return nil, fmt.Errorf("assessments.Repository.BulkSetScaleRanges: commit: %w", err)
+		return "", nil, fmt.Errorf("assessments.Repository.CreateScaleProfileWithRanges: commit: %w", err)
+	}
+	return profileID, ids, nil
+}
+
+// GetScaleRanges returns all ranges for a given profile.
+func (r *PgRepository) GetScaleRanges(ctx context.Context, profileID string) ([]ScaleRange, error) {
+	const query = `
+		SELECT id, tenant_id, profile_id, performance_level::text, min_percentage, max_percentage, default_percentage_mapping
+		FROM grading_scale_ranges
+		WHERE profile_id = $1
+		ORDER BY min_percentage ASC
+	`
+	rows, err := r.pool.Query(ctx, query, profileID)
+	if err != nil {
+		return nil, fmt.Errorf("assessments.Repository.GetScaleRanges: %w", err)
+	}
+	defer rows.Close()
+
+	var ranges []ScaleRange
+	for rows.Next() {
+		var sr ScaleRange
+		if err := rows.Scan(&sr.ID, &sr.TenantID, &sr.ProfileID, &sr.PerformanceLevel, &sr.MinPercentage, &sr.MaxPercentage, &sr.DefaultPercentageMapping); err != nil {
+			return nil, fmt.Errorf("assessments.Repository.GetScaleRanges: scan: %w", err)
+		}
+		ranges = append(ranges, sr)
+	}
+	return ranges, nil
+}
+
+// ReplaceScaleRanges deletes all existing ranges for a profile and inserts
+// new ones in a single atomic transaction.
+func (r *PgRepository) ReplaceScaleRanges(ctx context.Context, profileID string, ranges []CreateScaleRangeParams) ([]string, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("assessments.Repository.ReplaceScaleRanges: begin tx: %w", err)
+	}
+	defer func() {
+		if rbErr := tx.Rollback(ctx); rbErr != nil && rbErr != pgx.ErrTxClosed {
+			slog.WarnContext(ctx, "assessments.Repository.ReplaceScaleRanges: rollback",
+				slog.String("error", rbErr.Error()))
+		}
+	}()
+
+	// Delete existing ranges
+	const deleteQuery = `DELETE FROM grading_scale_ranges WHERE profile_id = $1`
+	if _, err := tx.Exec(ctx, deleteQuery, profileID); err != nil {
+		return nil, fmt.Errorf("assessments.Repository.ReplaceScaleRanges: delete: %w", err)
+	}
+
+	// Insert new ranges
+	ids := make([]string, 0, len(ranges))
+	for _, sr := range ranges {
+		const insertQuery = `
+			INSERT INTO grading_scale_ranges (tenant_id, profile_id, performance_level, min_percentage, max_percentage, default_percentage_mapping)
+			VALUES ($1, $2, $3::cbc_performance_level, $4, $5, $6)
+			RETURNING id
+		`
+		var id string
+		if err := tx.QueryRow(ctx, insertQuery,
+			sr.TenantID,
+			profileID,
+			sr.PerformanceLevel,
+			sr.MinPercentage,
+			sr.MaxPercentage,
+			sr.DefaultPercentageMapping,
+		).Scan(&id); err != nil {
+			if isExclusionViolation(err) {
+				return nil, fmt.Errorf("assessments.Repository.ReplaceScaleRanges: overlapping ranges: %w", ErrConflict)
+			}
+			return nil, fmt.Errorf("assessments.Repository.ReplaceScaleRanges: insert range: %w", err)
+		}
+		ids = append(ids, id)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("assessments.Repository.ReplaceScaleRanges: commit: %w", err)
 	}
 	return ids, nil
 }
@@ -469,8 +529,12 @@ func (r *PgRepository) ListSessions(ctx context.Context, tenantID, schoolID stri
 		       s.academic_term_id, s.academic_year_id, s.name,
 		       s.evaluation_method::text, s.max_points, s.grading_scale_profile_id,
 		       s.status::text, s.rejection_comment, s.submitted_by, s.approved_by,
-		       s.scheduled_date, s.created_at, s.updated_at, s.created_by
+		       s.scheduled_date, s.created_at, s.updated_at, s.created_by,
+			   c.grade_level || ' ' || COALESCE(st.name, '') AS class_name,
+			   c.grade_level
 		FROM assessment_sessions s
+		JOIN cbc_classes c ON c.id = s.class_id
+		JOIN cbc_streams st ON st.id = c.stream_id
 		WHERE ` + whereClause + `
 		ORDER BY s.created_at DESC
 		LIMIT $` + fmt.Sprintf("%d", argIdx) + ` OFFSET $` + fmt.Sprintf("%d", argIdx+1)
@@ -493,6 +557,7 @@ func (r *PgRepository) ListSessions(ctx context.Context, tenantID, schoolID stri
 			&s.EvaluationMethod, &s.MaxPoints, &s.GradingScaleProfileID,
 			&s.Status, &s.RejectionComment, &s.SubmittedBy, &s.ApprovedBy,
 			&scheduledDate, &s.CreatedAt, &s.UpdatedAt, &s.CreatedBy,
+			&s.ClassName, &s.GradeLevel,
 		); err != nil {
 			return nil, 0, fmt.Errorf("assessments.Repository.ListSessions: scan: %w", err)
 		}
@@ -638,7 +703,10 @@ func (r *PgRepository) BulkUpsertStudentScores(ctx context.Context, params []Ups
 		return fmt.Errorf("assessments.Repository.BulkUpsertStudentScores: begin tx: %w", err)
 	}
 	defer func() {
-		_ = tx.Rollback(ctx)
+		if rbErr := tx.Rollback(ctx); rbErr != nil && rbErr != pgx.ErrTxClosed {
+			slog.WarnContext(ctx, "assessments.Repository.BulkUpsertStudentScores: rollback",
+				slog.String("error", rbErr.Error()))
+		}
 	}()
 
 	// Get max_points for the session
@@ -794,7 +862,10 @@ func (r *PgRepository) BulkUpsertOutcomeGrades(ctx context.Context, params []Ups
 		return fmt.Errorf("assessments.Repository.BulkUpsertOutcomeGrades: begin tx: %w", err)
 	}
 	defer func() {
-		_ = tx.Rollback(ctx)
+		if rbErr := tx.Rollback(ctx); rbErr != nil && rbErr != pgx.ErrTxClosed {
+			slog.WarnContext(ctx, "assessments.Repository.BulkUpsertOutcomeGrades: rollback",
+				slog.String("error", rbErr.Error()))
+		}
 	}()
 
 	for _, p := range params {
@@ -958,7 +1029,13 @@ func (r *PgRepository) GetStudentTermGrades(ctx context.Context, tenantID, schoo
 				latest_date,
 				ROW_NUMBER() OVER (
 					PARTITION BY learning_area_id
-					ORDER BY latest_date DESC, level DESC
+					ORDER BY latest_date DESC,
+						CASE level
+							WHEN 'EE' THEN 4
+							WHEN 'ME' THEN 3
+							WHEN 'AE' THEN 2
+							WHEN 'BE' THEN 1
+						END DESC
 				) AS rn
 			FROM tied_levels
 		)
@@ -1035,6 +1112,121 @@ func (r *PgRepository) GetPublishedSessionsForParent(ctx context.Context, tenant
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// STUDENT TERM SUBJECT SUMMARIES
+// ═══════════════════════════════════════════════════════════════════════════
+
+// RefreshSessionSummary calls the PostgreSQL function that recomputes
+// student_term_subject_summaries for all students in the given session.
+func (r *PgRepository) RefreshSessionSummary(ctx context.Context, sessionID string) error {
+	const query = `SELECT fn_refresh_term_subject_summary_for_session($1)`
+	_, err := r.pool.Exec(ctx, query, sessionID)
+	if err != nil {
+		return fmt.Errorf("assessments.Repository.RefreshSessionSummary: %w", err)
+	}
+	return nil
+}
+
+// GetStudentTermSubjectSummaries returns all summaries for a student in a term.
+func (r *PgRepository) GetStudentTermSubjectSummaries(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]StudentTermSubjectSummary, error) {
+	const query = `
+		SELECT id, tenant_id, school_id, student_id, academic_term_id, learning_area_id,
+		       average_percentage, mapped_performance_level,
+		       quantitative_assessment_count, rubric_assessment_count,
+		       indicators_assessed_count,
+		       has_quantitative_data, has_rubric_data,
+		       teacher_remark, last_refreshed_at
+		FROM student_term_subject_summaries
+		WHERE tenant_id = $1 AND school_id = $2
+		  AND student_id = $3 AND academic_term_id = $4
+		ORDER BY learning_area_id ASC
+	`
+	rows, err := r.pool.Query(ctx, query, tenantID, schoolID, studentID, termID)
+	if err != nil {
+		return nil, fmt.Errorf("assessments.Repository.GetStudentTermSubjectSummaries: %w", err)
+	}
+	defer rows.Close()
+
+	var summaries []StudentTermSubjectSummary
+	for rows.Next() {
+		var s StudentTermSubjectSummary
+		if err := rows.Scan(
+			&s.ID, &s.TenantID, &s.SchoolID, &s.StudentID, &s.AcademicTermID, &s.LearningAreaID,
+			&s.AveragePercentage, &s.MappedPerformanceLevel,
+			&s.QuantitativeAssessmentCount, &s.RubricAssessmentCount,
+			&s.IndicatorsAssessedCount,
+			&s.HasQuantitativeData, &s.HasRubricData,
+			&s.TeacherRemark, &s.LastRefreshedAt,
+		); err != nil {
+			return nil, fmt.Errorf("assessments.Repository.GetStudentTermSubjectSummaries: scan: %w", err)
+		}
+		summaries = append(summaries, s)
+	}
+	if summaries == nil {
+		summaries = []StudentTermSubjectSummary{}
+	}
+	return summaries, nil
+}
+
+// GetLearningAreaSummaries returns all summaries for a learning area in a term
+// (all students in that subject).
+func (r *PgRepository) GetLearningAreaSummaries(ctx context.Context, tenantID, schoolID, termID, learningAreaID string) ([]StudentTermSubjectSummary, error) {
+	const query = `
+		SELECT id, tenant_id, school_id, student_id, academic_term_id, learning_area_id,
+		       average_percentage, mapped_performance_level,
+		       quantitative_assessment_count, rubric_assessment_count,
+		       indicators_assessed_count,
+		       has_quantitative_data, has_rubric_data,
+		       teacher_remark, last_refreshed_at
+		FROM student_term_subject_summaries
+		WHERE tenant_id = $1 AND school_id = $2
+		  AND academic_term_id = $3 AND learning_area_id = $4
+		ORDER BY student_id ASC
+	`
+	rows, err := r.pool.Query(ctx, query, tenantID, schoolID, termID, learningAreaID)
+	if err != nil {
+		return nil, fmt.Errorf("assessments.Repository.GetLearningAreaSummaries: %w", err)
+	}
+	defer rows.Close()
+
+	var summaries []StudentTermSubjectSummary
+	for rows.Next() {
+		var s StudentTermSubjectSummary
+		if err := rows.Scan(
+			&s.ID, &s.TenantID, &s.SchoolID, &s.StudentID, &s.AcademicTermID, &s.LearningAreaID,
+			&s.AveragePercentage, &s.MappedPerformanceLevel,
+			&s.QuantitativeAssessmentCount, &s.RubricAssessmentCount,
+			&s.IndicatorsAssessedCount,
+			&s.HasQuantitativeData, &s.HasRubricData,
+			&s.TeacherRemark, &s.LastRefreshedAt,
+		); err != nil {
+			return nil, fmt.Errorf("assessments.Repository.GetLearningAreaSummaries: scan: %w", err)
+		}
+		summaries = append(summaries, s)
+	}
+	if summaries == nil {
+		summaries = []StudentTermSubjectSummary{}
+	}
+	return summaries, nil
+}
+
+// SetTeacherRemark updates the teacher_remark on a summary row.
+func (r *PgRepository) SetTeacherRemark(ctx context.Context, summaryID, tenantID, schoolID string, remark *string) error {
+	const query = `
+		UPDATE student_term_subject_summaries
+		SET teacher_remark = $4, updated_at = NOW()
+		WHERE id = $1 AND tenant_id = $2 AND school_id = $3
+	`
+	result, err := r.pool.Exec(ctx, query, summaryID, tenantID, schoolID, remark)
+	if err != nil {
+		return fmt.Errorf("assessments.Repository.SetTeacherRemark: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("assessments.Repository.SetTeacherRemark: %w", ErrNotFound)
+	}
+	return nil
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // ASSESSMENT WEIGHT CONFIGS
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1105,6 +1297,34 @@ func (r *PgRepository) ListWeightConfigs(ctx context.Context, filter AssessmentW
 }
 
 // GetWeightConfigByID returns a single weight config by ID.
+func (r *PgRepository) DeleteSession(ctx context.Context, id, tenantID, schoolID string) error {
+	result, err := r.pool.Exec(ctx, `
+		DELETE FROM assessment_sessions
+		WHERE id = $1 AND tenant_id = $2 AND school_id = $3
+	`, id, tenantID, schoolID)
+	if err != nil {
+		return fmt.Errorf("assessments.Repository.DeleteSession: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("assessments.Repository.DeleteSession: %w", ErrNotFound)
+	}
+	return nil
+}
+
+func (r *PgRepository) DeleteWeightConfig(ctx context.Context, id string) error {
+	result, err := r.pool.Exec(ctx, `
+		DELETE FROM assessment_weight_configs
+		WHERE id = $1
+	`, id)
+	if err != nil {
+		return fmt.Errorf("assessments.Repository.DeleteWeightConfig: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("assessments.Repository.DeleteWeightConfig: %w", ErrNotFound)
+	}
+	return nil
+}
+
 func (r *PgRepository) GetWeightConfigByID(ctx context.Context, id string) (*AssessmentWeightConfig, error) {
 	const query = `SELECT id, grade_level::text, assessment_type_code, target_exam, weight_percent, effective_from, notes, created_at FROM assessment_weight_configs WHERE id = $1`
 	var c AssessmentWeightConfig
@@ -1116,4 +1336,307 @@ func (r *PgRepository) GetWeightConfigByID(ctx context.Context, id string) (*Ass
 		return nil, fmt.Errorf("assessments.Repository.GetWeightConfigByID: %w", err)
 	}
 	return &c, nil
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STUDENT TERM OVERALL SUMMARIES
+// ═══════════════════════════════════════════════════════════════════════════
+
+// RefreshTermOverallSummaries triggers computation of overall summaries for
+// ALL students in the given term. Calls the PostgreSQL function.
+func (r *PgRepository) RefreshTermOverallSummaries(ctx context.Context, termID string) error {
+	const query = `SELECT fn_compute_term_overall_summaries_for_term($1)`
+	_, err := r.pool.Exec(ctx, query, termID)
+	if err != nil {
+		return fmt.Errorf("assessments.Repository.RefreshTermOverallSummaries: %w", err)
+	}
+	return nil
+}
+
+// RefreshSingleStudentOverallSummary triggers computation for one student+term.
+func (r *PgRepository) RefreshSingleStudentOverallSummary(ctx context.Context, studentID, termID string) error {
+	const query = `SELECT fn_compute_single_student_term_overall_summary($1, $2)`
+	_, err := r.pool.Exec(ctx, query, studentID, termID)
+	if err != nil {
+		return fmt.Errorf("assessments.Repository.RefreshSingleStudentOverallSummary: %w", err)
+	}
+	return nil
+}
+
+// GetStudentTermOverallSummary returns the overall summary for a single
+// student+term pair.
+func (r *PgRepository) GetStudentTermOverallSummary(ctx context.Context, tenantID, schoolID, studentID, termID string) (*StudentTermOverallSummary, error) {
+	const query = `
+		SELECT id, tenant_id, school_id, student_id, academic_term_id,
+		       subjects_assessed_count, overall_mean_percentage, overall_performance_level,
+		       exceeding_count, meeting_count, approaching_count, below_count,
+		       is_weighted_exam_score, headteacher_remark, last_refreshed_at
+		FROM student_term_overall_summaries
+		WHERE tenant_id = $1 AND school_id = $2
+		  AND student_id = $3 AND academic_term_id = $4
+	`
+	var s StudentTermOverallSummary
+	err := r.pool.QueryRow(ctx, query, tenantID, schoolID, studentID, termID).Scan(
+		&s.ID, &s.TenantID, &s.SchoolID, &s.StudentID, &s.AcademicTermID,
+		&s.SubjectsAssessedCount, &s.OverallMeanPercentage, &s.OverallPerformanceLevel,
+		&s.ExceedingCount, &s.MeetingCount, &s.ApproachingCount, &s.BelowCount,
+		&s.IsWeightedExamScore, &s.HeadteacherRemark, &s.LastRefreshedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("assessments.Repository.GetStudentTermOverallSummary: %w", ErrNotFound)
+		}
+		return nil, fmt.Errorf("assessments.Repository.GetStudentTermOverallSummary: %w", err)
+	}
+	return &s, nil
+}
+
+// ListStudentTermOverallSummaries returns overall summaries for all students
+// in the given term (e.g. for a headteacher dashboard).
+func (r *PgRepository) ListStudentTermOverallSummaries(ctx context.Context, tenantID, schoolID, termID string) ([]StudentTermOverallSummary, error) {
+	const query = `
+		SELECT id, tenant_id, school_id, student_id, academic_term_id,
+		       subjects_assessed_count, overall_mean_percentage, overall_performance_level,
+		       exceeding_count, meeting_count, approaching_count, below_count,
+		       is_weighted_exam_score, headteacher_remark, last_refreshed_at
+		FROM student_term_overall_summaries
+		WHERE tenant_id = $1 AND school_id = $2
+		  AND academic_term_id = $3
+		ORDER BY overall_performance_level ASC NULLS LAST, overall_mean_percentage DESC NULLS LAST
+	`
+	rows, err := r.pool.Query(ctx, query, tenantID, schoolID, termID)
+	if err != nil {
+		return nil, fmt.Errorf("assessments.Repository.ListStudentTermOverallSummaries: %w", err)
+	}
+	defer rows.Close()
+
+	var items []StudentTermOverallSummary
+	for rows.Next() {
+		var s StudentTermOverallSummary
+		if err := rows.Scan(
+			&s.ID, &s.TenantID, &s.SchoolID, &s.StudentID, &s.AcademicTermID,
+			&s.SubjectsAssessedCount, &s.OverallMeanPercentage, &s.OverallPerformanceLevel,
+			&s.ExceedingCount, &s.MeetingCount, &s.ApproachingCount, &s.BelowCount,
+			&s.IsWeightedExamScore, &s.HeadteacherRemark, &s.LastRefreshedAt,
+		); err != nil {
+			return nil, fmt.Errorf("assessments.Repository.ListStudentTermOverallSummaries: scan: %w", err)
+		}
+		items = append(items, s)
+	}
+	if items == nil {
+		items = []StudentTermOverallSummary{}
+	}
+	return items, nil
+}
+
+// SetHeadteacherRemark updates the headteacher_remark on an overall summary row.
+func (r *PgRepository) SetHeadteacherRemark(ctx context.Context, summaryID, tenantID, schoolID string, remark *string) error {
+	const query = `
+		UPDATE student_term_overall_summaries
+		SET headteacher_remark = $4, updated_at = NOW()
+		WHERE id = $1 AND tenant_id = $2 AND school_id = $3
+	`
+	result, err := r.pool.Exec(ctx, query, summaryID, tenantID, schoolID, remark)
+	if err != nil {
+		return fmt.Errorf("assessments.Repository.SetHeadteacherRemark: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("assessments.Repository.SetHeadteacherRemark: %w", ErrNotFound)
+	}
+	return nil
+}
+
+// ============================================================================
+// STUDENT SUBJECT STRAND SUMMARIES
+// ============================================================================
+
+// RefreshSubjectStrandSummaries calls the PL/pgSQL function to refresh
+// sub-strand-level summaries for all students in the given session.
+func (r *PgRepository) RefreshSubjectStrandSummaries(ctx context.Context, sessionID string) error {
+	_, err := r.pool.Exec(ctx, `SELECT fn_refresh_subject_strand_summary_for_session($1)`, sessionID)
+	if err != nil {
+		return fmt.Errorf("assessments.Repository.RefreshSubjectStrandSummaries: %w", err)
+	}
+	return nil
+}
+
+// GetStudentSubjectStrandSummaries returns all sub-strand summaries for a
+// specific student in a specific term.
+func (r *PgRepository) GetStudentSubjectStrandSummaries(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]StudentSubjectStrandSummary, error) {
+	const query = `
+		SELECT
+			id, tenant_id, school_id, student_id, academic_term_id,
+			learning_area_id, strand_id, sub_strand_id,
+			mastery_percentage,
+			exceeding_count, meeting_count, approaching_count, below_count,
+			mapped_performance_level,
+			requires_remediation, has_data,
+			last_refreshed_at
+		FROM student_subject_strand_summaries
+		WHERE tenant_id = $1 AND school_id = $2
+		  AND student_id = $3 AND academic_term_id = $4
+		ORDER BY strand_id, sub_strand_id
+	`
+	rows, err := r.pool.Query(ctx, query, tenantID, schoolID, studentID, termID)
+	if err != nil {
+		return nil, fmt.Errorf("assessments.Repository.GetStudentSubjectStrandSummaries: %w", err)
+	}
+	defer rows.Close()
+
+	var items []StudentSubjectStrandSummary
+	for rows.Next() {
+		var s StudentSubjectStrandSummary
+		if err := rows.Scan(
+			&s.ID, &s.TenantID, &s.SchoolID, &s.StudentID, &s.AcademicTermID,
+			&s.LearningAreaID, &s.StrandID, &s.SubStrandID,
+			&s.MasteryPercentage,
+			&s.ExceedingCount, &s.MeetingCount, &s.ApproachingCount, &s.BelowCount,
+			&s.MappedPerformanceLevel,
+			&s.RequiresRemediation, &s.HasData,
+			&s.LastRefreshedAt,
+		); err != nil {
+			return nil, fmt.Errorf("assessments.Repository.GetStudentSubjectStrandSummaries: scan: %w", err)
+		}
+		items = append(items, s)
+	}
+	if items == nil {
+		items = []StudentSubjectStrandSummary{}
+	}
+	return items, nil
+}
+
+// GetSubjectStrandSummariesByTerm returns all sub-strand summaries for all
+// students in a given term and school (used for term-end reports).
+func (r *PgRepository) GetSubjectStrandSummariesByTerm(ctx context.Context, tenantID, schoolID, termID string) ([]StudentSubjectStrandSummary, error) {
+	const query = `
+		SELECT
+			id, tenant_id, school_id, student_id, academic_term_id,
+			learning_area_id, strand_id, sub_strand_id,
+			mastery_percentage,
+			exceeding_count, meeting_count, approaching_count, below_count,
+			mapped_performance_level,
+			requires_remediation, has_data,
+			last_refreshed_at
+		FROM student_subject_strand_summaries
+		WHERE tenant_id = $1 AND school_id = $2
+		  AND academic_term_id = $3
+		ORDER BY student_id, strand_id, sub_strand_id
+	`
+	rows, err := r.pool.Query(ctx, query, tenantID, schoolID, termID)
+	if err != nil {
+		return nil, fmt.Errorf("assessments.Repository.GetSubjectStrandSummariesByTerm: %w", err)
+	}
+	defer rows.Close()
+
+	var items []StudentSubjectStrandSummary
+	for rows.Next() {
+		var s StudentSubjectStrandSummary
+		if err := rows.Scan(
+			&s.ID, &s.TenantID, &s.SchoolID, &s.StudentID, &s.AcademicTermID,
+			&s.LearningAreaID, &s.StrandID, &s.SubStrandID,
+			&s.MasteryPercentage,
+			&s.ExceedingCount, &s.MeetingCount, &s.ApproachingCount, &s.BelowCount,
+			&s.MappedPerformanceLevel,
+			&s.RequiresRemediation, &s.HasData,
+			&s.LastRefreshedAt,
+		); err != nil {
+			return nil, fmt.Errorf("assessments.Repository.GetSubjectStrandSummariesByTerm: scan: %w", err)
+		}
+		items = append(items, s)
+	}
+	if items == nil {
+		items = []StudentSubjectStrandSummary{}
+	}
+	return items, nil
+}
+
+// ============================================================================
+// STUDENT PERFORMANCE PROJECTIONS
+// ============================================================================
+
+// RefreshProjections calls the PL/pgSQL batch function to compute performance
+// projections for all students in the given academic term.
+func (r *PgRepository) RefreshProjections(ctx context.Context, termID string) error {
+	_, err := r.pool.Exec(ctx, `SELECT fn_compute_performance_projections_for_term($1)`, termID)
+	if err != nil {
+		return fmt.Errorf("assessments.Repository.RefreshProjections: %w", err)
+	}
+	return nil
+}
+
+// GetStudentProjection returns the performance projection for a specific
+// student in a specific term, optionally scoped to a learning area.
+func (r *PgRepository) GetStudentProjection(ctx context.Context, tenantID, schoolID, studentID, termID string, learningAreaID *string) (*StudentPerformanceProjection, error) {
+	const query = `
+		SELECT
+			id, tenant_id, school_id, student_id, academic_term_id,
+			learning_area_id,
+			momentum_score, projected_score, projected_performance_level,
+			target_gap_points, risk_level, confidence_percentage,
+			last_refreshed_at, created_at, updated_at
+		FROM student_performance_projections
+		WHERE tenant_id = $1 AND school_id = $2
+		  AND student_id = $3 AND academic_term_id = $4
+		  AND learning_area_id IS NOT DISTINCT FROM $5
+	`
+	var p StudentPerformanceProjection
+	var learningAreaIDScan *string
+	err := r.pool.QueryRow(ctx, query, tenantID, schoolID, studentID, termID, learningAreaID).Scan(
+		&p.ID, &p.TenantID, &p.SchoolID, &p.StudentID, &p.AcademicTermID,
+		&learningAreaIDScan,
+		&p.MomentumScore, &p.ProjectedScore, &p.ProjectedPerformanceLevel,
+		&p.TargetGapPoints, &p.RiskLevel, &p.ConfidencePercentage,
+		&p.LastRefreshedAt, &p.CreatedAt, &p.UpdatedAt,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("assessments.Repository.GetStudentProjection: %w", ErrNotFound)
+		}
+		return nil, fmt.Errorf("assessments.Repository.GetStudentProjection: %w", err)
+	}
+	p.LearningAreaID = learningAreaIDScan
+	return &p, nil
+}
+
+// ListStudentProjections returns all performance projections for all students
+// in a given term.
+func (r *PgRepository) ListStudentProjections(ctx context.Context, tenantID, schoolID, termID string) ([]StudentPerformanceProjection, error) {
+	const query = `
+		SELECT
+			id, tenant_id, school_id, student_id, academic_term_id,
+			learning_area_id,
+			momentum_score, projected_score, projected_performance_level,
+			target_gap_points, risk_level, confidence_percentage,
+			last_refreshed_at, created_at, updated_at
+		FROM student_performance_projections
+		WHERE tenant_id = $1 AND school_id = $2
+		  AND academic_term_id = $3
+		ORDER BY risk_level ASC, confidence_percentage DESC NULLS LAST
+	`
+	rows, err := r.pool.Query(ctx, query, tenantID, schoolID, termID)
+	if err != nil {
+		return nil, fmt.Errorf("assessments.Repository.ListStudentProjections: %w", err)
+	}
+	defer rows.Close()
+
+	var items []StudentPerformanceProjection
+	for rows.Next() {
+		var p StudentPerformanceProjection
+		var learningAreaIDScan *string
+		if err := rows.Scan(
+			&p.ID, &p.TenantID, &p.SchoolID, &p.StudentID, &p.AcademicTermID,
+			&learningAreaIDScan,
+			&p.MomentumScore, &p.ProjectedScore, &p.ProjectedPerformanceLevel,
+			&p.TargetGapPoints, &p.RiskLevel, &p.ConfidencePercentage,
+			&p.LastRefreshedAt, &p.CreatedAt, &p.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("assessments.Repository.ListStudentProjections: scan: %w", err)
+		}
+		p.LearningAreaID = learningAreaIDScan
+		items = append(items, p)
+	}
+	if items == nil {
+		items = []StudentPerformanceProjection{}
+	}
+	return items, nil
 }

@@ -10,6 +10,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { listAcademicYears, listTerms } from "@/lib/api/academic-terms";
+import { STALE_TIMES } from "@/lib/query-config";
 
 // ─── Query keys ───────────────────────────────────────────────────────────
 
@@ -29,7 +30,7 @@ export function useAcademicYears() {
     return useQuery({
         queryKey: academicYearKeys.list(),
         queryFn: () => listAcademicYears(),
-        staleTime: 5 * 60 * 1000,
+        staleTime: STALE_TIMES.REFERENCE_DATA,
         placeholderData: (prev) => prev,
     });
 }
@@ -39,7 +40,7 @@ export function useAcademicTerms() {
     return useQuery({
         queryKey: academicTermKeys.list(),
         queryFn: () => listTerms(),
-        staleTime: 5 * 60 * 1000,
+        staleTime: STALE_TIMES.REFERENCE_DATA,
         placeholderData: (prev) => prev,
     });
 }

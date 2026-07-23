@@ -17,7 +17,7 @@ import {
     SidebarMenuItem,
     useSidebar,
 } from "@/components/ui/sidebar";
-import { ChevronsUpDownIcon, LogOutIcon } from "lucide-react";
+import { CircleUser, LogOutIcon } from "lucide-react";
 
 export function NavUser({
     user,
@@ -53,7 +53,7 @@ export function NavUser({
                                 <span className="truncate font-medium">{user.name}</span>
                                 <span className="truncate text-xs">{user.email}</span>
                             </div>
-                            <ChevronsUpDownIcon className="ml-auto size-4" />
+                            <CircleUser className="ml-auto size-4" />
                         </SidebarMenuButton>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent

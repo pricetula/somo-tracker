@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Build artifacts
+tmp/
+*.exe
+
+# IDE & OS files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Environment (injected at runtime on Render)
+.env
+.env.local
+.env.*.local
+
+# Development-only
+Dockerfile.dev
+.air.toml
+Makefile
+
+# Docs
+docs/
+AGENTS.md
+
+# Test fixtures & test helpers
+internal/database/fixtures/
+internal/database/testhelper/
+internal/database/migration_test.go
+*_test.go

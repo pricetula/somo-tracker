@@ -186,4 +186,7 @@
     p {
         @apply text-sm;
     }
+    a:hover {
+        text-decoration: underline !important;
+    }
 }

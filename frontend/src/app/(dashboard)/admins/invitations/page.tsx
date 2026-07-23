@@ -1,13 +1,17 @@
 /**
- * Admins invitations listing page — shows all sent invitations for the SCHOOL_ADMIN role.
+ * Admins invitations listing page.
  *
- * Maps to GET /api/v1/invitations?role=SCHOOL_ADMIN.
- *
- * Active admins are listed on the dedicated /admins page.
+ * Shows all sent invitations for the SCHOOL_ADMIN role with revoke support.
  */
 
-"use client";
+import { InvitationsList } from "@/features/invitations";
 
 export default function AdminsInvitationsPage() {
-    return <div />;
+    return (
+        <InvitationsList
+            role="SCHOOL_ADMIN"
+            queryKey={["invitations", "SCHOOL_ADMIN"]}
+            emptyState="No admin invitations yet."
+        />
+    );
 }

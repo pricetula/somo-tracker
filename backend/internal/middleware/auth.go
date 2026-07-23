@@ -19,8 +19,7 @@ func GetSession(c *fiber.Ctx) *SessionInfo {
 // RequireAuth validates the session from context (loaded by global middleware)
 // and sets tenant_id, user_id, and role on locals.
 // For API routes only — does not fall back to cookie loading.
-// Returns middleware.ErrUnauthorized if unauthenticated, which flows through
-// Fiber's error handler to the canonical 401 JSON body.
+// Returns middleware.ErrUnauthorized if unauthenticated.
 func RequireAuth(c *fiber.Ctx) error {
 	session := GetSession(c)
 	if session == nil {
@@ -41,16 +40,10 @@ func RequireAuth(c *fiber.Ctx) error {
 //	router.Patch("/:id", middleware.RequireRole("SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.PatchYear)
 func RequireRole(roles ...string) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		if err := RequireAuth(c); err != nil {
-			return err
-		}
 		if len(roles) > 0 {
 			role, ok := c.Locals("role").(string)
 			if !ok || !hasRole(role, roles) {
-				return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-					"code":    "forbidden",
-					"message": "insufficient permissions",
-				})
+				return ErrForbidden
 			}
 		}
 		return c.Next()

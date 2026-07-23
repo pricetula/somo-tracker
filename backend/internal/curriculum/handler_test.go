@@ -245,7 +245,7 @@ func TestHandler_DeleteLearningArea_HappyPath(t *testing.T) {
 func TestHandler_GetTree_HappyPath(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
-	h.repo.getTreeFn = func(ctx context.Context, learningAreaID string) (*LearningAreaTree, error) {
+	h.repo.getTreeFn = func(ctx context.Context, learningAreaID, tenantID string) (*LearningAreaTree, error) {
 		return &LearningAreaTree{
 			LearningArea: LearningArea{ID: "area_001", Name: "Mathematics", Code: "MATH", EducationLevel: "Junior_Secondary", GradeLevel: "G7"},
 			Strands: []StrandTree{
@@ -339,9 +339,9 @@ func TestHandler_CreateStrand_InvalidBody(t *testing.T) {
 func TestHandler_ListStrands_HappyPath(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
-	h.repo.listStrandsFn = func(ctx context.Context, learningAreaID string) ([]Strand, error) {
+	h.repo.listStrandsFn = func(ctx context.Context, learningAreaID, tenantID string) ([]Strand, error) {
 		return []Strand{
-			{ID: "strand_001", LearningAreaID: learningAreaID, Name: "Numbers"},
+			{ID: "strand_001", TenantID: tenantID, LearningAreaID: learningAreaID, Name: "Numbers"},
 		}, nil
 	}
 
@@ -387,7 +387,7 @@ func TestHandler_UpdateStrand_HappyPath(t *testing.T) {
 
 func TestHandler_DeleteStrand_HappyPath(t *testing.T) {
 	h := newHandlerTestHarness(t)
-	h.repo.deleteStrandFn = func(ctx context.Context, id string) error { return nil }
+	h.repo.deleteStrandFn = func(ctx context.Context, id, tenantID string) error { return nil }
 	resp := doRequest(h.app, "DELETE", "/api/v1/curriculum/strands/strand_001", nil)
 	if resp.StatusCode != fiber.StatusNoContent {
 		t.Fatalf("expected 204, got %d", resp.StatusCode)
@@ -396,7 +396,7 @@ func TestHandler_DeleteStrand_HappyPath(t *testing.T) {
 
 func TestHandler_DeleteStrand_NotFound(t *testing.T) {
 	h := newHandlerTestHarness(t)
-	h.repo.deleteStrandFn = func(ctx context.Context, id string) error { return ErrNotFound }
+	h.repo.deleteStrandFn = func(ctx context.Context, id, tenantID string) error { return ErrNotFound }
 	resp := doRequest(h.app, "DELETE", "/api/v1/curriculum/strands/strand_999", nil)
 	if resp.StatusCode != fiber.StatusNotFound {
 		t.Fatalf("expected 404, got %d", resp.StatusCode)
@@ -441,9 +441,9 @@ func TestHandler_CreateSubStrand_HappyPath(t *testing.T) {
 func TestHandler_ListSubStrands_HappyPath(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
-	h.repo.listSubStrandsFn = func(ctx context.Context, strandID string) ([]SubStrand, error) {
+	h.repo.listSubStrandsFn = func(ctx context.Context, strandID, tenantID string) ([]SubStrand, error) {
 		return []SubStrand{
-			{ID: "sub_001", StrandID: strandID, Name: "Addition"},
+			{ID: "sub_001", TenantID: tenantID, StrandID: strandID, Name: "Addition"},
 		}, nil
 	}
 
@@ -482,7 +482,7 @@ func TestHandler_UpdateSubStrand_HappyPath(t *testing.T) {
 
 func TestHandler_DeleteSubStrand_HappyPath(t *testing.T) {
 	h := newHandlerTestHarness(t)
-	h.repo.deleteSubStrandFn = func(ctx context.Context, id string) error { return nil }
+	h.repo.deleteSubStrandFn = func(ctx context.Context, id, tenantID string) error { return nil }
 	resp := doRequest(h.app, "DELETE", "/api/v1/curriculum/sub-strands/sub_001", nil)
 	if resp.StatusCode != fiber.StatusNoContent {
 		t.Fatalf("expected 204, got %d", resp.StatusCode)
@@ -552,9 +552,9 @@ func TestHandler_CreatePerformanceIndicator_WithExplicitOrder(t *testing.T) {
 func TestHandler_ListPerformanceIndicators_HappyPath(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
-	h.repo.listPIFn = func(ctx context.Context, subStrandID string) ([]PerformanceIndicator, error) {
+	h.repo.listPIFn = func(ctx context.Context, subStrandID, tenantID string) ([]PerformanceIndicator, error) {
 		return []PerformanceIndicator{
-			{ID: "pi_001", SubStrandID: subStrandID, Description: "First", SequenceOrder: 1},
+			{ID: "pi_001", TenantID: tenantID, SubStrandID: subStrandID, Description: "First", SequenceOrder: 1},
 		}, nil
 	}
 
@@ -593,7 +593,7 @@ func TestHandler_UpdatePerformanceIndicator_HappyPath(t *testing.T) {
 
 func TestHandler_DeletePerformanceIndicator_HappyPath(t *testing.T) {
 	h := newHandlerTestHarness(t)
-	h.repo.deletePIFn = func(ctx context.Context, id string) error { return nil }
+	h.repo.deletePIFn = func(ctx context.Context, id, tenantID string) error { return nil }
 	resp := doRequest(h.app, "DELETE", "/api/v1/curriculum/performance-indicators/pi_001", nil)
 	if resp.StatusCode != fiber.StatusNoContent {
 		t.Fatalf("expected 204, got %d", resp.StatusCode)

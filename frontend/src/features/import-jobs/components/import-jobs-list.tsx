@@ -1,32 +1,30 @@
 /**
- * ImportJobsList — list of import jobs with active job banner.
+ * ImportJobsList — list of import jobs using the shared DataTable component.
+ *
+ * Uses DataTable with built-in pagination and search.
  */
 
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
+import { XCircle } from "lucide-react";
+import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
+import { DataTable } from "@/components/shared/data-table";
+import type { DataTableColumn } from "@/components/shared/data-table/types";
+import { RowActions } from "@/components/shared/data-table/row-actions";
+import type { RowAction } from "@/components/shared/data-table/row-actions";
+import { listJobs, getActiveImportJob, cancelImportJob, type ImportJob } from "@/lib/api/imports";
 import { getErrorMessage } from "@/lib/errors";
-import { useImportJobs, useActiveImportJob } from "../hooks/use-import-jobs";
-import type { ImportJobStatus } from "../types";
 
 // ─── Status Badge helper ──────────────────────────────────────────────────
 
-function statusBadge(status: ImportJobStatus) {
-    const variants: Record<ImportJobStatus, "default" | "secondary" | "destructive" | "outline"> = {
+function statusBadge(status: string) {
+    const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
         pending: "secondary",
         processing: "default",
         completed: "default",
@@ -38,139 +36,168 @@ function statusBadge(status: ImportJobStatus) {
     return <Badge variant={variants[status] ?? "outline"}>{status.replace(/_/g, " ")}</Badge>;
 }
 
+// ─── Cancel action helper ────────────────────────────────────────────────
+
+const CANCELLABLE_STATUSES = ["pending", "processing"];
+
+// ─── Columns factory ──────────────────────────────────────────────────────
+
+function createColumns(
+    queryClient: ReturnType<typeof useQueryClient>
+): DataTableColumn<ImportJob>[] {
+    return [
+        {
+            id: "job_type",
+            header: "Type",
+            cell: (row) => <span className="font-medium">{row.job_type.replace(/_/g, " ")}</span>,
+        },
+        {
+            id: "status",
+            header: "Status",
+            width: "130px",
+            cell: (row) => statusBadge(row.status),
+        },
+        {
+            id: "total_records",
+            header: "Records",
+            width: "80px",
+            align: "right",
+            cell: (row) => (
+                <span className="text-muted-foreground tabular-nums">{row.total_records}</span>
+            ),
+        },
+        {
+            id: "success_count",
+            header: "Success",
+            width: "80px",
+            align: "right",
+            cell: (row) => (
+                <span className="text-emerald-600 tabular-nums">{row.success_count}</span>
+            ),
+        },
+        {
+            id: "failed_count",
+            header: "Failed",
+            width: "80px",
+            align: "right",
+            cell: (row) =>
+                row.failed_count > 0 ? (
+                    <span className="text-destructive tabular-nums">{row.failed_count}</span>
+                ) : (
+                    <span className="text-muted-foreground">—</span>
+                ),
+        },
+        {
+            id: "created_at",
+            header: "Started",
+            width: "110px",
+            cell: (row) => (
+                <span className="text-muted-foreground text-xs">
+                    {row.created_at ? new Date(row.created_at).toLocaleDateString() : "—"}
+                </span>
+            ),
+        },
+        {
+            id: "actions",
+            header: "",
+            width: "120px",
+            align: "right",
+            cell: (row) => {
+                const cancellable = CANCELLABLE_STATUSES.includes(row.status);
+                const rowActions: RowAction[] = cancellable
+                    ? [
+                          {
+                              label: "Cancel",
+                              icon: XCircle,
+                              destructive: true,
+                              confirmTitle: "Cancel Import Job",
+                              confirmDescription: `Are you sure you want to cancel this ${row.job_type.replace(/_/g, " ").toLowerCase()} import?`,
+                              onClick: async () => {
+                                  try {
+                                      await cancelImportJob(row.id);
+                                      queryClient.invalidateQueries({ queryKey: ["import-jobs"] });
+                                      toast.success("Import job cancelled.");
+                                  } catch (err) {
+                                      toast.error(getErrorMessage(err));
+                                  }
+                              },
+                          },
+                      ]
+                    : [];
+
+                return (
+                    <div className="flex items-center justify-end gap-1">
+                        <Button variant="outline" size="sm" asChild>
+                            <Link href={`/imports/${row.id}`}>View</Link>
+                        </Button>
+                        {cancellable && (
+                            <RowActions rowId={row.id} label="import job" actions={rowActions} />
+                        )}
+                    </div>
+                );
+            },
+        },
+    ];
+}
+
+// ─── Active Job Banner ────────────────────────────────────────────────────
+
+function ActiveJobBanner() {
+    const { data: activeData } = useQuery({
+        queryKey: ["import-jobs", "active"],
+        queryFn: () => getActiveImportJob(),
+        staleTime: 15 * 1000,
+        refetchInterval: (query) => {
+            const d = query.state.data;
+            if (!d?.active || !d.job) return false;
+            const terminalStatuses = ["completed", "completed_with_errors", "failed", "cancelled"];
+            if (terminalStatuses.includes(d.job.status)) return false;
+            return 5_000;
+        },
+    });
+
+    const activeJob = activeData?.active ? activeData.job : null;
+    if (!activeJob) return null;
+
+    return (
+        <div className="bg-muted/30 mb-4 rounded-md px-4 py-3">
+            <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                    <p className="text-foreground font-medium">Active Import Job</p>
+                    <p className="text-muted-foreground text-xs">
+                        {activeJob.job_type.replace(/_/g, " ")} &mdash;{" "}
+                        {activeJob.success_count + activeJob.failed_count} of{" "}
+                        {activeJob.total_records} processed
+                    </p>
+                </div>
+                <Button variant="outline" size="sm" asChild>
+                    <Link href={`/imports/${activeJob.id}`}>View Details</Link>
+                </Button>
+            </div>
+        </div>
+    );
+}
+
 // ─── Component ────────────────────────────────────────────────────────────
 
 export function ImportJobsList() {
-    const [page, setPage] = useState(1);
-    const limit = 20;
-
-    const { data, isLoading, isError, error } = useImportJobs({ page, limit });
-    const { data: activeData } = useActiveImportJob();
-
-    const activeJob = activeData?.active ? activeData.job : null;
-
-    // ── Loading ──────────────────────────────────────────────────────────
-    if (isLoading) {
-        return (
-            <div className="space-y-4">
-                <Skeleton className="h-8 w-48" />
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-            </div>
-        );
-    }
-
-    // ── Error ────────────────────────────────────────────────────────────
-    if (isError) {
-        return (
-            <Alert variant="destructive">
-                <AlertDescription>{getErrorMessage(error)}</AlertDescription>
-            </Alert>
-        );
-    }
-
-    const jobs = data?.data ?? [];
-    const total = data?.total ?? 0;
-    const totalPages = Math.max(1, Math.ceil(total / limit));
+    const queryClient = useQueryClient();
+    const cols = createColumns(queryClient);
 
     return (
-        <div className="space-y-6">
-            {/* ── Active Job Banner ──────────────────────────────────────── */}
-            {activeJob && (
-                <div className="bg-muted/30 rounded-md px-4 py-3">
-                    <div className="flex items-center justify-between">
-                        <div className="space-y-1">
-                            <p className="text-foreground font-medium">Active Import Job</p>
-                            <p className="text-muted-foreground text-xs">
-                                {activeJob.job_type.replace(/_/g, " ")} &mdash;{" "}
-                                {activeJob.success_count + activeJob.failed_count} of{" "}
-                                {activeJob.total_records} processed
-                            </p>
-                        </div>
-                        <Button variant="outline" size="sm" asChild>
-                            <Link href={`/imports/${activeJob.id}`}>View Details</Link>
-                        </Button>
-                    </div>
-                </div>
-            )}
+        <div className="space-y-4">
+            <ActiveJobBanner />
 
-            {/* ── Empty State ────────────────────────────────────────────── */}
-            {jobs.length === 0 && !activeJob && (
-                <p className="text-muted-foreground">
-                    No import jobs yet. Import students or staff to see job history here.
-                </p>
-            )}
-
-            {/* ── Jobs Table ─────────────────────────────────────────────── */}
-            {jobs.length > 0 && (
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Type</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Records</TableHead>
-                            <TableHead>Success</TableHead>
-                            <TableHead>Failed</TableHead>
-                            <TableHead>Started</TableHead>
-                            <TableHead className="text-right">Actions</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {jobs.map((job) => (
-                            <TableRow key={job.id}>
-                                <TableCell className="font-medium">
-                                    {job.job_type.replace(/_/g, " ")}
-                                </TableCell>
-                                <TableCell>{statusBadge(job.status)}</TableCell>
-                                <TableCell>{job.total_records}</TableCell>
-                                <TableCell className="text-emerald-600">
-                                    {job.success_count}
-                                </TableCell>
-                                <TableCell className="text-destructive">
-                                    {job.failed_count > 0 ? job.failed_count : "—"}
-                                </TableCell>
-                                <TableCell className="text-muted-foreground">
-                                    {job.created_at
-                                        ? new Date(job.created_at).toLocaleDateString()
-                                        : "—"}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                    <Button variant="outline" size="sm" asChild>
-                                        <Link href={`/imports/${job.id}`}>View</Link>
-                                    </Button>
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-            )}
-
-            {/* ── Pagination ─────────────────────────────────────────────── */}
-            {totalPages > 1 && (
-                <div className="text-muted-foreground flex items-center justify-between">
-                    <p>
-                        Page {page} of {totalPages} ({total} total)
-                    </p>
-                    <div className="flex gap-2">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={page <= 1}
-                            onClick={() => setPage((p) => Math.max(1, p - 1))}
-                        >
-                            Previous
-                        </Button>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={page >= totalPages}
-                            onClick={() => setPage((p) => p + 1)}
-                        >
-                            Next
-                        </Button>
-                    </div>
-                </div>
-            )}
+            <DataTable
+                isCheckable
+                queryKey={["import-jobs", "list"]}
+                queryFn={(params) => listJobs(params)}
+                columns={cols}
+                getRowId={(row) => row.id}
+                emptyState="No import jobs yet. Import students or staff to see job history here."
+                noResultsState="No import jobs match your search."
+                pageSize={20}
+            />
         </div>
     );
 }

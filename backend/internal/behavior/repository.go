@@ -50,8 +50,21 @@ type Repository interface {
 	// UpdateNote updates the description of a behavior note.
 	UpdateNote(ctx context.Context, id, tenantID string, description string) error
 
+	// DeleteNote hard-deletes a behavior note.
+	DeleteNote(ctx context.Context, id, tenantID string) error
+
 	// ListNotesByAuthor returns notes authored by a specific user.
 	ListNotesByAuthor(ctx context.Context, tenantID, schoolID, authoredBy string) ([]TeacherNoteItem, error)
+
+	// ── Student Behavior Term Summaries ─────────────────────────────────
+
+	// GetStudentBehaviorTermSummary returns the behavior summary for a
+	// specific student+term.
+	GetStudentBehaviorTermSummary(ctx context.Context, studentID, termID string) (*StudentBehaviorTermSummary, error)
+
+	// ListStudentBehaviorTermSummaries returns all behavior summaries for
+	// a given term, optionally filtered by student.
+	ListStudentBehaviorTermSummaries(ctx context.Context, tenantID, schoolID, termID string, studentID *string) ([]StudentBehaviorTermSummary, error)
 }
 
 type pgRepository struct {
@@ -342,13 +355,12 @@ func (r *pgRepository) GetNotesByStudentTerm(ctx context.Context, tenantID, scho
 		LEFT JOIN cbc_streams str ON str.id = c.stream_id
 		JOIN behavior_categories bc ON bc.id = bn.category_id
 		JOIN users u ON u.id = bn.authored_by_id AND u.tenant_id = bn.tenant_id
-		JOIN attendance_records ar ON ar.timetable_slot_id = bn.timetable_slot_id
-			AND ar.date = bn.date AND ar.student_id = bn.student_id
-		JOIN academic_terms at ON at.id = ar.academic_term_id
+		JOIN cbc_student_enrollments enr ON enr.student_id = bn.student_id
+			AND enr.school_id = bn.school_id
+			AND enr.academic_term_id = $4
 		WHERE bn.tenant_id = $1
 		  AND bn.school_id = $2
 		  AND bn.student_id = $3
-		  AND at.id = $4
 		  AND bn.status IN ('APPROVED', 'INCLUDED_IN_REPORT')
 		ORDER BY bn.date DESC
 	`
@@ -436,4 +448,109 @@ func (r *pgRepository) UpdateNote(ctx context.Context, id, tenantID string, desc
 }
 
 // Ensure compile-time check that *pgRepository satisfies Repository.
+func (r *pgRepository) DeleteNote(ctx context.Context, id, tenantID string) error {
+	result, err := r.pool.Exec(ctx, `
+		DELETE FROM behavior_notes
+		WHERE id = $1 AND tenant_id = $2
+	`, id, tenantID)
+	if err != nil {
+		return fmt.Errorf("behavior.Repository.DeleteNote: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("behavior.Repository.DeleteNote: %w", ErrNotFound)
+	}
+	return nil
+}
+
+// ── Student Behavior Term Summaries ─────────────────────────────────────
+
+func (r *pgRepository) GetStudentBehaviorTermSummary(ctx context.Context, studentID, termID string) (*StudentBehaviorTermSummary, error) {
+	const query = `
+		SELECT id, tenant_id, school_id, student_id, academic_term_id,
+		       total_incidents, urgent_count,
+		       commendations_count, disciplinary_count,
+		       pending_review_count, resolved_count,
+		       primary_category_id, last_refreshed_at
+		FROM student_behavior_term_summaries
+		WHERE student_id = $1 AND academic_term_id = $2
+	`
+	var s StudentBehaviorTermSummary
+	var primaryCategoryID *string
+	err := r.pool.QueryRow(ctx, query, studentID, termID).Scan(
+		&s.ID, &s.TenantID, &s.SchoolID, &s.StudentID, &s.AcademicTermID,
+		&s.TotalIncidents, &s.UrgentCount,
+		&s.CommendationsCount, &s.DisciplinaryCount,
+		&s.PendingReviewCount, &s.ResolvedCount,
+		&primaryCategoryID, &s.LastRefreshedAt,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("behavior.Repository.GetStudentBehaviorTermSummary: %w", ErrNotFound)
+		}
+		return nil, fmt.Errorf("behavior.Repository.GetStudentBehaviorTermSummary: %w", err)
+	}
+	s.PrimaryCategoryID = primaryCategoryID
+	return &s, nil
+}
+
+func (r *pgRepository) ListStudentBehaviorTermSummaries(ctx context.Context, tenantID, schoolID, termID string, studentID *string) ([]StudentBehaviorTermSummary, error) {
+	var rows pgx.Rows
+	var err error
+
+	if studentID != nil && *studentID != "" {
+		const query = `
+			SELECT id, tenant_id, school_id, student_id, academic_term_id,
+			       total_incidents, urgent_count,
+			       commendations_count, disciplinary_count,
+			       pending_review_count, resolved_count,
+			       primary_category_id, last_refreshed_at
+			FROM student_behavior_term_summaries
+			WHERE tenant_id = $1 AND school_id = $2
+			  AND academic_term_id = $3 AND student_id = $4
+		`
+		rows, err = r.pool.Query(ctx, query, tenantID, schoolID, termID, *studentID)
+	} else {
+		const query = `
+			SELECT id, tenant_id, school_id, student_id, academic_term_id,
+			       total_incidents, urgent_count,
+			       commendations_count, disciplinary_count,
+			       pending_review_count, resolved_count,
+			       primary_category_id, last_refreshed_at
+			FROM student_behavior_term_summaries
+			WHERE tenant_id = $1 AND school_id = $2
+			  AND academic_term_id = $3
+			ORDER BY total_incidents DESC
+		`
+		rows, err = r.pool.Query(ctx, query, tenantID, schoolID, termID)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("behavior.Repository.ListStudentBehaviorTermSummaries: %w", err)
+	}
+	defer rows.Close()
+
+	var summaries []StudentBehaviorTermSummary
+	for rows.Next() {
+		var s StudentBehaviorTermSummary
+		var primaryCategoryID *string
+		if err := rows.Scan(
+			&s.ID, &s.TenantID, &s.SchoolID, &s.StudentID, &s.AcademicTermID,
+			&s.TotalIncidents, &s.UrgentCount,
+			&s.CommendationsCount, &s.DisciplinaryCount,
+			&s.PendingReviewCount, &s.ResolvedCount,
+			&primaryCategoryID, &s.LastRefreshedAt,
+		); err != nil {
+			return nil, fmt.Errorf("behavior.Repository.ListStudentBehaviorTermSummaries: scan: %w", err)
+		}
+		s.PrimaryCategoryID = primaryCategoryID
+		summaries = append(summaries, s)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("behavior.Repository.ListStudentBehaviorTermSummaries: rows: %w", err)
+	}
+	if summaries == nil {
+		summaries = []StudentBehaviorTermSummary{}
+	}
+	return summaries, nil
+}
+
 var _ Repository = (*pgRepository)(nil)

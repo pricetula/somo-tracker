@@ -38,11 +38,11 @@ export function DataTable<TItem, TParams extends object, TResult>({
     params,
     columns,
     getRowId,
-    normalize,
     isSearchable,
     searchPlaceholder = "Search...",
     filterGroups,
     isCheckable,
+    isRowCheckable,
     deleteFn,
     deleteParams,
     addHref,
@@ -52,6 +52,7 @@ export function DataTable<TItem, TParams extends object, TResult>({
     emptyState,
     noResultsState,
     className,
+    renderToolBarComponents,
 }: DataTableProps<TItem, TParams, TResult>) {
     const queryClient = useQueryClient();
 
@@ -70,14 +71,13 @@ export function DataTable<TItem, TParams extends object, TResult>({
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
     // ── Infinite query ───────────────────────────────────────────────
-    const listQuery = useInfiniteListQuery({
+    const listQuery = useInfiniteListQuery<TItem, TParams, TResult>({
         queryKey,
         queryFn,
         params,
         search: isSearchable ? debouncedSearch : undefined,
         filters: filterGroups && Object.keys(activeFilters).length > 0 ? activeFilters : undefined,
         limit: pageSize,
-        normalize,
     });
 
     const {
@@ -186,13 +186,21 @@ export function DataTable<TItem, TParams extends object, TResult>({
     const handleSelectAll = useCallback(
         (checked: boolean) => {
             if (checked) {
-                const ids = new Set(rows.map((row, i) => String(getRowId(row, i))));
+                const ids = new Set(
+                    rows
+                        .map((row, i) => ({
+                            id: String(getRowId(row, i)),
+                            checkable: isRowCheckable ? isRowCheckable(row, i) : true,
+                        }))
+                        .filter((x) => x.checkable)
+                        .map((x) => x.id)
+                );
                 setSelectedIds(ids);
             } else {
                 setSelectedIds(new Set());
             }
         },
-        [rows, getRowId]
+        [rows, getRowId, isRowCheckable]
     );
 
     const handleSelectRow = useCallback((id: string) => {
@@ -206,6 +214,11 @@ export function DataTable<TItem, TParams extends object, TResult>({
             return next;
         });
     }, []);
+
+    const isRowCheckableFn = useCallback(
+        (row: TItem, index: number) => (isRowCheckable ? isRowCheckable(row, index) : true),
+        [isRowCheckable]
+    );
 
     // ── Delete mutation ──────────────────────────────────────────────
     const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
@@ -266,8 +279,13 @@ export function DataTable<TItem, TParams extends object, TResult>({
 
     // ── Determine if "Check all" is checked / indeterminate ──────────
     const selectableRows = useMemo(
-        () => rows.filter((row, i) => !deletingIds.has(String(getRowId(row, i)))),
-        [rows, deletingIds, getRowId]
+        () =>
+            rows.filter((row, i) => {
+                if (deletingIds.has(String(getRowId(row, i)))) return false;
+                if (isRowCheckable && !isRowCheckable(row, i)) return false;
+                return true;
+            }),
+        [rows, deletingIds, getRowId, isRowCheckable]
     );
 
     const allSelected =
@@ -305,7 +323,6 @@ export function DataTable<TItem, TParams extends object, TResult>({
     if (lastVirtualIndex >= rows.length - 1 && hasNextPage && !isFetchingNextPage) {
         fetchNextPage();
     }
-
     // ── State checks ─────────────────────────────────────────────────
 
     const hasData = rows.length > 0;
@@ -351,6 +368,9 @@ export function DataTable<TItem, TParams extends object, TResult>({
                 )}
 
                 <div className="ml-auto flex items-center gap-1.5">
+                    {renderToolBarComponents?.(selectedIds)}
+
+                    {/* ── Alerts ────────────────────────── */}
                     {selectedIds.size > 0 && deleteFn && (
                         <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
                             <AlertDialogTrigger asChild>
@@ -510,9 +530,18 @@ export function DataTable<TItem, TParams extends object, TResult>({
                                                                 <Checkbox
                                                                     checked={isChecked}
                                                                     onCheckedChange={() =>
-                                                                        handleSelectRow(rowId!)
+                                                                        isRowCheckableFn(
+                                                                            row,
+                                                                            virtualRow.index
+                                                                        ) && handleSelectRow(rowId!)
                                                                     }
-                                                                    disabled={isDeleting}
+                                                                    disabled={
+                                                                        isDeleting ||
+                                                                        !isRowCheckableFn(
+                                                                            row,
+                                                                            virtualRow.index
+                                                                        )
+                                                                    }
                                                                 />
                                                             </div>
                                                         )}

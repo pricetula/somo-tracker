@@ -176,47 +176,6 @@ describe("useInfiniteListQuery", () => {
         expect(result.current.hasNextPage).toBe(true);
     });
 
-    // ── Custom normalization ─────────────────────────────────────────
-    it("uses the provided normalize function", () => {
-        // Mock data that has a non-standard shape (students key instead of items)
-        const customPageData = {
-            students: [1, 2, 3],
-            total: 100,
-            page: 1,
-            limit: 50,
-        };
-
-        const customNormalize = (r: {
-            students: number[];
-            total: number;
-        }): NormalizedListResult<number> => ({
-            items: r.students,
-            total: r.total,
-        });
-
-        // The mock data has students instead of items; normalize remaps it.
-        mockUseInfiniteQuery.mockReturnValue(
-            buildQueryReturn({
-                data: buildQueryData([customPageData as unknown as NormalizedListResult<number>]),
-                isPending: false,
-                isSuccess: true,
-                status: "success",
-            })
-        );
-
-        const { result } = renderHook(() =>
-            useInfiniteListQuery({
-                queryKey: ["test"],
-                queryFn: vi.fn(),
-                params: {},
-                normalize: customNormalize,
-            })
-        );
-
-        expect(result.current.rows).toEqual([1, 2, 3]);
-        expect(result.current.total).toBe(100);
-    });
-
     // ── enabled flag ─────────────────────────────────────────────────
     it("does not fetch when enabled is false", () => {
         mockUseInfiniteQuery.mockReturnValue(

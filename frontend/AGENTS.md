@@ -40,13 +40,16 @@ src/
 
 ## 2. Page Creation — No Headers or Back Navigation
 
-When scaffolding a new page, the app shell (top bar, back button, global navigation) is
+When scaffolding a new page, the app shell (top bar, back navigation, global navigation) is
 owned by `src/app/layout.tsx` and the feature container's root layout — not by
 individual page or feature components.
 
-- **Do not** add a `<header>`, `<nav>`, back button, or any breadcrumb component inside
-  a page file (`page.tsx`) or a feature container rendered by one. Navigation is the
-  shell's responsibility.
+- **Do not** add a `<header>`, `<nav>`, back button, "Back to" link, or any breadcrumb
+  component inside a page file (`page.tsx`) or a feature container rendered by one.
+  Navigation is the shell's responsibility.
+- **"Back to" links are forbidden everywhere.** No `<Link>` or `<button>` with the text
+  "Back to" anything. If you need to put them anywhere else, stop and think of a UX
+  that doesn't require the user to backtrack.
 - **Do not** replicate the top app bar or any global navigation element. The shell
   layout is inherited; pages are content panes only.
 - If a page needs a heading (e.g. a page title), use `h1` rendered as plain text —
@@ -137,7 +140,16 @@ sets.
 
 ---
 
-## 8. Visual Guidance — reduce borders and cards
+## 8. Page Layout — no tabs, prefer simple stacking
+
+Use vertical stacking of sections with `space-y-*` gap to organise page content.
+**Do not use `<Tabs>` or tab navigation components** to split page content.
+Every section gets an `<h2>` / `<h3>` heading and stacks naturally down the page.
+Sub-navigation belongs in the sidebar or in dedicated feature-level route pages.
+
+---
+
+## 9. Visual Guidance — reduce borders and cards
 
 - Avoid excessive borders unless necessary or requested. Separate sections with
   margin/padding (`space-y-*`, `gap-*`, `p-*`) instead.
@@ -214,7 +226,27 @@ Files under `src/components/ui/` are auto-generated shadcn primitives.
 
 ---
 
-## 11. Simplicity & References
+## 11. API Mutations — pass IDs in the request body
+
+For POST, PATCH, and DELETE API calls, always pass resource IDs inside the
+request body — never rely on extracting them from URL path params alone.
+
+This keeps the mutation function signature consistent and avoids fragile
+URL-construction logic in call sites.
+
+```ts
+// ✅ Good — ID in the body
+mutationFn: ({ parentId, data }: { parentId: string; data: LinkStudentPayload }) =>
+    api.post(`/api/v1/parents/${parentId}/students`, data);
+
+// ✅ Good — multiple IDs in the body
+mutationFn: ({ parentId, studentId }: { parentId: string; studentId: string }) =>
+    api.delete(`/api/v1/parents/${parentId}/students/${studentId}`);
+```
+
+---
+
+## 12. Simplicity & References
 
 - Don't overcomplicate. For standard patterns (virtualized list, form, table), start
   from the library's canonical docs example and adapt — don't reverse-engineer or add
@@ -224,7 +256,7 @@ Files under `src/components/ui/` are auto-generated shadcn primitives.
 
 ---
 
-## 12. Guard Against Null/Undefined on Nested Property Access
+## 13. Guard Against Null/Undefined on Nested Property Access
 
 Never assume a deeply nested property is defined. Every chained access through
 `var.a.b.c` must be protected with one of:
@@ -267,5 +299,29 @@ return <Main data={response.data} />;
 
 This applies to **all** `.ts` and `.tsx` files under `src/` — including render
 code, hooks, optimistic updaters, and utility functions.
+
+---
+
+## 14. Time Formatting — date-fns only
+
+All date/time formatting in UI code must use **date-fns** functions (`format`,
+`formatDistanceToNow`, `formatRelative`, etc.).
+
+- Never create custom date formatting components, hooks, or utility wrappers.
+- Never use `Intl.DateTimeFormat` directly in UI code — date-fns provides a
+  consistent, tree-shakeable API.
+- Use date-fns's `format` with explicit format strings — avoid locale-dependent
+  defaults to ensure consistent display across environments.
+- Install date-fns if not already present: `pnpm add date-fns`.
+
+```ts
+// ✅ Good — date-fns format
+import { format } from "date-fns";
+format(new Date(started_at), "MMM d, yyyy h:mm a");
+
+// ❌ Bad — custom component or raw Intl
+formatDate(started_at);         // custom utility
+new Intl.DateTimeFormat(...);   // raw Intl in UI
+```
 
 ---

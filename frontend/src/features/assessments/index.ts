@@ -14,6 +14,9 @@ export type {
     OutcomeGrade,
     ParentAssessmentView,
     StudentTermGrade,
+    AssessmentWeightConfig,
+    CreateWeightConfigPayload,
+    WeightConfigListResult,
     CreateScaleProfilePayload,
     ScaleRangePayload,
     BulkSetRangesPayload,
@@ -50,10 +53,14 @@ export {
     useSubmitSession,
     useApproveSession,
     useRejectSession,
+    useDeleteSession,
+    useDeleteWeightConfig,
     useBulkUpsertScores,
     useBulkUpsertOutcomeGrades,
     useParentAssessments,
     useStudentTermGrades,
+    useWeightConfigList,
+    useCreateWeightConfig,
     assessmentKeys,
 } from "./hooks/use-assessments";
 
@@ -68,3 +75,7 @@ export { AssessmentSessionsList } from "./components/assessment-sessions-list";
 export { CreateAssessmentSessionForm } from "./components/create-assessment-session-form";
 export { AssessmentSessionDetailView } from "./components/assessment-session-detail-view";
 export { ApprovalActions } from "./components/approval-actions";
+export { GradingSheet } from "./components/grading-sheet";
+export { RubricGradingMatrix } from "./components/rubric-grading-matrix";
+export { ParentAssessmentsView } from "./components/parent-assessments-view";
+export { WeightConfigsList } from "./components/weight-configs-list";

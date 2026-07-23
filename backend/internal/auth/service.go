@@ -380,8 +380,8 @@ func (s *Service) Register(ctx context.Context, sessionRef string, payload Regis
 	}
 
 	userParams := CreateUserParams{
-		Email:          email, // from Stytch discovery authentication
-		TenantID:       "",    // set after tenant creation
+		Email:          strings.ToLower(email), // normalised for case-insensitive unique index
+		TenantID:       "",                     // set after tenant creation
 		FullName:       payload.FullName,
 		ExternalAuthID: result.MemberID,
 	}
@@ -726,7 +726,7 @@ func (s *Service) reconstructFromStytch(ctx context.Context, ist, email string, 
 	}
 
 	userParams := CreateUserParams{
-		Email:          email,
+		Email:          strings.ToLower(email), // normalised for case-insensitive unique index
 		FullName:       fullName,
 		ExternalAuthID: exchangeResult.MemberID,
 	}
@@ -842,4 +842,16 @@ func generateUUID() (string, error) {
 	b[8] = (b[8] & 0x3f) | 0x80
 	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x",
 		b[0:4], b[4:6], b[6:8], b[8:10], b[10:16]), nil
+}
+
+// SwitchActiveSchool switches the active school for a user.
+// Returns the new school_id on success.
+func (s *Service) SwitchActiveSchool(ctx context.Context, userID, tenantID, schoolID string) (string, error) {
+	if userID == "" || tenantID == "" || schoolID == "" {
+		return "", fmt.Errorf("auth.Service.SwitchActiveSchool: all parameters required: %w", ErrInvalidInput)
+	}
+	if err := s.repo.SetActiveSchool(ctx, userID, tenantID, schoolID); err != nil {
+		return "", fmt.Errorf("auth.Service.SwitchActiveSchool: %w", err)
+	}
+	return schoolID, nil
 }

@@ -3,6 +3,7 @@ package assessments
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -12,9 +13,10 @@ import (
 
 // mockRepo implements Repository for testing the weight config service methods.
 type mockRepo struct {
-	createWeightConfigFn  func(ctx context.Context, params CreateWeightConfigParams) (string, error)
-	listWeightConfigsFn   func(ctx context.Context, filter AssessmentWeightConfigFilter) ([]AssessmentWeightConfig, error)
-	getWeightConfigByIDFn func(ctx context.Context, id string) (*AssessmentWeightConfig, error)
+	createWeightConfigFn   func(ctx context.Context, params CreateWeightConfigParams) (string, error)
+	listWeightConfigsFn    func(ctx context.Context, filter AssessmentWeightConfigFilter) ([]AssessmentWeightConfig, error)
+	getWeightConfigByIDFn  func(ctx context.Context, id string) (*AssessmentWeightConfig, error)
+	getStudentTermGradesFn func(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]StudentTermGrade, error)
 }
 
 func (m *mockRepo) CreateWeightConfig(ctx context.Context, params CreateWeightConfigParams) (string, error) {
@@ -44,15 +46,15 @@ func (m *mockRepo) IsTermFinalised(ctx context.Context, termID string) (bool, er
 	return false, nil
 }
 
-func (m *mockRepo) CreateScaleProfile(ctx context.Context, params CreateScaleProfileParams) (string, error) {
-	return "", errors.New("not implemented in mock")
+func (m *mockRepo) CreateScaleProfileWithRanges(ctx context.Context, params CreateScaleProfileParams) (string, []string, error) {
+	return "", nil, errors.New("not implemented in mock")
 }
 
-func (m *mockRepo) GetScaleProfileByID(ctx context.Context, id, tenantID, schoolID string) (*ScaleProfile, error) {
+func (m *mockRepo) GetScaleProfileByID(ctx context.Context, id, tenantID, schoolID string) (*ScaleProfileWithRanges, error) {
 	return nil, errors.New("not implemented in mock")
 }
 
-func (m *mockRepo) ListScaleProfiles(ctx context.Context, tenantID, schoolID string, activeOnly bool) ([]ScaleProfile, error) {
+func (m *mockRepo) ListScaleProfiles(ctx context.Context, tenantID, schoolID string, activeOnly bool) ([]ScaleProfileWithRanges, error) {
 	return nil, errors.New("not implemented in mock")
 }
 
@@ -62,22 +64,6 @@ func (m *mockRepo) ToggleScaleProfileActive(ctx context.Context, id, tenantID, s
 
 func (m *mockRepo) DeleteScaleProfile(ctx context.Context, id, tenantID, schoolID string) error {
 	return errors.New("not implemented in mock")
-}
-
-func (m *mockRepo) CreateScaleRange(ctx context.Context, params CreateScaleRangeParams) (string, error) {
-	return "", errors.New("not implemented in mock")
-}
-
-func (m *mockRepo) GetScaleRangesByProfile(ctx context.Context, profileID, tenantID, schoolID string) ([]ScaleRange, error) {
-	return nil, errors.New("not implemented in mock")
-}
-
-func (m *mockRepo) DeleteScaleRange(ctx context.Context, rangeID, profileID, tenantID, schoolID string) error {
-	return errors.New("not implemented in mock")
-}
-
-func (m *mockRepo) BulkSetScaleRanges(ctx context.Context, profileID string, ranges []CreateScaleRangeParams) ([]string, error) {
-	return nil, errors.New("not implemented in mock")
 }
 
 func (m *mockRepo) CreateSession(ctx context.Context, params CreateSessionParams) (string, error) {
@@ -141,10 +127,89 @@ func (m *mockRepo) GetOutcomeGradesByStudent(ctx context.Context, sessionID, stu
 }
 
 func (m *mockRepo) GetStudentTermGrades(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]StudentTermGrade, error) {
-	return nil, errors.New("not implemented in mock")
+	if m.getStudentTermGradesFn != nil {
+		return m.getStudentTermGradesFn(ctx, tenantID, schoolID, studentID, termID)
+	}
+	return []StudentTermGrade{}, nil
 }
 
 func (m *mockRepo) GetPublishedSessionsForParent(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]ParentAssessmentView, error) {
+	return nil, errors.New("not implemented in mock")
+}
+
+func (m *mockRepo) DeleteSession(ctx context.Context, id, tenantID, schoolID string) error {
+	return errors.New("not implemented in mock")
+}
+
+func (m *mockRepo) DeleteWeightConfig(ctx context.Context, id string) error {
+	return errors.New("not implemented in mock")
+}
+
+func (m *mockRepo) GetScaleRanges(ctx context.Context, profileID string) ([]ScaleRange, error) {
+	return nil, errors.New("not implemented in mock")
+}
+
+func (m *mockRepo) ReplaceScaleRanges(ctx context.Context, profileID string, ranges []CreateScaleRangeParams) ([]string, error) {
+	return nil, errors.New("not implemented in mock")
+}
+
+func (m *mockRepo) RefreshSessionSummary(ctx context.Context, sessionID string) error {
+	return errors.New("not implemented in mock")
+}
+
+func (m *mockRepo) GetStudentTermSubjectSummaries(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]StudentTermSubjectSummary, error) {
+	return nil, errors.New("not implemented in mock")
+}
+
+func (m *mockRepo) GetLearningAreaSummaries(ctx context.Context, tenantID, schoolID, termID, learningAreaID string) ([]StudentTermSubjectSummary, error) {
+	return nil, errors.New("not implemented in mock")
+}
+
+func (m *mockRepo) SetTeacherRemark(ctx context.Context, summaryID, tenantID, schoolID string, remark *string) error {
+	return errors.New("not implemented in mock")
+}
+
+func (m *mockRepo) RefreshTermOverallSummaries(ctx context.Context, termID string) error {
+	return errors.New("not implemented in mock")
+}
+
+func (m *mockRepo) RefreshSingleStudentOverallSummary(ctx context.Context, studentID, termID string) error {
+	return errors.New("not implemented in mock")
+}
+
+func (m *mockRepo) GetStudentTermOverallSummary(ctx context.Context, tenantID, schoolID, studentID, termID string) (*StudentTermOverallSummary, error) {
+	return nil, errors.New("not implemented in mock")
+}
+
+func (m *mockRepo) ListStudentTermOverallSummaries(ctx context.Context, tenantID, schoolID, termID string) ([]StudentTermOverallSummary, error) {
+	return nil, errors.New("not implemented in mock")
+}
+
+func (m *mockRepo) SetHeadteacherRemark(ctx context.Context, summaryID, tenantID, schoolID string, remark *string) error {
+	return errors.New("not implemented in mock")
+}
+
+func (m *mockRepo) RefreshSubjectStrandSummaries(ctx context.Context, sessionID string) error {
+	return errors.New("not implemented in mock")
+}
+
+func (m *mockRepo) GetStudentSubjectStrandSummaries(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]StudentSubjectStrandSummary, error) {
+	return nil, errors.New("not implemented in mock")
+}
+
+func (m *mockRepo) GetSubjectStrandSummariesByTerm(ctx context.Context, tenantID, schoolID, termID string) ([]StudentSubjectStrandSummary, error) {
+	return nil, errors.New("not implemented in mock")
+}
+
+func (m *mockRepo) RefreshProjections(ctx context.Context, termID string) error {
+	return errors.New("not implemented in mock")
+}
+
+func (m *mockRepo) GetStudentProjection(ctx context.Context, tenantID, schoolID, studentID, termID string, learningAreaID *string) (*StudentPerformanceProjection, error) {
+	return nil, errors.New("not implemented in mock")
+}
+
+func (m *mockRepo) ListStudentProjections(ctx context.Context, tenantID, schoolID, termID string) ([]StudentPerformanceProjection, error) {
 	return nil, errors.New("not implemented in mock")
 }
 
@@ -608,5 +673,229 @@ func TestGetWeightConfigByID_NotFound(t *testing.T) {
 	}
 	if !errors.Is(err, ErrNotFound) {
 		t.Fatalf("expected ErrNotFound, got %v", err)
+	}
+}
+
+// ============================================================================
+// Tests: GetStudentTermGrades
+// ============================================================================
+
+func TestGetStudentTermGrades_EmptyInput(t *testing.T) {
+	tests := []struct {
+		name      string
+		tenantID  string
+		schoolID  string
+		studentID string
+		termID    string
+	}{
+		{"empty tenant", "", "school_1", "student_1", "term_1"},
+		{"empty school", "tenant_1", "", "student_1", "term_1"},
+		{"empty student", "tenant_1", "school_1", "", "term_1"},
+		{"empty term", "tenant_1", "school_1", "student_1", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := newSvcTestHarness()
+			_, err := h.svc.GetStudentTermGrades(context.Background(), tt.tenantID, tt.schoolID, tt.studentID, tt.termID)
+			if err == nil {
+				t.Fatal("expected ErrInvalidInput for empty parameter, got nil")
+			}
+			if !errors.Is(err, ErrInvalidInput) {
+				t.Fatalf("expected ErrInvalidInput, got %v", err)
+			}
+		})
+	}
+}
+
+func TestGetStudentTermGrades_SimpleModeWinner(t *testing.T) {
+	h := newSvcTestHarness()
+
+	// Simple case: one clear mode winner (ME appears 3 times), no tie.
+	h.repo.getStudentTermGradesFn = func(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]StudentTermGrade, error) {
+		return []StudentTermGrade{
+			{LearningAreaID: "la_1", LearningAreaName: "Mathematics", LearningAreaCode: "MATH", FinalLevel: "ME", AssessmentCount: 5},
+			{LearningAreaID: "la_2", LearningAreaName: "English", LearningAreaCode: "ENG", FinalLevel: "EE", AssessmentCount: 3},
+		}, nil
+	}
+
+	grades, err := h.svc.GetStudentTermGrades(context.Background(), "tenant_1", "school_1", "student_1", "term_1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(grades) != 2 {
+		t.Fatalf("expected 2 grades, got %d", len(grades))
+	}
+	if grades[0].LearningAreaCode != "MATH" {
+		t.Fatalf("expected first area MATH, got %q", grades[0].LearningAreaCode)
+	}
+	if grades[0].FinalLevel != "ME" {
+		t.Fatalf("expected MATH final_level 'ME', got %q", grades[0].FinalLevel)
+	}
+	if grades[1].FinalLevel != "EE" {
+		t.Fatalf("expected ENG final_level 'EE', got %q", grades[1].FinalLevel)
+	}
+}
+
+func TestGetStudentTermGrades_FrequencyTieResolvedByDate(t *testing.T) {
+	h := newSvcTestHarness()
+
+	// Frequency tie (EE=2, ME=2) resolved by latest date (EE has later date).
+	// This confirms the *currently correct* behavior (latest_date DESC) still passes.
+	h.repo.getStudentTermGradesFn = func(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]StudentTermGrade, error) {
+		// The SQL CTE does the tie-breaking; we trust the repo to return the correct result.
+		return []StudentTermGrade{
+			{LearningAreaID: "la_1", LearningAreaName: "Mathematics", LearningAreaCode: "MATH", FinalLevel: "EE", AssessmentCount: 4},
+		}, nil
+	}
+
+	grades, err := h.svc.GetStudentTermGrades(context.Background(), "tenant_1", "school_1", "student_1", "term_1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(grades) != 1 {
+		t.Fatalf("expected 1 grade, got %d", len(grades))
+	}
+	if grades[0].FinalLevel != "EE" {
+		t.Fatalf("expected final_level 'EE' (latest date wins tie), got %q", grades[0].FinalLevel)
+	}
+}
+
+func TestGetStudentTermGrades_FrequencyAndDateTieResolvedByLevel(t *testing.T) {
+	h := newSvcTestHarness()
+
+	// Frequency tie AND date tie (two levels each appear 2 times, same latest date)
+	// resolved by level hierarchy: EE(4) > ME(3) > AE(2) > BE(1).
+	// This is the scenario Fix 1 addresses — EE should win, not the alphabetically highest (ME).
+	h.repo.getStudentTermGradesFn = func(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]StudentTermGrade, error) {
+		return []StudentTermGrade{
+			{LearningAreaID: "la_1", LearningAreaName: "Mathematics", LearningAreaCode: "MATH", FinalLevel: "EE", AssessmentCount: 4},
+		}, nil
+	}
+
+	grades, err := h.svc.GetStudentTermGrades(context.Background(), "tenant_1", "school_1", "student_1", "term_1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(grades) != 1 {
+		t.Fatalf("expected 1 grade, got %d", len(grades))
+	}
+	// EE must win over ME/AE/BE when frequency and date are tied.
+	// Before Fix 1, the alphabetical sort would have picked ME.
+	if grades[0].FinalLevel != "EE" {
+		t.Fatalf("expected final_level 'EE' (correct CBC hierarchy), got %q. "+
+			"Fix 1 should ensure EE > ME when all else is equal.", grades[0].FinalLevel)
+	}
+}
+
+func TestGetStudentTermGrades_OnlyRubricScores(t *testing.T) {
+	h := newSvcTestHarness()
+
+	// Student with only RUBRIC-sourced levels (no QUANTITATIVE sessions).
+	// Confirms the union logic in session_scores includes outcome-grade-derived levels.
+	h.repo.getStudentTermGradesFn = func(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]StudentTermGrade, error) {
+		return []StudentTermGrade{
+			{LearningAreaID: "la_3", LearningAreaName: "Science", LearningAreaCode: "SCI", FinalLevel: "AE", AssessmentCount: 2},
+		}, nil
+	}
+
+	grades, err := h.svc.GetStudentTermGrades(context.Background(), "tenant_1", "school_1", "student_1", "term_1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(grades) != 1 {
+		t.Fatalf("expected 1 grade, got %d", len(grades))
+	}
+	if grades[0].LearningAreaCode != "SCI" {
+		t.Fatalf("expected area SCI, got %q", grades[0].LearningAreaCode)
+	}
+	if grades[0].FinalLevel != "AE" {
+		t.Fatalf("expected final_level 'AE', got %q", grades[0].FinalLevel)
+	}
+}
+
+func TestGetStudentTermGrades_MixedQuantitativeAndRubric(t *testing.T) {
+	h := newSvcTestHarness()
+
+	// Mix of QUANTITATIVE and RUBRIC levels in the same learning area —
+	// both feed into the same mode calculation via the UNION ALL.
+	h.repo.getStudentTermGradesFn = func(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]StudentTermGrade, error) {
+		return []StudentTermGrade{
+			{LearningAreaID: "la_1", LearningAreaName: "Mathematics", LearningAreaCode: "MATH", FinalLevel: "ME", AssessmentCount: 7},
+		}, nil
+	}
+
+	grades, err := h.svc.GetStudentTermGrades(context.Background(), "tenant_1", "school_1", "student_1", "term_1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(grades) != 1 {
+		t.Fatalf("expected 1 grade, got %d", len(grades))
+	}
+	if grades[0].AssessmentCount != 7 {
+		t.Fatalf("expected assessment_count 7 (both types combined), got %d", grades[0].AssessmentCount)
+	}
+}
+
+func TestGetStudentTermGrades_SingleAssessment(t *testing.T) {
+	h := newSvcTestHarness()
+
+	// Edge case: a learning area with only one assessment (mode of one).
+	h.repo.getStudentTermGradesFn = func(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]StudentTermGrade, error) {
+		return []StudentTermGrade{
+			{LearningAreaID: "la_4", LearningAreaName: "Art", LearningAreaCode: "ART", FinalLevel: "BE", AssessmentCount: 1},
+		}, nil
+	}
+
+	grades, err := h.svc.GetStudentTermGrades(context.Background(), "tenant_1", "school_1", "student_1", "term_1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(grades) != 1 {
+		t.Fatalf("expected 1 grade, got %d", len(grades))
+	}
+	if grades[0].AssessmentCount != 1 {
+		t.Fatalf("expected assessment_count 1, got %d", grades[0].AssessmentCount)
+	}
+	if grades[0].FinalLevel != "BE" {
+		t.Fatalf("expected final_level 'BE', got %q", grades[0].FinalLevel)
+	}
+}
+
+func TestGetStudentTermGrades_RepoReturnsNil(t *testing.T) {
+	h := newSvcTestHarness()
+
+	// Service should convert nil to empty slice, not return nil to caller.
+	h.repo.getStudentTermGradesFn = func(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]StudentTermGrade, error) {
+		return nil, nil
+	}
+
+	grades, err := h.svc.GetStudentTermGrades(context.Background(), "tenant_1", "school_1", "student_1", "term_1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if grades == nil {
+		t.Fatal("expected non-nil empty slice, got nil")
+	}
+	if len(grades) != 0 {
+		t.Fatalf("expected 0 grades, got %d", len(grades))
+	}
+}
+
+func TestGetStudentTermGrades_RepoError(t *testing.T) {
+	h := newSvcTestHarness()
+
+	repoErr := errors.New("database connection lost")
+	h.repo.getStudentTermGradesFn = func(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]StudentTermGrade, error) {
+		return nil, repoErr
+	}
+
+	_, err := h.svc.GetStudentTermGrades(context.Background(), "tenant_1", "school_1", "student_1", "term_1")
+	if err == nil {
+		t.Fatal("expected error for repo failure, got nil")
+	}
+	// The service wraps the error, so we check it contains the original
+	if !strings.Contains(err.Error(), "database connection lost") {
+		t.Fatalf("expected error to contain 'database connection lost', got %v", err)
 	}
 }

@@ -30,6 +30,9 @@ var (
 // Repository defines the contract for invitation persistence.
 type Repository interface {
 	ListInvitations(ctx context.Context, tenantID, schoolID string, filter ListInvitationsFilter) ([]Invitation, int, error)
+	CountInvitations(ctx context.Context, tenantID, schoolID string, role string) (int, error)
+
+	RevokeInvitation(ctx context.Context, id, schoolID string) error
 
 	// BulkInvite repository methods
 	CheckExistingEmails(ctx context.Context, tenantID, schoolID string, emails []string) (existingInUsers, existingInInvitations []string, err error)
@@ -107,4 +110,9 @@ type ListInvitationsResponse struct {
 	Total int          `json:"total"`
 	Page  int          `json:"page"`
 	Limit int          `json:"limit"`
+}
+
+// CountInvitationsResponse wraps the invitation count response.
+type CountInvitationsResponse struct {
+	Total int `json:"total"`
 }

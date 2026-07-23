@@ -32,17 +32,6 @@ export default function SettingsPage() {
                     </div>
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="font-medium">Grading Scales</p>
-                            <p className="text-muted-foreground">
-                                Manage grading scale profiles and percentage-to-level mappings.
-                            </p>
-                        </div>
-                        <Button variant="outline" size="sm" asChild>
-                            <Link href="/settings/grading-scales">Manage</Link>
-                        </Button>
-                    </div>
-                    <div className="flex items-center justify-between">
-                        <div>
                             <p className="font-medium">Streams</p>
                             <p className="text-muted-foreground">
                                 Manage the streams (sections) available in your school.

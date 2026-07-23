@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -147,7 +148,10 @@ func (r *PgRepository) BatchCreate(ctx context.Context, tenantID, schoolID strin
 		return nil, fmt.Errorf("timetablestructure.Repository.BatchCreate: begin tx: %w", err)
 	}
 	defer func() {
-		_ = tx.Rollback(ctx)
+		if rbErr := tx.Rollback(ctx); rbErr != nil && rbErr != pgx.ErrTxClosed {
+			slog.WarnContext(ctx, "timetablestructure.Repository.BatchCreate: rollback",
+				slog.String("error", rbErr.Error()))
+		}
 	}()
 
 	const query = `
@@ -203,7 +207,10 @@ func (r *PgRepository) ReplicateDay(ctx context.Context, tenantID, schoolID stri
 		return nil, fmt.Errorf("timetablestructure.Repository.ReplicateDay: begin tx: %w", err)
 	}
 	defer func() {
-		_ = tx.Rollback(ctx)
+		if rbErr := tx.Rollback(ctx); rbErr != nil && rbErr != pgx.ErrTxClosed {
+			slog.WarnContext(ctx, "timetablestructure.Repository.ReplicateDay: rollback",
+				slog.String("error", rbErr.Error()))
+		}
 	}()
 
 	// First, get the source blocks to derive academic_year_id
@@ -535,7 +542,10 @@ func (r *PgRepository) BatchUpdateBlocks(ctx context.Context, tenantID, schoolID
 		return nil, fmt.Errorf("timetablestructure.Repository.BatchUpdateBlocks: begin tx: %w", err)
 	}
 	defer func() {
-		_ = tx.Rollback(ctx)
+		if rbErr := tx.Rollback(ctx); rbErr != nil && rbErr != pgx.ErrTxClosed {
+			slog.WarnContext(ctx, "timetablestructure.Repository.BatchUpdateBlocks: rollback",
+				slog.String("error", rbErr.Error()))
+		}
 	}()
 
 	const query = `

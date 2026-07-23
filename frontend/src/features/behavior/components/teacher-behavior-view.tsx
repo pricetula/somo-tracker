@@ -1,115 +1,23 @@
 /**
  * TeacherBehaviorView — shows a teacher's own submitted behavior notes.
  *
- * Displays a list of notes with their review status, an empty state when
- * there are no notes, and a CTA linking to the attendance page where
- * teachers can log new behavior notes.
+ * Uses the shared DataTable component for listing with review status badges.
+ * Supports both bulk delete (via checkboxes) and per-row delete (via dropdown).
  */
 
 "use client";
 
-import Link from "next/link";
-import { ClipboardList, Plus, AlertTriangle } from "lucide-react";
+import { format } from "date-fns";
+import { AlertTriangle } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useTeacherNotes } from "../hooks/use-behavior";
+import { DataTable } from "@/components/shared/data-table";
+import type { DataTableColumn } from "@/components/shared/data-table/types";
+import { RowActions } from "@/components/shared/data-table/row-actions";
+import { useTeacherNotes, useDeleteBehaviorNote } from "../hooks/use-behavior";
+import type { TeacherNoteItem } from "@/lib/api/behavior";
 
-export function TeacherBehaviorView() {
-    const { data, isLoading, isError } = useTeacherNotes();
-
-    if (isLoading) {
-        return (
-            <div className="space-y-4">
-                {Array.from({ length: 3 }).map((_, i) => (
-                    <Skeleton key={i} className="h-28 w-full rounded-lg" />
-                ))}
-            </div>
-        );
-    }
-
-    if (isError) {
-        return (
-            <div className="border-destructive/50 text-destructive rounded-md border p-4">
-                Failed to load your behavior notes. Please try again later.
-            </div>
-        );
-    }
-
-    const notes = data?.notes ?? [];
-
-    if (notes.length === 0) {
-        return (
-            <div className="text-muted-foreground flex flex-col items-center gap-4 py-16">
-                <ClipboardList className="h-10 w-10" />
-                <div className="text-center">
-                    <p className="font-medium">No behavior notes yet</p>
-                    <p className="mt-1 max-w-sm">
-                        You haven&apos;t submitted any behavior notes. Log notes while taking
-                        attendance in your classes.
-                    </p>
-                </div>
-                <Button asChild>
-                    <Link href="/attendance">
-                        <Plus className="mr-2 h-4 w-4" />
-                        Go to Attendance
-                    </Link>
-                </Button>
-            </div>
-        );
-    }
-
-    return (
-        <div className="space-y-4">
-            <div className="flex items-center justify-between">
-                <p className="text-muted-foreground">
-                    Notes you have submitted. They appear here once reviewed by an admin.
-                </p>
-                <Button variant="outline" size="sm" asChild>
-                    <Link href="/attendance">
-                        <Plus className="mr-2 h-4 w-4" />
-                        New Note
-                    </Link>
-                </Button>
-            </div>
-
-            {notes.map((note) => (
-                <div
-                    key={note.id}
-                    className={`rounded-lg border p-4 ${note.is_urgent ? "border-l-4 border-l-red-500" : ""}`}
-                >
-                    <div className="flex items-start justify-between gap-4">
-                        <div className="min-w-0 space-y-1.5">
-                            <div className="flex items-center gap-2">
-                                <span className="font-medium">{note.student_full_name}</span>
-                                <Badge variant="outline" className="text-[10px]">
-                                    {note.class_name}
-                                </Badge>
-                            </div>
-                            <p className="text-muted-foreground line-clamp-2">{note.description}</p>
-                            <div className="flex items-center gap-2">
-                                <Badge variant="secondary" className="text-[10px]">
-                                    {note.category_name}
-                                </Badge>
-                                <StatusBadge status={note.status} />
-                                {note.is_urgent && (
-                                    <Badge variant="destructive" className="gap-1 text-[10px]">
-                                        <AlertTriangle className="h-3 w-3" />
-                                        Urgent
-                                    </Badge>
-                                )}
-                                <span className="text-muted-foreground text-xs">
-                                    {formatDate(note.date)}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            ))}
-        </div>
-    );
-}
+// ─── Status Badge ─────────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: string }) {
     switch (status) {
@@ -134,13 +42,126 @@ function StatusBadge({ status }: { status: string }) {
 
 function formatDate(dateStr: string): string {
     try {
-        const date = new Date(dateStr);
-        return date.toLocaleDateString(undefined, {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-        });
+        return format(new Date(dateStr), "MMM d, yyyy");
     } catch {
         return dateStr;
     }
+}
+
+// ─── Columns factory ──────────────────────────────────────────────────────
+
+function createColumns(
+    deleteMutation: ReturnType<typeof useDeleteBehaviorNote>
+): DataTableColumn<TeacherNoteItem>[] {
+    return [
+        {
+            id: "student",
+            header: "Student",
+            cell: (row) => (
+                <div className="flex items-center gap-2">
+                    <span className="font-medium">{row.student_full_name}</span>
+                    <Badge variant="outline" className="text-[10px]">
+                        {row.class_name}
+                    </Badge>
+                </div>
+            ),
+        },
+        {
+            id: "description",
+            header: "Description",
+            width: "minmax(200px, 1fr)",
+            cell: (row) => (
+                <span className="text-muted-foreground line-clamp-2 text-xs">
+                    {row.description}
+                </span>
+            ),
+        },
+        {
+            id: "category",
+            header: "Category",
+            width: "140px",
+            cell: (row) => (
+                <div className="flex flex-wrap items-center gap-1">
+                    <Badge variant="secondary" className="text-[10px]">
+                        {row.category_name}
+                    </Badge>
+                    {row.is_urgent && (
+                        <Badge variant="destructive" className="gap-1 text-[10px]">
+                            <AlertTriangle className="h-3 w-3" />
+                            Urgent
+                        </Badge>
+                    )}
+                </div>
+            ),
+        },
+        {
+            id: "status",
+            header: "Status",
+            width: "140px",
+            cell: (row) => <StatusBadge status={row.status} />,
+        },
+        {
+            id: "date",
+            header: "Date",
+            width: "120px",
+            cell: (row) => (
+                <span className="text-muted-foreground text-xs">{formatDate(row.date)}</span>
+            ),
+        },
+        {
+            id: "actions",
+            header: "",
+            width: "48px",
+            align: "right",
+            cell: (row) => (
+                <RowActions
+                    rowId={row.id}
+                    label={`note for ${row.student_full_name}`}
+                    onDelete={() => deleteMutation.mutate(row.id)}
+                    disabled={deleteMutation.isPending}
+                />
+            ),
+        },
+    ];
+}
+
+// ─── Component ────────────────────────────────────────────────────────────
+
+export function TeacherBehaviorView() {
+    const { data, isError } = useTeacherNotes();
+    const deleteMutation = useDeleteBehaviorNote();
+    const columns = createColumns(deleteMutation);
+
+    if (isError) {
+        return (
+            <div className="border-destructive/50 text-destructive rounded-md border p-4">
+                Failed to load your behavior notes. Please try again later.
+            </div>
+        );
+    }
+
+    const notes = data?.items ?? [];
+
+    return (
+        <div className="space-y-4">
+            <DataTable
+                isCheckable
+                queryKey={["behavior", "my-notes"]}
+                queryFn={() => Promise.resolve({ items: notes, total: notes.length })}
+                columns={columns}
+                getRowId={(row) => row.id}
+                deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
+                emptyState={
+                    <div className="text-muted-foreground flex flex-col items-center gap-4 py-16">
+                        <p className="font-medium">No behavior notes yet</p>
+                        <p className="mt-1 max-w-sm text-center">
+                            You haven&apos;t submitted any behavior notes yet.
+                        </p>
+                    </div>
+                }
+                noResultsState="No notes match your search."
+                renderToolBarComponents={() => null}
+            />
+        </div>
+    );
 }

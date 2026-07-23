@@ -12,13 +12,17 @@
 -- KJSEA: 20% SBA (G7+G8) + 20% KPSEA result + 60% KJSEA written (G9)
 
 INSERT INTO assessment_weight_configs (id, grade_level, assessment_type_code, target_exam, weight_percent, effective_from, notes) VALUES
-    (gen_random_uuid(), 'G4', 'KNEC_SBA_Project',  'KPSEA', 60.00, 2023, 'G4 SBA → 60% of KPSEA placement'),
-    (gen_random_uuid(), 'G5', 'KNEC_SBA_Project',  'KPSEA', 60.00, 2023, 'G5 SBA → 60% of KPSEA placement'),
-    (gen_random_uuid(), 'G6', 'National_KPSEA',    'KPSEA', 40.00, 2023, 'KPSEA written → 40% of KPSEA placement'),
-    (gen_random_uuid(), 'G7', 'KNEC_SBA_Project',  'KJSEA', 20.00, 2024, 'G7 SBA → 20% of KJSEA placement'),
-    (gen_random_uuid(), 'G8', 'KNEC_SBA_Project',  'KJSEA', 20.00, 2024, 'G8 SBA → 20% of KJSEA placement'),
-    (gen_random_uuid(), 'G6', 'National_KPSEA',    'KJSEA', 20.00, 2024, 'KPSEA result → 20% of KJSEA placement'),
-    (gen_random_uuid(), 'G9', 'National_KJSEA',    'KJSEA', 60.00, 2024, 'KJSEA written → 60% of KJSEA placement')
+    -- KPSEA (Primary School Transition) Breakdown: Cumulative 100%
+    (gen_random_uuid(), 'G4', 'KNEC_SBA_Project',  'KPSEA', 20.00, 2023, 'Grade 4 SBA → 20% of KPSEA composite'),
+    (gen_random_uuid(), 'G5', 'KNEC_SBA_Project',  'KPSEA', 20.00, 2023, 'Grade 5 SBA → 20% of KPSEA composite'),
+    (gen_random_uuid(), 'G6', 'KNEC_SBA_Project',  'KPSEA', 20.00, 2023, 'Grade 6 SBA → 20% of KPSEA composite'),
+    (gen_random_uuid(), 'G6', 'National_KPSEA',    'KPSEA', 40.00, 2023, 'KPSEA National Written Exam → 40% of KPSEA composite'),
+
+    -- KJSEA (Junior Secondary Transition to Senior School) Breakdown: Cumulative 100%
+    (gen_random_uuid(), 'G6', 'National_KPSEA',    'KJSEA', 20.00, 2024, 'KPSEA carry-forward score → 20% of Senior School placement'),
+    (gen_random_uuid(), 'G7', 'KNEC_SBA_Project',  'KJSEA', 10.00, 2024, 'Grade 7 SBA → 10% (Half of the 20% JSS SBA pool)'),
+    (gen_random_uuid(), 'G8', 'KNEC_SBA_Project',  'KJSEA', 10.00, 2024, 'Grade 8 SBA → 10% (Half of the 20% JSS SBA pool)'),
+    (gen_random_uuid(), 'G9', 'National_KJSEA',    'KJSEA', 60.00, 2024, 'KJSEA National Exam → 60% of Senior School placement')
 ON CONFLICT (grade_level, assessment_type_code, target_exam, effective_from) DO NOTHING;
 
 -- ---------------------------------------------------------------------------

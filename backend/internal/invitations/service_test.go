@@ -26,6 +26,8 @@ func (m *MockSchoolResolver) GetActiveSchoolID(ctx context.Context, tenantID, us
 
 type MockRepository struct {
 	listInvitationsFn  func(ctx context.Context, tenantID, schoolID string, filter ListInvitationsFilter) ([]Invitation, int, error)
+	countInvitationsFn func(ctx context.Context, tenantID, schoolID string, role string) (int, error)
+	revokeInvitationFn func(ctx context.Context, id, schoolID string) error
 	checkEmailsFn      func(ctx context.Context, tenantID, schoolID string, emails []string) ([]string, []string, error)
 	insertInvitationFn func(ctx context.Context, tx pgx.Tx, params InsertInvitationParams) error
 	getStytchOrgIDFn   func(ctx context.Context, tenantID string) (string, error)
@@ -38,6 +40,13 @@ func (m *MockRepository) ListInvitations(ctx context.Context, tenantID, schoolID
 	return nil, 0, nil
 }
 
+func (m *MockRepository) CountInvitations(ctx context.Context, tenantID, schoolID string, role string) (int, error) {
+	if m.countInvitationsFn != nil {
+		return m.countInvitationsFn(ctx, tenantID, schoolID, role)
+	}
+	return 0, nil
+}
+
 func (m *MockRepository) CheckExistingEmails(ctx context.Context, tenantID, schoolID string, emails []string) ([]string, []string, error) {
 	if m.checkEmailsFn != nil {
 		return m.checkEmailsFn(ctx, tenantID, schoolID, emails)
@@ -48,6 +57,13 @@ func (m *MockRepository) CheckExistingEmails(ctx context.Context, tenantID, scho
 func (m *MockRepository) InsertInvitation(ctx context.Context, tx pgx.Tx, params InsertInvitationParams) error {
 	if m.insertInvitationFn != nil {
 		return m.insertInvitationFn(ctx, tx, params)
+	}
+	return nil
+}
+
+func (m *MockRepository) RevokeInvitation(ctx context.Context, id, schoolID string) error {
+	if m.revokeInvitationFn != nil {
+		return m.revokeInvitationFn(ctx, id, schoolID)
 	}
 	return nil
 }

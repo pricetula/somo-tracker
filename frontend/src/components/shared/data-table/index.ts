@@ -9,4 +9,3 @@ export type {
     FilterItem,
     SubFilterItem,
 } from "./types";
-export { defaultNormalize, normalizeListResponse } from "./utils";

@@ -231,12 +231,12 @@ func (r *PgRepository) DeleteLearningArea(ctx context.Context, id, tenantID, sch
 // CreateStrand inserts a new cbc_strand and returns its ID.
 func (r *PgRepository) CreateStrand(ctx context.Context, params CreateStrandParams) (string, error) {
 	const query = `
-		INSERT INTO cbc_strands (learning_area_id, name)
-		VALUES ($1, $2)
+		INSERT INTO cbc_strands (tenant_id, learning_area_id, name)
+		VALUES ($1, $2, $3)
 		RETURNING id
 	`
 	var id string
-	err := r.pool.QueryRow(ctx, query, params.LearningAreaID, params.Name).Scan(&id)
+	err := r.pool.QueryRow(ctx, query, params.TenantID, params.LearningAreaID, params.Name).Scan(&id)
 	if err != nil {
 		if isFKViolation(err) {
 			return "", fmt.Errorf("curriculum.Repository.CreateStrand: %w", ErrNotFound)
@@ -246,15 +246,15 @@ func (r *PgRepository) CreateStrand(ctx context.Context, params CreateStrandPara
 	return id, nil
 }
 
-// GetStrandByID retrieves a single strand by ID.
-func (r *PgRepository) GetStrandByID(ctx context.Context, id string) (*Strand, error) {
+// GetStrandByID retrieves a single strand by ID, scoped to tenant.
+func (r *PgRepository) GetStrandByID(ctx context.Context, id, tenantID string) (*Strand, error) {
 	const query = `
-		SELECT id, learning_area_id, name
+		SELECT id, tenant_id, learning_area_id, name
 		FROM cbc_strands
-		WHERE id = $1
+		WHERE id = $1 AND tenant_id = $2
 	`
 	var s Strand
-	err := r.pool.QueryRow(ctx, query, id).Scan(&s.ID, &s.LearningAreaID, &s.Name)
+	err := r.pool.QueryRow(ctx, query, id, tenantID).Scan(&s.ID, &s.TenantID, &s.LearningAreaID, &s.Name)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, fmt.Errorf("curriculum.Repository.GetStrandByID: %w", ErrNotFound)
@@ -264,15 +264,15 @@ func (r *PgRepository) GetStrandByID(ctx context.Context, id string) (*Strand, e
 	return &s, nil
 }
 
-// ListStrandsByLearningArea returns all strands for a given learning area.
-func (r *PgRepository) ListStrandsByLearningArea(ctx context.Context, learningAreaID string) ([]Strand, error) {
+// ListStrandsByLearningArea returns all strands for a given learning area, scoped to tenant.
+func (r *PgRepository) ListStrandsByLearningArea(ctx context.Context, learningAreaID, tenantID string) ([]Strand, error) {
 	const query = `
-		SELECT id, learning_area_id, name
+		SELECT id, tenant_id, learning_area_id, name
 		FROM cbc_strands
-		WHERE learning_area_id = $1
+		WHERE learning_area_id = $1 AND tenant_id = $2
 		ORDER BY name ASC
 	`
-	rows, err := r.pool.Query(ctx, query, learningAreaID)
+	rows, err := r.pool.Query(ctx, query, learningAreaID, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("curriculum.Repository.ListStrandsByLearningArea: %w", err)
 	}
@@ -281,7 +281,7 @@ func (r *PgRepository) ListStrandsByLearningArea(ctx context.Context, learningAr
 	var strands []Strand
 	for rows.Next() {
 		var s Strand
-		if err := rows.Scan(&s.ID, &s.LearningAreaID, &s.Name); err != nil {
+		if err := rows.Scan(&s.ID, &s.TenantID, &s.LearningAreaID, &s.Name); err != nil {
 			return nil, fmt.Errorf("curriculum.Repository.ListStrandsByLearningArea: scan: %w", err)
 		}
 		strands = append(strands, s)
@@ -297,7 +297,7 @@ func (r *PgRepository) ListStrandsByLearningArea(ctx context.Context, learningAr
 	return strands, nil
 }
 
-// UpdateStrand modifies a strand's name.
+// UpdateStrand modifies a strand's name, scoped to tenant.
 func (r *PgRepository) UpdateStrand(ctx context.Context, params UpdateStrandParams) error {
 	if params.Name == nil {
 		return fmt.Errorf("curriculum.Repository.UpdateStrand: %w", ErrInvalidInput)
@@ -306,9 +306,9 @@ func (r *PgRepository) UpdateStrand(ctx context.Context, params UpdateStrandPara
 	const query = `
 		UPDATE cbc_strands
 		SET name = $1
-		WHERE id = $2
+		WHERE id = $2 AND tenant_id = $3
 	`
-	result, err := r.pool.Exec(ctx, query, *params.Name, params.ID)
+	result, err := r.pool.Exec(ctx, query, *params.Name, params.ID, params.TenantID)
 	if err != nil {
 		return fmt.Errorf("curriculum.Repository.UpdateStrand: %w", err)
 	}
@@ -318,10 +318,10 @@ func (r *PgRepository) UpdateStrand(ctx context.Context, params UpdateStrandPara
 	return nil
 }
 
-// DeleteStrand removes a strand by ID.
-func (r *PgRepository) DeleteStrand(ctx context.Context, id string) error {
-	const query = `DELETE FROM cbc_strands WHERE id = $1`
-	result, err := r.pool.Exec(ctx, query, id)
+// DeleteStrand removes a strand by ID, scoped to tenant.
+func (r *PgRepository) DeleteStrand(ctx context.Context, id, tenantID string) error {
+	const query = `DELETE FROM cbc_strands WHERE id = $1 AND tenant_id = $2`
+	result, err := r.pool.Exec(ctx, query, id, tenantID)
 	if err != nil {
 		if isFKViolation(err) {
 			return fmt.Errorf("curriculum.Repository.DeleteStrand: %w", ErrReferenceProtected)
@@ -339,12 +339,12 @@ func (r *PgRepository) DeleteStrand(ctx context.Context, id string) error {
 // CreateSubStrand inserts a new cbc_sub_strand and returns its ID.
 func (r *PgRepository) CreateSubStrand(ctx context.Context, params CreateSubStrandParams) (string, error) {
 	const query = `
-		INSERT INTO cbc_sub_strands (strand_id, name)
-		VALUES ($1, $2)
+		INSERT INTO cbc_sub_strands (tenant_id, strand_id, name)
+		VALUES ($1, $2, $3)
 		RETURNING id
 	`
 	var id string
-	err := r.pool.QueryRow(ctx, query, params.StrandID, params.Name).Scan(&id)
+	err := r.pool.QueryRow(ctx, query, params.TenantID, params.StrandID, params.Name).Scan(&id)
 	if err != nil {
 		if isFKViolation(err) {
 			return "", fmt.Errorf("curriculum.Repository.CreateSubStrand: %w", ErrNotFound)
@@ -354,15 +354,15 @@ func (r *PgRepository) CreateSubStrand(ctx context.Context, params CreateSubStra
 	return id, nil
 }
 
-// GetSubStrandByID retrieves a single sub-strand by ID.
-func (r *PgRepository) GetSubStrandByID(ctx context.Context, id string) (*SubStrand, error) {
+// GetSubStrandByID retrieves a single sub-strand by ID, scoped to tenant.
+func (r *PgRepository) GetSubStrandByID(ctx context.Context, id, tenantID string) (*SubStrand, error) {
 	const query = `
-		SELECT id, strand_id, name
+		SELECT id, tenant_id, strand_id, name
 		FROM cbc_sub_strands
-		WHERE id = $1
+		WHERE id = $1 AND tenant_id = $2
 	`
 	var s SubStrand
-	err := r.pool.QueryRow(ctx, query, id).Scan(&s.ID, &s.StrandID, &s.Name)
+	err := r.pool.QueryRow(ctx, query, id, tenantID).Scan(&s.ID, &s.TenantID, &s.StrandID, &s.Name)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, fmt.Errorf("curriculum.Repository.GetSubStrandByID: %w", ErrNotFound)
@@ -372,15 +372,15 @@ func (r *PgRepository) GetSubStrandByID(ctx context.Context, id string) (*SubStr
 	return &s, nil
 }
 
-// ListSubStrandsByStrand returns all sub-strands for a given strand.
-func (r *PgRepository) ListSubStrandsByStrand(ctx context.Context, strandID string) ([]SubStrand, error) {
+// ListSubStrandsByStrand returns all sub-strands for a given strand, scoped to tenant.
+func (r *PgRepository) ListSubStrandsByStrand(ctx context.Context, strandID, tenantID string) ([]SubStrand, error) {
 	const query = `
-		SELECT id, strand_id, name
+		SELECT id, tenant_id, strand_id, name
 		FROM cbc_sub_strands
-		WHERE strand_id = $1
+		WHERE strand_id = $1 AND tenant_id = $2
 		ORDER BY name ASC
 	`
-	rows, err := r.pool.Query(ctx, query, strandID)
+	rows, err := r.pool.Query(ctx, query, strandID, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("curriculum.Repository.ListSubStrandsByStrand: %w", err)
 	}
@@ -389,7 +389,7 @@ func (r *PgRepository) ListSubStrandsByStrand(ctx context.Context, strandID stri
 	var subs []SubStrand
 	for rows.Next() {
 		var s SubStrand
-		if err := rows.Scan(&s.ID, &s.StrandID, &s.Name); err != nil {
+		if err := rows.Scan(&s.ID, &s.TenantID, &s.StrandID, &s.Name); err != nil {
 			return nil, fmt.Errorf("curriculum.Repository.ListSubStrandsByStrand: scan: %w", err)
 		}
 		subs = append(subs, s)
@@ -405,7 +405,7 @@ func (r *PgRepository) ListSubStrandsByStrand(ctx context.Context, strandID stri
 	return subs, nil
 }
 
-// UpdateSubStrand modifies a sub-strand's name.
+// UpdateSubStrand modifies a sub-strand's name, scoped to tenant.
 func (r *PgRepository) UpdateSubStrand(ctx context.Context, params UpdateSubStrandParams) error {
 	if params.Name == nil {
 		return fmt.Errorf("curriculum.Repository.UpdateSubStrand: %w", ErrInvalidInput)
@@ -414,9 +414,9 @@ func (r *PgRepository) UpdateSubStrand(ctx context.Context, params UpdateSubStra
 	const query = `
 		UPDATE cbc_sub_strands
 		SET name = $1
-		WHERE id = $2
+		WHERE id = $2 AND tenant_id = $3
 	`
-	result, err := r.pool.Exec(ctx, query, *params.Name, params.ID)
+	result, err := r.pool.Exec(ctx, query, *params.Name, params.ID, params.TenantID)
 	if err != nil {
 		return fmt.Errorf("curriculum.Repository.UpdateSubStrand: %w", err)
 	}
@@ -426,10 +426,10 @@ func (r *PgRepository) UpdateSubStrand(ctx context.Context, params UpdateSubStra
 	return nil
 }
 
-// DeleteSubStrand removes a sub-strand by ID.
-func (r *PgRepository) DeleteSubStrand(ctx context.Context, id string) error {
-	const query = `DELETE FROM cbc_sub_strands WHERE id = $1`
-	result, err := r.pool.Exec(ctx, query, id)
+// DeleteSubStrand removes a sub-strand by ID, scoped to tenant.
+func (r *PgRepository) DeleteSubStrand(ctx context.Context, id, tenantID string) error {
+	const query = `DELETE FROM cbc_sub_strands WHERE id = $1 AND tenant_id = $2`
+	result, err := r.pool.Exec(ctx, query, id, tenantID)
 	if err != nil {
 		if isFKViolation(err) {
 			return fmt.Errorf("curriculum.Repository.DeleteSubStrand: %w", ErrReferenceProtected)
@@ -447,12 +447,12 @@ func (r *PgRepository) DeleteSubStrand(ctx context.Context, id string) error {
 // CreatePerformanceIndicator inserts a new performance_indicator and returns its ID.
 func (r *PgRepository) CreatePerformanceIndicator(ctx context.Context, params CreatePerformanceIndicatorParams) (string, error) {
 	const query = `
-		INSERT INTO performance_indicators (sub_strand_id, description, sequence_order)
-		VALUES ($1, $2, $3)
+		INSERT INTO performance_indicators (tenant_id, sub_strand_id, description, sequence_order)
+		VALUES ($1, $2, $3, $4)
 		RETURNING id
 	`
 	var id string
-	err := r.pool.QueryRow(ctx, query, params.SubStrandID, params.Description, *params.SequenceOrder).Scan(&id)
+	err := r.pool.QueryRow(ctx, query, params.TenantID, params.SubStrandID, params.Description, *params.SequenceOrder).Scan(&id)
 	if err != nil {
 		if isFKViolation(err) {
 			return "", fmt.Errorf("curriculum.Repository.CreatePerformanceIndicator: %w", ErrNotFound)
@@ -462,15 +462,15 @@ func (r *PgRepository) CreatePerformanceIndicator(ctx context.Context, params Cr
 	return id, nil
 }
 
-// GetPerformanceIndicatorByID retrieves a single performance indicator by ID.
-func (r *PgRepository) GetPerformanceIndicatorByID(ctx context.Context, id string) (*PerformanceIndicator, error) {
+// GetPerformanceIndicatorByID retrieves a single performance indicator by ID, scoped to tenant.
+func (r *PgRepository) GetPerformanceIndicatorByID(ctx context.Context, id, tenantID string) (*PerformanceIndicator, error) {
 	const query = `
-		SELECT id, sub_strand_id, description, sequence_order
+		SELECT id, tenant_id, sub_strand_id, description, sequence_order
 		FROM performance_indicators
-		WHERE id = $1
+		WHERE id = $1 AND tenant_id = $2
 	`
 	var pi PerformanceIndicator
-	err := r.pool.QueryRow(ctx, query, id).Scan(&pi.ID, &pi.SubStrandID, &pi.Description, &pi.SequenceOrder)
+	err := r.pool.QueryRow(ctx, query, id, tenantID).Scan(&pi.ID, &pi.TenantID, &pi.SubStrandID, &pi.Description, &pi.SequenceOrder)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, fmt.Errorf("curriculum.Repository.GetPerformanceIndicatorByID: %w", ErrNotFound)
@@ -481,15 +481,15 @@ func (r *PgRepository) GetPerformanceIndicatorByID(ctx context.Context, id strin
 }
 
 // ListPerformanceIndicatorsBySubStrand returns all performance indicators for a given sub-strand,
-// ordered by sequence_order ascending.
-func (r *PgRepository) ListPerformanceIndicatorsBySubStrand(ctx context.Context, subStrandID string) ([]PerformanceIndicator, error) {
+// ordered by sequence_order ascending, scoped to tenant.
+func (r *PgRepository) ListPerformanceIndicatorsBySubStrand(ctx context.Context, subStrandID, tenantID string) ([]PerformanceIndicator, error) {
 	const query = `
-		SELECT id, sub_strand_id, description, sequence_order
+		SELECT id, tenant_id, sub_strand_id, description, sequence_order
 		FROM performance_indicators
-		WHERE sub_strand_id = $1
+		WHERE sub_strand_id = $1 AND tenant_id = $2
 		ORDER BY sequence_order ASC
 	`
-	rows, err := r.pool.Query(ctx, query, subStrandID)
+	rows, err := r.pool.Query(ctx, query, subStrandID, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("curriculum.Repository.ListPerformanceIndicatorsBySubStrand: %w", err)
 	}
@@ -498,7 +498,7 @@ func (r *PgRepository) ListPerformanceIndicatorsBySubStrand(ctx context.Context,
 	var indicators []PerformanceIndicator
 	for rows.Next() {
 		var pi PerformanceIndicator
-		if err := rows.Scan(&pi.ID, &pi.SubStrandID, &pi.Description, &pi.SequenceOrder); err != nil {
+		if err := rows.Scan(&pi.ID, &pi.TenantID, &pi.SubStrandID, &pi.Description, &pi.SequenceOrder); err != nil {
 			return nil, fmt.Errorf("curriculum.Repository.ListPerformanceIndicatorsBySubStrand: scan: %w", err)
 		}
 		indicators = append(indicators, pi)
@@ -514,7 +514,7 @@ func (r *PgRepository) ListPerformanceIndicatorsBySubStrand(ctx context.Context,
 	return indicators, nil
 }
 
-// UpdatePerformanceIndicator modifies a performance indicator's fields.
+// UpdatePerformanceIndicator modifies a performance indicator's fields, scoped to tenant.
 func (r *PgRepository) UpdatePerformanceIndicator(ctx context.Context, params UpdatePerformanceIndicatorParams) error {
 	setClauses := []string{}
 	args := []interface{}{}
@@ -535,12 +535,12 @@ func (r *PgRepository) UpdatePerformanceIndicator(ctx context.Context, params Up
 		return fmt.Errorf("curriculum.Repository.UpdatePerformanceIndicator: %w", ErrInvalidInput)
 	}
 
-	args = append(args, params.ID)
+	args = append(args, params.ID, params.TenantID)
 	query := fmt.Sprintf(`
 		UPDATE performance_indicators
 		SET %s
-		WHERE id = $%d
-	`, joinClauses(setClauses, ", "), argIdx)
+		WHERE id = $%d AND tenant_id = $%d
+	`, joinClauses(setClauses, ", "), argIdx, argIdx+1)
 
 	result, err := r.pool.Exec(ctx, query, args...)
 	if err != nil {
@@ -552,10 +552,10 @@ func (r *PgRepository) UpdatePerformanceIndicator(ctx context.Context, params Up
 	return nil
 }
 
-// DeletePerformanceIndicator removes a performance indicator by ID.
-func (r *PgRepository) DeletePerformanceIndicator(ctx context.Context, id string) error {
-	const query = `DELETE FROM performance_indicators WHERE id = $1`
-	result, err := r.pool.Exec(ctx, query, id)
+// DeletePerformanceIndicator removes a performance indicator by ID, scoped to tenant.
+func (r *PgRepository) DeletePerformanceIndicator(ctx context.Context, id, tenantID string) error {
+	const query = `DELETE FROM performance_indicators WHERE id = $1 AND tenant_id = $2`
+	result, err := r.pool.Exec(ctx, query, id, tenantID)
 	if err != nil {
 		if isFKViolation(err) {
 			return fmt.Errorf("curriculum.Repository.DeletePerformanceIndicator: %w", ErrReferenceProtected)
@@ -586,16 +586,17 @@ func (r *PgRepository) GetMaxSequenceOrder(ctx context.Context, subStrandID stri
 
 // ── Tree ──────────────────────────────────────────────────────────────────
 
-// GetTree fetches a learning area with its full hierarchy: strands → sub-strands → indicators.
-func (r *PgRepository) GetTree(ctx context.Context, learningAreaID string) (*LearningAreaTree, error) {
-	// 1. Fetch the learning area (without tenant/school filter — caller must validate)
+// GetTree fetches a learning area with its full hierarchy: strands → sub-strands → indicators,
+// scoped to tenant.
+func (r *PgRepository) GetTree(ctx context.Context, learningAreaID, tenantID string) (*LearningAreaTree, error) {
+	// 1. Fetch the learning area
 	const laQuery = `
 		SELECT id, tenant_id, school_id, name, code, education_level::text, grade_level::text
 		FROM cbc_learning_areas
-		WHERE id = $1
+		WHERE id = $1 AND tenant_id = $2
 	`
 	var la LearningArea
-	err := r.pool.QueryRow(ctx, laQuery, learningAreaID).
+	err := r.pool.QueryRow(ctx, laQuery, learningAreaID, tenantID).
 		Scan(&la.ID, &la.TenantID, &la.SchoolID, &la.Name, &la.Code, &la.EducationLevel, &la.GradeLevel)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -604,8 +605,8 @@ func (r *PgRepository) GetTree(ctx context.Context, learningAreaID string) (*Lea
 		return nil, fmt.Errorf("curriculum.Repository.GetTree: %w", err)
 	}
 
-	// 2. Fetch strands
-	strands, err := r.ListStrandsByLearningArea(ctx, learningAreaID)
+	// 2. Fetch strands (tenant-scoped)
+	strands, err := r.ListStrandsByLearningArea(ctx, learningAreaID, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("curriculum.Repository.GetTree: %w", err)
 	}
@@ -617,7 +618,7 @@ func (r *PgRepository) GetTree(ctx context.Context, learningAreaID string) (*Lea
 	}
 
 	for _, strand := range strands {
-		subStrands, err := r.ListSubStrandsByStrand(ctx, strand.ID)
+		subStrands, err := r.ListSubStrandsByStrand(ctx, strand.ID, tenantID)
 		if err != nil {
 			return nil, fmt.Errorf("curriculum.Repository.GetTree: %w", err)
 		}
@@ -628,7 +629,7 @@ func (r *PgRepository) GetTree(ctx context.Context, learningAreaID string) (*Lea
 		}
 
 		for _, sub := range subStrands {
-			indicators, err := r.ListPerformanceIndicatorsBySubStrand(ctx, sub.ID)
+			indicators, err := r.ListPerformanceIndicatorsBySubStrand(ctx, sub.ID, tenantID)
 			if err != nil {
 				return nil, fmt.Errorf("curriculum.Repository.GetTree: %w", err)
 			}
@@ -680,14 +681,15 @@ func (r *PgRepository) VerifyLearningAreaBelongsToTenant(ctx context.Context, id
 	return nil
 }
 
-// VerifyStrandInTenantSchool checks that a strand's learning area belongs to the given tenant + school.
-// Returns the learning_area_id on success.
+// VerifyStrandInTenantSchool checks that a strand belongs to the given tenant + school.
+// Returns the learning_area_id on success. Uses the direct tenant_id on cbc_strands
+// (added in migration 000002) and joins to cbc_learning_areas for school_id.
 func (r *PgRepository) VerifyStrandInTenantSchool(ctx context.Context, strandID, tenantID, schoolID string) (string, error) {
 	const query = `
 		SELECT cs.learning_area_id
 		FROM cbc_strands cs
 		JOIN cbc_learning_areas cla ON cla.id = cs.learning_area_id
-		WHERE cs.id = $1 AND cla.tenant_id = $2 AND cla.school_id = $3
+		WHERE cs.id = $1 AND cs.tenant_id = $2 AND cla.school_id = $3
 	`
 	var learningAreaID string
 	err := r.pool.QueryRow(ctx, query, strandID, tenantID, schoolID).Scan(&learningAreaID)
@@ -700,15 +702,16 @@ func (r *PgRepository) VerifyStrandInTenantSchool(ctx context.Context, strandID,
 	return learningAreaID, nil
 }
 
-// VerifySubStrandInTenantSchool checks that a sub-strand's strand → learning area chain
-// belongs to the given tenant + school. Returns the strand_id on success.
+// VerifySubStrandInTenantSchool checks that a sub-strand belongs to the given tenant + school.
+// Returns the strand_id on success. Uses direct tenant_id on cbc_sub_strands
+// (added in migration 000002) and joins up the hierarchy for school_id.
 func (r *PgRepository) VerifySubStrandInTenantSchool(ctx context.Context, subStrandID, tenantID, schoolID string) (string, error) {
 	const query = `
 		SELECT css.strand_id
 		FROM cbc_sub_strands css
 		JOIN cbc_strands cs ON cs.id = css.strand_id
 		JOIN cbc_learning_areas cla ON cla.id = cs.learning_area_id
-		WHERE css.id = $1 AND cla.tenant_id = $2 AND cla.school_id = $3
+		WHERE css.id = $1 AND css.tenant_id = $2 AND cla.school_id = $3
 	`
 	var strandID string
 	err := r.pool.QueryRow(ctx, query, subStrandID, tenantID, schoolID).Scan(&strandID)

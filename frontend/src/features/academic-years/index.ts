@@ -10,6 +10,7 @@ export { AcademicYearDetail } from "./components/academic-year-detail";
 
 export {
     useAcademicYearsManage,
+    useAcademicYearMap,
     useAcademicYearDetail,
     useTermsManage,
     useCreateAcademicYear,

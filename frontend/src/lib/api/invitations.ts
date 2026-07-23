@@ -2,8 +2,9 @@
  * Invitations API functions.
  *
  * Endpoints:
- *   GET  /api/v1/invitations — list invitations with filters
- *   POST /api/v1/staff/invite — bulk invite staff members
+ *   GET   /api/v1/invitations — list invitations with filters
+ *   POST  /api/v1/staff/invite — bulk invite staff members
+ *   PATCH /api/v1/invitations/:id/revoke — revoke a pending invitation
  */
 
 import { api, ApiError } from "./client";
@@ -18,6 +19,19 @@ import type {
 // ─── Re-export generated types ───────────────────────────────────────────
 
 export type { Invitation, InvitationStatus, InvitationRole, ListInvitationsResponse };
+
+/** Response shape for GET /api/v1/invitations/count */
+export interface InvitationCountResponse {
+    total: number;
+}
+
+/**
+ * GET /api/v1/invitations/count?role=... — returns total non-expired invitation count for a role.
+ */
+export async function getInvitationCount(role: string): Promise<InvitationCountResponse> {
+    const qs = new URLSearchParams({ role }).toString();
+    return api.get<InvitationCountResponse>(`/api/v1/invitations/count?${qs}`);
+}
 
 /**
  * List invitations by role, optionally filtered by a single status.
@@ -64,6 +78,14 @@ export interface BulkInviteRequest {
  */
 export async function submitBulkInvite(body: BulkInviteRequest): Promise<ImportResponse> {
     return api.post<ImportResponse>("/api/v1/staff/invite", body);
+}
+
+/**
+ * PATCH /api/v1/invitations/:id/revoke — revoke a pending invitation.
+ * Only SCHOOL_ADMIN can revoke invitations.
+ */
+export async function revokeInvitation(id: string): Promise<void> {
+    return api.patch<void>(`/api/v1/invitations/${id}/revoke`);
 }
 
 /**

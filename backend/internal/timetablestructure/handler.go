@@ -29,8 +29,8 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	blocks.Post("/replicate", middleware.RequireAuth, h.ReplicateDay)
 	blocks.Delete("/by-name", middleware.RequireAuth, h.DeleteByName)
 	blocks.Put("/:id", middleware.RequireAuth, h.Update)
-	blocks.Delete("/:id", middleware.RequireAuth, h.Delete)
-	blocks.Delete("/day/:day", middleware.RequireAuth, h.DeleteDay)
+	blocks.Delete("/", middleware.RequireAuth, h.Delete)
+	blocks.Delete("/day", middleware.RequireAuth, h.DeleteDay)
 }
 
 // extractTenantSchool extracts tenant_id and school_id from the request context.
@@ -273,15 +273,23 @@ func (h *Handler) Delete(c *fiber.Ctx) error {
 		return err
 	}
 
-	blockID := c.Params("id")
-	if blockID == "" {
+	var payload struct {
+		ID string `json:"id"`
+	}
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "invalid request body",
+		})
+	}
+	if payload.ID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"code":    "VALIDATION_ERROR",
 			"message": "block id is required",
 		})
 	}
 
-	result, err := h.svc.DeleteBlock(c.Context(), blockID, tenantID, schoolID)
+	result, err := h.svc.DeleteBlock(c.Context(), payload.ID, tenantID, schoolID)
 	if err != nil {
 		if errors.Is(err, ErrBlockHasLessons) {
 			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
@@ -298,31 +306,37 @@ func (h *Handler) Delete(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(result)
 }
 
-// DeleteDay handles DELETE /api/v1/timetable/structure/day/:day.
+// DeleteDay handles DELETE /api/v1/timetable/structure/day/:academic_year_id/:day.
 func (h *Handler) DeleteDay(c *fiber.Ctx) error {
 	tenantID, schoolID, err := h.extractTenantSchool(c)
 	if err != nil {
 		return err
 	}
 
-	academicYearID := c.Query("academic_year_id")
-	if academicYearID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+	var payload struct {
+		AcademicYearID string `json:"academic_year_id"`
+		Day            int    `json:"day"`
+	}
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
 			"code":    "VALIDATION_ERROR",
-			"message": "academic_year_id query parameter is required",
+			"message": "invalid request body",
 		})
 	}
-
-	dayStr := c.Params("day")
-	day, err := strconv.Atoi(dayStr)
-	if err != nil || day < 1 || day > 7 {
+	if payload.AcademicYearID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "academic_year_id is required",
+		})
+	}
+	if payload.Day < 1 || payload.Day > 7 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"code":    "VALIDATION_ERROR",
 			"message": "day must be an integer between 1 (Monday) and 7 (Sunday)",
 		})
 	}
 
-	if err := h.svc.DeleteDayBlocks(c.Context(), tenantID, schoolID, academicYearID, day); err != nil {
+	if err := h.svc.DeleteDayBlocks(c.Context(), tenantID, schoolID, payload.AcademicYearID, payload.Day); err != nil {
 		return middleware.HTTPError(c, err)
 	}
 
@@ -332,7 +346,7 @@ func (h *Handler) DeleteDay(c *fiber.Ctx) error {
 	})
 }
 
-// DeleteByName handles DELETE /api/v1/timetable/structure/by-name/:period_name.
+// DeleteByName handles DELETE /api/v1/timetable/structure/by-name/:academic_year_id/:period_name.
 // Deletes all blocks with the given period name across all days.
 func (h *Handler) DeleteByName(c *fiber.Ctx) error {
 	tenantID, schoolID, err := h.extractTenantSchool(c)
@@ -340,25 +354,24 @@ func (h *Handler) DeleteByName(c *fiber.Ctx) error {
 		return err
 	}
 
-	academicYearID := c.Query("academic_year_id")
-	if academicYearID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+	var payload DeleteByNamePayload
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
 			"code":    "VALIDATION_ERROR",
-			"message": "academic_year_id query parameter is required",
+			"message": "invalid request body",
 		})
 	}
-
-	periodName := c.Query("period_name")
-	if periodName == "" {
+	if payload.AcademicYearID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"code":    "VALIDATION_ERROR",
-			"message": "period_name query parameter is required",
+			"message": "academic_year_id is required",
 		})
 	}
-
-	payload := DeleteByNamePayload{
-		PeriodName:     periodName,
-		AcademicYearID: academicYearID,
+	if payload.PeriodName == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "period_name is required",
+		})
 	}
 
 	result, err := h.svc.DeleteBlocksByName(c.Context(), tenantID, schoolID, payload)

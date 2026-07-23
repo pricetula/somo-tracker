@@ -52,5 +52,5 @@ export async function updateStream(id: string, payload: UpdateStreamPayload): Pr
 
 /** Delete a stream by ID. */
 export async function deleteStream(id: string): Promise<void> {
-    return api.delete<void>(`/api/v1/streams/${id}`);
+    return api.delete<void>(`/api/v1/streams`, { id });
 }

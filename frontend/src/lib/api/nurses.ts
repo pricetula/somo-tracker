@@ -36,5 +36,5 @@ export async function toggleNurseActive(userId: string, isActive: boolean): Prom
 
 /** Hard-delete a nurse member. */
 export async function deleteNurse(userId: string): Promise<void> {
-    return api.delete<void>(`/api/v1/members/${userId}?role=NURSE`);
+    return api.delete<void>(`/api/v1/members`, { user_id: userId, role: "NURSE" });
 }

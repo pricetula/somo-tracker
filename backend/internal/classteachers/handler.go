@@ -25,7 +25,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	ct.Get("/by-class/:classId", middleware.RequireAuth, h.ListByClass)
 	ct.Get("/by-teacher/:userId", middleware.RequireAuth, h.ListByTeacher)
 	ct.Get("/:id", middleware.RequireAuth, h.GetByID)
-	ct.Delete("/:id", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN"), h.Delete)
+	ct.Delete("/", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN"), h.Delete)
 }
 
 // errorResponse is the canonical error JSON body.
@@ -128,12 +128,18 @@ func (h *Handler) ListByTeacher(c *fiber.Ctx) error {
 // Delete handles DELETE /api/v1/class-teachers/:id.
 func (h *Handler) Delete(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
-	id := c.Params("id")
-	if id == "" {
+
+	var payload struct {
+		ID string `json:"id"`
+	}
+	if err := c.BodyParser(&payload); err != nil {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input", "malformed request body")
+	}
+	if payload.ID == "" {
 		return writeError(c, fiber.StatusBadRequest, "invalid_input", "id is required")
 	}
 
-	if err := h.svc.Delete(c.Context(), id, tenantID); err != nil {
+	if err := h.svc.Delete(c.Context(), payload.ID, tenantID); err != nil {
 		return middleware.HTTPError(c, err)
 	}
 	return c.SendStatus(fiber.StatusNoContent)

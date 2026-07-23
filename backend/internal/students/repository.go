@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -245,7 +246,7 @@ func (r *PgRepository) GetByID(ctx context.Context, id, tenantID, schoolID strin
 
 // ─── Get Detail ───────────────────────────────────────────────────────────
 
-// GetDetail returns a student with enrollment history.
+// GetDetail returns a student with enrollment history and linked parents.
 func (r *PgRepository) GetDetail(ctx context.Context, id, tenantID, schoolID string) (*StudentDetail, error) {
 	// Fetch the student base record
 	student, err := r.GetByID(ctx, id, tenantID, schoolID)
@@ -259,10 +260,50 @@ func (r *PgRepository) GetDetail(ctx context.Context, id, tenantID, schoolID str
 		return nil, fmt.Errorf("students.Repository.GetDetail: %w", err)
 	}
 
+	// Fetch linked parents
+	linkedParents, err := r.ListLinkedParents(ctx, id, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("students.Repository.GetDetail: linked parents: %w", err)
+	}
+
 	return &StudentDetail{
-		Student:     *student,
-		Enrollments: enrollments,
+		Student:       *student,
+		Enrollments:   enrollments,
+		LinkedParents: linkedParents,
 	}, nil
+}
+
+// ListLinkedParents returns all parents linked to a student.
+func (r *PgRepository) ListLinkedParents(ctx context.Context, studentID, tenantID string) ([]LinkedParent, error) {
+	const query = `
+		SELECT cp.id, u.full_name, u.email, cp.phone_number, sp.relationship, sp.is_primary
+		FROM cbc_student_parents sp
+		JOIN cbc_parents cp ON cp.id = sp.parent_id
+		JOIN users u ON u.id = cp.user_id AND u.tenant_id = $2
+		WHERE sp.student_id = $1 AND cp.tenant_id = $2
+		ORDER BY sp.is_primary DESC, u.full_name ASC
+	`
+	rows, err := r.pool.Query(ctx, query, studentID, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("students.Repository.ListLinkedParents: %w", err)
+	}
+	defer rows.Close()
+
+	var parents []LinkedParent
+	for rows.Next() {
+		var lp LinkedParent
+		if err := rows.Scan(&lp.ParentID, &lp.FullName, &lp.Email, &lp.PhoneNumber, &lp.Relationship, &lp.IsPrimary); err != nil {
+			return nil, fmt.Errorf("students.Repository.ListLinkedParents: scan: %w", err)
+		}
+		parents = append(parents, lp)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("students.Repository.ListLinkedParents: rows: %w", err)
+	}
+	if parents == nil {
+		parents = []LinkedParent{}
+	}
+	return parents, nil
 }
 
 // ─── Create ───────────────────────────────────────────────────────────────
@@ -301,8 +342,9 @@ func (r *PgRepository) CreateBatch(ctx context.Context, students []*Student) ([]
 		return nil, fmt.Errorf("students.Repository.CreateBatch: begin tx: %w", err)
 	}
 	defer func() {
-		if rbErr := tx.Rollback(ctx); rbErr != nil {
-			_ = fmt.Errorf("students.Repository.CreateBatch: rollback: %w", rbErr)
+		if rbErr := tx.Rollback(ctx); rbErr != nil && rbErr != pgx.ErrTxClosed {
+			slog.WarnContext(ctx, "students.Repository.CreateBatch: rollback",
+				slog.String("error", rbErr.Error()))
 		}
 	}()
 
@@ -406,8 +448,8 @@ func (r *PgRepository) CreateEnrollment(ctx context.Context, enrollment *Enrollm
 	}
 
 	query := `
-		INSERT INTO cbc_student_enrollments (student_id, class_id, academic_term_id, status, tenant_id, school_id)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO cbc_student_enrollments (student_id, class_id, academic_term_id, academic_year_id, status, tenant_id, school_id)
+		VALUES ($1, $2, $3, (SELECT academic_year_id FROM academic_terms WHERE id = $3), $4, $5, $6)
 		RETURNING id
 	`
 	var id string
@@ -428,7 +470,7 @@ func (r *PgRepository) CreateEnrollment(ctx context.Context, enrollment *Enrollm
 // ListEnrollments returns all enrollments for a student, ordered by term recency.
 func (r *PgRepository) ListEnrollments(ctx context.Context, studentID, tenantID string) ([]Enrollment, error) {
 	query := `
-		SELECT e.id, e.student_id, e.class_id, e.academic_term_id,
+		SELECT e.id, e.student_id, e.class_id, e.academic_term_id, e.academic_year_id,
 		       t.name AS term_name, t.term_number,
 		       ay.name AS academic_year,
 		       c.grade_level || ' ' || COALESCE(cs.name, '') AS class_name,
@@ -453,7 +495,7 @@ func (r *PgRepository) ListEnrollments(ctx context.Context, studentID, tenantID 
 		var classID, termName, academicYear, className *string
 		var termNumber *int
 		err := rows.Scan(
-			&e.ID, &e.StudentID, &classID, &e.AcademicTermID,
+			&e.ID, &e.StudentID, &classID, &e.AcademicTermID, &e.AcademicYearID,
 			&termName, &termNumber,
 			&academicYear, &className,
 			&e.Status, &e.CreatedAt,
@@ -652,6 +694,62 @@ func (r *PgRepository) CheckExistingFieldValues(ctx context.Context, tenantID, s
 	}
 
 	return admResult, upiResult, knecResult, nil
+}
+
+// ─── Batch Enrollments ───────────────────────────────────────────────────
+
+// CreateBatchEnrollments creates multiple enrollment records in a single transaction.
+// Skips students already enrolled in the given term/school. Returns IDs of all created records.
+func (r *PgRepository) CreateBatchEnrollments(ctx context.Context, enrollments []*Enrollment, tenantID, schoolID string) ([]string, error) {
+	if len(enrollments) == 0 {
+		return []string{}, nil
+	}
+
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("students.Repository.CreateBatchEnrollments: begin tx: %w", err)
+	}
+	defer func() {
+		if rbErr := tx.Rollback(ctx); rbErr != nil && rbErr != pgx.ErrTxClosed {
+			slog.WarnContext(ctx, "students.Repository.CreateBatchEnrollments: rollback",
+				slog.String("error", rbErr.Error()))
+		}
+	}()
+
+	query := `
+		INSERT INTO cbc_student_enrollments (student_id, class_id, academic_term_id, academic_year_id, status, tenant_id, school_id)
+		VALUES ($1, $2, $3, (SELECT academic_year_id FROM academic_terms WHERE id = $3), $4, $5, $6)
+		ON CONFLICT (student_id, school_id, academic_term_id)
+		DO NOTHING
+		RETURNING id
+	`
+
+	var ids []string
+	for _, enrollment := range enrollments {
+		var id string
+		err := tx.QueryRow(ctx, query,
+			enrollment.StudentID,
+			enrollment.ClassID,
+			enrollment.AcademicTermID,
+			enrollment.Status,
+			tenantID,
+			schoolID,
+		).Scan(&id)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				// Conflict — skip (already enrolled)
+				continue
+			}
+			return nil, fmt.Errorf("students.Repository.CreateBatchEnrollments: insert: %w", err)
+		}
+		ids = append(ids, id)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("students.Repository.CreateBatchEnrollments: commit: %w", err)
+	}
+
+	return ids, nil
 }
 
 // compile-time interface checks

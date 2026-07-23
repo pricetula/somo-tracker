@@ -34,7 +34,7 @@ type Repository interface {
 	// Enrollment
 	GetRoster(ctx context.Context, classID, tenantID, schoolID, academicTermID string, limit, offset int, search string) (*RosterListResult, error)
 	BatchEnrollStudents(ctx context.Context, classID, tenantID, schoolID, academicTermID string, studentIDs []string) (int, error)
-	UnenrollStudent(ctx context.Context, classID, studentID, tenantID, schoolID string) error
+	UnenrollStudent(ctx context.Context, classID, studentID, tenantID, schoolID, academicTermID string) error
 	GetAvailableStudents(ctx context.Context, filter AvailableStudentsFilter) (*AvailableStudentsResponse, error)
 }
 
@@ -43,6 +43,7 @@ type AvailableStudentsFilter struct {
 	TenantID       string
 	SchoolID       string
 	ClassID        string
+	AcademicYearID string
 	AcademicTermID string
 	Search         string
 	Page           int
@@ -149,7 +150,8 @@ type RosterEntry struct {
 
 // BatchEnrollPayload is the request body for POST /api/v1/classes/:id/enroll.
 type BatchEnrollPayload struct {
-	StudentIDs []string `json:"student_ids"`
+	StudentIDs     []string `json:"student_ids"`
+	AcademicTermID string   `json:"academic_term_id"`
 }
 
 // BatchEnrollResponse is returned after a successful batch enrollment.

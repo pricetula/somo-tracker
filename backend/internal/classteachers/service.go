@@ -105,6 +105,8 @@ func (s *Service) ListByClass(ctx context.Context, classID, tenantID string) (*C
 	return &ClassTeacherListResponse{
 		Items: items,
 		Total: len(items),
+		Page:  1,
+		Limit: len(items),
 	}, nil
 }
 
@@ -122,6 +124,8 @@ func (s *Service) ListByTeacher(ctx context.Context, userID, tenantID string) (*
 	return &ClassTeacherListResponse{
 		Items: items,
 		Total: len(items),
+		Page:  1,
+		Limit: len(items),
 	}, nil
 }
 

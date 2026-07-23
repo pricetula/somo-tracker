@@ -62,3 +62,39 @@ func (s *Service) Delete(ctx context.Context, tenantID, schoolID, userID string)
 	}
 	return s.repo.Delete(ctx, tenantID, schoolID, userID)
 }
+
+// ListTeacherClasses returns all classes assigned to a teacher in a term.
+func (s *Service) ListTeacherClasses(ctx context.Context, tenantID, schoolID, userID, termID string) (*TeacherClassListResponse, error) {
+	if userID == "" {
+		return nil, fmt.Errorf("teachers.Service.ListTeacherClasses: user_id is required: %w", ErrInvalidInput)
+	}
+	if termID == "" {
+		return nil, fmt.Errorf("teachers.Service.ListTeacherClasses: term_id is required: %w", ErrInvalidInput)
+	}
+	items, err := s.repo.ListTeacherClasses(ctx, tenantID, schoolID, userID, termID)
+	if err != nil {
+		return nil, err
+	}
+	if items == nil {
+		items = []TeacherClassItem{}
+	}
+	return &TeacherClassListResponse{Items: items, Total: len(items)}, nil
+}
+
+// GetTeacherTimetable returns the teacher's timetable for a given day.
+func (s *Service) GetTeacherTimetable(ctx context.Context, tenantID, schoolID, userID string, dayOfWeek int) (*TeacherTimetableResponse, error) {
+	if userID == "" {
+		return nil, fmt.Errorf("teachers.Service.GetTeacherTimetable: user_id is required: %w", ErrInvalidInput)
+	}
+	if dayOfWeek < 1 || dayOfWeek > 7 {
+		return nil, fmt.Errorf("teachers.Service.GetTeacherTimetable: day_of_week must be 1-7: %w", ErrInvalidInput)
+	}
+	items, err := s.repo.GetTeacherTimetable(ctx, tenantID, schoolID, userID, dayOfWeek)
+	if err != nil {
+		return nil, err
+	}
+	if items == nil {
+		items = []TeacherTimetableSlot{}
+	}
+	return &TeacherTimetableResponse{Items: items, Total: len(items)}, nil
+}

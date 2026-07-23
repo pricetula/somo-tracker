@@ -17,7 +17,7 @@
 "use client";
 
 import * as React from "react";
-import { format } from "date-fns";
+import { format, isSameDay, isAfter, isBefore, parse } from "date-fns";
 import Link from "next/link";
 import { Clock, PlayCircle, CheckCircle2, AlertCircle, Coffee } from "lucide-react";
 
@@ -34,27 +34,21 @@ import type { EnrichedSlot } from "@/lib/api/timetable-structure";
 
 type SlotStatus = "active" | "missed" | "completed" | "upcoming" | "break";
 
-function getSlotStatus(slot: EnrichedSlot, now: Date, selectedDate: string): SlotStatus {
+function getSlotStatus(slot: EnrichedSlot, now: Date, s: string): SlotStatus {
     if (slot.is_break) return "break";
 
     // session_status = "SUBMITTED" or "SKIPPED" means attendance was taken
     if (slot.session_status) return "completed";
 
-    const todayStr = now.toISOString().slice(0, 10);
+    const selected = new Date(s);
+    const start = parse(slot.start_time, "HH:mm", now);
+    const end = parse(slot.end_time, "HH:mm", now);
 
-    // Future date → all upcoming
-    if (selectedDate > todayStr) return "upcoming";
+    if (isSameDay(selected, now) && isAfter(now, start) && isBefore(now, end)) return "active";
+    else if ((isSameDay(selected, now) && isAfter(start, now)) || isAfter(selected, now))
+        return "upcoming";
 
-    // Past date → missed (no session means attendance wasn't taken)
-    if (selectedDate < todayStr) return "missed";
-
-    // Today → calculate based on current time
-    const start = new Date(`${todayStr}T${slot.start_time}`);
-    const end = new Date(`${todayStr}T${slot.end_time}`);
-
-    if (now >= start && now <= end) return "active";
-    if (now > end) return "missed";
-    return "upcoming";
+    return "missed";
 }
 
 function formatTime(timeStr: string) {

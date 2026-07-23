@@ -41,9 +41,13 @@ func Connect(cfg config.Config) (*Pools, error) {
 		return nil, fmt.Errorf("postgres ping: %w", err)
 	}
 
-	rdb := redis.NewClient(&redis.Options{
-		Addr: cfg.RedisURL,
-	})
+	// Parse the full connection string directly
+	opt, err := redis.ParseURL(cfg.RedisURL)
+	if err != nil {
+		return nil, fmt.Errorf("redis connection: %w", err)
+	}
+
+	rdb := redis.NewClient(opt)
 
 	if err := rdb.Ping(ctx).Err(); err != nil {
 		pool.Close()

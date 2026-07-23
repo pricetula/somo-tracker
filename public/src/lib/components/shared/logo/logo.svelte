@@ -1,1 +1,1 @@
-<a href="#hero"><img src="/logo.svg" alt="logo" class="w-54" /></a>
+<a href="#hero"><img src="/logo.svg" alt="logo" class="w-46" /></a>

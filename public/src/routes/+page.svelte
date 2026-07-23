@@ -1,3 +1,9 @@
+<script>
+	import Container from '$lib/components/shared/container/container.svelte';
+</script>
+
 <article>
-	<section>hero</section>
+	<Container>
+		<section id="hero" class="h-96">hero</section>
+	</Container>
 </article>

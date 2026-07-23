@@ -86,6 +86,18 @@ func (m *mockRepo) GetByID(ctx context.Context, id, tenantID string) (*Parent, e
 	return &pCopy, nil
 }
 
+func (m *mockRepo) GetByUserID(ctx context.Context, userID, tenantID string) (*Parent, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, p := range m.parents {
+		if p.UserID == userID && p.TenantID == tenantID {
+			pCopy := *p
+			return &pCopy, nil
+		}
+	}
+	return nil, ErrNotFound
+}
+
 func (m *mockRepo) GetDetail(ctx context.Context, id, tenantID string) (*ParentDetail, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -109,26 +121,26 @@ func (m *mockRepo) GetDetail(ctx context.Context, id, tenantID string) (*ParentD
 	}, nil
 }
 
-func (m *mockRepo) List(ctx context.Context, tenantID string, search, studentID string) ([]Parent, error) {
+func (m *mockRepo) List(ctx context.Context, filter ListFilter) ([]Parent, int, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	var result []Parent
+	var all []Parent
 	for _, p := range m.parents {
-		if p.TenantID != tenantID {
+		if p.TenantID != filter.TenantID {
 			continue
 		}
-		if search != "" {
+		if filter.Search != "" {
 			// Simple substring match
-			if !containsStr(p.FullName, search) && !containsStr(p.Email, search) {
+			if !containsStr(p.FullName, filter.Search) && !containsStr(p.Email, filter.Search) {
 				continue
 			}
 		}
-		if studentID != "" {
+		if filter.StudentID != "" {
 			// Check if linked to this student
 			links := m.links[p.ID]
 			found := false
 			for _, l := range links {
-				if l.StudentID == studentID {
+				if l.StudentID == filter.StudentID {
 					found = true
 					break
 				}
@@ -137,12 +149,26 @@ func (m *mockRepo) List(ctx context.Context, tenantID string, search, studentID 
 				continue
 			}
 		}
-		result = append(result, *p)
+		all = append(all, *p)
 	}
+
+	total := len(all)
+
+	// Apply pagination
+	offset := (filter.Page - 1) * filter.Limit
+	if offset >= total {
+		return []Parent{}, total, nil
+	}
+	end := offset + filter.Limit
+	if end > total {
+		end = total
+	}
+	result := all[offset:end]
+
 	if result == nil {
 		result = []Parent{}
 	}
-	return result, nil
+	return result, total, nil
 }
 
 func containsStr(s, substr string) bool {
@@ -293,6 +319,15 @@ func (m *mockRepo) CountLinksByStudent(ctx context.Context, studentID, tenantID 
 		}
 	}
 	return count, nil
+}
+
+func (m *mockRepo) GetStytchOrgID(ctx context.Context, tenantID string) (string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if tenantID == "" {
+		return "", fmt.Errorf("empty tenant")
+	}
+	return "stytch_org_" + tenantID, nil
 }
 
 // Ensure mockRepo implements Repository
@@ -508,9 +543,12 @@ func TestService_List(t *testing.T) {
 	mock.addParent(newParent("p3", "t2", "carol@example.com", "Carol Parent", "+254700000003")) // different tenant
 
 	t.Run("list all for tenant", func(t *testing.T) {
-		result, err := svc.List(context.Background(), "t1", "", "")
+		result, total, err := svc.List(context.Background(), ListFilter{TenantID: "t1", Page: 1, Limit: 50})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
+		}
+		if total != 2 {
+			t.Errorf("expected total 2, got %d", total)
 		}
 		if len(result) != 2 {
 			t.Errorf("expected 2 parents, got %d", len(result))
@@ -518,9 +556,12 @@ func TestService_List(t *testing.T) {
 	})
 
 	t.Run("search by name", func(t *testing.T) {
-		result, err := svc.List(context.Background(), "t1", "Alice", "")
+		result, total, err := svc.List(context.Background(), ListFilter{TenantID: "t1", Search: "Alice", Page: 1, Limit: 50})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
+		}
+		if total != 1 {
+			t.Errorf("expected total 1, got %d", total)
 		}
 		if len(result) != 1 {
 			t.Errorf("expected 1 parent, got %d", len(result))
@@ -531,9 +572,12 @@ func TestService_List(t *testing.T) {
 	})
 
 	t.Run("search by email", func(t *testing.T) {
-		result, err := svc.List(context.Background(), "t1", "bob@example.com", "")
+		result, total, err := svc.List(context.Background(), ListFilter{TenantID: "t1", Search: "bob@example.com", Page: 1, Limit: 50})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
+		}
+		if total != 1 {
+			t.Errorf("expected total 1, got %d", total)
 		}
 		if len(result) != 1 {
 			t.Errorf("expected 1 parent, got %d", len(result))
@@ -548,9 +592,12 @@ func TestService_List(t *testing.T) {
 			t.Fatalf("unexpected error linking student: %v", err)
 		}
 
-		result, err := svc.List(context.Background(), "t1", "", "s1")
+		result, total, err := svc.List(context.Background(), ListFilter{TenantID: "t1", StudentID: "s1", Page: 1, Limit: 50})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
+		}
+		if total != 1 {
+			t.Errorf("expected total 1, got %d", total)
 		}
 		if len(result) != 1 {
 			t.Errorf("expected 1 parent linked to s1, got %d", len(result))
@@ -558,9 +605,12 @@ func TestService_List(t *testing.T) {
 	})
 
 	t.Run("tenant isolation", func(t *testing.T) {
-		result, err := svc.List(context.Background(), "t2", "", "")
+		result, total, err := svc.List(context.Background(), ListFilter{TenantID: "t2", Page: 1, Limit: 50})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
+		}
+		if total != 1 {
+			t.Errorf("expected total 1, got %d", total)
 		}
 		if len(result) != 1 {
 			t.Errorf("expected 1 parent for tenant t2, got %d", len(result))
@@ -568,7 +618,7 @@ func TestService_List(t *testing.T) {
 	})
 
 	t.Run("empty tenant", func(t *testing.T) {
-		_, err := svc.List(context.Background(), "", "", "")
+		_, _, err := svc.List(context.Background(), ListFilter{TenantID: "", Page: 1, Limit: 50})
 		if err == nil {
 			t.Fatal("expected error for empty tenant")
 		}

@@ -45,6 +45,17 @@ func containsInner(s, substr string) bool {
 	return false
 }
 
+func joinORs(elems []string) string {
+	if len(elems) == 0 {
+		return ""
+	}
+	result := elems[0]
+	for i := 1; i < len(elems); i++ {
+		result += " OR " + elems[i]
+	}
+	return result
+}
+
 // ============================================================================
 // Cross-Domain Resolver: StudentResolver
 // ============================================================================
@@ -176,22 +187,52 @@ func scanParentsRows(rows pgx.Rows) ([]Parent, error) {
 	return parents, nil
 }
 
-// parentJoinColumns is the common SELECT list for joining cbc_parents + users.
+// parentJoinColumns is the common SELECT list for membership-based parent queries.
+// Queries from memberships (role = 'PARENT') with LEFT JOIN to cbc_parents so that
+// parents without a student link (no cbc_parents record) are still found.
 const parentJoinColumns = `
-	cp.id, cp.tenant_id, cp.user_id,
-	u.full_name, u.email, cp.phone_number,
-	cp.is_active, cp.created_at::text
+	COALESCE(cp.id::text, u.id::text),
+	m.tenant_id,
+	m.user_id,
+	u.full_name,
+	u.email,
+	COALESCE(cp.phone_number, ''),
+	COALESCE(cp.is_active, u.is_active),
+	COALESCE(cp.created_at::text, u.created_at::text)
 `
 
-// parentJoin is the common FROM/JOIN clause.
+// parentJoin is the common FROM/JOIN clause for membership-based parent queries.
 const parentJoin = `
-	FROM cbc_parents cp
-	JOIN users u ON u.id = cp.user_id AND u.tenant_id = cp.tenant_id
+	FROM memberships m
+	JOIN users u ON u.id = m.user_id AND u.tenant_id = m.tenant_id
+	LEFT JOIN cbc_parents cp ON cp.user_id = m.user_id AND cp.tenant_id = m.tenant_id
 `
+
+// parentRoleFilter is the role filter clause appended to every parent query.
+const parentRoleFilter = `m.role = 'PARENT'`
+
+// ============================================================================
+// READ
+// ============================================================================
+
+// GetByUserID retrieves a parent profile by the linked user_id.
+func (r *PgRepository) GetByUserID(ctx context.Context, userID, tenantID string) (*Parent, error) {
+	const query = `SELECT ` + parentJoinColumns + parentJoin + ` WHERE ` + parentRoleFilter + ` AND m.user_id = $1 AND m.tenant_id = $2`
+	p, err := scanParent(r.pool.QueryRow(ctx, query, userID, tenantID))
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("parents.Repository.GetByUserID: %w", ErrNotFound)
+		}
+		return nil, fmt.Errorf("parents.Repository.GetByUserID: %w", err)
+	}
+	return p, nil
+}
 
 // GetByID retrieves a single parent by primary key.
+// The id may be either a cbc_parents.id (for linked parents) or a users.id
+// (for parents without a student link). Both are accepted.
 func (r *PgRepository) GetByID(ctx context.Context, id, tenantID string) (*Parent, error) {
-	const query = `SELECT ` + parentJoinColumns + parentJoin + ` WHERE cp.id = $1 AND cp.tenant_id = $2`
+	const query = `SELECT ` + parentJoinColumns + parentJoin + ` WHERE ` + parentRoleFilter + ` AND m.tenant_id = $2 AND (cp.id::text = $1 OR u.id::text = $1)`
 	p, err := scanParent(r.pool.QueryRow(ctx, query, id, tenantID))
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -245,36 +286,95 @@ func (r *PgRepository) GetDetail(ctx context.Context, id, tenantID string) (*Par
 	}, nil
 }
 
-// List returns parents optionally filtered by search (name/email) or student_id.
-func (r *PgRepository) List(ctx context.Context, tenantID string, search, studentID string) ([]Parent, error) {
-	baseQuery := `SELECT ` + parentJoinColumns + parentJoin + ` WHERE cp.tenant_id = $1`
-	args := []interface{}{tenantID}
+// List returns parents optionally filtered by search (name/email), student_id,
+// or curriculum filters (education_level, grade_level), with pagination.
+// The base source is the memberships table filtered to role = 'PARENT', so that
+// parents who have not been linked to students (no cbc_parents record) are also
+// included in the listing.
+func (r *PgRepository) List(ctx context.Context, filter ListFilter) ([]Parent, int, error) {
+	whereClause := `WHERE ` + parentRoleFilter + ` AND m.tenant_id = $1`
+	args := []interface{}{filter.TenantID}
 	argIdx := 2
 
-	if search != "" {
-		baseQuery += fmt.Sprintf(` AND (u.full_name ILIKE $%d OR u.email ILIKE $%d)`, argIdx, argIdx+1)
-		searchPattern := "%" + search + "%"
+	if filter.Search != "" {
+		whereClause += fmt.Sprintf(` AND (u.full_name ILIKE $%d OR u.email ILIKE $%d)`, argIdx, argIdx+1)
+		searchPattern := "%" + filter.Search + "%"
 		args = append(args, searchPattern, searchPattern)
 		argIdx += 2
 	}
 
-	if studentID != "" {
-		baseQuery += fmt.Sprintf(` AND cp.id IN (
+	if filter.StudentID != "" {
+		whereClause += fmt.Sprintf(` AND cp.id IN (
 			SELECT sp.parent_id FROM cbc_student_parents sp
 			WHERE sp.student_id = $%d
 		)`, argIdx)
-		args = append(args, studentID)
+		args = append(args, filter.StudentID)
+		argIdx++
 	}
 
-	baseQuery += ` ORDER BY u.full_name ASC`
+	// ── Education Level multi-select ────────────────────────────────────
+	if len(filter.EducationLevels) > 0 {
+		ors := make([]string, len(filter.EducationLevels))
+		for i, el := range filter.EducationLevels {
+			ors[i] = fmt.Sprintf("la.education_level::text = $%d", argIdx)
+			args = append(args, el)
+			argIdx++
+		}
+		whereClause += ` AND cp.id IN (
+			SELECT sp.parent_id
+			FROM cbc_student_parents sp
+			JOIN cbc_student_enrollments se ON se.student_id = sp.student_id
+			JOIN cbc_classes cc ON cc.id = se.class_id
+			JOIN cbc_learning_areas la ON la.grade_level = cc.grade_level
+			WHERE ` + joinORs(ors) + `
+		)`
+	}
 
-	rows, err := r.pool.Query(ctx, baseQuery, args...)
+	// ── Grade Level multi-select ────────────────────────────────────────
+	if len(filter.GradeLevels) > 0 {
+		ors := make([]string, len(filter.GradeLevels))
+		for i, gl := range filter.GradeLevels {
+			ors[i] = fmt.Sprintf("cc.grade_level::text = $%d", argIdx)
+			args = append(args, gl)
+			argIdx++
+		}
+		whereClause += ` AND cp.id IN (
+			SELECT sp.parent_id
+			FROM cbc_student_parents sp
+			JOIN cbc_student_enrollments se ON se.student_id = sp.student_id
+			JOIN cbc_classes cc ON cc.id = se.class_id
+			WHERE ` + joinORs(ors) + `
+		)`
+	}
+
+	// Count query
+	countQuery := `SELECT COUNT(*)` + parentJoin + ` ` + whereClause
+	var total int
+	err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&total)
 	if err != nil {
-		return nil, fmt.Errorf("parents.Repository.List: %w", err)
+		return nil, 0, fmt.Errorf("parents.Repository.List: count: %w", err)
+	}
+
+	if total == 0 {
+		return []Parent{}, 0, nil
+	}
+
+	offset := (filter.Page - 1) * filter.Limit
+	dataQuery := `SELECT ` + parentJoinColumns + parentJoin + ` ` + whereClause + ` ORDER BY u.full_name ASC LIMIT $` + fmt.Sprintf("%d", argIdx) + ` OFFSET $` + fmt.Sprintf("%d", argIdx+1)
+	dataArgs := append(args, filter.Limit, offset)
+
+	rows, err := r.pool.Query(ctx, dataQuery, dataArgs...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("parents.Repository.List: query: %w", err)
 	}
 	defer rows.Close()
 
-	return scanParentsRows(rows)
+	parents, err := scanParentsRows(rows)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return parents, total, nil
 }
 
 // ============================================================================
@@ -456,4 +556,15 @@ func (r *PgRepository) CountLinksByStudent(ctx context.Context, studentID, tenan
 		return 0, fmt.Errorf("parents.Repository.CountLinksByStudent: %w", err)
 	}
 	return count, nil
+}
+
+// GetStytchOrgID retrieves the Stytch organization ID for a tenant.
+func (r *PgRepository) GetStytchOrgID(ctx context.Context, tenantID string) (string, error) {
+	const query = `SELECT stytch_org_id FROM tenants WHERE id = $1`
+	var orgID string
+	err := r.pool.QueryRow(ctx, query, tenantID).Scan(&orgID)
+	if err != nil {
+		return "", fmt.Errorf("parents.Repository.GetStytchOrgID: %w", err)
+	}
+	return orgID, nil
 }

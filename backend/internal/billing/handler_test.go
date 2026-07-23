@@ -9,6 +9,8 @@ import (
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
+
+	"somotracker/backend/internal/middleware"
 )
 
 // ============================================================================
@@ -89,7 +91,11 @@ func testHandlerWithoutAuth(t *testing.T) *handlerTestHarness {
 	svc := NewService(repo)
 	handler := NewHandler(svc)
 
-	app := fiber.New()
+	app := fiber.New(fiber.Config{
+		// Route middleware-returned sentinel errors (ErrUnauthorized etc.)
+		// through the same mapping logic used in production.
+		ErrorHandler: middleware.HTTPError,
+	})
 
 	// Register routes WITHOUT testAuth middleware — RequireAuth will reject
 	handler.RegisterRoutes(app) // has real middleware
@@ -227,8 +233,8 @@ func TestHandler_ListFeeCategories_HappyPath(t *testing.T) {
 	if result.Total != 2 {
 		t.Fatalf("expected total 2, got %d", result.Total)
 	}
-	if len(result.FeeCategories) != 2 {
-		t.Fatalf("expected 2 categories, got %d", len(result.FeeCategories))
+	if len(result.Items) != 2 {
+		t.Fatalf("expected 2 categories, got %d", len(result.Items))
 	}
 }
 
@@ -599,10 +605,11 @@ func TestHandler_CreateFeeCategory_Unauthenticated(t *testing.T) {
 	body, _ := json.Marshal(CreateFeeCategoryPayload{Name: "Tuition"})
 	resp := doRequest(h.app, "POST", "/api/v1/billing/fee-categories", body)
 
-	// POST uses RequireRole("SCHOOL_ADMIN") which falls through to 403 when
-	// RequireAuth writes the 401 response body without returning a non-nil error.
-	if resp.StatusCode != fiber.StatusForbidden {
-		t.Fatalf("expected 403 Forbidden, got %d", resp.StatusCode)
+	// POST uses RequireRole("SCHOOL_ADMIN") which calls RequireAuth first.
+	// With no session, RequireAuth returns ErrUnauthorized and RequireRole
+	// propagates it → 401 Unauthorized.
+	if resp.StatusCode != fiber.StatusUnauthorized {
+		t.Fatalf("expected 401 Unauthorized, got %d", resp.StatusCode)
 	}
 }
 
@@ -627,10 +634,11 @@ func TestHandler_CreateFeeTemplate_Unauthenticated(t *testing.T) {
 	})
 	resp := doRequest(h.app, "POST", "/api/v1/billing/fee-templates", body)
 
-	// POST uses RequireRole("SCHOOL_ADMIN") which falls through to 403 when
-	// RequireAuth writes the 401 response body without returning a non-nil error.
-	if resp.StatusCode != fiber.StatusForbidden {
-		t.Fatalf("expected 403 Forbidden, got %d", resp.StatusCode)
+	// POST uses RequireRole("SCHOOL_ADMIN") which calls RequireAuth first.
+	// With no session, RequireAuth returns ErrUnauthorized and RequireRole
+	// propagates it → 401 Unauthorized.
+	if resp.StatusCode != fiber.StatusUnauthorized {
+		t.Fatalf("expected 401 Unauthorized, got %d", resp.StatusCode)
 	}
 }
 
@@ -1055,8 +1063,8 @@ func TestHandler_GenerateInvoice_Unauthenticated(t *testing.T) {
 	})
 	resp := doRequest(h.app, "POST", "/api/v1/billing/invoices/generate", body)
 
-	if resp.StatusCode != fiber.StatusForbidden {
-		t.Fatalf("expected 403 Forbidden, got %d", resp.StatusCode)
+	if resp.StatusCode != fiber.StatusUnauthorized {
+		t.Fatalf("expected 401 Unauthorized, got %d", resp.StatusCode)
 	}
 }
 
@@ -1085,8 +1093,8 @@ func TestHandler_WaiveInvoice_Unauthenticated(t *testing.T) {
 
 	resp := doRequest(h.app, "POST", "/api/v1/billing/invoices/inv_001/waive", nil)
 
-	if resp.StatusCode != fiber.StatusForbidden {
-		t.Fatalf("expected 403 Forbidden, got %d", resp.StatusCode)
+	if resp.StatusCode != fiber.StatusUnauthorized {
+		t.Fatalf("expected 401 Unauthorized, got %d", resp.StatusCode)
 	}
 }
 
@@ -1096,8 +1104,8 @@ func TestHandler_RecordPayment_Unauthenticated(t *testing.T) {
 	body, _ := json.Marshal(RecordPaymentPayload{InvoiceID: "inv_001", Amount: "5000.00"})
 	resp := doRequest(h.app, "POST", "/api/v1/billing/payments", body)
 
-	if resp.StatusCode != fiber.StatusForbidden {
-		t.Fatalf("expected 403 Forbidden, got %d", resp.StatusCode)
+	if resp.StatusCode != fiber.StatusUnauthorized {
+		t.Fatalf("expected 401 Unauthorized, got %d", resp.StatusCode)
 	}
 }
 

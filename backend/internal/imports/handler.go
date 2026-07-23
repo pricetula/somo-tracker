@@ -1,190 +1,246 @@
 package imports
 
 import (
-	"bufio"
-	"encoding/json"
-	"fmt"
-	"log/slog"
+	"errors"
+	"strconv"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
-	"github.com/redis/go-redis/v9"
 
-	"somotracker/backend/internal/database"
 	"somotracker/backend/internal/middleware"
 )
 
 // ============================================================================
-// Handler — SSE Progress Stream
+// Handler — Import Job Status + Failures
 // ============================================================================
 
-// Handler exposes import progress streaming over SSE.
 type Handler struct {
-	svc  *Service
-	pool *database.Pools
+	svc *Service
 }
 
 // NewHandler creates a new Handler.
-func NewHandler(svc *Service, pools *database.Pools) *Handler {
-	return &Handler{svc: svc, pool: pools}
+func NewHandler(svc *Service) *Handler {
+	return &Handler{svc: svc}
 }
 
-// RegisterRoutes mounts the generic import stream endpoint.
+// RegisterRoutes mounts all import endpoints.
 func (h *Handler) RegisterRoutes(router fiber.Router) {
-	router.Get("/imports/:job_id/stream", middleware.RequireAuth, h.StreamProgress)
+	// Order matters: /active before /:job_id to avoid route collision
+	router.Get("/api/v1/imports/active", middleware.RequireAuth, h.GetSessionActiveJobAPI)
+	router.Get("/api/v1/imports/:job_id", middleware.RequireAuth, h.GetJobAPI)
+	router.Get("/api/v1/imports/:job_id/failures", middleware.RequireAuth, h.GetFailures)
+	router.Post("/api/v1/imports/:job_id/cancel", middleware.RequireAuth, h.CancelJobAPI)
+	// List all jobs for the school (paginated)
+	router.Get("/api/v1/imports", middleware.RequireAuth, h.ListJobsAPI)
+	// Legacy: explicit school_id param (for cross-school access or future multi-school users)
+	router.Get("/api/v1/schools/:school_id/imports/active", middleware.RequireAuth, h.GetActiveJobAPI)
 }
 
-// StreamProgress handles GET /imports/:job_id/stream — SSE endpoint.
-// It first sends the current job state (for resume semantics), then subscribes
-// to Redis Pub/Sub for live updates.
-func (h *Handler) StreamProgress(c *fiber.Ctx) error {
-	jobIDStr := c.Params("job_id")
-	if jobIDStr == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "invalid_input",
-			"message": "job_id is required",
-		})
+// ============================================================================
+// Job status (for polling fallback)
+// ============================================================================
+
+func (h *Handler) GetJobAPI(c *fiber.Ctx) error {
+	jobID, err := uuid.Parse(c.Params("job_id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "invalid_input", "message": "bad job_id"})
 	}
 
-	jobID, err := uuid.Parse(jobIDStr)
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "invalid_input",
-			"message": "invalid job_id format",
-		})
-	}
-
-	// Verify the requesting user's tenant matches the job's tenant
-	tenantID := c.Locals("tenant_id").(string)
-	tenantUUID, err := uuid.Parse(tenantID)
-	if err != nil {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"code":    "forbidden",
-			"message": "access denied",
-		})
-	}
+	tenantID, _ := uuid.Parse(c.Locals("tenant_id").(string))
 
 	job, err := h.svc.GetJob(c.Context(), jobID)
 	if err != nil {
-		if isNotFound(err) {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-				"code":    "not_found",
-				"message": "import job not found",
+		return middleware.HTTPError(c, err)
+	}
+	if job.TenantID != tenantID {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"code": "forbidden", "message": "access denied"})
+	}
+	return c.JSON(job)
+}
+
+// ============================================================================
+// Cancel a job
+// ============================================================================
+
+func (h *Handler) CancelJobAPI(c *fiber.Ctx) error {
+	jobID, err := uuid.Parse(c.Params("job_id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "invalid_input", "message": "bad job_id"})
+	}
+
+	tenantID, _ := uuid.Parse(c.Locals("tenant_id").(string))
+	schoolID, _ := uuid.Parse(c.Locals("school_id").(string))
+
+	// Verify the job exists and belongs to the caller's tenant/school
+	job, err := h.svc.GetJob(c.Context(), jobID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	if job.TenantID != tenantID || job.SchoolID != schoolID {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"code": "forbidden", "message": "access denied"})
+	}
+
+	// Attempt cancellation
+	updated, err := h.svc.CancelJob(c.Context(), jobID)
+	if err != nil {
+		if errors.Is(err, ErrNotCancellable) {
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+				"code":    "job_not_cancellable",
+				"message": "the job is not in a cancellable state (it may already be completed, failed, or cancelled)",
 			})
 		}
 		return middleware.HTTPError(c, err)
 	}
 
-	// Tenant check
-	if job.TenantID != tenantUUID {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"code":    "forbidden",
-			"message": "access denied",
-		})
-	}
-
-	// Set SSE headers
-	c.Set("Content-Type", "text/event-stream")
-	c.Set("Cache-Control", "no-cache")
-	c.Set("Connection", "keep-alive")
-	c.Set("X-Accel-Buffering", "no")
-
-	// Build initial event payload
-	initialEvent := ProgressEvent{
-		JobID:            job.ID.String(),
-		Status:           job.Status,
-		TotalRecords:     job.TotalRecords,
-		ProcessedRecords: job.ProcessedRecords,
-		SuccessCount:     job.SuccessCount,
-		FailedCount:      job.FailedCount,
-		TotalChunks:      job.TotalChunks,
-		ProcessedChunks:  job.ProcessedChunks,
-	}
-
-	// Determine if the job is already terminal
-	isTerminal := job.Status == ImportJobStatusCompleted ||
-		job.Status == ImportJobStatusCompletedWithErrors ||
-		job.Status == ImportJobStatusFailed ||
-		job.Status == ImportJobStatusCancelled
-
-	// Use StreamWriter for proper SSE streaming
-	fctx := c.Context()
-	fctx.SetBodyStreamWriter(func(w *bufio.Writer) {
-		// Send initial state immediately (resume semantics)
-		if err := writeSSE(w, "state", initialEvent); err != nil {
-			slog.Warn("imports.Handler.StreamProgress: write initial event", "error", err)
-			return
-		}
-
-		// If already terminal, we're done
-		if isTerminal {
-			return
-		}
-
-		// Subscribe to Redis Pub/Sub for live updates
-		pubsub := h.pool.Redis.Subscribe(fctx, ProgressChannel)
-		defer func() {
-			if err := pubsub.Close(); err != nil {
-				slog.ErrorContext(fctx, "imports.Handler.StreamProgress: close pubsub", "error", err)
-			}
-		}()
-
-		ch := pubsub.Channel(redis.WithChannelSize(100))
-
-		for {
-			select {
-			case <-fctx.Done():
-				return
-			case msg, ok := <-ch:
-				if !ok {
-					return
-				}
-				var event ProgressEvent
-				if err := json.Unmarshal([]byte(msg.Payload), &event); err != nil {
-					slog.Warn("imports.Handler.StreamProgress: unmarshal event",
-						"error", err,
-						"payload", msg.Payload,
-					)
-					continue
-				}
-
-				// Only forward events for this job
-				if event.JobID != job.ID.String() {
-					continue
-				}
-
-				if err := writeSSE(w, "progress", event); err != nil {
-					return // client probably disconnected
-				}
-
-				// Stop on terminal events
-				if event.Status == ImportJobStatusCompleted ||
-					event.Status == ImportJobStatusCompletedWithErrors ||
-					event.Status == ImportJobStatusFailed ||
-					event.Status == ImportJobStatusCancelled {
-					return
-				}
-			}
-		}
-	})
-
-	return nil
+	return c.JSON(updated)
 }
 
 // ============================================================================
-// SSE helpers
+// Get active job from session (proactive check — no school_id in URL)
+// Resolves the active school from the authenticated session context.
 // ============================================================================
 
-func writeSSE(w *bufio.Writer, eventType string, data interface{}) error {
-	jsonData, err := json.Marshal(data)
-	if err != nil {
-		return fmt.Errorf("marshal sse event: %w", err)
+func (h *Handler) GetSessionActiveJobAPI(c *fiber.Ctx) error {
+	schoolIDStr := c.Locals("active_school_id").(string)
+	if schoolIDStr == "" {
+		schoolIDStr = c.Locals("school_id").(string)
+	}
+	if schoolIDStr == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "invalid_input", "message": "active school not set"})
 	}
 
-	msg := fmt.Sprintf("event: %s\ndata: %s\n\n", eventType, string(jsonData))
-	_, err = w.WriteString(msg)
+	schoolID, err := uuid.Parse(schoolIDStr)
 	if err != nil {
-		return err
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "invalid_input", "message": "invalid school id"})
 	}
-	return w.Flush()
+
+	tenantID, _ := uuid.Parse(c.Locals("tenant_id").(string))
+
+	job, err := h.svc.GetActiveJobBySchool(c.Context(), schoolID)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return c.JSON(fiber.Map{"active": false, "job": nil})
+		}
+		return middleware.HTTPError(c, err)
+	}
+
+	// Verify tenant ownership
+	if job.TenantID != tenantID {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"code": "forbidden", "message": "access denied"})
+	}
+
+	return c.JSON(fiber.Map{"active": true, "job": job})
+}
+
+// ============================================================================
+// Get active job for school (proactive check before showing import form)
+// ============================================================================
+
+func (h *Handler) GetActiveJobAPI(c *fiber.Ctx) error {
+	schoolID, err := uuid.Parse(c.Params("school_id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "invalid_input", "message": "bad school_id"})
+	}
+
+	tenantID, _ := uuid.Parse(c.Locals("tenant_id").(string))
+
+	// Verify the school belongs to the caller's tenant
+	schoolTenantIDStr := c.Locals("school_tenant_id").(string)
+	if schoolTenantIDStr != "" {
+		schoolTenantID, _ := uuid.Parse(schoolTenantIDStr)
+		if schoolTenantID != uuid.Nil && schoolTenantID != tenantID {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"code": "forbidden", "message": "access denied"})
+		}
+	}
+
+	job, err := h.svc.GetActiveJobBySchool(c.Context(), schoolID)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return c.JSON(fiber.Map{"active": false, "job": nil})
+		}
+		return middleware.HTTPError(c, err)
+	}
+
+	// Verify tenant ownership
+	if job.TenantID != tenantID {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"code": "forbidden", "message": "access denied"})
+	}
+
+	return c.JSON(fiber.Map{"active": true, "job": job})
+}
+
+// ============================================================================
+// ============================================================================
+// ListJobs — paginated job list
+// ============================================================================
+
+func (h *Handler) ListJobsAPI(c *fiber.Ctx) error {
+	tenantID, _ := uuid.Parse(c.Locals("tenant_id").(string))
+	schoolID, _ := uuid.Parse(c.Locals("school_id").(string))
+
+	limit := 50
+	if l := c.Query("limit"); l != "" {
+		if v, e := strconv.Atoi(l); e == nil && v > 0 && v <= 100 {
+			limit = v
+		}
+	}
+	page := 1
+	if p := c.Query("page"); p != "" {
+		if v, e := strconv.Atoi(p); e == nil && v > 0 {
+			page = v
+		}
+	}
+	offset := (page - 1) * limit
+
+	jobs, total, err := h.svc.ListJobs(c.Context(), tenantID, schoolID, limit, offset)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(fiber.Map{
+		"data":  jobs,
+		"total": total,
+		"page":  page,
+		"limit": limit,
+	})
+}
+
+// ============================================================================
+// Failures
+// ============================================================================
+
+func (h *Handler) GetFailures(c *fiber.Ctx) error {
+	jobID, err := uuid.Parse(c.Params("job_id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"code": "invalid_input", "message": "bad job_id"})
+	}
+
+	tenantUUID, _ := uuid.Parse(c.Locals("tenant_id").(string))
+
+	job, err := h.svc.GetJob(c.Context(), jobID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	if job.TenantID != tenantUUID {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"code": "forbidden", "message": "access denied"})
+	}
+
+	limit := 50
+	if l := c.Query("limit"); l != "" {
+		if v, e := strconv.Atoi(l); e == nil && v > 0 && v <= 5000 {
+			limit = v
+		}
+	}
+	page := 1
+	if p := c.Query("page"); p != "" {
+		if v, e := strconv.Atoi(p); e == nil && v > 0 {
+			page = v
+		}
+	}
+
+	failures, total, err := h.svc.GetFailures(c.Context(), jobID, limit, (page-1)*limit)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	return c.JSON(fiber.Map{"failures": failures, "total": total})
 }

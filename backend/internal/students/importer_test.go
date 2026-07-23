@@ -3,9 +3,14 @@ package students
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"somotracker/backend/internal/imports"
 )
@@ -15,21 +20,14 @@ import (
 // ============================================================================
 
 type MockImportRepository struct {
-	resolveClassByGradeAndStreamFn func(ctx context.Context, tenantID, schoolID, academicYearID, gradeLevel, streamName string) (*string, error)
-	validateAcademicTermFn         func(ctx context.Context, tenantID, schoolID, academicTermID string) (bool, error)
-	checkSchoolAdminMembershipFn   func(ctx context.Context, userID, tenantID, schoolID string) (bool, error)
-	getAcademicYearIDForTermFn     func(ctx context.Context, tenantID, schoolID, academicTermID string) (string, error)
+	validateAcademicTermFn       func(ctx context.Context, tenantID, schoolID, academicTermID string) (bool, error)
+	checkSchoolAdminMembershipFn func(ctx context.Context, userID, tenantID, schoolID string) (bool, error)
+	getAcademicYearIDForTermFn   func(ctx context.Context, tenantID, schoolID, academicTermID string) (string, error)
+	validateClassExistsFn        func(ctx context.Context, tenantID, schoolID, classID string) (bool, error)
+	checkExistingFieldValuesFn   func(ctx context.Context, tenantID, schoolID string, admissionNumbers, upiNumbers, knecNumbers []string) ([]string, []string, []string, error)
 }
 
 var _ ImportRepository = (*MockImportRepository)(nil)
-
-func (m *MockImportRepository) ResolveClassByGradeAndStream(ctx context.Context, tenantID, schoolID, academicYearID, gradeLevel, streamName string) (*string, error) {
-	if m.resolveClassByGradeAndStreamFn != nil {
-		return m.resolveClassByGradeAndStreamFn(ctx, tenantID, schoolID, academicYearID, gradeLevel, streamName)
-	}
-	id := "class_" + gradeLevel + "_" + streamName
-	return &id, nil
-}
 
 func (m *MockImportRepository) ValidateAcademicTerm(ctx context.Context, tenantID, schoolID, academicTermID string) (bool, error) {
 	if m.validateAcademicTermFn != nil {
@@ -50,6 +48,21 @@ func (m *MockImportRepository) GetAcademicYearIDForTerm(ctx context.Context, ten
 		return m.getAcademicYearIDForTermFn(ctx, tenantID, schoolID, academicTermID)
 	}
 	return "year_001", nil
+}
+
+func (m *MockImportRepository) ValidateClassExists(ctx context.Context, tenantID, schoolID, classID string) (bool, error) {
+	if m.validateClassExistsFn != nil {
+		return m.validateClassExistsFn(ctx, tenantID, schoolID, classID)
+	}
+	return true, nil
+}
+
+func (m *MockImportRepository) CheckExistingFieldValues(ctx context.Context, tenantID, schoolID string, admissionNumbers, upiNumbers, knecNumbers []string) ([]string, []string, []string, error) {
+	if m.checkExistingFieldValuesFn != nil {
+		return m.checkExistingFieldValuesFn(ctx, tenantID, schoolID, admissionNumbers, upiNumbers, knecNumbers)
+	}
+	// Default: no duplicates exist
+	return []string{}, []string{}, []string{}, nil
 }
 
 // ============================================================================
@@ -82,35 +95,50 @@ func TestStudentImporter_JobType(t *testing.T) {
 }
 
 // ============================================================================
-// Tests: Validate — Happy Paths (H1, H8)
+// Tests: Validate — Happy Paths
 // ============================================================================
 
 func TestValidate_HappyPath(t *testing.T) {
-	// H1: Valid row with all fields
 	h := newTestHarness()
 	ctx := context.Background()
 
 	raw := []json.RawMessage{
-		json.RawMessage(`{"full_name":"Alice Wanjiku","gender":"F","grade_level":"G4","stream_name":"Blue"}`),
-		json.RawMessage(`{"full_name":"Bob Kiplagat","gender":"M","grade_level":"G4","stream_name":"Blue"}`),
+		json.RawMessage(`{"full_name":"Alice Wanjiku","gender":"F","class_id":"11111111-1111-1111-1111-111111111111"}`),
+		json.RawMessage(`{"full_name":"Bob Kiplagat","gender":"M","class_id":"22222222-2222-2222-2222-222222222222"}`),
 	}
 
 	valid, failures := h.imp.Validate(ctx, uuid.New(), uuid.New(), raw)
 	if len(failures) != 0 {
-		t.Fatalf("H1: expected 0 failures, got %d: %v", len(failures), failures)
+		t.Fatalf("expected 0 failures, got %d: %v", len(failures), failures)
 	}
 	if len(valid) != 2 {
-		t.Fatalf("H1: expected 2 valid rows, got %d", len(valid))
+		t.Fatalf("expected 2 valid rows, got %d", len(valid))
 	}
 }
 
 func TestValidate_WithOptionalFields(t *testing.T) {
-	// Valid row with all optional fields present
 	h := newTestHarness()
 	ctx := context.Background()
 
 	raw := []json.RawMessage{
-		json.RawMessage(`{"full_name":"Carol Mwangi","gender":"F","date_of_birth":"2010-05-15","upi_number":"UPI12345","knec_assessment_number":"KNEC67890","admission_number":"ADM001","grade_level":"G4","stream_name":"Red"}`),
+		json.RawMessage(`{"full_name":"Carol Mwangi","gender":"F","date_of_birth":"2010-05-15","upi_number":"UPI12345","knec_assessment_number":"KNEC67890","admission_number":"ADM001","class_id":"11111111-1111-1111-1111-111111111111"}`),
+	}
+
+	valid, failures := h.imp.Validate(ctx, uuid.New(), uuid.New(), raw)
+	if len(failures) != 0 {
+		t.Fatalf("expected 0 failures, got %d: %v", len(failures), failures)
+	}
+	if len(valid) != 1 {
+		t.Fatalf("expected 1 valid row, got %d", len(valid))
+	}
+}
+
+func TestValidate_WithoutClassID(t *testing.T) {
+	h := newTestHarness()
+	ctx := context.Background()
+
+	raw := []json.RawMessage{
+		json.RawMessage(`{"full_name":"Test Student","gender":"F"}`),
 	}
 
 	valid, failures := h.imp.Validate(ctx, uuid.New(), uuid.New(), raw)
@@ -123,85 +151,223 @@ func TestValidate_WithOptionalFields(t *testing.T) {
 }
 
 // ============================================================================
-// Tests: Validate — Sad Paths (S3, S4)
+// Tests: Validate — date_of_birth
 // ============================================================================
 
-func TestValidate_MissingFullName(t *testing.T) {
-	// S3: missing full_name → SCHEMA_VALIDATION
+func TestValidate_DateOfBirth_Valid(t *testing.T) {
 	h := newTestHarness()
 	ctx := context.Background()
 
 	raw := []json.RawMessage{
-		json.RawMessage(`{"gender":"M","grade_level":"G4","stream_name":"Blue"}`),
+		// Use today's date minus ~10 years — well within range
+		json.RawMessage(fmt.Sprintf(`{"full_name":"Young Student","gender":"M","date_of_birth":"%s"}`, time.Now().AddDate(-10, 0, 0).Format("2006-01-02"))),
+	}
+
+	valid, failures := h.imp.Validate(ctx, uuid.New(), uuid.New(), raw)
+	if len(failures) != 0 {
+		t.Fatalf("expected 0 failures for valid DOB, got %d: %v", len(failures), failures)
+	}
+	if len(valid) != 1 {
+		t.Fatalf("expected 1 valid row, got %d", len(valid))
+	}
+}
+
+func TestValidate_DateOfBirth_Future(t *testing.T) {
+	h := newTestHarness()
+	ctx := context.Background()
+
+	raw := []json.RawMessage{
+		json.RawMessage(fmt.Sprintf(`{"full_name":"Future Student","gender":"F","date_of_birth":"%s"}`, time.Now().AddDate(0, 0, 1).Format("2006-01-02"))),
 	}
 
 	valid, failures := h.imp.Validate(ctx, uuid.New(), uuid.New(), raw)
 	if len(valid) != 0 {
-		t.Fatalf("S3: expected 0 valid rows, got %d", len(valid))
+		t.Fatalf("expected 0 valid rows for future DOB, got %d", len(valid))
 	}
 	if len(failures) != 1 {
-		t.Fatalf("S3: expected 1 failure, got %d", len(failures))
+		t.Fatalf("expected 1 failure for future DOB, got %d", len(failures))
 	}
 	if failures[0].ErrorType != imports.ImportFailureSchemaValidation {
-		t.Fatalf("S3: expected SCHEMA_VALIDATION, got %s", failures[0].ErrorType)
+		t.Fatalf("expected SCHEMA_VALIDATION for future DOB, got %s", failures[0].ErrorType)
+	}
+	if !containsStr(failures[0].ErrorMessage, "future") {
+		t.Fatalf("expected error message to mention 'future', got %q", failures[0].ErrorMessage)
+	}
+}
+
+func TestValidate_DateOfBirth_Unparseable(t *testing.T) {
+	h := newTestHarness()
+	ctx := context.Background()
+
+	raw := []json.RawMessage{
+		json.RawMessage(`{"full_name":"Bad Date","gender":"M","date_of_birth":"not-a-date"}`),
+	}
+
+	valid, failures := h.imp.Validate(ctx, uuid.New(), uuid.New(), raw)
+	if len(valid) != 0 {
+		t.Fatalf("expected 0 valid rows for unparseable DOB, got %d", len(valid))
+	}
+	if len(failures) != 1 {
+		t.Fatalf("expected 1 failure for unparseable DOB, got %d", len(failures))
+	}
+	if failures[0].ErrorType != imports.ImportFailureSchemaValidation {
+		t.Fatalf("expected SCHEMA_VALIDATION for unparseable DOB, got %s", failures[0].ErrorType)
+	}
+	if !containsStr(failures[0].ErrorMessage, "not a valid date") {
+		t.Fatalf("expected error message to mention 'not a valid date', got %q", failures[0].ErrorMessage)
+	}
+}
+
+func TestValidate_DateOfBirth_ImplausiblyOld(t *testing.T) {
+	h := newTestHarness()
+	ctx := context.Background()
+
+	// 100 years ago should exceed maxStudentAgeYears (25)
+	raw := []json.RawMessage{
+		json.RawMessage(fmt.Sprintf(`{"full_name":"Old Student","gender":"F","date_of_birth":"%s"}`, time.Now().AddDate(-100, 0, 0).Format("2006-01-02"))),
+	}
+
+	valid, failures := h.imp.Validate(ctx, uuid.New(), uuid.New(), raw)
+	if len(valid) != 0 {
+		t.Fatalf("expected 0 valid rows for implausibly old DOB, got %d", len(valid))
+	}
+	if len(failures) != 1 {
+		t.Fatalf("expected 1 failure for implausibly old DOB, got %d", len(failures))
+	}
+	if failures[0].ErrorType != imports.ImportFailureSchemaValidation {
+		t.Fatalf("expected SCHEMA_VALIDATION for old DOB, got %s", failures[0].ErrorType)
+	}
+	if !containsStr(failures[0].ErrorMessage, "implausibly old") {
+		t.Fatalf("expected error message to mention 'implausibly old', got %q", failures[0].ErrorMessage)
+	}
+}
+
+// ============================================================================
+// Tests: Validate — class_id UUID check
+// ============================================================================
+
+func TestValidate_ClassID_ValidUUID(t *testing.T) {
+	h := newTestHarness()
+	ctx := context.Background()
+
+	raw := []json.RawMessage{
+		json.RawMessage(`{"full_name":"UUID Student","gender":"M","class_id":"a1b2c3d4-e5f6-7890-abcd-ef1234567890"}`),
+	}
+
+	valid, failures := h.imp.Validate(ctx, uuid.New(), uuid.New(), raw)
+	if len(failures) != 0 {
+		t.Fatalf("expected 0 failures for valid UUID class_id, got %d: %v", len(failures), failures)
+	}
+	if len(valid) != 1 {
+		t.Fatalf("expected 1 valid row, got %d", len(valid))
+	}
+}
+
+func TestValidate_ClassID_Malformed(t *testing.T) {
+	h := newTestHarness()
+	ctx := context.Background()
+
+	raw := []json.RawMessage{
+		json.RawMessage(`{"full_name":"Bad Class","gender":"F","class_id":"not-a-uuid-at-all"}`),
+	}
+
+	valid, failures := h.imp.Validate(ctx, uuid.New(), uuid.New(), raw)
+	if len(valid) != 0 {
+		t.Fatalf("expected 0 valid rows for malformed class_id, got %d", len(valid))
+	}
+	if len(failures) != 1 {
+		t.Fatalf("expected 1 failure for malformed class_id, got %d", len(failures))
+	}
+	if failures[0].ErrorType != imports.ImportFailureSchemaValidation {
+		t.Fatalf("expected SCHEMA_VALIDATION for malformed class_id, got %s", failures[0].ErrorType)
+	}
+	if !containsStr(failures[0].ErrorMessage, "not a valid UUID") {
+		t.Fatalf("expected error message to mention 'not a valid UUID', got %q", failures[0].ErrorMessage)
+	}
+}
+
+func TestValidate_ClassID_MalformedNumeric(t *testing.T) {
+	h := newTestHarness()
+	ctx := context.Background()
+
+	// "class_001" is not a UUID — should fail
+	raw := []json.RawMessage{
+		json.RawMessage(`{"full_name":"Legacy Class","gender":"M","class_id":"class_001"}`),
+	}
+
+	valid, failures := h.imp.Validate(ctx, uuid.New(), uuid.New(), raw)
+	if len(valid) != 0 {
+		t.Fatalf("expected 0 valid rows for malformed class_id, got %d", len(valid))
+	}
+	if len(failures) != 1 {
+		t.Fatalf("expected 1 failure for malformed class_id, got %d", len(failures))
+	}
+	if failures[0].ErrorType != imports.ImportFailureSchemaValidation {
+		t.Fatalf("expected SCHEMA_VALIDATION for malformed class_id, got %s", failures[0].ErrorType)
+	}
+}
+
+// ============================================================================
+// Tests: Validate — Sad Paths
+// ============================================================================
+
+func TestValidate_MissingFullName(t *testing.T) {
+	h := newTestHarness()
+	ctx := context.Background()
+
+	raw := []json.RawMessage{
+		json.RawMessage(`{"gender":"M","class_id":"11111111-1111-1111-1111-111111111111"}`),
+	}
+
+	valid, failures := h.imp.Validate(ctx, uuid.New(), uuid.New(), raw)
+	if len(valid) != 0 {
+		t.Fatalf("expected 0 valid rows, got %d", len(valid))
+	}
+	if len(failures) != 1 {
+		t.Fatalf("expected 1 failure, got %d", len(failures))
+	}
+	if failures[0].ErrorType != imports.ImportFailureSchemaValidation {
+		t.Fatalf("expected SCHEMA_VALIDATION, got %s", failures[0].ErrorType)
 	}
 	if failures[0].ErrorMessage == "" {
-		t.Fatal("S3: expected non-empty error message")
+		t.Fatal("expected non-empty error message")
 	}
 }
 
 func TestValidate_InvalidGender(t *testing.T) {
-	// S4: invalid gender → SCHEMA_VALIDATION
 	h := newTestHarness()
 	ctx := context.Background()
 
 	raw := []json.RawMessage{
-		json.RawMessage(`{"full_name":"Test Student","gender":"X","grade_level":"G4","stream_name":"Blue"}`),
+		json.RawMessage(`{"full_name":"Test Student","gender":"X","class_id":"11111111-1111-1111-1111-111111111111"}`),
 	}
 
 	valid, failures := h.imp.Validate(ctx, uuid.New(), uuid.New(), raw)
 	if len(valid) != 0 {
-		t.Fatalf("S4: expected 0 valid rows, got %d", len(valid))
+		t.Fatalf("expected 0 valid rows, got %d", len(valid))
 	}
 	if len(failures) != 1 {
-		t.Fatalf("S4: expected 1 failure, got %d", len(failures))
+		t.Fatalf("expected 1 failure, got %d", len(failures))
 	}
 	if failures[0].ErrorType != imports.ImportFailureSchemaValidation {
-		t.Fatalf("S4: expected SCHEMA_VALIDATION, got %s", failures[0].ErrorType)
+		t.Fatalf("expected SCHEMA_VALIDATION, got %s", failures[0].ErrorType)
 	}
 }
 
-func TestValidate_MissingGradeLevel(t *testing.T) {
+func TestValidate_OnlyFullNameAndGender(t *testing.T) {
 	h := newTestHarness()
 	ctx := context.Background()
 
 	raw := []json.RawMessage{
-		json.RawMessage(`{"full_name":"Test","gender":"M","stream_name":"Blue"}`),
+		json.RawMessage(`{"full_name":"Jane Doe","gender":"F"}`),
 	}
 
 	valid, failures := h.imp.Validate(ctx, uuid.New(), uuid.New(), raw)
-	if len(valid) != 0 {
-		t.Fatalf("expected 0 valid rows, got %d", len(valid))
+	if len(failures) != 0 {
+		t.Fatalf("expected 0 failures, got %d: %v", len(failures), failures)
 	}
-	if len(failures) != 1 {
-		t.Fatalf("expected 1 failure, got %d", len(failures))
-	}
-}
-
-func TestValidate_MissingStreamName(t *testing.T) {
-	h := newTestHarness()
-	ctx := context.Background()
-
-	raw := []json.RawMessage{
-		json.RawMessage(`{"full_name":"Test","gender":"M","grade_level":"G4"}`),
-	}
-
-	valid, failures := h.imp.Validate(ctx, uuid.New(), uuid.New(), raw)
-	if len(valid) != 0 {
-		t.Fatalf("expected 0 valid rows, got %d", len(valid))
-	}
-	if len(failures) != 1 {
-		t.Fatalf("expected 1 failure, got %d", len(failures))
+	if len(valid) != 1 {
+		t.Fatalf("expected 1 valid row, got %d", len(valid))
 	}
 }
 
@@ -223,106 +389,175 @@ func TestValidate_MalformedJSON(t *testing.T) {
 }
 
 // ============================================================================
-// Tests: ResolveReferences — Happy Path (H8)
+// Tests: ResolveReferences — Class existence checks
 // ============================================================================
 
-func TestResolveReferences_HappyPath(t *testing.T) {
-	// H8: grade_level + stream_name resolves to a class_id
+func TestResolveReferences_ClassIDExists(t *testing.T) {
 	h := newTestHarness()
 	ctx := context.Background()
 
 	tenantID := uuid.New()
 	schoolID := uuid.New()
-	academicYearID := "year_001"
-
-	classID := "class_G4_Blue"
-	h.repo.resolveClassByGradeAndStreamFn = func(ctx context.Context, tid, sid, yearID, grade, stream string) (*string, error) {
-		if grade == "G4" && stream == "Blue" {
-			return &classID, nil
-		}
-		return nil, nil
-	}
 
 	rows := []imports.ValidatedRow{
-		{RawData: json.RawMessage(`{"full_name":"Alice","gender":"F","grade_level":"G4","stream_name":"Blue"}`)},
+		{RawData: json.RawMessage(`{"full_name":"Alice","gender":"F","class_id":"a1b2c3d4-e5f6-7890-abcd-ef1234567890"}`)},
 	}
 
-	metadata := json.RawMessage(`{"academic_term_id":"term_001","academic_year_id":"` + academicYearID + `"}`)
+	// Mock: class exists and belongs to this tenant/school
+	h.repo.validateClassExistsFn = func(_ context.Context, tid, sid, cid string) (bool, error) {
+		if tid == tenantID.String() && sid == schoolID.String() && cid == "a1b2c3d4-e5f6-7890-abcd-ef1234567890" {
+			return true, nil
+		}
+		return false, nil
+	}
+
+	metadata := json.RawMessage(`{"academic_term_id":"term_001","academic_year_id":"year_001"}`)
 
 	resolved, failures := h.imp.ResolveReferences(ctx, tenantID, schoolID, metadata, rows)
 	if len(failures) != 0 {
-		t.Fatalf("H8: expected 0 failures, got %d: %v", len(failures), failures)
+		t.Fatalf("expected 0 failures when class exists, got %d: %v", len(failures), failures)
 	}
 	if len(resolved) != 1 {
-		t.Fatalf("H8: expected 1 resolved row, got %d", len(resolved))
+		t.Fatalf("expected 1 resolved row, got %d", len(resolved))
 	}
 
-	// Verify resolved_class_id was injected
 	var aug augmentedImportRow
 	if err := json.Unmarshal(resolved[0].RawData, &aug); err != nil {
-		t.Fatalf("H8: unmarshal resolved row: %v", err)
+		t.Fatalf("unmarshal resolved row: %v", err)
 	}
-	if aug.ResolvedClassID == nil || *aug.ResolvedClassID != classID {
-		t.Fatalf("H8: expected resolved_class_id %s, got %v", classID, aug.ResolvedClassID)
-	}
-	if aug.AcademicTermID != "term_001" {
-		t.Fatalf("H8: expected academic_term_id 'term_001', got %q", aug.AcademicTermID)
-	}
-	if aug.AcademicYearID != academicYearID {
-		t.Fatalf("H8: expected academic_year_id %s, got %q", academicYearID, aug.AcademicYearID)
-	}
-	if aug.TenantID != tenantID.String() {
-		t.Fatalf("H8: expected tenant_id %s, got %q", tenantID.String(), aug.TenantID)
-	}
-	if aug.SchoolID != schoolID.String() {
-		t.Fatalf("H8: expected school_id %s, got %q", schoolID.String(), aug.SchoolID)
-	}
-	if aug.FullName != "Alice" {
-		t.Fatalf("H8: expected full_name 'Alice', got %q", aug.FullName)
+	if aug.ClassID != "a1b2c3d4-e5f6-7890-abcd-ef1234567890" {
+		t.Fatalf("expected ClassID to be preserved, got %q", aug.ClassID)
 	}
 }
 
-// ============================================================================
-// Tests: ResolveReferences — Sad Paths (S5, S15)
-// ============================================================================
-
-func TestResolveReferences_UnresolvableGradeStream(t *testing.T) {
-	// S5: grade_level / stream_name combination with no matching cbc_classes row
+func TestResolveReferences_ClassID_DifferentSchool(t *testing.T) {
 	h := newTestHarness()
 	ctx := context.Background()
 
 	tenantID := uuid.New()
 	schoolID := uuid.New()
 
-	h.repo.resolveClassByGradeAndStreamFn = func(ctx context.Context, tid, sid, yearID, grade, stream string) (*string, error) {
-		return nil, nil // no match
+	rows := []imports.ValidatedRow{
+		{RawData: json.RawMessage(`{"full_name":"Cross Tenant","gender":"M","class_id":"b2c3d4e5-f6a7-8901-bcde-f12345678901"}`)},
 	}
 
-	rows := []imports.ValidatedRow{
-		{RawData: json.RawMessage(`{"full_name":"Test","gender":"M","grade_level":"G99","stream_name":"Nonexistent"}`)},
+	// Mock: class does NOT exist for this tenant/school
+	h.repo.validateClassExistsFn = func(_ context.Context, tid, sid, cid string) (bool, error) {
+		return false, nil
 	}
 
 	metadata := json.RawMessage(`{"academic_term_id":"term_001","academic_year_id":"year_001"}`)
 
 	resolved, failures := h.imp.ResolveReferences(ctx, tenantID, schoolID, metadata, rows)
 	if len(resolved) != 0 {
-		t.Fatalf("S5: expected 0 resolved rows, got %d", len(resolved))
+		t.Fatalf("expected 0 resolved rows for cross-school class, got %d", len(resolved))
 	}
 	if len(failures) != 1 {
-		t.Fatalf("S5: expected 1 failure, got %d", len(failures))
+		t.Fatalf("expected 1 failure for cross-school class, got %d", len(failures))
 	}
-	if failures[0].ErrorType != imports.ImportFailureBusinessRule {
-		t.Fatalf("S5: expected BUSINESS_RULE_VIOLATION, got %s", failures[0].ErrorType)
+	if failures[0].ErrorType != imports.ImportFailureInvalidClassReference {
+		t.Fatalf("expected INVALID_CLASS_REFERENCE, got %s", failures[0].ErrorType)
+	}
+	if !containsStr(failures[0].ErrorMessage, "does not exist") {
+		t.Fatalf("expected error message to mention 'does not exist', got %q", failures[0].ErrorMessage)
+	}
+}
+
+// ============================================================================
+// Tests: ResolveReferences — Happy Path (existing tests refactored)
+// ============================================================================
+
+func TestResolveReferences_WithoutClassID(t *testing.T) {
+	h := newTestHarness()
+	ctx := context.Background()
+
+	tenantID := uuid.New()
+	schoolID := uuid.New()
+
+	rows := []imports.ValidatedRow{
+		{RawData: json.RawMessage(`{"full_name":"No Class Student","gender":"F"}`)},
+	}
+
+	metadata := json.RawMessage(`{"academic_term_id":"term_001","academic_year_id":"year_001"}`)
+
+	resolved, failures := h.imp.ResolveReferences(ctx, tenantID, schoolID, metadata, rows)
+	if len(failures) != 0 {
+		t.Fatalf("expected 0 failures, got %d: %v", len(failures), failures)
+	}
+	if len(resolved) != 1 {
+		t.Fatalf("expected 1 resolved row, got %d", len(resolved))
+	}
+
+	var aug augmentedImportRow
+	if err := json.Unmarshal(resolved[0].RawData, &aug); err != nil {
+		t.Fatalf("unmarshal resolved row: %v", err)
+	}
+	if aug.ClassID != "" {
+		t.Fatalf("expected empty ClassID for row without class_id, got %q", aug.ClassID)
+	}
+	if aug.FullName != "No Class Student" {
+		t.Fatalf("expected full_name 'No Class Student', got %q", aug.FullName)
+	}
+	if aug.Gender != "F" {
+		t.Fatalf("expected gender 'F', got %q", aug.Gender)
+	}
+}
+
+func TestResolveReferences_HappyPath(t *testing.T) {
+	h := newTestHarness()
+	ctx := context.Background()
+
+	tenantID := uuid.New()
+	schoolID := uuid.New()
+
+	rows := []imports.ValidatedRow{
+		{RawData: json.RawMessage(`{"full_name":"Alice","gender":"F","class_id":"a1b2c3d4-e5f6-7890-abcd-ef1234567890"}`)},
+	}
+
+	h.repo.validateClassExistsFn = func(_ context.Context, tid, sid, cid string) (bool, error) {
+		return true, nil
+	}
+
+	metadata := json.RawMessage(`{"academic_term_id":"term_001","academic_year_id":"year_001"}`)
+
+	resolved, failures := h.imp.ResolveReferences(ctx, tenantID, schoolID, metadata, rows)
+	if len(failures) != 0 {
+		t.Fatalf("expected 0 failures, got %d: %v", len(failures), failures)
+	}
+	if len(resolved) != 1 {
+		t.Fatalf("expected 1 resolved row, got %d", len(resolved))
+	}
+
+	var aug augmentedImportRow
+	if err := json.Unmarshal(resolved[0].RawData, &aug); err != nil {
+		t.Fatalf("unmarshal resolved row: %v", err)
+	}
+	if aug.ClassID != "a1b2c3d4-e5f6-7890-abcd-ef1234567890" {
+		t.Fatalf("expected ClassID 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', got %q", aug.ClassID)
+	}
+	if aug.AcademicTermID != "term_001" {
+		t.Fatalf("expected academic_term_id 'term_001', got %q", aug.AcademicTermID)
+	}
+	if aug.AcademicYearID != "year_001" {
+		t.Fatalf("expected academic_year_id 'year_001', got %q", aug.AcademicYearID)
+	}
+	if aug.TenantID != tenantID.String() {
+		t.Fatalf("expected tenant_id %s, got %q", tenantID.String(), aug.TenantID)
+	}
+	if aug.SchoolID != schoolID.String() {
+		t.Fatalf("expected school_id %s, got %q", schoolID.String(), aug.SchoolID)
+	}
+	if aug.FullName != "Alice" {
+		t.Fatalf("expected full_name 'Alice', got %q", aug.FullName)
 	}
 }
 
 func TestResolveReferences_MissingMetadata(t *testing.T) {
-	// Invalid metadata (missing academic fields) → all rows fail
 	h := newTestHarness()
 	ctx := context.Background()
 
 	rows := []imports.ValidatedRow{
-		{RawData: json.RawMessage(`{"full_name":"Test","gender":"M","grade_level":"G4","stream_name":"Blue"}`)},
+		{RawData: json.RawMessage(`{"full_name":"Test","gender":"M","class_id":"a1b2c3d4-e5f6-7890-abcd-ef1234567890"}`)},
 	}
 
 	metadata := json.RawMessage(`{}`)
@@ -337,83 +572,10 @@ func TestResolveReferences_MissingMetadata(t *testing.T) {
 }
 
 // ============================================================================
-// Tests: ResolveReferences — Tenant/Stream Isolation (S15)
-// ============================================================================
-
-func TestResolveReferences_TenantIsolation(t *testing.T) {
-	// S15: Two schools with a stream named identically ("Blue")
-	// Each resolves against its own tenant+school+year scope.
-	h := newTestHarness()
-	ctx := context.Background()
-
-	tenantA := uuid.New()
-	schoolA := uuid.New()
-	tenantB := uuid.New()
-	schoolB := uuid.New()
-
-	classA := "class_A_G4_Blue"
-	classB := "class_B_G4_Blue"
-
-	h.repo.resolveClassByGradeAndStreamFn = func(ctx context.Context, tid, sid, yearID, grade, stream string) (*string, error) {
-		if tid == tenantA.String() && sid == schoolA.String() {
-			return &classA, nil
-		}
-		if tid == tenantB.String() && sid == schoolB.String() {
-			return &classB, nil
-		}
-		return nil, nil
-	}
-
-	metadata := json.RawMessage(`{"academic_term_id":"term_001","academic_year_id":"year_001"}`)
-
-	// Resolve for school A
-	rowsA := []imports.ValidatedRow{
-		{RawData: json.RawMessage(`{"full_name":"Alice A","gender":"F","grade_level":"G4","stream_name":"Blue"}`)},
-	}
-	resolvedA, failuresA := h.imp.ResolveReferences(ctx, tenantA, schoolA, metadata, rowsA)
-	if len(failuresA) != 0 || len(resolvedA) != 1 {
-		t.Fatalf("S15: school A resolution failed: failures=%d, resolved=%d", len(failuresA), len(resolvedA))
-	}
-
-	// Resolve for school B
-	rowsB := []imports.ValidatedRow{
-		{RawData: json.RawMessage(`{"full_name":"Bob B","gender":"M","grade_level":"G4","stream_name":"Blue"}`)},
-	}
-	resolvedB, failuresB := h.imp.ResolveReferences(ctx, tenantB, schoolB, metadata, rowsB)
-	if len(failuresB) != 0 || len(resolvedB) != 1 {
-		t.Fatalf("S15: school B resolution failed: failures=%d, resolved=%d", len(failuresB), len(resolvedB))
-	}
-
-	// Verify they got different class IDs
-	var augA, augB augmentedImportRow
-	if err := json.Unmarshal(resolvedA[0].RawData, &augA); err != nil {
-		t.Fatalf("S15: unmarshal resolvedA: %v", err)
-	}
-	if err := json.Unmarshal(resolvedB[0].RawData, &augB); err != nil {
-		t.Fatalf("S15: unmarshal resolvedB: %v", err)
-	}
-
-	if augA.ResolvedClassID == nil || augB.ResolvedClassID == nil {
-		t.Fatal("S15: both should have resolved class IDs")
-	}
-	if *augA.ResolvedClassID == *augB.ResolvedClassID {
-		t.Fatalf("S15: school A and school B should have different class IDs, both got %s", *augA.ResolvedClassID)
-	}
-	if *augA.ResolvedClassID != classA {
-		t.Fatalf("S15: school A expected %s, got %s", classA, *augA.ResolvedClassID)
-	}
-	if *augB.ResolvedClassID != classB {
-		t.Fatalf("S15: school B expected %s, got %s", classB, *augB.ResolvedClassID)
-	}
-}
-
-// ============================================================================
 // Tests: BulkInsert + InsertOne
 // ============================================================================
 
 func TestBulkInsert_ReturnsErrorToTriggerSavepoint(t *testing.T) {
-	// Verify that BulkInsert intentionally returns error for student imports
-	// (since we need per-row student+enrollment inserts with the generated student ID)
 	h := newTestHarness()
 	ctx := context.Background()
 
@@ -426,26 +588,20 @@ func TestBulkInsert_ReturnsErrorToTriggerSavepoint(t *testing.T) {
 }
 
 func TestInsertOne_RoundTrip(t *testing.T) {
-	// InsertOne requires a real pgx.Tx which we can't provide in unit tests.
-	// This test verifies the structural integrity of the augmented row.
-	classID := "class_G4_Blue"
 	aug := augmentedImportRow{
-		FullName:        "Alice",
-		Gender:          "F",
-		GradeLevel:      "G4",
-		StreamName:      "Blue",
-		TenantID:        uuid.New().String(),
-		SchoolID:        uuid.New().String(),
-		AcademicTermID:  "term_001",
-		AcademicYearID:  "year_001",
-		ResolvedClassID: &classID,
+		FullName:       "Alice",
+		Gender:         "F",
+		ClassID:        "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+		TenantID:       uuid.New().String(),
+		SchoolID:       uuid.New().String(),
+		AcademicTermID: "term_001",
+		AcademicYearID: "year_001",
 	}
 	data, err := json.Marshal(aug)
 	if err != nil {
 		t.Fatalf("marshal augmented row: %v", err)
 	}
 
-	// The augmented row should unmarshal back cleanly
 	var back augmentedImportRow
 	if err := json.Unmarshal(data, &back); err != nil {
 		t.Fatalf("unmarshal round-trip: %v", err)
@@ -453,96 +609,347 @@ func TestInsertOne_RoundTrip(t *testing.T) {
 	if back.FullName != "Alice" {
 		t.Fatalf("expected FullName 'Alice', got %q", back.FullName)
 	}
-	if back.ResolvedClassID == nil || *back.ResolvedClassID != "class_G4_Blue" {
-		t.Fatalf("expected class_G4_Blue, got %v", back.ResolvedClassID)
+	if back.ClassID != "a1b2c3d4-e5f6-7890-abcd-ef1234567890" {
+		t.Fatalf("expected ClassID 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', got %q", back.ClassID)
 	}
-
 }
 
-func TestInsertOne_ResolvedClassIDRequired(t *testing.T) {
-	// InsertOne should fail when resolved_class_id is nil.
-	// The pre-condition guard in InsertOne checks resolved_class_id != nil
-	// before proceeding. We verify this at the code level.
-	t.Log("InsertOne guards: resolved_class_id must not be nil")
+func TestInsertOne_WithoutEnrollment_RoundTrip(t *testing.T) {
+	aug := augmentedImportRow{
+		FullName:       "Jane NoClass",
+		Gender:         "F",
+		TenantID:       uuid.New().String(),
+		SchoolID:       uuid.New().String(),
+		AcademicTermID: "term_001",
+		AcademicYearID: "year_001",
+		// ClassID is empty — no enrollment
+	}
+	data, err := json.Marshal(aug)
+	if err != nil {
+		t.Fatalf("marshal augmented row without class: %v", err)
+	}
+
+	var back augmentedImportRow
+	if err := json.Unmarshal(data, &back); err != nil {
+		t.Fatalf("unmarshal round-trip: %v", err)
+	}
+	if back.FullName != "Jane NoClass" {
+		t.Fatalf("expected FullName 'Jane NoClass', got %q", back.FullName)
+	}
+	if back.ClassID != "" {
+		t.Fatalf("expected empty ClassID, got %q", back.ClassID)
+	}
 }
 
 // ============================================================================
-// Integration-Style: Full Flow with 2000 Students (H2)
+// Tests: DB Constraint Translation
+// ============================================================================
+
+func TestInsertOne_UnmappedConstraintViolation(t *testing.T) {
+	h := newTestHarness()
+	ctx := context.Background()
+
+	// Build an augmented row with a valid-looking UUID class_id
+	classID := uuid.New().String()
+	aug := augmentedImportRow{
+		FullName:       "Constraint Violation",
+		Gender:         "M",
+		ClassID:        classID,
+		TenantID:       uuid.New().String(),
+		SchoolID:       uuid.New().String(),
+		AcademicTermID: "term_001",
+		AcademicYearID: "year_001",
+		StagingRowID:   uuid.New().String(),
+	}
+
+	// Spy on translateConstraintError: create a pgconn.PgError with an unknown
+	// constraint name to simulate an unmapped constraint violation.
+	pgErr := &pgconn.PgError{
+		Code:           "23505", // unique_violation
+		ConstraintName: "some_unknown_constraint",
+		Message:        "duplicate key value violates unique constraint \"some_unknown_constraint\"",
+	}
+	wrappedErr := fmt.Errorf("insert student: %w", pgErr)
+
+	// Save the original function and restore after test
+	origInsertStudent := siInsertStudent
+	defer func() {
+		siInsertStudent = origInsertStudent
+	}()
+
+	// Make insertStudent return the wrapped pgconn error
+	siInsertStudent = func(si *StudentImporter, ctx context.Context, tx pgx.Tx, aug augmentedImportRow) (string, error) {
+		return "", wrappedErr
+	}
+
+	rowData, _ := json.Marshal(aug)
+	row := imports.ValidatedRow{RawData: rowData}
+
+	err := h.imp.InsertOne(ctx, nil, row)
+	if err == nil {
+		t.Fatal("expected error from InsertOne with constraint violation")
+	}
+
+	// Verify it's an ImportError with the generic type and message
+	var impErr *imports.ImportError
+	if !errors.As(err, &impErr) {
+		t.Fatalf("expected *imports.ImportError, got %T: %v", err, err)
+	}
+	if impErr.Type != imports.ImportFailureDBConstraintViolation {
+		t.Fatalf("expected DB_CONSTRAINT_VIOLATION type, got %s", impErr.Type)
+	}
+	if impErr.Message != "This record could not be saved due to a data conflict" {
+		t.Fatalf("expected generic error message, got %q", impErr.Message)
+	}
+	// Raw SQL/driver text MUST NOT appear in the error message
+	if containsStr(impErr.Message, "some_unknown_constraint") || containsStr(impErr.Message, "duplicate key") {
+		t.Fatalf("raw driver text leaked into error message: %q", impErr.Message)
+	}
+}
+
+// TestInsertOne_KnownConstraintFKEnrollments verifies that a known
+// fk_enrollments_tenant_class violation is translated to
+// INVALID_CLASS_REFERENCE with a friendly message.
+func TestInsertOne_KnownConstraintFKEnrollments(t *testing.T) {
+	h := newTestHarness()
+	ctx := context.Background()
+
+	classID := uuid.New().String()
+	aug := augmentedImportRow{
+		FullName:       "FK Violation Student",
+		Gender:         "F",
+		ClassID:        classID,
+		TenantID:       uuid.New().String(),
+		SchoolID:       uuid.New().String(),
+		AcademicTermID: "term_001",
+		AcademicYearID: "year_001",
+		StagingRowID:   uuid.New().String(),
+	}
+
+	pgErr := &pgconn.PgError{
+		Code:           "23503", // foreign_key_violation
+		ConstraintName: "fk_enrollments_tenant_class",
+		Message:        "insert or update on table \"cbc_student_enrollments\" violates foreign key constraint \"fk_enrollments_tenant_class\"",
+	}
+	wrappedErr := fmt.Errorf("insert enrollment for student %s: %w", uuid.New().String(), pgErr)
+
+	origInsertStudent := siInsertStudent
+	defer func() {
+		siInsertStudent = origInsertStudent
+	}()
+
+	// First insertStudent succeeds, then insertEnrollment fails
+	callCount := 0
+	siInsertStudent = func(si *StudentImporter, ctx context.Context, tx pgx.Tx, aug augmentedImportRow) (string, error) {
+		callCount++
+		return uuid.New().String(), nil // student insert succeeds
+	}
+
+	// intercept insertEnrollment by replacing the insertEnrollment method
+	origInsertEnrollment := siInsertEnrollment
+	defer func() {
+		siInsertEnrollment = origInsertEnrollment
+	}()
+
+	siInsertEnrollment = func(si *StudentImporter, ctx context.Context, tx pgx.Tx, studentID string, aug augmentedImportRow) error {
+		return wrappedErr
+	}
+
+	rowData, _ := json.Marshal(aug)
+	row := imports.ValidatedRow{RawData: rowData}
+
+	err := h.imp.InsertOne(ctx, nil, row)
+	if err == nil {
+		t.Fatal("expected error from InsertOne with FK violation")
+	}
+
+	var impErr *imports.ImportError
+	if !errors.As(err, &impErr) {
+		t.Fatalf("expected *imports.ImportError, got %T: %v", err, err)
+	}
+	if impErr.Type != imports.ImportFailureInvalidClassReference {
+		t.Fatalf("expected INVALID_CLASS_REFERENCE for FK constraint, got %s", impErr.Type)
+	}
+	if !containsStr(impErr.Message, "does not exist") {
+		t.Fatalf("expected friendly message about class not existing, got %q", impErr.Message)
+	}
+}
+
+// TestInsertOne_KnownConstraintDupEnrollment verifies that a
+// unique_student_term_enrollment violation is translated to
+// BUSINESS_RULE_VIOLATION.
+func TestInsertOne_KnownConstraintDupEnrollment(t *testing.T) {
+	h := newTestHarness()
+	ctx := context.Background()
+
+	classID := uuid.New().String()
+	aug := augmentedImportRow{
+		FullName:       "Dup Enrollment",
+		Gender:         "F",
+		ClassID:        classID,
+		TenantID:       uuid.New().String(),
+		SchoolID:       uuid.New().String(),
+		AcademicTermID: "term_001",
+		AcademicYearID: "year_001",
+		StagingRowID:   uuid.New().String(),
+	}
+
+	pgErr := &pgconn.PgError{
+		Code:           "23505", // unique_violation
+		ConstraintName: "unique_student_term_enrollment",
+		Message:        "duplicate key value violates unique constraint \"unique_student_term_enrollment\"",
+	}
+	wrappedErr := fmt.Errorf("insert enrollment for student %s: %w", uuid.New().String(), pgErr)
+
+	origInsertStudent := siInsertStudent
+	defer func() {
+		siInsertStudent = origInsertStudent
+	}()
+	origInsertEnrollment := siInsertEnrollment
+	defer func() {
+		siInsertEnrollment = origInsertEnrollment
+	}()
+
+	siInsertStudent = func(si *StudentImporter, ctx context.Context, tx pgx.Tx, aug augmentedImportRow) (string, error) {
+		return uuid.New().String(), nil
+	}
+	siInsertEnrollment = func(si *StudentImporter, ctx context.Context, tx pgx.Tx, studentID string, aug augmentedImportRow) error {
+		return wrappedErr
+	}
+
+	rowData, _ := json.Marshal(aug)
+	row := imports.ValidatedRow{RawData: rowData}
+
+	err := h.imp.InsertOne(ctx, nil, row)
+	if err == nil {
+		t.Fatal("expected error from InsertOne with duplicate enrollment")
+	}
+
+	var impErr *imports.ImportError
+	if !errors.As(err, &impErr) {
+		t.Fatalf("expected *imports.ImportError, got %T: %v", err, err)
+	}
+	if impErr.Type != imports.ImportFailureBusinessRule {
+		t.Fatalf("expected BUSINESS_RULE_VIOLATION for duplicate enrollment, got %s", impErr.Type)
+	}
+	if !containsStr(impErr.Message, "already enrolled") {
+		t.Fatalf("expected message about 'already enrolled', got %q", impErr.Message)
+	}
+}
+
+// TestInsertOne_NonPgError verifies that non-Postgres errors
+// (e.g., context errors, network errors) pass through unchanged.
+func TestInsertOne_NonPgError(t *testing.T) {
+	h := newTestHarness()
+	ctx := context.Background()
+
+	aug := augmentedImportRow{
+		FullName:       "Network Error Student",
+		Gender:         "M",
+		TenantID:       uuid.New().String(),
+		SchoolID:       uuid.New().String(),
+		AcademicTermID: "term_001",
+		AcademicYearID: "year_001",
+		StagingRowID:   uuid.New().String(),
+	}
+
+	origInsertStudent := siInsertStudent
+	defer func() {
+		siInsertStudent = origInsertStudent
+	}()
+
+	siInsertStudent = func(si *StudentImporter, ctx context.Context, tx pgx.Tx, aug augmentedImportRow) (string, error) {
+		return "", errors.New("network timeout")
+	}
+
+	rowData, _ := json.Marshal(aug)
+	row := imports.ValidatedRow{RawData: rowData}
+
+	err := h.imp.InsertOne(ctx, nil, row)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	// Should NOT be an ImportError — it should pass through the original error
+	var impErr *imports.ImportError
+	if errors.As(err, &impErr) {
+		t.Fatal("expected plain error, not ImportError for non-Postgres error")
+	}
+	if err.Error() != "network timeout" && !containsStr(err.Error(), "network timeout") {
+		// The error gets wrapped via insertStudent, so check the end
+		if !containsStr(err.Error(), "network timeout") {
+			t.Fatalf("expected original error to be preserved, got %q", err.Error())
+		}
+	}
+}
+
+// ============================================================================
+// Integration-Style: Full Flow with 2000 Students
 // ============================================================================
 
 func TestStudentImporter_ValidateAndResolve2000(t *testing.T) {
-	// H2: 2000 students all valid, all resolving to the same class
 	h := newTestHarness()
 	ctx := context.Background()
 
 	tenantID := uuid.New()
 	schoolID := uuid.New()
-	classID := "class_G4_Blue"
 
-	h.repo.resolveClassByGradeAndStreamFn = func(ctx context.Context, tid, sid, yearID, grade, stream string) (*string, error) {
-		return &classID, nil
-	}
-
-	// Create 2000 raw rows
 	raw := make([]json.RawMessage, 2000)
 	for i := 0; i < 2000; i++ {
-		raw[i] = json.RawMessage(`{"full_name":"Student ` + itoa(i) + `","gender":"M","grade_level":"G4","stream_name":"Blue"}`)
+		raw[i] = json.RawMessage(`{"full_name":"Student ` + itoa(i) + `","gender":"M","class_id":"a1b2c3d4-e5f6-7890-abcd-ef1234567890"}`)
 	}
 
-	// Step 1: Validate all
 	valid, failures := h.imp.Validate(ctx, tenantID, schoolID, raw)
 	if len(failures) != 0 {
-		t.Fatalf("H2: expected 0 validation failures for 2000 valid rows, got %d: %v", len(failures), failures)
+		t.Fatalf("expected 0 validation failures for 2000 valid rows, got %d: %v", len(failures), failures)
 	}
 	if len(valid) != 2000 {
-		t.Fatalf("H2: expected 2000 valid rows, got %d", len(valid))
+		t.Fatalf("expected 2000 valid rows, got %d", len(valid))
 	}
 
-	// Step 2: Resolve all
+	h.repo.validateClassExistsFn = func(_ context.Context, tid, sid, cid string) (bool, error) {
+		return true, nil
+	}
+
 	metadata := json.RawMessage(`{"academic_term_id":"term_001","academic_year_id":"year_001"}`)
 	resolved, resolveFailures := h.imp.ResolveReferences(ctx, tenantID, schoolID, metadata, valid)
 	if len(resolveFailures) != 0 {
-		t.Fatalf("H2: expected 0 resolve failures, got %d: %v", len(resolveFailures), resolveFailures)
+		t.Fatalf("expected 0 resolve failures, got %d: %v", len(resolveFailures), resolveFailures)
 	}
 	if len(resolved) != 2000 {
-		t.Fatalf("H2: expected 2000 resolved rows, got %d", len(resolved))
+		t.Fatalf("expected 2000 resolved rows, got %d", len(resolved))
 	}
 
-	// Verify all rows have resolved_class_id
 	for i, row := range resolved {
 		var aug augmentedImportRow
 		if err := json.Unmarshal(row.RawData, &aug); err != nil {
-			t.Fatalf("H2: row %d unmarshal failed: %v", i, err)
+			t.Fatalf("row %d unmarshal failed: %v", i, err)
 		}
-		if aug.ResolvedClassID == nil || *aug.ResolvedClassID != classID {
-			t.Fatalf("H2: row %d expected resolved_class_id %s, got %v", i, classID, aug.ResolvedClassID)
+		if aug.ClassID != "a1b2c3d4-e5f6-7890-abcd-ef1234567890" {
+			t.Fatalf("row %d expected ClassID 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', got %q", i, aug.ClassID)
 		}
 		if aug.FullName == "" {
-			t.Fatalf("H2: row %d has empty full_name", i)
+			t.Fatalf("row %d has empty full_name", i)
 		}
 		if aug.Gender != "M" {
-			t.Fatalf("H2: row %d expected gender M, got %s", i, aug.Gender)
+			t.Fatalf("row %d expected gender M, got %s", i, aug.Gender)
 		}
 	}
 }
 
 func TestStudentImporter_Validate2000WithSomeFailures(t *testing.T) {
-	// S1: Duplicate-like scenario within the file — some fail, most succeed
 	h := newTestHarness()
 	ctx := context.Background()
 
-	// 2000 rows where every 100th row has missing gender
 	raw := make([]json.RawMessage, 2000)
 	for i := 0; i < 2000; i++ {
 		if i%100 == 0 {
-			raw[i] = json.RawMessage(`{"full_name":"Bad Student ` + itoa(i) + `","gender":"X","grade_level":"G4","stream_name":"Blue"}`)
+			raw[i] = json.RawMessage(`{"full_name":"Bad Student ` + itoa(i) + `","gender":"X","class_id":"a1b2c3d4-e5f6-7890-abcd-ef1234567890"}`)
 		} else {
-			raw[i] = json.RawMessage(`{"full_name":"Student ` + itoa(i) + `","gender":"M","grade_level":"G4","stream_name":"Blue"}`)
+			raw[i] = json.RawMessage(`{"full_name":"Student ` + itoa(i) + `","gender":"M","class_id":"a1b2c3d4-e5f6-7890-abcd-ef1234567890"}`)
 		}
 	}
 
 	valid, failures := h.imp.Validate(ctx, uuid.New(), uuid.New(), raw)
-	// 20 rows should fail (indices 0, 100, 200, ..., 1900)
 	expectedFailures := 2000 / 100
 	if len(failures) != expectedFailures {
 		t.Fatalf("expected %d validation failures, got %d", expectedFailures, len(failures))
@@ -553,104 +960,215 @@ func TestStudentImporter_Validate2000WithSomeFailures(t *testing.T) {
 }
 
 // ============================================================================
-// Tests: Edge cases (S12, S16)
+// Tests: Insert-time Duplicate Detection
 // ============================================================================
 
-func TestValidate_EmptyRowArray(t *testing.T) {
-	// S12: Empty rows array → no failures, no valid rows
-	h := newTestHarness()
-	ctx := context.Background()
-
-	valid, failures := h.imp.Validate(ctx, uuid.New(), uuid.New(), []json.RawMessage{})
-	if len(failures) != 0 {
-		t.Fatalf("S12: expected 0 failures for empty array, got %d", len(failures))
-	}
-	if len(valid) != 0 {
-		t.Fatalf("S12: expected 0 valid rows for empty array, got %d", len(valid))
-	}
-}
-
-func TestValidate_AllRowsFail_ResolveHappy(t *testing.T) {
-	// S16: All rows fail validation → no rows to resolve
-	h := newTestHarness()
-	ctx := context.Background()
-
-	raw := make([]json.RawMessage, 10)
-	for i := 0; i < 10; i++ {
-		raw[i] = json.RawMessage(`{"full_name":"","gender":"X","grade_level":"","stream_name":""}`)
-	}
-
-	valid, failures := h.imp.Validate(ctx, uuid.New(), uuid.New(), raw)
-	if len(valid) != 0 {
-		t.Fatalf("S16: expected 0 valid rows, got %d", len(valid))
-	}
-	if len(failures) != 10 {
-		t.Fatalf("S16: expected 10 failures, got %d", len(failures))
-	}
-
-	// ResolveReferences on empty valid set should return empty
-	metadata := json.RawMessage(`{"academic_term_id":"t","academic_year_id":"y"}`)
-	resolved, resolveFailures := h.imp.ResolveReferences(ctx, uuid.New(), uuid.New(), metadata, valid)
-	if len(resolved) != 0 {
-		t.Fatalf("S16: expected 0 resolved rows from empty input, got %d", len(resolved))
-	}
-	if len(resolveFailures) != 0 {
-		t.Fatalf("S16: expected 0 resolve failures from empty input, got %d", len(resolveFailures))
-	}
-}
-
-// ============================================================================
-// Tests: ResolveReferences — multiple distinct grade/stream pairs
-// ============================================================================
-
-func TestResolveReferences_MultipleGradeStreamCombos(t *testing.T) {
+func TestResolveReferences_DuplicateAdmissionNumber(t *testing.T) {
 	h := newTestHarness()
 	ctx := context.Background()
 
 	tenantID := uuid.New()
 	schoolID := uuid.New()
 
-	resolvedClasses := map[string]string{
-		"G4_Blue":  "class_001",
-		"G4_Red":   "class_002",
-		"G5_Blue":  "class_003",
-		"G5_Green": "class_004",
-	}
-
-	h.repo.resolveClassByGradeAndStreamFn = func(ctx context.Context, tid, sid, yearID, grade, stream string) (*string, error) {
-		key := grade + "_" + stream
-		if cid, ok := resolvedClasses[key]; ok {
-			return &cid, nil
-		}
-		return nil, nil
-	}
-
 	rows := []imports.ValidatedRow{
-		{RawData: json.RawMessage(`{"full_name":"S1","gender":"M","grade_level":"G4","stream_name":"Blue"}`)},
-		{RawData: json.RawMessage(`{"full_name":"S2","gender":"F","grade_level":"G4","stream_name":"Red"}`)},
-		{RawData: json.RawMessage(`{"full_name":"S3","gender":"M","grade_level":"G5","stream_name":"Blue"}`)},
-		{RawData: json.RawMessage(`{"full_name":"S4","gender":"F","grade_level":"G5","stream_name":"Green"}`)},
+		{RawData: json.RawMessage(`{"full_name":"Dup Adm","gender":"F","admission_number":"ADM001","class_id":"a1b2c3d4-e5f6-7890-abcd-ef1234567890"}`)},
+	}
+
+	h.repo.validateClassExistsFn = func(_ context.Context, tid, sid, cid string) (bool, error) {
+		return true, nil
+	}
+	h.repo.checkExistingFieldValuesFn = func(_ context.Context, tid, sid string, adm, upi, knec []string) ([]string, []string, []string, error) {
+		return []string{"ADM001"}, []string{}, []string{}, nil
 	}
 
 	metadata := json.RawMessage(`{"academic_term_id":"term_001","academic_year_id":"year_001"}`)
+
+	resolved, failures := h.imp.ResolveReferences(ctx, tenantID, schoolID, metadata, rows)
+	if len(resolved) != 0 {
+		t.Fatalf("expected 0 resolved rows for duplicate admission_number, got %d", len(resolved))
+	}
+	if len(failures) != 1 {
+		t.Fatalf("expected 1 failure for duplicate admission_number, got %d", len(failures))
+	}
+	if failures[0].ErrorType != imports.ImportFailureDuplicateAdmissionNumber {
+		t.Fatalf("expected DUPLICATE_ADMISSION_NUMBER, got %s", failures[0].ErrorType)
+	}
+	if !containsStr(failures[0].ErrorMessage, "ADM001") {
+		t.Fatalf("expected error message to mention 'ADM001', got %q", failures[0].ErrorMessage)
+	}
+}
+
+func TestResolveReferences_DuplicateUPINumber(t *testing.T) {
+	h := newTestHarness()
+	ctx := context.Background()
+
+	tenantID := uuid.New()
+	schoolID := uuid.New()
+
+	rows := []imports.ValidatedRow{
+		{RawData: json.RawMessage(`{"full_name":"Dup UPI","gender":"M","upi_number":"UPI999","class_id":"a1b2c3d4-e5f6-7890-abcd-ef1234567890"}`)},
+	}
+
+	h.repo.validateClassExistsFn = func(_ context.Context, tid, sid, cid string) (bool, error) {
+		return true, nil
+	}
+	h.repo.checkExistingFieldValuesFn = func(_ context.Context, tid, sid string, adm, upi, knec []string) ([]string, []string, []string, error) {
+		return []string{}, []string{"UPI999"}, []string{}, nil
+	}
+
+	metadata := json.RawMessage(`{"academic_term_id":"term_001","academic_year_id":"year_001"}`)
+
+	resolved, failures := h.imp.ResolveReferences(ctx, tenantID, schoolID, metadata, rows)
+	if len(resolved) != 0 {
+		t.Fatalf("expected 0 resolved rows for duplicate UPI, got %d", len(resolved))
+	}
+	if len(failures) != 1 {
+		t.Fatalf("expected 1 failure for duplicate UPI, got %d", len(failures))
+	}
+	if failures[0].ErrorType != imports.ImportFailureDuplicateUPINumber {
+		t.Fatalf("expected DUPLICATE_UPI_NUMBER, got %s", failures[0].ErrorType)
+	}
+}
+
+func TestResolveReferences_DuplicateKNECNumber(t *testing.T) {
+	h := newTestHarness()
+	ctx := context.Background()
+
+	tenantID := uuid.New()
+	schoolID := uuid.New()
+
+	rows := []imports.ValidatedRow{
+		{RawData: json.RawMessage(`{"full_name":"Dup KNEC","gender":"F","knec_assessment_number":"KNEC123","class_id":"a1b2c3d4-e5f6-7890-abcd-ef1234567890"}`)},
+	}
+
+	h.repo.validateClassExistsFn = func(_ context.Context, tid, sid, cid string) (bool, error) {
+		return true, nil
+	}
+	h.repo.checkExistingFieldValuesFn = func(_ context.Context, tid, sid string, adm, upi, knec []string) ([]string, []string, []string, error) {
+		return []string{}, []string{}, []string{"KNEC123"}, nil
+	}
+
+	metadata := json.RawMessage(`{"academic_term_id":"term_001","academic_year_id":"year_001"}`)
+
+	resolved, failures := h.imp.ResolveReferences(ctx, tenantID, schoolID, metadata, rows)
+	if len(resolved) != 0 {
+		t.Fatalf("expected 0 resolved rows for duplicate KNEC, got %d", len(resolved))
+	}
+	if len(failures) != 1 {
+		t.Fatalf("expected 1 failure for duplicate KNEC, got %d", len(failures))
+	}
+	if failures[0].ErrorType != imports.ImportFailureDuplicateKneCNumber {
+		t.Fatalf("expected DUPLICATE_KNEC_NUMBER, got %s", failures[0].ErrorType)
+	}
+}
+
+// TestResolveReferences_SameBatchSharedNumber verifies that two rows in the
+// same submission sharing an admission_number are NOT flagged by the backend
+// safety net. Within-batch duplicate detection is a frontend responsibility.
+func TestResolveReferences_SameBatchSharedNumber_BothSucceed(t *testing.T) {
+	h := newTestHarness()
+	ctx := context.Background()
+
+	tenantID := uuid.New()
+	schoolID := uuid.New()
+
+	// Both rows share the same admission_number — the backend must NOT flag them
+	rows := []imports.ValidatedRow{
+		{RawData: json.RawMessage(`{"full_name":"Alice","gender":"F","admission_number":"ADM_SHARED","class_id":"a1b2c3d4-e5f6-7890-abcd-ef1234567890"}`)},
+		{RawData: json.RawMessage(`{"full_name":"Bob","gender":"M","admission_number":"ADM_SHARED","class_id":"a1b2c3d4-e5f6-7890-abcd-ef1234567890"}`)},
+	}
+
+	h.repo.validateClassExistsFn = func(_ context.Context, tid, sid, cid string) (bool, error) {
+		return true, nil
+	}
+	h.repo.checkExistingFieldValuesFn = func(_ context.Context, tid, sid string, adm, upi, knec []string) ([]string, []string, []string, error) {
+		// Neither value exists in the DB yet
+		return []string{}, []string{}, []string{}, nil
+	}
+
+	metadata := json.RawMessage(`{"academic_term_id":"term_001","academic_year_id":"year_001"}`)
+
+	resolved, failures := h.imp.ResolveReferences(ctx, tenantID, schoolID, metadata, rows)
+	if len(failures) != 0 {
+		t.Fatalf("expected 0 failures for same-batch shared number, got %d: %v", len(failures), failures)
+	}
+	if len(resolved) != 2 {
+		t.Fatalf("expected 2 resolved rows, got %d", len(resolved))
+	}
+}
+
+func TestResolveReferences_NoDuplicatesInBatch(t *testing.T) {
+	h := newTestHarness()
+	ctx := context.Background()
+
+	tenantID := uuid.New()
+	schoolID := uuid.New()
+
+	// Multiple rows with different values — none exist in DB
+	rows := []imports.ValidatedRow{
+		{RawData: json.RawMessage(`{"full_name":"Alice","gender":"F","admission_number":"ADM001","upi_number":"UPI001","knec_assessment_number":"KNEC001","class_id":"a1b2c3d4-e5f6-7890-abcd-ef1234567890"}`)},
+		{RawData: json.RawMessage(`{"full_name":"Bob","gender":"M","admission_number":"ADM002","upi_number":"UPI002","knec_assessment_number":"KNEC002","class_id":"a1b2c3d4-e5f6-7890-abcd-ef1234567890"}`)},
+	}
+
+	h.repo.validateClassExistsFn = func(_ context.Context, tid, sid, cid string) (bool, error) {
+		return true, nil
+	}
+	h.repo.checkExistingFieldValuesFn = func(_ context.Context, tid, sid string, adm, upi, knec []string) ([]string, []string, []string, error) {
+		return []string{}, []string{}, []string{}, nil
+	}
+
+	metadata := json.RawMessage(`{"academic_term_id":"term_001","academic_year_id":"year_001"}`)
+
 	resolved, failures := h.imp.ResolveReferences(ctx, tenantID, schoolID, metadata, rows)
 	if len(failures) != 0 {
 		t.Fatalf("expected 0 failures, got %d: %v", len(failures), failures)
 	}
-	if len(resolved) != 4 {
-		t.Fatalf("expected 4 resolved rows, got %d", len(resolved))
+	if len(resolved) != 2 {
+		t.Fatalf("expected 2 resolved rows, got %d", len(resolved))
+	}
+}
+
+// ============================================================================
+// Tests: Edge cases
+// ============================================================================
+
+func TestValidate_EmptyRowArray(t *testing.T) {
+	h := newTestHarness()
+	ctx := context.Background()
+
+	valid, failures := h.imp.Validate(ctx, uuid.New(), uuid.New(), []json.RawMessage{})
+	if len(failures) != 0 {
+		t.Fatalf("expected 0 failures for empty array, got %d", len(failures))
+	}
+	if len(valid) != 0 {
+		t.Fatalf("expected 0 valid rows for empty array, got %d", len(valid))
+	}
+}
+
+func TestValidate_AllRowsFail_ResolveHappy(t *testing.T) {
+	h := newTestHarness()
+	ctx := context.Background()
+
+	raw := make([]json.RawMessage, 10)
+	for i := 0; i < 10; i++ {
+		raw[i] = json.RawMessage(`{"full_name":"","gender":"X","class_id":""}`)
 	}
 
-	// Verify each has the correct class
-	for i, expectedKey := range []string{"G4_Blue", "G4_Red", "G5_Blue", "G5_Green"} {
-		var aug augmentedImportRow
-		if err := json.Unmarshal(resolved[i].RawData, &aug); err != nil {
-			t.Fatalf("unmarshal resolved[%d]: %v", i, err)
-		}
-		expectedClass := resolvedClasses[expectedKey]
-		if aug.ResolvedClassID == nil || *aug.ResolvedClassID != expectedClass {
-			t.Fatalf("row %d (%s): expected class %s, got %v", i, expectedKey, expectedClass, aug.ResolvedClassID)
-		}
+	valid, failures := h.imp.Validate(ctx, uuid.New(), uuid.New(), raw)
+	if len(valid) != 0 {
+		t.Fatalf("expected 0 valid rows, got %d", len(valid))
+	}
+	if len(failures) != 10 {
+		t.Fatalf("expected 10 failures, got %d", len(failures))
+	}
+
+	metadata := json.RawMessage(`{"academic_term_id":"t","academic_year_id":"y"}`)
+	resolved, resolveFailures := h.imp.ResolveReferences(ctx, uuid.New(), uuid.New(), metadata, valid)
+	if len(resolved) != 0 {
+		t.Fatalf("expected 0 resolved rows from empty input, got %d", len(resolved))
+	}
+	if len(resolveFailures) != 0 {
+		t.Fatalf("expected 0 resolve failures from empty input, got %d", len(resolveFailures))
 	}
 }
 
@@ -659,7 +1177,6 @@ func TestResolveReferences_MultipleGradeStreamCombos(t *testing.T) {
 // ============================================================================
 
 func TestStudentImporter_ImplementsImporter(t *testing.T) {
-	// Compile-time check that StudentImporter implements imports.Importer
 	var _ imports.Importer = (*StudentImporter)(nil)
 	t.Log("StudentImporter implements imports.Importer")
 }
@@ -686,4 +1203,17 @@ func itoa(i int) string {
 		result = "-" + result
 	}
 	return result
+}
+
+func containsStr(s, substr string) bool {
+	return len(s) >= len(substr) && searchStr(s, substr)
+}
+
+func searchStr(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
 }

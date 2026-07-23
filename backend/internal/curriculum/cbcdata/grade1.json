@@ -1,0 +1,298 @@
+[
+  {
+    "name": "Mathematical Activities",
+    "code": "MATH_G1",
+    "education_level": "Early_Years",
+    "strands": [
+      {
+        "name": "Numbers",
+        "sub_strands": [
+          {
+            "name": "Number Concept",
+            "performance_indicators": [
+              "Count concrete objects forward and backward from 1 to 100.",
+              "Demonstrate place value of digits in numbers up to tens using bundles.",
+              "Read and write number symbols from 1 to 100 sequentially."
+            ]
+          },
+          {
+            "name": "Whole Numbers and Operations",
+            "performance_indicators": [
+              "Add a 2-digit number to a 1-digit number without regrouping up to a sum of 50.",
+              "Subtract a 1-digit number from a 2-digit number without regrouping up to 50.",
+              "Identify missing numbers in a simple arithmetic progression pattern up to 20."
+            ]
+          },
+          {
+            "name": "Fractions",
+            "performance_indicators": [
+              "Identify a half (1/2) as part of a whole using concrete cut-outs.",
+              "Combine two halves to make one whole object during mathematical play."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Measurement",
+        "sub_strands": [
+          {
+            "name": "Length and Mass",
+            "performance_indicators": [
+              "Measure lengths of classroom surfaces using non-standard units like hand spans and strides.",
+              "Compare the mass of distinct objects using non-standard balances or hand weight approximation."
+            ]
+          },
+          {
+            "name": "Money and Time",
+            "performance_indicators": [
+              "Identify Kenyan currency notes and coins up to a value of 100 Shillings.",
+              "Tell time using fixed markers on an analog clock face (such as 'O'clock')."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "English Language Activities",
+    "code": "ENG_G1",
+    "education_level": "Early_Years",
+    "strands": [
+      {
+        "name": "Listening and Speaking",
+        "sub_strands": [
+          {
+            "name": "Pronunciation and Vocabulary",
+            "performance_indicators": [
+              "Pronounce vocabulary words containing common consonant-vowel-consonant (CVC) phonemes correctly.",
+              "Respond to complex, multi-step spoken instructions within the classroom environment.",
+              "Use basic courtesy words and conversational greetings appropriately during peer dialogue."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Reading",
+        "sub_strands": [
+          {
+            "name": "Word Recognition and Fluency",
+            "performance_indicators": [
+              "Blend letter sounds together smoothly to read simple three-letter vocabulary words.",
+              "Recognize high-frequency sight words accurately within a brief reading passage.",
+              "Track text with a finger from left to right across a printed page smoothly."
+            ]
+          },
+          {
+            "name": "Comprehension",
+            "performance_indicators": [
+              "Answer explicit factual questions directly based on a short read-aloud story.",
+              "Predict what might happen next in an illustrated text using picture cues."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Writing",
+        "sub_strands": [
+          {
+            "name": "Handwriting and Transcription",
+            "performance_indicators": [
+              "Form upper-case and lower-case letters legibly with appropriate spacing.",
+              "Spell frequently used vocabulary words accurately during dictation exercises.",
+              "Write simple personal sentences containing a subject and a verb independently."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Kiswahili Language Activities",
+    "code": "KISW_G1",
+    "education_level": "Early_Years",
+    "strands": [
+      {
+        "name": "Kusikiliza na Kuzungumza",
+        "sub_strands": [
+          {
+            "name": "Sauti na Msamiati",
+            "performance_indicators": [
+              "Kutofautisha na kutamka sauti za herufi na silabi mbalimbali za Kiswahili ipasavyo.",
+              "Kutumia maamkizi na maneno ya adabu katika muktadha sahihi wa kijamii.",
+              "Kujibu maswali rahisi ya mdomo yanayohusu maisha ya kila siku nyumbani."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Kusoma",
+        "sub_strands": [
+          {
+            "name": "Kusoma kwa ufasaha",
+            "performance_indicators": [
+              "Kusoma silabi na maneno mepesi yaliyoundwa kutokana na silabi hizo.",
+              "Kutambua alama za vituo na kusoma vifungu vifupi vya maneno kwa matamshi bora.",
+              "Kueleza ujumbe mkuu wa hadithi fupi iliyosomwa darasani."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Kuandika",
+        "sub_strands": [
+          {
+            "name": "Uandishi wa herufi na sentensi",
+            "performance_indicators": [
+              "Kuandika herufi na silabi kwa miondoko sahihi na mwandiko nadhifu.",
+              "Kuunda na kuandika sentensi fupi za Kiswahili kwa kutumia msamiati ulioteuliwa."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Environmental Activities",
+    "code": "ENV_G1",
+    "education_level": "Early_Years",
+    "strands": [
+      {
+        "name": "Natural and Built Environment",
+        "sub_strands": [
+          {
+            "name": "Weather, Plants, and Soil",
+            "performance_indicators": [
+              "Observe and record changes in local weather patterns over a specified duration.",
+              "Identify the basic parts of a plant (roots, stem, leaves) and describe their primary functions.",
+              "Demonstrate safe practices when exploring variations in local soil types."
+            ]
+          },
+          {
+            "name": "Hygiene and Nutrition Practices",
+            "performance_indicators": [
+              "Demonstrate proper personal hygiene, including correct body cleaning techniques.",
+              "Identify healthy and clean foods while sorting nutritious and non-nutritious options.",
+              "Practice safe and sanitary habits during meal preparation and consumption."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Social Environment and Safety",
+        "sub_strands": [
+          {
+            "name": "Our School and Community helpers",
+            "performance_indicators": [
+              "Outline the location and roles of key administrative members within the school compound.",
+              "Describe the contributions of localized community helpers in ensuring safety and health."
+            ]
+          },
+          {
+            "name": "Safety and Emergencies",
+            "performance_indicators": [
+              "Differentiate between safe physical touches and inappropriate physical contact.",
+              "Identify hazard signs and demonstrate correct behaviors during simple emergency drills."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Creative Activities",
+    "code": "CREAT_G1",
+    "education_level": "Early_Years",
+    "strands": [
+      {
+        "name": "Arts and Crafts",
+        "sub_strands": [
+          {
+            "name": "Visual Arts Expression",
+            "performance_indicators": [
+              "Create two-dimensional drawings using lines and basic geometric shapes.",
+              "Produce patterns using primary colors through stamp-printing techniques.",
+              "Model basic animal shapes using clay, plasticine, or paper m\u00e2ch\u00e9."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Music and Performing Arts",
+        "sub_strands": [
+          {
+            "name": "Performance and Singing",
+            "performance_indicators": [
+              "Sing patriotic and institutional anthems clearly with appropriate posture.",
+              "Perform rhythmic movements matching varying tempos in traditional audio tracks."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Physical Education",
+        "sub_strands": [
+          {
+            "name": "Movement and Coordination",
+            "performance_indicators": [
+              "Demonstrate safe spatial awareness when running, skipping, or jumping.",
+              "Perform basic non-locomotor balances on various parts of the body."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Religious Education",
+    "code": "RE_G1",
+    "education_level": "Early_Years",
+    "strands": [
+      {
+        "name": "Christian Religious Education",
+        "sub_strands": [
+          {
+            "name": "God's Creation and Family",
+            "performance_indicators": [
+              "Acknowledge human life as a sacred gift from God the Creator.",
+              "Demonstrate obedience and respect toward family elders and school authority.",
+              "Retell biblical stories that emphasize sharing, truthfulness, and love."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Islamic Religious Education",
+        "sub_strands": [
+          {
+            "name": "Iman, Quran and Hadith",
+            "performance_indicators": [
+              "Recite specified short Surahs from the Holy Quran accurately.",
+              "Identify the essential attributes of Allah as revealed in Islamic foundational teachings.",
+              "Demonstrate standard Islamic etiquettes during meals and interactions with peers."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Pastoral Instruction Programme",
+    "code": "PAST_G1",
+    "education_level": "Early_Years",
+    "strands": [
+      {
+        "name": "Value Formation and Guidance",
+        "sub_strands": [
+          {
+            "name": "Core Moral Foundations",
+            "performance_indicators": [
+              "Practice honesty and accountability during unsupervised peer play activities.",
+              "Show empathy and render assistance to peers with diverse physical needs.",
+              "Internalize positive behavior patterns through structural moral guidance sessions."
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]

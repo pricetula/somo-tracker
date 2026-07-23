@@ -2,20 +2,20 @@ import * as React from "react";
 
 const MOBILE_BREAKPOINT = 768;
 
-function getIsMobile() {
-    if (typeof window === "undefined") return false; // SSR guard
+function getIsMobile(): boolean {
     return window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`).matches;
 }
 
-export function useIsMobile() {
-    const [isMobile, setIsMobile] = React.useState(getIsMobile);
+function subscribe(onStoreChange: () => void): () => void {
+    const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
+    mql.addEventListener("change", onStoreChange);
+    return () => mql.removeEventListener("change", onStoreChange);
+}
 
-    React.useEffect(() => {
-        const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
-        const onChange = () => setIsMobile(mql.matches);
-        mql.addEventListener("change", onChange);
-        return () => mql.removeEventListener("change", onChange);
-    }, []);
-
-    return isMobile;
+export function useIsMobile(): boolean {
+    return React.useSyncExternalStore(
+        subscribe,
+        getIsMobile,
+        () => false // getServerSnapshot — always false on the server
+    );
 }

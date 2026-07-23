@@ -1,71 +1,115 @@
 /**
  * Parents listing page.
  *
- * Shows all parent/guardian profiles with search.
+ * Shows all parent/guardian profiles with search and curriculum filter.
+ * Uses the shared DataTable component.
  * Maps to GET /api/v1/parents.
+ *
+ * Curriculum filter filters parents whose linked children are in
+ * selected education levels or grades.
+ *
+ * Bulk import is linked via DataTable's addHref → /parents/import.
+ * Sent invitations are listed at /parents/invitations.
  */
 
 "use client";
 
-import * as React from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { DataTable } from "@/components/shared/data-table";
+import type { DataTableColumn, FilterGroup } from "@/components/shared/data-table/types";
+import { Badge } from "@/components/ui/badge";
+import { listParents, type Parent } from "@/lib/api/parents";
+import { GraduationCap, BookOpen } from "lucide-react";
+import { getEducationLevelFilterSubmenu } from "@/features/education-level";
+import { getGradeLevelFilterSubmenu } from "@/features/grade-level";
+import { useDeleteParent } from "@/features/parents";
 
-import { ParentsTable, useParents, useDeleteParent } from "@/features/parents";
+// ─── Columns ──────────────────────────────────────────────────────────────
+
+const columns: DataTableColumn<Parent>[] = [
+    {
+        id: "full_name",
+        header: "Full Name",
+        cell: (row) => (
+            <Link href={`/parents/${row.id}`} className="font-medium hover:underline">
+                {row.full_name || "—"}
+            </Link>
+        ),
+    },
+    {
+        id: "email",
+        header: "Email",
+        cell: (row) => <span className="text-muted-foreground">{row.email}</span>,
+    },
+    {
+        id: "phone_number",
+        header: "Phone",
+        cell: (row) => (
+            <span className="text-muted-foreground font-mono">{row.phone_number || "—"}</span>
+        ),
+    },
+    {
+        id: "is_active",
+        header: "Status",
+        width: "100px",
+        cell: (row) => (
+            <Badge
+                variant="secondary"
+                className={
+                    row.is_active
+                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                        : "bg-muted text-muted-foreground"
+                }
+            >
+                {row.is_active ? "Active" : "Inactive"}
+            </Badge>
+        ),
+    },
+];
+
+// ─── Filter Groups ────────────────────────────────────────────────────────
+
+const filterGroups: FilterGroup[] = [
+    {
+        id: "curriculum_filters",
+        label: "Filter by",
+        items: [
+            {
+                id: "education_level",
+                label: "Education Level",
+                icon: BookOpen,
+                type: "sub_menu_multi",
+                submenu: getEducationLevelFilterSubmenu(),
+            },
+            {
+                id: "grade_level",
+                label: "Grade",
+                icon: GraduationCap,
+                type: "sub_menu_multi",
+                submenu: getGradeLevelFilterSubmenu(),
+            },
+        ],
+    },
+];
+
+// ─── Page ─────────────────────────────────────────────────────────────────
 
 export default function ParentsPage() {
-    const router = useRouter();
-    const [search, setSearch] = React.useState("");
-
-    // Derive the debounced value without calling setState in an effect
-    const debouncedSearch = React.useDeferredValue(search);
-
-    const {
-        data: parentsData,
-        isLoading: parentsLoading,
-        isError: parentsError,
-    } = useParents({ search: debouncedSearch || undefined });
-
-    const deleteParent = useDeleteParent();
-
-    const parents = parentsData?.data ?? [];
-    const total = parents.length;
-
-    const handleDelete = async (id: string) => {
-        if (window.confirm("Delete this parent profile? This cannot be undone.")) {
-            deleteParent.mutate(id);
-        }
-    };
+    const deleteMutation = useDeleteParent();
 
     return (
-        <div className="flex flex-1 flex-col">
-            {/* Page header */}
-            <div className="flex items-center gap-3 px-6 pt-6 pb-2">
-                <h1 className="text-2xl font-semibold tracking-tight">Parents &amp; Guardians</h1>
-            </div>
-
-            <div className="flex flex-1 flex-col px-6 py-4">
-                <section className="flex flex-1 flex-col">
-                    {parentsError ? (
-                        <div className="flex items-center justify-center py-8">
-                            <p className="text-destructive text-sm">
-                                Failed to load parents. Please try again.
-                            </p>
-                        </div>
-                    ) : (
-                        <div className="ring-foreground/10 rounded-lg ring-1">
-                            <ParentsTable
-                                parents={parents}
-                                total={total}
-                                isLoading={parentsLoading}
-                                search={search}
-                                onSearchChange={setSearch}
-                                onDelete={handleDelete}
-                                onCreateClick={() => router.push("/parents/new")}
-                            />
-                        </div>
-                    )}
-                </section>
-            </div>
-        </div>
+        <DataTable
+            addHref="/parents/import"
+            queryKey={["parents"]}
+            queryFn={listParents}
+            columns={columns}
+            getRowId={(row) => row.id}
+            isSearchable
+            searchPlaceholder="Search by name or email…"
+            filterGroups={filterGroups}
+            deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
+            emptyState="No parents yet."
+            noResultsState="No parents match your search or filters."
+        />
     );
 }

@@ -16,6 +16,13 @@ import (
 // Sentinel Domain Errors
 // ============================================================================
 
+// MaxImportBodyBytes returns the maximum request body size (in bytes)
+// for the student import endpoint. Sized to accommodate MaxImportRows
+// worth of realistic student data with headroom.
+func MaxImportBodyBytes() int {
+	return 15 * 1024 * 1024 // 15 MB
+}
+
 var (
 	ErrNotFound         = fmt.Errorf("imports not found: %w", middleware.ErrNotFound)
 	ErrAlreadyExists    = fmt.Errorf("imports already exists: %w", middleware.ErrAlreadyExists)
@@ -26,7 +33,21 @@ var (
 	ErrDuplicateJob     = fmt.Errorf("duplicate import job: %w", middleware.ErrConflict)
 	ErrImportInProgress = fmt.Errorf("import already in progress: %w", middleware.ErrConflict)
 	ErrJobTypeMismatch  = fmt.Errorf("job type mismatch: %w", middleware.ErrInvalidInput)
+	ErrNotCancellable   = fmt.Errorf("import job is not cancellable: %w", middleware.ErrConflict)
 )
+
+// ImportInProgressError is returned when a CreateJob request is rejected because
+// another job for the same school is already active (processing or cancelling).
+// It carries the active job's ID so the frontend can redirect to its progress.
+type ImportInProgressError struct {
+	ActiveJobID uuid.UUID
+}
+
+func (e *ImportInProgressError) Error() string {
+	return fmt.Sprintf("import already in progress for school: active job %s", e.ActiveJobID)
+}
+
+func (e *ImportInProgressError) Unwrap() error { return ErrImportInProgress }
 
 // ============================================================================
 // ImportJobType maps to the import_job_type DB enum.
@@ -37,6 +58,7 @@ type ImportJobType string
 const (
 	ImportJobTypeStaffInvite   ImportJobType = "STAFF_INVITE"
 	ImportJobTypeStudentImport ImportJobType = "STUDENT_IMPORT"
+	ImportJobTypeParentInvite  ImportJobType = "PARENT_INVITE"
 )
 
 // ============================================================================
@@ -51,6 +73,7 @@ const (
 	ImportJobStatusCompleted           ImportJobStatus = "completed"
 	ImportJobStatusFailed              ImportJobStatus = "failed"
 	ImportJobStatusCancelled           ImportJobStatus = "cancelled"
+	ImportJobStatusCancelling          ImportJobStatus = "cancelling"
 	ImportJobStatusCompletedWithErrors ImportJobStatus = "completed_with_errors"
 )
 
@@ -66,6 +89,17 @@ const (
 	ImportStagingStatusFailed    ImportStagingStatus = "failed"
 )
 
+// ImportChunkStatus maps to the import_chunk_status DB enum.
+
+type ImportChunkStatus string
+
+const (
+	ImportChunkStatusPending    ImportChunkStatus = "pending"
+	ImportChunkStatusProcessing ImportChunkStatus = "processing"
+	ImportChunkStatusCompleted  ImportChunkStatus = "completed"
+	ImportChunkStatusCancelled  ImportChunkStatus = "cancelled"
+)
+
 // ============================================================================
 // ImportFailureType maps to the import_failure_type DB enum.
 // ============================================================================
@@ -73,9 +107,20 @@ const (
 type ImportFailureType string
 
 const (
-	ImportFailureSchemaValidation ImportFailureType = "SCHEMA_VALIDATION"
-	ImportFailureDBConstraint     ImportFailureType = "DATABASE_CONSTRAINT"
-	ImportFailureBusinessRule     ImportFailureType = "BUSINESS_RULE_VIOLATION"
+	ImportFailureSchemaValidation         ImportFailureType = "SCHEMA_VALIDATION"
+	ImportFailureDBConstraint             ImportFailureType = "DATABASE_CONSTRAINT"
+	ImportFailureBusinessRule             ImportFailureType = "BUSINESS_RULE_VIOLATION"
+	ImportFailureInvalidClassReference    ImportFailureType = "INVALID_CLASS_REFERENCE"
+	ImportFailureDBConstraintViolation    ImportFailureType = "DB_CONSTRAINT_VIOLATION"
+	ImportFailureDuplicateAdmissionNumber ImportFailureType = "DUPLICATE_ADMISSION_NUMBER"
+	ImportFailureDuplicateUPINumber       ImportFailureType = "DUPLICATE_UPI_NUMBER"
+	ImportFailureDuplicateKneCNumber      ImportFailureType = "DUPLICATE_KNEC_NUMBER"
+
+	// Bulk invitation failure types
+	ImportFailureDuplicateEmail     ImportFailureType = "DUPLICATE_EMAIL"
+	ImportFailureInvalidEmailFormat ImportFailureType = "INVALID_EMAIL_FORMAT"
+	ImportFailureStytchAPIError     ImportFailureType = "STYTCH_API_ERROR"
+	ImportFailureInviteInsertFailed ImportFailureType = "INVITATION_INSERT_FAILED"
 )
 
 // ============================================================================
@@ -96,12 +141,14 @@ type Job struct {
 	SuccessCount     int             `json:"success_count"`
 	FailedCount      int             `json:"failed_count"`
 	IDempotencyKey   *string         `json:"idempotency_key,omitempty"`
+	PayloadHash      *string         `json:"payload_hash,omitempty"`
 	TotalChunks      int             `json:"total_chunks"`
 	ProcessedChunks  int             `json:"processed_chunks"`
 	Metadata         json.RawMessage `json:"metadata"`
 	CreatedAt        time.Time       `json:"created_at"`
 	StartedAt        *time.Time      `json:"started_at,omitempty"`
 	CompletedAt      *time.Time      `json:"completed_at,omitempty"`
+	LastProgressAt   *time.Time      `json:"last_progress_at,omitempty"`
 }
 
 // Chunk describes a contiguous range of staging rows to process as one unit.
@@ -129,8 +176,10 @@ type RowFailure struct {
 }
 
 // ValidatedRow is an opaque validated row — the engine does not inspect its contents.
+// StagingRowID links this row back to the import_job_staging row for idempotent insert tracking.
 type ValidatedRow struct {
-	RawData json.RawMessage
+	RawData      json.RawMessage
+	StagingRowID uuid.UUID
 }
 
 // ChunkResult is returned by a chunk executor after processing.
@@ -141,7 +190,7 @@ type ChunkResult struct {
 	Failures  []RowFailure
 }
 
-// ProgressEvent is emitted via SSE and Redis Pub/Sub.
+// ProgressEvent is emitted via Redis Pub/Sub.
 type ProgressEvent struct {
 	JobID            string          `json:"job_id"`
 	Status           ImportJobStatus `json:"status"`
@@ -151,6 +200,21 @@ type ProgressEvent struct {
 	FailedCount      int             `json:"failed_count"`
 	TotalChunks      int             `json:"total_chunks"`
 	ProcessedChunks  int             `json:"processed_chunks"`
+}
+
+// ============================================================================
+// ImportError — typed error for constraint violations and class reference
+// failures, allowing the service layer to extract the failure type without
+// inspecting raw driver errors.
+// ============================================================================
+
+type ImportError struct {
+	Type    ImportFailureType
+	Message string
+}
+
+func (e *ImportError) Error() string {
+	return e.Message
 }
 
 // ============================================================================
@@ -186,7 +250,13 @@ type Importer interface {
 
 type ServiceRepository interface {
 	// CreateJob creates a new import_job row and returns the ID.
+	// For jobs without an idempotency_key, this is a plain INSERT.
+	// For jobs with an idempotency_key, use CreateJobIdempotent instead.
 	CreateJob(ctx context.Context, job *Job) (uuid.UUID, error)
+
+	// CreateJobIdempotent inserts a new import_job row with ON CONFLICT DO NOTHING.
+	// Returns the newly created Job and true, or the existing Job and false.
+	CreateJobIdempotent(ctx context.Context, job *Job, payloadHash string) (*Job, bool, error)
 
 	// GetJobByID returns a single import job.
 	GetJobByID(ctx context.Context, jobID uuid.UUID) (*Job, error)
@@ -203,10 +273,32 @@ type ServiceRepository interface {
 	// InsertFailures inserts multiple failure records.
 	InsertFailures(ctx context.Context, jobID uuid.UUID, failures []RowFailure) error
 
-	// AtomicChunkCompletion runs the single UPDATE that advances counters and
-	// determines the new job status. Returns the updated status and a boolean
-	// indicating whether the job is terminal (completed/completed_with_errors/failed).
-	AtomicChunkCompletion(ctx context.Context, jobID uuid.UUID, chunkProcessed, chunkSuccess, chunkFailed int) (ImportJobStatus, bool, error)
+	// ClaimChunk atomically transitions a chunk from 'pending' to 'processing'.
+	// Returns the chunk ID if claimed, or uuid.Nil if another worker already claimed it.
+	ClaimChunk(ctx context.Context, jobID uuid.UUID, chunkIndex int) (uuid.UUID, error)
+
+	// InsertChunkRows inserts import_job_chunks rows for a job.
+	InsertChunkRows(ctx context.Context, chunks []Chunk) error
+
+	// AtomicChunkCompletion atomically transitions a chunk from 'processing' to 'completed'
+	// and, only on success, increments job counters. If the chunk is already 'completed'
+	// it is a no-op — counters are not re-incremented.
+	// Returns the updated status and a boolean indicating terminal state.
+	AtomicChunkCompletion(ctx context.Context, jobID uuid.UUID, chunkID uuid.UUID, chunkProcessed, chunkSuccess, chunkFailed int) (ImportJobStatus, bool, error)
+
+	// CancelJob atomically transitions the job from 'processing' to 'cancelling'.
+	// Returns the updated job if the transition succeeded, or nil if the job was
+	// already in a terminal state or another status (race-safe).
+	CancelJob(ctx context.Context, jobID uuid.UUID) (*Job, error)
+
+	// CancelPendingChunk atomically transitions a chunk from 'pending' to 'cancelled'
+	// if the parent job's status is 'cancelling'. No-op if the chunk was already
+	// claimed or completed.
+	CancelPendingChunk(ctx context.Context, jobID uuid.UUID, chunkIndex int) error
+
+	// MarkStagingRowSucceeded sets a single staging row to 'succeeded' within the caller's
+	// transaction/savepoint. Used alongside InsertOne for atomic insert+mark.
+	MarkStagingRowSucceeded(ctx context.Context, tx pgx.Tx, stagingRowID uuid.UUID) error
 
 	// UpdateJobStatus sets the job status (for job-level fail).
 	UpdateJobStatus(ctx context.Context, jobID uuid.UUID, status ImportJobStatus) error
@@ -216,6 +308,29 @@ type ServiceRepository interface {
 
 	// GetJobByIDempotencyKey finds a job by tenant_id and idempotency_key.
 	GetJobByIDempotencyKey(ctx context.Context, tenantID uuid.UUID, idempotencyKey string) (*Job, error)
+
+	// GetFailures returns paginated failure records for a job.
+	GetFailures(ctx context.Context, jobID uuid.UUID, limit, offset int) ([]RowFailure, int, error)
+
+	// ListJobs returns paginated import jobs for a school, newest first.
+	ListJobs(ctx context.Context, tenantID, schoolID uuid.UUID, limit, offset int) ([]Job, int, error)
+
+	// GetActiveJobBySchoolID returns the currently active job (status 'processing' or
+	// 'cancelling') for the given school, or ErrNotFound if none is active.
+	GetActiveJobBySchoolID(ctx context.Context, schoolID uuid.UUID) (*Job, error)
+
+	// CleanupStagingData deletes import_job_staging rows belonging to jobs that
+	// reached a terminal status before the given cutoff time. Only terminal jobs
+	// (completed, completed_with_errors, failed, cancelled) are eligible — jobs
+	// still processing or cancelling are never touched. Returns the number of
+	// rows deleted. Runs in batches of batchSize.
+	CleanupStagingData(ctx context.Context, cutoff time.Time, batchSize int) (int, error)
+
+	// CleanupFailureData is like CleanupStagingData but for import_job_failures.
+	CleanupFailureData(ctx context.Context, cutoff time.Time, batchSize int) (int, error)
+
+	// TouchLastProgressAt sets last_progress_at = NOW() for the given job.
+	TouchLastProgressAt(ctx context.Context, jobID uuid.UUID) error
 }
 
 // StagingRow represents a row in import_job_staging.

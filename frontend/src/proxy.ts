@@ -1,234 +1,162 @@
-import { NextRequest, NextResponse } from "next/server";
-import { SESSION_COOKIE_NAME, ROLE_COOKIE_NAME, ROLE_ROUTES } from "@/lib/auth";
-
-const PROTECTED_PREFIXES = ["/settings", "/admin", "/admins", "/schools"];
-
-// Exhaustive set of valid roles — verifiedRole must be one of these or access is denied.
-// Keeps role checking honest even if ROLE_ROUTES is missing an entry.
-const VALID_ROLES = new Set(["SYSTEM_ADMIN", "SCHOOL_ADMIN", "TEACHER", "NURSE", "FINANCE"]);
-
 /**
- * Converts a hex string back to a Uint8Array.
- * Used to decode the stored signature before passing to crypto.subtle.verify.
- */
-function hexToBytes(hex: string): Uint8Array<ArrayBuffer> {
-    if (hex.length % 2 !== 0) return new Uint8Array(new ArrayBuffer(0));
-    const buf = new ArrayBuffer(hex.length / 2);
-    const bytes = new Uint8Array(buf);
-    for (let i = 0; i < hex.length; i += 2) {
-        bytes[i / 2] = parseInt(hex.slice(i, i + 2), 16);
-    }
-    return bytes;
-}
-
-/**
- * Verifies a signed cookie value using HMAC-SHA256 via the Web Crypto API.
- * The cookie format is: value.hexsignature
+ * Next.js Proxy — Auth Guard
  *
- * Uses crypto.subtle.verify (timing-safe by spec) rather than re-signing and
- * doing a manual character comparison.
+ * Runs before every matched request. Checks for the presence of the HttpOnly
+ * `somo_sid` session cookie on protected dashboard routes. Redirects to
+ * /login when the cookie is missing.
  *
- * Returns the role string if the signature is valid, or null if tampered/malformed.
+ * This is a **UX guard only** — the actual security gate is the Go backend's
+ * CSRF + session validation. The proxy performs NO session verification
+ * (no Redis/Postgres calls) because:
+ *   1. HttpOnly cookies cannot be forged by client-side JS
+ *   2. The backend validates every authenticated API request via
+ *      middleware.RequireAuth + CSRF double-submit pattern
+ *   3. Expired/stale cookies are handled reactively: the API client's
+ *      global 401 handler redirects to /logout → clears cookies → /login
+ *
+ * ─── Infinite Redirect Prevention ──────────────────────────────────────
+ * - Public routes (login, register, logout, unauthorized, docs, API) are
+ *   never redirected regardless of auth state.
+ * - When redirecting to /login, we do NOT add a "redirect" query param
+ *   because the magic-link flow always lands on the backend callback which
+ *   redirects to "/" (dashboard root) after setting cookies.
+ * - The /logout page explicitly clears all auth cookies before redirecting,
+ *   so a subsequent proxy check on /login never enters a redirect cycle.
+ *
+ * @see frontend/src/lib/auth.ts      — Client-side auth utilities
+ * @see frontend/src/lib/auth-server.ts — Server-side role verification
+ * @see backend/internal/auth/handler.go — Backend cookie management
+ * @see https://nextjs.org/docs/app/api-reference/file-conventions/proxy
  */
-async function verifySignedCookie(cookieValue: string, secret: string): Promise<string | null> {
-    const lastDot = cookieValue.lastIndexOf(".");
-    if (lastDot === -1) return null;
 
-    const value = cookieValue.slice(0, lastDot);
-    const expectedSigHex = cookieValue.slice(lastDot + 1);
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
-    if (!value || !expectedSigHex) return null;
+// ═══════════════════════════════════════════════════════════════════════════
+// Constants — must match frontend/src/lib/auth.ts
+// ═══════════════════════════════════════════════════════════════════════════
 
-    try {
-        const encoder = new TextEncoder();
-        const keyData = encoder.encode(secret);
-
-        // Import with "verify" usage — correct for signature verification
-        const key = await crypto.subtle.importKey(
-            "raw",
-            keyData,
-            { name: "HMAC", hash: "SHA-256" },
-            false,
-            ["verify"]
-        );
-
-        const valueBytes = encoder.encode(value);
-        const sigBytes: Uint8Array<ArrayBuffer> = hexToBytes(expectedSigHex);
-
-        // crypto.subtle.verify is timing-safe by spec — no manual loop needed
-        const isValid = await crypto.subtle.verify("HMAC", key, sigBytes, valueBytes);
-
-        return isValid ? value : null;
-    } catch {
-        return null;
-    }
-}
+/** HttpOnly session cookie set by the Go backend after login/register. */
+const SESSION_COOKIE = "somo_sid";
 
 /**
- * Creates a NextResponse that clears both auth cookies (somo_sid and somo_role)
- * and redirects to /login.
+ * Routes that NEVER require authentication.
+ * These always pass through without a session check.
  */
-function clearCookiesAndRedirect(req: NextRequest, pathname: string): NextResponse {
-    const loginUrl = new URL("/login", req.url);
-    // NOTE: `pathname` is always a relative path from req.nextUrl — not user-supplied.
-    // The login page handler must still validate the `next` param before redirecting
-    // to it, to prevent open-redirect if that handler ever accepts external input.
-    loginUrl.searchParams.set("next", pathname);
-    const res = NextResponse.redirect(loginUrl);
-
-    res.cookies.set(SESSION_COOKIE_NAME, "", {
-        httpOnly: true,
-        secure: process.env.NODE_ENV !== "development",
-        sameSite: "lax",
-        path: "/",
-        maxAge: 0,
-    });
-    res.cookies.set(ROLE_COOKIE_NAME, "", {
-        httpOnly: false,
-        secure: process.env.NODE_ENV !== "development",
-        sameSite: "lax",
-        path: "/",
-        maxAge: 0,
-    });
-
-    return res;
-}
+const PUBLIC_ROUTES = new Set(["/login", "/register", "/logout", "/unauthorized"]);
 
 /**
- * Auth state determination:
- * - **IST (Intermediate Session Token) stage**: No `somo_sid` cookie, but
- *   `session_ref` query param is present on `/register`. The user clicked a
- *   magic link but hasn't created their tenant yet.
- * - **Real token**: `somo_sid` + `somo_role` cookies exist. The user has a
- *   valid session and can access protected routes based on their role.
- * - **Not authenticated**: Neither cookie nor valid IST query param.
+ * Protected route prefixes — any path starting with one of these (or the
+ * root `/`) requires a `somo_sid` cookie.
  *
- * Proxy behaviour:
- * - Protected routes require BOTH `somo_sid` and `somo_role` cookies.
- *   Missing either → redirect to /login.
- * - `somo_role` signature is verified using HMAC-SHA256 via crypto.subtle.verify.
- *   Tampered/invalid → cookies cleared → redirect to /login.
- * - Verified role must be a known valid role (VALID_ROLES set).
- *   Unknown role → cookies cleared → redirect to /login.
- * - Verified role is checked against ROLE_ROUTES for the requested path.
- *   No entry in ROLE_ROUTES → deny (not silently allow).
- *   Not permitted → redirect to /unauthorized.
- * - `/register` without `session_ref` → redirect to /login.
- * - `/login` with BOTH `somo_sid` and `somo_role` cookies → redirect to `/`.
- *   (Requiring both prevents a redirect loop when only one cookie is present.)
- * - `/` → serves as the dashboard. Auth + role required, otherwise redirect to /login.
+ * These correspond to all routes under `app/(dashboard)/`:
+ *   app/(dashboard)/page.tsx         → /
+ *   app/(dashboard)/students/…       → /students/…
+ *   app/(dashboard)/classes/…        → /classes/…
+ *   …etc.
  */
-export async function proxy(req: NextRequest) {
-    const { pathname, searchParams } = req.nextUrl;
-    const hasSession = req.cookies.has(SESSION_COOKIE_NAME);
-    const hasRole = req.cookies.has(ROLE_COOKIE_NAME);
-    const hasSessionRef = searchParams.has("session_ref");
+const PROTECTED_PREFIXES = [
+    "/admins",
+    "/assessments",
+    "/attendance",
+    "/classes",
+    "/curriculum",
+    "/finance",
+    "/nurses",
+    "/parents",
+    "/reports",
+    "/settings",
+    "/students",
+    "/teachers",
+];
 
-    // ── `/` root: serves as the dashboard — requires auth + valid role ──
-    if (pathname === "/") {
-        if (!hasSession || !hasRole) {
-            const loginUrl = new URL("/login", req.url);
-            loginUrl.searchParams.set("next", pathname);
-            return NextResponse.redirect(loginUrl);
-        }
+// ═══════════════════════════════════════════════════════════════════════════
+// Config — Matcher (required)
+// ═══════════════════════════════════════════════════════════════════════════
 
-        const cookieSecret = process.env.COOKIE_SECRET;
-        if (!cookieSecret) {
-            console.error(
-                "[proxy] COOKIE_SECRET is not set — clearing cookies and blocking root access"
-            );
-            // Clear cookies so /login won't bounce back (avoids redirect loop)
-            return clearCookiesAndRedirect(req, pathname);
-        }
+/**
+ * Matcher: run proxy on all request paths EXCEPT API routes, Next.js
+ * static assets, image optimizations, and common metadata files.
+ *
+ * API routes are excluded because they are proxied to the Go backend
+ * (via next.config.ts rewrites), and the backend handles its own auth.
+ */
+export const config = {
+    matcher: ["/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|.*\\.png$).*)"],
+};
 
-        const roleCookieValue = req.cookies.get(ROLE_COOKIE_NAME)!.value;
-        const verifiedRole = await verifySignedCookie(roleCookieValue, cookieSecret);
+// ═══════════════════════════════════════════════════════════════════════════
+// Proxy
+// ═══════════════════════════════════════════════════════════════════════════
 
-        if (!verifiedRole) {
-            return clearCookiesAndRedirect(req, pathname);
-        }
+/**
+ * Auth guard that runs before every matched request.
+ *
+ * Decision flow:
+ *   1. If the path is public (login, register, logout, docs, etc.) → allow.
+ *   2. If the path is protected AND `somo_sid` cookie is missing → redirect
+ *      to /login.
+ *   3. Otherwise → allow (cookie exists or path is not explicitly protected).
+ */
+export function proxy(request: NextRequest) {
+    const { pathname } = request.nextUrl;
 
-        if (!VALID_ROLES.has(verifiedRole)) {
-            return clearCookiesAndRedirect(req, pathname);
-        }
-
-        const allowedRoutes = ROLE_ROUTES[verifiedRole];
-        if (!allowedRoutes) {
-            return clearCookiesAndRedirect(req, pathname);
-        }
-
+    // ── Step 1: Always allow public routes ──────────────────────────────
+    if (isPublicRoute(pathname)) {
         return NextResponse.next();
     }
 
-    // ── Protected routes: require BOTH cookies + valid, permitted role ──
-    const isProtected = PROTECTED_PREFIXES.some((p) => pathname.startsWith(p));
-    if (isProtected) {
-        if (!hasSession || !hasRole) {
-            const loginUrl = new URL("/login", req.url);
-            loginUrl.searchParams.set("next", pathname);
-            return NextResponse.redirect(loginUrl);
-        }
-
-        const cookieSecret = process.env.COOKIE_SECRET;
-        if (!cookieSecret) {
-            // Misconfiguration — log loudly, clear cookies, and deny access
-            console.error("[proxy] COOKIE_SECRET is not set — blocking all protected route access");
-            return clearCookiesAndRedirect(req, pathname);
-        }
-
-        const roleCookieValue = req.cookies.get(ROLE_COOKIE_NAME)!.value;
-        const verifiedRole = await verifySignedCookie(roleCookieValue, cookieSecret);
-
-        if (!verifiedRole) {
-            // Tampered or invalid signature
-            return clearCookiesAndRedirect(req, pathname);
-        }
-
-        // Guard against a validly-signed but unrecognised role value
-        if (!VALID_ROLES.has(verifiedRole)) {
-            return clearCookiesAndRedirect(req, pathname);
-        }
-
-        const allowedRoutes = ROLE_ROUTES[verifiedRole];
-        if (!allowedRoutes) {
-            // Role exists in VALID_ROLES but has no entry in ROLE_ROUTES — deny, don't allow
-            return clearCookiesAndRedirect(req, pathname);
-        }
-
-        const isAllowed = allowedRoutes.some((route) => pathname.startsWith(route));
-        if (!isAllowed) {
-            return NextResponse.redirect(new URL("/unauthorized", req.url));
-        }
-
-        return NextResponse.next();
+    // ── Step 2: Check for session cookie on protected routes ────────────
+    if (!request.cookies.has(SESSION_COOKIE)) {
+        const loginUrl = new URL("/login", request.url);
+        return NextResponse.redirect(loginUrl);
     }
 
-    // ── Register page: IST stage if session_ref present ──
-    if (pathname === "/register") {
-        if (hasSession) {
-            return NextResponse.redirect(new URL("/", req.url));
-        }
-        if (!hasSessionRef) {
-            return NextResponse.redirect(new URL("/login", req.url));
-        }
-        // IST stage — allow through to /register?session_ref=...
-        return NextResponse.next();
-    }
-
-    // ── Login page: only redirect away if BOTH cookies are present ──
-    // Checking only hasSession caused a redirect loop when somo_role was
-    // missing or tampered — the protected route handler would immediately
-    // bounce back to /login.
-    if (pathname === "/login") {
-        if (hasSession && hasRole) {
-            return NextResponse.redirect(new URL("/", req.url));
-        }
-        return NextResponse.next();
-    }
-
+    // ── Step 3: Cookie exists — allow through ───────────────────────────
     return NextResponse.next();
 }
 
-export const config = {
-    matcher: ["/((?!_next/static|_next/image|favicon.ico|api/|robots.txt).*)"],
-};
+// ═══════════════════════════════════════════════════════════════════════════
+// Helpers
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Returns `true` if the given pathname should bypass the auth check.
+ *
+ * A path is considered public if it is:
+ * - An exact match in PUBLIC_ROUTES (login, register, logout, unauthorized)
+ * - A prefix match for docs, API, or Next.js internal paths
+ * - NOT an explicit protected prefix
+ * - The root `/` IS protected (dashboard root)
+ */
+function isPublicRoute(pathname: string): boolean {
+    // Root is the dashboard — requires auth
+    if (pathname === "/") {
+        return false;
+    }
+
+    // Exact public route matches
+    if (PUBLIC_ROUTES.has(pathname)) {
+        return true;
+    }
+
+    // Public prefix-based routes
+    if (
+        pathname.startsWith("/docs") ||
+        pathname.startsWith("/api") ||
+        pathname.startsWith("/_next")
+    ) {
+        return true;
+    }
+
+    // Explicitly protected dashboard routes
+    for (const prefix of PROTECTED_PREFIXES) {
+        if (pathname === prefix || pathname.startsWith(prefix + "/")) {
+            return false;
+        }
+    }
+
+    // Unknown/unguessed routes → allow (they'll 404 naturally if they don't
+    // exist, and we don't want to block valid future routes)
+    return true;
+}

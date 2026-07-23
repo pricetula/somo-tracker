@@ -92,7 +92,7 @@ func doRequest(app *fiber.App, method, path string, body []byte) *http.Response 
 func TestHandler_ListYears_WithTerms(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
-	now := time.Now()
+	now := DateOnly{Time: time.Now()}
 	h.repo.listYearsFn = func(ctx context.Context, tenantID, schoolID string) ([]AcademicYearWithTerms, error) {
 		return []AcademicYearWithTerms{
 			{
@@ -128,16 +128,15 @@ func TestHandler_ListYears_WithTerms(t *testing.T) {
 }
 
 // ============================================================================
-// A2 — Soft delete cascades to terms
+// A2 — Hard delete cascades to terms
 // ============================================================================
 
-func TestHandler_DeleteYear_SoftDelete(t *testing.T) {
+func TestHandler_DeleteYear_HardDelete(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
-	var capturedID, capturedActor string
-	h.repo.softDeleteYearFn = func(ctx context.Context, id, actorID string) error {
+	var capturedID string
+	h.repo.deleteYearFn = func(ctx context.Context, id string) error {
 		capturedID = id
-		capturedActor = actorID
 		return nil
 	}
 
@@ -155,9 +154,6 @@ func TestHandler_DeleteYear_SoftDelete(t *testing.T) {
 	}
 	if capturedID != "year_001" {
 		t.Errorf("expected id 'year_001', got %q", capturedID)
-	}
-	if capturedActor != "user_001" {
-		t.Errorf("expected actor 'user_001', got %q", capturedActor)
 	}
 }
 
@@ -191,8 +187,8 @@ func TestHandler_PatchYear_TermStranding(t *testing.T) {
 	year := &AcademicYear{
 		ID: "year_001", TenantID: "tenant_001", SchoolID: "school_001",
 		Name: "2025", Version: 3,
-		StartDate: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
-		EndDate:   time.Date(2025, 12, 31, 0, 0, 0, 0, time.UTC),
+		StartDate: DateOnly{Time: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)},
+		EndDate:   DateOnly{Time: time.Date(2025, 12, 31, 0, 0, 0, 0, time.UTC)},
 	}
 
 	h.repo.getYearByIDForUpdateFn = func(ctx context.Context, id, tenantID, schoolID string) (*AcademicYear, error) {
@@ -289,8 +285,8 @@ func TestHandler_CreateTerm_BeforeYearStart(t *testing.T) {
 
 	h.repo.getYearByIDFn = func(ctx context.Context, id, tenantID, schoolID string) (*AcademicYear, error) {
 		return &AcademicYear{
-			ID: id, StartDate: time.Date(2025, 1, 6, 0, 0, 0, 0, time.UTC),
-			EndDate: time.Date(2025, 12, 31, 0, 0, 0, 0, time.UTC),
+			ID: id, StartDate: DateOnly{Time: time.Date(2025, 1, 6, 0, 0, 0, 0, time.UTC)},
+			EndDate: DateOnly{Time: time.Date(2025, 12, 31, 0, 0, 0, 0, time.UTC)},
 		}, nil
 	}
 
@@ -318,8 +314,8 @@ func TestHandler_CreateTerm_Overlap(t *testing.T) {
 	h.repo.getYearByIDFn = func(ctx context.Context, id, tenantID, schoolID string) (*AcademicYear, error) {
 		return &AcademicYear{
 			ID:        id,
-			StartDate: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
-			EndDate:   time.Date(2025, 12, 31, 0, 0, 0, 0, time.UTC),
+			StartDate: DateOnly{Time: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)},
+			EndDate:   DateOnly{Time: time.Date(2025, 12, 31, 0, 0, 0, 0, time.UTC)},
 		}, nil
 	}
 
@@ -353,8 +349,8 @@ func TestHandler_CreateTerm_DuplicateNumber(t *testing.T) {
 	h.repo.getYearByIDFn = func(ctx context.Context, id, tenantID, schoolID string) (*AcademicYear, error) {
 		return &AcademicYear{
 			ID:        id,
-			StartDate: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
-			EndDate:   time.Date(2025, 12, 31, 0, 0, 0, 0, time.UTC),
+			StartDate: DateOnly{Time: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)},
+			EndDate:   DateOnly{Time: time.Date(2025, 12, 31, 0, 0, 0, 0, time.UTC)},
 		}, nil
 	}
 
@@ -438,13 +434,13 @@ func TestHandler_PatchTerm_IsCurrentStripped(t *testing.T) {
 		ID: "term_001", Version: 1, IsCurrent: true,
 		Name:           "Term 1",
 		AcademicYearID: "year_001",
-		StartDate:      time.Date(2025, 1, 6, 0, 0, 0, 0, time.UTC),
-		EndDate:        time.Date(2025, 4, 4, 0, 0, 0, 0, time.UTC),
+		StartDate:      DateOnly{Time: time.Date(2025, 1, 6, 0, 0, 0, 0, time.UTC)},
+		EndDate:        DateOnly{Time: time.Date(2025, 4, 4, 0, 0, 0, 0, time.UTC)},
 	}
 	year := &AcademicYear{
 		ID:        "year_001",
-		StartDate: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
-		EndDate:   time.Date(2025, 12, 31, 0, 0, 0, 0, time.UTC),
+		StartDate: DateOnly{Time: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)},
+		EndDate:   DateOnly{Time: time.Date(2025, 12, 31, 0, 0, 0, 0, time.UTC)},
 	}
 
 	h.repo.getTermByIDForUpdateFn = func(ctx context.Context, id, tenantID, schoolID string) (*AcademicTerm, *AcademicYear, error) {

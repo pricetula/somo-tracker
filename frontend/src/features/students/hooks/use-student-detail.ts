@@ -10,10 +10,13 @@ import { toast } from "sonner";
 import {
     getStudentDetail,
     createStudent,
+    createStudents,
     updateStudent,
     createEnrollment,
     type StudentDetailResponse,
     type CreateStudentPayload,
+    type CreateStudentsPayload,
+    type CreateStudentsResponse,
     type UpdateStudentPayload,
     type CreateEnrollmentPayload,
 } from "@/lib/api/students";
@@ -40,9 +43,9 @@ export function useStudentDetail(id: string, opts: { enabled?: boolean } = {}) {
     });
 }
 
-// ─── Mutations: Create ────────────────────────────────────────────────────
+// ─── Mutations: Create (single) ───────────────────────────────────────────
 
-/** Create a new student. */
+/** Create a single student (convenience wrapper around batch). */
 export function useCreateStudent() {
     const queryClient = useQueryClient();
 
@@ -51,6 +54,26 @@ export function useCreateStudent() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: studentKeys.all });
             toast.success("Student created");
+        },
+        onError: (err) => {
+            toast.error(getErrorMessage(err));
+        },
+    });
+}
+
+// ─── Mutations: Batch Create ──────────────────────────────────────────────
+
+/** Create multiple students in one request (batch). */
+export function useCreateStudents() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (data: CreateStudentsPayload) => createStudents(data),
+        onSuccess: (result: CreateStudentsResponse) => {
+            queryClient.invalidateQueries({ queryKey: studentKeys.all });
+            toast.success(
+                `${result.ids.length} student${result.ids.length === 1 ? "" : "s"} created`
+            );
         },
         onError: (err) => {
             toast.error(getErrorMessage(err));

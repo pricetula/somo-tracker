@@ -13,10 +13,17 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
     async rewrites() {
+        // API_INTERNAL_URL is the Docker-internal hostname for proxying (e.g.
+        // "http://somotracker_api:3030"). Falls back to NEXT_PUBLIC_API_URL
+        // which is what the browser uses to reach the backend externally.
+        const internalUrl =
+            process.env.API_INTERNAL_URL ??
+            process.env.NEXT_PUBLIC_API_URL ??
+            "http://localhost:3030";
         return [
             {
                 source: "/api/:path*",
-                destination: `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3030"}/api/:path*`,
+                destination: `${internalUrl}/api/:path*`,
             },
         ];
     },

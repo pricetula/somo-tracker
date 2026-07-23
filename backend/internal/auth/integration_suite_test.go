@@ -60,6 +60,7 @@ type IntegrationSuite struct {
 	stytchCreateOrgFn           func(name string) (int, any)
 	stytchExchangeISTFn         func(ist, orgID string) (int, any)
 	stytchCreateMemberFn        func(orgID, email, name string) (int, any)
+	stytchMagicLinkAuthFn       func(token string) (int, any)
 	stytchCreateOrgCallCount    int
 	stytchCreateMemberCallCount int
 	stytchExchangeISTCallCount  int
@@ -275,6 +276,8 @@ func setupSuite(ctx context.Context) (*IntegrationSuite, error) {
 
 	// ---------- 8. Start mock Stytch server ----------
 	suite.startMockStytchServer()
+	// Initialize default Stytch mock handlers (sets all handler funcs)
+	suite.resetStytchHandlers()
 
 	// Update config with the mock server URL
 	suite.cfg.StytchBaseURL = suite.stytchURL
@@ -292,11 +295,6 @@ func setupSuite(ctx context.Context) (*IntegrationSuite, error) {
 	}
 
 	// Create a school creator adapter that writes directly to Postgres
-	schoolCreator := &schoolCreatorAdapter{pool: pool}
-
-	// Create a no-op year creator — integration tests don't need academic year setup
-	yearCreator := &noopYearCreator{}
-
 	// Manually create service without fx lifecycle
 	svc := &Service{
 		idp:           idp,
@@ -304,8 +302,7 @@ func setupSuite(ctx context.Context) (*IntegrationSuite, error) {
 		rdb:           rdb,
 		logger:        logger,
 		cfg:           suite.cfg,
-		schoolCreator: schoolCreator,
-		yearCreator:   yearCreator,
+		schoolCreator: newSchoolCreatorAdapter(pool),
 	}
 	suite.svc = svc
 
@@ -459,6 +456,30 @@ func (s *IntegrationSuite) startMockStytchServer() {
 		writeStytchJSON(w, status, body)
 	})
 
+	// POST /v1/b2b/magic_links/authenticate — org-scoped magic link auth
+	// Used by AuthenticateMagicLink (the invite acceptance flow).
+	mux.HandleFunc("/v1/b2b/magic_links/authenticate", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			writeStytchError(w, http.StatusMethodNotAllowed, "method_not_allowed", "expected POST")
+			return
+		}
+
+		var req struct {
+			Token string `json:"magic_links_token"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeStytchError(w, http.StatusBadRequest, "invalid_request", "bad JSON")
+			return
+		}
+
+		s.stytchMu.Lock()
+		fn := s.stytchMagicLinkAuthFn
+		s.stytchMu.Unlock()
+
+		status, body := fn(req.Token)
+		writeStytchJSON(w, status, body)
+	})
+
 	// POST /v1/b2b/organizations
 	mux.HandleFunc("/v1/b2b/organizations", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -565,6 +586,9 @@ func (s *IntegrationSuite) setStytchHandlers(h StytchMockHandlers) {
 	if h.ExchangeISTFn != nil {
 		s.stytchExchangeISTFn = h.ExchangeISTFn
 	}
+	if h.MagicLinkAuthFn != nil {
+		s.stytchMagicLinkAuthFn = h.MagicLinkAuthFn
+	}
 }
 
 // resetStytchHandlers resets all mock handlers to their default success behaviors.
@@ -651,6 +675,25 @@ func (s *IntegrationSuite) resetStytchHandlers() {
 			},
 		}
 	}
+	s.stytchMagicLinkAuthFn = func(token string) (int, any) {
+		memberID := fmt.Sprintf("member_test_ml_%08x", rand.Uint32())
+		return http.StatusOK, map[string]any{
+			"request_id":           "req-ml-auth-ok",
+			"status_code":          200,
+			"member_id":            memberID,
+			"organization_id":      "org_test_ml",
+			"member_authenticated": true,
+			"session_token":        "sess_ml_" + token,
+			"member": map[string]any{
+				"member_id":     memberID,
+				"email_address": "test@example.com",
+				"status":        "active",
+			},
+			"organization": map[string]any{
+				"organization_id": "org_test_ml",
+			},
+		}
+	}
 	s.stytchCreateOrgCallCount = 0
 	s.stytchCreateMemberCallCount = 0
 	s.stytchExchangeISTCallCount = 0
@@ -665,6 +708,7 @@ type StytchMockHandlers struct {
 	CreateOrgFn     func(name string) (statusCode int, response any)
 	CreateMemberFn  func(orgID, email, name string) (statusCode int, response any)
 	ExchangeISTFn   func(ist, orgID string) (statusCode int, response any)
+	MagicLinkAuthFn func(token string) (statusCode int, response any)
 }
 
 // ============================================================================
@@ -690,37 +734,30 @@ func writeStytchError(w http.ResponseWriter, status int, errType, message string
 // schoolCreatorAdapter implements SchoolCreator by writing directly to Postgres.
 // ============================================================================
 
+// academicYearSeeder is a local interface matching the cbcschools.AcademicYearSeeder
+// contract, used by schoolCreatorAdapter during integration tests.
+type academicYearSeeder interface {
+	SetupInitialYear(ctx context.Context, tenantID, schoolID, actorID string, now *time.Time) error
+}
+
+// schoolCreatorAdapter implements SchoolCreator by writing directly to Postgres.
+// It optionally delegates to an academicYearSeeder for year+term setup.
 type schoolCreatorAdapter struct {
-	pool *pgxpool.Pool
+	pool       *pgxpool.Pool
+	yearSeeder academicYearSeeder
 }
 
-// noopYearCreator implements AcademicYearCreator with a no-op.
-// Integration tests that do NOT need academic year verification use this.
-// ============================================================================
-
-type noopYearCreator struct{}
-
-func (n *noopYearCreator) SetupInitialYear(ctx context.Context, tenantID, schoolID, actorID string, now *time.Time) error {
-	return nil
+func newSchoolCreatorAdapter(pool *pgxpool.Pool) *schoolCreatorAdapter {
+	return &schoolCreatorAdapter{pool: pool}
 }
 
-// realYearCreator implements AcademicYearCreator by delegating to the real
-// academicyears.Service backed by the real PgRepository. Use this in
-// integration tests that verify academic years and terms are created during
-// tenant registration.
-// ============================================================================
-
-type realYearCreator struct {
-	pool *pgxpool.Pool
-}
-
-func (r *realYearCreator) SetupInitialYear(ctx context.Context, tenantID, schoolID, actorID string, now *time.Time) error {
-	ayRepo := academicyears.NewRepository(&database.Pools{PG: r.pool})
+func newSchoolCreatorAdapterWithYearSeeder(pool *pgxpool.Pool) *schoolCreatorAdapter {
+	ayRepo := academicyears.NewRepository(&database.Pools{PG: pool})
 	aySvc := academicyears.NewService(ayRepo)
-	return aySvc.SetupInitialYear(ctx, tenantID, schoolID, actorID, now)
+	return &schoolCreatorAdapter{pool: pool, yearSeeder: aySvc}
 }
 
-func (a *schoolCreatorAdapter) Create(ctx context.Context, tenantID string, name string) (string, error) {
+func (a *schoolCreatorAdapter) CreateSchool(ctx context.Context, tenantID string, name string, role string, creatorUserID ...string) (string, error) {
 	// The application-level school creator (cbcschools.Service) validates fields
 	// and enriches the record. For integration tests, we insert a minimal row.
 	var id string
@@ -732,6 +769,36 @@ func (a *schoolCreatorAdapter) Create(ctx context.Context, tenantID string, name
 	if err != nil {
 		return "", err
 	}
+
+	// Create membership and set active school (mirrors what
+	// cbcschools.Service.CreateSchool does in production).
+	if len(creatorUserID) > 0 && creatorUserID[0] != "" {
+		if _, memErr := a.pool.Exec(ctx, `
+			INSERT INTO memberships (id, tenant_id, user_id, school_id, role)
+			VALUES (gen_random_uuid(), $1, $2, $3, $4::user_role)
+		`, tenantID, creatorUserID[0], id, role); memErr != nil {
+			return "", memErr
+		}
+		if _, activeErr := a.pool.Exec(ctx, `
+			INSERT INTO member_active_school (user_id, tenant_id, school_id, switched_at)
+			VALUES ($1, $2, $3, NOW())
+			ON CONFLICT (user_id) DO UPDATE SET
+				school_id   = EXCLUDED.school_id,
+				tenant_id   = EXCLUDED.tenant_id,
+				switched_at = NOW()
+		`, creatorUserID[0], tenantID, id); activeErr != nil {
+			return "", activeErr
+		}
+	}
+
+	// Seed initial academic year if configured (mirrors what
+	// cbcschools.Service.CreateSchool does in production).
+	if len(creatorUserID) > 0 && creatorUserID[0] != "" && a.yearSeeder != nil {
+		if yearErr := a.yearSeeder.SetupInitialYear(ctx, tenantID, id, creatorUserID[0], nil); yearErr != nil {
+			return "", yearErr
+		}
+	}
+
 	return id, nil
 }
 
@@ -901,18 +968,19 @@ func (s *IntegrationSuite) freshDBWithAcademicYears(t *testing.T) {
 	}
 }
 
-// createServiceWithRealYearCreator creates a new Service with the real year creator.
-// This must be called inside a test that already called freshDBWithAcademicYears.
-// The returned service uses the real academicyears.Service for SetupInitialYear.
-func (s *IntegrationSuite) createServiceWithRealYearCreator() *Service {
+// createServiceWithYearSeeder creates a new Service with real year seeding.
+// createServiceWithYearSeeder returns a copy of the default service that uses
+// a schoolCreatorAdapter with the real academicyears.Service for year+term
+// setup. Use this in integration tests that verify academic year creation
+// during registration now that SetupInitialYear lives inside CreateSchool.
+func (s *IntegrationSuite) createServiceWithYearSeeder() *Service {
 	return &Service{
 		idp:           s.svc.idp,
 		repo:          s.svc.repo,
 		rdb:           s.svc.rdb,
 		logger:        s.svc.logger,
 		cfg:           s.svc.cfg,
-		schoolCreator: s.svc.schoolCreator,
-		yearCreator:   &realYearCreator{pool: s.pgPool},
+		schoolCreator: newSchoolCreatorAdapterWithYearSeeder(s.pgPool),
 	}
 }
 
@@ -922,7 +990,7 @@ func (s *IntegrationSuite) countAcademicYears(t *testing.T, tenantID, schoolID s
 	ctx := context.Background()
 	var count int
 	err := s.pgPool.QueryRow(ctx,
-		"SELECT COUNT(*) FROM academic_years WHERE tenant_id = $1 AND school_id = $2 AND deleted_at IS NULL",
+		"SELECT COUNT(*) FROM academic_years WHERE tenant_id = $1 AND school_id = $2",
 		tenantID, schoolID).Scan(&count)
 	if err != nil {
 		t.Fatalf("count academic years: %v", err)
@@ -936,7 +1004,7 @@ func (s *IntegrationSuite) countAcademicTerms(t *testing.T, academicYearID strin
 	ctx := context.Background()
 	var count int
 	err := s.pgPool.QueryRow(ctx,
-		"SELECT COUNT(*) FROM academic_terms WHERE academic_year_id = $1 AND deleted_at IS NULL",
+		"SELECT COUNT(*) FROM academic_terms WHERE academic_year_id = $1",
 		academicYearID).Scan(&count)
 	if err != nil {
 		t.Fatalf("count academic terms: %v", err)
@@ -949,7 +1017,7 @@ func (s *IntegrationSuite) getAcademicYearIDs(t *testing.T, tenantID, schoolID s
 	t.Helper()
 	ctx := context.Background()
 	rows, err := s.pgPool.Query(ctx,
-		"SELECT id FROM academic_years WHERE tenant_id = $1 AND school_id = $2 AND deleted_at IS NULL ORDER BY start_date",
+		"SELECT id FROM academic_years WHERE tenant_id = $1 AND school_id = $2 ORDER BY start_date",
 		tenantID, schoolID)
 	if err != nil {
 		t.Fatalf("query academic years: %v", err)
@@ -971,7 +1039,7 @@ func (s *IntegrationSuite) getTermNames(t *testing.T, academicYearID string) []s
 	t.Helper()
 	ctx := context.Background()
 	rows, err := s.pgPool.Query(ctx,
-		"SELECT name FROM academic_terms WHERE academic_year_id = $1 AND deleted_at IS NULL ORDER BY term_number",
+		"SELECT name FROM academic_terms WHERE academic_year_id = $1 ORDER BY term_number",
 		academicYearID)
 	if err != nil {
 		t.Fatalf("query academic terms: %v", err)

@@ -1,63 +1,105 @@
 /**
  * Nurses listing page — active nurse staff.
  *
- * Uses its own query hook and table component — not the generic
- * members module. Maps to GET /api/v1/members?role=NURSE.
+ * Uses the shared DataTable component.
+ * Maps to GET /api/v1/members?role=NURSE.
  *
  * Invitations are listed on the dedicated /nurses/invitations page.
  */
 
 "use client";
 
-import * as React from "react";
-import Link from "next/link";
-
-import { NursesTable } from "@/features/staff/components/nurses-table";
-import { useNurses } from "@/features/staff/hooks/use-nurses";
+import { useState } from "react";
+import { DataTable } from "@/components/shared/data-table";
+import type { DataTableColumn } from "@/components/shared/data-table/types";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Send } from "lucide-react";
+import { Pencil } from "lucide-react";
+import { listNurses, type Member } from "@/lib/api/nurses";
+import { useDeleteNurse } from "@/features/staff";
+import { MemberEditDialog } from "@/features/staff/components/member-edit-dialog";
+
+// ─── Edit action cell ──────────────────────────────────────────────────────
+
+function EditCell({ row }: { row: Member }) {
+    const [editOpen, setEditOpen] = useState(false);
+    return (
+        <>
+            <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => setEditOpen(true)}
+                title="Edit nurse"
+            >
+                <Pencil className="h-4 w-4" />
+                <span className="sr-only">Edit {row.full_name}</span>
+            </Button>
+            <MemberEditDialog
+                userId={row.id}
+                open={editOpen}
+                onOpenChange={setEditOpen}
+                invalidationKey={["nurses"]}
+            />
+        </>
+    );
+}
+
+// ─── Columns ───────────────────────────────────────────────────────────────
+
+const columns: DataTableColumn<Member>[] = [
+    {
+        id: "full_name",
+        header: "Full Name",
+        cell: (row) => <span className="font-medium">{row.full_name || "—"}</span>,
+    },
+    {
+        id: "email",
+        header: "Email",
+        cell: (row) => <span className="text-muted-foreground">{row.email}</span>,
+    },
+    {
+        id: "is_active",
+        header: "Account Status",
+        cell: (row) => (
+            <Badge
+                variant="secondary"
+                className={
+                    row.is_active
+                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                        : "bg-muted text-muted-foreground"
+                }
+            >
+                {row.is_active ? "Active" : "Inactive"}
+            </Badge>
+        ),
+    },
+];
+
+const editActionColumn: DataTableColumn<Member> = {
+    id: "edit",
+    header: "",
+    width: "48px",
+    align: "right",
+    cell: (row) => <EditCell row={row} />,
+};
+
+// ─── Page ──────────────────────────────────────────────────────────────────
 
 export default function NursesPage() {
-    const {
-        data: nursesData,
-        isLoading: nursesLoading,
-        isError: nursesError,
-    } = useNurses({ includeInactive: true });
+    const deleteMutation = useDeleteNurse();
 
     return (
-        <div className="flex flex-1 flex-col">
-            {/* Page header */}
-            <div className="flex items-center gap-3 px-6 pt-6 pb-2">
-                <h1 className="text-2xl font-semibold tracking-tight">Nurses</h1>
-                <div className="ml-auto">
-                    <Button variant="outline" size="sm" asChild>
-                        <Link href="/nurses/invitations">
-                            <Send className="mr-1.5 size-3.5" />
-                            Invitations
-                        </Link>
-                    </Button>
-                </div>
-            </div>
-
-            <div className="flex flex-1 flex-col px-6 py-4">
-                <section className="flex flex-1 flex-col">
-                    {nursesError ? (
-                        <div className="flex items-center justify-center py-8">
-                            <p className="text-destructive text-sm">
-                                Failed to load nurses. Please try again.
-                            </p>
-                        </div>
-                    ) : (
-                        <div className="ring-foreground/10 rounded-lg ring-1">
-                            <NursesTable
-                                nurses={nursesData?.members ?? []}
-                                total={nursesData?.total ?? 0}
-                                isLoading={nursesLoading}
-                            />
-                        </div>
-                    )}
-                </section>
-            </div>
-        </div>
+        <DataTable
+            addHref="/nurses/import"
+            queryKey={["nurses"]}
+            queryFn={listNurses}
+            columns={[...columns, editActionColumn]}
+            getRowId={(row) => row.id}
+            isSearchable
+            searchPlaceholder="Search by name or email…"
+            deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
+            emptyState="No nurses yet."
+            noResultsState="No nurses match your search."
+        />
     );
 }

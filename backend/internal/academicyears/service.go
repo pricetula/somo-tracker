@@ -15,13 +15,13 @@ func todayEAT() time.Time {
 	return time.Date(eat.Year(), eat.Month(), eat.Day(), 0, 0, 0, 0, time.UTC)
 }
 
-// parseDate parses a "YYYY-MM-DD" string into a time.Time.
-func parseDate(s string) (time.Time, error) {
+// parseDate parses a "YYYY-MM-DD" string into a DateOnly.
+func parseDate(s string) (DateOnly, error) {
 	t, err := time.Parse("2006-01-02", s)
 	if err != nil {
-		return time.Time{}, fmt.Errorf("invalid date format %q: %w", s, err)
+		return DateOnly{}, fmt.Errorf("invalid date format %q: %w", s, err)
 	}
-	return t, nil
+	return DateOnly{Time: t}, nil
 }
 
 // ============================================================================
@@ -50,8 +50,57 @@ func (s *Service) ListYears(ctx context.Context, tenantID, schoolID string) ([]A
 	return s.Repo.ListYears(ctx, tenantID, schoolID)
 }
 
+// CreateYear creates a new academic year.
+func (s *Service) CreateYear(ctx context.Context, body CreateYearBody, tenantID, schoolID, actorID string) (string, error) {
+	if tenantID == "" || schoolID == "" || actorID == "" {
+		return "", fmt.Errorf("academicyears.Service.CreateYear: %w", ErrInvalidInput)
+	}
+	if body.Name == "" {
+		return "", fmt.Errorf("academicyears.Service.CreateYear: name is required: %w", ErrInvalidInput)
+	}
+
+	startDate, err := parseDate(body.StartDate)
+	if err != nil {
+		return "", fmt.Errorf("academicyears.Service.CreateYear: %w", ErrInvalidInput)
+	}
+	endDate, err := parseDate(body.EndDate)
+	if err != nil {
+		return "", fmt.Errorf("academicyears.Service.CreateYear: %w", ErrInvalidInput)
+	}
+
+	if !endDate.After(startDate) && !endDate.Equal(startDate) {
+		return "", fmt.Errorf("academicyears.Service.CreateYear: end_date must be on or after start_date: %w", ErrInvalidInput)
+	}
+
+	year := &AcademicYear{
+		TenantID:  tenantID,
+		SchoolID:  schoolID,
+		Name:      body.Name,
+		StartDate: startDate,
+		EndDate:   endDate,
+		CreatedBy: actorID,
+		UpdatedBy: actorID,
+	}
+
+	id, err := s.Repo.CreateYear(ctx, year)
+	if err != nil {
+		return "", fmt.Errorf("academicyears.Service.CreateYear: %w", err)
+	}
+
+	slog.Info("academic_year.created",
+		"tenant_id", tenantID,
+		"school_id", schoolID,
+		"resource_id", id,
+		"name", body.Name,
+		"actor_id", actorID,
+	)
+
+	return id, nil
+}
+
 // PatchYear applies partial updates to an academic year.
 func (s *Service) PatchYear(ctx context.Context, id, tenantID, schoolID string, body PatchYearBody, actorID string) (*AcademicYear, *TermsOutOfRangeError) {
+	// Step 1 — Fetch with FOR UPDATE
 	// Step 1 — Fetch with FOR UPDATE
 	year, err := s.Repo.GetYearByIDForUpdate(ctx, id, tenantID, schoolID)
 	if err != nil {
@@ -86,7 +135,7 @@ func (s *Service) PatchYear(ctx context.Context, id, tenantID, schoolID string, 
 
 	// Step 3 — Term-strandedness check (if dates changed)
 	if body.StartDate != nil || body.EndDate != nil {
-		stranded, err := s.Repo.FindStrandedTerms(ctx, year.ID, year.StartDate, year.EndDate)
+		stranded, err := s.Repo.FindStrandedTerms(ctx, year.ID, year.StartDate.Time, year.EndDate.Time)
 		if err != nil {
 			return nil, nil // error propagated
 		}
@@ -116,7 +165,7 @@ func (s *Service) PatchYear(ctx context.Context, id, tenantID, schoolID string, 
 	return year, nil
 }
 
-// DeleteYear soft-deletes an academic year and all its terms.
+// DeleteYear hard-deletes an academic year. Terms are cascade-deleted by the DB.
 func (s *Service) DeleteYear(ctx context.Context, id, tenantID, schoolID, actorID string) error {
 	if id == "" || tenantID == "" || schoolID == "" {
 		return fmt.Errorf("academicyears.Service.DeleteYear: %w", ErrInvalidInput)
@@ -139,11 +188,8 @@ func (s *Service) DeleteYear(ctx context.Context, id, tenantID, schoolID, actorI
 		}
 	}
 
-	// Soft-delete all terms first, then the year
-	// In production, these would be in a transaction using Begin/Commit.
-	// For the current implementation we rely on individual calls.
-	// NOTE: In production, wrap in a transaction that does terms first.
-	if err := s.Repo.SoftDeleteYear(ctx, id, actorID); err != nil {
+	// Hard-delete the year — terms are cascade-deleted by DB (ON DELETE CASCADE)
+	if err := s.Repo.DeleteYear(ctx, id); err != nil {
 		return fmt.Errorf("academicyears.Service.DeleteYear: %w", err)
 	}
 
@@ -231,7 +277,7 @@ func (s *Service) CreateTerm(ctx context.Context, body CreateTermBody, tenantID,
 	}
 
 	// Overlap check
-	overlapping, err := s.Repo.FindOverlappingTerms(ctx, body.AcademicYearID, "", startDate, endDate)
+	overlapping, err := s.Repo.FindOverlappingTerms(ctx, body.AcademicYearID, "", startDate.Time, endDate.Time)
 	if err != nil {
 		return nil, fmt.Errorf("academicyears.Service.CreateTerm: %w", err)
 	}
@@ -325,7 +371,7 @@ func (s *Service) PatchTerm(ctx context.Context, id, tenantID, schoolID string, 
 		}
 
 		// Overlap check (exclude self)
-		overlapping, err := s.Repo.FindOverlappingTerms(ctx, term.AcademicYearID, term.ID, term.StartDate, term.EndDate)
+		overlapping, err := s.Repo.FindOverlappingTerms(ctx, term.AcademicYearID, term.ID, term.StartDate.Time, term.EndDate.Time)
 		if err != nil {
 			return nil, fmt.Errorf("academicyears.Service.PatchTerm: %w", err)
 		}
@@ -362,7 +408,7 @@ func (s *Service) PatchTerm(ctx context.Context, id, tenantID, schoolID string, 
 	return term, nil
 }
 
-// DeleteTerm soft-deletes a term and syncs current term.
+// DeleteTerm hard-deletes a term and syncs current term.
 func (s *Service) DeleteTerm(ctx context.Context, id, tenantID, schoolID, actorID string, now *time.Time) error {
 	if now == nil {
 		n := todayEAT()
@@ -386,7 +432,7 @@ func (s *Service) DeleteTerm(ctx context.Context, id, tenantID, schoolID, actorI
 		}
 	}
 
-	if err := s.Repo.SoftDeleteTerm(ctx, id, actorID); err != nil {
+	if err := s.Repo.DeleteTerm(ctx, id); err != nil {
 		return fmt.Errorf("academicyears.Service.DeleteTerm: %w", err)
 	}
 
@@ -426,8 +472,8 @@ func (s *Service) SetupInitialYear(ctx context.Context, tenantID, schoolID, acto
 	year := now.Year()
 
 	// Academic year spans the full calendar year (Kenya CBC uses Jan-Dec)
-	yearStart := time.Date(year, 1, 1, 0, 0, 0, 0, time.UTC)
-	yearEnd := time.Date(year, 12, 31, 0, 0, 0, 0, time.UTC)
+	yearStart := DateOnly{Time: time.Date(year, 1, 1, 0, 0, 0, 0, time.UTC)}
+	yearEnd := DateOnly{Time: time.Date(year, 12, 31, 0, 0, 0, 0, time.UTC)}
 
 	// Create the academic year and set it as current
 	yearModel := &AcademicYear{
@@ -458,8 +504,8 @@ func (s *Service) SetupInitialYear(ctx context.Context, tenantID, schoolID, acto
 	type termDef struct {
 		Name       string
 		TermNumber int
-		StartDate  time.Time
-		EndDate    time.Time
+		StartDate  DateOnly
+		EndDate    DateOnly
 		IsFinal    bool
 	}
 
@@ -467,22 +513,22 @@ func (s *Service) SetupInitialYear(ctx context.Context, tenantID, schoolID, acto
 		{
 			Name:       "Term 1",
 			TermNumber: 1,
-			StartDate:  time.Date(year, 1, 26, 0, 0, 0, 0, time.UTC),
-			EndDate:    time.Date(year, 4, 24, 0, 0, 0, 0, time.UTC),
+			StartDate:  DateOnly{Time: time.Date(year, 1, 26, 0, 0, 0, 0, time.UTC)},
+			EndDate:    DateOnly{Time: time.Date(year, 4, 24, 0, 0, 0, 0, time.UTC)},
 			IsFinal:    false,
 		},
 		{
 			Name:       "Term 2",
 			TermNumber: 2,
-			StartDate:  time.Date(year, 5, 4, 0, 0, 0, 0, time.UTC),
-			EndDate:    time.Date(year, 8, 7, 0, 0, 0, 0, time.UTC),
+			StartDate:  DateOnly{Time: time.Date(year, 5, 4, 0, 0, 0, 0, time.UTC)},
+			EndDate:    DateOnly{Time: time.Date(year, 8, 7, 0, 0, 0, 0, time.UTC)},
 			IsFinal:    false,
 		},
 		{
 			Name:       "Term 3",
 			TermNumber: 3,
-			StartDate:  time.Date(year, 9, 1, 0, 0, 0, 0, time.UTC),
-			EndDate:    time.Date(year, 11, 27, 0, 0, 0, 0, time.UTC),
+			StartDate:  DateOnly{Time: time.Date(year, 9, 1, 0, 0, 0, 0, time.UTC)},
+			EndDate:    DateOnly{Time: time.Date(year, 11, 27, 0, 0, 0, 0, time.UTC)},
 			IsFinal:    false,
 		},
 	}
@@ -519,6 +565,20 @@ func (s *Service) SetupInitialYear(ctx context.Context, tenantID, schoolID, acto
 	)
 
 	return nil
+}
+
+// ============================================================================
+// Current Academic Year / Term Lookups
+// ============================================================================
+
+// GetCurrentAcademicYearID returns the ID of the current academic year for the school.
+func (s *Service) GetCurrentAcademicYearID(ctx context.Context, tenantID, schoolID string) (string, error) {
+	return s.Repo.GetCurrentAcademicYearID(ctx, tenantID, schoolID)
+}
+
+// GetCurrentAcademicTermID returns the ID of the current active term for the given academic year.
+func (s *Service) GetCurrentAcademicTermID(ctx context.Context, academicYearID string) (string, error) {
+	return s.Repo.GetCurrentAcademicTermID(ctx, academicYearID)
 }
 
 // isUniqueViolation heuristically checks if an error is a unique constraint

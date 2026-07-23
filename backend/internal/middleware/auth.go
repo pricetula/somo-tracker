@@ -19,14 +19,12 @@ func GetSession(c *fiber.Ctx) *SessionInfo {
 // RequireAuth validates the session from context (loaded by global middleware)
 // and sets tenant_id, user_id, and role on locals.
 // For API routes only — does not fall back to cookie loading.
-// Returns 401 with canonical error body if unauthenticated.
+// Returns middleware.ErrUnauthorized if unauthenticated, which flows through
+// Fiber's error handler to the canonical 401 JSON body.
 func RequireAuth(c *fiber.Ctx) error {
 	session := GetSession(c)
 	if session == nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"code":    "unauthorized",
-			"message": "authentication required",
-		})
+		return ErrUnauthorized
 	}
 	c.Locals("tenant_id", session.TenantID)
 	c.Locals("user_id", session.UserID)

@@ -17,11 +17,32 @@ import (
 // Test Harness
 // ============================================================================
 
+// mockAcademicYearsAdapter implements academicYearsAdapter for testing.
+type mockAcademicYearsAdapter struct {
+	getCurrentAcademicYearIDFn func(ctx context.Context, tenantID, schoolID string) (string, error)
+	getCurrentAcademicTermIDFn func(ctx context.Context, academicYearID string) (string, error)
+}
+
+func (m *mockAcademicYearsAdapter) GetCurrentAcademicYearID(ctx context.Context, tenantID, schoolID string) (string, error) {
+	if m.getCurrentAcademicYearIDFn != nil {
+		return m.getCurrentAcademicYearIDFn(ctx, tenantID, schoolID)
+	}
+	return "year_001", nil
+}
+
+func (m *mockAcademicYearsAdapter) GetCurrentAcademicTermID(ctx context.Context, academicYearID string) (string, error) {
+	if m.getCurrentAcademicTermIDFn != nil {
+		return m.getCurrentAcademicTermIDFn(ctx, academicYearID)
+	}
+	return "term_001", nil
+}
+
 type handlerTestHarness struct {
-	app     *fiber.App
-	svc     *Service
-	repo    *MockRepository
-	handler *Handler
+	app               *fiber.App
+	svc               *Service
+	repo              *MockRepository
+	handler           *Handler
+	academicYearsMock *mockAcademicYearsAdapter
 }
 
 func newHandlerTestHarness(t *testing.T) *handlerTestHarness {
@@ -30,6 +51,9 @@ func newHandlerTestHarness(t *testing.T) *handlerTestHarness {
 	repo := &MockRepository{}
 	svc := NewService(repo)
 	handler := NewHandler(svc)
+
+	academicYearsMock := &mockAcademicYearsAdapter{}
+	handler.SetAcademicYearsService(academicYearsMock)
 
 	app := fiber.New()
 
@@ -44,15 +68,23 @@ func newHandlerTestHarness(t *testing.T) *handlerTestHarness {
 	// Register routes manually with test auth
 	classes := app.Group("/api/v1/classes", testAuth)
 	classes.Get("/", handler.List)
+	classes.Get("/:id", handler.Get)
 	classes.Post("/", handler.Create)
 	classes.Put("/:id", handler.Update)
 	classes.Delete("/", handler.BulkDelete)
 
+	// Enrollment routes
+	classes.Get("/:id/roster", handler.GetRoster)
+	classes.Post("/:id/enroll", handler.BatchEnroll)
+	classes.Post("/:id/unenroll/:studentId", handler.UnenrollStudent)
+	classes.Get("/:id/available-students", handler.GetAvailableStudents)
+
 	return &handlerTestHarness{
-		app:     app,
-		svc:     svc,
-		repo:    repo,
-		handler: handler,
+		app:               app,
+		svc:               svc,
+		repo:              repo,
+		handler:           handler,
+		academicYearsMock: academicYearsMock,
 	}
 }
 
@@ -74,14 +106,13 @@ func TestHandler_ListClasses_HappyPath(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
 	expectedResult := &ClassListResult{
-		Data: []Class{
+		Items: []Class{
 			{ID: "class_001", GradeLevel: "G4", StreamName: "Blue", DisplayLabel: "G4 Blue", StreamID: "stream_001", StudentCount: 32},
 			{ID: "class_002", GradeLevel: "G4", StreamName: "Red", DisplayLabel: "G4 Red", StreamID: "stream_002", StudentCount: 28},
 		},
-		TotalRecords: 2,
-		CurrentPage:  1,
-		Limit:        50,
-		TotalPages:   1,
+		Total: 2,
+		Page:  1,
+		Limit: 50,
 	}
 
 	h.repo.listFn = func(ctx context.Context, filter ClassListFilter) (*ClassListResult, error) {
@@ -110,14 +141,14 @@ func TestHandler_ListClasses_HappyPath(t *testing.T) {
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		t.Fatalf("CL1: failed to decode response: %v", err)
 	}
-	if len(result.Data) != 2 {
-		t.Fatalf("CL1: expected 2 classes, got %d", len(result.Data))
+	if len(result.Items) != 2 {
+		t.Fatalf("CL1: expected 2 classes, got %d", len(result.Items))
 	}
-	if result.Data[0].DisplayLabel != "G4 Blue" {
-		t.Fatalf("CL1: expected display_label 'G4 Blue', got %q", result.Data[0].DisplayLabel)
+	if result.Items[0].DisplayLabel != "G4 Blue" {
+		t.Fatalf("CL1: expected display_label 'G4 Blue', got %q", result.Items[0].DisplayLabel)
 	}
-	if result.Data[0].StudentCount != 32 {
-		t.Fatalf("CL1: expected student_count 32, got %d", result.Data[0].StudentCount)
+	if result.Items[0].StudentCount != 32 {
+		t.Fatalf("CL1: expected student_count 32, got %d", result.Items[0].StudentCount)
 	}
 }
 
@@ -132,11 +163,10 @@ func TestHandler_ListClasses_Metadata(t *testing.T) {
 			t.Errorf("expected limit 10, got %d", filter.Limit)
 		}
 		return &ClassListResult{
-			Data:         []Class{{ID: "class_003", GradeLevel: "G5", StreamName: "Green", DisplayLabel: "G5 Green", StreamID: "stream_003"}},
-			TotalRecords: 25,
-			CurrentPage:  2,
-			Limit:        10,
-			TotalPages:   3,
+			Items: []Class{{ID: "class_003", GradeLevel: "G5", StreamName: "Green", DisplayLabel: "G5 Green", StreamID: "stream_003"}},
+			Total: 25,
+			Page:  2,
+			Limit: 10,
 		}, nil
 	}
 
@@ -150,35 +180,31 @@ func TestHandler_ListClasses_Metadata(t *testing.T) {
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		t.Fatalf("CL2: failed to decode response: %v", err)
 	}
-	if result.TotalRecords != 25 {
-		t.Fatalf("CL2: expected total_records 25, got %d", result.TotalRecords)
+	if result.Total != 25 {
+		t.Fatalf("CL2: expected total 25, got %d", result.Total)
 	}
-	if result.CurrentPage != 2 {
-		t.Fatalf("CL2: expected current_page 2, got %d", result.CurrentPage)
+	if result.Page != 2 {
+		t.Fatalf("CL2: expected page 2, got %d", result.Page)
 	}
 	if result.Limit != 10 {
 		t.Fatalf("CL2: expected limit 10, got %d", result.Limit)
 	}
-	if result.TotalPages != 3 {
-		t.Fatalf("CL2: expected total_pages 3, got %d", result.TotalPages)
-	}
 }
 
-func TestHandler_ListClasses_WithGradeLevelFilter(t *testing.T) {
+func TestHandler_ListClasses_WithSingleGradeLevelFilter(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
 	h.repo.listFn = func(ctx context.Context, filter ClassListFilter) (*ClassListResult, error) {
-		if filter.GradeLevel == nil || *filter.GradeLevel != "G4" {
-			t.Errorf("expected grade_level filter 'G4', got %v", filter.GradeLevel)
+		if len(filter.GradeLevels) != 1 || filter.GradeLevels[0] != "G4" {
+			t.Errorf("expected grade_levels ['G4'], got %v", filter.GradeLevels)
 		}
 		return &ClassListResult{
-			Data: []Class{
+			Items: []Class{
 				{ID: "class_001", GradeLevel: "G4", StreamName: "Blue", DisplayLabel: "G4 Blue", StreamID: "stream_001"},
 			},
-			TotalRecords: 1,
-			CurrentPage:  1,
-			Limit:        50,
-			TotalPages:   1,
+			Total: 1,
+			Page:  1,
+			Limit: 50,
 		}, nil
 	}
 
@@ -192,26 +218,58 @@ func TestHandler_ListClasses_WithGradeLevelFilter(t *testing.T) {
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		t.Fatalf("CL6: failed to decode response: %v", err)
 	}
-	if len(result.Data) != 1 {
-		t.Fatalf("CL6: expected 1 class, got %d", len(result.Data))
+	if len(result.Items) != 1 {
+		t.Fatalf("CL6: expected 1 class, got %d", len(result.Items))
 	}
 }
 
-func TestHandler_ListClasses_WithStreamIDFilter(t *testing.T) {
+func TestHandler_ListClasses_WithMultipleGradeLevelsFilter(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
 	h.repo.listFn = func(ctx context.Context, filter ClassListFilter) (*ClassListResult, error) {
-		if filter.StreamID == nil || *filter.StreamID != "stream_001" {
-			t.Errorf("expected stream_id filter 'stream_001', got %v", filter.StreamID)
+		if len(filter.GradeLevels) != 2 || filter.GradeLevels[0] != "G7" || filter.GradeLevels[1] != "G8" {
+			t.Errorf("expected grade_levels ['G7', 'G8'], got %v", filter.GradeLevels)
 		}
 		return &ClassListResult{
-			Data: []Class{
+			Items: []Class{
+				{ID: "class_001", GradeLevel: "G7", StreamName: "Blue", DisplayLabel: "G7 Blue", StreamID: "stream_001"},
+				{ID: "class_002", GradeLevel: "G8", StreamName: "Red", DisplayLabel: "G8 Red", StreamID: "stream_002"},
+			},
+			Total: 2,
+			Page:  1,
+			Limit: 50,
+		}, nil
+	}
+
+	resp := doRequest(h.app, "GET", "/api/v1/classes?academic_year_id=year_001&academic_term_id=term_001&grade_level=G7&grade_level=G8", nil)
+
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", resp.StatusCode)
+	}
+
+	var result ClassListResult
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if len(result.Items) != 2 {
+		t.Fatalf("expected 2 classes, got %d", len(result.Items))
+	}
+}
+
+func TestHandler_ListClasses_WithSingleStreamIDFilter(t *testing.T) {
+	h := newHandlerTestHarness(t)
+
+	h.repo.listFn = func(ctx context.Context, filter ClassListFilter) (*ClassListResult, error) {
+		if len(filter.StreamIDs) != 1 || filter.StreamIDs[0] != "stream_001" {
+			t.Errorf("expected stream_ids ['stream_001'], got %v", filter.StreamIDs)
+		}
+		return &ClassListResult{
+			Items: []Class{
 				{ID: "class_001", GradeLevel: "G4", StreamName: "Blue", DisplayLabel: "G4 Blue", StreamID: "stream_001"},
 			},
-			TotalRecords: 1,
-			CurrentPage:  1,
-			Limit:        50,
-			TotalPages:   1,
+			Total: 1,
+			Page:  1,
+			Limit: 50,
 		}, nil
 	}
 
@@ -225,8 +283,41 @@ func TestHandler_ListClasses_WithStreamIDFilter(t *testing.T) {
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		t.Fatalf("CL7: failed to decode response: %v", err)
 	}
-	if len(result.Data) != 1 {
-		t.Fatalf("CL7: expected 1 class, got %d", len(result.Data))
+	if len(result.Items) != 1 {
+		t.Fatalf("CL7: expected 1 class, got %d", len(result.Items))
+	}
+}
+
+func TestHandler_ListClasses_WithMultipleStreamIDsFilter(t *testing.T) {
+	h := newHandlerTestHarness(t)
+
+	h.repo.listFn = func(ctx context.Context, filter ClassListFilter) (*ClassListResult, error) {
+		if len(filter.StreamIDs) != 2 || filter.StreamIDs[0] != "stream_001" || filter.StreamIDs[1] != "stream_002" {
+			t.Errorf("expected stream_ids ['stream_001', 'stream_002'], got %v", filter.StreamIDs)
+		}
+		return &ClassListResult{
+			Items: []Class{
+				{ID: "class_001", GradeLevel: "G4", StreamName: "Blue", DisplayLabel: "G4 Blue", StreamID: "stream_001"},
+				{ID: "class_002", GradeLevel: "G4", StreamName: "Red", DisplayLabel: "G4 Red", StreamID: "stream_002"},
+			},
+			Total: 2,
+			Page:  1,
+			Limit: 50,
+		}, nil
+	}
+
+	resp := doRequest(h.app, "GET", "/api/v1/classes?academic_year_id=year_001&academic_term_id=term_001&stream_id=stream_001&stream_id=stream_002", nil)
+
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", resp.StatusCode)
+	}
+
+	var result ClassListResult
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if len(result.Items) != 2 {
+		t.Fatalf("expected 2 classes, got %d", len(result.Items))
 	}
 }
 
@@ -235,11 +326,10 @@ func TestHandler_ListClasses_EmptyResults(t *testing.T) {
 
 	h.repo.listFn = func(ctx context.Context, filter ClassListFilter) (*ClassListResult, error) {
 		return &ClassListResult{
-			Data:         []Class{},
-			TotalRecords: 0,
-			CurrentPage:  1,
-			Limit:        50,
-			TotalPages:   1,
+			Items: []Class{},
+			Total: 0,
+			Page:  1,
+			Limit: 50,
 		}, nil
 	}
 
@@ -253,28 +343,60 @@ func TestHandler_ListClasses_EmptyResults(t *testing.T) {
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		t.Fatalf("CL15: failed to decode response: %v", err)
 	}
-	if len(result.Data) != 0 {
-		t.Fatalf("CL15: expected empty data array, got %d items", len(result.Data))
+	if len(result.Items) != 0 {
+		t.Fatalf("CL15: expected empty items array, got %d items", len(result.Items))
 	}
 }
 
 func TestHandler_ListClasses_MissingAcademicYearID(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
+	// Simulate no current academic year configured
+	h.academicYearsMock.getCurrentAcademicYearIDFn = func(ctx context.Context, tenantID, schoolID string) (string, error) {
+		return "", nil
+	}
+
 	resp := doRequest(h.app, "GET", "/api/v1/classes?academic_term_id=term_001", nil)
 
-	if resp.StatusCode != fiber.StatusBadRequest {
-		t.Fatalf("CL11: expected 400 Bad Request, got %d", resp.StatusCode)
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("CL11: expected 200 OK (empty result), got %d", resp.StatusCode)
+	}
+
+	var result ClassListResult
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("CL11: failed to decode response: %v", err)
+	}
+	if len(result.Items) != 0 {
+		t.Fatalf("CL11: expected empty items, got %d items", len(result.Items))
+	}
+	if result.Total != 0 {
+		t.Fatalf("CL11: expected total 0, got %d", result.Total)
 	}
 }
 
 func TestHandler_ListClasses_MissingAcademicTermID(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
+	// Simulate no current academic term configured
+	h.academicYearsMock.getCurrentAcademicTermIDFn = func(ctx context.Context, academicYearID string) (string, error) {
+		return "", nil
+	}
+
 	resp := doRequest(h.app, "GET", "/api/v1/classes?academic_year_id=year_001", nil)
 
-	if resp.StatusCode != fiber.StatusBadRequest {
-		t.Fatalf("CL12: expected 400 Bad Request, got %d", resp.StatusCode)
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("CL12: expected 200 OK (empty result), got %d", resp.StatusCode)
+	}
+
+	var result ClassListResult
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("CL12: failed to decode response: %v", err)
+	}
+	if len(result.Items) != 0 {
+		t.Fatalf("CL12: expected empty items, got %d items", len(result.Items))
+	}
+	if result.Total != 0 {
+		t.Fatalf("CL12: expected total 0, got %d", result.Total)
 	}
 }
 
@@ -330,8 +452,6 @@ func TestHandler_CreateClass_MissingRequiredField(t *testing.T) {
 		field   string
 	}{
 		{"grade_level", map[string]interface{}{"academic_year_id": "year_001", "academic_term_id": "term_001", "stream_id": "stream_001"}, "grade_level"},
-		{"academic_year_id", map[string]interface{}{"grade_level": "G4", "academic_term_id": "term_001", "stream_id": "stream_001"}, "academic_year_id"},
-		{"academic_term_id", map[string]interface{}{"grade_level": "G4", "academic_year_id": "year_001", "stream_id": "stream_001"}, "academic_term_id"},
 		{"stream_id", map[string]interface{}{"grade_level": "G4", "academic_year_id": "year_001", "academic_term_id": "term_001"}, "stream_id"},
 	}
 
@@ -519,39 +639,6 @@ func TestHandler_UpdateClass_NotFound(t *testing.T) {
 	}
 }
 
-func TestHandler_UpdateClass_LockedByAssessments(t *testing.T) {
-	h := newHandlerTestHarness(t)
-
-	h.repo.hasAssessmentSessionsFn = func(ctx context.Context, classID, tenantID string) (bool, error) {
-		if classID == "class_001" {
-			return true, nil
-		}
-		return false, nil
-	}
-
-	body, _ := json.Marshal(UpdateClassPayload{
-		GradeLevel:     "G4",
-		StreamID:       "stream_001",
-		AcademicTermID: "term_001",
-	})
-
-	resp := doRequest(h.app, "PUT", "/api/v1/classes/class_001", body)
-
-	if resp.StatusCode != fiber.StatusConflict {
-		t.Fatalf("CU7: expected 409 Conflict (CLASS_LOCKED), got %d", resp.StatusCode)
-	}
-
-	var result struct {
-		Error string `json:"error"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		t.Fatalf("CU7: failed to decode response: %v", err)
-	}
-	if result.Error != "CLASS_LOCKED" {
-		t.Fatalf("CU7: expected error 'CLASS_LOCKED', got %q", result.Error)
-	}
-}
-
 func TestHandler_UpdateClass_DifferentialSync(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
@@ -648,34 +735,6 @@ func TestHandler_BulkDeleteClasses_OverLimit(t *testing.T) {
 	}
 }
 
-func TestHandler_BulkDeleteClasses_BlockedByAssessments(t *testing.T) {
-	h := newHandlerTestHarness(t)
-
-	h.repo.hasAnyAssessmentFn = func(ctx context.Context, classIDs []string, tenantID string) (bool, error) {
-		return true, nil
-	}
-
-	body, _ := json.Marshal(BulkDeletePayload{
-		ClassIDs: []string{"class_001"},
-	})
-
-	resp := doRequest(h.app, "DELETE", "/api/v1/classes", body)
-
-	if resp.StatusCode != fiber.StatusConflict {
-		t.Fatalf("CD3: expected 409 Conflict, got %d", resp.StatusCode)
-	}
-
-	var result struct {
-		Error string `json:"error"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		t.Fatalf("CD3: failed to decode response: %v", err)
-	}
-	if result.Error != "CLASS_HAS_ASSESSMENTS" {
-		t.Fatalf("CD3: expected error 'CLASS_HAS_ASSESSMENTS', got %q", result.Error)
-	}
-}
-
 func TestHandler_BulkDeleteClasses_NonExistentIDs(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
@@ -717,7 +776,11 @@ func testHandlerWithoutAuth(t *testing.T) *handlerTestHarness {
 	svc := NewService(repo)
 	handler := NewHandler(svc)
 
-	app := fiber.New()
+	app := fiber.New(fiber.Config{
+		// Route middleware-returned sentinel errors (ErrUnauthorized etc.)
+		// through the same mapping logic used in production.
+		ErrorHandler: middleware.HTTPError,
+	})
 
 	// Register routes WITHOUT the test auth middleware — the real RequireAuth
 	// will reject because there's no session in context.

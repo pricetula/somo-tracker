@@ -1,6 +1,9 @@
 package curriculum
 
 import (
+	"strconv"
+	"strings"
+
 	"github.com/gofiber/fiber/v2"
 
 	"somotracker/backend/internal/middleware"
@@ -76,6 +79,46 @@ func invalidBody(c *fiber.Ctx) error {
 	})
 }
 
+// parseRepeatedQuery reads all values for a given query parameter name.
+// Supports two styles:
+//   - repeated params: ?grade_level=G4&grade_level=G5
+//   - comma-separated: ?grade_level=G4,G5
+func parseRepeatedQuery(c *fiber.Ctx, name string) []string {
+	// Check for repeated query params first (e.g., ?grade=G4&grade=G5)
+	all := c.Request().URI().QueryArgs().PeekMulti(name)
+	if len(all) > 1 {
+		result := make([]string, 0, len(all))
+		for _, v := range all {
+			s := strings.TrimSpace(string(v))
+			if s != "" {
+				result = append(result, s)
+			}
+		}
+		return result
+	}
+
+	// Single value (or none) — could be comma-separated for client convenience
+	// (e.g., ?grade_level=G4,G5). c.Query returns only the first value, which
+	// is correct here since we already know there's at most one occurrence.
+	vals := c.Query(name, "")
+	if vals == "" {
+		return nil
+	}
+
+	parts := strings.Split(vals, ",")
+	result := make([]string, 0, len(parts))
+	for _, p := range parts {
+		s := strings.TrimSpace(p)
+		if s != "" {
+			result = append(result, s)
+		}
+	}
+	if len(result) == 0 {
+		return nil
+	}
+	return result
+}
+
 // ── Learning Area Handlers ───────────────────────────────────────────────
 
 // CreateLearningArea handles POST /api/v1/curriculum/learning-areas.
@@ -96,6 +139,7 @@ func (h *Handler) CreateLearningArea(c *fiber.Ctx) error {
 		Name:           payload.Name,
 		Code:           payload.Code,
 		EducationLevel: payload.EducationLevel,
+		GradeLevel:     payload.GradeLevel,
 	})
 	if err != nil {
 		return middleware.HTTPError(c, err)
@@ -107,25 +151,41 @@ func (h *Handler) CreateLearningArea(c *fiber.Ctx) error {
 }
 
 // ListLearningAreas handles GET /api/v1/curriculum/learning-areas.
+// Supports optional multi-select filtering via repeated query params:
+//
+//	?education_level=Early_Years&education_level=Upper_Primary
+//	&grade_level=PP1&grade_level=G4
 func (h *Handler) ListLearningAreas(c *fiber.Ctx) error {
 	tenantID, schoolID, err := getTenantAndSchool(c)
 	if err != nil {
 		return err
 	}
 
-	var educationLevel *string
-	if el := c.Query("education_level"); el != "" {
-		educationLevel = &el
+	// Multi-select filters — parse repeated query params
+	educationLevels := parseRepeatedQuery(c, "education_level")
+	gradeLevels := parseRepeatedQuery(c, "grade_level")
+
+	page, _ := strconv.Atoi(c.Query("page", "1"))
+	limit, _ := strconv.Atoi(c.Query("limit", "50"))
+	search := strings.TrimSpace(c.Query("search"))
+
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 50
 	}
 
-	areas, err := h.svc.ListLearningAreas(c.Context(), tenantID, schoolID, educationLevel)
+	areas, total, err := h.svc.ListLearningAreas(c.Context(), tenantID, schoolID, educationLevels, gradeLevels, search, page, limit)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
 
 	return c.JSON(ListLearningAreasResponse{
-		LearningAreas: areas,
-		Total:         len(areas),
+		Items: areas,
+		Total: total,
+		Page:  page,
+		Limit: limit,
 	})
 }
 
@@ -214,6 +274,9 @@ func (h *Handler) UpdateLearningArea(c *fiber.Ctx) error {
 	if payload.EducationLevel != nil {
 		params.EducationLevel = payload.EducationLevel
 	}
+	if payload.GradeLevel != nil {
+		params.GradeLevel = payload.GradeLevel
+	}
 
 	if err := h.svc.UpdateLearningArea(c.Context(), params); err != nil {
 		return middleware.HTTPError(c, err)
@@ -285,8 +348,8 @@ func (h *Handler) ListStrands(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(ListStrandsResponse{
-		Strands: strands,
-		Total:   len(strands),
+		Items: strands,
+		Total: len(strands),
 	})
 }
 
@@ -372,8 +435,8 @@ func (h *Handler) ListSubStrands(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(ListSubStrandsResponse{
-		SubStrands: subs,
-		Total:      len(subs),
+		Items: subs,
+		Total: len(subs),
 	})
 }
 
@@ -459,8 +522,8 @@ func (h *Handler) ListPerformanceIndicators(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(ListPerformanceIndicatorsResponse{
-		PerformanceIndicators: indicators,
-		Total:                 len(indicators),
+		Items: indicators,
+		Total: len(indicators),
 	})
 }
 

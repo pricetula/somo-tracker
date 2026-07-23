@@ -8,7 +8,14 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { listTeachers, toggleTeacherActive, type ListTeachersResponse } from "@/lib/api/teachers";
+import {
+    listTeachers,
+    getTeacher,
+    updateTeacher,
+    toggleTeacherActive,
+    deleteTeacher,
+    type ListTeachersResponse,
+} from "@/lib/api/teachers";
 import { getErrorMessage } from "@/lib/errors";
 import { toast } from "sonner";
 
@@ -28,15 +35,23 @@ export function useTeachers(
         limit?: number;
         search?: string;
         includeInactive?: boolean;
+        /** Filter values keyed by FilterItem id, e.g. { education_level: ["Early_Years"] } */
+        filters?: Record<string, string[]>;
         enabled?: boolean;
     } = {}
 ) {
-    const { page = 1, limit = 50, search, includeInactive = false, enabled = true } = opts;
+    const { page = 1, limit = 50, search, includeInactive = false, filters, enabled = true } = opts;
 
     return useQuery<ListTeachersResponse>({
-        queryKey: [...teachersKeys.list({ page, limit, search, includeInactive })],
+        queryKey: [...teachersKeys.list({ page, limit, search, includeInactive, filters })],
         queryFn: () =>
-            listTeachers({ page, per_page: limit, search, include_inactive: includeInactive }),
+            listTeachers({
+                page,
+                limit,
+                search,
+                include_inactive: includeInactive,
+                filters,
+            }),
         placeholderData: (prev) => prev,
         enabled,
     });
@@ -61,7 +76,7 @@ export function useToggleTeacherActive() {
                     if (!old) return old;
                     return {
                         ...old,
-                        teachers: old.teachers.map((t) =>
+                        items: old.items.map((t) =>
                             t.id === userId ? { ...t, is_active: isActive } : t
                         ),
                     };
@@ -81,6 +96,55 @@ export function useToggleTeacherActive() {
         },
         onSettled: () => {
             queryClient.invalidateQueries({ queryKey: teachersKeys.all });
+        },
+    });
+}
+
+/** Fetch a single teacher by ID. */
+export function useTeacherDetail(userId: string | undefined) {
+    return useQuery({
+        queryKey: [...teachersKeys.all, "detail", userId],
+        queryFn: () => getTeacher(userId!),
+        enabled: !!userId,
+    });
+}
+
+/** Update a teacher's profile. */
+export function useUpdateTeacher() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({
+            userId,
+            payload,
+        }: {
+            userId: string;
+            payload: {
+                full_name?: string;
+                tsc_number?: string | null;
+                knec_panel_assessor_id?: string | null;
+            };
+        }) => updateTeacher(userId, payload),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: teachersKeys.all });
+            toast.success("Teacher updated");
+        },
+        onError: (err) => toast.error(getErrorMessage(err)),
+    });
+}
+
+/** Hard-delete a teacher. */
+export function useDeleteTeacher() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (userId: string) => deleteTeacher(userId),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: teachersKeys.all });
+            toast.success("Teacher deleted");
+        },
+        onError: (err) => {
+            toast.error(getErrorMessage(err));
         },
     });
 }

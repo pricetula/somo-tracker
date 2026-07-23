@@ -119,6 +119,68 @@ func (r *PgRepository) ToggleActive(ctx context.Context, tenantID, schoolID, use
 	return nil
 }
 
+// Delete hard-deletes a member's membership by user ID and role.
+func (r *PgRepository) Delete(ctx context.Context, tenantID, schoolID, userID, role string) error {
+	const query = `
+		DELETE FROM memberships
+		WHERE tenant_id = $1 AND school_id = $2 AND user_id = $3 AND role::text = $4
+	`
+
+	tag, err := r.pool.Exec(ctx, query, tenantID, schoolID, userID, role)
+	if err != nil {
+		return fmt.Errorf("members.Repository.Delete: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("members.Repository.Delete: %w", ErrNotFound)
+	}
+
+	return nil
+}
+
+// GetByID returns a single member by user ID, scoped to tenant + school.
+func (r *PgRepository) GetByID(ctx context.Context, userID, tenantID, schoolID string) (*Member, error) {
+	const query = `
+		SELECT u.id, u.email, u.full_name, m.role::text, m.is_active, m.created_at
+		FROM memberships m
+		JOIN users u ON u.id = m.user_id
+		WHERE m.tenant_id = $2 AND m.school_id = $3 AND m.user_id = $1
+	`
+
+	var m Member
+	err := r.pool.QueryRow(ctx, query, userID, tenantID, schoolID).Scan(
+		&m.ID, &m.Email, &m.FullName, &m.Role, &m.IsActive, &m.CreatedAt,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("members.Repository.GetByID: %w", ErrNotFound)
+		}
+		return nil, fmt.Errorf("members.Repository.GetByID: %w", err)
+	}
+	return &m, nil
+}
+
+// Update applies partial updates to a member's user record.
+func (r *PgRepository) Update(ctx context.Context, userID, tenantID, schoolID string, payload UpdateMemberPayload) error {
+	if payload.FullName == nil {
+		return fmt.Errorf("members.Repository.Update: %w", ErrInvalidInput)
+	}
+
+	const query = `
+		UPDATE users
+		SET full_name = $1
+		WHERE id = $2
+	`
+	tag, err := r.pool.Exec(ctx, query, *payload.FullName, userID)
+	if err != nil {
+		return fmt.Errorf("members.Repository.Update: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("members.Repository.Update: %w", ErrNotFound)
+	}
+
+	return nil
+}
+
 // GetActiveSchoolID returns the active school ID for a user in a tenant.
 func (r *PgRepository) GetActiveSchoolID(ctx context.Context, tenantID, userID string) (string, error) {
 	const query = `

@@ -1,63 +1,105 @@
 /**
  * Admins listing page — active school administrators.
  *
- * Uses its own query hook and table component — not the generic
- * members module. Maps to GET /api/v1/members?role=SCHOOL_ADMIN.
+ * Uses the shared DataTable component.
+ * Maps to GET /api/v1/members?role=SCHOOL_ADMIN.
  *
  * Invitations are listed on the dedicated /admins/invitations page.
  */
 
 "use client";
 
-import * as React from "react";
-import Link from "next/link";
-
-import { AdminsTable } from "@/features/staff/components/admins-table";
-import { useAdmins } from "@/features/staff/hooks/use-admins";
+import { useState } from "react";
+import { DataTable } from "@/components/shared/data-table";
+import type { DataTableColumn } from "@/components/shared/data-table/types";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Send } from "lucide-react";
+import { Pencil } from "lucide-react";
+import { listAdmins, type Member } from "@/lib/api/admins";
+import { useDeleteAdmin } from "@/features/staff";
+import { MemberEditDialog } from "@/features/staff/components/member-edit-dialog";
+
+// ─── Edit action cell ──────────────────────────────────────────────────────
+
+function EditCell({ row }: { row: Member }) {
+    const [editOpen, setEditOpen] = useState(false);
+    return (
+        <>
+            <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => setEditOpen(true)}
+                title="Edit admin"
+            >
+                <Pencil className="h-4 w-4" />
+                <span className="sr-only">Edit {row.full_name}</span>
+            </Button>
+            <MemberEditDialog
+                userId={row.id}
+                open={editOpen}
+                onOpenChange={setEditOpen}
+                invalidationKey={["admins"]}
+            />
+        </>
+    );
+}
+
+// ─── Columns ───────────────────────────────────────────────────────────────
+
+const columns: DataTableColumn<Member>[] = [
+    {
+        id: "full_name",
+        header: "Full Name",
+        cell: (row) => <span className="font-medium">{row.full_name || "—"}</span>,
+    },
+    {
+        id: "email",
+        header: "Email",
+        cell: (row) => <span className="text-muted-foreground">{row.email}</span>,
+    },
+    {
+        id: "is_active",
+        header: "Account Status",
+        cell: (row) => (
+            <Badge
+                variant="secondary"
+                className={
+                    row.is_active
+                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                        : "bg-muted text-muted-foreground"
+                }
+            >
+                {row.is_active ? "Active" : "Inactive"}
+            </Badge>
+        ),
+    },
+];
+
+const editActionColumn: DataTableColumn<Member> = {
+    id: "edit",
+    header: "",
+    width: "48px",
+    align: "right",
+    cell: (row) => <EditCell row={row} />,
+};
+
+// ─── Page ──────────────────────────────────────────────────────────────────
 
 export default function AdminsPage() {
-    const {
-        data: adminsData,
-        isLoading: adminsLoading,
-        isError: adminsError,
-    } = useAdmins({ includeInactive: true });
+    const deleteMutation = useDeleteAdmin();
 
     return (
-        <div className="flex flex-1 flex-col">
-            {/* Page header */}
-            <div className="flex items-center gap-3 px-6 pt-6 pb-2">
-                <h1 className="text-2xl font-semibold tracking-tight">Admins</h1>
-                <div className="ml-auto">
-                    <Button variant="outline" size="sm" asChild>
-                        <Link href="/admins/invitations">
-                            <Send className="mr-1.5 size-3.5" />
-                            Invitations
-                        </Link>
-                    </Button>
-                </div>
-            </div>
-
-            <div className="flex flex-1 flex-col px-6 py-4">
-                <section className="flex flex-1 flex-col">
-                    {adminsError ? (
-                        <div className="flex items-center justify-center py-8">
-                            <p className="text-destructive text-sm">
-                                Failed to load admins. Please try again.
-                            </p>
-                        </div>
-                    ) : (
-                        <div className="ring-foreground/10 rounded-lg ring-1">
-                            <AdminsTable
-                                admins={adminsData?.members ?? []}
-                                total={adminsData?.total ?? 0}
-                                isLoading={adminsLoading}
-                            />
-                        </div>
-                    )}
-                </section>
-            </div>
-        </div>
+        <DataTable
+            addHref="/admins/import"
+            queryKey={["admins"]}
+            queryFn={listAdmins}
+            columns={[...columns, editActionColumn]}
+            getRowId={(row) => row.id}
+            isSearchable
+            searchPlaceholder="Search by name or email…"
+            deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
+            emptyState="No admins yet."
+            noResultsState="No admins match your search."
+        />
     );
 }

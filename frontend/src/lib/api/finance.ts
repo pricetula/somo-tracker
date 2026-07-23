@@ -17,11 +17,11 @@ export type { Member, ListMembersResponse };
 
 /** List active finance staff (FINANCE role). */
 export async function listFinanceStaff(
-    params: { page?: number; per_page?: number; search?: string; include_inactive?: boolean } = {}
+    params: { page?: number; limit?: number; search?: string; include_inactive?: boolean } = {}
 ): Promise<ListMembersResponse> {
     const searchParams = new URLSearchParams({ role: "FINANCE" });
     if (params.page) searchParams.set("page", String(params.page));
-    if (params.per_page) searchParams.set("per_page", String(params.per_page));
+    if (params.limit) searchParams.set("limit", String(params.limit));
     if (params.search) searchParams.set("search", params.search);
     if (params.include_inactive) searchParams.set("include_inactive", "true");
 
@@ -32,4 +32,9 @@ export async function listFinanceStaff(
 /** Toggle finance staff active status. */
 export async function toggleFinanceActive(userId: string, isActive: boolean): Promise<void> {
     return api.patch<void>(`/api/v1/members/${userId}/active`, { is_active: isActive });
+}
+
+/** Hard-delete a finance staff member. */
+export async function deleteFinanceStaff(userId: string): Promise<void> {
+    return api.delete<void>(`/api/v1/members/${userId}?role=FINANCE`);
 }

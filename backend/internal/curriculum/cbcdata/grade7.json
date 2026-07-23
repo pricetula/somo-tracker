@@ -1,0 +1,396 @@
+[
+  {
+    "name": "Mathematics",
+    "code": "MATH_G7",
+    "education_level": "Junior_Secondary",
+    "strands": [
+      {
+        "name": "Numbers",
+        "sub_strands": [
+          {
+            "name": "Whole Numbers and Integers",
+            "performance_indicators": [
+              "Apply divisibility test rules for 2, 3, 4, 5, 6, 8, 9, and 11 to solve numerical puzzles.",
+              "Represent, order, and perform basic operations on directed integers using a number line.",
+              "Solve real-life arithmetic problems involving prime factorization, LCM, and GCD contextually."
+            ]
+          },
+          {
+            "name": "Fractions, Decimals, and Percentages",
+            "performance_indicators": [
+              "Perform operations on decimals up to three decimal places including recurring decimals.",
+              "Apply basic data extraction techniques to compute percentage fractions in consumer contexts."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Measurement",
+        "sub_strands": [
+          {
+            "name": "Rate, Ratio, and Conversion",
+            "performance_indicators": [
+              "Express quantities as ratios and share amounts using given proportional metrics.",
+              "Calculate conversion rates involving foreign currencies based on current financial charts.",
+              "Determine distance-time rates using derived constant speed calculations."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Algebra and Geometry",
+        "sub_strands": [
+          {
+            "name": "Linear Equations and Properties of Polygons",
+            "performance_indicators": [
+              "Formulate and solve word problems involving single-variable linear equations.",
+              "Investigate and prove angle properties of parallel lines intersected by a transversal line.",
+              "Construct triangles and regular quadrilaterals using geometric instruments precisely."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "English",
+    "code": "ENG_G7",
+    "education_level": "Junior_Secondary",
+    "strands": [
+      {
+        "name": "Listening and Speaking",
+        "sub_strands": [
+          {
+            "name": "Critical Listening and Intonation",
+            "performance_indicators": [
+              "Identify central claims and subtextual nuances in verbal announcements or podcasts.",
+              "Demonstrate functional control over stress, rhythm, and falling/rising intonation patterns in presentations."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Reading and Literary Appreciation",
+        "sub_strands": [
+          {
+            "name": "Intensive Reading and Set Text Analysis",
+            "performance_indicators": [
+              "Analyze short stories and selected youth plays to map plot structures, character motivations, and moral messages.",
+              "Differentiate between literal statements and figurative expressions (similes, metaphors, personification) in poetry."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Writing and Language Structure",
+        "sub_strands": [
+          {
+            "name": "Grammar and Functional Writing",
+            "performance_indicators": [
+              "Apply coordinating and subordinating conjunctions to formulate compound-complex sentences.",
+              "Draft clear, structured functional texts including formal letters, book reviews, and imaginative short stories."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Kiswahili",
+    "code": "KISW_G7",
+    "education_level": "Junior_Secondary",
+    "strands": [
+      {
+        "name": "Kusikiliza na Kuzungumza",
+        "sub_strands": [
+          {
+            "name": "Mjadala na Utangazaji",
+            "performance_indicators": [
+              "Kusikiliza ripoti za habari na kutoa tathmini ya kina kuhusu ukweli wa mambo.",
+              "Kutumia msamiati mwafaka na lugha ya heshima kuwasilisha maoni kwenye mijadala ya darasani."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Kusoma na Uchambuzi wa Fasihi",
+        "sub_strands": [
+          {
+            "name": "Ufahamu na Fasihi Simulizi",
+            "performance_indicators": [
+              "Kusoma na kufafanua tanzu za fasihi simulizi kama vile methali, vitendawili na ngano za mashujaa.",
+              "Kuchambuzi makala ya kitaaluma huku ukionyesha muundo wa hoja na mtiririko wa mawazo."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Kuandika na Sarufi",
+        "sub_strands": [
+          {
+            "name": "Uandishi wa Kina na Miundo ya Lugha",
+            "performance_indicators": [
+              "Kuandika insha za wasifu, hotuba na barua za kirafiki kwa kufuata kanuni za lugha sanifu.",
+              "Kutumia viambishi, nyakati, na kukanusha vitenzi katika ngeli mbalimbali kwa usahihi."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Integrated Science",
+    "code": "INT_SCI_G7",
+    "education_level": "Junior_Secondary",
+    "strands": [
+      {
+        "name": "Mixtures, Elements, and Compounds",
+        "sub_strands": [
+          {
+            "name": "Separation of Mixtures and Acids/Bases",
+            "performance_indicators": [
+              "Perform physical separation tasks using filtration, evaporation, crystallization, and simple distillation.",
+              "Classify household items as acidic, basic, or neutral using litmus paper and natural indicator extracts.",
+              "Demonstrate safe laboratory behavior and correct assembly of basic science apparatus."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Living Things and Systems",
+        "sub_strands": [
+          {
+            "name": "Cellular Structure and Excretory Organs",
+            "performance_indicators": [
+              "Identify parts of a basic light microscope and handle it correctly to view simple biological cells.",
+              "Illustrate the structural framework and functions of human skin and kidney organs."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Energy and Environment",
+        "sub_strands": [
+          {
+            "name": "Forms of Energy and Heat Transfer",
+            "performance_indicators": [
+              "Investigate heat transfer mechanisms (conduction, convection, radiation) through laboratory models.",
+              "Evaluate renewable and non-renewable energy sources and discuss local conservation techniques."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Pre-Technical Studies",
+    "code": "PRE_TECH_G7",
+    "education_level": "Junior_Secondary",
+    "strands": [
+      {
+        "name": "Technical Drawing and Materials",
+        "sub_strands": [
+          {
+            "name": "Geometric Construction and Hand Tools",
+            "performance_indicators": [
+              "Draw basic plane geometry outlines using standard drawing instruments and layout margins.",
+              "Identify, classify, and apply safety measures when using metalwork, woodwork, and plastic processing hand tools.",
+              "Differentiate between ferrous and non-ferrous metals based on physical structural profiles."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Digital Technologies and Computing",
+        "sub_strands": [
+          {
+            "name": "Computer Systems and Basic Logic",
+            "performance_indicators": [
+              "Configure input, output, and secondary storage units within a modern computing system safely.",
+              "Construct sequential algorithms and represent data patterns using basic flowchart symbols."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Entrepreneurship",
+        "sub_strands": [
+          {
+            "name": "Business Ideas and Financial Literacy",
+            "performance_indicators": [
+              "Identify potential community business opportunities based on market demand gap assessments.",
+              "Maintain accurate records for basic business transactions using cash book entries."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Agriculture and Nutrition",
+    "code": "AGRI_NUTR_G7",
+    "education_level": "Junior_Secondary",
+    "strands": [
+      {
+        "name": "Conservation of Resources",
+        "sub_strands": [
+          {
+            "name": "Soil Pollution and Water Retention",
+            "performance_indicators": [
+              "Demonstrate field actions to minimize soil pollution from agricultural synthetic wastes.",
+              "Construct micro-catchment water retention structures to maximize soil moisture levels.",
+              "Select and plant specific indigenous trees suited to environmental micro-climates."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Food Production and Techniques",
+        "sub_strands": [
+          {
+            "name": "Crop Establishment and Cooking Methods",
+            "performance_indicators": [
+              "Execute seedbed preparation, planting, and initial care for select vegetable crops.",
+              "Apply diverse cooking techniques including steaming, grilling, and roasting safely.",
+              "Design and establish framed suspended gardens using local recycled equipment."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Hygiene and Household Production",
+        "sub_strands": [
+          {
+            "name": "Laundry and Soap Making",
+            "performance_indicators": [
+              "Demonstrate appropriate laundry care processes for loose-colored household textiles.",
+              "Formulate basic homemade multi-purpose soaps following precise measurement metrics."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Social Studies",
+    "code": "SOC_STUD_G7",
+    "education_level": "Junior_Secondary",
+    "strands": [
+      {
+        "name": "Maps and Physical Environment",
+        "sub_strands": [
+          {
+            "name": "African Continent Profile and Weather Systems",
+            "performance_indicators": [
+              "Locate Africa on a world grid system and identify its primary boundaries and sea links.",
+              "Examine the formation and geographic spread of major physical features across the African continent.",
+              "Interpret regional meteorological charts using advanced indicators and isobar configurations."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Human Systems and History",
+        "sub_strands": [
+          {
+            "name": "Early Man and African Communities",
+            "performance_indicators": [
+              "Analyze the theories of human origin and trace key archaeological evidence found within East Africa.",
+              "Examine the social, economic, and political setups of select pre-colonial African societies."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Citizenship and Life Skills Integration",
+        "sub_strands": [
+          {
+            "name": "Human Rights, Governance, and Self-Awareness",
+            "performance_indicators": [
+              "Outline the components of the Bill of Rights inside the Constitution of Kenya.",
+              "Demonstrate self-awareness, assertive communication, and refusal skills to combat social peer pressures.",
+              "Evaluate conflict mitigation patterns that support administrative stability inside school communities."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Creative Arts and Sports",
+    "code": "CREAT_ART_SPORTS_G7",
+    "education_level": "Junior_Secondary",
+    "strands": [
+      {
+        "name": "Arts and Craft",
+        "sub_strands": [
+          {
+            "name": "Graphic Design and Weaving Techniques",
+            "performance_indicators": [
+              "Design communicative poster typography using color balances and manual perspective templates.",
+              "Create functional items utilizing traditional multi-strand weaving or plaiting skills.",
+              "Apply basic printmaking techniques to replicate unified decorative motifs on fabric surfaces."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Music and Performing Arts",
+        "sub_strands": [
+          {
+            "name": "Sight Reading and Performance Execution",
+            "performance_indicators": [
+              "Read and interpret simple musical notation structures including staff lines and time signatures.",
+              "Perform folk dances from diverse Kenyan communities observing exact rhythmic expressions and costuming."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Sports and Physical Education",
+        "sub_strands": [
+          {
+            "name": "Track Events and Technical Officiating",
+            "performance_indicators": [
+              "Execute standard starting blocks positions for sprint races and perform proper baton handovers in relays.",
+              "Apply rules and display core physical skills for selected team games (handball, hockey, or basketball)."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Religious Education",
+    "code": "RE_G7",
+    "education_level": "Junior_Secondary",
+    "strands": [
+      {
+        "name": "Christian Religious Education",
+        "sub_strands": [
+          {
+            "name": "Creation, Fall, and Christian Virtues",
+            "performance_indicators": [
+              "Contrast the biblical accounts of creation and draw connections to environmental conservation duties.",
+              "Analyze the consequences of human disobedience as illustrated in the Genesis accounts.",
+              "Apply the core fruits of the Holy Spirit to reinforce personal integrity and peer equity inside school interactions."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Islamic Religious Education",
+        "sub_strands": [
+          {
+            "name": "Quranic Exegesis and Pillars of Iman",
+            "performance_indicators": [
+              "Translate and explain the ethical implications outlined in Surah Al-Infitar and Surah Al-Mutaffifin.",
+              "Formulate a clear narrative detailing the attributes of Allah through the pillars of Iman.",
+              "Practice proper purification routines (Wudhu and Ghusl) following established jurisprudential protocols."
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]

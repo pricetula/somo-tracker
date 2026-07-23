@@ -2,24 +2,29 @@ package teachers
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"time"
+
+	"somotracker/backend/internal/middleware"
 )
 
 // Sentinel domain errors.
 var (
-	ErrNotFound      = errors.New("teachers not found")
-	ErrAlreadyExists = errors.New("teachers already exists")
-	ErrInvalidInput  = errors.New("invalid teachers input")
-	ErrUnauthorized  = errors.New("unauthorized")
-	ErrForbidden     = errors.New("forbidden")
-	ErrConflict      = errors.New("teachers conflict")
+	ErrNotFound      = fmt.Errorf("teachers not found: %w", middleware.ErrNotFound)
+	ErrAlreadyExists = fmt.Errorf("teachers already exists: %w", middleware.ErrAlreadyExists)
+	ErrInvalidInput  = fmt.Errorf("invalid teachers input: %w", middleware.ErrInvalidInput)
+	ErrUnauthorized  = fmt.Errorf("unauthorized: %w", middleware.ErrUnauthorized)
+	ErrForbidden     = fmt.Errorf("forbidden: %w", middleware.ErrForbidden)
+	ErrConflict      = fmt.Errorf("teachers conflict: %w", middleware.ErrConflict)
 )
 
 // Repository defines the contract for teacher persistence.
 type Repository interface {
 	ListBySchool(ctx context.Context, tenantID, schoolID string, includeInactive bool, offset, limit int, search string) ([]Teacher, int, error)
+	GetByID(ctx context.Context, userID, tenantID, schoolID string) (*Teacher, error)
+	Update(ctx context.Context, userID, tenantID, schoolID string, payload UpdateTeacherPayload) error
 	ToggleActive(ctx context.Context, tenantID, schoolID, userID string, isActive bool) error
+	Delete(ctx context.Context, tenantID, schoolID, userID string) error
 }
 
 // Teacher represents a user with the TEACHER role, including
@@ -37,11 +42,20 @@ type Teacher struct {
 
 // ListResponse wraps a paginated teacher list.
 type ListResponse struct {
-	Teachers []Teacher `json:"teachers"`
-	Total    int       `json:"total"`
+	Items []Teacher `json:"items"`
+	Total int       `json:"total"`
+	Page  int       `json:"page"`
+	Limit int       `json:"limit"`
 }
 
 // ToggleActiveRequest is the payload for activating/deactivating a teacher.
 type ToggleActiveRequest struct {
 	IsActive bool `json:"is_active"`
+}
+
+// UpdateTeacherPayload is the payload for updating a teacher's profile.
+type UpdateTeacherPayload struct {
+	FullName          *string `json:"full_name,omitempty"`
+	TSCNumber         *string `json:"tsc_number,omitempty"`
+	KNECPanelAssessor *string `json:"knec_panel_assessor_id,omitempty"`
 }

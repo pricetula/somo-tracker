@@ -1,6 +1,7 @@
 package config
 
 import (
+	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -43,7 +44,9 @@ func Load() Config {
 			if _, statErr := os.Stat(envPath); statErr == nil {
 				logger.Info("config: loaded .env file", zap.String("path", envPath))
 			}
-			_ = logger.Sync()
+			if syncErr := logger.Sync(); syncErr != nil {
+				slog.Warn("config: logger sync failed", slog.String("error", syncErr.Error()))
+			}
 		}
 	}
 

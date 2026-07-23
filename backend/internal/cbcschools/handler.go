@@ -44,13 +44,17 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	schools.Get("/", middleware.RequireAuth, h.List)
 	schools.Put("/:id", middleware.RequireAuth, h.Update)
 	schools.Delete("/:id", middleware.RequireAuth, h.Delete)
+	schools.Post("/:id/activate", middleware.RequireAuth, h.SetActive)
 }
 
 // ─── Handlers ──────────────────────────────────────────────────────────────
 
 // Create handles POST /api/v1/schools.
+// Creates the school, enrolls the creator as SCHOOL_ADMIN, sets it as their
+// active school, and updates the somo_school_id cookie.
 func (h *Handler) Create(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
+	userID := c.Locals("user_id").(string)
 
 	var payload CreateSchoolPayload
 	if err := c.BodyParser(&payload); err != nil {
@@ -67,10 +71,22 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 		})
 	}
 
-	schoolID, err := h.svc.CreateSchool(c.Context(), tenantID, payload.Name)
+	schoolID, err := h.svc.CreateSchool(c.Context(), tenantID, payload.Name, "SCHOOL_ADMIN", userID)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
+
+	// Update the somo_school_id cookie so the frontend immediately reflects
+	// the new school as the active school without needing a page refresh.
+	c.Cookie(&fiber.Cookie{
+		Name:     "somo_school_id",
+		Value:    schoolID,
+		HTTPOnly: false,
+		Secure:   c.Secure(),
+		SameSite: "Lax",
+		Path:     "/",
+		MaxAge:   2592000, // 30 days
+	})
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"id": schoolID,
@@ -88,8 +104,8 @@ func (h *Handler) List(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(ListSchoolsResponse{
-		Schools: schools,
-		Total:   len(schools),
+		Items: schools,
+		Total: len(schools),
 	})
 }
 
@@ -112,16 +128,9 @@ func (h *Handler) Update(c *fiber.Ctx) error {
 		})
 	}
 
-	// Verify the school belongs to this tenant
-	school, err := h.svc.Repo.GetByID(c.Context(), schoolID)
-	if err != nil {
+	// Verify the school exists and belongs to this tenant
+	if _, err := h.svc.GetSchool(c.Context(), schoolID, tenantID); err != nil {
 		return middleware.HTTPError(c, err)
-	}
-	if school.TenantID != tenantID {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"code":    "forbidden",
-			"message": "school does not belong to this tenant",
-		})
 	}
 
 	fields := SchoolUpdateFields{
@@ -159,6 +168,39 @@ func (h *Handler) Update(c *fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusOK)
 }
 
+// SetActive handles POST /api/v1/schools/:id/activate.
+// Sets the school as the user's active school and updates the somo_school_id cookie.
+func (h *Handler) SetActive(c *fiber.Ctx) error {
+	tenantID := c.Locals("tenant_id").(string)
+	userID := c.Locals("user_id").(string)
+	schoolID := c.Params("id")
+
+	if schoolID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "school id is required",
+		})
+	}
+
+	if err := h.svc.SetActiveSchool(c.Context(), userID, tenantID, schoolID); err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	// Update the somo_school_id cookie so the frontend immediately reflects
+	// the new active school without needing a page refresh.
+	c.Cookie(&fiber.Cookie{
+		Name:     "somo_school_id",
+		Value:    schoolID,
+		HTTPOnly: false,
+		Secure:   c.Secure(),
+		SameSite: "Lax",
+		Path:     "/",
+		MaxAge:   2592000, // 30 days
+	})
+
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
 // Delete handles DELETE /api/v1/schools/:id.
 func (h *Handler) Delete(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
@@ -170,16 +212,9 @@ func (h *Handler) Delete(c *fiber.Ctx) error {
 		})
 	}
 
-	// Verify the school belongs to this tenant
-	school, err := h.svc.Repo.GetByID(c.Context(), schoolID)
-	if err != nil {
+	// Verify the school exists and belongs to this tenant
+	if _, err := h.svc.GetSchool(c.Context(), schoolID, tenantID); err != nil {
 		return middleware.HTTPError(c, err)
-	}
-	if school.TenantID != tenantID {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"code":    "forbidden",
-			"message": "school does not belong to this tenant",
-		})
 	}
 
 	if err := h.svc.DeleteSchool(c.Context(), schoolID); err != nil {

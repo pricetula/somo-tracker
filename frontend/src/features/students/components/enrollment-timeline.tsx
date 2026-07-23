@@ -61,9 +61,7 @@ export function EnrollmentTimeline({
             {enrollments.length === 0 ? (
                 <div className="bg-muted/30 flex items-center justify-center rounded-md px-4 py-8">
                     <div className="text-center">
-                        <p className="text-muted-foreground text-sm font-medium">
-                            No enrollment history
-                        </p>
+                        <p className="text-muted-foreground font-medium">No enrollment history</p>
                         <p className="text-muted-foreground mt-1 text-xs">
                             Enroll this student in a class to get started.
                         </p>
@@ -86,9 +84,7 @@ export function EnrollmentTimeline({
                                 {/* Content */}
                                 <div className="flex-1 pb-2">
                                     <div className="flex flex-wrap items-center gap-2">
-                                        <span className="text-sm font-medium">
-                                            {enrollment.term_name}
-                                        </span>
+                                        <span className="font-medium">{enrollment.term_name}</span>
                                         {enrollment.academic_year && (
                                             <span className="text-muted-foreground text-xs">
                                                 {enrollment.academic_year}

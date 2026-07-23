@@ -8,6 +8,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { FieldRow } from "./field-row";
 import type { StudentDetail } from "../types";
 
 // ─── Props ─────────────────────────────────────────────────────────────────
@@ -26,17 +27,6 @@ function formatDate(date: string | null | undefined): string {
         day: "numeric",
         year: "numeric",
     });
-}
-
-// ─── Field Row ────────────────────────────────────────────────────────────
-
-function FieldRow({ label, value }: { label: string; value: string }) {
-    return (
-        <div className="flex items-baseline gap-4 py-1.5">
-            <span className="text-muted-foreground w-32 shrink-0 text-xs font-medium">{label}</span>
-            <span className="text-sm">{value}</span>
-        </div>
-    );
 }
 
 // ─── Component ─────────────────────────────────────────────────────────────

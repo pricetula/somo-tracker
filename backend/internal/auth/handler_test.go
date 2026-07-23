@@ -38,12 +38,12 @@ type handlerTestHarness struct {
 
 // mockSchoolCreator implements SchoolCreator for handler tests.
 type mockSchoolCreator struct {
-	createFn func(ctx context.Context, tenantID string, name string) (string, error)
+	createFn func(ctx context.Context, tenantID string, name string, role string, creatorUserID ...string) (string, error)
 }
 
-func (m *mockSchoolCreator) Create(ctx context.Context, tenantID string, name string) (string, error) {
+func (m *mockSchoolCreator) CreateSchool(ctx context.Context, tenantID string, name string, role string, creatorUserID ...string) (string, error) {
 	if m.createFn != nil {
-		return m.createFn(ctx, tenantID, name)
+		return m.createFn(ctx, tenantID, name, role, creatorUserID...)
 	}
 	return "school_" + tenantID, nil
 }
@@ -79,7 +79,6 @@ func newHandlerTestHarness(t *testing.T) *handlerTestHarness {
 		logger:        logger,
 		cfg:           cfg,
 		schoolCreator: &mockSchoolCreator{},
-		yearCreator:   &mockYearCreator{},
 	}
 
 	handler := NewHandler(svc, logger, cfg)
@@ -230,8 +229,8 @@ func TestHandler_Me_MissingCookie(t *testing.T) {
 	if body.Code != "unauthorized" {
 		t.Fatalf("expected code 'unauthorized', got %q", body.Code)
 	}
-	if body.Message != "no session cookie found" {
-		t.Fatalf("expected message 'no session cookie found', got %q", body.Message)
+	if body.Message != "authentication required" {
+		t.Fatalf("expected message 'authentication required', got %q", body.Message)
 	}
 }
 
@@ -525,13 +524,13 @@ func TestHandler_Discover_HappyPath(t *testing.T) {
 	}
 }
 
-// TestHandler_Discover_MissingEmail verifies that omitting email returns 422.
+// TestHandler_Discover_MissingEmail verifies that omitting email returns 400.
 func TestHandler_Discover_MissingEmail(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
 	resp := h.doRequestWithBody("POST", "/api/auth/discover", "", map[string]string{})
-	if resp.StatusCode != fiber.StatusUnprocessableEntity {
-		t.Fatalf("expected 422 Unprocessable Entity, got %d", resp.StatusCode)
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Fatalf("expected 400 Bad Request, got %d", resp.StatusCode)
 	}
 
 	var body struct {
@@ -544,8 +543,8 @@ func TestHandler_Discover_MissingEmail(t *testing.T) {
 	if body.Code != "invalid_input" {
 		t.Fatalf("expected code 'invalid_input', got %q", body.Code)
 	}
-	if body.Message != "email is required" {
-		t.Fatalf("expected message 'email is required', got %q", body.Message)
+	if body.Message != "email is required: invalid input" {
+		t.Fatalf("expected message 'email is required: invalid input', got %q", body.Message)
 	}
 }
 
@@ -557,8 +556,8 @@ func TestHandler_Discover_InvalidBody(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	resp, _ := h.app.Test(req)
 
-	if resp.StatusCode != fiber.StatusUnprocessableEntity {
-		t.Fatalf("expected 422 Unprocessable Entity, got %d", resp.StatusCode)
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Fatalf("expected 400 Bad Request, got %d", resp.StatusCode)
 	}
 }
 
@@ -661,8 +660,8 @@ func TestHandler_Register_ValidationError(t *testing.T) {
 	})
 
 	// ValidationError with ErrInvalidInput maps to 400
-	if resp.StatusCode != fiber.StatusInternalServerError {
-		t.Fatalf("expected 500 Internal Server Error, got %d", resp.StatusCode)
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Fatalf("expected 400 Bad Request, got %d", resp.StatusCode)
 	}
 }
 
@@ -674,8 +673,8 @@ func TestHandler_Register_InvalidBody(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	resp, _ := h.app.Test(req)
 
-	if resp.StatusCode != fiber.StatusUnprocessableEntity {
-		t.Fatalf("expected 422 Unprocessable Entity, got %d", resp.StatusCode)
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Fatalf("expected 400 Bad Request, got %d", resp.StatusCode)
 	}
 
 	var body struct {
@@ -835,8 +834,8 @@ func TestHandler_Verify_MissingToken(t *testing.T) {
 		Token: "",
 	})
 
-	if resp.StatusCode != fiber.StatusUnprocessableEntity {
-		t.Fatalf("expected 422 Unprocessable Entity, got %d", resp.StatusCode)
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Fatalf("expected 400 Bad Request, got %d", resp.StatusCode)
 	}
 
 	var body struct {
@@ -859,8 +858,8 @@ func TestHandler_Verify_InvalidBody(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	resp, _ := h.app.Test(req)
 
-	if resp.StatusCode != fiber.StatusUnprocessableEntity {
-		t.Fatalf("expected 422 Unprocessable Entity, got %d", resp.StatusCode)
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Fatalf("expected 400 Bad Request, got %d", resp.StatusCode)
 	}
 }
 
@@ -969,13 +968,13 @@ func TestHandler_Callback_ExistingUser(t *testing.T) {
 }
 
 // TestHandler_Callback_MissingToken verifies that a callback without a token
-// returns 422 Unprocessable Entity.
+// returns 400 Bad Request.
 func TestHandler_Callback_MissingToken(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
 	resp := h.doRequestWithQuery("GET", "/api/auth/callback", "", "")
-	if resp.StatusCode != fiber.StatusUnprocessableEntity {
-		t.Fatalf("expected 422 Unprocessable Entity, got %d", resp.StatusCode)
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Fatalf("expected 400 Bad Request, got %d", resp.StatusCode)
 	}
 
 	var body struct {
@@ -988,8 +987,8 @@ func TestHandler_Callback_MissingToken(t *testing.T) {
 	if body.Code != "invalid_input" {
 		t.Fatalf("expected code 'invalid_input', got %q", body.Code)
 	}
-	if body.Message != "token query parameter is required" {
-		t.Fatalf("expected message 'token query parameter is required', got %q", body.Message)
+	if body.Message != "token query parameter is required: invalid input" {
+		t.Fatalf("expected message 'token query parameter is required: invalid input', got %q", body.Message)
 	}
 }
 
@@ -1029,13 +1028,16 @@ func TestHandler_Callback_ExpiredToken(t *testing.T) {
 func TestHandler_InviteCallback_HappyPath(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
-	// Configure mock IDP to return valid invite auth
+	// Configure mock IDP to authenticate via the org-scoped endpoint
 	idp := h.svc.idp.(*MockIdentityProvider)
-	idp.authenticateInviteTokenFn = func(ctx context.Context, token string) (string, string, error) {
-		return "ist_invite", "invited@example.com", nil
-	}
-	idp.exchangeInviteSessionFn = func(ctx context.Context, ist, orgID string) (string, error) {
-		return "sty_sess_invite", nil
+	idp.authenticateMagicLinkFn = func(ctx context.Context, token string) (*MagicLinkAuthResult, error) {
+		return &MagicLinkAuthResult{
+			MemberID:            "member_invited_001",
+			OrganizationID:      "org_invite",
+			Email:               "invited@example.com",
+			StytchSessionToken:  "sty_sess_invite",
+			MemberAuthenticated: true,
+		}, nil
 	}
 
 	// Configure repo to return a valid invitation
@@ -1048,12 +1050,9 @@ func TestHandler_InviteCallback_HappyPath(t *testing.T) {
 			Email:          "invited@example.com",
 			FullName:       "Invited Teacher",
 			Status:         "pending",
-			StytchMemberID: "sty_member_invited",
+			StytchMemberID: "member_invited_001",
 			ExpiresAt:      time.Now().Add(24 * time.Hour),
 		}, nil
-	}
-	h.repo.getTenantStytchOrgIDFn = func(ctx context.Context, tenantID string) (string, error) {
-		return "org_invite", nil
 	}
 
 	resp := h.doRequestWithQuery("GET", "/api/auth/invite/callback", "token=valid_invite_token", "")
@@ -1102,8 +1101,8 @@ func TestHandler_InviteCallback_MissingToken(t *testing.T) {
 	if body.Code != "invalid_input" {
 		t.Fatalf("expected code 'invalid_input', got %q", body.Code)
 	}
-	if body.Message != "token query parameter is required" {
-		t.Fatalf("expected message 'token query parameter is required', got %q", body.Message)
+	if body.Message != "token query parameter is required: invalid input" {
+		t.Fatalf("expected message 'token query parameter is required: invalid input', got %q", body.Message)
 	}
 }
 
@@ -1113,8 +1112,14 @@ func TestHandler_InviteCallback_ExpiredInvitation(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
 	idp := h.svc.idp.(*MockIdentityProvider)
-	idp.authenticateInviteTokenFn = func(ctx context.Context, token string) (string, string, error) {
-		return "ist_invite", "expired@example.com", nil
+	idp.authenticateMagicLinkFn = func(ctx context.Context, token string) (*MagicLinkAuthResult, error) {
+		return &MagicLinkAuthResult{
+			MemberID:            "member_expired",
+			OrganizationID:      "org_expired",
+			Email:               "expired@example.com",
+			StytchSessionToken:  "sess_expired",
+			MemberAuthenticated: true,
+		}, nil
 	}
 
 	// No invitation exists → service returns ErrExpiredToken wrapping middleware.ErrUnauthorized
@@ -1128,39 +1133,18 @@ func TestHandler_InviteCallback_ExpiredInvitation(t *testing.T) {
 	}
 }
 
-// TestHandler_InviteCallback_StytchExchangeMFAFailure verifies that when
-// the Stytch IST exchange fails due to MFA not being satisfied, the handler
-// returns 500 because auth.ErrMFARequired does not wrap
-// middleware.ErrUnauthorized (it falls through to the default case).
-func TestHandler_InviteCallback_StytchExchangeMFAFailure(t *testing.T) {
+// TestHandler_InviteCallback_StytchExchangeFails verifies that when the Stytch
+// magic link authentication itself fails (wrong endpoint, invalid token), the
+// handler returns 500.
+func TestHandler_InviteCallback_StytchExchangeFails(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
 	idp := h.svc.idp.(*MockIdentityProvider)
-	idp.authenticateInviteTokenFn = func(ctx context.Context, token string) (string, string, error) {
-		return "ist_mfa", "mfa@example.com", nil
-	}
-	h.repo.getInvitationByEmailFn = func(ctx context.Context, email string) (*Invitation, error) {
-		return &Invitation{
-			ID:             "invite_mfa",
-			TenantID:       "tenant_mfa",
-			SchoolID:       "school_mfa",
-			Role:           "TEACHER",
-			Email:          "mfa@example.com",
-			FullName:       "MFA Teacher",
-			Status:         "pending",
-			StytchMemberID: "sty_member_mfa",
-			ExpiresAt:      time.Now().Add(24 * time.Hour),
-		}, nil
-	}
-	h.repo.getTenantStytchOrgIDFn = func(ctx context.Context, tenantID string) (string, error) {
-		return "org_mfa", nil
-	}
-	idp.exchangeInviteSessionFn = func(ctx context.Context, ist, orgID string) (string, error) {
-		return "", ErrMFARequired
+	idp.authenticateMagicLinkFn = func(ctx context.Context, token string) (*MagicLinkAuthResult, error) {
+		return nil, fmt.Errorf("internal_error: stytch authenticate magic link: invalid token")
 	}
 
-	resp := h.doRequestWithQuery("GET", "/api/auth/invite/callback", "token=mfa_invite_token", "")
-	// ErrMFARequired does not wrap middleware.ErrUnauthorized → falls to 500
+	resp := h.doRequestWithQuery("GET", "/api/auth/invite/callback", "token=invalid_token", "")
 	if resp.StatusCode != fiber.StatusInternalServerError {
 		t.Fatalf("expected 500 Internal Server Error, got %d", resp.StatusCode)
 	}

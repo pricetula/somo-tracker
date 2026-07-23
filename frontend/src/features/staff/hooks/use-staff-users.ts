@@ -39,7 +39,7 @@ export function useStaffUsers(
 
     return useQuery<ListMembersResponse>({
         queryKey: [...staffKeys.users(role), { page, limit }],
-        queryFn: () => listMembers(role, { page, per_page: limit }),
+        queryFn: () => listMembers(role, { page, limit }),
         placeholderData: (prev) => prev,
         enabled,
     });

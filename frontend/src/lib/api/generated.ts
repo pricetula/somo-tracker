@@ -3,6 +3,31 @@
 // Generator: openapi-typescript (planned) -- manually maintained for now.
 // Run `pnpm generate:api` to regenerate from the backend swagger.json.
 
+// ─── Enum-like types (CBC curriculum) ────────────────────────────────────
+// These correspond to fixed string values enforced by the backend.
+
+/** Canonical grade level values used across the CBC curriculum. */
+export type GradeLevel =
+    | "PP1"
+    | "PP2"
+    | "G1"
+    | "G2"
+    | "G3"
+    | "G4"
+    | "G5"
+    | "G6"
+    | "G7"
+    | "G8"
+    | "G9"
+    | "G10"
+    | "G11"
+    | "G12";
+
+/** Canonical education level values used across the CBC curriculum. */
+export type EducationLevel = "Early_Years" | "Upper_Primary" | "Junior_Secondary" | "Senior_School";
+
+// ─── API Payloads ────────────────────────────────────────────────────────
+
 export interface DiscoveryPayload {
     email: string;
 }
@@ -86,7 +111,7 @@ export interface SchoolWithMemberCount {
 }
 
 export interface ListSchoolsResponse {
-    schools: SchoolWithMemberCount[];
+    items: SchoolWithMemberCount[];
     total: number;
 }
 
@@ -106,7 +131,7 @@ export interface Stream {
 }
 
 export interface ListStreamsResponse {
-    data: Stream[];
+    items: Stream[];
 }
 
 export interface CreateClassPayload {
@@ -132,6 +157,7 @@ export interface Class {
     id: string;
     grade_level: string;
     stream_name: string;
+    stream_color: string;
     display_label: string;
     stream_id: string;
     student_count?: number;
@@ -140,11 +166,10 @@ export interface Class {
 }
 
 export interface ClassListResult {
-    data: Class[];
-    total_records: number;
-    current_page: number;
+    items: Class[];
+    total: number;
+    page: number;
     limit: number;
-    total_pages: number;
 }
 
 export interface Member {
@@ -157,8 +182,10 @@ export interface Member {
 }
 
 export interface ListMembersResponse {
-    members: Member[];
+    items: Member[];
     total: number;
+    page: number;
+    limit: number;
 }
 
 export interface TeacherMember {
@@ -173,8 +200,10 @@ export interface TeacherMember {
 }
 
 export interface ListTeachersResponse {
-    teachers: TeacherMember[];
+    items: TeacherMember[];
     total: number;
+    page: number;
+    limit: number;
 }
 
 export type InvitationStatus = "pending" | "accepted" | "expired" | "revoked" | "invite_failed";
@@ -194,8 +223,10 @@ export interface Invitation {
 }
 
 export interface ListInvitationsResponse {
-    invitations: Invitation[];
+    items: Invitation[];
     total: number;
+    page: number;
+    limit: number;
 }
 
 export interface SwitchActiveSchoolPayload {
@@ -285,11 +316,11 @@ export interface PatchTermResponse {
 }
 
 export interface ListYearsResponse {
-    data: AcademicYear[];
+    items: AcademicYear[];
 }
 
 export interface ListTermsResponse {
-    data: AcademicTerm[];
+    items: AcademicTerm[];
 }
 
 export type TeacherRole = "PRIMARY_CLASS_TEACHER" | "SUBJECT_TEACHER" | "SUBSTITUTE_TEACHER";
@@ -326,7 +357,7 @@ export interface TimetableSlot {
 }
 
 export interface ListTimetableSlotsResponse {
-    data: TimetableSlot[];
+    items: TimetableSlot[];
 }
 
 export interface AssignTeacherPayload {
@@ -461,7 +492,7 @@ export interface FailedInvitation {
 }
 
 export interface ListFailedInvitationsResponse {
-    invitations: FailedInvitation[];
+    items: FailedInvitation[];
 }
 
 export interface StudentRecord {

@@ -13,7 +13,10 @@ import (
 type MockRepository struct {
 	listByRoleFn                  func(ctx context.Context, tenantID, schoolID, role string, offset, limit int, search string) ([]Member, int, error)
 	listByRoleIncludingInactiveFn func(ctx context.Context, tenantID, schoolID, role string, offset, limit int, search string) ([]Member, int, error)
+	getByIDFn                     func(ctx context.Context, userID, tenantID, schoolID string) (*Member, error)
+	updateFn                      func(ctx context.Context, userID, tenantID, schoolID string, payload UpdateMemberPayload) error
 	toggleActiveFn                func(ctx context.Context, tenantID, schoolID, userID string, isActive bool) error
+	deleteFn                      func(ctx context.Context, tenantID, schoolID, userID, role string) error
 	getActiveSchoolIDFn           func(ctx context.Context, tenantID, userID string) (string, error)
 }
 
@@ -34,6 +37,27 @@ func (m *MockRepository) ListByRoleIncludingInactive(ctx context.Context, tenant
 func (m *MockRepository) ToggleActive(ctx context.Context, tenantID, schoolID, userID string, isActive bool) error {
 	if m.toggleActiveFn != nil {
 		return m.toggleActiveFn(ctx, tenantID, schoolID, userID, isActive)
+	}
+	return nil
+}
+
+func (m *MockRepository) Delete(ctx context.Context, tenantID, schoolID, userID, role string) error {
+	if m.deleteFn != nil {
+		return m.deleteFn(ctx, tenantID, schoolID, userID, role)
+	}
+	return nil
+}
+
+func (m *MockRepository) GetByID(ctx context.Context, userID, tenantID, schoolID string) (*Member, error) {
+	if m.getByIDFn != nil {
+		return m.getByIDFn(ctx, userID, tenantID, schoolID)
+	}
+	return &Member{ID: userID, FullName: "Test Member", Role: "TEACHER", IsActive: true}, nil
+}
+
+func (m *MockRepository) Update(ctx context.Context, userID, tenantID, schoolID string, payload UpdateMemberPayload) error {
+	if m.updateFn != nil {
+		return m.updateFn(ctx, userID, tenantID, schoolID, payload)
 	}
 	return nil
 }

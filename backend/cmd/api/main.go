@@ -20,24 +20,31 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	fiberrecover "github.com/gofiber/fiber/v2/middleware/recover"
+	"github.com/google/uuid"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 
 	"somotracker/backend/internal/academicyears"
-	"somotracker/backend/internal/assessment"
+	"somotracker/backend/internal/assessments"
+	"somotracker/backend/internal/attendance"
 	"somotracker/backend/internal/auth"
+	"somotracker/backend/internal/behavior"
 	"somotracker/backend/internal/billing"
 	"somotracker/backend/internal/cbcclasses"
 	"somotracker/backend/internal/cbcschools"
+	"somotracker/backend/internal/cbcstreams"
+	"somotracker/backend/internal/cbctimetableslots"
+	"somotracker/backend/internal/classteachers"
 	"somotracker/backend/internal/config"
 	"somotracker/backend/internal/curriculum"
 	"somotracker/backend/internal/database"
+	"somotracker/backend/internal/health"
 	"somotracker/backend/internal/imports"
 	"somotracker/backend/internal/invitations"
 	"somotracker/backend/internal/members"
@@ -45,13 +52,17 @@ import (
 	"somotracker/backend/internal/parents"
 	"somotracker/backend/internal/students"
 	"somotracker/backend/internal/teachers"
+	"somotracker/backend/internal/timetablestructure"
 	"somotracker/backend/internal/utils"
 )
 
 // Global Fiber error handler registered in fiber.Config.
 // This is the last-resort catcher for any error that escapes handler functions
 // (including panics caught by Fiber's recover middleware).
-// It logs with slog.ErrorContext and returns the standard error response body.
+// It logs with slog.ErrorContext and returns the canonical error response body.
+// It handles both *fiber.Error (from Fiber routing) and middleware-returned
+// sentinel errors (from RequireAuth, RequireRole) by matching against the
+// middleware.Err* sentinels via errors.Is.
 func globalErrorHandler(c *fiber.Ctx, err error) error {
 	code := fiber.StatusInternalServerError
 	var message string
@@ -64,7 +75,47 @@ func globalErrorHandler(c *fiber.Ctx, err error) error {
 		message = fiberErr.Message
 	}
 
-	// Default to internal_error
+	// If not a *fiber.Error, match against middleware sentinels so that
+	// middleware-returned errors (e.g. RequireAuth returning ErrUnauthorized)
+	// are mapped to the correct HTTP status and canonical JSON body.
+	if message == "" {
+		switch {
+		case errors.Is(err, middleware.ErrNotFound):
+			code = fiber.StatusNotFound
+			message = "the requested resource was not found"
+			errorCode = "not_found"
+		case errors.Is(err, middleware.ErrAlreadyExists):
+			code = fiber.StatusConflict
+			message = "the resource already exists"
+			errorCode = "already_exists"
+		case errors.Is(err, middleware.ErrInvalidInput):
+			code = fiber.StatusBadRequest
+			message = err.Error()
+			errorCode = "invalid_input"
+		case errors.Is(err, middleware.ErrUnauthorized):
+			code = fiber.StatusUnauthorized
+			message = "authentication required"
+			errorCode = "unauthorized"
+		case errors.Is(err, middleware.ErrForbidden):
+			code = fiber.StatusForbidden
+			message = "insufficient permissions"
+			errorCode = "forbidden"
+		case errors.Is(err, middleware.ErrConflict):
+			code = fiber.StatusConflict
+			message = "the resource was modified by another request"
+			errorCode = "conflict"
+		case errors.Is(err, context.Canceled):
+			code = 499
+			message = "the request was canceled"
+			errorCode = "request_canceled"
+		case errors.Is(err, context.DeadlineExceeded):
+			code = fiber.StatusGatewayTimeout
+			message = "the request timed out"
+			errorCode = "timeout"
+		}
+	}
+
+	// Default to internal_error for unrecognized errors
 	if message == "" {
 		message = "an unexpected error occurred"
 	}
@@ -87,39 +138,105 @@ func globalErrorHandler(c *fiber.Ctx, err error) error {
 	})
 }
 
+// ── Cross-Domain Adapters ────────────────────────────────────────────────
+
+// curriculumSchoolSeeder adapts *curriculum.SeedingService to the
+// cbcschools.CurriculumSeeder interface used by school creation.
+type curriculumSchoolSeeder struct {
+	svc *curriculum.SeedingService
+}
+
+// SeedForSchool seeds the CBC curriculum for a newly created school using the
+// embedded curriculum JSON files compiled into the binary.
+func (a *curriculumSchoolSeeder) SeedForSchool(ctx context.Context, tenantID, schoolID string) error {
+	tenantUUID, err := uuid.Parse(tenantID)
+	if err != nil {
+		return fmt.Errorf("curriculumSchoolSeeder.SeedForSchool: parse tenant_id: %w", err)
+	}
+	schoolUUID, err := uuid.Parse(schoolID)
+	if err != nil {
+		return fmt.Errorf("curriculumSchoolSeeder.SeedForSchool: parse school_id: %w", err)
+	}
+	return a.svc.SeedSchoolCurriculumDefault(ctx, tenantUUID, schoolUUID)
+}
+
 func main() {
 	fx.New(
 		config.Module,
 		database.Module,
 		utils.Module,
 		academicyears.Module,
+		assessments.Module,
+		attendance.Module,
 		auth.Module,
+		behavior.Module,
 		cbcschools.Module,
+		cbcstreams.Module,
 		cbcclasses.Module,
 		curriculum.Module,
 		billing.Module,
 		parents.Module,
 		students.Module,
 		teachers.Module,
+		timetablestructure.Module,
 		invitations.Module,
 		members.Module,
-		assessment.Module,
+		cbctimetableslots.Module,
+		classteachers.Module,
+		health.Module,
 		imports.Module,
 
 		// Cross-domain interface wiring: school resolver from members,
-		// school creator from cbcschools.
+		// school creator from cbcschools, curriculum seeder + academic year
+		// seeder for new schools.
 		fx.Provide(
 			func(repo members.Repository) invitations.SchoolResolver {
 				return repo
 			},
-			func(repo cbcschools.Repository) auth.SchoolCreator {
-				return repo
-			},
-			func(svc *academicyears.Service) auth.AcademicYearCreator {
+			// Wire the full cbcschools.Service (CreateSchool) as the SchoolCreator
+			// so that registering a new school seeds the CBC curriculum and
+			// academic years, enrolls the creator with the correct role, and sets
+			// the active school — instead of a bare repository INSERT.
+			func(svc *cbcschools.Service) auth.SchoolCreator {
 				return svc
 			},
-			func(repo curriculum.Repository) assessment.LearningAreaResolver {
-				return repo
+			// When a school is created, automatically seed its CBC curriculum
+			// from the embedded JSON files.
+			func(seeder *curriculum.SeedingService) cbcschools.CurriculumSeeder {
+				return &curriculumSchoolSeeder{svc: seeder}
+			},
+			// When a school is created, automatically set up the initial
+			// academic year and three CBC terms.
+			func(svc *academicyears.Service) cbcschools.AcademicYearSeeder {
+				return svc
+			},
+			// Provide the auth repository as a UserSchoolEnroller so that
+			// creating a school also enrolls the creator with the correct role
+			// and sets it as their active school.
+			func(repo auth.Repository) cbcschools.UserSchoolEnroller {
+				return repo.(cbcschools.UserSchoolEnroller)
+			},
+			// Wire behavior notes provider into the students handler for the
+			// student detail page.
+			func(behSvc *behavior.Service) students.BehaviorNotesProvider {
+				return func(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]students.BehaviorNoteItem, error) {
+					notes, err := behSvc.GetNotesByStudentTerm(ctx, tenantID, schoolID, studentID, termID)
+					if err != nil {
+						return nil, err
+					}
+					items := make([]students.BehaviorNoteItem, len(notes))
+					for i, n := range notes {
+						items[i] = students.BehaviorNoteItem{
+							ID:           n.ID,
+							CategoryName: n.CategoryName,
+							Description:  n.Description,
+							Date:         n.Date.Format("2006-01-02"),
+							Status:       string(n.Status),
+							IsUrgent:     n.IsUrgent,
+						}
+					}
+					return items, nil
+				}
 			},
 		),
 
@@ -127,7 +244,12 @@ func main() {
 		fx.Invoke(runMigrations),
 		fx.Invoke(registerApp),
 		fx.Invoke(imports.RegisterWorkerHooks),
+		fx.Invoke(attendance.RegisterWorkerHooks),
 		fx.Invoke(consumeSafeClient),
+		// Wire behavior notes provider into students handler
+		fx.Invoke(func(h *students.Handler, fn students.BehaviorNotesProvider) {
+			h.SetBehaviorNotesProvider(fn)
+		}),
 	).Run()
 }
 
@@ -168,10 +290,16 @@ func registerApp(
 	lc fx.Lifecycle,
 	cfg config.Config,
 	pools *database.Pools,
+	assessmentsHandler *assessments.Handler,
 	authHandler *auth.Handler,
 	academicYearsHandler *academicyears.Handler,
-	assessmentHandler *assessment.Handler,
+	attendanceHandler *attendance.Handler,
+	behaviorHandler *behavior.Handler,
+	cbcschoolsHandler *cbcschools.Handler,
+	cbcclassesHandler *cbcclasses.Handler,
 	importsHandler *imports.Handler,
+	cbcstreamsHandler *cbcstreams.Handler,
+	cbctimetableslotsHandler *cbctimetableslots.Handler,
 	invitationsHandler *invitations.Handler,
 	membersHandler *members.Handler,
 	curriculumHandler *curriculum.Handler,
@@ -179,16 +307,15 @@ func registerApp(
 	parentsHandler *parents.Handler,
 	teachersHandler *teachers.Handler,
 	billingHandler *billing.Handler,
+	timetablestructureHandler *timetablestructure.Handler,
 ) {
 	app := fiber.New(fiber.Config{
 		AppName:      "somotracker",
 		ErrorHandler: globalErrorHandler,
 	})
 
-	// Register Fiber's built-in recover middleware before all routes
-	// so that handler panics are caught and routed to the error handler
-	// rather than crashing the process.
-	app.Use(fiberrecover.New())
+	// Recover middleware is registered inside middleware.Register() as part of
+	// the security pipeline (Layer 1). It is NOT duplicated here.
 
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
@@ -210,9 +337,13 @@ func registerApp(
 			})
 
 			// Mount domain routes
+			assessmentsHandler.RegisterRoutes(app)
 			authHandler.RegisterRoutes(app)
 			academicYearsHandler.RegisterRoutes(app)
-			assessmentHandler.RegisterRoutes(app)
+			cbcschoolsHandler.RegisterRoutes(app)
+			cbcstreamsHandler.RegisterRoutes(app)
+			cbctimetableslotsHandler.RegisterRoutes(app)
+			cbcclassesHandler.RegisterRoutes(app)
 			membersHandler.RegisterRoutes(app)
 			invitationsHandler.RegisterRoutes(app)
 			curriculumHandler.RegisterRoutes(app)
@@ -221,9 +352,17 @@ func registerApp(
 			parentsHandler.RegisterRoutes(app)
 			teachersHandler.RegisterRoutes(app)
 			billingHandler.RegisterRoutes(app)
+			attendanceHandler.RegisterRoutes(app)
+			behaviorHandler.RegisterRoutes(app)
+			timetablestructureHandler.RegisterRoutes(app)
 
 			// Start Fiber in a non-blocking goroutine
 			go func() {
+				defer func() {
+					if r := recover(); r != nil {
+						slog.ErrorContext(ctx, "fiber listen panic", slog.Any("recover", r))
+					}
+				}()
 				if err := app.Listen(":" + cfg.Port); err != nil && !errors.Is(err, http.ErrServerClosed) {
 					// Log fatal since this means the server failed to start
 					slog.Error("fiber listen fatal", "error", err)

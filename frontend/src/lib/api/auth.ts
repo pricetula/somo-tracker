@@ -9,8 +9,7 @@
  *   DELETE /api/auth/session  — logout
  */
 
-import { api, ApiError } from "./client";
-import { isApiError, getErrorMessage } from "../errors";
+import { api } from "./client";
 import type { VerifyResponse, RegistrationPayload, MeResponse } from "./generated";
 
 // ─── Re-export generated types used by consumers ─────────────────────────
@@ -44,17 +43,19 @@ export async function register(payload: RegistrationPayload): Promise<void> {
 
 /** Fetch the current session's user and tenant IDs.
  *
- * If the request fails for any reason (network error, 401, 500, etc.),
- * the user is redirected to /logout. A failing /me means the session
- * is invalid or unreachable, so we treat the user as logged out.
+ * Notes:
+ * - 401 responses are already handled globally by `client.ts` which
+ *   performs a hard redirect to /logout before throwing.
+ * - Network errors (backend unreachable) do NOT redirect — they propagate
+ *   up so `useMe()` can return null gracefully without forcing logout.
  */
 export async function getMe(): Promise<MeResponse> {
     try {
         return await api.get<MeResponse>("/api/auth/me");
     } catch (err) {
-        // Any error means the session is invalid or unreachable —
-        // redirect to /logout to clear state and force re-auth.
-        window.location.href = "/logout";
+        // Network errors (Failed to fetch) should NOT force a logout —
+        // the session may still be valid when the backend recovers.
+        // Only 401/403 responses trigger the global redirect in client.ts.
         throw err;
     }
 }
@@ -63,7 +64,3 @@ export async function getMe(): Promise<MeResponse> {
 export async function logout(): Promise<void> {
     await api.delete("/api/auth/session");
 }
-
-// ─── Re-exported error helpers for backward compatibility ─────────────────
-
-export { ApiError, isApiError, getErrorMessage };

@@ -68,6 +68,7 @@ services:
     environment:
       NODE_ENV: development
       NEXT_PUBLIC_API_URL: http://localhost:3030
+      API_INTERNAL_URL: http://somotracker_api:3030
     command: sh -c "npm install -g pnpm@9 && pnpm install --frozen-lockfile --ignore-scripts && pnpm run dev"
     depends_on:
       - somotracker_api

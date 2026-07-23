@@ -82,7 +82,10 @@ type ParentDetailResponse struct {
 }
 
 type ListParentsResponse struct {
-	Data []Parent `json:"data"`
+	Items []Parent `json:"items"`
+	Total int      `json:"total"`
+	Page  int      `json:"page"`
+	Limit int      `json:"limit"`
 }
 
 // ============================================================================
@@ -93,6 +96,45 @@ type ListParentsResponse struct {
 // The parents PgRepository implements this interface.
 type StudentResolver interface {
 	StudentExistsInTenant(ctx context.Context, studentID, tenantID string) (bool, error)
+}
+
+// ============================================================================
+// Bulk Invite Types
+// ============================================================================
+
+// InviteRow is a single row in a bulk invitation request.
+type InviteRow struct {
+	Email    string  `json:"email"`
+	FullName *string `json:"full_name,omitempty"`
+}
+
+// BulkInviteRequest is the request body for POST /api/v1/parents/invite.
+type BulkInviteRequest struct {
+	Rows []InviteRow `json:"rows"`
+}
+
+// BulkInviteResponse is returned immediately after creating the bulk invite job.
+type BulkInviteResponse struct {
+	JobID        string `json:"job_id"`
+	TotalRecords int    `json:"total_records"`
+	TotalChunks  int    `json:"total_chunks"`
+	Status       string `json:"status"`
+	IsReplay     bool   `json:"is_replay,omitempty"`
+}
+
+// ============================================================================
+// ListFilter
+// ============================================================================
+
+// ListFilter holds query parameters for listing parents.
+type ListFilter struct {
+	TenantID        string
+	Search          string
+	StudentID       string
+	Page            int
+	Limit           int
+	EducationLevels []string // multi-select education level filter
+	GradeLevels     []string // multi-select grade level filter
 }
 
 // ============================================================================
@@ -107,11 +149,14 @@ type Repository interface {
 	// GetByID retrieves a parent by primary key.
 	GetByID(ctx context.Context, id, tenantID string) (*Parent, error)
 
+	// GetByUserID retrieves a parent by the linked user_id.
+	GetByUserID(ctx context.Context, userID, tenantID string) (*Parent, error)
+
 	// GetDetail retrieves a parent with linked students.
 	GetDetail(ctx context.Context, id, tenantID string) (*ParentDetail, error)
 
-	// List returns parents filtered by search or student_id.
-	List(ctx context.Context, tenantID string, search, studentID string) ([]Parent, error)
+	// List returns parents filtered by search, student_id, or curriculum filters, with pagination.
+	List(ctx context.Context, filter ListFilter) ([]Parent, int, error)
 
 	// Update applies partial updates to a parent profile.
 	Update(ctx context.Context, id, tenantID string, payload UpdateParentPayload) error
@@ -131,4 +176,7 @@ type Repository interface {
 
 	// CountLinksByStudent returns the number of parents linked to a student.
 	CountLinksByStudent(ctx context.Context, studentID, tenantID string) (int, error)
+
+	// GetStytchOrgID returns the Stytch organization ID for a tenant.
+	GetStytchOrgID(ctx context.Context, tenantID string) (string, error)
 }

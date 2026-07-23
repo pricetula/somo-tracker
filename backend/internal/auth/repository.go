@@ -343,6 +343,32 @@ func (r *SqlcRepository) CreateMembership(ctx context.Context, userID, schoolID,
 	return nil
 }
 
+// GetUserRoleInTenant returns the highest-privilege active role for a user in a tenant.
+func (r *SqlcRepository) GetUserRoleInTenant(ctx context.Context, userID, tenantID string) (string, error) {
+	const query = `
+		SELECT role::text FROM memberships
+		WHERE user_id = $1 AND tenant_id = $2 AND is_active = true
+		ORDER BY
+			CASE role
+				WHEN 'SYSTEM_ADMIN' THEN 1
+				WHEN 'SCHOOL_ADMIN' THEN 2
+				WHEN 'TEACHER' THEN 3
+				WHEN 'NURSE' THEN 4
+				WHEN 'FINANCE' THEN 5
+			END
+		LIMIT 1
+	`
+	var role string
+	err := r.pool.QueryRow(ctx, query, userID, tenantID).Scan(&role)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return "", fmt.Errorf("auth.Repository.GetUserRoleInTenant: %w", ErrNotFound)
+		}
+		return "", fmt.Errorf("auth.Repository.GetUserRoleInTenant: %w", err)
+	}
+	return role, nil
+}
+
 // SetActiveSchool upserts the member_active_school row for a user.
 func (r *SqlcRepository) SetActiveSchool(ctx context.Context, userID, tenantID, schoolID string) error {
 	const query = `

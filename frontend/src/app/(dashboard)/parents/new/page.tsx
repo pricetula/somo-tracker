@@ -22,7 +22,7 @@ export default function NewParentPage() {
         <div className="mx-auto flex max-w-xl flex-col px-6 pt-6 pb-8">
             <div className="mb-6">
                 <h1 className="text-2xl font-semibold tracking-tight">Add Parent / Guardian</h1>
-                <p className="text-muted-foreground mt-1 text-sm">
+                <p className="text-muted-foreground mt-1">
                     Create a parent profile to manage guardian communication, M-Pesa billing
                     notifications, and SMS alerts. The user must already exist in the system.
                 </p>

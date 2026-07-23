@@ -8,7 +8,12 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { listAdmins, toggleAdminActive, type ListMembersResponse } from "@/lib/api/admins";
+import {
+    listAdmins,
+    toggleAdminActive,
+    deleteAdmin,
+    type ListMembersResponse,
+} from "@/lib/api/admins";
 import { getErrorMessage } from "@/lib/errors";
 import { toast } from "sonner";
 
@@ -35,10 +40,25 @@ export function useAdmins(
 
     return useQuery<ListMembersResponse>({
         queryKey: [...adminsKeys.list({ page, limit, search, includeInactive })],
-        queryFn: () =>
-            listAdmins({ page, per_page: limit, search, include_inactive: includeInactive }),
+        queryFn: () => listAdmins({ page, limit, search, include_inactive: includeInactive }),
         placeholderData: (prev) => prev,
         enabled,
+    });
+}
+
+/** Hard-delete an admin member. */
+export function useDeleteAdmin() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (userId: string) => deleteAdmin(userId),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: adminsKeys.all });
+            toast.success("Admin deleted");
+        },
+        onError: (err) => {
+            toast.error(getErrorMessage(err));
+        },
     });
 }
 
@@ -59,7 +79,7 @@ export function useToggleAdminActive() {
                 if (!old) return old;
                 return {
                     ...old,
-                    members: old.members.map((m) =>
+                    items: old.items.map((m) =>
                         m.id === userId ? { ...m, is_active: isActive } : m
                     ),
                 };

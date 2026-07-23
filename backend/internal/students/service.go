@@ -18,14 +18,19 @@ func NewService(repo StudentRepository) *Service {
 	return &Service{repo: repo}
 }
 
-// GetRepo returns the repository for advanced operations (import pre-checks).
-func (s *Service) GetRepo() ImportRepository {
-	return s.importRepo
-}
-
 // SetImportRepo sets the import repository (called during DI wiring).
 func (s *Service) SetImportRepo(repo ImportRepository) {
 	s.importRepo = repo
+}
+
+// ─── Check Duplicates ────────────────────────────────────────────────────
+
+// CheckDuplicates checks which of the provided field values already exist in
+// cbc_students for the given tenant/school. Delegates to the import repo.
+func (s *Service) CheckDuplicates(ctx context.Context, tenantID, schoolID string,
+	admissionNumbers, upiNumbers, knecNumbers []string) ([]string, []string, []string, error) {
+	return s.importRepo.CheckExistingFieldValues(ctx, tenantID, schoolID,
+		admissionNumbers, upiNumbers, knecNumbers)
 }
 
 // ─── List ─────────────────────────────────────────────────────────────────
@@ -45,10 +50,10 @@ func (s *Service) ListStudents(ctx context.Context, filter ListFilter) (ListStud
 	}
 
 	return ListStudentsResponse{
-		Students: students,
-		Total:    total,
-		Page:     filter.Page,
-		Limit:    filter.Limit,
+		Items: students,
+		Total: total,
+		Page:  filter.Page,
+		Limit: filter.Limit,
 	}, nil
 }
 
@@ -103,6 +108,14 @@ func (s *Service) Create(ctx context.Context, tenantID, schoolID string, payload
 }
 
 // ─── Get Detail ───────────────────────────────────────────────────────────
+
+// Delete hard-deletes a student record.
+func (s *Service) Delete(ctx context.Context, id, tenantID, schoolID string) error {
+	if id == "" || tenantID == "" || schoolID == "" {
+		return fmt.Errorf("students.Service.Delete: %w", ErrInvalidInput)
+	}
+	return s.repo.Delete(ctx, id, tenantID, schoolID)
+}
 
 // GetDetail returns a student with enrollment history.
 func (s *Service) GetDetail(ctx context.Context, id, tenantID, schoolID string) (*StudentDetail, error) {
@@ -164,6 +177,54 @@ func (s *Service) Update(ctx context.Context, id, tenantID, schoolID string, pay
 	)
 
 	return nil
+}
+
+// ─── Batch Create ─────────────────────────────────────────────────────────
+
+// CreateBatch creates multiple students in a single transaction.
+// Returns the IDs of all created students. On any validation failure
+// the entire batch is rejected (all-or-nothing).
+func (s *Service) CreateBatch(ctx context.Context, tenantID, schoolID string, payloads []CreateStudentPayload) (CreateStudentsResponse, error) {
+	if tenantID == "" || schoolID == "" {
+		return CreateStudentsResponse{}, fmt.Errorf("students.Service.CreateBatch: %w", ErrInvalidInput)
+	}
+
+	if len(payloads) == 0 {
+		return CreateStudentsResponse{}, fmt.Errorf("students.Service.CreateBatch: students list is empty: %w", ErrInvalidInput)
+	}
+
+	students := make([]*Student, 0, len(payloads))
+	for i, payload := range payloads {
+		fullName := strings.TrimSpace(payload.FullName)
+		if fullName == "" {
+			return CreateStudentsResponse{}, fmt.Errorf("students.Service.CreateBatch: students[%d].full_name is required: %w", i, ErrInvalidInput)
+		}
+
+		if payload.Gender != "" && payload.Gender != "M" && payload.Gender != "F" {
+			return CreateStudentsResponse{}, fmt.Errorf("students.Service.CreateBatch: students[%d] invalid gender %q: %w", i, payload.Gender, ErrInvalidInput)
+		}
+
+		students = append(students, &Student{
+			FullName:             fullName,
+			Gender:               payload.Gender,
+			DateOfBirth:          payload.DateOfBirth,
+			UPINumber:            payload.UPINumber,
+			KNECAssessmentNumber: payload.KNECAssessmentNumber,
+		})
+	}
+
+	ids, err := s.repo.CreateBatch(ctx, students)
+	if err != nil {
+		return CreateStudentsResponse{}, fmt.Errorf("students.Service.CreateBatch: %w", err)
+	}
+
+	slog.Info("students.batch.created",
+		"tenant_id", tenantID,
+		"school_id", schoolID,
+		"count", len(ids),
+	)
+
+	return CreateStudentsResponse{IDs: ids, Code: "ok"}, nil
 }
 
 // ─── Enrollments ──────────────────────────────────────────────────────────

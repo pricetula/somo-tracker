@@ -36,7 +36,7 @@ export default function EditStudentPage() {
     if (isError || !detailData?.data) {
         return (
             <div className="flex flex-col items-center justify-center py-16">
-                <p className="text-destructive text-sm font-medium">Student not found</p>
+                <p className="text-destructive font-medium">Student not found</p>
                 <Button
                     variant="outline"
                     size="sm"
@@ -67,7 +67,7 @@ export default function EditStudentPage() {
 
             <div className="mb-6">
                 <h1 className="text-2xl font-semibold tracking-tight">Edit Student</h1>
-                <p className="text-muted-foreground mt-1 text-sm">
+                <p className="text-muted-foreground mt-1">
                     Update {detailData.data.full_name}&apos;s demographic information.
                 </p>
             </div>

@@ -2,18 +2,21 @@ package members
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"time"
+
+	"somotracker/backend/internal/middleware"
 )
 
-// Sentinel domain errors.
+// Sentinel domain errors, each wrapping the corresponding middleware sentinel
+// so that middleware.HTTPError can match them via errors.Is.
 var (
-	ErrNotFound      = errors.New("members not found")
-	ErrAlreadyExists = errors.New("members already exists")
-	ErrInvalidInput  = errors.New("invalid members input")
-	ErrUnauthorized  = errors.New("unauthorized")
-	ErrForbidden     = errors.New("forbidden")
-	ErrConflict      = errors.New("members conflict")
+	ErrNotFound      = fmt.Errorf("members not found: %w", middleware.ErrNotFound)
+	ErrAlreadyExists = fmt.Errorf("members already exists: %w", middleware.ErrAlreadyExists)
+	ErrInvalidInput  = fmt.Errorf("invalid members input: %w", middleware.ErrInvalidInput)
+	ErrUnauthorized  = fmt.Errorf("unauthorized: %w", middleware.ErrUnauthorized)
+	ErrForbidden     = fmt.Errorf("forbidden: %w", middleware.ErrForbidden)
+	ErrConflict      = fmt.Errorf("members conflict: %w", middleware.ErrConflict)
 )
 
 // Repository defines the contract for member persistence.
@@ -21,6 +24,11 @@ var (
 type Repository interface {
 	ListByRole(ctx context.Context, tenantID, schoolID, role string, offset, limit int, search string) ([]Member, int, error)
 	GetActiveSchoolID(ctx context.Context, tenantID, userID string) (string, error)
+}
+
+// UpdateMemberPayload is the payload for updating a member's profile.
+type UpdateMemberPayload struct {
+	FullName *string `json:"full_name,omitempty"`
 }
 
 // ─── Member (user + membership join) ──────────────────────────────────────
@@ -39,8 +47,10 @@ type Member struct {
 
 // ListResponse wraps a paginated member list.
 type ListResponse struct {
-	Members []Member `json:"members"`
-	Total   int      `json:"total"`
+	Items []Member `json:"items"`
+	Total int      `json:"total"`
+	Page  int      `json:"page"`
+	Limit int      `json:"limit"`
 }
 
 // ToggleActiveRequest is the payload for activating/deactivating a member.

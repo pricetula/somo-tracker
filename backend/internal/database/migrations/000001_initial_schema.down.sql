@@ -3,8 +3,6 @@
 -- Drops every object created by the initial schema migration,
 -- in strict reverse FK dependency order.
 
-BEGIN;
-
 -- ============================================================================
 -- TRIGGERS (dropped before their tables / functions)
 -- ============================================================================
@@ -23,7 +21,6 @@ DROP TRIGGER IF EXISTS trg_sync_invoice_payment_status_update     ON payments;
 DROP TRIGGER IF EXISTS trg_sync_invoice_payment_status_insert     ON payments;
 DROP TRIGGER IF EXISTS trg_sync_invoice_payment_status_delete     ON payments;
 DROP TRIGGER IF EXISTS trg_cbc_streams_updated_at                 ON cbc_streams;
-DROP TRIGGER IF EXISTS trg_auto_register_subject_teacher          ON cbc_timetable_slots;
 
 -- ============================================================================
 -- FUNCTIONS (dropped after their triggers, before dependent views/tables)
@@ -31,14 +28,29 @@ DROP TRIGGER IF EXISTS trg_auto_register_subject_teacher          ON cbc_timetab
 
 DROP FUNCTION IF EXISTS fn_set_updated_at            CASCADE;
 DROP FUNCTION IF EXISTS fn_timerange                 CASCADE;
-DROP FUNCTION IF EXISTS fn_sync_invoice_payment_status CASCADE;
+DROP FUNCTION IF EXISTS fn_sync_invoice_payment_status_insert  CASCADE;
+DROP FUNCTION IF EXISTS fn_sync_invoice_payment_status_delete  CASCADE;
+DROP FUNCTION IF EXISTS fn_sync_invoice_payment_status_update CASCADE;
 DROP FUNCTION IF EXISTS fn_sync_school_staff_counts_insert  CASCADE;
 DROP FUNCTION IF EXISTS fn_sync_school_staff_counts_delete  CASCADE;
 DROP FUNCTION IF EXISTS fn_sync_school_staff_counts_update  CASCADE;
 DROP FUNCTION IF EXISTS fn_sync_school_student_counts_insert CASCADE;
 DROP FUNCTION IF EXISTS fn_sync_school_student_counts_delete CASCADE;
 DROP FUNCTION IF EXISTS fn_sync_school_student_counts_update CASCADE;
-DROP FUNCTION IF EXISTS fn_auto_register_subject_teacher     CASCADE;
+DROP FUNCTION IF EXISTS fn_current_tenant_id CASCADE;
+DROP FUNCTION IF EXISTS fn_rls_tenant_policy CASCADE;
+DROP FUNCTION IF EXISTS fn_check_non_break_slot CASCADE;
+DROP FUNCTION IF EXISTS max_points_check CASCADE;
+
+-- ============================================================================
+-- LAYER 11 — ATTENDANCE & BEHAVIOR
+-- ============================================================================
+
+DROP TABLE IF EXISTS cbc_attendance_sessions CASCADE;
+DROP TABLE IF EXISTS attendance_term_summaries CASCADE;
+DROP TABLE IF EXISTS behavior_notes CASCADE;
+DROP TABLE IF EXISTS behavior_categories CASCADE;
+DROP TABLE IF EXISTS attendance_records CASCADE;
 
 -- ============================================================================
 -- LAYER 10 — USER ACTIVE SCHOOL CONTEXT
@@ -47,35 +59,28 @@ DROP FUNCTION IF EXISTS fn_auto_register_subject_teacher     CASCADE;
 DROP TABLE IF EXISTS member_active_school CASCADE;
 
 -- ============================================================================
--- LAYER 9 — REPORTING
--- ============================================================================
-
-DROP TABLE IF EXISTS cbc_term_competency_summaries CASCADE;
-
--- ============================================================================
--- LAYER 8 — RESULTS
--- ============================================================================
-
-DROP TABLE IF EXISTS learner_portfolios CASCADE;
-DROP TABLE IF EXISTS learner_rubric_results CASCADE;
-DROP TABLE IF EXISTS assessment_sessions CASCADE;
-
--- ============================================================================
 -- LAYER 7 — ASSESSMENT ARCHITECTURE
 -- ============================================================================
 
-DROP TABLE IF EXISTS assessment_blueprint_indicators CASCADE;
-DROP TABLE IF EXISTS assessment_blueprints CASCADE;
 DROP TABLE IF EXISTS assessment_weight_configs CASCADE;
 
 -- ============================================================================
--- LAYER 6 — OPERATIONS
+-- LAYER 6 — OPERATIONS & TIMETABLE
 -- ============================================================================
 
 DROP TABLE IF EXISTS cbc_timetable_slots CASCADE;
-DROP TABLE IF EXISTS cbc_attendance_logs CASCADE;
-DROP TABLE IF EXISTS cbc_attendance_periods CASCADE;
+DROP TABLE IF EXISTS timetable_structures CASCADE;
 DROP TABLE IF EXISTS cbc_class_teachers CASCADE;
+
+-- ============================================================================
+-- LAYER 12 — ASSESSMENT & GRADING ENGINE
+-- ============================================================================
+
+DROP TABLE IF EXISTS student_assessment_outcome_grades CASCADE;
+DROP TABLE IF EXISTS student_assessment_scores CASCADE;
+DROP TABLE IF EXISTS assessment_sessions CASCADE;
+DROP TABLE IF EXISTS grading_scale_ranges CASCADE;
+DROP TABLE IF EXISTS grading_scale_profiles CASCADE;
 
 -- ============================================================================
 -- LAYER 5 — CURRICULUM
@@ -129,6 +134,7 @@ DROP TABLE IF EXISTS school_member_counts CASCADE;
 
 DROP TABLE IF EXISTS import_job_staging CASCADE;
 DROP TABLE IF EXISTS import_job_failures CASCADE;
+DROP TABLE IF EXISTS import_job_chunks CASCADE;
 DROP TABLE IF EXISTS import_jobs CASCADE;
 DROP TABLE IF EXISTS invitations CASCADE;
 DROP TABLE IF EXISTS memberships CASCADE;
@@ -145,26 +151,25 @@ DROP TYPE IF EXISTS import_staging_status CASCADE;
 DROP TYPE IF EXISTS import_job_type CASCADE;
 DROP TYPE IF EXISTS cbc_enrollment_status CASCADE;
 DROP TYPE IF EXISTS invitation_status CASCADE;
-DROP TYPE IF EXISTS attendance_status CASCADE;
 DROP TYPE IF EXISTS user_role CASCADE;
 DROP TYPE IF EXISTS gender_type CASCADE;
 DROP TYPE IF EXISTS cbc_grade_level CASCADE;
 DROP TYPE IF EXISTS cbc_education_level CASCADE;
 DROP TYPE IF EXISTS cbc_school_type CASCADE;
 DROP TYPE IF EXISTS cbc_learning_pathway CASCADE;
-DROP TYPE IF EXISTS cbc_assessment_type CASCADE;
-DROP TYPE IF EXISTS knec_target_exam CASCADE;
-DROP TYPE IF EXISTS cbc_rubric_level CASCADE;
-DROP TYPE IF EXISTS cbc_rubric_level_with_sub_levels CASCADE;
-DROP TYPE IF EXISTS lrr_score_type CASCADE;
-DROP TYPE IF EXISTS portfolio_evidence_type CASCADE;
-DROP TYPE IF EXISTS knec_sync_status CASCADE;
+DROP TYPE IF EXISTS teacher_role CASCADE;
+DROP TYPE IF EXISTS import_chunk_status CASCADE;
+DROP TYPE IF EXISTS block_type CASCADE;
 DROP TYPE IF EXISTS invoice_payment_status CASCADE;
+DROP TYPE IF EXISTS attendance_status CASCADE;
+DROP TYPE IF EXISTS behavior_note_status CASCADE;
+DROP TYPE IF EXISTS behavior_severity CASCADE;
+DROP TYPE IF EXISTS cbc_performance_level CASCADE;
+DROP TYPE IF EXISTS assessment_session_status CASCADE;
+DROP TYPE IF EXISTS assessment_evaluation_method CASCADE;
 
 -- ============================================================================
 -- EXTENSIONS (optional — only drop if no other objects depend on it)
 -- ============================================================================
 
 DROP EXTENSION IF EXISTS btree_gist CASCADE;
-
-COMMIT;

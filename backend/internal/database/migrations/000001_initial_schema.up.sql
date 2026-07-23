@@ -3,8 +3,6 @@
 -- Drops all generic education system abstractions.
 -- Rebuilds as a purpose-built, single-system CBC schema.
 
-BEGIN;
-
 -- ============================================================================
 -- EXTENSIONS
 -- ============================================================================
@@ -40,11 +38,6 @@ $$ LANGUAGE sql IMMUTABLE;
 
 DO $$ BEGIN
     CREATE TYPE user_role AS ENUM ('SYSTEM_ADMIN', 'SCHOOL_ADMIN', 'TEACHER', 'NURSE', 'FINANCE', 'PARENT');
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-
-DO $$ BEGIN
-    CREATE TYPE attendance_status AS ENUM ('PRESENT', 'ABSENT', 'LATE', 'EXCUSED');
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
@@ -116,74 +109,6 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 DO $$ BEGIN
-    CREATE TYPE cbc_assessment_type AS ENUM (
-        'Formative_Classroom',
-        'KNEC_Written_Assessment',
-        'KNEC_SBA_Project',
-        'National_KPSEA',
-        'National_KJSEA',
-        'National_KSSEA'
-    );
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-
-DO $$ BEGIN
-    CREATE TYPE knec_target_exam AS ENUM (
-        'KPSEA',
-        'KJSEA',
-        'KSSEA',
-        'None'
-    );
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-
-DO $$ BEGIN
-    CREATE TYPE cbc_rubric_level AS ENUM (
-        'EE','ME','AE','BE'
-    );
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-
-DO $$ BEGIN
-    CREATE TYPE cbc_rubric_level_with_sub_levels AS ENUM (
-        'EE','ME','AE','BE',
-        'EE1','EE2',
-        'ME1','ME2',
-        'AE1','AE2',
-        'BE1','BE2'
-    );
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-
-DO $$ BEGIN
-    CREATE TYPE lrr_score_type AS ENUM (
-        'Numeric_Raw',
-        'Rubric_Direct'
-    );
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-
-DO $$ BEGIN
-    CREATE TYPE portfolio_evidence_type AS ENUM (
-        'Physical_File_Reference',
-        'Digital_Artifact_URL',
-        'Video_Recording',
-        'Audio_Log',
-        'Observation_Checklist'
-    );
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-
-DO $$ BEGIN
-    CREATE TYPE knec_sync_status AS ENUM (
-        'Pending',
-        'Synced',
-        'Failed'
-    );
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-
-DO $$ BEGIN
     CREATE TYPE invoice_payment_status AS ENUM (
         'UNPAID',    -- No payments recorded yet
         'PARTIAL',   -- Some payment made, balance remains
@@ -200,18 +125,15 @@ DO $$ BEGIN
         'processing',
         'completed',
         'failed',
-        'cancelled'
+        'cancelled',
+        'completed_with_errors',
+        'cancelling'
     );
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
--- completed_with_errors is used by the application to distinguish successful
--- imports that had partial failures (some records succeeded, some failed)
--- from clean completed imports (all records succeeded).
-ALTER TYPE import_job_status ADD VALUE IF NOT EXISTS 'completed_with_errors';
-
 DO $$ BEGIN
-    CREATE TYPE import_job_type AS ENUM ('STAFF_INVITE', 'STUDENT_IMPORT');
+    CREATE TYPE import_job_type AS ENUM ('STAFF_INVITE', 'STUDENT_IMPORT', 'PARENT_INVITE');
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
@@ -221,10 +143,24 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 DO $$ BEGIN
+    CREATE TYPE import_chunk_status AS ENUM ('pending', 'processing', 'completed', 'cancelled');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE block_type AS ENUM ('Lesson', 'Break', 'Assembly', 'ExtraCurricular');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
     CREATE TYPE import_failure_type AS ENUM (
         'SCHEMA_VALIDATION',
         'DATABASE_CONSTRAINT',
-        'BUSINESS_RULE_VIOLATION'
+        'BUSINESS_RULE_VIOLATION',
+        'DUPLICATE_EMAIL',
+        'INVALID_EMAIL_FORMAT',
+        'STYTCH_API_ERROR',
+        'INVITATION_INSERT_FAILED'
     );
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
@@ -362,7 +298,7 @@ COMMENT ON COLUMN cbc_schools.nemis_institution_code IS
 
 -- ---------------------------------------------------------------------------
 -- ACADEMIC YEARS
--- IMPROVE: added created_at / updated_at and audit columns (version, deleted_at, created_by, updated_by)
+-- IMPROVE: added created_at / updated_at and audit columns (version, created_by, updated_by)
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS academic_years (
@@ -376,7 +312,6 @@ CREATE TABLE IF NOT EXISTS academic_years (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     version    INTEGER     NOT NULL DEFAULT 1,
-    deleted_at TIMESTAMPTZ,
     created_by UUID        NOT NULL REFERENCES users(id),
     updated_by UUID        NOT NULL REFERENCES users(id),
 
@@ -391,7 +326,7 @@ CREATE INDEX IF NOT EXISTS idx_academic_years_tenant_id ON academic_years (tenan
 CREATE INDEX IF NOT EXISTS idx_academic_years_school_id ON academic_years (school_id);
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_one_current_year_per_school
-    ON academic_years (school_id) WHERE is_current = TRUE AND deleted_at IS NULL;
+    ON academic_years (school_id) WHERE is_current = TRUE;
 
 DROP TRIGGER IF EXISTS trg_academic_years_updated_at ON academic_years;
 CREATE TRIGGER trg_academic_years_updated_at
@@ -416,7 +351,6 @@ CREATE TABLE IF NOT EXISTS academic_terms (
     version          INTEGER      NOT NULL DEFAULT 1,
     created_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-    deleted_at       TIMESTAMPTZ,
     created_by       UUID         NOT NULL REFERENCES users(id),
     updated_by       UUID         NOT NULL REFERENCES users(id),
 
@@ -429,7 +363,7 @@ CREATE TABLE IF NOT EXISTS academic_terms (
         REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_academic_terms_tenant_year
         FOREIGN KEY (tenant_id, academic_year_id)
-        REFERENCES academic_years(tenant_id, id) ON DELETE RESTRICT
+        REFERENCES academic_years(tenant_id, id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_academic_terms_tenant_id ON academic_terms (tenant_id);
@@ -438,7 +372,7 @@ CREATE INDEX IF NOT EXISTS idx_academic_terms_school_id ON academic_terms (schoo
 CREATE INDEX IF NOT EXISTS idx_academic_terms_year_id   ON academic_terms (academic_year_id);
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_one_current_term_per_year
-    ON academic_terms (academic_year_id) WHERE is_current = TRUE AND deleted_at IS NULL;
+    ON academic_terms (academic_year_id) WHERE is_current = TRUE;
 
 DROP TRIGGER IF EXISTS trg_academic_terms_updated_at ON academic_terms;
 CREATE TRIGGER trg_academic_terms_updated_at
@@ -446,8 +380,7 @@ CREATE TRIGGER trg_academic_terms_updated_at
     FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_term_number_per_year
-    ON academic_terms (academic_year_id, term_number)
-    WHERE deleted_at IS NULL;
+    ON academic_terms (academic_year_id, term_number);
 
 COMMENT ON COLUMN academic_terms.term_number IS
     'Kenya CBC operates a 3-term academic year. term_number enforces this:
@@ -472,11 +405,12 @@ CREATE TABLE IF NOT EXISTS cbc_streams (
     tenant_id  UUID         NOT NULL,
     school_id  UUID         NOT NULL,
     name       VARCHAR(100) NOT NULL,
+    color      VARCHAR(50)  NOT NULL DEFAULT '',
     created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
 
     CONSTRAINT fk_cbc_streams_school
-        FOREIGN KEY (school_id) REFERENCES cbc_schools(id) ON DELETE NO ACTION,
+        FOREIGN KEY (tenant_id, school_id) REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
 
     CONSTRAINT uq_cbc_streams_tenant_school_name
         UNIQUE (tenant_id, school_id, name)
@@ -498,10 +432,9 @@ COMMENT ON TABLE cbc_streams IS
      be deleted via the API.';
 
 COMMENT ON CONSTRAINT fk_cbc_streams_school ON cbc_streams IS
-    'school_id alone carries the tenancy relationship via cbc_schools. tenant_id
-     is stored denormalised for fast multi-tenant filtering without joins.
-     ON DELETE NO ACTION — streams are never cascade-deleted. Deletion of a
-     school must be handled explicitly upstream before streams can be removed.';
+    'Composite FK (tenant_id, school_id) enforces tenant-scoped referential
+     integrity. ON DELETE CASCADE — streams are removed when their school is
+     deleted.';
 
 -- ---------------------------------------------------------------------------
 -- CBC CLASSES
@@ -571,6 +504,9 @@ CREATE TABLE IF NOT EXISTS memberships (
     CONSTRAINT fk_memberships_tenant_school
         FOREIGN KEY (tenant_id, school_id)
         REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_memberships_tenant_user
+        FOREIGN KEY (tenant_id, user_id)
+        REFERENCES users(tenant_id, id),
     CONSTRAINT unique_user_school_membership UNIQUE (user_id, school_id)
 );
 
@@ -601,18 +537,23 @@ CREATE TABLE IF NOT EXISTS import_jobs (
     success_count        INT               NOT NULL DEFAULT 0,
     failed_count         INT               NOT NULL DEFAULT 0,
     idempotency_key      TEXT              NULL,
+    payload_hash         TEXT              NULL,
     total_chunks         INT               NOT NULL DEFAULT 0,
     processed_chunks     INT               NOT NULL DEFAULT 0,
     metadata             JSONB             NOT NULL DEFAULT '{}'::jsonb,
     created_at           TIMESTAMPTZ       NOT NULL DEFAULT NOW(),
     started_at           TIMESTAMPTZ       NULL,
     completed_at         TIMESTAMPTZ       NULL,
+    last_progress_at    TIMESTAMPTZ       NULL,
 
     CONSTRAINT fk_import_jobs_tenant_school
         FOREIGN KEY (tenant_id, school_id)
         REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT chk_import_jobs_role_required_for_staff
-        CHECK (job_type <> 'STAFF_INVITE' OR role IS NOT NULL)
+        CHECK (
+            (job_type IN ('STAFF_INVITE', 'PARENT_INVITE') AND role IS NOT NULL)
+            OR (job_type NOT IN ('STAFF_INVITE', 'PARENT_INVITE'))
+        )
 );
 
 CREATE INDEX IF NOT EXISTS idx_import_jobs_tenant_id  ON import_jobs (tenant_id);
@@ -622,6 +563,37 @@ CREATE INDEX IF NOT EXISTS idx_import_jobs_status     ON import_jobs (status);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_import_jobs_tenant_idempotency
     ON import_jobs (tenant_id, idempotency_key)
     WHERE idempotency_key IS NOT NULL;
+
+-- At most one active (processing or cancelling) import job per school at a time.
+-- A new submission while one is active is rejected with import_already_in_progress.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_import_jobs_one_active_per_school
+    ON import_jobs (school_id)
+    WHERE status IN ('processing'::import_job_status, 'cancelling'::import_job_status);
+
+-- ---------------------------------------------------------------------------
+-- IMPORT JOB CHUNKS — Track chunk claim/redelivery safety
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS import_job_chunks (
+    id            UUID                PRIMARY KEY DEFAULT gen_random_uuid(),
+    job_id        UUID                NOT NULL REFERENCES import_jobs(id) ON DELETE CASCADE,
+    chunk_index   INT                 NOT NULL,
+    status        import_chunk_status NOT NULL DEFAULT 'pending',
+    row_start     INT                 NOT NULL DEFAULT 0,
+    row_end       INT                 NOT NULL DEFAULT 0,
+    claimed_at    TIMESTAMPTZ         NULL,
+    completed_at  TIMESTAMPTZ         NULL,
+    created_at    TIMESTAMPTZ         NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT uq_import_job_chunks_job_chunk UNIQUE (job_id, chunk_index)
+);
+
+CREATE INDEX IF NOT EXISTS idx_import_job_chunks_job_id ON import_job_chunks (job_id);
+CREATE INDEX IF NOT EXISTS idx_import_job_chunks_status ON import_job_chunks (job_id, status);
+
+-- ---------------------------------------------------------------------------
+-- IMPORT JOB FAILURES
+-- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS import_job_failures (
     id            BIGSERIAL            PRIMARY KEY,
@@ -697,6 +669,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_invitations_active_email
     ON invitations (tenant_id, school_id, email)
     WHERE status NOT IN ('expired', 'revoked');
 
+-- Prevents race conditions where two concurrent chunks try to invite
+-- the same email for the same school.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_invitations_school_email_pending
+    ON invitations (school_id, email)
+    WHERE status = 'pending';
+
 -- ---------------------------------------------------------------------------
 -- CBC PARENTS
 -- ---------------------------------------------------------------------------
@@ -735,7 +713,7 @@ COMMENT ON TABLE cbc_parents IS
 CREATE TABLE IF NOT EXISTS cbc_students (
     id                     UUID                 PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id              UUID                 NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    school_id              UUID                 NOT NULL REFERENCES cbc_schools(id) ON DELETE RESTRICT,
+    school_id              UUID                 NOT NULL REFERENCES cbc_schools(id) ON DELETE CASCADE,
     full_name              VARCHAR(255)         NOT NULL,
     gender                 gender_type          NOT NULL,
     date_of_birth          DATE                 NULL,
@@ -743,6 +721,7 @@ CREATE TABLE IF NOT EXISTS cbc_students (
     knec_assessment_number VARCHAR(15)          NULL,
     admission_number       VARCHAR(20)          NULL,
     learning_pathway       cbc_learning_pathway NOT NULL DEFAULT 'Age_Based',
+    staging_row_id         UUID                 NULL REFERENCES import_job_staging(id) ON DELETE SET NULL,
     is_active              BOOLEAN              NOT NULL DEFAULT true,
     created_at             TIMESTAMPTZ          NOT NULL DEFAULT NOW(),
     updated_at             TIMESTAMPTZ          NOT NULL DEFAULT NOW(),
@@ -755,6 +734,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_cbc_students_upi
     ON cbc_students (upi_number) WHERE upi_number IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_cbc_students_knec_assessment_number
     ON cbc_students (knec_assessment_number) WHERE knec_assessment_number IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_cbc_students_school_staging_row
+    ON cbc_students (school_id, staging_row_id) WHERE staging_row_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_cbc_students_tenant_id ON cbc_students (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_cbc_students_school_id ON cbc_students (school_id);
 
@@ -829,15 +810,15 @@ CREATE TABLE IF NOT EXISTS cbc_student_enrollments (
         FOREIGN KEY (tenant_id, school_id, academic_term_id)
         REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE,
     -- Data-detachment intent: when class_id is set to NULL (mid-term removal),
-    -- cbc_attendance_logs rows are preserved. The FK uses ON DELETE SET NULL
-    -- so that student attendance history is never cascaded away.
+    -- student attendance records (if any) are preserved via ON DELETE SET NULL
+    -- so that history is never cascaded away.
     -- NOTE: class_id going NULL leaves tenant_id set; the composite FK is then
     -- skipped by Postgres (any NULL in the key = no FK check). The simple
     -- school→class cascade on cbc_classes handles the referential side.
     CONSTRAINT fk_enrollments_tenant_class
         FOREIGN KEY (tenant_id, class_id)
         REFERENCES cbc_classes(tenant_id, id) ON DELETE SET NULL,
-    CONSTRAINT unique_student_term_enrollment UNIQUE (student_id, academic_term_id)
+    CONSTRAINT unique_student_term_enrollment UNIQUE (student_id, school_id, academic_term_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_cbc_enrollments_tenant_id  ON cbc_student_enrollments (tenant_id);
@@ -1137,8 +1118,8 @@ CREATE TRIGGER trg_sync_invoice_payment_status_update
 
 -- ============================================================================
 -- LAYER 5 — CBC CURRICULUM STRUCTURE
--- BUG FIX: Moved from after Layer 6 to here. cbc_class_teachers,
---          cbc_attendance_periods, and cbc_timetable_slots all FK-reference
+-- BUG FIX: Moved from after Layer 6 to here. cbc_class_teachers and
+--          cbc_timetable_slots both FK-reference
 --          cbc_learning_areas; they must be created after it.
 -- ============================================================================
 
@@ -1149,12 +1130,14 @@ CREATE TABLE IF NOT EXISTS cbc_learning_areas (
     name            VARCHAR(150)        NOT NULL,
     code            VARCHAR(50)         NOT NULL,
     education_level cbc_education_level NOT NULL,
+    grade_level     cbc_grade_level     NOT NULL,
 
     PRIMARY KEY (id),
     CONSTRAINT fk_cbc_learning_areas_tenant_school
         FOREIGN KEY (tenant_id, school_id)
         REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT uq_cbc_learning_area_school_code UNIQUE (tenant_id, school_id, code),
+    CONSTRAINT uq_cbc_learning_areas_school_code_grade
+        UNIQUE (tenant_id, school_id, code, grade_level),
     -- IMPROVE: expose (tenant_id, id) pair so downstream tables can composite-FK
     CONSTRAINT uq_cbc_learning_areas_tenant UNIQUE (tenant_id, id)
 );
@@ -1162,6 +1145,7 @@ CREATE TABLE IF NOT EXISTS cbc_learning_areas (
 CREATE INDEX IF NOT EXISTS idx_cbc_learning_areas_tenant          ON cbc_learning_areas (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_cbc_learning_areas_school_id       ON cbc_learning_areas (school_id);
 CREATE INDEX IF NOT EXISTS idx_cbc_learning_areas_education_level ON cbc_learning_areas (education_level);
+CREATE INDEX IF NOT EXISTS idx_cbc_learning_areas_grade_level     ON cbc_learning_areas (grade_level);
 
 COMMENT ON COLUMN cbc_learning_areas.education_level IS
     'The CBC tier this learning area belongs to, per KICD curriculum structure.
@@ -1169,7 +1153,12 @@ COMMENT ON COLUMN cbc_learning_areas.education_level IS
 
 COMMENT ON COLUMN cbc_learning_areas.code IS
     'Short KICD-defined code for this learning area, e.g. MATH, ENG, KISW,
-     INT_SCI, PRE_TECH, SOC_STD. Unique within a school''s curriculum.';
+     INT_SCI, PRE_TECH, SOC_STD. Unique within a school per grade level.';
+
+COMMENT ON COLUMN cbc_learning_areas.grade_level IS
+    'The specific CBC grade this learning area instance is taught in.
+     Each grade has its own set of learning areas per KNEC/KICD curriculum.
+     Combined with code to uniquely identify a learning area within a school.';
 
 -- ---------------------------------------------------------------------------
 -- CBC STRANDS
@@ -1215,7 +1204,7 @@ COMMENT ON TABLE performance_indicators IS
      Learning Area → Strand → Sub-Strand → Performance Indicator.';
 
 -- ============================================================================
--- LAYER 6 — TEACHER ASSIGNMENTS, ATTENDANCE, TIMETABLE
+-- LAYER 6 — TEACHER ASSIGNMENTS & TIMETABLE
 -- ============================================================================
 
 -- ---------------------------------------------------------------------------
@@ -1231,6 +1220,9 @@ CREATE TABLE IF NOT EXISTS cbc_class_teachers (
     teacher_role     teacher_role NOT NULL DEFAULT 'SUBJECT_TEACHER',
     created_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
 
+    CONSTRAINT fk_cbc_class_teachers_tenant_user
+        FOREIGN KEY (tenant_id, user_id)
+        REFERENCES users(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_cbc_class_teachers_tenant_class
         FOREIGN KEY (tenant_id, class_id)
         REFERENCES cbc_classes(tenant_id, id) ON DELETE CASCADE,
@@ -1253,1064 +1245,205 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_cbc_one_primary_per_class
     ON cbc_class_teachers (class_id)
     WHERE teacher_role = 'PRIMARY_CLASS_TEACHER';
 
+
+
 -- ---------------------------------------------------------------------------
--- CBC ATTENDANCE PERIODS
+-- TIMETABLE STRUCTURES (Grid Definition Layer — Master Templates)
+-- Holds time ranges and rules. Decoupled from allocation slots.
 -- ---------------------------------------------------------------------------
 
-CREATE TABLE IF NOT EXISTS cbc_attendance_periods (
-    id                   UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id            UUID         NOT NULL,
-    school_id            UUID         NOT NULL,
-    academic_term_id     UUID         NOT NULL,
-    class_id             UUID         NOT NULL,
-    cbc_learning_area_id UUID         NOT NULL REFERENCES cbc_learning_areas(id) ON DELETE CASCADE,
-    date_recorded        DATE         NOT NULL,
-    recorded_by          UUID         NOT NULL REFERENCES users(id),
-    authorized_by_role   teacher_role NULL,
-    created_at           TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+CREATE TABLE IF NOT EXISTS timetable_structures (
+    id               UUID             PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id        UUID             NOT NULL,
+    school_id        UUID             NOT NULL,
+    academic_year_id UUID             NOT NULL,
+    day_of_week      INT              NOT NULL CHECK (day_of_week BETWEEN 1 AND 7),
+    period_name      VARCHAR(50)      NOT NULL,
+    start_time       TIME             NOT NULL,
+    end_time         TIME             NOT NULL,
+    is_break         BOOLEAN          NOT NULL DEFAULT FALSE,
+    created_at       TIMESTAMPTZ      NOT NULL DEFAULT NOW(),
+    updated_at       TIMESTAMPTZ      NOT NULL DEFAULT NOW(),
 
-    CONSTRAINT uq_cbc_attendance_periods_tenant UNIQUE (tenant_id, id),
-    CONSTRAINT fk_cbc_att_periods_tenant_school
+    CONSTRAINT chk_timetable_structure_times CHECK (end_time > start_time),
+    CONSTRAINT excl_timetable_structure_overlap
+        EXCLUDE USING gist (
+            school_id WITH =,
+            academic_year_id WITH =,
+            day_of_week WITH =,
+            fn_timerange(day_of_week, start_time, end_time) WITH &&
+        ),
+    CONSTRAINT fk_timetable_structure_tenant_school
         FOREIGN KEY (tenant_id, school_id)
         REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_cbc_att_periods_tenant_term
-        FOREIGN KEY (tenant_id, school_id, academic_term_id)
-        REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_cbc_att_periods_tenant_class
-        FOREIGN KEY (tenant_id, class_id)
-        REFERENCES cbc_classes(tenant_id, id) ON DELETE CASCADE
+    CONSTRAINT fk_timetable_structure_academic_year
+        FOREIGN KEY (tenant_id, academic_year_id)
+        REFERENCES academic_years(tenant_id, id) ON DELETE CASCADE
 );
 
-CREATE INDEX        IF NOT EXISTS idx_cbc_att_periods_tenant     ON cbc_attendance_periods (tenant_id);
-CREATE INDEX        IF NOT EXISTS idx_cbc_att_periods_class_date ON cbc_attendance_periods (class_id, date_recorded);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_cbc_unique_attendance_period
-    ON cbc_attendance_periods (class_id, date_recorded, cbc_learning_area_id);
+CREATE INDEX IF NOT EXISTS idx_timetable_structure_tenant
+    ON timetable_structures (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_timetable_structure_school_day
+    ON timetable_structures (school_id, day_of_week);
+CREATE INDEX IF NOT EXISTS idx_timetable_structure_academic_year
+    ON timetable_structures (academic_year_id);
 
-COMMENT ON COLUMN cbc_attendance_periods.authorized_by_role IS
-    'The teacher_role that authorised this attendance period record. Populated
-     when a period recorded by a SUBSTITUTE_TEACHER is counter-signed by a
-     PRIMARY_CLASS_TEACHER. NULL means the recording teacher is also the
-     authorising teacher (normal case). Used for audit and KNEC compliance
-     reporting where substitute attendance requires authorisation.';
+DROP TRIGGER IF EXISTS trg_timetable_structures_updated_at ON timetable_structures;
+CREATE TRIGGER trg_timetable_structures_updated_at
+    BEFORE UPDATE ON timetable_structures
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
 
--- ---------------------------------------------------------------------------
--- CBC ATTENDANCE LOGS
--- ---------------------------------------------------------------------------
+COMMENT ON TABLE timetable_structures IS
+    'Structural day template (Grid Definition Layer). Defines the partitioned time
+     blocks (lessons, breaks, assemblies) that make up a standard school day per
+     academic year. The GiST exclusion constraint guarantees non-overlapping blocks
+     per school per academic year per day. Decoupled from cbc_timetable_slots —
+     allocations reference structure_id instead of carrying raw time ranges.';
 
-CREATE TABLE IF NOT EXISTS cbc_attendance_logs (
-    id                       UUID              PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id                UUID              NOT NULL,
-    cbc_attendance_period_id UUID              NOT NULL,
-    student_id               UUID              NOT NULL,
-    status                   attendance_status NOT NULL,
-    remarks                  VARCHAR(255)      NULL,
-    recorded_by              UUID              NOT NULL REFERENCES users(id),
+COMMENT ON COLUMN timetable_structures.day_of_week IS
+    '1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 5=Friday, 6=Saturday, 7=Sunday.
+     Most schools use Mon-Fri (1-5); weekends are allowed for special sessions.';
 
-    CONSTRAINT fk_cbc_att_logs_tenant_period
-        FOREIGN KEY (tenant_id, cbc_attendance_period_id)
-        REFERENCES cbc_attendance_periods(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_cbc_att_logs_tenant_student
-        FOREIGN KEY (tenant_id, student_id)
-        REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT unique_cbc_student_attendance_period UNIQUE (cbc_attendance_period_id, student_id)
-);
+COMMENT ON COLUMN timetable_structures.period_name IS
+    'Human-readable name for this time period, e.g. "Lesson 1", "Morning Break",
+     "Recess", "Assembly". Free-text — not an enum, to support school-specific naming.';
 
-CREATE INDEX IF NOT EXISTS idx_cbc_att_logs_tenant  ON cbc_attendance_logs (tenant_id);
-CREATE INDEX IF NOT EXISTS idx_cbc_att_logs_period  ON cbc_attendance_logs (cbc_attendance_period_id);
-CREATE INDEX IF NOT EXISTS idx_cbc_att_logs_student ON cbc_attendance_logs (student_id);
+COMMENT ON COLUMN timetable_structures.is_break IS
+    'Flags recess, lunch, or other non-instructional blocks. UI can use this to
+     disable assignment cells and render break rows in a distinct style.';
 
 -- ---------------------------------------------------------------------------
--- CBC TIMETABLE SLOTS
--- IMPROVE: added CHECK (end_time > start_time) — GiST exclusion prevents
---          overlaps but nothing previously blocked end <= start on the row itself
+-- CBC TIMETABLE SLOTS (Grid Allocation Layer — Lightweight Assignments)
+-- A lightweight relational mapping table using fast B-Tree composite unique
+-- constraints instead of GiST exclusion constraints. The grid definition
+-- (time ranges) lives in timetable_structures; this table only stores
+-- assignments of class → teacher → learning_area → room per structure block.
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS cbc_timetable_slots (
-    id                   UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id            UUID        NOT NULL,
-    school_id            UUID        NOT NULL,
-    academic_year_id     UUID        NOT NULL,
-    academic_term_id     UUID        NOT NULL,
-    class_id             UUID        NOT NULL,
-    teacher_id           UUID        NOT NULL,
-    cbc_learning_area_id UUID        NULL REFERENCES cbc_learning_areas(id) ON DELETE SET NULL,
-    room_identifier      VARCHAR(50) NULL,
-    day_of_week          INT         NOT NULL CHECK (day_of_week BETWEEN 1 AND 7),
-    start_time           TIME        NOT NULL,
-    end_time             TIME        NOT NULL,
+    id                UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id         UUID        NOT NULL,
+    school_id         UUID        NOT NULL,
+    academic_year_id  UUID        NOT NULL,
+    structure_id      UUID        NOT NULL REFERENCES timetable_structures(id) ON DELETE CASCADE,
+    class_id          UUID        NOT NULL,
+    learning_area_id  UUID        NOT NULL REFERENCES cbc_learning_areas(id) ON DELETE CASCADE,
+    teacher_id        UUID        NOT NULL,
+    room_identifier   VARCHAR(50) NULL,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
-    CONSTRAINT chk_timetable_times CHECK (end_time > start_time),
-    CONSTRAINT fk_cbc_timetable_tenant_school
+    -- CONSTRAINT 1: A class can only have ONE assignment per specific structure block
+    CONSTRAINT unique_class_slot
+        UNIQUE (academic_year_id, structure_id, class_id),
+
+    -- CONSTRAINT 2: A teacher cannot be double-booked during the same structure block
+    CONSTRAINT unique_teacher_slot
+        UNIQUE (academic_year_id, structure_id, teacher_id),
+
+    -- CONSTRAINT 3: A room cannot be double-booked during the same structure block
+    CONSTRAINT unique_room_slot
+        UNIQUE (academic_year_id, structure_id, room_identifier),
+
+    CONSTRAINT fk_cbc_timetable_slots_tenant_school
         FOREIGN KEY (tenant_id, school_id)
         REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_cbc_timetable_tenant_year
-        FOREIGN KEY (tenant_id, academic_year_id)
-        REFERENCES academic_years(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_cbc_timetable_tenant_term
-        FOREIGN KEY (tenant_id, school_id, academic_term_id)
-        REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_cbc_timetable_tenant_class
+    CONSTRAINT fk_cbc_timetable_slots_tenant_class
         FOREIGN KEY (tenant_id, class_id)
         REFERENCES cbc_classes(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_cbc_timetable_tenant_teacher
+    CONSTRAINT fk_cbc_timetable_slots_tenant_teacher
         FOREIGN KEY (tenant_id, teacher_id)
-        REFERENCES users(tenant_id, id) ON DELETE CASCADE
+        REFERENCES users(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_cbc_timetable_slots_academic_year
+        FOREIGN KEY (tenant_id, academic_year_id)
+        REFERENCES academic_years(tenant_id, id) ON DELETE CASCADE
 );
 
-CREATE INDEX IF NOT EXISTS idx_cbc_timetable_tenant      ON cbc_timetable_slots (tenant_id);
-CREATE INDEX IF NOT EXISTS idx_cbc_timetable_school_year ON cbc_timetable_slots (school_id, academic_year_id);
-CREATE INDEX IF NOT EXISTS idx_cbc_timetable_class       ON cbc_timetable_slots (class_id);
-CREATE INDEX IF NOT EXISTS idx_cbc_timetable_teacher     ON cbc_timetable_slots (teacher_id);
+COMMENT ON TABLE cbc_timetable_slots IS
+    'Grid Allocation Layer — lightweight relational mapping table using fast
+     B-Tree composite unique constraints. The grid definition (time ranges)
+     lives in timetable_structures; this table only stores assignments of
+     class → teacher → learning_area → room per structure block.';
 
-DO $$ BEGIN
-    ALTER TABLE cbc_timetable_slots ADD CONSTRAINT excl_cbc_timetable_teacher
-        EXCLUDE USING gist (
-            teacher_id       WITH =,
-            academic_year_id WITH =,
-            fn_timerange(day_of_week, start_time, end_time) WITH &&
-        );
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
+DROP TRIGGER IF EXISTS trg_cbc_timetable_slots_updated_at ON cbc_timetable_slots;
+CREATE TRIGGER trg_cbc_timetable_slots_updated_at
+    BEFORE UPDATE ON cbc_timetable_slots
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
 
-DO $$ BEGIN
-    ALTER TABLE cbc_timetable_slots ADD CONSTRAINT excl_cbc_timetable_room
-        EXCLUDE USING gist (
-            room_identifier  WITH =,
-            academic_year_id WITH =,
-            fn_timerange(day_of_week, start_time, end_time) WITH &&
-        );
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
+CREATE INDEX IF NOT EXISTS idx_cbc_timetable_slots_structure
+    ON cbc_timetable_slots (structure_id);
+CREATE INDEX IF NOT EXISTS idx_cbc_timetable_slots_class
+    ON cbc_timetable_slots (class_id);
+CREATE INDEX IF NOT EXISTS idx_cbc_timetable_slots_teacher
+    ON cbc_timetable_slots (teacher_id);
+CREATE INDEX IF NOT EXISTS idx_cbc_timetable_slots_academic_year
+    ON cbc_timetable_slots (academic_year_id);
+CREATE INDEX IF NOT EXISTS idx_cbc_timetable_slots_tenant
+    ON cbc_timetable_slots (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_cbc_timetable_slots_school
+    ON cbc_timetable_slots (school_id);
 
--- ---------------------------------------------------------------------------
--- AUTO-REGISTER / AUTO-CLEAN SUBJECT TEACHER TRIGGER
--- IMPROVE: Extended to also clean up stale SUBJECT_TEACHER registrations when
---          a timetable slot's teacher_id or cbc_learning_area_id changes. The
---          original only inserted, leaving ghost assignments on UPDATE.
--- ---------------------------------------------------------------------------
 
-CREATE OR REPLACE FUNCTION fn_auto_register_subject_teacher()
-RETURNS TRIGGER AS $$
-BEGIN
-    -- On UPDATE: remove the old SUBJECT_TEACHER registration if teacher or
-    -- learning area has changed, to avoid ghost assignments.
-    IF TG_OP = 'UPDATE' THEN
-        IF (OLD.teacher_id IS DISTINCT FROM NEW.teacher_id OR
-            OLD.cbc_learning_area_id IS DISTINCT FROM NEW.cbc_learning_area_id) AND
-            OLD.cbc_learning_area_id IS NOT NULL
-        THEN
-            -- Only remove if this slot was the sole reason for the assignment
-            -- (i.e. no other active slot ties this teacher+class+area together).
-            DELETE FROM cbc_class_teachers
-            WHERE tenant_id        = OLD.tenant_id
-              AND class_id         = OLD.class_id
-              AND user_id          = OLD.teacher_id
-              AND learning_area_id = OLD.cbc_learning_area_id
-              AND teacher_role     = 'SUBJECT_TEACHER'
-              AND NOT EXISTS (
-                  SELECT 1 FROM cbc_timetable_slots
-                  WHERE tenant_id            = OLD.tenant_id
-                    AND class_id             = OLD.class_id
-                    AND teacher_id           = OLD.teacher_id
-                    AND cbc_learning_area_id = OLD.cbc_learning_area_id
-                    AND id                  != OLD.id   -- exclude the row being updated
-              );
-        END IF;
-    END IF;
-
-    -- Insert new SUBJECT_TEACHER registration when a learning area is set
-    IF NEW.cbc_learning_area_id IS NOT NULL THEN
-        IF NOT EXISTS (
-            SELECT 1 FROM cbc_class_teachers
-            WHERE tenant_id = NEW.tenant_id
-              AND class_id  = NEW.class_id
-              AND user_id   = NEW.teacher_id
-        ) THEN
-            INSERT INTO cbc_class_teachers (tenant_id, class_id, user_id, learning_area_id, teacher_role)
-            VALUES (NEW.tenant_id, NEW.class_id, NEW.teacher_id, NEW.cbc_learning_area_id, 'SUBJECT_TEACHER');
-        END IF;
-    END IF;
-
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS trg_auto_register_subject_teacher ON cbc_timetable_slots;
-CREATE TRIGGER trg_auto_register_subject_teacher
-    AFTER INSERT OR UPDATE OF teacher_id, cbc_learning_area_id ON cbc_timetable_slots
-    FOR EACH ROW
-    EXECUTE FUNCTION fn_auto_register_subject_teacher();
 
 -- ============================================================================
 -- LAYER 7 — CBC ASSESSMENT ARCHITECTURE
 -- ============================================================================
 
 -- ---------------------------------------------------------------------------
--- ASSESSMENT WEIGHT CONFIGS
+-- ASSESSMENT WEIGHT CONFIGS — official KNEC weighting formulas
+-- KPSEA: 60% SBA (G4+G5) + 40% KPSEA written (G6)
+-- KJSEA: 20% SBA (G7+G8) + 20% KPSEA result + 60% KJSEA written (G9)
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS assessment_weight_configs (
-    id                   UUID                NOT NULL DEFAULT gen_random_uuid(),
-    grade_level          cbc_grade_level     NOT NULL,
-    assessment_type_code cbc_assessment_type NOT NULL,
-    target_exam          knec_target_exam    NOT NULL,
-    weight_percent       NUMERIC(5,2)        NOT NULL,
-    effective_from       SMALLINT            NOT NULL,
-    notes                TEXT                NULL,
+    id                   UUID           PRIMARY KEY DEFAULT gen_random_uuid(),
+    grade_level          cbc_grade_level NOT NULL,
+    assessment_type_code VARCHAR(50)    NOT NULL,
+    target_exam          VARCHAR(20)    NOT NULL,
+    weight_percent       NUMERIC(5,2)   NOT NULL CHECK (weight_percent > 0 AND weight_percent <= 100),
+    effective_from       INTEGER        NOT NULL,
+    notes                TEXT           NULL,
+    created_at           TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
 
-    PRIMARY KEY (id),
-    CONSTRAINT chk_awc_weight_percent    CHECK (weight_percent BETWEEN 0.00 AND 100.00),
-    CONSTRAINT chk_awc_effective_from    CHECK (effective_from >= 2017),
-    CONSTRAINT uq_awc_grade_type_exam_effective
+    CONSTRAINT uq_assessment_weight_config
         UNIQUE (grade_level, assessment_type_code, target_exam, effective_from)
 );
 
-CREATE INDEX IF NOT EXISTS idx_awc_grade_exam ON assessment_weight_configs (grade_level, target_exam);
-
 COMMENT ON TABLE assessment_weight_configs IS
-    'Official KNEC weighting formula per grade per assessment type. Seeded with
-     the published KNEC formula. KPSEA: 60% SBA (G4+G5) + 40% KPSEA written (G6).
-     KJSEA: 20% SBA (G7+G8) + 20% KPSEA result + 60% KJSEA written (G9).
-     This table is intentionally global (no tenant_id): KNEC weights are
+    'Official KNEC assessment weighting formulas per grade level. These are
      nationally mandated and do not vary per school. Schema changes would be
      required if per-school overrides are ever needed.';
 
--- ---------------------------------------------------------------------------
--- ASSESSMENT BLUEPRINTS
--- IMPROVE: added unique constraint to prevent duplicate blueprints for the
---          same school/grade/term combination
--- ---------------------------------------------------------------------------
-
-CREATE TABLE IF NOT EXISTS assessment_blueprints (
-    id            UUID                NOT NULL DEFAULT gen_random_uuid(),
-    tenant_id     UUID                NOT NULL,
-    school_id     UUID                NOT NULL,
-    title         VARCHAR(255)        NOT NULL,
-    type          cbc_assessment_type NOT NULL,
-    grade_level   cbc_grade_level     NOT NULL,
-    academic_year SMALLINT            NOT NULL,
-    term          SMALLINT            NOT NULL,
-
-    PRIMARY KEY (id),
-    CONSTRAINT fk_blueprints_tenant_school
-        FOREIGN KEY (tenant_id, school_id)
-        REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT chk_blueprint_term          CHECK (term BETWEEN 1 AND 3),
-    CONSTRAINT chk_blueprint_academic_year CHECK (academic_year >= 2017),
-    CONSTRAINT uq_blueprint_per_school_grade_term
-        UNIQUE (school_id, title, type, grade_level, academic_year, term)
-);
-
-CREATE INDEX IF NOT EXISTS idx_blueprints_tenant     ON assessment_blueprints (tenant_id);
-CREATE INDEX IF NOT EXISTS idx_blueprints_school     ON assessment_blueprints (school_id);
-CREATE INDEX IF NOT EXISTS idx_blueprints_grade_year ON assessment_blueprints (grade_level, academic_year, type);
-
--- ---------------------------------------------------------------------------
--- ASSESSMENT BLUEPRINT INDICATORS
--- ---------------------------------------------------------------------------
-
-CREATE TABLE IF NOT EXISTS assessment_blueprint_indicators (
-    blueprint_id UUID NOT NULL REFERENCES assessment_blueprints(id) ON DELETE CASCADE,
-    indicator_id UUID NOT NULL REFERENCES performance_indicators(id) ON DELETE CASCADE,
-
-    PRIMARY KEY (blueprint_id, indicator_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_blueprint_indicators_indicator
-    ON assessment_blueprint_indicators (indicator_id);
-
--- ---------------------------------------------------------------------------
--- CBC ASSESSMENT GRADING SCALES
--- Maps raw-score percentages to KNEC rubric levels (EE/ME/AE/BE) per
--- grade level. Each tenant+school defines its own bracket boundaries;
--- the half-open numrange '[)' exclusion constraint guarantees that no
--- two brackets for the same tenant/school/grade overlap. The top bracket
--- closing at exactly 100.00 is handled at lookup time
--- (fn_convert_raw_score_to_rubric) rather than by making the stored
--- range inclusive on both ends, which would break the && overlap check.
--- ---------------------------------------------------------------------------
-
-CREATE TABLE IF NOT EXISTS cbc_assessment_grading_scales (
-    id             UUID              PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id      UUID              NOT NULL,
-    school_id      UUID              NOT NULL,
-    grade_level    cbc_grade_level   NOT NULL,
-    rubric_level   cbc_rubric_level  NOT NULL,
-    min_percentage NUMERIC(5,2)      NOT NULL,
-    max_percentage NUMERIC(5,2)      NOT NULL,
-
-    CONSTRAINT fk_grading_scales_tenant_school
-        FOREIGN KEY (tenant_id, school_id)
-        REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
-
-    CONSTRAINT chk_grading_scale_range CHECK (
-        min_percentage >= 0
-        AND max_percentage <= 100
-        AND min_percentage < max_percentage
-    ),
-
-    -- Half-open '[)' exclusion: two ranges for the same tenant/school/grade
-    -- must not overlap. The top bracket (ending at 100.00) is handled by
-    -- fn_convert_raw_score_to_rubric treating percentage = 100.00 as
-    -- belonging to the highest bracket even though 100.00 is technically
-    -- outside the half-open interval.
-    CONSTRAINT excl_grading_scales_no_overlap
-        EXCLUDE USING gist (
-            tenant_id  WITH =,
-            school_id  WITH =,
-            grade_level WITH =,
-            numrange(min_percentage, max_percentage, '[)') WITH &&
-        )
-);
-
-CREATE INDEX IF NOT EXISTS idx_grading_scales_tenant
-    ON cbc_assessment_grading_scales (tenant_id);
-CREATE INDEX IF NOT EXISTS idx_grading_scales_school
-    ON cbc_assessment_grading_scales (school_id);
-CREATE INDEX IF NOT EXISTS idx_grading_scales_lookup
-    ON cbc_assessment_grading_scales (tenant_id, school_id, grade_level, min_percentage);
-
-COMMENT ON TABLE cbc_assessment_grading_scales IS
-    'Per-tenant, per-school, per-grade grading scale that maps raw-score
-     percentages to KNEC rubric levels (EE/ME/AE/BE). Brackets are stored
-     as half-open intervals [min, max) so the GiST exclusion constraint can
-     reliably detect overlaps without false positives at adjacent boundaries.
-     The edge case of 100.00%% falling outside the half-open highest bracket
-     is resolved in the lookup function fn_convert_raw_score_to_rubric.
-     Seeded with KNEC-recommended default brackets on tenant+school creation;
-     schools may customise boundaries within the same non-overlap rules.';
-
-COMMENT ON CONSTRAINT excl_grading_scales_no_overlap ON cbc_assessment_grading_scales IS
-    'GiST exclusion constraint using half-open numrange(min, max, ''[)'').
-     Guarantees that for a given (tenant_id, school_id, grade_level) no two
-     rows have overlapping percentage brackets. The && (overlaps) operator
-     returns true when two ranges share any point; the ''[)'' format ensures
-     that adjacent brackets (e.g. [0,50) and [50,75)) are not considered
-     overlapping because 50 is excluded from the first range.';
-
--- ============================================================
--- FUNCTION: Convert raw score to rubric level
--- ------------------------------------------------------------
--- Computes percentage from obtained/total, then looks up the
--- matching grading-scale bracket for the tenant/school/grade.
--- Raises distinct errors for missing configuration, zero total,
--- and out-of-range percentages so callers can distinguish between
--- a setup gap and an actual data error.
--- ============================================================
-
-CREATE OR REPLACE FUNCTION fn_convert_raw_score_to_rubric(
-    p_tenant_id  UUID,
-    p_school_id  UUID,
-    p_grade_level cbc_grade_level,
-    p_obtained   NUMERIC,
-    p_total      NUMERIC
-)
-RETURNS cbc_rubric_level
-LANGUAGE plpgsql
-STABLE
-AS $$
-DECLARE
-    v_percentage NUMERIC(5,2);
-    v_result     cbc_rubric_level;
-BEGIN
-    -- Guard against zero / NULL total before division
-    IF p_total IS NULL OR p_total = 0 THEN
-        RAISE EXCEPTION
-            'fn_convert_raw_score_to_rubric: p_total must be > 0 (got %)',
-            p_total
-            USING ERRCODE = '22012';  -- division_by_zero
-    END IF;
-
-    -- Compute rounded percentage (2 decimal places)
-    v_percentage := ROUND((p_obtained / p_total) * 100, 2);
-
-    -- Clamp at 100.00 for the half-open top-bracket edge case:
-    -- if percentage = 100.00 it falls outside the last '[min, 100)' range,
-    -- so we treat it as exactly 99.9999 to match the highest bracket.
-    IF v_percentage > 100.00 THEN
-        v_percentage := 100.00;
-    END IF;
-
-    -- Look up the bracket (handle the top-boundary edge case)
-    SELECT gs.rubric_level INTO v_result
-    FROM cbc_assessment_grading_scales gs
-    WHERE gs.tenant_id   = p_tenant_id
-      AND gs.school_id   = p_school_id
-      AND gs.grade_level = p_grade_level
-      AND (
-          -- Normal half-open match
-          v_percentage >= gs.min_percentage
-          AND v_percentage < gs.max_percentage
-          -- Edge case: exactly 100.00 belongs to the bracket ending at 100
-          OR (v_percentage = 100.00 AND gs.max_percentage = 100.00)
-      );
-
-    IF NOT FOUND THEN
-        -- Check whether any scale exists at all for this tenant/school/grade
-        IF NOT EXISTS (
-            SELECT 1 FROM cbc_assessment_grading_scales
-            WHERE tenant_id   = p_tenant_id
-              AND school_id   = p_school_id
-              AND grade_level = p_grade_level
-        ) THEN
-            RAISE EXCEPTION
-                'fn_convert_raw_score_to_rubric: no grading scale configured for '
-                'tenant_id=% school_id=% grade_level=% — create entries in '
-                'cbc_assessment_grading_scales before calling this function',
-                p_tenant_id, p_school_id, p_grade_level
-                USING ERRCODE = 'P0001';  -- raise_exception
-        ELSE
-            RAISE EXCEPTION
-                'fn_convert_raw_score_to_rubric: percentage % does not fall within '
-                'any configured bracket for tenant_id=% school_id=% grade_level=%',
-                v_percentage, p_tenant_id, p_school_id, p_grade_level
-                USING ERRCODE = 'P0001';
-        END IF;
-    END IF;
-
-    RETURN v_result;
-END;
-$$;
+COMMENT ON COLUMN assessment_weight_configs.assessment_type_code IS
+    'KNEC assessment type identifier, e.g. KNEC_SBA_Project, National_KPSEA, National_KJSEA.';
+COMMENT ON COLUMN assessment_weight_configs.target_exam IS
+    'The target national exam this weight contributes to: KPSEA, KJSEA, or KSSEA.';
+COMMENT ON COLUMN assessment_weight_configs.weight_percent IS
+    'Percentage contribution of this assessment component towards the target exam placement.';
+COMMENT ON COLUMN assessment_weight_configs.effective_from IS
+    'Academic year from which this weighting formula is effective.';
 
 -- ============================================================================
--- LAYER 8 — CBC ASSESSMENT EXECUTION & RESULTS
+-- SCHOOL MEMBER COUNTS — materialised denormalised counts
 -- ============================================================================
-
--- ---------------------------------------------------------------------------
--- ASSESSMENT SESSIONS
--- ---------------------------------------------------------------------------
-
-CREATE TABLE IF NOT EXISTS assessment_sessions (
-    id                    UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id             UUID        NOT NULL,
-    blueprint_id          UUID        NOT NULL REFERENCES assessment_blueprints(id) ON DELETE RESTRICT,
-    class_id              UUID        NOT NULL,
-    assessed_by_user_id   UUID        NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
-    date_administered     DATE        NOT NULL,   -- NO DEFAULT. Must be entered explicitly.
-    knec_upload_reference VARCHAR(50) NULL,
-    created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-
-    CONSTRAINT fk_asessions_tenant_class
-        FOREIGN KEY (tenant_id, class_id)
-        REFERENCES cbc_classes(tenant_id, id) ON DELETE RESTRICT
-);
-
-CREATE INDEX IF NOT EXISTS idx_asessions_tenant     ON assessment_sessions (tenant_id);
-CREATE INDEX IF NOT EXISTS idx_asessions_blueprint  ON assessment_sessions (blueprint_id);
-CREATE INDEX IF NOT EXISTS idx_asessions_class      ON assessment_sessions (class_id);
-CREATE INDEX IF NOT EXISTS idx_asessions_teacher    ON assessment_sessions (assessed_by_user_id);
-CREATE INDEX IF NOT EXISTS idx_asessions_class_date ON assessment_sessions (class_id, date_administered);
-
-COMMENT ON COLUMN assessment_sessions.date_administered IS
-    'The calendar date on which this assessment was administered. DATE type
-     (not TIMESTAMPTZ) because CBC records reference dates, not timestamps.
-     No DEFAULT: must be set explicitly. Retroactive entry is common in CBC
-     as teachers often batch-enter assessments at end of week.';
-
-COMMENT ON COLUMN assessment_sessions.knec_upload_reference IS
-    'Reference token returned by cba.knec.ac.ke after a successful SBA score
-     upload. NULL for Formative_Classroom type sessions, which are never
-     uploaded to KNEC.';
-
--- ---------------------------------------------------------------------------
--- LEARNER RUBRIC RESULTS
--- IMPROVE: added CHECK (raw_score >= 0) — NUMERIC(5,2) previously allowed
---          negative marks; added index on (session_id, student_id) for the
---          most common access pattern (all results for a student in a session)
--- ---------------------------------------------------------------------------
-
-CREATE TABLE IF NOT EXISTS learner_rubric_results (
-    id                        UUID           PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id                 UUID           NOT NULL,
-    session_id                UUID           NOT NULL REFERENCES assessment_sessions(id) ON DELETE CASCADE,
-    student_id                UUID           NOT NULL,
-    indicator_id              UUID           NOT NULL REFERENCES performance_indicators(id) ON DELETE RESTRICT,
-    score_type                lrr_score_type NOT NULL,
-    raw_score                 NUMERIC(5,2)   NULL CHECK (raw_score >= 0),
-    rubric_level              cbc_rubric_level NOT NULL,
-    teacher_observation_notes TEXT           NULL,
-
-    CONSTRAINT fk_lrr_tenant_student
-        FOREIGN KEY (tenant_id, student_id)
-        REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT unique_lrr_per_student_indicator UNIQUE (session_id, student_id, indicator_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_lrr_tenant            ON learner_rubric_results (tenant_id);
-CREATE INDEX IF NOT EXISTS idx_lrr_session           ON learner_rubric_results (session_id);
--- IMPROVE: fast fetch of all results for a student within a session
-CREATE INDEX IF NOT EXISTS idx_lrr_session_student   ON learner_rubric_results (session_id, student_id);
-CREATE INDEX IF NOT EXISTS idx_lrr_student_indicator ON learner_rubric_results (student_id, indicator_id);
-CREATE INDEX IF NOT EXISTS idx_lrr_indicator         ON learner_rubric_results (indicator_id);
-
-COMMENT ON COLUMN learner_rubric_results.rubric_level IS
-    'Official KNEC 4-level rubric outcome. EE/ME/AE/BE only. No sub-levels
-     (EE1, ME2 etc.) are permitted here. Sub-levels may exist in internal
-     school tooling but are not valid in KNEC portal submissions.';
-
-COMMENT ON COLUMN learner_rubric_results.raw_score IS
-    'Pre-conversion numeric mark. Only populated when score_type = Numeric_Raw.
-     Represents the raw score before it is mapped to a rubric level. NEVER
-     summed or averaged across indicators — doing so would constitute a CBC
-     compliance violation.';
-
--- ---------------------------------------------------------------------------
--- LEARNER PORTFOLIOS
--- ---------------------------------------------------------------------------
-
-CREATE TABLE IF NOT EXISTS learner_portfolios (
-    id               UUID                    PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id        UUID                    NOT NULL,
-    student_id       UUID                    NOT NULL,
-    sub_strand_id    UUID                    NOT NULL REFERENCES cbc_sub_strands(id) ON DELETE RESTRICT,
-    evidence_type    portfolio_evidence_type NOT NULL,
-    storage_pointer  TEXT                    NOT NULL,
-    linked_result_id UUID                    NULL REFERENCES learner_rubric_results(id) ON DELETE SET NULL,
-    date_collected   DATE                    NULL,
-    created_at       TIMESTAMPTZ             NOT NULL DEFAULT NOW(),
-
-    CONSTRAINT fk_portfolios_tenant_student
-        FOREIGN KEY (tenant_id, student_id)
-        REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE
-);
-
-CREATE INDEX IF NOT EXISTS idx_portfolios_tenant     ON learner_portfolios (tenant_id);
-CREATE INDEX IF NOT EXISTS idx_portfolios_student    ON learner_portfolios (student_id);
-CREATE INDEX IF NOT EXISTS idx_portfolios_sub_strand ON learner_portfolios (sub_strand_id);
-CREATE INDEX IF NOT EXISTS idx_portfolios_result     ON learner_portfolios (linked_result_id);
-
-COMMENT ON COLUMN learner_portfolios.storage_pointer IS
-    'For Digital_Artifact_URL and Video_Recording: full URL to stored file.
-     For Physical_File_Reference: descriptive location string
-     (e.g. "Portfolio Binder 2B, page 14, Teacher: J. Mwangi").';
-
--- ============================================================================
--- LAYER 9 — CBC AGGREGATION & REPORTING
--- ============================================================================
-
--- ---------------------------------------------------------------------------
--- CBC TERM REPORT CARDS (MASTER / HEADER)
--- IMPROVE: full final column set written at table creation — no staged
---          migrations. Offline-computed attendance totals, class-teacher
---          remarks, compilation timestamps, and a 4-state status enum
---          are all present from day one. Mutability is status-gated:
---          only DRAFT and COMPILED rows are editable.
--- ---------------------------------------------------------------------------
-
-DO $$ BEGIN
-    CREATE TYPE cbc_report_card_status AS ENUM (
-        'DRAFT',                       -- Created, not yet compiled; freely editable
-        'COMPILED',                    -- Aggregations complete; awaiting teacher review
-        'APPROVED_BY_TEACHER',     -- Signed off; locked from all but the publish transition
-        'PUBLISHED_TO_PARENTS'         -- Distributed to parents; immutable
-    );
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-
-CREATE TABLE IF NOT EXISTS cbc_term_report_cards (
-    id                    UUID                   PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id             UUID                   NOT NULL,
-    school_id             UUID                   NOT NULL,
-    student_id            UUID                   NOT NULL,
-    class_id              UUID                   NOT NULL,
-    academic_term_id      UUID                   NOT NULL,
-    status                cbc_report_card_status NOT NULL DEFAULT 'DRAFT',
-    compiled_at           TIMESTAMPTZ            NULL,
-    total_days_present    INT                    NOT NULL DEFAULT 0,
-    total_days_absent     INT                    NOT NULL DEFAULT 0,
-    total_days_excused    INT                    NOT NULL DEFAULT 0,
-    total_days_late       INT                    NOT NULL DEFAULT 0,
-    class_teacher_id      UUID                   NULL,
-    class_teacher_remarks TEXT                   NULL,
-    created_at            TIMESTAMPTZ            NOT NULL DEFAULT NOW(),
-    updated_at            TIMESTAMPTZ            NOT NULL DEFAULT NOW(),
-
-    -- (tenant_id, id) exposed so downstream tables (e.g.
-    -- cbc_term_competency_summaries.report_card_id) can attach a composite FK.
-    CONSTRAINT uq_cbc_term_report_cards_tenant UNIQUE (tenant_id, id),
-    CONSTRAINT uq_cbc_term_report_cards_student_term
-        UNIQUE (tenant_id, school_id, student_id, academic_term_id),
-
-    CONSTRAINT fk_trc_tenant_school
-        FOREIGN KEY (tenant_id, school_id)
-        REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_trc_tenant_student
-        FOREIGN KEY (tenant_id, student_id)
-        REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_trc_tenant_class
-        FOREIGN KEY (tenant_id, class_id)
-        REFERENCES cbc_classes(tenant_id, id) ON DELETE RESTRICT,
-    CONSTRAINT fk_trc_tenant_term
-        FOREIGN KEY (tenant_id, school_id, academic_term_id)
-        REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE RESTRICT,
-    -- class_teacher_id points at cbc_class_teachers (not users) so the
-    -- "exactly one PRIMARY_CLASS_TEACHER per class" partial unique index on
-    -- cbc_class_teachers remains the canonical source of truth. SET NULL on
-    -- teacher removal preserves the report card; class-level reassignment is
-    -- handled upstream.
-    CONSTRAINT fk_trc_class_teacher
-        FOREIGN KEY (class_teacher_id)
-        REFERENCES cbc_class_teachers(id) ON DELETE SET NULL,
-
-    CONSTRAINT chk_trc_attendance_nonneg CHECK (
-        total_days_present >= 0 AND
-        total_days_absent  >= 0 AND
-        total_days_excused >= 0 AND
-        total_days_late    >= 0
-    ),
-    CONSTRAINT chk_trc_compiled_status CHECK (
-        (status = 'DRAFT' AND compiled_at IS NULL) OR
-        (status <> 'DRAFT' AND compiled_at IS NOT NULL)
-    )
-);
-
-CREATE INDEX IF NOT EXISTS idx_trc_tenant_id   ON cbc_term_report_cards (tenant_id);
-CREATE INDEX IF NOT EXISTS idx_trc_term_class  ON cbc_term_report_cards (school_id, academic_term_id);
-CREATE INDEX IF NOT EXISTS idx_trc_student     ON cbc_term_report_cards (student_id);
-
-DROP TRIGGER IF EXISTS trg_cbc_term_report_cards_updated_at ON cbc_term_report_cards;
-CREATE TRIGGER trg_cbc_term_report_cards_updated_at
-    BEFORE UPDATE ON cbc_term_report_cards
-    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
-
-COMMENT ON TABLE cbc_term_report_cards IS
-    'Master / header row for a compiled CBC term report card. One row per
-     student per academic term. Aggregations (per-learning-area competency
-     summaries, attendance rollups, remarks) live in child tables that
-     composite-FK to (tenant_id, id). Status drives mutability:
-       DRAFT                  — freely editable
-       COMPILED               — editable (awaiting teacher sign-off)
-       APPROVED_BY_TEACHER — locked; only the publish transition is legal
-       PUBLISHED_TO_PARENTS    — fully immutable
-     Locked transitions are enforced by fn_block_locked_report_card_mutation,
-     which also bundles UPDATE-OR-DELETE blocking: any column change attempted
-     while locked is rejected, including harmless ones.';
-
-COMMENT ON COLUMN cbc_term_report_cards.total_days_late IS
-    'LATE attendance days are tracked individually here so the signal is not
-     lost, but they ALSO count toward total_days_present for attendance-rate
-     math (PRESENT + LATE = effectively present). The rollup that populates
-     this column — see fn_rollup_report_card_attendance — computes both the
-     raw late count and the adjusted present total in a single pass.';
-
-COMMENT ON COLUMN cbc_term_report_cards.class_teacher_id IS
-    'References cbc_class_teachers.id, not users.id. The "one and only one
-     PRIMARY_CLASS_TEACHER per class" invariant is owned by the partial
-     unique index idx_cbc_one_primary_per_class on cbc_class_teachers;
-     keeping the FK on that table ensures a report card cannot be assigned
-     a non-primary class teacher. ON DELETE SET NULL lets the report card
-     survive teacher reassignment; the next compile picks up the new primary.';
-
-COMMENT ON CONSTRAINT chk_trc_compiled_status ON cbc_term_report_cards IS
-    'Enforces the invariant: a non-DRAFT card must record when it was
-     compiled, and a DRAFT card must NOT carry a compiled_at timestamp
-     (compiled_at is a forward-only field). Backfilled values from older
-     school systems are not supported — the migration populates nulls and
-     the application sets compiled_at during the COMPILE transition.';
-
--- ============================================================
--- TRIGGER: Block mutation of locked report cards
--- ------------------------------------------------------------
--- APPROVED_BY_TEACHER and PUBLISHED_TO_PARENTS rows are immutable,
--- with one legal exception: the publish transition
--- APPROVED_BY_TEACHER → PUBLISHED_TO_PARENTS. Any other column
--- change bundled into that same UPDATE will be rejected along with the
--- status change.
--- ============================================================
-
-CREATE OR REPLACE FUNCTION fn_block_locked_report_card_mutation()
-RETURNS TRIGGER AS $$
-DECLARE
-    is_locked BOOLEAN := FALSE;
-BEGIN
-    IF TG_OP = 'UPDATE' THEN
-        -- Forward publish transition is the only legal post-approval write.
-        IF OLD.status = 'APPROVED_BY_TEACHER'
-           AND NEW.status = 'PUBLISHED_TO_PARENTS'
-        THEN
-            RETURN NEW;
-        END IF;
-        is_locked := OLD.status IN ('APPROVED_BY_TEACHER', 'PUBLISHED_TO_PARENTS');
-        IF is_locked THEN
-            RAISE EXCEPTION
-                'cbc_term_report_cards: cannot modify row in status % '
-                '(transition APPROVED_BY_TEACHER → PUBLISHED_TO_PARENTS is the '
-                'only legal write after lock)',
-                OLD.status
-                USING ERRCODE = '23514';
-        END IF;
-        RETURN NEW;
-    END IF;
-
-    IF TG_OP = 'DELETE' THEN
-        IF OLD.status IN ('APPROVED_BY_TEACHER', 'PUBLISHED_TO_PARENTS') THEN
-            RAISE EXCEPTION
-                'cbc_term_report_cards: cannot delete row in status % '
-                '(locked report cards are retention-protected)',
-                OLD.status
-                USING ERRCODE = '23514';
-        END IF;
-        RETURN OLD;
-    END IF;
-
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS trg_block_locked_report_card_mutation ON cbc_term_report_cards;
-CREATE TRIGGER trg_block_locked_report_card_mutation
-    BEFORE UPDATE OR DELETE ON cbc_term_report_cards
-    FOR EACH ROW EXECUTE FUNCTION fn_block_locked_report_card_mutation();
-
--- ============================================================
--- TRIGGER: Validate class_teacher_id belongs to the report card's class
--- ------------------------------------------------------------
--- cbc_class_teachers.class_id and cbc_term_report_cards.class_id are
--- not part of any shared composite key, so Postgres CHECK constraints
--- cannot enforce cross-table column equality. This BEFORE INSERT OR
--- UPDATE trigger performs that check at write time so a malformed
--- assignment never lands in the table.
--- ============================================================
-
-CREATE OR REPLACE FUNCTION fn_validate_class_teacher_matches_card_class()
-RETURNS TRIGGER AS $$
-DECLARE
-    teacher_class_id UUID;
-BEGIN
-    IF NEW.class_teacher_id IS NULL THEN
-        RETURN NEW;
-    END IF;
-
-    SELECT class_id INTO teacher_class_id
-    FROM cbc_class_teachers
-    WHERE id = NEW.class_teacher_id;
-
-    IF teacher_class_id IS NULL THEN
-        RAISE EXCEPTION
-            'cbc_term_report_cards: class_teacher_id % does not exist',
-            NEW.class_teacher_id
-            USING ERRCODE = '23503';
-    END IF;
-
-    IF teacher_class_id <> NEW.class_id THEN
-        RAISE EXCEPTION
-            'cbc_term_report_cards: class_teacher_id % belongs to class % but '
-            'report card class_id is % (class teacher must match card class)',
-            NEW.class_teacher_id, teacher_class_id, NEW.class_id
-            USING ERRCODE = '23514';
-    END IF;
-
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS trg_validate_class_teacher_matches_card_class ON cbc_term_report_cards;
-CREATE TRIGGER trg_validate_class_teacher_matches_card_class
-    BEFORE INSERT OR UPDATE OF class_teacher_id, class_id ON cbc_term_report_cards
-    FOR EACH ROW EXECUTE FUNCTION fn_validate_class_teacher_matches_card_class();
-
--- ---------------------------------------------------------------------------
--- CBC TERM COMPETENCY SUMMARIES
--- IMPROVE: linked to cbc_term_report_cards via report_card_id (nullable —
---          individual competency rows can be recorded before the term's
---          report card is compiled). school_id added to express the
---          composite FK against academic_terms(tenant_id, school_id, id);
---          academic_year and term replaced by the direct academic_term_id FK.
--- ---------------------------------------------------------------------------
-
-CREATE TABLE IF NOT EXISTS cbc_term_competency_summaries (
-    id                       UUID                             PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id                UUID                             NOT NULL,
-    school_id                UUID                             NOT NULL,
-    student_id               UUID                             NOT NULL,
-    learning_area_id         UUID                             NOT NULL REFERENCES cbc_learning_areas(id) ON DELETE RESTRICT,
-    class_id                 UUID                             NOT NULL,
-    academic_term_id         UUID                             NOT NULL,
-    report_card_id           UUID                             NULL REFERENCES cbc_term_report_cards(id) ON DELETE RESTRICT,
-    calculated_level         cbc_rubric_level_with_sub_levels NOT NULL,
-    override_level           cbc_rubric_level_with_sub_levels NULL,
-    final_level              cbc_rubric_level                 NOT NULL,
-    teacher_narrative_summary TEXT                             NULL,
-    knec_sync_status         knec_sync_status                 NOT NULL DEFAULT 'Pending',
-    knec_synced_at           TIMESTAMPTZ                      NULL,
-
-    CONSTRAINT fk_summaries_tenant_school
-        FOREIGN KEY (tenant_id, school_id)
-        REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_summaries_tenant_student
-        FOREIGN KEY (tenant_id, student_id)
-        REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_summaries_tenant_class
-        FOREIGN KEY (tenant_id, class_id)
-        REFERENCES cbc_classes(tenant_id, id) ON DELETE RESTRICT,
-    CONSTRAINT fk_summaries_tenant_term
-        FOREIGN KEY (tenant_id, school_id, academic_term_id)
-        REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE RESTRICT,
-    CONSTRAINT unique_summary_per_student_area_term
-        UNIQUE (student_id, learning_area_id, academic_term_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_summaries_tenant       ON cbc_term_competency_summaries (tenant_id);
-CREATE INDEX IF NOT EXISTS idx_summaries_sync_batch   ON cbc_term_competency_summaries (academic_term_id, knec_sync_status);
-CREATE INDEX IF NOT EXISTS idx_summaries_student_year ON cbc_term_competency_summaries (student_id, academic_term_id);
-CREATE INDEX IF NOT EXISTS idx_summaries_class        ON cbc_term_competency_summaries (class_id);
--- IMPROVE: fast lookup of all terms for a student's subject history
-CREATE INDEX IF NOT EXISTS idx_summaries_student_area ON cbc_term_competency_summaries (student_id, learning_area_id);
-CREATE INDEX IF NOT EXISTS idx_summaries_report_card  ON cbc_term_competency_summaries (report_card_id);
-
-COMMENT ON TABLE cbc_term_competency_summaries IS
-    'Definitive per-term competency record per learner per learning area.
-     final_level is the KNEC portal submission value — must always be one of
-     EE/ME/AE/BE. Sub-levels (EE1 etc.) are only valid for the internal
-     calculated_level and override_level fields. knec_synced_at is NULL until
-     the first successful upload to cba.knec.ac.ke. The parent
-     cbc_term_report_cards row (via report_card_id) governs immutability:
-     if the parent is APPROVED_BY_TEACHER or PUBLISHED_TO_PARENTS, this
-     row is locked by fn_block_locked_summary_mutation.';
-
-COMMENT ON COLUMN cbc_term_competency_summaries.school_id IS
-    'Denormalised for multi-tenant filtering without joins, and required to
-     express the composite FK fk_summaries_tenant_term against
-     academic_terms(tenant_id, school_id, id). Mirrors the same pattern used
-     by every other major entity table in this schema.';
-
-COMMENT ON COLUMN cbc_term_competency_summaries.academic_term_id IS
-    'Direct FK to academic_terms, replacing the previous academic_year +
-     term pair. Provides referential integrity and a single join path to
-     term metadata (dates, is_current, is_final) for report-card compilation
-     and KNEC sync workflows.';
-
-COMMENT ON COLUMN cbc_term_competency_summaries.report_card_id IS
-    'Optional link to the parent cbc_term_report_cards row. NULL until the
-     term report card is compiled — individual competency assessments can
-     be recorded throughout the term, then linked to the report card at
-     compilation time. ON DELETE RESTRICT prevents deletion of a report
-     card while competency summaries still reference it.';
-
-COMMENT ON COLUMN cbc_term_competency_summaries.teacher_narrative_summary IS
-    'Free-text narrative note from the class teacher summarising the
-     learner''s overall performance, effort, and areas for improvement in
-     this learning area for the term. Distinct from the per-subject
-     class_teacher_remarks on the report card header — this is a per-area
-     note recorded at the learning-area level by the subject teacher.';
-
-COMMENT ON COLUMN cbc_term_competency_summaries.knec_sync_status IS
-    'Tracks the KNEC CBA portal submission lifecycle for this
-     per-student-per-learning-area competency record. Pending = not yet
-     submitted; Synced = successfully uploaded; Failed = upload error.
-     The parent report card''s status gates whether new submissions are
-     accepted.';
-
--- ============================================================
--- TRIGGER: Block mutation of competency summaries when parent
---          report card is locked
--- ------------------------------------------------------------
--- This table carries no status column of its own — it inherits
--- immutability from the parent cbc_term_report_cards row. A
--- BEFORE UPDATE OR DELETE trigger looks up the parent status;
--- if report_card_id IS NULL the mutation is allowed (no parent
--- to protect yet). If the parent is APPROVED_BY_TEACHER or
--- PUBLISHED_TO_PARENTS the operation is blocked.
--- ============================================================
-
-CREATE OR REPLACE FUNCTION fn_block_locked_summary_mutation()
-RETURNS TRIGGER AS $$
-DECLARE
-    parent_status cbc_report_card_status;
-BEGIN
-    -- Resolve the report_card_id to check — use NEW for UPDATE, OLD for DELETE.
-    -- (INSERT is always allowed; a row inserted without a report_card_id is
-    --  free-floating, and one inserted with a report_card_id is new data.)
-    IF TG_OP = 'UPDATE' THEN
-        IF NEW.report_card_id IS NULL THEN
-            RETURN NEW;
-        END IF;
-        SELECT status INTO parent_status
-        FROM cbc_term_report_cards
-        WHERE id = NEW.report_card_id;
-    ELSIF TG_OP = 'DELETE' THEN
-        IF OLD.report_card_id IS NULL THEN
-            RETURN OLD;
-        END IF;
-        SELECT status INTO parent_status
-        FROM cbc_term_report_cards
-        WHERE id = OLD.report_card_id;
-    ELSE
-        RETURN NEW;
-    END IF;
-
-    IF parent_status IN ('APPROVED_BY_TEACHER', 'PUBLISHED_TO_PARENTS') THEN
-        RAISE EXCEPTION
-            'cbc_term_competency_summaries: cannot % row because parent report card % '
-            'is in status % (locked report cards are immutable)',
-            TG_OP, COALESCE(NEW.report_card_id, OLD.report_card_id), parent_status
-            USING ERRCODE = '23514';
-    END IF;
-
-    IF TG_OP = 'UPDATE' THEN
-        RETURN NEW;
-    END IF;
-
-    RETURN OLD;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS trg_block_locked_summary_mutation ON cbc_term_competency_summaries;
-CREATE TRIGGER trg_block_locked_summary_mutation
-    BEFORE UPDATE OR DELETE ON cbc_term_competency_summaries
-    FOR EACH ROW EXECUTE FUNCTION fn_block_locked_summary_mutation();
-
--- ============================================================
--- FUNCTION: Refresh attendance summary on a report card
--- ------------------------------------------------------------
--- Collapses per-student-per-day attendance logs across all
--- learning areas into a single verdict per calendar date,
--- then aggregates across the full term to populate the four
--- attendance columns on cbc_term_report_cards.
---
--- COLLAPSING RULE (applied per student per calendar date):
---   1. If ANY log for the date is PRESENT or LATE
---      → day counts as present
---        (and also as late if all PRESENT/LATE logs were LATE
---         with no plain PRESENT log for that date)
---   2. Else if EVERY log is ABSENT   → day counts as absent
---   3. Else if EVERY log is EXCUSED  → day counts as excused
---   4. Otherwise (mixed ABSENT + EXCUSED, no PRESENT/LATE)
---      → logged as a WARNING; day is NOT counted toward any
---        column. This is a judgment call — see REVIEW NOTE
---        below.
---
--- REVIEW NOTE: The mixed ABSENT+EXCUSED edge case occurs when
--- a student is marked absent in one subject and excused in
--- another on the same day, with no PRESENT/LATE anywhere.
--- Reasonable alternatives include counting the day as absent
--- (conservative) or folding it into excused (lenient). The
--- current behaviour — skip, warn — is a neutral placeholder
--- until a product decision is made.
---
--- USAGE: Called explicitly by the term-compilation service,
--- NOT as a row-level trigger on cbc_attendance_logs. Running
--- this on every single log insert would recreate the CPU/IO
--- problem this architecture is designed to avoid.
--- ============================================================
-
-CREATE OR REPLACE FUNCTION fn_refresh_term_attendance_summary(
-    p_report_card_id UUID
-)
-RETURNS VOID
-LANGUAGE plpgsql
-AS $$
-DECLARE
-    v_tenant_id        UUID;
-    v_school_id        UUID;
-    v_student_id       UUID;
-    v_academic_term_id UUID;
-
-    v_present INT := 0;
-    v_absent  INT := 0;
-    v_excused INT := 0;
-    v_late    INT := 0;
-    v_mixed   INT := 0;
-BEGIN
-    -- 1. Resolve parent row identifiers
-    SELECT tenant_id, school_id, student_id, academic_term_id
-    INTO STRICT v_tenant_id, v_school_id, v_student_id, v_academic_term_id
-    FROM cbc_term_report_cards
-    WHERE id = p_report_card_id;
-
-    -- 2. Collapse logs per student per calendar date into a single verdict
-    WITH date_verdicts AS (
-        SELECT
-            al.student_id,
-            ap.date_recorded,
-            -- Presence indicators
-            bool_or(al.status = 'PRESENT')              AS has_present,
-            bool_or(al.status = 'LATE')                 AS has_late,
-            -- All-same checks (only meaningful when has_present+has_late is false)
-            bool_and(al.status = 'ABSENT')               AS all_absent,
-            bool_and(al.status = 'EXCUSED')              AS all_excused
-        FROM cbc_attendance_logs al
-        JOIN cbc_attendance_periods ap
-            ON ap.id = al.cbc_attendance_period_id
-           AND ap.school_id        = v_school_id
-           AND ap.academic_term_id = v_academic_term_id
-        WHERE al.student_id  = v_student_id
-          AND al.tenant_id   = v_tenant_id
-        GROUP BY al.student_id, ap.date_recorded
-    ),
-    verdict_counts AS (
-        SELECT
-            COUNT(*) FILTER (
-                WHERE has_present OR has_late
-            ) AS days_present,
-            COUNT(*) FILTER (
-                WHERE NOT (has_present OR has_late)
-                  AND all_absent
-            ) AS days_absent,
-            COUNT(*) FILTER (
-                WHERE NOT (has_present OR has_late)
-                  AND NOT all_absent
-                  AND all_excused
-            ) AS days_excused,
-            COUNT(*) FILTER (
-                WHERE has_late AND NOT has_present
-            ) AS days_late,
-            COUNT(*) FILTER (
-                WHERE NOT (has_present OR has_late)
-                  AND NOT all_absent
-                  AND NOT all_excused
-            ) AS days_mixed
-        FROM date_verdicts
-    )
-    SELECT days_present, days_absent, days_excused, days_late, days_mixed
-    INTO v_present, v_absent, v_excused, v_late, v_mixed
-    FROM verdict_counts;
-
-    -- 3. Warn about dates that fell through all rules
-    IF v_mixed > 0 THEN
-        RAISE WARNING
-            'fn_refresh_term_attendance_summary: report_card_id % student_id % '
-            'has % date(s) with a mix of ABSENT and EXCUSED (no PRESENT/LATE). '
-            'These days are NOT counted toward any attendance column pending '
-            'a product decision on the collapsing rule.',
-            p_report_card_id, v_student_id, v_mixed;
-    END IF;
-
-    -- 4. Update the report card (immutability trigger fires normally)
-    UPDATE cbc_term_report_cards
-    SET
-        total_days_present = v_present,
-        total_days_absent  = v_absent,
-        total_days_excused = v_excused,
-        total_days_late    = v_late
-    WHERE id = p_report_card_id;
-
-    -- If the card was locked, the BEFORE UPDATE trigger raises — we let it
-    -- propagate. No explicit check needed here.
-END;
-$$;
-
--- ---------------------------------------------------------------------------
--- SCHOOL MEMBER COUNTS
--- IMPROVE: added IF NOT EXISTS (was the only CREATE TABLE in the file missing it)
--- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS school_member_counts (
-    school_id  UUID      PRIMARY KEY REFERENCES cbc_schools(id) ON DELETE CASCADE,
-    admins     INT       NOT NULL DEFAULT 0,
-    teachers   INT       NOT NULL DEFAULT 0,
-    nurses     INT       NOT NULL DEFAULT 0,
-    finance    INT       NOT NULL DEFAULT 0,
-    parents    INT       NOT NULL DEFAULT 0,
-    students   INT       NOT NULL DEFAULT 0,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    school_id  UUID         PRIMARY KEY,
+    admins     INTEGER      NOT NULL DEFAULT 0,
+    teachers   INTEGER      NOT NULL DEFAULT 0,
+    nurses     INTEGER      NOT NULL DEFAULT 0,
+    finance    INTEGER      NOT NULL DEFAULT 0,
+    parents    INTEGER      NOT NULL DEFAULT 0,
+    students   INTEGER      NOT NULL DEFAULT 0,
+    updated_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_school_member_counts_school
+        FOREIGN KEY (school_id) REFERENCES cbc_schools(id) ON DELETE CASCADE
 );
 
-CREATE INDEX IF NOT EXISTS idx_school_member_counts ON school_member_counts (school_id);
-
--- ============================================================
--- TRIGGER: Sync school staff/parent counts from memberships
--- ============================================================
+-- ============================================================================
+-- TRIGGER: Sync school staff counts from memberships
+-- ============================================================================
 
 CREATE OR REPLACE FUNCTION fn_sync_school_staff_counts_insert()
 RETURNS TRIGGER AS $$
@@ -2548,7 +1681,1065 @@ COMMENT ON TABLE member_active_school IS
      constrained to schools the user is an active member of via fk_mas_membership.';
 
 -- ============================================================================
--- END OF MIGRATION
+-- LAYER 11 — ATTENDANCE & BEHAVIOR
 -- ============================================================================
 
-COMMIT;
+-- ---------------------------------------------------------------------------
+-- ATTENDANCE STATUS ENUM
+-- ---------------------------------------------------------------------------
+
+DO $$ BEGIN
+    CREATE TYPE attendance_status AS ENUM ('PRESENT', 'ABSENT', 'LATE', 'EXCUSED');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE behavior_note_status AS ENUM ('PENDING_REVIEW', 'APPROVED', 'REJECTED', 'INCLUDED_IN_REPORT');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE behavior_severity AS ENUM ('MINOR', 'NEEDS_FOLLOW_UP');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+-- ---------------------------------------------------------------------------
+-- ATTENDANCE RECORDS
+-- One row per student, per timetable slot occurrence, per date.
+-- Uniqueness: one record per (student_id, timetable_slot_id, date).
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS attendance_records (
+    id                UUID              PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id         UUID              NOT NULL,
+    school_id         UUID              NOT NULL,
+    student_id        UUID              NOT NULL,
+    timetable_slot_id UUID              NOT NULL,
+    academic_term_id  UUID              NOT NULL,
+    date              DATE              NOT NULL,
+    status            attendance_status NOT NULL,
+    marked_by         UUID              NOT NULL,
+    marked_at         TIMESTAMPTZ       NOT NULL DEFAULT NOW(),
+    note              TEXT              NULL,
+    created_at        TIMESTAMPTZ       NOT NULL DEFAULT NOW(),
+    updated_at        TIMESTAMPTZ       NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT uq_attendance_student_slot_date
+        UNIQUE (student_id, timetable_slot_id, date),
+    CONSTRAINT fk_attendance_tenant_student
+        FOREIGN KEY (tenant_id, student_id)
+        REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_attendance_timetable_slot
+        FOREIGN KEY (timetable_slot_id)
+        REFERENCES cbc_timetable_slots(id) ON DELETE CASCADE,
+    CONSTRAINT fk_attendance_tenant_term
+        FOREIGN KEY (tenant_id, school_id, academic_term_id)
+        REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_attendance_marked_by
+        FOREIGN KEY (tenant_id, marked_by)
+        REFERENCES users(tenant_id, id) ON DELETE RESTRICT
+);
+
+CREATE INDEX IF NOT EXISTS idx_attendance_slot_date
+    ON attendance_records (timetable_slot_id, date);
+CREATE INDEX IF NOT EXISTS idx_attendance_student_term
+    ON attendance_records (student_id, academic_term_id);
+CREATE INDEX IF NOT EXISTS idx_attendance_tenant
+    ON attendance_records (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_attendance_school
+    ON attendance_records (school_id);
+
+COMMENT ON TABLE attendance_records IS
+    'Per-student, per-timetable-slot, per-date attendance records. The unique
+     constraint (student_id, timetable_slot_id, date) prevents duplicate marks.
+     Only created for slots where timetable_structures.is_break = false.';
+
+COMMENT ON COLUMN attendance_records.note IS
+    'Optional short free text (e.g. "left early, picked up by parent").';
+
+-- ============================================================================
+-- updated_at TRIGGER + NON-BREAK CONSTRAINT (squashed from 000003)
+-- The updated_at column is already in the CREATE TABLE above.
+-- ============================================================================
+
+DROP TRIGGER IF EXISTS trg_attendance_records_updated_at ON attendance_records;
+CREATE TRIGGER trg_attendance_records_updated_at
+    BEFORE UPDATE ON attendance_records
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+
+COMMENT ON COLUMN attendance_records.updated_at IS
+    'Tracks when the record was last modified (status or note update).
+     Populated automatically by the trg_attendance_records_updated_at trigger.';
+
+-- ---------------------------------------------------------------------------
+-- Non-break slot enforcement: attendance can only be marked for instructional
+-- periods, not breaks, recess, or assemblies.
+-- ---------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION fn_check_non_break_slot()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM cbc_timetable_slots ts
+        JOIN timetable_structures tstr ON tstr.id = ts.structure_id
+        WHERE ts.id = NEW.timetable_slot_id
+          AND tstr.is_break = true
+    ) THEN
+        RAISE EXCEPTION 'Cannot create attendance record for a break period (timetable_slot_id: %)', NEW.timetable_slot_id
+            USING ERRCODE = 'P0001';
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_attendance_check_non_break_slot ON attendance_records;
+CREATE TRIGGER trg_attendance_check_non_break_slot
+    BEFORE INSERT OR UPDATE ON attendance_records
+    FOR EACH ROW
+    EXECUTE FUNCTION fn_check_non_break_slot();
+
+COMMENT ON TRIGGER trg_attendance_check_non_break_slot ON attendance_records IS
+    'Enforces that attendance records can only reference timetable slots
+     whose corresponding timetable_structures row has is_break = false.
+     Prevents system or application bugs from creating attendance marks
+     for break/assembly/recess periods.';
+
+-- ---------------------------------------------------------------------------
+-- BEHAVIOR CATEGORIES
+-- School-managed reference list — admins define categories per school.
+-- Soft-delete via is_active = false to preserve historical notes.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS behavior_categories (
+    id               UUID                PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id        UUID                NOT NULL,
+    school_id        UUID                NOT NULL,
+    name             VARCHAR(100)        NOT NULL,
+    default_severity behavior_severity   NULL,
+    is_active        BOOLEAN             NOT NULL DEFAULT true,
+    created_at       TIMESTAMPTZ         NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_behavior_categories_tenant_school
+        FOREIGN KEY (tenant_id, school_id)
+        REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT uq_behavior_category_name
+        UNIQUE (tenant_id, school_id, name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_behavior_categories_tenant
+    ON behavior_categories (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_behavior_categories_school
+    ON behavior_categories (school_id);
+
+COMMENT ON TABLE behavior_categories IS
+    'School-configurable behavior/incident categories. Admins manage these
+     per school rather than a fixed platform-wide enum. Categories are soft-
+     deleted (is_active = false) to preserve historical behavior_notes.';
+
+-- ---------------------------------------------------------------------------
+-- BEHAVIOR NOTES
+-- Sparse — only exists when a teacher logs an incident.
+-- Goes through admin approval before being included in term reports.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS behavior_notes (
+    id                UUID                 PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id         UUID                 NOT NULL,
+    school_id         UUID                 NOT NULL,
+    student_id        UUID                 NOT NULL,
+    timetable_slot_id UUID                 NOT NULL,
+    date              DATE                 NOT NULL,
+    category_id       UUID                 NOT NULL,
+    description       TEXT                 NOT NULL,
+    is_urgent         BOOLEAN              NOT NULL DEFAULT false,
+    status            behavior_note_status NOT NULL DEFAULT 'PENDING_REVIEW',
+    authored_by_id    UUID                 NOT NULL,
+    reviewed_by_id    UUID                 NULL,
+    reviewed_at       TIMESTAMPTZ          NULL,
+    created_at        TIMESTAMPTZ          NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_behavior_notes_tenant_student
+        FOREIGN KEY (tenant_id, student_id)
+        REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_behavior_notes_timetable_slot
+        FOREIGN KEY (timetable_slot_id)
+        REFERENCES cbc_timetable_slots(id) ON DELETE CASCADE,
+    CONSTRAINT fk_behavior_notes_category
+        FOREIGN KEY (category_id)
+        REFERENCES behavior_categories(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_behavior_notes_authored_by
+        FOREIGN KEY (tenant_id, authored_by_id)
+        REFERENCES users(tenant_id, id) ON DELETE RESTRICT,
+    CONSTRAINT fk_behavior_notes_reviewed_by
+        FOREIGN KEY (tenant_id, reviewed_by_id)
+        REFERENCES users(tenant_id, id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_behavior_notes_student
+    ON behavior_notes (student_id);
+CREATE INDEX IF NOT EXISTS idx_behavior_notes_status
+    ON behavior_notes (status);
+CREATE INDEX IF NOT EXISTS idx_behavior_notes_urgent
+    ON behavior_notes (is_urgent) WHERE is_urgent = true;
+CREATE INDEX IF NOT EXISTS idx_behavior_notes_slot_date
+    ON behavior_notes (timetable_slot_id, date);
+CREATE INDEX IF NOT EXISTS idx_behavior_notes_tenant
+    ON behavior_notes (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_behavior_notes_school
+    ON behavior_notes (school_id);
+
+COMMENT ON TABLE behavior_notes IS
+    'Sparse incident/behavior records logged by teachers. Each note is
+     associated with a specific student, timetable slot, and date. Notes
+     go through admin approval (PENDING_REVIEW → APPROVED/REJECTED) before
+     being included in term reports or reaching parents. Urgent notes bypass
+     term-end batching for immediate parent contact.';
+
+COMMENT ON COLUMN behavior_notes.is_urgent IS
+    'When true and approved, triggers immediate parent notification instead of
+     waiting for term-end compilation.';
+
+-- ---------------------------------------------------------------------------
+-- ATTENDANCE TERM SUMMARIES
+-- Materialised rollup per student per term per learning area.
+-- Populated by a background task (nightly or on-demand).
+-- Source of truth remains attendance_records; this is a speed cache.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS attendance_term_summaries (
+    id                   UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id            UUID          NOT NULL,
+    school_id            UUID          NOT NULL,
+    student_id           UUID          NOT NULL,
+    academic_term_id     UUID          NOT NULL,
+    learning_area_id     UUID          NOT NULL,
+    periods_total        INT           NOT NULL,
+    periods_present      INT           NOT NULL,
+    periods_absent       INT           NOT NULL,
+    periods_late         INT           NOT NULL,
+    periods_excused      INT           NOT NULL,
+    attendance_percentage NUMERIC(5,2) NOT NULL,
+    last_refreshed_at    TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_summaries_tenant_student
+        FOREIGN KEY (tenant_id, student_id)
+        REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_summaries_tenant_term
+        FOREIGN KEY (tenant_id, school_id, academic_term_id)
+        REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_summaries_learning_area
+        FOREIGN KEY (learning_area_id)
+        REFERENCES cbc_learning_areas(id) ON DELETE CASCADE,
+    CONSTRAINT uq_summary_student_term_area
+        UNIQUE (student_id, academic_term_id, learning_area_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_att_summaries_student_term
+    ON attendance_term_summaries (student_id, academic_term_id);
+CREATE INDEX IF NOT EXISTS idx_att_summaries_tenant
+    ON attendance_term_summaries (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_att_summaries_school
+    ON attendance_term_summaries (school_id);
+
+COMMENT ON TABLE attendance_term_summaries IS
+    'Materialised rollup of attendance records per student per term per learning
+     area. Populated by a background task (nightly or on-demand when an admin
+     generates a term report). Not authoritative — attendance_records is the
+     source of truth for all attendance calculations.';
+
+COMMENT ON COLUMN attendance_term_summaries.attendance_percentage IS
+    'Calculated as (periods_present / periods_total) * 100, stored as a
+     decimal with two fractional digits (e.g. 92.50).';
+
+-- ---------------------------------------------------------------------------
+-- CBC ATTENDANCE SESSIONS
+-- Tracks actual lesson execution instances so teachers can flag dates
+-- that did not hold (teacher absence, assembly, sports day, etc.).
+-- Skipped sessions are excluded from terminal attendance denominator
+-- calculations to avoid penalising students.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS cbc_attendance_sessions (
+    id                UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id         UUID         NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    school_id         UUID         NOT NULL,
+    timetable_slot_id UUID         NOT NULL REFERENCES cbc_timetable_slots(id) ON DELETE CASCADE,
+    date              DATE         NOT NULL,
+    status            VARCHAR(20)  NOT NULL DEFAULT 'SUBMITTED',
+    skip_reason       TEXT         NULL,
+    created_at        TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at        TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT chk_cbc_attendance_session_status
+        CHECK (status IN ('SUBMITTED', 'SKIPPED')),
+    CONSTRAINT uq_cbc_attendance_sessions_slot_date
+        UNIQUE (school_id, timetable_slot_id, date),
+    CONSTRAINT fk_cbc_attendance_sessions_tenant_school
+        FOREIGN KEY (tenant_id, school_id)
+        REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_cbc_attendance_sessions_slot_date
+    ON cbc_attendance_sessions (timetable_slot_id, date);
+CREATE INDEX IF NOT EXISTS idx_cbc_attendance_sessions_tenant
+    ON cbc_attendance_sessions (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_cbc_attendance_sessions_school
+    ON cbc_attendance_sessions (school_id);
+CREATE INDEX IF NOT EXISTS idx_cbc_attendance_sessions_status
+    ON cbc_attendance_sessions (status);
+
+COMMENT ON TABLE cbc_attendance_sessions IS
+    'Tracks actual lesson execution instances per timetable slot and date.
+     Teachers flag sessions as SKIPPED when a class did not hold (teacher
+     absence, school assembly, sports day, etc.). Skipped sessions exclude
+     their attendance records from terminal percentage calculations so
+     students are not penalised for cancelled lessons.';
+
+COMMENT ON COLUMN cbc_attendance_sessions.status IS
+    'SUBMITTED = lesson held as scheduled (default). SKIPPED = lesson did
+     not hold. Only SKIPPED sessions affect terminal attendance calculations
+     by reducing the expected denominator.';
+
+COMMENT ON COLUMN cbc_attendance_sessions.skip_reason IS
+    'Teacher-provided reason when status is SKIPPED. Examples: School
+     Assembly, Public Holiday, Teacher Absence, Sports/Field Event.';
+
+-- Add attendance_session_id FK to attendance_records
+ALTER TABLE attendance_records
+    ADD COLUMN IF NOT EXISTS attendance_session_id UUID
+    REFERENCES cbc_attendance_sessions(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS idx_attendance_records_session
+    ON attendance_records (attendance_session_id);
+
+COMMENT ON COLUMN attendance_records.attendance_session_id IS
+    'Optional reference to the cbc_attendance_sessions row. Populated when
+     session is marked as SKIPPED to link existing records. NULL for normal
+     (non-skipped) attendance marks.';
+
+-- ============================================================================
+-- updated_at COLUMNS & TRIGGERS (missing from initial CREATE TABLE definitions)
+--
+-- These ALTER TABLE statements add updated_at tracking to tables that were
+-- originally created without it. For fresh installs, the column already exists
+-- in the CREATE TABLE above, so ADD COLUMN IF NOT EXISTS is a no-op.
+-- For existing databases upgraded from an earlier schema version, this block
+-- adds the column and trigger idempotently.
+--
+-- Tables that already have updated_at inline: users, cbc_schools,
+-- academic_years, academic_terms, cbc_streams, cbc_classes, memberships,
+-- cbc_parents, cbc_students, cbc_student_enrollments, timetable_structures,
+-- cbc_timetable_slots, attendance_records, school_member_counts.
+-- ============================================================================
+
+-- ---------------------------------------------------------------------------
+-- PLATFORM INFRASTRUCTURE
+-- ---------------------------------------------------------------------------
+
+ALTER TABLE invitations ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_invitations_updated_at ON invitations;
+CREATE TRIGGER trg_invitations_updated_at
+    BEFORE UPDATE ON invitations
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN invitations.updated_at IS
+    'Tracks status transitions (pending, accepted, expired, revoked).';
+
+ALTER TABLE import_jobs ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_import_jobs_updated_at ON import_jobs;
+CREATE TRIGGER trg_import_jobs_updated_at
+    BEFORE UPDATE ON import_jobs
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN import_jobs.updated_at IS
+    'Tracks import lifecycle: pending, processing, completed, failed.';
+
+ALTER TABLE import_job_chunks ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_import_job_chunks_updated_at ON import_job_chunks;
+CREATE TRIGGER trg_import_job_chunks_updated_at
+    BEFORE UPDATE ON import_job_chunks
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN import_job_chunks.updated_at IS
+    'Tracks chunk processing: pending, processing, completed, cancelled.';
+
+ALTER TABLE import_job_staging ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_import_job_staging_updated_at ON import_job_staging;
+CREATE TRIGGER trg_import_job_staging_updated_at
+    BEFORE UPDATE ON import_job_staging
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN import_job_staging.updated_at IS
+    'Tracks staging row processing: pending, succeeded, failed.';
+
+ALTER TABLE import_job_failures ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_import_job_failures_updated_at ON import_job_failures;
+CREATE TRIGGER trg_import_job_failures_updated_at
+    BEFORE UPDATE ON import_job_failures
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN import_job_failures.updated_at IS
+    'Tracks when failure details were last modified.';
+
+-- ---------------------------------------------------------------------------
+-- HEALTH & FINANCIALS
+-- ---------------------------------------------------------------------------
+
+ALTER TABLE medical_incidents ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_medical_incidents_updated_at ON medical_incidents;
+CREATE TRIGGER trg_medical_incidents_updated_at
+    BEFORE UPDATE ON medical_incidents
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN medical_incidents.updated_at IS
+    'Tracks medical record corrections and follow-ups.';
+
+ALTER TABLE student_health_profiles ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_student_health_profiles_updated_at ON student_health_profiles;
+CREATE TRIGGER trg_student_health_profiles_updated_at
+    BEFORE UPDATE ON student_health_profiles
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN student_health_profiles.updated_at IS
+    'Tracks health profile updates (allergies, conditions, instructions).';
+
+ALTER TABLE fee_categories ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_fee_categories_updated_at ON fee_categories;
+CREATE TRIGGER trg_fee_categories_updated_at
+    BEFORE UPDATE ON fee_categories
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN fee_categories.updated_at IS
+    'Tracks fee category metadata changes.';
+
+ALTER TABLE fee_templates ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_fee_templates_updated_at ON fee_templates;
+CREATE TRIGGER trg_fee_templates_updated_at
+    BEFORE UPDATE ON fee_templates
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN fee_templates.updated_at IS
+    'Tracks fee amount and configuration changes per term.';
+
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_invoices_updated_at ON invoices;
+CREATE TRIGGER trg_invoices_updated_at
+    BEFORE UPDATE ON invoices
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN invoices.updated_at IS
+    'Tracks invoice modifications and payment status sync.';
+
+ALTER TABLE invoice_items ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_invoice_items_updated_at ON invoice_items;
+CREATE TRIGGER trg_invoice_items_updated_at
+    BEFORE UPDATE ON invoice_items
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN invoice_items.updated_at IS
+    'Tracks invoice line-item corrections.';
+
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_payments_updated_at ON payments;
+CREATE TRIGGER trg_payments_updated_at
+    BEFORE UPDATE ON payments
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN payments.updated_at IS
+    'Tracks payment record corrections and reconciliations.';
+
+-- ---------------------------------------------------------------------------
+-- CBC CURRICULUM STRUCTURE
+-- ---------------------------------------------------------------------------
+
+ALTER TABLE cbc_strands ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_cbc_strands_updated_at ON cbc_strands;
+CREATE TRIGGER trg_cbc_strands_updated_at
+    BEFORE UPDATE ON cbc_strands
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN cbc_strands.updated_at IS
+    'Tracks curriculum strand revisions.';
+
+ALTER TABLE cbc_sub_strands ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_cbc_sub_strands_updated_at ON cbc_sub_strands;
+CREATE TRIGGER trg_cbc_sub_strands_updated_at
+    BEFORE UPDATE ON cbc_sub_strands
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN cbc_sub_strands.updated_at IS
+    'Tracks curriculum sub-strand revisions.';
+
+ALTER TABLE performance_indicators ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_performance_indicators_updated_at ON performance_indicators;
+CREATE TRIGGER trg_performance_indicators_updated_at
+    BEFORE UPDATE ON performance_indicators
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN performance_indicators.updated_at IS
+    'Tracks performance indicator revisions and re-sequencing.';
+
+-- TEACHER ASSIGNMENTS & CBC ACTOR JUNCTIONS
+-- ---------------------------------------------------------------------------
+
+ALTER TABLE cbc_class_teachers ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_cbc_class_teachers_updated_at ON cbc_class_teachers;
+CREATE TRIGGER trg_cbc_class_teachers_updated_at
+    BEFORE UPDATE ON cbc_class_teachers
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN cbc_class_teachers.updated_at IS
+    'Tracks teacher assignment changes mid-term.';
+
+ALTER TABLE cbc_student_parents ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_cbc_student_parents_updated_at ON cbc_student_parents;
+CREATE TRIGGER trg_cbc_student_parents_updated_at
+    BEFORE UPDATE ON cbc_student_parents
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN cbc_student_parents.updated_at IS
+    'Tracks parent relationship and primary-contact changes.';
+
+-- ---------------------------------------------------------------------------
+-- ATTENDANCE & BEHAVIOR
+-- ---------------------------------------------------------------------------
+
+ALTER TABLE behavior_categories ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_behavior_categories_updated_at ON behavior_categories;
+CREATE TRIGGER trg_behavior_categories_updated_at
+    BEFORE UPDATE ON behavior_categories
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN behavior_categories.updated_at IS
+    'Tracks category name changes and soft-delete toggles.';
+
+ALTER TABLE behavior_notes ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_behavior_notes_updated_at ON behavior_notes;
+CREATE TRIGGER trg_behavior_notes_updated_at
+    BEFORE UPDATE ON behavior_notes
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN behavior_notes.updated_at IS
+    'Tracks approval workflow: PENDING_REVIEW, APPROVED, REJECTED.';
+
+ALTER TABLE attendance_term_summaries ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_attendance_term_summaries_updated_at ON attendance_term_summaries;
+CREATE TRIGGER trg_attendance_term_summaries_updated_at
+    BEFORE UPDATE ON attendance_term_summaries
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN attendance_term_summaries.updated_at IS
+    'Tracks materialised summary refresh cycles.';
+
+ALTER TABLE cbc_attendance_sessions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_cbc_attendance_sessions_updated_at ON cbc_attendance_sessions;
+CREATE TRIGGER trg_cbc_attendance_sessions_updated_at
+    BEFORE UPDATE ON cbc_attendance_sessions
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN cbc_attendance_sessions.updated_at IS
+    'Tracks session status changes and skip reason updates.';
+
+-- ---------------------------------------------------------------------------
+-- USER CONTEXT
+-- ---------------------------------------------------------------------------
+
+ALTER TABLE member_active_school ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+DROP TRIGGER IF EXISTS trg_member_active_school_updated_at ON member_active_school;
+CREATE TRIGGER trg_member_active_school_updated_at
+    BEFORE UPDATE ON member_active_school
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+COMMENT ON COLUMN member_active_school.updated_at IS
+    'Tracks active school context switches.';
+
+-- ============================================================================
+-- ROW-LEVEL SECURITY
+--
+-- Every table trusting the app layer to filter by tenant_id is one missed
+-- WHERE clause away from a cross-tenant data leak. RLS provides a second
+-- line of defence. The application must set app.current_tenant_id at the
+-- start of each request via SET LOCAL app.current_tenant_id = '<uuid>';
+-- before running any queries. The function fn_current_tenant_id() reads
+-- that parameter; RLS policies use it to silently filter rows.
+--
+-- IMPORTANT: The session user must have the TENANT_ISOLATION attribute
+-- set (ALTER ROLE ... SET app.current_tenant_id TO ...) or must call
+-- SET LOCAL before each transaction. Without this, ALL RLS-protected
+-- queries return zero rows.
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION fn_current_tenant_id()
+RETURNS UUID
+LANGUAGE plpgsql
+STABLE
+AS $$
+BEGIN
+    RETURN NULLIF(current_setting('app.current_tenant_id', TRUE), '')::UUID;
+EXCEPTION WHEN OTHERS THEN
+    RETURN NULL;
+END;
+$$;
+
+COMMENT ON FUNCTION fn_current_tenant_id() IS
+    'Returns the tenant_id set via app.current_tenant_id for the current
+     session. Returns NULL if not set (which causes RLS policies to filter
+     out ALL rows — safe by default). The application must SET LOCAL
+     app.current_tenant_id before each request.';
+
+-- ============================================================================
+-- RLS: ENABLE & POLICIES
+-- ============================================================================
+
+-- Apply RLS to all tenant-scoped data tables. Tables that hold student
+-- health records, financial data, and assessment results are the highest
+-- priority under Kenya''s Data Protection Act (2019).
+
+ALTER TABLE IF EXISTS academic_terms                    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS academic_years                    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS cbc_classes                       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS cbc_class_teachers                ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS cbc_learning_areas                ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS cbc_parents                       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS cbc_student_enrollments           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS cbc_student_parents               ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS cbc_students                      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS cbc_schools                       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS cbc_streams                       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS cbc_timetable_slots               ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS fee_categories                    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS fee_templates                     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS import_jobs                       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS import_job_staging                ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS invitations                       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS invoices                          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS invoice_items                     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS medical_incidents                 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS member_active_school              ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS memberships                       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS payments                          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS users                             ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS school_member_counts              ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS student_health_profiles           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS timetable_structures              ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS attendance_records                  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS behavior_categories                 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS behavior_notes                      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS attendance_term_summaries            ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS cbc_attendance_sessions            ENABLE ROW LEVEL SECURITY;
+
+-- Tenant-scoped policy function (reusable): returns a WHERE clause that
+-- filters to the current tenant. Tables without tenant_id get no policy;
+-- the default-deny behaviour means every query returns zero rows.
+CREATE OR REPLACE FUNCTION fn_rls_tenant_policy()
+RETURNS TEXT
+LANGUAGE plpgsql
+STABLE
+AS $$
+BEGIN
+    RETURN format('tenant_id = %L::UUID', fn_current_tenant_id());
+END;
+$$;
+
+DO $$ DECLARE
+    tbl TEXT;
+    policy_text TEXT;
+    current_id UUID;
+BEGIN
+    FOR tbl IN
+        SELECT unnest(ARRAY[
+            'academic_terms',
+            'academic_years',
+            'cbc_classes',
+            'cbc_class_teachers',
+            'cbc_learning_areas',
+            'cbc_parents',
+            'cbc_student_enrollments',
+            'cbc_student_parents',
+            'cbc_students',
+            'cbc_schools',
+            'cbc_streams',
+            'cbc_timetable_slots',
+            'fee_categories',
+            'fee_templates',
+            'import_jobs',
+            'import_job_staging',
+            'invitations',
+            'invoices',
+            'invoice_items',
+            'medical_incidents',
+            'member_active_school',
+            'memberships',
+            'payments',
+            'school_member_counts',
+            'users',
+            'student_health_profiles',
+            'timetable_structures',
+            'attendance_records',
+            'behavior_categories',
+            'behavior_notes',
+            'attendance_term_summaries',
+            'cbc_attendance_sessions'
+        ])
+    LOOP
+        EXECUTE format(
+            'DROP POLICY IF EXISTS tenant_isolation_policy ON %I',
+            tbl
+        );
+        -- Only create tenant-scoped policy if the table has a tenant_id column.
+        -- Junction tables (e.g. cbc_student_parents) and denormalised count
+        -- tables (e.g. school_member_counts) may not have one.
+        IF EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = tbl AND column_name = 'tenant_id'
+        ) THEN
+            EXECUTE format(
+                'CREATE POLICY tenant_isolation_policy ON %I '
+                'FOR ALL '
+                'USING (tenant_id = fn_current_tenant_id()) '
+                'WITH CHECK (tenant_id = fn_current_tenant_id())',
+                tbl
+            );
+        END IF;
+
+    END LOOP;
+END $$;
+
+COMMENT ON TABLE cbc_student_enrollments IS
+    'Per-term enrollment records. UNIQUE (student_id, school_id, academic_term_id)
+     allows same-term transfers (old school sets status=TRANSFERRED, new school
+     inserts its own row). RLS enforces tenant isolation at the database level.';
+
+-- ============================================================================
+-- LAYER 12 — ASSESSMENT & GRADING ENGINE
+-- ============================================================================
+
+-- ---------------------------------------------------------------------------
+-- ASSESSMENT ENUMS
+-- ---------------------------------------------------------------------------
+
+DO $$ BEGIN
+    CREATE TYPE cbc_performance_level AS ENUM ('EE', 'ME', 'AE', 'BE');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+COMMENT ON TYPE cbc_performance_level IS
+    'CBC rubric performance levels: EE = Exceeding Expectation, ME = Meeting
+     Expectation, AE = Approaching Expectation, BE = Below Expectation.';
+
+DO $$ BEGIN
+    CREATE TYPE assessment_session_status AS ENUM ('DRAFT', 'PENDING_APPROVAL', 'PUBLISHED');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+COMMENT ON TYPE assessment_session_status IS
+    'Lifecycle state for an assessment session: DRAFT (teacher editing),
+     PENDING_APPROVAL (submitted for admin review), PUBLISHED (finalised
+     and visible to parents).';
+
+DO $$ BEGIN
+    CREATE TYPE assessment_evaluation_method AS ENUM ('QUANTITATIVE', 'RUBRIC');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+COMMENT ON TYPE assessment_evaluation_method IS
+    'QUANTITATIVE: total-marks grading (raw_score + percentage → performance level).
+     RUBRIC: indicator-level grading (direct CBC level per performance_indicator).';
+
+-- ---------------------------------------------------------------------------
+-- GRADING SCALE PROFILES (The Directory)
+-- Immutable once created. Administrators toggle is_active to deprecate.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS grading_scale_profiles (
+    id         UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id  UUID         NOT NULL,
+    school_id  UUID         NOT NULL,
+    name       VARCHAR(255) NOT NULL,
+    is_active  BOOLEAN      NOT NULL DEFAULT true,
+    created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_grading_scale_profiles_tenant_school
+        FOREIGN KEY (tenant_id, school_id)
+        REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT uq_grading_scale_profiles_tenant UNIQUE (tenant_id, id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_grading_scale_profiles_tenant
+    ON grading_scale_profiles (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_grading_scale_profiles_school
+    ON grading_scale_profiles (school_id);
+
+DROP TRIGGER IF EXISTS trg_grading_scale_profiles_updated_at ON grading_scale_profiles;
+CREATE TRIGGER trg_grading_scale_profiles_updated_at
+    BEFORE UPDATE ON grading_scale_profiles
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+
+COMMENT ON TABLE grading_scale_profiles IS
+    'Directory of CBC grading scale profiles. Profiles define the translation
+     from numeric percentages to CBC rubric levels (EE, ME, AE, BE). Once
+     created, profile name and settings are read-only. To change a scale,
+     create a new profile and mark the old one is_active = false.';
+
+-- ---------------------------------------------------------------------------
+-- GRADING SCALE RANGES (The Rules)
+-- Write-once rows within each profile. PostgreSQL EXCLUDE constraint using
+-- numrange prevents overlapping percentage bands within the same profile.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS grading_scale_ranges (
+    id                        UUID                  PRIMARY KEY DEFAULT gen_random_uuid(),
+    profile_id                UUID                  NOT NULL REFERENCES grading_scale_profiles(id) ON DELETE CASCADE,
+    performance_level         cbc_performance_level NOT NULL,
+    min_percentage            NUMERIC(5,2)          NOT NULL CHECK (min_percentage >= 0 AND min_percentage <= 100),
+    max_percentage            NUMERIC(5,2)          NOT NULL CHECK (max_percentage >= 0 AND max_percentage <= 100),
+    default_percentage_mapping NUMERIC(5,2)          NULL,
+    created_at                TIMESTAMPTZ           NOT NULL DEFAULT NOW(),
+    updated_at                TIMESTAMPTZ           NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT chk_range_bounds CHECK (max_percentage > min_percentage),
+    CONSTRAINT uq_profile_level UNIQUE (profile_id, performance_level),
+    CONSTRAINT excl_profile_range_no_overlap
+        EXCLUDE USING gist (
+            profile_id WITH =,
+            numrange(min_percentage, max_percentage, '[]') WITH &&
+        )
+);
+
+DROP TRIGGER IF EXISTS trg_grading_scale_ranges_updated_at ON grading_scale_ranges;
+CREATE TRIGGER trg_grading_scale_ranges_updated_at
+    BEFORE UPDATE ON grading_scale_ranges
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+
+COMMENT ON TABLE grading_scale_ranges IS
+    'Range definitions within a grading scale profile. The EXCLUDE constraint
+     using numrange guarantees no overlapping percentage bands within the same
+     profile. Rows are write-once — UPDATE and DELETE are blocked at the
+     application layer once the profile is actively referenced by sessions.';
+
+COMMENT ON COLUMN grading_scale_ranges.default_percentage_mapping IS
+    'Optional midpoint value used as the default when converting a percentage
+     to a performance level. If NULL, the system uses the midpoint of the range.
+     Example: for range 80-100 → EE, default could be 90.';
+
+-- ---------------------------------------------------------------------------
+-- ASSESSMENT SESSIONS
+-- Tracks the lifecycle: DRAFT → PENDING_APPROVAL → PUBLISHED
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS assessment_sessions (
+    id                      UUID                        PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id               UUID                        NOT NULL,
+    school_id               UUID                        NOT NULL,
+    class_id                UUID                        NOT NULL,
+    learning_area_id        UUID                        NOT NULL,
+    academic_term_id        UUID                        NOT NULL,
+    academic_year_id        UUID                        NOT NULL,
+    name                    VARCHAR(255)                NOT NULL,
+    evaluation_method       assessment_evaluation_method NOT NULL,
+    max_points              NUMERIC(10,2)               NULL,
+    grading_scale_profile_id UUID                       NULL REFERENCES grading_scale_profiles(id) ON DELETE SET NULL,
+    status                  assessment_session_status   NOT NULL DEFAULT 'DRAFT',
+    rejection_comment       TEXT                        NULL,
+    submitted_by            UUID                        NULL REFERENCES users(id) ON DELETE SET NULL,
+    approved_by             UUID                        NULL REFERENCES users(id) ON DELETE SET NULL,
+    scheduled_date          DATE                        NULL,
+    created_at              TIMESTAMPTZ                 NOT NULL DEFAULT NOW(),
+    updated_at              TIMESTAMPTZ                 NOT NULL DEFAULT NOW(),
+    created_by              UUID                        NOT NULL REFERENCES users(id),
+
+    CONSTRAINT fk_assessment_sessions_tenant_school
+        FOREIGN KEY (tenant_id, school_id)
+        REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_assessment_sessions_tenant_class
+        FOREIGN KEY (tenant_id, class_id)
+        REFERENCES cbc_classes(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_assessment_sessions_tenant_term
+        FOREIGN KEY (tenant_id, school_id, academic_term_id)
+        REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_assessment_sessions_learning_area
+        FOREIGN KEY (learning_area_id)
+        REFERENCES cbc_learning_areas(id) ON DELETE CASCADE,
+    CONSTRAINT uq_assessment_sessions_tenant UNIQUE (tenant_id, id),
+    CONSTRAINT chk_quantitative_has_points CHECK (
+        evaluation_method != 'QUANTITATIVE' OR max_points IS NOT NULL
+    ),
+    CONSTRAINT chk_quantitative_has_scale CHECK (
+        evaluation_method != 'QUANTITATIVE' OR grading_scale_profile_id IS NOT NULL
+    ),
+    CONSTRAINT chk_rubric_no_points CHECK (
+        evaluation_method != 'RUBRIC' OR max_points IS NULL
+    ),
+    CONSTRAINT chk_rubric_no_scale CHECK (
+        evaluation_method != 'RUBRIC' OR grading_scale_profile_id IS NULL
+    )
+);
+
+CREATE INDEX IF NOT EXISTS idx_assessment_sessions_tenant
+    ON assessment_sessions (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_assessment_sessions_school
+    ON assessment_sessions (school_id);
+CREATE INDEX IF NOT EXISTS idx_assessment_sessions_class
+    ON assessment_sessions (class_id);
+CREATE INDEX IF NOT EXISTS idx_assessment_sessions_term
+    ON assessment_sessions (academic_term_id);
+CREATE INDEX IF NOT EXISTS idx_assessment_sessions_status
+    ON assessment_sessions (status);
+CREATE INDEX IF NOT EXISTS idx_assessment_sessions_learning_area
+    ON assessment_sessions (learning_area_id);
+
+DROP TRIGGER IF EXISTS trg_assessment_sessions_updated_at ON assessment_sessions;
+CREATE TRIGGER trg_assessment_sessions_updated_at
+    BEFORE UPDATE ON assessment_sessions
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+
+COMMENT ON TABLE assessment_sessions IS
+    'Tracks CBC assessment sessions through their lifecycle:
+     DRAFT (teacher creating/grading) → PENDING_APPROVAL (submitted to admin)
+     → PUBLISHED (approved, visible to parents). Rejection returns to DRAFT.
+     Supports two evaluation methods: QUANTITATIVE (total marks converted via
+     grading scale) and RUBRIC (direct indicator-level grading).';
+
+COMMENT ON COLUMN assessment_sessions.max_points IS
+    'Total possible marks for QUANTITATIVE sessions. NULL for RUBRIC sessions.
+     Cannot be updated once any student score rows exist.';
+
+COMMENT ON COLUMN assessment_sessions.rejection_comment IS
+    'Admin feedback when rejecting a session. Cleared on re-submission.';
+
+-- ---------------------------------------------------------------------------
+-- STUDENT ASSESSMENT SCORES
+-- Stores raw scores for QUANTITATIVE sessions. Snapshots final performance
+-- level at approval time for historical immutability.
+-- ---------------------------------------------------------------------------
+
+-- Create a helper function to validate raw_score <= max_points for the session
+CREATE OR REPLACE FUNCTION max_points_check(session_id UUID, raw_score NUMERIC)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+AS $$
+    SELECT raw_score <= COALESCE((SELECT max_points FROM assessment_sessions WHERE id = session_id), raw_score);
+$$;
+
+CREATE TABLE IF NOT EXISTS student_assessment_scores (
+    id                     UUID                  PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id              UUID                  NOT NULL,
+    session_id             UUID                  NOT NULL,
+    student_id             UUID                  NOT NULL,
+    raw_score              NUMERIC(10,2)         NULL,
+    calculated_percentage  NUMERIC(5,2)          NULL,
+    final_performance_level cbc_performance_level NULL,
+    enrollment_status      VARCHAR(20)           NOT NULL DEFAULT 'ACTIVE',
+    created_at             TIMESTAMPTZ           NOT NULL DEFAULT NOW(),
+    updated_at             TIMESTAMPTZ           NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_scores_tenant_session
+        FOREIGN KEY (tenant_id, session_id)
+        REFERENCES assessment_sessions(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_scores_tenant_student
+        FOREIGN KEY (tenant_id, student_id)
+        REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT uq_score_session_student UNIQUE (session_id, student_id),
+    CONSTRAINT chk_score_range CHECK (
+        raw_score IS NULL OR max_points_check(session_id, raw_score) OR raw_score >= 0
+    )
+);
+
+CREATE INDEX IF NOT EXISTS idx_student_scores_session
+    ON student_assessment_scores (session_id);
+CREATE INDEX IF NOT EXISTS idx_student_scores_student
+    ON student_assessment_scores (student_id);
+CREATE INDEX IF NOT EXISTS idx_student_scores_tenant
+    ON student_assessment_scores (tenant_id);
+
+DROP TRIGGER IF EXISTS trg_student_assessment_scores_updated_at ON student_assessment_scores;
+CREATE TRIGGER trg_student_assessment_scores_updated_at
+    BEFORE UPDATE ON student_assessment_scores
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+
+COMMENT ON TABLE student_assessment_scores IS
+    'Stores student scores for QUANTITATIVE assessment sessions. The
+     final_performance_level is written (snapshotted) at the moment of
+     admin approval — immune to later scale profile changes. NULL for
+     RUBRIC sessions (those use student_assessment_outcome_grades).';
+
+COMMENT ON COLUMN student_assessment_scores.enrollment_status IS
+    'Denormalised enrollment status at time of grading. Used to enforce
+     the No-Grade-Ghosting constraint: scores cannot be entered for
+     students marked ABSENT or EXEMPT. Values: ACTIVE, SUSPENDED,
+     TRANSFERRED, ABSENT, EXEMPT.';
+
+-- ---------------------------------------------------------------------------
+-- STUDENT ASSESSMENT OUTCOME GRADES
+-- Stores rubric-level grades for RUBRIC sessions, linking student to
+-- specific KICD performance indicators with the awarded CBC level.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS student_assessment_outcome_grades (
+    id                      UUID                  PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id               UUID                  NOT NULL,
+    session_id              UUID                  NOT NULL,
+    student_id              UUID                  NOT NULL,
+    performance_indicator_id UUID                 NOT NULL,
+    awarded_level           cbc_performance_level NOT NULL,
+    created_at              TIMESTAMPTZ           NOT NULL DEFAULT NOW(),
+    updated_at              TIMESTAMPTZ           NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_outcome_tenant_session
+        FOREIGN KEY (tenant_id, session_id)
+        REFERENCES assessment_sessions(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_outcome_tenant_student
+        FOREIGN KEY (tenant_id, student_id)
+        REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_outcome_performance_indicator
+        FOREIGN KEY (performance_indicator_id)
+        REFERENCES performance_indicators(id) ON DELETE CASCADE,
+    CONSTRAINT uq_outcome_session_student_indicator
+        UNIQUE (session_id, student_id, performance_indicator_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_outcome_grades_session
+    ON student_assessment_outcome_grades (session_id);
+CREATE INDEX IF NOT EXISTS idx_outcome_grades_student
+    ON student_assessment_outcome_grades (student_id);
+CREATE INDEX IF NOT EXISTS idx_outcome_grades_indicator
+    ON student_assessment_outcome_grades (performance_indicator_id);
+CREATE INDEX IF NOT EXISTS idx_outcome_grades_tenant
+    ON student_assessment_outcome_grades (tenant_id);
+
+DROP TRIGGER IF EXISTS trg_student_assessment_outcome_grades_updated_at ON student_assessment_outcome_grades;
+CREATE TRIGGER trg_student_assessment_outcome_grades_updated_at
+    BEFORE UPDATE ON student_assessment_outcome_grades
+    FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+
+COMMENT ON TABLE student_assessment_outcome_grades IS
+    'Stores rubric-level grades for RUBRIC assessment sessions. Each row
+     maps a student to a specific KICD performance indicator with the
+     awarded CBC level (EE, ME, AE, BE). No raw scores or percentages
+     are stored — the teacher assigns the performance level directly.';
+
+-- ============================================================================
+-- RLS POLICIES — New Assessment & Grading Tables
+-- ============================================================================
+
+ALTER TABLE IF EXISTS grading_scale_profiles              ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS grading_scale_ranges                ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS assessment_sessions                 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS student_assessment_scores           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS student_assessment_outcome_grades   ENABLE ROW LEVEL SECURITY;
+
+-- Extend the RLS policy loop to include new assessment tables
+DO $$ DECLARE
+    tbl TEXT;
+BEGIN
+    FOR tbl IN
+        SELECT unnest(ARRAY[
+            'grading_scale_profiles',
+            'grading_scale_ranges',
+            'assessment_sessions',
+            'student_assessment_scores',
+            'student_assessment_outcome_grades'
+        ])
+    LOOP
+        EXECUTE format(
+            'DROP POLICY IF EXISTS tenant_isolation_policy ON %I',
+            tbl
+        );
+        IF EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = tbl AND column_name = 'tenant_id'
+        ) THEN
+            EXECUTE format(
+                'CREATE POLICY tenant_isolation_policy ON %I '
+                'FOR ALL '
+                'USING (tenant_id = fn_current_tenant_id()) '
+                'WITH CHECK (tenant_id = fn_current_tenant_id())',
+                tbl
+            );
+        END IF;
+    END LOOP;
+END $$;
+
+-- ============================================================================
+-- END OF MIGRATION
+-- ============================================================================

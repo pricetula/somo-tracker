@@ -12,6 +12,8 @@ export type {
     ListStudentsResponse,
     ListStudentsParams,
     CreateStudentPayload,
+    CreateStudentsPayload,
+    CreateStudentsResponse,
     UpdateStudentPayload,
     CreateEnrollmentPayload,
 } from "@/lib/api/students";

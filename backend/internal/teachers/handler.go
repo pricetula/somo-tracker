@@ -24,7 +24,10 @@ func NewHandler(svc *Service) *Handler {
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	teachers := router.Group("/api/v1/teachers")
 	teachers.Get("/", middleware.RequireAuth, h.List)
+	teachers.Get("/:user_id", middleware.RequireAuth, h.GetByID)
+	teachers.Put("/:user_id", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.Update)
 	teachers.Patch("/:user_id/active", middleware.RequireAuth, h.ToggleActive)
+	teachers.Delete("/:user_id", middleware.RequireAuth, h.Delete)
 }
 
 // ─── Handlers ──────────────────────────────────────────────────────────────
@@ -42,27 +45,29 @@ func (h *Handler) List(c *fiber.Ctx) error {
 	}
 
 	page, _ := strconv.Atoi(c.Query("page", "1"))
-	perPage, _ := strconv.Atoi(c.Query("per_page", "50"))
+	limit, _ := strconv.Atoi(c.Query("limit", "50"))
 	search := strings.TrimSpace(c.Query("search", ""))
 	includeInactive := strings.ToLower(c.Query("include_inactive", "false")) == "true"
 
 	if page < 1 {
 		page = 1
 	}
-	if perPage < 1 || perPage > 100 {
-		perPage = 50
+	if limit < 1 || limit > 100 {
+		limit = 50
 	}
 
-	offset := (page - 1) * perPage
+	offset := (page - 1) * limit
 
-	teachersList, total, err := h.svc.ListTeachers(c.Context(), tenantID, schoolID, includeInactive, offset, perPage, search)
+	teachersList, total, err := h.svc.ListTeachers(c.Context(), tenantID, schoolID, includeInactive, offset, limit, search)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
 
 	return c.JSON(ListResponse{
-		Teachers: teachersList,
-		Total:    total,
+		Items: teachersList,
+		Total: total,
+		Page:  page,
+		Limit: limit,
 	})
 }
 
@@ -94,6 +99,81 @@ func (h *Handler) ToggleActive(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"code":    "ok",
 		"message": "teacher status updated",
+	})
+}
+
+// GetByID handles GET /api/v1/teachers/:user_id
+func (h *Handler) GetByID(c *fiber.Ctx) error {
+	tenantID := c.Locals("tenant_id").(string)
+	userID := c.Params("user_id")
+
+	schoolID := c.Locals("active_school_id").(string)
+	if schoolID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "active school not set",
+		})
+	}
+
+	teacher, err := h.svc.GetTeacherByID(c.Context(), userID, tenantID, schoolID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(teacher)
+}
+
+// Update handles PUT /api/v1/teachers/:user_id
+func (h *Handler) Update(c *fiber.Ctx) error {
+	tenantID := c.Locals("tenant_id").(string)
+	userID := c.Params("user_id")
+
+	schoolID := c.Locals("active_school_id").(string)
+	if schoolID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "active school not set",
+		})
+	}
+
+	var payload UpdateTeacherPayload
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "invalid request body",
+		})
+	}
+
+	if err := h.svc.UpdateTeacher(c.Context(), userID, tenantID, schoolID, payload); err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(fiber.Map{
+		"code":    "ok",
+		"message": "teacher updated",
+	})
+}
+
+// Delete handles DELETE /api/v1/teachers/:user_id
+func (h *Handler) Delete(c *fiber.Ctx) error {
+	tenantID := c.Locals("tenant_id").(string)
+	userID := c.Params("user_id")
+
+	schoolID := c.Locals("active_school_id").(string)
+	if schoolID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "active school not set",
+		})
+	}
+
+	if err := h.svc.Delete(c.Context(), tenantID, schoolID, userID); err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(fiber.Map{
+		"code":    "ok",
+		"message": "teacher deleted",
 	})
 }
 

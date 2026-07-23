@@ -74,7 +74,7 @@ export function CreateParentForm({ onSuccess }: CreateParentFormProps) {
     return (
         <form onSubmit={handleSubmit} className="space-y-5">
             {error && (
-                <div className="text-destructive bg-destructive/10 rounded-md px-3 py-2 text-sm">
+                <div className="text-destructive bg-destructive/10 rounded-md px-3 py-2">
                     {error}
                 </div>
             )}

@@ -2,9 +2,11 @@
  * Curriculum feature — public API barrel.
  */
 
-export { LearningAreasTable } from "./components/learning-areas-table";
 export { CurriculumTree } from "./components/curriculum-tree";
 export { CreateLearningAreaDialog } from "./components/create-learning-area-dialog";
+export { CreateStrandDialog } from "./components/create-strand-dialog";
+export { CreateSubStrandDialog } from "./components/create-sub-strand-dialog";
+export { CreateIndicatorDialog } from "./components/create-indicator-dialog";
 
 export {
     useLearningAreas,

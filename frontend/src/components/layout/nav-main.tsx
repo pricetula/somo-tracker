@@ -19,6 +19,14 @@ import {
     Settings2Icon,
     ChevronRightIcon,
     BookOpenIcon,
+    GraduationCapIcon,
+    ClipboardCheckIcon,
+    BarChart3Icon,
+    CalendarCheckIcon,
+    CalendarDays,
+    AlertTriangleIcon,
+    HeartPulse,
+    DollarSignIcon,
 } from "lucide-react";
 
 interface NavItem {
@@ -30,8 +38,7 @@ interface NavItem {
 }
 
 function buildNavItems(role: string): NavItem[] {
-    const isAdmin = role === "SCHOOL_ADMIN" || role === "SYSTEM_ADMIN";
-    const canAccessCurriculum = isAdmin || role === "TEACHER";
+    if (!role) return [];
 
     const items: NavItem[] = [
         {
@@ -40,38 +47,84 @@ function buildNavItems(role: string): NavItem[] {
             icon: <LayoutDashboardIcon className="size-4" />,
             isActive: true,
         },
-    ];
-
-    if (canAccessCurriculum) {
-        items.push({
+        {
+            title: "Members",
+            url: "#",
+            icon: <UsersIcon className="size-4" />,
+            items: [
+                { title: "Admins", url: "/admins" },
+                { title: "Teachers", url: "/teachers" },
+                { title: "Nurses", url: "/nurses" },
+                { title: "Finance", url: "/finance" },
+                { title: "Parents", url: "/parents" },
+                { title: "Students", url: "/students" },
+            ],
+        },
+        {
             title: "Curriculum",
             url: "/curriculum",
             icon: <BookOpenIcon className="size-4" />,
-        });
-    }
-
-    if (isAdmin) {
-        items.push(
-            {
-                title: "Members",
-                url: "#",
-                icon: <UsersIcon className="size-4" />,
-                items: [
-                    { title: "Admins", url: "/admins" },
-                    { title: "Teachers", url: "/teachers" },
-                    { title: "Nurses", url: "/nurses" },
-                    { title: "Finance", url: "/finance" },
-                    { title: "Students", url: "/students" },
-                ],
-            },
-            {
-                title: "Settings",
-                url: "#",
-                icon: <Settings2Icon className="size-4" />,
-                items: [{ title: "General", url: "/settings" }],
-            }
-        );
-    }
+        },
+        {
+            title: "Classes",
+            url: "/classes",
+            icon: <GraduationCapIcon className="size-4" />,
+        },
+        {
+            title: "Time table",
+            url: "/timetable",
+            icon: <CalendarDays className="size-4" />,
+        },
+        {
+            title: "Attendance",
+            url: "#",
+            icon: <CalendarCheckIcon className="size-4" />,
+            items: [
+                { title: "Register", url: "/attendance" },
+                { title: "History", url: "/attendance/history" },
+            ],
+        },
+        {
+            title: "Assessments",
+            url: "/assessments",
+            icon: <ClipboardCheckIcon className="size-4" />,
+        },
+        {
+            title: "Reports",
+            url: "/reports",
+            icon: <BarChart3Icon className="size-4" />,
+        },
+        {
+            title: "Behavior",
+            url: "/behavior",
+            icon: <AlertTriangleIcon className="size-4" />,
+        },
+        {
+            title: "Finance",
+            url: "#",
+            icon: <DollarSignIcon className="size-4" />,
+            items: [
+                { title: "Fee Categories", url: "/finance/fee-categories" },
+                { title: "Fee Templates", url: "/finance/fee-templates" },
+                { title: "Invoices", url: "/finance/invoices" },
+            ],
+        },
+        {
+            title: "Health",
+            url: "/health",
+            icon: <HeartPulse className="size-4" />,
+        },
+        {
+            title: "Settings",
+            url: "#",
+            icon: <Settings2Icon className="size-4" />,
+            items: [
+                { title: "General", url: "/settings" },
+                { title: "Academic Years", url: "/academic-years" },
+                { title: "Grading Scales", url: "/settings/grading-scales" },
+            ],
+        },
+    ];
 
     return items;
 }

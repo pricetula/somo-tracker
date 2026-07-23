@@ -3,6 +3,7 @@ package students
 import (
 	"go.uber.org/fx"
 
+	"somotracker/backend/internal/academicyears"
 	"somotracker/backend/internal/imports"
 )
 
@@ -25,6 +26,10 @@ var Module = fx.Module("students",
 	// Wire import service adapter into the handler
 	fx.Invoke(func(h *Handler, impSvc *imports.Service) {
 		h.SetImportService(impSvc)
+	}),
+	// Wire academicyears service into the handler
+	fx.Invoke(func(h *Handler, aySvc *academicyears.Service) {
+		h.SetAcademicYearsService(aySvc)
 	}),
 	// Register the student Importer with the imports engine at startup
 	fx.Invoke(registerStudentImporter),

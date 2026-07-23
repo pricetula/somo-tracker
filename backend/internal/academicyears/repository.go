@@ -50,7 +50,7 @@ func (t *pgTx) Rollback(ctx context.Context) error {
 // YEARS
 // ============================================================================
 
-// ListYears returns all non-deleted academic years for a school, with nested
+// ListYears returns all academic years for a school, with nested
 // terms ordered by term_number.
 func (r *PgRepository) ListYears(ctx context.Context, tenantID, schoolID string) ([]AcademicYearWithTerms, error) {
 	const query = `
@@ -72,14 +72,13 @@ func (r *PgRepository) ListYears(ctx context.Context, tenantID, schoolID string)
 						'created_at', at.created_at,
 						'updated_at', at.updated_at
 					) ORDER BY at.term_number ASC
-				) FILTER (WHERE at.id IS NOT NULL AND at.deleted_at IS NULL),
+				) FILTER (WHERE at.id IS NOT NULL),
 				'[]'
 			) AS terms
 		FROM academic_years ay
 		LEFT JOIN academic_terms at ON at.academic_year_id = ay.id
 		WHERE ay.tenant_id = $1
 		  AND ay.school_id = $2
-		  AND ay.deleted_at IS NULL
 		GROUP BY ay.id
 		ORDER BY ay.start_date DESC
 	`
@@ -112,7 +111,7 @@ func (r *PgRepository) ListYears(ctx context.Context, tenantID, schoolID string)
 	return years, nil
 }
 
-// GetYearByID retrieves a single non-deleted year by primary key.
+// GetYearByID retrieves a single year by primary key.
 func (r *PgRepository) GetYearByID(ctx context.Context, id, tenantID, schoolID string) (*AcademicYear, error) {
 	const query = `
 		SELECT id, tenant_id, school_id, name,
@@ -120,7 +119,7 @@ func (r *PgRepository) GetYearByID(ctx context.Context, id, tenantID, schoolID s
 		       version, created_by, updated_by,
 		       created_at, updated_at
 		FROM academic_years
-		WHERE id = $1 AND tenant_id = $2 AND school_id = $3 AND deleted_at IS NULL
+		WHERE id = $1 AND tenant_id = $2 AND school_id = $3
 	`
 	var y AcademicYear
 	err := r.pool.QueryRow(ctx, query, id, tenantID, schoolID).Scan(
@@ -146,7 +145,7 @@ func (r *PgRepository) GetYearByIDForUpdate(ctx context.Context, id, tenantID, s
 		       version, created_by, updated_by,
 		       created_at, updated_at
 		FROM academic_years
-		WHERE id = $1 AND tenant_id = $2 AND school_id = $3 AND deleted_at IS NULL
+		WHERE id = $1 AND tenant_id = $2 AND school_id = $3
 		FOR UPDATE
 	`
 	var y AcademicYear
@@ -190,7 +189,7 @@ func (r *PgRepository) UpdateYear(ctx context.Context, year *AcademicYear) error
 		UPDATE academic_years
 		SET name = $1, start_date = $2, end_date = $3,
 		    version = version + 1, updated_by = $4, updated_at = NOW()
-		WHERE id = $5 AND version = $6 AND deleted_at IS NULL
+		WHERE id = $5 AND version = $6
 	`
 	tag, err := r.pool.Exec(ctx, query,
 		year.Name, year.StartDate, year.EndDate,
@@ -213,19 +212,18 @@ func (r *PgRepository) UpdateYear(ctx context.Context, year *AcademicYear) error
 	return nil
 }
 
-// SoftDeleteYear sets deleted_at on a year.
-func (r *PgRepository) SoftDeleteYear(ctx context.Context, id, actorID string) error {
+// DeleteYear hard-deletes an academic year. Terms are cascade-deleted by the DB.
+func (r *PgRepository) DeleteYear(ctx context.Context, id string) error {
 	const query = `
-		UPDATE academic_years
-		SET deleted_at = NOW(), updated_by = $2, version = version + 1
-		WHERE id = $1 AND deleted_at IS NULL
+		DELETE FROM academic_years
+		WHERE id = $1
 	`
-	tag, err := r.pool.Exec(ctx, query, id, actorID)
+	tag, err := r.pool.Exec(ctx, query, id)
 	if err != nil {
-		return fmt.Errorf("academicyears.Repository.SoftDeleteYear: %w", err)
+		return fmt.Errorf("academicyears.Repository.DeleteYear: %w", err)
 	}
 	if tag.RowsAffected() == 0 {
-		return fmt.Errorf("academicyears.Repository.SoftDeleteYear: %w", ErrNotFound)
+		return fmt.Errorf("academicyears.Repository.DeleteYear: %w", ErrNotFound)
 	}
 	return nil
 }
@@ -237,7 +235,7 @@ func (r *PgRepository) ClearCurrentYear(ctx context.Context, schoolID, tenantID,
 		UPDATE academic_years
 		SET is_current = FALSE, version = version + 1, updated_by = $4, updated_at = NOW()
 		WHERE school_id = $1 AND tenant_id = $2 AND is_current = TRUE
-		  AND deleted_at IS NULL AND id != $3
+		  AND id != $3
 	`
 	_, err := r.pool.Exec(ctx, query, schoolID, tenantID, excludeID, actorID)
 	if err != nil {
@@ -252,7 +250,7 @@ func (r *PgRepository) SetCurrentYear(ctx context.Context, id, tenantID, schoolI
 	const query = `
 		UPDATE academic_years
 		SET is_current = TRUE, version = version + 1, updated_by = $4, updated_at = NOW()
-		WHERE id = $1 AND tenant_id = $2 AND school_id = $3 AND deleted_at IS NULL
+		WHERE id = $1 AND tenant_id = $2 AND school_id = $3
 	`
 	tag, err := r.pool.Exec(ctx, query, id, tenantID, schoolID, actorID)
 	if err != nil {
@@ -265,7 +263,7 @@ func (r *PgRepository) SetCurrentYear(ctx context.Context, id, tenantID, schoolI
 // TERMS
 // ============================================================================
 
-// ListTerms returns all non-deleted terms, optionally filtered by academic_year_id.
+// ListTerms returns all terms, optionally filtered by academic_year_id.
 func (r *PgRepository) ListTerms(ctx context.Context, tenantID, schoolID string, academicYearID *string) ([]AcademicTerm, error) {
 	const query = `
 		SELECT at.id, at.tenant_id, at.school_id, at.academic_year_id,
@@ -276,8 +274,6 @@ func (r *PgRepository) ListTerms(ctx context.Context, tenantID, schoolID string,
 		JOIN academic_years ay ON ay.id = at.academic_year_id
 		WHERE ay.tenant_id = $1
 		  AND ay.school_id = $2
-		  AND at.deleted_at IS NULL
-		  AND ay.deleted_at IS NULL
 		  AND ($3::uuid IS NULL OR at.academic_year_id = $3)
 		ORDER BY ay.start_date DESC, at.term_number ASC
 	`
@@ -326,8 +322,6 @@ func (r *PgRepository) GetTermByIDForUpdate(ctx context.Context, id, tenantID, s
 		WHERE at.id = $1
 		  AND ay.tenant_id = $2
 		  AND ay.school_id = $3
-		  AND at.deleted_at IS NULL
-		  AND ay.deleted_at IS NULL
 		FOR UPDATE OF at
 	`
 
@@ -379,7 +373,7 @@ func (r *PgRepository) UpdateTerm(ctx context.Context, term *AcademicTerm) error
 		UPDATE academic_terms
 		SET name = $1, start_date = $2, end_date = $3,
 		    version = version + 1, updated_by = $4, updated_at = NOW()
-		WHERE id = $5 AND version = $6 AND deleted_at IS NULL
+		WHERE id = $5 AND version = $6
 	`
 	tag, err := r.pool.Exec(ctx, query,
 		term.Name, term.StartDate, term.EndDate,
@@ -394,19 +388,18 @@ func (r *PgRepository) UpdateTerm(ctx context.Context, term *AcademicTerm) error
 	return nil
 }
 
-// SoftDeleteTerm sets deleted_at on a term.
-func (r *PgRepository) SoftDeleteTerm(ctx context.Context, id, actorID string) error {
+// DeleteTerm hard-deletes a term.
+func (r *PgRepository) DeleteTerm(ctx context.Context, id string) error {
 	const query = `
-		UPDATE academic_terms
-		SET deleted_at = NOW(), updated_by = $2, version = version + 1
-		WHERE id = $1 AND deleted_at IS NULL
+		DELETE FROM academic_terms
+		WHERE id = $1
 	`
-	tag, err := r.pool.Exec(ctx, query, id, actorID)
+	tag, err := r.pool.Exec(ctx, query, id)
 	if err != nil {
-		return fmt.Errorf("academicyears.Repository.SoftDeleteTerm: %w", err)
+		return fmt.Errorf("academicyears.Repository.DeleteTerm: %w", err)
 	}
 	if tag.RowsAffected() == 0 {
-		return fmt.Errorf("academicyears.Repository.SoftDeleteTerm: %w", ErrNotFound)
+		return fmt.Errorf("academicyears.Repository.DeleteTerm: %w", ErrNotFound)
 	}
 	return nil
 }
@@ -422,7 +415,6 @@ func (r *PgRepository) FindStrandedTerms(ctx context.Context, yearID string, new
 		SELECT id, name, start_date::text, end_date::text
 		FROM academic_terms
 		WHERE academic_year_id = $1
-		  AND deleted_at IS NULL
 		  AND (start_date < $2 OR end_date > $3)
 	`
 	rows, err := r.pool.Query(ctx, query, yearID, newStart, newEnd)
@@ -449,7 +441,6 @@ func (r *PgRepository) FindOverlappingTerms(ctx context.Context, yearID, exclude
 		SELECT id, name, term_number, start_date, end_date
 		FROM academic_terms
 		WHERE academic_year_id = $1
-		  AND deleted_at IS NULL
 		  AND start_date < $3
 		  AND end_date > $2
 		  AND ($4::uuid IS NULL OR id != $4)
@@ -496,8 +487,8 @@ func (r *PgRepository) HasTermDependents(ctx context.Context, termID string) (bo
 		SELECT EXISTS (
 			SELECT 1 FROM cbc_student_enrollments WHERE academic_term_id = $1
 			UNION ALL
-			SELECT 1 FROM cbc_attendance_periods WHERE academic_term_id = $1
-			UNION ALL
+			-- attendance check removed: cbc_attendance_periods table dropped
+			-- awaiting new attendance subsystem (SOM-XXX)
 			SELECT 1 FROM fee_templates WHERE academic_term_id = $1
 			UNION ALL
 			SELECT 1 FROM invoices WHERE academic_term_id = $1
@@ -522,7 +513,6 @@ func (r *PgRepository) SyncCurrentTerm(ctx context.Context, academicYearID strin
 	const findQuery = `
 		SELECT id FROM academic_terms
 		WHERE academic_year_id = $1
-		  AND deleted_at IS NULL
 		  AND start_date <= $2::date
 		  AND end_date >= $2::date
 		LIMIT 1
@@ -544,7 +534,6 @@ func (r *PgRepository) SyncCurrentTerm(ctx context.Context, academicYearID strin
 			WHERE academic_year_id = $1
 			  AND is_current = TRUE
 			  AND id != $2
-			  AND deleted_at IS NULL
 		`
 		if _, err := r.pool.Exec(ctx, clearQuery, academicYearID, *currentTermID); err != nil {
 			return fmt.Errorf("academicyears.Repository.SyncCurrentTerm: clear others: %w", err)
@@ -554,7 +543,7 @@ func (r *PgRepository) SyncCurrentTerm(ctx context.Context, academicYearID strin
 		const setQuery = `
 			UPDATE academic_terms
 			SET is_current = TRUE, version = version + 1, updated_at = NOW()
-			WHERE id = $1 AND is_current = FALSE AND deleted_at IS NULL
+			WHERE id = $1 AND is_current = FALSE
 		`
 		if _, err := r.pool.Exec(ctx, setQuery, *currentTermID); err != nil {
 			return fmt.Errorf("academicyears.Repository.SyncCurrentTerm: set: %w", err)
@@ -566,7 +555,6 @@ func (r *PgRepository) SyncCurrentTerm(ctx context.Context, academicYearID strin
 			SET is_current = FALSE, version = version + 1, updated_at = NOW()
 			WHERE academic_year_id = $1
 			  AND is_current = TRUE
-			  AND deleted_at IS NULL
 		`
 		if _, err := r.pool.Exec(ctx, clearAllQuery, academicYearID); err != nil {
 			return fmt.Errorf("academicyears.Repository.SyncCurrentTerm: clear all: %w", err)
@@ -574,6 +562,46 @@ func (r *PgRepository) SyncCurrentTerm(ctx context.Context, academicYearID strin
 	}
 
 	return nil
+}
+
+// ============================================================================
+// Current Academic Year / Term Lookups
+// ============================================================================
+
+// GetCurrentAcademicYearID returns the ID of the current academic year for the school.
+func (r *PgRepository) GetCurrentAcademicYearID(ctx context.Context, tenantID, schoolID string) (string, error) {
+	const query = `
+		SELECT id FROM academic_years
+		WHERE tenant_id = $1 AND school_id = $2 AND is_current = TRUE
+		LIMIT 1
+	`
+	var id string
+	err := r.pool.QueryRow(ctx, query, tenantID, schoolID).Scan(&id)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return "", nil
+		}
+		return "", fmt.Errorf("academicyears.Repository.GetCurrentAcademicYearID: %w", err)
+	}
+	return id, nil
+}
+
+// GetCurrentAcademicTermID returns the ID of the current active term for the given academic year.
+func (r *PgRepository) GetCurrentAcademicTermID(ctx context.Context, academicYearID string) (string, error) {
+	const query = `
+		SELECT id FROM academic_terms
+		WHERE academic_year_id = $1 AND is_current = TRUE
+		LIMIT 1
+	`
+	var id string
+	err := r.pool.QueryRow(ctx, query, academicYearID).Scan(&id)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return "", nil
+		}
+		return "", fmt.Errorf("academicyears.Repository.GetCurrentAcademicTermID: %w", err)
+	}
+	return id, nil
 }
 
 // nullableUUID returns a *string for SQL query parameter use. An empty string

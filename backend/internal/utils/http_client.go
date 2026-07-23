@@ -14,11 +14,10 @@ import (
 var ErrSSRFBlocked = errors.New("ssrf: connection to private/loopback address blocked")
 
 // privateCIDRs lists all private, loopback, link-local, and metadata IP ranges to block.
-var privateCIDRs []*net.IPNet
-
-func init() {
+// Built via an IIFE to avoid a bare init() function.
+var privateCIDRs = func() []*net.IPNet {
 	cidrs := []string{
-		"127.0.0.0/8",   // loopback
+		"127.0.0.0/8",    // loopback
 		"::1/128",        // IPv6 loopback
 		"10.0.0.0/8",     // private class A
 		"172.16.0.0/12",  // private class B
@@ -26,14 +25,16 @@ func init() {
 		"169.254.0.0/16", // link-local / cloud metadata (169.254.169.254)
 		"fe80::/10",      // IPv6 link-local
 	}
+	var nets []*net.IPNet
 	for _, c := range cidrs {
 		_, cidr, err := net.ParseCIDR(c)
 		if err != nil {
 			panic("invalid hardcoded CIDR in ssrf blocklist: " + err.Error())
 		}
-		privateCIDRs = append(privateCIDRs, cidr)
+		nets = append(nets, cidr)
 	}
-}
+	return nets
+}()
 
 // isPrivateIP checks whether the given IP falls within any blocked CIDR range.
 func isPrivateIP(ip net.IP) bool {

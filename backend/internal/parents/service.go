@@ -95,6 +95,14 @@ func (s *Service) GetByID(ctx context.Context, id, tenantID string) (*Parent, er
 	return s.Repo.GetByID(ctx, id, tenantID)
 }
 
+// GetByUserID returns a parent profile by the linked user_id.
+func (s *Service) GetByUserID(ctx context.Context, userID, tenantID string) (*Parent, error) {
+	if userID == "" || tenantID == "" {
+		return nil, fmt.Errorf("parents.Service.GetByUserID: %w", ErrInvalidInput)
+	}
+	return s.Repo.GetByUserID(ctx, userID, tenantID)
+}
+
 // ============================================================================
 // GET DETAIL
 // ============================================================================
@@ -111,12 +119,19 @@ func (s *Service) GetDetail(ctx context.Context, id, tenantID string) (*ParentDe
 // LIST
 // ============================================================================
 
-// List returns parents optionally filtered by search or student_id.
-func (s *Service) List(ctx context.Context, tenantID string, search, studentID string) ([]Parent, error) {
-	if tenantID == "" {
-		return nil, fmt.Errorf("parents.Service.List: %w", ErrInvalidInput)
+// List returns parents optionally filtered by search, student_id, or
+// curriculum filters (education_level, grade_level), with pagination.
+func (s *Service) List(ctx context.Context, filter ListFilter) ([]Parent, int, error) {
+	if filter.TenantID == "" {
+		return nil, 0, fmt.Errorf("parents.Service.List: %w", ErrInvalidInput)
 	}
-	return s.Repo.List(ctx, tenantID, search, studentID)
+	if filter.Page < 1 {
+		filter.Page = 1
+	}
+	if filter.Limit < 1 || filter.Limit > 100 {
+		filter.Limit = 50
+	}
+	return s.Repo.List(ctx, filter)
 }
 
 // ============================================================================
@@ -210,4 +225,16 @@ func (s *Service) UnlinkStudent(ctx context.Context, parentID, studentID, tenant
 		return fmt.Errorf("parents.Service.UnlinkStudent: %w", ErrInvalidInput)
 	}
 	return s.Repo.UnlinkStudent(ctx, parentID, studentID, tenantID)
+}
+
+// ============================================================================
+// STYTCH ORG ID
+// ============================================================================
+
+// GetStytchOrgID returns the Stytch organization ID for a tenant.
+func (s *Service) GetStytchOrgID(ctx context.Context, tenantID string) (string, error) {
+	if tenantID == "" {
+		return "", fmt.Errorf("parents.Service.GetStytchOrgID: %w", ErrInvalidInput)
+	}
+	return s.Repo.GetStytchOrgID(ctx, tenantID)
 }

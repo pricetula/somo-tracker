@@ -1,90 +1,101 @@
 /**
  * Curriculum page — learning areas listing for the active school.
  *
- * Shows a table of learning areas with filters by education level.
+ * Shows a table of learning areas with filters by education level and grade.
  * Click a row to navigate to the tree view.
  */
 
 "use client";
 
-import * as React from "react";
+import Link from "next/link";
 
-import {
-    LearningAreasTable,
-    CreateLearningAreaDialog,
-    useLearningAreas,
-} from "@/features/curriculum";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { GraduationCap, BookOpen } from "lucide-react";
+import { DataTable, type DataTableColumn } from "@/components/shared/data-table";
+import type { FilterGroup } from "@/components/shared/data-table/types";
+import { useDeleteLearningArea, curriculumKeys } from "@/features/curriculum";
+import { listLearningAreas, type LearningArea } from "@/lib/api/curriculum";
+import { getEducationLevelFilterSubmenu } from "@/features/education-level";
+import { getGradeLevelFilterSubmenu } from "@/features/grade-level";
+import { EducationLevelPill } from "@/features/education-level";
+import { GradeLevelPill } from "@/features/grade-level";
+
+const filterGroups: FilterGroup[] = [
+    {
+        id: "curriculum_filters",
+        label: "Filter by",
+        items: [
+            {
+                id: "education_level",
+                label: "Education Level",
+                icon: BookOpen,
+                type: "sub_menu_multi",
+                submenu: getEducationLevelFilterSubmenu(),
+            },
+            {
+                id: "grade_level",
+                label: "Grade",
+                icon: GraduationCap,
+                type: "sub_menu_multi",
+                submenu: getGradeLevelFilterSubmenu(),
+            },
+        ],
+    },
+];
+
+// ─── Columns ───────────────────────────────────────────────────────────────
+
+const columns: DataTableColumn<LearningArea>[] = [
+    {
+        id: "name",
+        header: "Name",
+        cell: (row) => (
+            <Link href={`/curriculum/${row.id}`} className="hover:underline">
+                {row.name}
+            </Link>
+        ),
+    },
+    {
+        id: "code",
+        header: "Code",
+        cell: (row) => (
+            <Link href={`/curriculum/${row.id}`} className="font-mono font-medium hover:underline">
+                {row.code}
+            </Link>
+        ),
+    },
+    {
+        id: "education_level",
+        header: "Education Level",
+        width: "180px",
+        cell: (row) => <EducationLevelPill level={row.education_level} />,
+    },
+    {
+        id: "grade_level",
+        header: "Grade",
+        width: "120px",
+        cell: (row) => <GradeLevelPill grade={row.grade_level} />,
+    },
+];
+
+// ─── Page Component ────────────────────────────────────────────────────────
 
 export default function CurriculumPage() {
-    const [educationLevel, setEducationLevel] = React.useState<string>("");
-    const [createOpen, setCreateOpen] = React.useState(false);
-
-    const {
-        data: areasData,
-        isLoading: areasLoading,
-        isError: areasError,
-    } = useLearningAreas({ education_level: educationLevel || undefined });
+    const deleteMutation = useDeleteLearningArea();
 
     return (
-        <div className="flex flex-1 flex-col">
-            {/* Page header */}
-            <div className="flex items-center gap-3 px-6 pt-6 pb-2">
-                <h1 className="text-2xl font-semibold tracking-tight">Curriculum</h1>
-                <div className="ml-auto flex items-center gap-2">
-                    <Select
-                        value={educationLevel}
-                        onValueChange={(v) => setEducationLevel(v === "all" ? "" : v)}
-                    >
-                        <SelectTrigger className="h-8 w-44 text-xs">
-                            <SelectValue placeholder="All levels" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">All levels</SelectItem>
-                            <SelectItem value="Early_Years">Early Years</SelectItem>
-                            <SelectItem value="Upper_Primary">Upper Primary</SelectItem>
-                            <SelectItem value="Junior_Secondary">Junior Secondary</SelectItem>
-                            <SelectItem value="Senior_School">Senior School</SelectItem>
-                        </SelectContent>
-                    </Select>
-                    <Button variant="outline" size="sm" onClick={() => setCreateOpen(true)}>
-                        <Plus className="mr-1.5 size-3.5" />
-                        Add Learning Area
-                    </Button>
-                </div>
-            </div>
-
-            <div className="flex flex-1 flex-col px-6 py-4">
-                <section className="flex flex-1 flex-col">
-                    {areasError ? (
-                        <div className="flex items-center justify-center py-8">
-                            <p className="text-destructive text-sm">
-                                Failed to load curriculum. Please try again.
-                            </p>
-                        </div>
-                    ) : (
-                        <div className="ring-foreground/10 rounded-lg ring-1">
-                            <LearningAreasTable
-                                learningAreas={areasData?.learning_areas ?? []}
-                                total={areasData?.total ?? 0}
-                                isLoading={areasLoading}
-                                onCreateClick={() => setCreateOpen(true)}
-                            />
-                        </div>
-                    )}
-                </section>
-            </div>
-
-            {/* Create Learning Area Dialog */}
-            <CreateLearningAreaDialog open={createOpen} onOpenChange={setCreateOpen} />
-        </div>
+        <DataTable
+            queryKey={curriculumKeys.learningAreas.list()}
+            queryFn={listLearningAreas}
+            columns={columns}
+            getRowId={(row) => row.id}
+            isSearchable
+            searchPlaceholder="Search learning areas..."
+            filterGroups={filterGroups}
+            isCheckable
+            deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
+            addHref="/curriculum/new"
+            emptyState="No learning areas yet."
+            noResultsState="No learning areas match your search or filters."
+        />
     );
 }

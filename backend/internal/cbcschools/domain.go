@@ -74,6 +74,29 @@ type SchoolUpdateFields struct {
 
 // ListSchoolsResponse wraps a list of schools.
 type ListSchoolsResponse struct {
-	Schools []SchoolWithMemberCount `json:"schools"`
-	Total   int                     `json:"total"`
+	Items []SchoolWithMemberCount `json:"items"`
+	Total int                     `json:"total"`
+}
+
+// CurriculumSeeder seeds the CBC curriculum for a newly created school.
+// Defined here as a consumer-side interface so cbcschools does not import
+// the curriculum package directly (DDD boundary rule).
+type CurriculumSeeder interface {
+	SeedForSchool(ctx context.Context, tenantID, schoolID string) error
+}
+
+// UserSchoolEnroller creates a membership and sets the active school for a user.
+// Defined here as a consumer-side interface to avoid importing the auth package
+// directly (DDD boundary rule).
+type UserSchoolEnroller interface {
+	CreateMembership(ctx context.Context, userID, schoolID, tenantID, role string) error
+	SetActiveSchool(ctx context.Context, userID, tenantID, schoolID string) error
+	GetUserRoleInTenant(ctx context.Context, userID, tenantID string) (string, error)
+}
+
+// AcademicYearSeeder seeds the initial academic year and CBC terms for a
+// newly created school. Defined here as a consumer-side interface so cbcschools
+// does not import the academicyears package directly (DDD boundary rule).
+type AcademicYearSeeder interface {
+	SetupInitialYear(ctx context.Context, tenantID, schoolID, actorID string, now *time.Time) error
 }

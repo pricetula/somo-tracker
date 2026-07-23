@@ -8,7 +8,12 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { listNurses, toggleNurseActive, type ListMembersResponse } from "@/lib/api/nurses";
+import {
+    listNurses,
+    toggleNurseActive,
+    deleteNurse,
+    type ListMembersResponse,
+} from "@/lib/api/nurses";
 import { getErrorMessage } from "@/lib/errors";
 import { toast } from "sonner";
 
@@ -35,10 +40,25 @@ export function useNurses(
 
     return useQuery<ListMembersResponse>({
         queryKey: [...nursesKeys.list({ page, limit, search, includeInactive })],
-        queryFn: () =>
-            listNurses({ page, per_page: limit, search, include_inactive: includeInactive }),
+        queryFn: () => listNurses({ page, limit, search, include_inactive: includeInactive }),
         placeholderData: (prev) => prev,
         enabled,
+    });
+}
+
+/** Hard-delete a nurse member. */
+export function useDeleteNurse() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (userId: string) => deleteNurse(userId),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: nursesKeys.all });
+            toast.success("Nurse deleted");
+        },
+        onError: (err) => {
+            toast.error(getErrorMessage(err));
+        },
     });
 }
 
@@ -59,7 +79,7 @@ export function useToggleNurseActive() {
                 if (!old) return old;
                 return {
                     ...old,
-                    members: old.members.map((m) =>
+                    items: old.items.map((m) =>
                         m.id === userId ? { ...m, is_active: isActive } : m
                     ),
                 };

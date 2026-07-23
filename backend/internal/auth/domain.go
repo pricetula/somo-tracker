@@ -16,23 +16,29 @@ import (
 // ============================================================================
 
 var (
-	ErrInvalidInput = errors.New("invalid_input")
+	// ErrInvalidInput wraps middleware.ErrInvalidInput so that errors.Is(err,
+	// middleware.ErrInvalidInput) returns true for validation failures.
+	ErrInvalidInput = fmt.Errorf("invalid auth input: %w", middleware.ErrInvalidInput)
 	// ErrExpiredToken wraps middleware.ErrUnauthorized so that errors.Is(err,
 	// middleware.ErrUnauthorized) returns true. This ensures the middleware's
 	// HTTPError maps it to 401 Unauthorized, which triggers the frontend's
 	// global 401 eviction (redirect to /logout).
 	ErrExpiredToken              = fmt.Errorf("expired_token: %w", middleware.ErrUnauthorized)
-	ErrMFARequired               = errors.New("mfa_required")
-	ErrOrgAlreadyExists          = errors.New("org_already_exists")
-	ErrJITProvisioningNotAllowed = errors.New("jit_provisioning_not_allowed")
-	ErrMemberNotFound            = errors.New("member_not_found")
-	ErrOrgNotFound               = errors.New("org_not_found")
-	ErrNotFound                  = errors.New("not_found")
-	ErrAlreadyExists             = errors.New("already exists")
-	ErrUnauthorized              = errors.New("unauthorized")
-	ErrForbidden                 = errors.New("forbidden")
-	ErrConflict                  = errors.New("conflict")
-	ErrInternal                  = errors.New("internal_error")
+	ErrMFARequired               = fmt.Errorf("mfa_required: %w", middleware.ErrUnauthorized)
+	ErrOrgAlreadyExists          = fmt.Errorf("org_already_exists: %w", middleware.ErrConflict)
+	ErrJITProvisioningNotAllowed = fmt.Errorf("jit_provisioning_not_allowed: %w", middleware.ErrForbidden)
+	ErrMemberNotFound            = fmt.Errorf("member_not_found: %w", middleware.ErrNotFound)
+	ErrOrgNotFound               = fmt.Errorf("org_not_found: %w", middleware.ErrNotFound)
+	// Required sentinel errors, each wrapping the corresponding middleware
+	// sentinel so that middleware.HTTPError can match them via errors.Is.
+	ErrNotFound      = fmt.Errorf("auth not found: %w", middleware.ErrNotFound)
+	ErrAlreadyExists = fmt.Errorf("auth already exists: %w", middleware.ErrAlreadyExists)
+	ErrUnauthorized  = fmt.Errorf("unauthorized: %w", middleware.ErrUnauthorized)
+	ErrForbidden     = fmt.Errorf("forbidden: %w", middleware.ErrForbidden)
+	ErrConflict      = fmt.Errorf("auth conflict: %w", middleware.ErrConflict)
+	// ErrInternal is intentionally a bare error — it should always fall through
+	// to the generic 500 response path and is not part of the required sentinel set.
+	ErrInternal = errors.New("internal_error")
 )
 
 // ValidationError carries a user-facing message alongside the sentinel.
@@ -117,6 +123,7 @@ type DiscoveredOrg struct {
 	OrganizationID      string
 	OrganizationName    string
 	MemberID            string
+	MemberName          string
 	MemberAuthenticated bool
 }
 
@@ -139,6 +146,19 @@ type ExchangeResult struct {
 	OrganizationID      string
 }
 
+// MagicLinkAuthResult is the result of authenticating an org-scoped magic link
+// token (from invite or login emails). It contains the member identity, org,
+// and either a session token (if fully authenticated) or an intermediate
+// session token (if MFA is required).
+type MagicLinkAuthResult struct {
+	MemberID                 string
+	OrganizationID           string
+	Email                    string
+	StytchSessionToken       string
+	IntermediateSessionToken string
+	MemberAuthenticated      bool
+}
+
 // ============================================================================
 // IdentityProvider interface — abstracts Stytch B2B (requirement 1).
 // ============================================================================
@@ -147,7 +167,14 @@ type ExchangeResult struct {
 // All methods accept context.Context as first parameter (requirement 10).
 type IdentityProvider interface {
 	// SendDiscoveryEmail dispatches a magic link to the given email.
+	// The redirect URL is determined by the identity provider configuration.
 	SendDiscoveryEmail(ctx context.Context, email string) error
+
+	// SendDiscoveryEmailWithRedirect dispatches a magic link to the given email
+	// with a custom redirect URL. Used by invite flows where the callback must
+	// go to the invite acceptance endpoint (/api/auth/invite/callback) instead
+	// of the default login callback.
+	SendDiscoveryEmailWithRedirect(ctx context.Context, email, redirectURL string) error
 
 	// AuthenticateDiscoveryToken validates a magic-link token and returns
 	// the raw Intermediate Session Token (IST), the verified email address,
@@ -165,15 +192,22 @@ type IdentityProvider interface {
 	// CreateMember provisions a new member in an existing Stytch organization.
 	CreateMember(ctx context.Context, orgID, email, name string) (memberID string, err error)
 
+	// GetMemberByEmail retrieves an existing member's ID by email address.
+	// Used when an invite attempt returns duplicate_member_email and we need the
+	// member ID for our local invitation record.
+	GetMemberByEmail(ctx context.Context, orgID, email string) (memberID string, err error)
+
 	// InviteMemberByEmail sends a Stytch invite email to join an organization.
 	// Returns the Stytch member ID of the invited member.
 	InviteMemberByEmail(ctx context.Context, orgID, email, name, redirectURL string) (memberID string, err error)
 
-	// AuthenticateInviteToken validates a magic-link token sent via an invite email
-	// and returns the Intermediate Session Token (IST) and the verified email address.
-	// Uses the same Stytch Discovery Magic Links Authenticate endpoint as the
-	// discovery flow, but is exposed as a separate method for invite-flow clarity.
-	AuthenticateInviteToken(ctx context.Context, token string) (ist, email string, err error)
+	// AuthenticateMagicLink authenticates an org-scoped magic link token
+	// (from invite or login emails) against the proper Stytch B2B endpoint
+	// ("/v1/b2b/magic_links/authenticate", NOT the discovery endpoint).
+	// Returns the member identity, organization, and either a session token
+	// (if fully authenticated) or an intermediate session token (if MFA is
+	// required). Use ExchangeIntermediateSession to convert an IST after MFA.
+	AuthenticateMagicLink(ctx context.Context, token string) (*MagicLinkAuthResult, error)
 
 	// ExchangeInviteSession exchanges an IST for a full Stytch session within a
 	// specific organization. Enforces MemberAuthenticated == true and returns the
@@ -272,6 +306,9 @@ type Repository interface {
 	// user's first active membership's school ID.
 	GetActiveSchoolID(ctx context.Context, userID, tenantID string) (string, error)
 
+	// GetUserRoleInTenant returns the highest-privilege role for a user in a tenant.
+	GetUserRoleInTenant(ctx context.Context, userID, tenantID string) (string, error)
+
 	// GetInvitationByEmail looks up a pending, non-expired invitation by email.
 	// Returns the invitation record or ErrNotFound if none exists.
 	GetInvitationByEmail(ctx context.Context, email string) (*Invitation, error)
@@ -330,14 +367,11 @@ type MeInfo struct {
 }
 
 // SchoolCreator abstracts school creation so auth does not import cbcschools.
+// The CreateSchool method matches cbcschools.Service.CreateSchool so that the
+// full service pipeline (curriculum seeding, creator enrollment, active school)
+// is used instead of a bare repository insert.
 type SchoolCreator interface {
-	Create(ctx context.Context, tenantID string, name string) (string, error)
-}
-
-// AcademicYearCreator abstracts the creation of the initial academic year and
-// CBC terms so auth does not import academicyears.
-type AcademicYearCreator interface {
-	SetupInitialYear(ctx context.Context, tenantID, schoolID, actorID string, now *time.Time) error
+	CreateSchool(ctx context.Context, tenantID string, name string, role string, creatorUserID ...string) (string, error)
 }
 
 // StytchOrgIDKey is the context key used to pass the stytch_org_id through

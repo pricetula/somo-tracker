@@ -13,7 +13,7 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
                     <div className="border-border border-b p-4">
                         <Link
                             href="/"
-                            className="text-foreground flex items-center gap-2 text-sm font-semibold"
+                            className="text-foreground flex items-center gap-2 font-semibold"
                         >
                             <BookOpen className="h-4 w-4" />
                             Somotracker Docs
@@ -24,7 +24,7 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
                             <Link
                                 key={doc.slug}
                                 href={`/docs/${doc.slug}`}
-                                className="text-muted-foreground hover:bg-muted hover:text-foreground block rounded-md px-3 py-2 text-sm transition-colors"
+                                className="text-muted-foreground hover:bg-muted hover:text-foreground block rounded-md px-3 py-2 transition-colors"
                             >
                                 {doc.title}
                             </Link>

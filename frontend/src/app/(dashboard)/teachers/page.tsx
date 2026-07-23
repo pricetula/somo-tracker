@@ -1,63 +1,164 @@
 /**
  * Teachers listing page — active teachers with extended educator fields.
  *
- * Uses its own dedicated teachers endpoint (GET /api/v1/teachers) with
- * TSC Number, KNEC Panel Assessor ID, and Core Assignment Role.
+ * Uses the shared DataTable component with curriculum filter.
+ * Maps to GET /api/v1/teachers.
  *
  * Invitations are listed on the dedicated /teachers/invitations page.
  */
 
 "use client";
 
-import * as React from "react";
-import Link from "next/link";
-
-import { TeachersTable } from "@/features/staff/components/teachers-table";
-import { useTeachers } from "@/features/staff/hooks/use-teachers";
+import { useState } from "react";
+import { DataTable } from "@/components/shared/data-table";
+import type { DataTableColumn, FilterGroup } from "@/components/shared/data-table/types";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Send } from "lucide-react";
+import { listTeachers, type TeacherMember } from "@/lib/api/teachers";
+import { GraduationCap, BookOpen, Pencil } from "lucide-react";
+import { getEducationLevelFilterSubmenu } from "@/features/education-level";
+import { getGradeLevelFilterSubmenu } from "@/features/grade-level";
+import { useDeleteTeacher } from "@/features/staff";
+import { TeacherEditDialog } from "@/features/staff/components/teacher-edit-dialog";
+
+// ─── Teacher Role Labels ──────────────────────────────────────────────────
+
+const TEACHER_ROLE_LABELS: Record<string, string> = {
+    PRIMARY_CLASS_TEACHER: "Primary Class Teacher",
+    SUBJECT_TEACHER: "Subject Teacher",
+    SUBSTITUTE_TEACHER: "Substitute Teacher",
+};
+
+function formatTeacherRole(role: string | null): string {
+    if (!role) return "—";
+    return TEACHER_ROLE_LABELS[role] ?? role;
+}
+
+// ─── Columns ──────────────────────────────────────────────────────────────
+
+const columns: DataTableColumn<TeacherMember>[] = [
+    {
+        id: "full_name",
+        header: "Full Name",
+        cell: (row) => <span className="font-medium">{row.full_name || "—"}</span>,
+    },
+    {
+        id: "email",
+        header: "Email",
+        cell: (row) => <span className="text-muted-foreground">{row.email}</span>,
+    },
+    {
+        id: "tsc_number",
+        header: "TSC Number",
+        cell: (row) => (
+            <span className="text-muted-foreground font-mono">{row.tsc_number ?? "—"}</span>
+        ),
+    },
+    {
+        id: "knec_panel_assessor_id",
+        header: "KNEC Panel Assessor ID",
+        cell: (row) => (
+            <span className="text-muted-foreground font-mono">
+                {row.knec_panel_assessor_id ?? "—"}
+            </span>
+        ),
+    },
+    {
+        id: "teacher_role",
+        header: "Core Assignment Role",
+        cell: (row) => (
+            <span className="text-muted-foreground">{formatTeacherRole(row.teacher_role)}</span>
+        ),
+    },
+    {
+        id: "is_active",
+        header: "Account Status",
+        cell: (row) => (
+            <Badge
+                variant="secondary"
+                className={
+                    row.is_active
+                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                        : "bg-muted text-muted-foreground"
+                }
+            >
+                {row.is_active ? "Active" : "Inactive"}
+            </Badge>
+        ),
+    },
+];
+
+// ─── Filter Groups ────────────────────────────────────────────────────────
+
+const filterGroups: FilterGroup[] = [
+    {
+        id: "curriculum_filters",
+        label: "Filter by",
+        items: [
+            {
+                id: "education_level",
+                label: "Education Level",
+                icon: BookOpen,
+                type: "sub_menu_multi",
+                submenu: getEducationLevelFilterSubmenu(),
+            },
+            {
+                id: "grade_level",
+                label: "Grade",
+                icon: GraduationCap,
+                type: "sub_menu_multi",
+                submenu: getGradeLevelFilterSubmenu(),
+            },
+        ],
+    },
+];
+
+// ─── Edit action cell component ──────────────────────────────────────────
+
+function EditCell({ row }: { row: TeacherMember }) {
+    const [editOpen, setEditOpen] = useState(false);
+    return (
+        <>
+            <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => setEditOpen(true)}
+                title="Edit teacher"
+            >
+                <Pencil className="h-4 w-4" />
+                <span className="sr-only">Edit {row.full_name}</span>
+            </Button>
+            <TeacherEditDialog userId={row.id} open={editOpen} onOpenChange={setEditOpen} />
+        </>
+    );
+}
+
+const editActionColumn: DataTableColumn<TeacherMember> = {
+    id: "edit",
+    header: "",
+    width: "48px",
+    align: "right",
+    cell: (row) => <EditCell row={row} />,
+};
+
+// ─── Page ─────────────────────────────────────────────────────────────────
 
 export default function TeachersPage() {
-    const {
-        data: teachersData,
-        isLoading: teachersLoading,
-        isError: teachersError,
-    } = useTeachers({ includeInactive: true });
+    const deleteMutation = useDeleteTeacher();
 
     return (
-        <div className="flex flex-1 flex-col">
-            {/* Page header */}
-            <div className="flex items-center gap-3 px-6 pt-6 pb-2">
-                <h1 className="text-2xl font-semibold tracking-tight">Teachers</h1>
-                <div className="ml-auto">
-                    <Button variant="outline" size="sm" asChild>
-                        <Link href="/teachers/invitations">
-                            <Send className="mr-1.5 size-3.5" />
-                            Invitations
-                        </Link>
-                    </Button>
-                </div>
-            </div>
-
-            <div className="flex flex-1 flex-col px-6 py-4">
-                <section className="flex flex-1 flex-col">
-                    {teachersError ? (
-                        <div className="flex items-center justify-center py-8">
-                            <p className="text-destructive text-sm">
-                                Failed to load teachers. Please try again.
-                            </p>
-                        </div>
-                    ) : (
-                        <div className="ring-foreground/10 rounded-lg ring-1">
-                            <TeachersTable
-                                teachers={teachersData?.teachers ?? []}
-                                total={teachersData?.total ?? 0}
-                                isLoading={teachersLoading}
-                            />
-                        </div>
-                    )}
-                </section>
-            </div>
-        </div>
+        <DataTable
+            addHref="/teachers/import"
+            queryKey={["teachers"]}
+            queryFn={listTeachers}
+            columns={[...columns, editActionColumn]}
+            getRowId={(row) => row.id}
+            isSearchable
+            searchPlaceholder="Search by name, email, or TSC number…"
+            filterGroups={filterGroups}
+            deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
+            emptyState="No teachers yet."
+            noResultsState="No teachers match your search or filters."
+        />
     );
 }

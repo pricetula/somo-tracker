@@ -5,7 +5,7 @@
 "use client";
 
 import * as React from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 
 import {
     Dialog,
@@ -18,15 +18,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
 import { useCreateLearningArea } from "../hooks/use-curriculum";
 import { isApiError } from "@/lib/errors";
+import { EducationLevelCombobox } from "@/features/education-level";
+import { GradeLevelCombobox } from "@/features/grade-level";
 
 // ─── Props ─────────────────────────────────────────────────────────────────
 
@@ -43,6 +38,7 @@ export function CreateLearningAreaDialog({ open, onOpenChange }: CreateLearningA
         register,
         handleSubmit,
         setValue,
+        control,
         setError,
         reset,
         formState: { errors, isSubmitting },
@@ -50,13 +46,18 @@ export function CreateLearningAreaDialog({ open, onOpenChange }: CreateLearningA
         code: string;
         name: string;
         education_level: string;
+        grade_level: string;
     }>({
         defaultValues: {
             code: "",
             name: "",
             education_level: "",
+            grade_level: "",
         },
     });
+
+    const educationLevel = useWatch({ control, name: "education_level" });
+    const gradeLevel = useWatch({ control, name: "grade_level" });
 
     React.useEffect(() => {
         if (open) {
@@ -70,12 +71,18 @@ export function CreateLearningAreaDialog({ open, onOpenChange }: CreateLearningA
                 code: data.code.toUpperCase(),
                 name: data.name,
                 education_level: data.education_level,
+                grade_level: data.grade_level,
             });
             onOpenChange(false);
         } catch (err) {
             if (isApiError(err) && err.status === 400 && err.errors) {
                 for (const [field, messages] of Object.entries(err.errors)) {
-                    if (field === "code" || field === "name" || field === "education_level") {
+                    if (
+                        field === "code" ||
+                        field === "name" ||
+                        field === "education_level" ||
+                        field === "grade_level"
+                    ) {
                         setError(field, { message: messages[0] });
                     }
                 }
@@ -120,21 +127,27 @@ export function CreateLearningAreaDialog({ open, onOpenChange }: CreateLearningA
 
                     <div className="space-y-2">
                         <Label htmlFor="education_level">Education Level</Label>
-                        <Select onValueChange={(v) => setValue("education_level", v)}>
-                            <SelectTrigger id="education_level">
-                                <SelectValue placeholder="Select education level" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="Early_Years">Early Years</SelectItem>
-                                <SelectItem value="Upper_Primary">Upper Primary</SelectItem>
-                                <SelectItem value="Junior_Secondary">Junior Secondary</SelectItem>
-                                <SelectItem value="Senior_School">Senior School</SelectItem>
-                            </SelectContent>
-                        </Select>
+                        <EducationLevelCombobox
+                            value={educationLevel}
+                            onChange={(v) => setValue("education_level", v)}
+                            placeholder="Select education level"
+                        />
                         {errors.education_level && (
                             <p className="text-destructive text-xs">
                                 {errors.education_level.message}
                             </p>
+                        )}
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="grade_level">Grade Level</Label>
+                        <GradeLevelCombobox
+                            value={gradeLevel}
+                            onChange={(v) => setValue("grade_level", v)}
+                            placeholder="Select grade"
+                        />
+                        {errors.grade_level && (
+                            <p className="text-destructive text-xs">{errors.grade_level.message}</p>
                         )}
                     </div>
 

@@ -33,7 +33,7 @@ function EmptyState({ onCreateLink }: { onCreateLink: () => void }) {
     return (
         <div className="bg-muted/30 flex items-center justify-center rounded-md px-4 py-8">
             <div className="text-center">
-                <p className="text-muted-foreground text-sm font-medium">No linked students</p>
+                <p className="text-muted-foreground font-medium">No linked students</p>
                 <p className="text-muted-foreground mt-1 text-xs">
                     Link a student to this parent to manage guardian relationships.
                 </p>
@@ -114,9 +114,7 @@ export function ParentDetailView({ parentId, onBack }: ParentDetailViewProps) {
         return (
             <div className="flex items-center justify-center py-16">
                 <div className="text-center">
-                    <p className="text-destructive text-sm font-medium">
-                        Failed to load parent details.
-                    </p>
+                    <p className="text-destructive font-medium">Failed to load parent details.</p>
                     <Button variant="outline" size="sm" className="mt-4" onClick={onBack}>
                         Back to Parents
                     </Button>
@@ -142,7 +140,7 @@ export function ParentDetailView({ parentId, onBack }: ParentDetailViewProps) {
                     {/* Email (read-only) */}
                     <div>
                         <Label className="text-muted-foreground text-xs">Email</Label>
-                        <p className="text-sm">{detail.email}</p>
+                        <p className="">{detail.email}</p>
                     </div>
 
                     {/* Phone (editable) */}
@@ -153,7 +151,7 @@ export function ParentDetailView({ parentId, onBack }: ParentDetailViewProps) {
                                 <Input
                                     value={displayPhone}
                                     onChange={(e) => setEditPhone(e.target.value)}
-                                    className="h-8 max-w-xs text-sm"
+                                    className="h-8 max-w-xs"
                                 />
                                 <Button size="sm" variant="outline" onClick={handleSavePhone}>
                                     Save
@@ -168,7 +166,7 @@ export function ParentDetailView({ parentId, onBack }: ParentDetailViewProps) {
                             </div>
                         ) : (
                             <div className="mt-1 flex items-center gap-2">
-                                <span className="text-sm">{detail.phone_number}</span>
+                                <span className="">{detail.phone_number}</span>
                                 <Button
                                     variant="ghost"
                                     size="icon-sm"
@@ -201,7 +199,7 @@ export function ParentDetailView({ parentId, onBack }: ParentDetailViewProps) {
                             onCheckedChange={handleToggleActive}
                             disabled={updateParent.isPending}
                         />
-                        <Label htmlFor="parent-active" className="text-sm">
+                        <Label htmlFor="parent-active" className="">
                             {detail.is_active ? "Active" : "Inactive"}
                         </Label>
                     </div>
@@ -214,7 +212,7 @@ export function ParentDetailView({ parentId, onBack }: ParentDetailViewProps) {
                     <h2 className="text-lg font-medium">
                         Linked Students
                         {linkedCount > 0 && (
-                            <span className="text-muted-foreground ml-2 text-sm font-normal">
+                            <span className="text-muted-foreground ml-2 font-normal">
                                 ({linkedCount})
                             </span>
                         )}
@@ -250,10 +248,10 @@ export function ParentDetailView({ parentId, onBack }: ParentDetailViewProps) {
                                         key={link.student_id}
                                         className="group border-border/40 hover:bg-muted/30 border-b transition-colors"
                                     >
-                                        <td className="px-3 py-2.5 text-sm font-medium">
+                                        <td className="px-3 py-2.5 font-medium">
                                             {link.full_name}
                                         </td>
-                                        <td className="text-muted-foreground px-3 py-2.5 text-sm">
+                                        <td className="text-muted-foreground px-3 py-2.5">
                                             {link.relationship || "—"}
                                         </td>
                                         <td className="px-3 py-2.5">
@@ -265,9 +263,7 @@ export function ParentDetailView({ parentId, onBack }: ParentDetailViewProps) {
                                                     Primary
                                                 </Badge>
                                             ) : (
-                                                <span className="text-muted-foreground text-sm">
-                                                    —
-                                                </span>
+                                                <span className="text-muted-foreground">—</span>
                                             )}
                                         </td>
                                         <td className="px-3 py-2.5">

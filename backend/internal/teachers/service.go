@@ -26,6 +26,26 @@ func (s *Service) ListTeachers(ctx context.Context, tenantID, schoolID string, i
 	return s.repo.ListBySchool(ctx, tenantID, schoolID, includeInactive, offset, limit, search)
 }
 
+// GetTeacherByID returns a single teacher by user ID, scoped to tenant + school.
+func (s *Service) GetTeacherByID(ctx context.Context, userID, tenantID, schoolID string) (*Teacher, error) {
+	if userID == "" {
+		return nil, fmt.Errorf("teachers.Service.GetTeacherByID: %w", ErrInvalidInput)
+	}
+	return s.repo.GetByID(ctx, userID, tenantID, schoolID)
+}
+
+// UpdateTeacher applies partial updates to a teacher's profile.
+// Supported fields: full_name, tsc_number, knec_panel_assessor_id.
+func (s *Service) UpdateTeacher(ctx context.Context, userID, tenantID, schoolID string, payload UpdateTeacherPayload) error {
+	if userID == "" {
+		return fmt.Errorf("teachers.Service.UpdateTeacher: %w", ErrInvalidInput)
+	}
+	if payload.FullName == nil && payload.TSCNumber == nil && payload.KNECPanelAssessor == nil {
+		return fmt.Errorf("teachers.Service.UpdateTeacher: at least one field to update is required: %w", ErrInvalidInput)
+	}
+	return s.repo.Update(ctx, userID, tenantID, schoolID, payload)
+}
+
 // ToggleActive toggles the active status of a teacher's membership.
 // If the teacher is not found, returns ErrNotFound.
 func (s *Service) ToggleActive(ctx context.Context, tenantID, schoolID, userID string, isActive bool) error {
@@ -33,4 +53,12 @@ func (s *Service) ToggleActive(ctx context.Context, tenantID, schoolID, userID s
 		return fmt.Errorf("teachers.Service.ToggleActive: %w", ErrInvalidInput)
 	}
 	return s.repo.ToggleActive(ctx, tenantID, schoolID, userID, isActive)
+}
+
+// Delete hard-deletes a teacher's membership and user record.
+func (s *Service) Delete(ctx context.Context, tenantID, schoolID, userID string) error {
+	if userID == "" {
+		return fmt.Errorf("teachers.Service.Delete: %w", ErrInvalidInput)
+	}
+	return s.repo.Delete(ctx, tenantID, schoolID, userID)
 }

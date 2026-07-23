@@ -25,7 +25,7 @@ export default async function DocPage({ params }: Props) {
         return (
             <div>
                 <h1 className="mb-2 text-3xl font-bold tracking-tight">Documentation</h1>
-                <p className="text-muted-foreground mb-8 text-base leading-relaxed">
+                <p className="text-muted-foreground mb-8 leading-relaxed">
                     Browse the Somotracker documentation to learn about features, setup, and
                     configuration.
                 </p>
@@ -43,9 +43,7 @@ export default async function DocPage({ params }: Props) {
                                     <h2 className="text-foreground group-hover:text-primary font-semibold transition-colors">
                                         {doc.title}
                                     </h2>
-                                    <p className="text-muted-foreground mt-1 text-sm">
-                                        {doc.description}
-                                    </p>
+                                    <p className="text-muted-foreground mt-1">{doc.description}</p>
                                 </div>
                             </div>
                         </Link>
@@ -70,7 +68,7 @@ export default async function DocPage({ params }: Props) {
             {/* Back link */}
             <Link
                 href="/docs"
-                className="text-muted-foreground hover:text-foreground mb-6 inline-flex items-center gap-1.5 text-sm no-underline transition-colors"
+                className="text-muted-foreground hover:text-foreground mb-6 inline-flex items-center gap-1.5 no-underline transition-colors"
             >
                 <ArrowLeft className="h-4 w-4" />
                 Back to docs
@@ -81,9 +79,7 @@ export default async function DocPage({ params }: Props) {
 
             {/* Description */}
             {metadata.description && (
-                <p className="text-muted-foreground mb-8 text-base leading-relaxed">
-                    {metadata.description}
-                </p>
+                <p className="text-muted-foreground mb-8 leading-relaxed">{metadata.description}</p>
             )}
 
             {/* MDX Content rendered as Markdown */}
@@ -117,17 +113,14 @@ export default async function DocPage({ params }: Props) {
                         ),
                         code: ({ children, ...props }) => (
                             <code
-                                className="bg-muted text-foreground rounded px-1.5 py-0.5 font-mono text-sm"
+                                className="bg-muted text-foreground rounded px-1.5 py-0.5 font-mono"
                                 {...props}
                             >
                                 {children}
                             </code>
                         ),
                         pre: ({ children, ...props }) => (
-                            <pre
-                                className="bg-muted overflow-x-auto rounded-lg p-4 text-sm"
-                                {...props}
-                            >
+                            <pre className="bg-muted overflow-x-auto rounded-lg p-4" {...props}>
                                 {children}
                             </pre>
                         ),

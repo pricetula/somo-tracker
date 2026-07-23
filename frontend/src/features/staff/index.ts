@@ -1,11 +1,10 @@
-export { ActiveStaffTable } from "./components/active-staff-table";
-export { InvitedStaffTable } from "./components/invited-staff-table";
-export { AdminsTable } from "./components/admins-table";
-export { TeachersTable } from "./components/teachers-table";
-export { NursesTable } from "./components/nurses-table";
-export { FinanceTable } from "./components/finance-table";
 export { useStaffUsers, useStaffInvitations } from "./hooks/use-staff-users";
-export { useAdmins } from "./hooks/use-admins";
-export { useTeachers } from "./hooks/use-teachers";
-export { useNurses } from "./hooks/use-nurses";
-export { useFinanceStaff } from "./hooks/use-finance";
+export { useAdmins, useDeleteAdmin } from "./hooks/use-admins";
+export {
+    useTeachers,
+    useTeacherDetail,
+    useUpdateTeacher,
+    useDeleteTeacher,
+} from "./hooks/use-teachers";
+export { useNurses, useDeleteNurse } from "./hooks/use-nurses";
+export { useFinanceStaff, useDeleteFinanceStaff } from "./hooks/use-finance";

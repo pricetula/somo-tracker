@@ -46,7 +46,10 @@ export interface ParentDetail {
 // ─── Response Types ───────────────────────────────────────────────────────
 
 export interface ListParentsResponse {
-    data: Parent[];
+    items: Parent[];
+    total: number;
+    page: number;
+    limit: number;
 }
 
 export interface ParentDetailResponse {
@@ -78,13 +81,33 @@ export interface LinkStudentPayload {
 
 // ─── API Functions ─────────────────────────────────────────────────────────
 
-/** List parents, optionally filtered by search or student_id. */
+/** List parents, optionally filtered by search, student_id, or curriculum filters (education_level, grade_level), with pagination. */
 export async function listParents(
-    params: { search?: string; student_id?: string } = {}
+    params: {
+        search?: string;
+        student_id?: string;
+        page?: number;
+        limit?: number;
+        /** Filter values keyed by FilterItem id, e.g. { education_level: ["Early_Years"], grade_level: ["G1", "G2"] } */
+        filters?: Record<string, string[]>;
+    } = {}
 ): Promise<ListParentsResponse> {
     const searchParams = new URLSearchParams();
+
+    // Multi-value curriculum filters
+    const edLevels = params.filters?.education_level ?? [];
+    for (const el of edLevels) {
+        searchParams.append("education_level", el);
+    }
+    const grLevels = params.filters?.grade_level ?? [];
+    for (const gl of grLevels) {
+        searchParams.append("grade_level", gl);
+    }
+
     if (params.search) searchParams.set("search", params.search);
     if (params.student_id) searchParams.set("student_id", params.student_id);
+    if (params.page) searchParams.set("page", String(params.page));
+    if (params.limit) searchParams.set("limit", String(params.limit));
 
     const qs = searchParams.toString();
     return api.get<ListParentsResponse>(`/api/v1/parents?${qs}`);
@@ -98,6 +121,11 @@ export async function createParent(data: CreateParentPayload): Promise<CreatePar
 /** Get parent detail with linked students. */
 export async function getParentDetail(id: string): Promise<ParentDetailResponse> {
     return api.get<ParentDetailResponse>(`/api/v1/parents/${id}`);
+}
+
+/** Get the authenticated parent's own profile with linked children. */
+export async function getMyParentProfile(): Promise<ParentDetailResponse> {
+    return api.get<ParentDetailResponse>("/api/v1/parents/me");
 }
 
 /** Update a parent profile (phone_number, is_active). */
@@ -118,4 +146,51 @@ export async function linkStudent(parentId: string, data: LinkStudentPayload): P
 /** Unlink a student from a parent. */
 export async function unlinkStudent(parentId: string, studentId: string): Promise<void> {
     return api.delete<void>(`/api/v1/parents/${parentId}/students/${studentId}`);
+}
+
+// ============================================================================
+// Bulk Invite (Import system)
+// ============================================================================
+
+import type { ImportResponse } from "./imports";
+import { ApiError } from "./client";
+
+export interface InviteRow {
+    email: string;
+    full_name?: string;
+}
+
+export interface BulkParentInviteRequest {
+    rows: InviteRow[];
+}
+
+/**
+ * POST /api/v1/parents/invite — submit a bulk parent invitation job.
+ * Accepts an array of email rows. Returns immediately with a job_id for
+ * progress polling. Processing happens asynchronously via the Asynq import engine.
+ * Compatible with the BulkInviteForm's submitFn interface.
+ */
+export async function submitParentBulkInvite(body: {
+    role: string;
+    rows: Array<{ email: string; full_name?: string }>;
+}): Promise<ImportResponse> {
+    // The role field is accepted for compatibility with BulkInviteForm's submitFn
+    // interface but is ignored — the backend endpoint always creates PARENT invites.
+    return api.post<ImportResponse>("/api/v1/parents/invite", {
+        rows: body.rows,
+    });
+}
+
+/**
+ * Type guard to check if an error is an import_already_in_progress response.
+ */
+export function getParentImportAlreadyInProgress(err: unknown): string | null {
+    if (
+        err instanceof ApiError &&
+        err.code === "import_already_in_progress" &&
+        err.extra?.active_job_id
+    ) {
+        return String(err.extra.active_job_id);
+    }
+    return null;
 }

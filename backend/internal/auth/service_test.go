@@ -24,27 +24,46 @@ import (
 type MockIdentityProvider struct {
 	mu sync.RWMutex
 
-	sendDiscoveryEmailFn          func(ctx context.Context, email string) error
-	authenticateDiscoveryTokenFn  func(ctx context.Context, token string) (ist, email string, discoveredOrgs []DiscoveredOrg, err error)
-	createOrganizationFn          func(ctx context.Context, name string) (string, error)
-	createMemberFn                func(ctx context.Context, orgID, email, name string) (string, error)
-	exchangeIntermediateSessionFn func(ctx context.Context, ist, orgID string) (ExchangeResult, error)
-	inviteMemberByEmailFn         func(ctx context.Context, orgID, email, name, redirectURL string) (string, error)
-	authenticateInviteTokenFn     func(ctx context.Context, token string) (ist, email string, err error)
-	exchangeInviteSessionFn       func(ctx context.Context, ist, orgID string) (stytchSessionToken string, err error)
+	sendDiscoveryEmailFn             func(ctx context.Context, email string) error
+	sendDiscoveryEmailWithRedirectFn func(ctx context.Context, email, redirectURL string) error
+	authenticateDiscoveryTokenFn     func(ctx context.Context, token string) (ist, email string, discoveredOrgs []DiscoveredOrg, err error)
+	createOrganizationFn             func(ctx context.Context, name string) (string, error)
+	createMemberFn                   func(ctx context.Context, orgID, email, name string) (string, error)
+	getMemberByEmailFn               func(ctx context.Context, orgID, email string) (string, error)
+	exchangeIntermediateSessionFn    func(ctx context.Context, ist, orgID string) (ExchangeResult, error)
+	inviteMemberByEmailFn            func(ctx context.Context, orgID, email, name, redirectURL string) (string, error)
+	authenticateMagicLinkFn          func(ctx context.Context, token string) (*MagicLinkAuthResult, error)
+	authenticateInviteTokenFn        func(ctx context.Context, token string) (ist, email string, err error)
+	exchangeInviteSessionFn          func(ctx context.Context, ist, orgID string) (stytchSessionToken string, err error)
 
-	sendDiscoveryEmailCalls          int
-	authenticateDiscoveryTokenCalls  int
-	createOrganizationCalls          int
-	createMemberCalls                int
-	exchangeIntermediateSessionCalls int
-	inviteMemberByEmailCalls         int
+	sendDiscoveryEmailCalls             int
+	sendDiscoveryEmailWithRedirectCalls int
+	authenticateDiscoveryTokenCalls     int
+	createOrganizationCalls             int
+	createMemberCalls                   int
+	getMemberByEmailCalls               int
+	exchangeIntermediateSessionCalls    int
+	inviteMemberByEmailCalls            int
 }
 
 func (m *MockIdentityProvider) SendDiscoveryEmail(ctx context.Context, email string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.sendDiscoveryEmailCalls++
+	if m.sendDiscoveryEmailFn != nil {
+		return m.sendDiscoveryEmailFn(ctx, email)
+	}
+	return nil
+}
+
+func (m *MockIdentityProvider) SendDiscoveryEmailWithRedirect(ctx context.Context, email, redirectURL string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.sendDiscoveryEmailWithRedirectCalls++
+	if m.sendDiscoveryEmailWithRedirectFn != nil {
+		return m.sendDiscoveryEmailWithRedirectFn(ctx, email, redirectURL)
+	}
+	// Fall back to SendDiscoveryEmail for backward compatibility
 	if m.sendDiscoveryEmailFn != nil {
 		return m.sendDiscoveryEmailFn(ctx, email)
 	}
@@ -89,6 +108,31 @@ func (m *MockIdentityProvider) InviteMemberByEmail(ctx context.Context, orgID, e
 		return m.inviteMemberByEmailFn(ctx, orgID, email, name, redirectURL)
 	}
 	return "member_invited_" + orgID, nil
+}
+
+func (m *MockIdentityProvider) AuthenticateMagicLink(ctx context.Context, token string) (*MagicLinkAuthResult, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.authenticateMagicLinkFn != nil {
+		return m.authenticateMagicLinkFn(ctx, token)
+	}
+	return &MagicLinkAuthResult{
+		MemberID:            "member_invited_001",
+		OrganizationID:      "org_invite_001",
+		Email:               "invited@example.com",
+		StytchSessionToken:  "sty_sess_invite_001",
+		MemberAuthenticated: true,
+	}, nil
+}
+
+func (m *MockIdentityProvider) GetMemberByEmail(ctx context.Context, orgID, email string) (string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.getMemberByEmailCalls++
+	if m.getMemberByEmailFn != nil {
+		return m.getMemberByEmailFn(ctx, orgID, email)
+	}
+	return "member_test_" + orgID, nil
 }
 
 func (m *MockIdentityProvider) ExchangeIntermediateSession(ctx context.Context, ist, orgID string) (ExchangeResult, error) {
@@ -147,6 +191,7 @@ type MockRepository struct {
 	getMeInfoFn                func(ctx context.Context, token string) (*MeInfo, error)
 	getInvitationByEmailFn     func(ctx context.Context, email string) (*Invitation, error)
 	getActiveSchoolIDFn        func(ctx context.Context, userID, tenantID string) (string, error)
+	getUserRoleInTenantFn      func(ctx context.Context, userID, tenantID string) (string, error)
 	getTenantStytchOrgIDFn     func(ctx context.Context, tenantID string) (string, error)
 	createInvitedUserSessionFn func(ctx context.Context, args CreateInvitedUserSessionArgs) error
 
@@ -334,6 +379,18 @@ func (m *MockRepository) GetActiveSchoolID(ctx context.Context, userID, tenantID
 	return "school_" + tenantID, nil
 }
 
+func (m *MockRepository) GetUserRoleInTenant(ctx context.Context, userID, tenantID string) (string, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if m.getUserRoleInTenantFn != nil {
+		return m.getUserRoleInTenantFn(ctx, userID, tenantID)
+	}
+	if r, ok := m.memberships[userID]; ok {
+		return r, nil
+	}
+	return "", fmt.Errorf("%w: user not found", ErrNotFound)
+}
+
 func (m *MockRepository) GetTenantByStytchOrgID(ctx context.Context, stytchOrgID string) (string, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -439,11 +496,12 @@ func newTestHarness(t *testing.T) *testHarness {
 	// Tests that call AcceptInvite or handleExistingUser should use
 	// newTestHarnessWithRedis instead.
 	svc := &Service{
-		idp:    idp,
-		repo:   repo,
-		logger: logger,
-		cfg:    cfg,
-		rdb:    nil,
+		idp:           idp,
+		repo:          repo,
+		logger:        logger,
+		cfg:           cfg,
+		rdb:           nil,
+		schoolCreator: &mockSchoolCreator{},
 	}
 
 	return &testHarness{
@@ -528,28 +586,18 @@ func (h *testHarness) registerViaMocks(ctx context.Context, sessionRef string, p
 		return "", "", err
 	}
 
-	// 9. Create school and membership
+	// 9. Create school and membership via the school creator (which handles
+	//    curriculum seeding and academic year setup in production).
 	role := "TEACHER"
 	if !exists {
 		role = "SCHOOL_ADMIN"
 	}
-	schoolID, err := h.repo.CreateSchool(ctx, tenantID, payload.SchoolName)
-	if err != nil {
-		return "", "", err
-	}
-	if err := h.repo.CreateMembership(ctx, userID, schoolID, tenantID, role); err != nil {
+	if _, err := h.svc.schoolCreator.CreateSchool(ctx, tenantID, payload.SchoolName, role, userID); err != nil {
 		return "", "", err
 	}
 
 	// 10. Cache session token
 	h.cache.Set(h.svc.sessionKey(sessionToken), sessionToken)
-
-	// 11. Call SetupInitialYear via the injected year creator
-	if h.svc.yearCreator != nil {
-		if err := h.svc.yearCreator.SetupInitialYear(ctx, tenantID, schoolID, userID, nil); err != nil {
-			return "", "", fmt.Errorf("%w: setup initial academic year: %v", ErrInternal, err)
-		}
-	}
 
 	return sessionToken, role, nil
 }
@@ -909,7 +957,7 @@ func TestGenerateSlug(t *testing.T) {
 }
 
 // ============================================================================
-// Tests: Register — yearCreator.SetupInitialYear invocation
+// Tests: Register — CreateSchool delegates academic year setup
 // ============================================================================
 
 func TestRegister_CallsSetupInitialYear(t *testing.T) {
@@ -920,16 +968,16 @@ func TestRegister_CallsSetupInitialYear(t *testing.T) {
 
 	var (
 		capturedTenantID string
-		capturedSchoolID string
 		capturedActorID  string
 	)
 
-	h.svc.yearCreator = &mockYearCreator{
-		setupFn: func(ctx context.Context, tenantID, schoolID, actorID string, now *time.Time) error {
+	// Override the school creator's CreateSchool to capture params and
+	// verify they're passed through (mimics what cbcschools.Service does).
+	h.svc.schoolCreator = &mockSchoolCreator{
+		createFn: func(ctx context.Context, tenantID, name, role string, creatorUserID ...string) (string, error) {
 			capturedTenantID = tenantID
-			capturedSchoolID = schoolID
-			capturedActorID = actorID
-			return nil
+			capturedActorID = creatorUserID[0]
+			return "school_" + tenantID, nil
 		},
 	}
 
@@ -945,13 +993,10 @@ func TestRegister_CallsSetupInitialYear(t *testing.T) {
 	}
 
 	if capturedTenantID == "" {
-		t.Fatal("expected SetupInitialYear to be called with a non-empty tenantID")
-	}
-	if capturedSchoolID == "" {
-		t.Fatal("expected SetupInitialYear to be called with a non-empty schoolID")
+		t.Fatal("expected CreateSchool to be called with a non-empty tenantID")
 	}
 	if capturedActorID == "" {
-		t.Fatal("expected SetupInitialYear to be called with a non-empty actorID")
+		t.Fatal("expected CreateSchool to be called with a non-empty creatorUserID")
 	}
 }
 
@@ -961,9 +1006,9 @@ func TestRegister_SetupInitialYearFailurePropagatesError(t *testing.T) {
 	sessionRef := "550e8400-e29b-41d4-a716-446655440998"
 	h.cache.Set(fmt.Sprintf("%s%s:%s", istKeyPrefix, "test", sessionRef), "test_ist_value")
 
-	h.svc.yearCreator = &mockYearCreator{
-		setupFn: func(ctx context.Context, tenantID, schoolID, actorID string, now *time.Time) error {
-			return fmt.Errorf("db write error")
+	h.svc.schoolCreator = &mockSchoolCreator{
+		createFn: func(ctx context.Context, tenantID, name, role string, creatorUserID ...string) (string, error) {
+			return "", fmt.Errorf("cbcschools.Service.CreateSchool: internal error")
 		},
 	}
 
@@ -975,10 +1020,7 @@ func TestRegister_SetupInitialYearFailurePropagatesError(t *testing.T) {
 
 	_, _, err := h.registerViaMocks(context.Background(), sessionRef, payload, "fp-year-fail")
 	if err == nil {
-		t.Fatal("expected error when SetupInitialYear fails, got nil")
-	}
-	if !strings.Contains(err.Error(), "setup initial academic year") {
-		t.Fatalf("expected error about year setup, got: %v", err)
+		t.Fatal("expected error when CreateSchool fails, got nil")
 	}
 }
 
@@ -989,34 +1031,36 @@ func TestRegister_SetupInitialYearFailurePropagatesError(t *testing.T) {
 // acceptInviteViaMocks replicates the AcceptInvite flow through mocked
 // IDP + repo + cache, mirroring the registerViaMocks pattern.
 func (h *testHarness) acceptInviteViaMocks(ctx context.Context, token, deviceFingerprint string) (sessionToken, role, schoolID string, err error) {
-	// 1. Authenticate the Stytch magic-link token
-	ist, email, err := h.idp.AuthenticateInviteToken(ctx, token)
+	// 1. Authenticate the invite magic link token using the org-scoped endpoint
+	result, err := h.idp.AuthenticateMagicLink(ctx, token)
 	if err != nil {
 		return "", "", "", err
 	}
 
-	// 2. Look up the pending invitation
-	inv, err := h.repo.GetInvitationByEmail(ctx, email)
-	if err != nil {
-		return "", "", "", fmt.Errorf("%w: no pending invitation for email: %s", ErrExpiredToken, email)
+	// 2. Resolve Stytch session token (handle MFA if needed)
+	var stytchSessionToken string
+	if result.MemberAuthenticated {
+		stytchSessionToken = result.StytchSessionToken
+	} else {
+		exchangeResult, err := h.idp.ExchangeIntermediateSession(ctx, result.IntermediateSessionToken, result.OrganizationID)
+		if err != nil {
+			return "", "", "", err
+		}
+		stytchSessionToken = exchangeResult.StytchSessionToken
 	}
 
-	// 3. Resolve the Stytch org ID from the tenant
-	stytchOrgID, err := h.repo.GetTenantStytchOrgID(ctx, inv.TenantID)
+	// 3. Look up the pending invitation
+	inv, err := h.repo.GetInvitationByEmail(ctx, result.Email)
 	if err != nil {
-		return "", "", "", err
+		return "", "", "", fmt.Errorf("%w: no pending invitation for email: %s", ErrExpiredToken, result.Email)
 	}
 
-	// 4. Exchange the IST for a full Stytch session (enforces MFA)
-	stytchSessionToken, err := h.idp.ExchangeInviteSession(ctx, ist, stytchOrgID)
-	if err != nil {
-		return "", "", "", err
-	}
-
-	// 5. Generate opaque session token
+	// 4. Generate opaque session token
 	sessionToken = fmt.Sprintf("sess_accept_%d", time.Now().UnixNano())
 
-	// 6. Assemble args and persist via the repository transaction
+	// 5. Assemble args and persist via the repository transaction.
+	//    memberID comes from AuthenticateMagicLink (member was already created
+	//    by InviteMemberByEmail during the invite phase).
 	args := CreateInvitedUserSessionArgs{
 		InvitationID:       inv.ID,
 		Email:              inv.Email,
@@ -1024,12 +1068,13 @@ func (h *testHarness) acceptInviteViaMocks(ctx context.Context, token, deviceFin
 		SchoolID:           inv.SchoolID,
 		Role:               inv.Role,
 		FullName:           inv.FullName,
-		ExternalAuthID:     inv.StytchMemberID,
+		ExternalAuthID:     result.MemberID,
 		SessionToken:       sessionToken,
-		StytchMemberID:     inv.StytchMemberID,
-		StytchOrgID:        stytchOrgID,
+		StytchMemberID:     result.MemberID,
+		StytchOrgID:        result.OrganizationID,
 		StytchSessionToken: stytchSessionToken,
 		DeviceFingerprint:  deviceFingerprint,
+		ExpiresAt:          time.Now().Add(sessionTTL),
 		TSCNumber:          inv.RegistrationNumber,
 	}
 
@@ -1037,7 +1082,7 @@ func (h *testHarness) acceptInviteViaMocks(ctx context.Context, token, deviceFin
 		return "", "", "", err
 	}
 
-	// 7. Cache session in mock cache
+	// 6. Cache session in mock cache
 	h.cache.Set(h.svc.sessionKey(sessionToken), stytchSessionToken)
 
 	return sessionToken, inv.Role, inv.SchoolID, nil
@@ -1046,12 +1091,14 @@ func (h *testHarness) acceptInviteViaMocks(ctx context.Context, token, deviceFin
 func TestAcceptInviteViaMocks_HappyPath(t *testing.T) {
 	h := newTestHarness(t)
 
-	h.idp.authenticateInviteTokenFn = func(ctx context.Context, token string) (string, string, error) {
-		return "ist_invite_001", "invited@example.com", nil
-	}
-
-	h.idp.exchangeInviteSessionFn = func(ctx context.Context, ist, orgID string) (string, error) {
-		return "sty_sess_invite_001", nil
+	h.idp.authenticateMagicLinkFn = func(ctx context.Context, token string) (*MagicLinkAuthResult, error) {
+		return &MagicLinkAuthResult{
+			MemberID:            "member_invited_001",
+			OrganizationID:      "org_invite_001",
+			Email:               "invited@example.com",
+			StytchSessionToken:  "sty_sess_invite_001",
+			MemberAuthenticated: true,
+		}, nil
 	}
 
 	h.repo.getInvitationByEmailFn = func(ctx context.Context, email string) (*Invitation, error) {
@@ -1066,10 +1113,6 @@ func TestAcceptInviteViaMocks_HappyPath(t *testing.T) {
 			StytchMemberID: "member_invited_001",
 			ExpiresAt:      time.Now().Add(24 * time.Hour),
 		}, nil
-	}
-
-	h.repo.getTenantStytchOrgIDFn = func(ctx context.Context, tenantID string) (string, error) {
-		return "org_invite_001", nil
 	}
 
 	var capturedArgs CreateInvitedUserSessionArgs
@@ -1102,16 +1145,27 @@ func TestAcceptInviteViaMocks_HappyPath(t *testing.T) {
 	if capturedArgs.Role != "TEACHER" {
 		t.Fatalf("expected Role 'TEACHER', got %q", capturedArgs.Role)
 	}
+	// StytchMemberID should come from the auth result, not the invitation record
 	if capturedArgs.StytchMemberID != "member_invited_001" {
 		t.Fatalf("expected StytchMemberID 'member_invited_001', got %q", capturedArgs.StytchMemberID)
+	}
+	// OrganizationID should come from the auth result, not GetTenantStytchOrgID
+	if capturedArgs.StytchOrgID != "org_invite_001" {
+		t.Fatalf("expected StytchOrgID 'org_invite_001', got %q", capturedArgs.StytchOrgID)
 	}
 }
 
 func TestAcceptInviteViaMocks_NoInvitation(t *testing.T) {
 	h := newTestHarness(t)
 
-	h.idp.authenticateInviteTokenFn = func(ctx context.Context, token string) (string, string, error) {
-		return "ist_no_invite", "unknown@example.com", nil
+	h.idp.authenticateMagicLinkFn = func(ctx context.Context, token string) (*MagicLinkAuthResult, error) {
+		return &MagicLinkAuthResult{
+			MemberID:            "member_unknown",
+			OrganizationID:      "org_unknown",
+			Email:               "unknown@example.com",
+			StytchSessionToken:  "sess_unknown",
+			MemberAuthenticated: true,
+		}, nil
 	}
 
 	h.repo.getInvitationByEmailFn = func(ctx context.Context, email string) (*Invitation, error) {
@@ -1130,8 +1184,14 @@ func TestAcceptInviteViaMocks_NoInvitation(t *testing.T) {
 func TestAcceptInviteViaMocks_ExpiredInvitation(t *testing.T) {
 	h := newTestHarness(t)
 
-	h.idp.authenticateInviteTokenFn = func(ctx context.Context, token string) (string, string, error) {
-		return "ist_expired", "expired@example.com", nil
+	h.idp.authenticateMagicLinkFn = func(ctx context.Context, token string) (*MagicLinkAuthResult, error) {
+		return &MagicLinkAuthResult{
+			MemberID:            "member_expired",
+			OrganizationID:      "org_expired",
+			Email:               "expired@example.com",
+			StytchSessionToken:  "sess_expired",
+			MemberAuthenticated: true,
+		}, nil
 	}
 
 	h.repo.getInvitationByEmailFn = func(ctx context.Context, email string) (*Invitation, error) {
@@ -1147,11 +1207,28 @@ func TestAcceptInviteViaMocks_ExpiredInvitation(t *testing.T) {
 	}
 }
 
-func TestAcceptInviteViaMocks_StytchExchangeMFAFailure(t *testing.T) {
+func TestAcceptInviteViaMocks_MFARequired(t *testing.T) {
 	h := newTestHarness(t)
 
-	h.idp.authenticateInviteTokenFn = func(ctx context.Context, token string) (string, string, error) {
-		return "ist_mfa", "mfa@example.com", nil
+	// auth result says MFA is needed (MemberAuthenticated=false, IST is set)
+	h.idp.authenticateMagicLinkFn = func(ctx context.Context, token string) (*MagicLinkAuthResult, error) {
+		return &MagicLinkAuthResult{
+			MemberID:                 "member_mfa",
+			OrganizationID:           "org_mfa_001",
+			Email:                    "mfa@example.com",
+			IntermediateSessionToken: "ist_mfa",
+			MemberAuthenticated:      false,
+		}, nil
+	}
+
+	// Exchange the IST to complete MFA
+	h.idp.exchangeIntermediateSessionFn = func(ctx context.Context, ist, orgID string) (ExchangeResult, error) {
+		return ExchangeResult{
+			MemberAuthenticated: true,
+			StytchSessionToken:  "sty_sess_mfa_complete",
+			MemberID:            "member_mfa",
+			OrganizationID:      "org_mfa_001",
+		}, nil
 	}
 
 	h.repo.getInvitationByEmailFn = func(ctx context.Context, email string) (*Invitation, error) {
@@ -1168,20 +1245,28 @@ func TestAcceptInviteViaMocks_StytchExchangeMFAFailure(t *testing.T) {
 		}, nil
 	}
 
-	h.repo.getTenantStytchOrgIDFn = func(ctx context.Context, tenantID string) (string, error) {
-		return "org_mfa_001", nil
+	var capturedArgs CreateInvitedUserSessionArgs
+	h.repo.createInvitedUserSessionFn = func(ctx context.Context, args CreateInvitedUserSessionArgs) error {
+		capturedArgs = args
+		return nil
 	}
 
-	h.idp.exchangeInviteSessionFn = func(ctx context.Context, ist, orgID string) (string, error) {
-		return "", ErrMFARequired
+	sessionToken, role, schoolID, err := h.acceptInviteViaMocks(context.Background(), "mfa_token", "fp-mfa")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
-
-	_, _, _, err := h.acceptInviteViaMocks(context.Background(), "mfa_token", "fp-mfa")
-	if err == nil {
-		t.Fatal("expected ErrMFARequired, got nil")
+	if sessionToken == "" {
+		t.Fatal("expected non-empty session token")
 	}
-	if !errors.Is(err, ErrMFARequired) {
-		t.Fatalf("expected ErrMFARequired, got %v", err)
+	if role != "TEACHER" {
+		t.Fatalf("expected role 'TEACHER', got %q", role)
+	}
+	if schoolID != "school_mfa" {
+		t.Fatalf("expected school_id 'school_mfa', got %q", schoolID)
+	}
+	// Verify the stytch session token came from the IST exchange, not the auth result
+	if capturedArgs.StytchSessionToken != "sty_sess_mfa_complete" {
+		t.Fatalf("expected StytchSessionToken 'sty_sess_mfa_complete', got %q", capturedArgs.StytchSessionToken)
 	}
 }
 
@@ -1442,21 +1527,6 @@ func TestVerifyViaMocks_NewUser_NoDiscoveredOrgs(t *testing.T) {
 	if result.Email != "newuser@example.com" {
 		t.Fatalf("expected email 'newuser@example.com', got %q", result.Email)
 	}
-}
-
-// ============================================================================
-// mockYearCreator — implements AcademicYearCreator for unit tests
-// ============================================================================
-
-type mockYearCreator struct {
-	setupFn func(ctx context.Context, tenantID, schoolID, actorID string, now *time.Time) error
-}
-
-func (m *mockYearCreator) SetupInitialYear(ctx context.Context, tenantID, schoolID, actorID string, now *time.Time) error {
-	if m.setupFn != nil {
-		return m.setupFn(ctx, tenantID, schoolID, actorID, now)
-	}
-	return nil
 }
 
 // ============================================================================

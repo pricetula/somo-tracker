@@ -83,8 +83,8 @@ func TestHandler_ListInvitations_HappyPath(t *testing.T) {
 
 	var result ListInvitationsResponse
 	_ = json.NewDecoder(resp.Body).Decode(&result)
-	if len(result.Invitations) != 1 {
-		t.Fatalf("expected 1 invitation, got %d", len(result.Invitations))
+	if len(result.Items) != 1 {
+		t.Fatalf("expected 1 invitation, got %d", len(result.Items))
 	}
 	if result.Total != 1 {
 		t.Fatalf("expected total 1, got %d", result.Total)

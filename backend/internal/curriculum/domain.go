@@ -26,7 +26,7 @@ type Repository interface {
 	// Learning Areas
 	CreateLearningArea(ctx context.Context, params CreateLearningAreaParams) (string, error)
 	GetLearningAreaByID(ctx context.Context, id, tenantID, schoolID string) (*LearningArea, error)
-	ListLearningAreas(ctx context.Context, tenantID, schoolID string, educationLevel *string) ([]LearningArea, error)
+	ListLearningAreas(ctx context.Context, tenantID, schoolID string, educationLevels, gradeLevels []string, search string, page, limit int) ([]LearningArea, int, error)
 	UpdateLearningArea(ctx context.Context, params UpdateLearningAreaParams) error
 	DeleteLearningArea(ctx context.Context, id, tenantID, schoolID string) error
 
@@ -67,7 +67,8 @@ type Repository interface {
 
 // ── Domain Models ─────────────────────────────────────────────────────────
 
-// LearningArea represents a CBC learning area (subject) taught at a school.
+// LearningArea represents a CBC learning area (subject) taught at a school
+// for a specific grade level.
 type LearningArea struct {
 	ID             string `json:"id"`
 	TenantID       string `json:"-"`
@@ -75,6 +76,7 @@ type LearningArea struct {
 	Name           string `json:"name"`
 	Code           string `json:"code"`
 	EducationLevel string `json:"education_level"`
+	GradeLevel     string `json:"grade_level"`
 }
 
 // Strand represents a CBC strand within a learning area.
@@ -126,6 +128,7 @@ type CreateLearningAreaParams struct {
 	Name           string
 	Code           string
 	EducationLevel string
+	GradeLevel     string
 }
 
 // UpdateLearningAreaParams holds fields that can be updated on a learning area.
@@ -136,6 +139,7 @@ type UpdateLearningAreaParams struct {
 	Name           *string
 	Code           *string
 	EducationLevel *string
+	GradeLevel     *string
 }
 
 // CreateStrandParams holds the fields needed to create a strand.
@@ -183,17 +187,21 @@ type CreateLearningAreaPayload struct {
 	Code           string `json:"code"`
 	Name           string `json:"name"`
 	EducationLevel string `json:"education_level"`
+	GradeLevel     string `json:"grade_level"`
 }
 
 type UpdateLearningAreaPayload struct {
 	Name           *string `json:"name,omitempty"`
 	Code           *string `json:"code,omitempty"`
 	EducationLevel *string `json:"education_level,omitempty"`
+	GradeLevel     *string `json:"grade_level,omitempty"`
 }
 
 type ListLearningAreasResponse struct {
-	LearningAreas []LearningArea `json:"learning_areas"`
-	Total         int            `json:"total"`
+	Items []LearningArea `json:"items"`
+	Total int            `json:"total"`
+	Page  int            `json:"page"`
+	Limit int            `json:"limit"`
 }
 
 // Strand payloads
@@ -207,8 +215,8 @@ type UpdateStrandPayload struct {
 }
 
 type ListStrandsResponse struct {
-	Strands []Strand `json:"strands"`
-	Total   int      `json:"total"`
+	Items []Strand `json:"items"`
+	Total int      `json:"total"`
 }
 
 // Sub-Strand payloads
@@ -222,8 +230,8 @@ type UpdateSubStrandPayload struct {
 }
 
 type ListSubStrandsResponse struct {
-	SubStrands []SubStrand `json:"sub_strands"`
-	Total      int         `json:"total"`
+	Items []SubStrand `json:"items"`
+	Total int         `json:"total"`
 }
 
 // Performance Indicator payloads
@@ -239,6 +247,38 @@ type UpdatePerformanceIndicatorPayload struct {
 }
 
 type ListPerformanceIndicatorsResponse struct {
-	PerformanceIndicators []PerformanceIndicator `json:"performance_indicators"`
-	Total                 int                    `json:"total"`
+	Items []PerformanceIndicator `json:"items"`
+	Total int                    `json:"total"`
+}
+
+// ── Seeding Input Structs (JSON payload) ──────────────────────────────────
+
+// CurriculumData wraps a slice of learning areas parsed from a single JSON file.
+type CurriculumData []LearningAreaInput
+
+// LearningAreaInput mirrors the JSON payload for a CBC learning area.
+type LearningAreaInput struct {
+	Name           string        `json:"name"`
+	Code           string        `json:"code"`
+	EducationLevel string        `json:"education_level"`
+	Pathway        string        `json:"pathway,omitempty"`
+	Strands        []StrandInput `json:"strands"`
+}
+
+// StrandInput mirrors the JSON payload for a strand within a learning area.
+type StrandInput struct {
+	Name       string           `json:"name"`
+	SubStrands []SubStrandInput `json:"sub_strands"`
+}
+
+// SubStrandInput mirrors the JSON payload for a sub-strand within a strand.
+type SubStrandInput struct {
+	Name                  string   `json:"name"`
+	PerformanceIndicators []string `json:"performance_indicators"`
+}
+
+// GradeFile maps a JSON file stem to a CBC grade level.
+type GradeFile struct {
+	Stem  string // file stem (e.g. "pp1", "grade4", "grade10.stem")
+	Grade string // normalized grade level (e.g. "PP1", "G4", "G10")
 }

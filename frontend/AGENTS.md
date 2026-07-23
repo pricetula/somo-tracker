@@ -19,164 +19,253 @@ src/
 ├── features/                   # Feature-Module layer — core business logic
 │   └── analytics/              # Example feature
 │       ├── components/         # Presentational UI (feature-scoped)
-│       ├── hooks/              # Data fetching and local state
+│       ├── hooks/               # Data fetching and local state
 │       ├── services/           # API clients, server actions, SDK wrappers
-│       ├── types/              # TypeScript interfaces for this feature
+│       ├── types/               # TypeScript interfaces for this feature
 │       └── index.ts            # Public API — the only import entry point
 │
 ├── components/                 # Global, generic UI only (e.g. shadcn primitives)
 └── lib/                        # Global utilities (e.g. tailwind-merge, auth config)
 ```
 
-- Each feature is **self-contained**: logic, UI, and state all live within its folder.
-- External code imports a feature **only** through its `index.ts` — never from internal paths.
+- Each feature is self-contained: logic, UI, and state all live within its folder.
+- External code imports a feature only through its `index.ts` — never internal paths.
 - Features must not import from each other. Shared logic belongs in `lib/`.
+- Route handlers live in `app/api/…/route.ts` — never in `features/`.
+- Page files (`page.tsx`) render a single feature container. No logic in page files.
+- Do not define multiple components in one `.tsx` file — one component per file.
+- Avoid div bloat — no wrapper `<div>` that serves no layout/semantic purpose.
 
 ---
 
-## 2. Package Manager
+## 2. Page Creation — No Headers or Back Navigation
 
-Use **pnpm** exclusively — never `npm` or `yarn`.
+When scaffolding a new page, the app shell (top bar, back button, global navigation) is
+owned by `src/app/layout.tsx` and the feature container's root layout — not by
+individual page or feature components.
 
-- `pnpm install` — local dev
-- `pnpm install --frozen-lockfile` — CI/Docker
+- **Do not** add a `<header>`, `<nav>`, back button, or any breadcrumb component inside
+  a page file (`page.tsx`) or a feature container rendered by one. Navigation is the
+  shell's responsibility.
+- **Do not** replicate the top app bar or any global navigation element. The shell
+  layout is inherited; pages are content panes only.
+- If a page needs a heading (e.g. a page title), use `h1` rendered as plain text —
+  never wrap it in a header/nav element or style it to look like a navigation bar.
+- Exception: standalone marketing pages under `public/` (separate project) may have
+  their own headers; this rule applies only to the `frontend/` Next.js app.
+
+---
+
+## 3. Package Manager
+
+Use **pnpm** exclusively — including for one-off/codemod commands (`pnpm dlx`) and
+npm-scripts (`pnpm run <script>`). Never invoke `npm` or `npx` directly.
+
+- `pnpm install` / `pnpm install --frozen-lockfile` (CI/Docker)
 - `pnpm add <pkg>` / `pnpm add -D <pkg>` / `pnpm remove <pkg>`
-- `pnpm exec` / `pnpm dlx` for one-off commands (never global installs)
+- `pnpm dlx <tool>` for one-off commands (never global installs)
 - Use `--ignore-scripts` in CI/Docker unless a postinstall script is explicitly required.
 
 ---
 
-## 3. React State-in-Effect Policy
+## 4. React State-in-Effect Policy
 
-`setState` inside `useEffect` causes cascading renders and potential infinite loops.
+1. Never call `setState` inside `useEffect`. Derive values with `useMemo` or compute
+   inline during render.
+2. Use event handlers for reactive updates (e.g. auto-filling end time when start time
+   changes) — not effects.
+3. Prefer `useMemo` over `useEffect + setState` for any value computable from existing
+   state or props.
 
-1. **Never call `setState` inside `useEffect`.** Derive values with `useMemo` or compute inline during render.
-2. **Use event handlers for reactive updates** (e.g. auto-filling end time when start time changes) — not effects.
-3. **Prefer `useMemo` over `useEffect + setState`** for any value computable from existing state or props.
-
-Run `pnpm lint` before pushing. The `react-hooks/set-state-in-effect` ESLint rule enforces this.
+Run `pnpm lint` before pushing — the `react-hooks/set-state-in-effect` rule enforces this.
 
 ---
 
-## 4. Documentation & Tooltip Synchronization
+## 5. Documentation & Tooltip Synchronization
 
-All contextual inline UI help must derive from `content/docs/*.mdx` frontmatter via `<FeatureHelp slug="filename" anchorId="heading-anchor" />`.
+All contextual inline UI help must derive from `content/docs/*.mdx` frontmatter via
+`<FeatureHelp slug="filename" anchorId="heading-anchor" />`.
 
 - Never hardcode descriptive text inside UI markup or labels.
-- Every doc file must declare a `tooltipSummary` string under 160 characters — plain text, no Markdown.
+- Every doc file must declare a `tooltipSummary` string under 160 characters — plain
+  text, no Markdown.
+- Before completing any task touching routing, settings UI, or backend flag
+  configuration, run `pnpm run audit:docs` and fix misalignments before pushing.
 
-Before completing any task touching routing, settings UI, or backend flag configuration, run:
+---
 
-```bash
-npm run audit:docs
+## 6. Routing — `proxy.ts`
+
+As of Next.js 16, `middleware.ts` is deprecated in favor of `proxy.ts`. For anything not
+covered below, check the current [Next.js proxy.js docs](https://nextjs.org/docs/app/api-reference/file-conventions/proxy) rather than relying on memory — behavior here is
+still being finalized upstream.
+
+- **Location:** Since this project uses `frontend/src/app/`, proxy must live at
+  `frontend/src/proxy.ts` (adjacent to `app/`), not `frontend/proxy.ts`.
+- **Export:** **Default export only** (Next.js 16.2 loads via `middlewareModule.default`;
+  named exports cause `adapterFn is not a function`). Named export `proxy` is not
+  supported in this version. Do NOT use `middleware()`.
+- **Signature:** `export default function proxy(request: NextRequest, event?: NextFetchEvent)`
+- **Runtime:** Node.js only — the `runtime` config option is not available in proxy
+  files and will throw if set.
+- **Matcher is required.** Without it, proxy runs on every request including static
+  files. Use negative matches to exclude assets:
+
+```ts
+export const config = {
+    matcher: ["/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|.*\\.png$).*)"],
+};
 ```
 
-Fix misalignments before pushing.
+- **State:** Proxy runs separately from render code — no shared modules/globals. Pass
+  data via headers, cookies, rewrites, or redirects only.
+- **Server Functions are not separate routes** in the execution chain — a matcher that
+  excludes a path also skips Server Function calls on that path. Verify auth inside
+  each Server Function; don't rely on proxy alone.
+- Do not recreate `middleware.ts`.
+
+**Migrating an existing `middleware.ts`:** run the official codemod —
+`pnpm dlx @next/codemod@canary middleware-to-proxy .` — it renames the file and export
+automatically.
 
 ---
 
-## 5. Routing Conventions
+## 7. Listing
 
-- `middleware.ts` → renamed to `proxy.ts`; export is `proxy()` not `middleware()`. Do not recreate `middleware.ts`.
-- Route handlers live in `app/api/…/route.ts` — never in `features/`.
-- Page files (`page.tsx`) render a single feature container. No logic in page files.
-
-**Changelog:**
-| Date | Change |
-|------|--------|
-| 2026-06-12 | `middleware.ts` renamed to `proxy.ts`; `middleware()` export renamed to `proxy()`. |
-| 2026-06-23 | Added Section 8 — Shadcn UI Components are never to be modified by hand. |
+Use TanStack virtualized lists for any list where the query may return large result
+sets.
 
 ---
 
-## 6. Listing
+## 8. Visual Guidance — reduce borders and cards
 
-For listing prefer to use tanstack virtualized lists since the query might have large amounts of data
-
----
-
-## 7. Visual Guidance reducing border lines and cards
-
-- **Excessive use of Bborders are discouraged:** Avoid using alot of borders unless necessary or prompted to add them. Separate sections cleanly using margins and padding (`space-y-*`, `gap-*`, `p-*`).
-- Avoid excessive use of card component or elements `shadow` styling.
-- Build tables flat against the background container without encapsulating cell borders or surrounding row outlines. Use clean vertical alignment instead.
-- Avoid excessive use of horizontal `<Separator />` lines or explicit `<hr />` dividers. Maintain layout groupings purely through spatial rules unless when necessary or prompted to add.
-
-**_ IMPORTANT _**
-
-- **Do not define multiple components in a .tsx file**: Every .tsx file should contain only one react component definition
-- **Avoid Div bloat**: do not make useless divs check
+- Avoid excessive borders unless necessary or requested. Separate sections with
+  margin/padding (`space-y-*`, `gap-*`, `p-*`) instead.
+- Avoid excessive card/`shadow` styling.
+- Build tables flat against the background — no cell borders or row outlines. Use
+  clean vertical alignment instead.
+- Avoid excessive `<Separator />` / `<hr />` dividers; prefer spatial grouping unless
+  a divider is explicitly needed.
 
 ---
 
-## 8. Shadcn UI Components — Never Modify, Never Add
+## 9. Shadcn UI Components — never modify, never add by hand
 
-Files under `src/components/ui/` are auto-generated shadcn primitives. **Do not add, edit, refactor, or patch them.**
+Files under `src/components/ui/` are auto-generated shadcn primitives.
 
-- The sole exception is when running `pnpm dlx shadcn@latest add <component>` to add a new component.
-- Any bugs, type errors, or Tailwind warnings in these files must be resolved by re-adding or upgrading the component via shadcn CLI — never by hand.
-- If a shadcn component has a type mismatch with its underlying library (e.g. `react-day-picker`), update the library or re-add the component.
+- The only way to add or change one is `pnpm dlx shadcn@latest add <component>`.
+- Bugs, type errors, or Tailwind warnings in these files are fixed by re-adding or
+  upgrading via the shadcn CLI — never by hand.
+- If a shadcn component has a type mismatch with its underlying library (e.g.
+  `react-day-picker`), update the library or re-add the component.
 
 ---
 
-## 9. Error Handling
+## 10. Error Handling
 
-### ApiError class (`src/lib/api/client.ts`)
+### `ApiError` (`src/lib/api/client.ts`)
 
-- `ApiError` is defined **only** in `src/lib/api/client.ts`.
-- Properties: `status: number`, `code: string`, `message: string`, `errors?: Record<string, string[]>`.
-- Every non-2xx response throws `ApiError`. If the body is unparseable, throws with fallback message "Unexpected error".
-- **Global 401 eviction:** On any 401, the client forces a redirect to `/logout` (unless `skipGlobal401Handler: true` is set).
+- Defined only here. Properties: `status: number`, `code: string`, `message: string`,
+  `errors?: Record<string, string[]>`.
+- Every non-2xx response throws `ApiError`; unparseable bodies throw with fallback
+  message "Unexpected error".
+- On any 401, the client forces a redirect to `/logout` unless
+  `skipGlobal401Handler: true` is set.
 - Backend contract reference: `internal/middleware/errors.go`.
 
-### getErrorMessage utility (`src/lib/errors.ts`)
+### `getErrorMessage` (`src/lib/errors.ts`)
 
-- `getErrorMessage(err: unknown): string` — handles `ApiError`, `Error`, string, and unknown throws.
-- Never throws. Never returns `undefined`.
-- **All catch blocks must use `getErrorMessage(err)`** — `(err as Error).message` is forbidden.
+- `getErrorMessage(err: unknown): string` handles `ApiError`, `Error`, string, and
+  unknown throws. Never throws, never returns `undefined`.
+- All catch blocks use `getErrorMessage(err)` — `(err as Error).message` is forbidden.
 
-### React Query rules
+### React Query
 
-- **`useQuery`:** Every call site must handle the `isError` state. Rendering `null` or nothing when `isError` is true is forbidden. At minimum render an `<Alert>` component.
-- **`useMutation`:** Every data-modifying mutation must include an `onError` callback. An omitted `onError` on create/update/delete/import/upload is forbidden. The callback must at minimum call `toast.error(getErrorMessage(err))`.
+- `useQuery`: every call site handles `isError` — rendering nothing on error is
+  forbidden; at minimum render an `<Alert>`.
+- `useMutation`: every data-modifying mutation (create/update/delete/import/upload)
+  includes an `onError` that at minimum calls `toast.error(getErrorMessage(err))`.
 
 ### Async handlers and hooks
 
-- Every async function not called through React Query must have a `try/catch`.
-- Forbidden: `void someAsyncFn()`, `fetch().then(r => r.json())` with no `.catch()`, empty catch blocks.
-- Background/polling async: retry up to defined max, then surface non-intrusive status indicator. Never silently drop the error.
+- Every async function not called through React Query needs a `try/catch`.
+- Forbidden: `void someAsyncFn()`, `fetch().then(r => r.json())` with no `.catch()`,
+  empty catch blocks.
+- Background/polling async: retry up to a defined max, then surface a non-intrusive
+  status indicator — never silently drop the error.
 
 ### Error boundaries
 
-- **Every major route or feature** must be wrapped in a React `ErrorBoundary` (`src/components/error-boundary.tsx`).
-- Distinguish:
-    - `ApiError` (operational): show `error.message` gracefully.
-    - Other errors (programming): report to error tracker, show generic "Something went wrong".
-- The global `src/app/error.tsx` follows the same distinction and reports to the error tracker.
+- Every major route/feature is wrapped in `src/components/error-boundary.tsx`.
+- `ApiError` (operational) → show `error.message` gracefully. Other errors
+  (programming) → report to error tracker, show generic "Something went wrong".
+- `src/app/error.tsx` follows the same distinction and reports to the error tracker.
 
-### Form validation errors (400 responses)
+### Form validation (400 responses)
 
-- When a mutation receives an `ApiError` with `status === 400` and an `errors` map, it must drive field-level errors using `form.setError` — not a generic toast.
-- See `src/features/auth/components/register-form.tsx` for the canonical implementation pattern.
+- A mutation receiving `ApiError` with `status === 400` and an `errors` map drives
+  field-level errors via `form.setError` — not a generic toast. Canonical pattern:
+  `src/features/auth/components/register-form.tsx`.
 
-### Web Worker errors (`src/workers/`)
+### Web Workers (`src/workers/`)
 
-- Every worker must have `self.onerror` that posts a structured error message back to the main thread.
-- The main thread handler must display a visible error state to the user.
-
-### Forbidden patterns
-
-- `(err as Error).message` — use `getErrorMessage(err)` instead.
-- Empty `catch (e) {}` blocks.
-- `void someAsyncFn()` (fire-and-forget).
-- `fetch(...).then(r => r.json())` with no `.catch()`.
-- Omitted `onError` on data-modifying mutations.
-- `isError` state ignored in `useQuery`.
-- `ApiError` defined anywhere other than `src/lib/api/client.ts`.
+- Every worker has `self.onerror` posting a structured error back to the main thread.
+- The main thread handler shows a visible error state to the user.
 
 ---
 
-## 10. Simplicity & References
+## 11. Simplicity & References
 
-- **Don't overcomplicate.** When implementing a standard pattern (virtualized list, form, table, etc.), start from the library's canonical docs example and adapt — don't reverse-engineer or add speculative layers.
-- **When stuck, read the latest official docs first.** Before debugging assumptions about library behavior, fetch the current version's API reference and examples. The answer is usually in the docs, not in stack traces.
+- Don't overcomplicate. For standard patterns (virtualized list, form, table), start
+  from the library's canonical docs example and adapt — don't reverse-engineer or add
+  speculative layers.
+- When stuck, fetch the current version's official docs/API reference before
+  debugging assumptions about library behavior.
+
+---
+
+## 12. Guard Against Null/Undefined on Nested Property Access
+
+Never assume a deeply nested property is defined. Every chained access through
+`var.a.b.c` must be protected with one of:
+
+- **Optional chaining (`?.`):** `data?.items?.map(...)`
+- **Null guard + early return:** `if (!data?.items) return []; data.items.map(...)`
+- **Nullish coalescing (`??`):** `detail.linked_students?.length ?? 0`
+- **Error/loading state guard:** Components receiving query data must return an
+  `isLoading` skeleton or `isError` alert **before** accessing response properties.
+  Never render a partially-loaded state that accesses nested fields.
+
+### Forbidden patterns
+
+```ts
+// ❌ Unsafe — crashes if data or data.items is null/undefined
+data.items.map(...)
+
+// ❌ Unsafe — crashes if detail or detail.linked_students is null
+detail.linked_students.map(...)
+
+// ❌ Unsafe — crashes if error.extra is undefined
+error.extra.active_job_id
+```
+
+### Required patterns
+
+```ts
+// ✅ Optional chaining
+const items = data?.items?.map(...) ?? [];
+
+// ✅ Guard + access
+if (!data?.items) return [];
+return data.items.map(...);
+
+// ✅ Error/loading guard
+if (isLoading) return <Skeleton ... />;
+if (isError || !response?.data) return <ErrorState />;
+return <Main data={response.data} />;
+```
+
+This applies to **all** `.ts` and `.tsx` files under `src/` — including render
+code, hooks, optimistic updaters, and utility functions.
+
+---

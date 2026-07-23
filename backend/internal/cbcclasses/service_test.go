@@ -11,23 +11,25 @@ import (
 // ============================================================================
 
 type MockRepository struct {
-	listFn                  func(ctx context.Context, filter ClassListFilter) (*ClassListResult, error)
-	getByIDFn               func(ctx context.Context, id, tenantID, schoolID string) (*Class, error)
-	createFn                func(ctx context.Context, params CreateClassParams) (*Class, error)
-	updateFn                func(ctx context.Context, params UpdateClassParams) (*Class, error)
-	bulkDeleteFn            func(ctx context.Context, ids []string, tenantID, schoolID string) error
-	hasAssessmentSessionsFn func(ctx context.Context, classID, tenantID string) (bool, error)
-	hasAnyAssessmentFn      func(ctx context.Context, classIDs []string, tenantID string) (bool, error)
-	validateAcademicYearFn  func(ctx context.Context, id, tenantID, schoolID string) (bool, error)
-	validateAcademicTermFn  func(ctx context.Context, id, academicYearID string) (bool, error)
-	validateStreamFn        func(ctx context.Context, id, tenantID, schoolID string) (bool, error)
+	listFn                 func(ctx context.Context, filter ClassListFilter) (*ClassListResult, error)
+	getByIDFn              func(ctx context.Context, id, tenantID, schoolID string) (*Class, error)
+	createFn               func(ctx context.Context, params CreateClassParams) (*Class, error)
+	updateFn               func(ctx context.Context, params UpdateClassParams) (*Class, error)
+	bulkDeleteFn           func(ctx context.Context, ids []string, tenantID, schoolID string) error
+	validateAcademicYearFn func(ctx context.Context, id, tenantID, schoolID string) (bool, error)
+	validateAcademicTermFn func(ctx context.Context, id, academicYearID string) (bool, error)
+	validateStreamFn       func(ctx context.Context, id, tenantID, schoolID string) (bool, error)
+	getRosterFn            func(ctx context.Context, classID, tenantID, schoolID, academicTermID string, limit, offset int, search string) (*RosterListResult, error)
+	batchEnrollStudentsFn  func(ctx context.Context, classID, tenantID, schoolID, academicTermID string, studentIDs []string) (int, error)
+	unenrollStudentFn      func(ctx context.Context, classID, studentID, tenantID, schoolID string) error
+	getAvailableStudentsFn func(ctx context.Context, filter AvailableStudentsFilter) (*AvailableStudentsResponse, error)
 }
 
 func (m *MockRepository) List(ctx context.Context, filter ClassListFilter) (*ClassListResult, error) {
 	if m.listFn != nil {
 		return m.listFn(ctx, filter)
 	}
-	return &ClassListResult{Data: []Class{}, TotalRecords: 0, CurrentPage: 1, Limit: 50, TotalPages: 1}, nil
+	return &ClassListResult{Items: []Class{}, Total: 0, Page: 1, Limit: 50}, nil
 }
 
 func (m *MockRepository) GetByID(ctx context.Context, id, tenantID, schoolID string) (*Class, error) {
@@ -58,20 +60,6 @@ func (m *MockRepository) BulkDelete(ctx context.Context, ids []string, tenantID,
 	return nil
 }
 
-func (m *MockRepository) HasAssessmentSessions(ctx context.Context, classID, tenantID string) (bool, error) {
-	if m.hasAssessmentSessionsFn != nil {
-		return m.hasAssessmentSessionsFn(ctx, classID, tenantID)
-	}
-	return false, nil
-}
-
-func (m *MockRepository) HasAnyAssessmentSessions(ctx context.Context, classIDs []string, tenantID string) (bool, error) {
-	if m.hasAnyAssessmentFn != nil {
-		return m.hasAnyAssessmentFn(ctx, classIDs, tenantID)
-	}
-	return false, nil
-}
-
 func (m *MockRepository) ValidateAcademicYear(ctx context.Context, id, tenantID, schoolID string) (bool, error) {
 	if m.validateAcademicYearFn != nil {
 		return m.validateAcademicYearFn(ctx, id, tenantID, schoolID)
@@ -91,6 +79,34 @@ func (m *MockRepository) ValidateStream(ctx context.Context, id, tenantID, schoo
 		return m.validateStreamFn(ctx, id, tenantID, schoolID)
 	}
 	return true, nil
+}
+
+func (m *MockRepository) GetRoster(ctx context.Context, classID, tenantID, schoolID, academicTermID string, limit, offset int, search string) (*RosterListResult, error) {
+	if m.getRosterFn != nil {
+		return m.getRosterFn(ctx, classID, tenantID, schoolID, academicTermID, limit, offset, search)
+	}
+	return &RosterListResult{Items: []RosterEntry{}, Total: 0, Page: 1, Limit: 50}, nil
+}
+
+func (m *MockRepository) BatchEnrollStudents(ctx context.Context, classID, tenantID, schoolID, academicTermID string, studentIDs []string) (int, error) {
+	if m.batchEnrollStudentsFn != nil {
+		return m.batchEnrollStudentsFn(ctx, classID, tenantID, schoolID, academicTermID, studentIDs)
+	}
+	return len(studentIDs), nil
+}
+
+func (m *MockRepository) UnenrollStudent(ctx context.Context, classID, studentID, tenantID, schoolID string) error {
+	if m.unenrollStudentFn != nil {
+		return m.unenrollStudentFn(ctx, classID, studentID, tenantID, schoolID)
+	}
+	return nil
+}
+
+func (m *MockRepository) GetAvailableStudents(ctx context.Context, filter AvailableStudentsFilter) (*AvailableStudentsResponse, error) {
+	if m.getAvailableStudentsFn != nil {
+		return m.getAvailableStudentsFn(ctx, filter)
+	}
+	return &AvailableStudentsResponse{Items: []AvailableStudent{}, Total: 0, Page: 1, Limit: 50}, nil
 }
 
 // ============================================================================
@@ -119,14 +135,13 @@ func TestListClasses_HappyPath(t *testing.T) {
 	h := newTestHarness()
 
 	expectedResult := &ClassListResult{
-		Data: []Class{
+		Items: []Class{
 			{ID: "class_001", GradeLevel: "G4", StreamName: "Blue", DisplayLabel: "G4 Blue", StreamID: "stream_001", StudentCount: 32},
 			{ID: "class_002", GradeLevel: "G4", StreamName: "Red", DisplayLabel: "G4 Red", StreamID: "stream_002", StudentCount: 28},
 		},
-		TotalRecords: 2,
-		CurrentPage:  1,
-		Limit:        50,
-		TotalPages:   1,
+		Total: 2,
+		Page:  1,
+		Limit: 50,
 	}
 
 	h.repo.listFn = func(ctx context.Context, filter ClassListFilter) (*ClassListResult, error) {
@@ -151,14 +166,14 @@ func TestListClasses_HappyPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(result.Data) != 2 {
-		t.Fatalf("expected 2 classes, got %d", len(result.Data))
+	if len(result.Items) != 2 {
+		t.Fatalf("expected 2 classes, got %d", len(result.Items))
 	}
-	if result.Data[0].DisplayLabel != "G4 Blue" {
-		t.Fatalf("expected display_label 'G4 Blue', got %q", result.Data[0].DisplayLabel)
+	if result.Items[0].DisplayLabel != "G4 Blue" {
+		t.Fatalf("expected display_label 'G4 Blue', got %q", result.Items[0].DisplayLabel)
 	}
-	if result.Data[0].StudentCount != 32 {
-		t.Fatalf("expected student_count 32, got %d", result.Data[0].StudentCount)
+	if result.Items[0].StudentCount != 32 {
+		t.Fatalf("expected student_count 32, got %d", result.Items[0].StudentCount)
 	}
 }
 
@@ -200,7 +215,7 @@ func TestListClasses_EmptyResults(t *testing.T) {
 	h := newTestHarness()
 
 	h.repo.listFn = func(ctx context.Context, filter ClassListFilter) (*ClassListResult, error) {
-		return &ClassListResult{Data: []Class{}, TotalRecords: 0, CurrentPage: 1, Limit: 50, TotalPages: 1}, nil
+		return &ClassListResult{Items: []Class{}, Total: 0, Page: 1, Limit: 50}, nil
 	}
 
 	result, err := h.svc.ListClasses(context.Background(), ClassListFilter{
@@ -212,8 +227,8 @@ func TestListClasses_EmptyResults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(result.Data) != 0 {
-		t.Fatalf("expected 0 classes, got %d", len(result.Data))
+	if len(result.Items) != 0 {
+		t.Fatalf("expected 0 classes, got %d", len(result.Items))
 	}
 }
 
@@ -414,29 +429,6 @@ func TestUpdateClass_EmptyID(t *testing.T) {
 	}
 }
 
-func TestUpdateClass_LockedByAssessments(t *testing.T) {
-	h := newTestHarness()
-
-	h.repo.hasAssessmentSessionsFn = func(ctx context.Context, classID, tenantID string) (bool, error) {
-		return true, nil
-	}
-
-	_, err := h.svc.UpdateClass(context.Background(), UpdateClassParams{
-		ClassID:        "class_001",
-		TenantID:       "tenant_001",
-		SchoolID:       "school_001",
-		GradeLevel:     "G4",
-		StreamID:       "stream_001",
-		AcademicTermID: "term_001",
-	})
-	if err == nil {
-		t.Fatal("expected error for locked class, got nil")
-	}
-	if !errors.Is(err, ErrClassLocked) {
-		t.Fatalf("expected ErrClassLocked, got %v", err)
-	}
-}
-
 func TestUpdateClass_NotFound(t *testing.T) {
 	h := newTestHarness()
 
@@ -511,23 +503,6 @@ func TestBulkDeleteClasses_OverLimit(t *testing.T) {
 		t.Fatalf("expected ErrInvalidInput, got %v", err)
 	}
 }
-
-func TestBulkDeleteClasses_BlockedByAssessments(t *testing.T) {
-	h := newTestHarness()
-
-	h.repo.hasAnyAssessmentFn = func(ctx context.Context, classIDs []string, tenantID string) (bool, error) {
-		return true, nil
-	}
-
-	err := h.svc.BulkDeleteClasses(context.Background(), []string{"class_001"}, "tenant_001", "school_001")
-	if err == nil {
-		t.Fatal("expected error for classes with assessments, got nil")
-	}
-	if !errors.Is(err, ErrClassHasAssessments) {
-		t.Fatalf("expected ErrClassHasAssessments, got %v", err)
-	}
-}
-
 func TestBulkDeleteClasses_EmptyTenantID(t *testing.T) {
 	h := newTestHarness()
 

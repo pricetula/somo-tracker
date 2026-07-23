@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"net/url"
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
@@ -18,10 +20,24 @@ type importServiceAdapter interface {
 	CreateJob(ctx context.Context, req imports.CreateJobRequest) (*imports.CreateJobResponse, error)
 }
 
+// academicYearsAdapter is the subset of academicyears.Service that the handler uses.
+type academicYearsAdapter interface {
+	GetCurrentAcademicYearID(ctx context.Context, tenantID, schoolID string) (string, error)
+	GetCurrentAcademicTermID(ctx context.Context, academicYearID string) (string, error)
+}
+
+// BehaviorNotesProvider is a function-based adapter that the students handler
+// uses to fetch behavior notes for the student detail page. It is set via
+// SetBehaviorNotesProvider during fx wiring in main.go to avoid a direct
+// import dependency on the behavior package.
+type BehaviorNotesProvider func(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]BehaviorNoteItem, error)
+
 // Handler exposes student HTTP endpoints.
 type Handler struct {
-	svc    *Service
-	impSvc importServiceAdapter
+	svc              *Service
+	impSvc           importServiceAdapter
+	academicYearsSvc academicYearsAdapter
+	behaviorNotesFn  BehaviorNotesProvider
 }
 
 // NewHandler creates a new Handler.
@@ -32,6 +48,18 @@ func NewHandler(svc *Service) *Handler {
 // SetImportService sets the import service reference.
 func (h *Handler) SetImportService(impSvc importServiceAdapter) {
 	h.impSvc = impSvc
+}
+
+// SetAcademicYearsService sets the academicyears service reference.
+func (h *Handler) SetAcademicYearsService(aySvc academicYearsAdapter) {
+	h.academicYearsSvc = aySvc
+}
+
+// SetBehaviorNotesProvider sets the function that fetches behavior notes
+// for the student detail page. This is wired from main.go to avoid a
+// direct import dependency between students and behavior packages.
+func (h *Handler) SetBehaviorNotesProvider(fn BehaviorNotesProvider) {
+	h.behaviorNotesFn = fn
 }
 
 // RegisterRoutes mounts student routes on the given router.
@@ -46,8 +74,30 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	students.Post("/:id/enrollments", middleware.RequireAuth, h.CreateEnrollment)
 	students.Get("/:id/enrollments", middleware.RequireAuth, h.ListEnrollments)
 
-	// Bulk import
-	students.Post("/import", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN"), h.BulkImport)
+	// Bulk import (with request body size limit scoped to this route only)
+	students.Post("/import", middleware.RequireAuth, bodySizeLimit, h.BulkImport)
+
+	// Duplicate checking (proactive check used by frontend before submit)
+	students.Post("/check-duplicates", middleware.RequireAuth, h.CheckDuplicates)
+}
+
+// bodySizeLimit is a per-route middleware that rejects requests whose
+// Content-Length exceeds maxImportBodyBytes. This is scoped to the import
+// endpoint and does NOT apply a codebase-wide body limit.
+//
+// Assumption: 5000 rows × ~2KB/row ≈ 10MB. With 50% margin the cap is
+// 15MB (imports.maxImportBodyBytes). If the Content-Length header is
+// missing the body is parsed normally (Fiber clamps internally at 4MB by
+// default, but that default may change in future Fiber versions).
+func bodySizeLimit(c *fiber.Ctx) error {
+	if cl := c.Get("Content-Length"); cl != "" {
+		if size, err := strconv.Atoi(cl); err == nil && size > imports.MaxImportBodyBytes() {
+			return writeError(c, fiber.StatusRequestEntityTooLarge, "request_too_large",
+				fmt.Sprintf("Request body is too large (%d bytes). The maximum is %d bytes for student import. Please reduce the number of rows.",
+					size, imports.MaxImportBodyBytes()), nil)
+		}
+	}
+	return c.Next()
 }
 
 // ============================================================================
@@ -100,42 +150,41 @@ func (h *Handler) BulkImport(c *fiber.Ctx) error {
 		return writeError(c, fiber.StatusBadRequest, "invalid_input", "malformed request body", nil)
 	}
 
-	// Validate academic_term_id is present
-	if body.AcademicTermID == "" {
-		return writeError(c, fiber.StatusBadRequest, "invalid_input", "academic_term_id is required",
-			map[string][]string{"academic_term_id": {"Academic term ID is required"}})
-	}
-
 	// Validate at least one row
 	if len(body.Rows) == 0 {
 		return writeError(c, fiber.StatusBadRequest, "invalid_input", "rows array must not be empty",
 			map[string][]string{"rows": {"At least one row is required"}})
 	}
 
-	// Validate that the academic term exists and belongs to this school
-	repo := h.svc.GetRepo()
-	if repo == nil {
-		return writeError(c, fiber.StatusInternalServerError, "internal_error", "repository not available", nil)
-	}
-	termValid, err := repo.ValidateAcademicTerm(c.Context(), tenantID, schoolID, body.AcademicTermID)
-	if err != nil {
-		return middleware.HTTPError(c, err)
-	}
-	if !termValid {
-		return writeError(c, fiber.StatusBadRequest, "invalid_input",
-			"academic term not found, is deleted, or belongs to a different school",
-			map[string][]string{"academic_term_id": {"Invalid academic term"}})
+	// Validate row count limit (before CreateJob, before any DB writes)
+	if len(body.Rows) > imports.MaxImportRows {
+		return writeError(c, fiber.StatusBadRequest, "import_row_limit_exceeded",
+			fmt.Sprintf("Import contains %d rows; the maximum is %d. Please split into smaller files.",
+				len(body.Rows), imports.MaxImportRows), nil)
 	}
 
-	// Need the academic year ID — look it up from the term
-	academicYearID, err := repo.GetAcademicYearIDForTerm(c.Context(), tenantID, schoolID, body.AcademicTermID)
+	// Resolve current active academic year and term server-side
+	academicYearID, err := h.academicYearsSvc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
 	if err != nil {
 		return middleware.HTTPError(c, err)
+	}
+	if academicYearID == "" {
+		return writeError(c, fiber.StatusBadRequest, "no_active_academic_year",
+			"No current academic year is set for this school. Please set one before importing.", nil)
+	}
+
+	academicTermID, err := h.academicYearsSvc.GetCurrentAcademicTermID(c.Context(), academicYearID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	if academicTermID == "" {
+		return writeError(c, fiber.StatusBadRequest, "no_active_academic_term",
+			"No current academic term is active. Please set one before importing.", nil)
 	}
 
 	// Build metadata with academic context
 	meta := map[string]string{
-		"academic_term_id": body.AcademicTermID,
+		"academic_term_id": academicTermID,
 		"academic_year_id": academicYearID,
 	}
 	metaJSON, _ := json.Marshal(meta)
@@ -164,14 +213,65 @@ func (h *Handler) BulkImport(c *fiber.Ctx) error {
 			return writeError(c, fiber.StatusConflict, "duplicate_import",
 				"A job with this idempotency key already exists.", nil)
 		}
+		var inProgressErr *imports.ImportInProgressError
+		if errors.As(err, &inProgressErr) {
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+				"code":          "import_already_in_progress",
+				"message":       "An import job is already in progress for this school. Please wait for it to complete or cancel it.",
+				"active_job_id": inProgressErr.ActiveJobID.String(),
+			})
+		}
 		return middleware.HTTPError(c, err)
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(ImportResponse{
+	// 200 for idempotent replay, 201 for new job
+	httpStatus := fiber.StatusCreated
+	if resp.IsReplay {
+		httpStatus = fiber.StatusOK
+	}
+
+	return c.Status(httpStatus).JSON(ImportResponse{
 		JobID:        resp.JobID.String(),
 		TotalRecords: resp.TotalRecords,
 		TotalChunks:  resp.TotalChunks,
 		Status:       string(resp.Status),
+		IsReplay:     resp.IsReplay,
+	})
+}
+
+// ─── Check Duplicates ─────────────────────────────────────────────────────
+
+// CheckDuplicates handles POST /api/v1/students/check-duplicates.
+// For each provided list of values, returns only those that already exist
+// in cbc_students for the caller's tenant/school. All three fields are
+// optional — omitted fields are not checked.
+func (h *Handler) CheckDuplicates(c *fiber.Ctx) error {
+	tenantID := c.Locals("tenant_id").(string)
+	schoolID, _ := c.Locals("active_school_id").(string)
+	if schoolID == "" {
+		schoolID = c.Locals("school_id").(string)
+	}
+	if schoolID == "" {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input", "active school not set", nil)
+	}
+
+	var body CheckDuplicatesRequest
+	if err := c.BodyParser(&body); err != nil {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input", "malformed request body", nil)
+	}
+
+	existingAdm, existingUPI, existingKNEC, err := h.svc.CheckDuplicates(
+		c.Context(), tenantID, schoolID,
+		body.AdmissionNumbers, body.UPINumbers, body.KNECAssessmentNumbers,
+	)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(CheckDuplicatesResponse{
+		ExistingAdmissionNumbers:      existingAdm,
+		ExistingUPINumbers:            existingUPI,
+		ExistingKNECAssessmentNumbers: existingKNEC,
 	})
 }
 
@@ -205,14 +305,26 @@ func (h *Handler) List(c *fiber.Ctx) error {
 		}
 	}
 
+	// Multi-value filter params
 	filter := ListFilter{
-		TenantID: tenantID,
-		SchoolID: schoolID,
-		Page:     page,
-		Limit:    limit,
-		Search:   c.Query("search"),
-		ClassID:  c.Query("class_id"),
-		Gender:   c.Query("gender"),
+		TenantID:         tenantID,
+		SchoolID:         schoolID,
+		Page:             page,
+		Limit:            limit,
+		Search:           c.Query("search"),
+		ClassID:          c.Query("class_id"),
+		Gender:           c.Query("gender"),
+		EnrollmentStatus: c.Query("enrollment_status"),
+	}
+
+	// Parse multi-value query params: ?education_level=Early_Years&education_level=Upper_Primary
+	if parsedURL, err := url.Parse(c.OriginalURL()); err == nil {
+		if vals := parsedURL.Query()["education_level"]; len(vals) > 0 {
+			filter.EducationLevels = vals
+		}
+		if vals := parsedURL.Query()["grade_level"]; len(vals) > 0 {
+			filter.GradeLevels = vals
+		}
 	}
 
 	result, err := h.svc.ListStudents(c.Context(), filter)
@@ -226,6 +338,8 @@ func (h *Handler) List(c *fiber.Ctx) error {
 // ─── Create ───────────────────────────────────────────────────────────────
 
 // Create handles POST /api/v1/students.
+// Accepts a batch payload: { "students": [{ ... }, ...] } and creates all
+// students in a single transaction. Returns the array of created IDs.
 func (h *Handler) Create(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
 	schoolID, _ := c.Locals("active_school_id").(string)
@@ -236,17 +350,29 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 		return writeError(c, fiber.StatusBadRequest, "invalid_input", "active school not set", nil)
 	}
 
-	var body CreateStudentPayload
+	var body CreateStudentsPayload
 	if err := c.BodyParser(&body); err != nil {
 		return writeError(c, fiber.StatusBadRequest, "invalid_input", "malformed request body", nil)
 	}
 
-	if body.FullName == "" {
-		return writeError(c, fiber.StatusBadRequest, "invalid_input", "full_name is required",
-			map[string][]string{"full_name": {"Full name is required"}})
+	if len(body.Students) == 0 {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input", "students array must not be empty",
+			map[string][]string{"students": {"At least one student is required"}})
 	}
 
-	student, err := h.svc.Create(c.Context(), tenantID, schoolID, body)
+	// Validate all entries have required fields before creating any
+	for i, s := range body.Students {
+		if s.FullName == "" {
+			return writeError(c, fiber.StatusBadRequest, "invalid_input",
+				"full_name is required for all students",
+				map[string][]string{
+					"students": {},
+				})
+		}
+		_ = i // used for potential future per-field error reporting
+	}
+
+	result, err := h.svc.CreateBatch(c.Context(), tenantID, schoolID, body.Students)
 	if err != nil {
 		if errors.Is(err, ErrDuplicateUPI) {
 			return writeError(c, fiber.StatusConflict, "duplicate_upi",
@@ -256,12 +382,13 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 		return middleware.HTTPError(c, err)
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(CreateStudentResponse{ID: student.ID})
+	return c.Status(fiber.StatusCreated).JSON(result)
 }
 
 // ─── Get Detail ───────────────────────────────────────────────────────────
 
 // GetDetail handles GET /api/v1/students/:id.
+// Supports optional ?term_id for scoping behavior notes and attendance records.
 func (h *Handler) GetDetail(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
 	schoolID, _ := c.Locals("active_school_id").(string)
@@ -283,6 +410,17 @@ func (h *Handler) GetDetail(c *fiber.Ctx) error {
 			})
 		}
 		return middleware.HTTPError(c, err)
+	}
+
+	// Fetch behavior notes if the provider is wired in
+	if h.behaviorNotesFn != nil {
+		termID := c.Query("term_id")
+		if termID != "" {
+			notes, err := h.behaviorNotesFn(c.Context(), tenantID, schoolID, id, termID)
+			if err == nil && notes != nil {
+				detail.Behavior = notes
+			}
+		}
 	}
 
 	return c.JSON(StudentDetailResponse{Data: *detail})
@@ -362,6 +500,29 @@ func (h *Handler) CreateEnrollment(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusCreated).JSON(CreateEnrollmentResponse{ID: enrollment.ID})
 }
 
+// Delete handles DELETE /api/v1/students/:id
+func (h *Handler) Delete(c *fiber.Ctx) error {
+	tenantID := c.Locals("tenant_id").(string)
+	schoolID, _ := c.Locals("active_school_id").(string)
+	if schoolID == "" {
+		schoolID = c.Locals("school_id").(string)
+	}
+	id := c.Params("id")
+
+	if id == "" {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input", "student id is required", nil)
+	}
+
+	if err := h.svc.Delete(c.Context(), id, tenantID, schoolID); err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(fiber.Map{
+		"code":    "ok",
+		"message": "student deleted",
+	})
+}
+
 // ─── List Enrollments ─────────────────────────────────────────────────────
 
 // ListEnrollments handles GET /api/v1/students/:id/enrollments.
@@ -378,5 +539,5 @@ func (h *Handler) ListEnrollments(c *fiber.Ctx) error {
 		return middleware.HTTPError(c, err)
 	}
 
-	return c.JSON(ListEnrollmentsResponse{Data: enrollments})
+	return c.JSON(ListEnrollmentsResponse{Items: enrollments})
 }

@@ -1,0 +1,395 @@
+[
+  {
+    "name": "Mathematics",
+    "code": "MATH_G8",
+    "education_level": "Junior_School",
+    "strands": [
+      {
+        "name": "Numbers",
+        "sub_strands": [
+          {
+            "name": "Squares, Square Roots, and Cubes",
+            "performance_indicators": [
+              "Find squares and square roots of perfect squares and fractions using factorization methods.",
+              "Determine the cubes and cube roots of numbers up to 1,000 using estimation and mathematical tables.",
+              "Apply standard order of operations (BODMAS) to solve complex arithmetic problems involving fractions and decimals."
+            ]
+          },
+          {
+            "name": "Commercial Arithmetic",
+            "performance_indicators": [
+              "Calculate compound interest on investments and loans over a given multi-year duration manually.",
+              "Solve problems involving hire purchase transactions, calculating deposit totals and monthly installments."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Measurement and Data Handling",
+        "sub_strands": [
+          {
+            "name": "Surface Area, Pyramids, and Probability",
+            "performance_indicators": [
+              "Calculate the total surface area of right pyramids and triangular prisms using spatial nets.",
+              "Collect, organize, and represent discrete data using frequency distribution tables and pie charts.",
+              "Determine the experimental and theoretical probability of single-event outcomes accurately."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Algebra and Geometry",
+        "sub_strands": [
+          {
+            "name": "Simultaneous Equations and Loci",
+            "performance_indicators": [
+              "Formulate and solve pairs of simultaneous linear equations using elimination and substitution methods.",
+              "Construct the perpendicular bisector of a line and the angle bisector using a ruler and compasses.",
+              "Investigate and describe the constant locus of a point moving at a fixed distance from a specific node."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "English",
+    "code": "ENG_G8",
+    "education_level": "Junior_School",
+    "strands": [
+      {
+        "name": "Listening and Speaking",
+        "sub_strands": [
+          {
+            "name": "Active Listening and Interview Dynamics",
+            "performance_indicators": [
+              "Conduct structured interviews using open-ended questions, active response tracking, and correct posture.",
+              "Distinguish between facts, logical deductions, and emotional biases during complex verbal presentations."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Reading and Literary Appreciation",
+        "sub_strands": [
+          {
+            "name": "Critical Set Text Analysis and Poetry",
+            "performance_indicators": [
+              "Analyze full-length junior novels to chart thematic motifs, stylistic devices, and character growth timelines.",
+              "Deconstruct structural rhyme schemes, alliteration, and thematic imagery inside selected regional poems."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Writing and Language Structure",
+        "sub_strands": [
+          {
+            "name": "Advanced Grammar and Functional Composition",
+            "performance_indicators": [
+              "Incorporate active/passive voice shifts and relative pronouns to enhance clarity across written scripts.",
+              "Write functional, structured compositions including minutes of meeting formats, formal speech outlines, and brief investigative reports."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Kiswahili",
+    "code": "KISW_G8",
+    "education_level": "Junior_School",
+    "strands": [
+      {
+        "name": "Kusikiliza na Kuzungumza",
+        "sub_strands": [
+          {
+            "name": "Hotuba na Majadiliano Rasmi",
+            "performance_indicators": [
+              "Kusikiliza hotuba rasmi na kubainisha mada kuu, malengo, na mbinu za ushawishi zilizotumiwa.",
+              "Kuhutubia darasa au hadhara fupi kwa kutumia matamshi bora, lafudhi safi, na ulinganifu wa kiitikadi."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Kusoma na Uchambuzi wa Fasihi",
+        "sub_strands": [
+          {
+            "name": "Ufahamu na Ushairi wa Kiswahili",
+            "performance_indicators": [
+              "Kusoma na kuchambua mashairi ya arudhi (kwa mfano, miundo ya mishororo, vipande, na vina) na mashairi huru.",
+              "Kufafanua ujumbe, maadili, na tamathali za usemi zilizomo katika tamthilia na hadithi fupi za Kiswahili."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Kuandika na Sarufi",
+        "sub_strands": [
+          {
+            "name": "Uandishi wa Kina na Unyambulishaji",
+            "performance_indicators": [
+              "Kuandika insha za upambanuzi (mijadala) na barua rasmi za mwaliko kwa usahihi na muundo unaofaa.",
+              "Kutumia mnyambuliko wa vitenzi (kwa mfano, kauli ya kutendea, kutendewa, kutendana) katika ngeli mbalimbali."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Integrated Science",
+    "code": "INT_SCI_G8",
+    "education_level": "Junior_School",
+    "strands": [
+      {
+        "name": "Chemical Reactions and Matter",
+        "sub_strands": [
+          {
+            "name": "Chemical Symbols, Equations, and Kinetic Theory",
+            "performance_indicators": [
+              "Write and balance simple word and chemical equations for combustion and neutralization reactions.",
+              "Explain the kinetic theory of matter using models of particle arrangement during thermal expansion.",
+              "Demonstrate safety protocols when handling hot, reactive, or corrosive chemicals in the laboratory setup."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Living Systems",
+        "sub_strands": [
+          {
+            "name": "Human Nervous System and Sense Organs",
+            "performance_indicators": [
+              "Illustrate the structural pathway of a simple reflex arc involving sensory, relay, and motor neurons.",
+              "Examine the structure of the human eye and ear, detailing common defects and corrective strategies."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Physics and Force Applications",
+        "sub_strands": [
+          {
+            "name": "Linear Motion, Speed, and Velocity",
+            "performance_indicators": [
+              "Differentiate between scalar and vector quantities, explicitly focusing on distance, displacement, speed, and velocity.",
+              "Investigate friction factors and outline structural engineering processes used to control drag and wear."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Pre-Technical Studies",
+    "code": "PRE_TECH_G8",
+    "education_level": "Junior_School",
+    "strands": [
+      {
+        "name": "Technical Design and Production",
+        "sub_strands": [
+          {
+            "name": "Orthographic Projection and Power Tools",
+            "performance_indicators": [
+              "Interpret and draw simple three-view orthographic projections of block targets in first angle projection.",
+              "Demonstrate safety operational layouts for using mechanical drills, basic saws, and joining equipment safely.",
+              "Compare the electrical properties of conductors, semiconductors, and insulation materials cleanly."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Digital Technologies and Logic",
+        "sub_strands": [
+          {
+            "name": "Computer Networks and Conditional Logic",
+            "performance_indicators": [
+              "Differentiate between Local Area Networks (LAN) and Wide Area Networks (WAN) infrastructure setups.",
+              "Design structured block-based scripts incorporating conditional statements (IF-THEN-ELSE) to execute workflows."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Financial Literacy",
+        "sub_strands": [
+          {
+            "name": "Ledger Accounts and Trial Balance",
+            "performance_indicators": [
+              "Post daily business transactions from primary source documents into double-entry T-ledger accounts.",
+              "Extract balancing details from financial ledgers to construct a clean, accurate business Trial Balance."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Agriculture and Nutrition",
+    "code": "AGRI_NUTR_G8",
+    "education_level": "Junior_School",
+    "strands": [
+      {
+        "name": "Resource Conservation and Planning",
+        "sub_strands": [
+          {
+            "name": "Water Harvesting and Soil Fertility",
+            "performance_indicators": [
+              "Design and construct small-scale farm runoff water harvesting channels and check dams.",
+              "Analyze nutrient deficiency indicators in crops and determine targeted organic replenishment methods.",
+              "Practice systemic agroforestry methods by integrating fruit or timber crops within active farm parcels."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Livestock Management and Production",
+        "sub_strands": [
+          {
+            "name": "Bee and Poultry Husbandry",
+            "performance_indicators": [
+              "Execute seasonal hive management steps including swarm control and safe honey extraction mechanics.",
+              "Formulate balanced poultry feed allocations incorporating correct protein, mineral, and carbohydrate ratios."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Family Health and Preservation",
+        "sub_strands": [
+          {
+            "name": "First Aid and Advanced Laundry Work",
+            "performance_indicators": [
+              "Demonstrate appropriate emergency first aid responses for severe burns, choking, and animal bites.",
+              "Perform comprehensive laundry care processes for specific delicate fibers including woolens and silks."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Social Studies",
+    "code": "SOC_STUD_G8",
+    "education_level": "Junior_School",
+    "strands": [
+      {
+        "name": "Physical Environment and Human Geography",
+        "sub_strands": [
+          {
+            "name": "Climatic Regions of Africa and Settlement Patters",
+            "performance_indicators": [
+              "Analyze the key factors influencing climatic variations across the African continent.",
+              "Evaluate the relationship between environmental climate zones and historical human population density adjustments.",
+              "Interpret topographic maps to deduce drainage networks, vegetation patterns, and transport linkages."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "History and Governance Systems",
+        "sub_strands": [
+          {
+            "name": "Scramble for Africa and Colonial Rule",
+            "performance_indicators": [
+              "Examine the motives behind the European scramble and partition of the African continent.",
+              "Contrast direct and indirect colonial administrative systems implemented in select African nations.",
+              "Outline the structure, functions, and check-and-balance parameters of the Kenyan Judiciary arm."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Civic Literacy and Integration",
+        "sub_strands": [
+          {
+            "name": "National Values and Human Rights",
+            "performance_indicators": [
+              "Evaluate national values and principles of governance highlighted in Article 10 of the Constitution of Kenya.",
+              "Demonstrate critical problem-solving, stress management, and empathetic peer support attributes inside team activities."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Creative Arts and Sports",
+    "code": "CREAT_ART_SPORTS_G8",
+    "education_level": "Junior_School",
+    "strands": [
+      {
+        "name": "Arts and Craft",
+        "sub_strands": [
+          {
+            "name": "Advanced Visual Media and Ornamentation",
+            "performance_indicators": [
+              "Create structural three-dimensional sculptures utilizing local wire armatures and clay modeling overlays.",
+              "Produce complex patterns on flat surfaces using multi-block relief printmaking procedures.",
+              "Design functional contemporary leather items or synthetic ornaments applying manual stitching metrics."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Music and Theatre Arts",
+        "sub_strands": [
+          {
+            "name": "Melodic Writing and Script Execution",
+            "performance_indicators": [
+              "Write simple melodic phrases onto standard musical staff layouts using basic key signature frames.",
+              "Perform narrative play scripts or dramatized choral acts showcasing clear blocking and vocal delivery control."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Sports and Physical Education",
+        "sub_strands": [
+          {
+            "name": "Field Events and Sports Mechanics",
+            "performance_indicators": [
+              "Execute technical mechanics for triple jump sequence limits and javelin run-up and release phases safely.",
+              "Demonstrate defensive and offensive positioning systems within specific competitive team games (e.g., basketball, rugby)."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Religious Education",
+    "code": "RE_G8",
+    "education_level": "Junior_School",
+    "strands": [
+      {
+        "name": "Christian Religious Education",
+        "sub_strands": [
+          {
+            "name": "Prophetic Messages and Personal Virtues",
+            "performance_indicators": [
+              "Examine social justice issues condemned by Old Testament prophets like Amos and apply lessons to local setups.",
+              "Analyze biblical paradigms concerning responsible execution of freedom and personal choices.",
+              "Demonstrate critical loyalty and ethical integrity when responding to challenging contemporary social trends."
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Islamic Religious Education",
+        "sub_strands": [
+          {
+            "name": "Quranic Chapters and Pillars of Islam",
+            "performance_indicators": [
+              "Translate and apply the core moral directives highlighted within Surah Al-Alaq and Surah Ad-Duha.",
+              "Analyze the spiritual, social, and physical benefits of observing mandatory Sawm (fasting) during Ramadan.",
+              "Demonstrate Islamic standard behaviors regarding property care, contract fulfillment, and general financial fairness."
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]

@@ -69,16 +69,16 @@ func Register(app *fiber.App, pools *database.Pools, cfg config.Config) {
 
 		if cookieToken == "" || headerToken == "" {
 			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-				"error":  "forbidden",
-				"reason": "csrf token missing",
+				"code":    "forbidden",
+				"message": "csrf token missing",
 			})
 		}
 
 		// Constant-time comparison to prevent timing attacks
 		if subtle.ConstantTimeCompare([]byte(cookieToken), []byte(headerToken)) != 1 {
 			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-				"error":  "forbidden",
-				"reason": "csrf token mismatch",
+				"code":    "forbidden",
+				"message": "csrf token mismatch",
 			})
 		}
 
@@ -95,7 +95,8 @@ func Register(app *fiber.App, pools *database.Pools, cfg config.Config) {
 		if !allowed {
 			c.Set("Retry-After", "60")
 			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
-				"error":               "rate_limit_exceeded",
+				"code":                "rate_limit_exceeded",
+				"message":             "too many requests, please try again later",
 				"retry_after_seconds": 60,
 			})
 		}
@@ -178,7 +179,7 @@ func loadSession(ctx context.Context, pool *pgxpool.Pool, token string) (*Sessio
 			       'TEACHER'
 		       ) as role
 		FROM sessions s
-		WHERE s.token = $1 AND s.expires_at > NOW()
+		WHERE s.token_hash = encode(digest($1, 'sha256'), 'hex') AND s.expires_at > NOW()
 	`
 
 	var s SessionInfo

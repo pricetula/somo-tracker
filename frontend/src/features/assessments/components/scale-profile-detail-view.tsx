@@ -13,6 +13,7 @@ import { ToggleLeft, ToggleRight } from "lucide-react";
 import { getScaleProfile } from "@/lib/api/assessments";
 import type { ScaleProfileWithRanges } from "@/lib/api/assessments";
 import { useToggleScaleProfile } from "../hooks/use-assessments";
+import { STALE_TIMES } from "@/lib/query-config";
 import { PERFORMANCE_LEVEL_LABELS } from "../types";
 import { getErrorMessage } from "@/lib/errors";
 import { Badge } from "@/components/ui/badge";
@@ -31,7 +32,7 @@ function useProfileWithRanges(id: string) {
         queryKey: ["scale-profiles", id, "with-ranges"],
         queryFn: () => getScaleProfile(id, true) as Promise<ScaleProfileWithRanges>,
         enabled: !!id,
-        staleTime: 30_000,
+        staleTime: STALE_TIMES.FREQUENT,
     });
 }
 

@@ -7,6 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -1134,8 +1137,8 @@ func TestIntegration_Sessions_TokenUniqueness(t *testing.T) {
 
 	// Insert first session
 	_, err := suite.pgPool.Exec(context.Background(), `
-		INSERT INTO sessions (token, user_id, tenant_id, stytch_member_id, stytch_org_id, device_fingerprint, expires_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO sessions (token, token_hash, user_id, tenant_id, stytch_member_id, stytch_org_id, device_fingerprint, expires_at)
+		VALUES ($1, encode(digest($1, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7)
 	`, "dup_token_001", userID, tenantID, "member_u1", "org_u1", "fp-u1", now.Add(24*time.Hour))
 	if err != nil {
 		t.Fatalf("insert first session: %v", err)
@@ -1143,8 +1146,8 @@ func TestIntegration_Sessions_TokenUniqueness(t *testing.T) {
 
 	// Insert second session with same token — should fail
 	_, err = suite.pgPool.Exec(context.Background(), `
-		INSERT INTO sessions (token, user_id, tenant_id, stytch_member_id, stytch_org_id, device_fingerprint, expires_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO sessions (token, token_hash, user_id, tenant_id, stytch_member_id, stytch_org_id, device_fingerprint, expires_at)
+		VALUES ($1, encode(digest($1, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7)
 	`, "dup_token_001", user2ID, tenant2ID, "member_u2", "org_u2", "fp-u2", now.Add(24*time.Hour))
 	if err == nil {
 		t.Fatal("expected uniqueness violation error, got nil")
@@ -2317,4 +2320,137 @@ func TestIntegration_EdgeCase_EmptyDeviceFingerprint(t *testing.T) {
 	if role != "SCHOOL_ADMIN" {
 		t.Fatalf("expected SCHOOL_ADMIN role for new tenant registration, got %s", role)
 	}
+}
+
+// ============================================================================
+// Category 6: Migration up/down verification
+// ============================================================================
+
+// TestIntegration_Migration_UpDown_000003 verifies that migration 000003
+// can be applied, reverted, and re-applied cleanly (idempotent up/down cycle).
+// The 000001 schema now includes token_hash columns inline; 000003 adds them
+// with IF NOT EXISTS and backfills. This test runs the full cycle and restores
+// the DB to a working state so subsequent tests are not affected.
+func TestIntegration_Migration_UpDown_000003(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+	suite := testSuite
+	suite.freshDB(t)
+	suite.freshRedis(t)
+
+	ctx := context.Background()
+	pool := suite.pgPool
+
+	_, filename, _, _ := runtime.Caller(0)
+	migrationsDir := filepath.Join(filepath.Dir(filename), "..", "database", "migrations")
+	upPath := filepath.Join(migrationsDir, "000003_fix_review_findings.up.sql")
+	downPath := filepath.Join(migrationsDir, "000003_fix_review_findings.down.sql")
+
+	readSQL := func(path string) string {
+		b, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+		return string(b)
+	}
+
+	upSQL := readSQL(upPath)
+	downSQL := readSQL(downPath)
+
+	// ---------------------------------------------------------------
+	// Helper: check if a column exists on a table
+	// ---------------------------------------------------------------
+	columnExists := func(table, column string) bool {
+		t.Helper()
+		var exists bool
+		err := pool.QueryRow(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM information_schema.columns
+				WHERE table_name = $1 AND column_name = $2
+			)
+		`, table, column).Scan(&exists)
+		if err != nil {
+			t.Fatalf("check %s.%s: %v", table, column, err)
+		}
+		return exists
+	}
+
+	indexExists := func(indexName string) bool {
+		t.Helper()
+		var exists bool
+		err := pool.QueryRow(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM pg_indexes WHERE indexname = $1
+			)
+		`, indexName).Scan(&exists)
+		if err != nil {
+			t.Fatalf("check index %s: %v", indexName, err)
+		}
+		return exists
+	}
+
+	// ---------------------------------------------------------------
+	// Phase 1 — Apply 000003 UP and verify columns exist
+	// ---------------------------------------------------------------
+	if _, err := pool.Exec(ctx, upSQL); err != nil {
+		t.Fatalf("000003 up migration failed: %v", err)
+	}
+
+	if !columnExists("sessions", "token_hash") {
+		t.Fatal("sessions.token_hash should exist after 000003 up")
+	}
+	if !columnExists("invitations", "token_hash") {
+		t.Fatal("invitations.token_hash should exist after 000003 up")
+	}
+	if !indexExists("idx_sessions_token_hash") {
+		t.Fatal("idx_sessions_token_hash should exist after 000003 up")
+	}
+	if !indexExists("idx_invitations_token_hash") {
+		t.Fatal("idx_invitations_token_hash should exist after 000003 up")
+	}
+
+	// ---------------------------------------------------------------
+	// Phase 2 — Apply 000003 DOWN and verify columns are removed
+	// ---------------------------------------------------------------
+	if _, err := pool.Exec(ctx, downSQL); err != nil {
+		t.Fatalf("000003 down migration failed: %v", err)
+	}
+
+	if columnExists("sessions", "token_hash") {
+		t.Fatal("sessions.token_hash should be removed after 000003 down")
+	}
+	if columnExists("invitations", "token_hash") {
+		t.Fatal("invitations.token_hash should be removed after 000003 down")
+	}
+	if indexExists("idx_sessions_token_hash") {
+		t.Fatal("idx_sessions_token_hash should not exist after 000003 down")
+	}
+	if indexExists("idx_invitations_token_hash") {
+		t.Fatal("idx_invitations_token_hash should not exist after 000003 down")
+	}
+
+	// ---------------------------------------------------------------
+	// Phase 3 — Re-apply 000003 UP (idempotency: column/index re-created)
+	// ---------------------------------------------------------------
+	if _, err := pool.Exec(ctx, upSQL); err != nil {
+		t.Fatalf("000003 up re-apply failed: %v", err)
+	}
+
+	if !columnExists("sessions", "token_hash") {
+		t.Fatal("sessions.token_hash should exist after re-applying 000003 up")
+	}
+	if !columnExists("invitations", "token_hash") {
+		t.Fatal("invitations.token_hash should exist after re-applying 000003 up")
+	}
+	if !indexExists("idx_sessions_token_hash") {
+		t.Fatal("idx_sessions_token_hash should exist after re-applying 000003 up")
+	}
+	if !indexExists("idx_invitations_token_hash") {
+		t.Fatal("idx_invitations_token_hash should exist after re-applying 000003 up")
+	}
+
+	// ---------------------------------------------------------------
+	// Leave the DB in up state — columns exist, subsequent tests are unaffected.
+	// ---------------------------------------------------------------
 }

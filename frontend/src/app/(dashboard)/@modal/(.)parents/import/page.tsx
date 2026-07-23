@@ -9,7 +9,7 @@
 
 import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { BulkInviteForm } from "@/features/staff/components/bulk-invite";
+import { BulkInviteForm } from "@/components/shared/bulk-invite";
 import { submitParentBulkInvite } from "@/lib/api/parents";
 
 export default function ParentsImportModal() {

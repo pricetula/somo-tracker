@@ -66,5 +66,5 @@ export async function listClassTeachersByTeacher(
 
 /** Remove a class teacher assignment. */
 export async function deleteClassTeacher(id: string): Promise<void> {
-    return api.delete<void>(`/api/v1/class-teachers/${id}`);
+    return api.delete<void>(`/api/v1/class-teachers`, { id });
 }

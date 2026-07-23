@@ -272,3 +272,45 @@ func (s *Service) ListEnrollments(ctx context.Context, studentID, tenantID strin
 	}
 	return s.repo.ListEnrollments(ctx, studentID, tenantID)
 }
+
+// ─── Batch Enrollments ───────────────────────────────────────────────────
+
+// CreateBatchEnrollments enrolls multiple students in the given class for the
+// specified academic term. Status defaults to ACTIVE. Skips students already
+// enrolled in the term.
+func (s *Service) CreateBatchEnrollments(ctx context.Context, tenantID, schoolID, academicTermID string, items []BatchEnrollItem) (BatchEnrollResponse, error) {
+	if tenantID == "" || schoolID == "" || academicTermID == "" {
+		return BatchEnrollResponse{}, fmt.Errorf("students.Service.CreateBatchEnrollments: %w", ErrInvalidInput)
+	}
+	if len(items) == 0 {
+		return BatchEnrollResponse{}, fmt.Errorf("students.Service.CreateBatchEnrollments: enrollments list is empty: %w", ErrInvalidInput)
+	}
+
+	enrollments := make([]*Enrollment, 0, len(items))
+	for _, item := range items {
+		if item.StudentID == "" || item.ClassID == "" {
+			return BatchEnrollResponse{}, fmt.Errorf("students.Service.CreateBatchEnrollments: student_id and class_id are required: %w", ErrInvalidInput)
+		}
+		enrollments = append(enrollments, &Enrollment{
+			StudentID:      item.StudentID,
+			ClassID:        item.ClassID,
+			AcademicTermID: academicTermID,
+			Status:         "ACTIVE",
+		})
+	}
+
+	ids, err := s.repo.CreateBatchEnrollments(ctx, enrollments, tenantID, schoolID)
+	if err != nil {
+		return BatchEnrollResponse{}, fmt.Errorf("students.Service.CreateBatchEnrollments: %w", err)
+	}
+
+	slog.Info("students.batch.enrolled",
+		"tenant_id", tenantID,
+		"school_id", schoolID,
+		"academic_term_id", academicTermID,
+		"count", len(ids),
+		"total_requested", len(items),
+	)
+
+	return BatchEnrollResponse{IDs: ids, Code: "ok"}, nil
+}

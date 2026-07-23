@@ -13,6 +13,7 @@ import {
     listParents,
     createParent,
     getParentDetail,
+    getMyParentProfile,
     updateParent,
     deleteParent,
     linkStudent,
@@ -25,6 +26,7 @@ import type {
     CreateParentPayload,
     UpdateParentPayload,
     LinkStudentPayload,
+    Parent,
 } from "../types";
 
 // ─── Query keys ───────────────────────────────────────────────────────────
@@ -36,6 +38,29 @@ export const parentKeys = {
 };
 
 // ─── Hooks: Parents List ─────────────────────────────────────────────────
+
+/**
+ * Fetch all parents as a Record<id, Parent> for O(1) lookups.
+ *
+ * Separate query key from the paginated useParents — fetches with a
+ * generous limit. Best for lookup tables and cross-references.
+ */
+export function useParentMap() {
+    return useQuery({
+        queryKey: [...parentKeys.all, "map"] as const,
+        queryFn: () => listParents({ limit: 500 }),
+        staleTime: 5 * 60 * 1000,
+        placeholderData: (prev) => prev,
+        select: (data: ListParentsResponse): Record<string, Parent> =>
+            data?.items?.reduce?.(
+                (acc, item) => {
+                    acc[item.id] = item;
+                    return acc;
+                },
+                {} as Record<string, Parent>
+            ) ?? {},
+    });
+}
 
 /** Fetch parents list, optionally filtered by search, student_id, or curriculum filters (education_level, grade_level), with pagination. */
 export function useParents(
@@ -70,87 +95,171 @@ export function useParentDetail(id: string, opts: { enabled?: boolean } = {}) {
     });
 }
 
+/** Fetch the authenticated parent's own profile with linked children. */
+export function useMyParentProfile(opts: { enabled?: boolean } = {}) {
+    const { enabled = true } = opts;
+
+    return useQuery<ParentDetailResponse>({
+        queryKey: [...parentKeys.all, "me"] as const,
+        queryFn: () => getMyParentProfile(),
+        enabled,
+    });
+}
+
 // ─── Mutations ────────────────────────────────────────────────────────────
 
-/** Create a parent. */
+/** Create a parent with optimistic update. */
 export function useCreateParent() {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: (data: CreateParentPayload) => createParent(data),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: parentKeys.all });
-            toast.success("Parent created");
+        onMutate: async () => {
+            await queryClient.cancelQueries({ queryKey: parentKeys.all });
+            const previousQueries = queryClient.getQueriesData({
+                queryKey: parentKeys.all,
+            });
+            return { previousQueries };
         },
-        onError: (err) => {
+        onError: (err, _data, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
             toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: parentKeys.all });
         },
     });
 }
 
-/** Update a parent (phone_number, is_active). */
+/** Update a parent (phone_number, is_active) with optimistic update. */
 export function useUpdateParent() {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: ({ id, data }: { id: string; data: UpdateParentPayload }) =>
             updateParent(id, data),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: parentKeys.all });
-            toast.success("Parent updated");
+        onMutate: async ({ id, data }) => {
+            await queryClient.cancelQueries({ queryKey: parentKeys.all });
+            const previousQueries = queryClient.getQueriesData<ListParentsResponse>({
+                queryKey: parentKeys.all,
+            });
+
+            queryClient.setQueriesData<ListParentsResponse>({ queryKey: parentKeys.all }, (old) => {
+                if (!old) return old;
+                return {
+                    ...old,
+                    items: old.items.map((p) => (p.id === id ? { ...p, ...data } : p)),
+                };
+            });
+
+            return { previousQueries };
         },
-        onError: (err) => {
+        onError: (err, _vars, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
             toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: parentKeys.all });
         },
     });
 }
 
-/** Delete a parent. */
+/** Delete a parent with optimistic removal. */
 export function useDeleteParent() {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: (id: string) => deleteParent(id),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: parentKeys.all });
-            toast.success("Parent deleted");
+        onMutate: async (id) => {
+            await queryClient.cancelQueries({ queryKey: parentKeys.all });
+            const previousQueries = queryClient.getQueriesData<ListParentsResponse>({
+                queryKey: parentKeys.all,
+            });
+
+            queryClient.setQueriesData<ListParentsResponse>({ queryKey: parentKeys.all }, (old) => {
+                if (!old) return old;
+                return {
+                    ...old,
+                    items: old.items.filter((item) => item.id !== id),
+                };
+            });
+
+            return { previousQueries };
         },
-        onError: (err) => {
+        onError: (err, _id, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
             toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: parentKeys.all });
         },
     });
 }
 
-/** Link a student to a parent. */
+/** Link a student to a parent with optimistic update. */
 export function useLinkStudent() {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: ({ parentId, data }: { parentId: string; data: LinkStudentPayload }) =>
             linkStudent(parentId, data),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: parentKeys.all });
-            toast.success("Student linked");
+        onMutate: async () => {
+            await queryClient.cancelQueries({ queryKey: parentKeys.all });
+            const previousQueries = queryClient.getQueriesData({
+                queryKey: parentKeys.all,
+            });
+            return { previousQueries };
         },
-        onError: (err) => {
+        onError: (err, _vars, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
             toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: parentKeys.all });
         },
     });
 }
 
-/** Unlink a student from a parent. */
+/** Unlink a student from a parent with optimistic update. */
 export function useUnlinkStudent() {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: ({ parentId, studentId }: { parentId: string; studentId: string }) =>
             unlinkStudent(parentId, studentId),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: parentKeys.all });
-            toast.success("Student unlinked");
+        onMutate: async () => {
+            await queryClient.cancelQueries({ queryKey: parentKeys.all });
+            const previousQueries = queryClient.getQueriesData({
+                queryKey: parentKeys.all,
+            });
+            return { previousQueries };
         },
-        onError: (err) => {
+        onError: (err, _vars, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
             toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: parentKeys.all });
         },
     });
 }

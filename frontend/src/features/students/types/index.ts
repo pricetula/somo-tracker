@@ -9,6 +9,7 @@ export type {
     Student,
     StudentDetail,
     Enrollment,
+    LinkedParent,
     ListStudentsResponse,
     ListStudentsParams,
     CreateStudentPayload,
@@ -16,4 +17,7 @@ export type {
     CreateStudentsResponse,
     UpdateStudentPayload,
     CreateEnrollmentPayload,
+    BatchEnrollItem,
+    BatchEnrollRequest,
+    BatchEnrollResponse,
 } from "@/lib/api/students";

@@ -1,6 +1,7 @@
 package assessments
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
@@ -22,22 +23,24 @@ func NewHandler(svc *Service) *Handler {
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	// Grading Scale Profiles
 	profiles := router.Group("/api/v1/grading/profiles")
-	profiles.Post("/", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN"), h.CreateScaleProfile)
-	profiles.Get("/", middleware.RequireAuth, h.ListScaleProfiles)
+	profiles.Post("", middleware.RequireAuth, h.CreateScaleProfile)
+	profiles.Get("", middleware.RequireAuth, h.ListScaleProfiles)
 	profiles.Get("/:id", middleware.RequireAuth, h.GetScaleProfile)
 	profiles.Put("/:id/toggle", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN"), h.ToggleScaleProfileActive)
-	profiles.Delete("/:id", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN"), h.DeleteScaleProfile)
-
-	// Grading Scale Ranges
-	profiles.Post("/:id/ranges", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN"), h.BulkSetScaleRanges)
+	profiles.Delete("", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN"), h.DeleteScaleProfile)
 	profiles.Get("/:id/ranges", middleware.RequireAuth, h.GetScaleRanges)
-	profiles.Delete("/:profileId/ranges/:rangeId", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN"), h.DeleteScaleRange)
+	profiles.Put("/:id/ranges", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN"), h.ReplaceScaleRanges)
 
 	// Assessment Sessions
 	sessions := router.Group("/api/v1/assessments/sessions")
 	sessions.Post("/", middleware.RequireAuth, h.CreateSession)
 	sessions.Get("/", middleware.RequireAuth, h.ListSessions)
 	sessions.Get("/:id", middleware.RequireAuth, h.GetSession)
+	sessions.Delete("/", middleware.RequireAuth, h.DeleteSession)
+
+	// Grading Data: returns session + roster + scores/grades in one call
+	sessions.Get("/:id/grading-data", middleware.RequireAuth, h.GetGradingData)
+
 	sessions.Post("/:id/submit", middleware.RequireAuth, h.SubmitSession)
 	sessions.Post("/:id/approve", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN"), h.ApproveSession)
 	sessions.Post("/:id/reject", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN"), h.RejectSession)
@@ -55,29 +58,66 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	parent.Get("/students/:studentId/assessments", middleware.RequireAuth, h.GetParentAssessments)
 	parent.Get("/students/:studentId/report-card", middleware.RequireAuth, h.GetStudentTermGrades)
 
+	// Student Term Subject Summaries
+	summaries := router.Group("/api/v1/assessments/term-subject-summaries")
+	summaries.Post("/refresh", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN"), h.RefreshSummary)
+
+	// Teacher remarks on summaries
+	summaries.Put("/:id/remark", middleware.RequireAuth, h.SetTeacherRemark)
+
+	// Student-scoped Summary endpoints
+	parent.Group("/students/:studentId/term-subject-summaries").
+		Get("", middleware.RequireAuth, h.GetStudentTermSubjectSummaries)
+
+	// Learning-area-scoped summaries (teacher dashboard view)
+	sessions.Get("/learning-area/:learningAreaId/term-subject-summaries",
+		middleware.RequireAuth, h.GetLearningAreaSummaries)
+
+	// Student Term Overall Summaries (term-level rollup across subjects)
+	overall := router.Group("/api/v1/assessments/term-overall-summaries")
+	overall.Post("/refresh", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN"), h.RefreshTermOverall)
+	overall.Post("/refresh-student", middleware.RequireAuth, h.RefreshSingleStudentOverall)
+	overall.Get("/:studentId/:termId", middleware.RequireAuth, h.GetStudentTermOverallSummary)
+	overall.Put("/:id/headteacher-remark", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN"), h.SetHeadteacherRemark)
+
+	// Bulk listing (headteacher dashboard view)
+	overall.Get("/", middleware.RequireAuth, h.ListStudentTermOverallSummaries)
+
 	// Assessment Weight Configs (system-level, read-only via API)
 	wcfg := router.Group("/api/v1/assessments/weight-configs")
 	wcfg.Get("/", middleware.RequireAuth, h.ListWeightConfigs)
 	wcfg.Get("/:id", middleware.RequireAuth, h.GetWeightConfig)
 	wcfg.Post("/", middleware.RequireAuth, middleware.RequireRole("SYSTEM_ADMIN"), h.CreateWeightConfig)
+	wcfg.Delete("/", middleware.RequireAuth, middleware.RequireRole("SYSTEM_ADMIN"), h.DeleteWeightConfig)
+
+	// Student Subject Strand Summaries (rubric-only sub-strand level)
+	strandSummaries := router.Group("/api/v1/assessments/subject-strand-summaries")
+	strandSummaries.Post("/refresh", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN"), h.RefreshStrandSummaries)
+	strandSummaries.Get("/:studentId/:termId", middleware.RequireAuth, h.GetStudentSubjectStrandSummaries)
+	strandSummaries.Get("/", middleware.RequireAuth, h.ListSubjectStrandSummariesByTerm)
+
+	// Student Performance Projections (periodic batch)
+	projections := router.Group("/api/v1/assessments/projections")
+	projections.Post("/refresh", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN"), h.RefreshProjections)
+	projections.Get("/:studentId/:termId", middleware.RequireAuth, h.GetStudentProjection)
+	projections.Get("/", middleware.RequireAuth, h.ListStudentProjections)
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
+var (
+	ErrTenantMissing = fmt.Errorf("tenant_id not set: %w", middleware.ErrUnauthorized)
+	ErrSchoolMissing = fmt.Errorf("active_school_id not set: %w", middleware.ErrInvalidInput)
+)
+
 func getTenantAndSchool(c *fiber.Ctx) (string, string, error) {
 	tenantID, ok := c.Locals("tenant_id").(string)
 	if !ok || tenantID == "" {
-		return "", "", c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"code":    "unauthorized",
-			"message": "authentication required",
-		})
+		return "", "", ErrTenantMissing
 	}
 	schoolID, _ := c.Locals("active_school_id").(string)
 	if schoolID == "" {
-		return "", "", c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "invalid_input",
-			"message": "active school not set",
-		})
+		return "", "", ErrSchoolMissing
 	}
 	return tenantID, schoolID, nil
 }
@@ -96,26 +136,44 @@ func getUserID(c *fiber.Ctx) string {
 // ---------------------------------------------------------------------------
 // CreateScaleProfile — POST /api/v1/grading/profiles
 //
-// Creates a new grading scale profile (the directory entry). A scale profile
-// is a named collection of percentage-to-CBC-level rules. For example, a
-// "Grade 4 Standard Conversion" profile might hold the ranges that map
-// percentages to EE/ME/AE/BE for Grade 4 Mathematics.
+// Creates a new grading scale profile together with its percentage-to-level
+// ranges in a single atomic transaction. A scale profile is a named collection
+// of rules that map percentages to CBC rubric levels (EE/ME/AE/BE).
 //
-// Once created, the profile name is immutable — to change a scale, create a
+// Ranges are required — every profile must have at least EE, ME, and AE
+// ranges defined at creation time. This eliminates the two-step workflow of
+// creating a profile and then separately adding ranges.
+//
+// Once created, the profile name is immutable. To change a scale, create a
 // new profile and mark the old one as inactive via ToggleScaleProfileActive.
 //
 // Request body (SCHOOL_ADMIN only):
 //
-//	{ "name": "Grade 4 Standard Conversion" }
+//	{
+//	  "name": "Grade 4 Standard Conversion",
+//	  "ranges": [
+//	    { "performance_level": "EE", "min_percentage": 80, "max_percentage": 100 },
+//	    { "performance_level": "ME", "min_percentage": 60, "max_percentage": 79 },
+//	    { "performance_level": "AE", "min_percentage": 40, "max_percentage": 59 },
+//	    { "performance_level": "BE", "min_percentage": 0,  "max_percentage": 39 }
+//	  ]
+//	}
+//
+// Each range can optionally include "default_percentage_mapping" (e.g. 90
+// for EE), which serves as the midpoint used during conversion. If omitted,
+// the system calculates from the range bounds.
+//
+// At minimum EE, ME, and AE ranges are required. BE is recommended.
 //
 // Response (201):
 //
-//	{ "id": "uuid-of-new-profile" }
+//	{ "id": "uuid-of-new-profile", "range_ids": ["uuid-1", "uuid-2", ...] }
 //
 // Errors:
-//   - 400: name is required or exceeds 255 characters
+//   - 400: name is required, exceeds 255 characters, missing ranges, or ranges fail validation
 //   - 401: authentication required
 //   - 403: not a SCHOOL_ADMIN
+//   - 409: overlapping ranges or duplicate performance levels
 //
 // ---------------------------------------------------------------------------
 func (h *Handler) CreateScaleProfile(c *fiber.Ctx) error {
@@ -132,17 +190,29 @@ func (h *Handler) CreateScaleProfile(c *fiber.Ctx) error {
 		})
 	}
 
-	id, err := h.svc.CreateScaleProfile(c.Context(), CreateScaleProfileParams{
+	ranges := make([]CreateScaleRangeParams, len(payload.Ranges))
+	for i, r := range payload.Ranges {
+		ranges[i] = CreateScaleRangeParams{
+			ProfileID:                "", // filled by repo
+			PerformanceLevel:         r.PerformanceLevel,
+			MinPercentage:            r.MinPercentage,
+			MaxPercentage:            r.MaxPercentage,
+			DefaultPercentageMapping: r.DefaultPercentageMapping,
+		}
+	}
+
+	id, rangeIDs, err := h.svc.CreateScaleProfile(c.Context(), CreateScaleProfileParams{
 		TenantID: tenantID,
 		SchoolID: schoolID,
 		Name:     payload.Name,
+		Ranges:   ranges,
 	})
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
-
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-		"id": id,
+		"id":        id,
+		"range_ids": rangeIDs,
 	})
 }
 
@@ -182,24 +252,21 @@ func (h *Handler) ListScaleProfiles(c *fiber.Ctx) error {
 		return middleware.HTTPError(c, err)
 	}
 
-	return c.JSON(ListScaleProfilesResponse{Items: profiles})
+	return c.JSON(ListScaleProfilesResponse{
+		Items: profiles,
+		Total: len(profiles),
+		Page:  1,
+		Limit: len(profiles),
+	})
 }
 
 // ---------------------------------------------------------------------------
 // GetScaleProfile — GET /api/v1/grading/profiles/:id
 //
-// Retrieves a single grading scale profile by ID. By default returns only the
-// profile metadata. Use ?include_ranges=true to also return the nested ranges.
+// Retrieves a single grading scale profile by ID, including its percentage-to-
+// level ranges nested inside the profile object.
 //
-// Query parameters:
-//   - include_ranges (bool, optional): when "true", the response includes the
-//     profile's ranges array nested inside the profile object
-//
-// Response without ranges (200):
-//
-//	{ "id": "...", "name": "Grade 4 Standard Conversion", "is_active": true, ... }
-//
-// Response with ranges (200):
+// Response (200):
 //
 //	{
 //	  "id": "...", "name": "Grade 4 Standard Conversion", "is_active": true,
@@ -221,21 +288,116 @@ func (h *Handler) GetScaleProfile(c *fiber.Ctx) error {
 	}
 
 	id := c.Params("id")
-	includeRanges := c.Query("include_ranges") == "true"
-
-	if includeRanges {
-		profile, err := h.svc.GetScaleProfileWithRanges(c.Context(), id, tenantID, schoolID)
-		if err != nil {
-			return middleware.HTTPError(c, err)
-		}
-		return c.JSON(profile)
-	}
-
 	profile, err := h.svc.GetScaleProfile(c.Context(), id, tenantID, schoolID)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
 	return c.JSON(profile)
+}
+
+// ---------------------------------------------------------------------------
+// GetScaleRanges — GET /api/v1/grading/profiles/:id/ranges
+//
+// Returns all percentage-to-level ranges for a grading scale profile.
+//
+// Response (200):
+//
+//	{
+//	  "items": [
+//	    { "id": "...", "profile_id": "...", "performance_level": "EE",
+//	      "min_percentage": 80, "max_percentage": 100 }
+//	  ]
+//	}
+//
+// Errors:
+//   - 401: authentication required
+//   - 404: profile not found
+//
+// ---------------------------------------------------------------------------
+func (h *Handler) GetScaleRanges(c *fiber.Ctx) error {
+	profileID := c.Params("id")
+	if profileID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "profile id is required",
+		})
+	}
+
+	ranges, err := h.svc.GetScaleRanges(c.Context(), profileID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	return c.JSON(fiber.Map{"items": ranges})
+}
+
+// ---------------------------------------------------------------------------
+// ReplaceScaleRanges — PUT /api/v1/grading/profiles/:id/ranges
+//
+// Replaces all ranges for a grading scale profile (deletes existing ranges,
+// then inserts new ones). This is an atomic operation — if any range fails
+// validation, none are applied.
+//
+// Request body (SCHOOL_ADMIN only):
+//
+//	{
+//	  "ranges": [
+//	    { "performance_level": "EE", "min_percentage": 80, "max_percentage": 100 },
+//	    { "performance_level": "ME", "min_percentage": 60, "max_percentage": 79 },
+//	    { "performance_level": "AE", "min_percentage": 40, "max_percentage": 59 },
+//	    { "performance_level": "BE", "min_percentage": 0,  "max_percentage": 39 }
+//	  ]
+//	}
+//
+// At minimum EE, ME, and AE ranges are required.
+//
+// Response (200):
+//
+//	{ "ids": ["uuid-1", "uuid-2", ...] }
+//
+// Errors:
+//   - 400: validation failure (missing ranges, invalid values, overlaps)
+//   - 401: authentication required
+//   - 403: not a SCHOOL_ADMIN
+//   - 404: profile not found
+//   - 409: overlapping ranges
+//
+// ---------------------------------------------------------------------------
+func (h *Handler) ReplaceScaleRanges(c *fiber.Ctx) error {
+	profileID := c.Params("id")
+	if profileID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "profile id is required",
+		})
+	}
+
+	var payload struct {
+		Ranges []ScaleRangePayload `json:"ranges"`
+	}
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "invalid request body",
+		})
+	}
+
+	ranges := make([]CreateScaleRangeParams, len(payload.Ranges))
+	for i, r := range payload.Ranges {
+		ranges[i] = CreateScaleRangeParams{
+			ProfileID:                profileID,
+			PerformanceLevel:         r.PerformanceLevel,
+			MinPercentage:            r.MinPercentage,
+			MaxPercentage:            r.MaxPercentage,
+			DefaultPercentageMapping: r.DefaultPercentageMapping,
+		}
+	}
+
+	ids, err := h.svc.ReplaceScaleRanges(c.Context(), profileID, ranges)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(fiber.Map{"ids": ids})
 }
 
 // ---------------------------------------------------------------------------
@@ -300,160 +462,26 @@ func (h *Handler) DeleteScaleProfile(c *fiber.Ctx) error {
 		return err
 	}
 
-	id := c.Params("id")
-	if err := h.svc.DeleteScaleProfile(c.Context(), id, tenantID, schoolID); err != nil {
-		return middleware.HTTPError(c, err)
+	var payload struct {
+		ID string `json:"id"`
 	}
-	return c.JSON(fiber.Map{"message": "profile deleted"})
-}
-
-// ============================================================================
-// GRADING SCALE RANGES HANDLERS
-// ============================================================================
-
-// ---------------------------------------------------------------------------
-// BulkSetScaleRanges — POST /api/v1/grading/profiles/:id/ranges
-//
-// Replaces ALL ranges for a given profile in a single atomic transaction.
-// This is an idempotent set-replacement — existing ranges are deleted and
-// replaced with the provided set. The PostgreSQL exclusion constraint
-// (numrange GiST) guarantees no overlapping percentage bands after insert.
-//
-// At minimum EE, ME, and AE ranges are required. BE is recommended.
-//
-// Request body (SCHOOL_ADMIN only):
-//
-//	{
-//	  "ranges": [
-//	    { "performance_level": "EE", "min_percentage": 80, "max_percentage": 100 },
-//	    { "performance_level": "ME", "min_percentage": 60, "max_percentage": 79 },
-//	    { "performance_level": "AE", "min_percentage": 40, "max_percentage": 59 },
-//	    { "performance_level": "BE", "min_percentage": 0,  "max_percentage": 39 }
-//	  ]
-//	}
-//
-// Each range can optionally include "default_percentage_mapping" (e.g. 90 for
-// EE) which serves as the midpoint used during conversion. If omitted, the
-// system calculates from the range bounds.
-//
-// Response (201):
-//
-//	{ "ids": ["uuid-1", "uuid-2", "uuid-3", "uuid-4"] }
-//
-// Errors:
-//   - 400: missing required levels, overlapping ranges, invalid percentages
-//   - 401: authentication required
-//   - 403: not a SCHOOL_ADMIN
-//   - 404: profile not found
-//
-// ---------------------------------------------------------------------------
-func (h *Handler) BulkSetScaleRanges(c *fiber.Ctx) error {
-	tenantID, schoolID, err := getTenantAndSchool(c)
-	if err != nil {
-		return err
-	}
-
-	profileID := c.Params("id")
-
-	var payload BulkSetRangesPayload
 	if err := c.BodyParser(&payload); err != nil {
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
 			"code":    "invalid_input",
 			"message": "invalid request body",
 		})
 	}
-
-	ranges := make([]CreateScaleRangeParams, len(payload.Ranges))
-	for i, r := range payload.Ranges {
-		ranges[i] = CreateScaleRangeParams{
-			ProfileID:                profileID,
-			PerformanceLevel:         r.PerformanceLevel,
-			MinPercentage:            r.MinPercentage,
-			MaxPercentage:            r.MaxPercentage,
-			DefaultPercentageMapping: r.DefaultPercentageMapping,
-		}
+	if payload.ID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "id is required",
+		})
 	}
 
-	ids, err := h.svc.BulkSetScaleRanges(c.Context(), profileID, tenantID, schoolID, ranges)
-	if err != nil {
+	if err := h.svc.DeleteScaleProfile(c.Context(), payload.ID, tenantID, schoolID); err != nil {
 		return middleware.HTTPError(c, err)
 	}
-
-	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-		"ids": ids,
-	})
-}
-
-// ---------------------------------------------------------------------------
-// GetScaleRanges — GET /api/v1/grading/profiles/:id/ranges
-//
-// Returns all percentage-to-level ranges defined for a given profile, sorted
-// by min_percentage ascending. Each range maps a numeric interval to a CBC
-// rubric level (EE, ME, AE, BE).
-//
-// Response (200):
-//
-//	{
-//	  "items": [
-//	    { "id": "...", "profile_id": "...", "performance_level": "EE",
-//	      "min_percentage": 80, "max_percentage": 100,
-//	      "default_percentage_mapping": null }
-//	  ]
-//	}
-//
-// Errors:
-//   - 401: authentication required
-//   - 404: profile not found
-//
-// ---------------------------------------------------------------------------
-func (h *Handler) GetScaleRanges(c *fiber.Ctx) error {
-	tenantID, schoolID, err := getTenantAndSchool(c)
-	if err != nil {
-		return err
-	}
-
-	profileID := c.Params("id")
-	ranges, err := h.svc.GetScaleRanges(c.Context(), profileID, tenantID, schoolID)
-	if err != nil {
-		return middleware.HTTPError(c, err)
-	}
-
-	if ranges == nil {
-		ranges = []ScaleRange{}
-	}
-	return c.JSON(fiber.Map{"items": ranges})
-}
-
-// ---------------------------------------------------------------------------
-// DeleteScaleRange — DELETE /api/v1/grading/profiles/:profileId/ranges/:rangeId
-//
-// Deletes a single range from a profile. Use this to fix a misconfigured
-// range before the profile is actively used. Once sessions reference the
-// profile, prefer creating a new profile instead.
-//
-// Response (200):
-//
-//	{ "message": "range deleted" }
-//
-// Errors:
-//   - 401: authentication required
-//   - 403: not a SCHOOL_ADMIN
-//   - 404: range or profile not found
-//
-// ---------------------------------------------------------------------------
-func (h *Handler) DeleteScaleRange(c *fiber.Ctx) error {
-	tenantID, schoolID, err := getTenantAndSchool(c)
-	if err != nil {
-		return err
-	}
-
-	profileID := c.Params("profileId")
-	rangeID := c.Params("rangeId")
-
-	if err := h.svc.DeleteScaleRange(c.Context(), rangeID, profileID, tenantID, schoolID); err != nil {
-		return middleware.HTTPError(c, err)
-	}
-	return c.JSON(fiber.Map{"message": "range deleted"})
+	return c.JSON(fiber.Map{"message": "profile deleted"})
 }
 
 // ============================================================================
@@ -547,6 +575,56 @@ func (h *Handler) CreateSession(c *fiber.Ctx) error {
 }
 
 // ---------------------------------------------------------------------------
+// GetGradingData — GET /api/v1/assessments/sessions/:id/grading-data
+//
+// Returns session details, class roster (resolved from the session's class_id
+// and academic_term_id), and existing scores/grades merged into a single
+// response. The frontend no longer needs to call the class roster endpoint
+// separately.
+//
+// Response (200):
+//
+//	{
+//	  "session": { "id": "...", "class_id": "...", "academic_term_id": "...", ... },
+//	  "students": [
+//	    {
+//	      "student_id": "uuid",
+//	      "student_name": "Mary Wanjiku",
+//	      "admission_number": "CBC/2026/0142",
+//	      "gender": "F",
+//	      "enrollment_status": "ACTIVE",
+//	      "score": { "raw_score": 41, "calculated_percentage": 82.0, ... }
+//	    },
+//	    {
+//	      "student_id": "uuid",
+//	      "student_name": "John Kamau",
+//	      ...
+//	      "score": null  // not yet scored
+//	    }
+//	  ]
+//	}
+//
+// For RUBRIC sessions, "grades" replaces "score":
+//
+//	"grades": [{ "performance_indicator_id": "...", "awarded_level": "AE" }]
+//
+// Errors:
+//   - 401: authentication required
+//   - 404: session not found
+func (h *Handler) GetGradingData(c *fiber.Ctx) error {
+	tenantID, schoolID, err := getTenantAndSchool(c)
+	if err != nil {
+		return err
+	}
+
+	id := c.Params("id")
+	result, err := h.svc.GetGradingData(c.Context(), id, tenantID, schoolID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	return c.JSON(result)
+}
+
 // GetSession — GET /api/v1/assessments/sessions/:id
 //
 // Retrieves a single assessment session by ID, including its current status,
@@ -665,6 +743,49 @@ func (h *Handler) ListSessions(c *fiber.Ctx) error {
 		Page:  page,
 		Limit: limit,
 	})
+}
+
+// ---------------------------------------------------------------------------
+// DeleteSession — DELETE /api/v1/assessments/sessions/:id
+//
+// Permanently deletes a DRAFT assessment session and all its scores/grades.
+// Sessions in PENDING_APPROVAL or PUBLISHED status cannot be deleted.
+//
+// Response (204 No Content).
+//
+// Errors:
+//   - 401: authentication required
+//   - 404: session not found
+//   - 409: session is not in DRAFT status
+//
+// ---------------------------------------------------------------------------
+func (h *Handler) DeleteSession(c *fiber.Ctx) error {
+	tenantID, schoolID, err := getTenantAndSchool(c)
+	if err != nil {
+		return err
+	}
+
+	var payload struct {
+		ID string `json:"id"`
+	}
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "invalid request body",
+		})
+	}
+	if payload.ID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "id is required",
+		})
+	}
+
+	if err := h.svc.DeleteSession(c.Context(), payload.ID, tenantID, schoolID); err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.SendStatus(fiber.StatusNoContent)
 }
 
 // ---------------------------------------------------------------------------
@@ -1176,6 +1297,216 @@ func (h *Handler) GetStudentTermGrades(c *fiber.Ctx) error {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// STUDENT TERM SUBJECT SUMMARIES
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ---------------------------------------------------------------------------
+// GetStudentTermSubjectSummaries
+// GET /api/v1/parent/students/:studentId/term-subject-summaries
+//
+// Returns the blended assessment summaries for a student across all learning
+// areas in a given term. Each summary row contains the blended average
+// percentage (quantitative + rubric), the mapped performance level, source
+// counts, and source-type flags.
+//
+// Query parameters:
+//   - academic_term_id (required): the term to retrieve summaries for
+//
+// Example:
+//
+//	GET /api/v1/parent/students/student-uuid/term-subject-summaries?academic_term_id=term-uuid
+//
+// Response (200):
+//
+//	{
+//	  "items": [
+//	    {
+//	      "student_id": "uuid",
+//	      "academic_term_id": "term-uuid",
+//	      "learning_area_id": "la-uuid",
+//	      "average_percentage": 78.40,
+//	      "mapped_performance_level": "ME",
+//	      "quantitative_assessment_count": 3,
+//	      "rubric_assessment_count": 0,
+//	      "indicators_assessed_count": 0,
+//	      "has_quantitative_data": true,
+//	      "has_rubric_data": false,
+//	      "teacher_remark": null,
+//	      "last_refreshed_at": "2026-06-01T12:00:00Z"
+//	    }
+//	  ]
+//	}
+//
+// Errors:
+//   - 400: academic_term_id is required
+//   - 401: authentication required
+//
+// ---------------------------------------------------------------------------
+func (h *Handler) GetStudentTermSubjectSummaries(c *fiber.Ctx) error {
+	tenantID, schoolID, err := getTenantAndSchool(c)
+	if err != nil {
+		return err
+	}
+
+	studentID := c.Params("studentId")
+	termID := c.Query("academic_term_id")
+
+	if termID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "academic_term_id query parameter is required",
+		})
+	}
+
+	summaries, err := h.svc.GetStudentTermSubjectSummaries(c.Context(), tenantID, schoolID, studentID, termID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(StudentTermSubjectSummariesResponse{Items: summaries})
+}
+
+// ---------------------------------------------------------------------------
+// GetLearningAreaSummaries
+// GET /api/v1/assessments/sessions/learning-area/:learningAreaId/term-subject-summaries
+//
+// Returns summaries for all students in a specific learning area for a given
+// term. Useful for teacher dashboards showing class-level performance in a
+// single subject.
+//
+// Query parameters:
+//   - academic_term_id (required): the term to retrieve summaries for
+//
+// Example:
+//
+//	GET /api/v1/assessments/sessions/learning-area/la-uuid/term-subject-summaries?academic_term_id=term-uuid
+//
+// Response (200): same structure as per-student endpoint, but with all students
+//
+// Errors:
+//   - 400: academic_term_id is required
+//   - 401: authentication required
+//
+// ---------------------------------------------------------------------------
+func (h *Handler) GetLearningAreaSummaries(c *fiber.Ctx) error {
+	tenantID, schoolID, err := getTenantAndSchool(c)
+	if err != nil {
+		return err
+	}
+
+	learningAreaID := c.Params("learningAreaId")
+	termID := c.Query("academic_term_id")
+
+	if termID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "academic_term_id query parameter is required",
+		})
+	}
+
+	summaries, err := h.svc.GetLearningAreaSummaries(c.Context(), tenantID, schoolID, termID, learningAreaID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(StudentTermSubjectSummariesResponse{Items: summaries})
+}
+
+// ---------------------------------------------------------------------------
+// RefreshSummary
+// POST /api/v1/assessments/term-subject-summaries/refresh
+//
+// Manually triggers a refresh of student_term_subject_summaries for a given
+// session. This is useful when data integrity issues are suspected or after
+// backfill operations. School Admin only.
+//
+// Request body:
+//
+//	{ "session_id": "uuid-of-session" }
+//
+// Response (200):
+//
+//	{ "message": "summary refreshed" }
+//
+// Errors:
+//   - 400: session_id is required
+//   - 401: authentication required
+//   - 403: not a SCHOOL_ADMIN
+//
+// ---------------------------------------------------------------------------
+func (h *Handler) RefreshSummary(c *fiber.Ctx) error {
+	var payload struct {
+		SessionID string `json:"session_id"`
+	}
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "invalid request body",
+		})
+	}
+	if payload.SessionID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "session_id is required",
+		})
+	}
+
+	if err := h.svc.RefreshSessionSummary(c.Context(), payload.SessionID); err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(fiber.Map{"message": "summary refreshed"})
+}
+
+// ---------------------------------------------------------------------------
+// SetTeacherRemark
+// PUT /api/v1/assessments/term-subject-summaries/:id/remark
+//
+// Sets or clears the teacher_remark on a summary row. Pass a null remark to
+// clear the existing remark.
+//
+// Request body:
+//
+//	{ "remark": "Brian has shown consistent improvement this term." }
+//
+// To clear:
+//
+//	{ "remark": null }
+//
+// Response (200):
+//
+//	{ "message": "remark updated" }
+//
+// Errors:
+//   - 400: invalid input
+//   - 401: authentication required
+//   - 404: summary not found
+//
+// ---------------------------------------------------------------------------
+func (h *Handler) SetTeacherRemark(c *fiber.Ctx) error {
+	tenantID, schoolID, err := getTenantAndSchool(c)
+	if err != nil {
+		return err
+	}
+
+	summaryID := c.Params("id")
+
+	var payload SetTeacherRemarkPayload
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "invalid request body",
+		})
+	}
+
+	if err := h.svc.SetTeacherRemark(c.Context(), summaryID, tenantID, schoolID, payload.Remark); err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(fiber.Map{"message": "remark updated"})
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // ASSESSMENT WEIGHT CONFIGS
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1255,6 +1586,32 @@ func (h *Handler) ListWeightConfigs(c *fiber.Ctx) error {
 	return c.JSON(result)
 }
 
+// DeleteWeightConfig handles DELETE /api/v1/assessments/weight-configs/:id.
+// SYSTEM_ADMIN only.
+func (h *Handler) DeleteWeightConfig(c *fiber.Ctx) error {
+	var payload struct {
+		ID string `json:"id"`
+	}
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "invalid request body",
+		})
+	}
+	if payload.ID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "id is required",
+		})
+	}
+
+	if err := h.svc.DeleteWeightConfig(c.Context(), payload.ID); err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
 // GetWeightConfig handles GET /api/v1/assessments/weight-configs/:id.
 func (h *Handler) GetWeightConfig(c *fiber.Ctx) error {
 	id := c.Params("id")
@@ -1270,4 +1627,352 @@ func (h *Handler) GetWeightConfig(c *fiber.Ctx) error {
 		return middleware.HTTPError(c, err)
 	}
 	return c.JSON(result)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STUDENT TERM OVERALL SUMMARIES HANDLERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+// RefreshTermOverall handles POST /api/v1/assessments/term-overall-summaries/refresh.
+//
+// Triggers computation of overall summaries for ALL students in a term.
+// School Admin only.
+//
+// Request body:
+//
+//	{ "term_id": "uuid-of-term" }
+//
+// Response (200):
+//
+//	{ "message": "overall summaries refreshed" }
+//
+// Errors:
+//   - 400: term_id is required
+//   - 401: authentication required
+//   - 403: not a SCHOOL_ADMIN
+func (h *Handler) RefreshTermOverall(c *fiber.Ctx) error {
+	var payload struct {
+		TermID string `json:"term_id"`
+	}
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "invalid request body",
+		})
+	}
+	if payload.TermID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "term_id is required",
+		})
+	}
+
+	if err := h.svc.RefreshTermOverallSummaries(c.Context(), payload.TermID); err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(fiber.Map{"message": "overall summaries refreshed"})
+}
+
+// RefreshSingleStudentOverall handles POST /api/v1/assessments/term-overall-summaries/refresh-student.
+//
+// Triggers computation for a single student+term pair. Useful when a subject
+// summary is updated (e.g. after an assessment is published).
+//
+// Request body:
+//
+//	{ "student_id": "uuid", "term_id": "uuid" }
+//
+// Response (200):
+//
+//	{ "message": "student overall summary refreshed" }
+//
+// Errors:
+//   - 400: student_id or term_id is required
+//   - 401: authentication required
+func (h *Handler) RefreshSingleStudentOverall(c *fiber.Ctx) error {
+	var payload struct {
+		StudentID string `json:"student_id"`
+		TermID    string `json:"term_id"`
+	}
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "invalid request body",
+		})
+	}
+	if payload.StudentID == "" || payload.TermID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "student_id and term_id are required",
+		})
+	}
+
+	if err := h.svc.RefreshSingleStudentOverallSummary(c.Context(), payload.StudentID, payload.TermID); err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(fiber.Map{"message": "student overall summary refreshed"})
+}
+
+// GetStudentTermOverallSummary handles GET /api/v1/assessments/term-overall-summaries/:studentId/:termId.
+//
+// Returns the overall summary for a single student+term pair.
+//
+// Response (200):
+//
+//	{ "data": { ... } }
+//
+// Errors:
+//   - 401: authentication required
+//   - 404: summary not found (student has no data for this term)
+func (h *Handler) GetStudentTermOverallSummary(c *fiber.Ctx) error {
+	tenantID, schoolID, err := getTenantAndSchool(c)
+	if err != nil {
+		return err
+	}
+
+	studentID := c.Params("studentId")
+	termID := c.Params("termId")
+
+	summary, err := h.svc.GetStudentTermOverallSummary(c.Context(), tenantID, schoolID, studentID, termID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(StudentTermOverallSummaryResponse{Data: *summary})
+}
+
+// ListStudentTermOverallSummaries handles GET /api/v1/assessments/term-overall-summaries.
+//
+// Returns overall summaries for all students in the given term.
+// Query params: term_id (required), school_id (optional, defaults to active).
+//
+// Response (200):
+//
+//	{ "items": [ ... ] }
+//
+// Errors:
+//   - 400: term_id is required
+//   - 401: authentication required
+func (h *Handler) ListStudentTermOverallSummaries(c *fiber.Ctx) error {
+	tenantID, schoolID, err := getTenantAndSchool(c)
+	if err != nil {
+		return err
+	}
+
+	termID := c.Query("term_id")
+	if termID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "term_id query parameter is required",
+		})
+	}
+
+	items, err := h.svc.ListStudentTermOverallSummaries(c.Context(), tenantID, schoolID, termID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(StudentTermOverallSummariesListResponse{Items: items})
+}
+
+// SetHeadteacherRemark handles PUT /api/v1/assessments/term-overall-summaries/:id/headteacher-remark.
+//
+// Sets or clears the headteacher_remark on an overall summary row. Pass a
+// null remark to clear. School Admin only.
+//
+// Request body:
+//
+//	{ "remark": "Brian has performed well this term." }
+//
+// To clear:
+//
+//	{ "remark": null }
+//
+// Response (200):
+//
+//	{ "message": "headteacher remark updated" }
+func (h *Handler) SetHeadteacherRemark(c *fiber.Ctx) error {
+	tenantID, schoolID, err := getTenantAndSchool(c)
+	if err != nil {
+		return err
+	}
+
+	summaryID := c.Params("id")
+
+	var payload SetHeadteacherRemarkPayload
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "invalid request body",
+		})
+	}
+
+	if err := h.svc.SetHeadteacherRemark(c.Context(), summaryID, tenantID, schoolID, payload.Remark); err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(fiber.Map{"message": "headteacher remark updated"})
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STUDENT SUBJECT STRAND SUMMARIES HANDLERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+// RefreshStrandSummaries triggers a refresh of sub-strand summaries for a
+// given session. POST /api/v1/assessments/subject-strand-summaries/refresh
+// Body: { "session_id": "uuid" }
+func (h *Handler) RefreshStrandSummaries(c *fiber.Ctx) error {
+	var req struct {
+		SessionID string `json:"session_id"`
+	}
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "invalid request body",
+		})
+	}
+	if req.SessionID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "session_id is required",
+		})
+	}
+	if err := h.svc.RefreshSubjectStrandSummaries(c.Context(), req.SessionID); err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	return c.JSON(fiber.Map{"message": "sub-strand summaries refresh initiated"})
+}
+
+// GetStudentSubjectStrandSummaries returns sub-strand summaries for a
+// specific student+term. GET /api/v1/assessments/subject-strand-summaries/:studentId/:termId
+func (h *Handler) GetStudentSubjectStrandSummaries(c *fiber.Ctx) error {
+	tenantID, schoolID, err := getTenantAndSchool(c)
+	if err != nil {
+		return err
+	}
+	studentID := c.Params("studentId")
+	termID := c.Params("termId")
+	if studentID == "" || termID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "student_id and term_id are required",
+		})
+	}
+	items, err := h.svc.GetStudentSubjectStrandSummaries(c.Context(), tenantID, schoolID, studentID, termID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	return c.JSON(StudentSubjectStrandSummariesResponse{
+		Items: items,
+		Total: len(items),
+	})
+}
+
+// ListSubjectStrandSummariesByTerm returns all sub-strand summaries for a
+// given term. GET /api/v1/assessments/subject-strand-summaries/?term_id=xxx
+func (h *Handler) ListSubjectStrandSummariesByTerm(c *fiber.Ctx) error {
+	tenantID, schoolID, err := getTenantAndSchool(c)
+	if err != nil {
+		return err
+	}
+	termID := c.Query("term_id")
+	if termID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "term_id query parameter is required",
+		})
+	}
+	items, err := h.svc.GetSubjectStrandSummariesByTerm(c.Context(), tenantID, schoolID, termID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	return c.JSON(StudentSubjectStrandSummariesResponse{
+		Items: items,
+		Total: len(items),
+	})
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STUDENT PERFORMANCE PROJECTIONS HANDLERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+// RefreshProjections triggers a batch refresh of performance projections for
+// a given term. POST /api/v1/assessments/projections/refresh
+// Body: { "academic_term_id": "uuid" }
+func (h *Handler) RefreshProjections(c *fiber.Ctx) error {
+	var req RefreshProjectionsRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "invalid request body",
+		})
+	}
+	if req.AcademicTermID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "academic_term_id is required",
+		})
+	}
+	if err := h.svc.RefreshProjections(c.Context(), req.AcademicTermID); err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	return c.JSON(RefreshProjectionsResponse{
+		Message: "performance projections refresh initiated",
+		TermID:  req.AcademicTermID,
+	})
+}
+
+// GetStudentProjection returns the performance projection for a specific
+// student+term. GET /api/v1/assessments/projections/:studentId/:termId?learning_area_id=xxx
+func (h *Handler) GetStudentProjection(c *fiber.Ctx) error {
+	tenantID, schoolID, err := getTenantAndSchool(c)
+	if err != nil {
+		return err
+	}
+	studentID := c.Params("studentId")
+	termID := c.Params("termId")
+	if studentID == "" || termID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "student_id and term_id are required",
+		})
+	}
+
+	// Optional learning_area_id query param
+	var learningAreaID *string
+	if laID := c.Query("learning_area_id"); laID != "" {
+		learningAreaID = &laID
+	}
+
+	projection, err := h.svc.GetStudentProjection(c.Context(), tenantID, schoolID, studentID, termID, learningAreaID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	return c.JSON(PerformanceProjectionResponse{Data: *projection})
+}
+
+// ListStudentProjections returns all projections for a term.
+// GET /api/v1/assessments/projections/?term_id=xxx
+func (h *Handler) ListStudentProjections(c *fiber.Ctx) error {
+	tenantID, schoolID, err := getTenantAndSchool(c)
+	if err != nil {
+		return err
+	}
+	termID := c.Query("term_id")
+	if termID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "term_id query parameter is required",
+		})
+	}
+	items, err := h.svc.ListStudentProjections(c.Context(), tenantID, schoolID, termID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	return c.JSON(PerformanceProjectionListResponse{
+		Items: items,
+		Total: len(items),
+	})
 }

@@ -7,12 +7,10 @@
 
 "use client";
 
-import * as React from "react";
 import { useParams, useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft } from "lucide-react";
 
 import { StudentForm, useStudentDetail } from "@/features/students";
 
@@ -53,26 +51,5 @@ export default function EditStudentPage() {
         router.push(`/students/${id}`);
     };
 
-    return (
-        <div className="mx-auto flex max-w-xl flex-col px-6 pt-6 pb-8">
-            <Button
-                variant="ghost"
-                size="sm"
-                className="mb-4 w-fit"
-                onClick={() => router.push(`/students/${id}`)}
-            >
-                <ArrowLeft className="mr-1.5 size-4" />
-                Back to Profile
-            </Button>
-
-            <div className="mb-6">
-                <h1 className="text-2xl font-semibold tracking-tight">Edit Student</h1>
-                <p className="text-muted-foreground mt-1">
-                    Update {detailData.data.full_name}&apos;s demographic information.
-                </p>
-            </div>
-
-            <StudentForm mode="edit" initialData={detailData.data} onSuccess={handleSuccess} />
-        </div>
-    );
+    return <StudentForm mode="edit" initialData={detailData.data} onSuccess={handleSuccess} />;
 }

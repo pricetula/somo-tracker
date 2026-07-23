@@ -30,7 +30,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	years.Post("/", middleware.RequireRole("SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.CreateYear)
 	years.Patch("/:id", middleware.RequireRole("SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.PatchYear)
 	years.Post("/:id/set-current", middleware.RequireRole("SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.SetCurrentYear)
-	years.Delete("/:id", middleware.RequireRole("SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.DeleteYear)
+	years.Delete("/", middleware.RequireRole("SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.DeleteYear)
 
 	// Academic Terms
 	terms := router.Group("/api/v1/academic-terms")
@@ -65,8 +65,6 @@ func writeError(c *fiber.Ctx, status int, code, message string, details interfac
 // ListYears handles GET /api/v1/academic-years.
 func (h *Handler) ListYears(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
-	userID := c.Locals("user_id").(string)
-	_ = userID // used for future role-based field filtering
 
 	// school_id comes from the active school context
 	schoolID := c.Query("school_id")
@@ -135,18 +133,16 @@ func (h *Handler) PatchYear(c *fiber.Ctx) error {
 	// school_id — in production, derive from active school membership
 	schoolID := c.Locals("school_id").(string)
 
-	year, strandingErr := h.svc.PatchYear(c.Context(), id, tenantID, schoolID, body, userID)
-	if strandingErr != nil {
-		return writeError(c, fiber.StatusUnprocessableEntity, "TERMS_OUT_OF_RANGE",
-			strandingErr.Error(), fiber.Map{
-				"conflicting_terms": strandingErr.ConflictingTerms,
-			})
-	}
-	if year == nil {
-		// Version mismatch or not found — our PatchYear doesn't distinguish cleanly
-		// In production, handle with specific error types
-		return writeError(c, fiber.StatusConflict, "conflict",
-			"Resource was modified by another request. Fetch the latest version and retry.", nil)
+	year, err := h.svc.PatchYear(c.Context(), id, tenantID, schoolID, body, userID)
+	if err != nil {
+		var termsErr *TermsOutOfRangeError
+		if errors.As(err, &termsErr) {
+			return writeError(c, fiber.StatusUnprocessableEntity, "TERMS_OUT_OF_RANGE",
+				termsErr.Error(), fiber.Map{
+					"conflicting_terms": termsErr.ConflictingTerms,
+				})
+		}
+		return middleware.HTTPError(c, err)
 	}
 
 	resp := fiber.Map{
@@ -183,10 +179,19 @@ func (h *Handler) SetCurrentYear(c *fiber.Ctx) error {
 func (h *Handler) DeleteYear(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
 	userID := c.Locals("user_id").(string)
-	id := c.Params("id")
 	schoolID := c.Locals("school_id").(string)
 
-	err := h.svc.DeleteYear(c.Context(), id, tenantID, schoolID, userID)
+	var payload struct {
+		ID string `json:"id"`
+	}
+	if err := c.BodyParser(&payload); err != nil {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input", "malformed request body", nil)
+	}
+	if payload.ID == "" {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input", "id is required", nil)
+	}
+
+	err := h.svc.DeleteYear(c.Context(), payload.ID, tenantID, schoolID, userID)
 	if err != nil {
 		var hasDeps *HasDependentsError
 		if errors.As(err, &hasDeps) {
@@ -326,10 +331,19 @@ func (h *Handler) PatchTerm(c *fiber.Ctx) error {
 func (h *Handler) DeleteTerm(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
 	userID := c.Locals("user_id").(string)
-	id := c.Params("id")
 	schoolID := c.Locals("school_id").(string)
 
-	err := h.svc.DeleteTerm(c.Context(), id, tenantID, schoolID, userID, nil)
+	var payload struct {
+		ID string `json:"id"`
+	}
+	if err := c.BodyParser(&payload); err != nil {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input", "malformed request body", nil)
+	}
+	if payload.ID == "" {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input", "id is required", nil)
+	}
+
+	err := h.svc.DeleteTerm(c.Context(), payload.ID, tenantID, schoolID, userID, nil)
 	if err != nil {
 		var hasDeps *HasDependentsError
 		if errors.As(err, &hasDeps) {

@@ -29,7 +29,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	health.Get("/incidents/:id", middleware.RequireAuth, h.GetIncident)
 	health.Get("/incidents", middleware.RequireAuth, h.ListIncidents)
 	health.Put("/incidents/:id", middleware.RequireAuth, middleware.RequireRole("NURSE", "SCHOOL_ADMIN"), h.UpdateIncident)
-	health.Delete("/incidents/:id", middleware.RequireAuth, middleware.RequireRole("NURSE", "SCHOOL_ADMIN"), h.DeleteIncident)
+	health.Delete("/incidents", middleware.RequireAuth, middleware.RequireRole("NURSE", "SCHOOL_ADMIN"), h.DeleteIncident)
 
 	// Student Health Profiles
 	health.Put("/profiles/:studentId", middleware.RequireAuth, middleware.RequireRole("NURSE", "SCHOOL_ADMIN"), h.UpsertProfile)
@@ -146,12 +146,18 @@ func (h *Handler) UpdateIncident(c *fiber.Ctx) error {
 // DeleteIncident handles DELETE /api/v1/health/incidents/:id.
 func (h *Handler) DeleteIncident(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
-	id := c.Params("id")
-	if id == "" {
+
+	var payload struct {
+		ID string `json:"id"`
+	}
+	if err := c.BodyParser(&payload); err != nil {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input", "malformed request body")
+	}
+	if payload.ID == "" {
 		return writeError(c, fiber.StatusBadRequest, "invalid_input", "id is required")
 	}
 
-	if err := h.svc.DeleteIncident(c.Context(), id, tenantID); err != nil {
+	if err := h.svc.DeleteIncident(c.Context(), payload.ID, tenantID); err != nil {
 		return middleware.HTTPError(c, err)
 	}
 	return c.SendStatus(fiber.StatusNoContent)

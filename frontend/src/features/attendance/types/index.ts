@@ -1,56 +1,144 @@
 /**
- * Attendance feature types.
+ * TypeScript interfaces for the Attendance feature.
  *
- * These mirror the backend API response shapes. The canonical definitions
- * live in src/lib/api/attendance.ts; this barrel re-exports them so feature
- * consumers can import from @/features/attendance/types.
+ * Maps to backend/internal/attendance/domain.go
  */
 
-import type { AttendanceStatus as ApiAttendanceStatus } from "@/lib/api/attendance";
+// ─── Enums ────────────────────────────────────────────────────────────────
 
-/**
- * Returns Badge variant and className for a given attendance status.
- * Reused across teacher, admin, and parent views for consistency.
- */
-export function attendanceBadgeProps(status: ApiAttendanceStatus): {
-    variant: "default" | "destructive" | "secondary" | "outline";
-    className?: string;
-} {
-    switch (status) {
-        case "PRESENT":
-            return { variant: "default" };
-        case "ABSENT":
-            return { variant: "destructive" };
-        case "LATE":
-            return { variant: "outline", className: "text-amber-700 border-amber-300 bg-amber-50" };
-        case "EXCUSED":
-            return { variant: "outline", className: "text-sky-700 border-sky-300 bg-sky-50" };
-    }
+export type AttendanceStatus = "PRESENT" | "ABSENT" | "LATE" | "EXCUSED";
+
+export type SessionStatus = "SUBMITTED" | "SKIPPED";
+
+// ─── Domain Models ────────────────────────────────────────────────────────
+
+export interface AttendanceRecord {
+    id: string;
+    tenant_id: string;
+    school_id: string;
+    student_id: string;
+    timetable_slot_id: string;
+    academic_term_id: string;
+    date: string;
+    status: AttendanceStatus;
+    marked_by: string;
+    note?: string | null;
+    attendance_session_id?: string | null;
+    created_at: string;
+    updated_at: string;
 }
 
-/** Human-readable label for each status. */
-export function attendanceStatusLabel(status: ApiAttendanceStatus): string {
-    const labels: Record<ApiAttendanceStatus, string> = {
-        PRESENT: "Present",
-        ABSENT: "Absent",
-        LATE: "Late",
-        EXCUSED: "Excused",
-    };
-    return labels[status];
+export interface AttendanceSession {
+    id: string;
+    tenant_id: string;
+    school_id: string;
+    timetable_slot_id: string;
+    date: string;
+    status: SessionStatus;
+    skip_reason?: string | null;
+    created_at: string;
+    updated_at: string;
 }
 
-export type {
-    AttendanceStatus,
-    RosterStudent,
-    SlotRosterResponse,
-    BulkAttendanceEntry,
-    BulkAttendancePayload,
-    StudentAttendanceRecord,
-    ChildAttendanceSummary,
-    CompletionStatus,
-    AdminDashboardResponse,
-    AttendanceRecord,
-    AttendanceSession,
-    SessionStatus,
-    SkipSessionPayload,
-} from "@/lib/api/attendance";
+export interface SessionWithEnrichedData extends AttendanceSession {
+    class_name: string;
+    stream_name?: string;
+    grade_level: string;
+    period_name: string;
+    day_of_week: number;
+    start_time: string;
+    end_time: string;
+    learning_area_id: string;
+    learning_area_name?: string | null;
+    teacher_name?: string | null;
+}
+
+export interface RecordWithEnrichedData extends AttendanceRecord {
+    student_full_name: string;
+    class_name: string;
+    grade_level: string;
+    stream_name?: string;
+    period_name: string;
+    day_of_week: number;
+    start_time: string;
+    end_time: string;
+    learning_area_id: string;
+    learning_area_name?: string | null;
+}
+
+export interface AttendanceTermSummary {
+    id: string;
+    tenant_id: string;
+    school_id: string;
+    student_id: string;
+    academic_term_id: string;
+    learning_area_id: string;
+    learning_area_name?: string;
+    periods_total: number;
+    periods_present: number;
+    periods_absent: number;
+    periods_late: number;
+    periods_excused: number;
+    attendance_percentage: number;
+    last_refreshed_at: string;
+    updated_at: string;
+}
+
+// ─── Response Types ───────────────────────────────────────────────────────
+
+export interface SessionListResponse {
+    items: SessionWithEnrichedData[];
+    total: number;
+}
+
+export interface RecordListResponse {
+    items: RecordWithEnrichedData[];
+    total: number;
+}
+
+export interface SummaryListResponse {
+    items: AttendanceTermSummary[];
+    total: number;
+}
+
+export interface RefreshSummaryResponse {
+    message: string;
+    term_id: string;
+}
+
+// ─── Payload Types ────────────────────────────────────────────────────────
+
+export interface CreateSessionPayload {
+    timetable_slot_id: string;
+    date: string;
+    status: SessionStatus;
+    skip_reason?: string | null;
+}
+
+export interface UpdateSessionPayload {
+    status?: SessionStatus;
+    skip_reason?: string | null;
+}
+
+export interface StudentAttendanceMark {
+    student_id: string;
+    status: AttendanceStatus;
+    note?: string | null;
+}
+
+export interface BatchMarkPayload {
+    date: string;
+    timetable_slot_id: string;
+    records: StudentAttendanceMark[];
+}
+
+export interface BatchMarkResult {
+    created: number;
+    updated: number;
+    failed: number;
+}
+
+export interface UpdateRecordPayload {
+    status?: AttendanceStatus;
+    note?: string | null;
+}

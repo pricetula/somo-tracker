@@ -1,38 +1,48 @@
 /**
  * Attendance feature — public API barrel.
- *
- * External code must import ONLY from this file — never from internal paths.
  */
 
-// Components
-export { TeacherAttendanceRoster } from "./components/teacher-attendance-roster";
-export { AdminAttendanceDashboard } from "./components/admin-attendance-dashboard";
-export { ParentAttendanceSummary } from "./components/parent-attendance-summary";
-export { StudentHistoryView } from "./components/student-history-view";
-export { AttendanceEmptyState } from "./components/attendance-empty-state";
+export { AttendanceCalendar } from "./components/attendance-calendar";
+export type { DaySummary } from "./components/attendance-calendar";
+export { SessionList } from "./components/session-list";
+export { AttendanceGrid } from "./components/attendance-grid";
+export { AttendanceTimeline } from "./components/attendance-timeline";
+export { AttendanceMarkPage } from "./components/attendance-mark-page";
+export { SummaryTable } from "./components/summary-table";
 
-// Hooks
 export {
-    useSlotRoster,
-    useBulkMarkAttendance,
-    useAdminDashboard,
-    useStudentHistory,
-    useUpdateAttendanceRecord,
-    useChildAttendanceSummary,
-    useComputeAttendanceSummaries,
     attendanceKeys,
+    useAttendanceSessions,
+    useAttendanceSession,
+    useSessionsForClassDate,
+    useAttendanceRecords,
+    useRecordsBySlot,
+    useRecordsByStudent,
+    useRecordsByClassDate,
+    useStudentTermSummary,
+    useClassTermSummary,
+    useCreateSession,
+    useUpdateSession,
+    useBatchMarkAttendance,
+    useUpdateRecord,
+    useRefreshSummaries,
 } from "./hooks/use-attendance";
 
-// Types
 export type {
     AttendanceStatus,
-    RosterStudent,
-    SlotRosterResponse,
-    BulkAttendanceEntry,
-    BulkAttendancePayload,
-    StudentAttendanceRecord,
-    ChildAttendanceSummary,
-    CompletionStatus,
-    AdminDashboardResponse,
+    SessionStatus,
     AttendanceRecord,
+    AttendanceSession,
+    SessionWithEnrichedData,
+    RecordWithEnrichedData,
+    AttendanceTermSummary,
+    SessionListResponse,
+    RecordListResponse,
+    SummaryListResponse,
+    CreateSessionPayload,
+    UpdateSessionPayload,
+    StudentAttendanceMark,
+    BatchMarkPayload,
+    BatchMarkResult,
+    UpdateRecordPayload,
 } from "./types";

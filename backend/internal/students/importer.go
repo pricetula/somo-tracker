@@ -452,11 +452,11 @@ func (si *StudentImporter) insertStudent(ctx context.Context, tx pgx.Tx, aug aug
 // insertEnrollment inserts a student enrollment.
 func (si *StudentImporter) insertEnrollment(ctx context.Context, tx pgx.Tx, studentID string, aug augmentedImportRow) error {
 	query := `
-		INSERT INTO cbc_student_enrollments (tenant_id, school_id, student_id, academic_term_id, class_id, status)
-		VALUES ($1, $2, $3, $4, $5, 'ACTIVE')
+		INSERT INTO cbc_student_enrollments (tenant_id, school_id, student_id, academic_term_id, academic_year_id, class_id, status)
+		VALUES ($1, $2, $3, $4, $5, $6, 'ACTIVE')
 	`
 	_, err := tx.Exec(ctx, query,
-		aug.TenantID, aug.SchoolID, studentID, aug.AcademicTermID, aug.ClassID,
+		aug.TenantID, aug.SchoolID, studentID, aug.AcademicTermID, aug.AcademicYearID, aug.ClassID,
 	)
 	if err != nil {
 		return err

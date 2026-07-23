@@ -28,6 +28,7 @@ import (
 	"log/slog"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // sentinel domain error references — each module declares its own package-level
@@ -121,6 +122,11 @@ func HTTPError(c *fiber.Ctx, err error) error {
 		code = "request_canceled"
 		message = "the request was canceled"
 
+	case isPgError(err, "P0002"):
+		status = fiber.StatusConflict
+		code = "immutable_resource"
+		message = err.Error() // surface the trigger's specific message
+
 	case errors.Is(err, context.DeadlineExceeded):
 		status = fiber.StatusGatewayTimeout
 		code = "timeout"
@@ -145,6 +151,15 @@ func HTTPError(c *fiber.Ctx, err error) error {
 		Message: message,
 		Errors:  fieldErrors,
 	})
+}
+
+// isPgError checks if an error is a PostgreSQL error with the given code.
+func isPgError(err error, code string) bool {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.Code == code
+	}
+	return false
 }
 
 // FieldError is a convenience type that carries both a sentinel error and

@@ -54,6 +54,8 @@ export interface AssessmentSession {
     scheduled_date: string | null;
     created_at: string;
     updated_at: string;
+    class_name: string;
+    grade_level: string;
 }
 
 export interface StudentScore {
@@ -97,6 +99,9 @@ export interface StudentTermGrade {
 
 export interface ScaleProfileListResult {
     items: ScaleProfile[];
+    total: number;
+    page: number;
+    limit: number;
 }
 
 export interface ScaleRangesListResult {
@@ -118,6 +123,21 @@ export interface OutcomeGradesResult {
     items: OutcomeGrade[];
 }
 
+export interface GradingDataStudent {
+    student_id: string;
+    student_name: string;
+    admission_number: string;
+    gender: string;
+    enrollment_status: string;
+    score?: StudentScore | null;
+    grades?: OutcomeGrade[];
+}
+
+export interface GradingDataResponse {
+    session: AssessmentSession;
+    students: GradingDataStudent[];
+}
+
 export interface ParentAssessmentsResult {
     items: ParentAssessmentView[];
 }
@@ -130,6 +150,7 @@ export interface StudentTermGradesResult {
 
 export interface CreateScaleProfilePayload {
     name: string;
+    ranges?: ScaleRangePayload[];
 }
 
 export interface ScaleRangePayload {
@@ -228,7 +249,7 @@ export async function toggleScaleProfileActive(
 
 /** Delete a scale profile (fails with 409 if sessions reference it). SCHOOL_ADMIN only. */
 export async function deleteScaleProfile(id: string): Promise<{ message: string }> {
-    return api.delete(`/api/v1/grading/profiles/${id}`);
+    return api.delete(`/api/v1/grading/profiles`, { id });
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -240,7 +261,7 @@ export async function bulkSetScaleRanges(
     profileId: string,
     payload: BulkSetRangesPayload
 ): Promise<{ ids: string[] }> {
-    return api.post(`/api/v1/grading/profiles/${profileId}/ranges`, payload);
+    return api.put(`/api/v1/grading/profiles/${profileId}/ranges`, payload);
 }
 
 /** Get all ranges for a profile. */
@@ -293,6 +314,10 @@ export async function listSessions(params: ListSessionsParams = {}): Promise<Ses
 }
 
 /** Get a single assessment session by ID. */
+export async function deleteSession(id: string): Promise<void> {
+    return api.delete<void>(`/api/v1/assessments/sessions`, { id });
+}
+
 export async function getSession(id: string): Promise<AssessmentSession> {
     return api.get(`/api/v1/assessments/sessions/${id}`);
 }
@@ -352,6 +377,22 @@ export async function getOutcomeGrades(sessionId: string): Promise<OutcomeGrades
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// GRADING DATA (merged roster + scores/grades)
+// ════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Get session, class roster, and existing scores/grades in a single call.
+ *
+ * The backend resolves the roster from the session's class_id and
+ * academic_term_id — no need to pass them separately.
+ *
+ * GET /api/v1/assessments/sessions/:id/grading-data
+ */
+export async function getGradingData(sessionId: string): Promise<GradingDataResponse> {
+    return api.get(`/api/v1/assessments/sessions/${sessionId}/grading-data`);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 // PARENT VIEW & REPORT CARDS
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -373,4 +414,68 @@ export async function getStudentTermGrades(
     return api.get(
         `/api/v1/parent/students/${studentId}/report-card?academic_term_id=${academicTermId}`
     );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// ASSESSMENT WEIGHT CONFIGS
+// ════════════════════════════════════════════════════════════════════════════
+
+/** A KNEC weight configuration entry. */
+export interface AssessmentWeightConfig {
+    id: string;
+    grade_level: string;
+    assessment_type_code: string;
+    target_exam: string;
+    weight_percent: number;
+    effective_from: number;
+    notes: string | null;
+    created_at: string;
+}
+
+/** Payload for creating a weight config. */
+export interface CreateWeightConfigPayload {
+    grade_level: string;
+    assessment_type_code: string;
+    target_exam: string;
+    weight_percent: number;
+    effective_from: number;
+    notes?: string | null;
+}
+
+/** List result for weight configs. */
+export interface WeightConfigListResult {
+    items: AssessmentWeightConfig[];
+    total: number;
+    page: number;
+    limit: number;
+}
+
+/** List weight configs with optional filters. */
+export async function listWeightConfigs(params?: {
+    grade_level?: string;
+    target_exam?: string;
+    effective_from?: number;
+}): Promise<WeightConfigListResult> {
+    const searchParams = new URLSearchParams();
+    if (params?.grade_level) searchParams.set("grade_level", params.grade_level);
+    if (params?.target_exam) searchParams.set("target_exam", params.target_exam);
+    if (params?.effective_from) searchParams.set("effective_from", String(params.effective_from));
+    const qs = searchParams.toString();
+    return api.get(`/api/v1/assessments/weight-configs${qs ? `?${qs}` : ""}`);
+}
+
+/** Get a single weight config by ID. */
+export async function getWeightConfig(id: string): Promise<AssessmentWeightConfig> {
+    return api.get(`/api/v1/assessments/weight-configs/${id}`);
+}
+
+/** Create a new weight config. SCHOOL_ADMIN only. */
+export async function deleteWeightConfig(id: string): Promise<void> {
+    return api.delete<void>(`/api/v1/assessments/weight-configs`, { id });
+}
+
+export async function createWeightConfig(
+    payload: CreateWeightConfigPayload
+): Promise<{ id: string }> {
+    return api.post("/api/v1/assessments/weight-configs", payload);
 }

@@ -1,9 +1,7 @@
 /**
- * Attendance page — role-agnostic route.
+ * Attendance page — timeline view of today's schedule for the selected class.
  *
- * TEACHER: shows their current/next period roster
- * SCHOOL_ADMIN: shows school-wide completion dashboard
- * PARENT: shows linked child attendance summary
+ * TEACHER / SCHOOL_ADMIN: view the day's timeline and mark attendance per slot.
  */
 
 import { getVerifiedRole } from "@/lib/auth-server";
@@ -19,28 +17,25 @@ export default async function AttendancePage() {
         );
     }
 
-    switch (role) {
-        case "TEACHER": {
-            const { TeacherAttendanceDashboard } =
-                await import("@/features/attendance/components/teacher-attendance-dashboard");
-            return <TeacherAttendanceDashboard />;
-        }
-        case "SCHOOL_ADMIN":
-        case "SYSTEM_ADMIN": {
-            const { AdminAttendanceDashboard } =
-                await import("@/features/attendance/components/admin-attendance-dashboard");
-            return <AdminAttendanceDashboard />;
-        }
-        case "PARENT": {
-            const { ParentAttendanceView } =
-                await import("@/features/attendance/components/parent-attendance-view");
-            return <ParentAttendanceView />;
-        }
-        default:
-            return (
-                <article>
-                    <p>You do not have access to this page.</p>
-                </article>
-            );
+    const allowedRoles = ["TEACHER", "SCHOOL_ADMIN", "SYSTEM_ADMIN"];
+    if (!allowedRoles.includes(role)) {
+        return (
+            <article>
+                <p>You do not have access to this page.</p>
+            </article>
+        );
     }
+
+    const { AttendanceTimeline } =
+        await import("@/features/attendance/components/attendance-timeline");
+
+    return (
+        <div className="space-y-6">
+            <h1 className="text-2xl font-bold">Attendance</h1>
+            <p className="text-muted-foreground">
+                Select a class to see today&apos;s schedule and mark attendance.
+            </p>
+            <AttendanceTimeline />
+        </div>
+    );
 }

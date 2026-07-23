@@ -85,6 +85,8 @@ type mockRepo struct {
 	checkEmailsFn      func(ctx context.Context, tenantID, schoolID string, emails []string) ([]string, []string, error)
 	getStytchOrgIDFn   func(ctx context.Context, tenantID string) (string, error)
 	listInvitationsFn  func(ctx context.Context, tenantID, schoolID string, filter ListInvitationsFilter) ([]Invitation, int, error)
+	countInvitationsFn func(ctx context.Context, tenantID, schoolID string, role string) (int, error)
+	revokeInvitationFn func(ctx context.Context, id, schoolID string) error
 }
 
 func (m *mockRepo) InsertInvitation(ctx context.Context, tx pgx.Tx, params InsertInvitationParams) error {
@@ -113,6 +115,20 @@ func (m *mockRepo) ListInvitations(ctx context.Context, tenantID, schoolID strin
 		return m.listInvitationsFn(ctx, tenantID, schoolID, filter)
 	}
 	return nil, 0, nil
+}
+
+func (m *mockRepo) RevokeInvitation(ctx context.Context, id, schoolID string) error {
+	if m.revokeInvitationFn != nil {
+		return m.revokeInvitationFn(ctx, id, schoolID)
+	}
+	return nil
+}
+
+func (m *mockRepo) CountInvitations(ctx context.Context, tenantID, schoolID string, role string) (int, error) {
+	if m.countInvitationsFn != nil {
+		return m.countInvitationsFn(ctx, tenantID, schoolID, role)
+	}
+	return 0, nil
 }
 
 // ============================================================================

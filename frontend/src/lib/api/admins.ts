@@ -36,5 +36,5 @@ export async function toggleAdminActive(userId: string, isActive: boolean): Prom
 
 /** Hard-delete an admin member. */
 export async function deleteAdmin(userId: string): Promise<void> {
-    return api.delete<void>(`/api/v1/members/${userId}?role=SCHOOL_ADMIN`);
+    return api.delete<void>(`/api/v1/members`, { user_id: userId, role: "SCHOOL_ADMIN" });
 }

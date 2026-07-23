@@ -32,12 +32,18 @@ type academicYearsAdapter interface {
 // import dependency on the behavior package.
 type BehaviorNotesProvider func(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]BehaviorNoteItem, error)
 
+// AttendanceSummaryProvider is a function-based adapter that the students handler
+// uses to fetch attendance term summaries for the student detail page. It is set
+// via SetAttendanceProvider during fx wiring in main.go.
+type AttendanceSummaryProvider func(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]AttendanceSummaryItem, error)
+
 // Handler exposes student HTTP endpoints.
 type Handler struct {
 	svc              *Service
 	impSvc           importServiceAdapter
 	academicYearsSvc academicYearsAdapter
 	behaviorNotesFn  BehaviorNotesProvider
+	attendanceFn     AttendanceSummaryProvider
 }
 
 // NewHandler creates a new Handler.
@@ -62,6 +68,13 @@ func (h *Handler) SetBehaviorNotesProvider(fn BehaviorNotesProvider) {
 	h.behaviorNotesFn = fn
 }
 
+// SetAttendanceProvider sets the function that fetches attendance term summaries
+// for the student detail page. This is wired from main.go to avoid a direct
+// import dependency between students and attendance packages.
+func (h *Handler) SetAttendanceProvider(fn AttendanceSummaryProvider) {
+	h.attendanceFn = fn
+}
+
 // RegisterRoutes mounts student routes on the given router.
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	students := router.Group("/api/v1/students")
@@ -69,8 +82,10 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	students.Post("/", middleware.RequireAuth, h.Create)
 	students.Get("/:id", middleware.RequireAuth, h.GetDetail)
 	students.Put("/:id", middleware.RequireAuth, h.Update)
+	students.Delete("/", middleware.RequireAuth, h.Delete)
 
-	// Enrollments (nested under students)
+	// Enrollments
+	students.Post("/enrollments", middleware.RequireAuth, h.CreateBatchEnrollments)
 	students.Post("/:id/enrollments", middleware.RequireAuth, h.CreateEnrollment)
 	students.Get("/:id/enrollments", middleware.RequireAuth, h.ListEnrollments)
 
@@ -361,7 +376,7 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 	}
 
 	// Validate all entries have required fields before creating any
-	for i, s := range body.Students {
+	for _, s := range body.Students {
 		if s.FullName == "" {
 			return writeError(c, fiber.StatusBadRequest, "invalid_input",
 				"full_name is required for all students",
@@ -369,7 +384,6 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 					"students": {},
 				})
 		}
-		_ = i // used for potential future per-field error reporting
 	}
 
 	result, err := h.svc.CreateBatch(c.Context(), tenantID, schoolID, body.Students)
@@ -388,7 +402,7 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 // ─── Get Detail ───────────────────────────────────────────────────────────
 
 // GetDetail handles GET /api/v1/students/:id.
-// Supports optional ?term_id for scoping behavior notes and attendance records.
+// Supports optional ?term_id for scoping behavior notes.
 func (h *Handler) GetDetail(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
 	schoolID, _ := c.Locals("active_school_id").(string)
@@ -419,6 +433,17 @@ func (h *Handler) GetDetail(c *fiber.Ctx) error {
 			notes, err := h.behaviorNotesFn(c.Context(), tenantID, schoolID, id, termID)
 			if err == nil && notes != nil {
 				detail.Behavior = notes
+			}
+		}
+	}
+
+	// Fetch attendance summaries if the provider is wired in
+	if h.attendanceFn != nil {
+		termID := c.Query("term_id")
+		if termID != "" {
+			attendance, err := h.attendanceFn(c.Context(), tenantID, schoolID, id, termID)
+			if err == nil && attendance != nil {
+				detail.Attendance = attendance
 			}
 		}
 	}
@@ -500,6 +525,72 @@ func (h *Handler) CreateEnrollment(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusCreated).JSON(CreateEnrollmentResponse{ID: enrollment.ID})
 }
 
+// ─── Batch Enrollments ───────────────────────────────────────────────────
+
+// CreateBatchEnrollments handles POST /api/v1/students/enrollments.
+// Accepts a list of { student_id, class_id } pairs. Academic term is resolved
+// server-side from the current active term. Status defaults to ACTIVE.
+func (h *Handler) CreateBatchEnrollments(c *fiber.Ctx) error {
+	tenantID := c.Locals("tenant_id").(string)
+	schoolID, _ := c.Locals("active_school_id").(string)
+	if schoolID == "" {
+		schoolID = c.Locals("school_id").(string)
+	}
+	if schoolID == "" {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input", "active school not set", nil)
+	}
+
+	var body BatchEnrollRequest
+	if err := c.BodyParser(&body); err != nil {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input", "malformed request body", nil)
+	}
+
+	if len(body.Enrollments) == 0 {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input", "enrollments array must not be empty",
+			map[string][]string{"enrollments": {"At least one enrollment is required"}})
+	}
+
+	// Validate each item has required fields
+	for i, item := range body.Enrollments {
+		if item.StudentID == "" {
+			return writeError(c, fiber.StatusBadRequest, "invalid_input",
+				"student_id is required for all enrollments",
+				map[string][]string{fmt.Sprintf("enrollments[%d].student_id", i): {"This field is required"}})
+		}
+		if item.ClassID == "" {
+			return writeError(c, fiber.StatusBadRequest, "invalid_input",
+				"class_id is required for all enrollments",
+				map[string][]string{fmt.Sprintf("enrollments[%d].class_id", i): {"This field is required"}})
+		}
+	}
+
+	// Resolve current academic year and term server-side
+	academicYearID, err := h.academicYearsSvc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	if academicYearID == "" {
+		return writeError(c, fiber.StatusBadRequest, "no_active_academic_year",
+			"No current academic year is set for this school. Please set one before enrolling.", nil)
+	}
+
+	academicTermID, err := h.academicYearsSvc.GetCurrentAcademicTermID(c.Context(), academicYearID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	if academicTermID == "" {
+		return writeError(c, fiber.StatusBadRequest, "no_active_academic_term",
+			"No current academic term is active. Please set one before enrolling.", nil)
+	}
+
+	result, err := h.svc.CreateBatchEnrollments(c.Context(), tenantID, schoolID, academicTermID, body.Enrollments)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(result)
+}
+
 // Delete handles DELETE /api/v1/students/:id
 func (h *Handler) Delete(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
@@ -507,13 +598,18 @@ func (h *Handler) Delete(c *fiber.Ctx) error {
 	if schoolID == "" {
 		schoolID = c.Locals("school_id").(string)
 	}
-	id := c.Params("id")
 
-	if id == "" {
+	var payload struct {
+		ID string `json:"id"`
+	}
+	if err := c.BodyParser(&payload); err != nil {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input", "malformed request body", nil)
+	}
+	if payload.ID == "" {
 		return writeError(c, fiber.StatusBadRequest, "invalid_input", "student id is required", nil)
 	}
 
-	if err := h.svc.Delete(c.Context(), id, tenantID, schoolID); err != nil {
+	if err := h.svc.Delete(c.Context(), payload.ID, tenantID, schoolID); err != nil {
 		return middleware.HTTPError(c, err)
 	}
 
@@ -539,5 +635,10 @@ func (h *Handler) ListEnrollments(c *fiber.Ctx) error {
 		return middleware.HTTPError(c, err)
 	}
 
-	return c.JSON(ListEnrollmentsResponse{Items: enrollments})
+	return c.JSON(ListEnrollmentsResponse{
+		Items: enrollments,
+		Total: len(enrollments),
+		Page:  1,
+		Limit: len(enrollments),
+	})
 }

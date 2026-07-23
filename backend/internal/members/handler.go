@@ -27,7 +27,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	members.Get("/:user_id", middleware.RequireAuth, h.GetByID)
 	members.Put("/:user_id", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.Update)
 	members.Patch("/:user_id/active", middleware.RequireAuth, h.ToggleActive)
-	members.Delete("/:user_id", middleware.RequireAuth, h.Delete)
+	members.Delete("/", middleware.RequireAuth, h.Delete)
 }
 
 // ─── Handlers ──────────────────────────────────────────────────────────────
@@ -177,16 +177,32 @@ func (h *Handler) Update(c *fiber.Ctx) error {
 	})
 }
 
-// Delete handles DELETE /api/v1/members/:user_id
+// Delete handles DELETE /api/v1/members/:user_id/:role
 func (h *Handler) Delete(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
-	userID := c.Params("user_id")
 
-	role := strings.TrimSpace(c.Query("role", ""))
-	if role == "" {
+	var payload struct {
+		UserID string `json:"user_id"`
+		Role   string `json:"role"`
+	}
+	if err := c.BodyParser(&payload); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"code":    "invalid_input",
-			"message": "role query parameter is required (TEACHER, NURSE, FINANCE, or SCHOOL_ADMIN)",
+			"message": "malformed request body",
+		})
+	}
+
+	payload.Role = strings.TrimSpace(payload.Role)
+	if payload.UserID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "user_id is required",
+		})
+	}
+	if payload.Role == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "role is required (TEACHER, NURSE, FINANCE, or SCHOOL_ADMIN)",
 		})
 	}
 
@@ -198,7 +214,7 @@ func (h *Handler) Delete(c *fiber.Ctx) error {
 		})
 	}
 
-	if err := h.svc.Delete(c.Context(), tenantID, schoolID, userID, role); err != nil {
+	if err := h.svc.Delete(c.Context(), tenantID, schoolID, payload.UserID, payload.Role); err != nil {
 		return middleware.HTTPError(c, err)
 	}
 

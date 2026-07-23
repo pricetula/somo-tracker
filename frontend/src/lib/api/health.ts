@@ -119,7 +119,7 @@ export async function updateMedicalIncident(
 
 /** Delete a medical incident. */
 export async function deleteMedicalIncident(id: string): Promise<void> {
-    return api.delete<void>(`/api/v1/health/incidents/${id}`);
+    return api.delete<void>(`/api/v1/health/incidents`, { id });
 }
 
 /** Upsert a student health profile. */

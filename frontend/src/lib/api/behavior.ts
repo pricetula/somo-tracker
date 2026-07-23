@@ -83,7 +83,8 @@ export interface PendingNoteItem {
 }
 
 export interface PendingNotesResponse {
-    notes: PendingNoteItem[];
+    items: PendingNoteItem[];
+    total?: number;
 }
 
 export interface TeacherNoteItem {
@@ -99,7 +100,8 @@ export interface TeacherNoteItem {
 }
 
 export interface TeacherNotesResponse {
-    notes: TeacherNoteItem[];
+    items: TeacherNoteItem[];
+    total?: number;
 }
 
 export interface ReviewDecisionPayload {
@@ -148,7 +150,8 @@ export async function createBehaviorNote(payload: CreateNotePayload): Promise<Be
 
 /** Get the pending review queue. */
 export async function getBehaviorPendingQueue(): Promise<PendingNotesResponse> {
-    return api.get<PendingNotesResponse>("/api/v1/behavior/notes/queue");
+    const raw = await api.get<{ notes: PendingNoteItem[] }>("/api/v1/behavior/notes/queue");
+    return { items: raw.notes ?? [], total: raw.notes?.length };
 }
 
 /** Get a single behavior note by ID. */
@@ -166,7 +169,13 @@ export async function updateBehaviorNote(
 
 /** List notes authored by the current user (teacher view). */
 export async function listTeacherNotes(): Promise<TeacherNotesResponse> {
-    return api.get<TeacherNotesResponse>("/api/v1/behavior/notes");
+    const raw = await api.get<{ notes: TeacherNoteItem[] }>("/api/v1/behavior/notes");
+    return { items: raw.notes ?? [], total: raw.notes?.length };
+}
+
+/** Delete a behavior note permanently. */
+export async function deleteBehaviorNote(id: string): Promise<void> {
+    return api.delete<void>(`/api/v1/behavior/notes`, { id });
 }
 
 /** Review (approve/reject) a behavior note. */

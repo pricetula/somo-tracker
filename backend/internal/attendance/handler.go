@@ -1,13 +1,7 @@
 package attendance
 
 import (
-	"errors"
-	"fmt"
-	"strconv"
-	"strings"
-
 	"github.com/gofiber/fiber/v2"
-	"github.com/google/uuid"
 
 	"somotracker/backend/internal/middleware"
 )
@@ -24,29 +18,37 @@ func NewHandler(svc *Service) *Handler {
 
 // RegisterRoutes mounts attendance routes on the given router.
 func (h *Handler) RegisterRoutes(router fiber.Router) {
-	att := router.Group("/api/v1/attendance")
+	// Attendance sessions
+	sessions := router.Group("/api/v1/attendance/sessions")
+	sessions.Post("/", middleware.RequireAuth, h.CreateSession)
+	sessions.Get("/", middleware.RequireAuth, h.ListSessions)
+	sessions.Get("/class/:class_id/date/:date", middleware.RequireAuth, h.GetSessionsForClassDate)
+	sessions.Get("/:id", middleware.RequireAuth, h.GetSession)
+	sessions.Put("/:id", middleware.RequireAuth, h.UpdateSession)
 
-	// Teacher+Admin routes
-	att.Get("/roster/:timetable_slot_id", middleware.RequireRole("TEACHER", "SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.GetRoster)
-	att.Post("/bulk", middleware.RequireRole("TEACHER", "SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.BulkMark)
-	att.Post("/sessions/skip", middleware.RequireRole("TEACHER", "SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.SkipSession)
-	att.Post("/sessions/unskip", middleware.RequireRole("TEACHER", "SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.UnskipSession)
-	att.Get("/sessions/:timetable_slot_id", middleware.RequireRole("TEACHER", "SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.GetSession)
+	// Attendance records
+	records := router.Group("/api/v1/attendance/records")
+	records.Post("/batch", middleware.RequireAuth, h.BatchMark)
+	records.Get("/slot", middleware.RequireAuth, h.ListRecordsBySlotDate)
+	records.Get("/student/:student_id", middleware.RequireAuth, h.ListRecordsByStudentTerm)
+	records.Get("/class/:class_id/date/:date", middleware.RequireAuth, h.ListRecordsByClassDate)
+	records.Get("/", middleware.RequireAuth, h.ListRecords)
+	records.Put("/:id", middleware.RequireAuth, h.UpdateRecord)
 
-	// Admin-only routes
-	att.Get("/dashboard", middleware.RequireRole("SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.AdminDashboard)
-	att.Get("/students/:student_id", middleware.RequireRole("TEACHER", "SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.StudentHistory)
-	att.Get("/records/:id", middleware.RequireRole("TEACHER", "SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.GetRecordByID)
-	att.Put("/records/:id", middleware.RequireRole("SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.UpdateRecord)
+	// Attendance summaries
+	summaries := router.Group("/api/v1/attendance/summaries")
+	summaries.Get("/student/:student_id", middleware.RequireAuth, h.GetStudentTermSummary)
+	summaries.Get("/class/:class_id", middleware.RequireAuth, h.GetClassTermSummary)
+	summaries.Post("/refresh", middleware.RequireAuth, h.RefreshSummaries)
 
-	// Parent-facing route
-	att.Get("/children/:student_id/summary", middleware.RequireRole("PARENT", "TEACHER", "SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.ChildSummary)
-
-	// Background task trigger — recompute attendance_term_summaries
-	att.Post("/summaries/compute", middleware.RequireRole("SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.ComputeSummaries)
+	// Class daily attendance summaries
+	daily := router.Group("/api/v1/attendance/daily")
+	daily.Get("/class/:class_id/date/:date", middleware.RequireAuth, h.GetClassDailySummary)
+	daily.Post("/class/:class_id/date/:date/refresh", middleware.RequireAuth, h.RefreshClassDailySummary)
+	daily.Get("/class/:class_id", middleware.RequireAuth, h.ListClassDailySummaries)
 }
 
-// attMiddleware extracts common tenant/school from context.
+// attMiddleware extracts common tenant/school context.
 func (h *Handler) attMiddleware(c *fiber.Ctx) (tenantID, schoolID string, err error) {
 	tenantID = c.Locals("tenant_id").(string)
 	schoolID, _ = c.Locals("active_school_id").(string)
@@ -59,25 +61,48 @@ func (h *Handler) attMiddleware(c *fiber.Ctx) (tenantID, schoolID string, err er
 	return tenantID, schoolID, nil
 }
 
-// GetRoster handles GET /api/v1/attendance/roster/:timetable_slot_id.
-func (h *Handler) GetRoster(c *fiber.Ctx) error {
+// ── Sessions ──────────────────────────────────────────────────────────────
+
+// CreateSession handles POST /api/v1/attendance/sessions.
+func (h *Handler) CreateSession(c *fiber.Ctx) error {
 	tenantID, schoolID, err := h.attMiddleware(c)
 	if err != nil {
 		return err
 	}
 
-	timetableSlotID := c.Params("timetable_slot_id")
-	if timetableSlotID == "" {
-		return middleware.HTTPError(c, fmt.Errorf("timetable_slot_id is required: %w", middleware.ErrInvalidInput))
+	var payload CreateSessionPayload
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "invalid request body",
+		})
 	}
 
-	date := c.Query("date")
-	if date == "" {
-		// Default to today
-		date = c.Context().Time().Format("2006-01-02")
+	session, err := h.svc.CreateSession(c.Context(), tenantID, schoolID, payload)
+	if err != nil {
+		return middleware.HTTPError(c, err)
 	}
 
-	result, err := h.svc.GetRosterForSlot(c.Context(), tenantID, schoolID, timetableSlotID, date)
+	return c.Status(fiber.StatusCreated).JSON(session)
+}
+
+// ListSessions handles GET /api/v1/attendance/sessions.
+func (h *Handler) ListSessions(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.attMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	filter := SessionFilter{
+		TimetableSlotID: c.Query("timetable_slot_id"),
+		Date:            c.Query("date"),
+		Status:          c.Query("status"),
+		ClassID:         c.Query("class_id"),
+		SchoolID:        schoolID,
+		TenantID:        tenantID,
+	}
+
+	result, err := h.svc.ListSessions(c.Context(), filter)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
@@ -85,8 +110,68 @@ func (h *Handler) GetRoster(c *fiber.Ctx) error {
 	return c.JSON(result)
 }
 
-// BulkMark handles POST /api/v1/attendance/bulk.
-func (h *Handler) BulkMark(c *fiber.Ctx) error {
+// GetSession handles GET /api/v1/attendance/sessions/:id.
+func (h *Handler) GetSession(c *fiber.Ctx) error {
+	tenantID, _, err := h.attMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	id := c.Params("id")
+	session, err := h.svc.GetEnrichedSession(c.Context(), id, tenantID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(session)
+}
+
+// GetSessionsForClassDate handles GET /api/v1/attendance/sessions/class/:class_id/date/:date.
+func (h *Handler) GetSessionsForClassDate(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.attMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	classID := c.Params("class_id")
+	date := c.Params("date")
+
+	result, err := h.svc.GetSessionsForClassDate(c.Context(), tenantID, schoolID, classID, date)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(result)
+}
+
+// UpdateSession handles PUT /api/v1/attendance/sessions/:id.
+func (h *Handler) UpdateSession(c *fiber.Ctx) error {
+	tenantID, _, err := h.attMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	id := c.Params("id")
+	var payload UpdateSessionPayload
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "invalid request body",
+		})
+	}
+
+	session, err := h.svc.UpdateSession(c.Context(), id, tenantID, payload)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(session)
+}
+
+// ── Records ───────────────────────────────────────────────────────────────
+
+// BatchMark handles POST /api/v1/attendance/records/batch.
+func (h *Handler) BatchMark(c *fiber.Ctx) error {
 	tenantID, schoolID, err := h.attMiddleware(c)
 	if err != nil {
 		return err
@@ -100,7 +185,7 @@ func (h *Handler) BulkMark(c *fiber.Ctx) error {
 		})
 	}
 
-	var payload BulkAttendancePayload
+	var payload BatchMarkPayload
 	if err := c.BodyParser(&payload); err != nil {
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
 			"code":    "VALIDATION_ERROR",
@@ -108,51 +193,28 @@ func (h *Handler) BulkMark(c *fiber.Ctx) error {
 		})
 	}
 
-	if err := h.svc.BulkMarkAttendance(c.Context(), tenantID, schoolID, payload, userID); err != nil {
+	// Accept optional term_id in query or from request context
+	termID := c.Query("term_id")
+
+	result, err := h.svc.BatchMark(c.Context(), tenantID, schoolID, payload, userID, termID)
+	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
 
-	return c.JSON(fiber.Map{
-		"message": "Attendance saved",
-		"count":   len(payload.Entries),
-	})
+	return c.Status(fiber.StatusCreated).JSON(result)
 }
 
-// AdminDashboard handles GET /api/v1/attendance/dashboard.
-// Supports pagination and multi-value filters via repeated query params:
-//
-//	?education_level=Early_Years&education_level=Upper_Primary
-//	&grade_level=G4&grade_level=G7
-//	&class_id=<uuid>
-//	&is_complete=complete|incomplete
-//	&page=1&limit=50
-func (h *Handler) AdminDashboard(c *fiber.Ctx) error {
+// ListRecordsBySlotDate handles GET /api/v1/attendance/records/slot.
+func (h *Handler) ListRecordsBySlotDate(c *fiber.Ctx) error {
 	tenantID, schoolID, err := h.attMiddleware(c)
 	if err != nil {
 		return err
 	}
 
+	timetableSlotID := c.Query("timetable_slot_id")
 	date := c.Query("date")
 
-	page, _ := strconv.Atoi(c.Query("page", "1"))
-	limit, _ := strconv.Atoi(c.Query("limit", "50"))
-	if page < 1 {
-		page = 1
-	}
-	if limit < 1 || limit > 100 {
-		limit = 50
-	}
-
-	filter := DashboardFilter{
-		EducationLevels: parseRepeatedQuery(c, "education_level"),
-		GradeLevels:     parseRepeatedQuery(c, "grade_level"),
-		ClassID:         c.Query("class_id"),
-		IsComplete:      c.Query("is_complete"),
-		Page:            page,
-		Limit:           limit,
-	}
-
-	result, err := h.svc.GetAdminDashboard(c.Context(), tenantID, schoolID, date, filter)
+	result, err := h.svc.ListRecordsBySlotDate(c.Context(), tenantID, schoolID, timetableSlotID, date)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
@@ -160,54 +222,67 @@ func (h *Handler) AdminDashboard(c *fiber.Ctx) error {
 	return c.JSON(result)
 }
 
-// StudentHistory handles GET /api/v1/attendance/students/:student_id.
-func (h *Handler) StudentHistory(c *fiber.Ctx) error {
+// ListRecordsByStudentTerm handles GET /api/v1/attendance/records/student/:student_id.
+func (h *Handler) ListRecordsByStudentTerm(c *fiber.Ctx) error {
 	tenantID, schoolID, err := h.attMiddleware(c)
 	if err != nil {
 		return err
 	}
 
 	studentID := c.Params("student_id")
-	if studentID == "" {
-		return middleware.HTTPError(c, fmt.Errorf("student_id is required: %w", middleware.ErrInvalidInput))
-	}
+	termID := c.Query("term_id")
 
-	filter := StudentHistoryFilter{
-		TermID:         c.Query("term_id"),
-		StartDate:      c.Query("start_date"),
-		EndDate:        c.Query("end_date"),
-		LearningAreaID: c.Query("learning_area_id"),
-	}
-
-	records, err := h.svc.GetStudentHistory(c.Context(), tenantID, schoolID, studentID, filter)
+	result, err := h.svc.ListRecordsByStudentTerm(c.Context(), tenantID, schoolID, studentID, termID)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
 
-	return c.JSON(fiber.Map{
-		"items": records,
-		"total": len(records),
-	})
+	return c.JSON(result)
 }
 
-// GetRecordByID handles GET /api/v1/attendance/records/:id.
-func (h *Handler) GetRecordByID(c *fiber.Ctx) error {
-	tenantID, _, err := h.attMiddleware(c)
+// ListRecordsByClassDate handles GET /api/v1/attendance/records/class/:class_id/date/:date.
+func (h *Handler) ListRecordsByClassDate(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.attMiddleware(c)
 	if err != nil {
 		return err
 	}
 
-	recordID := c.Params("id")
-	if recordID == "" {
-		return middleware.HTTPError(c, fmt.Errorf("record id is required: %w", middleware.ErrInvalidInput))
-	}
+	classID := c.Params("class_id")
+	date := c.Params("date")
+	termID := c.Query("term_id")
 
-	record, err := h.svc.GetAttendanceRecordByID(c.Context(), recordID, tenantID)
+	result, err := h.svc.ListRecordsByClassDate(c.Context(), tenantID, schoolID, classID, date, termID)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
 
-	return c.JSON(record)
+	return c.JSON(result)
+}
+
+// ListRecords handles GET /api/v1/attendance/records.
+func (h *Handler) ListRecords(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.attMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	filter := RecordFilter{
+		TimetableSlotID: c.Query("timetable_slot_id"),
+		Date:            c.Query("date"),
+		StudentID:       c.Query("student_id"),
+		ClassID:         c.Query("class_id"),
+		AcademicTermID:  c.Query("academic_term_id"),
+		Status:          c.Query("status"),
+		SchoolID:        schoolID,
+		TenantID:        tenantID,
+	}
+
+	result, err := h.svc.ListRecords(c.Context(), filter)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(result)
 }
 
 // UpdateRecord handles PUT /api/v1/attendance/records/:id.
@@ -217,15 +292,8 @@ func (h *Handler) UpdateRecord(c *fiber.Ctx) error {
 		return err
 	}
 
-	recordID := c.Params("id")
-	if recordID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "record id is required",
-		})
-	}
-
-	var payload UpdateAttendanceEntryPayload
+	id := c.Params("id")
+	var payload UpdateRecordPayload
 	if err := c.BodyParser(&payload); err != nil {
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
 			"code":    "VALIDATION_ERROR",
@@ -233,40 +301,54 @@ func (h *Handler) UpdateRecord(c *fiber.Ctx) error {
 		})
 	}
 
-	if err := h.svc.UpdateAttendanceRecord(c.Context(), recordID, tenantID, payload); err != nil {
+	record, err := h.svc.UpdateRecord(c.Context(), id, tenantID, payload)
+	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
 
-	return c.JSON(fiber.Map{"message": "Attendance record updated"})
+	return c.JSON(record)
 }
 
-// ChildSummary handles GET /api/v1/attendance/children/:student_id/summary.
-func (h *Handler) ChildSummary(c *fiber.Ctx) error {
+// ── Summaries ─────────────────────────────────────────────────────────────
+
+// GetStudentTermSummary handles GET /api/v1/attendance/summaries/student/:student_id.
+func (h *Handler) GetStudentTermSummary(c *fiber.Ctx) error {
 	tenantID, schoolID, err := h.attMiddleware(c)
 	if err != nil {
 		return err
 	}
 
 	studentID := c.Params("student_id")
-	if studentID == "" {
-		return middleware.HTTPError(c, fmt.Errorf("student_id is required: %w", middleware.ErrInvalidInput))
-	}
-
 	termID := c.Query("term_id")
-	if termID == "" {
-		return middleware.HTTPError(c, fmt.Errorf("term_id is required: %w", middleware.ErrInvalidInput))
-	}
 
-	summary, err := h.svc.GetChildAttendanceSummary(c.Context(), tenantID, schoolID, studentID, termID)
+	result, err := h.svc.GetStudentTermSummary(c.Context(), tenantID, schoolID, studentID, termID)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
 
-	return c.JSON(summary)
+	return c.JSON(result)
 }
 
-// ComputeSummaries handles POST /api/v1/attendance/summaries/compute.
-func (h *Handler) ComputeSummaries(c *fiber.Ctx) error {
+// GetClassTermSummary handles GET /api/v1/attendance/summaries/class/:class_id.
+func (h *Handler) GetClassTermSummary(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.attMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	classID := c.Params("class_id")
+	termID := c.Query("term_id")
+
+	result, err := h.svc.GetClassTermSummary(c.Context(), tenantID, schoolID, classID, termID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(result)
+}
+
+// RefreshSummaries handles POST /api/v1/attendance/summaries/refresh.
+func (h *Handler) RefreshSummaries(c *fiber.Ctx) error {
 	tenantID, schoolID, err := h.attMiddleware(c)
 	if err != nil {
 		return err
@@ -276,142 +358,73 @@ func (h *Handler) ComputeSummaries(c *fiber.Ctx) error {
 		TermID string `json:"term_id"`
 	}
 	if err := c.BodyParser(&payload); err != nil {
-		return middleware.HTTPError(c, fmt.Errorf("invalid request body: %w", middleware.ErrInvalidInput))
-	}
-
-	if _, err := uuid.Parse(payload.TermID); err != nil {
-		return middleware.HTTPError(c, fmt.Errorf("invalid term_id: %w", middleware.ErrInvalidInput))
-	}
-
-	count, err := h.svc.ComputeTermSummaries(c.Context(), tenantID, schoolID, payload.TermID)
-	if err != nil {
-		return middleware.HTTPError(c, err)
-	}
-
-	return c.JSON(fiber.Map{
-		"message": "Attendance summaries computed",
-		"count":   count,
-	})
-}
-
-// SkipSession handles POST /api/v1/attendance/sessions/skip.
-func (h *Handler) SkipSession(c *fiber.Ctx) error {
-	tenantID, schoolID, err := h.attMiddleware(c)
-	if err != nil {
-		return err
-	}
-
-	var payload SkipSessionPayload
-	if err := c.BodyParser(&payload); err != nil {
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
 			"code":    "VALIDATION_ERROR",
 			"message": "invalid request body",
 		})
 	}
 
-	if err := h.svc.SkipSession(c.Context(), tenantID, schoolID, payload); err != nil {
+	result, err := h.svc.RefreshSummaries(c.Context(), tenantID, schoolID, payload.TermID)
+	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
 
-	return c.JSON(fiber.Map{
-		"message": "Session marked as skipped. Attendance records deleted.",
-	})
+	return c.JSON(result)
 }
 
-// UnskipSession handles POST /api/v1/attendance/sessions/unskip.
-func (h *Handler) UnskipSession(c *fiber.Ctx) error {
+// ── Class Daily Summaries ─────────────────────────────────────────────────
+
+// GetClassDailySummary handles GET /api/v1/attendance/daily/class/:class_id/date/:date.
+func (h *Handler) GetClassDailySummary(c *fiber.Ctx) error {
 	tenantID, schoolID, err := h.attMiddleware(c)
 	if err != nil {
 		return err
 	}
 
-	var payload struct {
-		TimetableSlotID string `json:"timetable_slot_id"`
-		Date            string `json:"date"`
-	}
-	if err := c.BodyParser(&payload); err != nil {
-		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "invalid request body",
-		})
-	}
+	classID := c.Params("class_id")
+	date := c.Params("date")
 
-	if err := h.svc.UnskipSession(c.Context(), tenantID, schoolID, payload.TimetableSlotID, payload.Date); err != nil {
+	result, err := h.svc.GetClassDailySummary(c.Context(), tenantID, schoolID, classID, date)
+	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
 
-	return c.JSON(fiber.Map{
-		"message": "Session re-opened. You can now mark attendance again.",
-	})
+	return c.JSON(result)
 }
 
-// GetSession handles GET /api/v1/attendance/sessions/:timetable_slot_id.
-func (h *Handler) GetSession(c *fiber.Ctx) error {
-	tenantID, _, err := h.attMiddleware(c)
+// RefreshClassDailySummary handles POST /api/v1/attendance/daily/class/:class_id/date/:date/refresh.
+func (h *Handler) RefreshClassDailySummary(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.attMiddleware(c)
 	if err != nil {
 		return err
 	}
 
-	timetableSlotID := c.Params("timetable_slot_id")
-	if timetableSlotID == "" {
-		return middleware.HTTPError(c, fmt.Errorf("timetable_slot_id is required: %w", middleware.ErrInvalidInput))
-	}
+	classID := c.Params("class_id")
+	date := c.Params("date")
 
-	date := c.Query("date")
-	if date == "" {
-		return middleware.HTTPError(c, fmt.Errorf("date query parameter is required: %w", middleware.ErrInvalidInput))
-	}
-
-	session, err := h.svc.GetSessionBySlotDate(c.Context(), tenantID, timetableSlotID, date)
+	result, err := h.svc.RefreshClassDailySummary(c.Context(), tenantID, schoolID, classID, date)
 	if err != nil {
-		// If not found, return a null session rather than a 404
-		if errors.Is(err, ErrNotFound) {
-			return c.JSON(fiber.Map{
-				"session": nil,
-			})
-		}
 		return middleware.HTTPError(c, err)
 	}
 
-	return c.JSON(fiber.Map{
-		"session": session,
-	})
+	return c.JSON(result)
 }
 
-// parseRepeatedQuery reads all values for a given query parameter name.
-// Supports two styles:
-//   - repeated params: ?education_level=Early_Years&education_level=Upper_Primary
-//   - comma-separated: ?education_level=Early_Years,Upper_Primary
-func parseRepeatedQuery(c *fiber.Ctx, name string) []string {
-	// Check for repeated query params first
-	all := c.Request().URI().QueryArgs().PeekMulti(name)
-	if len(all) > 1 {
-		result := make([]string, 0, len(all))
-		for _, v := range all {
-			s := strings.TrimSpace(string(v))
-			if s != "" {
-				result = append(result, s)
-			}
-		}
-		return result
+// ListClassDailySummaries handles GET /api/v1/attendance/daily/class/:class_id.
+func (h *Handler) ListClassDailySummaries(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.attMiddleware(c)
+	if err != nil {
+		return err
 	}
 
-	// Single value (or none) — could be comma-separated
-	vals := c.Query(name, "")
-	if vals == "" {
-		return nil
+	classID := c.Params("class_id")
+	startDate := c.Query("start_date")
+	endDate := c.Query("end_date")
+
+	result, err := h.svc.ListClassDailySummaries(c.Context(), tenantID, schoolID, classID, startDate, endDate)
+	if err != nil {
+		return middleware.HTTPError(c, err)
 	}
 
-	parts := strings.Split(vals, ",")
-	result := make([]string, 0, len(parts))
-	for _, p := range parts {
-		s := strings.TrimSpace(p)
-		if s != "" {
-			result = append(result, s)
-		}
-	}
-	if len(result) == 0 {
-		return nil
-	}
-	return result
+	return c.JSON(result)
 }

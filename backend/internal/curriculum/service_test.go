@@ -18,25 +18,25 @@ type MockRepository struct {
 	deleteLearningAreaFn  func(ctx context.Context, id, tenantID, schoolID string) error
 
 	createStrandFn  func(ctx context.Context, params CreateStrandParams) (string, error)
-	getStrandByIDFn func(ctx context.Context, id string) (*Strand, error)
-	listStrandsFn   func(ctx context.Context, learningAreaID string) ([]Strand, error)
+	getStrandByIDFn func(ctx context.Context, id, tenantID string) (*Strand, error)
+	listStrandsFn   func(ctx context.Context, learningAreaID, tenantID string) ([]Strand, error)
 	updateStrandFn  func(ctx context.Context, params UpdateStrandParams) error
-	deleteStrandFn  func(ctx context.Context, id string) error
+	deleteStrandFn  func(ctx context.Context, id, tenantID string) error
 
 	createSubStrandFn  func(ctx context.Context, params CreateSubStrandParams) (string, error)
-	getSubStrandByIDFn func(ctx context.Context, id string) (*SubStrand, error)
-	listSubStrandsFn   func(ctx context.Context, strandID string) ([]SubStrand, error)
+	getSubStrandByIDFn func(ctx context.Context, id, tenantID string) (*SubStrand, error)
+	listSubStrandsFn   func(ctx context.Context, strandID, tenantID string) ([]SubStrand, error)
 	updateSubStrandFn  func(ctx context.Context, params UpdateSubStrandParams) error
-	deleteSubStrandFn  func(ctx context.Context, id string) error
+	deleteSubStrandFn  func(ctx context.Context, id, tenantID string) error
 
 	createPIFn  func(ctx context.Context, params CreatePerformanceIndicatorParams) (string, error)
-	getPIBYIDFn func(ctx context.Context, id string) (*PerformanceIndicator, error)
-	listPIFn    func(ctx context.Context, subStrandID string) ([]PerformanceIndicator, error)
+	getPIBYIDFn func(ctx context.Context, id, tenantID string) (*PerformanceIndicator, error)
+	listPIFn    func(ctx context.Context, subStrandID, tenantID string) ([]PerformanceIndicator, error)
 	updatePIFn  func(ctx context.Context, params UpdatePerformanceIndicatorParams) error
-	deletePIFn  func(ctx context.Context, id string) error
+	deletePIFn  func(ctx context.Context, id, tenantID string) error
 	getMaxSeqFn func(ctx context.Context, subStrandID string) (int, error)
 
-	getTreeFn func(ctx context.Context, learningAreaID string) (*LearningAreaTree, error)
+	getTreeFn func(ctx context.Context, learningAreaID, tenantID string) (*LearningAreaTree, error)
 
 	verifyLearningAreaBelongsToTenantFn func(ctx context.Context, id, tenantID, schoolID string) error
 	verifyStrandInTenantSchoolFn        func(ctx context.Context, strandID, tenantID, schoolID string) (string, error)
@@ -94,16 +94,16 @@ func (m *MockRepository) CreateStrand(ctx context.Context, params CreateStrandPa
 	return "strand_001", nil
 }
 
-func (m *MockRepository) GetStrandByID(ctx context.Context, id string) (*Strand, error) {
+func (m *MockRepository) GetStrandByID(ctx context.Context, id, tenantID string) (*Strand, error) {
 	if m.getStrandByIDFn != nil {
-		return m.getStrandByIDFn(ctx, id)
+		return m.getStrandByIDFn(ctx, id, tenantID)
 	}
-	return &Strand{ID: id, LearningAreaID: "area_001", Name: "Numbers"}, nil
+	return &Strand{ID: id, TenantID: tenantID, LearningAreaID: "area_001", Name: "Numbers"}, nil
 }
 
-func (m *MockRepository) ListStrandsByLearningArea(ctx context.Context, learningAreaID string) ([]Strand, error) {
+func (m *MockRepository) ListStrandsByLearningArea(ctx context.Context, learningAreaID, tenantID string) ([]Strand, error) {
 	if m.listStrandsFn != nil {
-		return m.listStrandsFn(ctx, learningAreaID)
+		return m.listStrandsFn(ctx, learningAreaID, tenantID)
 	}
 	return []Strand{}, nil
 }
@@ -115,9 +115,9 @@ func (m *MockRepository) UpdateStrand(ctx context.Context, params UpdateStrandPa
 	return nil
 }
 
-func (m *MockRepository) DeleteStrand(ctx context.Context, id string) error {
+func (m *MockRepository) DeleteStrand(ctx context.Context, id, tenantID string) error {
 	if m.deleteStrandFn != nil {
-		return m.deleteStrandFn(ctx, id)
+		return m.deleteStrandFn(ctx, id, tenantID)
 	}
 	return nil
 }
@@ -129,16 +129,16 @@ func (m *MockRepository) CreateSubStrand(ctx context.Context, params CreateSubSt
 	return "sub_001", nil
 }
 
-func (m *MockRepository) GetSubStrandByID(ctx context.Context, id string) (*SubStrand, error) {
+func (m *MockRepository) GetSubStrandByID(ctx context.Context, id, tenantID string) (*SubStrand, error) {
 	if m.getSubStrandByIDFn != nil {
-		return m.getSubStrandByIDFn(ctx, id)
+		return m.getSubStrandByIDFn(ctx, id, tenantID)
 	}
-	return &SubStrand{ID: id, StrandID: "strand_001", Name: "Addition"}, nil
+	return &SubStrand{ID: id, TenantID: tenantID, StrandID: "strand_001", Name: "Addition"}, nil
 }
 
-func (m *MockRepository) ListSubStrandsByStrand(ctx context.Context, strandID string) ([]SubStrand, error) {
+func (m *MockRepository) ListSubStrandsByStrand(ctx context.Context, strandID, tenantID string) ([]SubStrand, error) {
 	if m.listSubStrandsFn != nil {
-		return m.listSubStrandsFn(ctx, strandID)
+		return m.listSubStrandsFn(ctx, strandID, tenantID)
 	}
 	return []SubStrand{}, nil
 }
@@ -150,9 +150,9 @@ func (m *MockRepository) UpdateSubStrand(ctx context.Context, params UpdateSubSt
 	return nil
 }
 
-func (m *MockRepository) DeleteSubStrand(ctx context.Context, id string) error {
+func (m *MockRepository) DeleteSubStrand(ctx context.Context, id, tenantID string) error {
 	if m.deleteSubStrandFn != nil {
-		return m.deleteSubStrandFn(ctx, id)
+		return m.deleteSubStrandFn(ctx, id, tenantID)
 	}
 	return nil
 }
@@ -164,16 +164,16 @@ func (m *MockRepository) CreatePerformanceIndicator(ctx context.Context, params 
 	return "pi_001", nil
 }
 
-func (m *MockRepository) GetPerformanceIndicatorByID(ctx context.Context, id string) (*PerformanceIndicator, error) {
+func (m *MockRepository) GetPerformanceIndicatorByID(ctx context.Context, id, tenantID string) (*PerformanceIndicator, error) {
 	if m.getPIBYIDFn != nil {
-		return m.getPIBYIDFn(ctx, id)
+		return m.getPIBYIDFn(ctx, id, tenantID)
 	}
-	return &PerformanceIndicator{ID: id, SubStrandID: "sub_001", Description: "Solve 1+1", SequenceOrder: 1}, nil
+	return &PerformanceIndicator{ID: id, TenantID: tenantID, SubStrandID: "sub_001", Description: "Solve 1+1", SequenceOrder: 1}, nil
 }
 
-func (m *MockRepository) ListPerformanceIndicatorsBySubStrand(ctx context.Context, subStrandID string) ([]PerformanceIndicator, error) {
+func (m *MockRepository) ListPerformanceIndicatorsBySubStrand(ctx context.Context, subStrandID, tenantID string) ([]PerformanceIndicator, error) {
 	if m.listPIFn != nil {
-		return m.listPIFn(ctx, subStrandID)
+		return m.listPIFn(ctx, subStrandID, tenantID)
 	}
 	return []PerformanceIndicator{}, nil
 }
@@ -185,9 +185,9 @@ func (m *MockRepository) UpdatePerformanceIndicator(ctx context.Context, params 
 	return nil
 }
 
-func (m *MockRepository) DeletePerformanceIndicator(ctx context.Context, id string) error {
+func (m *MockRepository) DeletePerformanceIndicator(ctx context.Context, id, tenantID string) error {
 	if m.deletePIFn != nil {
-		return m.deletePIFn(ctx, id)
+		return m.deletePIFn(ctx, id, tenantID)
 	}
 	return nil
 }
@@ -199,9 +199,9 @@ func (m *MockRepository) GetMaxSequenceOrder(ctx context.Context, subStrandID st
 	return 0, nil
 }
 
-func (m *MockRepository) GetTree(ctx context.Context, learningAreaID string) (*LearningAreaTree, error) {
+func (m *MockRepository) GetTree(ctx context.Context, learningAreaID, tenantID string) (*LearningAreaTree, error) {
 	if m.getTreeFn != nil {
-		return m.getTreeFn(ctx, learningAreaID)
+		return m.getTreeFn(ctx, learningAreaID, tenantID)
 	}
 	return &LearningAreaTree{}, nil
 }
@@ -401,14 +401,14 @@ func TestListStrands_HappyPath(t *testing.T) {
 		{ID: "strand_002", LearningAreaID: "area_001", Name: "Algebra"},
 	}
 
-	h.repo.listStrandsFn = func(ctx context.Context, learningAreaID string) ([]Strand, error) {
+	h.repo.listStrandsFn = func(ctx context.Context, learningAreaID, tenantID string) ([]Strand, error) {
 		if learningAreaID != "area_001" {
 			t.Errorf("expected learningAreaID 'area_001', got %q", learningAreaID)
 		}
 		return expected, nil
 	}
 
-	strands, err := h.svc.ListStrands(context.Background(), "area_001")
+	strands, err := h.svc.ListStrands(context.Background(), "area_001", "tenant_001")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -419,7 +419,7 @@ func TestListStrands_HappyPath(t *testing.T) {
 
 func TestListStrands_EmptyLearningAreaID(t *testing.T) {
 	h := newTestHarness()
-	_, err := h.svc.ListStrands(context.Background(), "")
+	_, err := h.svc.ListStrands(context.Background(), "", "tenant_001")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -442,7 +442,7 @@ func TestUpdateStrand_HappyPath(t *testing.T) {
 		return nil
 	}
 
-	err := h.svc.UpdateStrand(context.Background(), UpdateStrandParams{ID: "strand_001", Name: ptrStr(newName)})
+	err := h.svc.UpdateStrand(context.Background(), "strand_001", "tenant_001", ptrStr(newName))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -450,7 +450,7 @@ func TestUpdateStrand_HappyPath(t *testing.T) {
 
 func TestUpdateStrand_EmptyID(t *testing.T) {
 	h := newTestHarness()
-	err := h.svc.UpdateStrand(context.Background(), UpdateStrandParams{ID: "", Name: ptrStr("Test")})
+	err := h.svc.UpdateStrand(context.Background(), "", "tenant_001", ptrStr("Test"))
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -461,13 +461,13 @@ func TestUpdateStrand_EmptyID(t *testing.T) {
 
 func TestDeleteStrand_HappyPath(t *testing.T) {
 	h := newTestHarness()
-	h.repo.deleteStrandFn = func(ctx context.Context, id string) error {
+	h.repo.deleteStrandFn = func(ctx context.Context, id, tenantID string) error {
 		if id != "strand_001" {
 			t.Errorf("expected id 'strand_001', got %q", id)
 		}
 		return nil
 	}
-	err := h.svc.DeleteStrand(context.Background(), "strand_001")
+	err := h.svc.DeleteStrand(context.Background(), "strand_001", "tenant_001")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -475,7 +475,7 @@ func TestDeleteStrand_HappyPath(t *testing.T) {
 
 func TestDeleteStrand_EmptyID(t *testing.T) {
 	h := newTestHarness()
-	err := h.svc.DeleteStrand(context.Background(), "")
+	err := h.svc.DeleteStrand(context.Background(), "", "tenant_001")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -540,13 +540,13 @@ func TestListSubStrands_HappyPath(t *testing.T) {
 	expected := []SubStrand{
 		{ID: "sub_001", StrandID: "strand_001", Name: "Addition"},
 	}
-	h.repo.listSubStrandsFn = func(ctx context.Context, strandID string) ([]SubStrand, error) {
+	h.repo.listSubStrandsFn = func(ctx context.Context, strandID, tenantID string) ([]SubStrand, error) {
 		if strandID != "strand_001" {
 			t.Errorf("expected strandID 'strand_001', got %q", strandID)
 		}
 		return expected, nil
 	}
-	subs, err := h.svc.ListSubStrands(context.Background(), "strand_001")
+	subs, err := h.svc.ListSubStrands(context.Background(), "strand_001", "tenant_001")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -567,7 +567,7 @@ func TestUpdateSubStrand_HappyPath(t *testing.T) {
 		}
 		return nil
 	}
-	err := h.svc.UpdateSubStrand(context.Background(), UpdateSubStrandParams{ID: "sub_001", Name: ptrStr(newName)})
+	err := h.svc.UpdateSubStrand(context.Background(), "sub_001", "tenant_001", ptrStr(newName))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -575,13 +575,13 @@ func TestUpdateSubStrand_HappyPath(t *testing.T) {
 
 func TestDeleteSubStrand_HappyPath(t *testing.T) {
 	h := newTestHarness()
-	h.repo.deleteSubStrandFn = func(ctx context.Context, id string) error {
+	h.repo.deleteSubStrandFn = func(ctx context.Context, id, tenantID string) error {
 		if id != "sub_001" {
 			t.Errorf("expected id 'sub_001', got %q", id)
 		}
 		return nil
 	}
-	err := h.svc.DeleteSubStrand(context.Background(), "sub_001")
+	err := h.svc.DeleteSubStrand(context.Background(), "sub_001", "tenant_001")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -687,14 +687,14 @@ func TestListPerformanceIndicators_OrderedBySequence(t *testing.T) {
 		{ID: "pi_002", SubStrandID: "sub_001", Description: "Second", SequenceOrder: 2},
 	}
 
-	h.repo.listPIFn = func(ctx context.Context, subStrandID string) ([]PerformanceIndicator, error) {
+	h.repo.listPIFn = func(ctx context.Context, subStrandID, tenantID string) ([]PerformanceIndicator, error) {
 		if subStrandID != "sub_001" {
 			t.Errorf("expected subStrandID 'sub_001', got %q", subStrandID)
 		}
 		return expected, nil
 	}
 
-	indicators, err := h.svc.ListPerformanceIndicators(context.Background(), "sub_001")
+	indicators, err := h.svc.ListPerformanceIndicators(context.Background(), "sub_001", "tenant_001")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -720,9 +720,7 @@ func TestUpdatePerformanceIndicator_HappyPath(t *testing.T) {
 		return nil
 	}
 
-	err := h.svc.UpdatePerformanceIndicator(context.Background(), UpdatePerformanceIndicatorParams{
-		ID: "pi_001", Description: &newDesc,
-	})
+	err := h.svc.UpdatePerformanceIndicator(context.Background(), "pi_001", "tenant_001", &newDesc, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -730,13 +728,13 @@ func TestUpdatePerformanceIndicator_HappyPath(t *testing.T) {
 
 func TestDeletePerformanceIndicator_HappyPath(t *testing.T) {
 	h := newTestHarness()
-	h.repo.deletePIFn = func(ctx context.Context, id string) error {
+	h.repo.deletePIFn = func(ctx context.Context, id, tenantID string) error {
 		if id != "pi_001" {
 			t.Errorf("expected id 'pi_001', got %q", id)
 		}
 		return nil
 	}
-	err := h.svc.DeletePerformanceIndicator(context.Background(), "pi_001")
+	err := h.svc.DeletePerformanceIndicator(context.Background(), "pi_001", "tenant_001")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -749,7 +747,7 @@ func TestDeletePerformanceIndicator_HappyPath(t *testing.T) {
 func TestGetTree_HappyPath(t *testing.T) {
 	h := newTestHarness()
 
-	h.repo.getTreeFn = func(ctx context.Context, learningAreaID string) (*LearningAreaTree, error) {
+	h.repo.getTreeFn = func(ctx context.Context, learningAreaID, tenantID string) (*LearningAreaTree, error) {
 		return &LearningAreaTree{
 			LearningArea: LearningArea{ID: "area_001", Name: "Mathematics", Code: "MATH", EducationLevel: "Junior_Secondary"},
 			Strands: []StrandTree{

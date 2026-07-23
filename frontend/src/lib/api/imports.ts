@@ -261,7 +261,7 @@ export async function cancelImportJob(jobId: string): Promise<ImportJob> {
  * Returns jobs ordered by created_at descending.
  */
 export interface ListJobsResponse {
-    data: ImportJob[];
+    items: ImportJob[];
     total: number;
     page: number;
     limit: number;

@@ -22,8 +22,8 @@ import {
     GraduationCapIcon,
     ClipboardCheckIcon,
     BarChart3Icon,
-    CalendarCheckIcon,
     CalendarDays,
+    CalendarCheck,
     AlertTriangleIcon,
     HeartPulse,
     DollarSignIcon,
@@ -40,6 +40,34 @@ interface NavItem {
 function buildNavItems(role: string): NavItem[] {
     if (!role) return [];
 
+    // ── Parent role: simplified nav ────────────────────────────────
+    if (role === "PARENT") {
+        return [
+            {
+                title: "Dashboard",
+                url: "/",
+                icon: <LayoutDashboardIcon className="size-4" />,
+                isActive: true,
+            },
+            {
+                title: "Assessments",
+                url: "/assessments",
+                icon: <ClipboardCheckIcon className="size-4" />,
+            },
+            {
+                title: "Reports",
+                url: "/reports",
+                icon: <BarChart3Icon className="size-4" />,
+            },
+            {
+                title: "Behavior",
+                url: "/behavior",
+                icon: <AlertTriangleIcon className="size-4" />,
+            },
+        ];
+    }
+
+    // ── School staff roles ─────────────────────────────────────────
     const items: NavItem[] = [
         {
             title: "Dashboard",
@@ -77,17 +105,22 @@ function buildNavItems(role: string): NavItem[] {
         },
         {
             title: "Attendance",
-            url: "#",
-            icon: <CalendarCheckIcon className="size-4" />,
+            url: "/attendance",
+            icon: <CalendarCheck className="size-4" />,
             items: [
-                { title: "Register", url: "/attendance" },
-                { title: "History", url: "/attendance/history" },
+                { title: "Sessions", url: "/attendance" },
+                { title: "Summaries", url: "/attendance/summaries" },
             ],
         },
         {
             title: "Assessments",
-            url: "/assessments",
+            url: "#",
             icon: <ClipboardCheckIcon className="size-4" />,
+            items: [
+                { title: "Sessions", url: "/assessments" },
+                { title: "Grading Scales", url: "/assessments/grading-scales" },
+                { title: "Weight Configs", url: "/assessments/weight-configs" },
+            ],
         },
         {
             title: "Reports",
@@ -121,7 +154,6 @@ function buildNavItems(role: string): NavItem[] {
             items: [
                 { title: "General", url: "/settings" },
                 { title: "Academic Years", url: "/academic-years" },
-                { title: "Grading Scales", url: "/settings/grading-scales" },
             ],
         },
     ];

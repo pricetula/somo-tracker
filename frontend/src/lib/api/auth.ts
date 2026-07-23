@@ -2,11 +2,11 @@
  * Auth API functions — all calls to the Go backend auth endpoints.
  *
  * Endpoints:
- *   POST /api/auth/discover   — initiate magic-link flow
- *   POST /api/auth/verify     — verify magic-link token, return session_ref
- *   POST /api/auth/register   — complete registration, set session cookie
- *   GET  /api/auth/me         — fetch current session info
- *   DELETE /api/auth/session  — logout
+ *   POST   /api/auth/discover   — initiate magic-link flow
+ *   POST   /api/auth/verify     — verify magic-link token, return session_ref
+ *   POST   /api/auth/register   — complete registration, set session cookie
+ *   GET    /api/auth/me         — fetch current session info
+ *   DELETE /api/auth/session    — logout
  */
 
 import { api } from "./client";

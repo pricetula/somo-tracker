@@ -18,15 +18,13 @@ interface StudentProfileCardProps {
     isLoading: boolean;
 }
 
+import { format } from "date-fns";
+
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
 function formatDate(date: string | null | undefined): string {
     if (!date) return "—";
-    return new Date(date).toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-    });
+    return format(new Date(date), "MMM d, yyyy");
 }
 
 // ─── Component ─────────────────────────────────────────────────────────────

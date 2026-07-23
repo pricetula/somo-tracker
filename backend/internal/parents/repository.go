@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -89,8 +90,9 @@ func (r *PgRepository) Create(ctx context.Context, tenantID string, payload Crea
 		return "", fmt.Errorf("parents.Repository.Create: begin tx: %w", err)
 	}
 	defer func() {
-		if err := tx.Rollback(ctx); err != nil && err != pgx.ErrTxClosed {
-			_ = err
+		if rbErr := tx.Rollback(ctx); rbErr != nil && rbErr != pgx.ErrTxClosed {
+			slog.WarnContext(ctx, "parents.Repository.Create: rollback",
+				slog.String("error", rbErr.Error()))
 		}
 	}()
 
@@ -446,8 +448,9 @@ func (r *PgRepository) LinkStudent(ctx context.Context, parentID, tenantID strin
 		return fmt.Errorf("parents.Repository.LinkStudent: begin tx: %w", err)
 	}
 	defer func() {
-		if err := tx.Rollback(ctx); err != nil && err != pgx.ErrTxClosed {
-			_ = err
+		if rbErr := tx.Rollback(ctx); rbErr != nil && rbErr != pgx.ErrTxClosed {
+			slog.WarnContext(ctx, "parents.Repository.LinkStudent: rollback",
+				slog.String("error", rbErr.Error()))
 		}
 	}()
 

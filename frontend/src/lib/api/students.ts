@@ -51,6 +51,15 @@ export interface BehaviorNoteItem {
     is_urgent: boolean;
 }
 
+export interface LinkedParent {
+    parent_id: string;
+    full_name: string;
+    email: string;
+    phone_number: string;
+    relationship?: string | null;
+    is_primary: boolean;
+}
+
 export interface StudentDetail {
     id: string;
     full_name: string;
@@ -65,6 +74,7 @@ export interface StudentDetail {
     created_at: string;
     enrollments: Enrollment[];
     behavior?: BehaviorNoteItem[];
+    linked_parents: LinkedParent[];
 }
 
 // ─── Response Types ───────────────────────────────────────────────────────
@@ -136,6 +146,20 @@ export interface CreateEnrollmentPayload {
     status?: string;
 }
 
+export interface BatchEnrollItem {
+    student_id: string;
+    class_id: string;
+}
+
+export interface BatchEnrollRequest {
+    enrollments: BatchEnrollItem[];
+}
+
+export interface BatchEnrollResponse {
+    ids: string[];
+    code: string;
+}
+
 // ─── API Functions ─────────────────────────────────────────────────────────
 
 /** List students with pagination and optional filters. */
@@ -201,7 +225,7 @@ export async function updateStudent(id: string, data: UpdateStudentPayload): Pro
 
 /** Hard-delete a student. */
 export async function deleteStudent(id: string): Promise<void> {
-    return api.delete<void>(`/api/v1/students/${id}`);
+    return api.delete<void>(`/api/v1/students`, { id });
 }
 
 /** Create an enrollment (enroll in class for a term). */
@@ -210,6 +234,11 @@ export async function createEnrollment(
     data: CreateEnrollmentPayload
 ): Promise<CreateEnrollmentResponse> {
     return api.post<CreateEnrollmentResponse>(`/api/v1/students/${studentId}/enrollments`, data);
+}
+
+/** Batch enroll multiple students in a class for the current academic term. */
+export async function batchEnrollStudents(data: BatchEnrollRequest): Promise<BatchEnrollResponse> {
+    return api.post<BatchEnrollResponse>("/api/v1/students/enrollments", data);
 }
 
 /** List enrollments for a student. */

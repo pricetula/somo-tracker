@@ -1,9 +1,9 @@
-// Package attendance manages per-period attendance records tied to the
-// existing timetable structure. One row per student, per timetable slot
-// occurrence, per date.
+// Package attendance manages per-student, per-timetable-slot attendance records,
+// lesson execution sessions, and materialised term summaries.
 package attendance
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -13,18 +13,19 @@ import (
 // ─── Sentinel domain errors ───────────────────────────────────────────────
 
 var (
-	ErrNotFound          = fmt.Errorf("attendance not found: %w", middleware.ErrNotFound)
-	ErrAlreadyExists     = fmt.Errorf("attendance already exists: %w", middleware.ErrAlreadyExists)
-	ErrInvalidInput      = fmt.Errorf("invalid attendance input: %w", middleware.ErrInvalidInput)
-	ErrUnauthorized      = fmt.Errorf("unauthorized: %w", middleware.ErrUnauthorized)
-	ErrForbidden         = fmt.Errorf("forbidden: %w", middleware.ErrForbidden)
-	ErrConflict          = fmt.Errorf("attendance conflict: %w", middleware.ErrConflict)
-	ErrSlotAlreadyMarked = fmt.Errorf("timetable slot already has attendance records for this date: %w", middleware.ErrConflict)
+	ErrNotFound      = fmt.Errorf("attendance not found: %w", middleware.ErrNotFound)
+	ErrAlreadyExists = fmt.Errorf("attendance already exists: %w", middleware.ErrAlreadyExists)
+	ErrInvalidInput  = fmt.Errorf("invalid attendance input: %w", middleware.ErrInvalidInput)
+	ErrUnauthorized  = fmt.Errorf("unauthorized: %w", middleware.ErrUnauthorized)
+	ErrForbidden     = fmt.Errorf("forbidden: %w", middleware.ErrForbidden)
+	ErrConflict      = fmt.Errorf("attendance conflict: %w", middleware.ErrConflict)
+	ErrAlreadyMarked = fmt.Errorf("attendance already marked for this student and slot: %w", middleware.ErrConflict)
+	ErrBreakSlot     = fmt.Errorf("cannot mark attendance for a break period: %w", middleware.ErrInvalidInput)
 )
 
-// ─── Types ────────────────────────────────────────────────────────────────
+// ─── Enums ────────────────────────────────────────────────────────────────
 
-// AttendanceStatus represents the possible attendance states for a period.
+// AttendanceStatus represents a student's attendance state for a single period.
 type AttendanceStatus string
 
 const (
@@ -34,98 +35,39 @@ const (
 	StatusExcused AttendanceStatus = "EXCUSED"
 )
 
-// AttendanceRecord is a single attendance entry per student, per slot, per date.
-type AttendanceRecord struct {
-	ID              string           `json:"id"`
-	TenantID        string           `json:"tenant_id"`
-	SchoolID        string           `json:"school_id"`
-	StudentID       string           `json:"student_id"`
-	TimetableSlotID string           `json:"timetable_slot_id"`
-	AcademicTermID  string           `json:"academic_term_id"`
-	Date            string           `json:"date"`
-	Status          AttendanceStatus `json:"status"`
-	MarkedBy        string           `json:"marked_by"`
-	MarkedAt        time.Time        `json:"marked_at"`
-	Note            *string          `json:"note,omitempty"`
-	CreatedAt       time.Time        `json:"created_at,omitempty"`
-	UpdatedAt       time.Time        `json:"updated_at,omitempty"`
+// ValidAttendanceStatuses returns all valid attendance status values.
+func ValidAttendanceStatuses() []AttendanceStatus {
+	return []AttendanceStatus{StatusPresent, StatusAbsent, StatusLate, StatusExcused}
 }
 
-// RosterStudent represents a single student on a class roster for a given slot.
-type RosterStudent struct {
-	StudentID       string            `json:"student_id"`
-	FullName        string            `json:"full_name"`
-	AdmissionNumber string            `json:"admission_number"`
-	CurrentStatus   *AttendanceStatus `json:"current_status,omitempty"`
-}
-
-// SlotRosterResponse is the response for GET roster for a slot.
-type SlotRosterResponse struct {
-	TimetableSlotID string          `json:"timetable_slot_id"`
-	ClassName       string          `json:"class_name"`
-	LearningArea    string          `json:"learning_area"`
-	Date            string          `json:"date"`
-	Students        []RosterStudent `json:"students"`
-}
-
-// BulkAttendanceEntry is a single entry in a bulk attendance submission.
-type BulkAttendanceEntry struct {
-	StudentID string           `json:"student_id"`
-	Status    AttendanceStatus `json:"status"`
-	Note      *string          `json:"note,omitempty"`
-}
-
-// BulkAttendancePayload is the request body for marking attendance in bulk.
-type BulkAttendancePayload struct {
-	TimetableSlotID string                `json:"timetable_slot_id"`
-	Date            string                `json:"date"`
-	Entries         []BulkAttendanceEntry `json:"entries"`
-}
-
-// StudentAttendanceRecord enriches AttendanceRecord with subject/class info
-// for the parent-facing summary view.
-type StudentAttendanceRecord struct {
-	Date    string           `json:"date"`
-	Subject string           `json:"subject"`
-	Status  AttendanceStatus `json:"status"`
-}
-
-// ChildAttendanceSummary is the response for a parent viewing their child's attendance.
-type ChildAttendanceSummary struct {
-	StudentID            string                    `json:"student_id"`
-	TermID               string                    `json:"term_id"`
-	AttendancePercentage float64                   `json:"attendance_percentage"`
-	RecentPeriods        []StudentAttendanceRecord `json:"recent_periods"`
-}
-
-// AttendanceTermSummary is the materialised rollup row.
-type AttendanceTermSummary struct {
-	ID                   string    `json:"id"`
-	TenantID             string    `json:"tenant_id"`
-	SchoolID             string    `json:"school_id"`
-	StudentID            string    `json:"student_id"`
-	AcademicTermID       string    `json:"academic_term_id"`
-	LearningAreaID       string    `json:"learning_area_id"`
-	PeriodsTotal         int       `json:"periods_total"`
-	PeriodsPresent       int       `json:"periods_present"`
-	PeriodsAbsent        int       `json:"periods_absent"`
-	PeriodsLate          int       `json:"periods_late"`
-	PeriodsExcused       int       `json:"periods_excused"`
-	AttendancePercentage float64   `json:"attendance_percentage"`
-	LastRefreshedAt      time.Time `json:"last_refreshed_at"`
-}
-
-// ─── Attendance Session Types ──────────────────────────────────────────
-
-// SessionStatus represents the status of an attendance session.
+// SessionStatus represents the execution status of a lesson session.
 type SessionStatus string
 
 const (
-	SessionStatusSubmitted SessionStatus = "SUBMITTED"
-	SessionStatusSkipped   SessionStatus = "SKIPPED"
+	SessionSubmitted SessionStatus = "SUBMITTED"
+	SessionSkipped   SessionStatus = "SKIPPED"
 )
 
-// AttendanceSession represents a lesson execution instance (actual class session).
+// ─── Domain Models ────────────────────────────────────────────────────────
+
+// AttendanceRecord is a single student's attendance mark for one timetable slot on one date.
+type AttendanceRecord struct {
+	ID                  string           `json:"id"`
+	TenantID            string           `json:"tenant_id"`
+	SchoolID            string           `json:"school_id"`
+	StudentID           string           `json:"student_id"`
+	TimetableSlotID     string           `json:"timetable_slot_id"`
+	AcademicTermID      string           `json:"academic_term_id"`
+	Date                string           `json:"date"`
+	Status              AttendanceStatus `json:"status"`
+	MarkedBy            string           `json:"marked_by"`
+	Note                *string          `json:"note,omitempty"`
+	AttendanceSessionID *string          `json:"attendance_session_id,omitempty"`
+	CreatedAt           time.Time        `json:"created_at,omitempty"`
+	UpdatedAt           time.Time        `json:"updated_at,omitempty"`
+}
+
+// AttendanceSession tracks whether a lesson actually took place on a given date.
 type AttendanceSession struct {
 	ID              string        `json:"id"`
 	TenantID        string        `json:"tenant_id"`
@@ -138,70 +80,247 @@ type AttendanceSession struct {
 	UpdatedAt       time.Time     `json:"updated_at,omitempty"`
 }
 
-// SkipSessionPayload is the request body for marking a session as skipped.
-type SkipSessionPayload struct {
-	TimetableSlotID string `json:"timetable_slot_id" validate:"required"`
-	Date            string `json:"date" validate:"required"`
-	SkipReason      string `json:"skip_reason" validate:"required"`
+// SessionWithEnrichedData extends AttendanceSession with joined data.
+type SessionWithEnrichedData struct {
+	AttendanceSession
+	ClassName      string  `json:"class_name"`
+	StreamName     string  `json:"stream_name,omitempty"`
+	GradeLevel     string  `json:"grade_level"`
+	PeriodName     string  `json:"period_name"`
+	DayOfWeek      int     `json:"day_of_week"`
+	StartTime      string  `json:"start_time"`
+	EndTime        string  `json:"end_time"`
+	LearningAreaID string  `json:"learning_area_id,omitempty"`
+	LearningArea   *string `json:"learning_area_name,omitempty"`
+	TeacherName    *string `json:"teacher_name,omitempty"`
 }
 
-// ─── Asynq task types ───────────────────────────────────────────────
-
-// TypeRecomputeClassSummaries is the Asynq task type for recomputing
-// attendance_term_summaries for a single class within a term.
-const TypeRecomputeClassSummaries = "attendance:recompute_class_summaries"
-
-// recomputeClassPayload is the Asynq task payload for a class-scoped
-// attendancesummary recompute.
-type recomputeClassPayload struct {
-	TenantID string `json:"tenant_id"`
-	SchoolID string `json:"school_id"`
-	TermID   string `json:"term_id"`
-	ClassID  string `json:"class_id"`
+// AttendanceTermSummary is a materialised rollup per student × term × learning area.
+type AttendanceTermSummary struct {
+	ID                   string    `json:"id"`
+	TenantID             string    `json:"tenant_id"`
+	SchoolID             string    `json:"school_id"`
+	StudentID            string    `json:"student_id"`
+	AcademicTermID       string    `json:"academic_term_id"`
+	AcademicYearID       string    `json:"academic_year_id"`
+	LearningAreaID       string    `json:"learning_area_id"`
+	LearningAreaName     string    `json:"learning_area_name,omitempty"`
+	PeriodsTotal         int       `json:"periods_total"`
+	PeriodsPresent       int       `json:"periods_present"`
+	PeriodsAbsent        int       `json:"periods_absent"`
+	PeriodsLate          int       `json:"periods_late"`
+	PeriodsExcused       int       `json:"periods_excused"`
+	AttendancePercentage float64   `json:"attendance_percentage"`
+	LastRefreshedAt      time.Time `json:"last_refreshed_at,omitempty"`
+	CreatedAt            time.Time `json:"created_at,omitempty"`
+	UpdatedAt            time.Time `json:"updated_at,omitempty"`
 }
 
-// UpdateAttendanceEntryPayload is for a single record correction (admin).
-type UpdateAttendanceEntryPayload struct {
-	Status AttendanceStatus `json:"status"`
-	Note   *string          `json:"note,omitempty"`
+// ─── Enriched Record (for the marking grid / dashboard view) ──────────────
+
+// RecordWithEnrichedData extends AttendanceRecord with student and slot details.
+type RecordWithEnrichedData struct {
+	AttendanceRecord
+	StudentFullName  string  `json:"student_full_name"`
+	ClassName        string  `json:"class_name"`
+	GradeLevel       string  `json:"grade_level"`
+	StreamName       string  `json:"stream_name,omitempty"`
+	PeriodName       string  `json:"period_name"`
+	DayOfWeek        int     `json:"day_of_week"`
+	StartTime        string  `json:"start_time"`
+	EndTime          string  `json:"end_time"`
+	LearningAreaID   string  `json:"learning_area_id,omitempty"`
+	LearningAreaName *string `json:"learning_area_name,omitempty"`
 }
 
-// CompletionStatus represents marking progress for a class on a given day.
-type CompletionStatus struct {
-	ClassID        string `json:"class_id"`
-	ClassName      string `json:"class_name"`
-	SlotID         string `json:"slot_id"`
-	PeriodName     string `json:"period_name"`
-	LearningArea   string `json:"learning_area"`
-	LearningAreaID string `json:"learning_area_id"`
-	TotalSlots     int    `json:"total_slots"`
-	MarkedSlots    int    `json:"marked_slots"`
-	IsComplete     bool   `json:"is_complete"`
+// ─── Payloads ─────────────────────────────────────────────────────────────
+
+// CreateSessionPayload is the request body for creating an attendance session.
+type CreateSessionPayload struct {
+	TimetableSlotID string  `json:"timetable_slot_id"`
+	Date            string  `json:"date"`
+	Status          string  `json:"status"` // SUBMITTED or SKIPPED
+	SkipReason      *string `json:"skip_reason,omitempty"`
 }
 
-// DashboardFilter holds optional filters for the admin dashboard listing.
-type DashboardFilter struct {
-	EducationLevels []string
-	GradeLevels     []string
-	ClassID         string
-	IsComplete      string // "complete", "incomplete", or "" (all)
-	Page            int
-	Limit           int
+// UpdateSessionPayload is the request body for updating a session.
+type UpdateSessionPayload struct {
+	Status     *string `json:"status,omitempty"`
+	SkipReason *string `json:"skip_reason,omitempty"`
 }
 
-// AdminDashboardResponse is the paginated school-wide attendance dashboard for admins.
-type AdminDashboardResponse struct {
-	Date  string             `json:"date"`
-	Items []CompletionStatus `json:"items"`
-	Total int                `json:"total"`
-	Page  int                `json:"page"`
-	Limit int                `json:"limit"`
+// StudentAttendanceMark is a single student's mark within a batch.
+type StudentAttendanceMark struct {
+	StudentID string           `json:"student_id"`
+	Status    AttendanceStatus `json:"status"`
+	Note      *string          `json:"note,omitempty"`
 }
 
-// StudentHistoryFilter are query params for filtering a student's attendance history.
-type StudentHistoryFilter struct {
-	TermID         string `json:"term_id,omitempty"`
-	StartDate      string `json:"start_date,omitempty"`
-	EndDate        string `json:"end_date,omitempty"`
-	LearningAreaID string `json:"learning_area_id,omitempty"`
+// BatchMarkPayload is the request body for marking attendance in bulk.
+type BatchMarkPayload struct {
+	Date            string                  `json:"date"`
+	TimetableSlotID string                  `json:"timetable_slot_id"`
+	Records         []StudentAttendanceMark `json:"records"`
+}
+
+// BatchMarkResult holds the outcome of a batch mark operation.
+type BatchMarkResult struct {
+	Created int `json:"created"`
+	Updated int `json:"updated"`
+	Failed  int `json:"failed"`
+}
+
+// UpdateRecordPayload is the request body for updating a single attendance record.
+type UpdateRecordPayload struct {
+	Status *AttendanceStatus `json:"status,omitempty"`
+	Note   *string           `json:"note,omitempty"`
+}
+
+// SessionFilter contains optional filter params for listing sessions.
+type SessionFilter struct {
+	TimetableSlotID string `json:"timetable_slot_id,omitempty"`
+	Date            string `json:"date,omitempty"`
+	Status          string `json:"status,omitempty"`
+	ClassID         string `json:"class_id,omitempty"`
+	SchoolID        string `json:"school_id,omitempty"`
+	TenantID        string `json:"tenant_id,omitempty"`
+}
+
+// RecordFilter contains optional filter params for listing attendance records.
+type RecordFilter struct {
+	TimetableSlotID string `json:"timetable_slot_id,omitempty"`
+	Date            string `json:"date,omitempty"`
+	StudentID       string `json:"student_id,omitempty"`
+	ClassID         string `json:"class_id,omitempty"`
+	AcademicTermID  string `json:"academic_term_id,omitempty"`
+	SchoolID        string `json:"school_id,omitempty"`
+	TenantID        string `json:"tenant_id,omitempty"`
+	Status          string `json:"status,omitempty"`
+}
+
+// ─── Response Types ───────────────────────────────────────────────────────
+
+// SessionListResponse wraps a list of enriched sessions.
+type SessionListResponse struct {
+	Items []SessionWithEnrichedData `json:"items"`
+	Total int                       `json:"total"`
+}
+
+// RecordListResponse wraps a list of enriched attendance records.
+type RecordListResponse struct {
+	Items []RecordWithEnrichedData `json:"items"`
+	Total int                      `json:"total"`
+}
+
+// SummaryListResponse wraps a list of attendance term summaries.
+type SummaryListResponse struct {
+	Items []AttendanceTermSummary `json:"items"`
+	Total int                     `json:"total"`
+}
+
+// ─── Class Daily Attendance Summary ──────────────────────────────────────
+
+// ClassDailyAttendanceSummary is a materialised rollup per class × date.
+type ClassDailyAttendanceSummary struct {
+	ID                  string    `json:"id"`
+	TenantID            string    `json:"tenant_id"`
+	SchoolID            string    `json:"school_id"`
+	ClassID             string    `json:"class_id"`
+	AcademicTermID      string    `json:"academic_term_id"`
+	Date                string    `json:"date"`
+	TotalEnrolled       int       `json:"total_enrolled"`
+	PresentCount        int       `json:"present_count"`
+	AbsentCount         int       `json:"absent_count"`
+	LateCount           int       `json:"late_count"`
+	ExcusedCount        int       `json:"excused_count"`
+	DailyAttendanceRate float64   `json:"daily_attendance_rate"`
+	LastRefreshedAt     time.Time `json:"last_refreshed_at,omitempty"`
+	CreatedAt           time.Time `json:"created_at,omitempty"`
+	UpdatedAt           time.Time `json:"updated_at,omitempty"`
+}
+
+// ClassDailySummaryListResponse wraps a list of class daily attendance summaries.
+type ClassDailySummaryListResponse struct {
+	Items []ClassDailyAttendanceSummary `json:"items"`
+	Total int                           `json:"total"`
+}
+
+// RefreshSummaryResponse is returned after triggering a summary refresh.
+type RefreshSummaryResponse struct {
+	Message string `json:"message"`
+	TermID  string `json:"term_id"`
+}
+
+// ─── Repository Interface ─────────────────────────────────────────────────
+
+// Repository defines the contract for attendance persistence.
+type Repository interface {
+	// ── Sessions ──────────────────────────────────────────────────────
+
+	// CreateSession inserts a new attendance session.
+	CreateSession(ctx context.Context, tenantID, schoolID string, payload CreateSessionPayload) (*AttendanceSession, error)
+
+	// GetSessionByID returns a session by ID.
+	GetSessionByID(ctx context.Context, id, tenantID string) (*AttendanceSession, error)
+
+	// GetEnrichedSessionByID returns a session with joined data.
+	GetEnrichedSessionByID(ctx context.Context, id, tenantID string) (*SessionWithEnrichedData, error)
+
+	// ListSessions returns all sessions matching the filter (enriched).
+	ListSessions(ctx context.Context, filter SessionFilter) ([]SessionWithEnrichedData, error)
+
+	// UpdateSession updates a session's status and/or skip reason.
+	UpdateSession(ctx context.Context, id, tenantID string, payload UpdateSessionPayload) (*AttendanceSession, error)
+
+	// GetSessionsForClassDate returns all sessions for a class on a date.
+	GetSessionsForClassDate(ctx context.Context, tenantID, schoolID, classID, date string) ([]SessionWithEnrichedData, error)
+
+	// ── Records ───────────────────────────────────────────────────────
+
+	// BatchMark inserts or updates attendance records in bulk (uses UPSERT).
+	BatchMark(ctx context.Context, tenantID, schoolID string, payload BatchMarkPayload, markedBy string, termID string) (*BatchMarkResult, error)
+
+	// UpdateRecord updates a single attendance record (status, note).
+	UpdateRecord(ctx context.Context, id, tenantID string, payload UpdateRecordPayload) (*AttendanceRecord, error)
+
+	// GetRecordByID returns a single attendance record.
+	GetRecordByID(ctx context.Context, id, tenantID string) (*AttendanceRecord, error)
+
+	// ListRecordsBySlotDate returns all enriched records for a slot+date.
+	ListRecordsBySlotDate(ctx context.Context, tenantID, schoolID, timetableSlotID, date string) ([]RecordWithEnrichedData, error)
+
+	// ListRecordsByStudentTerm returns all enriched records for a student in a term.
+	ListRecordsByStudentTerm(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]RecordWithEnrichedData, error)
+
+	// ListRecordsByClassDate returns all enriched records for a class on a date.
+	ListRecordsByClassDate(ctx context.Context, tenantID, schoolID, classID, date string) ([]RecordWithEnrichedData, error)
+
+	// ListRecords returns records matching the filter.
+	ListRecords(ctx context.Context, filter RecordFilter) ([]RecordWithEnrichedData, error)
+
+	// GetTermIDByDate returns the academic term ID whose date range covers the
+	// given date for this school. Returns ErrInvalidInput if no term is found.
+	GetTermIDByDate(ctx context.Context, tenantID, schoolID, date string) (string, error)
+
+	// ── Summaries ─────────────────────────────────────────────────────
+
+	// GetStudentTermSummary returns summaries for a student in a term (all learning areas).
+	GetStudentTermSummary(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]AttendanceTermSummary, error)
+
+	// GetClassTermSummary returns summaries for all students in a class for a term.
+	GetClassTermSummary(ctx context.Context, tenantID, schoolID, classID, termID string) ([]AttendanceTermSummary, error)
+
+	// RefreshSummaries recomputes the materialised summaries for a term (background task).
+	RefreshSummaries(ctx context.Context, tenantID, schoolID, termID string) error
+
+	// ── Class Daily Summaries ───────────────────────────────────────────
+
+	// GetClassDailySummary returns the daily attendance summary for a class on a date.
+	GetClassDailySummary(ctx context.Context, tenantID, schoolID, classID, date string) (*ClassDailyAttendanceSummary, error)
+
+	// RefreshClassDailySummary recomputes the daily summary for a class on a date.
+	RefreshClassDailySummary(ctx context.Context, tenantID, schoolID, classID, date string) error
+
+	// ListClassDailySummaries returns daily summaries for a class within a date range.
+	ListClassDailySummaries(ctx context.Context, tenantID, schoolID, classID, startDate, endDate string) ([]ClassDailyAttendanceSummary, error)
 }

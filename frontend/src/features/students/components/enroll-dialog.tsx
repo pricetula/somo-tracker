@@ -10,6 +10,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 
 import {
     Dialog,
@@ -38,6 +39,7 @@ interface EnrollDialogProps {
 // ─── Component ─────────────────────────────────────────────────────────────
 
 export function EnrollDialog({ open, onOpenChange, studentId }: EnrollDialogProps) {
+    const router = useRouter();
     const [selectedTermId, setSelectedTermId] = React.useState("");
     const [selectedClassId, setSelectedClassId] = React.useState("");
     const [error, setError] = React.useState<string | null>(null);
@@ -94,6 +96,7 @@ export function EnrollDialog({ open, onOpenChange, studentId }: EnrollDialogProp
                             value={selectedTermId}
                             onChange={setSelectedTermId}
                             placeholder="Select a term"
+                            onCreateItem={() => router.push("/academic-terms/new")}
                         />
                     </div>
 
@@ -104,6 +107,7 @@ export function EnrollDialog({ open, onOpenChange, studentId }: EnrollDialogProp
                             value={selectedClassId}
                             onChange={(v) => setSelectedClassId(v as string)}
                             placeholder="Select a class"
+                            onCreateItem={() => router.push("/classes/add")}
                         />
                     </div>
 

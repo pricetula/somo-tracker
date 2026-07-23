@@ -86,18 +86,43 @@ export function useImportJobFailures(
 
 // ─── Hooks — Mutations ────────────────────────────────────────────────────
 
-/** Cancel a running import job. */
+/** Cancel a running import job with optimistic update. */
 export function useCancelImportJob() {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: (jobId: string) => cancelImportJob(jobId),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: importJobKeys.all });
-            toast.success("Import cancelled");
+        onMutate: async (jobId) => {
+            await queryClient.cancelQueries({ queryKey: importJobKeys.all });
+            const previousQueries = queryClient.getQueriesData({
+                queryKey: importJobKeys.all,
+            });
+
+            queryClient.setQueriesData<{ items: { id: string; status?: string }[] }>(
+                { queryKey: importJobKeys.all },
+                (old) => {
+                    if (!old) return old;
+                    return {
+                        ...old,
+                        items: old.items.map((job) =>
+                            job.id === jobId ? { ...job, status: "cancelled" } : job
+                        ),
+                    };
+                }
+            );
+
+            return { previousQueries };
         },
-        onError: (err) => {
+        onError: (err, _jobId, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
             toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: importJobKeys.all });
         },
     });
 }

@@ -110,6 +110,8 @@ type PendingNoteItem struct {
 	Status          BehaviorNoteStatus `json:"status"`
 }
 
+// ── Response Types ───────────────────────────────────────────────────────
+
 // PendingNotesResponse is the admin review queue response.
 type PendingNotesResponse struct {
 	Notes []PendingNoteItem `json:"notes"`
@@ -132,4 +134,33 @@ type TeacherNoteItem struct {
 	IsUrgent        bool               `json:"is_urgent"`
 	Date            time.Time          `json:"date"`
 	Status          BehaviorNoteStatus `json:"status"`
+}
+
+// ── Student Behavior Term Summaries ───────────────────────────────────────
+
+// StudentBehaviorTermSummary represents the materialised rollup of behavior
+// notes per student per term. Only APPROVED and INCLUDED_IN_REPORT notes
+// count toward the main totals (total_incidents, urgent_count, etc.).
+// PENDING_REVIEW and REJECTED notes are excluded from report-card totals
+// but counted in pending_review_count and resolved_count for admin visibility.
+// StudentBehaviorTermSummariesResponse wraps a list of behavior term summaries.
+type StudentBehaviorTermSummariesResponse struct {
+	Items []StudentBehaviorTermSummary `json:"items"`
+	Total int                          `json:"total"`
+}
+
+type StudentBehaviorTermSummary struct {
+	ID                 string  `json:"id"`
+	TenantID           string  `json:"-"`
+	SchoolID           string  `json:"-"`
+	StudentID          string  `json:"student_id"`
+	AcademicTermID     string  `json:"academic_term_id"`
+	TotalIncidents     int     `json:"total_incidents"`
+	UrgentCount        int     `json:"urgent_count"`
+	CommendationsCount int     `json:"commendations_count"`
+	DisciplinaryCount  int     `json:"disciplinary_count"`
+	PendingReviewCount int     `json:"pending_review_count"`
+	ResolvedCount      int     `json:"resolved_count"`
+	PrimaryCategoryID  *string `json:"primary_category_id,omitempty"`
+	LastRefreshedAt    string  `json:"last_refreshed_at"`
 }

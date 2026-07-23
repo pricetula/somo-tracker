@@ -1,24 +1,10 @@
 /**
- * Admins layout — renders the main content alongside the @modal parallel slot.
+ * Admins layout — keeps the layout thin.
  *
- * The @modal slot intercepts /admins/invitations when navigated from within /admins,
- * rendering the import form as a dialog overlay while keeping the listing
- * page mounted underneath.
- *
- * Keep this layout thin — no data fetching, no providers, just slot composition.
+ * Modal intercepts for admins routes (import, invitations, detail) live in the
+ * parent dashboard's @modal parallel slot — not in this layout.
  */
 
-export default function AdminsLayout({
-    children,
-    modal,
-}: {
-    children: React.ReactNode;
-    modal: React.ReactNode;
-}) {
-    return (
-        <>
-            {children}
-            {modal}
-        </>
-    );
+export default function AdminsLayout({ children }: { children: React.ReactNode }) {
+    return <>{children}</>;
 }

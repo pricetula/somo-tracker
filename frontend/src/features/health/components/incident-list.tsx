@@ -3,73 +3,131 @@
  *
  * SCHOOL_ADMIN / NURSE: sees all incidents for the school.
  * Can also filter by student.
+ *
+ * Uses the shared DataTable component for paginated listing.
  */
 "use client";
 
-import { useState } from "react";
-import { useMedicalIncidents, useDeleteMedicalIncident } from "../hooks/use-health";
-import { CreateIncidentDialog } from "./create-incident-dialog";
+import { useState, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { format } from "date-fns";
+import { Plus } from "lucide-react";
+
+import { DataTable } from "@/components/shared/data-table";
+import type { DataTableColumn } from "@/components/shared/data-table/types";
+import { RowActions } from "@/components/shared/data-table/row-actions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2 } from "lucide-react";
+import { listMedicalIncidents, deleteMedicalIncident } from "@/lib/api/health";
+import type { MedicalIncident } from "@/lib/api/health";
+import { getErrorMessage } from "@/lib/errors";
+import { CreateIncidentDialog } from "./create-incident-dialog";
 
-export function IncidentList({ studentId }: { studentId?: string }) {
+// ─── Props ────────────────────────────────────────────────────────────────
+
+interface IncidentListProps {
+    studentId?: string;
+}
+
+// ─── Delete cell ──────────────────────────────────────────────────────────
+
+function DeleteCell({ incident }: { incident: MedicalIncident }) {
+    const queryClient = useQueryClient();
+
+    const handleDelete = useCallback(async () => {
+        try {
+            await deleteMedicalIncident(incident.id);
+            await queryClient.invalidateQueries({ queryKey: ["health", "incidents"] });
+            toast.success("Incident deleted.");
+        } catch (err) {
+            toast.error(getErrorMessage(err));
+        }
+    }, [incident.id, queryClient]);
+
+    return <RowActions rowId={incident.id} label="medical incident" onDelete={handleDelete} />;
+}
+
+// ─── Columns ──────────────────────────────────────────────────────────────
+
+const columns: DataTableColumn<MedicalIncident>[] = [
+    {
+        id: "symptoms",
+        header: "Symptoms / Description",
+        cell: (row) => <span className="font-medium">{row.symptoms}</span>,
+    },
+    {
+        id: "action_taken",
+        header: "Action Taken",
+        width: "200px",
+        cell: (row) => (
+            <Badge variant="secondary" className="text-xs">
+                {row.action_taken.length > 50
+                    ? row.action_taken.slice(0, 50) + "…"
+                    : row.action_taken}
+            </Badge>
+        ),
+    },
+    {
+        id: "timestamp",
+        header: "Date & Time",
+        width: "180px",
+        cell: (row) => (
+            <span className="text-muted-foreground text-xs">
+                {format(new Date(row.incident_timestamp), "MMM d, yyyy, h:mm a")}
+                {row.logged_by_name && ` — by ${row.logged_by_name}`}
+            </span>
+        ),
+    },
+    {
+        id: "actions",
+        header: "",
+        width: "48px",
+        align: "right",
+        cell: (row) => <DeleteCell incident={row} />,
+    },
+];
+
+// ─── Wrapper query fn ─────────────────────────────────────────────────────
+
+function createIncidentQueryFn(studentId?: string) {
+    return (params: { page?: number; limit?: number; search?: string }) =>
+        listMedicalIncidents({
+            ...(studentId ? { student_id: studentId } : {}),
+            page: params.page,
+            limit: params.limit,
+        });
+}
+
+// ─── Component ────────────────────────────────────────────────────────────
+
+export function IncidentList({ studentId }: IncidentListProps) {
     const [showCreate, setShowCreate] = useState(false);
-    const { data, isLoading } = useMedicalIncidents(
-        studentId ? { student_id: studentId } : undefined
-    );
-    const deleteMutation = useDeleteMedicalIncident();
-
-    if (isLoading) {
-        return <p className="text-muted-foreground">Loading incidents…</p>;
-    }
-
-    const incidents = data?.items ?? [];
+    const incidentQueryFn = createIncidentQueryFn(studentId);
 
     return (
         <div className="space-y-4">
-            <div className="flex items-center justify-between">
-                <h3 className="text-foreground font-medium">Medical Incidents</h3>
-                <Button variant="outline" size="sm" onClick={() => setShowCreate(true)}>
-                    <Plus className="mr-1 size-4" />
-                    Log Incident
-                </Button>
-            </div>
-
-            {incidents.length === 0 ? (
-                <p className="text-muted-foreground">No incidents recorded.</p>
-            ) : (
-                <div className="space-y-3">
-                    {incidents.map((inc) => (
-                        <div key={inc.id} className="bg-muted/30 space-y-1 rounded-md p-3">
-                            <div className="flex items-start justify-between gap-2">
-                                <div className="space-y-1">
-                                    <p className="text-foreground font-medium">{inc.symptoms}</p>
-                                    <p className="text-muted-foreground text-xs">
-                                        {new Date(inc.incident_timestamp).toLocaleString()}
-                                        {inc.logged_by_name && ` — by ${inc.logged_by_name}`}
-                                    </p>
-                                </div>
-                                <div className="flex shrink-0 items-center gap-2">
-                                    <Badge variant="secondary" className="text-xs">
-                                        {inc.action_taken.length > 40
-                                            ? inc.action_taken.slice(0, 40) + "…"
-                                            : inc.action_taken}
-                                    </Badge>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="size-6"
-                                        onClick={() => deleteMutation.mutate(inc.id)}
-                                    >
-                                        <Trash2 className="text-muted-foreground size-3" />
-                                    </Button>
-                                </div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
+            <DataTable
+                isCheckable
+                queryKey={["health", "incidents", "list", studentId]}
+                queryFn={incidentQueryFn}
+                columns={columns}
+                getRowId={(row) => row.id}
+                deleteFn={(id) => deleteMedicalIncident(String(id))}
+                emptyState="No incidents recorded."
+                noResultsState="No incidents match your search."
+                renderToolBarComponents={() => (
+                    <Button
+                        key="log-incident"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowCreate(true)}
+                    >
+                        <Plus className="mr-1 size-4" />
+                        Log Incident
+                    </Button>
+                )}
+            />
 
             <CreateIncidentDialog
                 open={showCreate}

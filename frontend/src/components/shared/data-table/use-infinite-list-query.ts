@@ -1,9 +1,9 @@
 import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
-import { type ListApiFn, type NormalizedListResult } from "./types";
+import { type ListApiFn } from "./types";
 import { defaultNormalize } from "./utils";
 
-export interface UseInfiniteListQueryOptions<TItem, TParams extends object, TResult> {
+export interface UseInfiniteListQueryOptions<TParams extends object, TResult> {
     /** Base query key, e.g. ["classes"]. `params`, `search`, and `filters` are appended automatically. */
     queryKey: readonly unknown[];
     /** Any generated `list*` function, e.g. `listClasses`. */
@@ -22,8 +22,6 @@ export interface UseInfiniteListQueryOptions<TItem, TParams extends object, TRes
     filters?: Record<string, string | string[]>;
     /** Rows fetched per page. Defaults to 50. */
     limit?: number;
-    /** Only needed if the generated result's shape differs from NormalizedListResult. */
-    normalize?: (result: TResult) => NormalizedListResult<TItem>;
     enabled?: boolean;
 }
 
@@ -43,9 +41,8 @@ export function useInfiniteListQuery<TItem, TParams extends object, TResult>({
     search,
     filters,
     limit = 50,
-    normalize = defaultNormalize<TItem, TResult>,
     enabled = true,
-}: UseInfiniteListQueryOptions<TItem, TParams, TResult>) {
+}: UseInfiniteListQueryOptions<TParams, TResult>) {
     const query = useInfiniteQuery({
         queryKey: [...queryKey, params, search ?? "", filters ?? {}, limit],
         queryFn: ({ pageParam }) =>
@@ -58,7 +55,7 @@ export function useInfiniteListQuery<TItem, TParams extends object, TResult>({
             } as TParams & { page?: number; limit?: number }),
         initialPageParam: 1,
         getNextPageParam: (lastPage, allPages) => {
-            const normalized = normalize(lastPage);
+            const normalized = defaultNormalize<TItem, TResult>(lastPage);
 
             if (normalized.hasMore !== undefined) {
                 return normalized.hasMore ? allPages.length + 1 : undefined;
@@ -66,13 +63,12 @@ export function useInfiniteListQuery<TItem, TParams extends object, TResult>({
 
             if (normalized.total !== undefined) {
                 const loaded = allPages.reduce(
-                    (sum, page) => sum + normalize(page).items.length,
+                    (sum, page) => sum + defaultNormalize<TItem, TResult>(page).items.length,
                     0
                 );
                 return loaded < normalized.total ? allPages.length + 1 : undefined;
             }
 
-            // No total/hasMore to go on — assume a short page means the end.
             return normalized.items.length === limit ? allPages.length + 1 : undefined;
         },
         placeholderData: keepPreviousData,
@@ -80,13 +76,15 @@ export function useInfiniteListQuery<TItem, TParams extends object, TResult>({
     });
 
     const rows = useMemo(
-        () => query.data?.pages.flatMap((page) => normalize(page).items) ?? [],
-        [query.data, normalize]
+        () =>
+            query.data?.pages.flatMap((page) => defaultNormalize<TItem, TResult>(page).items) ?? [],
+        [query.data]
     );
 
     const total = useMemo(
-        () => (query.data ? normalize(query.data.pages[0]).total : undefined),
-        [query.data, normalize]
+        () =>
+            query.data ? defaultNormalize<TItem, TResult>(query.data.pages[0]).total : undefined,
+        [query.data]
     );
 
     return { ...query, rows, total };

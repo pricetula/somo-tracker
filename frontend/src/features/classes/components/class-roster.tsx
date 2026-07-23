@@ -3,6 +3,7 @@
  *
  * Uses the shared DataTable component with paginated roster data.
  * Student names are links to the student profile page (intercepted as side sheet).
+ * Supports bulk unenroll via checkbox selection and per-row unenroll via dropdown.
  */
 
 "use client";
@@ -13,44 +14,39 @@ import { UserMinus } from "lucide-react";
 
 import { DataTable } from "@/components/shared/data-table";
 import type { DataTableColumn } from "@/components/shared/data-table/types";
-import {
-    getClassRoster,
-    unenrollStudent,
-    type RosterEntry,
-    type RosterListResult,
-} from "@/lib/api/classes";
+import { RowActions } from "@/components/shared/data-table/row-actions";
+import type { RowAction } from "@/components/shared/data-table/row-actions";
+import { getClassRoster, unenrollStudent, type RosterEntry } from "@/lib/api/classes";
 import { getErrorMessage } from "@/lib/errors";
-import { Button } from "@/components/ui/button";
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 
 // ─── Props ─────────────────────────────────────────────────────────────────
 
 interface ClassRosterProps {
     classId: string;
+    /** Optional academic year ID; if omitted the backend uses the current year. */
+    academicYearId?: string;
     /** Optional academic term ID; if omitted the backend uses the current term. */
     academicTermId?: string;
 }
 
-// ─── Columns ───────────────────────────────────────────────────────────────
+// ─── Unenroll Cell Component ───────────────────────────────────────────────
 
-function UnenrollCell({ classId, student }: { classId: string; student: RosterEntry }) {
+function UnenrollCell({
+    classId,
+    student,
+    academicTermId,
+}: {
+    classId: string;
+    student: RosterEntry;
+    academicTermId?: string;
+}) {
     const queryClient = useQueryClient();
 
     const unenrollMutation = useMutation({
-        mutationFn: () => unenrollStudent(classId, student.id),
+        mutationFn: () => unenrollStudent(classId, student.id, academicTermId),
         onSuccess: () => {
-            toast.success(`${student.full_name} successfully unenrolled.`);
+            toast.success(`${student.full_name} unenrolled.`);
             queryClient.invalidateQueries({ queryKey: ["class-roster", classId] });
         },
         onError: (err) => {
@@ -58,45 +54,30 @@ function UnenrollCell({ classId, student }: { classId: string; student: RosterEn
         },
     });
 
+    const rowActions: RowAction[] = [
+        {
+            label: "Unenroll",
+            icon: UserMinus,
+            destructive: true,
+            confirmTitle: "Unenroll Student",
+            confirmDescription: `Are you sure you want to unenroll "${student.full_name}" from this class? Their enrollment record will be marked as suspended.`,
+            onClick: () => unenrollMutation.mutate(),
+        },
+    ];
+
     return (
-        <AlertDialog>
-            <AlertDialogTrigger asChild>
-                <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    disabled={unenrollMutation.isPending}
-                    className="text-muted-foreground hover:text-destructive"
-                >
-                    <UserMinus className="h-4 w-4" />
-                    <span className="sr-only">Unenroll {student.full_name}</span>
-                </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                    <AlertDialogTitle>Unenroll Student</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        Are you sure you want to unenroll <strong>{student.full_name}</strong> from
-                        this class? Their enrollment record will be marked as suspended.
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                        onClick={(e) => {
-                            e.preventDefault();
-                            unenrollMutation.mutate();
-                        }}
-                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    >
-                        {unenrollMutation.isPending ? "Unenrolling..." : "Unenroll"}
-                    </AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
+        <RowActions
+            rowId={student.id}
+            label={student.full_name}
+            actions={rowActions}
+            disabled={unenrollMutation.isPending}
+        />
     );
 }
 
-function buildColumns(classId: string): DataTableColumn<RosterEntry>[] {
+// ─── Columns ───────────────────────────────────────────────────────────────
+
+function buildColumns(classId: string, academicTermId?: string): DataTableColumn<RosterEntry>[] {
     return [
         {
             id: "full_name",
@@ -108,7 +89,7 @@ function buildColumns(classId: string): DataTableColumn<RosterEntry>[] {
             header: "Admission Number",
             width: "160px",
             cell: (row) => (
-                <span className="text-muted-foreground">{row.admission_number || "\u2014"}</span>
+                <span className="text-muted-foreground">{row.admission_number || "-"}</span>
             ),
         },
         {
@@ -116,31 +97,23 @@ function buildColumns(classId: string): DataTableColumn<RosterEntry>[] {
             header: "",
             width: "48px",
             align: "right",
-            cell: (row) => <UnenrollCell classId={classId} student={row} />,
+            cell: (row) => (
+                <UnenrollCell classId={classId} student={row} academicTermId={academicTermId} />
+            ),
         },
     ];
-}
-
-// ─── normalize ─────────────────────────────────────────────────────────────
-
-function normalize(result: RosterListResult) {
-    return {
-        items: result.items,
-        total: result.total,
-        page: result.page,
-        limit: result.limit,
-    };
 }
 
 // ─── Wrapper query function ────────────────────────────────────────────────
 
 /**
  * Wraps getClassRoster into the ListApiFn signature expected by DataTable.
- * The classId and academicTermId are baked in via a closure in the component.
+ * The classId, academicYearId, and academicTermId are baked in via a closure.
  */
-function createRosterQueryFn(classId: string, academicTermId?: string) {
+function createRosterQueryFn(classId: string, academicYearId?: string, academicTermId?: string) {
     return (params: { page?: number; limit?: number; search?: string }) =>
         getClassRoster(classId, {
+            academic_year_id: academicYearId,
             academic_term_id: academicTermId,
             page: params.page,
             limit: params.limit,
@@ -148,22 +121,37 @@ function createRosterQueryFn(classId: string, academicTermId?: string) {
         });
 }
 
+// ─── Bulk unenroll wrapper ─────────────────────────────────────────────────
+
+function createBulkUnenrollFn(classId: string, academicTermId?: string) {
+    return async (id: string | number) => {
+        await unenrollStudent(classId, String(id), academicTermId);
+    };
+}
+
 // ─── ClassRoster (DataTable) ───────────────────────────────────────────────
 
-export function ClassRoster({ classId, academicTermId }: ClassRosterProps) {
-    const columns = buildColumns(classId);
-    const rosterQueryFn = createRosterQueryFn(classId, academicTermId);
+export function ClassRoster({ classId, academicYearId, academicTermId }: ClassRosterProps) {
+    const columns = buildColumns(classId, academicTermId);
+    const rosterQueryFn = createRosterQueryFn(classId, academicYearId, academicTermId);
+    const bulkUnenrollFn = createBulkUnenrollFn(classId, academicTermId);
+
+    // Build addHref with academic term if available
+    const addHref = academicTermId
+        ? `/classes/${classId}/enroll?academictermid=${encodeURIComponent(academicTermId)}`
+        : `/classes/${classId}/enroll`;
 
     return (
         <DataTable
-            addHref={`/classes/${classId}/enroll`}
-            queryKey={["class-roster", classId, academicTermId]}
+            isCheckable
+            addHref={addHref}
+            queryKey={["class-roster", classId, academicYearId, academicTermId]}
             queryFn={rosterQueryFn}
             columns={columns}
             getRowId={(row) => row.id}
-            normalize={normalize}
             isSearchable
             searchPlaceholder="Search by student name or admission number..."
+            deleteFn={bulkUnenrollFn}
             pageSize={13}
             height={480}
             emptyState="No students enrolled in this class yet."

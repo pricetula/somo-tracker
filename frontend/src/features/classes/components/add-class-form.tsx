@@ -137,6 +137,7 @@ export function AddClassForm({ onSuccess }: AddClassFormProps) {
                         setAcademicYearId(v);
                         setFieldErrors({});
                     }}
+                    onCreateItem={() => router.push("/academic-years/new")}
                 />
                 {fieldErrors.academic_year_id && (
                     <p className="text-destructive text-xs">{fieldErrors.academic_year_id[0]}</p>

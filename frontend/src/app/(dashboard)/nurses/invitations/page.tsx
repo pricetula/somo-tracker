@@ -1,13 +1,17 @@
 /**
- * Nurses invitations listing page — shows all sent invitations for the NURSE role.
+ * Nurses invitations listing page.
  *
- * Maps to GET /api/v1/invitations?role=NURSE.
- *
- * Active staff are listed on the dedicated /nurses page.
+ * Shows all sent invitations for the NURSE role with revoke support.
  */
 
-"use client";
+import { InvitationsList } from "@/features/invitations";
 
 export default function NursesInvitationsPage() {
-    return <div />;
+    return (
+        <InvitationsList
+            role="NURSE"
+            queryKey={["invitations", "NURSE"]}
+            emptyState="No nurse invitations yet."
+        />
+    );
 }

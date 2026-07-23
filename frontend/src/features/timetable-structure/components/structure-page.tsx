@@ -10,6 +10,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Plus, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -24,6 +25,7 @@ import type { BatchCreateTimeBlockPayload } from "@/lib/api/timetable-structure"
 // ─── Component ─────────────────────────────────────────────────────────────
 
 export function StructurePage() {
+    const router = useRouter();
     const [academicYearID, setAcademicYearID] = useState("");
 
     const { data, isLoading } = useTimeBlockList(academicYearID);
@@ -70,6 +72,7 @@ export function StructurePage() {
                     onChange={setAcademicYearID}
                     placeholder="Select academic year..."
                     className="w-48"
+                    onCreateItem={() => router.push("/academic-years/new")}
                 />
                 {academicYearID && (
                     <div className="flex items-center gap-2">
@@ -78,10 +81,6 @@ export function StructurePage() {
                             academicYearID={academicYearID}
                             onApplyTemplate={handleApplyTemplate}
                         />
-                        <Button onClick={() => setBlueprintOpen(true)} size="sm">
-                            <Plus className="mr-1.5 h-4 w-4" />
-                            Add Blueprint
-                        </Button>
                     </div>
                 )}
             </div>

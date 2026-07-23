@@ -3,6 +3,7 @@ package assessments
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 )
 
@@ -22,7 +23,8 @@ var allowedTransitions = map[string]map[string]bool{
 
 // Service contains business logic for the assessments domain.
 type Service struct {
-	Repo Repository
+	Repo           Repository
+	RosterProvider RosterProvider
 }
 
 // NewService creates a new Service.
@@ -30,39 +32,128 @@ func NewService(repo Repository) *Service {
 	return &Service{Repo: repo}
 }
 
+// SetRosterProvider sets the roster provider for cross-domain roster lookups.
+func (s *Service) SetRosterProvider(rp RosterProvider) {
+	s.RosterProvider = rp
+}
+
 // ============================================================================
 // GRADING SCALE PROFILES
 // ============================================================================
 
-// CreateScaleProfile creates a new grading scale profile.
-func (s *Service) CreateScaleProfile(ctx context.Context, params CreateScaleProfileParams) (string, error) {
+// CreateScaleProfile creates a new grading scale profile with its ranges.
+// The profile and all its percentage-to-level ranges are created in a single
+// atomic transaction. At minimum EE, ME, and AE ranges must be provided.
+func (s *Service) CreateScaleProfile(ctx context.Context, params CreateScaleProfileParams) (string, []string, error) {
 	params.Name = strings.TrimSpace(params.Name)
 	if params.TenantID == "" || params.SchoolID == "" {
-		return "", fmt.Errorf("assessments.Service.CreateScaleProfile: %w", ErrInvalidInput)
+		return "", nil, fmt.Errorf("assessments.Service.CreateScaleProfile: %w", ErrInvalidInput)
 	}
 	if params.Name == "" {
-		return "", fmt.Errorf("assessments.Service.CreateScaleProfile: name is required: %w", ErrInvalidInput)
+		return "", nil, fmt.Errorf("assessments.Service.CreateScaleProfile: name is required: %w", ErrInvalidInput)
 	}
 	if len(params.Name) > 255 {
-		return "", fmt.Errorf("assessments.Service.CreateScaleProfile: name must not exceed 255 characters: %w", ErrInvalidInput)
+		return "", nil, fmt.Errorf("assessments.Service.CreateScaleProfile: name must not exceed 255 characters: %w", ErrInvalidInput)
 	}
-	return s.Repo.CreateScaleProfile(ctx, params)
+	if len(params.Ranges) == 0 {
+		return "", nil, fmt.Errorf("assessments.Service.CreateScaleProfile: grading scale profiles must include at least one range: %w", ErrInvalidInput)
+	}
+
+	if err := s.validateScaleRanges(params.Ranges); err != nil {
+		return "", nil, fmt.Errorf("assessments.Service.CreateScaleProfile: %w", err)
+	}
+
+	return s.Repo.CreateScaleProfileWithRanges(ctx, params)
 }
 
-// GetScaleProfile retrieves a single scale profile by ID.
-func (s *Service) GetScaleProfile(ctx context.Context, id, tenantID, schoolID string) (*ScaleProfile, error) {
+// validateScaleRanges checks that ranges are valid: coverage of required levels,
+// valid percentages, and non-overlapping bounds.
+func (s *Service) validateScaleRanges(ranges []CreateScaleRangeParams) error {
+	if len(ranges) == 0 {
+		return fmt.Errorf("at least one range is required: %w", ErrInvalidInput)
+	}
+
+	levelsPresent := make(map[string]bool)
+	for _, r := range ranges {
+		if r.MinPercentage < 0 || r.MinPercentage > 100 || r.MaxPercentage < 0 || r.MaxPercentage > 100 {
+			return fmt.Errorf("percentages must be between 0 and 100: %w", ErrInvalidInput)
+		}
+		if r.MaxPercentage <= r.MinPercentage {
+			return fmt.Errorf("max_percentage must be greater than min_percentage: %w", ErrInvalidInput)
+		}
+		if !IsValidPerformanceLevel(r.PerformanceLevel) {
+			return fmt.Errorf("invalid performance level %q: %w", r.PerformanceLevel, ErrInvalidInput)
+		}
+		levelsPresent[r.PerformanceLevel] = true
+	}
+
+	required := []string{"EE", "ME", "AE"}
+	for _, l := range required {
+		if !levelsPresent[l] {
+			return fmt.Errorf("missing required level %s: %w", l, ErrInvalidInput)
+		}
+	}
+
+	return nil
+}
+
+// GetScaleProfile retrieves a single scale profile by ID, including its ranges.
+func (s *Service) GetScaleProfile(ctx context.Context, id, tenantID, schoolID string) (*ScaleProfileWithRanges, error) {
 	if id == "" || tenantID == "" || schoolID == "" {
 		return nil, fmt.Errorf("assessments.Service.GetScaleProfile: %w", ErrInvalidInput)
 	}
-	return s.Repo.GetScaleProfileByID(ctx, id, tenantID, schoolID)
+	profile, err := s.Repo.GetScaleProfileByID(ctx, id, tenantID, schoolID)
+	if err != nil {
+		return nil, err
+	}
+	if profile.Ranges == nil {
+		profile.Ranges = []ScaleRange{}
+	}
+	return profile, nil
 }
 
-// ListScaleProfiles returns all scale profiles for a tenant/school.
-func (s *Service) ListScaleProfiles(ctx context.Context, tenantID, schoolID string, activeOnly bool) ([]ScaleProfile, error) {
+// ListScaleProfiles returns all scale profiles for a tenant/school, each with its ranges.
+func (s *Service) ListScaleProfiles(ctx context.Context, tenantID, schoolID string, activeOnly bool) ([]ScaleProfileWithRanges, error) {
 	if tenantID == "" || schoolID == "" {
 		return nil, fmt.Errorf("assessments.Service.ListScaleProfiles: %w", ErrInvalidInput)
 	}
-	return s.Repo.ListScaleProfiles(ctx, tenantID, schoolID, activeOnly)
+	profiles, err := s.Repo.ListScaleProfiles(ctx, tenantID, schoolID, activeOnly)
+	if err != nil {
+		return nil, err
+	}
+	if profiles == nil {
+		profiles = []ScaleProfileWithRanges{}
+	}
+	return profiles, nil
+}
+
+// GetScaleRanges returns all ranges for a profile.
+func (s *Service) GetScaleRanges(ctx context.Context, profileID string) ([]ScaleRange, error) {
+	if profileID == "" {
+		return nil, fmt.Errorf("assessments.Service.GetScaleRanges: %w", ErrInvalidInput)
+	}
+	ranges, err := s.Repo.GetScaleRanges(ctx, profileID)
+	if err != nil {
+		return nil, err
+	}
+	if ranges == nil {
+		ranges = []ScaleRange{}
+	}
+	return ranges, nil
+}
+
+// ReplaceScaleRanges replaces all ranges for a profile (delete + insert).
+func (s *Service) ReplaceScaleRanges(ctx context.Context, profileID string, ranges []CreateScaleRangeParams) ([]string, error) {
+	if profileID == "" {
+		return nil, fmt.Errorf("assessments.Service.ReplaceScaleRanges: %w", ErrInvalidInput)
+	}
+	if len(ranges) == 0 {
+		return nil, fmt.Errorf("assessments.Service.ReplaceScaleRanges: at least one range is required: %w", ErrInvalidInput)
+	}
+	if err := s.validateScaleRanges(ranges); err != nil {
+		return nil, fmt.Errorf("assessments.Service.ReplaceScaleRanges: %w", err)
+	}
+	return s.Repo.ReplaceScaleRanges(ctx, profileID, ranges)
 }
 
 // ToggleScaleProfileActive toggles the is_active flag on a profile.
@@ -79,85 +170,6 @@ func (s *Service) DeleteScaleProfile(ctx context.Context, id, tenantID, schoolID
 		return fmt.Errorf("assessments.Service.DeleteScaleProfile: %w", ErrInvalidInput)
 	}
 	return s.Repo.DeleteScaleProfile(ctx, id, tenantID, schoolID)
-}
-
-// GetScaleProfileWithRanges returns a profile with its ranges.
-func (s *Service) GetScaleProfileWithRanges(ctx context.Context, id, tenantID, schoolID string) (*ScaleProfileWithRanges, error) {
-	profile, err := s.Repo.GetScaleProfileByID(ctx, id, tenantID, schoolID)
-	if err != nil {
-		return nil, fmt.Errorf("assessments.Service.GetScaleProfileWithRanges: %w", err)
-	}
-	ranges, err := s.Repo.GetScaleRangesByProfile(ctx, id, tenantID, schoolID)
-	if err != nil {
-		return nil, fmt.Errorf("assessments.Service.GetScaleProfileWithRanges: get ranges: %w", err)
-	}
-	result := &ScaleProfileWithRanges{
-		ScaleProfile: *profile,
-		Ranges:       ranges,
-	}
-	if result.Ranges == nil {
-		result.Ranges = []ScaleRange{}
-	}
-	return result, nil
-}
-
-// ============================================================================
-// GRADING SCALE RANGES
-// ============================================================================
-
-// BulkSetScaleRanges replaces all ranges for a profile, with validation.
-func (s *Service) BulkSetScaleRanges(ctx context.Context, profileID, tenantID, schoolID string, ranges []CreateScaleRangeParams) ([]string, error) {
-	// Verify profile exists and belongs to tenant
-	if _, err := s.Repo.GetScaleProfileByID(ctx, profileID, tenantID, schoolID); err != nil {
-		return nil, fmt.Errorf("assessments.Service.BulkSetScaleRanges: %w", err)
-	}
-
-	// Validate ranges
-	if len(ranges) == 0 {
-		return nil, fmt.Errorf("assessments.Service.BulkSetScaleRanges: at least one range is required: %w", ErrInvalidInput)
-	}
-
-	// Validate all four levels are covered
-	levelsPresent := make(map[string]bool)
-	for _, r := range ranges {
-		if r.MinPercentage < 0 || r.MinPercentage > 100 || r.MaxPercentage < 0 || r.MaxPercentage > 100 {
-			return nil, fmt.Errorf("assessments.Service.BulkSetScaleRanges: percentages must be between 0 and 100: %w", ErrInvalidInput)
-		}
-		if r.MaxPercentage <= r.MinPercentage {
-			return nil, fmt.Errorf("assessments.Service.BulkSetScaleRanges: max_percentage must be greater than min_percentage: %w", ErrInvalidInput)
-		}
-		if !IsValidPerformanceLevel(r.PerformanceLevel) {
-			return nil, fmt.Errorf("assessments.Service.BulkSetScaleRanges: invalid performance level %q: %w", r.PerformanceLevel, ErrInvalidInput)
-		}
-		levelsPresent[r.PerformanceLevel] = true
-	}
-
-	// Warn but don't block if not all levels are covered — the exclusion
-	// constraint handles gaps. But validate at least EE, ME, AE should be present.
-	required := []string{"EE", "ME", "AE"}
-	for _, l := range required {
-		if !levelsPresent[l] {
-			return nil, fmt.Errorf("assessments.Service.BulkSetScaleRanges: missing required level %s: %w", l, ErrInvalidInput)
-		}
-	}
-
-	return s.Repo.BulkSetScaleRanges(ctx, profileID, ranges)
-}
-
-// GetScaleRanges returns all ranges for a profile.
-func (s *Service) GetScaleRanges(ctx context.Context, profileID, tenantID, schoolID string) ([]ScaleRange, error) {
-	if profileID == "" || tenantID == "" || schoolID == "" {
-		return nil, fmt.Errorf("assessments.Service.GetScaleRanges: %w", ErrInvalidInput)
-	}
-	return s.Repo.GetScaleRangesByProfile(ctx, profileID, tenantID, schoolID)
-}
-
-// DeleteScaleRange removes a single range from a profile.
-func (s *Service) DeleteScaleRange(ctx context.Context, rangeID, profileID, tenantID, schoolID string) error {
-	if rangeID == "" || profileID == "" {
-		return fmt.Errorf("assessments.Service.DeleteScaleRange: %w", ErrInvalidInput)
-	}
-	return s.Repo.DeleteScaleRange(ctx, rangeID, profileID, tenantID, schoolID)
 }
 
 // ============================================================================
@@ -214,12 +226,33 @@ func (s *Service) CreateSession(ctx context.Context, params CreateSessionParams)
 	return s.Repo.CreateSession(ctx, params)
 }
 
-// GetSession retrieves a single assessment session.
+// GetSession retrieves a single assessment session, including an
+// enroll_students_url derived from the session's class_id and academic_term_id.
 func (s *Service) GetSession(ctx context.Context, id, tenantID, schoolID string) (*AssessmentSession, error) {
 	if id == "" || tenantID == "" || schoolID == "" {
 		return nil, fmt.Errorf("assessments.Service.GetSession: %w", ErrInvalidInput)
 	}
-	return s.Repo.GetSessionByID(ctx, id, tenantID, schoolID)
+	session, err := s.Repo.GetSessionByID(ctx, id, tenantID, schoolID)
+	if err != nil {
+		return nil, err
+	}
+
+	session.EnrollStudentsURL = buildEnrollStudentsURL(session.ClassID, session.AcademicYearID, session.AcademicTermID)
+
+	return session, nil
+}
+
+// buildEnrollStudentsURL constructs the frontend route for enrolling students
+// into a class for a specific academic term.
+// Route: /classes/{class_id}/enroll?academictermid={academic_term_id}
+func buildEnrollStudentsURL(classID, academicYearID, academicTermID string) *string {
+	if classID == "" || academicTermID == "" {
+		return nil
+	}
+	u := url.Values{}
+	u.Set("academictermid", academicTermID)
+	path := "/classes/" + classID + "/enroll?" + u.Encode()
+	return &path
 }
 
 // ListSessions returns paginated assessment sessions.
@@ -288,12 +321,43 @@ func (s *Service) ApproveSession(ctx context.Context, id, tenantID, schoolID, us
 		if err != nil {
 			return fmt.Errorf("assessments.Service.ApproveSession: get scale profile: %w", err)
 		}
-		if err := s.Repo.SnapshotPerformanceLevels(ctx, id, profile); err != nil {
+		if err := s.Repo.SnapshotPerformanceLevels(ctx, id, &profile.ScaleProfile); err != nil {
 			return fmt.Errorf("assessments.Service.ApproveSession: snapshot: %w", err)
 		}
 	}
 
-	return s.Repo.UpdateSessionStatus(ctx, id, tenantID, schoolID, "PUBLISHED", nil, &userID)
+	// Update session status to PUBLISHED
+	if err := s.Repo.UpdateSessionStatus(ctx, id, tenantID, schoolID, "PUBLISHED", nil, &userID); err != nil {
+		return fmt.Errorf("assessments.Service.ApproveSession: %w", err)
+	}
+
+	// Refresh student_term_subject_summaries for all students in this session.
+	// The DB trigger (trg_assessment_sessions_refresh_summary) also runs, but
+	// calling it explicitly ensures the Go layer can depend on it without
+	// relying solely on trigger semantics.
+	if err := s.Repo.RefreshSessionSummary(ctx, id); err != nil {
+		return fmt.Errorf("assessments.Service.ApproveSession: refresh summary: %w", err)
+	}
+
+	return nil
+}
+
+// DeleteSession hard-deletes a DRAFT assessment session and its scores/grades.
+func (s *Service) DeleteSession(ctx context.Context, id, tenantID, schoolID string) error {
+	if id == "" || tenantID == "" || schoolID == "" {
+		return fmt.Errorf("assessments.Service.DeleteSession: %w", ErrInvalidInput)
+	}
+
+	// Only allow deleting DRAFT sessions
+	session, err := s.Repo.GetSessionByID(ctx, id, tenantID, schoolID)
+	if err != nil {
+		return fmt.Errorf("assessments.Service.DeleteSession: %w", err)
+	}
+	if session.Status != "DRAFT" {
+		return fmt.Errorf("assessments.Service.DeleteSession: only DRAFT sessions can be deleted, session is %q: %w", session.Status, ErrInvalidInput)
+	}
+
+	return s.Repo.DeleteSession(ctx, id, tenantID, schoolID)
 }
 
 // RejectSession transitions a session from PENDING_APPROVAL back to DRAFT.
@@ -469,6 +533,56 @@ func (s *Service) GetStudentTermGrades(ctx context.Context, tenantID, schoolID, 
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// STUDENT TERM SUBJECT SUMMARIES
+// ═══════════════════════════════════════════════════════════════════════════
+
+// RefreshSessionSummary triggers a recomputation of student_term_subject_summaries
+// for all students in the given session. This is typically called automatically
+// when a session transitions to PUBLISHED, but can also be invoked manually.
+func (s *Service) RefreshSessionSummary(ctx context.Context, sessionID string) error {
+	if sessionID == "" {
+		return fmt.Errorf("assessments.Service.RefreshSessionSummary: %w", ErrInvalidInput)
+	}
+	return s.Repo.RefreshSessionSummary(ctx, sessionID)
+}
+
+// GetStudentTermSubjectSummaries returns the blended summaries for a student
+// across all learning areas in a given term.
+func (s *Service) GetStudentTermSubjectSummaries(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]StudentTermSubjectSummary, error) {
+	if tenantID == "" || schoolID == "" || studentID == "" || termID == "" {
+		return nil, fmt.Errorf("assessments.Service.GetStudentTermSubjectSummaries: %w", ErrInvalidInput)
+	}
+
+	summaries, err := s.Repo.GetStudentTermSubjectSummaries(ctx, tenantID, schoolID, studentID, termID)
+	if err != nil {
+		return nil, fmt.Errorf("assessments.Service.GetStudentTermSubjectSummaries: %w", err)
+	}
+	return summaries, nil
+}
+
+// GetLearningAreaSummaries returns summaries for all students in a learning area
+// for a given term (e.g. teacher dashboard showing all students in Mathematics).
+func (s *Service) GetLearningAreaSummaries(ctx context.Context, tenantID, schoolID, termID, learningAreaID string) ([]StudentTermSubjectSummary, error) {
+	if tenantID == "" || schoolID == "" || termID == "" || learningAreaID == "" {
+		return nil, fmt.Errorf("assessments.Service.GetLearningAreaSummaries: %w", ErrInvalidInput)
+	}
+
+	summaries, err := s.Repo.GetLearningAreaSummaries(ctx, tenantID, schoolID, termID, learningAreaID)
+	if err != nil {
+		return nil, fmt.Errorf("assessments.Service.GetLearningAreaSummaries: %w", err)
+	}
+	return summaries, nil
+}
+
+// SetTeacherRemark updates the teacher_remark on a summary row.
+func (s *Service) SetTeacherRemark(ctx context.Context, summaryID, tenantID, schoolID string, remark *string) error {
+	if summaryID == "" || tenantID == "" || schoolID == "" {
+		return fmt.Errorf("assessments.Service.SetTeacherRemark: %w", ErrInvalidInput)
+	}
+	return s.Repo.SetTeacherRemark(ctx, summaryID, tenantID, schoolID, remark)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // ASSESSMENT WEIGHT CONFIGS
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -511,7 +625,20 @@ func (s *Service) ListWeightConfigs(ctx context.Context, filter AssessmentWeight
 	if items == nil {
 		items = []AssessmentWeightConfig{}
 	}
-	return &ListWeightConfigsResponse{Items: items}, nil
+	return &ListWeightConfigsResponse{
+		Items: items,
+		Total: len(items),
+		Page:  1,
+		Limit: len(items),
+	}, nil
+}
+
+// DeleteWeightConfig hard-deletes a weight config. SYSTEM_ADMIN only.
+func (s *Service) DeleteWeightConfig(ctx context.Context, id string) error {
+	if id == "" {
+		return fmt.Errorf("assessments.Service.DeleteWeightConfig: %w", ErrInvalidInput)
+	}
+	return s.Repo.DeleteWeightConfig(ctx, id)
 }
 
 // GetWeightConfigByID returns a single weight config.
@@ -520,4 +647,224 @@ func (s *Service) GetWeightConfigByID(ctx context.Context, id string) (*Assessme
 		return nil, fmt.Errorf("assessments.Service.GetWeightConfigByID: id is required: %w", ErrInvalidInput)
 	}
 	return s.Repo.GetWeightConfigByID(ctx, id)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STUDENT TERM OVERALL SUMMARIES
+// ═══════════════════════════════════════════════════════════════════════════
+
+// RefreshTermOverallSummaries triggers computation of overall summaries
+// for ALL students in the given term.
+func (s *Service) RefreshTermOverallSummaries(ctx context.Context, termID string) error {
+	if termID == "" {
+		return fmt.Errorf("assessments.Service.RefreshTermOverallSummaries: %w", ErrInvalidInput)
+	}
+	return s.Repo.RefreshTermOverallSummaries(ctx, termID)
+}
+
+// RefreshSingleStudentOverallSummary triggers computation for one student+term.
+func (s *Service) RefreshSingleStudentOverallSummary(ctx context.Context, studentID, termID string) error {
+	if studentID == "" || termID == "" {
+		return fmt.Errorf("assessments.Service.RefreshSingleStudentOverallSummary: %w", ErrInvalidInput)
+	}
+	return s.Repo.RefreshSingleStudentOverallSummary(ctx, studentID, termID)
+}
+
+// GetStudentTermOverallSummary returns the overall summary for a single
+// student+term. Returns a pointer — nil when not found.
+func (s *Service) GetStudentTermOverallSummary(ctx context.Context, tenantID, schoolID, studentID, termID string) (*StudentTermOverallSummary, error) {
+	if tenantID == "" || schoolID == "" || studentID == "" || termID == "" {
+		return nil, fmt.Errorf("assessments.Service.GetStudentTermOverallSummary: %w", ErrInvalidInput)
+	}
+	return s.Repo.GetStudentTermOverallSummary(ctx, tenantID, schoolID, studentID, termID)
+}
+
+// ListStudentTermOverallSummaries returns overall summaries for all students
+// in the given term.
+func (s *Service) ListStudentTermOverallSummaries(ctx context.Context, tenantID, schoolID, termID string) ([]StudentTermOverallSummary, error) {
+	if tenantID == "" || schoolID == "" || termID == "" {
+		return nil, fmt.Errorf("assessments.Service.ListStudentTermOverallSummaries: %w", ErrInvalidInput)
+	}
+	items, err := s.Repo.ListStudentTermOverallSummaries(ctx, tenantID, schoolID, termID)
+	if err != nil {
+		return nil, fmt.Errorf("assessments.Service.ListStudentTermOverallSummaries: %w", err)
+	}
+	return items, nil
+}
+
+// SetHeadteacherRemark updates the headteacher_remark on an overall summary.
+func (s *Service) SetHeadteacherRemark(ctx context.Context, summaryID, tenantID, schoolID string, remark *string) error {
+	if summaryID == "" || tenantID == "" || schoolID == "" {
+		return fmt.Errorf("assessments.Service.SetHeadteacherRemark: %w", ErrInvalidInput)
+	}
+	return s.Repo.SetHeadteacherRemark(ctx, summaryID, tenantID, schoolID, remark)
+}
+
+// ============================================================================
+// GRADING DATA (merged roster + scores/grades)
+// ============================================================================
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STUDENT SUBJECT STRAND SUMMARIES
+// ═══════════════════════════════════════════════════════════════════════════
+
+// RefreshSubjectStrandSummaries triggers a refresh of sub-strand summaries
+// for all students in the given session. Only affects RUBRIC sessions.
+func (s *Service) RefreshSubjectStrandSummaries(ctx context.Context, sessionID string) error {
+	if sessionID == "" {
+		return fmt.Errorf("assessments.Service.RefreshSubjectStrandSummaries: %w", ErrInvalidInput)
+	}
+	return s.Repo.RefreshSubjectStrandSummaries(ctx, sessionID)
+}
+
+// GetStudentSubjectStrandSummaries returns all sub-strand summaries for a
+// specific student in a specific term.
+func (s *Service) GetStudentSubjectStrandSummaries(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]StudentSubjectStrandSummary, error) {
+	if tenantID == "" || schoolID == "" || studentID == "" || termID == "" {
+		return nil, fmt.Errorf("assessments.Service.GetStudentSubjectStrandSummaries: %w", ErrInvalidInput)
+	}
+	items, err := s.Repo.GetStudentSubjectStrandSummaries(ctx, tenantID, schoolID, studentID, termID)
+	if err != nil {
+		return nil, fmt.Errorf("assessments.Service.GetStudentSubjectStrandSummaries: %w", err)
+	}
+	return items, nil
+}
+
+// GetSubjectStrandSummariesByTerm returns all sub-strand summaries for all
+// students in a given term (used for term-end batch reports).
+func (s *Service) GetSubjectStrandSummariesByTerm(ctx context.Context, tenantID, schoolID, termID string) ([]StudentSubjectStrandSummary, error) {
+	if tenantID == "" || schoolID == "" || termID == "" {
+		return nil, fmt.Errorf("assessments.Service.GetSubjectStrandSummariesByTerm: %w", ErrInvalidInput)
+	}
+	items, err := s.Repo.GetSubjectStrandSummariesByTerm(ctx, tenantID, schoolID, termID)
+	if err != nil {
+		return nil, fmt.Errorf("assessments.Service.GetSubjectStrandSummariesByTerm: %w", err)
+	}
+	return items, nil
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STUDENT PERFORMANCE PROJECTIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+// RefreshProjections triggers a batch computation of performance projections
+// for all students in the given academic term.
+func (s *Service) RefreshProjections(ctx context.Context, termID string) error {
+	if termID == "" {
+		return fmt.Errorf("assessments.Service.RefreshProjections: %w", ErrInvalidInput)
+	}
+	return s.Repo.RefreshProjections(ctx, termID)
+}
+
+// GetStudentProjection returns the performance projection for a specific
+// student+term, optionally scoped to a learning area.
+func (s *Service) GetStudentProjection(ctx context.Context, tenantID, schoolID, studentID, termID string, learningAreaID *string) (*StudentPerformanceProjection, error) {
+	if tenantID == "" || schoolID == "" || studentID == "" || termID == "" {
+		return nil, fmt.Errorf("assessments.Service.GetStudentProjection: %w", ErrInvalidInput)
+	}
+	return s.Repo.GetStudentProjection(ctx, tenantID, schoolID, studentID, termID, learningAreaID)
+}
+
+// ListStudentProjections returns all performance projections for a given term.
+func (s *Service) ListStudentProjections(ctx context.Context, tenantID, schoolID, termID string) ([]StudentPerformanceProjection, error) {
+	if tenantID == "" || schoolID == "" || termID == "" {
+		return nil, fmt.Errorf("assessments.Service.ListStudentProjections: %w", ErrInvalidInput)
+	}
+	items, err := s.Repo.ListStudentProjections(ctx, tenantID, schoolID, termID)
+	if err != nil {
+		return nil, fmt.Errorf("assessments.Service.ListStudentProjections: %w", err)
+	}
+	return items, nil
+}
+
+// ============================================================================
+// GRADING DATA (merged roster + scores/grades)
+// ============================================================================
+
+// GetGradingData returns the session, roster, and merged scores/grades in a
+// single response. The backend resolves the roster from the session's class_id
+// and academic_term_id, so the frontend doesn't need to pass them separately.
+func (s *Service) GetGradingData(ctx context.Context, sessionID, tenantID, schoolID string) (*GradingDataResponse, error) {
+	if sessionID == "" || tenantID == "" || schoolID == "" {
+		return nil, fmt.Errorf("assessments.Service.GetGradingData: %w", ErrInvalidInput)
+	}
+
+	// 1. Load the session to get class_id and academic_term_id
+	session, err := s.Repo.GetSessionByID(ctx, sessionID, tenantID, schoolID)
+	if err != nil {
+		return nil, fmt.Errorf("assessments.Service.GetGradingData: %w", err)
+	}
+
+	// 2. Load the roster from the class domain
+	roster, err := s.RosterProvider.GetRosterByClassAndTerm(ctx, session.ClassID, tenantID, schoolID, session.AcademicTermID)
+	if err != nil {
+		return nil, fmt.Errorf("assessments.Service.GetGradingData: %w", err)
+	}
+
+	// 3. Build merged student list
+	students := make([]GradingDataStudent, 0, len(roster))
+
+	if session.EvaluationMethod == "QUANTITATIVE" {
+		// Load scores and merge by student_id
+		scores, err := s.Repo.GetStudentScoresBySession(ctx, sessionID, tenantID, schoolID)
+		if err != nil {
+			return nil, fmt.Errorf("assessments.Service.GetGradingData: %w", err)
+		}
+
+		scoreByStudent := make(map[string]*StudentScore, len(scores))
+		for i := range scores {
+			scoreByStudent[scores[i].StudentID] = &scores[i]
+		}
+
+		for _, r := range roster {
+			s := GradingDataStudent{
+				StudentID:        r.StudentID,
+				StudentName:      r.StudentName,
+				AdmissionNumber:  r.AdmissionNumber,
+				Gender:           r.Gender,
+				EnrollmentStatus: "ACTIVE",
+			}
+			if sc, ok := scoreByStudent[r.StudentID]; ok {
+				s.Score = sc
+				if sc.EnrollmentStatus != "" {
+					s.EnrollmentStatus = sc.EnrollmentStatus
+				}
+			}
+			students = append(students, s)
+		}
+	} else {
+		// RUBRIC: load outcome grades
+		grades, err := s.Repo.GetOutcomeGradesBySession(ctx, sessionID, tenantID, schoolID)
+		if err != nil {
+			return nil, fmt.Errorf("assessments.Service.GetGradingData: %w", err)
+		}
+
+		gradesByStudent := make(map[string][]OutcomeGrade, len(grades))
+		for _, g := range grades {
+			gradesByStudent[g.StudentID] = append(gradesByStudent[g.StudentID], g)
+		}
+
+		for _, r := range roster {
+			s := GradingDataStudent{
+				StudentID:        r.StudentID,
+				StudentName:      r.StudentName,
+				AdmissionNumber:  r.AdmissionNumber,
+				Gender:           r.Gender,
+				EnrollmentStatus: "ACTIVE",
+			}
+			if gs, ok := gradesByStudent[r.StudentID]; ok {
+				s.Grades = gs
+			}
+			students = append(students, s)
+		}
+	}
+
+	if students == nil {
+		students = []GradingDataStudent{}
+	}
+
+	return &GradingDataResponse{
+		Session:  session,
+		Students: students,
+	}, nil
 }

@@ -4,6 +4,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useCreateMedicalIncident } from "../hooks/use-health";
 import {
     Dialog,
@@ -25,6 +26,7 @@ interface CreateIncidentDialogProps {
 }
 
 export function CreateIncidentDialog({ open, onOpenChange, studentId }: CreateIncidentDialogProps) {
+    const router = useRouter();
     const mutation = useCreateMedicalIncident();
     const [studentIdInput, setStudentIdInput] = useState(studentId ?? "");
     const [symptoms, setSymptoms] = useState("");
@@ -65,6 +67,7 @@ export function CreateIncidentDialog({ open, onOpenChange, studentId }: CreateIn
                                 value={studentIdInput}
                                 onChange={(v) => setStudentIdInput(v as string)}
                                 placeholder="Select a student..."
+                                onCreateItem={() => router.push("/students/new")}
                             />
                         </div>
                     )}

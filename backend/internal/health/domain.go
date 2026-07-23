@@ -78,6 +78,8 @@ type UpsertHealthProfilePayload struct {
 type MedicalIncidentListResponse struct {
 	Items []MedicalIncident `json:"items"`
 	Total int               `json:"total"`
+	Page  int               `json:"page"`
+	Limit int               `json:"limit"`
 }
 
 // HealthProfileResponse wraps a health profile response.

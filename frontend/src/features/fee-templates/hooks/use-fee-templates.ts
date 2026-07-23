@@ -14,6 +14,7 @@ import {
     deleteFeeTemplate,
 } from "@/lib/api/billing";
 import { getErrorMessage } from "@/lib/errors";
+import { STALE_TIMES } from "@/lib/query-config";
 import type { CreateFeeTemplatePayload, UpdateFeeTemplatePayload } from "@/lib/api/billing";
 
 // ─── Query keys ───────────────────────────────────────────────────────────
@@ -30,7 +31,7 @@ export function useFeeTemplates(filters: { academic_term_id?: string; grade_leve
     return useQuery({
         queryKey: feeTemplateKeys.lists(filters),
         queryFn: () => listFeeTemplates(filters),
-        staleTime: 5 * 60 * 1000,
+        staleTime: STALE_TIMES.REFERENCE_DATA,
         placeholderData: (prev) => prev,
     });
 }
@@ -42,11 +43,24 @@ export function useCreateFeeTemplate() {
 
     return useMutation({
         mutationFn: (payload: CreateFeeTemplatePayload) => createFeeTemplate(payload),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: feeTemplateKeys.all });
-            toast.success("Fee template created");
+        onMutate: async () => {
+            await queryClient.cancelQueries({ queryKey: feeTemplateKeys.all });
+            const previousQueries = queryClient.getQueriesData({
+                queryKey: feeTemplateKeys.all,
+            });
+            return { previousQueries };
         },
-        onError: (err) => toast.error(getErrorMessage(err)),
+        onError: (err, _payload, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
+            toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: feeTemplateKeys.all });
+        },
     });
 }
 
@@ -56,11 +70,38 @@ export function useUpdateFeeTemplate() {
     return useMutation({
         mutationFn: ({ id, payload }: { id: string; payload: UpdateFeeTemplatePayload }) =>
             updateFeeTemplate(id, payload),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: feeTemplateKeys.all });
-            toast.success("Fee template updated");
+        onMutate: async ({ id, payload }) => {
+            await queryClient.cancelQueries({ queryKey: feeTemplateKeys.all });
+            const previousQueries = queryClient.getQueriesData<{ items: { id: string }[] }>({
+                queryKey: feeTemplateKeys.all,
+            });
+
+            queryClient.setQueriesData<{ items: { id: string }[] }>(
+                { queryKey: feeTemplateKeys.all },
+                (old) => {
+                    if (!old) return old;
+                    return {
+                        ...old,
+                        items: old.items.map((item) =>
+                            item.id === id ? { ...item, ...payload } : item
+                        ),
+                    };
+                }
+            );
+
+            return { previousQueries };
         },
-        onError: (err) => toast.error(getErrorMessage(err)),
+        onError: (err, _vars, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
+            toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: feeTemplateKeys.all });
+        },
     });
 }
 
@@ -69,10 +110,35 @@ export function useDeleteFeeTemplate() {
 
     return useMutation({
         mutationFn: (id: string) => deleteFeeTemplate(id),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: feeTemplateKeys.all });
-            toast.success("Fee template deleted");
+        onMutate: async (id) => {
+            await queryClient.cancelQueries({ queryKey: feeTemplateKeys.all });
+            const previousQueries = queryClient.getQueriesData<{ items: { id: string }[] }>({
+                queryKey: feeTemplateKeys.all,
+            });
+
+            queryClient.setQueriesData<{ items: { id: string }[] }>(
+                { queryKey: feeTemplateKeys.all },
+                (old) => {
+                    if (!old) return old;
+                    return {
+                        ...old,
+                        items: old.items.filter((item) => item.id !== id),
+                    };
+                }
+            );
+
+            return { previousQueries };
         },
-        onError: (err) => toast.error(getErrorMessage(err)),
+        onError: (err, _id, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
+            toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: feeTemplateKeys.all });
+        },
     });
 }

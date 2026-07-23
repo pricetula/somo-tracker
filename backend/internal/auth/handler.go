@@ -80,6 +80,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	auth.Get("/invite/callback", h.AcceptInvite)
 	auth.Get("/me", h.Me)
 	auth.Delete("/session", h.Logout)
+	auth.Post("/switch-school", middleware.RequireAuth, h.SwitchActiveSchool)
 }
 
 // setSessionCookies sets all three session cookies (session ID, role, school ID).
@@ -344,6 +345,51 @@ func (h *Handler) Me(c *fiber.Ctx) error {
 		"school_name": info.SchoolName,
 		"full_name":   info.FullName,
 		"email":       info.Email,
+	})
+}
+
+// SwitchActiveSchool handles POST /api/auth/switch-school.
+// Updates the user's active school and returns the new school info.
+func (h *Handler) SwitchActiveSchool(c *fiber.Ctx) error {
+	userID := c.Locals("user_id").(string)
+	tenantID := c.Locals("tenant_id").(string)
+
+	var body struct {
+		SchoolID string `json:"school_id"`
+	}
+	if err := c.BodyParser(&body); err != nil {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "invalid request body",
+		})
+	}
+	if body.SchoolID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "school_id is required",
+		})
+	}
+
+	schoolID, err := h.svc.SwitchActiveSchool(c.Context(), userID, tenantID, body.SchoolID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	// Update the school ID cookie
+	c.Cookie(&fiber.Cookie{
+		Name:     somoSchoolIDCookieName,
+		Value:    schoolID,
+		HTTPOnly: false,
+		Secure:   h.cfg.AppEnv != "development",
+		SameSite: "Lax",
+		Path:     "/",
+		Domain:   h.cfg.CookieDomain,
+		MaxAge:   cookieMaxAge,
+	})
+
+	return c.JSON(fiber.Map{
+		"message":   "Active school updated",
+		"school_id": schoolID,
 	})
 }
 

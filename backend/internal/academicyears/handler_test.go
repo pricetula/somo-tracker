@@ -212,16 +212,8 @@ func TestHandler_PatchYear_TermStranding(t *testing.T) {
 
 	// Without the stranding mock, this will succeed (200)
 	// To test stranding, we need the repo.FindStrandedTerms to return results
-	// But the handler relies on the service returning *TermsOutOfRangeError
-
-	// Actually, looking at the handler code — PatchYear calls the service and gets
-	// a *TermsOutOfRangeError return. But PatchYear in the service doesn't return
-	// that error — it returns (nil, nil) or (year, nil) or nil from a wrapped error.
-	// The stranding check returns a *TermsOutOfRangeError but it's only set on
-	// the second return value.
-
-	// The handler code checks strandingErr != nil. Let's make the mock return
-	// stranded terms.
+	// so the service returns a wrapped *TermsOutOfRangeError, which the handler
+	// extracts via errors.As and maps to 422. Let's make the mock return stranded terms.
 	t.Logf("response status: %d", resp.StatusCode)
 
 	// Re-do with stranding

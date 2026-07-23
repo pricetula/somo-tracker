@@ -28,28 +28,28 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	areas.Get("/:id", middleware.RequireAuth, h.GetLearningAreaByID)
 	areas.Get("/:id/tree", middleware.RequireAuth, h.GetTree)
 	areas.Put("/:id", middleware.RequireAuth, h.UpdateLearningArea)
-	areas.Delete("/:id", middleware.RequireAuth, h.DeleteLearningArea)
+	areas.Delete("/", middleware.RequireAuth, h.DeleteLearningArea)
 
 	// Strands
 	strands := router.Group("/api/v1/curriculum/strands")
 	strands.Post("/", middleware.RequireAuth, h.CreateStrand)
 	strands.Get("/", middleware.RequireAuth, h.ListStrands)
 	strands.Put("/:id", middleware.RequireAuth, h.UpdateStrand)
-	strands.Delete("/:id", middleware.RequireAuth, h.DeleteStrand)
+	strands.Delete("/", middleware.RequireAuth, h.DeleteStrand)
 
 	// Sub-Strands
 	subStrands := router.Group("/api/v1/curriculum/sub-strands")
 	subStrands.Post("/", middleware.RequireAuth, h.CreateSubStrand)
 	subStrands.Get("/", middleware.RequireAuth, h.ListSubStrands)
 	subStrands.Put("/:id", middleware.RequireAuth, h.UpdateSubStrand)
-	subStrands.Delete("/:id", middleware.RequireAuth, h.DeleteSubStrand)
+	subStrands.Delete("/", middleware.RequireAuth, h.DeleteSubStrand)
 
 	// Performance Indicators
 	indicators := router.Group("/api/v1/curriculum/performance-indicators")
 	indicators.Post("/", middleware.RequireAuth, h.CreatePerformanceIndicator)
 	indicators.Get("/", middleware.RequireAuth, h.ListPerformanceIndicators)
 	indicators.Put("/:id", middleware.RequireAuth, h.UpdatePerformanceIndicator)
-	indicators.Delete("/:id", middleware.RequireAuth, h.DeletePerformanceIndicator)
+	indicators.Delete("/", middleware.RequireAuth, h.DeletePerformanceIndicator)
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────
@@ -292,15 +292,20 @@ func (h *Handler) DeleteLearningArea(c *fiber.Ctx) error {
 		return err
 	}
 
-	areaID := c.Params("id")
-	if areaID == "" {
+	var payload struct {
+		ID string `json:"id"`
+	}
+	if err := c.BodyParser(&payload); err != nil {
+		return invalidBody(c)
+	}
+	if payload.ID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"code":    "invalid_input",
 			"message": "learning area id is required",
 		})
 	}
 
-	if err := h.svc.DeleteLearningArea(c.Context(), areaID, tenantID, schoolID); err != nil {
+	if err := h.svc.DeleteLearningArea(c.Context(), payload.ID, tenantID, schoolID); err != nil {
 		return middleware.HTTPError(c, err)
 	}
 
@@ -322,7 +327,10 @@ func (h *Handler) CreateStrand(c *fiber.Ctx) error {
 	}
 
 	// The service verifies learning_area_id belongs to this tenant/school
-	id, err := h.svc.CreateStrand(c.Context(), CreateStrandParams(payload), tenantID, schoolID)
+	id, err := h.svc.CreateStrand(c.Context(), CreateStrandParams{
+		LearningAreaID: payload.LearningAreaID,
+		Name:           payload.Name,
+	}, tenantID, schoolID)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
@@ -334,6 +342,11 @@ func (h *Handler) CreateStrand(c *fiber.Ctx) error {
 
 // ListStrands handles GET /api/v1/curriculum/strands?learning_area_id=X.
 func (h *Handler) ListStrands(c *fiber.Ctx) error {
+	tenantID, _, err := getTenantAndSchool(c)
+	if err != nil {
+		return err
+	}
+
 	learningAreaID := c.Query("learning_area_id")
 	if learningAreaID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -342,7 +355,7 @@ func (h *Handler) ListStrands(c *fiber.Ctx) error {
 		})
 	}
 
-	strands, err := h.svc.ListStrands(c.Context(), learningAreaID)
+	strands, err := h.svc.ListStrands(c.Context(), learningAreaID, tenantID)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
@@ -350,11 +363,18 @@ func (h *Handler) ListStrands(c *fiber.Ctx) error {
 	return c.JSON(ListStrandsResponse{
 		Items: strands,
 		Total: len(strands),
+		Page:  1,
+		Limit: len(strands),
 	})
 }
 
 // UpdateStrand handles PUT /api/v1/curriculum/strands/:id.
 func (h *Handler) UpdateStrand(c *fiber.Ctx) error {
+	tenantID, _, err := getTenantAndSchool(c)
+	if err != nil {
+		return err
+	}
+
 	strandID := c.Params("id")
 	if strandID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -368,10 +388,7 @@ func (h *Handler) UpdateStrand(c *fiber.Ctx) error {
 		return invalidBody(c)
 	}
 
-	if err := h.svc.UpdateStrand(c.Context(), UpdateStrandParams{
-		ID:   strandID,
-		Name: payload.Name,
-	}); err != nil {
+	if err := h.svc.UpdateStrand(c.Context(), strandID, tenantID, payload.Name); err != nil {
 		return middleware.HTTPError(c, err)
 	}
 
@@ -380,15 +397,25 @@ func (h *Handler) UpdateStrand(c *fiber.Ctx) error {
 
 // DeleteStrand handles DELETE /api/v1/curriculum/strands/:id.
 func (h *Handler) DeleteStrand(c *fiber.Ctx) error {
-	strandID := c.Params("id")
-	if strandID == "" {
+	tenantID, _, err := getTenantAndSchool(c)
+	if err != nil {
+		return err
+	}
+
+	var payload struct {
+		ID string `json:"id"`
+	}
+	if err := c.BodyParser(&payload); err != nil {
+		return invalidBody(c)
+	}
+	if payload.ID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"code":    "invalid_input",
 			"message": "strand id is required",
 		})
 	}
 
-	if err := h.svc.DeleteStrand(c.Context(), strandID); err != nil {
+	if err := h.svc.DeleteStrand(c.Context(), payload.ID, tenantID); err != nil {
 		return middleware.HTTPError(c, err)
 	}
 
@@ -409,7 +436,10 @@ func (h *Handler) CreateSubStrand(c *fiber.Ctx) error {
 		return invalidBody(c)
 	}
 
-	id, err := h.svc.CreateSubStrand(c.Context(), CreateSubStrandParams(payload), tenantID, schoolID)
+	id, err := h.svc.CreateSubStrand(c.Context(), CreateSubStrandParams{
+		StrandID: payload.StrandID,
+		Name:     payload.Name,
+	}, tenantID, schoolID)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
@@ -421,6 +451,11 @@ func (h *Handler) CreateSubStrand(c *fiber.Ctx) error {
 
 // ListSubStrands handles GET /api/v1/curriculum/sub-strands?strand_id=X.
 func (h *Handler) ListSubStrands(c *fiber.Ctx) error {
+	tenantID, _, err := getTenantAndSchool(c)
+	if err != nil {
+		return err
+	}
+
 	strandID := c.Query("strand_id")
 	if strandID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -429,7 +464,7 @@ func (h *Handler) ListSubStrands(c *fiber.Ctx) error {
 		})
 	}
 
-	subs, err := h.svc.ListSubStrands(c.Context(), strandID)
+	subs, err := h.svc.ListSubStrands(c.Context(), strandID, tenantID)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
@@ -437,11 +472,18 @@ func (h *Handler) ListSubStrands(c *fiber.Ctx) error {
 	return c.JSON(ListSubStrandsResponse{
 		Items: subs,
 		Total: len(subs),
+		Page:  1,
+		Limit: len(subs),
 	})
 }
 
 // UpdateSubStrand handles PUT /api/v1/curriculum/sub-strands/:id.
 func (h *Handler) UpdateSubStrand(c *fiber.Ctx) error {
+	tenantID, _, err := getTenantAndSchool(c)
+	if err != nil {
+		return err
+	}
+
 	subID := c.Params("id")
 	if subID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -455,10 +497,7 @@ func (h *Handler) UpdateSubStrand(c *fiber.Ctx) error {
 		return invalidBody(c)
 	}
 
-	if err := h.svc.UpdateSubStrand(c.Context(), UpdateSubStrandParams{
-		ID:   subID,
-		Name: payload.Name,
-	}); err != nil {
+	if err := h.svc.UpdateSubStrand(c.Context(), subID, tenantID, payload.Name); err != nil {
 		return middleware.HTTPError(c, err)
 	}
 
@@ -467,15 +506,25 @@ func (h *Handler) UpdateSubStrand(c *fiber.Ctx) error {
 
 // DeleteSubStrand handles DELETE /api/v1/curriculum/sub-strands/:id.
 func (h *Handler) DeleteSubStrand(c *fiber.Ctx) error {
-	subID := c.Params("id")
-	if subID == "" {
+	tenantID, _, err := getTenantAndSchool(c)
+	if err != nil {
+		return err
+	}
+
+	var payload struct {
+		ID string `json:"id"`
+	}
+	if err := c.BodyParser(&payload); err != nil {
+		return invalidBody(c)
+	}
+	if payload.ID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"code":    "invalid_input",
 			"message": "sub-strand id is required",
 		})
 	}
 
-	if err := h.svc.DeleteSubStrand(c.Context(), subID); err != nil {
+	if err := h.svc.DeleteSubStrand(c.Context(), payload.ID, tenantID); err != nil {
 		return middleware.HTTPError(c, err)
 	}
 
@@ -496,7 +545,11 @@ func (h *Handler) CreatePerformanceIndicator(c *fiber.Ctx) error {
 		return invalidBody(c)
 	}
 
-	id, err := h.svc.CreatePerformanceIndicator(c.Context(), CreatePerformanceIndicatorParams(payload), tenantID, schoolID)
+	id, err := h.svc.CreatePerformanceIndicator(c.Context(), CreatePerformanceIndicatorParams{
+		SubStrandID:   payload.SubStrandID,
+		Description:   payload.Description,
+		SequenceOrder: payload.SequenceOrder,
+	}, tenantID, schoolID)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
@@ -508,6 +561,11 @@ func (h *Handler) CreatePerformanceIndicator(c *fiber.Ctx) error {
 
 // ListPerformanceIndicators handles GET /api/v1/curriculum/performance-indicators?sub_strand_id=X.
 func (h *Handler) ListPerformanceIndicators(c *fiber.Ctx) error {
+	tenantID, _, err := getTenantAndSchool(c)
+	if err != nil {
+		return err
+	}
+
 	subStrandID := c.Query("sub_strand_id")
 	if subStrandID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -516,7 +574,7 @@ func (h *Handler) ListPerformanceIndicators(c *fiber.Ctx) error {
 		})
 	}
 
-	indicators, err := h.svc.ListPerformanceIndicators(c.Context(), subStrandID)
+	indicators, err := h.svc.ListPerformanceIndicators(c.Context(), subStrandID, tenantID)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
@@ -524,11 +582,18 @@ func (h *Handler) ListPerformanceIndicators(c *fiber.Ctx) error {
 	return c.JSON(ListPerformanceIndicatorsResponse{
 		Items: indicators,
 		Total: len(indicators),
+		Page:  1,
+		Limit: len(indicators),
 	})
 }
 
 // UpdatePerformanceIndicator handles PUT /api/v1/curriculum/performance-indicators/:id.
 func (h *Handler) UpdatePerformanceIndicator(c *fiber.Ctx) error {
+	tenantID, _, err := getTenantAndSchool(c)
+	if err != nil {
+		return err
+	}
+
 	indicatorID := c.Params("id")
 	if indicatorID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -542,11 +607,7 @@ func (h *Handler) UpdatePerformanceIndicator(c *fiber.Ctx) error {
 		return invalidBody(c)
 	}
 
-	if err := h.svc.UpdatePerformanceIndicator(c.Context(), UpdatePerformanceIndicatorParams{
-		ID:            indicatorID,
-		Description:   payload.Description,
-		SequenceOrder: payload.SequenceOrder,
-	}); err != nil {
+	if err := h.svc.UpdatePerformanceIndicator(c.Context(), indicatorID, tenantID, payload.Description, payload.SequenceOrder); err != nil {
 		return middleware.HTTPError(c, err)
 	}
 
@@ -555,15 +616,25 @@ func (h *Handler) UpdatePerformanceIndicator(c *fiber.Ctx) error {
 
 // DeletePerformanceIndicator handles DELETE /api/v1/curriculum/performance-indicators/:id.
 func (h *Handler) DeletePerformanceIndicator(c *fiber.Ctx) error {
-	indicatorID := c.Params("id")
-	if indicatorID == "" {
+	tenantID, _, err := getTenantAndSchool(c)
+	if err != nil {
+		return err
+	}
+
+	var payload struct {
+		ID string `json:"id"`
+	}
+	if err := c.BodyParser(&payload); err != nil {
+		return invalidBody(c)
+	}
+	if payload.ID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"code":    "invalid_input",
 			"message": "performance indicator id is required",
 		})
 	}
 
-	if err := h.svc.DeletePerformanceIndicator(c.Context(), indicatorID); err != nil {
+	if err := h.svc.DeletePerformanceIndicator(c.Context(), payload.ID, tenantID); err != nil {
 		return middleware.HTTPError(c, err)
 	}
 

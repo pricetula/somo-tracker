@@ -236,6 +236,102 @@ func joinWithComma(parts []string) string {
 	return result
 }
 
+// ListTeacherClasses returns all classes assigned to a teacher in a given term.
+func (r *PgRepository) ListTeacherClasses(ctx context.Context, tenantID, schoolID, userID, termID string) ([]TeacherClassItem, error) {
+	query := `
+		SELECT DISTINCT
+			c.id AS class_id,
+			c.grade_level || ' ' || COALESCE(s.name, '') AS class_name,
+			c.grade_level,
+			COALESCE(s.name, '') AS stream_name,
+			at.id AS term_id,
+			at.name AS term_name,
+			COALESCE(ts.learning_area_id, '') AS learning_area_id,
+			COALESCE(la.name, '') AS learning_area_name
+		FROM cbc_class_teachers ct
+		JOIN cbc_classes c ON c.id = ct.class_id AND c.tenant_id = $1
+		LEFT JOIN cbc_streams s ON s.id = c.stream_id
+		JOIN academic_terms at ON at.id = $4 AND at.tenant_id = $1 AND at.school_id = $2
+		LEFT JOIN cbc_timetable_slots ts ON ts.class_id = c.id AND ts.teacher_id = $3
+		LEFT JOIN cbc_learning_areas la ON la.id = ts.learning_area_id
+		WHERE ct.teacher_id = $3
+		  AND c.school_id = $2
+		  AND c.academic_year_id = at.academic_year_id
+		ORDER BY class_name
+	`
+	rows, err := r.pool.Query(ctx, query, tenantID, schoolID, userID, termID)
+	if err != nil {
+		return nil, fmt.Errorf("teachers.Repository.ListTeacherClasses: %w", err)
+	}
+	defer rows.Close()
+
+	var items []TeacherClassItem
+	for rows.Next() {
+		var item TeacherClassItem
+		if err := rows.Scan(
+			&item.ClassID, &item.ClassName, &item.GradeLevel, &item.StreamName,
+			&item.TermID, &item.TermName, &item.LearningAreaID, &item.LearningAreaName,
+		); err != nil {
+			return nil, fmt.Errorf("teachers.Repository.ListTeacherClasses: scan: %w", err)
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("teachers.Repository.ListTeacherClasses: rows: %w", err)
+	}
+	return items, nil
+}
+
+// GetTeacherTimetable returns the teacher's timetable slots for a given day of week.
+func (r *PgRepository) GetTeacherTimetable(ctx context.Context, tenantID, schoolID, userID string, dayOfWeek int) ([]TeacherTimetableSlot, error) {
+	query := `
+		SELECT
+			ts.id AS slot_id,
+			tstr.period_name,
+			tstr.start_time::text,
+			tstr.end_time::text,
+			c.id AS class_id,
+			c.grade_level || ' ' || COALESCE(st.name, '') AS class_name,
+			c.grade_level,
+			COALESCE(st.name, '') AS stream_name,
+			ts.learning_area_id,
+			COALESCE(la.name, '') AS learning_area_name,
+			ts.room_identifier
+		FROM cbc_timetable_slots ts
+		JOIN timetable_structures tstr ON tstr.id = ts.structure_id
+		JOIN cbc_classes c ON c.id = ts.class_id AND c.tenant_id = $1
+		LEFT JOIN cbc_streams st ON st.id = c.stream_id
+		LEFT JOIN cbc_learning_areas la ON la.id = ts.learning_area_id
+		WHERE ts.teacher_id = $3
+		  AND ts.school_id = $2
+		  AND tstr.day_of_week = $4
+		  AND tstr.is_break = false
+		ORDER BY tstr.start_time
+	`
+	rows, err := r.pool.Query(ctx, query, tenantID, schoolID, userID, dayOfWeek)
+	if err != nil {
+		return nil, fmt.Errorf("teachers.Repository.GetTeacherTimetable: %w", err)
+	}
+	defer rows.Close()
+
+	var items []TeacherTimetableSlot
+	for rows.Next() {
+		var item TeacherTimetableSlot
+		if err := rows.Scan(
+			&item.SlotID, &item.PeriodName, &item.StartTime, &item.EndTime,
+			&item.ClassID, &item.ClassName, &item.GradeLevel, &item.StreamName,
+			&item.LearningAreaID, &item.LearningAreaName, &item.RoomIdentifier,
+		); err != nil {
+			return nil, fmt.Errorf("teachers.Repository.GetTeacherTimetable: scan: %w", err)
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("teachers.Repository.GetTeacherTimetable: rows: %w", err)
+	}
+	return items, nil
+}
+
 // GetActiveSchoolID returns the active school ID for a user in a tenant.
 func (r *PgRepository) GetActiveSchoolID(ctx context.Context, tenantID, userID string) (string, error) {
 	const query = `

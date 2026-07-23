@@ -37,6 +37,11 @@ export interface ClassComboboxProps {
      * If omitted, no create option is shown.
      */
     onCreateItem?: (search: string) => void;
+    /**
+     * When true, automatically selects the first class from the list if no
+     * value is currently set. Defaults to false.
+     */
+    doPreselectFirstOption?: boolean;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────
@@ -48,10 +53,28 @@ export function ClassCombobox({
     className,
     isMultiSelect = false,
     onCreateItem,
+    doPreselectFirstOption = false,
 }: ClassComboboxProps) {
     const { data, isLoading, isError, error } = useClassList();
 
     const items = data?.items ?? [];
+
+    // ── Auto-preselect first option when doPreselectFirstOption is true ──
+    const hasPreselected = React.useRef(false);
+    React.useEffect(() => {
+        const list = data?.items;
+        if (!doPreselectFirstOption || !list || list.length === 0 || hasPreselected.current) return;
+
+        const hasValue = isMultiSelect ? (value as string[]).length > 0 : (value as string) !== "";
+
+        if (hasValue) {
+            hasPreselected.current = true;
+            return;
+        }
+
+        hasPreselected.current = true;
+        onChange(isMultiSelect ? [list[0].value] : list[0].value);
+    }, [doPreselectFirstOption, data, isMultiSelect, value, onChange]);
 
     // ── Loading state ─────────────────────────────────────────────────────
     if (isLoading) {

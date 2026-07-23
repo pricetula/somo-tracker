@@ -110,6 +110,9 @@ export interface EnrichedSlot {
     is_break: boolean;
     learning_area_name?: string | null;
     teacher_name?: string | null;
+    /** Populated only when the date filter is set. */
+    session_status?: string | null;
+    skip_reason?: string | null;
 }
 
 export interface SlotListResult {
@@ -215,13 +218,15 @@ export async function updateTimeBlock(
 
 /** Delete a time block by ID. */
 export async function deleteTimeBlock(id: string): Promise<DeleteResult> {
-    return api.delete<DeleteResult>(`/api/v1/timetable/structure/${id}`);
+    return api.delete<DeleteResult>(`/api/v1/timetable/structure`, { id });
 }
 
 /** Delete all time blocks for a specific day. */
 export async function deleteDayBlocks(day: number, academicYearID?: string): Promise<void> {
-    const params = academicYearID ? `?academic_year_id=${encodeURIComponent(academicYearID)}` : "";
-    return api.delete<void>(`/api/v1/timetable/structure/day/${day}${params}`);
+    return api.delete<void>(`/api/v1/timetable/structure/day`, {
+        day,
+        academic_year_id: academicYearID,
+    });
 }
 
 /** Delete all time blocks with a given period name across all days. */
@@ -229,11 +234,10 @@ export async function deleteTimeBlocksByName(
     periodName: string,
     academicYearID: string
 ): Promise<DeleteResult> {
-    const params = new URLSearchParams({
+    return api.delete<DeleteResult>(`/api/v1/timetable/structure/by-name`, {
         academic_year_id: academicYearID,
         period_name: periodName,
     });
-    return api.delete<DeleteResult>(`/api/v1/timetable/structure/by-name?${params.toString()}`);
 }
 
 // ─── API Functions: Allocation Slots ──────────────────────────────────────
@@ -256,21 +260,27 @@ export async function listSlots(
     return api.get<SlotListResult>(`/api/v1/timetable/slots?${params.toString()}`);
 }
 
-/** List enriched slots with joined data for the scheduling board. */
+/** List enriched slots with joined data for the scheduling board.
+ *
+ * When `date` is provided:
+ *   - Only slots matching that date's day-of-week are returned.
+ *   - Each slot includes `session_status` (SUBMITTED/SKIPPED/null) and `skip_reason`
+ *     from the attendance sessions table.
+ */
 export async function listEnrichedSlots(
     academicYearID: string,
-    viewBy?: {
-        mode: "class" | "teacher" | "room";
-        id: string;
+    opts?: {
+        classId?: string;
+        teacherId?: string;
+        roomIdentifier?: string;
+        date?: string;
     }
 ): Promise<EnrichedSlotListResult> {
     const params = new URLSearchParams({ academic_year_id: academicYearID });
-    if (viewBy) {
-        params.set("view_by", viewBy.mode);
-        if (viewBy.mode === "class") params.set("class_id", viewBy.id);
-        else if (viewBy.mode === "teacher") params.set("teacher_id", viewBy.id);
-        else if (viewBy.mode === "room") params.set("room_identifier", viewBy.id);
-    }
+    if (opts?.classId) params.set("class_id", opts.classId);
+    if (opts?.teacherId) params.set("teacher_id", opts.teacherId);
+    if (opts?.roomIdentifier) params.set("room_identifier", opts.roomIdentifier);
+    if (opts?.date) params.set("date", opts.date);
     return api.get<EnrichedSlotListResult>(`/api/v1/timetable/slots/enriched?${params.toString()}`);
 }
 
@@ -296,5 +306,5 @@ export async function updateSlot(id: string, payload: UpdateSlotPayload): Promis
 
 /** Delete a slot by ID. */
 export async function deleteSlot(id: string): Promise<void> {
-    return api.delete<void>(`/api/v1/timetable/slots/${id}`);
+    return api.delete<void>(`/api/v1/timetable/slots`, { id });
 }

@@ -172,7 +172,7 @@ export async function updateFeeCategory(
 }
 
 export async function deleteFeeCategory(id: string): Promise<void> {
-    await api.delete(`/api/v1/billing/fee-categories/${id}`);
+    await api.delete(`/api/v1/billing/fee-categories`, { id });
 }
 
 // ==========================================================================
@@ -204,7 +204,7 @@ export async function updateFeeTemplate(
 }
 
 export async function deleteFeeTemplate(id: string): Promise<void> {
-    await api.delete(`/api/v1/billing/fee-templates/${id}`);
+    await api.delete(`/api/v1/billing/fee-templates`, { id });
 }
 
 // ==========================================================================

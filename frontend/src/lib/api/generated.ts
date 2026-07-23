@@ -381,56 +381,6 @@ export interface BulkCreateSlotsResponse {
     message: string;
 }
 
-export type AttendanceStatus = "PRESENT" | "ABSENT" | "LATE" | "EXCUSED";
-
-export interface AttendanceLogInput {
-    student_id: string;
-    status: AttendanceStatus;
-    remarks?: string;
-}
-
-export interface MarkAttendanceInput {
-    academic_term_id: string;
-    class_id: string;
-    learning_area_id: string;
-    date: string;
-    period_id?: string;
-    students: AttendanceLogInput[];
-}
-
-export interface AttendancePeriod {
-    id: string;
-    tenant_id: string;
-    school_id: string;
-    academic_term_id: string;
-    class_id: string;
-    learning_area_id: string;
-    date_recorded: string;
-    recorded_by: string;
-    authorized_by_role?: TeacherRole;
-    created_at: string;
-}
-
-export interface AttendanceLog {
-    id: string;
-    tenant_id: string;
-    attendance_period_id: string;
-    student_id: string;
-    status: AttendanceStatus;
-    remarks?: string;
-    recorded_by: string;
-}
-
-export interface GetAttendancePeriodResponse {
-    period: AttendancePeriod;
-    logs: AttendanceLog[];
-}
-
-export interface SubmitAttendanceResponse {
-    code: string;
-    message: string;
-}
-
 export interface ImportStaffRecord {
     temp_id: string;
     email: string;

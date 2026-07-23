@@ -174,13 +174,13 @@ func (s *Service) BatchEnroll(ctx context.Context, classID, tenantID, schoolID, 
 
 // ─── UnenrollStudent ──────────────────────────────────────────────────────
 
-// UnenrollStudent removes a single student from this class.
-func (s *Service) UnenrollStudent(ctx context.Context, classID, studentID, tenantID, schoolID string) error {
-	if classID == "" || studentID == "" || tenantID == "" || schoolID == "" {
+// UnenrollStudent removes a single student from this class for the given term.
+func (s *Service) UnenrollStudent(ctx context.Context, classID, studentID, tenantID, schoolID, academicTermID string) error {
+	if classID == "" || studentID == "" || tenantID == "" || schoolID == "" || academicTermID == "" {
 		return fmt.Errorf("cbcclasses.Service.UnenrollStudent: %w", ErrInvalidInput)
 	}
 
-	if err := s.Repo.UnenrollStudent(ctx, classID, studentID, tenantID, schoolID); err != nil {
+	if err := s.Repo.UnenrollStudent(ctx, classID, studentID, tenantID, schoolID, academicTermID); err != nil {
 		return fmt.Errorf("cbcclasses.Service.UnenrollStudent: %w", err)
 	}
 	return nil

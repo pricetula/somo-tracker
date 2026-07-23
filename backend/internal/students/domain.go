@@ -40,11 +40,24 @@ type Student struct {
 	CreatedAt            string  `json:"created_at"`
 }
 
-// StudentDetail extends Student with enrollment history and behavior notes.
+// StudentDetail extends Student with enrollment history, behavior notes,
+// attendance summaries, and linked parent/guardian profiles.
 type StudentDetail struct {
 	Student
-	Enrollments []Enrollment       `json:"enrollments"`
-	Behavior    []BehaviorNoteItem `json:"behavior"`
+	Enrollments   []Enrollment            `json:"enrollments"`
+	Behavior      []BehaviorNoteItem      `json:"behavior"`
+	Attendance    []AttendanceSummaryItem `json:"attendance,omitempty"`
+	LinkedParents []LinkedParent          `json:"linked_parents"`
+}
+
+// LinkedParent represents a parent/guardian linked to a student.
+type LinkedParent struct {
+	ParentID     string  `json:"parent_id"`
+	FullName     string  `json:"full_name"`
+	Email        string  `json:"email"`
+	PhoneNumber  string  `json:"phone_number"`
+	Relationship *string `json:"relationship,omitempty"`
+	IsPrimary    bool    `json:"is_primary"`
 }
 
 // BehaviorNoteItem is a lightweight behavior note for the student detail page.
@@ -57,12 +70,25 @@ type BehaviorNoteItem struct {
 	IsUrgent     bool   `json:"is_urgent"`
 }
 
+// AttendanceSummaryItem is a lightweight attendance summary for the student detail page.
+type AttendanceSummaryItem struct {
+	LearningAreaID   string  `json:"learning_area_id"`
+	LearningAreaName string  `json:"learning_area_name"`
+	PeriodsTotal     int     `json:"periods_total"`
+	PeriodsPresent   int     `json:"periods_present"`
+	PeriodsAbsent    int     `json:"periods_absent"`
+	PeriodsLate      int     `json:"periods_late"`
+	PeriodsExcused   int     `json:"periods_excused"`
+	Percentage       float64 `json:"percentage"`
+}
+
 // Enrollment represents a single term enrollment record.
 type Enrollment struct {
 	ID             string `json:"id"`
 	StudentID      string `json:"student_id"`
 	ClassID        string `json:"class_id"`
 	AcademicTermID string `json:"academic_term_id"`
+	AcademicYearID string `json:"academic_year_id"`
 	TermName       string `json:"term_name"`
 	TermNumber     int    `json:"term_number"`
 	AcademicYear   string `json:"academic_year"`
@@ -129,8 +155,29 @@ type CreateEnrollmentResponse struct {
 	ID string `json:"id"`
 }
 
+// BatchEnrollItem represents one student+class pair in a batch enrollment request.
+type BatchEnrollItem struct {
+	StudentID string `json:"student_id"`
+	ClassID   string `json:"class_id"`
+}
+
+// BatchEnrollRequest is the request body for POST /api/v1/students/enrollments.
+// academic_term_id is resolved server-side from the current active term.
+type BatchEnrollRequest struct {
+	Enrollments []BatchEnrollItem `json:"enrollments"`
+}
+
+// BatchEnrollResponse returns the IDs of created enrollment records.
+type BatchEnrollResponse struct {
+	IDs  []string `json:"ids"`
+	Code string   `json:"code"`
+}
+
 type ListEnrollmentsResponse struct {
 	Items []Enrollment `json:"items"`
+	Total int          `json:"total"`
+	Page  int          `json:"page"`
+	Limit int          `json:"limit"`
 }
 
 // ListFilter holds query parameters for listing students.
@@ -247,6 +294,7 @@ type StudentRepository interface {
 
 	// Enrollments
 	CreateEnrollment(ctx context.Context, enrollment *Enrollment) (string, error)
+	CreateBatchEnrollments(ctx context.Context, enrollments []*Enrollment, tenantID, schoolID string) ([]string, error)
 	ListEnrollments(ctx context.Context, studentID, tenantID string) ([]Enrollment, error)
 	IsEnrolledInTerm(ctx context.Context, studentID, academicTermID, tenantID string) (bool, error)
 }

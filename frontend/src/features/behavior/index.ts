@@ -18,6 +18,7 @@ export {
     useBehaviorPendingQueue,
     useReviewBehaviorNote,
     useTeacherNotes,
+    useDeleteBehaviorNote,
     behaviorKeys,
 } from "./hooks/use-behavior";
 

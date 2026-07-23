@@ -9,7 +9,7 @@ export { ClassCombobox } from "./components/class-combobox";
 export { ClassDetailView, ClassDetailSkeleton } from "./components/class-detail-view";
 export { ClassRoster } from "./components/class-roster";
 export { EnrollStudentsPanel } from "./components/enroll-students-panel";
-export { useClassList, classKeys } from "./hooks/use-classes";
+export { useClassList, useClassMap, useDeleteClasses, classKeys } from "./hooks/use-classes";
 
 export type { ClassComboboxProps } from "./components/class-combobox";
 export type { ClassOption, Class } from "./types";

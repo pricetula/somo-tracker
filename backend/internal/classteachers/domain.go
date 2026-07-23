@@ -49,6 +49,8 @@ type CreateClassTeacherPayload struct {
 type ClassTeacherListResponse struct {
 	Items []ClassTeacher `json:"items"`
 	Total int            `json:"total"`
+	Page  int            `json:"page"`
+	Limit int            `json:"limit"`
 }
 
 // ── Repository Interface ─────────────────────────────────────────────────

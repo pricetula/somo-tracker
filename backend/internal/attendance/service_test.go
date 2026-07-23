@@ -12,98 +12,167 @@ import (
 // ============================================================================
 
 type MockRepository struct {
-	getRosterForSlotFn          func(ctx context.Context, tenantID, schoolID, timetableSlotID, date string) (*SlotRosterResponse, error)
-	bulkUpsertFn                func(ctx context.Context, tenantID, schoolID string, payload BulkAttendancePayload, markedBy string) (string, string, error)
-	getStudentHistoryFn         func(ctx context.Context, tenantID, schoolID, studentID string, filter StudentHistoryFilter) ([]AttendanceRecord, error)
-	getRecordByIDFn             func(ctx context.Context, id, tenantID string) (*AttendanceRecord, error)
-	updateRecordFn              func(ctx context.Context, id, tenantID string, payload UpdateAttendanceEntryPayload) error
-	getAdminDashboardFn         func(ctx context.Context, tenantID, schoolID, date string, filter DashboardFilter) (*AdminDashboardResponse, error)
-	getChildAttendanceSummaryFn func(ctx context.Context, tenantID, schoolID, studentID, termID string) (*ChildAttendanceSummary, error)
-	computeTermSummariesFn      func(ctx context.Context, tenantID, schoolID, termID string) (int, error)
-	computeClassSummariesFn     func(ctx context.Context, tenantID, schoolID, termID, classID string) (int, error)
-	getRecordsBySlotDateFn      func(ctx context.Context, timetableSlotID, date string) ([]AttendanceRecord, error)
+	createSessionFn            func(ctx context.Context, tenantID, schoolID string, payload CreateSessionPayload) (*AttendanceSession, error)
+	getSessionByIDFn           func(ctx context.Context, id, tenantID string) (*AttendanceSession, error)
+	getEnrichedSessionByIDFn   func(ctx context.Context, id, tenantID string) (*SessionWithEnrichedData, error)
+	listSessionsFn             func(ctx context.Context, filter SessionFilter) ([]SessionWithEnrichedData, error)
+	updateSessionFn            func(ctx context.Context, id, tenantID string, payload UpdateSessionPayload) (*AttendanceSession, error)
+	getSessionsForClassDateFn  func(ctx context.Context, tenantID, schoolID, classID, date string) ([]SessionWithEnrichedData, error)
+	batchMarkFn                func(ctx context.Context, tenantID, schoolID string, payload BatchMarkPayload, markedBy, termID string) (*BatchMarkResult, error)
+	updateRecordFn             func(ctx context.Context, id, tenantID string, payload UpdateRecordPayload) (*AttendanceRecord, error)
+	getRecordByIDFn            func(ctx context.Context, id, tenantID string) (*AttendanceRecord, error)
+	listRecordsBySlotDateFn    func(ctx context.Context, tenantID, schoolID, timetableSlotID, date string) ([]RecordWithEnrichedData, error)
+	listRecordsByStudentTermFn func(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]RecordWithEnrichedData, error)
+	listRecordsByClassDateFn   func(ctx context.Context, tenantID, schoolID, classID, date string) ([]RecordWithEnrichedData, error)
+	listRecordsFn              func(ctx context.Context, filter RecordFilter) ([]RecordWithEnrichedData, error)
+	getTermIDByDateFn          func(ctx context.Context, tenantID, schoolID, date string) (string, error)
+	getStudentTermSummaryFn    func(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]AttendanceTermSummary, error)
+	getClassTermSummaryFn      func(ctx context.Context, tenantID, schoolID, classID, termID string) ([]AttendanceTermSummary, error)
+	refreshSummariesFn         func(ctx context.Context, tenantID, schoolID, termID string) error
+	getClassDailySummaryFn     func(ctx context.Context, tenantID, schoolID, classID, date string) (*ClassDailyAttendanceSummary, error)
+	refreshClassDailySummaryFn func(ctx context.Context, tenantID, schoolID, classID, date string) error
+	listClassDailySummariesFn  func(ctx context.Context, tenantID, schoolID, classID, startDate, endDate string) ([]ClassDailyAttendanceSummary, error)
 }
 
-func (m *MockRepository) GetRosterForSlot(ctx context.Context, tenantID, schoolID, timetableSlotID, date string) (*SlotRosterResponse, error) {
-	if m.getRosterForSlotFn != nil {
-		return m.getRosterForSlotFn(ctx, tenantID, schoolID, timetableSlotID, date)
+func (m *MockRepository) CreateSession(ctx context.Context, tenantID, schoolID string, payload CreateSessionPayload) (*AttendanceSession, error) {
+	if m.createSessionFn != nil {
+		return m.createSessionFn(ctx, tenantID, schoolID, payload)
 	}
-	return &SlotRosterResponse{TimetableSlotID: timetableSlotID, Date: date}, nil
+	return &AttendanceSession{ID: "session_001", Status: SessionSubmitted}, nil
 }
 
-func (m *MockRepository) BulkUpsert(ctx context.Context, tenantID, schoolID string, payload BulkAttendancePayload, markedBy string) (string, string, error) {
-	if m.bulkUpsertFn != nil {
-		return m.bulkUpsertFn(ctx, tenantID, schoolID, payload, markedBy)
+func (m *MockRepository) GetSessionByID(ctx context.Context, id, tenantID string) (*AttendanceSession, error) {
+	if m.getSessionByIDFn != nil {
+		return m.getSessionByIDFn(ctx, id, tenantID)
 	}
-	return "class_001", "term_001", nil
+	return &AttendanceSession{ID: id, Status: SessionSubmitted}, nil
 }
 
-func (m *MockRepository) GetStudentHistory(ctx context.Context, tenantID, schoolID, studentID string, filter StudentHistoryFilter) ([]AttendanceRecord, error) {
-	if m.getStudentHistoryFn != nil {
-		return m.getStudentHistoryFn(ctx, tenantID, schoolID, studentID, filter)
+func (m *MockRepository) GetEnrichedSessionByID(ctx context.Context, id, tenantID string) (*SessionWithEnrichedData, error) {
+	if m.getEnrichedSessionByIDFn != nil {
+		return m.getEnrichedSessionByIDFn(ctx, id, tenantID)
 	}
-	return []AttendanceRecord{}, nil
+	return &SessionWithEnrichedData{AttendanceSession: AttendanceSession{ID: id}}, nil
 }
 
-func (m *MockRepository) GetRecordsBySlotDate(ctx context.Context, timetableSlotID, date string) ([]AttendanceRecord, error) {
-	if m.getRecordsBySlotDateFn != nil {
-		return m.getRecordsBySlotDateFn(ctx, timetableSlotID, date)
+func (m *MockRepository) ListSessions(ctx context.Context, filter SessionFilter) ([]SessionWithEnrichedData, error) {
+	if m.listSessionsFn != nil {
+		return m.listSessionsFn(ctx, filter)
 	}
-	return []AttendanceRecord{}, nil
+	return []SessionWithEnrichedData{}, nil
+}
+
+func (m *MockRepository) UpdateSession(ctx context.Context, id, tenantID string, payload UpdateSessionPayload) (*AttendanceSession, error) {
+	if m.updateSessionFn != nil {
+		return m.updateSessionFn(ctx, id, tenantID, payload)
+	}
+	return &AttendanceSession{ID: id, Status: SessionSubmitted}, nil
+}
+
+func (m *MockRepository) GetSessionsForClassDate(ctx context.Context, tenantID, schoolID, classID, date string) ([]SessionWithEnrichedData, error) {
+	if m.getSessionsForClassDateFn != nil {
+		return m.getSessionsForClassDateFn(ctx, tenantID, schoolID, classID, date)
+	}
+	return []SessionWithEnrichedData{}, nil
+}
+
+func (m *MockRepository) BatchMark(ctx context.Context, tenantID, schoolID string, payload BatchMarkPayload, markedBy, termID string) (*BatchMarkResult, error) {
+	if m.batchMarkFn != nil {
+		return m.batchMarkFn(ctx, tenantID, schoolID, payload, markedBy, termID)
+	}
+	return &BatchMarkResult{Created: len(payload.Records)}, nil
+}
+
+func (m *MockRepository) UpdateRecord(ctx context.Context, id, tenantID string, payload UpdateRecordPayload) (*AttendanceRecord, error) {
+	if m.updateRecordFn != nil {
+		return m.updateRecordFn(ctx, id, tenantID, payload)
+	}
+	status := StatusPresent
+	return &AttendanceRecord{ID: id, Status: status}, nil
 }
 
 func (m *MockRepository) GetRecordByID(ctx context.Context, id, tenantID string) (*AttendanceRecord, error) {
 	if m.getRecordByIDFn != nil {
 		return m.getRecordByIDFn(ctx, id, tenantID)
 	}
-	return &AttendanceRecord{ID: id, TenantID: tenantID, Date: time.Now().Format("2006-01-02")}, nil
+	return &AttendanceRecord{ID: id, Status: StatusPresent}, nil
 }
 
-func (m *MockRepository) UpdateRecord(ctx context.Context, id, tenantID string, payload UpdateAttendanceEntryPayload) error {
-	if m.updateRecordFn != nil {
-		return m.updateRecordFn(ctx, id, tenantID, payload)
+func (m *MockRepository) ListRecordsBySlotDate(ctx context.Context, tenantID, schoolID, timetableSlotID, date string) ([]RecordWithEnrichedData, error) {
+	if m.listRecordsBySlotDateFn != nil {
+		return m.listRecordsBySlotDateFn(ctx, tenantID, schoolID, timetableSlotID, date)
+	}
+	return []RecordWithEnrichedData{}, nil
+}
+
+func (m *MockRepository) ListRecordsByStudentTerm(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]RecordWithEnrichedData, error) {
+	if m.listRecordsByStudentTermFn != nil {
+		return m.listRecordsByStudentTermFn(ctx, tenantID, schoolID, studentID, termID)
+	}
+	return []RecordWithEnrichedData{}, nil
+}
+
+func (m *MockRepository) ListRecordsByClassDate(ctx context.Context, tenantID, schoolID, classID, date string) ([]RecordWithEnrichedData, error) {
+	if m.listRecordsByClassDateFn != nil {
+		return m.listRecordsByClassDateFn(ctx, tenantID, schoolID, classID, date)
+	}
+	return []RecordWithEnrichedData{}, nil
+}
+
+func (m *MockRepository) ListRecords(ctx context.Context, filter RecordFilter) ([]RecordWithEnrichedData, error) {
+	if m.listRecordsFn != nil {
+		return m.listRecordsFn(ctx, filter)
+	}
+	return []RecordWithEnrichedData{}, nil
+}
+
+func (m *MockRepository) GetStudentTermSummary(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]AttendanceTermSummary, error) {
+	if m.getStudentTermSummaryFn != nil {
+		return m.getStudentTermSummaryFn(ctx, tenantID, schoolID, studentID, termID)
+	}
+	return []AttendanceTermSummary{}, nil
+}
+
+func (m *MockRepository) GetClassTermSummary(ctx context.Context, tenantID, schoolID, classID, termID string) ([]AttendanceTermSummary, error) {
+	if m.getClassTermSummaryFn != nil {
+		return m.getClassTermSummaryFn(ctx, tenantID, schoolID, classID, termID)
+	}
+	return []AttendanceTermSummary{}, nil
+}
+
+func (m *MockRepository) GetTermIDByDate(ctx context.Context, tenantID, schoolID, date string) (string, error) {
+	if m.getTermIDByDateFn != nil {
+		return m.getTermIDByDateFn(ctx, tenantID, schoolID, date)
+	}
+	return "term_001", nil
+}
+
+func (m *MockRepository) RefreshSummaries(ctx context.Context, tenantID, schoolID, termID string) error {
+	if m.refreshSummariesFn != nil {
+		return m.refreshSummariesFn(ctx, tenantID, schoolID, termID)
 	}
 	return nil
 }
 
-func (m *MockRepository) GetAdminDashboard(ctx context.Context, tenantID, schoolID, date string, filter DashboardFilter) (*AdminDashboardResponse, error) {
-	if m.getAdminDashboardFn != nil {
-		return m.getAdminDashboardFn(ctx, tenantID, schoolID, date, filter)
+func (m *MockRepository) GetClassDailySummary(ctx context.Context, tenantID, schoolID, classID, date string) (*ClassDailyAttendanceSummary, error) {
+	if m.getClassDailySummaryFn != nil {
+		return m.getClassDailySummaryFn(ctx, tenantID, schoolID, classID, date)
 	}
-	return &AdminDashboardResponse{Date: date, Items: []CompletionStatus{}, Total: 0}, nil
+	return &ClassDailyAttendanceSummary{ClassID: classID, Date: date}, nil
 }
 
-func (m *MockRepository) GetChildAttendanceSummary(ctx context.Context, tenantID, schoolID, studentID, termID string) (*ChildAttendanceSummary, error) {
-	if m.getChildAttendanceSummaryFn != nil {
-		return m.getChildAttendanceSummaryFn(ctx, tenantID, schoolID, studentID, termID)
+func (m *MockRepository) RefreshClassDailySummary(ctx context.Context, tenantID, schoolID, classID, date string) error {
+	if m.refreshClassDailySummaryFn != nil {
+		return m.refreshClassDailySummaryFn(ctx, tenantID, schoolID, classID, date)
 	}
-	return &ChildAttendanceSummary{StudentID: studentID, TermID: termID}, nil
+	return nil
 }
 
-func (m *MockRepository) ComputeTermSummaries(ctx context.Context, tenantID, schoolID, termID string) (int, error) {
-	if m.computeTermSummariesFn != nil {
-		return m.computeTermSummariesFn(ctx, tenantID, schoolID, termID)
+func (m *MockRepository) ListClassDailySummaries(ctx context.Context, tenantID, schoolID, classID, startDate, endDate string) ([]ClassDailyAttendanceSummary, error) {
+	if m.listClassDailySummariesFn != nil {
+		return m.listClassDailySummariesFn(ctx, tenantID, schoolID, classID, startDate, endDate)
 	}
-	return 0, nil
-}
-
-func (m *MockRepository) ComputeClassSummaries(ctx context.Context, tenantID, schoolID, termID, classID string) (int, error) {
-	if m.computeClassSummariesFn != nil {
-		return m.computeClassSummariesFn(ctx, tenantID, schoolID, termID, classID)
-	}
-	return 0, nil
-}
-
-func (m *MockRepository) SkipSession(ctx context.Context, tenantID, schoolID, timetableSlotID, date, skipReason string) (sessionID, classID, termID string, err error) {
-	return "session_001", "class_001", "term_001", nil
-}
-
-func (m *MockRepository) UnskipSession(ctx context.Context, tenantID, schoolID, timetableSlotID, date string) (classID, termID string, err error) {
-	return "class_001", "term_001", nil
-}
-
-func (m *MockRepository) GetSessionBySlotDate(ctx context.Context, tenantID, timetableSlotID, date string) (*AttendanceSession, error) {
-	return nil, nil
+	return []ClassDailyAttendanceSummary{}, nil
 }
 
 // ============================================================================
@@ -117,14 +186,7 @@ type testHarness struct {
 
 func newTestHarness() *testHarness {
 	repo := &MockRepository{}
-	// Create service with nil Deduplicator and TaskEnqueuer to avoid needing
-	// real Redis/Asynq connections. Only methods that don't call
-	// enqueueClassRecompute can be tested this way.
-	svc := &Service{
-		repo:  repo,
-		dedup: nil,
-		enq:   nil,
-	}
+	svc := NewService(repo)
 	return &testHarness{
 		svc:  svc,
 		repo: repo,
@@ -132,64 +194,94 @@ func newTestHarness() *testHarness {
 }
 
 // ============================================================================
-// Tests: GetRosterForSlot
+// Tests: Sessions — CreateSession
 // ============================================================================
 
-func TestGetRosterForSlot_HappyPath(t *testing.T) {
+func TestCreateSession_HappyPath(t *testing.T) {
 	h := newTestHarness()
 
-	expectedRoster := &SlotRosterResponse{
+	h.repo.createSessionFn = func(ctx context.Context, tenantID, schoolID string, payload CreateSessionPayload) (*AttendanceSession, error) {
+		if payload.TimetableSlotID != "slot_001" {
+			t.Errorf("expected slot_001, got %q", payload.TimetableSlotID)
+		}
+		if payload.Date != "2026-07-15" {
+			t.Errorf("expected date 2026-07-15, got %q", payload.Date)
+		}
+		if payload.Status != "SUBMITTED" {
+			t.Errorf("expected SUBMITTED, got %q", payload.Status)
+		}
+		return &AttendanceSession{ID: "session_001", TimetableSlotID: "slot_001", Date: "2026-07-15", Status: SessionSubmitted}, nil
+	}
+
+	session, err := h.svc.CreateSession(context.Background(), "tenant_001", "school_001", CreateSessionPayload{
 		TimetableSlotID: "slot_001",
 		Date:            "2026-07-15",
-		ClassName:       "G4 Blue",
-		LearningArea:    "Mathematics",
-		Students: []RosterStudent{
-			{StudentID: "stu_001", FullName: "John Doe", AdmissionNumber: "ADM001"},
-			{StudentID: "stu_002", FullName: "Jane Smith", AdmissionNumber: "ADM002"},
-		},
-	}
-
-	h.repo.getRosterForSlotFn = func(ctx context.Context, tenantID, schoolID, timetableSlotID, date string) (*SlotRosterResponse, error) {
-		if timetableSlotID != "slot_001" {
-			t.Errorf("expected timetableSlotID 'slot_001', got %q", timetableSlotID)
-		}
-		if date != "2026-07-15" {
-			t.Errorf("expected date '2026-07-15', got %q", date)
-		}
-		return expectedRoster, nil
-	}
-
-	roster, err := h.svc.GetRosterForSlot(context.Background(), "tenant_001", "school_001", "slot_001", "2026-07-15")
+		Status:          "SUBMITTED",
+	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if roster.TimetableSlotID != "slot_001" {
-		t.Fatalf("expected slot ID 'slot_001', got %q", roster.TimetableSlotID)
+	if session.ID != "session_001" {
+		t.Fatalf("expected id session_001, got %q", session.ID)
 	}
-	if len(roster.Students) != 2 {
-		t.Fatalf("expected 2 students, got %d", len(roster.Students))
-	}
-	if roster.Students[0].FullName != "John Doe" {
-		t.Fatalf("expected first student 'John Doe', got %q", roster.Students[0].FullName)
+	if session.Status != SessionSubmitted {
+		t.Fatalf("expected SUBMITTED, got %q", session.Status)
 	}
 }
 
-func TestGetRosterForSlot_EmptySlotID(t *testing.T) {
+func TestCreateSession_SkippedWithReason(t *testing.T) {
 	h := newTestHarness()
 
-	_, err := h.svc.GetRosterForSlot(context.Background(), "tenant_001", "school_001", "", "2026-07-15")
+	reason := "Teacher Absence"
+	h.repo.createSessionFn = func(ctx context.Context, tenantID, schoolID string, payload CreateSessionPayload) (*AttendanceSession, error) {
+		if payload.Status != "SKIPPED" {
+			t.Errorf("expected SKIPPED, got %q", payload.Status)
+		}
+		if payload.SkipReason == nil || *payload.SkipReason != "Teacher Absence" {
+			t.Errorf("expected skip_reason 'Teacher Absence', got %v", payload.SkipReason)
+		}
+		return &AttendanceSession{ID: "session_002", Status: SessionSkipped, SkipReason: &reason}, nil
+	}
+
+	session, err := h.svc.CreateSession(context.Background(), "tenant_001", "school_001", CreateSessionPayload{
+		TimetableSlotID: "slot_001",
+		Date:            "2026-07-15",
+		Status:          "SKIPPED",
+		SkipReason:      &reason,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if session.Status != SessionSkipped {
+		t.Fatalf("expected SKIPPED, got %q", session.Status)
+	}
+	if session.SkipReason == nil || *session.SkipReason != "Teacher Absence" {
+		t.Fatalf("expected skip_reason 'Teacher Absence', got %v", session.SkipReason)
+	}
+}
+
+func TestCreateSession_EmptyTimetableSlotID(t *testing.T) {
+	h := newTestHarness()
+
+	_, err := h.svc.CreateSession(context.Background(), "tenant_001", "school_001", CreateSessionPayload{
+		Date:   "2026-07-15",
+		Status: "SUBMITTED",
+	})
 	if err == nil {
-		t.Fatal("expected error for empty slotID, got nil")
+		t.Fatal("expected error for empty timetable_slot_id, got nil")
 	}
 	if !errors.Is(err, ErrInvalidInput) {
 		t.Fatalf("expected ErrInvalidInput, got %v", err)
 	}
 }
 
-func TestGetRosterForSlot_EmptyDate(t *testing.T) {
+func TestCreateSession_EmptyDate(t *testing.T) {
 	h := newTestHarness()
 
-	_, err := h.svc.GetRosterForSlot(context.Background(), "tenant_001", "school_001", "slot_001", "")
+	_, err := h.svc.CreateSession(context.Background(), "tenant_001", "school_001", CreateSessionPayload{
+		TimetableSlotID: "slot_001",
+		Status:          "SUBMITTED",
+	})
 	if err == nil {
 		t.Fatal("expected error for empty date, got nil")
 	}
@@ -198,134 +290,123 @@ func TestGetRosterForSlot_EmptyDate(t *testing.T) {
 	}
 }
 
-func TestGetRosterForSlot_NotFound(t *testing.T) {
+func TestCreateSession_InvalidStatus(t *testing.T) {
 	h := newTestHarness()
 
-	h.repo.getRosterForSlotFn = func(ctx context.Context, tenantID, schoolID, timetableSlotID, date string) (*SlotRosterResponse, error) {
-		return nil, ErrNotFound
-	}
-
-	_, err := h.svc.GetRosterForSlot(context.Background(), "tenant_001", "school_001", "slot_999", "2026-07-15")
+	_, err := h.svc.CreateSession(context.Background(), "tenant_001", "school_001", CreateSessionPayload{
+		TimetableSlotID: "slot_001",
+		Date:            "2026-07-15",
+		Status:          "INVALID",
+	})
 	if err == nil {
-		t.Fatal("expected error for non-existent slot, got nil")
-	}
-	if !errors.Is(err, ErrNotFound) {
-		t.Fatalf("expected ErrNotFound, got %v", err)
-	}
-}
-
-// ============================================================================
-// Tests: GetStudentHistory
-// ============================================================================
-
-func TestGetStudentHistory_HappyPath(t *testing.T) {
-	h := newTestHarness()
-
-	expectedHistory := []AttendanceRecord{
-		{ID: "rec_001", StudentID: "stu_001", Date: "2026-07-15", Status: StatusPresent},
-		{ID: "rec_002", StudentID: "stu_001", Date: "2026-07-14", Status: StatusAbsent},
-	}
-
-	h.repo.getStudentHistoryFn = func(ctx context.Context, tenantID, schoolID, studentID string, filter StudentHistoryFilter) ([]AttendanceRecord, error) {
-		if studentID != "stu_001" {
-			t.Errorf("expected studentID 'stu_001', got %q", studentID)
-		}
-		return expectedHistory, nil
-	}
-
-	records, err := h.svc.GetStudentHistory(context.Background(), "tenant_001", "school_001", "stu_001", StudentHistoryFilter{})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(records) != 2 {
-		t.Fatalf("expected 2 records, got %d", len(records))
-	}
-	if records[0].Status != StatusPresent {
-		t.Fatalf("expected first status PRESENT, got %q", records[0].Status)
-	}
-}
-
-func TestGetStudentHistory_EmptyStudentID(t *testing.T) {
-	h := newTestHarness()
-
-	_, err := h.svc.GetStudentHistory(context.Background(), "tenant_001", "school_001", "", StudentHistoryFilter{})
-	if err == nil {
-		t.Fatal("expected error for empty studentID, got nil")
+		t.Fatal("expected error for invalid status, got nil")
 	}
 	if !errors.Is(err, ErrInvalidInput) {
 		t.Fatalf("expected ErrInvalidInput, got %v", err)
 	}
 }
 
-func TestGetStudentHistory_WithDateFilter(t *testing.T) {
+func TestCreateSession_SkippedMissingReason(t *testing.T) {
 	h := newTestHarness()
 
-	h.repo.getStudentHistoryFn = func(ctx context.Context, tenantID, schoolID, studentID string, filter StudentHistoryFilter) ([]AttendanceRecord, error) {
-		if filter.StartDate != "2026-07-01" {
-			t.Errorf("expected StartDate '2026-07-01', got %q", filter.StartDate)
-		}
-		if filter.EndDate != "2026-07-15" {
-			t.Errorf("expected EndDate '2026-07-15', got %q", filter.EndDate)
-		}
-		return []AttendanceRecord{
-			{ID: "rec_001", Date: "2026-07-10", Status: StatusPresent},
-		}, nil
-	}
-
-	records, err := h.svc.GetStudentHistory(context.Background(), "tenant_001", "school_001", "stu_001", StudentHistoryFilter{
-		StartDate: "2026-07-01",
-		EndDate:   "2026-07-15",
+	_, err := h.svc.CreateSession(context.Background(), "tenant_001", "school_001", CreateSessionPayload{
+		TimetableSlotID: "slot_001",
+		Date:            "2026-07-15",
+		Status:          "SKIPPED",
 	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	if err == nil {
+		t.Fatal("expected error for skipped without reason, got nil")
 	}
-	if len(records) != 1 {
-		t.Fatalf("expected 1 record, got %d", len(records))
+	if !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput, got %v", err)
 	}
 }
 
 // ============================================================================
-// Tests: UpdateAttendanceRecord
+// Tests: Sessions — ListSessions
 // ============================================================================
 
-func TestUpdateAttendanceRecord_HappyPath(t *testing.T) {
+func TestListSessions_HappyPath(t *testing.T) {
 	h := newTestHarness()
 
-	today := time.Now().Format("2006-01-02")
-
-	// Mock GetRecordByID to return today's date so the edit is allowed
-	h.repo.getRecordByIDFn = func(ctx context.Context, id, tenantID string) (*AttendanceRecord, error) {
-		return &AttendanceRecord{ID: id, TenantID: tenantID, Date: today}, nil
+	expected := []SessionWithEnrichedData{
+		{AttendanceSession: AttendanceSession{ID: "session_001", Status: SessionSubmitted}},
+		{AttendanceSession: AttendanceSession{ID: "session_002", Status: SessionSkipped}},
 	}
 
-	called := false
-	h.repo.updateRecordFn = func(ctx context.Context, id, tenantID string, payload UpdateAttendanceEntryPayload) error {
-		called = true
-		if payload.Status != StatusLate {
-			t.Errorf("expected Status 'LATE', got %q", payload.Status)
+	h.repo.listSessionsFn = func(ctx context.Context, filter SessionFilter) ([]SessionWithEnrichedData, error) {
+		if filter.TenantID != "tenant_001" {
+			t.Errorf("expected tenant_001, got %q", filter.TenantID)
 		}
-		return nil
+		return expected, nil
 	}
 
-	note := "Traffic delay"
-	err := h.svc.UpdateAttendanceRecord(context.Background(), "rec_001", "tenant_001", UpdateAttendanceEntryPayload{
-		Status: StatusLate,
-		Note:   &note,
+	result, err := h.svc.ListSessions(context.Background(), SessionFilter{TenantID: "tenant_001"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Total != 2 {
+		t.Fatalf("expected 2 sessions, got %d", result.Total)
+	}
+	if result.Items[0].ID != "session_001" {
+		t.Fatalf("expected session_001, got %q", result.Items[0].ID)
+	}
+}
+
+func TestListSessions_Empty(t *testing.T) {
+	h := newTestHarness()
+
+	h.repo.listSessionsFn = func(ctx context.Context, filter SessionFilter) ([]SessionWithEnrichedData, error) {
+		return []SessionWithEnrichedData{}, nil
+	}
+
+	result, err := h.svc.ListSessions(context.Background(), SessionFilter{TenantID: "tenant_001"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Total != 0 {
+		t.Fatalf("expected 0 sessions, got %d", result.Total)
+	}
+}
+
+// ============================================================================
+// Tests: Sessions — UpdateSession
+// ============================================================================
+
+func TestUpdateSession_HappyPath(t *testing.T) {
+	h := newTestHarness()
+
+	status := "SKIPPED"
+	reason := "School Assembly"
+	h.repo.updateSessionFn = func(ctx context.Context, id, tenantID string, payload UpdateSessionPayload) (*AttendanceSession, error) {
+		if id != "session_001" {
+			t.Errorf("expected session_001, got %q", id)
+		}
+		if payload.Status == nil || *payload.Status != "SKIPPED" {
+			t.Errorf("expected SKIPPED, got %v", payload.Status)
+		}
+		if payload.SkipReason == nil || *payload.SkipReason != "School Assembly" {
+			t.Errorf("expected 'School Assembly', got %v", payload.SkipReason)
+		}
+		return &AttendanceSession{ID: id, Status: SessionSkipped, SkipReason: &reason}, nil
+	}
+
+	session, err := h.svc.UpdateSession(context.Background(), "session_001", "tenant_001", UpdateSessionPayload{
+		Status: &status, SkipReason: &reason,
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !called {
-		t.Fatal("expected updateRecordFn to be called")
+	if session.Status != SessionSkipped {
+		t.Fatalf("expected SKIPPED, got %q", session.Status)
 	}
 }
 
-func TestUpdateAttendanceRecord_EmptyID(t *testing.T) {
+func TestUpdateSession_EmptyID(t *testing.T) {
 	h := newTestHarness()
 
-	err := h.svc.UpdateAttendanceRecord(context.Background(), "", "tenant_001", UpdateAttendanceEntryPayload{
-		Status: StatusPresent,
-	})
+	status := "SKIPPED"
+	_, err := h.svc.UpdateSession(context.Background(), "", "tenant_001", UpdateSessionPayload{Status: &status})
 	if err == nil {
 		t.Fatal("expected error for empty id, got nil")
 	}
@@ -334,48 +415,640 @@ func TestUpdateAttendanceRecord_EmptyID(t *testing.T) {
 	}
 }
 
-func TestUpdateAttendanceRecord_EmptyStatus(t *testing.T) {
+func TestUpdateSession_InvalidStatus(t *testing.T) {
 	h := newTestHarness()
 
-	err := h.svc.UpdateAttendanceRecord(context.Background(), "rec_001", "tenant_001", UpdateAttendanceEntryPayload{})
+	status := "INVALID"
+	_, err := h.svc.UpdateSession(context.Background(), "session_001", "tenant_001", UpdateSessionPayload{Status: &status})
 	if err == nil {
-		t.Fatal("expected error for empty status, got nil")
+		t.Fatal("expected error for invalid status, got nil")
 	}
 	if !errors.Is(err, ErrInvalidInput) {
 		t.Fatalf("expected ErrInvalidInput, got %v", err)
 	}
 }
 
-func TestUpdateAttendanceRecord_PastDate(t *testing.T) {
+// ============================================================================
+// Tests: Sessions — GetSessionsForClassDate
+// ============================================================================
+
+func TestGetSessionsForClassDate_HappyPath(t *testing.T) {
 	h := newTestHarness()
 
-	// Return a record with yesterday's date
-	yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
-	h.repo.getRecordByIDFn = func(ctx context.Context, id, tenantID string) (*AttendanceRecord, error) {
-		return &AttendanceRecord{ID: id, TenantID: tenantID, Date: yesterday}, nil
+	expected := []SessionWithEnrichedData{
+		{AttendanceSession: AttendanceSession{ID: "session_001", TimetableSlotID: "slot_001"}},
+		{AttendanceSession: AttendanceSession{ID: "session_002", TimetableSlotID: "slot_002"}},
 	}
 
-	err := h.svc.UpdateAttendanceRecord(context.Background(), "rec_001", "tenant_001", UpdateAttendanceEntryPayload{
-		Status: StatusPresent,
-	})
-	if err == nil {
-		t.Fatal("expected error for past date record, got nil")
+	h.repo.getSessionsForClassDateFn = func(ctx context.Context, tenantID, schoolID, classID, date string) ([]SessionWithEnrichedData, error) {
+		if classID != "class_001" {
+			t.Errorf("expected class_001, got %q", classID)
+		}
+		if date != "2026-07-15" {
+			t.Errorf("expected 2026-07-15, got %q", date)
+		}
+		return expected, nil
 	}
-	if !errors.Is(err, ErrForbidden) {
-		t.Fatalf("expected ErrForbidden, got %v", err)
+
+	result, err := h.svc.GetSessionsForClassDate(context.Background(), "tenant_001", "school_001", "class_001", "2026-07-15")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Total != 2 {
+		t.Fatalf("expected 2 sessions, got %d", result.Total)
 	}
 }
 
-func TestUpdateAttendanceRecord_RecordNotFound(t *testing.T) {
+func TestGetSessionsForClassDate_EmptyClassID(t *testing.T) {
 	h := newTestHarness()
 
-	h.repo.getRecordByIDFn = func(ctx context.Context, id, tenantID string) (*AttendanceRecord, error) {
+	_, err := h.svc.GetSessionsForClassDate(context.Background(), "tenant_001", "school_001", "", "2026-07-15")
+	if err == nil {
+		t.Fatal("expected error for empty classID, got nil")
+	}
+	if !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput, got %v", err)
+	}
+}
+
+func TestGetSessionsForClassDate_EmptyDate(t *testing.T) {
+	h := newTestHarness()
+
+	_, err := h.svc.GetSessionsForClassDate(context.Background(), "tenant_001", "school_001", "class_001", "")
+	if err == nil {
+		t.Fatal("expected error for empty date, got nil")
+	}
+	if !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput, got %v", err)
+	}
+}
+
+// ============================================================================
+// Tests: Records — BatchMark
+// ============================================================================
+
+func TestBatchMark_HappyPath(t *testing.T) {
+	h := newTestHarness()
+
+	h.repo.batchMarkFn = func(ctx context.Context, tenantID, schoolID string, payload BatchMarkPayload, markedBy, termID string) (*BatchMarkResult, error) {
+		if payload.TimetableSlotID != "slot_001" {
+			t.Errorf("expected slot_001, got %q", payload.TimetableSlotID)
+		}
+		if payload.Date != "2026-07-15" {
+			t.Errorf("expected 2026-07-15, got %q", payload.Date)
+		}
+		if len(payload.Records) != 2 {
+			t.Errorf("expected 2 records, got %d", len(payload.Records))
+		}
+		if markedBy != "user_001" {
+			t.Errorf("expected user_001, got %q", markedBy)
+		}
+		if termID != "term_001" {
+			t.Errorf("expected term_001, got %q", termID)
+		}
+		return &BatchMarkResult{Created: 2, Updated: 0, Failed: 0}, nil
+	}
+
+	result, err := h.svc.BatchMark(context.Background(), "tenant_001", "school_001", BatchMarkPayload{
+		TimetableSlotID: "slot_001",
+		Date:            "2026-07-15",
+		Records: []StudentAttendanceMark{
+			{StudentID: "stu_001", Status: StatusPresent},
+			{StudentID: "stu_002", Status: StatusAbsent},
+		},
+	}, "user_001", "term_001")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Created != 2 {
+		t.Fatalf("expected 2 created, got %d", result.Created)
+	}
+}
+
+func TestBatchMark_EmptyTimetableSlotID(t *testing.T) {
+	h := newTestHarness()
+
+	_, err := h.svc.BatchMark(context.Background(), "tenant_001", "school_001", BatchMarkPayload{
+		Date: "2026-07-15",
+		Records: []StudentAttendanceMark{
+			{StudentID: "stu_001", Status: StatusPresent},
+		},
+	}, "user_001", "term_001")
+	if err == nil {
+		t.Fatal("expected error for empty timetable_slot_id, got nil")
+	}
+	if !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput, got %v", err)
+	}
+}
+
+func TestBatchMark_EmptyDate(t *testing.T) {
+	h := newTestHarness()
+
+	_, err := h.svc.BatchMark(context.Background(), "tenant_001", "school_001", BatchMarkPayload{
+		TimetableSlotID: "slot_001",
+		Records: []StudentAttendanceMark{
+			{StudentID: "stu_001", Status: StatusPresent},
+		},
+	}, "user_001", "term_001")
+	if err == nil {
+		t.Fatal("expected error for empty date, got nil")
+	}
+	if !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput, got %v", err)
+	}
+}
+
+func TestBatchMark_EmptyRecords(t *testing.T) {
+	h := newTestHarness()
+
+	_, err := h.svc.BatchMark(context.Background(), "tenant_001", "school_001", BatchMarkPayload{
+		TimetableSlotID: "slot_001",
+		Date:            "2026-07-15",
+		Records:         []StudentAttendanceMark{},
+	}, "user_001", "term_001")
+	if err == nil {
+		t.Fatal("expected error for empty records, got nil")
+	}
+	if !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput, got %v", err)
+	}
+}
+
+func TestBatchMark_InvalidStatus(t *testing.T) {
+	h := newTestHarness()
+
+	_, err := h.svc.BatchMark(context.Background(), "tenant_001", "school_001", BatchMarkPayload{
+		TimetableSlotID: "slot_001",
+		Date:            "2026-07-15",
+		Records: []StudentAttendanceMark{
+			{StudentID: "stu_001", Status: "INVALID"},
+		},
+	}, "user_001", "term_001")
+	if err == nil {
+		t.Fatal("expected error for invalid status, got nil")
+	}
+	if !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput, got %v", err)
+	}
+}
+
+func TestBatchMark_EmptyMarkedBy(t *testing.T) {
+	h := newTestHarness()
+
+	_, err := h.svc.BatchMark(context.Background(), "tenant_001", "school_001", BatchMarkPayload{
+		TimetableSlotID: "slot_001",
+		Date:            "2026-07-15",
+		Records: []StudentAttendanceMark{
+			{StudentID: "stu_001", Status: StatusPresent},
+		},
+	}, "", "term_001")
+	if err == nil {
+		t.Fatal("expected error for empty markedBy, got nil")
+	}
+	if !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput, got %v", err)
+	}
+}
+
+func TestBatchMark_EmptyTermID_AutoResolves(t *testing.T) {
+	h := newTestHarness()
+
+	var capturedTermID string
+	h.repo.batchMarkFn = func(ctx context.Context, tenantID, schoolID string, payload BatchMarkPayload, markedBy, termID string) (*BatchMarkResult, error) {
+		capturedTermID = termID
+		return &BatchMarkResult{Created: 1}, nil
+	}
+
+	result, err := h.svc.BatchMark(context.Background(), "tenant_001", "school_001", BatchMarkPayload{
+		TimetableSlotID: "slot_001",
+		Date:            "2026-07-15",
+		Records: []StudentAttendanceMark{
+			{StudentID: "stu_001", Status: StatusPresent},
+		},
+	}, "user_001", "")
+	if err != nil {
+		t.Fatalf("expected no error when termID auto-resolves, got %v", err)
+	}
+	if result.Created != 1 {
+		t.Errorf("expected 1 created, got %d", result.Created)
+	}
+	if capturedTermID != "term_001" {
+		t.Errorf("expected auto-resolved term_001, got %q", capturedTermID)
+	}
+}
+
+// ============================================================================
+// Tests: Records — UpdateRecord
+// ============================================================================
+
+func TestUpdateRecord_HappyPath(t *testing.T) {
+	h := newTestHarness()
+
+	status := StatusLate
+	note := "Arrived 15 minutes late"
+	h.repo.updateRecordFn = func(ctx context.Context, id, tenantID string, payload UpdateRecordPayload) (*AttendanceRecord, error) {
+		if id != "rec_001" {
+			t.Errorf("expected rec_001, got %q", id)
+		}
+		if payload.Status == nil || *payload.Status != StatusLate {
+			t.Errorf("expected LATE, got %v", payload.Status)
+		}
+		if payload.Note == nil || *payload.Note != "Arrived 15 minutes late" {
+			t.Errorf("expected note, got %v", payload.Note)
+		}
+		return &AttendanceRecord{ID: id, Status: StatusLate, Note: &note}, nil
+	}
+
+	rec, err := h.svc.UpdateRecord(context.Background(), "rec_001", "tenant_001", UpdateRecordPayload{
+		Status: &status, Note: &note,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if rec.Status != StatusLate {
+		t.Fatalf("expected LATE, got %q", rec.Status)
+	}
+	if rec.Note == nil || *rec.Note != "Arrived 15 minutes late" {
+		t.Fatalf("expected note, got %v", rec.Note)
+	}
+}
+
+func TestUpdateRecord_EmptyID(t *testing.T) {
+	h := newTestHarness()
+
+	status := StatusPresent
+	_, err := h.svc.UpdateRecord(context.Background(), "", "tenant_001", UpdateRecordPayload{Status: &status})
+	if err == nil {
+		t.Fatal("expected error for empty id, got nil")
+	}
+	if !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput, got %v", err)
+	}
+}
+
+func TestUpdateRecord_InvalidStatus(t *testing.T) {
+	h := newTestHarness()
+
+	status := AttendanceStatus("INVALID")
+	_, err := h.svc.UpdateRecord(context.Background(), "rec_001", "tenant_001", UpdateRecordPayload{Status: &status})
+	if err == nil {
+		t.Fatal("expected error for invalid status, got nil")
+	}
+	if !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput, got %v", err)
+	}
+}
+
+// ============================================================================
+// Tests: Records — ListRecordsBySlotDate
+// ============================================================================
+
+func TestListRecordsBySlotDate_HappyPath(t *testing.T) {
+	h := newTestHarness()
+
+	expected := []RecordWithEnrichedData{
+		{AttendanceRecord: AttendanceRecord{ID: "rec_001", StudentID: "stu_001", Status: StatusPresent}},
+		{AttendanceRecord: AttendanceRecord{ID: "rec_002", StudentID: "stu_002", Status: StatusAbsent}},
+	}
+
+	h.repo.listRecordsBySlotDateFn = func(ctx context.Context, tenantID, schoolID, timetableSlotID, date string) ([]RecordWithEnrichedData, error) {
+		if timetableSlotID != "slot_001" {
+			t.Errorf("expected slot_001, got %q", timetableSlotID)
+		}
+		if date != "2026-07-15" {
+			t.Errorf("expected 2026-07-15, got %q", date)
+		}
+		return expected, nil
+	}
+
+	result, err := h.svc.ListRecordsBySlotDate(context.Background(), "tenant_001", "school_001", "slot_001", "2026-07-15")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Total != 2 {
+		t.Fatalf("expected 2 records, got %d", result.Total)
+	}
+}
+
+func TestListRecordsBySlotDate_EmptySlotID(t *testing.T) {
+	h := newTestHarness()
+
+	_, err := h.svc.ListRecordsBySlotDate(context.Background(), "tenant_001", "school_001", "", "2026-07-15")
+	if err == nil {
+		t.Fatal("expected error for empty slot id, got nil")
+	}
+	if !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput, got %v", err)
+	}
+}
+
+func TestListRecordsBySlotDate_EmptyDate(t *testing.T) {
+	h := newTestHarness()
+
+	_, err := h.svc.ListRecordsBySlotDate(context.Background(), "tenant_001", "school_001", "slot_001", "")
+	if err == nil {
+		t.Fatal("expected error for empty date, got nil")
+	}
+	if !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput, got %v", err)
+	}
+}
+
+// ============================================================================
+// Tests: Records — ListRecordsByStudentTerm
+// ============================================================================
+
+func TestListRecordsByStudentTerm_HappyPath(t *testing.T) {
+	h := newTestHarness()
+
+	expected := []RecordWithEnrichedData{
+		{AttendanceRecord: AttendanceRecord{ID: "rec_001", Date: "2026-07-15", Status: StatusPresent}},
+	}
+
+	h.repo.listRecordsByStudentTermFn = func(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]RecordWithEnrichedData, error) {
+		if studentID != "stu_001" {
+			t.Errorf("expected stu_001, got %q", studentID)
+		}
+		if termID != "term_001" {
+			t.Errorf("expected term_001, got %q", termID)
+		}
+		return expected, nil
+	}
+
+	result, err := h.svc.ListRecordsByStudentTerm(context.Background(), "tenant_001", "school_001", "stu_001", "term_001")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Total != 1 {
+		t.Fatalf("expected 1 record, got %d", result.Total)
+	}
+}
+
+func TestListRecordsByStudentTerm_EmptyStudentID(t *testing.T) {
+	h := newTestHarness()
+
+	_, err := h.svc.ListRecordsByStudentTerm(context.Background(), "tenant_001", "school_001", "", "term_001")
+	if err == nil {
+		t.Fatal("expected error for empty student id, got nil")
+	}
+	if !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput, got %v", err)
+	}
+}
+
+func TestListRecordsByStudentTerm_EmptyTermID(t *testing.T) {
+	h := newTestHarness()
+
+	_, err := h.svc.ListRecordsByStudentTerm(context.Background(), "tenant_001", "school_001", "stu_001", "")
+	if err == nil {
+		t.Fatal("expected error for empty term id, got nil")
+	}
+	if !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput, got %v", err)
+	}
+}
+
+// ============================================================================
+// Tests: Records — ListRecords (generic filter)
+// ============================================================================
+
+func TestListRecords_HappyPath(t *testing.T) {
+	h := newTestHarness()
+
+	expected := []RecordWithEnrichedData{
+		{AttendanceRecord: AttendanceRecord{ID: "rec_001", Status: StatusPresent}},
+	}
+
+	h.repo.listRecordsFn = func(ctx context.Context, filter RecordFilter) ([]RecordWithEnrichedData, error) {
+		if filter.StudentID != "stu_001" {
+			t.Errorf("expected stu_001, got %q", filter.StudentID)
+		}
+		if filter.AcademicTermID != "term_001" {
+			t.Errorf("expected term_001, got %q", filter.AcademicTermID)
+		}
+		return expected, nil
+	}
+
+	result, err := h.svc.ListRecords(context.Background(), RecordFilter{
+		StudentID:      "stu_001",
+		AcademicTermID: "term_001",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Total != 1 {
+		t.Fatalf("expected 1 record, got %d", result.Total)
+	}
+}
+
+func TestListRecords_Empty(t *testing.T) {
+	h := newTestHarness()
+
+	h.repo.listRecordsFn = func(ctx context.Context, filter RecordFilter) ([]RecordWithEnrichedData, error) {
+		return []RecordWithEnrichedData{}, nil
+	}
+
+	result, err := h.svc.ListRecords(context.Background(), RecordFilter{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Total != 0 {
+		t.Fatalf("expected 0 records, got %d", result.Total)
+	}
+}
+
+// ============================================================================
+// Tests: Summaries — GetStudentTermSummary
+// ============================================================================
+
+func TestGetStudentTermSummary_HappyPath(t *testing.T) {
+	h := newTestHarness()
+
+	expected := []AttendanceTermSummary{
+		{
+			StudentID:            "stu_001",
+			LearningAreaName:     "Mathematics",
+			PeriodsTotal:         40,
+			PeriodsPresent:       35,
+			PeriodsAbsent:        3,
+			PeriodsLate:          2,
+			PeriodsExcused:       0,
+			AttendancePercentage: 87.5,
+		},
+	}
+
+	h.repo.getStudentTermSummaryFn = func(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]AttendanceTermSummary, error) {
+		if studentID != "stu_001" {
+			t.Errorf("expected stu_001, got %q", studentID)
+		}
+		if termID != "term_001" {
+			t.Errorf("expected term_001, got %q", termID)
+		}
+		return expected, nil
+	}
+
+	result, err := h.svc.GetStudentTermSummary(context.Background(), "tenant_001", "school_001", "stu_001", "term_001")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Total != 1 {
+		t.Fatalf("expected 1 summary, got %d", result.Total)
+	}
+	if result.Items[0].AttendancePercentage != 87.5 {
+		t.Fatalf("expected 87.5%%, got %f", result.Items[0].AttendancePercentage)
+	}
+}
+
+func TestGetStudentTermSummary_EmptyStudentID(t *testing.T) {
+	h := newTestHarness()
+
+	_, err := h.svc.GetStudentTermSummary(context.Background(), "tenant_001", "school_001", "", "term_001")
+	if err == nil {
+		t.Fatal("expected error for empty student id, got nil")
+	}
+	if !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput, got %v", err)
+	}
+}
+
+func TestGetStudentTermSummary_EmptyTermID(t *testing.T) {
+	h := newTestHarness()
+
+	_, err := h.svc.GetStudentTermSummary(context.Background(), "tenant_001", "school_001", "stu_001", "")
+	if err == nil {
+		t.Fatal("expected error for empty term id, got nil")
+	}
+	if !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput, got %v", err)
+	}
+}
+
+// ============================================================================
+// Tests: Summaries — GetClassTermSummary
+// ============================================================================
+
+func TestGetClassTermSummary_HappyPath(t *testing.T) {
+	h := newTestHarness()
+
+	expected := []AttendanceTermSummary{
+		{StudentID: "stu_001", LearningAreaName: "English", PeriodsTotal: 40, PeriodsPresent: 38, AttendancePercentage: 95.0},
+		{StudentID: "stu_002", LearningAreaName: "English", PeriodsTotal: 40, PeriodsPresent: 30, AttendancePercentage: 75.0},
+	}
+
+	h.repo.getClassTermSummaryFn = func(ctx context.Context, tenantID, schoolID, classID, termID string) ([]AttendanceTermSummary, error) {
+		if classID != "class_001" {
+			t.Errorf("expected class_001, got %q", classID)
+		}
+		if termID != "term_001" {
+			t.Errorf("expected term_001, got %q", termID)
+		}
+		return expected, nil
+	}
+
+	result, err := h.svc.GetClassTermSummary(context.Background(), "tenant_001", "school_001", "class_001", "term_001")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Total != 2 {
+		t.Fatalf("expected 2 summaries, got %d", result.Total)
+	}
+}
+
+func TestGetClassTermSummary_EmptyClassID(t *testing.T) {
+	h := newTestHarness()
+
+	_, err := h.svc.GetClassTermSummary(context.Background(), "tenant_001", "school_001", "", "term_001")
+	if err == nil {
+		t.Fatal("expected error for empty class id, got nil")
+	}
+	if !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput, got %v", err)
+	}
+}
+
+func TestGetClassTermSummary_EmptyTermID(t *testing.T) {
+	h := newTestHarness()
+
+	_, err := h.svc.GetClassTermSummary(context.Background(), "tenant_001", "school_001", "class_001", "")
+	if err == nil {
+		t.Fatal("expected error for empty term id, got nil")
+	}
+	if !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput, got %v", err)
+	}
+}
+
+// ============================================================================
+// Tests: Summaries — RefreshSummaries
+// ============================================================================
+
+func TestRefreshSummaries_HappyPath(t *testing.T) {
+	h := newTestHarness()
+
+	h.repo.refreshSummariesFn = func(ctx context.Context, tenantID, schoolID, termID string) error {
+		if termID != "term_001" {
+			t.Errorf("expected term_001, got %q", termID)
+		}
+		return nil
+	}
+
+	result, err := h.svc.RefreshSummaries(context.Background(), "tenant_001", "school_001", "term_001")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.TermID != "term_001" {
+		t.Fatalf("expected term_001, got %q", result.TermID)
+	}
+	if result.Message == "" {
+		t.Fatal("expected a message, got empty")
+	}
+}
+
+func TestRefreshSummaries_EmptyTermID(t *testing.T) {
+	h := newTestHarness()
+
+	_, err := h.svc.RefreshSummaries(context.Background(), "tenant_001", "school_001", "")
+	if err == nil {
+		t.Fatal("expected error for empty term id, got nil")
+	}
+	if !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput, got %v", err)
+	}
+}
+
+// ============================================================================
+// Tests: Sessions — GetSession / GetEnrichedSession
+// ============================================================================
+
+func TestGetSession_HappyPath(t *testing.T) {
+	h := newTestHarness()
+
+	now := time.Now()
+	h.repo.getSessionByIDFn = func(ctx context.Context, id, tenantID string) (*AttendanceSession, error) {
+		if id != "session_001" {
+			t.Errorf("expected session_001, got %q", id)
+		}
+		return &AttendanceSession{ID: id, Status: SessionSubmitted, CreatedAt: now}, nil
+	}
+
+	session, err := h.svc.GetSession(context.Background(), "session_001", "tenant_001")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if session.Status != SessionSubmitted {
+		t.Fatalf("expected SUBMITTED, got %q", session.Status)
+	}
+}
+
+func TestGetSession_NotFound(t *testing.T) {
+	h := newTestHarness()
+
+	h.repo.getSessionByIDFn = func(ctx context.Context, id, tenantID string) (*AttendanceSession, error) {
 		return nil, ErrNotFound
 	}
 
-	err := h.svc.UpdateAttendanceRecord(context.Background(), "rec_999", "tenant_001", UpdateAttendanceEntryPayload{
-		Status: StatusPresent,
-	})
+	_, err := h.svc.GetSession(context.Background(), "session_999", "tenant_001")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -385,256 +1058,41 @@ func TestUpdateAttendanceRecord_RecordNotFound(t *testing.T) {
 }
 
 // ============================================================================
-// Tests: GetAdminDashboard
+// Tests: Records — GetRecord
 // ============================================================================
 
-func TestGetAdminDashboard_HappyPath(t *testing.T) {
+func TestGetRecord_HappyPath(t *testing.T) {
 	h := newTestHarness()
 
-	expected := &AdminDashboardResponse{
-		Date: "2026-07-15",
-		Items: []CompletionStatus{
-			{ClassID: "class_001", ClassName: "G4 Blue", TotalSlots: 8, MarkedSlots: 6, IsComplete: false},
-			{ClassID: "class_002", ClassName: "G5 Red", TotalSlots: 8, MarkedSlots: 8, IsComplete: true},
-		},
-		Total: 2,
-		Page:  1,
-		Limit: 50,
-	}
-
-	h.repo.getAdminDashboardFn = func(ctx context.Context, tenantID, schoolID, date string, filter DashboardFilter) (*AdminDashboardResponse, error) {
-		if date != "2026-07-15" {
-			t.Errorf("expected date '2026-07-15', got %q", date)
+	now := time.Now()
+	h.repo.getRecordByIDFn = func(ctx context.Context, id, tenantID string) (*AttendanceRecord, error) {
+		if id != "rec_001" {
+			t.Errorf("expected rec_001, got %q", id)
 		}
-		return expected, nil
+		return &AttendanceRecord{ID: id, Status: StatusPresent, CreatedAt: now}, nil
 	}
 
-	result, err := h.svc.GetAdminDashboard(context.Background(), "tenant_001", "school_001", "2026-07-15", DashboardFilter{})
+	rec, err := h.svc.GetRecord(context.Background(), "rec_001", "tenant_001")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result.Total != 2 {
-		t.Fatalf("expected total 2, got %d", result.Total)
-	}
-	if len(result.Items) != 2 {
-		t.Fatalf("expected 2 items, got %d", len(result.Items))
-	}
-	if !result.Items[1].IsComplete {
-		t.Fatal("expected second class to be complete")
+	if rec.Status != StatusPresent {
+		t.Fatalf("expected PRESENT, got %q", rec.Status)
 	}
 }
 
-func TestGetAdminDashboard_DefaultDate(t *testing.T) {
+func TestGetRecord_NotFound(t *testing.T) {
 	h := newTestHarness()
 
-	today := time.Now().Format("2006-01-02")
-
-	h.repo.getAdminDashboardFn = func(ctx context.Context, tenantID, schoolID, date string, filter DashboardFilter) (*AdminDashboardResponse, error) {
-		if date != today {
-			t.Errorf("expected today's date %q, got %q", today, date)
-		}
-		return &AdminDashboardResponse{Date: date}, nil
+	h.repo.getRecordByIDFn = func(ctx context.Context, id, tenantID string) (*AttendanceRecord, error) {
+		return nil, ErrNotFound
 	}
 
-	_, err := h.svc.GetAdminDashboard(context.Background(), "tenant_001", "school_001", "", DashboardFilter{})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
-func TestGetAdminDashboard_EmptySchoolID(t *testing.T) {
-	h := newTestHarness()
-
-	_, err := h.svc.GetAdminDashboard(context.Background(), "tenant_001", "", "2026-07-15", DashboardFilter{})
+	_, err := h.svc.GetRecord(context.Background(), "rec_999", "tenant_001")
 	if err == nil {
-		t.Fatal("expected error for empty schoolID, got nil")
+		t.Fatal("expected error, got nil")
 	}
-	if !errors.Is(err, ErrInvalidInput) {
-		t.Fatalf("expected ErrInvalidInput, got %v", err)
-	}
-}
-
-func TestGetAdminDashboard_DefaultPagination(t *testing.T) {
-	h := newTestHarness()
-
-	h.repo.getAdminDashboardFn = func(ctx context.Context, tenantID, schoolID, date string, filter DashboardFilter) (*AdminDashboardResponse, error) {
-		if filter.Page != 1 {
-			t.Errorf("expected default Page 1, got %d", filter.Page)
-		}
-		if filter.Limit != 50 {
-			t.Errorf("expected default Limit 50, got %d", filter.Limit)
-		}
-		return &AdminDashboardResponse{}, nil
-	}
-
-	_, err := h.svc.GetAdminDashboard(context.Background(), "tenant_001", "school_001", "2026-07-15", DashboardFilter{})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
-func TestGetAdminDashboard_LimitCappedAt100(t *testing.T) {
-	h := newTestHarness()
-
-	h.repo.getAdminDashboardFn = func(ctx context.Context, tenantID, schoolID, date string, filter DashboardFilter) (*AdminDashboardResponse, error) {
-		if filter.Limit > 100 {
-			t.Errorf("expected limit capped at 100, got %d", filter.Limit)
-		}
-		return &AdminDashboardResponse{}, nil
-	}
-
-	_, err := h.svc.GetAdminDashboard(context.Background(), "tenant_001", "school_001", "2026-07-15", DashboardFilter{
-		Limit: 200,
-	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
-// ============================================================================
-// Tests: GetChildAttendanceSummary
-// ============================================================================
-
-func TestGetChildAttendanceSummary_HappyPath(t *testing.T) {
-	h := newTestHarness()
-
-	expected := &ChildAttendanceSummary{
-		StudentID:            "stu_001",
-		TermID:               "term_001",
-		AttendancePercentage: 85.5,
-		RecentPeriods: []StudentAttendanceRecord{
-			{Date: "2026-07-15", Subject: "Mathematics", Status: StatusPresent},
-			{Date: "2026-07-14", Subject: "English", Status: StatusLate},
-		},
-	}
-
-	h.repo.getChildAttendanceSummaryFn = func(ctx context.Context, tenantID, schoolID, studentID, termID string) (*ChildAttendanceSummary, error) {
-		if studentID != "stu_001" {
-			t.Errorf("expected studentID 'stu_001', got %q", studentID)
-		}
-		if termID != "term_001" {
-			t.Errorf("expected termID 'term_001', got %q", termID)
-		}
-		return expected, nil
-	}
-
-	summary, err := h.svc.GetChildAttendanceSummary(context.Background(), "tenant_001", "school_001", "stu_001", "term_001")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if summary.AttendancePercentage != 85.5 {
-		t.Fatalf("expected 85.5%%, got %f", summary.AttendancePercentage)
-	}
-	if len(summary.RecentPeriods) != 2 {
-		t.Fatalf("expected 2 recent periods, got %d", len(summary.RecentPeriods))
-	}
-}
-
-func TestGetChildAttendanceSummary_EmptyStudentID(t *testing.T) {
-	h := newTestHarness()
-
-	_, err := h.svc.GetChildAttendanceSummary(context.Background(), "tenant_001", "school_001", "", "term_001")
-	if err == nil {
-		t.Fatal("expected error for empty studentID, got nil")
-	}
-	if !errors.Is(err, ErrInvalidInput) {
-		t.Fatalf("expected ErrInvalidInput, got %v", err)
-	}
-}
-
-func TestGetChildAttendanceSummary_EmptyTermID(t *testing.T) {
-	h := newTestHarness()
-
-	_, err := h.svc.GetChildAttendanceSummary(context.Background(), "tenant_001", "school_001", "stu_001", "")
-	if err == nil {
-		t.Fatal("expected error for empty termID, got nil")
-	}
-	if !errors.Is(err, ErrInvalidInput) {
-		t.Fatalf("expected ErrInvalidInput, got %v", err)
-	}
-}
-
-// ============================================================================
-// Tests: ComputeTermSummaries
-// ============================================================================
-
-func TestComputeTermSummaries_HappyPath(t *testing.T) {
-	h := newTestHarness()
-
-	h.repo.computeTermSummariesFn = func(ctx context.Context, tenantID, schoolID, termID string) (int, error) {
-		if termID != "term_001" {
-			t.Errorf("expected termID 'term_001', got %q", termID)
-		}
-		return 50, nil
-	}
-
-	count, err := h.svc.ComputeTermSummaries(context.Background(), "tenant_001", "school_001", "term_001")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if count != 50 {
-		t.Fatalf("expected count 50, got %d", count)
-	}
-}
-
-func TestComputeTermSummaries_EmptyTermID(t *testing.T) {
-	h := newTestHarness()
-
-	_, err := h.svc.ComputeTermSummaries(context.Background(), "tenant_001", "school_001", "")
-	if err == nil {
-		t.Fatal("expected error for empty termID, got nil")
-	}
-	if !errors.Is(err, ErrInvalidInput) {
-		t.Fatalf("expected ErrInvalidInput, got %v", err)
-	}
-}
-
-// ============================================================================
-// Tests: ComputeClassSummaries
-// ============================================================================
-
-func TestComputeClassSummaries_HappyPath(t *testing.T) {
-	h := newTestHarness()
-
-	h.repo.computeClassSummariesFn = func(ctx context.Context, tenantID, schoolID, termID, classID string) (int, error) {
-		if termID != "term_001" {
-			t.Errorf("expected termID 'term_001', got %q", termID)
-		}
-		if classID != "class_001" {
-			t.Errorf("expected classID 'class_001', got %q", classID)
-		}
-		return 30, nil
-	}
-
-	count, err := h.svc.ComputeClassSummaries(context.Background(), "tenant_001", "school_001", "term_001", "class_001")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if count != 30 {
-		t.Fatalf("expected count 30, got %d", count)
-	}
-}
-
-func TestComputeClassSummaries_EmptyTermID(t *testing.T) {
-	h := newTestHarness()
-
-	_, err := h.svc.ComputeClassSummaries(context.Background(), "tenant_001", "school_001", "", "class_001")
-	if err == nil {
-		t.Fatal("expected error for empty termID, got nil")
-	}
-	if !errors.Is(err, ErrInvalidInput) {
-		t.Fatalf("expected ErrInvalidInput, got %v", err)
-	}
-}
-
-func TestComputeClassSummaries_EmptyClassID(t *testing.T) {
-	h := newTestHarness()
-
-	_, err := h.svc.ComputeClassSummaries(context.Background(), "tenant_001", "school_001", "term_001", "")
-	if err == nil {
-		t.Fatal("expected error for empty classID, got nil")
-	}
-	if !errors.Is(err, ErrInvalidInput) {
-		t.Fatalf("expected ErrInvalidInput, got %v", err)
+	if !errors.Is(err, ErrNotFound) {
+		t.Fatalf("expected ErrNotFound, got %v", err)
 	}
 }

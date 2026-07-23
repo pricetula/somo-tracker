@@ -1,13 +1,17 @@
 /**
- * Finance invitations listing page — shows all sent invitations for the FINANCE role.
+ * Finance invitations listing page.
  *
- * Maps to GET /api/v1/invitations?role=FINANCE.
- *
- * Active staff are listed on the dedicated /finance page.
+ * Shows all sent invitations for the FINANCE role with revoke support.
  */
 
-"use client";
+import { InvitationsList } from "@/features/invitations";
 
 export default function FinanceInvitationsPage() {
-    return <div />;
+    return (
+        <InvitationsList
+            role="FINANCE"
+            queryKey={["invitations", "FINANCE"]}
+            emptyState="No finance invitations yet."
+        />
+    );
 }

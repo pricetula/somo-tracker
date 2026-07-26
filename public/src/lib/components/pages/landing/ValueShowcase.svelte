@@ -10,7 +10,7 @@
 				"Our AI grades, and analyzes assessments across every subject in minutes delivering instant academic insights while eliminating the manual grading and busywork which teachers shouldn't have to do.",
 			imageLeft: true,
 			imgSrc: '/savetime.svg',
-			imgClass: 'w-11/12'
+			imgClass: 'w-12/12'
 		},
 		{
 			label: 'Predictive Analytics',
@@ -28,7 +28,7 @@
 				'Automatically rerouting the learning experience to meet students where they are, accelerating progress through data-driven customization.',
 			imageLeft: true,
 			imgSrc: '/guide.svg',
-			imgClass: 'w-8/12'
+			imgClass: 'w-6/12'
 		}
 	];
 </script>

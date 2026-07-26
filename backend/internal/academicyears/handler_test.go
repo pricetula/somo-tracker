@@ -55,7 +55,7 @@ func newHandlerTestHarness(t *testing.T) *handlerTestHarness {
 	years.Get("/", handler.ListYears)
 	years.Patch("/:id", handler.PatchYear)
 	years.Post("/:id/set-current", handler.SetCurrentYear)
-	years.Delete("/:id", handler.DeleteYear)
+	years.Delete("/", handler.DeleteYear)
 
 	terms := app.Group("/api/v1/academic-terms", testAuth)
 	terms.Get("/", handler.ListTerms)
@@ -148,7 +148,10 @@ func TestHandler_DeleteYear_HardDelete(t *testing.T) {
 		return &AcademicYear{ID: id, TenantID: tenantID, SchoolID: schoolID, Name: "2025"}, nil
 	}
 
-	resp := doRequest(h.app, "DELETE", "/api/v1/academic-years/year_001", nil)
+	body, _ := json.Marshal(struct {
+		ID string `json:"id"`
+	}{ID: "year_001"})
+	resp := doRequest(h.app, "DELETE", "/api/v1/academic-years", body)
 	if resp.StatusCode != fiber.StatusNoContent {
 		t.Fatalf("expected 204, got %d", resp.StatusCode)
 	}

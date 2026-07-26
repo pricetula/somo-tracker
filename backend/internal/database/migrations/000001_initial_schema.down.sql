@@ -173,3 +173,4 @@ DROP TYPE IF EXISTS assessment_evaluation_method CASCADE;
 -- ============================================================================
 
 DROP EXTENSION IF EXISTS btree_gist CASCADE;
+DROP EXTENSION IF EXISTS pgcrypto CASCADE;

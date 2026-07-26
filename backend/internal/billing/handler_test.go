@@ -47,12 +47,12 @@ func newHandlerTestHarness(t *testing.T) *handlerTestHarness {
 	billing.Post("/fee-categories", testAuth, handler.CreateFeeCategory)
 	billing.Get("/fee-categories", testAuth, handler.ListFeeCategories)
 	billing.Put("/fee-categories/:id", testAuth, handler.UpdateFeeCategory)
-	billing.Delete("/fee-categories/:id", testAuth, handler.DeleteFeeCategory)
+	billing.Delete("/fee-categories", testAuth, handler.DeleteFeeCategory)
 
 	billing.Post("/fee-templates", testAuth, handler.CreateFeeTemplate)
 	billing.Get("/fee-templates", testAuth, handler.ListFeeTemplates)
 	billing.Put("/fee-templates/:id", testAuth, handler.UpdateFeeTemplate)
-	billing.Delete("/fee-templates/:id", testAuth, handler.DeleteFeeTemplate)
+	billing.Delete("/fee-templates", testAuth, handler.DeleteFeeTemplate)
 
 	// Invoices
 	billing.Post("/invoices/generate", testAuth, handler.GenerateInvoice)
@@ -324,7 +324,10 @@ func TestHandler_DeleteFeeCategory_HappyPath(t *testing.T) {
 		return nil
 	}
 
-	resp := doRequest(h.app, "DELETE", "/api/v1/billing/fee-categories/cat_001", nil)
+	body, _ := json.Marshal(struct {
+		ID string `json:"id"`
+	}{ID: "cat_001"})
+	resp := doRequest(h.app, "DELETE", "/api/v1/billing/fee-categories", body)
 
 	if resp.StatusCode != fiber.StatusNoContent {
 		t.Fatalf("expected 204 No Content, got %d", resp.StatusCode)
@@ -338,7 +341,10 @@ func TestHandler_DeleteFeeCategory_NotFound(t *testing.T) {
 		return ErrNotFound
 	}
 
-	resp := doRequest(h.app, "DELETE", "/api/v1/billing/fee-categories/cat_999", nil)
+	body, _ := json.Marshal(struct {
+		ID string `json:"id"`
+	}{ID: "cat_999"})
+	resp := doRequest(h.app, "DELETE", "/api/v1/billing/fee-categories", body)
 
 	if resp.StatusCode != fiber.StatusNotFound {
 		t.Fatalf("expected 404 Not Found, got %d", resp.StatusCode)
@@ -574,7 +580,10 @@ func TestHandler_DeleteFeeTemplate_HappyPath(t *testing.T) {
 		return nil
 	}
 
-	resp := doRequest(h.app, "DELETE", "/api/v1/billing/fee-templates/tmp_001", nil)
+	body, _ := json.Marshal(struct {
+		ID string `json:"id"`
+	}{ID: "tmp_001"})
+	resp := doRequest(h.app, "DELETE", "/api/v1/billing/fee-templates", body)
 
 	if resp.StatusCode != fiber.StatusNoContent {
 		t.Fatalf("expected 204 No Content, got %d", resp.StatusCode)
@@ -588,7 +597,10 @@ func TestHandler_DeleteFeeTemplate_NotFound(t *testing.T) {
 		return ErrNotFound
 	}
 
-	resp := doRequest(h.app, "DELETE", "/api/v1/billing/fee-templates/tmp_999", nil)
+	body, _ := json.Marshal(struct {
+		ID string `json:"id"`
+	}{ID: "tmp_999"})
+	resp := doRequest(h.app, "DELETE", "/api/v1/billing/fee-templates", body)
 
 	if resp.StatusCode != fiber.StatusNotFound {
 		t.Fatalf("expected 404 Not Found, got %d", resp.StatusCode)

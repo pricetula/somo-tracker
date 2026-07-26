@@ -40,11 +40,23 @@ func RequireAuth(c *fiber.Ctx) error {
 //	router.Patch("/:id", middleware.RequireRole("SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.PatchYear)
 func RequireRole(roles ...string) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		if len(roles) > 0 {
-			role, ok := c.Locals("role").(string)
-			if !ok || !hasRole(role, roles) {
-				return ErrForbidden
-			}
+		// Authenticate first — check session before inspecting role.
+		// This ensures a missing session returns 401 (ErrUnauthorized)
+		// rather than 403 (ErrForbidden).
+		session := GetSession(c)
+		if session == nil {
+			return ErrUnauthorized
+		}
+
+		// Set locals (same as RequireAuth does) so downstream handlers
+		// can access tenant_id, user_id, and role regardless of whether
+		// RequireAuth was also registered.
+		c.Locals("tenant_id", session.TenantID)
+		c.Locals("user_id", session.UserID)
+		c.Locals("role", session.Role)
+
+		if len(roles) > 0 && !hasRole(session.Role, roles) {
+			return ErrForbidden
 		}
 		return c.Next()
 	}

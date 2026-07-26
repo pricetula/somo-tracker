@@ -47,25 +47,25 @@ func newHandlerTestHarness(t *testing.T) *handlerTestHarness {
 	areas.Get("/:id", handler.GetLearningAreaByID)
 	areas.Get("/:id/tree", handler.GetTree)
 	areas.Put("/:id", handler.UpdateLearningArea)
-	areas.Delete("/:id", handler.DeleteLearningArea)
+	areas.Delete("/", handler.DeleteLearningArea)
 
 	strands := app.Group("/api/v1/curriculum/strands", testAuth)
 	strands.Post("/", handler.CreateStrand)
 	strands.Get("/", handler.ListStrands)
 	strands.Put("/:id", handler.UpdateStrand)
-	strands.Delete("/:id", handler.DeleteStrand)
+	strands.Delete("/", handler.DeleteStrand)
 
 	subStrands := app.Group("/api/v1/curriculum/sub-strands", testAuth)
 	subStrands.Post("/", handler.CreateSubStrand)
 	subStrands.Get("/", handler.ListSubStrands)
 	subStrands.Put("/:id", handler.UpdateSubStrand)
-	subStrands.Delete("/:id", handler.DeleteSubStrand)
+	subStrands.Delete("/", handler.DeleteSubStrand)
 
 	indicators := app.Group("/api/v1/curriculum/performance-indicators", testAuth)
 	indicators.Post("/", handler.CreatePerformanceIndicator)
 	indicators.Get("/", handler.ListPerformanceIndicators)
 	indicators.Put("/:id", handler.UpdatePerformanceIndicator)
-	indicators.Delete("/:id", handler.DeletePerformanceIndicator)
+	indicators.Delete("/", handler.DeletePerformanceIndicator)
 
 	return &handlerTestHarness{
 		app:     app,
@@ -232,7 +232,10 @@ func TestHandler_UpdateLearningArea_HappyPath(t *testing.T) {
 func TestHandler_DeleteLearningArea_HappyPath(t *testing.T) {
 	h := newHandlerTestHarness(t)
 	h.repo.deleteLearningAreaFn = func(ctx context.Context, id, tenantID, schoolID string) error { return nil }
-	resp := doRequest(h.app, "DELETE", "/api/v1/curriculum/learning-areas/area_001", nil)
+	body, _ := json.Marshal(struct {
+		ID string `json:"id"`
+	}{ID: "area_001"})
+	resp := doRequest(h.app, "DELETE", "/api/v1/curriculum/learning-areas", body)
 	if resp.StatusCode != fiber.StatusNoContent {
 		t.Fatalf("expected 204 No Content, got %d", resp.StatusCode)
 	}
@@ -388,7 +391,10 @@ func TestHandler_UpdateStrand_HappyPath(t *testing.T) {
 func TestHandler_DeleteStrand_HappyPath(t *testing.T) {
 	h := newHandlerTestHarness(t)
 	h.repo.deleteStrandFn = func(ctx context.Context, id, tenantID string) error { return nil }
-	resp := doRequest(h.app, "DELETE", "/api/v1/curriculum/strands/strand_001", nil)
+	body, _ := json.Marshal(struct {
+		ID string `json:"id"`
+	}{ID: "strand_001"})
+	resp := doRequest(h.app, "DELETE", "/api/v1/curriculum/strands", body)
 	if resp.StatusCode != fiber.StatusNoContent {
 		t.Fatalf("expected 204, got %d", resp.StatusCode)
 	}
@@ -397,7 +403,10 @@ func TestHandler_DeleteStrand_HappyPath(t *testing.T) {
 func TestHandler_DeleteStrand_NotFound(t *testing.T) {
 	h := newHandlerTestHarness(t)
 	h.repo.deleteStrandFn = func(ctx context.Context, id, tenantID string) error { return ErrNotFound }
-	resp := doRequest(h.app, "DELETE", "/api/v1/curriculum/strands/strand_999", nil)
+	body, _ := json.Marshal(struct {
+		ID string `json:"id"`
+	}{ID: "strand_999"})
+	resp := doRequest(h.app, "DELETE", "/api/v1/curriculum/strands", body)
 	if resp.StatusCode != fiber.StatusNotFound {
 		t.Fatalf("expected 404, got %d", resp.StatusCode)
 	}
@@ -483,7 +492,10 @@ func TestHandler_UpdateSubStrand_HappyPath(t *testing.T) {
 func TestHandler_DeleteSubStrand_HappyPath(t *testing.T) {
 	h := newHandlerTestHarness(t)
 	h.repo.deleteSubStrandFn = func(ctx context.Context, id, tenantID string) error { return nil }
-	resp := doRequest(h.app, "DELETE", "/api/v1/curriculum/sub-strands/sub_001", nil)
+	body, _ := json.Marshal(struct {
+		ID string `json:"id"`
+	}{ID: "sub_001"})
+	resp := doRequest(h.app, "DELETE", "/api/v1/curriculum/sub-strands", body)
 	if resp.StatusCode != fiber.StatusNoContent {
 		t.Fatalf("expected 204, got %d", resp.StatusCode)
 	}
@@ -594,7 +606,10 @@ func TestHandler_UpdatePerformanceIndicator_HappyPath(t *testing.T) {
 func TestHandler_DeletePerformanceIndicator_HappyPath(t *testing.T) {
 	h := newHandlerTestHarness(t)
 	h.repo.deletePIFn = func(ctx context.Context, id, tenantID string) error { return nil }
-	resp := doRequest(h.app, "DELETE", "/api/v1/curriculum/performance-indicators/pi_001", nil)
+	body, _ := json.Marshal(struct {
+		ID string `json:"id"`
+	}{ID: "pi_001"})
+	resp := doRequest(h.app, "DELETE", "/api/v1/curriculum/performance-indicators", body)
 	if resp.StatusCode != fiber.StatusNoContent {
 		t.Fatalf("expected 204, got %d", resp.StatusCode)
 	}

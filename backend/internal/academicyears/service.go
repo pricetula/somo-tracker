@@ -42,6 +42,14 @@ func NewService(repo Repository) *Service {
 // YEARS
 // ============================================================================
 
+// GetCurrent returns all non-deleted academic years for a school with nested terms.
+func (s *Service) GetCurrent(ctx context.Context, tenantID, schoolID string) (CurrentAcademicYearWithCurrentTerm, error) {
+	if tenantID == "" || schoolID == "" {
+		return CurrentAcademicYearWithCurrentTerm{}, fmt.Errorf("academicyears.Service.ListYears: %w", ErrInvalidInput)
+	}
+	return s.Repo.GetCurrent(ctx, tenantID, schoolID)
+}
+
 // ListYears returns all non-deleted academic years for a school with nested terms.
 func (s *Service) ListYears(ctx context.Context, tenantID, schoolID string) ([]AcademicYearWithTerms, error) {
 	if tenantID == "" || schoolID == "" {

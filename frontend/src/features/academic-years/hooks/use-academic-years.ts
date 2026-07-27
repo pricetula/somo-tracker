@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
 import {
+    getCurrentYearAndTerm,
     listAcademicYears,
     listTerms,
     createAcademicYear,
@@ -36,6 +37,7 @@ import type {
 
 export const academicYearKeys = {
     all: ["academic-years-manage"] as const,
+    current: ["current-academic-year-and-term"] as const,
     lists: () => [...academicYearKeys.all, "list"] as const,
     detail: (id: string) => [...academicYearKeys.all, "detail", id] as const,
 };
@@ -46,6 +48,16 @@ export const academicTermKeys = {
 };
 
 // ─── Hooks — Queries ──────────────────────────────────────────────────────
+
+/** Fetch all academic years for the active school. */
+export function useCurrentAcademicYearAndTerm() {
+    return useQuery({
+        queryKey: academicYearKeys.current,
+        queryFn: () => getCurrentYearAndTerm(),
+        staleTime: STALE_TIMES.STANDARD,
+        placeholderData: (prev) => prev,
+    });
+}
 
 /** Fetch all academic years for the active school. */
 export function useAcademicYearsManage() {

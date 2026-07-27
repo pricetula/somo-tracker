@@ -2,6 +2,7 @@ package academicyears
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -49,6 +50,53 @@ func (t *pgTx) Rollback(ctx context.Context) error {
 // ============================================================================
 // YEARS
 // ============================================================================
+
+// GetCurrent returns all academic years for a school, with nested
+// terms ordered by term_number.
+func (r *PgRepository) GetCurrent(ctx context.Context, tenantID, schoolID string) (CurrentAcademicYearWithCurrentTerm, error) {
+	const query = `
+        SELECT
+            ay.id AS academic_year_id,
+            ay.name AS academic_year_name,
+            ay.start_date AS academic_year_start_date,
+            ay.end_date AS academic_year_end_date,
+            at.id AS academic_term_id,
+            at.name AS academic_term_name,
+            at.term_number AS academic_term_number,
+            at.start_date AS academic_term_start_date,
+            at.end_date AS academic_term_end_date,
+            at.is_final AS academic_term_is_final
+        FROM academic_years ay
+        INNER JOIN academic_terms at ON at.academic_year_id = ay.id
+        WHERE ay.tenant_id = $1
+          AND ay.school_id = $2
+          AND ay.is_current = TRUE
+          AND at.is_current = TRUE
+        LIMIT 1
+    `
+
+	var res CurrentAcademicYearWithCurrentTerm
+	err := r.pool.QueryRow(ctx, query, tenantID, schoolID).Scan(
+		&res.AcademicYearID,
+		&res.AcademicYearName,
+		&res.AcademicYearStartDate,
+		&res.AcademicYearEndDate,
+		&res.AcademicTermID,
+		&res.AcademicTermName,
+		&res.AcademicTermNumber,
+		&res.AcademicTermStartDate,
+		&res.AcademicTermEndDate,
+		&res.AcademicTermIsFinal,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return CurrentAcademicYearWithCurrentTerm{}, fmt.Errorf("academicyears.Repository.GetCurrent: no current academic year/term found")
+		}
+		return CurrentAcademicYearWithCurrentTerm{}, fmt.Errorf("academicyears.Repository.GetCurrent: %w", err)
+	}
+
+	return res, nil
+}
 
 // ListYears returns all academic years for a school, with nested
 // terms ordered by term_number.

@@ -135,6 +135,19 @@ type AcademicYear struct {
 	UpdatedAt time.Time `db:"updated_at" json:"updated_at"`
 }
 
+type CurrentAcademicYearWithCurrentTerm struct {
+	AcademicYearID        string   `json:"academic_year_id"`
+	AcademicYearName      string   `json:"academic_year_name"`
+	AcademicYearStartDate DateOnly `json:"academic_year_start_date"`
+	AcademicYearEndDate   DateOnly `json:"academic_year_end_date"`
+	AcademicTermID        string   `json:"academic_term_id"`
+	AcademicTermName      string   `json:"academic_term_name"`
+	AcademicTermNumber    string   `json:"academic_term_number"`
+	AcademicTermStartDate DateOnly `json:"academic_term_start_date"`
+	AcademicTermEndDate   DateOnly `json:"academic_term_end_date"`
+	AcademicTermIsFinal   bool     `json:"academic_term_is_final"`
+}
+
 // AcademicYearWithTerms extends AcademicYear with nested terms.
 type AcademicYearWithTerms struct {
 	AcademicYear
@@ -271,6 +284,7 @@ type Repository interface {
 	SetCurrentYear(ctx context.Context, id, tenantID, schoolID, actorID string) (bool, error)
 
 	// Terms
+	GetCurrent(ctx context.Context, tenantID, schoolID string) (CurrentAcademicYearWithCurrentTerm, error)
 	ListTerms(ctx context.Context, tenantID, schoolID string, academicYearID *string) ([]AcademicTerm, error)
 	GetTermByIDForUpdate(ctx context.Context, id, tenantID, schoolID string) (*AcademicTerm, *AcademicYear, error)
 	CreateTerm(ctx context.Context, term *AcademicTerm) (string, error)

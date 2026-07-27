@@ -270,7 +270,7 @@ export function TimetableSlotGrid({ blocks, academicYearID, isLoading }: Timetab
                                             <td
                                                 key={key || `${day}-${rowIdx}`}
                                                 className={cn(
-                                                    "border-border/20 border-border/20 border-b border-l px-3 py-2.5",
+                                                    "border-border/20 border-b border-l px-3 py-2.5",
                                                     !isBreak &&
                                                         "hover:bg-primary/5 cursor-pointer transition-colors",
                                                     hasSlot && "hover:bg-destructive/5"
@@ -286,16 +286,11 @@ export function TimetableSlotGrid({ blocks, academicYearID, isLoading }: Timetab
                                                 ) : hasSlot && slot ? (
                                                     <div className="text-xs">
                                                         <span className="text-foreground block truncate font-medium">
-                                                            {slot.class_name}
+                                                            {slot.learning_area_name}
                                                         </span>
                                                         {slot.teacher_name && (
                                                             <span className="text-muted-foreground block truncate text-[11px]">
                                                                 {slot.teacher_name}
-                                                            </span>
-                                                        )}
-                                                        {slot.learning_area_name && (
-                                                            <span className="text-muted-foreground block truncate text-[11px]">
-                                                                {slot.learning_area_name}
                                                             </span>
                                                         )}
                                                     </div>

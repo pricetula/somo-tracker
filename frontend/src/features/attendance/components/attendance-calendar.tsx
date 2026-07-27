@@ -4,6 +4,8 @@
 import dynamic from "next/dynamic";
 import { Skeleton } from "@/components/ui/skeleton";
 
+const currentDate = new Date();
+
 // Disable SSR for the Calendar component
 const Calendar = dynamic(() => import("@/components/shared/calendar").then((mod) => mod.Calendar), {
     ssr: false,
@@ -52,7 +54,7 @@ export function AttendanceCalendar() {
     return (
         <section className="w-fit">
             <header>Attendace Calendar</header>
-            <Calendar onDayClick={console.log} />
+            <Calendar onDayClick={console.log} disabled={[{ after: currentDate }]} />
         </section>
     );
 }

@@ -7,12 +7,18 @@ import (
 
 // Service contains business logic for the cbctimetableslots domain.
 type Service struct {
-	Repo Repository
+	Repo     Repository
+	enqueuer *Enqueuer
 }
 
 // NewService creates a new Service.
 func NewService(repo Repository) *Service {
 	return &Service{Repo: repo}
+}
+
+// SetEnqueuer sets the background task enqueuer for workload summary refreshes.
+func (s *Service) SetEnqueuer(e *Enqueuer) {
+	s.enqueuer = e
 }
 
 // ListSlots returns slots matching the filter.
@@ -72,6 +78,11 @@ func (s *Service) CreateSlot(ctx context.Context, tenantID, schoolID string, pay
 		return nil, fmt.Errorf("cbctimetableslots.Service.CreateSlot: %w", err)
 	}
 
+	// Asynchronously refresh teacher workload summaries for the year.
+	if s.enqueuer != nil && payload.AcademicYearID != "" {
+		s.enqueuer.EnqueueWorkloadSummaryRefresh(ctx, payload.AcademicYearID)
+	}
+
 	return slot, nil
 }
 
@@ -96,6 +107,11 @@ func (s *Service) BatchCreateSlots(ctx context.Context, tenantID, schoolID strin
 		return nil, fmt.Errorf("cbctimetableslots.Service.BatchCreateSlots: %w", err)
 	}
 
+	// Asynchronously refresh teacher workload summaries for the year.
+	if s.enqueuer != nil && payload.Slots[0].AcademicYearID != "" {
+		s.enqueuer.EnqueueWorkloadSummaryRefresh(ctx, payload.Slots[0].AcademicYearID)
+	}
+
 	return &SlotListResult{Items: slots, Total: len(slots)}, nil
 }
 
@@ -108,6 +124,11 @@ func (s *Service) UpdateSlot(ctx context.Context, id string, payload UpdateSlotP
 	slot, err := s.Repo.Update(ctx, id, payload)
 	if err != nil {
 		return nil, fmt.Errorf("cbctimetableslots.Service.UpdateSlot: %w", err)
+	}
+
+	// Asynchronously refresh teacher workload summaries for the year.
+	if s.enqueuer != nil && slot != nil && slot.AcademicYearID != "" {
+		s.enqueuer.EnqueueWorkloadSummaryRefresh(ctx, slot.AcademicYearID)
 	}
 
 	return slot, nil

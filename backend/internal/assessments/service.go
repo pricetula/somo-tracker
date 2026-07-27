@@ -25,6 +25,7 @@ var allowedTransitions = map[string]map[string]bool{
 type Service struct {
 	Repo           Repository
 	RosterProvider RosterProvider
+	Enqueuer       *Enqueuer
 }
 
 // NewService creates a new Service.
@@ -35,6 +36,11 @@ func NewService(repo Repository) *Service {
 // SetRosterProvider sets the roster provider for cross-domain roster lookups.
 func (s *Service) SetRosterProvider(rp RosterProvider) {
 	s.RosterProvider = rp
+}
+
+// SetEnqueuer sets the background task enqueuer for cascading summary refreshes.
+func (s *Service) SetEnqueuer(e *Enqueuer) {
+	s.Enqueuer = e
 }
 
 // ============================================================================
@@ -337,6 +343,17 @@ func (s *Service) ApproveSession(ctx context.Context, id, tenantID, schoolID, us
 	// relying solely on trigger semantics.
 	if err := s.Repo.RefreshSessionSummary(ctx, id); err != nil {
 		return fmt.Errorf("assessments.Service.ApproveSession: refresh summary: %w", err)
+	}
+
+	// ── Background cascading refreshes (best-effort) ────────────────────
+	// These run asynchronously via Asynq workers so the HTTP response is
+	// not blocked by potentially heavy batch computations.
+	if s.Enqueuer != nil {
+		termID := session.AcademicTermID
+		s.Enqueuer.EnqueueOverallSummaryRefresh(ctx, termID)
+		s.Enqueuer.EnqueueProjectionsRefresh(ctx, termID)
+		s.Enqueuer.EnqueueTeacherPerformanceRefresh(ctx, termID)
+		s.Enqueuer.EnqueueCohortPositionsRefresh(ctx, termID)
 	}
 
 	return nil

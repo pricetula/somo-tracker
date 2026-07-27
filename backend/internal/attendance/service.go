@@ -7,12 +7,18 @@ import (
 
 // Service handles business logic for attendance operations.
 type Service struct {
-	repo Repository
+	repo     Repository
+	enqueuer *Enqueuer
 }
 
 // NewService creates a new attendance Service.
 func NewService(repo Repository) *Service {
 	return &Service{repo: repo}
+}
+
+// SetEnqueuer sets the background task enqueuer for summary refreshes.
+func (s *Service) SetEnqueuer(e *Enqueuer) {
+	s.enqueuer = e
 }
 
 // ── Sessions ──────────────────────────────────────────────────────────────
@@ -130,7 +136,20 @@ func (s *Service) BatchMark(ctx context.Context, tenantID, schoolID string, payl
 		}
 	}
 
-	return s.repo.BatchMark(ctx, tenantID, schoolID, payload, markedBy, termID)
+	result, err := s.repo.BatchMark(ctx, tenantID, schoolID, payload, markedBy, termID)
+	if err != nil {
+		return nil, fmt.Errorf("attendance.Service.BatchMark: %w", err)
+	}
+
+	// Asynchronously refresh all attendance-related summaries for the term.
+	// These are best-effort — the HTTP response is not blocked.
+	if s.enqueuer != nil {
+		s.enqueuer.EnqueueTeacherDeliveryRefresh(ctx, termID)
+		s.enqueuer.EnqueueAttendanceTermRefresh(ctx, tenantID, schoolID, termID)
+		s.enqueuer.EnqueueClassDailyRefresh(ctx, tenantID, schoolID, payload.TimetableSlotID, payload.Date)
+	}
+
+	return result, nil
 }
 
 // UpdateRecord updates a single attendance record.

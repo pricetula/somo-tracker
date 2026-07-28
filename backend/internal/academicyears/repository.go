@@ -90,7 +90,7 @@ func (r *PgRepository) GetCurrent(ctx context.Context, tenantID, schoolID string
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return CurrentAcademicYearWithCurrentTerm{}, fmt.Errorf("academicyears.Repository.GetCurrent: no current academic year/term found")
+			return CurrentAcademicYearWithCurrentTerm{}, fmt.Errorf("academicyears.Repository.GetCurrent: %w", ErrNotFound)
 		}
 		return CurrentAcademicYearWithCurrentTerm{}, fmt.Errorf("academicyears.Repository.GetCurrent: %w", err)
 	}

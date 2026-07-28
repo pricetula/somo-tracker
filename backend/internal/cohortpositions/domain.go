@@ -14,19 +14,20 @@ package cohortpositions
 
 import (
 	"context"
-	"fmt"
 	"time"
 
-	"somotracker/backend/internal/middleware"
+	"somotracker/backend/internal/xerrors"
 )
 
 // ─── Sentinel domain errors ───────────────────────────────────────────────
 
 var (
-	ErrNotFound      = fmt.Errorf("cohort position not found: %w", middleware.ErrNotFound)
-	ErrAlreadyExists = fmt.Errorf("cohort position already exists: %w", middleware.ErrAlreadyExists)
-	ErrInvalidInput  = fmt.Errorf("invalid cohort position input: %w", middleware.ErrInvalidInput)
-	ErrForbidden     = fmt.Errorf("forbidden: %w", middleware.ErrForbidden)
+	ErrNotFound      = xerrors.NotFound("cohort position not found")
+	ErrAlreadyExists = xerrors.AlreadyExists("cohort position already exists")
+	ErrInvalidInput  = xerrors.InvalidInput("invalid cohort position input")
+	ErrUnauthorized  = xerrors.Unauthorized("unauthorized")
+	ErrForbidden     = xerrors.Forbidden("forbidden")
+	ErrConflict      = xerrors.Conflict("cohort position conflict")
 )
 
 // ─── Domain Model ─────────────────────────────────────────────────────────

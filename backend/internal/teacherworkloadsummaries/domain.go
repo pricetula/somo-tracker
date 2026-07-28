@@ -7,20 +7,19 @@ package teacherworkloadsummaries
 
 import (
 	"context"
-	"fmt"
 
-	"somotracker/backend/internal/middleware"
+	"somotracker/backend/internal/xerrors"
 )
 
 // ── Sentinel domain errors ───────────────────────────────────────────────
 
 var (
-	ErrNotFound      = fmt.Errorf("teacher workload summaries not found: %w", middleware.ErrNotFound)
-	ErrAlreadyExists = fmt.Errorf("teacher workload summaries already exists: %w", middleware.ErrAlreadyExists)
-	ErrInvalidInput  = fmt.Errorf("invalid teacher workload summaries input: %w", middleware.ErrInvalidInput)
-	ErrUnauthorized  = fmt.Errorf("unauthorized: %w", middleware.ErrUnauthorized)
-	ErrForbidden     = fmt.Errorf("forbidden: %w", middleware.ErrForbidden)
-	ErrConflict      = fmt.Errorf("teacher workload summaries conflict: %w", middleware.ErrConflict)
+	ErrNotFound      = xerrors.NotFound("teacher workload summary not found")
+	ErrAlreadyExists = xerrors.AlreadyExists("teacher workload summary already exists")
+	ErrInvalidInput  = xerrors.InvalidInput("invalid teacher workload summary input")
+	ErrUnauthorized  = xerrors.Unauthorized("unauthorized")
+	ErrForbidden     = xerrors.Forbidden("forbidden")
+	ErrConflict      = xerrors.Conflict("teacher workload summary conflict")
 )
 
 // ── Domain Models ────────────────────────────────────────────────────────

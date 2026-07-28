@@ -4,23 +4,22 @@ package attendance
 
 import (
 	"context"
-	"fmt"
 	"time"
 
-	"somotracker/backend/internal/middleware"
+	"somotracker/backend/internal/xerrors"
 )
 
 // ─── Sentinel domain errors ───────────────────────────────────────────────
 
 var (
-	ErrNotFound      = fmt.Errorf("attendance not found: %w", middleware.ErrNotFound)
-	ErrAlreadyExists = fmt.Errorf("attendance already exists: %w", middleware.ErrAlreadyExists)
-	ErrInvalidInput  = fmt.Errorf("invalid attendance input: %w", middleware.ErrInvalidInput)
-	ErrUnauthorized  = fmt.Errorf("unauthorized: %w", middleware.ErrUnauthorized)
-	ErrForbidden     = fmt.Errorf("forbidden: %w", middleware.ErrForbidden)
-	ErrConflict      = fmt.Errorf("attendance conflict: %w", middleware.ErrConflict)
-	ErrAlreadyMarked = fmt.Errorf("attendance already marked for this student and slot: %w", middleware.ErrConflict)
-	ErrBreakSlot     = fmt.Errorf("cannot mark attendance for a break period: %w", middleware.ErrInvalidInput)
+	ErrNotFound      = xerrors.NotFound("attendance not found")
+	ErrAlreadyExists = xerrors.AlreadyExists("attendance already exists")
+	ErrInvalidInput  = xerrors.InvalidInput("invalid attendance input")
+	ErrUnauthorized  = xerrors.Unauthorized("unauthorized")
+	ErrForbidden     = xerrors.Forbidden("forbidden")
+	ErrConflict      = xerrors.Conflict("attendance conflict")
+	ErrAlreadyMarked = xerrors.Conflict("attendance already marked for this student and slot")
+	ErrBreakSlot     = xerrors.InvalidInput("cannot mark attendance for a break period")
 )
 
 // ─── Enums ────────────────────────────────────────────────────────────────

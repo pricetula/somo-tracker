@@ -13,9 +13,10 @@
 // (e.g. "member_not_found", "invalid_member_input", "unauthorized").
 // message is a safe, human-readable string. For 500 errors it must be a
 // generic string — never an internal detail.
-// errors is an optional object populated exclusively on 400 Bad Request /
-// validation failures, mapping field keys to an array of specific error
-// string messages.
+// errors is an optional field populated exclusively on validation or
+// semantic failures (e.g. 400 Bad Request, 422 Unprocessable Entity).
+// It can be a map of field→messages or any other structured data
+// (e.g. a list of conflicting resources).
 //
 // Frontend counterpart: src/lib/api/client.ts
 // =============================================================================
@@ -28,34 +29,29 @@ import (
 	"log/slog"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/jackc/pgx/v5/pgconn"
+
+	"somotracker/backend/internal/xerrors"
 )
 
-// sentinel domain error references — each module declares its own package-level
-// sentinels. This file uses errors.Is() to match them in the error chain.
+// Sentinel errors for use by middleware (RequireAuth, RequireRole).
+// Domain packages define their own sentinels; they don't import middleware.
 var (
-	// ErrNotFound is the canonical not-found sentinel (404).
-	// Matched by errors.Is against any module's ErrNotFound.
-	ErrNotFound = errors.New("not found")
-	// ErrAlreadyExists is the canonical conflict-for-duplicate sentinel (409).
-	ErrAlreadyExists = errors.New("already exists")
-	// ErrInvalidInput is the canonical validation-failure sentinel (400).
-	ErrInvalidInput = errors.New("invalid input")
-	// ErrUnauthorized is the canonical unauthenticated sentinel (401).
-	ErrUnauthorized = errors.New("unauthorized")
-	// ErrForbidden is the canonical forbidden sentinel (403).
-	ErrForbidden = errors.New("forbidden")
-	// ErrConflict is the canonical optimistic-lock / concurrent-mod sentinel (409).
-	ErrConflict = errors.New("conflict")
+	ErrNotFound      = xerrors.ErrNotFound
+	ErrAlreadyExists = xerrors.ErrAlreadyExists
+	ErrInvalidInput  = xerrors.ErrInvalidInput
+	ErrUnauthorized  = xerrors.ErrUnauthorized
+	ErrForbidden     = xerrors.ErrForbidden
+	ErrConflict      = xerrors.ErrConflict
 )
 
-// HTTPError is the single place where domain errors are mapped to HTTP status
-// codes and JSON response bodies. All handlers must call this function instead
-// of duplicating errors.Is / switch logic inline.
+// HTTPError is the single place where errors are mapped to HTTP status
+// codes and JSON response bodies. All handlers must call this function
+// instead of duplicating error-mapping logic inline.
 //
-// It uses errors.Is() to unwrap the full error chain and match sentinels.
-// For 500 errors the internal error is logged with slog.ErrorContext and a
-// generic message is returned to the client.
+// It uses errors.As() to find the nearest *xerrors.DomainError in the
+// chain, extracting status, code, message, and optional metadata.
+// For 500 errors (unrecognized errors), the internal error is logged
+// with slog.ErrorContext and a generic message is returned to the client.
 //
 // Parameters:
 //   - c: the Fiber request context (used for logging method + path).
@@ -67,106 +63,87 @@ func HTTPError(c *fiber.Ctx, err error) error {
 		return nil
 	}
 
-	// Build the standard response.
-	type errorResponse struct {
-		Code    string              `json:"code"`
-		Message string              `json:"message"`
-		Errors  map[string][]string `json:"errors,omitempty"`
-	}
-
-	var code string
-	var message string
-	var status int
-	var fieldErrors map[string][]string
-
-	switch {
-	case errors.Is(err, ErrNotFound):
-		status = fiber.StatusNotFound
-		code = "not_found"
-		message = "the requested resource was not found"
-
-	case errors.Is(err, ErrAlreadyExists):
-		status = fiber.StatusConflict
-		code = "already_exists"
-		message = "the resource already exists"
-
-	case errors.Is(err, ErrInvalidInput):
-		status = fiber.StatusBadRequest
-		code = "invalid_input"
-		message = err.Error() // surface validation details
-
-		// Check if the error carries field-level validation metadata via
-		// the FieldErrors interface.
-		var fe interface{ FieldErrors() map[string][]string }
-		if errors.As(err, &fe) {
-			fieldErrors = fe.FieldErrors()
+	// Try to extract a *xerrors.DomainError from the chain.
+	var de *xerrors.DomainError
+	if errors.As(err, &de) {
+		// Build the response body.
+		// Use err.Error() for the message — it includes context added by
+		// callers via fmt.Errorf("context: %w", domainErr). For 500 errors
+		// we replace it with a generic message to avoid leaking internals.
+		resp := fiber.Map{
+			"code":    de.Code,
+			"message": err.Error(),
 		}
 
-	case errors.Is(err, ErrUnauthorized):
-		status = fiber.StatusUnauthorized
-		code = "unauthorized"
-		message = "authentication required"
+		// Check for field-level validation errors (middleware.FieldError or
+		// any error implementing FieldErrors() interface).
+		type hasFieldErrors interface{ FieldErrors() map[string][]string }
+		if fe, ok := err.(hasFieldErrors); ok && len(fe.FieldErrors()) > 0 {
+			resp["errors"] = fe.FieldErrors()
+		} else if len(de.Fields) > 0 {
+			resp["errors"] = de.Fields
+		}
 
-	case errors.Is(err, ErrForbidden):
-		status = fiber.StatusForbidden
-		code = "forbidden"
-		message = "insufficient permissions"
+		// Check for extra metadata (implemented by custom error types
+		// that embed *xerrors.DomainError).
+		var details any
+		if hd, ok := err.(xerrors.HasDetails); ok {
+			details = hd.ErrorDetails()
+		}
+		if details != nil {
+			resp["errors"] = details
+		}
 
-	case errors.Is(err, ErrConflict):
-		status = fiber.StatusConflict
-		code = "conflict"
-		message = "the resource was modified by another request"
+		// Log internal/unexpected errors only — the rest are client errors.
+		if de.Status == fiber.StatusInternalServerError {
+			resp["message"] = "an unexpected error occurred"
+			slog.LogAttrs(context.Background(), slog.LevelError,
+				"HTTPError: internal error",
+				slog.String("method", c.Method()),
+				slog.String("path", c.Path()),
+				slog.String("code", de.Code),
+				slog.String("error", err.Error()),
+			)
+		}
 
+		return c.Status(de.Status).JSON(resp)
+	}
+
+	// Special cases that aren't DomainErrors.
+	switch {
 	case errors.Is(err, context.Canceled):
-		status = 499
-		code = "request_canceled"
-		message = "the request was canceled"
-
-	case isPgError(err, "P0002"):
-		status = fiber.StatusConflict
-		code = "immutable_resource"
-		message = err.Error() // surface the trigger's specific message
-
+		return c.Status(499).JSON(fiber.Map{
+			"code":    "request_canceled",
+			"message": "the request was canceled",
+		})
 	case errors.Is(err, context.DeadlineExceeded):
-		status = fiber.StatusGatewayTimeout
-		code = "timeout"
-		message = "the request timed out"
-
+		return c.Status(fiber.StatusGatewayTimeout).JSON(fiber.Map{
+			"code":    "timeout",
+			"message": "the request timed out",
+		})
 	default:
-		// Log the full internal error with context
-		status = fiber.StatusInternalServerError
-		code = "internal_error"
-		message = "an unexpected error occurred"
-
-		handlerFields := []slog.Attr{
+		// Log unknown errors — something leaked through without a domain wrapper.
+		slog.LogAttrs(context.Background(), slog.LevelError,
+			"HTTPError: unclassified error — wrap with xerrors.DomainError",
 			slog.String("method", c.Method()),
 			slog.String("path", c.Path()),
 			slog.String("error", err.Error()),
-		}
-		slog.LogAttrs(context.Background(), slog.LevelError, "HTTPError: internal error", handlerFields...)
+		)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"code":    "internal_error",
+			"message": "an unexpected error occurred",
+		})
 	}
-
-	return c.Status(status).JSON(errorResponse{
-		Code:    code,
-		Message: message,
-		Errors:  fieldErrors,
-	})
 }
 
-// isPgError checks if an error is a PostgreSQL error with the given code.
-func isPgError(err error, code string) bool {
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) {
-		return pgErr.Code == code
-	}
-	return false
-}
-
-// FieldError is a convenience type that carries both a sentinel error and
-// field-level validation metadata. Use it in service-layer validation:
+// FieldError is a convenience type for carrying field-level validation
+// metadata alongside a domain sentinel. Keep the underlying error as a
+// *xerrors.DomainError so that HTTPError can extract the status code.
+//
+// Usage in service-layer validation:
 //
 //	return &middleware.FieldError{
-//	    Err:    members.ErrInvalidInput,
+//	    Err:    xerrors.InvalidInput("email is already in use"),
 //	    Fields: map[string][]string{"email": {"email is already in use"}},
 //	}
 type FieldError struct {
@@ -183,5 +160,5 @@ func (e *FieldError) Error() string {
 
 func (e *FieldError) Unwrap() error { return e.Err }
 
-// FieldErrors implements the field-error extraction interface used by HTTPError.
+// FieldErrors returns the field-level validation errors for HTTP response.
 func (e *FieldError) FieldErrors() map[string][]string { return e.Fields }

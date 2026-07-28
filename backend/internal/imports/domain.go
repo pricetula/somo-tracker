@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"somotracker/backend/internal/middleware"
+	"somotracker/backend/internal/xerrors"
 )
 
 // ============================================================================
@@ -24,16 +24,16 @@ func MaxImportBodyBytes() int {
 }
 
 var (
-	ErrNotFound         = fmt.Errorf("imports not found: %w", middleware.ErrNotFound)
-	ErrAlreadyExists    = fmt.Errorf("imports already exists: %w", middleware.ErrAlreadyExists)
-	ErrInvalidInput     = fmt.Errorf("invalid imports input: %w", middleware.ErrInvalidInput)
-	ErrUnauthorized     = fmt.Errorf("unauthorized: %w", middleware.ErrUnauthorized)
-	ErrForbidden        = fmt.Errorf("forbidden: %w", middleware.ErrForbidden)
-	ErrConflict         = fmt.Errorf("imports conflict: %w", middleware.ErrConflict)
-	ErrDuplicateJob     = fmt.Errorf("duplicate import job: %w", middleware.ErrConflict)
-	ErrImportInProgress = fmt.Errorf("import already in progress: %w", middleware.ErrConflict)
-	ErrJobTypeMismatch  = fmt.Errorf("job type mismatch: %w", middleware.ErrInvalidInput)
-	ErrNotCancellable   = fmt.Errorf("import job is not cancellable: %w", middleware.ErrConflict)
+	ErrNotFound         = xerrors.NotFound("import not found")
+	ErrAlreadyExists    = xerrors.AlreadyExists("import already exists")
+	ErrInvalidInput     = xerrors.InvalidInput("invalid import input")
+	ErrUnauthorized     = xerrors.Unauthorized("unauthorized")
+	ErrForbidden        = xerrors.Forbidden("forbidden")
+	ErrConflict         = xerrors.Conflict("import conflict")
+	ErrDuplicateJob     = xerrors.Conflict("duplicate import job")
+	ErrImportInProgress = xerrors.Conflict("import already in progress")
+	ErrJobTypeMismatch  = xerrors.InvalidInput("job type mismatch")
+	ErrNotCancellable   = xerrors.Conflict("import job is not cancellable")
 )
 
 // ImportInProgressError is returned when a CreateJob request is rejected because

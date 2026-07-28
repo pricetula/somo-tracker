@@ -13,11 +13,9 @@ import (
 // Handles repeated keys like ?grade_level=G7&grade_level=G8.
 func getQuerySlice(c *fiber.Ctx, key string) []string {
 	var values []string
-	c.Request().URI().QueryArgs().VisitAll(func(k, v []byte) {
-		if string(k) == key {
-			values = append(values, string(v))
-		}
-	})
+	for _, v := range c.Request().URI().QueryArgs().PeekMulti(key) {
+		values = append(values, string(v))
+	}
 	return values
 }
 

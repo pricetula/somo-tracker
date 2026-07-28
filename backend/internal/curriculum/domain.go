@@ -2,21 +2,20 @@ package curriculum
 
 import (
 	"context"
-	"fmt"
 
-	"somotracker/backend/internal/middleware"
+	"somotracker/backend/internal/xerrors"
 )
 
 // Sentinel domain errors.
 var (
-	ErrNotFound      = fmt.Errorf("curriculum not found: %w", middleware.ErrNotFound)
-	ErrAlreadyExists = fmt.Errorf("curriculum already exists: %w", middleware.ErrAlreadyExists)
-	ErrInvalidInput  = fmt.Errorf("invalid curriculum input: %w", middleware.ErrInvalidInput)
-	ErrUnauthorized  = fmt.Errorf("unauthorized: %w", middleware.ErrUnauthorized)
-	ErrForbidden     = fmt.Errorf("forbidden: %w", middleware.ErrForbidden)
-	ErrConflict      = fmt.Errorf("curriculum conflict: %w", middleware.ErrConflict)
+	ErrNotFound      = xerrors.NotFound("curriculum not found")
+	ErrAlreadyExists = xerrors.AlreadyExists("curriculum already exists")
+	ErrInvalidInput  = xerrors.InvalidInput("invalid curriculum input")
+	ErrUnauthorized  = xerrors.Unauthorized("unauthorized")
+	ErrForbidden     = xerrors.Forbidden("forbidden")
+	ErrConflict      = xerrors.Conflict("curriculum conflict")
 	// ErrReferenceProtected is returned when a deletion is blocked by an FK constraint.
-	ErrReferenceProtected = fmt.Errorf("curriculum reference protected: %w", middleware.ErrConflict)
+	ErrReferenceProtected = xerrors.Conflict("curriculum reference protected")
 )
 
 // ── Repository ────────────────────────────────────────────────────────────

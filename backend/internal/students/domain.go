@@ -2,9 +2,8 @@ package students
 
 import (
 	"context"
-	"fmt"
 
-	"somotracker/backend/internal/middleware"
+	"somotracker/backend/internal/xerrors"
 )
 
 // ============================================================================
@@ -12,13 +11,15 @@ import (
 // ============================================================================
 
 var (
-	ErrNotFound         = fmt.Errorf("student not found: %w", middleware.ErrNotFound)
-	ErrAlreadyExists    = fmt.Errorf("student already exists: %w", middleware.ErrAlreadyExists)
-	ErrInvalidInput     = fmt.Errorf("invalid student input: %w", middleware.ErrInvalidInput)
-	ErrDuplicateUPI     = fmt.Errorf("duplicate UPI number: %w", middleware.ErrAlreadyExists)
-	ErrDuplicateEnroll  = fmt.Errorf("student already enrolled in this term: %w", middleware.ErrConflict)
-	ErrStudentNotActive = fmt.Errorf("student is not active: %w", middleware.ErrInvalidInput)
-	ErrForbidden        = fmt.Errorf("forbidden: %w", middleware.ErrForbidden)
+	ErrNotFound         = xerrors.NotFound("student not found")
+	ErrAlreadyExists    = xerrors.AlreadyExists("student already exists")
+	ErrInvalidInput     = xerrors.InvalidInput("invalid student input")
+	ErrUnauthorized     = xerrors.Unauthorized("unauthorized")
+	ErrForbidden        = xerrors.Forbidden("forbidden")
+	ErrConflict         = xerrors.Conflict("student conflict")
+	ErrDuplicateUPI     = xerrors.AlreadyExists("duplicate UPI number")
+	ErrDuplicateEnroll  = xerrors.Conflict("student already enrolled in this term")
+	ErrStudentNotActive = xerrors.InvalidInput("student is not active")
 )
 
 // ============================================================================

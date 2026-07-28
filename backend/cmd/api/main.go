@@ -64,83 +64,28 @@ import (
 // Global Fiber error handler registered in fiber.Config.
 // This is the last-resort catcher for any error that escapes handler functions
 // (including panics caught by Fiber's recover middleware).
-// It logs with slog.ErrorContext and returns the canonical error response body.
-// It handles both *fiber.Error (from Fiber routing) and middleware-returned
-// sentinel errors (from RequireAuth, RequireRole) by matching against the
-// middleware.Err* sentinels via errors.Is.
+// It delegates to middleware.HTTPError which handles all domain error types.
+// *fiber.Error instances (from Fiber routing) are handled directly.
 func globalErrorHandler(c *fiber.Ctx, err error) error {
-	code := fiber.StatusInternalServerError
-	var message string
-	var errorCode string
-
-	// Try to get status code from Fiber's built-in error type
+	// Fiber's built-in error type carries its own status code.
 	var fiberErr *fiber.Error
 	if errors.As(err, &fiberErr) {
-		code = fiberErr.Code
-		message = fiberErr.Message
+		// Log the fiber-level error
+		slog.LogAttrs(c.Context(), slog.LevelError,
+			"global error handler: fiber error",
+			slog.String("method", c.Method()),
+			slog.String("path", c.Path()),
+			slog.Int("status", fiberErr.Code),
+			slog.String("error", fiberErr.Message),
+		)
+		return c.Status(fiberErr.Code).JSON(fiber.Map{
+			"code":    "fiber_error",
+			"message": fiberErr.Message,
+		})
 	}
 
-	// If not a *fiber.Error, match against middleware sentinels so that
-	// middleware-returned errors (e.g. RequireAuth returning ErrUnauthorized)
-	// are mapped to the correct HTTP status and canonical JSON body.
-	if message == "" {
-		switch {
-		case errors.Is(err, middleware.ErrNotFound):
-			code = fiber.StatusNotFound
-			message = "the requested resource was not found"
-			errorCode = "not_found"
-		case errors.Is(err, middleware.ErrAlreadyExists):
-			code = fiber.StatusConflict
-			message = "the resource already exists"
-			errorCode = "already_exists"
-		case errors.Is(err, middleware.ErrInvalidInput):
-			code = fiber.StatusBadRequest
-			message = err.Error()
-			errorCode = "invalid_input"
-		case errors.Is(err, middleware.ErrUnauthorized):
-			code = fiber.StatusUnauthorized
-			message = "authentication required"
-			errorCode = "unauthorized"
-		case errors.Is(err, middleware.ErrForbidden):
-			code = fiber.StatusForbidden
-			message = "insufficient permissions"
-			errorCode = "forbidden"
-		case errors.Is(err, middleware.ErrConflict):
-			code = fiber.StatusConflict
-			message = "the resource was modified by another request"
-			errorCode = "conflict"
-		case errors.Is(err, context.Canceled):
-			code = 499
-			message = "the request was canceled"
-			errorCode = "request_canceled"
-		case errors.Is(err, context.DeadlineExceeded):
-			code = fiber.StatusGatewayTimeout
-			message = "the request timed out"
-			errorCode = "timeout"
-		}
-	}
-
-	// Default to internal_error for unrecognized errors
-	if message == "" {
-		message = "an unexpected error occurred"
-	}
-	if errorCode == "" {
-		errorCode = "internal_error"
-	}
-
-	// Log the error
-	slog.LogAttrs(c.Context(), slog.LevelError,
-		"global error handler",
-		slog.String("method", c.Method()),
-		slog.String("path", c.Path()),
-		slog.Int("status", code),
-		slog.String("error", err.Error()),
-	)
-
-	return c.Status(code).JSON(fiber.Map{
-		"code":    errorCode,
-		"message": message,
-	})
+	// Everything else goes through the canonical error mapper.
+	return middleware.HTTPError(c, err)
 }
 
 // ── Cross-Domain Adapters ────────────────────────────────────────────────

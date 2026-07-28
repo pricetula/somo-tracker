@@ -9,7 +9,6 @@ var Module = fx.Module("attendance",
 		NewService,
 		NewHandler,
 		// Background summary refresh infrastructure
-		NewAsynqClient,
 		NewEnqueuer,
 		NewWorker,
 	),

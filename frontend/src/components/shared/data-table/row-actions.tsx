@@ -93,29 +93,22 @@ export function RowActions({ rowId, label, onDelete, actions, disabled }: RowAct
                         {menuItems.map((action) => {
                             const Icon = action.icon;
                             return (
-                                <AlertDialogTrigger
+                                <DropdownMenuItem
                                     key={action.label}
-                                    disabled={!action.destructive}
-                                    asChild={!!action.destructive}
-                                >
-                                    <DropdownMenuItem
-                                        className={
-                                            action.destructive
-                                                ? "text-destructive cursor-pointer"
-                                                : "cursor-pointer"
+                                    className={
+                                        action.destructive
+                                            ? "text-destructive cursor-pointer"
+                                            : "cursor-pointer"
+                                    }
+                                    onClick={() => {
+                                        if (action.onClick) {
+                                            action.onClick();
                                         }
-                                        onSelect={(e) => {
-                                            if (action.destructive) {
-                                                e.preventDefault();
-                                            } else {
-                                                action.onClick();
-                                            }
-                                        }}
-                                    >
-                                        <Icon className="mr-2 size-3.5" />
-                                        {action.label}
-                                    </DropdownMenuItem>
-                                </AlertDialogTrigger>
+                                    }}
+                                >
+                                    <Icon className="mr-2 size-3.5" />
+                                    {action.label}
+                                </DropdownMenuItem>
                             );
                         })}
                         {onDelete && (

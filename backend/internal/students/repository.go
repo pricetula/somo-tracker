@@ -720,7 +720,10 @@ func (r *PgRepository) CreateBatchEnrollments(ctx context.Context, enrollments [
 		INSERT INTO cbc_student_enrollments (student_id, class_id, academic_term_id, academic_year_id, status, tenant_id, school_id)
 		VALUES ($1, $2, $3, (SELECT academic_year_id FROM academic_terms WHERE id = $3), $4, $5, $6)
 		ON CONFLICT (student_id, school_id, academic_term_id)
-		DO NOTHING
+		DO UPDATE SET 
+			class_id = EXCLUDED.class_id,
+			academic_year_id = EXCLUDED.academic_year_id,
+			status = EXCLUDED.status
 		RETURNING id
 	`
 

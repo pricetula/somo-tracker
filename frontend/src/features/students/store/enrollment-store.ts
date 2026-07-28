@@ -20,5 +20,8 @@ interface EnrollmentState {
 export const useEnrollmentStore = create<EnrollmentState>((set) => ({
     selectedStudentIds: [],
     setSelectedStudentIds: (ids) => set({ selectedStudentIds: ids }),
-    clearSelectedStudentIds: () => set({ selectedStudentIds: [] }),
+    clearSelectedStudentIds: () => {
+        console.log("Cleeraaaa");
+        set({ selectedStudentIds: [] });
+    },
 }));

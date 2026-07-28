@@ -28,6 +28,9 @@ export function InvitationCountBadge({ role, href }: InvitationCountBadgeProps) 
     }
 
     const count = data?.total ?? 0;
+
+    if (count === 0) return null;
+
     const label = `${count} ${count === 1 ? "invitation" : "invitations"}`;
 
     return (

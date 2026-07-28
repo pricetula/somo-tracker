@@ -54,3 +54,8 @@ export async function deleteSchool(id: string): Promise<void> {
 export async function setActiveSchool(schoolId: string): Promise<void> {
     return api.post<void>(`/api/v1/schools/${schoolId}/activate`);
 }
+
+/** Seed a school with learning areas. */
+export async function seedSchool(): Promise<void> {
+    return api.post<void>("/api/v1/schools/seed-curriculum");
+}

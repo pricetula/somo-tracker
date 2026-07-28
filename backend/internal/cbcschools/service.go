@@ -201,3 +201,21 @@ func (s *Service) GetSchool(ctx context.Context, id, tenantID string) (*School, 
 	}
 	return school, nil
 }
+
+// SeedCurriculum seeds school with default CBE/ CBC learning areas
+func (s *Service) SeedCurriculum(ctx context.Context, tenantID string, schoolID string) error {
+	// Seed curriculum automatically for the new school
+	if s.seeder != nil {
+		if seedErr := s.seeder.SeedForSchool(ctx, tenantID, schoolID); seedErr != nil {
+			// Log the seeding failure but do NOT fail school creation — the school
+			// was already persisted successfully. The admin can retry seeding later.
+			slog.WarnContext(ctx, "cbcschools: curriculum seeding failed for new school",
+				slog.String("tenant_id", tenantID),
+				slog.String("school_id", schoolID),
+				slog.String("error", seedErr.Error()),
+			)
+		}
+	}
+
+	return nil
+}

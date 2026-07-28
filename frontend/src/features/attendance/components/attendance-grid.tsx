@@ -97,12 +97,6 @@ export function AttendanceGrid({ timetableSlotId, date, termId }: AttendanceGrid
         });
     };
 
-    const hasChanges = items.some(
-        (record) =>
-            localStatuses[record.student_id] !== undefined &&
-            localStatuses[record.student_id] !== record.status
-    );
-
     return (
         <div className="space-y-4">
             <div className="space-y-1">
@@ -136,7 +130,7 @@ export function AttendanceGrid({ timetableSlotId, date, termId }: AttendanceGrid
                 })}
             </div>
 
-            <Button onClick={handleSubmit} disabled={!hasChanges || batchMark.isPending}>
+            <Button onClick={handleSubmit} disabled={batchMark.isPending}>
                 {batchMark.isPending ? "Saving..." : "Save Attendance"}
             </Button>
         </div>

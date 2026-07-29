@@ -30,6 +30,7 @@ import type {
     UpdateRecordPayload,
     UpdateSessionPayload,
 } from "@/features/attendance/types";
+import { EnrichedSlotListResult } from "@/features/timetable-structure";
 
 // ─── Query Keys ───────────────────────────────────────────────────────────
 
@@ -208,7 +209,27 @@ export function useBatchMarkAttendance(termId?: string) {
             // Snapshot all record caches for rollback on error
             const previousCaches = queryClient.getQueriesData({ queryKey });
 
-            return { previousCaches };
+            // 1. Grab all cached enriched slot lists (regardless of which class/teacher filters were used)
+            const enrichedQueries = queryClient.getQueriesData<EnrichedSlotListResult>({
+                queryKey: ["timetable-slots", "enriched"],
+            });
+
+            // Optimistically update the matching slot across all cached enriched lists
+            for (const [key, oldData] of enrichedQueries) {
+                if (oldData?.items && Array.isArray(oldData.items)) {
+                    queryClient.setQueryData(key, {
+                        ...oldData,
+                        items: oldData.items.map((slot) => {
+                            if (slot.id === data.timetable_slot_id) {
+                                return { ...slot, session_status: "marked" };
+                            }
+                            return slot;
+                        }),
+                    });
+                }
+            }
+
+            return { previousCaches, enrichedQueries };
         },
         onError: (err, _data, context) => {
             // Rollback all record caches to their pre-mutation state
@@ -221,10 +242,6 @@ export function useBatchMarkAttendance(termId?: string) {
         },
         onSuccess: (result: BatchMarkResult) => {
             toast.success(`Attendance saved: ${result.created} created, ${result.updated} updated`);
-        },
-        onSettled: (_, er, data) => {
-            const queryKey = attendanceKeys.records.bySlot(data?.timetable_slot_id, data.date);
-            queryClient.invalidateQueries({ queryKey });
         },
     });
 }

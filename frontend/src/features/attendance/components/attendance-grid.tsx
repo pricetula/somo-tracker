@@ -30,9 +30,15 @@ interface AttendanceGridProps {
     timetableSlotId: string;
     date: string;
     termId?: string;
+    onMarkedAttendance?: () => void;
 }
 
-export function AttendanceGrid({ timetableSlotId, date, termId }: AttendanceGridProps) {
+export function AttendanceGrid({
+    timetableSlotId,
+    date,
+    termId,
+    onMarkedAttendance,
+}: AttendanceGridProps) {
     const { data: records, isLoading, isError } = useRecordsBySlot(timetableSlotId, date);
     const batchMark = useBatchMarkAttendance(termId);
 
@@ -95,6 +101,10 @@ export function AttendanceGrid({ timetableSlotId, date, termId }: AttendanceGrid
             timetable_slot_id: timetableSlotId,
             records: marks,
         });
+
+        if (onMarkedAttendance) {
+            onMarkedAttendance();
+        }
     };
 
     return (

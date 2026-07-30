@@ -2,6 +2,8 @@
 
 import { WelcomeGreeting } from "./welcome-greeting";
 import { QuickActions, SYSTEM_ADMIN_ACTIONS } from "..";
+import { useAcademicTerms } from "@/features/academic-terms/hooks/use-academic-terms";
+import { useClassList } from "@/features/classes/hooks/use-classes";
 import {
     useAttendanceTermSummaries,
     useClassDailyAttendance,
@@ -21,14 +23,30 @@ import {
 
 export function SystemAdminDashboardPage() {
     const attendance = useAttendanceTermSummaries();
-    const classDaily = useClassDailyAttendance();
-    const delivery = useTeacherDeliverySummaries();
-    const teacherPerf = useTeacherPerformanceSummaries();
+    const { data: termsData } = useAcademicTerms();
+    const { data: classesData } = useClassList();
+    const currentTerm = (termsData?.items ?? []).find((t) => t.is_current);
+    const termStart = currentTerm?.start_date;
+    const termEnd = currentTerm?.end_date;
+    const firstClassId = classesData?.items?.[0]?.value ?? "";
+    const classDaily = useClassDailyAttendance({
+        filter: { class_id: firstClassId || undefined },
+        startDate: termStart,
+        endDate: termEnd,
+    });
+    const delivery = useTeacherDeliverySummaries({
+        filter: { academic_term_id: currentTerm?.id },
+    });
+    const teacherPerf = useTeacherPerformanceSummaries({
+        filter: { academic_term_id: currentTerm?.id },
+    });
 
     const attendanceData = attendance.data ?? [];
     const teacherPerfData = teacherPerf.data ?? [];
     const deliveryData = delivery.data ?? [];
-    const classDailyData = classDaily.data ?? [];
+    const classDailyData = (classDaily.data ?? []).filter(
+        (d) => d.daily_attendance_rate > 0 || d.total_enrolled > 0
+    );
 
     const avgAttendance =
         attendanceData.reduce((s, r) => s + r.attendance_percentage, 0) /

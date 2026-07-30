@@ -11,6 +11,8 @@ import {
     SCHOOL_ADMIN_ACTIONS,
 } from "..";
 import { useDashboardCounts, useDashboardPendingItems } from "..";
+import { useAcademicTerms } from "@/features/academic-terms/hooks/use-academic-terms";
+import { useClassList } from "@/features/classes/hooks/use-classes";
 import {
     useClassDailyAttendance,
     useTeacherDeliverySummaries,
@@ -38,15 +40,34 @@ import {
 } from "@/features/analytics";
 
 export function SchoolAdminDashboardPage() {
-    const classDaily = useClassDailyAttendance();
-    const delivery = useTeacherDeliverySummaries();
-    const teacherPerf = useTeacherPerformanceSummaries();
-    const workload = useTeacherWorkloadSummaries();
+    const { data: termsData } = useAcademicTerms();
+    const { data: classesData } = useClassList();
+    const currentTerm = (termsData?.items ?? []).find((t) => t.is_current);
+    const termStart = currentTerm?.start_date;
+    const termEnd = currentTerm?.end_date;
+    const firstClassId = classesData?.items?.[0]?.value ?? "";
+
+    const classDaily = useClassDailyAttendance({
+        filter: { class_id: firstClassId || undefined },
+        startDate: termStart,
+        endDate: termEnd,
+    });
+    const delivery = useTeacherDeliverySummaries({
+        filter: { academic_term_id: currentTerm?.id },
+    });
+    const teacherPerf = useTeacherPerformanceSummaries({
+        filter: { academic_term_id: currentTerm?.id },
+    });
+    const workload = useTeacherWorkloadSummaries({
+        filter: { academic_year_id: currentTerm?.academic_year_id },
+    });
     const behavior = useStudentBehaviorSummaries();
     const counts = useDashboardCounts();
     const pending = useDashboardPendingItems();
 
-    const classDailyData = classDaily.data ?? [];
+    const classDailyData = (classDaily.data ?? []).filter(
+        (d) => d.daily_attendance_rate > 0 || d.total_enrolled > 0
+    );
 
     const dailyData = classDailyData.map((d) => ({
         date: d.date,

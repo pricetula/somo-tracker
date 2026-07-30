@@ -3,6 +3,9 @@
 import { AttendanceCalendar } from "@/features/attendance";
 import { WelcomeGreeting } from "./welcome-greeting";
 import { QuickActions, TEACHER_ACTIONS } from "..";
+import { useMe } from "@/hooks/use-auth";
+import { useAcademicTerms } from "@/features/academic-terms/hooks/use-academic-terms";
+import { useClassTeachersByTeacher } from "@/features/classteachers/hooks/use-classteachers";
 import {
     useClassDailyAttendance,
     useTeacherDeliverySummaries,
@@ -33,14 +36,37 @@ import {
 } from "@/features/analytics";
 
 export function TeacherDashboardPage() {
-    const classDaily = useClassDailyAttendance();
-    const delivery = useTeacherDeliverySummaries();
-    const teacherPerf = useTeacherPerformanceSummaries();
-    const workload = useTeacherWorkloadSummaries();
+    const { data: me } = useMe();
+    const { data: termsData } = useAcademicTerms();
+    const teacherUserId = me?.user_id ?? "";
+    const { data: teacherClasses } = useClassTeachersByTeacher(teacherUserId);
+
+    // Derive the first assigned class_id and current term's date range
+    const firstClassId = teacherClasses?.items?.[0]?.class_id ?? "";
+    const currentTerm = (termsData?.items ?? []).find((t) => t.is_current);
+    const termStart = currentTerm?.start_date;
+    const termEnd = currentTerm?.end_date;
+
+    const classDaily = useClassDailyAttendance({
+        filter: { class_id: firstClassId || undefined },
+        startDate: termStart,
+        endDate: termEnd,
+    });
+    const delivery = useTeacherDeliverySummaries({
+        filter: { academic_term_id: currentTerm?.id },
+    });
+    const teacherPerf = useTeacherPerformanceSummaries({
+        filter: { academic_term_id: currentTerm?.id },
+    });
+    const workload = useTeacherWorkloadSummaries({
+        filter: { academic_year_id: currentTerm?.academic_year_id },
+    });
     const behavior = useStudentBehaviorSummaries();
     const subjects = useStudentTermSubjectSummaries();
 
-    const classDailyData = classDaily.data ?? [];
+    const classDailyData = (classDaily.data ?? []).filter(
+        (d) => d.daily_attendance_rate > 0 || d.total_enrolled > 0
+    );
     const deliveryData = delivery.data ?? [];
     const teacherPerfData = teacherPerf.data ?? [];
     const workloadData = workload.data ?? [];
@@ -63,8 +89,8 @@ export function TeacherDashboardPage() {
         return { dayName: day, averageRate: avg };
     });
 
-    const myDelivery = deliveryData[0];
-    const myPerf = teacherPerfData[0];
+    const myDelivery = deliveryData.find((d) => d.user_id === teacherUserId);
+    const myPerf = teacherPerfData.find((p) => p.user_id === teacherUserId);
 
     const radarData = myPerf
         ? [
@@ -110,7 +136,7 @@ export function TeacherDashboardPage() {
           ]
         : [];
 
-    const myWorkload = workloadData[0];
+    const myWorkload = workloadData.find((w) => w.user_id === teacherUserId);
     const myUtilization = myWorkload?.utilization_percentage ?? 0;
     const overcapacity = myWorkload?.is_overcapacity ?? false;
 

@@ -1,6 +1,8 @@
 package attendance
 
 import (
+	"time"
+
 	"github.com/gofiber/fiber/v2"
 
 	"somotracker/backend/internal/middleware"
@@ -46,6 +48,10 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	daily.Get("/class/:class_id/date/:date", middleware.RequireAuth, h.GetClassDailySummary)
 	daily.Post("/class/:class_id/date/:date/refresh", middleware.RequireAuth, h.RefreshClassDailySummary)
 	daily.Get("/class/:class_id", middleware.RequireAuth, h.ListClassDailySummaries)
+
+	// Calendar status (monthly overview)
+	calendar := router.Group("/api/v1/attendance/calendar")
+	calendar.Get("/status", middleware.RequireAuth, h.GetCalendarStatus)
 }
 
 // attMiddleware extracts common tenant/school context.
@@ -427,4 +433,72 @@ func (h *Handler) ListClassDailySummaries(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(result)
+}
+
+// ── Calendar Status ───────────────────────────────────────────────────────
+
+// GetCalendarStatus handles GET /api/v1/attendance/calendar/status.
+func (h *Handler) GetCalendarStatus(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.attMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	startDate := c.Query("start_date")
+	endDate := c.Query("end_date")
+
+	// Validate required params
+	if startDate == "" || endDate == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "start_date and end_date are required",
+		})
+	}
+
+	// Validate date format (basic ISO date check)
+	if len(startDate) != 10 || len(endDate) != 10 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "start_date and end_date must be valid ISO dates (YYYY-MM-DD)",
+		})
+	}
+
+	// Validate end_date >= start_date
+	if endDate < startDate {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "end_date must be on or after start_date",
+		})
+	}
+
+	// Cap range to 62 days (calendar month view — not a bulk export)
+	const maxRangeDays = 62
+	days := countDays(startDate, endDate)
+	if days > maxRangeDays {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "date range must not exceed 62 days",
+		})
+	}
+
+	result, err := h.svc.GetCalendarStatus(c.Context(), tenantID, schoolID, startDate, endDate)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(result)
+}
+
+// countDays returns the number of calendar days between two ISO date strings.
+func countDays(startDate, endDate string) int {
+	const isoDate = "2006-01-02"
+	start, err := time.Parse(isoDate, startDate)
+	if err != nil {
+		return 0
+	}
+	end, err := time.Parse(isoDate, endDate)
+	if err != nil {
+		return 0
+	}
+	return int(end.Sub(start).Hours()/24) + 1
 }

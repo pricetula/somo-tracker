@@ -2,6 +2,8 @@
 
 import { WelcomeGreeting } from "./welcome-greeting";
 import { QuickActions, FINANCE_ACTIONS } from "..";
+import { useAcademicTerms } from "@/features/academic-terms/hooks/use-academic-terms";
+import { useClassList } from "@/features/classes/hooks/use-classes";
 import {
     useTeacherWorkloadSummaries,
     useAttendanceTermSummaries,
@@ -19,13 +21,27 @@ import {
 } from "@/features/analytics";
 
 export function FinanceDashboardPage() {
-    const workload = useTeacherWorkloadSummaries();
+    const { data: termsData } = useAcademicTerms();
+    const { data: classesData } = useClassList();
+    const currentTerm = (termsData?.items ?? []).find((t) => t.is_current);
+    const workload = useTeacherWorkloadSummaries({
+        filter: { academic_year_id: currentTerm?.academic_year_id },
+    });
     const attendance = useAttendanceTermSummaries();
-    const classDaily = useClassDailyAttendance();
+    const termStart = currentTerm?.start_date;
+    const termEnd = currentTerm?.end_date;
+    const firstClassId = classesData?.items?.[0]?.value ?? "";
+    const classDaily = useClassDailyAttendance({
+        filter: { class_id: firstClassId || undefined },
+        startDate: termStart,
+        endDate: termEnd,
+    });
 
     const workloadData = workload.data ?? [];
     const attendanceData = attendance.data ?? [];
-    const classDailyData = classDaily.data ?? [];
+    const classDailyData = (classDaily.data ?? []).filter(
+        (d) => d.daily_attendance_rate > 0 || d.total_enrolled > 0
+    );
 
     const workloadEntries = workloadData.map((w) => ({
         teacherName: w.teacher_name ?? "Unknown",

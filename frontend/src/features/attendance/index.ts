@@ -21,6 +21,7 @@ export {
     useRecordsByClassDate,
     useStudentTermSummary,
     useClassTermSummary,
+    useCalendarStatus,
     useCreateSession,
     useUpdateSession,
     useBatchMarkAttendance,
@@ -45,4 +46,7 @@ export type {
     BatchMarkPayload,
     BatchMarkResult,
     UpdateRecordPayload,
+    CalendarDayStatus,
+    CalendarStatusListResponse,
+    DayStatus,
 } from "./types";

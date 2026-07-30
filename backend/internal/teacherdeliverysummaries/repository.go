@@ -32,7 +32,7 @@ func (r *pgRepository) ListByTeacher(ctx context.Context, tenantID, schoolID, us
 		SELECT id, tenant_id, school_id, user_id, academic_term_id,
 		       total_assigned_slots, marked_slots, missed_slots,
 		       sessions_created, sessions_approved,
-		       on_time_submission_rate, last_refreshed_at
+		       on_time_submission_rate, last_refreshed_at::TEXT
 		FROM teacher_delivery_summaries
 		WHERE tenant_id = $1 AND school_id = $2
 		  AND user_id = $3 AND academic_term_id = $4
@@ -63,7 +63,7 @@ func (r *pgRepository) ListByTerm(ctx context.Context, tenantID, schoolID, termI
 		SELECT id, tenant_id, school_id, user_id, academic_term_id,
 		       total_assigned_slots, marked_slots, missed_slots,
 		       sessions_created, sessions_approved,
-		       on_time_submission_rate, last_refreshed_at
+		       on_time_submission_rate, last_refreshed_at::TEXT
 		FROM teacher_delivery_summaries
 		WHERE tenant_id = $1 AND school_id = $2
 		  AND academic_term_id = $3
@@ -92,7 +92,7 @@ func (r *pgRepository) GetByTeacherTerm(ctx context.Context, userID, termID stri
 		SELECT id, tenant_id, school_id, user_id, academic_term_id,
 		       total_assigned_slots, marked_slots, missed_slots,
 		       sessions_created, sessions_approved,
-		       on_time_submission_rate, last_refreshed_at
+		       on_time_submission_rate, last_refreshed_at::TEXT
 		FROM teacher_delivery_summaries
 		WHERE user_id = $1 AND academic_term_id = $2
 	`

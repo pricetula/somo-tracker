@@ -32,6 +32,7 @@ type MockRepository struct {
 	getClassDailySummaryFn     func(ctx context.Context, tenantID, schoolID, classID, date string) (*ClassDailyAttendanceSummary, error)
 	refreshClassDailySummaryFn func(ctx context.Context, tenantID, schoolID, classID, date string) error
 	listClassDailySummariesFn  func(ctx context.Context, tenantID, schoolID, classID, startDate, endDate string) ([]ClassDailyAttendanceSummary, error)
+	listCalendarStatusFn       func(ctx context.Context, tenantID, schoolID, startDate, endDate string) ([]CalendarDayStatusRaw, error)
 }
 
 func (m *MockRepository) CreateSession(ctx context.Context, tenantID, schoolID string, payload CreateSessionPayload) (*AttendanceSession, error) {
@@ -173,6 +174,13 @@ func (m *MockRepository) ListClassDailySummaries(ctx context.Context, tenantID, 
 		return m.listClassDailySummariesFn(ctx, tenantID, schoolID, classID, startDate, endDate)
 	}
 	return []ClassDailyAttendanceSummary{}, nil
+}
+
+func (m *MockRepository) ListCalendarStatus(ctx context.Context, tenantID, schoolID, startDate, endDate string) ([]CalendarDayStatusRaw, error) {
+	if m.listCalendarStatusFn != nil {
+		return m.listCalendarStatusFn(ctx, tenantID, schoolID, startDate, endDate)
+	}
+	return []CalendarDayStatusRaw{}, nil
 }
 
 // ============================================================================
@@ -1094,5 +1102,103 @@ func TestGetRecord_NotFound(t *testing.T) {
 	}
 	if !errors.Is(err, ErrNotFound) {
 		t.Fatalf("expected ErrNotFound, got %v", err)
+	}
+}
+
+// ── Calendar Status Unit Tests ───────────────────────────────────────────
+
+func TestComputeDayStatus_ExpectedZero(t *testing.T) {
+	// expected_count == 0 → "none" (weekend, non-school day)
+	status := ComputeDayStatus(0, 0)
+	if status != DayStatusNone {
+		t.Fatalf("expected 'none', got %q", status)
+	}
+}
+
+func TestComputeDayStatus_FullyMarked(t *testing.T) {
+	// handled_count == expected_count (and expected > 0) → "green"
+	status := ComputeDayStatus(6, 6)
+	if status != DayStatusGreen {
+		t.Fatalf("expected 'green', got %q", status)
+	}
+}
+
+func TestComputeDayStatus_NoneMarked(t *testing.T) {
+	// handled_count == 0 (and expected > 0) → "red"
+	status := ComputeDayStatus(6, 0)
+	if status != DayStatusRed {
+		t.Fatalf("expected 'red', got %q", status)
+	}
+}
+
+func TestComputeDayStatus_PartiallyMarked(t *testing.T) {
+	// 0 < handled_count < expected_count → "yellow"
+	status := ComputeDayStatus(6, 3)
+	if status != DayStatusYellow {
+		t.Fatalf("expected 'yellow', got %q", status)
+	}
+}
+
+func TestGetCalendarStatus_Success(t *testing.T) {
+	h := newTestHarness()
+
+	h.repo.listCalendarStatusFn = func(ctx context.Context, tenantID, schoolID, startDate, endDate string) ([]CalendarDayStatusRaw, error) {
+		return []CalendarDayStatusRaw{
+			{Date: "2026-06-01", ExpectedCount: 6, HandledCount: 6}, // green
+			{Date: "2026-06-02", ExpectedCount: 6, HandledCount: 3}, // yellow
+			{Date: "2026-06-03", ExpectedCount: 6, HandledCount: 0}, // red
+			{Date: "2026-06-04", ExpectedCount: 0, HandledCount: 0}, // none (weekend)
+		}, nil
+	}
+
+	result, err := h.svc.GetCalendarStatus(context.Background(), "tenant_001", "school_001", "2026-06-01", "2026-06-04")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if result.Total != 4 {
+		t.Fatalf("expected 4 items, got %d", result.Total)
+	}
+
+	expected := []DayStatus{DayStatusGreen, DayStatusYellow, DayStatusRed, DayStatusNone}
+	for i, item := range result.Items {
+		if item.Status != expected[i] {
+			t.Fatalf("item %d: expected status %q, got %q", i, expected[i], item.Status)
+		}
+	}
+}
+
+func TestGetCalendarStatus_Validation(t *testing.T) {
+	h := newTestHarness()
+
+	// Empty start_date
+	_, err := h.svc.GetCalendarStatus(context.Background(), "t", "s", "", "2026-06-30")
+	if err == nil {
+		t.Fatal("expected error for empty start_date")
+	}
+
+	// Empty end_date
+	_, err = h.svc.GetCalendarStatus(context.Background(), "t", "s", "2026-06-01", "")
+	if err == nil {
+		t.Fatal("expected error for empty end_date")
+	}
+}
+
+func TestGetCalendarStatus_NilToEmptySlice(t *testing.T) {
+	h := newTestHarness()
+
+	h.repo.listCalendarStatusFn = func(ctx context.Context, tenantID, schoolID, startDate, endDate string) ([]CalendarDayStatusRaw, error) {
+		return nil, nil
+	}
+
+	result, err := h.svc.GetCalendarStatus(context.Background(), "t", "s", "2026-06-01", "2026-06-30")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Items == nil {
+		t.Fatal("expected non-nil empty Items slice")
+	}
+	if result.Total != 0 {
+		t.Fatalf("expected 0 total, got %d", result.Total)
 	}
 }

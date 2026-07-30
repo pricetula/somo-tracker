@@ -197,6 +197,39 @@ type RecordFilter struct {
 	Status          string `json:"status,omitempty"`
 }
 
+// ─── Calendar Status Types ────────────────────────────────────────────────
+
+// DayStatus represents whether attendance has been fully handled for a day.
+type DayStatus string
+
+const (
+	DayStatusNone   DayStatus = "none"
+	DayStatusGreen  DayStatus = "green"
+	DayStatusYellow DayStatus = "yellow"
+	DayStatusRed    DayStatus = "red"
+)
+
+// CalendarDayStatusRaw is the raw database result (before status mapping).
+type CalendarDayStatusRaw struct {
+	Date          string `json:"date"`
+	ExpectedCount int    `json:"expected_count"`
+	HandledCount  int    `json:"handled_count"`
+}
+
+// CalendarDayStatus is the per-date attendance completion status with computed status.
+type CalendarDayStatus struct {
+	Date          string    `json:"date"`
+	ExpectedCount int       `json:"expected_count"`
+	HandledCount  int       `json:"handled_count"`
+	Status        DayStatus `json:"status"`
+}
+
+// CalendarStatusListResponse wraps a list of calendar day statuses.
+type CalendarStatusListResponse struct {
+	Items []CalendarDayStatus `json:"items"`
+	Total int                 `json:"total"`
+}
+
 // ─── Response Types ───────────────────────────────────────────────────────
 
 // SessionListResponse wraps a list of enriched sessions.
@@ -322,4 +355,10 @@ type Repository interface {
 
 	// ListClassDailySummaries returns daily summaries for a class within a date range.
 	ListClassDailySummaries(ctx context.Context, tenantID, schoolID, classID, startDate, endDate string) ([]ClassDailyAttendanceSummary, error)
+
+	// ── Calendar Status ───────────────────────────────────────────────
+
+	// ListCalendarStatus returns per-date expected/handled slot counts for a
+	// school over a date range. Returns one row per date in the range.
+	ListCalendarStatus(ctx context.Context, tenantID, schoolID, startDate, endDate string) ([]CalendarDayStatusRaw, error)
 }

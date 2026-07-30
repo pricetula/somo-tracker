@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import {
     batchMarkAttendance,
     createSession,
+    getCalendarStatus,
     getClassTermSummary,
     getSession,
     getSessionsForClassDate,
@@ -61,6 +62,11 @@ export const attendanceKeys = {
             ["attendance", "summaries", "student", studentId, termId] as const,
         byClass: (classId: string, termId?: string) =>
             ["attendance", "summaries", "class", classId, termId] as const,
+    },
+    calendarStatus: {
+        all: ["attendance", "calendar-status"] as const,
+        range: (startDate: string, endDate: string) =>
+            ["attendance", "calendar-status", startDate, endDate] as const,
     },
 };
 
@@ -158,6 +164,22 @@ export function useClassTermSummary(classId: string, termId?: string) {
         queryKey: attendanceKeys.summaries.byClass(classId, termId),
         queryFn: () => getClassTermSummary(classId, termId),
         enabled: !!classId,
+    });
+}
+
+// ─── Calendar Status ───────────────────────────────────────────────────────
+
+/**
+ * Get per-date attendance completion status for a calendar month view.
+ * Fetches once per date-range change (not per individual date cell) to avoid N+1.
+ */
+export function useCalendarStatus(startDate: string, endDate: string, schoolId?: string) {
+    return useQuery({
+        queryKey: attendanceKeys.calendarStatus.range(startDate, endDate),
+        queryFn: () => getCalendarStatus(startDate, endDate),
+        enabled: !!startDate && !!endDate && !!schoolId,
+        // Keep previous data while fetching new range to avoid flash
+        placeholderData: (previousData) => previousData,
     });
 }
 

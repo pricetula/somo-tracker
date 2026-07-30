@@ -142,3 +142,19 @@ export interface UpdateRecordPayload {
     status?: AttendanceStatus;
     note?: string | null;
 }
+
+// ─── Calendar Status ──────────────────────────────────────────────────────
+
+export type DayStatus = "none" | "green" | "yellow" | "red";
+
+export interface CalendarDayStatus {
+    date: string;
+    expected_count: number;
+    handled_count: number;
+    status: DayStatus;
+}
+
+export interface CalendarStatusListResponse {
+    items: CalendarDayStatus[];
+    total: number;
+}

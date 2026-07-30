@@ -357,3 +357,47 @@ func (s *Service) ListClassDailySummaries(ctx context.Context, tenantID, schoolI
 	}
 	return &ClassDailySummaryListResponse{Items: items, Total: len(items)}, nil
 }
+
+// ── Calendar Status ───────────────────────────────────────────────────────
+
+// ComputeDayStatus maps expected/handled counts to a DayStatus.
+// This is a pure function — no DB, no side effects — making it unit-testable.
+func ComputeDayStatus(expectedCount, handledCount int) DayStatus {
+	switch {
+	case expectedCount == 0:
+		return DayStatusNone
+	case handledCount == expectedCount:
+		return DayStatusGreen
+	case handledCount == 0:
+		return DayStatusRed
+	default:
+		return DayStatusYellow
+	}
+}
+
+// GetCalendarStatus returns per-date attendance status for a school over a date range.
+func (s *Service) GetCalendarStatus(ctx context.Context, tenantID, schoolID, startDate, endDate string) (*CalendarStatusListResponse, error) {
+	if startDate == "" {
+		return nil, fmt.Errorf("attendance.Service.GetCalendarStatus: start_date is required: %w", ErrInvalidInput)
+	}
+	if endDate == "" {
+		return nil, fmt.Errorf("attendance.Service.GetCalendarStatus: end_date is required: %w", ErrInvalidInput)
+	}
+
+	raw, err := s.repo.ListCalendarStatus(ctx, tenantID, schoolID, startDate, endDate)
+	if err != nil {
+		return nil, fmt.Errorf("attendance.Service.GetCalendarStatus: %w", err)
+	}
+
+	items := make([]CalendarDayStatus, 0, len(raw))
+	for _, r := range raw {
+		items = append(items, CalendarDayStatus{
+			Date:          r.Date,
+			ExpectedCount: r.ExpectedCount,
+			HandledCount:  r.HandledCount,
+			Status:        ComputeDayStatus(r.ExpectedCount, r.HandledCount),
+		})
+	}
+
+	return &CalendarStatusListResponse{Items: items, Total: len(items)}, nil
+}

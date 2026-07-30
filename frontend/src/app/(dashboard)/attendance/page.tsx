@@ -27,9 +27,6 @@ export default async function AttendancePage() {
         );
     }
 
-    const { AttendanceTimeline } =
-        await import("@/features/attendance/components/attendance-timeline");
-
     return (
         <div className="space-y-6">
             <h1 className="text-2xl font-bold">Attendance</h1>
@@ -37,7 +34,6 @@ export default async function AttendancePage() {
                 Select a class to see today&apos;s schedule and mark attendance.
             </p>
             <AttendanceCalendar />
-            <AttendanceTimeline />
         </div>
     );
 }

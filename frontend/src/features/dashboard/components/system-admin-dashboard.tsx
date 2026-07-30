@@ -159,7 +159,6 @@ export function SystemAdminDashboardPage() {
 
             {/* Daily Attendance Trend */}
             <section>
-                <h2 className="mb-4 text-lg font-medium">Daily Attendance Trend</h2>
                 {classDaily.isLoading ? (
                     <DailyLineChartSkeleton />
                 ) : (

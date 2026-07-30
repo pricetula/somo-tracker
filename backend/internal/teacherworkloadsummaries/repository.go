@@ -31,7 +31,7 @@ func (r *pgRepository) ListByTeacher(ctx context.Context, tenantID, schoolID, us
 	const query = `
 		SELECT id, tenant_id, school_id, user_id, academic_year_id,
 		       total_assigned_periods, unique_subjects, classes_taught,
-		       utilization_percentage, is_overcapacity, last_refreshed_at
+		       utilization_percentage, is_overcapacity, last_refreshed_at::TEXT
 		FROM teacher_workload_summaries
 		WHERE tenant_id = $1 AND school_id = $2
 		  AND user_id = $3 AND academic_year_id = $4
@@ -60,7 +60,7 @@ func (r *pgRepository) ListByYear(ctx context.Context, tenantID, schoolID, yearI
 	const query = `
 		SELECT id, tenant_id, school_id, user_id, academic_year_id,
 		       total_assigned_periods, unique_subjects, classes_taught,
-		       utilization_percentage, is_overcapacity, last_refreshed_at
+		       utilization_percentage, is_overcapacity, last_refreshed_at::TEXT
 		FROM teacher_workload_summaries
 		WHERE tenant_id = $1 AND school_id = $2
 		  AND academic_year_id = $3
@@ -88,7 +88,7 @@ func (r *pgRepository) GetByTeacherYear(ctx context.Context, userID, yearID stri
 	const query = `
 		SELECT id, tenant_id, school_id, user_id, academic_year_id,
 		       total_assigned_periods, unique_subjects, classes_taught,
-		       utilization_percentage, is_overcapacity, last_refreshed_at
+		       utilization_percentage, is_overcapacity, last_refreshed_at::TEXT
 		FROM teacher_workload_summaries
 		WHERE user_id = $1 AND academic_year_id = $2
 	`

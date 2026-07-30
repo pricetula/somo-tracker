@@ -212,7 +212,6 @@ export function SchoolAdminDashboardPage() {
 
             {/* Daily Attendance Trend */}
             <section>
-                <h2 className="mb-4 text-lg font-medium">Daily Attendance</h2>
                 <div className="grid gap-6 lg:grid-cols-2">
                     {classDaily.isLoading ? (
                         <>

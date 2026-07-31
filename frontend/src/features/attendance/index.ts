@@ -4,7 +4,6 @@
 
 export { AttendanceCalendar } from "./components/attendance-calendar";
 export type { DaySummary } from "./components/attendance-calendar";
-export { SessionList } from "./components/session-list";
 export { AttendanceGrid } from "./components/attendance-grid";
 export { AttendanceTimeline } from "./components/attendance-timeline";
 export { AttendanceMarkPage } from "./components/attendance-mark-page";

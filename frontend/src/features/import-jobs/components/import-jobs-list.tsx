@@ -1,27 +1,17 @@
-/**
- * ImportJobsList — list of import jobs using the shared DataTable component.
- *
- * Uses DataTable with built-in pagination and search.
- */
-
 "use client";
 
-import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
 import { XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
-
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/shared/data-table";
-import type { DataTableColumn } from "@/components/shared/data-table/types";
+import { type DataTableColumn } from "@/components/shared/data-table/types";
 import { RowActions } from "@/components/shared/data-table/row-actions";
-import type { RowAction } from "@/components/shared/data-table/row-actions";
-import { listJobs, getActiveImportJob, cancelImportJob, type ImportJob } from "@/lib/api/imports";
+import { type RowAction } from "@/components/shared/data-table/row-actions";
+import { listJobs, cancelImportJob, type ImportJob } from "@/lib/api/imports";
 import { getErrorMessage } from "@/lib/errors";
-
-// ─── Status Badge helper ──────────────────────────────────────────────────
+import Link from "next/link";
 
 function statusBadge(status: string) {
     const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
@@ -35,13 +25,7 @@ function statusBadge(status: string) {
     };
     return <Badge variant={variants[status] ?? "outline"}>{status.replace(/_/g, " ")}</Badge>;
 }
-
-// ─── Cancel action helper ────────────────────────────────────────────────
-
 const CANCELLABLE_STATUSES = ["pending", "processing"];
-
-// ─── Columns factory ──────────────────────────────────────────────────────
-
 function createColumns(
     queryClient: ReturnType<typeof useQueryClient>
 ): DataTableColumn<ImportJob>[] {
@@ -140,45 +124,7 @@ function createColumns(
     ];
 }
 
-// ─── Active Job Banner ────────────────────────────────────────────────────
-
-function ActiveJobBanner() {
-    const { data: activeData } = useQuery({
-        queryKey: ["import-jobs", "active"],
-        queryFn: () => getActiveImportJob(),
-        staleTime: 15 * 1000,
-        refetchInterval: (query) => {
-            const d = query.state.data;
-            if (!d?.active || !d.job) return false;
-            const terminalStatuses = ["completed", "completed_with_errors", "failed", "cancelled"];
-            if (terminalStatuses.includes(d.job.status)) return false;
-            return 5_000;
-        },
-    });
-
-    const activeJob = activeData?.active ? activeData.job : null;
-    if (!activeJob) return null;
-
-    return (
-        <div className="bg-muted/30 mb-4 rounded-md px-4 py-3">
-            <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                    <p className="text-foreground font-medium">Active Import Job</p>
-                    <p className="text-muted-foreground text-xs">
-                        {activeJob.job_type.replace(/_/g, " ")} &mdash;{" "}
-                        {activeJob.success_count + activeJob.failed_count} of{" "}
-                        {activeJob.total_records} processed
-                    </p>
-                </div>
-                <Button variant="outline" size="sm" asChild>
-                    <Link href={`/imports/${activeJob.id}`}>View Details</Link>
-                </Button>
-            </div>
-        </div>
-    );
-}
-
-// ─── Component ────────────────────────────────────────────────────────────
+import { ActiveJobBanner } from "./active-job-banner";
 
 export function ImportJobsList() {
     const queryClient = useQueryClient();

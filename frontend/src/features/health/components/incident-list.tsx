@@ -1,55 +1,19 @@
-/**
- * IncidentList — displays medical incidents with an option to log new ones.
- *
- * SCHOOL_ADMIN / NURSE: sees all incidents for the school.
- * Can also filter by student.
- *
- * Uses the shared DataTable component for paginated listing.
- */
 "use client";
 
-import { useState, useCallback } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { useState } from "react";
 import { format } from "date-fns";
 import { Plus } from "lucide-react";
-
 import { DataTable } from "@/components/shared/data-table";
-import type { DataTableColumn } from "@/components/shared/data-table/types";
-import { RowActions } from "@/components/shared/data-table/row-actions";
+import { type DataTableColumn } from "@/components/shared/data-table/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { listMedicalIncidents, deleteMedicalIncident } from "@/lib/api/health";
-import type { MedicalIncident } from "@/lib/api/health";
-import { getErrorMessage } from "@/lib/errors";
+import { type MedicalIncident } from "@/lib/api/health";
 import { CreateIncidentDialog } from "./create-incident-dialog";
-
-// ─── Props ────────────────────────────────────────────────────────────────
 
 interface IncidentListProps {
     studentId?: string;
 }
-
-// ─── Delete cell ──────────────────────────────────────────────────────────
-
-function DeleteCell({ incident }: { incident: MedicalIncident }) {
-    const queryClient = useQueryClient();
-
-    const handleDelete = useCallback(async () => {
-        try {
-            await deleteMedicalIncident(incident.id);
-            await queryClient.invalidateQueries({ queryKey: ["health", "incidents"] });
-            toast.success("Incident deleted.");
-        } catch (err) {
-            toast.error(getErrorMessage(err));
-        }
-    }, [incident.id, queryClient]);
-
-    return <RowActions rowId={incident.id} label="medical incident" onDelete={handleDelete} />;
-}
-
-// ─── Columns ──────────────────────────────────────────────────────────────
-
 const columns: DataTableColumn<MedicalIncident>[] = [
     {
         id: "symptoms",
@@ -87,9 +51,6 @@ const columns: DataTableColumn<MedicalIncident>[] = [
         cell: (row) => <DeleteCell incident={row} />,
     },
 ];
-
-// ─── Wrapper query fn ─────────────────────────────────────────────────────
-
 function createIncidentQueryFn(studentId?: string) {
     return (params: { page?: number; limit?: number; search?: string }) =>
         listMedicalIncidents({
@@ -99,7 +60,7 @@ function createIncidentQueryFn(studentId?: string) {
         });
 }
 
-// ─── Component ────────────────────────────────────────────────────────────
+import { DeleteCell } from "./delete-cell";
 
 export function IncidentList({ studentId }: IncidentListProps) {
     const [showCreate, setShowCreate] = useState(false);

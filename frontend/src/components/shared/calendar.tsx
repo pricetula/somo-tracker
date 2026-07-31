@@ -1,28 +1,13 @@
-/**
- * Calendar — fork of the shadcn/ui Calendar component.
- *
- * This copy lives outside `src/components/ui/` so we can extend it without
- * violating the "never modify shadcn files" rule.
- *
- * Added extension: a `dayContent` render prop that lets callers inject custom
- * content (colored indicators, badges, etc.) inside each day cell.
- *
- * Original source: src/components/ui/calendar.tsx (shadcn auto-generated)
- */
 "use client";
 
-import * as React from "react";
-import { DayPicker, getDefaultClassNames, type DayButton, type Locale } from "react-day-picker";
-
+import { DayPicker, getDefaultClassNames } from "react-day-picker";
 import { cn } from "@/lib/utils";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon } from "lucide-react";
+import * as React from "react";
+import { DayContentContext } from "./day-content-context";
 
-// ─── Context for day content extension ────────────────────────────────────
-
-const DayContentContext = React.createContext<((date: Date) => React.ReactNode) | null>(null);
-
-// ─── Calendar ─────────────────────────────────────────────────────────────
+import { CalendarDayButton } from "./calendar-day-button";
 
 function Calendar({
     className,
@@ -187,51 +172,6 @@ function Calendar({
                 {...props}
             />
         </DayContentContext.Provider>
-    );
-}
-
-// ─── DayButton (extended with dayContent support) ─────────────────────────
-
-function CalendarDayButton({
-    className,
-    day,
-    modifiers,
-    locale,
-    ...props
-}: React.ComponentProps<typeof DayButton> & { locale?: Partial<Locale> }) {
-    const defaultClassNames = getDefaultClassNames();
-    const dayContent = React.useContext(DayContentContext);
-
-    const ref = React.useRef<HTMLButtonElement>(null);
-    React.useEffect(() => {
-        if (modifiers.focused) ref.current?.focus();
-    }, [modifiers.focused]);
-
-    return (
-        <Button
-            ref={ref}
-            variant="ghost"
-            size="icon"
-            data-day={day.date.toLocaleDateString(locale?.code)}
-            data-selected-single={
-                modifiers.selected &&
-                !modifiers.range_start &&
-                !modifiers.range_end &&
-                !modifiers.range_middle
-            }
-            data-range-start={modifiers.range_start}
-            data-range-end={modifiers.range_end}
-            data-range-middle={modifiers.range_middle}
-            className={cn(
-                "group-data-[focused=true]/day:border-ring group-data-[focused=true]/day:ring-ring/50 data-[range-end=true]:bg-primary data-[range-end=true]:text-primary-foreground data-[range-middle=true]:bg-muted data-[range-middle=true]:text-foreground data-[range-start=true]:bg-primary data-[range-start=true]:text-primary-foreground data-[selected-single=true]:bg-primary data-[selected-single=true]:text-primary-foreground dark:hover:text-foreground relative isolate z-10 flex h-9 w-12 flex-col items-center justify-center gap-0.5 border-0 leading-none font-normal group-data-[focused=true]/day:relative group-data-[focused=true]/day:z-10 group-data-[focused=true]/day:ring-[3px] data-[range-end=true]:rounded-(--cell-radius) data-[range-end=true]:rounded-r-(--cell-radius) data-[range-middle=true]:rounded-none data-[range-start=true]:rounded-(--cell-radius) data-[range-start=true]:rounded-l-(--cell-radius) [&>span]:text-xs [&>span]:opacity-70",
-                defaultClassNames.day,
-                className
-            )}
-            {...props}
-        >
-            {props.children}
-            {dayContent?.(day.date)}
-        </Button>
     );
 }
 

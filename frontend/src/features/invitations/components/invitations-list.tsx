@@ -1,25 +1,9 @@
-/**
- * InvitationsList — shared DataTable listing for sent invitations with revoke support.
- *
- * Used by all invitation pages (admins, teachers, nurses, finance, parents).
- * Provides bulk revoke (via checkboxes) and per-row revoke (via dropdown).
- */
-
 "use client";
 
-import { toast } from "sonner";
-import { useQueryClient } from "@tanstack/react-query";
-import { XCircle } from "lucide-react";
-
 import { DataTable } from "@/components/shared/data-table";
-import type { DataTableColumn } from "@/components/shared/data-table/types";
-import { RowActions } from "@/components/shared/data-table/row-actions";
-import type { RowAction } from "@/components/shared/data-table/row-actions";
+import { type DataTableColumn } from "@/components/shared/data-table/types";
 import { Badge } from "@/components/ui/badge";
 import { listInvitationsByRole, revokeInvitation, type Invitation } from "@/lib/api/invitations";
-import { getErrorMessage } from "@/lib/errors";
-
-// ─── Status badge styles ──────────────────────────────────────────────────
 
 const STATUS_STYLES: Record<string, string> = {
     pending: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
@@ -28,46 +12,6 @@ const STATUS_STYLES: Record<string, string> = {
     revoked: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
     invite_failed: "bg-destructive/10 text-destructive",
 };
-
-// ─── Revoke Cell ──────────────────────────────────────────────────────────
-
-function RevokeCell({
-    invitation,
-    queryKey,
-}: {
-    invitation: Invitation;
-    queryKey: readonly unknown[];
-}) {
-    const queryClient = useQueryClient();
-
-    if (invitation.status !== "pending") {
-        return <div className="w-12" />;
-    }
-
-    const rowActions: RowAction[] = [
-        {
-            label: "Revoke",
-            icon: XCircle,
-            destructive: true,
-            confirmTitle: "Revoke Invitation",
-            confirmDescription: `Are you sure you want to revoke the invitation for "${invitation.email}"? They will no longer be able to accept it.`,
-            onClick: async () => {
-                try {
-                    await revokeInvitation(invitation.id);
-                    queryClient.invalidateQueries({ queryKey });
-                    toast.success("Invitation revoked.");
-                } catch (err) {
-                    toast.error(getErrorMessage(err));
-                }
-            },
-        },
-    ];
-
-    return <RowActions rowId={invitation.id} label={invitation.email} actions={rowActions} />;
-}
-
-// ─── Columns factory ──────────────────────────────────────────────────────
-
 function createColumns(queryKey: readonly unknown[]): DataTableColumn<Invitation>[] {
     return [
         {
@@ -112,16 +56,13 @@ function createColumns(queryKey: readonly unknown[]): DataTableColumn<Invitation
         },
     ];
 }
-
-// ─── Props ────────────────────────────────────────────────────────────────
-
 interface InvitationsListProps {
     role: string;
     queryKey: readonly unknown[];
     emptyState: string;
 }
 
-// ─── InvitationsList ──────────────────────────────────────────────────────
+import { RevokeCell } from "./revoke-cell";
 
 export function InvitationsList({ role, queryKey, emptyState }: InvitationsListProps) {
     const columns = createColumns(queryKey);

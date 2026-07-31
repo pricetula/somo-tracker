@@ -1,44 +1,13 @@
-/**
- * TeacherBehaviorView — shows a teacher's own submitted behavior notes.
- *
- * Uses the shared DataTable component for listing with review status badges.
- * Supports both bulk delete (via checkboxes) and per-row delete (via dropdown).
- */
-
 "use client";
 
 import { format } from "date-fns";
 import { AlertTriangle } from "lucide-react";
-
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/shared/data-table";
-import type { DataTableColumn } from "@/components/shared/data-table/types";
+import { type DataTableColumn } from "@/components/shared/data-table/types";
 import { RowActions } from "@/components/shared/data-table/row-actions";
 import { useTeacherNotes, useDeleteBehaviorNote } from "../hooks/use-behavior";
-import type { TeacherNoteItem } from "@/lib/api/behavior";
-
-// ─── Status Badge ─────────────────────────────────────────────────────────
-
-function StatusBadge({ status }: { status: string }) {
-    switch (status) {
-        case "PENDING_REVIEW":
-            return (
-                <Badge variant="outline" className="text-amber-600">
-                    Pending Review
-                </Badge>
-            );
-        case "APPROVED":
-            return (
-                <Badge className="bg-green-100 text-green-700 hover:bg-green-100">Approved</Badge>
-            );
-        case "REJECTED":
-            return <Badge variant="destructive">Rejected</Badge>;
-        case "INCLUDED_IN_REPORT":
-            return <Badge className="bg-sky-100 text-sky-700 hover:bg-sky-100">In Report</Badge>;
-        default:
-            return <Badge variant="outline">{status}</Badge>;
-    }
-}
+import { type TeacherNoteItem } from "@/lib/api/behavior";
 
 function formatDate(dateStr: string): string {
     try {
@@ -47,9 +16,6 @@ function formatDate(dateStr: string): string {
         return dateStr;
     }
 }
-
-// ─── Columns factory ──────────────────────────────────────────────────────
-
 function createColumns(
     deleteMutation: ReturnType<typeof useDeleteBehaviorNote>
 ): DataTableColumn<TeacherNoteItem>[] {
@@ -125,7 +91,7 @@ function createColumns(
     ];
 }
 
-// ─── Component ────────────────────────────────────────────────────────────
+import { StatusBadge } from "./status-badge";
 
 export function TeacherBehaviorView() {
     const { data, isError } = useTeacherNotes();

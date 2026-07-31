@@ -1,22 +1,17 @@
 "use client";
 
-import * as React from "react";
 import { useRouter } from "next/navigation";
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, format } from "date-fns";
-import dynamic from "next/dynamic";
-import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useCalendarStatus } from "@/features/attendance/hooks/use-attendance";
 import { useMe } from "@/hooks/use-auth";
+import dynamic from "next/dynamic";
+import * as React from "react";
 
-// Disable SSR for the Calendar component (it uses browser APIs)
 const Calendar = dynamic(() => import("@/components/shared/calendar").then((mod) => mod.Calendar), {
     ssr: false,
     loading: () => <CalendarSkeleton />,
 });
-
-// ─── Types ────────────────────────────────────────────────────────────────
-
 export interface DaySummary {
     present: number;
     absent: number;
@@ -24,13 +19,7 @@ export interface DaySummary {
     excused: number;
     total: number;
 }
-
 export type DayStatus = "none" | "green" | "yellow" | "red";
-
-// ─── Helpers ──────────────────────────────────────────────────────────────
-
-/** Compute the visible date range for a given month, including leading/trailing
- *  days from adjacent months that appear in the calendar grid. */
 function getVisibleRange(year: number, month: number): { start: string; end: string } {
     const monthDate = new Date(year, month, 1);
     const monthStart = startOfMonth(monthDate);
@@ -43,68 +32,9 @@ function getVisibleRange(year: number, month: number): { start: string; end: str
         end: format(gridEnd, "yyyy-MM-dd"),
     };
 }
-
-/** Convert a date to a string key for the status map. */
 function dateToKey(date: Date): string {
     return format(date, "yyyy-MM-dd");
 }
-
-// ─── Skeleton ─────────────────────────────────────────────────────────────
-
-function CalendarSkeleton() {
-    return (
-        <div className="w-92 rounded-md p-3">
-            <div className="flex items-center justify-between px-1 pt-1 pb-4">
-                <Skeleton className="h-7 w-7 rounded-md" />
-                <Skeleton className="h-4 w-28" />
-                <Skeleton className="h-7 w-7 rounded-md" />
-            </div>
-            <div className="mb-2 grid grid-cols-7 gap-1">
-                {Array.from({ length: 7 }).map((_, i) => (
-                    <div key={i} className="flex h-8 items-center justify-center">
-                        <Skeleton className="h-3 w-4" />
-                    </div>
-                ))}
-            </div>
-            <div className="grid grid-cols-7 gap-2">
-                {Array.from({ length: 35 }).map((_, i) => (
-                    <div key={i} className="flex h-8 items-center justify-center">
-                        <Skeleton className="h-8 w-8 rounded-md" />
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-}
-
-// ─── Status Dot ───────────────────────────────────────────────────────────
-
-interface StatusDotProps {
-    status: DayStatus;
-}
-
-function StatusDot({ status }: StatusDotProps) {
-    if (status === "none") return null;
-
-    const colorClass = {
-        green: "bg-green-500",
-        yellow: "bg-yellow-500",
-        red: "bg-red-500",
-    }[status];
-
-    return (
-        <span
-            className={cn(
-                "absolute -bottom-0.5 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full",
-                colorClass
-            )}
-            aria-hidden="true"
-        />
-    );
-}
-
-// ─── Component ────────────────────────────────────────────────────────────
-
 interface AttendanceCalendarProps {
     /** School ID for fetching attendance status data. If omitted, derived from auth. */
     schoolId?: string;
@@ -113,6 +43,9 @@ interface AttendanceCalendarProps {
     /** Legacy prop for backwards compatibility (previously passed by dashboard). */
     attendanceRateMap?: Record<string, number>;
 }
+
+import { CalendarSkeleton } from "./calendar-skeleton";
+import { StatusDot } from "./status-dot";
 
 export function AttendanceCalendar({ schoolId: propSchoolId, className }: AttendanceCalendarProps) {
     const router = useRouter();

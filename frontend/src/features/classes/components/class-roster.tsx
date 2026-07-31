@@ -1,26 +1,9 @@
-/**
- * ClassRoster — Displays the roster of students enrolled in a class.
- *
- * Uses the shared DataTable component with paginated roster data.
- * Student names are links to the student profile page (intercepted as side sheet).
- * Supports bulk unenroll via checkbox selection and per-row unenroll via dropdown.
- */
-
 "use client";
 
-import Link from "next/link";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { UserMinus } from "lucide-react";
-
 import { DataTable } from "@/components/shared/data-table";
-import type { DataTableColumn } from "@/components/shared/data-table/types";
-import { RowActions } from "@/components/shared/data-table/row-actions";
-import type { RowAction } from "@/components/shared/data-table/row-actions";
+import { type DataTableColumn } from "@/components/shared/data-table/types";
 import { getClassRoster, unenrollStudent, type RosterEntry } from "@/lib/api/classes";
-import { getErrorMessage } from "@/lib/errors";
-import { toast } from "sonner";
-
-// ─── Props ─────────────────────────────────────────────────────────────────
+import Link from "next/link";
 
 interface ClassRosterProps {
     classId: string;
@@ -29,54 +12,6 @@ interface ClassRosterProps {
     /** Optional academic term ID; if omitted the backend uses the current term. */
     academicTermId?: string;
 }
-
-// ─── Unenroll Cell Component ───────────────────────────────────────────────
-
-function UnenrollCell({
-    classId,
-    student,
-    academicTermId,
-}: {
-    classId: string;
-    student: RosterEntry;
-    academicTermId?: string;
-}) {
-    const queryClient = useQueryClient();
-
-    const unenrollMutation = useMutation({
-        mutationFn: () => unenrollStudent(classId, student.id, academicTermId),
-        onSuccess: () => {
-            toast.success(`${student.full_name} unenrolled.`);
-            queryClient.invalidateQueries({ queryKey: ["class-roster", classId] });
-        },
-        onError: (err) => {
-            toast.error(getErrorMessage(err));
-        },
-    });
-
-    const rowActions: RowAction[] = [
-        {
-            label: "Unenroll",
-            icon: UserMinus,
-            destructive: true,
-            confirmTitle: "Unenroll Student",
-            confirmDescription: `Are you sure you want to unenroll "${student.full_name}" from this class? Their enrollment record will be marked as suspended.`,
-            onClick: () => unenrollMutation.mutate(),
-        },
-    ];
-
-    return (
-        <RowActions
-            rowId={student.id}
-            label={student.full_name}
-            actions={rowActions}
-            disabled={unenrollMutation.isPending}
-        />
-    );
-}
-
-// ─── Columns ───────────────────────────────────────────────────────────────
-
 function buildColumns(classId: string, academicTermId?: string): DataTableColumn<RosterEntry>[] {
     return [
         {
@@ -103,13 +38,6 @@ function buildColumns(classId: string, academicTermId?: string): DataTableColumn
         },
     ];
 }
-
-// ─── Wrapper query function ────────────────────────────────────────────────
-
-/**
- * Wraps getClassRoster into the ListApiFn signature expected by DataTable.
- * The classId, academicYearId, and academicTermId are baked in via a closure.
- */
 function createRosterQueryFn(classId: string, academicYearId?: string, academicTermId?: string) {
     return (params: { page?: number; limit?: number; search?: string }) =>
         getClassRoster(classId, {
@@ -120,16 +48,13 @@ function createRosterQueryFn(classId: string, academicYearId?: string, academicT
             search: params.search,
         });
 }
-
-// ─── Bulk unenroll wrapper ─────────────────────────────────────────────────
-
 function createBulkUnenrollFn(classId: string, academicTermId?: string) {
     return async (id: string | number) => {
         await unenrollStudent(classId, String(id), academicTermId);
     };
 }
 
-// ─── ClassRoster (DataTable) ───────────────────────────────────────────────
+import { UnenrollCell } from "./unenroll-cell";
 
 export function ClassRoster({ classId, academicYearId, academicTermId }: ClassRosterProps) {
     const columns = buildColumns(classId, academicTermId);

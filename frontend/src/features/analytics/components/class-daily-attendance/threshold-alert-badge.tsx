@@ -1,14 +1,6 @@
-/**
- * ThresholdAlertBadge — Red badge when a class drops below 80% attendance.
- *
- * Visualisation: Inline alert indicators for low-attendance days.
- * Props: Current attendance rate and optional metadata.
- */
 "use client";
 
 import { cn } from "@/lib/utils";
-
-// ─── Types ────────────────────────────────────────────────────────────────
 
 export interface ThresholdAlert {
     date: string;
@@ -17,9 +9,6 @@ export interface ThresholdAlert {
     className?: string;
     threshold?: number;
 }
-
-// ─── Component ────────────────────────────────────────────────────────────
-
 interface ThresholdAlertBadgeProps {
     currentRate: number;
     threshold?: number;
@@ -82,59 +71,6 @@ export function ThresholdAlertBadge({
                 {currentRate.toFixed(1)}% attendance
                 {threshold && ` (below ${threshold}% threshold)`}
             </p>
-        </div>
-    );
-}
-
-// ─── Alert List ───────────────────────────────────────────────────────────
-
-interface ThresholdAlertListProps {
-    alerts: ThresholdAlert[];
-}
-
-export function ThresholdAlertList({ alerts }: ThresholdAlertListProps) {
-    const active = alerts.filter((a) => a.rate < (a.threshold ?? 80));
-
-    if (!active.length) {
-        return (
-            <div className="space-y-1">
-                <p className="text-foreground text-sm font-medium">Attendance Alerts</p>
-                <p className="text-xs text-emerald-600">All classes above threshold</p>
-            </div>
-        );
-    }
-
-    return (
-        <div className="space-y-2">
-            <div className="flex items-center justify-between">
-                <p className="text-foreground text-sm font-medium">Attendance Alerts</p>
-                <span className="bg-destructive/15 text-destructive rounded-full px-2 py-0.5 text-xs font-medium">
-                    {active.length} {active.length === 1 ? "alert" : "alerts"}
-                </span>
-            </div>
-            <div className="space-y-1">
-                {active.map((alert) => (
-                    <ThresholdAlertBadge
-                        key={`${alert.date}-${alert.className}`}
-                        currentRate={alert.rate}
-                        threshold={alert.threshold}
-                        classLabel={alert.className}
-                        dateLabel={alert.dateLabel}
-                        variant="card"
-                    />
-                ))}
-            </div>
-        </div>
-    );
-}
-
-// ─── Skeleton ─────────────────────────────────────────────────────────────
-
-export function ThresholdAlertBadgeSkeleton() {
-    return (
-        <div className="space-y-2">
-            <div className="bg-muted h-4 w-36 animate-pulse rounded" />
-            <div className="bg-muted h-12 w-full animate-pulse rounded" />
         </div>
     );
 }

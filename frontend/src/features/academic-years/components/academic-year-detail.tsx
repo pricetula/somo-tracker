@@ -1,16 +1,7 @@
-/**
- * AcademicYearDetail — shows a single academic year with its terms.
- *
- * Includes actions: Set Current, Edit Year (inline form toggle),
- * Delete Year, Add Term (dialog), Edit Term (dialog).
- * Uses the shared DataTable component for the terms listing.
- */
-
 "use client";
 
 import { useState } from "react";
 import { toast } from "sonner";
-
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -28,7 +19,7 @@ import {
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { DataTable } from "@/components/shared/data-table";
-import type { DataTableColumn } from "@/components/shared/data-table/types";
+import { type DataTableColumn } from "@/components/shared/data-table/types";
 import { getErrorMessage } from "@/lib/errors";
 import {
     useAcademicYearDetail,
@@ -36,45 +27,16 @@ import {
     useDeleteAcademicYear,
 } from "../hooks/use-academic-years";
 import { listTerms } from "@/lib/api/academic-terms";
-import type { AcademicTerm } from "@/lib/api/academic-terms";
+import { type AcademicTerm } from "@/lib/api/academic-terms";
 import { AcademicYearForm } from "./academic-year-form";
 import { TermForm } from "./term-form";
-
-// ─── Actions cell for terms ───────────────────────────────────────────────
-
-function TermActionsCell({
-    term,
-    onEdit,
-}: {
-    term: AcademicTerm;
-    onEdit: (term: AcademicTerm) => void;
-}) {
-    return (
-        <div className="flex items-center justify-end">
-            <Button variant="outline" size="sm" onClick={() => onEdit(term)}>
-                Edit
-            </Button>
-        </div>
-    );
-}
-
-// ─── Term status cell ─────────────────────────────────────────────────────
-
-function TermStatusCell({ term }: { term: AcademicTerm }) {
-    return term.is_current ? (
-        <Badge variant="default">Current</Badge>
-    ) : (
-        <span className="text-muted-foreground">Scheduled</span>
-    );
-}
-
-// ─── Props ────────────────────────────────────────────────────────────────
 
 interface AcademicYearDetailProps {
     id: string;
 }
 
-// ─── Component ────────────────────────────────────────────────────────────
+import { TermActionsCell } from "./term-actions-cell";
+import { TermStatusCell } from "./term-status-cell";
 
 export function AcademicYearDetail({ id }: AcademicYearDetailProps) {
     const { data: year, isLoading, isError, error } = useAcademicYearDetail(id);

@@ -7,6 +7,7 @@
 
 import { useState } from "react";
 import { format } from "date-fns";
+import { useParams, useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -37,6 +38,11 @@ function formatDate(dateStr: string) {
 // ─── Component ────────────────────────────────────────────────────────────
 
 export function SessionList() {
+    const searchParams = useSearchParams();
+    const schoolId = searchParams.get("classid");
+    const params = useParams();
+    console.log(params, schoolId);
+
     const [classFilter, setClassFilter] = useState("");
     const [dateFilter, setDateFilter] = useState("");
 

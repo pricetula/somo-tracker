@@ -29,10 +29,6 @@ export default async function AttendancePage() {
 
     return (
         <div className="space-y-6">
-            <h1 className="text-2xl font-bold">Attendance</h1>
-            <p className="text-muted-foreground">
-                Select a class to see today&apos;s schedule and mark attendance.
-            </p>
             <AttendanceCalendar />
         </div>
     );

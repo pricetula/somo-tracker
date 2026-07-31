@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, format } from "date-fns";
 import dynamic from "next/dynamic";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -114,6 +115,7 @@ interface AttendanceCalendarProps {
 }
 
 export function AttendanceCalendar({ schoolId: propSchoolId, className }: AttendanceCalendarProps) {
+    const router = useRouter();
     const { data: me } = useMe();
     const schoolId = propSchoolId ?? me?.school_id ?? "";
 
@@ -156,10 +158,16 @@ export function AttendanceCalendar({ schoolId: propSchoolId, className }: Attend
 
     return (
         <section className={cn("w-fit", className)}>
+            <header>Attendance Calendar</header>
             <Calendar
                 month={currentMonth}
                 onMonthChange={setCurrentMonth}
-                onDayClick={console.log}
+                onDayClick={(date) => {
+                    const dateStr = format(date, "yyyy-MM-dd");
+                    if (dateStr) {
+                        router.push(`/attendance/${dateStr}`);
+                    }
+                }}
                 disabled={[{ after: today }]}
                 dayContent={dayContent}
                 showOutsideDays={true}

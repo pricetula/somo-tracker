@@ -26,7 +26,7 @@ func (r *pgRepository) CreateSession(ctx context.Context, tenantID, schoolID str
 	err := r.pool.QueryRow(ctx, `
 		INSERT INTO cbc_attendance_sessions (tenant_id, school_id, timetable_slot_id, date, status, skip_reason)
 		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id, tenant_id, school_id, timetable_slot_id, date, status, skip_reason, created_at
+		RETURNING id, tenant_id, school_id, timetable_slot_id, date::text, status, skip_reason, created_at
 	`, tenantID, schoolID, payload.TimetableSlotID, payload.Date, payload.Status, payload.SkipReason).Scan(
 		&s.ID, &s.TenantID, &s.SchoolID, &s.TimetableSlotID, &s.Date, &s.Status, &s.SkipReason, &s.CreatedAt,
 	)
@@ -39,7 +39,7 @@ func (r *pgRepository) CreateSession(ctx context.Context, tenantID, schoolID str
 func (r *pgRepository) GetSessionByID(ctx context.Context, id, tenantID string) (*AttendanceSession, error) {
 	var s AttendanceSession
 	err := r.pool.QueryRow(ctx, `
-		SELECT id, tenant_id, school_id, timetable_slot_id, date, status, skip_reason, created_at, updated_at
+		SELECT id, tenant_id, school_id, timetable_slot_id, date::text, status, skip_reason, created_at, updated_at
 		FROM cbc_attendance_sessions
 		WHERE id = $1 AND tenant_id = $2
 	`, id, tenantID).Scan(
@@ -57,7 +57,7 @@ func (r *pgRepository) GetSessionByID(ctx context.Context, id, tenantID string) 
 func (r *pgRepository) GetEnrichedSessionByID(ctx context.Context, id, tenantID string) (*SessionWithEnrichedData, error) {
 	query := `
 		SELECT
-			s.id, s.tenant_id, s.school_id, s.timetable_slot_id, s.date, s.status, s.skip_reason,
+			s.id, s.tenant_id, s.school_id, s.timetable_slot_id, s.date::text, s.status, s.skip_reason,
 			s.created_at, s.updated_at,
 			c.grade_level || ' ' || COALESCE(st.name, '') AS class_name,
 			COALESCE(st.name, '') AS stream_name,
@@ -104,7 +104,7 @@ func (r *pgRepository) GetEnrichedSessionByID(ctx context.Context, id, tenantID 
 func (r *pgRepository) ListSessions(ctx context.Context, filter SessionFilter) ([]SessionWithEnrichedData, error) {
 	query := `
 		SELECT
-			s.id, s.tenant_id, s.school_id, s.timetable_slot_id, s.date, s.status, s.skip_reason,
+			s.id, s.tenant_id, s.school_id, s.timetable_slot_id, s.date::text, s.status, s.skip_reason,
 			s.created_at, s.updated_at,
 			c.grade_level || ' ' || COALESCE(st.name, '') AS class_name,
 			COALESCE(st.name, '') AS stream_name,
@@ -219,7 +219,7 @@ func (r *pgRepository) UpdateSession(ctx context.Context, id, tenantID string, p
 		UPDATE cbc_attendance_sessions
 		SET %s
 		WHERE id = $%d AND tenant_id = $%d
-		RETURNING id, tenant_id, school_id, timetable_slot_id, date, status, skip_reason, created_at, updated_at
+		RETURNING id, tenant_id, school_id, timetable_slot_id, date::text, status, skip_reason, created_at, updated_at
 	`, setClause, argIdx, argIdx+1)
 
 	args = append(args, id, tenantID)

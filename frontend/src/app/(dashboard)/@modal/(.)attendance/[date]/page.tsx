@@ -9,7 +9,6 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { SessionList } from "@/features/attendance/components/session-list";
 import {
     Sheet,
     SheetContent,
@@ -17,6 +16,7 @@ import {
     SheetTitle,
     SheetDescription,
 } from "@/components/ui/sheet";
+import { AttendanceTimeline } from "@/features/attendance";
 
 export default function AttendanceSessions() {
     const router = useRouter();
@@ -33,7 +33,7 @@ export default function AttendanceSessions() {
                     <SheetDescription>List attendance sessions</SheetDescription>
                 </SheetHeader>
 
-                <SessionList />
+                <AttendanceTimeline />
             </SheetContent>
         </Sheet>
     );

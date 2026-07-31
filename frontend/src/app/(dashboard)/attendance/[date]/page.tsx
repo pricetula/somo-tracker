@@ -8,6 +8,6 @@
 
 "use client";
 
-import { SessionList } from "@/features/attendance/components/session-list";
+import { AttendanceTimeline } from "@/features/attendance";
 
-export default SessionList;
+export default AttendanceTimeline;

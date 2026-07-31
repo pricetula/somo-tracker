@@ -1,15 +1,18 @@
 "use client";
 
-import { format, isSameDay, isAfter, isBefore, parse } from "date-fns";
+import * as React from "react";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
+import { format, isSameDay, isAfter, isBefore, parse, parseISO, isValid } from "date-fns";
 import { ClassCombobox } from "@/features/classes/components/class-combobox";
 import { DatePicker } from "@/components/ui/date-picker";
 import { useAcademicYears } from "@/features/academic-terms/hooks/use-academic-terms";
 import { useEnrichedSlotList } from "@/features/timetable-structure/hooks/use-timetable-structure";
 import { Skeleton } from "@/components/ui/skeleton";
 import { type EnrichedSlot } from "@/lib/api/timetable-structure";
-import * as React from "react";
+import { TimelineItem } from "./timeline-item";
 
 type SlotStatus = "active" | "missed" | "completed" | "upcoming" | "break";
+
 function getSlotStatus(slot: EnrichedSlot, now: Date, s: string): SlotStatus {
     if (slot.is_break) return "break";
 
@@ -26,15 +29,26 @@ function getSlotStatus(slot: EnrichedSlot, now: Date, s: string): SlotStatus {
 
     return "missed";
 }
-function todayDateString(): string {
-    return format(new Date(), "yyyy-MM-dd");
+
+function getValidDateString(dateString: string) {
+    // 1. Parse the incoming route parameter string
+    const parsedDate = parseISO(dateString);
+
+    // 2. Check if it's a valid calendar date (catches things like "2020-02-30" or "abc")
+    if (!isValid(parsedDate)) {
+        return format(new Date(), "yyyy-MM-dd");
+    }
+
+    // 3. Guarantee the output is cleanly formatted as "yyyy-MM-dd"
+    return format(parsedDate, "yyyy-MM-dd");
 }
 
-import { TimelineItem } from "./timeline-item";
-
 export function AttendanceTimeline() {
-    const [classId, setClassId] = React.useState<string>("");
-    const [selectedDate, setSelectedDate] = React.useState<string>(todayDateString());
+    const router = useRouter();
+    const params = useParams<{ date: string }>();
+    const searchParam = useSearchParams();
+    const selectedClassId = searchParam.get("classid") ?? "";
+    const selectedDate = getValidDateString(params?.date ?? "");
 
     // Fetch academic years to find the current one
     const { data: yearsData } = useAcademicYears();
@@ -54,7 +68,10 @@ export function AttendanceTimeline() {
         data: slotsData,
         isLoading,
         isError,
-    } = useEnrichedSlotList(academicYearId, classId ? { classId, date: selectedDate } : undefined);
+    } = useEnrichedSlotList(
+        academicYearId,
+        selectedClassId ? { classId: selectedClassId, date: selectedDate } : undefined
+    );
 
     // Slots are already filtered to the correct day-of-week by the backend.
     const allSlots = React.useMemo(() => {
@@ -66,9 +83,27 @@ export function AttendanceTimeline() {
     const now = React.useMemo(() => new Date(), []);
 
     // Auto-select first class when classes load
-    const handleClassChange = React.useCallback((val: string | string[]) => {
-        setClassId(val as string);
-    }, []);
+    const handleClassChange = React.useCallback(
+        (classId: string) => {
+            let nextRoute = `/attendance/${selectedDate}`;
+            if (classId) {
+                nextRoute += `?classid=${classId}`;
+            }
+            router.replace(nextRoute);
+        },
+        [router, selectedDate]
+    );
+
+    const setSelectedDate = React.useCallback(
+        (dateStr: string) => {
+            let nextRoute = `/attendance/${dateStr}`;
+            if (selectedClassId) {
+                nextRoute += `?classid=${selectedClassId}`;
+            }
+            router.replace(nextRoute);
+        },
+        [router, selectedClassId]
+    );
 
     // ── Loading state ────────────────────────────────────────────────────
     if (isLoading || !academicYearId) {
@@ -93,36 +128,13 @@ export function AttendanceTimeline() {
         );
     }
 
-    // ── No slots for date ────────────────────────────────────────────────
-    if (allSlots.length === 0) {
-        return (
-            <div className="space-y-4">
-                <div className="flex flex-wrap items-center gap-3">
-                    <div className="w-full max-w-xs">
-                        <ClassCombobox
-                            value={classId}
-                            onChange={handleClassChange}
-                            placeholder="Select a class..."
-                            doPreselectFirstOption
-                        />
-                    </div>
-                    <DatePicker value={selectedDate} onChange={setSelectedDate} />
-                </div>
-                <div className="text-muted-foreground py-12 text-center text-sm">
-                    No timetable slots scheduled for{" "}
-                    {format(new Date(selectedDate + "T00:00:00"), "EEEE, MMMM d, yyyy")}.
-                </div>
-            </div>
-        );
-    }
-
     // ── Render ───────────────────────────────────────────────────────────
     return (
         <div className="space-y-4">
             <div className="flex max-w-50 items-center gap-3">
                 <ClassCombobox
-                    value={classId}
-                    onChange={handleClassChange}
+                    value={selectedClassId}
+                    onChange={(s) => handleClassChange(Array.isArray(s) ? s[0] : s)}
                     placeholder="Select a class..."
                     doPreselectFirstOption
                 />

@@ -4,17 +4,19 @@ package reports
 
 import (
 	"context"
-	"fmt"
 
-	"somotracker/backend/internal/middleware"
+	"somotracker/backend/internal/xerrors"
 )
 
 // ─── Sentinel domain errors ───────────────────────────────────────────────
 
 var (
-	ErrNotFound     = fmt.Errorf("report not found: %w", middleware.ErrNotFound)
-	ErrInvalidInput = fmt.Errorf("invalid report input: %w", middleware.ErrInvalidInput)
-	ErrForbidden    = fmt.Errorf("forbidden: %w", middleware.ErrForbidden)
+	ErrNotFound      = xerrors.NotFound("report not found")
+	ErrAlreadyExists = xerrors.AlreadyExists("report already exists")
+	ErrInvalidInput  = xerrors.InvalidInput("invalid report input")
+	ErrUnauthorized  = xerrors.Unauthorized("unauthorized")
+	ErrForbidden     = xerrors.Forbidden("forbidden")
+	ErrConflict      = xerrors.Conflict("report conflict")
 )
 
 // ─── Report Types ─────────────────────────────────────────────────────────

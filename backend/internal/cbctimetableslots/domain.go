@@ -7,23 +7,22 @@ package cbctimetableslots
 
 import (
 	"context"
-	"fmt"
 	"time"
 
-	"somotracker/backend/internal/middleware"
+	"somotracker/backend/internal/xerrors"
 )
 
 // Sentinel domain errors.
 var (
-	ErrNotFound            = fmt.Errorf("cbctimetableslots not found: %w", middleware.ErrNotFound)
-	ErrAlreadyExists       = fmt.Errorf("cbctimetableslots already exists: %w", middleware.ErrAlreadyExists)
-	ErrInvalidInput        = fmt.Errorf("invalid cbctimetableslots input: %w", middleware.ErrInvalidInput)
-	ErrUnauthorized        = fmt.Errorf("unauthorized: %w", middleware.ErrUnauthorized)
-	ErrForbidden           = fmt.Errorf("forbidden: %w", middleware.ErrForbidden)
-	ErrConflict            = fmt.Errorf("cbctimetableslots conflict: %w", middleware.ErrConflict)
-	ErrTeacherDoubleBooked = fmt.Errorf("teacher already assigned during this period: %w", middleware.ErrConflict)
-	ErrRoomDoubleBooked    = fmt.Errorf("room already assigned during this period: %w", middleware.ErrConflict)
-	ErrClassSlotOccupied   = fmt.Errorf("class already has an assignment for this period: %w", middleware.ErrConflict)
+	ErrNotFound            = xerrors.NotFound("cbctimetableslot not found")
+	ErrAlreadyExists       = xerrors.AlreadyExists("cbctimetableslot already exists")
+	ErrInvalidInput        = xerrors.InvalidInput("invalid cbctimetableslot input")
+	ErrUnauthorized        = xerrors.Unauthorized("unauthorized")
+	ErrForbidden           = xerrors.Forbidden("forbidden")
+	ErrConflict            = xerrors.Conflict("cbctimetableslot conflict")
+	ErrTeacherDoubleBooked = xerrors.Conflict("teacher already assigned during this period")
+	ErrRoomDoubleBooked    = xerrors.Conflict("room already assigned during this period")
+	ErrClassSlotOccupied   = xerrors.Conflict("class already has an assignment for this period")
 )
 
 // TimetableSlot represents a single allocation (class → teacher → area → room) for a structure block.

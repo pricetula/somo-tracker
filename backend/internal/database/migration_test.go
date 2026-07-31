@@ -758,8 +758,8 @@ func TestMigrationsIntegration_UniqueConstraints_M14_to_M17(t *testing.T) {
 	_, err = pool.Exec(ctx, `INSERT INTO users (id, email, tenant_id, full_name) VALUES ($1, $2, $3, $4)`,
 		uuid.New().String(), "user-a@test.com", tenantA, "Dup Email")
 	require.Error(t, err, "M16: duplicate email should be rejected")
-	require.Contains(t, err.Error(), "idx_users_email")
-	t.Log("✓ M16: idx_users_email rejects duplicate email")
+	require.Contains(t, err.Error(), "idx_users_tenant_email")
+	t.Log("✓ M16: idx_users_tenant_email rejects duplicate email")
 
 	// ======================================================================
 	// M17: unique_user_school_membership — duplicate (user_id, school_id) rejected

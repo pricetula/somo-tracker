@@ -2,13 +2,12 @@ package invitations
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"somotracker/backend/internal/middleware"
+	"somotracker/backend/internal/xerrors"
 )
 
 // SchoolResolver resolves the active school for an authenticated user.
@@ -19,12 +18,12 @@ type SchoolResolver interface {
 
 // Sentinel domain errors.
 var (
-	ErrNotFound      = fmt.Errorf("invitations not found: %w", middleware.ErrNotFound)
-	ErrAlreadyExists = fmt.Errorf("invitations already exists: %w", middleware.ErrAlreadyExists)
-	ErrInvalidInput  = fmt.Errorf("invalid invitations input: %w", middleware.ErrInvalidInput)
-	ErrUnauthorized  = fmt.Errorf("unauthorized: %w", middleware.ErrUnauthorized)
-	ErrForbidden     = fmt.Errorf("forbidden: %w", middleware.ErrForbidden)
-	ErrConflict      = fmt.Errorf("invitations conflict: %w", middleware.ErrConflict)
+	ErrNotFound      = xerrors.NotFound("invitation not found")
+	ErrAlreadyExists = xerrors.AlreadyExists("invitation already exists")
+	ErrInvalidInput  = xerrors.InvalidInput("invalid invitation input")
+	ErrUnauthorized  = xerrors.Unauthorized("unauthorized")
+	ErrForbidden     = xerrors.Forbidden("forbidden")
+	ErrConflict      = xerrors.Conflict("invitation conflict")
 )
 
 // Repository defines the contract for invitation persistence.

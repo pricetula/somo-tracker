@@ -40,6 +40,19 @@ export interface AcademicYear {
     terms?: AcademicTerm[];
 }
 
+export interface CurrentAcademicYearWithCurrentTerm {
+    academic_year_id: string;
+    academic_year_name: string;
+    academic_year_start_date: string;
+    academic_year_end_date: string;
+    academic_term_id: string;
+    academic_term_name: string;
+    academic_term_number: string;
+    academic_term_start_date: string;
+    academic_term_end_date: string;
+    academic_term_is_final: boolean;
+}
+
 // ─── Create / Update Payloads ─────────────────────────────────────────────
 
 export interface CreateAcademicYearPayload {
@@ -71,6 +84,11 @@ export interface UpdateTermPayload {
 }
 
 // ─── API Functions — Academic Years ────────────────────────────────────────
+
+/** List academic years for the active school. */
+export async function getCurrentYearAndTerm(): Promise<CurrentAcademicYearWithCurrentTerm> {
+    return await api.get<CurrentAcademicYearWithCurrentTerm>("/api/v1/academic-years/current");
+}
 
 /** List academic years for the active school. */
 export async function listAcademicYears(): Promise<{ items: AcademicYear[] }> {

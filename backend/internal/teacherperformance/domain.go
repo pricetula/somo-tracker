@@ -9,20 +9,18 @@
 package teacherperformance
 
 import (
-	"fmt"
-
-	"somotracker/backend/internal/middleware"
+	"somotracker/backend/internal/xerrors"
 )
 
 // ── Sentinel domain errors ───────────────────────────────────────────────
 
 var (
-	ErrNotFound      = fmt.Errorf("teacher performance not found: %w", middleware.ErrNotFound)
-	ErrAlreadyExists = fmt.Errorf("teacher performance already exists: %w", middleware.ErrAlreadyExists)
-	ErrInvalidInput  = fmt.Errorf("invalid teacher performance input: %w", middleware.ErrInvalidInput)
-	ErrUnauthorized  = fmt.Errorf("unauthorized: %w", middleware.ErrUnauthorized)
-	ErrForbidden     = fmt.Errorf("forbidden: %w", middleware.ErrForbidden)
-	ErrConflict      = fmt.Errorf("teacher performance conflict: %w", middleware.ErrConflict)
+	ErrNotFound      = xerrors.NotFound("teacher performance not found")
+	ErrAlreadyExists = xerrors.AlreadyExists("teacher performance already exists")
+	ErrInvalidInput  = xerrors.InvalidInput("invalid teacher performance input")
+	ErrUnauthorized  = xerrors.Unauthorized("unauthorized")
+	ErrForbidden     = xerrors.Forbidden("forbidden")
+	ErrConflict      = xerrors.Conflict("teacher performance conflict")
 )
 
 // ── Domain Models ────────────────────────────────────────────────────────

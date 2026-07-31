@@ -2,22 +2,21 @@ package cbcclasses
 
 import (
 	"context"
-	"fmt"
 	"time"
 
-	"somotracker/backend/internal/middleware"
+	"somotracker/backend/internal/xerrors"
 )
 
 // Sentinel domain errors.
 var (
-	ErrNotFound           = fmt.Errorf("cbcclasses not found: %w", middleware.ErrNotFound)
-	ErrAlreadyExists      = fmt.Errorf("cbcclasses already exists: %w", middleware.ErrAlreadyExists)
-	ErrInvalidInput       = fmt.Errorf("invalid cbcclasses input: %w", middleware.ErrInvalidInput)
-	ErrUnauthorized       = fmt.Errorf("unauthorized: %w", middleware.ErrUnauthorized)
-	ErrForbidden          = fmt.Errorf("forbidden: %w", middleware.ErrForbidden)
-	ErrConflict           = fmt.Errorf("cbcclasses conflict: %w", middleware.ErrConflict)
-	ErrEnrollmentConflict = fmt.Errorf("enrollment conflict: some students are already enrolled elsewhere: %w", middleware.ErrConflict)
-	ErrStudentNotInClass  = fmt.Errorf("student is not enrolled in this class: %w", middleware.ErrNotFound)
+	ErrNotFound           = xerrors.NotFound("cbcclass not found")
+	ErrAlreadyExists      = xerrors.AlreadyExists("cbcclass already exists")
+	ErrInvalidInput       = xerrors.InvalidInput("invalid cbcclass input")
+	ErrUnauthorized       = xerrors.Unauthorized("unauthorized")
+	ErrForbidden          = xerrors.Forbidden("forbidden")
+	ErrConflict           = xerrors.Conflict("cbcclass conflict")
+	ErrEnrollmentConflict = xerrors.Conflict("enrollment conflict: some students are already enrolled elsewhere")
+	ErrStudentNotInClass  = xerrors.NotFound("student is not enrolled in this class")
 )
 
 // Repository defines the contract for class persistence.

@@ -2,21 +2,20 @@ package members
 
 import (
 	"context"
-	"fmt"
 	"time"
 
-	"somotracker/backend/internal/middleware"
+	"somotracker/backend/internal/xerrors"
 )
 
-// Sentinel domain errors, each wrapping the corresponding middleware sentinel
-// so that middleware.HTTPError can match them via errors.Is.
+// Sentinel domain errors. Each is a *xerrors.DomainError carrying the
+// correct HTTP status and machine-readable code.
 var (
-	ErrNotFound      = fmt.Errorf("members not found: %w", middleware.ErrNotFound)
-	ErrAlreadyExists = fmt.Errorf("members already exists: %w", middleware.ErrAlreadyExists)
-	ErrInvalidInput  = fmt.Errorf("invalid members input: %w", middleware.ErrInvalidInput)
-	ErrUnauthorized  = fmt.Errorf("unauthorized: %w", middleware.ErrUnauthorized)
-	ErrForbidden     = fmt.Errorf("forbidden: %w", middleware.ErrForbidden)
-	ErrConflict      = fmt.Errorf("members conflict: %w", middleware.ErrConflict)
+	ErrNotFound      = xerrors.NotFound("member not found")
+	ErrAlreadyExists = xerrors.AlreadyExists("member already exists")
+	ErrInvalidInput  = xerrors.InvalidInput("invalid member input")
+	ErrUnauthorized  = xerrors.Unauthorized("unauthorized")
+	ErrForbidden     = xerrors.Forbidden("forbidden")
+	ErrConflict      = xerrors.Conflict("member conflict")
 )
 
 // Repository defines the contract for member persistence.

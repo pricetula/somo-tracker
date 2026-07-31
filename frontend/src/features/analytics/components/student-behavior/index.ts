@@ -2,36 +2,33 @@
  * Student Behavior Summaries — Section 3.1 components barrel.
  */
 
-export {
-    CommendationsVsDisciplinaryBar,
-    CommendationsVsDisciplinaryBarSkeleton,
-} from "./commendations-vs-disciplinary-bar";
+export { CommendationsVsDisciplinaryBar } from "./commendations-vs-disciplinary-bar";
+export { CommendationsVsDisciplinaryBarSkeleton } from "./commendations-vs-disciplinary-bar-skeleton";
 
-export {
-    UrgentBreakdownStackedBar,
-    UrgentBreakdownStackedBarSkeleton,
-} from "./urgent-breakdown-stacked-bar";
+export { UrgentBreakdownStackedBar } from "./urgent-breakdown-stacked-bar";
+export { UrgentBreakdownStackedBarSkeleton } from "./urgent-breakdown-stacked-bar-skeleton";
 
-export { BehaviorPieChart, BehaviorPieChartSkeleton } from "./behavior-pie-chart";
+export { BehaviorPieChart } from "./behavior-pie-chart";
+export { BehaviorPieChartSkeleton } from "./behavior-pie-chart-skeleton";
 
-export { BehaviorTrendLine, BehaviorTrendLineSkeleton } from "./behavior-trend-line";
+export { BehaviorTrendLine } from "./behavior-trend-line";
+export { BehaviorTrendLineSkeleton } from "./behavior-trend-line-skeleton";
 export type { BehaviorTrendPoint } from "./behavior-trend-line";
 
-export { CategoryBreakdownBar, CategoryBreakdownBarSkeleton } from "./category-breakdown-bar";
+export { CategoryBreakdownBar } from "./category-breakdown-bar";
+export { CategoryBreakdownBarSkeleton } from "./category-breakdown-bar-skeleton";
 export type { CategoryCountEntry } from "./category-breakdown-bar";
 
-export { BehaviorAlertBadge, BehaviorAlertBadgeSkeleton } from "./behavior-alert-badge";
+export { BehaviorAlertBadge } from "./behavior-alert-badge";
+export { BehaviorAlertBadgeSkeleton } from "./behavior-alert-badge-skeleton";
 
-export {
-    BehaviorCalendarHeatmap,
-    BehaviorCalendarHeatmapSkeleton,
-} from "./behavior-calendar-heatmap";
+export { BehaviorCalendarHeatmap } from "./behavior-calendar-heatmap";
+export { BehaviorCalendarHeatmapSkeleton } from "./behavior-calendar-heatmap-skeleton";
 export type { IncidentDay } from "./behavior-calendar-heatmap";
 
-export {
-    ClassComparisonBoxPlot,
-    ClassComparisonBoxPlotSkeleton,
-} from "./class-comparison-box-plot";
+export { ClassComparisonBoxPlot } from "./class-comparison-box-plot";
+export { ClassComparisonBoxPlotSkeleton } from "./class-comparison-box-plot-skeleton";
 export type { StudentIncidentCount } from "./class-comparison-box-plot";
 
-export { NetSentimentScore, NetSentimentScoreSkeleton } from "./net-sentiment-score";
+export { NetSentimentScore } from "./net-sentiment-score";
+export { NetSentimentScoreSkeleton } from "./net-sentiment-score-skeleton";

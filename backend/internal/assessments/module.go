@@ -8,5 +8,14 @@ var Module = fx.Module("assessments",
 		fx.Annotate(NewRepository, fx.As(new(Repository))),
 		NewService,
 		NewHandler,
+		// Background summary refresh infrastructure
+		NewEnqueuer,
+		NewWorker,
 	),
+	// Wire the enqueuer into the service after construction
+	fx.Invoke(func(svc *Service, enqueuer *Enqueuer) {
+		svc.SetEnqueuer(enqueuer)
+	}),
+	// Register lifecycle hooks for the background worker
+	fx.Invoke(RegisterWorkerHooks),
 )

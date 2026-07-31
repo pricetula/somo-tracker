@@ -5,21 +5,20 @@ package classteachers
 
 import (
 	"context"
-	"fmt"
 	"time"
 
-	"somotracker/backend/internal/middleware"
+	"somotracker/backend/internal/xerrors"
 )
 
 // Sentinel domain errors.
 var (
-	ErrNotFound               = fmt.Errorf("class teacher not found: %w", middleware.ErrNotFound)
-	ErrAlreadyExists          = fmt.Errorf("class teacher already exists: %w", middleware.ErrAlreadyExists)
-	ErrInvalidInput           = fmt.Errorf("invalid class teacher input: %w", middleware.ErrInvalidInput)
-	ErrUnauthorized           = fmt.Errorf("unauthorized: %w", middleware.ErrUnauthorized)
-	ErrForbidden              = fmt.Errorf("forbidden: %w", middleware.ErrForbidden)
-	ErrConflict               = fmt.Errorf("class teacher conflict: %w", middleware.ErrConflict)
-	ErrPrimaryAlreadyAssigned = fmt.Errorf("class already has a primary teacher: %w", middleware.ErrConflict)
+	ErrNotFound               = xerrors.NotFound("class teacher not found")
+	ErrAlreadyExists          = xerrors.AlreadyExists("class teacher already exists")
+	ErrInvalidInput           = xerrors.InvalidInput("invalid class teacher input")
+	ErrUnauthorized           = xerrors.Unauthorized("unauthorized")
+	ErrForbidden              = xerrors.Forbidden("forbidden")
+	ErrConflict               = xerrors.Conflict("class teacher conflict")
+	ErrPrimaryAlreadyAssigned = xerrors.Conflict("class already has a primary teacher")
 )
 
 // ── Domain Models ────────────────────────────────────────────────────────

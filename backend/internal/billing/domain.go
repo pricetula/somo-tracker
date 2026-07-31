@@ -2,21 +2,19 @@ package billing
 
 import (
 	"context"
-	"fmt"
 	"time"
 
-	"somotracker/backend/internal/middleware"
+	"somotracker/backend/internal/xerrors"
 )
 
-// Sentinel domain errors. Each wraps the corresponding middleware sentinel
-// so that middleware.HTTPError can match them via errors.Is.
+// Sentinel domain errors.
 var (
-	ErrNotFound      = fmt.Errorf("billing not found: %w", middleware.ErrNotFound)
-	ErrAlreadyExists = fmt.Errorf("billing already exists: %w", middleware.ErrAlreadyExists)
-	ErrInvalidInput  = fmt.Errorf("invalid billing input: %w", middleware.ErrInvalidInput)
-	ErrUnauthorized  = fmt.Errorf("unauthorized: %w", middleware.ErrUnauthorized)
-	ErrForbidden     = fmt.Errorf("forbidden: %w", middleware.ErrForbidden)
-	ErrConflict      = fmt.Errorf("billing conflict: %w", middleware.ErrConflict)
+	ErrNotFound      = xerrors.NotFound("billing not found")
+	ErrAlreadyExists = xerrors.AlreadyExists("billing already exists")
+	ErrInvalidInput  = xerrors.InvalidInput("invalid billing input")
+	ErrUnauthorized  = xerrors.Unauthorized("unauthorized")
+	ErrForbidden     = xerrors.Forbidden("forbidden")
+	ErrConflict      = xerrors.Conflict("billing conflict")
 )
 
 // ─── Fee Category ──────────────────────────────────────────────────────────

@@ -1,43 +1,17 @@
-/**
- * AttendanceCalendar — month-grid calendar with color-coded daily attendance
- * for a class.
- *
- * Each cell is tinted based on the class-level attendance rate for that day:
- *   🟢 High (≥95% present)      → green background tint
- *   🟡 Medium (≥50% present)    → amber background tint
- *   🔴 Low (<50% present)       → red background tint
- *   ⚪ No data                  → default
- *
- * Clicking a day with data fires `onDayClick` so the parent can navigate to a
- * detail view or filter a timeline.
- *
- * Accepts data in two formats:
- *
- * **1. Full rollup** — `dailySummaries` map of `YYYY-MM-DD` → counts:
- * ```ts
- * {
- *   "2026-07-14": { present: 22, absent: 1, late: 2, excused: 0, total: 25 },
- * }
- * ```
- *
- * **2. Rate map** — `attendanceRateMap` map of `YYYY-MM-DD` → percentage (0–100):
- * ```ts
- * {
- *   "2026-07-14": 96.0,
- * }
- * ```
- * Useful when the parent only has aggregated rate data (e.g. from analytics).
- */
 "use client";
 
-import * as React from "react";
-import { format } from "date-fns";
-
-import { Calendar } from "@/components/shared/calendar";
+import { useRouter } from "next/navigation";
+import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { useCalendarStatus } from "@/features/attendance/hooks/use-attendance";
+import { useMe } from "@/hooks/use-auth";
+import dynamic from "next/dynamic";
+import * as React from "react";
 
-// ─── Types ────────────────────────────────────────────────────────────────
-
+const Calendar = dynamic(() => import("@/components/shared/calendar").then((mod) => mod.Calendar), {
+    ssr: false,
+    loading: () => <CalendarSkeleton />,
+});
 export interface DaySummary {
     present: number;
     absent: number;
@@ -45,169 +19,104 @@ export interface DaySummary {
     excused: number;
     total: number;
 }
-
-export interface AttendanceCalendarProps {
-    /** Map of "YYYY-MM-DD" → daily rollup data (present/absent/late/excused counts). */
-    dailySummaries?: Record<string, DaySummary>;
-    /**
-     * Map of "YYYY-MM-DD" → attendance rate (0–100).
-     * Simpler alternative to `dailySummaries` when only the rate is available.
-     */
-    attendanceRateMap?: Record<string, number>;
-    /** Called when a day with attendance data is clicked. Receives the date string. */
-    onDayClick?: (dateStr: string) => void;
-    /** Optional class name for the outer wrapper. */
+export type DayStatus = "none" | "green" | "yellow" | "red";
+function getVisibleRange(year: number, month: number): { start: string; end: string } {
+    const monthDate = new Date(year, month, 1);
+    const monthStart = startOfMonth(monthDate);
+    const monthEnd = endOfMonth(monthDate);
+    // Include full weeks (Sunday-based) so leading/trailing days are covered
+    const gridStart = startOfWeek(monthStart, { weekStartsOn: 0 });
+    const gridEnd = endOfWeek(monthEnd, { weekStartsOn: 0 });
+    return {
+        start: format(gridStart, "yyyy-MM-dd"),
+        end: format(gridEnd, "yyyy-MM-dd"),
+    };
+}
+function dateToKey(date: Date): string {
+    return format(date, "yyyy-MM-dd");
+}
+interface AttendanceCalendarProps {
+    /** School ID for fetching attendance status data. If omitted, derived from auth. */
+    schoolId?: string;
+    /** Optional CSS class for the outer wrapper. */
     className?: string;
+    /** Legacy prop for backwards compatibility (previously passed by dashboard). */
+    attendanceRateMap?: Record<string, number>;
 }
 
-// ─── Attendance rate helpers ──────────────────────────────────────────────
+import { CalendarSkeleton } from "./calendar-skeleton";
+import { StatusDot } from "./status-dot";
 
-type AttendanceTier = "high" | "medium" | "low" | "no-data";
+export function AttendanceCalendar({ schoolId: propSchoolId, className }: AttendanceCalendarProps) {
+    const router = useRouter();
+    const { data: me } = useMe();
+    const schoolId = propSchoolId ?? me?.school_id ?? "";
 
-function getDayRate(
-    date: Date,
-    summaries: Record<string, DaySummary>,
-    rateMap: Record<string, number>
-): number | null {
-    const key = format(date, "yyyy-MM-dd");
+    const today = new Date();
+    const [currentMonth, setCurrentMonth] = React.useState(today);
 
-    // Prefer full summary for precise rate
-    const summary = summaries[key];
-    if (summary && summary.total > 0) {
-        return (summary.present / summary.total) * 100;
-    }
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+    const { start: startDate, end: endDate } = getVisibleRange(year, month);
 
-    // Fall back to rate map
-    const rate = rateMap[key];
-    if (rate !== undefined && rate !== null) return rate;
+    // Fetch calendar status using React Query (consistent with codebase pattern)
+    const {
+        data,
+        isFetching,
+        isError,
+        error: queryError,
+    } = useCalendarStatus(startDate, endDate, schoolId);
 
-    return null;
-}
-
-function getDayTier(
-    date: Date,
-    summaries: Record<string, DaySummary>,
-    rateMap: Record<string, number>
-): AttendanceTier {
-    const rate = getDayRate(date, summaries, rateMap);
-    if (rate === null) return "no-data";
-
-    if (rate >= 95) return "high";
-    if (rate >= 50) return "medium";
-    return "low";
-}
-
-// ─── Tier styling ─────────────────────────────────────────────────────────
-
-const tierIndicatorClass: Record<AttendanceTier, string> = {
-    high: "bg-emerald-500",
-    medium: "bg-amber-400",
-    low: "bg-red-500",
-    "no-data": "bg-transparent",
-};
-
-const tierCellBg: Record<AttendanceTier, string> = {
-    high: "bg-emerald-50 dark:bg-emerald-950/30",
-    medium: "bg-amber-50 dark:bg-amber-950/30",
-    low: "bg-red-50 dark:bg-red-950/30",
-    "no-data": "",
-};
-
-// ─── Component ────────────────────────────────────────────────────────────
-
-export function AttendanceCalendar({
-    dailySummaries = {},
-    attendanceRateMap = {},
-    onDayClick,
-    className,
-}: AttendanceCalendarProps) {
-    // Merge both data sources into a single internal cache for lookups and
-    // click detection.
-    const hasData = React.useMemo(() => {
-        const keys = new Set<string>();
-        for (const k of Object.keys(dailySummaries)) keys.add(k);
-        for (const k of Object.keys(attendanceRateMap)) keys.add(k);
-        return keys;
-    }, [dailySummaries, attendanceRateMap]);
-
-    const handleDayClick = React.useCallback(
-        (day: Date) => {
-            const key = format(day, "yyyy-MM-dd");
-            if (hasData.has(key) && onDayClick) {
-                onDayClick(key);
+    // Build a map of date → status for O(1) lookup
+    const statusMap = React.useMemo(() => {
+        const map: Record<string, DayStatus> = {};
+        if (data?.items) {
+            for (const item of data.items) {
+                map[item.date] = item.status as DayStatus;
             }
-        },
-        [hasData, onDayClick]
-    );
-
-    // Render a small colored bar below the day number to indicate attendance
-    const renderDayContent = React.useCallback(
-        (date: Date) => {
-            const tier = getDayTier(date, dailySummaries, attendanceRateMap);
-            if (tier === "no-data") return null;
-
-            return (
-                <span
-                    className={cn("mt-0.5 h-1 w-4 shrink-0 rounded-full", tierIndicatorClass[tier])}
-                    aria-hidden="true"
-                />
-            );
-        },
-        [dailySummaries, attendanceRateMap]
-    );
-
-    // Compute a set of modifiers so we can tint the cell backgrounds
-    const modifierDates = React.useMemo(() => {
-        const high: Date[] = [];
-        const medium: Date[] = [];
-        const low: Date[] = [];
-        const noData: Date[] = [];
-
-        const allKeys = new Set([
-            ...Object.keys(dailySummaries),
-            ...Object.keys(attendanceRateMap),
-        ]);
-        for (const key of allKeys) {
-            const d = new Date(key + "T00:00:00");
-            const tier = getDayTier(d, dailySummaries, attendanceRateMap);
-            const bucket = { high, medium, low, "no-data": noData };
-            bucket[tier].push(d);
         }
+        return map;
+    }, [data]);
 
-        return { high, medium, low };
-    }, [dailySummaries, attendanceRateMap]);
+    // Day content render prop — shows a colored dot for status
+    const dayContent = React.useCallback(
+        (date: Date): React.ReactNode => {
+            const key = dateToKey(date);
+            const status = statusMap[key];
+            if (!status) return null;
+            return <StatusDot status={status} />;
+        },
+        [statusMap]
+    );
 
     return (
         <section className={cn("w-fit", className)}>
-            <header>Attendace Calendar</header>
+            <header>Attendance Calendar</header>
             <Calendar
-                dayContent={renderDayContent}
-                onDayClick={handleDayClick}
-                modifiers={modifierDates}
-                modifiersClassNames={{
-                    high: tierCellBg["high"],
-                    medium: tierCellBg["medium"],
-                    low: tierCellBg["low"],
+                month={currentMonth}
+                onMonthChange={setCurrentMonth}
+                onDayClick={(date) => {
+                    const dateStr = format(date, "yyyy-MM-dd");
+                    if (dateStr) {
+                        router.push(`/attendance/${dateStr}`);
+                    }
                 }}
+                disabled={[{ after: today }]}
+                dayContent={dayContent}
+                showOutsideDays={true}
             />
-
-            {/* Legend */}
-            <div className="text-muted-foreground mt-3 flex items-center gap-4 px-1 text-xs">
-                <LegendDot color="bg-emerald-500" label="≥95%" />
-                <LegendDot color="bg-amber-400" label="≥50%" />
-                <LegendDot color="bg-red-500" label="<50%" />
-            </div>
+            {isFetching && (
+                <p className="text-muted-foreground mt-1 text-xs" role="status">
+                    Loading attendance status…
+                </p>
+            )}
+            {isError && (
+                <p className="text-destructive mt-1 text-xs" role="alert">
+                    {queryError instanceof Error
+                        ? queryError.message
+                        : "Failed to load attendance status"}
+                </p>
+            )}
         </section>
-    );
-}
-
-// ─── Legend Dot ───────────────────────────────────────────────────────────
-
-function LegendDot({ color, label }: { color: string; label: string }) {
-    return (
-        <span className="flex items-center gap-1.5">
-            <span className={cn("inline-block size-2 rounded-full", color)} aria-hidden="true" />
-            {label}
-        </span>
     );
 }

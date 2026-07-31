@@ -90,7 +90,7 @@ func (r *SqlcRepository) GetTenantByName(ctx context.Context, name string) (stri
 // The user's role is sourced from their highest-privilege active membership.
 func (r *SqlcRepository) GetSessionByToken(ctx context.Context, token string) (*UserSession, error) {
 	const query = `
-		SELECT s.id, s.token, s.user_id, s.tenant_id,
+		SELECT s.id, COALESCE(s.token, '') as token, s.user_id, s.tenant_id,
 		       COALESCE(m.role::text, '') as role,
 		       s.stytch_member_id, s.stytch_org_id,
 		       COALESCE(s.stytch_session_token, '') as stytch_session_token,
@@ -194,14 +194,9 @@ func (r *SqlcRepository) CreateTenantUserSession(
 		return "", "", fmt.Errorf("%w: create user in tx: %v", ErrInternal, err)
 	}
 
-	// 3. Insert session
-	// Use a CTE to bind the token parameter once, avoiding PG's type inference conflict
-	// where $1 would be used both as a direct text value and inside digest(..., 'sha256').
 	sessionQuery := `
-		WITH token_val AS (SELECT $1::text AS tk)
 		INSERT INTO sessions (token, token_hash, user_id, tenant_id, stytch_member_id, stytch_org_id, stytch_session_token, device_fingerprint, expires_at)
-		SELECT tk, encode(digest(tk, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7, $8
-		FROM token_val
+		VALUES (NULL, encode(digest($1::bytea, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7, $8)
 	`
 	_, err = tx.Exec(ctx, sessionQuery,
 		sessionParams.Token,
@@ -267,13 +262,9 @@ func (r *SqlcRepository) CreateUserSession(
 		return "", fmt.Errorf("%w: create user in tx: %v", ErrInternal, err)
 	}
 
-	// 2. Insert session
-	// Use a CTE to bind the token parameter once, avoiding PG's type inference conflict.
 	sessionQuery := `
-		WITH token_val AS (SELECT $1::text AS tk)
 		INSERT INTO sessions (token, token_hash, user_id, tenant_id, stytch_member_id, stytch_org_id, stytch_session_token, device_fingerprint, expires_at)
-		SELECT tk, encode(digest(tk, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7, $8
-		FROM token_val
+		VALUES (NULL, encode(digest($1::bytea, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7, $8)
 	`
 	_, err = tx.Exec(ctx, sessionQuery,
 		sessionParams.Token,
@@ -646,12 +637,9 @@ func (r *SqlcRepository) GetUserByEmailAndTenant(ctx context.Context, email, ten
 // CreateSessionOnly creates a new session record for an existing user
 // without creating a user or tenant. Used during re-login.
 func (r *SqlcRepository) CreateSessionOnly(ctx context.Context, params CreateSessionParams) error {
-	// Use a CTE to bind the token parameter once, avoiding PG's type inference conflict.
 	const query = `
-		WITH token_val AS (SELECT $1::text AS tk)
 		INSERT INTO sessions (token, token_hash, user_id, tenant_id, stytch_member_id, stytch_org_id, stytch_session_token, device_fingerprint, expires_at)
-		SELECT tk, encode(digest(tk, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7, $8
-		FROM token_val
+		VALUES (NULL, encode(digest($1::bytea, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7, $8)
 	`
 	_, err := r.pool.Exec(ctx, query,
 		params.Token,

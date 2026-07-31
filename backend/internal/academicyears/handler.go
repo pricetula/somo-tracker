@@ -27,6 +27,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	// Academic Years
 	years := router.Group("/api/v1/academic-years")
 	years.Get("/", middleware.RequireAuth, h.ListYears)
+	years.Get("/current", middleware.RequireAuth, h.GetCurrent)
 	years.Post("/", middleware.RequireRole("SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.CreateYear)
 	years.Patch("/:id", middleware.RequireRole("SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.PatchYear)
 	years.Post("/:id/set-current", middleware.RequireRole("SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.SetCurrentYear)
@@ -61,6 +62,26 @@ func writeError(c *fiber.Ctx, status int, code, message string, details interfac
 // ============================================================================
 // YEARS
 // ============================================================================
+
+// GetCurrent handles GET /api/v1/academic-years/current.
+func (h *Handler) GetCurrent(c *fiber.Ctx) error {
+	tenantID := c.Locals("tenant_id").(string)
+
+	// school_id comes from the active school context
+	schoolID := c.Query("school_id")
+	if schoolID == "" {
+		schoolID = c.Locals("school_id").(string)
+	}
+	// School scope is implicit from the session — use tenant scope
+	// In production, derive the active school from member_active_school
+
+	years, err := h.svc.GetCurrent(c.Context(), tenantID, schoolID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(years)
+}
 
 // ListYears handles GET /api/v1/academic-years.
 func (h *Handler) ListYears(c *fiber.Ctx) error {

@@ -9,7 +9,7 @@
 
 import Link from "next/link";
 
-import { GraduationCap, BookOpen } from "lucide-react";
+import { GraduationCap, LayersPlus, BookOpen } from "lucide-react";
 import { DataTable, type DataTableColumn } from "@/components/shared/data-table";
 import type { FilterGroup } from "@/components/shared/data-table/types";
 import { useDeleteLearningArea, curriculumKeys } from "@/features/curriculum";
@@ -18,6 +18,8 @@ import { getEducationLevelFilterSubmenu } from "@/features/education-level";
 import { getGradeLevelFilterSubmenu } from "@/features/grade-level";
 import { EducationLevelPill } from "@/features/education-level";
 import { GradeLevelPill } from "@/features/grade-level";
+import { useSeedSchool } from "@/features/school/hooks/use-schools";
+import { Button } from "@/components/ui/button";
 
 const filterGroups: FilterGroup[] = [
     {
@@ -77,6 +79,19 @@ const columns: DataTableColumn<LearningArea>[] = [
     },
 ];
 
+// ─── Toolbar ──────────────────────────────────────────────────────────────
+
+function ToolBar() {
+    const seedSchoolMutation = useSeedSchool();
+
+    return (
+        <Button size="sm" id="enroll-selected-students" onClick={() => seedSchoolMutation.mutate()}>
+            <LayersPlus />
+            <span>Set default Curriculum</span>
+        </Button>
+    );
+}
+
 // ─── Page Component ────────────────────────────────────────────────────────
 
 export default function CurriculumPage() {
@@ -96,6 +111,7 @@ export default function CurriculumPage() {
             addHref="/curriculum/new"
             emptyState="No learning areas yet."
             noResultsState="No learning areas match your search or filters."
+            renderToolBarComponents={() => <ToolBar />}
         />
     );
 }

@@ -70,6 +70,9 @@ export interface UseAttendanceTermSummariesOptions {
 
 export interface UseClassDailyAttendanceOptions {
     filter?: AnalyticsFilter;
+    /** Optional date range (ISO YYYY-MM-DD). The backend requires both start_date and end_date. */
+    startDate?: string;
+    endDate?: string;
 }
 
 export interface UseStudentTermSubjectSummariesOptions {
@@ -116,16 +119,22 @@ export function useAttendanceTermSummaries(
 export function useClassDailyAttendance(
     options?: UseClassDailyAttendanceOptions
 ): UseQueryResult<ClassDailyAttendanceSummary[]> {
-    const { filter = {} } = options ?? {};
+    const { filter = {}, startDate, endDate } = options ?? {};
 
     return useQuery({
-        queryKey: classDailyAttendanceKeys.filtered(filter),
+        queryKey: [...classDailyAttendanceKeys.filtered(filter), startDate, endDate],
         queryFn: async () => {
             if (!filter.class_id) {
                 return [];
             }
+            if (!startDate || !endDate) {
+                return [];
+            }
+            const params = new URLSearchParams();
+            params.set("start_date", startDate);
+            params.set("end_date", endDate);
             const res = await api.get<{ items: ClassDailyAttendanceSummary[]; total: number }>(
-                `/api/v1/attendance/daily/class/${filter.class_id}`
+                `/api/v1/attendance/daily/class/${filter.class_id}?${params.toString()}`
             );
             return res.items;
         },

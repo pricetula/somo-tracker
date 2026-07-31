@@ -102,7 +102,9 @@ func TestRequireRole_NoSession(t *testing.T) {
 // TestRequireRole_ForbiddenRole verifies that RequireRole returns 403
 // when authenticated but lacking the required role.
 func TestRequireRole_ForbiddenRole(t *testing.T) {
-	app := fiber.New()
+	app := fiber.New(fiber.Config{
+		ErrorHandler: HTTPError,
+	})
 
 	app.Get("/admin", func(c *fiber.Ctx) error {
 		c.Locals("session", &SessionInfo{

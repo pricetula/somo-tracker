@@ -2,31 +2,25 @@
  * Attendance Term Summaries — Section 2.1 components barrel.
  */
 
-export { AttendanceGauge, AttendanceGaugeSkeleton } from "./attendance-gauge";
+export { AttendanceGauge } from "./attendance-gauge";
+export { AttendanceGaugeSkeleton } from "./attendance-gauge-skeleton";
 
-export {
-    AttendanceWeeklyStackedBar,
-    AttendanceWeeklyStackedBarSkeleton,
-} from "./attendance-weekly-stacked-bar";
+export { AttendanceWeeklyStackedBar } from "./attendance-weekly-stacked-bar";
+export { AttendanceWeeklyStackedBarSkeleton } from "./attendance-weekly-stacked-bar-skeleton";
 export type { WeeklyAttendanceRow } from "./attendance-weekly-stacked-bar";
 
-export { AttendanceHeatmap, AttendanceHeatmapSkeleton } from "./attendance-heatmap";
+export { AttendanceHeatmap } from "./attendance-heatmap";
+export { AttendanceHeatmapSkeleton } from "./attendance-heatmap-skeleton";
 export type { HeatmapCell, AttendanceHeatmapData } from "./attendance-heatmap";
 
-export {
-    AttendanceTermTrendLine,
-    AttendanceTermTrendLineSkeleton,
-} from "./attendance-term-trend-line";
+export { AttendanceTermTrendLine } from "./attendance-term-trend-line";
+export { AttendanceTermTrendLineSkeleton } from "./attendance-term-trend-line-skeleton";
 export type { TermAttendancePoint } from "./attendance-term-trend-line";
 
-export {
-    AttendanceSubjectComparisonBar,
-    AttendanceSubjectComparisonBarSkeleton,
-} from "./attendance-subject-comparison-bar";
+export { AttendanceSubjectComparisonBar } from "./attendance-subject-comparison-bar";
+export { AttendanceSubjectComparisonBarSkeleton } from "./attendance-subject-comparison-bar-skeleton";
 export type { SubjectAttendanceEntry } from "./attendance-subject-comparison-bar";
 
-export {
-    AttendanceVsOverallScatter,
-    AttendanceVsOverallScatterSkeleton,
-} from "./attendance-vs-overall-scatter";
+export { AttendanceVsOverallScatter } from "./attendance-vs-overall-scatter";
+export { AttendanceVsOverallScatterSkeleton } from "./attendance-vs-overall-scatter-skeleton";
 export type { AttendanceVsPerformancePoint } from "./attendance-vs-overall-scatter";

@@ -64,7 +64,11 @@ export default function AttendanceMarkSheet({ params }: Props) {
                             ))}
                         </div>
                     ) : (
-                        <AttendanceGrid timetableSlotId={slot_id} date={date} />
+                        <AttendanceGrid
+                            timetableSlotId={slot_id}
+                            date={date}
+                            onMarkedAttendance={() => router.back()}
+                        />
                     )}
                 </div>
             </SheetContent>

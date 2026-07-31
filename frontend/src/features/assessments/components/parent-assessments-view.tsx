@@ -1,183 +1,20 @@
-/**
- * ParentAssessmentsView — Shows published assessment results and term report
- * card for a parent's linked children.
- *
- * Multi-child selector. Shows the current term's data by default.
- * Displays both QUANTITATIVE (raw score + level) and RUBRIC (per-indicator grades).
- */
-
 "use client";
 
 import { useState, useMemo } from "react";
-import { FileSpreadsheet, FileCheck, GraduationCap, User, Calendar, BookOpen } from "lucide-react";
-
+import { FileSpreadsheet, GraduationCap } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { getMyParentProfile } from "@/lib/api/parents";
 import { getParentAssessments, getStudentTermGrades } from "@/lib/api/assessments";
-import type { ParentAssessmentView, StudentTermGrade } from "@/lib/api/assessments";
 import { useAcademicTerms } from "@/features/academic-terms/hooks/use-academic-terms";
-import { PerformanceLevelBadge } from "./performance-level-badge";
 import { getErrorMessage } from "@/lib/errors";
 import { Badge } from "@/components/ui/badge";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-// ── Child Selector ──────────────────────────────────────────────────────
-
-function ChildSelector({
-    studentList,
-    selectedId,
-    onChange,
-}: {
-    studentList: { student_id: string; full_name: string }[];
-    selectedId: string;
-    onChange: (id: string) => void;
-}) {
-    if (studentList.length <= 1) return null;
-
-    return (
-        <div className="flex items-center gap-2">
-            <User className="text-muted-foreground h-4 w-4" />
-            <Select value={selectedId} onValueChange={onChange}>
-                <SelectTrigger className="w-64">
-                    <SelectValue placeholder="Select a child..." />
-                </SelectTrigger>
-                <SelectContent>
-                    {studentList.map((child) => (
-                        <SelectItem key={child.student_id} value={child.student_id}>
-                            {child.full_name}
-                        </SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
-        </div>
-    );
-}
-
-// ── Assessment Result Card ──────────────────────────────────────────────
-
-function AssessmentResultCard({ assessment }: { assessment: ParentAssessmentView }) {
-    const isQuant = assessment.evaluation_method === "QUANTITATIVE";
-
-    return (
-        <Card>
-            <CardHeader className="pb-2">
-                <div className="flex items-start justify-between gap-2">
-                    <div>
-                        <CardTitle className="text-sm font-semibold">
-                            {assessment.session_name}
-                        </CardTitle>
-                        <CardDescription className="mt-0.5 flex items-center gap-1 text-xs">
-                            {isQuant ? (
-                                <FileSpreadsheet className="h-3 w-3" />
-                            ) : (
-                                <FileCheck className="h-3 w-3" />
-                            )}
-                            {isQuant ? "Marks-Based" : "Rubric (Indicator-Level)"}
-                            {assessment.scheduled_date && (
-                                <>
-                                    <span className="text-muted-foreground">\u00b7</span>
-                                    <Calendar className="h-3 w-3" />
-                                    {assessment.scheduled_date}
-                                </>
-                            )}
-                        </CardDescription>
-                    </div>
-                </div>
-            </CardHeader>
-            <CardContent>
-                {isQuant ? (
-                    <div className="flex items-center gap-4">
-                        <div className="flex flex-col">
-                            <span className="text-muted-foreground text-xs">Score</span>
-                            <span className="text-2xl font-bold tabular-nums">
-                                {assessment.raw_score != null ? assessment.raw_score : "-"}
-                            </span>
-                            {assessment.max_points != null && (
-                                <span className="text-muted-foreground text-xs">
-                                    out of {assessment.max_points}
-                                </span>
-                            )}
-                        </div>
-                        <div className="flex flex-col">
-                            <span className="text-muted-foreground text-xs">Level</span>
-                            <PerformanceLevelBadge level={assessment.performance_level} showLabel />
-                        </div>
-                    </div>
-                ) : (
-                    <div className="space-y-2">
-                        <span className="text-muted-foreground text-xs font-medium">
-                            Performance Indicators
-                        </span>
-                        {assessment.outcome_grades && assessment.outcome_grades.length > 0 ? (
-                            <div className="flex flex-wrap gap-2">
-                                {assessment.outcome_grades.map((grade, idx) => (
-                                    <div
-                                        key={idx}
-                                        className="flex items-center gap-1.5 rounded-md border px-2 py-1"
-                                    >
-                                        <span className="text-muted-foreground text-xs">
-                                            {grade.performance_indicator_id.length > 20
-                                                ? `${grade.performance_indicator_id.slice(0, 20)}...`
-                                                : grade.performance_indicator_id}
-                                        </span>
-                                        <PerformanceLevelBadge level={grade.awarded_level} />
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <span className="text-muted-foreground text-xs">
-                                No grades available.
-                            </span>
-                        )}
-                    </div>
-                )}
-            </CardContent>
-        </Card>
-    );
-}
-
-// ── Term Grade Card ─────────────────────────────────────────────────────
-
-function TermGradeCard({ grade }: { grade: StudentTermGrade }) {
-    return (
-        <Card>
-            <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <CardTitle className="text-sm font-semibold">
-                            {grade.learning_area_name}
-                        </CardTitle>
-                        <CardDescription className="text-xs">
-                            {grade.learning_area_code}
-                        </CardDescription>
-                    </div>
-                    <PerformanceLevelBadge level={grade.final_level} showLabel />
-                </div>
-            </CardHeader>
-            <CardContent>
-                <div className="text-muted-foreground flex items-center gap-1.5 text-xs">
-                    <BookOpen className="h-3 w-3" />
-                    <span>
-                        Based on <strong>{grade.assessment_count}</strong> assessment
-                        {grade.assessment_count !== 1 ? "s" : ""}
-                    </span>
-                </div>
-            </CardContent>
-        </Card>
-    );
-}
-
-// ── Main Component ──────────────────────────────────────────────────────
+import { ChildSelector } from "./child-selector";
+import { AssessmentResultCard } from "./assessment-result-card";
+import { TermGradeCard } from "./term-grade-card";
 
 export function ParentAssessmentsView() {
     // ── Fetch parent's linked children ──────────────────────────────

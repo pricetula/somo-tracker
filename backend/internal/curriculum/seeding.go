@@ -283,7 +283,7 @@ func (s *SeedingService) seedLearningArea(
 
 	// Re-insert strands
 	for _, strand := range la.Strands {
-		if err := s.seedStrand(ctx, tx, strand, learningAreaID, grade); err != nil {
+		if err := s.seedStrand(ctx, tx, strand, tenantID, learningAreaID, grade); err != nil {
 			return fmt.Errorf("seeding.seedLearningArea: %q → strand %q: %w", la.Code, strand.Name, err)
 		}
 	}
@@ -296,21 +296,21 @@ func (s *SeedingService) seedStrand(
 	ctx context.Context,
 	tx pgx.Tx,
 	strand StrandInput,
-	learningAreaID, grade string,
+	tenantID, learningAreaID, grade string,
 ) error {
 	const insertStrand = `
-		INSERT INTO cbc_strands (learning_area_id, name)
-		VALUES ($1, $2)
+		INSERT INTO cbc_strands (learning_area_id, name, tenant_id)
+		VALUES ($1, $2, $3)
 		RETURNING id
 	`
 	var strandID string
-	err := tx.QueryRow(ctx, insertStrand, learningAreaID, strand.Name).Scan(&strandID)
+	err := tx.QueryRow(ctx, insertStrand, learningAreaID, strand.Name, tenantID).Scan(&strandID)
 	if err != nil {
 		return fmt.Errorf("seeding.seedStrand: insert %q: %w", strand.Name, err)
 	}
 
 	for _, ss := range strand.SubStrands {
-		if err := s.seedSubStrand(ctx, tx, ss, strandID); err != nil {
+		if err := s.seedSubStrand(ctx, tx, ss, tenantID, strandID); err != nil {
 			return fmt.Errorf("seeding.seedStrand: %q → sub-strand %q: %w", strand.Name, ss.Name, err)
 		}
 	}
@@ -323,22 +323,22 @@ func (s *SeedingService) seedSubStrand(
 	ctx context.Context,
 	tx pgx.Tx,
 	ss SubStrandInput,
-	strandID string,
+	tenantID, strandID string,
 ) error {
 	const insertSubStrand = `
-		INSERT INTO cbc_sub_strands (strand_id, name)
-		VALUES ($1, $2)
+		INSERT INTO cbc_sub_strands (strand_id, name, tenant_id)
+		VALUES ($1, $2, $3)
 		RETURNING id
 	`
 	var subStrandID string
-	err := tx.QueryRow(ctx, insertSubStrand, strandID, ss.Name).Scan(&subStrandID)
+	err := tx.QueryRow(ctx, insertSubStrand, strandID, ss.Name, tenantID).Scan(&subStrandID)
 	if err != nil {
 		return fmt.Errorf("seeding.seedSubStrand: insert %q: %w", ss.Name, err)
 	}
 
 	// Insert performance indicators with 1-indexed sequence_order
 	for i, pi := range ss.PerformanceIndicators {
-		if err := s.seedPerformanceIndicator(ctx, tx, pi, subStrandID, i+1); err != nil {
+		if err := s.seedPerformanceIndicator(ctx, tx, pi, tenantID, subStrandID, i+1); err != nil {
 			return fmt.Errorf("seeding.seedSubStrand: %q → PI %d: %w", ss.Name, i+1, err)
 		}
 	}
@@ -350,14 +350,14 @@ func (s *SeedingService) seedSubStrand(
 func (s *SeedingService) seedPerformanceIndicator(
 	ctx context.Context,
 	tx pgx.Tx,
-	description, subStrandID string,
+	description, tenantID, subStrandID string,
 	sequenceOrder int,
 ) error {
 	const insertPI = `
-		INSERT INTO performance_indicators (sub_strand_id, description, sequence_order)
-		VALUES ($1, $2, $3)
+		INSERT INTO performance_indicators (sub_strand_id, description, sequence_order, tenant_id)
+		VALUES ($1, $2, $3, $4)
 	`
-	_, err := tx.Exec(ctx, insertPI, subStrandID, description, sequenceOrder)
+	_, err := tx.Exec(ctx, insertPI, subStrandID, description, sequenceOrder, tenantID)
 	if err != nil {
 		return fmt.Errorf("seeding.seedPerformanceIndicator: %w", err)
 	}

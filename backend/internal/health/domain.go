@@ -5,18 +5,19 @@ package health
 
 import (
 	"context"
-	"fmt"
 	"time"
 
-	"somotracker/backend/internal/middleware"
+	"somotracker/backend/internal/xerrors"
 )
 
 // Sentinel domain errors.
 var (
-	ErrNotFound      = fmt.Errorf("health record not found: %w", middleware.ErrNotFound)
-	ErrAlreadyExists = fmt.Errorf("health record already exists: %w", middleware.ErrAlreadyExists)
-	ErrInvalidInput  = fmt.Errorf("invalid health input: %w", middleware.ErrInvalidInput)
-	ErrForbidden     = fmt.Errorf("forbidden: %w", middleware.ErrForbidden)
+	ErrNotFound      = xerrors.NotFound("health record not found")
+	ErrAlreadyExists = xerrors.AlreadyExists("health record already exists")
+	ErrInvalidInput  = xerrors.InvalidInput("invalid health input")
+	ErrUnauthorized  = xerrors.Unauthorized("unauthorized")
+	ErrForbidden     = xerrors.Forbidden("forbidden")
+	ErrConflict      = xerrors.Conflict("health record conflict")
 )
 
 // ── Medical Incident ─────────────────────────────────────────────────────

@@ -391,6 +391,8 @@ func startRedis(ctx context.Context) (testcontainers.Container, string, error) {
 func runMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 	migrationFiles := []string{
 		"000001_initial_schema.up.sql",
+		"000003_fix_review_findings.up.sql",
+		"000015_deprecate_session_token_column.up.sql",
 	}
 
 	// Find the migrations directory relative to the test file
@@ -1078,7 +1080,7 @@ func (s *IntegrationSuite) getTenantAndSchoolIDs(t *testing.T, token string) (te
 	t.Helper()
 	ctx := context.Background()
 	err := s.pgPool.QueryRow(ctx,
-		"SELECT s.tenant_id, mas.school_id FROM sessions s LEFT JOIN member_active_school mas ON mas.user_id = s.user_id WHERE s.token = $1",
+		"SELECT s.tenant_id, mas.school_id FROM sessions s LEFT JOIN member_active_school mas ON mas.user_id = s.user_id WHERE s.token_hash = encode(digest($1, 'sha256'), 'hex')",
 		token).Scan(&tenantID, &schoolID)
 	if err != nil {
 		t.Fatalf("get tenant and school for token: %v", err)

@@ -4,6 +4,7 @@
  * TEACHER / SCHOOL_ADMIN: view the day's timeline and mark attendance per slot.
  */
 
+import { AttendanceCalendar } from "@/features/attendance";
 import { getVerifiedRole } from "@/lib/auth-server";
 
 export default async function AttendancePage() {
@@ -26,16 +27,9 @@ export default async function AttendancePage() {
         );
     }
 
-    const { AttendanceTimeline } =
-        await import("@/features/attendance/components/attendance-timeline");
-
     return (
         <div className="space-y-6">
-            <h1 className="text-2xl font-bold">Attendance</h1>
-            <p className="text-muted-foreground">
-                Select a class to see today&apos;s schedule and mark attendance.
-            </p>
-            <AttendanceTimeline />
+            <AttendanceCalendar />
         </div>
     );
 }

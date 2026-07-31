@@ -2,23 +2,22 @@ package cbcstreams
 
 import (
 	"context"
-	"fmt"
 	"time"
 
-	"somotracker/backend/internal/middleware"
+	"somotracker/backend/internal/xerrors"
 )
 
 // Sentinel domain errors.
 var (
-	ErrNotFound      = fmt.Errorf("cbcstreams not found: %w", middleware.ErrNotFound)
-	ErrAlreadyExists = fmt.Errorf("cbcstreams already exists: %w", middleware.ErrAlreadyExists)
-	ErrInvalidInput  = fmt.Errorf("invalid cbcstreams input: %w", middleware.ErrInvalidInput)
-	ErrUnauthorized  = fmt.Errorf("unauthorized: %w", middleware.ErrUnauthorized)
-	ErrForbidden     = fmt.Errorf("forbidden: %w", middleware.ErrForbidden)
-	ErrConflict      = fmt.Errorf("cbcstreams conflict: %w", middleware.ErrConflict)
+	ErrNotFound      = xerrors.NotFound("cbcstream not found")
+	ErrAlreadyExists = xerrors.AlreadyExists("cbcstream already exists")
+	ErrInvalidInput  = xerrors.InvalidInput("invalid cbcstream input")
+	ErrUnauthorized  = xerrors.Unauthorized("unauthorized")
+	ErrForbidden     = xerrors.Forbidden("forbidden")
+	ErrConflict      = xerrors.Conflict("cbcstream conflict")
 	// ErrStreamHasActiveEnrollments is returned when attempting to delete a stream
 	// that has classes with active student enrollments.
-	ErrStreamHasActiveEnrollments = fmt.Errorf("cbcstreams has active enrollments: %w", middleware.ErrConflict)
+	ErrStreamHasActiveEnrollments = xerrors.Conflict("cbcstream has active enrollments")
 )
 
 // Stream represents a named stream within a school.

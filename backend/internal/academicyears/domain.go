@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"somotracker/backend/internal/middleware"
+	"somotracker/backend/internal/xerrors"
 )
 
 // ============================================================================
@@ -98,15 +98,16 @@ func (d DateOnly) Equal(other DateOnly) bool {
 // ============================================================================
 
 var (
-	ErrNotFound      = fmt.Errorf("academicyears not found: %w", middleware.ErrNotFound)
-	ErrAlreadyExists = fmt.Errorf("academicyears already exists: %w", middleware.ErrAlreadyExists)
-	ErrInvalidInput  = fmt.Errorf("invalid academicyears input: %w", middleware.ErrInvalidInput)
-	ErrUnauthorized  = fmt.Errorf("unauthorized: %w", middleware.ErrUnauthorized)
-	ErrForbidden     = fmt.Errorf("forbidden: %w", middleware.ErrForbidden)
-	ErrConflict      = fmt.Errorf("academicyears conflict: %w", middleware.ErrConflict)
+	ErrNotFound      = xerrors.NotFound("academicyear not found")
+	ErrAlreadyExists = xerrors.AlreadyExists("academicyear already exists")
+	ErrInvalidInput  = xerrors.InvalidInput("invalid academicyear input")
+	ErrUnauthorized  = xerrors.Unauthorized("unauthorized")
+	ErrForbidden     = xerrors.Forbidden("forbidden")
+	ErrConflict      = xerrors.Conflict("academicyear conflict")
 )
 
-// Module-specific sentinels.
+// Module-specific sentinels (no corresponding middleware sentinel — these are
+// matched by type assertion in the handler, not by errors.Is on a sentinel).
 var (
 	ErrTermsOutOfRange     = errors.New("terms_out_of_range")
 	ErrHasDependents       = errors.New("has_dependents")
@@ -133,6 +134,19 @@ type AcademicYear struct {
 	UpdatedBy string    `db:"updated_by" json:"-"`
 	CreatedAt time.Time `db:"created_at" json:"created_at"`
 	UpdatedAt time.Time `db:"updated_at" json:"updated_at"`
+}
+
+type CurrentAcademicYearWithCurrentTerm struct {
+	AcademicYearID        string   `json:"academic_year_id"`
+	AcademicYearName      string   `json:"academic_year_name"`
+	AcademicYearStartDate DateOnly `json:"academic_year_start_date"`
+	AcademicYearEndDate   DateOnly `json:"academic_year_end_date"`
+	AcademicTermID        string   `json:"academic_term_id"`
+	AcademicTermName      string   `json:"academic_term_name"`
+	AcademicTermNumber    string   `json:"academic_term_number"`
+	AcademicTermStartDate DateOnly `json:"academic_term_start_date"`
+	AcademicTermEndDate   DateOnly `json:"academic_term_end_date"`
+	AcademicTermIsFinal   bool     `json:"academic_term_is_final"`
 }
 
 // AcademicYearWithTerms extends AcademicYear with nested terms.
@@ -271,6 +285,7 @@ type Repository interface {
 	SetCurrentYear(ctx context.Context, id, tenantID, schoolID, actorID string) (bool, error)
 
 	// Terms
+	GetCurrent(ctx context.Context, tenantID, schoolID string) (CurrentAcademicYearWithCurrentTerm, error)
 	ListTerms(ctx context.Context, tenantID, schoolID string, academicYearID *string) ([]AcademicTerm, error)
 	GetTermByIDForUpdate(ctx context.Context, id, tenantID, schoolID string) (*AcademicTerm, *AcademicYear, error)
 	CreateTerm(ctx context.Context, term *AcademicTerm) (string, error)

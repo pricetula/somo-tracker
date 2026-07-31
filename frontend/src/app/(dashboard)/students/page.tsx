@@ -8,7 +8,7 @@
 
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { DataTable } from "@/components/shared/data-table";
@@ -17,11 +17,13 @@ import type { FilterGroup } from "@/components/shared/data-table/types";
 import { RowActions } from "@/components/shared/data-table/row-actions";
 import { Badge } from "@/components/ui/badge";
 import { listStudents, type Student } from "@/lib/api/students";
-import { GraduationCap, BookOpen } from "lucide-react";
+import { GraduationCap, BookOpen, Pencil } from "lucide-react";
 import { getEducationLevelFilterSubmenu } from "@/features/education-level";
 import { getGradeLevelFilterSubmenu } from "@/features/grade-level";
 import { useDeleteStudent, useEnrollmentStore } from "@/features/students";
 import { Button } from "@/components/ui/button";
+
+type AppRouterInstance = ReturnType<typeof useRouter>;
 
 // ─── Filter Groups (curriculum + lifecycle) ───────────────────────────────
 
@@ -67,7 +69,8 @@ const filterGroups: FilterGroup[] = [
 // ─── Columns factory ──────────────────────────────────────────────────────
 
 function createColumns(
-    deleteMutation: ReturnType<typeof useDeleteStudent>
+    deleteMutation: ReturnType<typeof useDeleteStudent>,
+    router: AppRouterInstance
 ): DataTableColumn<Student>[] {
     return [
         {
@@ -147,6 +150,13 @@ function createColumns(
                     label={row.full_name}
                     onDelete={() => deleteMutation.mutate(row.id)}
                     disabled={deleteMutation.isPending}
+                    actions={[
+                        {
+                            label: "Edit",
+                            icon: Pencil,
+                            onClick: () => router.push(`/students/${row.id}`),
+                        },
+                    ]}
                 />
             ),
         },
@@ -176,8 +186,9 @@ function ToolBar({ selectedIds }: { selectedIds: Set<string> }) {
 // ─── Page ─────────────────────────────────────────────────────────────────
 
 export default function StudentsPage() {
+    const router = useRouter();
     const deleteMutation = useDeleteStudent();
-    const columns = createColumns(deleteMutation);
+    const columns = useMemo(() => createColumns(deleteMutation, router), [deleteMutation, router]);
 
     return (
         <DataTable

@@ -1,36 +1,16 @@
-/**
- * BehaviorNoteDetail — full detail view of a single behavior note with edit and review actions.
- */
-
 "use client";
 
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { Pencil, Trash2 } from "lucide-react";
-
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogFooter,
-    DialogClose,
-} from "@/components/ui/dialog";
 import { getErrorMessage } from "@/lib/errors";
-import {
-    getBehaviorNote,
-    updateBehaviorNote,
-    deleteBehaviorNote,
-    type BehaviorNote,
-} from "@/lib/api/behavior";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { getBehaviorNote, deleteBehaviorNote } from "@/lib/api/behavior";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
     AlertDialog,
@@ -44,8 +24,6 @@ import {
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-// ─── Status badge helper ──────────────────────────────────────────────────
-
 function statusBadge(status: string) {
     const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
         PENDING_REVIEW: "secondary",
@@ -56,66 +34,7 @@ function statusBadge(status: string) {
     return <Badge variant={variants[status] ?? "outline"}>{status.replace(/_/g, " ")}</Badge>;
 }
 
-// ─── Edit Dialog ──────────────────────────────────────────────────────────
-
-function EditNoteDialog({
-    note,
-    open,
-    onOpenChange,
-}: {
-    note: BehaviorNote;
-    open: boolean;
-    onOpenChange: (open: boolean) => void;
-}) {
-    const [description, setDescription] = useState(note.description);
-    const queryClient = useQueryClient();
-
-    const updateMutation = useMutation({
-        mutationFn: (desc: string) => updateBehaviorNote(note.id, { description: desc }),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["behavior-note", note.id] });
-            queryClient.invalidateQueries({ queryKey: ["behavior-notes"] });
-            toast.success("Behavior note updated");
-            onOpenChange(false);
-        },
-        onError: (err) => toast.error(getErrorMessage(err)),
-    });
-
-    return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Edit Behavior Note</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-2 py-2">
-                    <Label htmlFor="edit-description">Description</Label>
-                    <Input
-                        id="edit-description"
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        placeholder="Describe the behavior incident"
-                    />
-                    {updateMutation.error && (
-                        <p className="text-destructive">{getErrorMessage(updateMutation.error)}</p>
-                    )}
-                </div>
-                <DialogFooter>
-                    <DialogClose asChild>
-                        <Button variant="outline">Cancel</Button>
-                    </DialogClose>
-                    <Button
-                        onClick={() => updateMutation.mutate(description)}
-                        disabled={!description.trim() || updateMutation.isPending}
-                    >
-                        {updateMutation.isPending ? "Saving…" : "Save"}
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    );
-}
-
-// ─── Main Component ───────────────────────────────────────────────────────
+import { EditNoteDialog } from "./edit-note-dialog";
 
 export function BehaviorNoteDetail() {
     const router = useRouter();

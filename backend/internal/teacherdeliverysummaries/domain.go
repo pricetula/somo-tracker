@@ -7,20 +7,19 @@ package teacherdeliverysummaries
 
 import (
 	"context"
-	"fmt"
 
-	"somotracker/backend/internal/middleware"
+	"somotracker/backend/internal/xerrors"
 )
 
 // ── Sentinel domain errors ───────────────────────────────────────────────
 
 var (
-	ErrNotFound      = fmt.Errorf("teacher delivery summaries not found: %w", middleware.ErrNotFound)
-	ErrAlreadyExists = fmt.Errorf("teacher delivery summaries already exists: %w", middleware.ErrAlreadyExists)
-	ErrInvalidInput  = fmt.Errorf("invalid teacher delivery summaries input: %w", middleware.ErrInvalidInput)
-	ErrUnauthorized  = fmt.Errorf("unauthorized: %w", middleware.ErrUnauthorized)
-	ErrForbidden     = fmt.Errorf("forbidden: %w", middleware.ErrForbidden)
-	ErrConflict      = fmt.Errorf("teacher delivery summaries conflict: %w", middleware.ErrConflict)
+	ErrNotFound      = xerrors.NotFound("teacher delivery summary not found")
+	ErrAlreadyExists = xerrors.AlreadyExists("teacher delivery summary already exists")
+	ErrInvalidInput  = xerrors.InvalidInput("invalid teacher delivery summary input")
+	ErrUnauthorized  = xerrors.Unauthorized("unauthorized")
+	ErrForbidden     = xerrors.Forbidden("forbidden")
+	ErrConflict      = xerrors.Conflict("teacher delivery summary conflict")
 )
 
 // ── Domain Models ────────────────────────────────────────────────────────

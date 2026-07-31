@@ -200,17 +200,17 @@ export function TimetableSlotGrid({ blocks, academicYearID, isLoading }: Timetab
             </div>
 
             {/* Grid */}
-            <div className="border-border/40 max-h-[600px] overflow-auto rounded-lg border">
-                <table className="w-full min-w-[500px]">
+            <div className="border-border/40 max-h-150 overflow-auto rounded-lg border">
+                <table className="w-full min-w-125">
                     <thead>
                         <tr className="bg-muted/20">
-                            <th className="bg-muted/20 text-muted-foreground border-border/40 sticky top-0 z-10 w-[170px] border-b px-3 py-2 text-left text-xs font-semibold">
+                            <th className="bg-muted/20 text-muted-foreground border-border/40 sticky top-0 z-10 w-42.5 border-b px-3 py-2 text-left text-xs font-semibold">
                                 Period
                             </th>
                             {DAYS.map((day) => (
                                 <th
                                     key={day}
-                                    className="bg-muted/20 text-muted-foreground border-border/40 border-border/40 sticky top-0 z-10 border-b border-l px-3 py-2 text-left text-xs font-semibold"
+                                    className="bg-muted/20 text-muted-foreground border-border/40 sticky top-0 z-10 border-b border-l px-3 py-2 text-left text-xs font-semibold"
                                 >
                                     {getDayName(day).slice(0, 3)}
                                 </th>
@@ -270,7 +270,7 @@ export function TimetableSlotGrid({ blocks, academicYearID, isLoading }: Timetab
                                             <td
                                                 key={key || `${day}-${rowIdx}`}
                                                 className={cn(
-                                                    "border-border/20 border-border/20 border-b border-l px-3 py-2.5",
+                                                    "border-border/20 border-b border-l px-3 py-2.5",
                                                     !isBreak &&
                                                         "hover:bg-primary/5 cursor-pointer transition-colors",
                                                     hasSlot && "hover:bg-destructive/5"
@@ -286,16 +286,11 @@ export function TimetableSlotGrid({ blocks, academicYearID, isLoading }: Timetab
                                                 ) : hasSlot && slot ? (
                                                     <div className="text-xs">
                                                         <span className="text-foreground block truncate font-medium">
-                                                            {slot.class_name}
+                                                            {slot.learning_area_name}
                                                         </span>
                                                         {slot.teacher_name && (
                                                             <span className="text-muted-foreground block truncate text-[11px]">
                                                                 {slot.teacher_name}
-                                                            </span>
-                                                        )}
-                                                        {slot.learning_area_name && (
-                                                            <span className="text-muted-foreground block truncate text-[11px]">
-                                                                {slot.learning_area_name}
                                                             </span>
                                                         )}
                                                     </div>

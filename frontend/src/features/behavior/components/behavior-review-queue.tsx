@@ -1,135 +1,9 @@
-/**
- * BehaviorReviewQueue — admin view of pending behavior notes.
- *
- * Uses the shared DataTable component with approve/reject actions per row.
- */
-
 "use client";
 
-import { useState } from "react";
-
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/shared/data-table";
-import type { DataTableColumn } from "@/components/shared/data-table/types";
-import { RowActions } from "@/components/shared/data-table/row-actions";
-import type { RowAction } from "@/components/shared/data-table/row-actions";
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Textarea } from "@/components/ui/textarea";
-import { Loader2, AlertTriangle, Trash2 } from "lucide-react";
-
-import {
-    useBehaviorPendingQueue,
-    useReviewBehaviorNote,
-    useDeleteBehaviorNote,
-} from "../hooks/use-behavior";
-import type { PendingNoteItem } from "@/lib/api/behavior";
-
-// ─── Student Cell with badges ─────────────────────────────────────────────
-
-function StudentCell({ note }: { note: PendingNoteItem }) {
-    return (
-        <div className="flex items-center gap-2">
-            <span className="font-medium">{note.student_full_name}</span>
-            <Badge variant="outline" className="text-[10px]">
-                {note.class_name}
-            </Badge>
-            <Badge className="text-[10px]">{note.category_name}</Badge>
-            {note.is_urgent && (
-                <Badge variant="destructive" className="gap-1 text-[10px]">
-                    <AlertTriangle className="h-3 w-3" />
-                    Urgent
-                </Badge>
-            )}
-        </div>
-    );
-}
-
-// ─── Actions cell ─────────────────────────────────────────────────────────
-
-function ActionsCell({ note }: { note: PendingNoteItem }) {
-    const reviewNote = useReviewBehaviorNote();
-
-    const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
-    const [adminNote, setAdminNote] = useState("");
-
-    const handleApprove = () => {
-        reviewNote.mutate({ noteId: note.id, payload: { decision: "APPROVED" } });
-    };
-
-    const handleReject = () => {
-        reviewNote.mutate({
-            noteId: note.id,
-            payload: { decision: "REJECTED", admin_note: adminNote || undefined },
-        });
-        setRejectDialogOpen(false);
-        setAdminNote("");
-    };
-
-    return (
-        <div className="flex items-center gap-2">
-            <Button size="sm" onClick={handleApprove} disabled={reviewNote.isPending}>
-                {reviewNote.isPending ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
-                Approve
-            </Button>
-            <Button
-                size="sm"
-                variant="destructive"
-                onClick={() => setRejectDialogOpen(true)}
-                disabled={reviewNote.isPending}
-            >
-                Reject
-            </Button>
-
-            <AlertDialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Reject behavior note?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            This will discard the teacher&apos;s input. You can provide a note
-                            explaining why.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <Textarea
-                        placeholder="Optional reason for rejection..."
-                        value={adminNote}
-                        onChange={(e) => setAdminNote(e.target.value)}
-                    />
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleReject} className="bg-destructive">
-                            Reject
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-        </div>
-    );
-}
-
-// ─── Description Cell ─────────────────────────────────────────────────────
-
-function DescriptionCell({ note }: { note: PendingNoteItem }) {
-    return (
-        <div className="space-y-1">
-            <p className="text-muted-foreground line-clamp-2 text-xs">{note.description}</p>
-            <p className="text-muted-foreground text-[10px]">
-                By {note.authored_by_name} &middot; {note.date}
-            </p>
-        </div>
-    );
-}
-
-// ─── Columns ──────────────────────────────────────────────────────────────
+import { type DataTableColumn } from "@/components/shared/data-table/types";
+import { useBehaviorPendingQueue, useDeleteBehaviorNote } from "../hooks/use-behavior";
+import { type PendingNoteItem } from "@/lib/api/behavior";
 
 const columns: DataTableColumn<PendingNoteItem>[] = [
     {
@@ -157,30 +31,10 @@ const columns: DataTableColumn<PendingNoteItem>[] = [
     },
 ];
 
-// ─── Row Actions wrapper for per-row delete ────────────────────────────────
-
-function RowActionsCell({ note }: { note: PendingNoteItem }) {
-    const deleteMutation = useDeleteBehaviorNote();
-
-    const rowActions: RowAction[] = [
-        {
-            label: "Delete",
-            icon: Trash2,
-            destructive: true,
-            onClick: () => deleteMutation.mutate(note.id),
-        },
-    ];
-
-    return (
-        <RowActions
-            rowId={note.id}
-            label={`behavior note for ${note.student_full_name}`}
-            actions={rowActions}
-        />
-    );
-}
-
-// ─── Component ────────────────────────────────────────────────────────────
+import { StudentCell } from "./student-cell";
+import { ActionsCell } from "./actions-cell";
+import { DescriptionCell } from "./description-cell";
+import { RowActionsCell } from "./row-actions-cell";
 
 export function BehaviorReviewQueue() {
     const { data, isError } = useBehaviorPendingQueue();

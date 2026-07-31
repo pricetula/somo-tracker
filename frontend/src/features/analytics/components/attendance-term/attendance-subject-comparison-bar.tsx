@@ -104,14 +104,5 @@ export function AttendanceSubjectComparisonBar({ data }: AttendanceSubjectCompar
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────
 
-export function AttendanceSubjectComparisonBarSkeleton() {
-    return (
-        <div className="space-y-2">
-            <div className="bg-muted h-4 w-52 animate-pulse rounded" />
-            <div className="bg-muted aspect-[3/1] w-full animate-pulse rounded" />
-        </div>
-    );
-}
-
 // Import Cell from recharts for per-bar coloring
 import { Cell, YAxis } from "recharts";

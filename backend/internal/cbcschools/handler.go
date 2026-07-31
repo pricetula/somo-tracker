@@ -45,6 +45,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	schools.Put("/:id", middleware.RequireAuth, h.Update)
 	schools.Delete("/", middleware.RequireAuth, h.Delete)
 	schools.Post("/:id/activate", middleware.RequireAuth, h.SetActive)
+	schools.Post("/seed-curriculum", middleware.RequireAuth, h.SeedCurriculum)
 }
 
 // ─── Handlers ──────────────────────────────────────────────────────────────
@@ -203,6 +204,20 @@ func (h *Handler) SetActive(c *fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusNoContent)
 }
 
+// Sets the school as the user's active school and updates the somo_school_id cookie.
+func (h *Handler) SeedCurriculum(c *fiber.Ctx) error {
+	tenantID, schoolID, err := getTenantAndSchool(c)
+	if err != nil {
+		return err
+	}
+
+	if err := h.svc.SeedCurriculum(c.Context(), tenantID, schoolID); err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.SendStatus(fiber.StatusOK)
+}
+
 // Delete handles DELETE /api/v1/schools/:id.
 func (h *Handler) Delete(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
@@ -233,4 +248,22 @@ func (h *Handler) Delete(c *fiber.Ctx) error {
 	}
 
 	return c.SendStatus(fiber.StatusNoContent)
+}
+
+func getTenantAndSchool(c *fiber.Ctx) (string, string, error) {
+	tenantID, ok := c.Locals("tenant_id").(string)
+	if !ok || tenantID == "" {
+		return "", "", c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"code":    "unauthorized",
+			"message": "authentication required",
+		})
+	}
+	schoolID, _ := c.Locals("active_school_id").(string)
+	if schoolID == "" {
+		return "", "", c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "active school not set",
+		})
+	}
+	return tenantID, schoolID, nil
 }

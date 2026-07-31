@@ -1,20 +1,9 @@
-/**
- * BehaviorCategoryManager — CRUD table for behavior categories using DataTable.
- *
- * Admin-only. Shows name, default severity, active toggle.
- * Deactivates (soft-delete) rather than hard-deleting.
- */
-
 "use client";
 
 import { useState, useCallback } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import { Loader2, Plus, ToggleLeft, ToggleRight } from "lucide-react";
-import { toast } from "sonner";
-
+import { Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
 import {
     Select,
     SelectContent,
@@ -31,119 +20,9 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { DataTable } from "@/components/shared/data-table";
-import type { DataTableColumn } from "@/components/shared/data-table/types";
-import { RowActions } from "@/components/shared/data-table/row-actions";
-import type { RowAction } from "@/components/shared/data-table/row-actions";
-import {
-    useBehaviorCategories,
-    useCreateBehaviorCategory,
-    useUpdateBehaviorCategory,
-} from "../hooks/use-behavior";
-import type { BehaviorCategory } from "@/lib/api/behavior";
-
-// ─── Severity Cell ────────────────────────────────────────────────────────
-
-function SeverityCell({ category }: { category: BehaviorCategory }) {
-    const updateCategory = useUpdateBehaviorCategory();
-    const queryClient = useQueryClient();
-
-    const handleSeverityChange = useCallback(
-        (severity: string) => {
-            updateCategory.mutate(
-                {
-                    id: category.id,
-                    payload: {
-                        default_severity:
-                            severity === "__none__"
-                                ? null
-                                : (severity as "MINOR" | "NEEDS_FOLLOW_UP"),
-                    },
-                },
-                {
-                    onSuccess: () => {
-                        queryClient.invalidateQueries({ queryKey: ["behavior", "categories"] });
-                    },
-                }
-            );
-        },
-        [category.id, updateCategory, queryClient]
-    );
-
-    return (
-        <Select
-            value={category.default_severity ?? "__none__"}
-            onValueChange={handleSeverityChange}
-        >
-            <SelectTrigger className="h-8 w-44">
-                <SelectValue placeholder="None" />
-            </SelectTrigger>
-            <SelectContent>
-                <SelectItem value="__none__">None</SelectItem>
-                <SelectItem value="MINOR">Minor</SelectItem>
-                <SelectItem value="NEEDS_FOLLOW_UP">Needs Follow-up</SelectItem>
-            </SelectContent>
-        </Select>
-    );
-}
-
-// ─── Active Toggle Cell ───────────────────────────────────────────────────
-
-function ActiveToggleCell({ category }: { category: BehaviorCategory }) {
-    const updateCategory = useUpdateBehaviorCategory();
-    const queryClient = useQueryClient();
-
-    const handleToggle = useCallback(() => {
-        updateCategory.mutate(
-            { id: category.id, payload: { is_active: !category.is_active } },
-            {
-                onSuccess: () => {
-                    queryClient.invalidateQueries({ queryKey: ["behavior", "categories"] });
-                    toast.success(
-                        category.is_active ? "Category deactivated" : "Category activated"
-                    );
-                },
-            }
-        );
-    }, [category.id, category.is_active, updateCategory, queryClient]);
-
-    return <Switch checked={category.is_active} onCheckedChange={handleToggle} />;
-}
-
-// ─── Actions Cell ─────────────────────────────────────────────────────────
-
-function ActionsCell({ category }: { category: BehaviorCategory }) {
-    const updateCategory = useUpdateBehaviorCategory();
-    const queryClient = useQueryClient();
-
-    const actions: RowAction[] = [
-        {
-            label: category.is_active ? "Deactivate" : "Activate",
-            icon: category.is_active ? ToggleLeft : ToggleRight,
-            destructive: true,
-            confirmTitle: category.is_active ? "Deactivate Category" : "Activate Category",
-            confirmDescription: `Are you sure you want to ${
-                category.is_active ? "deactivate" : "activate"
-            } "${category.name}"?`,
-            onClick: () => {
-                updateCategory.mutate(
-                    { id: category.id, payload: { is_active: !category.is_active } },
-                    {
-                        onSuccess: () => {
-                            queryClient.invalidateQueries({ queryKey: ["behavior", "categories"] });
-                            toast.success(
-                                category.is_active ? "Category deactivated" : "Category activated"
-                            );
-                        },
-                    }
-                );
-            },
-        },
-    ];
-
-    return <RowActions rowId={category.id} label={category.name} actions={actions} />;
-}
-
-// ─── Columns ──────────────────────────────────────────────────────────────
+import { type DataTableColumn } from "@/components/shared/data-table/types";
+import { useBehaviorCategories, useCreateBehaviorCategory } from "../hooks/use-behavior";
+import { type BehaviorCategory } from "@/lib/api/behavior";
 
 function createColumns(): DataTableColumn<BehaviorCategory>[] {
     return [
@@ -174,7 +53,9 @@ function createColumns(): DataTableColumn<BehaviorCategory>[] {
     ];
 }
 
-// ─── Component ────────────────────────────────────────────────────────────
+import { SeverityCell } from "./severity-cell";
+import { ActiveToggleCell } from "./active-toggle-cell";
+import { ActionsCell } from "./category-actions-cell";
 
 export function BehaviorCategoryManager() {
     const { data, isLoading } = useBehaviorCategories();

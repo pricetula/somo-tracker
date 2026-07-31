@@ -44,7 +44,7 @@ func newHandlerTestHarness(t *testing.T) *handlerTestHarness {
 	schools.Post("/", handler.Create)
 	schools.Get("/", handler.List)
 	schools.Put("/:id", handler.Update)
-	schools.Delete("/:id", handler.Delete)
+	schools.Delete("/", handler.Delete)
 
 	return &handlerTestHarness{
 		app:     app,
@@ -296,7 +296,10 @@ func TestHandler_DeleteSchool_HappyPath(t *testing.T) {
 		return nil
 	}
 
-	resp := doRequest(h.app, "DELETE", "/api/v1/schools/school_001", nil)
+	body, _ := json.Marshal(struct {
+		ID string `json:"id"`
+	}{ID: "school_001"})
+	resp := doRequest(h.app, "DELETE", "/api/v1/schools", body)
 
 	if resp.StatusCode != fiber.StatusNoContent {
 		t.Fatalf("expected 204 No Content, got %d", resp.StatusCode)
@@ -310,7 +313,10 @@ func TestHandler_DeleteSchool_WrongTenant(t *testing.T) {
 		return &School{ID: id, TenantID: "tenant_999", Name: "Other Tenant School"}, nil
 	}
 
-	resp := doRequest(h.app, "DELETE", "/api/v1/schools/school_001", nil)
+	body, _ := json.Marshal(struct {
+		ID string `json:"id"`
+	}{ID: "school_001"})
+	resp := doRequest(h.app, "DELETE", "/api/v1/schools", body)
 
 	if resp.StatusCode != fiber.StatusForbidden {
 		t.Fatalf("expected 403 Forbidden, got %d", resp.StatusCode)
@@ -324,7 +330,10 @@ func TestHandler_DeleteSchool_NotFound(t *testing.T) {
 		return nil, ErrNotFound
 	}
 
-	resp := doRequest(h.app, "DELETE", "/api/v1/schools/school_999", nil)
+	body, _ := json.Marshal(struct {
+		ID string `json:"id"`
+	}{ID: "school_999"})
+	resp := doRequest(h.app, "DELETE", "/api/v1/schools", body)
 
 	if resp.StatusCode != fiber.StatusNotFound {
 		t.Fatalf("expected 404 Not Found, got %d", resp.StatusCode)

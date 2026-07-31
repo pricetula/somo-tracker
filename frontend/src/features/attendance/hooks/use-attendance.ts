@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import {
     batchMarkAttendance,
     createSession,
+    getCalendarStatus,
     getClassTermSummary,
     getSession,
     getSessionsForClassDate,
@@ -27,11 +28,10 @@ import type {
     BatchMarkPayload,
     BatchMarkResult,
     CreateSessionPayload,
-    RecordListResponse,
-    RecordWithEnrichedData,
     UpdateRecordPayload,
     UpdateSessionPayload,
 } from "@/features/attendance/types";
+import { EnrichedSlotListResult } from "@/features/timetable-structure";
 
 // ─── Query Keys ───────────────────────────────────────────────────────────
 
@@ -62,6 +62,11 @@ export const attendanceKeys = {
             ["attendance", "summaries", "student", studentId, termId] as const,
         byClass: (classId: string, termId?: string) =>
             ["attendance", "summaries", "class", classId, termId] as const,
+    },
+    calendarStatus: {
+        all: ["attendance", "calendar-status"] as const,
+        range: (startDate: string, endDate: string) =>
+            ["attendance", "calendar-status", startDate, endDate] as const,
     },
 };
 
@@ -162,6 +167,22 @@ export function useClassTermSummary(classId: string, termId?: string) {
     });
 }
 
+// ─── Calendar Status ───────────────────────────────────────────────────────
+
+/**
+ * Get per-date attendance completion status for a calendar month view.
+ * Fetches once per date-range change (not per individual date cell) to avoid N+1.
+ */
+export function useCalendarStatus(startDate: string, endDate: string, schoolId?: string) {
+    return useQuery({
+        queryKey: attendanceKeys.calendarStatus.range(startDate, endDate),
+        queryFn: () => getCalendarStatus(startDate, endDate),
+        enabled: !!startDate && !!endDate && !!schoolId,
+        // Keep previous data while fetching new range to avoid flash
+        placeholderData: (previousData) => previousData,
+    });
+}
+
 // ─── Sessions Mutations ───────────────────────────────────────────────────
 
 /** Create a new attendance session. */
@@ -201,47 +222,36 @@ export function useBatchMarkAttendance(termId?: string) {
     return useMutation({
         mutationFn: (data: BatchMarkPayload) => batchMarkAttendance(data, termId),
         onMutate: async (data) => {
+            const queryKey = attendanceKeys.records.bySlot(data.timetable_slot_id, data.date);
             // Cancel any in-flight refetches so they don't overwrite our optimistc update
-            await queryClient.cancelQueries({ queryKey: attendanceKeys.records.all });
-
-            // Snapshot all record caches for rollback on error
-            const previousCaches = queryClient.getQueriesData({
-                queryKey: attendanceKeys.records.all,
+            await queryClient.cancelQueries({
+                queryKey,
             });
 
-            // Optimistically update every record cache with the new statuses
-            queryClient.setQueriesData<RecordWithEnrichedData[] | RecordListResponse>(
-                { queryKey: attendanceKeys.records.all },
-                (old) => {
-                    if (!old) return old;
+            // Snapshot all record caches for rollback on error
+            const previousCaches = queryClient.getQueriesData({ queryKey });
 
-                    if (Array.isArray(old)) {
-                        return old.map((record) => {
-                            const update = data.records.find(
-                                (r) => r.student_id === record.student_id
-                            );
-                            return update ? { ...record, status: update.status } : record;
-                        });
-                    }
+            // 1. Grab all cached enriched slot lists (regardless of which class/teacher filters were used)
+            const enrichedQueries = queryClient.getQueriesData<EnrichedSlotListResult>({
+                queryKey: ["timetable-slots", "enriched"],
+            });
 
-                    // RecordListResponse shape ({ items: [] })
-                    if ("items" in old && Array.isArray(old.items)) {
-                        return {
-                            ...old,
-                            items: old.items.map((record) => {
-                                const update = data.records.find(
-                                    (r) => r.student_id === record.student_id
-                                );
-                                return update ? { ...record, status: update.status } : record;
-                            }),
-                        };
-                    }
-
-                    return old;
+            // Optimistically update the matching slot across all cached enriched lists
+            for (const [key, oldData] of enrichedQueries) {
+                if (oldData?.items && Array.isArray(oldData.items)) {
+                    queryClient.setQueryData(key, {
+                        ...oldData,
+                        items: oldData.items.map((slot) => {
+                            if (slot.id === data.timetable_slot_id) {
+                                return { ...slot, session_status: "marked" };
+                            }
+                            return slot;
+                        }),
+                    });
                 }
-            );
+            }
 
-            return { previousCaches };
+            return { previousCaches, enrichedQueries };
         },
         onError: (err, _data, context) => {
             // Rollback all record caches to their pre-mutation state
@@ -254,11 +264,6 @@ export function useBatchMarkAttendance(termId?: string) {
         },
         onSuccess: (result: BatchMarkResult) => {
             toast.success(`Attendance saved: ${result.created} created, ${result.updated} updated`);
-        },
-        onSettled: () => {
-            queryClient.invalidateQueries({ queryKey: attendanceKeys.records.all });
-            queryClient.invalidateQueries({ queryKey: attendanceKeys.sessions.all });
-            queryClient.invalidateQueries({ queryKey: attendanceKeys.summaries.all });
         },
     });
 }

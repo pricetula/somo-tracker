@@ -37,6 +37,7 @@ import type {
     UpdateRecordPayload,
     AttendanceTermSummary,
     RefreshSummaryResponse,
+    CalendarStatusListResponse,
 } from "@/features/attendance/types";
 
 // ─── Sessions ─────────────────────────────────────────────────────────────
@@ -195,4 +196,18 @@ export async function refreshSummaries(termId: string): Promise<RefreshSummaryRe
     return api.post<RefreshSummaryResponse>("/api/v1/attendance/summaries/refresh", {
         term_id: termId,
     });
+}
+
+// ─── Calendar Status ───────────────────────────────────────────────────────
+
+/**
+ * Get per-date attendance completion status for a school calendar month view.
+ * Returns one entry per date in the range with expected/handled counts and a computed status.
+ */
+export async function getCalendarStatus(
+    startDate: string,
+    endDate: string
+): Promise<CalendarStatusListResponse> {
+    const qs = new URLSearchParams({ start_date: startDate, end_date: endDate }).toString();
+    return api.get<CalendarStatusListResponse>(`/api/v1/attendance/calendar/status?${qs}`);
 }

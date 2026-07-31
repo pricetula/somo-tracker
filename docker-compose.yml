@@ -44,7 +44,7 @@ services:
       - "3030:3030"
     environment:
       DATABASE_URL: "postgres://somo_admin:somo_secure_password@somotracker_postgres:5432/somotracker_dev?sslmode=disable"
-      REDIS_URL: "somotracker_redis:6379"
+      REDIS_URL: "redis://somotracker_redis:6379"
       APP_ENV: "development"
       PORT: "3030"
       ALLOWED_ORIGINS: "http://localhost:3000"

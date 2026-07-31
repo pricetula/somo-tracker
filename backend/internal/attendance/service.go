@@ -7,12 +7,18 @@ import (
 
 // Service handles business logic for attendance operations.
 type Service struct {
-	repo Repository
+	repo     Repository
+	enqueuer *Enqueuer
 }
 
 // NewService creates a new attendance Service.
 func NewService(repo Repository) *Service {
 	return &Service{repo: repo}
+}
+
+// SetEnqueuer sets the background task enqueuer for summary refreshes.
+func (s *Service) SetEnqueuer(e *Enqueuer) {
+	s.enqueuer = e
 }
 
 // ── Sessions ──────────────────────────────────────────────────────────────
@@ -130,7 +136,20 @@ func (s *Service) BatchMark(ctx context.Context, tenantID, schoolID string, payl
 		}
 	}
 
-	return s.repo.BatchMark(ctx, tenantID, schoolID, payload, markedBy, termID)
+	result, err := s.repo.BatchMark(ctx, tenantID, schoolID, payload, markedBy, termID)
+	if err != nil {
+		return nil, fmt.Errorf("attendance.Service.BatchMark: %w", err)
+	}
+
+	// Asynchronously refresh all attendance-related summaries for the term.
+	// These are best-effort — the HTTP response is not blocked.
+	if s.enqueuer != nil {
+		s.enqueuer.EnqueueTeacherDeliveryRefresh(ctx, termID)
+		s.enqueuer.EnqueueAttendanceTermRefresh(ctx, tenantID, schoolID, termID)
+		s.enqueuer.EnqueueClassDailyRefresh(ctx, tenantID, schoolID, payload.TimetableSlotID, payload.Date)
+	}
+
+	return result, nil
 }
 
 // UpdateRecord updates a single attendance record.
@@ -337,4 +356,48 @@ func (s *Service) ListClassDailySummaries(ctx context.Context, tenantID, schoolI
 		items = []ClassDailyAttendanceSummary{}
 	}
 	return &ClassDailySummaryListResponse{Items: items, Total: len(items)}, nil
+}
+
+// ── Calendar Status ───────────────────────────────────────────────────────
+
+// ComputeDayStatus maps expected/handled counts to a DayStatus.
+// This is a pure function — no DB, no side effects — making it unit-testable.
+func ComputeDayStatus(expectedCount, handledCount int) DayStatus {
+	switch {
+	case expectedCount == 0:
+		return DayStatusNone
+	case handledCount == expectedCount:
+		return DayStatusGreen
+	case handledCount == 0:
+		return DayStatusRed
+	default:
+		return DayStatusYellow
+	}
+}
+
+// GetCalendarStatus returns per-date attendance status for a school over a date range.
+func (s *Service) GetCalendarStatus(ctx context.Context, tenantID, schoolID, startDate, endDate string) (*CalendarStatusListResponse, error) {
+	if startDate == "" {
+		return nil, fmt.Errorf("attendance.Service.GetCalendarStatus: start_date is required: %w", ErrInvalidInput)
+	}
+	if endDate == "" {
+		return nil, fmt.Errorf("attendance.Service.GetCalendarStatus: end_date is required: %w", ErrInvalidInput)
+	}
+
+	raw, err := s.repo.ListCalendarStatus(ctx, tenantID, schoolID, startDate, endDate)
+	if err != nil {
+		return nil, fmt.Errorf("attendance.Service.GetCalendarStatus: %w", err)
+	}
+
+	items := make([]CalendarDayStatus, 0, len(raw))
+	for _, r := range raw {
+		items = append(items, CalendarDayStatus{
+			Date:          r.Date,
+			ExpectedCount: r.ExpectedCount,
+			HandledCount:  r.HandledCount,
+			Status:        ComputeDayStatus(r.ExpectedCount, r.HandledCount),
+		})
+	}
+
+	return &CalendarStatusListResponse{Items: items, Total: len(items)}, nil
 }

@@ -229,8 +229,8 @@ func TestHandler_Me_MissingCookie(t *testing.T) {
 	if body.Code != "unauthorized" {
 		t.Fatalf("expected code 'unauthorized', got %q", body.Code)
 	}
-	if body.Message != "authentication required" {
-		t.Fatalf("expected message 'authentication required', got %q", body.Message)
+	if body.Message != "no session cookie found: authentication required" {
+		t.Fatalf("expected message 'no session cookie found: authentication required', got %q", body.Message)
 	}
 }
 
@@ -283,8 +283,8 @@ func TestHandler_Me_ExpiredToken(t *testing.T) {
 	if body.Code != "unauthorized" {
 		t.Fatalf("expected code 'unauthorized', got %q", body.Code)
 	}
-	if body.Message != "authentication required" {
-		t.Fatalf("expected message 'authentication required', got %q", body.Message)
+	if body.Message != "expired_token" {
+		t.Fatalf("expected message 'expired_token', got %q", body.Message)
 	}
 }
 

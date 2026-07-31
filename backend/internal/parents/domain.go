@@ -2,9 +2,8 @@ package parents
 
 import (
 	"context"
-	"fmt"
 
-	"somotracker/backend/internal/middleware"
+	"somotracker/backend/internal/xerrors"
 )
 
 // ============================================================================
@@ -12,14 +11,14 @@ import (
 // ============================================================================
 
 var (
-	ErrNotFound        = fmt.Errorf("parent not found: %w", middleware.ErrNotFound)
-	ErrAlreadyExists   = fmt.Errorf("parent already exists: %w", middleware.ErrAlreadyExists)
-	ErrInvalidInput    = fmt.Errorf("invalid parent input: %w", middleware.ErrInvalidInput)
-	ErrUnauthorized    = fmt.Errorf("unauthorized: %w", middleware.ErrUnauthorized)
-	ErrForbidden       = fmt.Errorf("forbidden: %w", middleware.ErrForbidden)
-	ErrConflict        = fmt.Errorf("parent conflict: %w", middleware.ErrConflict)
-	ErrDuplicateLink   = fmt.Errorf("student already linked to this parent: %w", middleware.ErrConflict)
-	ErrStudentNotFound = fmt.Errorf("student not found: %w", middleware.ErrNotFound)
+	ErrNotFound        = xerrors.NotFound("parent not found")
+	ErrAlreadyExists   = xerrors.AlreadyExists("parent already exists")
+	ErrInvalidInput    = xerrors.InvalidInput("invalid parent input")
+	ErrUnauthorized    = xerrors.Unauthorized("unauthorized")
+	ErrForbidden       = xerrors.Forbidden("forbidden")
+	ErrConflict        = xerrors.Conflict("parent conflict")
+	ErrDuplicateLink   = xerrors.Conflict("student already linked to this parent")
+	ErrStudentNotFound = xerrors.NotFound("student not found")
 )
 
 // ============================================================================

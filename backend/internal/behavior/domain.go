@@ -3,22 +3,21 @@
 package behavior
 
 import (
-	"fmt"
 	"time"
 
-	"somotracker/backend/internal/middleware"
+	"somotracker/backend/internal/xerrors"
 )
 
 // ─── Sentinel domain errors ───────────────────────────────────────────────
 
 var (
-	ErrNotFound      = fmt.Errorf("behavior not found: %w", middleware.ErrNotFound)
-	ErrAlreadyExists = fmt.Errorf("behavior already exists: %w", middleware.ErrAlreadyExists)
-	ErrInvalidInput  = fmt.Errorf("invalid behavior input: %w", middleware.ErrInvalidInput)
-	ErrUnauthorized  = fmt.Errorf("unauthorized: %w", middleware.ErrUnauthorized)
-	ErrForbidden     = fmt.Errorf("forbidden: %w", middleware.ErrForbidden)
-	ErrConflict      = fmt.Errorf("behavior conflict: %w", middleware.ErrConflict)
-	ErrCategoryInUse = fmt.Errorf("category has active behavior notes: %w", middleware.ErrConflict)
+	ErrNotFound      = xerrors.NotFound("behavior not found")
+	ErrAlreadyExists = xerrors.AlreadyExists("behavior already exists")
+	ErrInvalidInput  = xerrors.InvalidInput("invalid behavior input")
+	ErrUnauthorized  = xerrors.Unauthorized("unauthorized")
+	ErrForbidden     = xerrors.Forbidden("forbidden")
+	ErrConflict      = xerrors.Conflict("behavior conflict")
+	ErrCategoryInUse = xerrors.Conflict("category has active behavior notes")
 )
 
 // ─── Types ────────────────────────────────────────────────────────────────

@@ -1,24 +1,11 @@
-/**
- * ActivityFeed — a chronological list of recent actions in the school.
- *
- * Shows recent import jobs (student imports, staff invitations) as
- * a lightweight activity feed. Hidden when there's no activity.
- */
-
 "use client";
 
-import Link from "next/link";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { useDashboardRecentActivity } from "../hooks/use-dashboard-summary";
-import { UploadIcon, MailIcon } from "lucide-react";
+import Link from "next/link";
 
-function ActivityIcon({ type }: { type: string }) {
-    if (type === "staff_invite") {
-        return <MailIcon className="size-4 shrink-0" />;
-    }
-    return <UploadIcon className="size-4 shrink-0" />;
-}
+import { ActivityIcon } from "./activity-icon";
 
 export function ActivityFeed() {
     const { data: items, isLoading } = useDashboardRecentActivity();

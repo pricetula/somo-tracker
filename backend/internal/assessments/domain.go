@@ -7,26 +7,25 @@ package assessments
 
 import (
 	"context"
-	"fmt"
 	"time"
 
-	"somotracker/backend/internal/middleware"
+	"somotracker/backend/internal/xerrors"
 )
 
 // ── Sentinel domain errors ───────────────────────────────────────────────
 
 var (
-	ErrNotFound               = fmt.Errorf("assessments not found: %w", middleware.ErrNotFound)
-	ErrAlreadyExists          = fmt.Errorf("assessments already exists: %w", middleware.ErrAlreadyExists)
-	ErrInvalidInput           = fmt.Errorf("invalid assessments input: %w", middleware.ErrInvalidInput)
-	ErrUnauthorized           = fmt.Errorf("unauthorized: %w", middleware.ErrUnauthorized)
-	ErrForbidden              = fmt.Errorf("forbidden: %w", middleware.ErrForbidden)
-	ErrConflict               = fmt.Errorf("assessments conflict: %w", middleware.ErrConflict)
-	ErrInvalidStateTransition = fmt.Errorf("invalid state transition: %w", middleware.ErrConflict)
-	ErrScoresExist            = fmt.Errorf("scores already exist for this session: %w", middleware.ErrConflict)
-	ErrTermFinalised          = fmt.Errorf("term is finalised: %w", middleware.ErrForbidden)
-	ErrScaleReferenced        = fmt.Errorf("scale profile is referenced by existing sessions: %w", middleware.ErrConflict)
-	ErrStudentNotGradable     = fmt.Errorf("student is not in a gradable state: %w", middleware.ErrInvalidInput)
+	ErrNotFound               = xerrors.NotFound("assessment not found")
+	ErrAlreadyExists          = xerrors.AlreadyExists("assessment already exists")
+	ErrInvalidInput           = xerrors.InvalidInput("invalid assessment input")
+	ErrUnauthorized           = xerrors.Unauthorized("unauthorized")
+	ErrForbidden              = xerrors.Forbidden("forbidden")
+	ErrConflict               = xerrors.Conflict("assessment conflict")
+	ErrInvalidStateTransition = xerrors.Conflict("invalid state transition")
+	ErrScoresExist            = xerrors.Conflict("scores already exist for this session")
+	ErrTermFinalised          = xerrors.Forbidden("term is finalised")
+	ErrScaleReferenced        = xerrors.Conflict("scale profile is referenced by existing sessions")
+	ErrStudentNotGradable     = xerrors.InvalidInput("student is not in a gradable state")
 )
 
 // ── Performance Level helpers ────────────────────────────────────────────

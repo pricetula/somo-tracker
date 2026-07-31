@@ -1,13 +1,4 @@
-/**
- * Parent Detail — displays parent info and linked students.
- *
- * Section 1: Parent Info (name, email, phone, active toggle)
- * Section 2: Linked Students (table with link/unlink actions)
- */
-
 "use client";
-
-import * as React from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,8 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Trash2, Link2, UserPlus } from "lucide-react";
-
+import { Trash2, Link2 } from "lucide-react";
 import { StaticTable } from "@/components/shared/static-table";
 import {
     AlertDialog,
@@ -29,7 +19,6 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-
 import {
     useParentDetail,
     useUpdateParent,
@@ -37,34 +26,14 @@ import {
     useDeleteParent,
 } from "../hooks/use-parents";
 import { LinkStudentDialog } from "./link-student-dialog";
-
-// ─── Props ─────────────────────────────────────────────────────────────────
+import * as React from "react";
 
 interface ParentDetailViewProps {
     parentId: string;
     onBack: () => void;
 }
 
-// ─── Empty State ──────────────────────────────────────────────────────────
-
-function EmptyState({ onCreateLink }: { onCreateLink: () => void }) {
-    return (
-        <div className="bg-muted/30 flex items-center justify-center rounded-md px-4 py-8">
-            <div className="text-center">
-                <p className="text-muted-foreground font-medium">No linked students</p>
-                <p className="text-muted-foreground mt-1 text-xs">
-                    Link a student to this parent to manage guardian relationships.
-                </p>
-                <Button variant="outline" size="sm" className="mt-4" onClick={onCreateLink}>
-                    <UserPlus className="mr-1.5 size-3.5" />
-                    Link Student
-                </Button>
-            </div>
-        </div>
-    );
-}
-
-// ─── Component ─────────────────────────────────────────────────────────────
+import { EmptyState } from "./empty-state";
 
 export function ParentDetailView({ parentId, onBack }: ParentDetailViewProps) {
     const { data: detailData, isLoading, isError } = useParentDetail(parentId);

@@ -8,36 +8,32 @@ import (
 	"strings"
 	"time"
 
-	"somotracker/backend/internal/middleware"
+	"somotracker/backend/internal/xerrors"
 )
 
 // ============================================================================
-// Domain Errors — typed sentinels for the error taxonomy (requirement 14).
+// Domain Errors — typed sentinels for the error taxonomy.
 // ============================================================================
 
 var (
-	// ErrInvalidInput wraps middleware.ErrInvalidInput so that errors.Is(err,
-	// middleware.ErrInvalidInput) returns true for validation failures.
-	ErrInvalidInput = fmt.Errorf("invalid auth input: %w", middleware.ErrInvalidInput)
-	// ErrExpiredToken wraps middleware.ErrUnauthorized so that errors.Is(err,
-	// middleware.ErrUnauthorized) returns true. This ensures the middleware's
-	// HTTPError maps it to 401 Unauthorized, which triggers the frontend's
-	// global 401 eviction (redirect to /logout).
-	ErrExpiredToken              = fmt.Errorf("expired_token: %w", middleware.ErrUnauthorized)
-	ErrMFARequired               = fmt.Errorf("mfa_required: %w", middleware.ErrUnauthorized)
-	ErrOrgAlreadyExists          = fmt.Errorf("org_already_exists: %w", middleware.ErrConflict)
-	ErrJITProvisioningNotAllowed = fmt.Errorf("jit_provisioning_not_allowed: %w", middleware.ErrForbidden)
-	ErrMemberNotFound            = fmt.Errorf("member_not_found: %w", middleware.ErrNotFound)
-	ErrOrgNotFound               = fmt.Errorf("org_not_found: %w", middleware.ErrNotFound)
-	// Required sentinel errors, each wrapping the corresponding middleware
-	// sentinel so that middleware.HTTPError can match them via errors.Is.
-	ErrNotFound      = fmt.Errorf("auth not found: %w", middleware.ErrNotFound)
-	ErrAlreadyExists = fmt.Errorf("auth already exists: %w", middleware.ErrAlreadyExists)
-	ErrUnauthorized  = fmt.Errorf("unauthorized: %w", middleware.ErrUnauthorized)
-	ErrForbidden     = fmt.Errorf("forbidden: %w", middleware.ErrForbidden)
-	ErrConflict      = fmt.Errorf("auth conflict: %w", middleware.ErrConflict)
-	// ErrInternal is intentionally a bare error — it should always fall through
-	// to the generic 500 response path and is not part of the required sentinel set.
+	// Required sentinels (AGENTS.md contract).
+	ErrNotFound      = xerrors.NotFound("auth not found")
+	ErrAlreadyExists = xerrors.AlreadyExists("auth already exists")
+	ErrInvalidInput  = xerrors.InvalidInput("invalid auth input")
+	ErrUnauthorized  = xerrors.Unauthorized("unauthorized")
+	ErrForbidden     = xerrors.Forbidden("forbidden")
+	ErrConflict      = xerrors.Conflict("auth conflict")
+
+	// Auth-specific sentinels.
+	ErrExpiredToken              = xerrors.Unauthorized("expired_token")             // maps to 401, triggers frontend eviction
+	ErrMFARequired               = xerrors.Unauthorized("mfa_required")              // maps to 401
+	ErrOrgAlreadyExists          = xerrors.Conflict("org_already_exists")            // maps to 409
+	ErrJITProvisioningNotAllowed = xerrors.Forbidden("jit_provisioning_not_allowed") // maps to 403
+	ErrMemberNotFound            = xerrors.NotFound("member_not_found")              // maps to 404
+	ErrOrgNotFound               = xerrors.NotFound("org_not_found")                 // maps to 404
+
+	// ErrInternal is intentionally a bare error — it falls through to the
+	// generic 500 response path.
 	ErrInternal = errors.New("internal_error")
 )
 

@@ -4,23 +4,22 @@ package attendance
 
 import (
 	"context"
-	"fmt"
 	"time"
 
-	"somotracker/backend/internal/middleware"
+	"somotracker/backend/internal/xerrors"
 )
 
 // ─── Sentinel domain errors ───────────────────────────────────────────────
 
 var (
-	ErrNotFound      = fmt.Errorf("attendance not found: %w", middleware.ErrNotFound)
-	ErrAlreadyExists = fmt.Errorf("attendance already exists: %w", middleware.ErrAlreadyExists)
-	ErrInvalidInput  = fmt.Errorf("invalid attendance input: %w", middleware.ErrInvalidInput)
-	ErrUnauthorized  = fmt.Errorf("unauthorized: %w", middleware.ErrUnauthorized)
-	ErrForbidden     = fmt.Errorf("forbidden: %w", middleware.ErrForbidden)
-	ErrConflict      = fmt.Errorf("attendance conflict: %w", middleware.ErrConflict)
-	ErrAlreadyMarked = fmt.Errorf("attendance already marked for this student and slot: %w", middleware.ErrConflict)
-	ErrBreakSlot     = fmt.Errorf("cannot mark attendance for a break period: %w", middleware.ErrInvalidInput)
+	ErrNotFound      = xerrors.NotFound("attendance not found")
+	ErrAlreadyExists = xerrors.AlreadyExists("attendance already exists")
+	ErrInvalidInput  = xerrors.InvalidInput("invalid attendance input")
+	ErrUnauthorized  = xerrors.Unauthorized("unauthorized")
+	ErrForbidden     = xerrors.Forbidden("forbidden")
+	ErrConflict      = xerrors.Conflict("attendance conflict")
+	ErrAlreadyMarked = xerrors.Conflict("attendance already marked for this student and slot")
+	ErrBreakSlot     = xerrors.InvalidInput("cannot mark attendance for a break period")
 )
 
 // ─── Enums ────────────────────────────────────────────────────────────────
@@ -198,6 +197,39 @@ type RecordFilter struct {
 	Status          string `json:"status,omitempty"`
 }
 
+// ─── Calendar Status Types ────────────────────────────────────────────────
+
+// DayStatus represents whether attendance has been fully handled for a day.
+type DayStatus string
+
+const (
+	DayStatusNone   DayStatus = "none"
+	DayStatusGreen  DayStatus = "green"
+	DayStatusYellow DayStatus = "yellow"
+	DayStatusRed    DayStatus = "red"
+)
+
+// CalendarDayStatusRaw is the raw database result (before status mapping).
+type CalendarDayStatusRaw struct {
+	Date          string `json:"date"`
+	ExpectedCount int    `json:"expected_count"`
+	HandledCount  int    `json:"handled_count"`
+}
+
+// CalendarDayStatus is the per-date attendance completion status with computed status.
+type CalendarDayStatus struct {
+	Date          string    `json:"date"`
+	ExpectedCount int       `json:"expected_count"`
+	HandledCount  int       `json:"handled_count"`
+	Status        DayStatus `json:"status"`
+}
+
+// CalendarStatusListResponse wraps a list of calendar day statuses.
+type CalendarStatusListResponse struct {
+	Items []CalendarDayStatus `json:"items"`
+	Total int                 `json:"total"`
+}
+
 // ─── Response Types ───────────────────────────────────────────────────────
 
 // SessionListResponse wraps a list of enriched sessions.
@@ -323,4 +355,10 @@ type Repository interface {
 
 	// ListClassDailySummaries returns daily summaries for a class within a date range.
 	ListClassDailySummaries(ctx context.Context, tenantID, schoolID, classID, startDate, endDate string) ([]ClassDailyAttendanceSummary, error)
+
+	// ── Calendar Status ───────────────────────────────────────────────
+
+	// ListCalendarStatus returns per-date expected/handled slot counts for a
+	// school over a date range. Returns one row per date in the range.
+	ListCalendarStatus(ctx context.Context, tenantID, schoolID, startDate, endDate string) ([]CalendarDayStatusRaw, error)
 }

@@ -2,22 +2,19 @@ package cbcschools
 
 import (
 	"context"
-	"fmt"
 	"time"
 
-	"somotracker/backend/internal/middleware"
+	"somotracker/backend/internal/xerrors"
 )
 
 // Sentinel domain errors.
-// Each wraps the corresponding middleware sentinel so that middleware.HTTPError
-// can match them via errors.Is.
 var (
-	ErrNotFound      = fmt.Errorf("cbcschools not found: %w", middleware.ErrNotFound)
-	ErrAlreadyExists = fmt.Errorf("cbcschools already exists: %w", middleware.ErrAlreadyExists)
-	ErrInvalidInput  = fmt.Errorf("invalid cbcschools input: %w", middleware.ErrInvalidInput)
-	ErrUnauthorized  = fmt.Errorf("unauthorized: %w", middleware.ErrUnauthorized)
-	ErrForbidden     = fmt.Errorf("forbidden: %w", middleware.ErrForbidden)
-	ErrConflict      = fmt.Errorf("cbcschools conflict: %w", middleware.ErrConflict)
+	ErrNotFound      = xerrors.NotFound("cbcschool not found")
+	ErrAlreadyExists = xerrors.AlreadyExists("cbcschool already exists")
+	ErrInvalidInput  = xerrors.InvalidInput("invalid cbcschool input")
+	ErrUnauthorized  = xerrors.Unauthorized("unauthorized")
+	ErrForbidden     = xerrors.Forbidden("forbidden")
+	ErrConflict      = xerrors.Conflict("cbcschool conflict")
 )
 
 // Repository defines the contract for school persistence.

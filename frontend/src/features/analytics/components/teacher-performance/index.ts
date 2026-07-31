@@ -1,14 +1,12 @@
-export {
-    TeacherPerformanceRadar,
-    TeacherPerformanceRadarSkeleton,
-} from "./teacher-performance-radar";
+export { TeacherPerformanceRadar } from "./teacher-performance-radar";
+export { TeacherPerformanceRadarSkeleton } from "./teacher-performance-radar-skeleton";
 export type { TeacherMetricRadarData } from "./teacher-performance-radar";
-export { TeacherKpiCards, TeacherKpiCardsSkeleton } from "./teacher-kpi-cards";
+export { TeacherKpiCards } from "./teacher-kpi-cards";
+export { TeacherKpiCardsSkeleton } from "./teacher-kpi-cards-skeleton";
 export type { TeacherKpiMetric } from "./teacher-kpi-cards";
-export { TeacherComparisonBar, TeacherComparisonBarSkeleton } from "./teacher-comparison-bar";
+export { TeacherComparisonBar } from "./teacher-comparison-bar";
+export { TeacherComparisonBarSkeleton } from "./teacher-comparison-bar-skeleton";
 export type { TeacherScoreEntry } from "./teacher-comparison-bar";
-export {
-    TeacherMasteryGrowthScatter,
-    TeacherMasteryGrowthScatterSkeleton,
-} from "./teacher-mastery-growth-scatter";
+export { TeacherMasteryGrowthScatter } from "./teacher-mastery-growth-scatter";
+export { TeacherMasteryGrowthScatterSkeleton } from "./teacher-mastery-growth-scatter-skeleton";
 export type { MasteryVsGrowthPoint } from "./teacher-mastery-growth-scatter";

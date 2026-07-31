@@ -26,7 +26,7 @@ func (r *pgRepository) CreateSession(ctx context.Context, tenantID, schoolID str
 	err := r.pool.QueryRow(ctx, `
 		INSERT INTO cbc_attendance_sessions (tenant_id, school_id, timetable_slot_id, date, status, skip_reason)
 		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id, tenant_id, school_id, timetable_slot_id, date, status, skip_reason, created_at
+		RETURNING id, tenant_id, school_id, timetable_slot_id, date::text, status, skip_reason, created_at
 	`, tenantID, schoolID, payload.TimetableSlotID, payload.Date, payload.Status, payload.SkipReason).Scan(
 		&s.ID, &s.TenantID, &s.SchoolID, &s.TimetableSlotID, &s.Date, &s.Status, &s.SkipReason, &s.CreatedAt,
 	)
@@ -39,7 +39,7 @@ func (r *pgRepository) CreateSession(ctx context.Context, tenantID, schoolID str
 func (r *pgRepository) GetSessionByID(ctx context.Context, id, tenantID string) (*AttendanceSession, error) {
 	var s AttendanceSession
 	err := r.pool.QueryRow(ctx, `
-		SELECT id, tenant_id, school_id, timetable_slot_id, date, status, skip_reason, created_at, updated_at
+		SELECT id, tenant_id, school_id, timetable_slot_id, date::text, status, skip_reason, created_at, updated_at
 		FROM cbc_attendance_sessions
 		WHERE id = $1 AND tenant_id = $2
 	`, id, tenantID).Scan(
@@ -57,7 +57,7 @@ func (r *pgRepository) GetSessionByID(ctx context.Context, id, tenantID string) 
 func (r *pgRepository) GetEnrichedSessionByID(ctx context.Context, id, tenantID string) (*SessionWithEnrichedData, error) {
 	query := `
 		SELECT
-			s.id, s.tenant_id, s.school_id, s.timetable_slot_id, s.date, s.status, s.skip_reason,
+			s.id, s.tenant_id, s.school_id, s.timetable_slot_id, s.date::text, s.status, s.skip_reason,
 			s.created_at, s.updated_at,
 			c.grade_level || ' ' || COALESCE(st.name, '') AS class_name,
 			COALESCE(st.name, '') AS stream_name,
@@ -104,7 +104,7 @@ func (r *pgRepository) GetEnrichedSessionByID(ctx context.Context, id, tenantID 
 func (r *pgRepository) ListSessions(ctx context.Context, filter SessionFilter) ([]SessionWithEnrichedData, error) {
 	query := `
 		SELECT
-			s.id, s.tenant_id, s.school_id, s.timetable_slot_id, s.date, s.status, s.skip_reason,
+			s.id, s.tenant_id, s.school_id, s.timetable_slot_id, s.date::text, s.status, s.skip_reason,
 			s.created_at, s.updated_at,
 			c.grade_level || ' ' || COALESCE(st.name, '') AS class_name,
 			COALESCE(st.name, '') AS stream_name,
@@ -219,7 +219,7 @@ func (r *pgRepository) UpdateSession(ctx context.Context, id, tenantID string, p
 		UPDATE cbc_attendance_sessions
 		SET %s
 		WHERE id = $%d AND tenant_id = $%d
-		RETURNING id, tenant_id, school_id, timetable_slot_id, date, status, skip_reason, created_at, updated_at
+		RETURNING id, tenant_id, school_id, timetable_slot_id, date::text, status, skip_reason, created_at, updated_at
 	`, setClause, argIdx, argIdx+1)
 
 	args = append(args, id, tenantID)
@@ -860,7 +860,7 @@ func (r *pgRepository) scanSummaries(ctx context.Context, query string, args ...
 func (r *pgRepository) GetClassDailySummary(ctx context.Context, tenantID, schoolID, classID, date string) (*ClassDailyAttendanceSummary, error) {
 	var s ClassDailyAttendanceSummary
 	err := r.pool.QueryRow(ctx, `
-		SELECT id, tenant_id, school_id, class_id, academic_term_id, date,
+		SELECT id, tenant_id, school_id, class_id, academic_term_id, date::TEXT,
 		       total_enrolled, present_count, absent_count, late_count, excused_count,
 		       daily_attendance_rate, last_refreshed_at, created_at, updated_at
 		FROM class_daily_attendance_summaries
@@ -933,7 +933,7 @@ func (r *pgRepository) RefreshClassDailySummary(ctx context.Context, tenantID, s
 
 func (r *pgRepository) ListClassDailySummaries(ctx context.Context, tenantID, schoolID, classID, startDate, endDate string) ([]ClassDailyAttendanceSummary, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT id, tenant_id, school_id, class_id, academic_term_id, date,
+		SELECT id, tenant_id, school_id, class_id, academic_term_id, date::TEXT,
 		       total_enrolled, present_count, absent_count, late_count, excused_count,
 		       daily_attendance_rate, last_refreshed_at, created_at, updated_at
 		FROM class_daily_attendance_summaries
@@ -960,6 +960,76 @@ func (r *pgRepository) ListClassDailySummaries(ctx context.Context, tenantID, sc
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("attendance.Repository.ListClassDailySummaries: rows: %w", err)
+	}
+	return results, nil
+}
+
+// ── Calendar Status ──────────────────────────────────────────────────────
+
+func (r *pgRepository) ListCalendarStatus(ctx context.Context, tenantID, schoolID, startDate, endDate string) ([]CalendarDayStatusRaw, error) {
+	query := `
+		WITH dates AS (
+			SELECT d::DATE AS dt
+			FROM generate_series($3::DATE, $4::DATE, '1 day'::INTERVAL) d
+		),
+		expected AS (
+			SELECT
+				d.dt AS date,
+				ts.id AS timetable_slot_id
+			FROM dates d
+			JOIN timetable_structures tstr
+				ON tstr.school_id = $2 AND tstr.is_break = false
+				AND tstr.day_of_week = EXTRACT(ISODOW FROM d.dt)::INT
+			JOIN cbc_timetable_slots ts
+				ON ts.structure_id = tstr.id AND ts.school_id = $2
+			WHERE tstr.tenant_id = $1
+			  AND ts.tenant_id = $1
+		),
+		handled AS (
+			SELECT DISTINCT e.date, e.timetable_slot_id
+			FROM expected e
+			WHERE EXISTS (
+				SELECT 1 FROM attendance_records ar
+				WHERE ar.timetable_slot_id = e.timetable_slot_id
+				  AND ar.date = e.date
+				  AND ar.tenant_id = $1
+			)
+			OR EXISTS (
+				SELECT 1 FROM cbc_attendance_sessions cas
+				WHERE cas.timetable_slot_id = e.timetable_slot_id
+				  AND cas.date = e.date
+				  AND cas.tenant_id = $1
+				  AND cas.status = 'SKIPPED'
+			)
+		)
+		SELECT
+			e.date::TEXT,
+			COUNT(DISTINCT e.timetable_slot_id)::INT AS expected_count,
+			COUNT(DISTINCT h.timetable_slot_id)::INT AS handled_count
+		FROM expected e
+		LEFT JOIN handled h ON h.date = e.date AND h.timetable_slot_id = e.timetable_slot_id
+		GROUP BY e.date
+		ORDER BY e.date ASC
+	`
+
+	rows, err := r.pool.Query(ctx, query, tenantID, schoolID, startDate, endDate)
+	if err != nil {
+		return nil, fmt.Errorf("attendance.Repository.ListCalendarStatus: %w", err)
+	}
+	defer rows.Close()
+
+	var results []CalendarDayStatusRaw
+	for rows.Next() {
+		var s CalendarDayStatusRaw
+		if err := rows.Scan(
+			&s.Date, &s.ExpectedCount, &s.HandledCount,
+		); err != nil {
+			return nil, fmt.Errorf("attendance.Repository.ListCalendarStatus: scan: %w", err)
+		}
+		results = append(results, s)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("attendance.Repository.ListCalendarStatus: rows: %w", err)
 	}
 	return results, nil
 }

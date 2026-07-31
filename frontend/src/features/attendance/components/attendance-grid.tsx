@@ -30,9 +30,15 @@ interface AttendanceGridProps {
     timetableSlotId: string;
     date: string;
     termId?: string;
+    onMarkedAttendance?: () => void;
 }
 
-export function AttendanceGrid({ timetableSlotId, date, termId }: AttendanceGridProps) {
+export function AttendanceGrid({
+    timetableSlotId,
+    date,
+    termId,
+    onMarkedAttendance,
+}: AttendanceGridProps) {
     const { data: records, isLoading, isError } = useRecordsBySlot(timetableSlotId, date);
     const batchMark = useBatchMarkAttendance(termId);
 
@@ -95,13 +101,11 @@ export function AttendanceGrid({ timetableSlotId, date, termId }: AttendanceGrid
             timetable_slot_id: timetableSlotId,
             records: marks,
         });
-    };
 
-    const hasChanges = items.some(
-        (record) =>
-            localStatuses[record.student_id] !== undefined &&
-            localStatuses[record.student_id] !== record.status
-    );
+        if (onMarkedAttendance) {
+            onMarkedAttendance();
+        }
+    };
 
     return (
         <div className="space-y-4">
@@ -136,7 +140,7 @@ export function AttendanceGrid({ timetableSlotId, date, termId }: AttendanceGrid
                 })}
             </div>
 
-            <Button onClick={handleSubmit} disabled={!hasChanges || batchMark.isPending}>
+            <Button onClick={handleSubmit} disabled={batchMark.isPending}>
                 {batchMark.isPending ? "Saving..." : "Save Attendance"}
             </Button>
         </div>

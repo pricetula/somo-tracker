@@ -7,22 +7,21 @@ package timetablestructure
 
 import (
 	"context"
-	"fmt"
 	"time"
 
-	"somotracker/backend/internal/middleware"
+	"somotracker/backend/internal/xerrors"
 )
 
 // Sentinel domain errors.
 var (
-	ErrNotFound        = fmt.Errorf("timetablestructure not found: %w", middleware.ErrNotFound)
-	ErrAlreadyExists   = fmt.Errorf("timetablestructure already exists: %w", middleware.ErrAlreadyExists)
-	ErrInvalidInput    = fmt.Errorf("invalid timetablestructure input: %w", middleware.ErrInvalidInput)
-	ErrUnauthorized    = fmt.Errorf("unauthorized: %w", middleware.ErrUnauthorized)
-	ErrForbidden       = fmt.Errorf("forbidden: %w", middleware.ErrForbidden)
-	ErrConflict        = fmt.Errorf("timetablestructure conflict: %w", middleware.ErrConflict)
-	ErrBlockOverlap    = fmt.Errorf("time block collides with an existing block: %w", middleware.ErrConflict)
-	ErrBlockHasLessons = fmt.Errorf("time block is linked to live scheduled lessons: %w", middleware.ErrConflict)
+	ErrNotFound        = xerrors.NotFound("timetablestructure not found")
+	ErrAlreadyExists   = xerrors.AlreadyExists("timetablestructure already exists")
+	ErrInvalidInput    = xerrors.InvalidInput("invalid timetablestructure input")
+	ErrUnauthorized    = xerrors.Unauthorized("unauthorized")
+	ErrForbidden       = xerrors.Forbidden("forbidden")
+	ErrConflict        = xerrors.Conflict("timetablestructure conflict")
+	ErrBlockOverlap    = xerrors.Conflict("time block collides with an existing block")
+	ErrBlockHasLessons = xerrors.Conflict("time block is linked to live scheduled lessons")
 )
 
 // DayOfWeek constants map directly to PostgreSQL weekday numbers.

@@ -21,6 +21,7 @@ type MockRepository struct {
 	clearCurrentYearFn     func(ctx context.Context, schoolID, tenantID, excludeID, actorID string) error
 	setCurrentYearFn       func(ctx context.Context, id, tenantID, schoolID, actorID string) (bool, error)
 
+	getCurrentFn           func(ctx context.Context, tenantID, schoolID string) (CurrentAcademicYearWithCurrentTerm, error)
 	listTermsFn            func(ctx context.Context, tenantID, schoolID string, academicYearID *string) ([]AcademicTerm, error)
 	getTermByIDForUpdateFn func(ctx context.Context, id, tenantID, schoolID string) (*AcademicTerm, *AcademicYear, error)
 	createTermFn           func(ctx context.Context, term *AcademicTerm) (string, error)
@@ -89,6 +90,13 @@ func (m *MockRepository) SetCurrentYear(ctx context.Context, id, tenantID, schoo
 		return m.setCurrentYearFn(ctx, id, tenantID, schoolID, actorID)
 	}
 	return true, nil
+}
+
+func (m *MockRepository) GetCurrent(ctx context.Context, tenantID, schoolID string) (CurrentAcademicYearWithCurrentTerm, error) {
+	if m.getCurrentFn != nil {
+		return m.getCurrentFn(ctx, tenantID, schoolID)
+	}
+	return CurrentAcademicYearWithCurrentTerm{}, nil
 }
 
 func (m *MockRepository) ListTerms(ctx context.Context, tenantID, schoolID string, academicYearID *string) ([]AcademicTerm, error) {

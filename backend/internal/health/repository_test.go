@@ -110,9 +110,9 @@ func TestPgRepository_CreateAndGetIncident(t *testing.T) {
 	defer cleanup()
 	applyMigration(t, pool, "000001_initial_schema.up.sql")
 
-	tenantID, _, userID := seedTenantSchoolUser(t, pool)
+	tenantID, schoolID, userID := seedTenantSchoolUser(t, pool)
 	repo := newRepo(pool)
-	studentID := seedStudent(t, ctx, pool, tenantID, uuid.New().String())
+	studentID := seedStudent(t, ctx, pool, tenantID, schoolID)
 
 	params := CreateIncidentParams{
 		TenantID:          tenantID,
@@ -143,7 +143,7 @@ func TestPgRepository_GetIncident_NotFound(t *testing.T) {
 	applyMigration(t, pool, "000001_initial_schema.up.sql")
 
 	repo := newRepo(pool)
-	_, err := repo.GetIncidentByID(ctx, "missing_id", "tenant_001")
+	_, err := repo.GetIncidentByID(ctx, uuid.New().String(), uuid.New().String())
 	require.Error(t, err)
 	require.ErrorIs(t, err, ErrNotFound)
 }
@@ -157,9 +157,9 @@ func TestPgRepository_UpdateIncident(t *testing.T) {
 	defer cleanup()
 	applyMigration(t, pool, "000001_initial_schema.up.sql")
 
-	tenantID, _, userID := seedTenantSchoolUser(t, pool)
+	tenantID, schoolID, userID := seedTenantSchoolUser(t, pool)
 	repo := newRepo(pool)
-	studentID := seedStudent(t, ctx, pool, tenantID, uuid.New().String())
+	studentID := seedStudent(t, ctx, pool, tenantID, schoolID)
 
 	id, err := repo.CreateIncident(ctx, CreateIncidentParams{
 		TenantID: tenantID, StudentID: studentID,
@@ -186,9 +186,9 @@ func TestPgRepository_DeleteIncident(t *testing.T) {
 	defer cleanup()
 	applyMigration(t, pool, "000001_initial_schema.up.sql")
 
-	tenantID, _, userID := seedTenantSchoolUser(t, pool)
+	tenantID, schoolID, userID := seedTenantSchoolUser(t, pool)
 	repo := newRepo(pool)
-	studentID := seedStudent(t, ctx, pool, tenantID, uuid.New().String())
+	studentID := seedStudent(t, ctx, pool, tenantID, schoolID)
 
 	id, err := repo.CreateIncident(ctx, CreateIncidentParams{
 		TenantID: tenantID, StudentID: studentID,
@@ -251,7 +251,7 @@ func TestPgRepository_GetProfile_NotFound(t *testing.T) {
 	applyMigration(t, pool, "000001_initial_schema.up.sql")
 
 	repo := newRepo(pool)
-	_, err := repo.GetProfileByStudent(ctx, "missing_student", "tenant_001")
+	_, err := repo.GetProfileByStudent(ctx, uuid.New().String(), uuid.New().String())
 	require.Error(t, err)
 	require.ErrorIs(t, err, ErrNotFound)
 }
@@ -265,9 +265,9 @@ func TestPgRepository_ListIncidentsByStudent(t *testing.T) {
 	defer cleanup()
 	applyMigration(t, pool, "000001_initial_schema.up.sql")
 
-	tenantID, _, userID := seedTenantSchoolUser(t, pool)
+	tenantID, schoolID, userID := seedTenantSchoolUser(t, pool)
 	repo := newRepo(pool)
-	studentID := seedStudent(t, ctx, pool, tenantID, uuid.New().String())
+	studentID := seedStudent(t, ctx, pool, tenantID, schoolID)
 
 	_, err := repo.CreateIncident(ctx, CreateIncidentParams{
 		TenantID: tenantID, StudentID: studentID,

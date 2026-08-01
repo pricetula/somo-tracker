@@ -29,6 +29,8 @@ var (
 // Student represents a full student record.
 type Student struct {
 	ID                   string  `json:"id"`
+	TenantID             string  `json:"tenant_id"`
+	SchoolID             string  `json:"school_id"`
 	FullName             string  `json:"full_name"`
 	Gender               string  `json:"gender"`
 	DateOfBirth          *string `json:"date_of_birth,omitempty"`

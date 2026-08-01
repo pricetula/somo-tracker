@@ -49,6 +49,18 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	daily.Post("/class/:class_id/date/:date/refresh", middleware.RequireAuth, h.RefreshClassDailySummary)
 	daily.Get("/class/:class_id", middleware.RequireAuth, h.ListClassDailySummaries)
 
+	// Class learning area term summaries
+	classLA := router.Group("/api/v1/attendance/class-learning-area")
+	classLA.Get("/class/:class_id/term/:term_id", middleware.RequireAuth, h.ListClassLearningAreaTermSummaries)
+	classLA.Get("/class/:class_id/learning-area/:learning_area_id/term/:term_id", middleware.RequireAuth, h.GetClassLearningAreaTermSummary)
+	classLA.Post("/class/:class_id/term/:term_id/refresh", middleware.RequireAuth, h.RefreshClassLearningAreaTermSummary)
+
+	// Class term attendance summaries
+	classTerm := router.Group("/api/v1/attendance/class-term")
+	classTerm.Get("/class/:class_id/term/:term_id", middleware.RequireAuth, h.GetClassTermAttendanceSummary)
+	classTerm.Get("/term/:term_id", middleware.RequireAuth, h.ListClassTermAttendanceSummaries)
+	classTerm.Post("/class/:class_id/term/:term_id/refresh", middleware.RequireAuth, h.RefreshClassTermAttendanceSummary)
+
 	// Calendar status (monthly overview)
 	calendar := router.Group("/api/v1/attendance/calendar")
 	calendar.Get("/status", middleware.RequireAuth, h.GetCalendarStatus)
@@ -428,6 +440,106 @@ func (h *Handler) ListClassDailySummaries(c *fiber.Ctx) error {
 	endDate := c.Query("end_date")
 
 	result, err := h.svc.ListClassDailySummaries(c.Context(), tenantID, schoolID, classID, startDate, endDate)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(result)
+}
+
+// ── Class Learning Area Term Summaries ───────────────────────────────────
+
+// GetClassLearningAreaTermSummary handles GET /api/v1/attendance/class-learning-area/class/:class_id/learning-area/:learning_area_id/term/:term_id.
+func (h *Handler) GetClassLearningAreaTermSummary(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.attMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	result, err := h.svc.GetClassLearningAreaTermSummary(c.Context(), tenantID, schoolID,
+		c.Params("class_id"), c.Params("learning_area_id"), c.Params("term_id"))
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(result)
+}
+
+// ListClassLearningAreaTermSummaries handles GET /api/v1/attendance/class-learning-area/class/:class_id/term/:term_id.
+func (h *Handler) ListClassLearningAreaTermSummaries(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.attMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	result, err := h.svc.ListClassLearningAreaTermSummaries(c.Context(), tenantID, schoolID,
+		c.Params("class_id"), c.Query("learning_area_id"), c.Params("term_id"))
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(result)
+}
+
+// RefreshClassLearningAreaTermSummary handles POST /api/v1/attendance/class-learning-area/class/:class_id/term/:term_id/refresh.
+func (h *Handler) RefreshClassLearningAreaTermSummary(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.attMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	result, err := h.svc.RefreshClassLearningAreaTermSummary(c.Context(), tenantID, schoolID,
+		c.Params("term_id"), c.Params("class_id"))
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(result)
+}
+
+// ── Class Term Attendance Summaries ───────────────────────────────────────
+
+// GetClassTermAttendanceSummary handles GET /api/v1/attendance/class-term/class/:class_id/term/:term_id.
+func (h *Handler) GetClassTermAttendanceSummary(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.attMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	result, err := h.svc.GetClassTermAttendanceSummary(c.Context(), tenantID, schoolID,
+		c.Params("class_id"), c.Params("term_id"))
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(result)
+}
+
+// ListClassTermAttendanceSummaries handles GET /api/v1/attendance/class-term/term/:term_id.
+func (h *Handler) ListClassTermAttendanceSummaries(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.attMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	result, err := h.svc.ListClassTermAttendanceSummaries(c.Context(), tenantID, schoolID,
+		c.Query("class_id"), c.Params("term_id"))
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(result)
+}
+
+// RefreshClassTermAttendanceSummary handles POST /api/v1/attendance/class-term/class/:class_id/term/:term_id/refresh.
+func (h *Handler) RefreshClassTermAttendanceSummary(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.attMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	result, err := h.svc.RefreshClassTermAttendanceSummary(c.Context(), tenantID, schoolID,
+		c.Params("term_id"), c.Params("class_id"))
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}

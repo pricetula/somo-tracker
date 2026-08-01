@@ -358,6 +358,102 @@ func (s *Service) ListClassDailySummaries(ctx context.Context, tenantID, schoolI
 	return &ClassDailySummaryListResponse{Items: items, Total: len(items)}, nil
 }
 
+// ── Class Learning Area Term Summaries ─────────────────────────────────
+
+// GetClassLearningAreaTermSummary returns the class learning area term summary
+// for a class, learning area, and term.
+func (s *Service) GetClassLearningAreaTermSummary(ctx context.Context, tenantID, schoolID, classID, learningAreaID, termID string) (*ClassLearningAreaTermSummary, error) {
+	if classID == "" {
+		return nil, fmt.Errorf("attendance.Service.GetClassLearningAreaTermSummary: class_id is required: %w", ErrInvalidInput)
+	}
+	if learningAreaID == "" {
+		return nil, fmt.Errorf("attendance.Service.GetClassLearningAreaTermSummary: learning_area_id is required: %w", ErrInvalidInput)
+	}
+	if termID == "" {
+		return nil, fmt.Errorf("attendance.Service.GetClassLearningAreaTermSummary: term_id is required: %w", ErrInvalidInput)
+	}
+	return s.repo.GetClassLearningAreaTermSummary(ctx, tenantID, schoolID, classID, learningAreaID, termID)
+}
+
+// ListClassLearningAreaTermSummaries returns all class learning area term summaries
+// for a school/term, optionally filtered by class and/or learning_area.
+func (s *Service) ListClassLearningAreaTermSummaries(ctx context.Context, tenantID, schoolID, classID, learningAreaID, termID string) (*ClassLearningAreaTermSummaryListResponse, error) {
+	if termID == "" {
+		return nil, fmt.Errorf("attendance.Service.ListClassLearningAreaTermSummaries: term_id is required: %w", ErrInvalidInput)
+	}
+	items, err := s.repo.ListClassLearningAreaTermSummaries(ctx, tenantID, schoolID, classID, learningAreaID, termID)
+	if err != nil {
+		return nil, fmt.Errorf("attendance.Service.ListClassLearningAreaTermSummaries: %w", err)
+	}
+	if items == nil {
+		items = []ClassLearningAreaTermSummary{}
+	}
+	return &ClassLearningAreaTermSummaryListResponse{Items: items, Total: len(items)}, nil
+}
+
+// RefreshClassLearningAreaTermSummary triggers an async recomputation of the
+// class learning area term summary for a class, learning area, and term.
+// The recomputation is owned exclusively by the Asynq worker, so this only
+// enqueues the task via the Service enqueuer (best-effort, non-blocking).
+func (s *Service) RefreshClassLearningAreaTermSummary(ctx context.Context, tenantID, schoolID, termID, classID string) (*RefreshSummaryResponse, error) {
+	if termID == "" {
+		return nil, fmt.Errorf("attendance.Service.RefreshClassLearningAreaTermSummary: term_id is required: %w", ErrInvalidInput)
+	}
+	if s.enqueuer != nil {
+		s.enqueuer.EnqueueClassLearningAreaTermRefresh(ctx, tenantID, schoolID, termID, classID)
+	}
+	return &RefreshSummaryResponse{
+		Message: "Class learning area term summary refresh enqueued",
+		TermID:  termID,
+	}, nil
+}
+
+// ── Class Term Attendance Summaries ───────────────────────────────────
+
+// GetClassTermAttendanceSummary returns the class term attendance summary for a class and term.
+func (s *Service) GetClassTermAttendanceSummary(ctx context.Context, tenantID, schoolID, classID, termID string) (*ClassTermAttendanceSummary, error) {
+	if classID == "" {
+		return nil, fmt.Errorf("attendance.Service.GetClassTermAttendanceSummary: class_id is required: %w", ErrInvalidInput)
+	}
+	if termID == "" {
+		return nil, fmt.Errorf("attendance.Service.GetClassTermAttendanceSummary: term_id is required: %w", ErrInvalidInput)
+	}
+	return s.repo.GetClassTermAttendanceSummary(ctx, tenantID, schoolID, classID, termID)
+}
+
+// ListClassTermAttendanceSummaries returns all class term attendance summaries
+// for a school/term, optionally filtered by class.
+func (s *Service) ListClassTermAttendanceSummaries(ctx context.Context, tenantID, schoolID, classID, termID string) (*ClassTermAttendanceSummaryListResponse, error) {
+	if termID == "" {
+		return nil, fmt.Errorf("attendance.Service.ListClassTermAttendanceSummaries: term_id is required: %w", ErrInvalidInput)
+	}
+	items, err := s.repo.ListClassTermAttendanceSummaries(ctx, tenantID, schoolID, classID, termID)
+	if err != nil {
+		return nil, fmt.Errorf("attendance.Service.ListClassTermAttendanceSummaries: %w", err)
+	}
+	if items == nil {
+		items = []ClassTermAttendanceSummary{}
+	}
+	return &ClassTermAttendanceSummaryListResponse{Items: items, Total: len(items)}, nil
+}
+
+// RefreshClassTermAttendanceSummary triggers an async recomputation of the
+// class term attendance summary for a class and term.
+// The recomputation is owned exclusively by the Asynq worker, so this only
+// enqueues the task via the Service enqueuer (best-effort, non-blocking).
+func (s *Service) RefreshClassTermAttendanceSummary(ctx context.Context, tenantID, schoolID, termID, classID string) (*RefreshSummaryResponse, error) {
+	if termID == "" {
+		return nil, fmt.Errorf("attendance.Service.RefreshClassTermAttendanceSummary: term_id is required: %w", ErrInvalidInput)
+	}
+	if s.enqueuer != nil {
+		s.enqueuer.EnqueueClassTermRefresh(ctx, tenantID, schoolID, termID, classID)
+	}
+	return &RefreshSummaryResponse{
+		Message: "Class term attendance summary refresh enqueued",
+		TermID:  termID,
+	}, nil
+}
+
 // ── Calendar Status ───────────────────────────────────────────────────────
 
 // ComputeDayStatus maps expected/handled counts to a DayStatus.

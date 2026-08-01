@@ -1034,5 +1034,146 @@ func (r *pgRepository) ListCalendarStatus(ctx context.Context, tenantID, schoolI
 	return results, nil
 }
 
+// ── Class Learning Area Term Summaries ─────────────────────────────────
+
+func (r *pgRepository) GetClassLearningAreaTermSummary(ctx context.Context, tenantID, schoolID, classID, learningAreaID, termID string) (*ClassLearningAreaTermSummary, error) {
+	var s ClassLearningAreaTermSummary
+	err := r.pool.QueryRow(ctx, `
+		SELECT id, tenant_id, school_id, class_id, learning_area_id, academic_term_id, academic_year_id,
+		       students_included, periods_total, periods_present, periods_absent, periods_late, periods_excused,
+		       attendance_percentage, last_refreshed_at, created_at, updated_at
+		FROM class_learning_area_term_summaries
+		WHERE tenant_id = $1 AND school_id = $2 AND class_id = $3 AND learning_area_id = $4 AND academic_term_id = $5
+	`, tenantID, schoolID, classID, learningAreaID, termID).Scan(
+		&s.ID, &s.TenantID, &s.SchoolID, &s.ClassID, &s.LearningAreaID, &s.AcademicTermID, &s.AcademicYearID,
+		&s.StudentsIncluded, &s.PeriodsTotal, &s.PeriodsPresent, &s.PeriodsAbsent, &s.PeriodsLate, &s.PeriodsExcused,
+		&s.AttendancePercentage, &s.LastRefreshedAt, &s.CreatedAt, &s.UpdatedAt,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("attendance.Repository.GetClassLearningAreaTermSummary: %w", ErrNotFound)
+		}
+		return nil, fmt.Errorf("attendance.Repository.GetClassLearningAreaTermSummary: %w", err)
+	}
+	return &s, nil
+}
+
+func (r *pgRepository) ListClassLearningAreaTermSummaries(ctx context.Context, tenantID, schoolID, classID, learningAreaID, termID string) ([]ClassLearningAreaTermSummary, error) {
+	// Build dynamic WHERE clause based on optional filters.
+	query := `
+		SELECT id, tenant_id, school_id, class_id, learning_area_id, academic_term_id, academic_year_id,
+		       students_included, periods_total, periods_present, periods_absent, periods_late, periods_excused,
+		       attendance_percentage, last_refreshed_at, created_at, updated_at
+		FROM class_learning_area_term_summaries
+		WHERE tenant_id = $1 AND school_id = $2 AND academic_term_id = $3`
+	args := []interface{}{tenantID, schoolID, termID}
+
+	if classID != "" {
+		query += " AND class_id = $4"
+		args = append(args, classID)
+		if learningAreaID != "" {
+			query += fmt.Sprintf(" AND learning_area_id = $%d", len(args)+1)
+			args = append(args, learningAreaID)
+		}
+	} else if learningAreaID != "" {
+		query += fmt.Sprintf(" AND learning_area_id = $%d", len(args)+1)
+		args = append(args, learningAreaID)
+	}
+
+	query += " ORDER BY class_id, learning_area_id"
+
+	rows, err := r.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("attendance.Repository.ListClassLearningAreaTermSummaries: %w", err)
+	}
+	defer rows.Close()
+
+	var results []ClassLearningAreaTermSummary
+	for rows.Next() {
+		var s ClassLearningAreaTermSummary
+		if err := rows.Scan(
+			&s.ID, &s.TenantID, &s.SchoolID, &s.ClassID, &s.LearningAreaID, &s.AcademicTermID, &s.AcademicYearID,
+			&s.StudentsIncluded, &s.PeriodsTotal, &s.PeriodsPresent, &s.PeriodsAbsent, &s.PeriodsLate, &s.PeriodsExcused,
+			&s.AttendancePercentage, &s.LastRefreshedAt, &s.CreatedAt, &s.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("attendance.Repository.ListClassLearningAreaTermSummaries: scan: %w", err)
+		}
+		results = append(results, s)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("attendance.Repository.ListClassLearningAreaTermSummaries: rows: %w", err)
+	}
+	return results, nil
+}
+
+// ── Class Term Attendance Summaries ───────────────────────────────────
+
+func (r *pgRepository) GetClassTermAttendanceSummary(ctx context.Context, tenantID, schoolID, classID, termID string) (*ClassTermAttendanceSummary, error) {
+	var s ClassTermAttendanceSummary
+	err := r.pool.QueryRow(ctx, `
+		SELECT id, tenant_id, school_id, class_id, academic_term_id, academic_year_id,
+		       days_in_term, total_enrolled_avg, present_count, absent_count, late_count, excused_count,
+		       term_attendance_rate, last_refreshed_at, created_at, updated_at
+		FROM class_term_attendance_summaries
+		WHERE tenant_id = $1 AND school_id = $2 AND class_id = $3 AND academic_term_id = $4
+	`, tenantID, schoolID, classID, termID).Scan(
+		&s.ID, &s.TenantID, &s.SchoolID, &s.ClassID, &s.AcademicTermID, &s.AcademicYearID,
+		&s.DaysInTerm, &s.TotalEnrolledAvg, &s.PresentCount, &s.AbsentCount, &s.LateCount, &s.ExcusedCount,
+		&s.TermAttendanceRate, &s.LastRefreshedAt, &s.CreatedAt, &s.UpdatedAt,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("attendance.Repository.GetClassTermAttendanceSummary: %w", ErrNotFound)
+		}
+		return nil, fmt.Errorf("attendance.Repository.GetClassTermAttendanceSummary: %w", err)
+	}
+	return &s, nil
+}
+
+func (r *pgRepository) ListClassTermAttendanceSummaries(ctx context.Context, tenantID, schoolID, classID, termID string) ([]ClassTermAttendanceSummary, error) {
+	var rows pgx.Rows
+	var err error
+	if classID == "" {
+		rows, err = r.pool.Query(ctx, `
+			SELECT id, tenant_id, school_id, class_id, academic_term_id, academic_year_id,
+			       days_in_term, total_enrolled_avg, present_count, absent_count, late_count, excused_count,
+			       term_attendance_rate, last_refreshed_at, created_at, updated_at
+			FROM class_term_attendance_summaries
+			WHERE tenant_id = $1 AND school_id = $2 AND academic_term_id = $3
+			ORDER BY class_id
+		`, tenantID, schoolID, termID)
+	} else {
+		rows, err = r.pool.Query(ctx, `
+			SELECT id, tenant_id, school_id, class_id, academic_term_id, academic_year_id,
+			       days_in_term, total_enrolled_avg, present_count, absent_count, late_count, excused_count,
+			       term_attendance_rate, last_refreshed_at, created_at, updated_at
+			FROM class_term_attendance_summaries
+			WHERE tenant_id = $1 AND school_id = $2 AND class_id = $3 AND academic_term_id = $4
+			ORDER BY class_id
+		`, tenantID, schoolID, classID, termID)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("attendance.Repository.ListClassTermAttendanceSummaries: %w", err)
+	}
+	defer rows.Close()
+
+	var results []ClassTermAttendanceSummary
+	for rows.Next() {
+		var s ClassTermAttendanceSummary
+		if err := rows.Scan(
+			&s.ID, &s.TenantID, &s.SchoolID, &s.ClassID, &s.AcademicTermID, &s.AcademicYearID,
+			&s.DaysInTerm, &s.TotalEnrolledAvg, &s.PresentCount, &s.AbsentCount, &s.LateCount, &s.ExcusedCount,
+			&s.TermAttendanceRate, &s.LastRefreshedAt, &s.CreatedAt, &s.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("attendance.Repository.ListClassTermAttendanceSummaries: scan: %w", err)
+		}
+		results = append(results, s)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("attendance.Repository.ListClassTermAttendanceSummaries: rows: %w", err)
+	}
+	return results, nil
+}
+
 // Compile-time check
 var _ Repository = (*pgRepository)(nil)

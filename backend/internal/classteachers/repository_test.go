@@ -92,6 +92,24 @@ func newRepo(pool *pgxpool.Pool) *PgRepository {
 	return NewRepository(&database.Pools{PG: pool})
 }
 
+// seedAcademicYearAndStream creates the supporting rows required by the
+// current cbc_classes schema (academic_year_id, stream_id are NOT NULL FKs).
+func seedAcademicYearAndStream(t *testing.T, pool *pgxpool.Pool, tenantID, schoolID, userID string) (academicYearID, streamID string) {
+	t.Helper()
+	ctx := context.Background()
+	academicYearID = uuid.New().String()
+	streamID = uuid.New().String()
+	_, err := pool.Exec(ctx, `INSERT INTO academic_years (id, tenant_id, school_id, name, start_date, end_date, is_current, created_by, updated_by)
+		VALUES ($1, $2, $3, '2026', '2026-01-01', '2026-12-31', true, $4, $4)`,
+		academicYearID, tenantID, schoolID, userID)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `INSERT INTO cbc_streams (id, tenant_id, school_id, name, color)
+		VALUES ($1, $2, $3, 'Blue', '#0000FF')`,
+		streamID, tenantID, schoolID)
+	require.NoError(t, err)
+	return academicYearID, streamID
+}
+
 func TestPgRepository_CreateAndGetByID(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
@@ -102,12 +120,14 @@ func TestPgRepository_CreateAndGetByID(t *testing.T) {
 	applyMigration(t, pool, "000001_initial_schema.up.sql")
 
 	tenantID, schoolID, userID := seedTenantSchoolUser(t, pool)
+	academicYearID, streamID := seedAcademicYearAndStream(t, pool, tenantID, schoolID, userID)
 	repo := newRepo(pool)
 
 	// Create a class first
 	classID := uuid.New().String()
-	_, err := pool.Exec(ctx, `INSERT INTO cbc_classes (id, tenant_id, school_id, name, grade_level) VALUES ($1, $2, $3, 'Grade 4 East', 'GRADE_4')`,
-		classID, tenantID, schoolID)
+	_, err := pool.Exec(ctx, `INSERT INTO cbc_classes (id, tenant_id, school_id, academic_year_id, grade_level, stream_id, is_active)
+		VALUES ($1, $2, $3, $4, 'G4', $5, true)`,
+		classID, tenantID, schoolID, academicYearID, streamID)
 	require.NoError(t, err)
 
 	params := CreateClassTeacherParams{

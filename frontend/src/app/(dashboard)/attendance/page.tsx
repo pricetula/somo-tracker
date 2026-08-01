@@ -1,10 +1,11 @@
 /**
- * Attendance page — timeline view of today's schedule for the selected class.
+ * Attendance page — timeline view of today's schedule for the selected class,
+ * plus calendar status overview.
  *
  * TEACHER / SCHOOL_ADMIN: view the day's timeline and mark attendance per slot.
  */
 
-import { AttendanceCalendar } from "@/features/attendance";
+import { AttendanceCalendar, CalendarStatusView } from "@/features/attendance";
 import { getVerifiedRole } from "@/lib/auth-server";
 
 export default async function AttendancePage() {
@@ -30,6 +31,7 @@ export default async function AttendancePage() {
     return (
         <div className="space-y-6">
             <AttendanceCalendar />
+            <CalendarStatusView />
         </div>
     );
 }

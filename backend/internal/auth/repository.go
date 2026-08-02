@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/fx"
@@ -637,12 +638,17 @@ func (r *SqlcRepository) GetUserByEmailAndTenant(ctx context.Context, email, ten
 // CreateSessionOnly creates a new session record for an existing user
 // without creating a user or tenant. Used during re-login.
 func (r *SqlcRepository) CreateSessionOnly(ctx context.Context, params CreateSessionParams) error {
+	// Generate a secure token when none is provided
+	token := params.Token
+	if token == "" {
+		token = "sess_" + uuid.New().String()
+	}
 	const query = `
 		INSERT INTO sessions (token, token_hash, user_id, tenant_id, stytch_member_id, stytch_org_id, stytch_session_token, device_fingerprint, expires_at)
-		VALUES (NULL, encode(digest($1::bytea, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7, $8)
+		VALUES ($1, encode(digest($1::text, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7, $8)
 	`
 	_, err := r.pool.Exec(ctx, query,
-		params.Token,
+		token,
 		params.UserID,
 		params.TenantID,
 		params.StytchMemberID,

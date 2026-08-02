@@ -870,8 +870,9 @@ func (s *IntegrationSuite) insertSession(t *testing.T, session UserSession) {
 	t.Helper()
 	ctx := context.Background()
 	_, err := s.pgPool.Exec(ctx, `
+		WITH tok AS (SELECT $1::text AS tk)
 		INSERT INTO sessions (token, token_hash, user_id, tenant_id, stytch_member_id, stytch_org_id, stytch_session_token, device_fingerprint, expires_at, created_at)
-		VALUES ($1, encode(digest($1, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7, $8, $9)
+		SELECT tk, encode(digest(tk, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7, $8, $9 FROM tok
 	`, session.Token, session.UserID, session.TenantID, session.StytchMemberID,
 		session.StytchOrgID, session.StytchSessionToken, session.DeviceFingerprint,
 		session.ExpiresAt, session.CreatedAt)

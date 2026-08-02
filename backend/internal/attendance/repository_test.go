@@ -243,17 +243,23 @@ func TestPgRepository_CreateAndGetSession(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigration(t, pool, "000001_initial_schema.up.sql")
 
-	tenantID, schoolID, _ := seedTenantSchoolUser(t, pool)
+	ids := setupTestTables(t, pool)
 	repo := newRepo(pool)
 
-	slotID := uuid.New().String()
-	_, err := pool.Exec(ctx, `INSERT INTO cbc_timetable_slots (id, tenant_id, school_id, day_of_week, start_time, end_time, period_name, is_break) VALUES ($1, $2, $3, 1, '08:00', '08:40', 'Period 1', false)`,
-		slotID, tenantID, schoolID)
+	// Insert a timetable structure row
+	structID := uuid.New().String()
+	_, err := pool.Exec(ctx, `INSERT INTO timetable_structures (id, tenant_id, school_id, academic_year_id, day_of_week, start_time, end_time, period_name) VALUES ($1, $2, $3, $4, 1, '08:00', '08:40', 'Period 1')`,
+		structID, ids.TenantID, ids.SchoolID, ids.AcademicYearID)
 	require.NoError(t, err)
 
-	session, err := repo.CreateSession(ctx, tenantID, schoolID, CreateSessionPayload{
+	// Insert a cbc_timetable_slot referencing the structure
+	slotID := uuid.New().String()
+	_, err = pool.Exec(ctx, `INSERT INTO cbc_timetable_slots (id, tenant_id, school_id, academic_year_id, structure_id, class_id, learning_area_id, teacher_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+		slotID, ids.TenantID, ids.SchoolID, ids.AcademicYearID, structID, ids.ClassID1, ids.LearningAreaID1, ids.UserID)
+	require.NoError(t, err)
+
+	session, err := repo.CreateSession(ctx, ids.TenantID, ids.SchoolID, CreateSessionPayload{
 		TimetableSlotID: slotID,
 		Date:            "2026-01-15",
 		Status:          string(SessionSubmitted),
@@ -262,7 +268,7 @@ func TestPgRepository_CreateAndGetSession(t *testing.T) {
 	require.NotNil(t, session)
 	require.Equal(t, string(SessionSubmitted), string(session.Status))
 
-	fetched, err := repo.GetSessionByID(ctx, session.ID, tenantID)
+	fetched, err := repo.GetSessionByID(ctx, session.ID, ids.TenantID)
 	require.NoError(t, err)
 	require.Equal(t, session.ID, fetched.ID)
 }
@@ -277,7 +283,8 @@ func TestPgRepository_GetSession_NotFound(t *testing.T) {
 	applyMigration(t, pool, "000001_initial_schema.up.sql")
 
 	repo := newRepo(pool)
-	_, err := repo.GetSessionByID(ctx, "missing_id", "tenant_001")
+	nonExistentID := uuid.New().String()
+	_, err := repo.GetSessionByID(ctx, nonExistentID, "00000000-0000-0000-0000-000000000000")
 	require.Error(t, err)
 	require.ErrorIs(t, err, ErrNotFound)
 }

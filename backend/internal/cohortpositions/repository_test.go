@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
@@ -81,10 +82,11 @@ func TestPgRepository_GetByStudentTerm_NotFound(t *testing.T) {
 	pool, cleanup := startPG(t)
 	defer cleanup()
 	applyMigration(t, pool, "000001_initial_schema.up.sql")
+	applyMigration(t, pool, "000008_create_student_cohort_position_summaries.up.sql")
 
 	repo := newRepo(pool)
 
-	_, err := repo.GetByStudentTerm(ctx, "student_missing", "term_missing", "tenant_missing")
+	_, err := repo.GetByStudentTerm(ctx, uuid.New().String(), uuid.New().String(), uuid.New().String())
 	require.Error(t, err)
 	require.ErrorIs(t, err, ErrNotFound)
 }
@@ -97,10 +99,11 @@ func TestPgRepository_ListByClassTerm_Empty(t *testing.T) {
 	pool, cleanup := startPG(t)
 	defer cleanup()
 	applyMigration(t, pool, "000001_initial_schema.up.sql")
+	applyMigration(t, pool, "000008_create_student_cohort_position_summaries.up.sql")
 
 	repo := newRepo(pool)
 
-	items, err := repo.ListByClassTerm(ctx, "class_missing", "term_missing", "tenant_missing")
+	items, err := repo.ListByClassTerm(ctx, uuid.New().String(), uuid.New().String(), uuid.New().String())
 	require.NoError(t, err)
 	require.Empty(t, items)
 }
@@ -113,10 +116,11 @@ func TestPgRepository_ListByGradeTerm_Empty(t *testing.T) {
 	pool, cleanup := startPG(t)
 	defer cleanup()
 	applyMigration(t, pool, "000001_initial_schema.up.sql")
+	applyMigration(t, pool, "000008_create_student_cohort_position_summaries.up.sql")
 
 	repo := newRepo(pool)
 
-	items, err := repo.ListByGradeTerm(ctx, "school_missing", "GRADE_4", "term_missing", "tenant_missing")
+	items, err := repo.ListByGradeTerm(ctx, uuid.New().String(), "G4", uuid.New().String(), uuid.New().String())
 	require.NoError(t, err)
 	require.Empty(t, items)
 }

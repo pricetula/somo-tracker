@@ -117,7 +117,7 @@ func TestPgRepository_CreateAndGetByID(t *testing.T) {
 	params := CreateClassParams{
 		TenantID:       tenantID,
 		SchoolID:       schoolID,
-		GradeLevel:     "GRADE_4",
+		GradeLevel:     "G4",
 		StreamID:       streamID,
 		AcademicYearID: yearID,
 	}
@@ -128,7 +128,7 @@ func TestPgRepository_CreateAndGetByID(t *testing.T) {
 
 	fetched, err := repo.GetByID(ctx, class.ID, tenantID, schoolID)
 	require.NoError(t, err)
-	require.Equal(t, "GRADE_4", fetched.GradeLevel)
+	require.Equal(t, "G4", fetched.GradeLevel)
 }
 
 func TestPgRepository_List(t *testing.T) {
@@ -150,7 +150,7 @@ func TestPgRepository_List(t *testing.T) {
 
 	_, err = repo.Create(ctx, CreateClassParams{
 		TenantID: tenantID, SchoolID: schoolID,
-		GradeLevel: "GRADE_4", StreamID: streamID, AcademicYearID: yearID,
+		GradeLevel: "G4", StreamID: streamID, AcademicYearID: yearID,
 	})
 	require.NoError(t, err)
 
@@ -176,6 +176,6 @@ func TestPgRepository_GetByID_NotFound(t *testing.T) {
 	applyMigration(t, pool, "000001_initial_schema.up.sql")
 
 	repo := newRepo(pool)
-	_, err := repo.GetByID(ctx, "missing_id", "tenant_001", "school_001")
+	_, err := repo.GetByID(ctx, uuid.New().String(), "00000000-0000-0000-0000-000000000000", "00000000-0000-0000-0000-000000000000")
 	require.Error(t, err)
 }

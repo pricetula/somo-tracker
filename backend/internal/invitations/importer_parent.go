@@ -92,7 +92,7 @@ func (pi *ParentInviteImporter) Validate(ctx context.Context, tenantID, schoolID
 		var row InviteRow
 		if err := json.Unmarshal(rawData, &row); err != nil {
 			failures = append(failures, imports.RowFailure{
-				RowNumber:    i,
+				RowNumber:    int64(i),
 				RawPayload:   rawData,
 				ErrorMessage: fmt.Sprintf("invalid JSON: %v", err),
 				ErrorType:    imports.ImportFailureSchemaValidation,
@@ -104,7 +104,7 @@ func (pi *ParentInviteImporter) Validate(ctx context.Context, tenantID, schoolID
 
 		if row.Email == "" {
 			failures = append(failures, imports.RowFailure{
-				RowNumber:    i,
+				RowNumber:    int64(i),
 				RawPayload:   rawData,
 				ErrorMessage: "email is required",
 				ErrorType:    imports.ImportFailureInvalidEmailFormat,
@@ -114,7 +114,7 @@ func (pi *ParentInviteImporter) Validate(ctx context.Context, tenantID, schoolID
 
 		if !parentEmailRegex.MatchString(row.Email) {
 			failures = append(failures, imports.RowFailure{
-				RowNumber:    i,
+				RowNumber:    int64(i),
 				RawPayload:   rawData,
 				ErrorMessage: fmt.Sprintf("email %q is not a valid email address", row.Email),
 				ErrorType:    imports.ImportFailureInvalidEmailFormat,
@@ -130,7 +130,7 @@ func (pi *ParentInviteImporter) Validate(ctx context.Context, tenantID, schoolID
 		cleanData, err := json.Marshal(row)
 		if err != nil {
 			failures = append(failures, imports.RowFailure{
-				RowNumber:    i,
+				RowNumber:    int64(i),
 				RawPayload:   rawData,
 				ErrorMessage: fmt.Sprintf("marshal cleaned row: %v", err),
 				ErrorType:    imports.ImportFailureSchemaValidation,
@@ -192,7 +192,7 @@ func (pi *ParentInviteImporter) ResolveReferences(ctx context.Context, tenantID,
 		var inviteRow InviteRow
 		if err := json.Unmarshal(row.RawData, &inviteRow); err != nil {
 			return nil, []imports.RowFailure{{
-				RowNumber:    i,
+				RowNumber:    int64(i),
 				RawPayload:   row.RawData,
 				ErrorMessage: fmt.Sprintf("unmarshal row: %v", err),
 				ErrorType:    imports.ImportFailureSchemaValidation,
@@ -238,7 +238,7 @@ func (pi *ParentInviteImporter) ResolveReferences(ctx context.Context, tenantID,
 
 		if _, exists := existingUserSet[email]; exists {
 			failures = append(failures, imports.RowFailure{
-				RowNumber:    p.index,
+				RowNumber:    int64(p.index),
 				RawPayload:   p.rawData,
 				ErrorMessage: fmt.Sprintf("Email %s already exists for this school", email),
 				ErrorType:    imports.ImportFailureDuplicateEmail,
@@ -248,7 +248,7 @@ func (pi *ParentInviteImporter) ResolveReferences(ctx context.Context, tenantID,
 
 		if _, exists := existingInviteSet[email]; exists {
 			failures = append(failures, imports.RowFailure{
-				RowNumber:    p.index,
+				RowNumber:    int64(p.index),
 				RawPayload:   p.rawData,
 				ErrorMessage: fmt.Sprintf("Email %s already has a pending invitation for this school", email),
 				ErrorType:    imports.ImportFailureDuplicateEmail,
@@ -276,7 +276,7 @@ func (pi *ParentInviteImporter) ResolveReferences(ctx context.Context, tenantID,
 		augData, err := json.Marshal(aug)
 		if err != nil {
 			failures = append(failures, imports.RowFailure{
-				RowNumber:    p.index,
+				RowNumber:    int64(p.index),
 				RawPayload:   p.rawData,
 				ErrorMessage: fmt.Sprintf("marshal augmented row: %v", err),
 				ErrorType:    imports.ImportFailureSchemaValidation,

@@ -72,8 +72,8 @@ type BulkInviteRequest struct {
 // BulkInviteResponse is returned immediately after creating the bulk invite job.
 type BulkInviteResponse struct {
 	JobID        string `json:"job_id"`
-	TotalRecords int    `json:"total_records"`
-	TotalChunks  int    `json:"total_chunks"`
+	TotalRecords int64  `json:"total_records"`
+	TotalChunks  int64  `json:"total_chunks"`
 	Status       string `json:"status"`
 	IsReplay     bool   `json:"is_replay,omitempty"`
 }

@@ -103,7 +103,7 @@ func (si *StaffInviteImporter) Validate(ctx context.Context, tenantID, schoolID 
 		var row InviteRow
 		if err := json.Unmarshal(rawData, &row); err != nil {
 			failures = append(failures, imports.RowFailure{
-				RowNumber:    i,
+				RowNumber:    int64(i),
 				RawPayload:   rawData,
 				ErrorMessage: fmt.Sprintf("invalid JSON: %v", err),
 				ErrorType:    imports.ImportFailureSchemaValidation,
@@ -117,7 +117,7 @@ func (si *StaffInviteImporter) Validate(ctx context.Context, tenantID, schoolID 
 		// Required: email must be non-empty
 		if row.Email == "" {
 			failures = append(failures, imports.RowFailure{
-				RowNumber:    i,
+				RowNumber:    int64(i),
 				RawPayload:   rawData,
 				ErrorMessage: "email is required",
 				ErrorType:    imports.ImportFailureInvalidEmailFormat,
@@ -128,7 +128,7 @@ func (si *StaffInviteImporter) Validate(ctx context.Context, tenantID, schoolID 
 		// Format: email must match basic pattern
 		if !emailRegex.MatchString(row.Email) {
 			failures = append(failures, imports.RowFailure{
-				RowNumber:    i,
+				RowNumber:    int64(i),
 				RawPayload:   rawData,
 				ErrorMessage: fmt.Sprintf("email %q is not a valid email address", row.Email),
 				ErrorType:    imports.ImportFailureInvalidEmailFormat,
@@ -146,7 +146,7 @@ func (si *StaffInviteImporter) Validate(ctx context.Context, tenantID, schoolID 
 		cleanData, err := json.Marshal(row)
 		if err != nil {
 			failures = append(failures, imports.RowFailure{
-				RowNumber:    i,
+				RowNumber:    int64(i),
 				RawPayload:   rawData,
 				ErrorMessage: fmt.Sprintf("marshal cleaned row: %v", err),
 				ErrorType:    imports.ImportFailureSchemaValidation,
@@ -216,7 +216,7 @@ func (si *StaffInviteImporter) ResolveReferences(ctx context.Context, tenantID, 
 		if err := json.Unmarshal(row.RawData, &inviteRow); err != nil {
 			// Should not happen after Validate, but handle defensively
 			return nil, []imports.RowFailure{{
-				RowNumber:    i,
+				RowNumber:    int64(i),
 				RawPayload:   row.RawData,
 				ErrorMessage: fmt.Sprintf("unmarshal row: %v", err),
 				ErrorType:    imports.ImportFailureSchemaValidation,
@@ -264,7 +264,7 @@ func (si *StaffInviteImporter) ResolveReferences(ctx context.Context, tenantID, 
 		// Check against existing users (someone already has an account)
 		if _, exists := existingUserSet[email]; exists {
 			failures = append(failures, imports.RowFailure{
-				RowNumber:    p.index,
+				RowNumber:    int64(p.index),
 				RawPayload:   p.rawData,
 				ErrorMessage: fmt.Sprintf("Email %s already exists for this school", email),
 				ErrorType:    imports.ImportFailureDuplicateEmail,
@@ -275,7 +275,7 @@ func (si *StaffInviteImporter) ResolveReferences(ctx context.Context, tenantID, 
 		// Check against pending invitations
 		if _, exists := existingInviteSet[email]; exists {
 			failures = append(failures, imports.RowFailure{
-				RowNumber:    p.index,
+				RowNumber:    int64(p.index),
 				RawPayload:   p.rawData,
 				ErrorMessage: fmt.Sprintf("Email %s already has a pending invitation for this school", email),
 				ErrorType:    imports.ImportFailureDuplicateEmail,
@@ -304,7 +304,7 @@ func (si *StaffInviteImporter) ResolveReferences(ctx context.Context, tenantID, 
 		augData, err := json.Marshal(aug)
 		if err != nil {
 			failures = append(failures, imports.RowFailure{
-				RowNumber:    p.index,
+				RowNumber:    int64(p.index),
 				RawPayload:   p.rawData,
 				ErrorMessage: fmt.Sprintf("marshal augmented row: %v", err),
 				ErrorType:    imports.ImportFailureSchemaValidation,
@@ -411,7 +411,7 @@ func allInviteFail(rows []imports.ValidatedRow, msg string) []imports.RowFailure
 	failures := make([]imports.RowFailure, 0, len(rows))
 	for i, row := range rows {
 		failures = append(failures, imports.RowFailure{
-			RowNumber:    i,
+			RowNumber:    int64(i),
 			RawPayload:   row.RawData,
 			ErrorMessage: msg,
 			ErrorType:    imports.ImportFailureBusinessRule,

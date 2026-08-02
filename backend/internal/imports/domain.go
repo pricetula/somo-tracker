@@ -136,14 +136,14 @@ type Job struct {
 	Role             *string         `json:"role,omitempty"`
 	CreatedBy        *uuid.UUID      `json:"created_by,omitempty"`
 	Status           ImportJobStatus `json:"status"`
-	TotalRecords     int             `json:"total_records"`
-	ProcessedRecords int             `json:"processed_records"`
-	SuccessCount     int             `json:"success_count"`
-	FailedCount      int             `json:"failed_count"`
+	TotalRecords     int64           `json:"total_records"`
+	ProcessedRecords int64           `json:"processed_records"`
+	SuccessCount     int64           `json:"success_count"`
+	FailedCount      int64           `json:"failed_count"`
 	IDempotencyKey   *string         `json:"idempotency_key,omitempty"`
 	PayloadHash      *string         `json:"payload_hash,omitempty"`
-	TotalChunks      int             `json:"total_chunks"`
-	ProcessedChunks  int             `json:"processed_chunks"`
+	TotalChunks      int64           `json:"total_chunks"`
+	ProcessedChunks  int64           `json:"processed_chunks"`
 	Metadata         json.RawMessage `json:"metadata"`
 	CreatedAt        time.Time       `json:"created_at"`
 	StartedAt        *time.Time      `json:"started_at,omitempty"`
@@ -155,21 +155,21 @@ type Job struct {
 type Chunk struct {
 	JobID          uuid.UUID `json:"job_id"`
 	ChunkIndex     int       `json:"chunk_index"`
-	RowNumberStart int       `json:"row_number_start"`
-	RowNumberEnd   int       `json:"row_number_end"`
+	RowNumberStart int64     `json:"row_number_start"`
+	RowNumberEnd   int64     `json:"row_number_end"`
 }
 
 // ChunkTaskPayload is the Asynq task payload for a chunk worker.
 type ChunkTaskPayload struct {
 	JobID          string `json:"job_id"`
 	ChunkIndex     int    `json:"chunk_index"`
-	RowNumberStart int    `json:"row_number_start"`
-	RowNumberEnd   int    `json:"row_number_end"`
+	RowNumberStart int64  `json:"row_number_start"`
+	RowNumberEnd   int64  `json:"row_number_end"`
 }
 
 // RowFailure captures a single failed row during import processing.
 type RowFailure struct {
-	RowNumber    int               `json:"row_number"`
+	RowNumber    int64             `json:"row_number"`
 	RawPayload   json.RawMessage   `json:"raw_payload"`
 	ErrorMessage string            `json:"error_message"`
 	ErrorType    ImportFailureType `json:"error_type"`
@@ -194,12 +194,12 @@ type ChunkResult struct {
 type ProgressEvent struct {
 	JobID            string          `json:"job_id"`
 	Status           ImportJobStatus `json:"status"`
-	TotalRecords     int             `json:"total_records"`
-	ProcessedRecords int             `json:"processed_records"`
-	SuccessCount     int             `json:"success_count"`
-	FailedCount      int             `json:"failed_count"`
-	TotalChunks      int             `json:"total_chunks"`
-	ProcessedChunks  int             `json:"processed_chunks"`
+	TotalRecords     int64           `json:"total_records"`
+	ProcessedRecords int64           `json:"processed_records"`
+	SuccessCount     int64           `json:"success_count"`
+	FailedCount      int64           `json:"failed_count"`
+	TotalChunks      int64           `json:"total_chunks"`
+	ProcessedChunks  int64           `json:"processed_chunks"`
 }
 
 // ============================================================================
@@ -339,7 +339,7 @@ type StagingRow struct {
 	JobID     uuid.UUID           `json:"job_id"`
 	TenantID  uuid.UUID           `json:"tenant_id"`
 	SchoolID  uuid.UUID           `json:"school_id"`
-	RowNumber int                 `json:"row_number"`
+	RowNumber int64               `json:"row_number"`
 	RawData   json.RawMessage     `json:"raw_data"`
 	Status    ImportStagingStatus `json:"status"`
 }

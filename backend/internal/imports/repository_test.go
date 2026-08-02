@@ -2,6 +2,7 @@ package imports
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -141,15 +142,18 @@ func TestPgRepository_GetJobByIDempotencyKey(t *testing.T) {
 		TotalRecords:   5,
 		IDempotencyKey: &idempotencyKey,
 	}
-	jobID, isNew, err := repo.CreateJobIdempotent(ctx, job, "hash")
+	first, isNew, err := repo.CreateJobIdempotent(ctx, job, "hash")
 	require.NoError(t, err)
 	require.True(t, isNew)
+	require.NotNil(t, first)
+	jobID := first.ID
 	require.NotEqual(t, uuid.Nil, jobID)
 
 	// call again with same key and same payload hash
 	job2, isNew2, err := repo.CreateJobIdempotent(ctx, job, "hash")
 	require.NoError(t, err)
 	require.False(t, isNew2)
+	require.NotNil(t, job2)
 	require.Equal(t, jobID, job2.ID)
 }
 
@@ -189,8 +193,26 @@ func TestPgRepository_InsertStagingRowsAndGetStagingRows(t *testing.T) {
 	require.Len(t, fetched, 2)
 	require.Equal(t, int64(0), fetched[0].RowNumber)
 	require.Equal(t, int64(1), fetched[1].RowNumber)
-	require.Equal(t, []byte(`{"admission_number":"001"}`), fetched[0].RawData)
-	require.Equal(t, []byte(`{"admission_number":"002"}`), fetched[1].RawData)
+	// Postgres JSONB normalises whitespace on storage, so the value read
+	// back may include spaces the original raw bytes did not. Compare as
+	// canonical JSON via a round-trip through json.Marshal/json.Unmarshal.
+	requireCanonicalJSON(t, []byte(`{"admission_number":"001"}`), []byte(fetched[0].RawData))
+	requireCanonicalJSON(t, []byte(`{"admission_number":"002"}`), []byte(fetched[1].RawData))
+}
+
+// requireCanonicalJSON asserts that two JSON documents are semantically equal
+// regardless of insignificant whitespace, which Postgres JSONB may strip or
+// add during storage.
+func requireCanonicalJSON(t *testing.T, a, b []byte) {
+	t.Helper()
+	var av, bv any
+	require.NoError(t, json.Unmarshal(a, &av))
+	require.NoError(t, json.Unmarshal(b, &bv))
+	ac, err := json.Marshal(av)
+	require.NoError(t, err)
+	bc, err := json.Marshal(bv)
+	require.NoError(t, err)
+	require.Equal(t, string(ac), string(bc))
 }
 
 func TestPgRepository_UpdateJobStatus(t *testing.T) {

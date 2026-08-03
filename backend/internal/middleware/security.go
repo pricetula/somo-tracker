@@ -179,7 +179,7 @@ func loadSession(ctx context.Context, pool *pgxpool.Pool, token string) (*Sessio
 			       'TEACHER'
 		       ) as role
 		FROM sessions s
-		WHERE s.token_hash = encode(digest($1, 'sha256'), 'hex') AND s.expires_at > NOW()
+		WHERE s.token_hash = encode(digest($1::text, 'sha256'), 'hex') AND s.expires_at > NOW()
 	`
 
 	var s SessionInfo

@@ -111,7 +111,7 @@ func (r *SqlcRepository) GetSessionByToken(ctx context.Context, token string) (*
 				END
 			LIMIT 1
 		) m ON true
-		WHERE s.token_hash = encode(digest($1, 'sha256'), 'hex') AND s.expires_at > NOW()
+		WHERE s.token_hash = encode(digest($1::text, 'sha256'), 'hex') AND s.expires_at > NOW()
 	`
 	var s UserSession
 	err := r.pool.QueryRow(ctx, query, token).Scan(
@@ -131,7 +131,7 @@ func (r *SqlcRepository) GetSessionByToken(ctx context.Context, token string) (*
 
 // DeleteSession removes a session record by token.
 func (r *SqlcRepository) DeleteSession(ctx context.Context, token string) error {
-	const query = `DELETE FROM sessions WHERE token_hash = encode(digest($1, 'sha256'), 'hex')`
+	const query = `DELETE FROM sessions WHERE token_hash = encode(digest($1::text, 'sha256'), 'hex')`
 	_, err := r.pool.Exec(ctx, query, token)
 	if err != nil {
 		return fmt.Errorf("%w: delete session: %v", ErrInternal, err)
@@ -197,7 +197,7 @@ func (r *SqlcRepository) CreateTenantUserSession(
 
 	sessionQuery := `
 		INSERT INTO sessions (token, token_hash, user_id, tenant_id, stytch_member_id, stytch_org_id, stytch_session_token, device_fingerprint, expires_at)
-		VALUES (NULL, encode(digest($1::bytea, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7, $8)
+		VALUES (NULL, encode(digest($1::text::bytea, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7, $8)
 	`
 	_, err = tx.Exec(ctx, sessionQuery,
 		sessionParams.Token,
@@ -265,7 +265,7 @@ func (r *SqlcRepository) CreateUserSession(
 
 	sessionQuery := `
 		INSERT INTO sessions (token, token_hash, user_id, tenant_id, stytch_member_id, stytch_org_id, stytch_session_token, device_fingerprint, expires_at)
-		VALUES (NULL, encode(digest($1::bytea, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7, $8)
+		VALUES (NULL, encode(digest($1::text::bytea, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7, $8)
 	`
 	_, err = tx.Exec(ctx, sessionQuery,
 		sessionParams.Token,
@@ -413,7 +413,7 @@ func (r *SqlcRepository) GetMeInfo(ctx context.Context, token string) (*MeInfo, 
 		JOIN users u ON u.id = s.user_id
 		LEFT JOIN member_active_school mas ON mas.user_id = s.user_id
 		LEFT JOIN cbc_schools sch ON sch.id = mas.school_id
-		WHERE s.token_hash = encode(digest($1, 'sha256'), 'hex') AND s.expires_at > NOW()
+		WHERE s.token_hash = encode(digest($1::text, 'sha256'), 'hex') AND s.expires_at > NOW()
 	`
 
 	var info MeInfo
@@ -645,7 +645,7 @@ func (r *SqlcRepository) CreateSessionOnly(ctx context.Context, params CreateSes
 	}
 	const query = `
 		INSERT INTO sessions (token, token_hash, user_id, tenant_id, stytch_member_id, stytch_org_id, stytch_session_token, device_fingerprint, expires_at)
-		VALUES ($1, encode(digest($1::text, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7, $8)
+		VALUES ($1::text, encode(digest($1::text, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7, $8)
 	`
 	_, err := r.pool.Exec(ctx, query,
 		token,

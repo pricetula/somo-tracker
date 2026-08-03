@@ -1142,7 +1142,7 @@ func TestIntegration_Sessions_TokenUniqueness(t *testing.T) {
 	// Insert first session
 	_, err := suite.pgPool.Exec(context.Background(), `
 		INSERT INTO sessions (token, token_hash, user_id, tenant_id, stytch_member_id, stytch_org_id, device_fingerprint, expires_at)
-		VALUES ($1, encode(digest($1, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7)
+		VALUES ($1::text, encode(digest($1::text, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7)
 	`, "dup_token_001", userID, tenantID, "member_u1", "org_u1", "fp-u1", now.Add(24*time.Hour))
 	if err != nil {
 		t.Fatalf("insert first session: %v", err)
@@ -1151,7 +1151,7 @@ func TestIntegration_Sessions_TokenUniqueness(t *testing.T) {
 	// Insert second session with same token — should fail
 	_, err = suite.pgPool.Exec(context.Background(), `
 		INSERT INTO sessions (token, token_hash, user_id, tenant_id, stytch_member_id, stytch_org_id, device_fingerprint, expires_at)
-		VALUES ($1, encode(digest($1, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7)
+		VALUES ($1::text, encode(digest($1::text, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7)
 	`, "dup_token_001", user2ID, tenant2ID, "member_u2", "org_u2", "fp-u2", now.Add(24*time.Hour))
 	if err == nil {
 		t.Fatal("expected uniqueness violation error, got nil")

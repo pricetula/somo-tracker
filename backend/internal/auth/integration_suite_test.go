@@ -1081,7 +1081,7 @@ func (s *IntegrationSuite) getTenantAndSchoolIDs(t *testing.T, token string) (te
 	t.Helper()
 	ctx := context.Background()
 	err := s.pgPool.QueryRow(ctx,
-		"SELECT s.tenant_id, mas.school_id FROM sessions s LEFT JOIN member_active_school mas ON mas.user_id = s.user_id WHERE s.token_hash = encode(digest($1, 'sha256'), 'hex')",
+		"SELECT s.tenant_id, mas.school_id FROM sessions s LEFT JOIN member_active_school mas ON mas.user_id = s.user_id WHERE s.token_hash = encode(digest($1::text, 'sha256'), 'hex')",
 		token).Scan(&tenantID, &schoolID)
 	if err != nil {
 		t.Fatalf("get tenant and school for token: %v", err)

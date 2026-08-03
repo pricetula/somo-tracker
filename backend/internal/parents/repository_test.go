@@ -102,13 +102,21 @@ func TestPgRepository_CreateAndGetByUserID(t *testing.T) {
 	defer cleanup()
 	applyMigration(t, pool, "000001_initial_schema.up.sql")
 
-	tenantID, _, _ := seedTenantSchoolUser(t, pool)
+	tenantID, schoolID, _ := seedTenantSchoolUser(t, pool)
 	repo := newRepo(pool)
 
 	// First create a user for the parent
 	parentEmail := "parent@test.com"
+	parentUserID := uuid.New().String()
 	_, err := pool.Exec(ctx, `INSERT INTO users (id, email, tenant_id, full_name) VALUES ($1, $2, $3, $4)`,
-		uuid.New().String(), parentEmail, tenantID, "Parent User")
+		parentUserID, parentEmail, tenantID, "Parent User")
+	require.NoError(t, err)
+
+	// Register the parent in the memberships table (role = 'PARENT').
+	// GetByID/GetDetail query parents through memberships, so this row is
+	// required for the test to find the parent after Create.
+	_, err = pool.Exec(ctx, `INSERT INTO memberships (tenant_id, user_id, school_id, role) VALUES ($1, $2, $3, 'PARENT')`,
+		tenantID, parentUserID, schoolID)
 	require.NoError(t, err)
 
 	parentID, err := repo.Create(ctx, tenantID, CreateParentPayload{
@@ -160,8 +168,16 @@ func TestPgRepository_LinkStudent(t *testing.T) {
 
 	// Create a parent via existing user
 	parentEmail := "parent2@test.com"
+	parentUserID := uuid.New().String()
 	_, err = pool.Exec(ctx, `INSERT INTO users (id, email, tenant_id, full_name) VALUES ($1, $2, $3, $4)`,
-		uuid.New().String(), parentEmail, tenantID, "Parent Two")
+		parentUserID, parentEmail, tenantID, "Parent Two")
+	require.NoError(t, err)
+
+	// Register the parent in the memberships table (role = 'PARENT').
+	// GetByID/GetDetail query parents through memberships, so this row is
+	// required for the test to find the parent after Create.
+	_, err = pool.Exec(ctx, `INSERT INTO memberships (tenant_id, user_id, school_id, role) VALUES ($1, $2, $3, 'PARENT')`,
+		tenantID, parentUserID, schoolID)
 	require.NoError(t, err)
 
 	parentID, err := repo.Create(ctx, tenantID, CreateParentPayload{

@@ -195,12 +195,18 @@ func (r *SqlcRepository) CreateTenantUserSession(
 		return "", "", fmt.Errorf("%w: create user in tx: %v", ErrInternal, err)
 	}
 
+	// Generate a fallback token if the caller did not provide one.
+	token := sessionParams.Token
+	if token == "" {
+		token = "sess_" + uuid.New().String()
+	}
+
 	sessionQuery := `
 		INSERT INTO sessions (token, token_hash, user_id, tenant_id, stytch_member_id, stytch_org_id, stytch_session_token, device_fingerprint, expires_at)
-		VALUES (NULL, encode(digest($1::text::bytea, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7, $8)
+		VALUES ($1::text, encode(digest($1::text, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7, $8)
 	`
 	_, err = tx.Exec(ctx, sessionQuery,
-		sessionParams.Token,
+		token,
 		userID,
 		tenantID,
 		sessionParams.StytchMemberID,
@@ -263,12 +269,18 @@ func (r *SqlcRepository) CreateUserSession(
 		return "", fmt.Errorf("%w: create user in tx: %v", ErrInternal, err)
 	}
 
+	// Generate a fallback token if the caller did not provide one.
+	token := sessionParams.Token
+	if token == "" {
+		token = "sess_" + uuid.New().String()
+	}
+
 	sessionQuery := `
 		INSERT INTO sessions (token, token_hash, user_id, tenant_id, stytch_member_id, stytch_org_id, stytch_session_token, device_fingerprint, expires_at)
-		VALUES (NULL, encode(digest($1::text::bytea, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7, $8)
+		VALUES ($1::text, encode(digest($1::text, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7, $8)
 	`
 	_, err = tx.Exec(ctx, sessionQuery,
-		sessionParams.Token,
+		token,
 		userID,
 		sessionParams.TenantID,
 		sessionParams.StytchMemberID,

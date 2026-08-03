@@ -32,9 +32,10 @@ var (
 	ErrMemberNotFound            = xerrors.NotFound("member_not_found")              // maps to 404
 	ErrOrgNotFound               = xerrors.NotFound("org_not_found")                 // maps to 404
 
-	// ErrInternal is intentionally a bare error — it falls through to the
-	// generic 500 response path.
-	ErrInternal = errors.New("internal_error")
+	// ErrInternal is a recognized *xerrors.DomainError so that the HTTP
+	// middleware can map it to a proper 500 response instead of falling
+	// through to the "unclassified error" path.
+	ErrInternal = &xerrors.DomainError{Code: "internal_error", Status: 500, Message: "an unexpected error occurred"}
 )
 
 // ValidationError carries a user-facing message alongside the sentinel.

@@ -234,8 +234,12 @@ func (r *SqlcRepository) CreateTenantUserSession(
 	return userID, tenantID, nil
 }
 
-// CreateUserSession creates a user and session inside a single transaction,
-// without creating a new tenant. Used when a tenant already exists.
+// CreateUserSession creates a session inside a single transaction. If
+// sessionParams.UserID is empty, a new user row is inserted from userParams
+// and bound to the session. If sessionParams.UserID is non-empty, that
+// existing user is reused (verified to belong to sessionParams.TenantID) and
+// the session is attached to it; userParams is ignored in that case. Used
+// when a tenant already exists.
 func (r *SqlcRepository) CreateUserSession(
 	ctx context.Context,
 	userParams CreateUserParams,
@@ -256,17 +260,31 @@ func (r *SqlcRepository) CreateUserSession(
 		}
 	}()
 
-	// 1. Insert user
-	userQuery := `
-		INSERT INTO users (email, tenant_id, full_name, external_auth_id)
-		VALUES ($1, $2, $3, $4)
-		RETURNING id
-	`
-	err = tx.QueryRow(ctx, userQuery,
-		userParams.Email, userParams.TenantID, userParams.FullName, userParams.ExternalAuthID,
-	).Scan(&userID)
-	if err != nil {
-		return "", fmt.Errorf("%w: create user in tx: %v", ErrInternal, err)
+	// 1. Resolve the user the session will belong to.
+	if sessionParams.UserID != "" {
+		// Caller supplied an existing user; verify it lives in this tenant so
+		// we never silently attach a session across tenant boundaries.
+		const lookupQuery = `SELECT id FROM users WHERE id = $1 AND tenant_id = $2`
+		err = tx.QueryRow(ctx, lookupQuery, sessionParams.UserID, sessionParams.TenantID).Scan(&userID)
+		if err != nil {
+			if err == pgx.ErrNoRows {
+				return "", fmt.Errorf("%w: user not found in tenant: %s", ErrNotFound, sessionParams.UserID)
+			}
+			return "", fmt.Errorf("%w: lookup user in tx: %v", ErrInternal, err)
+		}
+	} else {
+		// No existing user — insert one from userParams.
+		const userQuery = `
+			INSERT INTO users (email, tenant_id, full_name, external_auth_id)
+			VALUES ($1, $2, $3, $4)
+			RETURNING id
+		`
+		err = tx.QueryRow(ctx, userQuery,
+			userParams.Email, userParams.TenantID, userParams.FullName, userParams.ExternalAuthID,
+		).Scan(&userID)
+		if err != nil {
+			return "", fmt.Errorf("%w: create user in tx: %v", ErrInternal, err)
+		}
 	}
 
 	// Generate a fallback token if the caller did not provide one.
@@ -299,7 +317,7 @@ func (r *SqlcRepository) CreateUserSession(
 		return "", fmt.Errorf("%w: commit tx: %v", ErrInternal, err)
 	}
 
-	r.logger.Info("user and session created in single transaction (existing tenant)",
+	r.logger.Info("session created in single transaction (existing tenant)",
 		zap.String("user_id", userID),
 		zap.String("tenant_id", userParams.TenantID),
 	)

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -57,7 +58,16 @@ func startPG(t *testing.T) (*pgxpool.Pool, func()) {
 	dbURL := fmt.Sprintf("postgres://somo_admin:somo_secure_password@%s:%s/somotracker_test?sslmode=disable", host, port.Port())
 	pool, err := pgxpool.New(ctx, dbURL)
 	require.NoError(t, err)
-	cleanup := func() { pool.Close(); _ = c.Terminate(ctx) }
+	// Cleanup order matters: terminate the container FIRST so any in-flight
+	// pgx connections are severed (this unblocks pool.Close's waitgroup even
+	// if a test forgot to roll back a transaction). Then close the pool.
+	// Without this, a leaked tx hangs pool.Close until the test timeout.
+	cleanup := func() {
+		if termErr := c.Terminate(ctx); termErr != nil {
+			t.Logf("terminate postgres container: %v", termErr)
+		}
+		pool.Close()
+	}
 	return pool, cleanup
 }
 
@@ -106,13 +116,20 @@ func TestPgRepository_InsertAndListInvitations(t *testing.T) {
 
 	tx, err := pool.Begin(ctx)
 	require.NoError(t, err)
+	// Deferred rollback per backend AGENTS.md §6. Safe to call after Commit
+	// (Commit returns ErrTxClosed which Rollback ignores); prevents a leaked
+	// tx from blocking pool.Close if the test fails before committing.
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	err = repo.InsertInvitation(ctx, tx, InsertInvitationParams{
 		TenantID:  tenantID,
 		SchoolID:  schoolID,
 		Email:     "newuser@test.com",
+		FullName:  "New User",
 		InvitedBy: userID,
 		Role:      "TEACHER",
+		Status:    "pending",
+		ExpiresAt: time.Now().Add(7 * 24 * time.Hour),
 	})
 	require.NoError(t, err)
 	require.NoError(t, tx.Commit(ctx))
@@ -140,17 +157,30 @@ func TestPgRepository_CheckExistingEmails(t *testing.T) {
 
 	tx, err := pool.Begin(ctx)
 	require.NoError(t, err)
+	defer func() { _ = tx.Rollback(ctx) }()
 	err = repo.InsertInvitation(ctx, tx, InsertInvitationParams{
-		TenantID: tenantID, SchoolID: schoolID,
-		Email: "existing@test.com", InvitedBy: userID, Role: "TEACHER",
+		TenantID:  tenantID,
+		SchoolID:  schoolID,
+		Email:     "existing@test.com",
+		FullName:  "Existing User",
+		InvitedBy: userID,
+		Role:      "TEACHER",
+		Status:    "pending",
+		ExpiresAt: time.Now().Add(7 * 24 * time.Hour),
 	})
 	require.NoError(t, err)
 	require.NoError(t, tx.Commit(ctx))
 
-	existing, nonExisting, err := repo.CheckExistingEmails(ctx, tenantID.String(), schoolID.String(), []string{"existing@test.com", "new@test.com"})
+	existingUsers, existingInvites, err := repo.CheckExistingEmails(ctx, tenantID.String(), schoolID.String(), []string{"existing@test.com", "new@test.com"})
 	require.NoError(t, err)
-	require.Contains(t, existing, "existing@test.com")
-	require.Contains(t, nonExisting, "new@test.com")
+	// existingUsers: emails that already have a user account for this tenant.
+	// The test only inserted an invitation (not a user) for existing@test.com,
+	// so this list must be empty.
+	require.Empty(t, existingUsers)
+	// existingInvites: emails that already have a pending invitation for this school.
+	// existing@test.com was inserted above; new@test.com was not.
+	require.Contains(t, existingInvites, "existing@test.com")
+	require.NotContains(t, existingInvites, "new@test.com")
 }
 
 func TestPgRepository_RevokeInvitation(t *testing.T) {
@@ -167,21 +197,34 @@ func TestPgRepository_RevokeInvitation(t *testing.T) {
 
 	tx, err := pool.Begin(ctx)
 	require.NoError(t, err)
+	defer func() { _ = tx.Rollback(ctx) }()
 	err = repo.InsertInvitation(ctx, tx, InsertInvitationParams{
-		TenantID: tenantID, SchoolID: schoolID,
-		Email: "revoke@test.com", InvitedBy: userID, Role: "TEACHER",
+		TenantID:  tenantID,
+		SchoolID:  schoolID,
+		Email:     "revoke@test.com",
+		FullName:  "Revoke User",
+		InvitedBy: userID,
+		Role:      "TEACHER",
+		Status:    "pending",
+		ExpiresAt: time.Now().Add(7 * 24 * time.Hour),
 	})
 	require.NoError(t, err)
 	require.NoError(t, tx.Commit(ctx))
 
-	invitations, _, err := repo.ListInvitations(ctx, tenantID.String(), schoolID.String(), ListInvitationsFilter{Offset: 0, Limit: 50})
+	invitations, total, err := repo.ListInvitations(ctx, tenantID.String(), schoolID.String(), ListInvitationsFilter{Offset: 0, Limit: 50})
 	require.NoError(t, err)
+	require.Equal(t, 1, total)
 	require.Len(t, invitations, 1)
+	require.Equal(t, "pending", invitations[0].Status)
 
 	err = repo.RevokeInvitation(ctx, invitations[0].ID, schoolID.String())
 	require.NoError(t, err)
 
-	invitations2, _, err := repo.ListInvitations(ctx, tenantID.String(), schoolID.String(), ListInvitationsFilter{Offset: 0, Limit: 50})
+	// Default ListInvitationsFilter keeps non-expired rows regardless of status,
+	// so the revoked invitation still appears in the list — but with status=revoked.
+	invitations2, total2, err := repo.ListInvitations(ctx, tenantID.String(), schoolID.String(), ListInvitationsFilter{Offset: 0, Limit: 50})
 	require.NoError(t, err)
-	require.Empty(t, invitations2)
+	require.Equal(t, 1, total2)
+	require.Len(t, invitations2, 1)
+	require.Equal(t, "revoked", invitations2[0].Status)
 }

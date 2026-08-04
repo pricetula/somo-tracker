@@ -8,6 +8,15 @@
 import { api } from "./client";
 import type { Member, ListMembersResponse } from "./generated";
 
+export type UserRole = "TEACHER" | "NURSE" | "FINANCE" | "SCHOOL_ADMIN";
+
+export const MappedUserRoles: Map<string, string> = new Map([
+    ["TEACHER", "Teacher"],
+    ["NURSE", "Nurse"],
+    ["FINANCE", "Finance"],
+    ["SCHOOL_ADMIN", "School Admin"],
+]);
+
 // ─── Re-export generated types ───────────────────────────────────────────
 
 export type { Member, ListMembersResponse };
@@ -26,7 +35,7 @@ export async function updateMember(userId: string, payload: { full_name: string 
 
 /** List members by role with pagination and optional search. */
 export async function listMembers(
-    role: "TEACHER" | "NURSE" | "FINANCE" | "SCHOOL_ADMIN",
+    role: UserRole,
     params: { page?: number; limit?: number; search?: string } = {}
 ): Promise<ListMembersResponse> {
     const searchParams = new URLSearchParams({ role });

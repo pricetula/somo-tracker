@@ -1,6 +1,5 @@
 .PHONY: up up-d down ps logs-down logs-api logs-postgres logs-redis logs-frontend restart-api rebuild-api build-api generate-swagger generate-api-types lint vet test test-short test-integration test-verbose test-all help
-doppler run -p somotracker-backend -c dev -- \
-doppler run -p somotracker-frontend -c dev -- \
+
 # ─── Docker Compose shortcuts ────────────────────────────────────────────────
 
 up:    ## Start all services (detached)

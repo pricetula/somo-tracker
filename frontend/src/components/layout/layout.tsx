@@ -23,10 +23,10 @@ export function AppLayout({ children }: AppLayoutProps) {
                         <SmartBreadcrumb />
                     </div>
                 </header>
-          <div className="max-w-7xl px-6">
-            <SetupChecklist />
-            {children}
-          </div>
+                <div className="max-w-7xl px-6">
+                    <SetupChecklist />
+                    {children}
+                </div>
             </SidebarInset>
         </SidebarProvider>
     );

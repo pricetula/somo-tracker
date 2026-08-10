@@ -2,13 +2,7 @@
 
 import { AttendanceCalendar } from "@/features/attendance";
 import { WelcomeGreeting } from "./welcome-greeting";
-import {
-    QuickActions,
-    QuickStats,
-    PendingItems,
-    ActivityFeed,
-    SCHOOL_ADMIN_ACTIONS,
-} from "..";
+import { QuickActions, QuickStats, PendingItems, ActivityFeed, SCHOOL_ADMIN_ACTIONS } from "..";
 import { useDashboardCounts, useDashboardPendingItems } from "..";
 import { useAcademicTerms } from "@/features/academic-terms/hooks/use-academic-terms";
 import { useClassList } from "@/features/classes/hooks/use-classes";
@@ -204,8 +198,6 @@ export function SchoolAdminDashboardPage() {
                 }
                 isLoading={pending.isLoading}
             />
-
-
 
             {/* ── Analytics Sections ── */}
 

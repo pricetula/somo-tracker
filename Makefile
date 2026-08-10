@@ -52,16 +52,23 @@ vet:   ## Run go vet (backend)
 
 # ─── Tests ───────────────────────────────────────────────────────────────────
 
+GOTESTSUM := go run gotest.tools/gotestsum@latest
+
 test: test-short  ## Run unit tests (short mode, skips integration)
 
-test-short:  ## Run unit tests only (short mode, fast)
-	cd backend && go test -short -count=1 ./...
+test-short:  ## Run unit tests only, race-detected, junit output
+	cd backend && $(GOTESTSUM) --junitfile ../test-results/unit.xml -- -race -short -count=1 ./...
 
 test-integration:  ## Run integration tests (requires Docker)
-	cd backend && go test -count=1 ./...
+	cd backend && $(GOTESTSUM) --junitfile ../test-results/integration.xml -- -race -count=1 ./...
 
 test-verbose:  ## Run all tests with verbose output
-	cd backend && go test -count=1 -v ./...
+	cd backend && $(GOTESTSUM) --format standard-verbose -- -race -count=1 ./...
+
+test-coverage:  ## Run tests with coverage report
+	cd backend && go test -race -short -count=1 -coverprofile=../coverage.out -covermode=atomic ./...
+	cd backend && go tool cover -html=../coverage.out -o ../coverage.html
+	@echo "Coverage report: coverage.html"
 
 test-all: test-short test-integration  ## Run unit + integration tests
 

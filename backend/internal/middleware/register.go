@@ -14,7 +14,7 @@ func Register(app *fiber.App, pools *database.Pools, cfg config.Config) {
 	app.Use(newPanicRecover())
 	app.Use(newCORS(cfg))
 	app.Use(newSecurityHeaders())
-	app.Use(newCSRFGuard())
+	app.Use(newCSRFGuard(cfg))
 	app.Use(newRateLimiter(pools.Redis, RateLimiterConfig{
 		Limit:  300,
 		Window: 1 * time.Minute,

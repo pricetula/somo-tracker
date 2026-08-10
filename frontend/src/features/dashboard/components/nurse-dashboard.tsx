@@ -1,7 +1,6 @@
 "use client";
 
 import { WelcomeGreeting } from "./welcome-greeting";
-import { QuickActions, QuickStats, NURSE_ACTIONS } from "..";
 import {
     useStudentBehaviorSummaries,
     useAttendanceTermSummaries,
@@ -66,20 +65,6 @@ export function NurseDashboardPage() {
                 </h1>
                 <p className="text-muted-foreground mt-1">Student health and wellbeing overview.</p>
             </div>
-
-            {/* ── Functional Sections ── */}
-
-            <QuickActions actions={NURSE_ACTIONS} />
-
-            <QuickStats
-                stats={[
-                    { label: "Total Incidents", value: totalIncidents },
-                    { label: "Urgent", value: totalUrgent },
-                    { label: "Disciplinary", value: totalDisciplinary },
-                    { label: "Commendations", value: totalCommendations },
-                ]}
-                isLoading={behavior.isLoading}
-            />
 
             {/* Alert Banner */}
             {totalUrgent > 0 && (

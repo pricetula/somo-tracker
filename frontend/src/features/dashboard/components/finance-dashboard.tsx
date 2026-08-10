@@ -1,7 +1,6 @@
 "use client";
 
 import { WelcomeGreeting } from "./welcome-greeting";
-import { QuickActions, FINANCE_ACTIONS } from "..";
 import { useAcademicTerms } from "@/features/academic-terms/hooks/use-academic-terms";
 import { useClassList } from "@/features/classes/hooks/use-classes";
 import {
@@ -78,10 +77,6 @@ export function FinanceDashboardPage() {
                 </h1>
                 <p className="text-muted-foreground mt-1">Finance dashboard.</p>
             </div>
-
-            {/* ── Functional Sections ── */}
-
-            <QuickActions actions={FINANCE_ACTIONS} />
 
             {/* Overcapacity Alert */}
             {overcapacityTeachers.length > 0 && (

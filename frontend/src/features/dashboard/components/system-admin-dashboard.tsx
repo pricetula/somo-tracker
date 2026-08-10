@@ -1,7 +1,6 @@
 "use client";
 
 import { WelcomeGreeting } from "./welcome-greeting";
-import { QuickActions, SYSTEM_ADMIN_ACTIONS } from "..";
 import { useAcademicTerms } from "@/features/academic-terms/hooks/use-academic-terms";
 import { useClassList } from "@/features/classes/hooks/use-classes";
 import {
@@ -123,10 +122,6 @@ export function SystemAdminDashboardPage() {
                 </h1>
                 <p className="text-muted-foreground mt-1">System-wide analytics overview.</p>
             </div>
-
-            {/* ── Functional Sections ── */}
-
-            <QuickActions actions={SYSTEM_ADMIN_ACTIONS} />
 
             {/* Attendance Overview */}
             <section>

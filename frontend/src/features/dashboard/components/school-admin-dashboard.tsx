@@ -2,7 +2,7 @@
 
 import { AttendanceCalendar } from "@/features/attendance";
 import { WelcomeGreeting } from "./welcome-greeting";
-import { QuickActions, QuickStats, PendingItems, ActivityFeed, SCHOOL_ADMIN_ACTIONS } from "..";
+import { PendingItems, ActivityFeed } from "..";
 import { useDashboardCounts, useDashboardPendingItems } from "..";
 import { useAcademicTerms } from "@/features/academic-terms/hooks/use-academic-terms";
 import { useClassList } from "@/features/classes/hooks/use-classes";
@@ -165,27 +165,6 @@ export function SchoolAdminDashboardPage() {
                 </h1>
                 <p className="text-muted-foreground mt-1">School-wide overview and quick access.</p>
             </div>
-
-            {/* ── Functional Sections ── */}
-
-            <QuickActions actions={SCHOOL_ADMIN_ACTIONS} />
-
-            <QuickStats
-                stats={
-                    counts.data
-                        ? [
-                              { label: "Students", value: counts.data.students },
-                              { label: "Teachers", value: counts.data.teachers },
-                              { label: "Classes", value: counts.data.classes },
-                              {
-                                  label: "Pending Invitations",
-                                  value: counts.data.pendingInvitations,
-                              },
-                          ]
-                        : []
-                }
-                isLoading={counts.isLoading}
-            />
 
             <PendingItems
                 items={

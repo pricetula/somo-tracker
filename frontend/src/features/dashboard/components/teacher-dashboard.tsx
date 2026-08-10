@@ -2,7 +2,6 @@
 
 import { AttendanceCalendar } from "@/features/attendance";
 import { WelcomeGreeting } from "./welcome-greeting";
-import { QuickActions, TEACHER_ACTIONS } from "..";
 import { useMe } from "@/hooks/use-auth";
 import { useAcademicTerms } from "@/features/academic-terms/hooks/use-academic-terms";
 import { useClassTeachersByTeacher } from "@/features/classteachers/hooks/use-classteachers";
@@ -181,10 +180,6 @@ export function TeacherDashboardPage() {
                 </h1>
                 <p className="text-muted-foreground mt-1">Your teaching dashboard.</p>
             </div>
-
-            {/* ── Functional Sections ── */}
-
-            <QuickActions actions={TEACHER_ACTIONS} />
 
             {/* ── Analytics Sections ── */}
 

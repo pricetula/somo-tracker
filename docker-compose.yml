@@ -43,11 +43,20 @@ services:
     ports:
       - "3030:3030"
     environment:
-      DATABASE_URL: "postgres://somo_admin:somo_secure_password@somotracker_postgres:5432/somotracker_dev?sslmode=disable"
-      REDIS_URL: "redis://somotracker_redis:6379"
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
       APP_ENV: "development"
       PORT: "3030"
-      ALLOWED_ORIGINS: "http://localhost:3000"
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN}
+      STYTCH_PROJECT_ID: ${STYTCH_PROJECT_ID}
+      STYTCH_SECRET: ${STYTCH_SECRET}
+      STYTCH_ENV: ${STYTCH_ENV}
+      STYTCH_REDIRECT_URL: ${STYTCH_REDIRECT_URL}
+      STYTCH_BASE_URL: ${STYTCH_BASE_URL}
+      BACKEND_URL: ${BACKEND_URL}
+      FRONTEND_URL: ${FRONTEND_URL}
+      COOKIE_SECRET: ${COOKIE_SECRET}
     depends_on:
       somotracker_postgres:
         condition: service_healthy
@@ -67,8 +76,8 @@ services:
       - "3000:3000"
     environment:
       NODE_ENV: development
-      NEXT_PUBLIC_API_URL: http://localhost:3030
-      API_INTERNAL_URL: http://somotracker_api:3030
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+      COOKIE_SECRET: ${COOKIE_SECRET}
     command: sh -c "npm install -g pnpm@9 && pnpm install --frozen-lockfile --ignore-scripts && pnpm run dev"
     depends_on:
       - somotracker_api

@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { WelcomeGreeting } from "./welcome-greeting";
-import { QuickActions, PARENT_ACTIONS } from "..";
 import { useMyParentProfile } from "@/features/parents";
 import {
     useAttendanceTermSummaries,
@@ -108,10 +107,6 @@ export function ParentDashboardPage() {
                     Track your child&apos;s academic progress.
                 </p>
             </div>
-
-            {/* ── Functional Sections ── */}
-
-            <QuickActions actions={PARENT_ACTIONS} />
 
             {!profileLoading && childrenCount > 0 && (
                 <section>

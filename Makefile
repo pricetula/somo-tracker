@@ -3,9 +3,13 @@
 # ─── Docker Compose shortcuts ────────────────────────────────────────────────
 
 up:    ## Start all services (detached)
+	doppler run -p somotracker-backend -c dev -- \
+	doppler run -p somotracker-frontend -c dev -- \
 	docker compose up -d
 
 up-d:  ## Start all services (foreground, live logs)
+	doppler run -p somotracker-backend -c dev -- \
+	doppler run -p somotracker-frontend -c dev -- \
 	docker compose up
 
 down:  ## Stop and remove all containers
@@ -88,3 +92,6 @@ help:  ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
 		| sort \
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+
+setup-hooks:
+	lefthook install

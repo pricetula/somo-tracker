@@ -51,7 +51,7 @@ func newRateLimiter(rdb *redis.Client, cfg RateLimiterConfig) fiber.Handler {
 		// Use nanosecond + random seed to guarantee ZADD uniqueness in high-concurrency windows
 		memberID := fmt.Sprintf("%d:%d", time.Now().UnixNano(), rand.Intn(100000))
 
-		ctx, cancel := context.WithTimeout(c.UserContext(), 250*time.Millisecond)
+		ctx, cancel := context.WithTimeout(c.UserContext(), 100*time.Millisecond)
 		defer cancel()
 
 		result, err := script.Run(ctx, rdb, []string{key}, now, windowMs, cfg.Limit, memberID).Int()

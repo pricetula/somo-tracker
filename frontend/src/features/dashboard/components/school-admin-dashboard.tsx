@@ -6,7 +6,6 @@ import {
     QuickActions,
     QuickStats,
     PendingItems,
-    SetupChecklist,
     ActivityFeed,
     SCHOOL_ADMIN_ACTIONS,
 } from "..";
@@ -206,7 +205,7 @@ export function SchoolAdminDashboardPage() {
                 isLoading={pending.isLoading}
             />
 
-            <SetupChecklist />
+
 
             {/* ── Analytics Sections ── */}
 

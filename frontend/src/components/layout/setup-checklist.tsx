@@ -9,8 +9,10 @@
 "use client";
 
 import Link from "next/link";
-import { CheckIcon, CircleIcon } from "lucide-react";
-import { useDashboardSetupProgress } from "../hooks/use-dashboard-summary";
+import { CheckIcon, CircleIcon, TriangleAlert } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useDashboardSetupProgress } from "@/features/dashboard/hooks/use-dashboard-summary";
 
 export function SetupChecklist() {
     const { data: items, isLoading } = useDashboardSetupProgress();
@@ -26,8 +28,24 @@ export function SetupChecklist() {
     const doneCount = items.filter((i) => i.done).length;
     const totalCount = items.length;
 
-    return (
-        <section>
+  return (
+
+      <Popover
+      >
+          <PopoverTrigger asChild>
+              <Button
+          variant="ghost"
+          size="icon-lg"
+          className="fixed z-20 right-4 top-28"
+              >
+                <TriangleAlert className="text-amber-600"/>
+              </Button>
+          </PopoverTrigger>
+          <PopoverContent
+              className="w-2xs p-0"
+
+        >
+        <section className="p-4">
             <h2 className="mb-1 text-lg font-medium">Getting Started</h2>
             <p className="text-muted-foreground mb-3 text-sm">
                 {doneCount} of {totalCount} setup steps complete
@@ -60,5 +78,9 @@ export function SetupChecklist() {
                 ))}
             </div>
         </section>
+
+        </PopoverContent>
+      </Popover>
+
     );
 }

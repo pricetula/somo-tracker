@@ -11,7 +11,6 @@ export { QuickStats } from "./components/quick-stats";
 export type { StatItem } from "./components/quick-stats";
 export { PendingItems } from "./components/pending-items";
 export type { PendingItemData } from "./components/pending-items";
-export { SetupChecklist } from "./components/setup-checklist";
 export { ActivityFeed } from "./components/activity-feed";
 
 // Action configurations

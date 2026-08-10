@@ -77,6 +77,7 @@ services:
     environment:
       NODE_ENV: development
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+      COOKIE_SECRET: ${COOKIE_SECRET}
     command: sh -c "npm install -g pnpm@9 && pnpm install --frozen-lockfile --ignore-scripts && pnpm run dev"
     depends_on:
       - somotracker_api

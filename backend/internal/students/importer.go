@@ -107,7 +107,7 @@ func (si *StudentImporter) Validate(ctx context.Context, tenantID, schoolID uuid
 		var row ImportRow
 		if err := json.Unmarshal(rawData, &row); err != nil {
 			failures = append(failures, imports.RowFailure{
-				RowNumber:    i,
+				RowNumber:    int64(i),
 				RawPayload:   rawData,
 				ErrorMessage: fmt.Sprintf("invalid JSON: %v", err),
 				ErrorType:    imports.ImportFailureSchemaValidation,
@@ -118,7 +118,7 @@ func (si *StudentImporter) Validate(ctx context.Context, tenantID, schoolID uuid
 		// Schema validation: full_name
 		if row.FullName == "" {
 			failures = append(failures, imports.RowFailure{
-				RowNumber:    i,
+				RowNumber:    int64(i),
 				RawPayload:   rawData,
 				ErrorMessage: "full_name is required",
 				ErrorType:    imports.ImportFailureSchemaValidation,
@@ -129,7 +129,7 @@ func (si *StudentImporter) Validate(ctx context.Context, tenantID, schoolID uuid
 		// Schema validation: gender
 		if row.Gender != "M" && row.Gender != "F" {
 			failures = append(failures, imports.RowFailure{
-				RowNumber:    i,
+				RowNumber:    int64(i),
 				RawPayload:   rawData,
 				ErrorMessage: fmt.Sprintf("invalid gender %q (must be M or F)", row.Gender),
 				ErrorType:    imports.ImportFailureSchemaValidation,
@@ -142,7 +142,7 @@ func (si *StudentImporter) Validate(ctx context.Context, tenantID, schoolID uuid
 			dob, err := time.Parse("2006-01-02", *row.DateOfBirth)
 			if err != nil {
 				failures = append(failures, imports.RowFailure{
-					RowNumber:    i,
+					RowNumber:    int64(i),
 					RawPayload:   rawData,
 					ErrorMessage: fmt.Sprintf("date_of_birth %q is not a valid date (expected YYYY-MM-DD)", *row.DateOfBirth),
 					ErrorType:    imports.ImportFailureSchemaValidation,
@@ -153,7 +153,7 @@ func (si *StudentImporter) Validate(ctx context.Context, tenantID, schoolID uuid
 			dobDate := dob.Truncate(24 * time.Hour)
 			if dobDate.After(today) {
 				failures = append(failures, imports.RowFailure{
-					RowNumber:    i,
+					RowNumber:    int64(i),
 					RawPayload:   rawData,
 					ErrorMessage: fmt.Sprintf("date_of_birth %q is in the future", *row.DateOfBirth),
 					ErrorType:    imports.ImportFailureSchemaValidation,
@@ -163,7 +163,7 @@ func (si *StudentImporter) Validate(ctx context.Context, tenantID, schoolID uuid
 
 			if dobDate.Before(maxBirthDate) {
 				failures = append(failures, imports.RowFailure{
-					RowNumber:    i,
+					RowNumber:    int64(i),
 					RawPayload:   rawData,
 					ErrorMessage: fmt.Sprintf("date_of_birth %q is implausibly old (max age %d years)", *row.DateOfBirth, maxStudentAgeYears),
 					ErrorType:    imports.ImportFailureSchemaValidation,
@@ -176,7 +176,7 @@ func (si *StudentImporter) Validate(ctx context.Context, tenantID, schoolID uuid
 		if row.ClassID != "" {
 			if _, err := uuid.Parse(row.ClassID); err != nil {
 				failures = append(failures, imports.RowFailure{
-					RowNumber:    i,
+					RowNumber:    int64(i),
 					RawPayload:   rawData,
 					ErrorMessage: fmt.Sprintf("class_id %q is not a valid UUID", row.ClassID),
 					ErrorType:    imports.ImportFailureSchemaValidation,
@@ -247,7 +247,7 @@ func (si *StudentImporter) ResolveReferences(ctx context.Context, tenantID, scho
 		var importRow ImportRow
 		if err := json.Unmarshal(row.RawData, &importRow); err != nil {
 			failures = append(failures, imports.RowFailure{
-				RowNumber:    i,
+				RowNumber:    int64(i),
 				RawPayload:   row.RawData,
 				ErrorMessage: fmt.Sprintf("unmarshal row: %v", err),
 				ErrorType:    imports.ImportFailureSchemaValidation,
@@ -260,7 +260,7 @@ func (si *StudentImporter) ResolveReferences(ctx context.Context, tenantID, scho
 			exists, err := si.repo.ValidateClassExists(ctx, tenantID.String(), schoolID.String(), importRow.ClassID)
 			if err != nil {
 				failures = append(failures, imports.RowFailure{
-					RowNumber:    i,
+					RowNumber:    int64(i),
 					RawPayload:   row.RawData,
 					ErrorMessage: fmt.Sprintf("could not verify class_id %q: %v", importRow.ClassID, err),
 					ErrorType:    imports.ImportFailureSchemaValidation,
@@ -269,7 +269,7 @@ func (si *StudentImporter) ResolveReferences(ctx context.Context, tenantID, scho
 			}
 			if !exists {
 				failures = append(failures, imports.RowFailure{
-					RowNumber:    i,
+					RowNumber:    int64(i),
 					RawPayload:   row.RawData,
 					ErrorMessage: fmt.Sprintf("class_id %q does not exist or does not belong to this school", importRow.ClassID),
 					ErrorType:    imports.ImportFailureInvalidClassReference,
@@ -310,7 +310,7 @@ func (si *StudentImporter) ResolveReferences(ctx context.Context, tenantID, scho
 			// than silently allowing duplicates through.
 			for _, p := range parsed {
 				failures = append(failures, imports.RowFailure{
-					RowNumber:    p.index,
+					RowNumber:    int64(p.index),
 					RawPayload:   p.rawData,
 					ErrorMessage: fmt.Sprintf("could not verify field uniqueness: %v", err),
 					ErrorType:    imports.ImportFailureSchemaValidation,
@@ -335,7 +335,7 @@ func (si *StudentImporter) ResolveReferences(ctx context.Context, tenantID, scho
 		dupType, dupMessage := si.checkFieldDuplicates(p.row, existingAdm, existingUPI, existingKnec)
 		if dupType != "" {
 			failures = append(failures, imports.RowFailure{
-				RowNumber:    p.index,
+				RowNumber:    int64(p.index),
 				RawPayload:   p.rawData,
 				ErrorMessage: dupMessage,
 				ErrorType:    dupType,
@@ -361,7 +361,7 @@ func (si *StudentImporter) ResolveReferences(ctx context.Context, tenantID, scho
 		augData, err := json.Marshal(aug)
 		if err != nil {
 			failures = append(failures, imports.RowFailure{
-				RowNumber:    p.index,
+				RowNumber:    int64(p.index),
 				RawPayload:   p.rawData,
 				ErrorMessage: fmt.Sprintf("marshal augmented row: %v", err),
 				ErrorType:    imports.ImportFailureSchemaValidation,
@@ -523,7 +523,7 @@ func allFail(rows []imports.ValidatedRow, msg string) []imports.RowFailure {
 	failures := make([]imports.RowFailure, 0, len(rows))
 	for i, row := range rows {
 		failures = append(failures, imports.RowFailure{
-			RowNumber:    i,
+			RowNumber:    int64(i),
 			RawPayload:   row.RawData,
 			ErrorMessage: msg,
 			ErrorType:    imports.ImportFailureBusinessRule,

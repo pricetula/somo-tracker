@@ -12,27 +12,33 @@ import (
 // ============================================================================
 
 type MockRepository struct {
-	createSessionFn            func(ctx context.Context, tenantID, schoolID string, payload CreateSessionPayload) (*AttendanceSession, error)
-	getSessionByIDFn           func(ctx context.Context, id, tenantID string) (*AttendanceSession, error)
-	getEnrichedSessionByIDFn   func(ctx context.Context, id, tenantID string) (*SessionWithEnrichedData, error)
-	listSessionsFn             func(ctx context.Context, filter SessionFilter) ([]SessionWithEnrichedData, error)
-	updateSessionFn            func(ctx context.Context, id, tenantID string, payload UpdateSessionPayload) (*AttendanceSession, error)
-	getSessionsForClassDateFn  func(ctx context.Context, tenantID, schoolID, classID, date string) ([]SessionWithEnrichedData, error)
-	batchMarkFn                func(ctx context.Context, tenantID, schoolID string, payload BatchMarkPayload, markedBy, termID string) (*BatchMarkResult, error)
-	updateRecordFn             func(ctx context.Context, id, tenantID string, payload UpdateRecordPayload) (*AttendanceRecord, error)
-	getRecordByIDFn            func(ctx context.Context, id, tenantID string) (*AttendanceRecord, error)
-	listRecordsBySlotDateFn    func(ctx context.Context, tenantID, schoolID, timetableSlotID, date string) ([]RecordWithEnrichedData, error)
-	listRecordsByStudentTermFn func(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]RecordWithEnrichedData, error)
-	listRecordsByClassDateFn   func(ctx context.Context, tenantID, schoolID, classID, date string) ([]RecordWithEnrichedData, error)
-	listRecordsFn              func(ctx context.Context, filter RecordFilter) ([]RecordWithEnrichedData, error)
-	getTermIDByDateFn          func(ctx context.Context, tenantID, schoolID, date string) (string, error)
-	getStudentTermSummaryFn    func(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]AttendanceTermSummary, error)
-	getClassTermSummaryFn      func(ctx context.Context, tenantID, schoolID, classID, termID string) ([]AttendanceTermSummary, error)
-	refreshSummariesFn         func(ctx context.Context, tenantID, schoolID, termID string) error
-	getClassDailySummaryFn     func(ctx context.Context, tenantID, schoolID, classID, date string) (*ClassDailyAttendanceSummary, error)
-	refreshClassDailySummaryFn func(ctx context.Context, tenantID, schoolID, classID, date string) error
-	listClassDailySummariesFn  func(ctx context.Context, tenantID, schoolID, classID, startDate, endDate string) ([]ClassDailyAttendanceSummary, error)
-	listCalendarStatusFn       func(ctx context.Context, tenantID, schoolID, startDate, endDate string) ([]CalendarDayStatusRaw, error)
+	createSessionFn                       func(ctx context.Context, tenantID, schoolID string, payload CreateSessionPayload) (*AttendanceSession, error)
+	getSessionByIDFn                      func(ctx context.Context, id, tenantID string) (*AttendanceSession, error)
+	getEnrichedSessionByIDFn              func(ctx context.Context, id, tenantID string) (*SessionWithEnrichedData, error)
+	listSessionsFn                        func(ctx context.Context, filter SessionFilter) ([]SessionWithEnrichedData, error)
+	updateSessionFn                       func(ctx context.Context, id, tenantID string, payload UpdateSessionPayload) (*AttendanceSession, error)
+	getSessionsForClassDateFn             func(ctx context.Context, tenantID, schoolID, classID, date string) ([]SessionWithEnrichedData, error)
+	batchMarkFn                           func(ctx context.Context, tenantID, schoolID string, payload BatchMarkPayload, markedBy, termID string) (*BatchMarkResult, error)
+	updateRecordFn                        func(ctx context.Context, id, tenantID string, payload UpdateRecordPayload) (*AttendanceRecord, error)
+	getRecordByIDFn                       func(ctx context.Context, id, tenantID string) (*AttendanceRecord, error)
+	listRecordsBySlotDateFn               func(ctx context.Context, tenantID, schoolID, timetableSlotID, date string) ([]RecordWithEnrichedData, error)
+	listRecordsByStudentTermFn            func(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]RecordWithEnrichedData, error)
+	listRecordsByClassDateFn              func(ctx context.Context, tenantID, schoolID, classID, date string) ([]RecordWithEnrichedData, error)
+	listRecordsFn                         func(ctx context.Context, filter RecordFilter) ([]RecordWithEnrichedData, error)
+	getTermIDByDateFn                     func(ctx context.Context, tenantID, schoolID, date string) (string, error)
+	getStudentTermSummaryFn               func(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]AttendanceTermSummary, error)
+	getClassTermSummaryFn                 func(ctx context.Context, tenantID, schoolID, classID, termID string) ([]AttendanceTermSummary, error)
+	refreshSummariesFn                    func(ctx context.Context, tenantID, schoolID, termID string) error
+	getClassDailySummaryFn                func(ctx context.Context, tenantID, schoolID, classID, date string) (*ClassDailyAttendanceSummary, error)
+	refreshClassDailySummaryFn            func(ctx context.Context, tenantID, schoolID, classID, date string) error
+	listClassDailySummariesFn             func(ctx context.Context, tenantID, schoolID, classID, startDate, endDate string) ([]ClassDailyAttendanceSummary, error)
+	listCalendarStatusFn                  func(ctx context.Context, tenantID, schoolID, startDate, endDate string) ([]CalendarDayStatusRaw, error)
+	getClassLearningAreaTermSummaryFn     func(ctx context.Context, tenantID, schoolID, classID, learningAreaID, termID string) (*ClassLearningAreaTermSummary, error)
+	listClassLearningAreaTermSummariesFn  func(ctx context.Context, tenantID, schoolID, classID, learningAreaID, termID string) ([]ClassLearningAreaTermSummary, error)
+	refreshClassLearningAreaTermSummaryFn func(ctx context.Context, tenantID, schoolID, termID, classID string) error
+	getClassTermAttendanceSummaryFn       func(ctx context.Context, tenantID, schoolID, classID, termID string) (*ClassTermAttendanceSummary, error)
+	listClassTermAttendanceSummariesFn    func(ctx context.Context, tenantID, schoolID, classID, termID string) ([]ClassTermAttendanceSummary, error)
+	refreshClassTermAttendanceSummaryFn   func(ctx context.Context, tenantID, schoolID, termID, classID string) error
 }
 
 func (m *MockRepository) CreateSession(ctx context.Context, tenantID, schoolID string, payload CreateSessionPayload) (*AttendanceSession, error) {
@@ -181,6 +187,48 @@ func (m *MockRepository) ListCalendarStatus(ctx context.Context, tenantID, schoo
 		return m.listCalendarStatusFn(ctx, tenantID, schoolID, startDate, endDate)
 	}
 	return []CalendarDayStatusRaw{}, nil
+}
+
+func (m *MockRepository) GetClassLearningAreaTermSummary(ctx context.Context, tenantID, schoolID, classID, learningAreaID, termID string) (*ClassLearningAreaTermSummary, error) {
+	if m.getClassLearningAreaTermSummaryFn != nil {
+		return m.getClassLearningAreaTermSummaryFn(ctx, tenantID, schoolID, classID, learningAreaID, termID)
+	}
+	return &ClassLearningAreaTermSummary{}, nil
+}
+
+func (m *MockRepository) ListClassLearningAreaTermSummaries(ctx context.Context, tenantID, schoolID, classID, learningAreaID, termID string) ([]ClassLearningAreaTermSummary, error) {
+	if m.listClassLearningAreaTermSummariesFn != nil {
+		return m.listClassLearningAreaTermSummariesFn(ctx, tenantID, schoolID, classID, learningAreaID, termID)
+	}
+	return []ClassLearningAreaTermSummary{}, nil
+}
+
+func (m *MockRepository) RefreshClassLearningAreaTermSummary(ctx context.Context, tenantID, schoolID, termID, classID string) error {
+	if m.refreshClassLearningAreaTermSummaryFn != nil {
+		return m.refreshClassLearningAreaTermSummaryFn(ctx, tenantID, schoolID, termID, classID)
+	}
+	return nil
+}
+
+func (m *MockRepository) GetClassTermAttendanceSummary(ctx context.Context, tenantID, schoolID, classID, termID string) (*ClassTermAttendanceSummary, error) {
+	if m.getClassTermAttendanceSummaryFn != nil {
+		return m.getClassTermAttendanceSummaryFn(ctx, tenantID, schoolID, classID, termID)
+	}
+	return &ClassTermAttendanceSummary{}, nil
+}
+
+func (m *MockRepository) ListClassTermAttendanceSummaries(ctx context.Context, tenantID, schoolID, classID, termID string) ([]ClassTermAttendanceSummary, error) {
+	if m.listClassTermAttendanceSummariesFn != nil {
+		return m.listClassTermAttendanceSummariesFn(ctx, tenantID, schoolID, classID, termID)
+	}
+	return []ClassTermAttendanceSummary{}, nil
+}
+
+func (m *MockRepository) RefreshClassTermAttendanceSummary(ctx context.Context, tenantID, schoolID, termID, classID string) error {
+	if m.refreshClassTermAttendanceSummaryFn != nil {
+		return m.refreshClassTermAttendanceSummaryFn(ctx, tenantID, schoolID, termID, classID)
+	}
+	return nil
 }
 
 // ============================================================================

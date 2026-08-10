@@ -2,6 +2,7 @@ package imports
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -32,6 +33,10 @@ var _ ServiceRepository = (*PgRepository)(nil)
 // ─── CreateJob ─────────────────────────────────────────────────────────────
 
 func (r *PgRepository) CreateJob(ctx context.Context, job *Job) (uuid.UUID, error) {
+	metadata := job.Metadata
+	if len(metadata) == 0 {
+		metadata = json.RawMessage("{}")
+	}
 	query := `
 		INSERT INTO import_jobs (tenant_id, school_id, job_type, role, created_by, status,
 		                         total_records, idempotency_key, payload_hash, total_chunks, metadata)
@@ -49,7 +54,7 @@ func (r *PgRepository) CreateJob(ctx context.Context, job *Job) (uuid.UUID, erro
 		job.IDempotencyKey,
 		job.PayloadHash,
 		job.TotalChunks,
-		job.Metadata,
+		metadata,
 	).Scan(&id)
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("imports.Repository.CreateJob: %w", err)
@@ -63,10 +68,21 @@ func (r *PgRepository) CreateJob(ctx context.Context, job *Job) (uuid.UUID, erro
 // when a conflict on (tenant_id, school_id, idempotency_key) occurs.
 // bool is true when a new row was created, false when the existing one is returned.
 func (r *PgRepository) CreateJobIdempotent(ctx context.Context, job *Job, payloadHash string) (*Job, bool, error) {
+	metadata := job.Metadata
+	if len(metadata) == 0 {
+		metadata = json.RawMessage("{}")
+	}
+	// The status column is NOT NULL import_job_status enum; if the caller did
+	// not set one, default to 'pending' instead of passing an empty string
+	// (which Postgres rejects as an invalid enum input value).
+	status := job.Status
+	if string(status) == "" {
+		status = ImportJobStatusPending
+	}
 	query := `
 		INSERT INTO import_jobs (tenant_id, school_id, job_type, role, created_by, status,
 		                         total_records, idempotency_key, payload_hash, total_chunks, metadata)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		VALUES ($1, $2, $3, $4, $5, $6::import_job_status, $7, $8, $9, $10, $11)
 		ON CONFLICT (tenant_id, idempotency_key) WHERE idempotency_key IS NOT NULL
 		DO NOTHING
 		RETURNING id, tenant_id, school_id, job_type, role, created_by, status,
@@ -83,12 +99,12 @@ func (r *PgRepository) CreateJobIdempotent(ctx context.Context, job *Job, payloa
 		job.JobType,
 		job.Role,
 		job.CreatedBy,
-		job.Status,
+		status,
 		job.TotalRecords,
 		job.IDempotencyKey,
 		payloadHash,
 		job.TotalChunks,
-		job.Metadata,
+		metadata,
 	).Scan(
 		&j.ID, &j.TenantID, &j.SchoolID, &j.JobType, &role, &createdBy, &j.Status,
 		&j.TotalRecords, &j.ProcessedRecords, &j.SuccessCount, &j.FailedCount,
@@ -97,8 +113,16 @@ func (r *PgRepository) CreateJobIdempotent(ctx context.Context, job *Job, payloa
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			// Conflict — row already exists, caller should fetch by idempotency key
-			return nil, false, nil
+			// Conflict — row already exists. Fetch and return it so the
+			// caller can detect idempotent replay without a second round-trip.
+			if job.IDempotencyKey == nil || *job.IDempotencyKey == "" {
+				return nil, false, fmt.Errorf("imports.Repository.CreateJobIdempotent: conflict but no idempotency key to look up")
+			}
+			existing, lookupErr := r.GetJobByIDempotencyKey(ctx, job.TenantID, *job.IDempotencyKey)
+			if lookupErr != nil {
+				return nil, false, fmt.Errorf("imports.Repository.CreateJobIdempotent: conflict but lookup failed: %w", lookupErr)
+			}
+			return existing, false, nil
 		}
 		return nil, false, fmt.Errorf("imports.Repository.CreateJobIdempotent: %w", err)
 	}

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/fx"
@@ -110,7 +111,7 @@ func (r *SqlcRepository) GetSessionByToken(ctx context.Context, token string) (*
 				END
 			LIMIT 1
 		) m ON true
-		WHERE s.token_hash = encode(digest($1, 'sha256'), 'hex') AND s.expires_at > NOW()
+		WHERE s.token_hash = encode(digest($1::text, 'sha256'), 'hex') AND s.expires_at > NOW()
 	`
 	var s UserSession
 	err := r.pool.QueryRow(ctx, query, token).Scan(
@@ -130,7 +131,7 @@ func (r *SqlcRepository) GetSessionByToken(ctx context.Context, token string) (*
 
 // DeleteSession removes a session record by token.
 func (r *SqlcRepository) DeleteSession(ctx context.Context, token string) error {
-	const query = `DELETE FROM sessions WHERE token_hash = encode(digest($1, 'sha256'), 'hex')`
+	const query = `DELETE FROM sessions WHERE token_hash = encode(digest($1::text, 'sha256'), 'hex')`
 	_, err := r.pool.Exec(ctx, query, token)
 	if err != nil {
 		return fmt.Errorf("%w: delete session: %v", ErrInternal, err)
@@ -194,12 +195,18 @@ func (r *SqlcRepository) CreateTenantUserSession(
 		return "", "", fmt.Errorf("%w: create user in tx: %v", ErrInternal, err)
 	}
 
+	// Generate a fallback token if the caller did not provide one.
+	token := sessionParams.Token
+	if token == "" {
+		token = "sess_" + uuid.New().String()
+	}
+
 	sessionQuery := `
 		INSERT INTO sessions (token, token_hash, user_id, tenant_id, stytch_member_id, stytch_org_id, stytch_session_token, device_fingerprint, expires_at)
-		VALUES (NULL, encode(digest($1::bytea, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7, $8)
+		VALUES ($1::text, encode(digest($1::text, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7, $8)
 	`
 	_, err = tx.Exec(ctx, sessionQuery,
-		sessionParams.Token,
+		token,
 		userID,
 		tenantID,
 		sessionParams.StytchMemberID,
@@ -227,8 +234,12 @@ func (r *SqlcRepository) CreateTenantUserSession(
 	return userID, tenantID, nil
 }
 
-// CreateUserSession creates a user and session inside a single transaction,
-// without creating a new tenant. Used when a tenant already exists.
+// CreateUserSession creates a session inside a single transaction. If
+// sessionParams.UserID is empty, a new user row is inserted from userParams
+// and bound to the session. If sessionParams.UserID is non-empty, that
+// existing user is reused (verified to belong to sessionParams.TenantID) and
+// the session is attached to it; userParams is ignored in that case. Used
+// when a tenant already exists.
 func (r *SqlcRepository) CreateUserSession(
 	ctx context.Context,
 	userParams CreateUserParams,
@@ -249,25 +260,45 @@ func (r *SqlcRepository) CreateUserSession(
 		}
 	}()
 
-	// 1. Insert user
-	userQuery := `
-		INSERT INTO users (email, tenant_id, full_name, external_auth_id)
-		VALUES ($1, $2, $3, $4)
-		RETURNING id
-	`
-	err = tx.QueryRow(ctx, userQuery,
-		userParams.Email, userParams.TenantID, userParams.FullName, userParams.ExternalAuthID,
-	).Scan(&userID)
-	if err != nil {
-		return "", fmt.Errorf("%w: create user in tx: %v", ErrInternal, err)
+	// 1. Resolve the user the session will belong to.
+	if sessionParams.UserID != "" {
+		// Caller supplied an existing user; verify it lives in this tenant so
+		// we never silently attach a session across tenant boundaries.
+		const lookupQuery = `SELECT id FROM users WHERE id = $1 AND tenant_id = $2`
+		err = tx.QueryRow(ctx, lookupQuery, sessionParams.UserID, sessionParams.TenantID).Scan(&userID)
+		if err != nil {
+			if err == pgx.ErrNoRows {
+				return "", fmt.Errorf("%w: user not found in tenant: %s", ErrNotFound, sessionParams.UserID)
+			}
+			return "", fmt.Errorf("%w: lookup user in tx: %v", ErrInternal, err)
+		}
+	} else {
+		// No existing user — insert one from userParams.
+		const userQuery = `
+			INSERT INTO users (email, tenant_id, full_name, external_auth_id)
+			VALUES ($1, $2, $3, $4)
+			RETURNING id
+		`
+		err = tx.QueryRow(ctx, userQuery,
+			userParams.Email, userParams.TenantID, userParams.FullName, userParams.ExternalAuthID,
+		).Scan(&userID)
+		if err != nil {
+			return "", fmt.Errorf("%w: create user in tx: %v", ErrInternal, err)
+		}
+	}
+
+	// Generate a fallback token if the caller did not provide one.
+	token := sessionParams.Token
+	if token == "" {
+		token = "sess_" + uuid.New().String()
 	}
 
 	sessionQuery := `
 		INSERT INTO sessions (token, token_hash, user_id, tenant_id, stytch_member_id, stytch_org_id, stytch_session_token, device_fingerprint, expires_at)
-		VALUES (NULL, encode(digest($1::bytea, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7, $8)
+		VALUES ($1::text, encode(digest($1::text, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7, $8)
 	`
 	_, err = tx.Exec(ctx, sessionQuery,
-		sessionParams.Token,
+		token,
 		userID,
 		sessionParams.TenantID,
 		sessionParams.StytchMemberID,
@@ -286,7 +317,7 @@ func (r *SqlcRepository) CreateUserSession(
 		return "", fmt.Errorf("%w: commit tx: %v", ErrInternal, err)
 	}
 
-	r.logger.Info("user and session created in single transaction (existing tenant)",
+	r.logger.Info("session created in single transaction (existing tenant)",
 		zap.String("user_id", userID),
 		zap.String("tenant_id", userParams.TenantID),
 	)
@@ -412,7 +443,7 @@ func (r *SqlcRepository) GetMeInfo(ctx context.Context, token string) (*MeInfo, 
 		JOIN users u ON u.id = s.user_id
 		LEFT JOIN member_active_school mas ON mas.user_id = s.user_id
 		LEFT JOIN cbc_schools sch ON sch.id = mas.school_id
-		WHERE s.token_hash = encode(digest($1, 'sha256'), 'hex') AND s.expires_at > NOW()
+		WHERE s.token_hash = encode(digest($1::text, 'sha256'), 'hex') AND s.expires_at > NOW()
 	`
 
 	var info MeInfo
@@ -637,12 +668,17 @@ func (r *SqlcRepository) GetUserByEmailAndTenant(ctx context.Context, email, ten
 // CreateSessionOnly creates a new session record for an existing user
 // without creating a user or tenant. Used during re-login.
 func (r *SqlcRepository) CreateSessionOnly(ctx context.Context, params CreateSessionParams) error {
+	// Generate a secure token when none is provided
+	token := params.Token
+	if token == "" {
+		token = "sess_" + uuid.New().String()
+	}
 	const query = `
 		INSERT INTO sessions (token, token_hash, user_id, tenant_id, stytch_member_id, stytch_org_id, stytch_session_token, device_fingerprint, expires_at)
-		VALUES (NULL, encode(digest($1::bytea, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7, $8)
+		VALUES ($1::text, encode(digest($1::text, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7, $8)
 	`
 	_, err := r.pool.Exec(ctx, query,
-		params.Token,
+		token,
 		params.UserID,
 		params.TenantID,
 		params.StytchMemberID,

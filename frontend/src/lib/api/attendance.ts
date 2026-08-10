@@ -21,6 +21,16 @@
  *     GET    /api/v1/attendance/summaries/student/:student_id?term_id=
  *     GET    /api/v1/attendance/summaries/class/:class_id?term_id=
  *     POST   /api/v1/attendance/summaries/refresh
+ *     GET    /api/v1/attendance/daily/class/:class_id/date/:date
+ *     POST   /api/v1/attendance/daily/class/:class_id/date/:date/refresh
+ *     GET    /api/v1/attendance/daily/class/:class_id
+ *     GET    /api/v1/attendance/class-learning-area/class/:class_id/term/:term_id
+ *     GET    /api/v1/attendance/class-learning-area/class/:class_id/learning-area/:learning_area_id/term/:term_id
+ *     POST   /api/v1/attendance/class-learning-area/class/:class_id/term/:term_id/refresh
+ *     GET    /api/v1/attendance/class-term/class/:class_id/term/:term_id
+ *     GET    /api/v1/attendance/class-term/term/:term_id
+ *     POST   /api/v1/attendance/class-term/class/:class_id/term/:term_id/refresh
+ *     GET    /api/v1/attendance/calendar/status
  */
 
 import { api } from "./client";

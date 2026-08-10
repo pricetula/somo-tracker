@@ -512,7 +512,7 @@ func newRealStudentImporter() *realStudentImporter {
 func allIntegrationFail(rows []ValidatedRow, msg string) []RowFailure {
 	fails := make([]RowFailure, len(rows))
 	for i, r := range rows {
-		fails[i] = RowFailure{RowNumber: i, RawPayload: r.RawData, ErrorMessage: msg, ErrorType: ImportFailureBusinessRule}
+		fails[i] = RowFailure{RowNumber: int64(i), RawPayload: r.RawData, ErrorMessage: msg, ErrorType: ImportFailureBusinessRule}
 	}
 	return fails
 }

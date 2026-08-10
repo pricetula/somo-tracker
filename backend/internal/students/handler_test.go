@@ -30,7 +30,7 @@ func (m *mockImportServiceAdapter) CreateJob(ctx context.Context, req imports.Cr
 	}
 	return &imports.CreateJobResponse{
 		JobID:        uuid.New(),
-		TotalRecords: len(req.Rows),
+		TotalRecords: int64(len(req.Rows)),
 		TotalChunks:  1,
 		Status:       imports.ImportJobStatusProcessing,
 	}, nil

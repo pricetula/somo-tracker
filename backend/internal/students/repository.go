@@ -311,13 +311,14 @@ func (r *PgRepository) ListLinkedParents(ctx context.Context, studentID, tenantI
 // Create inserts a new student record.
 func (r *PgRepository) Create(ctx context.Context, student *Student) (string, error) {
 	query := `
-		INSERT INTO cbc_students (tenant_id, full_name, gender, date_of_birth, upi_number, knec_assessment_number, is_active)
-		VALUES ($1, $2, $3, $4, $5, $6, true)
+		INSERT INTO cbc_students (tenant_id, school_id, full_name, gender, date_of_birth, upi_number, knec_assessment_number, is_active)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, true)
 		RETURNING id
 	`
 	var id string
 	err := r.pool.QueryRow(ctx, query,
-		"", // tenant_id will be set by the service if needed — in production use real tenant_id
+		student.TenantID,
+		student.SchoolID,
 		student.FullName,
 		student.Gender,
 		student.DateOfBirth,

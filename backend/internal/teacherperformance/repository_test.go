@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
@@ -81,10 +82,11 @@ func TestPgRepository_GetByTeacherClassSubject_NotFound(t *testing.T) {
 	pool, cleanup := startPG(t)
 	defer cleanup()
 	applyMigration(t, pool, "000001_initial_schema.up.sql")
+	applyMigration(t, pool, "000012_create_teacher_subject_performance_summaries.up.sql")
 
 	repo := newRepo(pool)
 
-	_, err := repo.GetByTeacherClassSubject(ctx, "user_missing", "la_missing", "class_missing", "term_missing")
+	_, err := repo.GetByTeacherClassSubject(ctx, uuid.New().String(), uuid.New().String(), uuid.New().String(), uuid.New().String())
 	require.Error(t, err)
 	require.ErrorIs(t, err, ErrNotFound)
 }
@@ -97,10 +99,11 @@ func TestPgRepository_ListByTeacher_Empty(t *testing.T) {
 	pool, cleanup := startPG(t)
 	defer cleanup()
 	applyMigration(t, pool, "000001_initial_schema.up.sql")
+	applyMigration(t, pool, "000012_create_teacher_subject_performance_summaries.up.sql")
 
 	repo := newRepo(pool)
 
-	items, err := repo.ListByTeacher(ctx, "tenant_missing", "school_missing", "user_missing", "term_missing", nil)
+	items, err := repo.ListByTeacher(ctx, uuid.New().String(), uuid.New().String(), uuid.New().String(), uuid.New().String(), nil)
 	require.NoError(t, err)
 	require.Empty(t, items)
 }
@@ -113,10 +116,11 @@ func TestPgRepository_ListByTerm_Empty(t *testing.T) {
 	pool, cleanup := startPG(t)
 	defer cleanup()
 	applyMigration(t, pool, "000001_initial_schema.up.sql")
+	applyMigration(t, pool, "000012_create_teacher_subject_performance_summaries.up.sql")
 
 	repo := newRepo(pool)
 
-	items, err := repo.ListByTerm(ctx, "tenant_missing", "school_missing", "term_missing", nil, nil)
+	items, err := repo.ListByTerm(ctx, uuid.New().String(), uuid.New().String(), uuid.New().String(), nil, nil)
 	require.NoError(t, err)
 	require.Empty(t, items)
 }

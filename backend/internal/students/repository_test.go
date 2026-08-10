@@ -101,6 +101,8 @@ func TestPgRepository_CreateAndGetByID(t *testing.T) {
 	repo := newRepo(pool)
 
 	student := &Student{
+		TenantID:    tenantID,
+		SchoolID:    schoolID,
 		FullName:    "Test Student",
 		Gender:      "M",
 		DateOfBirth: strPtr("2012-01-01"),
@@ -145,7 +147,7 @@ func TestPgRepository_Update(t *testing.T) {
 	repo := newRepo(pool)
 
 	id, err := repo.Create(ctx, &Student{
-		FullName: "Original", Gender: "M", DateOfBirth: strPtr("2012-01-01"),
+		TenantID: tenantID, SchoolID: schoolID, FullName: "Original", Gender: "M", DateOfBirth: strPtr("2012-01-01"),
 	})
 	require.NoError(t, err)
 
@@ -172,7 +174,7 @@ func TestPgRepository_Delete(t *testing.T) {
 	repo := newRepo(pool)
 
 	id, err := repo.Create(ctx, &Student{
-		FullName: "To Delete", Gender: "M", DateOfBirth: strPtr("2012-01-01"),
+		TenantID: tenantID, SchoolID: schoolID, FullName: "To Delete", Gender: "M", DateOfBirth: strPtr("2012-01-01"),
 	})
 	require.NoError(t, err)
 

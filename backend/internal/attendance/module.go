@@ -16,6 +16,12 @@ var Module = fx.Module("attendance",
 	fx.Invoke(func(svc *Service, enqueuer *Enqueuer) {
 		svc.SetEnqueuer(enqueuer)
 	}),
+	// Wire the enqueuer into the worker so upstream refresh handlers can
+	// chain dependent rollup tasks (class_learning_area_term_summaries,
+	// class_term_attendance_summaries) after their source tables refresh.
+	fx.Invoke(func(w *Worker, enqueuer *Enqueuer) {
+		w.SetEnqueuer(enqueuer)
+	}),
 	// Register lifecycle hooks for the background worker
 	fx.Invoke(RegisterWorkerHooks),
 )

@@ -72,32 +72,59 @@ func (r *PgRepository) List(ctx context.Context, filter ClassListFilter) (*Class
 
 	// Data query with student count per term
 	// Use COALESCE(s.name, '') to guard against null stream names
-	dataQuery := `
-		SELECT
-			c.id,
-			c.grade_level,
-			COALESCE(s.name, '') AS stream_name,
-			COALESCE(s.color, '') AS stream_color,
-			c.grade_level || ' ' || COALESCE(s.name, '') AS display_label,
-			c.stream_id,
-			COUNT(e.student_id) AS student_count
-		FROM cbc_classes c
-		JOIN cbc_streams s ON s.id = c.stream_id
-		LEFT JOIN cbc_student_enrollments e
-			ON e.class_id = c.id AND e.academic_term_id = $4
-		WHERE
-			c.tenant_id = $1
-			AND c.school_id = $2
-			AND c.academic_year_id = $3
-	`
+	// When AcademicTermID is provided, scope enrollment count to that term.
+	// When it's empty, count ALL enrollments for the class.
+	var dataQuery string
+	if filter.AcademicTermID != "" {
+		dataQuery = `
+			SELECT
+				c.id,
+				c.grade_level,
+				COALESCE(s.name, '') AS stream_name,
+				COALESCE(s.color, '') AS stream_color,
+				c.grade_level || ' ' || COALESCE(s.name, '') AS display_label,
+				c.stream_id,
+				COUNT(e.student_id) AS student_count
+			FROM cbc_classes c
+			JOIN cbc_streams s ON s.id = c.stream_id
+			LEFT JOIN cbc_student_enrollments e
+				ON e.class_id = c.id AND e.academic_term_id = $4
+			WHERE
+				c.tenant_id = $1
+				AND c.school_id = $2
+				AND c.academic_year_id = $3
+		`
+	} else {
+		dataQuery = `
+			SELECT
+				c.id,
+				c.grade_level,
+				COALESCE(s.name, '') AS stream_name,
+				COALESCE(s.color, '') AS stream_color,
+				c.grade_level || ' ' || COALESCE(s.name, '') AS display_label,
+				c.stream_id,
+				COUNT(e.student_id) AS student_count
+			FROM cbc_classes c
+			JOIN cbc_streams s ON s.id = c.stream_id
+			LEFT JOIN cbc_student_enrollments e
+				ON e.class_id = c.id
+			WHERE
+				c.tenant_id = $1
+				AND c.school_id = $2
+				AND c.academic_year_id = $3
+		`
+	}
 
 	dataArgs := []interface{}{
 		filter.TenantID,
 		filter.SchoolID,
 		filter.AcademicYearID,
-		filter.AcademicTermID,
 	}
-	argIdx = 5
+	argIdx = 4
+	if filter.AcademicTermID != "" {
+		dataArgs = append(dataArgs, filter.AcademicTermID)
+		argIdx = 5
+	}
 
 	if len(filter.GradeLevels) > 0 {
 		placeholders := makeInPlaceholders(len(filter.GradeLevels), argIdx)

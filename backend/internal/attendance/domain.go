@@ -283,6 +283,63 @@ type RefreshSummaryResponse struct {
 	TermID  string `json:"term_id"`
 }
 
+// ─── Class Learning Area Term Summary ──────────────────────────
+
+// ClassLearningAreaTermSummary is a materialised rollup per class × learning area × term.
+type ClassLearningAreaTermSummary struct {
+	ID                   string    `json:"id"`
+	TenantID             string    `json:"tenant_id"`
+	SchoolID             string    `json:"school_id"`
+	ClassID              string    `json:"class_id"`
+	LearningAreaID       string    `json:"learning_area_id"`
+	AcademicTermID       string    `json:"academic_term_id"`
+	AcademicYearID       string    `json:"academic_year_id"`
+	StudentsIncluded     int       `json:"students_included"`
+	PeriodsTotal         int       `json:"periods_total"`
+	PeriodsPresent       int       `json:"periods_present"`
+	PeriodsAbsent        int       `json:"periods_absent"`
+	PeriodsLate          int       `json:"periods_late"`
+	PeriodsExcused       int       `json:"periods_excused"`
+	AttendancePercentage float64   `json:"attendance_percentage"`
+	LastRefreshedAt      time.Time `json:"last_refreshed_at,omitempty"`
+	CreatedAt            time.Time `json:"created_at,omitempty"`
+	UpdatedAt            time.Time `json:"updated_at,omitempty"`
+}
+
+// ClassLearningAreaTermSummaryListResponse wraps a list of class learning area term summaries.
+type ClassLearningAreaTermSummaryListResponse struct {
+	Items []ClassLearningAreaTermSummary `json:"items"`
+	Total int                            `json:"total"`
+}
+
+// ─── Class Term Attendance Summary ─────────────────────────────
+
+// ClassTermAttendanceSummary is a materialised rollup per class × term.
+type ClassTermAttendanceSummary struct {
+	ID                 string    `json:"id"`
+	TenantID           string    `json:"tenant_id"`
+	SchoolID           string    `json:"school_id"`
+	ClassID            string    `json:"class_id"`
+	AcademicTermID     string    `json:"academic_term_id"`
+	AcademicYearID     string    `json:"academic_year_id"`
+	DaysInTerm         int       `json:"days_in_term"`
+	TotalEnrolledAvg   float64   `json:"total_enrolled_avg,omitempty"`
+	PresentCount       int       `json:"present_count"`
+	AbsentCount        int       `json:"absent_count"`
+	LateCount          int       `json:"late_count"`
+	ExcusedCount       int       `json:"excused_count"`
+	TermAttendanceRate float64   `json:"term_attendance_rate"`
+	LastRefreshedAt    time.Time `json:"last_refreshed_at,omitempty"`
+	CreatedAt          time.Time `json:"created_at,omitempty"`
+	UpdatedAt          time.Time `json:"updated_at,omitempty"`
+}
+
+// ClassTermAttendanceSummaryListResponse wraps a list of class term attendance summaries.
+type ClassTermAttendanceSummaryListResponse struct {
+	Items []ClassTermAttendanceSummary `json:"items"`
+	Total int                          `json:"total"`
+}
+
 // ─── Repository Interface ─────────────────────────────────────────────────
 
 // Repository defines the contract for attendance persistence.
@@ -355,6 +412,26 @@ type Repository interface {
 
 	// ListClassDailySummaries returns daily summaries for a class within a date range.
 	ListClassDailySummaries(ctx context.Context, tenantID, schoolID, classID, startDate, endDate string) ([]ClassDailyAttendanceSummary, error)
+
+	// ── Class Learning Area Term Summaries ─────────────────────────────────
+
+	// GetClassLearningAreaTermSummary returns the class learning area term summary
+	// for a class, learning area, and term.
+	GetClassLearningAreaTermSummary(ctx context.Context, tenantID, schoolID, classID, learningAreaID, termID string) (*ClassLearningAreaTermSummary, error)
+
+	// ListClassLearningAreaTermSummaries returns all class learning area term summaries
+	// for a class and term (or school and term if classID is empty).
+	ListClassLearningAreaTermSummaries(ctx context.Context, tenantID, schoolID, classID, learningAreaID, termID string) ([]ClassLearningAreaTermSummary, error)
+
+	// ── Class Term Attendance Summaries ───────────────────────────────────
+
+	// GetClassTermAttendanceSummary returns the class term attendance summary
+	// for a class and term.
+	GetClassTermAttendanceSummary(ctx context.Context, tenantID, schoolID, classID, termID string) (*ClassTermAttendanceSummary, error)
+
+	// ListClassTermAttendanceSummaries returns all class term attendance summaries
+	// for a school and term (or specific class if provided).
+	ListClassTermAttendanceSummaries(ctx context.Context, tenantID, schoolID, classID, termID string) ([]ClassTermAttendanceSummary, error)
 
 	// ── Calendar Status ───────────────────────────────────────────────
 

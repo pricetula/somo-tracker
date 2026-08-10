@@ -876,7 +876,9 @@ CREATE TABLE IF NOT EXISTS medical_incidents (
     incident_timestamp TIMESTAMPTZ NOT NULL,
     symptoms           TEXT        NOT NULL,
     action_taken       TEXT        NOT NULL,
-    logged_by          UUID        NOT NULL REFERENCES users(id)
+    logged_by          UUID        NOT NULL REFERENCES users(id),
+    created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_medical_incidents_tenant_id  ON medical_incidents (tenant_id);
@@ -893,7 +895,9 @@ CREATE TABLE IF NOT EXISTS student_health_profiles (
     blood_group            VARCHAR(5),
     allergies              TEXT[],
     chronic_conditions     TEXT[],
-    emergency_instructions TEXT
+    emergency_instructions TEXT,
+    created_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at             TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_student_health_profiles_tenant_id ON student_health_profiles (tenant_id);

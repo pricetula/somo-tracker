@@ -92,6 +92,42 @@ func newRepo(pool *pgxpool.Pool) *PgRepository {
 	return NewRepository(&database.Pools{PG: pool})
 }
 
+// seedAcademicYearAndStream creates the supporting rows required by the
+// current cbc_classes schema (academic_year_id, stream_id are NOT NULL FKs).
+func seedAcademicYearAndStream(t *testing.T, pool *pgxpool.Pool, tenantID, schoolID, userID string) (academicYearID, streamID string) {
+	t.Helper()
+	ctx := context.Background()
+	academicYearID = uuid.New().String()
+	streamID = uuid.New().String()
+	_, err := pool.Exec(ctx, `INSERT INTO academic_years (id, tenant_id, school_id, name, start_date, end_date, is_current, created_by, updated_by)
+		VALUES ($1, $2, $3, '2026', '2026-01-01', '2026-12-31', true, $4, $4)`,
+		academicYearID, tenantID, schoolID, userID)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `INSERT INTO cbc_streams (id, tenant_id, school_id, name, color)
+		VALUES ($1, $2, $3, 'Blue', '#0000FF')`,
+		streamID, tenantID, schoolID)
+	require.NoError(t, err)
+	return academicYearID, streamID
+}
+
+// seedLearningArea inserts a cbc_learning_areas row (required for SUBJECT_TEACHER
+// class-teacher rows whose chk_cct_subject_area_required constraint mandates a
+// non-null learning_area_id). Returns the generated id via a pointer suitable
+// for AssignableToClassTeacherParams.LearningAreaID.
+func seedLearningArea(t *testing.T, pool *pgxpool.Pool, tenantID, schoolID string) string {
+	t.Helper()
+	ctx := context.Background()
+	areaID := uuid.New().String()
+	_, err := pool.Exec(ctx, `INSERT INTO cbc_learning_areas (id, tenant_id, school_id, name, code, education_level, grade_level)
+		VALUES ($1, $2, $3, 'Mathematics', 'MATH', 'Upper_Primary', 'G4')`,
+		areaID, tenantID, schoolID)
+	require.NoError(t, err)
+	return areaID
+}
+
+// ptrString returns a pointer to s.
+func ptrString(s string) *string { return &s }
+
 func TestPgRepository_CreateAndGetByID(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
@@ -102,12 +138,14 @@ func TestPgRepository_CreateAndGetByID(t *testing.T) {
 	applyMigration(t, pool, "000001_initial_schema.up.sql")
 
 	tenantID, schoolID, userID := seedTenantSchoolUser(t, pool)
+	academicYearID, streamID := seedAcademicYearAndStream(t, pool, tenantID, schoolID, userID)
 	repo := newRepo(pool)
 
 	// Create a class first
 	classID := uuid.New().String()
-	_, err := pool.Exec(ctx, `INSERT INTO cbc_classes (id, tenant_id, school_id, name, grade_level) VALUES ($1, $2, $3, 'Grade 4 East', 'GRADE_4')`,
-		classID, tenantID, schoolID)
+	_, err := pool.Exec(ctx, `INSERT INTO cbc_classes (id, tenant_id, school_id, academic_year_id, grade_level, stream_id, is_active)
+		VALUES ($1, $2, $3, $4, 'G4', $5, true)`,
+		classID, tenantID, schoolID, academicYearID, streamID)
 	require.NoError(t, err)
 
 	params := CreateClassTeacherParams{
@@ -138,11 +176,12 @@ func TestPgRepository_DuplicateCreate(t *testing.T) {
 	applyMigration(t, pool, "000001_initial_schema.up.sql")
 
 	tenantID, schoolID, userID := seedTenantSchoolUser(t, pool)
+	academicYearID, streamID := seedAcademicYearAndStream(t, pool, tenantID, schoolID, userID)
 	repo := newRepo(pool)
 
 	classID := uuid.New().String()
-	_, err := pool.Exec(ctx, `INSERT INTO cbc_classes (id, tenant_id, school_id, name, grade_level) VALUES ($1, $2, $3, 'Grade 4 East', 'GRADE_4')`,
-		classID, tenantID, schoolID)
+	_, err := pool.Exec(ctx, `INSERT INTO cbc_classes (id, tenant_id, school_id, academic_year_id, grade_level, stream_id, is_active) VALUES ($1, $2, $3, $4, 'G4', $5, true)`,
+		classID, tenantID, schoolID, academicYearID, streamID)
 	require.NoError(t, err)
 
 	params := CreateClassTeacherParams{
@@ -170,11 +209,12 @@ func TestPgRepository_ListByClass(t *testing.T) {
 	applyMigration(t, pool, "000001_initial_schema.up.sql")
 
 	tenantID, schoolID, userID := seedTenantSchoolUser(t, pool)
+	academicYearID, streamID := seedAcademicYearAndStream(t, pool, tenantID, schoolID, userID)
 	repo := newRepo(pool)
 
 	classID := uuid.New().String()
-	_, err := pool.Exec(ctx, `INSERT INTO cbc_classes (id, tenant_id, school_id, name, grade_level) VALUES ($1, $2, $3, 'Grade 4 East', 'GRADE_4')`,
-		classID, tenantID, schoolID)
+	_, err := pool.Exec(ctx, `INSERT INTO cbc_classes (id, tenant_id, school_id, academic_year_id, grade_level, stream_id, is_active) VALUES ($1, $2, $3, $4, 'G4', $5, true)`,
+		classID, tenantID, schoolID, academicYearID, streamID)
 	require.NoError(t, err)
 
 	params := CreateClassTeacherParams{
@@ -202,17 +242,22 @@ func TestPgRepository_ListByTeacher(t *testing.T) {
 	applyMigration(t, pool, "000001_initial_schema.up.sql")
 
 	tenantID, schoolID, userID := seedTenantSchoolUser(t, pool)
+	academicYearID, streamID := seedAcademicYearAndStream(t, pool, tenantID, schoolID, userID)
 	repo := newRepo(pool)
 
 	classID1 := uuid.New().String()
 	classID2 := uuid.New().String()
-	_, err := pool.Exec(ctx, `INSERT INTO cbc_classes (id, tenant_id, school_id, name, grade_level) VALUES ($1, $2, $3, 'Grade 4 East', 'GRADE_4'), ($4, $2, $3, 'Grade 5 West', 'GRADE_5')`,
-		classID1, tenantID, schoolID, classID2)
+	_, err := pool.Exec(ctx, `INSERT INTO cbc_classes (id, tenant_id, school_id, academic_year_id, grade_level, stream_id, is_active) VALUES ($1, $2, $3, $4, 'G4', $5, true), ($6, $2, $3, $4, 'G5', $5, true)`,
+		classID1, tenantID, schoolID, academicYearID, streamID, classID2)
 	require.NoError(t, err)
 
-	_, err = repo.Create(ctx, CreateClassTeacherParams{TenantID: tenantID, ClassID: classID1, UserID: userID, TeacherRole: "SUBJECT_TEACHER", LearningAreaID: nil})
+	// SUBJECT_TEACHER rows require a non-null learning_area_id (enforced by
+	// chk_cct_subject_area_required), so seed one and reference it.
+	learningAreaID := seedLearningArea(t, pool, tenantID, schoolID)
+
+	_, err = repo.Create(ctx, CreateClassTeacherParams{TenantID: tenantID, ClassID: classID1, UserID: userID, TeacherRole: "SUBJECT_TEACHER", LearningAreaID: ptrString(learningAreaID)})
 	require.NoError(t, err)
-	_, err = repo.Create(ctx, CreateClassTeacherParams{TenantID: tenantID, ClassID: classID2, UserID: userID, TeacherRole: "SUBJECT_TEACHER", LearningAreaID: nil})
+	_, err = repo.Create(ctx, CreateClassTeacherParams{TenantID: tenantID, ClassID: classID2, UserID: userID, TeacherRole: "SUBJECT_TEACHER", LearningAreaID: ptrString(learningAreaID)})
 	require.NoError(t, err)
 
 	items, err := repo.ListByTeacher(ctx, userID, tenantID)
@@ -230,11 +275,12 @@ func TestPgRepository_Delete(t *testing.T) {
 	applyMigration(t, pool, "000001_initial_schema.up.sql")
 
 	tenantID, schoolID, userID := seedTenantSchoolUser(t, pool)
+	academicYearID, streamID := seedAcademicYearAndStream(t, pool, tenantID, schoolID, userID)
 	repo := newRepo(pool)
 
 	classID := uuid.New().String()
-	_, err := pool.Exec(ctx, `INSERT INTO cbc_classes (id, tenant_id, school_id, name, grade_level) VALUES ($1, $2, $3, 'Grade 4 East', 'GRADE_4')`,
-		classID, tenantID, schoolID)
+	_, err := pool.Exec(ctx, `INSERT INTO cbc_classes (id, tenant_id, school_id, academic_year_id, grade_level, stream_id, is_active) VALUES ($1, $2, $3, $4, 'G4', $5, true)`,
+		classID, tenantID, schoolID, academicYearID, streamID)
 	require.NoError(t, err)
 
 	params := CreateClassTeacherParams{TenantID: tenantID, ClassID: classID, UserID: userID, TeacherRole: "SUBSTITUTE_TEACHER"}
@@ -259,11 +305,12 @@ func TestPgRepository_CountPrimaryForClass(t *testing.T) {
 	applyMigration(t, pool, "000001_initial_schema.up.sql")
 
 	tenantID, schoolID, userID := seedTenantSchoolUser(t, pool)
+	academicYearID, streamID := seedAcademicYearAndStream(t, pool, tenantID, schoolID, userID)
 	repo := newRepo(pool)
 
 	classID := uuid.New().String()
-	_, err := pool.Exec(ctx, `INSERT INTO cbc_classes (id, tenant_id, school_id, name, grade_level) VALUES ($1, $2, $3, 'Grade 4 East', 'GRADE_4')`,
-		classID, tenantID, schoolID)
+	_, err := pool.Exec(ctx, `INSERT INTO cbc_classes (id, tenant_id, school_id, academic_year_id, grade_level, stream_id, is_active) VALUES ($1, $2, $3, $4, 'G4', $5, true)`,
+		classID, tenantID, schoolID, academicYearID, streamID)
 	require.NoError(t, err)
 
 	count, err := repo.CountPrimaryForClass(ctx, classID, tenantID)
@@ -288,14 +335,28 @@ func TestPgRepository_ExistsForSubject(t *testing.T) {
 	applyMigration(t, pool, "000001_initial_schema.up.sql")
 
 	tenantID, schoolID, userID := seedTenantSchoolUser(t, pool)
+	academicYearID, streamID := seedAcademicYearAndStream(t, pool, tenantID, schoolID, userID)
 	repo := newRepo(pool)
 
 	classID := uuid.New().String()
-	_, err := pool.Exec(ctx, `INSERT INTO cbc_classes (id, tenant_id, school_id, name, grade_level) VALUES ($1, $2, $3, 'Grade 4 East', 'GRADE_4')`,
-		classID, tenantID, schoolID)
+	_, err := pool.Exec(ctx, `INSERT INTO cbc_classes (id, tenant_id, school_id, academic_year_id, grade_level, stream_id, is_active) VALUES ($1, $2, $3, $4, 'G4', $5, true)`,
+		classID, tenantID, schoolID, academicYearID, streamID)
 	require.NoError(t, err)
 
-	exists, err := repo.ExistsForSubject(ctx, classID, userID, "la-id", tenantID)
+	// Use a real (but unassigned) learning-area id so the query can compare
+	// against a UUID column instead of choking on an invalid literal.
+	learningAreaID := seedLearningArea(t, pool, tenantID, schoolID)
+
+	// No teacher record exists yet → should report false.
+	exists, err := repo.ExistsForSubject(ctx, classID, userID, learningAreaID, tenantID)
 	require.NoError(t, err)
 	require.False(t, exists)
+
+	// Insert a matching record → should now report true.
+	_, err = repo.Create(ctx, CreateClassTeacherParams{TenantID: tenantID, ClassID: classID, UserID: userID, TeacherRole: "SUBJECT_TEACHER", LearningAreaID: ptrString(learningAreaID)})
+	require.NoError(t, err)
+
+	exists, err = repo.ExistsForSubject(ctx, classID, userID, learningAreaID, tenantID)
+	require.NoError(t, err)
+	require.True(t, exists)
 }

@@ -330,15 +330,43 @@ func TestMigrationsIntegration_ApplyAll(t *testing.T) {
 	require.NoError(t, err)
 	defer pool.Close()
 
-	// Apply the full migration chain:
-	//   000001 — initial schema (all tables, composite FKs, RLS)
-	//   000002 — seed data (tenant, school, KNEC weight configs)
-	//   000003 — review-findings fixes (idempotent on fresh install,
-	//             upgrades pre-squash databases with fixes for items 1–10)
+	// Apply the full migration chain (all migrations in order):
+	//   000001 — initial schema (all core tables)
+	//   000002 — seed data
+	//   000003 — review-findings fixes
+	//   000004 — add academic_year_id to student enrollments
+	//   000005 — extend summaries and daily rollups
+	//   000006 — student term subject summaries
+	//   000007 — student term overall summaries
+	//   000008 — student cohort position summaries
+	//   000009 — student subject strand summaries
+	//   000010 — student performance projections
+	//   000011 — student behavior term summaries
+	//   000012 — teacher subject performance summaries
+	//   000013 — teacher delivery summaries
+	//   000014 — teacher workload summaries
+	//   000015 — deprecate session token column
+	//   000016 — class attendance rollups (class_learning_area_term_summaries,
+	//             class_term_attendance_summaries)
+	//   000017 — add fee category name uniqueness
 	migrations := []string{
 		"000001_initial_schema.up.sql",
 		"000002_seed.up.sql",
 		"000003_fix_review_findings.up.sql",
+		"000004_add_academic_year_to_enrollments.up.sql",
+		"000005_extend_summaries_and_daily.up.sql",
+		"000006_create_student_term_subject_summaries.up.sql",
+		"000007_create_student_term_overall_summaries.up.sql",
+		"000008_create_student_cohort_position_summaries.up.sql",
+		"000009_create_student_subject_strand_summaries.up.sql",
+		"000010_create_student_performance_projections.up.sql",
+		"000011_create_student_behavior_term_summaries.up.sql",
+		"000012_create_teacher_subject_performance_summaries.up.sql",
+		"000013_create_teacher_delivery_summaries.up.sql",
+		"000014_create_teacher_workload_summaries.up.sql",
+		"000015_deprecate_session_token_column.up.sql",
+		"000016_create_class_attendance_rollups.up.sql",
+		"000017_add_fee_category_name_uniqueness.up.sql",
 	}
 
 	for _, f := range migrations {
@@ -367,25 +395,35 @@ func TestMigrationsIntegration_ApplyAll(t *testing.T) {
 	}
 	require.NoError(t, rows.Err())
 
-	// Assert key tables exist
+	// Assert key tables exist — all tables from all migration scripts
 	expectedTables := []string{
 		"academic_terms", "academic_years",
 		"assessment_sessions", "assessment_weight_configs",
+		"attendance_records", "attendance_term_summaries",
 		"behavior_categories", "behavior_notes",
-		"cbc_class_teachers", "cbc_classes", "cbc_learning_areas", "cbc_parents",
-		"cbc_schools", "cbc_streams", "cbc_strands",
-		"cbc_student_enrollments", "cbc_student_parents",
-		"cbc_students", "cbc_sub_strands",
-		"cbc_timetable_slots",
+		"class_daily_attendance_summaries",
+		"class_learning_area_term_summaries", "class_term_attendance_summaries",
+		"cbc_attendance_sessions", "cbc_class_teachers", "cbc_classes",
+		"cbc_learning_areas", "cbc_parents", "cbc_schools", "cbc_streams",
+		"cbc_strands", "cbc_student_enrollments", "cbc_student_parents",
+		"cbc_students", "cbc_sub_strands", "cbc_timetable_slots",
 		"fee_categories", "fee_templates",
 		"grading_scale_profiles", "grading_scale_ranges",
-		"import_job_chunks", "import_job_failures", "import_job_staging", "import_jobs",
+		"import_job_chunks", "import_job_failures",
+		"import_job_staging", "import_jobs",
 		"invoices", "invoice_items", "invitations",
 		"medical_incidents", "member_active_school", "memberships",
 		"payments", "performance_indicators",
 		"school_member_counts", "sessions",
 		"student_assessment_outcome_grades", "student_assessment_scores",
-		"student_health_profiles",
+		"student_behavior_term_summaries",
+		"student_cohort_position_summaries",
+		"student_health_profiles", "student_performance_projections",
+		"student_subject_strand_summaries",
+		"student_term_overall_summaries", "student_term_subject_summaries",
+		"teacher_delivery_summaries",
+		"teacher_subject_performance_summaries",
+		"teacher_workload_summaries",
 		"tenants", "timetable_structures", "users",
 	}
 

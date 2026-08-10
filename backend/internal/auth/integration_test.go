@@ -15,6 +15,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/stretchr/testify/require"
+	"github.com/testcontainers/testcontainers-go"
+	"github.com/testcontainers/testcontainers-go/wait"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -1138,7 +1142,7 @@ func TestIntegration_Sessions_TokenUniqueness(t *testing.T) {
 	// Insert first session
 	_, err := suite.pgPool.Exec(context.Background(), `
 		INSERT INTO sessions (token, token_hash, user_id, tenant_id, stytch_member_id, stytch_org_id, device_fingerprint, expires_at)
-		VALUES ($1, encode(digest($1, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7)
+		VALUES ($1::text, encode(digest($1::text, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7)
 	`, "dup_token_001", userID, tenantID, "member_u1", "org_u1", "fp-u1", now.Add(24*time.Hour))
 	if err != nil {
 		t.Fatalf("insert first session: %v", err)
@@ -1147,7 +1151,7 @@ func TestIntegration_Sessions_TokenUniqueness(t *testing.T) {
 	// Insert second session with same token — should fail
 	_, err = suite.pgPool.Exec(context.Background(), `
 		INSERT INTO sessions (token, token_hash, user_id, tenant_id, stytch_member_id, stytch_org_id, device_fingerprint, expires_at)
-		VALUES ($1, encode(digest($1, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7)
+		VALUES ($1::text, encode(digest($1::text, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7)
 	`, "dup_token_001", user2ID, tenant2ID, "member_u2", "org_u2", "fp-u2", now.Add(24*time.Hour))
 	if err == nil {
 		t.Fatal("expected uniqueness violation error, got nil")
@@ -2335,34 +2339,69 @@ func TestIntegration_Migration_UpDown_000003(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
-	suite := testSuite
-	suite.freshDB(t)
-	suite.freshRedis(t)
 
+	// This test needs a completely fresh PostgreSQL container (not the shared suite's)
+	// because it exercises an up→down→up cycle on migration 000003.
+	// Starting with just migration 000001 gives us a known baseline state.
 	ctx := context.Background()
-	pool := suite.pgPool
 
+	// Start a fresh PG container
+	req := testcontainers.ContainerRequest{
+		Image: "postgres:16-alpine",
+		Env: map[string]string{
+			"POSTGRES_DB":       "somotracker_test",
+			"POSTGRES_USER":     "somo_admin",
+			"POSTGRES_PASSWORD": "somo_secure_password",
+		},
+		ExposedPorts: []string{"5432/tcp"},
+		WaitingFor: wait.ForAll(
+			wait.ForLog("database system is ready to accept connections").WithOccurrence(2),
+			wait.ForListeningPort("5432/tcp"),
+		),
+	}
+	c, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: req,
+		Started:          true,
+	})
+	require.NoError(t, err)
+	defer func() {
+		err := c.Terminate(ctx)
+		require.NoError(t, err)
+	}()
+
+	host, err := c.Host(ctx)
+	require.NoError(t, err)
+	port, err := c.MappedPort(ctx, "5432")
+	require.NoError(t, err)
+	dbURL := fmt.Sprintf("postgres://somo_admin:somo_secure_password@%s:%s/somotracker_test?sslmode=disable", host, port.Port())
+	pool, err := pgxpool.New(ctx, dbURL)
+	require.NoError(t, err)
+	defer pool.Close()
+
+	// Apply only the base schema (no 000003 yet)
+	migrationFiles := []string{"000001_initial_schema.up.sql"}
 	_, filename, _, _ := runtime.Caller(0)
 	migrationsDir := filepath.Join(filepath.Dir(filename), "..", "database", "migrations")
-	upPath := filepath.Join(migrationsDir, "000003_fix_review_findings.up.sql")
-	downPath := filepath.Join(migrationsDir, "000003_fix_review_findings.down.sql")
 
-	readSQL := func(path string) string {
-		b, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatalf("read %s: %v", path, err)
-		}
-		return string(b)
+	for _, f := range migrationFiles {
+		path := filepath.Join(migrationsDir, f)
+		sql, err := os.ReadFile(path)
+		require.NoError(t, err, "read migration %s", f)
+		_, err = pool.Exec(ctx, string(sql))
+		require.NoError(t, err, "apply migration %s", f)
 	}
 
-	upSQL := readSQL(upPath)
-	downSQL := readSQL(downPath)
+	upPath := filepath.Join(migrationsDir, "000003_fix_review_findings.up.sql")
+	downPath := filepath.Join(migrationsDir, "000003_fix_review_findings.down.sql")
+	upSQL, err := os.ReadFile(upPath)
+	require.NoError(t, err)
+	downSQL, err := os.ReadFile(downPath)
+	require.NoError(t, err)
 
 	// ---------------------------------------------------------------
 	// Helper: check if a column exists on a table
 	// ---------------------------------------------------------------
 	columnExists := func(table, column string) bool {
-		t.Helper()
 		var exists bool
 		err := pool.QueryRow(ctx, `
 			SELECT EXISTS (
@@ -2370,87 +2409,51 @@ func TestIntegration_Migration_UpDown_000003(t *testing.T) {
 				WHERE table_name = $1 AND column_name = $2
 			)
 		`, table, column).Scan(&exists)
-		if err != nil {
-			t.Fatalf("check %s.%s: %v", table, column, err)
-		}
+		require.NoError(t, err)
 		return exists
 	}
 
 	indexExists := func(indexName string) bool {
-		t.Helper()
 		var exists bool
 		err := pool.QueryRow(ctx, `
 			SELECT EXISTS (
 				SELECT 1 FROM pg_indexes WHERE indexname = $1
 			)
 		`, indexName).Scan(&exists)
-		if err != nil {
-			t.Fatalf("check index %s: %v", indexName, err)
-		}
+		require.NoError(t, err)
 		return exists
 	}
 
 	// ---------------------------------------------------------------
 	// Phase 1 — Apply 000003 UP and verify columns exist
 	// ---------------------------------------------------------------
-	if _, err := pool.Exec(ctx, upSQL); err != nil {
-		t.Fatalf("000003 up migration failed: %v", err)
-	}
+	_, err = pool.Exec(ctx, string(upSQL))
+	require.NoError(t, err, "000003 up migration failed")
 
-	if !columnExists("sessions", "token_hash") {
-		t.Fatal("sessions.token_hash should exist after 000003 up")
-	}
-	if !columnExists("invitations", "token_hash") {
-		t.Fatal("invitations.token_hash should exist after 000003 up")
-	}
-	if !indexExists("idx_sessions_token_hash") {
-		t.Fatal("idx_sessions_token_hash should exist after 000003 up")
-	}
-	if !indexExists("idx_invitations_token_hash") {
-		t.Fatal("idx_invitations_token_hash should exist after 000003 up")
-	}
+	require.True(t, columnExists("sessions", "token_hash"))
+	require.True(t, columnExists("invitations", "token_hash"))
+	require.True(t, indexExists("idx_sessions_token_hash"))
+	require.True(t, indexExists("idx_invitations_token_hash"))
 
 	// ---------------------------------------------------------------
 	// Phase 2 — Apply 000003 DOWN and verify columns are removed
 	// ---------------------------------------------------------------
-	if _, err := pool.Exec(ctx, downSQL); err != nil {
-		t.Fatalf("000003 down migration failed: %v", err)
-	}
+	_, err = pool.Exec(ctx, string(downSQL))
+	require.NoError(t, err, "000003 down migration failed")
 
-	if columnExists("sessions", "token_hash") {
-		t.Fatal("sessions.token_hash should be removed after 000003 down")
-	}
-	if columnExists("invitations", "token_hash") {
-		t.Fatal("invitations.token_hash should be removed after 000003 down")
-	}
-	if indexExists("idx_sessions_token_hash") {
-		t.Fatal("idx_sessions_token_hash should not exist after 000003 down")
-	}
-	if indexExists("idx_invitations_token_hash") {
-		t.Fatal("idx_invitations_token_hash should not exist after 000003 down")
-	}
+	require.False(t, columnExists("sessions", "token_hash"))
+	require.False(t, columnExists("invitations", "token_hash"))
+	require.False(t, indexExists("idx_sessions_token_hash"))
+	require.False(t, indexExists("idx_invitations_token_hash"))
 
 	// ---------------------------------------------------------------
 	// Phase 3 — Re-apply 000003 UP (idempotency: column/index re-created)
 	// ---------------------------------------------------------------
-	if _, err := pool.Exec(ctx, upSQL); err != nil {
-		t.Fatalf("000003 up re-apply failed: %v", err)
-	}
+	_, err = pool.Exec(ctx, string(upSQL))
+	require.NoError(t, err, "000003 up re-apply failed")
 
-	if !columnExists("sessions", "token_hash") {
-		t.Fatal("sessions.token_hash should exist after re-applying 000003 up")
-	}
-	if !columnExists("invitations", "token_hash") {
-		t.Fatal("invitations.token_hash should exist after re-applying 000003 up")
-	}
-	if !indexExists("idx_sessions_token_hash") {
-		t.Fatal("idx_sessions_token_hash should exist after re-applying 000003 up")
-	}
-	if !indexExists("idx_invitations_token_hash") {
-		t.Fatal("idx_invitations_token_hash should exist after re-applying 000003 up")
-	}
-
-	// ---------------------------------------------------------------
-	// Leave the DB in up state — columns exist, subsequent tests are unaffected.
-	// ---------------------------------------------------------------
+	require.True(t, columnExists("sessions", "token_hash"))
+	require.True(t, columnExists("invitations", "token_hash"))
+	require.True(t, indexExists("idx_sessions_token_hash"))
+	require.True(t, indexExists("idx_invitations_token_hash"))
 }

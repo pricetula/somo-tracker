@@ -98,8 +98,8 @@ type CreateJobRequest struct {
 // replay) rather than a newly created one.
 type CreateJobResponse struct {
 	JobID        uuid.UUID       `json:"job_id"`
-	TotalRecords int             `json:"total_records"`
-	TotalChunks  int             `json:"total_chunks"`
+	TotalRecords int64           `json:"total_records"`
+	TotalChunks  int64           `json:"total_chunks"`
 	Status       ImportJobStatus `json:"status"`
 	StreamToken  string          `json:"stream_token"`
 	IsReplay     bool            `json:"is_replay"`
@@ -136,7 +136,7 @@ func (s *Service) CreateJob(ctx context.Context, req CreateJobRequest) (*CreateJ
 	}
 
 	// totalRecords holds the size of the incoming dataset.
-	totalRecords := len(req.Rows)
+	totalRecords := int64(len(req.Rows))
 
 	// totalChunks calculates how many partitions are needed to process all records.
 	// Math Explanation:
@@ -159,11 +159,11 @@ func (s *Service) CreateJob(ctx context.Context, req CreateJobRequest) (*CreateJ
 
 	// Build chunk definitions (used in both paths)
 	chunks := make([]Chunk, totalChunks)
-	for i := range totalChunks {
+	for i := int64(0); i < totalChunks; i++ {
 		chunks[i] = Chunk{
-			ChunkIndex:     i,
-			RowNumberStart: i * ChunkSize,
-			RowNumberEnd:   (i * ChunkSize) + ChunkSize,
+			ChunkIndex:     int(i),
+			RowNumberStart: i * int64(ChunkSize),
+			RowNumberEnd:   (i * int64(ChunkSize)) + int64(ChunkSize),
 		}
 	}
 	// Ensure the last chunk's RowNumberEnd doesn't exceed max int
@@ -219,7 +219,7 @@ func (s *Service) CreateJob(ctx context.Context, req CreateJobRequest) (*CreateJ
 					JobID:     jobID,
 					TenantID:  req.TenantID,
 					SchoolID:  req.SchoolID,
-					RowNumber: i,
+					RowNumber: int64(i),
 					RawData:   raw,
 					Status:    ImportStagingStatusPending,
 				}
@@ -353,7 +353,7 @@ func (s *Service) CreateJob(ctx context.Context, req CreateJobRequest) (*CreateJ
 			JobID:     jobID,
 			TenantID:  req.TenantID,
 			SchoolID:  req.SchoolID,
-			RowNumber: i,
+			RowNumber: int64(i),
 			RawData:   raw,
 			Status:    ImportStagingStatusPending,
 		}
@@ -394,15 +394,15 @@ func (s *Service) CreateJob(ctx context.Context, req CreateJobRequest) (*CreateJ
 }
 
 // enqueueChunks creates Asynq tasks for each chunk with deterministic IDs.
-func (s *Service) enqueueChunks(ctx context.Context, jobID uuid.UUID, totalChunks int) error {
-	for i := 0; i < totalChunks; i++ {
-		rowStart := i * ChunkSize
+func (s *Service) enqueueChunks(ctx context.Context, jobID uuid.UUID, totalChunks int64) error {
+	for i := int64(0); i < totalChunks; i++ {
+		rowStart := i * int64(ChunkSize)
 
 		payload := ChunkTaskPayload{
 			JobID:          jobID.String(),
-			ChunkIndex:     i,
+			ChunkIndex:     int(i),
 			RowNumberStart: rowStart,
-			RowNumberEnd:   rowStart + ChunkSize,
+			RowNumberEnd:   rowStart + int64(ChunkSize),
 		}
 
 		task := asynq.NewTask("imports:process_chunk", toBytes(payload),
@@ -509,7 +509,7 @@ func (s *Service) ProcessChunk(ctx context.Context, payload ChunkTaskPayload) er
 	}
 
 	// ── Step 2: Load staging rows (pending only) ─────────────────────────
-	rows, err := s.repo.GetStagingRows(ctx, jobID, payload.RowNumberStart, payload.RowNumberEnd)
+	rows, err := s.repo.GetStagingRows(ctx, jobID, int(payload.RowNumberStart), int(payload.RowNumberEnd))
 	if err != nil {
 		return fmt.Errorf("imports.Service.ProcessChunk: get staging rows: %w", err)
 	}
@@ -533,7 +533,7 @@ func (s *Service) ProcessChunk(ctx context.Context, payload ChunkTaskPayload) er
 	var allFailures []RowFailure
 	for _, f := range validationFailures {
 		rowNum := f.RowNumber
-		if rowNum < len(rows) {
+		if rowNum < int64(len(rows)) {
 			f.RowNumber = rows[rowNum].RowNumber
 		}
 		allFailures = append(allFailures, f)
@@ -595,10 +595,10 @@ func (s *Service) ProcessChunk(ctx context.Context, payload ChunkTaskPayload) er
 	// Use the total expected row count for the chunk (not just pending rows)
 	// so that processed_records reflects the full chunk, including rows that
 	// were already committed by a prior crashed attempt.
-	chunkTotal := payload.RowNumberEnd - payload.RowNumberStart
+	chunkTotal := int(payload.RowNumberEnd - payload.RowNumberStart)
 	// Clamp to the job's total records for the last (partial) chunk
-	if job.TotalRecords > 0 && chunkTotal > job.TotalRecords-payload.RowNumberStart {
-		chunkTotal = job.TotalRecords - payload.RowNumberStart
+	if job.TotalRecords > 0 && int64(chunkTotal) > job.TotalRecords-payload.RowNumberStart {
+		chunkTotal = int(job.TotalRecords - payload.RowNumberStart)
 	}
 	newStatus, _, err := s.repo.AtomicChunkCompletion(ctx, jobID, chunkID,
 		chunkTotal, successCount, len(allFailures))

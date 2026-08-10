@@ -1,4 +1,4 @@
-package cbcclasses
+package reports
 
 import (
 	"context"
@@ -70,13 +70,12 @@ func applyMigration(t *testing.T, pool *pgxpool.Pool, filename string) {
 	require.NoError(t, err, "apply migration %s", filename)
 }
 
-func seedTenantSchoolUser(t *testing.T, pool *pgxpool.Pool) (tenantID, schoolID, userID, yearID string) {
+func seedTenantSchoolUser(t *testing.T, pool *pgxpool.Pool) (tenantID, schoolID, userID string) {
 	t.Helper()
 	ctx := context.Background()
 	tenantID = uuid.New().String()
 	schoolID = uuid.New().String()
 	userID = uuid.New().String()
-	yearID = uuid.New().String()
 	_, err := pool.Exec(ctx, `INSERT INTO tenants (id, name, slug, stytch_org_id) VALUES ($1, $2, $3, $4)`,
 		tenantID, "Test", "slug-"+tenantID[:8], "stytch-"+tenantID[:8])
 	require.NoError(t, err)
@@ -86,17 +85,14 @@ func seedTenantSchoolUser(t *testing.T, pool *pgxpool.Pool) (tenantID, schoolID,
 	_, err = pool.Exec(ctx, `INSERT INTO users (id, email, tenant_id, full_name) VALUES ($1, $2, $3, $4)`,
 		userID, "user@test.com", tenantID, "Test User")
 	require.NoError(t, err)
-	_, err = pool.Exec(ctx, `INSERT INTO academic_years (id, tenant_id, school_id, name, start_date, end_date, created_by, updated_by) VALUES ($1, $2, $3, '2026', '2026-01-01', '2026-12-31', $4, $4)`,
-		yearID, tenantID, schoolID, userID)
-	require.NoError(t, err)
-	return tenantID, schoolID, userID, yearID
+	return tenantID, schoolID, userID
 }
 
-func newRepo(pool *pgxpool.Pool) *PgRepository {
+func newRepo(pool *pgxpool.Pool) Repository {
 	return NewRepository(&database.Pools{PG: pool})
 }
 
-func TestPgRepository_CreateAndGetByID(t *testing.T) {
+func TestPgRepository_Ping(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
@@ -104,78 +100,10 @@ func TestPgRepository_CreateAndGetByID(t *testing.T) {
 	pool, cleanup := startPG(t)
 	defer cleanup()
 	applyMigration(t, pool, "000001_initial_schema.up.sql")
-
-	tenantID, schoolID, _, yearID := seedTenantSchoolUser(t, pool)
-	repo := newRepo(pool)
-
-	// Create a stream first
-	streamID := uuid.New().String()
-	_, err := pool.Exec(ctx, `INSERT INTO cbc_streams (id, tenant_id, school_id, name) VALUES ($1, $2, $3, 'East')`,
-		streamID, tenantID, schoolID)
-	require.NoError(t, err)
-
-	params := CreateClassParams{
-		TenantID:       tenantID,
-		SchoolID:       schoolID,
-		GradeLevel:     "G4",
-		StreamID:       streamID,
-		AcademicYearID: yearID,
-	}
-
-	class, err := repo.Create(ctx, params)
-	require.NoError(t, err)
-	require.NotEmpty(t, class.ID)
-
-	fetched, err := repo.GetByID(ctx, class.ID, tenantID, schoolID)
-	require.NoError(t, err)
-	require.Equal(t, "G4", fetched.GradeLevel)
-}
-
-func TestPgRepository_List(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
-	}
-	ctx := context.Background()
-	pool, cleanup := startPG(t)
-	defer cleanup()
-	applyMigration(t, pool, "000001_initial_schema.up.sql")
-
-	tenantID, schoolID, _, yearID := seedTenantSchoolUser(t, pool)
-	repo := newRepo(pool)
-
-	streamID := uuid.New().String()
-	_, err := pool.Exec(ctx, `INSERT INTO cbc_streams (id, tenant_id, school_id, name) VALUES ($1, $2, $3, 'East')`,
-		streamID, tenantID, schoolID)
-	require.NoError(t, err)
-
-	_, err = repo.Create(ctx, CreateClassParams{
-		TenantID: tenantID, SchoolID: schoolID,
-		GradeLevel: "G4", StreamID: streamID, AcademicYearID: yearID,
-	})
-	require.NoError(t, err)
-
-	result, err := repo.List(ctx, ClassListFilter{
-		TenantID:       tenantID,
-		SchoolID:       schoolID,
-		AcademicYearID: yearID,
-		Page:           1,
-		Limit:          50,
-	})
-	require.NoError(t, err)
-	require.Len(t, result.Items, 1)
-	require.Equal(t, 1, result.Total)
-}
-
-func TestPgRepository_GetByID_NotFound(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
-	}
-	ctx := context.Background()
-	pool, cleanup := startPG(t)
-	defer cleanup()
-	applyMigration(t, pool, "000001_initial_schema.up.sql")
+	// Optionally seed tenant/school/user to ensure DB is usable, but Ping works without.
+	_, _, _ = seedTenantSchoolUser(t, pool)
 
 	repo := newRepo(pool)
-	_, err := repo.GetByID(ctx, uuid.New().String(), "00000000-0000-0000-0000-000000000000", "00000000-0000-0000-0000-000000000000")
-	require.Error(t, err)
+	err := repo.Ping(ctx)
+	require.NoError(t, err)
 }

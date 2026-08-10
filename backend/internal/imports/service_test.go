@@ -126,7 +126,7 @@ func (m *MockServiceRepository) GetStagingRows(ctx context.Context, jobID uuid.U
 	}
 	var result []StagingRow
 	for _, r := range m.insertedStaging {
-		if r.JobID == jobID && r.RowNumber >= rowStart && r.RowNumber < rowEnd {
+		if r.JobID == jobID && r.RowNumber >= int64(rowStart) && r.RowNumber < int64(rowEnd) {
 			// Skip non-pending rows in the mock (mirrors real DB filtering)
 			if r.Status != ImportStagingStatusPending {
 				continue
@@ -523,7 +523,7 @@ func TestCreateJob_NonDivisibleMultiChunk(t *testing.T) {
 		t.Fatalf("CreateJob failed: %v", err)
 	}
 
-	expectedChunks := (2050 + ChunkSize - 1) / ChunkSize // = 21
+	expectedChunks := int64(2050+ChunkSize-1) / int64(ChunkSize) // = 21
 	if capturedJob.TotalChunks != expectedChunks {
 		t.Fatalf("expected TotalChunks=%d, got %d", expectedChunks, capturedJob.TotalChunks)
 	}
@@ -883,7 +883,7 @@ func TestProcessChunk_AllSucceed(t *testing.T) {
 		rows[i] = StagingRow{
 			ID:        uuid.New(),
 			JobID:     jobID,
-			RowNumber: i,
+			RowNumber: int64(i),
 			RawData:   json.RawMessage(`{"full_name":"S` + itoa(i) + `","gender":"M"}`),
 			Status:    ImportStagingStatusPending,
 		}
@@ -934,7 +934,7 @@ func TestProcessChunk_SomeValidationFailures(t *testing.T) {
 				valid = append(valid, ValidatedRow{RawData: r})
 			} else {
 				fails = append(fails, RowFailure{
-					RowNumber:    i,
+					RowNumber:    int64(i),
 					RawPayload:   r,
 					ErrorMessage: "validation error",
 					ErrorType:    ImportFailureSchemaValidation,
@@ -953,7 +953,7 @@ func TestProcessChunk_SomeValidationFailures(t *testing.T) {
 
 	rows := make([]StagingRow, 10)
 	for i := 0; i < 10; i++ {
-		rows[i] = StagingRow{ID: uuid.New(), JobID: jobID, RowNumber: i, RawData: json.RawMessage(`{}`), Status: ImportStagingStatusPending}
+		rows[i] = StagingRow{ID: uuid.New(), JobID: jobID, RowNumber: int64(i), RawData: json.RawMessage(`{}`), Status: ImportStagingStatusPending}
 	}
 	h.repo.insertedStaging = rows
 
@@ -986,7 +986,7 @@ func TestProcessChunk_AllRowsFail_StillCompletes(t *testing.T) {
 	imp.validateFn = func(ctx context.Context, tid, sid uuid.UUID, raw []json.RawMessage) ([]ValidatedRow, []RowFailure) {
 		var fails []RowFailure
 		for i, r := range raw {
-			fails = append(fails, RowFailure{RowNumber: i, RawPayload: r, ErrorMessage: "bad data", ErrorType: ImportFailureSchemaValidation})
+			fails = append(fails, RowFailure{RowNumber: int64(i), RawPayload: r, ErrorMessage: "bad data", ErrorType: ImportFailureSchemaValidation})
 		}
 		return nil, fails
 	}
@@ -1000,7 +1000,7 @@ func TestProcessChunk_AllRowsFail_StillCompletes(t *testing.T) {
 
 	rows := make([]StagingRow, 5)
 	for i := 0; i < 5; i++ {
-		rows[i] = StagingRow{ID: uuid.New(), JobID: jobID, RowNumber: i, RawData: json.RawMessage(`{}`), Status: ImportStagingStatusPending}
+		rows[i] = StagingRow{ID: uuid.New(), JobID: jobID, RowNumber: int64(i), RawData: json.RawMessage(`{}`), Status: ImportStagingStatusPending}
 	}
 	h.repo.insertedStaging = rows
 
@@ -1053,7 +1053,7 @@ func TestProcessChunk_RedeliveryAfterCrash(t *testing.T) {
 		rows[i] = StagingRow{
 			ID:        uuid.New(),
 			JobID:     jobID,
-			RowNumber: i,
+			RowNumber: int64(i),
 			RawData:   json.RawMessage(`{"full_name":"S` + itoa(i) + `","gender":"M"}`),
 			Status:    status,
 		}
@@ -1312,7 +1312,7 @@ func TestProcessChunk_UniqueConstraintOnStagingRowID(t *testing.T) {
 		rows[i] = StagingRow{
 			ID:        uuid.New(),
 			JobID:     jobID,
-			RowNumber: i,
+			RowNumber: int64(i),
 			RawData:   json.RawMessage(`{"full_name":"S` + itoa(i) + `","gender":"M"}`),
 			Status:    ImportStagingStatusPending,
 		}
@@ -1392,7 +1392,7 @@ func TestProcessChunk_NoPendingRows(t *testing.T) {
 	// All rows already 'succeeded' — none pending
 	rows := make([]StagingRow, 3)
 	for i := 0; i < 3; i++ {
-		rows[i] = StagingRow{ID: uuid.New(), JobID: jobID, RowNumber: i, RawData: json.RawMessage(`{}`), Status: ImportStagingStatusSucceeded}
+		rows[i] = StagingRow{ID: uuid.New(), JobID: jobID, RowNumber: int64(i), RawData: json.RawMessage(`{}`), Status: ImportStagingStatusSucceeded}
 	}
 	h.repo.insertedStaging = rows
 

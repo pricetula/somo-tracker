@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/joho/godotenv"
 	"go.uber.org/fx"
@@ -26,6 +27,9 @@ type Config struct {
 	BackendURL        string
 	FrontendURL       string
 	CookieSecret      string // HMAC-SHA256 key for signing somo_role cookie
+	RateLimitIPMax    string // Tier 1: Max requests per window per IP (e.g. 300)
+	RateLimitUserMax  string // Tier 2: Max requests per window per User ID (e.g. 60)
+	RateLimitWindow   string // Time window for rate limit (e.g. 1 * time.Minute)
 }
 
 // Load reads configuration from environment variables with safe fallbacks.
@@ -65,6 +69,10 @@ func Load() Config {
 		BackendURL:        getEnv("BACKEND_URL", "http://localhost:3030"),
 		FrontendURL:       getEnv("FRONTEND_URL", "http://localhost:3000"),
 		CookieSecret:      getEnv("COOKIE_SECRET", "dev-insecure-change-in-production"),
+		// Rate Limiting Configuration
+		RateLimitIPMax:   getEnv("RATE_LIMIT_IP_MAX", "300"),                  // Tier 1: Max requests per window per IP (e.g. 300)
+		RateLimitUserMax: getEnv("COOKIE_SECRET", "60"),                       // Tier 2: Max requests per window per User ID (e.g. 60)
+		RateLimitWindow:  getEnv("COOKIE_SECRET", (time.Minute * 1).String()), // Time window for rate limit (e.g. 1 * time.Minute)
 	}
 }
 

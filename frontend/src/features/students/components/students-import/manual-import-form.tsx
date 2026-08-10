@@ -430,7 +430,7 @@ export function StudentManualImportForm({ onReset, onJobCreated }: StudentManual
                     </Button>
                 </div>
             ) : (
-                <div className="space-y-2">
+                <div className="max-h-80 space-y-2 overflow-y-auto">
                     {rows.map((row, index) => {
                         const rowMergedErrors = mergedFieldErrors[row.id] ?? {};
                         const hasRowErrors = Object.keys(rowMergedErrors).length > 0;

@@ -177,9 +177,8 @@ export function getDayNameShort(day: number): string {
 // ─── API Functions: Structure Blocks ──────────────────────────────────────
 
 /** List all time blocks for the active school and academic year. */
-export async function listTimeBlocks(academicYearID?: string): Promise<TimeBlockListResult> {
-    const params = academicYearID ? `?academic_year_id=${encodeURIComponent(academicYearID)}` : "";
-    return api.get<TimeBlockListResult>(`/api/v1/timetable/structure${params}`);
+export async function listTimeBlocks(): Promise<TimeBlockListResult> {
+    return api.get<TimeBlockListResult>(`/api/v1/timetable/structure`);
 }
 
 /** List time blocks for a specific day (1=Monday, 7=Sunday). */

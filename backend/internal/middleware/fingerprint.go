@@ -7,7 +7,6 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-// newDeviceFingerprinter generates a SHA-256 fingerprint from client request attributes.
 func newDeviceFingerprinter() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		h := sha256.New()

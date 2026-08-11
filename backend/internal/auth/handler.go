@@ -56,17 +56,32 @@ type MeResponse struct {
 
 // Handler exposes auth HTTP endpoints.
 type Handler struct {
-	svc    *Service
-	logger *zap.Logger
-	cfg    config.Config
+	svc         *Service
+	logger      *zap.Logger
+	cfg         config.Config
+	ipLimiter   fiber.Handler
+	userLimiter fiber.Handler
 }
 
-// NewHandler creates a new Handler.
+// NewHandler creates a new Handler with default rate limiters.
 func NewHandler(svc *Service, logger *zap.Logger, cfg config.Config) *Handler {
 	return &Handler{
-		svc:    svc,
-		logger: logger,
-		cfg:    cfg,
+		svc:         svc,
+		logger:      logger,
+		cfg:         cfg,
+		ipLimiter:   middleware.NewIPLimiter(svc.GetRedis(), 30, time.Minute),
+		userLimiter: middleware.NewUserLimiter(svc.GetRedis(), 60, time.Minute),
+	}
+}
+
+// NewHandlerWithLimiters creates a Handler with custom rate limiters (useful for testing).
+func NewHandlerWithLimiters(svc *Service, logger *zap.Logger, cfg config.Config, ipLimiter, userLimiter fiber.Handler) *Handler {
+	return &Handler{
+		svc:         svc,
+		logger:      logger,
+		cfg:         cfg,
+		ipLimiter:   ipLimiter,
+		userLimiter: userLimiter,
 	}
 }
 
@@ -76,14 +91,14 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 
 	// Public endpoints: IP‑based rate limit (stricter than global coarse limiter)
 	public := auth.Group("")
-	public.Use(middleware.NewIPLimiter(h.svc.GetRedis(), 30, time.Minute))
+	public.Use(h.ipLimiter)
 	public.Post("/discover", h.Discover)
 	public.Post("/verify", h.Verify)
 	public.Post("/register", h.Register)
 
 	// Protected endpoints: user‑based rate limit + auth guard
 	protected := auth.Group("")
-	protected.Use(middleware.NewUserLimiter(h.svc.GetRedis(), 60, time.Minute))
+	protected.Use(h.userLimiter)
 	protected.Use(middleware.RequireAuth)
 	protected.Get("/me", h.Me)
 	protected.Delete("/session", h.Logout)

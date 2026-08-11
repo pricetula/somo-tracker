@@ -95,6 +95,8 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	public.Post("/discover", h.Discover)
 	public.Post("/verify", h.Verify)
 	public.Post("/register", h.Register)
+	public.Get("/callback", h.MagicLinkCallback)
+	public.Get("/invite/callback", h.AcceptInvite)
 
 	// Protected endpoints: user‑based rate limit + auth guard
 	protected := auth.Group("")

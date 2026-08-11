@@ -69,8 +69,8 @@ func NewHandler(svc *Service, logger *zap.Logger, cfg config.Config) *Handler {
 		svc:         svc,
 		logger:      logger,
 		cfg:         cfg,
-		ipLimiter:   middleware.NewIPLimiter(svc.GetRedis(), 30, time.Minute),
-		userLimiter: middleware.NewUserLimiter(svc.GetRedis(), 60, time.Minute),
+		ipLimiter:   middleware.NewIPLimiter(svc.GetRedis(), 10, time.Minute),
+		userLimiter: middleware.NewUserLimiter(svc.GetRedis(), 5, time.Minute),
 	}
 }
 

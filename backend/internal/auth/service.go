@@ -470,12 +470,14 @@ func (s *Service) Register(ctx context.Context, sessionRef string, payload Regis
 // GetMe returns the full profile info for the authenticated user.
 func (s *Service) GetMe(ctx context.Context, token string) (*MeInfo, error) {
 	if token == "" {
+		s.logger.Error("GetMe entered", zap.String("token", token))
 		return nil, ErrExpiredToken
 	}
 
 	// Check Redis first (fast path)
 	exists, err := s.rdb.Exists(ctx, s.sessionKey(token)).Result()
 	if err != nil {
+		s.logger.Error("redis exists error", zap.Error(err))
 		return nil, fmt.Errorf("%w: check session in cache: %v", ErrInternal, err)
 	}
 	if exists == 0 {
@@ -492,6 +494,7 @@ func (s *Service) GetMe(ctx context.Context, token string) (*MeInfo, error) {
 			}
 			return nil, ErrExpiredToken
 		}
+		s.logger.Error("GetMeInfo failed", zap.Error(err))
 		return nil, err
 	}
 

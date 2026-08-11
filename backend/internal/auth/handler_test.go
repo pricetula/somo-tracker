@@ -20,6 +20,7 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 
 	"somotracker/backend/internal/config"
+	"somotracker/backend/internal/middleware"
 )
 
 // ============================================================================
@@ -84,6 +85,20 @@ func newHandlerTestHarness(t *testing.T) *handlerTestHarness {
 	handler := NewHandler(svc, logger, cfg)
 
 	app := fiber.New()
+	// 1. Attach test session middleware FIRST
+	app.Use(func(c *fiber.Ctx) error {
+		token := c.Cookies("somo_sid")
+
+		// Populates c.Locals("session") if valid token is provided via cookie
+		if token != "" && token != "invalid_token" && token != "expired_token" {
+			c.Locals("session", &middleware.SessionInfo{
+				UserID:   "user_123",
+				TenantID: "tenant_456",
+				Role:     "SCHOOL_ADMIN",
+			})
+		}
+		return c.Next()
+	})
 	handler.RegisterRoutes(app)
 
 	return &handlerTestHarness{

@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites tests="1077" failures="0" errors="0" time="21.967220">
-	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/cmd/api" timestamp="2026-08-10T16:51:45+03:00">
+<testsuites tests="1108" failures="19" errors="0" time="22.945672">
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/cmd/api" timestamp="2026-08-11T20:07:50+03:00">
 		<properties>
 			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="33" failures="0" skipped="5" time="1.746000" name="somotracker/backend/internal/academicyears" timestamp="2026-08-10T16:51:46+03:00">
+	<testsuite tests="33" failures="0" skipped="5" time="1.992000" name="somotracker/backend/internal/academicyears" timestamp="2026-08-11T20:07:52+03:00">
 		<properties>
 			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
 		</properties>
@@ -53,7 +53,7 @@
 		<testcase classname="somotracker/backend/internal/academicyears" name="TestCreateTerm_AfterDelete" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/academicyears" name="TestPatchTerm_IgnoresIsCurrent" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="64" failures="0" skipped="16" time="1.846000" name="somotracker/backend/internal/assessments" timestamp="2026-08-10T16:51:47+03:00">
+	<testsuite tests="64" failures="0" skipped="16" time="2.623000" name="somotracker/backend/internal/assessments" timestamp="2026-08-11T20:07:52+03:00">
 		<properties>
 			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
 		</properties>
@@ -154,7 +154,7 @@
 		<testcase classname="somotracker/backend/internal/assessments" name="TestGetStudentTermGrades_RepoReturnsNil" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/assessments" name="TestGetStudentTermGrades_RepoError" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="57" failures="0" skipped="6" time="2.483000" name="somotracker/backend/internal/attendance" timestamp="2026-08-10T16:51:47+03:00">
+	<testsuite tests="57" failures="0" skipped="6" time="2.830000" name="somotracker/backend/internal/attendance" timestamp="2026-08-11T20:07:53+03:00">
 		<properties>
 			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
 		</properties>
@@ -228,10 +228,67 @@
 		<testcase classname="somotracker/backend/internal/attendance" name="TestGetCalendarStatus_Validation" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/attendance" name="TestGetCalendarStatus_NilToEmptySlice" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="130" failures="0" skipped="44" time="13.859000" name="somotracker/backend/internal/auth" timestamp="2026-08-10T16:51:47+03:00">
+	<testsuite tests="134" failures="19" skipped="44" time="5.356000" name="somotracker/backend/internal/auth" timestamp="2026-08-11T20:07:53+03:00">
 		<properties>
 			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
 		</properties>
+		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Me_HappyPath" time="0.010000">
+			<failure message="Failed" type="">=== RUN   TestHandler_Me_HappyPath&#xA;    handler_test.go:180: expected 200 OK, got 500&#xA;--- FAIL: TestHandler_Me_HappyPath (0.01s)&#xA;</failure>
+		</testcase>
+		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Me_MissingCookie" time="0.000000">
+			<failure message="Failed" type="">=== RUN   TestHandler_Me_MissingCookie&#xA;    handler_test.go:218: expected 401 Unauthorized, got 500&#xA;--- FAIL: TestHandler_Me_MissingCookie (0.00s)&#xA;</failure>
+		</testcase>
+		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Me_EmptyCookie" time="0.000000">
+			<failure message="Failed" type="">=== RUN   TestHandler_Me_EmptyCookie&#xA;    handler_test.go:247: expected 401 Unauthorized, got 500&#xA;--- FAIL: TestHandler_Me_EmptyCookie (0.00s)&#xA;</failure>
+		</testcase>
+		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Me_ExpiredToken" time="0.000000">
+			<failure message="Failed" type="">=== RUN   TestHandler_Me_ExpiredToken&#xA;    handler_test.go:272: expected 401 Unauthorized, got 500&#xA;--- FAIL: TestHandler_Me_ExpiredToken (0.00s)&#xA;</failure>
+		</testcase>
+		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Me_RedisExistsWithRepoNotFound" time="0.000000">
+			<failure message="Failed" type="">=== RUN   TestHandler_Me_RedisExistsWithRepoNotFound&#xA;    handler_test.go:311: expected 401 Unauthorized, got 500&#xA;--- FAIL: TestHandler_Me_RedisExistsWithRepoNotFound (0.00s)&#xA;</failure>
+		</testcase>
+		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Me_InternalError" time="0.000000">
+			<failure message="Failed" type="">=== RUN   TestHandler_Me_InternalError&#xA;    handler_test.go:357: decode response: invalid character &#39;a&#39; looking for beginning of value&#xA;--- FAIL: TestHandler_Me_InternalError (0.00s)&#xA;</failure>
+		</testcase>
+		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Me_ResponseShape" time="0.000000">
+			<failure message="Failed" type="">=== RUN   TestHandler_Me_ResponseShape&#xA;    handler_test.go:395: expected 200 OK, got 500&#xA;--- FAIL: TestHandler_Me_ResponseShape (0.00s)&#xA;</failure>
+		</testcase>
+		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Me_SchoolFieldsEmpty" time="0.000000">
+			<failure message="Failed" type="">=== RUN   TestHandler_Me_SchoolFieldsEmpty&#xA;    handler_test.go:438: expected 200 OK, got 500&#xA;--- FAIL: TestHandler_Me_SchoolFieldsEmpty (0.00s)&#xA;</failure>
+		</testcase>
+		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Me_InvalidMethod" time="0.000000">
+			<failure message="Failed" type="">=== RUN   TestHandler_Me_InvalidMethod&#xA;    handler_test.go:463: expected 405 Method Not Allowed for POST, got 500&#xA;--- FAIL: TestHandler_Me_InvalidMethod (0.00s)&#xA;</failure>
+		</testcase>
+		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Me_LogoutClearsMe" time="0.000000">
+			<failure message="Failed" type="">=== RUN   TestHandler_Me_LogoutClearsMe&#xA;    handler_test.go:491: expected 200 OK before logout, got 500&#xA;--- FAIL: TestHandler_Me_LogoutClearsMe (0.00s)&#xA;</failure>
+		</testcase>
+		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Discover_InvalidMethod" time="0.000000">
+			<failure message="Failed" type="">=== RUN   TestHandler_Discover_InvalidMethod&#xA;    handler_test.go:601: expected 405 Method Not Allowed for GET, got 500&#xA;--- FAIL: TestHandler_Discover_InvalidMethod (0.00s)&#xA;</failure>
+		</testcase>
+		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Verify_InvalidMethod" time="0.000000">
+			<failure message="Failed" type="">=== RUN   TestHandler_Verify_InvalidMethod&#xA;    handler_test.go:891: expected 405 Method Not Allowed for GET, got 500&#xA;--- FAIL: TestHandler_Verify_InvalidMethod (0.00s)&#xA;</failure>
+		</testcase>
+		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Logout_HappyPath" time="0.000000">
+			<failure message="Failed" type="">=== RUN   TestHandler_Logout_HappyPath&#xA;    handler_test.go:1169: expected 204 No Content, got 500&#xA;--- FAIL: TestHandler_Logout_HappyPath (0.00s)&#xA;</failure>
+		</testcase>
+		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Logout_NoCookie" time="0.000000">
+			<failure message="Failed" type="">=== RUN   TestHandler_Logout_NoCookie&#xA;    handler_test.go:1200: expected 204 No Content for logout without cookie, got 500&#xA;--- FAIL: TestHandler_Logout_NoCookie (0.00s)&#xA;</failure>
+		</testcase>
+		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Logout_ServiceError" time="0.000000">
+			<failure message="Failed" type="">=== RUN   TestHandler_Logout_ServiceError&#xA;    handler_test.go:1241: expected somo_sid cookie to be cleared even on service error&#xA;--- FAIL: TestHandler_Logout_ServiceError (0.00s)&#xA;</failure>
+		</testcase>
+		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Logout_InvalidMethod" time="0.000000">
+			<failure message="Failed" type="">=== RUN   TestHandler_Logout_InvalidMethod&#xA;    handler_test.go:1251: expected 405 Method Not Allowed for GET, got 500&#xA;--- FAIL: TestHandler_Logout_InvalidMethod (0.00s)&#xA;</failure>
+		</testcase>
+		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Me_SchoolIDCookieSet" time="0.000000">
+			<failure message="Failed" type="">=== RUN   TestHandler_Me_SchoolIDCookieSet&#xA;    handler_test.go:1397: expected 200 OK, got 500&#xA;--- FAIL: TestHandler_Me_SchoolIDCookieSet (0.00s)&#xA;</failure>
+		</testcase>
+		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Register_CookieSecurityFlags" time="0.000000">
+			<failure message="Failed" type="">=== RUN   TestHandler_Register_CookieSecurityFlags&#xA;    security_test.go:50: cookie somo_role: HttpOnly = false, want true&#xA;    security_test.go:50: cookie somo_school_id: HttpOnly = false, want true&#xA;    security_test.go:61: expected cookie somo_csrf to be set, but it was missing&#xA;--- FAIL: TestHandler_Register_CookieSecurityFlags (0.00s)&#xA;</failure>
+		</testcase>
+		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Register_CSRFTokenUnpredictable" time="0.000000">
+			<failure message="Failed" type="">=== RUN   TestHandler_Register_CSRFTokenUnpredictable&#xA;    security_test.go:84: csrf cookie not set&#xA;--- FAIL: TestHandler_Register_CSRFTokenUnpredictable (0.00s)&#xA;</failure>
+		</testcase>
 		<testcase classname="somotracker/backend/internal/auth" name="TestIntegration_Stytch_DiscoveryEmailTimeout" time="0.000000">
 			<skipped message="=== RUN   TestIntegration_Stytch_DiscoveryEmailTimeout&#xA;    integration_test.go:33: skipping integration test in short mode&#xA;--- SKIP: TestIntegration_Stytch_DiscoveryEmailTimeout (0.00s)&#xA;"></skipped>
 		</testcase>
@@ -364,21 +421,10 @@
 		<testcase classname="somotracker/backend/internal/auth" name="TestPgRepository_GetSessionByToken_NotFound" time="0.000000">
 			<skipped message="=== RUN   TestPgRepository_GetSessionByToken_NotFound&#xA;    repository_test.go:206: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetSessionByToken_NotFound (0.00s)&#xA;"></skipped>
 		</testcase>
-		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Me_HappyPath" time="0.000000"></testcase>
-		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Me_MissingCookie" time="0.000000"></testcase>
-		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Me_EmptyCookie" time="0.000000"></testcase>
-		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Me_ExpiredToken" time="0.000000"></testcase>
-		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Me_RedisExistsWithRepoNotFound" time="0.000000"></testcase>
-		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Me_InternalError" time="0.000000"></testcase>
-		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Me_ResponseShape" time="0.000000"></testcase>
-		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Me_SchoolFieldsEmpty" time="0.000000"></testcase>
-		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Me_InvalidMethod" time="0.000000"></testcase>
-		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Me_LogoutClearsMe" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Discover_HappyPath" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Discover_MissingEmail" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Discover_InvalidBody" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Discover_StytchError" time="0.000000"></testcase>
-		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Discover_InvalidMethod" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Register_HappyPath" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Register_ValidationError" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Register_InvalidBody" time="0.000000"></testcase>
@@ -389,7 +435,6 @@
 		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Verify_MissingToken" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Verify_InvalidBody" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Verify_ExpiredToken" time="0.000000"></testcase>
-		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Verify_InvalidMethod" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Callback_NewUser" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Callback_ExistingUser" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Callback_MissingToken" time="0.000000"></testcase>
@@ -398,16 +443,13 @@
 		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_InviteCallback_MissingToken" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_InviteCallback_ExpiredInvitation" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_InviteCallback_StytchExchangeFails" time="0.000000"></testcase>
-		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Logout_HappyPath" time="0.000000"></testcase>
-		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Logout_NoCookie" time="0.000000"></testcase>
-		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Logout_ServiceError" time="0.000000"></testcase>
-		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Logout_InvalidMethod" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_ErrorMapping_ExpiredToken" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_ErrorMapping_ExpiredTokenThroughVerify" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_ErrorMapping_ExpiredTokenThroughCallback" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Register_SetsCSRFTokenCookie" time="0.000000"></testcase>
-		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Me_SchoolIDCookieSet" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Callback_NewUser_SetsCSRFCookie" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Register_ConcurrentSameSessionRef" time="0.010000"></testcase>
+		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Register_SessionTokenNotIST" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/auth" name="TestVerify_StytchTimeout" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/auth" name="TestVerify_StytchExpiredToken" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/auth" name="TestRegister_ISTNotFound" time="0.000000"></testcase>
@@ -451,7 +493,7 @@
 		<testcase classname="somotracker/backend/internal/auth" name="TestErrorToCode_WrappedError" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/auth" name="TestErrorToCode_UnknownError" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="34" failures="0" skipped="7" time="3.812000" name="somotracker/backend/internal/behavior" timestamp="2026-08-10T16:51:47+03:00">
+	<testsuite tests="34" failures="0" skipped="7" time="4.123000" name="somotracker/backend/internal/behavior" timestamp="2026-08-11T20:07:53+03:00">
 		<properties>
 			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
 		</properties>
@@ -504,7 +546,7 @@
 		<testcase classname="somotracker/backend/internal/behavior" name="TestGetNote_HappyPath" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/behavior" name="TestGetNote_NotFound" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="115" failures="0" skipped="4" time="4.363000" name="somotracker/backend/internal/billing" timestamp="2026-08-10T16:51:48+03:00">
+	<testsuite tests="115" failures="0" skipped="4" time="4.704000" name="somotracker/backend/internal/billing" timestamp="2026-08-11T20:07:53+03:00">
 		<properties>
 			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
 		</properties>
@@ -632,7 +674,7 @@
 		<testcase classname="somotracker/backend/internal/billing" name="TestListPayments_EmptyInvoiceID" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/billing" name="TestListPayments_EmptyTenantID" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="53" failures="0" skipped="3" time="4.998000" name="somotracker/backend/internal/cbcclasses" timestamp="2026-08-10T16:51:48+03:00">
+	<testsuite tests="53" failures="0" skipped="3" time="5.232000" name="somotracker/backend/internal/cbcclasses" timestamp="2026-08-11T20:07:53+03:00">
 		<properties>
 			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
 		</properties>
@@ -696,7 +738,7 @@
 		<testcase classname="somotracker/backend/internal/cbcclasses" name="TestBulkDeleteClasses_OverLimit" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/cbcclasses" name="TestBulkDeleteClasses_EmptyTenantID" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="31" failures="0" skipped="5" time="5.498000" name="somotracker/backend/internal/cbcschools" timestamp="2026-08-10T16:51:48+03:00">
+	<testsuite tests="31" failures="0" skipped="5" time="5.984000" name="somotracker/backend/internal/cbcschools" timestamp="2026-08-11T20:07:53+03:00">
 		<properties>
 			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
 		</properties>
@@ -742,7 +784,7 @@
 		<testcase classname="somotracker/backend/internal/cbcschools" name="TestCreateSchool_SeedFailure_DoesNotFailSchoolCreation" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/cbcschools" name="TestCreateSchool_WithoutSeeder_DoesNotSeed" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="20" failures="0" skipped="6" time="6.139000" name="somotracker/backend/internal/cbcstreams" timestamp="2026-08-10T16:51:48+03:00">
+	<testsuite tests="20" failures="0" skipped="6" time="5.679000" name="somotracker/backend/internal/cbcstreams" timestamp="2026-08-11T20:07:54+03:00">
 		<properties>
 			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
 		</properties>
@@ -779,7 +821,7 @@
 		<testcase classname="somotracker/backend/internal/cbcstreams" name="TestDeleteStream_HasActiveEnrollments" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/cbcstreams" name="TestDeleteStream_NotFound" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="27" failures="0" skipped="2" time="5.541000" name="somotracker/backend/internal/cbctimetableslots" timestamp="2026-08-10T16:51:49+03:00">
+	<testsuite tests="27" failures="0" skipped="2" time="5.650000" name="somotracker/backend/internal/cbctimetableslots" timestamp="2026-08-11T20:07:55+03:00">
 		<properties>
 			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
 		</properties>
@@ -815,7 +857,7 @@
 		<testcase classname="somotracker/backend/internal/cbctimetableslots" name="TestClearClassDay_EmptyStructureID" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/cbctimetableslots" name="TestClearClassDay_EmptyClassID" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="30" failures="0" skipped="7" time="5.424000" name="somotracker/backend/internal/classteachers" timestamp="2026-08-10T16:51:50+03:00">
+	<testsuite tests="30" failures="0" skipped="7" time="5.533000" name="somotracker/backend/internal/classteachers" timestamp="2026-08-11T20:07:56+03:00">
 		<properties>
 			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
 		</properties>
@@ -864,7 +906,7 @@
 		<testcase classname="somotracker/backend/internal/classteachers" name="TestDelete_NotFound" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/classteachers" name="TestCreate_RepoReturnsAlreadyExists" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="10" failures="0" skipped="3" time="4.917000" name="somotracker/backend/internal/cohortpositions" timestamp="2026-08-10T16:51:51+03:00">
+	<testsuite tests="10" failures="0" skipped="3" time="4.979000" name="somotracker/backend/internal/cohortpositions" timestamp="2026-08-11T20:07:57+03:00">
 		<properties>
 			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
 		</properties>
@@ -885,12 +927,12 @@
 		<testcase classname="somotracker/backend/internal/cohortpositions" name="TestListByClassTerm_Empty" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/cohortpositions" name="TestListByGradeTerm_EmptyParams" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/config" timestamp="2026-08-10T16:51:52+03:00">
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/config" timestamp="2026-08-11T20:07:58+03:00">
 		<properties>
 			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="94" failures="0" skipped="1" time="4.406000" name="somotracker/backend/internal/curriculum" timestamp="2026-08-10T16:51:52+03:00">
+	<testsuite tests="94" failures="0" skipped="1" time="5.026000" name="somotracker/backend/internal/curriculum" timestamp="2026-08-11T20:07:58+03:00">
 		<properties>
 			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
 		</properties>
@@ -991,7 +1033,7 @@
 		<testcase classname="somotracker/backend/internal/curriculum" name="TestUpdateLearningArea_HappyPath" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/curriculum" name="TestDeleteLearningArea_HappyPath" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="5" failures="0" skipped="4" time="6.008000" name="somotracker/backend/internal/database" timestamp="2026-08-10T16:51:53+03:00">
+	<testsuite tests="5" failures="0" skipped="4" time="5.568000" name="somotracker/backend/internal/database" timestamp="2026-08-11T20:07:59+03:00">
 		<properties>
 			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
 		</properties>
@@ -1007,14 +1049,14 @@
 		<testcase classname="somotracker/backend/internal/database" name="TestMigrationsIntegration_PartialUniqueIndexes_M18_to_M22" time="0.000000">
 			<skipped message="=== RUN   TestMigrationsIntegration_PartialUniqueIndexes_M18_to_M22&#xA;    migration_test.go:821: skipping integration test in short mode&#xA;--- SKIP: TestMigrationsIntegration_PartialUniqueIndexes_M18_to_M22 (0.00s)&#xA;"></skipped>
 		</testcase>
-		<testcase classname="somotracker/backend/internal/database" name="TestMigrationStaticAnalysis_ForeignKeyUniqueConstraints" time="1.110000"></testcase>
+		<testcase classname="somotracker/backend/internal/database" name="TestMigrationStaticAnalysis_ForeignKeyUniqueConstraints" time="0.950000"></testcase>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/database/testhelper" timestamp="2026-08-10T16:51:53+03:00">
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/database/testhelper" timestamp="2026-08-11T20:07:59+03:00">
 		<properties>
 			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="19" failures="0" skipped="7" time="4.382000" name="somotracker/backend/internal/health" timestamp="2026-08-10T16:51:54+03:00">
+	<testsuite tests="19" failures="0" skipped="7" time="5.165000" name="somotracker/backend/internal/health" timestamp="2026-08-11T20:07:59+03:00">
 		<properties>
 			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
 		</properties>
@@ -1052,7 +1094,7 @@
 		<testcase classname="somotracker/backend/internal/health" name="TestGetProfileByStudent" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/health" name="TestGetStudentHealth" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="48" failures="0" skipped="10" time="3.984000" name="somotracker/backend/internal/imports" timestamp="2026-08-10T16:51:55+03:00">
+	<testsuite tests="48" failures="0" skipped="10" time="5.230000" name="somotracker/backend/internal/imports" timestamp="2026-08-11T20:08:00+03:00">
 		<properties>
 			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
 		</properties>
@@ -1087,7 +1129,7 @@
 			<skipped message="=== RUN   TestPgRepository_UpdateJobStatus&#xA;    repository_test.go:220: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_UpdateJobStatus (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/imports" name="TestCreateJob_SingleSmallChunk" time="0.010000"></testcase>
-		<testcase classname="somotracker/backend/internal/imports" name="TestCreateJob_ExactlyDivisibleMultiChunk" time="0.020000"></testcase>
+		<testcase classname="somotracker/backend/internal/imports" name="TestCreateJob_ExactlyDivisibleMultiChunk" time="0.030000"></testcase>
 		<testcase classname="somotracker/backend/internal/imports" name="TestCreateJob_NonDivisibleMultiChunk" time="0.020000"></testcase>
 		<testcase classname="somotracker/backend/internal/imports" name="TestCreateJob_EmptyRows" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/imports" name="TestCreateJob_Idempotency_FirstCreatesSecondReplays" time="0.000000"></testcase>
@@ -1111,7 +1153,7 @@
 		<testcase classname="somotracker/backend/internal/imports" name="TestCreateJob_NoActiveJob_Succeeds" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/imports" name="TestCreateJob_ActiveJobExists_ReturnsImportInProgress" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/imports" name="TestCreateJob_AfterTerminalJob_Succeeds" time="0.000000"></testcase>
-		<testcase classname="somotracker/backend/internal/imports" name="TestCreateJob_ConcurrentRaces_SingleWinner" time="0.010000"></testcase>
+		<testcase classname="somotracker/backend/internal/imports" name="TestCreateJob_ConcurrentRaces_SingleWinner" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/imports" name="TestCreateJob_CancellingJob_BlocksNewSubmissions" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/imports" name="TestCancelJob_JobIsProcessing_Succeeds" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/imports" name="TestCancelJob_JobIsTerminal_ReturnsNotCancellable" time="0.000000"></testcase>
@@ -1125,7 +1167,7 @@
 		<testcase classname="somotracker/backend/internal/imports" name="TestCleanupExpiredData_NeverDeletesJobRows" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/imports" name="TestLastProgressAt_UpdatesOnChunkCompletion" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="17" failures="0" skipped="3" time="4.114000" name="somotracker/backend/internal/invitations" timestamp="2026-08-10T16:51:56+03:00">
+	<testsuite tests="17" failures="0" skipped="3" time="5.332000" name="somotracker/backend/internal/invitations" timestamp="2026-08-11T20:08:00+03:00">
 		<properties>
 			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
 		</properties>
@@ -1138,7 +1180,7 @@
 		<testcase classname="somotracker/backend/internal/invitations" name="TestPgRepository_RevokeInvitation" time="0.000000">
 			<skipped message="=== RUN   TestPgRepository_RevokeInvitation&#xA;    repository_test.go:188: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_RevokeInvitation (0.00s)&#xA;"></skipped>
 		</testcase>
-		<testcase classname="somotracker/backend/internal/invitations" name="TestHandler_ListInvitations_HappyPath" time="0.010000"></testcase>
+		<testcase classname="somotracker/backend/internal/invitations" name="TestHandler_ListInvitations_HappyPath" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/invitations" name="TestHandler_ListInvitations_WithFilters" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/invitations" name="TestHandler_ListInvitations_EmptyResults" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/invitations" name="TestStaffInviteImporter_InsertOne_HappyPath" time="0.000000"></testcase>
@@ -1153,7 +1195,12 @@
 		<testcase classname="somotracker/backend/internal/invitations" name="TestListInvitations_InvalidLimit" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/invitations" name="TestListInvitations_NegativeOffset" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="16" failures="0" skipped="5" time="4.268000" name="somotracker/backend/internal/members" timestamp="2026-08-10T16:51:56+03:00">
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/logger" timestamp="2026-08-11T20:08:00+03:00">
+		<properties>
+			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
+		</properties>
+	</testsuite>
+	<testsuite tests="16" failures="0" skipped="5" time="5.298000" name="somotracker/backend/internal/members" timestamp="2026-08-11T20:08:01+03:00">
 		<properties>
 			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
 		</properties>
@@ -1176,7 +1223,7 @@
 		<testcase classname="somotracker/backend/internal/members" name="TestHandler_ListMembers_WithSearch" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/members" name="TestHandler_ListMembers_MissingRole" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/members" name="TestHandler_ListMembers_InvalidRole" time="0.000000"></testcase>
-		<testcase classname="somotracker/backend/internal/members" name="TestHandler_ListMembers_EmptyResults" time="0.010000"></testcase>
+		<testcase classname="somotracker/backend/internal/members" name="TestHandler_ListMembers_EmptyResults" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/members" name="TestHandler_ListMembers_Pagination" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/members" name="TestListMembers_HappyPath" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/members" name="TestListMembers_WithSearch" time="0.000000"></testcase>
@@ -1184,7 +1231,7 @@
 		<testcase classname="somotracker/backend/internal/members" name="TestListMembers_InvalidLimit" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/members" name="TestListMembers_NegativeOffset" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="4" failures="0" time="4.177000" name="somotracker/backend/internal/middleware" timestamp="2026-08-10T16:51:57+03:00">
+	<testsuite tests="31" failures="0" time="5.799000" name="somotracker/backend/internal/middleware" timestamp="2026-08-11T20:08:01+03:00">
 		<properties>
 			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
 		</properties>
@@ -1192,8 +1239,35 @@
 		<testcase classname="somotracker/backend/internal/middleware" name="TestRequireAuth_WithSession" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/middleware" name="TestRequireRole_NoSession" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/middleware" name="TestRequireRole_ForbiddenRole" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/middleware" name="TestCSRFGuard/Safe_GET_request_bypasses_CSRF_check" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/middleware" name="TestCSRFGuard/Public_auth_endpoint_bypasses_CSRF_check_on_POST" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/middleware" name="TestCSRFGuard/POST_fails_with_unauthorized_Origin_header" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/middleware" name="TestCSRFGuard/POST_passes_with_valid_Origin_header" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/middleware" name="TestCSRFGuard/POST_fails_when_CSRF_tokens_are_completely_missing" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/middleware" name="TestCSRFGuard/POST_fails_on_token_mismatch" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/middleware" name="TestCSRFGuard/POST_passes_with_matching_CSRF_cookie_and_header" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/middleware" name="TestCSRFGuard" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/middleware" name="TestDeviceFingerprinter/Generates_correct_deterministic_SHA-256_fingerprint" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/middleware" name="TestDeviceFingerprinter/Handles_missing_headers_gracefully_without_panicking" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/middleware" name="TestDeviceFingerprinter/Different_headers_produce_distinct_fingerprints" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/middleware" name="TestDeviceFingerprinter" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/middleware" name="TestPanicRecover/Normal_requests_pass_through" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/middleware" name="TestPanicRecover/Panics_are_caught_and_converted_to_500_Internal_Server_Error" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/middleware" name="TestPanicRecover/Server_remains_healthy_after_a_panic" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/middleware" name="TestPanicRecover" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/middleware" name="TestRateLimiter_BotScenarios/Scenario_1:_Concurrency_Burst_-_50_parallel_requests_within_1ms" time="0.020000"></testcase>
+		<testcase classname="somotracker/backend/internal/middleware" name="TestRateLimiter_BotScenarios/Scenario_2:_IP_Hopping_-_Bot_changes_IP_but_keeps_same_User_ID_(Tier_2_Catch)" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/middleware" name="TestRateLimiter_BotScenarios/Scenario_3:_Sliding_Window_Precision_-_Fast_recovery_test" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/middleware" name="TestRateLimiter_BotScenarios" time="0.030000"></testcase>
+		<testcase classname="somotracker/backend/internal/middleware" name="TestSecurityHeaders/GET_/api/*_gets_baseline_headers_and_CSP" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/middleware" name="TestSecurityHeaders/POST_/api/*_gets_baseline_headers_and_CSP" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/middleware" name="TestSecurityHeaders/Exact_/health_route_gets_baseline_headers_and_CSP" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/middleware" name="TestSecurityHeaders/Route_/apipublic_without_trailing_slash_does_not_get_API_CSP" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/middleware" name="TestSecurityHeaders/Non-API_web_route_gets_baseline_headers_but_no_CSP" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/middleware" name="TestSecurityHeaders/404_Not_Found_routes_still_receive_baseline_security_headers" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/middleware" name="TestSecurityHeaders" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="47" failures="0" skipped="3" time="3.787000" name="somotracker/backend/internal/parents" timestamp="2026-08-10T16:51:58+03:00">
+	<testsuite tests="47" failures="0" skipped="3" time="5.203000" name="somotracker/backend/internal/parents" timestamp="2026-08-11T20:08:02+03:00">
 		<properties>
 			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
 		</properties>
@@ -1251,7 +1325,7 @@
 		<testcase classname="somotracker/backend/internal/parents" name="TestService_UnlinkStudent/cross-tenant" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/parents" name="TestService_UnlinkStudent" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="11" failures="0" skipped="1" time="3.545000" name="somotracker/backend/internal/reports" timestamp="2026-08-10T16:51:59+03:00">
+	<testsuite tests="11" failures="0" skipped="1" time="5.293000" name="somotracker/backend/internal/reports" timestamp="2026-08-11T20:08:03+03:00">
 		<properties>
 			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
 		</properties>
@@ -1269,7 +1343,7 @@
 		<testcase classname="somotracker/backend/internal/reports" name="TestGetTermReport_EmptyAttendance" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/reports" name="TestGetTermReport_NilAssessmentData" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="22" failures="0" time="4.046000" name="somotracker/backend/internal/slug" timestamp="2026-08-10T16:51:59+03:00">
+	<testsuite tests="22" failures="0" time="4.949000" name="somotracker/backend/internal/slug" timestamp="2026-08-11T20:08:04+03:00">
 		<properties>
 			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
 		</properties>
@@ -1296,7 +1370,7 @@
 		<testcase classname="somotracker/backend/internal/slug" name="TestValidate/digits_only" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/slug" name="TestValidate" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="54" failures="0" skipped="4" time="3.839000" name="somotracker/backend/internal/students" timestamp="2026-08-10T16:52:00+03:00">
+	<testsuite tests="54" failures="0" skipped="4" time="5.211000" name="somotracker/backend/internal/students" timestamp="2026-08-11T20:08:05+03:00">
 		<properties>
 			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
 		</properties>
@@ -1313,7 +1387,7 @@
 			<skipped message="=== RUN   TestPgRepository_Delete&#xA;    repository_test.go:166: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_Delete (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/students" name="TestBulkImport_ZeroRows_ReturnsInvalidInput" time="0.000000"></testcase>
-		<testcase classname="somotracker/backend/internal/students" name="TestBulkImport_ExactlyMaxImportRows_Succeeds" time="0.070000"></testcase>
+		<testcase classname="somotracker/backend/internal/students" name="TestBulkImport_ExactlyMaxImportRows_Succeeds" time="0.080000"></testcase>
 		<testcase classname="somotracker/backend/internal/students" name="TestBulkImport_ExceedsMaxImportRows_ReturnsRowLimitExceeded" time="0.050000"></testcase>
 		<testcase classname="somotracker/backend/internal/students" name="TestBulkImport_WellBelowLimit_Succeeds" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/students" name="TestStudentImporter_JobType" time="0.000000"></testcase>
@@ -1363,7 +1437,7 @@
 		<testcase classname="somotracker/backend/internal/students" name="TestUpdateStudent" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/students" name="TestDeleteStudent" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="25" failures="0" skipped="7" time="3.968000" name="somotracker/backend/internal/teacherdeliverysummaries" timestamp="2026-08-10T16:52:01+03:00">
+	<testsuite tests="25" failures="0" skipped="7" time="5.028000" name="somotracker/backend/internal/teacherdeliverysummaries" timestamp="2026-08-11T20:08:05+03:00">
 		<properties>
 			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
 		</properties>
@@ -1407,7 +1481,7 @@
 		<testcase classname="somotracker/backend/internal/teacherdeliverysummaries" name="TestGetByTeacherTerm_EmptyInputs" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/teacherdeliverysummaries" name="TestGetByTeacherTerm_NotFound" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="11" failures="0" skipped="3" time="4.209000" name="somotracker/backend/internal/teacherperformance" timestamp="2026-08-10T16:52:01+03:00">
+	<testsuite tests="11" failures="0" skipped="3" time="4.976000" name="somotracker/backend/internal/teacherperformance" timestamp="2026-08-11T20:08:06+03:00">
 		<properties>
 			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
 		</properties>
@@ -1429,7 +1503,7 @@
 		<testcase classname="somotracker/backend/internal/teacherperformance" name="TestGetByTeacherClassSubject_Found" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/teacherperformance" name="TestGetByTeacherClassSubject_NotFound" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="16" failures="0" skipped="4" time="4.354000" name="somotracker/backend/internal/teachers" timestamp="2026-08-10T16:52:02+03:00">
+	<testsuite tests="16" failures="0" skipped="4" time="5.013000" name="somotracker/backend/internal/teachers" timestamp="2026-08-11T20:08:07+03:00">
 		<properties>
 			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
 		</properties>
@@ -1458,7 +1532,7 @@
 		<testcase classname="somotracker/backend/internal/teachers" name="TestDelete_EmptyUserID" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/teachers" name="TestDelete_NotFound" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="25" failures="0" skipped="7" time="4.806000" name="somotracker/backend/internal/teacherworkloadsummaries" timestamp="2026-08-10T16:52:02+03:00">
+	<testsuite tests="25" failures="0" skipped="7" time="5.074000" name="somotracker/backend/internal/teacherworkloadsummaries" timestamp="2026-08-11T20:08:07+03:00">
 		<properties>
 			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
 		</properties>
@@ -1502,7 +1576,7 @@
 		<testcase classname="somotracker/backend/internal/teacherworkloadsummaries" name="TestGetByTeacherYear_EmptyInputs" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/teacherworkloadsummaries" name="TestGetByTeacherYear_NotFound" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="59" failures="0" skipped="20" time="4.834000" name="somotracker/backend/internal/timetablestructure" timestamp="2026-08-10T16:52:03+03:00">
+	<testsuite tests="59" failures="0" skipped="20" time="4.908000" name="somotracker/backend/internal/timetablestructure" timestamp="2026-08-11T20:08:08+03:00">
 		<properties>
 			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
 		</properties>
@@ -1606,12 +1680,12 @@
 		<testcase classname="somotracker/backend/internal/timetablestructure" name="TestParseTimeMinutes_ShortString" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/timetablestructure" name="TestFormatMinutes" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/utils" timestamp="2026-08-10T16:52:03+03:00">
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/utils" timestamp="2026-08-11T20:08:08+03:00">
 		<properties>
 			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/xerrors" timestamp="2026-08-10T16:52:03+03:00">
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/xerrors" timestamp="2026-08-11T20:08:08+03:00">
 		<properties>
 			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
 		</properties>

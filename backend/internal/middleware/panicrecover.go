@@ -6,6 +6,6 @@ import (
 )
 
 // NewRecover handles panic recovery.
-func newPanicRecover() fiber.Handler {
+func NewPanicRecover() fiber.Handler {
 	return fibermiddleware.New()
 }

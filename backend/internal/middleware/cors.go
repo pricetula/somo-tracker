@@ -10,7 +10,7 @@ import (
 // newCORS returns the CORS middleware.
 // It must be registered before any
 // other middleware so preflight OPTIONS requests are handled first.
-func newCORS(cfg config.Config) fiber.Handler {
+func NewCORS(cfg config.Config) fiber.Handler {
 	return cors.New(cors.Config{
 		AllowOrigins:     cfg.AllowedOrigins,
 		AllowMethods:     "GET,POST,PUT,DELETE,PATCH,OPTIONS",

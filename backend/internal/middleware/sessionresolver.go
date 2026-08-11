@@ -29,7 +29,7 @@ type SessionInfo struct {
 }
 
 // newSessionResolver loads and verifies sessions against Redis and Postgres.
-func newSessionResolver(pools *database.Pools) fiber.Handler {
+func NewSessionResolver(pools *database.Pools) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		if !strings.HasPrefix(c.Path(), "/api/") {
 			return c.Next()

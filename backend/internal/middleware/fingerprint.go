@@ -7,7 +7,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-func newDeviceFingerprinter() fiber.Handler {
+func NewDeviceFingerprinter() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		h := sha256.New()
 		h.Write([]byte(c.IP()))

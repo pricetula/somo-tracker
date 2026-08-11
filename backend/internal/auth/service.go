@@ -40,6 +40,11 @@ type Service struct {
 	schoolCreator SchoolCreator
 }
 
+// GetRedis returns the raw Redis client for middleware use.
+func (s *Service) GetRedis() *redis.Client {
+	return s.rdb
+}
+
 // NewService creates a new Service with fx lifecycle hooks for Redis.
 func NewService(
 	lc fx.Lifecycle,

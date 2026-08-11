@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"go.uber.org/zap"
@@ -37,7 +38,7 @@ type VerifyPayload struct {
 	Token string `json:"token"`
 }
 
-// VerifyResponse is the response body for POST /api/auth/verify.
+// VerifyResponse is the response body for POST /api/api/auth/verify.
 type VerifyResponse struct {
 	SessionRef string `json:"session_ref"`
 }
@@ -73,14 +74,20 @@ func NewHandler(svc *Service, logger *zap.Logger, cfg config.Config) *Handler {
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	auth := router.Group("/api/auth")
 
-	auth.Post("/discover", h.Discover)
-	auth.Post("/verify", h.Verify)
-	auth.Post("/register", h.Register)
-	auth.Get("/callback", h.MagicLinkCallback)
-	auth.Get("/invite/callback", h.AcceptInvite)
-	auth.Get("/me", h.Me)
-	auth.Delete("/session", h.Logout)
-	auth.Post("/switch-school", middleware.RequireAuth, h.SwitchActiveSchool)
+	// Public endpoints: IP‑based rate limit (stricter than global coarse limiter)
+	public := auth.Group("")
+	public.Use(middleware.NewIPLimiter(h.svc.GetRedis(), 30, time.Minute))
+	public.Post("/discover", h.Discover)
+	public.Post("/verify", h.Verify)
+	public.Post("/register", h.Register)
+
+	// Protected endpoints: user‑based rate limit + auth guard
+	protected := auth.Group("")
+	protected.Use(middleware.NewUserLimiter(h.svc.GetRedis(), 60, time.Minute))
+	protected.Use(middleware.RequireAuth)
+	protected.Get("/me", h.Me)
+	protected.Delete("/session", h.Logout)
+	protected.Post("/switch-school", h.SwitchActiveSchool)
 }
 
 // setSessionCookies sets all three session cookies (session ID, role, school ID).

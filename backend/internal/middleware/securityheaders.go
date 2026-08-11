@@ -6,7 +6,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-func newSecurityHeaders() fiber.Handler {
+func NewSecurityHeaders() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		// 1. Prevent MIME-type sniffing
 		c.Set("X-Content-Type-Options", "nosniff")

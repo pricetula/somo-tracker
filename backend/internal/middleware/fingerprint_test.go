@@ -17,7 +17,7 @@ func TestDeviceFingerprinter(t *testing.T) {
 	app := fiber.New(fiber.Config{
 		ProxyHeader: fiber.HeaderXForwardedFor,
 	})
-	app.Use(newDeviceFingerprinter())
+	app.Use(NewDeviceFingerprinter())
 
 	var capturedFingerprint string
 	app.Get("/test", func(c *fiber.Ctx) error {

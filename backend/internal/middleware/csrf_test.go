@@ -18,7 +18,7 @@ func TestCSRFGuard(t *testing.T) {
 	}
 
 	app := fiber.New()
-	app.Use(newCSRFGuard(cfg))
+	app.Use(NewCSRFGuard(cfg))
 
 	app.Get("/api/v1/data", func(c *fiber.Ctx) error { return c.SendString("read ok") })
 	app.Post("/api/v1/data", func(c *fiber.Ctx) error { return c.SendString("write ok") })

@@ -8,7 +8,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-func newCSRFGuard(cfg config.Config) fiber.Handler {
+func NewCSRFGuard(cfg config.Config) fiber.Handler {
 	ignoredPrefixes := []string{
 		"/api/auth/discover",
 		"/api/auth/verify",

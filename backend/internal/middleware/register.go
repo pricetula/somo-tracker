@@ -11,11 +11,11 @@ import (
 
 // Register mounts all security and context middleware on the Fiber app in strict execution order.
 func Register(app *fiber.App, pools *database.Pools, cfg config.Config) {
-	app.Use(newPanicRecover())
-	app.Use(newCORS(cfg))
-	app.Use(newSecurityHeaders())
-	app.Use(newCSRFGuard(cfg))
-	app.Use(newRateLimiter(pools.Redis, RateLimiterConfig{
+	app.Use(NewPanicRecover())
+	app.Use(NewCORS(cfg))
+	app.Use(NewSecurityHeaders())
+	app.Use(NewCSRFGuard(cfg))
+	app.Use(NewRateLimiter(pools.Redis, RateLimiterConfig{
 		Limit:  300,
 		Window: 1 * time.Minute,
 		Prefix: "ip_coarse",
@@ -23,8 +23,8 @@ func Register(app *fiber.App, pools *database.Pools, cfg config.Config) {
 			return c.IP()
 		},
 	}))
-	app.Use(newSessionResolver(pools))
-	app.Use(newRateLimiter(pools.Redis, RateLimiterConfig{
+	app.Use(NewSessionResolver(pools))
+	app.Use(NewRateLimiter(pools.Redis, RateLimiterConfig{
 		Limit:  60,
 		Window: 1 * time.Minute,
 		Prefix: "user_fine",
@@ -35,5 +35,5 @@ func Register(app *fiber.App, pools *database.Pools, cfg config.Config) {
 			return "" // Skips fine rate limiter if user is unauthenticated
 		},
 	}))
-	app.Use(newDeviceFingerprinter())
+	app.Use(NewDeviceFingerprinter())
 }

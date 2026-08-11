@@ -8,7 +8,6 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
-	"go.uber.org/fx"
 
 	"somotracker/backend/internal/config"
 )
@@ -61,6 +60,3 @@ func Connect(cfg config.Config) (*Pools, error) {
 
 	return &Pools{PG: pool, Redis: rdb}, nil
 }
-
-// Module is an fx-compatible provider for *Pools.
-var Module = fx.Provide(Connect)

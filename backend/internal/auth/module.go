@@ -12,6 +12,7 @@ import "go.uber.org/fx"
 // *http.Client is provided by utils.Module.
 var Module = fx.Module("auth",
 	fx.Provide(
+		// 1. Interfaces use fx.Annotate + fx.As
 		fx.Annotate(
 			NewStytchAdapter,
 			fx.As(new(IdentityProvider)),
@@ -20,6 +21,8 @@ var Module = fx.Module("auth",
 			NewSqlcRepository,
 			fx.As(new(Repository)),
 		),
+
+		// 2. Concrete Structs (Service & Handler) are provided directly
 		NewService,
 		NewHandler,
 	),

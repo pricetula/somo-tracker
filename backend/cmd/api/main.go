@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"somotracker/backend/internal/auth"
+	"somotracker/backend/internal/cbcschools"
 	"somotracker/backend/internal/config"
 	"somotracker/backend/internal/database"
 	"somotracker/backend/internal/logger"
@@ -20,6 +21,7 @@ func main() {
 		database.Module,
 
 		// Feature modules
+		cbcschools.Module,
 		auth.Module,
 
 		// Entrypoint – must be wrapped in fx.Invoke

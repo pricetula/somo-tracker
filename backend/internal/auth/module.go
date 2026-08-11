@@ -1,6 +1,10 @@
 package auth
 
-import "go.uber.org/fx"
+import (
+	"go.uber.org/fx"
+
+	"somotracker/backend/internal/cbcschools"
+)
 
 // Module is an fx-compatible module for the auth domain (requirement 15).
 // It provides all auth dependencies: IdentityProvider (StytchAdapter),
@@ -10,6 +14,7 @@ import "go.uber.org/fx"
 // *database.Pools is provided by database.Module.
 // *zap.Logger is expected to be provided by the application root.
 // *http.Client is provided by utils.Module.
+// SchoolCreator is provided by cbcschools.Module.
 var Module = fx.Module("auth",
 	fx.Provide(
 		// 1. Interfaces use fx.Annotate + fx.As
@@ -21,8 +26,13 @@ var Module = fx.Module("auth",
 			NewSqlcRepository,
 			fx.As(new(Repository)),
 		),
+		// 2. SchoolCreator from cbcschools.Service
+		fx.Annotate(
+			func(svc *cbcschools.Service) SchoolCreator { return svc },
+			fx.As(new(SchoolCreator)),
+		),
 
-		// 2. Concrete Structs (Service & Handler) are provided directly
+		// 3. Concrete Structs (Service & Handler) are provided directly
 		NewService,
 		NewHandler,
 	),

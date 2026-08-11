@@ -42,18 +42,12 @@ func main() {
 			// Register auth routes
 			authhandler.RegisterRoutes(app)
 
-			// Start server
-			port := cfg.Port
-			if port == "" {
-				port = "3000"
-			}
-
 			// Lifecycle hooks for non-blocking Fiber server
 			lc.Append(fx.Hook{
 				OnStart: func(ctx context.Context) error {
-					log.Info("starting server", zap.String("port", port))
+					log.Info("starting server", zap.String("port", cfg.Port))
 					go func() {
-						if err := app.Listen(":" + port); err != nil {
+						if err := app.Listen(":" + cfg.Port); err != nil {
 							log.Error("server listen failed", zap.Error(err))
 						}
 					}()

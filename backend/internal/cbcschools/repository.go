@@ -200,3 +200,26 @@ func (r *PgRepository) GetByID(ctx context.Context, id string) (*School, error) 
 	}
 	return &s, nil
 }
+
+// GetByTenantAndName retrieves a school within a tenant by its name.
+// Returns ErrNotFound when the tenant has no school with that name.
+// Used by the auth registration flow to reuse an existing school instead of
+// creating a duplicate row when a second user registers for an existing tenant.
+func (r *PgRepository) GetByTenantAndName(ctx context.Context, tenantID, name string) (*School, error) {
+	const query = `
+		SELECT id, tenant_id, name, created_at
+		FROM cbc_schools
+		WHERE tenant_id = $1 AND name = $2
+		ORDER BY created_at ASC
+		LIMIT 1
+	`
+	var s School
+	err := r.pool.QueryRow(ctx, query, tenantID, name).Scan(&s.ID, &s.TenantID, &s.Name, &s.CreatedAt)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("cbcschools.Repository.GetByTenantAndName: %w", ErrNotFound)
+		}
+		return nil, fmt.Errorf("cbcschools.Repository.GetByTenantAndName: %w", err)
+	}
+	return &s, nil
+}

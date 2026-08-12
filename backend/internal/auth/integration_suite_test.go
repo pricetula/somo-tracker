@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/rand"
 	"net/http"
@@ -15,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"github.com/testcontainers/testcontainers-go"
@@ -799,6 +801,25 @@ func (a *schoolCreatorAdapter) CreateSchool(ctx context.Context, tenantID string
 		}
 	}
 
+	return id, nil
+}
+
+// GetSchoolByName implements the SchoolCreator contract for integration tests:
+// returns the school ID for a tenant+name, or ErrNotFound.
+func (a *schoolCreatorAdapter) GetSchoolByName(ctx context.Context, tenantID, name string) (string, error) {
+	var id string
+	err := a.pool.QueryRow(ctx, `
+		SELECT id FROM cbc_schools
+		WHERE tenant_id = $1 AND name = $2
+		ORDER BY created_at ASC
+		LIMIT 1
+	`, tenantID, name).Scan(&id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", ErrNotFound
+		}
+		return "", err
+	}
 	return id, nil
 }
 

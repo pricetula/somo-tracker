@@ -198,7 +198,43 @@ func TestPgRepository_CreateUserSessionAndGetSession(t *testing.T) {
 	require.NotNil(t, session)
 	require.Equal(t, userID, session.UserID)
 	require.Equal(t, tenantID, session.TenantID)
-	require.Equal(t, sessionToken, session.Token)
+
+	// C1: the raw token must never be persisted — only the token_hash. The
+	// lookup above succeeds via token_hash, proving the hash is what matters.
+	require.Empty(t, session.Token, "raw session token must not be stored in the sessions.token column")
+}
+
+// TestPgRepository_CreateSessionOnly_NoRawToken covers C1 for the existing-user
+// login path (CreateSessionOnly): sessions.token stays NULL after insert.
+func TestPgRepository_CreateSessionOnly_NoRawToken(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+	ctx := context.Background()
+	pool, cleanup := startPG(t)
+	defer cleanup()
+	applyMigration(t, pool, "000001_initial_schema.up.sql")
+
+	tenantID, _, userID := seedTenantSchoolUser(t, pool)
+	repo := newRepo(pool)
+
+	sessionToken := "session-token-noraw"
+	err := repo.CreateSessionOnly(ctx, CreateSessionParams{
+		Token:              sessionToken,
+		UserID:             userID,
+		TenantID:           tenantID,
+		StytchMemberID:     "stytch-member-2",
+		StytchOrgID:        "stytch-org-2",
+		StytchSessionToken: "stytch-session-token-2",
+		DeviceFingerprint:  "fp",
+		ExpiresAt:          time.Now().Add(time.Hour),
+	})
+	require.NoError(t, err)
+
+	var rawToken *string
+	err = pool.QueryRow(ctx, `SELECT token FROM sessions WHERE token_hash = encode(digest($1::text, 'sha256'), 'hex')`, sessionToken).Scan(&rawToken)
+	require.NoError(t, err)
+	require.Nil(t, rawToken, "sessions.token must remain NULL — only the hash is stored")
 }
 
 func TestPgRepository_GetSessionByToken_NotFound(t *testing.T) {
@@ -213,6 +249,41 @@ func TestPgRepository_GetSessionByToken_NotFound(t *testing.T) {
 	repo := newRepo(pool)
 
 	_, err := repo.GetSessionByToken(ctx, "non-existent-token")
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrNotFound)
+}
+
+// TestPgRepository_GetInvitationByEmail_CaseInsensitive covers B7: Stytch
+// normalizes member emails to lowercase while the invitations importer stores
+// the spreadsheet's original case — the lookup must match case-insensitively.
+func TestPgRepository_GetInvitationByEmail_CaseInsensitive(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+	ctx := context.Background()
+	pool, cleanup := startPG(t)
+	defer cleanup()
+	applyMigration(t, pool, "000001_initial_schema.up.sql")
+
+	tenantID, schoolID, _ := seedTenantSchoolUser(t, pool)
+
+	// Stored with mixed case (as a spreadsheet might provide it).
+	_, err := pool.Exec(ctx, `
+		INSERT INTO invitations (tenant_id, school_id, email, role, status, token, expires_at, full_name)
+		VALUES ($1, $2, 'John.Doe@School.com', 'TEACHER', 'pending', 'invite-token-1', NOW() + INTERVAL '1 day', 'John Doe')
+	`, tenantID, schoolID)
+	require.NoError(t, err)
+
+	repo := newRepo(pool)
+
+	// Looked up with the lowercase form Stytch returns.
+	inv, err := repo.GetInvitationByEmail(ctx, "john.doe@school.com")
+	require.NoError(t, err)
+	require.NotNil(t, inv)
+	require.Equal(t, "John.Doe@School.com", inv.Email)
+
+	// A non-existent email still returns ErrNotFound.
+	_, err = repo.GetInvitationByEmail(ctx, "nobody@school.com")
 	require.Error(t, err)
 	require.ErrorIs(t, err, ErrNotFound)
 }

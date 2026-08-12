@@ -202,6 +202,19 @@ func (s *Service) GetSchool(ctx context.Context, id, tenantID string) (*School, 
 	return school, nil
 }
 
+// GetSchoolByName retrieves a school within a tenant by its name.
+// Returns ErrNotFound when the tenant has no school with that name.
+func (s *Service) GetSchoolByName(ctx context.Context, tenantID, name string) (*School, error) {
+	if tenantID == "" || name == "" {
+		return nil, fmt.Errorf("cbcschools.Service.GetSchoolByName: %w", ErrInvalidInput)
+	}
+	school, err := s.repo.GetByTenantAndName(ctx, tenantID, name)
+	if err != nil {
+		return nil, fmt.Errorf("cbcschools.Service.GetSchoolByName: %w", err)
+	}
+	return school, nil
+}
+
 // SeedCurriculum seeds school with default CBE/ CBC learning areas
 func (s *Service) SeedCurriculum(ctx context.Context, tenantID string, schoolID string) error {
 	// Seed curriculum automatically for the new school

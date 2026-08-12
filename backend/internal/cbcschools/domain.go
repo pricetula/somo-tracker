@@ -21,6 +21,7 @@ var (
 type Repository interface {
 	Create(ctx context.Context, tenantID string, name string) (string, error)
 	GetByID(ctx context.Context, id string) (*School, error)
+	GetByTenantAndName(ctx context.Context, tenantID, name string) (*School, error)
 	ListByTenantID(ctx context.Context, tenantID, userID string) ([]SchoolWithMemberCount, error)
 	Update(ctx context.Context, school SchoolUpdateFields) error
 	Delete(ctx context.Context, id string) error

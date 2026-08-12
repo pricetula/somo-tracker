@@ -27,6 +27,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"net/http"
 
 	"github.com/gofiber/fiber/v2"
 
@@ -42,6 +43,16 @@ var (
 	ErrUnauthorized  = xerrors.ErrUnauthorized
 	ErrForbidden     = xerrors.ErrForbidden
 	ErrConflict      = xerrors.ErrConflict
+
+	// ErrDeviceFingerprintMismatch is returned when a request presents a
+	// device fingerprint different from the one recorded when the session was
+	// created. Mapped to 401 so the client re-authenticates — a stolen cookie
+	// cannot be replayed from a different device (C5).
+	ErrDeviceFingerprintMismatch = &xerrors.DomainError{
+		Code:    "device_fingerprint_mismatch",
+		Status:  http.StatusUnauthorized,
+		Message: "session is bound to a different device; re-authenticate to continue",
+	}
 )
 
 // HTTPError is the single place where errors are mapped to HTTP status

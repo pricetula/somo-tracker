@@ -26,6 +26,7 @@ var (
 
 	// Auth-specific sentinels.
 	ErrExpiredToken              = xerrors.Unauthorized("expired_token")             // maps to 401, triggers frontend eviction
+	ErrSessionRefExpired         = xerrors.Unauthorized("session_ref_expired")       // maps to 401 — IST already consumed/never cached
 	ErrMFARequired               = xerrors.Unauthorized("mfa_required")              // maps to 401
 	ErrOrgAlreadyExists          = xerrors.Conflict("org_already_exists")            // maps to 409
 	ErrJITProvisioningNotAllowed = xerrors.Forbidden("jit_provisioning_not_allowed") // maps to 403
@@ -101,6 +102,20 @@ func (p *RegistrationPayload) Validate() error {
 	}
 	if !uuidV4Regex.MatchString(p.SessionRef) {
 		return &ValidationError{Err: ErrInvalidInput, Message: "session_ref must be a valid UUID v4"}
+	}
+
+	// FullName is forwarded to Stytch (CreateMember) and stored on users.full_name.
+	// Empty or unbounded names would create junk identity records and could trip
+	// Stytch's own length limits with a confusing 500 — validate here instead.
+	p.FullName = strings.TrimSpace(p.FullName)
+	if p.FullName == "" {
+		return &ValidationError{Err: ErrInvalidInput, Message: "full_name is required"}
+	}
+	if len([]rune(p.FullName)) > 255 {
+		return &ValidationError{Err: ErrInvalidInput, Message: "full_name must be at most 255 characters"}
+	}
+	if !isPrintableUTF8(p.FullName) {
+		return &ValidationError{Err: ErrInvalidInput, Message: "full_name must contain only printable UTF-8 characters"}
 	}
 
 	return nil
@@ -367,8 +382,13 @@ type MeInfo struct {
 // The CreateSchool method matches cbcschools.Service.CreateSchool so that the
 // full service pipeline (curriculum seeding, creator enrollment, active school)
 // is used instead of a bare repository insert.
+//
+// GetSchoolByName returns the school ID for a school within a tenant, or
+// ErrNotFound when no such school exists. Errors are translated to auth's own
+// sentinels by the adapter in module.go.
 type SchoolCreator interface {
 	CreateSchool(ctx context.Context, tenantID string, name string, role string, creatorUserID ...string) (string, error)
+	GetSchoolByName(ctx context.Context, tenantID, name string) (string, error)
 }
 
 // StytchOrgIDKey is the context key used to pass the stytch_org_id through
@@ -382,6 +402,8 @@ func ErrorToCode(err error) string {
 		return "invalid_input"
 	case errors.Is(err, ErrExpiredToken):
 		return "expired_token"
+	case errors.Is(err, ErrSessionRefExpired):
+		return "session_ref_expired"
 	case errors.Is(err, ErrMFARequired):
 		return "mfa_required"
 	case errors.Is(err, ErrOrgAlreadyExists):

@@ -2,15 +2,18 @@ package main
 
 import (
 	"context"
+	"errors"
+
+	"github.com/gofiber/fiber/v2"
+	"go.uber.org/fx"
+	"go.uber.org/zap"
+
 	"somotracker/backend/internal/auth"
 	"somotracker/backend/internal/cbcschools"
 	"somotracker/backend/internal/config"
 	"somotracker/backend/internal/database"
 	"somotracker/backend/internal/logger"
-
-	"github.com/gofiber/fiber/v2"
-	"go.uber.org/fx"
-	"go.uber.org/zap"
+	"somotracker/backend/internal/middleware"
 )
 
 func main() {
@@ -28,16 +31,34 @@ func main() {
 		fx.Invoke(func(
 			lc fx.Lifecycle,
 			cfg config.Config,
+			pools *database.Pools,
 			authhandler *auth.Handler,
-			log *zap.Logger, // Injected if provided in your dependencies, or remove if unused
+			log *zap.Logger,
 		) {
-			// Build Fiber app
-			app := fiber.New()
+			// Build Fiber app with the canonical error handler: domain errors are
+			// mapped to the standard {code, message, errors} body via
+			// middleware.HTTPError, while Fiber's built-in 404/405 responses are
+			// preserved.
+			app := fiber.New(fiber.Config{
+				ErrorHandler: func(c *fiber.Ctx, err error) error {
+					if errors.Is(err, fiber.ErrNotFound) || errors.Is(err, fiber.ErrMethodNotAllowed) {
+						return fiber.DefaultErrorHandler(c, err)
+					}
+					return middleware.HTTPError(c, err)
+				},
+				AppName: "somotracker-api",
+			})
 
 			// Health check
 			app.Get("/health", func(c *fiber.Ctx) error {
 				return c.JSON(fiber.Map{"status": "ok"})
 			})
+
+			// Global security + context middleware (session resolver, CSRF guard,
+			// rate limiters, device fingerprint). Must run before routes so that
+			// middleware.RequireAuth (used by protected auth routes) can read the
+			// resolved session from Locals (D1).
+			middleware.Register(app, pools, cfg)
 
 			// Register auth routes
 			authhandler.RegisterRoutes(app)

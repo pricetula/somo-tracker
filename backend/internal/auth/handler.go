@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -21,9 +22,9 @@ import (
 // ============================================================================
 
 const (
-	somoCookieName         = "somo_sid"
-	somoRoleCookieName     = "somo_role"
-	somoSchoolIDCookieName = "somo_school_id"
+	somoCookieName         = middleware.SessionCookieName
+	somoRoleCookieName     = middleware.RoleCookieName
+	somoSchoolIDCookieName = middleware.SchoolIDCookieName
 	cookieMaxAge           = 2592000 // 30 days in seconds
 )
 
@@ -90,14 +91,21 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	auth := router.Group("/api/auth")
 	auth.Delete("/session", h.Logout)
 
-	// Public endpoints: IP‑based rate limit (stricter than global coarse limiter)
-	public := auth.Group("")
-	public.Use(h.ipLimiter)
-	public.Post("/discover", h.Discover)
-	public.Post("/verify", h.Verify)
-	public.Post("/register", h.Register)
-	public.Get("/callback", h.MagicLinkCallback)
-	public.Get("/invite/callback", h.AcceptInvite)
+	// Public endpoints: IP‑based rate limit (stricter than global coarse limiter).
+	// Applied per-route, NOT as group middleware — Fiber group middleware
+	// prefix-matches every route under /api/auth (including the Stytch redirect
+	// targets below), which would silently reintroduce C3: a school behind a
+	// shared NAT egress IP would throttle itself out of login.
+	auth.Post("/discover", h.ipLimiter, h.Discover)
+	auth.Post("/verify", h.ipLimiter, h.Verify)
+	auth.Post("/register", h.ipLimiter, h.Register)
+
+	// Stytch redirect targets (C3): the one-time magic-link token in the URL is
+	// itself the authentication proof, and schools sit behind shared NAT egress
+	// IPs — a per-IP limiter on these would throttle an entire school out of
+	// login. The global coarse limiter still applies when wired.
+	auth.Get("/callback", h.MagicLinkCallback)
+	auth.Get("/invite/callback", h.AcceptInvite)
 
 	// Protected endpoints: user‑based rate limit + auth guard
 	protected := auth.Group("")
@@ -154,8 +162,12 @@ func (h *Handler) Discover(c *fiber.Ctx) error {
 	if err := c.BodyParser(&payload); err != nil {
 		return middleware.HTTPError(c, fmt.Errorf("invalid request body: %w", middleware.ErrInvalidInput))
 	}
-	if payload.Email == "" {
-		return middleware.HTTPError(c, fmt.Errorf("email is required: %w", middleware.ErrInvalidInput))
+
+	// C4: reject malformed emails before they reach Stytch — a bare non-empty
+	// check lets junk strings through and burns a Stytch API call per attempt.
+	payload.Email = strings.TrimSpace(payload.Email)
+	if !isValidEmail(payload.Email) {
+		return middleware.HTTPError(c, fmt.Errorf("email is required and must be a valid address: %w", middleware.ErrInvalidInput))
 	}
 
 	if err := h.svc.Discover(c.Context(), payload.Email); err != nil {
@@ -163,6 +175,28 @@ func (h *Handler) Discover(c *fiber.Ctx) error {
 	}
 
 	return c.SendStatus(fiber.StatusOK)
+}
+
+// isValidEmail performs a lightweight format check on an email address.
+// It deliberately avoids a full RFC 5322 parser; the identity provider
+// (Stytch) performs authoritative validation at send time.
+func isValidEmail(email string) bool {
+	if len(email) < 3 || len(email) > 254 {
+		return false
+	}
+	at := strings.LastIndex(email, "@")
+	if at <= 0 || at == len(email)-1 {
+		return false
+	}
+	local := email[:at]
+	domain := email[at+1:]
+	if strings.ContainsAny(local, " \t\n\r") || strings.ContainsAny(domain, " \t\n\r") {
+		return false
+	}
+	if !strings.Contains(domain, ".") {
+		return false
+	}
+	return true
 }
 
 // MagicLinkCallback handles GET /api/auth/callback.

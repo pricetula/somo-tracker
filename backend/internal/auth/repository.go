@@ -201,9 +201,11 @@ func (r *SqlcRepository) CreateTenantUserSession(
 		token = "sess_" + uuid.New().String()
 	}
 
+	// C1: only the token hash is persisted — never the raw token. A DB leak
+	// must not expose live session credentials.
 	sessionQuery := `
-		INSERT INTO sessions (token, token_hash, user_id, tenant_id, stytch_member_id, stytch_org_id, stytch_session_token, device_fingerprint, expires_at)
-		VALUES ($1::text, encode(digest($1::text, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7, $8)
+		INSERT INTO sessions (token_hash, user_id, tenant_id, stytch_member_id, stytch_org_id, stytch_session_token, device_fingerprint, expires_at)
+		VALUES (encode(digest($1::text, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7, $8)
 	`
 	_, err = tx.Exec(ctx, sessionQuery,
 		token,
@@ -293,9 +295,10 @@ func (r *SqlcRepository) CreateUserSession(
 		token = "sess_" + uuid.New().String()
 	}
 
+	// C1: only the token hash is persisted — never the raw token.
 	sessionQuery := `
-		INSERT INTO sessions (token, token_hash, user_id, tenant_id, stytch_member_id, stytch_org_id, stytch_session_token, device_fingerprint, expires_at)
-		VALUES ($1::text, encode(digest($1::text, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7, $8)
+		INSERT INTO sessions (token_hash, user_id, tenant_id, stytch_member_id, stytch_org_id, stytch_session_token, device_fingerprint, expires_at)
+		VALUES (encode(digest($1::text, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7, $8)
 	`
 	_, err = tx.Exec(ctx, sessionQuery,
 		token,
@@ -481,7 +484,7 @@ func (r *SqlcRepository) GetInvitationByEmail(ctx context.Context, email string)
 		       COALESCE(stytch_member_id, '') as stytch_member_id,
 		       COALESCE(registration_number, '') as registration_number, expires_at
 		FROM invitations
-		WHERE email = $1
+		WHERE LOWER(email) = LOWER($1)
 		  AND status = 'pending'
 		  AND expires_at > NOW()
 		ORDER BY created_at DESC
@@ -568,11 +571,12 @@ func (r *SqlcRepository) CreateInvitedUserSession(ctx context.Context, args Crea
 
 	// 2. Insert session
 	// Use a CTE to bind the token parameter once, avoiding PG's type inference conflict.
+	// C1: only the token hash is persisted — never the raw token.
 	sessionQuery := `
 		WITH token_val AS (SELECT $1::text AS tk)
-		INSERT INTO sessions (token, token_hash, user_id, tenant_id, stytch_member_id, stytch_org_id,
+		INSERT INTO sessions (token_hash, user_id, tenant_id, stytch_member_id, stytch_org_id,
 		                     stytch_session_token, device_fingerprint, expires_at)
-		SELECT tk, encode(digest(tk, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7, $8
+		SELECT encode(digest(tk, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7, $8
 		FROM token_val
 	`
 	_, err = tx.Exec(ctx, sessionQuery,
@@ -673,9 +677,11 @@ func (r *SqlcRepository) CreateSessionOnly(ctx context.Context, params CreateSes
 	if token == "" {
 		token = "sess_" + uuid.New().String()
 	}
+
+	// C1: only the token hash is persisted — never the raw token.
 	const query = `
-		INSERT INTO sessions (token, token_hash, user_id, tenant_id, stytch_member_id, stytch_org_id, stytch_session_token, device_fingerprint, expires_at)
-		VALUES ($1::text, encode(digest($1::text, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7, $8)
+		INSERT INTO sessions (token_hash, user_id, tenant_id, stytch_member_id, stytch_org_id, stytch_session_token, device_fingerprint, expires_at)
+		VALUES (encode(digest($1::text, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7, $8)
 	`
 	_, err := r.pool.Exec(ctx, query,
 		token,

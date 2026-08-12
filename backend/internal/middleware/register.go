@@ -23,7 +23,11 @@ func Register(app *fiber.App, pools *database.Pools, cfg config.Config) {
 			return c.IP()
 		},
 	}))
-	app.Use(NewSessionResolver(pools))
+	// Device fingerprint MUST be computed before session resolution so the
+	// resolver can enforce device-bound sessions in production (C5). It also
+	// feeds session creation (auth handlers read c.Locals("device_fingerprint")).
+	app.Use(NewDeviceFingerprinter())
+	app.Use(NewSessionResolver(pools, cfg))
 	app.Use(NewRateLimiter(pools.Redis, RateLimiterConfig{
 		Limit:  60,
 		Window: 1 * time.Minute,
@@ -35,5 +39,4 @@ func Register(app *fiber.App, pools *database.Pools, cfg config.Config) {
 			return "" // Skips fine rate limiter if user is unauthenticated
 		},
 	}))
-	app.Use(NewDeviceFingerprinter())
 }

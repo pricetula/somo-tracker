@@ -39,14 +39,27 @@ type handlerTestHarness struct {
 
 // mockSchoolCreator implements SchoolCreator for handler tests.
 type mockSchoolCreator struct {
-	createFn func(ctx context.Context, tenantID string, name string, role string, creatorUserID ...string) (string, error)
+	createFn      func(ctx context.Context, tenantID string, name string, role string, creatorUserID ...string) (string, error)
+	getByNameFn   func(ctx context.Context, tenantID, name string) (string, error)
+	createCalls   int
+	getByNameCall bool
 }
 
 func (m *mockSchoolCreator) CreateSchool(ctx context.Context, tenantID string, name string, role string, creatorUserID ...string) (string, error) {
+	m.createCalls++
 	if m.createFn != nil {
 		return m.createFn(ctx, tenantID, name, role, creatorUserID...)
 	}
 	return "school_" + tenantID, nil
+}
+
+func (m *mockSchoolCreator) GetSchoolByName(ctx context.Context, tenantID, name string) (string, error) {
+	m.getByNameCall = true
+	if m.getByNameFn != nil {
+		return m.getByNameFn(ctx, tenantID, name)
+	}
+	// Default: no school exists under that name — registration creates one.
+	return "", ErrNotFound
 }
 
 func newHandlerTestHarness(t *testing.T) *handlerTestHarness {
@@ -485,12 +498,17 @@ func TestHandler_Me_InvalidMethod(t *testing.T) {
 
 // TestHandler_Me_LogoutClearsMe verifies that after a session is logged
 // out (deleted from Redis), the /me endpoint returns 401 for that token.
+// TestHandler_Me_LogoutClearsMe verifies that once a session is logged out
+// (B1/B2): /me returns 401, and BOTH Redis cache key formats are purged — the
+// service's raw-token key AND the middleware's hashed key (SessionCacheKey).
+// Postgres is the source of truth: the mock repo models the deleted DB row by
+// returning ErrNotFound, then the real Logout endpoint clears the caches.
 func TestHandler_Me_LogoutClearsMe(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
 	token := "logout_me_token_001"
 
-	// Pre-populate Redis and configure repo
+	// Pre-populate Redis and configure repo: session exists in Postgres
 	h.setSessionInRedis(t, token)
 	h.repo.getMeInfoFn = func(ctx context.Context, token string) (*MeInfo, error) {
 		return &MeInfo{
@@ -510,8 +528,24 @@ func TestHandler_Me_LogoutClearsMe(t *testing.T) {
 		t.Fatalf("expected 200 OK before logout, got %d", resp.StatusCode)
 	}
 
-	// Simulate logout by removing from Redis
-	h.mr.Del("session:" + token)
+	// Logout: the DB row is deleted (Postgres is the source of truth — B1).
+	// The real endpoint then purges both Redis key formats (B2) and clears
+	// the auth cookies.
+	h.repo.getMeInfoFn = func(ctx context.Context, token string) (*MeInfo, error) {
+		return nil, ErrNotFound
+	}
+	resp = h.doRequest("DELETE", "/api/auth/session", token)
+	if resp.StatusCode != fiber.StatusNoContent {
+		t.Fatalf("expected 204 No Content from logout, got %d", resp.StatusCode)
+	}
+
+	// Both cache key formats must be gone
+	if h.mr.Exists("session:" + token) {
+		t.Fatal("raw session key still present after logout")
+	}
+	if h.mr.Exists(middleware.SessionCacheKey(token)) {
+		t.Fatal("middleware session cache key still present after logout")
+	}
 
 	// Second call should fail with 401
 	resp = h.doRequest("GET", "/api/auth/me", token)
@@ -562,8 +596,8 @@ func TestHandler_Discover_MissingEmail(t *testing.T) {
 	if body.Code != "invalid_input" {
 		t.Fatalf("expected code 'invalid_input', got %q", body.Code)
 	}
-	if body.Message != "email is required: invalid input" {
-		t.Fatalf("expected message 'email is required: invalid input', got %q", body.Message)
+	if body.Message != "email is required and must be a valid address: invalid input" {
+		t.Fatalf("expected message 'email is required and must be a valid address: invalid input', got %q", body.Message)
 	}
 }
 
@@ -1471,3 +1505,50 @@ func TestHandler_Callback_NewUser_SetsCSRFCookie(t *testing.T) {
 
 // ensureTestImports is a no-op helper to satisfy unused import requirements.
 var _ = errors.Is
+
+// ============================================================================
+// Fix regression tests — C3 (callback rate limiting), C4 (discover email)
+// ============================================================================
+
+// TestHandler_Callback_NotBlockedByIPLimiter covers C3: Stytch redirect targets
+// (/callback, /invite/callback) must not sit behind the per-IP limiter — a
+// school behind shared NAT egress would throttle itself out of login. 12 rapid
+// hits from the same IP must all pass.
+func TestHandler_Callback_NotBlockedByIPLimiter(t *testing.T) {
+	h := newHandlerTestHarness(t)
+
+	// Default IDP mock: no discovered orgs → new-user path → 302 to /register.
+	for i := 0; i < 12; i++ {
+		resp := h.doRequestWithQuery("GET", "/api/auth/callback", "token=callback_token_"+fmt.Sprint(i), "")
+		if resp.StatusCode == fiber.StatusTooManyRequests {
+			t.Fatalf("callback request %d was rate-limited; Stytch redirect targets must not be behind the per-IP limiter", i)
+		}
+		if resp.StatusCode != fiber.StatusFound {
+			t.Fatalf("callback request %d: expected 302 redirect, got %d", i, resp.StatusCode)
+		}
+	}
+}
+
+// TestHandler_Discover_InvalidEmail covers C4: malformed emails are rejected
+// with 400 before they reach Stytch.
+func TestHandler_Discover_InvalidEmail(t *testing.T) {
+	h := newHandlerTestHarness(t)
+
+	for _, email := range []string{"not-an-email", "", "a@", "@domain.com", "has space@example.com"} {
+		resp := h.doRequestWithBody("POST", "/api/auth/discover", "", DiscoveryPayload{Email: email})
+		if resp.StatusCode != fiber.StatusBadRequest {
+			t.Fatalf("email %q: expected 400 Bad Request, got %d", email, resp.StatusCode)
+		}
+	}
+}
+
+// TestHandler_Discover_ValidEmailTrimmed verifies a valid email (with
+// surrounding whitespace) still reaches the identity provider.
+func TestHandler_Discover_ValidEmailTrimmed(t *testing.T) {
+	h := newHandlerTestHarness(t)
+
+	resp := h.doRequestWithBody("POST", "/api/auth/discover", "", DiscoveryPayload{Email: "  user@example.com  "})
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", resp.StatusCode)
+	}
+}

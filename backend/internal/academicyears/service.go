@@ -3,8 +3,9 @@ package academicyears
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 // todayEAT returns today's date in EAT (UTC+3) as a JS Date at midnight UTC.
@@ -30,12 +31,13 @@ func parseDate(s string) (DateOnly, error) {
 
 // Service contains business logic for academic years and terms.
 type Service struct {
-	Repo Repository
+	Repo   Repository
+	logger *zap.SugaredLogger
 }
 
 // NewService creates a new Service.
-func NewService(repo Repository) *Service {
-	return &Service{Repo: repo}
+func NewService(repo Repository, logger *zap.SugaredLogger) *Service {
+	return &Service{Repo: repo, logger: logger}
 }
 
 // ============================================================================
@@ -95,7 +97,7 @@ func (s *Service) CreateYear(ctx context.Context, body CreateYearBody, tenantID,
 		return "", fmt.Errorf("academicyears.Service.CreateYear: %w", err)
 	}
 
-	slog.Info("academic_year.created",
+	s.logger.Infow("academic_year.created",
 		"tenant_id", tenantID,
 		"school_id", schoolID,
 		"resource_id", id,
@@ -157,7 +159,7 @@ func (s *Service) PatchYear(ctx context.Context, id, tenantID, schoolID string, 
 	}
 
 	// Log the mutation
-	slog.Info("academic_year.patched",
+	s.logger.Infow("academic_year.patched",
 		"tenant_id", tenantID,
 		"school_id", schoolID,
 		"resource_id", id,
@@ -200,7 +202,7 @@ func (s *Service) DeleteYear(ctx context.Context, id, tenantID, schoolID, actorI
 		return fmt.Errorf("academicyears.Service.DeleteYear: %w", err)
 	}
 
-	slog.Info("academic_year.deleted",
+	s.logger.Infow("academic_year.deleted",
 		"tenant_id", tenantID,
 		"school_id", schoolID,
 		"resource_id", id,
@@ -230,7 +232,7 @@ func (s *Service) SetCurrentYear(ctx context.Context, id, tenantID, schoolID, ac
 		return fmt.Errorf("academicyears.Service.SetCurrentYear: %w", ErrNotFound)
 	}
 
-	slog.Info("academic_year.set_current",
+	s.logger.Infow("academic_year.set_current",
 		"tenant_id", tenantID,
 		"school_id", schoolID,
 		"resource_id", id,
@@ -321,7 +323,7 @@ func (s *Service) CreateTerm(ctx context.Context, body CreateTermBody, tenantID,
 		return nil, fmt.Errorf("academicyears.Service.CreateTerm: %w", err)
 	}
 
-	slog.Info("academic_term.created",
+	s.logger.Infow("academic_term.created",
 		"tenant_id", tenantID,
 		"school_id", schoolID,
 		"resource_id", id,
@@ -399,7 +401,7 @@ func (s *Service) PatchTerm(ctx context.Context, id, tenantID, schoolID string, 
 		return nil, fmt.Errorf("academicyears.Service.PatchTerm: %w", err)
 	}
 
-	slog.Info("academic_term.patched",
+	s.logger.Infow("academic_term.patched",
 		"tenant_id", tenantID,
 		"school_id", schoolID,
 		"resource_id", id,
@@ -448,7 +450,7 @@ func (s *Service) DeleteTerm(ctx context.Context, id, tenantID, schoolID, actorI
 		return fmt.Errorf("academicyears.Service.DeleteTerm: %w", err)
 	}
 
-	slog.Info("academic_term.deleted",
+	s.logger.Infow("academic_term.deleted",
 		"tenant_id", tenantID,
 		"school_id", schoolID,
 		"resource_id", id,
@@ -564,7 +566,7 @@ func (s *Service) SetupInitialYear(ctx context.Context, tenantID, schoolID, acto
 		return fmt.Errorf("academicyears.Service.SetupInitialYear: sync current term: %w", err)
 	}
 
-	slog.Info("academic_year.initial_setup",
+	s.logger.Infow("academic_year.initial_setup",
 		"tenant_id", tenantID,
 		"school_id", schoolID,
 		"academic_year_id", yearID,

@@ -4,12 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"github.com/hibiken/asynq"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/fx"
+	"go.uber.org/zap"
 
 	"somotracker/backend/internal/database"
 )
@@ -51,11 +51,12 @@ func NewAsynqClient(pools *database.Pools) *asynq.Client {
 // Enqueuer publishes background refresh tasks to Asynq.
 type Enqueuer struct {
 	client *asynq.Client
+	logger *zap.SugaredLogger
 }
 
 // NewEnqueuer creates a new Enqueuer.
-func NewEnqueuer(client *asynq.Client) *Enqueuer {
-	return &Enqueuer{client: client}
+func NewEnqueuer(client *asynq.Client, logger *zap.SugaredLogger) *Enqueuer {
+	return &Enqueuer{client: client, logger: logger}
 }
 
 // EnqueueOverallSummaryRefresh enqueues a task to refresh overall summaries.
@@ -64,7 +65,7 @@ func (e *Enqueuer) EnqueueOverallSummaryRefresh(ctx context.Context, termID stri
 	payload, _ := json.Marshal(RefreshTermPayload{TermID: termID})
 	task := asynq.NewTask(TaskRefreshOverallSummaries, payload)
 	if _, err := e.client.Enqueue(task, asynq.MaxRetry(3), asynq.Queue("summaries")); err != nil {
-		slog.WarnContext(ctx, "assessments: enqueue overall summary refresh failed",
+		e.logger.Warnw("assessments: enqueue overall summary refresh failed",
 			"term_id", termID, "error", err,
 		)
 	}
@@ -75,7 +76,7 @@ func (e *Enqueuer) EnqueueProjectionsRefresh(ctx context.Context, termID string)
 	payload, _ := json.Marshal(RefreshTermPayload{TermID: termID})
 	task := asynq.NewTask(TaskRefreshProjections, payload)
 	if _, err := e.client.Enqueue(task, asynq.MaxRetry(3), asynq.Queue("summaries")); err != nil {
-		slog.WarnContext(ctx, "assessments: enqueue projections refresh failed",
+		e.logger.Warnw("assessments: enqueue projections refresh failed",
 			"term_id", termID, "error", err,
 		)
 	}
@@ -86,7 +87,7 @@ func (e *Enqueuer) EnqueueTeacherPerformanceRefresh(ctx context.Context, termID 
 	payload, _ := json.Marshal(RefreshTermPayload{TermID: termID})
 	task := asynq.NewTask(TaskRefreshTeacherPerformance, payload)
 	if _, err := e.client.Enqueue(task, asynq.MaxRetry(3), asynq.Queue("summaries")); err != nil {
-		slog.WarnContext(ctx, "assessments: enqueue teacher perf refresh failed",
+		e.logger.Warnw("assessments: enqueue teacher perf refresh failed",
 			"term_id", termID, "error", err,
 		)
 	}
@@ -97,7 +98,7 @@ func (e *Enqueuer) EnqueueCohortPositionsRefresh(ctx context.Context, termID str
 	payload, _ := json.Marshal(RefreshTermPayload{TermID: termID})
 	task := asynq.NewTask(TaskRefreshCohortPositions, payload)
 	if _, err := e.client.Enqueue(task, asynq.MaxRetry(3), asynq.Queue("summaries")); err != nil {
-		slog.WarnContext(ctx, "assessments: enqueue cohort positions refresh failed",
+		e.logger.Warnw("assessments: enqueue cohort positions refresh failed",
 			"term_id", termID, "error", err,
 		)
 	}
@@ -112,11 +113,12 @@ type Worker struct {
 	pools  *database.Pools
 	pool   *pgxpool.Pool
 	server *asynq.Server
+	logger *zap.SugaredLogger
 }
 
 // NewWorker creates a new background summary refresh worker.
-func NewWorker(pools *database.Pools) *Worker {
-	return &Worker{pools: pools, pool: pools.PG}
+func NewWorker(pools *database.Pools, logger *zap.SugaredLogger) *Worker {
+	return &Worker{pools: pools, pool: pools.PG, logger: logger}
 }
 
 // Start starts the Asynq worker. Called via fx lifecycle.
@@ -126,7 +128,7 @@ func (w *Worker) Start(ctx context.Context) error {
 		asynq.Config{
 			Concurrency: 2,
 			Queues:      map[string]int{"summaries": 10},
-			Logger:      asynqLogger{},
+			Logger:      asynqLogger{logger: w.logger},
 		},
 	)
 
@@ -139,7 +141,7 @@ func (w *Worker) Start(ctx context.Context) error {
 	if err := w.server.Start(mux); err != nil {
 		return fmt.Errorf("assessments.Worker.Start: %w", err)
 	}
-	slog.InfoContext(ctx, "assessments.Worker: asynq server started")
+	w.logger.Infow("assessments.Worker: asynq server started")
 	return nil
 }
 
@@ -148,7 +150,7 @@ func (w *Worker) Stop(ctx context.Context) error {
 	if w.server != nil {
 		w.server.Shutdown()
 	}
-	slog.InfoContext(ctx, "assessments.Worker: asynq server stopped")
+	w.logger.Infow("assessments.Worker: asynq server stopped")
 	return nil
 }
 
@@ -160,13 +162,13 @@ func (w *Worker) handleRefreshOverallSummaries(ctx context.Context, t *asynq.Tas
 		return fmt.Errorf("assessments.Worker.handleRefreshOverallSummaries: unmarshal: %w", err)
 	}
 	start := time.Now()
-	slog.InfoContext(ctx, "assessments: refreshing overall summaries", "term_id", p.TermID)
+	w.logger.Infow("assessments: refreshing overall summaries", "term_id", p.TermID)
 
 	_, err := w.pool.Exec(ctx, `SELECT fn_compute_term_overall_summaries_for_term($1)`, p.TermID)
 	if err != nil {
 		return fmt.Errorf("assessments.Worker.handleRefreshOverallSummaries: %w", err)
 	}
-	slog.InfoContext(ctx, "assessments: overall summaries refreshed",
+	w.logger.Infow("assessments: overall summaries refreshed",
 		"term_id", p.TermID, "duration", time.Since(start).String(),
 	)
 	return nil
@@ -178,13 +180,13 @@ func (w *Worker) handleRefreshProjections(ctx context.Context, t *asynq.Task) er
 		return fmt.Errorf("assessments.Worker.handleRefreshProjections: unmarshal: %w", err)
 	}
 	start := time.Now()
-	slog.InfoContext(ctx, "assessments: refreshing projections", "term_id", p.TermID)
+	w.logger.Infow("assessments: refreshing projections", "term_id", p.TermID)
 
 	_, err := w.pool.Exec(ctx, `SELECT fn_compute_performance_projections_for_term($1)`, p.TermID)
 	if err != nil {
 		return fmt.Errorf("assessments.Worker.handleRefreshProjections: %w", err)
 	}
-	slog.InfoContext(ctx, "assessments: projections refreshed",
+	w.logger.Infow("assessments: projections refreshed",
 		"term_id", p.TermID, "duration", time.Since(start).String(),
 	)
 	return nil
@@ -196,13 +198,13 @@ func (w *Worker) handleRefreshTeacherPerformance(ctx context.Context, t *asynq.T
 		return fmt.Errorf("assessments.Worker.handleRefreshTeacherPerformance: unmarshal: %w", err)
 	}
 	start := time.Now()
-	slog.InfoContext(ctx, "assessments: refreshing teacher performance", "term_id", p.TermID)
+	w.logger.Infow("assessments: refreshing teacher performance", "term_id", p.TermID)
 
 	_, err := w.pool.Exec(ctx, `SELECT fn_compute_teacher_subject_performance_summaries($1)`, p.TermID)
 	if err != nil {
 		return fmt.Errorf("assessments.Worker.handleRefreshTeacherPerformance: %w", err)
 	}
-	slog.InfoContext(ctx, "assessments: teacher performance refreshed",
+	w.logger.Infow("assessments: teacher performance refreshed",
 		"term_id", p.TermID, "duration", time.Since(start).String(),
 	)
 	return nil
@@ -214,13 +216,13 @@ func (w *Worker) handleRefreshCohortPositions(ctx context.Context, t *asynq.Task
 		return fmt.Errorf("assessments.Worker.handleRefreshCohortPositions: unmarshal: %w", err)
 	}
 	start := time.Now()
-	slog.InfoContext(ctx, "assessments: refreshing cohort positions", "term_id", p.TermID)
+	w.logger.Infow("assessments: refreshing cohort positions", "term_id", p.TermID)
 
 	_, err := w.pool.Exec(ctx, `SELECT fn_compute_cohort_positions_for_term($1)`, p.TermID)
 	if err != nil {
 		return fmt.Errorf("assessments.Worker.handleRefreshCohortPositions: %w", err)
 	}
-	slog.InfoContext(ctx, "assessments: cohort positions refreshed",
+	w.logger.Infow("assessments: cohort positions refreshed",
 		"term_id", p.TermID, "duration", time.Since(start).String(),
 	)
 	return nil
@@ -236,11 +238,13 @@ func RegisterWorkerHooks(lc fx.Lifecycle, worker *Worker) {
 	})
 }
 
-// asynqLogger implements asynq.Logger via slog.
-type asynqLogger struct{}
+// asynqLogger implements asynq.Logger via zap.
+type asynqLogger struct {
+	logger *zap.SugaredLogger
+}
 
-func (asynqLogger) Debug(args ...interface{}) { slog.Debug(fmt.Sprint(args...)) }
-func (asynqLogger) Info(args ...interface{})  { slog.Info(fmt.Sprint(args...)) }
-func (asynqLogger) Warn(args ...interface{})  { slog.Warn(fmt.Sprint(args...)) }
-func (asynqLogger) Error(args ...interface{}) { slog.Error(fmt.Sprint(args...)) }
-func (asynqLogger) Fatal(args ...interface{}) { slog.Error(fmt.Sprint(args...)) }
+func (l asynqLogger) Debug(args ...interface{}) { l.logger.Debug(fmt.Sprint(args...)) }
+func (l asynqLogger) Info(args ...interface{})  { l.logger.Info(fmt.Sprint(args...)) }
+func (l asynqLogger) Warn(args ...interface{})  { l.logger.Warn(fmt.Sprint(args...)) }
+func (l asynqLogger) Error(args ...interface{}) { l.logger.Error(fmt.Sprint(args...)) }
+func (l asynqLogger) Fatal(args ...interface{}) { l.logger.Error(fmt.Sprint(args...)) }

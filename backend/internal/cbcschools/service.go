@@ -3,7 +3,8 @@ package cbcschools
 import (
 	"context"
 	"fmt"
-	"log/slog"
+
+	"go.uber.org/zap"
 )
 
 // Service contains business logic for the cbcschools domain.
@@ -12,6 +13,7 @@ type Service struct {
 	seeder     CurriculumSeeder
 	yearSeeder AcademicYearSeeder
 	enroller   UserSchoolEnroller
+	logger     *zap.SugaredLogger
 }
 
 // ServiceOption is a functional option for configuring the Service.
@@ -40,8 +42,8 @@ func WithAcademicYearSeeder(seeder AcademicYearSeeder) ServiceOption {
 }
 
 // NewService creates a new Service with optional configuration.
-func NewService(repo Repository, opts ...ServiceOption) *Service {
-	svc := &Service{repo: repo}
+func NewService(repo Repository, logger *zap.SugaredLogger, opts ...ServiceOption) *Service {
+	svc := &Service{repo: repo, logger: logger}
 	for _, opt := range opts {
 		opt(svc)
 	}
@@ -68,18 +70,18 @@ func (s *Service) CreateSchool(ctx context.Context, tenantID string, name string
 	// Enroll the creator with the given role and set as active school
 	if len(creatorUserID) > 0 && creatorUserID[0] != "" && s.enroller != nil {
 		if enrollErr := s.enroller.CreateMembership(ctx, creatorUserID[0], schoolID, tenantID, role); enrollErr != nil {
-			slog.WarnContext(ctx, "cbcschools: failed to create membership for school creator",
-				slog.String("user_id", creatorUserID[0]),
-				slog.String("school_id", schoolID),
-				slog.String("role", role),
-				slog.String("error", enrollErr.Error()),
+			s.logger.Warnw("cbcschools: failed to create membership for school creator",
+				"user_id", creatorUserID[0],
+				"school_id", schoolID,
+				"role", role,
+				"error", enrollErr.Error(),
 			)
 		}
 		if activeErr := s.enroller.SetActiveSchool(ctx, creatorUserID[0], tenantID, schoolID); activeErr != nil {
-			slog.WarnContext(ctx, "cbcschools: failed to set active school for creator",
-				slog.String("user_id", creatorUserID[0]),
-				slog.String("school_id", schoolID),
-				slog.String("error", activeErr.Error()),
+			s.logger.Warnw("cbcschools: failed to set active school for creator",
+				"user_id", creatorUserID[0],
+				"school_id", schoolID,
+				"error", activeErr.Error(),
 			)
 		}
 	}
@@ -89,10 +91,10 @@ func (s *Service) CreateSchool(ctx context.Context, tenantID string, name string
 		if seedErr := s.seeder.SeedForSchool(ctx, tenantID, schoolID); seedErr != nil {
 			// Log the seeding failure but do NOT fail school creation — the school
 			// was already persisted successfully. The admin can retry seeding later.
-			slog.WarnContext(ctx, "cbcschools: curriculum seeding failed for new school",
-				slog.String("tenant_id", tenantID),
-				slog.String("school_id", schoolID),
-				slog.String("error", seedErr.Error()),
+			s.logger.Warnw("cbcschools: curriculum seeding failed for new school",
+				"tenant_id", tenantID,
+				"school_id", schoolID,
+				"error", seedErr.Error(),
 			)
 		}
 	}
@@ -103,10 +105,10 @@ func (s *Service) CreateSchool(ctx context.Context, tenantID string, name string
 	// — the admin can set up academic years later via the UI.
 	if len(creatorUserID) > 0 && creatorUserID[0] != "" && s.yearSeeder != nil {
 		if yearErr := s.yearSeeder.SetupInitialYear(ctx, tenantID, schoolID, creatorUserID[0], nil); yearErr != nil {
-			slog.WarnContext(ctx, "cbcschools: academic year seeding failed for new school",
-				slog.String("tenant_id", tenantID),
-				slog.String("school_id", schoolID),
-				slog.String("error", yearErr.Error()),
+			s.logger.Warnw("cbcschools: academic year seeding failed for new school",
+				"tenant_id", tenantID,
+				"school_id", schoolID,
+				"error", yearErr.Error(),
 			)
 		}
 	}
@@ -222,10 +224,10 @@ func (s *Service) SeedCurriculum(ctx context.Context, tenantID string, schoolID 
 		if seedErr := s.seeder.SeedForSchool(ctx, tenantID, schoolID); seedErr != nil {
 			// Log the seeding failure but do NOT fail school creation — the school
 			// was already persisted successfully. The admin can retry seeding later.
-			slog.WarnContext(ctx, "cbcschools: curriculum seeding failed for new school",
-				slog.String("tenant_id", tenantID),
-				slog.String("school_id", schoolID),
-				slog.String("error", seedErr.Error()),
+			s.logger.Warnw("cbcschools: curriculum seeding failed for new school",
+				"tenant_id", tenantID,
+				"school_id", schoolID,
+				"error", seedErr.Error(),
 			)
 		}
 	}

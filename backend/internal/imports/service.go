@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.uber.org/zap"
 
 	"somotracker/backend/internal/database"
 )
@@ -62,14 +62,16 @@ type Service struct {
 	pool    *pgxpool.Pool
 	asynq   *asynq.Client
 	beginTx func(ctx context.Context) (pgx.Tx, error) // overridable for tests
+	logger  *zap.SugaredLogger
 }
 
 // NewService creates a new Service.
-func NewService(repo ServiceRepository, pools *database.Pools, asynqClient *asynq.Client) *Service {
+func NewService(repo ServiceRepository, pools *database.Pools, asynqClient *asynq.Client, logger *zap.SugaredLogger) *Service {
 	s := &Service{
-		repo:  repo,
-		pool:  pools.PG,
-		asynq: asynqClient,
+		repo:   repo,
+		pool:   pools.PG,
+		asynq:  asynqClient,
+		logger: logger,
 	}
 	s.beginTx = func(ctx context.Context) (pgx.Tx, error) {
 		return s.pool.Begin(ctx)
@@ -236,7 +238,7 @@ func (s *Service) CreateJob(ctx context.Context, req CreateJobRequest) (*CreateJ
 
 			// Enqueue chunk tasks
 			if err := s.enqueueChunks(ctx, jobID, totalChunks); err != nil {
-				slog.ErrorContext(ctx, "imports.Service.CreateJob: enqueue chunks failed (staging rows written)",
+				s.logger.Errorw("imports.Service.CreateJob: enqueue chunks failed (staging rows written)",
 					"job_id", jobID,
 					"error", err,
 				)
@@ -256,7 +258,7 @@ func (s *Service) CreateJob(ctx context.Context, req CreateJobRequest) (*CreateJ
 				return nil, fmt.Errorf("imports.Service.CreateJob: update status: %w", err)
 			}
 
-			slog.Info("imports.Service.CreateJob: job created",
+			s.logger.Infow("imports.Service.CreateJob: job created",
 				"job_id", jobID,
 				"job_type", req.JobType,
 				"total_records", totalRecords,
@@ -287,7 +289,7 @@ func (s *Service) CreateJob(ctx context.Context, req CreateJobRequest) (*CreateJ
 		}
 
 		if existingHash == payloadHash {
-			slog.Info("imports.Service.CreateJob: idempotent replay",
+			s.logger.Infow("imports.Service.CreateJob: idempotent replay",
 				"existing_job_id", existing.ID,
 				"idempotency_key", *req.IDempotencyKey,
 			)
@@ -301,7 +303,7 @@ func (s *Service) CreateJob(ctx context.Context, req CreateJobRequest) (*CreateJ
 		}
 
 		// Same key, different payload — this is an error
-		slog.Warn("imports.Service.CreateJob: idempotency key reused with different payload",
+		s.logger.Warnw("imports.Service.CreateJob: idempotency key reused with different payload",
 			"existing_job_id", existing.ID,
 			"idempotency_key", *req.IDempotencyKey,
 			"existing_hash", existingHash,
@@ -371,13 +373,13 @@ func (s *Service) CreateJob(ctx context.Context, req CreateJobRequest) (*CreateJ
 
 	// Enqueue chunk tasks
 	if err := s.enqueueChunks(ctx, jobID, totalChunks); err != nil {
-		slog.ErrorContext(ctx, "imports.Service.CreateJob: enqueue chunks failed (staging rows written)",
+		s.logger.Errorw("imports.Service.CreateJob: enqueue chunks failed (staging rows written)",
 			"job_id", jobID,
 			"error", err,
 		)
 	}
 
-	slog.Info("imports.Service.CreateJob: job created",
+	s.logger.Infow("imports.Service.CreateJob: job created",
 		"job_id", jobID,
 		"job_type", req.JobType,
 		"total_records", totalRecords,
@@ -435,7 +437,7 @@ func (s *Service) CancelJob(ctx context.Context, jobID uuid.UUID) (*Job, error) 
 		return nil, fmt.Errorf("imports.Service.CancelJob: %w", err)
 	}
 
-	slog.InfoContext(ctx, "imports.Service.CancelJob: job cancellation requested",
+	s.logger.Infow("imports.Service.CancelJob: job cancellation requested",
 		"job_id", jobID,
 		"status", job.Status,
 	)
@@ -474,7 +476,7 @@ func (s *Service) ProcessChunk(ctx context.Context, payload ChunkTaskPayload) er
 		if err := s.repo.CancelPendingChunk(ctx, jobID, payload.ChunkIndex); err != nil {
 			return fmt.Errorf("imports.Service.ProcessChunk: cancel pending chunk: %w", err)
 		}
-		slog.InfoContext(ctx, "imports.Service.ProcessChunk: chunk cancelled (job cancelled)",
+		s.logger.Infow("imports.Service.ProcessChunk: chunk cancelled (job cancelled)",
 			"job_id", jobID,
 			"chunk", payload.ChunkIndex,
 		)
@@ -488,7 +490,7 @@ func (s *Service) ProcessChunk(ctx context.Context, payload ChunkTaskPayload) er
 	}
 	if chunkID == uuid.Nil {
 		// Another attempt already claimed or completed this chunk — safe to skip
-		slog.InfoContext(ctx, "imports.Service.ProcessChunk: chunk already claimed or completed, skipping",
+		s.logger.Infow("imports.Service.ProcessChunk: chunk already claimed or completed, skipping",
 			"job_id", jobID,
 			"chunk", payload.ChunkIndex,
 		)
@@ -559,7 +561,7 @@ func (s *Service) ProcessChunk(ctx context.Context, payload ChunkTaskPayload) er
 		}
 		defer func() {
 			if err := tx.Rollback(ctx); err != nil && err != pgx.ErrTxClosed {
-				slog.ErrorContext(ctx, "imports.Service.ProcessChunk: deferred rollback",
+				s.logger.Errorw("imports.Service.ProcessChunk: deferred rollback",
 					"job_id", jobID,
 					"error", err,
 				)
@@ -615,14 +617,14 @@ func (s *Service) ProcessChunk(ctx context.Context, payload ChunkTaskPayload) er
 		newStatus == ImportJobStatusCancelled
 	if !isTerminal {
 		if touchErr := s.repo.TouchLastProgressAt(ctx, jobID); touchErr != nil {
-			slog.WarnContext(ctx, "imports.Service.ProcessChunk: touch last_progress_at",
+			s.logger.Warnw("imports.Service.ProcessChunk: touch last_progress_at",
 				"job_id", jobID,
 				"error", touchErr,
 			)
 		}
 	}
 
-	slog.InfoContext(ctx, "imports.Service.ProcessChunk: chunk completed",
+	s.logger.Infow("imports.Service.ProcessChunk: chunk completed",
 		"job_id", jobID,
 		"chunk", payload.ChunkIndex,
 		"processed", chunkTotal,
@@ -778,7 +780,7 @@ func (s *Service) CleanupExpiredData(ctx context.Context) error {
 		return fmt.Errorf("imports.Service.CleanupExpiredData: failures: %w", err)
 	}
 
-	slog.InfoContext(ctx, "imports.Service.CleanupExpiredData: retention cleanup completed",
+	s.logger.Infow("imports.Service.CleanupExpiredData: retention cleanup completed",
 		"retention_days", RetentionDays,
 		"cutoff", cutoff,
 		"staging_rows_deleted", stagingDeleted,

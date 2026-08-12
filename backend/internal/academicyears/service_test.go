@@ -5,6 +5,8 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 // ============================================================================
@@ -204,7 +206,7 @@ type testHarness struct {
 
 func newTestHarness() *testHarness {
 	repo := &MockRepository{}
-	svc := NewService(repo)
+	svc := NewService(repo, zap.NewNop().Sugar())
 	return &testHarness{
 		svc:  svc,
 		repo: repo,

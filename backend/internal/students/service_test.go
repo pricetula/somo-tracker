@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"go.uber.org/zap"
 )
 
 // ── Mock Repository ──────────────────────────────────────────────────────
@@ -109,7 +111,7 @@ type svcTestHarness struct {
 
 func newSvcTestHarness() *svcTestHarness {
 	repo := &MockRepository{}
-	svc := NewService(repo)
+	svc := NewService(repo, zap.NewNop().Sugar())
 	return &svcTestHarness{svc: svc, repo: repo}
 }
 

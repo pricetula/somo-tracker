@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+
+	"go.uber.org/zap"
 )
 
 // ============================================================================
@@ -28,7 +30,7 @@ func newHandlerTestHarness(t *testing.T) *handlerTestHarness {
 	t.Helper()
 
 	repo := &MockRepository{}
-	svc := NewService(repo)
+	svc := NewService(repo, zap.NewNop().Sugar())
 	handler := NewHandler(svc)
 
 	app := fiber.New()

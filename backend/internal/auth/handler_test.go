@@ -311,8 +311,8 @@ func TestHandler_Me_ExpiredToken(t *testing.T) {
 		t.Fatalf("decode response: %v", err)
 	}
 
-	if body.Code != "unauthorized" {
-		t.Fatalf("expected code 'unauthorized', got %q", body.Code)
+	if body.Code != "expired_token" {
+		t.Fatalf("expected code 'expired_token', got %q", body.Code)
 	}
 	if body.Message != "expired_token" {
 		t.Fatalf("expected message 'expired_token', got %q", body.Message)
@@ -350,8 +350,8 @@ func TestHandler_Me_RedisExistsWithRepoNotFound(t *testing.T) {
 		t.Fatalf("decode response: %v", err)
 	}
 
-	if body.Code != "unauthorized" {
-		t.Fatalf("expected code 'unauthorized', got %q", body.Code)
+	if body.Code != "expired_token" {
+		t.Fatalf("expected code 'expired_token', got %q", body.Code)
 	}
 
 	// Verify the stale Redis entry was cleaned up
@@ -1073,8 +1073,8 @@ func TestHandler_Callback_ExpiredToken(t *testing.T) {
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if body.Code != "unauthorized" {
-		t.Fatalf("expected code 'unauthorized', got %q", body.Code)
+	if body.Code != "expired_token" {
+		t.Fatalf("expected code 'expired_token', got %q", body.Code)
 	}
 }
 
@@ -1337,7 +1337,7 @@ func TestHandler_ErrorMapping_ExpiredToken(t *testing.T) {
 		"email": "expired@example.com",
 	})
 
-	// ErrExpiredToken wraps middleware.ErrUnauthorized → 401
+	// ErrExpiredToken maps to 401 via middleware.HTTPError
 	if resp.StatusCode != fiber.StatusUnauthorized {
 		t.Fatalf("expected 401 Unauthorized for ErrExpiredToken, got %d", resp.StatusCode)
 	}
@@ -1349,8 +1349,10 @@ func TestHandler_ErrorMapping_ExpiredToken(t *testing.T) {
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if body.Code != "unauthorized" {
-		t.Fatalf("expected code 'unauthorized', got %q", body.Code)
+
+	// ErrExpiredToken carries its own wire code → 401
+	if body.Code != "expired_token" {
+		t.Fatalf("expected code 'expired_token', got %q", body.Code)
 	}
 }
 

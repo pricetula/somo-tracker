@@ -3,23 +3,25 @@ package cbcclasses
 import (
 	"context"
 	"fmt"
-	"log/slog"
+
 	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.uber.org/zap"
 
 	"somotracker/backend/internal/database"
 )
 
 // PgRepository handles class database operations.
 type PgRepository struct {
-	pool *pgxpool.Pool
+	pool   *pgxpool.Pool
+	logger *zap.SugaredLogger
 }
 
 // NewRepository creates a new PgRepository.
-func NewRepository(pools *database.Pools) *PgRepository {
-	return &PgRepository{pool: pools.PG}
+func NewRepository(pools *database.Pools, logger *zap.SugaredLogger) *PgRepository {
+	return &PgRepository{pool: pools.PG, logger: logger}
 }
 
 // List returns a paginated list of classes with student counts.
@@ -228,8 +230,8 @@ func (r *PgRepository) Create(ctx context.Context, params CreateClassParams) (*C
 	defer func() {
 		if err != nil {
 			if rbErr := tx.Rollback(ctx); rbErr != nil {
-				slog.WarnContext(ctx, "cbcclasses.Repository.Create: rollback error",
-					slog.String("error", rbErr.Error()),
+				r.logger.Warnw("cbcclasses.Repository.Create: rollback error",
+					"error", rbErr.Error(),
 				)
 			}
 		}
@@ -301,8 +303,8 @@ func (r *PgRepository) Update(ctx context.Context, params UpdateClassParams) (*C
 	defer func() {
 		if err != nil {
 			if rbErr := tx.Rollback(ctx); rbErr != nil {
-				slog.WarnContext(ctx, "cbcclasses.Repository.Update: rollback error",
-					slog.String("error", rbErr.Error()),
+				r.logger.Warnw("cbcclasses.Repository.Update: rollback error",
+					"error", rbErr.Error(),
 				)
 			}
 		}
@@ -394,8 +396,8 @@ func (r *PgRepository) BulkDelete(ctx context.Context, ids []string, tenantID, s
 	defer func() {
 		if err != nil {
 			if rbErr := tx.Rollback(ctx); rbErr != nil {
-				slog.WarnContext(ctx, "cbcclasses.Repository.BulkDelete: rollback error",
-					slog.String("error", rbErr.Error()),
+				r.logger.Warnw("cbcclasses.Repository.BulkDelete: rollback error",
+					"error", rbErr.Error(),
 				)
 			}
 		}
@@ -551,8 +553,8 @@ func (r *PgRepository) BatchEnrollStudents(ctx context.Context, classID, tenantI
 	defer func() {
 		if err != nil {
 			if rbErr := tx.Rollback(ctx); rbErr != nil {
-				slog.WarnContext(ctx, "cbcclasses.Repository.BatchEnrollStudents: rollback error",
-					slog.String("error", rbErr.Error()),
+				r.logger.Warnw("cbcclasses.Repository.BatchEnrollStudents: rollback error",
+					"error", rbErr.Error(),
 				)
 			}
 		}

@@ -4,23 +4,24 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.uber.org/zap"
 
 	"somotracker/backend/internal/database"
 )
 
 // PgRepository handles parent database operations.
 type PgRepository struct {
-	pool *pgxpool.Pool
+	pool   *pgxpool.Pool
+	logger *zap.SugaredLogger
 }
 
 // NewRepository creates a new PgRepository.
-func NewRepository(pools *database.Pools) *PgRepository {
-	return &PgRepository{pool: pools.PG}
+func NewRepository(pools *database.Pools, logger *zap.SugaredLogger) *PgRepository {
+	return &PgRepository{pool: pools.PG, logger: logger}
 }
 
 // isUniqueViolation checks if an error is a PostgreSQL unique constraint violation (23505).
@@ -91,8 +92,8 @@ func (r *PgRepository) Create(ctx context.Context, tenantID string, payload Crea
 	}
 	defer func() {
 		if rbErr := tx.Rollback(ctx); rbErr != nil && rbErr != pgx.ErrTxClosed {
-			slog.WarnContext(ctx, "parents.Repository.Create: rollback",
-				slog.String("error", rbErr.Error()))
+			r.logger.Warnw("parents.Repository.Create: rollback",
+				"error", rbErr.Error())
 		}
 	}()
 
@@ -449,8 +450,8 @@ func (r *PgRepository) LinkStudent(ctx context.Context, parentID, tenantID strin
 	}
 	defer func() {
 		if rbErr := tx.Rollback(ctx); rbErr != nil && rbErr != pgx.ErrTxClosed {
-			slog.WarnContext(ctx, "parents.Repository.LinkStudent: rollback",
-				slog.String("error", rbErr.Error()))
+			r.logger.Warnw("parents.Repository.LinkStudent: rollback",
+				"error", rbErr.Error())
 		}
 	}()
 

@@ -4,25 +4,26 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.uber.org/zap"
 
 	"somotracker/backend/internal/database"
 )
 
 // PgRepository handles time block database operations.
 type PgRepository struct {
-	pool *pgxpool.Pool
+	pool   *pgxpool.Pool
+	logger *zap.SugaredLogger
 }
 
 // NewRepository creates a new PgRepository.
-func NewRepository(pools *database.Pools) *PgRepository {
-	return &PgRepository{pool: pools.PG}
+func NewRepository(pools *database.Pools, logger *zap.SugaredLogger) *PgRepository {
+	return &PgRepository{pool: pools.PG, logger: logger}
 }
 
 // ListByDay returns all time blocks for a tenant, school, academic year, and day of week.
@@ -149,8 +150,8 @@ func (r *PgRepository) BatchCreate(ctx context.Context, tenantID, schoolID strin
 	}
 	defer func() {
 		if rbErr := tx.Rollback(ctx); rbErr != nil && rbErr != pgx.ErrTxClosed {
-			slog.WarnContext(ctx, "timetablestructure.Repository.BatchCreate: rollback",
-				slog.String("error", rbErr.Error()))
+			r.logger.Warnw("timetablestructure.Repository.BatchCreate: rollback",
+				"error", rbErr.Error())
 		}
 	}()
 
@@ -208,8 +209,8 @@ func (r *PgRepository) ReplicateDay(ctx context.Context, tenantID, schoolID stri
 	}
 	defer func() {
 		if rbErr := tx.Rollback(ctx); rbErr != nil && rbErr != pgx.ErrTxClosed {
-			slog.WarnContext(ctx, "timetablestructure.Repository.ReplicateDay: rollback",
-				slog.String("error", rbErr.Error()))
+			r.logger.Warnw("timetablestructure.Repository.ReplicateDay: rollback",
+				"error", rbErr.Error())
 		}
 	}()
 
@@ -543,8 +544,8 @@ func (r *PgRepository) BatchUpdateBlocks(ctx context.Context, tenantID, schoolID
 	}
 	defer func() {
 		if rbErr := tx.Rollback(ctx); rbErr != nil && rbErr != pgx.ErrTxClosed {
-			slog.WarnContext(ctx, "timetablestructure.Repository.BatchUpdateBlocks: rollback",
-				slog.String("error", rbErr.Error()))
+			r.logger.Warnw("timetablestructure.Repository.BatchUpdateBlocks: rollback",
+				"error", rbErr.Error())
 		}
 	}()
 

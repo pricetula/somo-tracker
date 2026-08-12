@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
 	"strings"
 	"time"
 
@@ -850,8 +849,8 @@ func (s *Service) GetSession(ctx context.Context, token string) (*UserSession, e
 
 	// Repopulate Redis from Postgres for subsequent requests
 	if setErr := s.rdb.Set(ctx, s.sessionKey(token), session.StytchSessionToken, sessionTTL).Err(); setErr != nil {
-		slog.WarnContext(ctx, "auth.Service.GetSession: failed to repopulate session cache",
-			slog.String("error", setErr.Error()),
+		s.logger.Warn("auth.Service.GetSession: failed to repopulate session cache",
+			zap.Error(setErr),
 		)
 	}
 
@@ -888,8 +887,8 @@ func (s *Service) Logout(ctx context.Context, token string) error {
 func (s *Service) purgeSessionCacheKeys(ctx context.Context, token string) {
 	keys := []string{s.sessionKey(token), middleware.SessionCacheKey(token)}
 	if err := s.rdb.Del(ctx, keys...).Err(); err != nil {
-		slog.WarnContext(ctx, "auth.Service: failed to purge session cache keys",
-			slog.String("error", err.Error()),
+		s.logger.Warn("auth.Service: failed to purge session cache keys",
+			zap.Error(err),
 		)
 	}
 }

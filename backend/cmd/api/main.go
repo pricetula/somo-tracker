@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"go.uber.org/fx"
@@ -47,6 +48,14 @@ func main() {
 					return middleware.HTTPError(c, err)
 				},
 				AppName: "somotracker-api",
+				// Deliberate limits: 4 MB JSON body cap (import endpoints are
+				// JSON job polling — no file uploads), plus server-level timeouts
+				// so a hung client or handler can't hold connections open
+				// indefinitely.
+				BodyLimit:    4 * 1024 * 1024,
+				ReadTimeout:  15 * time.Second,
+				WriteTimeout: 30 * time.Second,
+				IdleTimeout:  60 * time.Second,
 			})
 
 			// Health check
@@ -58,7 +67,7 @@ func main() {
 			// rate limiters, device fingerprint). Must run before routes so that
 			// middleware.RequireAuth (used by protected auth routes) can read the
 			// resolved session from Locals (D1).
-			middleware.Register(app, pools, cfg)
+			middleware.Register(app, pools, cfg, log.Sugar())
 
 			// Register auth routes
 			authhandler.RegisterRoutes(app)

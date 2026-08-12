@@ -33,7 +33,6 @@ func NewCSRFGuard(cfg config.Config) fiber.Handler {
 		}
 
 		// 3. Defense-in-Depth: Origin Header Check
-		// 3. Defense-in-Depth: Origin Header Check
 		if origin := c.Get("Origin"); origin != "" && cfg.AllowedOrigins != "" {
 			allowed := false
 			for _, o := range strings.Split(cfg.AllowedOrigins, ",") {
@@ -43,10 +42,10 @@ func NewCSRFGuard(cfg config.Config) fiber.Handler {
 				}
 			}
 			if !allowed {
-				return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				return c.Status(fiber.StatusForbidden).JSON(withRequestID(c, fiber.Map{
 					"code":    "forbidden",
 					"message": "invalid origin source",
-				})
+				}))
 			}
 		}
 
@@ -55,18 +54,18 @@ func NewCSRFGuard(cfg config.Config) fiber.Handler {
 		headerToken := c.Get("X-CSRF-Token")
 
 		if cookieToken == "" || headerToken == "" {
-			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			return c.Status(fiber.StatusForbidden).JSON(withRequestID(c, fiber.Map{
 				"code":    "forbidden",
 				"message": "csrf token missing",
-			})
+			}))
 		}
 
 		// Constant-time comparison to prevent timing side-channel attacks
 		if subtle.ConstantTimeCompare([]byte(cookieToken), []byte(headerToken)) != 1 {
-			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			return c.Status(fiber.StatusForbidden).JSON(withRequestID(c, fiber.Map{
 				"code":    "forbidden",
 				"message": "csrf token mismatch",
-			})
+			}))
 		}
 
 		return c.Next()

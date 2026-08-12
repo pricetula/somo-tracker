@@ -4,23 +4,24 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.uber.org/zap"
 
 	"somotracker/backend/internal/database"
 )
 
 // PgRepository implements StudentRepository backed by Postgres.
 type PgRepository struct {
-	pool *pgxpool.Pool
+	pool   *pgxpool.Pool
+	logger *zap.SugaredLogger
 }
 
 // NewRepository creates a new PgRepository.
-func NewRepository(pools *database.Pools) *PgRepository {
-	return &PgRepository{pool: pools.PG}
+func NewRepository(pools *database.Pools, logger *zap.SugaredLogger) *PgRepository {
+	return &PgRepository{pool: pools.PG, logger: logger}
 }
 
 // ─── List ─────────────────────────────────────────────────────────────────
@@ -344,8 +345,8 @@ func (r *PgRepository) CreateBatch(ctx context.Context, students []*Student) ([]
 	}
 	defer func() {
 		if rbErr := tx.Rollback(ctx); rbErr != nil && rbErr != pgx.ErrTxClosed {
-			slog.WarnContext(ctx, "students.Repository.CreateBatch: rollback",
-				slog.String("error", rbErr.Error()))
+			r.logger.Warnw("students.Repository.CreateBatch: rollback",
+				"error", rbErr.Error())
 		}
 	}()
 
@@ -712,8 +713,8 @@ func (r *PgRepository) CreateBatchEnrollments(ctx context.Context, enrollments [
 	}
 	defer func() {
 		if rbErr := tx.Rollback(ctx); rbErr != nil && rbErr != pgx.ErrTxClosed {
-			slog.WarnContext(ctx, "students.Repository.CreateBatchEnrollments: rollback",
-				slog.String("error", rbErr.Error()))
+			r.logger.Warnw("students.Repository.CreateBatchEnrollments: rollback",
+				"error", rbErr.Error())
 		}
 	}()
 

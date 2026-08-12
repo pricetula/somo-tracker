@@ -42,6 +42,11 @@ export default function GlobalError({
             <div className="text-center">
                 <h1 className="text-4xl font-bold tracking-tight">{title}</h1>
                 <p className="text-muted-foreground mt-2">{description}</p>
+                {isApiError && error.requestId && (
+                    <p className="text-muted-foreground mt-1 text-xs">
+                        Request ID: {error.requestId}
+                    </p>
+                )}
                 {error.digest && (
                     <p className="text-muted-foreground mt-1 text-xs">Error ID: {error.digest}</p>
                 )}

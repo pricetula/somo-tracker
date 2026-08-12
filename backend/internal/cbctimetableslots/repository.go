@@ -4,25 +4,27 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
+
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.uber.org/zap"
 
 	"somotracker/backend/internal/database"
 )
 
 // PgRepository handles timetable slot database operations.
 type PgRepository struct {
-	pool *pgxpool.Pool
+	pool   *pgxpool.Pool
+	logger *zap.SugaredLogger
 }
 
 // NewRepository creates a new PgRepository.
-func NewRepository(pools *database.Pools) *PgRepository {
-	return &PgRepository{pool: pools.PG}
+func NewRepository(pools *database.Pools, logger *zap.SugaredLogger) *PgRepository {
+	return &PgRepository{pool: pools.PG, logger: logger}
 }
 
 // slotColumns is the shared column list for SELECT queries on cbc_timetable_slots.
@@ -369,8 +371,8 @@ func (r *PgRepository) BatchCreate(ctx context.Context, tenantID, schoolID strin
 	}
 	defer func() {
 		if rbErr := tx.Rollback(ctx); rbErr != nil && !errors.Is(rbErr, pgx.ErrTxClosed) {
-			slog.WarnContext(ctx, "cbctimetableslots.Repository.BatchCreate: rollback error",
-				slog.String("error", rbErr.Error()),
+			r.logger.Warnw("cbctimetableslots.Repository.BatchCreate: rollback error",
+				"error", rbErr.Error(),
 			)
 		}
 	}()

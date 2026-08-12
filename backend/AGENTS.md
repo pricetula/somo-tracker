@@ -190,15 +190,18 @@ return nil, fmt.Errorf("members.Service.GetMember: %w", err)
 
 - Registered in `fiber.Config.ErrorHandler`.
 - Last-resort catcher for any escaped error, including panics via `recover` middleware.
-- Logs with `slog.ErrorContext`, returns the standard JSON body.
+- Logs with `loggerFrom(c).Errorw(...)` (zap), returns the standard JSON body.
 - Fiber's built-in `recover` middleware is registered before all routes.
 
 ### Log-once rule
 
-- `log/slog` must be used throughout. No `log.Println`, `fmt.Println`, or `log.Printf` in non-test code.
+- **zap is the logging library.** `log/slog` must not be used. No `log.Println`, `fmt.Println`, or `log.Printf` in non-test code.
+- Dependencies receive `*zap.SugaredLogger` via constructor injection (`logger *zap.SugaredLogger` field). The shared instance is provided by `internal/logger` (fx), so `zap.NewNop().Sugar()` is the standard no-op for tests.
+- `middleware` helpers (HTTPError, access log, panic recovery, rate limiter) read the logger from `c.Locals` via `middleware.WithLogger` / `loggerFrom(c)` — they must never take a logger parameter.
 - Log once at the layer where the error is first **handled** (handler or worker).
 - Intermediate layers (repository, service) only wrap and return — they do **not** log.
 - Level usage: `Error` = unexpected failure, `Warn` = handled degradation, `Info` = significant state change, `Debug` = detailed tracing.
+- Key-value style: use the sugared API (`logger.Infow(msg, "key", value)`). For typed fields use the structured `*zap.Logger` (`logger.Info(msg, zap.String("key", value))`). Never mix `slog.Attr` into a sugared call.
 
 ### Forbidden patterns
 
@@ -208,7 +211,7 @@ return nil, fmt.Errorf("members.Service.GetMember: %w", err)
 - Any `_ = someFunc()` in non-test code.
 - `log.Println` / `fmt.Println` in production code paths.
 - Empty `if err != nil { }` blocks — log and act.
-- Inline goroutines without a `defer recover()` that logs with `slog.ErrorContext`.
+- Inline goroutines without a `defer recover()` that logs with `logger.Errorw(...)`.
 - Calling `c.Next()` after a failed auth check.
 
 ### Additional rules
@@ -217,7 +220,7 @@ return nil, fmt.Errorf("members.Service.GetMember: %w", err)
 - **External API calls:** Wrap external errors into module-local errors before propagating. Never leak external error messages to HTTP clients.
 - **fx lifecycle:** Every constructor returns `(T, error)`. Every `OnStart`/`OnStop` returns `error`. `OnStop` errors are logged AND returned.
 - **Migration failure:** Must cause startup to abort — error propagates to fx, which refuses to start.
-- **Background workers:** Log failures with `slog.ErrorContext`. Distinguish severity (warn vs error). Never silently continue.
+- **Background workers:** Log failures with `logger.Errorw(...)`. Distinguish severity (warn vs error). Never silently continue.
 
 ### When adding a new module
 

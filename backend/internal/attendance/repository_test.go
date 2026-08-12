@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
+	"go.uber.org/zap"
 
 	"somotracker/backend/internal/database"
 )
@@ -324,7 +325,7 @@ func TestPgRepository_GetClassLearningAreaTermSummary(t *testing.T) {
 
 	// Instantiate a worker to manually run the job to populate the rollup table.
 	// We pass the pool directly.
-	w := &Worker{pools: &database.Pools{PG: pool}}
+	w := &Worker{pools: &database.Pools{PG: pool}, logger: zap.NewNop().Sugar()}
 
 	// Run the class learning area term refresh job for the whole school/term.
 	runWorkerJob(t, w, TaskRefreshClassLearningAreaTermSummary, ClassLearningAreaTermRefreshPayload{
@@ -381,7 +382,7 @@ func TestPgRepository_ListClassLearningAreaTermSummaries(t *testing.T) {
 	insertAttendanceTermSummary(t, pool, ids, ids.StudentID1, ids.LearningAreaID2, 10, 5, 5, 0, 0)  // Class 1, Eng
 	insertAttendanceTermSummary(t, pool, ids, ids.StudentID2, ids.LearningAreaID1, 20, 15, 3, 2, 0) // Class 2, Math
 
-	w := &Worker{pools: &database.Pools{PG: pool}}
+	w := &Worker{pools: &database.Pools{PG: pool}, logger: zap.NewNop().Sugar()}
 	runWorkerJob(t, w, TaskRefreshClassLearningAreaTermSummary, ClassLearningAreaTermRefreshPayload{
 		TenantID: ids.TenantID,
 		SchoolID: ids.SchoolID,
@@ -436,7 +437,7 @@ func TestPgRepository_GetClassTermAttendanceSummary(t *testing.T) {
 	insertClassDailyAttendanceSummary(t, pool, ids, ids.ClassID1, "2026-01-16", 32, 28, 2, 1, 1)
 	insertClassDailyAttendanceSummary(t, pool, ids, ids.ClassID2, "2026-01-15", 30, 20, 5, 3, 2)
 
-	w := &Worker{pools: &database.Pools{PG: pool}}
+	w := &Worker{pools: &database.Pools{PG: pool}, logger: zap.NewNop().Sugar()}
 	runWorkerJob(t, w, TaskRefreshClassTermSummary, ClassTermRefreshPayload{
 		TenantID: ids.TenantID,
 		SchoolID: ids.SchoolID,
@@ -488,7 +489,7 @@ func TestPgRepository_ListClassTermAttendanceSummaries(t *testing.T) {
 	insertClassDailyAttendanceSummary(t, pool, ids, ids.ClassID1, "2026-01-15", 30, 25, 3, 2, 0)
 	insertClassDailyAttendanceSummary(t, pool, ids, ids.ClassID2, "2026-01-15", 30, 20, 5, 3, 2)
 
-	w := &Worker{pools: &database.Pools{PG: pool}}
+	w := &Worker{pools: &database.Pools{PG: pool}, logger: zap.NewNop().Sugar()}
 	runWorkerJob(t, w, TaskRefreshClassTermSummary, ClassTermRefreshPayload{
 		TenantID: ids.TenantID,
 		SchoolID: ids.SchoolID,

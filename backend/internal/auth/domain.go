@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"regexp"
 	"strings"
 	"time"
@@ -24,14 +25,19 @@ var (
 	ErrForbidden     = xerrors.Forbidden("forbidden")
 	ErrConflict      = xerrors.Conflict("auth conflict")
 
-	// Auth-specific sentinels.
-	ErrExpiredToken              = xerrors.Unauthorized("expired_token")             // maps to 401, triggers frontend eviction
-	ErrSessionRefExpired         = xerrors.Unauthorized("session_ref_expired")       // maps to 401 — IST already consumed/never cached
-	ErrMFARequired               = xerrors.Unauthorized("mfa_required")              // maps to 401
-	ErrOrgAlreadyExists          = xerrors.Conflict("org_already_exists")            // maps to 409
-	ErrJITProvisioningNotAllowed = xerrors.Forbidden("jit_provisioning_not_allowed") // maps to 403
-	ErrMemberNotFound            = xerrors.NotFound("member_not_found")              // maps to 404
-	ErrOrgNotFound               = xerrors.NotFound("org_not_found")                 // maps to 404
+	// Auth-specific sentinels. Each one uses xerrors.New so the machine-
+	// readable code is carried verbatim on the wire — the shorthand
+	// constructors (xerrors.Unauthorized, xerrors.Forbidden, ...) hardcode
+	// the generic code (e.g. "unauthorized"), which would collapse every
+	// auth error into one code and defeat the frontend's ability to
+	// distinguish "link expired" from "link already used" (A5).
+	ErrExpiredToken              = xerrors.New("expired_token", http.StatusUnauthorized, "expired_token")                            // maps to 401, triggers frontend eviction
+	ErrSessionRefExpired         = xerrors.New("session_ref_expired", http.StatusUnauthorized, "session_ref_expired")                // maps to 401 — IST already consumed/never cached
+	ErrMFARequired               = xerrors.New("mfa_required", http.StatusUnauthorized, "mfa_required")                              // maps to 401
+	ErrOrgAlreadyExists          = xerrors.New("org_already_exists", http.StatusConflict, "org_already_exists")                      // maps to 409
+	ErrJITProvisioningNotAllowed = xerrors.New("jit_provisioning_not_allowed", http.StatusForbidden, "jit_provisioning_not_allowed") // maps to 403
+	ErrMemberNotFound            = xerrors.New("member_not_found", http.StatusNotFound, "member_not_found")                          // maps to 404
+	ErrOrgNotFound               = xerrors.New("org_not_found", http.StatusNotFound, "org_not_found")                                // maps to 404
 
 	// ErrInternal is a recognized *xerrors.DomainError so that the HTTP
 	// middleware can map it to a proper 500 response instead of falling

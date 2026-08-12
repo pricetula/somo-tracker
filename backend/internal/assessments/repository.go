@@ -4,25 +4,26 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.uber.org/zap"
 
 	"somotracker/backend/internal/database"
 )
 
 // PgRepository handles assessment database operations.
 type PgRepository struct {
-	pool *pgxpool.Pool
+	pool   *pgxpool.Pool
+	logger *zap.SugaredLogger
 }
 
 // NewRepository creates a new PgRepository.
-func NewRepository(pools *database.Pools) *PgRepository {
-	return &PgRepository{pool: pools.PG}
+func NewRepository(pools *database.Pools, logger *zap.SugaredLogger) *PgRepository {
+	return &PgRepository{pool: pools.PG, logger: logger}
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────
@@ -242,8 +243,8 @@ func (r *PgRepository) CreateScaleProfileWithRanges(ctx context.Context, params 
 	}
 	defer func() {
 		if rbErr := tx.Rollback(ctx); rbErr != nil && rbErr != pgx.ErrTxClosed {
-			slog.WarnContext(ctx, "assessments.Repository.CreateScaleProfileWithRanges: rollback",
-				slog.String("error", rbErr.Error()))
+			r.logger.Warnw("assessments.Repository.CreateScaleProfileWithRanges: rollback",
+				"error", rbErr.Error())
 		}
 	}()
 
@@ -328,8 +329,8 @@ func (r *PgRepository) ReplaceScaleRanges(ctx context.Context, profileID string,
 	}
 	defer func() {
 		if rbErr := tx.Rollback(ctx); rbErr != nil && rbErr != pgx.ErrTxClosed {
-			slog.WarnContext(ctx, "assessments.Repository.ReplaceScaleRanges: rollback",
-				slog.String("error", rbErr.Error()))
+			r.logger.Warnw("assessments.Repository.ReplaceScaleRanges: rollback",
+				"error", rbErr.Error())
 		}
 	}()
 
@@ -704,8 +705,8 @@ func (r *PgRepository) BulkUpsertStudentScores(ctx context.Context, params []Ups
 	}
 	defer func() {
 		if rbErr := tx.Rollback(ctx); rbErr != nil && rbErr != pgx.ErrTxClosed {
-			slog.WarnContext(ctx, "assessments.Repository.BulkUpsertStudentScores: rollback",
-				slog.String("error", rbErr.Error()))
+			r.logger.Warnw("assessments.Repository.BulkUpsertStudentScores: rollback",
+				"error", rbErr.Error())
 		}
 	}()
 
@@ -863,8 +864,8 @@ func (r *PgRepository) BulkUpsertOutcomeGrades(ctx context.Context, params []Ups
 	}
 	defer func() {
 		if rbErr := tx.Rollback(ctx); rbErr != nil && rbErr != pgx.ErrTxClosed {
-			slog.WarnContext(ctx, "assessments.Repository.BulkUpsertOutcomeGrades: rollback",
-				slog.String("error", rbErr.Error()))
+			r.logger.Warnw("assessments.Repository.BulkUpsertOutcomeGrades: rollback",
+				"error", rbErr.Error())
 		}
 	}()
 

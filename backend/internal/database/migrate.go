@@ -3,13 +3,13 @@ package database
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"strings"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/pgx/v5"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"go.uber.org/fx"
+	"go.uber.org/zap"
 
 	"somotracker/backend/internal/config" // Adjust to match your config package
 )
@@ -23,10 +23,10 @@ var Module = fx.Module(
 
 // RunMigrations accepts injected dependencies from FX.
 // Returning an error here halts application startup safely.
-func RunMigrations(lc fx.Lifecycle, cfg config.Config) {
+func RunMigrations(lc fx.Lifecycle, cfg config.Config, logger *zap.SugaredLogger) {
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			slog.Info("running database migrations...")
+			logger.Info("running database migrations...")
 
 			srcURL := cfg.DatabaseURL
 			if strings.HasPrefix(srcURL, "postgres://") {
@@ -44,7 +44,7 @@ func RunMigrations(lc fx.Lifecycle, cfg config.Config) {
 				return fmt.Errorf("database.RunMigrations: run migrations: %w", err)
 			}
 
-			slog.Info("database migrations completed successfully")
+			logger.Info("database migrations completed successfully")
 			return nil
 		},
 	})

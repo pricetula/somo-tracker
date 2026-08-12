@@ -75,6 +75,15 @@ var (
 
 // ── Sentinel Constructors ─────────────────────────────────────────────────
 
+// New creates a DomainError with an explicit machine-readable code. Use this
+// when a sentinel must surface a code distinct from the generic ones produced
+// by the shorthand constructors (Unauthorized, Forbidden, ...) — e.g. auth's
+// ErrExpiredToken must carry code "expired_token" on the wire so the frontend
+// can distinguish it from "session_ref_expired" or "mfa_required".
+func New(code string, status int, message string) *DomainError {
+	return &DomainError{Code: code, Status: status, Message: message}
+}
+
 func NotFound(msg string) *DomainError {
 	return &DomainError{Code: "not_found", Status: http.StatusNotFound, Message: msg}
 }

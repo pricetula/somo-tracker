@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -56,7 +57,10 @@ func NewRateLimiter(rdb *redis.Client, cfg RateLimiterConfig) fiber.Handler {
 
 		result, err := script.Run(ctx, rdb, []string{key}, now, windowMs, cfg.Limit, memberID).Int()
 		if err != nil {
-			// Fail-open strategy: If Redis fails, allow request through to prevent system outage
+			// Fail-open strategy: allow the request through so a Redis outage
+			// doesn't take down the API — but surface the degradation instead
+			// of silently disabling the throttle.
+			warnRateLimitDegraded(c, cfg.Prefix, err)
 			return c.Next()
 		}
 
@@ -116,4 +120,26 @@ func NewEndpointLimiter(rdb *redis.Client, limit int64, window time.Duration) fi
 			return "" // skip if no user
 		},
 	})
+}
+
+var (
+	rateLimitWarnMu sync.Mutex
+	rateLimitWarnAt = map[string]time.Time{}
+)
+
+// warnRateLimitDegraded logs a Redis failure at Warn level at most once per
+// limiter prefix per 30s window. The limiter fails open when Redis is down;
+// without this debounce a prolonged outage would flood the logs with an
+// identical line on every request.
+func warnRateLimitDegraded(c *fiber.Ctx, prefix string, err error) {
+	rateLimitWarnMu.Lock()
+	defer rateLimitWarnMu.Unlock()
+	if last, ok := rateLimitWarnAt[prefix]; ok && time.Since(last) < 30*time.Second {
+		return
+	}
+	rateLimitWarnAt[prefix] = time.Now()
+	loggerFrom(c).Warnw("rate limiter degraded: Redis unavailable, failing open",
+		"prefix", prefix,
+		"error", err.Error(),
+	)
 }

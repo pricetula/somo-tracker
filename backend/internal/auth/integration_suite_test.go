@@ -755,7 +755,7 @@ func newSchoolCreatorAdapter(pool *pgxpool.Pool) *schoolCreatorAdapter {
 
 func newSchoolCreatorAdapterWithYearSeeder(pool *pgxpool.Pool) *schoolCreatorAdapter {
 	ayRepo := academicyears.NewRepository(&database.Pools{PG: pool})
-	aySvc := academicyears.NewService(ayRepo)
+	aySvc := academicyears.NewService(ayRepo, zap.NewNop().Sugar())
 	return &schoolCreatorAdapter{pool: pool, yearSeeder: aySvc}
 }
 

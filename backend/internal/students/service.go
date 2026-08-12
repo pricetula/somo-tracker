@@ -3,19 +3,21 @@ package students
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"strings"
+
+	"go.uber.org/zap"
 )
 
 // Service implements student business logic.
 type Service struct {
 	repo       StudentRepository
 	importRepo ImportRepository
+	logger     *zap.SugaredLogger
 }
 
 // NewService creates a new Service.
-func NewService(repo StudentRepository) *Service {
-	return &Service{repo: repo}
+func NewService(repo StudentRepository, logger *zap.SugaredLogger) *Service {
+	return &Service{repo: repo, logger: logger}
 }
 
 // SetImportRepo sets the import repository (called during DI wiring).
@@ -93,11 +95,11 @@ func (s *Service) Create(ctx context.Context, tenantID, schoolID string, payload
 	if payload.ClassID != nil && *payload.ClassID != "" {
 		// We create a placeholder enrollment. In production, academic_term_id
 		// would come from the current active term.
-		slog.Warn("students.Service.Create: class_id provided but enrollment not yet supported without academic_term_id",
+		s.logger.Warnw("students.Service.Create: class_id provided but enrollment not yet supported without academic_term_id",
 			"class_id", *payload.ClassID)
 	}
 
-	slog.Info("student.created",
+	s.logger.Infow("student.created",
 		"tenant_id", tenantID,
 		"school_id", schoolID,
 		"resource_id", id,
@@ -170,7 +172,7 @@ func (s *Service) Update(ctx context.Context, id, tenantID, schoolID string, pay
 		return fmt.Errorf("students.Service.Update: %w", err)
 	}
 
-	slog.Info("student.updated",
+	s.logger.Infow("student.updated",
 		"tenant_id", tenantID,
 		"school_id", schoolID,
 		"resource_id", id,
@@ -218,7 +220,7 @@ func (s *Service) CreateBatch(ctx context.Context, tenantID, schoolID string, pa
 		return CreateStudentsResponse{}, fmt.Errorf("students.Service.CreateBatch: %w", err)
 	}
 
-	slog.Info("students.batch.created",
+	s.logger.Infow("students.batch.created",
 		"tenant_id", tenantID,
 		"school_id", schoolID,
 		"count", len(ids),
@@ -253,7 +255,7 @@ func (s *Service) CreateEnrollment(ctx context.Context, studentID, tenantID, sch
 	}
 	enrollment.ID = id
 
-	slog.Info("student.enrollment.created",
+	s.logger.Infow("student.enrollment.created",
 		"tenant_id", tenantID,
 		"school_id", schoolID,
 		"student_id", studentID,
@@ -304,7 +306,7 @@ func (s *Service) CreateBatchEnrollments(ctx context.Context, tenantID, schoolID
 		return BatchEnrollResponse{}, fmt.Errorf("students.Service.CreateBatchEnrollments: %w", err)
 	}
 
-	slog.Info("students.batch.enrolled",
+	s.logger.Infow("students.batch.enrolled",
 		"tenant_id", tenantID,
 		"school_id", schoolID,
 		"academic_term_id", academicTermID,

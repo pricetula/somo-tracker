@@ -1,12 +1,14 @@
 package curriculum
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
 
 	"somotracker/backend/internal/middleware"
+	"somotracker/backend/internal/xerrors"
 )
 
 // Handler exposes curriculum HTTP endpoints.
@@ -57,26 +59,17 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 func getTenantAndSchool(c *fiber.Ctx) (string, string, error) {
 	tenantID, ok := c.Locals("tenant_id").(string)
 	if !ok || tenantID == "" {
-		return "", "", c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"code":    "unauthorized",
-			"message": "authentication required",
-		})
+		return "", "", fmt.Errorf("authentication required: %w", xerrors.ErrUnauthorized)
 	}
 	schoolID, _ := c.Locals("active_school_id").(string)
 	if schoolID == "" {
-		return "", "", c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "invalid_input",
-			"message": "active school not set",
-		})
+		return "", "", fmt.Errorf("active school not set: %w", xerrors.ErrInvalidInput)
 	}
 	return tenantID, schoolID, nil
 }
 
 func invalidBody(c *fiber.Ctx) error {
-	return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
-		"code":    "invalid_input",
-		"message": "invalid request body",
-	})
+	return fmt.Errorf("invalid request body: %w", xerrors.UnprocessableEntity("malformed request body"))
 }
 
 // parseRepeatedQuery reads all values for a given query parameter name.
@@ -125,12 +118,12 @@ func parseRepeatedQuery(c *fiber.Ctx, name string) []string {
 func (h *Handler) CreateLearningArea(c *fiber.Ctx) error {
 	tenantID, schoolID, err := getTenantAndSchool(c)
 	if err != nil {
-		return err
+		return middleware.HTTPError(c, err)
 	}
 
 	var payload CreateLearningAreaPayload
 	if err := c.BodyParser(&payload); err != nil {
-		return invalidBody(c)
+		return middleware.HTTPError(c, invalidBody(c))
 	}
 
 	id, err := h.svc.CreateLearningArea(c.Context(), CreateLearningAreaParams{
@@ -158,7 +151,7 @@ func (h *Handler) CreateLearningArea(c *fiber.Ctx) error {
 func (h *Handler) ListLearningAreas(c *fiber.Ctx) error {
 	tenantID, schoolID, err := getTenantAndSchool(c)
 	if err != nil {
-		return err
+		return middleware.HTTPError(c, err)
 	}
 
 	// Multi-select filters — parse repeated query params
@@ -193,15 +186,12 @@ func (h *Handler) ListLearningAreas(c *fiber.Ctx) error {
 func (h *Handler) GetLearningAreaByID(c *fiber.Ctx) error {
 	tenantID, schoolID, err := getTenantAndSchool(c)
 	if err != nil {
-		return err
+		return middleware.HTTPError(c, err)
 	}
 
 	areaID := c.Params("id")
 	if areaID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "invalid_input",
-			"message": "learning area id is required",
-		})
+		return middleware.HTTPError(c, fmt.Errorf("learning area id is required: %w", xerrors.ErrInvalidInput))
 	}
 
 	area, err := h.svc.GetLearningArea(c.Context(), areaID, tenantID, schoolID)
@@ -216,15 +206,12 @@ func (h *Handler) GetLearningAreaByID(c *fiber.Ctx) error {
 func (h *Handler) GetTree(c *fiber.Ctx) error {
 	tenantID, schoolID, err := getTenantAndSchool(c)
 	if err != nil {
-		return err
+		return middleware.HTTPError(c, err)
 	}
 
 	areaID := c.Params("id")
 	if areaID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "invalid_input",
-			"message": "learning area id is required",
-		})
+		return middleware.HTTPError(c, fmt.Errorf("learning area id is required: %w", xerrors.ErrInvalidInput))
 	}
 
 	tree, err := h.svc.GetTree(c.Context(), areaID, tenantID, schoolID)
@@ -239,20 +226,17 @@ func (h *Handler) GetTree(c *fiber.Ctx) error {
 func (h *Handler) UpdateLearningArea(c *fiber.Ctx) error {
 	tenantID, schoolID, err := getTenantAndSchool(c)
 	if err != nil {
-		return err
+		return middleware.HTTPError(c, err)
 	}
 
 	areaID := c.Params("id")
 	if areaID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "invalid_input",
-			"message": "learning area id is required",
-		})
+		return middleware.HTTPError(c, fmt.Errorf("learning area id is required: %w", xerrors.ErrInvalidInput))
 	}
 
 	var payload UpdateLearningAreaPayload
 	if err := c.BodyParser(&payload); err != nil {
-		return invalidBody(c)
+		return middleware.HTTPError(c, invalidBody(c))
 	}
 
 	// Verify the learning area exists and belongs to this tenant/school
@@ -289,20 +273,17 @@ func (h *Handler) UpdateLearningArea(c *fiber.Ctx) error {
 func (h *Handler) DeleteLearningArea(c *fiber.Ctx) error {
 	tenantID, schoolID, err := getTenantAndSchool(c)
 	if err != nil {
-		return err
+		return middleware.HTTPError(c, err)
 	}
 
 	var payload struct {
 		ID string `json:"id"`
 	}
 	if err := c.BodyParser(&payload); err != nil {
-		return invalidBody(c)
+		return middleware.HTTPError(c, invalidBody(c))
 	}
 	if payload.ID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "invalid_input",
-			"message": "learning area id is required",
-		})
+		return middleware.HTTPError(c, fmt.Errorf("learning area id is required: %w", xerrors.ErrInvalidInput))
 	}
 
 	if err := h.svc.DeleteLearningArea(c.Context(), payload.ID, tenantID, schoolID); err != nil {
@@ -318,12 +299,12 @@ func (h *Handler) DeleteLearningArea(c *fiber.Ctx) error {
 func (h *Handler) CreateStrand(c *fiber.Ctx) error {
 	tenantID, schoolID, err := getTenantAndSchool(c)
 	if err != nil {
-		return err
+		return middleware.HTTPError(c, err)
 	}
 
 	var payload CreateStrandPayload
 	if err := c.BodyParser(&payload); err != nil {
-		return invalidBody(c)
+		return middleware.HTTPError(c, invalidBody(c))
 	}
 
 	// The service verifies learning_area_id belongs to this tenant/school
@@ -349,10 +330,7 @@ func (h *Handler) ListStrands(c *fiber.Ctx) error {
 
 	learningAreaID := c.Query("learning_area_id")
 	if learningAreaID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "invalid_input",
-			"message": "learning_area_id query parameter is required",
-		})
+		return middleware.HTTPError(c, fmt.Errorf("learning_area_id query parameter is required: %w", xerrors.ErrInvalidInput))
 	}
 
 	strands, err := h.svc.ListStrands(c.Context(), learningAreaID, tenantID)
@@ -385,7 +363,7 @@ func (h *Handler) UpdateStrand(c *fiber.Ctx) error {
 
 	var payload UpdateStrandPayload
 	if err := c.BodyParser(&payload); err != nil {
-		return invalidBody(c)
+		return middleware.HTTPError(c, invalidBody(c))
 	}
 
 	if err := h.svc.UpdateStrand(c.Context(), strandID, tenantID, payload.Name); err != nil {
@@ -406,7 +384,7 @@ func (h *Handler) DeleteStrand(c *fiber.Ctx) error {
 		ID string `json:"id"`
 	}
 	if err := c.BodyParser(&payload); err != nil {
-		return invalidBody(c)
+		return middleware.HTTPError(c, invalidBody(c))
 	}
 	if payload.ID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -428,12 +406,12 @@ func (h *Handler) DeleteStrand(c *fiber.Ctx) error {
 func (h *Handler) CreateSubStrand(c *fiber.Ctx) error {
 	tenantID, schoolID, err := getTenantAndSchool(c)
 	if err != nil {
-		return err
+		return middleware.HTTPError(c, err)
 	}
 
 	var payload CreateSubStrandPayload
 	if err := c.BodyParser(&payload); err != nil {
-		return invalidBody(c)
+		return middleware.HTTPError(c, invalidBody(c))
 	}
 
 	id, err := h.svc.CreateSubStrand(c.Context(), CreateSubStrandParams{
@@ -458,10 +436,7 @@ func (h *Handler) ListSubStrands(c *fiber.Ctx) error {
 
 	strandID := c.Query("strand_id")
 	if strandID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "invalid_input",
-			"message": "strand_id query parameter is required",
-		})
+		return middleware.HTTPError(c, fmt.Errorf("strand_id query parameter is required: %w", xerrors.ErrInvalidInput))
 	}
 
 	subs, err := h.svc.ListSubStrands(c.Context(), strandID, tenantID)
@@ -494,7 +469,7 @@ func (h *Handler) UpdateSubStrand(c *fiber.Ctx) error {
 
 	var payload UpdateSubStrandPayload
 	if err := c.BodyParser(&payload); err != nil {
-		return invalidBody(c)
+		return middleware.HTTPError(c, invalidBody(c))
 	}
 
 	if err := h.svc.UpdateSubStrand(c.Context(), subID, tenantID, payload.Name); err != nil {
@@ -515,7 +490,7 @@ func (h *Handler) DeleteSubStrand(c *fiber.Ctx) error {
 		ID string `json:"id"`
 	}
 	if err := c.BodyParser(&payload); err != nil {
-		return invalidBody(c)
+		return middleware.HTTPError(c, invalidBody(c))
 	}
 	if payload.ID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -537,12 +512,12 @@ func (h *Handler) DeleteSubStrand(c *fiber.Ctx) error {
 func (h *Handler) CreatePerformanceIndicator(c *fiber.Ctx) error {
 	tenantID, schoolID, err := getTenantAndSchool(c)
 	if err != nil {
-		return err
+		return middleware.HTTPError(c, err)
 	}
 
 	var payload CreatePerformanceIndicatorPayload
 	if err := c.BodyParser(&payload); err != nil {
-		return invalidBody(c)
+		return middleware.HTTPError(c, invalidBody(c))
 	}
 
 	id, err := h.svc.CreatePerformanceIndicator(c.Context(), CreatePerformanceIndicatorParams{
@@ -568,10 +543,7 @@ func (h *Handler) ListPerformanceIndicators(c *fiber.Ctx) error {
 
 	subStrandID := c.Query("sub_strand_id")
 	if subStrandID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "invalid_input",
-			"message": "sub_strand_id query parameter is required",
-		})
+		return middleware.HTTPError(c, fmt.Errorf("sub_strand_id query parameter is required: %w", xerrors.ErrInvalidInput))
 	}
 
 	indicators, err := h.svc.ListPerformanceIndicators(c.Context(), subStrandID, tenantID)
@@ -604,7 +576,7 @@ func (h *Handler) UpdatePerformanceIndicator(c *fiber.Ctx) error {
 
 	var payload UpdatePerformanceIndicatorPayload
 	if err := c.BodyParser(&payload); err != nil {
-		return invalidBody(c)
+		return middleware.HTTPError(c, invalidBody(c))
 	}
 
 	if err := h.svc.UpdatePerformanceIndicator(c.Context(), indicatorID, tenantID, payload.Description, payload.SequenceOrder); err != nil {
@@ -625,7 +597,7 @@ func (h *Handler) DeletePerformanceIndicator(c *fiber.Ctx) error {
 		ID string `json:"id"`
 	}
 	if err := c.BodyParser(&payload); err != nil {
-		return invalidBody(c)
+		return middleware.HTTPError(c, invalidBody(c))
 	}
 	if payload.ID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{

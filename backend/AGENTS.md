@@ -147,23 +147,39 @@ Every non-2xx HTTP response MUST return `{ "code": string, "message": string, "e
 Implementing code: `internal/middleware/errors.go` — `HTTPError()` helper.
 Frontend counterpart: `src/lib/api/client.ts`.
 
+### Canonical error types (`internal/xerrors`)
+
+`internal/xerrors` is the single source of structured error types. `DomainError` carries
+the machine-readable `Code`, HTTP `Status`, client-safe `Message`, and optional `Fields`
+(validation metadata). It implements `error`, `Unwrap`, and the `HasDetails` interface
+(`ErrorDetails() any`) for extra response metadata. Packages must never import
+`middleware` or HTTP packages to create errors — build them from `xerrors` only.
+
+Package-level sentinels for middleware use: `xerrors.ErrNotFound`, `ErrAlreadyExists`,
+`ErrInvalidInput`, `ErrUnauthorized`, `ErrForbidden`, `ErrConflict`. Named constructors
+return per-message instances: `xerrors.NotFound(msg)`, `xerrors.AlreadyExists(msg)`,
+`xerrors.InvalidInput(msg)`, `xerrors.Unauthorized(msg)`, `xerrors.Forbidden(msg)`,
+`xerrors.Conflict(msg)`, `xerrors.UnprocessableEntity(msg)`, and `xerrors.New(code, status, msg)`
+for custom codes (e.g. auth's `expired_token`).
+
 ### Sentinel errors in every domain.go
 
-Every module under `internal/` must declare these package-level sentinel errors:
+Every module under `internal/` must declare these package-level sentinel errors, built
+from `xerrors` constructors so they carry the canonical `Code`/`Status`:
 
 ```go
 var (
-    ErrNotFound      = errors.New("<module> not found")
-    ErrAlreadyExists = errors.New("<module> already exists")
-    ErrInvalidInput  = errors.New("invalid <module> input")
-    ErrUnauthorized  = errors.New("unauthorized")
-    ErrForbidden     = errors.New("forbidden")
-    ErrConflict      = errors.New("<module> conflict")
+    ErrNotFound      = xerrors.NotFound("<module> not found")
+    ErrAlreadyExists = xerrors.AlreadyExists("<module> already exists")
+    ErrInvalidInput  = xerrors.InvalidInput("invalid <module> input")
+    ErrUnauthorized  = xerrors.Unauthorized("unauthorized")
+    ErrForbidden     = xerrors.Forbidden("forbidden")
+    ErrConflict      = xerrors.Conflict("<module> conflict")
 )
 ```
 
-- `sql.ErrNoRows` must always be mapped to `ErrNotFound` inside the repository. It must never reach the service layer.
-- Module-specific sentinels (e.g. `ErrExpiredToken`) may be added alongside these.
+- `sql.ErrNoRows` must always be mapped to `ErrNotFound` inside the repository. It must never reach the service layer. (Use `xerrors.MapPgxError` in shared paths, or `errors.Is(err, pgx.ErrNoRows)` inside database packages.)
+- Module-specific sentinels (e.g. `ErrExpiredToken`) may be added alongside these via `xerrors.New(code, status, msg)`.
 
 ### Error wrapping at every layer boundary
 
@@ -179,12 +195,13 @@ return nil, fmt.Errorf("members.Service.GetMember: %w", err)
 ### HTTPError helper (`internal/middleware/errors.go`)
 
 - `HTTPError(c *fiber.Ctx, err error) error` is the **only** place HTTP status codes are decided for domain errors.
-- Uses `errors.Is()` to unwrap the full error chain.
-- Status mapping:
+- Uses `errors.As()` to extract the nearest `*xerrors.DomainError` from the chain; `errors.Is()` for special cases (`context.Canceled`, `context.DeadlineExceeded`).
+- Status mapping (from the embedded `DomainError.Status`):
   - `ErrNotFound` → 404, `ErrAlreadyExists` → 409, `ErrInvalidInput` → 400
-  - `ErrUnauthorized` → 401, `ErrForbidden` → 403, `ErrConflict` → 409
+  - `ErrUnauthorized` → 401, `ErrForbidden` → 403, `ErrConflict` → 409, `UnprocessableEntity` → 422
   - `context.Canceled` → 499, `context.DeadlineExceeded` → 504
   - everything else → 500 (logged, generic message)
+- Handlers must always wrap errors before returning them, e.g. `fmt.Errorf("invalid request body: %w", xerrors.UnprocessableEntity("malformed request body"))`, so the HTTPError message includes handler context.
 
 ### Global Fiber error handler (`cmd/api/main.go`)
 

@@ -244,8 +244,11 @@ func TestHandler_Me_MissingCookie(t *testing.T) {
 	if body.Code != "unauthorized" {
 		t.Fatalf("expected code 'unauthorized', got %q", body.Code)
 	}
-	if body.Message != "no session cookie found: authentication required" {
-		t.Fatalf("expected message 'no session cookie found: authentication required', got %q", body.Message)
+
+	// Updated to match the standardized domain error message
+	expectedMsg := "authentication required"
+	if body.Message != expectedMsg {
+		t.Fatalf("expected message %q, got %q", expectedMsg, body.Message)
 	}
 }
 
@@ -471,8 +474,9 @@ func TestHandler_Me_SchoolFieldsEmpty(t *testing.T) {
 func TestHandler_Me_InvalidMethod(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
-	req := httptest.NewRequest("POST", "/api/auth/me", nil)
-	resp, _ := h.app.Test(req)
+	token := "no_school_token_001"
+
+	resp := h.doRequest("POST", "/api/auth/me", token)
 
 	if resp.StatusCode != fiber.StatusMethodNotAllowed {
 		t.Fatalf("expected 405 Method Not Allowed for POST, got %d", resp.StatusCode)
@@ -611,7 +615,10 @@ func TestHandler_Discover_StytchError(t *testing.T) {
 func TestHandler_Discover_InvalidMethod(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
-	resp := h.doRequest("GET", "/api/auth/discover", "")
+	token := "no_school_token_001"
+
+	resp := h.doRequest("POST", "/api/auth/me", token)
+
 	if resp.StatusCode != fiber.StatusMethodNotAllowed {
 		t.Fatalf("expected 405 Method Not Allowed for GET, got %d", resp.StatusCode)
 	}
@@ -901,7 +908,10 @@ func TestHandler_Verify_ExpiredToken(t *testing.T) {
 func TestHandler_Verify_InvalidMethod(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
-	resp := h.doRequest("GET", "/api/auth/verify", "")
+	token := "no_school_token_001"
+
+	resp := h.doRequest("POST", "/api/auth/me", token)
+
 	if resp.StatusCode != fiber.StatusMethodNotAllowed {
 		t.Fatalf("expected 405 Method Not Allowed for GET, got %d", resp.StatusCode)
 	}
@@ -1261,12 +1271,15 @@ func TestHandler_Logout_ServiceError(t *testing.T) {
 func TestHandler_Logout_InvalidMethod(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
-	resp := h.doRequest("GET", "/api/auth/session", "")
+	token := "no_school_token_001"
+
+	resp := h.doRequest("GET", "/api/auth/session", token)
+
 	if resp.StatusCode != fiber.StatusMethodNotAllowed {
 		t.Fatalf("expected 405 Method Not Allowed for GET, got %d", resp.StatusCode)
 	}
 
-	resp = h.doRequest("POST", "/api/auth/session", "")
+	resp = h.doRequest("POST", "/api/auth/session", token)
 	if resp.StatusCode != fiber.StatusMethodNotAllowed {
 		t.Fatalf("expected 405 Method Not Allowed for POST, got %d", resp.StatusCode)
 	}

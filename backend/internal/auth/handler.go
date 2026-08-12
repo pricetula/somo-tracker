@@ -88,6 +88,7 @@ func NewHandlerWithLimiters(svc *Service, logger *zap.Logger, cfg config.Config,
 // RegisterRoutes mounts auth routes on the given router.
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	auth := router.Group("/api/auth")
+	auth.Delete("/session", h.Logout)
 
 	// Public endpoints: IP‑based rate limit (stricter than global coarse limiter)
 	public := auth.Group("")
@@ -103,7 +104,6 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	protected.Use(h.userLimiter)
 	protected.Use(middleware.RequireAuth)
 	protected.Get("/me", h.Me)
-	protected.Delete("/session", h.Logout)
 	protected.Post("/switch-school", h.SwitchActiveSchool)
 }
 

@@ -112,7 +112,7 @@ func TestHandler_Register_CSRFTokenUnpredictable(t *testing.T) {
 			FullName:   "CSRF User",
 		})
 		for _, c := range resp.Cookies() {
-			if c.Name == "somo_csrf" {
+			if c.Name == "csrf_token" {
 				return c.Value
 			}
 		}

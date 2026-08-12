@@ -119,7 +119,6 @@ func TestPgRepository_CreateFeeCategory_Duplicate(t *testing.T) {
 	pool, cleanup := startPG(t)
 	defer cleanup()
 	applyMigration(t, pool, "000001_initial_schema.up.sql")
-	applyMigration(t, pool, "000017_add_fee_category_name_uniqueness.up.sql")
 
 	tenantID, schoolID := seedTenantSchool(t, pool)
 	repo := newRepo(pool)

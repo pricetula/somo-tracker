@@ -124,7 +124,7 @@ func TestPgRepository_ListByTeacher(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigrations(t, pool, "000001_initial_schema.up.sql", "000014_create_teacher_workload_summaries.up.sql")
+	applyMigrations(t, pool, "000001_initial_schema.up.sql")
 
 	tenantID, schoolID, userID := seedTenantSchoolUser(t, pool)
 	yearID := seedAcademicYear(t, pool, tenantID, schoolID)
@@ -161,7 +161,7 @@ func TestPgRepository_ListByTeacher_NotFound(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigrations(t, pool, "000001_initial_schema.up.sql", "000014_create_teacher_workload_summaries.up.sql")
+	applyMigrations(t, pool, "000001_initial_schema.up.sql")
 
 	tenantID, schoolID, userID := seedTenantSchoolUser(t, pool)
 
@@ -178,7 +178,7 @@ func TestPgRepository_ListByYear(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigrations(t, pool, "000001_initial_schema.up.sql", "000014_create_teacher_workload_summaries.up.sql")
+	applyMigrations(t, pool, "000001_initial_schema.up.sql")
 
 	tenantID, schoolID, userID1 := seedTenantSchoolUser(t, pool)
 
@@ -217,7 +217,7 @@ func TestPgRepository_ListByYear_Empty(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigrations(t, pool, "000001_initial_schema.up.sql", "000014_create_teacher_workload_summaries.up.sql")
+	applyMigrations(t, pool, "000001_initial_schema.up.sql")
 
 	tenantID, schoolID, _ := seedTenantSchoolUser(t, pool)
 	repo := newRepo(pool)
@@ -235,7 +235,7 @@ func TestPgRepository_GetByTeacherYear(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigrations(t, pool, "000001_initial_schema.up.sql", "000014_create_teacher_workload_summaries.up.sql")
+	applyMigrations(t, pool, "000001_initial_schema.up.sql")
 
 	tenantID, schoolID, userID := seedTenantSchoolUser(t, pool)
 	yearID := seedAcademicYear(t, pool, tenantID, schoolID)
@@ -266,7 +266,7 @@ func TestPgRepository_GetByTeacherYear_NotFound(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigrations(t, pool, "000001_initial_schema.up.sql", "000014_create_teacher_workload_summaries.up.sql")
+	applyMigrations(t, pool, "000001_initial_schema.up.sql")
 
 	repo := newRepo(pool)
 
@@ -281,7 +281,7 @@ func TestPgRepository_RefreshComputation(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigrations(t, pool, "000001_initial_schema.up.sql", "000014_create_teacher_workload_summaries.up.sql")
+	applyMigrations(t, pool, "000001_initial_schema.up.sql")
 
 	repo := newRepo(pool)
 

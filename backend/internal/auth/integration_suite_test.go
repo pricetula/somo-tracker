@@ -391,8 +391,6 @@ func startRedis(ctx context.Context) (testcontainers.Container, string, error) {
 func runMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 	migrationFiles := []string{
 		"000001_initial_schema.up.sql",
-		"000003_fix_review_findings.up.sql",
-		"000015_deprecate_session_token_column.up.sql",
 	}
 
 	// Find the migrations directory relative to the test file

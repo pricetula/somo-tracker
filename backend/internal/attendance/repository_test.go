@@ -114,10 +114,8 @@ func setupTestTables(t *testing.T, pool *pgxpool.Pool) testIDs {
 	t.Helper()
 	ctx := context.Background()
 
-	// Apply base schema and initial extensions
+	// Apply the squashed base schema (000001 contains everything incl. rollups)
 	applyMigration(t, pool, "000001_initial_schema.up.sql")
-	applyMigration(t, pool, "000005_extend_summaries_and_daily.up.sql")
-	applyMigration(t, pool, "000016_create_class_attendance_rollups.up.sql")
 
 	tenantID, schoolID, userID := seedTenantSchoolUser(t, pool)
 
@@ -165,16 +163,16 @@ func setupTestTables(t *testing.T, pool *pgxpool.Pool) testIDs {
 	_, err = pool.Exec(ctx, `INSERT INTO cbc_students (id, tenant_id, school_id, full_name, gender, learning_pathway) VALUES ($1, $2, $3, 'Alice Smith', 'F', 'Age_Based')`,
 		studentID1, tenantID, schoolID)
 	require.NoError(t, err)
-	_, err = pool.Exec(ctx, `INSERT INTO cbc_student_enrollments (id, tenant_id, school_id, student_id, academic_term_id, class_id) VALUES ($1, $2, $3, $4, $5, $6)`,
-		uuid.New().String(), tenantID, schoolID, studentID1, academicTermID, classID1)
+	_, err = pool.Exec(ctx, `INSERT INTO cbc_student_enrollments (id, tenant_id, school_id, student_id, academic_term_id, academic_year_id, class_id) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		uuid.New().String(), tenantID, schoolID, studentID1, academicTermID, academicYearID, classID1)
 	require.NoError(t, err)
 
 	studentID2 := uuid.New().String()
 	_, err = pool.Exec(ctx, `INSERT INTO cbc_students (id, tenant_id, school_id, full_name, gender, learning_pathway) VALUES ($1, $2, $3, 'Bob Johnson', 'M', 'Age_Based')`,
 		studentID2, tenantID, schoolID)
 	require.NoError(t, err)
-	_, err = pool.Exec(ctx, `INSERT INTO cbc_student_enrollments (id, tenant_id, school_id, student_id, academic_term_id, class_id) VALUES ($1, $2, $3, $4, $5, $6)`,
-		uuid.New().String(), tenantID, schoolID, studentID2, academicTermID, classID2)
+	_, err = pool.Exec(ctx, `INSERT INTO cbc_student_enrollments (id, tenant_id, school_id, student_id, academic_term_id, academic_year_id, class_id) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		uuid.New().String(), tenantID, schoolID, studentID2, academicTermID, academicYearID, classID2)
 	require.NoError(t, err)
 
 	return testIDs{

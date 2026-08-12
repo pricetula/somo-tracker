@@ -14,14 +14,10 @@ import (
 // ============================================================================
 
 type MockRepository struct {
-	listYearsFn            func(ctx context.Context, tenantID, schoolID string) ([]AcademicYearWithTerms, error)
-	getYearByIDFn          func(ctx context.Context, id, tenantID, schoolID string) (*AcademicYear, error)
-	getYearByIDForUpdateFn func(ctx context.Context, id, tenantID, schoolID string) (*AcademicYear, error)
-	createYearFn           func(ctx context.Context, year *AcademicYear) (string, error)
-	updateYearFn           func(ctx context.Context, year *AcademicYear) error
-	deleteYearFn           func(ctx context.Context, id string) error
-	clearCurrentYearFn     func(ctx context.Context, schoolID, tenantID, excludeID, actorID string) error
-	setCurrentYearFn       func(ctx context.Context, id, tenantID, schoolID, actorID string) (bool, error)
+	listYearsFn      func(ctx context.Context, tenantID, schoolID string) ([]AcademicYearWithTerms, error)
+	getYearByIDFn    func(ctx context.Context, id, tenantID, schoolID string) (*AcademicYear, error)
+	createYearFn     func(ctx context.Context, year *AcademicYear) (string, error)
+	setCurrentYearFn func(ctx context.Context, id, tenantID, schoolID, actorID string) (bool, error)
 
 	getCurrentFn           func(ctx context.Context, tenantID, schoolID string) (CurrentAcademicYearWithCurrentTerm, error)
 	listTermsFn            func(ctx context.Context, tenantID, schoolID string, academicYearID *string) ([]AcademicTerm, error)
@@ -29,13 +25,13 @@ type MockRepository struct {
 	createTermFn           func(ctx context.Context, term *AcademicTerm) (string, error)
 	updateTermFn           func(ctx context.Context, term *AcademicTerm) error
 	deleteTermFn           func(ctx context.Context, id string) error
+	activateTermFn         func(ctx context.Context, termID, tenantID, schoolID, actorID string) (*AcademicTerm, error)
 
-	findStrandedTermsFn    func(ctx context.Context, yearID string, newStart, newEnd time.Time) ([]ConflictingTerm, error)
-	findOverlappingTermsFn func(ctx context.Context, yearID, excludeID string, startDate, endDate time.Time) ([]AcademicTerm, error)
-	hasDependentsFn        func(ctx context.Context, academicYearID string) (bool, error)
-	hasTermDependentsFn    func(ctx context.Context, termID string) (bool, error)
-	syncCurrentTermFn      func(ctx context.Context, academicYearID string, now time.Time) error
-	beginFn                func(ctx context.Context) (Tx, error)
+	findOverlappingTermsFn     func(ctx context.Context, yearID, excludeID string, startDate, endDate time.Time) ([]AcademicTerm, error)
+	termDependencyCountsFn     func(ctx context.Context, termID string) (map[string]int64, error)
+	countOrphansOutsideRangeFn func(ctx context.Context, termID string, newStart, newEnd time.Time) (map[string]int64, error)
+	syncCurrentTermFn          func(ctx context.Context, academicYearID string, now time.Time) error
+	beginFn                    func(ctx context.Context) (Tx, error)
 }
 
 func (m *MockRepository) ListYears(ctx context.Context, tenantID, schoolID string) ([]AcademicYearWithTerms, error) {
@@ -52,39 +48,11 @@ func (m *MockRepository) GetYearByID(ctx context.Context, id, tenantID, schoolID
 	return &AcademicYear{ID: id, TenantID: tenantID, SchoolID: schoolID, Version: 1}, nil
 }
 
-func (m *MockRepository) GetYearByIDForUpdate(ctx context.Context, id, tenantID, schoolID string) (*AcademicYear, error) {
-	if m.getYearByIDForUpdateFn != nil {
-		return m.getYearByIDForUpdateFn(ctx, id, tenantID, schoolID)
-	}
-	return &AcademicYear{ID: id, TenantID: tenantID, SchoolID: schoolID, Version: 1}, nil
-}
-
 func (m *MockRepository) CreateYear(ctx context.Context, year *AcademicYear) (string, error) {
 	if m.createYearFn != nil {
 		return m.createYearFn(ctx, year)
 	}
 	return "year_001", nil
-}
-
-func (m *MockRepository) UpdateYear(ctx context.Context, year *AcademicYear) error {
-	if m.updateYearFn != nil {
-		return m.updateYearFn(ctx, year)
-	}
-	return nil
-}
-
-func (m *MockRepository) DeleteYear(ctx context.Context, id string) error {
-	if m.deleteYearFn != nil {
-		return m.deleteYearFn(ctx, id)
-	}
-	return nil
-}
-
-func (m *MockRepository) ClearCurrentYear(ctx context.Context, schoolID, tenantID, excludeID, actorID string) error {
-	if m.clearCurrentYearFn != nil {
-		return m.clearCurrentYearFn(ctx, schoolID, tenantID, excludeID, actorID)
-	}
-	return nil
 }
 
 func (m *MockRepository) SetCurrentYear(ctx context.Context, id, tenantID, schoolID, actorID string) (bool, error) {
@@ -145,11 +113,11 @@ func (m *MockRepository) DeleteTerm(ctx context.Context, id string) error {
 	return nil
 }
 
-func (m *MockRepository) FindStrandedTerms(ctx context.Context, yearID string, newStart, newEnd time.Time) ([]ConflictingTerm, error) {
-	if m.findStrandedTermsFn != nil {
-		return m.findStrandedTermsFn(ctx, yearID, newStart, newEnd)
+func (m *MockRepository) ActivateTerm(ctx context.Context, termID, tenantID, schoolID, actorID string) (*AcademicTerm, error) {
+	if m.activateTermFn != nil {
+		return m.activateTermFn(ctx, termID, tenantID, schoolID, actorID)
 	}
-	return nil, nil
+	return &AcademicTerm{ID: termID, TenantID: tenantID, SchoolID: schoolID, Version: 2, IsCurrent: true}, nil
 }
 
 func (m *MockRepository) FindOverlappingTerms(ctx context.Context, yearID, excludeID string, startDate, endDate time.Time) ([]AcademicTerm, error) {
@@ -159,18 +127,18 @@ func (m *MockRepository) FindOverlappingTerms(ctx context.Context, yearID, exclu
 	return nil, nil
 }
 
-func (m *MockRepository) HasDependents(ctx context.Context, academicYearID string) (bool, error) {
-	if m.hasDependentsFn != nil {
-		return m.hasDependentsFn(ctx, academicYearID)
+func (m *MockRepository) TermDependencyCounts(ctx context.Context, termID string) (map[string]int64, error) {
+	if m.termDependencyCountsFn != nil {
+		return m.termDependencyCountsFn(ctx, termID)
 	}
-	return false, nil
+	return map[string]int64{}, nil
 }
 
-func (m *MockRepository) HasTermDependents(ctx context.Context, termID string) (bool, error) {
-	if m.hasTermDependentsFn != nil {
-		return m.hasTermDependentsFn(ctx, termID)
+func (m *MockRepository) CountOrphansOutsideRange(ctx context.Context, termID string, newStart, newEnd time.Time) (map[string]int64, error) {
+	if m.countOrphansOutsideRangeFn != nil {
+		return m.countOrphansOutsideRangeFn(ctx, termID, newStart, newEnd)
 	}
-	return false, nil
+	return map[string]int64{}, nil
 }
 
 func (m *MockRepository) SyncCurrentTerm(ctx context.Context, academicYearID string, now time.Time) error {
@@ -273,111 +241,6 @@ func TestListYears_EmptyTerms(t *testing.T) {
 	}
 	if len(years[0].Terms) != 0 {
 		t.Fatalf("expected 0 terms, got %d", len(years[0].Terms))
-	}
-}
-
-// A3 — is_current mutual exclusion via setCurrentYear
-func TestSetCurrentYear_MutualExclusion(t *testing.T) {
-	h := newTestHarness()
-
-	var clearedSchoolID, clearedExcludeID string
-	h.repo.clearCurrentYearFn = func(ctx context.Context, schoolID, tenantID, excludeID, actorID string) error {
-		clearedSchoolID = schoolID
-		clearedExcludeID = excludeID
-		_ = tenantID // used for scoping
-		return nil
-	}
-
-	var setID string
-	h.repo.setCurrentYearFn = func(ctx context.Context, id, tenantID, schoolID, actorID string) (bool, error) {
-		setID = id
-		_ = tenantID
-		_ = schoolID
-		return true, nil
-	}
-
-	if err := h.svc.SetCurrentYear(context.Background(), "year_002", "tenant_001", "school_001", "user_001"); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if clearedSchoolID != "school_001" {
-		t.Errorf("expected cleared school 'school_001', got %q", clearedSchoolID)
-	}
-	if clearedExcludeID != "year_002" {
-		t.Errorf("expected cleared exclude 'year_002', got %q", clearedExcludeID)
-	}
-	if setID != "year_002" {
-		t.Errorf("expected set id 'year_002', got %q", setID)
-	}
-}
-
-// A5 — PATCH blocked when dates would strand terms
-func TestPatchYear_TermStranding(t *testing.T) {
-	h := newTestHarness()
-
-	year := &AcademicYear{
-		ID: "year_001", TenantID: "tenant_001", SchoolID: "school_001",
-		Name: "2025", Version: 3,
-		StartDate: DateOnly{Time: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)},
-		EndDate:   DateOnly{Time: time.Date(2025, 12, 31, 0, 0, 0, 0, time.UTC)},
-	}
-
-	h.repo.getYearByIDForUpdateFn = func(ctx context.Context, id, tenantID, schoolID string) (*AcademicYear, error) {
-		return year, nil
-	}
-
-	h.repo.findStrandedTermsFn = func(ctx context.Context, yearID string, newStart, newEnd time.Time) ([]ConflictingTerm, error) {
-		return []ConflictingTerm{
-			{ID: "term_001", Name: "Term 1", StartDate: "2025-09-01", EndDate: "2025-11-30"},
-		}, nil
-	}
-
-	newEnd := "2025-08-31"
-	body := PatchYearBody{EndDate: &newEnd, Version: ptrInt(3)}
-
-	patchedYear, err := h.svc.PatchYear(context.Background(), "year_001", "tenant_001", "school_001", body, "user_001")
-	if err == nil {
-		t.Fatal("expected TermsOutOfRangeError, got nil")
-	}
-	if patchedYear != nil {
-		t.Fatal("expected nil year on error")
-	}
-	var termsErr *TermsOutOfRangeError
-	if !errors.As(err, &termsErr) {
-		t.Fatalf("expected *TermsOutOfRangeError, got %T", err)
-	}
-	if len(termsErr.ConflictingTerms) != 1 {
-		t.Fatalf("expected 1 conflicting term, got %d", len(termsErr.ConflictingTerms))
-	}
-	if termsErr.ConflictingTerms[0].ID != "term_001" {
-		t.Errorf("expected conflicting term 'term_001', got %q", termsErr.ConflictingTerms[0].ID)
-	}
-}
-
-// A6 — PATCH blocked by stale version
-func TestPatchYear_StaleVersion(t *testing.T) {
-	h := newTestHarness()
-
-	year := &AcademicYear{
-		ID: "year_001", TenantID: "tenant_001", SchoolID: "school_001",
-		Version: 5,
-	}
-
-	h.repo.getYearByIDForUpdateFn = func(ctx context.Context, id, tenantID, schoolID string) (*AcademicYear, error) {
-		return year, nil
-	}
-
-	body := PatchYearBody{Version: ptrInt(3)} // stale
-
-	patchedYear, err := h.svc.PatchYear(context.Background(), "year_001", "tenant_001", "school_001", body, "user_001")
-	if err == nil {
-		t.Fatal("expected conflict error, got nil")
-	}
-	if patchedYear != nil {
-		t.Fatal("expected nil year (version mismatch treated as conflict)")
-	}
-	if !errors.Is(err, ErrConflict) {
-		t.Fatalf("expected ErrConflict, got %v", err)
 	}
 }
 
@@ -555,7 +418,7 @@ func TestCreateTerm_DuplicateTermNumber(t *testing.T) {
 
 	h.repo.createTermFn = func(ctx context.Context, term *AcademicTerm) (string, error) {
 		// Simulate unique constraint violation
-		return "", errors.New("duplicate key value violates unique constraint \"idx_unique_term_number_per_year\"")
+		return "", &TermNumberExistsError{}
 	}
 
 	body := CreateTermBody{
@@ -791,5 +654,285 @@ func TestPatchTerm_IgnoresIsCurrent(t *testing.T) {
 	}
 	if patched == nil {
 		t.Fatal("expected non-nil patched term")
+	}
+}
+
+// ============================================================================
+// Suite C — Term activation
+// ============================================================================
+
+// C1 — ActivateTerm delegates to the repository transaction and logs
+func TestActivateTerm_DelegatesToRepo(t *testing.T) {
+	h := newTestHarness()
+
+	var capturedTermID, capturedActor string
+	h.repo.activateTermFn = func(ctx context.Context, termID, tenantID, schoolID, actorID string) (*AcademicTerm, error) {
+		capturedTermID = termID
+		capturedActor = actorID
+		return &AcademicTerm{
+			ID: termID, TenantID: tenantID, SchoolID: schoolID,
+			AcademicYearID: "year_001", Name: "Term 2", TermNumber: 2,
+			Version: 2, IsCurrent: true,
+		}, nil
+	}
+
+	term, err := h.svc.ActivateTerm(context.Background(), "term_002", "tenant_001", "school_001", "user_001")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if capturedTermID != "term_002" {
+		t.Errorf("expected term 'term_002', got %q", capturedTermID)
+	}
+	if capturedActor != "user_001" {
+		t.Errorf("expected actor 'user_001', got %q", capturedActor)
+	}
+	if !term.IsCurrent {
+		t.Error("expected activated term to be is_current = true")
+	}
+}
+
+// C2 — ActivateTerm rejects empty identifiers
+func TestActivateTerm_RejectsEmptyInput(t *testing.T) {
+	h := newTestHarness()
+
+	_, err := h.svc.ActivateTerm(context.Background(), "", "tenant_001", "school_001", "user_001")
+	if err == nil {
+		t.Fatal("expected error for empty term id, got nil")
+	}
+	if !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput, got %v", err)
+	}
+}
+
+// ============================================================================
+// Suite D — Term deletion guards
+// ============================================================================
+
+// D1 — Deleting the current active term is rejected with ErrTermIsCurrent
+func TestDeleteTerm_BlockedWhenCurrent(t *testing.T) {
+	h := newTestHarness()
+
+	term := &AcademicTerm{
+		ID: "term_001", TenantID: "tenant_001", SchoolID: "school_001",
+		AcademicYearID: "year_001", Version: 1, IsCurrent: true,
+	}
+	year := &AcademicYear{ID: "year_001"}
+
+	h.repo.getTermByIDForUpdateFn = func(ctx context.Context, id, tenantID, schoolID string) (*AcademicTerm, *AcademicYear, error) {
+		return term, year, nil
+	}
+
+	err := h.svc.DeleteTerm(context.Background(), "term_001", "tenant_001", "school_001", "user_001", nil)
+	if err == nil {
+		t.Fatal("expected ErrTermIsCurrent, got nil")
+	}
+	if !errors.Is(err, ErrTermIsCurrent) {
+		t.Fatalf("expected ErrTermIsCurrent, got %v", err)
+	}
+}
+
+// D2 — Deleting a term with dependent records is rejected with counts
+func TestDeleteTerm_BlockedWithDependents(t *testing.T) {
+	h := newTestHarness()
+
+	term := &AcademicTerm{
+		ID: "term_001", TenantID: "tenant_001", SchoolID: "school_001",
+		AcademicYearID: "year_001", Version: 1, IsCurrent: false,
+	}
+	year := &AcademicYear{ID: "year_001"}
+
+	h.repo.getTermByIDForUpdateFn = func(ctx context.Context, id, tenantID, schoolID string) (*AcademicTerm, *AcademicYear, error) {
+		return term, year, nil
+	}
+	h.repo.termDependencyCountsFn = func(ctx context.Context, termID string) (map[string]int64, error) {
+		return map[string]int64{
+			"attendance_records":      12,
+			"assessment_sessions":     3,
+			"cbc_student_enrollments": 0,
+			"fee_templates":           0,
+			"invoices":                0,
+		}, nil
+	}
+
+	err := h.svc.DeleteTerm(context.Background(), "term_001", "tenant_001", "school_001", "user_001", nil)
+	if err == nil {
+		t.Fatal("expected HasDependentsError, got nil")
+	}
+	var hasDeps *HasDependentsError
+	if !errors.As(err, &hasDeps) {
+		t.Fatalf("expected *HasDependentsError, got %T", err)
+	}
+	if hasDeps.Counts["attendance_records"] != 12 {
+		t.Errorf("expected 12 attendance records in counts, got %d", hasDeps.Counts["attendance_records"])
+	}
+	if hasDeps.Counts["assessment_sessions"] != 3 {
+		t.Errorf("expected 3 assessment sessions in counts, got %d", hasDeps.Counts["assessment_sessions"])
+	}
+}
+
+// D3 — Deleting an inactive term with zero dependents succeeds
+func TestDeleteTerm_Success(t *testing.T) {
+	h := newTestHarness()
+
+	term := &AcademicTerm{
+		ID: "term_001", TenantID: "tenant_001", SchoolID: "school_001",
+		AcademicYearID: "year_001", Version: 1, IsCurrent: false,
+	}
+	year := &AcademicYear{ID: "year_001"}
+
+	h.repo.getTermByIDForUpdateFn = func(ctx context.Context, id, tenantID, schoolID string) (*AcademicTerm, *AcademicYear, error) {
+		return term, year, nil
+	}
+	h.repo.termDependencyCountsFn = func(ctx context.Context, termID string) (map[string]int64, error) {
+		return map[string]int64{}, nil
+	}
+
+	var deletedID string
+	h.repo.deleteTermFn = func(ctx context.Context, id string) error {
+		deletedID = id
+		return nil
+	}
+	h.repo.syncCurrentTermFn = func(ctx context.Context, academicYearID string, now time.Time) error {
+		return nil
+	}
+
+	if err := h.svc.DeleteTerm(context.Background(), "term_001", "tenant_001", "school_001", "user_001", nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if deletedID != "term_001" {
+		t.Errorf("expected deleted id 'term_001', got %q", deletedID)
+	}
+}
+
+// ============================================================================
+// Suite E — PATCH term orphan guard + is_final
+// ============================================================================
+
+// E1 — Narrowing an ACTIVE term with orphans is blocked
+func TestPatchTerm_OrphanGuardBlocked(t *testing.T) {
+	h := newTestHarness()
+
+	term := &AcademicTerm{
+		ID: "term_001", TenantID: "tenant_001", SchoolID: "school_001",
+		AcademicYearID: "year_001", Version: 1, IsCurrent: true,
+		StartDate: DateOnly{Time: time.Date(2025, 1, 6, 0, 0, 0, 0, time.UTC)},
+		EndDate:   DateOnly{Time: time.Date(2025, 4, 4, 0, 0, 0, 0, time.UTC)},
+	}
+	year := &AcademicYear{
+		ID:        "year_001",
+		StartDate: DateOnly{Time: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)},
+		EndDate:   DateOnly{Time: time.Date(2025, 12, 31, 0, 0, 0, 0, time.UTC)},
+	}
+
+	h.repo.getTermByIDForUpdateFn = func(ctx context.Context, id, tenantID, schoolID string) (*AcademicTerm, *AcademicYear, error) {
+		return term, year, nil
+	}
+	h.repo.findOverlappingTermsFn = func(ctx context.Context, yearID, excludeID string, startDate, endDate time.Time) ([]AcademicTerm, error) {
+		return nil, nil
+	}
+	h.repo.countOrphansOutsideRangeFn = func(ctx context.Context, termID string, newStart, newEnd time.Time) (map[string]int64, error) {
+		return map[string]int64{"assessment_sessions": 2, "attendance_records": 5}, nil
+	}
+
+	// Narrow: move start later
+	newStart := "2025-02-01"
+	body := PatchTermBody{StartDate: &newStart, Version: ptrInt(1)}
+
+	_, err := h.svc.PatchTerm(context.Background(), "term_001", "tenant_001", "school_001", body, "user_001", nil)
+	if err == nil {
+		t.Fatal("expected OrphanedRecordsError, got nil")
+	}
+	var orphanErr *OrphanedRecordsError
+	if !errors.As(err, &orphanErr) {
+		t.Fatalf("expected *OrphanedRecordsError, got %T", err)
+	}
+	if orphanErr.Assessments != 2 || orphanErr.AttendanceMarks != 5 {
+		t.Errorf("expected orphans (2, 5), got (%d, %d)", orphanErr.Assessments, orphanErr.AttendanceMarks)
+	}
+}
+
+// E2 — Widening an active term (no narrowing) is allowed even with orphans
+func TestPatchTerm_OrphanGuardAllowsWidening(t *testing.T) {
+	h := newTestHarness()
+
+	term := &AcademicTerm{
+		ID: "term_001", TenantID: "tenant_001", SchoolID: "school_001",
+		AcademicYearID: "year_001", Version: 1, IsCurrent: true,
+		StartDate: DateOnly{Time: time.Date(2025, 1, 6, 0, 0, 0, 0, time.UTC)},
+		EndDate:   DateOnly{Time: time.Date(2025, 4, 4, 0, 0, 0, 0, time.UTC)},
+	}
+	year := &AcademicYear{
+		ID:        "year_001",
+		StartDate: DateOnly{Time: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)},
+		EndDate:   DateOnly{Time: time.Date(2025, 12, 31, 0, 0, 0, 0, time.UTC)},
+	}
+
+	h.repo.getTermByIDForUpdateFn = func(ctx context.Context, id, tenantID, schoolID string) (*AcademicTerm, *AcademicYear, error) {
+		return term, year, nil
+	}
+	h.repo.findOverlappingTermsFn = func(ctx context.Context, yearID, excludeID string, startDate, endDate time.Time) ([]AcademicTerm, error) {
+		return nil, nil
+	}
+	// Should never be called for widening
+	h.repo.countOrphansOutsideRangeFn = func(ctx context.Context, termID string, newStart, newEnd time.Time) (map[string]int64, error) {
+		t.Error("orphan check should not run when widening")
+		return map[string]int64{"assessment_sessions": 99, "attendance_records": 99}, nil
+	}
+	h.repo.updateTermFn = func(ctx context.Context, term *AcademicTerm) error {
+		return nil
+	}
+	h.repo.syncCurrentTermFn = func(ctx context.Context, academicYearID string, now time.Time) error {
+		return nil
+	}
+
+	newStart := "2025-01-01" // widen to the year start
+	body := PatchTermBody{StartDate: &newStart, Version: ptrInt(1)}
+
+	if _, err := h.svc.PatchTerm(context.Background(), "term_001", "tenant_001", "school_001", body, "user_001", nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+// E3 — is_final is applied via PATCH
+func TestPatchTerm_AppliesIsFinal(t *testing.T) {
+	h := newTestHarness()
+
+	term := &AcademicTerm{
+		ID: "term_001", TenantID: "tenant_001", SchoolID: "school_001",
+		AcademicYearID: "year_001", Version: 1,
+		StartDate: DateOnly{Time: time.Date(2025, 1, 6, 0, 0, 0, 0, time.UTC)},
+		EndDate:   DateOnly{Time: time.Date(2025, 4, 4, 0, 0, 0, 0, time.UTC)},
+	}
+	year := &AcademicYear{
+		ID:        "year_001",
+		StartDate: DateOnly{Time: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)},
+		EndDate:   DateOnly{Time: time.Date(2025, 12, 31, 0, 0, 0, 0, time.UTC)},
+	}
+
+	h.repo.getTermByIDForUpdateFn = func(ctx context.Context, id, tenantID, schoolID string) (*AcademicTerm, *AcademicYear, error) {
+		return term, year, nil
+	}
+
+	var persistedIsFinal bool
+	h.repo.updateTermFn = func(ctx context.Context, t *AcademicTerm) error {
+		persistedIsFinal = t.IsFinal
+		return nil
+	}
+	h.repo.syncCurrentTermFn = func(ctx context.Context, academicYearID string, now time.Time) error {
+		return nil
+	}
+
+	isFinal := true
+	body := PatchTermBody{IsFinal: &isFinal, Version: ptrInt(1)}
+
+	patched, err := h.svc.PatchTerm(context.Background(), "term_001", "tenant_001", "school_001", body, "user_001", nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !patched.IsFinal {
+		t.Error("expected patched term to have is_final = true")
+	}
+	if !persistedIsFinal {
+		t.Error("expected is_final to reach the repository")
 	}
 }

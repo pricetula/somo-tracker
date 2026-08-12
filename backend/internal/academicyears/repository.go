@@ -4,12 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"somotracker/backend/internal/database"
+	"somotracker/backend/internal/xerrors"
 )
 
 // PgRepository handles academic year and term database operations.
@@ -185,33 +188,6 @@ func (r *PgRepository) GetYearByID(ctx context.Context, id, tenantID, schoolID s
 	return &y, nil
 }
 
-// GetYearByIDForUpdate retrieves a year with FOR UPDATE row locking.
-func (r *PgRepository) GetYearByIDForUpdate(ctx context.Context, id, tenantID, schoolID string) (*AcademicYear, error) {
-	const query = `
-		SELECT id, tenant_id, school_id, name,
-		       start_date, end_date, is_current,
-		       version, created_by, updated_by,
-		       created_at, updated_at
-		FROM academic_years
-		WHERE id = $1 AND tenant_id = $2 AND school_id = $3
-		FOR UPDATE
-	`
-	var y AcademicYear
-	err := r.pool.QueryRow(ctx, query, id, tenantID, schoolID).Scan(
-		&y.ID, &y.TenantID, &y.SchoolID, &y.Name,
-		&y.StartDate, &y.EndDate, &y.IsCurrent,
-		&y.Version, &y.CreatedBy, &y.UpdatedBy,
-		&y.CreatedAt, &y.UpdatedAt,
-	)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, fmt.Errorf("academicyears.Repository.GetYearByIDForUpdate: %w", ErrNotFound)
-		}
-		return nil, fmt.Errorf("academicyears.Repository.GetYearByIDForUpdate: %w", err)
-	}
-	return &y, nil
-}
-
 // CreateYear inserts a new academic year and returns its ID.
 func (r *PgRepository) CreateYear(ctx context.Context, year *AcademicYear) (string, error) {
 	const query = `
@@ -229,67 +205,6 @@ func (r *PgRepository) CreateYear(ctx context.Context, year *AcademicYear) (stri
 		return "", fmt.Errorf("academicyears.Repository.CreateYear: %w", err)
 	}
 	return id, nil
-}
-
-// UpdateYear applies changes to a year, incrementing version.
-func (r *PgRepository) UpdateYear(ctx context.Context, year *AcademicYear) error {
-	const query = `
-		UPDATE academic_years
-		SET name = $1, start_date = $2, end_date = $3,
-		    version = version + 1, updated_by = $4, updated_at = NOW()
-		WHERE id = $5 AND version = $6
-	`
-	tag, err := r.pool.Exec(ctx, query,
-		year.Name, year.StartDate, year.EndDate,
-		year.UpdatedBy, year.ID, year.Version,
-	)
-	if err != nil {
-		return fmt.Errorf("academicyears.Repository.UpdateYear: %w", err)
-	}
-	if tag.RowsAffected() == 0 {
-		// Could be not found or version mismatch — check which
-		existing, checkErr := r.GetYearByID(ctx, year.ID, year.TenantID, year.SchoolID)
-		if checkErr != nil {
-			return fmt.Errorf("academicyears.Repository.UpdateYear: %w", ErrNotFound)
-		}
-		if existing.Version != year.Version {
-			return fmt.Errorf("academicyears.Repository.UpdateYear: %w", ErrConflict)
-		}
-		return fmt.Errorf("academicyears.Repository.UpdateYear: %w", ErrNotFound)
-	}
-	return nil
-}
-
-// DeleteYear hard-deletes an academic year. Terms are cascade-deleted by the DB.
-func (r *PgRepository) DeleteYear(ctx context.Context, id string) error {
-	const query = `
-		DELETE FROM academic_years
-		WHERE id = $1
-	`
-	tag, err := r.pool.Exec(ctx, query, id)
-	if err != nil {
-		return fmt.Errorf("academicyears.Repository.DeleteYear: %w", err)
-	}
-	if tag.RowsAffected() == 0 {
-		return fmt.Errorf("academicyears.Repository.DeleteYear: %w", ErrNotFound)
-	}
-	return nil
-}
-
-// ClearCurrentYear sets is_current = FALSE for all years in a school except the
-// specified excludeID. Used inside setCurrentYear transaction.
-func (r *PgRepository) ClearCurrentYear(ctx context.Context, schoolID, tenantID, excludeID, actorID string) error {
-	const query = `
-		UPDATE academic_years
-		SET is_current = FALSE, version = version + 1, updated_by = $4, updated_at = NOW()
-		WHERE school_id = $1 AND tenant_id = $2 AND is_current = TRUE
-		  AND id != $3
-	`
-	_, err := r.pool.Exec(ctx, query, schoolID, tenantID, excludeID, actorID)
-	if err != nil {
-		return fmt.Errorf("academicyears.Repository.ClearCurrentYear: %w", err)
-	}
-	return nil
 }
 
 // SetCurrentYear sets is_current = TRUE on a single year. Returns true if a row
@@ -398,42 +313,70 @@ func (r *PgRepository) GetTermByIDForUpdate(ctx context.Context, id, tenantID, s
 func (r *PgRepository) CreateTerm(ctx context.Context, term *AcademicTerm) (string, error) {
 	const query = `
 		INSERT INTO academic_terms (tenant_id, school_id, academic_year_id, name,
-		                            term_number, start_date, end_date,
+		                            term_number, start_date, end_date, is_final,
 		                            created_by, updated_by)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		RETURNING id
 	`
 	var id string
 	err := r.pool.QueryRow(ctx, query,
 		term.TenantID, term.SchoolID, term.AcademicYearID,
 		term.Name, term.TermNumber, term.StartDate, term.EndDate,
-		term.CreatedBy, term.UpdatedBy,
+		term.IsFinal, term.CreatedBy, term.UpdatedBy,
 	).Scan(&id)
 	if err != nil {
-		return "", fmt.Errorf("academicyears.Repository.CreateTerm: %w", err)
+		return "", fmt.Errorf("academicyears.Repository.CreateTerm: %w", mapTermWriteError(err))
 	}
 	return id, nil
 }
 
-// UpdateTerm applies changes to a term, incrementing version.
+// UpdateTerm applies changes to a term, incrementing version. Constraint
+// violations raised by the write (GIST exclusion, bounds trigger, date-order
+// check) are translated via mapTermWriteError so raw driver strings never
+// reach the HTTP layer.
 func (r *PgRepository) UpdateTerm(ctx context.Context, term *AcademicTerm) error {
 	const query = `
 		UPDATE academic_terms
-		SET name = $1, start_date = $2, end_date = $3,
-		    version = version + 1, updated_by = $4, updated_at = NOW()
-		WHERE id = $5 AND version = $6
+		SET name = $1, start_date = $2, end_date = $3, is_final = $4,
+		    version = version + 1, updated_by = $5, updated_at = NOW()
+		WHERE id = $6 AND version = $7
 	`
 	tag, err := r.pool.Exec(ctx, query,
-		term.Name, term.StartDate, term.EndDate,
+		term.Name, term.StartDate, term.EndDate, term.IsFinal,
 		term.UpdatedBy, term.ID, term.Version,
 	)
 	if err != nil {
-		return fmt.Errorf("academicyears.Repository.UpdateTerm: %w", err)
+		return fmt.Errorf("academicyears.Repository.UpdateTerm: %w", mapTermWriteError(err))
 	}
 	if tag.RowsAffected() == 0 {
 		return fmt.Errorf("academicyears.Repository.UpdateTerm: %w", ErrNotFound)
 	}
 	return nil
+}
+
+// mapTermWriteError translates PostgreSQL constraint violations raised by term
+// writes into domain errors:
+//   - 23P01 GIST exclusion  → TermDateOverlapError      (409 Conflict)
+//   - P0001 bounds trigger  → TermOutOfYearBoundsError  (400 Bad Request)
+//   - 23514 date-order check → ErrInvalidInput          (400 Bad Request)
+//   - 23505 term_number     → TermNumberExistsError     (409 Conflict)
+func mapTermWriteError(err error) error {
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) {
+		return err
+	}
+	switch pgErr.Code {
+	case "23P01": // EXCL_academic_terms_no_overlap
+		return &TermDateOverlapError{ConflictingName: "another term"}
+	case "P0001": // fn_validate_term_dates_within_year RAISE EXCEPTION
+		return &TermOutOfYearBoundsError{}
+	case "23514": // chk_term_dates (start_date < end_date)
+		return xerrors.InvalidInput("term start_date must be before end_date")
+	case "23505": // idx_unique_term_number_per_year
+		return &TermNumberExistsError{}
+	default:
+		return err
+	}
 }
 
 // DeleteTerm hard-deletes a term.
@@ -455,32 +398,6 @@ func (r *PgRepository) DeleteTerm(ctx context.Context, id string) error {
 // ============================================================================
 // BUSINESS LOGIC CHECKS
 // ============================================================================
-
-// FindStrandedTerms returns terms that would fall outside a new date range for
-// the parent year.
-func (r *PgRepository) FindStrandedTerms(ctx context.Context, yearID string, newStart, newEnd time.Time) ([]ConflictingTerm, error) {
-	const query = `
-		SELECT id, name, start_date::text, end_date::text
-		FROM academic_terms
-		WHERE academic_year_id = $1
-		  AND (start_date < $2 OR end_date > $3)
-	`
-	rows, err := r.pool.Query(ctx, query, yearID, newStart, newEnd)
-	if err != nil {
-		return nil, fmt.Errorf("academicyears.Repository.FindStrandedTerms: %w", err)
-	}
-	defer rows.Close()
-
-	var terms []ConflictingTerm
-	for rows.Next() {
-		var ct ConflictingTerm
-		if err := rows.Scan(&ct.ID, &ct.Name, &ct.StartDate, &ct.EndDate); err != nil {
-			return nil, fmt.Errorf("academicyears.Repository.FindStrandedTerms: scan: %w", err)
-		}
-		terms = append(terms, ct)
-	}
-	return terms, rows.Err()
-}
 
 // FindOverlappingTerms returns terms whose date ranges overlap with the given
 // range, optionally excluding a specific term ID (for PATCH self-exclusion).
@@ -511,41 +428,235 @@ func (r *PgRepository) FindOverlappingTerms(ctx context.Context, yearID, exclude
 	return terms, rows.Err()
 }
 
-// HasDependents checks if any FK-referencing tables have rows linked to this year.
-func (r *PgRepository) HasDependents(ctx context.Context, academicYearID string) (bool, error) {
-	// Check multiple referencing tables
-	const query = `
-		SELECT EXISTS (
-			SELECT 1 FROM cbc_classes WHERE academic_year_id = $1
-			UNION ALL
-			SELECT 1 FROM cbc_timetable_slots WHERE academic_year_id = $1
-		)
-	`
-	var exists bool
-	err := r.pool.QueryRow(ctx, query, academicYearID).Scan(&exists)
-	if err != nil {
-		return false, fmt.Errorf("academicyears.Repository.HasDependents: %w", err)
-	}
-	return exists, nil
+// termDependencyTables is the set of transactional tables whose rows are
+// created against an academic term. These are the tables whose existence
+// blocks a hard delete. Derived summary tables (attendance_term_summaries,
+// student_term_*_summaries, teacher_*_summaries, class_*_summaries, ...) are
+// intentionally excluded — they are recomputed by background workers and are
+// safely cascade-deleted.
+var termDependencyTables = []struct {
+	name   string
+	column string
+}{
+	{"cbc_student_enrollments", "academic_term_id"},
+	{"fee_templates", "academic_term_id"},
+	{"invoices", "academic_term_id"},
+	{"attendance_records", "academic_term_id"},
+	{"assessment_sessions", "academic_term_id"},
 }
 
-// HasTermDependents checks if any FK-referencing tables have rows linked to this term.
-func (r *PgRepository) HasTermDependents(ctx context.Context, termID string) (bool, error) {
-	const query = `
-		SELECT EXISTS (
-			SELECT 1 FROM cbc_student_enrollments WHERE academic_term_id = $1
-			UNION ALL
-			SELECT 1 FROM fee_templates WHERE academic_term_id = $1
-			UNION ALL
-			SELECT 1 FROM invoices WHERE academic_term_id = $1
-		)
-	`
-	var exists bool
-	err := r.pool.QueryRow(ctx, query, termID).Scan(&exists)
-	if err != nil {
-		return false, fmt.Errorf("academicyears.Repository.HasTermDependents: %w", err)
+// TermDependencyCounts returns the per-table record counts for every
+// transactional table referencing the given term. Callers use this to block
+// hard deletion and to report exact dependent resource counts.
+func (r *PgRepository) TermDependencyCounts(ctx context.Context, termID string) (map[string]int64, error) {
+	var sb strings.Builder
+	sb.WriteString("SELECT table_name, cnt FROM (")
+	for i, t := range termDependencyTables {
+		if i > 0 {
+			sb.WriteString(" UNION ALL ")
+		}
+		fmt.Fprintf(&sb, "SELECT '%s'::text AS table_name, COUNT(*)::bigint AS cnt FROM %s WHERE %s = $1",
+			t.name, t.name, t.column)
 	}
-	return exists, nil
+	sb.WriteString(") dep GROUP BY table_name, cnt")
+
+	rows, err := r.pool.Query(ctx, sb.String(), termID)
+	if err != nil {
+		return nil, fmt.Errorf("academicyears.Repository.TermDependencyCounts: %w", err)
+	}
+	defer rows.Close()
+
+	counts := make(map[string]int64, len(termDependencyTables))
+	for rows.Next() {
+		var name string
+		var cnt int64
+		if err := rows.Scan(&name, &cnt); err != nil {
+			return nil, fmt.Errorf("academicyears.Repository.TermDependencyCounts: scan: %w", err)
+		}
+		counts[name] = cnt
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("academicyears.Repository.TermDependencyCounts: rows: %w", err)
+	}
+	return counts, nil
+}
+
+// CountOrphansOutsideRange counts assessment sessions and attendance records
+// linked to the term whose recorded date falls OUTSIDE a proposed new date
+// range. Used to guard against narrowing an active term's dates in a way that
+// strands existing transactional data.
+func (r *PgRepository) CountOrphansOutsideRange(ctx context.Context, termID string, newStart, newEnd time.Time) (map[string]int64, error) {
+	const query = `
+		SELECT 'assessment_sessions', COUNT(*)::bigint
+		FROM assessment_sessions
+		WHERE academic_term_id = $1
+		  AND scheduled_date IS NOT NULL
+		  AND (scheduled_date < $2::date OR scheduled_date > $3::date)
+		UNION ALL
+		SELECT 'attendance_records', COUNT(*)::bigint
+		FROM attendance_records
+		WHERE academic_term_id = $1
+		  AND (date < $2::date OR date > $3::date)
+	`
+	rows, err := r.pool.Query(ctx, query, termID, newStart, newEnd)
+	if err != nil {
+		return nil, fmt.Errorf("academicyears.Repository.CountOrphansOutsideRange: %w", err)
+	}
+	defer rows.Close()
+
+	counts := make(map[string]int64, 2)
+	for rows.Next() {
+		var name string
+		var cnt int64
+		if err := rows.Scan(&name, &cnt); err != nil {
+			return nil, fmt.Errorf("academicyears.Repository.CountOrphansOutsideRange: scan: %w", err)
+		}
+		counts[name] = cnt
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("academicyears.Repository.CountOrphansOutsideRange: rows: %w", err)
+	}
+	return counts, nil
+}
+
+// ============================================================================
+// ACTIVATE TERM (atomic, app-level transaction)
+// ============================================================================
+
+// ActivateTerm atomically makes a single term — and its parent academic year —
+// the school's current term/year, deactivating whatever is currently active.
+//
+// Locking order (deadlock-free):
+//  1. target term   — SELECT ... FOR UPDATE (scoped by tenant + school)
+//  2. current term  — SELECT ... FOR UPDATE (school-wide is_current = TRUE)
+//  3. years         — SELECT ... FOR UPDATE ORDER BY id (target year, then
+//     current year)
+//
+// idx_one_current_term_per_school guarantees at most one current term per
+// school, so the current-term row is the serialization point: every activation
+// locks its own target term first, then contends on the same current-term row
+// before touching any year rows. All activation paths acquire locks in this
+// order, so no lock-ordering deadlock is possible.
+//
+// All affected rows (old current term, old current year, target term, target
+// year) get version + 1, updated_by = actorID and updated_at = NOW().
+func (r *PgRepository) ActivateTerm(ctx context.Context, termID, tenantID, schoolID, actorID string) (*AcademicTerm, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("academicyears.Repository.ActivateTerm: begin: %w", err)
+	}
+	defer func() {
+		// Rollback is a no-op after a successful Commit (pgx.ErrTxClosed); on
+		// failure it aborts the transaction before the pool recycles the conn.
+		_ = tx.Rollback(ctx)
+	}()
+
+	// 1. Lock the target term and confirm it belongs to this tenant + school.
+	var targetYearID string
+	const lockTargetQuery = `
+		SELECT id, academic_year_id
+		FROM academic_terms
+		WHERE id = $1 AND tenant_id = $2 AND school_id = $3
+		FOR UPDATE
+	`
+	if err := tx.QueryRow(ctx, lockTargetQuery, termID, tenantID, schoolID).Scan(&termID, &targetYearID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("academicyears.Repository.ActivateTerm: lock target: %w", ErrNotFound)
+		}
+		return nil, fmt.Errorf("academicyears.Repository.ActivateTerm: lock target: %w", err)
+	}
+
+	// 2. Lock the school's currently-active term (if any). This is the
+	//    serialization point for concurrent activations.
+	var currentTermID, currentYearID string
+	const lockCurrentQuery = `
+		SELECT at.id, at.academic_year_id
+		FROM academic_terms at
+		JOIN academic_years ay ON ay.id = at.academic_year_id
+		WHERE at.tenant_id = $1 AND at.school_id = $2 AND at.is_current = TRUE
+		  AND ay.tenant_id = $1 AND ay.school_id = $2
+		FOR UPDATE OF at
+	`
+	hasCurrent := true
+	if err := tx.QueryRow(ctx, lockCurrentQuery, tenantID, schoolID).Scan(&currentTermID, &currentYearID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			hasCurrent = false
+		} else {
+			return nil, fmt.Errorf("academicyears.Repository.ActivateTerm: lock current: %w", err)
+		}
+	}
+
+	// 3. Lock the affected years in deterministic (id) order. Idempotent case:
+	//    activating the already-current term touches only the target year.
+	yearIDs := []string{targetYearID}
+	if hasCurrent && currentYearID != targetYearID {
+		yearIDs = append(yearIDs, currentYearID)
+	}
+	const lockYearsQuery = `
+		SELECT id
+		FROM academic_years
+		WHERE id = ANY($1::uuid[]) AND tenant_id = $2 AND school_id = $3
+		ORDER BY id
+		FOR UPDATE
+	`
+	if _, err := tx.Exec(ctx, lockYearsQuery, yearIDs, tenantID, schoolID); err != nil {
+		return nil, fmt.Errorf("academicyears.Repository.ActivateTerm: lock years: %w", err)
+	}
+
+	// 4a. Deactivate the old current term (idempotent when target is current).
+	const clearTermQuery = `
+		UPDATE academic_terms
+		SET is_current = FALSE, version = version + 1, updated_by = $4, updated_at = NOW()
+		WHERE tenant_id = $1 AND school_id = $2 AND is_current = TRUE AND id != $3
+	`
+	if _, err := tx.Exec(ctx, clearTermQuery, tenantID, schoolID, termID, actorID); err != nil {
+		return nil, fmt.Errorf("academicyears.Repository.ActivateTerm: clear current term: %w", err)
+	}
+
+	// 4b. Deactivate the old current year (idempotent when target is current).
+	const clearYearQuery = `
+		UPDATE academic_years
+		SET is_current = FALSE, version = version + 1, updated_by = $4, updated_at = NOW()
+		WHERE tenant_id = $1 AND school_id = $2 AND is_current = TRUE AND id != $3
+	`
+	if _, err := tx.Exec(ctx, clearYearQuery, tenantID, schoolID, targetYearID, actorID); err != nil {
+		return nil, fmt.Errorf("academicyears.Repository.ActivateTerm: clear current year: %w", err)
+	}
+
+	// 5a. Activate the target term, returning the fresh row for the response.
+	const setTermQuery = `
+		UPDATE academic_terms
+		SET is_current = TRUE, version = version + 1, updated_by = $4, updated_at = NOW()
+		WHERE id = $1 AND tenant_id = $2 AND school_id = $3
+		RETURNING id, academic_year_id, name, term_number, start_date, end_date,
+		          is_current, is_final, version, created_by, updated_by,
+		          created_at, updated_at
+	`
+	var activated AcademicTerm
+	if err := tx.QueryRow(ctx, setTermQuery, termID, tenantID, schoolID, actorID).Scan(
+		&activated.ID, &activated.AcademicYearID, &activated.Name, &activated.TermNumber,
+		&activated.StartDate, &activated.EndDate, &activated.IsCurrent, &activated.IsFinal,
+		&activated.Version, &activated.CreatedBy, &activated.UpdatedBy,
+		&activated.CreatedAt, &activated.UpdatedAt,
+	); err != nil {
+		return nil, fmt.Errorf("academicyears.Repository.ActivateTerm: set target term: %w", err)
+	}
+
+	// 5b. Activate the target term's parent year.
+	const setYearQuery = `
+		UPDATE academic_years
+		SET is_current = TRUE, version = version + 1, updated_by = $4, updated_at = NOW()
+		WHERE id = $1 AND tenant_id = $2 AND school_id = $3
+	`
+	if _, err := tx.Exec(ctx, setYearQuery, targetYearID, tenantID, schoolID, actorID); err != nil {
+		return nil, fmt.Errorf("academicyears.Repository.ActivateTerm: set target year: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("academicyears.Repository.ActivateTerm: commit: %w", err)
+	}
+
+	return &activated, nil
 }
 
 // ============================================================================

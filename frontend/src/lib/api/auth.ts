@@ -6,6 +6,7 @@
  *   POST   /api/auth/verify     — verify magic-link token, return session_ref
  *   POST   /api/auth/register   — complete registration, set session cookie
  *   GET    /api/auth/me         — fetch current session info
+ *   POST   /api/auth/switch-school — switch the user's active school
  *   DELETE /api/auth/session    — logout
  */
 
@@ -63,4 +64,13 @@ export async function getMe(): Promise<MeResponse> {
 /** Logout: destroy the current session. */
 export async function logout(): Promise<void> {
     await api.delete("/api/auth/session");
+}
+
+/**
+ * Switch the current user's active school.
+ * POST /api/auth/switch-school — body { school_id }.
+ * The backend updates the somo_school_id cookie and returns the new school id.
+ */
+export async function switchSchool(schoolId: string): Promise<{ school_id: string }> {
+    return api.post<{ school_id: string }>("/api/auth/switch-school", { school_id: schoolId });
 }

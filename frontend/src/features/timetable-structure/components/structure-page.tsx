@@ -72,7 +72,7 @@ export function StructurePage() {
                     onChange={setAcademicYearID}
                     placeholder="Select academic year..."
                     className="w-48"
-                    onCreateItem={() => router.push("/academic-years/new")}
+                    onCreateItem={() => router.push("/academic-terms/new")}
                 />
                 {academicYearID && (
                     <div className="flex items-center gap-2">

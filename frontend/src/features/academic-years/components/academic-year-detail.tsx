@@ -1,34 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { DataTable } from "@/components/shared/data-table";
 import { type DataTableColumn } from "@/components/shared/data-table/types";
 import { getErrorMessage } from "@/lib/errors";
-import {
-    useAcademicYearDetail,
-    useSetCurrentYear,
-    useDeleteAcademicYear,
-} from "../hooks/use-academic-years";
+import { useAcademicYearDetail } from "../hooks/use-academic-years";
 import { listTerms } from "@/lib/api/academic-terms";
 import { type AcademicTerm } from "@/lib/api/academic-terms";
-import { AcademicYearForm } from "./academic-year-form";
 import { TermForm } from "./term-form";
 
 interface AcademicYearDetailProps {
@@ -40,11 +23,8 @@ import { TermStatusCell } from "./term-status-cell";
 
 export function AcademicYearDetail({ id }: AcademicYearDetailProps) {
     const { data: year, isLoading, isError, error } = useAcademicYearDetail(id);
-    const setCurrentMutation = useSetCurrentYear();
-    const deleteMutation = useDeleteAcademicYear();
 
     // UI state
-    const [showEditForm, setShowEditForm] = useState(false);
     const [termDialogOpen, setTermDialogOpen] = useState(false);
     const [editingTerm, setEditingTerm] = useState<AcademicTerm | null>(null);
 
@@ -62,15 +42,6 @@ export function AcademicYearDetail({ id }: AcademicYearDetailProps) {
     const handleTermDialogClose = () => {
         setTermDialogOpen(false);
         setEditingTerm(null);
-    };
-
-    const handleDelete = async () => {
-        try {
-            await deleteMutation.mutateAsync(id);
-            toast.success("Academic year deleted.");
-        } catch (err) {
-            toast.error(getErrorMessage(err));
-        }
     };
 
     // ── Term columns ───────────────────────────────────────────────────
@@ -158,54 +129,6 @@ export function AcademicYearDetail({ id }: AcademicYearDetailProps) {
                     {year.start_date} &mdash; {year.end_date}
                 </p>
             </div>
-
-            {/* ── Actions ──────────────────────────────────────────────── */}
-            <div className="flex flex-wrap gap-2">
-                {!year.is_current && (
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentMutation.mutate(id)}
-                        disabled={setCurrentMutation.isPending}
-                    >
-                        Set as Current Year
-                    </Button>
-                )}
-
-                <Button variant="outline" size="sm" onClick={() => setShowEditForm(!showEditForm)}>
-                    {showEditForm ? "Cancel" : "Edit Year"}
-                </Button>
-
-                <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                        <Button variant="outline" size="sm" className="text-destructive">
-                            Delete Year
-                        </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Delete Academic Year</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                Are you sure you want to delete &ldquo;{year.name}&rdquo;? This will
-                                also delete all terms, assessments, and other linked records within
-                                this year. This action cannot be undone.
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
-            </div>
-
-            {/* ── Edit Form (collapsible) ──────────────────────────────── */}
-            {showEditForm && (
-                <div className="rounded-md border p-4">
-                    <h2 className="text-foreground mb-3 font-medium">Edit Academic Year</h2>
-                    <AcademicYearForm year={year} />
-                </div>
-            )}
 
             {/* ── Terms Section ────────────────────────────────────────── */}
             <div className="space-y-3">

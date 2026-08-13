@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"go.uber.org/zap"
 )
 
 // ── Mock Repository ──────────────────────────────────────────────────────
@@ -48,7 +50,7 @@ func (m *MockRepository) ListByGradeTerm(ctx context.Context, schoolID, gradeLev
 
 func TestRefreshTerm_EmptyID(t *testing.T) {
 	mock := &MockRepository{}
-	svc := &Service{repo: mock}
+	svc := &Service{repo: mock, logger: zap.NewNop().Sugar()}
 
 	err := svc.RefreshTerm(context.Background(), "")
 	require.Error(t, err)
@@ -63,7 +65,7 @@ func TestRefreshTerm_Success(t *testing.T) {
 			return nil
 		},
 	}
-	svc := &Service{repo: mock}
+	svc := &Service{repo: mock, logger: zap.NewNop().Sugar()}
 
 	err := svc.RefreshTerm(context.Background(), "term_001")
 	require.NoError(t, err)
@@ -72,7 +74,7 @@ func TestRefreshTerm_Success(t *testing.T) {
 
 func TestGetByStudentTerm_EmptyParams(t *testing.T) {
 	mock := &MockRepository{}
-	svc := &Service{repo: mock}
+	svc := &Service{repo: mock, logger: zap.NewNop().Sugar()}
 
 	_, err := svc.GetByStudentTerm(context.Background(), "", "term_001", "tenant_001")
 	require.Error(t, err)
@@ -95,7 +97,7 @@ func TestGetByStudentTerm_Found(t *testing.T) {
 			}, nil
 		},
 	}
-	svc := &Service{repo: mock}
+	svc := &Service{repo: mock, logger: zap.NewNop().Sugar()}
 
 	result, err := svc.GetByStudentTerm(context.Background(), "student_001", "term_001", "tenant_001")
 	require.NoError(t, err)
@@ -109,7 +111,7 @@ func TestGetByStudentTerm_NotFound(t *testing.T) {
 			return nil, ErrNotFound
 		},
 	}
-	svc := &Service{repo: mock}
+	svc := &Service{repo: mock, logger: zap.NewNop().Sugar()}
 
 	_, err := svc.GetByStudentTerm(context.Background(), "student_missing", "term_001", "tenant_001")
 	require.Error(t, err)
@@ -117,7 +119,7 @@ func TestGetByStudentTerm_NotFound(t *testing.T) {
 }
 
 func TestListByClassTerm_Empty(t *testing.T) {
-	svc := &Service{repo: &MockRepository{}}
+	svc := &Service{repo: &MockRepository{}, logger: zap.NewNop().Sugar()}
 
 	items, err := svc.ListByClassTerm(context.Background(), "class_001", "term_001", "tenant_001")
 	require.NoError(t, err)
@@ -126,7 +128,7 @@ func TestListByClassTerm_Empty(t *testing.T) {
 
 func TestListByGradeTerm_EmptyParams(t *testing.T) {
 	mock := &MockRepository{}
-	svc := &Service{repo: mock}
+	svc := &Service{repo: mock, logger: zap.NewNop().Sugar()}
 
 	_, err := svc.ListByGradeTerm(context.Background(), "", "GRADE_4", "term_001", "tenant_001")
 	require.Error(t, err)

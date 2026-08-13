@@ -23,7 +23,7 @@ func NewRepository(pools *database.Pools) Repository {
 // RefreshTerm calls the PL/pgSQL batch function to recompute cohort positions
 // for all students in the given academic term.
 func (r *pgRepository) RefreshTerm(ctx context.Context, termID string) error {
-	_, err := r.pool.Exec(ctx, `SELECT fn_compute_cohort_positions_for_term($1)`, termID)
+	_, err := database.FromContext(ctx, r.pool).Exec(ctx, `SELECT fn_compute_cohort_positions_for_term($1)`, termID)
 	if err != nil {
 		return fmt.Errorf("cohortpositions.Repository.RefreshTerm: %w", err)
 	}
@@ -35,7 +35,7 @@ func (r *pgRepository) GetByStudentTerm(ctx context.Context, studentID, termID, 
 	var s CohortPositionSummary
 	var lastRefreshedAt, createdAt, updatedAt time.Time
 
-	err := r.pool.QueryRow(ctx, `
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, `
 		SELECT
 			id, tenant_id, school_id, student_id, class_id, academic_term_id,
 			student_score,
@@ -69,7 +69,7 @@ func (r *pgRepository) GetByStudentTerm(ctx context.Context, studentID, termID, 
 
 // ListByClassTerm returns all cohort positions for a class in a term.
 func (r *pgRepository) ListByClassTerm(ctx context.Context, classID, termID, tenantID string) ([]CohortPositionSummary, error) {
-	rows, err := r.pool.Query(ctx, `
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, `
 		SELECT
 			id, tenant_id, school_id, student_id, class_id, academic_term_id,
 			student_score,
@@ -117,7 +117,7 @@ func (r *pgRepository) ListByClassTerm(ctx context.Context, classID, termID, ten
 // grade level in a term (across the school). Resolves the grade level by
 // joining through cbc_classes.
 func (r *pgRepository) ListByGradeTerm(ctx context.Context, schoolID, gradeLevel, termID, tenantID string) ([]CohortPositionSummary, error) {
-	rows, err := r.pool.Query(ctx, `
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, `
 		SELECT
 			cps.id, cps.tenant_id, cps.school_id, cps.student_id, cps.class_id, cps.academic_term_id,
 			cps.student_score,

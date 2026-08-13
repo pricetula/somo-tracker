@@ -1,6 +1,9 @@
 package cbcschools
 
-import "go.uber.org/fx"
+import (
+	"go.uber.org/fx"
+	"go.uber.org/zap"
+)
 
 // newServiceWithOptions constructs a Service with optional dependencies.
 // This wrapper exists so fx can inject optional CurriculumSeeder,
@@ -12,6 +15,7 @@ import "go.uber.org/fx"
 // no auto-enrollment of the school creator).
 func newServiceWithOptions(
 	repo Repository,
+	logger *zap.SugaredLogger,
 	seeder CurriculumSeeder,
 	yearSeeder AcademicYearSeeder,
 	enroller UserSchoolEnroller,
@@ -26,7 +30,7 @@ func newServiceWithOptions(
 	if enroller != nil {
 		opts = append(opts, WithUserSchoolEnroller(enroller))
 	}
-	return NewService(repo, opts...)
+	return NewService(repo, logger, opts...)
 }
 
 // Module is an fx-compatible module for the cbcschools domain.
@@ -40,6 +44,13 @@ var Module = fx.Module("cbcschools",
 			// have them, fx passes nil.
 			fx.ParamTags(``, `optional:"true"`, `optional:"true"`, `optional:"true"`),
 		),
+		// Cross-domain seeders (adapters in seeders.go): school creation
+		// auto-seeds the embedded CBC curriculum and sets up the initial
+		// academic year + CBC terms. UserSchoolEnroller is provided by the
+		// auth module (auth owns that adapter because auth already imports
+		// cbcschools — providing it here would create an import cycle).
+		newCurriculumSeeder,
+		newAcademicYearSeeder,
 		NewHandler,
 	),
 )

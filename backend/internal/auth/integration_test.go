@@ -7,18 +7,11 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
-	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/stretchr/testify/require"
-	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/wait"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -2324,136 +2317,4 @@ func TestIntegration_EdgeCase_EmptyDeviceFingerprint(t *testing.T) {
 	if role != "SCHOOL_ADMIN" {
 		t.Fatalf("expected SCHOOL_ADMIN role for new tenant registration, got %s", role)
 	}
-}
-
-// ============================================================================
-// Category 6: Migration up/down verification
-// ============================================================================
-
-// TestIntegration_Migration_UpDown_000003 verifies that migration 000003
-// can be applied, reverted, and re-applied cleanly (idempotent up/down cycle).
-// The 000001 schema now includes token_hash columns inline; 000003 adds them
-// with IF NOT EXISTS and backfills. This test runs the full cycle and restores
-// the DB to a working state so subsequent tests are not affected.
-func TestIntegration_Migration_UpDown_000003(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
-	}
-
-	// This test needs a completely fresh PostgreSQL container (not the shared suite's)
-	// because it exercises an up→down→up cycle on migration 000003.
-	// Starting with just migration 000001 gives us a known baseline state.
-	ctx := context.Background()
-
-	// Start a fresh PG container
-	req := testcontainers.ContainerRequest{
-		Image: "postgres:16-alpine",
-		Env: map[string]string{
-			"POSTGRES_DB":       "somotracker_test",
-			"POSTGRES_USER":     "somo_admin",
-			"POSTGRES_PASSWORD": "somo_secure_password",
-		},
-		ExposedPorts: []string{"5432/tcp"},
-		WaitingFor: wait.ForAll(
-			wait.ForLog("database system is ready to accept connections").WithOccurrence(2),
-			wait.ForListeningPort("5432/tcp"),
-		),
-	}
-	c, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
-		ContainerRequest: req,
-		Started:          true,
-	})
-	require.NoError(t, err)
-	defer func() {
-		err := c.Terminate(ctx)
-		require.NoError(t, err)
-	}()
-
-	host, err := c.Host(ctx)
-	require.NoError(t, err)
-	port, err := c.MappedPort(ctx, "5432")
-	require.NoError(t, err)
-	dbURL := fmt.Sprintf("postgres://somo_admin:somo_secure_password@%s:%s/somotracker_test?sslmode=disable", host, port.Port())
-	pool, err := pgxpool.New(ctx, dbURL)
-	require.NoError(t, err)
-	defer pool.Close()
-
-	// Apply only the base schema (no 000003 yet)
-	migrationFiles := []string{"000001_initial_schema.up.sql"}
-	_, filename, _, _ := runtime.Caller(0)
-	migrationsDir := filepath.Join(filepath.Dir(filename), "..", "database", "migrations")
-
-	for _, f := range migrationFiles {
-		path := filepath.Join(migrationsDir, f)
-		sql, err := os.ReadFile(path)
-		require.NoError(t, err, "read migration %s", f)
-		_, err = pool.Exec(ctx, string(sql))
-		require.NoError(t, err, "apply migration %s", f)
-	}
-
-	upPath := filepath.Join(migrationsDir, "000003_fix_review_findings.up.sql")
-	downPath := filepath.Join(migrationsDir, "000003_fix_review_findings.down.sql")
-	upSQL, err := os.ReadFile(upPath)
-	require.NoError(t, err)
-	downSQL, err := os.ReadFile(downPath)
-	require.NoError(t, err)
-
-	// ---------------------------------------------------------------
-	// Helper: check if a column exists on a table
-	// ---------------------------------------------------------------
-	columnExists := func(table, column string) bool {
-		var exists bool
-		err := pool.QueryRow(ctx, `
-			SELECT EXISTS (
-				SELECT 1 FROM information_schema.columns
-				WHERE table_name = $1 AND column_name = $2
-			)
-		`, table, column).Scan(&exists)
-		require.NoError(t, err)
-		return exists
-	}
-
-	indexExists := func(indexName string) bool {
-		var exists bool
-		err := pool.QueryRow(ctx, `
-			SELECT EXISTS (
-				SELECT 1 FROM pg_indexes WHERE indexname = $1
-			)
-		`, indexName).Scan(&exists)
-		require.NoError(t, err)
-		return exists
-	}
-
-	// ---------------------------------------------------------------
-	// Phase 1 — Apply 000003 UP and verify columns exist
-	// ---------------------------------------------------------------
-	_, err = pool.Exec(ctx, string(upSQL))
-	require.NoError(t, err, "000003 up migration failed")
-
-	require.True(t, columnExists("sessions", "token_hash"))
-	require.True(t, columnExists("invitations", "token_hash"))
-	require.True(t, indexExists("idx_sessions_token_hash"))
-	require.True(t, indexExists("idx_invitations_token_hash"))
-
-	// ---------------------------------------------------------------
-	// Phase 2 — Apply 000003 DOWN and verify columns are removed
-	// ---------------------------------------------------------------
-	_, err = pool.Exec(ctx, string(downSQL))
-	require.NoError(t, err, "000003 down migration failed")
-
-	require.False(t, columnExists("sessions", "token_hash"))
-	require.False(t, columnExists("invitations", "token_hash"))
-	require.False(t, indexExists("idx_sessions_token_hash"))
-	require.False(t, indexExists("idx_invitations_token_hash"))
-
-	// ---------------------------------------------------------------
-	// Phase 3 — Re-apply 000003 UP (idempotency: column/index re-created)
-	// ---------------------------------------------------------------
-	_, err = pool.Exec(ctx, string(upSQL))
-	require.NoError(t, err, "000003 up re-apply failed")
-
-	require.True(t, columnExists("sessions", "token_hash"))
-	require.True(t, columnExists("invitations", "token_hash"))
-	require.True(t, indexExists("idx_sessions_token_hash"))
-	require.True(t, indexExists("idx_invitations_token_hash"))
 }

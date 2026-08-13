@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+
+	"go.uber.org/zap"
 )
 
 // ============================================================================
@@ -28,7 +29,7 @@ func newHandlerTestHarness(t *testing.T) *handlerTestHarness {
 	t.Helper()
 
 	repo := &MockRepository{}
-	svc := NewService(repo)
+	svc := NewService(repo, zap.NewNop().Sugar())
 	handler := NewHandler(svc)
 
 	app := fiber.New()
@@ -53,14 +54,12 @@ func newHandlerTestHarness(t *testing.T) *handlerTestHarness {
 	// Register routes with our test auth
 	years := app.Group("/api/v1/academic-years", testAuth)
 	years.Get("/", handler.ListYears)
-	years.Patch("/:id", handler.PatchYear)
-	years.Post("/:id/set-current", handler.SetCurrentYear)
-	years.Delete("/", handler.DeleteYear)
 
 	terms := app.Group("/api/v1/academic-terms", testAuth)
 	terms.Get("/", handler.ListTerms)
 	terms.Post("/", handler.CreateTerm)
 	terms.Patch("/:id", handler.PatchTerm)
+	terms.Post("/:id/activate", handler.ActivateTerm)
 	terms.Delete("/:id", handler.DeleteTerm)
 
 	// Viewer-only routes (no admin needed) for non-admin test
@@ -124,150 +123,6 @@ func TestHandler_ListYears_WithTerms(t *testing.T) {
 	}
 	if len(result.Data[0].Terms) != 2 {
 		t.Fatalf("expected 2 terms, got %d", len(result.Data[0].Terms))
-	}
-}
-
-// ============================================================================
-// A2 — Hard delete cascades to terms
-// ============================================================================
-
-func TestHandler_DeleteYear_HardDelete(t *testing.T) {
-	h := newHandlerTestHarness(t)
-
-	var capturedID string
-	h.repo.deleteYearFn = func(ctx context.Context, id string) error {
-		capturedID = id
-		return nil
-	}
-
-	h.repo.hasDependentsFn = func(ctx context.Context, id string) (bool, error) {
-		return false, nil
-	}
-
-	h.repo.getYearByIDForUpdateFn = func(ctx context.Context, id, tenantID, schoolID string) (*AcademicYear, error) {
-		return &AcademicYear{ID: id, TenantID: tenantID, SchoolID: schoolID, Name: "2025"}, nil
-	}
-
-	body, _ := json.Marshal(struct {
-		ID string `json:"id"`
-	}{ID: "year_001"})
-	resp := doRequest(h.app, "DELETE", "/api/v1/academic-years", body)
-	if resp.StatusCode != fiber.StatusNoContent {
-		t.Fatalf("expected 204, got %d", resp.StatusCode)
-	}
-	if capturedID != "year_001" {
-		t.Errorf("expected id 'year_001', got %q", capturedID)
-	}
-}
-
-// ============================================================================
-// A3 — Set current year
-// ============================================================================
-
-func TestHandler_SetCurrentYear(t *testing.T) {
-	h := newHandlerTestHarness(t)
-
-	h.repo.clearCurrentYearFn = func(ctx context.Context, schoolID, tenantID, excludeID, actorID string) error {
-		return nil
-	}
-	h.repo.setCurrentYearFn = func(ctx context.Context, id, tenantID, schoolID, actorID string) (bool, error) {
-		return true, nil
-	}
-
-	resp := doRequest(h.app, "POST", "/api/v1/academic-years/year_002/set-current", nil)
-	if resp.StatusCode != fiber.StatusOK {
-		t.Fatalf("expected 200, got %d", resp.StatusCode)
-	}
-}
-
-// ============================================================================
-// A5 — PATCH blocked when dates strand terms
-// ============================================================================
-
-func TestHandler_PatchYear_TermStranding(t *testing.T) {
-	h := newHandlerTestHarness(t)
-
-	year := &AcademicYear{
-		ID: "year_001", TenantID: "tenant_001", SchoolID: "school_001",
-		Name: "2025", Version: 3,
-		StartDate: DateOnly{Time: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)},
-		EndDate:   DateOnly{Time: time.Date(2025, 12, 31, 0, 0, 0, 0, time.UTC)},
-	}
-
-	h.repo.getYearByIDForUpdateFn = func(ctx context.Context, id, tenantID, schoolID string) (*AcademicYear, error) {
-		return year, nil
-	}
-
-	h.repo.updateYearFn = func(ctx context.Context, y *AcademicYear) error {
-		return nil
-	}
-
-	// Our PatchYear service doesn't return TermsOutOfRangeError on stranding — it returns nil,nil
-	// Let's adjust the test to match: the handler wraps the service, which returns nil for error
-	// So it falls through to the conflict handler
-
-	body := map[string]interface{}{
-		"end_date": "2025-08-31",
-		"version":  3,
-	}
-	b, _ := json.Marshal(body)
-	resp := doRequest(h.app, "PATCH", "/api/v1/academic-years/year_001", b)
-
-	// Without the stranding mock, this will succeed (200)
-	// To test stranding, we need the repo.FindStrandedTerms to return results
-	// so the service returns a wrapped *TermsOutOfRangeError, which the handler
-	// extracts via errors.As and maps to 422. Let's make the mock return stranded terms.
-	t.Logf("response status: %d", resp.StatusCode)
-
-	// Re-do with stranding
-	h2 := newHandlerTestHarness(t)
-	h2.repo.getYearByIDForUpdateFn = func(ctx context.Context, id, tenantID, schoolID string) (*AcademicYear, error) {
-		return year, nil
-	}
-	h2.repo.findStrandedTermsFn = func(ctx context.Context, yearID string, newStart, newEnd time.Time) ([]ConflictingTerm, error) {
-		return []ConflictingTerm{
-			{ID: "term_001", Name: "Term 1", StartDate: "2025-09-01", EndDate: "2025-11-30"},
-		}, nil
-	}
-
-	resp2 := doRequest(h2.app, "PATCH", "/api/v1/academic-years/year_001", b)
-	if resp2.StatusCode != fiber.StatusUnprocessableEntity {
-		t.Fatalf("expected 422 for stranded terms, got %d", resp2.StatusCode)
-	}
-
-	var errResp struct {
-		Code    string      `json:"code"`
-		Message string      `json:"message"`
-		Details interface{} `json:"details,omitempty"`
-	}
-	if err := json.NewDecoder(resp2.Body).Decode(&errResp); err != nil {
-		t.Fatalf("failed to decode: %v", err)
-	}
-	if errResp.Code != "TERMS_OUT_OF_RANGE" {
-		t.Errorf("expected code 'TERMS_OUT_OF_RANGE', got %q", errResp.Code)
-	}
-}
-
-// ============================================================================
-// A6 — PATCH blocked by stale version
-// ============================================================================
-
-func TestHandler_PatchYear_StaleVersion(t *testing.T) {
-	h := newHandlerTestHarness(t)
-
-	year := &AcademicYear{ID: "year_001", Version: 5}
-	h.repo.getYearByIDForUpdateFn = func(ctx context.Context, id, tenantID, schoolID string) (*AcademicYear, error) {
-		return year, nil
-	}
-
-	body := map[string]interface{}{
-		"name":    "New Name",
-		"version": 3, // stale
-	}
-	b, _ := json.Marshal(body)
-	resp := doRequest(h.app, "PATCH", "/api/v1/academic-years/year_001", b)
-	if resp.StatusCode != fiber.StatusConflict {
-		t.Fatalf("expected 409 for stale version, got %d", resp.StatusCode)
 	}
 }
 
@@ -350,7 +205,7 @@ func TestHandler_CreateTerm_DuplicateNumber(t *testing.T) {
 	}
 
 	h.repo.createTermFn = func(ctx context.Context, term *AcademicTerm) (string, error) {
-		return "", errors.New("duplicate key value violates unique constraint")
+		return "", &TermNumberExistsError{}
 	}
 
 	body := map[string]interface{}{
@@ -463,5 +318,205 @@ func TestHandler_PatchTerm_IsCurrentStripped(t *testing.T) {
 	}
 	if warnings, ok := result["warnings"]; ok {
 		t.Logf("response includes warnings: %v", warnings)
+	}
+}
+
+// ============================================================================
+// C1 — Activate term returns 200 with the activated term
+// ============================================================================
+
+func TestHandler_ActivateTerm(t *testing.T) {
+	h := newHandlerTestHarness(t)
+
+	var capturedID string
+	h.repo.activateTermFn = func(ctx context.Context, termID, tenantID, schoolID, actorID string) (*AcademicTerm, error) {
+		capturedID = termID
+		return &AcademicTerm{
+			ID: termID, TenantID: tenantID, SchoolID: schoolID,
+			AcademicYearID: "year_001", Name: "Term 2", TermNumber: 2,
+			Version: 2, IsCurrent: true,
+		}, nil
+	}
+
+	resp := doRequest(h.app, "POST", "/api/v1/academic-terms/term_002/activate", nil)
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("expected 200, got %d", resp.StatusCode)
+	}
+	if capturedID != "term_002" {
+		t.Errorf("expected id 'term_002', got %q", capturedID)
+	}
+
+	var result struct {
+		ID        string `json:"id"`
+		IsCurrent bool   `json:"is_current"`
+		Message   string `json:"message"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("failed to decode: %v", err)
+	}
+	if result.ID != "term_002" {
+		t.Errorf("expected id 'term_002', got %q", result.ID)
+	}
+	if !result.IsCurrent {
+		t.Error("expected is_current = true in response")
+	}
+}
+
+// ============================================================================
+// D1 — Delete current term rejected with 409 term_is_current
+// ============================================================================
+
+func TestHandler_DeleteTerm_BlockedWhenCurrent(t *testing.T) {
+	h := newHandlerTestHarness(t)
+
+	term := &AcademicTerm{
+		ID: "term_001", TenantID: "tenant_001", SchoolID: "school_001",
+		AcademicYearID: "year_001", Version: 1, IsCurrent: true,
+	}
+	year := &AcademicYear{ID: "year_001"}
+	h.repo.getTermByIDForUpdateFn = func(ctx context.Context, id, tenantID, schoolID string) (*AcademicTerm, *AcademicYear, error) {
+		return term, year, nil
+	}
+
+	resp := doRequest(h.app, "DELETE", "/api/v1/academic-terms/term_001", nil)
+	if resp.StatusCode != fiber.StatusConflict {
+		t.Fatalf("expected 409, got %d", resp.StatusCode)
+	}
+
+	var errResp struct {
+		Code string `json:"code"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
+		t.Fatalf("failed to decode: %v", err)
+	}
+	if errResp.Code != "term_is_current" {
+		t.Errorf("expected code 'term_is_current', got %q", errResp.Code)
+	}
+}
+
+// ============================================================================
+// D2 — Delete term with dependents returns 409 with per-table counts
+// ============================================================================
+
+func TestHandler_DeleteTerm_BlockedWithDependents(t *testing.T) {
+	h := newHandlerTestHarness(t)
+
+	term := &AcademicTerm{
+		ID: "term_001", TenantID: "tenant_001", SchoolID: "school_001",
+		AcademicYearID: "year_001", Version: 1, IsCurrent: false,
+	}
+	year := &AcademicYear{ID: "year_001"}
+	h.repo.getTermByIDForUpdateFn = func(ctx context.Context, id, tenantID, schoolID string) (*AcademicTerm, *AcademicYear, error) {
+		return term, year, nil
+	}
+	h.repo.termDependencyCountsFn = func(ctx context.Context, termID string) (map[string]int64, error) {
+		return map[string]int64{"invoices": 7}, nil
+	}
+
+	resp := doRequest(h.app, "DELETE", "/api/v1/academic-terms/term_001", nil)
+	if resp.StatusCode != fiber.StatusConflict {
+		t.Fatalf("expected 409, got %d", resp.StatusCode)
+	}
+
+	var errResp struct {
+		Code    string `json:"code"`
+		Details struct {
+			Counts map[string]int64 `json:"counts"`
+		} `json:"details"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
+		t.Fatalf("failed to decode: %v", err)
+	}
+	if errResp.Code != "HAS_DEPENDENTS" {
+		t.Errorf("expected code 'HAS_DEPENDENTS', got %q", errResp.Code)
+	}
+	if errResp.Details.Counts["invoices"] != 7 {
+		t.Errorf("expected 7 invoices in counts, got %d", errResp.Details.Counts["invoices"])
+	}
+}
+
+// ============================================================================
+// D3 — Delete inactive term with no dependents returns 204
+// ============================================================================
+
+func TestHandler_DeleteTerm_Success(t *testing.T) {
+	h := newHandlerTestHarness(t)
+
+	term := &AcademicTerm{
+		ID: "term_001", TenantID: "tenant_001", SchoolID: "school_001",
+		AcademicYearID: "year_001", Version: 1, IsCurrent: false,
+	}
+	year := &AcademicYear{ID: "year_001"}
+	h.repo.getTermByIDForUpdateFn = func(ctx context.Context, id, tenantID, schoolID string) (*AcademicTerm, *AcademicYear, error) {
+		return term, year, nil
+	}
+	h.repo.termDependencyCountsFn = func(ctx context.Context, termID string) (map[string]int64, error) {
+		return map[string]int64{}, nil
+	}
+	h.repo.deleteTermFn = func(ctx context.Context, id string) error {
+		return nil
+	}
+	h.repo.syncCurrentTermFn = func(ctx context.Context, academicYearID string, now time.Time) error {
+		return nil
+	}
+
+	resp := doRequest(h.app, "DELETE", "/api/v1/academic-terms/term_001", nil)
+	if resp.StatusCode != fiber.StatusNoContent {
+		t.Fatalf("expected 204, got %d", resp.StatusCode)
+	}
+}
+
+// ============================================================================
+// E1 — PATCH narrowing active term with orphans returns 409 ORPHANED_RECORDS
+// ============================================================================
+
+func TestHandler_PatchTerm_OrphanGuard(t *testing.T) {
+	h := newHandlerTestHarness(t)
+
+	term := &AcademicTerm{
+		ID: "term_001", TenantID: "tenant_001", SchoolID: "school_001",
+		AcademicYearID: "year_001", Version: 1, IsCurrent: true,
+		StartDate: DateOnly{Time: time.Date(2025, 1, 6, 0, 0, 0, 0, time.UTC)},
+		EndDate:   DateOnly{Time: time.Date(2025, 4, 4, 0, 0, 0, 0, time.UTC)},
+	}
+	year := &AcademicYear{
+		ID:        "year_001",
+		StartDate: DateOnly{Time: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)},
+		EndDate:   DateOnly{Time: time.Date(2025, 12, 31, 0, 0, 0, 0, time.UTC)},
+	}
+	h.repo.getTermByIDForUpdateFn = func(ctx context.Context, id, tenantID, schoolID string) (*AcademicTerm, *AcademicYear, error) {
+		return term, year, nil
+	}
+	h.repo.findOverlappingTermsFn = func(ctx context.Context, yearID, excludeID string, startDate, endDate time.Time) ([]AcademicTerm, error) {
+		return nil, nil
+	}
+	h.repo.countOrphansOutsideRangeFn = func(ctx context.Context, termID string, newStart, newEnd time.Time) (map[string]int64, error) {
+		return map[string]int64{"assessment_sessions": 1, "attendance_records": 4}, nil
+	}
+
+	body := map[string]interface{}{
+		"start_date": "2025-02-01", // narrow
+		"version":    1,
+	}
+	b, _ := json.Marshal(body)
+	resp := doRequest(h.app, "PATCH", "/api/v1/academic-terms/term_001", b)
+	if resp.StatusCode != fiber.StatusConflict {
+		t.Fatalf("expected 409, got %d", resp.StatusCode)
+	}
+
+	var errResp struct {
+		Code    string `json:"code"`
+		Details struct {
+			AttendanceRecords int64 `json:"attendance_records"`
+		} `json:"details"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
+		t.Fatalf("failed to decode: %v", err)
+	}
+	if errResp.Code != "ORPHANED_RECORDS" {
+		t.Errorf("expected code 'ORPHANED_RECORDS', got %q", errResp.Code)
+	}
+	if errResp.Details.AttendanceRecords != 4 {
+		t.Errorf("expected 4 attendance records in details, got %d", errResp.Details.AttendanceRecords)
 	}
 }

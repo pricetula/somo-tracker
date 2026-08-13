@@ -4,25 +4,27 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
+
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.uber.org/zap"
 
 	"somotracker/backend/internal/database"
 )
 
 // PgRepository handles timetable slot database operations.
 type PgRepository struct {
-	pool *pgxpool.Pool
+	pool   *pgxpool.Pool
+	logger *zap.SugaredLogger
 }
 
 // NewRepository creates a new PgRepository.
-func NewRepository(pools *database.Pools) *PgRepository {
-	return &PgRepository{pool: pools.PG}
+func NewRepository(pools *database.Pools, logger *zap.SugaredLogger) *PgRepository {
+	return &PgRepository{pool: pools.PG, logger: logger}
 }
 
 // slotColumns is the shared column list for SELECT queries on cbc_timetable_slots.
@@ -190,7 +192,7 @@ func (r *PgRepository) ListEnriched(ctx context.Context, filter SlotFilter) ([]S
 }
 
 func (r *PgRepository) querySlots(ctx context.Context, query string, args ...interface{}) ([]TimetableSlot, error) {
-	rows, err := r.pool.Query(ctx, query, args...)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("cbctimetableslots.Repository.querySlots: %w", err)
 	}
@@ -216,7 +218,7 @@ func (r *PgRepository) querySlots(ctx context.Context, query string, args ...int
 }
 
 func (r *PgRepository) queryEnrichedSlots(ctx context.Context, query string, hasDate bool, args ...interface{}) ([]SlotWithEnrichedData, error) {
-	rows, err := r.pool.Query(ctx, query, args...)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("cbctimetableslots.Repository.queryEnrichedSlots: %w", err)
 	}
@@ -267,7 +269,7 @@ func (r *PgRepository) GetByID(ctx context.Context, id string) (*TimetableSlot, 
 	`, slotColumns)
 
 	var s TimetableSlot
-	err := r.pool.QueryRow(ctx, query, id).Scan(
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, id).Scan(
 		&s.ID, &s.TenantID, &s.SchoolID, &s.AcademicYearID, &s.StructureID, &s.ClassID, &s.LearningAreaID, &s.TeacherID, &s.RoomIdentifier, &s.CreatedAt, &s.UpdatedAt,
 	)
 	if err != nil {
@@ -313,7 +315,7 @@ func (r *PgRepository) GetEnrichedByID(ctx context.Context, id string) (*SlotWit
 
 	var s SlotWithEnrichedData
 	var startTime, endTime *time.Time
-	err := r.pool.QueryRow(ctx, query, id).Scan(
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, id).Scan(
 		&s.ID, &s.TenantID, &s.SchoolID, &s.AcademicYearID, &s.StructureID, &s.ClassID,
 		&s.LearningAreaID, &s.TeacherID, &s.RoomIdentifier, &s.CreatedAt, &s.UpdatedAt,
 		&s.ClassName, &s.PeriodName, &s.DayOfWeek,
@@ -344,7 +346,7 @@ func (r *PgRepository) Create(ctx context.Context, tenantID, schoolID string, sl
 	`
 
 	var s TimetableSlot
-	err := r.pool.QueryRow(ctx, query,
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query,
 		tenantID, schoolID, slot.AcademicYearID, slot.StructureID, slot.ClassID,
 		slot.LearningAreaID, slot.TeacherID, slot.RoomIdentifier,
 	).Scan(&s.ID, &s.TenantID, &s.SchoolID, &s.AcademicYearID, &s.StructureID, &s.ClassID, &s.LearningAreaID, &s.TeacherID, &s.RoomIdentifier, &s.CreatedAt, &s.UpdatedAt)
@@ -363,14 +365,14 @@ func (r *PgRepository) BatchCreate(ctx context.Context, tenantID, schoolID strin
 		return []TimetableSlot{}, nil
 	}
 
-	tx, err := r.pool.Begin(ctx)
+	tx, err := database.Begin(ctx, r.pool)
 	if err != nil {
 		return nil, fmt.Errorf("cbctimetableslots.Repository.BatchCreate: begin tx: %w", err)
 	}
 	defer func() {
 		if rbErr := tx.Rollback(ctx); rbErr != nil && !errors.Is(rbErr, pgx.ErrTxClosed) {
-			slog.WarnContext(ctx, "cbctimetableslots.Repository.BatchCreate: rollback error",
-				slog.String("error", rbErr.Error()),
+			r.logger.Warnw("cbctimetableslots.Repository.BatchCreate: rollback error",
+				"error", rbErr.Error(),
 			)
 		}
 	}()
@@ -435,7 +437,7 @@ func (r *PgRepository) Update(ctx context.Context, id string, slot UpdateSlotPay
 	`, strings.Join(sets, ", "), argIdx)
 
 	var s TimetableSlot
-	err := r.pool.QueryRow(ctx, query, args...).Scan(
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, args...).Scan(
 		&s.ID, &s.TenantID, &s.SchoolID, &s.AcademicYearID, &s.StructureID, &s.ClassID, &s.LearningAreaID, &s.TeacherID, &s.RoomIdentifier, &s.CreatedAt, &s.UpdatedAt,
 	)
 	if err != nil {
@@ -453,7 +455,7 @@ func (r *PgRepository) Update(ctx context.Context, id string, slot UpdateSlotPay
 // Delete removes a slot by ID.
 func (r *PgRepository) Delete(ctx context.Context, id string) error {
 	const query = `DELETE FROM cbc_timetable_slots WHERE id = $1`
-	tag, err := r.pool.Exec(ctx, query, id)
+	tag, err := database.FromContext(ctx, r.pool).Exec(ctx, query, id)
 	if err != nil {
 		return fmt.Errorf("cbctimetableslots.Repository.Delete: %w", err)
 	}
@@ -484,7 +486,7 @@ func (r *PgRepository) ClearDay(ctx context.Context, structureIDs []string) erro
 		strings.Join(placeholders, ", "),
 	)
 
-	_, err := r.pool.Exec(ctx, query, args...)
+	_, err := database.FromContext(ctx, r.pool).Exec(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("cbctimetableslots.Repository.ClearDay: %w", err)
 	}
@@ -494,7 +496,7 @@ func (r *PgRepository) ClearDay(ctx context.Context, structureIDs []string) erro
 // ClearClassDay removes all slots for a specific class on a given structure day.
 func (r *PgRepository) ClearClassDay(ctx context.Context, structureID, classID string) error {
 	const query = `DELETE FROM cbc_timetable_slots WHERE structure_id = $1 AND class_id = $2`
-	_, err := r.pool.Exec(ctx, query, structureID, classID)
+	_, err := database.FromContext(ctx, r.pool).Exec(ctx, query, structureID, classID)
 	if err != nil {
 		return fmt.Errorf("cbctimetableslots.Repository.ClearClassDay: %w", err)
 	}

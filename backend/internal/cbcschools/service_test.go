@@ -5,6 +5,8 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 // ============================================================================
@@ -12,11 +14,12 @@ import (
 // ============================================================================
 
 type MockRepository struct {
-	createFn       func(ctx context.Context, tenantID string, name string) (string, error)
-	getByIDFn      func(ctx context.Context, id string) (*School, error)
-	listByTenantFn func(ctx context.Context, tenantID, userID string) ([]SchoolWithMemberCount, error)
-	updateFn       func(ctx context.Context, school SchoolUpdateFields) error
-	deleteFn       func(ctx context.Context, id string) error
+	createFn        func(ctx context.Context, tenantID string, name string) (string, error)
+	getByIDFn       func(ctx context.Context, id string) (*School, error)
+	getByTenantName func(ctx context.Context, tenantID, name string) (*School, error)
+	listByTenantFn  func(ctx context.Context, tenantID, userID string) ([]SchoolWithMemberCount, error)
+	updateFn        func(ctx context.Context, school SchoolUpdateFields) error
+	deleteFn        func(ctx context.Context, id string) error
 }
 
 func (m *MockRepository) Create(ctx context.Context, tenantID string, name string) (string, error) {
@@ -31,6 +34,13 @@ func (m *MockRepository) GetByID(ctx context.Context, id string) (*School, error
 		return m.getByIDFn(ctx, id)
 	}
 	return &School{ID: id, TenantID: "tenant_001", Name: "Test School"}, nil
+}
+
+func (m *MockRepository) GetByTenantAndName(ctx context.Context, tenantID, name string) (*School, error) {
+	if m.getByTenantName != nil {
+		return m.getByTenantName(ctx, tenantID, name)
+	}
+	return nil, ErrNotFound
 }
 
 func (m *MockRepository) ListByTenantID(ctx context.Context, tenantID, userID string) ([]SchoolWithMemberCount, error) {
@@ -65,7 +75,7 @@ type testHarness struct {
 
 func newTestHarness() *testHarness {
 	repo := &MockRepository{}
-	svc := NewService(repo)
+	svc := NewService(repo, zap.NewNop().Sugar())
 	return &testHarness{
 		svc:  svc,
 		repo: repo,
@@ -341,7 +351,7 @@ type testHarnessWithSeeder struct {
 func newTestHarnessWithSeeder() *testHarnessWithSeeder {
 	repo := &MockRepository{}
 	seeder := &MockCurriculumSeeder{}
-	svc := NewService(repo, WithCurriculumSeeder(seeder))
+	svc := NewService(repo, zap.NewNop().Sugar(), WithCurriculumSeeder(seeder))
 	return &testHarnessWithSeeder{
 		svc:    svc,
 		repo:   repo,

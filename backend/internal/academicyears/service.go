@@ -3,8 +3,9 @@ package academicyears
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 // todayEAT returns today's date in EAT (UTC+3) as a JS Date at midnight UTC.
@@ -30,16 +31,18 @@ func parseDate(s string) (DateOnly, error) {
 
 // Service contains business logic for academic years and terms.
 type Service struct {
-	Repo Repository
+	Repo   Repository
+	logger *zap.SugaredLogger
 }
 
 // NewService creates a new Service.
-func NewService(repo Repository) *Service {
-	return &Service{Repo: repo}
+func NewService(repo Repository, logger *zap.SugaredLogger) *Service {
+	return &Service{Repo: repo, logger: logger}
 }
 
 // ============================================================================
-// YEARS
+// YEARS (read-only via API — creation/activation is driven by term lifecycle
+// and SetupInitialYear during school registration)
 // ============================================================================
 
 // GetCurrent returns all non-deleted academic years for a school with nested terms.
@@ -56,188 +59,6 @@ func (s *Service) ListYears(ctx context.Context, tenantID, schoolID string) ([]A
 		return nil, fmt.Errorf("academicyears.Service.ListYears: %w", ErrInvalidInput)
 	}
 	return s.Repo.ListYears(ctx, tenantID, schoolID)
-}
-
-// CreateYear creates a new academic year.
-func (s *Service) CreateYear(ctx context.Context, body CreateYearBody, tenantID, schoolID, actorID string) (string, error) {
-	if tenantID == "" || schoolID == "" || actorID == "" {
-		return "", fmt.Errorf("academicyears.Service.CreateYear: %w", ErrInvalidInput)
-	}
-	if body.Name == "" {
-		return "", fmt.Errorf("academicyears.Service.CreateYear: name is required: %w", ErrInvalidInput)
-	}
-
-	startDate, err := parseDate(body.StartDate)
-	if err != nil {
-		return "", fmt.Errorf("academicyears.Service.CreateYear: %w", ErrInvalidInput)
-	}
-	endDate, err := parseDate(body.EndDate)
-	if err != nil {
-		return "", fmt.Errorf("academicyears.Service.CreateYear: %w", ErrInvalidInput)
-	}
-
-	if !endDate.After(startDate) && !endDate.Equal(startDate) {
-		return "", fmt.Errorf("academicyears.Service.CreateYear: end_date must be on or after start_date: %w", ErrInvalidInput)
-	}
-
-	year := &AcademicYear{
-		TenantID:  tenantID,
-		SchoolID:  schoolID,
-		Name:      body.Name,
-		StartDate: startDate,
-		EndDate:   endDate,
-		CreatedBy: actorID,
-		UpdatedBy: actorID,
-	}
-
-	id, err := s.Repo.CreateYear(ctx, year)
-	if err != nil {
-		return "", fmt.Errorf("academicyears.Service.CreateYear: %w", err)
-	}
-
-	slog.Info("academic_year.created",
-		"tenant_id", tenantID,
-		"school_id", schoolID,
-		"resource_id", id,
-		"name", body.Name,
-		"actor_id", actorID,
-	)
-
-	return id, nil
-}
-
-// PatchYear applies partial updates to an academic year.
-func (s *Service) PatchYear(ctx context.Context, id, tenantID, schoolID string, body PatchYearBody, actorID string) (*AcademicYear, error) {
-	// Step 1 — Fetch with FOR UPDATE
-	year, err := s.Repo.GetYearByIDForUpdate(ctx, id, tenantID, schoolID)
-	if err != nil {
-		return nil, fmt.Errorf("academicyears.Service.PatchYear: fetch year: %w", err)
-	}
-
-	// Step 2 — Optimistic lock check
-	if body.Version == nil || *body.Version != year.Version {
-		return nil, fmt.Errorf("academicyears.Service.PatchYear: version mismatch: %w", ErrConflict)
-	}
-
-	// Apply changes
-	if body.Name != nil {
-		year.Name = *body.Name
-	}
-	if body.StartDate != nil {
-		newStart, parseErr := parseDate(*body.StartDate)
-		if parseErr != nil {
-			return nil, fmt.Errorf("academicyears.Service.PatchYear: %w", ErrInvalidInput)
-		}
-		year.StartDate = newStart
-	}
-	if body.EndDate != nil {
-		newEnd, parseErr := parseDate(*body.EndDate)
-		if parseErr != nil {
-			return nil, fmt.Errorf("academicyears.Service.PatchYear: %w", ErrInvalidInput)
-		}
-		year.EndDate = newEnd
-	}
-
-	year.UpdatedBy = actorID
-
-	// Step 3 — Term-strandedness check (if dates changed)
-	if body.StartDate != nil || body.EndDate != nil {
-		stranded, err := s.Repo.FindStrandedTerms(ctx, year.ID, year.StartDate.Time, year.EndDate.Time)
-		if err != nil {
-			return nil, fmt.Errorf("academicyears.Service.PatchYear: stranded check: %w", err)
-		}
-		if len(stranded) > 0 {
-			return nil, fmt.Errorf("academicyears.Service.PatchYear: %w", &TermsOutOfRangeError{ConflictingTerms: stranded})
-		}
-	}
-
-	// Step 4 — Apply update
-	if err := s.Repo.UpdateYear(ctx, year); err != nil {
-		return nil, fmt.Errorf("academicyears.Service.PatchYear: update: %w", err)
-	}
-
-	// Log the mutation
-	slog.Info("academic_year.patched",
-		"tenant_id", tenantID,
-		"school_id", schoolID,
-		"resource_id", id,
-		"actor_id", actorID,
-		"changes", map[string]interface{}{
-			"name":       body.Name,
-			"start_date": body.StartDate,
-			"end_date":   body.EndDate,
-		},
-	)
-
-	return year, nil
-}
-
-// DeleteYear hard-deletes an academic year. Terms are cascade-deleted by the DB.
-func (s *Service) DeleteYear(ctx context.Context, id, tenantID, schoolID, actorID string) error {
-	if id == "" || tenantID == "" || schoolID == "" {
-		return fmt.Errorf("academicyears.Service.DeleteYear: %w", ErrInvalidInput)
-	}
-
-	// Fetch and verify existence
-	_, err := s.Repo.GetYearByIDForUpdate(ctx, id, tenantID, schoolID)
-	if err != nil {
-		return fmt.Errorf("academicyears.Service.DeleteYear: %w", err)
-	}
-
-	// Check for dependents
-	hasDeps, err := s.Repo.HasDependents(ctx, id)
-	if err != nil {
-		return fmt.Errorf("academicyears.Service.DeleteYear: %w", err)
-	}
-	if hasDeps {
-		return &HasDependentsError{
-			Message: "This academic year has linked records and cannot be deleted. Archive it instead.",
-		}
-	}
-
-	// Hard-delete the year — terms are cascade-deleted by DB (ON DELETE CASCADE)
-	if err := s.Repo.DeleteYear(ctx, id); err != nil {
-		return fmt.Errorf("academicyears.Service.DeleteYear: %w", err)
-	}
-
-	slog.Info("academic_year.deleted",
-		"tenant_id", tenantID,
-		"school_id", schoolID,
-		"resource_id", id,
-		"actor_id", actorID,
-	)
-
-	return nil
-}
-
-// SetCurrentYear sets a single year as is_current and clears all others.
-func (s *Service) SetCurrentYear(ctx context.Context, id, tenantID, schoolID, actorID string) error {
-	if id == "" || tenantID == "" || schoolID == "" {
-		return fmt.Errorf("academicyears.Service.SetCurrentYear: %w", ErrInvalidInput)
-	}
-
-	// Clear current on all other years
-	if err := s.Repo.ClearCurrentYear(ctx, schoolID, tenantID, id, actorID); err != nil {
-		return fmt.Errorf("academicyears.Service.SetCurrentYear: %w", err)
-	}
-
-	// Set current on the target year
-	found, err := s.Repo.SetCurrentYear(ctx, id, tenantID, schoolID, actorID)
-	if err != nil {
-		return fmt.Errorf("academicyears.Service.SetCurrentYear: %w", err)
-	}
-	if !found {
-		return fmt.Errorf("academicyears.Service.SetCurrentYear: %w", ErrNotFound)
-	}
-
-	slog.Info("academic_year.set_current",
-		"tenant_id", tenantID,
-		"school_id", schoolID,
-		"resource_id", id,
-		"actor_id", actorID,
-	)
-
-	return nil
 }
 
 // ============================================================================
@@ -302,16 +123,15 @@ func (s *Service) CreateTerm(ctx context.Context, body CreateTermBody, tenantID,
 		TermNumber:     body.TermNumber,
 		StartDate:      startDate,
 		EndDate:        endDate,
+		IsFinal:        body.IsFinal != nil && *body.IsFinal,
 		CreatedBy:      actorID,
 		UpdatedBy:      actorID,
 	}
 
 	id, err := s.Repo.CreateTerm(ctx, term)
 	if err != nil {
-		// Check for unique constraint violation on (academic_year_id, term_number)
-		if isUniqueViolation(err) {
-			return nil, fmt.Errorf("academicyears.Service.CreateTerm: %w", &TermNumberExistsError{})
-		}
+		// Constraint violations (term_number unique, GIST overlap, bounds
+		// trigger) are translated to domain errors inside the repository.
 		return nil, fmt.Errorf("academicyears.Service.CreateTerm: %w", err)
 	}
 	term.ID = id
@@ -321,7 +141,7 @@ func (s *Service) CreateTerm(ctx context.Context, body CreateTermBody, tenantID,
 		return nil, fmt.Errorf("academicyears.Service.CreateTerm: %w", err)
 	}
 
-	slog.Info("academic_term.created",
+	s.logger.Infow("academic_term.created",
 		"tenant_id", tenantID,
 		"school_id", schoolID,
 		"resource_id", id,
@@ -351,6 +171,11 @@ func (s *Service) PatchTerm(ctx context.Context, id, tenantID, schoolID string, 
 		return nil, fmt.Errorf("academicyears.Service.PatchTerm: %w", ErrConflict)
 	}
 
+	// Remember the pre-update range so we can detect narrowing of the dates
+	// (orphan-guard) below.
+	oldStart := term.StartDate
+	oldEnd := term.EndDate
+
 	// Apply changes
 	if body.Name != nil {
 		term.Name = *body.Name
@@ -369,6 +194,9 @@ func (s *Service) PatchTerm(ctx context.Context, id, tenantID, schoolID string, 
 		}
 		term.EndDate = newEnd
 	}
+	if body.IsFinal != nil {
+		term.IsFinal = *body.IsFinal
+	}
 
 	// If dates changed, run boundary and overlap checks
 	if body.StartDate != nil || body.EndDate != nil {
@@ -386,6 +214,24 @@ func (s *Service) PatchTerm(ctx context.Context, id, tenantID, schoolID string, 
 			return nil, fmt.Errorf("academicyears.Service.PatchTerm: %w",
 				&TermDateOverlapError{ConflictingName: overlapping[0].Name})
 		}
+
+		// Active-state guard: narrowing an ACTIVE term's date range may strand
+		// existing assessments/attendance dated outside the new range.
+		narrowed := term.StartDate.After(oldStart) || term.EndDate.Before(oldEnd)
+		if term.IsCurrent && narrowed {
+			orphans, err := s.Repo.CountOrphansOutsideRange(ctx, term.ID, term.StartDate.Time, term.EndDate.Time)
+			if err != nil {
+				return nil, fmt.Errorf("academicyears.Service.PatchTerm: orphan check: %w", err)
+			}
+			if orphans["assessment_sessions"] > 0 || orphans["attendance_records"] > 0 {
+				return nil, fmt.Errorf("academicyears.Service.PatchTerm: %w", &OrphanedRecordsError{
+					Assessments:     orphans["assessment_sessions"],
+					AttendanceMarks: orphans["attendance_records"],
+					StartDate:       term.StartDate.String(),
+					EndDate:         term.EndDate.String(),
+				})
+			}
+		}
 	}
 
 	term.UpdatedBy = actorID
@@ -399,7 +245,7 @@ func (s *Service) PatchTerm(ctx context.Context, id, tenantID, schoolID string, 
 		return nil, fmt.Errorf("academicyears.Service.PatchTerm: %w", err)
 	}
 
-	slog.Info("academic_term.patched",
+	s.logger.Infow("academic_term.patched",
 		"tenant_id", tenantID,
 		"school_id", schoolID,
 		"resource_id", id,
@@ -409,7 +255,34 @@ func (s *Service) PatchTerm(ctx context.Context, id, tenantID, schoolID string, 
 			"name":       body.Name,
 			"start_date": body.StartDate,
 			"end_date":   body.EndDate,
+			"is_final":   body.IsFinal,
 		},
+	)
+
+	return term, nil
+}
+
+// ActivateTerm makes the given term (and its parent year) the school's current
+// active term/year. The atomic clear-and-set transition runs inside a single DB
+// transaction in the repository (SELECT ... FOR UPDATE, see
+// PgRepository.ActivateTerm). Activating the already-current term is a no-op
+// success.
+func (s *Service) ActivateTerm(ctx context.Context, id, tenantID, schoolID, actorID string) (*AcademicTerm, error) {
+	if id == "" || tenantID == "" || schoolID == "" || actorID == "" {
+		return nil, fmt.Errorf("academicyears.Service.ActivateTerm: %w", ErrInvalidInput)
+	}
+
+	term, err := s.Repo.ActivateTerm(ctx, id, tenantID, schoolID, actorID)
+	if err != nil {
+		return nil, fmt.Errorf("academicyears.Service.ActivateTerm: %w", err)
+	}
+
+	s.logger.Infow("academic_term.activated",
+		"tenant_id", tenantID,
+		"school_id", schoolID,
+		"resource_id", id,
+		"academic_year_id", term.AcademicYearID,
+		"actor_id", actorID,
 	)
 
 	return term, nil
@@ -422,20 +295,31 @@ func (s *Service) DeleteTerm(ctx context.Context, id, tenantID, schoolID, actorI
 		now = &n
 	}
 
-	// Fetch term + parent year
+	// Fetch term + parent year (row-locked)
 	term, _, err := s.Repo.GetTermByIDForUpdate(ctx, id, tenantID, schoolID)
 	if err != nil {
 		return fmt.Errorf("academicyears.Service.DeleteTerm: %w", err)
 	}
 
-	// Check for dependents
-	hasDeps, err := s.Repo.HasTermDependents(ctx, id)
+	// Safety lock: the school's active term can never be hard-deleted.
+	if term.IsCurrent {
+		return fmt.Errorf("academicyears.Service.DeleteTerm: %w", ErrTermIsCurrent)
+	}
+
+	// Dependency audit: block deletion if any transactional records reference
+	// this term, reporting exact per-table counts.
+	counts, err := s.Repo.TermDependencyCounts(ctx, id)
 	if err != nil {
 		return fmt.Errorf("academicyears.Service.DeleteTerm: %w", err)
 	}
-	if hasDeps {
+	total := int64(0)
+	for _, c := range counts {
+		total += c
+	}
+	if total > 0 {
 		return &HasDependentsError{
 			Message: "This academic term has linked records and cannot be deleted. Archive it instead.",
+			Counts:  counts,
 		}
 	}
 
@@ -448,7 +332,7 @@ func (s *Service) DeleteTerm(ctx context.Context, id, tenantID, schoolID, actorI
 		return fmt.Errorf("academicyears.Service.DeleteTerm: %w", err)
 	}
 
-	slog.Info("academic_term.deleted",
+	s.logger.Infow("academic_term.deleted",
 		"tenant_id", tenantID,
 		"school_id", schoolID,
 		"resource_id", id,
@@ -564,7 +448,7 @@ func (s *Service) SetupInitialYear(ctx context.Context, tenantID, schoolID, acto
 		return fmt.Errorf("academicyears.Service.SetupInitialYear: sync current term: %w", err)
 	}
 
-	slog.Info("academic_year.initial_setup",
+	s.logger.Infow("academic_year.initial_setup",
 		"tenant_id", tenantID,
 		"school_id", schoolID,
 		"academic_year_id", yearID,
@@ -586,24 +470,4 @@ func (s *Service) GetCurrentAcademicYearID(ctx context.Context, tenantID, school
 // GetCurrentAcademicTermID returns the ID of the current active term for the given academic year.
 func (s *Service) GetCurrentAcademicTermID(ctx context.Context, academicYearID string) (string, error) {
 	return s.Repo.GetCurrentAcademicTermID(ctx, academicYearID)
-}
-
-// isUniqueViolation heuristically checks if an error is a unique constraint
-// violation from pgx. In production, use pgerrcode.UniqueViolation.
-func isUniqueViolation(err error) bool {
-	return err != nil && (contains(err.Error(), "unique constraint") ||
-		contains(err.Error(), "duplicate key"))
-}
-
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsInner(s, substr))
-}
-
-func containsInner(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }

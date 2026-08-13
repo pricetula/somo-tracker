@@ -61,6 +61,7 @@ type StudentHealthProfile struct {
 	Allergies             []string  `json:"allergies,omitempty"`
 	ChronicConditions     []string  `json:"chronic_conditions,omitempty"`
 	EmergencyInstructions *string   `json:"emergency_instructions,omitempty"`
+	LoggedBy              string    `json:"logged_by"`
 	CreatedAt             time.Time `json:"created_at"`
 	UpdatedAt             time.Time `json:"updated_at"`
 }
@@ -130,4 +131,5 @@ type UpsertProfileParams struct {
 	Allergies             []string
 	ChronicConditions     []string
 	EmergencyInstructions *string
+	LoggedBy              string
 }

@@ -1,9 +1,10 @@
 package config
 
 import (
-	"log/slog"
 	"os"
 	"path/filepath"
+	"strconv"
+	"time"
 
 	"github.com/joho/godotenv"
 	"go.uber.org/fx"
@@ -25,7 +26,10 @@ type Config struct {
 	StytchBaseURL     string // optional: override Stytch API base URL (for testing)
 	BackendURL        string
 	FrontendURL       string
-	CookieSecret      string // HMAC-SHA256 key for signing somo_role cookie
+	CookieSecret      string        // HMAC-SHA256 key for signing somo_role cookie
+	RateLimitIPMax    int64         // Tier 1: Max requests per window per IP (e.g. 300)
+	RateLimitUserMax  int64         // Tier 2: Max requests per window per User ID (e.g. 60)
+	RateLimitWindow   time.Duration // Rate limit window (e.g. 1m)
 }
 
 // Load reads configuration from environment variables with safe fallbacks.
@@ -45,7 +49,7 @@ func Load() Config {
 				logger.Info("config: loaded .env file", zap.String("path", envPath))
 			}
 			if syncErr := logger.Sync(); syncErr != nil {
-				slog.Warn("config: logger sync failed", slog.String("error", syncErr.Error()))
+				logger.Warn("config: logger sync failed", zap.Error(syncErr))
 			}
 		}
 	}
@@ -65,12 +69,37 @@ func Load() Config {
 		BackendURL:        getEnv("BACKEND_URL", "http://localhost:3030"),
 		FrontendURL:       getEnv("FRONTEND_URL", "http://localhost:3000"),
 		CookieSecret:      getEnv("COOKIE_SECRET", "dev-insecure-change-in-production"),
+		// Rate Limiting Configuration
+		RateLimitIPMax:   envInt("RATE_LIMIT_IP_MAX", 300),
+		RateLimitUserMax: envInt("RATE_LIMIT_USER_MAX", 60),
+		RateLimitWindow:  envDuration("RATE_LIMIT_WINDOW", time.Minute),
 	}
 }
 
 func getEnv(key, fallback string) string {
 	if val, ok := os.LookupEnv(key); ok && val != "" {
 		return val
+	}
+	return fallback
+}
+
+// envInt parses key as a positive int64, falling back when unset or invalid.
+func envInt(key string, fallback int64) int64 {
+	if v := os.Getenv(key); v != "" {
+		if n, err := strconv.ParseInt(v, 10, 64); err == nil && n > 0 {
+			return n
+		}
+	}
+	return fallback
+}
+
+// envDuration parses key as a Go duration (e.g. "1m"), falling back when
+// unset or invalid.
+func envDuration(key string, fallback time.Duration) time.Duration {
+	if v := os.Getenv(key); v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d > 0 {
+			return d
+		}
 	}
 	return fallback
 }

@@ -54,7 +54,7 @@ func (r *PgRepository) CreateLearningArea(ctx context.Context, params CreateLear
 		RETURNING id
 	`
 	var id string
-	err := r.pool.QueryRow(ctx, query,
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query,
 		params.TenantID,
 		params.SchoolID,
 		params.Name,
@@ -76,7 +76,7 @@ func (r *PgRepository) GetLearningAreaByID(ctx context.Context, id, tenantID, sc
 		WHERE id = $1 AND tenant_id = $2 AND school_id = $3
 	`
 	var la LearningArea
-	err := r.pool.QueryRow(ctx, query, id, tenantID, schoolID).
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, id, tenantID, schoolID).
 		Scan(&la.ID, &la.TenantID, &la.SchoolID, &la.Name, &la.Code, &la.EducationLevel, &la.GradeLevel)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -117,7 +117,7 @@ func (r *PgRepository) ListLearningAreas(ctx context.Context, tenantID, schoolID
 	// Count query
 	countQuery := `SELECT COUNT(*) FROM cbc_learning_areas ` + whereClause
 	var total int
-	err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&total)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, countQuery, args...).Scan(&total)
 	if err != nil {
 		return nil, 0, fmt.Errorf("curriculum.Repository.ListLearningAreas: count: %w", err)
 	}
@@ -133,7 +133,7 @@ func (r *PgRepository) ListLearningAreas(ctx context.Context, tenantID, schoolID
 		FROM cbc_learning_areas ` + whereClause + ` ORDER BY grade_level ASC, name ASC, id ASC LIMIT $` + fmt.Sprintf("%d", argIdx) + ` OFFSET $` + fmt.Sprintf("%d", argIdx+1)
 	dataArgs := append(args, limit, offset)
 
-	rows, err := r.pool.Query(ctx, dataQuery, dataArgs...)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, dataQuery, dataArgs...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("curriculum.Repository.ListLearningAreas: query: %w", err)
 	}
@@ -196,7 +196,7 @@ func (r *PgRepository) UpdateLearningArea(ctx context.Context, params UpdateLear
 		WHERE id = $%d AND tenant_id = $%d AND school_id = $%d
 	`, joinClauses(setClauses, ", "), argIdx, argIdx+1, argIdx+2)
 
-	result, err := r.pool.Exec(ctx, query, args...)
+	result, err := database.FromContext(ctx, r.pool).Exec(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("curriculum.Repository.UpdateLearningArea: %w", err)
 	}
@@ -213,7 +213,7 @@ func (r *PgRepository) DeleteLearningArea(ctx context.Context, id, tenantID, sch
 		DELETE FROM cbc_learning_areas
 		WHERE id = $1 AND tenant_id = $2 AND school_id = $3
 	`
-	result, err := r.pool.Exec(ctx, query, id, tenantID, schoolID)
+	result, err := database.FromContext(ctx, r.pool).Exec(ctx, query, id, tenantID, schoolID)
 	if err != nil {
 		if isFKViolation(err) {
 			return fmt.Errorf("curriculum.Repository.DeleteLearningArea: %w", ErrReferenceProtected)
@@ -236,7 +236,7 @@ func (r *PgRepository) CreateStrand(ctx context.Context, params CreateStrandPara
 		RETURNING id
 	`
 	var id string
-	err := r.pool.QueryRow(ctx, query, params.TenantID, params.LearningAreaID, params.Name).Scan(&id)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, params.TenantID, params.LearningAreaID, params.Name).Scan(&id)
 	if err != nil {
 		if isFKViolation(err) {
 			return "", fmt.Errorf("curriculum.Repository.CreateStrand: %w", ErrNotFound)
@@ -254,7 +254,7 @@ func (r *PgRepository) GetStrandByID(ctx context.Context, id, tenantID string) (
 		WHERE id = $1 AND tenant_id = $2
 	`
 	var s Strand
-	err := r.pool.QueryRow(ctx, query, id, tenantID).Scan(&s.ID, &s.TenantID, &s.LearningAreaID, &s.Name)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, id, tenantID).Scan(&s.ID, &s.TenantID, &s.LearningAreaID, &s.Name)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, fmt.Errorf("curriculum.Repository.GetStrandByID: %w", ErrNotFound)
@@ -272,7 +272,7 @@ func (r *PgRepository) ListStrandsByLearningArea(ctx context.Context, learningAr
 		WHERE learning_area_id = $1 AND tenant_id = $2
 		ORDER BY name ASC
 	`
-	rows, err := r.pool.Query(ctx, query, learningAreaID, tenantID)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, learningAreaID, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("curriculum.Repository.ListStrandsByLearningArea: %w", err)
 	}
@@ -308,7 +308,7 @@ func (r *PgRepository) UpdateStrand(ctx context.Context, params UpdateStrandPara
 		SET name = $1
 		WHERE id = $2 AND tenant_id = $3
 	`
-	result, err := r.pool.Exec(ctx, query, *params.Name, params.ID, params.TenantID)
+	result, err := database.FromContext(ctx, r.pool).Exec(ctx, query, *params.Name, params.ID, params.TenantID)
 	if err != nil {
 		return fmt.Errorf("curriculum.Repository.UpdateStrand: %w", err)
 	}
@@ -321,7 +321,7 @@ func (r *PgRepository) UpdateStrand(ctx context.Context, params UpdateStrandPara
 // DeleteStrand removes a strand by ID, scoped to tenant.
 func (r *PgRepository) DeleteStrand(ctx context.Context, id, tenantID string) error {
 	const query = `DELETE FROM cbc_strands WHERE id = $1 AND tenant_id = $2`
-	result, err := r.pool.Exec(ctx, query, id, tenantID)
+	result, err := database.FromContext(ctx, r.pool).Exec(ctx, query, id, tenantID)
 	if err != nil {
 		if isFKViolation(err) {
 			return fmt.Errorf("curriculum.Repository.DeleteStrand: %w", ErrReferenceProtected)
@@ -344,7 +344,7 @@ func (r *PgRepository) CreateSubStrand(ctx context.Context, params CreateSubStra
 		RETURNING id
 	`
 	var id string
-	err := r.pool.QueryRow(ctx, query, params.TenantID, params.StrandID, params.Name).Scan(&id)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, params.TenantID, params.StrandID, params.Name).Scan(&id)
 	if err != nil {
 		if isFKViolation(err) {
 			return "", fmt.Errorf("curriculum.Repository.CreateSubStrand: %w", ErrNotFound)
@@ -362,7 +362,7 @@ func (r *PgRepository) GetSubStrandByID(ctx context.Context, id, tenantID string
 		WHERE id = $1 AND tenant_id = $2
 	`
 	var s SubStrand
-	err := r.pool.QueryRow(ctx, query, id, tenantID).Scan(&s.ID, &s.TenantID, &s.StrandID, &s.Name)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, id, tenantID).Scan(&s.ID, &s.TenantID, &s.StrandID, &s.Name)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, fmt.Errorf("curriculum.Repository.GetSubStrandByID: %w", ErrNotFound)
@@ -380,7 +380,7 @@ func (r *PgRepository) ListSubStrandsByStrand(ctx context.Context, strandID, ten
 		WHERE strand_id = $1 AND tenant_id = $2
 		ORDER BY name ASC
 	`
-	rows, err := r.pool.Query(ctx, query, strandID, tenantID)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, strandID, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("curriculum.Repository.ListSubStrandsByStrand: %w", err)
 	}
@@ -416,7 +416,7 @@ func (r *PgRepository) UpdateSubStrand(ctx context.Context, params UpdateSubStra
 		SET name = $1
 		WHERE id = $2 AND tenant_id = $3
 	`
-	result, err := r.pool.Exec(ctx, query, *params.Name, params.ID, params.TenantID)
+	result, err := database.FromContext(ctx, r.pool).Exec(ctx, query, *params.Name, params.ID, params.TenantID)
 	if err != nil {
 		return fmt.Errorf("curriculum.Repository.UpdateSubStrand: %w", err)
 	}
@@ -429,7 +429,7 @@ func (r *PgRepository) UpdateSubStrand(ctx context.Context, params UpdateSubStra
 // DeleteSubStrand removes a sub-strand by ID, scoped to tenant.
 func (r *PgRepository) DeleteSubStrand(ctx context.Context, id, tenantID string) error {
 	const query = `DELETE FROM cbc_sub_strands WHERE id = $1 AND tenant_id = $2`
-	result, err := r.pool.Exec(ctx, query, id, tenantID)
+	result, err := database.FromContext(ctx, r.pool).Exec(ctx, query, id, tenantID)
 	if err != nil {
 		if isFKViolation(err) {
 			return fmt.Errorf("curriculum.Repository.DeleteSubStrand: %w", ErrReferenceProtected)
@@ -452,7 +452,7 @@ func (r *PgRepository) CreatePerformanceIndicator(ctx context.Context, params Cr
 		RETURNING id
 	`
 	var id string
-	err := r.pool.QueryRow(ctx, query, params.TenantID, params.SubStrandID, params.Description, *params.SequenceOrder).Scan(&id)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, params.TenantID, params.SubStrandID, params.Description, *params.SequenceOrder).Scan(&id)
 	if err != nil {
 		if isFKViolation(err) {
 			return "", fmt.Errorf("curriculum.Repository.CreatePerformanceIndicator: %w", ErrNotFound)
@@ -470,7 +470,7 @@ func (r *PgRepository) GetPerformanceIndicatorByID(ctx context.Context, id, tena
 		WHERE id = $1 AND tenant_id = $2
 	`
 	var pi PerformanceIndicator
-	err := r.pool.QueryRow(ctx, query, id, tenantID).Scan(&pi.ID, &pi.TenantID, &pi.SubStrandID, &pi.Description, &pi.SequenceOrder)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, id, tenantID).Scan(&pi.ID, &pi.TenantID, &pi.SubStrandID, &pi.Description, &pi.SequenceOrder)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, fmt.Errorf("curriculum.Repository.GetPerformanceIndicatorByID: %w", ErrNotFound)
@@ -489,7 +489,7 @@ func (r *PgRepository) ListPerformanceIndicatorsBySubStrand(ctx context.Context,
 		WHERE sub_strand_id = $1 AND tenant_id = $2
 		ORDER BY sequence_order ASC
 	`
-	rows, err := r.pool.Query(ctx, query, subStrandID, tenantID)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, subStrandID, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("curriculum.Repository.ListPerformanceIndicatorsBySubStrand: %w", err)
 	}
@@ -542,7 +542,7 @@ func (r *PgRepository) UpdatePerformanceIndicator(ctx context.Context, params Up
 		WHERE id = $%d AND tenant_id = $%d
 	`, joinClauses(setClauses, ", "), argIdx, argIdx+1)
 
-	result, err := r.pool.Exec(ctx, query, args...)
+	result, err := database.FromContext(ctx, r.pool).Exec(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("curriculum.Repository.UpdatePerformanceIndicator: %w", err)
 	}
@@ -555,7 +555,7 @@ func (r *PgRepository) UpdatePerformanceIndicator(ctx context.Context, params Up
 // DeletePerformanceIndicator removes a performance indicator by ID, scoped to tenant.
 func (r *PgRepository) DeletePerformanceIndicator(ctx context.Context, id, tenantID string) error {
 	const query = `DELETE FROM performance_indicators WHERE id = $1 AND tenant_id = $2`
-	result, err := r.pool.Exec(ctx, query, id, tenantID)
+	result, err := database.FromContext(ctx, r.pool).Exec(ctx, query, id, tenantID)
 	if err != nil {
 		if isFKViolation(err) {
 			return fmt.Errorf("curriculum.Repository.DeletePerformanceIndicator: %w", ErrReferenceProtected)
@@ -577,7 +577,7 @@ func (r *PgRepository) GetMaxSequenceOrder(ctx context.Context, subStrandID stri
 		WHERE sub_strand_id = $1
 	`
 	var max int
-	err := r.pool.QueryRow(ctx, query, subStrandID).Scan(&max)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, subStrandID).Scan(&max)
 	if err != nil {
 		return 0, fmt.Errorf("curriculum.Repository.GetMaxSequenceOrder: %w", err)
 	}
@@ -596,7 +596,7 @@ func (r *PgRepository) GetTree(ctx context.Context, learningAreaID, tenantID str
 		WHERE id = $1 AND tenant_id = $2
 	`
 	var la LearningArea
-	err := r.pool.QueryRow(ctx, laQuery, learningAreaID, tenantID).
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, laQuery, learningAreaID, tenantID).
 		Scan(&la.ID, &la.TenantID, &la.SchoolID, &la.Name, &la.Code, &la.EducationLevel, &la.GradeLevel)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -660,7 +660,7 @@ func (r *PgRepository) GetPerformanceIndicatorEducationLevel(ctx context.Context
 		WHERE pi.id = $1
 	`
 	var educationLevel string
-	err := r.pool.QueryRow(ctx, query, indicatorID).Scan(&educationLevel)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, indicatorID).Scan(&educationLevel)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return "", fmt.Errorf("curriculum.Repository.GetPerformanceIndicatorEducationLevel: %w", ErrNotFound)
@@ -692,7 +692,7 @@ func (r *PgRepository) VerifyStrandInTenantSchool(ctx context.Context, strandID,
 		WHERE cs.id = $1 AND cs.tenant_id = $2 AND cla.school_id = $3
 	`
 	var learningAreaID string
-	err := r.pool.QueryRow(ctx, query, strandID, tenantID, schoolID).Scan(&learningAreaID)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, strandID, tenantID, schoolID).Scan(&learningAreaID)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return "", fmt.Errorf("curriculum.Repository.VerifyStrandInTenantSchool: %w", ErrNotFound)
@@ -714,7 +714,7 @@ func (r *PgRepository) VerifySubStrandInTenantSchool(ctx context.Context, subStr
 		WHERE css.id = $1 AND css.tenant_id = $2 AND cla.school_id = $3
 	`
 	var strandID string
-	err := r.pool.QueryRow(ctx, query, subStrandID, tenantID, schoolID).Scan(&strandID)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, subStrandID, tenantID, schoolID).Scan(&strandID)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return "", fmt.Errorf("curriculum.Repository.VerifySubStrandInTenantSchool: %w", ErrNotFound)

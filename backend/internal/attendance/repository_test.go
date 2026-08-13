@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
+	"go.uber.org/zap"
 
 	"somotracker/backend/internal/database"
 )
@@ -114,10 +115,8 @@ func setupTestTables(t *testing.T, pool *pgxpool.Pool) testIDs {
 	t.Helper()
 	ctx := context.Background()
 
-	// Apply base schema and initial extensions
+	// Apply the squashed base schema (000001 contains everything incl. rollups)
 	applyMigration(t, pool, "000001_initial_schema.up.sql")
-	applyMigration(t, pool, "000005_extend_summaries_and_daily.up.sql")
-	applyMigration(t, pool, "000016_create_class_attendance_rollups.up.sql")
 
 	tenantID, schoolID, userID := seedTenantSchoolUser(t, pool)
 
@@ -165,16 +164,16 @@ func setupTestTables(t *testing.T, pool *pgxpool.Pool) testIDs {
 	_, err = pool.Exec(ctx, `INSERT INTO cbc_students (id, tenant_id, school_id, full_name, gender, learning_pathway) VALUES ($1, $2, $3, 'Alice Smith', 'F', 'Age_Based')`,
 		studentID1, tenantID, schoolID)
 	require.NoError(t, err)
-	_, err = pool.Exec(ctx, `INSERT INTO cbc_student_enrollments (id, tenant_id, school_id, student_id, academic_term_id, class_id) VALUES ($1, $2, $3, $4, $5, $6)`,
-		uuid.New().String(), tenantID, schoolID, studentID1, academicTermID, classID1)
+	_, err = pool.Exec(ctx, `INSERT INTO cbc_student_enrollments (id, tenant_id, school_id, student_id, academic_term_id, academic_year_id, class_id) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		uuid.New().String(), tenantID, schoolID, studentID1, academicTermID, academicYearID, classID1)
 	require.NoError(t, err)
 
 	studentID2 := uuid.New().String()
 	_, err = pool.Exec(ctx, `INSERT INTO cbc_students (id, tenant_id, school_id, full_name, gender, learning_pathway) VALUES ($1, $2, $3, 'Bob Johnson', 'M', 'Age_Based')`,
 		studentID2, tenantID, schoolID)
 	require.NoError(t, err)
-	_, err = pool.Exec(ctx, `INSERT INTO cbc_student_enrollments (id, tenant_id, school_id, student_id, academic_term_id, class_id) VALUES ($1, $2, $3, $4, $5, $6)`,
-		uuid.New().String(), tenantID, schoolID, studentID2, academicTermID, classID2)
+	_, err = pool.Exec(ctx, `INSERT INTO cbc_student_enrollments (id, tenant_id, school_id, student_id, academic_term_id, academic_year_id, class_id) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		uuid.New().String(), tenantID, schoolID, studentID2, academicTermID, academicYearID, classID2)
 	require.NoError(t, err)
 
 	return testIDs{
@@ -326,7 +325,7 @@ func TestPgRepository_GetClassLearningAreaTermSummary(t *testing.T) {
 
 	// Instantiate a worker to manually run the job to populate the rollup table.
 	// We pass the pool directly.
-	w := &Worker{pools: &database.Pools{PG: pool}}
+	w := &Worker{pools: &database.Pools{PG: pool}, logger: zap.NewNop().Sugar()}
 
 	// Run the class learning area term refresh job for the whole school/term.
 	runWorkerJob(t, w, TaskRefreshClassLearningAreaTermSummary, ClassLearningAreaTermRefreshPayload{
@@ -383,7 +382,7 @@ func TestPgRepository_ListClassLearningAreaTermSummaries(t *testing.T) {
 	insertAttendanceTermSummary(t, pool, ids, ids.StudentID1, ids.LearningAreaID2, 10, 5, 5, 0, 0)  // Class 1, Eng
 	insertAttendanceTermSummary(t, pool, ids, ids.StudentID2, ids.LearningAreaID1, 20, 15, 3, 2, 0) // Class 2, Math
 
-	w := &Worker{pools: &database.Pools{PG: pool}}
+	w := &Worker{pools: &database.Pools{PG: pool}, logger: zap.NewNop().Sugar()}
 	runWorkerJob(t, w, TaskRefreshClassLearningAreaTermSummary, ClassLearningAreaTermRefreshPayload{
 		TenantID: ids.TenantID,
 		SchoolID: ids.SchoolID,
@@ -438,7 +437,7 @@ func TestPgRepository_GetClassTermAttendanceSummary(t *testing.T) {
 	insertClassDailyAttendanceSummary(t, pool, ids, ids.ClassID1, "2026-01-16", 32, 28, 2, 1, 1)
 	insertClassDailyAttendanceSummary(t, pool, ids, ids.ClassID2, "2026-01-15", 30, 20, 5, 3, 2)
 
-	w := &Worker{pools: &database.Pools{PG: pool}}
+	w := &Worker{pools: &database.Pools{PG: pool}, logger: zap.NewNop().Sugar()}
 	runWorkerJob(t, w, TaskRefreshClassTermSummary, ClassTermRefreshPayload{
 		TenantID: ids.TenantID,
 		SchoolID: ids.SchoolID,
@@ -490,7 +489,7 @@ func TestPgRepository_ListClassTermAttendanceSummaries(t *testing.T) {
 	insertClassDailyAttendanceSummary(t, pool, ids, ids.ClassID1, "2026-01-15", 30, 25, 3, 2, 0)
 	insertClassDailyAttendanceSummary(t, pool, ids, ids.ClassID2, "2026-01-15", 30, 20, 5, 3, 2)
 
-	w := &Worker{pools: &database.Pools{PG: pool}}
+	w := &Worker{pools: &database.Pools{PG: pool}, logger: zap.NewNop().Sugar()}
 	runWorkerJob(t, w, TaskRefreshClassTermSummary, ClassTermRefreshPayload{
 		TenantID: ids.TenantID,
 		SchoolID: ids.SchoolID,

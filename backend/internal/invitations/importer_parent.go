@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
 	"regexp"
 	"strings"
 	"time"
@@ -13,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"go.uber.org/zap"
 
 	"somotracker/backend/internal/imports"
 )
@@ -58,12 +58,14 @@ type ParentInviteImporter struct {
 	repo       Repository
 	stytch     StytchInviteSender
 	backendURL string
+	logger     *zap.SugaredLogger
 }
 
 // NewParentInviteImporter creates a new ParentInviteImporter.
-func NewParentInviteImporter(repo Repository) *ParentInviteImporter {
+func NewParentInviteImporter(repo Repository, logger *zap.SugaredLogger) *ParentInviteImporter {
 	return &ParentInviteImporter{
-		repo: repo,
+		repo:   repo,
+		logger: logger,
 	}
 }
 
@@ -142,7 +144,7 @@ func (pi *ParentInviteImporter) Validate(ctx context.Context, tenantID, schoolID
 	}
 
 	if len(failures) > 0 {
-		slog.Debug("invitations.ParentInviteImporter.Validate: schema validation failures",
+		pi.logger.Debugw("invitations.ParentInviteImporter.Validate: schema validation failures",
 			"total", len(raw),
 			"valid", len(validated),
 			"failed", len(failures),
@@ -166,7 +168,7 @@ func (pi *ParentInviteImporter) ResolveReferences(ctx context.Context, tenantID,
 		StytchOrgID string `json:"stytch_org_id"`
 	}
 	if err := json.Unmarshal(metadata, &meta); err != nil {
-		slog.Error("invitations.ParentInviteImporter.ResolveReferences: invalid metadata", "error", err)
+		pi.logger.Errorw("invitations.ParentInviteImporter.ResolveReferences: invalid metadata", "error", err)
 		return nil, allInviteFail(rows, "job metadata is invalid")
 	}
 
@@ -219,7 +221,7 @@ func (pi *ParentInviteImporter) ResolveReferences(ctx context.Context, tenantID,
 	if len(allEmails) > 0 {
 		existingUsers, existingInvites, queryErr = pi.repo.CheckExistingEmails(ctx, tenantID.String(), schoolID.String(), allEmails)
 		if queryErr != nil {
-			slog.Error("invitations.ParentInviteImporter.ResolveReferences: batch query failed",
+			pi.logger.Errorw("invitations.ParentInviteImporter.ResolveReferences: batch query failed",
 				"error", queryErr,
 			)
 			return nil, allInviteFail(rows, "could not verify email uniqueness")

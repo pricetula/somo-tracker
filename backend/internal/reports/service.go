@@ -3,7 +3,8 @@ package reports
 import (
 	"context"
 	"fmt"
-	"log/slog"
+
+	"go.uber.org/zap"
 )
 
 // Service orchestrates data from attendance, assessments, and behavior domains
@@ -14,6 +15,7 @@ type Service struct {
 	attendanceProvider AttendanceProvider
 	assessmentProvider AssessmentProvider
 	behaviorProvider   BehaviorProvider
+	logger             *zap.SugaredLogger
 }
 
 // NewService creates a new reports orchestrator Service.
@@ -23,6 +25,7 @@ func NewService(
 	ap AttendanceProvider,
 	asp AssessmentProvider,
 	bp BehaviorProvider,
+	logger *zap.SugaredLogger,
 ) *Service {
 	return &Service{
 		studentProvider:    sp,
@@ -30,6 +33,7 @@ func NewService(
 		attendanceProvider: ap,
 		assessmentProvider: asp,
 		behaviorProvider:   bp,
+		logger:             logger,
 	}
 }
 
@@ -57,7 +61,7 @@ func (s *Service) GetTermReport(ctx context.Context, tenantID, schoolID, student
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				slog.WarnContext(ctx, "reports.Service.GetTermReport: student goroutine panicked", "panic", r)
+				s.logger.Warnw("reports.Service.GetTermReport: student goroutine panicked", "panic", r)
 			}
 		}()
 		s, err := s.studentProvider(ctx, studentID, tenantID, schoolID)
@@ -72,7 +76,7 @@ func (s *Service) GetTermReport(ctx context.Context, tenantID, schoolID, student
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				slog.WarnContext(ctx, "reports.Service.GetTermReport: term goroutine panicked", "panic", r)
+				s.logger.Warnw("reports.Service.GetTermReport: term goroutine panicked", "panic", r)
 			}
 		}()
 		t, err := s.termProvider(ctx, termID, tenantID, schoolID)
@@ -87,7 +91,7 @@ func (s *Service) GetTermReport(ctx context.Context, tenantID, schoolID, student
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				slog.WarnContext(ctx, "reports.Service.GetTermReport: attendance goroutine panicked", "panic", r)
+				s.logger.Warnw("reports.Service.GetTermReport: attendance goroutine panicked", "panic", r)
 			}
 		}()
 		items, err := s.attendanceProvider(ctx, tenantID, schoolID, studentID, termID)
@@ -102,7 +106,7 @@ func (s *Service) GetTermReport(ctx context.Context, tenantID, schoolID, student
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				slog.WarnContext(ctx, "reports.Service.GetTermReport: assessment goroutine panicked", "panic", r)
+				s.logger.Warnw("reports.Service.GetTermReport: assessment goroutine panicked", "panic", r)
 			}
 		}()
 		data, err := s.assessmentProvider(ctx, tenantID, schoolID, studentID, termID)
@@ -117,7 +121,7 @@ func (s *Service) GetTermReport(ctx context.Context, tenantID, schoolID, student
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				slog.WarnContext(ctx, "reports.Service.GetTermReport: behavior goroutine panicked", "panic", r)
+				s.logger.Warnw("reports.Service.GetTermReport: behavior goroutine panicked", "panic", r)
 			}
 		}()
 		notes, err := s.behaviorProvider(ctx, tenantID, schoolID, studentID, termID)

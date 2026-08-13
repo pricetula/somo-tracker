@@ -26,7 +26,7 @@ package middleware
 import (
 	"context"
 	"errors"
-	"log/slog"
+	"net/http"
 
 	"github.com/gofiber/fiber/v2"
 
@@ -42,6 +42,16 @@ var (
 	ErrUnauthorized  = xerrors.ErrUnauthorized
 	ErrForbidden     = xerrors.ErrForbidden
 	ErrConflict      = xerrors.ErrConflict
+
+	// ErrDeviceFingerprintMismatch is returned when a request presents a
+	// device fingerprint different from the one recorded when the session was
+	// created. Mapped to 401 so the client re-authenticates — a stolen cookie
+	// cannot be replayed from a different device (C5).
+	ErrDeviceFingerprintMismatch = &xerrors.DomainError{
+		Code:    "device_fingerprint_mismatch",
+		Status:  http.StatusUnauthorized,
+		Message: "session is bound to a different device; re-authenticate to continue",
+	}
 )
 
 // HTTPError is the single place where errors are mapped to HTTP status
@@ -51,7 +61,8 @@ var (
 // It uses errors.As() to find the nearest *xerrors.DomainError in the
 // chain, extracting status, code, message, and optional metadata.
 // For 500 errors (unrecognized errors), the internal error is logged
-// with slog.ErrorContext and a generic message is returned to the client.
+// with the request logger (zap) and a generic message is returned to
+// the client.
 //
 // Parameters:
 //   - c: the Fiber request context (used for logging method + path).
@@ -70,10 +81,10 @@ func HTTPError(c *fiber.Ctx, err error) error {
 		// Use err.Error() for the message — it includes context added by
 		// callers via fmt.Errorf("context: %w", domainErr). For 500 errors
 		// we replace it with a generic message to avoid leaking internals.
-		resp := fiber.Map{
+		resp := withRequestID(c, fiber.Map{
 			"code":    de.Code,
 			"message": err.Error(),
-		}
+		})
 
 		// Check for field-level validation errors (middleware.FieldError or
 		// any error implementing FieldErrors() interface).
@@ -97,13 +108,16 @@ func HTTPError(c *fiber.Ctx, err error) error {
 		// Log internal/unexpected errors only — the rest are client errors.
 		if de.Status == fiber.StatusInternalServerError {
 			resp["message"] = "an unexpected error occurred"
-			slog.LogAttrs(context.Background(), slog.LevelError,
-				"HTTPError: internal error",
-				slog.String("method", c.Method()),
-				slog.String("path", c.Path()),
-				slog.String("code", de.Code),
-				slog.String("error", err.Error()),
-			)
+			fields := []interface{}{
+				"method", c.Method(),
+				"path", c.Path(),
+				"code", de.Code,
+				"error", err.Error(),
+			}
+			if rid := GetRequestID(c); rid != "" {
+				fields = append(fields, "request_id", rid)
+			}
+			loggerFrom(c).Errorw("HTTPError: internal error", fields...)
 		}
 
 		return c.Status(de.Status).JSON(resp)
@@ -112,27 +126,53 @@ func HTTPError(c *fiber.Ctx, err error) error {
 	// Special cases that aren't DomainErrors.
 	switch {
 	case errors.Is(err, context.Canceled):
-		return c.Status(499).JSON(fiber.Map{
+		return c.Status(499).JSON(withRequestID(c, fiber.Map{
 			"code":    "request_canceled",
 			"message": "the request was canceled",
-		})
+		}))
 	case errors.Is(err, context.DeadlineExceeded):
-		return c.Status(fiber.StatusGatewayTimeout).JSON(fiber.Map{
+		return c.Status(fiber.StatusGatewayTimeout).JSON(withRequestID(c, fiber.Map{
 			"code":    "timeout",
 			"message": "the request timed out",
-		})
+		}))
 	default:
 		// Log unknown errors — something leaked through without a domain wrapper.
-		slog.LogAttrs(context.Background(), slog.LevelError,
-			"HTTPError: unclassified error — wrap with xerrors.DomainError",
-			slog.String("method", c.Method()),
-			slog.String("path", c.Path()),
-			slog.String("error", err.Error()),
-		)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+		fields := []interface{}{
+			"method", c.Method(),
+			"path", c.Path(),
+			"error", err.Error(),
+		}
+		if rid := GetRequestID(c); rid != "" {
+			fields = append(fields, "request_id", rid)
+		}
+		loggerFrom(c).Errorw("HTTPError: unclassified error — wrap with xerrors.DomainError", fields...)
+		return c.Status(fiber.StatusInternalServerError).JSON(withRequestID(c, fiber.Map{
 			"code":    "internal_error",
 			"message": "an unexpected error occurred",
-		})
+		}))
+	}
+}
+
+// statusForError resolves the HTTP status HTTPError would assign to err
+// without writing a response. It mirrors the mapping in HTTPError and is used
+// by the access-log middleware to record an accurate status when the handler
+// chain returned an error that the global error handler hasn't serialized yet.
+func statusForError(err error) int {
+	var de *xerrors.DomainError
+	if errors.As(err, &de) {
+		return de.Status
+	}
+	switch {
+	case errors.Is(err, fiber.ErrNotFound):
+		return fiber.StatusNotFound
+	case errors.Is(err, fiber.ErrMethodNotAllowed):
+		return fiber.StatusMethodNotAllowed
+	case errors.Is(err, context.Canceled):
+		return 499
+	case errors.Is(err, context.DeadlineExceeded):
+		return fiber.StatusGatewayTimeout
+	default:
+		return fiber.StatusInternalServerError
 	}
 }
 

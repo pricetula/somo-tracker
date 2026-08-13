@@ -13,6 +13,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 
+	"go.uber.org/zap"
 	"somotracker/backend/internal/imports"
 )
 
@@ -73,7 +74,7 @@ type handlerTestHarness struct {
 func newHandlerTestHarness(t *testing.T) *handlerTestHarness {
 	t.Helper()
 
-	svc := &Service{}
+	svc := &Service{logger: zap.NewNop().Sugar()}
 	handler := NewHandler(svc)
 
 	impMock := &mockImportServiceAdapter{}

@@ -5,7 +5,6 @@
  */
 
 export { AcademicYearsList } from "./components/academic-years-list";
-export { AcademicYearForm } from "./components/academic-year-form";
 export { AcademicYearDetail } from "./components/academic-year-detail";
 
 export {
@@ -13,21 +12,12 @@ export {
     useAcademicYearMap,
     useAcademicYearDetail,
     useTermsManage,
-    useCreateAcademicYear,
-    useUpdateAcademicYear,
-    useSetCurrentYear,
-    useDeleteAcademicYear,
     useCreateTerm,
     useUpdateTerm,
+    useActivateTerm,
+    useDeleteTerm,
     academicYearKeys,
     academicTermKeys,
 } from "./hooks/use-academic-years";
 
-export type {
-    AcademicYear,
-    AcademicTerm,
-    CreateAcademicYearPayload,
-    UpdateAcademicYearPayload,
-    CreateTermPayload,
-    UpdateTermPayload,
-} from "./types";
+export type { AcademicYear, AcademicTerm, CreateTermPayload, UpdateTermPayload } from "./types";

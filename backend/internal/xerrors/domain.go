@@ -4,7 +4,6 @@
 //   - machine-readable code  (e.g. "member_not_found")
 //   - client-safe message    (human-readable)
 //   - HTTP status            (mapped at the middleware layer)
-//   - wrapped cause          (via errors.Unwrap)
 //   - optional metadata      (field errors, conflicting resources, etc.)
 //
 // Every domain package defines its own sentinel errors as *DomainError
@@ -20,13 +19,12 @@ import (
 )
 
 // DomainError is a structured error that crosses layer boundaries.
-// It implements error, Unwrap, and ErrorDetails interfaces so that both
+// It implements error and Unwrap interfaces so that both
 // errors.Is/errors.As and the HTTP middleware can inspect it.
 type DomainError struct {
 	Code    string              `json:"code"`
 	Message string              `json:"message"`
 	Status  int                 `json:"-"`
-	Err     error               `json:"-"`
 	Fields  map[string][]string `json:"errors,omitempty"`
 }
 
@@ -34,13 +32,10 @@ func (e *DomainError) Error() string {
 	if e.Message != "" {
 		return e.Message
 	}
-	if e.Err != nil {
-		return e.Err.Error()
-	}
 	return e.Code
 }
 
-func (e *DomainError) Unwrap() error { return e.Err }
+func (e *DomainError) Unwrap() error { return nil }
 
 // ErrorDetails returns any extra metadata for the response body.
 // Implemented by custom error types that embed *DomainError.
@@ -74,6 +69,15 @@ var (
 )
 
 // ── Sentinel Constructors ─────────────────────────────────────────────────
+
+// New creates a DomainError with an explicit machine-readable code. Use this
+// when a sentinel must surface a code distinct from the generic ones produced
+// by the shorthand constructors (Unauthorized, Forbidden, ...) — e.g. auth's
+// ErrExpiredToken must carry code "expired_token" on the wire so the frontend
+// can distinguish it from "session_ref_expired" or "mfa_required".
+func New(code string, status int, message string) *DomainError {
+	return &DomainError{Code: code, Status: status, Message: message}
+}
 
 func NotFound(msg string) *DomainError {
 	return &DomainError{Code: "not_found", Status: http.StatusNotFound, Message: msg}

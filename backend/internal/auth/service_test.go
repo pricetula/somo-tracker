@@ -2,7 +2,9 @@ package auth
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -10,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/alicebob/miniredis/v2"
+	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
@@ -515,6 +519,61 @@ func newTestHarness(t *testing.T) *testHarness {
 	}
 }
 
+// newServiceTestHarnessWithRedis returns a testHarness whose Service uses a
+// real (miniredis-backed) Redis client. Required by code paths that write or
+// purge Redis session/IST keys: handleExistingUser, reconstructFromStytch,
+// Register, GetMe, Logout.
+func newServiceTestHarnessWithRedis(t *testing.T) (*testHarness, *miniredis.Miniredis) {
+	t.Helper()
+
+	mr, err := miniredis.Run()
+	if err != nil {
+		t.Fatalf("miniredis.Run: %v", err)
+	}
+	t.Cleanup(mr.Close)
+
+	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+
+	idp := &MockIdentityProvider{}
+	repo := NewMockRepository()
+
+	cfg := config.Config{
+		AppEnv:       "test",
+		CookieDomain: "",
+	}
+
+	svc := &Service{
+		idp:           idp,
+		repo:          repo,
+		logger:        zap.NewNop(),
+		cfg:           cfg,
+		rdb:           rdb,
+		schoolCreator: &mockSchoolCreator{},
+	}
+
+	return &testHarness{
+		svc:    svc,
+		idp:    idp,
+		repo:   repo,
+		logger: zap.NewNop(),
+		cfg:    cfg,
+	}, mr
+}
+
+// seedISTRedis stores a JSON IST payload under the standard ist: key for the
+// given session ref, mirroring what the real Verify flow writes.
+func seedISTRedis(t *testing.T, mr *miniredis.Miniredis, sessionRef, ist, email string) {
+	t.Helper()
+	cacheData, err := json.Marshal(istCacheData{IST: ist, Email: email})
+	if err != nil {
+		t.Fatalf("marshal ist cache data: %v", err)
+	}
+	istKey := fmt.Sprintf("%s%s:%s", istKeyPrefix, "test", sessionRef)
+	if err := mr.Set(istKey, string(cacheData)); err != nil {
+		t.Fatalf("set IST in miniredis: %v", err)
+	}
+}
+
 // registerViaMocks runs the full registration flow using mocks instead of real Redis/Postgres.
 func (h *testHarness) registerViaMocks(ctx context.Context, sessionRef string, payload RegistrationPayload, deviceFingerprint string) (string, string, error) {
 	// 1. Validate
@@ -838,6 +897,9 @@ func TestRegister_PayloadValidation(t *testing.T) {
 		{"too short after trim", RegistrationPayload{SchoolName: "  A  ", SessionRef: "550e8400-e29b-41d4-a716-446655440000"}},
 		{"invalid session ref", RegistrationPayload{SchoolName: "Valid School", SessionRef: "not-a-uuid"}},
 		{"empty session ref", RegistrationPayload{SchoolName: "Valid School", SessionRef: ""}},
+		{"empty full name", RegistrationPayload{FullName: "", SchoolName: "Valid School", SessionRef: "550e8400-e29b-41d4-a716-446655440000"}},
+		{"too long full name", RegistrationPayload{FullName: string(make([]byte, 256)), SchoolName: "Valid School", SessionRef: "550e8400-e29b-41d4-a716-446655440000"}},
+		{"non-printable full name", RegistrationPayload{FullName: "Bad\x01Name", SchoolName: "Valid School", SessionRef: "550e8400-e29b-41d4-a716-446655440000"}},
 	}
 
 	for _, tt := range tests {
@@ -855,6 +917,7 @@ func TestRegister_PayloadValidation(t *testing.T) {
 
 func TestValidate_OK(t *testing.T) {
 	p := RegistrationPayload{
+		FullName:   "Valid Full Name",
 		SchoolName: "Valid School Name",
 		SessionRef: "550e8400-e29b-41d4-a716-446655440000",
 	}
@@ -1348,18 +1411,16 @@ func (h *testHarness) verifyExistingUserViaMocks(ctx context.Context, token, dev
 	return &VerifyResult{SessionRef: sessionRef, Email: email}, nil
 }
 
-func TestVerifyViaMocks_ExistingUser_DiscoveredOrgWithMatchingTenant(t *testing.T) {
-	h := newTestHarness(t)
+func TestHandleExistingUser_FullMatch_LoginExistingUser(t *testing.T) {
+	h, _ := newServiceTestHarnessWithRedis(t)
 
-	h.idp.authenticateDiscoveryTokenFn = func(ctx context.Context, token string) (string, string, []DiscoveredOrg, error) {
-		return "ist_existing", "existing@example.com", []DiscoveredOrg{
-			{
-				OrganizationID:      "org_existing_001",
-				OrganizationName:    "Existing School",
-				MemberID:            "member_existing_001",
-				MemberAuthenticated: true,
-			},
-		}, nil
+	orgs := []DiscoveredOrg{
+		{
+			OrganizationID:      "org_existing_001",
+			OrganizationName:    "Existing School",
+			MemberID:            "member_existing_001",
+			MemberAuthenticated: true,
+		},
 	}
 
 	h.repo.getTenantByStytchOrgIDFn = func(ctx context.Context, stytchOrgID string) (string, error) {
@@ -1368,16 +1429,13 @@ func TestVerifyViaMocks_ExistingUser_DiscoveredOrgWithMatchingTenant(t *testing.
 		}
 		return "", ErrNotFound
 	}
-
 	h.repo.getUserByEmailAndTenantFn = func(ctx context.Context, email, tenantID string) (string, string, string, error) {
 		if email == "existing@example.com" && tenantID == "tenant_existing_001" {
 			return "user_existing_001", "Existing User", "ext_auth_existing", nil
 		}
 		return "", "", "", ErrNotFound
 	}
-
 	h.repo.createSessionOnlyFn = func(ctx context.Context, params CreateSessionParams) error {
-		// No lock needed: CreateSessionOnly already holds m.mu.Lock.
 		h.repo.sessions[params.Token] = &UserSession{
 			Token:    params.Token,
 			UserID:   "user_existing_001",
@@ -1387,7 +1445,7 @@ func TestVerifyViaMocks_ExistingUser_DiscoveredOrgWithMatchingTenant(t *testing.
 		return nil
 	}
 
-	result, err := h.verifyExistingUserViaMocks(context.Background(), "existing_user_token", "fp-existing")
+	result, err := h.svc.handleExistingUser(context.Background(), "ist_existing", "existing@example.com", orgs, "fp-existing")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1405,48 +1463,20 @@ func TestVerifyViaMocks_ExistingUser_DiscoveredOrgWithMatchingTenant(t *testing.
 	}
 }
 
-func TestVerifyViaMocks_ExistingUser_NoMatchingTenantFallsBackToRegistration(t *testing.T) {
-	h := newTestHarness(t)
+// TestHandleExistingUser_TenantExistsUserMissing_CreatesUserInExistingTenant
+// covers A1: the org has a tenant in our DB but the user row is missing. The
+// user must be recreated INSIDE the existing tenant — reconstructing the tenant
+// would violate the unique stytch_org_id constraint and lock the user out.
+func TestHandleExistingUser_TenantExistsUserMissing_CreatesUserInExistingTenant(t *testing.T) {
+	h, _ := newServiceTestHarnessWithRedis(t)
 
-	h.idp.authenticateDiscoveryTokenFn = func(ctx context.Context, token string) (string, string, []DiscoveredOrg, error) {
-		return "ist_orphan", "orphan@example.com", []DiscoveredOrg{
-			{
-				OrganizationID:      "org_orphan_001",
-				OrganizationName:    "Orphan School",
-				MemberID:            "member_orphan_001",
-				MemberAuthenticated: true,
-			},
-		}, nil
-	}
-
-	h.repo.getTenantByStytchOrgIDFn = func(ctx context.Context, stytchOrgID string) (string, error) {
-		return "", ErrNotFound
-	}
-
-	result, err := h.verifyExistingUserViaMocks(context.Background(), "orphan_token", "fp-orphan")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.SessionRef == "" {
-		t.Fatal("expected non-empty SessionRef for registration fallback")
-	}
-	if result.SessionToken != "" {
-		t.Fatalf("expected empty SessionToken for registration fallback, got %q", result.SessionToken)
-	}
-}
-
-func TestVerifyViaMocks_ExistingUser_UserNotFoundInTenantFallsBackToRegistration(t *testing.T) {
-	h := newTestHarness(t)
-
-	h.idp.authenticateDiscoveryTokenFn = func(ctx context.Context, token string) (string, string, []DiscoveredOrg, error) {
-		return "ist_tenant_but_no_user", "newuser@example.com", []DiscoveredOrg{
-			{
-				OrganizationID:      "org_tenant_001",
-				OrganizationName:    "Known School",
-				MemberID:            "member_tenant_001",
-				MemberAuthenticated: true,
-			},
-		}, nil
+	orgs := []DiscoveredOrg{
+		{
+			OrganizationID:      "org_tenant_001",
+			OrganizationName:    "Known School",
+			MemberID:            "member_tenant_001",
+			MemberAuthenticated: true,
+		},
 	}
 
 	h.repo.getTenantByStytchOrgIDFn = func(ctx context.Context, stytchOrgID string) (string, error) {
@@ -1455,35 +1485,155 @@ func TestVerifyViaMocks_ExistingUser_UserNotFoundInTenantFallsBackToRegistration
 		}
 		return "", ErrNotFound
 	}
-
+	// User genuinely missing from this tenant.
 	h.repo.getUserByEmailAndTenantFn = func(ctx context.Context, email, tenantID string) (string, string, string, error) {
 		return "", "", "", ErrNotFound
 	}
 
-	result, err := h.verifyExistingUserViaMocks(context.Background(), "new_user_existing_tenant_token", "fp-new-to-tenant")
+	var createdUserTenantID string
+	h.repo.createUserSessionFn = func(ctx context.Context, up CreateUserParams, sp CreateSessionParams) (string, error) {
+		createdUserTenantID = up.TenantID
+		return "user_created_001", nil
+	}
+
+	// Tenant reconstruction must NEVER happen for an existing tenant — this
+	// would be the unique-violation 500 that locked users out.
+	h.repo.createTenantUserSessionFn = func(ctx context.Context, tp CreateTenantParams, up CreateUserParams, sp CreateSessionParams) (string, string, error) {
+		t.Fatal("createTenantUserSession must not be called when a tenant already exists")
+		return "", "", nil
+	}
+
+	result, err := h.svc.handleExistingUser(context.Background(), "ist_tenant_but_no_user", "newuser@example.com", orgs, "fp-new-to-tenant")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result.SessionRef == "" {
-		t.Fatal("expected non-empty SessionRef when user not found in tenant")
+	if result.SessionToken == "" {
+		t.Fatal("expected a session token for the recreated user")
 	}
-	if result.SessionToken != "" {
-		t.Fatalf("expected empty SessionToken for registration fallback, got %q", result.SessionToken)
+	if result.SessionRef != "" {
+		t.Fatalf("expected empty SessionRef, got %q", result.SessionRef)
+	}
+	if createdUserTenantID != "tenant_known_001" {
+		t.Fatalf("user must be created in the EXISTING tenant, got %q", createdUserTenantID)
 	}
 }
 
-func TestVerifyViaMocks_ExistingUser_MFANotAuthenticated(t *testing.T) {
-	h := newTestHarness(t)
+// TestHandleExistingUser_NoTenant_ReconstructsAllOrgs covers A2 + A6: with no
+// local tenant for any discovered org, every authenticated org is rebuilt
+// (multi-school members must not lose schools), and the first success supplies
+// the session.
+func TestHandleExistingUser_NoTenant_ReconstructsAllOrgs(t *testing.T) {
+	h, _ := newServiceTestHarnessWithRedis(t)
 
-	h.idp.authenticateDiscoveryTokenFn = func(ctx context.Context, token string) (string, string, []DiscoveredOrg, error) {
-		return "ist_mfa_existing", "mfaexisting@example.com", []DiscoveredOrg{
-			{
-				OrganizationID:      "org_mfa_002",
-				OrganizationName:    "MFA School",
-				MemberID:            "member_mfa_002",
-				MemberAuthenticated: false,
-			},
-		}, nil
+	orgs := []DiscoveredOrg{
+		{OrganizationID: "org_orphan_a", OrganizationName: "School A", MemberID: "m_a", MemberAuthenticated: true},
+		{OrganizationID: "org_orphan_b", OrganizationName: "School B", MemberID: "m_b", MemberAuthenticated: true},
+	}
+
+	h.repo.getTenantByStytchOrgIDFn = func(ctx context.Context, stytchOrgID string) (string, error) {
+		return "", ErrNotFound
+	}
+	h.repo.tenantExistsFn = func(ctx context.Context, orgID string) (bool, error) {
+		return false, nil
+	}
+
+	reconstructed := make(map[string]bool)
+	h.repo.createTenantUserSessionFn = func(ctx context.Context, tp CreateTenantParams, up CreateUserParams, sp CreateSessionParams) (string, string, error) {
+		reconstructed[tp.StytchOrgID] = true
+		return "user_" + tp.StytchOrgID, "tenant_" + tp.StytchOrgID, nil
+	}
+
+	result, err := h.svc.handleExistingUser(context.Background(), "ist_orphan", "orphan@example.com", orgs, "fp-orphan")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.SessionToken == "" {
+		t.Fatal("expected a session token from reconstruction")
+	}
+	if !reconstructed["org_orphan_a"] || !reconstructed["org_orphan_b"] {
+		t.Fatalf("expected BOTH orgs to be reconstructed, got %v", reconstructed)
+	}
+}
+
+// TestHandleExistingUser_NoTenant_PrefersAuthenticatedOrg covers A3: an
+// unauthenticated (MFA-pending) org must not block reconstruction of an
+// authenticated org that appears later in the discovery list.
+func TestHandleExistingUser_NoTenant_PrefersAuthenticatedOrg(t *testing.T) {
+	h, _ := newServiceTestHarnessWithRedis(t)
+
+	orgs := []DiscoveredOrg{
+		{OrganizationID: "org_mfa_first", OrganizationName: "MFA School", MemberID: "m_mfa", MemberAuthenticated: false},
+		{OrganizationID: "org_ok_second", OrganizationName: "OK School", MemberID: "m_ok", MemberAuthenticated: true},
+	}
+
+	h.repo.getTenantByStytchOrgIDFn = func(ctx context.Context, stytchOrgID string) (string, error) {
+		return "", ErrNotFound
+	}
+	h.repo.tenantExistsFn = func(ctx context.Context, orgID string) (bool, error) {
+		return false, nil
+	}
+	h.repo.createTenantUserSessionFn = func(ctx context.Context, tp CreateTenantParams, up CreateUserParams, sp CreateSessionParams) (string, string, error) {
+		return "user_" + tp.StytchOrgID, "tenant_" + tp.StytchOrgID, nil
+	}
+
+	result, err := h.svc.handleExistingUser(context.Background(), "ist_pref", "pref@example.com", orgs, "fp-pref")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.SessionToken == "" {
+		t.Fatal("expected a session token")
+	}
+}
+
+// TestHandleExistingUser_NoTenant_SkipsExistingTenant covers A6: a concurrent
+// login may have already rebuilt one org — reconstruction must skip it and
+// rebuild the remaining one instead of racing on the unique constraint.
+func TestHandleExistingUser_NoTenant_SkipsExistingTenant(t *testing.T) {
+	h, _ := newServiceTestHarnessWithRedis(t)
+
+	orgs := []DiscoveredOrg{
+		{OrganizationID: "org_already_rebuilt", OrganizationName: "Rebuilt School", MemberID: "m_r", MemberAuthenticated: true},
+		{OrganizationID: "org_still_missing", OrganizationName: "Missing School", MemberID: "m_m", MemberAuthenticated: true},
+	}
+
+	h.repo.getTenantByStytchOrgIDFn = func(ctx context.Context, stytchOrgID string) (string, error) {
+		return "", ErrNotFound
+	}
+	h.repo.tenantExistsFn = func(ctx context.Context, orgID string) (bool, error) {
+		return orgID == "org_already_rebuilt", nil
+	}
+
+	reconstructed := make([]string, 0)
+	h.repo.createTenantUserSessionFn = func(ctx context.Context, tp CreateTenantParams, up CreateUserParams, sp CreateSessionParams) (string, string, error) {
+		reconstructed = append(reconstructed, tp.StytchOrgID)
+		return "user_" + tp.StytchOrgID, "tenant_" + tp.StytchOrgID, nil
+	}
+
+	result, err := h.svc.handleExistingUser(context.Background(), "ist_race", "race@example.com", orgs, "fp-race")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.SessionToken == "" {
+		t.Fatal("expected a session token")
+	}
+	if len(reconstructed) != 1 || reconstructed[0] != "org_still_missing" {
+		t.Fatalf("expected only org_still_missing to be reconstructed, got %v", reconstructed)
+	}
+}
+
+// TestHandleExistingUser_MFARequired_CachesIST covers B8: a full match whose
+// org requires MFA must not discard the IST — it is cached under a fresh
+// session_ref so the flow can resume after MFA completes.
+func TestHandleExistingUser_MFARequired_CachesIST(t *testing.T) {
+	h, mr := newServiceTestHarnessWithRedis(t)
+
+	orgs := []DiscoveredOrg{
+		{
+			OrganizationID:      "org_mfa_002",
+			OrganizationName:    "MFA School",
+			MemberID:            "member_mfa_002",
+			MemberAuthenticated: true, // MFA surfaces at exchange time
+		},
 	}
 
 	h.repo.getTenantByStytchOrgIDFn = func(ctx context.Context, stytchOrgID string) (string, error) {
@@ -1492,18 +1642,69 @@ func TestVerifyViaMocks_ExistingUser_MFANotAuthenticated(t *testing.T) {
 	h.repo.getUserByEmailAndTenantFn = func(ctx context.Context, email, tenantID string) (string, string, string, error) {
 		return "user_mfa_002", "MFA User", "ext_auth_mfa", nil
 	}
-
-	// Exchange returns MemberAuthenticated: false → MFA required
 	h.idp.exchangeIntermediateSessionFn = func(ctx context.Context, ist, orgID string) (ExchangeResult, error) {
 		return ExchangeResult{MemberAuthenticated: false}, nil
 	}
 
-	_, err := h.verifyExistingUserViaMocks(context.Background(), "mfa_existing_token", "fp-mfa-existing")
-	if err == nil {
-		t.Fatal("expected ErrMFARequired, got nil")
+	result, err := h.svc.handleExistingUser(context.Background(), "ist_mfa_existing", "mfaexisting@example.com", orgs, "fp-mfa-existing")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
-	if !errors.Is(err, ErrMFARequired) {
-		t.Fatalf("expected ErrMFARequired, got %v", err)
+	if result.SessionRef == "" {
+		t.Fatal("expected a session_ref so the MFA flow can resume")
+	}
+	// The IST must actually be cached so the continuation can read it.
+	istKey := fmt.Sprintf("%s%s:%s", istKeyPrefix, "test", result.SessionRef)
+	if !mr.Exists(istKey) {
+		t.Fatal("expected IST to be cached for the MFA continuation flow")
+	}
+}
+
+// TestHandleExistingUser_ExchangeMemberNotFound_TriesNextOrg verifies that a
+// deleted Stytch membership for one org does not abort the whole login — the
+// next discovered org is attempted.
+func TestHandleExistingUser_ExchangeMemberNotFound_TriesNextOrg(t *testing.T) {
+	h, _ := newServiceTestHarnessWithRedis(t)
+
+	orgs := []DiscoveredOrg{
+		{OrganizationID: "org_deleted_member", OrganizationName: "Dead School", MemberID: "m_dead", MemberAuthenticated: true},
+		{OrganizationID: "org_live", OrganizationName: "Live School", MemberID: "m_live", MemberAuthenticated: true},
+	}
+
+	h.repo.getTenantByStytchOrgIDFn = func(ctx context.Context, stytchOrgID string) (string, error) {
+		switch stytchOrgID {
+		case "org_deleted_member":
+			return "tenant_dead", nil
+		case "org_live":
+			return "tenant_live", nil
+		}
+		return "", ErrNotFound
+	}
+	h.repo.getUserByEmailAndTenantFn = func(ctx context.Context, email, tenantID string) (string, string, string, error) {
+		return "user_" + tenantID, "", "", nil
+	}
+	h.repo.createSessionOnlyFn = func(ctx context.Context, params CreateSessionParams) error {
+		h.repo.sessions[params.Token] = &UserSession{
+			Token: params.Token, UserID: params.UserID, TenantID: params.TenantID, Role: "TEACHER",
+		}
+		return nil
+	}
+	h.idp.exchangeIntermediateSessionFn = func(ctx context.Context, ist, orgID string) (ExchangeResult, error) {
+		if orgID == "org_deleted_member" {
+			return ExchangeResult{}, ErrMemberNotFound
+		}
+		return ExchangeResult{MemberAuthenticated: true, StytchSessionToken: "sess_live", MemberID: "m_live", OrganizationID: orgID}, nil
+	}
+
+	result, err := h.svc.handleExistingUser(context.Background(), "ist_multi", "multi@example.com", orgs, "fp-multi")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.SessionToken == "" {
+		t.Fatalf("expected login via the live org, got %+v", result)
+	}
+	if result.Role != "TEACHER" {
+		t.Fatalf("expected role from the live org's session, got %q", result.Role)
 	}
 }
 
@@ -1568,5 +1769,255 @@ func TestErrorToCode_UnknownError(t *testing.T) {
 	code := ErrorToCode(err)
 	if !strings.HasPrefix(code, "unknown:") {
 		t.Fatalf("expected unknown: prefix, got %s", code)
+	}
+}
+
+// ============================================================================
+// Fix regression tests — A5, A7, B1, B2, B6, B9
+// ============================================================================
+
+// TestReadAndDeleteIST_ConsumedReturnsSessionRefExpired covers A5: a consumed
+// or never-cached session ref must surface as ErrSessionRefExpired (401) so the
+// frontend can distinguish "link already used" from "link expired".
+func TestReadAndDeleteIST_ConsumedReturnsSessionRefExpired(t *testing.T) {
+	h, _ := newServiceTestHarnessWithRedis(t)
+
+	_, _, err := h.svc.readAndDeleteIST(context.Background(), "550e8400-e29b-41d4-a716-4466554400a5")
+	if err == nil {
+		t.Fatal("expected error for consumed IST, got nil")
+	}
+	if !errors.Is(err, ErrSessionRefExpired) {
+		t.Fatalf("expected ErrSessionRefExpired, got %v", err)
+	}
+}
+
+// TestReadAndDeleteIST_JSONWithoutEmail_KeepsIST covers the legacy-cache edge
+// case: valid JSON with an empty email must still yield the IST (previously the
+// whole JSON blob was wrongly treated as the raw IST).
+func TestReadAndDeleteIST_JSONWithoutEmail_KeepsIST(t *testing.T) {
+	h, mr := newServiceTestHarnessWithRedis(t)
+
+	sessionRef := "550e8400-e29b-41d4-a716-4466554400b9"
+	istKey := fmt.Sprintf("%s%s:%s", istKeyPrefix, "test", sessionRef)
+	if err := mr.Set(istKey, `{"ist":"ist_value","email":""}`); err != nil {
+		t.Fatalf("set IST: %v", err)
+	}
+
+	ist, email, err := h.svc.readAndDeleteIST(context.Background(), sessionRef)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ist != "ist_value" {
+		t.Fatalf("expected IST 'ist_value', got %q", ist)
+	}
+	if email != "" {
+		t.Fatalf("expected empty email, got %q", email)
+	}
+}
+
+// TestRegister_ExistingUserReusesUserRow covers A7: a Stytch member already in
+// our DB who re-submits registration (MFA continuation, partial wipe, manual
+// deletion recovery) must reuse the existing users row — never hit the
+// (tenant_id, LOWER(email)) unique index — and must not fabricate a school or
+// role.
+func TestRegister_ExistingUserReusesUserRow(t *testing.T) {
+	h, mr := newServiceTestHarnessWithRedis(t)
+
+	sessionRef := "550e8400-e29b-41d4-a716-4466554400a7"
+	seedISTRedis(t, mr, sessionRef, "ist_a7", "existing@example.com")
+
+	h.repo.tenantExistsByNameFn = func(ctx context.Context, name string) (bool, error) {
+		return true, nil
+	}
+	h.repo.getTenantByNameFn = func(ctx context.Context, name string) (string, string, error) {
+		return "tenant_existing_001", "org_existing_001", nil
+	}
+	// The user already exists in the tenant.
+	h.repo.getUserByEmailAndTenantFn = func(ctx context.Context, email, tenantID string) (string, string, string, error) {
+		return "user_existing_001", "Existing User", "ext_auth_existing", nil
+	}
+
+	var reusedUserID string
+	h.repo.createUserSessionFn = func(ctx context.Context, up CreateUserParams, sp CreateSessionParams) (string, error) {
+		reusedUserID = sp.UserID
+		return "user_existing_001", nil
+	}
+	h.repo.getUserRoleInTenantFn = func(ctx context.Context, userID, tenantID string) (string, error) {
+		return "TEACHER", nil
+	}
+
+	schoolCreated := false
+	sc := h.svc.schoolCreator.(*mockSchoolCreator)
+	sc.createFn = func(ctx context.Context, tenantID string, name string, role string, creatorUserID ...string) (string, error) {
+		schoolCreated = true
+		return "school_should_not_exist", nil
+	}
+
+	payload := RegistrationPayload{
+		SchoolName: "Existing School",
+		SessionRef: sessionRef,
+		FullName:   "Existing User",
+	}
+
+	sessionToken, role, schoolID, err := h.svc.Register(context.Background(), sessionRef, payload, "fp-a7")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if sessionToken == "" {
+		t.Fatal("expected a session token")
+	}
+	if role != "TEACHER" {
+		t.Fatalf("expected the user's real role 'TEACHER', got %q", role)
+	}
+	if schoolID != "" {
+		t.Fatalf("expected no school id for an existing user, got %q", schoolID)
+	}
+	if reusedUserID != "user_existing_001" {
+		t.Fatalf("expected the existing user row to be reused, got %q", reusedUserID)
+	}
+	if schoolCreated {
+		t.Fatal("school must not be created for an existing user")
+	}
+}
+
+// TestRegister_NewUserInExistingTenant_ReusesSchool verifies that a genuinely
+// new user registering for an existing tenant is enrolled in the existing
+// school (matched by name) instead of creating a duplicate cbc_schools row.
+func TestRegister_NewUserInExistingTenant_ReusesSchool(t *testing.T) {
+	h, mr := newServiceTestHarnessWithRedis(t)
+
+	sessionRef := "550e8400-e29b-41d4-a716-4466554400c7"
+	seedISTRedis(t, mr, sessionRef, "ist_c7", "newteacher@example.com")
+
+	h.repo.tenantExistsByNameFn = func(ctx context.Context, name string) (bool, error) {
+		return true, nil
+	}
+	h.repo.getTenantByNameFn = func(ctx context.Context, name string) (string, string, error) {
+		return "tenant_001", "org_001", nil
+	}
+	// User is NOT in the tenant yet.
+	h.repo.getUserByEmailAndTenantFn = func(ctx context.Context, email, tenantID string) (string, string, string, error) {
+		return "", "", "", ErrNotFound
+	}
+	h.repo.createUserSessionFn = func(ctx context.Context, up CreateUserParams, sp CreateSessionParams) (string, error) {
+		return "user_new_001", nil
+	}
+	h.repo.createMembershipFn = func(ctx context.Context, userID, schoolID, tenantID, role string) error {
+		return nil
+	}
+	h.repo.setActiveSchoolFn = func(ctx context.Context, userID, tenantID, schoolID string) error {
+		return nil
+	}
+
+	sc := h.svc.schoolCreator.(*mockSchoolCreator)
+	sc.getByNameFn = func(ctx context.Context, tenantID, name string) (string, error) {
+		return "school_existing_001", nil
+	}
+	schoolCreated := false
+	sc.createFn = func(ctx context.Context, tenantID string, name string, role string, creatorUserID ...string) (string, error) {
+		schoolCreated = true
+		return "school_duplicate", nil
+	}
+
+	payload := RegistrationPayload{
+		SchoolName: "Existing School",
+		SessionRef: sessionRef,
+		FullName:   "New Teacher",
+	}
+
+	_, role, schoolID, err := h.svc.Register(context.Background(), sessionRef, payload, "fp-c7")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if role != "SCHOOL_ADMIN" {
+		t.Fatalf("expected SCHOOL_ADMIN for new user, got %q", role)
+	}
+	if schoolID != "school_existing_001" {
+		t.Fatalf("expected the existing school to be reused, got %q", schoolID)
+	}
+	if schoolCreated {
+		t.Fatal("must not create a duplicate school when one already exists")
+	}
+}
+
+// TestRegister_EmptyFullName_ValidationError covers B6: registration payloads
+// with an empty/whitespace full name are rejected before they reach Stytch.
+func TestRegister_EmptyFullName_ValidationError(t *testing.T) {
+	h := newTestHarness(t)
+
+	payload := RegistrationPayload{
+		SchoolName: "Test School",
+		SessionRef: "550e8400-e29b-41d4-a716-4466554400b6",
+		FullName:   "   ",
+	}
+
+	_, _, _, err := h.svc.Register(context.Background(), payload.SessionRef, payload, "fp-b6")
+	if err == nil {
+		t.Fatal("expected validation error for empty full name, got nil")
+	}
+	if !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput, got %v", err)
+	}
+}
+
+// TestGetMe_RedisMiss_ReturnsProfileFromDB covers B1: a missing Redis session
+// key (restart/eviction) must NOT evict a valid DB session — GetMe falls back
+// to Postgres instead of returning 401.
+func TestGetMe_RedisMiss_ReturnsProfileFromDB(t *testing.T) {
+	h, mr := newServiceTestHarnessWithRedis(t)
+
+	// Deliberately do NOT seed the session: key — simulate a Redis restart.
+	if mr.Exists("session:anything") {
+		t.Fatal("test precondition: session key must be absent")
+	}
+
+	h.repo.getMeInfoFn = func(ctx context.Context, token string) (*MeInfo, error) {
+		return &MeInfo{
+			UserID:     "user_123",
+			TenantID:   "tenant_456",
+			Role:       "TEACHER",
+			SchoolID:   "school_789",
+			SchoolName: "Test School",
+			FullName:   "Test User",
+			Email:      "test@example.com",
+		}, nil
+	}
+
+	info, err := h.svc.GetMe(context.Background(), "valid_token_not_in_redis")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if info.UserID != "user_123" || info.Role != "TEACHER" {
+		t.Fatalf("expected profile from DB, got %+v", info)
+	}
+}
+
+// TestLogout_PurgesBothCacheKeys covers B2: logout must delete the middleware
+// resolver's hashed key as well as the legacy raw-token key, otherwise the
+// logged-out session keeps authenticating for the cache TTL.
+func TestLogout_PurgesBothCacheKeys(t *testing.T) {
+	h, mr := newServiceTestHarnessWithRedis(t)
+
+	token := "logout_token_001"
+	rawKey := "session:" + token
+	sum := sha256.Sum256([]byte(token))
+	hashKey := "session:" + hex.EncodeToString(sum[:])
+
+	if err := mr.Set(rawKey, "stytch_token"); err != nil {
+		t.Fatalf("set raw key: %v", err)
+	}
+	if err := mr.Set(hashKey, `{"user_id":"u","tenant_id":"t","role":"TEACHER"}`); err != nil {
+		t.Fatalf("set hashed key: %v", err)
+	}
+
+	if err := h.svc.Logout(context.Background(), token); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if mr.Exists(rawKey) {
+		t.Fatal("raw session key must be purged on logout")
+	}
+	if mr.Exists(hashKey) {
+		t.Fatal("middleware hashed session key must be purged on logout")
 	}
 }

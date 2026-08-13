@@ -23,7 +23,7 @@ func GetSession(c *fiber.Ctx) *SessionInfo {
 func RequireAuth(c *fiber.Ctx) error {
 	session := GetSession(c)
 	if session == nil {
-		return ErrUnauthorized
+		return HTTPError(c, ErrUnauthorized)
 	}
 	c.Locals("tenant_id", session.TenantID)
 	c.Locals("user_id", session.UserID)

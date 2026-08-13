@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log/slog"
 
 	"github.com/hibiken/asynq"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/fx"
+	"go.uber.org/zap"
 
 	"somotracker/backend/internal/database"
 )
@@ -50,7 +50,7 @@ func NewAsynqClient(pools *database.Pools) *asynq.Client {
 // Queues map to assign relative priorities. The "imports" queue weight of
 // 10 means it takes all available workers when it is the only queue type
 // in the system.
-func NewAsynqServer(pools *database.Pools) *asynq.Server {
+func NewAsynqServer(pools *database.Pools, logger *zap.SugaredLogger) *asynq.Server {
 	return asynq.NewServer(
 		asynq.RedisClientOpt{
 			Addr: pools.Redis.Options().Addr,
@@ -60,17 +60,18 @@ func NewAsynqServer(pools *database.Pools) *asynq.Server {
 			Queues: map[string]int{
 				"imports": 10,
 			},
-			Logger: asynqLogger{},
+			Logger: asynqLogger{logger: logger},
 		},
 	)
 }
 
 // NewCleanupScheduler creates a periodic task scheduler for the retention
 // cleanup job. It enqueues imports:cleanup_old_data once per day.
-func NewCleanupScheduler(pools *database.Pools, svc *Service) *CleanupScheduler {
+func NewCleanupScheduler(pools *database.Pools, svc *Service, logger *zap.SugaredLogger) *CleanupScheduler {
 	return &CleanupScheduler{
-		pools: pools,
-		svc:   svc,
+		pools:  pools,
+		svc:    svc,
+		logger: logger,
 	}
 }
 
@@ -78,8 +79,9 @@ func NewCleanupScheduler(pools *database.Pools, svc *Service) *CleanupScheduler 
 // staging and failure data. Uses Asynq's Scheduler to register a daily
 // recurring task.
 type CleanupScheduler struct {
-	pools *database.Pools
-	svc   *Service
+	pools  *database.Pools
+	svc    *Service
+	logger *zap.SugaredLogger
 }
 
 // Start starts the periodic cleanup scheduler. Called via fx lifecycle.
@@ -87,7 +89,7 @@ func (cs *CleanupScheduler) Start(ctx context.Context) error {
 	scheduler := asynq.NewScheduler(
 		asynq.RedisClientOpt{Addr: cs.pools.Redis.Options().Addr},
 		&asynq.SchedulerOpts{
-			Logger: asynqLogger{},
+			Logger: asynqLogger{logger: cs.logger},
 		},
 	)
 
@@ -102,7 +104,7 @@ func (cs *CleanupScheduler) Start(ctx context.Context) error {
 		return fmt.Errorf("imports.CleanupScheduler: start: %w", err)
 	}
 
-	slog.InfoContext(ctx, "imports.CleanupScheduler: cleanup task registered",
+	cs.logger.Infow("imports.CleanupScheduler: cleanup task registered",
 		"entry_id", entryID,
 		"schedule", "@daily",
 	)
@@ -111,41 +113,44 @@ func (cs *CleanupScheduler) Start(ctx context.Context) error {
 
 // Stop stops the cleanup scheduler.
 func (cs *CleanupScheduler) Stop(ctx context.Context) error {
-	slog.InfoContext(ctx, "imports.CleanupScheduler: stopped")
+	cs.logger.Infow("imports.CleanupScheduler: stopped")
 	return nil
 }
 
-// asynqLogger wraps slog to implement asynq.Logger.
-type asynqLogger struct{}
+// asynqLogger wraps zap to implement asynq.Logger.
+type asynqLogger struct {
+	logger *zap.SugaredLogger
+}
 
 func (l asynqLogger) Debug(args ...interface{}) {
-	slog.Debug(fmt.Sprint(args...))
+	l.logger.Debug(fmt.Sprint(args...))
 }
 
 func (l asynqLogger) Info(args ...interface{}) {
-	slog.Info(fmt.Sprint(args...))
+	l.logger.Info(fmt.Sprint(args...))
 }
 
 func (l asynqLogger) Warn(args ...interface{}) {
-	slog.Warn(fmt.Sprint(args...))
+	l.logger.Warn(fmt.Sprint(args...))
 }
 
 func (l asynqLogger) Error(args ...interface{}) {
-	slog.Error(fmt.Sprint(args...))
+	l.logger.Error(fmt.Sprint(args...))
 }
 
 func (l asynqLogger) Fatal(args ...interface{}) {
-	slog.Error(fmt.Sprint(args...))
+	l.logger.Error(fmt.Sprint(args...))
 }
 
 // Worker wraps the Asynq server and task registration.
 type Worker struct {
 	server *asynq.Server
 	mux    *asynq.ServeMux
+	logger *zap.SugaredLogger
 }
 
 // NewWorker creates a new Worker with chunk processing and cleanup handlers.
-func NewWorker(svc *Service, server *asynq.Server) *Worker {
+func NewWorker(svc *Service, server *asynq.Server, logger *zap.SugaredLogger) *Worker {
 	mux := asynq.NewServeMux()
 	mux.HandleFunc("imports:process_chunk", func(ctx context.Context, t *asynq.Task) error {
 		var payload ChunkTaskPayload
@@ -161,6 +166,7 @@ func NewWorker(svc *Service, server *asynq.Server) *Worker {
 	return &Worker{
 		server: server,
 		mux:    mux,
+		logger: logger,
 	}
 }
 
@@ -169,14 +175,14 @@ func (w *Worker) Start(ctx context.Context) error {
 	if err := w.server.Start(w.mux); err != nil {
 		return fmt.Errorf("imports.Worker.Start: %w", err)
 	}
-	slog.Info("imports.Worker: asynq server started")
+	w.logger.Info("imports.Worker: asynq server started")
 	return nil
 }
 
 // Stop gracefully shuts down the Asynq worker.
 func (w *Worker) Stop(ctx context.Context) error {
 	w.server.Shutdown()
-	slog.Info("imports.Worker: asynq server stopped")
+	w.logger.Info("imports.Worker: asynq server stopped")
 	return nil
 }
 

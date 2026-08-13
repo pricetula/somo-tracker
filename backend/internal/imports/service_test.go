@@ -14,6 +14,7 @@ import (
 	"github.com/hibiken/asynq"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"go.uber.org/zap"
 )
 
 // ============================================================================
@@ -385,8 +386,9 @@ func newTestHarness() *testHarness {
 	repo := &MockServiceRepository{}
 	asynqClient := asynq.NewClient(asynq.RedisClientOpt{Addr: ""})
 	svc := &Service{
-		repo:  repo,
-		asynq: asynqClient,
+		repo:   repo,
+		asynq:  asynqClient,
+		logger: zap.NewNop().Sugar(),
 	}
 	svc.beginTx = func(ctx context.Context) (pgx.Tx, error) {
 		return nil, errors.New("no pool in unit test — override beginTx")
@@ -1129,8 +1131,8 @@ func TestProcessChunk_ConcurrentClaimRace(t *testing.T) {
 	repo := &MockServiceRepository{}
 	asynqClient := asynq.NewClient(asynq.RedisClientOpt{Addr: ""})
 
-	svc1 := &Service{repo: repo, asynq: asynqClient}
-	svc2 := &Service{repo: repo, asynq: asynqClient}
+	svc1 := &Service{repo: repo, asynq: asynqClient, logger: zap.NewNop().Sugar()}
+	svc2 := &Service{repo: repo, asynq: asynqClient, logger: zap.NewNop().Sugar()}
 	svc1.beginTx = func(ctx context.Context) (pgx.Tx, error) { return &MockTx{}, nil }
 	svc2.beginTx = func(ctx context.Context) (pgx.Tx, error) { return &MockTx{}, nil }
 
@@ -1757,7 +1759,7 @@ func TestCancelJob_JobIsProcessing_Succeeds(t *testing.T) {
 		}, nil
 	}
 
-	svc := &Service{repo: repo}
+	svc := &Service{repo: repo, logger: zap.NewNop().Sugar()}
 	job, err := svc.CancelJob(ctx, jobID)
 	if err != nil {
 		t.Fatalf("CancelJob failed: %v", err)
@@ -1781,7 +1783,7 @@ func TestCancelJob_JobIsTerminal_ReturnsNotCancellable(t *testing.T) {
 		return nil, ErrNotCancellable
 	}
 
-	svc := &Service{repo: repo}
+	svc := &Service{repo: repo, logger: zap.NewNop().Sugar()}
 	_, err := svc.CancelJob(ctx, jobID)
 	if err == nil {
 		t.Fatal("expected ErrNotCancellable, got nil")
@@ -1816,7 +1818,7 @@ func TestCancelJob_ConcurrentCancels_Idempotent(t *testing.T) {
 		return nil, ErrNotCancellable
 	}
 
-	svc := &Service{repo: repo}
+	svc := &Service{repo: repo, logger: zap.NewNop().Sugar()}
 
 	// First call succeeds
 	job, err := svc.CancelJob(ctx, jobID)
@@ -1993,7 +1995,7 @@ func TestCleanupExpiredData_DeletesOldTerminalData(t *testing.T) {
 	_ = oldJobID
 	_ = oldCompletedAt
 
-	svc := &Service{repo: h.repo}
+	svc := &Service{repo: h.repo, logger: zap.NewNop().Sugar()}
 	err := svc.CleanupExpiredData(ctx)
 	if err != nil {
 		t.Fatalf("CleanupExpiredData failed: %v", err)
@@ -2023,7 +2025,7 @@ func TestCleanupExpiredData_KeepsRecentTerminalData(t *testing.T) {
 		return 0, nil
 	}
 
-	svc := &Service{repo: h.repo}
+	svc := &Service{repo: h.repo, logger: zap.NewNop().Sugar()}
 	err := svc.CleanupExpiredData(ctx)
 	if err != nil {
 		t.Fatalf("CleanupExpiredData failed: %v", err)
@@ -2057,7 +2059,7 @@ func TestCleanupExpiredData_KeepsActiveJobs(t *testing.T) {
 		return 0, nil
 	}
 
-	svc := &Service{repo: h.repo}
+	svc := &Service{repo: h.repo, logger: zap.NewNop().Sugar()}
 	err := svc.CleanupExpiredData(ctx)
 	if err != nil {
 		t.Fatalf("CleanupExpiredData failed: %v", err)

@@ -74,3 +74,28 @@ export async function toggleTeacherActive(userId: string, isActive: boolean): Pr
 export async function deleteTeacher(userId: string): Promise<void> {
     return api.delete<void>(`/api/v1/teachers`, { user_id: userId });
 }
+
+/**
+ * List classes assigned to a teacher, optionally for a specific term.
+ * GET /api/v1/teachers/:user_id/classes?term_id=
+ */
+export async function listTeacherClasses(
+    userId: string,
+    termId?: string
+): Promise<{ items: unknown[]; total: number }> {
+    const qs = termId ? `?term_id=${encodeURIComponent(termId)}` : "";
+    return api.get<{ items: unknown[]; total: number }>(`/api/v1/teachers/${userId}/classes${qs}`);
+}
+
+/**
+ * Get a teacher's timetable for a day of the week (1=Monday … 7=Sunday).
+ * GET /api/v1/teachers/:user_id/timetable?day_of_week=
+ */
+export async function getTeacherTimetable(
+    userId: string,
+    dayOfWeek = 1
+): Promise<{ items: unknown[]; total: number }> {
+    return api.get<{ items: unknown[]; total: number }>(
+        `/api/v1/teachers/${userId}/timetable?day_of_week=${dayOfWeek}`
+    );
+}

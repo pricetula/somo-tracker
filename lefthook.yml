@@ -16,6 +16,8 @@ pre-commit:
       root: "backend/"
       glob: "*.go"
       run: golangci-lint run --new-from-rev=HEAD {staged_files}
+      # Tell lefthook to pass directory paths instead of file paths
+      files: git diff --name-only --cached | xargs -n 1 dirname | sort -u
 
     frontend-lint:
       root: "frontend/"

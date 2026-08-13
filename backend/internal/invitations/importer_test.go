@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"go.uber.org/zap"
 
 	"somotracker/backend/internal/imports"
 )
@@ -156,7 +157,7 @@ func TestStaffInviteImporter_InsertOne_HappyPath(t *testing.T) {
 		},
 	}
 
-	imp := NewStaffInviteImporter(repo)
+	imp := NewStaffInviteImporter(repo, zap.NewNop().Sugar())
 	imp.SetStytchAdapter(stytch)
 	imp.SetBackendURL("http://localhost:3030")
 
@@ -222,7 +223,7 @@ func TestStaffInviteImporter_InsertOne_StytchErrorSanitized(t *testing.T) {
 	}
 
 	repo := &mockRepo{}
-	imp := NewStaffInviteImporter(repo)
+	imp := NewStaffInviteImporter(repo, zap.NewNop().Sugar())
 	imp.SetStytchAdapter(stytch)
 	imp.SetBackendURL("http://localhost:3030")
 
@@ -301,7 +302,7 @@ func TestStaffInviteImporter_InsertOne_InviteEmailError(t *testing.T) {
 	}
 
 	repo := &mockRepo{}
-	imp := NewStaffInviteImporter(repo)
+	imp := NewStaffInviteImporter(repo, zap.NewNop().Sugar())
 	imp.SetStytchAdapter(stytch)
 	imp.SetBackendURL("http://localhost:3030")
 
@@ -348,7 +349,7 @@ func TestStaffInviteImporter_InsertOne_DuplicateEmailDB(t *testing.T) {
 		},
 	}
 
-	imp := NewStaffInviteImporter(repo)
+	imp := NewStaffInviteImporter(repo, zap.NewNop().Sugar())
 	imp.SetStytchAdapter(stytch)
 	imp.SetBackendURL("http://localhost:3030")
 
@@ -385,7 +386,7 @@ func TestStaffInviteImporter_InsertOne_DuplicateEmailDB(t *testing.T) {
 
 func TestStaffInviteImporter_InsertOne_StytchNotConfigured(t *testing.T) {
 	repo := &mockRepo{}
-	imp := NewStaffInviteImporter(repo)
+	imp := NewStaffInviteImporter(repo, zap.NewNop().Sugar())
 	// Intentionally NOT setting stytch adapter
 
 	aug := augmentedInviteRow{
@@ -431,7 +432,7 @@ func TestStaffInviteImporter_InsertOne_SendsToCorrectEmail(t *testing.T) {
 	}
 
 	repo := &mockRepo{}
-	imp := NewStaffInviteImporter(repo)
+	imp := NewStaffInviteImporter(repo, zap.NewNop().Sugar())
 	imp.SetStytchAdapter(stytch)
 	imp.SetBackendURL("http://localhost:3030")
 

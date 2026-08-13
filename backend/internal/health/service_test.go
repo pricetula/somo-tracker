@@ -252,7 +252,7 @@ func TestUpsertProfile(t *testing.T) {
 		}, nil
 	}
 
-	result, err := h.svc.UpsertProfile(context.Background(), "tenant_001", "student_001", UpsertHealthProfilePayload{
+	result, err := h.svc.UpsertProfile(context.Background(), "tenant_001", "student_001", "user_001", UpsertHealthProfilePayload{
 		BloodGroup: strPtr("A+"),
 		Allergies:  []string{"Peanuts"},
 	})

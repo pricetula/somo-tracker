@@ -7,8 +7,6 @@
 export type {
     AcademicYear,
     AcademicTerm,
-    CreateAcademicYearPayload,
-    UpdateAcademicYearPayload,
     CreateTermPayload,
     UpdateTermPayload,
 } from "@/lib/api/academic-terms";

@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"go.uber.org/zap"
 
 	"somotracker/backend/internal/imports"
 )
@@ -76,7 +77,7 @@ type testHarness struct {
 
 func newTestHarness() *testHarness {
 	repo := &MockImportRepository{}
-	imp := NewStudentImporter(repo)
+	imp := NewStudentImporter(repo, zap.NewNop().Sugar())
 	return &testHarness{
 		imp:  imp,
 		repo: repo,
@@ -88,7 +89,7 @@ func newTestHarness() *testHarness {
 // ============================================================================
 
 func TestStudentImporter_JobType(t *testing.T) {
-	imp := NewStudentImporter(&MockImportRepository{})
+	imp := NewStudentImporter(&MockImportRepository{}, zap.NewNop().Sugar())
 	if imp.JobType() != imports.ImportJobTypeStudentImport {
 		t.Fatalf("expected STUDENT_IMPORT, got %s", imp.JobType())
 	}

@@ -44,7 +44,7 @@ func (r *PgRepository) CreateJob(ctx context.Context, job *Job) (uuid.UUID, erro
 		RETURNING id
 	`
 	var id uuid.UUID
-	err := r.pool.QueryRow(ctx, query,
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query,
 		job.TenantID,
 		job.SchoolID,
 		job.JobType,
@@ -93,7 +93,7 @@ func (r *PgRepository) CreateJobIdempotent(ctx context.Context, job *Job, payloa
 	var j Job
 	var role, idempotencyKey, payloadHashOut *string
 	var createdBy *uuid.UUID
-	err := r.pool.QueryRow(ctx, query,
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query,
 		job.TenantID,
 		job.SchoolID,
 		job.JobType,
@@ -147,7 +147,7 @@ func (r *PgRepository) GetJobByID(ctx context.Context, jobID uuid.UUID) (*Job, e
 	var j Job
 	var role, idempotencyKey, payloadHash *string
 	var createdBy *uuid.UUID
-	err := r.pool.QueryRow(ctx, query, jobID).Scan(
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, jobID).Scan(
 		&j.ID, &j.TenantID, &j.SchoolID, &j.JobType, &role, &createdBy, &j.Status,
 		&j.TotalRecords, &j.ProcessedRecords, &j.SuccessCount, &j.FailedCount,
 		&idempotencyKey, &payloadHash, &j.TotalChunks, &j.ProcessedChunks, &j.Metadata,
@@ -189,7 +189,7 @@ func (r *PgRepository) InsertStagingRows(ctx context.Context, rows []StagingRow)
 		VALUES %s
 	`, strings.Join(valueStrs, ", "))
 
-	_, err := r.pool.Exec(ctx, query, args...)
+	_, err := database.FromContext(ctx, r.pool).Exec(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("imports.Repository.InsertStagingRows: %w", err)
 	}
@@ -218,7 +218,7 @@ func (r *PgRepository) InsertChunkRows(ctx context.Context, chunks []Chunk) erro
 		VALUES %s
 	`, strings.Join(valueStrs, ", "))
 
-	_, err := r.pool.Exec(ctx, query, args...)
+	_, err := database.FromContext(ctx, r.pool).Exec(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("imports.Repository.InsertChunkRows: %w", err)
 	}
@@ -236,7 +236,7 @@ func (r *PgRepository) GetStagingRows(ctx context.Context, jobID uuid.UUID, rowS
 		WHERE job_id = $1 AND row_number >= $2 AND row_number < $3 AND status = 'pending'
 		ORDER BY row_number ASC
 	`
-	rows, err := r.pool.Query(ctx, query, jobID, rowStart, rowEnd)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, jobID, rowStart, rowEnd)
 	if err != nil {
 		return nil, fmt.Errorf("imports.Repository.GetStagingRows: %w", err)
 	}
@@ -269,7 +269,7 @@ func (r *PgRepository) MarkStagingRows(ctx context.Context, jobID uuid.UUID, row
 		SET status = $1, processed_at = NOW()
 		WHERE job_id = $2 AND row_number >= $3 AND row_number < $4
 	`
-	_, err := r.pool.Exec(ctx, query, string(status), jobID, rowStart, rowEnd)
+	_, err := database.FromContext(ctx, r.pool).Exec(ctx, query, string(status), jobID, rowStart, rowEnd)
 	if err != nil {
 		return fmt.Errorf("imports.Repository.MarkStagingRows: %w", err)
 	}
@@ -313,7 +313,7 @@ func (r *PgRepository) InsertFailures(ctx context.Context, jobID uuid.UUID, fail
 		VALUES %s
 	`, strings.Join(valueStrs, ", "))
 
-	_, err := r.pool.Exec(ctx, query, args...)
+	_, err := database.FromContext(ctx, r.pool).Exec(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("imports.Repository.InsertFailures: %w", err)
 	}
@@ -335,7 +335,7 @@ func (r *PgRepository) CancelJob(ctx context.Context, jobID uuid.UUID) (*Job, er
 	var j Job
 	var role, idempotencyKey, payloadHash *string
 	var createdBy *uuid.UUID
-	err := r.pool.QueryRow(ctx, query, jobID).Scan(
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, jobID).Scan(
 		&j.ID, &j.TenantID, &j.SchoolID, &j.JobType, &role, &createdBy, &j.Status,
 		&j.TotalRecords, &j.ProcessedRecords, &j.SuccessCount, &j.FailedCount,
 		&idempotencyKey, &payloadHash, &j.TotalChunks, &j.ProcessedChunks, &j.Metadata,
@@ -362,7 +362,7 @@ func (r *PgRepository) CancelPendingChunk(ctx context.Context, jobID uuid.UUID, 
 		SET status = 'cancelled'
 		WHERE job_id = $1 AND chunk_index = $2 AND status = 'pending'
 	`
-	_, err := r.pool.Exec(ctx, query, jobID, chunkIndex)
+	_, err := database.FromContext(ctx, r.pool).Exec(ctx, query, jobID, chunkIndex)
 	if err != nil {
 		return fmt.Errorf("imports.Repository.CancelPendingChunk: %w", err)
 	}
@@ -379,7 +379,7 @@ func (r *PgRepository) ClaimChunk(ctx context.Context, jobID uuid.UUID, chunkInd
 		RETURNING id
 	`
 	var id uuid.UUID
-	err := r.pool.QueryRow(ctx, query, jobID, chunkIndex).Scan(&id)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, jobID, chunkIndex).Scan(&id)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			// Chunk already claimed or completed — not an error, just no-op
@@ -424,7 +424,7 @@ func (r *PgRepository) AtomicChunkCompletion(ctx context.Context, jobID uuid.UUI
 	`
 	var status string
 	var processedChunks, totalChunks int
-	err := r.pool.QueryRow(ctx, query, chunkID, chunkProcessed, chunkSuccess, chunkFailed).Scan(&status, &processedChunks, &totalChunks)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, chunkID, chunkProcessed, chunkSuccess, chunkFailed).Scan(&status, &processedChunks, &totalChunks)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			// Chunk is already completed — no-op. Return current state by fetching job.
@@ -452,7 +452,7 @@ func (r *PgRepository) UpdateJobStatus(ctx context.Context, jobID uuid.UUID, sta
 		    completed_at = CASE WHEN $1 IN ('completed'::import_job_status, 'completed_with_errors'::import_job_status, 'failed'::import_job_status, 'cancelled'::import_job_status) THEN NOW() ELSE completed_at END
 		WHERE id = $2
 	`
-	_, err := r.pool.Exec(ctx, query, string(status), jobID)
+	_, err := database.FromContext(ctx, r.pool).Exec(ctx, query, string(status), jobID)
 	if err != nil {
 		return fmt.Errorf("imports.Repository.UpdateJobStatus: %w", err)
 	}
@@ -464,7 +464,7 @@ func (r *PgRepository) UpdateJobStatus(ctx context.Context, jobID uuid.UUID, sta
 func (r *PgRepository) GetJobStagingRowCount(ctx context.Context, jobID uuid.UUID) (int, error) {
 	query := `SELECT COUNT(*) FROM import_job_staging WHERE job_id = $1`
 	var count int
-	err := r.pool.QueryRow(ctx, query, jobID).Scan(&count)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, jobID).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("imports.Repository.GetJobStagingRowCount: %w", err)
 	}
@@ -476,7 +476,7 @@ func (r *PgRepository) GetJobStagingRowCount(ctx context.Context, jobID uuid.UUI
 func (r *PgRepository) ListJobs(ctx context.Context, tenantID, schoolID uuid.UUID, limit, offset int) ([]Job, int, error) {
 	countQuery := `SELECT COUNT(*) FROM import_jobs WHERE tenant_id = $1 AND school_id = $2`
 	var total int
-	err := r.pool.QueryRow(ctx, countQuery, tenantID, schoolID).Scan(&total)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, countQuery, tenantID, schoolID).Scan(&total)
 	if err != nil {
 		return nil, 0, fmt.Errorf("imports.Repository.ListJobs: count: %w", err)
 	}
@@ -491,7 +491,7 @@ func (r *PgRepository) ListJobs(ctx context.Context, tenantID, schoolID uuid.UUI
 		ORDER BY created_at DESC
 		LIMIT $3 OFFSET $4
 	`
-	rows, err := r.pool.Query(ctx, query, tenantID, schoolID, limit, offset)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, tenantID, schoolID, limit, offset)
 	if err != nil {
 		return nil, 0, fmt.Errorf("imports.Repository.ListJobs: %w", err)
 	}
@@ -537,7 +537,7 @@ func (r *PgRepository) GetJobByIDempotencyKey(ctx context.Context, tenantID uuid
 	var j Job
 	var role, idempotencyKeyOut, payloadHash *string
 	var createdBy *uuid.UUID
-	err := r.pool.QueryRow(ctx, query, tenantID, idempotencyKey).Scan(
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, tenantID, idempotencyKey).Scan(
 		&j.ID, &j.TenantID, &j.SchoolID, &j.JobType, &role, &createdBy, &j.Status,
 		&j.TotalRecords, &j.ProcessedRecords, &j.SuccessCount, &j.FailedCount,
 		&idempotencyKeyOut, &payloadHash, &j.TotalChunks, &j.ProcessedChunks, &j.Metadata,
@@ -572,7 +572,7 @@ func (r *PgRepository) GetActiveJobBySchoolID(ctx context.Context, schoolID uuid
 	var j Job
 	var role, idempotencyKey, payloadHash *string
 	var createdBy *uuid.UUID
-	err := r.pool.QueryRow(ctx, query, schoolID).Scan(
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, schoolID).Scan(
 		&j.ID, &j.TenantID, &j.SchoolID, &j.JobType, &role, &createdBy, &j.Status,
 		&j.TotalRecords, &j.ProcessedRecords, &j.SuccessCount, &j.FailedCount,
 		&idempotencyKey, &payloadHash, &j.TotalChunks, &j.ProcessedChunks, &j.Metadata,
@@ -607,7 +607,7 @@ func (r *PgRepository) CleanupStagingData(ctx context.Context, cutoff time.Time,
 	`
 	totalDeleted := 0
 	for {
-		result, err := r.pool.Exec(ctx, query, cutoff, batchSize)
+		result, err := database.FromContext(ctx, r.pool).Exec(ctx, query, cutoff, batchSize)
 		if err != nil {
 			return totalDeleted, fmt.Errorf("imports.Repository.CleanupStagingData: %w", err)
 		}
@@ -636,7 +636,7 @@ func (r *PgRepository) CleanupFailureData(ctx context.Context, cutoff time.Time,
 	`
 	totalDeleted := 0
 	for {
-		result, err := r.pool.Exec(ctx, query, cutoff, batchSize)
+		result, err := database.FromContext(ctx, r.pool).Exec(ctx, query, cutoff, batchSize)
 		if err != nil {
 			return totalDeleted, fmt.Errorf("imports.Repository.CleanupFailureData: %w", err)
 		}
@@ -657,7 +657,7 @@ func (r *PgRepository) TouchLastProgressAt(ctx context.Context, jobID uuid.UUID)
 		SET last_progress_at = NOW()
 		WHERE id = $1
 	`
-	_, err := r.pool.Exec(ctx, query, jobID)
+	_, err := database.FromContext(ctx, r.pool).Exec(ctx, query, jobID)
 	if err != nil {
 		return fmt.Errorf("imports.Repository.TouchLastProgressAt: %w", err)
 	}
@@ -670,7 +670,7 @@ func (r *PgRepository) GetFailures(ctx context.Context, jobID uuid.UUID, limit, 
 	// Get total count
 	countQuery := `SELECT COUNT(*) FROM import_job_failures WHERE import_job_id = $1`
 	var total int
-	if err := r.pool.QueryRow(ctx, countQuery, jobID).Scan(&total); err != nil {
+	if err := database.FromContext(ctx, r.pool).QueryRow(ctx, countQuery, jobID).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("imports.Repository.GetFailures: count: %w", err)
 	}
 
@@ -681,7 +681,7 @@ func (r *PgRepository) GetFailures(ctx context.Context, jobID uuid.UUID, limit, 
 		ORDER BY row_number ASC, id ASC
 		LIMIT $2 OFFSET $3
 	`
-	rows, err := r.pool.Query(ctx, query, jobID, limit, offset)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, jobID, limit, offset)
 	if err != nil {
 		return nil, 0, fmt.Errorf("imports.Repository.GetFailures: query: %w", err)
 	}

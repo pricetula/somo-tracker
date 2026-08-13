@@ -221,3 +221,120 @@ export async function getCalendarStatus(
     const qs = new URLSearchParams({ start_date: startDate, end_date: endDate }).toString();
     return api.get<CalendarStatusListResponse>(`/api/v1/attendance/calendar/status?${qs}`);
 }
+
+// ─── Class Daily Summaries ────────────────────────────────────────────────
+
+/**
+ * Get the attendance summary for one class on one date.
+ * GET /api/v1/attendance/daily/class/:class_id/date/:date
+ */
+export async function getClassDailySummary(classId: string, date: string): Promise<unknown> {
+    return api.get<unknown>(`/api/v1/attendance/daily/class/${classId}/date/${date}`);
+}
+
+/**
+ * Refresh a class's daily attendance summary for a date.
+ * POST /api/v1/attendance/daily/class/:class_id/date/:date/refresh
+ */
+export async function refreshClassDailySummary(classId: string, date: string): Promise<unknown> {
+    return api.post<unknown>(`/api/v1/attendance/daily/class/${classId}/date/${date}/refresh`);
+}
+
+/**
+ * List a class's daily attendance summaries over a date range.
+ * GET /api/v1/attendance/daily/class/:class_id?start_date=&end_date=
+ */
+export async function listClassDailySummaries(
+    classId: string,
+    startDate: string,
+    endDate: string
+): Promise<{ items: unknown[]; total: number }> {
+    const qs = new URLSearchParams({ start_date: startDate, end_date: endDate }).toString();
+    return api.get<{ items: unknown[]; total: number }>(
+        `/api/v1/attendance/daily/class/${classId}?${qs}`
+    );
+}
+
+// ─── Class Learning Area Term Summaries ───────────────────────────────────
+
+/**
+ * List learning-area attendance summaries for a class+term (optionally filtered by learning area).
+ * GET /api/v1/attendance/class-learning-area/class/:class_id/term/:term_id?learning_area_id=
+ */
+export async function listClassLearningAreaTermSummaries(
+    classId: string,
+    termId: string,
+    learningAreaId?: string
+): Promise<{ items: unknown[]; total: number }> {
+    const qs = learningAreaId ? `?learning_area_id=${encodeURIComponent(learningAreaId)}` : "";
+    return api.get<{ items: unknown[]; total: number }>(
+        `/api/v1/attendance/class-learning-area/class/${classId}/term/${termId}${qs}`
+    );
+}
+
+/**
+ * Get a single learning-area attendance summary for a class+term.
+ * GET /api/v1/attendance/class-learning-area/class/:class_id/learning-area/:learning_area_id/term/:term_id
+ */
+export async function getClassLearningAreaTermSummary(
+    classId: string,
+    learningAreaId: string,
+    termId: string
+): Promise<unknown> {
+    return api.get<unknown>(
+        `/api/v1/attendance/class-learning-area/class/${classId}/learning-area/${learningAreaId}/term/${termId}`
+    );
+}
+
+/**
+ * Refresh a class's learning-area term attendance summary.
+ * POST /api/v1/attendance/class-learning-area/class/:class_id/term/:term_id/refresh
+ */
+export async function refreshClassLearningAreaTermSummary(
+    classId: string,
+    termId: string
+): Promise<unknown> {
+    return api.post<unknown>(
+        `/api/v1/attendance/class-learning-area/class/${classId}/term/${termId}/refresh`
+    );
+}
+
+// ─── Class Term Attendance Summaries ──────────────────────────────────────
+
+/**
+ * Get a class's overall term attendance summary.
+ * GET /api/v1/attendance/class-term/class/:class_id/term/:term_id
+ */
+export async function getClassTermAttendanceSummary(
+    classId: string,
+    termId: string
+): Promise<unknown> {
+    return api.get<unknown>(`/api/v1/attendance/class-term/class/${classId}/term/${termId}`);
+}
+
+/**
+ * List class term attendance summaries for a term (optionally filtered by class).
+ * GET /api/v1/attendance/class-term/term/:term_id?class_id=
+ */
+export async function listClassTermAttendanceSummaries(
+    termId: string,
+    classId?: string
+): Promise<{ items: unknown[]; total: number }> {
+    const qs = classId ? `?class_id=${encodeURIComponent(classId)}` : "";
+    return api.get<{ items: unknown[]; total: number }>(
+        `/api/v1/attendance/class-term/term/${termId}${qs}`
+    );
+}
+
+/**
+ * Refresh a class's overall term attendance summary.
+ * POST /api/v1/attendance/class-term/class/:class_id/term/:term_id/refresh
+ */
+export async function refreshClassTermAttendanceSummary(
+    classId: string,
+    termId: string
+): Promise<unknown> {
+    return api.post<unknown>(
+        `/api/v1/attendance/class-term/class/${classId}/term/${termId}/refresh`
+    );
+}

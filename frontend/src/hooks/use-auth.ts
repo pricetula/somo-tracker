@@ -62,7 +62,11 @@ export function useVerifyToken() {
         mutationFn: (token: string) => verifyToken(token),
         onError: (err) => {
             const msg = getErrorMessage(err);
-            if (msg.includes("expired")) {
+            // The backend emits distinct 401 codes (A5): expired_token for a
+            // magic link whose time has passed, session_ref_expired for one
+            // that was already consumed.
+            const code = isApiError(err) ? err.code : null;
+            if (code === "expired_token" || code === "session_ref_expired") {
                 toast.error("Link expired", {
                     description: "This magic link has expired. Please request a new one.",
                 });
@@ -92,12 +96,20 @@ export function useRegister() {
         },
         onError: (err) => {
             // 401 means the session_ref is expired or already consumed —
-            // redirect to login so the user can request a new magic link
+            // redirect to login so the user can request a new magic link.
+            // Distinguish the two cases via the backend's wire codes (A5).
             if (isApiError(err) && err.status === 401) {
-                toast.error("Link expired", {
-                    description:
-                        "This registration session has expired. Please request a new magic link.",
-                });
+                if (err.code === "session_ref_expired") {
+                    toast.error("Link already used", {
+                        description:
+                            "This sign-up link has already been used. Please request a new magic link.",
+                    });
+                } else {
+                    toast.error("Link expired", {
+                        description:
+                            "This registration session has expired. Please request a new magic link.",
+                    });
+                }
                 router.replace("/login");
                 return;
             }

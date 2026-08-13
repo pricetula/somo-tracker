@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"go.uber.org/zap"
 )
 
 // ============================================================================
@@ -84,6 +85,7 @@ func (r *mockRow) Scan(dest ...interface{}) error {
 func newSeedingService(beginFn func(ctx context.Context) (pgx.Tx, error)) *SeedingService {
 	return &SeedingService{
 		beginTx: beginFn,
+		logger:  zap.NewNop().Sugar(),
 	}
 }
 

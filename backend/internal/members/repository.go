@@ -53,7 +53,7 @@ func (r *PgRepository) listByRole(ctx context.Context, tenantID, schoolID, role 
 	}
 
 	var total int
-	if err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
+	if err := database.FromContext(ctx, r.pool).QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("members.Repository.Count: %w", err)
 	}
 
@@ -75,7 +75,7 @@ func (r *PgRepository) listByRole(ctx context.Context, tenantID, schoolID, role 
 	dataQuery += ` ORDER BY u.full_name LIMIT $` + fmt.Sprintf("%d", len(dataArgs)+1) + ` OFFSET $` + fmt.Sprintf("%d", len(dataArgs)+2)
 	dataArgs = append(dataArgs, limit, offset)
 
-	rows, err := r.pool.Query(ctx, dataQuery, dataArgs...)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, dataQuery, dataArgs...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("members.Repository.ListByRole: %w", err)
 	}
@@ -108,7 +108,7 @@ func (r *PgRepository) ToggleActive(ctx context.Context, tenantID, schoolID, use
 		WHERE tenant_id = $2 AND school_id = $3 AND user_id = $4
 	`
 
-	tag, err := r.pool.Exec(ctx, query, isActive, tenantID, schoolID, userID)
+	tag, err := database.FromContext(ctx, r.pool).Exec(ctx, query, isActive, tenantID, schoolID, userID)
 	if err != nil {
 		return fmt.Errorf("members.Repository.ToggleActive: %w", err)
 	}
@@ -126,7 +126,7 @@ func (r *PgRepository) Delete(ctx context.Context, tenantID, schoolID, userID, r
 		WHERE tenant_id = $1 AND school_id = $2 AND user_id = $3 AND role::text = $4
 	`
 
-	tag, err := r.pool.Exec(ctx, query, tenantID, schoolID, userID, role)
+	tag, err := database.FromContext(ctx, r.pool).Exec(ctx, query, tenantID, schoolID, userID, role)
 	if err != nil {
 		return fmt.Errorf("members.Repository.Delete: %w", err)
 	}
@@ -147,7 +147,7 @@ func (r *PgRepository) GetByID(ctx context.Context, userID, tenantID, schoolID s
 	`
 
 	var m Member
-	err := r.pool.QueryRow(ctx, query, userID, tenantID, schoolID).Scan(
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, userID, tenantID, schoolID).Scan(
 		&m.ID, &m.Email, &m.FullName, &m.Role, &m.IsActive, &m.CreatedAt,
 	)
 	if err != nil {
@@ -170,7 +170,7 @@ func (r *PgRepository) Update(ctx context.Context, userID, tenantID, schoolID st
 		SET full_name = $1
 		WHERE id = $2
 	`
-	tag, err := r.pool.Exec(ctx, query, *payload.FullName, userID)
+	tag, err := database.FromContext(ctx, r.pool).Exec(ctx, query, *payload.FullName, userID)
 	if err != nil {
 		return fmt.Errorf("members.Repository.Update: %w", err)
 	}
@@ -197,7 +197,7 @@ func (r *PgRepository) GetActiveSchoolID(ctx context.Context, tenantID, userID s
 	`
 
 	var schoolID string
-	err := r.pool.QueryRow(ctx, query, tenantID, userID).Scan(&schoolID)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, tenantID, userID).Scan(&schoolID)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return "", fmt.Errorf("members.Repository.GetActiveSchoolID: %w", ErrNotFound)

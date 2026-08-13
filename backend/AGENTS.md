@@ -147,23 +147,39 @@ Every non-2xx HTTP response MUST return `{ "code": string, "message": string, "e
 Implementing code: `internal/middleware/errors.go` — `HTTPError()` helper.
 Frontend counterpart: `src/lib/api/client.ts`.
 
+### Canonical error types (`internal/xerrors`)
+
+`internal/xerrors` is the single source of structured error types. `DomainError` carries
+the machine-readable `Code`, HTTP `Status`, client-safe `Message`, and optional `Fields`
+(validation metadata). It implements `error`, `Unwrap`, and the `HasDetails` interface
+(`ErrorDetails() any`) for extra response metadata. Packages must never import
+`middleware` or HTTP packages to create errors — build them from `xerrors` only.
+
+Package-level sentinels for middleware use: `xerrors.ErrNotFound`, `ErrAlreadyExists`,
+`ErrInvalidInput`, `ErrUnauthorized`, `ErrForbidden`, `ErrConflict`. Named constructors
+return per-message instances: `xerrors.NotFound(msg)`, `xerrors.AlreadyExists(msg)`,
+`xerrors.InvalidInput(msg)`, `xerrors.Unauthorized(msg)`, `xerrors.Forbidden(msg)`,
+`xerrors.Conflict(msg)`, `xerrors.UnprocessableEntity(msg)`, and `xerrors.New(code, status, msg)`
+for custom codes (e.g. auth's `expired_token`).
+
 ### Sentinel errors in every domain.go
 
-Every module under `internal/` must declare these package-level sentinel errors:
+Every module under `internal/` must declare these package-level sentinel errors, built
+from `xerrors` constructors so they carry the canonical `Code`/`Status`:
 
 ```go
 var (
-    ErrNotFound      = errors.New("<module> not found")
-    ErrAlreadyExists = errors.New("<module> already exists")
-    ErrInvalidInput  = errors.New("invalid <module> input")
-    ErrUnauthorized  = errors.New("unauthorized")
-    ErrForbidden     = errors.New("forbidden")
-    ErrConflict      = errors.New("<module> conflict")
+    ErrNotFound      = xerrors.NotFound("<module> not found")
+    ErrAlreadyExists = xerrors.AlreadyExists("<module> already exists")
+    ErrInvalidInput  = xerrors.InvalidInput("invalid <module> input")
+    ErrUnauthorized  = xerrors.Unauthorized("unauthorized")
+    ErrForbidden     = xerrors.Forbidden("forbidden")
+    ErrConflict      = xerrors.Conflict("<module> conflict")
 )
 ```
 
-- `sql.ErrNoRows` must always be mapped to `ErrNotFound` inside the repository. It must never reach the service layer.
-- Module-specific sentinels (e.g. `ErrExpiredToken`) may be added alongside these.
+- `sql.ErrNoRows` must always be mapped to `ErrNotFound` inside the repository. It must never reach the service layer. (Use `xerrors.MapPgxError` in shared paths, or `errors.Is(err, pgx.ErrNoRows)` inside database packages.)
+- Module-specific sentinels (e.g. `ErrExpiredToken`) may be added alongside these via `xerrors.New(code, status, msg)`.
 
 ### Error wrapping at every layer boundary
 
@@ -179,26 +195,30 @@ return nil, fmt.Errorf("members.Service.GetMember: %w", err)
 ### HTTPError helper (`internal/middleware/errors.go`)
 
 - `HTTPError(c *fiber.Ctx, err error) error` is the **only** place HTTP status codes are decided for domain errors.
-- Uses `errors.Is()` to unwrap the full error chain.
-- Status mapping:
+- Uses `errors.As()` to extract the nearest `*xerrors.DomainError` from the chain; `errors.Is()` for special cases (`context.Canceled`, `context.DeadlineExceeded`).
+- Status mapping (from the embedded `DomainError.Status`):
   - `ErrNotFound` → 404, `ErrAlreadyExists` → 409, `ErrInvalidInput` → 400
-  - `ErrUnauthorized` → 401, `ErrForbidden` → 403, `ErrConflict` → 409
+  - `ErrUnauthorized` → 401, `ErrForbidden` → 403, `ErrConflict` → 409, `UnprocessableEntity` → 422
   - `context.Canceled` → 499, `context.DeadlineExceeded` → 504
   - everything else → 500 (logged, generic message)
+- Handlers must always wrap errors before returning them, e.g. `fmt.Errorf("invalid request body: %w", xerrors.UnprocessableEntity("malformed request body"))`, so the HTTPError message includes handler context.
 
 ### Global Fiber error handler (`cmd/api/main.go`)
 
 - Registered in `fiber.Config.ErrorHandler`.
 - Last-resort catcher for any escaped error, including panics via `recover` middleware.
-- Logs with `slog.ErrorContext`, returns the standard JSON body.
+- Logs with `loggerFrom(c).Errorw(...)` (zap), returns the standard JSON body.
 - Fiber's built-in `recover` middleware is registered before all routes.
 
 ### Log-once rule
 
-- `log/slog` must be used throughout. No `log.Println`, `fmt.Println`, or `log.Printf` in non-test code.
+- **zap is the logging library.** `log/slog` must not be used. No `log.Println`, `fmt.Println`, or `log.Printf` in non-test code.
+- Dependencies receive `*zap.SugaredLogger` via constructor injection (`logger *zap.SugaredLogger` field). The shared instance is provided by `internal/logger` (fx), so `zap.NewNop().Sugar()` is the standard no-op for tests.
+- `middleware` helpers (HTTPError, access log, panic recovery, rate limiter) read the logger from `c.Locals` via `middleware.WithLogger` / `loggerFrom(c)` — they must never take a logger parameter.
 - Log once at the layer where the error is first **handled** (handler or worker).
 - Intermediate layers (repository, service) only wrap and return — they do **not** log.
 - Level usage: `Error` = unexpected failure, `Warn` = handled degradation, `Info` = significant state change, `Debug` = detailed tracing.
+- Key-value style: use the sugared API (`logger.Infow(msg, "key", value)`). For typed fields use the structured `*zap.Logger` (`logger.Info(msg, zap.String("key", value))`). Never mix `slog.Attr` into a sugared call.
 
 ### Forbidden patterns
 
@@ -208,7 +228,7 @@ return nil, fmt.Errorf("members.Service.GetMember: %w", err)
 - Any `_ = someFunc()` in non-test code.
 - `log.Println` / `fmt.Println` in production code paths.
 - Empty `if err != nil { }` blocks — log and act.
-- Inline goroutines without a `defer recover()` that logs with `slog.ErrorContext`.
+- Inline goroutines without a `defer recover()` that logs with `logger.Errorw(...)`.
 - Calling `c.Next()` after a failed auth check.
 
 ### Additional rules
@@ -217,7 +237,7 @@ return nil, fmt.Errorf("members.Service.GetMember: %w", err)
 - **External API calls:** Wrap external errors into module-local errors before propagating. Never leak external error messages to HTTP clients.
 - **fx lifecycle:** Every constructor returns `(T, error)`. Every `OnStart`/`OnStop` returns `error`. `OnStop` errors are logged AND returned.
 - **Migration failure:** Must cause startup to abort — error propagates to fx, which refuses to start.
-- **Background workers:** Log failures with `slog.ErrorContext`. Distinguish severity (warn vs error). Never silently continue.
+- **Background workers:** Log failures with `logger.Errorw(...)`. Distinguish severity (warn vs error). Never silently continue.
 
 ### When adding a new module
 

@@ -1,6 +1,6 @@
 -- Migration: 000001_initial_schema (rollback)
 -- SomoTracker — Kenya CBC/CBE academic platform (CBC-only, v5)
--- Drops every object created by the initial schema migration,
+-- Drops every object created by the squashed initial schema migration,
 -- in strict reverse FK dependency order.
 
 -- ============================================================================
@@ -21,6 +21,22 @@ DROP TRIGGER IF EXISTS trg_sync_invoice_payment_status_update     ON payments;
 DROP TRIGGER IF EXISTS trg_sync_invoice_payment_status_insert     ON payments;
 DROP TRIGGER IF EXISTS trg_sync_invoice_payment_status_delete     ON payments;
 DROP TRIGGER IF EXISTS trg_cbc_streams_updated_at                 ON cbc_streams;
+DROP TRIGGER IF EXISTS trg_assessment_sessions_refresh_summary    ON assessment_sessions;
+DROP TRIGGER IF EXISTS trg_assessment_sessions_max_points_immutable ON assessment_sessions;
+DROP TRIGGER IF EXISTS trg_grading_scale_ranges_immutable         ON grading_scale_ranges;
+DROP TRIGGER IF EXISTS trg_behavior_notes_refresh_term_summary    ON behavior_notes;
+DROP TRIGGER IF EXISTS trg_class_daily_attendance_summaries_updated_at   ON class_daily_attendance_summaries;
+DROP TRIGGER IF EXISTS trg_student_term_subject_summaries_updated_at     ON student_term_subject_summaries;
+DROP TRIGGER IF EXISTS trg_student_term_overall_summaries_updated_at     ON student_term_overall_summaries;
+DROP TRIGGER IF EXISTS trg_student_cohort_position_summaries_updated_at  ON student_cohort_position_summaries;
+DROP TRIGGER IF EXISTS trg_student_subject_strand_summaries_updated_at   ON student_subject_strand_summaries;
+DROP TRIGGER IF EXISTS trg_student_performance_projections_updated_at    ON student_performance_projections;
+DROP TRIGGER IF EXISTS trg_student_behavior_term_summaries_updated_at    ON student_behavior_term_summaries;
+DROP TRIGGER IF EXISTS trg_teacher_subject_performance_summaries_updated_at ON teacher_subject_performance_summaries;
+DROP TRIGGER IF EXISTS trg_teacher_delivery_summaries_updated_at         ON teacher_delivery_summaries;
+DROP TRIGGER IF EXISTS trg_teacher_workload_summaries_updated_at         ON teacher_workload_summaries;
+DROP TRIGGER IF EXISTS trg_class_learning_area_term_summaries_updated_at ON class_learning_area_term_summaries;
+DROP TRIGGER IF EXISTS trg_class_term_attendance_summaries_updated_at    ON class_term_attendance_summaries;
 
 -- ============================================================================
 -- FUNCTIONS (dropped after their triggers, before dependent views/tables)
@@ -41,11 +57,28 @@ DROP FUNCTION IF EXISTS fn_current_tenant_id CASCADE;
 DROP FUNCTION IF EXISTS fn_rls_tenant_policy CASCADE;
 DROP FUNCTION IF EXISTS fn_check_non_break_slot CASCADE;
 DROP FUNCTION IF EXISTS max_points_check CASCADE;
+DROP FUNCTION IF EXISTS fn_assessment_sessions_after_publish CASCADE;
+DROP FUNCTION IF EXISTS fn_block_assessment_max_points_update CASCADE;
+DROP FUNCTION IF EXISTS fn_block_grading_scale_range_modification CASCADE;
+DROP FUNCTION IF EXISTS fn_refresh_term_subject_summary_for_session CASCADE;
+DROP FUNCTION IF EXISTS fn_compute_term_overall_summaries_for_term CASCADE;
+DROP FUNCTION IF EXISTS fn_compute_single_student_term_overall_summary CASCADE;
+DROP FUNCTION IF EXISTS fn_compute_cohort_positions_for_term CASCADE;
+DROP FUNCTION IF EXISTS fn_refresh_subject_strand_summary_for_session CASCADE;
+DROP FUNCTION IF EXISTS fn_compute_performance_projections_for_term CASCADE;
+DROP FUNCTION IF EXISTS fn_refresh_student_behavior_term_summary CASCADE;
+DROP FUNCTION IF EXISTS fn_refresh_student_behavior_term_summary_for_note CASCADE;
+DROP FUNCTION IF EXISTS fn_compute_teacher_subject_performance_summaries CASCADE;
+DROP FUNCTION IF EXISTS fn_compute_teacher_delivery_summaries CASCADE;
+DROP FUNCTION IF EXISTS fn_compute_teacher_workload_summaries CASCADE;
 
 -- ============================================================================
 -- LAYER 11 — ATTENDANCE & BEHAVIOR
 -- ============================================================================
 
+DROP TABLE IF EXISTS class_term_attendance_summaries CASCADE;
+DROP TABLE IF EXISTS class_learning_area_term_summaries CASCADE;
+DROP TABLE IF EXISTS class_daily_attendance_summaries CASCADE;
 DROP TABLE IF EXISTS cbc_attendance_sessions CASCADE;
 DROP TABLE IF EXISTS attendance_term_summaries CASCADE;
 DROP TABLE IF EXISTS behavior_notes CASCADE;
@@ -81,6 +114,20 @@ DROP TABLE IF EXISTS student_assessment_scores CASCADE;
 DROP TABLE IF EXISTS assessment_sessions CASCADE;
 DROP TABLE IF EXISTS grading_scale_ranges CASCADE;
 DROP TABLE IF EXISTS grading_scale_profiles CASCADE;
+
+-- ============================================================================
+-- MATERIALISED SUMMARY TABLES (squashed from 000005–000016)
+-- ============================================================================
+
+DROP TABLE IF EXISTS teacher_workload_summaries CASCADE;
+DROP TABLE IF EXISTS teacher_delivery_summaries CASCADE;
+DROP TABLE IF EXISTS teacher_subject_performance_summaries CASCADE;
+DROP TABLE IF EXISTS student_behavior_term_summaries CASCADE;
+DROP TABLE IF EXISTS student_performance_projections CASCADE;
+DROP TABLE IF EXISTS student_subject_strand_summaries CASCADE;
+DROP TABLE IF EXISTS student_cohort_position_summaries CASCADE;
+DROP TABLE IF EXISTS student_term_overall_summaries CASCADE;
+DROP TABLE IF EXISTS student_term_subject_summaries CASCADE;
 
 -- ============================================================================
 -- LAYER 5 — CURRICULUM
@@ -146,6 +193,9 @@ DROP TABLE IF EXISTS tenants CASCADE;
 -- ENUMS
 -- ============================================================================
 
+DROP TYPE IF EXISTS behavior_category_type CASCADE;
+DROP TYPE IF EXISTS parent_relationship_type CASCADE;
+DROP TYPE IF EXISTS payment_method_type CASCADE;
 DROP TYPE IF EXISTS import_failure_type CASCADE;
 DROP TYPE IF EXISTS import_staging_status CASCADE;
 DROP TYPE IF EXISTS import_job_type CASCADE;

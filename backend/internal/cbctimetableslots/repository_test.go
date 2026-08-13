@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
+	"go.uber.org/zap"
 )
 
 // migrationsDir returns the absolute path to the migrations folder.
@@ -103,7 +104,7 @@ func TestPgRepository_ListEnriched(t *testing.T) {
 	require.NoError(t, err)
 
 	// ─── Create repository ──────────────────────────────────────
-	repo := &PgRepository{pool: pool}
+	repo := &PgRepository{pool: pool, logger: zap.NewNop().Sugar()}
 
 	// ─── Test 1: ListEnriched without date ──────────────────────
 	t.Run("no date filter", func(t *testing.T) {
@@ -261,7 +262,7 @@ func TestPgRepository_List(t *testing.T) {
 		slot2ID, tenantID, schoolID, academicYearID, structure2ID, classID, learningAreaID, userID)
 	require.NoError(t, err)
 
-	repo := &PgRepository{pool: pool}
+	repo := &PgRepository{pool: pool, logger: zap.NewNop().Sugar()}
 
 	t.Run("list all slots", func(t *testing.T) {
 		filter := SlotFilter{

@@ -53,6 +53,11 @@ var Module = fx.Module("auth",
 		fx.Annotate(
 			NewSqlcRepository,
 			fx.As(new(Repository)),
+			// Also expose the repository as cbcschools.UserSchoolEnroller so
+			// school creation auto-enrolls the creator as SCHOOL_ADMIN and
+			// sets their active school. cbcschools cannot provide this itself
+			// — it would create an import cycle (auth → cbcschools).
+			fx.As(new(cbcschools.UserSchoolEnroller)),
 		),
 		// 2. SchoolCreator from cbcschools.Service (error-translating adapter)
 		fx.Annotate(

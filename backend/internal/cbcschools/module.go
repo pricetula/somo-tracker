@@ -44,6 +44,13 @@ var Module = fx.Module("cbcschools",
 			// have them, fx passes nil.
 			fx.ParamTags(``, `optional:"true"`, `optional:"true"`, `optional:"true"`),
 		),
+		// Cross-domain seeders (adapters in seeders.go): school creation
+		// auto-seeds the embedded CBC curriculum and sets up the initial
+		// academic year + CBC terms. UserSchoolEnroller is provided by the
+		// auth module (auth owns that adapter because auth already imports
+		// cbcschools — providing it here would create an import cycle).
+		newCurriculumSeeder,
+		newAcademicYearSeeder,
 		NewHandler,
 	),
 )

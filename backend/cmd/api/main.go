@@ -9,12 +9,36 @@ import (
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 
+	"somotracker/backend/internal/academicyears"
+	"somotracker/backend/internal/assessments"
+	"somotracker/backend/internal/attendance"
 	"somotracker/backend/internal/auth"
+	"somotracker/backend/internal/behavior"
+	"somotracker/backend/internal/billing"
+	"somotracker/backend/internal/cbcclasses"
 	"somotracker/backend/internal/cbcschools"
+	"somotracker/backend/internal/cbcstreams"
+	"somotracker/backend/internal/cbctimetableslots"
+	"somotracker/backend/internal/classteachers"
+	"somotracker/backend/internal/cohortpositions"
 	"somotracker/backend/internal/config"
+	"somotracker/backend/internal/curriculum"
 	"somotracker/backend/internal/database"
+	"somotracker/backend/internal/health"
+	"somotracker/backend/internal/imports"
+	"somotracker/backend/internal/invitations"
 	"somotracker/backend/internal/logger"
+	"somotracker/backend/internal/members"
 	"somotracker/backend/internal/middleware"
+	"somotracker/backend/internal/parents"
+	"somotracker/backend/internal/reports"
+	"somotracker/backend/internal/students"
+	"somotracker/backend/internal/teacherdeliverysummaries"
+	"somotracker/backend/internal/teacherperformance"
+	"somotracker/backend/internal/teachers"
+	"somotracker/backend/internal/teacherworkloadsummaries"
+	"somotracker/backend/internal/timetablestructure"
+	"somotracker/backend/internal/utils"
 )
 
 func main() {
@@ -23,18 +47,73 @@ func main() {
 		config.Module,
 		logger.Module,
 		database.Module,
+		utils.Module,
 
 		// Feature modules
-		cbcschools.Module,
+		academicyears.Module,
+		assessments.Module,
+		attendance.Module,
 		auth.Module,
+		behavior.Module,
+		billing.Module,
+		cbcclasses.Module,
+		cbcschools.Module,
+		cbcstreams.Module,
+		cbctimetableslots.Module,
+		classteachers.Module,
+		cohortpositions.Module,
+		curriculum.Module,
+		health.Module,
+		imports.Module,
+		invitations.Module,
+		members.Module,
+		parents.Module,
+		reports.Module,
+		students.Module,
+		teacherdeliverysummaries.Module,
+		teacherperformance.Module,
+		teachers.Module,
+		teacherworkloadsummaries.Module,
+		timetablestructure.Module,
+
+		// Background workers whose lifecycle hooks are not registered inside
+		// their own modules — wired here so fx starts/stops them with the app.
+		fx.Invoke(imports.RegisterWorkerHooks),
+		fx.Invoke(imports.RegisterCleanupSchedulerHooks),
+		fx.Invoke(cohortpositions.RegisterWorkerHooks),
+		fx.Invoke(cohortpositions.RegisterSchedulerHooks),
 
 		// Entrypoint – must be wrapped in fx.Invoke
 		fx.Invoke(func(
 			lc fx.Lifecycle,
 			cfg config.Config,
 			pools *database.Pools,
-			authhandler *auth.Handler,
 			log *zap.Logger,
+			academicyearshandler *academicyears.Handler,
+			assessmentshandler *assessments.Handler,
+			attendancehandler *attendance.Handler,
+			authhandler *auth.Handler,
+			behaviorhandler *behavior.Handler,
+			billinghandler *billing.Handler,
+			cbcclasseshandler *cbcclasses.Handler,
+			cbcschoolshandler *cbcschools.Handler,
+			cbcstreamshandler *cbcstreams.Handler,
+			cbctimetableslotshandler *cbctimetableslots.Handler,
+			classteachershandler *classteachers.Handler,
+			cohortpositionshandler *cohortpositions.Handler,
+			curriculumhandler *curriculum.Handler,
+			healthhandler *health.Handler,
+			importshandler *imports.Handler,
+			invitationshandler *invitations.Handler,
+			membershandler *members.Handler,
+			parentshandler *parents.Handler,
+			reportshandler *reports.Handler,
+			studentshandler *students.Handler,
+			teacherdeliverysummarieshandler *teacherdeliverysummaries.Handler,
+			teacherperformancehandler *teacherperformance.Handler,
+			teachershandler *teachers.Handler,
+			teacherworkloadsummarieshandler *teacherworkloadsummaries.Handler,
+			timetablestructurehandler *timetablestructure.Handler,
 		) {
 			// Build Fiber app with the canonical error handler: domain errors are
 			// mapped to the standard {code, message, errors} body via
@@ -65,12 +144,36 @@ func main() {
 
 			// Global security + context middleware (session resolver, CSRF guard,
 			// rate limiters, device fingerprint). Must run before routes so that
-			// middleware.RequireAuth (used by protected auth routes) can read the
+			// middleware.RequireAuth (used by protected routes) can read the
 			// resolved session from Locals (D1).
 			middleware.Register(app, pools, cfg, log.Sugar())
 
-			// Register auth routes
+			// Register all API routes.
+			academicyearshandler.RegisterRoutes(app)
+			assessmentshandler.RegisterRoutes(app)
+			attendancehandler.RegisterRoutes(app)
 			authhandler.RegisterRoutes(app)
+			behaviorhandler.RegisterRoutes(app)
+			billinghandler.RegisterRoutes(app)
+			cbcclasseshandler.RegisterRoutes(app)
+			cbcschoolshandler.RegisterRoutes(app)
+			cbcstreamshandler.RegisterRoutes(app)
+			cbctimetableslotshandler.RegisterRoutes(app)
+			classteachershandler.RegisterRoutes(app)
+			cohortpositionshandler.RegisterRoutes(app)
+			curriculumhandler.RegisterRoutes(app)
+			healthhandler.RegisterRoutes(app)
+			importshandler.RegisterRoutes(app)
+			invitationshandler.RegisterRoutes(app)
+			membershandler.RegisterRoutes(app)
+			parentshandler.RegisterRoutes(app)
+			reportshandler.RegisterRoutes(app)
+			studentshandler.RegisterRoutes(app)
+			teacherdeliverysummarieshandler.RegisterRoutes(app)
+			teacherperformancehandler.RegisterRoutes(app)
+			teachershandler.RegisterRoutes(app)
+			teacherworkloadsummarieshandler.RegisterRoutes(app)
+			timetablestructurehandler.RegisterRoutes(app)
 
 			// Lifecycle hooks for non-blocking Fiber server
 			lc.Append(fx.Hook{

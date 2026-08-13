@@ -2,6 +2,8 @@ package cohortpositions
 
 import (
 	"github.com/gofiber/fiber/v2"
+
+	"somotracker/backend/internal/middleware"
 )
 
 // Handler handles HTTP requests for cohort position summaries.
@@ -24,10 +26,10 @@ func NewHandler(svc *Service) *Handler {
 func (h *Handler) RegisterRoutes(app *fiber.App) {
 	api := app.Group("/api/v1/cohort-positions")
 
-	api.Post("/refresh", h.RefreshTerm)
-	api.Get("/:studentId", h.GetByStudent)
-	api.Get("/class/:classId", h.ListByClass)
-	api.Get("/grade/:gradeLevel", h.ListByGrade)
+	api.Post("/refresh", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.RefreshTerm)
+	api.Get("/:studentId", middleware.RequireAuth, h.GetByStudent)
+	api.Get("/class/:classId", middleware.RequireAuth, h.ListByClass)
+	api.Get("/grade/:gradeLevel", middleware.RequireAuth, h.ListByGrade)
 }
 
 // RefreshTerm triggers a batch refresh of cohort positions for a given term.

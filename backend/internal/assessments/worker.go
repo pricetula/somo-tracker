@@ -38,20 +38,6 @@ type RefreshTermPayload struct {
 	TermID   string `json:"term_id"`
 }
 
-// ─── Asynq Client ─────────────────────────────────────────────────────────
-
-// NewAsynqClient creates an Asynq client from the Redis pool.
-func NewAsynqClient(pools *database.Pools) *asynq.Client {
-	redisOpt := pools.Redis.Options()
-
-	return asynq.NewClient(asynq.RedisClientOpt{
-		Addr:      redisOpt.Addr,
-		Password:  redisOpt.Password,  // Fixes NOAUTH error
-		DB:        redisOpt.DB,        // Keeps the same database index
-		TLSConfig: redisOpt.TLSConfig, // Required if using TLS/SSL (rediss://)
-	})
-}
-
 // ─── Enqueuer ─────────────────────────────────────────────────────────────
 
 // Enqueuer publishes background refresh tasks to Asynq.
@@ -129,14 +115,10 @@ func NewWorker(pools *database.Pools, logger *zap.SugaredLogger) *Worker {
 
 // Start starts the Asynq worker. Called via fx lifecycle.
 func (w *Worker) Start(ctx context.Context) error {
-	w.server = asynq.NewServer(
-		asynq.RedisClientOpt{Addr: w.pools.Redis.Options().Addr},
-		asynq.Config{
-			Concurrency: 2,
-			Queues:      map[string]int{"summaries": 10},
-			Logger:      asynqLogger{logger: w.logger},
-		},
-	)
+	w.server = database.NewAsynqServer(w.pools, w.logger, asynq.Config{
+		Concurrency: 2,
+		Queues:      map[string]int{"summaries": 10},
+	})
 
 	mux := asynq.NewServeMux()
 	mux.HandleFunc(TaskRefreshOverallSummaries, w.withTenant(w.handleRefreshOverallSummaries))
@@ -255,14 +237,3 @@ func RegisterWorkerHooks(lc fx.Lifecycle, worker *Worker) {
 		OnStop:  worker.Stop,
 	})
 }
-
-// asynqLogger implements asynq.Logger via zap.
-type asynqLogger struct {
-	logger *zap.SugaredLogger
-}
-
-func (l asynqLogger) Debug(args ...interface{}) { l.logger.Debug(fmt.Sprint(args...)) }
-func (l asynqLogger) Info(args ...interface{})  { l.logger.Info(fmt.Sprint(args...)) }
-func (l asynqLogger) Warn(args ...interface{})  { l.logger.Warn(fmt.Sprint(args...)) }
-func (l asynqLogger) Error(args ...interface{}) { l.logger.Error(fmt.Sprint(args...)) }
-func (l asynqLogger) Fatal(args ...interface{}) { l.logger.Error(fmt.Sprint(args...)) }

@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/hibiken/asynq"
-	"github.com/redis/go-redis/v9"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 
@@ -14,14 +13,15 @@ import (
 )
 
 // Module is an fx-compatible module for the imports engine.
+// *asynq.Client is provided once by database.Module; the Asynq server and
+// scheduler are built via database.NewAsynqServer / database.NewAsynqScheduler
+// so the Redis connection options and zap log adapter live in one place.
 var Module = fx.Module("imports",
 	fx.Provide(
 		fx.Annotate(
 			NewRepository,
 			fx.As(new(ServiceRepository)),
 		),
-		NewAsynqClient,
-		NewAsynqServer,
 		NewCleanupScheduler,
 		NewService,
 		NewHandler,
@@ -29,14 +29,7 @@ var Module = fx.Module("imports",
 	),
 )
 
-// NewAsynqClient creates an Asynq client from the Redis pool.
-func NewAsynqClient(pools *database.Pools) *asynq.Client {
-	return asynq.NewClient(asynq.RedisClientOpt{
-		Addr: pools.Redis.Options().Addr,
-	})
-}
-
-// NewAsynqServer creates an Asynq server for processing import chunks.
+// importsServerConfig is the Asynq server config for import chunk processing.
 //
 // Concurrency is capped at 3 to leave headroom for other background job
 // types (e.g., notifications, exports) that may share the same Asynq server.
@@ -50,19 +43,11 @@ func NewAsynqClient(pools *database.Pools) *asynq.Client {
 // Queues map to assign relative priorities. The "imports" queue weight of
 // 10 means it takes all available workers when it is the only queue type
 // in the system.
-func NewAsynqServer(pools *database.Pools, logger *zap.SugaredLogger) *asynq.Server {
-	return asynq.NewServer(
-		asynq.RedisClientOpt{
-			Addr: pools.Redis.Options().Addr,
-		},
-		asynq.Config{
-			Concurrency: 3,
-			Queues: map[string]int{
-				"imports": 10,
-			},
-			Logger: asynqLogger{logger: logger},
-		},
-	)
+var importsServerConfig = asynq.Config{
+	Concurrency: 3,
+	Queues: map[string]int{
+		"imports": 10,
+	},
 }
 
 // NewCleanupScheduler creates a periodic task scheduler for the retention
@@ -86,12 +71,7 @@ type CleanupScheduler struct {
 
 // Start starts the periodic cleanup scheduler. Called via fx lifecycle.
 func (cs *CleanupScheduler) Start(ctx context.Context) error {
-	scheduler := asynq.NewScheduler(
-		asynq.RedisClientOpt{Addr: cs.pools.Redis.Options().Addr},
-		&asynq.SchedulerOpts{
-			Logger: asynqLogger{logger: cs.logger},
-		},
-	)
+	scheduler := database.NewAsynqScheduler(cs.pools, cs.logger, nil)
 
 	// Schedule the daily cleanup at 03:00 UTC (low-traffic window).
 	task := asynq.NewTask("imports:cleanup_old_data", nil)
@@ -117,31 +97,6 @@ func (cs *CleanupScheduler) Stop(ctx context.Context) error {
 	return nil
 }
 
-// asynqLogger wraps zap to implement asynq.Logger.
-type asynqLogger struct {
-	logger *zap.SugaredLogger
-}
-
-func (l asynqLogger) Debug(args ...interface{}) {
-	l.logger.Debug(fmt.Sprint(args...))
-}
-
-func (l asynqLogger) Info(args ...interface{}) {
-	l.logger.Info(fmt.Sprint(args...))
-}
-
-func (l asynqLogger) Warn(args ...interface{}) {
-	l.logger.Warn(fmt.Sprint(args...))
-}
-
-func (l asynqLogger) Error(args ...interface{}) {
-	l.logger.Error(fmt.Sprint(args...))
-}
-
-func (l asynqLogger) Fatal(args ...interface{}) {
-	l.logger.Error(fmt.Sprint(args...))
-}
-
 // Worker wraps the Asynq server and task registration.
 type Worker struct {
 	server *asynq.Server
@@ -150,7 +105,9 @@ type Worker struct {
 }
 
 // NewWorker creates a new Worker with chunk processing and cleanup handlers.
-func NewWorker(svc *Service, server *asynq.Server, logger *zap.SugaredLogger) *Worker {
+func NewWorker(svc *Service, pools *database.Pools, logger *zap.SugaredLogger) *Worker {
+	server := database.NewAsynqServer(pools, logger, importsServerConfig)
+
 	mux := asynq.NewServeMux()
 	mux.HandleFunc("imports:process_chunk", func(ctx context.Context, t *asynq.Task) error {
 		var payload ChunkTaskPayload
@@ -201,9 +158,4 @@ func RegisterCleanupSchedulerHooks(lc fx.Lifecycle, cs *CleanupScheduler) {
 		OnStart: cs.Start,
 		OnStop:  cs.Stop,
 	})
-}
-
-// RedisOptions extracts Redis options from a *redis.Client.
-func RedisOptions(rdb *redis.Client) *redis.Options {
-	return rdb.Options()
 }

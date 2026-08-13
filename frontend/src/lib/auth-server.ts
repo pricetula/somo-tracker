@@ -36,34 +36,37 @@ export interface AuthUser {
 export async function getVerifiedRole(): Promise<UserRole | null> {
     const cookieStore = await cookies();
     const roleCookie = cookieStore.get(ROLE_COOKIE_NAME);
-
+    console.log("1:---------", roleCookie?.value);
     if (!roleCookie?.value) return null;
 
     const secret = process.env.COOKIE_SECRET;
+    console.log("2:---------", secret);
     if (!secret) return null;
 
     const lastDot = roleCookie.value.lastIndexOf(".");
+    console.log("3:---------", lastDot);
     if (lastDot === -1) return null;
 
     const value = roleCookie.value.slice(0, lastDot);
     const expectedSig = roleCookie.value.slice(lastDot + 1);
-
+    console.log("4:---------", value, expectedSig);
     if (!value || !expectedSig) return null;
 
     try {
         const hmac = crypto.createHmac("sha256", secret);
         hmac.update(value);
         const computedSig = hmac.digest("hex");
-
+        console.log("5:---------");
         // Constant-time comparison to prevent timing attacks
         if (!crypto.timingSafeEqual(Buffer.from(computedSig), Buffer.from(expectedSig))) {
             return null;
         }
-
+        console.log("6:---------", value);
         if (!VALID_ROLES.has(value)) return null;
 
         return value as UserRole;
-    } catch {
+    } catch (err) {
+        console.log("7:---------", err);
         return null;
     }
 }

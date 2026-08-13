@@ -142,6 +142,9 @@ func main() {
 				ReadTimeout:  15 * time.Second,
 				WriteTimeout: 30 * time.Second,
 				IdleTimeout:  60 * time.Second,
+				// Trust the X-Forwarded-For header to get the original client IP
+				// for logging, rate limiting, and device fingerprinting.
+				ProxyHeader: fiber.HeaderXForwardedFor,
 			})
 
 			// Health check

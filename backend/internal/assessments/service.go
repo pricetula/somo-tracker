@@ -812,7 +812,12 @@ func (s *Service) GetGradingData(ctx context.Context, sessionID, tenantID, schoo
 		return nil, fmt.Errorf("assessments.Service.GetGradingData: %w", err)
 	}
 
-	// 2. Load the roster from the class domain
+	// 2. Load the roster from the class domain. The provider is injected via
+	//    SetRosterProvider (see module.go); a nil provider means the app was
+	//    wired without the cbcclasses module — fail loudly instead of panicking.
+	if s.RosterProvider == nil {
+		return nil, fmt.Errorf("assessments.Service.GetGradingData: roster provider not wired: %w", ErrInternal)
+	}
 	roster, err := s.RosterProvider.GetRosterByClassAndTerm(ctx, session.ClassID, tenantID, schoolID, session.AcademicTermID)
 	if err != nil {
 		return nil, fmt.Errorf("assessments.Service.GetGradingData: %w", err)

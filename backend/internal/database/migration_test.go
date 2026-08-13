@@ -888,18 +888,20 @@ func TestMigrationsIntegration_PartialUniqueIndexes_M18_to_M22(t *testing.T) {
 	// ======================================================================
 
 	yearID := uuid.New().String()
+	// M21 uses a 2025 year so it does not overlap the 2026 year inserted in M20
+	// (EXCL_academic_years_no_overlap rejects overlapping ranges per school).
 	_, err = pool.Exec(ctx, `INSERT INTO academic_years (id, tenant_id, school_id, name, start_date, end_date, created_by, updated_by)
-		VALUES ($1, $2, $3, '2026', '2026-01-01', '2026-12-31', $4, $4)`,
+		VALUES ($1, $2, $3, '2025', '2025-01-01', '2025-12-31', $4, $4)`,
 		yearID, tenantA, schoolA, userA)
 	require.NoError(t, err)
 
 	_, err = pool.Exec(ctx, `INSERT INTO academic_terms (id, tenant_id, school_id, academic_year_id, name, term_number, start_date, end_date, created_by, updated_by)
-		VALUES ($1, $2, $3, $4, 'Term 1', 1, '2026-01-01', '2026-04-30', $5, $5)`,
+		VALUES ($1, $2, $3, $4, 'Term 1', 1, '2025-01-01', '2025-04-30', $5, $5)`,
 		uuid.New().String(), tenantA, schoolA, yearID, userA)
 	require.NoError(t, err, "M21: first term insert should succeed")
 
 	_, err = pool.Exec(ctx, `INSERT INTO academic_terms (id, tenant_id, school_id, academic_year_id, name, term_number, start_date, end_date, created_by, updated_by)
-		VALUES ($1, $2, $3, $4, 'Term 1 Dup', 1, '2026-05-01', '2026-08-30', $5, $5)`,
+		VALUES ($1, $2, $3, $4, 'Term 1 Dup', 1, '2025-05-01', '2025-08-30', $5, $5)`,
 		uuid.New().String(), tenantA, schoolA, yearID, userA)
 	require.Error(t, err, "M21: duplicate term_number should be rejected")
 	require.Contains(t, err.Error(), "idx_unique_term_number_per_year")

@@ -3,19 +3,21 @@ package parents
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"net/mail"
 	"strings"
+
+	"go.uber.org/zap"
 )
 
 // Service contains business logic for parents.
 type Service struct {
-	Repo Repository
+	Repo   Repository
+	logger *zap.SugaredLogger
 }
 
 // NewService creates a new Service.
-func NewService(repo Repository) *Service {
-	return &Service{Repo: repo}
+func NewService(repo Repository, logger *zap.SugaredLogger) *Service {
+	return &Service{Repo: repo, logger: logger}
 }
 
 // validateEmail checks if the provided string is a valid email address.
@@ -73,7 +75,7 @@ func (s *Service) Create(ctx context.Context, tenantID string, payload CreatePar
 		return nil, fmt.Errorf("parents.Service.Create: %w", err)
 	}
 
-	slog.Info("parent.created",
+	s.logger.Infow("parent.created",
 		"tenant_id", tenantID,
 		"resource_id", id,
 		"email", payload.Email,
@@ -160,7 +162,7 @@ func (s *Service) Update(ctx context.Context, id, tenantID string, payload Updat
 		return fmt.Errorf("parents.Service.Update: %w", err)
 	}
 
-	slog.Info("parent.updated",
+	s.logger.Infow("parent.updated",
 		"tenant_id", tenantID,
 		"resource_id", id,
 		"phone_number_changed", payload.PhoneNumber != nil,
@@ -205,7 +207,7 @@ func (s *Service) LinkStudent(ctx context.Context, parentID, tenantID string, pa
 		return fmt.Errorf("parents.Service.LinkStudent: %w", err)
 	}
 
-	slog.Info("parent.student.linked",
+	s.logger.Infow("parent.student.linked",
 		"tenant_id", tenantID,
 		"parent_id", parentID,
 		"student_id", payload.StudentID,

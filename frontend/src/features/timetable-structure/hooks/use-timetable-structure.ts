@@ -59,7 +59,7 @@ export const timetableSlotKeys = {
 export function useTimeBlockList(academicYearID?: string) {
     return useQuery({
         queryKey: [...timetableStructureKeys.list(), academicYearID],
-        queryFn: () => listTimeBlocks(academicYearID),
+        queryFn: () => listTimeBlocks(academicYearID as string),
         enabled: !!academicYearID,
         staleTime: 5 * 60 * 1000,
         placeholderData: (prev) => prev,
@@ -70,9 +70,9 @@ export function useTimeBlockList(academicYearID?: string) {
 export function useTimeBlockListByDay(day: number, academicYearID?: string) {
     return useQuery({
         queryKey: [...timetableStructureKeys.byDay(day), academicYearID],
-        queryFn: () => listTimeBlocksByDay(day, academicYearID),
+        queryFn: () => listTimeBlocksByDay(day, academicYearID as string),
         staleTime: 5 * 60 * 1000,
-        enabled: day >= 1 && day <= 7,
+        enabled: !!academicYearID && day >= 1 && day <= 7,
         placeholderData: (prev) => prev,
     });
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
+	"go.uber.org/zap"
 
 	"somotracker/backend/internal/database"
 )
@@ -90,7 +91,7 @@ func seedTenantSchoolUser(t *testing.T, pool *pgxpool.Pool) (tenantID, schoolID,
 }
 
 func newRepo(pool *pgxpool.Pool) *PgRepository {
-	return NewRepository(&database.Pools{PG: pool})
+	return NewRepository(&database.Pools{PG: pool}, zap.NewNop().Sugar())
 }
 
 func TestPgRepository_CreateAndGetByUserID(t *testing.T) {

@@ -3,12 +3,11 @@ package database
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
-	"go.uber.org/fx"
+	"go.uber.org/zap"
 
 	"somotracker/backend/internal/config"
 )
@@ -20,7 +19,7 @@ type Pools struct {
 }
 
 // Connect establishes connections to PostgreSQL and Redis using the provided config.
-func Connect(cfg config.Config) (*Pools, error) {
+func Connect(cfg config.Config, logger *zap.SugaredLogger) (*Pools, error) {
 	pgCfg, err := pgxpool.ParseConfig(cfg.DatabaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("parse postgres config: %w", err)
@@ -52,8 +51,8 @@ func Connect(cfg config.Config) (*Pools, error) {
 	if err := rdb.Ping(ctx).Err(); err != nil {
 		pool.Close()
 		if closeErr := rdb.Close(); closeErr != nil {
-			slog.WarnContext(ctx, "database.NewPools: failed to close redis after ping failure",
-				slog.String("error", closeErr.Error()),
+			logger.Warnw("database.NewPools: failed to close redis after ping failure",
+				"error", closeErr.Error(),
 			)
 		}
 		return nil, fmt.Errorf("redis ping: %w", err)
@@ -61,6 +60,3 @@ func Connect(cfg config.Config) (*Pools, error) {
 
 	return &Pools{PG: pool, Redis: rdb}, nil
 }
-
-// Module is an fx-compatible provider for *Pools.
-var Module = fx.Provide(Connect)

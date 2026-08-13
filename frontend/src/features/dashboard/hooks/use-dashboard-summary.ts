@@ -119,15 +119,21 @@ export function useDashboardSetupProgress() {
     return useQuery<SetupChecklistItem[]>({
         queryKey: dashboardKeys.setup,
         queryFn: async () => {
-            const [yearsRes, classesRes, studentsRes, areasRes, blocksRes] = await Promise.all([
-                listAcademicYears(),
+            const yearsRes = await listAcademicYears();
+            const currentYearId =
+                yearsRes.items?.find((y) => y.is_current)?.id ?? yearsRes.items?.[0]?.id ?? "";
+
+            const [years, classesRes, studentsRes, areasRes, blocksRes] = await Promise.all([
+                Promise.resolve(yearsRes),
                 listClasses({ limit: 1 }),
                 listStudents({ limit: 1 }),
                 listLearningAreas(),
-                listTimeBlocks().catch(() => ({ items: [], total: 0 })),
+                currentYearId
+                    ? listTimeBlocks(currentYearId).catch(() => ({ items: [], total: 0 }))
+                    : Promise.resolve({ items: [], total: 0 }),
             ]);
 
-            const hasYears = (yearsRes.items?.length ?? 0) > 0;
+            const hasYears = (years.items?.length ?? 0) > 0;
             const hasClasses = classesRes.total > 0;
             const hasStudents = studentsRes.total > 0;
             const hasCurriculum = (areasRes.items?.length ?? 0) > 0;

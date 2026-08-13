@@ -13,10 +13,13 @@ import (
 
 // mockRepo implements Repository for testing the weight config service methods.
 type mockRepo struct {
-	createWeightConfigFn   func(ctx context.Context, params CreateWeightConfigParams) (string, error)
-	listWeightConfigsFn    func(ctx context.Context, filter AssessmentWeightConfigFilter) ([]AssessmentWeightConfig, error)
-	getWeightConfigByIDFn  func(ctx context.Context, id string) (*AssessmentWeightConfig, error)
-	getStudentTermGradesFn func(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]StudentTermGrade, error)
+	createWeightConfigFn        func(ctx context.Context, params CreateWeightConfigParams) (string, error)
+	listWeightConfigsFn         func(ctx context.Context, filter AssessmentWeightConfigFilter) ([]AssessmentWeightConfig, error)
+	getWeightConfigByIDFn       func(ctx context.Context, id string) (*AssessmentWeightConfig, error)
+	getStudentTermGradesFn      func(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]StudentTermGrade, error)
+	getSessionByIDFn            func(ctx context.Context, id, tenantID, schoolID string) (*AssessmentSession, error)
+	getStudentScoresBySessionFn func(ctx context.Context, sessionID, tenantID, schoolID string) ([]StudentScore, error)
+	getOutcomeGradesBySessionFn func(ctx context.Context, sessionID, tenantID, schoolID string) ([]OutcomeGrade, error)
 }
 
 func (m *mockRepo) CreateWeightConfig(ctx context.Context, params CreateWeightConfigParams) (string, error) {
@@ -71,6 +74,9 @@ func (m *mockRepo) CreateSession(ctx context.Context, params CreateSessionParams
 }
 
 func (m *mockRepo) GetSessionByID(ctx context.Context, id, tenantID, schoolID string) (*AssessmentSession, error) {
+	if m.getSessionByIDFn != nil {
+		return m.getSessionByIDFn(ctx, id, tenantID, schoolID)
+	}
 	return nil, errors.New("not implemented in mock")
 }
 
@@ -103,6 +109,9 @@ func (m *mockRepo) BulkUpsertStudentScores(ctx context.Context, params []UpsertS
 }
 
 func (m *mockRepo) GetStudentScoresBySession(ctx context.Context, sessionID, tenantID, schoolID string) ([]StudentScore, error) {
+	if m.getStudentScoresBySessionFn != nil {
+		return m.getStudentScoresBySessionFn(ctx, sessionID, tenantID, schoolID)
+	}
 	return nil, errors.New("not implemented in mock")
 }
 
@@ -119,6 +128,9 @@ func (m *mockRepo) BulkUpsertOutcomeGrades(ctx context.Context, params []UpsertO
 }
 
 func (m *mockRepo) GetOutcomeGradesBySession(ctx context.Context, sessionID, tenantID, schoolID string) ([]OutcomeGrade, error) {
+	if m.getOutcomeGradesBySessionFn != nil {
+		return m.getOutcomeGradesBySessionFn(ctx, sessionID, tenantID, schoolID)
+	}
 	return nil, errors.New("not implemented in mock")
 }
 
@@ -897,5 +909,93 @@ func TestGetStudentTermGrades_RepoError(t *testing.T) {
 	// The service wraps the error, so we check it contains the original
 	if !strings.Contains(err.Error(), "database connection lost") {
 		t.Fatalf("expected error to contain 'database connection lost', got %v", err)
+	}
+}
+
+// ============================================================================
+// Tests: GetGradingData (roster provider wiring + score/grade merge)
+// ============================================================================
+
+// fakeRosterProvider implements RosterProvider for tests.
+type fakeRosterProvider struct {
+	roster []RosterStudent
+	err    error
+}
+
+func (f *fakeRosterProvider) GetRosterByClassAndTerm(ctx context.Context, classID, tenantID, schoolID, academicTermID string) ([]RosterStudent, error) {
+	return f.roster, f.err
+}
+
+func TestGetGradingData_NilRosterProvider(t *testing.T) {
+	h := newSvcTestHarness()
+	h.repo.getSessionByIDFn = func(ctx context.Context, id, tenantID, schoolID string) (*AssessmentSession, error) {
+		return &AssessmentSession{ID: id, ClassID: "class_1", AcademicTermID: "term_1", EvaluationMethod: "RUBRIC"}, nil
+	}
+
+	// Service built without SetRosterProvider — must return a wrapped
+	// ErrInternal instead of panicking on a nil interface call.
+	_, err := h.svc.GetGradingData(context.Background(), "session_1", "tenant_1", "school_1")
+	if err == nil {
+		t.Fatal("expected error when roster provider is not wired, got nil")
+	}
+	if !errors.Is(err, ErrInternal) {
+		t.Fatalf("expected ErrInternal, got %v", err)
+	}
+}
+
+func TestGetGradingData_QuantitativeMergesScores(t *testing.T) {
+	h := newSvcTestHarness()
+	h.svc.SetRosterProvider(&fakeRosterProvider{roster: []RosterStudent{
+		{StudentID: "s1", StudentName: "Alice", AdmissionNumber: "ADM1", Gender: "F"},
+		{StudentID: "s2", StudentName: "Bob", AdmissionNumber: "ADM2", Gender: "M"},
+	}})
+	h.repo.getSessionByIDFn = func(ctx context.Context, id, tenantID, schoolID string) (*AssessmentSession, error) {
+		return &AssessmentSession{ID: id, ClassID: "class_1", AcademicTermID: "term_1", EvaluationMethod: "QUANTITATIVE"}, nil
+	}
+	h.repo.getStudentScoresBySessionFn = func(ctx context.Context, sessionID, tenantID, schoolID string) ([]StudentScore, error) {
+		raw := 87.5
+		return []StudentScore{{StudentID: "s2", RawScore: &raw}}, nil
+	}
+
+	resp, err := h.svc.GetGradingData(context.Background(), "session_1", "tenant_1", "school_1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Session.ID != "session_1" {
+		t.Fatalf("expected session echoed back, got %+v", resp.Session)
+	}
+	if len(resp.Students) != 2 {
+		t.Fatalf("expected 2 students, got %d", len(resp.Students))
+	}
+	// s1 has no score; s2 has a score attached.
+	if resp.Students[0].StudentID != "s1" || resp.Students[0].Score != nil {
+		t.Fatalf("expected s1 without score, got %+v", resp.Students[0])
+	}
+	if resp.Students[1].StudentID != "s2" || resp.Students[1].Score == nil || resp.Students[1].Score.RawScore == nil || *resp.Students[1].Score.RawScore != 87.5 {
+		t.Fatalf("expected s2 with score 87.5, got %+v", resp.Students[1])
+	}
+}
+
+func TestGetGradingData_RubricMergesGrades(t *testing.T) {
+	h := newSvcTestHarness()
+	h.svc.SetRosterProvider(&fakeRosterProvider{roster: []RosterStudent{
+		{StudentID: "s1", StudentName: "Alice", Gender: "F"},
+	}})
+	h.repo.getSessionByIDFn = func(ctx context.Context, id, tenantID, schoolID string) (*AssessmentSession, error) {
+		return &AssessmentSession{ID: id, ClassID: "class_1", AcademicTermID: "term_1", EvaluationMethod: "RUBRIC"}, nil
+	}
+	h.repo.getOutcomeGradesBySessionFn = func(ctx context.Context, sessionID, tenantID, schoolID string) ([]OutcomeGrade, error) {
+		return []OutcomeGrade{{StudentID: "s1", PerformanceIndicatorID: "ind_1", AwardedLevel: "EXCEEDS"}}, nil
+	}
+
+	resp, err := h.svc.GetGradingData(context.Background(), "session_1", "tenant_1", "school_1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(resp.Students) != 1 {
+		t.Fatalf("expected 1 student, got %d", len(resp.Students))
+	}
+	if len(resp.Students[0].Grades) != 1 || resp.Students[0].Grades[0].PerformanceIndicatorID != "ind_1" {
+		t.Fatalf("expected merged grade for s1, got %+v", resp.Students[0].Grades)
 	}
 }

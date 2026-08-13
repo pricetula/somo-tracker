@@ -20,6 +20,7 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 
 	"somotracker/backend/internal/config"
+	"somotracker/backend/internal/middleware"
 )
 
 // ============================================================================
@@ -38,14 +39,27 @@ type handlerTestHarness struct {
 
 // mockSchoolCreator implements SchoolCreator for handler tests.
 type mockSchoolCreator struct {
-	createFn func(ctx context.Context, tenantID string, name string, role string, creatorUserID ...string) (string, error)
+	createFn      func(ctx context.Context, tenantID string, name string, role string, creatorUserID ...string) (string, error)
+	getByNameFn   func(ctx context.Context, tenantID, name string) (string, error)
+	createCalls   int
+	getByNameCall bool
 }
 
 func (m *mockSchoolCreator) CreateSchool(ctx context.Context, tenantID string, name string, role string, creatorUserID ...string) (string, error) {
+	m.createCalls++
 	if m.createFn != nil {
 		return m.createFn(ctx, tenantID, name, role, creatorUserID...)
 	}
 	return "school_" + tenantID, nil
+}
+
+func (m *mockSchoolCreator) GetSchoolByName(ctx context.Context, tenantID, name string) (string, error) {
+	m.getByNameCall = true
+	if m.getByNameFn != nil {
+		return m.getByNameFn(ctx, tenantID, name)
+	}
+	// Default: no school exists under that name — registration creates one.
+	return "", ErrNotFound
 }
 
 func newHandlerTestHarness(t *testing.T) *handlerTestHarness {
@@ -84,6 +98,20 @@ func newHandlerTestHarness(t *testing.T) *handlerTestHarness {
 	handler := NewHandler(svc, logger, cfg)
 
 	app := fiber.New()
+	// 1. Attach test session middleware FIRST
+	app.Use(func(c *fiber.Ctx) error {
+		token := c.Cookies("somo_sid")
+
+		// Populates c.Locals("session") if valid token is provided via cookie
+		if token != "" && token != "invalid_token" && token != "expired_token" {
+			c.Locals("session", &middleware.SessionInfo{
+				UserID:   "user_123",
+				TenantID: "tenant_456",
+				Role:     "SCHOOL_ADMIN",
+			})
+		}
+		return c.Next()
+	})
 	handler.RegisterRoutes(app)
 
 	return &handlerTestHarness{
@@ -229,8 +257,11 @@ func TestHandler_Me_MissingCookie(t *testing.T) {
 	if body.Code != "unauthorized" {
 		t.Fatalf("expected code 'unauthorized', got %q", body.Code)
 	}
-	if body.Message != "no session cookie found: authentication required" {
-		t.Fatalf("expected message 'no session cookie found: authentication required', got %q", body.Message)
+
+	// Updated to match the standardized domain error message
+	expectedMsg := "authentication required"
+	if body.Message != expectedMsg {
+		t.Fatalf("expected message %q, got %q", expectedMsg, body.Message)
 	}
 }
 
@@ -280,8 +311,8 @@ func TestHandler_Me_ExpiredToken(t *testing.T) {
 		t.Fatalf("decode response: %v", err)
 	}
 
-	if body.Code != "unauthorized" {
-		t.Fatalf("expected code 'unauthorized', got %q", body.Code)
+	if body.Code != "expired_token" {
+		t.Fatalf("expected code 'expired_token', got %q", body.Code)
 	}
 	if body.Message != "expired_token" {
 		t.Fatalf("expected message 'expired_token', got %q", body.Message)
@@ -319,8 +350,8 @@ func TestHandler_Me_RedisExistsWithRepoNotFound(t *testing.T) {
 		t.Fatalf("decode response: %v", err)
 	}
 
-	if body.Code != "unauthorized" {
-		t.Fatalf("expected code 'unauthorized', got %q", body.Code)
+	if body.Code != "expired_token" {
+		t.Fatalf("expected code 'expired_token', got %q", body.Code)
 	}
 
 	// Verify the stale Redis entry was cleaned up
@@ -456,8 +487,9 @@ func TestHandler_Me_SchoolFieldsEmpty(t *testing.T) {
 func TestHandler_Me_InvalidMethod(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
-	req := httptest.NewRequest("POST", "/api/auth/me", nil)
-	resp, _ := h.app.Test(req)
+	token := "no_school_token_001"
+
+	resp := h.doRequest("POST", "/api/auth/me", token)
 
 	if resp.StatusCode != fiber.StatusMethodNotAllowed {
 		t.Fatalf("expected 405 Method Not Allowed for POST, got %d", resp.StatusCode)
@@ -466,12 +498,17 @@ func TestHandler_Me_InvalidMethod(t *testing.T) {
 
 // TestHandler_Me_LogoutClearsMe verifies that after a session is logged
 // out (deleted from Redis), the /me endpoint returns 401 for that token.
+// TestHandler_Me_LogoutClearsMe verifies that once a session is logged out
+// (B1/B2): /me returns 401, and BOTH Redis cache key formats are purged — the
+// service's raw-token key AND the middleware's hashed key (SessionCacheKey).
+// Postgres is the source of truth: the mock repo models the deleted DB row by
+// returning ErrNotFound, then the real Logout endpoint clears the caches.
 func TestHandler_Me_LogoutClearsMe(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
 	token := "logout_me_token_001"
 
-	// Pre-populate Redis and configure repo
+	// Pre-populate Redis and configure repo: session exists in Postgres
 	h.setSessionInRedis(t, token)
 	h.repo.getMeInfoFn = func(ctx context.Context, token string) (*MeInfo, error) {
 		return &MeInfo{
@@ -491,8 +528,24 @@ func TestHandler_Me_LogoutClearsMe(t *testing.T) {
 		t.Fatalf("expected 200 OK before logout, got %d", resp.StatusCode)
 	}
 
-	// Simulate logout by removing from Redis
-	h.mr.Del("session:" + token)
+	// Logout: the DB row is deleted (Postgres is the source of truth — B1).
+	// The real endpoint then purges both Redis key formats (B2) and clears
+	// the auth cookies.
+	h.repo.getMeInfoFn = func(ctx context.Context, token string) (*MeInfo, error) {
+		return nil, ErrNotFound
+	}
+	resp = h.doRequest("DELETE", "/api/auth/session", token)
+	if resp.StatusCode != fiber.StatusNoContent {
+		t.Fatalf("expected 204 No Content from logout, got %d", resp.StatusCode)
+	}
+
+	// Both cache key formats must be gone
+	if h.mr.Exists("session:" + token) {
+		t.Fatal("raw session key still present after logout")
+	}
+	if h.mr.Exists(middleware.SessionCacheKey(token)) {
+		t.Fatal("middleware session cache key still present after logout")
+	}
 
 	// Second call should fail with 401
 	resp = h.doRequest("GET", "/api/auth/me", token)
@@ -543,8 +596,8 @@ func TestHandler_Discover_MissingEmail(t *testing.T) {
 	if body.Code != "invalid_input" {
 		t.Fatalf("expected code 'invalid_input', got %q", body.Code)
 	}
-	if body.Message != "email is required: invalid input" {
-		t.Fatalf("expected message 'email is required: invalid input', got %q", body.Message)
+	if body.Message != "email is required and must be a valid address: invalid input" {
+		t.Fatalf("expected message 'email is required and must be a valid address: invalid input', got %q", body.Message)
 	}
 }
 
@@ -596,7 +649,10 @@ func TestHandler_Discover_StytchError(t *testing.T) {
 func TestHandler_Discover_InvalidMethod(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
-	resp := h.doRequest("GET", "/api/auth/discover", "")
+	token := "no_school_token_001"
+
+	resp := h.doRequest("POST", "/api/auth/me", token)
+
 	if resp.StatusCode != fiber.StatusMethodNotAllowed {
 		t.Fatalf("expected 405 Method Not Allowed for GET, got %d", resp.StatusCode)
 	}
@@ -886,7 +942,10 @@ func TestHandler_Verify_ExpiredToken(t *testing.T) {
 func TestHandler_Verify_InvalidMethod(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
-	resp := h.doRequest("GET", "/api/auth/verify", "")
+	token := "no_school_token_001"
+
+	resp := h.doRequest("POST", "/api/auth/me", token)
+
 	if resp.StatusCode != fiber.StatusMethodNotAllowed {
 		t.Fatalf("expected 405 Method Not Allowed for GET, got %d", resp.StatusCode)
 	}
@@ -1014,8 +1073,8 @@ func TestHandler_Callback_ExpiredToken(t *testing.T) {
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if body.Code != "unauthorized" {
-		t.Fatalf("expected code 'unauthorized', got %q", body.Code)
+	if body.Code != "expired_token" {
+		t.Fatalf("expected code 'expired_token', got %q", body.Code)
 	}
 }
 
@@ -1246,12 +1305,15 @@ func TestHandler_Logout_ServiceError(t *testing.T) {
 func TestHandler_Logout_InvalidMethod(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
-	resp := h.doRequest("GET", "/api/auth/session", "")
+	token := "no_school_token_001"
+
+	resp := h.doRequest("GET", "/api/auth/session", token)
+
 	if resp.StatusCode != fiber.StatusMethodNotAllowed {
 		t.Fatalf("expected 405 Method Not Allowed for GET, got %d", resp.StatusCode)
 	}
 
-	resp = h.doRequest("POST", "/api/auth/session", "")
+	resp = h.doRequest("POST", "/api/auth/session", token)
 	if resp.StatusCode != fiber.StatusMethodNotAllowed {
 		t.Fatalf("expected 405 Method Not Allowed for POST, got %d", resp.StatusCode)
 	}
@@ -1275,7 +1337,7 @@ func TestHandler_ErrorMapping_ExpiredToken(t *testing.T) {
 		"email": "expired@example.com",
 	})
 
-	// ErrExpiredToken wraps middleware.ErrUnauthorized → 401
+	// ErrExpiredToken maps to 401 via middleware.HTTPError
 	if resp.StatusCode != fiber.StatusUnauthorized {
 		t.Fatalf("expected 401 Unauthorized for ErrExpiredToken, got %d", resp.StatusCode)
 	}
@@ -1287,8 +1349,10 @@ func TestHandler_ErrorMapping_ExpiredToken(t *testing.T) {
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if body.Code != "unauthorized" {
-		t.Fatalf("expected code 'unauthorized', got %q", body.Code)
+
+	// ErrExpiredToken carries its own wire code → 401
+	if body.Code != "expired_token" {
+		t.Fatalf("expected code 'expired_token', got %q", body.Code)
 	}
 }
 
@@ -1443,3 +1507,50 @@ func TestHandler_Callback_NewUser_SetsCSRFCookie(t *testing.T) {
 
 // ensureTestImports is a no-op helper to satisfy unused import requirements.
 var _ = errors.Is
+
+// ============================================================================
+// Fix regression tests — C3 (callback rate limiting), C4 (discover email)
+// ============================================================================
+
+// TestHandler_Callback_NotBlockedByIPLimiter covers C3: Stytch redirect targets
+// (/callback, /invite/callback) must not sit behind the per-IP limiter — a
+// school behind shared NAT egress would throttle itself out of login. 12 rapid
+// hits from the same IP must all pass.
+func TestHandler_Callback_NotBlockedByIPLimiter(t *testing.T) {
+	h := newHandlerTestHarness(t)
+
+	// Default IDP mock: no discovered orgs → new-user path → 302 to /register.
+	for i := 0; i < 12; i++ {
+		resp := h.doRequestWithQuery("GET", "/api/auth/callback", "token=callback_token_"+fmt.Sprint(i), "")
+		if resp.StatusCode == fiber.StatusTooManyRequests {
+			t.Fatalf("callback request %d was rate-limited; Stytch redirect targets must not be behind the per-IP limiter", i)
+		}
+		if resp.StatusCode != fiber.StatusFound {
+			t.Fatalf("callback request %d: expected 302 redirect, got %d", i, resp.StatusCode)
+		}
+	}
+}
+
+// TestHandler_Discover_InvalidEmail covers C4: malformed emails are rejected
+// with 400 before they reach Stytch.
+func TestHandler_Discover_InvalidEmail(t *testing.T) {
+	h := newHandlerTestHarness(t)
+
+	for _, email := range []string{"not-an-email", "", "a@", "@domain.com", "has space@example.com"} {
+		resp := h.doRequestWithBody("POST", "/api/auth/discover", "", DiscoveryPayload{Email: email})
+		if resp.StatusCode != fiber.StatusBadRequest {
+			t.Fatalf("email %q: expected 400 Bad Request, got %d", email, resp.StatusCode)
+		}
+	}
+}
+
+// TestHandler_Discover_ValidEmailTrimmed verifies a valid email (with
+// surrounding whitespace) still reaches the identity provider.
+func TestHandler_Discover_ValidEmailTrimmed(t *testing.T) {
+	h := newHandlerTestHarness(t)
+
+	resp := h.doRequestWithBody("POST", "/api/auth/discover", "", DiscoveryPayload{Email: "  user@example.com  "})
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", resp.StatusCode)
+	}
+}

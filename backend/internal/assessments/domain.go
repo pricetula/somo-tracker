@@ -26,6 +26,9 @@ var (
 	ErrTermFinalised          = xerrors.Forbidden("term is finalised")
 	ErrScaleReferenced        = xerrors.Conflict("scale profile is referenced by existing sessions")
 	ErrStudentNotGradable     = xerrors.InvalidInput("student is not in a gradable state")
+	// ErrInternal is a recognized *xerrors.DomainError so that the HTTP
+	// error handler maps it to a 500 with a generic message.
+	ErrInternal = &xerrors.DomainError{Code: "internal_error", Status: 500, Message: "an unexpected error occurred"}
 )
 
 // ── Performance Level helpers ────────────────────────────────────────────

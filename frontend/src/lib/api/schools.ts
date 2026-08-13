@@ -40,7 +40,16 @@ export async function createSchool(data: CreateSchoolPayload): Promise<CreateSch
 /** Update a school's details. */
 export async function updateSchool(
     id: string,
-    payload: { name?: string; code?: string }
+    payload: {
+        name?: string;
+        county?: string;
+        sub_county?: string;
+        ward?: string;
+        knec_school_code?: string;
+        nemis_code?: string;
+        school_type?: string;
+        is_active?: boolean;
+    }
 ): Promise<void> {
     return api.put<void>(`/api/v1/schools/${id}`, payload);
 }

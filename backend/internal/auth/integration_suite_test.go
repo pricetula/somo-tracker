@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/rand"
 	"net/http"
@@ -15,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"github.com/testcontainers/testcontainers-go"
@@ -300,6 +302,7 @@ func setupSuite(ctx context.Context) (*IntegrationSuite, error) {
 		idp:           idp,
 		repo:          repo,
 		rdb:           rdb,
+		pool:          pool,
 		logger:        logger,
 		cfg:           suite.cfg,
 		schoolCreator: newSchoolCreatorAdapter(pool),
@@ -391,8 +394,6 @@ func startRedis(ctx context.Context) (testcontainers.Container, string, error) {
 func runMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 	migrationFiles := []string{
 		"000001_initial_schema.up.sql",
-		"000003_fix_review_findings.up.sql",
-		"000015_deprecate_session_token_column.up.sql",
 	}
 
 	// Find the migrations directory relative to the test file
@@ -755,7 +756,7 @@ func newSchoolCreatorAdapter(pool *pgxpool.Pool) *schoolCreatorAdapter {
 
 func newSchoolCreatorAdapterWithYearSeeder(pool *pgxpool.Pool) *schoolCreatorAdapter {
 	ayRepo := academicyears.NewRepository(&database.Pools{PG: pool})
-	aySvc := academicyears.NewService(ayRepo)
+	aySvc := academicyears.NewService(ayRepo, zap.NewNop().Sugar())
 	return &schoolCreatorAdapter{pool: pool, yearSeeder: aySvc}
 }
 
@@ -801,6 +802,25 @@ func (a *schoolCreatorAdapter) CreateSchool(ctx context.Context, tenantID string
 		}
 	}
 
+	return id, nil
+}
+
+// GetSchoolByName implements the SchoolCreator contract for integration tests:
+// returns the school ID for a tenant+name, or ErrNotFound.
+func (a *schoolCreatorAdapter) GetSchoolByName(ctx context.Context, tenantID, name string) (string, error) {
+	var id string
+	err := a.pool.QueryRow(ctx, `
+		SELECT id FROM cbc_schools
+		WHERE tenant_id = $1 AND name = $2
+		ORDER BY created_at ASC
+		LIMIT 1
+	`, tenantID, name).Scan(&id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", ErrNotFound
+		}
+		return "", err
+	}
 	return id, nil
 }
 
@@ -981,6 +1001,7 @@ func (s *IntegrationSuite) createServiceWithYearSeeder() *Service {
 		idp:           s.svc.idp,
 		repo:          s.svc.repo,
 		rdb:           s.svc.rdb,
+		pool:          s.pgPool,
 		logger:        s.svc.logger,
 		cfg:           s.svc.cfg,
 		schoolCreator: newSchoolCreatorAdapterWithYearSeeder(s.pgPool),

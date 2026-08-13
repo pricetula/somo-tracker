@@ -4,23 +4,24 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.uber.org/zap"
 
 	"somotracker/backend/internal/database"
 )
 
 // PgRepository implements StudentRepository backed by Postgres.
 type PgRepository struct {
-	pool *pgxpool.Pool
+	pool   *pgxpool.Pool
+	logger *zap.SugaredLogger
 }
 
 // NewRepository creates a new PgRepository.
-func NewRepository(pools *database.Pools) *PgRepository {
-	return &PgRepository{pool: pools.PG}
+func NewRepository(pools *database.Pools, logger *zap.SugaredLogger) *PgRepository {
+	return &PgRepository{pool: pools.PG, logger: logger}
 }
 
 // ─── List ─────────────────────────────────────────────────────────────────
@@ -119,7 +120,7 @@ func (r *PgRepository) List(ctx context.Context, filter ListFilter) ([]Student, 
 	`, whereClause)
 
 	var total int
-	if err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
+	if err := database.FromContext(ctx, r.pool).QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("students.Repository.List: count: %w", err)
 	}
 
@@ -161,7 +162,7 @@ func (r *PgRepository) List(ctx context.Context, filter ListFilter) ([]Student, 
 	`, whereClause, argIdx, argIdx+1)
 	args = append(args, filter.Limit, (filter.Page-1)*filter.Limit)
 
-	rows, err := r.pool.Query(ctx, dataQuery, args...)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, dataQuery, args...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("students.Repository.List: query: %w", err)
 	}
@@ -222,7 +223,7 @@ func (r *PgRepository) GetByID(ctx context.Context, id, tenantID, schoolID strin
 	`
 	var s Student
 	var dateOfBirth, upiNumber, knecNumber, className, classID *string
-	err := r.pool.QueryRow(ctx, query, id, tenantID).Scan(
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, id, tenantID).Scan(
 		&s.ID, &s.FullName, &s.Gender, &dateOfBirth, &upiNumber,
 		&knecNumber, &className, &classID, &s.IsActive, &s.CreatedAt,
 	)
@@ -280,10 +281,12 @@ func (r *PgRepository) ListLinkedParents(ctx context.Context, studentID, tenantI
 		FROM cbc_student_parents sp
 		JOIN cbc_parents cp ON cp.id = sp.parent_id
 		JOIN users u ON u.id = cp.user_id AND u.tenant_id = $2
-		WHERE sp.student_id = $1 AND cp.tenant_id = $2
+		WHERE sp.student_id = $1
+		  AND sp.tenant_id = $2
+		  AND cp.tenant_id = $2
 		ORDER BY sp.is_primary DESC, u.full_name ASC
 	`
-	rows, err := r.pool.Query(ctx, query, studentID, tenantID)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, studentID, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("students.Repository.ListLinkedParents: %w", err)
 	}
@@ -316,7 +319,7 @@ func (r *PgRepository) Create(ctx context.Context, student *Student) (string, er
 		RETURNING id
 	`
 	var id string
-	err := r.pool.QueryRow(ctx, query,
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query,
 		student.TenantID,
 		student.SchoolID,
 		student.FullName,
@@ -338,14 +341,14 @@ func (r *PgRepository) Create(ctx context.Context, student *Student) (string, er
 // Returns the IDs of all successfully created students. On any failure,
 // the entire batch is rolled back (all-or-nothing).
 func (r *PgRepository) CreateBatch(ctx context.Context, students []*Student) ([]string, error) {
-	tx, err := r.pool.Begin(ctx)
+	tx, err := database.Begin(ctx, r.pool)
 	if err != nil {
 		return nil, fmt.Errorf("students.Repository.CreateBatch: begin tx: %w", err)
 	}
 	defer func() {
 		if rbErr := tx.Rollback(ctx); rbErr != nil && rbErr != pgx.ErrTxClosed {
-			slog.WarnContext(ctx, "students.Repository.CreateBatch: rollback",
-				slog.String("error", rbErr.Error()))
+			r.logger.Warnw("students.Repository.CreateBatch: rollback",
+				"error", rbErr.Error())
 		}
 	}()
 
@@ -392,7 +395,7 @@ func (r *PgRepository) Update(ctx context.Context, student *Student) error {
 		    upi_number = $4, knec_assessment_number = $5, is_active = $6
 		WHERE id = $7
 	`
-	_, err := r.pool.Exec(ctx, query,
+	_, err := database.FromContext(ctx, r.pool).Exec(ctx, query,
 		student.FullName,
 		student.Gender,
 		student.DateOfBirth,
@@ -415,7 +418,7 @@ func (r *PgRepository) Update(ctx context.Context, student *Student) error {
 // Delete hard-deletes a student record (and cascade-enrollments) by ID.
 func (r *PgRepository) Delete(ctx context.Context, id, tenantID, schoolID string) error {
 	// Delete enrollments first (cascade)
-	_, err := r.pool.Exec(ctx, `DELETE FROM cbc_student_enrollments WHERE student_id = $1`, id)
+	_, err := database.FromContext(ctx, r.pool).Exec(ctx, `DELETE FROM cbc_student_enrollments WHERE student_id = $1`, id)
 	if err != nil {
 		return fmt.Errorf("students.Repository.Delete: delete enrollments: %w", err)
 	}
@@ -424,7 +427,7 @@ func (r *PgRepository) Delete(ctx context.Context, id, tenantID, schoolID string
 		DELETE FROM cbc_students
 		WHERE id = $1 AND tenant_id = $2 AND school_id = $3
 	`
-	tag, err := r.pool.Exec(ctx, query, id, tenantID, schoolID)
+	tag, err := database.FromContext(ctx, r.pool).Exec(ctx, query, id, tenantID, schoolID)
 	if err != nil {
 		return fmt.Errorf("students.Repository.Delete: %w", err)
 	}
@@ -454,7 +457,7 @@ func (r *PgRepository) CreateEnrollment(ctx context.Context, enrollment *Enrollm
 		RETURNING id
 	`
 	var id string
-	err = r.pool.QueryRow(ctx, query,
+	err = database.FromContext(ctx, r.pool).QueryRow(ctx, query,
 		enrollment.StudentID,
 		enrollment.ClassID,
 		enrollment.AcademicTermID,
@@ -484,7 +487,7 @@ func (r *PgRepository) ListEnrollments(ctx context.Context, studentID, tenantID 
 		WHERE e.student_id = $1
 		ORDER BY ay.start_date DESC, t.term_number DESC
 	`
-	rows, err := r.pool.Query(ctx, query, studentID)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, studentID)
 	if err != nil {
 		return nil, fmt.Errorf("students.Repository.ListEnrollments: %w", err)
 	}
@@ -541,7 +544,7 @@ func (r *PgRepository) IsEnrolledInTerm(ctx context.Context, studentID, academic
 		)
 	`
 	var exists bool
-	err := r.pool.QueryRow(ctx, query, studentID, academicTermID).Scan(&exists)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, studentID, academicTermID).Scan(&exists)
 	if err != nil {
 		return false, fmt.Errorf("students.Repository.IsEnrolledInTerm: %w", err)
 	}
@@ -613,7 +616,7 @@ func (r *PgRepository) ValidateClassExists(ctx context.Context, tenantID, school
 		)
 	`
 	var exists bool
-	err := r.pool.QueryRow(ctx, query, classID, tenantID, schoolID).Scan(&exists)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, classID, tenantID, schoolID).Scan(&exists)
 	if err != nil {
 		return false, fmt.Errorf("students.Repository.ValidateClassExists: %w", err)
 	}
@@ -629,7 +632,7 @@ func (r *PgRepository) CheckSchoolAdminMembership(ctx context.Context, userID, t
 		)
 	`
 	var exists bool
-	err := r.pool.QueryRow(ctx, query, userID, tenantID, schoolID).Scan(&exists)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, userID, tenantID, schoolID).Scan(&exists)
 	if err != nil {
 		return false, fmt.Errorf("students.Repository.CheckSchoolAdminMembership: %w", err)
 	}
@@ -677,7 +680,7 @@ func (r *PgRepository) CheckExistingFieldValues(ctx context.Context, tenantID, s
 	copy(knecPG, knecSet)
 
 	var admResult, upiResult, knecResult []string
-	err = r.pool.QueryRow(ctx, query,
+	err = database.FromContext(ctx, r.pool).QueryRow(ctx, query,
 		tenantID, schoolID, admPG, upiPG, knecPG,
 	).Scan(&admResult, &upiResult, &knecResult)
 	if err != nil {
@@ -706,14 +709,14 @@ func (r *PgRepository) CreateBatchEnrollments(ctx context.Context, enrollments [
 		return []string{}, nil
 	}
 
-	tx, err := r.pool.Begin(ctx)
+	tx, err := database.Begin(ctx, r.pool)
 	if err != nil {
 		return nil, fmt.Errorf("students.Repository.CreateBatchEnrollments: begin tx: %w", err)
 	}
 	defer func() {
 		if rbErr := tx.Rollback(ctx); rbErr != nil && rbErr != pgx.ErrTxClosed {
-			slog.WarnContext(ctx, "students.Repository.CreateBatchEnrollments: rollback",
-				slog.String("error", rbErr.Error()))
+			r.logger.Warnw("students.Repository.CreateBatchEnrollments: rollback",
+				"error", rbErr.Error())
 		}
 	}()
 

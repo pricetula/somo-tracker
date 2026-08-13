@@ -7,13 +7,13 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"log/slog"
 	"os"
 	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.uber.org/zap"
 
 	"somotracker/backend/internal/database"
 )
@@ -55,15 +55,17 @@ var gradeMapping = func() map[string]string {
 type SeedingService struct {
 	pool    *pgxpool.Pool
 	beginTx func(ctx context.Context) (pgx.Tx, error)
+	logger  *zap.SugaredLogger
 }
 
 // NewSeedingService creates a new SeedingService.
-func NewSeedingService(pools *database.Pools) *SeedingService {
+func NewSeedingService(pools *database.Pools, logger *zap.SugaredLogger) *SeedingService {
 	return &SeedingService{
 		pool: pools.PG,
 		beginTx: func(ctx context.Context) (pgx.Tx, error) {
 			return pools.PG.Begin(ctx)
 		},
+		logger: logger,
 	}
 }
 
@@ -146,8 +148,8 @@ func (s *SeedingService) seedFromFS(
 	}
 	defer func() {
 		if rbErr := tx.Rollback(ctx); rbErr != nil && !errors.Is(rbErr, pgx.ErrTxClosed) {
-			slog.WarnContext(ctx, "seeding: deferred tx rollback returned unexpected error",
-				slog.String("error", rbErr.Error()),
+			s.logger.Warnw("seeding: deferred tx rollback returned unexpected error",
+				"error", rbErr.Error(),
 			)
 		}
 	}()

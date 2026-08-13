@@ -30,7 +30,7 @@ func TestRateLimiter_BotScenarios(t *testing.T) {
 		app := fiber.New()
 
 		// Allow max 5 requests per minute
-		app.Use(newRateLimiter(rdb, RateLimiterConfig{
+		app.Use(NewRateLimiter(rdb, RateLimiterConfig{
 			Limit:  5,
 			Window: 1 * time.Minute,
 			Prefix: "bot_burst",
@@ -87,7 +87,7 @@ func TestRateLimiter_BotScenarios(t *testing.T) {
 		})
 
 		// 2. Tier 2 Rate Limiter runs second and safely reads c.Locals("user_id")
-		app.Use(newRateLimiter(rdb, RateLimiterConfig{
+		app.Use(NewRateLimiter(rdb, RateLimiterConfig{
 			Limit:  3,
 			Window: 1 * time.Minute,
 			Prefix: "bot_user_tier",
@@ -126,7 +126,7 @@ func TestRateLimiter_BotScenarios(t *testing.T) {
 		app := fiber.New()
 
 		window := 200 * time.Millisecond
-		app.Use(newRateLimiter(rdb, RateLimiterConfig{
+		app.Use(NewRateLimiter(rdb, RateLimiterConfig{
 			Limit:  2,
 			Window: window,
 			Prefix: "sliding_window_test",

@@ -138,7 +138,7 @@ func TestPgRepository_ListByTeacher(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigrations(t, pool, "000001_initial_schema.up.sql", "000013_create_teacher_delivery_summaries.up.sql")
+	applyMigrations(t, pool, "000001_initial_schema.up.sql")
 
 	tenantID, schoolID, userID := seedTenantSchoolUser(t, pool)
 	yearID := seedAcademicYear(t, pool, tenantID, schoolID)
@@ -177,7 +177,7 @@ func TestPgRepository_ListByTeacher_NotFound(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigrations(t, pool, "000001_initial_schema.up.sql", "000013_create_teacher_delivery_summaries.up.sql")
+	applyMigrations(t, pool, "000001_initial_schema.up.sql")
 
 	tenantID, schoolID, userID := seedTenantSchoolUser(t, pool)
 
@@ -194,7 +194,7 @@ func TestPgRepository_ListByTerm(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigrations(t, pool, "000001_initial_schema.up.sql", "000013_create_teacher_delivery_summaries.up.sql")
+	applyMigrations(t, pool, "000001_initial_schema.up.sql")
 
 	tenantID, schoolID, userID1 := seedTenantSchoolUser(t, pool)
 
@@ -234,7 +234,7 @@ func TestPgRepository_GetByTeacherTerm(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigrations(t, pool, "000001_initial_schema.up.sql", "000013_create_teacher_delivery_summaries.up.sql")
+	applyMigrations(t, pool, "000001_initial_schema.up.sql")
 
 	tenantID, schoolID, userID := seedTenantSchoolUser(t, pool)
 	yearID := seedAcademicYear(t, pool, tenantID, schoolID)
@@ -266,7 +266,7 @@ func TestPgRepository_GetByTeacherTerm_NotFound(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigrations(t, pool, "000001_initial_schema.up.sql", "000013_create_teacher_delivery_summaries.up.sql")
+	applyMigrations(t, pool, "000001_initial_schema.up.sql")
 
 	repo := newRepo(pool)
 
@@ -281,7 +281,7 @@ func TestPgRepository_ListByTerm_Empty(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigrations(t, pool, "000001_initial_schema.up.sql", "000013_create_teacher_delivery_summaries.up.sql")
+	applyMigrations(t, pool, "000001_initial_schema.up.sql")
 
 	tenantID, schoolID, _ := seedTenantSchoolUser(t, pool)
 	repo := newRepo(pool)
@@ -299,7 +299,7 @@ func TestPgRepository_RefreshComputation(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigrations(t, pool, "000001_initial_schema.up.sql", "000013_create_teacher_delivery_summaries.up.sql")
+	applyMigrations(t, pool, "000001_initial_schema.up.sql")
 
 	repo := newRepo(pool)
 

@@ -391,9 +391,9 @@ func TestPgRepository_HasActiveEnrollments(t *testing.T) {
 		studentID, tenantID, schoolID)
 	require.NoError(t, err)
 
-	_, err = pool.Exec(ctx, `INSERT INTO cbc_student_enrollments (id, tenant_id, student_id, school_id, academic_term_id, class_id, status)
-		VALUES ($1, $2, $3, $4, $5, $6, 'ACTIVE')`,
-		uuid.New().String(), tenantID, studentID, schoolID, termID, classID)
+	_, err = pool.Exec(ctx, `INSERT INTO cbc_student_enrollments (id, tenant_id, student_id, school_id, academic_term_id, academic_year_id, class_id, status)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, 'ACTIVE')`,
+		uuid.New().String(), tenantID, studentID, schoolID, termID, yearID, classID)
 	require.NoError(t, err)
 
 	// Now there ARE active enrollments

@@ -3,9 +3,9 @@ package cbctimetableslots
 import (
 	"context"
 	"encoding/json"
-	"log/slog"
 
 	"github.com/hibiken/asynq"
+	"go.uber.org/zap"
 
 	"somotracker/backend/internal/database"
 )
@@ -27,14 +27,15 @@ type workloadRefreshPayload struct {
 // Enqueuer publishes background workload summary refresh tasks.
 type Enqueuer struct {
 	client *asynq.Client
+	logger *zap.SugaredLogger
 }
 
 // NewEnqueuer creates a new Enqueuer.
-func NewEnqueuer(pools *database.Pools) *Enqueuer {
+func NewEnqueuer(pools *database.Pools, logger *zap.SugaredLogger) *Enqueuer {
 	client := asynq.NewClient(asynq.RedisClientOpt{
 		Addr: pools.Redis.Options().Addr,
 	})
-	return &Enqueuer{client: client}
+	return &Enqueuer{client: client, logger: logger}
 }
 
 // EnqueueWorkloadSummaryRefresh enqueues a task to refresh teacher workload
@@ -44,7 +45,7 @@ func (e *Enqueuer) EnqueueWorkloadSummaryRefresh(ctx context.Context, academicYe
 	payload, _ := json.Marshal(workloadRefreshPayload{AcademicYearID: academicYearID})
 	task := asynq.NewTask(taskRefreshTeacherWorkloadSummaries, payload)
 	if _, err := e.client.Enqueue(task, asynq.MaxRetry(3), asynq.Queue("summaries")); err != nil {
-		slog.WarnContext(ctx, "cbctimetableslots: enqueue workload refresh failed",
+		e.logger.Warnw("cbctimetableslots: enqueue workload refresh failed",
 			"academic_year_id", academicYearID, "error", err,
 		)
 	}

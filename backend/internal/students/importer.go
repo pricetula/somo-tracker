@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"go.uber.org/zap"
 
 	"somotracker/backend/internal/imports"
 )
@@ -74,12 +74,13 @@ type augmentedImportRow struct {
 
 // StudentImporter handles the student-specific import logic.
 type StudentImporter struct {
-	repo ImportRepository
+	repo   ImportRepository
+	logger *zap.SugaredLogger
 }
 
 // NewStudentImporter creates a new StudentImporter.
-func NewStudentImporter(repo ImportRepository) *StudentImporter {
-	return &StudentImporter{repo: repo}
+func NewStudentImporter(repo ImportRepository, logger *zap.SugaredLogger) *StudentImporter {
+	return &StudentImporter{repo: repo, logger: logger}
 }
 
 // JobType returns STUDENT_IMPORT.
@@ -189,7 +190,7 @@ func (si *StudentImporter) Validate(ctx context.Context, tenantID, schoolID uuid
 	}
 
 	if len(failures) > 0 {
-		slog.Debug("students.StudentImporter.Validate: schema validation failures",
+		si.logger.Debugw("students.StudentImporter.Validate: schema validation failures",
 			"total", len(raw),
 			"valid", len(validated),
 			"failed", len(failures),
@@ -223,7 +224,7 @@ func (si *StudentImporter) ResolveReferences(ctx context.Context, tenantID, scho
 		AcademicYearID string `json:"academic_year_id"`
 	}
 	if err := json.Unmarshal(metadata, &meta); err != nil {
-		slog.Error("students.StudentImporter.ResolveReferences: invalid metadata", "error", err)
+		si.logger.Errorw("students.StudentImporter.ResolveReferences: invalid metadata", "error", err)
 		return nil, allFail(rows, "job metadata is invalid")
 	}
 

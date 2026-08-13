@@ -50,7 +50,7 @@ func (r *PgRepository) ListBySchool(ctx context.Context, tenantID, schoolID stri
 	`, activeFilter, searchClause)
 
 	var total int
-	if err := r.pool.QueryRow(ctx, countQuery, countArgs...).Scan(&total); err != nil {
+	if err := database.FromContext(ctx, r.pool).QueryRow(ctx, countQuery, countArgs...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("teachers.Repository.Count: %w", err)
 	}
 
@@ -79,7 +79,7 @@ func (r *PgRepository) ListBySchool(ctx context.Context, tenantID, schoolID stri
 	dataQuery += fmt.Sprintf(` ORDER BY u.full_name LIMIT $%d OFFSET $%d`, argIdx, argIdx+1)
 	dataArgs = append(dataArgs, limit, offset)
 
-	rows, err := r.pool.Query(ctx, dataQuery, dataArgs...)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, dataQuery, dataArgs...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("teachers.Repository.ListBySchool: %w", err)
 	}
@@ -117,7 +117,7 @@ func (r *PgRepository) ToggleActive(ctx context.Context, tenantID, schoolID, use
 		WHERE tenant_id = $2 AND school_id = $3 AND user_id = $4 AND role::text = 'TEACHER'
 	`
 
-	tag, err := r.pool.Exec(ctx, query, isActive, tenantID, schoolID, userID)
+	tag, err := database.FromContext(ctx, r.pool).Exec(ctx, query, isActive, tenantID, schoolID, userID)
 	if err != nil {
 		return fmt.Errorf("teachers.Repository.ToggleActive: %w", err)
 	}
@@ -135,7 +135,7 @@ func (r *PgRepository) Delete(ctx context.Context, tenantID, schoolID, userID st
 		WHERE tenant_id = $1 AND school_id = $2 AND user_id = $3 AND role::text = 'TEACHER'
 	`
 
-	tag, err := r.pool.Exec(ctx, query, tenantID, schoolID, userID)
+	tag, err := database.FromContext(ctx, r.pool).Exec(ctx, query, tenantID, schoolID, userID)
 	if err != nil {
 		return fmt.Errorf("teachers.Repository.Delete: %w", err)
 	}
@@ -166,7 +166,7 @@ func (r *PgRepository) GetByID(ctx context.Context, userID, tenantID, schoolID s
 	`
 
 	var t Teacher
-	err := r.pool.QueryRow(ctx, query, userID, tenantID, schoolID).Scan(
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, userID, tenantID, schoolID).Scan(
 		&t.ID, &t.Email, &t.FullName,
 		&t.TSCNumber, &t.KNECPanelAssessor,
 		&t.TeacherRole,
@@ -213,7 +213,7 @@ func (r *PgRepository) Update(ctx context.Context, userID, tenantID, schoolID st
 		WHERE id = $1
 	`, joinWithComma(sets))
 
-	tag, err := r.pool.Exec(ctx, query, args...)
+	tag, err := database.FromContext(ctx, r.pool).Exec(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("teachers.Repository.Update: %w", err)
 	}
@@ -259,7 +259,7 @@ func (r *PgRepository) ListTeacherClasses(ctx context.Context, tenantID, schoolI
 		  AND c.academic_year_id = at.academic_year_id
 		ORDER BY class_name
 	`
-	rows, err := r.pool.Query(ctx, query, tenantID, schoolID, userID, termID)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, tenantID, schoolID, userID, termID)
 	if err != nil {
 		return nil, fmt.Errorf("teachers.Repository.ListTeacherClasses: %w", err)
 	}
@@ -308,7 +308,7 @@ func (r *PgRepository) GetTeacherTimetable(ctx context.Context, tenantID, school
 		  AND tstr.is_break = false
 		ORDER BY tstr.start_time
 	`
-	rows, err := r.pool.Query(ctx, query, tenantID, schoolID, userID, dayOfWeek)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, tenantID, schoolID, userID, dayOfWeek)
 	if err != nil {
 		return nil, fmt.Errorf("teachers.Repository.GetTeacherTimetable: %w", err)
 	}
@@ -348,7 +348,7 @@ func (r *PgRepository) GetActiveSchoolID(ctx context.Context, tenantID, userID s
 	`
 
 	var schoolID string
-	err := r.pool.QueryRow(ctx, query, tenantID, userID).Scan(&schoolID)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, tenantID, userID).Scan(&schoolID)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return "", fmt.Errorf("teachers.Repository.GetActiveSchoolID: %w", ErrNotFound)

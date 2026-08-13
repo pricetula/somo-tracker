@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+
+	"go.uber.org/zap"
 )
 
 // ─── In-memory mock repository ────────────────────────────────────────────
@@ -353,7 +355,7 @@ func newParent(id, tenantID, email, fullName, phone string) *Parent {
 func TestService_Create(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock := newMockRepo()
-		svc := NewService(mock)
+		svc := NewService(mock, zap.NewNop().Sugar())
 
 		parent, err := svc.Create(context.Background(), "t1", CreateParentPayload{
 			Email:       "parent@example.com",
@@ -376,7 +378,7 @@ func TestService_Create(t *testing.T) {
 
 	t.Run("empty email", func(t *testing.T) {
 		mock := newMockRepo()
-		svc := NewService(mock)
+		svc := NewService(mock, zap.NewNop().Sugar())
 
 		_, err := svc.Create(context.Background(), "t1", CreateParentPayload{
 			Email:       "",
@@ -390,7 +392,7 @@ func TestService_Create(t *testing.T) {
 
 	t.Run("invalid email", func(t *testing.T) {
 		mock := newMockRepo()
-		svc := NewService(mock)
+		svc := NewService(mock, zap.NewNop().Sugar())
 
 		_, err := svc.Create(context.Background(), "t1", CreateParentPayload{
 			Email:       "not-an-email",
@@ -404,7 +406,7 @@ func TestService_Create(t *testing.T) {
 
 	t.Run("empty phone number", func(t *testing.T) {
 		mock := newMockRepo()
-		svc := NewService(mock)
+		svc := NewService(mock, zap.NewNop().Sugar())
 
 		_, err := svc.Create(context.Background(), "t1", CreateParentPayload{
 			Email:       "parent@example.com",
@@ -418,7 +420,7 @@ func TestService_Create(t *testing.T) {
 
 	t.Run("empty full_name", func(t *testing.T) {
 		mock := newMockRepo()
-		svc := NewService(mock)
+		svc := NewService(mock, zap.NewNop().Sugar())
 
 		_, err := svc.Create(context.Background(), "t1", CreateParentPayload{
 			Email:       "parent@example.com",
@@ -432,7 +434,7 @@ func TestService_Create(t *testing.T) {
 
 	t.Run("duplicate profile (same email in tenant)", func(t *testing.T) {
 		mock := newMockRepo()
-		svc := NewService(mock)
+		svc := NewService(mock, zap.NewNop().Sugar())
 
 		// Create first parent
 		_, err := svc.Create(context.Background(), "t1", CreateParentPayload{
@@ -458,7 +460,7 @@ func TestService_Create(t *testing.T) {
 
 func TestService_GetByID(t *testing.T) {
 	mock := newMockRepo()
-	svc := NewService(mock)
+	svc := NewService(mock, zap.NewNop().Sugar())
 
 	mock.addParent(newParent("p1", "t1", "p1@example.com", "Parent One", "+254700000001"))
 
@@ -496,7 +498,7 @@ func TestService_GetByID(t *testing.T) {
 
 func TestService_GetDetail(t *testing.T) {
 	mock := newMockRepo()
-	svc := NewService(mock)
+	svc := NewService(mock, zap.NewNop().Sugar())
 
 	mock.addParent(newParent("p1", "t1", "p1@example.com", "Parent One", "+254700000001"))
 	mock.addStudent("s1", "t1")
@@ -536,7 +538,7 @@ func TestService_GetDetail(t *testing.T) {
 
 func TestService_List(t *testing.T) {
 	mock := newMockRepo()
-	svc := NewService(mock)
+	svc := NewService(mock, zap.NewNop().Sugar())
 
 	mock.addParent(newParent("p1", "t1", "alice@example.com", "Alice Parent", "+254700000001"))
 	mock.addParent(newParent("p2", "t1", "bob@example.com", "Bob Parent", "+254700000002"))
@@ -627,7 +629,7 @@ func TestService_List(t *testing.T) {
 
 func TestService_Update(t *testing.T) {
 	mock := newMockRepo()
-	svc := NewService(mock)
+	svc := NewService(mock, zap.NewNop().Sugar())
 
 	mock.addParent(newParent("p1", "t1", "p1@example.com", "Parent One", "+254700000001"))
 
@@ -691,7 +693,7 @@ func TestService_Update(t *testing.T) {
 
 func TestService_Delete(t *testing.T) {
 	mock := newMockRepo()
-	svc := NewService(mock)
+	svc := NewService(mock, zap.NewNop().Sugar())
 
 	mock.addParent(newParent("p1", "t1", "p1@example.com", "Parent One", "+254700000001"))
 
@@ -718,7 +720,7 @@ func TestService_Delete(t *testing.T) {
 
 func TestService_LinkStudent(t *testing.T) {
 	mock := newMockRepo()
-	svc := NewService(mock)
+	svc := NewService(mock, zap.NewNop().Sugar())
 
 	mock.addParent(newParent("p1", "t1", "p1@example.com", "Parent One", "+254700000001"))
 	mock.addStudent("s1", "t1")
@@ -781,7 +783,7 @@ func TestService_LinkStudent(t *testing.T) {
 
 func TestService_LinkStudent_PrimaryDemotion(t *testing.T) {
 	mock := newMockRepo()
-	svc := NewService(mock)
+	svc := NewService(mock, zap.NewNop().Sugar())
 
 	mock.addParent(newParent("p1", "t1", "p1@example.com", "Parent One", "+254700000001"))
 	mock.addParent(newParent("p2", "t1", "p2@example.com", "Parent Two", "+254700000002"))
@@ -826,7 +828,7 @@ func TestService_LinkStudent_PrimaryDemotion(t *testing.T) {
 
 func TestService_UnlinkStudent(t *testing.T) {
 	mock := newMockRepo()
-	svc := NewService(mock)
+	svc := NewService(mock, zap.NewNop().Sugar())
 
 	mock.addParent(newParent("p1", "t1", "p1@example.com", "Parent One", "+254700000001"))
 	mock.addStudent("s1", "t1")

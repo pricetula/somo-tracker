@@ -3,23 +3,25 @@ package cbcclasses
 import (
 	"context"
 	"fmt"
-	"log/slog"
+
 	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.uber.org/zap"
 
 	"somotracker/backend/internal/database"
 )
 
 // PgRepository handles class database operations.
 type PgRepository struct {
-	pool *pgxpool.Pool
+	pool   *pgxpool.Pool
+	logger *zap.SugaredLogger
 }
 
 // NewRepository creates a new PgRepository.
-func NewRepository(pools *database.Pools) *PgRepository {
-	return &PgRepository{pool: pools.PG}
+func NewRepository(pools *database.Pools, logger *zap.SugaredLogger) *PgRepository {
+	return &PgRepository{pool: pools.PG, logger: logger}
 }
 
 // List returns a paginated list of classes with student counts.
@@ -65,7 +67,7 @@ func (r *PgRepository) List(ctx context.Context, filter ClassListFilter) (*Class
 	}
 
 	var totalRecords int
-	err := r.pool.QueryRow(ctx, countQuery, countArgs...).Scan(&totalRecords)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, countQuery, countArgs...).Scan(&totalRecords)
 	if err != nil {
 		return nil, fmt.Errorf("cbcclasses.Repository.List: count: %w", err)
 	}
@@ -156,7 +158,7 @@ func (r *PgRepository) List(ctx context.Context, filter ClassListFilter) (*Class
 
 	dataArgs = append(dataArgs, filter.Limit, offset)
 
-	rows, err := r.pool.Query(ctx, dataQuery, dataArgs...)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, dataQuery, dataArgs...)
 	if err != nil {
 		return nil, fmt.Errorf("cbcclasses.Repository.List: query: %w", err)
 	}
@@ -207,7 +209,7 @@ func (r *PgRepository) GetByID(ctx context.Context, id, tenantID, schoolID strin
 	`
 
 	var cls Class
-	err := r.pool.QueryRow(ctx, query, id, tenantID, schoolID).Scan(
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, id, tenantID, schoolID).Scan(
 		&cls.ID, &cls.GradeLevel, &cls.StreamName, &cls.StreamColor, &cls.DisplayLabel, &cls.StreamID,
 	)
 	if err != nil {
@@ -221,15 +223,15 @@ func (r *PgRepository) GetByID(ctx context.Context, id, tenantID, schoolID strin
 
 // Create inserts a new class and batch-enrolls students.
 func (r *PgRepository) Create(ctx context.Context, params CreateClassParams) (*Class, error) {
-	tx, err := r.pool.Begin(ctx)
+	tx, err := database.Begin(ctx, r.pool)
 	if err != nil {
 		return nil, fmt.Errorf("cbcclasses.Repository.Create: begin tx: %w", err)
 	}
 	defer func() {
 		if err != nil {
 			if rbErr := tx.Rollback(ctx); rbErr != nil {
-				slog.WarnContext(ctx, "cbcclasses.Repository.Create: rollback error",
-					slog.String("error", rbErr.Error()),
+				r.logger.Warnw("cbcclasses.Repository.Create: rollback error",
+					"error", rbErr.Error(),
 				)
 			}
 		}
@@ -282,7 +284,7 @@ func (r *PgRepository) Create(ctx context.Context, params CreateClassParams) (*C
 		WHERE c.id = $1
 	`
 	var cls Class
-	err = r.pool.QueryRow(ctx, fetchClass, classID).Scan(
+	err = database.FromContext(ctx, r.pool).QueryRow(ctx, fetchClass, classID).Scan(
 		&cls.ID, &cls.GradeLevel, &cls.StreamName, &cls.StreamColor, &cls.DisplayLabel, &cls.StreamID,
 	)
 	if err != nil {
@@ -294,15 +296,15 @@ func (r *PgRepository) Create(ctx context.Context, params CreateClassParams) (*C
 
 // Update performs a differential sync of enrollments and updates class fields.
 func (r *PgRepository) Update(ctx context.Context, params UpdateClassParams) (*Class, error) {
-	tx, err := r.pool.Begin(ctx)
+	tx, err := database.Begin(ctx, r.pool)
 	if err != nil {
 		return nil, fmt.Errorf("cbcclasses.Repository.Update: begin tx: %w", err)
 	}
 	defer func() {
 		if err != nil {
 			if rbErr := tx.Rollback(ctx); rbErr != nil {
-				slog.WarnContext(ctx, "cbcclasses.Repository.Update: rollback error",
-					slog.String("error", rbErr.Error()),
+				r.logger.Warnw("cbcclasses.Repository.Update: rollback error",
+					"error", rbErr.Error(),
 				)
 			}
 		}
@@ -375,7 +377,7 @@ func (r *PgRepository) Update(ctx context.Context, params UpdateClassParams) (*C
 		WHERE c.id = $1
 	`
 	var cls Class
-	err = r.pool.QueryRow(ctx, fetchClass, params.ClassID).Scan(
+	err = database.FromContext(ctx, r.pool).QueryRow(ctx, fetchClass, params.ClassID).Scan(
 		&cls.ID, &cls.GradeLevel, &cls.StreamName, &cls.StreamColor, &cls.DisplayLabel, &cls.StreamID,
 	)
 	if err != nil {
@@ -387,15 +389,15 @@ func (r *PgRepository) Update(ctx context.Context, params UpdateClassParams) (*C
 
 // BulkDelete removes multiple classes.
 func (r *PgRepository) BulkDelete(ctx context.Context, ids []string, tenantID, schoolID string) error {
-	tx, err := r.pool.Begin(ctx)
+	tx, err := database.Begin(ctx, r.pool)
 	if err != nil {
 		return fmt.Errorf("cbcclasses.Repository.BulkDelete: begin tx: %w", err)
 	}
 	defer func() {
 		if err != nil {
 			if rbErr := tx.Rollback(ctx); rbErr != nil {
-				slog.WarnContext(ctx, "cbcclasses.Repository.BulkDelete: rollback error",
-					slog.String("error", rbErr.Error()),
+				r.logger.Warnw("cbcclasses.Repository.BulkDelete: rollback error",
+					"error", rbErr.Error(),
 				)
 			}
 		}
@@ -427,7 +429,7 @@ func (r *PgRepository) ValidateAcademicYear(ctx context.Context, id, tenantID, s
 		)
 	`
 	var exists bool
-	err := r.pool.QueryRow(ctx, query, id, tenantID, schoolID).Scan(&exists)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, id, tenantID, schoolID).Scan(&exists)
 	if err != nil {
 		return false, fmt.Errorf("cbcclasses.Repository.ValidateAcademicYear: %w", err)
 	}
@@ -443,7 +445,7 @@ func (r *PgRepository) ValidateAcademicTerm(ctx context.Context, id, academicYea
 		)
 	`
 	var exists bool
-	err := r.pool.QueryRow(ctx, query, id, academicYearID).Scan(&exists)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, id, academicYearID).Scan(&exists)
 	if err != nil {
 		return false, fmt.Errorf("cbcclasses.Repository.ValidateAcademicTerm: %w", err)
 	}
@@ -474,7 +476,7 @@ func (r *PgRepository) GetRoster(ctx context.Context, classID, tenantID, schoolI
 	}
 
 	var total int
-	if err := r.pool.QueryRow(ctx, countQuery, countArgs...).Scan(&total); err != nil {
+	if err := database.FromContext(ctx, r.pool).QueryRow(ctx, countQuery, countArgs...).Scan(&total); err != nil {
 		return nil, fmt.Errorf("cbcclasses.Repository.GetRoster: count: %w", err)
 	}
 
@@ -503,7 +505,7 @@ func (r *PgRepository) GetRoster(ctx context.Context, classID, tenantID, schoolI
 	dataQuery += ` ORDER BY s.full_name ASC LIMIT $` + fmt.Sprintf("%d", len(dataArgs)+1) + ` OFFSET $` + fmt.Sprintf("%d", len(dataArgs)+2)
 	dataArgs = append(dataArgs, limit, offset)
 
-	rows, err := r.pool.Query(ctx, dataQuery, dataArgs...)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, dataQuery, dataArgs...)
 	if err != nil {
 		return nil, fmt.Errorf("cbcclasses.Repository.GetRoster: %w", err)
 	}
@@ -544,15 +546,15 @@ func (r *PgRepository) BatchEnrollStudents(ctx context.Context, classID, tenantI
 		return 0, nil
 	}
 
-	tx, err := r.pool.Begin(ctx)
+	tx, err := database.Begin(ctx, r.pool)
 	if err != nil {
 		return 0, fmt.Errorf("cbcclasses.Repository.BatchEnrollStudents: begin tx: %w", err)
 	}
 	defer func() {
 		if err != nil {
 			if rbErr := tx.Rollback(ctx); rbErr != nil {
-				slog.WarnContext(ctx, "cbcclasses.Repository.BatchEnrollStudents: rollback error",
-					slog.String("error", rbErr.Error()),
+				r.logger.Warnw("cbcclasses.Repository.BatchEnrollStudents: rollback error",
+					"error", rbErr.Error(),
 				)
 			}
 		}
@@ -642,7 +644,7 @@ func (r *PgRepository) UnenrollStudent(ctx context.Context, classID, studentID, 
 		  AND tenant_id = $3
 		  AND academic_term_id = $4
 	`
-	tag, err := r.pool.Exec(ctx, query, classID, studentID, tenantID, academicTermID)
+	tag, err := database.FromContext(ctx, r.pool).Exec(ctx, query, classID, studentID, tenantID, academicTermID)
 	if err != nil {
 		return fmt.Errorf("cbcclasses.Repository.UnenrollStudent: %w", err)
 	}
@@ -692,7 +694,7 @@ func (r *PgRepository) GetAvailableStudents(ctx context.Context, filter Availabl
 	}
 
 	var total int
-	err := r.pool.QueryRow(ctx, countQuery, countArgs...).Scan(&total)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, countQuery, countArgs...).Scan(&total)
 	if err != nil {
 		return nil, fmt.Errorf("cbcclasses.Repository.GetAvailableStudents: count: %w", err)
 	}
@@ -747,7 +749,7 @@ func (r *PgRepository) GetAvailableStudents(ctx context.Context, filter Availabl
 	`, dataArgIdx, dataArgIdx+1)
 	dataArgs = append(dataArgs, filter.Limit, offset)
 
-	rows, err := r.pool.Query(ctx, dataQuery, dataArgs...)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, dataQuery, dataArgs...)
 	if err != nil {
 		return nil, fmt.Errorf("cbcclasses.Repository.GetAvailableStudents: query: %w", err)
 	}
@@ -799,7 +801,7 @@ func (r *PgRepository) ValidateStream(ctx context.Context, id, tenantID, schoolI
 		)
 	`
 	var exists bool
-	err := r.pool.QueryRow(ctx, query, id, tenantID, schoolID).Scan(&exists)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, id, tenantID, schoolID).Scan(&exists)
 	if err != nil {
 		return false, fmt.Errorf("cbcclasses.Repository.ValidateStream: %w", err)
 	}

@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"testing"
+
+	"go.uber.org/zap"
 )
 
 func newServiceWithMocks(
@@ -13,7 +15,7 @@ func newServiceWithMocks(
 	asp AssessmentProvider,
 	bp BehaviorProvider,
 ) *Service {
-	return NewService(sp, tp, ap, asp, bp)
+	return NewService(sp, tp, ap, asp, bp, zap.NewNop().Sugar())
 }
 
 // ============================================================================

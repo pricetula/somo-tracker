@@ -31,6 +31,8 @@ var Module = fx.Module("students",
 	fx.Invoke(func(h *Handler, aySvc *academicyears.Service) {
 		h.SetAcademicYearsService(aySvc)
 	}),
+	// Wire behavior + attendance providers into the handler (providers.go)
+	fx.Invoke(wireHandlerProviders),
 	// Register the student Importer with the imports engine at startup
 	fx.Invoke(registerStudentImporter),
 )

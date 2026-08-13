@@ -55,7 +55,7 @@ func NewSqlcRepository(lc fx.Lifecycle, pools *database.Pools, logger *zap.Logge
 func (r *SqlcRepository) TenantExists(ctx context.Context, orgID string) (bool, error) {
 	const query = `SELECT EXISTS(SELECT 1 FROM tenants WHERE stytch_org_id = $1)`
 	var exists bool
-	err := r.pool.QueryRow(ctx, query, orgID).Scan(&exists)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, orgID).Scan(&exists)
 	if err != nil {
 		return false, fmt.Errorf("%w: check tenant exists: %v", ErrInternal, err)
 	}
@@ -66,7 +66,7 @@ func (r *SqlcRepository) TenantExists(ctx context.Context, orgID string) (bool, 
 func (r *SqlcRepository) TenantExistsByName(ctx context.Context, name string) (bool, error) {
 	const query = `SELECT EXISTS(SELECT 1 FROM tenants WHERE name = $1)`
 	var exists bool
-	err := r.pool.QueryRow(ctx, query, name).Scan(&exists)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, name).Scan(&exists)
 	if err != nil {
 		return false, fmt.Errorf("%w: check tenant exists by name: %v", ErrInternal, err)
 	}
@@ -77,7 +77,7 @@ func (r *SqlcRepository) TenantExistsByName(ctx context.Context, name string) (b
 func (r *SqlcRepository) GetTenantByName(ctx context.Context, name string) (string, string, error) {
 	const query = `SELECT id, stytch_org_id FROM tenants WHERE name = $1`
 	var id, orgID string
-	err := r.pool.QueryRow(ctx, query, name).Scan(&id, &orgID)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, name).Scan(&id, &orgID)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return "", "", fmt.Errorf("%w: tenant not found: %s", ErrNotFound, name)
@@ -114,7 +114,7 @@ func (r *SqlcRepository) GetSessionByToken(ctx context.Context, token string) (*
 		WHERE s.token_hash = encode(digest($1::text, 'sha256'), 'hex') AND s.expires_at > NOW()
 	`
 	var s UserSession
-	err := r.pool.QueryRow(ctx, query, token).Scan(
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, token).Scan(
 		&s.ID, &s.Token, &s.UserID, &s.TenantID,
 		&s.Role,
 		&s.StytchMemberID, &s.StytchOrgID, &s.StytchSessionToken,
@@ -132,7 +132,7 @@ func (r *SqlcRepository) GetSessionByToken(ctx context.Context, token string) (*
 // DeleteSession removes a session record by token.
 func (r *SqlcRepository) DeleteSession(ctx context.Context, token string) error {
 	const query = `DELETE FROM sessions WHERE token_hash = encode(digest($1::text, 'sha256'), 'hex')`
-	_, err := r.pool.Exec(ctx, query, token)
+	_, err := database.FromContext(ctx, r.pool).Exec(ctx, query, token)
 	if err != nil {
 		return fmt.Errorf("%w: delete session: %v", ErrInternal, err)
 	}
@@ -149,7 +149,7 @@ func (r *SqlcRepository) CreateTenantUserSession(
 	userParams CreateUserParams,
 	sessionParams CreateSessionParams,
 ) (userID string, tenantID string, err error) {
-	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	tx, err := database.BeginTx(ctx, r.pool, pgx.TxOptions{})
 	if err != nil {
 		return "", "", fmt.Errorf("%w: begin tx: %v", ErrInternal, err)
 	}
@@ -182,6 +182,13 @@ func (r *SqlcRepository) CreateTenantUserSession(
 		return "", "", fmt.Errorf("%w: create tenant in tx: %v", ErrInternal, err)
 	}
 
+	// RLS: a brand-new tenant cannot be known to app.current_tenant_id before
+	// its row exists, so set the GUC mid-transaction. The subsequent users /
+	// sessions INSERTs then pass RLS WITH CHECK for the tenant just created.
+	if _, err := tx.Exec(ctx, "SELECT set_config('app.current_tenant_id', $1, true)", tenantID); err != nil {
+		return "", "", fmt.Errorf("%w: set tenant rls context in tx: %v", ErrInternal, err)
+	}
+
 	// 2. Insert user
 	userQuery := `
 		INSERT INTO users (email, tenant_id, full_name, external_auth_id)
@@ -201,9 +208,11 @@ func (r *SqlcRepository) CreateTenantUserSession(
 		token = "sess_" + uuid.New().String()
 	}
 
+	// C1: only the token hash is persisted — never the raw token. A DB leak
+	// must not expose live session credentials.
 	sessionQuery := `
-		INSERT INTO sessions (token, token_hash, user_id, tenant_id, stytch_member_id, stytch_org_id, stytch_session_token, device_fingerprint, expires_at)
-		VALUES ($1::text, encode(digest($1::text, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7, $8)
+		INSERT INTO sessions (token_hash, user_id, tenant_id, stytch_member_id, stytch_org_id, stytch_session_token, device_fingerprint, expires_at)
+		VALUES (encode(digest($1::text, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7, $8)
 	`
 	_, err = tx.Exec(ctx, sessionQuery,
 		token,
@@ -245,7 +254,7 @@ func (r *SqlcRepository) CreateUserSession(
 	userParams CreateUserParams,
 	sessionParams CreateSessionParams,
 ) (userID string, err error) {
-	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	tx, err := database.BeginTx(ctx, r.pool, pgx.TxOptions{})
 	if err != nil {
 		return "", fmt.Errorf("%w: begin tx: %v", ErrInternal, err)
 	}
@@ -293,9 +302,10 @@ func (r *SqlcRepository) CreateUserSession(
 		token = "sess_" + uuid.New().String()
 	}
 
+	// C1: only the token hash is persisted — never the raw token.
 	sessionQuery := `
-		INSERT INTO sessions (token, token_hash, user_id, tenant_id, stytch_member_id, stytch_org_id, stytch_session_token, device_fingerprint, expires_at)
-		VALUES ($1::text, encode(digest($1::text, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7, $8)
+		INSERT INTO sessions (token_hash, user_id, tenant_id, stytch_member_id, stytch_org_id, stytch_session_token, device_fingerprint, expires_at)
+		VALUES (encode(digest($1::text, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7, $8)
 	`
 	_, err = tx.Exec(ctx, sessionQuery,
 		token,
@@ -345,7 +355,7 @@ func (r *SqlcRepository) GetActiveSchoolID(ctx context.Context, userID, tenantID
 	`
 
 	var schoolID string
-	err := r.pool.QueryRow(ctx, query, userID, tenantID).Scan(&schoolID)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, userID, tenantID).Scan(&schoolID)
 	if err != nil {
 		return "", fmt.Errorf("auth.Repository.GetActiveSchoolID: %w", ErrInternal)
 	}
@@ -365,7 +375,7 @@ func (r *SqlcRepository) CreateMembership(ctx context.Context, userID, schoolID,
 			is_active = true,
 			tenant_id = EXCLUDED.tenant_id
 	`
-	_, err := r.pool.Exec(ctx, query, role, userID, schoolID, tenantID)
+	_, err := database.FromContext(ctx, r.pool).Exec(ctx, query, role, userID, schoolID, tenantID)
 	if err != nil {
 		return fmt.Errorf("%w: create membership: %v", ErrInternal, err)
 	}
@@ -388,7 +398,7 @@ func (r *SqlcRepository) GetUserRoleInTenant(ctx context.Context, userID, tenant
 		LIMIT 1
 	`
 	var role string
-	err := r.pool.QueryRow(ctx, query, userID, tenantID).Scan(&role)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, userID, tenantID).Scan(&role)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return "", fmt.Errorf("auth.Repository.GetUserRoleInTenant: %w", ErrNotFound)
@@ -408,7 +418,7 @@ func (r *SqlcRepository) SetActiveSchool(ctx context.Context, userID, tenantID, 
 			tenant_id   = EXCLUDED.tenant_id,
 			switched_at = NOW()
 	`
-	_, err := r.pool.Exec(ctx, query, userID, tenantID, schoolID)
+	_, err := database.FromContext(ctx, r.pool).Exec(ctx, query, userID, tenantID, schoolID)
 	if err != nil {
 		return fmt.Errorf("%w: set active school: %v", ErrInternal, err)
 	}
@@ -448,7 +458,7 @@ func (r *SqlcRepository) GetMeInfo(ctx context.Context, token string) (*MeInfo, 
 
 	var info MeInfo
 	var schoolID, schoolName *string
-	err := r.pool.QueryRow(ctx, query, token).Scan(
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, token).Scan(
 		&info.UserID,
 		&info.TenantID,
 		&info.Role,
@@ -476,20 +486,16 @@ func (r *SqlcRepository) GetMeInfo(ctx context.Context, token string) (*MeInfo, 
 
 // GetInvitationByEmail looks up a pending, non-expired invitation by email.
 func (r *SqlcRepository) GetInvitationByEmail(ctx context.Context, email string) (*Invitation, error) {
+	// fn_pending_invitation_by_email is SECURITY DEFINER: invite acceptance
+	// runs pre-session, before the tenant is known.
 	const query = `
-		SELECT id, tenant_id, school_id, role::text, email, COALESCE(full_name, '') as full_name, status::text,
-		       COALESCE(stytch_member_id, '') as stytch_member_id,
-		       COALESCE(registration_number, '') as registration_number, expires_at
-		FROM invitations
-		WHERE email = $1
-		  AND status = 'pending'
-		  AND expires_at > NOW()
-		ORDER BY created_at DESC
-		LIMIT 1
+		SELECT id, tenant_id, school_id, role, email, full_name, status,
+		       stytch_member_id, registration_number, expires_at
+		FROM fn_pending_invitation_by_email($1)
 	`
 
 	var inv Invitation
-	err := r.pool.QueryRow(ctx, query, email).Scan(
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, email).Scan(
 		&inv.ID, &inv.TenantID, &inv.SchoolID, &inv.Role, &inv.Email,
 		&inv.FullName, &inv.Status, &inv.StytchMemberID,
 		&inv.RegistrationNumber, &inv.ExpiresAt,
@@ -509,7 +515,7 @@ func (r *SqlcRepository) GetTenantStytchOrgID(ctx context.Context, tenantID stri
 	const query = `SELECT stytch_org_id FROM tenants WHERE id = $1`
 
 	var orgID string
-	err := r.pool.QueryRow(ctx, query, tenantID).Scan(&orgID)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, tenantID).Scan(&orgID)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return "", fmt.Errorf("%w: tenant not found: %s", ErrNotFound, tenantID)
@@ -522,7 +528,7 @@ func (r *SqlcRepository) GetTenantStytchOrgID(ctx context.Context, tenantID stri
 // CreateInvitedUserSession runs a single transaction to create a user, session,
 // membership, and mark the invitation as accepted.
 func (r *SqlcRepository) CreateInvitedUserSession(ctx context.Context, args CreateInvitedUserSessionArgs) error {
-	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	tx, err := database.BeginTx(ctx, r.pool, pgx.TxOptions{})
 	if err != nil {
 		return fmt.Errorf("%w: begin tx: %v", ErrInternal, err)
 	}
@@ -568,11 +574,12 @@ func (r *SqlcRepository) CreateInvitedUserSession(ctx context.Context, args Crea
 
 	// 2. Insert session
 	// Use a CTE to bind the token parameter once, avoiding PG's type inference conflict.
+	// C1: only the token hash is persisted — never the raw token.
 	sessionQuery := `
 		WITH token_val AS (SELECT $1::text AS tk)
-		INSERT INTO sessions (token, token_hash, user_id, tenant_id, stytch_member_id, stytch_org_id,
+		INSERT INTO sessions (token_hash, user_id, tenant_id, stytch_member_id, stytch_org_id,
 		                     stytch_session_token, device_fingerprint, expires_at)
-		SELECT tk, encode(digest(tk, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7, $8
+		SELECT encode(digest(tk, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7, $8
 		FROM token_val
 	`
 	_, err = tx.Exec(ctx, sessionQuery,
@@ -640,7 +647,7 @@ func (r *SqlcRepository) CreateInvitedUserSession(ctx context.Context, args Crea
 func (r *SqlcRepository) GetTenantByStytchOrgID(ctx context.Context, stytchOrgID string) (string, error) {
 	const query = `SELECT id FROM tenants WHERE stytch_org_id = $1`
 	var tenantID string
-	err := r.pool.QueryRow(ctx, query, stytchOrgID).Scan(&tenantID)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, stytchOrgID).Scan(&tenantID)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return "", fmt.Errorf("%w: tenant not found for stytch org: %s", ErrNotFound, stytchOrgID)
@@ -655,7 +662,7 @@ func (r *SqlcRepository) GetTenantByStytchOrgID(ctx context.Context, stytchOrgID
 func (r *SqlcRepository) GetUserByEmailAndTenant(ctx context.Context, email, tenantID string) (string, string, string, error) {
 	const query = `SELECT id, COALESCE(full_name, ''), COALESCE(external_auth_id, '') FROM users WHERE LOWER(email) = LOWER($1) AND tenant_id = $2`
 	var userID, fullName, externalAuthID string
-	err := r.pool.QueryRow(ctx, query, email, tenantID).Scan(&userID, &fullName, &externalAuthID)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, email, tenantID).Scan(&userID, &fullName, &externalAuthID)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return "", "", "", fmt.Errorf("%w: user not found for email: %s in tenant: %s", ErrNotFound, email, tenantID)
@@ -673,11 +680,13 @@ func (r *SqlcRepository) CreateSessionOnly(ctx context.Context, params CreateSes
 	if token == "" {
 		token = "sess_" + uuid.New().String()
 	}
+
+	// C1: only the token hash is persisted — never the raw token.
 	const query = `
-		INSERT INTO sessions (token, token_hash, user_id, tenant_id, stytch_member_id, stytch_org_id, stytch_session_token, device_fingerprint, expires_at)
-		VALUES ($1::text, encode(digest($1::text, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7, $8)
+		INSERT INTO sessions (token_hash, user_id, tenant_id, stytch_member_id, stytch_org_id, stytch_session_token, device_fingerprint, expires_at)
+		VALUES (encode(digest($1::text, 'sha256'), 'hex'), $2, $3, $4, $5, $6, $7, $8)
 	`
-	_, err := r.pool.Exec(ctx, query,
+	_, err := database.FromContext(ctx, r.pool).Exec(ctx, query,
 		token,
 		params.UserID,
 		params.TenantID,

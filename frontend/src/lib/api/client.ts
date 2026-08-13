@@ -6,20 +6,25 @@
  * Every non-2xx HTTP response from the backend MUST return this exact JSON body:
  *
  *   {
- *     "code":    "snake_case_error_code",
- *     "message": "human readable message",
- *     "errors":  { "field_name": ["Specific field validation message"] }
+ *     "code":       "snake_case_error_code",
+ *     "message":    "human readable message",
+ *     "errors":     { "field_name": ["Specific field validation message"] },
+ *     "request_id": "uuid — correlation id echoed from X-Request-ID"
  *   }
  *
  * code is always a snake_case string the frontend can switch on.
  * message is a safe, human-readable string.
  * errors is an optional object populated exclusively on 400 Bad Request /
  * validation failures, mapping field keys to an array of specific error messages.
+ * request_id is an optional correlation id (backend middleware/requestid.go)
+ * appended to every error body; it is also echoed in the X-Request-ID response
+ * header. Rate-limit responses additionally carry retry_after_seconds.
+ *
+ * All requests carry a per-page-load correlation id in the X-Request-ID header
+ * (honored + echoed by the backend) and are sent with `credentials: "include"`
+ * so the HttpOnly `somo_sid` cookie is attached automatically by the browser.
  *
  * Backend counterpart: internal/middleware/errors.go
- *
- * All requests are sent with `credentials: "include"` so the HttpOnly
- * `somo_sid` cookie is attached automatically by the browser.
  */
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
@@ -35,6 +40,8 @@ export class ApiError extends Error {
     public status: number;
     public code: string;
     public errors?: Record<string, string[]>;
+    /** Backend correlation id (X-Request-ID echoed in the error body). */
+    public requestId?: string;
     /** Optional extra fields carried in the error body (e.g. active_job_id). */
     public extra?: Record<string, unknown>;
 
@@ -43,6 +50,7 @@ export class ApiError extends Error {
         code: string,
         message: string,
         errors?: Record<string, string[]>,
+        requestId?: string,
         extra?: Record<string, unknown>
     ) {
         super(message);
@@ -50,6 +58,7 @@ export class ApiError extends Error {
         this.status = status;
         this.code = code;
         this.errors = errors;
+        this.requestId = requestId;
         this.extra = extra;
     }
 }
@@ -60,6 +69,32 @@ export interface RequestOptions {
     /** If true, skip the global 401 redirect to /logout. Use for endpoints
      *  where a 401 is structurally expected (e.g. initial me check). */
     skipGlobal401Handler?: boolean;
+    /** If true, skip the global 403 redirect to /unauthorized (only applies
+     *  to GET /api/auth/me — a session rejected by the backend's resolver). */
+    skipGlobal403Handler?: boolean;
+}
+
+// ─── Correlation id ────────────────────────────────────────────────────────
+
+/**
+ * Per-page-load correlation id sent as X-Request-ID on every request.
+ *
+ * The backend (middleware/requestid.go) honors a well-formed incoming
+ * X-Request-ID, echoes it in the response header, and threads it into every
+ * error body — so a single support ticket maps to one id across the whole
+ * stack. Keeping the id stable for the lifetime of the page makes all
+ * requests issued from one view correlate to the same trace.
+ */
+let correlationId: string | null = null;
+
+function getCorrelationId(): string {
+    if (!correlationId) {
+        correlationId =
+            typeof crypto !== "undefined" && "randomUUID" in crypto
+                ? crypto.randomUUID()
+                : `req-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+    }
+    return correlationId;
 }
 
 // ─── Base fetch wrapper ───────────────────────────────────────────────────
@@ -72,7 +107,9 @@ async function request<T>(
 ): Promise<T> {
     const url = `${API_BASE}${path}`;
 
-    const headers: Record<string, string> = {};
+    const headers: Record<string, string> = {
+        "X-Request-ID": getCorrelationId(),
+    };
     if (body !== undefined) {
         headers["Content-Type"] = "application/json";
     }
@@ -93,7 +130,12 @@ async function request<T>(
     });
 
     if (!res.ok) {
-        let apiErr: { code?: string; message?: string; errors?: Record<string, string[]> };
+        let apiErr: {
+            code?: string;
+            message?: string;
+            errors?: Record<string, string[]>;
+            request_id?: string;
+        };
         try {
             apiErr = (await res.json()) as typeof apiErr;
         } catch {
@@ -101,18 +143,20 @@ async function request<T>(
         }
 
         // Collect any extra fields from the error body beyond the standard ones
-        // (e.g. active_job_id from import_already_in_progress) using delete
-        // to avoid unused variable warnings.
+        // (e.g. active_job_id, retry_after_seconds) using delete to avoid
+        // unused variable warnings.
         const extra: Record<string, unknown> = { ...apiErr };
         delete extra.code;
         delete extra.message;
         delete extra.errors;
+        delete extra.request_id;
 
         const error = new ApiError(
             res.status,
             apiErr.code ?? "unknown",
             apiErr.message ?? "Unexpected error",
             apiErr.errors,
+            apiErr.request_id,
             Object.keys(extra).length > 0 ? extra : undefined
         );
 
@@ -122,6 +166,22 @@ async function request<T>(
         // wipe the React Query cache.
         if (res.status === 401 && !options?.skipGlobal401Handler) {
             window.location.href = "/logout";
+        }
+
+        // ─── Global 403 — session without any membership (B3) ───────────
+        // The session resolver rejects a VALID session whose user has zero
+        // active memberships with 403 forbidden on every request. GET /me is
+        // the session probe, so a 403 there unambiguously means "authenticated
+        // but entitled to nothing" — show /unauthorized (offers sign-out +
+        // contact-admin guidance) instead of silently treating the user as
+        // logged out.
+        if (
+            res.status === 403 &&
+            path === "/api/auth/me" &&
+            error.code === "forbidden" &&
+            !options?.skipGlobal403Handler
+        ) {
+            window.location.href = "/unauthorized";
         }
 
         throw error;

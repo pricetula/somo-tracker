@@ -3,8 +3,8 @@ package academicyears
 import (
 	"context"
 	"database/sql/driver"
-	"errors"
 	"fmt"
+	"net/http"
 	"time"
 
 	"somotracker/backend/internal/xerrors"
@@ -106,15 +106,11 @@ var (
 	ErrConflict      = xerrors.Conflict("academicyear conflict")
 )
 
-// Module-specific sentinels (no corresponding middleware sentinel — these are
-// matched by type assertion in the handler, not by errors.Is on a sentinel).
-var (
-	ErrTermsOutOfRange     = errors.New("terms_out_of_range")
-	ErrHasDependents       = errors.New("has_dependents")
-	ErrTermOutOfYearBounds = errors.New("term_out_of_year_bounds")
-	ErrTermDateOverlap     = errors.New("term_date_overlap")
-	ErrTermNumberExists    = errors.New("term_number_exists")
-)
+// ErrTermIsCurrent is returned when an operation targets the school's active
+// term (e.g. DELETE on a term with is_current = TRUE). It carries a distinct
+// machine-readable code so clients can special-case it.
+var ErrTermIsCurrent = xerrors.New("term_is_current", http.StatusConflict,
+	"the active academic term cannot be deleted")
 
 // ============================================================================
 // Domain Models
@@ -178,26 +174,6 @@ type AcademicTerm struct {
 // Request / Response Payloads
 // ============================================================================
 
-// CreateYearBody is the request body for POST /api/v1/academic-years.
-type CreateYearBody struct {
-	Name      string `json:"name"`
-	StartDate string `json:"start_date"` // "YYYY-MM-DD"
-	EndDate   string `json:"end_date"`   // "YYYY-MM-DD"
-}
-
-// PatchYearBody is the allowed request body for PATCH /api/v1/academic-years/:id.
-type PatchYearBody struct {
-	Name      *string `json:"name,omitempty"`
-	StartDate *string `json:"start_date,omitempty"` // "YYYY-MM-DD"
-	EndDate   *string `json:"end_date,omitempty"`
-	Version   *int    `json:"version"` // required for optimistic lock
-}
-
-// SetCurrentResponse is the body for POST .../:id/set-current.
-type SetCurrentResponse struct {
-	Message string `json:"message"`
-}
-
 // CreateTermBody is the request body for POST /api/v1/academic-terms.
 type CreateTermBody struct {
 	AcademicYearID string `json:"academic_year_id"`
@@ -205,6 +181,7 @@ type CreateTermBody struct {
 	TermNumber     int    `json:"term_number"`
 	StartDate      string `json:"start_date"` // "YYYY-MM-DD"
 	EndDate        string `json:"end_date"`
+	IsFinal        *bool  `json:"is_final,omitempty"`
 }
 
 // PatchTermBody is the allowed request body for PATCH /api/v1/academic-terms/:id.
@@ -212,37 +189,40 @@ type PatchTermBody struct {
 	Name      *string `json:"name,omitempty"`
 	StartDate *string `json:"start_date,omitempty"`
 	EndDate   *string `json:"end_date,omitempty"`
+	IsFinal   *bool   `json:"is_final,omitempty"`
 	Version   *int    `json:"version"` // required for optimistic lock
-}
-
-// ConflictingTerm is returned in 422 responses when dates strand terms.
-type ConflictingTerm struct {
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	StartDate string `json:"start_date"`
-	EndDate   string `json:"end_date"`
 }
 
 // ============================================================================
 // Error Wrappers for Rich HTTP Responses
 // ============================================================================
 
-// TermsOutOfRangeError carries conflicting term data for 422 responses.
-type TermsOutOfRangeError struct {
-	ConflictingTerms []ConflictingTerm
-}
-
-func (e *TermsOutOfRangeError) Error() string {
-	return "the new date range would strand existing terms"
-}
-
-// HasDependentsError is returned when a delete would orphan FK records.
+// HasDependentsError is returned when a delete would orphan FK records. Counts
+// carries the per-table record counts so the response can name exact resources.
 type HasDependentsError struct {
 	Message string
+	Counts  map[string]int64
 }
 
 func (e *HasDependentsError) Error() string {
 	return e.Message
+}
+
+// OrphanedRecordsError is returned when narrowing an ACTIVE term's date range
+// would leave assessment or attendance records dated outside the new range.
+// The handler maps it to a structured 409 so the client can surface a
+// confirmation error.
+type OrphanedRecordsError struct {
+	Assessments     int64
+	AttendanceMarks int64
+	StartDate       string // "YYYY-MM-DD" of the proposed new range
+	EndDate         string // "YYYY-MM-DD" of the proposed new range
+}
+
+func (e *OrphanedRecordsError) Error() string {
+	return fmt.Sprintf(
+		"narrowing the active term's dates to %s – %s would orphan %d assessment session(s) and %d attendance record(s) dated outside the new range",
+		e.StartDate, e.EndDate, e.Assessments, e.AttendanceMarks)
 }
 
 // TermOutOfYearBoundsError is returned when a term falls outside its parent year.
@@ -277,11 +257,7 @@ type Repository interface {
 	// Years
 	ListYears(ctx context.Context, tenantID, schoolID string) ([]AcademicYearWithTerms, error)
 	GetYearByID(ctx context.Context, id, tenantID, schoolID string) (*AcademicYear, error)
-	GetYearByIDForUpdate(ctx context.Context, id, tenantID, schoolID string) (*AcademicYear, error)
 	CreateYear(ctx context.Context, year *AcademicYear) (string, error)
-	UpdateYear(ctx context.Context, year *AcademicYear) error
-	DeleteYear(ctx context.Context, id string) error
-	ClearCurrentYear(ctx context.Context, schoolID, tenantID, excludeID, actorID string) error
 	SetCurrentYear(ctx context.Context, id, tenantID, schoolID, actorID string) (bool, error)
 
 	// Terms
@@ -291,16 +267,18 @@ type Repository interface {
 	CreateTerm(ctx context.Context, term *AcademicTerm) (string, error)
 	UpdateTerm(ctx context.Context, term *AcademicTerm) error
 	DeleteTerm(ctx context.Context, id string) error
-
-	// Term strandedness check
-	FindStrandedTerms(ctx context.Context, yearID string, newStart, newEnd time.Time) ([]ConflictingTerm, error)
+	ActivateTerm(ctx context.Context, termID, tenantID, schoolID, actorID string) (*AcademicTerm, error)
 
 	// Overlap check
 	FindOverlappingTerms(ctx context.Context, yearID, excludeID string, startDate, endDate time.Time) ([]AcademicTerm, error)
 
-	// Dependents check
-	HasDependents(ctx context.Context, academicYearID string) (bool, error)
-	HasTermDependents(ctx context.Context, termID string) (bool, error)
+	// Dependency audit (delete guard) — returns per-table record counts for
+	// the transactional tables that reference academic_terms.
+	TermDependencyCounts(ctx context.Context, termID string) (map[string]int64, error)
+
+	// Orphan check — counts assessment sessions and attendance records whose
+	// recorded date falls outside a proposed new date range for the term.
+	CountOrphansOutsideRange(ctx context.Context, termID string, newStart, newEnd time.Time) (map[string]int64, error)
 
 	// Sync current term
 	SyncCurrentTerm(ctx context.Context, academicYearID string, now time.Time) error

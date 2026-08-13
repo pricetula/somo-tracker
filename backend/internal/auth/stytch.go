@@ -129,7 +129,8 @@ func (s *StytchAdapter) AuthenticateDiscoveryToken(ctx context.Context, token st
 		if isExpiredTokenError(err) {
 			return "", "", nil, fmt.Errorf("%w: stytch token expired", ErrExpiredToken)
 		}
-		return "", "", nil, fmt.Errorf("%w: stytch authenticate: %v", ErrInternal, err)
+		// Any other error from Stytch means the token is invalid or cannot be verified.
+		return "", "", nil, ErrUnauthorized
 	}
 
 	if resp.IntermediateSessionToken == "" {
@@ -320,6 +321,12 @@ func (s *StytchAdapter) AuthenticateMagicLink(ctx context.Context, token string)
 		s.logger.Error("Stytch AuthenticateMagicLink failed",
 			zap.Error(err),
 		)
+
+		// Expired invite magic links must surface as 401 expired_token, not a
+		// generic 500 — mirrors the discovery endpoint's handling (B4).
+		if isExpiredTokenError(err) {
+			return nil, fmt.Errorf("%w: stytch invite token expired", ErrExpiredToken)
+		}
 		return nil, fmt.Errorf("%w: stytch authenticate magic link: %v", ErrInternal, err)
 	}
 
@@ -338,6 +345,12 @@ func (s *StytchAdapter) AuthenticateMagicLink(ctx context.Context, token string)
 	intermediateSessionToken := ""
 	if resp.MemberAuthenticated {
 		stytchSessionToken = resp.SessionToken
+		// An authenticated member MUST carry a session token; storing an empty
+		// one would poison the sessions table and every downstream Stytch call
+		// (B5).
+		if stytchSessionToken == "" {
+			return nil, fmt.Errorf("%w: stytch response missing session_token despite member_authenticated", ErrInternal)
+		}
 	} else {
 		intermediateSessionToken = resp.IntermediateSessionToken
 	}
@@ -469,6 +482,23 @@ func (s *StytchAdapter) CreateMember(ctx context.Context, orgID, email, name str
 			zap.String("email", email),
 			zap.Error(err),
 		)
+
+		// A4: when the email is already a member of this org (e.g. the user was
+		// previously registered and our DB row was lost, or they were provisioned
+		// from the Stytch console), recover the existing member ID instead of
+		// failing the whole registration with a 500.
+		if isDuplicateMemberError(err) {
+			s.logger.Info("Stytch CreateMember: member already exists — recovering existing member ID",
+				zap.String("org_id", orgID),
+				zap.String("email", email),
+			)
+			existingID, getErr := s.GetMemberByEmail(ctx, orgID, email)
+			if getErr != nil {
+				return "", fmt.Errorf("%w: stytch duplicate member + recovery lookup failed: %v", ErrInternal, getErr)
+			}
+			return existingID, nil
+		}
+
 		return "", fmt.Errorf("%w: stytch create member: %s", ErrInternal, sanitizeStytchError(err))
 	}
 
@@ -484,6 +514,16 @@ func (s *StytchAdapter) CreateMember(ctx context.Context, orgID, email, name str
 	)
 
 	return memberID, nil
+}
+
+// isDuplicateMemberError checks if the error indicates the member already
+// exists in the organization (Stytch B2B error type "duplicate_member_email").
+func isDuplicateMemberError(err error) bool {
+	var stytchErr stytcherror.Error
+	if errors.As(err, &stytchErr) {
+		return stytchErr.ErrorType == "duplicate_member_email"
+	}
+	return false
 }
 
 // InviteMemberByEmail sends a Stytch invite email to join an organization.

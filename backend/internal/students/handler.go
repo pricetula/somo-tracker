@@ -28,13 +28,12 @@ type academicYearsAdapter interface {
 
 // BehaviorNotesProvider is a function-based adapter that the students handler
 // uses to fetch behavior notes for the student detail page. It is set via
-// SetBehaviorNotesProvider during fx wiring in main.go to avoid a direct
-// import dependency on the behavior package.
+// SetBehaviorNotesProvider during fx wiring in providers.go.
 type BehaviorNotesProvider func(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]BehaviorNoteItem, error)
 
 // AttendanceSummaryProvider is a function-based adapter that the students handler
 // uses to fetch attendance term summaries for the student detail page. It is set
-// via SetAttendanceProvider during fx wiring in main.go.
+// via SetAttendanceProvider during fx wiring in providers.go.
 type AttendanceSummaryProvider func(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]AttendanceSummaryItem, error)
 
 // Handler exposes student HTTP endpoints.
@@ -62,15 +61,13 @@ func (h *Handler) SetAcademicYearsService(aySvc academicYearsAdapter) {
 }
 
 // SetBehaviorNotesProvider sets the function that fetches behavior notes
-// for the student detail page. This is wired from main.go to avoid a
-// direct import dependency between students and behavior packages.
+// for the student detail page. Wired from providers.go.
 func (h *Handler) SetBehaviorNotesProvider(fn BehaviorNotesProvider) {
 	h.behaviorNotesFn = fn
 }
 
 // SetAttendanceProvider sets the function that fetches attendance term summaries
-// for the student detail page. This is wired from main.go to avoid a direct
-// import dependency between students and attendance packages.
+// for the student detail page. Wired from providers.go.
 func (h *Handler) SetAttendanceProvider(fn AttendanceSummaryProvider) {
 	h.attendanceFn = fn
 }

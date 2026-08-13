@@ -82,7 +82,6 @@ func TestPgRepository_GetByTeacherClassSubject_NotFound(t *testing.T) {
 	pool, cleanup := startPG(t)
 	defer cleanup()
 	applyMigration(t, pool, "000001_initial_schema.up.sql")
-	applyMigration(t, pool, "000012_create_teacher_subject_performance_summaries.up.sql")
 
 	repo := newRepo(pool)
 
@@ -99,7 +98,6 @@ func TestPgRepository_ListByTeacher_Empty(t *testing.T) {
 	pool, cleanup := startPG(t)
 	defer cleanup()
 	applyMigration(t, pool, "000001_initial_schema.up.sql")
-	applyMigration(t, pool, "000012_create_teacher_subject_performance_summaries.up.sql")
 
 	repo := newRepo(pool)
 
@@ -116,7 +114,6 @@ func TestPgRepository_ListByTerm_Empty(t *testing.T) {
 	pool, cleanup := startPG(t)
 	defer cleanup()
 	applyMigration(t, pool, "000001_initial_schema.up.sql")
-	applyMigration(t, pool, "000012_create_teacher_subject_performance_summaries.up.sql")
 
 	repo := newRepo(pool)
 

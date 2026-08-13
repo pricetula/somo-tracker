@@ -12,7 +12,7 @@ import (
 
 func TestPanicRecover(t *testing.T) {
 	app := fiber.New()
-	app.Use(newPanicRecover())
+	app.Use(NewPanicRecover())
 
 	app.Get("/ok", func(c *fiber.Ctx) error {
 		return c.SendString("all good")

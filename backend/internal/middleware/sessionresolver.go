@@ -14,7 +14,17 @@ import (
 	"github.com/jackc/pgx/v5"
 	"golang.org/x/sync/singleflight"
 
+	"somotracker/backend/internal/config"
 	"somotracker/backend/internal/database"
+)
+
+// Session cookie names. The auth handler writes these; the resolver reads and
+// validates them. Exported so the auth package aliases its own constants to
+// these instead of duplicating the wire names.
+const (
+	SessionCookieName  = "somo_sid"
+	RoleCookieName     = "somo_role"
+	SchoolIDCookieName = "somo_school_id"
 )
 
 var (
@@ -22,45 +32,138 @@ var (
 	invalidCacheToken = []byte("INVALID")
 )
 
+// SessionInfo is the resolved session context attached to every /api request.
+// UserID, TenantID and Role are the authorization core; SchoolID/Schools are
+// the user's school context within their tenant (used to scope the untrusted
+// somo_school_id cookie — C2); DeviceFingerprint is recorded at session
+// creation and compared on resume in production only (C5).
 type SessionInfo struct {
-	UserID   string `json:"user_id"`
-	TenantID string `json:"tenant_id"`
-	Role     string `json:"role"`
+	UserID            string   `json:"user_id"`
+	TenantID          string   `json:"tenant_id"`
+	Role              string   `json:"role"`
+	SchoolID          string   `json:"school_id"`          // authoritative active school (DB)
+	Schools           []string `json:"schools"`            // school IDs with active memberships (within tenant)
+	DeviceFingerprint string   `json:"device_fingerprint"` // recorded at session creation
 }
 
-// newSessionResolver loads and verifies sessions against Redis and Postgres.
-func newSessionResolver(pools *database.Pools) fiber.Handler {
+// sessionTokenHash returns the hex SHA-256 digest of a raw session token. It
+// is the canonical digest used for the sessions.token_hash DB column and as
+// the suffix of the Redis session cache key (see SessionCacheKey).
+func sessionTokenHash(rawToken string) string {
+	sum := sha256.Sum256([]byte(rawToken))
+	return hex.EncodeToString(sum[:])
+}
+
+// SessionCacheKey returns the canonical Redis key used to cache session
+// resolution results for a raw session token. All writers and invalidators of
+// the session cache (middleware write-through, auth logout) must use this
+// function so a logged-out session cannot survive in the cache (B2).
+func SessionCacheKey(rawToken string) string {
+	return "session:" + sessionTokenHash(rawToken)
+}
+
+// NewSessionResolver loads and verifies sessions against Redis and Postgres,
+// then enforces two auth invariants per request:
+//
+//   - C5 (production only): the device fingerprint presented by this request
+//     must match the one recorded when the session was created. A mismatch
+//     means the cookie is being replayed from another device and is rejected
+//     with 401. Skipped outside production so a single dev machine can act as
+//     multiple users.
+//
+//   - C2: the somo_school_id cookie is an unsigned client hint, never an
+//     authority. active_school_id/school_id locals are populated from the
+//     user's DB memberships; the cookie is honored only when it names a school
+//     the user is an active member of within their session tenant, otherwise
+//     the DB active school is used. A forged cookie can therefore never scope
+//     a handler to a school the user has no access to.
+func NewSessionResolver(pools *database.Pools, cfg config.Config) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		if !strings.HasPrefix(c.Path(), "/api/") {
 			return c.Next()
 		}
 
-		token := c.Cookies("somo_sid")
+		token := c.Cookies(SessionCookieName)
 		if token != "" {
 			sess, err := resolveSession(c.UserContext(), pools, token)
 			if err == nil && sess != nil {
+				// C5: reject device-bound sessions resumed from a different device.
+				if ferr := enforceDeviceFingerprint(c, cfg, sess); ferr != nil {
+					return ferr
+				}
 				c.Locals("session", sess)
 			}
 
 			if err != nil {
+				// Translate a missing/expired session row (ErrNotFound, already
+				// negative-cached inside resolveSession) into a 401 instead of
+				// letting it surface as a 404/500 through the global handler.
+				if errors.Is(err, ErrNotFound) {
+					return ErrUnauthorized
+				}
 				return err
 			}
 		}
 
-		if schoolID := c.Cookies("somo_school_id"); schoolID != "" {
-			c.Locals("active_school_id", schoolID)
-			c.Locals("school_id", schoolID)
+		// C2: scope the school context to the session's memberships.
+		c.Locals("active_school_id", "")
+		c.Locals("school_id", "")
+		if sess, ok := c.Locals("session").(*SessionInfo); ok && sess != nil {
+			schoolID := sess.SchoolID
+			if cookieSchool := c.Cookies(SchoolIDCookieName); cookieSchool != "" && containsString(sess.Schools, cookieSchool) {
+				schoolID = cookieSchool
+			}
+			if schoolID != "" {
+				c.Locals("active_school_id", schoolID)
+				c.Locals("school_id", schoolID)
+			}
 		}
 
 		return c.Next()
 	}
 }
 
+// enforceDeviceFingerprint enforces device-bound sessions in production only
+// (C5). The presented fingerprint (computed by NewDeviceFingerprinter from
+// IP + User-Agent + Accept-Language) must match the one recorded when the
+// session was created; a mismatch means the cookie is being replayed from a
+// different device and the request is rejected with 401.
+//
+// When either fingerprint is empty (legacy sessions created before this
+// feature, or a client that yields no signals) the check is skipped so the
+// rollout does not log out every existing session.
+func enforceDeviceFingerprint(c *fiber.Ctx, cfg config.Config, sess *SessionInfo) error {
+	if cfg.AppEnv != "production" {
+		return nil
+	}
+	presented, _ := c.Locals("device_fingerprint").(string)
+	if presented == "" || sess.DeviceFingerprint == "" {
+		return nil
+	}
+	if presented != sess.DeviceFingerprint {
+		return ErrDeviceFingerprintMismatch
+	}
+	return nil
+}
+
+// containsString reports whether v is present in the slice (case-sensitive;
+// school IDs are canonical lowercase UUIDs).
+func containsString(s []string, v string) bool {
+	for _, x := range s {
+		if x == v {
+			return true
+		}
+	}
+	return false
+}
+
 func resolveSession(ctx context.Context, pools *database.Pools, rawToken string) (*SessionInfo, error) {
-	// 1. Hash raw token once in Go
-	sum := sha256.Sum256([]byte(rawToken))
-	tokenHash := hex.EncodeToString(sum[:])
-	cacheKey := "session:" + tokenHash
+	// 1. Hash raw token once in Go. The Redis cache key prefixes the digest
+	//    with "session:" (SessionCacheKey) — the DB lookup must use the BARE
+	//    digest against sessions.token_hash, never the prefixed key, or no
+	//    row would ever match and every session would resolve to 401/500.
+	tokenHash := sessionTokenHash(rawToken)
+	cacheKey := SessionCacheKey(rawToken)
 
 	// 2. Check Redis
 	val, err := pools.Redis.Get(ctx, cacheKey).Bytes()
@@ -75,7 +178,7 @@ func resolveSession(ctx context.Context, pools *database.Pools, rawToken string)
 	}
 
 	// 3. Singleflight wrap to deduplicate simultaneous requests for same token
-	v, err, _ := sessionGroup.Do(tokenHash, func() (interface{}, error) {
+	v, err, _ := sessionGroup.Do(cacheKey, func() (interface{}, error) {
 		return loadSessionFromDB(ctx, pools, tokenHash)
 	})
 
@@ -102,34 +205,52 @@ func resolveSession(ctx context.Context, pools *database.Pools, rawToken string)
 	return sess, nil
 }
 
+// loadSessionFromDB resolves a session row together with the user's
+// authorization context in one round trip:
+//
+//   - role: the highest-ranked active membership role (scoped to the session's
+//     tenant); NULL → the session has zero memberships and is forbidden (B3).
+//   - school_id: the user's active school (member_active_school) falling back
+//     to the first membership's school — the authoritative default school
+//     context (C2).
+//   - schools: every school the user has an active membership in, within the
+//     session's tenant — the only school IDs a cookie may select (C2).
+//   - device_fingerprint: recorded at session creation, compared on resume in
+//     production (C5).
 func loadSessionFromDB(ctx context.Context, pools *database.Pools, tokenHash string) (*SessionInfo, error) {
+	// fn_resolve_session is SECURITY DEFINER: it resolves the session BEFORE
+	// the tenant is known, so it must bypass tenant-scoped RLS. It returns the
+	// same shape as the old inline query (role / school_id / schools).
 	const query = `
-		SELECT s.user_id, s.tenant_id,
-		       COALESCE(
-			       (SELECT role::text FROM memberships
-			         WHERE user_id = s.user_id AND is_active = true
-			         ORDER BY
-			           CASE role
-			             WHEN 'SYSTEM_ADMIN' THEN 1
-			             WHEN 'SCHOOL_ADMIN' THEN 2
-			             WHEN 'TEACHER' THEN 3
-			             WHEN 'NURSE' THEN 4
-			             WHEN 'FINANCE' THEN 5
-			           END
-			         LIMIT 1),
-			       'TEACHER'
-		       ) as role
-		FROM sessions s
-		WHERE s.token_hash = $1 AND s.expires_at > NOW()
+		SELECT user_id, tenant_id, device_fingerprint, role, school_id, schools
+		FROM fn_resolve_session($1)
 	`
 
+	var role *string
+	var schoolID *string
+	var schools []string
 	var s SessionInfo
-	err := pools.PG.QueryRow(ctx, query, tokenHash).Scan(&s.UserID, &s.TenantID, &s.Role)
+	err := pools.PG.QueryRow(ctx, query, tokenHash).
+		Scan(&s.UserID, &s.TenantID, &s.DeviceFingerprint, &role, &schoolID, &schools)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
 		}
 		return nil, fmt.Errorf("middleware.loadSessionFromDB: %w", err)
 	}
+	s.Schools = schools
+	if schoolID != nil {
+		s.SchoolID = *schoolID
+	}
+
+	// B3: a valid session for a user with ZERO active memberships must NOT be
+	// silently granted a default role (previously COALESCE → 'TEACHER').
+	// Without membership context there is nothing to authorize against, so the
+	// request is rejected as forbidden — the user is authenticated but not
+	// entitled to any tenant resource.
+	if role == nil || *role == "" {
+		return nil, ErrForbidden
+	}
+	s.Role = *role
 	return &s, nil
 }

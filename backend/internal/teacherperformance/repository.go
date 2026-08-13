@@ -38,7 +38,7 @@ func NewRepository(pools *database.Pools) Repository {
 }
 
 func (r *pgRepository) RefreshComputation(ctx context.Context, termID string) error {
-	_, err := r.pool.Exec(ctx, `SELECT fn_compute_teacher_subject_performance_summaries($1)`, termID)
+	_, err := database.FromContext(ctx, r.pool).Exec(ctx, `SELECT fn_compute_teacher_subject_performance_summaries($1)`, termID)
 	if err != nil {
 		return fmt.Errorf("teacherperformance.Repository.RefreshComputation: %w", err)
 	}
@@ -60,7 +60,7 @@ func (r *pgRepository) ListByTeacher(ctx context.Context, tenantID, schoolID, us
 			  AND user_id = $3 AND academic_term_id = $4
 			  AND learning_area_id = $5
 		`
-		rows, err = r.pool.Query(ctx, query, tenantID, schoolID, userID, termID, *learningAreaID)
+		rows, err = database.FromContext(ctx, r.pool).Query(ctx, query, tenantID, schoolID, userID, termID, *learningAreaID)
 	} else {
 		const query = `
 			SELECT id, tenant_id, school_id, user_id, learning_area_id, class_id,
@@ -72,7 +72,7 @@ func (r *pgRepository) ListByTeacher(ctx context.Context, tenantID, schoolID, us
 			  AND user_id = $3 AND academic_term_id = $4
 			ORDER BY subject_mean_score DESC NULLS LAST
 		`
-		rows, err = r.pool.Query(ctx, query, tenantID, schoolID, userID, termID)
+		rows, err = database.FromContext(ctx, r.pool).Query(ctx, query, tenantID, schoolID, userID, termID)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("teacherperformance.Repository.ListByTeacher: %w", err)
@@ -98,7 +98,7 @@ func (r *pgRepository) ListByTerm(ctx context.Context, tenantID, schoolID, termI
 			  AND academic_term_id = $3 AND class_id = $4
 			  AND learning_area_id = $5
 		`
-		rows, err = r.pool.Query(ctx, query, tenantID, schoolID, termID, *classID, *learningAreaID)
+		rows, err = database.FromContext(ctx, r.pool).Query(ctx, query, tenantID, schoolID, termID, *classID, *learningAreaID)
 	case classID != nil && *classID != "":
 		const query = `
 			SELECT id, tenant_id, school_id, user_id, learning_area_id, class_id,
@@ -110,7 +110,7 @@ func (r *pgRepository) ListByTerm(ctx context.Context, tenantID, schoolID, termI
 			  AND academic_term_id = $3 AND class_id = $4
 			ORDER BY subject_mean_score DESC NULLS LAST
 		`
-		rows, err = r.pool.Query(ctx, query, tenantID, schoolID, termID, *classID)
+		rows, err = database.FromContext(ctx, r.pool).Query(ctx, query, tenantID, schoolID, termID, *classID)
 	case learningAreaID != nil && *learningAreaID != "":
 		const query = `
 			SELECT id, tenant_id, school_id, user_id, learning_area_id, class_id,
@@ -122,7 +122,7 @@ func (r *pgRepository) ListByTerm(ctx context.Context, tenantID, schoolID, termI
 			  AND academic_term_id = $3 AND learning_area_id = $4
 			ORDER BY subject_mean_score DESC NULLS LAST
 		`
-		rows, err = r.pool.Query(ctx, query, tenantID, schoolID, termID, *learningAreaID)
+		rows, err = database.FromContext(ctx, r.pool).Query(ctx, query, tenantID, schoolID, termID, *learningAreaID)
 	default:
 		const query = `
 			SELECT id, tenant_id, school_id, user_id, learning_area_id, class_id,
@@ -134,7 +134,7 @@ func (r *pgRepository) ListByTerm(ctx context.Context, tenantID, schoolID, termI
 			  AND academic_term_id = $3
 			ORDER BY subject_mean_score DESC NULLS LAST
 		`
-		rows, err = r.pool.Query(ctx, query, tenantID, schoolID, termID)
+		rows, err = database.FromContext(ctx, r.pool).Query(ctx, query, tenantID, schoolID, termID)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("teacherperformance.Repository.ListByTerm: %w", err)
@@ -155,7 +155,7 @@ func (r *pgRepository) GetByTeacherClassSubject(ctx context.Context, userID, lea
 		  AND class_id = $3 AND academic_term_id = $4
 	`
 	var s TeacherSubjectPerformanceSummary
-	err := r.pool.QueryRow(ctx, query, userID, learningAreaID, classID, termID).Scan(
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, userID, learningAreaID, classID, termID).Scan(
 		&s.ID, &s.TenantID, &s.SchoolID, &s.UserID, &s.LearningAreaID, &s.ClassID,
 		&s.AcademicTermID, &s.SubjectMeanScore, &s.CohortMasteryRate,
 		&s.StudentGrowthRate, &s.AssessmentTimelinessIdx,

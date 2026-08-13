@@ -10,6 +10,8 @@
  *   GET    /api/v1/behavior/notes/queue         — pending review queue
  *   GET    /api/v1/behavior/notes/:id           — get note detail
  *   POST   /api/v1/behavior/notes/:id/review    — approve/reject
+ *   GET    /api/v1/behavior/summaries           — term summaries (?term_id=&student_id=)
+ *   GET    /api/v1/behavior/summaries/:student_id — single student term summary (?term_id=)
  */
 
 import { api } from "./client";
@@ -186,5 +188,50 @@ export async function reviewBehaviorNote(
     return api.post<{ message: string; decision: string }>(
         `/api/v1/behavior/notes/${id}/review`,
         payload
+    );
+}
+
+// ─── Summaries API ────────────────────────────────────────────────────────
+
+/** A student's behavior term summary (materialised by the backend). */
+export interface BehaviorTermSummary {
+    id: string;
+    student_id: string;
+    academic_term_id: string;
+    total_incidents: number;
+    urgent_count: number;
+    commendations_count: number;
+    disciplinary_count: number;
+    pending_review_count: number;
+    resolved_count: number;
+    primary_category_id?: string | null;
+}
+
+/**
+ * List behavior term summaries for the active school, optionally filtered to a student.
+ * GET /api/v1/behavior/summaries?term_id=&student_id=
+ */
+export async function listBehaviorSummaries(
+    termId: string,
+    studentId?: string
+): Promise<{ items: BehaviorTermSummary[]; total: number }> {
+    const searchParams = new URLSearchParams({ term_id: termId });
+    if (studentId) searchParams.set("student_id", studentId);
+    const qs = searchParams.toString();
+    return api.get<{ items: BehaviorTermSummary[]; total: number }>(
+        `/api/v1/behavior/summaries?${qs}`
+    );
+}
+
+/**
+ * Get a single student's behavior term summary.
+ * GET /api/v1/behavior/summaries/:student_id?term_id=
+ */
+export async function getBehaviorStudentSummary(
+    studentId: string,
+    termId: string
+): Promise<BehaviorTermSummary | null> {
+    return api.get<BehaviorTermSummary | null>(
+        `/api/v1/behavior/summaries/${studentId}?term_id=${encodeURIComponent(termId)}`
     );
 }

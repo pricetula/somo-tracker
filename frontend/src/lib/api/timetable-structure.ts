@@ -1,8 +1,11 @@
 /**
  * Timetable Structure API functions.
  *
+ * NOTE: every list endpoint under /api/v1/timetable/structure requires the
+ * `academic_year_id` query parameter (the backend rejects requests without it).
+ *
  * Endpoints:
- *   GET    /api/v1/timetable/structure              — list all time blocks
+ *   GET    /api/v1/timetable/structure?academic_year_id=   — list all time blocks
  *   GET    /api/v1/timetable/structure/day/:day      — list blocks for a day
  *   POST   /api/v1/timetable/structure               — create a single time block
  *   POST   /api/v1/timetable/structure/batch         — batch-create time blocks (atomic)
@@ -177,17 +180,18 @@ export function getDayNameShort(day: number): string {
 // ─── API Functions: Structure Blocks ──────────────────────────────────────
 
 /** List all time blocks for the active school and academic year. */
-export async function listTimeBlocks(): Promise<TimeBlockListResult> {
-    return api.get<TimeBlockListResult>(`/api/v1/timetable/structure`);
+export async function listTimeBlocks(academicYearID: string): Promise<TimeBlockListResult> {
+    const qs = new URLSearchParams({ academic_year_id: academicYearID }).toString();
+    return api.get<TimeBlockListResult>(`/api/v1/timetable/structure?${qs}`);
 }
 
 /** List time blocks for a specific day (1=Monday, 7=Sunday). */
 export async function listTimeBlocksByDay(
     day: number,
-    academicYearID?: string
+    academicYearID: string
 ): Promise<TimeBlockListResult> {
-    const params = academicYearID ? `?academic_year_id=${encodeURIComponent(academicYearID)}` : "";
-    return api.get<TimeBlockListResult>(`/api/v1/timetable/structure/day/${day}${params}`);
+    const qs = new URLSearchParams({ academic_year_id: academicYearID }).toString();
+    return api.get<TimeBlockListResult>(`/api/v1/timetable/structure/day/${day}?${qs}`);
 }
 
 /** Create a new time block. */

@@ -10,28 +10,19 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
 
 import {
     getCurrentYearAndTerm,
     listAcademicYears,
     listTerms,
-    createAcademicYear,
-    updateAcademicYear,
-    setCurrentYear,
-    deleteAcademicYear,
+    activateTerm,
+    deleteTerm,
     createTerm,
     updateTerm,
 } from "@/lib/api/academic-terms";
 import { getErrorMessage } from "@/lib/errors";
 import { STALE_TIMES } from "@/lib/query-config";
-import type {
-    CreateAcademicYearPayload,
-    UpdateAcademicYearPayload,
-    CreateTermPayload,
-    UpdateTermPayload,
-    AcademicYear,
-} from "@/lib/api/academic-terms";
+import type { CreateTermPayload, UpdateTermPayload, AcademicYear } from "@/lib/api/academic-terms";
 
 // ─── Query keys ───────────────────────────────────────────────────────────
 
@@ -116,166 +107,6 @@ export function useTermsManage(academicYearId?: string) {
 
 // ─── Hooks — Mutations ────────────────────────────────────────────────────
 
-/** Create a new academic year with optimistic update. */
-export function useCreateAcademicYear() {
-    const queryClient = useQueryClient();
-    const router = useRouter();
-
-    return useMutation({
-        mutationFn: (payload: CreateAcademicYearPayload) => createAcademicYear(payload),
-        onMutate: async () => {
-            await queryClient.cancelQueries({ queryKey: academicYearKeys.all });
-            const previousQueries = queryClient.getQueriesData({
-                queryKey: academicYearKeys.all,
-            });
-            return { previousQueries };
-        },
-        onError: (err, _payload, context) => {
-            if (context?.previousQueries) {
-                for (const [key, data] of context.previousQueries) {
-                    queryClient.setQueryData(key, data);
-                }
-            }
-            toast.error(getErrorMessage(err));
-        },
-        onSettled: () => {
-            queryClient.invalidateQueries({ queryKey: academicYearKeys.all });
-        },
-        onSuccess: () => {
-            router.push("/academic-years");
-        },
-    });
-}
-
-/** Update an existing academic year with optimistic update. */
-export function useUpdateAcademicYear() {
-    const queryClient = useQueryClient();
-
-    return useMutation({
-        mutationFn: ({ id, payload }: { id: string; payload: UpdateAcademicYearPayload }) =>
-            updateAcademicYear(id, payload),
-        onMutate: async ({ id, payload }) => {
-            await queryClient.cancelQueries({ queryKey: academicYearKeys.all });
-            const previousQueries = queryClient.getQueriesData<{ items: { id: string }[] }>({
-                queryKey: academicYearKeys.all,
-            });
-
-            queryClient.setQueriesData<{ items: { id: string }[] }>(
-                { queryKey: academicYearKeys.all },
-                (old) => {
-                    if (!old) return old;
-                    return {
-                        ...old,
-                        items: old.items.map((item) =>
-                            item.id === id ? { ...item, ...payload } : item
-                        ),
-                    };
-                }
-            );
-
-            return { previousQueries };
-        },
-        onError: (err, _vars, context) => {
-            if (context?.previousQueries) {
-                for (const [key, data] of context.previousQueries) {
-                    queryClient.setQueryData(key, data);
-                }
-            }
-            toast.error(getErrorMessage(err));
-        },
-        onSettled: () => {
-            queryClient.invalidateQueries({ queryKey: academicYearKeys.all });
-        },
-    });
-}
-
-/** Set an academic year as the current year with optimistic update. */
-export function useSetCurrentYear() {
-    const queryClient = useQueryClient();
-
-    return useMutation({
-        mutationFn: (id: string) => setCurrentYear(id),
-        onMutate: async (id) => {
-            await queryClient.cancelQueries({ queryKey: academicYearKeys.all });
-            const previousQueries = queryClient.getQueriesData<{
-                items: { id: string; is_current?: boolean }[];
-            }>({
-                queryKey: academicYearKeys.all,
-            });
-
-            queryClient.setQueriesData<{ items: { id: string; is_current?: boolean }[] }>(
-                { queryKey: academicYearKeys.all },
-                (old) => {
-                    if (!old) return old;
-                    return {
-                        ...old,
-                        items: old.items.map((item) => ({
-                            ...item,
-                            is_current: item.id === id,
-                        })),
-                    };
-                }
-            );
-
-            return { previousQueries };
-        },
-        onError: (err, _id, context) => {
-            if (context?.previousQueries) {
-                for (const [key, data] of context.previousQueries) {
-                    queryClient.setQueryData(key, data);
-                }
-            }
-            toast.error(getErrorMessage(err));
-        },
-        onSettled: () => {
-            queryClient.invalidateQueries({ queryKey: academicYearKeys.all });
-        },
-    });
-}
-
-/** Delete an academic year and its cascade-deleted terms with optimistic removal. */
-export function useDeleteAcademicYear() {
-    const queryClient = useQueryClient();
-    const router = useRouter();
-
-    return useMutation({
-        mutationFn: (id: string) => deleteAcademicYear(id),
-        onMutate: async (id) => {
-            await queryClient.cancelQueries({ queryKey: academicYearKeys.all });
-            const previousQueries = queryClient.getQueriesData<{ items: { id: string }[] }>({
-                queryKey: academicYearKeys.all,
-            });
-
-            queryClient.setQueriesData<{ items: { id: string }[] }>(
-                { queryKey: academicYearKeys.all },
-                (old) => {
-                    if (!old) return old;
-                    return {
-                        ...old,
-                        items: old.items.filter((item) => item.id !== id),
-                    };
-                }
-            );
-
-            return { previousQueries };
-        },
-        onError: (err, _id, context) => {
-            if (context?.previousQueries) {
-                for (const [key, data] of context.previousQueries) {
-                    queryClient.setQueryData(key, data);
-                }
-            }
-            toast.error(getErrorMessage(err));
-        },
-        onSettled: (_data, _err, _id) => {
-            queryClient.invalidateQueries({ queryKey: academicYearKeys.all });
-        },
-        onSuccess: () => {
-            router.push("/academic-years");
-        },
-    });
-}
-
 /** Create a new term within an academic year with optimistic update. */
 export function useCreateTerm() {
     const queryClient = useQueryClient();
@@ -341,6 +172,91 @@ export function useUpdateTerm() {
             return { previousQueries: [...prevYear, ...prevTerm] };
         },
         onError: (err, _vars, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
+            toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: academicYearKeys.all });
+            queryClient.invalidateQueries({ queryKey: academicTermKeys.all });
+        },
+    });
+}
+
+/** Activate a term (sets it as the school's current term). */
+export function useActivateTerm() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (id: string) => activateTerm(id),
+        onMutate: async (id) => {
+            await queryClient.cancelQueries({ queryKey: academicYearKeys.all });
+            await queryClient.cancelQueries({ queryKey: academicTermKeys.all });
+            const previousQueries = queryClient.getQueriesData({
+                queryKey: [academicYearKeys.all, academicTermKeys.all],
+            });
+
+            // Optimistically mark the activated term as current.
+            queryClient.setQueriesData<{ items: { id: string; is_current?: boolean }[] }>(
+                { queryKey: academicTermKeys.all },
+                (old) => {
+                    if (!old) return old;
+                    return {
+                        ...old,
+                        items: old.items.map((item) => ({
+                            ...item,
+                            is_current: item.id === id,
+                        })),
+                    };
+                }
+            );
+
+            return { previousQueries };
+        },
+        onError: (err, _id, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
+            toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: academicYearKeys.all });
+            queryClient.invalidateQueries({ queryKey: academicTermKeys.all });
+        },
+    });
+}
+
+/** Delete a term with optimistic removal. */
+export function useDeleteTerm() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (id: string) => deleteTerm(id),
+        onMutate: async (id) => {
+            await queryClient.cancelQueries({ queryKey: academicTermKeys.all });
+            const previousQueries = queryClient.getQueriesData({
+                queryKey: academicTermKeys.all,
+            });
+
+            queryClient.setQueriesData<{ items: { id: string }[] }>(
+                { queryKey: academicTermKeys.all },
+                (old) => {
+                    if (!old) return old;
+                    return {
+                        ...old,
+                        items: old.items.filter((item) => item.id !== id),
+                    };
+                }
+            );
+
+            return { previousQueries };
+        },
+        onError: (err, _id, context) => {
             if (context?.previousQueries) {
                 for (const [key, data] of context.previousQueries) {
                     queryClient.setQueryData(key, data);

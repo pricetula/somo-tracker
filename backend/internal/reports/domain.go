@@ -116,7 +116,7 @@ type BehaviorNoteItem struct {
 	IsUrgent     bool   `json:"is_urgent"`
 }
 
-// ─── Provider Function Types (wired from main.go) ─────────────────────────
+// ─── Provider Function Types (wired in providers.go) ─────────────────────
 
 // StudentProvider resolves student identity and current enrollment info.
 type StudentProvider func(ctx context.Context, studentID, tenantID, schoolID string) (*TermReportStudent, error)

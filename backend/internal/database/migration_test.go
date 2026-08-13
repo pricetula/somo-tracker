@@ -330,43 +330,14 @@ func TestMigrationsIntegration_ApplyAll(t *testing.T) {
 	require.NoError(t, err)
 	defer pool.Close()
 
-	// Apply the full migration chain (all migrations in order):
-	//   000001 — initial schema (all core tables)
+	// Apply the squashed migration chain (000001 is the full fresh-install
+	// schema; 000002 is the seed data. Migrations 000003–000017 were squashed
+	// into 000001 on 2026-08-12):
+	//   000001 — initial schema (all core tables + materialised summaries)
 	//   000002 — seed data
-	//   000003 — review-findings fixes
-	//   000004 — add academic_year_id to student enrollments
-	//   000005 — extend summaries and daily rollups
-	//   000006 — student term subject summaries
-	//   000007 — student term overall summaries
-	//   000008 — student cohort position summaries
-	//   000009 — student subject strand summaries
-	//   000010 — student performance projections
-	//   000011 — student behavior term summaries
-	//   000012 — teacher subject performance summaries
-	//   000013 — teacher delivery summaries
-	//   000014 — teacher workload summaries
-	//   000015 — deprecate session token column
-	//   000016 — class attendance rollups (class_learning_area_term_summaries,
-	//             class_term_attendance_summaries)
-	//   000017 — add fee category name uniqueness
 	migrations := []string{
 		"000001_initial_schema.up.sql",
 		"000002_seed.up.sql",
-		"000003_fix_review_findings.up.sql",
-		"000004_add_academic_year_to_enrollments.up.sql",
-		"000005_extend_summaries_and_daily.up.sql",
-		"000006_create_student_term_subject_summaries.up.sql",
-		"000007_create_student_term_overall_summaries.up.sql",
-		"000008_create_student_cohort_position_summaries.up.sql",
-		"000009_create_student_subject_strand_summaries.up.sql",
-		"000010_create_student_performance_projections.up.sql",
-		"000011_create_student_behavior_term_summaries.up.sql",
-		"000012_create_teacher_subject_performance_summaries.up.sql",
-		"000013_create_teacher_delivery_summaries.up.sql",
-		"000014_create_teacher_workload_summaries.up.sql",
-		"000015_deprecate_session_token_column.up.sql",
-		"000016_create_class_attendance_rollups.up.sql",
-		"000017_add_fee_category_name_uniqueness.up.sql",
 	}
 
 	for _, f := range migrations {
@@ -454,13 +425,7 @@ func TestMigrationsIntegration_ApplyAll(t *testing.T) {
 }
 
 // ============================================================================
-// M1 & M2 — Squashed into 000001 (000003_cbc_streams_and_classes was merged
-// into 000001_initial_schema.up.sql on 2026-06-26). These tests are no longer
-// relevant as a standalone migration.
-// ============================================================================
-
-// ============================================================================
-// M3–M13 — Constraint and index verification
+// M1–M22 — Constraint and index verification (all squashed into 000001)
 // ============================================================================
 
 func TestMigrationsIntegration_ConstraintsAndIndexes_M3_to_M13(t *testing.T) {
@@ -478,9 +443,8 @@ func TestMigrationsIntegration_ConstraintsAndIndexes_M3_to_M13(t *testing.T) {
 	require.NoError(t, err)
 	defer pool.Close()
 
-	// Apply the full migration chain (000003 is idempotent on fresh installs
-	// — it fixes databases created with the old pre-squash 000001 schema)
-	for _, f := range []string{"000001_initial_schema.up.sql", "000002_seed.up.sql", "000003_fix_review_findings.up.sql"} {
+	// Apply the squashed base schema (000001 contains everything; 000002 seed)
+	for _, f := range []string{"000001_initial_schema.up.sql", "000002_seed.up.sql"} {
 		sql, err := os.ReadFile(filepath.Join(migrationsDir(), f))
 		require.NoError(t, err, "read %s", f)
 		_, err = pool.Exec(ctx, string(sql))
@@ -669,9 +633,16 @@ func TestMigrationsIntegration_ConstraintsAndIndexes_M3_to_M13(t *testing.T) {
 	// ======================================================================
 
 	yearB1 := uuid.New().String() // academic year for schoolB1 (tenantB)
+	// M11 uses a tenantB user for created_by — the composite FK
+	// (tenant_id, created_by) → users(tenant_id, id) rejects a tenantA user
+	// on a tenantB year (cross-tenant reference).
+	systemUserBID := uuid.New().String()
+	_, err = pool.Exec(ctx, `INSERT INTO users (id, email, tenant_id, full_name) VALUES ($1, $2, $3, 'System B')`,
+		systemUserBID, "system-b-"+systemUserBID+"@test.com", tenantB)
+	require.NoError(t, err)
 	_, err = pool.Exec(ctx, `INSERT INTO academic_years (id, tenant_id, school_id, name, start_date, end_date, created_by, updated_by)
 		VALUES ($1, $2, $3, '2026', '2026-01-01', '2026-12-31', $4, $4)`,
-		yearB1, tenantB, schoolB1, systemUserID)
+		yearB1, tenantB, schoolB1, systemUserBID)
 	require.NoError(t, err)
 
 	// Create a stream in schoolB1
@@ -736,8 +707,8 @@ func TestMigrationsIntegration_UniqueConstraints_M14_to_M17(t *testing.T) {
 	require.NoError(t, err)
 	defer pool.Close()
 
-	// Apply base schema first, then the upgrade fix migration
-	for _, f := range []string{"000001_initial_schema.up.sql", "000003_fix_review_findings.up.sql"} {
+	// Apply squashed base schema first (000001 contains all fixes)
+	for _, f := range []string{"000001_initial_schema.up.sql"} {
 		sql, err := os.ReadFile(filepath.Join(migrationsDir(), f))
 		require.NoError(t, err, "read %s", f)
 		_, err = pool.Exec(ctx, string(sql))
@@ -831,8 +802,8 @@ func TestMigrationsIntegration_PartialUniqueIndexes_M18_to_M22(t *testing.T) {
 	require.NoError(t, err)
 	defer pool.Close()
 
-	// Apply base schema first, then the upgrade fix migration
-	for _, f := range []string{"000001_initial_schema.up.sql", "000003_fix_review_findings.up.sql"} {
+	// Apply squashed base schema first (000001 contains all fixes)
+	for _, f := range []string{"000001_initial_schema.up.sql"} {
 		sql, err := os.ReadFile(filepath.Join(migrationsDir(), f))
 		require.NoError(t, err, "read %s", f)
 		_, err = pool.Exec(ctx, string(sql))
@@ -917,18 +888,20 @@ func TestMigrationsIntegration_PartialUniqueIndexes_M18_to_M22(t *testing.T) {
 	// ======================================================================
 
 	yearID := uuid.New().String()
+	// M21 uses a 2025 year so it does not overlap the 2026 year inserted in M20
+	// (EXCL_academic_years_no_overlap rejects overlapping ranges per school).
 	_, err = pool.Exec(ctx, `INSERT INTO academic_years (id, tenant_id, school_id, name, start_date, end_date, created_by, updated_by)
-		VALUES ($1, $2, $3, '2026', '2026-01-01', '2026-12-31', $4, $4)`,
+		VALUES ($1, $2, $3, '2025', '2025-01-01', '2025-12-31', $4, $4)`,
 		yearID, tenantA, schoolA, userA)
 	require.NoError(t, err)
 
 	_, err = pool.Exec(ctx, `INSERT INTO academic_terms (id, tenant_id, school_id, academic_year_id, name, term_number, start_date, end_date, created_by, updated_by)
-		VALUES ($1, $2, $3, $4, 'Term 1', 1, '2026-01-01', '2026-04-30', $5, $5)`,
+		VALUES ($1, $2, $3, $4, 'Term 1', 1, '2025-01-01', '2025-04-30', $5, $5)`,
 		uuid.New().String(), tenantA, schoolA, yearID, userA)
 	require.NoError(t, err, "M21: first term insert should succeed")
 
 	_, err = pool.Exec(ctx, `INSERT INTO academic_terms (id, tenant_id, school_id, academic_year_id, name, term_number, start_date, end_date, created_by, updated_by)
-		VALUES ($1, $2, $3, $4, 'Term 1 Dup', 1, '2026-05-01', '2026-08-30', $5, $5)`,
+		VALUES ($1, $2, $3, $4, 'Term 1 Dup', 1, '2025-05-01', '2025-08-30', $5, $5)`,
 		uuid.New().String(), tenantA, schoolA, yearID, userA)
 	require.Error(t, err, "M21: duplicate term_number should be rejected")
 	require.Contains(t, err.Error(), "idx_unique_term_number_per_year")

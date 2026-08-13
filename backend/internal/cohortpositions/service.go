@@ -3,11 +3,11 @@ package cohortpositions
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"github.com/hibiken/asynq"
 	"go.uber.org/fx"
+	"go.uber.org/zap"
 
 	"somotracker/backend/internal/database"
 )
@@ -17,13 +17,14 @@ import (
 // Service handles business logic for cohort position computations.
 // It orchestrates the batch refresh and read queries.
 type Service struct {
-	repo  Repository
-	pools *database.Pools
+	repo   Repository
+	pools  *database.Pools
+	logger *zap.SugaredLogger
 }
 
 // NewService creates a new cohort positions Service.
-func NewService(repo Repository, pools *database.Pools) *Service {
-	return &Service{repo: repo, pools: pools}
+func NewService(repo Repository, pools *database.Pools, logger *zap.SugaredLogger) *Service {
+	return &Service{repo: repo, pools: pools, logger: logger}
 }
 
 // RefreshTerm triggers a batch recomputation of cohort positions for all
@@ -59,25 +60,25 @@ func (s *Service) RefreshAllActiveTerms(ctx context.Context) error {
 	}
 
 	if len(termIDs) == 0 {
-		slog.WarnContext(ctx, "cohortpositions: no active terms found for batch refresh")
+		s.logger.Warnw("cohortpositions: no active terms found for batch refresh")
 		return nil
 	}
 
 	for _, termID := range termIDs {
 		start := time.Now()
-		slog.InfoContext(ctx, "cohortpositions: refreshing term",
+		s.logger.Infow("cohortpositions: refreshing term",
 			"term_id", termID,
 		)
 		if err := s.repo.RefreshTerm(ctx, termID); err != nil {
 			// Log and continue — don't let one failing term block others.
-			slog.ErrorContext(ctx, "cohortpositions: term refresh failed",
+			s.logger.Errorw("cohortpositions: term refresh failed",
 				"term_id", termID,
 				"error", err,
 				"duration", time.Since(start).String(),
 			)
 			continue
 		}
-		slog.InfoContext(ctx, "cohortpositions: term refreshed",
+		s.logger.Infow("cohortpositions: term refreshed",
 			"term_id", termID,
 			"duration", time.Since(start).String(),
 		)
@@ -125,13 +126,15 @@ type Worker struct {
 	server *asynq.Server
 	svc    *Service
 	pools  *database.Pools
+	logger *zap.SugaredLogger
 }
 
 // NewWorker creates a new Worker with the cohortpositions refresh handler.
-func NewWorker(svc *Service, pools *database.Pools) *Worker {
+func NewWorker(svc *Service, pools *database.Pools, logger *zap.SugaredLogger) *Worker {
 	return &Worker{
-		svc:   svc,
-		pools: pools,
+		svc:    svc,
+		pools:  pools,
+		logger: logger,
 	}
 }
 
@@ -144,13 +147,13 @@ func (w *Worker) Start(ctx context.Context) error {
 			Queues: map[string]int{
 				"cohortpositions": 5,
 			},
-			Logger: asynqLogger{},
+			Logger: asynqLogger{logger: w.logger},
 		},
 	)
 
 	mux := asynq.NewServeMux()
 	mux.HandleFunc(TaskRefreshCohortPositions, func(ctx context.Context, t *asynq.Task) error {
-		return handleRefresh(ctx, w.svc)
+		return handleRefresh(ctx, w.svc, w.logger)
 	})
 
 	if err := server.Start(mux); err != nil {
@@ -158,7 +161,7 @@ func (w *Worker) Start(ctx context.Context) error {
 	}
 
 	w.server = server
-	slog.InfoContext(ctx, "cohortpositions.Worker: asynq server started")
+	w.logger.Infow("cohortpositions.Worker: asynq server started")
 	return nil
 }
 
@@ -167,25 +170,25 @@ func (w *Worker) Stop(ctx context.Context) error {
 	if w.server != nil {
 		w.server.Shutdown()
 	}
-	slog.InfoContext(ctx, "cohortpositions.Worker: asynq server stopped")
+	w.logger.Infow("cohortpositions.Worker: asynq server stopped")
 	return nil
 }
 
 // handleRefresh processes a cohort position refresh task. It finds all active
 // terms and refreshes each one by calling the batch PL/pgSQL function.
-func handleRefresh(ctx context.Context, svc *Service) error {
+func handleRefresh(ctx context.Context, svc *Service, logger *zap.SugaredLogger) error {
 	start := time.Now()
-	slog.InfoContext(ctx, "cohortpositions: batch refresh starting")
+	logger.Infow("cohortpositions: batch refresh starting")
 
 	if err := svc.RefreshAllActiveTerms(ctx); err != nil {
-		slog.ErrorContext(ctx, "cohortpositions: batch refresh failed",
+		logger.Errorw("cohortpositions: batch refresh failed",
 			"error", err,
 			"duration", time.Since(start).String(),
 		)
 		return fmt.Errorf("cohortpositions.handleRefresh: %w", err)
 	}
 
-	slog.InfoContext(ctx, "cohortpositions: batch refresh completed",
+	logger.Infow("cohortpositions: batch refresh completed",
 		"duration", time.Since(start).String(),
 	)
 	return nil
@@ -200,12 +203,14 @@ func handleRefresh(ctx context.Context, svc *Service) error {
 type RefreshScheduler struct {
 	pools     *database.Pools
 	scheduler *asynq.Scheduler
+	logger    *zap.SugaredLogger
 }
 
 // NewRefreshScheduler creates a new periodic refresh scheduler.
-func NewRefreshScheduler(pools *database.Pools) *RefreshScheduler {
+func NewRefreshScheduler(pools *database.Pools, logger *zap.SugaredLogger) *RefreshScheduler {
 	return &RefreshScheduler{
-		pools: pools,
+		pools:  pools,
+		logger: logger,
 	}
 }
 
@@ -216,7 +221,7 @@ func (rs *RefreshScheduler) Start(ctx context.Context) error {
 	scheduler := asynq.NewScheduler(
 		asynq.RedisClientOpt{Addr: rs.pools.Redis.Options().Addr},
 		&asynq.SchedulerOpts{
-			Logger: asynqLogger{},
+			Logger: asynqLogger{logger: rs.logger},
 		},
 	)
 
@@ -232,7 +237,7 @@ func (rs *RefreshScheduler) Start(ctx context.Context) error {
 	}
 
 	rs.scheduler = scheduler
-	slog.InfoContext(ctx, "cohortpositions.RefreshScheduler: refresh task registered",
+	rs.logger.Infow("cohortpositions.RefreshScheduler: refresh task registered",
 		"entry_id", entryID,
 		"schedule", "*/30 * * * *",
 	)
@@ -244,33 +249,35 @@ func (rs *RefreshScheduler) Stop(ctx context.Context) error {
 	if rs.scheduler != nil {
 		rs.scheduler.Shutdown()
 	}
-	slog.InfoContext(ctx, "cohortpositions.RefreshScheduler: stopped")
+	rs.logger.Infow("cohortpositions.RefreshScheduler: stopped")
 	return nil
 }
 
 // ─── Logger Adapter ───────────────────────────────────────────────────────
 
-// asynqLogger wraps slog to implement asynq.Logger.
-type asynqLogger struct{}
+// asynqLogger wraps zap to implement asynq.Logger.
+type asynqLogger struct {
+	logger *zap.SugaredLogger
+}
 
 func (l asynqLogger) Debug(args ...interface{}) {
-	slog.Debug(fmt.Sprint(args...))
+	l.logger.Debug(fmt.Sprint(args...))
 }
 
 func (l asynqLogger) Info(args ...interface{}) {
-	slog.Info(fmt.Sprint(args...))
+	l.logger.Info(fmt.Sprint(args...))
 }
 
 func (l asynqLogger) Warn(args ...interface{}) {
-	slog.Warn(fmt.Sprint(args...))
+	l.logger.Warn(fmt.Sprint(args...))
 }
 
 func (l asynqLogger) Error(args ...interface{}) {
-	slog.Error(fmt.Sprint(args...))
+	l.logger.Error(fmt.Sprint(args...))
 }
 
 func (l asynqLogger) Fatal(args ...interface{}) {
-	slog.Error(fmt.Sprint(args...))
+	l.logger.Error(fmt.Sprint(args...))
 }
 
 // ─── Lifecycle Hooks ──────────────────────────────────────────────────────

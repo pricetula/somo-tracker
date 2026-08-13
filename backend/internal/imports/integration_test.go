@@ -19,6 +19,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
+	"go.uber.org/zap"
 
 	"somotracker/backend/internal/database"
 )
@@ -131,7 +132,7 @@ func setupSuite() (*IntegrationSuite, error) {
 	pools := &database.Pools{PG: pool, Redis: rdb}
 	repo := NewRepository(pools)
 	asynqClient := asynq.NewClient(asynq.RedisClientOpt{Addr: redisAddr})
-	svc := NewService(repo, pools, asynqClient)
+	svc := NewService(repo, pools, asynqClient, zap.NewNop().Sugar())
 
 	// ── Asynq server for processing ────────────────────────────────────
 	asynqSrv := asynq.NewServer(
@@ -832,14 +833,16 @@ func TestIntegration_ConcurrentClaim(t *testing.T) {
 
 	// ── Create two services sharing the same repo (simulating workers) ──
 	svc1 := &Service{
-		repo:  suite.repo,
-		pool:  suite.pgPool,
-		asynq: suite.asynqCl,
+		repo:   suite.repo,
+		pool:   suite.pgPool,
+		asynq:  suite.asynqCl,
+		logger: zap.NewNop().Sugar(),
 	}
 	svc2 := &Service{
-		repo:  suite.repo,
-		pool:  suite.pgPool,
-		asynq: suite.asynqCl,
+		repo:   suite.repo,
+		pool:   suite.pgPool,
+		asynq:  suite.asynqCl,
+		logger: zap.NewNop().Sugar(),
 	}
 	// Both use real transactions
 	svc1.beginTx = func(c context.Context) (pgx.Tx, error) { return suite.pgPool.Begin(c) }

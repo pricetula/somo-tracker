@@ -77,7 +77,7 @@ func (r *PgRepository) ListInvitations(ctx context.Context, tenantID, schoolID s
 
 	// Count total
 	var total int
-	if err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
+	if err := database.FromContext(ctx, r.pool).QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count invitations: %w", err)
 	}
 
@@ -86,7 +86,7 @@ func (r *PgRepository) ListInvitations(ctx context.Context, tenantID, schoolID s
 	dataQuery += fmt.Sprintf(` LIMIT $%d OFFSET $%d`, argIdx, argIdx+1)
 	args = append(args, filter.Limit, filter.Offset)
 
-	rows, err := r.pool.Query(ctx, dataQuery, args...)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, dataQuery, args...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list invitations: %w", err)
 	}
@@ -122,7 +122,7 @@ func (r *PgRepository) CountInvitations(ctx context.Context, tenantID, schoolID 
 	`
 
 	var total int
-	if err := r.pool.QueryRow(ctx, query, tenantID, schoolID, role).Scan(&total); err != nil {
+	if err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, tenantID, schoolID, role).Scan(&total); err != nil {
 		return 0, fmt.Errorf("count invitations: %w", err)
 	}
 
@@ -148,7 +148,7 @@ func (r *PgRepository) CheckExistingEmails(ctx context.Context, tenantID, school
 		WHERE tenant_id = $1 AND email = ANY($2)
 	`
 	var existingUsers []string
-	if err := r.pool.QueryRow(ctx, userQuery, tenantID, emails).Scan(&existingUsers); err != nil {
+	if err := database.FromContext(ctx, r.pool).QueryRow(ctx, userQuery, tenantID, emails).Scan(&existingUsers); err != nil {
 		return nil, nil, fmt.Errorf("check existing emails in users: %w", err)
 	}
 
@@ -159,7 +159,7 @@ func (r *PgRepository) CheckExistingEmails(ctx context.Context, tenantID, school
 		WHERE school_id = $1 AND email = ANY($2) AND status = 'pending'
 	`
 	var existingInvites []string
-	if err := r.pool.QueryRow(ctx, inviteQuery, schoolID, emails).Scan(&existingInvites); err != nil {
+	if err := database.FromContext(ctx, r.pool).QueryRow(ctx, inviteQuery, schoolID, emails).Scan(&existingInvites); err != nil {
 		return nil, nil, fmt.Errorf("check existing emails in invitations: %w", err)
 	}
 
@@ -195,7 +195,7 @@ func (r *PgRepository) InsertInvitation(ctx context.Context, tx pgx.Tx, params I
 // RevokeInvitation sets an invitation's status to 'revoked'.
 func (r *PgRepository) RevokeInvitation(ctx context.Context, id, schoolID string) error {
 	query := `UPDATE invitations SET status = 'revoked', updated_at = NOW() WHERE id = $1::uuid AND school_id = $2 AND status = 'pending'`
-	tag, err := r.pool.Exec(ctx, query, id, schoolID)
+	tag, err := database.FromContext(ctx, r.pool).Exec(ctx, query, id, schoolID)
 	if err != nil {
 		return fmt.Errorf("revoke invitation: %w", err)
 	}
@@ -209,7 +209,7 @@ func (r *PgRepository) RevokeInvitation(ctx context.Context, id, schoolID string
 func (r *PgRepository) GetStytchOrgID(ctx context.Context, tenantID string) (string, error) {
 	query := `SELECT stytch_org_id FROM tenants WHERE id = $1`
 	var orgID string
-	err := r.pool.QueryRow(ctx, query, tenantID).Scan(&orgID)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, tenantID).Scan(&orgID)
 	if err != nil {
 		return "", fmt.Errorf("get stytch org id: %w", err)
 	}

@@ -3,11 +3,25 @@
  *
  * Endpoints:
  *   Grading Profiles:     POST/GET/GET/:id/PUT/:id/toggle/DELETE /api/v1/grading/profiles
- *   Grading Ranges:       POST/GET/DELETE /api/v1/grading/profiles/:id/ranges
- *   Assessment Sessions:  POST/GET/GET/:id /api/v1/assessments/sessions
+ *   Grading Ranges:       GET /api/v1/grading/profiles/:id/ranges, PUT /api/v1/grading/profiles/:id/ranges
+ *   Assessment Sessions:  POST/GET/GET/:id/DELETE /api/v1/assessments/sessions
  *   Session Workflow:     POST /api/v1/assessments/sessions/:id/{submit,approve,reject}
  *   Scores:               POST/GET /api/v1/assessments/sessions/:id/{scores,grades}
+ *   Grading Data:         GET /api/v1/assessments/sessions/:id/grading-data
  *   Parent View:          GET /api/v1/parent/students/:studentId/{assessments,report-card}
+ *   Term Subject Summaries: GET /api/v1/parent/students/:studentId/term-subject-summaries
+ *                         GET /api/v1/assessments/sessions/learning-area/:learningAreaId/term-subject-summaries
+ *                         POST /api/v1/assessments/term-subject-summaries/refresh
+ *                         PUT  /api/v1/assessments/term-subject-summaries/:id/remark
+ *   Term Overall Summaries: POST /api/v1/assessments/term-overall-summaries/{refresh,refresh-student}
+ *                         GET  /api/v1/assessments/term-overall-summaries/:studentId/:termId
+ *                         GET  /api/v1/assessments/term-overall-summaries
+ *                         PUT  /api/v1/assessments/term-overall-summaries/:id/headteacher-remark
+ *   Subject Strand Summaries: POST/GET /api/v1/assessments/subject-strand-summaries
+ *                         GET  /api/v1/assessments/subject-strand-summaries/:studentId/:termId
+ *   Projections:          POST/GET /api/v1/assessments/projections
+ *                         GET  /api/v1/assessments/projections/:studentId/:termId
+ *   Weight Configs:       GET/POST/DELETE /api/v1/assessments/weight-configs
  */
 
 import { api } from "./client";
@@ -269,14 +283,6 @@ export async function getScaleRanges(profileId: string): Promise<ScaleRangesList
     return api.get(`/api/v1/grading/profiles/${profileId}/ranges`);
 }
 
-/** Delete a single range from a profile. SCHOOL_ADMIN only. */
-export async function deleteScaleRange(
-    profileId: string,
-    rangeId: string
-): Promise<{ message: string }> {
-    return api.delete(`/api/v1/grading/profiles/${profileId}/ranges/${rangeId}`);
-}
-
 // ════════════════════════════════════════════════════════════════════════════
 // ASSESSMENT SESSIONS
 // ════════════════════════════════════════════════════════════════════════════
@@ -478,4 +484,220 @@ export async function createWeightConfig(
     payload: CreateWeightConfigPayload
 ): Promise<{ id: string }> {
     return api.post("/api/v1/assessments/weight-configs", payload);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// TERM SUBJECT SUMMARIES
+// ════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Get per-subject term summaries for a single student.
+ * GET /api/v1/parent/students/:studentId/term-subject-summaries?academic_term_id=
+ */
+export async function getStudentTermSubjectSummaries(
+    studentId: string,
+    academicTermId: string
+): Promise<{ items: unknown[] }> {
+    return api.get<{ items: unknown[] }>(
+        `/api/v1/parent/students/${studentId}/term-subject-summaries?academic_term_id=${encodeURIComponent(academicTermId)}`
+    );
+}
+
+/**
+ * Get term-subject summaries for all students in one learning area (teacher dashboard).
+ * GET /api/v1/assessments/sessions/learning-area/:learningAreaId/term-subject-summaries?academic_term_id=
+ */
+export async function getLearningAreaSummaries(
+    learningAreaId: string,
+    academicTermId: string
+): Promise<{ items: unknown[] }> {
+    return api.get<{ items: unknown[] }>(
+        `/api/v1/assessments/sessions/learning-area/${learningAreaId}/term-subject-summaries?academic_term_id=${encodeURIComponent(academicTermId)}`
+    );
+}
+
+/**
+ * Manually refresh the term-subject summary for a session.
+ * POST /api/v1/assessments/term-subject-summaries/refresh — SCHOOL_ADMIN only.
+ */
+export async function refreshTermSubjectSummary(sessionId: string): Promise<{ message: string }> {
+    return api.post<{ message: string }>("/api/v1/assessments/term-subject-summaries/refresh", {
+        session_id: sessionId,
+    });
+}
+
+/**
+ * Set or clear the teacher remark on a term-subject summary row.
+ * Pass null to clear. PUT /api/v1/assessments/term-subject-summaries/:id/remark.
+ */
+export async function setTeacherRemark(
+    summaryId: string,
+    remark: string | null
+): Promise<{ message: string }> {
+    return api.put<{ message: string }>(
+        `/api/v1/assessments/term-subject-summaries/${summaryId}/remark`,
+        { remark }
+    );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// TERM OVERALL SUMMARIES (term-level rollup across subjects)
+// ════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Refresh overall term summaries for a whole term.
+ * POST /api/v1/assessments/term-overall-summaries/refresh — SCHOOL_ADMIN only.
+ */
+export async function refreshTermOverall(termId: string): Promise<{ message: string }> {
+    return api.post<{ message: string }>("/api/v1/assessments/term-overall-summaries/refresh", {
+        term_id: termId,
+    });
+}
+
+/**
+ * Refresh the overall summary for a single student+term pair.
+ * POST /api/v1/assessments/term-overall-summaries/refresh-student.
+ */
+export async function refreshSingleStudentOverall(
+    studentId: string,
+    termId: string
+): Promise<{ message: string }> {
+    return api.post<{ message: string }>(
+        "/api/v1/assessments/term-overall-summaries/refresh-student",
+        { student_id: studentId, term_id: termId }
+    );
+}
+
+/**
+ * Get a single student's overall term summary.
+ * GET /api/v1/assessments/term-overall-summaries/:studentId/:termId
+ */
+export async function getStudentTermOverallSummary(
+    studentId: string,
+    termId: string
+): Promise<unknown> {
+    return api.get<unknown>(`/api/v1/assessments/term-overall-summaries/${studentId}/${termId}`);
+}
+
+/**
+ * List overall term summaries (headteacher dashboard view), with optional filters.
+ * GET /api/v1/assessments/term-overall-summaries
+ */
+export async function listStudentTermOverallSummaries(params?: {
+    academic_term_id?: string;
+    class_id?: string;
+    page?: number;
+    limit?: number;
+}): Promise<{ items: unknown[]; total: number }> {
+    const searchParams = new URLSearchParams();
+    if (params?.academic_term_id) searchParams.set("academic_term_id", params.academic_term_id);
+    if (params?.class_id) searchParams.set("class_id", params.class_id);
+    if (params?.page) searchParams.set("page", String(params.page));
+    if (params?.limit) searchParams.set("limit", String(params.limit));
+    const qs = searchParams.toString();
+    return api.get<{ items: unknown[]; total: number }>(
+        `/api/v1/assessments/term-overall-summaries${qs ? `?${qs}` : ""}`
+    );
+}
+
+/**
+ * Set or clear the headteacher remark on an overall summary row.
+ * Pass null to clear. PUT /api/v1/assessments/term-overall-summaries/:id/headteacher-remark.
+ */
+export async function setHeadteacherRemark(
+    summaryId: string,
+    remark: string | null
+): Promise<{ message: string }> {
+    return api.put<{ message: string }>(
+        `/api/v1/assessments/term-overall-summaries/${summaryId}/headteacher-remark`,
+        { remark }
+    );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// SUBJECT STRAND SUMMARIES (rubric sub-strand level)
+// ════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Refresh subject-strand summaries for a session.
+ * POST /api/v1/assessments/subject-strand-summaries/refresh — SCHOOL_ADMIN only.
+ */
+export async function refreshStrandSummaries(sessionId: string): Promise<{ message: string }> {
+    return api.post<{ message: string }>("/api/v1/assessments/subject-strand-summaries/refresh", {
+        session_id: sessionId,
+    });
+}
+
+/**
+ * Get subject-strand summaries for a single student+term.
+ * GET /api/v1/assessments/subject-strand-summaries/:studentId/:termId
+ */
+export async function getStudentSubjectStrandSummaries(
+    studentId: string,
+    termId: string
+): Promise<{ items: unknown[] }> {
+    return api.get<{ items: unknown[] }>(
+        `/api/v1/assessments/subject-strand-summaries/${studentId}/${termId}`
+    );
+}
+
+/**
+ * List subject-strand summaries for a term, with optional class filter.
+ * GET /api/v1/assessments/subject-strand-summaries
+ */
+export async function listSubjectStrandSummariesByTerm(params?: {
+    academic_term_id?: string;
+    class_id?: string;
+}): Promise<{ items: unknown[]; total: number }> {
+    const searchParams = new URLSearchParams();
+    if (params?.academic_term_id) searchParams.set("academic_term_id", params.academic_term_id);
+    if (params?.class_id) searchParams.set("class_id", params.class_id);
+    const qs = searchParams.toString();
+    return api.get<{ items: unknown[]; total: number }>(
+        `/api/v1/assessments/subject-strand-summaries${qs ? `?${qs}` : ""}`
+    );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// STUDENT PERFORMANCE PROJECTIONS
+// ════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Refresh performance projections for a term.
+ * POST /api/v1/assessments/projections/refresh — SCHOOL_ADMIN only.
+ */
+export async function refreshProjections(
+    academicTermId: string
+): Promise<{ message: string; term_id: string }> {
+    return api.post<{ message: string; term_id: string }>(
+        "/api/v1/assessments/projections/refresh",
+        { academic_term_id: academicTermId }
+    );
+}
+
+/**
+ * Get a single student's performance projection.
+ * GET /api/v1/assessments/projections/:studentId/:termId
+ */
+export async function getStudentProjection(studentId: string, termId: string): Promise<unknown> {
+    return api.get<unknown>(`/api/v1/assessments/projections/${studentId}/${termId}`);
+}
+
+/**
+ * List student projections for a term.
+ * GET /api/v1/assessments/projections
+ */
+export async function listStudentProjections(params?: {
+    academic_term_id?: string;
+    page?: number;
+    limit?: number;
+}): Promise<{ items: unknown[]; total: number }> {
+    const searchParams = new URLSearchParams();
+    if (params?.academic_term_id) searchParams.set("academic_term_id", params.academic_term_id);
+    if (params?.page) searchParams.set("page", String(params.page));
+    if (params?.limit) searchParams.set("limit", String(params.limit));
+    const qs = searchParams.toString();
+    return api.get<{ items: unknown[]; total: number }>(
+        `/api/v1/assessments/projections${qs ? `?${qs}` : ""}`
+    );
 }

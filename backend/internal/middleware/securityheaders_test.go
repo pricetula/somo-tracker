@@ -13,7 +13,7 @@ import (
 
 func TestSecurityHeaders(t *testing.T) {
 	app := fiber.New()
-	app.Use(newSecurityHeaders())
+	app.Use(NewSecurityHeaders())
 
 	// Register dummy endpoints
 	app.Get("/api/v1/students", func(c *fiber.Ctx) error {

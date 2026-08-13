@@ -188,7 +188,7 @@ export function CreateAssessmentSessionForm({ onSuccess }: Props) {
                             setFieldErrors({});
                         }}
                         placeholder="Select an academic year..."
-                        onCreateItem={() => router.push("/academic-years/new")}
+                        onCreateItem={() => router.push("/academic-terms/new")}
                     />
                     {fieldErrors.academic_year_id && (
                         <p className="text-destructive text-xs">

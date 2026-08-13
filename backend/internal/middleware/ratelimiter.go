@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -19,7 +20,7 @@ type RateLimiterConfig struct {
 }
 
 // NewRateLimiter returns a Redis sliding-window rate limiter middleware.
-func newRateLimiter(rdb *redis.Client, cfg RateLimiterConfig) fiber.Handler {
+func NewRateLimiter(rdb *redis.Client, cfg RateLimiterConfig) fiber.Handler {
 	script := redis.NewScript(`
 		local key    = KEYS[1]
 		local now    = tonumber(ARGV[1])
@@ -56,7 +57,10 @@ func newRateLimiter(rdb *redis.Client, cfg RateLimiterConfig) fiber.Handler {
 
 		result, err := script.Run(ctx, rdb, []string{key}, now, windowMs, cfg.Limit, memberID).Int()
 		if err != nil {
-			// Fail-open strategy: If Redis fails, allow request through to prevent system outage
+			// Fail-open strategy: allow the request through so a Redis outage
+			// doesn't take down the API — but surface the degradation instead
+			// of silently disabling the throttle.
+			warnRateLimitDegraded(c, cfg.Prefix, err)
 			return c.Next()
 		}
 
@@ -71,4 +75,71 @@ func newRateLimiter(rdb *redis.Client, cfg RateLimiterConfig) fiber.Handler {
 
 		return c.Next()
 	}
+}
+
+// NewIPLimiter returns a sliding‑window limiter keyed by client IP.
+// Typical use: global anti‑abuse throttle (e.g. 300 req/min).
+func NewIPLimiter(rdb *redis.Client, limit int64, window time.Duration) fiber.Handler {
+	return NewRateLimiter(rdb, RateLimiterConfig{
+		Limit:  limit,
+		Window: window,
+		Prefix: "ip_limiter",
+		KeyLookup: func(c *fiber.Ctx) string {
+			return c.IP()
+		},
+	})
+}
+
+// NewUserLimiter returns a sliding‑window limiter keyed by the authenticated user ID.
+// If the request has no session, the limiter is skipped (fail‑open).
+func NewUserLimiter(rdb *redis.Client, limit int64, window time.Duration) fiber.Handler {
+	return NewRateLimiter(rdb, RateLimiterConfig{
+		Limit:  limit,
+		Window: window,
+		Prefix: "user_limiter",
+		KeyLookup: func(c *fiber.Ctx) string {
+			if sess, ok := c.Locals("session").(*SessionInfo); ok && sess.UserID != "" {
+				return sess.UserID
+			}
+			return "" // skip limiter for unauthenticated requests
+		},
+	})
+}
+
+// NewEndpointLimiter returns a limiter keyed by the combination of user ID + request path.
+// Useful for throttling expensive endpoints on a per‑user basis.
+func NewEndpointLimiter(rdb *redis.Client, limit int64, window time.Duration) fiber.Handler {
+	return NewRateLimiter(rdb, RateLimiterConfig{
+		Limit:  limit,
+		Window: window,
+		Prefix: "endpoint_limiter",
+		KeyLookup: func(c *fiber.Ctx) string {
+			if sess, ok := c.Locals("session").(*SessionInfo); ok && sess.UserID != "" {
+				return sess.UserID + "|" + c.Path()
+			}
+			return "" // skip if no user
+		},
+	})
+}
+
+var (
+	rateLimitWarnMu sync.Mutex
+	rateLimitWarnAt = map[string]time.Time{}
+)
+
+// warnRateLimitDegraded logs a Redis failure at Warn level at most once per
+// limiter prefix per 30s window. The limiter fails open when Redis is down;
+// without this debounce a prolonged outage would flood the logs with an
+// identical line on every request.
+func warnRateLimitDegraded(c *fiber.Ctx, prefix string, err error) {
+	rateLimitWarnMu.Lock()
+	defer rateLimitWarnMu.Unlock()
+	if last, ok := rateLimitWarnAt[prefix]; ok && time.Since(last) < 30*time.Second {
+		return
+	}
+	rateLimitWarnAt[prefix] = time.Now()
+	loggerFrom(c).Warnw("rate limiter degraded: Redis unavailable, failing open",
+		"prefix", prefix,
+		"error", err.Error(),
+	)
 }

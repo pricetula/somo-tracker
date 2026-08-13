@@ -82,7 +82,6 @@ func TestPgRepository_GetByStudentTerm_NotFound(t *testing.T) {
 	pool, cleanup := startPG(t)
 	defer cleanup()
 	applyMigration(t, pool, "000001_initial_schema.up.sql")
-	applyMigration(t, pool, "000008_create_student_cohort_position_summaries.up.sql")
 
 	repo := newRepo(pool)
 
@@ -99,7 +98,6 @@ func TestPgRepository_ListByClassTerm_Empty(t *testing.T) {
 	pool, cleanup := startPG(t)
 	defer cleanup()
 	applyMigration(t, pool, "000001_initial_schema.up.sql")
-	applyMigration(t, pool, "000008_create_student_cohort_position_summaries.up.sql")
 
 	repo := newRepo(pool)
 
@@ -116,7 +114,6 @@ func TestPgRepository_ListByGradeTerm_Empty(t *testing.T) {
 	pool, cleanup := startPG(t)
 	defer cleanup()
 	applyMigration(t, pool, "000001_initial_schema.up.sql")
-	applyMigration(t, pool, "000008_create_student_cohort_position_summaries.up.sql")
 
 	repo := newRepo(pool)
 

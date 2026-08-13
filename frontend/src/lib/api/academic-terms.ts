@@ -1,15 +1,20 @@
 /**
  * Academic Terms & Years API functions.
  *
+ * Backend contract (backend/internal/academicyears/handler.go):
+ *
+ *   Academic years are READ-ONLY via the API — year creation is driven by the
+ *   term lifecycle and SetupInitialYear during school registration. All term
+ *   mutations are SCHOOL_ADMIN / SYSTEM_ADMIN only.
+ *
  * Endpoints:
- *   GET    /api/v1/academic-years         — list years
- *   POST   /api/v1/academic-years         — create year
- *   PATCH  /api/v1/academic-years/:id     — update year
- *   POST   /api/v1/academic-years/:id/set-current — set current year
- *   DELETE /api/v1/academic-years/:id     — delete year
- *   GET    /api/v1/academic-terms         — list terms
- *   POST   /api/v1/academic-terms         — create term
- *   PATCH  /api/v1/academic-terms/:id     — update term
+ *   GET    /api/v1/academic-years              — list years (with nested terms)
+ *   GET    /api/v1/academic-years/current      — current year + current term
+ *   GET    /api/v1/academic-terms              — list terms (?academic_year_id=)
+ *   POST   /api/v1/academic-terms              — create term
+ *   PATCH  /api/v1/academic-terms/:id          — update term (optimistic locking)
+ *   POST   /api/v1/academic-terms/:id/activate — activate term (sets is_current)
+ *   DELETE /api/v1/academic-terms/:id          — delete term
  */
 
 import { api } from "./client";
@@ -55,19 +60,6 @@ export interface CurrentAcademicYearWithCurrentTerm {
 
 // ─── Create / Update Payloads ─────────────────────────────────────────────
 
-export interface CreateAcademicYearPayload {
-    name: string;
-    start_date: string; // "YYYY-MM-DD"
-    end_date: string; // "YYYY-MM-DD"
-}
-
-export interface UpdateAcademicYearPayload {
-    name?: string;
-    start_date?: string; // "YYYY-MM-DD"
-    end_date?: string; // "YYYY-MM-DD"
-    version: number; // required for optimistic locking
-}
-
 export interface CreateTermPayload {
     academic_year_id: string;
     name: string;
@@ -83,42 +75,17 @@ export interface UpdateTermPayload {
     version: number; // required for optimistic locking
 }
 
-// ─── API Functions — Academic Years ────────────────────────────────────────
+// ─── API Functions — Academic Years (read-only) ───────────────────────────
 
-/** List academic years for the active school. */
+/** Get the current academic year plus its current term for the active school. */
 export async function getCurrentYearAndTerm(): Promise<CurrentAcademicYearWithCurrentTerm> {
     return await api.get<CurrentAcademicYearWithCurrentTerm>("/api/v1/academic-years/current");
 }
 
-/** List academic years for the active school. */
+/** List academic years for the active school (each with nested terms). */
 export async function listAcademicYears(): Promise<{ items: AcademicYear[] }> {
     const raw = await api.get<{ data: AcademicYear[] }>("/api/v1/academic-years");
     return { items: raw.data ?? [] };
-}
-
-/** Create a new academic year. Returns the new year's ID. */
-export async function createAcademicYear(
-    payload: CreateAcademicYearPayload
-): Promise<{ id: string }> {
-    return api.post<{ id: string }>("/api/v1/academic-years", payload);
-}
-
-/** Update an existing academic year (optimistic locking via version). */
-export async function updateAcademicYear(
-    id: string,
-    payload: UpdateAcademicYearPayload
-): Promise<{ id: string; version: number }> {
-    return api.patch<{ id: string; version: number }>(`/api/v1/academic-years/${id}`, payload);
-}
-
-/** Set an academic year as the current year for the school. */
-export async function setCurrentYear(id: string): Promise<void> {
-    await api.post(`/api/v1/academic-years/${id}/set-current`);
-}
-
-/** Delete an academic year and its cascade-deleted terms. */
-export async function deleteAcademicYear(id: string): Promise<void> {
-    await api.delete(`/api/v1/academic-years`, { id });
 }
 
 // ─── API Functions — Academic Terms ───────────────────────────────────────
@@ -143,4 +110,20 @@ export async function createTerm(payload: CreateTermPayload): Promise<AcademicTe
 /** Update an existing academic term (optimistic locking via version). */
 export async function updateTerm(id: string, payload: UpdateTermPayload): Promise<AcademicTerm> {
     return api.patch<AcademicTerm>(`/api/v1/academic-terms/${id}`, payload);
+}
+
+/**
+ * Activate an academic term, making it the school's current term.
+ * POST /api/v1/academic-terms/:id/activate — SCHOOL_ADMIN only.
+ */
+export async function activateTerm(id: string): Promise<{ message: string }> {
+    return api.post<{ message: string }>(`/api/v1/academic-terms/${id}/activate`);
+}
+
+/**
+ * Delete an academic term (fails with 409 if the term has dependent records).
+ * DELETE /api/v1/academic-terms/:id — SCHOOL_ADMIN only.
+ */
+export async function deleteTerm(id: string): Promise<void> {
+    await api.delete(`/api/v1/academic-terms/${id}`);
 }

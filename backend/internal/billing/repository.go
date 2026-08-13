@@ -30,7 +30,7 @@ func (r *PgRepository) CreateFeeCategory(ctx context.Context, tenantID, schoolID
 		RETURNING id
 	`
 	var id string
-	err := r.pool.QueryRow(ctx, query, tenantID, schoolID, name, isMandatory).Scan(&id)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, tenantID, schoolID, name, isMandatory).Scan(&id)
 	if err != nil {
 		return "", fmt.Errorf("billing.Repository.CreateFeeCategory: %w", err)
 	}
@@ -45,7 +45,7 @@ func (r *PgRepository) ListFeeCategories(ctx context.Context, tenantID, schoolID
 		WHERE tenant_id = $1 AND school_id = $2
 		ORDER BY name ASC
 	`
-	rows, err := r.pool.Query(ctx, query, tenantID, schoolID)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, tenantID, schoolID)
 	if err != nil {
 		return nil, fmt.Errorf("billing.Repository.ListFeeCategories: %w", err)
 	}
@@ -78,7 +78,7 @@ func (r *PgRepository) GetFeeCategoryByID(ctx context.Context, id, tenantID, sch
 		WHERE id = $1 AND tenant_id = $2 AND school_id = $3
 	`
 	var c FeeCategory
-	err := r.pool.QueryRow(ctx, query, id, tenantID, schoolID).Scan(
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, id, tenantID, schoolID).Scan(
 		&c.ID, &c.TenantID, &c.SchoolID, &c.Name, &c.IsMandatory,
 	)
 	if err != nil {
@@ -118,7 +118,7 @@ func (r *PgRepository) UpdateFeeCategory(ctx context.Context, id, tenantID, scho
 		WHERE id = $%d AND tenant_id = $%d AND school_id = $%d
 	`, joinClauses(setClauses, ", "), argIdx, argIdx+1, argIdx+2)
 
-	result, err := r.pool.Exec(ctx, query, args...)
+	result, err := database.FromContext(ctx, r.pool).Exec(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("billing.Repository.UpdateFeeCategory: %w", err)
 	}
@@ -133,7 +133,7 @@ func (r *PgRepository) UpdateFeeCategory(ctx context.Context, id, tenantID, scho
 // DeleteFeeCategory removes a fee category by ID, scoped to tenant and school.
 func (r *PgRepository) DeleteFeeCategory(ctx context.Context, id, tenantID, schoolID string) error {
 	const query = `DELETE FROM fee_categories WHERE id = $1 AND tenant_id = $2 AND school_id = $3`
-	result, err := r.pool.Exec(ctx, query, id, tenantID, schoolID)
+	result, err := database.FromContext(ctx, r.pool).Exec(ctx, query, id, tenantID, schoolID)
 	if err != nil {
 		return fmt.Errorf("billing.Repository.DeleteFeeCategory: %w", err)
 	}
@@ -153,7 +153,7 @@ func (r *PgRepository) CreateFeeTemplate(ctx context.Context, tenantID, schoolID
 		RETURNING id
 	`
 	var id string
-	err := r.pool.QueryRow(ctx, query, tenantID, schoolID, academicTermID, gradeLevel, feeCategoryID, amount).Scan(&id)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, tenantID, schoolID, academicTermID, gradeLevel, feeCategoryID, amount).Scan(&id)
 	if err != nil {
 		return "", fmt.Errorf("billing.Repository.CreateFeeTemplate: %w", err)
 	}
@@ -186,7 +186,7 @@ func (r *PgRepository) ListFeeTemplates(ctx context.Context, tenantID, schoolID 
 
 	baseQuery += " ORDER BY grade_level ASC, fee_category_id ASC"
 
-	rows, err := r.pool.Query(ctx, baseQuery, args...)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, baseQuery, args...)
 	if err != nil {
 		return nil, fmt.Errorf("billing.Repository.ListFeeTemplates: %w", err)
 	}
@@ -222,7 +222,7 @@ func (r *PgRepository) GetFeeTemplateByID(ctx context.Context, id, tenantID, sch
 		WHERE id = $1 AND tenant_id = $2 AND school_id = $3
 	`
 	var t FeeTemplate
-	err := r.pool.QueryRow(ctx, query, id, tenantID, schoolID).Scan(
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, id, tenantID, schoolID).Scan(
 		&t.ID, &t.TenantID, &t.SchoolID, &t.AcademicTermID,
 		&t.GradeLevel, &t.FeeCategoryID, &t.Amount, &t.CreatedAt,
 	)
@@ -246,7 +246,7 @@ func (r *PgRepository) UpdateFeeTemplate(ctx context.Context, id, tenantID, scho
 		SET amount = $1::NUMERIC(12,2)
 		WHERE id = $2 AND tenant_id = $3 AND school_id = $4
 	`
-	result, err := r.pool.Exec(ctx, query, *amount, id, tenantID, schoolID)
+	result, err := database.FromContext(ctx, r.pool).Exec(ctx, query, *amount, id, tenantID, schoolID)
 	if err != nil {
 		return fmt.Errorf("billing.Repository.UpdateFeeTemplate: %w", err)
 	}
@@ -261,7 +261,7 @@ func (r *PgRepository) UpdateFeeTemplate(ctx context.Context, id, tenantID, scho
 // DeleteFeeTemplate removes a fee template by ID, scoped to tenant and school.
 func (r *PgRepository) DeleteFeeTemplate(ctx context.Context, id, tenantID, schoolID string) error {
 	const query = `DELETE FROM fee_templates WHERE id = $1 AND tenant_id = $2 AND school_id = $3`
-	result, err := r.pool.Exec(ctx, query, id, tenantID, schoolID)
+	result, err := database.FromContext(ctx, r.pool).Exec(ctx, query, id, tenantID, schoolID)
 	if err != nil {
 		return fmt.Errorf("billing.Repository.DeleteFeeTemplate: %w", err)
 	}
@@ -283,7 +283,7 @@ func (r *PgRepository) CreateInvoice(ctx context.Context, tenantID, schoolID, st
 		RETURNING id
 	`
 	var id string
-	err := r.pool.QueryRow(ctx, query, tenantID, schoolID, studentID, academicTermID, parentID, invoiceLabel, amountDue).Scan(&id)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, tenantID, schoolID, studentID, academicTermID, parentID, invoiceLabel, amountDue).Scan(&id)
 	if err != nil {
 		return "", fmt.Errorf("billing.Repository.CreateInvoice: %w", err)
 	}
@@ -296,7 +296,7 @@ func (r *PgRepository) CreateInvoiceItem(ctx context.Context, tenantID, invoiceI
 		INSERT INTO invoice_items (tenant_id, invoice_id, fee_category_id, description, amount)
 		VALUES ($1, $2, $3, $4, $5::NUMERIC(12,2))
 	`
-	_, err := r.pool.Exec(ctx, query, tenantID, invoiceID, feeCategoryID, description, amount)
+	_, err := database.FromContext(ctx, r.pool).Exec(ctx, query, tenantID, invoiceID, feeCategoryID, description, amount)
 	if err != nil {
 		return fmt.Errorf("billing.Repository.CreateInvoiceItem: %w", err)
 	}
@@ -313,7 +313,7 @@ func (r *PgRepository) GetInvoiceByID(ctx context.Context, id, tenantID, schoolI
 		WHERE id = $1 AND tenant_id = $2 AND school_id = $3
 	`
 	var inv Invoice
-	err := r.pool.QueryRow(ctx, query, id, tenantID, schoolID).Scan(
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, id, tenantID, schoolID).Scan(
 		&inv.ID, &inv.TenantID, &inv.StudentID, &inv.SchoolID, &inv.AcademicTermID,
 		&inv.ParentID, &inv.InvoiceLabel, &inv.PaymentStatus,
 		&inv.AmountDue, &inv.AmountPaid, &inv.CreatedAt,
@@ -371,7 +371,7 @@ func (r *PgRepository) ListInvoices(ctx context.Context, tenantID, schoolID stri
 	dataQuery += " ORDER BY created_at DESC"
 
 	var total int
-	err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&total)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, countQuery, args...).Scan(&total)
 	if err != nil {
 		return nil, 0, fmt.Errorf("billing.Repository.ListInvoices: count: %w", err)
 	}
@@ -379,7 +379,7 @@ func (r *PgRepository) ListInvoices(ctx context.Context, tenantID, schoolID stri
 		return []Invoice{}, 0, nil
 	}
 
-	rows, err := r.pool.Query(ctx, dataQuery, args...)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, dataQuery, args...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("billing.Repository.ListInvoices: query: %w", err)
 	}
@@ -416,7 +416,7 @@ func (r *PgRepository) GetInvoiceItems(ctx context.Context, invoiceID, tenantID 
 		WHERE invoice_id = $1 AND tenant_id = $2
 		ORDER BY fee_category_id ASC
 	`
-	rows, err := r.pool.Query(ctx, query, invoiceID, tenantID)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, invoiceID, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("billing.Repository.GetInvoiceItems: %w", err)
 	}
@@ -471,7 +471,7 @@ func (r *PgRepository) WaiveInvoice(ctx context.Context, id, tenantID, schoolID 
 		SET payment_status = 'WAIVED'
 		WHERE id = $1 AND tenant_id = $2 AND school_id = $3
 	`
-	result, err := r.pool.Exec(ctx, query, id, tenantID, schoolID)
+	result, err := database.FromContext(ctx, r.pool).Exec(ctx, query, id, tenantID, schoolID)
 	if err != nil {
 		return fmt.Errorf("billing.Repository.WaiveInvoice: %w", err)
 	}
@@ -494,7 +494,7 @@ func (r *PgRepository) ResolveGradeLevel(ctx context.Context, tenantID, studentI
 		  AND e.status = 'ACTIVE'
 	`
 	var gradeLevel string
-	err := r.pool.QueryRow(ctx, query, studentID, academicTermID, tenantID).Scan(&gradeLevel)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, studentID, academicTermID, tenantID).Scan(&gradeLevel)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return "", fmt.Errorf("billing.Repository.ResolveGradeLevel: %w", ErrNotFound)
@@ -516,7 +516,7 @@ func (r *PgRepository) ListFeeTemplatesByTermAndGrade(ctx context.Context, tenan
 		  AND grade_level = $4::cbc_grade_level
 		ORDER BY fee_category_id ASC
 	`
-	rows, err := r.pool.Query(ctx, query, tenantID, schoolID, academicTermID, gradeLevel)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, tenantID, schoolID, academicTermID, gradeLevel)
 	if err != nil {
 		return nil, fmt.Errorf("billing.Repository.ListFeeTemplatesByTermAndGrade: %w", err)
 	}
@@ -554,7 +554,7 @@ func (r *PgRepository) RecordPayment(ctx context.Context, tenantID, invoiceID, a
 		RETURNING id
 	`
 	var id string
-	err := r.pool.QueryRow(ctx, query, tenantID, invoiceID, amount, recordedBy, parentID, paymentMethod, referenceCode).Scan(&id)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, tenantID, invoiceID, amount, recordedBy, parentID, paymentMethod, referenceCode).Scan(&id)
 	if err != nil {
 		return "", fmt.Errorf("billing.Repository.RecordPayment: %w", err)
 	}
@@ -570,7 +570,7 @@ func (r *PgRepository) ListPayments(ctx context.Context, tenantID, invoiceID str
 		WHERE tenant_id = $1 AND invoice_id = $2
 		ORDER BY created_at ASC
 	`
-	rows, err := r.pool.Query(ctx, query, tenantID, invoiceID)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, tenantID, invoiceID)
 	if err != nil {
 		return nil, fmt.Errorf("billing.Repository.ListPayments: %w", err)
 	}
@@ -606,7 +606,7 @@ func (r *PgRepository) GetPaymentByID(ctx context.Context, id, tenantID string) 
 		WHERE id = $1 AND tenant_id = $2
 	`
 	var p Payment
-	err := r.pool.QueryRow(ctx, query, id, tenantID).Scan(
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, id, tenantID).Scan(
 		&p.ID, &p.InvoiceID, &p.Amount, &p.ParentID,
 		&p.PaymentMethod, &p.ReferenceCode, &p.RecordedBy, &p.CreatedAt,
 	)

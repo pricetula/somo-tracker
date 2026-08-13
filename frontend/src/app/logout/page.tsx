@@ -26,9 +26,11 @@ export default function LogoutPage() {
                 // so we clear them here to prevent the proxy middleware from
                 // seeing stale cookies and bouncing back from /login to /.
                 console.warn("logout: session deletion failed", getErrorMessage(err));
-                document.cookie = `${SESSION_COOKIE_NAME}=; path=/; max-age=0`;
-                document.cookie = `${ROLE_COOKIE_NAME}=; path=/; max-age=0`;
-                document.cookie = "csrf_token=; path=/; max-age=0";
+                const domain = ".somotracker.com"; // must match the cookie domain set by the backend
+                document.cookie = `${SESSION_COOKIE_NAME}=; path=/; domain=${domain}; max-age=0`;
+                document.cookie = `${ROLE_COOKIE_NAME}=; path=/; domain=${domain}; max-age=0`;
+                document.cookie = "somo_school_id=; path=/; domain=${domain}; max-age=0";
+                document.cookie = "csrf_token=; path=/; domain=${domain}; max-age=0";
             } finally {
                 router.replace("/login");
             }

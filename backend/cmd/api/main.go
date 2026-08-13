@@ -121,9 +121,16 @@ func main() {
 			// preserved.
 			app := fiber.New(fiber.Config{
 				ErrorHandler: func(c *fiber.Ctx, err error) error {
-					if errors.Is(err, fiber.ErrNotFound) || errors.Is(err, fiber.ErrMethodNotAllowed) {
-						return fiber.DefaultErrorHandler(c, err)
+					// 1. Check if the error is a Fiber HTTP error (e.g., 404, 405, 400)
+					var e *fiber.Error
+					if errors.As(err, &e) {
+						// Let Fiber handle standard HTTP status errors (404 Not Found, 405, etc.)
+						if e.Code < 500 {
+							return fiber.DefaultErrorHandler(c, err)
+						}
 					}
+
+					// 2. Pass internal domain/server errors to your custom HTTPError middleware
 					return middleware.HTTPError(c, err)
 				},
 				AppName: "somotracker-api",

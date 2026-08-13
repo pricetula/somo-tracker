@@ -23,7 +23,7 @@ func NewRepository(pools *database.Pools) Repository {
 
 func (r *pgRepository) CreateSession(ctx context.Context, tenantID, schoolID string, payload CreateSessionPayload) (*AttendanceSession, error) {
 	var s AttendanceSession
-	err := r.pool.QueryRow(ctx, `
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, `
 		INSERT INTO cbc_attendance_sessions (tenant_id, school_id, timetable_slot_id, date, status, skip_reason)
 		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING id, tenant_id, school_id, timetable_slot_id, date::text, status, skip_reason, created_at
@@ -38,7 +38,7 @@ func (r *pgRepository) CreateSession(ctx context.Context, tenantID, schoolID str
 
 func (r *pgRepository) GetSessionByID(ctx context.Context, id, tenantID string) (*AttendanceSession, error) {
 	var s AttendanceSession
-	err := r.pool.QueryRow(ctx, `
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, `
 		SELECT id, tenant_id, school_id, timetable_slot_id, date::text, status, skip_reason, created_at, updated_at
 		FROM cbc_attendance_sessions
 		WHERE id = $1 AND tenant_id = $2
@@ -80,7 +80,7 @@ func (r *pgRepository) GetEnrichedSessionByID(ctx context.Context, id, tenantID 
 	`
 	var res SessionWithEnrichedData
 	var streamName, learningAreaName, teacherName string
-	err := r.pool.QueryRow(ctx, query, id, tenantID).Scan(
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, id, tenantID).Scan(
 		&res.ID, &res.TenantID, &res.SchoolID, &res.TimetableSlotID, &res.Date, &res.Status, &res.SkipReason,
 		&res.CreatedAt, &res.UpdatedAt,
 		&res.ClassName, &streamName, &res.GradeLevel,
@@ -161,7 +161,7 @@ func (r *pgRepository) ListSessions(ctx context.Context, filter SessionFilter) (
 
 	query += ` ORDER BY s.date DESC, tstr.day_of_week, tstr.start_time`
 
-	rows, err := r.pool.Query(ctx, query, args...)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("attendance.Repository.ListSessions: %w", err)
 	}
@@ -225,7 +225,7 @@ func (r *pgRepository) UpdateSession(ctx context.Context, id, tenantID string, p
 	args = append(args, id, tenantID)
 
 	var s AttendanceSession
-	err := r.pool.QueryRow(ctx, query, args...).Scan(
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, args...).Scan(
 		&s.ID, &s.TenantID, &s.SchoolID, &s.TimetableSlotID, &s.Date, &s.Status, &s.SkipReason, &s.CreatedAt, &s.UpdatedAt,
 	)
 	if err != nil {
@@ -278,7 +278,7 @@ func (r *pgRepository) GetSessionsForClassDate(ctx context.Context, tenantID, sc
 		ORDER BY tstr.start_time
 	`
 
-	rows, err := r.pool.Query(ctx, query, tenantID, schoolID, classID, date)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, tenantID, schoolID, classID, date)
 	if err != nil {
 		return nil, fmt.Errorf("attendance.Repository.GetSessionsForClassDate: %w", err)
 	}
@@ -316,7 +316,7 @@ func (r *pgRepository) BatchMark(ctx context.Context, tenantID, schoolID string,
 	result := &BatchMarkResult{}
 
 	// Use a transaction so the batch is atomic.
-	tx, err := r.pool.Begin(ctx)
+	tx, err := database.Begin(ctx, r.pool)
 	if err != nil {
 		return nil, fmt.Errorf("attendance.Repository.BatchMark: begin tx: %w", err)
 	}
@@ -406,7 +406,7 @@ func (r *pgRepository) UpdateRecord(ctx context.Context, id, tenantID string, pa
 	args = append(args, id, tenantID)
 
 	var rec AttendanceRecord
-	err := r.pool.QueryRow(ctx, query, args...).Scan(
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, args...).Scan(
 		&rec.ID, &rec.TenantID, &rec.SchoolID, &rec.StudentID, &rec.TimetableSlotID, &rec.AcademicTermID,
 		&rec.Date, &rec.Status, &rec.MarkedBy, &rec.MarkedBy, &rec.Note, &rec.CreatedAt, &rec.UpdatedAt,
 	)
@@ -421,7 +421,7 @@ func (r *pgRepository) UpdateRecord(ctx context.Context, id, tenantID string, pa
 
 func (r *pgRepository) GetRecordByID(ctx context.Context, id, tenantID string) (*AttendanceRecord, error) {
 	var rec AttendanceRecord
-	err := r.pool.QueryRow(ctx, `
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, `
 		SELECT id, tenant_id, school_id, student_id, timetable_slot_id, academic_term_id,
 		       date, status, marked_by, marked_at, note, created_at, updated_at
 		FROM attendance_records
@@ -618,7 +618,7 @@ func (r *pgRepository) ListRecords(ctx context.Context, filter RecordFilter) ([]
 
 	query += ` ORDER BY ar.date DESC, s.full_name, tstr.start_time`
 
-	rows, err := r.pool.Query(ctx, query, args...)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("attendance.Repository.ListRecords: %w", err)
 	}
@@ -650,7 +650,7 @@ func (r *pgRepository) ListRecords(ctx context.Context, filter RecordFilter) ([]
 
 // scanEnrichedRecords is a shared helper for the concrete list-by-query methods.
 func (r *pgRepository) scanEnrichedRecords(ctx context.Context, query string, args ...interface{}) ([]RecordWithEnrichedData, error) {
-	rows, err := r.pool.Query(ctx, query, args...)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("attendance.Repository.scanEnrichedRecords: %w", err)
 	}
@@ -684,7 +684,7 @@ func (r *pgRepository) scanEnrichedRecords(ctx context.Context, query string, ar
 
 func (r *pgRepository) GetTermIDByDate(ctx context.Context, tenantID, schoolID, date string) (string, error) {
 	var id string
-	err := r.pool.QueryRow(ctx, `
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, `
 		SELECT at.id FROM academic_terms at
 		JOIN academic_years ay ON ay.id = at.academic_year_id
 		WHERE ay.tenant_id = $1
@@ -740,7 +740,7 @@ func (r *pgRepository) GetClassTermSummary(ctx context.Context, tenantID, school
 		  AND enr.class_id = $3 AND ats.academic_term_id = $4
 		ORDER BY ats.student_id, la.name
 	`
-	rows, err := r.pool.Query(ctx, query, tenantID, schoolID, classID, termID)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, tenantID, schoolID, classID, termID)
 	if err != nil {
 		return nil, fmt.Errorf("attendance.Repository.GetClassTermSummary: %w", err)
 	}
@@ -771,7 +771,7 @@ func (r *pgRepository) RefreshSummaries(ctx context.Context, tenantID, schoolID,
 	// Recompute all attendance term summaries for a given term.
 	// Excludes attendance_records whose session is SKIPPED (cancelled lesson)
 	// so cancelled lessons don't count against the denominator.
-	_, err := r.pool.Exec(ctx, `
+	_, err := database.FromContext(ctx, r.pool).Exec(ctx, `
 		INSERT INTO attendance_term_summaries (
 			tenant_id, school_id, student_id, academic_term_id, academic_year_id,
 			learning_area_id,
@@ -828,7 +828,7 @@ func (r *pgRepository) RefreshSummaries(ctx context.Context, tenantID, schoolID,
 // periods_present, periods_absent, periods_late, periods_excused,
 // attendance_percentage, last_refreshed_at, created_at, updated_at.
 func (r *pgRepository) scanSummaries(ctx context.Context, query string, args ...interface{}) ([]AttendanceTermSummary, error) {
-	rows, err := r.pool.Query(ctx, query, args...)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("attendance.Repository.scanSummaries: %w", err)
 	}
@@ -859,7 +859,7 @@ func (r *pgRepository) scanSummaries(ctx context.Context, query string, args ...
 
 func (r *pgRepository) GetClassDailySummary(ctx context.Context, tenantID, schoolID, classID, date string) (*ClassDailyAttendanceSummary, error) {
 	var s ClassDailyAttendanceSummary
-	err := r.pool.QueryRow(ctx, `
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, `
 		SELECT id, tenant_id, school_id, class_id, academic_term_id, date::TEXT,
 		       total_enrolled, present_count, absent_count, late_count, excused_count,
 		       daily_attendance_rate, last_refreshed_at, created_at, updated_at
@@ -880,7 +880,7 @@ func (r *pgRepository) GetClassDailySummary(ctx context.Context, tenantID, schoo
 }
 
 func (r *pgRepository) RefreshClassDailySummary(ctx context.Context, tenantID, schoolID, classID, date string) error {
-	_, err := r.pool.Exec(ctx, `
+	_, err := database.FromContext(ctx, r.pool).Exec(ctx, `
 		INSERT INTO class_daily_attendance_summaries (
 			tenant_id, school_id, class_id, academic_term_id, date,
 			total_enrolled, present_count, absent_count, late_count, excused_count,
@@ -932,7 +932,7 @@ func (r *pgRepository) RefreshClassDailySummary(ctx context.Context, tenantID, s
 }
 
 func (r *pgRepository) ListClassDailySummaries(ctx context.Context, tenantID, schoolID, classID, startDate, endDate string) ([]ClassDailyAttendanceSummary, error) {
-	rows, err := r.pool.Query(ctx, `
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, `
 		SELECT id, tenant_id, school_id, class_id, academic_term_id, date::TEXT,
 		       total_enrolled, present_count, absent_count, late_count, excused_count,
 		       daily_attendance_rate, last_refreshed_at, created_at, updated_at
@@ -1012,7 +1012,7 @@ func (r *pgRepository) ListCalendarStatus(ctx context.Context, tenantID, schoolI
 		ORDER BY e.date ASC
 	`
 
-	rows, err := r.pool.Query(ctx, query, tenantID, schoolID, startDate, endDate)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, tenantID, schoolID, startDate, endDate)
 	if err != nil {
 		return nil, fmt.Errorf("attendance.Repository.ListCalendarStatus: %w", err)
 	}
@@ -1038,7 +1038,7 @@ func (r *pgRepository) ListCalendarStatus(ctx context.Context, tenantID, schoolI
 
 func (r *pgRepository) GetClassLearningAreaTermSummary(ctx context.Context, tenantID, schoolID, classID, learningAreaID, termID string) (*ClassLearningAreaTermSummary, error) {
 	var s ClassLearningAreaTermSummary
-	err := r.pool.QueryRow(ctx, `
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, `
 		SELECT id, tenant_id, school_id, class_id, learning_area_id, academic_term_id, academic_year_id,
 		       students_included, periods_total, periods_present, periods_absent, periods_late, periods_excused,
 		       attendance_percentage, last_refreshed_at, created_at, updated_at
@@ -1082,7 +1082,7 @@ func (r *pgRepository) ListClassLearningAreaTermSummaries(ctx context.Context, t
 
 	query += " ORDER BY class_id, learning_area_id"
 
-	rows, err := r.pool.Query(ctx, query, args...)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("attendance.Repository.ListClassLearningAreaTermSummaries: %w", err)
 	}
@@ -1110,7 +1110,7 @@ func (r *pgRepository) ListClassLearningAreaTermSummaries(ctx context.Context, t
 
 func (r *pgRepository) GetClassTermAttendanceSummary(ctx context.Context, tenantID, schoolID, classID, termID string) (*ClassTermAttendanceSummary, error) {
 	var s ClassTermAttendanceSummary
-	err := r.pool.QueryRow(ctx, `
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, `
 		SELECT id, tenant_id, school_id, class_id, academic_term_id, academic_year_id,
 		       days_in_term, total_enrolled_avg, present_count, absent_count, late_count, excused_count,
 		       term_attendance_rate, last_refreshed_at, created_at, updated_at
@@ -1134,7 +1134,7 @@ func (r *pgRepository) ListClassTermAttendanceSummaries(ctx context.Context, ten
 	var rows pgx.Rows
 	var err error
 	if classID == "" {
-		rows, err = r.pool.Query(ctx, `
+		rows, err = database.FromContext(ctx, r.pool).Query(ctx, `
 			SELECT id, tenant_id, school_id, class_id, academic_term_id, academic_year_id,
 			       days_in_term, total_enrolled_avg, present_count, absent_count, late_count, excused_count,
 			       term_attendance_rate, last_refreshed_at, created_at, updated_at
@@ -1143,7 +1143,7 @@ func (r *pgRepository) ListClassTermAttendanceSummaries(ctx context.Context, ten
 			ORDER BY class_id
 		`, tenantID, schoolID, termID)
 	} else {
-		rows, err = r.pool.Query(ctx, `
+		rows, err = database.FromContext(ctx, r.pool).Query(ctx, `
 			SELECT id, tenant_id, school_id, class_id, academic_term_id, academic_year_id,
 			       days_in_term, total_enrolled_avg, present_count, absent_count, late_count, excused_count,
 			       term_attendance_rate, last_refreshed_at, created_at, updated_at

@@ -85,7 +85,7 @@ func (r *pgRepository) ListCategories(ctx context.Context, tenantID, schoolID st
 		WHERE tenant_id = $1 AND school_id = $2
 		ORDER BY name
 	`
-	rows, err := r.pool.Query(ctx, query, tenantID, schoolID)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, tenantID, schoolID)
 	if err != nil {
 		return nil, fmt.Errorf("behavior.Repository.ListCategories: %w", err)
 	}
@@ -109,7 +109,7 @@ func (r *pgRepository) ListActiveCategories(ctx context.Context, tenantID, schoo
 		WHERE tenant_id = $1 AND school_id = $2 AND is_active = true
 		ORDER BY name
 	`
-	rows, err := r.pool.Query(ctx, query, tenantID, schoolID)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, tenantID, schoolID)
 	if err != nil {
 		return nil, fmt.Errorf("behavior.Repository.ListActiveCategories: %w", err)
 	}
@@ -128,7 +128,7 @@ func (r *pgRepository) ListActiveCategories(ctx context.Context, tenantID, schoo
 
 func (r *pgRepository) CreateCategory(ctx context.Context, tenantID, schoolID, name string, defaultSeverity *string) (*BehaviorCategory, error) {
 	var cat BehaviorCategory
-	err := r.pool.QueryRow(ctx, `
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, `
 		INSERT INTO behavior_categories (tenant_id, school_id, name, default_severity)
 		VALUES ($1, $2, $3, $4)
 		RETURNING id, tenant_id, school_id, name, default_severity, is_active, created_at
@@ -143,7 +143,7 @@ func (r *pgRepository) CreateCategory(ctx context.Context, tenantID, schoolID, n
 
 func (r *pgRepository) GetCategoryByID(ctx context.Context, id, tenantID string) (*BehaviorCategory, error) {
 	var cat BehaviorCategory
-	err := r.pool.QueryRow(ctx, `
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, `
 		SELECT id, tenant_id, school_id, name, default_severity, is_active, created_at
 		FROM behavior_categories
 		WHERE id = $1 AND tenant_id = $2
@@ -198,7 +198,7 @@ func (r *pgRepository) UpdateCategory(ctx context.Context, id, tenantID string, 
 	args = append(args, id, tenantID)
 
 	var cat BehaviorCategory
-	err := r.pool.QueryRow(ctx, query, args...).Scan(
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, args...).Scan(
 		&cat.ID, &cat.TenantID, &cat.SchoolID, &cat.Name, &cat.DefaultSeverity, &cat.IsActive, &cat.CreatedAt,
 	)
 	if err != nil {
@@ -214,7 +214,7 @@ func (r *pgRepository) UpdateCategory(ctx context.Context, id, tenantID string, 
 
 func (r *pgRepository) CreateNote(ctx context.Context, tenantID, schoolID string, payload CreateNotePayload, authoredBy string) (*BehaviorNote, error) {
 	var note BehaviorNote
-	err := r.pool.QueryRow(ctx, `
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, `
 		INSERT INTO behavior_notes
 			(tenant_id, school_id, student_id, timetable_slot_id, date,
 			 category_id, description, is_urgent, authored_by_id)
@@ -260,7 +260,7 @@ func (r *pgRepository) GetPendingQueue(ctx context.Context, tenantID, schoolID s
 		WHERE bn.tenant_id = $1 AND bn.school_id = $2 AND bn.status = 'PENDING_REVIEW'
 		ORDER BY bn.is_urgent DESC, bn.created_at DESC
 	`
-	rows, err := r.pool.Query(ctx, query, tenantID, schoolID)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, tenantID, schoolID)
 	if err != nil {
 		return nil, fmt.Errorf("behavior.Repository.GetPendingQueue: %w", err)
 	}
@@ -287,7 +287,7 @@ func (r *pgRepository) GetPendingQueue(ctx context.Context, tenantID, schoolID s
 
 func (r *pgRepository) GetNoteByID(ctx context.Context, id, tenantID string) (*BehaviorNote, error) {
 	var note BehaviorNote
-	err := r.pool.QueryRow(ctx, `
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, `
 		SELECT id, tenant_id, school_id, student_id, timetable_slot_id, date,
 		       category_id, description, is_urgent, status, authored_by_id,
 		       reviewed_by_id, reviewed_at, created_at
@@ -319,7 +319,7 @@ func (r *pgRepository) ReviewNote(ctx context.Context, id, tenantID, reviewedBy 
 	}
 
 	now := time.Now()
-	result, err := r.pool.Exec(ctx, `
+	result, err := database.FromContext(ctx, r.pool).Exec(ctx, `
 		UPDATE behavior_notes
 		SET status = $1, reviewed_by_id = $2, reviewed_at = $3
 		WHERE id = $4 AND tenant_id = $5 AND status = 'PENDING_REVIEW'
@@ -364,7 +364,7 @@ func (r *pgRepository) GetNotesByStudentTerm(ctx context.Context, tenantID, scho
 		  AND bn.status IN ('APPROVED', 'INCLUDED_IN_REPORT')
 		ORDER BY bn.date DESC
 	`
-	rows, err := r.pool.Query(ctx, query, tenantID, schoolID, studentID, termID)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, tenantID, schoolID, studentID, termID)
 	if err != nil {
 		return nil, fmt.Errorf("behavior.Repository.GetNotesByStudentTerm: %w", err)
 	}
@@ -408,7 +408,7 @@ func (r *pgRepository) ListNotesByAuthor(ctx context.Context, tenantID, schoolID
 		  AND bn.authored_by_id = $3
 		ORDER BY bn.created_at DESC
 	`
-	rows, err := r.pool.Query(ctx, query, tenantID, schoolID, authoredBy)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, tenantID, schoolID, authoredBy)
 	if err != nil {
 		return nil, fmt.Errorf("behavior.Repository.ListNotesByAuthor: %w", err)
 	}
@@ -433,7 +433,7 @@ func (r *pgRepository) ListNotesByAuthor(ctx context.Context, tenantID, schoolID
 }
 
 func (r *pgRepository) UpdateNote(ctx context.Context, id, tenantID string, description string) error {
-	result, err := r.pool.Exec(ctx, `
+	result, err := database.FromContext(ctx, r.pool).Exec(ctx, `
 		UPDATE behavior_notes
 		SET description = $1, updated_at = NOW()
 		WHERE id = $2 AND tenant_id = $3
@@ -449,7 +449,7 @@ func (r *pgRepository) UpdateNote(ctx context.Context, id, tenantID string, desc
 
 // Ensure compile-time check that *pgRepository satisfies Repository.
 func (r *pgRepository) DeleteNote(ctx context.Context, id, tenantID string) error {
-	result, err := r.pool.Exec(ctx, `
+	result, err := database.FromContext(ctx, r.pool).Exec(ctx, `
 		DELETE FROM behavior_notes
 		WHERE id = $1 AND tenant_id = $2
 	`, id, tenantID)
@@ -476,7 +476,7 @@ func (r *pgRepository) GetStudentBehaviorTermSummary(ctx context.Context, studen
 	`
 	var s StudentBehaviorTermSummary
 	var primaryCategoryID *string
-	err := r.pool.QueryRow(ctx, query, studentID, termID).Scan(
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, studentID, termID).Scan(
 		&s.ID, &s.TenantID, &s.SchoolID, &s.StudentID, &s.AcademicTermID,
 		&s.TotalIncidents, &s.UrgentCount,
 		&s.CommendationsCount, &s.DisciplinaryCount,
@@ -508,7 +508,7 @@ func (r *pgRepository) ListStudentBehaviorTermSummaries(ctx context.Context, ten
 			WHERE tenant_id = $1 AND school_id = $2
 			  AND academic_term_id = $3 AND student_id = $4
 		`
-		rows, err = r.pool.Query(ctx, query, tenantID, schoolID, termID, *studentID)
+		rows, err = database.FromContext(ctx, r.pool).Query(ctx, query, tenantID, schoolID, termID, *studentID)
 	} else {
 		const query = `
 			SELECT id, tenant_id, school_id, student_id, academic_term_id,
@@ -521,7 +521,7 @@ func (r *pgRepository) ListStudentBehaviorTermSummaries(ctx context.Context, ten
 			  AND academic_term_id = $3
 			ORDER BY total_incidents DESC
 		`
-		rows, err = r.pool.Query(ctx, query, tenantID, schoolID, termID)
+		rows, err = database.FromContext(ctx, r.pool).Query(ctx, query, tenantID, schoolID, termID)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("behavior.Repository.ListStudentBehaviorTermSummaries: %w", err)

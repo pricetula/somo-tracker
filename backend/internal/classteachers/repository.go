@@ -39,7 +39,7 @@ func (r *PgRepository) Create(ctx context.Context, params CreateClassTeacherPara
 		RETURNING id
 	`
 	var id string
-	err := r.pool.QueryRow(ctx, query,
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query,
 		params.TenantID,
 		params.ClassID,
 		params.UserID,
@@ -68,7 +68,7 @@ func (r *PgRepository) GetByID(ctx context.Context, id, tenantID string) (*Class
 		WHERE ct.id = $1 AND ct.tenant_id = $2
 	`
 	var ct ClassTeacher
-	err := r.pool.QueryRow(ctx, query, id, tenantID).Scan(
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, id, tenantID).Scan(
 		&ct.ID, &ct.TenantID, &ct.ClassID, &ct.UserID,
 		&ct.TeacherName,
 		&ct.LearningAreaID, &ct.LearningArea,
@@ -96,7 +96,7 @@ func (r *PgRepository) ListByClass(ctx context.Context, classID, tenantID string
 		WHERE ct.class_id = $1 AND ct.tenant_id = $2
 		ORDER BY ct.teacher_role, u.full_name
 	`
-	rows, err := r.pool.Query(ctx, query, classID, tenantID)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, classID, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("classteachers.Repository.ListByClass: %w", err)
 	}
@@ -137,7 +137,7 @@ func (r *PgRepository) ListByTeacher(ctx context.Context, userID, tenantID strin
 		WHERE ct.user_id = $1 AND ct.tenant_id = $2
 		ORDER BY ct.created_at DESC
 	`
-	rows, err := r.pool.Query(ctx, query, userID, tenantID)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, userID, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("classteachers.Repository.ListByTeacher: %w", err)
 	}
@@ -168,7 +168,7 @@ func (r *PgRepository) ListByTeacher(ctx context.Context, userID, tenantID strin
 // Delete removes a class teacher assignment.
 func (r *PgRepository) Delete(ctx context.Context, id, tenantID string) error {
 	const query = `DELETE FROM cbc_class_teachers WHERE id = $1 AND tenant_id = $2`
-	tag, err := r.pool.Exec(ctx, query, id, tenantID)
+	tag, err := database.FromContext(ctx, r.pool).Exec(ctx, query, id, tenantID)
 	if err != nil {
 		return fmt.Errorf("classteachers.Repository.Delete: %w", err)
 	}
@@ -185,7 +185,7 @@ func (r *PgRepository) CountPrimaryForClass(ctx context.Context, classID, tenant
 		WHERE class_id = $1 AND tenant_id = $2 AND teacher_role = 'PRIMARY_CLASS_TEACHER'
 	`
 	var count int
-	err := r.pool.QueryRow(ctx, query, classID, tenantID).Scan(&count)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, classID, tenantID).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("classteachers.Repository.CountPrimaryForClass: %w", err)
 	}
@@ -199,7 +199,7 @@ func (r *PgRepository) ExistsForSubject(ctx context.Context, classID, userID, le
 		WHERE class_id = $1 AND user_id = $2 AND learning_area_id = $3 AND tenant_id = $4
 	`
 	var count int
-	err := r.pool.QueryRow(ctx, query, classID, userID, learningAreaID, tenantID).Scan(&count)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, classID, userID, learningAreaID, tenantID).Scan(&count)
 	if err != nil {
 		return false, fmt.Errorf("classteachers.Repository.ExistsForSubject: %w", err)
 	}

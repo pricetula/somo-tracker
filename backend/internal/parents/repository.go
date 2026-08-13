@@ -72,7 +72,7 @@ func (r *PgRepository) StudentExistsInTenant(ctx context.Context, studentID, ten
 		)
 	`
 	var exists bool
-	err := r.pool.QueryRow(ctx, query, studentID, tenantID).Scan(&exists)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, studentID, tenantID).Scan(&exists)
 	if err != nil {
 		return false, fmt.Errorf("parents.Repository.StudentExistsInTenant: %w", err)
 	}
@@ -86,7 +86,7 @@ func (r *PgRepository) StudentExistsInTenant(ctx context.Context, studentID, ten
 // Create inserts a new parent profile, creating a platform user if one
 // doesn't already exist with the given email in the tenant.
 func (r *PgRepository) Create(ctx context.Context, tenantID string, payload CreateParentPayload) (string, error) {
-	tx, err := r.pool.Begin(ctx)
+	tx, err := database.Begin(ctx, r.pool)
 	if err != nil {
 		return "", fmt.Errorf("parents.Repository.Create: begin tx: %w", err)
 	}
@@ -221,7 +221,7 @@ const parentRoleFilter = `m.role = 'PARENT'`
 // GetByUserID retrieves a parent profile by the linked user_id.
 func (r *PgRepository) GetByUserID(ctx context.Context, userID, tenantID string) (*Parent, error) {
 	const query = `SELECT ` + parentJoinColumns + parentJoin + ` WHERE ` + parentRoleFilter + ` AND m.user_id = $1 AND m.tenant_id = $2`
-	p, err := scanParent(r.pool.QueryRow(ctx, query, userID, tenantID))
+	p, err := scanParent(database.FromContext(ctx, r.pool).QueryRow(ctx, query, userID, tenantID))
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, fmt.Errorf("parents.Repository.GetByUserID: %w", ErrNotFound)
@@ -236,7 +236,7 @@ func (r *PgRepository) GetByUserID(ctx context.Context, userID, tenantID string)
 // (for parents without a student link). Both are accepted.
 func (r *PgRepository) GetByID(ctx context.Context, id, tenantID string) (*Parent, error) {
 	const query = `SELECT ` + parentJoinColumns + parentJoin + ` WHERE ` + parentRoleFilter + ` AND m.tenant_id = $2 AND (cp.id::text = $1 OR u.id::text = $1)`
-	p, err := scanParent(r.pool.QueryRow(ctx, query, id, tenantID))
+	p, err := scanParent(database.FromContext(ctx, r.pool).QueryRow(ctx, query, id, tenantID))
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, fmt.Errorf("parents.Repository.GetByID: %w", ErrNotFound)
@@ -260,9 +260,10 @@ func (r *PgRepository) GetDetail(ctx context.Context, id, tenantID string) (*Par
 		FROM cbc_student_parents sp
 		JOIN cbc_students s ON s.id = sp.student_id AND s.tenant_id = $2
 		WHERE sp.parent_id = $1
+		  AND sp.tenant_id = $2
 		ORDER BY sp.is_primary DESC, s.full_name ASC
 	`
-	rows, err := r.pool.Query(ctx, studentsQuery, id, tenantID)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, studentsQuery, id, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("parents.Repository.GetDetail: linked students: %w", err)
 	}
@@ -353,7 +354,7 @@ func (r *PgRepository) List(ctx context.Context, filter ListFilter) ([]Parent, i
 	// Count query
 	countQuery := `SELECT COUNT(*)` + parentJoin + ` ` + whereClause
 	var total int
-	err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&total)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, countQuery, args...).Scan(&total)
 	if err != nil {
 		return nil, 0, fmt.Errorf("parents.Repository.List: count: %w", err)
 	}
@@ -366,7 +367,7 @@ func (r *PgRepository) List(ctx context.Context, filter ListFilter) ([]Parent, i
 	dataQuery := `SELECT ` + parentJoinColumns + parentJoin + ` ` + whereClause + ` ORDER BY u.full_name ASC LIMIT $` + fmt.Sprintf("%d", argIdx) + ` OFFSET $` + fmt.Sprintf("%d", argIdx+1)
 	dataArgs := append(args, filter.Limit, offset)
 
-	rows, err := r.pool.Query(ctx, dataQuery, dataArgs...)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, dataQuery, dataArgs...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("parents.Repository.List: query: %w", err)
 	}
@@ -410,7 +411,7 @@ func (r *PgRepository) Update(ctx context.Context, id, tenantID string, payload 
 	query += fmt.Sprintf(" WHERE id = $%d AND tenant_id = $%d", argIdx, argIdx+1)
 	args = append(args, id, tenantID)
 
-	tag, err := r.pool.Exec(ctx, query, args...)
+	tag, err := database.FromContext(ctx, r.pool).Exec(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("parents.Repository.Update: %w", err)
 	}
@@ -428,7 +429,7 @@ func (r *PgRepository) Update(ctx context.Context, id, tenantID string, payload 
 // Foreign key SET NULL / CASCADE behavior handles invoice references.
 func (r *PgRepository) Delete(ctx context.Context, id, tenantID string) error {
 	const query = `DELETE FROM cbc_parents WHERE id = $1 AND tenant_id = $2`
-	tag, err := r.pool.Exec(ctx, query, id, tenantID)
+	tag, err := database.FromContext(ctx, r.pool).Exec(ctx, query, id, tenantID)
 	if err != nil {
 		return fmt.Errorf("parents.Repository.Delete: %w", err)
 	}
@@ -444,7 +445,7 @@ func (r *PgRepository) Delete(ctx context.Context, id, tenantID string) error {
 
 // LinkStudent links a student to a parent.
 func (r *PgRepository) LinkStudent(ctx context.Context, parentID, tenantID string, payload LinkStudentPayload) error {
-	tx, err := r.pool.Begin(ctx)
+	tx, err := database.Begin(ctx, r.pool)
 	if err != nil {
 		return fmt.Errorf("parents.Repository.LinkStudent: begin tx: %w", err)
 	}
@@ -477,9 +478,9 @@ func (r *PgRepository) LinkStudent(ctx context.Context, parentID, tenantID strin
 		const demoteQuery = `
 			UPDATE cbc_student_parents
 			SET is_primary = false
-			WHERE student_id = $1 AND is_primary = true
+			WHERE student_id = $1 AND tenant_id = $2 AND is_primary = true
 		`
-		_, err = tx.Exec(ctx, demoteQuery, payload.StudentID)
+		_, err = tx.Exec(ctx, demoteQuery, payload.StudentID, tenantID)
 		if err != nil {
 			return fmt.Errorf("parents.Repository.LinkStudent: demote: %w", err)
 		}
@@ -487,11 +488,11 @@ func (r *PgRepository) LinkStudent(ctx context.Context, parentID, tenantID strin
 
 	// Insert junction row
 	const linkQuery = `
-		INSERT INTO cbc_student_parents (student_id, parent_id, relationship, is_primary)
-		VALUES ($1, $2, $3, $4)
+		INSERT INTO cbc_student_parents (tenant_id, student_id, parent_id, relationship, is_primary)
+		VALUES ($1, $2, $3, $4, $5)
 	`
 	_, err = tx.Exec(ctx, linkQuery,
-		payload.StudentID, parentID, payload.Relationship, isPrimary,
+		tenantID, payload.StudentID, parentID, payload.Relationship, isPrimary,
 	)
 	if err != nil {
 		if isUniqueViolation(err) {
@@ -517,7 +518,7 @@ func (r *PgRepository) UnlinkStudent(ctx context.Context, parentID, studentID, t
 		  AND sp.student_id = $2
 		  AND cp.tenant_id = $3
 	`
-	tag, err := r.pool.Exec(ctx, query, parentID, studentID, tenantID)
+	tag, err := database.FromContext(ctx, r.pool).Exec(ctx, query, parentID, studentID, tenantID)
 	if err != nil {
 		return fmt.Errorf("parents.Repository.UnlinkStudent: %w", err)
 	}
@@ -539,7 +540,7 @@ func (r *PgRepository) DemotePrimaryForStudent(ctx context.Context, studentID, t
 		  AND cp.tenant_id = $2
 		  AND sp.is_primary = true
 	`
-	_, err := r.pool.Exec(ctx, query, studentID, tenantID)
+	_, err := database.FromContext(ctx, r.pool).Exec(ctx, query, studentID, tenantID)
 	if err != nil {
 		return fmt.Errorf("parents.Repository.DemotePrimaryForStudent: %w", err)
 	}
@@ -552,10 +553,12 @@ func (r *PgRepository) CountLinksByStudent(ctx context.Context, studentID, tenan
 		SELECT COUNT(*)
 		FROM cbc_student_parents sp
 		JOIN cbc_parents cp ON cp.id = sp.parent_id
-		WHERE sp.student_id = $1 AND cp.tenant_id = $2
+		WHERE sp.student_id = $1
+		  AND sp.tenant_id = $2
+		  AND cp.tenant_id = $2
 	`
 	var count int
-	err := r.pool.QueryRow(ctx, query, studentID, tenantID).Scan(&count)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, studentID, tenantID).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("parents.Repository.CountLinksByStudent: %w", err)
 	}
@@ -566,7 +569,7 @@ func (r *PgRepository) CountLinksByStudent(ctx context.Context, studentID, tenan
 func (r *PgRepository) GetStytchOrgID(ctx context.Context, tenantID string) (string, error) {
 	const query = `SELECT stytch_org_id FROM tenants WHERE id = $1`
 	var orgID string
-	err := r.pool.QueryRow(ctx, query, tenantID).Scan(&orgID)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, tenantID).Scan(&orgID)
 	if err != nil {
 		return "", fmt.Errorf("parents.Repository.GetStytchOrgID: %w", err)
 	}

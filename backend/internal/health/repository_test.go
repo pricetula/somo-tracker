@@ -213,7 +213,7 @@ func TestPgRepository_UpsertAndGetProfile(t *testing.T) {
 	defer cleanup()
 	applyMigration(t, pool, "000001_initial_schema.up.sql")
 
-	tenantID, schoolID, _ := seedTenantSchoolUser(t, pool)
+	tenantID, schoolID, userID := seedTenantSchoolUser(t, pool)
 	repo := newRepo(pool)
 	studentID := seedStudent(t, ctx, pool, tenantID, schoolID)
 
@@ -229,6 +229,7 @@ func TestPgRepository_UpsertAndGetProfile(t *testing.T) {
 		Allergies:             allergies,
 		ChronicConditions:     chronic,
 		EmergencyInstructions: &ei,
+		LoggedBy:              userID,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, profile)

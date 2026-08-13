@@ -350,10 +350,10 @@ func (s *Service) ApproveSession(ctx context.Context, id, tenantID, schoolID, us
 	// not blocked by potentially heavy batch computations.
 	if s.Enqueuer != nil {
 		termID := session.AcademicTermID
-		s.Enqueuer.EnqueueOverallSummaryRefresh(ctx, termID)
-		s.Enqueuer.EnqueueProjectionsRefresh(ctx, termID)
-		s.Enqueuer.EnqueueTeacherPerformanceRefresh(ctx, termID)
-		s.Enqueuer.EnqueueCohortPositionsRefresh(ctx, termID)
+		s.Enqueuer.EnqueueOverallSummaryRefresh(ctx, tenantID, termID)
+		s.Enqueuer.EnqueueProjectionsRefresh(ctx, tenantID, termID)
+		s.Enqueuer.EnqueueTeacherPerformanceRefresh(ctx, tenantID, termID)
+		s.Enqueuer.EnqueueCohortPositionsRefresh(ctx, tenantID, termID)
 	}
 
 	return nil

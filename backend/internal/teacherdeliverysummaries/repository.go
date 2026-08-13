@@ -20,7 +20,7 @@ func NewRepository(pools *database.Pools) Repository {
 }
 
 func (r *pgRepository) RefreshComputation(ctx context.Context, termID string) error {
-	_, err := r.pool.Exec(ctx, `SELECT fn_compute_teacher_delivery_summaries($1)`, termID)
+	_, err := database.FromContext(ctx, r.pool).Exec(ctx, `SELECT fn_compute_teacher_delivery_summaries($1)`, termID)
 	if err != nil {
 		return fmt.Errorf("teacherdeliverysummaries.Repository.RefreshComputation: %w", err)
 	}
@@ -39,7 +39,7 @@ func (r *pgRepository) ListByTeacher(ctx context.Context, tenantID, schoolID, us
 	`
 
 	var s TeacherDeliverySummary
-	err := r.pool.QueryRow(ctx, query, tenantID, schoolID, userID, termID).Scan(
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, tenantID, schoolID, userID, termID).Scan(
 		&s.ID, &s.TenantID, &s.SchoolID, &s.UserID, &s.AcademicTermID,
 		&s.TotalAssignedSlots, &s.MarkedSlots, &s.MissedSlots,
 		&s.SessionsCreated, &s.SessionsApproved,
@@ -70,7 +70,7 @@ func (r *pgRepository) ListByTerm(ctx context.Context, tenantID, schoolID, termI
 		ORDER BY user_id
 	`
 
-	rows, err := r.pool.Query(ctx, query, tenantID, schoolID, termID)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, tenantID, schoolID, termID)
 	if err != nil {
 		return nil, fmt.Errorf("teacherdeliverysummaries.Repository.ListByTerm: %w", err)
 	}
@@ -98,7 +98,7 @@ func (r *pgRepository) GetByTeacherTerm(ctx context.Context, userID, termID stri
 	`
 
 	var s TeacherDeliverySummary
-	err := r.pool.QueryRow(ctx, query, userID, termID).Scan(
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, userID, termID).Scan(
 		&s.ID, &s.TenantID, &s.SchoolID, &s.UserID, &s.AcademicTermID,
 		&s.TotalAssignedSlots, &s.MarkedSlots, &s.MissedSlots,
 		&s.SessionsCreated, &s.SessionsApproved,

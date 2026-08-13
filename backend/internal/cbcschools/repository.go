@@ -28,7 +28,7 @@ func (r *PgRepository) Create(ctx context.Context, tenantID string, name string)
 		RETURNING id
 	`
 	var id string
-	err := r.pool.QueryRow(ctx, query, tenantID, name).Scan(&id)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, tenantID, name).Scan(&id)
 	if err != nil {
 		return "", fmt.Errorf("cbcschools.Repository.Create: %w", err)
 	}
@@ -51,12 +51,12 @@ func (r *PgRepository) ListByTenantID(ctx context.Context, tenantID, userID stri
 			COALESCE(smc.students, 0) AS students,
 			CASE WHEN mas.school_id IS NOT NULL THEN true ELSE false END AS is_member_active_school
 		FROM cbc_schools cs
-		LEFT JOIN school_member_counts smc ON smc.school_id = cs.id
+		LEFT JOIN school_member_counts smc ON smc.school_id = cs.id AND smc.tenant_id = cs.tenant_id
 		LEFT JOIN member_active_school mas ON mas.school_id = cs.id AND mas.user_id = $2
 		WHERE cs.tenant_id = $1
 		ORDER BY cs.name ASC
 	`
-	rows, err := r.pool.Query(ctx, query, tenantID, userID)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, tenantID, userID)
 	if err != nil {
 		return nil, fmt.Errorf("cbcschools.Repository.ListByTenantID: %w", err)
 	}
@@ -146,7 +146,7 @@ func (r *PgRepository) Update(ctx context.Context, school SchoolUpdateFields) er
 		WHERE id = $%d
 	`, joinClauses(setClauses, ", "), argIdx)
 
-	result, err := r.pool.Exec(ctx, query, args...)
+	result, err := database.FromContext(ctx, r.pool).Exec(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("cbcschools.Repository.Update: %w", err)
 	}
@@ -161,7 +161,7 @@ func (r *PgRepository) Update(ctx context.Context, school SchoolUpdateFields) er
 // Delete removes a school by ID.
 func (r *PgRepository) Delete(ctx context.Context, id string) error {
 	const query = `DELETE FROM cbc_schools WHERE id = $1`
-	result, err := r.pool.Exec(ctx, query, id)
+	result, err := database.FromContext(ctx, r.pool).Exec(ctx, query, id)
 	if err != nil {
 		return fmt.Errorf("cbcschools.Repository.Delete: %w", err)
 	}
@@ -191,7 +191,7 @@ func (r *PgRepository) GetByID(ctx context.Context, id string) (*School, error) 
 		WHERE id = $1
 	`
 	var s School
-	err := r.pool.QueryRow(ctx, query, id).Scan(&s.ID, &s.TenantID, &s.Name, &s.CreatedAt)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, id).Scan(&s.ID, &s.TenantID, &s.Name, &s.CreatedAt)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, fmt.Errorf("cbcschools.Repository.GetByID: %w", ErrNotFound)
@@ -214,7 +214,7 @@ func (r *PgRepository) GetByTenantAndName(ctx context.Context, tenantID, name st
 		LIMIT 1
 	`
 	var s School
-	err := r.pool.QueryRow(ctx, query, tenantID, name).Scan(&s.ID, &s.TenantID, &s.Name, &s.CreatedAt)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, tenantID, name).Scan(&s.ID, &s.TenantID, &s.Name, &s.CreatedAt)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, fmt.Errorf("cbcschools.Repository.GetByTenantAndName: %w", ErrNotFound)

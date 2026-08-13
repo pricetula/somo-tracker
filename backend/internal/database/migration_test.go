@@ -633,9 +633,16 @@ func TestMigrationsIntegration_ConstraintsAndIndexes_M3_to_M13(t *testing.T) {
 	// ======================================================================
 
 	yearB1 := uuid.New().String() // academic year for schoolB1 (tenantB)
+	// M11 uses a tenantB user for created_by — the composite FK
+	// (tenant_id, created_by) → users(tenant_id, id) rejects a tenantA user
+	// on a tenantB year (cross-tenant reference).
+	systemUserBID := uuid.New().String()
+	_, err = pool.Exec(ctx, `INSERT INTO users (id, email, tenant_id, full_name) VALUES ($1, $2, $3, 'System B')`,
+		systemUserBID, "system-b-"+systemUserBID+"@test.com", tenantB)
+	require.NoError(t, err)
 	_, err = pool.Exec(ctx, `INSERT INTO academic_years (id, tenant_id, school_id, name, start_date, end_date, created_by, updated_by)
 		VALUES ($1, $2, $3, '2026', '2026-01-01', '2026-12-31', $4, $4)`,
-		yearB1, tenantB, schoolB1, systemUserID)
+		yearB1, tenantB, schoolB1, systemUserBID)
 	require.NoError(t, err)
 
 	// Create a stream in schoolB1

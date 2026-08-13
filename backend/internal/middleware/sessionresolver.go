@@ -218,42 +218,12 @@ func resolveSession(ctx context.Context, pools *database.Pools, rawToken string)
 //   - device_fingerprint: recorded at session creation, compared on resume in
 //     production (C5).
 func loadSessionFromDB(ctx context.Context, pools *database.Pools, tokenHash string) (*SessionInfo, error) {
+	// fn_resolve_session is SECURITY DEFINER: it resolves the session BEFORE
+	// the tenant is known, so it must bypass tenant-scoped RLS. It returns the
+	// same shape as the old inline query (role / school_id / schools).
 	const query = `
-		SELECT s.user_id, s.tenant_id, s.device_fingerprint,
-		       (
-			       SELECT m.role::text FROM memberships m
-			         WHERE m.user_id = s.user_id AND m.tenant_id = s.tenant_id AND m.is_active = true
-			         ORDER BY
-			           CASE m.role
-			             WHEN 'SYSTEM_ADMIN' THEN 1
-			             WHEN 'SCHOOL_ADMIN' THEN 2
-			             WHEN 'TEACHER' THEN 3
-			             WHEN 'NURSE' THEN 4
-			             WHEN 'FINANCE' THEN 5
-			           END
-			         LIMIT 1
-		       ) AS role,
-		       COALESCE(
-			       (SELECT mas.school_id::text FROM member_active_school mas
-			         WHERE mas.user_id = s.user_id AND mas.tenant_id = s.tenant_id),
-			       (SELECT m2.school_id::text FROM memberships m2
-			         WHERE m2.user_id = s.user_id AND m2.tenant_id = s.tenant_id AND m2.is_active = true
-			         ORDER BY
-			           CASE m2.role
-			             WHEN 'SYSTEM_ADMIN' THEN 1
-			             WHEN 'SCHOOL_ADMIN' THEN 2
-			             WHEN 'TEACHER' THEN 3
-			             WHEN 'NURSE' THEN 4
-			             WHEN 'FINANCE' THEN 5
-			           END
-			         LIMIT 1)
-		       ) AS school_id,
-		       COALESCE(ARRAY(
-			       SELECT m3.school_id::text FROM memberships m3
-			         WHERE m3.user_id = s.user_id AND m3.tenant_id = s.tenant_id AND m3.is_active = true
-		       ), ARRAY[]::text[]) AS schools
-		FROM sessions s
-		WHERE s.token_hash = $1 AND s.expires_at > NOW()
+		SELECT user_id, tenant_id, device_fingerprint, role, school_id, schools
+		FROM fn_resolve_session($1)
 	`
 
 	var role *string

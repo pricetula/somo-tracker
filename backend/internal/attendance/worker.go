@@ -52,11 +52,13 @@ const (
 
 // DeliveryRefreshPayload is the payload for refreshing teacher delivery summaries.
 type DeliveryRefreshPayload struct {
-	TermID string `json:"term_id"`
+	TenantID string `json:"tenant_id"`
+	TermID   string `json:"term_id"`
 }
 
 // WorkloadRefreshPayload is the payload for refreshing teacher workload summaries.
 type WorkloadRefreshPayload struct {
+	TenantID       string `json:"tenant_id"`
 	AcademicYearID string `json:"academic_year_id"`
 }
 
@@ -122,24 +124,24 @@ func NewEnqueuer(client *asynq.Client, logger *zap.SugaredLogger) *Enqueuer {
 // EnqueueTeacherDeliveryRefresh enqueues a task to refresh teacher delivery
 // summaries for the given term. Best-effort: logs failures but does not
 // block the caller.
-func (e *Enqueuer) EnqueueTeacherDeliveryRefresh(ctx context.Context, termID string) {
-	payload, _ := json.Marshal(DeliveryRefreshPayload{TermID: termID})
+func (e *Enqueuer) EnqueueTeacherDeliveryRefresh(ctx context.Context, tenantID, termID string) {
+	payload, _ := json.Marshal(DeliveryRefreshPayload{TenantID: tenantID, TermID: termID})
 	task := asynq.NewTask(TaskRefreshTeacherDeliverySummaries, payload)
 	if _, err := e.client.Enqueue(task, asynq.MaxRetry(3), asynq.Queue("summaries")); err != nil {
 		e.logger.Warnw("attendance: enqueue teacher delivery refresh failed",
-			"term_id", termID, "error", err,
+			"tenant_id", tenantID, "term_id", termID, "error", err,
 		)
 	}
 }
 
 // EnqueueTeacherWorkloadRefresh enqueues a task to refresh teacher workload
 // summaries for the given academic year.
-func (e *Enqueuer) EnqueueTeacherWorkloadRefresh(ctx context.Context, academicYearID string) {
-	payload, _ := json.Marshal(WorkloadRefreshPayload{AcademicYearID: academicYearID})
+func (e *Enqueuer) EnqueueTeacherWorkloadRefresh(ctx context.Context, tenantID, academicYearID string) {
+	payload, _ := json.Marshal(WorkloadRefreshPayload{TenantID: tenantID, AcademicYearID: academicYearID})
 	task := asynq.NewTask(TaskRefreshTeacherWorkloadSummaries, payload)
 	if _, err := e.client.Enqueue(task, asynq.MaxRetry(3), asynq.Queue("summaries")); err != nil {
 		e.logger.Warnw("attendance: enqueue teacher workload refresh failed",
-			"academic_year_id", academicYearID, "error", err,
+			"tenant_id", tenantID, "academic_year_id", academicYearID, "error", err,
 		)
 	}
 }
@@ -253,12 +255,12 @@ func (w *Worker) Start(ctx context.Context) error {
 	)
 
 	mux := asynq.NewServeMux()
-	mux.HandleFunc(TaskRefreshTeacherDeliverySummaries, w.handleTeacherDeliveryRefresh)
-	mux.HandleFunc(TaskRefreshTeacherWorkloadSummaries, w.handleTeacherWorkloadRefresh)
-	mux.HandleFunc(TaskRefreshAttendanceTermSummaries, w.handleAttendanceTermRefresh)
-	mux.HandleFunc(TaskRefreshClassDailySummary, w.handleClassDailyRefresh)
-	mux.HandleFunc(TaskRefreshClassLearningAreaTermSummary, w.handleClassLearningAreaTermRefresh)
-	mux.HandleFunc(TaskRefreshClassTermSummary, w.handleClassTermRefresh)
+	mux.HandleFunc(TaskRefreshTeacherDeliverySummaries, w.withTenant(w.handleTeacherDeliveryRefresh))
+	mux.HandleFunc(TaskRefreshTeacherWorkloadSummaries, w.withTenant(w.handleTeacherWorkloadRefresh))
+	mux.HandleFunc(TaskRefreshAttendanceTermSummaries, w.withTenant(w.handleAttendanceTermRefresh))
+	mux.HandleFunc(TaskRefreshClassDailySummary, w.withTenant(w.handleClassDailyRefresh))
+	mux.HandleFunc(TaskRefreshClassLearningAreaTermSummary, w.withTenant(w.handleClassLearningAreaTermRefresh))
+	mux.HandleFunc(TaskRefreshClassTermSummary, w.withTenant(w.handleClassTermRefresh))
 
 	if err := w.server.Start(mux); err != nil {
 		return fmt.Errorf("attendance.Worker.Start: %w", err)
@@ -278,6 +280,36 @@ func (w *Worker) Stop(ctx context.Context) error {
 
 // ─── Task Handlers ────────────────────────────────────────────────────────
 
+// withTenant wraps an asynq handler so its task runs with the payload's
+// tenant scoped into RLS context (transaction-scoped GUC). Every refresh
+// query reads/writes RLS-protected tables; without tenant context those
+// queries would silently return zero rows once the app role is locked down.
+func (w *Worker) withTenant(h func(ctx context.Context, t *asynq.Task) error) func(ctx context.Context, t *asynq.Task) error {
+	return func(ctx context.Context, t *asynq.Task) error {
+		var tmp struct {
+			TenantID string `json:"tenant_id"`
+		}
+		if err := json.Unmarshal(t.Payload(), &tmp); err != nil {
+			return fmt.Errorf("attendance.Worker.withTenant: unmarshal tenant: %w", err)
+		}
+		if tmp.TenantID == "" {
+			return fmt.Errorf("attendance.Worker.withTenant: payload missing tenant_id")
+		}
+		tctx := database.WithTenantID(ctx, tmp.TenantID)
+		tx, err := database.Begin(tctx, w.pools.PG)
+		if err != nil {
+			return fmt.Errorf("attendance.Worker.withTenant: begin: %w", err)
+		}
+		defer func() {
+			_ = tx.Rollback(context.WithoutCancel(ctx))
+		}()
+		if err := h(database.WithTenantTx(tctx, tx), t); err != nil {
+			return err
+		}
+		return tx.Commit(context.WithoutCancel(ctx))
+	}
+}
+
 func (w *Worker) handleTeacherDeliveryRefresh(ctx context.Context, t *asynq.Task) error {
 	var p DeliveryRefreshPayload
 	if err := json.Unmarshal(t.Payload(), &p); err != nil {
@@ -286,7 +318,7 @@ func (w *Worker) handleTeacherDeliveryRefresh(ctx context.Context, t *asynq.Task
 	start := time.Now()
 	w.logger.Infow("attendance: refreshing teacher delivery summaries", "term_id", p.TermID)
 
-	_, err := w.pools.PG.Exec(ctx, `SELECT fn_compute_teacher_delivery_summaries($1)`, p.TermID)
+	_, err := database.FromContext(ctx, w.pools.PG).Exec(ctx, `SELECT fn_compute_teacher_delivery_summaries($1)`, p.TermID)
 	if err != nil {
 		return fmt.Errorf("attendance.Worker.handleTeacherDeliveryRefresh: %w", err)
 	}
@@ -304,7 +336,7 @@ func (w *Worker) handleAttendanceTermRefresh(ctx context.Context, t *asynq.Task)
 	start := time.Now()
 	w.logger.Infow("attendance: refreshing term summaries", "term_id", p.TermID)
 
-	_, err := w.pools.PG.Exec(ctx, `
+	_, err := database.FromContext(ctx, w.pools.PG).Exec(ctx, `
 		INSERT INTO attendance_term_summaries (
 			tenant_id, school_id, student_id, academic_term_id, academic_year_id,
 			learning_area_id,
@@ -379,7 +411,7 @@ func (w *Worker) handleClassDailyRefresh(ctx context.Context, t *asynq.Task) err
 	)
 
 	// Resolve class_id from timetable slot and recompute daily summary
-	_, err := w.pools.PG.Exec(ctx, `
+	_, err := database.FromContext(ctx, w.pools.PG).Exec(ctx, `
 		INSERT INTO class_daily_attendance_summaries (
 			tenant_id, school_id, class_id, academic_term_id, date,
 			total_enrolled, present_count, absent_count, late_count, excused_count,
@@ -440,14 +472,14 @@ func (w *Worker) handleClassDailyRefresh(ctx context.Context, t *asynq.Task) err
 	// every daily row for that class/term, so it will pick up any other
 	// already-fresh daily rows in the same class/term as well.
 	var resolvedTermID string
-	if err := w.pools.PG.QueryRow(ctx, `
+	if err := database.FromContext(ctx, w.pools.PG).QueryRow(ctx, `
 		SELECT id FROM academic_terms
 		WHERE tenant_id = $1 AND school_id = $2
 		  AND start_date <= $3::DATE AND end_date >= $3::DATE
 		LIMIT 1
 	`, p.TenantID, p.SchoolID, p.Date).Scan(&resolvedTermID); err == nil && resolvedTermID != "" {
 		var resolvedClassID string
-		if err := w.pools.PG.QueryRow(ctx, `
+		if err := database.FromContext(ctx, w.pools.PG).QueryRow(ctx, `
 			SELECT class_id FROM cbc_timetable_slots
 			WHERE tenant_id = $1 AND id = $2
 			LIMIT 1
@@ -509,7 +541,7 @@ func (w *Worker) handleClassLearningAreaTermRefresh(ctx context.Context, t *asyn
 		"tenant_id", p.TenantID, "school_id", p.SchoolID, "term_id", p.TermID, "class_id", p.ClassID,
 	)
 
-	_, err := w.pools.PG.Exec(ctx, `
+	_, err := database.FromContext(ctx, w.pools.PG).Exec(ctx, `
 		WITH scope AS (
 			SELECT $1::UUID AS tenant_id, $2::UUID AS school_id, $3::UUID AS term_id, $4::UUID AS class_id
 		)
@@ -604,7 +636,7 @@ func (w *Worker) handleClassTermRefresh(ctx context.Context, t *asynq.Task) erro
 		"tenant_id", p.TenantID, "school_id", p.SchoolID, "term_id", p.TermID, "class_id", p.ClassID,
 	)
 
-	_, err := w.pools.PG.Exec(ctx, `
+	_, err := database.FromContext(ctx, w.pools.PG).Exec(ctx, `
 		WITH scope AS (
 			SELECT $1::UUID AS tenant_id, $2::UUID AS school_id, $3::UUID AS term_id, $4::UUID AS class_id
 		),
@@ -700,7 +732,7 @@ func (w *Worker) handleTeacherWorkloadRefresh(ctx context.Context, t *asynq.Task
 	start := time.Now()
 	w.logger.Infow("attendance: refreshing teacher workload summaries", "academic_year_id", p.AcademicYearID)
 
-	_, err := w.pools.PG.Exec(ctx, `SELECT fn_compute_teacher_workload_summaries($1)`, p.AcademicYearID)
+	_, err := database.FromContext(ctx, w.pools.PG).Exec(ctx, `SELECT fn_compute_teacher_workload_summaries($1)`, p.AcademicYearID)
 	if err != nil {
 		return fmt.Errorf("attendance.Worker.handleTeacherWorkloadRefresh: %w", err)
 	}

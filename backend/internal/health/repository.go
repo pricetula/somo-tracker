@@ -33,7 +33,7 @@ func (r *PgRepository) CreateIncident(ctx context.Context, params CreateIncident
 		RETURNING id
 	`
 	var id string
-	err := r.pool.QueryRow(ctx, query,
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query,
 		params.TenantID,
 		params.StudentID,
 		params.IncidentTimestamp,
@@ -58,7 +58,7 @@ func (r *PgRepository) GetIncidentByID(ctx context.Context, id, tenantID string)
 		WHERE mi.id = $1 AND mi.tenant_id = $2
 	`
 	var inc MedicalIncident
-	err := r.pool.QueryRow(ctx, query, id, tenantID).Scan(
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, id, tenantID).Scan(
 		&inc.ID, &inc.TenantID, &inc.StudentID, &inc.IncidentTimestamp,
 		&inc.Symptoms, &inc.ActionTaken, &inc.LoggedBy, &inc.LoggedByName,
 		&inc.CreatedAt, &inc.UpdatedAt,
@@ -83,7 +83,7 @@ func (r *PgRepository) ListIncidentsByStudent(ctx context.Context, studentID, te
 		WHERE mi.student_id = $1 AND mi.tenant_id = $2
 		ORDER BY mi.incident_timestamp DESC
 	`
-	rows, err := r.pool.Query(ctx, query, studentID, tenantID)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, studentID, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("health.Repository.ListIncidentsByStudent: %w", err)
 	}
@@ -114,7 +114,7 @@ func (r *PgRepository) ListIncidentsByStudent(ctx context.Context, studentID, te
 func (r *PgRepository) ListIncidentsBySchool(ctx context.Context, tenantID, schoolID string, limit, offset int) ([]MedicalIncident, int, error) {
 	// Count
 	var total int
-	err := r.pool.QueryRow(ctx, `
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, `
 		SELECT COUNT(*) FROM medical_incidents mi
 		JOIN cbc_students s ON s.id = mi.student_id
 		WHERE mi.tenant_id = $1 AND s.school_id = $2
@@ -124,7 +124,7 @@ func (r *PgRepository) ListIncidentsBySchool(ctx context.Context, tenantID, scho
 	}
 
 	// Fetch
-	rows, err := r.pool.Query(ctx, `
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, `
 		SELECT mi.id, mi.tenant_id, mi.student_id, mi.incident_timestamp,
 		       mi.symptoms, mi.action_taken, mi.logged_by, u.full_name AS logged_by_name,
 		       mi.created_at, mi.updated_at
@@ -169,7 +169,7 @@ func (r *PgRepository) UpdateIncident(ctx context.Context, id, tenantID string, 
 		    action_taken = COALESCE($4, action_taken)
 		WHERE id = $1 AND tenant_id = $2
 	`
-	tag, err := r.pool.Exec(ctx, query, id, tenantID, payload.Symptoms, payload.ActionTaken)
+	tag, err := database.FromContext(ctx, r.pool).Exec(ctx, query, id, tenantID, payload.Symptoms, payload.ActionTaken)
 	if err != nil {
 		return fmt.Errorf("health.Repository.UpdateIncident: %w", err)
 	}
@@ -182,7 +182,7 @@ func (r *PgRepository) UpdateIncident(ctx context.Context, id, tenantID string, 
 // DeleteIncident deletes a medical incident.
 func (r *PgRepository) DeleteIncident(ctx context.Context, id, tenantID string) error {
 	const query = `DELETE FROM medical_incidents WHERE id = $1 AND tenant_id = $2`
-	tag, err := r.pool.Exec(ctx, query, id, tenantID)
+	tag, err := database.FromContext(ctx, r.pool).Exec(ctx, query, id, tenantID)
 	if err != nil {
 		return fmt.Errorf("health.Repository.DeleteIncident: %w", err)
 	}
@@ -199,27 +199,29 @@ func (r *PgRepository) DeleteIncident(ctx context.Context, id, tenantID string) 
 // UpsertProfile creates or updates a student health profile.
 func (r *PgRepository) UpsertProfile(ctx context.Context, params UpsertProfileParams) (*StudentHealthProfile, error) {
 	const query = `
-		INSERT INTO student_health_profiles (tenant_id, student_id, blood_group, allergies, chronic_conditions, emergency_instructions)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO student_health_profiles (tenant_id, student_id, blood_group, allergies, chronic_conditions, emergency_instructions, logged_by)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		ON CONFLICT (student_id) DO UPDATE SET
 			blood_group            = COALESCE($3, student_health_profiles.blood_group),
 			allergies              = CASE WHEN $4 IS NOT NULL THEN $4 ELSE student_health_profiles.allergies END,
 			chronic_conditions     = CASE WHEN $5 IS NOT NULL THEN $5 ELSE student_health_profiles.chronic_conditions END,
-			emergency_instructions = COALESCE($6, student_health_profiles.emergency_instructions)
-		RETURNING id, tenant_id, student_id, blood_group, allergies, chronic_conditions, emergency_instructions, created_at, updated_at
+			emergency_instructions = COALESCE($6, student_health_profiles.emergency_instructions),
+			logged_by              = $7
+		RETURNING id, tenant_id, student_id, blood_group, allergies, chronic_conditions, emergency_instructions, logged_by, created_at, updated_at
 	`
 	var profile StudentHealthProfile
-	err := r.pool.QueryRow(ctx, query,
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query,
 		params.TenantID,
 		params.StudentID,
 		params.BloodGroup,
 		params.Allergies,
 		params.ChronicConditions,
 		params.EmergencyInstructions,
+		params.LoggedBy,
 	).Scan(
 		&profile.ID, &profile.TenantID, &profile.StudentID,
 		&profile.BloodGroup, &profile.Allergies, &profile.ChronicConditions,
-		&profile.EmergencyInstructions, &profile.CreatedAt, &profile.UpdatedAt,
+		&profile.EmergencyInstructions, &profile.LoggedBy, &profile.CreatedAt, &profile.UpdatedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("health.Repository.UpsertProfile: %w", err)
@@ -230,15 +232,15 @@ func (r *PgRepository) UpsertProfile(ctx context.Context, params UpsertProfilePa
 // GetProfileByStudent retrieves a health profile by student ID.
 func (r *PgRepository) GetProfileByStudent(ctx context.Context, studentID, tenantID string) (*StudentHealthProfile, error) {
 	const query = `
-		SELECT id, tenant_id, student_id, blood_group, allergies, chronic_conditions, emergency_instructions, created_at, updated_at
+		SELECT id, tenant_id, student_id, blood_group, allergies, chronic_conditions, emergency_instructions, logged_by, created_at, updated_at
 		FROM student_health_profiles
 		WHERE student_id = $1 AND tenant_id = $2
 	`
 	var profile StudentHealthProfile
-	err := r.pool.QueryRow(ctx, query, studentID, tenantID).Scan(
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, studentID, tenantID).Scan(
 		&profile.ID, &profile.TenantID, &profile.StudentID,
 		&profile.BloodGroup, &profile.Allergies, &profile.ChronicConditions,
-		&profile.EmergencyInstructions, &profile.CreatedAt, &profile.UpdatedAt,
+		&profile.EmergencyInstructions, &profile.LoggedBy, &profile.CreatedAt, &profile.UpdatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -252,15 +254,15 @@ func (r *PgRepository) GetProfileByStudent(ctx context.Context, studentID, tenan
 // GetProfileByID retrieves a health profile by its ID.
 func (r *PgRepository) GetProfileByID(ctx context.Context, id, tenantID string) (*StudentHealthProfile, error) {
 	const query = `
-		SELECT id, tenant_id, student_id, blood_group, allergies, chronic_conditions, emergency_instructions, created_at, updated_at
+		SELECT id, tenant_id, student_id, blood_group, allergies, chronic_conditions, emergency_instructions, logged_by, created_at, updated_at
 		FROM student_health_profiles
 		WHERE id = $1 AND tenant_id = $2
 	`
 	var profile StudentHealthProfile
-	err := r.pool.QueryRow(ctx, query, id, tenantID).Scan(
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, id, tenantID).Scan(
 		&profile.ID, &profile.TenantID, &profile.StudentID,
 		&profile.BloodGroup, &profile.Allergies, &profile.ChronicConditions,
-		&profile.EmergencyInstructions, &profile.CreatedAt, &profile.UpdatedAt,
+		&profile.EmergencyInstructions, &profile.LoggedBy, &profile.CreatedAt, &profile.UpdatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

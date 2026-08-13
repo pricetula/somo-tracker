@@ -34,7 +34,8 @@ const (
 
 // RefreshTermPayload is the payload for term-scoped background refresh tasks.
 type RefreshTermPayload struct {
-	TermID string `json:"term_id"`
+	TenantID string `json:"tenant_id"`
+	TermID   string `json:"term_id"`
 }
 
 // ─── Asynq Client ─────────────────────────────────────────────────────────
@@ -61,45 +62,45 @@ func NewEnqueuer(client *asynq.Client, logger *zap.SugaredLogger) *Enqueuer {
 
 // EnqueueOverallSummaryRefresh enqueues a task to refresh overall summaries.
 // Best-effort: logs failures but does not block the caller.
-func (e *Enqueuer) EnqueueOverallSummaryRefresh(ctx context.Context, termID string) {
-	payload, _ := json.Marshal(RefreshTermPayload{TermID: termID})
+func (e *Enqueuer) EnqueueOverallSummaryRefresh(ctx context.Context, tenantID, termID string) {
+	payload, _ := json.Marshal(RefreshTermPayload{TenantID: tenantID, TermID: termID})
 	task := asynq.NewTask(TaskRefreshOverallSummaries, payload)
 	if _, err := e.client.Enqueue(task, asynq.MaxRetry(3), asynq.Queue("summaries")); err != nil {
 		e.logger.Warnw("assessments: enqueue overall summary refresh failed",
-			"term_id", termID, "error", err,
+			"tenant_id", tenantID, "term_id", termID, "error", err,
 		)
 	}
 }
 
 // EnqueueProjectionsRefresh enqueues a task to refresh performance projections.
-func (e *Enqueuer) EnqueueProjectionsRefresh(ctx context.Context, termID string) {
-	payload, _ := json.Marshal(RefreshTermPayload{TermID: termID})
+func (e *Enqueuer) EnqueueProjectionsRefresh(ctx context.Context, tenantID, termID string) {
+	payload, _ := json.Marshal(RefreshTermPayload{TenantID: tenantID, TermID: termID})
 	task := asynq.NewTask(TaskRefreshProjections, payload)
 	if _, err := e.client.Enqueue(task, asynq.MaxRetry(3), asynq.Queue("summaries")); err != nil {
 		e.logger.Warnw("assessments: enqueue projections refresh failed",
-			"term_id", termID, "error", err,
+			"tenant_id", tenantID, "term_id", termID, "error", err,
 		)
 	}
 }
 
 // EnqueueTeacherPerformanceRefresh enqueues a task to refresh teacher summaries.
-func (e *Enqueuer) EnqueueTeacherPerformanceRefresh(ctx context.Context, termID string) {
-	payload, _ := json.Marshal(RefreshTermPayload{TermID: termID})
+func (e *Enqueuer) EnqueueTeacherPerformanceRefresh(ctx context.Context, tenantID, termID string) {
+	payload, _ := json.Marshal(RefreshTermPayload{TenantID: tenantID, TermID: termID})
 	task := asynq.NewTask(TaskRefreshTeacherPerformance, payload)
 	if _, err := e.client.Enqueue(task, asynq.MaxRetry(3), asynq.Queue("summaries")); err != nil {
 		e.logger.Warnw("assessments: enqueue teacher perf refresh failed",
-			"term_id", termID, "error", err,
+			"tenant_id", tenantID, "term_id", termID, "error", err,
 		)
 	}
 }
 
 // EnqueueCohortPositionsRefresh enqueues a task to refresh cohort positions.
-func (e *Enqueuer) EnqueueCohortPositionsRefresh(ctx context.Context, termID string) {
-	payload, _ := json.Marshal(RefreshTermPayload{TermID: termID})
+func (e *Enqueuer) EnqueueCohortPositionsRefresh(ctx context.Context, tenantID, termID string) {
+	payload, _ := json.Marshal(RefreshTermPayload{TenantID: tenantID, TermID: termID})
 	task := asynq.NewTask(TaskRefreshCohortPositions, payload)
 	if _, err := e.client.Enqueue(task, asynq.MaxRetry(3), asynq.Queue("summaries")); err != nil {
 		e.logger.Warnw("assessments: enqueue cohort positions refresh failed",
-			"term_id", termID, "error", err,
+			"tenant_id", tenantID, "term_id", termID, "error", err,
 		)
 	}
 }
@@ -133,10 +134,10 @@ func (w *Worker) Start(ctx context.Context) error {
 	)
 
 	mux := asynq.NewServeMux()
-	mux.HandleFunc(TaskRefreshOverallSummaries, w.handleRefreshOverallSummaries)
-	mux.HandleFunc(TaskRefreshProjections, w.handleRefreshProjections)
-	mux.HandleFunc(TaskRefreshTeacherPerformance, w.handleRefreshTeacherPerformance)
-	mux.HandleFunc(TaskRefreshCohortPositions, w.handleRefreshCohortPositions)
+	mux.HandleFunc(TaskRefreshOverallSummaries, w.withTenant(w.handleRefreshOverallSummaries))
+	mux.HandleFunc(TaskRefreshProjections, w.withTenant(w.handleRefreshProjections))
+	mux.HandleFunc(TaskRefreshTeacherPerformance, w.withTenant(w.handleRefreshTeacherPerformance))
+	mux.HandleFunc(TaskRefreshCohortPositions, w.withTenant(w.handleRefreshCohortPositions))
 
 	if err := w.server.Start(mux); err != nil {
 		return fmt.Errorf("assessments.Worker.Start: %w", err)
@@ -156,15 +157,39 @@ func (w *Worker) Stop(ctx context.Context) error {
 
 // ─── Task Handlers ────────────────────────────────────────────────────────
 
-func (w *Worker) handleRefreshOverallSummaries(ctx context.Context, t *asynq.Task) error {
-	var p RefreshTermPayload
-	if err := json.Unmarshal(t.Payload(), &p); err != nil {
-		return fmt.Errorf("assessments.Worker.handleRefreshOverallSummaries: unmarshal: %w", err)
+// withTenant wraps an asynq handler so its task runs with the payload's
+// tenant scoped into RLS context (transaction-scoped GUC). Each summary
+// refresh function queries RLS-protected tables; without tenant context
+// those queries would silently return zero rows.
+func (w *Worker) withTenant(h func(ctx context.Context, p RefreshTermPayload) error) func(ctx context.Context, t *asynq.Task) error {
+	return func(ctx context.Context, t *asynq.Task) error {
+		var p RefreshTermPayload
+		if err := json.Unmarshal(t.Payload(), &p); err != nil {
+			return fmt.Errorf("assessments.Worker.withTenant: unmarshal: %w", err)
+		}
+		if p.TenantID == "" {
+			return fmt.Errorf("assessments.Worker.withTenant: payload missing tenant_id")
+		}
+		tctx := database.WithTenantID(ctx, p.TenantID)
+		tx, err := database.Begin(tctx, w.pool)
+		if err != nil {
+			return fmt.Errorf("assessments.Worker.withTenant: begin: %w", err)
+		}
+		defer func() {
+			_ = tx.Rollback(context.WithoutCancel(ctx))
+		}()
+		if err := h(database.WithTenantTx(tctx, tx), p); err != nil {
+			return err
+		}
+		return tx.Commit(context.WithoutCancel(ctx))
 	}
+}
+
+func (w *Worker) handleRefreshOverallSummaries(ctx context.Context, p RefreshTermPayload) error {
 	start := time.Now()
 	w.logger.Infow("assessments: refreshing overall summaries", "term_id", p.TermID)
 
-	_, err := w.pool.Exec(ctx, `SELECT fn_compute_term_overall_summaries_for_term($1)`, p.TermID)
+	_, err := database.FromContext(ctx, w.pool).Exec(ctx, `SELECT fn_compute_term_overall_summaries_for_term($1)`, p.TermID)
 	if err != nil {
 		return fmt.Errorf("assessments.Worker.handleRefreshOverallSummaries: %w", err)
 	}
@@ -174,15 +199,11 @@ func (w *Worker) handleRefreshOverallSummaries(ctx context.Context, t *asynq.Tas
 	return nil
 }
 
-func (w *Worker) handleRefreshProjections(ctx context.Context, t *asynq.Task) error {
-	var p RefreshTermPayload
-	if err := json.Unmarshal(t.Payload(), &p); err != nil {
-		return fmt.Errorf("assessments.Worker.handleRefreshProjections: unmarshal: %w", err)
-	}
+func (w *Worker) handleRefreshProjections(ctx context.Context, p RefreshTermPayload) error {
 	start := time.Now()
 	w.logger.Infow("assessments: refreshing projections", "term_id", p.TermID)
 
-	_, err := w.pool.Exec(ctx, `SELECT fn_compute_performance_projections_for_term($1)`, p.TermID)
+	_, err := database.FromContext(ctx, w.pool).Exec(ctx, `SELECT fn_compute_performance_projections_for_term($1)`, p.TermID)
 	if err != nil {
 		return fmt.Errorf("assessments.Worker.handleRefreshProjections: %w", err)
 	}
@@ -192,15 +213,11 @@ func (w *Worker) handleRefreshProjections(ctx context.Context, t *asynq.Task) er
 	return nil
 }
 
-func (w *Worker) handleRefreshTeacherPerformance(ctx context.Context, t *asynq.Task) error {
-	var p RefreshTermPayload
-	if err := json.Unmarshal(t.Payload(), &p); err != nil {
-		return fmt.Errorf("assessments.Worker.handleRefreshTeacherPerformance: unmarshal: %w", err)
-	}
+func (w *Worker) handleRefreshTeacherPerformance(ctx context.Context, p RefreshTermPayload) error {
 	start := time.Now()
 	w.logger.Infow("assessments: refreshing teacher performance", "term_id", p.TermID)
 
-	_, err := w.pool.Exec(ctx, `SELECT fn_compute_teacher_subject_performance_summaries($1)`, p.TermID)
+	_, err := database.FromContext(ctx, w.pool).Exec(ctx, `SELECT fn_compute_teacher_subject_performance_summaries($1)`, p.TermID)
 	if err != nil {
 		return fmt.Errorf("assessments.Worker.handleRefreshTeacherPerformance: %w", err)
 	}
@@ -210,15 +227,11 @@ func (w *Worker) handleRefreshTeacherPerformance(ctx context.Context, t *asynq.T
 	return nil
 }
 
-func (w *Worker) handleRefreshCohortPositions(ctx context.Context, t *asynq.Task) error {
-	var p RefreshTermPayload
-	if err := json.Unmarshal(t.Payload(), &p); err != nil {
-		return fmt.Errorf("assessments.Worker.handleRefreshCohortPositions: unmarshal: %w", err)
-	}
+func (w *Worker) handleRefreshCohortPositions(ctx context.Context, p RefreshTermPayload) error {
 	start := time.Now()
 	w.logger.Infow("assessments: refreshing cohort positions", "term_id", p.TermID)
 
-	_, err := w.pool.Exec(ctx, `SELECT fn_compute_cohort_positions_for_term($1)`, p.TermID)
+	_, err := database.FromContext(ctx, w.pool).Exec(ctx, `SELECT fn_compute_cohort_positions_for_term($1)`, p.TermID)
 	if err != nil {
 		return fmt.Errorf("assessments.Worker.handleRefreshCohortPositions: %w", err)
 	}

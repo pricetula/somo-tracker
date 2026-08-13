@@ -170,6 +170,7 @@ func (h *Handler) DeleteIncident(c *fiber.Ctx) error {
 // UpsertProfile handles PUT /api/v1/health/profiles/:studentId.
 func (h *Handler) UpsertProfile(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
+	loggedBy := c.Locals("user_id").(string)
 	studentID := c.Params("studentId")
 	if studentID == "" {
 		return writeError(c, fiber.StatusBadRequest, "invalid_input", "studentId is required")
@@ -180,7 +181,7 @@ func (h *Handler) UpsertProfile(c *fiber.Ctx) error {
 		return writeError(c, fiber.StatusBadRequest, "invalid_input", "malformed request body")
 	}
 
-	result, err := h.svc.UpsertProfile(c.Context(), tenantID, studentID, body)
+	result, err := h.svc.UpsertProfile(c.Context(), tenantID, studentID, loggedBy, body)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}

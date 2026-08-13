@@ -140,8 +140,8 @@ func (s *Service) DeleteIncident(ctx context.Context, id, tenantID string) error
 // ═══════════════════════════════════════════════════════════════════════════
 
 // UpsertProfile creates or updates a student health profile.
-func (s *Service) UpsertProfile(ctx context.Context, tenantID string, studentID string, payload UpsertHealthProfilePayload) (*StudentHealthProfile, error) {
-	if tenantID == "" || studentID == "" {
+func (s *Service) UpsertProfile(ctx context.Context, tenantID string, studentID string, loggedBy string, payload UpsertHealthProfilePayload) (*StudentHealthProfile, error) {
+	if tenantID == "" || studentID == "" || loggedBy == "" {
 		return nil, fmt.Errorf("health.Service.UpsertProfile: %w", ErrInvalidInput)
 	}
 
@@ -177,6 +177,7 @@ func (s *Service) UpsertProfile(ctx context.Context, tenantID string, studentID 
 		Allergies:             allergies,
 		ChronicConditions:     chronic,
 		EmergencyInstructions: ei,
+		LoggedBy:              loggedBy,
 	}
 
 	profile, err := s.repo.UpsertProfile(ctx, params)

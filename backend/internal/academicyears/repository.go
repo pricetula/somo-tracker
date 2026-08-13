@@ -31,7 +31,7 @@ func NewRepository(pools *database.Pools) *PgRepository {
 
 // Begin starts a PostgreSQL transaction and stores it in the context.
 func (r *PgRepository) Begin(ctx context.Context) (Tx, error) {
-	tx, err := r.pool.Begin(ctx)
+	tx, err := database.Begin(ctx, r.pool)
 	if err != nil {
 		return nil, fmt.Errorf("academicyears.Repository.Begin: %w", err)
 	}
@@ -79,7 +79,7 @@ func (r *PgRepository) GetCurrent(ctx context.Context, tenantID, schoolID string
     `
 
 	var res CurrentAcademicYearWithCurrentTerm
-	err := r.pool.QueryRow(ctx, query, tenantID, schoolID).Scan(
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, tenantID, schoolID).Scan(
 		&res.AcademicYearID,
 		&res.AcademicYearName,
 		&res.AcademicYearStartDate,
@@ -134,7 +134,7 @@ func (r *PgRepository) ListYears(ctx context.Context, tenantID, schoolID string)
 		ORDER BY ay.start_date DESC
 	`
 
-	rows, err := r.pool.Query(ctx, query, tenantID, schoolID)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, tenantID, schoolID)
 	if err != nil {
 		return nil, fmt.Errorf("academicyears.Repository.ListYears: %w", err)
 	}
@@ -173,7 +173,7 @@ func (r *PgRepository) GetYearByID(ctx context.Context, id, tenantID, schoolID s
 		WHERE id = $1 AND tenant_id = $2 AND school_id = $3
 	`
 	var y AcademicYear
-	err := r.pool.QueryRow(ctx, query, id, tenantID, schoolID).Scan(
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, id, tenantID, schoolID).Scan(
 		&y.ID, &y.TenantID, &y.SchoolID, &y.Name,
 		&y.StartDate, &y.EndDate, &y.IsCurrent,
 		&y.Version, &y.CreatedBy, &y.UpdatedBy,
@@ -196,7 +196,7 @@ func (r *PgRepository) CreateYear(ctx context.Context, year *AcademicYear) (stri
 		RETURNING id
 	`
 	var id string
-	err := r.pool.QueryRow(ctx, query,
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query,
 		year.TenantID, year.SchoolID, year.Name,
 		year.StartDate, year.EndDate,
 		year.CreatedBy, year.UpdatedBy,
@@ -215,7 +215,7 @@ func (r *PgRepository) SetCurrentYear(ctx context.Context, id, tenantID, schoolI
 		SET is_current = TRUE, version = version + 1, updated_by = $4, updated_at = NOW()
 		WHERE id = $1 AND tenant_id = $2 AND school_id = $3
 	`
-	tag, err := r.pool.Exec(ctx, query, id, tenantID, schoolID, actorID)
+	tag, err := database.FromContext(ctx, r.pool).Exec(ctx, query, id, tenantID, schoolID, actorID)
 	if err != nil {
 		return false, fmt.Errorf("academicyears.Repository.SetCurrentYear: %w", err)
 	}
@@ -241,7 +241,7 @@ func (r *PgRepository) ListTerms(ctx context.Context, tenantID, schoolID string,
 		ORDER BY ay.start_date DESC, at.term_number ASC
 	`
 
-	rows, err := r.pool.Query(ctx, query, tenantID, schoolID, academicYearID)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, tenantID, schoolID, academicYearID)
 	if err != nil {
 		return nil, fmt.Errorf("academicyears.Repository.ListTerms: %w", err)
 	}
@@ -290,7 +290,7 @@ func (r *PgRepository) GetTermByIDForUpdate(ctx context.Context, id, tenantID, s
 
 	var t AcademicTerm
 	var y AcademicYear
-	err := r.pool.QueryRow(ctx, query, id, tenantID, schoolID).Scan(
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, id, tenantID, schoolID).Scan(
 		&t.ID, &t.TenantID, &t.SchoolID, &t.AcademicYearID,
 		&t.Name, &t.TermNumber, &t.StartDate, &t.EndDate,
 		&t.IsCurrent, &t.IsFinal, &t.Version,
@@ -319,7 +319,7 @@ func (r *PgRepository) CreateTerm(ctx context.Context, term *AcademicTerm) (stri
 		RETURNING id
 	`
 	var id string
-	err := r.pool.QueryRow(ctx, query,
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query,
 		term.TenantID, term.SchoolID, term.AcademicYearID,
 		term.Name, term.TermNumber, term.StartDate, term.EndDate,
 		term.IsFinal, term.CreatedBy, term.UpdatedBy,
@@ -341,7 +341,7 @@ func (r *PgRepository) UpdateTerm(ctx context.Context, term *AcademicTerm) error
 		    version = version + 1, updated_by = $5, updated_at = NOW()
 		WHERE id = $6 AND version = $7
 	`
-	tag, err := r.pool.Exec(ctx, query,
+	tag, err := database.FromContext(ctx, r.pool).Exec(ctx, query,
 		term.Name, term.StartDate, term.EndDate, term.IsFinal,
 		term.UpdatedBy, term.ID, term.Version,
 	)
@@ -385,7 +385,7 @@ func (r *PgRepository) DeleteTerm(ctx context.Context, id string) error {
 		DELETE FROM academic_terms
 		WHERE id = $1
 	`
-	tag, err := r.pool.Exec(ctx, query, id)
+	tag, err := database.FromContext(ctx, r.pool).Exec(ctx, query, id)
 	if err != nil {
 		return fmt.Errorf("academicyears.Repository.DeleteTerm: %w", err)
 	}
@@ -411,7 +411,7 @@ func (r *PgRepository) FindOverlappingTerms(ctx context.Context, yearID, exclude
 		  AND ($4::uuid IS NULL OR id != $4)
 	`
 
-	rows, err := r.pool.Query(ctx, query, yearID, startDate, endDate, nullableUUID(excludeID))
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, yearID, startDate, endDate, nullableUUID(excludeID))
 	if err != nil {
 		return nil, fmt.Errorf("academicyears.Repository.FindOverlappingTerms: %w", err)
 	}
@@ -460,7 +460,7 @@ func (r *PgRepository) TermDependencyCounts(ctx context.Context, termID string) 
 	}
 	sb.WriteString(") dep GROUP BY table_name, cnt")
 
-	rows, err := r.pool.Query(ctx, sb.String(), termID)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, sb.String(), termID)
 	if err != nil {
 		return nil, fmt.Errorf("academicyears.Repository.TermDependencyCounts: %w", err)
 	}
@@ -498,7 +498,7 @@ func (r *PgRepository) CountOrphansOutsideRange(ctx context.Context, termID stri
 		WHERE academic_term_id = $1
 		  AND (date < $2::date OR date > $3::date)
 	`
-	rows, err := r.pool.Query(ctx, query, termID, newStart, newEnd)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, termID, newStart, newEnd)
 	if err != nil {
 		return nil, fmt.Errorf("academicyears.Repository.CountOrphansOutsideRange: %w", err)
 	}
@@ -541,7 +541,7 @@ func (r *PgRepository) CountOrphansOutsideRange(ctx context.Context, termID stri
 // All affected rows (old current term, old current year, target term, target
 // year) get version + 1, updated_by = actorID and updated_at = NOW().
 func (r *PgRepository) ActivateTerm(ctx context.Context, termID, tenantID, schoolID, actorID string) (*AcademicTerm, error) {
-	tx, err := r.pool.Begin(ctx)
+	tx, err := database.Begin(ctx, r.pool)
 	if err != nil {
 		return nil, fmt.Errorf("academicyears.Repository.ActivateTerm: begin: %w", err)
 	}
@@ -676,7 +676,7 @@ func (r *PgRepository) SyncCurrentTerm(ctx context.Context, academicYearID strin
 	`
 	var currentTermID *string
 	var tid string
-	err := r.pool.QueryRow(ctx, findQuery, academicYearID, now).Scan(&tid)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, findQuery, academicYearID, now).Scan(&tid)
 	if err == nil {
 		currentTermID = &tid
 	} else if err != pgx.ErrNoRows {
@@ -692,7 +692,7 @@ func (r *PgRepository) SyncCurrentTerm(ctx context.Context, academicYearID strin
 			  AND is_current = TRUE
 			  AND id != $2
 		`
-		if _, err := r.pool.Exec(ctx, clearQuery, academicYearID, *currentTermID); err != nil {
+		if _, err := database.FromContext(ctx, r.pool).Exec(ctx, clearQuery, academicYearID, *currentTermID); err != nil {
 			return fmt.Errorf("academicyears.Repository.SyncCurrentTerm: clear others: %w", err)
 		}
 
@@ -702,7 +702,7 @@ func (r *PgRepository) SyncCurrentTerm(ctx context.Context, academicYearID strin
 			SET is_current = TRUE, version = version + 1, updated_at = NOW()
 			WHERE id = $1 AND is_current = FALSE
 		`
-		if _, err := r.pool.Exec(ctx, setQuery, *currentTermID); err != nil {
+		if _, err := database.FromContext(ctx, r.pool).Exec(ctx, setQuery, *currentTermID); err != nil {
 			return fmt.Errorf("academicyears.Repository.SyncCurrentTerm: set: %w", err)
 		}
 	} else {
@@ -713,7 +713,7 @@ func (r *PgRepository) SyncCurrentTerm(ctx context.Context, academicYearID strin
 			WHERE academic_year_id = $1
 			  AND is_current = TRUE
 		`
-		if _, err := r.pool.Exec(ctx, clearAllQuery, academicYearID); err != nil {
+		if _, err := database.FromContext(ctx, r.pool).Exec(ctx, clearAllQuery, academicYearID); err != nil {
 			return fmt.Errorf("academicyears.Repository.SyncCurrentTerm: clear all: %w", err)
 		}
 	}
@@ -733,7 +733,7 @@ func (r *PgRepository) GetCurrentAcademicYearID(ctx context.Context, tenantID, s
 		LIMIT 1
 	`
 	var id string
-	err := r.pool.QueryRow(ctx, query, tenantID, schoolID).Scan(&id)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, tenantID, schoolID).Scan(&id)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return "", nil
@@ -751,7 +751,7 @@ func (r *PgRepository) GetCurrentAcademicTermID(ctx context.Context, academicYea
 		LIMIT 1
 	`
 	var id string
-	err := r.pool.QueryRow(ctx, query, academicYearID).Scan(&id)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, academicYearID).Scan(&id)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return "", nil

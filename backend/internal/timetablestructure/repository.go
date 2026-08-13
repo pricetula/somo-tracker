@@ -51,7 +51,7 @@ func (r *PgRepository) ListAll(ctx context.Context, tenantID, schoolID, academic
 }
 
 func (r *PgRepository) queryBlocks(ctx context.Context, query string, args ...interface{}) ([]TimeBlock, error) {
-	rows, err := r.pool.Query(ctx, query, args...)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("timetablestructure.Repository.queryBlocks: %w", err)
 	}
@@ -89,7 +89,7 @@ func (r *PgRepository) GetByID(ctx context.Context, id, tenantID, schoolID strin
 
 	var b TimeBlock
 	var startTime, endTime time.Time
-	err := r.pool.QueryRow(ctx, query, id, tenantID, schoolID).Scan(
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, id, tenantID, schoolID).Scan(
 		&b.ID, &b.DayOfWeek, &b.PeriodName, &startTime, &endTime, &b.IsBreak, &b.AcademicYearID, &b.CreatedAt, &b.UpdatedAt,
 	)
 	if err != nil {
@@ -124,7 +124,7 @@ func (r *PgRepository) Create(ctx context.Context, tenantID, schoolID string, bl
 
 	var b TimeBlock
 	var startTime, endTime time.Time
-	err = r.pool.QueryRow(ctx, query,
+	err = database.FromContext(ctx, r.pool).QueryRow(ctx, query,
 		tenantID, schoolID, block.AcademicYearID, block.DayOfWeek, block.PeriodName, block.StartTime, block.EndTime, block.IsBreak,
 	).Scan(&b.ID, &b.DayOfWeek, &b.PeriodName, &startTime, &endTime, &b.IsBreak, &b.AcademicYearID, &b.CreatedAt, &b.UpdatedAt)
 	if err != nil {
@@ -144,7 +144,7 @@ func (r *PgRepository) BatchCreate(ctx context.Context, tenantID, schoolID strin
 		return []TimeBlock{}, nil
 	}
 
-	tx, err := r.pool.Begin(ctx)
+	tx, err := database.Begin(ctx, r.pool)
 	if err != nil {
 		return nil, fmt.Errorf("timetablestructure.Repository.BatchCreate: begin tx: %w", err)
 	}
@@ -203,7 +203,7 @@ func (r *PgRepository) ReplicateDay(ctx context.Context, tenantID, schoolID stri
 		return []TimeBlock{}, nil
 	}
 
-	tx, err := r.pool.Begin(ctx)
+	tx, err := database.Begin(ctx, r.pool)
 	if err != nil {
 		return nil, fmt.Errorf("timetablestructure.Repository.ReplicateDay: begin tx: %w", err)
 	}
@@ -331,7 +331,7 @@ func (r *PgRepository) Update(ctx context.Context, id, tenantID, schoolID string
 
 	var b TimeBlock
 	var startTime, endTime time.Time
-	err = r.pool.QueryRow(ctx, query,
+	err = database.FromContext(ctx, r.pool).QueryRow(ctx, query,
 		block.DayOfWeek, block.PeriodName, block.StartTime, block.EndTime, block.IsBreak, id, tenantID, schoolID,
 	).Scan(&b.ID, &b.DayOfWeek, &b.PeriodName, &startTime, &endTime, &b.IsBreak, &b.AcademicYearID, &b.CreatedAt, &b.UpdatedAt)
 	if err != nil {
@@ -358,7 +358,7 @@ func (r *PgRepository) HasLinkedLessons(ctx context.Context, id, tenantID, schoo
 	`
 
 	var count int
-	err := r.pool.QueryRow(ctx, query, id).Scan(&count)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, id).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("timetablestructure.Repository.HasLinkedLessons: %w", err)
 	}
@@ -371,7 +371,7 @@ func (r *PgRepository) DeleteByDay(ctx context.Context, tenantID, schoolID, acad
 		DELETE FROM timetable_structures
 		WHERE tenant_id = $1 AND school_id = $2 AND academic_year_id = $3 AND day_of_week = $4
 	`
-	tag, err := r.pool.Exec(ctx, query, tenantID, schoolID, academicYearID, dayOfWeek)
+	tag, err := database.FromContext(ctx, r.pool).Exec(ctx, query, tenantID, schoolID, academicYearID, dayOfWeek)
 	if err != nil {
 		return fmt.Errorf("timetablestructure.Repository.DeleteByDay: %w", err)
 	}
@@ -400,7 +400,7 @@ func (r *PgRepository) Delete(ctx context.Context, id, tenantID, schoolID string
 		DELETE FROM timetable_structures
 		WHERE id = $1 AND tenant_id = $2 AND school_id = $3
 	`
-	tag, err := r.pool.Exec(ctx, query, id, tenantID, schoolID)
+	tag, err := database.FromContext(ctx, r.pool).Exec(ctx, query, id, tenantID, schoolID)
 	if err != nil {
 		return fmt.Errorf("timetablestructure.Repository.Delete: %w", err)
 	}
@@ -432,7 +432,7 @@ func (r *PgRepository) FindOverlappingBlock(ctx context.Context, tenantID, schoo
 
 	var b TimeBlock
 	var sTime, eTime time.Time
-	err := r.pool.QueryRow(ctx, query, args...).Scan(
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, args...).Scan(
 		&b.ID, &b.DayOfWeek, &b.PeriodName, &sTime, &eTime, &b.IsBreak, &b.AcademicYearID, &b.CreatedAt, &b.UpdatedAt,
 	)
 	if err != nil {
@@ -538,7 +538,7 @@ func (r *PgRepository) BatchUpdateBlocks(ctx context.Context, tenantID, schoolID
 		return []TimeBlock{}, nil
 	}
 
-	tx, err := r.pool.Begin(ctx)
+	tx, err := database.Begin(ctx, r.pool)
 	if err != nil {
 		return nil, fmt.Errorf("timetablestructure.Repository.BatchUpdateBlocks: begin tx: %w", err)
 	}
@@ -594,7 +594,7 @@ func (r *PgRepository) DeleteByPeriodName(ctx context.Context, tenantID, schoolI
 		  AND academic_year_id = $3::UUID
 		  AND period_name = $4
 	`
-	tag, err := r.pool.Exec(ctx, query, tenantID, schoolID, academicYearID, periodName)
+	tag, err := database.FromContext(ctx, r.pool).Exec(ctx, query, tenantID, schoolID, academicYearID, periodName)
 	if err != nil {
 		return 0, fmt.Errorf("timetablestructure.Repository.DeleteByPeriodName: %w", err)
 	}
@@ -624,7 +624,7 @@ func (r *PgRepository) HasLinkedLessonsForBlocks(ctx context.Context, ids []stri
 	`, strings.Join(placeholders, ", "))
 
 	var count int
-	err := r.pool.QueryRow(ctx, query, args...).Scan(&count)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, args...).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("timetablestructure.Repository.HasLinkedLessonsForBlocks: %w", err)
 	}

@@ -271,14 +271,18 @@ CREATE TABLE IF NOT EXISTS sessions (
     id                   UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     token                VARCHAR(128) NULL,
     token_hash           TEXT         NULL,
-    user_id              UUID         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_id              UUID         NOT NULL,
     tenant_id            UUID         NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     stytch_member_id     VARCHAR(255) NOT NULL,
     stytch_org_id        VARCHAR(255) NOT NULL,
     stytch_session_token VARCHAR(512) NOT NULL DEFAULT '',
     device_fingerprint   VARCHAR(128) NOT NULL DEFAULT '',
     expires_at           TIMESTAMPTZ  NOT NULL,
-    created_at           TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+    created_at           TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_sessions_tenant_user
+        FOREIGN KEY (tenant_id, user_id)
+        REFERENCES users(tenant_id, id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_sessions_token                ON sessions (token);
@@ -370,11 +374,17 @@ CREATE TABLE IF NOT EXISTS academic_years (
     version     INTEGER     NOT NULL DEFAULT 1,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    created_by  UUID        NOT NULL REFERENCES users(id),
-    updated_by  UUID        NOT NULL REFERENCES users(id),
+    created_by  UUID        NOT NULL,
+    updated_by  UUID        NOT NULL,
 
     CONSTRAINT chk_year_dates CHECK (start_date < end_date),
     CONSTRAINT uq_academic_years_tenant UNIQUE (tenant_id, id),
+    CONSTRAINT fk_academic_years_tenant_created_by
+        FOREIGN KEY (tenant_id, created_by)
+        REFERENCES users(tenant_id, id),
+    CONSTRAINT fk_academic_years_tenant_updated_by
+        FOREIGN KEY (tenant_id, updated_by)
+        REFERENCES users(tenant_id, id),
     CONSTRAINT uq_academic_years_tenant_school_id UNIQUE (tenant_id, school_id, id),
     CONSTRAINT fk_academic_years_tenant_school
         FOREIGN KEY (tenant_id, school_id)
@@ -418,12 +428,18 @@ CREATE TABLE IF NOT EXISTS academic_terms (
     version          INTEGER      NOT NULL DEFAULT 1,
     created_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-    created_by       UUID         NOT NULL REFERENCES users(id),
-    updated_by       UUID         NOT NULL REFERENCES users(id),
+    created_by       UUID         NOT NULL,
+    updated_by       UUID         NOT NULL,
 
     CONSTRAINT chk_term_dates   CHECK (start_date < end_date),
     CONSTRAINT chk_term_number  CHECK (term_number BETWEEN 1 AND 3),
     CONSTRAINT uq_academic_terms_tenant        UNIQUE (tenant_id, id),
+    CONSTRAINT fk_academic_terms_tenant_created_by
+        FOREIGN KEY (tenant_id, created_by)
+        REFERENCES users(tenant_id, id),
+    CONSTRAINT fk_academic_terms_tenant_updated_by
+        FOREIGN KEY (tenant_id, updated_by)
+        REFERENCES users(tenant_id, id),
     CONSTRAINT uq_academic_terms_tenant_school UNIQUE (tenant_id, school_id, id),
 
     CONSTRAINT fk_academic_terms_tenant_school
@@ -515,7 +531,9 @@ CREATE TABLE IF NOT EXISTS cbc_streams (
         FOREIGN KEY (tenant_id, school_id) REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
 
     CONSTRAINT uq_cbc_streams_tenant_school_name
-        UNIQUE (tenant_id, school_id, name)
+        UNIQUE (tenant_id, school_id, name),
+    -- Composite key so cbc_classes can reference (tenant_id, stream_id)
+    CONSTRAINT uq_cbc_streams_tenant UNIQUE (tenant_id, id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_cbc_streams_school_id ON cbc_streams (school_id);
@@ -564,7 +582,7 @@ CREATE TABLE IF NOT EXISTS cbc_classes (
         FOREIGN KEY (tenant_id, academic_year_id)
         REFERENCES academic_years(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_cbc_classes_stream
-        FOREIGN KEY (stream_id) REFERENCES cbc_streams(id) ON DELETE RESTRICT,
+        FOREIGN KEY (tenant_id, stream_id) REFERENCES cbc_streams(tenant_id, id) ON DELETE RESTRICT,
 
     -- IMPROVE: composite FK for tenant scoping (tenant_id, id) to allow other
     -- tables to reference this pair directly
@@ -596,7 +614,7 @@ COMMENT ON COLUMN cbc_classes.grade_level IS
 CREATE TABLE IF NOT EXISTS memberships (
     id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id  UUID        NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    user_id    UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_id    UUID        NOT NULL,
     school_id  UUID        NOT NULL,
     role       user_role   NOT NULL,
     is_active  BOOLEAN     NOT NULL DEFAULT true,
@@ -608,7 +626,7 @@ CREATE TABLE IF NOT EXISTS memberships (
         REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_memberships_tenant_user
         FOREIGN KEY (tenant_id, user_id)
-        REFERENCES users(tenant_id, id),
+        REFERENCES users(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT unique_user_school_membership UNIQUE (user_id, school_id)
 );
 
@@ -632,7 +650,7 @@ CREATE TABLE IF NOT EXISTS import_jobs (
     school_id            UUID              NOT NULL,
     job_type             import_job_type   NOT NULL,
     role                 user_role         NULL,
-    created_by           UUID              REFERENCES users(id) ON DELETE SET NULL,
+    created_by           UUID              NULL,
     status               import_job_status NOT NULL DEFAULT 'pending',
     total_records        INT               NOT NULL DEFAULT 0,
     processed_records    INT               NOT NULL DEFAULT 0,
@@ -652,6 +670,9 @@ CREATE TABLE IF NOT EXISTS import_jobs (
     CONSTRAINT fk_import_jobs_tenant_school
         FOREIGN KEY (tenant_id, school_id)
         REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_import_jobs_tenant_created_by
+        FOREIGN KEY (tenant_id, created_by)
+        REFERENCES users(tenant_id, id) ON DELETE SET NULL (created_by),
     CONSTRAINT chk_import_jobs_role_required_for_staff
         CHECK (
             (job_type IN ('STAFF_INVITE', 'PARENT_INVITE') AND role IS NOT NULL)
@@ -666,6 +687,9 @@ CREATE INDEX IF NOT EXISTS idx_import_jobs_status     ON import_jobs (status);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_import_jobs_tenant_idempotency
     ON import_jobs (tenant_id, idempotency_key)
     WHERE idempotency_key IS NOT NULL;
+
+-- Composite key so invitations can reference (tenant_id, import_job_id)
+CREATE UNIQUE INDEX IF NOT EXISTS uq_import_jobs_tenant ON import_jobs (tenant_id, id);
 
 -- At most one active (processing or cancelling) import job per school at a time.
 -- A new submission while one is active is rejected with import_already_in_progress.
@@ -733,6 +757,10 @@ CREATE INDEX IF NOT EXISTS idx_import_job_staging_job_id ON import_job_staging (
 CREATE UNIQUE INDEX IF NOT EXISTS uq_import_job_staging_job_row
     ON import_job_staging (job_id, row_number);
 
+-- Composite key so cbc_students can reference (tenant_id, staging_row_id)
+CREATE UNIQUE INDEX IF NOT EXISTS uq_import_job_staging_tenant
+    ON import_job_staging (tenant_id, id);
+
 -- ---------------------------------------------------------------------------
 -- INVITATIONS
 -- ---------------------------------------------------------------------------
@@ -744,7 +772,7 @@ CREATE TABLE IF NOT EXISTS invitations (
     email               VARCHAR(255)      NOT NULL,
     role                user_role         NOT NULL,
     status              invitation_status NOT NULL DEFAULT 'pending',
-    invited_by          UUID              REFERENCES users(id) ON DELETE SET NULL,
+    invited_by          UUID              NULL,
     token               TEXT              NOT NULL,
     token_hash          TEXT              NULL,
     expires_at          TIMESTAMPTZ       NOT NULL,
@@ -762,9 +790,12 @@ CREATE TABLE IF NOT EXISTS invitations (
     CONSTRAINT fk_invitations_tenant_school
         FOREIGN KEY (tenant_id, school_id)
         REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_invitations_import_job
-        FOREIGN KEY (import_job_id)
-        REFERENCES import_jobs(id) ON DELETE SET NULL
+    CONSTRAINT fk_invitations_tenant_invited_by
+        FOREIGN KEY (tenant_id, invited_by)
+        REFERENCES users(tenant_id, id) ON DELETE SET NULL (invited_by),
+    CONSTRAINT fk_invitations_tenant_import_job
+        FOREIGN KEY (tenant_id, import_job_id)
+        REFERENCES import_jobs(tenant_id, id) ON DELETE SET NULL (import_job_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_invitations_tenant_id  ON invitations (tenant_id);
@@ -802,13 +833,15 @@ COMMENT ON COLUMN invitations.token_hash IS
 CREATE TABLE IF NOT EXISTS cbc_parents (
     id           UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id    UUID         NOT NULL,
-    user_id      UUID         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_id      UUID         NOT NULL,
     phone_number VARCHAR(20)  NOT NULL, -- Crucial for M-Pesa & SMS notifications
     is_active    BOOLEAN      NOT NULL DEFAULT true,
     created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
 
     CONSTRAINT uq_cbc_parents_user UNIQUE (user_id),
+    -- Composite key so cbc_student_parents can reference (tenant_id, parent_id)
+    CONSTRAINT uq_cbc_parents_tenant UNIQUE (tenant_id, id),
     CONSTRAINT fk_cbc_parents_tenant_user
         FOREIGN KEY (tenant_id, user_id)
         REFERENCES users(tenant_id, id) ON DELETE CASCADE
@@ -841,7 +874,7 @@ CREATE TABLE IF NOT EXISTS cbc_students (
     knec_assessment_number VARCHAR(15)          NULL,
     admission_number       VARCHAR(20)          NULL,
     learning_pathway       cbc_learning_pathway NOT NULL DEFAULT 'Age_Based',
-    staging_row_id         UUID                 NULL REFERENCES import_job_staging(id) ON DELETE SET NULL,
+    staging_row_id         UUID                 NULL,
     is_active              BOOLEAN              NOT NULL DEFAULT true,
     created_at             TIMESTAMPTZ          NOT NULL DEFAULT NOW(),
     updated_at             TIMESTAMPTZ          NOT NULL DEFAULT NOW(),
@@ -850,6 +883,9 @@ CREATE TABLE IF NOT EXISTS cbc_students (
     CONSTRAINT fk_cbc_students_tenant_school
         FOREIGN KEY (tenant_id, school_id)
         REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_cbc_students_tenant_staging_row
+        FOREIGN KEY (staging_row_id)
+        REFERENCES import_job_staging(id) ON DELETE SET NULL,
     CONSTRAINT chk_cbc_student_gender CHECK (gender IN ('M', 'F'))
 );
 
@@ -895,21 +931,30 @@ COMMENT ON COLUMN cbc_students.school_id IS
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS cbc_student_parents (
-    student_id   UUID        NOT NULL REFERENCES cbc_students(id) ON DELETE CASCADE,
-    parent_id    UUID        NOT NULL REFERENCES cbc_parents(id)  ON DELETE CASCADE,
+    tenant_id    UUID        NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    student_id   UUID        NOT NULL,
+    parent_id    UUID        NOT NULL,
     relationship parent_relationship_type NULL, -- FATHER, MOTHER, GUARDIAN, OTHER
     is_primary   BOOLEAN     NOT NULL DEFAULT true,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
-    PRIMARY KEY (student_id, parent_id)
+    CONSTRAINT pk_cbc_student_parents PRIMARY KEY (tenant_id, student_id, parent_id),
+    CONSTRAINT fk_cbc_student_parents_tenant_student
+        FOREIGN KEY (tenant_id, student_id)
+        REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_cbc_student_parents_tenant_parent
+        FOREIGN KEY (tenant_id, parent_id)
+        REFERENCES cbc_parents(tenant_id, id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_junction_parent ON cbc_student_parents (parent_id);
+CREATE INDEX IF NOT EXISTS idx_junction_tenant_student
+    ON cbc_student_parents (tenant_id, student_id);
 
 -- One primary parent per student (000003 item 5)
 CREATE UNIQUE INDEX IF NOT EXISTS idx_one_primary_parent_per_student
-    ON cbc_student_parents (student_id) WHERE is_primary = true;
+    ON cbc_student_parents (tenant_id, student_id) WHERE is_primary = true;
 
 COMMENT ON COLUMN cbc_student_parents.relationship IS
     'Parent/guardian relationship to the student. Enum migrated from free-text
@@ -950,7 +995,7 @@ CREATE TABLE IF NOT EXISTS cbc_student_enrollments (
     -- school→class cascade on cbc_classes handles the referential side.
     CONSTRAINT fk_enrollments_tenant_class
         FOREIGN KEY (tenant_id, class_id)
-        REFERENCES cbc_classes(tenant_id, id) ON DELETE SET NULL,
+        REFERENCES cbc_classes(tenant_id, id) ON DELETE SET NULL (class_id),
     CONSTRAINT unique_student_term_enrollment UNIQUE (student_id, school_id, academic_term_id),
     CONSTRAINT fk_enrollments_tenant_academic_year
         FOREIGN KEY (tenant_id, academic_year_id)
@@ -985,13 +1030,16 @@ CREATE TABLE IF NOT EXISTS medical_incidents (
     incident_timestamp TIMESTAMPTZ NOT NULL,
     symptoms           TEXT        NOT NULL,
     action_taken       TEXT        NOT NULL,
-    logged_by          UUID        NOT NULL REFERENCES users(id),
+    logged_by          UUID        NOT NULL,
     created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
     CONSTRAINT fk_medical_incidents_tenant_student
         FOREIGN KEY (tenant_id, student_id)
-        REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE
+        REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_medical_incidents_tenant_logged_by
+        FOREIGN KEY (tenant_id, logged_by)
+        REFERENCES users(tenant_id, id) ON DELETE RESTRICT
 );
 
 CREATE INDEX IF NOT EXISTS idx_medical_incidents_tenant_id  ON medical_incidents (tenant_id);
@@ -1009,12 +1057,16 @@ CREATE TABLE IF NOT EXISTS student_health_profiles (
     allergies              TEXT[],
     chronic_conditions     TEXT[],
     emergency_instructions TEXT,
+    logged_by              UUID        NOT NULL,
     created_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
     CONSTRAINT fk_student_health_profiles_tenant_student
         FOREIGN KEY (tenant_id, student_id)
-        REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE
+        REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_student_health_profiles_tenant_logged_by
+        FOREIGN KEY (tenant_id, logged_by)
+        REFERENCES users(tenant_id, id) ON DELETE RESTRICT
 );
 
 CREATE INDEX IF NOT EXISTS idx_student_health_profiles_tenant_id ON student_health_profiles (tenant_id);
@@ -1035,7 +1087,9 @@ CREATE TABLE IF NOT EXISTS fee_categories (
         FOREIGN KEY (tenant_id, school_id)
         REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT uq_fee_categories_tenant_school_name
-        UNIQUE (tenant_id, school_id, name)
+        UNIQUE (tenant_id, school_id, name),
+    -- Composite key so fee_templates / invoice_items can reference (tenant_id, fee_category_id)
+    CONSTRAINT uq_fee_categories_tenant UNIQUE (tenant_id, id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_fee_categories_tenant    ON fee_categories (tenant_id);
@@ -1051,7 +1105,7 @@ CREATE TABLE IF NOT EXISTS fee_templates (
     school_id        UUID             NOT NULL,
     academic_term_id UUID             NOT NULL,
     grade_level      cbc_grade_level  NOT NULL,
-    fee_category_id  UUID             NOT NULL REFERENCES fee_categories(id) ON DELETE CASCADE,
+    fee_category_id  UUID             NOT NULL,
     amount           NUMERIC(12,2)    NOT NULL CHECK (amount >= 0),
     updated_at       TIMESTAMPTZ      NOT NULL DEFAULT NOW(),
 
@@ -1061,6 +1115,9 @@ CREATE TABLE IF NOT EXISTS fee_templates (
     CONSTRAINT fk_fee_templates_tenant_term
         FOREIGN KEY (tenant_id, school_id, academic_term_id)
         REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_fee_templates_tenant_fee_category
+        FOREIGN KEY (tenant_id, fee_category_id)
+        REFERENCES fee_categories(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT unique_fee_template_rule
         UNIQUE (academic_term_id, grade_level, fee_category_id)
 );
@@ -1079,7 +1136,7 @@ CREATE TABLE IF NOT EXISTS invoices (
     student_id       UUID                   NOT NULL,
     school_id        UUID                   NOT NULL,
     academic_term_id UUID                   NOT NULL,
-    parent_id        UUID                   NULL REFERENCES cbc_parents(id) ON DELETE SET NULL,
+    parent_id        UUID                   NULL,
     invoice_label    VARCHAR(255)           NULL,
     payment_status   invoice_payment_status NOT NULL DEFAULT 'UNPAID',
     amount_due       NUMERIC(12,2)          NOT NULL DEFAULT 0 CHECK (amount_due >= 0),
@@ -1097,6 +1154,9 @@ CREATE TABLE IF NOT EXISTS invoices (
     CONSTRAINT fk_invoices_tenant_term
         FOREIGN KEY (tenant_id, school_id, academic_term_id)
         REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_invoices_tenant_parent
+        FOREIGN KEY (tenant_id, parent_id)
+        REFERENCES cbc_parents(tenant_id, id) ON DELETE SET NULL (parent_id),
     CONSTRAINT unique_invoice_per_student_term UNIQUE (student_id, academic_term_id)
 );
 
@@ -1124,7 +1184,7 @@ CREATE TABLE IF NOT EXISTS invoice_items (
     id              UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id       UUID          NOT NULL,
     invoice_id      UUID          NOT NULL,
-    fee_category_id UUID          NOT NULL REFERENCES fee_categories(id) ON DELETE CASCADE,
+    fee_category_id UUID          NOT NULL,
     description     VARCHAR(255)  NULL,
     amount          NUMERIC(12,2) NOT NULL CHECK (amount >= 0),
     created_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
@@ -1132,7 +1192,10 @@ CREATE TABLE IF NOT EXISTS invoice_items (
 
     CONSTRAINT fk_invoice_items_tenant_invoice
         FOREIGN KEY (tenant_id, invoice_id)
-        REFERENCES invoices(tenant_id, id) ON DELETE CASCADE
+        REFERENCES invoices(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_invoice_items_tenant_fee_category
+        FOREIGN KEY (tenant_id, fee_category_id)
+        REFERENCES fee_categories(tenant_id, id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_invoice_items_tenant       ON invoice_items (tenant_id);
@@ -1148,16 +1211,22 @@ CREATE TABLE IF NOT EXISTS payments (
     tenant_id      UUID          NOT NULL,
     invoice_id     UUID          NOT NULL,
     amount         NUMERIC(12,2) NOT NULL CHECK (amount > 0),
-    parent_id      UUID          NULL REFERENCES cbc_parents(id) ON DELETE SET NULL,
+    parent_id      UUID          NULL,
     payment_method payment_method_type NULL,
     reference_code VARCHAR(100)  NULL,
-    recorded_by    UUID          NOT NULL REFERENCES users(id),
+    recorded_by    UUID          NOT NULL,
     created_at     TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
     updated_at     TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
 
     CONSTRAINT fk_payments_tenant_invoice
         FOREIGN KEY (tenant_id, invoice_id)
-        REFERENCES invoices(tenant_id, id) ON DELETE CASCADE
+        REFERENCES invoices(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_payments_tenant_parent
+        FOREIGN KEY (tenant_id, parent_id)
+        REFERENCES cbc_parents(tenant_id, id) ON DELETE SET NULL (parent_id),
+    CONSTRAINT fk_payments_tenant_recorded_by
+        FOREIGN KEY (tenant_id, recorded_by)
+        REFERENCES users(tenant_id, id) ON DELETE RESTRICT
 );
 
 CREATE INDEX IF NOT EXISTS idx_payments_tenant     ON payments (tenant_id);
@@ -1328,7 +1397,7 @@ COMMENT ON COLUMN cbc_learning_areas.grade_level IS
 CREATE TABLE IF NOT EXISTS cbc_strands (
     id               UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id        UUID         NOT NULL,
-    learning_area_id UUID         NOT NULL REFERENCES cbc_learning_areas(id) ON DELETE CASCADE,
+    learning_area_id UUID         NOT NULL,
     name             VARCHAR(255) NOT NULL,
     updated_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
 
@@ -1348,7 +1417,7 @@ CREATE INDEX IF NOT EXISTS idx_cbc_strands_tenant ON cbc_strands (tenant_id);
 CREATE TABLE IF NOT EXISTS cbc_sub_strands (
     id        UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID         NOT NULL,
-    strand_id UUID         NOT NULL REFERENCES cbc_strands(id) ON DELETE CASCADE,
+    strand_id UUID         NOT NULL,
     name      VARCHAR(255) NOT NULL,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
@@ -1368,14 +1437,16 @@ CREATE INDEX IF NOT EXISTS idx_cbc_sub_strands_tenant ON cbc_sub_strands (tenant
 CREATE TABLE IF NOT EXISTS performance_indicators (
     id             UUID     PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id      UUID     NOT NULL,
-    sub_strand_id  UUID     NOT NULL REFERENCES cbc_sub_strands(id) ON DELETE CASCADE,
+    sub_strand_id  UUID     NOT NULL,
     description    TEXT     NOT NULL,
     sequence_order SMALLINT NOT NULL DEFAULT 1,
     updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
     CONSTRAINT fk_performance_indicators_tenant_sub_strand
         FOREIGN KEY (tenant_id, sub_strand_id)
-        REFERENCES cbc_sub_strands(tenant_id, id) ON DELETE CASCADE
+        REFERENCES cbc_sub_strands(tenant_id, id) ON DELETE CASCADE,
+    -- Composite key so student_assessment_outcome_grades can reference (tenant_id, performance_indicator_id)
+    CONSTRAINT uq_performance_indicators_tenant UNIQUE (tenant_id, id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_performance_indicators_sub_strand
@@ -1400,8 +1471,8 @@ CREATE TABLE IF NOT EXISTS cbc_class_teachers (
     id               UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id        UUID         NOT NULL,
     class_id         UUID         NOT NULL,
-    user_id          UUID         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    learning_area_id UUID         NULL REFERENCES cbc_learning_areas(id) ON DELETE SET NULL,
+    user_id          UUID         NOT NULL,
+    learning_area_id UUID         NULL,
     teacher_role     teacher_role NOT NULL DEFAULT 'SUBJECT_TEACHER',
     created_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
@@ -1412,6 +1483,9 @@ CREATE TABLE IF NOT EXISTS cbc_class_teachers (
     CONSTRAINT fk_cbc_class_teachers_tenant_class
         FOREIGN KEY (tenant_id, class_id)
         REFERENCES cbc_classes(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_cbc_class_teachers_tenant_learning_area
+        FOREIGN KEY (tenant_id, learning_area_id)
+        REFERENCES cbc_learning_areas(tenant_id, id) ON DELETE SET NULL (learning_area_id),
     CONSTRAINT chk_cct_primary_no_area CHECK (
         teacher_role != 'PRIMARY_CLASS_TEACHER' OR learning_area_id IS NULL
     ),
@@ -1464,7 +1538,9 @@ CREATE TABLE IF NOT EXISTS timetable_structures (
         REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_timetable_structure_academic_year
         FOREIGN KEY (tenant_id, academic_year_id)
-        REFERENCES academic_years(tenant_id, id) ON DELETE CASCADE
+        REFERENCES academic_years(tenant_id, id) ON DELETE CASCADE,
+    -- Composite key so cbc_timetable_slots can reference (tenant_id, structure_id)
+    CONSTRAINT uq_timetable_structures_tenant UNIQUE (tenant_id, id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_timetable_structure_tenant
@@ -1511,9 +1587,9 @@ CREATE TABLE IF NOT EXISTS cbc_timetable_slots (
     tenant_id         UUID        NOT NULL,
     school_id         UUID        NOT NULL,
     academic_year_id  UUID        NOT NULL,
-    structure_id      UUID        NOT NULL REFERENCES timetable_structures(id) ON DELETE CASCADE,
+    structure_id      UUID        NOT NULL,
     class_id          UUID        NOT NULL,
-    learning_area_id  UUID        NOT NULL REFERENCES cbc_learning_areas(id) ON DELETE CASCADE,
+    learning_area_id  UUID        NOT NULL,
     teacher_id        UUID        NOT NULL,
     room_identifier   VARCHAR(50) NULL,
     created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -1540,6 +1616,12 @@ CREATE TABLE IF NOT EXISTS cbc_timetable_slots (
     CONSTRAINT fk_cbc_timetable_slots_tenant_teacher
         FOREIGN KEY (tenant_id, teacher_id)
         REFERENCES users(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_cbc_timetable_slots_tenant_learning_area
+        FOREIGN KEY (tenant_id, learning_area_id)
+        REFERENCES cbc_learning_areas(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_cbc_timetable_slots_tenant_structure
+        FOREIGN KEY (tenant_id, structure_id)
+        REFERENCES timetable_structures(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_cbc_timetable_slots_academic_year
         FOREIGN KEY (tenant_id, academic_year_id)
         REFERENCES academic_years(tenant_id, id) ON DELETE CASCADE
@@ -1568,6 +1650,11 @@ CREATE INDEX IF NOT EXISTS idx_cbc_timetable_slots_tenant
     ON cbc_timetable_slots (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_cbc_timetable_slots_school
     ON cbc_timetable_slots (school_id);
+
+-- Composite key so cbc_attendance_sessions / attendance_records / behavior_notes
+-- can reference (tenant_id, timetable_slot_id)
+CREATE UNIQUE INDEX IF NOT EXISTS uq_cbc_timetable_slots_tenant
+    ON cbc_timetable_slots (tenant_id, id);
 
 
 
@@ -1614,7 +1701,8 @@ COMMENT ON COLUMN assessment_weight_configs.effective_from IS
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS school_member_counts (
-    school_id  UUID         PRIMARY KEY,
+    tenant_id  UUID         NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    school_id  UUID         NOT NULL,
     admins     INTEGER      NOT NULL DEFAULT 0,
     teachers   INTEGER      NOT NULL DEFAULT 0,
     nurses     INTEGER      NOT NULL DEFAULT 0,
@@ -1623,8 +1711,10 @@ CREATE TABLE IF NOT EXISTS school_member_counts (
     students   INTEGER      NOT NULL DEFAULT 0,
     updated_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
 
-    CONSTRAINT fk_school_member_counts_school
-        FOREIGN KEY (school_id) REFERENCES cbc_schools(id) ON DELETE CASCADE
+    CONSTRAINT pk_school_member_counts PRIMARY KEY (tenant_id, school_id),
+    CONSTRAINT fk_school_member_counts_tenant_school
+        FOREIGN KEY (tenant_id, school_id)
+        REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE
 );
 
 -- ============================================================================
@@ -1634,8 +1724,9 @@ CREATE TABLE IF NOT EXISTS school_member_counts (
 CREATE OR REPLACE FUNCTION fn_sync_school_staff_counts_insert()
 RETURNS TRIGGER AS $$
 BEGIN
-    INSERT INTO school_member_counts (school_id, admins, teachers, nurses, finance, parents, updated_at)
+    INSERT INTO school_member_counts (tenant_id, school_id, admins, teachers, nurses, finance, parents, updated_at)
     SELECT
+        COALESCE(m.tenant_id, sc.tenant_id),
         s.school_id,
         COUNT(*) FILTER (WHERE m.role = 'SCHOOL_ADMIN') AS admins,
         COUNT(*) FILTER (WHERE m.role = 'TEACHER')      AS teachers,
@@ -1647,8 +1738,9 @@ BEGIN
     LEFT JOIN memberships m
         ON m.school_id = s.school_id
        AND m.is_active  = true
-    GROUP BY s.school_id
-    ON CONFLICT (school_id) DO UPDATE SET
+    LEFT JOIN cbc_schools sc ON sc.id = s.school_id
+    GROUP BY s.school_id, m.tenant_id, sc.tenant_id
+    ON CONFLICT (tenant_id, school_id) DO UPDATE SET
         admins     = EXCLUDED.admins,
         teachers   = EXCLUDED.teachers,
         nurses     = EXCLUDED.nurses,
@@ -1663,8 +1755,9 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION fn_sync_school_staff_counts_delete()
 RETURNS TRIGGER AS $$
 BEGIN
-    INSERT INTO school_member_counts (school_id, admins, teachers, nurses, finance, parents, updated_at)
+    INSERT INTO school_member_counts (tenant_id, school_id, admins, teachers, nurses, finance, parents, updated_at)
     SELECT
+        COALESCE(m.tenant_id, sc.tenant_id),
         s.school_id,
         COUNT(*) FILTER (WHERE m.role = 'SCHOOL_ADMIN') AS admins,
         COUNT(*) FILTER (WHERE m.role = 'TEACHER')      AS teachers,
@@ -1676,8 +1769,9 @@ BEGIN
     LEFT JOIN memberships m
         ON m.school_id = s.school_id
        AND m.is_active  = true
-    GROUP BY s.school_id
-    ON CONFLICT (school_id) DO UPDATE SET
+    LEFT JOIN cbc_schools sc ON sc.id = s.school_id
+    GROUP BY s.school_id, m.tenant_id, sc.tenant_id
+    ON CONFLICT (tenant_id, school_id) DO UPDATE SET
         admins     = EXCLUDED.admins,
         teachers   = EXCLUDED.teachers,
         nurses     = EXCLUDED.nurses,
@@ -1697,8 +1791,9 @@ BEGIN
         UNION
         SELECT DISTINCT school_id FROM deleted_rows
     )
-    INSERT INTO school_member_counts (school_id, admins, teachers, nurses, finance, parents, updated_at)
+    INSERT INTO school_member_counts (tenant_id, school_id, admins, teachers, nurses, finance, parents, updated_at)
     SELECT
+        COALESCE(m.tenant_id, sc.tenant_id),
         s.school_id,
         COUNT(*) FILTER (WHERE m.role = 'SCHOOL_ADMIN') AS admins,
         COUNT(*) FILTER (WHERE m.role = 'TEACHER')      AS teachers,
@@ -1710,8 +1805,9 @@ BEGIN
     LEFT JOIN memberships m
         ON m.school_id = s.school_id
        AND m.is_active  = true
-    GROUP BY s.school_id
-    ON CONFLICT (school_id) DO UPDATE SET
+    LEFT JOIN cbc_schools sc ON sc.id = s.school_id
+    GROUP BY s.school_id, m.tenant_id, sc.tenant_id
+    ON CONFLICT (tenant_id, school_id) DO UPDATE SET
         admins     = EXCLUDED.admins,
         teachers   = EXCLUDED.teachers,
         nurses     = EXCLUDED.nurses,
@@ -1751,8 +1847,9 @@ CREATE TRIGGER trg_memberships_counts_update
 CREATE OR REPLACE FUNCTION fn_sync_school_student_counts_insert()
 RETURNS TRIGGER AS $$
 BEGIN
-    INSERT INTO school_member_counts (school_id, students, updated_at)
+    INSERT INTO school_member_counts (tenant_id, school_id, students, updated_at)
     SELECT
+        COALESCE(st.tenant_id, sc.tenant_id),
         s.school_id,
         COUNT(st.id) AS students,
         NOW()
@@ -1760,8 +1857,9 @@ BEGIN
     LEFT JOIN cbc_students st
         ON st.school_id = s.school_id
        AND st.is_active  = true
-    GROUP BY s.school_id
-    ON CONFLICT (school_id) DO UPDATE SET
+    LEFT JOIN cbc_schools sc ON sc.id = s.school_id
+    GROUP BY s.school_id, st.tenant_id, sc.tenant_id
+    ON CONFLICT (tenant_id, school_id) DO UPDATE SET
         students   = EXCLUDED.students,
         updated_at = NOW();
 
@@ -1772,8 +1870,9 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION fn_sync_school_student_counts_delete()
 RETURNS TRIGGER AS $$
 BEGIN
-    INSERT INTO school_member_counts (school_id, students, updated_at)
+    INSERT INTO school_member_counts (tenant_id, school_id, students, updated_at)
     SELECT
+        COALESCE(st.tenant_id, sc.tenant_id),
         s.school_id,
         COUNT(st.id) AS students,
         NOW()
@@ -1781,8 +1880,9 @@ BEGIN
     LEFT JOIN cbc_students st
         ON st.school_id = s.school_id
        AND st.is_active  = true
-    GROUP BY s.school_id
-    ON CONFLICT (school_id) DO UPDATE SET
+    LEFT JOIN cbc_schools sc ON sc.id = s.school_id
+    GROUP BY s.school_id, st.tenant_id, sc.tenant_id
+    ON CONFLICT (tenant_id, school_id) DO UPDATE SET
         students   = EXCLUDED.students,
         updated_at = NOW();
 
@@ -1798,8 +1898,9 @@ BEGIN
         UNION
         SELECT DISTINCT school_id FROM deleted_rows
     )
-    INSERT INTO school_member_counts (school_id, students, updated_at)
+    INSERT INTO school_member_counts (tenant_id, school_id, students, updated_at)
     SELECT
+        COALESCE(st.tenant_id, sc.tenant_id),
         s.school_id,
         COUNT(st.id) AS students,
         NOW()
@@ -1807,8 +1908,9 @@ BEGIN
     LEFT JOIN cbc_students st
         ON st.school_id = s.school_id
        AND st.is_active  = true
-    GROUP BY s.school_id
-    ON CONFLICT (school_id) DO UPDATE SET
+    LEFT JOIN cbc_schools sc ON sc.id = s.school_id
+    GROUP BY s.school_id, st.tenant_id, sc.tenant_id
+    ON CONFLICT (tenant_id, school_id) DO UPDATE SET
         students   = EXCLUDED.students,
         updated_at = NOW();
 
@@ -1850,8 +1952,6 @@ CREATE TABLE IF NOT EXISTS member_active_school (
 
     PRIMARY KEY (user_id),
 
-    CONSTRAINT fk_mas_user
-        FOREIGN KEY (user_id)              REFERENCES users(id)                       ON DELETE CASCADE,
     CONSTRAINT fk_mas_tenant_user
         FOREIGN KEY (tenant_id, user_id)   REFERENCES users(tenant_id, id)            ON DELETE CASCADE,
     CONSTRAINT fk_mas_tenant_school
@@ -1902,7 +2002,7 @@ CREATE TABLE IF NOT EXISTS cbc_attendance_sessions (
     id                UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id         UUID         NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     school_id         UUID         NOT NULL,
-    timetable_slot_id UUID         NOT NULL REFERENCES cbc_timetable_slots(id) ON DELETE CASCADE,
+    timetable_slot_id UUID         NOT NULL,
     date              DATE         NOT NULL,
     status            VARCHAR(20)  NOT NULL DEFAULT 'SUBMITTED',
     skip_reason       TEXT         NULL,
@@ -1913,6 +2013,9 @@ CREATE TABLE IF NOT EXISTS cbc_attendance_sessions (
         CHECK (status IN ('SUBMITTED', 'SKIPPED')),
     CONSTRAINT uq_cbc_attendance_sessions_slot_date
         UNIQUE (school_id, timetable_slot_id, date),
+    CONSTRAINT fk_cbc_attendance_sessions_tenant_slot
+        FOREIGN KEY (tenant_id, timetable_slot_id)
+        REFERENCES cbc_timetable_slots(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_cbc_attendance_sessions_tenant_school
         FOREIGN KEY (tenant_id, school_id)
         REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE
@@ -1926,6 +2029,10 @@ CREATE INDEX IF NOT EXISTS idx_cbc_attendance_sessions_school
     ON cbc_attendance_sessions (school_id);
 CREATE INDEX IF NOT EXISTS idx_cbc_attendance_sessions_status
     ON cbc_attendance_sessions (status);
+
+-- Composite key so attendance_records can reference (tenant_id, attendance_session_id)
+CREATE UNIQUE INDEX IF NOT EXISTS uq_cbc_attendance_sessions_tenant
+    ON cbc_attendance_sessions (tenant_id, id);
 
 COMMENT ON TABLE cbc_attendance_sessions IS
     'Tracks actual lesson execution instances per timetable slot and date.
@@ -1961,7 +2068,7 @@ CREATE TABLE IF NOT EXISTS attendance_records (
     marked_by         UUID              NOT NULL,
     marked_at         TIMESTAMPTZ       NOT NULL DEFAULT NOW(),
     note              TEXT              NULL,
-    attendance_session_id UUID NULL REFERENCES cbc_attendance_sessions(id) ON DELETE SET NULL,
+    attendance_session_id UUID NULL,
     created_at        TIMESTAMPTZ       NOT NULL DEFAULT NOW(),
     updated_at        TIMESTAMPTZ       NOT NULL DEFAULT NOW(),
 
@@ -1971,8 +2078,11 @@ CREATE TABLE IF NOT EXISTS attendance_records (
         FOREIGN KEY (tenant_id, student_id)
         REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_attendance_timetable_slot
-        FOREIGN KEY (timetable_slot_id)
-        REFERENCES cbc_timetable_slots(id) ON DELETE CASCADE,
+        FOREIGN KEY (tenant_id, timetable_slot_id)
+        REFERENCES cbc_timetable_slots(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_attendance_tenant_session
+        FOREIGN KEY (tenant_id, attendance_session_id)
+        REFERENCES cbc_attendance_sessions(tenant_id, id) ON DELETE SET NULL (attendance_session_id),
     CONSTRAINT fk_attendance_tenant_term
         FOREIGN KEY (tenant_id, school_id, academic_term_id)
         REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE,
@@ -2066,7 +2176,9 @@ CREATE TABLE IF NOT EXISTS behavior_categories (
         FOREIGN KEY (tenant_id, school_id)
         REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT uq_behavior_category_name
-        UNIQUE (tenant_id, school_id, name)
+        UNIQUE (tenant_id, school_id, name),
+    -- Composite key so behavior_notes can reference (tenant_id, category_id)
+    CONSTRAINT uq_behavior_categories_tenant UNIQUE (tenant_id, id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_behavior_categories_tenant
@@ -2112,17 +2224,17 @@ CREATE TABLE IF NOT EXISTS behavior_notes (
         FOREIGN KEY (tenant_id, student_id)
         REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_behavior_notes_timetable_slot
-        FOREIGN KEY (timetable_slot_id)
-        REFERENCES cbc_timetable_slots(id) ON DELETE CASCADE,
-    CONSTRAINT fk_behavior_notes_category
-        FOREIGN KEY (category_id)
-        REFERENCES behavior_categories(id) ON DELETE RESTRICT,
+        FOREIGN KEY (tenant_id, timetable_slot_id)
+        REFERENCES cbc_timetable_slots(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_behavior_notes_tenant_category
+        FOREIGN KEY (tenant_id, category_id)
+        REFERENCES behavior_categories(tenant_id, id) ON DELETE RESTRICT,
     CONSTRAINT fk_behavior_notes_authored_by
         FOREIGN KEY (tenant_id, authored_by_id)
         REFERENCES users(tenant_id, id) ON DELETE RESTRICT,
     CONSTRAINT fk_behavior_notes_reviewed_by
         FOREIGN KEY (tenant_id, reviewed_by_id)
-        REFERENCES users(tenant_id, id) ON DELETE SET NULL
+        REFERENCES users(tenant_id, id) ON DELETE SET NULL (reviewed_by_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_behavior_notes_student
@@ -2181,8 +2293,8 @@ CREATE TABLE IF NOT EXISTS attendance_term_summaries (
         FOREIGN KEY (tenant_id, school_id, academic_term_id)
         REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_summaries_learning_area
-        FOREIGN KEY (learning_area_id)
-        REFERENCES cbc_learning_areas(id) ON DELETE CASCADE,
+        FOREIGN KEY (tenant_id, learning_area_id)
+        REFERENCES cbc_learning_areas(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT uq_summary_student_term_area
         UNIQUE (student_id, academic_term_id, learning_area_id),
     CONSTRAINT fk_summaries_tenant_academic_year
@@ -2440,6 +2552,112 @@ COMMENT ON FUNCTION fn_current_tenant_id() IS
      app.current_tenant_id before each request.';
 
 -- ============================================================================
+-- SESSION RESOLUTION BYPASS (SECURITY DEFINER)
+--
+-- Session lookup happens BEFORE the tenant is known (the tenant is read FROM
+-- the session row), so it cannot run under tenant-scoped RLS. This function
+-- runs with the privileges of its owner (the migration role) and bypasses RLS
+-- for the single, narrow purpose of resolving a session from its unguessable
+-- token_hash. It is read-only and keyed by the SHA-256 token hash — brute
+-- forcing it is infeasible.
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION fn_resolve_session(p_token_hash TEXT)
+RETURNS TABLE (
+    user_id            UUID,
+    tenant_id          UUID,
+    device_fingerprint VARCHAR(128),
+    role               TEXT,
+    school_id          TEXT,
+    schools            TEXT[]
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+    SELECT
+        s.user_id,
+        s.tenant_id,
+        s.device_fingerprint,
+        (
+            SELECT m.role::text FROM memberships m
+              WHERE m.user_id = s.user_id AND m.tenant_id = s.tenant_id AND m.is_active = true
+              ORDER BY
+                CASE m.role
+                  WHEN 'SYSTEM_ADMIN' THEN 1
+                  WHEN 'SCHOOL_ADMIN' THEN 2
+                  WHEN 'TEACHER' THEN 3
+                  WHEN 'NURSE' THEN 4
+                  WHEN 'FINANCE' THEN 5
+                END
+              LIMIT 1
+        ) AS role,
+        COALESCE(
+            (SELECT mas.school_id::text FROM member_active_school mas
+              WHERE mas.user_id = s.user_id AND mas.tenant_id = s.tenant_id),
+            (SELECT m2.school_id::text FROM memberships m2
+              WHERE m2.user_id = s.user_id AND m2.tenant_id = s.tenant_id AND m2.is_active = true
+              ORDER BY
+                CASE m2.role
+                  WHEN 'SYSTEM_ADMIN' THEN 1
+                  WHEN 'SCHOOL_ADMIN' THEN 2
+                  WHEN 'TEACHER' THEN 3
+                  WHEN 'NURSE' THEN 4
+                  WHEN 'FINANCE' THEN 5
+                END
+              LIMIT 1)
+        ) AS school_id,
+        COALESCE(ARRAY(
+            SELECT m3.school_id::text FROM memberships m3
+              WHERE m3.user_id = s.user_id AND m3.tenant_id = s.tenant_id AND m3.is_active = true
+        ), ARRAY[]::text[]) AS schools
+    FROM sessions s
+    WHERE s.token_hash = p_token_hash AND s.expires_at > NOW()
+$$;
+
+COMMENT ON FUNCTION fn_resolve_session(TEXT) IS
+    'SECURITY DEFINER — bypasses RLS to resolve a session by its unguessable
+     token_hash before the tenant is known. Read-only; returns the session''s
+     tenant_id, role, and school context in one round trip.';
+
+-- Invite acceptance also runs pre-session (no tenant context yet), so the
+-- pending-invitation lookup must bypass RLS the same way.
+CREATE OR REPLACE FUNCTION fn_pending_invitation_by_email(p_email TEXT)
+RETURNS TABLE (
+    id                  UUID,
+    tenant_id           UUID,
+    school_id           UUID,
+    role                TEXT,
+    email               VARCHAR(255),
+    full_name           VARCHAR(255),
+    status              TEXT,
+    stytch_member_id    VARCHAR(255),
+    registration_number VARCHAR(100),
+    expires_at          TIMESTAMPTZ
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+    SELECT id, tenant_id, school_id, role::text, email,
+           COALESCE(full_name, '') AS full_name, status::text,
+           COALESCE(stytch_member_id, '') AS stytch_member_id,
+           COALESCE(registration_number, '') AS registration_number, expires_at
+    FROM invitations
+    WHERE LOWER(email) = LOWER(p_email)
+      AND status = 'pending'
+      AND expires_at > NOW()
+    ORDER BY created_at DESC
+    LIMIT 1
+$$;
+
+COMMENT ON FUNCTION fn_pending_invitation_by_email(TEXT) IS
+    'SECURITY DEFINER — bypasses RLS to look up a pending invitation by email
+     before the tenant is known (invite acceptance flow).';
+
+-- ============================================================================
 -- RLS: ENABLE & POLICIES
 -- ============================================================================
 
@@ -2563,6 +2781,31 @@ BEGIN
     END LOOP;
 END $$;
 
+-- ============================================================================
+-- RLS: Explicit tenant-scoped policies for junction / denormalised tables.
+-- cbc_student_parents and school_member_counts now carry tenant_id, so the
+-- dynamic loop above also covers them. These explicit statements guarantee
+-- coverage even if the loop's information_schema lookup were skipped.
+-- ============================================================================
+
+ALTER TABLE IF EXISTS cbc_student_parents ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+    DROP POLICY IF EXISTS tenant_isolation_policy ON cbc_student_parents;
+    CREATE POLICY tenant_isolation_policy ON cbc_student_parents
+        FOR ALL
+        USING (tenant_id = fn_current_tenant_id())
+        WITH CHECK (tenant_id = fn_current_tenant_id());
+END $$;
+
+ALTER TABLE IF EXISTS school_member_counts ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+    DROP POLICY IF EXISTS tenant_isolation_policy ON school_member_counts;
+    CREATE POLICY tenant_isolation_policy ON school_member_counts
+        FOR ALL
+        USING (tenant_id = fn_current_tenant_id())
+        WITH CHECK (tenant_id = fn_current_tenant_id());
+END $$;
+
 COMMENT ON TABLE cbc_student_enrollments IS
     'Per-term enrollment records. UNIQUE (student_id, school_id, academic_term_id)
      allows same-term transfers (old school sets status=TRANSFERRED, new school
@@ -2648,7 +2891,7 @@ COMMENT ON TABLE grading_scale_profiles IS
 
 CREATE TABLE IF NOT EXISTS grading_scale_ranges (
     id                        UUID                  PRIMARY KEY DEFAULT gen_random_uuid(),
-    profile_id                UUID                  NOT NULL REFERENCES grading_scale_profiles(id) ON DELETE CASCADE,
+    profile_id                UUID                  NOT NULL,
     tenant_id                 UUID                  NOT NULL,
     performance_level         cbc_performance_level NOT NULL,
     min_percentage            NUMERIC(5,2)          NOT NULL CHECK (min_percentage >= 0 AND min_percentage <= 100),
@@ -2739,15 +2982,15 @@ CREATE TABLE IF NOT EXISTS assessment_sessions (
     name                    VARCHAR(255)                NOT NULL,
     evaluation_method       assessment_evaluation_method NOT NULL,
     max_points              NUMERIC(10,2)               NULL,
-    grading_scale_profile_id UUID                       NULL REFERENCES grading_scale_profiles(id) ON DELETE SET NULL,
+    grading_scale_profile_id UUID                       NULL,
     status                  assessment_session_status   NOT NULL DEFAULT 'DRAFT',
     rejection_comment       TEXT                        NULL,
-    submitted_by            UUID                        NULL REFERENCES users(id) ON DELETE SET NULL,
-    approved_by             UUID                        NULL REFERENCES users(id) ON DELETE SET NULL,
+    submitted_by            UUID                        NULL,
+    approved_by             UUID                        NULL,
     scheduled_date          DATE                        NULL,
     created_at              TIMESTAMPTZ                 NOT NULL DEFAULT NOW(),
     updated_at              TIMESTAMPTZ                 NOT NULL DEFAULT NOW(),
-    created_by              UUID                        NOT NULL REFERENCES users(id),
+    created_by              UUID                        NOT NULL,
 
     CONSTRAINT fk_assessment_sessions_tenant_school
         FOREIGN KEY (tenant_id, school_id)
@@ -2759,8 +3002,20 @@ CREATE TABLE IF NOT EXISTS assessment_sessions (
         FOREIGN KEY (tenant_id, school_id, academic_term_id)
         REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_assessment_sessions_learning_area
-        FOREIGN KEY (learning_area_id)
-        REFERENCES cbc_learning_areas(id) ON DELETE CASCADE,
+        FOREIGN KEY (tenant_id, learning_area_id)
+        REFERENCES cbc_learning_areas(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_assessment_sessions_tenant_scale_profile
+        FOREIGN KEY (tenant_id, grading_scale_profile_id)
+        REFERENCES grading_scale_profiles(tenant_id, id) ON DELETE SET NULL (grading_scale_profile_id),
+    CONSTRAINT fk_assessment_sessions_tenant_submitted_by
+        FOREIGN KEY (tenant_id, submitted_by)
+        REFERENCES users(tenant_id, id) ON DELETE SET NULL (submitted_by),
+    CONSTRAINT fk_assessment_sessions_tenant_approved_by
+        FOREIGN KEY (tenant_id, approved_by)
+        REFERENCES users(tenant_id, id) ON DELETE SET NULL (approved_by),
+    CONSTRAINT fk_assessment_sessions_tenant_created_by
+        FOREIGN KEY (tenant_id, created_by)
+        REFERENCES users(tenant_id, id),
     CONSTRAINT uq_assessment_sessions_tenant UNIQUE (tenant_id, id),
     CONSTRAINT chk_quantitative_has_points CHECK (
         evaluation_method != 'QUANTITATIVE' OR max_points IS NOT NULL
@@ -2928,8 +3183,8 @@ CREATE TABLE IF NOT EXISTS student_assessment_outcome_grades (
         FOREIGN KEY (tenant_id, student_id)
         REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_outcome_performance_indicator
-        FOREIGN KEY (performance_indicator_id)
-        REFERENCES performance_indicators(id) ON DELETE CASCADE,
+        FOREIGN KEY (tenant_id, performance_indicator_id)
+        REFERENCES performance_indicators(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT uq_outcome_session_student_indicator
         UNIQUE (session_id, student_id, performance_indicator_id)
 );
@@ -3115,8 +3370,8 @@ CREATE TABLE IF NOT EXISTS student_term_subject_summaries (
         FOREIGN KEY (tenant_id, school_id)
         REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_summaries_learning_area
-        FOREIGN KEY (learning_area_id)
-        REFERENCES cbc_learning_areas(id) ON DELETE CASCADE
+        FOREIGN KEY (tenant_id, learning_area_id)
+        REFERENCES cbc_learning_areas(tenant_id, id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_term_subject_summaries_tenant
@@ -4259,14 +4514,14 @@ CREATE TABLE IF NOT EXISTS student_subject_strand_summaries (
         FOREIGN KEY (tenant_id, school_id)
         REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_strand_summaries_learning_area
-        FOREIGN KEY (learning_area_id)
-        REFERENCES cbc_learning_areas(id) ON DELETE CASCADE,
+        FOREIGN KEY (tenant_id, learning_area_id)
+        REFERENCES cbc_learning_areas(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_strand_summaries_strand
-        FOREIGN KEY (strand_id)
-        REFERENCES cbc_strands(id) ON DELETE CASCADE,
+        FOREIGN KEY (tenant_id, strand_id)
+        REFERENCES cbc_strands(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_strand_summaries_sub_strand
-        FOREIGN KEY (sub_strand_id)
-        REFERENCES cbc_sub_strands(id) ON DELETE CASCADE
+        FOREIGN KEY (tenant_id, sub_strand_id)
+        REFERENCES cbc_sub_strands(tenant_id, id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_strand_summaries_tenant
@@ -4586,8 +4841,8 @@ CREATE TABLE IF NOT EXISTS student_performance_projections (
         FOREIGN KEY (tenant_id, school_id)
         REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_projections_learning_area
-        FOREIGN KEY (learning_area_id)
-        REFERENCES cbc_learning_areas(id) ON DELETE CASCADE
+        FOREIGN KEY (tenant_id, learning_area_id)
+        REFERENCES cbc_learning_areas(tenant_id, id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_projections_tenant
@@ -5115,9 +5370,9 @@ CREATE TABLE IF NOT EXISTS student_behavior_term_summaries (
     CONSTRAINT fk_behavior_summaries_tenant_school
         FOREIGN KEY (tenant_id, school_id)
         REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_behavior_summaries_category
-        FOREIGN KEY (primary_category_id)
-        REFERENCES behavior_categories(id) ON DELETE SET NULL
+    CONSTRAINT fk_behavior_summaries_tenant_category
+        FOREIGN KEY (tenant_id, primary_category_id)
+        REFERENCES behavior_categories(tenant_id, id) ON DELETE SET NULL (primary_category_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_behavior_summaries_tenant
@@ -5425,11 +5680,11 @@ CREATE TABLE IF NOT EXISTS teacher_subject_performance_summaries (
         FOREIGN KEY (tenant_id, user_id)
         REFERENCES users(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_teacher_perf_summaries_learning_area
-        FOREIGN KEY (learning_area_id)
-        REFERENCES cbc_learning_areas(id) ON DELETE CASCADE,
+        FOREIGN KEY (tenant_id, learning_area_id)
+        REFERENCES cbc_learning_areas(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_teacher_perf_summaries_class
-        FOREIGN KEY (class_id)
-        REFERENCES cbc_classes(id) ON DELETE CASCADE,
+        FOREIGN KEY (tenant_id, class_id)
+        REFERENCES cbc_classes(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_teacher_perf_summaries_term
         FOREIGN KEY (tenant_id, school_id, academic_term_id)
         REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE
@@ -6381,8 +6636,8 @@ CREATE TABLE IF NOT EXISTS class_learning_area_term_summaries (
         FOREIGN KEY (tenant_id, class_id)
         REFERENCES cbc_classes(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_class_la_term_learning_area
-        FOREIGN KEY (learning_area_id)
-        REFERENCES cbc_learning_areas(id) ON DELETE CASCADE,
+        FOREIGN KEY (tenant_id, learning_area_id)
+        REFERENCES cbc_learning_areas(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_class_la_term_tenant_term
         FOREIGN KEY (tenant_id, school_id, academic_term_id)
         REFERENCES academic_terms(tenant_id, school_id, id) ON DELETE CASCADE

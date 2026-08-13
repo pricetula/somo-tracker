@@ -74,7 +74,7 @@ func NewService(repo ServiceRepository, pools *database.Pools, asynqClient *asyn
 		logger: logger,
 	}
 	s.beginTx = func(ctx context.Context) (pgx.Tx, error) {
-		return s.pool.Begin(ctx)
+		return database.Begin(ctx, s.pool)
 	}
 	return s
 }

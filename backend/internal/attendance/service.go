@@ -144,7 +144,7 @@ func (s *Service) BatchMark(ctx context.Context, tenantID, schoolID string, payl
 	// Asynchronously refresh all attendance-related summaries for the term.
 	// These are best-effort — the HTTP response is not blocked.
 	if s.enqueuer != nil {
-		s.enqueuer.EnqueueTeacherDeliveryRefresh(ctx, termID)
+		s.enqueuer.EnqueueTeacherDeliveryRefresh(ctx, tenantID, termID)
 		s.enqueuer.EnqueueAttendanceTermRefresh(ctx, tenantID, schoolID, termID)
 		s.enqueuer.EnqueueClassDailyRefresh(ctx, tenantID, schoolID, payload.TimetableSlotID, payload.Date)
 	}

@@ -31,7 +31,7 @@ func (r *PgRepository) List(ctx context.Context, tenantID, schoolID string) ([]S
 		ORDER BY name ASC
 	`
 
-	rows, err := r.pool.Query(ctx, query, tenantID, schoolID)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, tenantID, schoolID)
 	if err != nil {
 		return nil, fmt.Errorf("cbcstreams.Repository.List: query: %w", err)
 	}
@@ -64,7 +64,7 @@ func (r *PgRepository) Create(ctx context.Context, tenantID, schoolID, name, col
 		RETURNING id, name, color, created_at, updated_at
 	`
 	var s Stream
-	err := r.pool.QueryRow(ctx, query, tenantID, schoolID, name, color).Scan(&s.ID, &s.Name, &s.Color, &s.CreatedAt, &s.UpdatedAt)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, tenantID, schoolID, name, color).Scan(&s.ID, &s.Name, &s.Color, &s.CreatedAt, &s.UpdatedAt)
 	if err != nil {
 		if isUniqueViolation(err) {
 			return nil, fmt.Errorf("cbcstreams.Repository.Create: %w", ErrAlreadyExists)
@@ -82,7 +82,7 @@ func (r *PgRepository) GetByID(ctx context.Context, id, tenantID, schoolID strin
 		WHERE id = $1 AND tenant_id = $2 AND school_id = $3
 	`
 	var s Stream
-	err := r.pool.QueryRow(ctx, query, id, tenantID, schoolID).Scan(&s.ID, &s.Name, &s.Color, &s.CreatedAt, &s.UpdatedAt)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, id, tenantID, schoolID).Scan(&s.ID, &s.Name, &s.Color, &s.CreatedAt, &s.UpdatedAt)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, fmt.Errorf("cbcstreams.Repository.GetByID: %w", ErrNotFound)
@@ -101,7 +101,7 @@ func (r *PgRepository) Update(ctx context.Context, id, tenantID, schoolID, name,
 		RETURNING id, name, color, created_at, updated_at
 	`
 	var s Stream
-	err := r.pool.QueryRow(ctx, query, name, color, id, tenantID, schoolID).Scan(&s.ID, &s.Name, &s.Color, &s.CreatedAt, &s.UpdatedAt)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, name, color, id, tenantID, schoolID).Scan(&s.ID, &s.Name, &s.Color, &s.CreatedAt, &s.UpdatedAt)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, fmt.Errorf("cbcstreams.Repository.Update: %w", ErrNotFound)
@@ -129,7 +129,7 @@ func (r *PgRepository) HasActiveEnrollments(ctx context.Context, id, tenantID, s
 		)
 	`
 	var exists bool
-	err := r.pool.QueryRow(ctx, query, id, tenantID, schoolID).Scan(&exists)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, id, tenantID, schoolID).Scan(&exists)
 	if err != nil {
 		return false, fmt.Errorf("cbcstreams.Repository.HasActiveEnrollments: %w", err)
 	}
@@ -153,7 +153,7 @@ func (r *PgRepository) Delete(ctx context.Context, id, tenantID, schoolID string
 		DELETE FROM cbc_streams
 		WHERE id = $1 AND tenant_id = $2 AND school_id = $3
 	`
-	tag, err := r.pool.Exec(ctx, query, id, tenantID, schoolID)
+	tag, err := database.FromContext(ctx, r.pool).Exec(ctx, query, id, tenantID, schoolID)
 	if err != nil {
 		return fmt.Errorf("cbcstreams.Repository.Delete: %w", err)
 	}

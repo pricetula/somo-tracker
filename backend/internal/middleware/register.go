@@ -48,6 +48,9 @@ func Register(app *fiber.App, pools *database.Pools, cfg config.Config, logger *
 	// feeds session creation (auth handlers read c.Locals("device_fingerprint")).
 	app.Use(NewDeviceFingerprinter())
 	app.Use(NewSessionResolver(pools, cfg))
+	// Tenant context MUST run after session resolution (it reads the resolved
+	// session's tenant) and before any handler touches the database.
+	app.Use(WithTenantContext(pools))
 	app.Use(NewAccessLog())
 	app.Use(NewRateLimiter(pools.Redis, RateLimiterConfig{
 		Limit:  cfg.RateLimitUserMax,

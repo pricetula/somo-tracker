@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
@@ -35,6 +36,7 @@ type Service struct {
 	idp           IdentityProvider
 	repo          Repository
 	rdb           *redis.Client
+	pool          *pgxpool.Pool
 	logger        *zap.Logger
 	cfg           config.Config
 	schoolCreator SchoolCreator
@@ -78,10 +80,42 @@ func NewService(
 		idp:           idp,
 		repo:          repo,
 		rdb:           pools.Redis,
+		pool:          pools.PG,
 		logger:        logger,
 		cfg:           cfg,
 		schoolCreator: schoolCreator,
 	}
+}
+
+// tenantScope returns a context whose database work runs inside a
+// tenant-scoped transaction (RLS GUC set via SET LOCAL semantics). It is
+// used by the pre-session auth flows (verify/register/invite) where the
+// request has no session yet, so the WithTenantContext middleware has no
+// tenant to scope from. The returned finish must be called when the scoped
+// work is complete; it commits on success and rolls back on failure.
+func (s *Service) tenantScope(ctx context.Context, tenantID string) (context.Context, func() error, error) {
+	if tenantID == "" || s.pool == nil {
+		// No tenant to scope to, or no real pool (unit tests with mock repos).
+		return ctx, func() error { return nil }, nil
+	}
+	tctx := database.WithTenantID(ctx, tenantID)
+	tx, err := database.Begin(tctx, s.pool)
+	if err != nil {
+		return nil, nil, fmt.Errorf("auth.Service.tenantScope: begin: %w", err)
+	}
+	committed := false
+	finish := func() error {
+		if committed {
+			return nil
+		}
+		if err := tx.Commit(context.WithoutCancel(ctx)); err != nil {
+			_ = tx.Rollback(context.WithoutCancel(ctx))
+			return fmt.Errorf("auth.Service.tenantScope: commit: %w", err)
+		}
+		committed = true
+		return nil
+	}
+	return database.WithTenantTx(tctx, tx), finish, nil
 }
 
 // Discover initiates the magic-link discovery flow (PHASE 1).
@@ -203,7 +237,15 @@ func (s *Service) handleExistingUser(ctx context.Context, ist, email string, dis
 			continue // org has no local tenant — handled by reconstructFromStytch
 		}
 
-		userID, _, _, err := s.repo.GetUserByEmailAndTenant(ctx, email, tenantID)
+		// Scope the users lookup to this org's tenant (pre-session flow).
+		uctx, ufinish, serr := s.tenantScope(ctx, tenantID)
+		if serr != nil {
+			return nil, serr
+		}
+		userID, _, _, err := s.repo.GetUserByEmailAndTenant(uctx, email, tenantID)
+		if serr := ufinish(); serr != nil {
+			return nil, serr
+		}
 		if err == nil && userID != "" {
 			s.logger.Info("auth: found matching tenant and user",
 				zap.String("org_id", org.OrganizationID),
@@ -280,6 +322,15 @@ func (s *Service) handleExistingUser(ctx context.Context, ist, email string, dis
 // and issues a fresh session row + cookie token. Requires a full match
 // (tenant + user) in our DB.
 func (s *Service) loginExistingUser(ctx context.Context, ist, email, tenantID, userID string, org DiscoveredOrg, deviceFingerprint string) (*VerifyResult, error) {
+	// RLS scope: session creation + role lookup must run inside the tenant.
+	// Pre-session flow — the WithTenantContext middleware has no session to
+	// scope from, so the service manages its own tenant transaction.
+	ctx, finish, err := s.tenantScope(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = finish() }()
+
 	exchangeResult, err := s.idp.ExchangeIntermediateSession(ctx, ist, org.OrganizationID)
 	if err != nil {
 		return nil, fmt.Errorf("auth.Service.loginExistingUser: exchange IST: %w", err)
@@ -348,6 +399,13 @@ func (s *Service) loginExistingUser(ctx context.Context, ist, email, tenantID, u
 // role/school enrollment is unknown after a partial wipe, so the user is
 // WARN-logged for admin enrollment instead of being silently granted a role.
 func (s *Service) createUserInExistingTenant(ctx context.Context, ist, email, tenantID string, org DiscoveredOrg, deviceFingerprint string) (*VerifyResult, error) {
+	// RLS scope: user + session creation must run inside the tenant.
+	ctx, finish, err := s.tenantScope(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = finish() }()
+
 	// MFA gate before creating anything.
 	if !org.MemberAuthenticated {
 		sessionRef, err := s.cacheIST(ctx, ist, email)
@@ -595,6 +653,13 @@ func (s *Service) Register(ctx context.Context, sessionRef string, payload Regis
 		userParams.TenantID = tenantID
 		sessionParams.TenantID = tenantID
 
+		// RLS scope: user lookup + session creation must run inside the tenant.
+		ctx, finish, serr := s.tenantScope(ctx, tenantID)
+		if serr != nil {
+			return "", "", "", serr
+		}
+		defer func() { _ = finish() }()
+
 		if uid, _, _, uerr := s.repo.GetUserByEmailAndTenant(ctx, email, tenantID); uerr == nil && uid != "" {
 			existingUser = true
 			sessionParams.UserID = uid
@@ -621,6 +686,16 @@ func (s *Service) Register(ctx context.Context, sessionRef string, payload Regis
 	if err := s.rdb.Set(ctx, s.sessionKey(sessionToken), result.StytchSessionToken, sessionTTL).Err(); err != nil {
 		return "", "", "", fmt.Errorf("%w: cache session: %v", ErrInternal, err)
 	}
+
+	// RLS scope: role/membership/school persistence must run inside the tenant.
+	// (The fresh-registration branch above created the tenant itself, so its
+	// tenant id is now known and carried via CreateTenantUserSession's mid-tx
+	// GUC — this scope covers the remaining repo calls.)
+	ctx, finish, serr := s.tenantScope(ctx, tenantID)
+	if serr != nil {
+		return "", "", "", serr
+	}
+	defer func() { _ = finish() }()
 
 	// 11a. Existing user: membership context already exists — never fabricate a
 	//      school or role. Return their real (highest) role in the tenant.
@@ -761,6 +836,13 @@ func (s *Service) AcceptInvite(ctx context.Context, token string, deviceFingerpr
 		}
 		return "", "", "", fmt.Errorf("auth.Service.AcceptInvite: lookup invitation: %w", err)
 	}
+
+	// RLS scope: user + session creation must run inside the invitation's tenant.
+	ctx, finish, serr := s.tenantScope(ctx, inv.TenantID)
+	if serr != nil {
+		return "", "", "", serr
+	}
+	defer func() { _ = finish() }()
 
 	// 4. Generate opaque session token (32 random bytes, hex-encoded)
 	tokenBytes := make([]byte, 32)
@@ -1042,7 +1124,16 @@ func (s *Service) reconstructOrg(ctx context.Context, ist, email string, org Dis
 
 	// Create the school using the full cbcschools.Service.CreateSchool pipeline
 	role := "SCHOOL_ADMIN"
-	schoolID, err := s.schoolCreator.CreateSchool(ctx, tenantID, schoolName, role, userID)
+	// RLS scope: the school pipeline writes tenant-scoped tables for the
+	// freshly created tenant (pre-session flow — no middleware scope).
+	sctx, finish, serr := s.tenantScope(ctx, tenantID)
+	if serr != nil {
+		return nil, serr
+	}
+	schoolID, err := s.schoolCreator.CreateSchool(sctx, tenantID, schoolName, role, userID)
+	if ferr := finish(); ferr != nil {
+		return nil, ferr
+	}
 	if err != nil {
 		return nil, fmt.Errorf("auth.Service.reconstructOrg: create school: %w", err)
 	}

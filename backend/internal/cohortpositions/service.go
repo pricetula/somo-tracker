@@ -120,8 +120,8 @@ const (
 // ─── Worker ───────────────────────────────────────────────────────────────
 
 // Worker wraps an Asynq server for processing cohort position refresh tasks.
-// It creates its own *asynq.Server internally (rather than accepting one via
-// fx) to avoid duplicate-provider conflicts with the imports module.
+// The server is built with database.NewAsynqServer so the Redis connection
+// options and zap log adapter are shared with every other worker.
 type Worker struct {
 	server *asynq.Server
 	svc    *Service
@@ -140,16 +140,12 @@ func NewWorker(svc *Service, pools *database.Pools, logger *zap.SugaredLogger) *
 
 // Start starts the Asynq worker. Called via fx lifecycle.
 func (w *Worker) Start(ctx context.Context) error {
-	server := asynq.NewServer(
-		asynq.RedisClientOpt{Addr: w.pools.Redis.Options().Addr},
-		asynq.Config{
-			Concurrency: 1,
-			Queues: map[string]int{
-				"cohortpositions": 5,
-			},
-			Logger: asynqLogger{logger: w.logger},
+	server := database.NewAsynqServer(w.pools, w.logger, asynq.Config{
+		Concurrency: 1,
+		Queues: map[string]int{
+			"cohortpositions": 5,
 		},
-	)
+	})
 
 	mux := asynq.NewServeMux()
 	mux.HandleFunc(TaskRefreshCohortPositions, func(ctx context.Context, t *asynq.Task) error {
@@ -199,7 +195,8 @@ func handleRefresh(ctx context.Context, svc *Service, logger *zap.SugaredLogger)
 // RefreshScheduler manages the periodic cohort position refresh task.
 // Uses Asynq's Scheduler to register a recurring task that runs the batch
 // computation every 30 minutes during active grading windows.
-// Creates its own *asynq.Scheduler internally to avoid fx provider conflicts.
+// The scheduler is built with database.NewAsynqScheduler so the Redis
+// connection options and zap log adapter are shared with every other worker.
 type RefreshScheduler struct {
 	pools     *database.Pools
 	scheduler *asynq.Scheduler
@@ -218,12 +215,7 @@ func NewRefreshScheduler(pools *database.Pools, logger *zap.SugaredLogger) *Refr
 // Registers a recurring task that enqueues cohortpositions:refresh once
 // every 30 minutes.
 func (rs *RefreshScheduler) Start(ctx context.Context) error {
-	scheduler := asynq.NewScheduler(
-		asynq.RedisClientOpt{Addr: rs.pools.Redis.Options().Addr},
-		&asynq.SchedulerOpts{
-			Logger: asynqLogger{logger: rs.logger},
-		},
-	)
+	scheduler := database.NewAsynqScheduler(rs.pools, rs.logger, nil)
 
 	// Schedule the batch refresh every 30 minutes.
 	task := asynq.NewTask(TaskRefreshCohortPositions, nil)
@@ -251,33 +243,6 @@ func (rs *RefreshScheduler) Stop(ctx context.Context) error {
 	}
 	rs.logger.Infow("cohortpositions.RefreshScheduler: stopped")
 	return nil
-}
-
-// ─── Logger Adapter ───────────────────────────────────────────────────────
-
-// asynqLogger wraps zap to implement asynq.Logger.
-type asynqLogger struct {
-	logger *zap.SugaredLogger
-}
-
-func (l asynqLogger) Debug(args ...interface{}) {
-	l.logger.Debug(fmt.Sprint(args...))
-}
-
-func (l asynqLogger) Info(args ...interface{}) {
-	l.logger.Info(fmt.Sprint(args...))
-}
-
-func (l asynqLogger) Warn(args ...interface{}) {
-	l.logger.Warn(fmt.Sprint(args...))
-}
-
-func (l asynqLogger) Error(args ...interface{}) {
-	l.logger.Error(fmt.Sprint(args...))
-}
-
-func (l asynqLogger) Fatal(args ...interface{}) {
-	l.logger.Error(fmt.Sprint(args...))
 }
 
 // ─── Lifecycle Hooks ──────────────────────────────────────────────────────

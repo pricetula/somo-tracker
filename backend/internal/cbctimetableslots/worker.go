@@ -6,8 +6,6 @@ import (
 
 	"github.com/hibiken/asynq"
 	"go.uber.org/zap"
-
-	"somotracker/backend/internal/database"
 )
 
 // ─── Task Type Constants ──────────────────────────────────────────────────
@@ -30,11 +28,9 @@ type Enqueuer struct {
 	logger *zap.SugaredLogger
 }
 
-// NewEnqueuer creates a new Enqueuer.
-func NewEnqueuer(pools *database.Pools, logger *zap.SugaredLogger) *Enqueuer {
-	client := asynq.NewClient(asynq.RedisClientOpt{
-		Addr: pools.Redis.Options().Addr,
-	})
+// NewEnqueuer creates a new Enqueuer. The shared *asynq.Client is injected
+// via fx (provided by database.Module) — never construct a client here.
+func NewEnqueuer(client *asynq.Client, logger *zap.SugaredLogger) *Enqueuer {
 	return &Enqueuer{client: client, logger: logger}
 }
 

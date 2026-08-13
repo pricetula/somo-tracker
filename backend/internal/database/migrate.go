@@ -17,7 +17,10 @@ import (
 // Module registers database tasks into the FX dependency graph.
 var Module = fx.Module(
 	"database",
-	fx.Provide(Connect),
+	fx.Provide(
+		Connect,
+		NewAsynqClient, // single shared Asynq client; injected into every enqueuer
+	),
 	fx.Invoke(RunMigrations),
 )
 

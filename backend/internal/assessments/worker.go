@@ -42,8 +42,13 @@ type RefreshTermPayload struct {
 
 // NewAsynqClient creates an Asynq client from the Redis pool.
 func NewAsynqClient(pools *database.Pools) *asynq.Client {
+	redisOpt := pools.Redis.Options()
+
 	return asynq.NewClient(asynq.RedisClientOpt{
-		Addr: pools.Redis.Options().Addr,
+		Addr:      redisOpt.Addr,
+		Password:  redisOpt.Password,  // Fixes NOAUTH error
+		DB:        redisOpt.DB,        // Keeps the same database index
+		TLSConfig: redisOpt.TLSConfig, // Required if using TLS/SSL (rediss://)
 	})
 }
 

@@ -19,6 +19,15 @@ func asynqRedisOpt(pools *Pools) asynq.RedisClientOpt {
 		Password:  redisOpt.Password,  // Fixes NOAUTH error
 		DB:        redisOpt.DB,        // Keeps the same database index
 		TLSConfig: redisOpt.TLSConfig, // Required if using TLS/SSL (rediss://)
+
+		// Mirror the pool's timeouts & keep-alive so Asynq opens
+		// connections that behave exactly like the go-redis pool. Without
+		// these, Asynq falls back to its own defaults (Dial 5s, Read 3s),
+		// which can time out against managed Redis (e.g. Render) behind
+		// slow TLS handshakes or busy brokers.
+		DialTimeout:  redisOpt.DialTimeout,
+		ReadTimeout:  redisOpt.ReadTimeout,
+		WriteTimeout: redisOpt.WriteTimeout,
 	}
 }
 

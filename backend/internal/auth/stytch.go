@@ -129,7 +129,8 @@ func (s *StytchAdapter) AuthenticateDiscoveryToken(ctx context.Context, token st
 		if isExpiredTokenError(err) {
 			return "", "", nil, fmt.Errorf("%w: stytch token expired", ErrExpiredToken)
 		}
-		return "", "", nil, fmt.Errorf("%w: stytch authenticate: %v", ErrInternal, err)
+		// Any other error from Stytch means the token is invalid or cannot be verified.
+		return "", "", nil, ErrUnauthorized
 	}
 
 	if resp.IntermediateSessionToken == "" {

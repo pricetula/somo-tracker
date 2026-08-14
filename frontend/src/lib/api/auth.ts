@@ -45,14 +45,14 @@ export async function register(payload: RegistrationPayload): Promise<void> {
 /** Fetch the current session's user and tenant IDs.
  *
  * Notes:
- * - 401 responses are already handled globally by `client.ts` which
- *   performs a hard redirect to /logout before throwing.
+ * - 401 responses are skipped from the global redirect handler to avoid
+ *   infinite logout loops when the session cookie is not being sent.
  * - Network errors (backend unreachable) do NOT redirect — they propagate
  *   up so `useMe()` can return null gracefully without forcing logout.
  */
 export async function getMe(): Promise<MeResponse> {
     try {
-        return await api.get<MeResponse>("/api/auth/me");
+        return await api.get<MeResponse>("/api/auth/me", { skipGlobal401Handler: true });
     } catch (err) {
         // Network errors (Failed to fetch) should NOT force a logout —
         // the session may still be valid when the backend recovers.

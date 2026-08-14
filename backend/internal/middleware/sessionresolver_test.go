@@ -505,16 +505,16 @@ func TestSessionResolver(t *testing.T) {
 		rawToken := "c5-mismatch-token"
 		seedSchoolContext(t, rawToken, "A") // session stores fingerprint fp-ctx
 
-		app := deviceApp(config.Config{AppEnv: "production"}, "fp-evil")
+		app := deviceApp(config.Config{AppEnv: "production", EnforceDeviceFingerprint: true}, "fp-evil")
 		assert.Equal(t, http.StatusUnauthorized, requestStatus(t, app, rawToken),
-			"a session resumed from a different device must be rejected in production")
+			"a session resumed from a different device must be rejected when enforcement is enabled")
 	})
 
 	t.Run("C5 production: matching fingerprint is allowed", func(t *testing.T) {
 		rawToken := "c5-match-token"
 		seedSchoolContext(t, rawToken, "A")
 
-		app := deviceApp(config.Config{AppEnv: "production"}, "fp-ctx")
+		app := deviceApp(config.Config{AppEnv: "production", EnforceDeviceFingerprint: true}, "fp-ctx")
 		assert.Equal(t, http.StatusOK, requestStatus(t, app, rawToken))
 	})
 
@@ -530,6 +530,15 @@ func TestSessionResolver(t *testing.T) {
 
 		app := deviceApp(config.Config{AppEnv: "production"}, "fp-whatever")
 		assert.Equal(t, http.StatusOK, requestStatus(t, app, rawToken))
+	})
+
+	t.Run("C5 production: mismatched fingerprint is logged but allowed when enforcement disabled", func(t *testing.T) {
+		rawToken := "c5-prod-mismatch-allowed"
+		seedSchoolContext(t, rawToken, "A") // session stores fingerprint fp-ctx
+
+		app := deviceApp(config.Config{AppEnv: "production"}, "fp-evil")
+		assert.Equal(t, http.StatusOK, requestStatus(t, app, rawToken),
+			"with enforcement disabled, a fingerprint mismatch should be logged but allowed")
 	})
 
 	t.Run("C5 development: mismatched fingerprint is allowed", func(t *testing.T) {

@@ -12,7 +12,9 @@
         "format:check": "prettier --check .",
         "generate:api": "openapi-typescript ../backend/docs/swagger.json --output src/lib/api/generated.ts",
         "generate:api:dev": "openapi-typescript http://localhost:3030/swagger/doc.json --output src/lib/api/generated.ts",
-        "audit:docs": "node scripts/audit-docs.js"
+        "audit:docs": "node scripts/audit-docs.js",
+        "test:e2e": "playwright test",
+        "test:e2e:ui": "playwright show-report"
     },
     "dependencies": {
         "@hookform/resolvers": "^5.4.0",
@@ -61,6 +63,7 @@
     },
     "devDependencies": {
         "@axe-core/react": "^4.11.3",
+        "@playwright/test": "^1.62.1",
         "@tailwindcss/postcss": "^4",
         "@testing-library/jest-dom": "^6.9.1",
         "@testing-library/react": "^16.3.2",

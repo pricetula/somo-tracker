@@ -67,9 +67,9 @@ test.describe("Auth Login Page", () => {
         // Navigate to the login page
         await page.goto("/login");
 
-        // Fill in an invalid email
+        // Fill in a valid email that will trigger an API error
         const emailInput = page.getByLabel("Email");
-        await emailInput.fill("invalid-email");
+        await emailInput.fill("error@example.com");
 
         // Click the submit button
         const submitButton = page.getByRole("button", { name: "Send Magic Link" });

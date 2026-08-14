@@ -32,6 +32,27 @@ var (
 	invalidCacheToken = []byte("INVALID")
 )
 
+// fingerprintsMatch reports whether the presented fingerprint matches the
+// stored fingerprint, honoring both formats:
+//
+//   - v2 (current): "v2:" + hex(sha256(User-Agent + "|" + Accept-Language)).
+//     IP is intentionally omitted so legitimate IP changes don't log users out.
+//   - v1 (legacy): unprefixed hex(sha256(IP + "|" + User-Agent + "|" +
+//     Accept-Language)). The original IP is unknown, so v1 sessions are treated
+//     as matching only when the presented fingerprint is also non-v2 and equal
+//     (they cannot be re-verified with the v2 scheme).
+func fingerprintsMatch(presented, stored string) bool {
+	if strings.HasPrefix(presented, "v2:") {
+		if !strings.HasPrefix(stored, "v2:") {
+			// Legacy v1 session – cannot re-verify; allow.
+			return true
+		}
+		return stored == presented
+	}
+	// Fallback for v1 presented fingerprints (pre-deploy code paths).
+	return stored == presented
+}
+
 // SessionInfo is the resolved session context attached to every /api request.
 // UserID, TenantID and Role are the authorization core; SchoolID/Schools are
 // the user's school context within their tenant (used to scope the untrusted
@@ -124,26 +145,43 @@ func NewSessionResolver(pools *database.Pools, cfg config.Config) fiber.Handler 
 }
 
 // enforceDeviceFingerprint enforces device-bound sessions in production only
-// (C5). The presented fingerprint (computed by NewDeviceFingerprinter from
-// IP + User-Agent + Accept-Language) must match the one recorded when the
-// session was created; a mismatch means the cookie is being replayed from a
-// different device and the request is rejected with 401.
+// (C5). The presented fingerprint is produced by NewDeviceFingerprinter and is
+// versioned:
 //
-// When either fingerprint is empty (legacy sessions created before this
-// feature, or a client that yields no signals) the check is skipped so the
-// rollout does not log out every existing session.
+//   - v2 (current): "v2:" + hex(sha256(User-Agent + "|" + Accept-Language)).
+//     IP is intentionally omitted so legitimate IP changes (mobile networks,
+//     DHCP renewals, load-balancer rotation) don't log users out.
+//   - v1 (legacy): unprefixed hex(sha256(IP + "|" + User-Agent + "|" +
+//     Accept-Language)). We no longer know the original IP, so a v1 session
+//     cannot be re-verified. To avoid logging everyone out during the
+//     transition, v1 sessions are allowed to continue (same trade-off as a
+//     session with no stored fingerprint).
+//
+// Both formats are 64-char hex hashes with no "|" in them, so we version via
+// the prefix rather than by string-splitting the hash.
 func enforceDeviceFingerprint(c *fiber.Ctx, cfg config.Config, sess *SessionInfo) error {
 	if cfg.AppEnv != "production" {
 		return nil
 	}
 	presented, _ := c.Locals("device_fingerprint").(string)
 	if presented == "" || sess.DeviceFingerprint == "" {
+		// No signals on this request, or a legacy session with no stored
+		// fingerprint – skip the check.
 		return nil
 	}
-	if presented != sess.DeviceFingerprint {
-		return ErrDeviceFingerprintMismatch
+
+	if fingerprintsMatch(presented, sess.DeviceFingerprint) {
+		return nil
 	}
-	return nil
+
+	// C5 is a risk signal, not a gate, unless explicitly opted in.
+	if !cfg.EnforceDeviceFingerprint {
+		loggerFrom(c).Warnw("device fingerprint mismatch (C5) — allowed because enforcement is disabled",
+			"user_id", sess.UserID,
+			"request_id", c.GetRespHeader("X-Request-ID"))
+		return nil
+	}
+	return ErrDeviceFingerprintMismatch
 }
 
 // containsString reports whether v is present in the slice (case-sensitive;

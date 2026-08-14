@@ -30,6 +30,12 @@ type Config struct {
 	RateLimitIPMax    int64         // Tier 1: Max requests per window per IP (e.g. 300)
 	RateLimitUserMax  int64         // Tier 2: Max requests per window per User ID (e.g. 60)
 	RateLimitWindow   time.Duration // Rate limit window (e.g. 1m)
+
+	// EnforceDeviceFingerprint turns the C5 device-bound session check into a
+	// hard 401 in production. Defaults to false: mismatches are logged but the
+	// request is allowed, so IP/UA churn behind proxies/NAT/mobile networks
+	// cannot log users out. Enable only when strict device binding is required.
+	EnforceDeviceFingerprint bool
 }
 
 // Load reads configuration from environment variables with safe fallbacks.
@@ -73,12 +79,25 @@ func Load() Config {
 		RateLimitIPMax:   envInt("RATE_LIMIT_IP_MAX", 300),
 		RateLimitUserMax: envInt("RATE_LIMIT_USER_MAX", 60),
 		RateLimitWindow:  envDuration("RATE_LIMIT_WINDOW", time.Minute),
+
+		// C5 device-bound session enforcement (opt-in; see field docs)
+		EnforceDeviceFingerprint: envBool("ENFORCE_DEVICE_FINGERPRINT", false),
 	}
 }
 
 func getEnv(key, fallback string) string {
 	if val, ok := os.LookupEnv(key); ok && val != "" {
 		return val
+	}
+	return fallback
+}
+
+// envBool parses key as a boolean, falling back when unset or invalid.
+func envBool(key string, fallback bool) bool {
+	if v := os.Getenv(key); v != "" {
+		if b, err := strconv.ParseBool(v); err == nil {
+			return b
+		}
 	}
 	return fallback
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
@@ -26,17 +27,16 @@ func TestDeviceFingerprinter(t *testing.T) {
 	})
 
 	t.Run("Generates correct deterministic SHA-256 fingerprint", func(t *testing.T) {
-		ip := "192.168.1.1"
 		ua := "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"
 		al := "en-US,en;q=0.9"
 
 		// Calculate expected hash independently
-		expectedRaw := ip + "|" + ua + "|" + al
+		expectedRaw := ua + "|" + al
 		expectedSum := sha256.Sum256([]byte(expectedRaw))
-		expectedHash := hex.EncodeToString(expectedSum[:])
+		expectedHash := "v2:" + hex.EncodeToString(expectedSum[:])
 
 		req := httptest.NewRequest(http.MethodGet, "/test", nil)
-		req.Header.Set("X-Forwarded-For", ip)
+		req.Header.Set("X-Forwarded-For", "192.168.1.1") // still set for ProxyHeader
 		req.Header.Set("User-Agent", ua)
 		req.Header.Set("Accept-Language", al)
 
@@ -55,7 +55,8 @@ func TestDeviceFingerprinter(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 		assert.NotEmpty(t, capturedFingerprint)
-		assert.Len(t, capturedFingerprint, 64) // Valid hex-encoded SHA-256 string
+		assert.True(t, strings.HasPrefix(capturedFingerprint, "v2:")) // versioned
+		assert.Len(t, capturedFingerprint, 3+64)                      // "v2:" + hex SHA-256
 	})
 
 	t.Run("Different headers produce distinct fingerprints", func(t *testing.T) {

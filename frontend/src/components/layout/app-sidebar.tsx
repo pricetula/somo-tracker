@@ -12,7 +12,7 @@ import {
     SidebarRail,
 } from "@/components/ui/sidebar";
 import { useMe } from "@/hooks/use-auth";
-import { SchoolSwitcher } from "@/features/school/components/school-switcher";
+// import { SchoolSwitcher } from "@/features/school/components/school-switcher";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     const { data: me } = useMe();
@@ -21,9 +21,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
     return (
         <Sidebar collapsible="icon" {...props}>
-            <SidebarHeader>
-                <SchoolSwitcher />
-            </SidebarHeader>
+            <SidebarHeader>{/*<SchoolSwitcher />*/}</SidebarHeader>
             <SidebarContent>
                 <NavMain role={me?.role ?? ""} />
             </SidebarContent>

@@ -32,7 +32,7 @@ export default function LogoutPage() {
                 document.cookie = "somo_school_id=; path=/; domain=${domain}; max-age=0";
                 document.cookie = "csrf_token=; path=/; domain=${domain}; max-age=0";
             } finally {
-                // router.replace("/login");
+                router.replace("/login");
             }
         }
 

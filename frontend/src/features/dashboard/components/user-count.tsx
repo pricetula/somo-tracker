@@ -53,7 +53,7 @@ export function UserCount() {
     }
 
     return (
-        <section className="flex items-center gap-4 border-l pl-8">
+        <section className="flex items-center gap-4">
             {memberCountList.map((m) => (
                 <Link
                     href={m.url}

@@ -10,7 +10,7 @@ export function SystemAdminDashboardPage() {
 
     return (
         <article>
-            <header className="flex gap-10">
+            <header className="flex gap-14">
                 <AcademicYearHandler
                     onAcademicYearChange={setAcademicYearId}
                     onAcademicTermChange={setAcademicTermId}

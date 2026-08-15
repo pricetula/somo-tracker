@@ -9,6 +9,8 @@ import (
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
+
+	"somotracker/backend/internal/xerrors"
 )
 
 // ============================================================================
@@ -49,6 +51,7 @@ func newHandlerTestHarness(t *testing.T) *handlerTestHarness {
 	// Register routes manually (bypassing RegisterRoutes which embeds requireAuth)
 	members := app.Group("/api/v1/members", testAuth)
 	members.Get("/", handler.List)
+	members.Get("/member-counts", handler.GetCounts)
 	members.Get("/:user_id", handler.GetByID)
 	members.Put("/:user_id", handler.Update)
 	members.Delete("/:user_id", handler.Delete)
@@ -184,5 +187,66 @@ func TestHandler_ListMembers_Pagination(t *testing.T) {
 	resp := doRequest(h.app, "GET", "/api/v1/members/?role=TEACHER&page=2&per_page=20", nil)
 	if resp.StatusCode != fiber.StatusOK {
 		t.Fatalf("expected 200 OK, got %d", resp.StatusCode)
+	}
+}
+
+// ============================================================================
+// Tests: Member Counts Handler (GET /api/v1/members/member-counts)
+// ============================================================================
+
+func TestHandler_GetCounts_HappyPath(t *testing.T) {
+	h := newHandlerTestHarness(t)
+
+	h.repo.getMemberCountsFn = func(ctx context.Context) (*MemberCounts, error) {
+		return &MemberCounts{
+			Students: 120,
+			Admins:   3,
+			Nurses:   2,
+			Teachers: 15,
+			Parents:  40,
+			Finance:  1,
+		}, nil
+	}
+
+	resp := doRequest(h.app, "GET", "/api/v1/members/member-counts", nil)
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", resp.StatusCode)
+	}
+
+	var body struct {
+		Code    string       `json:"code"`
+		Message string       `json:"message"`
+		Data    MemberCounts `json:"data"`
+	}
+	_ = json.NewDecoder(resp.Body).Decode(&body)
+
+	if body.Code != "success" {
+		t.Fatalf("expected code 'success', got %q", body.Code)
+	}
+	if body.Data.Students != 120 || body.Data.Admins != 3 || body.Data.Nurses != 2 ||
+		body.Data.Teachers != 15 || body.Data.Parents != 40 || body.Data.Finance != 1 {
+		t.Fatalf("unexpected counts payload: %+v", body.Data)
+	}
+}
+
+func TestHandler_GetCounts_ServiceError(t *testing.T) {
+	h := newHandlerTestHarness(t)
+
+	h.repo.getMemberCountsFn = func(ctx context.Context) (*MemberCounts, error) {
+		return nil, xerrors.New("internal_error", http.StatusInternalServerError, "internal error")
+	}
+
+	resp := doRequest(h.app, "GET", "/api/v1/members/member-counts", nil)
+	if resp.StatusCode != fiber.StatusInternalServerError {
+		t.Fatalf("expected 500 Internal Server Error, got %d", resp.StatusCode)
+	}
+
+	var errBody struct {
+		Code    string `json:"code"`
+		Message string `json:"message"`
+	}
+	_ = json.NewDecoder(resp.Body).Decode(&errBody)
+	if errBody.Code == "" {
+		t.Fatalf("expected an error code in the response body")
 	}
 }

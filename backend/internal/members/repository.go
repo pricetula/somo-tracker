@@ -206,3 +206,26 @@ func (r *PgRepository) GetActiveSchoolID(ctx context.Context, tenantID, userID s
 	}
 	return schoolID, nil
 }
+
+// GetMemberCounts returns the aggregate counts stored in the member_counts
+// table. The table is maintained by database triggers on cbc_students and
+// memberships, so this is a single-row read (no live aggregation).
+func (r *PgRepository) GetMemberCounts(ctx context.Context, _ string, _ string) (*MemberCounts, error) {
+	var counts MemberCounts
+	err := r.pool.QueryRow(ctx, `
+		SELECT students, admins, nurses, teachers, parents, finance
+		FROM member_counts
+		LIMIT 1
+	`).Scan(
+		&counts.Students,
+		&counts.Admins,
+		&counts.Nurses,
+		&counts.Teachers,
+		&counts.Parents,
+		&counts.Finance,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("members.Repository.GetMemberCounts: %w", err)
+	}
+	return &counts, nil
+}

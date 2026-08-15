@@ -98,32 +98,30 @@ export function AcademicYearHandler({
         return progress;
     }, [academicTerm]);
 
-    if (academicYears.length && !academicYear) {
-        const currentAcademicYear = academicYears.find((yr) => yr.isCurrent);
-        if (currentAcademicYear) {
-            setAcademicYear(currentAcademicYear);
-            onAcademicYearChange(currentAcademicYear.value);
-            // Set the term to the current term of that year
-            if (mappedAcademicTerms.has(currentAcademicYear.value)) {
-                const terms = mappedAcademicTerms.get(currentAcademicYear.value);
+    const setCurrentAcademicTerm = React.useCallback(
+        (yr: CustomAcademicYear) => {
+            if (mappedAcademicTerms.has(yr.value)) {
+                const terms = mappedAcademicTerms.get(yr.value);
                 const currentTerm = terms && terms.find((tr) => tr.isCurrent);
                 if (currentTerm) {
                     setAcademicTerm(currentTerm);
                     onAcademicTermChange(currentTerm.value);
                 }
             }
+        },
+        [mappedAcademicTerms, onAcademicTermChange, setAcademicTerm]
+    );
+
+    if (academicYears.length && !academicYear) {
+        const currentAcademicYear = academicYears.find((yr) => yr.isCurrent);
+        if (currentAcademicYear) {
+            setAcademicYear(currentAcademicYear);
+            onAcademicYearChange(currentAcademicYear.value);
         }
     }
 
     if (academicYear && mappedAcademicTerms.has(academicYear.value) && !academicTerm) {
-        if (mappedAcademicTerms.has(academicYear.value)) {
-            const terms = mappedAcademicTerms.get(academicYear.value);
-            const currentTerm = terms && terms.find((tr) => tr.isCurrent);
-            if (currentTerm) {
-                setAcademicTerm(currentTerm);
-                onAcademicTermChange(currentTerm.value);
-            }
-        }
+        setCurrentAcademicTerm(academicYear);
     }
 
     return (
@@ -135,17 +133,9 @@ export function AcademicYearHandler({
                     value={academicYear}
                     onValueChange={(d) => {
                         const selectedYear = d as CustomAcademicYear;
+                        setAcademicTerm(null);
                         setAcademicYear(selectedYear);
                         onAcademicYearChange(selectedYear.value);
-                        // Set the term to the current term of the selected year
-                        if (selectedYear && mappedAcademicTerms.has(selectedYear.value)) {
-                            const terms = mappedAcademicTerms.get(selectedYear.value);
-                            const currentTerm = terms && terms.find((tr) => tr.isCurrent);
-                            if (currentTerm) {
-                                setAcademicTerm(currentTerm);
-                                onAcademicTermChange(currentTerm.value);
-                            }
-                        }
                     }}
                 >
                     <ComboboxInput placeholder="Select a academic year" />

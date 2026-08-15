@@ -56,3 +56,13 @@ type ListResponse struct {
 type ToggleActiveRequest struct {
 	IsActive bool `json:"is_active"`
 }
+
+// MemberCounts holds aggregate counts for a tenant/school.
+type MemberCounts struct {
+	Students int `json:"students"`
+	Admins   int `json:"admins"`
+	Nurses   int `json:"nurses"`
+	Teachers int `json:"teachers"`
+	Parents  int `json:"parents"`
+	Finance  int `json:"finance"`
+}

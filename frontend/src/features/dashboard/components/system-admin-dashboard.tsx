@@ -2,6 +2,7 @@
 
 import React from "react";
 import { AcademicYearHandler } from "@/features/academicyears/components/academic-year-handler";
+import { UserCount } from "./user-count";
 
 export function SystemAdminDashboardPage() {
     const [_academicYearId, setAcademicYearId] = React.useState<string | null>(null);
@@ -9,11 +10,12 @@ export function SystemAdminDashboardPage() {
 
     return (
         <article>
-            <header className="border-b pb-8">
+            <header className="flex gap-10">
                 <AcademicYearHandler
                     onAcademicYearChange={setAcademicYearId}
                     onAcademicTermChange={setAcademicTermId}
                 />
+                <UserCount />
             </header>
             {/* The selected academic year id and term id can be used elsewhere in the dashboard */}
         </article>

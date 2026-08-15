@@ -9,7 +9,7 @@ export default async function Home() {
     }
 
     switch (role) {
-        case "SYSTEM_ADMIN": {
+        case "SCHOOL_ADMIN": {
             const { SystemAdminDashboardPage } = await import("@/features/dashboard");
             return <SystemAdminDashboardPage />;
         }

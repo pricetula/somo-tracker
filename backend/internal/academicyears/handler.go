@@ -67,12 +67,8 @@ func writeError(c *fiber.Ctx, status int, code, message string, details interfac
 // GetCurrent handles GET /api/v1/academic-years/current.
 func (h *Handler) GetCurrent(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
+	schoolID := c.Locals("school_id").(string)
 
-	// school_id comes from the active school context
-	schoolID := c.Query("school_id")
-	if schoolID == "" {
-		schoolID = c.Locals("school_id").(string)
-	}
 	// School scope is implicit from the session — use tenant scope
 	// In production, derive the active school from member_active_school
 
@@ -87,12 +83,9 @@ func (h *Handler) GetCurrent(c *fiber.Ctx) error {
 // ListYears handles GET /api/v1/academic-years.
 func (h *Handler) ListYears(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
+	schoolID := c.Locals("school_id").(string)
 
 	// school_id comes from the active school context
-	schoolID := c.Query("school_id")
-	if schoolID == "" {
-		schoolID = c.Locals("school_id").(string)
-	}
 	// School scope is implicit from the session — use tenant scope
 	// In production, derive the active school from member_active_school
 

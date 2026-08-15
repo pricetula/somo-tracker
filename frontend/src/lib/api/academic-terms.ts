@@ -75,6 +75,11 @@ export interface UpdateTermPayload {
     version: number; // required for optimistic locking
 }
 
+// ─── Response Types ────────────────────────────────────────────────────────
+export interface ActivateTermResponse extends AcademicTerm {
+    message: string;
+}
+
 // ─── API Functions — Academic Years (read-only) ───────────────────────────
 
 /** Get the current academic year plus its current term for the active school. */
@@ -83,9 +88,9 @@ export async function getCurrentYearAndTerm(): Promise<CurrentAcademicYearWithCu
 }
 
 /** List academic years for the active school (each with nested terms). */
-export async function listAcademicYears(): Promise<{ items: AcademicYear[] }> {
-    const raw = await api.get<{ data: AcademicYear[] }>("/api/v1/academic-years");
-    return { items: raw.data ?? [] };
+export async function listAcademicYears(): Promise<{ data: AcademicYear[] }> {
+    const years = await api.get<{ data: AcademicYear[] }>("/api/v1/academic-years");
+    return years;
 }
 
 // ─── API Functions — Academic Terms ───────────────────────────────────────
@@ -98,8 +103,8 @@ export async function listTerms(
     if (params.academic_year_id) searchParams.set("academic_year_id", params.academic_year_id);
 
     const qs = searchParams.toString();
-    const raw = await api.get<{ data: AcademicTerm[] }>(`/api/v1/academic-terms?${qs}`);
-    return { items: raw.data ?? [] };
+    const terms = await api.get<AcademicTerm[]>(`/api/v1/academic-terms?${qs}`);
+    return { items: terms };
 }
 
 /** Create a new academic term. Returns the created term. */
@@ -116,8 +121,8 @@ export async function updateTerm(id: string, payload: UpdateTermPayload): Promis
  * Activate an academic term, making it the school's current term.
  * POST /api/v1/academic-terms/:id/activate — SCHOOL_ADMIN only.
  */
-export async function activateTerm(id: string): Promise<{ message: string }> {
-    return api.post<{ message: string }>(`/api/v1/academic-terms/${id}/activate`);
+export async function activateTerm(id: string): Promise<ActivateTermResponse> {
+    return api.post<ActivateTermResponse>(`/api/v1/academic-terms/${id}/activate`);
 }
 
 /**

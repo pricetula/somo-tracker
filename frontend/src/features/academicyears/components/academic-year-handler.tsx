@@ -36,7 +36,13 @@ interface CustomAcademicTerm {
 
 const currentTime = new Date().getTime();
 
-export function AcademicYearHandler() {
+export function AcademicYearHandler({
+    onAcademicYearChange,
+    onAcademicTermChange,
+}: {
+    onAcademicYearChange: (id: string) => void;
+    onAcademicTermChange: (id: string) => void;
+}) {
     const { data } = useAcademicYears();
     const [academicYear, setAcademicYear] = React.useState<CustomAcademicYear | null>(null);
     const [academicTerm, setAcademicTerm] = React.useState<CustomAcademicTerm | null>(null);
@@ -92,28 +98,32 @@ export function AcademicYearHandler() {
         return progress;
     }, [academicTerm]);
 
-    const setCurrentTermBasedOnAcademicYear = React.useCallback(
-        (yr: CustomAcademicYear) => {
-            if (yr && mappedAcademicTerms.has(yr.value)) {
-                const terms = mappedAcademicTerms.get(yr.value);
-                const currentAcademicTerm = terms && terms.find((tr) => tr.isCurrent);
-                if (currentAcademicTerm) {
-                    setAcademicTerm(currentAcademicTerm);
-                }
-            }
-        },
-        [mappedAcademicTerms, setAcademicTerm]
-    );
-
     if (academicYears.length && !academicYear) {
         const currentAcademicYear = academicYears.find((yr) => yr.isCurrent);
         if (currentAcademicYear) {
             setAcademicYear(currentAcademicYear);
+            onAcademicYearChange(currentAcademicYear.value);
+            // Set the term to the current term of that year
+            if (mappedAcademicTerms.has(currentAcademicYear.value)) {
+                const terms = mappedAcademicTerms.get(currentAcademicYear.value);
+                const currentTerm = terms && terms.find((tr) => tr.isCurrent);
+                if (currentTerm) {
+                    setAcademicTerm(currentTerm);
+                    onAcademicTermChange(currentTerm.value);
+                }
+            }
         }
     }
 
     if (academicYear && mappedAcademicTerms.has(academicYear.value) && !academicTerm) {
-        setCurrentTermBasedOnAcademicYear(academicYear);
+        if (mappedAcademicTerms.has(academicYear.value)) {
+            const terms = mappedAcademicTerms.get(academicYear.value);
+            const currentTerm = terms && terms.find((tr) => tr.isCurrent);
+            if (currentTerm) {
+                setAcademicTerm(currentTerm);
+                onAcademicTermChange(currentTerm.value);
+            }
+        }
     }
 
     return (
@@ -124,8 +134,18 @@ export function AcademicYearHandler() {
                     itemToStringValue={(f: { value: string; label: string }) => f.label}
                     value={academicYear}
                     onValueChange={(d) => {
-                        setAcademicYear(d as CustomAcademicYear);
-                        setCurrentTermBasedOnAcademicYear(d as CustomAcademicYear);
+                        const selectedYear = d as CustomAcademicYear;
+                        setAcademicYear(selectedYear);
+                        onAcademicYearChange(selectedYear.value);
+                        // Set the term to the current term of the selected year
+                        if (selectedYear && mappedAcademicTerms.has(selectedYear.value)) {
+                            const terms = mappedAcademicTerms.get(selectedYear.value);
+                            const currentTerm = terms && terms.find((tr) => tr.isCurrent);
+                            if (currentTerm) {
+                                setAcademicTerm(currentTerm);
+                                onAcademicTermChange(currentTerm.value);
+                            }
+                        }
                     }}
                 >
                     <ComboboxInput placeholder="Select a academic year" />
@@ -146,7 +166,9 @@ export function AcademicYearHandler() {
                     itemToStringValue={(f: { value: string; label: string }) => f.label}
                     value={academicTerm}
                     onValueChange={(d) => {
-                        setAcademicTerm(d as CustomAcademicTerm);
+                        const selectedTerm = d as CustomAcademicTerm;
+                        setAcademicTerm(selectedTerm);
+                        onAcademicTermChange(selectedTerm.value);
                     }}
                 >
                     <ComboboxInput placeholder="Select a academic term" />

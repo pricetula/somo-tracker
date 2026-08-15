@@ -127,7 +127,7 @@ export function AcademicYearHandler({
     }
 
     return (
-        <section className="max-w-sm">
+        <section className="max-w-75">
             <div className="mb-8 flex gap-4">
                 <Combobox
                     items={academicYears}
@@ -171,7 +171,7 @@ export function AcademicYearHandler({
                         onAcademicTermChange(selectedTerm.value);
                     }}
                 >
-                    <ComboboxInput placeholder="Select a academic term" />
+                    <ComboboxInput placeholder="Select a academic term" className="max-w-24" />
                     <ComboboxContent>
                         <ComboboxEmpty>No items found.</ComboboxEmpty>
                         <ComboboxList>

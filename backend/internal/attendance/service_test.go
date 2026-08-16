@@ -39,6 +39,7 @@ type MockRepository struct {
 	getClassTermAttendanceSummaryFn       func(ctx context.Context, tenantID, schoolID, classID, termID string) (*ClassTermAttendanceSummary, error)
 	listClassTermAttendanceSummariesFn    func(ctx context.Context, tenantID, schoolID, classID, termID string) ([]ClassTermAttendanceSummary, error)
 	refreshClassTermAttendanceSummaryFn   func(ctx context.Context, tenantID, schoolID, termID, classID string) error
+	getSchoolAttendanceKPIsFn             func(ctx context.Context, tenantID, schoolID, date, termID string) (*SchoolAttendanceKPI, error)
 }
 
 func (m *MockRepository) CreateSession(ctx context.Context, tenantID, schoolID string, payload CreateSessionPayload) (*AttendanceSession, error) {
@@ -229,6 +230,13 @@ func (m *MockRepository) RefreshClassTermAttendanceSummary(ctx context.Context, 
 		return m.refreshClassTermAttendanceSummaryFn(ctx, tenantID, schoolID, termID, classID)
 	}
 	return nil
+}
+
+func (m *MockRepository) GetSchoolAttendanceKPIs(ctx context.Context, tenantID, schoolID, date, termID string) (*SchoolAttendanceKPI, error) {
+	if m.getSchoolAttendanceKPIsFn != nil {
+		return m.getSchoolAttendanceKPIsFn(ctx, tenantID, schoolID, date, termID)
+	}
+	return &SchoolAttendanceKPI{}, nil
 }
 
 // ============================================================================

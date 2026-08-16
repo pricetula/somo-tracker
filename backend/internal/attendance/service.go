@@ -2,6 +2,7 @@ package attendance
 
 import (
 	"context"
+	"errors"
 	"fmt"
 )
 
@@ -452,6 +453,39 @@ func (s *Service) RefreshClassTermAttendanceSummary(ctx context.Context, tenantI
 		Message: "Class term attendance summary refresh enqueued",
 		TermID:  termID,
 	}, nil
+}
+
+// ── School Attendance KPIs ──────────────────────────────────────────────
+
+// GetSchoolAttendanceKPIs returns macro-level attendance KPIs for the School
+// Administrator dashboard. When termID is empty, the active term covering
+// `date` is resolved automatically via GetTermIDByDate; if no term covers the
+// date (holiday, weekend, future date) the active-term rate degrades to 0.00
+// rather than failing the whole dashboard, because today's rate and the
+// slot/session counts remain meaningful on their own.
+func (s *Service) GetSchoolAttendanceKPIs(ctx context.Context, tenantID, schoolID, date, termID string) (*SchoolAttendanceKPI, error) {
+	if date == "" {
+		return nil, fmt.Errorf("attendance.Service.GetSchoolAttendanceKPIs: date is required: %w", ErrInvalidInput)
+	}
+
+	if termID == "" {
+		resolved, err := s.repo.GetTermIDByDate(ctx, tenantID, schoolID, date)
+		switch {
+		case err == nil:
+			termID = resolved
+		case errors.Is(err, ErrInvalidInput):
+			// No academic term covers this date — degrade the active-term rate.
+			termID = ""
+		default:
+			return nil, fmt.Errorf("attendance.Service.GetSchoolAttendanceKPIs: resolve active term for date %s: %w", date, err)
+		}
+	}
+
+	kpi, err := s.repo.GetSchoolAttendanceKPIs(ctx, tenantID, schoolID, date, termID)
+	if err != nil {
+		return nil, fmt.Errorf("attendance.Service.GetSchoolAttendanceKPIs: %w", err)
+	}
+	return kpi, nil
 }
 
 // ── Calendar Status ───────────────────────────────────────────────────────

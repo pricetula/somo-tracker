@@ -64,6 +64,10 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	// Calendar status (monthly overview)
 	calendar := router.Group("/api/v1/attendance/calendar")
 	calendar.Get("/status", middleware.RequireAuth, h.GetCalendarStatus)
+
+	// School attendance KPIs (School Administrator dashboard)
+	kpis := router.Group("/api/v1/attendance/kpis")
+	kpis.Get("/school", middleware.RequireAuth, h.GetSchoolAttendanceKPIs)
 }
 
 // attMiddleware extracts common tenant/school context.
@@ -599,6 +603,39 @@ func (h *Handler) GetCalendarStatus(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(result)
+}
+
+// ── School Attendance KPIs ────────────────────────────────────────────────
+
+// GetSchoolAttendanceKPIs handles GET /api/v1/attendance/kpis/school.
+func (h *Handler) GetSchoolAttendanceKPIs(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.attMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	date := c.Query("date")
+	termID := c.Query("term_id")
+
+	if date == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "date is required (YYYY-MM-DD)",
+		})
+	}
+	if _, err := time.Parse("2006-01-02", date); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "date must be a valid ISO date (YYYY-MM-DD)",
+		})
+	}
+
+	kpi, err := h.svc.GetSchoolAttendanceKPIs(c.Context(), tenantID, schoolID, date, termID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(kpi)
 }
 
 // countDays returns the number of calendar days between two ISO date strings.

@@ -340,6 +340,37 @@ type ClassTermAttendanceSummaryListResponse struct {
 	Total int                          `json:"total"`
 }
 
+// ─── School Attendance KPIs ──────────────────────────────────────────────
+
+// SchoolAttendanceKPI is the macro-level school attendance view model for the
+// School Administrator dashboard (School Attendance Command Center). It is a
+// read-only rollup assembled from class_daily_attendance_summaries,
+// class_term_attendance_summaries, cbc_timetable_slots, and
+// cbc_attendance_sessions.
+type SchoolAttendanceKPI struct {
+	// TodaysAttendanceRate is the average daily attendance rate across all
+	// classes on the requested date, from class_daily_attendance_summaries.
+	TodaysAttendanceRate float64 `json:"todays_attendance_rate"`
+
+	// TotalPresent is the number of PRESENT marks across all classes on the date.
+	TotalPresent int `json:"total_present"`
+
+	// TotalMarkedRecords is the number of marked records (present + absent +
+	// late + excused) across all classes on the date.
+	TotalMarkedRecords int `json:"total_marked_records"`
+
+	// ActiveTermAttendanceRate is the average term attendance rate across all
+	// classes in the active academic term, from class_term_attendance_summaries.
+	ActiveTermAttendanceRate float64 `json:"active_term_attendance_rate"`
+
+	// UnmarkedSlotsToday is the count of non-break timetable slots for today
+	// that have no attendance session record yet (action required).
+	UnmarkedSlotsToday int `json:"unmarked_slots_today"`
+
+	// SkippedSessionsToday is the count of SKIPPED attendance sessions today.
+	SkippedSessionsToday int `json:"skipped_sessions_today"`
+}
+
 // ─── Repository Interface ─────────────────────────────────────────────────
 
 // Repository defines the contract for attendance persistence.
@@ -438,4 +469,13 @@ type Repository interface {
 	// ListCalendarStatus returns per-date expected/handled slot counts for a
 	// school over a date range. Returns one row per date in the range.
 	ListCalendarStatus(ctx context.Context, tenantID, schoolID, startDate, endDate string) ([]CalendarDayStatusRaw, error)
+
+	// ── School Attendance KPIs ────────────────────────────────────────────
+
+	// GetSchoolAttendanceKPIs returns macro-level attendance KPIs for a school
+	// on a given date: today's attendance rate, active term attendance rate,
+	// unmarked timetable slots for the date, and skipped sessions for the date.
+	// When termID is empty, the active term containing the date is used; when
+	// no term covers the date, the active-term rate degrades to 0.00.
+	GetSchoolAttendanceKPIs(ctx context.Context, tenantID, schoolID, date, termID string) (*SchoolAttendanceKPI, error)
 }

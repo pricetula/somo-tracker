@@ -1175,5 +1175,91 @@ func (r *pgRepository) ListClassTermAttendanceSummaries(ctx context.Context, ten
 	return results, nil
 }
 
+// ── School Attendance KPIs ──────────────────────────────────────────────
+
+func (r *pgRepository) GetSchoolAttendanceKPIs(ctx context.Context, tenantID, schoolID, date, termID string) (*SchoolAttendanceKPI, error) {
+	// An empty termID (no active term covers the date) degrades the term-rate
+	// CTE to zero rows → COALESCE → 0.00 instead of failing the whole request.
+	var termParam interface{} = nil
+	if termID != "" {
+		termParam = termID
+	}
+
+	var kpi SchoolAttendanceKPI
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, `
+		WITH today_summary AS (
+			SELECT
+				COALESCE(SUM(present_count), 0)::INT AS total_present,
+				COALESCE(SUM(present_count + absent_count + late_count + excused_count), 0)::INT AS total_marked_records,
+				COALESCE(AVG(daily_attendance_rate), 0.00)::NUMERIC AS avg_daily_rate
+			FROM class_daily_attendance_summaries
+			WHERE tenant_id = $1
+			  AND school_id = $2
+			  AND date = $3::DATE
+		),
+		term_summary AS (
+			SELECT
+				COALESCE(AVG(term_attendance_rate), 0.00)::NUMERIC AS active_term_attendance_rate
+			FROM class_term_attendance_summaries
+			WHERE tenant_id = $1
+			  AND school_id = $2
+			  AND academic_term_id = $4::UUID
+		),
+		unmarked_slots AS (
+			-- Non-break timetable slots for the school on this weekday with no
+			-- attendance session record yet (neither SUBMITTED nor SKIPPED).
+			-- is_break / day_of_week live on timetable_structures, not on
+			-- cbc_timetable_slots; both are per-school so the join is fully
+			-- scoped by tenant + school.
+			SELECT COUNT(*)::INT AS unmarked_count
+			FROM cbc_timetable_slots ts
+			JOIN timetable_structures tstr
+				ON tstr.id = ts.structure_id
+				AND tstr.tenant_id = ts.tenant_id
+				AND tstr.school_id = ts.school_id
+			WHERE ts.tenant_id = $1
+			  AND ts.school_id = $2
+			  AND tstr.is_break = FALSE
+			  AND tstr.day_of_week = EXTRACT(ISODOW FROM $3::DATE)::INT
+			  AND NOT EXISTS (
+				  SELECT 1 FROM cbc_attendance_sessions cas
+				  WHERE cas.tenant_id = ts.tenant_id
+					AND cas.timetable_slot_id = ts.id
+					AND cas.date = $3::DATE
+			  )
+		),
+		skipped_sessions AS (
+			SELECT COUNT(*)::INT AS skipped_count
+			FROM cbc_attendance_sessions cas
+			WHERE cas.tenant_id = $1
+			  AND cas.school_id = $2
+			  AND cas.date = $3::DATE
+			  AND cas.status = 'SKIPPED'
+		)
+		SELECT
+			tsum.avg_daily_rate::FLOAT8 AS todays_attendance_rate,
+			tsum.total_present,
+			tsum.total_marked_records,
+			trm.active_term_attendance_rate::FLOAT8 AS active_term_attendance_rate,
+			ums.unmarked_count AS unmarked_slots_today,
+			sks.skipped_count AS skipped_sessions_today
+		FROM today_summary tsum
+		CROSS JOIN term_summary trm
+		CROSS JOIN unmarked_slots ums
+		CROSS JOIN skipped_sessions sks
+	`, tenantID, schoolID, date, termParam).Scan(
+		&kpi.TodaysAttendanceRate,
+		&kpi.TotalPresent,
+		&kpi.TotalMarkedRecords,
+		&kpi.ActiveTermAttendanceRate,
+		&kpi.UnmarkedSlotsToday,
+		&kpi.SkippedSessionsToday,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("attendance.Repository.GetSchoolAttendanceKPIs: %w", err)
+	}
+	return &kpi, nil
+}
+
 // Compile-time check
 var _ Repository = (*pgRepository)(nil)

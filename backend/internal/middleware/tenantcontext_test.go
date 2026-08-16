@@ -32,10 +32,8 @@ func TestWithTenantContext_RequestScopedRLS(t *testing.T) {
 	pools, _, cleanup := setupTestPools(t)
 	defer cleanup()
 
-	// Fresh DB: apply base schema + seed.
-	for _, f := range []string{"000001_initial_schema.up.sql", "000002_seed.up.sql"} {
-		applyMigration(t, pools.PG, f)
-	}
+	// Fresh DB: apply all migrations (schema + seed).
+	applyAllMigrations(t, pools.PG)
 
 	tenantA := "aaaaaaaa-1111-1111-1111-111111111111"
 	tenantB := "bbbbbbbb-2222-2222-2222-222222222222"

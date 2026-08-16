@@ -1,3 +1,8 @@
+-- Migration: 000063_member_counts
+-- SomoTracker — Kenya CBC/CBE academic platform (CBC-only)
+-- Split from the squashed 000001_initial_schema on 2026-08-16. DDL unchanged.
+-- Purpose: 000063_member_counts
+
 -- Create member_counts table
 CREATE TABLE IF NOT EXISTS member_counts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

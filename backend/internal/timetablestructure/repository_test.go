@@ -64,13 +64,16 @@ func startPG(t *testing.T) (*pgxpool.Pool, func()) {
 	return pool, cleanup
 }
 
-func applyMigration(t *testing.T, pool *pgxpool.Pool, filename string) {
+func applyAllMigrations(t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
-	path := filepath.Join(migrationsDir(), filename)
-	sql, err := os.ReadFile(path)
-	require.NoError(t, err, "read migration %s", filename)
-	_, err = pool.Exec(context.Background(), string(sql))
-	require.NoError(t, err, "apply migration %s", filename)
+	files, err := filepath.Glob(filepath.Join(migrationsDir(), "*.up.sql"))
+	require.NoError(t, err, "glob migration files")
+	for _, path := range files {
+		sql, err := os.ReadFile(path)
+		require.NoError(t, err, "read migration %s", path)
+		_, err = pool.Exec(context.Background(), string(sql))
+		require.NoError(t, err, "apply migration %s", path)
+	}
 }
 
 func seedTenantSchool(t *testing.T, pool *pgxpool.Pool) (tenantID, schoolID string) {
@@ -115,7 +118,7 @@ func TestPgRepository_CreateAndGetByID(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigration(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	tenantID, schoolID := seedTenantSchool(t, pool)
 	yearID := seedAcademicYear(t, pool, tenantID, schoolID)
@@ -149,7 +152,7 @@ func TestPgRepository_GetByID_NotFound(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigration(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	tenantID, schoolID := seedTenantSchool(t, pool)
 	repo := newRepo(pool)
@@ -165,7 +168,7 @@ func TestPgRepository_ListByDay(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigration(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	tenantID, schoolID := seedTenantSchool(t, pool)
 	yearID := seedAcademicYear(t, pool, tenantID, schoolID)
@@ -205,7 +208,7 @@ func TestPgRepository_ListByDay_Empty(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigration(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	tenantID, schoolID := seedTenantSchool(t, pool)
 	yearID := seedAcademicYear(t, pool, tenantID, schoolID)
@@ -223,7 +226,7 @@ func TestPgRepository_ListAll(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigration(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	tenantID, schoolID := seedTenantSchool(t, pool)
 	yearID := seedAcademicYear(t, pool, tenantID, schoolID)
@@ -254,7 +257,7 @@ func TestPgRepository_Update(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigration(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	tenantID, schoolID := seedTenantSchool(t, pool)
 	yearID := seedAcademicYear(t, pool, tenantID, schoolID)
@@ -287,7 +290,7 @@ func TestPgRepository_Delete(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigration(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	tenantID, schoolID := seedTenantSchool(t, pool)
 	yearID := seedAcademicYear(t, pool, tenantID, schoolID)
@@ -313,7 +316,7 @@ func TestPgRepository_Delete_NotFound(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigration(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	tenantID, schoolID := seedTenantSchool(t, pool)
 	repo := newRepo(pool)
@@ -329,7 +332,7 @@ func TestPgRepository_DeleteByDay(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigration(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	tenantID, schoolID := seedTenantSchool(t, pool)
 	yearID := seedAcademicYear(t, pool, tenantID, schoolID)
@@ -369,7 +372,7 @@ func TestPgRepository_FindOverlappingBlock(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigration(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	tenantID, schoolID := seedTenantSchool(t, pool)
 	yearID := seedAcademicYear(t, pool, tenantID, schoolID)
@@ -406,7 +409,7 @@ func TestPgRepository_BatchCreate(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigration(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	tenantID, schoolID := seedTenantSchool(t, pool)
 	yearID := seedAcademicYear(t, pool, tenantID, schoolID)
@@ -433,7 +436,7 @@ func TestPgRepository_BatchCreate_Empty(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigration(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	tenantID, schoolID := seedTenantSchool(t, pool)
 	repo := newRepo(pool)
@@ -450,7 +453,7 @@ func TestPgRepository_ReplicateDay(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigration(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	tenantID, schoolID := seedTenantSchool(t, pool)
 	yearID := seedAcademicYear(t, pool, tenantID, schoolID)
@@ -483,7 +486,7 @@ func TestPgRepository_ListByPeriodName(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigration(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	tenantID, schoolID := seedTenantSchool(t, pool)
 	yearID := seedAcademicYear(t, pool, tenantID, schoolID)
@@ -514,7 +517,7 @@ func TestPgRepository_ListByDayAfter(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigration(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	tenantID, schoolID := seedTenantSchool(t, pool)
 	yearID := seedAcademicYear(t, pool, tenantID, schoolID)
@@ -540,7 +543,7 @@ func TestPgRepository_DeleteByPeriodName(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigration(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	tenantID, schoolID := seedTenantSchool(t, pool)
 	yearID := seedAcademicYear(t, pool, tenantID, schoolID)
@@ -571,7 +574,7 @@ func TestPgRepository_BatchUpdateBlocks(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigration(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	tenantID, schoolID := seedTenantSchool(t, pool)
 	yearID := seedAcademicYear(t, pool, tenantID, schoolID)
@@ -602,7 +605,7 @@ func TestPgRepository_HasLinkedLessons(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigration(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	tenantID, schoolID := seedTenantSchool(t, pool)
 	yearID := seedAcademicYear(t, pool, tenantID, schoolID)
@@ -627,7 +630,7 @@ func TestPgRepository_HasLinkedLessonsForBlocks_Empty(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigration(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	repo := newRepo(pool)
 
@@ -643,7 +646,7 @@ func TestPgRepository_CreateOverlapError(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigration(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	tenantID, schoolID := seedTenantSchool(t, pool)
 	yearID := seedAcademicYear(t, pool, tenantID, schoolID)

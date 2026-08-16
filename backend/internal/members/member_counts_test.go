@@ -31,10 +31,9 @@ func TestMemberCounts_TriggersStayInSync(t *testing.T) {
 	pool, cleanup := startPG(t)
 	defer cleanup()
 
-	// 000001 provides cbc_students/memberships (and their FKs); 000003 adds
-	// the member_counts table + triggers.
-	applyMigration(t, pool, "000001_initial_schema.up.sql")
-	applyMigration(t, pool, "000003_create_member_counts.up.sql")
+	// All migrations apply in order — includes cbc_students/memberships
+	// (and their FKs) plus the member_counts table + triggers.
+	applyAllMigrations(t, pool)
 
 	tenantID, schoolID, userID := seedTenantSchoolUser(t, pool)
 	repo := newRepo(pool)

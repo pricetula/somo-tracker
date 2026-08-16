@@ -61,13 +61,16 @@ func startPG(t *testing.T) (*pgxpool.Pool, func()) {
 	return pool, cleanup
 }
 
-func applyMigration(t *testing.T, pool *pgxpool.Pool, filename string) {
+func applyAllMigrations(t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
-	path := filepath.Join(migrationsDir(), filename)
-	sql, err := os.ReadFile(path)
-	require.NoError(t, err, "read migration %s", filename)
-	_, err = pool.Exec(context.Background(), string(sql))
-	require.NoError(t, err, "apply migration %s", filename)
+	files, err := filepath.Glob(filepath.Join(migrationsDir(), "*.up.sql"))
+	require.NoError(t, err, "glob migration files")
+	for _, path := range files {
+		sql, err := os.ReadFile(path)
+		require.NoError(t, err, "read migration %s", path)
+		_, err = pool.Exec(context.Background(), string(sql))
+		require.NoError(t, err, "apply migration %s", path)
+	}
 }
 
 func newRepo(pool *pgxpool.Pool) Repository {
@@ -81,7 +84,7 @@ func TestPgRepository_GetByStudentTerm_NotFound(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigration(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	repo := newRepo(pool)
 
@@ -97,7 +100,7 @@ func TestPgRepository_ListByClassTerm_Empty(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigration(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	repo := newRepo(pool)
 
@@ -113,7 +116,7 @@ func TestPgRepository_ListByGradeTerm_Empty(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigration(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	repo := newRepo(pool)
 

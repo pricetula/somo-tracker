@@ -44,6 +44,19 @@ func migrationsDir() string {
 	return filepath.Join(filepath.Dir(filename), "migrations")
 }
 
+// allMigrationUpFiles returns every .up.sql migration file (base names) in
+// sorted order.
+func allMigrationUpFiles() []string {
+	files, err := filepath.Glob(filepath.Join(migrationsDir(), "*.up.sql"))
+	if err != nil {
+		panic(fmt.Sprintf("glob migration files: %v", err))
+	}
+	for i, f := range files {
+		files[i] = filepath.Base(f)
+	}
+	return files
+}
+
 func TestMigrationStaticAnalysis_ForeignKeyUniqueConstraints(t *testing.T) {
 	// Read all .up.sql migration files
 	files, err := filepath.Glob(filepath.Join(migrationsDir(), "*.up.sql"))
@@ -330,17 +343,8 @@ func TestMigrationsIntegration_ApplyAll(t *testing.T) {
 	require.NoError(t, err)
 	defer pool.Close()
 
-	// Apply the squashed migration chain (000001 is the full fresh-install
-	// schema; 000002 is the seed data. Migrations 000003–000017 were squashed
-	// into 000001 on 2026-08-12):
-	//   000001 — initial schema (all core tables + materialised summaries)
-	//   000002 — seed data
-	migrations := []string{
-		"000001_initial_schema.up.sql",
-		"000002_seed.up.sql",
-	}
-
-	for _, f := range migrations {
+	// Apply all migrations in order (schema + seed).
+	for _, f := range allMigrationUpFiles() {
 		path := filepath.Join(migrationsDir(), f)
 		sql, err := os.ReadFile(path)
 		require.NoError(t, err, "read migration %s", f)
@@ -443,8 +447,8 @@ func TestMigrationsIntegration_ConstraintsAndIndexes_M3_to_M13(t *testing.T) {
 	require.NoError(t, err)
 	defer pool.Close()
 
-	// Apply the squashed base schema (000001 contains everything; 000002 seed)
-	for _, f := range []string{"000001_initial_schema.up.sql", "000002_seed.up.sql"} {
+	// Apply all migrations in order (schema + seed).
+	for _, f := range allMigrationUpFiles() {
 		sql, err := os.ReadFile(filepath.Join(migrationsDir(), f))
 		require.NoError(t, err, "read %s", f)
 		_, err = pool.Exec(ctx, string(sql))
@@ -707,8 +711,8 @@ func TestMigrationsIntegration_UniqueConstraints_M14_to_M17(t *testing.T) {
 	require.NoError(t, err)
 	defer pool.Close()
 
-	// Apply squashed base schema first (000001 contains all fixes)
-	for _, f := range []string{"000001_initial_schema.up.sql"} {
+	// Apply all migrations in order (schema + seed).
+	for _, f := range allMigrationUpFiles() {
 		sql, err := os.ReadFile(filepath.Join(migrationsDir(), f))
 		require.NoError(t, err, "read %s", f)
 		_, err = pool.Exec(ctx, string(sql))
@@ -802,8 +806,8 @@ func TestMigrationsIntegration_PartialUniqueIndexes_M18_to_M22(t *testing.T) {
 	require.NoError(t, err)
 	defer pool.Close()
 
-	// Apply squashed base schema first (000001 contains all fixes)
-	for _, f := range []string{"000001_initial_schema.up.sql"} {
+	// Apply all migrations in order (schema + seed).
+	for _, f := range allMigrationUpFiles() {
 		sql, err := os.ReadFile(filepath.Join(migrationsDir(), f))
 		require.NoError(t, err, "read %s", f)
 		_, err = pool.Exec(ctx, string(sql))
@@ -848,12 +852,12 @@ func TestMigrationsIntegration_PartialUniqueIndexes_M18_to_M22(t *testing.T) {
 	// M19: idx_cbc_schools_knec_code — partial unique
 	// ======================================================================
 
-	_, err = pool.Exec(ctx, `UPDATE cbc_schools SET knec_school_code = '12345678' WHERE id = $1`, schoolA)
+	_, err = pool.Exec(ctx, `UPDATE cbc_schools SET knec_school_code = '87654321' WHERE id = $1`, schoolA)
 	require.NoError(t, err)
 
 	schoolB := uuid.New().String()
 	_, err = pool.Exec(ctx, `INSERT INTO cbc_schools (id, tenant_id, name, county, sub_county, school_type, knec_school_code)
-		VALUES ($1, $2, $3, 'Nairobi', 'Westlands', 'Public', '12345678')`,
+		VALUES ($1, $2, $3, 'Nairobi', 'Westlands', 'Public', '87654321')`,
 		schoolB, tenantA, "School B")
 	require.Error(t, err, "M19: duplicate knec_school_code should be rejected")
 	require.Contains(t, err.Error(), "idx_cbc_schools_knec_code")

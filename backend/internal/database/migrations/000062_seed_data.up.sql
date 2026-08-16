@@ -1,3 +1,8 @@
+-- Migration: 000062_seed_data
+-- SomoTracker — Kenya CBC/CBE academic platform (CBC-only)
+-- Split from the squashed 000001_initial_schema on 2026-08-16. DDL unchanged.
+-- Purpose: 000062_seed_data
+
 -- ================================================================================
 -- 🌱 SEED DATA: KNEC Assessment Weight Configs + Dev Tenant + Demo School
 -- ================================================================================

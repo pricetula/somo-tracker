@@ -76,15 +76,16 @@ func startPG(t *testing.T) (*pgxpool.Pool, func()) {
 }
 
 // applyMigration reads and applies a migration file.
-func applyMigration(t *testing.T, pool *pgxpool.Pool, filename string) {
+func applyAllMigrations(t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
-
-	path := filepath.Join(migrationsDir(), filename)
-	sql, err := os.ReadFile(path)
-	require.NoError(t, err, "read migration %s", filename)
-
-	_, err = pool.Exec(context.Background(), string(sql))
-	require.NoError(t, err, "apply migration %s", filename)
+	files, err := filepath.Glob(filepath.Join(migrationsDir(), "*.up.sql"))
+	require.NoError(t, err, "glob migration files")
+	for _, path := range files {
+		sql, err := os.ReadFile(path)
+		require.NoError(t, err, "read migration %s", path)
+		_, err = pool.Exec(context.Background(), string(sql))
+		require.NoError(t, err, "apply migration %s", path)
+	}
 }
 
 func TestPgRepository_CreateStream(t *testing.T) {
@@ -96,7 +97,7 @@ func TestPgRepository_CreateStream(t *testing.T) {
 	pool, cleanup := startPG(t)
 	defer cleanup()
 
-	applyMigration(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	// Seed tenant + school + user
 	tenantID := uuid.New().String()
@@ -147,7 +148,7 @@ func TestPgRepository_ListStreams(t *testing.T) {
 	pool, cleanup := startPG(t)
 	defer cleanup()
 
-	applyMigration(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	tenantID := uuid.New().String()
 	schoolID := uuid.New().String()
@@ -196,7 +197,7 @@ func TestPgRepository_GetByID(t *testing.T) {
 	pool, cleanup := startPG(t)
 	defer cleanup()
 
-	applyMigration(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	tenantID := uuid.New().String()
 	schoolID := uuid.New().String()
@@ -242,7 +243,7 @@ func TestPgRepository_UpdateStream(t *testing.T) {
 	pool, cleanup := startPG(t)
 	defer cleanup()
 
-	applyMigration(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	tenantID := uuid.New().String()
 	schoolID := uuid.New().String()
@@ -294,7 +295,7 @@ func TestPgRepository_DeleteStream(t *testing.T) {
 	pool, cleanup := startPG(t)
 	defer cleanup()
 
-	applyMigration(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	tenantID := uuid.New().String()
 	schoolID := uuid.New().String()
@@ -336,7 +337,7 @@ func TestPgRepository_HasActiveEnrollments(t *testing.T) {
 	pool, cleanup := startPG(t)
 	defer cleanup()
 
-	applyMigration(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	tenantID := uuid.New().String()
 	schoolID := uuid.New().String()

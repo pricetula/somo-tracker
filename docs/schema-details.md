@@ -144,7 +144,7 @@ Three statement-level AFTER trigger functions on `cbc_students` that upsert per-
 - `fn_compute_teacher_workload_summaries(year_id UUID)` — batch-computes `teacher_workload_summaries` (periods, subjects, classes, utilization, overcapacity flag).
 - `fn_assessment_sessions_after_publish()` — AFTER UPDATE trigger function on `assessment_sessions` (status → PUBLISHED) that calls the subject-summary and strand-summary refresh functions.
 
-### `member_counts` maintenance — `trg_update_student_count()` and `trg_update_membership_count()` (migration 000003)
+### `member_counts` maintenance — `trg_update_student_count()` and `trg_update_membership_count()` (migration 000063_member_counts)
 Trigger functions that keep the single-row global `member_counts` aggregate in sync:
 - `trg_update_student_count()` — AFTER INSERT/UPDATE/DELETE on `cbc_students`, increments/decrements `students` when `is_active` toggles.
 - `trg_update_membership_count()` — AFTER INSERT/UPDATE/DELETE on `memberships`, increments/decrements per-role counters (`admins`, `teachers`, `nurses`, `parents`, `finance`; `SYSTEM_ADMIN` is not counted), handling role changes, activation/deactivation, and deletes without double-counting.
@@ -1976,7 +1976,7 @@ Trigger functions that keep the single-row global `member_counts` aggregate in s
 **Triggers:**
 - `trg_class_term_attendance_summaries_updated_at` BEFORE UPDATE ON class_term_attendance_summaries FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at()
 
-### Member Counts (global aggregate — migration 000003)
+### Member Counts (global aggregate — migration 000063_member_counts)
 - `id`: UUID (Primary Key) - Default: gen_random_uuid()
 - `students`: INTEGER NOT NULL DEFAULT 0
 - `admins`: INTEGER NOT NULL DEFAULT 0
@@ -1988,7 +1988,7 @@ Trigger functions that keep the single-row global `member_counts` aggregate in s
 - `created_at`: TIMESTAMPTZ NOT NULL DEFAULT now()
 
 **Comments:**
-- Single-row global aggregate (000003 deletes all rows and inserts one zeroed row at migration time). Kept in sync by `trg_student_count` (AFTER INSERT/UPDATE/DELETE on cbc_students) and `trg_membership_count` (AFTER INSERT/UPDATE/DELETE on memberships). `SYSTEM_ADMIN` memberships are not counted.
+- Single-row global aggregate (000063 deletes all rows and inserts one zeroed row at migration time). Kept in sync by `trg_student_count` (AFTER INSERT/UPDATE/DELETE on cbc_students) and `trg_membership_count` (AFTER INSERT/UPDATE/DELETE on memberships). `SYSTEM_ADMIN` memberships are not counted.
 
 ## Relationships Summary
 
@@ -2248,6 +2248,6 @@ RLS-enabled tables include: users, sessions lookups (via SECURITY DEFINER), tena
 11. Custom functions support complex business logic (term validation, time range calculations, invoice payment status sync, school member count sync)
 12. Careful attention to indexes for query performance
 13. Materialised summary/rollup tables (attendance, assessment, behavior, teacher metrics) are refreshed via batch functions, Asynq background jobs, or publish triggers — they are caches, not sources of truth
-14. `member_counts` (000003) is a legacy single-row global aggregate; `school_member_counts` is the per-school replacement
+14. `member_counts` (000063) is a legacy single-row global aggregate; `school_member_counts` is the per-school replacement
 15. Assessment sessions support two grading modes (QUANTITATIVE with max_points + grading scale, and RUBRIC with per-indicator outcome grades), with write-once protections on max_points and grading scale ranges
 16. KNEC weighting formulas (assessment_weight_configs) are nationally mandated, seeded with official KPSEA/KJSEA figures, and applied for final exam terms (G6/G9/G12)

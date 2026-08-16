@@ -340,6 +340,33 @@ type ClassTermAttendanceSummaryListResponse struct {
 	Total int                          `json:"total"`
 }
 
+// ─── Class Attendance Breakdown (School Admin Dashboard) ──────────────────
+
+// ClassAttendanceBreakdownItem is the per-class Present/Late/Absent rollup for
+// the School Administrator dashboard grouped bar chart. It is a read-only view
+// model assembled from cbc_classes LEFT JOIN class_term_attendance_summaries
+// (per the CQRS read-model rule — no cross-domain Go imports).
+//
+// AbsentCount is surfaced first-class because it is the critical metric for
+// tracking truancy and chronic absenteeism; the endpoint orders by it
+// descending so high-absenteeism classes appear at the top of the chart.
+type ClassAttendanceBreakdownItem struct {
+	ClassID            string  `json:"class_id"`
+	ClassName          string  `json:"class_name"`
+	TotalEnrolledAvg   float64 `json:"total_enrolled_avg"`
+	PresentCount       int     `json:"present_count"`
+	LateCount          int     `json:"late_count"`
+	AbsentCount        int     `json:"absent_count"`
+	ExcusedCount       int     `json:"excused_count"`
+	TermAttendanceRate float64 `json:"term_attendance_rate"`
+}
+
+// ClassAttendanceBreakdownListResponse wraps a list of class attendance breakdown items.
+type ClassAttendanceBreakdownListResponse struct {
+	Items []ClassAttendanceBreakdownItem `json:"items"`
+	Total int                            `json:"total"`
+}
+
 // ─── School Attendance KPIs ──────────────────────────────────────────────
 
 // SchoolAttendanceKPI is the macro-level school attendance view model for the
@@ -463,6 +490,11 @@ type Repository interface {
 	// ListClassTermAttendanceSummaries returns all class term attendance summaries
 	// for a school and term (or specific class if provided).
 	ListClassTermAttendanceSummaries(ctx context.Context, tenantID, schoolID, classID, termID string) ([]ClassTermAttendanceSummary, error)
+
+	// ListClassAttendanceBreakdowns returns per-class present/late/absent counts
+	// for a school in a term (class names included), ordered by absent count
+	// descending so the highest-absenteeism classes surface first.
+	ListClassAttendanceBreakdowns(ctx context.Context, tenantID, schoolID, termID string) ([]ClassAttendanceBreakdownItem, error)
 
 	// ── Calendar Status ───────────────────────────────────────────────
 

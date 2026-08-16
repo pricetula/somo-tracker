@@ -455,6 +455,24 @@ func (s *Service) RefreshClassTermAttendanceSummary(ctx context.Context, tenantI
 	}, nil
 }
 
+// ListClassAttendanceBreakdowns returns per-class Present/Late/Absent counts
+// for the School Administrator dashboard grouped bar chart, sorted by absent
+// count descending so high-absenteeism classes surface first (truancy and
+// chronic absenteeism watch).
+func (s *Service) ListClassAttendanceBreakdowns(ctx context.Context, tenantID, schoolID, termID string) (*ClassAttendanceBreakdownListResponse, error) {
+	if termID == "" {
+		return nil, fmt.Errorf("attendance.Service.ListClassAttendanceBreakdowns: academic_term_id is required: %w", ErrInvalidInput)
+	}
+	items, err := s.repo.ListClassAttendanceBreakdowns(ctx, tenantID, schoolID, termID)
+	if err != nil {
+		return nil, fmt.Errorf("attendance.Service.ListClassAttendanceBreakdowns: %w", err)
+	}
+	if items == nil {
+		items = []ClassAttendanceBreakdownItem{}
+	}
+	return &ClassAttendanceBreakdownListResponse{Items: items, Total: len(items)}, nil
+}
+
 // ── School Attendance KPIs ──────────────────────────────────────────────
 
 // GetSchoolAttendanceKPIs returns macro-level attendance KPIs for the School

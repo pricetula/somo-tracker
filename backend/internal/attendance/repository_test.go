@@ -519,3 +519,70 @@ func TestPgRepository_ListClassTermAttendanceSummaries(t *testing.T) {
 		require.Empty(t, summaries)
 	})
 }
+
+func TestPgRepository_ListClassAttendanceBreakdowns(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+	ctx := context.Background()
+	pool, cleanup := startPG(t)
+	defer cleanup()
+
+	ids := setupTestTables(t, pool)
+	repo := newRepo(pool)
+
+	// ClassID1: 25 present / 3 late / 2 absent / 0 excused
+	// ClassID2: 20 present / 3 late / 5 absent / 2 excused → higher absenteeism
+	insertClassDailyAttendanceSummary(t, pool, ids, ids.ClassID1, "2026-01-15", 30, 25, 3, 2, 0)
+	insertClassDailyAttendanceSummary(t, pool, ids, ids.ClassID2, "2026-01-15", 30, 20, 5, 3, 2)
+
+	// A third class with NO daily/term summary — the LEFT JOIN must still
+	// surface it with zeroed counts (ordered last via NULLS LAST).
+	streamID3 := uuid.New().String()
+	_, err := pool.Exec(ctx, `INSERT INTO cbc_streams (id, tenant_id, school_id, name) VALUES ($1, $2, $3, 'Red')`,
+		streamID3, ids.TenantID, ids.SchoolID)
+	require.NoError(t, err)
+	classID3 := uuid.New().String()
+	_, err = pool.Exec(ctx, `INSERT INTO cbc_classes (id, tenant_id, school_id, academic_year_id, grade_level, stream_id, is_active) VALUES ($1, $2, $3, $4, 'G2', $5, true)`,
+		classID3, ids.TenantID, ids.SchoolID, ids.AcademicYearID, streamID3)
+	require.NoError(t, err)
+
+	w := &Worker{pools: &database.Pools{PG: pool}, logger: zap.NewNop().Sugar()}
+	runWorkerJob(t, w, TaskRefreshClassTermSummary, ClassTermRefreshPayload{
+		TenantID: ids.TenantID,
+		SchoolID: ids.SchoolID,
+		TermID:   ids.AcademicTermID,
+	})
+
+	t.Run("lists_all_classes_sorted_by_absent_desc", func(t *testing.T) {
+		items, err := repo.ListClassAttendanceBreakdowns(ctx, ids.TenantID, ids.SchoolID, ids.AcademicTermID)
+		require.NoError(t, err)
+		require.Len(t, items, 3)
+
+		// ClassID2 has 5 absents — must surface first (truancy watch).
+		require.Equal(t, ids.ClassID2, items[0].ClassID)
+		require.Equal(t, "G1 Green", items[0].ClassName)
+		require.Equal(t, 5, items[0].AbsentCount)
+		require.Equal(t, 20, items[0].PresentCount)
+		require.Equal(t, 3, items[0].LateCount)
+		require.Equal(t, 2, items[0].ExcusedCount)
+
+		require.Equal(t, ids.ClassID1, items[1].ClassID)
+		require.Equal(t, "G1 Blue", items[1].ClassName)
+		require.Equal(t, 3, items[1].AbsentCount)
+
+		// Class without a summary still appears, zeroed, ordered last.
+		require.Equal(t, classID3, items[2].ClassID)
+		require.Equal(t, "G2 Red", items[2].ClassName)
+		require.Zero(t, items[2].AbsentCount)
+		require.Zero(t, items[2].PresentCount)
+		require.Zero(t, items[2].TermAttendanceRate)
+	})
+
+	t.Run("rls_enforced", func(t *testing.T) {
+		wrongTenantID := uuid.New().String()
+		items, err := repo.ListClassAttendanceBreakdowns(ctx, wrongTenantID, ids.SchoolID, ids.AcademicTermID)
+		require.NoError(t, err)
+		require.Empty(t, items)
+	})
+}

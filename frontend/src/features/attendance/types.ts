@@ -1,1 +1,5 @@
-export type { SchoolAttendanceKPI } from "@/lib/api/attendance";
+export type {
+    SchoolAttendanceKPI,
+    ClassAttendanceBreakdownItem,
+    ClassAttendanceBreakdownList,
+} from "@/lib/api/attendance";

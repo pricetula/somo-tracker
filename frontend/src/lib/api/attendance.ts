@@ -2,8 +2,10 @@
  * Attendance API functions.
  *
  * Endpoints:
- *   GET /api/v1/attendance/kpis/school — macro-level school attendance KPIs
- *                                        for the School Administrator dashboard
+ *   GET /api/v1/attendance/kpis/school             — macro-level school attendance KPIs
+ *                                                   for the School Administrator dashboard
+ *   GET /api/v1/attendance/class-term/breakdown     — per-class Present/Late/Absent counts
+ *                                                   for the School Administrator dashboard
  */
 
 import { api } from "./client";
@@ -51,5 +53,49 @@ export async function getSchoolAttendanceKPIs(
 
     return api.get<SchoolAttendanceKPI>(
         `/api/v1/attendance/kpis/school?${searchParams.toString()}`
+    );
+}
+
+// ─── Class Attendance Breakdown ────────────────────────────────────────────
+
+/**
+ * Per-class Present/Late/Absent rollup returned by
+ * GET /api/v1/attendance/class-term/breakdown.
+ *
+ * Backend contract: backend/internal/attendance/repository.go —
+ * ListClassAttendanceBreakdowns. Items are ordered by absent count
+ * descending so high-absenteeism classes surface first (truancy / chronic
+ * absenteeism watch).
+ */
+export interface ClassAttendanceBreakdownItem {
+    class_id: string;
+    class_name: string;
+    total_enrolled_avg: number;
+    present_count: number;
+    late_count: number;
+    absent_count: number;
+    excused_count: number;
+    term_attendance_rate: number;
+}
+
+/** Wrapper returned by GET /api/v1/attendance/class-term/breakdown. */
+export interface ClassAttendanceBreakdownList {
+    items: ClassAttendanceBreakdownItem[];
+    total: number;
+}
+
+/**
+ * Fetch per-class Present/Late/Absent counts for a school term.
+ *
+ * @param termId Academic term id (UUID) — the term to aggregate
+ *               (class_term_attendance_summaries are per class × term).
+ */
+export async function getClassAttendanceBreakdowns(
+    termId: string
+): Promise<ClassAttendanceBreakdownList> {
+    const searchParams = new URLSearchParams({ academic_term_id: termId });
+
+    return api.get<ClassAttendanceBreakdownList>(
+        `/api/v1/attendance/class-term/breakdown?${searchParams.toString()}`
     );
 }

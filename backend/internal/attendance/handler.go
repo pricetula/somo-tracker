@@ -57,6 +57,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 
 	// Class term attendance summaries
 	classTerm := router.Group("/api/v1/attendance/class-term")
+	classTerm.Get("/breakdown", middleware.RequireAuth, h.ListClassAttendanceBreakdowns)
 	classTerm.Get("/class/:class_id/term/:term_id", middleware.RequireAuth, h.GetClassTermAttendanceSummary)
 	classTerm.Get("/term/:term_id", middleware.RequireAuth, h.ListClassTermAttendanceSummaries)
 	classTerm.Post("/class/:class_id/term/:term_id/refresh", middleware.RequireAuth, h.RefreshClassTermAttendanceSummary)
@@ -528,6 +529,37 @@ func (h *Handler) ListClassTermAttendanceSummaries(c *fiber.Ctx) error {
 
 	result, err := h.svc.ListClassTermAttendanceSummaries(c.Context(), tenantID, schoolID,
 		c.Query("class_id"), c.Params("term_id"))
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(result)
+}
+
+// ListClassAttendanceBreakdowns handles GET /api/v1/attendance/class-term/breakdown.
+//
+// Query params:
+//   - academic_term_id (UUID, required) — the term to aggregate
+//     (class_term_attendance_summaries are per class × term).
+//
+// tenant_id and school_id are resolved from the authenticated local context.
+// Returns per-class Present/Late/Absent counts ordered by absent_count
+// descending so high-absenteeism classes surface first.
+func (h *Handler) ListClassAttendanceBreakdowns(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.attMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	termID := c.Query("academic_term_id")
+	if termID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "academic_term_id is required",
+		})
+	}
+
+	result, err := h.svc.ListClassAttendanceBreakdowns(c.Context(), tenantID, schoolID, termID)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}

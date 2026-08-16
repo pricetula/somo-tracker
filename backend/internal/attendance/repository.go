@@ -1175,6 +1175,54 @@ func (r *pgRepository) ListClassTermAttendanceSummaries(ctx context.Context, ten
 	return results, nil
 }
 
+// ListClassAttendanceBreakdowns returns per-class Present/Late/Absent counts
+// for a school in a term, LEFT JOINing cbc_classes so every class appears even
+// when its term summary has not been materialised yet (COALESCE to zero).
+// Ordered by absent_count DESC NULLS LAST — high-absenteeism classes first.
+func (r *pgRepository) ListClassAttendanceBreakdowns(ctx context.Context, tenantID, schoolID, termID string) ([]ClassAttendanceBreakdownItem, error) {
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, `
+		SELECT
+			c.id AS class_id,
+			c.grade_level || ' ' || COALESCE(st.name, '') AS class_name,
+			COALESCE(ctas.total_enrolled_avg, 0) AS total_enrolled_avg,
+			COALESCE(ctas.present_count, 0) AS present_count,
+			COALESCE(ctas.late_count, 0) AS late_count,
+			COALESCE(ctas.absent_count, 0) AS absent_count,
+			COALESCE(ctas.excused_count, 0) AS excused_count,
+			COALESCE(ctas.term_attendance_rate, 0.00) AS term_attendance_rate
+		FROM cbc_classes c
+		LEFT JOIN cbc_streams st ON st.tenant_id = c.tenant_id AND st.id = c.stream_id
+		LEFT JOIN class_term_attendance_summaries ctas
+			ON c.tenant_id = ctas.tenant_id
+			AND c.id = ctas.class_id
+			AND ctas.academic_term_id = $3
+		WHERE c.tenant_id = $1
+		  AND c.school_id = $2
+		ORDER BY ctas.absent_count DESC NULLS LAST
+	`, tenantID, schoolID, termID)
+	if err != nil {
+		return nil, fmt.Errorf("attendance.Repository.ListClassAttendanceBreakdowns: %w", err)
+	}
+	defer rows.Close()
+
+	var results []ClassAttendanceBreakdownItem
+	for rows.Next() {
+		var item ClassAttendanceBreakdownItem
+		if err := rows.Scan(
+			&item.ClassID, &item.ClassName, &item.TotalEnrolledAvg,
+			&item.PresentCount, &item.LateCount, &item.AbsentCount,
+			&item.ExcusedCount, &item.TermAttendanceRate,
+		); err != nil {
+			return nil, fmt.Errorf("attendance.Repository.ListClassAttendanceBreakdowns: scan: %w", err)
+		}
+		results = append(results, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("attendance.Repository.ListClassAttendanceBreakdowns: rows: %w", err)
+	}
+	return results, nil
+}
+
 // ── School Attendance KPIs ──────────────────────────────────────────────
 
 func (r *pgRepository) GetSchoolAttendanceKPIs(ctx context.Context, tenantID, schoolID, date, termID string) (*SchoolAttendanceKPI, error) {

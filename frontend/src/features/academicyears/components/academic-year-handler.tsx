@@ -44,19 +44,19 @@ export function AcademicYearHandler() {
     }, [academicTerm]);
 
     return (
-        <section className="w-75">
+        <section className="w-64">
             <div className="text-muted-foreground mb-2 text-xs">{academicYear?.name}</div>
             <div className="mb-4">{academicTerm?.name}</div>
 
-            <div className="mb-4 flex justify-between text-xs">
+            <Progress
+                value={selectedAcademicTermPercentageProgress}
+                className="mb-2 [&>div]:bg-green-500"
+            />
+
+            <div className="flex justify-between text-xs">
                 <span>{formatDate(academicTerm?.start_date || "")}</span>
                 <span>{formatDate(academicTerm?.end_date || "")}</span>
             </div>
-
-            <Progress
-                value={selectedAcademicTermPercentageProgress}
-                className="[&>div]:bg-green-500"
-            />
         </section>
     );
 }

@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
-export default function FinanceBulkInviteSlot() {
+export default function FinanceAddSlot() {
     const router = useRouter();
 
     const handleClose = () => {

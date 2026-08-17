@@ -73,7 +73,7 @@ export default function TeachersPage() {
 
     return (
         <DataTable<TeacherMember, ListTeachersParams, ListTeachersResponse>
-            addHref="/teachers/bulk-invite"
+            addHref="/teachers/add"
             queryKey={["teachers"]}
             queryFn={listTeachers}
             params={{}}

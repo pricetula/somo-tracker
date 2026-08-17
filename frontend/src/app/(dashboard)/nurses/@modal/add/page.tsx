@@ -13,11 +13,11 @@ import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
-export default function TeachersBulkInviteSlot() {
+export default function NursesAddSlot() {
     const router = useRouter();
 
     const handleClose = () => {
-        router.push("/teachers");
+        router.push("/nurses");
     };
 
     return (
@@ -29,15 +29,15 @@ export default function TeachersBulkInviteSlot() {
         >
             <DialogContent className="w-full max-w-md">
                 <DialogHeader>
-                    <DialogTitle>Invite Teachers</DialogTitle>
+                    <DialogTitle>Invite Nurses</DialogTitle>
                     <DialogDescription>
-                        Upload CSV or manually enter email addresses to invite new teachers.
+                        Upload CSV or manually enter email addresses to invite new nurses.
                     </DialogDescription>
                 </DialogHeader>
-                <BulkInviteForm role="TEACHER" />
+                <BulkInviteForm role="NURSE" />
                 <div className="mt-4 flex justify-end">
                     <Button variant="outline" onClick={handleClose}>
-                        <ArrowLeft className="mr-2 h-4 w-4" /> Back to Teachers
+                        <ArrowLeft className="mr-2 h-4 w-4" /> Back to Nurses
                     </Button>
                 </div>
             </DialogContent>

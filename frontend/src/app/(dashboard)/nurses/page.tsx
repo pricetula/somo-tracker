@@ -58,7 +58,7 @@ export default function NursesPage() {
 
     return (
         <DataTable<Member, ListNursesParams, ListMembersResponse>
-            addHref="/nurses/bulk-invite"
+            addHref="/nurses/add"
             queryKey={["nurses"]}
             queryFn={listNurses}
             params={{}}

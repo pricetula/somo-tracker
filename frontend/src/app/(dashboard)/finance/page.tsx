@@ -58,7 +58,7 @@ export default function FinancePage() {
 
     return (
         <DataTable<Member, ListFinanceStaffParams, ListMembersResponse>
-            addHref="/finance/bulk-invite"
+            addHref="/finance/add"
             queryKey={["finance"]}
             queryFn={listFinanceStaff}
             params={{}}

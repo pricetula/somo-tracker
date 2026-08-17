@@ -58,7 +58,7 @@ export default function ParentsPage() {
 
     return (
         <DataTable<Parent, ListParentsParams, ListParentsResponse>
-            addHref="/parents/bulk-invite"
+            addHref="/parents/add"
             queryKey={["parents"]}
             queryFn={listParents}
             params={{}}

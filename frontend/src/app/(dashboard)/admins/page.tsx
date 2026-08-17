@@ -58,7 +58,7 @@ export default function AdminsPage() {
 
     return (
         <DataTable<Member, ListAdminsParams, ListMembersResponse>
-            addHref="/admins/bulk-invite"
+            addHref="/admins/add"
             queryKey={["admins"]}
             queryFn={listAdmins}
             params={{}}

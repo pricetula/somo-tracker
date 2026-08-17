@@ -1,11 +1,5 @@
-import FinancePage from "../page";
+import { FinanceInvitePage } from "@/features/members";
 
-/**
- * Children slot for `/finance/add`.
- *
- * Renders the exact same listing page as `/finance` while the `@modal` slot
- * overlays the BulkInviteForm dialog on top.
- */
-export default function FinanceAddPage() {
-    return <FinancePage />;
+export default function FinanceInviteRoute() {
+    return <FinanceInvitePage />;
 }

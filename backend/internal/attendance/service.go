@@ -473,6 +473,24 @@ func (s *Service) ListClassAttendanceBreakdowns(ctx context.Context, tenantID, s
 	return &ClassAttendanceBreakdownListResponse{Items: items, Total: len(items)}, nil
 }
 
+// ListLearningAreaBreakdowns returns per-learning-area Present/Absent/Excused
+// period counts for the School Administrator dashboard grouped bar chart,
+// aggregated across all classes and sorted by absent period count descending
+// so the highest-absenteeism subjects surface first (truancy hotspot watch).
+func (s *Service) ListLearningAreaBreakdowns(ctx context.Context, tenantID, schoolID, termID string) (*LearningAreaAttendanceBreakdownListResponse, error) {
+	if termID == "" {
+		return nil, fmt.Errorf("attendance.Service.ListLearningAreaBreakdowns: academic_term_id is required: %w", ErrInvalidInput)
+	}
+	items, err := s.repo.ListLearningAreaBreakdowns(ctx, tenantID, schoolID, termID)
+	if err != nil {
+		return nil, fmt.Errorf("attendance.Service.ListLearningAreaBreakdowns: %w", err)
+	}
+	if items == nil {
+		items = []LearningAreaAttendanceBreakdownItem{}
+	}
+	return &LearningAreaAttendanceBreakdownListResponse{Items: items, Total: len(items)}, nil
+}
+
 // ── School Attendance KPIs ──────────────────────────────────────────────
 
 // GetSchoolAttendanceKPIs returns macro-level attendance KPIs for the School

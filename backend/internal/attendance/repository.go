@@ -1223,6 +1223,60 @@ func (r *pgRepository) ListClassAttendanceBreakdowns(ctx context.Context, tenant
 	return results, nil
 }
 
+// ListLearningAreaBreakdowns returns per-learning-area Present/Absent/Excused
+// period counts for a school in a term, aggregated across all classes via
+// cbc_learning_areas LEFT JOIN class_learning_area_term_summaries. Learning
+// areas with no summaries in the term still surface with zeroed counts
+// (LEFT JOIN), and the whole set is ordered by periods_absent DESC so the
+// highest-absenteeism subjects — the truancy/disengagement hotspot watch —
+// appear first in the School Administrator dashboard grouped bar chart.
+func (r *pgRepository) ListLearningAreaBreakdowns(ctx context.Context, tenantID, schoolID, termID string) ([]LearningAreaAttendanceBreakdownItem, error) {
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, `
+		SELECT
+			l.id AS learning_area_id,
+			l.name AS learning_area_name,
+			COALESCE(SUM(lts.periods_total), 0)::INT AS periods_total,
+			COALESCE(SUM(lts.periods_present), 0)::INT AS periods_present,
+			COALESCE(SUM(lts.periods_absent), 0)::INT AS periods_absent,
+			COALESCE(SUM(lts.periods_excused), 0)::INT AS periods_excused,
+			CASE
+				WHEN SUM(lts.periods_total) > 0
+				THEN ROUND((SUM(lts.periods_present)::NUMERIC / SUM(lts.periods_total)) * 100, 2)
+				ELSE 0.00
+			END AS attendance_percentage
+		FROM cbc_learning_areas l
+		LEFT JOIN class_learning_area_term_summaries lts
+			ON l.tenant_id = lts.tenant_id
+			AND l.id = lts.learning_area_id
+			AND lts.academic_term_id = $3
+		WHERE l.tenant_id = $1
+		  AND l.school_id = $2
+		GROUP BY l.id, l.name
+		ORDER BY periods_absent DESC NULLS LAST
+	`, tenantID, schoolID, termID)
+	if err != nil {
+		return nil, fmt.Errorf("attendance.Repository.ListLearningAreaBreakdowns: %w", err)
+	}
+	defer rows.Close()
+
+	var results []LearningAreaAttendanceBreakdownItem
+	for rows.Next() {
+		var item LearningAreaAttendanceBreakdownItem
+		if err := rows.Scan(
+			&item.LearningAreaID, &item.LearningAreaName,
+			&item.PeriodsTotal, &item.PeriodsPresent, &item.PeriodsAbsent,
+			&item.PeriodsExcused, &item.AttendancePercentage,
+		); err != nil {
+			return nil, fmt.Errorf("attendance.Repository.ListLearningAreaBreakdowns: scan: %w", err)
+		}
+		results = append(results, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("attendance.Repository.ListLearningAreaBreakdowns: rows: %w", err)
+	}
+	return results, nil
+}
+
 // ── School Attendance KPIs ──────────────────────────────────────────────
 
 func (r *pgRepository) GetSchoolAttendanceKPIs(ctx context.Context, tenantID, schoolID, date, termID string) (*SchoolAttendanceKPI, error) {

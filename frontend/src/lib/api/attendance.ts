@@ -99,3 +99,48 @@ export async function getClassAttendanceBreakdowns(
         `/api/v1/attendance/class-term/breakdown?${searchParams.toString()}`
     );
 }
+
+// ─── Learning Area Attendance Breakdown ────────────────────────────────────
+
+/**
+ * Per-learning-area Present/Absent/Excused period rollup returned by
+ * GET /api/v1/attendance/class-learning-area/breakdown.
+ *
+ * Backend contract: backend/internal/attendance/repository.go —
+ * ListLearningAreaBreakdowns. Periods are aggregated across all classes in
+ * the school; items are ordered by periods_absent descending so subjects
+ * with the highest truancy / absenteeism surface first (hotspot watch).
+ */
+export interface LearningAreaAttendanceBreakdownItem {
+    learning_area_id: string;
+    learning_area_name: string;
+    periods_total: number;
+    periods_present: number;
+    periods_absent: number;
+    periods_excused: number;
+    attendance_percentage: number;
+}
+
+/** Wrapper returned by GET /api/v1/attendance/class-learning-area/breakdown. */
+export interface LearningAreaAttendanceBreakdownList {
+    items: LearningAreaAttendanceBreakdownItem[];
+    total: number;
+}
+
+/**
+ * Fetch per-learning-area Present/Absent/Excused period counts for a school
+ * term, aggregated across all classes.
+ *
+ * @param termId Academic term id (UUID) — the term to aggregate
+ *               (class_learning_area_term_summaries are per class × learning
+ *               area × term).
+ */
+export async function getLearningAreaAttendanceBreakdowns(
+    termId: string
+): Promise<LearningAreaAttendanceBreakdownList> {
+    const searchParams = new URLSearchParams({ academic_term_id: termId });
+
+    return api.get<LearningAreaAttendanceBreakdownList>(
+        `/api/v1/attendance/class-learning-area/breakdown?${searchParams.toString()}`
+    );
+}

@@ -367,6 +367,35 @@ type ClassAttendanceBreakdownListResponse struct {
 	Total int                            `json:"total"`
 }
 
+// ─── Learning Area Attendance Breakdown (School Admin Dashboard) ─────────
+
+// LearningAreaAttendanceBreakdownItem is the per-learning-area Present/Absent/
+// Excused rollup for the School Administrator dashboard grouped bar chart. It
+// is a read-only view model assembled from cbc_learning_areas LEFT JOIN
+// class_learning_area_term_summaries aggregated across all classes in the
+// school (per the CQRS read-model rule — no cross-domain Go imports).
+//
+// PeriodsAbsent is surfaced first-class because it is the critical metric for
+// tracking truancy and disengagement per subject; the endpoint orders by it
+// descending so learning areas with the highest absenteeism appear at the top
+// of the chart.
+type LearningAreaAttendanceBreakdownItem struct {
+	LearningAreaID       string  `json:"learning_area_id"`
+	LearningAreaName     string  `json:"learning_area_name"`
+	PeriodsTotal         int     `json:"periods_total"`
+	PeriodsPresent       int     `json:"periods_present"`
+	PeriodsAbsent        int     `json:"periods_absent"`
+	PeriodsExcused       int     `json:"periods_excused"`
+	AttendancePercentage float64 `json:"attendance_percentage"`
+}
+
+// LearningAreaAttendanceBreakdownListResponse wraps a list of learning area
+// attendance breakdown items.
+type LearningAreaAttendanceBreakdownListResponse struct {
+	Items []LearningAreaAttendanceBreakdownItem `json:"items"`
+	Total int                                   `json:"total"`
+}
+
 // ─── School Attendance KPIs ──────────────────────────────────────────────
 
 // SchoolAttendanceKPI is the macro-level school attendance view model for the
@@ -495,6 +524,12 @@ type Repository interface {
 	// for a school in a term (class names included), ordered by absent count
 	// descending so the highest-absenteeism classes surface first.
 	ListClassAttendanceBreakdowns(ctx context.Context, tenantID, schoolID, termID string) ([]ClassAttendanceBreakdownItem, error)
+
+	// ListLearningAreaBreakdowns returns per-learning-area present/absent/excused
+	// period counts for a school in a term, aggregated across all classes
+	// (learning area names included), ordered by absent period count descending
+	// so the highest-absenteeism subjects surface first (truancy hotspot watch).
+	ListLearningAreaBreakdowns(ctx context.Context, tenantID, schoolID, termID string) ([]LearningAreaAttendanceBreakdownItem, error)
 
 	// ── Calendar Status ───────────────────────────────────────────────
 

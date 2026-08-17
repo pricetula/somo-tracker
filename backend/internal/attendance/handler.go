@@ -51,6 +51,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 
 	// Class learning area term summaries
 	classLA := router.Group("/api/v1/attendance/class-learning-area")
+	classLA.Get("/breakdown", middleware.RequireAuth, h.ListLearningAreaBreakdowns)
 	classLA.Get("/class/:class_id/term/:term_id", middleware.RequireAuth, h.ListClassLearningAreaTermSummaries)
 	classLA.Get("/class/:class_id/learning-area/:learning_area_id/term/:term_id", middleware.RequireAuth, h.GetClassLearningAreaTermSummary)
 	classLA.Post("/class/:class_id/term/:term_id/refresh", middleware.RequireAuth, h.RefreshClassLearningAreaTermSummary)
@@ -560,6 +561,38 @@ func (h *Handler) ListClassAttendanceBreakdowns(c *fiber.Ctx) error {
 	}
 
 	result, err := h.svc.ListClassAttendanceBreakdowns(c.Context(), tenantID, schoolID, termID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(result)
+}
+
+// ListLearningAreaBreakdowns handles GET /api/v1/attendance/class-learning-area/breakdown.
+//
+// Query params:
+//   - academic_term_id (UUID, required) — the term to aggregate
+//     (class_learning_area_term_summaries are per class × learning area × term).
+//
+// tenant_id and school_id are resolved from the authenticated local context.
+// Returns per-learning-area Present/Absent/Excused period counts aggregated
+// across all classes, ordered by periods_absent descending so the
+// highest-absenteeism subjects surface first (truancy hotspot watch).
+func (h *Handler) ListLearningAreaBreakdowns(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.attMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	termID := c.Query("academic_term_id")
+	if termID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "academic_term_id is required",
+		})
+	}
+
+	result, err := h.svc.ListLearningAreaBreakdowns(c.Context(), tenantID, schoolID, termID)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}

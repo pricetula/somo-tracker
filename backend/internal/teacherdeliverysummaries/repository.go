@@ -114,6 +114,53 @@ func (r *pgRepository) GetByTeacherTerm(ctx context.Context, userID, termID stri
 	return &s, nil
 }
 
+// ListDeliveryBreakdown returns per-teacher Marked vs. Missed slot counts
+// for a school in a term, JOINing users so teacher names and TSC numbers are
+// available for the School Administrator dashboard grouped bar chart.
+// Ordered by missed_slots DESC NULLS LAST — chronic non-compliant teachers
+// first (compliance risk watch).
+func (r *pgRepository) ListDeliveryBreakdown(ctx context.Context, tenantID, schoolID, termID string) ([]TeacherDeliveryBreakdownItem, error) {
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, `
+		SELECT
+			tds.user_id AS teacher_id,
+			u.full_name AS teacher_name,
+			u.tsc_number,
+			COALESCE(tds.total_assigned_slots, 0) AS total_assigned_slots,
+			COALESCE(tds.marked_slots, 0) AS marked_slots,
+			COALESCE(tds.missed_slots, 0) AS missed_slots,
+			COALESCE(tds.on_time_submission_rate, 0.00) AS on_time_submission_rate
+		FROM teacher_delivery_summaries tds
+		JOIN users u
+			ON tds.tenant_id = u.tenant_id
+			AND tds.user_id = u.id
+		WHERE tds.tenant_id = $1
+		  AND tds.school_id = $2
+		  AND tds.academic_term_id = $3
+		ORDER BY tds.missed_slots DESC NULLS LAST
+	`, tenantID, schoolID, termID)
+	if err != nil {
+		return nil, fmt.Errorf("teacherdeliverysummaries.Repository.ListDeliveryBreakdown: %w", err)
+	}
+	defer rows.Close()
+
+	var results []TeacherDeliveryBreakdownItem
+	for rows.Next() {
+		var item TeacherDeliveryBreakdownItem
+		if err := rows.Scan(
+			&item.TeacherID, &item.TeacherName, &item.TSCNumber,
+			&item.TotalAssignedSlots, &item.MarkedSlots, &item.MissedSlots,
+			&item.OnTimeSubmissionRate,
+		); err != nil {
+			return nil, fmt.Errorf("teacherdeliverysummaries.Repository.ListDeliveryBreakdown: scan: %w", err)
+		}
+		results = append(results, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("teacherdeliverysummaries.Repository.ListDeliveryBreakdown: rows: %w", err)
+	}
+	return results, nil
+}
+
 // scanSummaries scans rows into a slice of TeacherDeliverySummary.
 func scanSummaries(rows pgx.Rows) ([]TeacherDeliverySummary, error) {
 	var summaries []TeacherDeliverySummary

@@ -11,10 +11,11 @@ import (
 // ============================================================================
 
 type MockRepository struct {
-	refreshComputationFn func(ctx context.Context, termID string) error
-	listByTeacherFn      func(ctx context.Context, tenantID, schoolID, userID, termID string) (*DeliverySummaryListResponse, error)
-	listByTermFn         func(ctx context.Context, tenantID, schoolID, termID string) (*DeliverySummaryListResponse, error)
-	getByTeacherTermFn   func(ctx context.Context, userID, termID string) (*TeacherDeliverySummary, error)
+	refreshComputationFn    func(ctx context.Context, termID string) error
+	listByTeacherFn         func(ctx context.Context, tenantID, schoolID, userID, termID string) (*DeliverySummaryListResponse, error)
+	listByTermFn            func(ctx context.Context, tenantID, schoolID, termID string) (*DeliverySummaryListResponse, error)
+	getByTeacherTermFn      func(ctx context.Context, userID, termID string) (*TeacherDeliverySummary, error)
+	listDeliveryBreakdownFn func(ctx context.Context, tenantID, schoolID, termID string) ([]TeacherDeliveryBreakdownItem, error)
 }
 
 func (m *MockRepository) RefreshComputation(ctx context.Context, termID string) error {
@@ -43,6 +44,13 @@ func (m *MockRepository) GetByTeacherTerm(ctx context.Context, userID, termID st
 		return m.getByTeacherTermFn(ctx, userID, termID)
 	}
 	return &TeacherDeliverySummary{UserID: userID, AcademicTermID: termID}, nil
+}
+
+func (m *MockRepository) ListDeliveryBreakdown(ctx context.Context, tenantID, schoolID, termID string) ([]TeacherDeliveryBreakdownItem, error) {
+	if m.listDeliveryBreakdownFn != nil {
+		return m.listDeliveryBreakdownFn(ctx, tenantID, schoolID, termID)
+	}
+	return []TeacherDeliveryBreakdownItem{}, nil
 }
 
 // ============================================================================
@@ -294,4 +302,124 @@ func TestGetByTeacherTerm_NotFound(t *testing.T) {
 	if !errors.Is(err, ErrNotFound) {
 		t.Fatalf("expected ErrNotFound, got %v", err)
 	}
+}
+
+// ============================================================================
+// Tests: ListDeliveryBreakdown
+// ============================================================================
+
+func TestListDeliveryBreakdown_HappyPath(t *testing.T) {
+	h := newTestHarness()
+
+	expected := []TeacherDeliveryBreakdownItem{
+		{
+			TeacherID:          "teacher_002",
+			TeacherName:        "Teacher Two",
+			TSCNumber:          strPtr("TSC-0002"),
+			TotalAssignedSlots: 150,
+			MarkedSlots:        145,
+			MissedSlots:        5,
+		},
+		{
+			TeacherID:          "teacher_001",
+			TeacherName:        "Teacher One",
+			TSCNumber:          nil,
+			TotalAssignedSlots: 180,
+			MarkedSlots:        172,
+			MissedSlots:        8,
+		},
+	}
+
+	h.repo.listDeliveryBreakdownFn = func(ctx context.Context, tenantID, schoolID, termID string) ([]TeacherDeliveryBreakdownItem, error) {
+		if tenantID != "tenant_001" {
+			t.Errorf("expected tenant_001, got %q", tenantID)
+		}
+		if schoolID != "school_001" {
+			t.Errorf("expected school_001, got %q", schoolID)
+		}
+		if termID != "term_001" {
+			t.Errorf("expected term_001, got %q", termID)
+		}
+		return expected, nil
+	}
+
+	result, err := h.svc.ListDeliveryBreakdown(context.Background(), "tenant_001", "school_001", "term_001")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Total != 2 {
+		t.Fatalf("expected 2 items, got %d", result.Total)
+	}
+	if result.Items[0].TeacherName != "Teacher Two" {
+		t.Fatalf("expected Teacher Two first, got %q", result.Items[0].TeacherName)
+	}
+	if result.Items[0].MissedSlots != 5 {
+		t.Fatalf("expected 5 missed slots, got %d", result.Items[0].MissedSlots)
+	}
+}
+
+func TestListDeliveryBreakdown_EmptyItems(t *testing.T) {
+	h := newTestHarness()
+
+	h.repo.listDeliveryBreakdownFn = func(ctx context.Context, tenantID, schoolID, termID string) ([]TeacherDeliveryBreakdownItem, error) {
+		return nil, nil
+	}
+
+	result, err := h.svc.ListDeliveryBreakdown(context.Background(), "tenant_001", "school_001", "term_001")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected non-nil response, got nil")
+	}
+	if result.Total != 0 || len(result.Items) != 0 {
+		t.Fatalf("expected empty items, got total=%d items=%d", result.Total, len(result.Items))
+	}
+}
+
+func TestListDeliveryBreakdown_EmptyInputs(t *testing.T) {
+	h := newTestHarness()
+
+	tests := []struct {
+		name     string
+		tenantID string
+		schoolID string
+		termID   string
+	}{
+		{"empty tenant_id", "", "school_001", "term_001"},
+		{"empty school_id", "tenant_001", "", "term_001"},
+		{"empty term_id", "tenant_001", "school_001", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := h.svc.ListDeliveryBreakdown(context.Background(), tt.tenantID, tt.schoolID, tt.termID)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !errors.Is(err, ErrInvalidInput) {
+				t.Fatalf("expected ErrInvalidInput, got %v", err)
+			}
+		})
+	}
+}
+
+func TestListDeliveryBreakdown_RepoError(t *testing.T) {
+	h := newTestHarness()
+
+	h.repo.listDeliveryBreakdownFn = func(ctx context.Context, tenantID, schoolID, termID string) ([]TeacherDeliveryBreakdownItem, error) {
+		return nil, ErrNotFound
+	}
+
+	_, err := h.svc.ListDeliveryBreakdown(context.Background(), "tenant_001", "school_001", "term_001")
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !errors.Is(err, ErrNotFound) {
+		t.Fatalf("expected ErrNotFound, got %v", err)
+	}
+}
+
+func strPtr(s string) *string {
+	return &s
 }

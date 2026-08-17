@@ -40,6 +40,7 @@ type MockRepository struct {
 	listClassTermAttendanceSummariesFn    func(ctx context.Context, tenantID, schoolID, classID, termID string) ([]ClassTermAttendanceSummary, error)
 	refreshClassTermAttendanceSummaryFn   func(ctx context.Context, tenantID, schoolID, termID, classID string) error
 	listClassAttendanceBreakdownsFn       func(ctx context.Context, tenantID, schoolID, termID string) ([]ClassAttendanceBreakdownItem, error)
+	listLearningAreaBreakdownsFn          func(ctx context.Context, tenantID, schoolID, termID string) ([]LearningAreaAttendanceBreakdownItem, error)
 	getSchoolAttendanceKPIsFn             func(ctx context.Context, tenantID, schoolID, date, termID string) (*SchoolAttendanceKPI, error)
 }
 
@@ -238,6 +239,13 @@ func (m *MockRepository) ListClassAttendanceBreakdowns(ctx context.Context, tena
 		return m.listClassAttendanceBreakdownsFn(ctx, tenantID, schoolID, termID)
 	}
 	return []ClassAttendanceBreakdownItem{}, nil
+}
+
+func (m *MockRepository) ListLearningAreaBreakdowns(ctx context.Context, tenantID, schoolID, termID string) ([]LearningAreaAttendanceBreakdownItem, error) {
+	if m.listLearningAreaBreakdownsFn != nil {
+		return m.listLearningAreaBreakdownsFn(ctx, tenantID, schoolID, termID)
+	}
+	return []LearningAreaAttendanceBreakdownItem{}, nil
 }
 
 func (m *MockRepository) GetSchoolAttendanceKPIs(ctx context.Context, tenantID, schoolID, date, termID string) (*SchoolAttendanceKPI, error) {
@@ -1246,6 +1254,109 @@ func TestListClassAttendanceBreakdowns_NilToEmptySlice(t *testing.T) {
 	}
 
 	resp, err := h.svc.ListClassAttendanceBreakdowns(context.Background(), "tenant_001", "school_001", "term_001")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Total != 0 || resp.Items == nil || len(resp.Items) != 0 {
+		t.Fatalf("expected empty non-nil items, got %+v", resp)
+	}
+}
+
+// ============================================================================
+// Tests: ListLearningAreaBreakdowns
+// ============================================================================
+
+func TestListLearningAreaBreakdowns_HappyPath(t *testing.T) {
+	h := newTestHarness()
+
+	expected := []LearningAreaAttendanceBreakdownItem{
+		{
+			LearningAreaID:       "la_002",
+			LearningAreaName:     "English",
+			PeriodsTotal:         120,
+			PeriodsPresent:       90,
+			PeriodsAbsent:        25,
+			PeriodsExcused:       5,
+			AttendancePercentage: 75.00,
+		},
+		{
+			LearningAreaID:       "la_001",
+			LearningAreaName:     "Mathematics",
+			PeriodsTotal:         180,
+			PeriodsPresent:       160,
+			PeriodsAbsent:        12,
+			PeriodsExcused:       8,
+			AttendancePercentage: 88.89,
+		},
+	}
+	h.repo.listLearningAreaBreakdownsFn = func(ctx context.Context, tenantID, schoolID, termID string) ([]LearningAreaAttendanceBreakdownItem, error) {
+		if tenantID != "tenant_001" {
+			t.Errorf("expected tenant_001, got %q", tenantID)
+		}
+		if schoolID != "school_001" {
+			t.Errorf("expected school_001, got %q", schoolID)
+		}
+		if termID != "term_001" {
+			t.Errorf("expected term_001, got %q", termID)
+		}
+		return expected, nil
+	}
+
+	resp, err := h.svc.ListLearningAreaBreakdowns(context.Background(), "tenant_001", "school_001", "term_001")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp == nil {
+		t.Fatal("expected response, got nil")
+	}
+	if resp.Total != len(expected) {
+		t.Fatalf("expected total %d, got %d", len(expected), resp.Total)
+	}
+	if len(resp.Items) != 2 || resp.Items[0].LearningAreaName != "English" {
+		t.Fatalf("expected repo result passthrough, got %+v", resp.Items)
+	}
+	if resp.Items[0].PeriodsAbsent != 25 {
+		t.Fatalf("expected 25 absent periods, got %d", resp.Items[0].PeriodsAbsent)
+	}
+}
+
+func TestListLearningAreaBreakdowns_EmptyTermID(t *testing.T) {
+	h := newTestHarness()
+
+	_, err := h.svc.ListLearningAreaBreakdowns(context.Background(), "tenant_001", "school_001", "")
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput, got %v", err)
+	}
+}
+
+func TestListLearningAreaBreakdowns_RepoErrorWrapped(t *testing.T) {
+	h := newTestHarness()
+
+	repoErr := errors.New("db down")
+	h.repo.listLearningAreaBreakdownsFn = func(ctx context.Context, tenantID, schoolID, termID string) ([]LearningAreaAttendanceBreakdownItem, error) {
+		return nil, repoErr
+	}
+
+	_, err := h.svc.ListLearningAreaBreakdowns(context.Background(), "tenant_001", "school_001", "term_001")
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !errors.Is(err, repoErr) {
+		t.Fatalf("expected repo error to be wrapped and preserved, got %v", err)
+	}
+}
+
+func TestListLearningAreaBreakdowns_NilToEmptySlice(t *testing.T) {
+	h := newTestHarness()
+
+	h.repo.listLearningAreaBreakdownsFn = func(ctx context.Context, tenantID, schoolID, termID string) ([]LearningAreaAttendanceBreakdownItem, error) {
+		return nil, nil
+	}
+
+	resp, err := h.svc.ListLearningAreaBreakdowns(context.Background(), "tenant_001", "school_001", "term_001")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

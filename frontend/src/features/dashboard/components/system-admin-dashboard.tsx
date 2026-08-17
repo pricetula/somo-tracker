@@ -2,7 +2,12 @@
 
 import React from "react";
 import { AcademicYearHandler } from "@/features/academicyears/components/academic-year-handler";
-import { ClassAttendanceBreakdownChart, SchoolAttendanceKPIs } from "@/features/attendance";
+import {
+    ClassAttendanceBreakdownChart,
+    LearningAreaAbsenteeismChart,
+    SchoolAttendanceKPIs,
+} from "@/features/attendance";
+import { TeacherComplianceChart } from "@/features/teacher-delivery";
 import { UserCount } from "./user-count";
 
 export function SystemAdminDashboardPage() {
@@ -14,6 +19,8 @@ export function SystemAdminDashboardPage() {
             </header>
             <SchoolAttendanceKPIs />
             <ClassAttendanceBreakdownChart />
+            <LearningAreaAbsenteeismChart />
+            <TeacherComplianceChart />
             {/* The selected academic year id and term id can be used elsewhere in the dashboard */}
         </article>
     );

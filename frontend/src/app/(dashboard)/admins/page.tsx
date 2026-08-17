@@ -10,11 +10,8 @@ import {
     type ListMembersResponse,
 } from "@/lib/api/admins";
 import { Trash2, Edit } from "lucide-react";
-import { useRouter } from "next/navigation";
 
 export default function AdminsPage() {
-    const router = useRouter();
-
     const columns = [
         { id: "email", header: "Email", cell: (row: Member) => row.email },
         { id: "full_name", header: "Name", cell: (row: Member) => row.full_name },
@@ -60,25 +57,17 @@ export default function AdminsPage() {
     ];
 
     return (
-        <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <h1 className="text-xl font-semibold">Admins</h1>
-                <Button variant="outline" onClick={() => router.push("/admins/bulk-invite")}>
-                    Bulk Invite
-                </Button>
-            </div>
-
-            <DataTable<Member, ListAdminsParams, ListMembersResponse>
-                queryKey={["admins"]}
-                queryFn={listAdmins}
-                params={{}}
-                columns={columns}
-                getRowId={(row) => row.id}
-                isSearchable
-                searchPlaceholder="Search admins..."
-                isCheckable
-                deleteFn={(id) => deleteAdmin(String(id))}
-            />
-        </div>
+        <DataTable<Member, ListAdminsParams, ListMembersResponse>
+            addHref="/admins/bulk-invite"
+            queryKey={["admins"]}
+            queryFn={listAdmins}
+            params={{}}
+            columns={columns}
+            getRowId={(row) => row.id}
+            isSearchable
+            searchPlaceholder="Search admins..."
+            isCheckable
+            deleteFn={(id) => deleteAdmin(String(id))}
+        />
     );
 }

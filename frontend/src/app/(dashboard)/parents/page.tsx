@@ -10,11 +10,8 @@ import {
     type ListParentsResponse,
 } from "@/lib/api/parents";
 import { Trash2, Edit } from "lucide-react";
-import { useRouter } from "next/navigation";
 
 export default function ParentsPage() {
-    const router = useRouter();
-
     const columns = [
         { id: "email", header: "Email", cell: (row: Parent) => row.email },
         { id: "full_name", header: "Name", cell: (row: Parent) => row.full_name },
@@ -60,25 +57,17 @@ export default function ParentsPage() {
     ];
 
     return (
-        <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <h1 className="text-xl font-semibold">Parents</h1>
-                <Button variant="outline" onClick={() => router.push("/parents/bulk-invite")}>
-                    Bulk Invite
-                </Button>
-            </div>
-
-            <DataTable<Parent, ListParentsParams, ListParentsResponse>
-                queryKey={["parents"]}
-                queryFn={listParents}
-                params={{}}
-                columns={columns}
-                getRowId={(row) => row.id}
-                isSearchable
-                searchPlaceholder="Search parents..."
-                isCheckable
-                deleteFn={(id) => deleteParent(String(id))}
-            />
-        </div>
+        <DataTable<Parent, ListParentsParams, ListParentsResponse>
+            addHref="/parents/bulk-invite"
+            queryKey={["parents"]}
+            queryFn={listParents}
+            params={{}}
+            columns={columns}
+            getRowId={(row) => row.id}
+            isSearchable
+            searchPlaceholder="Search parents..."
+            isCheckable
+            deleteFn={(id) => deleteParent(String(id))}
+        />
     );
 }

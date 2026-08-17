@@ -10,11 +10,8 @@ import {
     type ListMembersResponse,
 } from "@/lib/api/finance";
 import { Trash2, Edit } from "lucide-react";
-import { useRouter } from "next/navigation";
 
 export default function FinancePage() {
-    const router = useRouter();
-
     const columns = [
         { id: "email", header: "Email", cell: (row: Member) => row.email },
         { id: "full_name", header: "Name", cell: (row: Member) => row.full_name },
@@ -60,25 +57,17 @@ export default function FinancePage() {
     ];
 
     return (
-        <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <h1 className="text-xl font-semibold">Finance Staff</h1>
-                <Button variant="outline" onClick={() => router.push("/finance/bulk-invite")}>
-                    Bulk Invite
-                </Button>
-            </div>
-
-            <DataTable<Member, ListFinanceStaffParams, ListMembersResponse>
-                queryKey={["finance"]}
-                queryFn={listFinanceStaff}
-                params={{}}
-                columns={columns}
-                getRowId={(row) => row.id}
-                isSearchable
-                searchPlaceholder="Search finance staff..."
-                isCheckable
-                deleteFn={(id) => deleteFinanceStaff(String(id))}
-            />
-        </div>
+        <DataTable<Member, ListFinanceStaffParams, ListMembersResponse>
+            addHref="/finance/bulk-invite"
+            queryKey={["finance"]}
+            queryFn={listFinanceStaff}
+            params={{}}
+            columns={columns}
+            getRowId={(row) => row.id}
+            isSearchable
+            searchPlaceholder="Search finance staff..."
+            isCheckable
+            deleteFn={(id) => deleteFinanceStaff(String(id))}
+        />
     );
 }

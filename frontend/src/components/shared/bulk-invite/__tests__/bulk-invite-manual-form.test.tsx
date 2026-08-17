@@ -15,10 +15,15 @@ import { BulkInviteManualForm } from "../bulk-invite-manual-form";
 
 const mockSubmitBulkInvite = vi.hoisted(() => vi.fn());
 const mockGetImportAlreadyInProgress = vi.hoisted(() => vi.fn());
+const mockGetActiveImportJob = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/api/invitations", () => ({
     submitBulkInvite: (...args: unknown[]) => mockSubmitBulkInvite(...args),
     getImportAlreadyInProgress: (...args: unknown[]) => mockGetImportAlreadyInProgress(...args),
+}));
+
+vi.mock("@/lib/api/imports", () => ({
+    getActiveImportJob: (...args: unknown[]) => mockGetActiveImportJob(...args),
 }));
 
 const mockToast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
@@ -444,10 +449,14 @@ describe("BulkInviteManualForm", () => {
 
     // ── Import already in progress ─────────────────────────────────────
 
-    it("calls onJobCreated when import_already_in_progress error is returned", async () => {
+    it("calls onJobCreated with the active job's total records when import_already_in_progress", async () => {
         const apiError = new Error("An import is already in progress");
         mockSubmitBulkInvite.mockRejectedValue(apiError);
         mockGetImportAlreadyInProgress.mockReturnValue("existing-job-999");
+        mockGetActiveImportJob.mockResolvedValue({
+            active: true,
+            job: { id: "existing-job-999", total_records: 7 },
+        });
 
         const onJobCreated = vi.fn();
         const { user } = renderForm({ onJobCreated });
@@ -459,6 +468,25 @@ describe("BulkInviteManualForm", () => {
         await waitFor(() => {
             expect(mockGetImportAlreadyInProgress).toHaveBeenCalledWith(apiError);
         });
+
+        await waitFor(() => {
+            // Uses the real active job's total (7), not this batch's count (1)
+            expect(onJobCreated).toHaveBeenCalledWith("existing-job-999", 7);
+        });
+    });
+
+    it("falls back to the batch count when the active job lookup fails", async () => {
+        const apiError = new Error("An import is already in progress");
+        mockSubmitBulkInvite.mockRejectedValue(apiError);
+        mockGetImportAlreadyInProgress.mockReturnValue("existing-job-999");
+        mockGetActiveImportJob.mockRejectedValue(new Error("network"));
+
+        const onJobCreated = vi.fn();
+        const { user } = renderForm({ onJobCreated });
+
+        await fillRow(user, "existing@school.com");
+
+        await user.click(screen.getByRole("button", { name: /invite 1/i }));
 
         await waitFor(() => {
             expect(onJobCreated).toHaveBeenCalledWith("existing-job-999", 1);

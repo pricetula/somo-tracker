@@ -51,7 +51,6 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	parents.Get("/", middleware.RequireAuth, h.List)
 	parents.Get("/me", middleware.RequireAuth, h.GetMyProfile)
 	parents.Post("/invite", middleware.RequireAuth, h.BulkInvite)
-	parents.Post("/import", middleware.RequireAuth, h.BulkImport)
 	parents.Get("/:id", middleware.RequireAuth, h.GetDetail)
 	parents.Put("/:id", middleware.RequireAuth, h.Update)
 	parents.Delete("/", middleware.RequireAuth, h.Delete)
@@ -217,18 +216,6 @@ func (h *Handler) BulkInvite(c *fiber.Ctx) error {
 		TotalChunks:  resp.TotalChunks,
 		Status:       string(resp.Status),
 		IsReplay:     resp.IsReplay,
-	})
-}
-
-// ============================================================================
-// BULK IMPORT (legacy — deprecated)
-// ============================================================================
-
-// BulkImport handles POST /api/v1/parents/import (kept for backward compatibility).
-func (h *Handler) BulkImport(c *fiber.Ctx) error {
-	return c.Status(fiber.StatusNotImplemented).JSON(fiber.Map{
-		"code":    "not_implemented",
-		"message": "Bulk import for parents is not yet implemented. Use /api/v1/parents/invite instead.",
 	})
 }
 

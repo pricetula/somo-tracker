@@ -14,19 +14,21 @@ import type { TeacherMember, ListTeachersResponse } from "./generated";
 
 export type { TeacherMember, ListTeachersResponse };
 
+// ─── Params Types ──────────────────────────────────────────────────────────
+
+export interface ListTeachersParams {
+    page?: number;
+    limit?: number;
+    search?: string;
+    include_inactive?: boolean;
+    /** Filter values keyed by FilterItem id, e.g. { education_level: ["Early_Years"], grade_level: ["G1", "G2"] } */
+    filters?: Record<string, string[]>;
+}
+
 // ─── API Functions ─────────────────────────────────────────────────────────
 
 /** List teachers with extended fields (TSC, KNEC, teacher_role). */
-export async function listTeachers(
-    params: {
-        page?: number;
-        limit?: number;
-        search?: string;
-        include_inactive?: boolean;
-        /** Filter values keyed by FilterItem id, e.g. { education_level: ["Early_Years"], grade_level: ["G1", "G2"] } */
-        filters?: Record<string, string[]>;
-    } = {}
-): Promise<ListTeachersResponse> {
+export async function listTeachers(params: ListTeachersParams = {}): Promise<ListTeachersResponse> {
     const searchParams = new URLSearchParams();
 
     // Pass multi-value filter params

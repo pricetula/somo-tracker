@@ -13,12 +13,19 @@ import type { Member, ListMembersResponse } from "./generated";
 
 export type { Member, ListMembersResponse };
 
+// ─── Params Types ──────────────────────────────────────────────────────────
+
+export interface ListNursesParams {
+    page?: number;
+    limit?: number;
+    search?: string;
+    include_inactive?: boolean;
+}
+
 // ─── API Functions ─────────────────────────────────────────────────────────
 
 /** List active nurses (NURSE role). */
-export async function listNurses(
-    params: { page?: number; limit?: number; search?: string; include_inactive?: boolean } = {}
-): Promise<ListMembersResponse> {
+export async function listNurses(params: ListNursesParams = {}): Promise<ListMembersResponse> {
     const searchParams = new URLSearchParams({ role: "NURSE" });
     if (params.page) searchParams.set("page", String(params.page));
     if (params.limit) searchParams.set("limit", String(params.limit));

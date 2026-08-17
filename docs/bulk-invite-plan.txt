@@ -1,0 +1,129 @@
+# Bulk Invite Planning Prompt (Updated)
+
+## Overview
+Create a set of listing pages (`/admins`, `/teachers`, `/finance`, `/nurses`, `/parents`, `/students`) that:
+- Display a searchable, filterable DataTable.
+- Each page uses the shared `DataTable` and `BulkInviteForm` components.
+- Provides a parallel route for bulk inviting users (e.g., `/admins/bulk-invite`).
+- Includes row‑level actions (edit / delete) with multi‑select checkboxes for bulk delete.
+
+## Page Structure & Filter Details
+| Page | URL | Primary Filters (UI) | API Filter Query Parameters |
+|------|-----|----------------------|-----------------------------|
+| **Admins** | `/admins` | • Role dropdown (Admin only) <br>• Status toggle (Active / Inactive) <br>• Global search (debounced) | `role=admin` <br>`status=active|inactive` <br>`search=term` |
+| **Teachers** | `/teachers` | • Role dropdown (Teacher) <br>• Class / Subject dropdown <br>• Status toggle <br>• Global search | `role=teacher` <br>`class=value` <br>`subject=value` <br>`status=active|inactive` <br>`search=term` |
+| **Finance** | `/finance` | • Department dropdown <br>• Role dropdown (Accountant / Analyst) <br>• Status toggle <br>• Global search | `department=value` <br>`role=accountant|analyst` <br>`status=active|inactive` <br>`search=term` |
+| **Nurses** | `/nurses` | • Unit / Department dropdown <br>• Role dropdown (Staff / Manager) <br>• Status toggle <br>• Global search | `unit=value` <br>`role=staff|manager` <br>`status=active|inactive` <br>`search=term` |
+| **Parents** | `/parents` | • Student selector (searchable) <br>• Status toggle <br>• Relationship dropdown <br>• Global search | `studentId=value` <br>`status=active|inactive` <br>`relationship=value` <br>`search=term` |
+| **Students** | `/students` | • Grade dropdown <br>• Class / Section dropdown <br>• Status toggle <br>• Global search (multi‑field) | `grade=value` <br>`class=value` <br>`status=active|inactive` <br>`search=term` |
+
+### Common UI Elements (applies to all pages)
+- **Header**: Page title + back link.
+- **Search Bar**: Global, debounced input that updates the DataTable filter state and URL query string.
+- **Filter Controls**: Context‑specific dropdowns/toggles placed above the table; each maps to the API filter parameters listed above.
+- **DataTable**:
+  - **Columns**: Configurable per page (e.g., `email`, `name`, `role`, `status`, `createdAt`, plus page‑specific fields such as `class`, `grade`, `department`, etc.).
+  - **Checkbox Column**: A select‑all checkbox followed by a checkbox per row; supports multi‑select for bulk actions.
+  - **Action Column**: Contains an **Edit** icon (✏️) and a **Delete** icon (🗑️) per row. Clicking **Edit** navigates to an edit form; clicking **Delete** either deletes the single row or triggers a bulk‑delete confirmation.
+  - **Row Selection**: Multi‑checkbox enables selecting multiple rows; a bulk‑action toolbar appears (e.g., “Delete 2 rows”, “Edit 2 rows”).
+- **Bulk Invite Button**: FAB that opens the `BulkInviteForm` modal.
+- **BulkInviteForm**: Accepts CSV upload or JSON array; pre‑populates the role based on the URL parameter (`:role`) when opened from a parallel route.
+
+## Parallel Route
+- **Pattern**: `/:role/bulk-invite` (e.g., `/admins/bulk-invite`).
+- Renders the same listing page but automatically opens the `BulkInviteForm` modal.
+- Passes the `:role` param to the form to pre‑select the appropriate role.
+
+## API Endpoints
+| Method | Endpoint | Request Body | Success Response | Error Handling |
+|--------|----------|--------------|------------------|----------------|
+| `GET`  | `/api/:role` | Query params: `search`, `role`, `status`, `department`, `unit`, `class`, `grade`, `studentId`, `relationship`, etc. | `{ data: [...], total: number, page: number, pageSize: number }` | Canonical error JSON (`code`, `message`, `errors`). |
+| `POST` | `/api/:role/bulk-invite` | MultipartFormData (`file`) **or** JSON array (`users`) | `{ code: "success", message: "Invite(s) sent", errors: {} }` | Same canonical error format. |
+| `GET`  | `/api/:role/:id` | – | `{ data: { …user‑object… } }` | Same canonical error format. |
+| `PUT`  | `/api/:role/:id` | JSON object with updated fields (validated per role) | `{ code: "success", message: "User updated", errors: {} }` | Same canonical error format. |
+| `DELETE` | `/api/:role/:id` | – | `{ code: "success", message: "User deleted", errors: {} }` | Same canonical error format. |
+| `POST` | `/api/:role/delete` | JSON array of IDs (`[{ id: 1 }, { id: 2 }, …]`) | `{ code: "success", message: "Selected users deleted", errors: {} }` | Same canonical error format. |
+
+### Backend Implementation Notes
+- **GET**: Parse query parameters, validate them per role, and forward to the data‑source layer (e.g., Prisma, Sequelize). Return paginated results with total count.
+- **DELETE (single)**: Authenticate admin/role, verify ownership, then delete the record. Return success/error JSON.
+- **DELETE (bulk)**: Accept array of IDs, validate each, delete in transaction, log audit entries, return success/error JSON.
+- **PUT**: Validate payload per role (e.g., allowed fields for admins vs teachers), update the record, return success/error JSON.
+- **Bulk Invite**: Re‑use existing validation logic; ensure CSV/JSON schemas are role‑specific. Log the operation before processing.
+- **Error Handling**: All non‑2xx responses must be transformed to the canonical error JSON shape (refer to `frontend/AGENTS.md`).
+
+### Frontend Implementation Notes
+- **Row Actions**:
+  - Render **Edit** and **Delete** icons in the DataTable action column.
+  - **Edit**: Navigate to `/:role/:id/edit` (or open a modal with the edit form). The form re‑uses the same field schema as the create form but pre‑populated.
+  - **Delete** (single): Show a confirmation dialog; on confirm, call `DELETE /api/:role/:id`.
+  - **Delete** (bulk): Use the multi‑checkbox state; collect selected IDs, call `POST /api/:role/delete` with the array, show toast on success/failure.
+- **Multi‑Select Checkbox**:
+  - Implement a “select all” checkbox that toggles all row checkboxes.
+  - Toolbar appears when ≥1 row is selected (e.g., “Delete 2 rows”, “Edit 2 rows”). Toolbar calls the appropriate API endpoint.
+- **Filter Hook**:
+  - `useFilters` reads URL query params, updates local filter state, and triggers a refetch of the DataTable.
+  - Debounce the global search input (e.g., 300 ms) to avoid excessive requests.
+- **Bulk Invite Form**:
+  - When opened via the parallel route, read the `:role` param and set the form’s hidden role field.
+  - Validate CSV/JSON client‑side (type‑checking, required fields) before sending.
+- **Error Handling**:
+  - Wrap all API calls with a utility that maps backend error codes to the canonical JSON shape (refer to `frontend/AGENTS.md`).
+  - Show toast notifications for success and error messages; keep UI consistent across pages.
+- **Testing**:
+  - Unit tests for filter logic, row‑action handlers, bulk‑delete payload validation.
+  - Integration tests for DataTable filtering, edit/delete flows, bulk‑invite form submission.
+  - End‑to‑end tests (Playwright) covering full page life‑cycle: filter → select rows → bulk delete → confirm.
+
+## Steps to Implement
+1. **Create/Update Route Files**  
+   - Add page components (`src/pages/:role.tsx`).  
+   - Add parallel route component (`BulkInvite.tsx`) that reads `:role` and opens the modal automatically.  
+   - Ensure each page imports the shared `DataTable` component and passes role‑specific column definitions.
+
+2. **DataTable Configuration**  
+   - Define a `getColumns(role)` function that returns the column array for the given role, including the checkbox column and action column.  
+   - Integrate row‑selection state (e.g., using React context or a custom hook).  
+   - Wire the “Edit” button to navigate to an edit route or open an edit modal; wire “Delete” to single‑row or bulk‑delete actions.
+
+3. **Filter Implementation**  
+   - Extend the existing `useFilters` hook to parse all possible filter query parameters per role.  
+   - Sync filter state with URL query parameters for deep linking and back‑button behavior.  
+   - Ensure the DataTable receives the filtered dataset from the API.
+
+4. **API Service Updates**  
+   - Add `src/lib/api/users.ts` (or similar) with methods:  
+     - `fetchUsers(role, filters)` → GET `/api/:role` with query params.  
+     - `deleteUser(id)` → DELETE `/api/:role/:id`.  
+     - `bulkDelete(ids)` → POST `/api/:role/delete` with IDs array.  
+     - `updateUser(id, payload)` → PUT `/api/:role/:id`.  
+     - `bulkInvite(role, payload)` → POST `/api/:role/bulk-invite`.  
+   - Implement request/response handling to conform to the canonical error contract.
+
+5. **Bulk Invite Form Enhancements**  
+   - Add role pre‑selection based on URL param.  
+   - Provide inline validation messages for CSV/JSON fields.  
+   - Show a progress indicator while the invite is being processed.
+
+6. **Testing**  
+   - Write unit tests for each API method (validation, success, error cases).  
+   - Write component tests for the DataTable actions (edit, delete, bulk delete).  
+   - Write e2e tests that verify:  
+     - Filtering updates the table and URL.  
+     - Multi‑select checkboxes enable bulk delete and show correct confirmation.  
+     - Edit flow navigates correctly and persists changes.  
+     - Bulk invite flow works from the parallel route.
+
+7. **Documentation**  
+   - Update `frontend/AGENTS.md` with new error codes (if any) and describe the bulk‑delete API.  
+   - Add a `README.md` in `/docs` summarizing the bulk‑invite and row‑action workflow for future contributors.
+
+## References
+- **Error contract**: `internal/middleware/errors.go` (backend) & `src/lib/api/client.ts` (frontend).  
+- **UI components**: `pure-shadcn` skill (`/Users/pricetula/Projects/somo-tracker/.pi/skills/pure-shadcn/SKILL.md`).  
+- **DataTable usage**: existing listing pages in `frontend/src/pages`.  
+- **API design**: follow the patterns established in `backend/AGENTS.md` for CRUD operations.
+
+---
+
+*End of updated plan.*

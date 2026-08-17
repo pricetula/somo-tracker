@@ -13,11 +13,20 @@ import type { Member, ListMembersResponse } from "./generated";
 
 export type { Member, ListMembersResponse };
 
+// ─── Params Types ──────────────────────────────────────────────────────────
+
+export interface ListFinanceStaffParams {
+    page?: number;
+    limit?: number;
+    search?: string;
+    include_inactive?: boolean;
+}
+
 // ─── API Functions ─────────────────────────────────────────────────────────
 
 /** List active finance staff (FINANCE role). */
 export async function listFinanceStaff(
-    params: { page?: number; limit?: number; search?: string; include_inactive?: boolean } = {}
+    params: ListFinanceStaffParams = {}
 ): Promise<ListMembersResponse> {
     const searchParams = new URLSearchParams({ role: "FINANCE" });
     if (params.page) searchParams.set("page", String(params.page));

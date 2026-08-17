@@ -8,7 +8,6 @@ export function FinanceInviteDialog() {
             role="FINANCE"
             title="Invite Finance Staff"
             description="Upload CSV or manually enter email addresses to invite new finance staff."
-            closeHref="/finance"
         />
     );
 }

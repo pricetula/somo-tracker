@@ -8,7 +8,6 @@ export function NursesInviteDialog() {
             role="NURSE"
             title="Invite Nurses"
             description="Upload CSV or manually enter email addresses to invite new nurses."
-            closeHref="/nurses"
         />
     );
 }

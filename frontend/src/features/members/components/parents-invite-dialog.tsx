@@ -8,7 +8,6 @@ export function ParentsInviteDialog() {
             role="PARENT"
             title="Invite Parents"
             description="Upload CSV or manually enter email addresses to invite new parents."
-            closeHref="/parents"
         />
     );
 }

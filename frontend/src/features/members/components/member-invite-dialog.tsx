@@ -15,8 +15,6 @@ interface MemberInviteDialogProps {
     role: InviteRole;
     title: string;
     description: string;
-    /** Where to navigate when the dialog is dismissed. */
-    closeHref: string;
 }
 
 /**
@@ -27,23 +25,14 @@ interface MemberInviteDialogProps {
  * client-side navigation. On a hard navigation/refresh the intercept is not
  * matched and the full-page variant renders instead.
  */
-export function MemberInviteDialog({
-    role,
-    title,
-    description,
-    closeHref,
-}: MemberInviteDialogProps) {
+export function MemberInviteDialog({ role, title, description }: MemberInviteDialogProps) {
     const router = useRouter();
-
-    const handleClose = () => {
-        router.push(closeHref);
-    };
 
     return (
         <Dialog
             open
-            onOpenChange={(next) => {
-                if (!next) handleClose();
+            onOpenChange={() => {
+                router.back();
             }}
         >
             <DialogContent className="w-full max-w-md">

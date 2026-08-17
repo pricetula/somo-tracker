@@ -8,7 +8,6 @@ export function AdminsInviteDialog() {
             role="SCHOOL_ADMIN"
             title="Invite Admins"
             description="Upload CSV or manually enter email addresses to invite new admins."
-            closeHref="/admins"
         />
     );
 }

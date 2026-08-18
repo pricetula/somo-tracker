@@ -1,60 +1,70 @@
 "use client";
 
+import Link from "next/link";
 import { DataTable } from "@/components/shared/data-table/data-table";
-import { Button } from "@/components/ui/button";
+import type { DataTableColumn } from "@/components/shared/data-table/types";
 import {
     listAdmins,
-    deleteAdmin,
     type Member,
     type ListAdminsParams,
     type ListMembersResponse,
 } from "@/lib/api/admins";
-import { Trash2, Edit } from "lucide-react";
+import { RowActions } from "@/components/shared/data-table/row-actions";
+import { Badge } from "@/components/ui/badge";
+import { InvitationCountBadge } from "@/features/invitations";
+import { useDeleteAdmin } from "@/features/admin";
 
-export function AdminsPage() {
-    const columns = [
-        { id: "email", header: "Email", cell: (row: Member) => row.email },
-        { id: "full_name", header: "Name", cell: (row: Member) => row.full_name },
-        { id: "role", header: "Role", cell: (row: Member) => row.role },
+function createColumns(
+    deleteMutation: ReturnType<typeof useDeleteAdmin>
+): DataTableColumn<Member>[] {
+    return [
+        {
+            id: "full_name",
+            header: "Full Name",
+            cell: (row) => <Link href={`/admins/${row.id}`}>{row.full_name || "—"}</Link>,
+        },
+        {
+            id: "email",
+            header: "Email",
+            cell: (row) => <span className="text-muted-foreground">{row.email}</span>,
+        },
         {
             id: "is_active",
             header: "Status",
-            cell: (row: Member) => (row.is_active ? "Active" : "Inactive"),
-        },
-        {
-            id: "created_at",
-            header: "Created At",
-            cell: (row: Member) => new Date(row.created_at).toLocaleDateString(),
+            width: "100px",
+            cell: (row) => (
+                <Badge
+                    variant="secondary"
+                    className={
+                        row.is_active
+                            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                            : "bg-muted text-muted-foreground"
+                    }
+                >
+                    {row.is_active ? "Active" : "Inactive"}
+                </Badge>
+            ),
         },
         {
             id: "actions",
-            header: "Actions",
-            cell: (row: Member) => (
-                <div className="flex items-center gap-2">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => alert(`Edit ${row.full_name}`)}
-                    >
-                        <Edit className="size-3" />
-                    </Button>
-                    <Button
-                        variant="destructive"
-                        size="icon"
-                        onClick={() => {
-                            if (window.confirm(`Delete ${row.full_name}?`)) {
-                                deleteAdmin(row.id).catch((err) =>
-                                    alert(`Failed to delete: ${err}`)
-                                );
-                            }
-                        }}
-                    >
-                        <Trash2 className="size-3" />
-                    </Button>
-                </div>
+            header: "",
+            width: "48px",
+            align: "right",
+            cell: (row) => (
+                <RowActions
+                    rowId={row.id}
+                    label={row.full_name ?? row.email}
+                    onDelete={() => deleteMutation.mutate(row.id)}
+                    disabled={deleteMutation.isPending}
+                />
             ),
         },
     ];
+}
+
+export function AdminsPage() {
+    const deleteMutation = useDeleteAdmin();
+    const columns = createColumns(deleteMutation);
 
     return (
         <DataTable<Member, ListAdminsParams, ListMembersResponse>
@@ -67,7 +77,16 @@ export function AdminsPage() {
             isSearchable
             searchPlaceholder="Search admins..."
             isCheckable
-            deleteFn={(id) => deleteAdmin(String(id))}
+            deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
+            emptyState="No admins yet."
+            noResultsState="No admins match your search."
+            renderToolBarComponents={() => (
+                <InvitationCountBadge
+                    key="invitation-count"
+                    role="SCHOOL_ADMIN"
+                    href="/admins/invitations"
+                />
+            )}
         />
     );
 }

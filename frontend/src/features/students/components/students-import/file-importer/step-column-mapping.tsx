@@ -1,10 +1,5 @@
 "use client";
 
-/**
- * StepColumnMapping — map file columns to invitation fields.
- * Matches the student import StepColumnMapping pattern (Popover/Command combobox).
- */
-
 import * as React from "react";
 import { ArrowRight, Check, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -29,6 +24,10 @@ interface StepColumnMappingProps {
 
 // ─── Smart matching helper ────────────────────────────────────────────────
 
+/**
+ * Find the best-matching source header for a target key.
+ * Returns the first exact case-insensitive match, then fallback to smart dict.
+ */
 function smartMatchTarget(headers: string[], targetKey: string): string | null {
     const variants = SMART_MATCH_DICT[targetKey];
     if (!variants) return null;
@@ -51,6 +50,10 @@ function smartMatchTarget(headers: string[], targetKey: string): string | null {
     return null;
 }
 
+/**
+ * Break full_name into its constituent column parts (for multi-combobox).
+ * e.g. "Jina la kwanza" + "Jina la pili" → ["Jina la kwanza", "Jina la pili"]
+ */
 // ─── Component ────────────────────────────────────────────────────────────
 
 export function StepColumnMapping({
@@ -59,6 +62,7 @@ export function StepColumnMapping({
     onBack,
     initialMappings,
 }: StepColumnMappingProps) {
+    // Compute auto-mapped initial state (done once when component mounts)
     const computedInitial = React.useMemo(() => {
         if (initialMappings) return initialMappings;
 
@@ -77,6 +81,12 @@ export function StepColumnMapping({
                 (h) =>
                     h.toLowerCase().includes("first") || h.toLowerCase().includes("jina la kwanza")
             );
+            const middleIdx = headers.findIndex(
+                (h) =>
+                    h.toLowerCase().includes("middle") ||
+                    h.toLowerCase().includes("jina la kati") ||
+                    h.toLowerCase().includes("jina la pili")
+            );
             const lastNameIdx = headers.findIndex(
                 (h) =>
                     h.toLowerCase().includes("last") ||
@@ -86,6 +96,7 @@ export function StepColumnMapping({
 
             const parts: string[] = [];
             if (firstNameIdx !== -1) parts.push(headers[firstNameIdx]);
+            if (middleIdx !== -1) parts.push(headers[middleIdx]);
             if (lastNameIdx !== -1) parts.push(headers[lastNameIdx]);
 
             if (parts.length >= 2) {
@@ -96,6 +107,7 @@ export function StepColumnMapping({
         return autoMapped;
     }, [headers, initialMappings]);
 
+    // mappings: target_key -> source_header (or array for multi-select)
     const [mappings, setMappings] =
         React.useState<Record<string, string | string[]>>(computedInitial);
 
@@ -106,6 +118,7 @@ export function StepColumnMapping({
             const current = prev[targetKey];
 
             if (targetKey === "full_name") {
+                // Multi-select behavior for full_name
                 const currentArr = Array.isArray(current) ? current : current ? [current] : [];
                 const next = currentArr.includes(header)
                     ? currentArr.filter((h) => h !== header)
@@ -139,13 +152,13 @@ export function StepColumnMapping({
         [mappings, isFullNameSelected]
     );
 
-    // email must be mapped — gatekeeper
+    // full_name must be mapped — gatekeeper
     const canProceed = React.useMemo(() => {
-        const email = mappings.email;
-        if (!email) return false;
-        if (Array.isArray(email)) return email.length > 0;
-        return email.length > 0;
-    }, [mappings.email]);
+        const fn = mappings.full_name;
+        if (!fn) return false;
+        if (Array.isArray(fn)) return fn.length > 0;
+        return fn.length > 0;
+    }, [mappings.full_name]);
 
     const handleNext = React.useCallback(() => {
         onMappingComplete(mappings);
@@ -168,8 +181,8 @@ export function StepColumnMapping({
             <div>
                 <h3 className="font-medium">Map File Columns</h3>
                 <p className="text-muted-foreground mt-1 text-xs">
-                    Match your file columns to the invitation fields below. Only &ldquo;Email&rdquo;
-                    is required.
+                    Match your file columns to the student fields below. Only &ldquo;Full
+                    Name&rdquo; is required.
                 </p>
             </div>
 
@@ -207,13 +220,13 @@ export function StepColumnMapping({
                                     )}
                                 >
                                     <span className="truncate">
-                                        {getMappingDisplay(field.target_key) || "Select column..."}
+                                        {getMappingDisplay(field.target_key) || `Select column...`}
                                     </span>
                                     <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
                                 </Button>
                             </PopoverTrigger>
                             <PopoverContent
-                                className="w-(--base-ui-popover-trigger-width) p-0"
+                                className="w-(--radix-popover-trigger-width) p-0"
                                 align="start"
                                 sideOffset={4}
                             >
@@ -279,7 +292,7 @@ export function StepColumnMapping({
                     Back
                 </Button>
                 <Button size="sm" onClick={handleNext} disabled={!canProceed}>
-                    Next: Review Records
+                    Next: Resolve Classes
                 </Button>
             </div>
         </div>

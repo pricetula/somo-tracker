@@ -1,5 +1,5 @@
-import { StudentsPage } from "@/features/members";
+import { StudentsList } from "@/features/students";
 
 export default function StudentsRoute() {
-    return <StudentsPage />;
+    return <StudentsList />;
 }

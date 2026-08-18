@@ -2,6 +2,7 @@
 
 import React from "react";
 import { TrendingUp, TrendingDown } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import {
     Combobox,
     ComboboxContent,
@@ -27,6 +28,35 @@ import {
     type ChartConfig,
 } from "@/components/ui/chart";
 import { SvgNumberTicker } from "@/components/shared/svg-ticker";
+
+function TrendIndicator({ percentageChange }: { percentageChange: number }) {
+    return (
+        // mode="wait" ensures the exiting icon finishes animating out BEFORE the new icon animates in
+        <AnimatePresence mode="wait">
+            {percentageChange > 0 ? (
+                <motion.div
+                    key="trending-up" // Unique key is REQUIRED for Framer Motion to detect the switch
+                    initial={{ opacity: 0, scale: 0.5, y: 5 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.5, y: -5 }}
+                    transition={{ duration: 0.3 }}
+                >
+                    <TrendingUp size={16} className="text-teal-500" />
+                </motion.div>
+            ) : (
+                <motion.div
+                    key="trending-down" // Unique key is REQUIRED for Framer Motion to detect the switch
+                    initial={{ opacity: 0, scale: 0.5, y: -5 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.5, y: 5 }}
+                    transition={{ duration: 0.3 }}
+                >
+                    <TrendingDown size={16} className="text-rose-500" />
+                </motion.div>
+            )}
+        </AnimatePresence>
+    );
+}
 
 const data = {
     academic_year: "2026",
@@ -208,7 +238,7 @@ export function AttendanceSummary() {
     return (
         <Card className="flex flex-col">
             <CardHeader className="items-center pb-0">
-                <CardTitle>Attendance distribution {data?.academic_year}</CardTitle>
+                <CardTitle>Attendance {data?.academic_year}</CardTitle>
                 <CardAction className="text-xs">
                     <Combobox
                         id="summary-group-combobox"
@@ -218,7 +248,7 @@ export function AttendanceSummary() {
                     >
                         <ComboboxInput
                             placeholder="Select a framework"
-                            className="max-w-38 text-xs"
+                            className="max-w-34 text-xs"
                         />
                         <ComboboxContent>
                             <ComboboxEmpty>No items found.</ComboboxEmpty>
@@ -357,11 +387,7 @@ export function AttendanceSummary() {
                 <div className="flex items-center gap-2 leading-none font-medium">
                     Trending {percentageChange > 0 ? "up" : "down"} by{" "}
                     {Math.abs(percentageChange).toFixed(1)}% this term{" "}
-                    {percentageChange > 0 ? (
-                        <TrendingUp size={16} className="text-teal-500" />
-                    ) : (
-                        <TrendingDown size={16} className="text-rose-500" />
-                    )}
+                    <TrendIndicator percentageChange={percentageChange} />
                 </div>
                 <div className="text-muted-foreground leading-none">
                     Showing attendance distribution across terms

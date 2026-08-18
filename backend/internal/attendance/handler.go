@@ -70,6 +70,9 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	// School attendance KPIs (School Administrator dashboard)
 	kpis := router.Group("/api/v1/attendance/kpis")
 	kpis.Get("/school", middleware.RequireAuth, h.GetSchoolAttendanceKPIs)
+
+	// Class term attendance percentages
+	router.Group("/api/v1/attendance").Get("/class-term-percentages", middleware.RequireAuth, h.GetClassTermPercentages)
 }
 
 // attMiddleware extracts common tenant/school context.
@@ -701,6 +704,24 @@ func (h *Handler) GetSchoolAttendanceKPIs(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(kpi)
+}
+
+// GetClassTermPercentages handles GET /api/v1/attendance/class-term-percentages.
+func (h *Handler) GetClassTermPercentages(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.attMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	result, err := h.svc.ListClassTermPercentages(c.Context(), tenantID, schoolID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(fiber.Map{
+		"academic_year": result[0].AcademicYear,
+		"data":          result,
+	})
 }
 
 // countDays returns the number of calendar days between two ISO date strings.

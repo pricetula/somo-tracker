@@ -42,6 +42,7 @@ type MockRepository struct {
 	listClassAttendanceBreakdownsFn       func(ctx context.Context, tenantID, schoolID, termID string) ([]ClassAttendanceBreakdownItem, error)
 	listLearningAreaBreakdownsFn          func(ctx context.Context, tenantID, schoolID, termID string) ([]LearningAreaAttendanceBreakdownItem, error)
 	getSchoolAttendanceKPIsFn             func(ctx context.Context, tenantID, schoolID, date, termID string) (*SchoolAttendanceKPI, error)
+	listClassTermPercentagesFn            func(ctx context.Context, tenantID, schoolID string) ([]ClassTermPercentageItem, error)
 }
 
 func (m *MockRepository) CreateSession(ctx context.Context, tenantID, schoolID string, payload CreateSessionPayload) (*AttendanceSession, error) {
@@ -253,6 +254,16 @@ func (m *MockRepository) GetSchoolAttendanceKPIs(ctx context.Context, tenantID, 
 		return m.getSchoolAttendanceKPIsFn(ctx, tenantID, schoolID, date, termID)
 	}
 	return &SchoolAttendanceKPI{}, nil
+}
+
+// ListClassTermPercentages returns the percentage of attendance statuses (present, absent,
+// excused, late) for each class and term in the current academic year for a school, with a rollup row
+// for "All" classes.
+func (m *MockRepository) ListClassTermPercentages(ctx context.Context, tenantID, schoolID string) ([]ClassTermPercentageItem, error) {
+	if m.listClassTermPercentagesFn != nil {
+		return m.listClassTermPercentagesFn(ctx, tenantID, schoolID)
+	}
+	return []ClassTermPercentageItem{}, nil
 }
 
 // ============================================================================

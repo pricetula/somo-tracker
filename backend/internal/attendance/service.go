@@ -524,6 +524,11 @@ func (s *Service) GetSchoolAttendanceKPIs(ctx context.Context, tenantID, schoolI
 	return kpi, nil
 }
 
+// ListClassTermPercentages returns the percentage of attendance statuses (present, absent, excused, late) for each class and term in the current academic year for a school, with a rollup row for "All" classes.
+func (s *Service) ListClassTermPercentages(ctx context.Context, tenantID, schoolID string) ([]ClassTermPercentageItem, error) {
+	return s.repo.ListClassTermPercentages(ctx, tenantID, schoolID)
+}
+
 // ── Calendar Status ───────────────────────────────────────────────────────
 
 // ComputeDayStatus maps expected/handled counts to a DayStatus.

@@ -1363,5 +1363,86 @@ func (r *pgRepository) GetSchoolAttendanceKPIs(ctx context.Context, tenantID, sc
 	return &kpi, nil
 }
 
+// ListClassTermPercentages returns the percentage of attendance statuses (present, absent,
+// excused, late) for each class and term in the current academic year for a school, with a rollup row
+// for "All" classes.
+func (r *pgRepository) ListClassTermPercentages(ctx context.Context, tenantID, schoolID string) ([]ClassTermPercentageItem, error) {
+	query := `
+		SELECT 
+		    COALESCE(c.name, 'All') AS class_name,
+		    t.name AS term_name,
+		    t.term_number AS term_number,
+		    ay.year_name AS academic_year,
+		    -- Present Percentage
+		    ROUND(
+		        (SUM(ctas.present_count)::NUMERIC / NULLIF(SUM(ctas.present_count + ctas.absent_count + ctas.late_count + ctas.excused_count), 0)) * 100, 
+		        2
+		    ) AS present_percentage,
+		    -- Absent Percentage
+		    ROUND(
+		        (SUM(ctas.absent_count)::NUMERIC / NULLIF(SUM(ctas.present_count + ctas.absent_count + ctas.late_count + ctas.excused_count), 0)) * 100, 
+		        2
+		    ) AS absent_percentage,
+		    -- Excused Percentage
+		    ROUND(
+		        (SUM(ctas.excused_count)::NUMERIC / NULLIF(SUM(ctas.present_count + ctas.absent_count + ctas.late_count + ctas.excused_count), 0)) * 100, 
+		        2
+		    ) AS excused_percentage,
+		    -- Late Percentage
+		    ROUND(
+		        (SUM(ctas.late_count)::NUMERIC / NULLIF(SUM(ctas.present_count + ctas.absent_count + ctas.late_count + ctas.excused_count), 0)) * 100, 
+		        2
+		    ) AS late_percentage
+		FROM 
+		    class_term_attendance_summaries ctas
+		JOIN 
+		    cbc_classes c ON ctas.tenant_id = c.tenant_id AND ctas.class_id = c.id
+		JOIN 
+		    academic_terms t ON ctas.tenant_id = t.tenant_id AND ctas.school_id = t.school_id AND ctas.academic_term_id = t.id
+		JOIN 
+		    academic_years ay ON ctas.tenant_id = ay.tenant_id AND ctas.academic_year_id = ay.id
+		WHERE 
+		    ctas.tenant_id = $1 AND ctas.school_id = $2 AND ay.is_current = TRUE
+		GROUP BY 
+		    ROLLUP (c.name), 
+		    t.name, 
+		    t.term_number,
+		    ay.year_name, 
+		    t.start_date
+		ORDER BY 
+		    (c.name IS NULL) DESC, 
+		    c.name ASC, 
+		    t.term_number ASC;
+	`
+
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, tenantID, schoolID)
+	if err != nil {
+		return nil, fmt.Errorf("attendance.Repository.ListClassTermPercentages: %w", err)
+	}
+	defer rows.Close()
+
+	var results []ClassTermPercentageItem
+	for rows.Next() {
+		var item ClassTermPercentageItem
+		if err := rows.Scan(
+			&item.ClassName,
+			&item.TermName,
+			&item.TermNumber,
+			&item.AcademicYear,
+			&item.PresentPercentage,
+			&item.AbsentPercentage,
+			&item.ExcusedPercentage,
+			&item.LatePercentage,
+		); err != nil {
+			return nil, fmt.Errorf("attendance.Repository.ListClassTermPercentages: scan: %w", err)
+		}
+		results = append(results, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("attendance.Repository.ListClassTermPercentages: rows: %w", err)
+	}
+	return results, nil
+}
+
 // Compile-time check
 var _ Repository = (*pgRepository)(nil)

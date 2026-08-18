@@ -427,6 +427,18 @@ type SchoolAttendanceKPI struct {
 	SkippedSessionsToday int `json:"skipped_sessions_today"`
 }
 
+// ClassTermPercentageItem represents the percentage of attendance statuses for a class and term.
+type ClassTermPercentageItem struct {
+	ClassName         string  `json:"class_name"`
+	TermName          string  `json:"term_name"`
+	TermNumber        int     `json:"term_number"`
+	AcademicYear      string  `json:"academic_year"`
+	PresentPercentage float64 `json:"present_percentage"`
+	AbsentPercentage  float64 `json:"absent_percentage"`
+	ExcusedPercentage float64 `json:"excused_percentage"`
+	LatePercentage    float64 `json:"late_percentage"`
+}
+
 // ─── Repository Interface ─────────────────────────────────────────────────
 
 // Repository defines the contract for attendance persistence.
@@ -545,4 +557,9 @@ type Repository interface {
 	// When termID is empty, the active term containing the date is used; when
 	// no term covers the date, the active-term rate degrades to 0.00.
 	GetSchoolAttendanceKPIs(ctx context.Context, tenantID, schoolID, date, termID string) (*SchoolAttendanceKPI, error)
+
+	// ListClassTermPercentages returns the percentage of attendance statuses (present, absent,
+	// excused, late) for each class and term in the current academic year, with a rollup row
+	// for "All" classes.
+	ListClassTermPercentages(ctx context.Context, tenantID, schoolID string) ([]ClassTermPercentageItem, error)
 }

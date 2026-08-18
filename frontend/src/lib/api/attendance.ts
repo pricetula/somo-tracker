@@ -51,6 +51,21 @@ export async function getSchoolAttendanceKPIs(
     const searchParams = new URLSearchParams({ date });
     if (termId) searchParams.set("term_id", termId);
 
+    return {
+        /** Average daily attendance rate across all classes on the requested date. */
+        todays_attendance_rate: 95,
+        /** Number of PRESENT marks across all classes on the date. */
+        total_present: 450,
+        /** Number of marked records (present + absent + late + excused) on the date. */
+        total_marked_records: 400,
+        /** Average term attendance rate across all classes in the active term. */
+        active_term_attendance_rate: 3,
+        /** Non-break timetable slots for the date with no session record yet. */
+        unmarked_slots_today: 90,
+        /** SKIPPED attendance sessions for the date (cancelled lessons). */
+        skipped_sessions_today: 2,
+    };
+
     return api.get<SchoolAttendanceKPI>(
         `/api/v1/attendance/kpis/school?${searchParams.toString()}`
     );
@@ -95,6 +110,23 @@ export async function getClassAttendanceBreakdowns(
 ): Promise<ClassAttendanceBreakdownList> {
     const searchParams = new URLSearchParams({ academic_term_id: termId });
 
+    const items = Array.from({ length: 5 }).map((_, i) => {
+        return {
+            class_id: "uuid" + i,
+            class_name: `Class ${i} A`,
+            total_enrolled_avg: 20,
+            present_count: 14,
+            late_count: 7,
+            absent_count: 4,
+            excused_count: 2,
+            term_attendance_rate: 10,
+        };
+    });
+    console.log(items);
+    return {
+        items,
+        total: 5,
+    };
     return api.get<ClassAttendanceBreakdownList>(
         `/api/v1/attendance/class-term/breakdown?${searchParams.toString()}`
     );

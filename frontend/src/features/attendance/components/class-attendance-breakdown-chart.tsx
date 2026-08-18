@@ -55,11 +55,7 @@ export function ClassAttendanceBreakdownChart({ termId }: ClassAttendanceBreakdo
     const isResolvingTerm = !termId && currentTermQuery.isPending;
     const loadFailed = isError || currentTermQuery.isError;
 
-    const heading = (
-        <h3 className="text-foreground text-lg font-medium">
-            Class attendance: present vs. late vs. absent breakdown
-        </h3>
-    );
+    const heading = <h3 className="text-foreground font-medium">Attendance spread</h3>;
 
     if (isLoading || isResolvingTerm) {
         return (
@@ -91,7 +87,7 @@ export function ClassAttendanceBreakdownChart({ termId }: ClassAttendanceBreakdo
         return (
             <section className="space-y-4">
                 {heading}
-                <p className="text-muted-foreground text-sm">
+                <p className="text-muted-foreground">
                     No attendance summaries for this term yet. Mark attendance to see the class
                     breakdown here.
                 </p>

@@ -21,9 +21,7 @@ export function SchoolAttendanceKPIs() {
     const today = React.useMemo(() => format(new Date(), "yyyy-MM-dd"), []);
     const { data, isLoading, isError, error } = useSchoolAttendanceKPIs(today);
 
-    const heading = (
-        <h2 className="text-foreground text-lg font-medium">School attendance command center</h2>
-    );
+    const heading = <h2 className="text-foreground font-medium">Attendance summary</h2>;
 
     if (isLoading) {
         return (
@@ -83,14 +81,14 @@ export function SchoolAttendanceKPIs() {
     ];
 
     return (
-        <section className="space-y-4">
+        <section className="mb-10 max-w-sm space-y-4 border-r">
             {heading}
-            <div className="grid grid-cols-2 gap-6 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-6">
                 {stats.map((stat) => (
                     <div key={stat.label} className="flex flex-col gap-1">
-                        <p className="text-foreground text-2xl font-semibold">{stat.value}</p>
-                        <p className="text-muted-foreground text-sm">{stat.label}</p>
-                        <p className={`text-xs ${stat.hintClass}`}>{stat.hint}</p>
+                        <p className="text-foreground font-semibold">{stat.value}</p>
+                        <p className="text-muted-foreground">{stat.label}</p>
+                        <p className={`${stat.hintClass}`}>{stat.hint}</p>
                     </div>
                 ))}
             </div>

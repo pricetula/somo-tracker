@@ -5,7 +5,7 @@
  */
 
 // Components
-export { SchoolAttendanceKPIs } from "./components/school-attendance-kpis";
+export { AttendanceSummary } from "./components/attendance-summary";
 export { ClassAttendanceBreakdownChart } from "./components/class-attendance-breakdown-chart";
 export { LearningAreaAbsenteeismChart } from "./components/learning-area-absenteeism-chart";
 

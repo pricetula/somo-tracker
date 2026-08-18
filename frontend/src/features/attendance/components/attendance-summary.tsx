@@ -1,6 +1,15 @@
 "use client";
 
-import { TrendingUp } from "lucide-react";
+import React from "react";
+import { TrendingUp, TrendingDown } from "lucide-react";
+import {
+    Combobox,
+    ComboboxContent,
+    ComboboxEmpty,
+    ComboboxInput,
+    ComboboxItem,
+    ComboboxList,
+} from "@/components/ui/combobox";
 import { Label, PolarRadiusAxis, RadialBar, RadialBarChart, PolarAngleAxis, Cell } from "recharts";
 
 import {
@@ -17,17 +26,19 @@ import {
     ChartTooltipContent,
     type ChartConfig,
 } from "@/components/ui/chart";
+import { SvgNumberTicker } from "@/components/shared/svg-ticker";
 
-const apiData = {
+const data = {
     academic_year: "2026",
     data: [
         // --- TERM 1 ---
         {
             class_name: "All",
             term_name: "Term 1",
+            term_number: 1,
             academic_year: "2026",
-            present_percentage: 90.0,
-            absent_percentage: 6.0,
+            present_percentage: 92.0,
+            absent_percentage: 4.0,
             excused_percentage: 2.0,
             late_percentage: 2.0,
             days_in_term: 60,
@@ -36,10 +47,23 @@ const apiData = {
         {
             class_name: "Grade 7 North",
             term_name: "Term 1",
+            term_number: 1,
             academic_year: "2026",
             present_percentage: 90.0,
             absent_percentage: 6.0,
             excused_percentage: 2.0,
+            late_percentage: 2.0,
+            days_in_term: 60,
+            total_enrolled_avg: 50,
+        },
+        {
+            class_name: "Grade 7 East",
+            term_name: "Term 1",
+            term_number: 1,
+            academic_year: "2026",
+            present_percentage: 80.0,
+            absent_percentage: 16.0,
+            excused_percentage: 12.0,
             late_percentage: 2.0,
             days_in_term: 60,
             total_enrolled_avg: 50,
@@ -49,6 +73,7 @@ const apiData = {
         {
             class_name: "All",
             term_name: "Term 2",
+            term_number: 2,
             academic_year: "2026",
             present_percentage: 89.5,
             absent_percentage: 6.5,
@@ -60,6 +85,7 @@ const apiData = {
         {
             class_name: "Grade 7 North",
             term_name: "Term 2",
+            term_number: 2,
             academic_year: "2026",
             present_percentage: 91.0,
             absent_percentage: 5.5,
@@ -68,11 +94,24 @@ const apiData = {
             days_in_term: 60,
             total_enrolled_avg: 50,
         },
+        {
+            class_name: "Grade 7 East",
+            term_name: "Term 2",
+            term_number: 2,
+            academic_year: "2026",
+            present_percentage: 70.0,
+            absent_percentage: 6.0,
+            excused_percentage: 12.0,
+            late_percentage: 12.0,
+            days_in_term: 60,
+            total_enrolled_avg: 50,
+        },
 
         // --- TERM 3 ---
         {
             class_name: "All",
             term_name: "Term 3",
+            term_number: 3,
             academic_year: "2026",
             present_percentage: 91.96,
             absent_percentage: 4.85,
@@ -84,6 +123,7 @@ const apiData = {
         {
             class_name: "Grade 7 North",
             term_name: "Term 3",
+            term_number: 3,
             academic_year: "2026",
             present_percentage: 93.2,
             absent_percentage: 3.88,
@@ -92,30 +132,106 @@ const apiData = {
             days_in_term: 65,
             total_enrolled_avg: 50,
         },
+        {
+            class_name: "Grade 7 East",
+            term_name: "Term 3",
+            term_number: 3,
+            academic_year: "2026",
+            present_percentage: 61,
+            absent_percentage: 19,
+            excused_percentage: 8,
+            late_percentage: 12,
+            days_in_term: 65,
+            total_enrolled_avg: 50,
+        },
     ],
 };
 
 const chartConfig = {
-    absent: {
+    absent_percentage: {
         label: "Absent",
     },
-    present: {
+    present_percentage: {
         label: "Present",
     },
-    excused: {
+    excused_percentage: {
         label: "Excused",
+    },
+    late_percentage: {
+        label: "Late",
     },
 } satisfies ChartConfig;
 
 export function AttendanceSummary() {
-    const latestTermIndex = chartData.length - 1;
-    const currentPresentPercent = chartData[latestTermIndex]?.present;
+    const [hasMounted, setHasMounted] = React.useState(false);
+    const [summaryGroup, setSummaryGroup] = React.useState("All");
+
+    const mappedData = React.useMemo(() => {
+        if (!data?.data?.length) return null;
+
+        const sorted = data.data.sort((a, b) => a.term_number - b.term_number);
+
+        return sorted.reduce((acc, item) => {
+            if (!acc.has(item.class_name)) {
+                acc.set(item.class_name, []);
+            }
+            acc.get(item.class_name).push(item);
+            return acc;
+        }, new Map());
+    }, [data]);
+
+    const mappedKeys = React.useMemo(() => mappedData?.keys?.()?.toArray?.() || [], [mappedData]);
+
+    const selectedData = React.useMemo(
+        () => mappedData?.get(summaryGroup) || [],
+        [mappedData, summaryGroup]
+    );
+
+    const latestTermIndex = selectedData.length - 1;
+
+    const latestPresentPercentage = selectedData[latestTermIndex]?.present_percentage ?? 0;
+
+    const previousPresentPercentage =
+        latestTermIndex > 0 ? (selectedData[latestTermIndex - 1]?.present_percentage ?? 0) : 0;
+
+    const percentageChange = latestPresentPercentage - previousPresentPercentage;
+
+    React.useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setHasMounted(true);
+    }, []);
+
+    if (!hasMounted) {
+        return null;
+    }
 
     return (
         <Card className="flex flex-col">
             <CardHeader className="items-center pb-0">
-                <CardTitle>Attendance distribution</CardTitle>
-                <CardAction>ss</CardAction>
+                <CardTitle>Attendance distribution {data?.academic_year}</CardTitle>
+                <CardAction className="text-xs">
+                    <Combobox
+                        id="summary-group-combobox"
+                        items={mappedKeys}
+                        value={summaryGroup}
+                        onValueChange={(val) => setSummaryGroup(val || "")}
+                    >
+                        <ComboboxInput
+                            placeholder="Select a framework"
+                            className="max-w-38 text-xs"
+                        />
+                        <ComboboxContent>
+                            <ComboboxEmpty>No items found.</ComboboxEmpty>
+                            <ComboboxList>
+                                {(item) => (
+                                    <ComboboxItem key={item} value={item} className="text-xs">
+                                        {item}
+                                    </ComboboxItem>
+                                )}
+                            </ComboboxList>
+                        </ComboboxContent>
+                    </Combobox>
+                </CardAction>
             </CardHeader>
             <CardContent className="flex flex-1 items-center pb-0">
                 <ChartContainer
@@ -123,7 +239,7 @@ export function AttendanceSummary() {
                     className="relative top-10 mx-auto h-56 w-full max-w-62.5"
                 >
                     <RadialBarChart
-                        data={chartData}
+                        data={selectedData}
                         endAngle={180}
                         innerRadius={80}
                         outerRadius={110}
@@ -137,42 +253,56 @@ export function AttendanceSummary() {
                             axisLine={false}
                         />
                         <RadialBar
-                            dataKey="absent"
+                            dataKey="absent_percentage"
                             stackId="a"
-                            cornerRadius={5}
+                            cornerRadius={0}
                             className="stroke-transparent stroke-2"
                         >
-                            {chartData.map((_, index) => (
+                            {selectedData.map((_: unknown, index: number) => (
                                 <Cell
-                                    key={`absent-${index}`}
+                                    key={`absent_percentage-${index}`}
                                     fill="var(--destructive)"
                                     fillOpacity={index === latestTermIndex ? 1 : 0.25}
                                 />
                             ))}
                         </RadialBar>
                         <RadialBar
-                            dataKey="excused"
+                            dataKey="excused_percentage"
                             stackId="a"
-                            cornerRadius={5}
+                            cornerRadius={0}
                             className="stroke-transparent stroke-2"
                         >
-                            {chartData.map((_, index) => (
+                            {selectedData.map((_: unknown, index: number) => (
                                 <Cell
-                                    key={`excused-${index}`}
+                                    key={`excused_percentage-${index}`}
                                     fill="var(--chart-1)"
                                     fillOpacity={index === latestTermIndex ? 1 : 0.25}
                                 />
                             ))}
                         </RadialBar>
                         <RadialBar
-                            dataKey="present"
+                            dataKey="late_percentage"
                             stackId="a"
-                            cornerRadius={5}
+                            cornerRadius={0}
                             className="stroke-transparent stroke-2"
                         >
-                            {chartData.map((_, index) => (
+                            {selectedData.map((_: unknown, index: number) => (
                                 <Cell
-                                    key={`present-${index}`}
+                                    key={`late_percentage-${index}`}
+                                    fill="var(--chart-2)"
+                                    fillOpacity={index === latestTermIndex ? 1 : 0.25}
+                                />
+                            ))}
+                        </RadialBar>
+                        <RadialBar
+                            dataKey="present_percentage"
+                            stackId="a"
+                            cornerRadius={0}
+                            className="stroke-transparent stroke-2"
+                        >
+                            {selectedData.map((_: unknown, index: number) => (
+                                <Cell
+                                    key={`present_percentage-${index}`}
                                     fill="var(--chart-3)"
                                     fillOpacity={index === latestTermIndex ? 1 : 0.25}
                                 />
@@ -187,7 +317,7 @@ export function AttendanceSummary() {
                                         active={active}
                                         payload={payload}
                                         labelFormatter={(_, payload) =>
-                                            payload?.[0]?.payload?.academicTermName
+                                            payload?.[0]?.payload?.term_name
                                         }
                                     />
                                 );
@@ -200,13 +330,13 @@ export function AttendanceSummary() {
                                     if (viewBox && "cx" in viewBox && "cy" in viewBox) {
                                         return (
                                             <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle">
-                                                <tspan
+                                                <SvgNumberTicker
+                                                    value={latestPresentPercentage}
                                                     x={viewBox.cx}
                                                     y={(viewBox.cy || 0) - 16}
                                                     className="fill-foreground text-2xl font-bold"
-                                                >
-                                                    {currentPresentPercent + "%"}
-                                                </tspan>
+                                                />
+
                                                 <tspan
                                                     x={viewBox.cx}
                                                     y={(viewBox.cy || 0) + 4}
@@ -223,12 +353,18 @@ export function AttendanceSummary() {
                     </RadialBarChart>
                 </ChartContainer>
             </CardContent>
-            <CardFooter className="flex-col gap-2 text-sm">
+            <CardFooter className="flex-col gap-2 text-xs">
                 <div className="flex items-center gap-2 leading-none font-medium">
-                    Trending up by 5.2% this month <TrendingUp className="h-4 w-4" />
+                    Trending {percentageChange > 0 ? "up" : "down"} by{" "}
+                    {Math.abs(percentageChange).toFixed(1)}% this term{" "}
+                    {percentageChange > 0 ? (
+                        <TrendingUp size={16} className="text-teal-500" />
+                    ) : (
+                        <TrendingDown size={16} className="text-rose-500" />
+                    )}
                 </div>
                 <div className="text-muted-foreground leading-none">
-                    Showing total visitors for the last 6 months
+                    Showing attendance distribution across terms
                 </div>
             </CardFooter>
         </Card>

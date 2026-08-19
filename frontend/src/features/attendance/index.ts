@@ -6,6 +6,7 @@
 
 // Components
 export { AttendanceSummary } from "./components/attendance-summary";
+export { AttendanceCalendar } from "./components/attendance-calendar";
 export { ClassAttendanceBreakdownChart } from "./components/class-attendance-breakdown-chart";
 export { LearningAreaAbsenteeismChart } from "./components/learning-area-absenteeism-chart";
 

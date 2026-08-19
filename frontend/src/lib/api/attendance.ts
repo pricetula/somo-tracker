@@ -7,7 +7,7 @@
  *   GET /api/v1/attendance/class-term/breakdown     — per-class Present/Late/Absent counts
  *                                                   for the School Administrator dashboard
  */
-
+import { eachDayOfInterval, format, parseISO } from "date-fns";
 import { api } from "./client";
 
 // ─── Types ────────────────────────────────────────────────────────────────
@@ -175,4 +175,63 @@ export async function getLearningAreaAttendanceBreakdowns(
     return api.get<LearningAreaAttendanceBreakdownList>(
         `/api/v1/attendance/class-learning-area/breakdown?${searchParams.toString()}`
     );
+}
+
+/**
+ * Get per-date attendance completion status for a school calendar month view.
+ * Returns one entry per date in the range with expected/handled counts and a computed status.
+ */
+export type DayStatus = "none" | "green" | "yellow" | "red";
+
+export interface CalendarDayStatus {
+    date: string;
+    expected_count: number;
+    handled_count: number;
+    status: DayStatus;
+}
+
+export interface CalendarStatusListResponse {
+    items: CalendarDayStatus[];
+    total: number;
+}
+function calculateStatus(expected: number, handled: number): DayStatus {
+    if (expected === 0) return "none";
+    const ratio = handled / expected;
+    if (ratio >= 0.9) return "green";
+    if (ratio >= 0.5) return "yellow";
+    return "red";
+}
+export async function getCalendarStatus(
+    startDate: string,
+    endDate: string
+): Promise<CalendarStatusListResponse> {
+    // 1. Generate an array of all dates in the range
+    const days = eachDayOfInterval({
+        start: parseISO(startDate),
+        end: parseISO(endDate),
+    });
+
+    // 2. Map each date to a fake CalendarDayStatus object
+    const items: CalendarDayStatus[] = days.map((day) => {
+        const expected = Math.floor(Math.random() * 20) + 5;
+        const handled = Math.floor(Math.random() * (expected + 1));
+
+        return {
+            date: format(day, "yyyy-MM-dd"),
+            expected_count: expected,
+            handled_count: handled,
+            status: calculateStatus(expected, handled),
+        };
+    });
+
+    // 3. Simulate asynchronous network delay
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    return {
+        items,
+        total: items.length,
+    };
+
+    const qs = new URLSearchParams({ start_date: startDate, end_date: endDate }).toString();
+    return api.get<CalendarStatusListResponse>(`/api/v1/attendance/calendar/status?${qs}`);
 }

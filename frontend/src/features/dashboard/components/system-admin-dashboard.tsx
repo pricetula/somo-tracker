@@ -2,7 +2,7 @@
 
 import React from "react";
 import { AcademicYearHandler } from "@/features/academicyears/components/academic-year-handler";
-import { AttendanceSummary } from "@/features/attendance";
+import { AttendanceSummary, AttendanceCalendar } from "@/features/attendance";
 import { UserCount } from "./user-count";
 
 export function SystemAdminDashboardPage() {
@@ -12,8 +12,9 @@ export function SystemAdminDashboardPage() {
                 <AcademicYearHandler />
                 <UserCount />
             </header>
-            <section className="grid-cols grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <section className="grid-cols grid gap-10 sm:grid-cols-2 lg:grid-cols-3">
                 <AttendanceSummary />
+                <AttendanceCalendar />
             </section>
             {/* The selected academic year id and term id can be used elsewhere in the dashboard */}
         </article>

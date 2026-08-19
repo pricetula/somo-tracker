@@ -174,7 +174,7 @@
         cursor: not-allowed;
     }
     p {
-        @apply text-sm;
+        @apply text-xs;
     }
     a:hover {
         text-decoration: underline !important;

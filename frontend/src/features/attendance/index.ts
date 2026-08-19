@@ -1,60 +1,22 @@
 /**
  * Attendance feature — public API barrel.
  *
- * Adds calendar status view exports.
+ * Import only from this barrel, never from internal paths.
  */
 
-// Export existing components
+// Components
+export { AttendanceSummary } from "./components/attendance-summary";
 export { AttendanceCalendar } from "./components/attendance-calendar";
-export type { DaySummary } from "./components/attendance-calendar";
-export { AttendanceGrid } from "./components/attendance-grid";
-export { AttendanceTimeline } from "./components/attendance-timeline";
-export { AttendanceMarkPage } from "./components/attendance-mark-page";
-export { SummaryTable } from "./components/summary-table";
+export { ClassAttendanceBreakdownChart } from "./components/class-attendance-breakdown-chart";
+export { LearningAreaAbsenteeismChart } from "./components/learning-area-absenteeism-chart";
 
-// Export new calendar status view
-export { CalendarStatusView } from "./components/calendar-status-view";
-
-// Export hooks
+// Hooks
+export { useSchoolAttendanceKPIs } from "./hooks/use-school-attendance-kpis";
 export {
-    attendanceKeys,
-    useAttendanceSessions,
-    useAttendanceSession,
-    useSessionsForClassDate,
-    useAttendanceRecords,
-    useRecordsBySlot,
-    useRecordsByStudent,
-    useRecordsByClassDate,
-    useStudentTermSummary,
-    useClassTermSummary,
-    useCalendarStatus,
-    useCreateSession,
-    useUpdateSession,
-    useBatchMarkAttendance,
-    useUpdateRecord,
-    useRefreshSummaries,
-} from "./hooks/use-attendance";
-
-export type {
-    AttendanceStatus,
-    SessionStatus,
-    AttendanceRecord,
-    AttendanceSession,
-    SessionWithEnrichedData,
-    RecordWithEnrichedData,
-    AttendanceTermSummary,
-    SessionListResponse,
-    RecordListResponse,
-    SummaryListResponse,
-    RefreshSummaryResponse,
-    CalendarStatusListResponse,
-    DayStatus,
-    // Payloads
-    CreateSessionPayload,
-    UpdateSessionPayload,
-    StudentAttendanceMark,
-    BatchMarkPayload,
-    BatchMarkResult,
-    UpdateRecordPayload,
-    CalendarDayStatus,
-} from "./types";
+    useClassAttendanceBreakdowns,
+    useCurrentTermId,
+} from "./hooks/use-class-attendance-breakdowns";
+export {
+    useLearningAreaAttendanceBreakdowns,
+    useCurrentTermId as useLearningAreaCurrentTermId,
+} from "./hooks/use-learning-area-attendance-breakdowns";

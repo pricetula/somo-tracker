@@ -24,10 +24,14 @@ func NewHandler(svc *Service) *Handler {
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	members := router.Group("/api/v1/members")
 	members.Get("/", middleware.RequireAuth, h.List)
+	// Static route must be registered before /:user_id so it isn't captured
+	// by the parameterised route (GET /api/v1/members/member-counts).
+	members.Get("/member-counts", middleware.RequireAuth, h.GetCounts)
 	members.Get("/:user_id", middleware.RequireAuth, h.GetByID)
 	members.Put("/:user_id", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.Update)
 	members.Patch("/:user_id/active", middleware.RequireAuth, h.ToggleActive)
 	members.Delete("/", middleware.RequireAuth, h.Delete)
+	members.Get("/member-counts", middleware.RequireAuth, h.GetCounts)
 }
 
 // ─── Handlers ──────────────────────────────────────────────────────────────
@@ -221,6 +225,27 @@ func (h *Handler) Delete(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"code":    "ok",
 		"message": "member deleted",
+	})
+}
+
+// GetCounts returns aggregated member counts.
+func (h *Handler) GetCounts(c *fiber.Ctx) error {
+	tenantID := c.Locals("tenant_id").(string)
+	schoolID := c.Locals("active_school_id").(string)
+	if tenantID == "" || schoolID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "invalid_input",
+			"message": "missing tenant or school context",
+		})
+	}
+	counts, err := h.svc.GetMemberCounts(c.Context(), tenantID, schoolID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	return c.JSON(fiber.Map{
+		"code":    "success",
+		"message": "Member counts retrieved",
+		"data":    counts,
 	})
 }
 

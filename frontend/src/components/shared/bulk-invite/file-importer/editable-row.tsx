@@ -14,7 +14,7 @@ export function EditableRow({
     onSave,
 }: {
     record: StagedInviteRecord;
-    onSave: (updated: StagedInviteRecord) => void;
+    onSave: (updated: StagedInviteRecord, original: StagedInviteRecord) => void;
 }) {
     const [editing, setEditing] = React.useState(false);
     const [email, setEmail] = React.useState(record.email);
@@ -29,7 +29,9 @@ export function EditableRow({
             full_name: fullName.trim(),
             errors: [],
         };
-        onSave(updated);
+        // Pass the pre-edit record along so the parent can roll back the
+        // optimistic update if the persisted write fails.
+        onSave(updated, record);
         setEditing(false);
         setSaving(false);
     }, [record, email, fullName, onSave]);

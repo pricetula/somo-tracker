@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { getErrorMessage } from "@/lib/errors";
 import { submitBulkInvite, getImportAlreadyInProgress } from "@/lib/api/invitations";
 import { getStagedRecordsByStatus } from "./db";
+import { resolveActiveJobTotalRecords } from "../active-job-utils";
 import type { StagedInviteRecord } from "./types";
 
 interface StepStreamingProps {
@@ -71,7 +72,13 @@ export function StepStreaming({
         } catch (err) {
             const activeJobId = getImportAlreadyInProgress(err);
             if (activeJobId) {
-                onJobCreated(activeJobId, inviteRows.length);
+                // The active job may have a different (larger) total than this batch —
+                // resolve the real count so ImportProgress shows an accurate total.
+                const totalRecords = await resolveActiveJobTotalRecords(
+                    activeJobId,
+                    inviteRows.length
+                );
+                onJobCreated(activeJobId, totalRecords);
                 return;
             }
 

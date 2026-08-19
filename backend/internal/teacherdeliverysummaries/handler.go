@@ -22,6 +22,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	tds.Post("/refresh", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN", "SYSTEM_ADMIN"), h.Refresh)
 	tds.Get("/", middleware.RequireAuth, h.ListByTerm)
 	tds.Get("/teacher/:user_id", middleware.RequireAuth, h.ListByTeacher)
+	tds.Get("/breakdown", middleware.RequireAuth, h.ListDeliveryBreakdown)
 	tds.Get("/:user_id", middleware.RequireAuth, h.GetSummary)
 }
 
@@ -119,6 +120,37 @@ func (h *Handler) ListByTeacher(c *fiber.Ctx) error {
 	}
 
 	result, err := h.svc.ListByTeacher(c.Context(), tenantID, schoolID, userID, termID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(result)
+}
+
+// ListDeliveryBreakdown handles GET /api/v1/teacher-delivery-summaries/breakdown.
+//
+// Query params:
+//   - academic_term_id (UUID, required) — the term to aggregate
+//     (teacher_delivery_summaries are per teacher × term).
+//
+// tenant_id and school_id are resolved from the authenticated local context.
+// Returns per-teacher Marked vs. Missed slot counts ordered by missed_slots
+// descending so chronic non-compliant teachers surface first.
+func (h *Handler) ListDeliveryBreakdown(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.tdsMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	termID := c.Query("academic_term_id")
+	if termID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "academic_term_id is required",
+		})
+	}
+
+	result, err := h.svc.ListDeliveryBreakdown(c.Context(), tenantID, schoolID, termID)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}

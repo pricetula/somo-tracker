@@ -64,20 +64,17 @@ func startPG(t *testing.T) (*pgxpool.Pool, func()) {
 	return pool, cleanup
 }
 
-func applyMigration(t *testing.T, pool *pgxpool.Pool, filename string) {
+func applyAllMigrations(t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
-	path := filepath.Join(migrationsDir(), filename)
-	sql, err := os.ReadFile(path)
-	require.NoError(t, err, "read migration %s", filename)
-	_, err = pool.Exec(context.Background(), string(sql))
-	require.NoError(t, err, "apply migration %s", filename)
-}
-
-func applyMigrations(t *testing.T, pool *pgxpool.Pool, filenames ...string) {
-	t.Helper()
-	for _, f := range filenames {
-		applyMigration(t, pool, f)
+	files, err := filepath.Glob(filepath.Join(migrationsDir(), "*.up.sql"))
+	require.NoError(t, err, "glob migration files")
+	for _, path := range files {
+		sql, err := os.ReadFile(path)
+		require.NoError(t, err, "read migration %s", path)
+		_, err = pool.Exec(context.Background(), string(sql))
+		require.NoError(t, err, "apply migration %s", path)
 	}
+
 }
 
 func seedTenantSchool(t *testing.T, pool *pgxpool.Pool) (tenantID, schoolID string) {
@@ -198,7 +195,7 @@ func TestPgRepository_CreateAndGetScaleProfile(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigrations(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	tenantID, schoolID := seedTenantSchool(t, pool)
 	repo := newRepo(pool)
@@ -234,7 +231,7 @@ func TestPgRepository_ListScaleProfiles(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigrations(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	tenantID, schoolID := seedTenantSchool(t, pool)
 	repo := newRepo(pool)
@@ -269,7 +266,7 @@ func TestPgRepository_ToggleScaleProfileActive(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigrations(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	tenantID, schoolID := seedTenantSchool(t, pool)
 	repo := newRepo(pool)
@@ -302,7 +299,7 @@ func TestPgRepository_DeleteScaleProfile(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigrations(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	tenantID, schoolID := seedTenantSchool(t, pool)
 	repo := newRepo(pool)
@@ -332,7 +329,7 @@ func TestPgRepository_ReplaceScaleRanges(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigrations(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	tenantID, schoolID := seedTenantSchool(t, pool)
 	repo := newRepo(pool)
@@ -372,7 +369,7 @@ func TestPgRepository_SessionLifecycle(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigrations(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	tenantID, schoolID := seedTenantSchool(t, pool)
 	yearID := seedAcademicYear(t, pool, tenantID, schoolID)
@@ -442,7 +439,7 @@ func TestPgRepository_ListSessions(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigrations(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	tenantID, schoolID := seedTenantSchool(t, pool)
 	yearID := seedAcademicYear(t, pool, tenantID, schoolID)
@@ -485,7 +482,7 @@ func TestPgRepository_DeleteSession(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigrations(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	tenantID, schoolID := seedTenantSchool(t, pool)
 	yearID := seedAcademicYear(t, pool, tenantID, schoolID)
@@ -526,7 +523,7 @@ func TestPgRepository_UpsertAndGetStudentScores(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigrations(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	tenantID, schoolID := seedTenantSchool(t, pool)
 	yearID := seedAcademicYear(t, pool, tenantID, schoolID)
@@ -581,7 +578,7 @@ func TestPgRepository_BulkUpsertStudentScores(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigrations(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	tenantID, schoolID := seedTenantSchool(t, pool)
 	yearID := seedAcademicYear(t, pool, tenantID, schoolID)
@@ -629,7 +626,7 @@ func TestPgRepository_UpsertAndGetOutcomeGrades(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigrations(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	tenantID, schoolID := seedTenantSchool(t, pool)
 	yearID := seedAcademicYear(t, pool, tenantID, schoolID)
@@ -696,7 +693,7 @@ func TestPgRepository_WeightConfigCRUD(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigrations(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	repo := newRepo(pool)
 
@@ -718,8 +715,13 @@ func TestPgRepository_WeightConfigCRUD(t *testing.T) {
 	require.Equal(t, "G6", cfg.GradeLevel)
 	require.InDelta(t, 10.5, cfg.WeightPercent, 0.01)
 
-	// List
-	filter := AssessmentWeightConfigFilter{GradeLevel: strPtr("G6")}
+	// List — filter by the created row's unique (grade, target exam, year) so
+	// the assertion is stable regardless of seeded KNEC weight configs.
+	filter := AssessmentWeightConfigFilter{
+		GradeLevel:    strPtr("G6"),
+		TargetExam:    strPtr("KPSEA"),
+		EffectiveFrom: intPtr(2025),
+	}
 	items, err := repo.ListWeightConfigs(ctx, filter)
 	require.NoError(t, err)
 	require.Len(t, items, 1)
@@ -739,7 +741,7 @@ func TestPgRepository_HasScoresForSession(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigrations(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	tenantID, schoolID := seedTenantSchool(t, pool)
 	yearID := seedAcademicYear(t, pool, tenantID, schoolID)
@@ -793,7 +795,7 @@ func TestPgRepository_CountSessionsReferencingScale(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigrations(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	tenantID, schoolID := seedTenantSchool(t, pool)
 	yearID := seedAcademicYear(t, pool, tenantID, schoolID)
@@ -843,7 +845,7 @@ func TestPgRepository_IsTermFinalised(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigrations(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	tenantID, schoolID := seedTenantSchool(t, pool)
 	userID := seedUser(t, pool, tenantID)
@@ -878,7 +880,7 @@ func TestPgRepository_GetSessionStatusAndTerm(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigrations(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	tenantID, schoolID := seedTenantSchool(t, pool)
 	userID := seedUser(t, pool, tenantID)

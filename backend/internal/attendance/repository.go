@@ -1175,5 +1175,274 @@ func (r *pgRepository) ListClassTermAttendanceSummaries(ctx context.Context, ten
 	return results, nil
 }
 
+// ListClassAttendanceBreakdowns returns per-class Present/Late/Absent counts
+// for a school in a term, LEFT JOINing cbc_classes so every class appears even
+// when its term summary has not been materialised yet (COALESCE to zero).
+// Ordered by absent_count DESC NULLS LAST — high-absenteeism classes first.
+func (r *pgRepository) ListClassAttendanceBreakdowns(ctx context.Context, tenantID, schoolID, termID string) ([]ClassAttendanceBreakdownItem, error) {
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, `
+		SELECT
+			c.id AS class_id,
+			c.grade_level || ' ' || COALESCE(st.name, '') AS class_name,
+			COALESCE(ctas.total_enrolled_avg, 0) AS total_enrolled_avg,
+			COALESCE(ctas.present_count, 0) AS present_count,
+			COALESCE(ctas.late_count, 0) AS late_count,
+			COALESCE(ctas.absent_count, 0) AS absent_count,
+			COALESCE(ctas.excused_count, 0) AS excused_count,
+			COALESCE(ctas.term_attendance_rate, 0.00) AS term_attendance_rate
+		FROM cbc_classes c
+		LEFT JOIN cbc_streams st ON st.tenant_id = c.tenant_id AND st.id = c.stream_id
+		LEFT JOIN class_term_attendance_summaries ctas
+			ON c.tenant_id = ctas.tenant_id
+			AND c.id = ctas.class_id
+			AND ctas.academic_term_id = $3
+		WHERE c.tenant_id = $1
+		  AND c.school_id = $2
+		ORDER BY ctas.absent_count DESC NULLS LAST
+	`, tenantID, schoolID, termID)
+	if err != nil {
+		return nil, fmt.Errorf("attendance.Repository.ListClassAttendanceBreakdowns: %w", err)
+	}
+	defer rows.Close()
+
+	var results []ClassAttendanceBreakdownItem
+	for rows.Next() {
+		var item ClassAttendanceBreakdownItem
+		if err := rows.Scan(
+			&item.ClassID, &item.ClassName, &item.TotalEnrolledAvg,
+			&item.PresentCount, &item.LateCount, &item.AbsentCount,
+			&item.ExcusedCount, &item.TermAttendanceRate,
+		); err != nil {
+			return nil, fmt.Errorf("attendance.Repository.ListClassAttendanceBreakdowns: scan: %w", err)
+		}
+		results = append(results, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("attendance.Repository.ListClassAttendanceBreakdowns: rows: %w", err)
+	}
+	return results, nil
+}
+
+// ListLearningAreaBreakdowns returns per-learning-area Present/Absent/Excused
+// period counts for a school in a term, aggregated across all classes via
+// cbc_learning_areas LEFT JOIN class_learning_area_term_summaries. Learning
+// areas with no summaries in the term still surface with zeroed counts
+// (LEFT JOIN), and the whole set is ordered by periods_absent DESC so the
+// highest-absenteeism subjects — the truancy/disengagement hotspot watch —
+// appear first in the School Administrator dashboard grouped bar chart.
+func (r *pgRepository) ListLearningAreaBreakdowns(ctx context.Context, tenantID, schoolID, termID string) ([]LearningAreaAttendanceBreakdownItem, error) {
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, `
+		SELECT
+			l.id AS learning_area_id,
+			l.name AS learning_area_name,
+			COALESCE(SUM(lts.periods_total), 0)::INT AS periods_total,
+			COALESCE(SUM(lts.periods_present), 0)::INT AS periods_present,
+			COALESCE(SUM(lts.periods_absent), 0)::INT AS periods_absent,
+			COALESCE(SUM(lts.periods_excused), 0)::INT AS periods_excused,
+			CASE
+				WHEN SUM(lts.periods_total) > 0
+				THEN ROUND((SUM(lts.periods_present)::NUMERIC / SUM(lts.periods_total)) * 100, 2)
+				ELSE 0.00
+			END AS attendance_percentage
+		FROM cbc_learning_areas l
+		LEFT JOIN class_learning_area_term_summaries lts
+			ON l.tenant_id = lts.tenant_id
+			AND l.id = lts.learning_area_id
+			AND lts.academic_term_id = $3
+		WHERE l.tenant_id = $1
+		  AND l.school_id = $2
+		GROUP BY l.id, l.name
+		ORDER BY periods_absent DESC NULLS LAST
+	`, tenantID, schoolID, termID)
+	if err != nil {
+		return nil, fmt.Errorf("attendance.Repository.ListLearningAreaBreakdowns: %w", err)
+	}
+	defer rows.Close()
+
+	var results []LearningAreaAttendanceBreakdownItem
+	for rows.Next() {
+		var item LearningAreaAttendanceBreakdownItem
+		if err := rows.Scan(
+			&item.LearningAreaID, &item.LearningAreaName,
+			&item.PeriodsTotal, &item.PeriodsPresent, &item.PeriodsAbsent,
+			&item.PeriodsExcused, &item.AttendancePercentage,
+		); err != nil {
+			return nil, fmt.Errorf("attendance.Repository.ListLearningAreaBreakdowns: scan: %w", err)
+		}
+		results = append(results, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("attendance.Repository.ListLearningAreaBreakdowns: rows: %w", err)
+	}
+	return results, nil
+}
+
+// ── School Attendance KPIs ──────────────────────────────────────────────
+
+func (r *pgRepository) GetSchoolAttendanceKPIs(ctx context.Context, tenantID, schoolID, date, termID string) (*SchoolAttendanceKPI, error) {
+	// An empty termID (no active term covers the date) degrades the term-rate
+	// CTE to zero rows → COALESCE → 0.00 instead of failing the whole request.
+	var termParam interface{} = nil
+	if termID != "" {
+		termParam = termID
+	}
+
+	var kpi SchoolAttendanceKPI
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, `
+		WITH today_summary AS (
+			SELECT
+				COALESCE(SUM(present_count), 0)::INT AS total_present,
+				COALESCE(SUM(present_count + absent_count + late_count + excused_count), 0)::INT AS total_marked_records,
+				COALESCE(AVG(daily_attendance_rate), 0.00)::NUMERIC AS avg_daily_rate
+			FROM class_daily_attendance_summaries
+			WHERE tenant_id = $1
+			  AND school_id = $2
+			  AND date = $3::DATE
+		),
+		term_summary AS (
+			SELECT
+				COALESCE(AVG(term_attendance_rate), 0.00)::NUMERIC AS active_term_attendance_rate
+			FROM class_term_attendance_summaries
+			WHERE tenant_id = $1
+			  AND school_id = $2
+			  AND academic_term_id = $4::UUID
+		),
+		unmarked_slots AS (
+			-- Non-break timetable slots for the school on this weekday with no
+			-- attendance session record yet (neither SUBMITTED nor SKIPPED).
+			-- is_break / day_of_week live on timetable_structures, not on
+			-- cbc_timetable_slots; both are per-school so the join is fully
+			-- scoped by tenant + school.
+			SELECT COUNT(*)::INT AS unmarked_count
+			FROM cbc_timetable_slots ts
+			JOIN timetable_structures tstr
+				ON tstr.id = ts.structure_id
+				AND tstr.tenant_id = ts.tenant_id
+				AND tstr.school_id = ts.school_id
+			WHERE ts.tenant_id = $1
+			  AND ts.school_id = $2
+			  AND tstr.is_break = FALSE
+			  AND tstr.day_of_week = EXTRACT(ISODOW FROM $3::DATE)::INT
+			  AND NOT EXISTS (
+				  SELECT 1 FROM cbc_attendance_sessions cas
+				  WHERE cas.tenant_id = ts.tenant_id
+					AND cas.timetable_slot_id = ts.id
+					AND cas.date = $3::DATE
+			  )
+		),
+		skipped_sessions AS (
+			SELECT COUNT(*)::INT AS skipped_count
+			FROM cbc_attendance_sessions cas
+			WHERE cas.tenant_id = $1
+			  AND cas.school_id = $2
+			  AND cas.date = $3::DATE
+			  AND cas.status = 'SKIPPED'
+		)
+		SELECT
+			tsum.avg_daily_rate::FLOAT8 AS todays_attendance_rate,
+			tsum.total_present,
+			tsum.total_marked_records,
+			trm.active_term_attendance_rate::FLOAT8 AS active_term_attendance_rate,
+			ums.unmarked_count AS unmarked_slots_today,
+			sks.skipped_count AS skipped_sessions_today
+		FROM today_summary tsum
+		CROSS JOIN term_summary trm
+		CROSS JOIN unmarked_slots ums
+		CROSS JOIN skipped_sessions sks
+	`, tenantID, schoolID, date, termParam).Scan(
+		&kpi.TodaysAttendanceRate,
+		&kpi.TotalPresent,
+		&kpi.TotalMarkedRecords,
+		&kpi.ActiveTermAttendanceRate,
+		&kpi.UnmarkedSlotsToday,
+		&kpi.SkippedSessionsToday,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("attendance.Repository.GetSchoolAttendanceKPIs: %w", err)
+	}
+	return &kpi, nil
+}
+
+// ListClassTermPercentages returns the percentage of attendance statuses (present, absent,
+// excused, late) for each class and term in the current academic year for a school, with a rollup row
+// for "All" classes.
+func (r *pgRepository) ListClassTermPercentages(ctx context.Context, tenantID, schoolID string) ([]ClassTermPercentageItem, error) {
+	query := `
+		SELECT 
+		    COALESCE(c.name, 'All') AS class_name,
+		    t.name AS term_name,
+		    t.term_number AS term_number,
+		    ay.year_name AS academic_year,
+		    -- Present Percentage
+		    ROUND(
+		        (SUM(ctas.present_count)::NUMERIC / NULLIF(SUM(ctas.present_count + ctas.absent_count + ctas.late_count + ctas.excused_count), 0)) * 100, 
+		        2
+		    ) AS present_percentage,
+		    -- Absent Percentage
+		    ROUND(
+		        (SUM(ctas.absent_count)::NUMERIC / NULLIF(SUM(ctas.present_count + ctas.absent_count + ctas.late_count + ctas.excused_count), 0)) * 100, 
+		        2
+		    ) AS absent_percentage,
+		    -- Excused Percentage
+		    ROUND(
+		        (SUM(ctas.excused_count)::NUMERIC / NULLIF(SUM(ctas.present_count + ctas.absent_count + ctas.late_count + ctas.excused_count), 0)) * 100, 
+		        2
+		    ) AS excused_percentage,
+		    -- Late Percentage
+		    ROUND(
+		        (SUM(ctas.late_count)::NUMERIC / NULLIF(SUM(ctas.present_count + ctas.absent_count + ctas.late_count + ctas.excused_count), 0)) * 100, 
+		        2
+		    ) AS late_percentage
+		FROM 
+		    class_term_attendance_summaries ctas
+		JOIN 
+		    cbc_classes c ON ctas.tenant_id = c.tenant_id AND ctas.class_id = c.id
+		JOIN 
+		    academic_terms t ON ctas.tenant_id = t.tenant_id AND ctas.school_id = t.school_id AND ctas.academic_term_id = t.id
+		JOIN 
+		    academic_years ay ON ctas.tenant_id = ay.tenant_id AND ctas.academic_year_id = ay.id
+		WHERE 
+		    ctas.tenant_id = $1 AND ctas.school_id = $2 AND ay.is_current = TRUE
+		GROUP BY 
+		    ROLLUP (c.name), 
+		    t.name, 
+		    t.term_number,
+		    ay.year_name, 
+		    t.start_date
+		ORDER BY 
+		    (c.name IS NULL) DESC, 
+		    c.name ASC, 
+		    t.term_number ASC;
+	`
+
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, tenantID, schoolID)
+	if err != nil {
+		return nil, fmt.Errorf("attendance.Repository.ListClassTermPercentages: %w", err)
+	}
+	defer rows.Close()
+
+	var results []ClassTermPercentageItem
+	for rows.Next() {
+		var item ClassTermPercentageItem
+		if err := rows.Scan(
+			&item.ClassName,
+			&item.TermName,
+			&item.TermNumber,
+			&item.AcademicYear,
+			&item.PresentPercentage,
+			&item.AbsentPercentage,
+			&item.ExcusedPercentage,
+			&item.LatePercentage,
+		); err != nil {
+			return nil, fmt.Errorf("attendance.Repository.ListClassTermPercentages: scan: %w", err)
+		}
+		results = append(results, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("attendance.Repository.ListClassTermPercentages: rows: %w", err)
+	}
+	return results, nil
+}
+
 // Compile-time check
 var _ Repository = (*pgRepository)(nil)

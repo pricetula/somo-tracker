@@ -257,6 +257,8 @@ func validWeightParams() CreateWeightConfigParams {
 
 func strPtr(s string) *string { return &s }
 
+func intPtr(i int) *int { return &i }
+
 // ============================================================================
 // Tests: CreateWeightConfig
 // ============================================================================

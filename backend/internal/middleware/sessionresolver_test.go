@@ -100,13 +100,16 @@ func setupTestPools(t *testing.T) (*database.Pools, *miniredis.Miniredis, func()
 	return pools, mr, cleanup
 }
 
-func applyMigration(t *testing.T, pool *pgxpool.Pool, filename string) {
+func applyAllMigrations(t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
-	path := filepath.Join(migrationsDir(), filename)
-	sql, err := os.ReadFile(path)
-	require.NoError(t, err, "read migration %s", filename)
-	_, err = pool.Exec(context.Background(), string(sql))
-	require.NoError(t, err, "apply migration %s", filename)
+	files, err := filepath.Glob(filepath.Join(migrationsDir(), "*.up.sql"))
+	require.NoError(t, err, "glob migration files")
+	for _, path := range files {
+		sql, err := os.ReadFile(path)
+		require.NoError(t, err, "read migration %s", path)
+		_, err = pool.Exec(context.Background(), string(sql))
+		require.NoError(t, err, "apply migration %s", path)
+	}
 }
 
 func hashToken(token string) string {
@@ -130,7 +133,7 @@ func TestSessionResolver(t *testing.T) {
 	defer cleanup()
 
 	// Apply database schema
-	applyMigration(t, pools.PG, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pools.PG)
 
 	t.Run("Ignore non-api routes", func(t *testing.T) {
 		app := fiber.New()

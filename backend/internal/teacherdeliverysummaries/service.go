@@ -55,3 +55,21 @@ func (s *Service) GetByTeacherTerm(ctx context.Context, userID, termID string) (
 	}
 	return s.repo.GetByTeacherTerm(ctx, userID, termID)
 }
+
+// ListDeliveryBreakdown returns per-teacher Marked vs. Missed slot counts for
+// the School Administrator dashboard grouped bar chart, sorted by missed
+// slots descending so chronic non-compliant teachers surface first
+// (compliance risk watch).
+func (s *Service) ListDeliveryBreakdown(ctx context.Context, tenantID, schoolID, termID string) (*TeacherDeliveryBreakdownListResponse, error) {
+	if tenantID == "" || schoolID == "" || termID == "" {
+		return nil, fmt.Errorf("teacherdeliverysummaries.Service.ListDeliveryBreakdown: %w", ErrInvalidInput)
+	}
+	items, err := s.repo.ListDeliveryBreakdown(ctx, tenantID, schoolID, termID)
+	if err != nil {
+		return nil, fmt.Errorf("teacherdeliverysummaries.Service.ListDeliveryBreakdown: %w", err)
+	}
+	if items == nil {
+		items = []TeacherDeliveryBreakdownItem{}
+	}
+	return &TeacherDeliveryBreakdownListResponse{Items: items, Total: len(items)}, nil
+}

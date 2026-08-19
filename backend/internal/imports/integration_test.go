@@ -368,12 +368,19 @@ func startRedis(ctx context.Context) (testcontainers.Container, string, error) {
 func runMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 	_, filename, _, _ := runtime.Caller(0)
 	migrationsDir := filepath.Join(filepath.Dir(filename), "..", "database", "migrations")
-	sql, err := os.ReadFile(filepath.Join(migrationsDir, "000001_initial_schema.up.sql"))
+
+	files, err := filepath.Glob(filepath.Join(migrationsDir, "*.up.sql"))
 	if err != nil {
-		return fmt.Errorf("read migration: %w", err)
+		return fmt.Errorf("glob migrations: %w", err)
 	}
-	if _, err := pool.Exec(ctx, string(sql)); err != nil {
-		return fmt.Errorf("execute migration: %w", err)
+	for _, path := range files {
+		sql, err := os.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("read migration %s: %w", path, err)
+		}
+		if _, err := pool.Exec(ctx, string(sql)); err != nil {
+			return fmt.Errorf("execute migration %s: %w", path, err)
+		}
 	}
 	return nil
 }

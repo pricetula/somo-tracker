@@ -14,6 +14,7 @@ type ServiceRepository interface {
 	Update(ctx context.Context, userID, tenantID, schoolID string, payload UpdateMemberPayload) error
 	ToggleActive(ctx context.Context, tenantID, schoolID, userID string, isActive bool) error
 	Delete(ctx context.Context, tenantID, schoolID, userID, role string) error
+	GetMemberCounts(ctx context.Context, tenantID, schoolID string) (*MemberCounts, error)
 }
 
 // Service contains business logic for the members domain.
@@ -81,4 +82,12 @@ func (s *Service) Delete(ctx context.Context, tenantID, schoolID, userID, role s
 		return fmt.Errorf("members.Service.Delete: %w", ErrInvalidInput)
 	}
 	return s.repo.Delete(ctx, tenantID, schoolID, userID, role)
+}
+
+// GetMemberCounts returns aggregated counts for the given tenant/school.
+func (s *Service) GetMemberCounts(ctx context.Context, tenantID, schoolID string) (*MemberCounts, error) {
+	if tenantID == "" || schoolID == "" {
+		return nil, fmt.Errorf("members.Service.GetMemberCounts: %w", ErrInvalidInput)
+	}
+	return s.repo.GetMemberCounts(ctx, tenantID, schoolID)
 }

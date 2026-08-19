@@ -41,8 +41,8 @@ func TestRLSTenantIsolationEndToEnd(t *testing.T) {
 	require.NoError(t, err)
 	defer pool.Close()
 
-	// Apply migrations + seed (fresh DB).
-	for _, f := range []string{"000001_initial_schema.up.sql", "000002_seed.up.sql"} {
+	// Apply all migrations + seed (fresh DB).
+	for _, f := range allMigrationUpFiles() {
 		sql, err := os.ReadFile(filepath.Join(migrationsDir(), f))
 		require.NoError(t, err, "read %s", f)
 		_, err = pool.Exec(ctx, string(sql))

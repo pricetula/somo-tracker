@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { StaticTable } from "@/components/shared/static-table";
 import { useStudentDetail, useDeleteStudent } from "@/features/students";
-import { useUnlinkStudent } from "@/features/parents";
+// import { useUnlinkStudent } from "@/features/parents";
 import Link from "next/link";
 
 interface StudentDetailContentProps {
@@ -49,7 +49,7 @@ export function StudentDetailContent({
     const { data: detailResponse, isLoading: detailLoading } = useStudentDetail(studentId);
     const queryClient = useQueryClient();
     const deleteMutation = useDeleteStudent();
-    const unlinkStudentMutation = useUnlinkStudent();
+    // const unlinkStudentMutation = useUnlinkStudent();
     const detail = detailResponse?.data;
 
     const emDash = "\u2014";
@@ -79,7 +79,7 @@ export function StudentDetailContent({
     const handleUnlinkParent = async (parentId: string, parentName: string) => {
         if (!window.confirm(`Unlink ${parentName} from this student?`)) return;
         try {
-            await unlinkStudentMutation.mutateAsync({ parentId, studentId });
+            // await unlinkStudentMutation.mutateAsync({ parentId, studentId });
             queryClient.invalidateQueries({ queryKey: ["students", "detail", studentId] });
         } catch {
             // handled by hook onError

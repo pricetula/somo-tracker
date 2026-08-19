@@ -2,6 +2,7 @@ package attendance
 
 import (
 	"context"
+	"errors"
 	"fmt"
 )
 
@@ -452,6 +453,80 @@ func (s *Service) RefreshClassTermAttendanceSummary(ctx context.Context, tenantI
 		Message: "Class term attendance summary refresh enqueued",
 		TermID:  termID,
 	}, nil
+}
+
+// ListClassAttendanceBreakdowns returns per-class Present/Late/Absent counts
+// for the School Administrator dashboard grouped bar chart, sorted by absent
+// count descending so high-absenteeism classes surface first (truancy and
+// chronic absenteeism watch).
+func (s *Service) ListClassAttendanceBreakdowns(ctx context.Context, tenantID, schoolID, termID string) (*ClassAttendanceBreakdownListResponse, error) {
+	if termID == "" {
+		return nil, fmt.Errorf("attendance.Service.ListClassAttendanceBreakdowns: academic_term_id is required: %w", ErrInvalidInput)
+	}
+	items, err := s.repo.ListClassAttendanceBreakdowns(ctx, tenantID, schoolID, termID)
+	if err != nil {
+		return nil, fmt.Errorf("attendance.Service.ListClassAttendanceBreakdowns: %w", err)
+	}
+	if items == nil {
+		items = []ClassAttendanceBreakdownItem{}
+	}
+	return &ClassAttendanceBreakdownListResponse{Items: items, Total: len(items)}, nil
+}
+
+// ListLearningAreaBreakdowns returns per-learning-area Present/Absent/Excused
+// period counts for the School Administrator dashboard grouped bar chart,
+// aggregated across all classes and sorted by absent period count descending
+// so the highest-absenteeism subjects surface first (truancy hotspot watch).
+func (s *Service) ListLearningAreaBreakdowns(ctx context.Context, tenantID, schoolID, termID string) (*LearningAreaAttendanceBreakdownListResponse, error) {
+	if termID == "" {
+		return nil, fmt.Errorf("attendance.Service.ListLearningAreaBreakdowns: academic_term_id is required: %w", ErrInvalidInput)
+	}
+	items, err := s.repo.ListLearningAreaBreakdowns(ctx, tenantID, schoolID, termID)
+	if err != nil {
+		return nil, fmt.Errorf("attendance.Service.ListLearningAreaBreakdowns: %w", err)
+	}
+	if items == nil {
+		items = []LearningAreaAttendanceBreakdownItem{}
+	}
+	return &LearningAreaAttendanceBreakdownListResponse{Items: items, Total: len(items)}, nil
+}
+
+// ── School Attendance KPIs ──────────────────────────────────────────────
+
+// GetSchoolAttendanceKPIs returns macro-level attendance KPIs for the School
+// Administrator dashboard. When termID is empty, the active term covering
+// `date` is resolved automatically via GetTermIDByDate; if no term covers the
+// date (holiday, weekend, future date) the active-term rate degrades to 0.00
+// rather than failing the whole dashboard, because today's rate and the
+// slot/session counts remain meaningful on their own.
+func (s *Service) GetSchoolAttendanceKPIs(ctx context.Context, tenantID, schoolID, date, termID string) (*SchoolAttendanceKPI, error) {
+	if date == "" {
+		return nil, fmt.Errorf("attendance.Service.GetSchoolAttendanceKPIs: date is required: %w", ErrInvalidInput)
+	}
+
+	if termID == "" {
+		resolved, err := s.repo.GetTermIDByDate(ctx, tenantID, schoolID, date)
+		switch {
+		case err == nil:
+			termID = resolved
+		case errors.Is(err, ErrInvalidInput):
+			// No academic term covers this date — degrade the active-term rate.
+			termID = ""
+		default:
+			return nil, fmt.Errorf("attendance.Service.GetSchoolAttendanceKPIs: resolve active term for date %s: %w", date, err)
+		}
+	}
+
+	kpi, err := s.repo.GetSchoolAttendanceKPIs(ctx, tenantID, schoolID, date, termID)
+	if err != nil {
+		return nil, fmt.Errorf("attendance.Service.GetSchoolAttendanceKPIs: %w", err)
+	}
+	return kpi, nil
+}
+
+// ListClassTermPercentages returns the percentage of attendance statuses (present, absent, excused, late) for each class and term in the current academic year for a school, with a rollup row for "All" classes.
+func (s *Service) ListClassTermPercentages(ctx context.Context, tenantID, schoolID string) ([]ClassTermPercentageItem, error) {
+	return s.repo.ListClassTermPercentages(ctx, tenantID, schoolID)
 }
 
 // ── Calendar Status ───────────────────────────────────────────────────────

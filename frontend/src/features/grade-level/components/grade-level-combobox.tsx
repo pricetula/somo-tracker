@@ -65,7 +65,7 @@ export function GradeLevelCombobox({
             items={items}
             value={value}
             onValueChange={(v) => onChange(v as string)}
-            placeholder={placeholder}
+            placeHolder={placeholder}
             className={className}
         />
     );

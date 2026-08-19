@@ -6,6 +6,9 @@ package testhelper
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -82,26 +85,29 @@ func ApplyMigration(t testing.TB, pool *pgxpool.Pool, migrationSQL string) {
 	}
 }
 
-// SeededPool starts PG, applies the initial migration, and returns the pool
-// with cleanup. Useful for tests that need a full schema.
+// SeededPool starts PG, applies all migrations (schema + seed), and returns
+// the pool with cleanup. Useful for tests that need a full schema.
 func SeededPool(t testing.TB) (*pgxpool.Pool, func()) {
 	t.Helper()
 
 	pool, cleanup := StartPG(t)
 
-	// Apply initial schema migration
-	schema, err := readMigrationFile("000001_initial_schema.up.sql")
+	// Apply all schema migrations + seed in sorted order.
+	_, filename, _, _ := runtime.Caller(0)
+	migrationsDir := filepath.Join(filepath.Dir(filename), "..", "migrations")
+	files, err := filepath.Glob(filepath.Join(migrationsDir, "*.up.sql"))
 	if err != nil {
 		cleanup()
-		t.Fatalf("testhelper.SeededPool: read schema: %v", err)
+		t.Fatalf("testhelper.SeededPool: glob migrations: %v", err)
+	}
+	for _, path := range files {
+		sql, err := os.ReadFile(path)
+		if err != nil {
+			cleanup()
+			t.Fatalf("testhelper.SeededPool: read migration %s: %v", path, err)
+		}
+		ApplyMigration(t, pool, string(sql))
 	}
 
-	ApplyMigration(t, pool, schema)
-
 	return pool, cleanup
-}
-
-// readMigrationFile reads a migration file from the migrations directory.
-func readMigrationFile(filename string) (string, error) {
-	return "", fmt.Errorf("not implemented in shared helper; callers should embed the SQL directly")
 }

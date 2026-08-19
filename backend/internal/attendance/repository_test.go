@@ -64,13 +64,16 @@ func startPG(t *testing.T) (*pgxpool.Pool, func()) {
 	return pool, cleanup
 }
 
-func applyMigration(t *testing.T, pool *pgxpool.Pool, filename string) {
+func applyAllMigrations(t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
-	path := filepath.Join(migrationsDir(), filename)
-	sql, err := os.ReadFile(path)
-	require.NoError(t, err, "read migration %s", filename)
-	_, err = pool.Exec(context.Background(), string(sql))
-	require.NoError(t, err, "apply migration %s", filename)
+	files, err := filepath.Glob(filepath.Join(migrationsDir(), "*.up.sql"))
+	require.NoError(t, err, "glob migration files")
+	for _, path := range files {
+		sql, err := os.ReadFile(path)
+		require.NoError(t, err, "read migration %s", path)
+		_, err = pool.Exec(context.Background(), string(sql))
+		require.NoError(t, err, "apply migration %s", path)
+	}
 }
 
 func seedTenantSchoolUser(t *testing.T, pool *pgxpool.Pool) (tenantID, schoolID, userID string) {
@@ -116,7 +119,7 @@ func setupTestTables(t *testing.T, pool *pgxpool.Pool) testIDs {
 	ctx := context.Background()
 
 	// Apply the squashed base schema (000001 contains everything incl. rollups)
-	applyMigration(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	tenantID, schoolID, userID := seedTenantSchoolUser(t, pool)
 
@@ -279,7 +282,7 @@ func TestPgRepository_GetSession_NotFound(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigration(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	repo := newRepo(pool)
 	nonExistentID := uuid.New().String()
@@ -514,5 +517,145 @@ func TestPgRepository_ListClassTermAttendanceSummaries(t *testing.T) {
 		summaries, err := repo.ListClassTermAttendanceSummaries(ctx, wrongTenantID, ids.SchoolID, "", ids.AcademicTermID)
 		require.NoError(t, err)
 		require.Empty(t, summaries)
+	})
+}
+
+func TestPgRepository_ListClassAttendanceBreakdowns(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+	ctx := context.Background()
+	pool, cleanup := startPG(t)
+	defer cleanup()
+
+	ids := setupTestTables(t, pool)
+	repo := newRepo(pool)
+
+	// ClassID1: 25 present / 3 late / 2 absent / 0 excused
+	// ClassID2: 20 present / 3 late / 5 absent / 2 excused → higher absenteeism
+	insertClassDailyAttendanceSummary(t, pool, ids, ids.ClassID1, "2026-01-15", 30, 25, 3, 2, 0)
+	insertClassDailyAttendanceSummary(t, pool, ids, ids.ClassID2, "2026-01-15", 30, 20, 5, 3, 2)
+
+	// A third class with NO daily/term summary — the LEFT JOIN must still
+	// surface it with zeroed counts (ordered last via NULLS LAST).
+	streamID3 := uuid.New().String()
+	_, err := pool.Exec(ctx, `INSERT INTO cbc_streams (id, tenant_id, school_id, name) VALUES ($1, $2, $3, 'Red')`,
+		streamID3, ids.TenantID, ids.SchoolID)
+	require.NoError(t, err)
+	classID3 := uuid.New().String()
+	_, err = pool.Exec(ctx, `INSERT INTO cbc_classes (id, tenant_id, school_id, academic_year_id, grade_level, stream_id, is_active) VALUES ($1, $2, $3, $4, 'G2', $5, true)`,
+		classID3, ids.TenantID, ids.SchoolID, ids.AcademicYearID, streamID3)
+	require.NoError(t, err)
+
+	w := &Worker{pools: &database.Pools{PG: pool}, logger: zap.NewNop().Sugar()}
+	runWorkerJob(t, w, TaskRefreshClassTermSummary, ClassTermRefreshPayload{
+		TenantID: ids.TenantID,
+		SchoolID: ids.SchoolID,
+		TermID:   ids.AcademicTermID,
+	})
+
+	t.Run("lists_all_classes_sorted_by_absent_desc", func(t *testing.T) {
+		items, err := repo.ListClassAttendanceBreakdowns(ctx, ids.TenantID, ids.SchoolID, ids.AcademicTermID)
+		require.NoError(t, err)
+		require.Len(t, items, 3)
+
+		// ClassID2 has 5 absents — must surface first (truancy watch).
+		require.Equal(t, ids.ClassID2, items[0].ClassID)
+		require.Equal(t, "G1 Green", items[0].ClassName)
+		require.Equal(t, 5, items[0].AbsentCount)
+		require.Equal(t, 20, items[0].PresentCount)
+		require.Equal(t, 3, items[0].LateCount)
+		require.Equal(t, 2, items[0].ExcusedCount)
+
+		require.Equal(t, ids.ClassID1, items[1].ClassID)
+		require.Equal(t, "G1 Blue", items[1].ClassName)
+		require.Equal(t, 3, items[1].AbsentCount)
+
+		// Class without a summary still appears, zeroed, ordered last.
+		require.Equal(t, classID3, items[2].ClassID)
+		require.Equal(t, "G2 Red", items[2].ClassName)
+		require.Zero(t, items[2].AbsentCount)
+		require.Zero(t, items[2].PresentCount)
+		require.Zero(t, items[2].TermAttendanceRate)
+	})
+
+	t.Run("rls_enforced", func(t *testing.T) {
+		wrongTenantID := uuid.New().String()
+		items, err := repo.ListClassAttendanceBreakdowns(ctx, wrongTenantID, ids.SchoolID, ids.AcademicTermID)
+		require.NoError(t, err)
+		require.Empty(t, items)
+	})
+}
+
+func TestPgRepository_ListLearningAreaBreakdowns(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+	ctx := context.Background()
+	pool, cleanup := startPG(t)
+	defer cleanup()
+
+	ids := setupTestTables(t, pool)
+	repo := newRepo(pool)
+
+	// Student1 (Class 1): Math 10 total / 8 present / 1 absent; English 10 total / 5 present / 5 absent.
+	// Student2 (Class 2): Math 20 total / 15 present / 3 absent.
+	// After the class-learning-area rollup: Math totals (30/23/4), English (10/5/5).
+	insertAttendanceTermSummary(t, pool, ids, ids.StudentID1, ids.LearningAreaID1, 10, 8, 1, 1, 0)
+	insertAttendanceTermSummary(t, pool, ids, ids.StudentID1, ids.LearningAreaID2, 10, 5, 5, 0, 0)
+	insertAttendanceTermSummary(t, pool, ids, ids.StudentID2, ids.LearningAreaID1, 20, 15, 3, 2, 0)
+
+	// A third learning area with NO summaries — the LEFT JOIN must still
+	// surface it with zeroed counts (ordered last via NULLS LAST).
+	learningAreaID3 := uuid.New().String()
+	_, err := pool.Exec(ctx, `INSERT INTO cbc_learning_areas (id, tenant_id, school_id, name, code, education_level, grade_level) VALUES ($1, $2, $3, 'Kiswahili', 'KISW', 'Early_Years', 'G1')`,
+		learningAreaID3, ids.TenantID, ids.SchoolID)
+	require.NoError(t, err)
+
+	w := &Worker{pools: &database.Pools{PG: pool}, logger: zap.NewNop().Sugar()}
+	runWorkerJob(t, w, TaskRefreshClassLearningAreaTermSummary, ClassLearningAreaTermRefreshPayload{
+		TenantID: ids.TenantID,
+		SchoolID: ids.SchoolID,
+		TermID:   ids.AcademicTermID,
+	})
+
+	t.Run("aggregates_across_classes_sorted_by_absent_desc", func(t *testing.T) {
+		items, err := repo.ListLearningAreaBreakdowns(ctx, ids.TenantID, ids.SchoolID, ids.AcademicTermID)
+		require.NoError(t, err)
+		require.Len(t, items, 3)
+
+		// English has 5 absent periods — must surface first (truancy hotspot).
+		require.Equal(t, ids.LearningAreaID2, items[0].LearningAreaID)
+		require.Equal(t, "English", items[0].LearningAreaName)
+		require.Equal(t, 10, items[0].PeriodsTotal)
+		require.Equal(t, 5, items[0].PeriodsPresent)
+		require.Equal(t, 5, items[0].PeriodsAbsent)
+		require.Zero(t, items[0].PeriodsExcused)
+		require.InDelta(t, 50.00, items[0].AttendancePercentage, 0.01)
+
+		// Math aggregates Class 1 + Class 2 rows: 30 total / 23 present / 4 absent.
+		require.Equal(t, ids.LearningAreaID1, items[1].LearningAreaID)
+		require.Equal(t, "Mathematics", items[1].LearningAreaName)
+		require.Equal(t, 30, items[1].PeriodsTotal)
+		require.Equal(t, 23, items[1].PeriodsPresent)
+		require.Equal(t, 4, items[1].PeriodsAbsent)
+		require.Zero(t, items[1].PeriodsExcused)
+		require.InDelta(t, 76.67, items[1].AttendancePercentage, 0.01)
+
+		// Learning area without summaries still appears, zeroed, ordered last.
+		require.Equal(t, learningAreaID3, items[2].LearningAreaID)
+		require.Equal(t, "Kiswahili", items[2].LearningAreaName)
+		require.Zero(t, items[2].PeriodsTotal)
+		require.Zero(t, items[2].PeriodsPresent)
+		require.Zero(t, items[2].PeriodsAbsent)
+		require.Zero(t, items[2].PeriodsExcused)
+		require.Zero(t, items[2].AttendancePercentage)
+	})
+
+	t.Run("rls_enforced", func(t *testing.T) {
+		wrongTenantID := uuid.New().String()
+		items, err := repo.ListLearningAreaBreakdowns(ctx, wrongTenantID, ids.SchoolID, ids.AcademicTermID)
+		require.NoError(t, err)
+		require.Empty(t, items)
 	})
 }

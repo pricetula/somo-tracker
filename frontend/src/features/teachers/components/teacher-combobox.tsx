@@ -130,7 +130,6 @@ export function TeacherCombobox({
             value={value as string[]}
             onValueChange={onChange}
             multiple
-            placeholder={placeholder}
             emptyText="No teacher found."
             className={cn("w-full", className)}
             renderTrigger={({ selectedItems }) =>

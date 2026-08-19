@@ -30,6 +30,11 @@ const (
 var (
 	sessionGroup      singleflight.Group
 	invalidCacheToken = []byte("INVALID")
+	publicRoutes      = map[string]bool{
+		"/api/auth/discover": true,
+		"/api/auth/callback": true,
+		"/api/auth/session":  true,
+	}
 )
 
 // fingerprintsMatch reports whether the presented fingerprint matches the
@@ -100,10 +105,12 @@ func SessionCacheKey(rawToken string) string {
 //     a handler to a school the user has no access to.
 func NewSessionResolver(pools *database.Pools, cfg config.Config) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		if !strings.HasPrefix(c.Path(), "/api/") {
+		path := c.Path()
+		if !strings.HasPrefix(path, "/api/") || publicRoutes[path] {
+			fmt.Println("-------public", path)
 			return c.Next()
 		}
-
+		fmt.Println("nooooooooo---------", path)
 		token := c.Cookies(SessionCookieName)
 		if token != "" {
 			sess, err := resolveSession(c.UserContext(), pools, token)

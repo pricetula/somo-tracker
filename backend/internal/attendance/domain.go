@@ -340,6 +340,105 @@ type ClassTermAttendanceSummaryListResponse struct {
 	Total int                          `json:"total"`
 }
 
+// ─── Class Attendance Breakdown (School Admin Dashboard) ──────────────────
+
+// ClassAttendanceBreakdownItem is the per-class Present/Late/Absent rollup for
+// the School Administrator dashboard grouped bar chart. It is a read-only view
+// model assembled from cbc_classes LEFT JOIN class_term_attendance_summaries
+// (per the CQRS read-model rule — no cross-domain Go imports).
+//
+// AbsentCount is surfaced first-class because it is the critical metric for
+// tracking truancy and chronic absenteeism; the endpoint orders by it
+// descending so high-absenteeism classes appear at the top of the chart.
+type ClassAttendanceBreakdownItem struct {
+	ClassID            string  `json:"class_id"`
+	ClassName          string  `json:"class_name"`
+	TotalEnrolledAvg   float64 `json:"total_enrolled_avg"`
+	PresentCount       int     `json:"present_count"`
+	LateCount          int     `json:"late_count"`
+	AbsentCount        int     `json:"absent_count"`
+	ExcusedCount       int     `json:"excused_count"`
+	TermAttendanceRate float64 `json:"term_attendance_rate"`
+}
+
+// ClassAttendanceBreakdownListResponse wraps a list of class attendance breakdown items.
+type ClassAttendanceBreakdownListResponse struct {
+	Items []ClassAttendanceBreakdownItem `json:"items"`
+	Total int                            `json:"total"`
+}
+
+// ─── Learning Area Attendance Breakdown (School Admin Dashboard) ─────────
+
+// LearningAreaAttendanceBreakdownItem is the per-learning-area Present/Absent/
+// Excused rollup for the School Administrator dashboard grouped bar chart. It
+// is a read-only view model assembled from cbc_learning_areas LEFT JOIN
+// class_learning_area_term_summaries aggregated across all classes in the
+// school (per the CQRS read-model rule — no cross-domain Go imports).
+//
+// PeriodsAbsent is surfaced first-class because it is the critical metric for
+// tracking truancy and disengagement per subject; the endpoint orders by it
+// descending so learning areas with the highest absenteeism appear at the top
+// of the chart.
+type LearningAreaAttendanceBreakdownItem struct {
+	LearningAreaID       string  `json:"learning_area_id"`
+	LearningAreaName     string  `json:"learning_area_name"`
+	PeriodsTotal         int     `json:"periods_total"`
+	PeriodsPresent       int     `json:"periods_present"`
+	PeriodsAbsent        int     `json:"periods_absent"`
+	PeriodsExcused       int     `json:"periods_excused"`
+	AttendancePercentage float64 `json:"attendance_percentage"`
+}
+
+// LearningAreaAttendanceBreakdownListResponse wraps a list of learning area
+// attendance breakdown items.
+type LearningAreaAttendanceBreakdownListResponse struct {
+	Items []LearningAreaAttendanceBreakdownItem `json:"items"`
+	Total int                                   `json:"total"`
+}
+
+// ─── School Attendance KPIs ──────────────────────────────────────────────
+
+// SchoolAttendanceKPI is the macro-level school attendance view model for the
+// School Administrator dashboard (School Attendance Command Center). It is a
+// read-only rollup assembled from class_daily_attendance_summaries,
+// class_term_attendance_summaries, cbc_timetable_slots, and
+// cbc_attendance_sessions.
+type SchoolAttendanceKPI struct {
+	// TodaysAttendanceRate is the average daily attendance rate across all
+	// classes on the requested date, from class_daily_attendance_summaries.
+	TodaysAttendanceRate float64 `json:"todays_attendance_rate"`
+
+	// TotalPresent is the number of PRESENT marks across all classes on the date.
+	TotalPresent int `json:"total_present"`
+
+	// TotalMarkedRecords is the number of marked records (present + absent +
+	// late + excused) across all classes on the date.
+	TotalMarkedRecords int `json:"total_marked_records"`
+
+	// ActiveTermAttendanceRate is the average term attendance rate across all
+	// classes in the active academic term, from class_term_attendance_summaries.
+	ActiveTermAttendanceRate float64 `json:"active_term_attendance_rate"`
+
+	// UnmarkedSlotsToday is the count of non-break timetable slots for today
+	// that have no attendance session record yet (action required).
+	UnmarkedSlotsToday int `json:"unmarked_slots_today"`
+
+	// SkippedSessionsToday is the count of SKIPPED attendance sessions today.
+	SkippedSessionsToday int `json:"skipped_sessions_today"`
+}
+
+// ClassTermPercentageItem represents the percentage of attendance statuses for a class and term.
+type ClassTermPercentageItem struct {
+	ClassName         string  `json:"class_name"`
+	TermName          string  `json:"term_name"`
+	TermNumber        int     `json:"term_number"`
+	AcademicYear      string  `json:"academic_year"`
+	PresentPercentage float64 `json:"present_percentage"`
+	AbsentPercentage  float64 `json:"absent_percentage"`
+	ExcusedPercentage float64 `json:"excused_percentage"`
+	LatePercentage    float64 `json:"late_percentage"`
+}
+
 // ─── Repository Interface ─────────────────────────────────────────────────
 
 // Repository defines the contract for attendance persistence.
@@ -433,9 +532,34 @@ type Repository interface {
 	// for a school and term (or specific class if provided).
 	ListClassTermAttendanceSummaries(ctx context.Context, tenantID, schoolID, classID, termID string) ([]ClassTermAttendanceSummary, error)
 
+	// ListClassAttendanceBreakdowns returns per-class present/late/absent counts
+	// for a school in a term (class names included), ordered by absent count
+	// descending so the highest-absenteeism classes surface first.
+	ListClassAttendanceBreakdowns(ctx context.Context, tenantID, schoolID, termID string) ([]ClassAttendanceBreakdownItem, error)
+
+	// ListLearningAreaBreakdowns returns per-learning-area present/absent/excused
+	// period counts for a school in a term, aggregated across all classes
+	// (learning area names included), ordered by absent period count descending
+	// so the highest-absenteeism subjects surface first (truancy hotspot watch).
+	ListLearningAreaBreakdowns(ctx context.Context, tenantID, schoolID, termID string) ([]LearningAreaAttendanceBreakdownItem, error)
+
 	// ── Calendar Status ───────────────────────────────────────────────
 
 	// ListCalendarStatus returns per-date expected/handled slot counts for a
 	// school over a date range. Returns one row per date in the range.
 	ListCalendarStatus(ctx context.Context, tenantID, schoolID, startDate, endDate string) ([]CalendarDayStatusRaw, error)
+
+	// ── School Attendance KPIs ────────────────────────────────────────────
+
+	// GetSchoolAttendanceKPIs returns macro-level attendance KPIs for a school
+	// on a given date: today's attendance rate, active term attendance rate,
+	// unmarked timetable slots for the date, and skipped sessions for the date.
+	// When termID is empty, the active term containing the date is used; when
+	// no term covers the date, the active-term rate degrades to 0.00.
+	GetSchoolAttendanceKPIs(ctx context.Context, tenantID, schoolID, date, termID string) (*SchoolAttendanceKPI, error)
+
+	// ListClassTermPercentages returns the percentage of attendance statuses (present, absent,
+	// excused, late) for each class and term in the current academic year, with a rollup row
+	// for "All" classes.
+	ListClassTermPercentages(ctx context.Context, tenantID, schoolID string) ([]ClassTermPercentageItem, error)
 }

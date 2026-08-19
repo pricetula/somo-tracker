@@ -63,20 +63,17 @@ func startPG(t *testing.T) (*pgxpool.Pool, func()) {
 	return pool, cleanup
 }
 
-func applyMigration(t *testing.T, pool *pgxpool.Pool, filename string) {
+func applyAllMigrations(t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
-	path := filepath.Join(migrationsDir(), filename)
-	sql, err := os.ReadFile(path)
-	require.NoError(t, err, "read migration %s", filename)
-	_, err = pool.Exec(context.Background(), string(sql))
-	require.NoError(t, err, "apply migration %s", filename)
-}
-
-func applyMigrations(t *testing.T, pool *pgxpool.Pool, filenames ...string) {
-	t.Helper()
-	for _, f := range filenames {
-		applyMigration(t, pool, f)
+	files, err := filepath.Glob(filepath.Join(migrationsDir(), "*.up.sql"))
+	require.NoError(t, err, "glob migration files")
+	for _, path := range files {
+		sql, err := os.ReadFile(path)
+		require.NoError(t, err, "read migration %s", path)
+		_, err = pool.Exec(context.Background(), string(sql))
+		require.NoError(t, err, "apply migration %s", path)
 	}
+
 }
 
 func seedTenantSchoolUser(t *testing.T, pool *pgxpool.Pool) (tenantID, schoolID, userID string) {
@@ -138,7 +135,7 @@ func TestPgRepository_ListByTeacher(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigrations(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	tenantID, schoolID, userID := seedTenantSchoolUser(t, pool)
 	yearID := seedAcademicYear(t, pool, tenantID, schoolID)
@@ -177,7 +174,7 @@ func TestPgRepository_ListByTeacher_NotFound(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigrations(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	tenantID, schoolID, userID := seedTenantSchoolUser(t, pool)
 
@@ -194,7 +191,7 @@ func TestPgRepository_ListByTerm(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigrations(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	tenantID, schoolID, userID1 := seedTenantSchoolUser(t, pool)
 
@@ -234,7 +231,7 @@ func TestPgRepository_GetByTeacherTerm(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigrations(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	tenantID, schoolID, userID := seedTenantSchoolUser(t, pool)
 	yearID := seedAcademicYear(t, pool, tenantID, schoolID)
@@ -266,7 +263,7 @@ func TestPgRepository_GetByTeacherTerm_NotFound(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigrations(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	repo := newRepo(pool)
 
@@ -281,7 +278,7 @@ func TestPgRepository_ListByTerm_Empty(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigrations(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	tenantID, schoolID, _ := seedTenantSchoolUser(t, pool)
 	repo := newRepo(pool)
@@ -299,11 +296,103 @@ func TestPgRepository_RefreshComputation(t *testing.T) {
 	ctx := context.Background()
 	pool, cleanup := startPG(t)
 	defer cleanup()
-	applyMigrations(t, pool, "000001_initial_schema.up.sql")
+	applyAllMigrations(t, pool)
 
 	repo := newRepo(pool)
 
 	err := repo.RefreshComputation(ctx, "00000000-0000-0000-0000-000000000000")
 	// The function will run and not error (it simply may not find any data)
 	require.NoError(t, err)
+}
+
+func TestPgRepository_ListDeliveryBreakdown(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+	ctx := context.Background()
+	pool, cleanup := startPG(t)
+	defer cleanup()
+	applyAllMigrations(t, pool)
+
+	tenantID, schoolID, userID1 := seedTenantSchoolUser(t, pool)
+
+	// Second user with a TSC number; first user gets a TSC number too.
+	userID2 := uuid.New().String()
+	_, err := pool.Exec(ctx, `INSERT INTO users (id, email, tenant_id, full_name, tsc_number) VALUES ($1, $2, $3, $4, $5)`,
+		userID2, "teacher2@test.com", tenantID, "Teacher Two", "TSC-002")
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `UPDATE users SET tsc_number = $1 WHERE id = $2`, "TSC-001", userID1)
+	require.NoError(t, err)
+
+	// Third user with no TSC number (NULL) to verify NULLS LAST ordering / nil scan.
+	userID3 := uuid.New().String()
+	_, err = pool.Exec(ctx, `INSERT INTO users (id, email, tenant_id, full_name) VALUES ($1, $2, $3, $4)`,
+		userID3, "teacher3@test.com", tenantID, "Teacher Three")
+	require.NoError(t, err)
+
+	yearID := seedAcademicYear(t, pool, tenantID, schoolID)
+	termID := seedAcademicTerm(t, pool, tenantID, schoolID, yearID)
+
+	// Insert summaries: user1 missed 2, user2 missed 8, user3 missed 5.
+	summaries := []struct {
+		userID string
+		marked int
+		missed int
+		rate   float64
+	}{
+		{userID1, 18, 2, 1.00},
+		{userID2, 12, 8, 0.80},
+		{userID3, 10, 5, 0.75},
+	}
+	for _, s := range summaries {
+		summaryID := uuid.New().String()
+		_, err = pool.Exec(ctx, `
+			INSERT INTO teacher_delivery_summaries (id, tenant_id, school_id, user_id, academic_term_id,
+				total_assigned_slots, marked_slots, missed_slots, sessions_created, sessions_approved,
+				on_time_submission_rate, last_refreshed_at)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $6, $7, $9, NOW())
+		`, summaryID, tenantID, schoolID, s.userID, termID, s.marked+s.missed, s.marked, s.missed, s.rate)
+		require.NoError(t, err)
+	}
+
+	repo := newRepo(pool)
+
+	items, err := repo.ListDeliveryBreakdown(ctx, tenantID, schoolID, termID)
+	require.NoError(t, err)
+	require.Len(t, items, 3)
+
+	// Ordered by missed_slots DESC: Teacher Two (8), Teacher Three (5), Teacher One (2).
+	require.Equal(t, userID2, items[0].TeacherID)
+	require.Equal(t, "Teacher Two", items[0].TeacherName)
+	require.NotNil(t, items[0].TSCNumber)
+	require.Equal(t, "TSC-002", *items[0].TSCNumber)
+	require.Equal(t, 8, items[0].MissedSlots)
+	require.Equal(t, 12, items[0].MarkedSlots)
+	require.InDelta(t, 0.80, items[0].OnTimeSubmissionRate, 0.01)
+
+	require.Equal(t, "Teacher Three", items[1].TeacherName)
+	require.Nil(t, items[1].TSCNumber)
+	require.Equal(t, 5, items[1].MissedSlots)
+
+	require.Equal(t, "Test Teacher", items[2].TeacherName)
+	require.NotNil(t, items[2].TSCNumber)
+	require.Equal(t, "TSC-001", *items[2].TSCNumber)
+	require.Equal(t, 2, items[2].MissedSlots)
+}
+
+func TestPgRepository_ListDeliveryBreakdown_Empty(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+	ctx := context.Background()
+	pool, cleanup := startPG(t)
+	defer cleanup()
+	applyAllMigrations(t, pool)
+
+	tenantID, schoolID, _ := seedTenantSchoolUser(t, pool)
+	repo := newRepo(pool)
+
+	items, err := repo.ListDeliveryBreakdown(ctx, tenantID, schoolID, "00000000-0000-0000-0000-000000000000")
+	require.NoError(t, err)
+	require.Empty(t, items)
 }

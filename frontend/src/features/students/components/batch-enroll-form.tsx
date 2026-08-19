@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Loader2, Users } from "lucide-react";
 
-import { ClassCombobox } from "@/features/classes";
+// import { ClassCombobox } from "@/features/classes";
 import { useBatchEnrollStudents } from "../hooks/use-student-detail";
 import { useEnrollmentStore } from "../store/enrollment-store";
 import { getErrorMessage } from "@/lib/errors";
@@ -90,14 +90,14 @@ export function BatchEnrollForm({ onSuccess, onCancel }: BatchEnrollFormProps) {
             {/* Class selection */}
             <div className="space-y-1.5">
                 <Label>Class to Enroll In</Label>
-                <ClassCombobox
+                {/*<ClassCombobox
                     value={selectedClassId}
                     onChange={(v) => setSelectedClassId(v as string)}
                     placeholder="Select a class"
                     onCreateItem={() => {
                         router.push("/classes/add");
                     }}
-                />
+                />*/}
             </div>
 
             {/* Actions */}

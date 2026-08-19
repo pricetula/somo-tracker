@@ -51,12 +51,14 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 
 	// Class learning area term summaries
 	classLA := router.Group("/api/v1/attendance/class-learning-area")
+	classLA.Get("/breakdown", middleware.RequireAuth, h.ListLearningAreaBreakdowns)
 	classLA.Get("/class/:class_id/term/:term_id", middleware.RequireAuth, h.ListClassLearningAreaTermSummaries)
 	classLA.Get("/class/:class_id/learning-area/:learning_area_id/term/:term_id", middleware.RequireAuth, h.GetClassLearningAreaTermSummary)
 	classLA.Post("/class/:class_id/term/:term_id/refresh", middleware.RequireAuth, h.RefreshClassLearningAreaTermSummary)
 
 	// Class term attendance summaries
 	classTerm := router.Group("/api/v1/attendance/class-term")
+	classTerm.Get("/breakdown", middleware.RequireAuth, h.ListClassAttendanceBreakdowns)
 	classTerm.Get("/class/:class_id/term/:term_id", middleware.RequireAuth, h.GetClassTermAttendanceSummary)
 	classTerm.Get("/term/:term_id", middleware.RequireAuth, h.ListClassTermAttendanceSummaries)
 	classTerm.Post("/class/:class_id/term/:term_id/refresh", middleware.RequireAuth, h.RefreshClassTermAttendanceSummary)
@@ -64,6 +66,13 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	// Calendar status (monthly overview)
 	calendar := router.Group("/api/v1/attendance/calendar")
 	calendar.Get("/status", middleware.RequireAuth, h.GetCalendarStatus)
+
+	// School attendance KPIs (School Administrator dashboard)
+	kpis := router.Group("/api/v1/attendance/kpis")
+	kpis.Get("/school", middleware.RequireAuth, h.GetSchoolAttendanceKPIs)
+
+	// Class term attendance percentages
+	router.Group("/api/v1/attendance").Get("/class-term-percentages", middleware.RequireAuth, h.GetClassTermPercentages)
 }
 
 // attMiddleware extracts common tenant/school context.
@@ -531,6 +540,69 @@ func (h *Handler) ListClassTermAttendanceSummaries(c *fiber.Ctx) error {
 	return c.JSON(result)
 }
 
+// ListClassAttendanceBreakdowns handles GET /api/v1/attendance/class-term/breakdown.
+//
+// Query params:
+//   - academic_term_id (UUID, required) — the term to aggregate
+//     (class_term_attendance_summaries are per class × term).
+//
+// tenant_id and school_id are resolved from the authenticated local context.
+// Returns per-class Present/Late/Absent counts ordered by absent_count
+// descending so high-absenteeism classes surface first.
+func (h *Handler) ListClassAttendanceBreakdowns(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.attMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	termID := c.Query("academic_term_id")
+	if termID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "academic_term_id is required",
+		})
+	}
+
+	result, err := h.svc.ListClassAttendanceBreakdowns(c.Context(), tenantID, schoolID, termID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(result)
+}
+
+// ListLearningAreaBreakdowns handles GET /api/v1/attendance/class-learning-area/breakdown.
+//
+// Query params:
+//   - academic_term_id (UUID, required) — the term to aggregate
+//     (class_learning_area_term_summaries are per class × learning area × term).
+//
+// tenant_id and school_id are resolved from the authenticated local context.
+// Returns per-learning-area Present/Absent/Excused period counts aggregated
+// across all classes, ordered by periods_absent descending so the
+// highest-absenteeism subjects surface first (truancy hotspot watch).
+func (h *Handler) ListLearningAreaBreakdowns(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.attMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	termID := c.Query("academic_term_id")
+	if termID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "academic_term_id is required",
+		})
+	}
+
+	result, err := h.svc.ListLearningAreaBreakdowns(c.Context(), tenantID, schoolID, termID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(result)
+}
+
 // RefreshClassTermAttendanceSummary handles POST /api/v1/attendance/class-term/class/:class_id/term/:term_id/refresh.
 func (h *Handler) RefreshClassTermAttendanceSummary(c *fiber.Ctx) error {
 	tenantID, schoolID, err := h.attMiddleware(c)
@@ -599,6 +671,57 @@ func (h *Handler) GetCalendarStatus(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(result)
+}
+
+// ── School Attendance KPIs ────────────────────────────────────────────────
+
+// GetSchoolAttendanceKPIs handles GET /api/v1/attendance/kpis/school.
+func (h *Handler) GetSchoolAttendanceKPIs(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.attMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	date := c.Query("date")
+	termID := c.Query("term_id")
+
+	if date == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "date is required (YYYY-MM-DD)",
+		})
+	}
+	if _, err := time.Parse("2006-01-02", date); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "date must be a valid ISO date (YYYY-MM-DD)",
+		})
+	}
+
+	kpi, err := h.svc.GetSchoolAttendanceKPIs(c.Context(), tenantID, schoolID, date, termID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(kpi)
+}
+
+// GetClassTermPercentages handles GET /api/v1/attendance/class-term-percentages.
+func (h *Handler) GetClassTermPercentages(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.attMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	result, err := h.svc.ListClassTermPercentages(c.Context(), tenantID, schoolID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(fiber.Map{
+		"academic_year": result[0].AcademicYear,
+		"data":          result,
+	})
 }
 
 // countDays returns the number of calendar days between two ISO date strings.

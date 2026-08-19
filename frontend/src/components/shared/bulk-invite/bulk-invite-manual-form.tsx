@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { submitBulkInvite, getImportAlreadyInProgress } from "@/lib/api/invitations";
 import { getErrorMessage } from "@/lib/errors";
+import { resolveActiveJobTotalRecords } from "./active-job-utils";
 import { validateInviteRow, detectDuplicateEmails } from "./validation-utils";
 import type { InviteRowInput, InviteRowError } from "./validation-utils";
 
@@ -25,23 +26,12 @@ import type { InviteRowInput, InviteRowError } from "./validation-utils";
 // MAX_INVITE_ROWS must stay in sync with backend imports.MaxImportRows (5000).
 const MAX_INVITE_ROWS = 5000;
 
-// ─── Row ID counter ───────────────────────────────────────────────────────
-
-let rowCounter = 0;
+// ─── Row ID generation ────────────────────────────────────────────────────
 
 interface InviteFormRow {
     id: string;
     email: string;
     fullName: string;
-}
-
-function freshRow(): InviteFormRow {
-    rowCounter += 1;
-    return {
-        id: `invite-${rowCounter}-${Date.now()}`,
-        email: "",
-        fullName: "",
-    };
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────
@@ -62,7 +52,26 @@ export function BulkInviteManualForm({
     onJobCreated,
     submitFn = submitBulkInvite,
 }: BulkInviteManualFormProps) {
-    const [rows, setRows] = React.useState<InviteFormRow[]>([freshRow()]);
+    // Per-instance row id counter — avoids sharing a module-level counter across
+    // mounts and keeps ids unique within this instance. Read only from event
+    // handlers (the lint rule forbids touching refs during render).
+    const seedId = React.useId();
+    const rowCounterRef = React.useRef(0);
+
+    function freshRow(): InviteFormRow {
+        rowCounterRef.current += 1;
+        return {
+            id: `invite-${seedId}-${rowCounterRef.current}`,
+            email: "",
+            fullName: "",
+        };
+    }
+
+    const [rows, setRows] = React.useState<InviteFormRow[]>(() => [
+        // Initial row id must not touch the ref (state initializer runs during
+        // render); the counter only kicks in for rows added/removed later.
+        { id: `${seedId}-initial`, email: "", fullName: "" },
+    ]);
     const [submitting, setSubmitting] = React.useState(false);
     const submittingRef = React.useRef(false);
 
@@ -109,7 +118,9 @@ export function BulkInviteManualForm({
                 toast.error(`Maximum of ${MAX_INVITE_ROWS.toLocaleString()} rows reached.`);
                 return prev;
             }
-            return [freshRow(), ...prev];
+            // Append below existing rows so earlier entries keep their position
+            // ("Person 1" stays the first person entered).
+            return [...prev, freshRow()];
         });
     }
 
@@ -131,7 +142,13 @@ export function BulkInviteManualForm({
         } catch (err) {
             const activeJobId = getImportAlreadyInProgress(err);
             if (activeJobId) {
-                onJobCreated(activeJobId, inviteRows.length);
+                // The active job may have a different (larger) total than this batch —
+                // resolve the real count so ImportProgress shows an accurate total.
+                const totalRecords = await resolveActiveJobTotalRecords(
+                    activeJobId,
+                    inviteRows.length
+                );
+                onJobCreated(activeJobId, totalRecords);
                 return;
             }
             submittingRef.current = false;

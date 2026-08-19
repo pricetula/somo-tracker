@@ -114,7 +114,7 @@ export function ClassResolverRow({
                             </Button>
                         </PopoverTrigger>
                         <PopoverContent
-                            className="w-(--radix-popover-trigger-width) p-0"
+                            className="w-(--base-ui-popover-trigger-width) p-0"
                             align="start"
                             sideOffset={4}
                         >

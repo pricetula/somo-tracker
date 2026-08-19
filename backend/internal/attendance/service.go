@@ -572,3 +572,12 @@ func (s *Service) GetCalendarStatus(ctx context.Context, tenantID, schoolID, sta
 
 	return &CalendarStatusListResponse{Items: items, Total: len(items)}, nil
 }
+
+// GetLowestAttendanceStudents returns the N students with the lowest attendance percentage
+// for the current week (or a specified limit). If limit is 0, defaults to 5.
+func (s *Service) GetLowestAttendanceStudents(ctx context.Context, tenantID, schoolID string, limit int) ([]LowestAttendanceStudent, error) {
+	if limit <= 0 {
+		limit = 5
+	}
+	return s.repo.GetLowestAttendanceStudents(ctx, tenantID, schoolID, limit)
+}

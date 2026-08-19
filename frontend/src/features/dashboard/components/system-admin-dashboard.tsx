@@ -12,8 +12,9 @@ export function SystemAdminDashboardPage() {
                 <AcademicYearHandler />
                 <UserCount />
             </header>
-            <section className="grid-cols grid gap-10 sm:grid-cols-2 lg:grid-cols-3">
+            <section className="grid-cols grid gap-4 sm:gap-4 lg:grid-cols-3 lg:gap-8">
                 <AttendanceSummary />
+                <AttendanceCalendar />
                 <AttendanceCalendar />
             </section>
             {/* The selected academic year id and term id can be used elsewhere in the dashboard */}

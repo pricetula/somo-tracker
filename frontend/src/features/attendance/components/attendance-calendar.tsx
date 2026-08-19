@@ -93,7 +93,7 @@ export function AttendanceCalendar({ schoolId: propSchoolId }: AttendanceCalenda
             <CardHeader className="flex items-center justify-between pb-0">
                 <CardTitle>Attendance </CardTitle>
             </CardHeader>
-            <CardContent className="flex justify-center pb-0">
+            <CardContent className="flex h-90 justify-center pb-0">
                 <Calendar
                     month={currentMonth}
                     onMonthChange={setCurrentMonth}

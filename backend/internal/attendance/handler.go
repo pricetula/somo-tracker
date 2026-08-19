@@ -1,6 +1,7 @@
 package attendance
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -68,10 +69,10 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	calendar.Get("/status", middleware.RequireAuth, h.GetCalendarStatus)
 
 	// School attendance KPIs (School Administrator dashboard)
-	kpis := router.Group("/api/v1/attendance/kpis")
-	kpis.Get("/school", middleware.RequireAuth, h.GetSchoolAttendanceKPIs)
-
-	// Class term attendance percentages
+	// kpis := router.Group("/api/v1/attendance/kpis")
+	// Students attendance rankings
+	students := router.Group("/api/v1/attendance/students")
+	students.Get("/lowest-attendance", middleware.RequireAuth, h.GetLowestAttendanceStudents)
 	router.Group("/api/v1/attendance").Get("/class-term-percentages", middleware.RequireAuth, h.GetClassTermPercentages)
 }
 
@@ -722,6 +723,29 @@ func (h *Handler) GetClassTermPercentages(c *fiber.Ctx) error {
 		"academic_year": result[0].AcademicYear,
 		"data":          result,
 	})
+}
+
+// GetLowestAttendanceStudents handles GET /api/v1/attendance/students/lowest-attendance.
+func (h *Handler) GetLowestAttendanceStudents(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.attMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	limitStr := c.Query("limit")
+	limit := 5
+	if limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
+			limit = l
+		}
+	}
+
+	result, err := h.svc.GetLowestAttendanceStudents(c.Context(), tenantID, schoolID, limit)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(result)
 }
 
 // countDays returns the number of calendar days between two ISO date strings.

@@ -1444,5 +1444,66 @@ func (r *pgRepository) ListClassTermPercentages(ctx context.Context, tenantID, s
 	return results, nil
 }
 
+// GetLowestAttendanceStudents returns the N students with the lowest attendance percentage
+// for the current week (or a specified limit). If limit is 0, defaults to 5.
+func (r *pgRepository) GetLowestAttendanceStudents(ctx context.Context, tenantID, schoolID string, limit int) ([]LowestAttendanceStudent, error) {
+	if limit <= 0 {
+		limit = 5
+	}
+	query := `
+		SELECT 
+			s.id AS student_id,
+			s.first_name,
+			s.last_name,
+			COUNT(ar.id) AS total_periods,
+			SUM(CASE WHEN ar.status = 'PRESENT' THEN 1 ELSE 0 END) AS present_count,
+			ROUND(
+				(SUM(CASE WHEN ar.status = 'PRESENT' THEN 1 ELSE 0 END)::NUMERIC / NULLIF(COUNT(ar.id), 0)) * 100, 
+				2
+			) AS attendance_percentage
+		FROM 
+			cbc_students s
+		JOIN 
+			attendance_records ar ON s.tenant_id = ar.tenant_id AND s.id = ar.student_id
+		WHERE 
+			ar.tenant_id = $1
+			AND ar.school_id = $2
+			AND ar.date >= DATE_TRUNC('week', CURRENT_DATE)
+			AND ar.date < DATE_TRUNC('week', CURRENT_DATE) + INTERVAL '1 week'
+		GROUP BY 
+			s.id, 
+			s.first_name, 
+			s.last_name
+		ORDER BY 
+			present_count ASC, 
+			attendance_percentage ASC
+		LIMIT $3
+	`
+	var results []LowestAttendanceStudent
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, tenantID, schoolID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("attendance.Repository.GetLowestAttendanceStudents: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var s LowestAttendanceStudent
+		if err := rows.Scan(
+			&s.StudentID,
+			&s.FirstName,
+			&s.LastName,
+			&s.TotalPeriods,
+			&s.PresentCount,
+			&s.AttendancePercentage,
+		); err != nil {
+			return nil, fmt.Errorf("attendance.Repository.GetLowestAttendanceStudents: scan: %w", err)
+		}
+		results = append(results, s)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("attendance.Repository.GetLowestAttendanceStudents: rows: %w", err)
+	}
+	return results, nil
+}
+
 // Compile-time check
 var _ Repository = (*pgRepository)(nil)

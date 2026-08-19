@@ -43,6 +43,7 @@ type MockRepository struct {
 	listLearningAreaBreakdownsFn          func(ctx context.Context, tenantID, schoolID, termID string) ([]LearningAreaAttendanceBreakdownItem, error)
 	getSchoolAttendanceKPIsFn             func(ctx context.Context, tenantID, schoolID, date, termID string) (*SchoolAttendanceKPI, error)
 	listClassTermPercentagesFn            func(ctx context.Context, tenantID, schoolID string) ([]ClassTermPercentageItem, error)
+	getLowestAttendanceStudentsFn         func(ctx context.Context, tenantID, schoolID string, limit int) ([]LowestAttendanceStudent, error)
 }
 
 func (m *MockRepository) CreateSession(ctx context.Context, tenantID, schoolID string, payload CreateSessionPayload) (*AttendanceSession, error) {
@@ -264,6 +265,13 @@ func (m *MockRepository) ListClassTermPercentages(ctx context.Context, tenantID,
 		return m.listClassTermPercentagesFn(ctx, tenantID, schoolID)
 	}
 	return []ClassTermPercentageItem{}, nil
+}
+
+func (m *MockRepository) GetLowestAttendanceStudents(ctx context.Context, tenantID, schoolID string, limit int) ([]LowestAttendanceStudent, error) {
+	if m.getLowestAttendanceStudentsFn != nil {
+		return m.getLowestAttendanceStudentsFn(ctx, tenantID, schoolID, limit)
+	}
+	return []LowestAttendanceStudent{}, nil
 }
 
 // ============================================================================

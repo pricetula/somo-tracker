@@ -439,6 +439,18 @@ type ClassTermPercentageItem struct {
 	LatePercentage    float64 `json:"late_percentage"`
 }
 
+// ─── Lowest Attendance Students (for ranking) ───────────────────────────────────
+
+// LowestAttendanceStudent represents a student with low attendance for a given period.
+type LowestAttendanceStudent struct {
+	StudentID            string  `json:"student_id"`
+	FirstName            string  `json:"first_name"`
+	LastName             string  `json:"last_name"`
+	TotalPeriods         int     `json:"total_periods"`
+	PresentCount         int     `json:"present_count"`
+	AttendancePercentage float64 `json:"attendance_percentage"`
+}
+
 // ─── Repository Interface ─────────────────────────────────────────────────
 
 // Repository defines the contract for attendance persistence.
@@ -562,4 +574,8 @@ type Repository interface {
 	// excused, late) for each class and term in the current academic year, with a rollup row
 	// for "All" classes.
 	ListClassTermPercentages(ctx context.Context, tenantID, schoolID string) ([]ClassTermPercentageItem, error)
+
+	// GetLowestAttendanceStudents returns the N students with the lowest attendance percentage
+	// for the current week (or a specified limit). If limit is 0, defaults to 5.
+	GetLowestAttendanceStudents(ctx context.Context, tenantID, schoolID string, limit int) ([]LowestAttendanceStudent, error)
 }

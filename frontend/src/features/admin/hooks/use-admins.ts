@@ -12,6 +12,7 @@ import {
     toggleAdminActive,
     deleteAdmin,
     type ListMembersResponse,
+    type Member,
 } from "@/lib/api/admins";
 import { getMember, updateMember } from "@/lib/api/members";
 
@@ -69,13 +70,29 @@ export function useUpdateAdmin() {
                 queryKey: adminsKeys.all,
             });
 
-            queryClient.setQueriesData<ListMembersResponse>({ queryKey: adminsKeys.all }, (old) => {
-                if (!old) return old;
-                return {
-                    ...old,
-                    items: old.items.map((m) => (m.id === userId ? { ...m, ...payload } : m)),
-                };
-            });
+            queryClient.setQueriesData<{ pages: Array<{ items: Array<Member> }> }>(
+                { queryKey: adminsKeys.all },
+                (old) => {
+                    if (!old?.pages) return old;
+                    // Build index once: O(N)
+                    const userIndex = new Map();
+
+                    old.pages.forEach((page) => {
+                        page.items.forEach((item) => userIndex.set(item.id, item));
+                    });
+
+                    // Direct O(1) lookup & update
+                    const target = userIndex.get(userId);
+                    if (target) {
+                        target.full_name = payload.full_name;
+                    }
+
+                    return {
+                        ...old,
+                        pages: old?.pages,
+                    };
+                }
+            );
 
             return { previousQueries };
         },
@@ -86,9 +103,6 @@ export function useUpdateAdmin() {
                 }
             }
             toast.error(getErrorMessage(err));
-        },
-        onSettled: () => {
-            queryClient.invalidateQueries({ queryKey: adminsKeys.all });
         },
     });
 }

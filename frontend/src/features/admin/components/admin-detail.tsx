@@ -9,184 +9,104 @@
 
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Trash2 } from "lucide-react";
+import React from "react";
+import { Loader2 } from "lucide-react";
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { getErrorMessage } from "@/lib/errors";
-import { useAdminDetail, useUpdateAdmin, useDeleteAdmin } from "../hooks/use-admins";
+    Form,
+    FormControl,
+    FormField,
+    FormItem,
+    FormLabel,
+    FormMessage,
+} from "@/components/ui/form";
+import { useAdminDetail, useUpdateAdmin } from "../hooks/use-admins";
+import { useRouter } from "next/navigation";
 
 interface AdminDetailProps {
     id: string;
 }
 
+const adminDetailSchema = z.object({
+    fullName: z.string().trim().min(2, "Full name required with a minimum of 2 characters"),
+});
+
+type AdminDetailSchema = z.infer<typeof adminDetailSchema>;
+
 export function AdminDetail({ id }: AdminDetailProps) {
     const router = useRouter();
-    const { data: admin, isLoading, isError, error } = useAdminDetail(id);
+    const { data: admin, isLoading } = useAdminDetail(id);
     const updateMutation = useUpdateAdmin();
-    const deleteMutation = useDeleteAdmin();
 
-    const [fullName, setFullName] = useState("");
-    const [nameError, setNameError] = useState("");
-    const [hasInitialized, setHasInitialized] = useState(false);
+    const form = useForm<AdminDetailSchema>({
+        resolver: zodResolver(adminDetailSchema),
+        defaultValues: {
+            fullName: "",
+        },
+    });
 
-    // Initialise form fields when data loads.
-    if (admin && !hasInitialized) {
-        setFullName(admin.full_name ?? "");
-        setHasInitialized(true);
-    }
+    const onSubmit = React.useCallback(
+        (values: AdminDetailSchema) => {
+            updateMutation.mutate({
+                userId: id,
+                payload: { full_name: values.fullName },
+            });
+        },
+        [updateMutation, id]
+    );
 
-    function validate(): boolean {
-        if (!fullName.trim()) {
-            setNameError("Full name is required");
-            return false;
+    React.useEffect(() => {
+        if (updateMutation.isSuccess) {
+            router.back();
         }
-        setNameError("");
-        return true;
-    }
+    }, [updateMutation, router]);
 
-    const handleDelete = async () => {
-        try {
-            await deleteMutation.mutateAsync(id);
-            router.push("/admins");
-        } catch {
-            // Error handled by the hook
+    React.useEffect(() => {
+        if (admin?.full_name) {
+            form.setValue("fullName", admin.full_name);
         }
-    };
-
-    function handleSave() {
-        if (!validate()) return;
-
-        updateMutation.mutate({
-            userId: id,
-            payload: { full_name: fullName.trim() },
-        });
-    }
-
-    // ── Loading state ─────────────────────────────────────────────────────
-    if (isLoading) {
-        return (
-            <div className="space-y-4 py-4">
-                <Skeleton className="h-5 w-32" />
-                <Skeleton className="h-9 w-full" />
-                <Skeleton className="h-5 w-24" />
-                <Skeleton className="h-9 w-full" />
-            </div>
-        );
-    }
-
-    // ── Error state ───────────────────────────────────────────────────────
-    if (isError) {
-        return (
-            <Alert variant="destructive">
-                <AlertDescription>{getErrorMessage(error)}</AlertDescription>
-            </Alert>
-        );
-    }
-
-    // ── Not found state ───────────────────────────────────────────────────
-    if (!admin) {
-        return <p className="text-muted-foreground py-4">Admin not found.</p>;
-    }
+    }, [admin, form]);
 
     return (
         <div className="space-y-6 py-2">
-            {/* Status badge */}
-            <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold">Profile</h2>
-                <Badge
-                    variant="secondary"
-                    className={
-                        admin.is_active
-                            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                            : "bg-muted text-muted-foreground"
-                    }
-                >
-                    {admin.is_active ? "Active" : "Inactive"}
-                </Badge>
-            </div>
-
-            {/* Read-only email */}
             <div className="space-y-1.5">
                 <Label>Email</Label>
-                <p className="text-muted-foreground text-sm">{admin.email}</p>
+                {isLoading ? (
+                    <Skeleton className="h-5 w-40" />
+                ) : (
+                    <p className="text-muted-foreground text-sm">{admin?.email}</p>
+                )}
             </div>
 
-            {/* Editable full name */}
-            <div className="space-y-1.5">
-                <Label htmlFor="full-name">Full Name</Label>
-                <Input
-                    id="full-name"
-                    value={fullName}
-                    onChange={(e) => {
-                        setFullName(e.target.value);
-                        if (nameError) setNameError("");
-                    }}
-                    placeholder="Full name"
-                    aria-invalid={!!nameError}
-                />
-                {nameError && <p className="text-destructive text-sm">{nameError}</p>}
-            </div>
-
-            {/* Error from mutation */}
-            {updateMutation.error && (
-                <p className="text-destructive text-sm">{getErrorMessage(updateMutation.error)}</p>
-            )}
-
-            {/* Success feedback */}
-            {updateMutation.isSuccess && (
-                <p className="text-sm text-emerald-600">Admin updated successfully.</p>
-            )}
-
-            {/* Save button */}
-            <Button onClick={handleSave} disabled={updateMutation.isPending} className="w-full">
-                {updateMutation.isPending ? "Saving…" : "Save Changes"}
-            </Button>
-
-            {/* Delete button */}
-            <AlertDialog>
-                <AlertDialogTrigger asChild>
-                    <Button variant="outline" size="sm" className="text-destructive w-full">
-                        <Trash2 className="mr-1.5 size-3.5" />
-                        Delete Admin
+            <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="mb-4 space-y-4">
+                    <FormField
+                        control={form.control}
+                        name="fullName"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Full name</FormLabel>
+                                <FormControl>
+                                    <Input placeholder="Admin name" autoFocus {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <Button type="submit" disabled={isLoading || updateMutation.isPending}>
+                        {updateMutation.isPending && (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        )}
+                        {`Updat${updateMutation.isPending ? "ing" : "e"}`}
                     </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Admin</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Are you sure you want to delete &ldquo;{admin.full_name}&rdquo;? This
-                            action cannot be undone.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                            variant="destructive"
-                            onClick={handleDelete}
-                            disabled={deleteMutation.isPending}
-                        >
-                            {deleteMutation.isPending ? "Deleting…" : "Delete"}
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+                </form>
+            </Form>
         </div>
     );
 }

@@ -132,6 +132,93 @@ export async function getClassAttendanceBreakdowns(
     );
 }
 
+// ─── Day-of-Week Attendance Exceptions ────────────────────────────────────
+
+/**
+ * Per-day-of-week attendance exception rollup returned by
+ * GET /api/v1/attendance/day-of-week-summaries.
+ *
+ * Backend contract: backend/internal/attendance/repository.go —
+ * GetDayOfWeekSummaries. Counts are aggregated from
+ * class_daily_attendance_summaries across the current academic year,
+ * Monday–Friday only (ISODOW 1–5), ordered by day of week ascending.
+ */
+export interface DayOfWeekSummaryItem {
+    day_of_week_number: number;
+    day_name: string;
+    absent_count: number;
+    late_count: number;
+    excused_count: number;
+}
+
+/**
+ * Response returned by GET /api/v1/attendance/day-of-week-summaries.
+ * `class_name` is "All" when no class filter is applied.
+ */
+export interface DayOfWeekSummaries {
+    academic_year: string;
+    class_name: string;
+    data: DayOfWeekSummaryItem[];
+}
+
+/**
+ * Fetch attendance exceptions (absent/late/excused) aggregated by weekday for
+ * the current academic year.
+ *
+ * @param classId Optional class UUID; when omitted the backend aggregates
+ *                across all classes in the tenant.
+ */
+export async function getDayOfWeekSummaries(classId?: string): Promise<DayOfWeekSummaries> {
+    return Promise.resolve({
+        academic_year: "2026",
+        class_name: "Grade 7 North",
+        data: [
+            {
+                day_name: "Monday",
+                day_of_week_number: 1,
+                absent_count: 15,
+                late_count: 8,
+                excused_count: 2,
+            },
+            {
+                day_name: "Tuesday",
+                day_of_week_number: 2,
+                absent_count: 8,
+                late_count: 3,
+                excused_count: 4,
+            },
+            {
+                day_name: "Wednesday",
+                day_of_week_number: 3,
+                absent_count: 6,
+                late_count: 2,
+                excused_count: 5,
+            },
+            {
+                day_name: "Thursday",
+                day_of_week_number: 4,
+                absent_count: 10,
+                late_count: 4,
+                excused_count: 3,
+            },
+            {
+                day_name: "Friday",
+                day_of_week_number: 5,
+                absent_count: 25,
+                late_count: 12,
+                excused_count: 3,
+            },
+        ],
+    });
+    const searchParams = new URLSearchParams();
+    if (classId) searchParams.set("class_id", classId);
+
+    const qs = searchParams.toString();
+    return api.get<DayOfWeekSummaries>(
+        `/api/v1/attendance/day-of-week-summaries${qs ? `?${qs}` : ""}`
+    );
+}
+
 // ─── Learning Area Attendance Breakdown ────────────────────────────────────
 
 /**

@@ -6,6 +6,7 @@ import {
     AttendanceSummary,
     AttendanceCalendar,
     LowestAttendanceStudents,
+    WeekdayAttendanceExceptionsChart,
 } from "@/features/attendance";
 import { UserCount } from "./user-count";
 
@@ -16,11 +17,13 @@ export function SystemAdminDashboardPage() {
                 <AcademicYearHandler />
                 <UserCount />
             </header>
-            <section className="grid-cols grid gap-4 sm:gap-4 lg:grid-cols-3 lg:gap-8">
+            <section className="grid-cols grid gap-4 sm:gap-8 lg:grid-cols-3">
                 <AttendanceSummary />
                 <AttendanceCalendar />
                 <LowestAttendanceStudents />
+                <WeekdayAttendanceExceptionsChart />
             </section>
+            <section className="space-y-4"></section>
             {/* The selected academic year id and term id can be used elsewhere in the dashboard */}
         </article>
     );

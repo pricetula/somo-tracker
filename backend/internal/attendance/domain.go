@@ -340,6 +340,22 @@ type ClassTermAttendanceSummaryListResponse struct {
 	Total int                          `json:"total"`
 }
 
+// DayOfWeekSummariesResponse represents the response for the day-of-week attendance exceptions endpoint.
+type DayOfWeekSummariesResponse struct {
+	AcademicYear string                 `json:"academic_year"`
+	ClassName    string                 `json:"class_name"`
+	Data         []DayOfWeekSummaryItem `json:"data"`
+}
+
+// DayOfWeekSummaryItem represents a single day's attendance exceptions.
+type DayOfWeekSummaryItem struct {
+	DayOfWeekNumber int    `json:"day_of_week_number"`
+	DayName         string `json:"day_name"`
+	AbsentCount     int    `json:"absent_count"`
+	LateCount       int    `json:"late_count"`
+	ExcusedCount    int    `json:"excused_count"`
+}
+
 // ─── Class Attendance Breakdown (School Admin Dashboard) ──────────────────
 
 // ClassAttendanceBreakdownItem is the per-class Present/Late/Absent rollup for
@@ -554,6 +570,12 @@ type Repository interface {
 	// (learning area names included), ordered by absent period count descending
 	// so the highest-absenteeism subjects surface first (truancy hotspot watch).
 	ListLearningAreaBreakdowns(ctx context.Context, tenantID, schoolID, termID string) ([]LearningAreaAttendanceBreakdownItem, error)
+
+	// GetDayOfWeekSummaries returns attendance exceptions (absent/late/excused)
+	// aggregated by day of week for the current academic year, optionally
+	// filtered by a single class. When classID is nil, results are aggregated
+	// across all classes in the tenant.
+	GetDayOfWeekSummaries(ctx context.Context, tenantID string, classID *string) (DayOfWeekSummariesResponse, error)
 
 	// ── Calendar Status ───────────────────────────────────────────────
 

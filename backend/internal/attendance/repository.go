@@ -1277,6 +1277,118 @@ func (r *pgRepository) ListLearningAreaBreakdowns(ctx context.Context, tenantID,
 	return results, nil
 }
 
+// GetDayOfWeekSummaries returns attendance exceptions (absent, late, excused)
+// aggregated by day of week for the current academic year, optionally filtered
+// by class. When classID is nil, results are aggregated across all classes.
+func (r *pgRepository) GetDayOfWeekSummaries(ctx context.Context, tenantID string, classID *string) (DayOfWeekSummariesResponse, error) {
+	var rows pgx.Rows
+	var err error
+	var query string
+	var args []interface{}
+
+	if classID == nil {
+		query = `
+			SELECT
+				'All' AS class_name,
+				EXTRACT(ISODOW FROM cdas.date)::INT AS day_of_week_number,
+				CASE EXTRACT(ISODOW FROM cdas.date)
+					WHEN 1 THEN 'Monday'
+					WHEN 2 THEN 'Tuesday'
+					WHEN 3 THEN 'Wednesday'
+					WHEN 4 THEN 'Thursday'
+					WHEN 5 THEN 'Friday'
+				END AS day_name,
+				ay.name AS academic_year,
+				COALESCE(SUM(cdas.absent_count), 0)::INT AS absent_count,
+				COALESCE(SUM(cdas.late_count), 0)::INT AS late_count,
+				COALESCE(SUM(cdas.excused_count), 0)::INT AS excused_count
+			FROM class_daily_attendance_summaries cdas
+			JOIN cbc_classes c ON cdas.tenant_id = c.tenant_id AND cdas.class_id = c.id
+			JOIN academic_terms at ON at.id = cdas.academic_term_id
+				AND at.tenant_id = cdas.tenant_id
+				AND at.school_id = cdas.school_id
+			JOIN academic_years ay ON ay.id = at.academic_year_id
+				AND ay.tenant_id = at.tenant_id
+				AND ay.school_id = at.school_id
+			WHERE cdas.tenant_id = $1
+				AND ay.is_current = TRUE
+				AND EXTRACT(ISODOW FROM cdas.date)::INT BETWEEN 1 AND 5
+			GROUP BY ay.name, EXTRACT(ISODOW FROM cdas.date)::INT
+			ORDER BY EXTRACT(ISODOW FROM cdas.date)::INT ASC
+		`
+		args = []interface{}{tenantID}
+	} else {
+		query = `
+			SELECT
+				c.grade_level || ' ' || COALESCE(st.name, '') AS class_name,
+				EXTRACT(ISODOW FROM cdas.date)::INT AS day_of_week_number,
+				CASE EXTRACT(ISODOW FROM cdas.date)
+					WHEN 1 THEN 'Monday'
+					WHEN 2 THEN 'Tuesday'
+					WHEN 3 THEN 'Wednesday'
+					WHEN 4 THEN 'Thursday'
+					WHEN 5 THEN 'Friday'
+				END AS day_name,
+				ay.name AS academic_year,
+				COALESCE(SUM(cdas.absent_count), 0)::INT AS absent_count,
+				COALESCE(SUM(cdas.late_count), 0)::INT AS late_count,
+				COALESCE(SUM(cdas.excused_count), 0)::INT AS excused_count
+			FROM class_daily_attendance_summaries cdas
+			JOIN cbc_classes c ON cdas.tenant_id = c.tenant_id AND cdas.class_id = c.id
+			LEFT JOIN cbc_streams st ON c.tenant_id = st.tenant_id AND c.stream_id = st.id
+			JOIN academic_terms at ON at.id = cdas.academic_term_id
+				AND at.tenant_id = cdas.tenant_id
+				AND at.school_id = cdas.school_id
+			JOIN academic_years ay ON ay.id = at.academic_year_id
+				AND ay.tenant_id = at.tenant_id
+				AND ay.school_id = at.school_id
+			WHERE cdas.tenant_id = $1
+				AND cdas.class_id = $2
+				AND ay.is_current = TRUE
+				AND EXTRACT(ISODOW FROM cdas.date)::INT BETWEEN 1 AND 5
+			GROUP BY c.grade_level, st.name, ay.name, EXTRACT(ISODOW FROM cdas.date)::INT
+			ORDER BY EXTRACT(ISODOW FROM cdas.date)::INT ASC
+		`
+		args = []interface{}{tenantID, *classID}
+	}
+
+	rows, err = database.FromContext(ctx, r.pool).Query(ctx, query, args...)
+	if err != nil {
+		return DayOfWeekSummariesResponse{}, fmt.Errorf("attendance.Repository.GetDayOfWeekSummaries: %w", err)
+	}
+	defer rows.Close()
+
+	var result DayOfWeekSummariesResponse
+	var items []DayOfWeekSummaryItem
+	for rows.Next() {
+		var item DayOfWeekSummaryItem
+		var cn string
+		var ay string
+		if err := rows.Scan(
+			&cn,
+			&item.DayOfWeekNumber,
+			&item.DayName,
+			&ay,
+			&item.AbsentCount,
+			&item.LateCount,
+			&item.ExcusedCount,
+		); err != nil {
+			return DayOfWeekSummariesResponse{}, fmt.Errorf("attendance.Repository.GetDayOfWeekSummaries: scan: %w", err)
+		}
+		if len(items) == 0 {
+			result.ClassName = cn
+			result.AcademicYear = ay
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return DayOfWeekSummariesResponse{}, fmt.Errorf("attendance.Repository.GetDayOfWeekSummaries: rows: %w", err)
+	}
+
+	result.Data = items
+	return result, nil
+}
+
 // ── School Attendance KPIs ──────────────────────────────────────────────
 
 func (r *pgRepository) GetSchoolAttendanceKPIs(ctx context.Context, tenantID, schoolID, date, termID string) (*SchoolAttendanceKPI, error) {

@@ -8,7 +8,7 @@ import { UserCount } from "./user-count";
 export function SystemAdminDashboardPage() {
     return (
         <article className="space-y-16">
-            <header className="flex flex-col items-end justify-between border-b border-dashed pb-8 sm:flex-row">
+            <header className="flex flex-col gap-8 border-b border-dashed pb-8 sm:flex-row sm:items-end sm:justify-between">
                 <AcademicYearHandler />
                 <UserCount />
             </header>

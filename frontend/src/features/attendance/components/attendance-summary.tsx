@@ -237,7 +237,7 @@ export function AttendanceSummary() {
 
     return (
         <Card className="flex flex-col">
-            <CardHeader className="items-center pb-0">
+            <CardHeader className="flex items-center justify-between pb-0">
                 <CardTitle>Attendance {data?.academic_year}</CardTitle>
                 <CardAction className="text-xs">
                     <Combobox

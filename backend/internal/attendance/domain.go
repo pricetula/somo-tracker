@@ -340,6 +340,22 @@ type ClassTermAttendanceSummaryListResponse struct {
 	Total int                          `json:"total"`
 }
 
+// DayOfWeekSummariesResponse represents the response for the day-of-week attendance exceptions endpoint.
+type DayOfWeekSummariesResponse struct {
+	AcademicYear string                 `json:"academic_year"`
+	ClassName    string                 `json:"class_name"`
+	Data         []DayOfWeekSummaryItem `json:"data"`
+}
+
+// DayOfWeekSummaryItem represents a single day's attendance exceptions.
+type DayOfWeekSummaryItem struct {
+	DayOfWeekNumber int    `json:"day_of_week_number"`
+	DayName         string `json:"day_name"`
+	AbsentCount     int    `json:"absent_count"`
+	LateCount       int    `json:"late_count"`
+	ExcusedCount    int    `json:"excused_count"`
+}
+
 // ─── Class Attendance Breakdown (School Admin Dashboard) ──────────────────
 
 // ClassAttendanceBreakdownItem is the per-class Present/Late/Absent rollup for
@@ -437,6 +453,18 @@ type ClassTermPercentageItem struct {
 	AbsentPercentage  float64 `json:"absent_percentage"`
 	ExcusedPercentage float64 `json:"excused_percentage"`
 	LatePercentage    float64 `json:"late_percentage"`
+}
+
+// ─── Lowest Attendance Students (for ranking) ───────────────────────────────────
+
+// LowestAttendanceStudent represents a student with low attendance for a given period.
+type LowestAttendanceStudent struct {
+	StudentID            string  `json:"student_id"`
+	FirstName            string  `json:"first_name"`
+	LastName             string  `json:"last_name"`
+	TotalPeriods         int     `json:"total_periods"`
+	PresentCount         int     `json:"present_count"`
+	AttendancePercentage float64 `json:"attendance_percentage"`
 }
 
 // ─── Repository Interface ─────────────────────────────────────────────────
@@ -543,6 +571,12 @@ type Repository interface {
 	// so the highest-absenteeism subjects surface first (truancy hotspot watch).
 	ListLearningAreaBreakdowns(ctx context.Context, tenantID, schoolID, termID string) ([]LearningAreaAttendanceBreakdownItem, error)
 
+	// GetDayOfWeekSummaries returns attendance exceptions (absent/late/excused)
+	// aggregated by day of week for the current academic year, optionally
+	// filtered by a single class. When classID is nil, results are aggregated
+	// across all classes in the tenant.
+	GetDayOfWeekSummaries(ctx context.Context, tenantID string, classID *string) (DayOfWeekSummariesResponse, error)
+
 	// ── Calendar Status ───────────────────────────────────────────────
 
 	// ListCalendarStatus returns per-date expected/handled slot counts for a
@@ -562,4 +596,8 @@ type Repository interface {
 	// excused, late) for each class and term in the current academic year, with a rollup row
 	// for "All" classes.
 	ListClassTermPercentages(ctx context.Context, tenantID, schoolID string) ([]ClassTermPercentageItem, error)
+
+	// GetLowestAttendanceStudents returns the N students with the lowest attendance percentage
+	// for the current week (or a specified limit). If limit is 0, defaults to 5.
+	GetLowestAttendanceStudents(ctx context.Context, tenantID, schoolID string, limit int) ([]LowestAttendanceStudent, error)
 }

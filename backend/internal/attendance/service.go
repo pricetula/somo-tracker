@@ -491,6 +491,20 @@ func (s *Service) ListLearningAreaBreakdowns(ctx context.Context, tenantID, scho
 	return &LearningAreaAttendanceBreakdownListResponse{Items: items, Total: len(items)}, nil
 }
 
+// GetDayOfWeekSummaries returns attendance exceptions (absent/late/excused)
+// aggregated by day of week for the current academic year. When classID is
+// empty, results are aggregated across all classes in the tenant.
+func (s *Service) GetDayOfWeekSummaries(ctx context.Context, tenantID string, classID *string) (*DayOfWeekSummariesResponse, error) {
+	result, err := s.repo.GetDayOfWeekSummaries(ctx, tenantID, classID)
+	if err != nil {
+		return nil, fmt.Errorf("attendance.Service.GetDayOfWeekSummaries: %w", err)
+	}
+	if result.Data == nil {
+		result.Data = []DayOfWeekSummaryItem{}
+	}
+	return &result, nil
+}
+
 // ── School Attendance KPIs ──────────────────────────────────────────────
 
 // GetSchoolAttendanceKPIs returns macro-level attendance KPIs for the School
@@ -571,4 +585,13 @@ func (s *Service) GetCalendarStatus(ctx context.Context, tenantID, schoolID, sta
 	}
 
 	return &CalendarStatusListResponse{Items: items, Total: len(items)}, nil
+}
+
+// GetLowestAttendanceStudents returns the N students with the lowest attendance percentage
+// for the current week (or a specified limit). If limit is 0, defaults to 5.
+func (s *Service) GetLowestAttendanceStudents(ctx context.Context, tenantID, schoolID string, limit int) ([]LowestAttendanceStudent, error) {
+	if limit <= 0 {
+		limit = 5
+	}
+	return s.repo.GetLowestAttendanceStudents(ctx, tenantID, schoolID, limit)
 }

@@ -1,6 +1,7 @@
 package attendance
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -67,11 +68,14 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	calendar := router.Group("/api/v1/attendance/calendar")
 	calendar.Get("/status", middleware.RequireAuth, h.GetCalendarStatus)
 
-	// School attendance KPIs (School Administrator dashboard)
-	kpis := router.Group("/api/v1/attendance/kpis")
-	kpis.Get("/school", middleware.RequireAuth, h.GetSchoolAttendanceKPIs)
+	// Day-of-week attendance exceptions (weekday stacked bar chart)
+	router.Group("/api/v1/attendance").Get("/day-of-week-summaries", middleware.RequireAuth, h.GetDayOfWeekSummaries)
 
-	// Class term attendance percentages
+	// School attendance KPIs (School Administrator dashboard)
+	// kpis := router.Group("/api/v1/attendance/kpis")
+	// Students attendance rankings
+	students := router.Group("/api/v1/attendance/students")
+	students.Get("/lowest-attendance", middleware.RequireAuth, h.GetLowestAttendanceStudents)
 	router.Group("/api/v1/attendance").Get("/class-term-percentages", middleware.RequireAuth, h.GetClassTermPercentages)
 }
 
@@ -603,6 +607,35 @@ func (h *Handler) ListLearningAreaBreakdowns(c *fiber.Ctx) error {
 	return c.JSON(result)
 }
 
+// GetDayOfWeekSummaries handles GET /api/v1/attendance/day-of-week-summaries.
+//
+// Query params:
+//   - class_id (UUID, optional) — when provided, results are scoped to a single
+//     class; when omitted, results are aggregated across all classes.
+//
+// tenant_id is resolved from the authenticated local context. Returns
+// absent/late/excused counts aggregated by day of week (Monday–Friday) for the
+// current academic year, ordered by day of week ascending.
+func (h *Handler) GetDayOfWeekSummaries(c *fiber.Ctx) error {
+	tenantID, _, err := h.attMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	classID := c.Query("class_id")
+	var classIDPtr *string
+	if classID != "" {
+		classIDPtr = &classID
+	}
+
+	result, err := h.svc.GetDayOfWeekSummaries(c.Context(), tenantID, classIDPtr)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(result)
+}
+
 // RefreshClassTermAttendanceSummary handles POST /api/v1/attendance/class-term/class/:class_id/term/:term_id/refresh.
 func (h *Handler) RefreshClassTermAttendanceSummary(c *fiber.Ctx) error {
 	tenantID, schoolID, err := h.attMiddleware(c)
@@ -722,6 +755,29 @@ func (h *Handler) GetClassTermPercentages(c *fiber.Ctx) error {
 		"academic_year": result[0].AcademicYear,
 		"data":          result,
 	})
+}
+
+// GetLowestAttendanceStudents handles GET /api/v1/attendance/students/lowest-attendance.
+func (h *Handler) GetLowestAttendanceStudents(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.attMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	limitStr := c.Query("limit")
+	limit := 5
+	if limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
+			limit = l
+		}
+	}
+
+	result, err := h.svc.GetLowestAttendanceStudents(c.Context(), tenantID, schoolID, limit)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(result)
 }
 
 // countDays returns the number of calendar days between two ISO date strings.

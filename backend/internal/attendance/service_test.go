@@ -41,8 +41,10 @@ type MockRepository struct {
 	refreshClassTermAttendanceSummaryFn   func(ctx context.Context, tenantID, schoolID, termID, classID string) error
 	listClassAttendanceBreakdownsFn       func(ctx context.Context, tenantID, schoolID, termID string) ([]ClassAttendanceBreakdownItem, error)
 	listLearningAreaBreakdownsFn          func(ctx context.Context, tenantID, schoolID, termID string) ([]LearningAreaAttendanceBreakdownItem, error)
+	getDayOfWeekSummariesFn               func(ctx context.Context, tenantID string, classID *string) (DayOfWeekSummariesResponse, error)
 	getSchoolAttendanceKPIsFn             func(ctx context.Context, tenantID, schoolID, date, termID string) (*SchoolAttendanceKPI, error)
 	listClassTermPercentagesFn            func(ctx context.Context, tenantID, schoolID string) ([]ClassTermPercentageItem, error)
+	getLowestAttendanceStudentsFn         func(ctx context.Context, tenantID, schoolID string, limit int) ([]LowestAttendanceStudent, error)
 }
 
 func (m *MockRepository) CreateSession(ctx context.Context, tenantID, schoolID string, payload CreateSessionPayload) (*AttendanceSession, error) {
@@ -249,6 +251,13 @@ func (m *MockRepository) ListLearningAreaBreakdowns(ctx context.Context, tenantI
 	return []LearningAreaAttendanceBreakdownItem{}, nil
 }
 
+func (m *MockRepository) GetDayOfWeekSummaries(ctx context.Context, tenantID string, classID *string) (DayOfWeekSummariesResponse, error) {
+	if m.getDayOfWeekSummariesFn != nil {
+		return m.getDayOfWeekSummariesFn(ctx, tenantID, classID)
+	}
+	return DayOfWeekSummariesResponse{}, nil
+}
+
 func (m *MockRepository) GetSchoolAttendanceKPIs(ctx context.Context, tenantID, schoolID, date, termID string) (*SchoolAttendanceKPI, error) {
 	if m.getSchoolAttendanceKPIsFn != nil {
 		return m.getSchoolAttendanceKPIsFn(ctx, tenantID, schoolID, date, termID)
@@ -264,6 +273,13 @@ func (m *MockRepository) ListClassTermPercentages(ctx context.Context, tenantID,
 		return m.listClassTermPercentagesFn(ctx, tenantID, schoolID)
 	}
 	return []ClassTermPercentageItem{}, nil
+}
+
+func (m *MockRepository) GetLowestAttendanceStudents(ctx context.Context, tenantID, schoolID string, limit int) ([]LowestAttendanceStudent, error) {
+	if m.getLowestAttendanceStudentsFn != nil {
+		return m.getLowestAttendanceStudentsFn(ctx, tenantID, schoolID, limit)
+	}
+	return []LowestAttendanceStudent{}, nil
 }
 
 // ============================================================================
@@ -1373,6 +1389,78 @@ func TestListLearningAreaBreakdowns_NilToEmptySlice(t *testing.T) {
 	}
 	if resp.Total != 0 || resp.Items == nil || len(resp.Items) != 0 {
 		t.Fatalf("expected empty non-nil items, got %+v", resp)
+	}
+}
+
+// Tests: GetDayOfWeekSummaries
+
+func TestGetDayOfWeekSummaries_HappyPath(t *testing.T) {
+	h := newTestHarness()
+
+	classID := "class_001"
+	expected := DayOfWeekSummariesResponse{
+		AcademicYear: "2025",
+		ClassName:    "Grade 9 East",
+		Data: []DayOfWeekSummaryItem{
+			{DayOfWeekNumber: 1, DayName: "Monday", AbsentCount: 12, LateCount: 5, ExcusedCount: 2},
+			{DayOfWeekNumber: 5, DayName: "Friday", AbsentCount: 18, LateCount: 3, ExcusedCount: 1},
+		},
+	}
+	h.repo.getDayOfWeekSummariesFn = func(ctx context.Context, tenantID string, cid *string) (DayOfWeekSummariesResponse, error) {
+		if tenantID != "tenant_001" {
+			t.Fatalf("expected tenant_001, got %s", tenantID)
+		}
+		if cid == nil || *cid != classID {
+			t.Fatalf("expected class filter %q, got %v", classID, cid)
+		}
+		return expected, nil
+	}
+
+	resp, err := h.svc.GetDayOfWeekSummaries(context.Background(), "tenant_001", &classID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp == nil {
+		t.Fatal("expected response, got nil")
+	}
+	if resp.AcademicYear != expected.AcademicYear || resp.ClassName != expected.ClassName {
+		t.Fatalf("expected passthrough of %+v, got %+v", expected, resp)
+	}
+	if len(resp.Data) != 2 || resp.Data[0].DayName != "Monday" {
+		t.Fatalf("expected repo data passthrough, got %+v", resp.Data)
+	}
+}
+
+func TestGetDayOfWeekSummaries_RepoErrorWrapped(t *testing.T) {
+	h := newTestHarness()
+
+	repoErr := errors.New("db down")
+	h.repo.getDayOfWeekSummariesFn = func(ctx context.Context, tenantID string, cid *string) (DayOfWeekSummariesResponse, error) {
+		return DayOfWeekSummariesResponse{}, repoErr
+	}
+
+	_, err := h.svc.GetDayOfWeekSummaries(context.Background(), "tenant_001", nil)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !errors.Is(err, repoErr) {
+		t.Fatalf("expected repo error to be wrapped and preserved, got %v", err)
+	}
+}
+
+func TestGetDayOfWeekSummaries_NilToEmptySlice(t *testing.T) {
+	h := newTestHarness()
+
+	h.repo.getDayOfWeekSummariesFn = func(ctx context.Context, tenantID string, cid *string) (DayOfWeekSummariesResponse, error) {
+		return DayOfWeekSummariesResponse{}, nil
+	}
+
+	resp, err := h.svc.GetDayOfWeekSummaries(context.Background(), "tenant_001", nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp == nil || resp.Data == nil || len(resp.Data) != 0 {
+		t.Fatalf("expected empty non-nil data, got %+v", resp)
 	}
 }
 

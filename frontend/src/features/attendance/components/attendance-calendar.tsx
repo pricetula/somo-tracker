@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, format } from "date-fns";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { useCalendarStatus } from "@/features/attendance/hooks/use-attendance";
 import { useMe } from "@/hooks/use-auth";
 import dynamic from "next/dynamic";
@@ -47,6 +47,11 @@ interface AttendanceCalendarProps {
 }
 
 export function AttendanceCalendar({ schoolId: propSchoolId }: AttendanceCalendarProps) {
+    const statusTypes = [
+        { label: "Complete", color: "bg-primary" },
+        { label: "Partially recorded", color: "bg-blue-300" },
+        { label: "Not recorded", color: "bg-rose-500" },
+    ];
     const router = useRouter();
     const { data: me } = useMe();
     const schoolId = propSchoolId ?? me?.school_id ?? "";
@@ -91,9 +96,9 @@ export function AttendanceCalendar({ schoolId: propSchoolId }: AttendanceCalenda
     return (
         <Card className="flex flex-col">
             <CardHeader className="flex items-center justify-between pb-0">
-                <CardTitle>Attendance </CardTitle>
+                <CardTitle>Attendance recorded</CardTitle>
             </CardHeader>
-            <CardContent className="flex justify-center pb-0">
+            <CardContent className="flex h-90 justify-center pb-0">
                 <Calendar
                     month={currentMonth}
                     onMonthChange={setCurrentMonth}
@@ -108,6 +113,14 @@ export function AttendanceCalendar({ schoolId: propSchoolId }: AttendanceCalenda
                     showOutsideDays={true}
                 />
             </CardContent>
+            <CardFooter className="flex justify-center gap-4">
+                {statusTypes.map((s) => (
+                    <span key={s.color}>
+                        <span className={`mr-2 inline-block h-2 w-2 rounded-full ${s.color}`} />
+                        <span>{s.label}</span>
+                    </span>
+                ))}
+            </CardFooter>
         </Card>
     );
 }

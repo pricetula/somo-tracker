@@ -6,6 +6,7 @@
 
 "use client";
 
+import React from "react";
 import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { StudentsImportForm } from "@/features/students/components/students-import/students-import";
@@ -13,18 +14,23 @@ import { StudentsImportForm } from "@/features/students/components/students-impo
 export default function StudentsImportModal() {
     const router = useRouter();
 
+    const handleRouteBack = React.useCallback(
+        (open: boolean) => {
+            if (!open) router.back();
+        },
+        [router]
+    );
+
     return (
-        <Dialog
-            open
-            onOpenChange={(open) => {
-                if (!open) router.back();
-            }}
-        >
+        <Dialog open onOpenChange={handleRouteBack}>
             <DialogContent className="sm:max-w-3xl">
                 <DialogHeader>
                     <DialogTitle>Add Students</DialogTitle>
                 </DialogHeader>
-                <StudentsImportForm isDialogVersion={true} />
+                <StudentsImportForm
+                    isDialogVersion={true}
+                    onSuccess={() => handleRouteBack(false)}
+                />
             </DialogContent>
         </Dialog>
     );

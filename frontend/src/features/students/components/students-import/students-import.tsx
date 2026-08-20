@@ -47,11 +47,12 @@ function pageReducer(state: PageState, action: PageAction): PageState {
 
 interface StudentsImportFormProps {
     isDialogVersion: boolean;
+    onSuccess: () => void;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────
 
-export function StudentsImportForm({ isDialogVersion }: StudentsImportFormProps) {
+export function StudentsImportForm({ isDialogVersion, onSuccess }: StudentsImportFormProps) {
     const { data: me } = useMe();
     const [pageState, dispatch] = React.useReducer(pageReducer, { phase: "idle", step: null });
 
@@ -95,6 +96,7 @@ export function StudentsImportForm({ isDialogVersion }: StudentsImportFormProps)
 
     function handleJobCreated(jobId: string, totalRecords: number) {
         dispatch({ type: "JOB_CREATED", job: { jobId, totalRecords } });
+        onSuccess();
     }
 
     function handleRetry() {

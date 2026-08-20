@@ -9,15 +9,26 @@
 
 "use client";
 
-import { useState } from "react";
+import React from "react";
+import { Loader2, Trash2 } from "lucide-react";
+import { z } from "zod";
+import { toast } from "sonner";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import {
+    Form,
+    FormControl,
+    FormField,
+    FormItem,
+    FormLabel,
+    FormMessage,
+} from "@/components/ui/form";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -36,48 +47,65 @@ interface FinanceDetailProps {
     id: string;
 }
 
+const financeDetailSchema = z.object({
+    fullName: z.string().trim().min(2, "Full name required with a minimum of 2 characters"),
+});
+
+type FinanceDetailSchema = z.infer<typeof financeDetailSchema>;
+
 export function FinanceDetail({ id }: FinanceDetailProps) {
     const router = useRouter();
     const { data: member, isLoading, isError, error } = useFinanceDetail(id);
     const updateMutation = useUpdateFinance();
     const deleteMutation = useDeleteFinanceStaff();
 
-    const [fullName, setFullName] = useState("");
-    const [nameError, setNameError] = useState("");
-    const [hasInitialized, setHasInitialized] = useState(false);
+    const form = useForm<FinanceDetailSchema>({
+        resolver: zodResolver(financeDetailSchema),
+        defaultValues: {
+            fullName: "",
+        },
+    });
 
-    // Initialise form fields when data loads.
-    if (member && !hasInitialized) {
-        setFullName(member.full_name ?? "");
-        setHasInitialized(true);
-    }
-
-    function validate(): boolean {
-        if (!fullName.trim()) {
-            setNameError("Full name is required");
-            return false;
+    React.useEffect(() => {
+        if (isError) {
+            toast.error(getErrorMessage(error));
         }
-        setNameError("");
-        return true;
-    }
+    }, [isError, error]);
+
+    React.useEffect(() => {
+        if (updateMutation.error) {
+            toast.error(getErrorMessage(updateMutation.error));
+        }
+        if (updateMutation.isSuccess) {
+            router.back();
+            toast.success("Finance staff updated successfully.");
+        }
+    }, [updateMutation, router]);
+
+    const onSubmit = React.useCallback(
+        (values: FinanceDetailSchema) => {
+            updateMutation.mutate({
+                userId: id,
+                payload: { full_name: values.fullName.trim() },
+            });
+        },
+        [updateMutation, id]
+    );
+
+    React.useEffect(() => {
+        if (member?.full_name) {
+            form.setValue("fullName", member.full_name);
+        }
+    }, [member, form]);
 
     const handleDelete = async () => {
         try {
             await deleteMutation.mutateAsync(id);
-            router.push("/finance");
+            router.back();
         } catch {
             // Error handled by the hook
         }
     };
-
-    function handleSave() {
-        if (!validate()) return;
-
-        updateMutation.mutate({
-            userId: id,
-            payload: { full_name: fullName.trim() },
-        });
-    }
 
     // ── Loading state ─────────────────────────────────────────────────────
     if (isLoading) {
@@ -93,11 +121,7 @@ export function FinanceDetail({ id }: FinanceDetailProps) {
 
     // ── Error state ───────────────────────────────────────────────────────
     if (isError) {
-        return (
-            <Alert variant="destructive">
-                <AlertDescription>{getErrorMessage(error)}</AlertDescription>
-            </Alert>
-        );
+        return null;
     }
 
     // ── Not found state ───────────────────────────────────────────────────
@@ -128,65 +152,72 @@ export function FinanceDetail({ id }: FinanceDetailProps) {
                 <p className="text-muted-foreground text-sm">{member.email}</p>
             </div>
 
-            {/* Editable full name */}
-            <div className="space-y-1.5">
-                <Label htmlFor="full-name">Full Name</Label>
-                <Input
-                    id="full-name"
-                    value={fullName}
-                    onChange={(e) => {
-                        setFullName(e.target.value);
-                        if (nameError) setNameError("");
-                    }}
-                    placeholder="Full name"
-                    aria-invalid={!!nameError}
-                />
-                {nameError && <p className="text-destructive text-sm">{nameError}</p>}
-            </div>
+            {/* Editable fields form */}
+            <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    {/* Editable full name */}
+                    <FormField
+                        control={form.control}
+                        name="fullName"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel htmlFor="full-name">Full Name</FormLabel>
+                                <FormControl>
+                                    <Input
+                                        id="full-name"
+                                        placeholder="Full name"
+                                        autoFocus
+                                        {...field}
+                                    />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
 
-            {/* Error from mutation */}
-            {updateMutation.error && (
-                <p className="text-destructive text-sm">{getErrorMessage(updateMutation.error)}</p>
-            )}
-
-            {/* Success feedback */}
-            {updateMutation.isSuccess && (
-                <p className="text-sm text-emerald-600">Finance staff updated successfully.</p>
-            )}
-
-            {/* Save button */}
-            <Button onClick={handleSave} disabled={updateMutation.isPending} className="w-full">
-                {updateMutation.isPending ? "Saving…" : "Save Changes"}
-            </Button>
-
-            {/* Delete button */}
-            <AlertDialog>
-                <AlertDialogTrigger asChild>
-                    <Button variant="outline" size="sm" className="text-destructive w-full">
-                        <Trash2 className="mr-1.5 size-3.5" />
-                        Delete Finance Staff
-                    </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Finance Staff</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Are you sure you want to delete &ldquo;{member.full_name}&rdquo;? This
-                            action cannot be undone.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                            variant="destructive"
-                            onClick={handleDelete}
-                            disabled={deleteMutation.isPending}
-                        >
-                            {deleteMutation.isPending ? "Deleting…" : "Delete"}
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+                    <footer className="flex gap-4">
+                        {/* Save button */}
+                        <Button type="submit" disabled={updateMutation.isPending}>
+                            {updateMutation.isPending ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Saving…
+                                </>
+                            ) : (
+                                "Save Changes"
+                            )}
+                        </Button>
+                        {/* Delete button */}
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="outline" className="text-destructive">
+                                    <Trash2 className="mr-1.5 size-3.5" />
+                                    Delete Finance Staff
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Delete Finance Staff</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        Are you sure you want to delete &ldquo;{member.full_name}
+                                        &rdquo;? This action cannot be undone.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction
+                                        variant="destructive"
+                                        onClick={handleDelete}
+                                        disabled={deleteMutation.isPending}
+                                    >
+                                        {deleteMutation.isPending ? "Deleting…" : "Delete"}
+                                    </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    </footer>
+                </form>
+            </Form>
         </div>
     );
 }

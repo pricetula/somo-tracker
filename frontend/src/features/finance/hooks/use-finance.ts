@@ -13,6 +13,7 @@ import {
     toggleFinanceActive,
     deleteFinanceStaff,
     type ListMembersResponse,
+    type Member,
 } from "@/lib/api/finance";
 import { getMember, updateMember } from "@/lib/api/members";
 
@@ -70,13 +71,26 @@ export function useUpdateFinance() {
                 queryKey: financeKeys.all,
             });
 
-            queryClient.setQueriesData<ListMembersResponse>(
+            queryClient.setQueriesData<{ pages: Array<{ items: Array<Member> }> }>(
                 { queryKey: financeKeys.all },
                 (old) => {
-                    if (!old) return old;
+                    if (!old?.pages) return old;
+                    // Build index once: O(N)
+                    const userIndex = new Map();
+
+                    old.pages.forEach((page) => {
+                        page.items.forEach((item) => userIndex.set(item.id, item));
+                    });
+
+                    // Direct O(1) lookup & update
+                    const target = userIndex.get(userId);
+                    if (target) {
+                        target.full_name = payload.full_name;
+                    }
+
                     return {
                         ...old,
-                        items: old.items.map((m) => (m.id === userId ? { ...m, ...payload } : m)),
+                        pages: old?.pages,
                     };
                 }
             );
@@ -91,8 +105,12 @@ export function useUpdateFinance() {
             }
             toast.error(getErrorMessage(err));
         },
-        onSettled: () => {
-            queryClient.invalidateQueries({ queryKey: financeKeys.all });
+        onSettled: (respData, err, val) => {
+            if (respData && !err && val.userId) {
+                queryClient.invalidateQueries({
+                    queryKey: [...financeKeys.all, "detail", val.userId],
+                });
+            }
         },
     });
 }

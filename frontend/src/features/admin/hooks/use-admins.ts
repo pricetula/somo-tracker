@@ -104,6 +104,13 @@ export function useUpdateAdmin() {
             }
             toast.error(getErrorMessage(err));
         },
+        onSettled: (respData, err, val) => {
+            if (respData && !err && val.userId) {
+                queryClient.invalidateQueries({
+                    queryKey: [...adminsKeys.all, "detail", val.userId],
+                });
+            }
+        },
     });
 }
 

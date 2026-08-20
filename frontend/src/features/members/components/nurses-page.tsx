@@ -1,73 +1,100 @@
+/**
+ * Nurses listing page — active nurse staff.
+ *
+ * Uses the shared DataTable component with bulk delete and per-row actions.
+ * Maps to GET /api/v1/members?role=NURSE.
+ */
+
 "use client";
 
-import { DataTable } from "@/components/shared/data-table/data-table";
-import { Button } from "@/components/ui/button";
-import {
-    listNurses,
-    deleteNurse,
-    type Member,
-    type ListNursesParams,
-    type ListMembersResponse,
-} from "@/lib/api/nurses";
-import { Trash2, Edit } from "lucide-react";
+import Link from "next/link";
+import { DataTable } from "@/components/shared/data-table";
+import type { DataTableColumn } from "@/components/shared/data-table/types";
+import { RowActions } from "@/components/shared/data-table/row-actions";
+import { Badge } from "@/components/ui/badge";
+import { listNurses, type Member } from "@/lib/api/nurses";
+import { InvitationCountBadge } from "@/features/invitations";
+import { useDeleteNurse } from "@/features/nurses";
 
-export function NursesPage() {
-    const columns = [
-        { id: "email", header: "Email", cell: (row: Member) => row.email },
-        { id: "full_name", header: "Name", cell: (row: Member) => row.full_name },
-        { id: "role", header: "Role", cell: () => "Nurse" },
+// ─── Columns factory ──────────────────────────────────────────────────────
+
+function createColumns(
+    deleteMutation: ReturnType<typeof useDeleteNurse>
+): DataTableColumn<Member>[] {
+    return [
         {
-            id: "is_active",
-            header: "Status",
-            cell: (row: Member) => (row.is_active ? "Active" : "Inactive"),
+            id: "full_name",
+            header: "Full Name",
+            cell: (row) => (
+                <Link href={`/nurses/${row.id}`} className="font-medium hover:underline">
+                    {row.full_name || "—"}
+                </Link>
+            ),
         },
         {
-            id: "created_at",
-            header: "Created At",
-            cell: (row: Member) => new Date(row.created_at).toLocaleDateString(),
+            id: "email",
+            header: "Email",
+            cell: (row) => <span className="text-muted-foreground">{row.email}</span>,
+        },
+        {
+            id: "is_active",
+            header: "Account Status",
+            cell: (row) => (
+                <Badge
+                    variant="secondary"
+                    className={
+                        row.is_active
+                            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                            : "bg-muted text-muted-foreground"
+                    }
+                >
+                    {row.is_active ? "Active" : "Inactive"}
+                </Badge>
+            ),
         },
         {
             id: "actions",
-            header: "Actions",
-            cell: (row: Member) => (
-                <div className="flex items-center gap-2">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => alert(`Edit ${row.full_name}`)}
-                    >
-                        <Edit className="size-3" />
-                    </Button>
-                    <Button
-                        variant="destructive"
-                        size="icon"
-                        onClick={() => {
-                            if (window.confirm(`Delete ${row.full_name}?`)) {
-                                deleteNurse(row.id).catch((err) =>
-                                    alert(`Failed to delete: ${err}`)
-                                );
-                            }
-                        }}
-                    >
-                        <Trash2 className="size-3" />
-                    </Button>
-                </div>
+            header: "",
+            width: "48px",
+            align: "right",
+            cell: (row) => (
+                <RowActions
+                    rowId={row.id}
+                    label={row.full_name ?? row.email}
+                    onDelete={() => deleteMutation.mutate(row.id)}
+                    disabled={deleteMutation.isPending}
+                />
             ),
         },
     ];
+}
+
+// ─── Page ──────────────────────────────────────────────────────────────────
+
+export function NursesPage() {
+    const deleteMutation = useDeleteNurse();
+    const columns = createColumns(deleteMutation);
 
     return (
-        <DataTable<Member, ListNursesParams, ListMembersResponse>
+        <DataTable
+            isCheckable
             addHref="/nurses/add"
             queryKey={["nurses"]}
             queryFn={listNurses}
-            params={{}}
             columns={columns}
             getRowId={(row) => row.id}
             isSearchable
-            searchPlaceholder="Search nurses..."
-            isCheckable
-            deleteFn={(id) => deleteNurse(String(id))}
+            searchPlaceholder="Search by name or email…"
+            deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
+            emptyState="No nurses yet."
+            noResultsState="No nurses match your search."
+            renderToolBarComponents={() => (
+                <InvitationCountBadge
+                    key="invitation-count"
+                    role="NURSE"
+                    href="/nurses/invitations"
+                />
+            )}
         />
     );
 }

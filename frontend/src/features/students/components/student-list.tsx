@@ -193,7 +193,7 @@ export function StudentsList() {
     return (
         <DataTable
             isCheckable
-            addHref="/students/import"
+            addHref="/students/add"
             queryKey={["students"]}
             queryFn={listStudents}
             columns={columns}

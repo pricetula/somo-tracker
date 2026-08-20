@@ -1,73 +1,100 @@
+/**
+ * Finance listing page — active finance staff.
+ *
+ * Uses the shared DataTable component with bulk delete and per-row actions.
+ * Maps to GET /api/v1/members?role=FINANCE.
+ */
+
 "use client";
 
-import { DataTable } from "@/components/shared/data-table/data-table";
-import { Button } from "@/components/ui/button";
-import {
-    listFinanceStaff,
-    deleteFinanceStaff,
-    type Member,
-    type ListFinanceStaffParams,
-    type ListMembersResponse,
-} from "@/lib/api/finance";
-import { Trash2, Edit } from "lucide-react";
+import Link from "next/link";
+import { DataTable } from "@/components/shared/data-table";
+import type { DataTableColumn } from "@/components/shared/data-table/types";
+import { RowActions } from "@/components/shared/data-table/row-actions";
+import { Badge } from "@/components/ui/badge";
+import { listFinanceStaff, type Member } from "@/lib/api/finance";
+import { InvitationCountBadge } from "@/features/invitations";
+import { useDeleteFinanceStaff } from "@/features/finance";
 
-export function FinancePage() {
-    const columns = [
-        { id: "email", header: "Email", cell: (row: Member) => row.email },
-        { id: "full_name", header: "Name", cell: (row: Member) => row.full_name },
-        { id: "role", header: "Role", cell: () => "Finance Staff" },
+// ─── Columns factory ──────────────────────────────────────────────────────
+
+function createColumns(
+    deleteMutation: ReturnType<typeof useDeleteFinanceStaff>
+): DataTableColumn<Member>[] {
+    return [
         {
-            id: "is_active",
-            header: "Status",
-            cell: (row: Member) => (row.is_active ? "Active" : "Inactive"),
+            id: "full_name",
+            header: "Full Name",
+            cell: (row) => (
+                <Link href={`/finance/${row.id}`} className="font-medium hover:underline">
+                    {row.full_name || "—"}
+                </Link>
+            ),
         },
         {
-            id: "created_at",
-            header: "Created At",
-            cell: (row: Member) => new Date(row.created_at).toLocaleDateString(),
+            id: "email",
+            header: "Email",
+            cell: (row) => <span className="text-muted-foreground">{row.email}</span>,
+        },
+        {
+            id: "is_active",
+            header: "Account Status",
+            cell: (row) => (
+                <Badge
+                    variant="secondary"
+                    className={
+                        row.is_active
+                            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                            : "bg-muted text-muted-foreground"
+                    }
+                >
+                    {row.is_active ? "Active" : "Inactive"}
+                </Badge>
+            ),
         },
         {
             id: "actions",
-            header: "Actions",
-            cell: (row: Member) => (
-                <div className="flex items-center gap-2">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => alert(`Edit ${row.full_name}`)}
-                    >
-                        <Edit className="size-3" />
-                    </Button>
-                    <Button
-                        variant="destructive"
-                        size="icon"
-                        onClick={() => {
-                            if (window.confirm(`Delete ${row.full_name}?`)) {
-                                deleteFinanceStaff(row.id).catch((err) =>
-                                    alert(`Failed to delete: ${err}`)
-                                );
-                            }
-                        }}
-                    >
-                        <Trash2 className="size-3" />
-                    </Button>
-                </div>
+            header: "",
+            width: "48px",
+            align: "right",
+            cell: (row) => (
+                <RowActions
+                    rowId={row.id}
+                    label={row.full_name ?? row.email}
+                    onDelete={() => deleteMutation.mutate(row.id)}
+                    disabled={deleteMutation.isPending}
+                />
             ),
         },
     ];
+}
+
+// ─── Page ──────────────────────────────────────────────────────────────────
+
+export function FinancePage() {
+    const deleteMutation = useDeleteFinanceStaff();
+    const columns = createColumns(deleteMutation);
 
     return (
-        <DataTable<Member, ListFinanceStaffParams, ListMembersResponse>
+        <DataTable
+            isCheckable
             addHref="/finance/add"
             queryKey={["finance"]}
             queryFn={listFinanceStaff}
-            params={{}}
             columns={columns}
             getRowId={(row) => row.id}
             isSearchable
-            searchPlaceholder="Search finance staff..."
-            isCheckable
-            deleteFn={(id) => deleteFinanceStaff(String(id))}
+            searchPlaceholder="Search by name or email…"
+            deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
+            emptyState="No finance staff yet."
+            noResultsState="No finance staff match your search."
+            renderToolBarComponents={() => (
+                <InvitationCountBadge
+                    key="invitation-count"
+                    role="FINANCE"
+                    href="/finance/invitations"
+                />
+            )}
         />
     );
 }

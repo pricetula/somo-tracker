@@ -68,7 +68,7 @@ interface BulkInviteFormProps {
     role: "SCHOOL_ADMIN" | "TEACHER" | "NURSE" | "FINANCE" | "PARENT";
     /** Custom submit function for different invite endpoints (e.g., parents vs staff). */
     submitFn?: BulkInviteSubmitFn;
-    onSuccess: () => void;
+    onSuccess?: () => void;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────

@@ -17,19 +17,6 @@ import { getEducationLevelFilterSubmenu } from "@/features/education-level";
 import { RowActions } from "@/components/shared/data-table/row-actions";
 import { useDeleteTeacher } from "@/features/teachers";
 
-// ─── Teacher Role Labels ──────────────────────────────────────────────────
-
-const TEACHER_ROLE_LABELS: Record<string, string> = {
-    PRIMARY_CLASS_TEACHER: "Primary Class Teacher",
-    SUBJECT_TEACHER: "Subject Teacher",
-    SUBSTITUTE_TEACHER: "Substitute Teacher",
-};
-
-function formatTeacherRole(role: string | null): string {
-    if (!role) return "—";
-    return TEACHER_ROLE_LABELS[role] ?? role;
-}
-
 // ─── Columns factory ──────────────────────────────────────────────────────
 
 function createColumns(
@@ -64,13 +51,6 @@ function createColumns(
                 <span className="text-muted-foreground font-mono">
                     {row.knec_panel_assessor_id ?? "—"}
                 </span>
-            ),
-        },
-        {
-            id: "teacher_role",
-            header: "Core Assignment Role",
-            cell: (row) => (
-                <span className="text-muted-foreground">{formatTeacherRole(row.teacher_role)}</span>
             ),
         },
         {

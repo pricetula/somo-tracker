@@ -433,7 +433,7 @@ func (s *StytchAdapter) ExchangeInviteSession(ctx context.Context, ist, orgID st
 // The raw Stytch error contains request IDs, status codes, and debug URLs
 // that are meaningless to end users. This helper returns just the human-readable
 // message (the ErrorMessage field) when the error is a Stytch error, or a
-// generic fallback otherwise.
+// sanitized version of the underlying error otherwise.
 func sanitizeStytchError(err error) string {
 	var stytchErr stytcherror.Error
 	if errors.As(err, &stytchErr) {
@@ -445,8 +445,16 @@ func sanitizeStytchError(err error) string {
 		}
 		return msg
 	}
-	// Non-Stytch errors: return a generic message to avoid leaking internals.
-	return "authentication provider error"
+	// Non-Stytch errors (network, timeout, config, etc.): include the error
+	// message for debugging but avoid leaking sensitive internals.
+	// Common non-Stytch errors: context deadline exceeded, connection refused,
+	// invalid credentials, etc.
+	msg := err.Error()
+	// Truncate very long messages to avoid oversized responses
+	if len(msg) > 200 {
+		msg = msg[:200] + "..."
+	}
+	return msg
 }
 
 // isExpiredTokenError checks if the error is a Stytch expired magic link token error.

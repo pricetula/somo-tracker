@@ -7,7 +7,7 @@ export type InviteRole = "SCHOOL_ADMIN" | "TEACHER" | "NURSE" | "FINANCE" | "PAR
 
 interface MemberInvitePageProps {
     role: InviteRole;
-    title: string;
+    title?: string;
 }
 
 /**
@@ -18,10 +18,9 @@ interface MemberInvitePageProps {
  * shown in a dialog (see `MemberInviteDialog`) when arriving via client-side
  * navigation.
  */
-export function MemberInvitePage({ role, title }: MemberInvitePageProps) {
+export function MemberInvitePage({ role }: MemberInvitePageProps) {
     return (
         <div className="space-y-6">
-            <h1 className="text-xl font-semibold">{title}</h1>
             <BulkInviteForm role={role} />
         </div>
     );

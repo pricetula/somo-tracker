@@ -94,13 +94,29 @@ export function useUpdateNurse() {
                 queryKey: nursesKeys.all,
             });
 
-            queryClient.setQueriesData<ListMembersResponse>({ queryKey: nursesKeys.all }, (old) => {
-                if (!old) return old;
-                return {
-                    ...old,
-                    items: old.items.map((m) => (m.id === userId ? { ...m, ...payload } : m)),
-                };
-            });
+            queryClient.setQueriesData<{ pages: Array<{ items: Array<Member> }> }>(
+                { queryKey: nursesKeys.all },
+                (old) => {
+                    if (!old?.pages) return old;
+                    // Build index once: O(N)
+                    const userIndex = new Map();
+
+                    old.pages.forEach((page) => {
+                        page.items.forEach((item) => userIndex.set(item.id, item));
+                    });
+
+                    // Direct O(1) lookup & update
+                    const target = userIndex.get(userId);
+                    if (target) {
+                        target.full_name = payload.full_name;
+                    }
+
+                    return {
+                        ...old,
+                        pages: old?.pages,
+                    };
+                }
+            );
 
             return { previousQueries };
         },
@@ -112,8 +128,12 @@ export function useUpdateNurse() {
             }
             toast.error(getErrorMessage(err));
         },
-        onSettled: () => {
-            queryClient.invalidateQueries({ queryKey: nursesKeys.all });
+        onSettled: (respData, err, val) => {
+            if (respData && !err && val.userId) {
+                queryClient.invalidateQueries({
+                    queryKey: [...nursesKeys.all, "detail", val.userId],
+                });
+            }
         },
     });
 }

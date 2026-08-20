@@ -12,6 +12,7 @@
 import React from "react";
 import { Loader2, Trash2 } from "lucide-react";
 import { z } from "zod";
+import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
@@ -19,8 +20,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import {
     Form,
     FormControl,
@@ -66,6 +65,22 @@ export function NurseDetail({ id }: NurseDetailProps) {
         },
     });
 
+    React.useEffect(() => {
+        if (isError) {
+            toast.error(getErrorMessage(error));
+        }
+    }, [isError, error]);
+
+    React.useEffect(() => {
+        if (updateMutation.error) {
+            toast.error(getErrorMessage(updateMutation.error));
+        }
+        if (updateMutation.isSuccess) {
+            router.back();
+            toast.success("Nurse updated successfully.");
+        }
+    }, [updateMutation, router]);
+
     const onSubmit = React.useCallback(
         (values: NurseDetailSchema) => {
             updateMutation.mutate({
@@ -85,7 +100,7 @@ export function NurseDetail({ id }: NurseDetailProps) {
     const handleDelete = async () => {
         try {
             await deleteMutation.mutateAsync(id);
-            router.push("/nurses");
+            router.back();
         } catch {
             // Error handled by the hook
         }
@@ -105,11 +120,7 @@ export function NurseDetail({ id }: NurseDetailProps) {
 
     // ── Error state ───────────────────────────────────────────────────────
     if (isError) {
-        return (
-            <Alert variant="destructive">
-                <AlertDescription>{getErrorMessage(error)}</AlertDescription>
-            </Alert>
-        );
+        return router.back();
     }
 
     // ── Not found state ───────────────────────────────────────────────────
@@ -119,21 +130,6 @@ export function NurseDetail({ id }: NurseDetailProps) {
 
     return (
         <div className="space-y-6 py-2">
-            {/* Status badge */}
-            <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold">Profile</h2>
-                <Badge
-                    variant="secondary"
-                    className={
-                        nurse.is_active
-                            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                            : "bg-muted text-muted-foreground"
-                    }
-                >
-                    {nurse.is_active ? "Active" : "Inactive"}
-                </Badge>
-            </div>
-
             {/* Read-only email */}
             <div className="space-y-1.5">
                 <Label>Email</Label>
@@ -163,60 +159,49 @@ export function NurseDetail({ id }: NurseDetailProps) {
                         )}
                     />
 
-                    {/* Error from mutation */}
-                    {updateMutation.error && (
-                        <p className="text-destructive text-sm">
-                            {getErrorMessage(updateMutation.error)}
-                        </p>
-                    )}
-
-                    {/* Success feedback */}
-                    {updateMutation.isSuccess && (
-                        <p className="text-sm text-emerald-600">Nurse updated successfully.</p>
-                    )}
-
-                    {/* Save button */}
-                    <Button type="submit" disabled={updateMutation.isPending} className="w-full">
-                        {updateMutation.isPending ? (
-                            <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Saving…
-                            </>
-                        ) : (
-                            "Save Changes"
-                        )}
-                    </Button>
+                    <footer className="flex gap-4">
+                        {/* Save button */}
+                        <Button type="submit" disabled={updateMutation.isPending}>
+                            {updateMutation.isPending ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Saving…
+                                </>
+                            ) : (
+                                "Save Changes"
+                            )}
+                        </Button>
+                        {/* Delete button */}
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="outline" className="text-destructive">
+                                    <Trash2 className="mr-1.5 size-3.5" />
+                                    Delete Nurse
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Delete Nurse</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        Are you sure you want to delete &ldquo;{nurse.full_name}
+                                        &rdquo;? This action cannot be undone.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction
+                                        variant="destructive"
+                                        onClick={handleDelete}
+                                        disabled={deleteMutation.isPending}
+                                    >
+                                        {deleteMutation.isPending ? "Deleting…" : "Delete"}
+                                    </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    </footer>
                 </form>
             </Form>
-
-            {/* Delete button */}
-            <AlertDialog>
-                <AlertDialogTrigger asChild>
-                    <Button variant="outline" size="sm" className="text-destructive w-full">
-                        <Trash2 className="mr-1.5 size-3.5" />
-                        Delete Nurse
-                    </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Nurse</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Are you sure you want to delete &ldquo;{nurse.full_name}&rdquo;? This
-                            action cannot be undone.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                            variant="destructive"
-                            onClick={handleDelete}
-                            disabled={deleteMutation.isPending}
-                        >
-                            {deleteMutation.isPending ? "Deleting…" : "Delete"}
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
         </div>
     );
 }

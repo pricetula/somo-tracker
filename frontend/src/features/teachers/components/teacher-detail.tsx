@@ -13,6 +13,7 @@ import React from "react";
 import { Loader2, Trash2 } from "lucide-react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
+import { toast } from "sonner";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -40,7 +41,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { getErrorMessage } from "@/lib/errors";
 import { useTeacherDetail, useUpdateTeacher, useDeleteTeacher } from "../hooks/use-teachers";
-import { toast } from "sonner";
 
 interface TeacherDetailProps {
     id: string;
@@ -110,7 +110,7 @@ export function TeacherDetail({ id }: TeacherDetailProps) {
     const handleDelete = React.useCallback(async () => {
         try {
             await deleteMutation.mutateAsync(id);
-            router.push("/teachers");
+            router.back();
         } catch {
             // Error handled by the hook
         }

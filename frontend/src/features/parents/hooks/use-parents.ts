@@ -1,93 +1,160 @@
 /**
- * TanStack Query hooks for the parents listing page.
+ * TanStack Query hooks for the Parents feature.
  *
- * Uses the dedicated parents API module.
+ * Covers parent CRUD, student linking/unlinking.
  */
 
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+
 import {
     listParents,
+    createParent,
     getParentDetail,
+    getMyParentProfile,
     updateParent,
     deleteParent,
-    type ListParentsResponse,
-    type Parent,
-    type UpdateParentPayload,
+    linkStudent,
+    unlinkStudent,
 } from "@/lib/api/parents";
 import { getErrorMessage } from "@/lib/errors";
-import { toast } from "sonner";
+import type {
+    ListParentsResponse,
+    ParentDetailResponse,
+    CreateParentPayload,
+    UpdateParentPayload,
+    LinkStudentPayload,
+    Parent,
+} from "../types";
 
 // ─── Query keys ───────────────────────────────────────────────────────────
 
-export const parentsKeys = {
+export const parentKeys = {
     all: ["parents"] as const,
-    list: (params?: Record<string, unknown>) => ["parents", "list", params] as const,
+    list: (params?: Record<string, unknown>) => [...parentKeys.all, "list", params] as const,
+    detail: (id: string) => [...parentKeys.all, "detail", id] as const,
 };
 
-// ─── Hooks ─────────────────────────────────────────────────────────────────
+// ─── Hooks: Parents List ─────────────────────────────────────────────────
 
-/** Fetch parents with pagination and optional filters. */
+/**
+ * Fetch all parents as a Record<id, Parent> for O(1) lookups.
+ *
+ * Separate query key from the paginated useParents — fetches with a
+ * generous limit. Best for lookup tables and cross-references.
+ */
+export function useParentMap() {
+    return useQuery({
+        queryKey: [...parentKeys.all, "map"] as const,
+        queryFn: () => listParents({ limit: 500 }),
+        staleTime: 5 * 60 * 1000,
+        placeholderData: (prev) => prev,
+        select: (data: ListParentsResponse): Record<string, Parent> =>
+            data?.items?.reduce?.(
+                (acc, item) => {
+                    acc[item.id] = item;
+                    return acc;
+                },
+                {} as Record<string, Parent>
+            ) ?? {},
+    });
+}
+
+/** Fetch parents list, optionally filtered by search, student_id, or curriculum filters (education_level, grade_level), with pagination. */
 export function useParents(
-    opts: {
+    params: {
+        search?: string;
+        student_id?: string;
         page?: number;
         limit?: number;
-        search?: string;
-        includeInactive?: boolean;
-        enabled?: boolean;
-        /** Filter values keyed by FilterItem id, e.g. { education_level: ["Early_Years"] } */
         filters?: Record<string, string[]>;
-    } = {}
+    } = {},
+    opts: { enabled?: boolean } = {}
 ) {
-    const { page = 1, limit = 50, search, includeInactive = false, filters, enabled = true } = opts;
+    const { page = 1, limit = 50, search, student_id, filters } = params;
+    const { enabled = true } = opts;
 
     return useQuery<ListParentsResponse>({
-        queryKey: [...parentsKeys.list({ page, limit, search, includeInactive, filters })],
-        queryFn: () =>
-            listParents({
-                page,
-                limit,
-                search,
-                filters,
-            }),
+        queryKey: parentKeys.list({ page, limit, search, student_id, filters }),
+        queryFn: () => listParents({ page, limit, search, student_id, filters }),
         placeholderData: (prev) => prev,
         enabled,
     });
 }
 
-/** Fetch a single parent by ID. */
-export function useParentDetail(userId: string | undefined) {
-    return useQuery({
-        queryKey: [...parentsKeys.all, "detail", userId],
-        queryFn: () => getParentDetail(userId!),
-        enabled: !!userId,
+/** Fetch a single parent detail (with linked students). */
+export function useParentDetail(id: string, opts: { enabled?: boolean } = {}) {
+    const { enabled = true } = opts;
+
+    return useQuery<ParentDetailResponse>({
+        queryKey: parentKeys.detail(id),
+        queryFn: () => getParentDetail(id),
+        enabled: enabled && !!id,
     });
 }
 
-/** Update a parent's profile with optimistic update. */
+/** Fetch the authenticated parent's own profile with linked children. */
+export function useMyParentProfile(opts: { enabled?: boolean } = {}) {
+    const { enabled = true } = opts;
+
+    return useQuery<ParentDetailResponse>({
+        queryKey: [...parentKeys.all, "me"] as const,
+        queryFn: () => getMyParentProfile(),
+        enabled,
+    });
+}
+
+// ─── Mutations ────────────────────────────────────────────────────────────
+
+/** Create a parent with optimistic update. */
+export function useCreateParent() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (data: CreateParentPayload) => createParent(data),
+        onMutate: async () => {
+            await queryClient.cancelQueries({ queryKey: parentKeys.all });
+            const previousQueries = queryClient.getQueriesData({
+                queryKey: parentKeys.all,
+            });
+            return { previousQueries };
+        },
+        onError: (err, _data, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
+            toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: parentKeys.all });
+        },
+    });
+}
+
+/** Update a parent (phone_number, is_active) with optimistic update. */
 export function useUpdateParent() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: ({ userId, payload }: { userId: string; payload: UpdateParentPayload }) =>
-            updateParent(userId, payload),
-        onMutate: async ({ userId, payload }) => {
-            await queryClient.cancelQueries({ queryKey: parentsKeys.all });
+        mutationFn: ({ id, data }: { id: string; data: UpdateParentPayload }) =>
+            updateParent(id, data),
+        onMutate: async ({ id, data }) => {
+            await queryClient.cancelQueries({ queryKey: parentKeys.all });
             const previousQueries = queryClient.getQueriesData<ListParentsResponse>({
-                queryKey: parentsKeys.all,
+                queryKey: parentKeys.all,
             });
 
-            queryClient.setQueriesData<ListParentsResponse>(
-                { queryKey: parentsKeys.all },
-                (old) => {
-                    if (!old) return old;
-                    return {
-                        ...old,
-                        items: old.items.map((p) => (p.id === userId ? { ...p, ...payload } : p)),
-                    };
-                }
-            );
+            queryClient.setQueriesData<ListParentsResponse>({ queryKey: parentKeys.all }, (old) => {
+                if (!old) return old;
+                return {
+                    ...old,
+                    items: old.items.map((p) => (p.id === id ? { ...p, ...data } : p)),
+                };
+            });
 
             return { previousQueries };
         },
@@ -99,42 +166,35 @@ export function useUpdateParent() {
             }
             toast.error(getErrorMessage(err));
         },
-        onSettled: (respData, err, val) => {
-            if (respData && !err && val.userId) {
-                queryClient.invalidateQueries({
-                    queryKey: [...parentsKeys.all, "detail", val.userId],
-                });
-            }
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: parentKeys.all });
         },
     });
 }
 
-/** Hard-delete a parent with optimistic removal. */
+/** Delete a parent with optimistic removal. */
 export function useDeleteParent() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: (userId: string) => deleteParent(userId),
-        onMutate: async (userId) => {
-            await queryClient.cancelQueries({ queryKey: parentsKeys.all });
+        mutationFn: (id: string) => deleteParent(id),
+        onMutate: async (id) => {
+            await queryClient.cancelQueries({ queryKey: parentKeys.all });
             const previousQueries = queryClient.getQueriesData<ListParentsResponse>({
-                queryKey: parentsKeys.all,
+                queryKey: parentKeys.all,
             });
 
-            queryClient.setQueriesData<ListParentsResponse>(
-                { queryKey: parentsKeys.all },
-                (old) => {
-                    if (!old) return old;
-                    return {
-                        ...old,
-                        items: old.items.filter((item) => item.id !== userId),
-                    };
-                }
-            );
+            queryClient.setQueriesData<ListParentsResponse>({ queryKey: parentKeys.all }, (old) => {
+                if (!old) return old;
+                return {
+                    ...old,
+                    items: old.items.filter((item) => item.id !== id),
+                };
+            });
 
             return { previousQueries };
         },
-        onError: (err, _userId, context) => {
+        onError: (err, _id, context) => {
             if (context?.previousQueries) {
                 for (const [key, data] of context.previousQueries) {
                     queryClient.setQueryData(key, data);
@@ -143,37 +203,23 @@ export function useDeleteParent() {
             toast.error(getErrorMessage(err));
         },
         onSettled: () => {
-            queryClient.invalidateQueries({ queryKey: parentsKeys.all });
+            queryClient.invalidateQueries({ queryKey: parentKeys.all });
         },
     });
 }
 
-/** Toggle parent active status with optimistic update (uses updateParent under the hood). */
-export function useToggleParentActive() {
+/** Link a student to a parent with optimistic update. */
+export function useLinkStudent() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: ({ userId, isActive }: { userId: string; isActive: boolean }) =>
-            updateParent(userId, { is_active: isActive }),
-        onMutate: async ({ userId, isActive }) => {
-            await queryClient.cancelQueries({ queryKey: parentsKeys.all });
-            const previousQueries = queryClient.getQueriesData<ListParentsResponse>({
-                queryKey: parentsKeys.all,
+        mutationFn: ({ parentId, data }: { parentId: string; data: LinkStudentPayload }) =>
+            linkStudent(parentId, data),
+        onMutate: async () => {
+            await queryClient.cancelQueries({ queryKey: parentKeys.all });
+            const previousQueries = queryClient.getQueriesData({
+                queryKey: parentKeys.all,
             });
-
-            queryClient.setQueriesData<ListParentsResponse>(
-                { queryKey: parentsKeys.all },
-                (old) => {
-                    if (!old) return old;
-                    return {
-                        ...old,
-                        items: old.items.map((p) =>
-                            p.id === userId ? { ...p, is_active: isActive } : p
-                        ),
-                    };
-                }
-            );
-
             return { previousQueries };
         },
         onError: (err, _vars, context) => {
@@ -185,7 +231,35 @@ export function useToggleParentActive() {
             toast.error(getErrorMessage(err));
         },
         onSettled: () => {
-            queryClient.invalidateQueries({ queryKey: parentsKeys.all });
+            queryClient.invalidateQueries({ queryKey: parentKeys.all });
+        },
+    });
+}
+
+/** Unlink a student from a parent with optimistic update. */
+export function useUnlinkStudent() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ parentId, studentId }: { parentId: string; studentId: string }) =>
+            unlinkStudent(parentId, studentId),
+        onMutate: async () => {
+            await queryClient.cancelQueries({ queryKey: parentKeys.all });
+            const previousQueries = queryClient.getQueriesData({
+                queryKey: parentKeys.all,
+            });
+            return { previousQueries };
+        },
+        onError: (err, _vars, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
+            toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: parentKeys.all });
         },
     });
 }

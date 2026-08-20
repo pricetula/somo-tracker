@@ -1,7 +1,32 @@
 /**
- * Parents feature — parent member management.
- *
- * Import only from this barrel, never from internal paths.
+ * Parents feature — public API barrel.
  */
 
-export * from "./hooks/use-parents";
+export { CreateParentForm } from "./components/create-parent-form";
+export { ParentDetailView } from "./components/parent-detail";
+export { LinkStudentDialog } from "./components/link-student-dialog";
+export { LinkParentDialog } from "./components/link-parent-dialog";
+export { LinkParentForm } from "./components/link-parent-form";
+
+export {
+    useParents,
+    useParentMap,
+    useParentDetail,
+    useMyParentProfile,
+    useCreateParent,
+    useUpdateParent,
+    useDeleteParent,
+    useLinkStudent,
+    useUnlinkStudent,
+    parentKeys,
+} from "./hooks/use-parents";
+
+export type {
+    Parent,
+    ParentDetail,
+    StudentLink,
+    ListParentsResponse,
+    CreateParentPayload,
+    UpdateParentPayload,
+    LinkStudentPayload,
+} from "./types";

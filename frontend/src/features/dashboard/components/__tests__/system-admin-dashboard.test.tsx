@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { SystemAdminDashboardPage } from "../system-admin-dashboard";
-import { AcademicYearHandler } from "@/features/academicyears/components/academic-year-handler";
+import { AcademicYearHandler } from "@/features/academic-years/components/academic-year-handler";
 
 // ---------------------------------------------------------------------------
 // Mock all data hooks so the page renders without a QueryClientProvider and

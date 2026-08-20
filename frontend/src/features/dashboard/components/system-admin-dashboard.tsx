@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { AcademicYearHandler } from "@/features/academicyears/components/academic-year-handler";
+import { AcademicYearHandler } from "@/features/academic-years/components/academic-year-handler";
 import {
     AttendanceSummary,
     AttendanceCalendar,

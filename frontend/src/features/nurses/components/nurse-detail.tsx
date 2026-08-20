@@ -120,7 +120,7 @@ export function NurseDetail({ id }: NurseDetailProps) {
 
     // ── Error state ───────────────────────────────────────────────────────
     if (isError) {
-        return router.back();
+        return null;
     }
 
     // ── Not found state ───────────────────────────────────────────────────

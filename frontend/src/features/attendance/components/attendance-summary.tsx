@@ -208,7 +208,7 @@ export function AttendanceSummary() {
             acc.get(item.class_name).push(item);
             return acc;
         }, new Map());
-    }, [data]);
+    }, []);
 
     const mappedKeys = React.useMemo(() => mappedData?.keys?.()?.toArray?.() || [], [mappedData]);
 

@@ -12,7 +12,6 @@ import { StatusDot } from "./status-dot";
 
 const Calendar = dynamic(() => import("@/components/shared/calendar").then((mod) => mod.Calendar), {
     ssr: false,
-    loading: () => <CalendarSkeleton />,
 });
 export interface DaySummary {
     present: number;
@@ -68,7 +67,7 @@ export function AttendanceCalendar({ schoolId: propSchoolId }: AttendanceCalenda
         data,
         isFetching,
         isError,
-        error: queryError,
+        error: _error,
     } = useCalendarStatus(startDate, endDate, schoolId);
 
     // Build a map of date → status for O(1) lookup
@@ -99,19 +98,27 @@ export function AttendanceCalendar({ schoolId: propSchoolId }: AttendanceCalenda
                 <CardTitle>Attendance recorded</CardTitle>
             </CardHeader>
             <CardContent className="flex h-90 justify-center pb-0">
-                <Calendar
-                    month={currentMonth}
-                    onMonthChange={setCurrentMonth}
-                    onDayClick={(date) => {
-                        const dateStr = format(date, "yyyy-MM-dd");
-                        if (dateStr) {
-                            router.push(`/attendance/${dateStr}`);
-                        }
-                    }}
-                    disabled={[{ after: today }]}
-                    dayContent={dayContent}
-                    showOutsideDays={true}
-                />
+                {isFetching ? (
+                    <CalendarSkeleton />
+                ) : isError ? (
+                    <div className="text-foreground text-center">
+                        Failed to load attendance data.
+                    </div>
+                ) : (
+                    <Calendar
+                        month={currentMonth}
+                        onMonthChange={setCurrentMonth}
+                        onDayClick={(date) => {
+                            const dateStr = format(date, "yyyy-MM-dd");
+                            if (dateStr) {
+                                router.push(`/attendance/${dateStr}`);
+                            }
+                        }}
+                        disabled={[{ after: today }]}
+                        dayContent={dayContent}
+                        showOutsideDays={true}
+                    />
+                )}
             </CardContent>
             <CardFooter className="flex justify-center gap-4">
                 {statusTypes.map((s) => (

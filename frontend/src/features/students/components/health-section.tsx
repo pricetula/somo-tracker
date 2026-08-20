@@ -1,11 +1,12 @@
 "use client";
 
-import { Loader2, ArrowUpRight, HeartPulse } from "lucide-react";
-import { Button } from "@/components/ui/button";
-// import { useStudentHealth } from "@/features/health";
-import Link from "next/link";
-
-export function HealthSection({ studentId, isCompact }: { studentId: string; isCompact: boolean }) {
+export function HealthSection({
+    _studentId,
+    _isCompact,
+}: {
+    _studentId: string;
+    _isCompact: boolean;
+}) {
     // const { data: healthData, isLoading, isError } = useStudentHealth(studentId);
     return null;
     // if (isLoading) {

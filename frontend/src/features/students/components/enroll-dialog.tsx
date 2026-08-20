@@ -23,8 +23,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 
-// import { AcademicTermCombobox } from "@/features/academic-terms";
-// import { ClassCombobox } from "@/features/classes";
+import { AcademicTermCombobox } from "@/features/academic-terms";
+import { ClassCombobox } from "@/features/classes";
 import { useCreateEnrollment } from "../hooks/use-student-detail";
 import { getErrorMessage } from "@/lib/errors";
 
@@ -88,54 +88,52 @@ export function EnrollDialog({ open, onOpenChange, studentId }: EnrollDialogProp
                             {error}
                         </div>
                     )}
+                </div>
 
-                    {/* Term selection */}
-                    <div className="space-y-1.5">
-                        <Label>Academic Term</Label>
-                        {/*<AcademicTermCombobox
-                            value={selectedTermId}
-                            onChange={setSelectedTermId}
-                            placeholder="Select a term"
-                            onCreateItem={() => router.push("/academic-terms/new")}
-                        />*/}
-                    </div>
+                {/* Term selection */}
+                <div className="space-y-1.5">
+                    <Label>Academic Term</Label>
+                    <AcademicTermCombobox
+                        value={selectedTermId}
+                        onChange={setSelectedTermId}
+                        placeholder="Select a term"
+                        onCreateItem={() => router.push("/academic-terms/new")}
+                    />
+                </div>
 
-                    {/* Class selection */}
-                    <div className="space-y-1.5">
-                        <Label>Class</Label>
-                        {/*<ClassCombobox
-                            value={selectedClassId}
-                            onChange={(v) => setSelectedClassId(v as string)}
-                            placeholder="Select a class"
-                            onCreateItem={() => router.push("/classes/add")}
-                        />*/}
-                    </div>
+                {/* Class selection */}
+                <div className="space-y-1.5">
+                    <Label>Class</Label>
+                    <ClassCombobox
+                        value={selectedClassId}
+                        onChange={(v) => setSelectedClassId(v as string)}
+                        placeholder="Select a class"
+                        onCreateItem={() => router.push("/classes/add")}
+                    />
+                </div>
 
-                    {/* Actions */}
-                    <div className="flex items-center justify-end gap-3 pt-2">
-                        <Button
-                            variant="ghost"
-                            onClick={() => onOpenChange(false)}
-                            disabled={createEnrollment.isPending}
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            onClick={handleEnroll}
-                            disabled={
-                                !selectedTermId || !selectedClassId || createEnrollment.isPending
-                            }
-                        >
-                            {createEnrollment.isPending ? (
-                                <>
-                                    <Loader2 className="mr-1.5 size-4 animate-spin" />
-                                    Enrolling…
-                                </>
-                            ) : (
-                                "Enroll"
-                            )}
-                        </Button>
-                    </div>
+                {/* Actions */}
+                <div className="flex items-center justify-end gap-3 pt-2">
+                    <Button
+                        variant="ghost"
+                        onClick={() => onOpenChange(false)}
+                        disabled={createEnrollment.isPending}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        onClick={handleEnroll}
+                        disabled={!selectedTermId || !selectedClassId || createEnrollment.isPending}
+                    >
+                        {createEnrollment.isPending ? (
+                            <>
+                                <Loader2 className="mr-1.5 size-4 animate-spin" />
+                                Enrolling…
+                            </>
+                        ) : (
+                            "Enroll"
+                        )}
+                    </Button>
                 </div>
             </DialogContent>
         </Dialog>

@@ -7,18 +7,9 @@ import {
     ChartTooltip,
     ChartTooltipContent,
 } from "@/components/ui/chart";
-import {
-    Card,
-    CardContent,
-    CardAction,
-    CardFooter,
-    CardHeader,
-    CardTitle,
-} from "@/components/ui/card";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDayOfWeekSummaries } from "@/features/attendance/hooks/use-day-of-week-summaries";
-import { getErrorMessage } from "@/lib/errors";
 
 const chartConfig = {
     absent_count: {
@@ -50,7 +41,35 @@ interface WeekdayAttendanceExceptionsChartProps {
 export function WeekdayAttendanceExceptionsChart({
     classId,
 }: WeekdayAttendanceExceptionsChartProps) {
-    const { data, isLoading, isError, error } = useDayOfWeekSummaries(classId);
+    const { data, isLoading, isError, error: _error } = useDayOfWeekSummaries(classId);
+
+    if (isLoading) {
+        return (
+            <Card className="flex flex-col">
+                <CardHeader className="flex items-center justify-between pb-0">
+                    <CardTitle>Weekday attendance exceptions</CardTitle>
+                </CardHeader>
+                <CardContent className="flex flex-1 items-center pb-0">
+                    <Skeleton className="h-80 w-full" />
+                </CardContent>
+            </Card>
+        );
+    }
+
+    if (isError) {
+        return (
+            <Card className="flex flex-col">
+                <CardHeader className="flex items-center justify-between pb-0">
+                    <CardTitle>Weekday attendance exceptions</CardTitle>
+                </CardHeader>
+                <CardContent className="flex flex-1 items-center pb-0">
+                    <div className="text-foreground text-center">
+                        Failed to load weekday attendance exceptions.
+                    </div>
+                </CardContent>
+            </Card>
+        );
+    }
 
     const items = data?.data ?? [];
 

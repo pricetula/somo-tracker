@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { useRouter } from "next/navigation";
 import { BulkInviteForm } from "@/components/shared/bulk-invite";
 import {
@@ -28,19 +29,18 @@ interface MemberInviteDialogProps {
 export function MemberInviteDialog({ role, title, description }: MemberInviteDialogProps) {
     const router = useRouter();
 
+    const handleRouteBack = React.useCallback(() => {
+        router.back();
+    }, [router]);
+
     return (
-        <Dialog
-            open
-            onOpenChange={() => {
-                router.back();
-            }}
-        >
-            <DialogContent className="w-full max-w-md">
+        <Dialog open onOpenChange={handleRouteBack}>
+            <DialogContent className="w-full sm:max-w-xl">
                 <DialogHeader>
                     <DialogTitle>{title}</DialogTitle>
                     <DialogDescription>{description}</DialogDescription>
                 </DialogHeader>
-                <BulkInviteForm role={role} />
+                <BulkInviteForm role={role} onSuccess={handleRouteBack} />
             </DialogContent>
         </Dialog>
     );

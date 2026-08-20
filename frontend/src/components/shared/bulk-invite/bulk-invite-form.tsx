@@ -68,6 +68,7 @@ interface BulkInviteFormProps {
     role: "SCHOOL_ADMIN" | "TEACHER" | "NURSE" | "FINANCE" | "PARENT";
     /** Custom submit function for different invite endpoints (e.g., parents vs staff). */
     submitFn?: BulkInviteSubmitFn;
+    onSuccess: () => void;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────
@@ -84,7 +85,7 @@ const ROLE_LABELS: Record<string, string> = {
 
 // ─── Component ────────────────────────────────────────────────────────────
 
-export function BulkInviteForm({ role, submitFn }: BulkInviteFormProps) {
+export function BulkInviteForm({ role, submitFn, onSuccess }: BulkInviteFormProps) {
     const { data: me } = useMe();
     const [pageState, dispatch] = React.useReducer(pageReducer, { phase: "idle", step: null });
 
@@ -125,6 +126,7 @@ export function BulkInviteForm({ role, submitFn }: BulkInviteFormProps) {
 
     function handleReset() {
         dispatch({ type: "RESET" });
+        onSuccess();
     }
 
     function handleJobCreated(jobId: string, totalRecords: number) {
@@ -132,7 +134,7 @@ export function BulkInviteForm({ role, submitFn }: BulkInviteFormProps) {
     }
 
     function handleRetry() {
-        dispatch({ type: "RESET" });
+        // dispatch({ type: "RESET" });
     }
 
     // ── Render ────────────────────────────────────────────────────────

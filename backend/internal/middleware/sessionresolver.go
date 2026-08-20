@@ -107,10 +107,9 @@ func NewSessionResolver(pools *database.Pools, cfg config.Config) fiber.Handler 
 	return func(c *fiber.Ctx) error {
 		path := c.Path()
 		if !strings.HasPrefix(path, "/api/") || publicRoutes[path] {
-			fmt.Println("-------public", path)
 			return c.Next()
 		}
-		fmt.Println("nooooooooo---------", path)
+
 		token := c.Cookies(SessionCookieName)
 		if token != "" {
 			sess, err := resolveSession(c.UserContext(), pools, token)

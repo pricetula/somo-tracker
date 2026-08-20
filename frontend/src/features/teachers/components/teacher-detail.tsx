@@ -9,15 +9,26 @@
 
 "use client";
 
-import { useState } from "react";
+import React from "react";
+import { Loader2, Trash2 } from "lucide-react";
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import {
+    Form,
+    FormControl,
+    FormField,
+    FormItem,
+    FormLabel,
+    FormMessage,
+} from "@/components/ui/form";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -36,36 +47,50 @@ interface TeacherDetailProps {
     id: string;
 }
 
+const teacherDetailSchema = z.object({
+    fullName: z.string().trim().min(2, "Full name required with a minimum of 2 characters"),
+    tscNumber: z.string(),
+    knecAssessor: z.string(),
+});
+
+type TeacherDetailSchema = z.infer<typeof teacherDetailSchema>;
+
 export function TeacherDetail({ id }: TeacherDetailProps) {
     const router = useRouter();
     const { data: teacher, isLoading, isError, error } = useTeacherDetail(id);
     const updateMutation = useUpdateTeacher();
     const deleteMutation = useDeleteTeacher();
 
-    const [fullName, setFullName] = useState("");
-    const [tscNumber, setTscNumber] = useState("");
-    const [knecAssessor, setKnecAssessor] = useState("");
-    const [nameError, setNameError] = useState("");
-    const [hasInitialized, setHasInitialized] = useState(false);
+    const form = useForm<TeacherDetailSchema>({
+        resolver: zodResolver(teacherDetailSchema),
+        defaultValues: {
+            fullName: "",
+            tscNumber: "",
+            knecAssessor: "",
+        },
+    });
 
-    // Initialise form fields when teacher data loads.
-    if (teacher && !hasInitialized) {
-        setFullName(teacher.full_name ?? "");
-        setTscNumber(teacher.tsc_number ?? "");
-        setKnecAssessor(teacher.knec_panel_assessor_id ?? "");
-        setHasInitialized(true);
-    }
+    const onSubmit = React.useCallback(
+        (values: TeacherDetailSchema) => {
+            updateMutation.mutate({
+                userId: id,
+                payload: {
+                    full_name: values.fullName.trim() || undefined,
+                    tsc_number: values.tscNumber.trim() || null,
+                    knec_panel_assessor_id: values.knecAssessor.trim() || null,
+                },
+            });
+        },
+        [updateMutation, id]
+    );
 
-    function validate(): boolean {
-        let valid = true;
-        if (!fullName.trim()) {
-            setNameError("Full name is required");
-            valid = false;
-        } else {
-            setNameError("");
+    React.useEffect(() => {
+        if (teacher) {
+            form.setValue("fullName", teacher.full_name ?? "");
+            form.setValue("tscNumber", teacher.tsc_number ?? "");
+            form.setValue("knecAssessor", teacher.knec_panel_assessor_id ?? "");
         }
-        return valid;
-    }
+    }, [teacher, form]);
 
     const handleDelete = async () => {
         try {
@@ -75,19 +100,6 @@ export function TeacherDetail({ id }: TeacherDetailProps) {
             // Error handled by the hook
         }
     };
-
-    function handleSave() {
-        if (!validate()) return;
-
-        updateMutation.mutate({
-            userId: id,
-            payload: {
-                full_name: fullName.trim() || undefined,
-                tsc_number: tscNumber.trim() || null,
-                knec_panel_assessor_id: knecAssessor.trim() || null,
-            },
-        });
-    }
 
     // ── Loading state ─────────────────────────────────────────────────────
     if (isLoading) {
@@ -140,58 +152,94 @@ export function TeacherDetail({ id }: TeacherDetailProps) {
                 <p className="text-muted-foreground text-sm">{teacher.email}</p>
             </div>
 
-            {/* Editable full name */}
-            <div className="space-y-1.5">
-                <Label htmlFor="full-name">Full Name</Label>
-                <Input
-                    id="full-name"
-                    value={fullName}
-                    onChange={(e) => {
-                        setFullName(e.target.value);
-                        if (nameError) setNameError("");
-                    }}
-                    placeholder="Full name"
-                    aria-invalid={!!nameError}
-                />
-                {nameError && <p className="text-destructive text-sm">{nameError}</p>}
-            </div>
+            {/* Editable fields form */}
+            <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    {/* Editable full name */}
+                    <FormField
+                        control={form.control}
+                        name="fullName"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel htmlFor="full-name">Full Name</FormLabel>
+                                <FormControl>
+                                    <Input
+                                        id="full-name"
+                                        placeholder="Full name"
+                                        autoFocus
+                                        {...field}
+                                    />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
 
-            {/* Editable TSC number */}
-            <div className="space-y-1.5">
-                <Label htmlFor="tsc-number">TSC Number</Label>
-                <Input
-                    id="tsc-number"
-                    value={tscNumber}
-                    onChange={(e) => setTscNumber(e.target.value)}
-                    placeholder="e.g. TSC123456"
-                />
-            </div>
+                    {/* Editable TSC number */}
+                    <FormField
+                        control={form.control}
+                        name="tscNumber"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel htmlFor="tsc-number">TSC Number</FormLabel>
+                                <FormControl>
+                                    <Input
+                                        id="tsc-number"
+                                        placeholder="e.g. TSC123456"
+                                        {...field}
+                                    />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
 
-            {/* Editable KNEC Panel Assessor ID */}
-            <div className="space-y-1.5">
-                <Label htmlFor="knec-assessor">KNEC Panel Assessor ID</Label>
-                <Input
-                    id="knec-assessor"
-                    value={knecAssessor}
-                    onChange={(e) => setKnecAssessor(e.target.value)}
-                    placeholder="e.g. KNEC-12345"
-                />
-            </div>
+                    {/* Editable KNEC Panel Assessor ID */}
+                    <FormField
+                        control={form.control}
+                        name="knecAssessor"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel htmlFor="knec-assessor">
+                                    KNEC Panel Assessor ID
+                                </FormLabel>
+                                <FormControl>
+                                    <Input
+                                        id="knec-assessor"
+                                        placeholder="e.g. KNEC-12345"
+                                        {...field}
+                                    />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
 
-            {/* Error from mutation */}
-            {updateMutation.error && (
-                <p className="text-destructive text-sm">{getErrorMessage(updateMutation.error)}</p>
-            )}
+                    {/* Error from mutation */}
+                    {updateMutation.error && (
+                        <p className="text-destructive text-sm">
+                            {getErrorMessage(updateMutation.error)}
+                        </p>
+                    )}
 
-            {/* Success feedback */}
-            {updateMutation.isSuccess && (
-                <p className="text-sm text-emerald-600">Teacher updated successfully.</p>
-            )}
+                    {/* Success feedback */}
+                    {updateMutation.isSuccess && (
+                        <p className="text-sm text-emerald-600">Teacher updated successfully.</p>
+                    )}
 
-            {/* Save button */}
-            <Button onClick={handleSave} disabled={updateMutation.isPending} className="w-full">
-                {updateMutation.isPending ? "Saving…" : "Save Changes"}
-            </Button>
+                    {/* Save button */}
+                    <Button type="submit" disabled={updateMutation.isPending} className="w-full">
+                        {updateMutation.isPending ? (
+                            <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Saving…
+                            </>
+                        ) : (
+                            "Save Changes"
+                        )}
+                    </Button>
+                </form>
+            </Form>
 
             {/* Delete button */}
             <AlertDialog>

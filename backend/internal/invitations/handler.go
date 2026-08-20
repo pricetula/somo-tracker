@@ -41,8 +41,11 @@ func (h *Handler) SetImportService(impSvc importServiceAdapter) {
 
 // RegisterRoutes mounts invitation routes on the given router.
 func (h *Handler) RegisterRoutes(router fiber.Router) {
-	// Bulk invitation endpoint (scoped under /staff for semantic clarity)
-	router.Post("/api/v1/staff/invite", middleware.RequireAuth, h.BulkInvite)
+	// Bulk invitation endpoint for staff (scoped under /staff for semantic clarity)
+	router.Post("/api/v1/staff/invite", middleware.RequireAuth, h.BulkInviteStaff)
+
+	// Bulk invitation endpoint for parents
+	router.Post("/api/v1/parents/invite", middleware.RequireAuth, h.BulkInviteParents)
 
 	// Invitation list/management endpoints
 	invitations := router.Group("/api/v1/invitations")
@@ -67,12 +70,12 @@ func writeError(c *fiber.Ctx, status int, code, message string, fieldErrors map[
 	})
 }
 
-// ─── Bulk Invite ───────────────────────────────────────────────────────────
+// ─── Bulk Invite Staff ─────────────────────────────────────────────────────
 
-// BulkInvite handles POST /api/v1/staff/invite.
+// BulkInviteStaff handles POST /api/v1/staff/invite.
 // Accepts a role and an array of email rows, creates an import job, processes
 // invites asynchronously via Asynq workers, and returns immediately.
-func (h *Handler) BulkInvite(c *fiber.Ctx) error {
+func (h *Handler) BulkInviteStaff(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
 	schoolID, _ := c.Locals("active_school_id").(string)
 	if schoolID == "" {
@@ -166,6 +169,117 @@ func (h *Handler) BulkInvite(c *fiber.Ctx) error {
 			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
 				"code":          "import_already_in_progress",
 				"message":       "An invitation job is already in progress for this school. Please wait for it to complete or cancel it.",
+				"active_job_id": inProgressErr.ActiveJobID.String(),
+			})
+		}
+		return middleware.HTTPError(c, err)
+	}
+
+	// 201 for new job
+	return c.Status(fiber.StatusCreated).JSON(BulkInviteResponse{
+		JobID:        resp.JobID.String(),
+		TotalRecords: resp.TotalRecords,
+		TotalChunks:  resp.TotalChunks,
+		Status:       string(resp.Status),
+		IsReplay:     resp.IsReplay,
+	})
+}
+
+// ─── Bulk Invite Parents ───────────────────────────────────────────────────
+
+// BulkInviteParents handles POST /api/v1/parents/invite.
+// Accepts an array of email rows, creates a PARENT_INVITE import job,
+// processes invites asynchronously via Asynq workers, and returns immediately.
+func (h *Handler) BulkInviteParents(c *fiber.Ctx) error {
+	tenantID := c.Locals("tenant_id").(string)
+	schoolID, _ := c.Locals("active_school_id").(string)
+	if schoolID == "" {
+		schoolID = c.Locals("school_id").(string)
+	}
+	if schoolID == "" {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input", "active school not set", nil)
+	}
+	userID := c.Locals("user_id").(string)
+
+	tenantUUID, err := uuid.Parse(tenantID)
+	if err != nil {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input", "invalid tenant", nil)
+	}
+	schoolUUID, err := uuid.Parse(schoolID)
+	if err != nil {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input", "invalid school", nil)
+	}
+	userUUID, err := uuid.Parse(userID)
+	if err != nil {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input", "invalid user", nil)
+	}
+
+	var body BulkInviteRequest
+	if err := c.BodyParser(&body); err != nil {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input", "malformed request body", nil)
+	}
+
+	// Role is fixed to PARENT for this endpoint
+	parentRole := "PARENT"
+
+	// Validate at least one row
+	if len(body.Rows) == 0 {
+		return writeError(c, fiber.StatusBadRequest, "invalid_input", "rows array must not be empty",
+			map[string][]string{"rows": {"At least one invitation is required"}})
+	}
+
+	// Validate row count limit (before CreateJob, before any DB writes)
+	if len(body.Rows) > imports.MaxImportRows {
+		return writeError(c, fiber.StatusBadRequest, "import_row_limit_exceeded",
+			fmt.Sprintf("Invite list contains %d rows; the maximum is %d. Please split into smaller batches.",
+				len(body.Rows), imports.MaxImportRows), nil)
+	}
+
+	// Resolve Stytch org ID for the tenant (needed by the importer at runtime)
+	stytchOrgID, err := h.svc.GetStytchOrgID(c.Context(), tenantID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	// Build raw rows for the import engine
+	rawRows := make([]json.RawMessage, len(body.Rows))
+	for i, row := range body.Rows {
+		data, _ := json.Marshal(row)
+		rawRows[i] = json.RawMessage(data)
+	}
+
+	// Build metadata with the role, invited_by, import_job_id will be set
+	// after job creation, and stytch_org_id for the importer
+	meta := map[string]string{
+		"role":          parentRole,
+		"invited_by":    userID,
+		"stytch_org_id": stytchOrgID,
+		// import_job_id will be set below after job creation
+	}
+	metaJSON, _ := json.Marshal(meta)
+
+	// Create the import job via the engine
+	req := imports.CreateJobRequest{
+		TenantID:  tenantUUID,
+		SchoolID:  schoolUUID,
+		JobType:   imports.ImportJobTypeParentInvite,
+		CreatedBy: userUUID,
+		Role:      &parentRole,
+		Rows:      rawRows,
+		Metadata:  metaJSON,
+	}
+
+	resp, err := h.impSvc.CreateJob(c.Context(), req)
+	if err != nil {
+		if errors.Is(err, imports.ErrDuplicateJob) {
+			return writeError(c, fiber.StatusConflict, "duplicate_import",
+				"A job with this idempotency key already exists.", nil)
+		}
+		var inProgressErr *imports.ImportInProgressError
+		if errors.As(err, &inProgressErr) {
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+				"code":          "import_already_in_progress",
+				"message":       "A parent invitation job is already in progress for this school. Please wait for it to complete or cancel it.",
 				"active_job_id": inProgressErr.ActiveJobID.String(),
 			})
 		}

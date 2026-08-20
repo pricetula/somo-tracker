@@ -1,6 +1,7 @@
 "use client";
 
 import { BulkInviteForm } from "@/components/shared/bulk-invite";
+import { submitBulkInvite, submitBulkParentInvite } from "@/lib/api/invitations";
 
 /** Roles supported by BulkInviteForm. */
 export type InviteRole = "SCHOOL_ADMIN" | "TEACHER" | "NURSE" | "FINANCE" | "PARENT";
@@ -19,9 +20,10 @@ interface MemberInvitePageProps {
  * navigation.
  */
 export function MemberInvitePage({ role }: MemberInvitePageProps) {
+    const submitFn = role === "PARENT" ? submitBulkParentInvite : submitBulkInvite;
     return (
         <div className="space-y-6">
-            <BulkInviteForm role={role} />
+            <BulkInviteForm role={role} submitFn={submitFn} />
         </div>
     );
 }

@@ -3,6 +3,7 @@
 import React from "react";
 import { useRouter } from "next/navigation";
 import { BulkInviteForm } from "@/components/shared/bulk-invite";
+import { submitBulkInvite, submitBulkParentInvite } from "@/lib/api/invitations";
 import {
     Dialog,
     DialogContent,
@@ -33,6 +34,8 @@ export function MemberInviteDialog({ role, title, description }: MemberInviteDia
         router.back();
     }, [router]);
 
+    const submitFn = role === "PARENT" ? submitBulkParentInvite : submitBulkInvite;
+
     return (
         <Dialog open onOpenChange={handleRouteBack}>
             <DialogContent className="w-full sm:max-w-xl">
@@ -40,7 +43,7 @@ export function MemberInviteDialog({ role, title, description }: MemberInviteDia
                     <DialogTitle>{title}</DialogTitle>
                     <DialogDescription>{description}</DialogDescription>
                 </DialogHeader>
-                <BulkInviteForm role={role} onSuccess={handleRouteBack} />
+                <BulkInviteForm role={role} submitFn={submitFn} onSuccess={handleRouteBack} />
             </DialogContent>
         </Dialog>
     );

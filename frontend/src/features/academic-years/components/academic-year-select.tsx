@@ -9,7 +9,7 @@ import {
     ComboboxItem,
     ComboboxList,
 } from "@/components/ui/combobox";
-import { useAcademicYears } from "@/features/academicyears/hooks";
+import { useAcademicYears } from "@/features/academic-years/hooks";
 
 interface Props {
     className: string;

@@ -5,7 +5,7 @@ import { TooltipProvider } from "@radix-ui/react-tooltip";
 import { AcademicYearHandler } from "../academic-year-handler";
 
 // Mock the useAcademicYears hook
-vi.mock("@/features/academicyears/hooks", () => ({
+vi.mock("@/features/academic-years/hooks", () => ({
     useAcademicYears: () => ({
         data: [
             {

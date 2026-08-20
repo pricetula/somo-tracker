@@ -3,8 +3,8 @@
 import React from "react";
 import { parseISO } from "date-fns";
 import { Progress } from "@/components/ui/progress";
-import { useAcademicYears } from "@/features/academicyears/hooks";
-import type { AcademicYear, AcademicTerm } from "@/features/academicyears/types";
+import { useAcademicYears } from "@/features/academic-years/hooks";
+import type { AcademicYear, AcademicTerm } from "@/features/academic-years/types";
 import { formatDate } from "@/lib/format-date";
 
 const currentDate = new Date();

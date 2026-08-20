@@ -6,7 +6,7 @@ import { AcademicYearHandler } from "@/features/academic-years/components/academ
 // Mock all data hooks so the page renders without a QueryClientProvider and
 // every dashboard section resolves to a deterministic, non-erroring state.
 // ---------------------------------------------------------------------------
-vi.mock("@/features/academicyears/components/academic-year-handler", () => ({
+vi.mock("@/features/academic-years/components/academic-year-handler", () => ({
     AcademicYearHandler: vi.fn(),
 }));
 

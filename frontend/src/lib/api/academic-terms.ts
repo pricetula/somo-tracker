@@ -1,7 +1,7 @@
 /**
  * Academic Terms & Years API functions.
  *
- * Backend contract (backend/internal/academicyears/handler.go):
+ * Backend contract (backend/internal/academic-years/handler.go):
  *
  *   Academic years are READ-ONLY via the API — year creation is driven by the
  *   term lifecycle and SetupInitialYear during school registration. All term

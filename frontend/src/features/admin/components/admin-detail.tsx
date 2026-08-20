@@ -11,7 +11,9 @@
 
 import React from "react";
 import { Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { z } from "zod";
+import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
@@ -26,8 +28,8 @@ import {
     FormLabel,
     FormMessage,
 } from "@/components/ui/form";
+import { getErrorMessage } from "@/lib/errors";
 import { useAdminDetail, useUpdateAdmin } from "../hooks/use-admins";
-import { useRouter } from "next/navigation";
 
 interface AdminDetailProps {
     id: string;
@@ -62,8 +64,12 @@ export function AdminDetail({ id }: AdminDetailProps) {
     );
 
     React.useEffect(() => {
+        if (updateMutation.error) {
+            toast.error(getErrorMessage(updateMutation.error));
+        }
         if (updateMutation.isSuccess) {
             router.back();
+            toast.success("Nurse updated successfully.");
         }
     }, [updateMutation, router]);
 

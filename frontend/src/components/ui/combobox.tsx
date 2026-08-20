@@ -13,7 +13,10 @@ import {
 } from "@/components/ui/input-group";
 import { ChevronDownIcon, XIcon, CheckIcon } from "lucide-react";
 
-const Combobox = ComboboxPrimitive.Root;
+export type ComboboxRootProps = ComboboxPrimitive.Root.Props<string> & {
+    children: React.ReactNode;
+};
+const Combobox: React.FC<ComboboxRootProps> = ComboboxPrimitive.Root;
 
 function ComboboxValue({ ...props }: ComboboxPrimitive.Value.Props) {
     return <ComboboxPrimitive.Value data-slot="combobox-value" {...props} />;

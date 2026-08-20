@@ -161,7 +161,7 @@ func TestSessionResolver(t *testing.T) {
 			Role:     "TEACHER",
 		}
 		sessBytes, _ := json.Marshal(expectedSession)
-		mr.Set(cacheKey, string(sessBytes))
+		_ = mr.Set(cacheKey, string(sessBytes))
 
 		app := fiber.New()
 		app.Use(NewSessionResolver(pools, testResolverCfg()))

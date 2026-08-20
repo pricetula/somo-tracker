@@ -9,7 +9,14 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Combobox } from "@/components/ui/combobox";
+import {
+    Combobox,
+    ComboboxInput,
+    ComboboxContent,
+    ComboboxList,
+    ComboboxItem,
+    ComboboxEmpty,
+} from "@/components/ui/combobox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { getErrorMessage } from "@/lib/errors";
@@ -38,6 +45,10 @@ export interface StreamComboboxProps {
     doPreselectFirstOption?: boolean;
 }
 
+// ─── Constants ────────────────────────────────────────────────────────────
+
+const CREATE_ITEM_VALUE = "__create__";
+
 // ─── Component ────────────────────────────────────────────────────────────
 
 export function StreamCombobox({
@@ -64,6 +75,18 @@ export function StreamCombobox({
         hasPreselected.current = true;
         onChange(list[0].id);
     }, [doPreselectFirstOption, data, value, onChange]);
+
+    // ── Handle create item selection ──────────────────────────────────────
+    const handleValueChange = React.useCallback(
+        (newValue: string | null) => {
+            if (newValue === CREATE_ITEM_VALUE && onCreateItem) {
+                onCreateItem("");
+            } else {
+                onChange(newValue as string);
+            }
+        },
+        [onChange, onCreateItem]
+    );
 
     // ── Loading state ─────────────────────────────────────────────────────
     if (isLoading) {
@@ -94,14 +117,36 @@ export function StreamCombobox({
         );
     }
 
-    return (
-        <Combobox
-            items={items.map((s) => ({ value: s.id, label: s.name }))}
-            value={value}
-            onValueChange={(v) => onChange(v as string)}
-            placeholder={placeholder}
-            className={className}
-            onCreateItem={onCreateItem}
-        />
+    const comboboxItems = items.map((s) => ({ value: s.id, label: s.name }));
+
+    return React.createElement(
+        Combobox,
+        { value, onValueChange: handleValueChange, className },
+        React.createElement(ComboboxInput, { placeholder }),
+        React.createElement(
+            ComboboxContent,
+            null,
+            React.createElement(
+                ComboboxList,
+                null,
+                comboboxItems.map((item) =>
+                    React.createElement(
+                        ComboboxItem,
+                        { key: item.value, value: item.value },
+                        item.label
+                    )
+                ),
+                onCreateItem &&
+                    React.createElement(
+                        ComboboxItem,
+                        {
+                            value: CREATE_ITEM_VALUE,
+                            className: "bg-muted/50 text-muted-foreground italic",
+                        },
+                        "Create new stream..."
+                    ),
+                React.createElement(ComboboxEmpty, null, "No streams found")
+            )
+        )
     );
 }

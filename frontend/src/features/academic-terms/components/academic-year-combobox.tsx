@@ -7,9 +7,17 @@
 
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useCallback } from "react";
+import * as React from "react";
 
-import { Combobox } from "@/components/ui/combobox";
+import {
+    Combobox,
+    ComboboxInput,
+    ComboboxContent,
+    ComboboxList,
+    ComboboxItem,
+    ComboboxEmpty,
+} from "@/components/ui/combobox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { getErrorMessage } from "@/lib/errors";
@@ -33,6 +41,10 @@ export interface AcademicYearComboboxProps {
     onCreateItem?: (search: string) => void;
 }
 
+// ─── Constants ────────────────────────────────────────────────────────────
+
+const CREATE_ITEM_VALUE = "__create__";
+
 // ─── Component ────────────────────────────────────────────────────────────
 
 export function AcademicYearCombobox({
@@ -46,8 +58,8 @@ export function AcademicYearCombobox({
 
     // Auto-select the current academic year when data loads and no value is set
     useEffect(() => {
-        if (!value && data?.items && data.items.length > 0) {
-            const current = data.items.find((y) => y.is_current);
+        if (!value && data?.data && data.data.length > 0) {
+            const current = data.data.find((y) => y.is_current);
             if (current) {
                 onChange(current.id);
             }
@@ -55,12 +67,24 @@ export function AcademicYearCombobox({
     }, [data, value, onChange]);
 
     const items = useMemo(() => {
-        if (!data?.items) return [];
-        return data.items.map((y) => ({
+        if (!data?.data) return [];
+        return data.data.map((y) => ({
             value: y.id,
             label: y.name,
         }));
     }, [data]);
+
+    // ── Handle create item selection ──────────────────────────────────────
+    const handleValueChange = useCallback(
+        (newValue: string | null) => {
+            if (newValue === CREATE_ITEM_VALUE && onCreateItem) {
+                onCreateItem("");
+            } else {
+                onChange(newValue as string);
+            }
+        },
+        [onChange, onCreateItem]
+    );
 
     // ── Loading state ─────────────────────────────────────────────────────
     if (isLoading) {
@@ -76,14 +100,34 @@ export function AcademicYearCombobox({
         );
     }
 
-    return (
-        <Combobox
-            items={items}
-            value={value}
-            onValueChange={(v) => onChange(v as string)}
-            placeholder={placeholder}
-            className={className}
-            onCreateItem={onCreateItem}
-        />
+    return React.createElement(
+        Combobox,
+        { value, onValueChange: handleValueChange, className },
+        React.createElement(ComboboxInput, { placeholder }),
+        React.createElement(
+            ComboboxContent,
+            null,
+            React.createElement(
+                ComboboxList,
+                null,
+                items.map((item) =>
+                    React.createElement(
+                        ComboboxItem,
+                        { key: item.value, value: item.value },
+                        item.label
+                    )
+                ),
+                onCreateItem &&
+                    React.createElement(
+                        ComboboxItem,
+                        {
+                            value: CREATE_ITEM_VALUE,
+                            className: "bg-muted/50 text-muted-foreground italic",
+                        },
+                        "Create new academic year..."
+                    ),
+                React.createElement(ComboboxEmpty, null, "No academic years found")
+            )
+        )
     );
 }

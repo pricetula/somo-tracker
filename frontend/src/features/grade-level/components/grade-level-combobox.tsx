@@ -8,8 +8,15 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
+import * as React from "react";
 
-import { Combobox } from "@/components/ui/combobox";
+import {
+    Combobox,
+    ComboboxInput,
+    ComboboxContent,
+    ComboboxList,
+    ComboboxItem,
+} from "@/components/ui/combobox";
 import { GRADE_LEVEL_LABELS } from "../types";
 
 // ─── Props ────────────────────────────────────────────────────────────────
@@ -60,13 +67,24 @@ export function GradeLevelCombobox({
         onChange(items[0].value);
     }, [doPreselectFirstOption, items, value, onChange]);
 
-    return (
-        <Combobox
-            items={items}
-            value={value}
-            onValueChange={(v) => onChange(v as string)}
-            placeHolder={placeholder}
-            className={className}
-        />
+    return React.createElement(
+        Combobox,
+        { value, onValueChange: (v: string | null) => onChange(v as string), className },
+        React.createElement(ComboboxInput, { placeholder }),
+        React.createElement(
+            ComboboxContent,
+            null,
+            React.createElement(
+                ComboboxList,
+                null,
+                items.map((item) =>
+                    React.createElement(
+                        ComboboxItem,
+                        { key: item.value, value: item.value },
+                        item.label
+                    )
+                )
+            )
+        )
     );
 }

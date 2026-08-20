@@ -33,12 +33,15 @@
 	];
 </script>
 
-<section class="py-28 px-4">
-	<div class="max-w-6xl mx-auto space-y-28">
+<section class="px-4 py-28">
+	<div class="mx-auto max-w-6xl space-y-28">
 		{#each features as feature, i (i)}
-			<div class="grid md:grid-cols-2 gap-16 items-center" in:fly={{ y: 40, duration: 700 }}>
+			<div class="grid items-center gap-16 md:grid-cols-2" in:fly={{ y: 40, duration: 700 }}>
 				<!-- Image -->
-				<div class:md:order-2={!feature.imageLeft} class="flex items-center justify-center h-80">
+				<div
+					class:md:order-2={!feature.imageLeft}
+					class="flex h-80 items-center justify-center"
+				>
 					<img src={feature.imgSrc} alt="hero" class={feature.imgClass} />
 				</div>
 
@@ -48,8 +51,8 @@
 						{feature.headline}
 					</h3>
 					<p class="text-sm">{feature.description}</p>
-					<div class="flex gap-3 flex-wrap">
-						<Badge variant="secondary" class="text-xs px-2">{feature.label}</Badge>
+					<div class="flex flex-wrap gap-3">
+						<Badge variant="secondary" class="px-2 text-xs">{feature.label}</Badge>
 					</div>
 				</div>
 			</div>

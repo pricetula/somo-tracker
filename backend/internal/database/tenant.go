@@ -13,9 +13,15 @@ import (
 // Value() — the same context.Context that handlers pass to repositories.
 // Background workers and services that manage their own transactions set the
 // same keys via WithTenantTx / WithTenantID.
+// Using custom types avoids collisions (SA1029).
+type (
+	tenantIDKey string
+	tenantTxKey string
+)
+
 const (
-	TenantIDKey = "tenant_id"
-	TenantTxKey = "tenant_tx"
+	TenantIDKey tenantIDKey = "tenant_id"
+	TenantTxKey tenantTxKey = "tenant_tx"
 )
 
 // Executor is the subset of query operations shared by *pgxpool.Pool and

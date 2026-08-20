@@ -5,7 +5,7 @@
 	let email = $state('');
 </script>
 
-<form method="POST" action="?/subscribe" class="flex flex-col sm:flex-row gap-4 max-w-95 mb-2">
+<form method="POST" action="?/subscribe" class="mb-2 flex max-w-95 flex-col gap-4 sm:flex-row">
 	<Input type="email" name="email" bind:value={email} placeholder="Email" required />
 	<Button type="submit">Join Waitlist</Button>
 </form>

@@ -24,7 +24,7 @@ func TestRateLimiter_BotScenarios(t *testing.T) {
 	rdb := redis.NewClient(&redis.Options{
 		Addr: mr.Addr(),
 	})
-	defer rdb.Close()
+	defer func() { _ = rdb.Close() }()
 
 	t.Run("Scenario 1: Concurrency Burst - 50 parallel requests within 1ms", func(t *testing.T) {
 		app := fiber.New()
@@ -61,9 +61,10 @@ func TestRateLimiter_BotScenarios(t *testing.T) {
 					return
 				}
 
-				if resp.StatusCode == http.StatusOK {
+				switch resp.StatusCode {
+				case http.StatusOK:
 					atomic.AddInt32(&successCnt, 1)
-				} else if resp.StatusCode == http.StatusTooManyRequests {
+				case http.StatusTooManyRequests:
 					atomic.AddInt32(&rateLimited, 1)
 				}
 			}()

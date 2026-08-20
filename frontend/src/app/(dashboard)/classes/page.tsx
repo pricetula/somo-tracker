@@ -89,14 +89,14 @@ export default function ClassesPage() {
                 type: "sub_menu_multi",
                 submenu: streams.map((s) => ({
                     id: s.id,
-                    label: <StreamPill name={s.name} color={s.color} />,
+                    label: "<StreamPill name={s.name} color={s.color} />",
                     value: s.id,
                 })),
             });
         }
 
         // Add academic year filter if data is available
-        const years = academicYearsData?.items ?? [];
+        const years = academicYearsData?.data ?? [];
         if (years.length > 0) {
             items.push({
                 id: "academic_year_id",

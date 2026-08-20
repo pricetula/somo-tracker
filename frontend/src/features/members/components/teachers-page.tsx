@@ -1,88 +1,161 @@
 "use client";
 
-import { DataTable } from "@/components/shared/data-table/data-table";
-import { Button } from "@/components/ui/button";
 import {
     listTeachers,
-    deleteTeacher,
     type TeacherMember,
     type ListTeachersParams,
     type ListTeachersResponse,
 } from "@/lib/api/teachers";
-import { Trash2, Edit } from "lucide-react";
+import Link from "next/link";
+import { GraduationCap, BookOpen } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import type { DataTableColumn, FilterGroup } from "@/components/shared/data-table/types";
+import { DataTable } from "@/components/shared/data-table/data-table";
+import { InvitationCountBadge } from "@/features/invitations";
+import { getGradeLevelFilterSubmenu } from "@/features/grade-level";
+import { getEducationLevelFilterSubmenu } from "@/features/education-level";
+import { RowActions } from "@/components/shared/data-table/row-actions";
+import { useDeleteTeacher } from "@/features/teachers";
 
-export function TeachersPage() {
-    const columns = [
-        { id: "email", header: "Email", cell: (row: TeacherMember) => row.email },
-        { id: "full_name", header: "Name", cell: (row: TeacherMember) => row.full_name },
-        { id: "role", header: "Role", cell: () => "Teacher" },
+// ─── Teacher Role Labels ──────────────────────────────────────────────────
+
+const TEACHER_ROLE_LABELS: Record<string, string> = {
+    PRIMARY_CLASS_TEACHER: "Primary Class Teacher",
+    SUBJECT_TEACHER: "Subject Teacher",
+    SUBSTITUTE_TEACHER: "Substitute Teacher",
+};
+
+function formatTeacherRole(role: string | null): string {
+    if (!role) return "—";
+    return TEACHER_ROLE_LABELS[role] ?? role;
+}
+
+// ─── Columns factory ──────────────────────────────────────────────────────
+
+function createColumns(
+    deleteMutation: ReturnType<typeof useDeleteTeacher>
+): DataTableColumn<TeacherMember>[] {
+    return [
+        {
+            id: "full_name",
+            header: "Full Name",
+            cell: (row) => (
+                <Link href={`/teachers/${row.id}`} className="font-medium hover:underline">
+                    {row.full_name || "—"}
+                </Link>
+            ),
+        },
+        {
+            id: "email",
+            header: "Email",
+            cell: (row) => <span className="text-muted-foreground">{row.email}</span>,
+        },
         {
             id: "tsc_number",
             header: "TSC Number",
-            cell: (row: TeacherMember) => row.tsc_number ?? "-",
+            cell: (row) => (
+                <span className="text-muted-foreground font-mono">{row.tsc_number ?? "—"}</span>
+            ),
         },
         {
             id: "knec_panel_assessor_id",
-            header: "KNEC Panel Assessor",
-            cell: (row: TeacherMember) => row.knec_panel_assessor_id ?? "-",
+            header: "KNEC Panel Assessor ID",
+            cell: (row) => (
+                <span className="text-muted-foreground font-mono">
+                    {row.knec_panel_assessor_id ?? "—"}
+                </span>
+            ),
         },
         {
             id: "teacher_role",
-            header: "Teacher Role",
-            cell: (row: TeacherMember) => row.teacher_role ?? "-",
+            header: "Core Assignment Role",
+            cell: (row) => (
+                <span className="text-muted-foreground">{formatTeacherRole(row.teacher_role)}</span>
+            ),
         },
         {
             id: "is_active",
-            header: "Status",
-            cell: (row: TeacherMember) => (row.is_active ? "Active" : "Inactive"),
-        },
-        {
-            id: "created_at",
-            header: "Created At",
-            cell: (row: TeacherMember) => new Date(row.created_at).toLocaleDateString(),
+            header: "Account Status",
+            cell: (row) => (
+                <Badge
+                    variant="secondary"
+                    className={
+                        row.is_active
+                            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                            : "bg-muted text-muted-foreground"
+                    }
+                >
+                    {row.is_active ? "Active" : "Inactive"}
+                </Badge>
+            ),
         },
         {
             id: "actions",
-            header: "Actions",
-            cell: (row: TeacherMember) => (
-                <div className="flex items-center gap-2">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => alert(`Edit ${row.full_name}`)}
-                    >
-                        <Edit className="size-3" />
-                    </Button>
-                    <Button
-                        variant="destructive"
-                        size="icon"
-                        onClick={() => {
-                            if (window.confirm(`Delete ${row.full_name}?`)) {
-                                deleteTeacher(row.id).catch((err) =>
-                                    alert(`Failed to delete: ${err}`)
-                                );
-                            }
-                        }}
-                    >
-                        <Trash2 className="size-3" />
-                    </Button>
-                </div>
+            header: "",
+            width: "48px",
+            align: "right",
+            cell: (row) => (
+                <RowActions
+                    rowId={row.id}
+                    label={row.full_name ?? row.email}
+                    onDelete={() => deleteMutation.mutate(row.id)}
+                    disabled={deleteMutation.isPending}
+                />
             ),
         },
     ];
+}
+
+// ─── Filter Groups ────────────────────────────────────────────────────────
+
+const filterGroups: FilterGroup[] = [
+    {
+        id: "curriculum_filters",
+        label: "Filter by",
+        items: [
+            {
+                id: "education_level",
+                label: "Education Level",
+                icon: BookOpen,
+                type: "sub_menu_multi",
+                submenu: getEducationLevelFilterSubmenu(),
+            },
+            {
+                id: "grade_level",
+                label: "Grade",
+                icon: GraduationCap,
+                type: "sub_menu_multi",
+                submenu: getGradeLevelFilterSubmenu(),
+            },
+        ],
+    },
+];
+
+export function TeachersPage() {
+    const deleteMutation = useDeleteTeacher();
+    const columns = createColumns(deleteMutation);
 
     return (
         <DataTable<TeacherMember, ListTeachersParams, ListTeachersResponse>
+            isCheckable
             addHref="/teachers/add"
             queryKey={["teachers"]}
             queryFn={listTeachers}
-            params={{}}
             columns={columns}
             getRowId={(row) => row.id}
             isSearchable
-            searchPlaceholder="Search teachers..."
-            isCheckable
-            deleteFn={(id) => deleteTeacher(String(id))}
+            searchPlaceholder="Search by name, email, or TSC number…"
+            filterGroups={filterGroups}
+            deleteFn={(id) => deleteMutation.mutateAsync(String(id))}
+            emptyState="No teachers yet."
+            noResultsState="No teachers match your search or filters."
+            renderToolBarComponents={() => (
+                <InvitationCountBadge
+                    key="invitation-count"
+                    role="TEACHER"
+                    href="/teachers/invitations"
+                />
+            )}
         />
     );
 }

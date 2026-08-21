@@ -9,7 +9,6 @@
 import Link from "next/link";
 import { Upload } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import { InvitationsList } from "@/features/invitations";
 
 export default function ParentsInvitationsPage() {

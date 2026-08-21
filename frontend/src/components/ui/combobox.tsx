@@ -13,10 +13,7 @@ import {
 } from "@/components/ui/input-group";
 import { ChevronDownIcon, XIcon, CheckIcon } from "lucide-react";
 
-export type ComboboxRootProps = ComboboxPrimitive.Root.Props<string> & {
-    children: React.ReactNode;
-};
-const Combobox: React.FC<ComboboxRootProps> = ComboboxPrimitive.Root;
+const Combobox = ComboboxPrimitive.Root;
 
 function ComboboxValue({ ...props }: ComboboxPrimitive.Value.Props) {
     return <ComboboxPrimitive.Value data-slot="combobox-value" {...props} />;
@@ -67,13 +64,11 @@ function ComboboxInput({
                     <InputGroupButton
                         size="icon-xs"
                         variant="ghost"
-                        asChild
+                        render={<ComboboxTrigger />}
                         data-slot="input-group-button"
                         className="group-has-data-[slot=combobox-clear]/input-group:hidden data-pressed:bg-transparent"
                         disabled={disabled}
-                    >
-                        <ComboboxTrigger />
-                    </InputGroupButton>
+                    />
                 )}
                 {showClear && <ComboboxClear disabled={disabled} />}
             </InputGroupAddon>

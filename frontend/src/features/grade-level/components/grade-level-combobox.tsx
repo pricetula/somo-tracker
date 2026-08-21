@@ -7,8 +7,7 @@
 
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
-import * as React from "react";
+import React from "react";
 
 import {
     Combobox,
@@ -16,12 +15,17 @@ import {
     ComboboxContent,
     ComboboxList,
     ComboboxItem,
+    ComboboxEmpty,
 } from "@/components/ui/combobox";
 import { GRADE_LEVEL_LABELS } from "../types";
 
-// ─── Props ────────────────────────────────────────────────────────────────
+interface Option {
+    value: string;
+    label: string;
+}
 
-export interface GradeLevelComboboxProps {
+// ─── Props ────────────────────────────────────────────────────────────────
+interface GradeLevelComboboxProps {
     /** Currently selected grade level (controlled). */
     value: string;
     /** Called when a grade level is selected. */
@@ -46,7 +50,7 @@ export function GradeLevelCombobox({
     className,
     doPreselectFirstOption = false,
 }: GradeLevelComboboxProps) {
-    const items = useMemo(
+    const items = React.useMemo<Option[]>(
         () =>
             Object.entries(GRADE_LEVEL_LABELS).map(([value, label]) => ({
                 value,
@@ -56,35 +60,34 @@ export function GradeLevelCombobox({
     );
 
     // ── Auto-preselect first option ──────────────────────────────────────
-    const hasPreselected = useRef(false);
-    useEffect(() => {
-        if (!doPreselectFirstOption || items.length === 0 || hasPreselected.current) return;
-        if (value) {
-            hasPreselected.current = true;
-            return;
+    React.useEffect(() => {
+        if (doPreselectFirstOption && items?.length && items.length > 0 && !value && onChange) {
+            onChange(items[0].value);
         }
-        hasPreselected.current = true;
-        onChange(items[0].value);
     }, [doPreselectFirstOption, items, value, onChange]);
 
-    return React.createElement(
-        Combobox,
-        { value, onValueChange: (v: string | null) => onChange(v as string), className },
-        React.createElement(ComboboxInput, { placeholder }),
-        React.createElement(
-            ComboboxContent,
-            null,
-            React.createElement(
-                ComboboxList,
-                null,
-                items.map((item) =>
-                    React.createElement(
-                        ComboboxItem,
-                        { key: item.value, value: item.value },
-                        item.label
-                    )
-                )
-            )
-        )
+    return (
+        <Combobox
+            items={items as Option[]}
+            value={value}
+            itemToStringValue={(i) => i.label}
+            onValueChange={(v) => {
+                if (v) {
+                    onChange(v);
+                }
+            }}
+        >
+            <ComboboxInput placeholder={placeholder} className={className} />
+            <ComboboxContent>
+                <ComboboxEmpty>No items found.</ComboboxEmpty>
+                <ComboboxList>
+                    {(i) => (
+                        <ComboboxItem key={i.value} value={i as Option}>
+                            {i.label}
+                        </ComboboxItem>
+                    )}
+                </ComboboxList>
+            </ComboboxContent>
+        </Combobox>
     );
 }

@@ -11,21 +11,22 @@
 
 "use client";
 
+import React from "react";
 import { GradeLevelCombobox } from "@/features/grade-level";
 
 // ─── Props ─────────────────────────────────────────────────────────────────
 
 interface AddClassFormProps {
     /** Called when the class is successfully created. */
-    onSuccess?: (cls: Class) => void;
+    onSuccess?: () => void;
 }
 
 // ─── Component ─────────────────────────────────────────────────────────────
 
 export function AddClassForm({ onSuccess: _onSuccess }: AddClassFormProps) {
+    const [gradeLevel, setGradeLevel] = React.useState("Grade 5");
     // TODO: Implement full form UI
-    return <GradeLevelCombobox />;
+    return (
+        <GradeLevelCombobox value={gradeLevel} onChange={setGradeLevel} doPreselectFirstOption />
+    );
 }
-
-// Type-only import for props interface
-import type { Class } from "@/lib/api/classes";

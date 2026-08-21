@@ -34,11 +34,6 @@ interface GradeLevelComboboxProps {
     placeholder?: string;
     /** Optional outer container class. */
     className?: string;
-    /**
-     * When true, automatically selects the first option if no value is set.
-     * Defaults to false.
-     */
-    doPreselectFirstOption?: boolean;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────
@@ -48,7 +43,6 @@ export function GradeLevelCombobox({
     onChange,
     placeholder = "Select a grade level...",
     className,
-    doPreselectFirstOption = false,
 }: GradeLevelComboboxProps) {
     const items = React.useMemo<Option[]>(
         () =>
@@ -59,21 +53,25 @@ export function GradeLevelCombobox({
         []
     );
 
-    // ── Auto-preselect first option ──────────────────────────────────────
+    const selectedOption = React.useMemo(
+        () => items.find((o) => o.value === value) || items[0],
+        [items, value]
+    );
+
     React.useEffect(() => {
-        if (doPreselectFirstOption && items?.length && items.length > 0 && !value && onChange) {
-            onChange(items[0].value);
+        if (!value && selectedOption) {
+            onChange(selectedOption.value);
         }
-    }, [doPreselectFirstOption, items, value, onChange]);
+    }, [selectedOption, value, onChange]);
 
     return (
         <Combobox
             items={items as Option[]}
-            value={value}
+            value={selectedOption}
             itemToStringValue={(i) => i.label}
             onValueChange={(v) => {
                 if (v) {
-                    onChange(v);
+                    onChange(v.value);
                 }
             }}
         >

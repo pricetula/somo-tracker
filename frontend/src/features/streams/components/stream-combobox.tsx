@@ -38,11 +38,6 @@ export interface StreamComboboxProps {
     placeholder?: string;
     /** Optional outer container class. */
     className?: string;
-    /**
-     * When true, automatically selects the first option if no value is set.
-     * Defaults to false.
-     */
-    doPreselectFirstOption?: boolean;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────
@@ -52,7 +47,6 @@ export function StreamCombobox({
     onChange,
     placeholder = "Select a stream...",
     className,
-    doPreselectFirstOption = false,
 }: StreamComboboxProps) {
     const { data, isLoading, isError, error } = useStreamList();
 
@@ -64,25 +58,29 @@ export function StreamCombobox({
         }));
     }, [data]);
 
-    // ── Auto-preselect first option ──────────────────────────────────────
-    React.useEffect(() => {
-        if (doPreselectFirstOption && items?.length && items.length > 0 && !value && onChange) {
-            onChange(items[0].value);
-        }
-    }, [doPreselectFirstOption, items, value, onChange]);
-
     React.useEffect(() => {
         if (isError) {
             toast.error(getErrorMessage(error));
         }
     }, [isError, error]);
 
+    const selectedOption = React.useMemo(
+        () => items.find((o) => o.value === value) || items[0],
+        [items, value]
+    );
+
+    React.useEffect(() => {
+        if (!value && selectedOption) {
+            onChange(selectedOption.value);
+        }
+    }, [selectedOption, value, onChange]);
+
     // ── Error state ──────────────────────────────────────────────────────
     if (isError) return null;
 
     // ── Loading state ─────────────────────────────────────────────────────
     if (isLoading) {
-        return <Skeleton className={className ?? "h-9 w-full"} />;
+        return <Skeleton className={className ?? "h-7 w-full"} />;
     }
 
     // ── No items at all (not just search miss) ───────────────────────────
@@ -97,11 +95,11 @@ export function StreamCombobox({
     return (
         <Combobox
             items={items as Option[]}
-            value={value}
+            value={selectedOption}
             itemToStringValue={(i) => i.label}
             onValueChange={(v) => {
                 if (v) {
-                    onChange(v);
+                    onChange(v.value);
                 }
             }}
         >

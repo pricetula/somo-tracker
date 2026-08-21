@@ -118,12 +118,47 @@ export function useCreateClass() {
     return useMutation({
         mutationFn: (payload: { grade_level: string; stream_id: string; student_ids?: string[] }) =>
             createClass(payload),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: classKeys.all });
-            toast.success("Class created successfully.");
+        onMutate: async (newClassPayload) => {
+            await queryClient.cancelQueries({ queryKey: classKeys.all });
+
+            const previousQueries = queryClient.getQueriesData<{ items: Class[] }>({
+                queryKey: classKeys.all,
+            });
+
+            // Generate a temporary ID for optimistic update
+            const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+            const optimisticClass: Class = {
+                id: tempId,
+                grade_level: newClassPayload.grade_level,
+                stream_id: newClassPayload.stream_id,
+                display_label: "",
+                stream_name: "",
+                stream_color: "",
+                student_count: 0,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+            };
+
+            queryClient.setQueriesData<{ items: Class[] }>({ queryKey: classKeys.all }, (old) => {
+                if (!old) return old;
+                return {
+                    ...old,
+                    items: [optimisticClass, ...old.items],
+                };
+            });
+
+            return { previousQueries, tempId };
         },
-        onError: (error) => {
-            toast.error(getErrorMessage(error));
+        onError: (err, _vars, context) => {
+            if (context?.previousQueries) {
+                for (const [key, data] of context.previousQueries) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
+            toast.error(getErrorMessage(err));
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: classKeys.all });
         },
     });
 }

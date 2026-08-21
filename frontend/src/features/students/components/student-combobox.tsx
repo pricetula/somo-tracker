@@ -44,11 +44,6 @@ export interface StudentComboboxProps {
     placeholder?: string;
     /** Optional outer container class. */
     className?: string;
-    /**
-     * When true, automatically selects the first option if no value is set.
-     * Defaults to false.
-     */
-    doPreselectFirstOption?: boolean;
     /** Allow selecting multiple teachers (default: false). */
     isMultiSelect?: boolean;
 }
@@ -60,7 +55,6 @@ export function StudentCombobox({
     onChange,
     placeholder = "Select a student...",
     className,
-    doPreselectFirstOption = false,
     isMultiSelect = false,
 }: StudentComboboxProps) {
     const { data, isLoading, isError, error } = useStudents({ limit: 500 });
@@ -74,19 +68,22 @@ export function StudentCombobox({
         [data]
     );
 
-    // ── Auto-preselect first option ──────────────────────────────────────
-    React.useEffect(() => {
-        if (doPreselectFirstOption && items?.length && items.length > 0 && !value && onChange) {
-            const id = items[0].value;
-            onChange(isMultiSelect ? [id] : id);
-        }
-    }, [doPreselectFirstOption, isMultiSelect, items, value, onChange]);
+    const selectedOption = React.useMemo(
+        () => items.find((o) => o.value === value) || items[0],
+        [items, value]
+    );
 
     React.useEffect(() => {
         if (isError) {
             toast.error(getErrorMessage(error));
         }
     }, [isError, error]);
+
+    React.useEffect(() => {
+        if (!value && selectedOption) {
+            onChange(selectedOption.value);
+        }
+    }, [selectedOption, value, onChange]);
 
     // ── Error state ──────────────────────────────────────────────────────
     if (isError) return null;
@@ -112,11 +109,11 @@ export function StudentCombobox({
     // ── Multi-select ────────────────────────────────────────────────────
     <Combobox
         items={items as Option[]}
-        value={value}
+        value={selectedOption}
         itemToStringValue={(i) => i.label}
         onValueChange={(v) => {
             if (v) {
-                onChange(isMultiSelect ? [v] : v);
+                onChange(isMultiSelect ? [v.value] : v.value);
             }
         }}
         multiple={isMultiSelect}

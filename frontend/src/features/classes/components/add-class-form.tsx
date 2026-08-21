@@ -20,9 +20,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { GradeLevelCombobox } from "@/features/grade-level";
 import { StreamCombobox } from "@/features/streams";
-import { isApiError, getErrorMessage } from "@/lib/errors";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
 import {
     Form,
     FormControl,
@@ -68,26 +66,7 @@ export function AddClassForm({ onSuccess }: AddClassFormProps) {
 
     const onSubmit = (data: CreateClassSchema) => {
         createClassMutation.mutate(data, {
-            onSuccess: () => {
-                onSuccess?.();
-                router.back();
-                toast.success("Class created successfully.");
-            },
-            onError: (error) => {
-                if (isApiError(error)) {
-                    // Set field errors from API response
-                    if (error.errors) {
-                        Object.entries(error.errors).forEach(([field, messages]) => {
-                            form.setError(field as "grade_level" | "stream_id", {
-                                type: "server",
-                                message: messages[0],
-                            });
-                        });
-                    }
-                } else {
-                    toast.error(getErrorMessage(error));
-                }
-            },
+            onSuccess,
         });
     };
 
@@ -113,7 +92,6 @@ export function AddClassForm({ onSuccess }: AddClassFormProps) {
                                                 target: { value },
                                             } as React.ChangeEvent<HTMLSelectElement>);
                                         }}
-                                        doPreselectFirstOption
                                     />
                                 </FormControl>
                                 <FormMessage />
@@ -136,11 +114,6 @@ export function AddClassForm({ onSuccess }: AddClassFormProps) {
                                             field.onChange({
                                                 target: { value },
                                             } as React.ChangeEvent<HTMLSelectElement>);
-                                        }}
-                                        onCreateItem={(name) => {
-                                            router.push(
-                                                `/streams/add?value=${encodeURIComponent(name)}`
-                                            );
                                         }}
                                     />
                                 </FormControl>

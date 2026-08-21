@@ -37,11 +37,6 @@ export interface AcademicYearComboboxProps {
     placeholder?: string;
     /** Optional outer container class. */
     className?: string;
-    /**
-     * When true, automatically selects the first option if no value is set.
-     * Defaults to false.
-     */
-    doPreselectFirstOption?: boolean;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────
@@ -51,7 +46,6 @@ export function AcademicYearCombobox({
     onChange,
     placeholder = "Select a academic year...",
     className,
-    doPreselectFirstOption = false,
 }: AcademicYearComboboxProps) {
     const { data, isLoading, isError, error } = useAcademicYears();
 
@@ -63,18 +57,22 @@ export function AcademicYearCombobox({
         }));
     }, [data]);
 
-    // ── Auto-preselect first option ──────────────────────────────────────
-    React.useEffect(() => {
-        if (doPreselectFirstOption && items?.length && items.length > 0 && !value && onChange) {
-            onChange(items[0].value);
-        }
-    }, [doPreselectFirstOption, items, value, onChange]);
-
     React.useEffect(() => {
         if (isError) {
             toast.error(getErrorMessage(error));
         }
     }, [isError, error]);
+
+    const selectedOption = React.useMemo(
+        () => items.find((o) => o.value === value) || items[0],
+        [items, value]
+    );
+
+    React.useEffect(() => {
+        if (!value && selectedOption) {
+            onChange(selectedOption.value);
+        }
+    }, [selectedOption, value, onChange]);
 
     // ── Error state ──────────────────────────────────────────────────────
     if (isError) return null;
@@ -87,11 +85,11 @@ export function AcademicYearCombobox({
     return (
         <Combobox
             items={items as Option[]}
-            value={value}
+            value={selectedOption}
             itemToStringValue={(i) => i.label}
             onValueChange={(v) => {
                 if (v) {
-                    onChange(v);
+                    onChange(v.value);
                 }
             }}
         >

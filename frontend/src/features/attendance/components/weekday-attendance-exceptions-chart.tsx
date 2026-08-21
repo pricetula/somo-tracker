@@ -50,7 +50,7 @@ export function WeekdayAttendanceExceptionsChart({
                     <CardTitle>Weekday attendance exceptions</CardTitle>
                 </CardHeader>
                 <CardContent className="flex flex-1 items-center pb-0">
-                    <Skeleton className="h-80 w-full" />
+                    <Skeleton className="h-28 w-full" />
                 </CardContent>
             </Card>
         );
@@ -81,11 +81,11 @@ export function WeekdayAttendanceExceptionsChart({
                 <CardTitle>Weekday attendance exceptions</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-1 items-center pb-0">
-                <ChartContainer config={chartConfig} className="h-80 w-full">
+                <ChartContainer config={chartConfig} className="h-28 w-full">
                     <BarChart
                         data={items}
-                        margin={{ top: 5, right: 0, left: 0, bottom: 5 }}
-                        barSize={20}
+                        margin={{ top: 0, right: 0, left: 0, bottom: 0 }}
+                        barSize={34}
                     >
                         <CartesianGrid strokeDasharray="3 3" vertical={false} />
                         <XAxis
@@ -103,13 +103,13 @@ export function WeekdayAttendanceExceptionsChart({
                             radius={[0, 0, 0, 0]}
                         />
                         <Bar
-                            dataKey="late_count"
+                            dataKey="excused_count"
                             fill="var(--chart-2)"
                             stackId="exceptions"
                             radius={[0, 0, 0, 0]}
                         />
                         <Bar
-                            dataKey="excused_count"
+                            dataKey="late_count"
                             fill="var(--chart-1)"
                             stackId="exceptions"
                             radius={[4, 4, 0, 0]}

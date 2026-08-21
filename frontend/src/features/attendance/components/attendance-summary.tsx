@@ -236,7 +236,7 @@ export function AttendanceSummary() {
     }
 
     return (
-        <Card className="flex flex-col">
+        <Card className="flex h-64 flex-col">
             <CardHeader className="flex items-center justify-between pb-0">
                 <CardTitle>Attendance {data?.academic_year}</CardTitle>
                 <CardAction className="text-xs">
@@ -266,13 +266,15 @@ export function AttendanceSummary() {
             <CardContent className="flex flex-1 items-center pb-0">
                 <ChartContainer
                     config={chartConfig}
-                    className="relative top-10 mx-auto h-56 w-full max-w-62.5"
+                    className="relative mx-auto h-28 w-full max-w-62.5"
                 >
                     <RadialBarChart
                         data={selectedData}
+                        startAngle={0}
                         endAngle={180}
                         innerRadius={80}
-                        outerRadius={110}
+                        outerRadius={120}
+                        cy="110%"
                     >
                         <PolarAngleAxis
                             type="number"
@@ -363,13 +365,13 @@ export function AttendanceSummary() {
                                                 <SvgNumberTicker
                                                     value={latestPresentPercentage}
                                                     x={viewBox.cx}
-                                                    y={(viewBox.cy || 0) - 16}
+                                                    y={(viewBox.cy || 0) - 38}
                                                     className="fill-foreground text-2xl font-bold"
                                                 />
 
                                                 <tspan
                                                     x={viewBox.cx}
-                                                    y={(viewBox.cy || 0) + 4}
+                                                    y={(viewBox.cy || 0) - 16}
                                                     className="fill-muted-foreground"
                                                 >
                                                     Present

@@ -18,10 +18,12 @@ export function SystemAdminDashboardPage() {
                 <UserCount />
             </header>
             <section className="grid-cols grid gap-4 sm:gap-8 lg:grid-cols-3">
-                <AttendanceSummary />
+                <div className="flex flex-col justify-between gap-4">
+                    <AttendanceSummary />
+                    <WeekdayAttendanceExceptionsChart />
+                </div>
                 <AttendanceCalendar />
                 <LowestAttendanceStudents />
-                <WeekdayAttendanceExceptionsChart />
             </section>
             <section className="space-y-4"></section>
             {/* The selected academic year id and term id can be used elsewhere in the dashboard */}

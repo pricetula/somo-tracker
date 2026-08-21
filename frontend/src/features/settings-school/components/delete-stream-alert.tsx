@@ -21,7 +21,7 @@ export function DeleteStreamAlert({ stream }: { stream: Stream }) {
 
     return (
         <AlertDialog>
-            <AlertDialogTrigger asChild>
+            <AlertDialogTrigger>
                 <Button
                     size="icon"
                     variant="ghost"

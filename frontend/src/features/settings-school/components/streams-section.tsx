@@ -20,7 +20,7 @@ export function StreamsSection() {
                         Manage the streams (sections) available in your school.
                     </p>
                 </div>
-                <Button variant="outline" asChild>
+                <Button variant="outline">
                     <Link href="/streams/add">
                         <Plus className="mr-1 h-4 w-4" />
                         Add Stream

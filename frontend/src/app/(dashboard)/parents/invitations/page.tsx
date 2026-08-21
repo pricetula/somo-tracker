@@ -22,12 +22,10 @@ export default function ParentsInvitationsPage() {
                         Sent invitations to parent/guardian email addresses.
                     </p>
                 </div>
-                <Button variant="outline" size="sm" asChild>
-                    <Link href="/parents/import">
-                        <Upload className="mr-1.5 size-3.5" />
-                        Invite Parents
-                    </Link>
-                </Button>
+                <Link href="/parents/import">
+                    <Upload className="mr-1.5 size-3.5" />
+                    Invite Parents
+                </Link>
             </div>
             <InvitationsList
                 role="PARENT"

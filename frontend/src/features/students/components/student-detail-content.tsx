@@ -132,7 +132,7 @@ export function StudentDetailContent({
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                     <AlertDialog>
-                        <AlertDialogTrigger asChild>
+                        <AlertDialogTrigger>
                             <Button variant="outline" size="sm" className="text-destructive">
                                 <Trash2 className="size-3.5" />
                                 {isCompact ? null : "Delete"}
@@ -282,7 +282,7 @@ export function StudentDetailContent({
                             <span className="ml-2 font-normal">({linkedParents.length})</span>
                         )}
                     </h2>
-                    <Button variant="outline" size="sm" asChild>
+                    <Button variant="outline" size="sm">
                         <Link href={`/students/${studentId}/link-parent`}>
                             <Link2 className="mr-1.5 size-3.5" />
                             Link Parent
@@ -296,7 +296,7 @@ export function StudentDetailContent({
                     >
                         <Users className="h-8 w-8" />
                         <p className="font-medium">No linked parents</p>
-                        <Button variant="outline" size="sm" className="mt-2" asChild>
+                        <Button variant="outline" size="sm" className="mt-2">
                             <Link href={`/students/${studentId}/link-parent`}>
                                 <UserPlus className="mr-1.5 size-3.5" />
                                 Link Parent
@@ -442,7 +442,7 @@ export function StudentDetailContent({
                     <BarChart3 className="h-8 w-8" />
                     <p className="font-medium">Student Reports</p>
                     <p className="text-xs">Generate and view term reports for this student.</p>
-                    <Button variant="outline" size="sm" asChild className="mt-2">
+                    <Button variant="outline" size="sm" className="mt-2">
                         <Link href={`/reports/student/${studentId}`}>
                             <ArrowUpRight className="mr-1 h-4 w-4" />
                             View Reports

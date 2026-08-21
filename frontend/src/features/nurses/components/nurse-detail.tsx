@@ -173,7 +173,7 @@ export function NurseDetail({ id }: NurseDetailProps) {
                         </Button>
                         {/* Delete button */}
                         <AlertDialog>
-                            <AlertDialogTrigger asChild>
+                            <AlertDialogTrigger>
                                 <Button variant="outline" className="text-destructive">
                                     <Trash2 className="mr-1.5 size-3.5" />
                                     Delete Nurse

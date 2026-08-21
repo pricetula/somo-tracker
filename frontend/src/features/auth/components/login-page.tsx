@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useDiscover } from "@/hooks/use-auth";
 import { Loader2 } from "lucide-react";
-import { DocTooltip } from "@/components/ui/DocTooltip";
+import { DocTooltip } from "@/components/shared/DocTooltip";
 
 interface LoginPageProps {
     tooltipSummary?: string;

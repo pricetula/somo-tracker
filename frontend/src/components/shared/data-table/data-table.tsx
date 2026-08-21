@@ -373,16 +373,18 @@ export function DataTable<TItem, TParams extends object, TResult>({
                     {/* ── Alerts ────────────────────────── */}
                     {selectedIds.size > 0 && deleteFn && (
                         <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
-                            <AlertDialogTrigger asChild>
-                                <Button
-                                    variant="destructive"
-                                    size="sm"
-                                    disabled={isToolbarDisabled}
-                                >
-                                    <Trash2 className="size-3" />
-                                    Delete {selectedIds.size}
-                                </Button>
-                            </AlertDialogTrigger>
+                            <AlertDialogTrigger
+                                render={
+                                    <Button
+                                        variant="destructive"
+                                        size="sm"
+                                        disabled={isToolbarDisabled}
+                                    >
+                                        <Trash2 className="size-3" />
+                                        Delete {selectedIds.size}
+                                    </Button>
+                                }
+                            />
                             <AlertDialogContent>
                                 <AlertDialogHeader>
                                     <AlertDialogTitle>
@@ -408,11 +410,9 @@ export function DataTable<TItem, TParams extends object, TResult>({
                     )}
 
                     {addHref && (
-                        <Button variant="outline" size="icon" disabled={isToolbarDisabled} asChild>
-                            <Link href={addHref}>
-                                <Plus className="size-3.5" />
-                            </Link>
-                        </Button>
+                        <Link href={addHref}>
+                            <Plus className="size-3.5" />
+                        </Link>
                     )}
                 </div>
             </div>
@@ -435,9 +435,7 @@ export function DataTable<TItem, TParams extends object, TResult>({
                         {isCheckable && (
                             <div className="flex items-center justify-center">
                                 <Checkbox
-                                    checked={
-                                        allSelected ? true : someSelected ? "indeterminate" : false
-                                    }
+                                    checked={allSelected ? true : someSelected ? undefined : false}
                                     onCheckedChange={handleSelectAll}
                                 />
                             </div>

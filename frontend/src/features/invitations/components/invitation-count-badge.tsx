@@ -34,7 +34,7 @@ export function InvitationCountBadge({ role, href }: InvitationCountBadgeProps) 
     const label = `${count} ${count === 1 ? "invitation" : "invitations"}`;
 
     return (
-        <Button variant="outline" size="sm" asChild>
+        <Button variant="outline" size="sm">
             <Link href={href}>{label}</Link>
         </Button>
     );

@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { FileQuestion } from "lucide-react";
 
 export default function DashboardNotFound() {
@@ -10,9 +9,7 @@ export default function DashboardNotFound() {
             <p className="text-muted-foreground max-w-md text-center">
                 The page you&apos;re looking for doesn&apos;t exist or has been moved.
             </p>
-            <Button variant="outline" asChild>
-                <Link href="/">Go to Dashboard</Link>
-            </Button>
+            <Link href="/">Go to Dashboard</Link>
         </div>
     );
 }

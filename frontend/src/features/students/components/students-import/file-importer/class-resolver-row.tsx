@@ -94,7 +94,7 @@ export function ClassResolverRow({
                     <span className="text-muted-foreground block truncate">{resolvedLabel}</span>
                 ) : (
                     <Popover open={open} onOpenChange={setOpen}>
-                        <PopoverTrigger asChild>
+                        <PopoverTrigger>
                             <Button
                                 variant="outline"
                                 role="combobox"

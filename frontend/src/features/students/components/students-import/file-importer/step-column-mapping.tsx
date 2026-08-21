@@ -209,7 +209,7 @@ export function StepColumnMapping({
                             open={openPopover === field.target_key}
                             onOpenChange={(open) => setOpenPopover(open ? field.target_key : null)}
                         >
-                            <PopoverTrigger asChild>
+                            <PopoverTrigger>
                                 <Button
                                     variant="outline"
                                     role="combobox"

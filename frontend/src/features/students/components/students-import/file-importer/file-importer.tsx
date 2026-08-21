@@ -729,7 +729,7 @@ export function FileImporter({ onReset, onJobCreated }: FileImporterProps) {
             {/* Discard draft button */}
             <div className="flex justify-end">
                 <AlertDialog>
-                    <AlertDialogTrigger asChild>
+                    <AlertDialogTrigger>
                         <Button
                             variant="ghost"
                             size="sm"

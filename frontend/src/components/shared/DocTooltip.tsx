@@ -16,7 +16,7 @@ export function DocTooltip({ summary, slug, anchorId }: DocTooltipProps) {
 
     return (
         <Tooltip>
-            <TooltipTrigger asChild>
+            <TooltipTrigger>
                 <span className="text-muted-foreground hover:text-foreground ml-1 inline-flex cursor-help items-center align-middle transition-colors">
                     <HelpCircle className="h-4 w-4" />
                 </span>

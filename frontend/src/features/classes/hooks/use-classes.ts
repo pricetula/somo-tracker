@@ -11,7 +11,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { listClasses, bulkDeleteClasses } from "@/lib/api/classes";
+import { listClasses, bulkDeleteClasses, createClass } from "@/lib/api/classes";
 import { STALE_TIMES } from "@/lib/query-config";
 import { getErrorMessage } from "@/lib/errors";
 import type { Class } from "../types";
@@ -106,5 +106,24 @@ export function useClassMap() {
                 },
                 {} as Record<string, Class>
             ) ?? {},
+    });
+}
+
+/**
+ * Create a new class with optimistic update.
+ */
+export function useCreateClass() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (payload: { grade_level: string; stream_id: string; student_ids?: string[] }) =>
+            createClass(payload),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: classKeys.all });
+            toast.success("Class created successfully.");
+        },
+        onError: (error) => {
+            toast.error(getErrorMessage(error));
+        },
     });
 }

@@ -75,8 +75,6 @@ export async function bulkDeleteClasses(ids: string[]): Promise<void> {
  */
 export async function createClass(payload: {
     grade_level: string;
-    academic_year_id: string;
-    academic_term_id: string;
     stream_id: string;
     student_ids?: string[];
 }): Promise<Class> {

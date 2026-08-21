@@ -421,11 +421,9 @@ func TestHandler_CreateClass_HappyPath(t *testing.T) {
 	}
 
 	body, _ := json.Marshal(CreateClassPayload{
-		GradeLevel:     "G4",
-		AcademicYearID: "year_001",
-		AcademicTermID: "term_001",
-		StreamID:       "stream_001",
-		StudentIDs:     []string{"student_001", "student_002"},
+		GradeLevel: "G4",
+		StreamID:   "stream_001",
+		StudentIDs: []string{"student_001", "student_002"},
 	})
 
 	resp := doRequest(h.app, "POST", "/api/v1/classes", body)
@@ -478,11 +476,9 @@ func TestHandler_CreateClass_EmptyStudentIDs(t *testing.T) {
 	}
 
 	body, _ := json.Marshal(CreateClassPayload{
-		GradeLevel:     "G4",
-		AcademicYearID: "year_001",
-		AcademicTermID: "term_001",
-		StreamID:       "stream_001",
-		StudentIDs:     []string{},
+		GradeLevel: "G4",
+		StreamID:   "stream_001",
+		StudentIDs: []string{},
 	})
 
 	resp := doRequest(h.app, "POST", "/api/v1/classes", body)
@@ -500,10 +496,8 @@ func TestHandler_CreateClass_InvalidAcademicYear(t *testing.T) {
 	}
 
 	body, _ := json.Marshal(CreateClassPayload{
-		GradeLevel:     "G4",
-		AcademicYearID: "invalid_year",
-		AcademicTermID: "term_001",
-		StreamID:       "stream_001",
+		GradeLevel: "G4",
+		StreamID:   "stream_001",
 	})
 
 	resp := doRequest(h.app, "POST", "/api/v1/classes", body)
@@ -521,10 +515,8 @@ func TestHandler_CreateClass_InvalidStream(t *testing.T) {
 	}
 
 	body, _ := json.Marshal(CreateClassPayload{
-		GradeLevel:     "G4",
-		AcademicYearID: "year_001",
-		AcademicTermID: "term_001",
-		StreamID:       "invalid_stream",
+		GradeLevel: "G4",
+		StreamID:   "invalid_stream",
 	})
 
 	resp := doRequest(h.app, "POST", "/api/v1/classes", body)
@@ -542,10 +534,8 @@ func TestHandler_CreateClass_DuplicateEntry(t *testing.T) {
 	}
 
 	body, _ := json.Marshal(CreateClassPayload{
-		GradeLevel:     "G4",
-		AcademicYearID: "year_001",
-		AcademicTermID: "term_001",
-		StreamID:       "stream_001",
+		GradeLevel: "G4",
+		StreamID:   "stream_001",
 	})
 
 	resp := doRequest(h.app, "POST", "/api/v1/classes", body)
@@ -812,10 +802,8 @@ func TestHandler_CreateClass_Unauthenticated(t *testing.T) {
 	h := testHandlerWithoutAuth(t)
 
 	body, _ := json.Marshal(CreateClassPayload{
-		GradeLevel:     "G4",
-		AcademicYearID: "year_001",
-		AcademicTermID: "term_001",
-		StreamID:       "stream_001",
+		GradeLevel: "G4",
+		StreamID:   "stream_001",
 	})
 
 	resp := doRequest(h.app, "POST", "/api/v1/classes", body)

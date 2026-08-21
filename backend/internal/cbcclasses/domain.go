@@ -85,11 +85,9 @@ type ClassListResult struct {
 
 // CreateClassPayload is the request body for POST /api/v1/classes.
 type CreateClassPayload struct {
-	GradeLevel     string   `json:"grade_level"`
-	AcademicYearID string   `json:"academic_year_id"`
-	AcademicTermID string   `json:"academic_term_id"`
-	StreamID       string   `json:"stream_id"`
-	StudentIDs     []string `json:"student_ids"`
+	GradeLevel string   `json:"grade_level"`
+	StreamID   string   `json:"stream_id"`
+	StudentIDs []string `json:"student_ids"`
 }
 
 // CreateClassParams holds validated params for creating a class.

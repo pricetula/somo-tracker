@@ -216,33 +216,27 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 		})
 	}
 
-	// Resolve current academic year and term if not provided
-	if payload.AcademicYearID == "" {
-		yearID, err := h.academicYearsSvc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
-		if err != nil {
-			return middleware.HTTPError(c, err)
-		}
-		if yearID == "" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"code":    "NO_ACTIVE_ACADEMIC_YEAR",
-				"message": "No current academic year is set for this school.",
-			})
-		}
-		payload.AcademicYearID = yearID
+	// Resolve current academic year and term
+	yearID, err := h.academicYearsSvc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	if yearID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "NO_ACTIVE_ACADEMIC_YEAR",
+			"message": "No current academic year is set for this school.",
+		})
 	}
 
-	if payload.AcademicTermID == "" {
-		termID, err := h.academicYearsSvc.GetCurrentAcademicTermID(c.Context(), payload.AcademicYearID)
-		if err != nil {
-			return middleware.HTTPError(c, err)
-		}
-		if termID == "" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"code":    "NO_ACTIVE_ACADEMIC_TERM",
-				"message": "No current academic term is active.",
-			})
-		}
-		payload.AcademicTermID = termID
+	termID, err := h.academicYearsSvc.GetCurrentAcademicTermID(c.Context(), yearID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	if termID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "NO_ACTIVE_ACADEMIC_TERM",
+			"message": "No current academic term is active.",
+		})
 	}
 
 	if payload.StudentIDs == nil {
@@ -252,8 +246,8 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 	params := CreateClassParams{
 		TenantID:       tenantID,
 		SchoolID:       schoolID,
-		AcademicYearID: payload.AcademicYearID,
-		AcademicTermID: payload.AcademicTermID,
+		AcademicYearID: yearID,
+		AcademicTermID: termID,
 		GradeLevel:     payload.GradeLevel,
 		StreamID:       payload.StreamID,
 		StudentIDs:     payload.StudentIDs,

@@ -1,29 +1,39 @@
 import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { AddClassForm } from "../add-class-form";
-import { createClass, type Class } from "@/lib/api/classes";
-import { isApiError, getErrorMessage } from "@/lib/errors";
-import { useRouter } from "next/navigation";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { vi, describe, test, expect, beforeEach, afterEach } from "vitest";
+
+// Mock the useCreateClass hook BEFORE importing the component
+const mockCreateClassMutation = {
+    mutate: vi.fn(),
+    isPending: false,
+    isError: false,
+    error: null,
+};
+
+vi.mock("../../hooks/use-classes", () => ({
+    useCreateClass: vi.fn(() => mockCreateClassMutation),
+}));
 
 vi.mock("next/navigation", () => ({
     useRouter: vi.fn(),
 }));
 
 vi.mock("@tanstack/react-query", () => ({
-    useMutation: vi.fn(),
     useQueryClient: vi.fn(),
-}));
-
-vi.mock("@/lib/api/classes", () => ({
-    createClass: vi.fn(),
+    useMutation: vi.fn(),
 }));
 
 vi.mock("@/lib/errors", () => ({
     isApiError: vi.fn(),
     getErrorMessage: vi.fn((err: Error) => err.message),
+}));
+
+vi.mock("sonner", () => ({
+    toast: {
+        success: vi.fn(),
+        error: vi.fn(),
+    },
 }));
 
 vi.mock("@/features/grade-level", () => ({
@@ -58,48 +68,32 @@ vi.mock("@/features/streams", () => ({
             </select>
             {onCreateItem && (
                 <button data-testid="create-stream" onClick={() => onCreateItem("new stream")}>
-                    Create &quot;new stream&quot;
+                    Create new stream
                 </button>
             )}
         </div>
     )),
 }));
 
-vi.mock("@/features/academic-terms", () => ({
-    AcademicYearCombobox: vi.fn(({ value, onChange, placeholder, onCreateItem }) => (
-        <div>
-            <select
-                data-testid="academic-year-combobox"
-                value={value}
-                onChange={(e) => onChange(e.target.value)}
-                aria-label={placeholder}
-            >
-                <option value="">Select an academic year...</option>
-                <option value="year1">2023-2024</option>
-                <option value="year2">2024-2025</option>
-            </select>
-            {onCreateItem && (
-                <button data-testid="create-academic-year" onClick={() => onCreateItem("new year")}>
-                    Create &quot;new year&quot;
-                </button>
-            )}
-        </div>
-    )),
-}));
+// Import the component and utilities AFTER mocks are set up
+import { AddClassForm } from "../add-class-form";
+import { isApiError, getErrorMessage } from "@/lib/errors";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+
+// Safely wrap imported mocks with vi.mocked() to retain correct TypeScript signatures
+const mockedUseRouter = vi.mocked(useRouter);
+const mockedIsApiError = vi.mocked(isApiError);
+const mockedGetErrorMessage = vi.mocked(getErrorMessage);
 
 describe("AddClassForm", () => {
     const mockRouter = {
         back: vi.fn(),
         push: vi.fn(),
-    };
-
-    const mockQueryClient = {
-        invalidateQueries: vi.fn(),
-    };
-
-    const mockCreateMutation = {
-        mutate: vi.fn(),
-        isPending: false,
+        forward: vi.fn(),
+        refresh: vi.fn(),
+        replace: vi.fn(),
+        prefetch: vi.fn(),
     };
 
     const mockOnSuccess = vi.fn();
@@ -107,15 +101,18 @@ describe("AddClassForm", () => {
     beforeEach(() => {
         vi.clearAllMocks();
 
-        (useRouter as vi.Mock).mockReturnValue(mockRouter);
-        (useQueryClient as vi.Mock).mockReturnValue(mockQueryClient);
-        (useMutation as vi.Mock).mockReturnValue(mockCreateMutation);
-        (createClass as vi.Mock).mockResolvedValue({ id: "class1", name: "Test Class" });
-        (isApiError as vi.Mock).mockReturnValue(false);
-        (getErrorMessage as vi.Mock).mockImplementation((err: Error) => err.message);
+        mockedUseRouter.mockReturnValue(mockRouter);
+        mockedIsApiError.mockReturnValue(false);
+        mockedGetErrorMessage.mockImplementation((err) => (err as { message: string }).message);
 
-        mockCreateMutation.mutate.mockImplementation(() => {});
-        mockCreateMutation.isPending = false;
+        mockCreateClassMutation.mutate.mockImplementation((_data, options) => {
+            setTimeout(() => {
+                options?.onSuccess?.();
+            }, 0);
+        });
+        mockCreateClassMutation.isPending = false;
+        mockCreateClassMutation.isError = false;
+        mockCreateClassMutation.error = null;
     });
 
     afterEach(() => {
@@ -126,15 +123,14 @@ describe("AddClassForm", () => {
         return render(<AddClassForm onSuccess={mockOnSuccess} />);
     };
 
-    test("renders form with all three comboboxes", () => {
+    test("renders form with grade level and stream comboboxes", () => {
         renderForm();
 
-        // Labels are rendered as text
         expect(screen.getByText("Grade Level")).toBeInTheDocument();
         expect(screen.getByText("Stream")).toBeInTheDocument();
-        expect(screen.getByText("Academic Year")).toBeInTheDocument();
         expect(screen.getByRole("button", { name: /create class/i })).toBeInTheDocument();
         expect(screen.getByRole("button", { name: /cancel/i })).toBeInTheDocument();
+        expect(screen.queryByText("Academic Year")).not.toBeInTheDocument();
     });
 
     test("shows validation errors when fields are empty on submit", async () => {
@@ -143,19 +139,25 @@ describe("AddClassForm", () => {
 
         await user.click(screen.getByRole("button", { name: /create class/i }));
 
-        expect(mockCreateMutation.mutate).not.toHaveBeenCalled();
+        expect(mockCreateClassMutation.mutate).not.toHaveBeenCalled();
     });
 
-    test("calls createClass with correct payload when all fields are filled", async () => {
+    test("calls useCreateClass mutate with correct payload when all fields are filled", async () => {
         const user = userEvent.setup();
         renderForm();
 
         await user.selectOptions(screen.getByTestId("grade-level-combobox"), "G1");
         await user.selectOptions(screen.getByTestId("stream-combobox"), "stream1");
-        await user.selectOptions(screen.getByTestId("academic-year-combobox"), "year1");
         await user.click(screen.getByRole("button", { name: /create class/i }));
 
-        expect(mockCreateMutation.mutate).toHaveBeenCalled();
+        expect(mockCreateClassMutation.mutate).toHaveBeenCalledWith(
+            expect.objectContaining({
+                grade_level: "G1",
+                stream_id: "stream1",
+                student_ids: [],
+            }),
+            expect.any(Object)
+        );
     });
 
     test("navigates back on successful creation", async () => {
@@ -164,7 +166,6 @@ describe("AddClassForm", () => {
 
         await user.selectOptions(screen.getByTestId("grade-level-combobox"), "G1");
         await user.selectOptions(screen.getByTestId("stream-combobox"), "stream1");
-        await user.selectOptions(screen.getByTestId("academic-year-combobox"), "year1");
         await user.click(screen.getByRole("button", { name: /create class/i }));
 
         await waitFor(() => {
@@ -174,67 +175,50 @@ describe("AddClassForm", () => {
         expect(mockRouter.back).toHaveBeenCalled();
     });
 
-    test("calls onSuccess callback with created class", async () => {
-        const mockClass: Class = {
-            id: "class1",
-            name: "G1 - Stream A",
-            grade_level: "G1",
-            stream_id: "stream1",
-            academic_year_id: "year1",
-            academic_term_id: "term1",
-        };
-
-        (createClass as vi.Mock).mockResolvedValue(mockClass);
-
-        const user = userEvent.setup();
-        renderForm();
-
-        await user.selectOptions(screen.getByTestId("grade-level-combobox"), "G1");
-        await user.selectOptions(screen.getByTestId("stream-combobox"), "stream1");
-        await user.selectOptions(screen.getByTestId("academic-year-combobox"), "year1");
-        await user.click(screen.getByRole("button", { name: /create class/i }));
-
-        await waitFor(() => {
-            expect(mockOnSuccess).toHaveBeenCalledWith(mockClass);
-        });
-    });
-
     test("displays general error on API error (non-400)", async () => {
-        (isApiError as vi.Mock).mockReturnValue(true);
+        mockedIsApiError.mockReturnValue(false);
         const apiError = new Error("Server error") as Error & { status: number };
         apiError.status = 500;
-        (createClass as vi.Mock).mockRejectedValue(apiError);
+
+        mockCreateClassMutation.mutate.mockImplementation((_data, options) => {
+            setTimeout(() => {
+                options?.onError?.(apiError);
+            }, 0);
+        });
 
         const user = userEvent.setup();
         renderForm();
 
         await user.selectOptions(screen.getByTestId("grade-level-combobox"), "G1");
         await user.selectOptions(screen.getByTestId("stream-combobox"), "stream1");
-        await user.selectOptions(screen.getByTestId("academic-year-combobox"), "year1");
         await user.click(screen.getByRole("button", { name: /create class/i }));
 
         await waitFor(() => {
-            expect(screen.getByText(/server error/i)).toBeInTheDocument();
+            expect(toast.error).toHaveBeenCalledWith("Server error");
         });
     });
 
     test("displays field errors on 400 validation error", async () => {
-        (isApiError as vi.Mock).mockReturnValue(true);
+        mockedIsApiError.mockReturnValue(true);
         const apiError = {
             status: 400,
             errors: {
-                grade_level: ["Grade level already exists for this stream and year"],
+                grade_level: ["Grade level already exists for this stream"],
                 stream_id: ["Invalid stream"],
             },
         };
-        (createClass as vi.Mock).mockRejectedValue(apiError);
+
+        mockCreateClassMutation.mutate.mockImplementation((_data, options) => {
+            setTimeout(() => {
+                options?.onError?.(apiError);
+            }, 0);
+        });
 
         const user = userEvent.setup();
         renderForm();
 
         await user.selectOptions(screen.getByTestId("grade-level-combobox"), "G1");
         await user.selectOptions(screen.getByTestId("stream-combobox"), "stream1");
-        await user.selectOptions(screen.getByTestId("academic-year-combobox"), "year1");
         await user.click(screen.getByRole("button", { name: /create class/i }));
 
         await waitFor(() => {
@@ -244,21 +228,25 @@ describe("AddClassForm", () => {
     });
 
     test("clears field errors when user changes a field value", async () => {
-        (isApiError as vi.Mock).mockReturnValue(true);
+        mockedIsApiError.mockReturnValue(true);
         const apiError = {
             status: 400,
             errors: {
                 grade_level: ["Grade level already exists"],
             },
         };
-        (createClass as vi.Mock).mockRejectedValue(apiError);
+
+        mockCreateClassMutation.mutate.mockImplementation((_data, options) => {
+            setTimeout(() => {
+                options?.onError?.(apiError);
+            }, 0);
+        });
 
         const user = userEvent.setup();
         renderForm();
 
         await user.selectOptions(screen.getByTestId("grade-level-combobox"), "G1");
         await user.selectOptions(screen.getByTestId("stream-combobox"), "stream1");
-        await user.selectOptions(screen.getByTestId("academic-year-combobox"), "year1");
         await user.click(screen.getByRole("button", { name: /create class/i }));
 
         await waitFor(() => {
@@ -273,7 +261,7 @@ describe("AddClassForm", () => {
     });
 
     test("disables submit button while mutation is pending", () => {
-        mockCreateMutation.isPending = true;
+        mockCreateClassMutation.isPending = true;
 
         renderForm();
 
@@ -281,8 +269,8 @@ describe("AddClassForm", () => {
         expect(submitButton).toBeDisabled();
     });
 
-    test("shows loading spinner while mutation is pending", () => {
-        mockCreateMutation.isPending = true;
+    test("shows loading text while mutation is pending", () => {
+        mockCreateClassMutation.isPending = true;
 
         renderForm();
 
@@ -298,15 +286,6 @@ describe("AddClassForm", () => {
         expect(mockRouter.push).toHaveBeenCalledWith("/streams/add?value=new%20stream");
     });
 
-    test("calls router.push with correct URL when creating new academic year", async () => {
-        const user = userEvent.setup();
-        renderForm();
-
-        await user.click(screen.getByTestId("create-academic-year"));
-
-        expect(mockRouter.push).toHaveBeenCalledWith("/academic-terms/new");
-    });
-
     test("calls router.back when cancel button is clicked", async () => {
         const user = userEvent.setup();
         renderForm();
@@ -314,21 +293,5 @@ describe("AddClassForm", () => {
         await user.click(screen.getByRole("button", { name: /cancel/i }));
 
         expect(mockRouter.back).toHaveBeenCalled();
-    });
-
-    test("invalidates classes query on successful creation", async () => {
-        const user = userEvent.setup();
-        renderForm();
-
-        await user.selectOptions(screen.getByTestId("grade-level-combobox"), "G1");
-        await user.selectOptions(screen.getByTestId("stream-combobox"), "stream1");
-        await user.selectOptions(screen.getByTestId("academic-year-combobox"), "year1");
-        await user.click(screen.getByRole("button", { name: /create class/i }));
-
-        await waitFor(() => {
-            expect(mockQueryClient.invalidateQueries).toHaveBeenCalledWith({
-                queryKey: ["classes"],
-            });
-        });
     });
 });

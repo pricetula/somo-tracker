@@ -367,7 +367,7 @@ export function DataTable<TItem, TParams extends object, TResult>({
                     />
                 )}
 
-                <div className="ml-auto flex items-center gap-1.5">
+                <div className="ml-auto flex items-center gap-3">
                     {renderToolBarComponents?.(selectedIds)}
 
                     {/* ── Alerts ────────────────────────── */}
@@ -412,10 +412,13 @@ export function DataTable<TItem, TParams extends object, TResult>({
                     {addHref && (
                         <Link
                             href={addHref}
-                            className={buttonVariants({
-                                variant: "outline",
-                                className,
-                            })}
+                            className={cn(
+                                buttonVariants({
+                                    variant: "outline",
+                                    size: "sm",
+                                }),
+                                "border"
+                            )}
                         >
                             <Plus className="size-3.5" />
                         </Link>

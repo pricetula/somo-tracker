@@ -1,86 +1,102 @@
 "use client";
 
-import Link from "next/link";
-
+import React from "react";
+import { ChevronsUpDownIcon, CreditCardIcon, BellIcon, LogOutIcon } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
     DropdownMenu,
     DropdownMenuContent,
+    DropdownMenuGroup,
     DropdownMenuItem,
     DropdownMenuLabel,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useRouter } from "next/navigation";
 import {
     SidebarMenu,
     SidebarMenuButton,
     SidebarMenuItem,
     useSidebar,
 } from "@/components/ui/sidebar";
-import { CircleUser, LogOutIcon } from "lucide-react";
+import { useMe } from "@/hooks/use-auth";
 
-export function NavUser({
-    user,
-}: {
-    user: {
-        name: string;
-        email: string;
-    };
-}) {
+export function NavUser() {
+    const router = useRouter();
     const { isMobile } = useSidebar();
+    const { data: me, isLoading } = useMe();
 
-    // Compute user initials from name
-    const initials = user.name
-        .split(" ")
-        .map((n) => n.charAt(0))
-        .join("")
-        .toUpperCase()
-        .slice(0, 2);
+    const initials = React.useMemo(() => {
+        if (!me?.full_name?.length) return "U";
+        return me.full_name
+            .split(" ")
+            .map((name) => {
+                const trimmedName = name.trim();
+                if (!trimmedName.length) return "";
+                return trimmedName[0].toUpperCase();
+            })
+            .join("");
+    }, [me]);
+
+    if (isLoading) {
+        return <Skeleton className="h-12" />;
+    }
 
     return (
         <SidebarMenu>
             <SidebarMenuItem>
                 <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <SidebarMenuButton
-                            size="lg"
-                            className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-                        >
-                            <Avatar className="h-8 w-8 overflow-hidden bg-transparent">
-                                <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
-                            </Avatar>
-                            <div className="grid flex-1 text-left leading-tight">
-                                <span className="truncate font-medium">{user.name}</span>
-                                <span className="truncate text-xs">{user.email}</span>
-                            </div>
-                            <CircleUser className="ml-auto size-4" />
-                        </SidebarMenuButton>
+                    <DropdownMenuTrigger
+                        render={<SidebarMenuButton size="lg" className="aria-expanded:bg-muted" />}
+                    >
+                        <Avatar>
+                            {/*<AvatarImage src={user.avatar} alt={user.name} />*/}
+                            <AvatarFallback>{initials}</AvatarFallback>
+                        </Avatar>
+                        <div className="grid flex-1 text-left text-sm leading-tight">
+                            <span className="truncate font-medium">{me?.full_name || "-"}</span>
+                            <span className="truncate text-xs">{me?.email || "-"}</span>
+                        </div>
+                        <ChevronsUpDownIcon className="ml-auto size-4" />
                     </DropdownMenuTrigger>
                     <DropdownMenuContent
-                        className="w-fit min-w-50"
+                        className="w-fit"
                         side={isMobile ? "bottom" : "right"}
                         align="end"
                         sideOffset={4}
                     >
-                        <DropdownMenuLabel className="p-0 font-normal">
-                            <div className="flex items-center gap-2 px-1 py-1.5 text-left">
-                                <Avatar className="h-8 w-8 overflow-hidden bg-transparent">
-                                    <AvatarFallback className="rounded-lg">
-                                        {initials}
-                                    </AvatarFallback>
-                                </Avatar>
-                                <div className="grid flex-1 text-left leading-tight">
-                                    <span className="truncate font-medium">{user.name}</span>
-                                    <span className="truncate text-xs">{user.email}</span>
+                        <DropdownMenuGroup>
+                            <DropdownMenuLabel className="p-0 font-normal">
+                                <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
+                                    <Avatar>
+                                        {/*<AvatarImage src={user.avatar} alt={user.name} />*/}
+                                        <AvatarFallback>{initials}</AvatarFallback>
+                                    </Avatar>
+                                    <div className="grid flex-1 text-left text-sm leading-tight">
+                                        <span className="truncate font-medium">
+                                            {me?.full_name || "-"}
+                                        </span>
+                                        <span className="truncate text-xs">{me?.email || "-"}</span>
+                                    </div>
                                 </div>
-                            </div>
-                        </DropdownMenuLabel>
+                            </DropdownMenuLabel>
+                        </DropdownMenuGroup>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem asChild>
-                            <Link href="/logout">
-                                <LogOutIcon />
-                                Log out
-                            </Link>
+                        <DropdownMenuGroup>
+                            <DropdownMenuItem>
+                                <CreditCardIcon />
+                                Billing
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>
+                                <BellIcon />
+                                Notifications
+                            </DropdownMenuItem>
+                        </DropdownMenuGroup>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => router.push("/logout")}>
+                            <LogOutIcon />
+                            Log out
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>

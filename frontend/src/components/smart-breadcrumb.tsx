@@ -79,9 +79,7 @@ export function SmartBreadcrumb({ maxVisible = 4 }: SmartBreadcrumbProps) {
                 {segment.isLast ? (
                     <BreadcrumbPage>{segment.label}</BreadcrumbPage>
                 ) : (
-                    <BreadcrumbLink asChild>
-                        <Link href={segment.href}>{segment.label}</Link>
-                    </BreadcrumbLink>
+                    <BreadcrumbLink href={segment.href}>{segment.label}</BreadcrumbLink>
                 )}
             </BreadcrumbItem>
         );
@@ -96,18 +94,12 @@ export function SmartBreadcrumb({ maxVisible = 4 }: SmartBreadcrumbProps) {
                 <BreadcrumbSeparator />
                 <BreadcrumbItem>
                     <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
-                        <DropdownMenuTrigger asChild>
-                            <button
-                                type="button"
-                                className="flex items-center"
-                                aria-label="Show hidden breadcrumbs"
-                            >
-                                <BreadcrumbEllipsis />
-                            </button>
+                        <DropdownMenuTrigger>
+                            <BreadcrumbEllipsis />
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="start">
                             {hidden.map((segment) => (
-                                <DropdownMenuItem key={segment.href} asChild>
+                                <DropdownMenuItem key={segment.href}>
                                     <Link href={segment.href}>{segment.label}</Link>
                                 </DropdownMenuItem>
                             ))}

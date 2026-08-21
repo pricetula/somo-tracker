@@ -1,7 +1,7 @@
 /**
- * AcademicTermCombobox — reusable academic term selector built on the shared Combobox.
+ * AcademicYearCombobox — reusable academic year selector built on the shared Combobox.
  *
- * Fetches its own options via useAcademicTerms — zero prop drilling.
+ * Fetches its own options via useAcademicYears — zero prop drilling.
  * Place in the academic-terms feature so all consumers import from one place.
  */
 
@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/combobox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getErrorMessage } from "@/lib/errors";
-import { useAcademicTerms } from "../hooks/use-academic-terms";
+import { useAcademicYears } from "../../academic-terms/hooks/use-academic-terms";
 
 interface Option {
     value: string;
@@ -28,7 +28,7 @@ interface Option {
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────
-export interface AcademicTermComboboxProps {
+export interface AcademicYearComboboxProps {
     /** Currently selected grade level (controlled). */
     value: string;
     /** Called when a grade level is selected. */
@@ -46,18 +46,18 @@ export interface AcademicTermComboboxProps {
 
 // ─── Component ────────────────────────────────────────────────────────────
 
-export function AcademicTermCombobox({
+export function AcademicYearCombobox({
     value,
     onChange,
-    placeholder = "Select a academic term...",
+    placeholder = "Select a academic year...",
     className,
     doPreselectFirstOption = false,
-}: AcademicTermComboboxProps) {
-    const { data, isLoading, isError, error } = useAcademicTerms();
+}: AcademicYearComboboxProps) {
+    const { data, isLoading, isError, error } = useAcademicYears();
 
     const items = React.useMemo(() => {
-        if (!data?.items) return [];
-        return data.items.map((t) => ({
+        if (!data?.data) return [];
+        return data.data.map((t) => ({
             value: t.id,
             label: t.name,
         }));

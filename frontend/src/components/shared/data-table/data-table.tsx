@@ -14,7 +14,7 @@ import { SkeletonRows } from "./skeleton-rows";
 import type { DataTableProps, NormalizedListResult } from "./types";
 
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
     AlertDialog,
@@ -410,7 +410,13 @@ export function DataTable<TItem, TParams extends object, TResult>({
                     )}
 
                     {addHref && (
-                        <Link href={addHref}>
+                        <Link
+                            href={addHref}
+                            className={buttonVariants({
+                                variant: "outline",
+                                className,
+                            })}
+                        >
                             <Plus className="size-3.5" />
                         </Link>
                     )}

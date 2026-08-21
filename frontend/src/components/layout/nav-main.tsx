@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
@@ -196,9 +197,13 @@ export function NavMain() {
                                 <SidebarMenuSub>
                                     {item.items?.map((subItem) => (
                                         <SidebarMenuSubItem key={subItem.title}>
-                                            <SidebarMenuSubButton render={<a href={subItem.url} />}>
-                                                <span>{subItem.title}</span>
-                                            </SidebarMenuSubButton>
+                                            <SidebarMenuSubButton
+                                                render={
+                                                    <Link href={subItem.url}>
+                                                        <span>{subItem.title}</span>
+                                                    </Link>
+                                                }
+                                            />
                                         </SidebarMenuSubItem>
                                     ))}
                                 </SidebarMenuSub>
@@ -209,10 +214,13 @@ export function NavMain() {
                             <SidebarMenuButton
                                 onClick={() => router.push(item.url)}
                                 tooltip={item.title}
-                            >
-                                {item.icon}
-                                <span>{item.title}</span>
-                            </SidebarMenuButton>
+                                render={
+                                    <Link href={item.url}>
+                                        {item.icon}
+                                        <span>{item.title}</span>
+                                    </Link>
+                                }
+                            />
                         </SidebarMenuItem>
                     )
                 )}

@@ -26,7 +26,7 @@ export function SchoolSwitcher() {
     const { isMobile } = useSidebar();
     const { data: me } = useMe();
     const { data: schoolsData } = useSchools();
-    const { mutate: switchSchool, isPending: isSwitching } = useSetActiveSchool();
+    const { mutate: switchSchool } = useSetActiveSchool();
     const [dialogOpen, setDialogOpen] = React.useState(false);
 
     const activeSchoolName = me?.school_name ?? "School";

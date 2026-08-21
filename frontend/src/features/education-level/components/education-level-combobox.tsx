@@ -7,10 +7,22 @@
 
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import React from "react";
 
-import { Combobox } from "@/components/ui/combobox";
+import {
+    Combobox,
+    ComboboxInput,
+    ComboboxContent,
+    ComboboxList,
+    ComboboxItem,
+    ComboboxEmpty,
+} from "@/components/ui/combobox";
 import { EDUCATION_LEVEL_LABELS } from "../types";
+
+interface Option {
+    value: string;
+    label: string;
+}
 
 // ─── Props ────────────────────────────────────────────────────────────────
 
@@ -39,7 +51,7 @@ export function EducationLevelCombobox({
     className,
     doPreselectFirstOption = false,
 }: EducationLevelComboboxProps) {
-    const items = useMemo(
+    const items = React.useMemo(
         () =>
             Object.entries(EDUCATION_LEVEL_LABELS).map(([value, label]) => ({
                 value,
@@ -49,24 +61,34 @@ export function EducationLevelCombobox({
     );
 
     // ── Auto-preselect first option ──────────────────────────────────────
-    const hasPreselected = useRef(false);
-    useEffect(() => {
-        if (!doPreselectFirstOption || items.length === 0 || hasPreselected.current) return;
-        if (value) {
-            hasPreselected.current = true;
-            return;
+    React.useEffect(() => {
+        if (doPreselectFirstOption && items?.length && items.length > 0 && !value && onChange) {
+            onChange(items[0].value);
         }
-        hasPreselected.current = true;
-        onChange(items[0].value);
     }, [doPreselectFirstOption, items, value, onChange]);
 
     return (
         <Combobox
-            items={items}
+            items={items as Option[]}
             value={value}
-            onValueChange={(v) => onChange(v as string)}
-            placeholder={placeholder}
-            className={className}
-        />
+            itemToStringValue={(i) => i.label}
+            onValueChange={(v) => {
+                if (v) {
+                    onChange(v);
+                }
+            }}
+        >
+            <ComboboxInput placeholder={placeholder} className={className} />
+            <ComboboxContent>
+                <ComboboxEmpty>No items found.</ComboboxEmpty>
+                <ComboboxList>
+                    {(i) => (
+                        <ComboboxItem key={i.value} value={i as Option}>
+                            {i.label}
+                        </ComboboxItem>
+                    )}
+                </ComboboxList>
+            </ComboboxContent>
+        </Combobox>
     );
 }

@@ -18,9 +18,9 @@ import { STALE_TIMES } from "@/lib/query-config";
 import {
     useAcademicYears,
     useAcademicTerms,
-    AcademicYearCombobox,
     AcademicTermCombobox,
 } from "@/features/academic-terms";
+import { AcademicYearCombobox } from "@/features/academic-years";
 import { ClassRoster } from "./class-roster";
 import { ClassDetailSkeleton } from "./class-detail-skeleton";
 import { Button } from "@/components/ui/button";

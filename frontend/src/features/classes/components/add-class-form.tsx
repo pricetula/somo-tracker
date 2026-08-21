@@ -27,6 +27,12 @@ export function AddClassForm({ onSuccess: _onSuccess }: AddClassFormProps) {
     const [gradeLevel, setGradeLevel] = React.useState("Grade 5");
     // TODO: Implement full form UI
     return (
-        <GradeLevelCombobox value={gradeLevel} onChange={setGradeLevel} doPreselectFirstOption />
+        <div className="h-48">
+            <GradeLevelCombobox
+                value={gradeLevel}
+                onChange={setGradeLevel}
+                doPreselectFirstOption
+            />
+        </div>
     );
 }

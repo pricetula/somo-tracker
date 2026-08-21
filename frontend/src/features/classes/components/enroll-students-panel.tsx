@@ -21,12 +21,8 @@ import { Search, Loader2, Check, AlertTriangle } from "lucide-react";
 import { getAvailableStudents, batchEnrollStudents } from "@/lib/api/classes";
 import { getErrorMessage } from "@/lib/errors";
 import { STALE_TIMES } from "@/lib/query-config";
-import {
-    useAcademicYears,
-    useAcademicTerms,
-    AcademicYearCombobox,
-    AcademicTermCombobox,
-} from "@/features/academic-terms";
+import { useAcademicTerms, AcademicTermCombobox } from "@/features/academic-terms";
+import { useAcademicYears, AcademicYearCombobox } from "@/features/academic-years";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -94,7 +90,7 @@ export function EnrollStudentsPanel({
     }, []);
 
     // Resolve academic year ID from the selected term or auto-select current year as default
-    const currentYearId = yearsData?.items?.find((y) => y.is_current)?.id;
+    const currentYearId = yearsData?.find((y) => y.is_current)?.id;
     const yearOrDefault = selectedYearId || (!initialTermId ? currentYearId : undefined) || "";
     const resolvedYearId = initialTermId
         ? termsData?.items?.find((t) => t.id === initialTermId)?.academic_year_id

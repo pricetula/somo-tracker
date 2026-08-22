@@ -1,5 +1,5 @@
-import { StructurePage } from "@/features/timetable-structure";
+import { TimeTable } from "@/features/timetable";
 
 export default function TimetableStructurePage() {
-    return <StructurePage />;
+    return <TimeTable />;
 }

@@ -37,11 +37,10 @@ func (m *mockAcademicYearsService) GetCurrentAcademicTermID(ctx context.Context,
 }
 
 type handlerTestHarness struct {
-	app              *fiber.App
-	svc              *Service
-	repo             *MockRepository
-	handler          *Handler
-	academicYearsSvc *mockAcademicYearsService
+	app     *fiber.App
+	svc     *Service
+	repo    *MockRepository
+	handler *Handler
 }
 
 func newHandlerTestHarness(t *testing.T) *handlerTestHarness {

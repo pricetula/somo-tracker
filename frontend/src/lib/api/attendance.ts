@@ -168,47 +168,6 @@ export interface DayOfWeekSummaries {
  *                across all classes in the tenant.
  */
 export async function getDayOfWeekSummaries(classId?: string): Promise<DayOfWeekSummaries> {
-    return Promise.resolve({
-        academic_year: "2026",
-        class_name: "Grade 7 North",
-        data: [
-            {
-                day_name: "Monday",
-                day_of_week_number: 1,
-                absent_count: 15,
-                late_count: 8,
-                excused_count: 2,
-            },
-            {
-                day_name: "Tuesday",
-                day_of_week_number: 2,
-                absent_count: 8,
-                late_count: 3,
-                excused_count: 4,
-            },
-            {
-                day_name: "Wednesday",
-                day_of_week_number: 3,
-                absent_count: 6,
-                late_count: 2,
-                excused_count: 5,
-            },
-            {
-                day_name: "Thursday",
-                day_of_week_number: 4,
-                absent_count: 10,
-                late_count: 4,
-                excused_count: 3,
-            },
-            {
-                day_name: "Friday",
-                day_of_week_number: 5,
-                absent_count: 25,
-                late_count: 12,
-                excused_count: 3,
-            },
-        ],
-    });
     const searchParams = new URLSearchParams();
     if (classId) searchParams.set("class_id", classId);
 

@@ -1,19 +1,42 @@
 package teacherworkloadsummaries
 
 import (
+	"context"
+
 	"github.com/gofiber/fiber/v2"
 
 	"somotracker/backend/internal/middleware"
 )
 
+// academicYearsAdapter is the subset of academicyears.Service that the handler uses.
+type academicYearsAdapter interface {
+	GetCurrentAcademicYearID(ctx context.Context, tenantID, schoolID string) (string, error)
+	GetCurrentAcademicTermID(ctx context.Context, academicYearID string) (string, error)
+}
+
 // Handler exposes teacher workload summary HTTP endpoints.
 type Handler struct {
-	svc *Service
+	svc              *Service
+	academicYearsSvc academicYearsAdapter
 }
 
 // NewHandler creates a new teacher workload summaries Handler.
 func NewHandler(svc *Service) *Handler {
 	return &Handler{svc: svc}
+}
+
+// SetAcademicYearsService sets the academicyears service reference.
+func (h *Handler) SetAcademicYearsService(aySvc academicYearsAdapter) {
+	h.academicYearsSvc = aySvc
+}
+
+// resolveCurrentYear resolves the current academic year ID for the school.
+// Returns empty string if no current year is set.
+func (h *Handler) resolveCurrentYear(c *fiber.Ctx, tenantID, schoolID string) (string, error) {
+	if h.academicYearsSvc == nil {
+		return "", nil
+	}
+	return h.academicYearsSvc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
 }
 
 // RegisterRoutes mounts teacher workload summary routes on the given router.
@@ -39,8 +62,9 @@ func (h *Handler) twsMiddleware(c *fiber.Ctx) (tenantID, schoolID string, err er
 }
 
 // Refresh handles POST /api/v1/teacher-workload-summaries/refresh.
+// Academic year is resolved server-side from the current active year if not provided.
 func (h *Handler) Refresh(c *fiber.Ctx) error {
-	_, _, err := h.twsMiddleware(c)
+	tenantID, schoolID, err := h.twsMiddleware(c)
 	if err != nil {
 		return err
 	}
@@ -53,25 +77,33 @@ func (h *Handler) Refresh(c *fiber.Ctx) error {
 		})
 	}
 
-	if payload.AcademicYearID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "academic_year_id is required",
-		})
+	// Resolve year if not provided
+	yearID := payload.AcademicYearID
+	if yearID == "" {
+		yearID, err = h.resolveCurrentYear(c, tenantID, schoolID)
+		if err != nil {
+			return middleware.HTTPError(c, err)
+		}
+		if yearID == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"code":    "NO_ACTIVE_ACADEMIC_YEAR",
+				"message": "No current academic year is active.",
+			})
+		}
 	}
 
-	if err := h.svc.RefreshComputation(c.Context(), payload.AcademicYearID); err != nil {
+	if err := h.svc.RefreshComputation(c.Context(), yearID); err != nil {
 		return middleware.HTTPError(c, err)
 	}
 
 	return c.JSON(RefreshResponse{
 		Message: "Teacher workload summaries refreshed",
-		YearID:  payload.AcademicYearID,
+		YearID:  yearID,
 	})
 }
 
 // ListByYear handles GET /api/v1/teacher-workload-summaries.
-// Query params: academic_year_id (required).
+// Query params: academic_year_id (optional, defaults to current active year).
 func (h *Handler) ListByYear(c *fiber.Ctx) error {
 	tenantID, schoolID, err := h.twsMiddleware(c)
 	if err != nil {
@@ -80,10 +112,16 @@ func (h *Handler) ListByYear(c *fiber.Ctx) error {
 
 	yearID := c.Query("academic_year_id")
 	if yearID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "academic_year_id is required",
-		})
+		yearID, err = h.resolveCurrentYear(c, tenantID, schoolID)
+		if err != nil {
+			return middleware.HTTPError(c, err)
+		}
+		if yearID == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"code":    "NO_ACTIVE_ACADEMIC_YEAR",
+				"message": "No current academic year is active.",
+			})
+		}
 	}
 
 	result, err := h.svc.ListByYear(c.Context(), tenantID, schoolID, yearID)
@@ -95,7 +133,7 @@ func (h *Handler) ListByYear(c *fiber.Ctx) error {
 }
 
 // ListByTeacher handles GET /api/v1/teacher-workload-summaries/teacher/:user_id.
-// Query params: academic_year_id (required).
+// Query params: academic_year_id (optional, defaults to current active year).
 func (h *Handler) ListByTeacher(c *fiber.Ctx) error {
 	tenantID, schoolID, err := h.twsMiddleware(c)
 	if err != nil {
@@ -112,10 +150,16 @@ func (h *Handler) ListByTeacher(c *fiber.Ctx) error {
 
 	yearID := c.Query("academic_year_id")
 	if yearID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "academic_year_id is required",
-		})
+		yearID, err = h.resolveCurrentYear(c, tenantID, schoolID)
+		if err != nil {
+			return middleware.HTTPError(c, err)
+		}
+		if yearID == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"code":    "NO_ACTIVE_ACADEMIC_YEAR",
+				"message": "No current academic year is active.",
+			})
+		}
 	}
 
 	result, err := h.svc.ListByTeacher(c.Context(), tenantID, schoolID, userID, yearID)
@@ -127,9 +171,9 @@ func (h *Handler) ListByTeacher(c *fiber.Ctx) error {
 }
 
 // GetSummary handles GET /api/v1/teacher-workload-summaries/:user_id.
-// Query params: academic_year_id (required).
+// Query params: academic_year_id (optional, defaults to current active year).
 func (h *Handler) GetSummary(c *fiber.Ctx) error {
-	_, _, err := h.twsMiddleware(c)
+	tenantID, schoolID, err := h.twsMiddleware(c)
 	if err != nil {
 		return err
 	}
@@ -144,10 +188,16 @@ func (h *Handler) GetSummary(c *fiber.Ctx) error {
 
 	yearID := c.Query("academic_year_id")
 	if yearID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "academic_year_id is required",
-		})
+		yearID, err = h.resolveCurrentYear(c, tenantID, schoolID)
+		if err != nil {
+			return middleware.HTTPError(c, err)
+		}
+		if yearID == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"code":    "NO_ACTIVE_ACADEMIC_YEAR",
+				"message": "No current academic year is active.",
+			})
+		}
 	}
 
 	summary, err := h.svc.GetByTeacherYear(c.Context(), userID, yearID)

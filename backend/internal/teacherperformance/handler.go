@@ -1,19 +1,46 @@
 package teacherperformance
 
 import (
+	"context"
+
 	"github.com/gofiber/fiber/v2"
 
 	"somotracker/backend/internal/middleware"
 )
 
+// academicYearsAdapter is the subset of academicyears.Service that the handler uses.
+type academicYearsAdapter interface {
+	GetCurrentAcademicYearID(ctx context.Context, tenantID, schoolID string) (string, error)
+	GetCurrentAcademicTermID(ctx context.Context, academicYearID string) (string, error)
+}
+
 // Handler exposes teacher performance HTTP endpoints.
 type Handler struct {
-	svc *Service
+	svc              *Service
+	academicYearsSvc academicYearsAdapter
 }
 
 // NewHandler creates a new teacher performance Handler.
 func NewHandler(svc *Service) *Handler {
 	return &Handler{svc: svc}
+}
+
+// SetAcademicYearsService sets the academicyears service reference.
+func (h *Handler) SetAcademicYearsService(aySvc academicYearsAdapter) {
+	h.academicYearsSvc = aySvc
+}
+
+// resolveCurrentTerm resolves the current academic term ID for the school.
+// Returns empty string if no current term is set.
+func (h *Handler) resolveCurrentTerm(c *fiber.Ctx, tenantID, schoolID string) (string, error) {
+	if h.academicYearsSvc == nil {
+		return "", nil
+	}
+	academicYearID, err := h.academicYearsSvc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
+	if err != nil || academicYearID == "" {
+		return "", err
+	}
+	return h.academicYearsSvc.GetCurrentAcademicTermID(c.Context(), academicYearID)
 }
 
 // RegisterRoutes mounts teacher performance routes on the given router.
@@ -39,8 +66,9 @@ func (h *Handler) tpMiddleware(c *fiber.Ctx) (tenantID, schoolID string, err err
 }
 
 // Refresh handles POST /api/v1/teacher-performance/refresh.
+// Academic term is resolved server-side from the current active term if not provided.
 func (h *Handler) Refresh(c *fiber.Ctx) error {
-	_, _, err := h.tpMiddleware(c)
+	tenantID, schoolID, err := h.tpMiddleware(c)
 	if err != nil {
 		return err
 	}
@@ -53,25 +81,33 @@ func (h *Handler) Refresh(c *fiber.Ctx) error {
 		})
 	}
 
-	if payload.AcademicTermID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "academic_term_id is required",
-		})
+	// Resolve term if not provided
+	termID := payload.AcademicTermID
+	if termID == "" {
+		termID, err = h.resolveCurrentTerm(c, tenantID, schoolID)
+		if err != nil {
+			return middleware.HTTPError(c, err)
+		}
+		if termID == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"code":    "NO_ACTIVE_ACADEMIC_TERM",
+				"message": "No current academic term is active.",
+			})
+		}
 	}
 
-	if err := h.svc.RefreshComputation(c.Context(), payload.AcademicTermID); err != nil {
+	if err := h.svc.RefreshComputation(c.Context(), termID); err != nil {
 		return middleware.HTTPError(c, err)
 	}
 
 	return c.JSON(RefreshResponse{
 		Message: "Teacher performance summaries refreshed",
-		TermID:  payload.AcademicTermID,
+		TermID:  termID,
 	})
 }
 
 // ListSummaries handles GET /api/v1/teacher-performance/summaries.
-// Query params: term_id (required), class_id (optional), learning_area_id (optional).
+// Query params: term_id (optional, defaults to current active term), class_id (optional), learning_area_id (optional).
 func (h *Handler) ListSummaries(c *fiber.Ctx) error {
 	tenantID, schoolID, err := h.tpMiddleware(c)
 	if err != nil {
@@ -80,10 +116,16 @@ func (h *Handler) ListSummaries(c *fiber.Ctx) error {
 
 	termID := c.Query("term_id")
 	if termID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "term_id is required",
-		})
+		termID, err = h.resolveCurrentTerm(c, tenantID, schoolID)
+		if err != nil {
+			return middleware.HTTPError(c, err)
+		}
+		if termID == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"code":    "NO_ACTIVE_ACADEMIC_TERM",
+				"message": "No current academic term is active.",
+			})
+		}
 	}
 
 	var classID, learningAreaID *string
@@ -103,7 +145,7 @@ func (h *Handler) ListSummaries(c *fiber.Ctx) error {
 }
 
 // ListByTeacher handles GET /api/v1/teacher-performance/summaries/teacher/:user_id.
-// Query params: term_id (required), learning_area_id (optional).
+// Query params: term_id (optional, defaults to current active term), learning_area_id (optional).
 func (h *Handler) ListByTeacher(c *fiber.Ctx) error {
 	tenantID, schoolID, err := h.tpMiddleware(c)
 	if err != nil {
@@ -120,10 +162,16 @@ func (h *Handler) ListByTeacher(c *fiber.Ctx) error {
 
 	termID := c.Query("term_id")
 	if termID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "term_id is required",
-		})
+		termID, err = h.resolveCurrentTerm(c, tenantID, schoolID)
+		if err != nil {
+			return middleware.HTTPError(c, err)
+		}
+		if termID == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"code":    "NO_ACTIVE_ACADEMIC_TERM",
+				"message": "No current academic term is active.",
+			})
+		}
 	}
 
 	var learningAreaID *string
@@ -140,9 +188,9 @@ func (h *Handler) ListByTeacher(c *fiber.Ctx) error {
 }
 
 // GetSummary handles GET /api/v1/teacher-performance/summaries/:user_id/:learning_area_id/:class_id.
-// Query params: term_id (required).
+// Query params: term_id (optional, defaults to current active term).
 func (h *Handler) GetSummary(c *fiber.Ctx) error {
-	_, _, err := h.tpMiddleware(c)
+	tenantID, schoolID, err := h.tpMiddleware(c)
 	if err != nil {
 		return err
 	}
@@ -160,10 +208,16 @@ func (h *Handler) GetSummary(c *fiber.Ctx) error {
 
 	termID := c.Query("term_id")
 	if termID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "term_id is required",
-		})
+		termID, err = h.resolveCurrentTerm(c, tenantID, schoolID)
+		if err != nil {
+			return middleware.HTTPError(c, err)
+		}
+		if termID == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"code":    "NO_ACTIVE_ACADEMIC_TERM",
+				"message": "No current academic term is active.",
+			})
+		}
 	}
 
 	summary, err := h.svc.GetByTeacherClassSubject(c.Context(), userID, learningAreaID, classID, termID)

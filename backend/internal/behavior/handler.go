@@ -1,19 +1,45 @@
 package behavior
 
 import (
+	"context"
 	"github.com/gofiber/fiber/v2"
 
 	"somotracker/backend/internal/middleware"
 )
 
+// academicYearsAdapter is the subset of academicyears.Service that the handler uses.
+type academicYearsAdapter interface {
+	GetCurrentAcademicYearID(ctx context.Context, tenantID, schoolID string) (string, error)
+	GetCurrentAcademicTermID(ctx context.Context, academicYearID string) (string, error)
+}
+
 // Handler exposes behavior HTTP endpoints.
 type Handler struct {
-	svc *Service
+	svc              *Service
+	academicYearsSvc academicYearsAdapter
 }
 
 // NewHandler creates a new behavior Handler.
 func NewHandler(svc *Service) *Handler {
 	return &Handler{svc: svc}
+}
+
+// SetAcademicYearsService sets the academicyears service reference.
+func (h *Handler) SetAcademicYearsService(aySvc academicYearsAdapter) {
+	h.academicYearsSvc = aySvc
+}
+
+// resolveCurrentTerm resolves the current academic term ID for the school.
+// Returns empty string if no current term is set.
+func (h *Handler) resolveCurrentTerm(c *fiber.Ctx, tenantID, schoolID string) (string, error) {
+	if h.academicYearsSvc == nil {
+		return "", nil
+	}
+	academicYearID, err := h.academicYearsSvc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
+	if err != nil || academicYearID == "" {
+		return "", err
+	}
+	return h.academicYearsSvc.GetCurrentAcademicTermID(c.Context(), academicYearID)
 }
 
 // RegisterRoutes mounts behavior routes on the given router.
@@ -141,6 +167,7 @@ func (h *Handler) UpdateCategory(c *fiber.Ctx) error {
 // ── Notes ─────────────────────────────────────────────────────────────────
 
 // CreateNote handles POST /api/v1/behavior/notes.
+// Academic term is derived from the timetable slot's class and date.
 func (h *Handler) CreateNote(c *fiber.Ctx) error {
 	tenantID, schoolID, err := h.behMiddleware(c)
 	if err != nil {
@@ -329,6 +356,7 @@ func (h *Handler) ReviewNote(c *fiber.Ctx) error {
 // ═══════════════════════════════════════════════════════════════════════════
 
 // ListSummaries handles GET /api/v1/behavior/summaries?term_id=xxx&student_id=xxx.
+// Academic term is resolved server-side from the current active term if not provided.
 func (h *Handler) ListSummaries(c *fiber.Ctx) error {
 	tenantID, schoolID, err := h.behMiddleware(c)
 	if err != nil {
@@ -337,10 +365,16 @@ func (h *Handler) ListSummaries(c *fiber.Ctx) error {
 
 	termID := c.Query("term_id")
 	if termID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "term_id is required",
-		})
+		termID, err = h.resolveCurrentTerm(c, tenantID, schoolID)
+		if err != nil {
+			return middleware.HTTPError(c, err)
+		}
+		if termID == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"code":    "NO_ACTIVE_ACADEMIC_TERM",
+				"message": "No current academic term is active.",
+			})
+		}
 	}
 
 	var studentID *string
@@ -357,6 +391,7 @@ func (h *Handler) ListSummaries(c *fiber.Ctx) error {
 }
 
 // GetStudentSummary handles GET /api/v1/behavior/summaries/:student_id?term_id=xxx.
+// Academic term is resolved server-side from the current active term if not provided.
 func (h *Handler) GetStudentSummary(c *fiber.Ctx) error {
 	_, _, err := h.behMiddleware(c)
 	if err != nil {
@@ -373,10 +408,20 @@ func (h *Handler) GetStudentSummary(c *fiber.Ctx) error {
 
 	termID := c.Query("term_id")
 	if termID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "term_id is required",
-		})
+		tenantID, schoolID, err := h.behMiddleware(c)
+		if err != nil {
+			return err
+		}
+		termID, err = h.resolveCurrentTerm(c, tenantID, schoolID)
+		if err != nil {
+			return middleware.HTTPError(c, err)
+		}
+		if termID == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"code":    "NO_ACTIVE_ACADEMIC_TERM",
+				"message": "No current academic term is active.",
+			})
+		}
 	}
 
 	summary, err := h.svc.GetStudentBehaviorTermSummary(c.Context(), studentID, termID)

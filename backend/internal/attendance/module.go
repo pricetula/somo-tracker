@@ -1,6 +1,10 @@
 package attendance
 
-import "go.uber.org/fx"
+import (
+	"go.uber.org/fx"
+
+	"somotracker/backend/internal/academicyears"
+)
 
 // Module is an fx-compatible module for the attendance domain.
 var Module = fx.Module("attendance",
@@ -24,4 +28,8 @@ var Module = fx.Module("attendance",
 	}),
 	// Register lifecycle hooks for the background worker
 	fx.Invoke(RegisterWorkerHooks),
+	// Wire academicyears service into the handler
+	fx.Invoke(func(h *Handler, aySvc *academicyears.Service) {
+		h.SetAcademicYearsService(aySvc)
+	}),
 )

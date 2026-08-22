@@ -1,6 +1,7 @@
 package attendance
 
 import (
+	"context"
 	"strconv"
 	"time"
 
@@ -9,14 +10,26 @@ import (
 	"somotracker/backend/internal/middleware"
 )
 
+// academicYearsAdapter is the subset of academicyears.Service that the handler uses.
+type academicYearsAdapter interface {
+	GetCurrentAcademicYearID(ctx context.Context, tenantID, schoolID string) (string, error)
+	GetCurrentAcademicTermID(ctx context.Context, academicYearID string) (string, error)
+}
+
 // Handler exposes attendance HTTP endpoints.
 type Handler struct {
-	svc *Service
+	svc              *Service
+	academicYearsSvc academicYearsAdapter
 }
 
 // NewHandler creates a new attendance Handler.
 func NewHandler(svc *Service) *Handler {
 	return &Handler{svc: svc}
+}
+
+// SetAcademicYearsService sets the academicyears service reference.
+func (h *Handler) SetAcademicYearsService(aySvc academicYearsAdapter) {
+	h.academicYearsSvc = aySvc
 }
 
 // RegisterRoutes mounts attendance routes on the given router.
@@ -92,9 +105,23 @@ func (h *Handler) attMiddleware(c *fiber.Ctx) (tenantID, schoolID string, err er
 	return tenantID, schoolID, nil
 }
 
+// resolveCurrentTerm resolves the current academic term ID for the school.
+// Returns empty string if no current term is set.
+func (h *Handler) resolveCurrentTerm(c *fiber.Ctx, tenantID, schoolID string) (string, error) {
+	if h.academicYearsSvc == nil {
+		return "", nil
+	}
+	academicYearID, err := h.academicYearsSvc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
+	if err != nil || academicYearID == "" {
+		return "", err
+	}
+	return h.academicYearsSvc.GetCurrentAcademicTermID(c.Context(), academicYearID)
+}
+
 // ── Sessions ──────────────────────────────────────────────────────────────
 
 // CreateSession handles POST /api/v1/attendance/sessions.
+// Academic term is derived from the date when marking records (BatchMark).
 func (h *Handler) CreateSession(c *fiber.Ctx) error {
 	tenantID, schoolID, err := h.attMiddleware(c)
 	if err != nil {
@@ -202,6 +229,7 @@ func (h *Handler) UpdateSession(c *fiber.Ctx) error {
 // ── Records ───────────────────────────────────────────────────────────────
 
 // BatchMark handles POST /api/v1/attendance/records/batch.
+// Academic term is resolved server-side from the current active term if not provided.
 func (h *Handler) BatchMark(c *fiber.Ctx) error {
 	tenantID, schoolID, err := h.attMiddleware(c)
 	if err != nil {
@@ -224,8 +252,20 @@ func (h *Handler) BatchMark(c *fiber.Ctx) error {
 		})
 	}
 
-	// Accept optional term_id in query or from request context
+	// Resolve academic term: use query param if provided, otherwise resolve current term
 	termID := c.Query("term_id")
+	if termID == "" {
+		termID, err = h.resolveCurrentTerm(c, tenantID, schoolID)
+		if err != nil {
+			return middleware.HTTPError(c, err)
+		}
+		if termID == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"code":    "NO_ACTIVE_ACADEMIC_TERM",
+				"message": "No current academic term is active.",
+			})
+		}
+	}
 
 	result, err := h.svc.BatchMark(c.Context(), tenantID, schoolID, payload, userID, termID)
 	if err != nil {
@@ -343,6 +383,7 @@ func (h *Handler) UpdateRecord(c *fiber.Ctx) error {
 // ── Summaries ─────────────────────────────────────────────────────────────
 
 // GetStudentTermSummary handles GET /api/v1/attendance/summaries/student/:student_id.
+// Academic term is resolved server-side from the current active term if not provided.
 func (h *Handler) GetStudentTermSummary(c *fiber.Ctx) error {
 	tenantID, schoolID, err := h.attMiddleware(c)
 	if err != nil {
@@ -351,6 +392,18 @@ func (h *Handler) GetStudentTermSummary(c *fiber.Ctx) error {
 
 	studentID := c.Params("student_id")
 	termID := c.Query("term_id")
+	if termID == "" {
+		termID, err = h.resolveCurrentTerm(c, tenantID, schoolID)
+		if err != nil {
+			return middleware.HTTPError(c, err)
+		}
+		if termID == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"code":    "NO_ACTIVE_ACADEMIC_TERM",
+				"message": "No current academic term is active.",
+			})
+		}
+	}
 
 	result, err := h.svc.GetStudentTermSummary(c.Context(), tenantID, schoolID, studentID, termID)
 	if err != nil {
@@ -361,6 +414,7 @@ func (h *Handler) GetStudentTermSummary(c *fiber.Ctx) error {
 }
 
 // GetClassTermSummary handles GET /api/v1/attendance/summaries/class/:class_id.
+// Academic term is resolved server-side from the current active term if not provided.
 func (h *Handler) GetClassTermSummary(c *fiber.Ctx) error {
 	tenantID, schoolID, err := h.attMiddleware(c)
 	if err != nil {
@@ -369,6 +423,18 @@ func (h *Handler) GetClassTermSummary(c *fiber.Ctx) error {
 
 	classID := c.Params("class_id")
 	termID := c.Query("term_id")
+	if termID == "" {
+		termID, err = h.resolveCurrentTerm(c, tenantID, schoolID)
+		if err != nil {
+			return middleware.HTTPError(c, err)
+		}
+		if termID == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"code":    "NO_ACTIVE_ACADEMIC_TERM",
+				"message": "No current academic term is active.",
+			})
+		}
+	}
 
 	result, err := h.svc.GetClassTermSummary(c.Context(), tenantID, schoolID, classID, termID)
 	if err != nil {
@@ -379,6 +445,7 @@ func (h *Handler) GetClassTermSummary(c *fiber.Ctx) error {
 }
 
 // RefreshSummaries handles POST /api/v1/attendance/summaries/refresh.
+// Academic term is resolved server-side from the current active term if not provided.
 func (h *Handler) RefreshSummaries(c *fiber.Ctx) error {
 	tenantID, schoolID, err := h.attMiddleware(c)
 	if err != nil {
@@ -395,7 +462,22 @@ func (h *Handler) RefreshSummaries(c *fiber.Ctx) error {
 		})
 	}
 
-	result, err := h.svc.RefreshSummaries(c.Context(), tenantID, schoolID, payload.TermID)
+	// Resolve term if not provided
+	termID := payload.TermID
+	if termID == "" {
+		termID, err = h.resolveCurrentTerm(c, tenantID, schoolID)
+		if err != nil {
+			return middleware.HTTPError(c, err)
+		}
+		if termID == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"code":    "NO_ACTIVE_ACADEMIC_TERM",
+				"message": "No current academic term is active.",
+			})
+		}
+	}
+
+	result, err := h.svc.RefreshSummaries(c.Context(), tenantID, schoolID, termID)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
@@ -547,8 +629,9 @@ func (h *Handler) ListClassTermAttendanceSummaries(c *fiber.Ctx) error {
 // ListClassAttendanceBreakdowns handles GET /api/v1/attendance/class-term/breakdown.
 //
 // Query params:
-//   - academic_term_id (UUID, required) — the term to aggregate
+//   - academic_term_id (UUID, optional) — the term to aggregate
 //     (class_term_attendance_summaries are per class × term).
+//     If not provided, the current active term is used.
 //
 // tenant_id and school_id are resolved from the authenticated local context.
 // Returns per-class Present/Late/Absent counts ordered by absent_count
@@ -561,10 +644,16 @@ func (h *Handler) ListClassAttendanceBreakdowns(c *fiber.Ctx) error {
 
 	termID := c.Query("academic_term_id")
 	if termID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "academic_term_id is required",
-		})
+		termID, err = h.resolveCurrentTerm(c, tenantID, schoolID)
+		if err != nil {
+			return middleware.HTTPError(c, err)
+		}
+		if termID == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"code":    "NO_ACTIVE_ACADEMIC_TERM",
+				"message": "No current academic term is active.",
+			})
+		}
 	}
 
 	result, err := h.svc.ListClassAttendanceBreakdowns(c.Context(), tenantID, schoolID, termID)
@@ -578,8 +667,9 @@ func (h *Handler) ListClassAttendanceBreakdowns(c *fiber.Ctx) error {
 // ListLearningAreaBreakdowns handles GET /api/v1/attendance/class-learning-area/breakdown.
 //
 // Query params:
-//   - academic_term_id (UUID, required) — the term to aggregate
+//   - academic_term_id (UUID, optional) — the term to aggregate
 //     (class_learning_area_term_summaries are per class × learning area × term).
+//     If not provided, the current active term is used.
 //
 // tenant_id and school_id are resolved from the authenticated local context.
 // Returns per-learning-area Present/Absent/Excused period counts aggregated
@@ -593,10 +683,16 @@ func (h *Handler) ListLearningAreaBreakdowns(c *fiber.Ctx) error {
 
 	termID := c.Query("academic_term_id")
 	if termID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "academic_term_id is required",
-		})
+		termID, err = h.resolveCurrentTerm(c, tenantID, schoolID)
+		if err != nil {
+			return middleware.HTTPError(c, err)
+		}
+		if termID == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"code":    "NO_ACTIVE_ACADEMIC_TERM",
+				"message": "No current academic term is active.",
+			})
+		}
 	}
 
 	result, err := h.svc.ListLearningAreaBreakdowns(c.Context(), tenantID, schoolID, termID)

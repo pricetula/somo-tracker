@@ -1,19 +1,45 @@
 package teacherdeliverysummaries
 
 import (
+	"context"
 	"github.com/gofiber/fiber/v2"
 
 	"somotracker/backend/internal/middleware"
 )
 
+// academicYearsAdapter is the subset of academicyears.Service that the handler uses.
+type academicYearsAdapter interface {
+	GetCurrentAcademicYearID(ctx context.Context, tenantID, schoolID string) (string, error)
+	GetCurrentAcademicTermID(ctx context.Context, academicYearID string) (string, error)
+}
+
 // Handler exposes teacher delivery summary HTTP endpoints.
 type Handler struct {
-	svc *Service
+	svc              *Service
+	academicYearsSvc academicYearsAdapter
 }
 
 // NewHandler creates a new teacher delivery summaries Handler.
 func NewHandler(svc *Service) *Handler {
 	return &Handler{svc: svc}
+}
+
+// SetAcademicYearsService sets the academicyears service reference.
+func (h *Handler) SetAcademicYearsService(aySvc academicYearsAdapter) {
+	h.academicYearsSvc = aySvc
+}
+
+// resolveCurrentTerm resolves the current academic term ID for the school.
+// Returns empty string if no current term is set.
+func (h *Handler) resolveCurrentTerm(c *fiber.Ctx, tenantID, schoolID string) (string, error) {
+	if h.academicYearsSvc == nil {
+		return "", nil
+	}
+	academicYearID, err := h.academicYearsSvc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
+	if err != nil || academicYearID == "" {
+		return "", err
+	}
+	return h.academicYearsSvc.GetCurrentAcademicTermID(c.Context(), academicYearID)
 }
 
 // RegisterRoutes mounts teacher delivery summary routes on the given router.
@@ -40,8 +66,9 @@ func (h *Handler) tdsMiddleware(c *fiber.Ctx) (tenantID, schoolID string, err er
 }
 
 // Refresh handles POST /api/v1/teacher-delivery-summaries/refresh.
+// Academic term is resolved server-side from the current active term if not provided.
 func (h *Handler) Refresh(c *fiber.Ctx) error {
-	_, _, err := h.tdsMiddleware(c)
+	tenantID, schoolID, err := h.tdsMiddleware(c)
 	if err != nil {
 		return err
 	}
@@ -54,25 +81,33 @@ func (h *Handler) Refresh(c *fiber.Ctx) error {
 		})
 	}
 
-	if payload.AcademicTermID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "academic_term_id is required",
-		})
+	// Resolve term if not provided
+	termID := payload.AcademicTermID
+	if termID == "" {
+		termID, err = h.resolveCurrentTerm(c, tenantID, schoolID)
+		if err != nil {
+			return middleware.HTTPError(c, err)
+		}
+		if termID == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"code":    "NO_ACTIVE_ACADEMIC_TERM",
+				"message": "No current academic term is active.",
+			})
+		}
 	}
 
-	if err := h.svc.RefreshComputation(c.Context(), payload.AcademicTermID); err != nil {
+	if err := h.svc.RefreshComputation(c.Context(), termID); err != nil {
 		return middleware.HTTPError(c, err)
 	}
 
 	return c.JSON(RefreshResponse{
 		Message: "Teacher delivery summaries refreshed",
-		TermID:  payload.AcademicTermID,
+		TermID:  termID,
 	})
 }
 
 // ListByTerm handles GET /api/v1/teacher-delivery-summaries.
-// Query params: term_id (required).
+// Query params: term_id (optional, defaults to current active term).
 func (h *Handler) ListByTerm(c *fiber.Ctx) error {
 	tenantID, schoolID, err := h.tdsMiddleware(c)
 	if err != nil {
@@ -81,10 +116,16 @@ func (h *Handler) ListByTerm(c *fiber.Ctx) error {
 
 	termID := c.Query("term_id")
 	if termID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "term_id is required",
-		})
+		termID, err = h.resolveCurrentTerm(c, tenantID, schoolID)
+		if err != nil {
+			return middleware.HTTPError(c, err)
+		}
+		if termID == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"code":    "NO_ACTIVE_ACADEMIC_TERM",
+				"message": "No current academic term is active.",
+			})
+		}
 	}
 
 	result, err := h.svc.ListByTerm(c.Context(), tenantID, schoolID, termID)
@@ -96,7 +137,7 @@ func (h *Handler) ListByTerm(c *fiber.Ctx) error {
 }
 
 // ListByTeacher handles GET /api/v1/teacher-delivery-summaries/teacher/:user_id.
-// Query params: term_id (required).
+// Query params: term_id (optional, defaults to current active term).
 func (h *Handler) ListByTeacher(c *fiber.Ctx) error {
 	tenantID, schoolID, err := h.tdsMiddleware(c)
 	if err != nil {
@@ -113,10 +154,16 @@ func (h *Handler) ListByTeacher(c *fiber.Ctx) error {
 
 	termID := c.Query("term_id")
 	if termID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "term_id is required",
-		})
+		termID, err = h.resolveCurrentTerm(c, tenantID, schoolID)
+		if err != nil {
+			return middleware.HTTPError(c, err)
+		}
+		if termID == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"code":    "NO_ACTIVE_ACADEMIC_TERM",
+				"message": "No current academic term is active.",
+			})
+		}
 	}
 
 	result, err := h.svc.ListByTeacher(c.Context(), tenantID, schoolID, userID, termID)
@@ -130,8 +177,9 @@ func (h *Handler) ListByTeacher(c *fiber.Ctx) error {
 // ListDeliveryBreakdown handles GET /api/v1/teacher-delivery-summaries/breakdown.
 //
 // Query params:
-//   - academic_term_id (UUID, required) — the term to aggregate
+//   - academic_term_id (UUID, optional) — the term to aggregate
 //     (teacher_delivery_summaries are per teacher × term).
+//     If not provided, the current active term is used.
 //
 // tenant_id and school_id are resolved from the authenticated local context.
 // Returns per-teacher Marked vs. Missed slot counts ordered by missed_slots
@@ -144,10 +192,16 @@ func (h *Handler) ListDeliveryBreakdown(c *fiber.Ctx) error {
 
 	termID := c.Query("academic_term_id")
 	if termID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "academic_term_id is required",
-		})
+		termID, err = h.resolveCurrentTerm(c, tenantID, schoolID)
+		if err != nil {
+			return middleware.HTTPError(c, err)
+		}
+		if termID == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"code":    "NO_ACTIVE_ACADEMIC_TERM",
+				"message": "No current academic term is active.",
+			})
+		}
 	}
 
 	result, err := h.svc.ListDeliveryBreakdown(c.Context(), tenantID, schoolID, termID)
@@ -159,9 +213,9 @@ func (h *Handler) ListDeliveryBreakdown(c *fiber.Ctx) error {
 }
 
 // GetSummary handles GET /api/v1/teacher-delivery-summaries/:user_id.
-// Query params: term_id (required).
+// Query params: term_id (optional, defaults to current active term).
 func (h *Handler) GetSummary(c *fiber.Ctx) error {
-	_, _, err := h.tdsMiddleware(c)
+	tenantID, schoolID, err := h.tdsMiddleware(c)
 	if err != nil {
 		return err
 	}
@@ -176,10 +230,16 @@ func (h *Handler) GetSummary(c *fiber.Ctx) error {
 
 	termID := c.Query("term_id")
 	if termID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "term_id is required",
-		})
+		termID, err = h.resolveCurrentTerm(c, tenantID, schoolID)
+		if err != nil {
+			return middleware.HTTPError(c, err)
+		}
+		if termID == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"code":    "NO_ACTIVE_ACADEMIC_TERM",
+				"message": "No current academic term is active.",
+			})
+		}
 	}
 
 	summary, err := h.svc.GetByTeacherTerm(c.Context(), userID, termID)

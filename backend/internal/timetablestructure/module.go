@@ -1,6 +1,10 @@
 package timetablestructure
 
-import "go.uber.org/fx"
+import (
+	"go.uber.org/fx"
+
+	"somotracker/backend/internal/academicyears"
+)
 
 // Module is an fx-compatible module for the timetablestructure domain.
 var Module = fx.Module("timetablestructure",
@@ -9,4 +13,8 @@ var Module = fx.Module("timetablestructure",
 		NewService,
 		NewHandler,
 	),
+	// Wire academicyears service into the handler
+	fx.Invoke(func(h *Handler, aySvc *academicyears.Service) {
+		h.SetAcademicYearsService(aySvc)
+	}),
 )

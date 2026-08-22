@@ -102,14 +102,15 @@ type CreateClassParams struct {
 }
 
 // UpdateClassPayload is the request body for PUT /api/v1/classes/:id.
+// academic_term_id is resolved server-side from the current active term.
 type UpdateClassPayload struct {
-	GradeLevel     string   `json:"grade_level"`
-	StreamID       string   `json:"stream_id"`
-	AcademicTermID string   `json:"academic_term_id"`
-	StudentIDs     []string `json:"student_ids"`
+	GradeLevel string   `json:"grade_level"`
+	StreamID   string   `json:"stream_id"`
+	StudentIDs []string `json:"student_ids"`
 }
 
 // UpdateClassParams holds validated params for updating a class.
+// academic_term_id is resolved server-side from the current active term.
 type UpdateClassParams struct {
 	ClassID        string
 	TenantID       string

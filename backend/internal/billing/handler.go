@@ -1,21 +1,35 @@
 package billing
 
 import (
+	"context"
+
 	"github.com/gofiber/fiber/v2"
 
 	"somotracker/backend/internal/middleware"
 )
 
+// academicYearsAdapter is the subset of academicyears.Service that the handler uses.
+type academicYearsAdapter interface {
+	GetCurrentAcademicYearID(ctx context.Context, tenantID, schoolID string) (string, error)
+	GetCurrentAcademicTermID(ctx context.Context, academicYearID string) (string, error)
+}
+
 // ─── Handler ───────────────────────────────────────────────────────────────
 
 // Handler exposes billing HTTP endpoints.
 type Handler struct {
-	svc *Service
+	svc              *Service
+	academicYearsSvc academicYearsAdapter
 }
 
 // NewHandler creates a new Handler.
 func NewHandler(svc *Service) *Handler {
 	return &Handler{svc: svc}
+}
+
+// SetAcademicYearsService sets the academicyears service reference.
+func (h *Handler) SetAcademicYearsService(aySvc academicYearsAdapter) {
+	h.academicYearsSvc = aySvc
 }
 
 // RegisterRoutes mounts billing routes on the given router.
@@ -173,6 +187,7 @@ func (h *Handler) DeleteFeeCategory(c *fiber.Ctx) error {
 // ─── Fee Template Handlers ─────────────────────────────────────────────────
 
 // CreateFeeTemplate handles POST /api/v1/billing/fee-templates.
+// academic_term_id is resolved server-side from the current active term.
 func (h *Handler) CreateFeeTemplate(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
 	schoolID, _ := c.Locals("active_school_id").(string)
@@ -190,6 +205,30 @@ func (h *Handler) CreateFeeTemplate(c *fiber.Ctx) error {
 			"message": "invalid request body",
 		})
 	}
+
+	// Resolve current academic term server-side
+	academicYearID, err := h.academicYearsSvc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	if academicYearID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "NO_ACTIVE_ACADEMIC_YEAR",
+			"message": "No current academic year is set for this school.",
+		})
+	}
+
+	academicTermID, err := h.academicYearsSvc.GetCurrentAcademicTermID(c.Context(), academicYearID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	if academicTermID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "NO_ACTIVE_ACADEMIC_TERM",
+			"message": "No current academic term is active.",
+		})
+	}
+	payload.AcademicTermID = academicTermID
 
 	id, err := h.svc.CreateFeeTemplate(c.Context(), tenantID, schoolID, payload.AcademicTermID, payload.GradeLevel, payload.FeeCategoryID, payload.Amount)
 	if err != nil {
@@ -304,6 +343,7 @@ func (h *Handler) DeleteFeeTemplate(c *fiber.Ctx) error {
 // ─── Invoice Handlers ───────────────────────────────────────────────────────
 
 // GenerateInvoice handles POST /api/v1/billing/invoices/generate.
+// academic_term_id is resolved server-side from the current active term.
 func (h *Handler) GenerateInvoice(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
 	schoolID, _ := c.Locals("active_school_id").(string)
@@ -321,6 +361,30 @@ func (h *Handler) GenerateInvoice(c *fiber.Ctx) error {
 			"message": "invalid request body",
 		})
 	}
+
+	// Resolve current academic term server-side
+	academicYearID, err := h.academicYearsSvc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	if academicYearID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "NO_ACTIVE_ACADEMIC_YEAR",
+			"message": "No current academic year is set for this school.",
+		})
+	}
+
+	academicTermID, err := h.academicYearsSvc.GetCurrentAcademicTermID(c.Context(), academicYearID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	if academicTermID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "NO_ACTIVE_ACADEMIC_TERM",
+			"message": "No current academic term is active.",
+		})
+	}
+	payload.AcademicTermID = academicTermID
 
 	result, err := h.svc.GenerateInvoice(c.Context(), tenantID, schoolID, payload)
 	if err != nil {

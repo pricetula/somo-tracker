@@ -55,7 +55,6 @@ export interface FeeTemplate {
 }
 
 export interface CreateFeeTemplatePayload {
-    academic_term_id: string;
     grade_level: string;
     fee_category_id: string;
     amount: string;

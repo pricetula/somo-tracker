@@ -181,8 +181,6 @@ export interface BulkSetRangesPayload {
 export interface CreateSessionPayload {
     class_id: string;
     learning_area_id: string;
-    academic_term_id: string;
-    academic_year_id: string;
     name: string;
     evaluation_method: "QUANTITATIVE" | "RUBRIC";
     max_points?: number | null;
@@ -663,15 +661,13 @@ export async function listSubjectStrandSummariesByTerm(params?: {
 // ════════════════════════════════════════════════════════════════════════════
 
 /**
- * Refresh performance projections for a term.
+ * Refresh performance projections for the current active term.
  * POST /api/v1/assessments/projections/refresh — SCHOOL_ADMIN only.
+ * academic_term_id is resolved server-side.
  */
-export async function refreshProjections(
-    academicTermId: string
-): Promise<{ message: string; term_id: string }> {
+export async function refreshProjections(): Promise<{ message: string; term_id: string }> {
     return api.post<{ message: string; term_id: string }>(
-        "/api/v1/assessments/projections/refresh",
-        { academic_term_id: academicTermId }
+        "/api/v1/assessments/projections/refresh"
     );
 }
 

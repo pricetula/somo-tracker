@@ -149,9 +149,9 @@ type CreateStudentsResponse struct {
 }
 
 type CreateEnrollmentPayload struct {
-	AcademicTermID string `json:"academic_term_id"`
 	ClassID        string `json:"class_id"`
 	Status         string `json:"status,omitempty"` // defaults to ACTIVE
+	AcademicTermID string // resolved server-side, not from request body
 }
 
 type CreateEnrollmentResponse struct {

@@ -563,10 +563,9 @@ func TestHandler_UpdateClass_HappyPath(t *testing.T) {
 	}
 
 	body, _ := json.Marshal(UpdateClassPayload{
-		GradeLevel:     "G5",
-		StreamID:       "stream_002",
-		AcademicTermID: "term_001",
-		StudentIDs:     []string{"student_001", "student_003"},
+		GradeLevel: "G5",
+		StreamID:   "stream_002",
+		StudentIDs: []string{"student_001", "student_003"},
 	})
 
 	resp := doRequest(h.app, "PUT", "/api/v1/classes/class_001", body)
@@ -592,9 +591,8 @@ func TestHandler_UpdateClass_MissingFields(t *testing.T) {
 		payload map[string]interface{}
 		field   string
 	}{
-		{"grade_level", map[string]interface{}{"stream_id": "stream_001", "academic_term_id": "term_001"}, "grade_level"},
-		{"stream_id", map[string]interface{}{"grade_level": "G4", "academic_term_id": "term_001"}, "stream_id"},
-		{"academic_term_id", map[string]interface{}{"grade_level": "G4", "stream_id": "stream_001"}, "academic_term_id"},
+		{"grade_level", map[string]interface{}{"stream_id": "stream_001"}, "grade_level"},
+		{"stream_id", map[string]interface{}{"grade_level": "G4"}, "stream_id"},
 	}
 
 	for _, tt := range tests {
@@ -617,9 +615,8 @@ func TestHandler_UpdateClass_NotFound(t *testing.T) {
 	}
 
 	body, _ := json.Marshal(UpdateClassPayload{
-		GradeLevel:     "G4",
-		StreamID:       "stream_999",
-		AcademicTermID: "term_001",
+		GradeLevel: "G4",
+		StreamID:   "stream_999",
 	})
 
 	resp := doRequest(h.app, "PUT", "/api/v1/classes/class_999", body)
@@ -641,10 +638,9 @@ func TestHandler_UpdateClass_DifferentialSync(t *testing.T) {
 	}
 
 	body, _ := json.Marshal(UpdateClassPayload{
-		GradeLevel:     "G4",
-		StreamID:       "stream_001",
-		AcademicTermID: "term_001",
-		StudentIDs:     []string{"student_003", "student_004"},
+		GradeLevel: "G4",
+		StreamID:   "stream_001",
+		StudentIDs: []string{"student_003", "student_004"},
 	})
 
 	resp := doRequest(h.app, "PUT", "/api/v1/classes/class_001", body)
@@ -817,9 +813,8 @@ func TestHandler_UpdateClass_Unauthenticated(t *testing.T) {
 	h := testHandlerWithoutAuth(t)
 
 	body, _ := json.Marshal(UpdateClassPayload{
-		GradeLevel:     "G4",
-		StreamID:       "stream_001",
-		AcademicTermID: "term_001",
+		GradeLevel: "G4",
+		StreamID:   "stream_001",
 	})
 
 	resp := doRequest(h.app, "PUT", "/api/v1/classes/class_001", body)

@@ -337,6 +337,7 @@ type CreateScaleRangeParams struct {
 }
 
 // CreateSessionParams holds fields needed to create an assessment session.
+// academic_year_id and academic_term_id are resolved server-side from the current active year/term.
 type CreateSessionParams struct {
 	TenantID              string
 	SchoolID              string
@@ -414,11 +415,10 @@ type ScaleProfileWithRanges struct {
 }
 
 // CreateSessionPayload is the JSON body for creating an assessment session.
+// academic_year_id and academic_term_id are resolved server-side from the current active year/term.
 type CreateSessionPayload struct {
 	ClassID               string   `json:"class_id"`
 	LearningAreaID        string   `json:"learning_area_id"`
-	AcademicTermID        string   `json:"academic_term_id"`
-	AcademicYearID        string   `json:"academic_year_id"`
 	Name                  string   `json:"name"`
 	EvaluationMethod      string   `json:"evaluation_method"`
 	MaxPoints             *float64 `json:"max_points,omitempty"`
@@ -599,8 +599,9 @@ type PerformanceProjectionListResponse struct {
 }
 
 // RefreshProjectionsRequest is the request body for triggering a projection refresh.
+// academic_term_id is resolved server-side from the current active term.
 type RefreshProjectionsRequest struct {
-	AcademicTermID string `json:"academic_term_id"`
+	AcademicTermID string `json:"-"` // resolved server-side, not from request body
 }
 
 // RefreshProjectionsResponse is returned after triggering a projection refresh.

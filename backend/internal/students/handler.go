@@ -483,6 +483,7 @@ func (h *Handler) Update(c *fiber.Ctx) error {
 // ─── Create Enrollment ────────────────────────────────────────────────────
 
 // CreateEnrollment handles POST /api/v1/students/:id/enrollments.
+// academic_term_id is resolved server-side from the current active term.
 func (h *Handler) CreateEnrollment(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
 	schoolID, _ := c.Locals("active_school_id").(string)
@@ -500,12 +501,31 @@ func (h *Handler) CreateEnrollment(c *fiber.Ctx) error {
 		return writeError(c, fiber.StatusBadRequest, "invalid_input", "malformed request body", nil)
 	}
 
-	if body.AcademicTermID == "" {
-		return writeError(c, fiber.StatusBadRequest, "invalid_input", "academic_term_id is required", nil)
-	}
 	if body.ClassID == "" {
 		return writeError(c, fiber.StatusBadRequest, "invalid_input", "class_id is required", nil)
 	}
+
+	// Resolve current academic term server-side
+	academicYearID, err := h.academicYearsSvc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	if academicYearID == "" {
+		return writeError(c, fiber.StatusBadRequest, "NO_ACTIVE_ACADEMIC_YEAR",
+			"No current academic year is set for this school.", nil)
+	}
+
+	academicTermID, err := h.academicYearsSvc.GetCurrentAcademicTermID(c.Context(), academicYearID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	if academicTermID == "" {
+		return writeError(c, fiber.StatusBadRequest, "NO_ACTIVE_ACADEMIC_TERM",
+			"No current academic term is active.", nil)
+	}
+
+	// Set the resolved academic term ID on the body before passing to service
+	body.AcademicTermID = academicTermID
 
 	enrollment, err := h.svc.CreateEnrollment(c.Context(), studentID, tenantID, schoolID, body)
 	if err != nil {

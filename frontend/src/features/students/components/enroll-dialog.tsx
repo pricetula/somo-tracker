@@ -62,7 +62,6 @@ export function EnrollDialog({ open, onOpenChange, studentId }: EnrollDialogProp
             await createEnrollment.mutateAsync({
                 studentId,
                 data: {
-                    academic_term_id: selectedTermId,
                     class_id: selectedClassId,
                 },
             });

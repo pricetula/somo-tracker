@@ -161,12 +161,10 @@ export async function getClassRoster(
  */
 export async function batchEnrollStudents(
     classId: string,
-    studentIds: string[],
-    academicTermId?: string
+    studentIds: string[]
 ): Promise<BatchEnrollResponse> {
     return api.post<BatchEnrollResponse>(`/api/v1/classes/${classId}/enroll`, {
         student_ids: studentIds,
-        academic_term_id: academicTermId,
     });
 }
 
@@ -174,13 +172,8 @@ export async function batchEnrollStudents(
  * Unenroll a single student from a class for a specific term.
  * POST /api/v1/classes/:id/unenroll/:studentId?academic_term_id=...
  */
-export async function unenrollStudent(
-    classId: string,
-    studentId: string,
-    academicTermId?: string
-): Promise<void> {
-    const qs = academicTermId ? `?academic_term_id=${encodeURIComponent(academicTermId)}` : "";
-    return api.post<void>(`/api/v1/classes/${classId}/unenroll/${studentId}${qs}`);
+export async function unenrollStudent(classId: string, studentId: string): Promise<void> {
+    return api.post<void>(`/api/v1/classes/${classId}/unenroll/${studentId}`);
 }
 
 /**

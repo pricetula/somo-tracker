@@ -17,11 +17,31 @@ import (
 // Test Harness
 // ============================================================================
 
+type mockAcademicYearsService struct {
+	getCurrentAcademicYearIDFn func(ctx context.Context, tenantID, schoolID string) (string, error)
+	getCurrentAcademicTermIDFn func(ctx context.Context, academicYearID string) (string, error)
+}
+
+func (m *mockAcademicYearsService) GetCurrentAcademicYearID(ctx context.Context, tenantID, schoolID string) (string, error) {
+	if m.getCurrentAcademicYearIDFn != nil {
+		return m.getCurrentAcademicYearIDFn(ctx, tenantID, schoolID)
+	}
+	return "year_001", nil
+}
+
+func (m *mockAcademicYearsService) GetCurrentAcademicTermID(ctx context.Context, academicYearID string) (string, error) {
+	if m.getCurrentAcademicTermIDFn != nil {
+		return m.getCurrentAcademicTermIDFn(ctx, academicYearID)
+	}
+	return "term_001", nil
+}
+
 type handlerTestHarness struct {
-	app     *fiber.App
-	svc     *Service
-	repo    *MockRepository
-	handler *Handler
+	app              *fiber.App
+	svc              *Service
+	repo             *MockRepository
+	handler          *Handler
+	academicYearsSvc *mockAcademicYearsService
 }
 
 func newHandlerTestHarness(t *testing.T) *handlerTestHarness {
@@ -30,6 +50,8 @@ func newHandlerTestHarness(t *testing.T) *handlerTestHarness {
 	repo := &MockRepository{}
 	svc := NewService(repo)
 	handler := NewHandler(svc)
+	academicYearsSvc := &mockAcademicYearsService{}
+	handler.SetAcademicYearsService(academicYearsSvc)
 
 	app := fiber.New()
 

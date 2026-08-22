@@ -64,11 +64,12 @@ type FeeTemplate struct {
 }
 
 // CreateFeeTemplatePayload is the request body for POST /api/v1/billing/fee-templates.
+// academic_term_id is resolved server-side from the current active term.
 type CreateFeeTemplatePayload struct {
-	AcademicTermID string `json:"academic_term_id"`
 	GradeLevel     string `json:"grade_level"`
 	FeeCategoryID  string `json:"fee_category_id"`
 	Amount         string `json:"amount"`
+	AcademicTermID string // resolved server-side, not from request body
 }
 
 // UpdateFeeTemplatePayload is the request body for PUT /api/v1/billing/fee-templates/:id.
@@ -142,11 +143,12 @@ type InvoiceItemInput struct {
 }
 
 // GenerateInvoicePayload is the request body for POST /api/v1/billing/invoices/generate.
+// academic_term_id is resolved server-side from the current active term.
 type GenerateInvoicePayload struct {
 	StudentID      string             `json:"student_id"`
-	AcademicTermID string             `json:"academic_term_id"`
 	InvoiceLabel   *string            `json:"invoice_label,omitempty"`
 	Items          []InvoiceItemInput `json:"items,omitempty"`
+	AcademicTermID string             // resolved server-side, not from request body
 }
 
 // RecordPaymentPayload is the request body for POST /api/v1/billing/payments.

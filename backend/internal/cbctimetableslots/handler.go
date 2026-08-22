@@ -1,6 +1,7 @@
 package cbctimetableslots
 
 import (
+	"context"
 	"errors"
 
 	"github.com/gofiber/fiber/v2"
@@ -8,14 +9,26 @@ import (
 	"somotracker/backend/internal/middleware"
 )
 
+// academicYearsAdapter is the subset of academicyears.Service that the handler uses.
+type academicYearsAdapter interface {
+	GetCurrentAcademicYearID(ctx context.Context, tenantID, schoolID string) (string, error)
+	GetCurrentAcademicTermID(ctx context.Context, academicYearID string) (string, error)
+}
+
 // Handler exposes timetable slot HTTP endpoints.
 type Handler struct {
-	svc *Service
+	svc              *Service
+	academicYearsSvc academicYearsAdapter
 }
 
 // NewHandler creates a new Handler.
 func NewHandler(svc *Service) *Handler {
 	return &Handler{svc: svc}
+}
+
+// SetAcademicYearsService sets the academicyears service reference.
+func (h *Handler) SetAcademicYearsService(aySvc academicYearsAdapter) {
+	h.academicYearsSvc = aySvc
 }
 
 // RegisterRoutes mounts slot routes on the given router.
@@ -122,6 +135,7 @@ func (h *Handler) GetByID(c *fiber.Ctx) error {
 }
 
 // Create handles POST /api/v1/timetable/slots.
+// academic_year_id is resolved server-side from the current active academic year.
 func (h *Handler) Create(c *fiber.Ctx) error {
 	tenantID, schoolID, err := h.extractTenantSchool(c)
 	if err != nil {
@@ -135,6 +149,19 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 			"message": "invalid request body",
 		})
 	}
+
+	// Resolve current academic year server-side
+	academicYearID, err := h.academicYearsSvc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	if academicYearID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "NO_ACTIVE_ACADEMIC_YEAR",
+			"message": "No current academic year is set for this school.",
+		})
+	}
+	payload.AcademicYearID = academicYearID
 
 	fieldErrors := validateCreateSlotPayload(payload)
 	if len(fieldErrors) > 0 {
@@ -172,6 +199,7 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 }
 
 // BatchCreate handles POST /api/v1/timetable/slots/batch.
+// academic_year_id is resolved server-side from the current active academic year.
 func (h *Handler) BatchCreate(c *fiber.Ctx) error {
 	tenantID, schoolID, err := h.extractTenantSchool(c)
 	if err != nil {
@@ -191,6 +219,22 @@ func (h *Handler) BatchCreate(c *fiber.Ctx) error {
 			"code":    "VALIDATION_ERROR",
 			"message": "at least one slot is required",
 		})
+	}
+
+	// Resolve current academic year server-side
+	academicYearID, err := h.academicYearsSvc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	if academicYearID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "NO_ACTIVE_ACADEMIC_YEAR",
+			"message": "No current academic year is set for this school.",
+		})
+	}
+	// Inject the resolved academic year into all slots
+	for i := range payload.Slots {
+		payload.Slots[i].AcademicYearID = academicYearID
 	}
 
 	result, err := h.svc.BatchCreateSlots(c.Context(), tenantID, schoolID, payload)
@@ -286,12 +330,10 @@ func (h *Handler) Delete(c *fiber.Ctx) error {
 }
 
 // validateCreateSlotPayload performs field-level validation.
+// academic_year_id is resolved server-side and not validated here.
 func validateCreateSlotPayload(payload CreateSlotPayload) map[string][]string {
 	errors := make(map[string][]string)
 
-	if payload.AcademicYearID == "" {
-		errors["academic_year_id"] = []string{"Academic year is required"}
-	}
 	if payload.StructureID == "" {
 		errors["structure_id"] = []string{"Structure (time block) is required"}
 	}

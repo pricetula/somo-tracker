@@ -1,6 +1,7 @@
 package assessments
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 
@@ -9,14 +10,26 @@ import (
 	"somotracker/backend/internal/middleware"
 )
 
+// academicYearsAdapter is the subset of academicyears.Service that the handler uses.
+type academicYearsAdapter interface {
+	GetCurrentAcademicYearID(ctx context.Context, tenantID, schoolID string) (string, error)
+	GetCurrentAcademicTermID(ctx context.Context, academicYearID string) (string, error)
+}
+
 // Handler exposes assessment HTTP endpoints.
 type Handler struct {
-	svc *Service
+	svc              *Service
+	academicYearsSvc academicYearsAdapter
 }
 
 // NewHandler creates a new Handler.
 func NewHandler(svc *Service) *Handler {
 	return &Handler{svc: svc}
+}
+
+// SetAcademicYearsService sets the academicyears service reference.
+func (h *Handler) SetAcademicYearsService(aySvc academicYearsAdapter) {
+	h.academicYearsSvc = aySvc
 }
 
 // RegisterRoutes mounts all assessment routes on the given router.
@@ -507,8 +520,6 @@ func (h *Handler) DeleteScaleProfile(c *fiber.Ctx) error {
 //	{
 //	  "class_id": "uuid-of-class",
 //	  "learning_area_id": "uuid-of-maths",
-//	  "academic_term_id": "uuid-of-term-1",
-//	  "academic_year_id": "uuid-of-year",
 //	  "name": "Mathematics CAT 1",
 //	  "evaluation_method": "QUANTITATIVE",
 //	  "max_points": 50,
@@ -521,8 +532,6 @@ func (h *Handler) DeleteScaleProfile(c *fiber.Ctx) error {
 //	{
 //	  "class_id": "...",
 //	  "learning_area_id": "...",
-//	  "academic_term_id": "...",
-//	  "academic_year_id": "...",
 //	  "name": "Practical Skills Assessment",
 //	  "evaluation_method": "RUBRIC"
 //	}
@@ -535,6 +544,7 @@ func (h *Handler) DeleteScaleProfile(c *fiber.Ctx) error {
 //   - 400: validation failure (missing fields, invalid evaluation_method)
 //   - 401: authentication required
 //   - 403: term is finalised (is_final = true)
+//   - 400: NO_ACTIVE_ACADEMIC_YEAR / NO_ACTIVE_ACADEMIC_TERM
 //
 // ---------------------------------------------------------------------------
 func (h *Handler) CreateSession(c *fiber.Ctx) error {
@@ -551,13 +561,36 @@ func (h *Handler) CreateSession(c *fiber.Ctx) error {
 		})
 	}
 
+	// Resolve current academic year and term server-side
+	academicYearID, err := h.academicYearsSvc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	if academicYearID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "NO_ACTIVE_ACADEMIC_YEAR",
+			"message": "No current academic year is set for this school.",
+		})
+	}
+
+	academicTermID, err := h.academicYearsSvc.GetCurrentAcademicTermID(c.Context(), academicYearID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	if academicTermID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "NO_ACTIVE_ACADEMIC_TERM",
+			"message": "No current academic term is active.",
+		})
+	}
+
 	id, err := h.svc.CreateSession(c.Context(), CreateSessionParams{
 		TenantID:              tenantID,
 		SchoolID:              schoolID,
 		ClassID:               payload.ClassID,
 		LearningAreaID:        payload.LearningAreaID,
-		AcademicTermID:        payload.AcademicTermID,
-		AcademicYearID:        payload.AcademicYearID,
+		AcademicTermID:        academicTermID,
+		AcademicYearID:        academicYearID,
 		Name:                  payload.Name,
 		EvaluationMethod:      payload.EvaluationMethod,
 		MaxPoints:             payload.MaxPoints,
@@ -1899,28 +1932,43 @@ func (h *Handler) ListSubjectStrandSummariesByTerm(c *fiber.Ctx) error {
 // ─────────────────────────────────────────────────────────────────────────────
 
 // RefreshProjections triggers a batch refresh of performance projections for
-// a given term. POST /api/v1/assessments/projections/refresh
-// Body: { "academic_term_id": "uuid" }
+// the current active term. POST /api/v1/assessments/projections/refresh
+// academic_term_id is resolved server-side.
 func (h *Handler) RefreshProjections(c *fiber.Ctx) error {
-	var req RefreshProjectionsRequest
-	if err := c.BodyParser(&req); err != nil {
+	tenantID, schoolID, err := getTenantAndSchool(c)
+	if err != nil {
+		return err
+	}
+
+	// Resolve current academic term server-side
+	academicYearID, err := h.academicYearsSvc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	if academicYearID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "invalid_input",
-			"message": "invalid request body",
+			"code":    "NO_ACTIVE_ACADEMIC_YEAR",
+			"message": "No current academic year is set for this school.",
 		})
 	}
-	if req.AcademicTermID == "" {
+
+	academicTermID, err := h.academicYearsSvc.GetCurrentAcademicTermID(c.Context(), academicYearID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	if academicTermID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "invalid_input",
-			"message": "academic_term_id is required",
+			"code":    "NO_ACTIVE_ACADEMIC_TERM",
+			"message": "No current academic term is active.",
 		})
 	}
-	if err := h.svc.RefreshProjections(c.Context(), req.AcademicTermID); err != nil {
+
+	if err := h.svc.RefreshProjections(c.Context(), academicTermID); err != nil {
 		return middleware.HTTPError(c, err)
 	}
 	return c.JSON(RefreshProjectionsResponse{
 		Message: "performance projections refresh initiated",
-		TermID:  req.AcademicTermID,
+		TermID:  academicTermID,
 	})
 }
 

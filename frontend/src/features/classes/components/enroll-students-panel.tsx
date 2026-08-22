@@ -116,8 +116,7 @@ export function EnrollStudentsPanel({
 
     // ── Batch enrollment mutation ────────────────────────────────────
     const enrollMutation = useMutation({
-        mutationFn: (studentIds: string[]) =>
-            batchEnrollStudents(classId, studentIds, resolvedTermId),
+        mutationFn: (studentIds: string[]) => batchEnrollStudents(classId, studentIds),
         onSuccess: (data) => {
             toast.success(data.message || `${data.enrolled_count} students successfully enrolled.`);
             queryClient.invalidateQueries({ queryKey: ["class-roster", classId] });

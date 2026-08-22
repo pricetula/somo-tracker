@@ -47,13 +47,14 @@ type SlotListResult struct {
 }
 
 // CreateSlotPayload is the request body for creating a single slot assignment.
+// academic_year_id is resolved server-side from the current active academic year.
 type CreateSlotPayload struct {
-	AcademicYearID string  `json:"academic_year_id"`
 	StructureID    string  `json:"structure_id"`
 	ClassID        string  `json:"class_id"`
 	LearningAreaID string  `json:"learning_area_id"`
 	TeacherID      string  `json:"teacher_id"`
 	RoomIdentifier *string `json:"room_identifier,omitempty"`
+	AcademicYearID string  // resolved server-side, not from request body
 }
 
 // BatchCreateSlotsPayload is the request body for bulk slot operations.

@@ -55,13 +55,14 @@ type TimeBlockListResult struct {
 }
 
 // CreateTimeBlockPayload is the request body for creating a time block.
+// academic_year_id is resolved server-side from the current active academic year.
 type CreateTimeBlockPayload struct {
 	DayOfWeek      int    `json:"day_of_week"`
 	PeriodName     string `json:"period_name"`
 	StartTime      string `json:"start_time"`
 	EndTime        string `json:"end_time"`
 	IsBreak        bool   `json:"is_break"`
-	AcademicYearID string `json:"academic_year_id"`
+	AcademicYearID string `json:"-"` // resolved server-side, not from request body
 }
 
 // BatchCreateTimeBlockPayload is the request body for batch-importing a
@@ -101,9 +102,10 @@ type UpdateTimeBlockPayload struct {
 }
 
 // DeleteByNamePayload is the request body for deleting blocks by period name.
+// academic_year_id is resolved server-side from the current active academic year.
 type DeleteByNamePayload struct {
 	PeriodName     string `json:"period_name"`
-	AcademicYearID string `json:"academic_year_id"`
+	AcademicYearID string `json:"-"` // resolved server-side, not from request body
 }
 
 // BatchBlockUpdate carries the fields needed for a single block update

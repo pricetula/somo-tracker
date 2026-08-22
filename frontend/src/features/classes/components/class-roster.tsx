@@ -12,7 +12,7 @@ interface ClassRosterProps {
     /** Optional academic term ID; if omitted the backend uses the current term. */
     academicTermId?: string;
 }
-function buildColumns(classId: string, academicTermId?: string): DataTableColumn<RosterEntry>[] {
+function buildColumns(classId: string): DataTableColumn<RosterEntry>[] {
     return [
         {
             id: "full_name",
@@ -32,9 +32,7 @@ function buildColumns(classId: string, academicTermId?: string): DataTableColumn
             header: "",
             width: "48px",
             align: "right",
-            cell: (row) => (
-                <UnenrollCell classId={classId} student={row} academicTermId={academicTermId} />
-            ),
+            cell: (row) => <UnenrollCell classId={classId} student={row} />,
         },
     ];
 }
@@ -48,23 +46,21 @@ function createRosterQueryFn(classId: string, academicYearId?: string, academicT
             search: params.search,
         });
 }
-function createBulkUnenrollFn(classId: string, academicTermId?: string) {
+function createBulkUnenrollFn(classId: string) {
     return async (id: string | number) => {
-        await unenrollStudent(classId, String(id), academicTermId);
+        await unenrollStudent(classId, String(id));
     };
 }
 
 import { UnenrollCell } from "./unenroll-cell";
 
 export function ClassRoster({ classId, academicYearId, academicTermId }: ClassRosterProps) {
-    const columns = buildColumns(classId, academicTermId);
+    const columns = buildColumns(classId);
     const rosterQueryFn = createRosterQueryFn(classId, academicYearId, academicTermId);
-    const bulkUnenrollFn = createBulkUnenrollFn(classId, academicTermId);
+    const bulkUnenrollFn = createBulkUnenrollFn(classId);
 
     // Build addHref with academic term if available
-    const addHref = academicTermId
-        ? `/classes/${classId}/enroll?academictermid=${encodeURIComponent(academicTermId)}`
-        : `/classes/${classId}/enroll`;
+    const addHref = `/classes/${classId}/enroll`;
 
     return (
         <DataTable

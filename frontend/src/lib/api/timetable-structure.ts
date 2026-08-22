@@ -48,7 +48,6 @@ export interface CreateTimeBlockPayload {
     start_time: string;
     end_time: string;
     is_break: boolean;
-    academic_year_id: string;
 }
 
 export interface UpdateTimeBlockPayload extends CreateTimeBlockPayload {
@@ -129,7 +128,6 @@ export interface EnrichedSlotListResult {
 }
 
 export interface CreateSlotPayload {
-    academic_year_id: string;
     structure_id: string;
     class_id: string;
     learning_area_id?: string | null;
@@ -224,21 +222,20 @@ export async function deleteTimeBlock(id: string): Promise<DeleteResult> {
     return api.delete<DeleteResult>(`/api/v1/timetable/structure`, { id });
 }
 
-/** Delete all time blocks for a specific day. */
-export async function deleteDayBlocks(day: number, academicYearID?: string): Promise<void> {
+/** Delete all time blocks for a specific day.
+ * academic_year_id is resolved server-side from the current active year.
+ */
+export async function deleteDayBlocks(day: number): Promise<void> {
     return api.delete<void>(`/api/v1/timetable/structure/day`, {
         day,
-        academic_year_id: academicYearID,
     });
 }
 
-/** Delete all time blocks with a given period name across all days. */
-export async function deleteTimeBlocksByName(
-    periodName: string,
-    academicYearID: string
-): Promise<DeleteResult> {
+/** Delete all time blocks with a given period name across all days.
+ * academic_year_id is resolved server-side from the current active year.
+ */
+export async function deleteTimeBlocksByName(periodName: string): Promise<DeleteResult> {
     return api.delete<DeleteResult>(`/api/v1/timetable/structure/by-name`, {
-        academic_year_id: academicYearID,
         period_name: periodName,
     });
 }

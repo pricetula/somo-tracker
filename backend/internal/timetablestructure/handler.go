@@ -1,6 +1,7 @@
 package timetablestructure
 
 import (
+	"context"
 	"errors"
 	"strconv"
 
@@ -9,14 +10,26 @@ import (
 	"somotracker/backend/internal/middleware"
 )
 
+// academicYearsAdapter is the subset of academicyears.Service that the handler uses.
+type academicYearsAdapter interface {
+	GetCurrentAcademicYearID(ctx context.Context, tenantID, schoolID string) (string, error)
+	GetCurrentAcademicTermID(ctx context.Context, academicYearID string) (string, error)
+}
+
 // Handler exposes time block HTTP endpoints.
 type Handler struct {
-	svc *Service
+	svc              *Service
+	academicYearsSvc academicYearsAdapter
 }
 
 // NewHandler creates a new Handler.
 func NewHandler(svc *Service) *Handler {
 	return &Handler{svc: svc}
+}
+
+// SetAcademicYearsService sets the academicyears service reference.
+func (h *Handler) SetAcademicYearsService(aySvc academicYearsAdapter) {
+	h.academicYearsSvc = aySvc
 }
 
 // RegisterRoutes mounts time block routes on the given router.
@@ -116,6 +129,20 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 		})
 	}
 
+	// Resolve current academic year server-side
+	academicYearID, err := h.academicYearsSvc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	if academicYearID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "NO_ACTIVE_ACADEMIC_YEAR",
+			"message": "No current academic year is set for this school.",
+		})
+	}
+	// Inject the resolved academic year into the payload for validation/service
+	payload.AcademicYearID = academicYearID
+
 	fieldErrors := validateCreatePayload(payload)
 	if len(fieldErrors) > 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -159,6 +186,22 @@ func (h *Handler) BatchCreate(c *fiber.Ctx) error {
 			"code":    "VALIDATION_ERROR",
 			"message": "at least one block is required",
 		})
+	}
+
+	// Resolve current academic year server-side
+	academicYearID, err := h.academicYearsSvc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	if academicYearID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "NO_ACTIVE_ACADEMIC_YEAR",
+			"message": "No current academic year is set for this school.",
+		})
+	}
+	// Inject the resolved academic year into all blocks
+	for i := range payload.Blocks {
+		payload.Blocks[i].AcademicYearID = academicYearID
 	}
 
 	result, err := h.svc.BatchCreateBlocks(c.Context(), tenantID, schoolID, payload)
@@ -222,6 +265,7 @@ func (h *Handler) ReplicateDay(c *fiber.Ctx) error {
 // Update handles PUT /api/v1/timetable/structure/:id.
 // Accepts UpdateTimeBlockPayload which extends the base with propagate
 // ("all_days" to cascade) and shift_following options.
+// academic_year_id is resolved server-side from the current active academic year.
 func (h *Handler) Update(c *fiber.Ctx) error {
 	tenantID, schoolID, err := h.extractTenantSchool(c)
 	if err != nil {
@@ -243,6 +287,19 @@ func (h *Handler) Update(c *fiber.Ctx) error {
 			"message": "invalid request body",
 		})
 	}
+
+	// Resolve current academic year server-side
+	academicYearID, err := h.academicYearsSvc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	if academicYearID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "NO_ACTIVE_ACADEMIC_YEAR",
+			"message": "No current academic year is set for this school.",
+		})
+	}
+	payload.AcademicYearID = academicYearID
 
 	// Validate propagate mode
 	if payload.Propagate != "" && payload.Propagate != "all_days" {
@@ -306,7 +363,9 @@ func (h *Handler) Delete(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(result)
 }
 
-// DeleteDay handles DELETE /api/v1/timetable/structure/day/:academic_year_id/:day.
+// DeleteDay handles DELETE /api/v1/timetable/structure/day.
+// academic_year_id is resolved server-side from the current active academic year.
+// Day is provided in the request body.
 func (h *Handler) DeleteDay(c *fiber.Ctx) error {
 	tenantID, schoolID, err := h.extractTenantSchool(c)
 	if err != nil {
@@ -314,8 +373,7 @@ func (h *Handler) DeleteDay(c *fiber.Ctx) error {
 	}
 
 	var payload struct {
-		AcademicYearID string `json:"academic_year_id"`
-		Day            int    `json:"day"`
+		Day int `json:"day"`
 	}
 	if err := c.BodyParser(&payload); err != nil {
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
@@ -323,12 +381,19 @@ func (h *Handler) DeleteDay(c *fiber.Ctx) error {
 			"message": "invalid request body",
 		})
 	}
-	if payload.AcademicYearID == "" {
+
+	// Resolve current academic year server-side
+	academicYearID, err := h.academicYearsSvc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	if academicYearID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "academic_year_id is required",
+			"code":    "NO_ACTIVE_ACADEMIC_YEAR",
+			"message": "No current academic year is set for this school.",
 		})
 	}
+
 	if payload.Day < 1 || payload.Day > 7 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"code":    "VALIDATION_ERROR",
@@ -336,7 +401,7 @@ func (h *Handler) DeleteDay(c *fiber.Ctx) error {
 		})
 	}
 
-	if err := h.svc.DeleteDayBlocks(c.Context(), tenantID, schoolID, payload.AcademicYearID, payload.Day); err != nil {
+	if err := h.svc.DeleteDayBlocks(c.Context(), tenantID, schoolID, academicYearID, payload.Day); err != nil {
 		return middleware.HTTPError(c, err)
 	}
 
@@ -346,8 +411,9 @@ func (h *Handler) DeleteDay(c *fiber.Ctx) error {
 	})
 }
 
-// DeleteByName handles DELETE /api/v1/timetable/structure/by-name/:academic_year_id/:period_name.
+// DeleteByName handles DELETE /api/v1/timetable/structure/by-name.
 // Deletes all blocks with the given period name across all days.
+// academic_year_id is resolved server-side from the current active academic year.
 func (h *Handler) DeleteByName(c *fiber.Ctx) error {
 	tenantID, schoolID, err := h.extractTenantSchool(c)
 	if err != nil {
@@ -361,12 +427,20 @@ func (h *Handler) DeleteByName(c *fiber.Ctx) error {
 			"message": "invalid request body",
 		})
 	}
-	if payload.AcademicYearID == "" {
+
+	// Resolve current academic year server-side
+	academicYearID, err := h.academicYearsSvc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	if academicYearID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "academic_year_id is required",
+			"code":    "NO_ACTIVE_ACADEMIC_YEAR",
+			"message": "No current academic year is set for this school.",
 		})
 	}
+	payload.AcademicYearID = academicYearID
+
 	if payload.PeriodName == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"code":    "VALIDATION_ERROR",
@@ -392,6 +466,7 @@ func (h *Handler) DeleteByName(c *fiber.Ctx) error {
 }
 
 // validateCreatePayload performs field-level validation for create/update payloads.
+// academic_year_id is resolved server-side and not validated here.
 func validateCreatePayload(payload CreateTimeBlockPayload) map[string][]string {
 	errors := make(map[string][]string)
 
@@ -411,9 +486,6 @@ func validateCreatePayload(payload CreateTimeBlockPayload) map[string][]string {
 		if _, exists := errors["end_time"]; !exists {
 			errors["end_time"] = []string{"End time must be after start time"}
 		}
-	}
-	if payload.AcademicYearID == "" {
-		errors["academic_year_id"] = []string{"Academic year is required"}
 	}
 
 	return errors

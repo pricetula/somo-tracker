@@ -6,6 +6,7 @@ import (
 
 	"go.uber.org/fx"
 
+	"somotracker/backend/internal/academicyears"
 	"somotracker/backend/internal/cbcclasses"
 )
 
@@ -68,4 +69,8 @@ var Module = fx.Module("assessments",
 	}),
 	// Register lifecycle hooks for the background worker
 	fx.Invoke(RegisterWorkerHooks),
+	// Wire academicyears service into the handler
+	fx.Invoke(func(h *Handler, aySvc *academicyears.Service) {
+		h.SetAcademicYearsService(aySvc)
+	}),
 )

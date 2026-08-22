@@ -1515,7 +1515,9 @@ func (r *pgRepository) ListClassTermPercentages(ctx context.Context, tenantID, s
 		    academic_years ay ON ctas.tenant_id = ay.tenant_id AND ctas.academic_year_id = ay.id
 		WHERE 
 		    ctas.tenant_id = $1 AND ctas.school_id = $2 AND ay.is_current = TRUE
-		GROUP BY 
+		GROUP BY
+		s.id,
+		s.full_name
 		    ROLLUP (c.name), 
 		    t.name, 
 		    t.term_number,
@@ -1565,8 +1567,8 @@ func (r *pgRepository) GetLowestAttendanceStudents(ctx context.Context, tenantID
 	query := `
 		SELECT 
 			s.id AS student_id,
-			s.first_name,
-			s.last_name,
+			SPLIT_PART(s.full_name, ' ', 1) AS first_name,
+			COALESCE(NULLIF(SPLIT_PART(s.full_name, ' ', 2), ''), '') AS last_name,
 			COUNT(ar.id) AS total_periods,
 			SUM(CASE WHEN ar.status = 'PRESENT' THEN 1 ELSE 0 END) AS present_count,
 			ROUND(
@@ -1584,8 +1586,7 @@ func (r *pgRepository) GetLowestAttendanceStudents(ctx context.Context, tenantID
 			AND ar.date < DATE_TRUNC('week', CURRENT_DATE) + INTERVAL '1 week'
 		GROUP BY 
 			s.id, 
-			s.first_name, 
-			s.last_name
+			s.full_name
 		ORDER BY 
 			present_count ASC, 
 			attendance_percentage ASC

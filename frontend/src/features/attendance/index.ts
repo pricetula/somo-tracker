@@ -23,3 +23,4 @@ export {
     useCurrentTermId as useLearningAreaCurrentTermId,
 } from "./hooks/use-learning-area-attendance-breakdowns";
 export { useDayOfWeekSummaries } from "./hooks/use-day-of-week-summaries";
+export { useLowestAttendanceStudents } from "./hooks/use-lowest-attendance-students";

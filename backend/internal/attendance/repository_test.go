@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
@@ -655,6 +656,233 @@ func TestPgRepository_ListLearningAreaBreakdowns(t *testing.T) {
 	t.Run("rls_enforced", func(t *testing.T) {
 		wrongTenantID := uuid.New().String()
 		items, err := repo.ListLearningAreaBreakdowns(ctx, wrongTenantID, ids.SchoolID, ids.AcademicTermID)
+		require.NoError(t, err)
+		require.Empty(t, items)
+	})
+}
+
+// insertAttendanceRecords helper to populate attendance_records for the current week.
+func insertAttendanceRecords(
+	t *testing.T,
+	pool *pgxpool.Pool,
+	ids testIDs,
+	studentID string,
+	slotID string,
+	status string,
+	count int,
+) {
+	t.Helper()
+	ctx := context.Background()
+
+	// Get the Monday of current week for the test date
+	var testDate time.Time
+	err := pool.QueryRow(ctx, `SELECT DATE_TRUNC('week', CURRENT_DATE)::date`).Scan(&testDate)
+	require.NoError(t, err)
+
+	// Use different days of the week to avoid ON CONFLICT DO UPDATE replacing records
+	// Each record gets a different date within the current week (Mon-Sun)
+	days := []int{0, 1, 2, 3, 4, 5, 6} // Mon-Sun
+	for i := 0; i < count; i++ {
+		dayOffset := days[i%len(days)]
+		recordDate := testDate.AddDate(0, 0, dayOffset)
+		recordDateStr := recordDate.Format("2006-01-02")
+
+		_, err := pool.Exec(ctx, `
+			INSERT INTO attendance_records (
+				id, tenant_id, school_id, student_id, timetable_slot_id,
+				date, status, academic_term_id, marked_by
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+			ON CONFLICT (student_id, timetable_slot_id, date) DO UPDATE SET
+				status = EXCLUDED.status
+			`, uuid.New().String(), ids.TenantID, ids.SchoolID, studentID, slotID,
+			recordDateStr, status, ids.AcademicTermID, ids.UserID)
+		require.NoError(t, err)
+	}
+}
+
+// insertAttendanceRecordsWithStatuses inserts attendance records with specific statuses
+// for a student, using different dates within the current week.
+func insertAttendanceRecordsWithStatuses(
+	t *testing.T,
+	pool *pgxpool.Pool,
+	ids testIDs,
+	studentID string,
+	slotID string,
+	statuses []string,
+) {
+	t.Helper()
+	ctx := context.Background()
+
+	var testDate time.Time
+	err := pool.QueryRow(ctx, `SELECT DATE_TRUNC('week', CURRENT_DATE)::date`).Scan(&testDate)
+	require.NoError(t, err)
+
+	days := []int{0, 1, 2, 3, 4, 5, 6}
+	for i, status := range statuses {
+		dayOffset := days[i%len(days)]
+		recordDate := testDate.AddDate(0, 0, dayOffset)
+		recordDateStr := recordDate.Format("2006-01-02")
+
+		_, err := pool.Exec(ctx, `
+			INSERT INTO attendance_records (
+				id, tenant_id, school_id, student_id, timetable_slot_id,
+				date, status, academic_term_id, marked_by
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+			ON CONFLICT (student_id, timetable_slot_id, date) DO UPDATE SET
+				status = EXCLUDED.status
+			`, uuid.New().String(), ids.TenantID, ids.SchoolID, studentID, slotID,
+			recordDateStr, status, ids.AcademicTermID, ids.UserID)
+		require.NoError(t, err)
+	}
+}
+
+func TestPgRepository_GetLowestAttendanceStudents(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+	ctx := context.Background()
+	pool, cleanup := startPG(t)
+	defer cleanup()
+
+	ids := setupTestTables(t, pool)
+	repo := newRepo(pool)
+
+	// Create a timetable structure and slot for the class
+	structID := uuid.New().String()
+	_, err := pool.Exec(ctx, `
+		INSERT INTO timetable_structures (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 1', '08:00', '09:00', false)
+		`, structID, ids.TenantID, ids.SchoolID, ids.AcademicYearID)
+	require.NoError(t, err)
+
+	slotID := uuid.New().String()
+	_, err = pool.Exec(ctx, `
+		INSERT INTO cbc_timetable_slots (id, tenant_id, school_id, academic_year_id, structure_id, class_id, learning_area_id, teacher_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		`, slotID, ids.TenantID, ids.SchoolID, ids.AcademicYearID, structID, ids.ClassID1, ids.LearningAreaID1, ids.UserID)
+	require.NoError(t, err)
+
+	t.Run("returns_empty_when_no_students", func(t *testing.T) {
+		// Create a new tenant/school with no students
+		tenantID := uuid.New().String()
+		schoolID := uuid.New().String()
+		_, err := pool.Exec(ctx, `INSERT INTO tenants (id, name, slug, stytch_org_id) VALUES ($1, $2, $3, $4)`,
+			tenantID, "Test2", "slug-"+tenantID[:8], "stytch-"+tenantID[:8])
+		require.NoError(t, err)
+		_, err = pool.Exec(ctx, `INSERT INTO cbc_schools (id, tenant_id, name, county, sub_county, school_type) VALUES ($1, $2, $3, 'Nairobi', 'Westlands', 'Public')`,
+			schoolID, tenantID, "Test School 2")
+		require.NoError(t, err)
+
+		items, err := repo.GetLowestAttendanceStudents(ctx, tenantID, schoolID, 5)
+		require.NoError(t, err)
+		require.Empty(t, items)
+	})
+
+	t.Run("returns_empty_when_no_attendance_records", func(t *testing.T) {
+		// Students exist but no attendance records for current week
+		items, err := repo.GetLowestAttendanceStudents(ctx, ids.TenantID, ids.SchoolID, 5)
+		require.NoError(t, err)
+		require.Empty(t, items)
+	})
+
+	t.Run("returns_students_with_lowest_attendance_first", func(t *testing.T) {
+		// Student1 (Alice): 3 PRESENT out of 7 = 42.86%
+		insertAttendanceRecordsWithStatuses(t, pool, ids, ids.StudentID1, slotID, []string{
+			"PRESENT", "PRESENT", "PRESENT",
+			"ABSENT", "ABSENT", "ABSENT", "ABSENT",
+		})
+
+		// Student2 (Bob): 5 PRESENT out of 7 = 71.43%
+		insertAttendanceRecordsWithStatuses(t, pool, ids, ids.StudentID2, slotID, []string{
+			"PRESENT", "PRESENT", "PRESENT", "PRESENT", "PRESENT",
+			"ABSENT", "ABSENT",
+		})
+
+		items, err := repo.GetLowestAttendanceStudents(ctx, ids.TenantID, ids.SchoolID, 5)
+		require.NoError(t, err)
+		require.Len(t, items, 2)
+
+		// Alice (42.86%) should be first (lowest attendance)
+		require.Equal(t, ids.StudentID1, items[0].StudentID)
+		require.Equal(t, "Alice", items[0].FirstName)
+		require.Equal(t, "Smith", items[0].LastName)
+		require.Equal(t, 7, items[0].TotalPeriods)
+		require.Equal(t, 3, items[0].PresentCount)
+		require.InDelta(t, 42.86, items[0].AttendancePercentage, 0.01)
+
+		// Bob (71.43%) should be second
+		require.Equal(t, ids.StudentID2, items[1].StudentID)
+		require.Equal(t, "Bob", items[1].FirstName)
+		require.Equal(t, "Johnson", items[1].LastName)
+		require.Equal(t, 7, items[1].TotalPeriods)
+		require.Equal(t, 5, items[1].PresentCount)
+		require.InDelta(t, 71.43, items[1].AttendancePercentage, 0.01)
+	})
+
+	t.Run("limits_results_to_specified_count", func(t *testing.T) {
+		// Create 3 more students with varying attendance
+		studentID3 := uuid.New().String()
+		_, err = pool.Exec(ctx, `INSERT INTO cbc_students (id, tenant_id, school_id, full_name, gender, learning_pathway) VALUES ($1, $2, $3, 'Charlie Brown', 'M', 'Age_Based')`,
+			studentID3, ids.TenantID, ids.SchoolID)
+		require.NoError(t, err)
+		_, err = pool.Exec(ctx, `INSERT INTO cbc_student_enrollments (id, tenant_id, school_id, student_id, academic_term_id, academic_year_id, class_id) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+			uuid.New().String(), ids.TenantID, ids.SchoolID, studentID3, ids.AcademicTermID, ids.AcademicYearID, ids.ClassID1)
+		require.NoError(t, err)
+
+		studentID4 := uuid.New().String()
+		_, err = pool.Exec(ctx, `INSERT INTO cbc_students (id, tenant_id, school_id, full_name, gender, learning_pathway) VALUES ($1, $2, $3, 'Diana Prince', 'F', 'Age_Based')`,
+			studentID4, ids.TenantID, ids.SchoolID)
+		require.NoError(t, err)
+		_, err = pool.Exec(ctx, `INSERT INTO cbc_student_enrollments (id, tenant_id, school_id, student_id, academic_term_id, academic_year_id, class_id) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+			uuid.New().String(), ids.TenantID, ids.SchoolID, studentID4, ids.AcademicTermID, ids.AcademicYearID, ids.ClassID1)
+		require.NoError(t, err)
+
+		studentID5 := uuid.New().String()
+		_, err = pool.Exec(ctx, `INSERT INTO cbc_students (id, tenant_id, school_id, full_name, gender, learning_pathway) VALUES ($1, $2, $3, 'Eve Adams', 'F', 'Age_Based')`,
+			studentID5, ids.TenantID, ids.SchoolID)
+		require.NoError(t, err)
+		_, err = pool.Exec(ctx, `INSERT INTO cbc_student_enrollments (id, tenant_id, school_id, student_id, academic_term_id, academic_year_id, class_id) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+			uuid.New().String(), ids.TenantID, ids.SchoolID, studentID5, ids.AcademicTermID, ids.AcademicYearID, ids.ClassID1)
+		require.NoError(t, err)
+
+		// Charlie: 1 PRESENT out of 7 = 14.29% (lowest)
+		insertAttendanceRecordsWithStatuses(t, pool, ids, studentID3, slotID, []string{
+			"PRESENT",
+			"ABSENT", "ABSENT", "ABSENT", "ABSENT", "ABSENT", "ABSENT",
+		})
+
+		// Diana: 2 PRESENT out of 7 = 28.57%
+		insertAttendanceRecordsWithStatuses(t, pool, ids, studentID4, slotID, []string{
+			"PRESENT", "PRESENT",
+			"ABSENT", "ABSENT", "ABSENT", "ABSENT", "ABSENT",
+		})
+
+		// Eve: 3 PRESENT out of 7 = 42.86%
+		insertAttendanceRecordsWithStatuses(t, pool, ids, studentID5, slotID, []string{
+			"PRESENT", "PRESENT", "PRESENT",
+			"ABSENT", "ABSENT", "ABSENT", "ABSENT",
+		})
+
+		// Alice and Bob already have records from previous subtest:
+		// Alice: 3 PRESENT out of 7 = 42.86%
+		// Bob: 5 PRESENT out of 7 = 71.43%
+
+		// Limit to 3
+		items, err := repo.GetLowestAttendanceStudents(ctx, ids.TenantID, ids.SchoolID, 3)
+		require.NoError(t, err)
+		require.Len(t, items, 3)
+
+		// Should return the 3 lowest: Charlie (14.29%), Diana (28.57%), Alice/Eve (42.86%)
+		require.Equal(t, studentID3, items[0].StudentID)
+		require.InDelta(t, 14.29, items[0].AttendancePercentage, 0.01)
+		require.Equal(t, studentID4, items[1].StudentID)
+		require.InDelta(t, 28.57, items[1].AttendancePercentage, 0.01)
+		// Third could be Alice or Eve (both 42.86%), accept either
+		thirdPercentage := items[2].AttendancePercentage
+		require.True(t, thirdPercentage >= 42.85 && thirdPercentage <= 42.87, "Expected ~42.86, got %f", thirdPercentage)
+	})
+
+	t.Run("rls_enforced", func(t *testing.T) {
+		wrongTenantID := uuid.New().String()
+		items, err := repo.GetLowestAttendanceStudents(ctx, wrongTenantID, ids.SchoolID, 5)
 		require.NoError(t, err)
 		require.Empty(t, items)
 	})

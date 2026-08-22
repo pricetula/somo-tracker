@@ -55,6 +55,6 @@ export function useCalendarStatus(startDate: string, endDate: string, schoolId?:
         queryFn: () => getCalendarStatus(startDate, endDate),
         enabled: !!startDate && !!endDate && !!schoolId,
         // Keep previous data while fetching new range to avoid flash
-        placeholderData: (previousData: unknown) => previousData,
+        placeholderData: (previousData) => previousData,
     });
 }

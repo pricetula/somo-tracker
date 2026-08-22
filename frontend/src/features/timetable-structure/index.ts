@@ -5,10 +5,6 @@
  */
 
 export { StructurePage } from "./components/structure-page";
-export { BlueprintDialog } from "./components/blueprint-dialog";
-export { TemplateMenu } from "./components/template-menu";
-export { TimetableSlotGrid } from "./components/timetable-slot-grid";
-export { AddSlotDialog } from "./components/add-slot-dialog";
 
 export {
     useTimeBlockList,

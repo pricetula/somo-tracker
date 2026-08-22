@@ -2,6 +2,7 @@ package academicyears
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -470,4 +471,18 @@ func (s *Service) GetCurrentAcademicYearID(ctx context.Context, tenantID, school
 // GetCurrentAcademicTermID returns the ID of the current active term for the given academic year.
 func (s *Service) GetCurrentAcademicTermID(ctx context.Context, academicYearID string) (string, error) {
 	return s.Repo.GetCurrentAcademicTermID(ctx, academicYearID)
+}
+
+// GetCurrentYearAndTermID returns both the current academic year ID and current
+// academic term ID for the school in a single query.
+// Returns empty strings if no current year/term is set.
+func (s *Service) GetCurrentYearAndTermID(ctx context.Context, tenantID, schoolID string) (yearID, termID string, err error) {
+	current, err := s.Repo.GetCurrent(ctx, tenantID, schoolID)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return "", "", nil
+		}
+		return "", "", fmt.Errorf("academicyears.Service.GetCurrentYearAndTermID: %w", err)
+	}
+	return current.AcademicYearID, current.AcademicTermID, nil
 }

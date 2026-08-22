@@ -2,22 +2,20 @@ package teacherworkloadsummaries
 
 import (
 	"context"
-
 	"github.com/gofiber/fiber/v2"
 
 	"somotracker/backend/internal/middleware"
 )
 
-// academicYearsAdapter is the subset of academicyears.Service that the handler uses.
-type academicYearsAdapter interface {
-	GetCurrentAcademicYearID(ctx context.Context, tenantID, schoolID string) (string, error)
-	GetCurrentAcademicTermID(ctx context.Context, academicYearID string) (string, error)
+// AcademicYearTermResolver defines the interface for resolving current academic year and term.
+type AcademicYearTermResolver interface {
+	GetCurrentYearAndTermID(ctx context.Context, tenantID, schoolID string) (yearID, termID string, err error)
 }
 
 // Handler exposes teacher workload summary HTTP endpoints.
 type Handler struct {
 	svc              *Service
-	academicYearsSvc academicYearsAdapter
+	academicYearsSvc AcademicYearTermResolver
 }
 
 // NewHandler creates a new teacher workload summaries Handler.
@@ -26,7 +24,7 @@ func NewHandler(svc *Service) *Handler {
 }
 
 // SetAcademicYearsService sets the academicyears service reference.
-func (h *Handler) SetAcademicYearsService(aySvc academicYearsAdapter) {
+func (h *Handler) SetAcademicYearsService(aySvc AcademicYearTermResolver) {
 	h.academicYearsSvc = aySvc
 }
 
@@ -36,7 +34,8 @@ func (h *Handler) resolveCurrentYear(c *fiber.Ctx, tenantID, schoolID string) (s
 	if h.academicYearsSvc == nil {
 		return "", nil
 	}
-	return h.academicYearsSvc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
+	yearID, _, err := h.academicYearsSvc.GetCurrentYearAndTermID(c.Context(), tenantID, schoolID)
+	return yearID, err
 }
 
 // RegisterRoutes mounts teacher workload summary routes on the given router.

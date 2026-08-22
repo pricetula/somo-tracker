@@ -9,6 +9,11 @@ import (
 	"somotracker/backend/internal/middleware"
 )
 
+// AcademicYearTermResolver defines the interface for resolving current academic year and term.
+type AcademicYearTermResolver interface {
+	GetCurrentYearAndTermID(ctx context.Context, tenantID, schoolID string) (yearID, termID string, err error)
+}
+
 // getQuerySlice returns all values for a given query parameter key.
 // Handles repeated keys like ?grade_level=G7&grade_level=G8.
 func getQuerySlice(c *fiber.Ctx, key string) []string {
@@ -19,16 +24,10 @@ func getQuerySlice(c *fiber.Ctx, key string) []string {
 	return values
 }
 
-// academicYearsAdapter is the subset of academicyears.Service that the handler uses.
-type academicYearsAdapter interface {
-	GetCurrentAcademicYearID(ctx context.Context, tenantID, schoolID string) (string, error)
-	GetCurrentAcademicTermID(ctx context.Context, academicYearID string) (string, error)
-}
-
 // Handler exposes class HTTP endpoints.
 type Handler struct {
 	svc              *Service
-	academicYearsSvc academicYearsAdapter
+	academicYearsSvc AcademicYearTermResolver
 }
 
 // NewHandler creates a new Handler.
@@ -37,7 +36,7 @@ func NewHandler(svc *Service) *Handler {
 }
 
 // SetAcademicYearsService sets the academicyears service reference.
-func (h *Handler) SetAcademicYearsService(aySvc academicYearsAdapter) {
+func (h *Handler) SetAcademicYearsService(aySvc AcademicYearTermResolver) {
 	h.academicYearsSvc = aySvc
 }
 
@@ -71,26 +70,36 @@ func (h *Handler) List(c *fiber.Ctx) error {
 	}
 
 	academicYearID := c.Query("academic_year_id")
-	if academicYearID == "" {
+	academicTermID := c.Query("academic_term_id")
+
+	// If neither provided, resolve current academic year and term
+	if academicYearID == "" && academicTermID == "" {
 		var err error
-		academicYearID, err = h.academicYearsSvc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
+		academicYearID, academicTermID, err = h.academicYearsSvc.GetCurrentYearAndTermID(c.Context(), tenantID, schoolID)
 		if err != nil {
 			return middleware.HTTPError(c, err)
 		}
-		// No current academic year configured — nothing to list
+		// No current academic year/term configured — nothing to list
+		if academicYearID == "" || academicTermID == "" {
+			return c.JSON(ClassListResult{Items: []Class{}, Total: 0, Page: 1, Limit: 50})
+		}
+	} else if academicYearID == "" && academicTermID != "" {
+		// If term is provided but year is not, resolve current academic year
+		var err error
+		academicYearID, _, err = h.academicYearsSvc.GetCurrentYearAndTermID(c.Context(), tenantID, schoolID)
+		if err != nil {
+			return middleware.HTTPError(c, err)
+		}
 		if academicYearID == "" {
 			return c.JSON(ClassListResult{Items: []Class{}, Total: 0, Page: 1, Limit: 50})
 		}
-	}
-
-	academicTermID := c.Query("academic_term_id")
-	if academicTermID == "" {
+	} else if academicYearID != "" && academicTermID == "" {
+		// If year is provided but term is not, resolve current term for that year
 		var err error
-		academicTermID, err = h.academicYearsSvc.GetCurrentAcademicTermID(c.Context(), academicYearID)
+		_, academicTermID, err = h.academicYearsSvc.GetCurrentYearAndTermID(c.Context(), tenantID, schoolID)
 		if err != nil {
 			return middleware.HTTPError(c, err)
 		}
-		// No current academic term configured — nothing to list
 		if academicTermID == "" {
 			return c.JSON(ClassListResult{Items: []Class{}, Total: 0, Page: 1, Limit: 50})
 		}
@@ -162,13 +171,11 @@ func (h *Handler) Get(c *fiber.Ctx) error {
 	// Get student count from roster — scope to the provided term or current
 	academicTermID := c.Query("academic_term_id")
 	if academicTermID == "" {
-		academicYearID, yearErr := h.academicYearsSvc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
-		if yearErr == nil && academicYearID != "" {
-			if tID, tErr := h.academicYearsSvc.GetCurrentAcademicTermID(c.Context(), academicYearID); tErr == nil && tID != "" {
-				rosterResult, rosterErr := h.svc.GetRoster(c.Context(), classID, tenantID, schoolID, tID, 1, 1, "")
-				if rosterErr == nil {
-					class.StudentCount = rosterResult.Total
-				}
+		_, academicTermID, err := h.academicYearsSvc.GetCurrentYearAndTermID(c.Context(), tenantID, schoolID)
+		if err == nil && academicTermID != "" {
+			rosterResult, rosterErr := h.svc.GetRoster(c.Context(), classID, tenantID, schoolID, academicTermID, 1, 1, "")
+			if rosterErr == nil {
+				class.StudentCount = rosterResult.Total
 			}
 		}
 	} else {
@@ -217,7 +224,7 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 	}
 
 	// Resolve current academic year and term
-	yearID, err := h.academicYearsSvc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
+	yearID, termID, err := h.academicYearsSvc.GetCurrentYearAndTermID(c.Context(), tenantID, schoolID)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
@@ -226,11 +233,6 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 			"code":    "NO_ACTIVE_ACADEMIC_YEAR",
 			"message": "No current academic year is set for this school.",
 		})
-	}
-
-	termID, err := h.academicYearsSvc.GetCurrentAcademicTermID(c.Context(), yearID)
-	if err != nil {
-		return middleware.HTTPError(c, err)
 	}
 	if termID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -306,7 +308,7 @@ func (h *Handler) Update(c *fiber.Ctx) error {
 	}
 
 	// Resolve current academic term server-side
-	academicYearID, err := h.academicYearsSvc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
+	academicYearID, academicTermID, err := h.academicYearsSvc.GetCurrentYearAndTermID(c.Context(), tenantID, schoolID)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
@@ -315,11 +317,6 @@ func (h *Handler) Update(c *fiber.Ctx) error {
 			"code":    "NO_ACTIVE_ACADEMIC_YEAR",
 			"message": "No current academic year is set for this school.",
 		})
-	}
-
-	academicTermID, err := h.academicYearsSvc.GetCurrentAcademicTermID(c.Context(), academicYearID)
-	if err != nil {
-		return middleware.HTTPError(c, err)
 	}
 	if academicTermID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -413,19 +410,16 @@ func (h *Handler) GetRoster(c *fiber.Ctx) error {
 	// If neither provided, fall back to the current academic year/term
 	if academicYearID == "" && academicTermID == "" {
 		var err error
-		academicYearID, err = h.academicYearsSvc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
+		academicYearID, academicTermID, err = h.academicYearsSvc.GetCurrentYearAndTermID(c.Context(), tenantID, schoolID)
 		if err != nil {
 			return middleware.HTTPError(c, err)
 		}
-		if academicYearID == "" {
+		if academicYearID == "" || academicTermID == "" {
 			return c.JSON(RosterListResult{Items: []RosterEntry{}, Total: 0, Page: 1, Limit: 50})
 		}
-	}
-
-	// If year is provided but term is not, resolve current term for that year
-	if academicTermID == "" && academicYearID != "" {
+	} else if academicTermID == "" && academicYearID != "" {
 		var err error
-		academicTermID, err = h.academicYearsSvc.GetCurrentAcademicTermID(c.Context(), academicYearID)
+		_, academicTermID, err = h.academicYearsSvc.GetCurrentYearAndTermID(c.Context(), tenantID, schoolID)
 		if err != nil {
 			return middleware.HTTPError(c, err)
 		}
@@ -490,18 +484,7 @@ func (h *Handler) BatchEnroll(c *fiber.Ctx) error {
 	// Use the provided academic term or resolve the current one
 	academicTermID := payload.AcademicTermID
 	if academicTermID == "" {
-		academicYearID, err := h.academicYearsSvc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
-		if err != nil {
-			return middleware.HTTPError(c, err)
-		}
-		if academicYearID == "" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"code":    "NO_ACTIVE_ACADEMIC_YEAR",
-				"message": "No current academic year is set for this school.",
-			})
-		}
-
-		academicTermID, err = h.academicYearsSvc.GetCurrentAcademicTermID(c.Context(), academicYearID)
+		_, academicTermID, err := h.academicYearsSvc.GetCurrentYearAndTermID(c.Context(), tenantID, schoolID)
 		if err != nil {
 			return middleware.HTTPError(c, err)
 		}
@@ -554,18 +537,7 @@ func (h *Handler) UnenrollStudent(c *fiber.Ctx) error {
 	// Use the provided academic term from query or resolve the current one
 	academicTermID := c.Query("academic_term_id")
 	if academicTermID == "" {
-		academicYearID, err := h.academicYearsSvc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
-		if err != nil {
-			return middleware.HTTPError(c, err)
-		}
-		if academicYearID == "" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"code":    "NO_ACTIVE_ACADEMIC_YEAR",
-				"message": "No current academic year is set for this school.",
-			})
-		}
-
-		academicTermID, err = h.academicYearsSvc.GetCurrentAcademicTermID(c.Context(), academicYearID)
+		_, academicTermID, err := h.academicYearsSvc.GetCurrentYearAndTermID(c.Context(), tenantID, schoolID)
 		if err != nil {
 			return middleware.HTTPError(c, err)
 		}
@@ -614,18 +586,16 @@ func (h *Handler) GetAvailableStudents(c *fiber.Ctx) error {
 
 	if academicYearID == "" && academicTermID == "" {
 		var err error
-		academicYearID, err = h.academicYearsSvc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
+		academicYearID, academicTermID, err = h.academicYearsSvc.GetCurrentYearAndTermID(c.Context(), tenantID, schoolID)
 		if err != nil {
 			return middleware.HTTPError(c, err)
 		}
-		if academicYearID == "" {
+		if academicYearID == "" || academicTermID == "" {
 			return c.JSON(AvailableStudentsResponse{Items: []AvailableStudent{}, Total: 0, Page: 1, Limit: 50})
 		}
-	}
-
-	if academicTermID == "" && academicYearID != "" {
+	} else if academicTermID == "" && academicYearID != "" {
 		var err error
-		academicTermID, err = h.academicYearsSvc.GetCurrentAcademicTermID(c.Context(), academicYearID)
+		_, academicTermID, err = h.academicYearsSvc.GetCurrentYearAndTermID(c.Context(), tenantID, schoolID)
 		if err != nil {
 			return middleware.HTTPError(c, err)
 		}

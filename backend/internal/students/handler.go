@@ -15,15 +15,14 @@ import (
 	"somotracker/backend/internal/middleware"
 )
 
+// AcademicYearTermResolver defines the interface for resolving current academic year and term.
+type AcademicYearTermResolver interface {
+	GetCurrentYearAndTermID(ctx context.Context, tenantID, schoolID string) (yearID, termID string, err error)
+}
+
 // importServiceAdapter is the subset of imports.Service that the handler uses.
 type importServiceAdapter interface {
 	CreateJob(ctx context.Context, req imports.CreateJobRequest) (*imports.CreateJobResponse, error)
-}
-
-// academicYearsAdapter is the subset of academicyears.Service that the handler uses.
-type academicYearsAdapter interface {
-	GetCurrentAcademicYearID(ctx context.Context, tenantID, schoolID string) (string, error)
-	GetCurrentAcademicTermID(ctx context.Context, academicYearID string) (string, error)
 }
 
 // BehaviorNotesProvider is a function-based adapter that the students handler
@@ -40,7 +39,7 @@ type AttendanceSummaryProvider func(ctx context.Context, tenantID, schoolID, stu
 type Handler struct {
 	svc              *Service
 	impSvc           importServiceAdapter
-	academicYearsSvc academicYearsAdapter
+	academicYearsSvc AcademicYearTermResolver
 	behaviorNotesFn  BehaviorNotesProvider
 	attendanceFn     AttendanceSummaryProvider
 }
@@ -56,7 +55,7 @@ func (h *Handler) SetImportService(impSvc importServiceAdapter) {
 }
 
 // SetAcademicYearsService sets the academicyears service reference.
-func (h *Handler) SetAcademicYearsService(aySvc academicYearsAdapter) {
+func (h *Handler) SetAcademicYearsService(aySvc AcademicYearTermResolver) {
 	h.academicYearsSvc = aySvc
 }
 
@@ -176,18 +175,13 @@ func (h *Handler) BulkImport(c *fiber.Ctx) error {
 	}
 
 	// Resolve current active academic year and term server-side
-	academicYearID, err := h.academicYearsSvc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
+	academicYearID, academicTermID, err := h.academicYearsSvc.GetCurrentYearAndTermID(c.Context(), tenantID, schoolID)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
 	if academicYearID == "" {
 		return writeError(c, fiber.StatusBadRequest, "no_active_academic_year",
 			"No current academic year is set for this school. Please set one before importing.", nil)
-	}
-
-	academicTermID, err := h.academicYearsSvc.GetCurrentAcademicTermID(c.Context(), academicYearID)
-	if err != nil {
-		return middleware.HTTPError(c, err)
 	}
 	if academicTermID == "" {
 		return writeError(c, fiber.StatusBadRequest, "no_active_academic_term",
@@ -506,18 +500,13 @@ func (h *Handler) CreateEnrollment(c *fiber.Ctx) error {
 	}
 
 	// Resolve current academic term server-side
-	academicYearID, err := h.academicYearsSvc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
+	academicYearID, academicTermID, err := h.academicYearsSvc.GetCurrentYearAndTermID(c.Context(), tenantID, schoolID)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
 	if academicYearID == "" {
 		return writeError(c, fiber.StatusBadRequest, "NO_ACTIVE_ACADEMIC_YEAR",
 			"No current academic year is set for this school.", nil)
-	}
-
-	academicTermID, err := h.academicYearsSvc.GetCurrentAcademicTermID(c.Context(), academicYearID)
-	if err != nil {
-		return middleware.HTTPError(c, err)
 	}
 	if academicTermID == "" {
 		return writeError(c, fiber.StatusBadRequest, "NO_ACTIVE_ACADEMIC_TERM",
@@ -582,18 +571,13 @@ func (h *Handler) CreateBatchEnrollments(c *fiber.Ctx) error {
 	}
 
 	// Resolve current academic year and term server-side
-	academicYearID, err := h.academicYearsSvc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
+	academicYearID, academicTermID, err := h.academicYearsSvc.GetCurrentYearAndTermID(c.Context(), tenantID, schoolID)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
 	if academicYearID == "" {
 		return writeError(c, fiber.StatusBadRequest, "no_active_academic_year",
 			"No current academic year is set for this school. Please set one before enrolling.", nil)
-	}
-
-	academicTermID, err := h.academicYearsSvc.GetCurrentAcademicTermID(c.Context(), academicYearID)
-	if err != nil {
-		return middleware.HTTPError(c, err)
 	}
 	if academicTermID == "" {
 		return writeError(c, fiber.StatusBadRequest, "no_active_academic_term",

@@ -17,24 +17,16 @@ import (
 // Test Harness
 // ============================================================================
 
-// mockAcademicYearsAdapter implements academicYearsAdapter for testing.
+// mockAcademicYearsAdapter implements AcademicYearTermResolver for testing.
 type mockAcademicYearsAdapter struct {
-	getCurrentAcademicYearIDFn func(ctx context.Context, tenantID, schoolID string) (string, error)
-	getCurrentAcademicTermIDFn func(ctx context.Context, academicYearID string) (string, error)
+	getCurrentYearAndTermIDFn func(ctx context.Context, tenantID, schoolID string) (string, string, error)
 }
 
-func (m *mockAcademicYearsAdapter) GetCurrentAcademicYearID(ctx context.Context, tenantID, schoolID string) (string, error) {
-	if m.getCurrentAcademicYearIDFn != nil {
-		return m.getCurrentAcademicYearIDFn(ctx, tenantID, schoolID)
+func (m *mockAcademicYearsAdapter) GetCurrentYearAndTermID(ctx context.Context, tenantID, schoolID string) (string, string, error) {
+	if m.getCurrentYearAndTermIDFn != nil {
+		return m.getCurrentYearAndTermIDFn(ctx, tenantID, schoolID)
 	}
-	return "year_001", nil
-}
-
-func (m *mockAcademicYearsAdapter) GetCurrentAcademicTermID(ctx context.Context, academicYearID string) (string, error) {
-	if m.getCurrentAcademicTermIDFn != nil {
-		return m.getCurrentAcademicTermIDFn(ctx, academicYearID)
-	}
-	return "term_001", nil
+	return "year_001", "term_001", nil
 }
 
 type handlerTestHarness struct {
@@ -352,8 +344,8 @@ func TestHandler_ListClasses_MissingAcademicYearID(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
 	// Simulate no current academic year configured
-	h.academicYearsMock.getCurrentAcademicYearIDFn = func(ctx context.Context, tenantID, schoolID string) (string, error) {
-		return "", nil
+	h.academicYearsMock.getCurrentYearAndTermIDFn = func(ctx context.Context, tenantID, schoolID string) (string, string, error) {
+		return "", "", nil
 	}
 
 	resp := doRequest(h.app, "GET", "/api/v1/classes?academic_term_id=term_001", nil)
@@ -378,8 +370,8 @@ func TestHandler_ListClasses_MissingAcademicTermID(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
 	// Simulate no current academic term configured
-	h.academicYearsMock.getCurrentAcademicTermIDFn = func(ctx context.Context, academicYearID string) (string, error) {
-		return "", nil
+	h.academicYearsMock.getCurrentYearAndTermIDFn = func(ctx context.Context, tenantID, schoolID string) (string, string, error) {
+		return "year_001", "", nil
 	}
 
 	resp := doRequest(h.app, "GET", "/api/v1/classes?academic_year_id=year_001", nil)

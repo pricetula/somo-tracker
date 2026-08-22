@@ -10,16 +10,15 @@ import (
 	"somotracker/backend/internal/middleware"
 )
 
-// academicYearsAdapter is the subset of academicyears.Service that the handler uses.
-type academicYearsAdapter interface {
-	GetCurrentAcademicYearID(ctx context.Context, tenantID, schoolID string) (string, error)
-	GetCurrentAcademicTermID(ctx context.Context, academicYearID string) (string, error)
+// AcademicYearTermResolver defines the interface for resolving current academic year and term.
+type AcademicYearTermResolver interface {
+	GetCurrentYearAndTermID(ctx context.Context, tenantID, schoolID string) (yearID, termID string, err error)
 }
 
 // Handler exposes time block HTTP endpoints.
 type Handler struct {
 	svc              *Service
-	academicYearsSvc academicYearsAdapter
+	academicYearsSvc AcademicYearTermResolver
 }
 
 // NewHandler creates a new Handler.
@@ -28,7 +27,7 @@ func NewHandler(svc *Service) *Handler {
 }
 
 // SetAcademicYearsService sets the academicyears service reference.
-func (h *Handler) SetAcademicYearsService(aySvc academicYearsAdapter) {
+func (h *Handler) SetAcademicYearsService(aySvc AcademicYearTermResolver) {
 	h.academicYearsSvc = aySvc
 }
 
@@ -130,7 +129,7 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 	}
 
 	// Resolve current academic year server-side
-	academicYearID, err := h.academicYearsSvc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
+	academicYearID, _, err := h.academicYearsSvc.GetCurrentYearAndTermID(c.Context(), tenantID, schoolID)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
@@ -189,7 +188,7 @@ func (h *Handler) BatchCreate(c *fiber.Ctx) error {
 	}
 
 	// Resolve current academic year server-side
-	academicYearID, err := h.academicYearsSvc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
+	academicYearID, _, err := h.academicYearsSvc.GetCurrentYearAndTermID(c.Context(), tenantID, schoolID)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
@@ -289,7 +288,7 @@ func (h *Handler) Update(c *fiber.Ctx) error {
 	}
 
 	// Resolve current academic year server-side
-	academicYearID, err := h.academicYearsSvc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
+	academicYearID, _, err := h.academicYearsSvc.GetCurrentYearAndTermID(c.Context(), tenantID, schoolID)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
@@ -383,7 +382,7 @@ func (h *Handler) DeleteDay(c *fiber.Ctx) error {
 	}
 
 	// Resolve current academic year server-side
-	academicYearID, err := h.academicYearsSvc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
+	academicYearID, _, err := h.academicYearsSvc.GetCurrentYearAndTermID(c.Context(), tenantID, schoolID)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
@@ -429,7 +428,7 @@ func (h *Handler) DeleteByName(c *fiber.Ctx) error {
 	}
 
 	// Resolve current academic year server-side
-	academicYearID, err := h.academicYearsSvc.GetCurrentAcademicYearID(c.Context(), tenantID, schoolID)
+	academicYearID, _, err := h.academicYearsSvc.GetCurrentYearAndTermID(c.Context(), tenantID, schoolID)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}

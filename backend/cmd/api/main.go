@@ -18,7 +18,7 @@ import (
 	"somotracker/backend/internal/cbcclasses"
 	"somotracker/backend/internal/cbcschools"
 	"somotracker/backend/internal/cbcstreams"
-	"somotracker/backend/internal/cbctimetableslots"
+
 	"somotracker/backend/internal/classteachers"
 	"somotracker/backend/internal/cohortpositions"
 	"somotracker/backend/internal/config"
@@ -37,7 +37,7 @@ import (
 	"somotracker/backend/internal/teacherperformance"
 	"somotracker/backend/internal/teachers"
 	"somotracker/backend/internal/teacherworkloadsummaries"
-	"somotracker/backend/internal/timetablestructure"
+	"somotracker/backend/internal/timetable"
 	"somotracker/backend/internal/utils"
 )
 
@@ -59,7 +59,7 @@ func main() {
 		cbcclasses.Module,
 		cbcschools.Module,
 		cbcstreams.Module,
-		cbctimetableslots.Module,
+		timetable.Module,
 		classteachers.Module,
 		cohortpositions.Module,
 		curriculum.Module,
@@ -74,7 +74,6 @@ func main() {
 		teacherperformance.Module,
 		teachers.Module,
 		teacherworkloadsummaries.Module,
-		timetablestructure.Module,
 
 		// Background workers whose lifecycle hooks are not registered inside
 		// their own modules — wired here so fx starts/stops them with the app.
@@ -98,7 +97,7 @@ func main() {
 			cbcclasseshandler *cbcclasses.Handler,
 			cbcschoolshandler *cbcschools.Handler,
 			cbcstreamshandler *cbcstreams.Handler,
-			cbctimetableslotshandler *cbctimetableslots.Handler,
+			timetablehandler *timetable.Handler,
 			classteachershandler *classteachers.Handler,
 			cohortpositionshandler *cohortpositions.Handler,
 			curriculumhandler *curriculum.Handler,
@@ -113,7 +112,6 @@ func main() {
 			teacherperformancehandler *teacherperformance.Handler,
 			teachershandler *teachers.Handler,
 			teacherworkloadsummarieshandler *teacherworkloadsummaries.Handler,
-			timetablestructurehandler *timetablestructure.Handler,
 		) {
 			// Build Fiber app with the canonical error handler: domain errors are
 			// mapped to the standard {code, message, errors} body via
@@ -171,7 +169,7 @@ func main() {
 			cbcclasseshandler.RegisterRoutes(app)
 			cbcschoolshandler.RegisterRoutes(app)
 			cbcstreamshandler.RegisterRoutes(app)
-			cbctimetableslotshandler.RegisterRoutes(app)
+			timetablehandler.RegisterRoutes(app)
 			classteachershandler.RegisterRoutes(app)
 			cohortpositionshandler.RegisterRoutes(app)
 			curriculumhandler.RegisterRoutes(app)
@@ -186,7 +184,6 @@ func main() {
 			teacherperformancehandler.RegisterRoutes(app)
 			teachershandler.RegisterRoutes(app)
 			teacherworkloadsummarieshandler.RegisterRoutes(app)
-			timetablestructurehandler.RegisterRoutes(app)
 
 			// Lifecycle hooks for non-blocking Fiber server
 			lc.Append(fx.Hook{

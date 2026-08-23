@@ -2,10 +2,11 @@ package timetable
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 
@@ -37,7 +38,7 @@ func (r *PgRepository) ListBlocks(ctx context.Context, tenantID, schoolID, acade
 	}
 	defer rows.Close()
 
-	var blocks []TimeBlock
+	blocks := []TimeBlock{}
 	for rows.Next() {
 		var b TimeBlock
 		if err := rows.Scan(
@@ -53,9 +54,6 @@ func (r *PgRepository) ListBlocks(ctx context.Context, tenantID, schoolID, acade
 		return nil, fmt.Errorf("timetable.Repository.ListBlocks: rows: %w", err)
 	}
 
-	if blocks == nil {
-		blocks = []TimeBlock{}
-	}
 	return blocks, nil
 }
 
@@ -75,7 +73,7 @@ func (r *PgRepository) GetBlock(ctx context.Context, id, tenantID, schoolID stri
 		&b.CreatedAt, &b.UpdatedAt,
 	)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, fmt.Errorf("timetable.Repository.GetBlock: %w", ErrNotFound)
 		}
 		return nil, fmt.Errorf("timetable.Repository.GetBlock: %w", err)
@@ -129,7 +127,7 @@ func (r *PgRepository) UpdateBlock(ctx context.Context, id, tenantID, schoolID s
 		&b.CreatedAt, &b.UpdatedAt,
 	)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, fmt.Errorf("timetable.Repository.UpdateBlock: %w", ErrNotFound)
 		}
 		if isUniqueViolation(err) {
@@ -156,53 +154,51 @@ func (r *PgRepository) DeleteBlock(ctx context.Context, id, tenantID, schoolID s
 }
 
 func (r *PgRepository) ListSlots(ctx context.Context, f SlotFilter) ([]Slot, error) {
-	var sb strings.Builder
-	sb.WriteString(`
+	query := `
 		SELECT id, tenant_id, school_id, academic_year_id, structure_id,
 		       class_id, learning_area_id, teacher_id, room_identifier,
 		       created_at, updated_at
 		FROM cbc_timetable_slots
 		WHERE tenant_id = $1 AND school_id = $2
-	`)
-
+	`
 	args := []any{f.TenantID, f.SchoolID}
 	argIdx := 3
 
 	if f.AcademicYearID != "" {
-		sb.WriteString(fmt.Sprintf(" AND academic_year_id = $%d", argIdx))
+		query += fmt.Sprintf(" AND academic_year_id = $%d", argIdx)
 		args = append(args, f.AcademicYearID)
 		argIdx++
 	}
 	if f.StructureID != "" {
-		sb.WriteString(fmt.Sprintf(" AND structure_id = $%d", argIdx))
+		query += fmt.Sprintf(" AND structure_id = $%d", argIdx)
 		args = append(args, f.StructureID)
 		argIdx++
 	}
 	if f.ClassID != "" {
-		sb.WriteString(fmt.Sprintf(" AND class_id = $%d", argIdx))
+		query += fmt.Sprintf(" AND class_id = $%d", argIdx)
 		args = append(args, f.ClassID)
 		argIdx++
 	}
 	if f.TeacherID != "" {
-		sb.WriteString(fmt.Sprintf(" AND teacher_id = $%d", argIdx))
+		query += fmt.Sprintf(" AND teacher_id = $%d", argIdx)
 		args = append(args, f.TeacherID)
 		argIdx++
 	}
 	if f.LearningAreaID != "" {
-		sb.WriteString(fmt.Sprintf(" AND learning_area_id = $%d", argIdx))
+		query += fmt.Sprintf(" AND learning_area_id = $%d", argIdx)
 		args = append(args, f.LearningAreaID)
 		argIdx++
 	}
 
-	sb.WriteString(" ORDER BY created_at DESC")
+	query += " ORDER BY created_at DESC"
 
-	rows, err := database.FromContext(ctx, r.pool).Query(ctx, sb.String(), args...)
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("timetable.Repository.ListSlots: %w", err)
 	}
 	defer rows.Close()
 
-	var slots []Slot
+	slots := []Slot{}
 	for rows.Next() {
 		var s Slot
 		if err := rows.Scan(
@@ -218,29 +214,26 @@ func (r *PgRepository) ListSlots(ctx context.Context, f SlotFilter) ([]Slot, err
 		return nil, fmt.Errorf("timetable.Repository.ListSlots: rows: %w", err)
 	}
 
-	if slots == nil {
-		slots = []Slot{}
-	}
 	return slots, nil
 }
 
-func (r *PgRepository) GetSlot(ctx context.Context, id string) (*Slot, error) {
+func (r *PgRepository) GetSlot(ctx context.Context, id, tenantID, schoolID string) (*Slot, error) {
 	const query = `
 		SELECT id, tenant_id, school_id, academic_year_id, structure_id,
 		       class_id, learning_area_id, teacher_id, room_identifier,
 		       created_at, updated_at
 		FROM cbc_timetable_slots
-		WHERE id = $1
+		WHERE id = $1 AND tenant_id = $2 AND school_id = $3
 	`
 
 	var s Slot
-	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, id).Scan(
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, id, tenantID, schoolID).Scan(
 		&s.ID, &s.TenantID, &s.SchoolID, &s.AcademicYearID,
 		&s.StructureID, &s.ClassID, &s.LearningAreaID, &s.TeacherID,
 		&s.RoomIdentifier, &s.CreatedAt, &s.UpdatedAt,
 	)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, fmt.Errorf("timetable.Repository.GetSlot: %w", ErrNotFound)
 		}
 		return nil, fmt.Errorf("timetable.Repository.GetSlot: %w", err)
@@ -269,11 +262,26 @@ func (r *PgRepository) CreateSlot(ctx context.Context, tenantID, schoolID, acade
 	)
 	if err != nil {
 		if isUniqueViolation(err) {
-			return nil, fmt.Errorf("timetable.Repository.CreateSlot: %w", ErrConflict)
+			return nil, fmt.Errorf("timetable.Repository.CreateSlot: %w", classifySlotConflict(err))
 		}
 		return nil, fmt.Errorf("timetable.Repository.CreateSlot: %w", err)
 	}
 	return &s, nil
+}
+
+func classifySlotConflict(err error) error {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		switch pgErr.ConstraintName {
+		case "unique_class_slot":
+			return ErrClassSlotOccupied
+		case "unique_teacher_slot":
+			return ErrTeacherDoubleBooked
+		case "unique_room_slot":
+			return ErrRoomDoubleBooked
+		}
+	}
+	return ErrConflict
 }
 
 func (r *PgRepository) BatchCreateSlots(ctx context.Context, tenantID, schoolID, academicYearID string, payloads []SlotPayload) ([]Slot, error) {
@@ -293,26 +301,32 @@ func (r *PgRepository) BatchCreateSlots(ctx context.Context, tenantID, schoolID,
 		}
 	}()
 
-	var allSlots []Slot
+	const query = `
+		INSERT INTO cbc_timetable_slots (tenant_id, school_id, academic_year_id, structure_id,
+		                                 class_id, learning_area_id, teacher_id, room_identifier)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		RETURNING id, tenant_id, school_id, academic_year_id, structure_id,
+		          class_id, learning_area_id, teacher_id, room_identifier,
+		          created_at, updated_at
+	`
+
+	batch := &pgx.Batch{}
 	for _, p := range payloads {
-		const query = `
-			INSERT INTO cbc_timetable_slots (tenant_id, school_id, academic_year_id, structure_id,
-			                                 class_id, learning_area_id, teacher_id, room_identifier)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-			RETURNING id, tenant_id, school_id, academic_year_id, structure_id,
-			          class_id, learning_area_id, teacher_id, room_identifier,
-			          created_at, updated_at
-		`
+		batch.Queue(query, tenantID, schoolID, academicYearID, p.StructureID, p.ClassID, p.LearningAreaID, p.TeacherID, p.RoomIdentifier)
+	}
+
+	results := tx.SendBatch(ctx, batch)
+
+	allSlots := make([]Slot, 0, len(payloads))
+	for range payloads {
 		var s Slot
-		err = tx.QueryRow(ctx, query,
-			tenantID, schoolID, academicYearID, p.StructureID,
-			p.ClassID, p.LearningAreaID, p.TeacherID, p.RoomIdentifier,
-		).Scan(
+		err = results.QueryRow().Scan(
 			&s.ID, &s.TenantID, &s.SchoolID, &s.AcademicYearID,
 			&s.StructureID, &s.ClassID, &s.LearningAreaID, &s.TeacherID,
 			&s.RoomIdentifier, &s.CreatedAt, &s.UpdatedAt,
 		)
 		if err != nil {
+			_ = results.Close()
 			if isUniqueViolation(err) {
 				return nil, fmt.Errorf("timetable.Repository.BatchCreateSlots: %w", ErrConflict)
 			}
@@ -321,17 +335,22 @@ func (r *PgRepository) BatchCreateSlots(ctx context.Context, tenantID, schoolID,
 		allSlots = append(allSlots, s)
 	}
 
+	// Ensure all batch results are consumed before commit
+	if err = results.Close(); err != nil {
+		return nil, fmt.Errorf("timetable.Repository.BatchCreateSlots: close batch: %w", err)
+	}
+
 	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("timetable.Repository.BatchCreateSlots: commit tx: %w", err)
 	}
 	return allSlots, nil
 }
 
-func (r *PgRepository) UpdateSlot(ctx context.Context, id string, p UpdateSlotPayload) (*Slot, error) {
+func (r *PgRepository) UpdateSlot(ctx context.Context, id, tenantID, schoolID string, p UpdateSlotPayload) (*Slot, error) {
 	const query = `
 		UPDATE cbc_timetable_slots
 		SET learning_area_id = $1, teacher_id = $2, room_identifier = $3, updated_at = NOW()
-		WHERE id = $4
+		WHERE id = $4 AND tenant_id = $5 AND school_id = $6
 		RETURNING id, tenant_id, school_id, academic_year_id, structure_id,
 		          class_id, learning_area_id, teacher_id, room_identifier,
 		          created_at, updated_at
@@ -339,27 +358,27 @@ func (r *PgRepository) UpdateSlot(ctx context.Context, id string, p UpdateSlotPa
 
 	var s Slot
 	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query,
-		p.LearningAreaID, p.TeacherID, p.RoomIdentifier, id,
+		p.LearningAreaID, p.TeacherID, p.RoomIdentifier, id, tenantID, schoolID,
 	).Scan(
 		&s.ID, &s.TenantID, &s.SchoolID, &s.AcademicYearID,
 		&s.StructureID, &s.ClassID, &s.LearningAreaID, &s.TeacherID,
 		&s.RoomIdentifier, &s.CreatedAt, &s.UpdatedAt,
 	)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, fmt.Errorf("timetable.Repository.UpdateSlot: %w", ErrNotFound)
 		}
 		if isUniqueViolation(err) {
-			return nil, fmt.Errorf("timetable.Repository.UpdateSlot: %w", ErrConflict)
+			return nil, fmt.Errorf("timetable.Repository.UpdateSlot: %w", classifySlotConflict(err))
 		}
 		return nil, fmt.Errorf("timetable.Repository.UpdateSlot: %w", err)
 	}
 	return &s, nil
 }
 
-func (r *PgRepository) DeleteSlot(ctx context.Context, id string) error {
-	const query = `DELETE FROM cbc_timetable_slots WHERE id = $1`
-	tag, err := database.FromContext(ctx, r.pool).Exec(ctx, query, id)
+func (r *PgRepository) DeleteSlot(ctx context.Context, id, tenantID, schoolID string) error {
+	const query = `DELETE FROM cbc_timetable_slots WHERE id = $1 AND tenant_id = $2 AND school_id = $3`
+	tag, err := database.FromContext(ctx, r.pool).Exec(ctx, query, id, tenantID, schoolID)
 	if err != nil {
 		return fmt.Errorf("timetable.Repository.DeleteSlot: %w", err)
 	}
@@ -373,8 +392,9 @@ func isUniqueViolation(err error) bool {
 	if err == nil {
 		return false
 	}
-	// pgx unique violation error code
-	return strings.Contains(err.Error(), "duplicate key") ||
-		strings.Contains(err.Error(), "unique constraint") ||
-		strings.Contains(err.Error(), "unique_violation")
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.Code == "23505" || pgErr.Code == "23P01" // unique_violation || exclusion_violation
+	}
+	return false
 }

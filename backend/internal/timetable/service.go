@@ -64,8 +64,8 @@ func (s *ServiceImpl) ListSlots(ctx context.Context, f SlotFilter) ([]Slot, erro
 	return slots, nil
 }
 
-func (s *ServiceImpl) GetSlot(ctx context.Context, id string) (*Slot, error) {
-	slot, err := s.repo.GetSlot(ctx, id)
+func (s *ServiceImpl) GetSlot(ctx context.Context, id string, tenantID, schoolID string) (*Slot, error) {
+	slot, err := s.repo.GetSlot(ctx, id, tenantID, schoolID)
 	if err != nil {
 		return nil, fmt.Errorf("timetable.ServiceImpl.GetSlot: %w", err)
 	}
@@ -88,16 +88,16 @@ func (s *ServiceImpl) BatchCreateSlots(ctx context.Context, tenantID, schoolID, 
 	return slots, nil
 }
 
-func (s *ServiceImpl) UpdateSlot(ctx context.Context, id string, p UpdateSlotPayload) (*Slot, error) {
-	slot, err := s.repo.UpdateSlot(ctx, id, p)
+func (s *ServiceImpl) UpdateSlot(ctx context.Context, id string, tenantID, schoolID string, p UpdateSlotPayload) (*Slot, error) {
+	slot, err := s.repo.UpdateSlot(ctx, id, tenantID, schoolID, p)
 	if err != nil {
 		return nil, fmt.Errorf("timetable.ServiceImpl.UpdateSlot: %w", err)
 	}
 	return slot, nil
 }
 
-func (s *ServiceImpl) DeleteSlot(ctx context.Context, id string) error {
-	err := s.repo.DeleteSlot(ctx, id)
+func (s *ServiceImpl) DeleteSlot(ctx context.Context, id, tenantID, schoolID string) error {
+	err := s.repo.DeleteSlot(ctx, id, tenantID, schoolID)
 	if err != nil {
 		return fmt.Errorf("timetable.ServiceImpl.DeleteSlot: %w", err)
 	}

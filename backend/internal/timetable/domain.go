@@ -117,11 +117,11 @@ type Repository interface {
 	DeleteBlock(ctx context.Context, id, tenantID, schoolID string) error
 
 	ListSlots(ctx context.Context, filter SlotFilter) ([]Slot, error)
-	GetSlot(ctx context.Context, id string) (*Slot, error)
+	GetSlot(ctx context.Context, id, tenantID, schoolID string) (*Slot, error)
 	CreateSlot(ctx context.Context, tenantID, schoolID, academicYearID string, payload SlotPayload) (*Slot, error)
 	BatchCreateSlots(ctx context.Context, tenantID, schoolID, academicYearID string, payloads []SlotPayload) ([]Slot, error)
-	UpdateSlot(ctx context.Context, id string, payload UpdateSlotPayload) (*Slot, error)
-	DeleteSlot(ctx context.Context, id string) error
+	UpdateSlot(ctx context.Context, id, tenantID, schoolID string, p UpdateSlotPayload) (*Slot, error)
+	DeleteSlot(ctx context.Context, id, tenantID, schoolID string) error
 }
 
 type Service interface {
@@ -132,9 +132,9 @@ type Service interface {
 	DeleteBlock(ctx context.Context, id, tenantID, schoolID string) (*DeleteResult, error)
 
 	ListSlots(ctx context.Context, f SlotFilter) ([]Slot, error)
-	GetSlot(ctx context.Context, id string) (*Slot, error)
+	GetSlot(ctx context.Context, id, tenantID, schoolID string) (*Slot, error)
 	CreateSlot(ctx context.Context, tenantID, schoolID, academicYearID string, p SlotPayload) (*Slot, error)
 	BatchCreateSlots(ctx context.Context, tenantID, schoolID, academicYearID string, ps []SlotPayload) ([]Slot, error)
-	UpdateSlot(ctx context.Context, id string, p UpdateSlotPayload) (*Slot, error)
-	DeleteSlot(ctx context.Context, id string) error
+	UpdateSlot(ctx context.Context, id, tenantID, schoolID string, p UpdateSlotPayload) (*Slot, error)
+	DeleteSlot(ctx context.Context, id, tenantID, schoolID string) error
 }

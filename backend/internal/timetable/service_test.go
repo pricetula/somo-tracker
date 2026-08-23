@@ -24,10 +24,10 @@ func (m *mockRepo) UpdateBlock(ctx context.Context, id, tenantID, schoolID strin
 func (m *mockRepo) DeleteBlock(ctx context.Context, id, tenantID, schoolID string) error { return nil }
 func (m *mockRepo) ListSlots(ctx context.Context, f SlotFilter) ([]Slot, error)          { return nil, nil }
 func (m *mockRepo) GetSlot(ctx context.Context, id string) (*Slot, error)                { return nil, nil }
-func (m *mockRepo) CreateSlot(ctx context.Context, tenantID, schoolID string, p SlotPayload) (*Slot, error) {
+func (m *mockRepo) CreateSlot(ctx context.Context, tenantID, schoolID, academicYearID string, p SlotPayload) (*Slot, error) {
 	return nil, nil
 }
-func (m *mockRepo) BatchCreateSlots(ctx context.Context, tenantID, schoolID string, ps []SlotPayload) ([]Slot, error) {
+func (m *mockRepo) BatchCreateSlots(ctx context.Context, tenantID, schoolID, academicYearID string, ps []SlotPayload) ([]Slot, error) {
 	return nil, nil
 }
 func (m *mockRepo) UpdateSlot(ctx context.Context, id string, p UpdateSlotPayload) (*Slot, error) {

@@ -49,6 +49,8 @@ type Slot struct {
 }
 
 type SlotFilter struct {
+	TenantID       string `json:"tenant_id"`
+	SchoolID       string `json:"school_id"`
 	AcademicYearID string `json:"academic_year_id"`
 	StructureID    string `json:"structure_id,omitempty"`
 	ClassID        string `json:"class_id,omitempty"`
@@ -116,8 +118,8 @@ type Repository interface {
 
 	ListSlots(ctx context.Context, filter SlotFilter) ([]Slot, error)
 	GetSlot(ctx context.Context, id string) (*Slot, error)
-	CreateSlot(ctx context.Context, tenantID, schoolID string, payload SlotPayload) (*Slot, error)
-	BatchCreateSlots(ctx context.Context, tenantID, schoolID string, payloads []SlotPayload) ([]Slot, error)
+	CreateSlot(ctx context.Context, tenantID, schoolID, academicYearID string, payload SlotPayload) (*Slot, error)
+	BatchCreateSlots(ctx context.Context, tenantID, schoolID, academicYearID string, payloads []SlotPayload) ([]Slot, error)
 	UpdateSlot(ctx context.Context, id string, payload UpdateSlotPayload) (*Slot, error)
 	DeleteSlot(ctx context.Context, id string) error
 }
@@ -131,8 +133,8 @@ type Service interface {
 
 	ListSlots(ctx context.Context, f SlotFilter) ([]Slot, error)
 	GetSlot(ctx context.Context, id string) (*Slot, error)
-	CreateSlot(ctx context.Context, tenantID, schoolID string, p SlotPayload) (*Slot, error)
-	BatchCreateSlots(ctx context.Context, tenantID, schoolID string, ps []SlotPayload) ([]Slot, error)
+	CreateSlot(ctx context.Context, tenantID, schoolID, academicYearID string, p SlotPayload) (*Slot, error)
+	BatchCreateSlots(ctx context.Context, tenantID, schoolID, academicYearID string, ps []SlotPayload) ([]Slot, error)
 	UpdateSlot(ctx context.Context, id string, p UpdateSlotPayload) (*Slot, error)
 	DeleteSlot(ctx context.Context, id string) error
 }

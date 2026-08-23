@@ -72,16 +72,16 @@ func (s *ServiceImpl) GetSlot(ctx context.Context, id string) (*Slot, error) {
 	return slot, nil
 }
 
-func (s *ServiceImpl) CreateSlot(ctx context.Context, tenantID, schoolID string, p SlotPayload) (*Slot, error) {
-	slot, err := s.repo.CreateSlot(ctx, tenantID, schoolID, p)
+func (s *ServiceImpl) CreateSlot(ctx context.Context, tenantID, schoolID, academicYearID string, p SlotPayload) (*Slot, error) {
+	slot, err := s.repo.CreateSlot(ctx, tenantID, schoolID, academicYearID, p)
 	if err != nil {
 		return nil, fmt.Errorf("timetable.ServiceImpl.CreateSlot: %w", err)
 	}
 	return slot, nil
 }
 
-func (s *ServiceImpl) BatchCreateSlots(ctx context.Context, tenantID, schoolID string, ps []SlotPayload) ([]Slot, error) {
-	slots, err := s.repo.BatchCreateSlots(ctx, tenantID, schoolID, ps)
+func (s *ServiceImpl) BatchCreateSlots(ctx context.Context, tenantID, schoolID, academicYearID string, ps []SlotPayload) ([]Slot, error) {
+	slots, err := s.repo.BatchCreateSlots(ctx, tenantID, schoolID, academicYearID, ps)
 	if err != nil {
 		return nil, fmt.Errorf("timetable.ServiceImpl.BatchCreateSlots: %w", err)
 	}

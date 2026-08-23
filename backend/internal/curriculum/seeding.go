@@ -63,7 +63,7 @@ func NewSeedingService(pools *database.Pools, logger *zap.SugaredLogger) *Seedin
 	return &SeedingService{
 		pool: pools.PG,
 		beginTx: func(ctx context.Context) (pgx.Tx, error) {
-			return pools.PG.Begin(ctx)
+			return database.Begin(ctx, pools.PG)
 		},
 		logger: logger,
 	}

@@ -15,7 +15,7 @@ import { SchoolSwitcher } from "@/features/school/components/school-switcher";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     return (
-        <Sidebar collapsible="icon" {...props}>
+        <Sidebar collapsible="icon" {...props} className="z-50">
             <SidebarHeader>
                 <SchoolSwitcher />
             </SidebarHeader>

@@ -7,7 +7,6 @@ CREATE TABLE IF NOT EXISTS timetable_allocations (
     id                UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id         UUID        NOT NULL,
     school_id         UUID        NOT NULL,
-    academic_year_id  UUID        NOT NULL,
     block_id      UUID        NOT NULL,
     class_id          UUID        NOT NULL,
     learning_area_id  UUID        NOT NULL,
@@ -18,15 +17,15 @@ CREATE TABLE IF NOT EXISTS timetable_allocations (
 
     -- CONSTRAINT 1: A class can only have ONE assignment per specific structure block
     CONSTRAINT unique_class_slot
-        UNIQUE (academic_year_id, block_id, class_id),
+        UNIQUE (tenant_id, block_id, class_id),
 
     -- CONSTRAINT 2: A teacher cannot be double-booked during the same structure block
     CONSTRAINT unique_teacher_slot
-        UNIQUE (academic_year_id, block_id, teacher_id),
+        UNIQUE (tenant_id, block_id, teacher_id),
 
     -- CONSTRAINT 3: A room cannot be double-booked during the same structure block
     CONSTRAINT unique_room_slot
-        UNIQUE (academic_year_id, block_id, room_identifier),
+        UNIQUE (tenant_id, block_id, room_identifier),
 
     CONSTRAINT fk_timetable_allocations_tenant_school
         FOREIGN KEY (tenant_id, school_id)
@@ -42,17 +41,15 @@ CREATE TABLE IF NOT EXISTS timetable_allocations (
         REFERENCES cbc_learning_areas(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_timetable_allocations_tenant_block
         FOREIGN KEY (tenant_id, block_id)
-        REFERENCES timetable_blocks(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_timetable_allocations_academic_year
-        FOREIGN KEY (tenant_id, academic_year_id)
-        REFERENCES academic_years(tenant_id, id) ON DELETE CASCADE
+        REFERENCES timetable_blocks(tenant_id, id) ON DELETE CASCADE
 );
 
 COMMENT ON TABLE timetable_allocations IS
     'Grid Allocation Layer — lightweight relational mapping table using fast
      B-Tree composite unique constraints. The grid definition (time ranges)
      lives in timetable_blocks; this table only stores assignments of
-     class → teacher → learning_area → room per structure block.';
+     class → teacher → learning_area → room per structure block.
+     Academic year/term context is inherited via block → track → timetable_tracks.';
 
 DROP TRIGGER IF EXISTS trg_timetable_allocations_updated_at ON timetable_allocations;
 CREATE TRIGGER trg_timetable_allocations_updated_at
@@ -65,8 +62,6 @@ CREATE INDEX IF NOT EXISTS idx_timetable_allocations_class
     ON timetable_allocations (class_id);
 CREATE INDEX IF NOT EXISTS idx_timetable_allocations_teacher
     ON timetable_allocations (teacher_id);
-CREATE INDEX IF NOT EXISTS idx_timetable_allocations_academic_year
-    ON timetable_allocations (academic_year_id);
 CREATE INDEX IF NOT EXISTS idx_timetable_allocations_tenant
     ON timetable_allocations (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_timetable_allocations_school

@@ -7,7 +7,6 @@ CREATE TABLE IF NOT EXISTS timetable_blocks (
     id               UUID             PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id        UUID             NOT NULL,
     school_id        UUID             NOT NULL,
-    academic_year_id UUID             NOT NULL,
     track_id         UUID             NOT NULL,
     day_of_week      INT              NOT NULL CHECK (day_of_week BETWEEN 1 AND 7),
     period_name      VARCHAR(50)      NOT NULL,
@@ -22,17 +21,12 @@ CREATE TABLE IF NOT EXISTS timetable_blocks (
     CONSTRAINT excl_timetable_block_overlap
         EXCLUDE USING gist (
             track_id WITH =,
-            school_id WITH =,
-            academic_year_id WITH =,
             day_of_week WITH =,
             fn_timerange(day_of_week, start_time, end_time) WITH &&
         ),
     CONSTRAINT fk_timetable_block_tenant_school
         FOREIGN KEY (tenant_id, school_id)
         REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_timetable_block_academic_year
-        FOREIGN KEY (tenant_id, academic_year_id)
-        REFERENCES academic_years(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_timetable_block_track
         FOREIGN KEY (tenant_id, track_id)
         REFERENCES timetable_tracks(tenant_id, id) ON DELETE CASCADE,
@@ -46,8 +40,6 @@ CREATE INDEX IF NOT EXISTS idx_timetable_block_track
     ON timetable_blocks (track_id);
 CREATE INDEX IF NOT EXISTS idx_timetable_block_school_day
     ON timetable_blocks (school_id, day_of_week);
-CREATE INDEX IF NOT EXISTS idx_timetable_block_academic_year
-    ON timetable_blocks (academic_year_id);
 
 DROP TRIGGER IF EXISTS trg_timetable_blocks_updated_at ON timetable_blocks;
 CREATE TRIGGER trg_timetable_blocks_updated_at

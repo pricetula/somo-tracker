@@ -1,7 +1,6 @@
 package timetable
 
 import (
-	"context"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -12,43 +11,428 @@ import (
 // Handler exposes timetable HTTP endpoints.
 type Handler struct {
 	svc              Service
-	academicYearsSvc interface {
-		GetCurrentYearAndTermID(ctx context.Context, tenantID, schoolID string) (yearID, termID string, err error)
-	}
+	academicYearsSvc interface{}
 }
 
 // NewHandler creates a new timetable Handler.
 func NewHandler(svc Service) *Handler {
-	return &Handler{svc: svc}
-}
-
-// SetAcademicYearsService sets the academic years service reference.
-func (h *Handler) SetAcademicYearsService(svc interface {
-	GetCurrentYearAndTermID(ctx context.Context, tenantID, schoolID string) (yearID, termID string, err error)
-}) {
-	h.academicYearsSvc = svc
+	return &Handler{
+		svc:              svc,
+		academicYearsSvc: nil,
+	}
 }
 
 // RegisterRoutes mounts timetable routes on the given router.
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	base := router.Group("/api/v1/timetable")
 
-	// Structure mutations
-	base.Post("/block", middleware.RequireAuth, h.CreateBlock)
-	base.Get("/block", middleware.RequireAuth, h.ListBlocks)
-	base.Get("/block/:id", middleware.RequireAuth, h.GetBlock)
-	base.Put("/block/:id", middleware.RequireAuth, h.UpdateBlock)
-	base.Delete("/block/:id", middleware.RequireAuth, h.DeleteBlock)
+	// Track operations (ID in body)
+	base.Post("/", middleware.RequireAuth, h.CreateTrackWithBlocks)
+	base.Put("/", middleware.RequireAuth, h.UpdateTrack)
+	base.Delete("/", middleware.RequireAuth, h.BulkDeleteTracks)
 
-	// Slot mutations
-	base.Post("/slots", middleware.RequireAuth, h.CreateSlot)
-	base.Get("/slots", middleware.RequireAuth, h.ListSlots)
-	base.Post("/slots/batch", middleware.RequireAuth, h.BatchCreateSlots)
-	base.Put("/slots/:id", middleware.RequireAuth, h.UpdateSlot)
-	base.Delete("/slots/:id", middleware.RequireAuth, h.DeleteSlot)
+	// Block operations (track_id in body)
+	base.Post("/blocks", middleware.RequireAuth, h.CreateBlocks)
+	base.Put("/blocks", middleware.RequireAuth, h.UpdateBlock)
+	base.Delete("/blocks", middleware.RequireAuth, h.BulkDeleteBlocks)
 
-	// Read-only timetable view
-	base.Get("/timetable", middleware.RequireAuth, h.GetTimetable)
+	// Allocation operations (block_id in body)
+	base.Post("/allocations", middleware.RequireAuth, h.CreateAllocations)
+	base.Put("/allocations", middleware.RequireAuth, h.UpdateAllocation)
+	base.Delete("/allocations", middleware.RequireAuth, h.BulkDeleteAllocations)
+
+	// Read-only combined view
+	base.Get("/", middleware.RequireAuth, h.GetTimetable)
+}
+
+// CreateTrackWithBlocks handles POST /api/v1/timetable (create track + optional initial blocks)
+func (h *Handler) SetAcademicYearsService(svc interface{}) {
+	h.academicYearsSvc = svc
+}
+
+func (h *Handler) CreateTrackWithBlocks(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.tmMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	var payload CreateTrackPayload
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "invalid request body",
+		})
+	}
+
+	// Validate required fields
+	if strings.TrimSpace(payload.Name) == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "track name is required",
+		})
+	}
+
+	// Resolve academic year if not provided
+	yearID := payload.AcademicYearID
+	if yearID == "" {
+		yearID, err = h.resolveCurrentYear(c, tenantID, schoolID)
+		if err != nil {
+			return middleware.HTTPError(c, err)
+		}
+		if yearID == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"code":    "NO_ACTIVE_ACADEMIC_YEAR",
+				"message": "No current academic year is active.",
+			})
+		}
+	}
+
+	// Create track first
+	track, err := h.svc.CreateTrack(c.Context(), tenantID, schoolID, yearID, payload.AcademicTermID, payload.Name, payload.Description, payload.IsDefault)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	// If initial blocks provided, create them for this track
+	if len(payload.InitialBlocks) > 0 {
+		for i, blockPayload := range payload.InitialBlocks {
+			blockPayload.TrackID = track.ID
+			if err := validateTimeBlockPayload((*CreateTimeBlockPayload)(&blockPayload)); err != nil {
+				return middleware.HTTPError(c, err)
+			}
+			_, err := h.svc.CreateBlock(c.Context(), tenantID, schoolID, blockPayload)
+			if err != nil {
+				// If blocks fail, delete track and return error
+				_, _ = h.svc.DeleteTrack(c.Context(), track.ID, tenantID, schoolID)
+				return middleware.HTTPError(c, err)
+			}
+			payload.InitialBlocks[i].AcademicYearID = yearID
+		}
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"track": track,
+		"message": func() string {
+			if len(payload.InitialBlocks) > 0 {
+				return "track created with initial blocks"
+			}
+			return "track created successfully"
+		}(),
+	})
+}
+
+// UpdateTrack handles PUT /api/v1/timetable/:id
+func (h *Handler) UpdateTrack(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.tmMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	var payload UpdateTrackPayload
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "invalid request body",
+		})
+	}
+
+	track, err := h.svc.UpdateTrack(c.Context(), payload.ID, tenantID, schoolID, payload)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(fiber.Map{"updated": true, "track": track})
+}
+
+// DeleteTrack handles DELETE /api/v1/timetable/:id
+func (h *Handler) DeleteTrack(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.tmMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	id := c.Params("id")
+	result, err := h.svc.DeleteTrack(c.Context(), id, tenantID, schoolID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(result)
+}
+
+// BulkDeleteTracks handles DELETE /api/v1/timetable
+func (h *Handler) BulkDeleteTracks(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.tmMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	var req struct {
+		IDs []string `json:"ids"`
+	}
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "request body",
+		})
+	}
+
+	if len(req.IDs) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "at least one ID is required",
+		})
+	}
+
+	deleted := 0
+	for _, id := range req.IDs {
+		_, err := h.svc.DeleteTrack(c.Context(), id, tenantID, schoolID)
+		if err == nil {
+			deleted++
+		}
+	}
+
+	return c.JSON(fiber.Map{
+		"deleted": deleted,
+		"total":   len(req.IDs),
+	})
+}
+
+// CreateBlocks handles POST /api/v1/timetable/blocks (create blocks for a track)
+func (h *Handler) CreateBlocks(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.tmMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	var payloads []CreateTimeBlockPayload
+	if err := c.BodyParser(&payloads); err != nil {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "invalid request body",
+		})
+	}
+
+	if len(payloads) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "at least one block is required",
+		})
+	}
+
+	for _, blockPayload := range payloads {
+		if blockPayload.TrackID == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"code":    "VALIDATION_ERROR",
+				"message": "track_id is required",
+			})
+		}
+		if _, err := h.svc.CreateBlock(c.Context(), tenantID, schoolID, blockPayload); err != nil {
+			return middleware.HTTPError(c, err)
+		}
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"blocks": payloads,
+	})
+}
+
+// UpdateBlock handles PUT /api/v1/timetable/blocks/:id
+func (h *Handler) UpdateBlock(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.tmMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	var payload UpdateTimeBlockPayload
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "invalid request body",
+		})
+	}
+
+	if payload.ID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "id is required",
+		})
+	}
+
+	_, err = h.svc.UpdateBlock(c.Context(), payload.ID, tenantID, schoolID, payload)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(fiber.Map{"updated": true})
+}
+
+// BulkDeleteBlocks handles DELETE /api/v1/timetable/blocks
+func (h *Handler) BulkDeleteBlocks(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.tmMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	var req struct {
+		IDs []string `json:"ids"`
+	}
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "request body",
+		})
+	}
+
+	if len(req.IDs) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "at least one ID is required",
+		})
+	}
+
+	deleted := 0
+	for _, id := range req.IDs {
+		_, err := h.svc.DeleteBlock(c.Context(), id, tenantID, schoolID)
+		if err == nil {
+			deleted++
+		}
+	}
+
+	return c.JSON(fiber.Map{
+		"deleted": deleted,
+		"total":   len(req.IDs),
+	})
+}
+
+// CreateAllocations handles POST /api/v1/timetable/allocations (create allocations for a block)
+func (h *Handler) CreateAllocations(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.tmMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	var payloads []CreateAllocationPayload
+	if err := c.BodyParser(&payloads); err != nil {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "invalid request body",
+		})
+	}
+
+	if len(payloads) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "at least one allocation is required",
+		})
+	}
+
+	for _, allocationPayload := range payloads {
+		if allocationPayload.BlockID == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"code":    "VALIDATION_ERROR",
+				"message": "block_id is required",
+			})
+		}
+		if _, err := h.svc.CreateAllocation(c.Context(), tenantID, schoolID, allocationPayload.BlockID, allocationPayload); err != nil {
+			return middleware.HTTPError(c, err)
+		}
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"allocations": payloads,
+	})
+}
+
+// UpdateAllocation handles PUT /api/v1/timetable/allocations/:id
+func (h *Handler) UpdateAllocation(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.tmMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	var payload UpdateAllocationPayload
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "invalid request body",
+		})
+	}
+
+	if payload.ID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "id is required",
+		})
+	}
+
+	if _, err := h.svc.UpdateAllocation(c.Context(), payload.ID, tenantID, schoolID, payload); err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(fiber.Map{"updated": true})
+}
+
+// BulkDeleteAllocations handles DELETE /api/v1/timetable/allocations
+func (h *Handler) BulkDeleteAllocations(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.tmMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	var req struct {
+		IDs []string `json:"ids"`
+	}
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "request body",
+		})
+	}
+
+	if len(req.IDs) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "at least one ID is required",
+		})
+	}
+
+	deleted := 0
+	for _, id := range req.IDs {
+		err := h.svc.DeleteAllocation(c.Context(), id, tenantID, schoolID)
+		if err == nil {
+			deleted++
+		}
+	}
+
+	return c.JSON(fiber.Map{
+		"deleted": deleted,
+		"total":   len(req.IDs),
+	})
+}
+
+// GetTimetable handles GET /api/v1/timetable (full timetable view)
+func (h *Handler) GetTimetable(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.tmMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	blocks, err := h.svc.ListBlocks(c.Context(), tenantID, schoolID, "")
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	slots, err := h.svc.ListSlots(c.Context(), SlotFilter{
+		TenantID: tenantID,
+		SchoolID: schoolID,
+	})
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	return c.JSON(fiber.Map{
+		"structures": blocks,
+		"slots":      slots,
+	})
 }
 
 // tmMiddleware extracts common tenant/school context.
@@ -65,411 +449,23 @@ func (h *Handler) tmMiddleware(c *fiber.Ctx) (tenantID, schoolID string, err err
 }
 
 // resolveCurrentYear resolves the current academic year ID for the school.
-// Returns empty string if no current year is set.
 func (h *Handler) resolveCurrentYear(c *fiber.Ctx, tenantID, schoolID string) (string, error) {
-	if h.academicYearsSvc == nil {
-		return "", nil
-	}
-	yearID, _, err := h.academicYearsSvc.GetCurrentYearAndTermID(c.Context(), tenantID, schoolID)
-	return yearID, err
+	return "", nil
 }
 
 // validateTimeBlockPayload validates CreateTimeBlockPayload / UpdateTimeBlockPayload.
 func validateTimeBlockPayload(p *CreateTimeBlockPayload) error {
 	if p.DayOfWeek < 1 || p.DayOfWeek > 7 {
 		return &middleware.FieldError{
-			Err:    ErrInvalidInput,
+			Err:    middleware.ErrInvalidInput,
 			Fields: map[string][]string{"day_of_week": {"must be between 1 (Monday) and 7 (Sunday)"}},
-		}
-	}
-	if strings.TrimSpace(p.PeriodName) == "" {
-		return &middleware.FieldError{
-			Err:    ErrInvalidInput,
-			Fields: map[string][]string{"period_name": {"period_name is required"}},
-		}
-	}
-	if p.StartTime == "" || p.EndTime == "" {
-		return &middleware.FieldError{
-			Err:    ErrInvalidInput,
-			Fields: map[string][]string{"start_time": {"start_time and end_time are required"}},
-		}
-	}
-	// Basic time format validation (HH:MM)
-	if len(p.StartTime) != 5 || p.StartTime[2] != ':' {
-		return &middleware.FieldError{
-			Err:    ErrInvalidInput,
-			Fields: map[string][]string{"start_time": {"must be in HH:MM format"}},
-		}
-	}
-	if len(p.EndTime) != 5 || p.EndTime[2] != ':' {
-		return &middleware.FieldError{
-			Err:    ErrInvalidInput,
-			Fields: map[string][]string{"end_time": {"must be in HH:MM format"}},
 		}
 	}
 	if p.StartTime >= p.EndTime {
 		return &middleware.FieldError{
-			Err:    ErrInvalidInput,
+			Err:    middleware.ErrInvalidInput,
 			Fields: map[string][]string{"end_time": {"end_time must be after start_time"}},
 		}
 	}
-	if p.Order < 0 {
-		return &middleware.FieldError{
-			Err:    ErrInvalidInput,
-			Fields: map[string][]string{"order": {"must be non-negative"}},
-		}
-	}
 	return nil
-}
-
-// ── Structure (TimeBlock) Handlers ────────────────────────────────────────
-
-// CreateBlock handles POST /api/v1/timetable/block.
-func (h *Handler) CreateBlock(c *fiber.Ctx) error {
-	tenantID, schoolID, err := h.tmMiddleware(c)
-	if err != nil {
-		return err
-	}
-
-	var payload CreateTimeBlockPayload
-	if err := c.BodyParser(&payload); err != nil {
-		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "invalid request body",
-		})
-	}
-
-	// Resolve academic year if not provided in payload
-	yearID := c.Query("academic_year_id")
-	if yearID == "" {
-		yearID, err = h.resolveCurrentYear(c, tenantID, schoolID)
-		if err != nil {
-			return middleware.HTTPError(c, err)
-		}
-		if yearID == "" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"code":    "NO_ACTIVE_ACADEMIC_YEAR",
-				"message": "No current academic year is active.",
-			})
-		}
-	}
-	payload.AcademicYearID = yearID
-
-	if err := validateTimeBlockPayload(&payload); err != nil {
-		return middleware.HTTPError(c, err)
-	}
-
-	block, err := h.svc.CreateBlock(c.Context(), tenantID, schoolID, payload)
-	if err != nil {
-		return middleware.HTTPError(c, err)
-	}
-
-	return c.Status(fiber.StatusCreated).JSON(block)
-}
-
-// ListBlocks handles GET /api/v1/timetable/block.
-func (h *Handler) ListBlocks(c *fiber.Ctx) error {
-	tenantID, schoolID, err := h.tmMiddleware(c)
-	if err != nil {
-		return err
-	}
-
-	yearID := c.Query("academic_year_id")
-	if yearID == "" {
-		yearID, err = h.resolveCurrentYear(c, tenantID, schoolID)
-		if err != nil {
-			return middleware.HTTPError(c, err)
-		}
-		if yearID == "" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"code":    "NO_ACTIVE_ACADEMIC_YEAR",
-				"message": "No current academic year is active.",
-			})
-		}
-	}
-
-	blocks, err := h.svc.ListBlocks(c.Context(), tenantID, schoolID, yearID)
-	if err != nil {
-		return middleware.HTTPError(c, err)
-	}
-
-	return c.JSON(blocks)
-}
-
-// GetBlock handles GET /api/v1/timetable/block/:id.
-func (h *Handler) GetBlock(c *fiber.Ctx) error {
-	tenantID, schoolID, err := h.tmMiddleware(c)
-	if err != nil {
-		return err
-	}
-
-	id := c.Params("id")
-	block, err := h.svc.GetBlock(c.Context(), id, tenantID, schoolID)
-	if err != nil {
-		return middleware.HTTPError(c, err)
-	}
-
-	return c.JSON(block)
-}
-
-// UpdateBlock handles PUT /api/v1/timetable/block/:id.
-func (h *Handler) UpdateBlock(c *fiber.Ctx) error {
-	tenantID, schoolID, err := h.tmMiddleware(c)
-	if err != nil {
-		return err
-	}
-
-	id := c.Params("id")
-	var payload UpdateTimeBlockPayload
-	if err := c.BodyParser(&payload); err != nil {
-		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "invalid request body",
-		})
-	}
-
-	// For update, academic_year_id is optional in query but can be in body
-	yearID := c.Query("academic_year_id")
-	if yearID != "" {
-		payload.AcademicYearID = yearID
-	}
-
-	if err := validateTimeBlockPayload((*CreateTimeBlockPayload)(&payload)); err != nil {
-		return middleware.HTTPError(c, err)
-	}
-
-	block, err := h.svc.UpdateBlock(c.Context(), id, tenantID, schoolID, payload)
-	if err != nil {
-		return middleware.HTTPError(c, err)
-	}
-
-	return c.JSON(block)
-}
-
-// DeleteBlock handles DELETE /api/v1/timetable/block/:id.
-func (h *Handler) DeleteBlock(c *fiber.Ctx) error {
-	tenantID, schoolID, err := h.tmMiddleware(c)
-	if err != nil {
-		return err
-	}
-
-	id := c.Params("id")
-	result, err := h.svc.DeleteBlock(c.Context(), id, tenantID, schoolID)
-	if err != nil {
-		return middleware.HTTPError(c, err)
-	}
-
-	return c.JSON(result)
-}
-
-// ── Slot Handlers ─────────────────────────────────────────────────────────
-
-// CreateSlot handles POST /api/v1/timetable/slots.
-func (h *Handler) CreateSlot(c *fiber.Ctx) error {
-	tenantID, schoolID, err := h.tmMiddleware(c)
-	if err != nil {
-		return err
-	}
-
-	var payload SlotPayload
-	if err := c.BodyParser(&payload); err != nil {
-		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "invalid request body",
-		})
-	}
-
-	// Validate required fields
-	if payload.BlockID == "" || payload.ClassID == "" || payload.LearningAreaID == "" || payload.TeacherID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "block_id, class_id, learning_area_id, and teacher_id are required",
-		})
-	}
-
-	// Resolve academic year
-	yearID := c.Query("academic_year_id")
-	if yearID == "" {
-		yearID, err = h.resolveCurrentYear(c, tenantID, schoolID)
-		if err != nil {
-			return middleware.HTTPError(c, err)
-		}
-		if yearID == "" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"code":    "NO_ACTIVE_ACADEMIC_YEAR",
-				"message": "No current academic year is active.",
-			})
-		}
-	}
-
-	slot, err := h.svc.CreateSlot(c.Context(), tenantID, schoolID, yearID, payload)
-	if err != nil {
-		return middleware.HTTPError(c, err)
-	}
-
-	return c.Status(fiber.StatusCreated).JSON(slot)
-}
-
-// ListSlots handles GET /api/v1/timetable/slots.
-func (h *Handler) ListSlots(c *fiber.Ctx) error {
-	tenantID, schoolID, err := h.tmMiddleware(c)
-	if err != nil {
-		return err
-	}
-
-	filter := SlotFilter{
-		TenantID:       tenantID,
-		SchoolID:       schoolID,
-		AcademicYearID: c.Query("academic_year_id"),
-		BlockID:        c.Query("block_id"),
-		ClassID:        c.Query("class_id"),
-		TeacherID:      c.Query("teacher_id"),
-		LearningAreaID: c.Query("learning_area_id"),
-	}
-
-	slots, err := h.svc.ListSlots(c.Context(), filter)
-	if err != nil {
-		return middleware.HTTPError(c, err)
-	}
-
-	return c.JSON(slots)
-}
-
-// BatchCreateSlots handles POST /api/v1/timetable/slots/batch.
-func (h *Handler) BatchCreateSlots(c *fiber.Ctx) error {
-	tenantID, schoolID, err := h.tmMiddleware(c)
-	if err != nil {
-		return err
-	}
-
-	var payloads []SlotPayload
-	if err := c.BodyParser(&payloads); err != nil {
-		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "invalid request body",
-		})
-	}
-
-	if len(payloads) == 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "at least one slot payload is required",
-		})
-	}
-
-	// Validate each payload
-	for _, p := range payloads {
-		if p.BlockID == "" || p.ClassID == "" || p.LearningAreaID == "" || p.TeacherID == "" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"code":    "VALIDATION_ERROR",
-				"message": "block_id, class_id, learning_area_id, and teacher_id are required for all payloads",
-			})
-		}
-	}
-
-	// Resolve academic year
-	yearID := c.Query("academic_year_id")
-	if yearID == "" {
-		yearID, err = h.resolveCurrentYear(c, tenantID, schoolID)
-		if err != nil {
-			return middleware.HTTPError(c, err)
-		}
-		if yearID == "" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"code":    "NO_ACTIVE_ACADEMIC_YEAR",
-				"message": "No current academic year is active.",
-			})
-		}
-	}
-
-	slots, err := h.svc.BatchCreateSlots(c.Context(), tenantID, schoolID, yearID, payloads)
-	if err != nil {
-		return middleware.HTTPError(c, err)
-	}
-
-	return c.Status(fiber.StatusCreated).JSON(slots)
-}
-
-// UpdateSlot handles PUT /api/v1/timetable/slots/:id.
-func (h *Handler) UpdateSlot(c *fiber.Ctx) error {
-	tenantID, schoolID, err := h.tmMiddleware(c)
-	if err != nil {
-		return err
-	}
-
-	id := c.Params("id")
-	var payload UpdateSlotPayload
-	if err := c.BodyParser(&payload); err != nil {
-		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "invalid request body",
-		})
-	}
-
-	slot, err := h.svc.UpdateSlot(c.Context(), id, tenantID, schoolID, payload)
-	if err != nil {
-		return middleware.HTTPError(c, err)
-	}
-
-	return c.JSON(slot)
-}
-
-// DeleteSlot handles DELETE /api/v1/timetable/slots/:id.
-func (h *Handler) DeleteSlot(c *fiber.Ctx) error {
-	tenantID, schoolID, err := h.tmMiddleware(c)
-	if err != nil {
-		return err
-	}
-
-	id := c.Params("id")
-	err = h.svc.DeleteSlot(c.Context(), id, tenantID, schoolID)
-	if err != nil {
-		return middleware.HTTPError(c, err)
-	}
-
-	return c.JSON(fiber.Map{"deleted": true})
-}
-
-// GetTimetable handles GET /api/v1/timetable/timetable.
-// Returns a combined view of structures + slots for a given academic year.
-func (h *Handler) GetTimetable(c *fiber.Ctx) error {
-	tenantID, schoolID, err := h.tmMiddleware(c)
-	if err != nil {
-		return err
-	}
-
-	yearID := c.Query("academic_year_id")
-	if yearID == "" {
-		yearID, err = h.resolveCurrentYear(c, tenantID, schoolID)
-		if err != nil {
-			return middleware.HTTPError(c, err)
-		}
-		if yearID == "" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"code":    "NO_ACTIVE_ACADEMIC_YEAR",
-				"message": "No current academic year is active.",
-			})
-		}
-	}
-
-	// Fetch structures and slots
-	blocks, err := h.svc.ListBlocks(c.Context(), tenantID, schoolID, yearID)
-	if err != nil {
-		return middleware.HTTPError(c, err)
-	}
-
-	filter := SlotFilter{
-		TenantID:       tenantID,
-		SchoolID:       schoolID,
-		AcademicYearID: yearID,
-	}
-	slots, err := h.svc.ListSlots(c.Context(), filter)
-	if err != nil {
-		return middleware.HTTPError(c, err)
-	}
-
-	return c.JSON(fiber.Map{
-		"structures": blocks,
-		"slots":      slots,
-	})
 }

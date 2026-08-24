@@ -69,16 +69,18 @@ type SlotListResult struct {
 }
 
 type CreateTimeBlockPayload struct {
+	TrackID        string `json:"track_id,omitempty"`
 	DayOfWeek      int    `json:"day_of_week"`
 	PeriodName     string `json:"period_name"`
 	StartTime      string `json:"start_time"`
 	EndTime        string `json:"end_time"`
 	IsBreak        bool   `json:"is_break"`
-	AcademicYearID string `json:"-"`
+	AcademicYearID string `json:"academic_year_id,omitempty"`
 	Order          int    `json:"order"`
 }
 
 type UpdateTimeBlockPayload struct {
+	ID             string `json:"id"`
 	DayOfWeek      int    `json:"day_of_week"`
 	PeriodName     string `json:"period_name"`
 	StartTime      string `json:"start_time"`
@@ -122,6 +124,16 @@ type Repository interface {
 	BatchCreateSlots(ctx context.Context, tenantID, schoolID, academicYearID string, payloads []SlotPayload) ([]Slot, error)
 	UpdateSlot(ctx context.Context, id, tenantID, schoolID string, p UpdateSlotPayload) (*Slot, error)
 	DeleteSlot(ctx context.Context, id, tenantID, schoolID string) error
+
+	// Track
+	CreateTrack(ctx context.Context, tenantID, schoolID, academicYearID, academicTermID, name, description string, isDefault bool) (*Track, error)
+	UpdateTrack(ctx context.Context, id, tenantID, schoolID string, p UpdateTrackPayload) (*Track, error)
+	DeleteTrack(ctx context.Context, id, tenantID, schoolID string) error
+
+	// Allocation
+	CreateAllocation(ctx context.Context, tenantID, schoolID, blockID string, p CreateAllocationPayload) (*Allocation, error)
+	UpdateAllocation(ctx context.Context, id, tenantID, schoolID string, p UpdateAllocationPayload) (*Allocation, error)
+	DeleteAllocation(ctx context.Context, id, tenantID, schoolID string) error
 }
 
 type Service interface {
@@ -137,4 +149,73 @@ type Service interface {
 	BatchCreateSlots(ctx context.Context, tenantID, schoolID, academicYearID string, ps []SlotPayload) ([]Slot, error)
 	UpdateSlot(ctx context.Context, id, tenantID, schoolID string, p UpdateSlotPayload) (*Slot, error)
 	DeleteSlot(ctx context.Context, id, tenantID, schoolID string) error
+
+	// Track
+	CreateTrack(ctx context.Context, tenantID, schoolID, academicYearID, academicTermID, name, description string, isDefault bool) (*Track, error)
+	UpdateTrack(ctx context.Context, id, tenantID, schoolID string, p UpdateTrackPayload) (*Track, error)
+	DeleteTrack(ctx context.Context, id, tenantID, schoolID string) (*DeleteResult, error)
+
+	// Allocation
+	CreateAllocation(ctx context.Context, tenantID, schoolID, blockID string, p CreateAllocationPayload) (*Allocation, error)
+	UpdateAllocation(ctx context.Context, id, tenantID, schoolID string, p UpdateAllocationPayload) (*Allocation, error)
+	DeleteAllocation(ctx context.Context, id, tenantID, schoolID string) error
+}
+
+type Track struct {
+	ID             string    `json:"id"`
+	TenantID       string    `json:"tenant_id"`
+	SchoolID       string    `json:"school_id"`
+	AcademicYearID string    `json:"academic_year_id"`
+	AcademicTermID string    `json:"academic_term_id,omitempty"`
+	Name           string    `json:"name"`
+	Description    string    `json:"description,omitempty"`
+	IsDefault      bool      `json:"is_default"`
+	CreatedAt      time.Time `json:"created_at,omitempty"`
+	UpdatedAt      time.Time `json:"updated_at,omitempty"`
+}
+
+type CreateTrackPayload struct {
+	Name           string                   `json:"name"`
+	Description    string                   `json:"description,omitempty"`
+	IsDefault      bool                     `json:"is_default,omitempty"`
+	AcademicYearID string                   `json:"academic_year_id,omitempty"`
+	AcademicTermID string                   `json:"academic_term_id,omitempty"`
+	InitialBlocks  []CreateTimeBlockPayload `json:"initial_blocks,omitempty"`
+}
+
+type UpdateTrackPayload struct {
+	ID          string `json:"id" validate:"required"`
+	Name        string `json:"name,omitempty"`
+	Description string `json:"description,omitempty"`
+	IsDefault   *bool  `json:"is_default,omitempty"`
+}
+
+type Allocation struct {
+	ID             string    `json:"id"`
+	TenantID       string    `json:"tenant_id"`
+	SchoolID       string    `json:"school_id"`
+	BlockID        string    `json:"block_id"`
+	ClassID        string    `json:"class_id"`
+	LearningAreaID string    `json:"learning_area_id"`
+	TeacherID      string    `json:"teacher_id"`
+	RoomIdentifier *string   `json:"room_identifier,omitempty"`
+	CreatedAt      time.Time `json:"created_at,omitempty"`
+	UpdatedAt      time.Time `json:"updated_at,omitempty"`
+}
+
+type CreateAllocationPayload struct {
+	ID             string  `json:"id,omitempty"`
+	BlockID        string  `json:"block_id"`
+	ClassID        string  `json:"class_id"`
+	LearningAreaID string  `json:"learning_area_id"`
+	TeacherID      string  `json:"teacher_id"`
+	RoomIdentifier *string `json:"room_identifier,omitempty"`
+}
+
+type UpdateAllocationPayload struct {
+	ID             string  `json:"id" validate:"required"`
+	ClassID        string  `json:"class_id,omitempty"`
+	LearningAreaID string  `json:"learning_area_id,omitempty"`
+	TeacherID      string  `json:"teacher_id,omitempty"`
+	RoomIdentifier *string `json:"room_identifier,omitempty"`
 }

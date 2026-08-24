@@ -530,3 +530,34 @@ func TestServiceImpl_DeleteSlot_Error(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "timetable.ServiceImpl.DeleteSlot")
 }
+
+func (m *mockRepo) CreateTrack(ctx context.Context, tenantID, schoolID, academicYearID, academicTermID, name, description string, isDefault bool) (*Track, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return &Track{ID: "t1", Name: name}, nil
+}
+func (m *mockRepo) UpdateTrack(ctx context.Context, id, tenantID, schoolID string, p UpdateTrackPayload) (*Track, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return &Track{ID: id}, nil
+}
+func (m *mockRepo) DeleteTrack(ctx context.Context, id, tenantID, schoolID string) error {
+	return m.err
+}
+func (m *mockRepo) CreateAllocation(ctx context.Context, tenantID, schoolID, blockID string, p CreateAllocationPayload) (*Allocation, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return &Allocation{ID: "a1", BlockID: blockID}, nil
+}
+func (m *mockRepo) UpdateAllocation(ctx context.Context, id, tenantID, schoolID string, p UpdateAllocationPayload) (*Allocation, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return &Allocation{ID: id}, nil
+}
+func (m *mockRepo) DeleteAllocation(ctx context.Context, id, tenantID, schoolID string) error {
+	return m.err
+}

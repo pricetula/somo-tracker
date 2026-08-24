@@ -398,3 +398,22 @@ func isUniqueViolation(err error) bool {
 	}
 	return false
 }
+
+func (r *PgRepository) CreateTrack(ctx context.Context, tenantID, schoolID, academicYearID, academicTermID, name, description string, isDefault bool) (*Track, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+func (r *PgRepository) UpdateTrack(ctx context.Context, id, tenantID, schoolID string, p UpdateTrackPayload) (*Track, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+func (r *PgRepository) DeleteTrack(ctx context.Context, id, tenantID, schoolID string) error {
+	return fmt.Errorf("not implemented")
+}
+func (r *PgRepository) CreateAllocation(ctx context.Context, tenantID, schoolID, blockID string, p CreateAllocationPayload) (*Allocation, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+func (r *PgRepository) UpdateAllocation(ctx context.Context, id, tenantID, schoolID string, p UpdateAllocationPayload) (*Allocation, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+func (r *PgRepository) DeleteAllocation(ctx context.Context, id, tenantID, schoolID string) error {
+	return fmt.Errorf("not implemented")
+}

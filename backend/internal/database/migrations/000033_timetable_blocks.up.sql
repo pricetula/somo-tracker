@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS timetable_blocks (
     tenant_id        UUID             NOT NULL,
     school_id        UUID             NOT NULL,
     academic_year_id UUID             NOT NULL,
+    track_id         UUID             NOT NULL,
     day_of_week      INT              NOT NULL CHECK (day_of_week BETWEEN 1 AND 7),
     period_name      VARCHAR(50)      NOT NULL,
     start_time       TIME             NOT NULL,
@@ -17,8 +18,10 @@ CREATE TABLE IF NOT EXISTS timetable_blocks (
     updated_at       TIMESTAMPTZ      NOT NULL DEFAULT NOW(),
 
     CONSTRAINT chk_timetable_block_times CHECK (end_time > start_time),
+    -- Overlap exclusion now scoped per track: blocks in different tracks may share time ranges
     CONSTRAINT excl_timetable_block_overlap
         EXCLUDE USING gist (
+            track_id WITH =,
             school_id WITH =,
             academic_year_id WITH =,
             day_of_week WITH =,
@@ -30,12 +33,17 @@ CREATE TABLE IF NOT EXISTS timetable_blocks (
     CONSTRAINT fk_timetable_block_academic_year
         FOREIGN KEY (tenant_id, academic_year_id)
         REFERENCES academic_years(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_timetable_block_track
+        FOREIGN KEY (tenant_id, track_id)
+        REFERENCES timetable_tracks(tenant_id, id) ON DELETE CASCADE,
     -- Composite key so timetable_allocations can reference (tenant_id, block_id)
     CONSTRAINT uq_timetable_blocks_tenant UNIQUE (tenant_id, id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_timetable_block_tenant
     ON timetable_blocks (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_timetable_block_track
+    ON timetable_blocks (track_id);
 CREATE INDEX IF NOT EXISTS idx_timetable_block_school_day
     ON timetable_blocks (school_id, day_of_week);
 CREATE INDEX IF NOT EXISTS idx_timetable_block_academic_year
@@ -47,11 +55,16 @@ CREATE TRIGGER trg_timetable_blocks_updated_at
     FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
 
 COMMENT ON TABLE timetable_blocks IS
-    'Structural day template (Grid Definition Layer). Defines the partitioned time
-     blocks (lessons, breaks, assemblies) that make up a standard school day per
-     academic year. The GiST exclusion constraint guarantees non-overlapping blocks
-     per school per academic year per day. Decoupled from timetable_allocations —
-     allocations reference block_id instead of carrying raw time ranges.';
+    'Structural day template (Grid Definition Layer) scoped to a timetable_track.
+     Defines the partitioned time blocks (lessons, breaks, assemblies) that make up
+     a standard school day per academic year per track. The GiST exclusion constraint
+     guarantees non-overlapping blocks per track per school per academic year per day.
+     Decoupled from timetable_allocations — allocations reference block_id instead of
+     carrying raw time ranges.';
+
+COMMENT ON COLUMN timetable_blocks.track_id IS
+    'Foreign key to timetable_tracks. Allows a school to run multiple independent
+     bell schedules (e.g., Lower Primary, Upper Primary, JSS) within the same year.';
 
 COMMENT ON COLUMN timetable_blocks.day_of_week IS
     '1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 5=Friday, 6=Saturday, 7=Sunday.

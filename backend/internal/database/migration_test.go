@@ -382,6 +382,7 @@ func TestMigrationsIntegration_ApplyAll(t *testing.T) {
 		"cbc_learning_areas", "cbc_parents", "cbc_schools", "cbc_streams",
 		"cbc_strands", "cbc_student_enrollments", "cbc_student_parents",
 		"cbc_students", "cbc_sub_strands", "timetable_allocations",
+		"timetable_tracks",
 		"fee_categories", "fee_templates",
 		"grading_scale_profiles", "grading_scale_ranges",
 		"import_job_chunks", "import_job_failures",
@@ -399,7 +400,7 @@ func TestMigrationsIntegration_ApplyAll(t *testing.T) {
 		"teacher_delivery_summaries",
 		"teacher_subject_performance_summaries",
 		"teacher_workload_summaries",
-		"tenants", "timetable_blocks", "users",
+		"tenants", "timetable_blocks", "timetable_tracks", "users",
 	}
 
 	tableSet := make(map[string]bool, len(tables))

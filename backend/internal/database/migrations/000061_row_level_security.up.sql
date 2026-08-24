@@ -259,6 +259,7 @@ ALTER TABLE IF EXISTS cbc_student_parents               ENABLE ROW LEVEL SECURIT
 ALTER TABLE IF EXISTS cbc_students                      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS cbc_schools                       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS cbc_streams                       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS timetable_tracks                ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS timetable_allocations               ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS fee_categories                    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS fee_templates                     ENABLE ROW LEVEL SECURITY;
@@ -315,6 +316,7 @@ BEGIN
             'cbc_students',
             'cbc_schools',
             'cbc_streams',
+            'timetable_tracks',
             'timetable_allocations',
             'fee_categories',
             'fee_templates',

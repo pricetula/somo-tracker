@@ -77,17 +77,17 @@ type TeacherClassListResponse struct {
 
 // TeacherTimetableAllocation represents a timetable slot for the teacher's view.
 type TeacherTimetableAllocation struct {
-	SlotID           string  `json:"slot_id"`
-	PeriodName       string  `json:"period_name"`
-	StartTime        string  `json:"start_time"`
-	EndTime          string  `json:"end_time"`
-	ClassID          string  `json:"class_id"`
-	ClassName        string  `json:"class_name"`
-	GradeLevel       string  `json:"grade_level"`
-	StreamName       string  `json:"stream_name,omitempty"`
-	LearningAreaID   string  `json:"learning_area_id"`
-	LearningAreaName string  `json:"learning_area_name"`
-	RoomIdentifier   *string `json:"room_identifier,omitempty"`
+	TimetableAllocationID string  `json:"timetable_allocation_id"`
+	PeriodName            string  `json:"period_name"`
+	StartTime             string  `json:"start_time"`
+	EndTime               string  `json:"end_time"`
+	ClassID               string  `json:"class_id"`
+	ClassName             string  `json:"class_name"`
+	GradeLevel            string  `json:"grade_level"`
+	StreamName            string  `json:"stream_name,omitempty"`
+	LearningAreaID        string  `json:"learning_area_id"`
+	LearningAreaName      string  `json:"learning_area_name"`
+	RoomIdentifier        *string `json:"room_identifier,omitempty"`
 }
 
 // TeacherTimetableResponse wraps a teacher's timetable.

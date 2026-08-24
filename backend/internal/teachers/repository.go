@@ -286,7 +286,7 @@ func (r *PgRepository) ListTeacherClasses(ctx context.Context, tenantID, schoolI
 func (r *PgRepository) GetTeacherTimetable(ctx context.Context, tenantID, schoolID, userID string, dayOfWeek int) ([]TeacherTimetableAllocation, error) {
 	query := `
 		SELECT
-			ts.id AS slot_id,
+			ts.id AS timetable_allocation_id,
 			tstr.period_name,
 			tstr.start_time::text,
 			tstr.end_time::text,
@@ -318,7 +318,7 @@ func (r *PgRepository) GetTeacherTimetable(ctx context.Context, tenantID, school
 	for rows.Next() {
 		var item TeacherTimetableAllocation
 		if err := rows.Scan(
-			&item.SlotID, &item.PeriodName, &item.StartTime, &item.EndTime,
+			&item.TimetableAllocationID, &item.PeriodName, &item.StartTime, &item.EndTime,
 			&item.ClassID, &item.ClassName, &item.GradeLevel, &item.StreamName,
 			&item.LearningAreaID, &item.LearningAreaName, &item.RoomIdentifier,
 		); err != nil {

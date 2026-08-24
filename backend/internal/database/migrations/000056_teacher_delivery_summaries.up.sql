@@ -86,8 +86,8 @@ COMMENT ON COLUMN teacher_delivery_summaries.on_time_submission_rate IS
 --   1. Resolve all timetable slots assigned to the teacher.
 --   2. Count expected occurrences per slot within the term date range
 --      (matching day_of_week).
---   3. Count attendance_records per (slot_id, date) for this teacher's slots.
---   4. Count SKIPPED sessions per (slot_id, date) for this teacher's slots.
+--   3. Count attendance_records per (timetable_allocation_id, date) for this teacher's slots.
+--   4. Count SKIPPED sessions per (timetable_allocation_id, date) for this teacher's slots.
 --   5. Compute on_time_submission_rate.
 -- ============================================================================
 
@@ -124,7 +124,7 @@ BEGIN
     teacher_slots AS (
         SELECT DISTINCT
             ts.teacher_id AS user_id,
-            ts.id AS slot_id,
+            ts.id AS timetable_allocation_id,
             tstr.day_of_week,
             ts.class_id,
             ts.learning_area_id
@@ -140,7 +140,7 @@ BEGIN
     slot_occurrences AS (
         SELECT
             ts.user_id,
-            ts.slot_id,
+            ts.timetable_allocation_id,
             d.date::DATE AS occurrence_date
         FROM teacher_slots ts
         CROSS JOIN LATERAL (
@@ -171,7 +171,8 @@ BEGIN
           AND ar.academic_term_id = target_term_id
           AND ts.teacher_id IS NOT NULL
         GROUP BY ar.tenant_id, ts.teacher_id
-    ),
+    )
+    -- The 'marked' CTE already uses ar.timetable_allocation_id which is correct,
     -- Count missed slots: sessions with status = SKIPPED
     missed AS (
         SELECT
@@ -220,7 +221,7 @@ BEGIN
     teacher_aggregates AS (
         SELECT
             so.user_id,
-            COUNT(DISTINCT (so.slot_id, so.occurrence_date))::INT AS total_assigned,
+            COUNT(DISTINCT (so.timetable_allocation_id, so.occurrence_date))::INT AS total_assigned,
             COALESCE(m.marked_count, 0) AS marked,
             COALESCE(mi.missed_count, 0) AS missed,
             COALESCE(sc.sessions_count, 0) AS sessions_created_count,

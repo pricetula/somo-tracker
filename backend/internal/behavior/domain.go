@@ -59,31 +59,31 @@ const (
 
 // BehaviorNote is a single incident/behavior record logged by a teacher.
 type BehaviorNote struct {
-	ID              string             `json:"id"`
-	TenantID        string             `json:"tenant_id"`
-	SchoolID        string             `json:"school_id"`
-	StudentID       string             `json:"student_id"`
-	TimetableSlotID string             `json:"timetable_slot_id"`
-	Date            time.Time          `json:"date"`
-	CategoryID      string             `json:"category_id"`
-	Description     string             `json:"description"`
-	IsUrgent        bool               `json:"is_urgent"`
-	Status          BehaviorNoteStatus `json:"status"`
-	AuthoredByID    string             `json:"authored_by_id"`
-	ReviewedByID    *string            `json:"reviewed_by_id,omitempty"`
-	ReviewedAt      *time.Time         `json:"reviewed_at,omitempty"`
-	CreatedAt       time.Time          `json:"created_at,omitempty"`
-	UpdatedAt       time.Time          `json:"updated_at,omitempty"`
+	ID                    string             `json:"id"`
+	TenantID              string             `json:"tenant_id"`
+	SchoolID              string             `json:"school_id"`
+	StudentID             string             `json:"student_id"`
+	TimetableAllocationID string             `json:"timetable_allocation_id"`
+	Date                  time.Time          `json:"date"`
+	CategoryID            string             `json:"category_id"`
+	Description           string             `json:"description"`
+	IsUrgent              bool               `json:"is_urgent"`
+	Status                BehaviorNoteStatus `json:"status"`
+	AuthoredByID          string             `json:"authored_by_id"`
+	ReviewedByID          *string            `json:"reviewed_by_id,omitempty"`
+	ReviewedAt            *time.Time         `json:"reviewed_at,omitempty"`
+	CreatedAt             time.Time          `json:"created_at,omitempty"`
+	UpdatedAt             time.Time          `json:"updated_at,omitempty"`
 }
 
 // CreateNotePayload is the request body for creating a behavior note.
 type CreateNotePayload struct {
-	TimetableSlotID string `json:"timetable_slot_id"`
-	StudentID       string `json:"student_id"`
-	Date            string `json:"date"`
-	CategoryID      string `json:"category_id"`
-	Description     string `json:"description"`
-	IsUrgent        bool   `json:"is_urgent"`
+	TimetableAllocationID string `json:"timetable_allocation_id"`
+	StudentID             string `json:"student_id"`
+	Date                  string `json:"date"`
+	CategoryID            string `json:"category_id"`
+	Description           string `json:"description"`
+	IsUrgent              bool   `json:"is_urgent"`
 }
 
 // ReviewDecisionPayload is the request body for approving/rejecting a note.

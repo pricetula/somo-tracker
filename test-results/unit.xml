@@ -196,7 +196,7 @@
 		</testcase>
 		<testcase classname="somotracker/backend/internal/attendance" name="TestCreateSession_HappyPath" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/attendance" name="TestCreateSession_SkippedWithReason" time="0.000000"></testcase>
-		<testcase classname="somotracker/backend/internal/attendance" name="TestCreateSession_EmptyTimetableSlotID" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/attendance" name="TestCreateSession_EmptyTimetableAllocationID" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/attendance" name="TestCreateSession_EmptyDate" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/attendance" name="TestCreateSession_InvalidStatus" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/attendance" name="TestCreateSession_SkippedMissingReason" time="0.000000"></testcase>
@@ -209,7 +209,7 @@
 		<testcase classname="somotracker/backend/internal/attendance" name="TestGetSessionsForClassDate_EmptyClassID" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/attendance" name="TestGetSessionsForClassDate_EmptyDate" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/attendance" name="TestBatchMark_HappyPath" time="0.000000"></testcase>
-		<testcase classname="somotracker/backend/internal/attendance" name="TestBatchMark_EmptyTimetableSlotID" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/attendance" name="TestBatchMark_EmptyTimetableAllocationID" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/attendance" name="TestBatchMark_EmptyDate" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/attendance" name="TestBatchMark_EmptyRecords" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/attendance" name="TestBatchMark_InvalidStatus" time="0.000000"></testcase>

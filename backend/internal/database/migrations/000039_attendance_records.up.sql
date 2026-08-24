@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS attendance_records (
     tenant_id         UUID              NOT NULL,
     school_id         UUID              NOT NULL,
     student_id        UUID              NOT NULL,
-    timetable_slot_id UUID              NOT NULL,
+    timetable_allocation_id UUID              NOT NULL,
     academic_term_id  UUID              NOT NULL,
     date              DATE              NOT NULL,
     status            attendance_status NOT NULL,
@@ -20,13 +20,13 @@ CREATE TABLE IF NOT EXISTS attendance_records (
     updated_at        TIMESTAMPTZ       NOT NULL DEFAULT NOW(),
 
     CONSTRAINT uq_attendance_student_slot_date
-        UNIQUE (student_id, timetable_slot_id, date),
+        UNIQUE (student_id, timetable_allocation_id, date),
     CONSTRAINT fk_attendance_tenant_student
         FOREIGN KEY (tenant_id, student_id)
         REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_attendance_timetable_slot
-        FOREIGN KEY (tenant_id, timetable_slot_id)
-        REFERENCES cbc_timetable_slots(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_attendance_timetable_allocation
+        FOREIGN KEY (tenant_id, timetable_allocation_id)
+        REFERENCES timetable_allocations(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_attendance_tenant_session
         FOREIGN KEY (tenant_id, attendance_session_id)
         REFERENCES cbc_attendance_sessions(tenant_id, id) ON DELETE SET NULL (attendance_session_id),
@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS attendance_records (
 );
 
 CREATE INDEX IF NOT EXISTS idx_attendance_slot_date
-    ON attendance_records (timetable_slot_id, date);
+    ON attendance_records (timetable_allocation_id, date);
 CREATE INDEX IF NOT EXISTS idx_attendance_student_term
     ON attendance_records (student_id, academic_term_id);
 CREATE INDEX IF NOT EXISTS idx_attendance_tenant
@@ -49,8 +49,8 @@ CREATE INDEX IF NOT EXISTS idx_attendance_school
 
 COMMENT ON TABLE attendance_records IS
     'Per-student, per-timetable-slot, per-date attendance records. The unique
-     constraint (student_id, timetable_slot_id, date) prevents duplicate marks.
-     Only created for slots where timetable_structures.is_break = false.';
+     constraint (student_id, timetable_allocation_id, date) prevents duplicate marks.
+     Only created for slots where timetable_blocks.is_break = false.';
 
 COMMENT ON COLUMN attendance_records.note IS
     'Optional short free text (e.g. "left early, picked up by parent").';
@@ -78,12 +78,12 @@ CREATE OR REPLACE FUNCTION fn_check_non_break_slot()
 RETURNS TRIGGER AS $$
 BEGIN
     IF EXISTS (
-        SELECT 1 FROM cbc_timetable_slots ts
-        JOIN timetable_structures tstr ON tstr.id = ts.structure_id
-        WHERE ts.id = NEW.timetable_slot_id
+        SELECT 1 FROM timetable_allocations ts
+        JOIN timetable_blocks tstr ON tstr.id = ts.block_id
+        WHERE ts.id = NEW.timetable_allocation_id
           AND tstr.is_break = true
     ) THEN
-        RAISE EXCEPTION 'Cannot create attendance record for a break period (timetable_slot_id: %)', NEW.timetable_slot_id
+        RAISE EXCEPTION 'Cannot create attendance record for a break period (timetable_allocation_id: %)', NEW.timetable_allocation_id
             USING ERRCODE = 'P0001';
     END IF;
     RETURN NEW;
@@ -98,7 +98,7 @@ CREATE TRIGGER trg_attendance_check_non_break_slot
 
 COMMENT ON TRIGGER trg_attendance_check_non_break_slot ON attendance_records IS
     'Enforces that attendance records can only reference timetable slots
-     whose corresponding timetable_structures row has is_break = false.
+     whose corresponding timetable_blocks row has is_break = false.
      Prevents system or application bugs from creating attendance marks
      for break/assembly/recess periods.';
 

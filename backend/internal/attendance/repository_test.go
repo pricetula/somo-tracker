@@ -252,20 +252,20 @@ func TestPgRepository_CreateAndGetSession(t *testing.T) {
 
 	// Insert a timetable structure row
 	structID := uuid.New().String()
-	_, err := pool.Exec(ctx, `INSERT INTO timetable_structures (id, tenant_id, school_id, academic_year_id, day_of_week, start_time, end_time, period_name) VALUES ($1, $2, $3, $4, 1, '08:00', '08:40', 'Period 1')`,
+	_, err := pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, academic_year_id, day_of_week, start_time, end_time, period_name) VALUES ($1, $2, $3, $4, 1, '08:00', '08:40', 'Period 1')`,
 		structID, ids.TenantID, ids.SchoolID, ids.AcademicYearID)
 	require.NoError(t, err)
 
-	// Insert a cbc_timetable_slot referencing the structure
+	// Insert a timetable_allocation referencing the structure
 	slotID := uuid.New().String()
-	_, err = pool.Exec(ctx, `INSERT INTO cbc_timetable_slots (id, tenant_id, school_id, academic_year_id, structure_id, class_id, learning_area_id, teacher_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+	_, err = pool.Exec(ctx, `INSERT INTO timetable_allocations (id, tenant_id, school_id, academic_year_id, block_id, class_id, learning_area_id, teacher_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
 		slotID, ids.TenantID, ids.SchoolID, ids.AcademicYearID, structID, ids.ClassID1, ids.LearningAreaID1, ids.UserID)
 	require.NoError(t, err)
 
 	session, err := repo.CreateSession(ctx, ids.TenantID, ids.SchoolID, CreateSessionPayload{
-		TimetableSlotID: slotID,
-		Date:            "2026-01-15",
-		Status:          string(SessionSubmitted),
+		TimetableAllocationID: slotID,
+		Date:                  "2026-01-15",
+		Status:                string(SessionSubmitted),
 	})
 	require.NoError(t, err)
 	require.NotNil(t, session)
@@ -689,10 +689,10 @@ func insertAttendanceRecords(
 
 		_, err := pool.Exec(ctx, `
 			INSERT INTO attendance_records (
-				id, tenant_id, school_id, student_id, timetable_slot_id,
+				id, tenant_id, school_id, student_id, timetable_allocation_id,
 				date, status, academic_term_id, marked_by
 			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-			ON CONFLICT (student_id, timetable_slot_id, date) DO UPDATE SET
+			ON CONFLICT (student_id, timetable_allocation_id, date) DO UPDATE SET
 				status = EXCLUDED.status
 			`, uuid.New().String(), ids.TenantID, ids.SchoolID, studentID, slotID,
 			recordDateStr, status, ids.AcademicTermID, ids.UserID)
@@ -725,10 +725,10 @@ func insertAttendanceRecordsWithStatuses(
 
 		_, err := pool.Exec(ctx, `
 			INSERT INTO attendance_records (
-				id, tenant_id, school_id, student_id, timetable_slot_id,
+				id, tenant_id, school_id, student_id, timetable_allocation_id,
 				date, status, academic_term_id, marked_by
 			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-			ON CONFLICT (student_id, timetable_slot_id, date) DO UPDATE SET
+			ON CONFLICT (student_id, timetable_allocation_id, date) DO UPDATE SET
 				status = EXCLUDED.status
 			`, uuid.New().String(), ids.TenantID, ids.SchoolID, studentID, slotID,
 			recordDateStr, status, ids.AcademicTermID, ids.UserID)
@@ -750,13 +750,13 @@ func TestPgRepository_GetLowestAttendanceStudents(t *testing.T) {
 	// Create a timetable structure and slot for the class
 	structID := uuid.New().String()
 	_, err := pool.Exec(ctx, `
-		INSERT INTO timetable_structures (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 1', '08:00', '09:00', false)
+		INSERT INTO timetable_blocks (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 1', '08:00', '09:00', false)
 		`, structID, ids.TenantID, ids.SchoolID, ids.AcademicYearID)
 	require.NoError(t, err)
 
 	slotID := uuid.New().String()
 	_, err = pool.Exec(ctx, `
-		INSERT INTO cbc_timetable_slots (id, tenant_id, school_id, academic_year_id, structure_id, class_id, learning_area_id, teacher_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		INSERT INTO timetable_allocations (id, tenant_id, school_id, academic_year_id, block_id, class_id, learning_area_id, teacher_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		`, slotID, ids.TenantID, ids.SchoolID, ids.AcademicYearID, structID, ids.ClassID1, ids.LearningAreaID1, ids.UserID)
 	require.NoError(t, err)
 

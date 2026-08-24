@@ -1,7 +1,7 @@
 // Package teacherdeliverysummaries provides incrementally updated summaries of
 // teacher lesson delivery metrics per term. Grain: Teacher + Term.
 //
-// Slot ownership is resolved via cbc_timetable_slots.teacher_id. Summaries are
+// Slot ownership is resolved via timetable_allocations.teacher_id. Summaries are
 // updated via batch computation (fn_compute_teacher_delivery_summaries).
 package teacherdeliverysummaries
 

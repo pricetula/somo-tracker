@@ -48,7 +48,7 @@ export interface BehaviorNote {
     tenant_id: string;
     school_id: string;
     student_id: string;
-    timetable_slot_id: string;
+    timetable_allocation_id: string;
     date: string;
     category_id: string;
     description: string;
@@ -61,7 +61,7 @@ export interface BehaviorNote {
 }
 
 export interface CreateNotePayload {
-    timetable_slot_id: string;
+    timetable_allocation_id: string;
     student_id: string;
     date: string;
     category_id: string;

@@ -27,7 +27,7 @@ func (r *PgRepository) ListBlocks(ctx context.Context, tenantID, schoolID, acade
 		SELECT id, day_of_week, period_name, start_time, end_time, is_break,
 		       academic_year_id, COALESCE(order_index, 0) as order_index,
 		       created_at, updated_at
-		FROM timetable_structures
+		FROM timetable_blocks
 		WHERE tenant_id = $1 AND school_id = $2 AND academic_year_id = $3
 		ORDER BY day_of_week ASC, order_index ASC, start_time ASC
 	`
@@ -62,7 +62,7 @@ func (r *PgRepository) GetBlock(ctx context.Context, id, tenantID, schoolID stri
 		SELECT id, day_of_week, period_name, start_time, end_time, is_break,
 		       academic_year_id, COALESCE(order_index, 0) as order_index,
 		       created_at, updated_at
-		FROM timetable_structures
+		FROM timetable_blocks
 		WHERE id = $1 AND tenant_id = $2 AND school_id = $3
 	`
 
@@ -83,7 +83,7 @@ func (r *PgRepository) GetBlock(ctx context.Context, id, tenantID, schoolID stri
 
 func (r *PgRepository) CreateBlock(ctx context.Context, tenantID, schoolID string, p CreateTimeBlockPayload) (*TimeBlock, error) {
 	const query = `
-		INSERT INTO timetable_structures (tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break, order_index)
+		INSERT INTO timetable_blocks (tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break, order_index)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		RETURNING id, day_of_week, period_name, start_time, end_time, is_break,
 		          academic_year_id, order_index, created_at, updated_at
@@ -109,7 +109,7 @@ func (r *PgRepository) CreateBlock(ctx context.Context, tenantID, schoolID strin
 
 func (r *PgRepository) UpdateBlock(ctx context.Context, id, tenantID, schoolID string, p UpdateTimeBlockPayload) (*TimeBlock, error) {
 	const query = `
-		UPDATE timetable_structures
+		UPDATE timetable_blocks
 		SET day_of_week = $1, period_name = $2, start_time = $3, end_time = $4, is_break = $5,
 		    academic_year_id = $6, order_index = $7, updated_at = NOW()
 		WHERE id = $8 AND tenant_id = $9 AND school_id = $10
@@ -140,7 +140,7 @@ func (r *PgRepository) UpdateBlock(ctx context.Context, id, tenantID, schoolID s
 
 func (r *PgRepository) DeleteBlock(ctx context.Context, id, tenantID, schoolID string) error {
 	const query = `
-		DELETE FROM timetable_structures
+		DELETE FROM timetable_blocks
 		WHERE id = $1 AND tenant_id = $2 AND school_id = $3
 	`
 	tag, err := database.FromContext(ctx, r.pool).Exec(ctx, query, id, tenantID, schoolID)
@@ -155,10 +155,10 @@ func (r *PgRepository) DeleteBlock(ctx context.Context, id, tenantID, schoolID s
 
 func (r *PgRepository) ListSlots(ctx context.Context, f SlotFilter) ([]Slot, error) {
 	query := `
-		SELECT id, tenant_id, school_id, academic_year_id, structure_id,
+		SELECT id, tenant_id, school_id, academic_year_id, block_id,
 		       class_id, learning_area_id, teacher_id, room_identifier,
 		       created_at, updated_at
-		FROM cbc_timetable_slots
+		FROM timetable_allocations
 		WHERE tenant_id = $1 AND school_id = $2
 	`
 	args := []any{f.TenantID, f.SchoolID}
@@ -169,9 +169,9 @@ func (r *PgRepository) ListSlots(ctx context.Context, f SlotFilter) ([]Slot, err
 		args = append(args, f.AcademicYearID)
 		argIdx++
 	}
-	if f.StructureID != "" {
-		query += fmt.Sprintf(" AND structure_id = $%d", argIdx)
-		args = append(args, f.StructureID)
+	if f.BlockID != "" {
+		query += fmt.Sprintf(" AND block_id = $%d", argIdx)
+		args = append(args, f.BlockID)
 		argIdx++
 	}
 	if f.ClassID != "" {
@@ -203,7 +203,7 @@ func (r *PgRepository) ListSlots(ctx context.Context, f SlotFilter) ([]Slot, err
 		var s Slot
 		if err := rows.Scan(
 			&s.ID, &s.TenantID, &s.SchoolID, &s.AcademicYearID,
-			&s.StructureID, &s.ClassID, &s.LearningAreaID, &s.TeacherID,
+			&s.BlockID, &s.ClassID, &s.LearningAreaID, &s.TeacherID,
 			&s.RoomIdentifier, &s.CreatedAt, &s.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("timetable.Repository.ListSlots: scan: %w", err)
@@ -219,17 +219,17 @@ func (r *PgRepository) ListSlots(ctx context.Context, f SlotFilter) ([]Slot, err
 
 func (r *PgRepository) GetSlot(ctx context.Context, id, tenantID, schoolID string) (*Slot, error) {
 	const query = `
-		SELECT id, tenant_id, school_id, academic_year_id, structure_id,
+		SELECT id, tenant_id, school_id, academic_year_id, block_id,
 		       class_id, learning_area_id, teacher_id, room_identifier,
 		       created_at, updated_at
-		FROM cbc_timetable_slots
+		FROM timetable_allocations
 		WHERE id = $1 AND tenant_id = $2 AND school_id = $3
 	`
 
 	var s Slot
 	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, id, tenantID, schoolID).Scan(
 		&s.ID, &s.TenantID, &s.SchoolID, &s.AcademicYearID,
-		&s.StructureID, &s.ClassID, &s.LearningAreaID, &s.TeacherID,
+		&s.BlockID, &s.ClassID, &s.LearningAreaID, &s.TeacherID,
 		&s.RoomIdentifier, &s.CreatedAt, &s.UpdatedAt,
 	)
 	if err != nil {
@@ -243,21 +243,21 @@ func (r *PgRepository) GetSlot(ctx context.Context, id, tenantID, schoolID strin
 
 func (r *PgRepository) CreateSlot(ctx context.Context, tenantID, schoolID, academicYearID string, p SlotPayload) (*Slot, error) {
 	const query = `
-		INSERT INTO cbc_timetable_slots (tenant_id, school_id, academic_year_id, structure_id,
+		INSERT INTO timetable_allocations (tenant_id, school_id, academic_year_id, block_id,
 		                                 class_id, learning_area_id, teacher_id, room_identifier)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-		RETURNING id, tenant_id, school_id, academic_year_id, structure_id,
+		RETURNING id, tenant_id, school_id, academic_year_id, block_id,
 		          class_id, learning_area_id, teacher_id, room_identifier,
 		          created_at, updated_at
 	`
 
 	var s Slot
 	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query,
-		tenantID, schoolID, academicYearID, p.StructureID,
+		tenantID, schoolID, academicYearID, p.BlockID,
 		p.ClassID, p.LearningAreaID, p.TeacherID, p.RoomIdentifier,
 	).Scan(
 		&s.ID, &s.TenantID, &s.SchoolID, &s.AcademicYearID,
-		&s.StructureID, &s.ClassID, &s.LearningAreaID, &s.TeacherID,
+		&s.BlockID, &s.ClassID, &s.LearningAreaID, &s.TeacherID,
 		&s.RoomIdentifier, &s.CreatedAt, &s.UpdatedAt,
 	)
 	if err != nil {
@@ -302,17 +302,17 @@ func (r *PgRepository) BatchCreateSlots(ctx context.Context, tenantID, schoolID,
 	}()
 
 	const query = `
-		INSERT INTO cbc_timetable_slots (tenant_id, school_id, academic_year_id, structure_id,
+		INSERT INTO timetable_allocations (tenant_id, school_id, academic_year_id, block_id,
 		                                 class_id, learning_area_id, teacher_id, room_identifier)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-		RETURNING id, tenant_id, school_id, academic_year_id, structure_id,
+		RETURNING id, tenant_id, school_id, academic_year_id, block_id,
 		          class_id, learning_area_id, teacher_id, room_identifier,
 		          created_at, updated_at
 	`
 
 	batch := &pgx.Batch{}
 	for _, p := range payloads {
-		batch.Queue(query, tenantID, schoolID, academicYearID, p.StructureID, p.ClassID, p.LearningAreaID, p.TeacherID, p.RoomIdentifier)
+		batch.Queue(query, tenantID, schoolID, academicYearID, p.BlockID, p.ClassID, p.LearningAreaID, p.TeacherID, p.RoomIdentifier)
 	}
 
 	results := tx.SendBatch(ctx, batch)
@@ -322,7 +322,7 @@ func (r *PgRepository) BatchCreateSlots(ctx context.Context, tenantID, schoolID,
 		var s Slot
 		err = results.QueryRow().Scan(
 			&s.ID, &s.TenantID, &s.SchoolID, &s.AcademicYearID,
-			&s.StructureID, &s.ClassID, &s.LearningAreaID, &s.TeacherID,
+			&s.BlockID, &s.ClassID, &s.LearningAreaID, &s.TeacherID,
 			&s.RoomIdentifier, &s.CreatedAt, &s.UpdatedAt,
 		)
 		if err != nil {
@@ -348,10 +348,10 @@ func (r *PgRepository) BatchCreateSlots(ctx context.Context, tenantID, schoolID,
 
 func (r *PgRepository) UpdateSlot(ctx context.Context, id, tenantID, schoolID string, p UpdateSlotPayload) (*Slot, error) {
 	const query = `
-		UPDATE cbc_timetable_slots
+		UPDATE timetable_allocations
 		SET learning_area_id = $1, teacher_id = $2, room_identifier = $3, updated_at = NOW()
 		WHERE id = $4 AND tenant_id = $5 AND school_id = $6
-		RETURNING id, tenant_id, school_id, academic_year_id, structure_id,
+		RETURNING id, tenant_id, school_id, academic_year_id, block_id,
 		          class_id, learning_area_id, teacher_id, room_identifier,
 		          created_at, updated_at
 	`
@@ -361,7 +361,7 @@ func (r *PgRepository) UpdateSlot(ctx context.Context, id, tenantID, schoolID st
 		p.LearningAreaID, p.TeacherID, p.RoomIdentifier, id, tenantID, schoolID,
 	).Scan(
 		&s.ID, &s.TenantID, &s.SchoolID, &s.AcademicYearID,
-		&s.StructureID, &s.ClassID, &s.LearningAreaID, &s.TeacherID,
+		&s.BlockID, &s.ClassID, &s.LearningAreaID, &s.TeacherID,
 		&s.RoomIdentifier, &s.CreatedAt, &s.UpdatedAt,
 	)
 	if err != nil {
@@ -377,7 +377,7 @@ func (r *PgRepository) UpdateSlot(ctx context.Context, id, tenantID, schoolID st
 }
 
 func (r *PgRepository) DeleteSlot(ctx context.Context, id, tenantID, schoolID string) error {
-	const query = `DELETE FROM cbc_timetable_slots WHERE id = $1 AND tenant_id = $2 AND school_id = $3`
+	const query = `DELETE FROM timetable_allocations WHERE id = $1 AND tenant_id = $2 AND school_id = $3`
 	tag, err := database.FromContext(ctx, r.pool).Exec(ctx, query, id, tenantID, schoolID)
 	if err != nil {
 		return fmt.Errorf("timetable.Repository.DeleteSlot: %w", err)

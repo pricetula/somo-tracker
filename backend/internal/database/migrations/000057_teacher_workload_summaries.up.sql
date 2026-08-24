@@ -106,7 +106,7 @@ BEGIN
 
     -- Count total non-break periods per week in the school's timetable
     SELECT COUNT(*)::INT INTO v_total_school_periods
-    FROM timetable_structures ts
+    FROM timetable_blocks ts
     WHERE ts.tenant_id = v_tenant_id
       AND ts.school_id = v_school_id
       AND ts.academic_year_id = target_year_id
@@ -114,7 +114,7 @@ BEGIN
 
     -- Count active teachers (users with timetable slots)
     SELECT COUNT(DISTINCT ts.teacher_id)::INT INTO v_active_teacher_count
-    FROM cbc_timetable_slots ts
+    FROM timetable_allocations ts
     WHERE ts.tenant_id = v_tenant_id
       AND ts.school_id = v_school_id
       AND ts.academic_year_id = target_year_id
@@ -133,8 +133,8 @@ BEGIN
             COUNT(*)::INT AS assigned_periods,
             COUNT(DISTINCT ts.learning_area_id)::INT AS subjects_count,
             COUNT(DISTINCT ts.class_id)::INT AS classes_count
-        FROM cbc_timetable_slots ts
-        JOIN timetable_structures tstr ON tstr.id = ts.structure_id
+        FROM timetable_allocations ts
+        JOIN timetable_blocks tstr ON tstr.id = ts.block_id
         WHERE ts.tenant_id = v_tenant_id
           AND ts.school_id = v_school_id
           AND ts.academic_year_id = target_year_id
@@ -182,7 +182,7 @@ BEGIN
       AND school_id = v_school_id
       AND user_id NOT IN (
           SELECT DISTINCT ts.teacher_id
-          FROM cbc_timetable_slots ts
+          FROM timetable_allocations ts
           WHERE ts.tenant_id = v_tenant_id
             AND ts.school_id = v_school_id
             AND ts.academic_year_id = target_year_id
@@ -193,8 +193,8 @@ $$;
 
 COMMENT ON FUNCTION fn_compute_teacher_workload_summaries IS
     'Batch-computes teacher_workload_summaries for all teachers with timetable
-     slots in the given academic year. Uses cbc_timetable_slots and
-     timetable_structures for workload metrics.';
+     slots in the given academic year. Uses timetable_allocations and
+     timetable_blocks for workload metrics.';
 
 -- ============================================================================
 -- RLS POLICY

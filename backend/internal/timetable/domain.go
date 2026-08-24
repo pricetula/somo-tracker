@@ -39,7 +39,7 @@ type Slot struct {
 	TenantID       string    `json:"tenant_id"`
 	SchoolID       string    `json:"school_id"`
 	AcademicYearID string    `json:"academic_year_id"`
-	StructureID    string    `json:"structure_id"`
+	BlockID        string    `json:"block_id"`
 	ClassID        string    `json:"class_id"`
 	LearningAreaID string    `json:"learning_area_id"`
 	TeacherID      string    `json:"teacher_id"`
@@ -52,7 +52,7 @@ type SlotFilter struct {
 	TenantID       string `json:"tenant_id"`
 	SchoolID       string `json:"school_id"`
 	AcademicYearID string `json:"academic_year_id"`
-	StructureID    string `json:"structure_id,omitempty"`
+	BlockID        string `json:"block_id,omitempty"`
 	ClassID        string `json:"class_id,omitempty"`
 	TeacherID      string `json:"teacher_id,omitempty"`
 	LearningAreaID string `json:"learning_area_id,omitempty"`
@@ -89,7 +89,7 @@ type UpdateTimeBlockPayload struct {
 }
 
 type SlotPayload struct {
-	StructureID    string  `json:"structure_id"`
+	BlockID        string  `json:"block_id"`
 	ClassID        string  `json:"class_id"`
 	LearningAreaID string  `json:"learning_area_id"`
 	TeacherID      string  `json:"teacher_id"`

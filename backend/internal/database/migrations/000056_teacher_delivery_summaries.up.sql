@@ -53,7 +53,7 @@ COMMENT ON TABLE teacher_delivery_summaries IS
 
 COMMENT ON COLUMN teacher_delivery_summaries.total_assigned_slots IS
     'Total number of timetable slot occurrences assigned to this teacher during
-     the term. Computed as the count of (cbc_timetable_slots × weeks) where
+     the term. Computed as the count of (timetable_allocations × weeks) where
      the slot day_of_week falls within the term date range.';
 
 COMMENT ON COLUMN teacher_delivery_summaries.marked_slots IS
@@ -128,8 +128,8 @@ BEGIN
             tstr.day_of_week,
             ts.class_id,
             ts.learning_area_id
-        FROM cbc_timetable_slots ts
-        JOIN timetable_structures tstr ON tstr.id = ts.structure_id
+        FROM timetable_allocations ts
+        JOIN timetable_blocks tstr ON tstr.id = ts.block_id
         WHERE ts.tenant_id = v_tenant_id
           AND ts.school_id = v_school_id
           AND ts.academic_year_id = v_academic_year_id
@@ -164,9 +164,9 @@ BEGIN
         SELECT
             ar.tenant_id,
             ts.teacher_id AS user_id,
-            COUNT(DISTINCT (ar.timetable_slot_id, ar.date))::INT AS marked_count
+            COUNT(DISTINCT (ar.timetable_allocation_id, ar.date))::INT AS marked_count
         FROM attendance_records ar
-        JOIN cbc_timetable_slots ts ON ts.id = ar.timetable_slot_id
+        JOIN timetable_allocations ts ON ts.id = ar.timetable_allocation_id
         WHERE ar.tenant_id = v_tenant_id
           AND ar.academic_term_id = target_term_id
           AND ts.teacher_id IS NOT NULL
@@ -179,7 +179,7 @@ BEGIN
             ts.teacher_id AS user_id,
             COUNT(*)::INT AS missed_count
         FROM cbc_attendance_sessions s
-        JOIN cbc_timetable_slots ts ON ts.id = s.timetable_slot_id
+        JOIN timetable_allocations ts ON ts.id = s.timetable_allocation_id
         WHERE s.tenant_id = v_tenant_id
           AND s.date >= v_term_start
           AND s.date <= v_term_end
@@ -194,7 +194,7 @@ BEGIN
             ts.teacher_id AS user_id,
             COUNT(*)::INT AS sessions_count
         FROM cbc_attendance_sessions s
-        JOIN cbc_timetable_slots ts ON ts.id = s.timetable_slot_id
+        JOIN timetable_allocations ts ON ts.id = s.timetable_allocation_id
         WHERE s.tenant_id = v_tenant_id
           AND s.date >= v_term_start
           AND s.date <= v_term_end
@@ -208,7 +208,7 @@ BEGIN
             ts.teacher_id AS user_id,
             COUNT(*)::INT AS approved_count
         FROM cbc_attendance_sessions s
-        JOIN cbc_timetable_slots ts ON ts.id = s.timetable_slot_id
+        JOIN timetable_allocations ts ON ts.id = s.timetable_allocation_id
         WHERE s.tenant_id = v_tenant_id
           AND s.date >= v_term_start
           AND s.date <= v_term_end
@@ -271,7 +271,7 @@ BEGIN
       AND school_id = v_school_id
       AND user_id NOT IN (
           SELECT DISTINCT ts.teacher_id
-          FROM cbc_timetable_slots ts
+          FROM timetable_allocations ts
           WHERE ts.tenant_id = v_tenant_id
             AND ts.school_id = v_school_id
             AND ts.academic_year_id = v_academic_year_id

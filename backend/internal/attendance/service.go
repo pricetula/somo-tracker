@@ -26,8 +26,8 @@ func (s *Service) SetEnqueuer(e *Enqueuer) {
 
 // CreateSession creates a new attendance session.
 func (s *Service) CreateSession(ctx context.Context, tenantID, schoolID string, payload CreateSessionPayload) (*AttendanceSession, error) {
-	if payload.TimetableSlotID == "" {
-		return nil, fmt.Errorf("attendance.Service.CreateSession: timetable_slot_id is required: %w", ErrInvalidInput)
+	if payload.TimetableAllocationID == "" {
+		return nil, fmt.Errorf("attendance.Service.CreateSession: timetable_allocation_id is required: %w", ErrInvalidInput)
 	}
 	if payload.Date == "" {
 		return nil, fmt.Errorf("attendance.Service.CreateSession: date is required: %w", ErrInvalidInput)
@@ -102,8 +102,8 @@ func (s *Service) GetSessionsForClassDate(ctx context.Context, tenantID, schoolI
 
 // BatchMark marks attendance for multiple students in a single slot+date.
 func (s *Service) BatchMark(ctx context.Context, tenantID, schoolID string, payload BatchMarkPayload, markedBy, termID string) (*BatchMarkResult, error) {
-	if payload.TimetableSlotID == "" {
-		return nil, fmt.Errorf("attendance.Service.BatchMark: timetable_slot_id is required: %w", ErrInvalidInput)
+	if payload.TimetableAllocationID == "" {
+		return nil, fmt.Errorf("attendance.Service.BatchMark: timetable_allocation_id is required: %w", ErrInvalidInput)
 	}
 	if payload.Date == "" {
 		return nil, fmt.Errorf("attendance.Service.BatchMark: date is required: %w", ErrInvalidInput)
@@ -147,7 +147,7 @@ func (s *Service) BatchMark(ctx context.Context, tenantID, schoolID string, payl
 	if s.enqueuer != nil {
 		s.enqueuer.EnqueueTeacherDeliveryRefresh(ctx, tenantID, termID)
 		s.enqueuer.EnqueueAttendanceTermRefresh(ctx, tenantID, schoolID, termID)
-		s.enqueuer.EnqueueClassDailyRefresh(ctx, tenantID, schoolID, payload.TimetableSlotID, payload.Date)
+		s.enqueuer.EnqueueClassDailyRefresh(ctx, tenantID, schoolID, payload.TimetableAllocationID, payload.Date)
 	}
 
 	return result, nil
@@ -180,7 +180,7 @@ func (s *Service) GetRecord(ctx context.Context, id, tenantID string) (*Attendan
 // ListRecordsBySlotDate returns all records for a timetable slot on a date.
 func (s *Service) ListRecordsBySlotDate(ctx context.Context, tenantID, schoolID, timetableSlotID, date string) (*RecordListResponse, error) {
 	if timetableSlotID == "" {
-		return nil, fmt.Errorf("attendance.Service.ListRecordsBySlotDate: timetable_slot_id is required: %w", ErrInvalidInput)
+		return nil, fmt.Errorf("attendance.Service.ListRecordsBySlotDate: timetable_allocation_id is required: %w", ErrInvalidInput)
 	}
 	if date == "" {
 		return nil, fmt.Errorf("attendance.Service.ListRecordsBySlotDate: date is required: %w", ErrInvalidInput)
@@ -231,7 +231,7 @@ func (s *Service) ListRecordsByClassDate(ctx context.Context, tenantID, schoolID
 	// Collect records for all slots
 	var allRecords []RecordWithEnrichedData
 	for _, session := range sessions {
-		records, err := s.repo.ListRecordsBySlotDate(ctx, tenantID, schoolID, session.TimetableSlotID, date)
+		records, err := s.repo.ListRecordsBySlotDate(ctx, tenantID, schoolID, session.TimetableAllocationID, date)
 		if err != nil {
 			return nil, err
 		}

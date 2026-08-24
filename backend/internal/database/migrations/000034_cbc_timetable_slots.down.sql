@@ -1,5 +1,5 @@
--- Migration: 000034_cbc_timetable_slots (rollback)
--- SomoTracker — rollback for 000034_cbc_timetable_slots.
+-- Migration: 000034_timetable_allocations (rollback)
+-- SomoTracker — rollback for 000034_timetable_allocations.
 
 
-DROP TABLE IF EXISTS cbc_timetable_slots CASCADE;
+DROP TABLE IF EXISTS timetable_allocations CASCADE;

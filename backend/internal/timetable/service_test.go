@@ -115,7 +115,7 @@ func (m *mockRepo) CreateSlot(ctx context.Context, tenantID, schoolID, academicY
 		TenantID:       tenantID,
 		SchoolID:       schoolID,
 		AcademicYearID: academicYearID,
-		StructureID:    p.StructureID,
+		BlockID:        p.BlockID,
 		ClassID:        p.ClassID,
 		LearningAreaID: p.LearningAreaID,
 		TeacherID:      p.TeacherID,
@@ -136,7 +136,7 @@ func (m *mockRepo) BatchCreateSlots(ctx context.Context, tenantID, schoolID, aca
 			TenantID:       tenantID,
 			SchoolID:       schoolID,
 			AcademicYearID: academicYearID,
-			StructureID:    p.StructureID,
+			BlockID:        p.BlockID,
 			ClassID:        p.ClassID,
 			LearningAreaID: p.LearningAreaID,
 			TeacherID:      p.TeacherID,
@@ -394,7 +394,7 @@ func TestServiceImpl_CreateSlot(t *testing.T) {
 	s := newService(m)
 
 	slot, err := s.CreateSlot(context.Background(), "t", "s", "y1", SlotPayload{
-		StructureID:    "struct1",
+		BlockID:        "struct1",
 		ClassID:        "c1",
 		LearningAreaID: "la1",
 		TeacherID:      "t1",
@@ -405,7 +405,7 @@ func TestServiceImpl_CreateSlot(t *testing.T) {
 	require.Equal(t, "t", slot.TenantID)
 	require.Equal(t, "s", slot.SchoolID)
 	require.Equal(t, "y1", slot.AcademicYearID)
-	require.Equal(t, "struct1", slot.StructureID)
+	require.Equal(t, "struct1", slot.BlockID)
 	require.Equal(t, "c1", slot.ClassID)
 	require.Equal(t, "la1", slot.LearningAreaID)
 	require.Equal(t, "t1", slot.TeacherID)
@@ -418,7 +418,7 @@ func TestServiceImpl_CreateSlot_Error(t *testing.T) {
 	s := newService(m)
 
 	_, err := s.CreateSlot(context.Background(), "t", "s", "y1", SlotPayload{
-		StructureID:    "struct1",
+		BlockID:        "struct1",
 		ClassID:        "c1",
 		LearningAreaID: "la1",
 		TeacherID:      "t1",
@@ -432,14 +432,14 @@ func TestServiceImpl_BatchCreateSlots(t *testing.T) {
 	s := newService(m)
 
 	slots, err := s.BatchCreateSlots(context.Background(), "t", "s", "y1", []SlotPayload{
-		{StructureID: "s1", ClassID: "c1", LearningAreaID: "la1", TeacherID: "t1"},
-		{StructureID: "s2", ClassID: "c2", LearningAreaID: "la2", TeacherID: "t2"},
+		{BlockID: "s1", ClassID: "c1", LearningAreaID: "la1", TeacherID: "t1"},
+		{BlockID: "s2", ClassID: "c2", LearningAreaID: "la2", TeacherID: "t2"},
 	})
 	require.NoError(t, err)
 	require.Len(t, slots, 2)
-	require.Equal(t, "s1", slots[0].StructureID)
+	require.Equal(t, "s1", slots[0].BlockID)
 	require.Equal(t, "c1", slots[0].ClassID)
-	require.Equal(t, "s2", slots[1].StructureID)
+	require.Equal(t, "s2", slots[1].BlockID)
 	require.Equal(t, "c2", slots[1].ClassID)
 }
 
@@ -457,7 +457,7 @@ func TestServiceImpl_BatchCreateSlots_Error(t *testing.T) {
 	s := newService(m)
 
 	_, err := s.BatchCreateSlots(context.Background(), "t", "s", "y1", []SlotPayload{
-		{StructureID: "s1", ClassID: "c1", LearningAreaID: "la1", TeacherID: "t1"},
+		{BlockID: "s1", ClassID: "c1", LearningAreaID: "la1", TeacherID: "t1"},
 	})
 	require.Error(t, err)
 	require.ErrorIs(t, err, ErrConflict)

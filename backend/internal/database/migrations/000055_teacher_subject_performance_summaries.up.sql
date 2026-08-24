@@ -385,7 +385,7 @@ COMMENT ON FUNCTION fn_compute_teacher_subject_performance_summaries IS
 --
 -- Incremental task: triggered on attendance_records insert and on
 -- cbc_attendance_sessions.status changes to SKIPPED. Slot ownership
--- resolved via cbc_timetable_slots.teacher_id.
+-- resolved via timetable_allocations.teacher_id.
 
 -- ============================================================================
 -- TABLE: teacher_delivery_summaries

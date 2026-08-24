@@ -434,11 +434,11 @@ func TestCreateNote_HappyPath(t *testing.T) {
 	}
 
 	note, err := h.svc.CreateNote(context.Background(), "tenant_001", "school_001", CreateNotePayload{
-		StudentID:       "stu_001",
-		CategoryID:      "cat_001",
-		Description:     "Disruptive behavior",
-		TimetableSlotID: "slot_001",
-		Date:            "2026-07-15",
+		StudentID:             "stu_001",
+		CategoryID:            "cat_001",
+		Description:           "Disruptive behavior",
+		TimetableAllocationID: "slot_001",
+		Date:                  "2026-07-15",
 	}, "teacher_001")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -455,10 +455,10 @@ func TestCreateNote_EmptyStudentID(t *testing.T) {
 	h := newTestHarness()
 
 	_, err := h.svc.CreateNote(context.Background(), "tenant_001", "school_001", CreateNotePayload{
-		CategoryID:      "cat_001",
-		Description:     "Test",
-		TimetableSlotID: "slot_001",
-		Date:            "2026-07-15",
+		CategoryID:            "cat_001",
+		Description:           "Test",
+		TimetableAllocationID: "slot_001",
+		Date:                  "2026-07-15",
 	}, "teacher_001")
 	if err == nil {
 		t.Fatal("expected error for empty studentID, got nil")
@@ -472,10 +472,10 @@ func TestCreateNote_EmptyCategoryID(t *testing.T) {
 	h := newTestHarness()
 
 	_, err := h.svc.CreateNote(context.Background(), "tenant_001", "school_001", CreateNotePayload{
-		StudentID:       "stu_001",
-		Description:     "Test",
-		TimetableSlotID: "slot_001",
-		Date:            "2026-07-15",
+		StudentID:             "stu_001",
+		Description:           "Test",
+		TimetableAllocationID: "slot_001",
+		Date:                  "2026-07-15",
 	}, "teacher_001")
 	if err == nil {
 		t.Fatal("expected error for empty categoryID, got nil")
@@ -489,10 +489,10 @@ func TestCreateNote_EmptyDescription(t *testing.T) {
 	h := newTestHarness()
 
 	_, err := h.svc.CreateNote(context.Background(), "tenant_001", "school_001", CreateNotePayload{
-		StudentID:       "stu_001",
-		CategoryID:      "cat_001",
-		TimetableSlotID: "slot_001",
-		Date:            "2026-07-15",
+		StudentID:             "stu_001",
+		CategoryID:            "cat_001",
+		TimetableAllocationID: "slot_001",
+		Date:                  "2026-07-15",
 	}, "teacher_001")
 	if err == nil {
 		t.Fatal("expected error for empty description, got nil")

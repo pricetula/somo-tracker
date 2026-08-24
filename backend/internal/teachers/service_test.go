@@ -18,7 +18,7 @@ type MockRepository struct {
 	deleteFn              func(ctx context.Context, tenantID, schoolID, userID string) error
 	getActiveSchoolID     func(ctx context.Context, tenantID, userID string) (string, error)
 	listTeacherClassesFn  func(ctx context.Context, tenantID, schoolID, userID, termID string) ([]TeacherClassItem, error)
-	getTeacherTimetableFn func(ctx context.Context, tenantID, schoolID, userID string, dayOfWeek int) ([]TeacherTimetableSlot, error)
+	getTeacherTimetableFn func(ctx context.Context, tenantID, schoolID, userID string, dayOfWeek int) ([]TeacherTimetableAllocation, error)
 }
 
 func (m *MockRepository) ListBySchool(ctx context.Context, tenantID, schoolID string, includeInactive bool, offset, limit int, search string) ([]Teacher, int, error) {
@@ -70,11 +70,11 @@ func (m *MockRepository) ListTeacherClasses(ctx context.Context, tenantID, schoo
 	return []TeacherClassItem{}, nil
 }
 
-func (m *MockRepository) GetTeacherTimetable(ctx context.Context, tenantID, schoolID, userID string, dayOfWeek int) ([]TeacherTimetableSlot, error) {
+func (m *MockRepository) GetTeacherTimetable(ctx context.Context, tenantID, schoolID, userID string, dayOfWeek int) ([]TeacherTimetableAllocation, error) {
 	if m.getTeacherTimetableFn != nil {
 		return m.getTeacherTimetableFn(ctx, tenantID, schoolID, userID, dayOfWeek)
 	}
-	return []TeacherTimetableSlot{}, nil
+	return []TeacherTimetableAllocation{}, nil
 }
 
 // ============================================================================

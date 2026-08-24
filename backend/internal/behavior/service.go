@@ -65,8 +65,8 @@ func (s *Service) CreateNote(ctx context.Context, tenantID, schoolID string, pay
 	if payload.Description == "" {
 		return nil, fmt.Errorf("behavior.Service.CreateNote: description is required: %w", ErrInvalidInput)
 	}
-	if payload.TimetableSlotID == "" {
-		return nil, fmt.Errorf("behavior.Service.CreateNote: timetable_slot_id is required: %w", ErrInvalidInput)
+	if payload.TimetableAllocationID == "" {
+		return nil, fmt.Errorf("behavior.Service.CreateNote: timetable_allocation_id is required: %w", ErrInvalidInput)
 	}
 	if payload.Date == "" {
 		return nil, fmt.Errorf("behavior.Service.CreateNote: date is required: %w", ErrInvalidInput)

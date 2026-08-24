@@ -8,13 +8,14 @@ import (
 	"runtime"
 	"testing"
 
+	"strings"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 	"go.uber.org/zap"
-	"strings"
 
 	"somotracker/backend/internal/database"
 )
@@ -74,7 +75,7 @@ func applyAllMigrations(t *testing.T, pool *pgxpool.Pool) {
 		require.NoError(t, err, "apply migration %s", path)
 	}
 	// Add order_index column if missing (repository code expects it)
-	_, err = pool.Exec(context.Background(), `ALTER TABLE timetable_structures ADD COLUMN IF NOT EXISTS order_index INT NOT NULL DEFAULT 0`)
+	_, err = pool.Exec(context.Background(), `ALTER TABLE timetable_blocks ADD COLUMN IF NOT EXISTS order_index INT NOT NULL DEFAULT 0`)
 	require.NoError(t, err, "add order_index column")
 }
 
@@ -163,23 +164,23 @@ func TestPgRepository_ListBlocks(t *testing.T) {
 
 	// Insert some time blocks
 	structID1 := uuid.New().String()
-	_, err := pool.Exec(ctx, `INSERT INTO timetable_structures (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break, order_index) VALUES ($1, $2, $3, $4, 1, 'Lesson 1', '08:00', '08:40', false, 1)`,
+	_, err := pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break, order_index) VALUES ($1, $2, $3, $4, 1, 'Lesson 1', '08:00', '08:40', false, 1)`,
 		structID1, tenantID, schoolID, academicYearID)
 	require.NoError(t, err)
 
 	structID2 := uuid.New().String()
-	_, err = pool.Exec(ctx, `INSERT INTO timetable_structures (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break, order_index) VALUES ($1, $2, $3, $4, 1, 'Lesson 2', '08:45', '09:25', false, 2)`,
+	_, err = pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break, order_index) VALUES ($1, $2, $3, $4, 1, 'Lesson 2', '08:45', '09:25', false, 2)`,
 		structID2, tenantID, schoolID, academicYearID)
 	require.NoError(t, err)
 
 	structID3 := uuid.New().String()
-	_, err = pool.Exec(ctx, `INSERT INTO timetable_structures (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break, order_index) VALUES ($1, $2, $3, $4, 1, 'Break', '09:25', '09:40', true, 3)`,
+	_, err = pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break, order_index) VALUES ($1, $2, $3, $4, 1, 'Break', '09:25', '09:40', true, 3)`,
 		structID3, tenantID, schoolID, academicYearID)
 	require.NoError(t, err)
 
 	// Different day
 	structID4 := uuid.New().String()
-	_, err = pool.Exec(ctx, `INSERT INTO timetable_structures (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break, order_index) VALUES ($1, $2, $3, $4, 2, 'Lesson 1', '08:00', '08:40', false, 1)`,
+	_, err = pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break, order_index) VALUES ($1, $2, $3, $4, 2, 'Lesson 1', '08:00', '08:40', false, 1)`,
 		structID4, tenantID, schoolID, academicYearID)
 	require.NoError(t, err)
 
@@ -224,7 +225,7 @@ func TestPgRepository_GetBlock(t *testing.T) {
 	repo := newRepo(pool)
 
 	structID := uuid.New().String()
-	_, err := pool.Exec(ctx, `INSERT INTO timetable_structures (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break, order_index) VALUES ($1, $2, $3, $4, 1, 'Lesson 1', '08:00', '08:40', false, 1)`,
+	_, err := pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break, order_index) VALUES ($1, $2, $3, $4, 1, 'Lesson 1', '08:00', '08:40', false, 1)`,
 		structID, tenantID, schoolID, academicYearID)
 	require.NoError(t, err)
 
@@ -285,7 +286,7 @@ func TestPgRepository_CreateBlock(t *testing.T) {
 
 	// Verify it's in the database
 	var count int
-	err = pool.QueryRow(ctx, `SELECT COUNT(*) FROM timetable_structures WHERE id = $1`, block.ID).Scan(&count)
+	err = pool.QueryRow(ctx, `SELECT COUNT(*) FROM timetable_blocks WHERE id = $1`, block.ID).Scan(&count)
 	require.NoError(t, err)
 	require.Equal(t, 1, count)
 }
@@ -371,7 +372,7 @@ func TestPgRepository_UpdateBlock(t *testing.T) {
 
 	// Verify in DB
 	var periodName string
-	err = pool.QueryRow(ctx, `SELECT period_name FROM timetable_structures WHERE id = $1`, block.ID).Scan(&periodName)
+	err = pool.QueryRow(ctx, `SELECT period_name FROM timetable_blocks WHERE id = $1`, block.ID).Scan(&periodName)
 	require.NoError(t, err)
 	require.Equal(t, "Lesson 2", periodName)
 }
@@ -477,7 +478,7 @@ func TestPgRepository_DeleteBlock(t *testing.T) {
 
 	// Verify it's gone
 	var count int
-	err = pool.QueryRow(ctx, `SELECT COUNT(*) FROM timetable_structures WHERE id = $1`, block.ID).Scan(&count)
+	err = pool.QueryRow(ctx, `SELECT COUNT(*) FROM timetable_blocks WHERE id = $1`, block.ID).Scan(&count)
 	require.NoError(t, err)
 	require.Equal(t, 0, count)
 }
@@ -514,23 +515,23 @@ func TestPgRepository_ListSlots(t *testing.T) {
 
 	// Create timetable structures
 	structID1 := uuid.New().String()
-	_, err := pool.Exec(ctx, `INSERT INTO timetable_structures (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 1', '08:00', '08:40', false)`,
+	_, err := pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 1', '08:00', '08:40', false)`,
 		structID1, tenantID, schoolID, academicYearID)
 	require.NoError(t, err)
 
 	structID2 := uuid.New().String()
-	_, err = pool.Exec(ctx, `INSERT INTO timetable_structures (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 2', '08:45', '09:25', false)`,
+	_, err = pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 2', '08:45', '09:25', false)`,
 		structID2, tenantID, schoolID, academicYearID)
 	require.NoError(t, err)
 
 	// Create slots
 	slotID1 := uuid.New().String()
-	_, err = pool.Exec(ctx, `INSERT INTO cbc_timetable_slots (id, tenant_id, school_id, academic_year_id, structure_id, class_id, learning_area_id, teacher_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+	_, err = pool.Exec(ctx, `INSERT INTO timetable_allocations (id, tenant_id, school_id, academic_year_id, block_id, class_id, learning_area_id, teacher_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
 		slotID1, tenantID, schoolID, academicYearID, structID1, classID, learningAreaID, userID)
 	require.NoError(t, err)
 
 	slotID2 := uuid.New().String()
-	_, err = pool.Exec(ctx, `INSERT INTO cbc_timetable_slots (id, tenant_id, school_id, academic_year_id, structure_id, class_id, learning_area_id, teacher_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+	_, err = pool.Exec(ctx, `INSERT INTO timetable_allocations (id, tenant_id, school_id, academic_year_id, block_id, class_id, learning_area_id, teacher_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
 		slotID2, tenantID, schoolID, academicYearID, structID2, classID, learningAreaID, userID)
 	require.NoError(t, err)
 
@@ -547,14 +548,14 @@ func TestPgRepository_ListSlots(t *testing.T) {
 	require.Len(t, slots, 2)
 
 	// Filter by structure
-	filter.StructureID = structID1
+	filter.BlockID = structID1
 	slots, err = repo.ListSlots(ctx, filter)
 	require.NoError(t, err)
 	require.Len(t, slots, 1)
 	require.Equal(t, slotID1, slots[0].ID)
 
 	// Filter by class
-	filter.StructureID = ""
+	filter.BlockID = ""
 	filter.ClassID = classID
 	slots, err = repo.ListSlots(ctx, filter)
 	require.NoError(t, err)
@@ -595,13 +596,13 @@ func TestPgRepository_GetSlot(t *testing.T) {
 	_, classID, learningAreaID := seedStreamClassLearningArea(t, pool, tenantID, schoolID, academicYearID)
 
 	structID := uuid.New().String()
-	_, err := pool.Exec(ctx, `INSERT INTO timetable_structures (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 1', '08:00', '08:40', false)`,
+	_, err := pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 1', '08:00', '08:40', false)`,
 		structID, tenantID, schoolID, academicYearID)
 	require.NoError(t, err)
 
 	slotID := uuid.New().String()
 	room := "Room 101"
-	_, err = pool.Exec(ctx, `INSERT INTO cbc_timetable_slots (id, tenant_id, school_id, academic_year_id, structure_id, class_id, learning_area_id, teacher_id, room_identifier) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+	_, err = pool.Exec(ctx, `INSERT INTO timetable_allocations (id, tenant_id, school_id, academic_year_id, block_id, class_id, learning_area_id, teacher_id, room_identifier) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
 		slotID, tenantID, schoolID, academicYearID, structID, classID, learningAreaID, userID, room)
 	require.NoError(t, err)
 
@@ -612,7 +613,7 @@ func TestPgRepository_GetSlot(t *testing.T) {
 	require.Equal(t, tenantID, slot.TenantID)
 	require.Equal(t, schoolID, slot.SchoolID)
 	require.Equal(t, academicYearID, slot.AcademicYearID)
-	require.Equal(t, structID, slot.StructureID)
+	require.Equal(t, structID, slot.BlockID)
 	require.Equal(t, classID, slot.ClassID)
 	require.Equal(t, learningAreaID, slot.LearningAreaID)
 	require.Equal(t, userID, slot.TeacherID)
@@ -649,13 +650,13 @@ func TestPgRepository_CreateSlot(t *testing.T) {
 	_, classID, learningAreaID := seedStreamClassLearningArea(t, pool, tenantID, schoolID, academicYearID)
 
 	structID := uuid.New().String()
-	_, err := pool.Exec(ctx, `INSERT INTO timetable_structures (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 1', '08:00', '08:40', false)`,
+	_, err := pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 1', '08:00', '08:40', false)`,
 		structID, tenantID, schoolID, academicYearID)
 	require.NoError(t, err)
 
 	// Create slot
 	slot, err := repo.CreateSlot(ctx, tenantID, schoolID, academicYearID, SlotPayload{
-		StructureID:    structID,
+		BlockID:        structID,
 		ClassID:        classID,
 		LearningAreaID: learningAreaID,
 		TeacherID:      userID,
@@ -666,7 +667,7 @@ func TestPgRepository_CreateSlot(t *testing.T) {
 	require.Equal(t, tenantID, slot.TenantID)
 	require.Equal(t, schoolID, slot.SchoolID)
 	require.Equal(t, academicYearID, slot.AcademicYearID)
-	require.Equal(t, structID, slot.StructureID)
+	require.Equal(t, structID, slot.BlockID)
 	require.Equal(t, classID, slot.ClassID)
 	require.Equal(t, learningAreaID, slot.LearningAreaID)
 	require.Equal(t, userID, slot.TeacherID)
@@ -688,13 +689,13 @@ func TestPgRepository_CreateSlot_Conflict(t *testing.T) {
 	_, classID, learningAreaID := seedStreamClassLearningArea(t, pool, tenantID, schoolID, academicYearID)
 
 	structID := uuid.New().String()
-	_, err := pool.Exec(ctx, `INSERT INTO timetable_structures (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 1', '08:00', '08:40', false)`,
+	_, err := pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 1', '08:00', '08:40', false)`,
 		structID, tenantID, schoolID, academicYearID)
 	require.NoError(t, err)
 
 	// Create first slot
 	_, err = repo.CreateSlot(ctx, tenantID, schoolID, academicYearID, SlotPayload{
-		StructureID:    structID,
+		BlockID:        structID,
 		ClassID:        classID,
 		LearningAreaID: learningAreaID,
 		TeacherID:      userID,
@@ -704,7 +705,7 @@ func TestPgRepository_CreateSlot_Conflict(t *testing.T) {
 
 	// Try to create another slot with same class + structure (unique_class_slot constraint)
 	_, err = repo.CreateSlot(ctx, tenantID, schoolID, academicYearID, SlotPayload{
-		StructureID:    structID,
+		BlockID:        structID,
 		ClassID:        classID,             // Same class + structure
 		LearningAreaID: uuid.New().String(), // Different learning area
 		TeacherID:      uuid.New().String(), // Different teacher
@@ -715,7 +716,7 @@ func TestPgRepository_CreateSlot_Conflict(t *testing.T) {
 
 	// Try to create another slot with same teacher + structure (unique_teacher_slot constraint)
 	_, err = repo.CreateSlot(ctx, tenantID, schoolID, academicYearID, SlotPayload{
-		StructureID:    structID,
+		BlockID:        structID,
 		ClassID:        uuid.New().String(), // Different class
 		LearningAreaID: uuid.New().String(), // Different learning area
 		TeacherID:      userID,              // Same teacher + structure
@@ -726,7 +727,7 @@ func TestPgRepository_CreateSlot_Conflict(t *testing.T) {
 
 	// Try to create another slot with same room + structure (unique_room_slot constraint)
 	_, err = repo.CreateSlot(ctx, tenantID, schoolID, academicYearID, SlotPayload{
-		StructureID:    structID,
+		BlockID:        structID,
 		ClassID:        uuid.New().String(),
 		LearningAreaID: uuid.New().String(),
 		TeacherID:      uuid.New().String(),
@@ -766,27 +767,27 @@ func TestPgRepository_BatchCreateSlots(t *testing.T) {
 
 	// Create structures
 	structID1 := uuid.New().String()
-	_, err = pool.Exec(ctx, `INSERT INTO timetable_structures (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 1', '08:00', '08:40', false)`,
+	_, err = pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 1', '08:00', '08:40', false)`,
 		structID1, tenantID, schoolID, academicYearID)
 	require.NoError(t, err)
 
 	structID2 := uuid.New().String()
-	_, err = pool.Exec(ctx, `INSERT INTO timetable_structures (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 2', '08:45', '09:25', false)`,
+	_, err = pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 2', '08:45', '09:25', false)`,
 		structID2, tenantID, schoolID, academicYearID)
 	require.NoError(t, err)
 
 	// Batch create slots
 	payloads := []SlotPayload{
-		{StructureID: structID1, ClassID: classID1, LearningAreaID: learningAreaID1, TeacherID: userID, RoomIdentifier: ptr("Room 101")},
-		{StructureID: structID2, ClassID: classID2, LearningAreaID: learningAreaID2, TeacherID: userID, RoomIdentifier: ptr("Room 102")},
+		{BlockID: structID1, ClassID: classID1, LearningAreaID: learningAreaID1, TeacherID: userID, RoomIdentifier: ptr("Room 101")},
+		{BlockID: structID2, ClassID: classID2, LearningAreaID: learningAreaID2, TeacherID: userID, RoomIdentifier: ptr("Room 102")},
 	}
 
 	slots, err := repo.BatchCreateSlots(ctx, tenantID, schoolID, academicYearID, payloads)
 	require.NoError(t, err)
 	require.Len(t, slots, 2)
-	require.Equal(t, structID1, slots[0].StructureID)
+	require.Equal(t, structID1, slots[0].BlockID)
 	require.Equal(t, classID1, slots[0].ClassID)
-	require.Equal(t, structID2, slots[1].StructureID)
+	require.Equal(t, structID2, slots[1].BlockID)
 	require.Equal(t, classID2, slots[1].ClassID)
 }
 
@@ -820,14 +821,14 @@ func TestPgRepository_BatchCreateSlots_Conflict(t *testing.T) {
 	_, classID, learningAreaID := seedStreamClassLearningArea(t, pool, tenantID, schoolID, academicYearID)
 
 	structID := uuid.New().String()
-	_, err := pool.Exec(ctx, `INSERT INTO timetable_structures (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 1', '08:00', '08:40', false)`,
+	_, err := pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 1', '08:00', '08:40', false)`,
 		structID, tenantID, schoolID, academicYearID)
 	require.NoError(t, err)
 
 	// Batch with duplicate class+structure in same batch
 	payloads := []SlotPayload{
-		{StructureID: structID, ClassID: classID, LearningAreaID: learningAreaID, TeacherID: userID},
-		{StructureID: structID, ClassID: classID, LearningAreaID: uuid.New().String(), TeacherID: uuid.New().String()}, // Duplicate class+structure
+		{BlockID: structID, ClassID: classID, LearningAreaID: learningAreaID, TeacherID: userID},
+		{BlockID: structID, ClassID: classID, LearningAreaID: uuid.New().String(), TeacherID: uuid.New().String()}, // Duplicate class+structure
 	}
 
 	_, err = repo.BatchCreateSlots(ctx, tenantID, schoolID, academicYearID, payloads)
@@ -849,13 +850,13 @@ func TestPgRepository_UpdateSlot(t *testing.T) {
 	_, classID, learningAreaID := seedStreamClassLearningArea(t, pool, tenantID, schoolID, academicYearID)
 
 	structID := uuid.New().String()
-	_, err := pool.Exec(ctx, `INSERT INTO timetable_structures (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 1', '08:00', '08:40', false)`,
+	_, err := pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 1', '08:00', '08:40', false)`,
 		structID, tenantID, schoolID, academicYearID)
 	require.NoError(t, err)
 
 	// Create slot
 	slot, err := repo.CreateSlot(ctx, tenantID, schoolID, academicYearID, SlotPayload{
-		StructureID:    structID,
+		BlockID:        structID,
 		ClassID:        classID,
 		LearningAreaID: learningAreaID,
 		TeacherID:      userID,
@@ -936,18 +937,18 @@ func TestPgRepository_UpdateSlot_Conflict(t *testing.T) {
 
 	// Create two structures
 	structID1 := uuid.New().String()
-	_, err = pool.Exec(ctx, `INSERT INTO timetable_structures (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 1', '08:00', '08:40', false)`,
+	_, err = pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 1', '08:00', '08:40', false)`,
 		structID1, tenantID, schoolID, academicYearID)
 	require.NoError(t, err)
 
 	structID2 := uuid.New().String()
-	_, err = pool.Exec(ctx, `INSERT INTO timetable_structures (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 2', '08:45', '09:25', false)`,
+	_, err = pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 2', '08:45', '09:25', false)`,
 		structID2, tenantID, schoolID, academicYearID)
 	require.NoError(t, err)
 
 	// Create two slots with different classes but same teacher
 	_, err = repo.CreateSlot(ctx, tenantID, schoolID, academicYearID, SlotPayload{
-		StructureID:    structID1,
+		BlockID:        structID1,
 		ClassID:        classID1,
 		LearningAreaID: learningAreaID1,
 		TeacherID:      userID,
@@ -955,7 +956,7 @@ func TestPgRepository_UpdateSlot_Conflict(t *testing.T) {
 	require.NoError(t, err)
 
 	slot2, err := repo.CreateSlot(ctx, tenantID, schoolID, academicYearID, SlotPayload{
-		StructureID:    structID2,
+		BlockID:        structID2,
 		ClassID:        classID2,
 		LearningAreaID: learningAreaID2,
 		TeacherID:      userID,
@@ -972,7 +973,7 @@ func TestPgRepository_UpdateSlot_Conflict(t *testing.T) {
 
 	// Now create a third structure and try to create a slot with teacher conflict on SAME structure
 	structID3 := uuid.New().String()
-	_, err = pool.Exec(ctx, `INSERT INTO timetable_structures (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 3', '09:30', '10:10', false)`,
+	_, err = pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 3', '09:30', '10:10', false)`,
 		structID3, tenantID, schoolID, academicYearID)
 	require.NoError(t, err)
 
@@ -992,7 +993,7 @@ func TestPgRepository_UpdateSlot_Conflict(t *testing.T) {
 	require.NoError(t, err)
 
 	slot3, err := repo.CreateSlot(ctx, tenantID, schoolID, academicYearID, SlotPayload{
-		StructureID:    structID1,
+		BlockID:        structID1,
 		ClassID:        classID2,
 		LearningAreaID: learningAreaID2,
 		TeacherID:      teacher3,
@@ -1023,12 +1024,12 @@ func TestPgRepository_DeleteSlot(t *testing.T) {
 	_, classID, learningAreaID := seedStreamClassLearningArea(t, pool, tenantID, schoolID, academicYearID)
 
 	structID := uuid.New().String()
-	_, err := pool.Exec(ctx, `INSERT INTO timetable_structures (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 1', '08:00', '08:40', false)`,
+	_, err := pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 1', '08:00', '08:40', false)`,
 		structID, tenantID, schoolID, academicYearID)
 	require.NoError(t, err)
 
 	slot, err := repo.CreateSlot(ctx, tenantID, schoolID, academicYearID, SlotPayload{
-		StructureID:    structID,
+		BlockID:        structID,
 		ClassID:        classID,
 		LearningAreaID: learningAreaID,
 		TeacherID:      userID,
@@ -1041,7 +1042,7 @@ func TestPgRepository_DeleteSlot(t *testing.T) {
 
 	// Verify it's gone
 	var count int
-	err = pool.QueryRow(ctx, `SELECT COUNT(*) FROM cbc_timetable_slots WHERE id = $1`, slot.ID).Scan(&count)
+	err = pool.QueryRow(ctx, `SELECT COUNT(*) FROM timetable_allocations WHERE id = $1`, slot.ID).Scan(&count)
 	require.NoError(t, err)
 	require.Equal(t, 0, count)
 }

@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS cbc_attendance_sessions (
     id                UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id         UUID         NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     school_id         UUID         NOT NULL,
-    timetable_slot_id UUID         NOT NULL,
+    timetable_allocation_id UUID         NOT NULL,
     date              DATE         NOT NULL,
     status            VARCHAR(20)  NOT NULL DEFAULT 'SUBMITTED',
     skip_reason       TEXT         NULL,
@@ -17,17 +17,17 @@ CREATE TABLE IF NOT EXISTS cbc_attendance_sessions (
     CONSTRAINT chk_cbc_attendance_session_status
         CHECK (status IN ('SUBMITTED', 'SKIPPED')),
     CONSTRAINT uq_cbc_attendance_sessions_slot_date
-        UNIQUE (school_id, timetable_slot_id, date),
+        UNIQUE (school_id, timetable_allocation_id, date),
     CONSTRAINT fk_cbc_attendance_sessions_tenant_slot
-        FOREIGN KEY (tenant_id, timetable_slot_id)
-        REFERENCES cbc_timetable_slots(tenant_id, id) ON DELETE CASCADE,
+        FOREIGN KEY (tenant_id, timetable_allocation_id)
+        REFERENCES timetable_allocations(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_cbc_attendance_sessions_tenant_school
         FOREIGN KEY (tenant_id, school_id)
         REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_cbc_attendance_sessions_slot_date
-    ON cbc_attendance_sessions (timetable_slot_id, date);
+    ON cbc_attendance_sessions (timetable_allocation_id, date);
 CREATE INDEX IF NOT EXISTS idx_cbc_attendance_sessions_tenant
     ON cbc_attendance_sessions (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_cbc_attendance_sessions_school

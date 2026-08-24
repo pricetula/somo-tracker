@@ -34,11 +34,11 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	base := router.Group("/api/v1/timetable")
 
 	// Structure mutations
-	base.Post("/structure", middleware.RequireAuth, h.CreateBlock)
-	base.Get("/structure", middleware.RequireAuth, h.ListBlocks)
-	base.Get("/structure/:id", middleware.RequireAuth, h.GetBlock)
-	base.Put("/structure/:id", middleware.RequireAuth, h.UpdateBlock)
-	base.Delete("/structure/:id", middleware.RequireAuth, h.DeleteBlock)
+	base.Post("/block", middleware.RequireAuth, h.CreateBlock)
+	base.Get("/block", middleware.RequireAuth, h.ListBlocks)
+	base.Get("/block/:id", middleware.RequireAuth, h.GetBlock)
+	base.Put("/block/:id", middleware.RequireAuth, h.UpdateBlock)
+	base.Delete("/block/:id", middleware.RequireAuth, h.DeleteBlock)
 
 	// Slot mutations
 	base.Post("/slots", middleware.RequireAuth, h.CreateSlot)
@@ -124,7 +124,7 @@ func validateTimeBlockPayload(p *CreateTimeBlockPayload) error {
 
 // ── Structure (TimeBlock) Handlers ────────────────────────────────────────
 
-// CreateBlock handles POST /api/v1/timetable/structure.
+// CreateBlock handles POST /api/v1/timetable/block.
 func (h *Handler) CreateBlock(c *fiber.Ctx) error {
 	tenantID, schoolID, err := h.tmMiddleware(c)
 	if err != nil {
@@ -167,7 +167,7 @@ func (h *Handler) CreateBlock(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusCreated).JSON(block)
 }
 
-// ListBlocks handles GET /api/v1/timetable/structure.
+// ListBlocks handles GET /api/v1/timetable/block.
 func (h *Handler) ListBlocks(c *fiber.Ctx) error {
 	tenantID, schoolID, err := h.tmMiddleware(c)
 	if err != nil {
@@ -196,7 +196,7 @@ func (h *Handler) ListBlocks(c *fiber.Ctx) error {
 	return c.JSON(blocks)
 }
 
-// GetBlock handles GET /api/v1/timetable/structure/:id.
+// GetBlock handles GET /api/v1/timetable/block/:id.
 func (h *Handler) GetBlock(c *fiber.Ctx) error {
 	tenantID, schoolID, err := h.tmMiddleware(c)
 	if err != nil {
@@ -212,7 +212,7 @@ func (h *Handler) GetBlock(c *fiber.Ctx) error {
 	return c.JSON(block)
 }
 
-// UpdateBlock handles PUT /api/v1/timetable/structure/:id.
+// UpdateBlock handles PUT /api/v1/timetable/block/:id.
 func (h *Handler) UpdateBlock(c *fiber.Ctx) error {
 	tenantID, schoolID, err := h.tmMiddleware(c)
 	if err != nil {
@@ -246,7 +246,7 @@ func (h *Handler) UpdateBlock(c *fiber.Ctx) error {
 	return c.JSON(block)
 }
 
-// DeleteBlock handles DELETE /api/v1/timetable/structure/:id.
+// DeleteBlock handles DELETE /api/v1/timetable/block/:id.
 func (h *Handler) DeleteBlock(c *fiber.Ctx) error {
 	tenantID, schoolID, err := h.tmMiddleware(c)
 	if err != nil {
@@ -280,10 +280,10 @@ func (h *Handler) CreateSlot(c *fiber.Ctx) error {
 	}
 
 	// Validate required fields
-	if payload.StructureID == "" || payload.ClassID == "" || payload.LearningAreaID == "" || payload.TeacherID == "" {
+	if payload.BlockID == "" || payload.ClassID == "" || payload.LearningAreaID == "" || payload.TeacherID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"code":    "VALIDATION_ERROR",
-			"message": "structure_id, class_id, learning_area_id, and teacher_id are required",
+			"message": "block_id, class_id, learning_area_id, and teacher_id are required",
 		})
 	}
 
@@ -321,7 +321,7 @@ func (h *Handler) ListSlots(c *fiber.Ctx) error {
 		TenantID:       tenantID,
 		SchoolID:       schoolID,
 		AcademicYearID: c.Query("academic_year_id"),
-		StructureID:    c.Query("structure_id"),
+		BlockID:        c.Query("block_id"),
 		ClassID:        c.Query("class_id"),
 		TeacherID:      c.Query("teacher_id"),
 		LearningAreaID: c.Query("learning_area_id"),
@@ -359,10 +359,10 @@ func (h *Handler) BatchCreateSlots(c *fiber.Ctx) error {
 
 	// Validate each payload
 	for _, p := range payloads {
-		if p.StructureID == "" || p.ClassID == "" || p.LearningAreaID == "" || p.TeacherID == "" {
+		if p.BlockID == "" || p.ClassID == "" || p.LearningAreaID == "" || p.TeacherID == "" {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"code":    "VALIDATION_ERROR",
-				"message": "structure_id, class_id, learning_area_id, and teacher_id are required for all payloads",
+				"message": "block_id, class_id, learning_area_id, and teacher_id are required for all payloads",
 			})
 		}
 	}

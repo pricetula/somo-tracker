@@ -119,7 +119,7 @@ func seedNoteDependencies(t *testing.T, pool *pgxpool.Pool, tenantID, schoolID, 
 	streamID := uuid.New().String()
 	classID := uuid.New().String()
 	learningAreaID := uuid.New().String()
-	structureID := uuid.New().String()
+	BlockID := uuid.New().String()
 	studentID = uuid.New().String()
 	slotID = uuid.New().String()
 
@@ -143,12 +143,12 @@ func seedNoteDependencies(t *testing.T, pool *pgxpool.Pool, tenantID, schoolID, 
 		studentID, tenantID, schoolID)
 	require.NoError(t, err)
 
-	_, err = pool.Exec(ctx, `INSERT INTO timetable_structures (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time) VALUES ($1, $2, $3, $4, 1, 'Period 1', '08:00', '08:40')`,
-		structureID, tenantID, schoolID, yearID)
+	_, err = pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time) VALUES ($1, $2, $3, $4, 1, 'Period 1', '08:00', '08:40')`,
+		BlockID, tenantID, schoolID, yearID)
 	require.NoError(t, err)
 
-	_, err = pool.Exec(ctx, `INSERT INTO cbc_timetable_slots (id, tenant_id, school_id, academic_year_id, structure_id, class_id, learning_area_id, teacher_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-		slotID, tenantID, schoolID, yearID, structureID, classID, learningAreaID, userID)
+	_, err = pool.Exec(ctx, `INSERT INTO timetable_allocations (id, tenant_id, school_id, academic_year_id, block_id, class_id, learning_area_id, teacher_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+		slotID, tenantID, schoolID, yearID, BlockID, classID, learningAreaID, userID)
 	require.NoError(t, err)
 
 	return studentID, slotID
@@ -328,12 +328,12 @@ func TestPgRepository_CreateNote(t *testing.T) {
 
 	// Create note
 	note, err := repo.CreateNote(ctx, tenantID, schoolID, CreateNotePayload{
-		StudentID:       studentID,
-		TimetableSlotID: timetableSlotID,
-		Date:            "2026-07-15",
-		CategoryID:      cat.ID,
-		Description:     "Disruptive during class",
-		IsUrgent:        true,
+		StudentID:             studentID,
+		TimetableAllocationID: timetableSlotID,
+		Date:                  "2026-07-15",
+		CategoryID:            cat.ID,
+		Description:           "Disruptive during class",
+		IsUrgent:              true,
 	}, userID)
 	require.NoError(t, err)
 	require.NotEmpty(t, note.ID)
@@ -366,7 +366,7 @@ func TestPgRepository_GetNoteByID(t *testing.T) {
 
 	// Create a note directly
 	noteID := uuid.New().String()
-	_, err = pool.Exec(ctx, `INSERT INTO behavior_notes (id, tenant_id, school_id, student_id, timetable_slot_id, date, category_id, description, authored_by_id, status)
+	_, err = pool.Exec(ctx, `INSERT INTO behavior_notes (id, tenant_id, school_id, student_id, timetable_allocation_id, date, category_id, description, authored_by_id, status)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'PENDING_REVIEW')`,
 		noteID, tenantID, schoolID, studentID, slotID, "2026-07-15", cat.ID, "Test note", userID)
 	require.NoError(t, err)
@@ -404,7 +404,7 @@ func TestPgRepository_ReviewNote(t *testing.T) {
 
 	// Create a note directly
 	noteID := uuid.New().String()
-	_, err = pool.Exec(ctx, `INSERT INTO behavior_notes (id, tenant_id, school_id, student_id, timetable_slot_id, date, category_id, description, authored_by_id, status)
+	_, err = pool.Exec(ctx, `INSERT INTO behavior_notes (id, tenant_id, school_id, student_id, timetable_allocation_id, date, category_id, description, authored_by_id, status)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'PENDING_REVIEW')`,
 		noteID, tenantID, schoolID, studentID, slotID, "2026-07-15", cat.ID, "Needs review", userID)
 	require.NoError(t, err)

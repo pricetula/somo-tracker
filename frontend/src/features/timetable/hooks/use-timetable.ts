@@ -19,7 +19,7 @@ import {
     type TimeBlock,
     type CreateTimeBlockPayload,
     type UpdateTimeBlockPayload,
-    type TimetableSlot,
+    type TimetableAllocation,
     type SlotFilter,
     type CreateSlotPayload,
     type BatchCreateSlotsPayload,

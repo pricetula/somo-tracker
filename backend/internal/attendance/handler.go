@@ -148,12 +148,12 @@ func (h *Handler) ListSessions(c *fiber.Ctx) error {
 	}
 
 	filter := SessionFilter{
-		TimetableSlotID: c.Query("timetable_slot_id"),
-		Date:            c.Query("date"),
-		Status:          c.Query("status"),
-		ClassID:         c.Query("class_id"),
-		SchoolID:        schoolID,
-		TenantID:        tenantID,
+		TimetableAllocationID: c.Query("timetable_allocation_id"),
+		Date:                  c.Query("date"),
+		Status:                c.Query("status"),
+		ClassID:               c.Query("class_id"),
+		SchoolID:              schoolID,
+		TenantID:              tenantID,
 	}
 
 	result, err := h.svc.ListSessions(c.Context(), filter)
@@ -278,7 +278,7 @@ func (h *Handler) ListRecordsBySlotDate(c *fiber.Ctx) error {
 		return err
 	}
 
-	timetableSlotID := c.Query("timetable_slot_id")
+	timetableSlotID := c.Query("timetable_allocation_id")
 	date := c.Query("date")
 
 	result, err := h.svc.ListRecordsBySlotDate(c.Context(), tenantID, schoolID, timetableSlotID, date)
@@ -334,14 +334,14 @@ func (h *Handler) ListRecords(c *fiber.Ctx) error {
 	}
 
 	filter := RecordFilter{
-		TimetableSlotID: c.Query("timetable_slot_id"),
-		Date:            c.Query("date"),
-		StudentID:       c.Query("student_id"),
-		ClassID:         c.Query("class_id"),
-		AcademicTermID:  c.Query("academic_term_id"),
-		Status:          c.Query("status"),
-		SchoolID:        schoolID,
-		TenantID:        tenantID,
+		TimetableAllocationID: c.Query("timetable_allocation_id"),
+		Date:                  c.Query("date"),
+		StudentID:             c.Query("student_id"),
+		ClassID:               c.Query("class_id"),
+		AcademicTermID:        c.Query("academic_term_id"),
+		Status:                c.Query("status"),
+		SchoolID:              schoolID,
+		TenantID:              tenantID,
 	}
 
 	result, err := h.svc.ListRecords(c.Context(), filter)

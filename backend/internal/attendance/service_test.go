@@ -308,8 +308,8 @@ func TestCreateSession_HappyPath(t *testing.T) {
 	h := newTestHarness()
 
 	h.repo.createSessionFn = func(ctx context.Context, tenantID, schoolID string, payload CreateSessionPayload) (*AttendanceSession, error) {
-		if payload.TimetableSlotID != "slot_001" {
-			t.Errorf("expected slot_001, got %q", payload.TimetableSlotID)
+		if payload.TimetableAllocationID != "slot_001" {
+			t.Errorf("expected slot_001, got %q", payload.TimetableAllocationID)
 		}
 		if payload.Date != "2026-07-15" {
 			t.Errorf("expected date 2026-07-15, got %q", payload.Date)
@@ -317,13 +317,13 @@ func TestCreateSession_HappyPath(t *testing.T) {
 		if payload.Status != "SUBMITTED" {
 			t.Errorf("expected SUBMITTED, got %q", payload.Status)
 		}
-		return &AttendanceSession{ID: "session_001", TimetableSlotID: "slot_001", Date: "2026-07-15", Status: SessionSubmitted}, nil
+		return &AttendanceSession{ID: "session_001", TimetableAllocationID: "slot_001", Date: "2026-07-15", Status: SessionSubmitted}, nil
 	}
 
 	session, err := h.svc.CreateSession(context.Background(), "tenant_001", "school_001", CreateSessionPayload{
-		TimetableSlotID: "slot_001",
-		Date:            "2026-07-15",
-		Status:          "SUBMITTED",
+		TimetableAllocationID: "slot_001",
+		Date:                  "2026-07-15",
+		Status:                "SUBMITTED",
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -351,10 +351,10 @@ func TestCreateSession_SkippedWithReason(t *testing.T) {
 	}
 
 	session, err := h.svc.CreateSession(context.Background(), "tenant_001", "school_001", CreateSessionPayload{
-		TimetableSlotID: "slot_001",
-		Date:            "2026-07-15",
-		Status:          "SKIPPED",
-		SkipReason:      &reason,
+		TimetableAllocationID: "slot_001",
+		Date:                  "2026-07-15",
+		Status:                "SKIPPED",
+		SkipReason:            &reason,
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -367,7 +367,7 @@ func TestCreateSession_SkippedWithReason(t *testing.T) {
 	}
 }
 
-func TestCreateSession_EmptyTimetableSlotID(t *testing.T) {
+func TestCreateSession_EmptyTimetableAllocationID(t *testing.T) {
 	h := newTestHarness()
 
 	_, err := h.svc.CreateSession(context.Background(), "tenant_001", "school_001", CreateSessionPayload{
@@ -375,7 +375,7 @@ func TestCreateSession_EmptyTimetableSlotID(t *testing.T) {
 		Status: "SUBMITTED",
 	})
 	if err == nil {
-		t.Fatal("expected error for empty timetable_slot_id, got nil")
+		t.Fatal("expected error for empty timetable_allocation_id, got nil")
 	}
 	if !errors.Is(err, ErrInvalidInput) {
 		t.Fatalf("expected ErrInvalidInput, got %v", err)
@@ -386,8 +386,8 @@ func TestCreateSession_EmptyDate(t *testing.T) {
 	h := newTestHarness()
 
 	_, err := h.svc.CreateSession(context.Background(), "tenant_001", "school_001", CreateSessionPayload{
-		TimetableSlotID: "slot_001",
-		Status:          "SUBMITTED",
+		TimetableAllocationID: "slot_001",
+		Status:                "SUBMITTED",
 	})
 	if err == nil {
 		t.Fatal("expected error for empty date, got nil")
@@ -401,9 +401,9 @@ func TestCreateSession_InvalidStatus(t *testing.T) {
 	h := newTestHarness()
 
 	_, err := h.svc.CreateSession(context.Background(), "tenant_001", "school_001", CreateSessionPayload{
-		TimetableSlotID: "slot_001",
-		Date:            "2026-07-15",
-		Status:          "INVALID",
+		TimetableAllocationID: "slot_001",
+		Date:                  "2026-07-15",
+		Status:                "INVALID",
 	})
 	if err == nil {
 		t.Fatal("expected error for invalid status, got nil")
@@ -417,9 +417,9 @@ func TestCreateSession_SkippedMissingReason(t *testing.T) {
 	h := newTestHarness()
 
 	_, err := h.svc.CreateSession(context.Background(), "tenant_001", "school_001", CreateSessionPayload{
-		TimetableSlotID: "slot_001",
-		Date:            "2026-07-15",
-		Status:          "SKIPPED",
+		TimetableAllocationID: "slot_001",
+		Date:                  "2026-07-15",
+		Status:                "SKIPPED",
 	})
 	if err == nil {
 		t.Fatal("expected error for skipped without reason, got nil")
@@ -543,8 +543,8 @@ func TestGetSessionsForClassDate_HappyPath(t *testing.T) {
 	h := newTestHarness()
 
 	expected := []SessionWithEnrichedData{
-		{AttendanceSession: AttendanceSession{ID: "session_001", TimetableSlotID: "slot_001"}},
-		{AttendanceSession: AttendanceSession{ID: "session_002", TimetableSlotID: "slot_002"}},
+		{AttendanceSession: AttendanceSession{ID: "session_001", TimetableAllocationID: "slot_001"}},
+		{AttendanceSession: AttendanceSession{ID: "session_002", TimetableAllocationID: "slot_002"}},
 	}
 
 	h.repo.getSessionsForClassDateFn = func(ctx context.Context, tenantID, schoolID, classID, date string) ([]SessionWithEnrichedData, error) {
@@ -598,8 +598,8 @@ func TestBatchMark_HappyPath(t *testing.T) {
 	h := newTestHarness()
 
 	h.repo.batchMarkFn = func(ctx context.Context, tenantID, schoolID string, payload BatchMarkPayload, markedBy, termID string) (*BatchMarkResult, error) {
-		if payload.TimetableSlotID != "slot_001" {
-			t.Errorf("expected slot_001, got %q", payload.TimetableSlotID)
+		if payload.TimetableAllocationID != "slot_001" {
+			t.Errorf("expected slot_001, got %q", payload.TimetableAllocationID)
 		}
 		if payload.Date != "2026-07-15" {
 			t.Errorf("expected 2026-07-15, got %q", payload.Date)
@@ -617,8 +617,8 @@ func TestBatchMark_HappyPath(t *testing.T) {
 	}
 
 	result, err := h.svc.BatchMark(context.Background(), "tenant_001", "school_001", BatchMarkPayload{
-		TimetableSlotID: "slot_001",
-		Date:            "2026-07-15",
+		TimetableAllocationID: "slot_001",
+		Date:                  "2026-07-15",
 		Records: []StudentAttendanceMark{
 			{StudentID: "stu_001", Status: StatusPresent},
 			{StudentID: "stu_002", Status: StatusAbsent},
@@ -632,7 +632,7 @@ func TestBatchMark_HappyPath(t *testing.T) {
 	}
 }
 
-func TestBatchMark_EmptyTimetableSlotID(t *testing.T) {
+func TestBatchMark_EmptyTimetableAllocationID(t *testing.T) {
 	h := newTestHarness()
 
 	_, err := h.svc.BatchMark(context.Background(), "tenant_001", "school_001", BatchMarkPayload{
@@ -642,7 +642,7 @@ func TestBatchMark_EmptyTimetableSlotID(t *testing.T) {
 		},
 	}, "user_001", "term_001")
 	if err == nil {
-		t.Fatal("expected error for empty timetable_slot_id, got nil")
+		t.Fatal("expected error for empty timetable_allocation_id, got nil")
 	}
 	if !errors.Is(err, ErrInvalidInput) {
 		t.Fatalf("expected ErrInvalidInput, got %v", err)
@@ -653,7 +653,7 @@ func TestBatchMark_EmptyDate(t *testing.T) {
 	h := newTestHarness()
 
 	_, err := h.svc.BatchMark(context.Background(), "tenant_001", "school_001", BatchMarkPayload{
-		TimetableSlotID: "slot_001",
+		TimetableAllocationID: "slot_001",
 		Records: []StudentAttendanceMark{
 			{StudentID: "stu_001", Status: StatusPresent},
 		},
@@ -670,9 +670,9 @@ func TestBatchMark_EmptyRecords(t *testing.T) {
 	h := newTestHarness()
 
 	_, err := h.svc.BatchMark(context.Background(), "tenant_001", "school_001", BatchMarkPayload{
-		TimetableSlotID: "slot_001",
-		Date:            "2026-07-15",
-		Records:         []StudentAttendanceMark{},
+		TimetableAllocationID: "slot_001",
+		Date:                  "2026-07-15",
+		Records:               []StudentAttendanceMark{},
 	}, "user_001", "term_001")
 	if err == nil {
 		t.Fatal("expected error for empty records, got nil")
@@ -686,8 +686,8 @@ func TestBatchMark_InvalidStatus(t *testing.T) {
 	h := newTestHarness()
 
 	_, err := h.svc.BatchMark(context.Background(), "tenant_001", "school_001", BatchMarkPayload{
-		TimetableSlotID: "slot_001",
-		Date:            "2026-07-15",
+		TimetableAllocationID: "slot_001",
+		Date:                  "2026-07-15",
 		Records: []StudentAttendanceMark{
 			{StudentID: "stu_001", Status: "INVALID"},
 		},
@@ -704,8 +704,8 @@ func TestBatchMark_EmptyMarkedBy(t *testing.T) {
 	h := newTestHarness()
 
 	_, err := h.svc.BatchMark(context.Background(), "tenant_001", "school_001", BatchMarkPayload{
-		TimetableSlotID: "slot_001",
-		Date:            "2026-07-15",
+		TimetableAllocationID: "slot_001",
+		Date:                  "2026-07-15",
 		Records: []StudentAttendanceMark{
 			{StudentID: "stu_001", Status: StatusPresent},
 		},
@@ -728,8 +728,8 @@ func TestBatchMark_EmptyTermID_AutoResolves(t *testing.T) {
 	}
 
 	result, err := h.svc.BatchMark(context.Background(), "tenant_001", "school_001", BatchMarkPayload{
-		TimetableSlotID: "slot_001",
-		Date:            "2026-07-15",
+		TimetableAllocationID: "slot_001",
+		Date:                  "2026-07-15",
 		Records: []StudentAttendanceMark{
 			{StudentID: "stu_001", Status: StatusPresent},
 		},

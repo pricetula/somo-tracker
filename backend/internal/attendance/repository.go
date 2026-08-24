@@ -24,11 +24,11 @@ func NewRepository(pools *database.Pools) Repository {
 func (r *pgRepository) CreateSession(ctx context.Context, tenantID, schoolID string, payload CreateSessionPayload) (*AttendanceSession, error) {
 	var s AttendanceSession
 	err := database.FromContext(ctx, r.pool).QueryRow(ctx, `
-		INSERT INTO cbc_attendance_sessions (tenant_id, school_id, timetable_slot_id, date, status, skip_reason)
+		INSERT INTO cbc_attendance_sessions (tenant_id, school_id, timetable_allocation_id, date, status, skip_reason)
 		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id, tenant_id, school_id, timetable_slot_id, date::text, status, skip_reason, created_at
-	`, tenantID, schoolID, payload.TimetableSlotID, payload.Date, payload.Status, payload.SkipReason).Scan(
-		&s.ID, &s.TenantID, &s.SchoolID, &s.TimetableSlotID, &s.Date, &s.Status, &s.SkipReason, &s.CreatedAt,
+		RETURNING id, tenant_id, school_id, timetable_allocation_id, date::text, status, skip_reason, created_at
+	`, tenantID, schoolID, payload.TimetableAllocationID, payload.Date, payload.Status, payload.SkipReason).Scan(
+		&s.ID, &s.TenantID, &s.SchoolID, &s.TimetableAllocationID, &s.Date, &s.Status, &s.SkipReason, &s.CreatedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("attendance.Repository.CreateSession: %w", err)
@@ -39,11 +39,11 @@ func (r *pgRepository) CreateSession(ctx context.Context, tenantID, schoolID str
 func (r *pgRepository) GetSessionByID(ctx context.Context, id, tenantID string) (*AttendanceSession, error) {
 	var s AttendanceSession
 	err := database.FromContext(ctx, r.pool).QueryRow(ctx, `
-		SELECT id, tenant_id, school_id, timetable_slot_id, date::text, status, skip_reason, created_at, updated_at
+		SELECT id, tenant_id, school_id, timetable_allocation_id, date::text, status, skip_reason, created_at, updated_at
 		FROM cbc_attendance_sessions
 		WHERE id = $1 AND tenant_id = $2
 	`, id, tenantID).Scan(
-		&s.ID, &s.TenantID, &s.SchoolID, &s.TimetableSlotID, &s.Date, &s.Status, &s.SkipReason, &s.CreatedAt, &s.UpdatedAt,
+		&s.ID, &s.TenantID, &s.SchoolID, &s.TimetableAllocationID, &s.Date, &s.Status, &s.SkipReason, &s.CreatedAt, &s.UpdatedAt,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -57,7 +57,7 @@ func (r *pgRepository) GetSessionByID(ctx context.Context, id, tenantID string) 
 func (r *pgRepository) GetEnrichedSessionByID(ctx context.Context, id, tenantID string) (*SessionWithEnrichedData, error) {
 	query := `
 		SELECT
-			s.id, s.tenant_id, s.school_id, s.timetable_slot_id, s.date::text, s.status, s.skip_reason,
+			s.id, s.tenant_id, s.school_id, s.timetable_allocation_id, s.date::text, s.status, s.skip_reason,
 			s.created_at, s.updated_at,
 			c.grade_level || ' ' || COALESCE(st.name, '') AS class_name,
 			COALESCE(st.name, '') AS stream_name,
@@ -70,8 +70,8 @@ func (r *pgRepository) GetEnrichedSessionByID(ctx context.Context, id, tenantID 
 			COALESCE(la.name, '') AS learning_area_name,
 			u.full_name AS teacher_name
 		FROM cbc_attendance_sessions s
-		JOIN cbc_timetable_slots ts ON ts.id = s.timetable_slot_id
-		JOIN timetable_structures tstr ON tstr.id = ts.structure_id
+		JOIN timetable_allocations ts ON ts.id = s.timetable_allocation_id
+		JOIN timetable_blocks tstr ON tstr.id = ts.block_id
 		JOIN cbc_classes c ON c.id = ts.class_id AND c.tenant_id = s.tenant_id
 		LEFT JOIN cbc_streams st ON st.id = c.stream_id
 		LEFT JOIN cbc_learning_areas la ON la.id = ts.learning_area_id
@@ -81,7 +81,7 @@ func (r *pgRepository) GetEnrichedSessionByID(ctx context.Context, id, tenantID 
 	var res SessionWithEnrichedData
 	var streamName, learningAreaName, teacherName string
 	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, id, tenantID).Scan(
-		&res.ID, &res.TenantID, &res.SchoolID, &res.TimetableSlotID, &res.Date, &res.Status, &res.SkipReason,
+		&res.ID, &res.TenantID, &res.SchoolID, &res.TimetableAllocationID, &res.Date, &res.Status, &res.SkipReason,
 		&res.CreatedAt, &res.UpdatedAt,
 		&res.ClassName, &streamName, &res.GradeLevel,
 		&res.PeriodName, &res.DayOfWeek, &res.StartTime, &res.EndTime,
@@ -104,7 +104,7 @@ func (r *pgRepository) GetEnrichedSessionByID(ctx context.Context, id, tenantID 
 func (r *pgRepository) ListSessions(ctx context.Context, filter SessionFilter) ([]SessionWithEnrichedData, error) {
 	query := `
 		SELECT
-			s.id, s.tenant_id, s.school_id, s.timetable_slot_id, s.date::text, s.status, s.skip_reason,
+			s.id, s.tenant_id, s.school_id, s.timetable_allocation_id, s.date::text, s.status, s.skip_reason,
 			s.created_at, s.updated_at,
 			c.grade_level || ' ' || COALESCE(st.name, '') AS class_name,
 			COALESCE(st.name, '') AS stream_name,
@@ -117,8 +117,8 @@ func (r *pgRepository) ListSessions(ctx context.Context, filter SessionFilter) (
 			COALESCE(la.name, '') AS learning_area_name,
 			u.full_name AS teacher_name
 		FROM cbc_attendance_sessions s
-		JOIN cbc_timetable_slots ts ON ts.id = s.timetable_slot_id
-		JOIN timetable_structures tstr ON tstr.id = ts.structure_id
+		JOIN timetable_allocations ts ON ts.id = s.timetable_allocation_id
+		JOIN timetable_blocks tstr ON tstr.id = ts.block_id
 		JOIN cbc_classes c ON c.id = ts.class_id AND c.tenant_id = s.tenant_id
 		LEFT JOIN cbc_streams st ON st.id = c.stream_id
 		LEFT JOIN cbc_learning_areas la ON la.id = ts.learning_area_id
@@ -139,9 +139,9 @@ func (r *pgRepository) ListSessions(ctx context.Context, filter SessionFilter) (
 		args = append(args, filter.SchoolID)
 		argIdx++
 	}
-	if filter.TimetableSlotID != "" {
-		query += fmt.Sprintf(" AND s.timetable_slot_id = $%d", argIdx)
-		args = append(args, filter.TimetableSlotID)
+	if filter.TimetableAllocationID != "" {
+		query += fmt.Sprintf(" AND s.timetable_allocation_id = $%d", argIdx)
+		args = append(args, filter.TimetableAllocationID)
 		argIdx++
 	}
 	if filter.Date != "" {
@@ -172,7 +172,7 @@ func (r *pgRepository) ListSessions(ctx context.Context, filter SessionFilter) (
 		var res SessionWithEnrichedData
 		var streamName, learningAreaName, teacherName string
 		if err := rows.Scan(
-			&res.ID, &res.TenantID, &res.SchoolID, &res.TimetableSlotID, &res.Date, &res.Status, &res.SkipReason,
+			&res.ID, &res.TenantID, &res.SchoolID, &res.TimetableAllocationID, &res.Date, &res.Status, &res.SkipReason,
 			&res.CreatedAt, &res.UpdatedAt,
 			&res.ClassName, &streamName, &res.GradeLevel,
 			&res.PeriodName, &res.DayOfWeek, &res.StartTime, &res.EndTime,
@@ -219,14 +219,14 @@ func (r *pgRepository) UpdateSession(ctx context.Context, id, tenantID string, p
 		UPDATE cbc_attendance_sessions
 		SET %s
 		WHERE id = $%d AND tenant_id = $%d
-		RETURNING id, tenant_id, school_id, timetable_slot_id, date::text, status, skip_reason, created_at, updated_at
+		RETURNING id, tenant_id, school_id, timetable_allocation_id, date::text, status, skip_reason, created_at, updated_at
 	`, setClause, argIdx, argIdx+1)
 
 	args = append(args, id, tenantID)
 
 	var s AttendanceSession
 	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, args...).Scan(
-		&s.ID, &s.TenantID, &s.SchoolID, &s.TimetableSlotID, &s.Date, &s.Status, &s.SkipReason, &s.CreatedAt, &s.UpdatedAt,
+		&s.ID, &s.TenantID, &s.SchoolID, &s.TimetableAllocationID, &s.Date, &s.Status, &s.SkipReason, &s.CreatedAt, &s.UpdatedAt,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -245,7 +245,7 @@ func (r *pgRepository) GetSessionsForClassDate(ctx context.Context, tenantID, sc
 			COALESCE(s.id::text, gen_random_uuid()::text) AS id,
 			COALESCE(s.tenant_id, $1::uuid) AS tenant_id,
 			COALESCE(s.school_id, $2::uuid) AS school_id,
-			COALESCE(s.timetable_slot_id, ts.id) AS timetable_slot_id,
+			COALESCE(s.timetable_allocation_id, ts.id) AS timetable_allocation_id,
 			COALESCE(s.date::text, $4::text) AS date,
 			COALESCE(s.status, 'SUBMITTED') AS status,
 			s.skip_reason,
@@ -261,14 +261,14 @@ func (r *pgRepository) GetSessionsForClassDate(ctx context.Context, tenantID, sc
 			ts.learning_area_id,
 			COALESCE(la.name, '') AS learning_area_name,
 			u.full_name AS teacher_name
-		FROM cbc_timetable_slots ts
-		JOIN timetable_structures tstr ON tstr.id = ts.structure_id
+		FROM timetable_allocations ts
+		JOIN timetable_blocks tstr ON tstr.id = ts.block_id
 		JOIN cbc_classes c ON c.id = ts.class_id AND c.tenant_id = $1
 		LEFT JOIN cbc_streams st ON st.id = c.stream_id
 		LEFT JOIN cbc_learning_areas la ON la.id = ts.learning_area_id
 		LEFT JOIN users u ON u.id = ts.teacher_id AND u.tenant_id = $1
 		LEFT JOIN cbc_attendance_sessions s
-			ON s.timetable_slot_id = ts.id AND s.date = $4 AND s.tenant_id = $1
+			ON s.timetable_allocation_id = ts.id AND s.date = $4 AND s.tenant_id = $1
 		WHERE ts.class_id = $3
 		  AND c.school_id = $2
 		  AND tstr.is_break = false
@@ -289,7 +289,7 @@ func (r *pgRepository) GetSessionsForClassDate(ctx context.Context, tenantID, sc
 		var res SessionWithEnrichedData
 		var streamName, learningAreaName, teacherName string
 		if err := rows.Scan(
-			&res.ID, &res.TenantID, &res.SchoolID, &res.TimetableSlotID, &res.Date, &res.Status, &res.SkipReason,
+			&res.ID, &res.TenantID, &res.SchoolID, &res.TimetableAllocationID, &res.Date, &res.Status, &res.SkipReason,
 			&res.CreatedAt, &res.UpdatedAt,
 			&res.ClassName, &streamName, &res.GradeLevel,
 			&res.PeriodName, &res.DayOfWeek, &res.StartTime, &res.EndTime,
@@ -327,16 +327,16 @@ func (r *pgRepository) BatchMark(ctx context.Context, tenantID, schoolID string,
 	for _, rec := range payload.Records {
 		tag, err := tx.Exec(ctx, `
 			INSERT INTO attendance_records
-				(tenant_id, school_id, student_id, timetable_slot_id, academic_term_id,
+				(tenant_id, school_id, student_id, timetable_allocation_id, academic_term_id,
 				 date, status, marked_by, note)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-			ON CONFLICT (student_id, timetable_slot_id, date)
+			ON CONFLICT (student_id, timetable_allocation_id, date)
 			DO UPDATE SET
 				status = EXCLUDED.status,
 				note = COALESCE(EXCLUDED.note, attendance_records.note),
 				marked_by = EXCLUDED.marked_by,
 				marked_at = NOW()
-		`, tenantID, schoolID, rec.StudentID, payload.TimetableSlotID, termID,
+		`, tenantID, schoolID, rec.StudentID, payload.TimetableAllocationID, termID,
 			payload.Date, string(rec.Status), markedBy, rec.Note,
 		)
 		if err != nil {
@@ -353,15 +353,15 @@ func (r *pgRepository) BatchMark(ctx context.Context, tenantID, schoolID string,
 	}
 
 	// Upsert a session record so the timeline recognises this slot+date as completed.
-	// The unique constraint is on (school_id, timetable_slot_id, date).
+	// The unique constraint is on (school_id, timetable_allocation_id, date).
 	_, err = tx.Exec(ctx, `
 		INSERT INTO cbc_attendance_sessions
-			(tenant_id, school_id, timetable_slot_id, date, status)
+			(tenant_id, school_id, timetable_allocation_id, date, status)
 		VALUES ($1, $2, $3, $4, 'SUBMITTED')
-		ON CONFLICT (school_id, timetable_slot_id, date)
+		ON CONFLICT (school_id, timetable_allocation_id, date)
 		DO UPDATE SET
 			status = 'SUBMITTED'
-	`, tenantID, schoolID, payload.TimetableSlotID, payload.Date)
+	`, tenantID, schoolID, payload.TimetableAllocationID, payload.Date)
 	if err != nil {
 		return nil, fmt.Errorf("attendance.Repository.BatchMark: upsert session: %w", err)
 	}
@@ -399,7 +399,7 @@ func (r *pgRepository) UpdateRecord(ctx context.Context, id, tenantID string, pa
 		UPDATE attendance_records
 		SET %s
 		WHERE id = $%d AND tenant_id = $%d
-		RETURNING id, tenant_id, school_id, student_id, timetable_slot_id, academic_term_id,
+		RETURNING id, tenant_id, school_id, student_id, timetable_allocation_id, academic_term_id,
 		          date, status, marked_by, marked_at, note, created_at, updated_at
 	`, setClause, argIdx, argIdx+1)
 
@@ -407,7 +407,7 @@ func (r *pgRepository) UpdateRecord(ctx context.Context, id, tenantID string, pa
 
 	var rec AttendanceRecord
 	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, args...).Scan(
-		&rec.ID, &rec.TenantID, &rec.SchoolID, &rec.StudentID, &rec.TimetableSlotID, &rec.AcademicTermID,
+		&rec.ID, &rec.TenantID, &rec.SchoolID, &rec.StudentID, &rec.TimetableAllocationID, &rec.AcademicTermID,
 		&rec.Date, &rec.Status, &rec.MarkedBy, &rec.MarkedBy, &rec.Note, &rec.CreatedAt, &rec.UpdatedAt,
 	)
 	if err != nil {
@@ -422,12 +422,12 @@ func (r *pgRepository) UpdateRecord(ctx context.Context, id, tenantID string, pa
 func (r *pgRepository) GetRecordByID(ctx context.Context, id, tenantID string) (*AttendanceRecord, error) {
 	var rec AttendanceRecord
 	err := database.FromContext(ctx, r.pool).QueryRow(ctx, `
-		SELECT id, tenant_id, school_id, student_id, timetable_slot_id, academic_term_id,
+		SELECT id, tenant_id, school_id, student_id, timetable_allocation_id, academic_term_id,
 		       date, status, marked_by, marked_at, note, created_at, updated_at
 		FROM attendance_records
 		WHERE id = $1 AND tenant_id = $2
 	`, id, tenantID).Scan(
-		&rec.ID, &rec.TenantID, &rec.SchoolID, &rec.StudentID, &rec.TimetableSlotID, &rec.AcademicTermID,
+		&rec.ID, &rec.TenantID, &rec.SchoolID, &rec.StudentID, &rec.TimetableAllocationID, &rec.AcademicTermID,
 		&rec.Date, &rec.Status, &rec.MarkedBy, &rec.MarkedBy, &rec.Note, &rec.CreatedAt, &rec.UpdatedAt,
 	)
 	if err != nil {
@@ -446,7 +446,7 @@ func (r *pgRepository) ListRecordsBySlotDate(ctx context.Context, tenantID, scho
 			$1::text AS tenant_id,
 			$2::text AS school_id,
 			s.id::text AS student_id,
-			ts.id::text AS timetable_slot_id,
+			ts.id::text AS timetable_allocation_id,
 			COALESCE(ar.academic_term_id::text, enr.academic_term_id::text) AS academic_term_id,
 			$4::text AS date,
 			COALESCE(ar.status, 'PRESENT') AS status,
@@ -465,9 +465,9 @@ func (r *pgRepository) ListRecordsBySlotDate(ctx context.Context, tenantID, scho
 			tstr.end_time::text,
 			ts.learning_area_id,
 			COALESCE(la.name, '') AS learning_area_name
-		FROM cbc_timetable_slots ts
+		FROM timetable_allocations ts
 		JOIN cbc_classes c ON c.id = ts.class_id AND c.tenant_id = $1
-		JOIN timetable_structures tstr ON tstr.id = ts.structure_id
+		JOIN timetable_blocks tstr ON tstr.id = ts.block_id
 		LEFT JOIN cbc_streams st ON st.id = c.stream_id
 		LEFT JOIN cbc_learning_areas la ON la.id = ts.learning_area_id
 		JOIN cbc_student_enrollments enr
@@ -477,7 +477,7 @@ func (r *pgRepository) ListRecordsBySlotDate(ctx context.Context, tenantID, scho
 		JOIN cbc_students s ON s.id = enr.student_id AND s.tenant_id = $1
 		LEFT JOIN attendance_records ar
 			ON ar.student_id = s.id
-			AND ar.timetable_slot_id = ts.id
+			AND ar.timetable_allocation_id = ts.id
 			AND ar.date = $4::date
 			AND ar.tenant_id = $1
 		WHERE ts.id = $3
@@ -490,7 +490,7 @@ func (r *pgRepository) ListRecordsBySlotDate(ctx context.Context, tenantID, scho
 func (r *pgRepository) ListRecordsByStudentTerm(ctx context.Context, tenantID, schoolID, studentID, termID string) ([]RecordWithEnrichedData, error) {
 	query := `
 		SELECT
-			ar.id, ar.tenant_id, ar.school_id, ar.student_id, ar.timetable_slot_id,
+			ar.id, ar.tenant_id, ar.school_id, ar.student_id, ar.timetable_allocation_id,
 			ar.academic_term_id, ar.date, ar.status, ar.marked_by, ar.marked_at, ar.note,
 			ar.created_at, ar.updated_at,
 			s.full_name AS student_full_name,
@@ -505,8 +505,8 @@ func (r *pgRepository) ListRecordsByStudentTerm(ctx context.Context, tenantID, s
 			COALESCE(la.name, '') AS learning_area_name
 		FROM attendance_records ar
 		JOIN cbc_students s ON s.id = ar.student_id AND s.tenant_id = ar.tenant_id
-		JOIN cbc_timetable_slots ts ON ts.id = ar.timetable_slot_id
-		JOIN timetable_structures tstr ON tstr.id = ts.structure_id
+		JOIN timetable_allocations ts ON ts.id = ar.timetable_allocation_id
+		JOIN timetable_blocks tstr ON tstr.id = ts.block_id
 		JOIN cbc_classes c ON c.id = ts.class_id AND c.tenant_id = ar.tenant_id
 		LEFT JOIN cbc_streams st ON st.id = c.stream_id
 		LEFT JOIN cbc_learning_areas la ON la.id = ts.learning_area_id
@@ -520,7 +520,7 @@ func (r *pgRepository) ListRecordsByStudentTerm(ctx context.Context, tenantID, s
 func (r *pgRepository) ListRecordsByClassDate(ctx context.Context, tenantID, schoolID, classID, date string) ([]RecordWithEnrichedData, error) {
 	query := `
 		SELECT
-			ar.id, ar.tenant_id, ar.school_id, ar.student_id, ar.timetable_slot_id,
+			ar.id, ar.tenant_id, ar.school_id, ar.student_id, ar.timetable_allocation_id,
 			ar.academic_term_id, ar.date, ar.status, ar.marked_by, ar.marked_at, ar.note,
 			ar.created_at, ar.updated_at,
 			s.full_name AS student_full_name,
@@ -535,8 +535,8 @@ func (r *pgRepository) ListRecordsByClassDate(ctx context.Context, tenantID, sch
 			COALESCE(la.name, '') AS learning_area_name
 		FROM attendance_records ar
 		JOIN cbc_students s ON s.id = ar.student_id AND s.tenant_id = ar.tenant_id
-		JOIN cbc_timetable_slots ts ON ts.id = ar.timetable_slot_id
-		JOIN timetable_structures tstr ON tstr.id = ts.structure_id
+		JOIN timetable_allocations ts ON ts.id = ar.timetable_allocation_id
+		JOIN timetable_blocks tstr ON tstr.id = ts.block_id
 		JOIN cbc_classes c ON c.id = ts.class_id AND c.tenant_id = ar.tenant_id
 		LEFT JOIN cbc_streams st ON st.id = c.stream_id
 		LEFT JOIN cbc_learning_areas la ON la.id = ts.learning_area_id
@@ -550,7 +550,7 @@ func (r *pgRepository) ListRecordsByClassDate(ctx context.Context, tenantID, sch
 func (r *pgRepository) ListRecords(ctx context.Context, filter RecordFilter) ([]RecordWithEnrichedData, error) {
 	query := `
 		SELECT
-			ar.id, ar.tenant_id, ar.school_id, ar.student_id, ar.timetable_slot_id,
+			ar.id, ar.tenant_id, ar.school_id, ar.student_id, ar.timetable_allocation_id,
 			ar.academic_term_id, ar.date, ar.status, ar.marked_by, ar.marked_at, ar.note,
 			ar.created_at, ar.updated_at,
 			s.full_name AS student_full_name,
@@ -565,8 +565,8 @@ func (r *pgRepository) ListRecords(ctx context.Context, filter RecordFilter) ([]
 			COALESCE(la.name, '') AS learning_area_name
 		FROM attendance_records ar
 		JOIN cbc_students s ON s.id = ar.student_id AND s.tenant_id = ar.tenant_id
-		JOIN cbc_timetable_slots ts ON ts.id = ar.timetable_slot_id
-		JOIN timetable_structures tstr ON tstr.id = ts.structure_id
+		JOIN timetable_allocations ts ON ts.id = ar.timetable_allocation_id
+		JOIN timetable_blocks tstr ON tstr.id = ts.block_id
 		JOIN cbc_classes c ON c.id = ts.class_id AND c.tenant_id = ar.tenant_id
 		LEFT JOIN cbc_streams st ON st.id = c.stream_id
 		LEFT JOIN cbc_learning_areas la ON la.id = ts.learning_area_id
@@ -591,9 +591,9 @@ func (r *pgRepository) ListRecords(ctx context.Context, filter RecordFilter) ([]
 		args = append(args, filter.StudentID)
 		argIdx++
 	}
-	if filter.TimetableSlotID != "" {
-		query += fmt.Sprintf(" AND ar.timetable_slot_id = $%d", argIdx)
-		args = append(args, filter.TimetableSlotID)
+	if filter.TimetableAllocationID != "" {
+		query += fmt.Sprintf(" AND ar.timetable_allocation_id = $%d", argIdx)
+		args = append(args, filter.TimetableAllocationID)
 		argIdx++
 	}
 	if filter.Date != "" {
@@ -629,7 +629,7 @@ func (r *pgRepository) ListRecords(ctx context.Context, filter RecordFilter) ([]
 		var rec RecordWithEnrichedData
 		var streamName, learningAreaName string
 		if err := rows.Scan(
-			&rec.ID, &rec.TenantID, &rec.SchoolID, &rec.StudentID, &rec.TimetableSlotID,
+			&rec.ID, &rec.TenantID, &rec.SchoolID, &rec.StudentID, &rec.TimetableAllocationID,
 			&rec.AcademicTermID, &rec.Date, &rec.Status, &rec.MarkedBy, &rec.MarkedBy, &rec.Note,
 			&rec.CreatedAt, &rec.UpdatedAt,
 			&rec.StudentFullName, &rec.ClassName, &rec.GradeLevel, &streamName,
@@ -661,7 +661,7 @@ func (r *pgRepository) scanEnrichedRecords(ctx context.Context, query string, ar
 		var rec RecordWithEnrichedData
 		var streamName, learningAreaName string
 		if err := rows.Scan(
-			&rec.ID, &rec.TenantID, &rec.SchoolID, &rec.StudentID, &rec.TimetableSlotID,
+			&rec.ID, &rec.TenantID, &rec.SchoolID, &rec.StudentID, &rec.TimetableAllocationID,
 			&rec.AcademicTermID, &rec.Date, &rec.Status, &rec.MarkedBy, &rec.MarkedBy, &rec.Note,
 			&rec.CreatedAt, &rec.UpdatedAt,
 			&rec.StudentFullName, &rec.ClassName, &rec.GradeLevel, &streamName,
@@ -796,10 +796,10 @@ func (r *pgRepository) RefreshSummaries(ctx context.Context, tenantID, schoolID,
 			) AS attendance_percentage,
 			NOW() AS last_refreshed_at
 		FROM attendance_records ar
-		JOIN cbc_timetable_slots ts ON ts.id = ar.timetable_slot_id
+		JOIN timetable_allocations ts ON ts.id = ar.timetable_allocation_id
 		JOIN academic_terms t ON t.id = ar.academic_term_id
 		LEFT JOIN cbc_attendance_sessions s
-			ON s.timetable_slot_id = ar.timetable_slot_id
+			ON s.timetable_allocation_id = ar.timetable_allocation_id
 			AND s.date = ar.date
 			AND s.tenant_id = ar.tenant_id
 		WHERE ar.tenant_id = $1 AND ar.school_id = $2 AND ar.academic_term_id = $3
@@ -903,10 +903,10 @@ func (r *pgRepository) RefreshClassDailySummary(ctx context.Context, tenantID, s
 			) AS daily_attendance_rate,
 			NOW() AS last_refreshed_at
 		FROM attendance_records ar
-		JOIN cbc_timetable_slots ts ON ts.id = ar.timetable_slot_id
+		JOIN timetable_allocations ts ON ts.id = ar.timetable_allocation_id
 		JOIN cbc_classes c ON c.id = ts.class_id AND c.tenant_id = $1
 		LEFT JOIN cbc_attendance_sessions s
-			ON s.timetable_slot_id = ar.timetable_slot_id
+			ON s.timetable_allocation_id = ar.timetable_allocation_id
 			AND s.date = ar.date
 			AND s.tenant_id = ar.tenant_id
 		WHERE ar.tenant_id = $1
@@ -975,28 +975,28 @@ func (r *pgRepository) ListCalendarStatus(ctx context.Context, tenantID, schoolI
 		expected AS (
 			SELECT
 				d.dt AS date,
-				ts.id AS timetable_slot_id
+				ts.id AS timetable_allocation_id
 			FROM dates d
-			JOIN timetable_structures tstr
+			JOIN timetable_blocks tstr
 				ON tstr.school_id = $2 AND tstr.is_break = false
 				AND tstr.day_of_week = EXTRACT(ISODOW FROM d.dt)::INT
-			JOIN cbc_timetable_slots ts
-				ON ts.structure_id = tstr.id AND ts.school_id = $2
+			JOIN timetable_allocations ts
+				ON ts.block_id = tstr.id AND ts.school_id = $2
 			WHERE tstr.tenant_id = $1
 			  AND ts.tenant_id = $1
 		),
 		handled AS (
-			SELECT DISTINCT e.date, e.timetable_slot_id
+			SELECT DISTINCT e.date, e.timetable_allocation_id
 			FROM expected e
 			WHERE EXISTS (
 				SELECT 1 FROM attendance_records ar
-				WHERE ar.timetable_slot_id = e.timetable_slot_id
+				WHERE ar.timetable_allocation_id = e.timetable_allocation_id
 				  AND ar.date = e.date
 				  AND ar.tenant_id = $1
 			)
 			OR EXISTS (
 				SELECT 1 FROM cbc_attendance_sessions cas
-				WHERE cas.timetable_slot_id = e.timetable_slot_id
+				WHERE cas.timetable_allocation_id = e.timetable_allocation_id
 				  AND cas.date = e.date
 				  AND cas.tenant_id = $1
 				  AND cas.status = 'SKIPPED'
@@ -1004,10 +1004,10 @@ func (r *pgRepository) ListCalendarStatus(ctx context.Context, tenantID, schoolI
 		)
 		SELECT
 			e.date::TEXT,
-			COUNT(DISTINCT e.timetable_slot_id)::INT AS expected_count,
-			COUNT(DISTINCT h.timetable_slot_id)::INT AS handled_count
+			COUNT(DISTINCT e.timetable_allocation_id)::INT AS expected_count,
+			COUNT(DISTINCT h.timetable_allocation_id)::INT AS handled_count
 		FROM expected e
-		LEFT JOIN handled h ON h.date = e.date AND h.timetable_slot_id = e.timetable_slot_id
+		LEFT JOIN handled h ON h.date = e.date AND h.timetable_allocation_id = e.timetable_allocation_id
 		GROUP BY e.date
 		ORDER BY e.date ASC
 	`
@@ -1422,13 +1422,13 @@ func (r *pgRepository) GetSchoolAttendanceKPIs(ctx context.Context, tenantID, sc
 		unmarked_slots AS (
 			-- Non-break timetable slots for the school on this weekday with no
 			-- attendance session record yet (neither SUBMITTED nor SKIPPED).
-			-- is_break / day_of_week live on timetable_structures, not on
-			-- cbc_timetable_slots; both are per-school so the join is fully
+			-- is_break / day_of_week live on timetable_blocks, not on
+			-- timetable_allocations; both are per-school so the join is fully
 			-- scoped by tenant + school.
 			SELECT COUNT(*)::INT AS unmarked_count
-			FROM cbc_timetable_slots ts
-			JOIN timetable_structures tstr
-				ON tstr.id = ts.structure_id
+			FROM timetable_allocations ts
+			JOIN timetable_blocks tstr
+				ON tstr.id = ts.block_id
 				AND tstr.tenant_id = ts.tenant_id
 				AND tstr.school_id = ts.school_id
 			WHERE ts.tenant_id = $1
@@ -1438,7 +1438,7 @@ func (r *pgRepository) GetSchoolAttendanceKPIs(ctx context.Context, tenantID, sc
 			  AND NOT EXISTS (
 				  SELECT 1 FROM cbc_attendance_sessions cas
 				  WHERE cas.tenant_id = ts.tenant_id
-					AND cas.timetable_slot_id = ts.id
+					AND cas.timetable_allocation_id = ts.id
 					AND cas.date = $3::DATE
 			  )
 		),
@@ -1480,52 +1480,52 @@ func (r *pgRepository) GetSchoolAttendanceKPIs(ctx context.Context, tenantID, sc
 // for "All" classes.
 func (r *pgRepository) ListClassTermPercentages(ctx context.Context, tenantID, schoolID string) ([]ClassTermPercentageItem, error) {
 	query := `
-		SELECT 
+		SELECT
 		    COALESCE(c.name, 'All') AS class_name,
 		    t.name AS term_name,
 		    t.term_number AS term_number,
 		    ay.year_name AS academic_year,
 		    -- Present Percentage
 		    ROUND(
-		        (SUM(ctas.present_count)::NUMERIC / NULLIF(SUM(ctas.present_count + ctas.absent_count + ctas.late_count + ctas.excused_count), 0)) * 100, 
+		        (SUM(ctas.present_count)::NUMERIC / NULLIF(SUM(ctas.present_count + ctas.absent_count + ctas.late_count + ctas.excused_count), 0)) * 100,
 		        2
 		    ) AS present_percentage,
 		    -- Absent Percentage
 		    ROUND(
-		        (SUM(ctas.absent_count)::NUMERIC / NULLIF(SUM(ctas.present_count + ctas.absent_count + ctas.late_count + ctas.excused_count), 0)) * 100, 
+		        (SUM(ctas.absent_count)::NUMERIC / NULLIF(SUM(ctas.present_count + ctas.absent_count + ctas.late_count + ctas.excused_count), 0)) * 100,
 		        2
 		    ) AS absent_percentage,
 		    -- Excused Percentage
 		    ROUND(
-		        (SUM(ctas.excused_count)::NUMERIC / NULLIF(SUM(ctas.present_count + ctas.absent_count + ctas.late_count + ctas.excused_count), 0)) * 100, 
+		        (SUM(ctas.excused_count)::NUMERIC / NULLIF(SUM(ctas.present_count + ctas.absent_count + ctas.late_count + ctas.excused_count), 0)) * 100,
 		        2
 		    ) AS excused_percentage,
 		    -- Late Percentage
 		    ROUND(
-		        (SUM(ctas.late_count)::NUMERIC / NULLIF(SUM(ctas.present_count + ctas.absent_count + ctas.late_count + ctas.excused_count), 0)) * 100, 
+		        (SUM(ctas.late_count)::NUMERIC / NULLIF(SUM(ctas.present_count + ctas.absent_count + ctas.late_count + ctas.excused_count), 0)) * 100,
 		        2
 		    ) AS late_percentage
-		FROM 
+		FROM
 		    class_term_attendance_summaries ctas
-		JOIN 
+		JOIN
 		    cbc_classes c ON ctas.tenant_id = c.tenant_id AND ctas.class_id = c.id
-		JOIN 
+		JOIN
 		    academic_terms t ON ctas.tenant_id = t.tenant_id AND ctas.school_id = t.school_id AND ctas.academic_term_id = t.id
-		JOIN 
+		JOIN
 		    academic_years ay ON ctas.tenant_id = ay.tenant_id AND ctas.academic_year_id = ay.id
-		WHERE 
+		WHERE
 		    ctas.tenant_id = $1 AND ctas.school_id = $2 AND ay.is_current = TRUE
 		GROUP BY
 		s.id,
 		s.full_name
-		    ROLLUP (c.name), 
-		    t.name, 
+		    ROLLUP (c.name),
+		    t.name,
 		    t.term_number,
-		    ay.year_name, 
+		    ay.year_name,
 		    t.start_date
-		ORDER BY 
-		    (c.name IS NULL) DESC, 
-		    c.name ASC, 
+		ORDER BY
+		    (c.name IS NULL) DESC,
+		    c.name ASC,
 		    t.term_number ASC;
 	`
 
@@ -1565,30 +1565,30 @@ func (r *pgRepository) GetLowestAttendanceStudents(ctx context.Context, tenantID
 		limit = 5
 	}
 	query := `
-		SELECT 
+		SELECT
 			s.id AS student_id,
 			SPLIT_PART(s.full_name, ' ', 1) AS first_name,
 			COALESCE(NULLIF(SPLIT_PART(s.full_name, ' ', 2), ''), '') AS last_name,
 			COUNT(ar.id) AS total_periods,
 			SUM(CASE WHEN ar.status = 'PRESENT' THEN 1 ELSE 0 END) AS present_count,
 			ROUND(
-				(SUM(CASE WHEN ar.status = 'PRESENT' THEN 1 ELSE 0 END)::NUMERIC / NULLIF(COUNT(ar.id), 0)) * 100, 
+				(SUM(CASE WHEN ar.status = 'PRESENT' THEN 1 ELSE 0 END)::NUMERIC / NULLIF(COUNT(ar.id), 0)) * 100,
 				2
 			) AS attendance_percentage
-		FROM 
+		FROM
 			cbc_students s
-		JOIN 
+		JOIN
 			attendance_records ar ON s.tenant_id = ar.tenant_id AND s.id = ar.student_id
-		WHERE 
+		WHERE
 			ar.tenant_id = $1
 			AND ar.school_id = $2
 			AND ar.date >= DATE_TRUNC('week', CURRENT_DATE)
 			AND ar.date < DATE_TRUNC('week', CURRENT_DATE) + INTERVAL '1 week'
-		GROUP BY 
-			s.id, 
+		GROUP BY
+			s.id,
 			s.full_name
-		ORDER BY 
-			present_count ASC, 
+		ORDER BY
+			present_count ASC,
 			attendance_percentage ASC
 		LIMIT $3
 	`

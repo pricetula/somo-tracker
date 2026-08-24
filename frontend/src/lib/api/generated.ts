@@ -325,7 +325,7 @@ export interface ListTermsResponse {
 
 export type TeacherRole = "PRIMARY_CLASS_TEACHER" | "SUBJECT_TEACHER" | "SUBSTITUTE_TEACHER";
 
-export interface CreateTimetableSlotInput {
+export interface CreateTimetableAllocationInput {
     class_id: string;
     teacher_id: string;
     learning_area_id?: string;
@@ -335,13 +335,13 @@ export interface CreateTimetableSlotInput {
     end_time: string;
 }
 
-export interface BulkCreateTimetableSlotsInput {
+export interface BulkCreateTimetableAllocationsInput {
     academic_year_id: string;
     academic_term_id: string;
-    slots: CreateTimetableSlotInput[];
+    slots: CreateTimetableAllocationInput[];
 }
 
-export interface TimetableSlot {
+export interface TimetableAllocation {
     id: string;
     tenant_id: string;
     school_id: string;
@@ -356,8 +356,8 @@ export interface TimetableSlot {
     end_time: string;
 }
 
-export interface ListTimetableSlotsResponse {
-    items: TimetableSlot[];
+export interface ListTimetableAllocationsResponse {
+    items: TimetableAllocation[];
 }
 
 export interface AssignTeacherPayload {

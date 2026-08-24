@@ -28,7 +28,7 @@ type Repository interface {
 	// ListTeacherClasses returns all classes assigned to a teacher in a term.
 	ListTeacherClasses(ctx context.Context, tenantID, schoolID, userID, termID string) ([]TeacherClassItem, error)
 	// GetTeacherTimetable returns the teacher's timetable slots for a given day of week.
-	GetTeacherTimetable(ctx context.Context, tenantID, schoolID, userID string, dayOfWeek int) ([]TeacherTimetableSlot, error)
+	GetTeacherTimetable(ctx context.Context, tenantID, schoolID, userID string, dayOfWeek int) ([]TeacherTimetableAllocation, error)
 }
 
 // Teacher represents a user with the TEACHER role, including
@@ -75,8 +75,8 @@ type TeacherClassListResponse struct {
 	Total int                `json:"total"`
 }
 
-// TeacherTimetableSlot represents a timetable slot for the teacher's view.
-type TeacherTimetableSlot struct {
+// TeacherTimetableAllocation represents a timetable slot for the teacher's view.
+type TeacherTimetableAllocation struct {
 	SlotID           string  `json:"slot_id"`
 	PeriodName       string  `json:"period_name"`
 	StartTime        string  `json:"start_time"`
@@ -92,8 +92,8 @@ type TeacherTimetableSlot struct {
 
 // TeacherTimetableResponse wraps a teacher's timetable.
 type TeacherTimetableResponse struct {
-	Items []TeacherTimetableSlot `json:"items"`
-	Total int                    `json:"total"`
+	Items []TeacherTimetableAllocation `json:"items"`
+	Total int                          `json:"total"`
 }
 
 // UpdateTeacherPayload is the payload for updating a teacher's profile.

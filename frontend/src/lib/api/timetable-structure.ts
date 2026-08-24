@@ -1,5 +1,5 @@
 /**
- * Timetable Structure API functions.
+ * Timetable Block API functions.
  *
  * Endpoints:
  *   GET    /api/v1/timetable/structure?academic_year_id=   — list all time blocks
@@ -8,7 +8,7 @@
  *   PUT    /api/v1/timetable/structure/:id               — update a time block
  *   DELETE /api/v1/timetable/structure/:id               — delete a time block
  *
- * Timetable Slots (Allocation) endpoints:
+ * Timetable Allocations (Allocation) endpoints:
  *   GET    /api/v1/timetable/slots                       — list slots with optional filters
  *   POST   /api/v1/timetable/slots                       — create a single slot
  *   POST   /api/v1/timetable/slots/batch                 — batch-create slots
@@ -59,7 +59,7 @@ export interface DeleteResult {
 
 // ─── Types (Allocation Slots) ──────────────────────────────────────────────
 
-export interface TimetableSlot {
+export interface TimetableAllocation {
     id: string;
     tenant_id: string;
     school_id: string;
@@ -187,33 +187,36 @@ export async function deleteTimeBlock(id: string): Promise<DeleteResult> {
 // ─── API Functions: Allocation Slots ──────────────────────────────────────
 
 /** List slots with optional filters. academic_year_id is required. */
-export async function listSlots(filters: SlotFilter): Promise<TimetableSlot[]> {
+export async function listSlots(filters: SlotFilter): Promise<TimetableAllocation[]> {
     const params = new URLSearchParams();
     if (filters.academic_year_id) params.set("academic_year_id", filters.academic_year_id);
     if (filters.structure_id) params.set("structure_id", filters.structure_id);
     if (filters.class_id) params.set("class_id", filters.class_id);
     if (filters.teacher_id) params.set("teacher_id", filters.teacher_id);
     if (filters.learning_area_id) params.set("learning_area_id", filters.learning_area_id);
-    return api.get<TimetableSlot[]>(`/api/v1/timetable/slots?${params.toString()}`);
+    return api.get<TimetableAllocation[]>(`/api/v1/timetable/slots?${params.toString()}`);
 }
 
 /** Create a single slot assignment. academic_year_id is optional (resolved server-side if omitted). */
-export async function createSlot(payload: CreateSlotPayload): Promise<TimetableSlot> {
-    return api.post<TimetableSlot>("/api/v1/timetable/slots", payload);
+export async function createSlot(payload: CreateSlotPayload): Promise<TimetableAllocation> {
+    return api.post<TimetableAllocation>("/api/v1/timetable/slots", payload);
 }
 
 /** Batch-create slots (atomic). academic_year_id is required. */
 export async function batchCreateSlots(
     payload: BatchCreateSlotsPayload,
     academicYearID: string
-): Promise<TimetableSlot[]> {
+): Promise<TimetableAllocation[]> {
     const qs = `?academic_year_id=${academicYearID}`;
-    return api.post<TimetableSlot[]>(`/api/v1/timetable/slots/batch${qs}`, payload);
+    return api.post<TimetableAllocation[]>(`/api/v1/timetable/slots/batch${qs}`, payload);
 }
 
 /** Update a slot assignment. */
-export async function updateSlot(id: string, payload: UpdateSlotPayload): Promise<TimetableSlot> {
-    return api.put<TimetableSlot>(`/api/v1/timetable/slots/${id}`, payload);
+export async function updateSlot(
+    id: string,
+    payload: UpdateSlotPayload
+): Promise<TimetableAllocation> {
+    return api.put<TimetableAllocation>(`/api/v1/timetable/slots/${id}`, payload);
 }
 
 /** Delete a slot by ID. */
@@ -226,11 +229,11 @@ export async function deleteSlot(id: string): Promise<{ deleted: boolean }> {
 /** Get combined timetable view (structures + slots) for an academic year. */
 export async function getTimetable(academicYearID: string): Promise<{
     structures: TimeBlock[];
-    slots: TimetableSlot[];
+    slots: TimetableAllocation[];
 }> {
     const qs = new URLSearchParams({ academic_year_id: academicYearID }).toString();
     return api.get<{
         structures: TimeBlock[];
-        slots: TimetableSlot[];
+        slots: TimetableAllocation[];
     }>(`/api/v1/timetable/timetable?${qs}`);
 }

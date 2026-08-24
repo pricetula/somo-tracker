@@ -51,32 +51,32 @@ const (
 
 // AttendanceRecord is a single student's attendance mark for one timetable slot on one date.
 type AttendanceRecord struct {
-	ID                  string           `json:"id"`
-	TenantID            string           `json:"tenant_id"`
-	SchoolID            string           `json:"school_id"`
-	StudentID           string           `json:"student_id"`
-	TimetableSlotID     string           `json:"timetable_slot_id"`
-	AcademicTermID      string           `json:"academic_term_id"`
-	Date                string           `json:"date"`
-	Status              AttendanceStatus `json:"status"`
-	MarkedBy            string           `json:"marked_by"`
-	Note                *string          `json:"note,omitempty"`
-	AttendanceSessionID *string          `json:"attendance_session_id,omitempty"`
-	CreatedAt           time.Time        `json:"created_at,omitempty"`
-	UpdatedAt           time.Time        `json:"updated_at,omitempty"`
+	ID                    string           `json:"id"`
+	TenantID              string           `json:"tenant_id"`
+	SchoolID              string           `json:"school_id"`
+	StudentID             string           `json:"student_id"`
+	TimetableAllocationID string           `json:"timetable_allocation_id"`
+	AcademicTermID        string           `json:"academic_term_id"`
+	Date                  string           `json:"date"`
+	Status                AttendanceStatus `json:"status"`
+	MarkedBy              string           `json:"marked_by"`
+	Note                  *string          `json:"note,omitempty"`
+	AttendanceSessionID   *string          `json:"attendance_session_id,omitempty"`
+	CreatedAt             time.Time        `json:"created_at,omitempty"`
+	UpdatedAt             time.Time        `json:"updated_at,omitempty"`
 }
 
 // AttendanceSession tracks whether a lesson actually took place on a given date.
 type AttendanceSession struct {
-	ID              string        `json:"id"`
-	TenantID        string        `json:"tenant_id"`
-	SchoolID        string        `json:"school_id"`
-	TimetableSlotID string        `json:"timetable_slot_id"`
-	Date            string        `json:"date"`
-	Status          SessionStatus `json:"status"`
-	SkipReason      *string       `json:"skip_reason,omitempty"`
-	CreatedAt       time.Time     `json:"created_at,omitempty"`
-	UpdatedAt       time.Time     `json:"updated_at,omitempty"`
+	ID                    string        `json:"id"`
+	TenantID              string        `json:"tenant_id"`
+	SchoolID              string        `json:"school_id"`
+	TimetableAllocationID string        `json:"timetable_allocation_id"`
+	Date                  string        `json:"date"`
+	Status                SessionStatus `json:"status"`
+	SkipReason            *string       `json:"skip_reason,omitempty"`
+	CreatedAt             time.Time     `json:"created_at,omitempty"`
+	UpdatedAt             time.Time     `json:"updated_at,omitempty"`
 }
 
 // SessionWithEnrichedData extends AttendanceSession with joined data.
@@ -136,10 +136,10 @@ type RecordWithEnrichedData struct {
 
 // CreateSessionPayload is the request body for creating an attendance session.
 type CreateSessionPayload struct {
-	TimetableSlotID string  `json:"timetable_slot_id"`
-	Date            string  `json:"date"`
-	Status          string  `json:"status"` // SUBMITTED or SKIPPED
-	SkipReason      *string `json:"skip_reason,omitempty"`
+	TimetableAllocationID string  `json:"timetable_allocation_id"`
+	Date                  string  `json:"date"`
+	Status                string  `json:"status"` // SUBMITTED or SKIPPED
+	SkipReason            *string `json:"skip_reason,omitempty"`
 }
 
 // UpdateSessionPayload is the request body for updating a session.
@@ -157,9 +157,9 @@ type StudentAttendanceMark struct {
 
 // BatchMarkPayload is the request body for marking attendance in bulk.
 type BatchMarkPayload struct {
-	Date            string                  `json:"date"`
-	TimetableSlotID string                  `json:"timetable_slot_id"`
-	Records         []StudentAttendanceMark `json:"records"`
+	Date                  string                  `json:"date"`
+	TimetableAllocationID string                  `json:"timetable_allocation_id"`
+	Records               []StudentAttendanceMark `json:"records"`
 }
 
 // BatchMarkResult holds the outcome of a batch mark operation.
@@ -177,24 +177,24 @@ type UpdateRecordPayload struct {
 
 // SessionFilter contains optional filter params for listing sessions.
 type SessionFilter struct {
-	TimetableSlotID string `json:"timetable_slot_id,omitempty"`
-	Date            string `json:"date,omitempty"`
-	Status          string `json:"status,omitempty"`
-	ClassID         string `json:"class_id,omitempty"`
-	SchoolID        string `json:"school_id,omitempty"`
-	TenantID        string `json:"tenant_id,omitempty"`
+	TimetableAllocationID string `json:"timetable_allocation_id,omitempty"`
+	Date                  string `json:"date,omitempty"`
+	Status                string `json:"status,omitempty"`
+	ClassID               string `json:"class_id,omitempty"`
+	SchoolID              string `json:"school_id,omitempty"`
+	TenantID              string `json:"tenant_id,omitempty"`
 }
 
 // RecordFilter contains optional filter params for listing attendance records.
 type RecordFilter struct {
-	TimetableSlotID string `json:"timetable_slot_id,omitempty"`
-	Date            string `json:"date,omitempty"`
-	StudentID       string `json:"student_id,omitempty"`
-	ClassID         string `json:"class_id,omitempty"`
-	AcademicTermID  string `json:"academic_term_id,omitempty"`
-	SchoolID        string `json:"school_id,omitempty"`
-	TenantID        string `json:"tenant_id,omitempty"`
-	Status          string `json:"status,omitempty"`
+	TimetableAllocationID string `json:"timetable_allocation_id,omitempty"`
+	Date                  string `json:"date,omitempty"`
+	StudentID             string `json:"student_id,omitempty"`
+	ClassID               string `json:"class_id,omitempty"`
+	AcademicTermID        string `json:"academic_term_id,omitempty"`
+	SchoolID              string `json:"school_id,omitempty"`
+	TenantID              string `json:"tenant_id,omitempty"`
+	Status                string `json:"status,omitempty"`
 }
 
 // ─── Calendar Status Types ────────────────────────────────────────────────
@@ -417,7 +417,7 @@ type LearningAreaAttendanceBreakdownListResponse struct {
 // SchoolAttendanceKPI is the macro-level school attendance view model for the
 // School Administrator dashboard (School Attendance Command Center). It is a
 // read-only rollup assembled from class_daily_attendance_summaries,
-// class_term_attendance_summaries, cbc_timetable_slots, and
+// class_term_attendance_summaries, timetable_allocations, and
 // cbc_attendance_sessions.
 type SchoolAttendanceKPI struct {
 	// TodaysAttendanceRate is the average daily attendance rate across all

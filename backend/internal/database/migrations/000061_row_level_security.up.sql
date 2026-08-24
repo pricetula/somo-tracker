@@ -259,7 +259,7 @@ ALTER TABLE IF EXISTS cbc_student_parents               ENABLE ROW LEVEL SECURIT
 ALTER TABLE IF EXISTS cbc_students                      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS cbc_schools                       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS cbc_streams                       ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS cbc_timetable_slots               ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS timetable_allocations               ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS fee_categories                    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS fee_templates                     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS import_jobs                       ENABLE ROW LEVEL SECURITY;
@@ -274,7 +274,7 @@ ALTER TABLE IF EXISTS payments                          ENABLE ROW LEVEL SECURIT
 ALTER TABLE IF EXISTS users                             ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS school_member_counts              ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS student_health_profiles           ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS timetable_structures              ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS timetable_blocks              ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS attendance_records                  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS behavior_categories                 ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS behavior_notes                      ENABLE ROW LEVEL SECURITY;
@@ -315,7 +315,7 @@ BEGIN
             'cbc_students',
             'cbc_schools',
             'cbc_streams',
-            'cbc_timetable_slots',
+            'timetable_allocations',
             'fee_categories',
             'fee_templates',
             'import_jobs',
@@ -330,7 +330,7 @@ BEGIN
             'school_member_counts',
             'users',
             'student_health_profiles',
-            'timetable_structures',
+            'timetable_blocks',
             'attendance_records',
             'behavior_categories',
             'behavior_notes',

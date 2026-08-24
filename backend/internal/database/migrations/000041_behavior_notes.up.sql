@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS behavior_notes (
     tenant_id         UUID                 NOT NULL,
     school_id         UUID                 NOT NULL,
     student_id        UUID                 NOT NULL,
-    timetable_slot_id UUID                 NOT NULL,
+    timetable_allocation_id UUID                 NOT NULL,
     date              DATE                 NOT NULL,
     category_id       UUID                 NOT NULL,
     description       TEXT                 NOT NULL,
@@ -23,9 +23,9 @@ CREATE TABLE IF NOT EXISTS behavior_notes (
     CONSTRAINT fk_behavior_notes_tenant_student
         FOREIGN KEY (tenant_id, student_id)
         REFERENCES cbc_students(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_behavior_notes_timetable_slot
-        FOREIGN KEY (tenant_id, timetable_slot_id)
-        REFERENCES cbc_timetable_slots(tenant_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_behavior_notes_timetable_allocation
+        FOREIGN KEY (tenant_id, timetable_allocation_id)
+        REFERENCES timetable_allocations(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_behavior_notes_tenant_category
         FOREIGN KEY (tenant_id, category_id)
         REFERENCES behavior_categories(tenant_id, id) ON DELETE RESTRICT,
@@ -44,7 +44,7 @@ CREATE INDEX IF NOT EXISTS idx_behavior_notes_status
 CREATE INDEX IF NOT EXISTS idx_behavior_notes_urgent
     ON behavior_notes (is_urgent) WHERE is_urgent = true;
 CREATE INDEX IF NOT EXISTS idx_behavior_notes_slot_date
-    ON behavior_notes (timetable_slot_id, date);
+    ON behavior_notes (timetable_allocation_id, date);
 CREATE INDEX IF NOT EXISTS idx_behavior_notes_tenant
     ON behavior_notes (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_behavior_notes_school

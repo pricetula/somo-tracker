@@ -229,7 +229,7 @@ DECLARE
     v_term_id UUID;
 BEGIN
     -- Find the academic term that contains this note's date.
-    -- We join the note's timetable_slot → class → enrollments → academic_term.
+    -- We join the note's timetable_allocation → class → enrollments → academic_term.
     SELECT enr.academic_term_id INTO v_term_id
     FROM cbc_student_enrollments enr
     WHERE enr.student_id = COALESCE(NEW.student_id, OLD.student_id)

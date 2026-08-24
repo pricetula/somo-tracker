@@ -233,29 +233,29 @@ func (r *PgRepository) OnboardingStatus(ctx context.Context, tenantID string) (*
 
 		-- 1. Check if class streams exist
 		streams_check AS (
-			SELECT 
+			SELECT
 				EXISTS (
-					SELECT 1 
-					FROM class_streams cs 
+					SELECT 1
+					FROM class_streams cs
 					JOIN tenant_context tc ON cs.tenant_id = tc.current_tenant_id
 				) AS has_streams
 		),
 
 		-- 2. Verify all existing class streams have at least one timetable slot assigned
 		timetable_check AS (
-			SELECT 
-				CASE 
+			SELECT
+				CASE
 					-- If no class streams exist, calendar setup cannot be complete
 					WHEN NOT (SELECT has_streams FROM streams_check) THEN false
 					-- Check if any class_stream exists WITHOUT an associated timetable entry
 					ELSE NOT EXISTS (
-						SELECT 1 
+						SELECT 1
 						FROM class_streams cs
 						JOIN tenant_context tc ON cs.tenant_id = tc.current_tenant_id
 						WHERE NOT EXISTS (
-							SELECT 1 
-							FROM timetable_slots ts 
-							WHERE ts.class_stream_id = cs.id 
+							SELECT 1
+							FROM timetable_allocations ts
+							WHERE ts.class_stream_id = cs.id
 							  AND ts.tenant_id = cs.tenant_id
 						)
 					)
@@ -274,8 +274,8 @@ func (r *PgRepository) OnboardingStatus(ctx context.Context, tenantID string) (*
 		-- 4. Check staff invitation (At least one teacher)
 		staff_check AS (
 			SELECT EXISTS (
-				SELECT 1 
-				FROM users u 
+				SELECT 1
+				FROM users u
 				JOIN tenant_context tc ON u.tenant_id = tc.current_tenant_id
 				WHERE u.role = 'TEACHER'
 			) AS staff_invited
@@ -284,13 +284,13 @@ func (r *PgRepository) OnboardingStatus(ctx context.Context, tenantID string) (*
 		-- 5. Check student enrollment
 		student_check AS (
 			SELECT EXISTS (
-				SELECT 1 
-				FROM cbc_students s 
+				SELECT 1
+				FROM cbc_students s
 				JOIN tenant_context tc ON s.tenant_id = tc.current_tenant_id
 			) AS students_enrolled
 		)
 
-		SELECT 
+		SELECT
 			tc.current_tenant_id AS tenant_id,
 			sc.has_streams AS class_streams_created,
 			tc_check.calendar_configured AS academic_calendar_configured,
@@ -298,10 +298,10 @@ func (r *PgRepository) OnboardingStatus(ctx context.Context, tenantID string) (*
 			st.staff_invited,
 			st_check.students_enrolled,
 			(
-				tc_check.calendar_configured 
-				AND cc.curriculum_initialized 
-				AND sc.has_streams 
-				AND st.staff_invited 
+				tc_check.calendar_configured
+				AND cc.curriculum_initialized
+				AND sc.has_streams
+				AND st.staff_invited
 				AND st_check.students_enrolled
 			) AS is_onboarding_complete
 		FROM tenant_context tc

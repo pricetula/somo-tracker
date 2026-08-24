@@ -94,7 +94,7 @@ func (s *Service) GetTeacherTimetable(ctx context.Context, tenantID, schoolID, u
 		return nil, err
 	}
 	if items == nil {
-		items = []TeacherTimetableSlot{}
+		items = []TeacherTimetableAllocation{}
 	}
 	return &TeacherTimetableResponse{Items: items, Total: len(items)}, nil
 }

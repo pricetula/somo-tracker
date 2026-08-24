@@ -252,7 +252,7 @@ func (r *PgRepository) ListTeacherClasses(ctx context.Context, tenantID, schoolI
 		JOIN cbc_classes c ON c.id = ct.class_id AND c.tenant_id = $1
 		LEFT JOIN cbc_streams s ON s.id = c.stream_id
 		JOIN academic_terms at ON at.id = $4 AND at.tenant_id = $1 AND at.school_id = $2
-		LEFT JOIN cbc_timetable_slots ts ON ts.class_id = c.id AND ts.teacher_id = $3
+		LEFT JOIN timetable_allocations ts ON ts.class_id = c.id AND ts.teacher_id = $3
 		LEFT JOIN cbc_learning_areas la ON la.id = ts.learning_area_id
 		WHERE ct.teacher_id = $3
 		  AND c.school_id = $2
@@ -283,7 +283,7 @@ func (r *PgRepository) ListTeacherClasses(ctx context.Context, tenantID, schoolI
 }
 
 // GetTeacherTimetable returns the teacher's timetable slots for a given day of week.
-func (r *PgRepository) GetTeacherTimetable(ctx context.Context, tenantID, schoolID, userID string, dayOfWeek int) ([]TeacherTimetableSlot, error) {
+func (r *PgRepository) GetTeacherTimetable(ctx context.Context, tenantID, schoolID, userID string, dayOfWeek int) ([]TeacherTimetableAllocation, error) {
 	query := `
 		SELECT
 			ts.id AS slot_id,
@@ -297,8 +297,8 @@ func (r *PgRepository) GetTeacherTimetable(ctx context.Context, tenantID, school
 			ts.learning_area_id,
 			COALESCE(la.name, '') AS learning_area_name,
 			ts.room_identifier
-		FROM cbc_timetable_slots ts
-		JOIN timetable_structures tstr ON tstr.id = ts.structure_id
+		FROM timetable_allocations ts
+		JOIN timetable_blocks tstr ON tstr.id = ts.block_id
 		JOIN cbc_classes c ON c.id = ts.class_id AND c.tenant_id = $1
 		LEFT JOIN cbc_streams st ON st.id = c.stream_id
 		LEFT JOIN cbc_learning_areas la ON la.id = ts.learning_area_id
@@ -314,9 +314,9 @@ func (r *PgRepository) GetTeacherTimetable(ctx context.Context, tenantID, school
 	}
 	defer rows.Close()
 
-	var items []TeacherTimetableSlot
+	var items []TeacherTimetableAllocation
 	for rows.Next() {
-		var item TeacherTimetableSlot
+		var item TeacherTimetableAllocation
 		if err := rows.Scan(
 			&item.SlotID, &item.PeriodName, &item.StartTime, &item.EndTime,
 			&item.ClassID, &item.ClassName, &item.GradeLevel, &item.StreamName,

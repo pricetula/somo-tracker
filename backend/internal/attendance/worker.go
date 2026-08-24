@@ -71,10 +71,10 @@ type AttendanceTermRefreshPayload struct {
 
 // ClassDailyRefreshPayload is the payload for refreshing class daily attendance summaries.
 type ClassDailyRefreshPayload struct {
-	TenantID        string `json:"tenant_id"`
-	SchoolID        string `json:"school_id"`
-	TimetableSlotID string `json:"timetable_slot_id"`
-	Date            string `json:"date"`
+	TenantID              string `json:"tenant_id"`
+	SchoolID              string `json:"school_id"`
+	TimetableAllocationID string `json:"timetable_allocation_id"`
+	Date                  string `json:"date"`
 }
 
 // ClassLearningAreaTermRefreshPayload is the payload for refreshing the
@@ -157,15 +157,15 @@ func (e *Enqueuer) EnqueueAttendanceTermRefresh(ctx context.Context, tenantID, s
 // attendance summary for the given timetable slot + date.
 func (e *Enqueuer) EnqueueClassDailyRefresh(ctx context.Context, tenantID, schoolID, timetableSlotID, date string) {
 	payload, _ := json.Marshal(ClassDailyRefreshPayload{
-		TenantID:        tenantID,
-		SchoolID:        schoolID,
-		TimetableSlotID: timetableSlotID,
-		Date:            date,
+		TenantID:              tenantID,
+		SchoolID:              schoolID,
+		TimetableAllocationID: timetableSlotID,
+		Date:                  date,
 	})
 	task := asynq.NewTask(TaskRefreshClassDailySummary, payload)
 	if _, err := e.client.Enqueue(task, asynq.MaxRetry(3), asynq.Queue("summaries")); err != nil {
 		e.logger.Warnw("attendance: enqueue class daily refresh failed",
-			"timetable_slot_id", timetableSlotID, "date", date, "error", err,
+			"timetable_allocation_id", timetableSlotID, "date", date, "error", err,
 		)
 	}
 }
@@ -348,10 +348,10 @@ func (w *Worker) handleAttendanceTermRefresh(ctx context.Context, t *asynq.Task)
 			) AS attendance_percentage,
 			NOW() AS last_refreshed_at
 		FROM attendance_records ar
-		JOIN cbc_timetable_slots ts ON ts.id = ar.timetable_slot_id
+		JOIN timetable_allocations ts ON ts.id = ar.timetable_allocation_id
 		JOIN academic_terms t ON t.id = ar.academic_term_id
 		LEFT JOIN cbc_attendance_sessions s
-			ON s.timetable_slot_id = ar.timetable_slot_id
+			ON s.timetable_allocation_id = ar.timetable_allocation_id
 			AND s.date = ar.date
 			AND s.tenant_id = ar.tenant_id
 		WHERE ar.tenant_id = $1 AND ar.school_id = $2 AND ar.academic_term_id = $3
@@ -394,7 +394,7 @@ func (w *Worker) handleClassDailyRefresh(ctx context.Context, t *asynq.Task) err
 	}
 	start := time.Now()
 	w.logger.Infow("attendance: refreshing class daily summary",
-		"timetable_slot_id", p.TimetableSlotID, "date", p.Date,
+		"timetable_allocation_id", p.TimetableAllocationID, "date", p.Date,
 	)
 
 	// Resolve class_id from timetable slot and recompute daily summary
@@ -421,14 +421,14 @@ func (w *Worker) handleClassDailyRefresh(ctx context.Context, t *asynq.Task) err
 			) AS daily_attendance_rate,
 			NOW() AS last_refreshed_at
 		FROM attendance_records ar
-		JOIN cbc_timetable_slots ts ON ts.id = ar.timetable_slot_id
+		JOIN timetable_allocations ts ON ts.id = ar.timetable_allocation_id
 		JOIN cbc_classes c ON c.id = ts.class_id AND c.tenant_id = $1
 		LEFT JOIN cbc_attendance_sessions s
-			ON s.timetable_slot_id = ar.timetable_slot_id
+			ON s.timetable_allocation_id = ar.timetable_allocation_id
 			AND s.date = ar.date
 			AND s.tenant_id = ar.tenant_id
 		WHERE ar.tenant_id = $1 AND ar.school_id = $2
-		  AND ar.timetable_slot_id = $3 AND ar.date = $4::DATE
+		  AND ar.timetable_allocation_id = $3 AND ar.date = $4::DATE
 		  AND (s.status IS NULL OR s.status != 'SKIPPED')
 		GROUP BY c.id, ar.academic_term_id, ar.date
 		ON CONFLICT (class_id, date)
@@ -442,12 +442,12 @@ func (w *Worker) handleClassDailyRefresh(ctx context.Context, t *asynq.Task) err
 			daily_attendance_rate = EXCLUDED.daily_attendance_rate,
 			last_refreshed_at   = NOW(),
 			updated_at          = NOW()
-	`, p.TenantID, p.SchoolID, p.TimetableSlotID, p.Date)
+	`, p.TenantID, p.SchoolID, p.TimetableAllocationID, p.Date)
 	if err != nil {
 		return fmt.Errorf("attendance.Worker.handleClassDailyRefresh: %w", err)
 	}
 	w.logger.Infow("attendance: class daily summary refreshed",
-		"timetable_slot_id", p.TimetableSlotID, "date", p.Date,
+		"timetable_allocation_id", p.TimetableAllocationID, "date", p.Date,
 		"duration", time.Since(start).String(),
 	)
 
@@ -467,16 +467,16 @@ func (w *Worker) handleClassDailyRefresh(ctx context.Context, t *asynq.Task) err
 	`, p.TenantID, p.SchoolID, p.Date).Scan(&resolvedTermID); err == nil && resolvedTermID != "" {
 		var resolvedClassID string
 		if err := database.FromContext(ctx, w.pools.PG).QueryRow(ctx, `
-			SELECT class_id FROM cbc_timetable_slots
+			SELECT class_id FROM timetable_allocations
 			WHERE tenant_id = $1 AND id = $2
 			LIMIT 1
-		`, p.TenantID, p.TimetableSlotID).Scan(&resolvedClassID); err == nil && resolvedClassID != "" {
+		`, p.TenantID, p.TimetableAllocationID).Scan(&resolvedClassID); err == nil && resolvedClassID != "" {
 			if w.enqueuer != nil {
 				w.enqueuer.EnqueueClassTermRefresh(ctx, p.TenantID, p.SchoolID, resolvedTermID, resolvedClassID)
 			}
 		} else if err != nil {
 			w.logger.Warnw("attendance: resolve class_id for chained class-term refresh failed; skipping chain",
-				"timetable_slot_id", p.TimetableSlotID, "error", err,
+				"timetable_allocation_id", p.TimetableAllocationID, "error", err,
 			)
 		}
 	} else if err != nil {
@@ -505,7 +505,7 @@ func (w *Worker) handleClassDailyRefresh(ctx context.Context, t *asynq.Task) err
 //	we accept a known limitation (enrollment snapshot ≠ day-by-day
 //	enrollment) rather than trying to "fix" it here.
 //
-//	The alternative — using cbc_timetable_slots.class_id per lesson
+//	The alternative — using timetable_allocations.class_id per lesson
 //	(point-in-time) — would be more accurate for mid-term transfers but
 //	requires a proportional split of per-student totals across multiple
 //	classes, which is complex and error-prone. The term-start class

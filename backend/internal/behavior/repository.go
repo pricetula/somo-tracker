@@ -216,16 +216,16 @@ func (r *pgRepository) CreateNote(ctx context.Context, tenantID, schoolID string
 	var note BehaviorNote
 	err := database.FromContext(ctx, r.pool).QueryRow(ctx, `
 		INSERT INTO behavior_notes
-			(tenant_id, school_id, student_id, timetable_slot_id, date,
+			(tenant_id, school_id, student_id, timetable_allocation_id, date,
 			 category_id, description, is_urgent, authored_by_id)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-		RETURNING id, tenant_id, school_id, student_id, timetable_slot_id, date,
+		RETURNING id, tenant_id, school_id, student_id, timetable_allocation_id, date,
 		          category_id, description, is_urgent, status, authored_by_id,
 		          reviewed_by_id, reviewed_at, created_at
-	`, tenantID, schoolID, payload.StudentID, payload.TimetableSlotID, payload.Date,
+	`, tenantID, schoolID, payload.StudentID, payload.TimetableAllocationID, payload.Date,
 		payload.CategoryID, payload.Description, payload.IsUrgent, authoredBy,
 	).Scan(
-		&note.ID, &note.TenantID, &note.SchoolID, &note.StudentID, &note.TimetableSlotID,
+		&note.ID, &note.TenantID, &note.SchoolID, &note.StudentID, &note.TimetableAllocationID,
 		&note.Date, &note.CategoryID, &note.Description, &note.IsUrgent, &note.Status,
 		&note.AuthoredByID, &note.ReviewedByID, &note.ReviewedAt, &note.CreatedAt,
 	)
@@ -252,7 +252,7 @@ func (r *pgRepository) GetPendingQueue(ctx context.Context, tenantID, schoolID s
 			bn.status
 		FROM behavior_notes bn
 		JOIN cbc_students s ON s.id = bn.student_id AND s.tenant_id = bn.tenant_id
-		JOIN cbc_timetable_slots ts ON ts.id = bn.timetable_slot_id
+		JOIN timetable_allocations ts ON ts.id = bn.timetable_allocation_id
 		JOIN cbc_classes c ON c.id = ts.class_id AND c.tenant_id = bn.tenant_id
 		LEFT JOIN cbc_streams str ON str.id = c.stream_id
 		JOIN behavior_categories bc ON bc.id = bn.category_id
@@ -288,13 +288,13 @@ func (r *pgRepository) GetPendingQueue(ctx context.Context, tenantID, schoolID s
 func (r *pgRepository) GetNoteByID(ctx context.Context, id, tenantID string) (*BehaviorNote, error) {
 	var note BehaviorNote
 	err := database.FromContext(ctx, r.pool).QueryRow(ctx, `
-		SELECT id, tenant_id, school_id, student_id, timetable_slot_id, date,
+		SELECT id, tenant_id, school_id, student_id, timetable_allocation_id, date,
 		       category_id, description, is_urgent, status, authored_by_id,
 		       reviewed_by_id, reviewed_at, created_at
 		FROM behavior_notes
 		WHERE id = $1 AND tenant_id = $2
 	`, id, tenantID).Scan(
-		&note.ID, &note.TenantID, &note.SchoolID, &note.StudentID, &note.TimetableSlotID,
+		&note.ID, &note.TenantID, &note.SchoolID, &note.StudentID, &note.TimetableAllocationID,
 		&note.Date, &note.CategoryID, &note.Description, &note.IsUrgent, &note.Status,
 		&note.AuthoredByID, &note.ReviewedByID, &note.ReviewedAt, &note.CreatedAt,
 	)
@@ -350,7 +350,7 @@ func (r *pgRepository) GetNotesByStudentTerm(ctx context.Context, tenantID, scho
 			bn.status
 		FROM behavior_notes bn
 		JOIN cbc_students s ON s.id = bn.student_id AND s.tenant_id = bn.tenant_id
-		JOIN cbc_timetable_slots ts ON ts.id = bn.timetable_slot_id
+		JOIN timetable_allocations ts ON ts.id = bn.timetable_allocation_id
 		JOIN cbc_classes c ON c.id = ts.class_id AND c.tenant_id = bn.tenant_id
 		LEFT JOIN cbc_streams str ON str.id = c.stream_id
 		JOIN behavior_categories bc ON bc.id = bn.category_id
@@ -399,7 +399,7 @@ func (r *pgRepository) ListNotesByAuthor(ctx context.Context, tenantID, schoolID
 			bn.status
 		FROM behavior_notes bn
 		JOIN cbc_students s ON s.id = bn.student_id AND s.tenant_id = bn.tenant_id
-		JOIN cbc_timetable_slots ts ON ts.id = bn.timetable_slot_id
+		JOIN timetable_allocations ts ON ts.id = bn.timetable_allocation_id
 		JOIN cbc_classes c ON c.id = ts.class_id AND c.tenant_id = bn.tenant_id
 		LEFT JOIN cbc_streams str ON str.id = c.stream_id
 		JOIN behavior_categories bc ON bc.id = bn.category_id

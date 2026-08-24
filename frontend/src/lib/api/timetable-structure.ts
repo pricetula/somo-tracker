@@ -1,70 +1,104 @@
 /**
- * Timetable Block API functions.
+ * Timetable API functions (updated for simplified body-ID design).
  *
- * Endpoints:
- *   GET    /api/v1/timetable/structure?academic_year_id=   — list all time blocks
- *   GET    /api/v1/timetable/structure/:id               — get a single time block
- *   POST   /api/v1/timetable/structure                   — create a single time block
- *   PUT    /api/v1/timetable/structure/:id               — update a time block
- *   DELETE /api/v1/timetable/structure/:id               — delete a time block
+ * Tracks (Timetable):
+ *   POST   /api/v1/timetable                    — create track (+ optional initial blocks)
+ *   PUT    /api/v1/timetable                    — update track (ID in body)
+ *   DELETE /api/v1/timetable                    — bulk delete tracks (IDs in body)
  *
- * Timetable Allocations (Allocation) endpoints:
- *   GET    /api/v1/timetable/slots                       — list slots with optional filters
- *   POST   /api/v1/timetable/slots                       — create a single slot
- *   POST   /api/v1/timetable/slots/batch                 — batch-create slots
- *   PUT    /api/v1/timetable/slots/:id                   — update a slot
- *   DELETE /api/v1/timetable/slots/:id                   — delete a slot
+ * Blocks (Time Structure):
+ *   POST   /api/v1/timetable/blocks             — create blocks (track_id in body)
+ *   PUT    /api/v1/timetable/blocks             — update blocks (ID in body)
+ *   DELETE /api/v1/timetable/blocks             — bulk delete blocks (IDs in body)
+ *
+ * Allocations (Slot Assignments):
+ *   POST   /api/v1/timetable/allocations        — create allocations (block_id in body)
+ *   PUT    /api/v1/timetable/allocations        — update allocations (ID in body)
+ *   DELETE /api/v1/timetable/allocations        — bulk delete allocations (IDs in body)
  *
  * Combined view:
- *   GET    /api/v1/timetable/timetable?academic_year_id= — get structures + slots
+ *   GET    /api/v1/timetable                    — get structures + slots
  */
 
 import { api } from "./client";
+
+// ─── Types (Tracks) ────────────────────────────────────────────────────────
+
+export interface TimetableTrack {
+    id: string;
+    tenant_id: string;
+    school_id: string;
+    academic_year_id: string;
+    academic_term_id?: string;
+    name: string;
+    description?: string;
+    is_default: boolean;
+    created_at?: string;
+    updated_at?: string;
+}
+
+export interface CreateTrackPayload {
+    name: string;
+    description?: string;
+    is_default?: boolean;
+    academic_year_id?: string;
+    academic_term_id?: string;
+    initial_blocks?: CreateTimeBlockPayload[];
+}
+
+export interface UpdateTrackPayload {
+    id: string;
+    name?: string;
+    description?: string;
+    is_default?: boolean;
+}
+
+export interface BulkDeletePayload {
+    ids: string[];
+}
 
 // ─── Types (Structure Blocks) ──────────────────────────────────────────────
 
 export interface TimeBlock {
     id: string;
+    track_id: string;
     day_of_week: number;
     period_name: string;
     start_time: string;
     end_time: string;
     is_break: boolean;
-    academic_year_id?: string;
     order: number;
     created_at?: string;
     updated_at?: string;
 }
 
 export interface CreateTimeBlockPayload {
+    track_id: string;
     day_of_week: number;
     period_name: string;
     start_time: string;
     end_time: string;
-    is_break: boolean;
-    academic_year_id?: string;
-    order: number;
+    is_break?: boolean;
+    order?: number;
 }
 
-export interface UpdateTimeBlockPayload extends CreateTimeBlockPayload {
-    academic_year_id: string;
+export interface UpdateTimeBlockPayload {
+    id: string;
+    day_of_week?: number;
+    period_name?: string;
+    start_time?: string;
+    end_time?: string;
+    is_break?: boolean;
+    order?: number;
 }
 
-export interface DeleteResult {
-    deleted: boolean;
-    deleted_count?: number;
-    linked_lessons?: number;
-    message?: string;
-}
+// ─── Types (Allocations) ──────────────────────────────────────────────────
 
-// ─── Types (Allocation Slots) ──────────────────────────────────────────────
-
-export interface TimetableAllocation {
+export interface Allocation {
     id: string;
     tenant_id: string;
     school_id: string;
-    academic_year_id: string;
-    structure_id: string;
+    block_id: string;
     class_id: string;
     learning_area_id: string;
     teacher_id: string;
@@ -72,54 +106,28 @@ export interface TimetableAllocation {
     created_at?: string;
     updated_at?: string;
 }
-export interface EnrichedSlot {
-    id: string;
-    tenant_id: string;
-    school_id: string;
-    academic_year_id: string;
-    structure_id: string;
+
+export interface CreateAllocationPayload {
+    block_id: string;
     class_id: string;
-    learning_area_id?: string | null;
-    teacher_id?: string | null;
+    learning_area_id: string;
+    teacher_id: string;
     room_identifier?: string | null;
-    created_at?: string;
-    updated_at?: string;
-    class_name: string;
-    period_name: string;
-    day_of_week: number;
-    start_time: string;
-    end_time: string;
-    is_break: boolean;
-    learning_area_name?: string | null;
-    teacher_name?: string | null;
-    session_status?: string | null;
-    skip_reason?: string | null;
 }
 
-export interface SlotFilter {
-    academic_year_id?: string;
-    structure_id?: string;
+export interface UpdateAllocationPayload {
+    id: string;
+    class_id?: string;
+    learning_area_id?: string;
+    teacher_id?: string;
+    room_identifier?: string | null;
+}
+
+export interface AllocationFilter {
+    block_id?: string;
     class_id?: string;
     teacher_id?: string;
     learning_area_id?: string;
-}
-
-export interface CreateSlotPayload {
-    structure_id: string;
-    class_id: string;
-    learning_area_id: string;
-    teacher_id: string;
-    room_identifier?: string | null;
-}
-
-export interface BatchCreateSlotsPayload {
-    slots: CreateSlotPayload[];
-}
-
-export interface UpdateSlotPayload {
-    learning_area_id?: string;
-    teacher_id?: string;
-    room_identifier?: string | null;
 }
 
 // ─── Day helpers ──────────────────────────────────────────────────────────
@@ -152,88 +160,106 @@ export function getDayNameShort(day: number): string {
     return DAY_NAMES_SHORT[day] ?? `D${day}`;
 }
 
-// ─── API Functions: Structure Blocks ──────────────────────────────────────
+// ─── API Functions: Tracks ────────────────────────────────────────────────
 
-/** List all time blocks for the active school and academic year. */
-export async function listTimeBlocks(academicYearID: string): Promise<TimeBlock[]> {
-    const qs = new URLSearchParams({ academic_year_id: academicYearID }).toString();
-    return api.get<TimeBlock[]>(`/api/v1/timetable/structure?${qs}`);
+/** Create a new timetable track with optional initial blocks. */
+export async function createTrack(payload: CreateTrackPayload): Promise<TimetableTrack> {
+    return api.post<TimetableTrack>("/api/v1/timetable", payload);
 }
 
-/** Get a single time block by ID. */
-export async function getTimeBlock(id: string): Promise<TimeBlock> {
-    return api.get<TimeBlock>(`/api/v1/timetable/structure/${id}`);
+/** Update a timetable track (ID passed in body). */
+export async function updateTrack(payload: UpdateTrackPayload): Promise<TimetableTrack> {
+    return api.put<TimetableTrack>("/api/v1/timetable", payload);
 }
 
-/** Create a new time block. academic_year_id is optional (resolved server-side if omitted). */
-export async function createTimeBlock(payload: CreateTimeBlockPayload): Promise<TimeBlock> {
-    const qs = payload.academic_year_id ? `?academic_year_id=${payload.academic_year_id}` : "";
-    return api.post<TimeBlock>(`/api/v1/timetable/structure${qs}`, payload);
+/** Bulk delete tracks (IDs passed in body). */
+export async function bulkDeleteTracks(
+    payload: BulkDeletePayload
+): Promise<{ deleted: number; total: number }> {
+    return api.delete<{ deleted: number; total: number }>("/api/v1/timetable", payload);
 }
 
-/** Update an existing time block. */
-export async function updateTimeBlock(
-    id: string,
-    payload: UpdateTimeBlockPayload
-): Promise<TimeBlock> {
-    return api.put<TimeBlock>(`/api/v1/timetable/structure/${id}`, payload);
+// ─── API Functions: Blocks ────────────────────────────────────────────────
+
+/** Create new blocks for a track (track_id in body). */
+export async function createBlocks(payload: CreateTimeBlockPayload[]): Promise<TimeBlock[]> {
+    return api.post<TimeBlock[]>("/api/v1/timetable/blocks", payload);
 }
 
-/** Delete a time block by ID. */
-export async function deleteTimeBlock(id: string): Promise<DeleteResult> {
-    return api.delete<DeleteResult>(`/api/v1/timetable/structure/${id}`);
+/** Update a block (ID in body). */
+export async function updateBlock(payload: UpdateTimeBlockPayload): Promise<TimeBlock> {
+    return api.put<TimeBlock>("/api/v1/timetable/blocks", payload);
 }
 
-// ─── API Functions: Allocation Slots ──────────────────────────────────────
-
-/** List slots with optional filters. academic_year_id is required. */
-export async function listSlots(filters: SlotFilter): Promise<TimetableAllocation[]> {
-    const params = new URLSearchParams();
-    if (filters.academic_year_id) params.set("academic_year_id", filters.academic_year_id);
-    if (filters.structure_id) params.set("structure_id", filters.structure_id);
-    if (filters.class_id) params.set("class_id", filters.class_id);
-    if (filters.teacher_id) params.set("teacher_id", filters.teacher_id);
-    if (filters.learning_area_id) params.set("learning_area_id", filters.learning_area_id);
-    return api.get<TimetableAllocation[]>(`/api/v1/timetable/slots?${params.toString()}`);
+/** Bulk delete blocks (IDs in body). */
+export async function bulkDeleteBlocks(
+    payload: BulkDeletePayload
+): Promise<{ deleted: number; total: number }> {
+    return api.delete<{ deleted: number; total: number }>("/api/v1/timetable/blocks", payload);
 }
 
-/** Create a single slot assignment. academic_year_id is optional (resolved server-side if omitted). */
-export async function createSlot(payload: CreateSlotPayload): Promise<TimetableAllocation> {
-    return api.post<TimetableAllocation>("/api/v1/timetable/slots", payload);
+// ─── API Functions: Allocations ────────────────────────────────────────────
+
+/** Create new allocations for a block (block_id in body). */
+export async function createAllocations(payload: CreateAllocationPayload[]): Promise<Allocation[]> {
+    return api.post<Allocation[]>("/api/v1/timetable/allocations", payload);
 }
 
-/** Batch-create slots (atomic). academic_year_id is required. */
-export async function batchCreateSlots(
-    payload: BatchCreateSlotsPayload,
-    academicYearID: string
-): Promise<TimetableAllocation[]> {
-    const qs = `?academic_year_id=${academicYearID}`;
-    return api.post<TimetableAllocation[]>(`/api/v1/timetable/slots/batch${qs}`, payload);
+/** Update an allocation (ID in body). */
+export async function updateAllocation(payload: UpdateAllocationPayload): Promise<Allocation> {
+    return api.put<Allocation>("/api/v1/timetable/allocations", payload);
 }
 
-/** Update a slot assignment. */
-export async function updateSlot(
-    id: string,
-    payload: UpdateSlotPayload
-): Promise<TimetableAllocation> {
-    return api.put<TimetableAllocation>(`/api/v1/timetable/slots/${id}`, payload);
+/** Bulk delete allocations (IDs in body). */
+export async function bulkDeleteAllocations(
+    payload: BulkDeletePayload
+): Promise<{ deleted: number; total: number }> {
+    return api.delete<{ deleted: number; total: number }>("/api/v1/timetable/allocations", payload);
 }
 
-/** Delete a slot by ID. */
-export async function deleteSlot(id: string): Promise<{ deleted: boolean }> {
-    return api.delete<{ deleted: boolean }>(`/api/v1/timetable/slots/${id}`);
-}
+// ─── API Functions: Combined View ────────────────────────────────────────
 
-// ─── API Functions: Combined Timetable View ───────────────────────────────
-
-/** Get combined timetable view (structures + slots) for an academic year. */
-export async function getTimetable(academicYearID: string): Promise<{
-    structures: TimeBlock[];
-    slots: TimetableAllocation[];
+/** Get combined timetable view (blocks + allocations). */
+export async function getTimetable(): Promise<{
+    blocks: TimeBlock[];
+    allocations: Allocation[];
 }> {
-    const qs = new URLSearchParams({ academic_year_id: academicYearID }).toString();
     return api.get<{
-        structures: TimeBlock[];
-        slots: TimetableAllocation[];
-    }>(`/api/v1/timetable/timetable?${qs}`);
+        blocks: TimeBlock[];
+        allocations: Allocation[];
+    }>("/api/v1/timetable");
+}
+
+// ─── Legacy aliases for backward compatibility (if needed) ──────────────
+
+export type Slot = Allocation;
+export type CreateSlotPayload = CreateAllocationPayload;
+export type UpdateSlotPayload = UpdateAllocationPayload;
+export type SlotFilter = AllocationFilter;
+export type TimetableAllocation = Allocation;
+
+// Legacy enriched slot type for UI components
+
+export interface EnrichedSlot {
+    id: string;
+    tenant_id: string;
+    school_id: string;
+    academic_year_id: string;
+    structure_id: string;
+    class_id: string;
+    learning_area_id?: string | null;
+    teacher_id?: string | null;
+    room_identifier?: string | null;
+    created_at?: string;
+    updated_at?: string;
+    class_name: string;
+    period_name: string;
+    day_of_week: number;
+    start_time: string;
+    end_time: string;
+    is_break: boolean;
+    learning_area_name?: string | null;
+    teacher_name?: string | null;
+    session_status?: string | null;
+    skip_reason?: string | null;
 }

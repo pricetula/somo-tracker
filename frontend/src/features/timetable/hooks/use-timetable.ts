@@ -15,7 +15,6 @@ import {
     updateAllocation,
     bulkDeleteAllocations,
     getTimetable,
-    getTimetableMock,
     type CreateTrackPayload,
     type AllocationFilter,
     type Allocation,
@@ -333,7 +332,7 @@ export function timetableViewSelect({
 export function useTimetableView() {
     return useQuery({
         queryKey: ["timetable", "combined"],
-        queryFn: getTimetableMock,
+        queryFn: getTimetable,
         select: timetableViewSelect,
     });
 }

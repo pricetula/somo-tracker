@@ -109,7 +109,9 @@ func (s *Service) tenantScope(ctx context.Context, tenantID string) (context.Con
 			return nil
 		}
 		if err := tx.Commit(context.WithoutCancel(ctx)); err != nil {
-			_ = tx.Rollback(context.WithoutCancel(ctx))
+			if rbErr := tx.Rollback(context.WithoutCancel(ctx)); rbErr != nil {
+				zap.L().Warn("tx rollback failed", zap.Error(rbErr))
+			}
 			return fmt.Errorf("auth.Service.tenantScope: commit: %w", err)
 		}
 		committed = true
@@ -329,7 +331,11 @@ func (s *Service) loginExistingUser(ctx context.Context, ist, email, tenantID, u
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = finish() }()
+	defer func() {
+		if fErr := finish(); fErr != nil {
+			s.logger.Sugar().Errorw("auth.Service: tenantScope finish failed", "error", fErr)
+		}
+	}()
 
 	exchangeResult, err := s.idp.ExchangeIntermediateSession(ctx, ist, org.OrganizationID)
 	if err != nil {
@@ -404,7 +410,11 @@ func (s *Service) createUserInExistingTenant(ctx context.Context, ist, email, te
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = finish() }()
+	defer func() {
+		if fErr := finish(); fErr != nil {
+			s.logger.Sugar().Errorw("auth.Service: tenantScope finish failed", "error", fErr)
+		}
+	}()
 
 	// MFA gate before creating anything.
 	if !org.MemberAuthenticated {
@@ -658,7 +668,11 @@ func (s *Service) Register(ctx context.Context, sessionRef string, payload Regis
 		if serr != nil {
 			return "", "", "", serr
 		}
-		defer func() { _ = finish() }()
+		defer func() {
+			if fErr := finish(); fErr != nil {
+				s.logger.Sugar().Errorw("auth.Service: tenantScope finish failed", "error", fErr)
+			}
+		}()
 
 		if uid, _, _, uerr := s.repo.GetUserByEmailAndTenant(ctx, email, tenantID); uerr == nil && uid != "" {
 			existingUser = true
@@ -695,7 +709,11 @@ func (s *Service) Register(ctx context.Context, sessionRef string, payload Regis
 	if serr != nil {
 		return "", "", "", serr
 	}
-	defer func() { _ = finish() }()
+	defer func() {
+		if fErr := finish(); fErr != nil {
+			s.logger.Sugar().Errorw("auth.Service: tenantScope finish failed", "error", fErr)
+		}
+	}()
 
 	// 11a. Existing user: membership context already exists — never fabricate a
 	//      school or role. Return their real (highest) role in the tenant.
@@ -842,7 +860,11 @@ func (s *Service) AcceptInvite(ctx context.Context, token string, deviceFingerpr
 	if serr != nil {
 		return "", "", "", serr
 	}
-	defer func() { _ = finish() }()
+	defer func() {
+		if fErr := finish(); fErr != nil {
+			s.logger.Sugar().Errorw("auth.Service: tenantScope finish failed", "error", fErr)
+		}
+	}()
 
 	// 4. Generate opaque session token (32 random bytes, hex-encoded)
 	tokenBytes := make([]byte, 32)

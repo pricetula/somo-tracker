@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"fmt"
+	"go.uber.org/zap"
 
 	"github.com/gofiber/fiber/v2"
 
@@ -45,7 +46,9 @@ func WithTenantContext(pools *database.Pools) fiber.Handler {
 		defer func() {
 			if !committed {
 				// context.WithoutCancel so a client disconnect doesn't abort the cleanup.
-				_ = tx.Rollback(context.WithoutCancel(ctx))
+				if rbErr := tx.Rollback(context.WithoutCancel(ctx)); rbErr != nil {
+					zap.L().Warn("tx rollback failed", zap.Error(rbErr))
+				}
 			}
 		}()
 

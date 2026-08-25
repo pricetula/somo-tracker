@@ -163,7 +163,9 @@ func (w *Worker) withTenant(h func(ctx context.Context, p RefreshTermPayload) er
 			return fmt.Errorf("assessments.Worker.withTenant: begin: %w", err)
 		}
 		defer func() {
-			_ = tx.Rollback(context.WithoutCancel(ctx))
+			if rbErr := tx.Rollback(context.WithoutCancel(ctx)); rbErr != nil {
+				zap.L().Warn("tx rollback failed", zap.Error(rbErr))
+			}
 		}()
 		if err := h(database.WithTenantTx(tctx, tx), p); err != nil {
 			return err

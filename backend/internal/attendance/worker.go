@@ -288,7 +288,9 @@ func (w *Worker) withTenant(h func(ctx context.Context, t *asynq.Task) error) fu
 			return fmt.Errorf("attendance.Worker.withTenant: begin: %w", err)
 		}
 		defer func() {
-			_ = tx.Rollback(context.WithoutCancel(ctx))
+			if rbErr := tx.Rollback(context.WithoutCancel(ctx)); rbErr != nil {
+				zap.L().Warn("tx rollback failed", zap.Error(rbErr))
+			}
 		}()
 		if err := h(database.WithTenantTx(tctx, tx), t); err != nil {
 			return err

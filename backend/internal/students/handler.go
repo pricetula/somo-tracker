@@ -13,6 +13,7 @@ import (
 
 	"somotracker/backend/internal/imports"
 	"somotracker/backend/internal/middleware"
+	"somotracker/backend/internal/xerrors"
 )
 
 // AcademicYearTermResolver defines the interface for resolving current academic year and term.
@@ -103,30 +104,11 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 func bodySizeLimit(c *fiber.Ctx) error {
 	if cl := c.Get("Content-Length"); cl != "" {
 		if size, err := strconv.Atoi(cl); err == nil && size > imports.MaxImportBodyBytes() {
-			return writeError(c, fiber.StatusRequestEntityTooLarge, "request_too_large",
-				fmt.Sprintf("Request body is too large (%d bytes). The maximum is %d bytes for student import. Please reduce the number of rows.",
-					size, imports.MaxImportBodyBytes()), nil)
+			return middleware.HTTPError(c, xerrors.New("request_too_large", fiber.StatusRequestEntityTooLarge, fmt.Sprintf("Request body is too large (%d bytes). The maximum is %d bytes for student import. Please reduce the number of rows.",
+				size, imports.MaxImportBodyBytes())))
 		}
 	}
 	return c.Next()
-}
-
-// ============================================================================
-// Error response helper
-// ============================================================================
-
-type errorResponse struct {
-	Code    string              `json:"code"`
-	Message string              `json:"message"`
-	Errors  map[string][]string `json:"errors,omitempty"`
-}
-
-func writeError(c *fiber.Ctx, status int, code, message string, fieldErrors map[string][]string) error {
-	return c.Status(status).JSON(errorResponse{
-		Code:    code,
-		Message: message,
-		Errors:  fieldErrors,
-	})
 }
 
 // ─── Bulk Import ───────────────────────────────────────────────────────────
@@ -139,39 +121,37 @@ func (h *Handler) BulkImport(c *fiber.Ctx) error {
 		schoolID = c.Locals("school_id").(string)
 	}
 	if schoolID == "" {
-		return writeError(c, fiber.StatusBadRequest, "invalid_input", "active school not set", nil)
+		return middleware.HTTPError(c, xerrors.InvalidInput("active school not set"))
 	}
 	userID := c.Locals("user_id").(string)
 
 	tenantUUID, err := uuid.Parse(tenantID)
 	if err != nil {
-		return writeError(c, fiber.StatusBadRequest, "invalid_input", "invalid tenant", nil)
+		return middleware.HTTPError(c, xerrors.InvalidInput("invalid tenant"))
 	}
 	schoolUUID, err := uuid.Parse(schoolID)
 	if err != nil {
-		return writeError(c, fiber.StatusBadRequest, "invalid_input", "invalid school", nil)
+		return middleware.HTTPError(c, xerrors.InvalidInput("invalid school"))
 	}
 	userUUID, err := uuid.Parse(userID)
 	if err != nil {
-		return writeError(c, fiber.StatusBadRequest, "invalid_input", "invalid user", nil)
+		return middleware.HTTPError(c, xerrors.InvalidInput("invalid user"))
 	}
 
 	var body ImportRequest
 	if err := c.BodyParser(&body); err != nil {
-		return writeError(c, fiber.StatusBadRequest, "invalid_input", "malformed request body", nil)
+		return middleware.HTTPError(c, xerrors.UnprocessableEntity("malformed request body"))
 	}
 
 	// Validate at least one row
 	if len(body.Rows) == 0 {
-		return writeError(c, fiber.StatusBadRequest, "invalid_input", "rows array must not be empty",
-			map[string][]string{"rows": {"At least one row is required"}})
+		return middleware.HTTPError(c, xerrors.WithFields(xerrors.InvalidInput("rows array must not be empty"), map[string][]string{"rows": {"At least one row is required"}}))
 	}
 
 	// Validate row count limit (before CreateJob, before any DB writes)
 	if len(body.Rows) > imports.MaxImportRows {
-		return writeError(c, fiber.StatusBadRequest, "import_row_limit_exceeded",
-			fmt.Sprintf("Import contains %d rows; the maximum is %d. Please split into smaller files.",
-				len(body.Rows), imports.MaxImportRows), nil)
+		return middleware.HTTPError(c, xerrors.InvalidInput(fmt.Sprintf("Import contains %d rows; the maximum is %d. Please split into smaller files.",
+			len(body.Rows), imports.MaxImportRows)))
 	}
 
 	// Resolve current active academic year and term server-side
@@ -180,12 +160,10 @@ func (h *Handler) BulkImport(c *fiber.Ctx) error {
 		return middleware.HTTPError(c, err)
 	}
 	if academicYearID == "" {
-		return writeError(c, fiber.StatusBadRequest, "no_active_academic_year",
-			"No current academic year is set for this school. Please set one before importing.", nil)
+		return middleware.HTTPError(c, xerrors.InvalidInput("no active academic year"))
 	}
 	if academicTermID == "" {
-		return writeError(c, fiber.StatusBadRequest, "no_active_academic_term",
-			"No current academic term is active. Please set one before importing.", nil)
+		return middleware.HTTPError(c, xerrors.InvalidInput("no active academic term"))
 	}
 
 	// Build metadata with academic context
@@ -216,8 +194,7 @@ func (h *Handler) BulkImport(c *fiber.Ctx) error {
 	resp, err := h.impSvc.CreateJob(c.Context(), req)
 	if err != nil {
 		if errors.Is(err, imports.ErrDuplicateJob) {
-			return writeError(c, fiber.StatusConflict, "duplicate_import",
-				"A job with this idempotency key already exists.", nil)
+			return middleware.HTTPError(c, xerrors.AlreadyExists("a job with this idempotency key already exists"))
 		}
 		var inProgressErr *imports.ImportInProgressError
 		if errors.As(err, &inProgressErr) {
@@ -258,12 +235,12 @@ func (h *Handler) CheckDuplicates(c *fiber.Ctx) error {
 		schoolID = c.Locals("school_id").(string)
 	}
 	if schoolID == "" {
-		return writeError(c, fiber.StatusBadRequest, "invalid_input", "active school not set", nil)
+		return middleware.HTTPError(c, xerrors.InvalidInput("active school not set"))
 	}
 
 	var body CheckDuplicatesRequest
 	if err := c.BodyParser(&body); err != nil {
-		return writeError(c, fiber.StatusBadRequest, "invalid_input", "malformed request body", nil)
+		return middleware.HTTPError(c, xerrors.UnprocessableEntity("malformed request body"))
 	}
 
 	existingAdm, existingUPI, existingKNEC, err := h.svc.CheckDuplicates(
@@ -291,10 +268,7 @@ func (h *Handler) List(c *fiber.Ctx) error {
 		schoolID = c.Locals("school_id").(string)
 	}
 	if schoolID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "invalid_input",
-			"message": "active school not set",
-		})
+		return middleware.HTTPError(c, xerrors.InvalidInput("active school not set"))
 	}
 
 	page := 1
@@ -353,36 +327,29 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 		schoolID = c.Locals("school_id").(string)
 	}
 	if schoolID == "" {
-		return writeError(c, fiber.StatusBadRequest, "invalid_input", "active school not set", nil)
+		return middleware.HTTPError(c, xerrors.InvalidInput("active school not set"))
 	}
 
 	var body CreateStudentsPayload
 	if err := c.BodyParser(&body); err != nil {
-		return writeError(c, fiber.StatusBadRequest, "invalid_input", "malformed request body", nil)
+		return middleware.HTTPError(c, xerrors.UnprocessableEntity("malformed request body"))
 	}
 
 	if len(body.Students) == 0 {
-		return writeError(c, fiber.StatusBadRequest, "invalid_input", "students array must not be empty",
-			map[string][]string{"students": {"At least one student is required"}})
+		return middleware.HTTPError(c, xerrors.WithFields(xerrors.InvalidInput("students array must not be empty"), map[string][]string{"students": {"At least one student is required"}}))
 	}
 
 	// Validate all entries have required fields before creating any
 	for _, s := range body.Students {
 		if s.FullName == "" {
-			return writeError(c, fiber.StatusBadRequest, "invalid_input",
-				"full_name is required for all students",
-				map[string][]string{
-					"students": {},
-				})
+			return middleware.HTTPError(c, xerrors.WithFields(xerrors.InvalidInput("full_name is required for all students"), map[string][]string{"students": {}}))
 		}
 	}
 
 	result, err := h.svc.CreateBatch(c.Context(), tenantID, schoolID, body.Students)
 	if err != nil {
 		if errors.Is(err, ErrDuplicateUPI) {
-			return writeError(c, fiber.StatusConflict, "duplicate_upi",
-				"A student with this UPI number already exists.",
-				map[string][]string{"upi_number": {"This UPI number is already in use"}})
+			return middleware.HTTPError(c, xerrors.WithFields(xerrors.AlreadyExists("a student with this UPI number already exists"), map[string][]string{"upi_number": {"This UPI number is already in use"}}))
 		}
 		return middleware.HTTPError(c, err)
 	}
@@ -403,16 +370,13 @@ func (h *Handler) GetDetail(c *fiber.Ctx) error {
 	id := c.Params("id")
 
 	if id == "" {
-		return writeError(c, fiber.StatusBadRequest, "invalid_input", "student id is required", nil)
+		return middleware.HTTPError(c, xerrors.InvalidInput("student id is required"))
 	}
 
 	detail, err := h.svc.GetDetail(c.Context(), id, tenantID, schoolID)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-				"code":    "not_found",
-				"message": "Student not found",
-			})
+			return middleware.HTTPError(c, xerrors.NotFound("student not found"))
 		}
 		return middleware.HTTPError(c, err)
 	}
@@ -454,19 +418,17 @@ func (h *Handler) Update(c *fiber.Ctx) error {
 	id := c.Params("id")
 
 	if id == "" {
-		return writeError(c, fiber.StatusBadRequest, "invalid_input", "student id is required", nil)
+		return middleware.HTTPError(c, xerrors.InvalidInput("student id is required"))
 	}
 
 	var body UpdateStudentPayload
 	if err := c.BodyParser(&body); err != nil {
-		return writeError(c, fiber.StatusBadRequest, "invalid_input", "malformed request body", nil)
+		return middleware.HTTPError(c, xerrors.UnprocessableEntity("malformed request body"))
 	}
 
 	if err := h.svc.Update(c.Context(), id, tenantID, schoolID, body); err != nil {
 		if errors.Is(err, ErrDuplicateUPI) {
-			return writeError(c, fiber.StatusConflict, "duplicate_upi",
-				"A student with this UPI number already exists.",
-				map[string][]string{"upi_number": {"This UPI number is already in use"}})
+			return middleware.HTTPError(c, xerrors.WithFields(xerrors.AlreadyExists("a student with this UPI number already exists"), map[string][]string{"upi_number": {"This UPI number is already in use"}}))
 		}
 		return middleware.HTTPError(c, err)
 	}
@@ -487,16 +449,16 @@ func (h *Handler) CreateEnrollment(c *fiber.Ctx) error {
 	studentID := c.Params("id")
 
 	if studentID == "" {
-		return writeError(c, fiber.StatusBadRequest, "invalid_input", "student id is required", nil)
+		return middleware.HTTPError(c, xerrors.InvalidInput("student id is required"))
 	}
 
 	var body CreateEnrollmentPayload
 	if err := c.BodyParser(&body); err != nil {
-		return writeError(c, fiber.StatusBadRequest, "invalid_input", "malformed request body", nil)
+		return middleware.HTTPError(c, xerrors.UnprocessableEntity("malformed request body"))
 	}
 
 	if body.ClassID == "" {
-		return writeError(c, fiber.StatusBadRequest, "invalid_input", "class_id is required", nil)
+		return middleware.HTTPError(c, xerrors.InvalidInput("class_id is required"))
 	}
 
 	// Resolve current academic term server-side
@@ -505,12 +467,10 @@ func (h *Handler) CreateEnrollment(c *fiber.Ctx) error {
 		return middleware.HTTPError(c, err)
 	}
 	if academicYearID == "" {
-		return writeError(c, fiber.StatusBadRequest, "NO_ACTIVE_ACADEMIC_YEAR",
-			"No current academic year is set for this school.", nil)
+		return middleware.HTTPError(c, xerrors.InvalidInput("no active academic year"))
 	}
 	if academicTermID == "" {
-		return writeError(c, fiber.StatusBadRequest, "NO_ACTIVE_ACADEMIC_TERM",
-			"No current academic term is active.", nil)
+		return middleware.HTTPError(c, xerrors.InvalidInput("no active academic term"))
 	}
 
 	// Set the resolved academic term ID on the body before passing to service
@@ -519,11 +479,10 @@ func (h *Handler) CreateEnrollment(c *fiber.Ctx) error {
 	enrollment, err := h.svc.CreateEnrollment(c.Context(), studentID, tenantID, schoolID, body)
 	if err != nil {
 		if errors.Is(err, ErrDuplicateEnroll) {
-			return writeError(c, fiber.StatusConflict, "duplicate_enrollment",
-				"This student is already enrolled in this term.", nil)
+			return middleware.HTTPError(c, xerrors.AlreadyExists("this student is already enrolled in this term"))
 		}
 		if errors.Is(err, ErrNotFound) {
-			return writeError(c, fiber.StatusNotFound, "not_found", "Student not found", nil)
+			return middleware.HTTPError(c, xerrors.NotFound("student not found"))
 		}
 		return middleware.HTTPError(c, err)
 	}
@@ -543,30 +502,29 @@ func (h *Handler) CreateBatchEnrollments(c *fiber.Ctx) error {
 		schoolID = c.Locals("school_id").(string)
 	}
 	if schoolID == "" {
-		return writeError(c, fiber.StatusBadRequest, "invalid_input", "active school not set", nil)
+		return middleware.HTTPError(c, xerrors.InvalidInput("active school not set"))
 	}
 
 	var body BatchEnrollRequest
 	if err := c.BodyParser(&body); err != nil {
-		return writeError(c, fiber.StatusBadRequest, "invalid_input", "malformed request body", nil)
+		return middleware.HTTPError(c, xerrors.UnprocessableEntity("malformed request body"))
 	}
 
 	if len(body.Enrollments) == 0 {
-		return writeError(c, fiber.StatusBadRequest, "invalid_input", "enrollments array must not be empty",
-			map[string][]string{"enrollments": {"At least one enrollment is required"}})
+		return middleware.HTTPError(c, xerrors.WithFields(xerrors.InvalidInput("enrollments array must not be empty"), map[string][]string{"enrollments": {"At least one enrollment is required"}}))
 	}
 
 	// Validate each item has required fields
 	for i, item := range body.Enrollments {
 		if item.StudentID == "" {
-			return writeError(c, fiber.StatusBadRequest, "invalid_input",
-				"student_id is required for all enrollments",
-				map[string][]string{fmt.Sprintf("enrollments[%d].student_id", i): {"This field is required"}})
+			studentIDKey := fmt.Sprintf("enrollments[%d].student_id", i)
+			fieldErrors := map[string][]string{studentIDKey: {"This field is required"}}
+			return middleware.HTTPError(c, xerrors.WithFields(xerrors.InvalidInput("student_id is required for all enrollments"), fieldErrors))
 		}
 		if item.ClassID == "" {
-			return writeError(c, fiber.StatusBadRequest, "invalid_input",
-				"class_id is required for all enrollments",
-				map[string][]string{fmt.Sprintf("enrollments[%d].class_id", i): {"This field is required"}})
+			classIDKey := fmt.Sprintf("enrollments[%d].class_id", i)
+			fieldErrors := map[string][]string{classIDKey: {"This field is required"}}
+			return middleware.HTTPError(c, xerrors.WithFields(xerrors.InvalidInput("class_id is required for all enrollments"), fieldErrors))
 		}
 	}
 
@@ -576,12 +534,10 @@ func (h *Handler) CreateBatchEnrollments(c *fiber.Ctx) error {
 		return middleware.HTTPError(c, err)
 	}
 	if academicYearID == "" {
-		return writeError(c, fiber.StatusBadRequest, "no_active_academic_year",
-			"No current academic year is set for this school. Please set one before enrolling.", nil)
+		return middleware.HTTPError(c, xerrors.InvalidInput("no active academic year"))
 	}
 	if academicTermID == "" {
-		return writeError(c, fiber.StatusBadRequest, "no_active_academic_term",
-			"No current academic term is active. Please set one before enrolling.", nil)
+		return middleware.HTTPError(c, xerrors.InvalidInput("no active academic term"))
 	}
 
 	result, err := h.svc.CreateBatchEnrollments(c.Context(), tenantID, schoolID, academicTermID, body.Enrollments)
@@ -604,10 +560,10 @@ func (h *Handler) Delete(c *fiber.Ctx) error {
 		ID string `json:"id"`
 	}
 	if err := c.BodyParser(&payload); err != nil {
-		return writeError(c, fiber.StatusBadRequest, "invalid_input", "malformed request body", nil)
+		return middleware.HTTPError(c, xerrors.UnprocessableEntity("malformed request body"))
 	}
 	if payload.ID == "" {
-		return writeError(c, fiber.StatusBadRequest, "invalid_input", "student id is required", nil)
+		return middleware.HTTPError(c, xerrors.InvalidInput("student id is required"))
 	}
 
 	if err := h.svc.Delete(c.Context(), payload.ID, tenantID, schoolID); err != nil {
@@ -628,7 +584,7 @@ func (h *Handler) ListEnrollments(c *fiber.Ctx) error {
 	studentID := c.Params("id")
 
 	if studentID == "" {
-		return writeError(c, fiber.StatusBadRequest, "invalid_input", "student id is required", nil)
+		return middleware.HTTPError(c, xerrors.InvalidInput("student id is required"))
 	}
 
 	enrollments, err := h.svc.ListEnrollments(c.Context(), studentID, tenantID)

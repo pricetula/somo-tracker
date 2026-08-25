@@ -3,6 +3,7 @@ package attendance
 import (
 	"context"
 	"fmt"
+	"go.uber.org/zap"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -321,7 +322,9 @@ func (r *pgRepository) BatchMark(ctx context.Context, tenantID, schoolID string,
 		return nil, fmt.Errorf("attendance.Repository.BatchMark: begin tx: %w", err)
 	}
 	defer func() {
-		_ = tx.Rollback(ctx)
+		if rbErr := tx.Rollback(ctx); rbErr != nil {
+			zap.L().Warn("tx rollback failed", zap.Error(rbErr))
+		}
 	}()
 
 	for _, rec := range payload.Records {

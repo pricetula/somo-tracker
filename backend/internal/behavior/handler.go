@@ -5,6 +5,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 
 	"somotracker/backend/internal/middleware"
+	"somotracker/backend/internal/xerrors"
 )
 
 // AcademicYearTermResolver defines the interface for resolving current academic year and term.
@@ -106,10 +107,7 @@ func (h *Handler) CreateCategory(c *fiber.Ctx) error {
 
 	var payload CreateCategoryPayload
 	if err := c.BodyParser(&payload); err != nil {
-		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "invalid request body",
-		})
+		return middleware.HTTPError(c, xerrors.UnprocessableEntity("invalid request body"))
 	}
 
 	category, err := h.svc.CreateCategory(c.Context(), tenantID, schoolID, payload)
@@ -146,10 +144,7 @@ func (h *Handler) UpdateCategory(c *fiber.Ctx) error {
 	id := c.Params("id")
 	var payload UpdateCategoryPayload
 	if err := c.BodyParser(&payload); err != nil {
-		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "invalid request body",
-		})
+		return middleware.HTTPError(c, xerrors.UnprocessableEntity("invalid request body"))
 	}
 
 	category, err := h.svc.UpdateCategory(c.Context(), id, tenantID, payload)
@@ -180,10 +175,7 @@ func (h *Handler) CreateNote(c *fiber.Ctx) error {
 
 	var payload CreateNotePayload
 	if err := c.BodyParser(&payload); err != nil {
-		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "invalid request body",
-		})
+		return middleware.HTTPError(c, xerrors.UnprocessableEntity("invalid request body"))
 	}
 
 	note, err := h.svc.CreateNote(c.Context(), tenantID, schoolID, payload, userID)
@@ -268,10 +260,7 @@ func (h *Handler) UpdateNote(c *fiber.Ctx) error {
 		Description string `json:"description"`
 	}
 	if err := c.BodyParser(&payload); err != nil {
-		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "invalid request body",
-		})
+		return middleware.HTTPError(c, xerrors.UnprocessableEntity("invalid request body"))
 	}
 
 	if err := h.svc.UpdateNote(c.Context(), noteID, tenantID, payload.Description); err != nil {
@@ -294,10 +283,7 @@ func (h *Handler) DeleteNote(c *fiber.Ctx) error {
 		ID string `json:"id"`
 	}
 	if err := c.BodyParser(&payload); err != nil {
-		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "invalid request body",
-		})
+		return middleware.HTTPError(c, xerrors.UnprocessableEntity("invalid request body"))
 	}
 	if payload.ID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -331,10 +317,7 @@ func (h *Handler) ReviewNote(c *fiber.Ctx) error {
 	noteID := c.Params("id")
 	var payload ReviewDecisionPayload
 	if err := c.BodyParser(&payload); err != nil {
-		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "invalid request body",
-		})
+		return middleware.HTTPError(c, xerrors.UnprocessableEntity("invalid request body"))
 	}
 
 	if err := h.svc.ReviewNote(c.Context(), noteID, tenantID, userID, payload); err != nil {

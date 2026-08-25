@@ -15,6 +15,7 @@ import (
 
 	"somotracker/backend/internal/config"
 	"somotracker/backend/internal/middleware"
+	"somotracker/backend/internal/xerrors"
 )
 
 // ============================================================================
@@ -416,10 +417,7 @@ func (h *Handler) SwitchActiveSchool(c *fiber.Ctx) error {
 		SchoolID string `json:"school_id"`
 	}
 	if err := c.BodyParser(&body); err != nil {
-		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "invalid request body",
-		})
+		return middleware.HTTPError(c, xerrors.UnprocessableEntity("invalid request body"))
 	}
 	if body.SchoolID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{

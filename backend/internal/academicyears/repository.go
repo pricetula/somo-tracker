@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"go.uber.org/zap"
 	"strings"
 	"time"
 
@@ -548,7 +549,9 @@ func (r *PgRepository) ActivateTerm(ctx context.Context, termID, tenantID, schoo
 	defer func() {
 		// Rollback is a no-op after a successful Commit (pgx.ErrTxClosed); on
 		// failure it aborts the transaction before the pool recycles the conn.
-		_ = tx.Rollback(ctx)
+		if rbErr := tx.Rollback(ctx); rbErr != nil {
+			zap.L().Warn("tx rollback failed", zap.Error(rbErr))
+		}
 	}()
 
 	// 1. Lock the target term and confirm it belongs to this tenant + school.

@@ -8,6 +8,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 
 	"somotracker/backend/internal/middleware"
+	"somotracker/backend/internal/xerrors"
 )
 
 // AcademicYearTermResolver defines the interface for resolving current academic year and term.
@@ -126,10 +127,7 @@ func (h *Handler) CreateSession(c *fiber.Ctx) error {
 
 	var payload CreateSessionPayload
 	if err := c.BodyParser(&payload); err != nil {
-		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "invalid request body",
-		})
+		return middleware.HTTPError(c, xerrors.UnprocessableEntity("invalid request body"))
 	}
 
 	session, err := h.svc.CreateSession(c.Context(), tenantID, schoolID, payload)
@@ -208,10 +206,7 @@ func (h *Handler) UpdateSession(c *fiber.Ctx) error {
 	id := c.Params("id")
 	var payload UpdateSessionPayload
 	if err := c.BodyParser(&payload); err != nil {
-		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "invalid request body",
-		})
+		return middleware.HTTPError(c, xerrors.UnprocessableEntity("invalid request body"))
 	}
 
 	session, err := h.svc.UpdateSession(c.Context(), id, tenantID, payload)
@@ -234,18 +229,12 @@ func (h *Handler) BatchMark(c *fiber.Ctx) error {
 
 	userID, ok := c.Locals("user_id").(string)
 	if !ok || userID == "" {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"code":    "UNAUTHORIZED",
-			"message": "user not authenticated",
-		})
+		return middleware.HTTPError(c, xerrors.Unauthorized("user not authenticated"))
 	}
 
 	var payload BatchMarkPayload
 	if err := c.BodyParser(&payload); err != nil {
-		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "invalid request body",
-		})
+		return middleware.HTTPError(c, xerrors.UnprocessableEntity("invalid request body"))
 	}
 
 	// Resolve academic term: use query param if provided, otherwise resolve current term
@@ -362,10 +351,7 @@ func (h *Handler) UpdateRecord(c *fiber.Ctx) error {
 	id := c.Params("id")
 	var payload UpdateRecordPayload
 	if err := c.BodyParser(&payload); err != nil {
-		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "invalid request body",
-		})
+		return middleware.HTTPError(c, xerrors.UnprocessableEntity("invalid request body"))
 	}
 
 	record, err := h.svc.UpdateRecord(c.Context(), id, tenantID, payload)
@@ -452,10 +438,7 @@ func (h *Handler) RefreshSummaries(c *fiber.Ctx) error {
 		TermID string `json:"term_id"`
 	}
 	if err := c.BodyParser(&payload); err != nil {
-		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "invalid request body",
-		})
+		return middleware.HTTPError(c, xerrors.UnprocessableEntity("invalid request body"))
 	}
 
 	// Resolve term if not provided

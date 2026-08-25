@@ -93,7 +93,7 @@ func (s *StytchAdapter) sendDiscoveryEmail(ctx context.Context, email, redirectU
 		DiscoveryRedirectURL: redirectURL,
 	}
 
-	_, err := s.api.MagicLinks.Email.Discovery.Send(ctx, params)
+	resp, err := s.api.MagicLinks.Email.Discovery.Send(ctx, params)
 	if err != nil {
 		s.logger.Error("Stytch sendDiscoveryEmail failed",
 			zap.String("email", email),
@@ -102,6 +102,13 @@ func (s *StytchAdapter) sendDiscoveryEmail(ctx context.Context, email, redirectU
 		)
 		return fmt.Errorf("%w: stytch send discovery email: %v", ErrInternal, err)
 	}
+
+	s.logger.Info("Stytch sendDiscoveryEmail response",
+		zap.String("email", email),
+		zap.String("redirect_url", redirectURL),
+		zap.String("request_id", resp.RequestID),
+		zap.Int32("status_code", resp.StatusCode),
+	)
 
 	return nil
 }

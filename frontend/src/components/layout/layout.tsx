@@ -2,6 +2,7 @@ import { AppSidebar } from "@/components/layout/app-sidebar";
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { SmartBreadcrumb } from "@/components/smart-breadcrumb";
+import { ChildrenWrapper } from "./children-wrapper";
 
 interface AppLayoutProps {
     children: React.ReactNode;
@@ -22,7 +23,7 @@ export function AppLayout({ children }: AppLayoutProps) {
                         <SmartBreadcrumb />
                     </div>
                 </header>
-                <div className="max-w-480 px-6 md:px-12">{children}</div>
+                <ChildrenWrapper>{children}</ChildrenWrapper>
             </SidebarInset>
         </SidebarProvider>
     );

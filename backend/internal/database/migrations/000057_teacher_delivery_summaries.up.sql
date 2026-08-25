@@ -171,10 +171,10 @@ BEGIN
           AND ar.academic_term_id = target_term_id
           AND ts.teacher_id IS NOT NULL
         GROUP BY ar.tenant_id, ts.teacher_id
-    )
+    ),
     -- The 'marked' CTE already uses ar.timetable_allocation_id which is correct,
     -- Count missed slots: sessions with status = SKIPPED
-    missed AS (
+    missed_cte AS (
         SELECT
             s.tenant_id,
             ts.teacher_id AS user_id,
@@ -228,7 +228,7 @@ BEGIN
             COALESCE(sa.approved_count, 0) AS sessions_approved_count
         FROM slot_occurrences so
         LEFT JOIN marked m ON m.tenant_id = v_tenant_id AND m.user_id = so.user_id
-        LEFT JOIN missed mi ON mi.tenant_id = v_tenant_id AND mi.user_id = so.user_id
+        LEFT JOIN missed_cte mi ON mi.tenant_id = v_tenant_id AND mi.user_id = so.user_id
         LEFT JOIN sessions_created_cte sc ON sc.tenant_id = v_tenant_id AND sc.user_id = so.user_id
         LEFT JOIN sessions_approved_cte sa ON sa.tenant_id = v_tenant_id AND sa.user_id = so.user_id
         GROUP BY so.user_id, m.marked_count, mi.missed_count, sc.sessions_count, sa.approved_count

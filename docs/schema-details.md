@@ -103,7 +103,7 @@ RETURNS TRIGGER AS $$
 BEGIN
     IF EXISTS (
         SELECT 1 FROM timetable_allocations ts
-        JOIN timetable_blocks tstr ON tstr.id = ts.structure_id
+        JOIN timetable_blocks tstr ON tstr.id = ts.block_id
         WHERE ts.id = NEW.timetable_allocation_id
           AND tstr.is_break = true
     ) THEN
@@ -166,7 +166,7 @@ Three statement-level AFTER trigger functions on `cbc_students` that upsert per-
 - `fn_compute_teacher_workload_summaries(year_id UUID)` — batch-computes `teacher_workload_summaries` (periods, subjects, classes, utilization, overcapacity flag).
 - `fn_assessment_sessions_after_publish()` — AFTER UPDATE trigger function on `assessment_sessions` (status → PUBLISHED) that calls the subject-summary and strand-summary refresh functions.
 
-### `member_counts` maintenance — `trg_update_student_count()` and `trg_update_membership_count()` (migration 000063_member_counts)
+### `member_counts` maintenance — `trg_update_student_count()` and `trg_update_membership_count()` (migration 000064_member_counts)
 
 Trigger functions that keep the single-row global `member_counts` aggregate in sync:
 
@@ -1175,12 +1175,47 @@ Trigger functions that keep the single-row global `member_counts` aggregate in s
 
 - `trg_cbc_class_teachers_updated_at` BEFORE UPDATE ON cbc_class_teachers FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at()
 
-### Timetable Blocks
+### Timetable Tracks
 
 - `id`: UUID (Primary Key) - Default: gen_random_uuid()
 - `tenant_id`: UUID NOT NULL
 - `school_id`: UUID NOT NULL
 - `academic_year_id`: UUID NOT NULL
+- `academic_term_id`: UUID NOT NULL
+- `name`: VARCHAR(100) NOT NULL
+- `description`: TEXT NULL
+- `is_default`: BOOLEAN NOT NULL DEFAULT FALSE
+- `created_at`: TIMESTAMPTZ NOT NULL DEFAULT NOW()
+- `updated_at`: TIMESTAMPTZ NOT NULL DEFAULT NOW()
+
+**Constraints:**
+
+- `fk_timetable_tracks_tenant_school` FOREIGN KEY (tenant_id, school_id) REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE
+- `fk_timetable_tracks_academic_year` FOREIGN KEY (tenant_id, academic_year_id) REFERENCES academic_years(tenant_id, id) ON DELETE CASCADE
+- `fk_timetable_tracks_academic_term` FOREIGN KEY (tenant_id, academic_term_id) REFERENCES academic_terms(tenant_id, id) ON DELETE CASCADE
+- `uq_timetable_tracks_tenant` UNIQUE (tenant_id, id)
+- `uq_timetable_tracks_name_per_year` UNIQUE (tenant_id, school_id, academic_year_id, name)
+
+**Comments:**
+
+- TABLE timetable_tracks: 'Defines parallel bell-schedule tracks within a school and academic year (e.g., Lower Primary vs. JSS), allowing different sections to run independent time structures concurrently.'
+
+**Indexes:**
+
+- `idx_timetable_tracks_tenant` ON timetable_tracks(tenant_id)
+- `idx_timetable_tracks_school_year` ON timetable_tracks(school_id, academic_year_id)
+- `idx_timetable_tracks_term` ON timetable_tracks(academic_term_id)
+
+**Triggers:**
+
+- `trg_timetable_tracks_updated_at` BEFORE UPDATE ON timetable_tracks FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at()
+
+### Timetable Blocks
+
+- `id`: UUID (Primary Key) - Default: gen_random_uuid()
+- `tenant_id`: UUID NOT NULL
+- `school_id`: UUID NOT NULL
+- `track_id`: UUID NOT NULL
 - `day_of_week`: INT NOT NULL CHECK (day_of_week BETWEEN 1 AND 7)
 - `period_name`: VARCHAR(50) NOT NULL
 - `start_time`: TIME NOT NULL
@@ -1191,24 +1226,25 @@ Trigger functions that keep the single-row global `member_counts` aggregate in s
 
 **Constraints:**
 
-- `chk_timetable_structure_times` CHECK (end_time > start_time)
-- `excl_timetable_structure_overlap` EXCLUDE USING gist (school_id WITH =, academic_year_id WITH =, day_of_week WITH =, fn_timerange(day_of_week, start_time, end_time) WITH &&)
-- `fk_timetable_structure_tenant_school` FOREIGN KEY (tenant_id, school_id) REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE
-- `fk_timetable_structure_academic_year` FOREIGN KEY (tenant_id, academic_year_id) REFERENCES academic_years(tenant_id, id) ON DELETE CASCADE
+- `chk_timetable_block_times` CHECK (end_time > start_time)
+- `excl_timetable_block_overlap` EXCLUDE USING gist (track_id WITH =, day_of_week WITH =, fn_timerange(day_of_week, start_time, end_time) WITH &&)
+- `fk_timetable_block_tenant_school` FOREIGN KEY (tenant_id, school_id) REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE
+- `fk_timetable_block_track` FOREIGN KEY (tenant_id, track_id) REFERENCES timetable_tracks(tenant_id, id) ON DELETE CASCADE
 - `uq_timetable_blocks_tenant` UNIQUE (tenant_id, id)
 
 **Comments:**
 
-- TABLE timetable_blocks: 'Structural day template (Grid Definition Layer). Defines the partitioned time blocks (lessons, breaks, assemblies) that make up a standard school day per academic year. The GiST exclusion constraint guarantees non-overlapping blocks per school per academic year per day. Decoupled from timetable_allocations — allocations reference structure_id instead of carrying raw time ranges.'
-- COLUMN timetable_blocks.day_of_week: '1=Monday … 7=Sunday. Most schools use Mon-Fri (1-5); weekends are allowed for special sessions.'
+- TABLE timetable_blocks: 'Structural day template (Grid Definition Layer) scoped to a timetable_track. Defines the partitioned time blocks (lessons, breaks, assemblies) that make up a standard school day per academic year per track. The GiST exclusion constraint guarantees non-overlapping blocks per track per school per academic year per day. Decoupled from timetable_allocations — allocations reference block_id instead of carrying raw time ranges.'
+- COLUMN timetable_blocks.track_id: 'Foreign key to timetable_tracks. Allows a school to run multiple independent bell schedules (e.g., Lower Primary, Upper Primary, JSS) within the same year.'
+- COLUMN timetable_blocks.day_of_week: '1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 5=Friday, 6=Saturday, 7=Sunday. Most schools use Mon-Fri (1-5); weekends are allowed for special sessions.'
 - COLUMN timetable_blocks.period_name: 'Human-readable name for this time period, e.g. "Lesson 1", "Morning Break", "Recess", "Assembly". Free-text — not an enum, to support school-specific naming.'
 - COLUMN timetable_blocks.is_break: 'Flags recess, lunch, or other non-instructional blocks. UI can use this to disable assignment cells and render break rows in a distinct style.'
 
 **Indexes:**
 
-- `idx_timetable_structure_tenant` (tenant_id)
-- `idx_timetable_structure_school_day` (school_id, day_of_week)
-- `idx_timetable_structure_academic_year` (academic_year_id)
+- `idx_timetable_block_tenant` ON timetable_blocks (tenant_id)
+- `idx_timetable_block_track` ON timetable_blocks (track_id)
+- `idx_timetable_block_school_day` ON timetable_blocks (school_id, day_of_week)
 
 **Triggers:**
 
@@ -1219,8 +1255,7 @@ Trigger functions that keep the single-row global `member_counts` aggregate in s
 - `id`: UUID (Primary Key) - Default: gen_random_uuid()
 - `tenant_id`: UUID NOT NULL
 - `school_id`: UUID NOT NULL
-- `academic_year_id`: UUID NOT NULL
-- `structure_id`: UUID NOT NULL
+- `block_id`: UUID NOT NULL
 - `class_id`: UUID NOT NULL
 - `learning_area_id`: UUID NOT NULL
 - `teacher_id`: UUID NOT NULL
@@ -1230,28 +1265,26 @@ Trigger functions that keep the single-row global `member_counts` aggregate in s
 
 **Constraints:**
 
-- `unique_class_slot` UNIQUE (academic_year_id, structure_id, class_id) - one assignment per class per structure block
-- `unique_teacher_slot` UNIQUE (academic_year_id, structure_id, teacher_id) - prevents teacher double-booking
-- `unique_room_slot` UNIQUE (academic_year_id, structure_id, room_identifier) - prevents room double-booking
+- `unique_class_slot` UNIQUE (tenant_id, block_id, class_id) - one assignment per class per structure block
+- `unique_teacher_slot` UNIQUE (tenant_id, block_id, teacher_id) - prevents teacher double-booking
+- `unique_room_slot` UNIQUE (tenant_id, block_id, room_identifier) - prevents room double-booking
 - `fk_timetable_allocations_tenant_school` FOREIGN KEY (tenant_id, school_id) REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE
 - `fk_timetable_allocations_tenant_class` FOREIGN KEY (tenant_id, class_id) REFERENCES cbc_classes(tenant_id, id) ON DELETE CASCADE
 - `fk_timetable_allocations_tenant_teacher` FOREIGN KEY (tenant_id, teacher_id) REFERENCES users(tenant_id, id) ON DELETE CASCADE
 - `fk_timetable_allocations_tenant_learning_area` FOREIGN KEY (tenant_id, learning_area_id) REFERENCES cbc_learning_areas(tenant_id, id) ON DELETE CASCADE
-- `fk_timetable_allocations_tenant_structure` FOREIGN KEY (tenant_id, structure_id) REFERENCES timetable_blocks(tenant_id, id) ON DELETE CASCADE
-- `fk_timetable_allocations_academic_year` FOREIGN KEY (tenant_id, academic_year_id) REFERENCES academic_years(tenant_id, id) ON DELETE CASCADE
+- `fk_timetable_allocations_tenant_block` FOREIGN KEY (tenant_id, block_id) REFERENCES timetable_blocks(tenant_id, id) ON DELETE CASCADE
 
 **Comments:**
 
-- TABLE timetable_allocations: 'Grid Allocation Layer — lightweight relational mapping table using fast B-Tree composite unique constraints. The grid definition (time ranges) lives in timetable_blocks; this table only stores assignments of class → teacher → learning_area → room per structure block.'
+- TABLE timetable_allocations: 'Grid Allocation Layer — lightweight relational mapping table using fast B-Tree composite unique constraints. The grid definition (time ranges) lives in timetable_blocks; this table only stores assignments of class → teacher → learning_area → room per structure block. Academic year/term context is inherited via block → track → timetable_tracks.'
 
 **Indexes:**
 
-- `idx_timetable_allocations_structure` (structure_id)
-- `idx_timetable_allocations_class` (class_id)
-- `idx_timetable_allocations_teacher` (teacher_id)
-- `idx_timetable_allocations_academic_year` (academic_year_id)
-- `idx_timetable_allocations_tenant` (tenant_id)
-- `idx_timetable_allocations_school` (school_id)
+- `idx_timetable_allocations_block` ON timetable_allocations (block_id)
+- `idx_timetable_allocations_class` ON timetable_allocations (class_id)
+- `idx_timetable_allocations_teacher` ON timetable_allocations (teacher_id)
+- `idx_timetable_allocations_tenant` ON timetable_allocations (tenant_id)
+- `idx_timetable_allocations_school` ON timetable_allocations (school_id)
 - `uq_timetable_allocations_tenant` UNIQUE (tenant_id, id)
 
 **Triggers:**
@@ -2276,7 +2309,7 @@ Trigger functions that keep the single-row global `member_counts` aggregate in s
 
 - `trg_class_term_attendance_summaries_updated_at` BEFORE UPDATE ON class_term_attendance_summaries FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at()
 
-### Member Counts (global aggregate — migration 000063_member_counts)
+### Member Counts (global aggregate — migration 000064_member_counts)
 
 - `id`: UUID (Primary Key) - Default: gen_random_uuid()
 - `students`: INTEGER NOT NULL DEFAULT 0
@@ -2290,7 +2323,7 @@ Trigger functions that keep the single-row global `member_counts` aggregate in s
 
 **Comments:**
 
-- Single-row global aggregate (000063 deletes all rows and inserts one zeroed row at migration time). Kept in sync by `trg_student_count` (AFTER INSERT/UPDATE/DELETE on cbc_students) and `trg_membership_count` (AFTER INSERT/UPDATE/DELETE on memberships). `SYSTEM_ADMIN` memberships are not counted.
+- Single-row global aggregate (000064 deletes all rows and inserts one zeroed row at migration time). Kept in sync by `trg_student_count` (AFTER INSERT/UPDATE/DELETE on cbc_students) and `trg_membership_count` (AFTER INSERT/UPDATE/DELETE on memberships). `SYSTEM_ADMIN` memberships are not counted.
 
 ## Relationships Summary
 
@@ -2313,10 +2346,13 @@ Trigger functions that keep the single-row global `member_counts` aggregate in s
 - Schools → Behavior Categories
 - Schools → Fee Categories / Fee Templates / Invoices
 - Schools → Grading Scale Profiles
+- Schools → Timetable Tracks
 - Schools → Timetable Blocks
 - Academic Years → Academic Terms
-- Academic Years → Timetable Blocks
+- Academic Years → Timetable Tracks
 - Academic Terms → Enrollments, Fee Templates, Invoices, Assessment Sessions, Attendance Records (composite via (tenant_id, school_id, academic_term_id))
+- Academic Terms → Timetable Tracks
+- Timetable Tracks → Timetable Blocks
 - Learning Areas → Strands → Sub-Strands → Performance Indicators
 - Classes → Class Teachers, Timetable Allocations, Attendance Sessions, Enrollments
 - Students → Enrollments
@@ -2386,9 +2422,11 @@ Trigger functions that keep the single-row global `member_counts` aggregate in s
 
 - **CASCADE**:
     - Tenants → Users, Schools, Memberships, Sessions, School Member Counts
-    - Schools → Students, CBC Classes, CBC Streams, Academic Years, Academic Terms, Learning Areas, Memberships, Timetable Blocks, Behavior Categories, Fee Categories, Grading Scale Profiles, Import Jobs, Invitations, Member Active School, Attendance Sessions
-    - Academic Years → Academic Terms, Timetable Blocks
+    - Schools → Students, CBC Classes, CBC Streams, Academic Years, Academic Terms, Learning Areas, Memberships, Timetable Tracks, Timetable Blocks, Behavior Categories, Fee Categories, Grading Scale Profiles, Import Jobs, Invitations, Member Active School, Attendance Sessions
+    - Academic Years → Academic Terms, Timetable Tracks
     - Academic Terms → Enrollments, Fee Templates, Invoices, Attendance Records, Assessment Sessions, Attendance Term Summaries (composite FKs)
+    - Academic Terms → Timetable Tracks
+    - Timetable Tracks → Timetable Blocks
     - Students → Medical Incidents, Health Profiles, Enrollments, Attendance Records, Behavior Notes, Assessment Scores, Outcome Grades, all student-grain summaries
     - Learning Areas → Strands, Class Teachers (SET NULL on learning_area_id instead)
     - Strands → Sub-Strands
@@ -2446,8 +2484,9 @@ Trigger functions that keep the single-row global `member_counts` aggregate in s
 - Fee Templates (academic_term_id, grade_level, fee_category_id)
 - Invoices (student_id, academic_term_id)
 - Payments (reference_code) WHERE NOT NULL
-- Timetable Blocks: GiST exclusion per (school_id, academic_year_id, day_of_week, fn_timerange)
-- Timetable Allocations: (academic_year_id, structure_id, class_id), (academic_year_id, structure_id, teacher_id), (academic_year_id, structure_id, room_identifier)
+- Timetable Tracks: GiST exclusion per (school_id, academic_year_id, academic_term_id) — unique name per track per year
+- Timetable Blocks: GiST exclusion per (track_id, day_of_week, fn_timerange)
+- Timetable Allocations: (tenant_id, block_id, class_id), (tenant_id, block_id, teacher_id), (tenant_id, block_id, room_identifier)
 - Class Teachers (class_id, user_id, learning_area_id); one PRIMARY_CLASS_TEACHER per class
 - Behavior Categories (tenant_id, school_id, name)
 - Attendance Records (student_id, timetable_allocation_id, date)
@@ -2495,8 +2534,9 @@ Trigger functions that keep the single-row global `member_counts` aggregate in s
 - Payments → Invoices, Parents, Users (recorded_by)
 - Learning Areas → Schools; Strands → Learning Areas; Sub-Strands → Strands; Performance Indicators → Sub-Strands
 - Class Teachers → Users, Classes, Learning Areas
-- Timetable Blocks → Schools, Academic Years
-- Timetable Allocations → Schools, Classes, Users (teacher), Learning Areas, Structures, Academic Years
+- Timetable Tracks → Schools, Academic Years, Academic Terms
+- Timetable Blocks → Schools, Timetable Tracks
+- Timetable Allocations → Schools, Classes, Users (teacher), Learning Areas, Timetable Blocks
 - Attendance Sessions → Timetable Allocations, Schools
 - Attendance Records → Students, Timetable Allocations, Attendance Sessions, Academic Terms, Users (marked_by)
 - Behavior Categories → Schools
@@ -2534,14 +2574,14 @@ Trigger functions that keep the single-row global `member_counts` aggregate in s
 
 - `EXCL_academic_years_no_overlap`: Prevents overlapping date ranges for academic years per school
 - `EXCL_academic_terms_no_overlap`: Prevents overlapping date ranges for academic terms per school
-- `excl_timetable_structure_overlap`: Prevents overlapping time blocks per school per academic year per day (uses fn_timerange)
+- `excl_timetable_block_overlap`: Prevents overlapping time blocks per track per day (uses fn_timerange)
 - `excl_profile_range_no_overlap`: Prevents overlapping percentage bands within a grading scale profile (uses numrange)
 
 ## Row-Level Security (RLS)
 
 Nearly all tenant-scoped data tables have RLS enabled with a `tenant_isolation_policy` (FOR ALL, USING tenant_id = fn_current_tenant_id(), WITH CHECK same). The application must run `SET LOCAL app.current_tenant_id = '<uuid>'` at the start of each request; without it, all RLS-protected queries return zero rows (safe by default). `fn_resolve_session()` and `fn_pending_invitation_by_email()` are SECURITY DEFINER so session resolution and invite acceptance can run before the tenant is known.
 
-RLS-enabled tables include: users, sessions lookups (via SECURITY DEFINER), tenants-related, cbc_schools, cbc_streams, cbc_classes, cbc_class_teachers, cbc_learning_areas, cbc_strands, cbc_sub_strands, performance_indicators, academic_years, academic_terms, memberships, member_active_school, import_jobs, import_job_staging, invitations, cbc_parents, cbc_students, cbc_student_parents, cbc_student_enrollments, medical_incidents, student_health_profiles, fee_categories, fee_templates, invoices, invoice_items, payments, timetable_blocks, timetable_allocations, cbc_attendance_sessions, attendance_records, behavior_categories, behavior_notes, attendance_term_summaries, grading_scale_profiles, grading_scale_ranges, assessment_sessions, student_assessment_scores, student_assessment_outcome_grades, school_member_counts, and all materialised summary tables.
+RLS-enabled tables include: users, sessions lookups (via SECURITY DEFINER), tenants-related, cbc_schools, cbc_streams, cbc_classes, cbc_class_teachers, cbc_learning_areas, cbc_strands, cbc_sub_strands, performance_indicators, academic_years, academic_terms, memberships, member_active_school, import_jobs, import_job_staging, invitations, cbc_parents, cbc_students, cbc_student_parents, cbc_student_enrollments, medical_incidents, student_health_profiles, fee_categories, fee_templates, invoices, invoice_items, payments, timetable_tracks, timetable_blocks, timetable_allocations, cbc_attendance_sessions, attendance_records, behavior_categories, behavior_notes, attendance_term_summaries, grading_scale_profiles, grading_scale_ranges, assessment_sessions, student_assessment_scores, student_assessment_outcome_grades, school_member_counts, and all materialised summary tables.
 
 ## Notes
 
@@ -2558,6 +2598,6 @@ RLS-enabled tables include: users, sessions lookups (via SECURITY DEFINER), tena
 11. Custom functions support complex business logic (term validation, time range calculations, invoice payment status sync, school member count sync)
 12. Careful attention to indexes for query performance
 13. Materialised summary/rollup tables (attendance, assessment, behavior, teacher metrics) are refreshed via batch functions, Asynq background jobs, or publish triggers — they are caches, not sources of truth
-14. `member_counts` (000063) is a legacy single-row global aggregate; `school_member_counts` is the per-school replacement
+14. `member_counts` (000064) is a legacy single-row global aggregate; `school_member_counts` is the per-school replacement
 15. Assessment sessions support two grading modes (QUANTITATIVE with max_points + grading scale, and RUBRIC with per-indicator outcome grades), with write-once protections on max_points and grading scale ranges
 16. KNEC weighting formulas (assessment_weight_configs) are nationally mandated, seeded with official KPSEA/KJSEA figures, and applied for final exam terms (G6/G9/G12)

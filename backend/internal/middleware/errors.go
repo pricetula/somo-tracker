@@ -48,7 +48,7 @@ var (
 	// created. Mapped to 401 so the client re-authenticates — a stolen cookie
 	// cannot be replayed from a different device (C5).
 	ErrDeviceFingerprintMismatch = &xerrors.DomainError{
-		Code:    "device_fingerprint_mismatch",
+		Code:    string(xerrors.CodeDeviceFingerprintMismatch),
 		Status:  http.StatusUnauthorized,
 		Message: "session is bound to a different device; re-authenticate to continue",
 	}
@@ -79,8 +79,8 @@ func HTTPError(c *fiber.Ctx, err error) error {
 	if errors.As(err, &de) {
 		// Build the response body.
 		// Use err.Error() for the message — it includes context added by
-		// callers via fmt.Errorf("context: %w", domainErr). For 500 errors
-		// we replace it with a generic message to avoid leaking internals.
+		// callers via xerrors.Wrap/Wrapf. For 500 errors we replace it
+		// with a generic message to avoid leaking internals.
 		resp := withRequestID(c, fiber.Map{
 			"code":    de.Code,
 			"message": err.Error(),
@@ -123,33 +123,74 @@ func HTTPError(c *fiber.Ctx, err error) error {
 		return c.Status(de.Status).JSON(resp)
 	}
 
-	// Special cases that aren't DomainErrors.
+	// Special cases that aren't DomainErrors but have standard mappings.
 	switch {
 	case errors.Is(err, context.Canceled):
 		return c.Status(499).JSON(withRequestID(c, fiber.Map{
-			"code":    "request_canceled",
+			"code":    string(xerrors.CodeRequestCanceled),
 			"message": "the request was canceled",
 		}))
 	case errors.Is(err, context.DeadlineExceeded):
 		return c.Status(fiber.StatusGatewayTimeout).JSON(withRequestID(c, fiber.Map{
-			"code":    "timeout",
+			"code":    string(xerrors.CodeTimeout),
 			"message": "the request timed out",
 		}))
-	default:
-		// Log unknown errors — something leaked through without a domain wrapper.
-		fields := []interface{}{
-			"method", c.Method(),
-			"path", c.Path(),
-			"error", err.Error(),
-		}
-		if rid := GetRequestID(c); rid != "" {
-			fields = append(fields, "request_id", rid)
-		}
-		loggerFrom(c).Errorw("HTTPError: unclassified error — wrap with xerrors.DomainError", fields...)
-		return c.Status(fiber.StatusInternalServerError).JSON(withRequestID(c, fiber.Map{
-			"code":    "internal_error",
-			"message": "an unexpected error occurred",
+	}
+
+	// Handle Fiber's built-in HTTP errors (404, 405, etc.) by mapping them
+	// to the canonical JSON format instead of returning HTML/text.
+	var fe *fiber.Error
+	if errors.As(err, &fe) {
+		code := fiberErrToCode(fe.Code)
+		return c.Status(fe.Code).JSON(withRequestID(c, fiber.Map{
+			"code":    code,
+			"message": fe.Message,
 		}))
+	}
+
+	// Unknown error — something leaked through without a domain wrapper.
+	// Log it and return a generic 500.
+	fields := []interface{}{
+		"method", c.Method(),
+		"path", c.Path(),
+		"error", err.Error(),
+	}
+	if rid := GetRequestID(c); rid != "" {
+		fields = append(fields, "request_id", rid)
+	}
+	loggerFrom(c).Errorw("HTTPError: unclassified error — wrap with xerrors.DomainError", fields...)
+	return c.Status(fiber.StatusInternalServerError).JSON(withRequestID(c, fiber.Map{
+		"code":    string(xerrors.CodeInternalError),
+		"message": "an unexpected error occurred",
+	}))
+}
+
+// fiberErrToCode maps Fiber HTTP status codes to our canonical error codes.
+func fiberErrToCode(status int) string {
+	switch status {
+	case fiber.StatusNotFound:
+		return string(xerrors.CodeNotFound)
+	case fiber.StatusMethodNotAllowed:
+		return "method_not_allowed"
+	case fiber.StatusBadRequest:
+		return string(xerrors.CodeInvalidInput)
+	case fiber.StatusUnauthorized:
+		return string(xerrors.CodeUnauthorized)
+	case fiber.StatusForbidden:
+		return string(xerrors.CodeForbidden)
+	case fiber.StatusConflict:
+		return string(xerrors.CodeConflict)
+	case fiber.StatusUnprocessableEntity:
+		return string(xerrors.CodeUnprocessableEntity)
+	case fiber.StatusRequestEntityTooLarge:
+		return "request_too_large"
+	case fiber.StatusTooManyRequests:
+		return "rate_limited"
+	default:
+		if status >= 500 {
+			return string(xerrors.CodeInternalError)
+		}
+		return "http_error"
 	}
 }
 

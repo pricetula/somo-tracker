@@ -41,6 +41,35 @@ func (e *DomainError) Unwrap() error { return nil }
 // Implemented by custom error types that embed *DomainError.
 func (e *DomainError) ErrorDetails() any { return nil }
 
+// ── Wrapping helpers ──────────────────────────────────────────────────────
+
+// Wrap adds context to an error while preserving the error chain for
+// errors.Is/errors.As. If err is nil, returns nil. The returned error
+// unwraps to err, so sentinel checks and DomainError extraction continue
+// to work.
+//
+// Usage:
+//
+//	return xerrors.Wrap(err, "users.Service.CreateUser")
+func Wrap(err error, msg string) error {
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("%s: %w", msg, err)
+}
+
+// Wrapf is like Wrap but with formatted message.
+//
+// Usage:
+//
+//	return xerrors.Wrapf(err, "users.Service.CreateUser: email=%s", email)
+func Wrapf(err error, format string, args ...any) error {
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf(format+": %w", append(args, err)...)
+}
+
 // ── IsDomainError / AsDomainError ─────────────────────────────────────────
 
 // Is is a convenience wrapper around errors.Is for *DomainError comparands.
@@ -53,6 +82,26 @@ func As(err error) (*DomainError, bool) {
 	return de, ok
 }
 
+// ── Error Codes (constants for compile-time safety) ───────────────────────
+
+// Code is a machine-readable error code. Use these constants instead of
+// string literals to avoid typos and enable grepping.
+type Code string
+
+const (
+	CodeNotFound                  Code = "not_found"
+	CodeAlreadyExists             Code = "already_exists"
+	CodeInvalidInput              Code = "invalid_input"
+	CodeUnauthorized              Code = "unauthorized"
+	CodeForbidden                 Code = "forbidden"
+	CodeConflict                  Code = "conflict"
+	CodeUnprocessableEntity       Code = "unprocessable_entity"
+	CodeDeviceFingerprintMismatch Code = "device_fingerprint_mismatch"
+	CodeRequestCanceled           Code = "request_canceled"
+	CodeTimeout                   Code = "timeout"
+	CodeInternalError             Code = "internal_error"
+)
+
 // ── Sentinels ─────────────────────────────────────────────────────────────
 //
 // These package-level sentinels are used by middleware (auth.go, etc.)
@@ -60,13 +109,23 @@ func As(err error) (*DomainError, bool) {
 // define their own sentinels using the constructors below.
 
 var (
-	ErrNotFound      = &DomainError{Code: "not_found", Status: http.StatusNotFound, Message: "resource not found"}
-	ErrAlreadyExists = &DomainError{Code: "already_exists", Status: http.StatusConflict, Message: "resource already exists"}
-	ErrInvalidInput  = &DomainError{Code: "invalid_input", Status: http.StatusBadRequest, Message: "invalid input"}
-	ErrUnauthorized  = &DomainError{Code: "unauthorized", Status: http.StatusUnauthorized, Message: "authentication required"}
-	ErrForbidden     = &DomainError{Code: "forbidden", Status: http.StatusForbidden, Message: "insufficient permissions"}
-	ErrConflict      = &DomainError{Code: "conflict", Status: http.StatusConflict, Message: "resource conflict"}
+	ErrNotFound      = &DomainError{Code: string(CodeNotFound), Status: http.StatusNotFound, Message: "resource not found"}
+	ErrAlreadyExists = &DomainError{Code: string(CodeAlreadyExists), Status: http.StatusConflict, Message: "resource already exists"}
+	ErrInvalidInput  = &DomainError{Code: string(CodeInvalidInput), Status: http.StatusBadRequest, Message: "invalid input"}
+	ErrUnauthorized  = &DomainError{Code: string(CodeUnauthorized), Status: http.StatusUnauthorized, Message: "authentication required"}
+	ErrForbidden     = &DomainError{Code: string(CodeForbidden), Status: http.StatusForbidden, Message: "insufficient permissions"}
+	ErrConflict      = &DomainError{Code: string(CodeConflict), Status: http.StatusConflict, Message: "resource conflict"}
 )
+
+// ErrDeviceFingerprintMismatch is returned when a request presents a
+// device fingerprint different from the one recorded when the session was
+// created. Mapped to 401 so the client re-authenticates — a stolen cookie
+// cannot be replayed from a different device.
+var ErrDeviceFingerprintMismatch = &DomainError{
+	Code:    string(CodeDeviceFingerprintMismatch),
+	Status:  http.StatusUnauthorized,
+	Message: "session is bound to a different device; re-authenticate to continue",
+}
 
 // ── Sentinel Constructors ─────────────────────────────────────────────────
 
@@ -80,39 +139,39 @@ func New(code string, status int, message string) *DomainError {
 }
 
 func NotFound(msg string) *DomainError {
-	return &DomainError{Code: "not_found", Status: http.StatusNotFound, Message: msg}
+	return &DomainError{Code: string(CodeNotFound), Status: http.StatusNotFound, Message: msg}
 }
 
 func AlreadyExists(msg string) *DomainError {
-	return &DomainError{Code: "already_exists", Status: http.StatusConflict, Message: msg}
+	return &DomainError{Code: string(CodeAlreadyExists), Status: http.StatusConflict, Message: msg}
 }
 
 func InvalidInput(msg string) *DomainError {
-	return &DomainError{Code: "invalid_input", Status: http.StatusBadRequest, Message: msg}
+	return &DomainError{Code: string(CodeInvalidInput), Status: http.StatusBadRequest, Message: msg}
 }
 
 func Unauthorized(msg string) *DomainError {
-	return &DomainError{Code: "unauthorized", Status: http.StatusUnauthorized, Message: msg}
+	return &DomainError{Code: string(CodeUnauthorized), Status: http.StatusUnauthorized, Message: msg}
 }
 
 func Forbidden(msg string) *DomainError {
-	return &DomainError{Code: "forbidden", Status: http.StatusForbidden, Message: msg}
+	return &DomainError{Code: string(CodeForbidden), Status: http.StatusForbidden, Message: msg}
 }
 
 func Conflict(msg string) *DomainError {
-	return &DomainError{Code: "conflict", Status: http.StatusConflict, Message: msg}
+	return &DomainError{Code: string(CodeConflict), Status: http.StatusConflict, Message: msg}
 }
 
 func UnprocessableEntity(msg string) *DomainError {
-	return &DomainError{Code: "unprocessable_entity", Status: http.StatusUnprocessableEntity, Message: msg}
+	return &DomainError{Code: string(CodeUnprocessableEntity), Status: http.StatusUnprocessableEntity, Message: msg}
 }
 
 func RequestTimeout() *DomainError {
-	return &DomainError{Code: "timeout", Status: http.StatusGatewayTimeout, Message: "the request timed out"}
+	return &DomainError{Code: string(CodeTimeout), Status: http.StatusGatewayTimeout, Message: "the request timed out"}
 }
 
 func RequestCanceled() *DomainError {
-	return &DomainError{Code: "request_canceled", Status: 499, Message: "the request was canceled"}
+	return &DomainError{Code: string(CodeRequestCanceled), Status: 499, Message: "the request was canceled"}
 }
 
 // WithFields attaches field-level validation metadata.

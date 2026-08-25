@@ -155,3 +155,82 @@ func TestStatusForError(t *testing.T) {
 		})
 	}
 }
+
+func TestHTTPError_FiberErrorsReturnJSON(t *testing.T) {
+	tests := []struct {
+		name       string
+		err        error
+		wantStatus int
+		wantCode   string
+	}{
+		{"fiber 404", fiber.ErrNotFound, http.StatusNotFound, "not_found"},
+		{"fiber 405", fiber.ErrMethodNotAllowed, http.StatusMethodNotAllowed, "method_not_allowed"},
+		{"fiber 400", fiber.NewError(fiber.StatusBadRequest, "bad request"), fiber.StatusBadRequest, "invalid_input"},
+		{"fiber 401", fiber.NewError(fiber.StatusUnauthorized, "unauthorized"), fiber.StatusUnauthorized, "unauthorized"},
+		{"fiber 403", fiber.NewError(fiber.StatusForbidden, "forbidden"), fiber.StatusForbidden, "forbidden"},
+		{"fiber 409", fiber.NewError(fiber.StatusConflict, "conflict"), fiber.StatusConflict, "conflict"},
+		{"fiber 422", fiber.NewError(fiber.StatusUnprocessableEntity, "unprocessable"), fiber.StatusUnprocessableEntity, "unprocessable_entity"},
+		{"fiber 413", fiber.NewError(fiber.StatusRequestEntityTooLarge, "too large"), fiber.StatusRequestEntityTooLarge, "request_too_large"},
+		{"fiber 429", fiber.NewError(fiber.StatusTooManyRequests, "rate limited"), fiber.StatusTooManyRequests, "rate_limited"},
+		{"fiber 500", fiber.NewError(fiber.StatusInternalServerError, "internal"), fiber.StatusInternalServerError, "internal_error"},
+		{"fiber 503", fiber.NewError(fiber.StatusServiceUnavailable, "unavailable"), fiber.StatusServiceUnavailable, "internal_error"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			status, body := do(t, tt.err)
+			assert.Equal(t, tt.wantStatus, status)
+			assert.Equal(t, tt.wantCode, body["code"])
+			assert.NotEmpty(t, body["message"])
+			// Fiber errors should NOT have the generic "an unexpected error occurred" message
+			assert.NotEqual(t, "an unexpected error occurred", body["message"])
+		})
+	}
+}
+
+func TestHTTPError_FallbackToInternal(t *testing.T) {
+	// Test various unclassified errors all map to internal_error
+	tests := []struct {
+		name string
+		err  error
+	}{
+		{"plain error", errors.New("something leaked through")},
+		{"wrapped plain error", fmt.Errorf("service.DoThing: %w", errors.New("plain"))},
+		{"nil pointer panic recovery", fmt.Errorf("panic recovered: %w", errors.New("nil pointer"))},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			status, body := do(t, tt.err, func(c *fiber.Ctx) {
+				c.Locals(RequestIDKey, "req-test")
+			})
+			assert.Equal(t, http.StatusInternalServerError, status)
+			assert.Equal(t, "internal_error", body["code"])
+			assert.Equal(t, "an unexpected error occurred", body["message"])
+			assert.Equal(t, "req-test", body["request_id"])
+		})
+	}
+}
+
+func TestHTTPError_RequestIDInFiberErrorResponses(t *testing.T) {
+	status, body := do(t, fiber.ErrNotFound, func(c *fiber.Ctx) {
+		c.Locals(RequestIDKey, "req-404")
+	})
+	assert.Equal(t, http.StatusNotFound, status)
+	assert.Equal(t, "req-404", body["request_id"])
+}
+
+func TestHTTPError_WrappedInternalDomainError_MessageSanitized(t *testing.T) {
+	// Wrapped internal error should still have message sanitized
+	internal := &xerrors.DomainError{
+		Code:    "db_connection_failed",
+		Status:  http.StatusInternalServerError,
+		Message: "postgres connection refused: secret password",
+	}
+	wrapped := fmt.Errorf("service.Query: %w", internal)
+
+	status, body := do(t, wrapped)
+	assert.Equal(t, http.StatusInternalServerError, status)
+	assert.Equal(t, "db_connection_failed", body["code"])
+	assert.Equal(t, "an unexpected error occurred", body["message"])
+	// The original message with sensitive info should not appear in response
+	assert.NotContains(t, body["message"], "secret password")
+}

@@ -5,7 +5,6 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Context keys shared with the HTTP middleware. The middleware stores values
@@ -74,32 +73,4 @@ func ApplyTenantToTx(ctx context.Context, tx pgx.Tx) error {
 	}
 	_, err := tx.Exec(ctx, "SELECT set_config('app.current_tenant_id', $1, true)", tid)
 	return err
-}
-
-// Begin starts a transaction and applies the tenant GUC from ctx. Repositories
-// that manage their own transactions must use this instead of pool.Begin so
-// RLS policies see the correct tenant.
-func Begin(ctx context.Context, pool *pgxpool.Pool) (pgx.Tx, error) {
-	tx, err := pool.Begin(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if err := ApplyTenantToTx(ctx, tx); err != nil {
-		_ = tx.Rollback(context.WithoutCancel(ctx))
-		return nil, err
-	}
-	return tx, nil
-}
-
-// BeginTx is Begin with explicit transaction options.
-func BeginTx(ctx context.Context, pool *pgxpool.Pool, opts pgx.TxOptions) (pgx.Tx, error) {
-	tx, err := pool.BeginTx(ctx, opts)
-	if err != nil {
-		return nil, err
-	}
-	if err := ApplyTenantToTx(ctx, tx); err != nil {
-		_ = tx.Rollback(context.WithoutCancel(ctx))
-		return nil, err
-	}
-	return tx, nil
 }

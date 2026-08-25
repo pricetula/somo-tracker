@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -113,25 +112,12 @@ func main() {
 			teachershandler *teachers.Handler,
 			teacherworkloadsummarieshandler *teacherworkloadsummaries.Handler,
 		) {
-			// Build Fiber app with the canonical error handler: domain errors are
-			// mapped to the standard {code, message, errors} body via
-			// middleware.HTTPError, while Fiber's built-in 404/405 responses are
-			// preserved.
+			// Build Fiber app with the canonical error handler: ALL errors
+			// (including Fiber's built-in 404/405) are mapped to the standard
+			// {code, message, errors} JSON body via middleware.HTTPError.
 			app := fiber.New(fiber.Config{
-				ErrorHandler: func(c *fiber.Ctx, err error) error {
-					// 1. Check if the error is a Fiber HTTP error (e.g., 404, 405, 400)
-					var e *fiber.Error
-					if errors.As(err, &e) {
-						// Let Fiber handle standard HTTP status errors (404 Not Found, 405, etc.)
-						if e.Code < 500 {
-							return fiber.DefaultErrorHandler(c, err)
-						}
-					}
-
-					// 2. Pass internal domain/server errors to your custom HTTPError middleware
-					return middleware.HTTPError(c, err)
-				},
-				AppName: "somotracker-api",
+				ErrorHandler: middleware.HTTPError,
+				AppName:      "somotracker-api",
 				// Deliberate limits: 4 MB JSON body cap (import endpoints are
 				// JSON job polling — no file uploads), plus server-level timeouts
 				// so a hung client or handler can't hold connections open

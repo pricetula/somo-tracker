@@ -15,10 +15,14 @@ import {
     updateAllocation,
     bulkDeleteAllocations,
     getTimetable,
+    getTimetableMock,
     type CreateTrackPayload,
     type AllocationFilter,
     type Allocation,
-} from "@/lib/api/timetable-structure";
+    type TimeBlock,
+    DAY_NAMES,
+    DAY_NAMES_SHORT,
+} from "@/lib/api/timetable";
 
 // ─── Query Keys ───────────────────────────────────────────────────────────
 
@@ -237,6 +241,91 @@ export function useAllocations(filters: {
 }
 
 // ─── Combined View Hook ──────────────────────────────────────────────────
+export interface TimetableDay {
+    day_of_week: number;
+    name: string;
+    shortName: string;
+}
+
+export interface TimetableRow {
+    period_name: string;
+    start_time: string;
+    end_time: string;
+    order: number;
+    is_break: boolean;
+    allocationByDay: Record<number, Allocation>; // Keyed by day_of_week (e.g., 1: Allocation)
+}
+
+export interface TimetableViewResult {
+    days: TimetableDay[];
+    rows: TimetableRow[];
+}
+
+export function timetableViewSelect({
+    blocks,
+    allocations,
+}: {
+    blocks: TimeBlock[];
+    allocations: Allocation[];
+}): TimetableViewResult {
+    const daysMap = new Map<number, { day_of_week: number; name: string; shortName: string }>();
+    const rowMap = new Map<
+        string,
+        {
+            period_name: string;
+            start_time: string;
+            end_time: string;
+            order: number;
+            is_break: boolean;
+            allocationByDay: Record<number, Allocation>; // Direct object mapping instead of array
+        }
+    >();
+
+    // Fast lookup: block_id -> { rowKey, day_of_week }
+    const blockMetaMap = new Map<string, { rowKey: string; day_of_week: number }>();
+
+    // 1. Process blocks once: O(N)
+    blocks.forEach((block) => {
+        if (!daysMap.has(block.day_of_week)) {
+            daysMap.set(block.day_of_week, {
+                day_of_week: block.day_of_week,
+                name: DAY_NAMES[block.day_of_week] || "Unknown",
+                shortName: DAY_NAMES_SHORT[block.day_of_week] || "Unk",
+            });
+        }
+
+        const rowKey = `${block.start_time}-${block.end_time}-${block.period_name}`;
+        blockMetaMap.set(block.id, { rowKey, day_of_week: block.day_of_week });
+
+        if (!rowMap.has(rowKey)) {
+            rowMap.set(rowKey, {
+                period_name: block.period_name,
+                start_time: block.start_time,
+                end_time: block.end_time,
+                order: block.order,
+                is_break: block.is_break,
+                allocationByDay: {},
+            });
+        }
+    });
+
+    // 2. Process allocations: O(M)
+    allocations.forEach((allocation) => {
+        const meta = blockMetaMap.get(allocation.block_id);
+        if (!meta) return;
+
+        const row = rowMap.get(meta.rowKey);
+        if (row) {
+            // Directly assign since it's 1-to-1 per class view
+            row.allocationByDay[meta.day_of_week] = allocation;
+        }
+    });
+
+    return {
+        days: Array.from(daysMap.values()).sort((a, b) => a.day_of_week - b.day_of_week),
+        rows: Array.from(rowMap.values()).sort((a, b) => a.order - b.order),
+    };
+}
 
 /**
  * Get combined timetable view (blocks + allocations).
@@ -244,6 +333,7 @@ export function useAllocations(filters: {
 export function useTimetableView() {
     return useQuery({
         queryKey: ["timetable", "combined"],
-        queryFn: getTimetable,
+        queryFn: getTimetableMock,
+        select: timetableViewSelect,
     });
 }

@@ -163,14 +163,17 @@
     }
 
     /* ── Teal focus ring for CBC surfaces ────────────────────────────── */
-    .bg-stripes {
-        background-image: repeating-linear-gradient(
+    .bg-row-disabled {
+        background: repeating-linear-gradient(
             45deg,
-            rgba(50, 50, 50, 0.1),
-            rgba(50, 50, 50, 0.1) 6px,
-            rgba(200, 200, 200, 0.1) 6px,
-            rgba(255, 255, 255, 0.1) 9px
+            var(--background),
+            var(--background) 10px,
+            var(--accent) 10px,
+            var(--accent) 20px
         );
+        cursor: not-allowed !important;
+        opacity: 0.6;
+        pointer-events: none;
     }
 
     .focus-ring-cbc:focus-visible {

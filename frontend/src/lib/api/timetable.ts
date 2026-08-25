@@ -1,5 +1,5 @@
 /**
- * Timetable API functions (updated for simplified body-ID design).
+ * Timetable API functions — matches backend exactly.
  *
  * Tracks (Timetable):
  *   POST   /api/v1/timetable                    — create track (+ optional initial blocks)
@@ -11,16 +11,17 @@
  *   PUT    /api/v1/timetable/blocks             — update blocks (ID in body)
  *   DELETE /api/v1/timetable/blocks             — bulk delete blocks (IDs in body)
  *
- * Allocations (Slot Assignments):
+ * Allocations:
  *   POST   /api/v1/timetable/allocations        — create allocations (block_id in body)
  *   PUT    /api/v1/timetable/allocations        — update allocations (ID in body)
  *   DELETE /api/v1/timetable/allocations        — bulk delete allocations (IDs in body)
  *
  * Combined view:
- *   GET    /api/v1/timetable                    — get structures + slots
+ *   GET    /api/v1/timetable                    — get blocks + allocations
  */
 
 import { api } from "./client";
+import { addMinutes, format } from "date-fns";
 
 // ─── Types (Tracks) ────────────────────────────────────────────────────────
 
@@ -57,7 +58,7 @@ export interface BulkDeletePayload {
     ids: string[];
 }
 
-// ─── Types (Structure Blocks) ──────────────────────────────────────────────
+// ─── Types (Blocks) ────────────────────────────────────────────────────────
 
 export interface TimeBlock {
     id: string;
@@ -92,12 +93,13 @@ export interface UpdateTimeBlockPayload {
     order?: number;
 }
 
-// ─── Types (Allocations) ──────────────────────────────────────────────────
+// ─── Types (Allocations) — matches backend Allocation exactly ──────────────
 
 export interface Allocation {
     id: string;
     tenant_id: string;
     school_id: string;
+    academic_year_id: string;
     block_id: string;
     class_id: string;
     learning_area_id: string;
@@ -105,6 +107,13 @@ export interface Allocation {
     room_identifier?: string | null;
     created_at?: string;
     updated_at?: string;
+
+    // Joined fields (always populated by GET endpoints)
+    class_name: string;
+    learning_area_name: string;
+    learning_area_code: string;
+    teacher_name: string;
+    room_name?: string;
 }
 
 export interface CreateAllocationPayload {
@@ -124,6 +133,9 @@ export interface UpdateAllocationPayload {
 }
 
 export interface AllocationFilter {
+    tenant_id: string;
+    school_id: string;
+    academic_year_id?: string;
     block_id?: string;
     class_id?: string;
     teacher_id?: string;
@@ -219,7 +231,7 @@ export async function bulkDeleteAllocations(
 
 // ─── API Functions: Combined View ────────────────────────────────────────
 
-/** Get combined timetable view (blocks + allocations). */
+/** Get combined timetable view (blocks + allocations with joined names). */
 export async function getTimetable(): Promise<{
     blocks: TimeBlock[];
     allocations: Allocation[];
@@ -230,36 +242,68 @@ export async function getTimetable(): Promise<{
     }>("/api/v1/timetable");
 }
 
-// ─── Legacy aliases for backward compatibility (if needed) ──────────────
+export async function getTimetableMock(): Promise<{
+    blocks: TimeBlock[];
+    allocations: Allocation[];
+}> {
+    const teacherNames = {
+        1: "Janet sue",
+        2: "Paul Makin",
+        3: "Josep tyeo",
+        4: "Samson hakuni",
+        5: "Joylene souls",
+    };
+    const currentdate = new Date();
+    currentdate.setHours(8, 0, 0, 0);
+    const timestamp = currentdate.toISOString();
+    const blocks = Array.from({ length: 7 }, (_, i) => i + 1)
+        .map((day) =>
+            Array.from({ length: 4 }, (_, i) => i).map((b) => {
+                const periodDuration = 45;
+                const stime = addMinutes(currentdate, b * periodDuration);
+                const etime = addMinutes(stime, 45);
+                return {
+                    id: `block-uuid-${day}-${b}`,
+                    track_id: "track-uuid",
+                    day_of_week: day,
+                    period_name: `Lesson ${b + 1}`,
+                    start_time: format(stime, "HH:mm"),
+                    end_time: format(etime, "HH:mm"),
+                    is_break: b === 2,
+                    order: b,
+                    created_at: timestamp,
+                    updated_at: timestamp,
+                };
+            })
+        )
+        .flat() as TimeBlock[];
+    const allocations = blocks.map((b) => {
+        const rr = Math.floor(Math.random() * 5) + 1 + "";
+        const classrm = "Class " + rr;
+        const room_identifier = `room ${classrm}`;
+        return {
+            id: `allocation-${b.id}`,
+            tenant_id: "tenant-uuid",
+            school_id: "school-uuid",
+            academic_year_id: "academic-year-uuid",
+            block_id: b.id,
+            class_id: "class-uuid",
+            learning_area_id: "learning-area-uuid",
+            teacher_id: "teacher-area-uuid",
+            room_identifier,
+            created_at: timestamp,
+            updated_at: timestamp,
 
-export type Slot = Allocation;
-export type CreateSlotPayload = CreateAllocationPayload;
-export type UpdateSlotPayload = UpdateAllocationPayload;
-export type SlotFilter = AllocationFilter;
-export type TimetableAllocation = Allocation;
-
-// Legacy enriched slot type for UI components
-
-export interface EnrichedSlot {
-    id: string;
-    tenant_id: string;
-    school_id: string;
-    academic_year_id: string;
-    structure_id: string;
-    class_id: string;
-    learning_area_id?: string | null;
-    teacher_id?: string | null;
-    room_identifier?: string | null;
-    created_at?: string;
-    updated_at?: string;
-    class_name: string;
-    period_name: string;
-    day_of_week: number;
-    start_time: string;
-    end_time: string;
-    is_break: boolean;
-    learning_area_name?: string | null;
-    teacher_name?: string | null;
-    session_status?: string | null;
-    skip_reason?: string | null;
+            // Joined fields (always populated by GET endpoints)
+            class_name: classrm,
+            learning_area_name: "learning areas",
+            learning_area_code: "llod",
+            teacher_name: teacherNames[rr] as string,
+            room_name: room_identifier,
+        };
+    }) as Allocation[];
+    return Promise.resolve({
+        blocks,
+        allocations,
+    });
 }

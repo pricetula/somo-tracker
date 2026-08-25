@@ -7,4 +7,3 @@
 export { TimeTable } from "./components/timetable";
 
 export * from "./hooks";
-export * from "@/lib/api/timetable-structure";

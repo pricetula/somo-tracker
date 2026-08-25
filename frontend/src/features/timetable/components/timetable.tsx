@@ -2,22 +2,59 @@
 
 import { useTimetableView, type TimetableViewResult } from "../hooks";
 import { AllocationBlock } from "./allocation-block";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function TimeTable() {
     const { data, isLoading } = useTimetableView();
 
-    if (isLoading) {
+    if (!isLoading) {
         return (
             <article className="relative max-h-150 w-full overflow-auto rounded-md border text-xs">
-                <div className="text-muted-foreground flex h-64 items-center justify-center">
-                    Loading timetable…
-                </div>
+                <table className="w-full">
+                    <thead className="border-b tracking-wider">
+                        <tr>
+                            <th
+                                scope="col"
+                                className="bg-background sticky top-0 left-0 z-30 min-w-50 border-r pl-4 text-left md:w-34"
+                            >
+                                <Skeleton className="h-4 w-24" />
+                            </th>
+                            {Array.from({ length: 5 }).map((_, i) => (
+                                <th
+                                    key={i}
+                                    scope="col"
+                                    className="bg-background sticky top-0 z-20 min-w-50 border-r py-2 pl-4 text-left"
+                                >
+                                    <Skeleton className="h-4 w-20" />
+                                </th>
+                            ))}
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                        {Array.from({ length: 6 }).map((_, rowIdx) => (
+                            <tr key={rowIdx}>
+                                <td
+                                    scope="row"
+                                    className="bg-background sticky left-0 z-10 border-r p-4 align-top whitespace-nowrap"
+                                >
+                                    <Skeleton className="mb-1 h-4 w-28" />
+                                    <Skeleton className="h-3 w-16" />
+                                </td>
+                                {Array.from({ length: 5 }).map((_, cellIdx) => (
+                                    <td key={cellIdx} className="border-r p-4">
+                                        <Skeleton className="h-10 w-full" />
+                                    </td>
+                                ))}
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
             </article>
         );
     }
 
     const { days = [], rows = [] } = data as TimetableViewResult;
-    console.log(";;;;;", rows);
+
     return (
         <article className="relative max-h-150 w-full overflow-auto rounded-md border text-xs">
             <table className="w-full">

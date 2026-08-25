@@ -11,11 +11,11 @@ import (
 )
 
 type mockRepo struct {
-	blocks  []TimeBlock
-	slots   []Slot
-	err     error
-	blockID string
-	slotID  string
+	blocks      []TimeBlock
+	allocations []Allocation
+	err         error
+	blockID     string
+	allocID     string
 }
 
 func (m *mockRepo) ListBlocks(ctx context.Context, tenantID, schoolID, yearID string) ([]TimeBlock, error) {
@@ -87,31 +87,31 @@ func (m *mockRepo) DeleteBlock(ctx context.Context, id, tenantID, schoolID strin
 	return ErrNotFound
 }
 
-func (m *mockRepo) ListSlots(ctx context.Context, f SlotFilter) ([]Slot, error) {
+func (m *mockRepo) ListAllocations(ctx context.Context, f AllocationFilter) ([]Allocation, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
-	return m.slots, nil
+	return m.allocations, nil
 }
 
-func (m *mockRepo) GetSlot(ctx context.Context, id, tenantID, schoolID string) (*Slot, error) {
+func (m *mockRepo) GetAllocation(ctx context.Context, id, tenantID, schoolID string) (*Allocation, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
-	for _, s := range m.slots {
-		if s.ID == id {
-			return &s, nil
+	for _, a := range m.allocations {
+		if a.ID == id {
+			return &a, nil
 		}
 	}
 	return nil, ErrNotFound
 }
 
-func (m *mockRepo) CreateSlot(ctx context.Context, tenantID, schoolID, academicYearID string, p SlotPayload) (*Slot, error) {
+func (m *mockRepo) CreateAllocation(ctx context.Context, tenantID, schoolID, academicYearID string, p CreateAllocationPayload) (*Allocation, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
-	s := Slot{
-		ID:             m.slotID,
+	a := Allocation{
+		ID:             m.allocID,
 		TenantID:       tenantID,
 		SchoolID:       schoolID,
 		AcademicYearID: academicYearID,
@@ -121,17 +121,17 @@ func (m *mockRepo) CreateSlot(ctx context.Context, tenantID, schoolID, academicY
 		TeacherID:      p.TeacherID,
 		RoomIdentifier: p.RoomIdentifier,
 	}
-	m.slots = append(m.slots, s)
-	return &s, nil
+	m.allocations = append(m.allocations, a)
+	return &a, nil
 }
 
-func (m *mockRepo) BatchCreateSlots(ctx context.Context, tenantID, schoolID, academicYearID string, ps []SlotPayload) ([]Slot, error) {
+func (m *mockRepo) BatchCreateAllocations(ctx context.Context, tenantID, schoolID, academicYearID string, ps []CreateAllocationPayload) ([]Allocation, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
-	var result []Slot
+	var result []Allocation
 	for _, p := range ps {
-		s := Slot{
+		a := Allocation{
 			ID:             uuid.New().String(),
 			TenantID:       tenantID,
 			SchoolID:       schoolID,
@@ -142,44 +142,60 @@ func (m *mockRepo) BatchCreateSlots(ctx context.Context, tenantID, schoolID, aca
 			TeacherID:      p.TeacherID,
 			RoomIdentifier: p.RoomIdentifier,
 		}
-		result = append(result, s)
+		result = append(result, a)
 	}
-	m.slots = append(m.slots, result...)
+	m.allocations = append(m.allocations, result...)
 	return result, nil
 }
 
-func (m *mockRepo) UpdateSlot(ctx context.Context, id, tenantID, schoolID string, p UpdateSlotPayload) (*Slot, error) {
+func (m *mockRepo) UpdateAllocation(ctx context.Context, id, tenantID, schoolID string, p UpdateAllocationPayload) (*Allocation, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
-	for i, s := range m.slots {
-		if s.ID == id {
+	for i, a := range m.allocations {
+		if a.ID == id {
 			if p.LearningAreaID != "" {
-				m.slots[i].LearningAreaID = p.LearningAreaID
+				m.allocations[i].LearningAreaID = p.LearningAreaID
 			}
 			if p.TeacherID != "" {
-				m.slots[i].TeacherID = p.TeacherID
+				m.allocations[i].TeacherID = p.TeacherID
 			}
 			if p.RoomIdentifier != nil {
-				m.slots[i].RoomIdentifier = p.RoomIdentifier
+				m.allocations[i].RoomIdentifier = p.RoomIdentifier
 			}
-			return &m.slots[i], nil
+			return &m.allocations[i], nil
 		}
 	}
 	return nil, ErrNotFound
 }
 
-func (m *mockRepo) DeleteSlot(ctx context.Context, id, tenantID, schoolID string) error {
+func (m *mockRepo) DeleteAllocation(ctx context.Context, id, tenantID, schoolID string) error {
 	if m.err != nil {
 		return m.err
 	}
-	for i, s := range m.slots {
-		if s.ID == id {
-			m.slots = append(m.slots[:i], m.slots[i+1:]...)
+	for i, a := range m.allocations {
+		if a.ID == id {
+			m.allocations = append(m.allocations[:i], m.allocations[i+1:]...)
 			return nil
 		}
 	}
 	return ErrNotFound
+}
+
+func (m *mockRepo) CreateTrack(ctx context.Context, tenantID, schoolID, academicYearID, academicTermID, name, description string, isDefault bool) (*Track, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return &Track{ID: "t1", Name: name}, nil
+}
+func (m *mockRepo) UpdateTrack(ctx context.Context, id, tenantID, schoolID string, p UpdateTrackPayload) (*Track, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return &Track{ID: id}, nil
+}
+func (m *mockRepo) DeleteTrack(ctx context.Context, id, tenantID, schoolID string) error {
+	return m.err
 }
 
 func newService(m *mockRepo) *ServiceImpl {
@@ -341,59 +357,59 @@ func TestServiceImpl_DeleteBlock_NotFound(t *testing.T) {
 	require.ErrorIs(t, err, ErrNotFound)
 }
 
-func TestServiceImpl_ListSlots(t *testing.T) {
-	m := &mockRepo{slots: []Slot{{ID: "1", ClassID: "c1"}}}
+func TestServiceImpl_ListAllocations(t *testing.T) {
+	m := &mockRepo{allocations: []Allocation{{ID: "1", ClassID: "c1"}}}
 	s := newService(m)
 
-	slots, err := s.ListSlots(context.Background(), SlotFilter{TenantID: "t", SchoolID: "s"})
+	allocs, err := s.ListAllocations(context.Background(), AllocationFilter{TenantID: "t", SchoolID: "s"})
 	require.NoError(t, err)
-	require.Len(t, slots, 1)
-	require.Equal(t, "c1", slots[0].ClassID)
+	require.Len(t, allocs, 1)
+	require.Equal(t, "c1", allocs[0].ClassID)
 }
 
-func TestServiceImpl_ListSlots_Error(t *testing.T) {
+func TestServiceImpl_ListAllocations_Error(t *testing.T) {
 	m := &mockRepo{err: errors.New("db error")}
 	s := newService(m)
 
-	_, err := s.ListSlots(context.Background(), SlotFilter{TenantID: "t", SchoolID: "s"})
+	_, err := s.ListAllocations(context.Background(), AllocationFilter{TenantID: "t", SchoolID: "s"})
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "timetable.ServiceImpl.ListSlots")
+	require.Contains(t, err.Error(), "timetable.ServiceImpl.ListAllocations")
 }
 
-func TestServiceImpl_GetSlot(t *testing.T) {
-	m := &mockRepo{slots: []Slot{{ID: "1", ClassID: "c1", TeacherID: "t1"}}}
+func TestServiceImpl_GetAllocation(t *testing.T) {
+	m := &mockRepo{allocations: []Allocation{{ID: "1", ClassID: "c1", TeacherID: "t1"}}}
 	s := newService(m)
 
-	slot, err := s.GetSlot(context.Background(), "1", "t", "s")
+	alloc, err := s.GetAllocation(context.Background(), "1", "t", "s")
 	require.NoError(t, err)
-	require.Equal(t, "1", slot.ID)
-	require.Equal(t, "c1", slot.ClassID)
-	require.Equal(t, "t1", slot.TeacherID)
+	require.Equal(t, "1", alloc.ID)
+	require.Equal(t, "c1", alloc.ClassID)
+	require.Equal(t, "t1", alloc.TeacherID)
 }
 
-func TestServiceImpl_GetSlot_NotFound(t *testing.T) {
+func TestServiceImpl_GetAllocation_NotFound(t *testing.T) {
 	m := &mockRepo{}
 	s := newService(m)
 
-	_, err := s.GetSlot(context.Background(), "missing", "t", "s")
+	_, err := s.GetAllocation(context.Background(), "missing", "t", "s")
 	require.Error(t, err)
 	require.ErrorIs(t, err, ErrNotFound)
 }
 
-func TestServiceImpl_GetSlot_Error(t *testing.T) {
+func TestServiceImpl_GetAllocation_Error(t *testing.T) {
 	m := &mockRepo{err: errors.New("db error")}
 	s := newService(m)
 
-	_, err := s.GetSlot(context.Background(), "1", "t", "s")
+	_, err := s.GetAllocation(context.Background(), "1", "t", "s")
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "timetable.ServiceImpl.GetSlot")
+	require.Contains(t, err.Error(), "timetable.ServiceImpl.GetAllocation")
 }
 
-func TestServiceImpl_CreateSlot(t *testing.T) {
-	m := &mockRepo{slotID: "new-slot"}
+func TestServiceImpl_CreateAllocation(t *testing.T) {
+	m := &mockRepo{allocID: "new-alloc"}
 	s := newService(m)
 
-	slot, err := s.CreateSlot(context.Background(), "t", "s", "y1", SlotPayload{
+	alloc, err := s.CreateAllocation(context.Background(), "t", "s", "y1", CreateAllocationPayload{
 		BlockID:        "struct1",
 		ClassID:        "c1",
 		LearningAreaID: "la1",
@@ -401,23 +417,23 @@ func TestServiceImpl_CreateSlot(t *testing.T) {
 		RoomIdentifier: ptr("Room 101"),
 	})
 	require.NoError(t, err)
-	require.Equal(t, "new-slot", slot.ID)
-	require.Equal(t, "t", slot.TenantID)
-	require.Equal(t, "s", slot.SchoolID)
-	require.Equal(t, "y1", slot.AcademicYearID)
-	require.Equal(t, "struct1", slot.BlockID)
-	require.Equal(t, "c1", slot.ClassID)
-	require.Equal(t, "la1", slot.LearningAreaID)
-	require.Equal(t, "t1", slot.TeacherID)
-	require.NotNil(t, slot.RoomIdentifier)
-	require.Equal(t, "Room 101", *slot.RoomIdentifier)
+	require.Equal(t, "new-alloc", alloc.ID)
+	require.Equal(t, "t", alloc.TenantID)
+	require.Equal(t, "s", alloc.SchoolID)
+	require.Equal(t, "y1", alloc.AcademicYearID)
+	require.Equal(t, "struct1", alloc.BlockID)
+	require.Equal(t, "c1", alloc.ClassID)
+	require.Equal(t, "la1", alloc.LearningAreaID)
+	require.Equal(t, "t1", alloc.TeacherID)
+	require.NotNil(t, alloc.RoomIdentifier)
+	require.Equal(t, "Room 101", *alloc.RoomIdentifier)
 }
 
-func TestServiceImpl_CreateSlot_Error(t *testing.T) {
+func TestServiceImpl_CreateAllocation_Error(t *testing.T) {
 	m := &mockRepo{err: ErrTeacherDoubleBooked}
 	s := newService(m)
 
-	_, err := s.CreateSlot(context.Background(), "t", "s", "y1", SlotPayload{
+	_, err := s.CreateAllocation(context.Background(), "t", "s", "y1", CreateAllocationPayload{
 		BlockID:        "struct1",
 		ClassID:        "c1",
 		LearningAreaID: "la1",
@@ -427,65 +443,65 @@ func TestServiceImpl_CreateSlot_Error(t *testing.T) {
 	require.ErrorIs(t, err, ErrTeacherDoubleBooked)
 }
 
-func TestServiceImpl_BatchCreateSlots(t *testing.T) {
+func TestServiceImpl_BatchCreateAllocations(t *testing.T) {
 	m := &mockRepo{}
 	s := newService(m)
 
-	slots, err := s.BatchCreateSlots(context.Background(), "t", "s", "y1", []SlotPayload{
+	allocs, err := s.BatchCreateAllocations(context.Background(), "t", "s", "y1", []CreateAllocationPayload{
 		{BlockID: "s1", ClassID: "c1", LearningAreaID: "la1", TeacherID: "t1"},
 		{BlockID: "s2", ClassID: "c2", LearningAreaID: "la2", TeacherID: "t2"},
 	})
 	require.NoError(t, err)
-	require.Len(t, slots, 2)
-	require.Equal(t, "s1", slots[0].BlockID)
-	require.Equal(t, "c1", slots[0].ClassID)
-	require.Equal(t, "s2", slots[1].BlockID)
-	require.Equal(t, "c2", slots[1].ClassID)
+	require.Len(t, allocs, 2)
+	require.Equal(t, "s1", allocs[0].BlockID)
+	require.Equal(t, "c1", allocs[0].ClassID)
+	require.Equal(t, "s2", allocs[1].BlockID)
+	require.Equal(t, "c2", allocs[1].ClassID)
 }
 
-func TestServiceImpl_BatchCreateSlots_Empty(t *testing.T) {
+func TestServiceImpl_BatchCreateAllocations_Empty(t *testing.T) {
 	m := &mockRepo{}
 	s := newService(m)
 
-	slots, err := s.BatchCreateSlots(context.Background(), "t", "s", "y1", []SlotPayload{})
+	allocs, err := s.BatchCreateAllocations(context.Background(), "t", "s", "y1", []CreateAllocationPayload{})
 	require.NoError(t, err)
-	require.Empty(t, slots)
+	require.Empty(t, allocs)
 }
 
-func TestServiceImpl_BatchCreateSlots_Error(t *testing.T) {
+func TestServiceImpl_BatchCreateAllocations_Error(t *testing.T) {
 	m := &mockRepo{err: ErrConflict}
 	s := newService(m)
 
-	_, err := s.BatchCreateSlots(context.Background(), "t", "s", "y1", []SlotPayload{
+	_, err := s.BatchCreateAllocations(context.Background(), "t", "s", "y1", []CreateAllocationPayload{
 		{BlockID: "s1", ClassID: "c1", LearningAreaID: "la1", TeacherID: "t1"},
 	})
 	require.Error(t, err)
 	require.ErrorIs(t, err, ErrConflict)
 }
 
-func TestServiceImpl_UpdateSlot(t *testing.T) {
-	m := &mockRepo{slots: []Slot{{ID: "1", LearningAreaID: "old", TeacherID: "old", RoomIdentifier: ptr("Old")}}}
+func TestServiceImpl_UpdateAllocation(t *testing.T) {
+	m := &mockRepo{allocations: []Allocation{{ID: "1", LearningAreaID: "old", TeacherID: "old", RoomIdentifier: ptr("Old")}}}
 	s := newService(m)
 
 	newRoom := "New Room"
-	slot, err := s.UpdateSlot(context.Background(), "1", "t", "s", UpdateSlotPayload{
+	alloc, err := s.UpdateAllocation(context.Background(), "1", "t", "s", UpdateAllocationPayload{
 		LearningAreaID: "new",
 		TeacherID:      "newt",
 		RoomIdentifier: &newRoom,
 	})
 	require.NoError(t, err)
-	require.Equal(t, "1", slot.ID)
-	require.Equal(t, "new", slot.LearningAreaID)
-	require.Equal(t, "newt", slot.TeacherID)
-	require.NotNil(t, slot.RoomIdentifier)
-	require.Equal(t, "New Room", *slot.RoomIdentifier)
+	require.Equal(t, "1", alloc.ID)
+	require.Equal(t, "new", alloc.LearningAreaID)
+	require.Equal(t, "newt", alloc.TeacherID)
+	require.NotNil(t, alloc.RoomIdentifier)
+	require.Equal(t, "New Room", *alloc.RoomIdentifier)
 }
 
-func TestServiceImpl_UpdateSlot_NotFound(t *testing.T) {
+func TestServiceImpl_UpdateAllocation_NotFound(t *testing.T) {
 	m := &mockRepo{}
 	s := newService(m)
 
-	_, err := s.UpdateSlot(context.Background(), "missing", "t", "s", UpdateSlotPayload{
+	_, err := s.UpdateAllocation(context.Background(), "missing", "t", "s", UpdateAllocationPayload{
 		LearningAreaID: "la1",
 		TeacherID:      "t1",
 	})
@@ -493,11 +509,11 @@ func TestServiceImpl_UpdateSlot_NotFound(t *testing.T) {
 	require.ErrorIs(t, err, ErrNotFound)
 }
 
-func TestServiceImpl_UpdateSlot_Error(t *testing.T) {
+func TestServiceImpl_UpdateAllocation_Error(t *testing.T) {
 	m := &mockRepo{err: ErrTeacherDoubleBooked}
 	s := newService(m)
 
-	_, err := s.UpdateSlot(context.Background(), "1", "t", "s", UpdateSlotPayload{
+	_, err := s.UpdateAllocation(context.Background(), "1", "t", "s", UpdateAllocationPayload{
 		LearningAreaID: "la1",
 		TeacherID:      "t1",
 	})
@@ -505,59 +521,28 @@ func TestServiceImpl_UpdateSlot_Error(t *testing.T) {
 	require.ErrorIs(t, err, ErrTeacherDoubleBooked)
 }
 
-func TestServiceImpl_DeleteSlot(t *testing.T) {
-	m := &mockRepo{slots: []Slot{{ID: "1", ClassID: "c1"}}}
+func TestServiceImpl_DeleteAllocation(t *testing.T) {
+	m := &mockRepo{allocations: []Allocation{{ID: "1", ClassID: "c1"}}}
 	s := newService(m)
 
-	err := s.DeleteSlot(context.Background(), "1", "t", "s")
+	err := s.DeleteAllocation(context.Background(), "1", "t", "s")
 	require.NoError(t, err)
 }
 
-func TestServiceImpl_DeleteSlot_NotFound(t *testing.T) {
+func TestServiceImpl_DeleteAllocation_NotFound(t *testing.T) {
 	m := &mockRepo{}
 	s := newService(m)
 
-	err := s.DeleteSlot(context.Background(), "missing", "t", "s")
+	err := s.DeleteAllocation(context.Background(), "missing", "t", "s")
 	require.Error(t, err)
 	require.ErrorIs(t, err, ErrNotFound)
 }
 
-func TestServiceImpl_DeleteSlot_Error(t *testing.T) {
+func TestServiceImpl_DeleteAllocation_Error(t *testing.T) {
 	m := &mockRepo{err: errors.New("db error")}
 	s := newService(m)
 
-	err := s.DeleteSlot(context.Background(), "1", "t", "s")
+	err := s.DeleteAllocation(context.Background(), "1", "t", "s")
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "timetable.ServiceImpl.DeleteSlot")
-}
-
-func (m *mockRepo) CreateTrack(ctx context.Context, tenantID, schoolID, academicYearID, academicTermID, name, description string, isDefault bool) (*Track, error) {
-	if m.err != nil {
-		return nil, m.err
-	}
-	return &Track{ID: "t1", Name: name}, nil
-}
-func (m *mockRepo) UpdateTrack(ctx context.Context, id, tenantID, schoolID string, p UpdateTrackPayload) (*Track, error) {
-	if m.err != nil {
-		return nil, m.err
-	}
-	return &Track{ID: id}, nil
-}
-func (m *mockRepo) DeleteTrack(ctx context.Context, id, tenantID, schoolID string) error {
-	return m.err
-}
-func (m *mockRepo) CreateAllocation(ctx context.Context, tenantID, schoolID, blockID string, p CreateAllocationPayload) (*Allocation, error) {
-	if m.err != nil {
-		return nil, m.err
-	}
-	return &Allocation{ID: "a1", BlockID: blockID}, nil
-}
-func (m *mockRepo) UpdateAllocation(ctx context.Context, id, tenantID, schoolID string, p UpdateAllocationPayload) (*Allocation, error) {
-	if m.err != nil {
-		return nil, m.err
-	}
-	return &Allocation{ID: id}, nil
-}
-func (m *mockRepo) DeleteAllocation(ctx context.Context, id, tenantID, schoolID string) error {
-	return m.err
+	require.Contains(t, err.Error(), "timetable.ServiceImpl.DeleteAllocation")
 }

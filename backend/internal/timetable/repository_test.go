@@ -499,7 +499,7 @@ func TestPgRepository_DeleteBlock_NotFound(t *testing.T) {
 	require.ErrorIs(t, err, ErrNotFound)
 }
 
-func TestPgRepository_ListSlots(t *testing.T) {
+func TestPgRepository_ListAllocations(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
@@ -524,65 +524,65 @@ func TestPgRepository_ListSlots(t *testing.T) {
 		structID2, tenantID, schoolID, academicYearID)
 	require.NoError(t, err)
 
-	// Create slots
-	slotID1 := uuid.New().String()
+	// Create allocations
+	allocID1 := uuid.New().String()
 	_, err = pool.Exec(ctx, `INSERT INTO timetable_allocations (id, tenant_id, school_id, academic_year_id, block_id, class_id, learning_area_id, teacher_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-		slotID1, tenantID, schoolID, academicYearID, structID1, classID, learningAreaID, userID)
+		allocID1, tenantID, schoolID, academicYearID, structID1, classID, learningAreaID, userID)
 	require.NoError(t, err)
 
-	slotID2 := uuid.New().String()
+	allocID2 := uuid.New().String()
 	_, err = pool.Exec(ctx, `INSERT INTO timetable_allocations (id, tenant_id, school_id, academic_year_id, block_id, class_id, learning_area_id, teacher_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-		slotID2, tenantID, schoolID, academicYearID, structID2, classID, learningAreaID, userID)
+		allocID2, tenantID, schoolID, academicYearID, structID2, classID, learningAreaID, userID)
 	require.NoError(t, err)
 
 	// List all
-	filter := SlotFilter{TenantID: tenantID, SchoolID: schoolID}
-	slots, err := repo.ListSlots(ctx, filter)
+	filter := AllocationFilter{TenantID: tenantID, SchoolID: schoolID}
+	allocations, err := repo.ListAllocations(ctx, filter)
 	require.NoError(t, err)
-	require.Len(t, slots, 2)
+	require.Len(t, allocations, 2)
 
 	// Filter by academic year
 	filter.AcademicYearID = academicYearID
-	slots, err = repo.ListSlots(ctx, filter)
+	allocations, err = repo.ListAllocations(ctx, filter)
 	require.NoError(t, err)
-	require.Len(t, slots, 2)
+	require.Len(t, allocations, 2)
 
 	// Filter by structure
 	filter.BlockID = structID1
-	slots, err = repo.ListSlots(ctx, filter)
+	allocations, err = repo.ListAllocations(ctx, filter)
 	require.NoError(t, err)
-	require.Len(t, slots, 1)
-	require.Equal(t, slotID1, slots[0].ID)
+	require.Len(t, allocations, 1)
+	require.Equal(t, allocID1, allocations[0].ID)
 
 	// Filter by class
 	filter.BlockID = ""
 	filter.ClassID = classID
-	slots, err = repo.ListSlots(ctx, filter)
+	allocations, err = repo.ListAllocations(ctx, filter)
 	require.NoError(t, err)
-	require.Len(t, slots, 2)
+	require.Len(t, allocations, 2)
 
 	// Filter by teacher
 	filter.ClassID = ""
 	filter.TeacherID = userID
-	slots, err = repo.ListSlots(ctx, filter)
+	allocations, err = repo.ListAllocations(ctx, filter)
 	require.NoError(t, err)
-	require.Len(t, slots, 2)
+	require.Len(t, allocations, 2)
 
 	// Filter by learning area
 	filter.TeacherID = ""
 	filter.LearningAreaID = learningAreaID
-	slots, err = repo.ListSlots(ctx, filter)
+	allocations, err = repo.ListAllocations(ctx, filter)
 	require.NoError(t, err)
-	require.Len(t, slots, 2)
+	require.Len(t, allocations, 2)
 
 	// Empty result for different tenant
-	filter = SlotFilter{TenantID: uuid.New().String(), SchoolID: schoolID}
-	slots, err = repo.ListSlots(ctx, filter)
+	filter = AllocationFilter{TenantID: uuid.New().String(), SchoolID: schoolID}
+	allocations, err = repo.ListAllocations(ctx, filter)
 	require.NoError(t, err)
-	require.Empty(t, slots)
+	require.Empty(t, allocations)
 }
 
-func TestPgRepository_GetSlot(t *testing.T) {
+func TestPgRepository_GetAllocation(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
@@ -600,43 +600,49 @@ func TestPgRepository_GetSlot(t *testing.T) {
 		structID, tenantID, schoolID, academicYearID)
 	require.NoError(t, err)
 
-	slotID := uuid.New().String()
+	allocID := uuid.New().String()
 	room := "Room 101"
 	_, err = pool.Exec(ctx, `INSERT INTO timetable_allocations (id, tenant_id, school_id, academic_year_id, block_id, class_id, learning_area_id, teacher_id, room_identifier) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-		slotID, tenantID, schoolID, academicYearID, structID, classID, learningAreaID, userID, room)
+		allocID, tenantID, schoolID, academicYearID, structID, classID, learningAreaID, userID, room)
 	require.NoError(t, err)
 
 	// Found
-	slot, err := repo.GetSlot(ctx, slotID, tenantID, schoolID)
+	alloc, err := repo.GetAllocation(ctx, allocID, tenantID, schoolID)
 	require.NoError(t, err)
-	require.Equal(t, slotID, slot.ID)
-	require.Equal(t, tenantID, slot.TenantID)
-	require.Equal(t, schoolID, slot.SchoolID)
-	require.Equal(t, academicYearID, slot.AcademicYearID)
-	require.Equal(t, structID, slot.BlockID)
-	require.Equal(t, classID, slot.ClassID)
-	require.Equal(t, learningAreaID, slot.LearningAreaID)
-	require.Equal(t, userID, slot.TeacherID)
-	require.NotNil(t, slot.RoomIdentifier)
-	require.Equal(t, "Room 101", *slot.RoomIdentifier)
+	require.Equal(t, allocID, alloc.ID)
+	require.Equal(t, tenantID, alloc.TenantID)
+	require.Equal(t, schoolID, alloc.SchoolID)
+	require.Equal(t, academicYearID, alloc.AcademicYearID)
+	require.Equal(t, structID, alloc.BlockID)
+	require.Equal(t, classID, alloc.ClassID)
+	require.Equal(t, learningAreaID, alloc.LearningAreaID)
+	require.Equal(t, userID, alloc.TeacherID)
+	require.NotNil(t, alloc.RoomIdentifier)
+	require.Equal(t, "Room 101", *alloc.RoomIdentifier)
+	// Check joined fields
+	require.NotEmpty(t, alloc.ClassName)
+	require.NotEmpty(t, alloc.LearningAreaName)
+	require.NotEmpty(t, alloc.LearningAreaCode)
+	require.NotEmpty(t, alloc.TeacherName)
+	require.NotEmpty(t, alloc.RoomName)
 
 	// Not found (wrong ID)
-	_, err = repo.GetSlot(ctx, uuid.New().String(), tenantID, schoolID)
+	_, err = repo.GetAllocation(ctx, uuid.New().String(), tenantID, schoolID)
 	require.Error(t, err)
 	require.ErrorIs(t, err, ErrNotFound)
 
 	// Not found (wrong tenant)
-	_, err = repo.GetSlot(ctx, slotID, uuid.New().String(), schoolID)
+	_, err = repo.GetAllocation(ctx, allocID, uuid.New().String(), schoolID)
 	require.Error(t, err)
 	require.ErrorIs(t, err, ErrNotFound)
 
 	// Not found (wrong school)
-	_, err = repo.GetSlot(ctx, slotID, tenantID, uuid.New().String())
+	_, err = repo.GetAllocation(ctx, allocID, tenantID, uuid.New().String())
 	require.Error(t, err)
 	require.ErrorIs(t, err, ErrNotFound)
 }
 
-func TestPgRepository_CreateSlot(t *testing.T) {
+func TestPgRepository_CreateAllocation(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
@@ -654,8 +660,8 @@ func TestPgRepository_CreateSlot(t *testing.T) {
 		structID, tenantID, schoolID, academicYearID)
 	require.NoError(t, err)
 
-	// Create slot
-	slot, err := repo.CreateSlot(ctx, tenantID, schoolID, academicYearID, SlotPayload{
+	// Create allocation
+	alloc, err := repo.CreateAllocation(ctx, tenantID, schoolID, academicYearID, CreateAllocationPayload{
 		BlockID:        structID,
 		ClassID:        classID,
 		LearningAreaID: learningAreaID,
@@ -663,19 +669,25 @@ func TestPgRepository_CreateSlot(t *testing.T) {
 		RoomIdentifier: ptr("Room 101"),
 	})
 	require.NoError(t, err)
-	require.NotEmpty(t, slot.ID)
-	require.Equal(t, tenantID, slot.TenantID)
-	require.Equal(t, schoolID, slot.SchoolID)
-	require.Equal(t, academicYearID, slot.AcademicYearID)
-	require.Equal(t, structID, slot.BlockID)
-	require.Equal(t, classID, slot.ClassID)
-	require.Equal(t, learningAreaID, slot.LearningAreaID)
-	require.Equal(t, userID, slot.TeacherID)
-	require.NotNil(t, slot.RoomIdentifier)
-	require.Equal(t, "Room 101", *slot.RoomIdentifier)
+	require.NotEmpty(t, alloc.ID)
+	require.Equal(t, tenantID, alloc.TenantID)
+	require.Equal(t, schoolID, alloc.SchoolID)
+	require.Equal(t, academicYearID, alloc.AcademicYearID)
+	require.Equal(t, structID, alloc.BlockID)
+	require.Equal(t, classID, alloc.ClassID)
+	require.Equal(t, learningAreaID, alloc.LearningAreaID)
+	require.Equal(t, userID, alloc.TeacherID)
+	require.NotNil(t, alloc.RoomIdentifier)
+	require.Equal(t, "Room 101", *alloc.RoomIdentifier)
+	// Joined fields should be empty on create (not fetched)
+	require.Empty(t, alloc.ClassName)
+	require.Empty(t, alloc.LearningAreaName)
+	require.Empty(t, alloc.LearningAreaCode)
+	require.Empty(t, alloc.TeacherName)
+	require.Empty(t, alloc.RoomName)
 }
 
-func TestPgRepository_CreateSlot_Conflict(t *testing.T) {
+func TestPgRepository_CreateAllocation_Conflict(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
@@ -693,8 +705,8 @@ func TestPgRepository_CreateSlot_Conflict(t *testing.T) {
 		structID, tenantID, schoolID, academicYearID)
 	require.NoError(t, err)
 
-	// Create first slot
-	_, err = repo.CreateSlot(ctx, tenantID, schoolID, academicYearID, SlotPayload{
+	// Create first allocation
+	_, err = repo.CreateAllocation(ctx, tenantID, schoolID, academicYearID, CreateAllocationPayload{
 		BlockID:        structID,
 		ClassID:        classID,
 		LearningAreaID: learningAreaID,
@@ -703,8 +715,8 @@ func TestPgRepository_CreateSlot_Conflict(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Try to create another slot with same class + structure (unique_class_slot constraint)
-	_, err = repo.CreateSlot(ctx, tenantID, schoolID, academicYearID, SlotPayload{
+	// Try to create another allocation with same class + structure (unique_class_slot constraint)
+	_, err = repo.CreateAllocation(ctx, tenantID, schoolID, academicYearID, CreateAllocationPayload{
 		BlockID:        structID,
 		ClassID:        classID,             // Same class + structure
 		LearningAreaID: uuid.New().String(), // Different learning area
@@ -712,10 +724,10 @@ func TestPgRepository_CreateSlot_Conflict(t *testing.T) {
 		RoomIdentifier: ptr("Room 102"),
 	})
 	require.Error(t, err)
-	require.ErrorIs(t, err, ErrClassSlotOccupied)
+	require.ErrorIs(t, err, ErrClassAllocationOccupied)
 
-	// Try to create another slot with same teacher + structure (unique_teacher_slot constraint)
-	_, err = repo.CreateSlot(ctx, tenantID, schoolID, academicYearID, SlotPayload{
+	// Try to create another allocation with same teacher + structure (unique_teacher_slot constraint)
+	_, err = repo.CreateAllocation(ctx, tenantID, schoolID, academicYearID, CreateAllocationPayload{
 		BlockID:        structID,
 		ClassID:        uuid.New().String(), // Different class
 		LearningAreaID: uuid.New().String(), // Different learning area
@@ -725,8 +737,8 @@ func TestPgRepository_CreateSlot_Conflict(t *testing.T) {
 	require.Error(t, err)
 	require.ErrorIs(t, err, ErrTeacherDoubleBooked)
 
-	// Try to create another slot with same room + structure (unique_room_slot constraint)
-	_, err = repo.CreateSlot(ctx, tenantID, schoolID, academicYearID, SlotPayload{
+	// Try to create another allocation with same room + structure (unique_room_slot constraint)
+	_, err = repo.CreateAllocation(ctx, tenantID, schoolID, academicYearID, CreateAllocationPayload{
 		BlockID:        structID,
 		ClassID:        uuid.New().String(),
 		LearningAreaID: uuid.New().String(),
@@ -737,7 +749,7 @@ func TestPgRepository_CreateSlot_Conflict(t *testing.T) {
 	require.ErrorIs(t, err, ErrRoomDoubleBooked)
 }
 
-func TestPgRepository_BatchCreateSlots(t *testing.T) {
+func TestPgRepository_BatchCreateAllocations(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
@@ -776,22 +788,22 @@ func TestPgRepository_BatchCreateSlots(t *testing.T) {
 		structID2, tenantID, schoolID, academicYearID)
 	require.NoError(t, err)
 
-	// Batch create slots
-	payloads := []SlotPayload{
+	// Batch create allocations
+	payloads := []CreateAllocationPayload{
 		{BlockID: structID1, ClassID: classID1, LearningAreaID: learningAreaID1, TeacherID: userID, RoomIdentifier: ptr("Room 101")},
 		{BlockID: structID2, ClassID: classID2, LearningAreaID: learningAreaID2, TeacherID: userID, RoomIdentifier: ptr("Room 102")},
 	}
 
-	slots, err := repo.BatchCreateSlots(ctx, tenantID, schoolID, academicYearID, payloads)
+	allocs, err := repo.BatchCreateAllocations(ctx, tenantID, schoolID, academicYearID, payloads)
 	require.NoError(t, err)
-	require.Len(t, slots, 2)
-	require.Equal(t, structID1, slots[0].BlockID)
-	require.Equal(t, classID1, slots[0].ClassID)
-	require.Equal(t, structID2, slots[1].BlockID)
-	require.Equal(t, classID2, slots[1].ClassID)
+	require.Len(t, allocs, 2)
+	require.Equal(t, structID1, allocs[0].BlockID)
+	require.Equal(t, classID1, allocs[0].ClassID)
+	require.Equal(t, structID2, allocs[1].BlockID)
+	require.Equal(t, classID2, allocs[1].ClassID)
 }
 
-func TestPgRepository_BatchCreateSlots_Empty(t *testing.T) {
+func TestPgRepository_BatchCreateAllocations_Empty(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
@@ -802,12 +814,12 @@ func TestPgRepository_BatchCreateSlots_Empty(t *testing.T) {
 	tenantID, schoolID, _, academicYearID := setupTimeBlockTestData(t, pool)
 	repo := newRepo(pool)
 
-	slots, err := repo.BatchCreateSlots(ctx, tenantID, schoolID, academicYearID, []SlotPayload{})
+	allocs, err := repo.BatchCreateAllocations(ctx, tenantID, schoolID, academicYearID, []CreateAllocationPayload{})
 	require.NoError(t, err)
-	require.Empty(t, slots)
+	require.Empty(t, allocs)
 }
 
-func TestPgRepository_BatchCreateSlots_Conflict(t *testing.T) {
+func TestPgRepository_BatchCreateAllocations_Conflict(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
@@ -826,17 +838,17 @@ func TestPgRepository_BatchCreateSlots_Conflict(t *testing.T) {
 	require.NoError(t, err)
 
 	// Batch with duplicate class+structure in same batch
-	payloads := []SlotPayload{
+	payloads := []CreateAllocationPayload{
 		{BlockID: structID, ClassID: classID, LearningAreaID: learningAreaID, TeacherID: userID},
 		{BlockID: structID, ClassID: classID, LearningAreaID: uuid.New().String(), TeacherID: uuid.New().String()}, // Duplicate class+structure
 	}
 
-	_, err = repo.BatchCreateSlots(ctx, tenantID, schoolID, academicYearID, payloads)
+	_, err = repo.BatchCreateAllocations(ctx, tenantID, schoolID, academicYearID, payloads)
 	require.Error(t, err)
 	require.ErrorIs(t, err, ErrConflict)
 }
 
-func TestPgRepository_UpdateSlot(t *testing.T) {
+func TestPgRepository_UpdateAllocation(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
@@ -854,8 +866,8 @@ func TestPgRepository_UpdateSlot(t *testing.T) {
 		structID, tenantID, schoolID, academicYearID)
 	require.NoError(t, err)
 
-	// Create slot
-	slot, err := repo.CreateSlot(ctx, tenantID, schoolID, academicYearID, SlotPayload{
+	// Create allocation
+	alloc, err := repo.CreateAllocation(ctx, tenantID, schoolID, academicYearID, CreateAllocationPayload{
 		BlockID:        structID,
 		ClassID:        classID,
 		LearningAreaID: learningAreaID,
@@ -864,7 +876,7 @@ func TestPgRepository_UpdateSlot(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Update slot
+	// Update allocation
 	newLearningAreaID := uuid.New().String()
 	_, err = pool.Exec(ctx, `INSERT INTO cbc_learning_areas (id, tenant_id, school_id, name, code, education_level, grade_level) VALUES ($1, $2, $3, 'Kiswahili', 'KISW', 'Upper_Primary', 'G4')`,
 		newLearningAreaID, tenantID, schoolID)
@@ -875,20 +887,20 @@ func TestPgRepository_UpdateSlot(t *testing.T) {
 		newTeacherID, "teacher2@test.com", tenantID, "Teacher 2")
 	require.NoError(t, err)
 
-	updated, err := repo.UpdateSlot(ctx, slot.ID, tenantID, schoolID, UpdateSlotPayload{
+	updated, err := repo.UpdateAllocation(ctx, alloc.ID, tenantID, schoolID, UpdateAllocationPayload{
 		LearningAreaID: newLearningAreaID,
 		TeacherID:      newTeacherID,
 		RoomIdentifier: ptr("Room 202"),
 	})
 	require.NoError(t, err)
-	require.Equal(t, slot.ID, updated.ID)
+	require.Equal(t, alloc.ID, updated.ID)
 	require.Equal(t, newLearningAreaID, updated.LearningAreaID)
 	require.Equal(t, newTeacherID, updated.TeacherID)
 	require.NotNil(t, updated.RoomIdentifier)
 	require.Equal(t, "Room 202", *updated.RoomIdentifier)
 }
 
-func TestPgRepository_UpdateSlot_NotFound(t *testing.T) {
+func TestPgRepository_UpdateAllocation_NotFound(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
@@ -899,7 +911,7 @@ func TestPgRepository_UpdateSlot_NotFound(t *testing.T) {
 	tenantID, schoolID, _, _ := setupTimeBlockTestData(t, pool)
 	repo := newRepo(pool)
 
-	_, err := repo.UpdateSlot(ctx, uuid.New().String(), tenantID, schoolID, UpdateSlotPayload{
+	_, err := repo.UpdateAllocation(ctx, uuid.New().String(), tenantID, schoolID, UpdateAllocationPayload{
 		LearningAreaID: uuid.New().String(),
 		TeacherID:      uuid.New().String(),
 	})
@@ -907,7 +919,7 @@ func TestPgRepository_UpdateSlot_NotFound(t *testing.T) {
 	require.ErrorIs(t, err, ErrNotFound)
 }
 
-func TestPgRepository_UpdateSlot_Conflict(t *testing.T) {
+func TestPgRepository_UpdateAllocation_Conflict(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
@@ -946,8 +958,8 @@ func TestPgRepository_UpdateSlot_Conflict(t *testing.T) {
 		structID2, tenantID, schoolID, academicYearID)
 	require.NoError(t, err)
 
-	// Create two slots with different classes but same teacher
-	_, err = repo.CreateSlot(ctx, tenantID, schoolID, academicYearID, SlotPayload{
+	// Create two allocations with different classes but same teacher
+	_, err = repo.CreateAllocation(ctx, tenantID, schoolID, academicYearID, CreateAllocationPayload{
 		BlockID:        structID1,
 		ClassID:        classID1,
 		LearningAreaID: learningAreaID1,
@@ -955,7 +967,7 @@ func TestPgRepository_UpdateSlot_Conflict(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	slot2, err := repo.CreateSlot(ctx, tenantID, schoolID, academicYearID, SlotPayload{
+	alloc2, err := repo.CreateAllocation(ctx, tenantID, schoolID, academicYearID, CreateAllocationPayload{
 		BlockID:        structID2,
 		ClassID:        classID2,
 		LearningAreaID: learningAreaID2,
@@ -963,36 +975,36 @@ func TestPgRepository_UpdateSlot_Conflict(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Try to update slot2 to have same teacher + structure as slot1 (conflict on unique_teacher_slot)
-	_, err = repo.UpdateSlot(ctx, slot2.ID, tenantID, schoolID, UpdateSlotPayload{
+	// Try to update alloc2 to have same teacher + structure as alloc1 (conflict on unique_teacher_slot)
+	_, err = repo.UpdateAllocation(ctx, alloc2.ID, tenantID, schoolID, UpdateAllocationPayload{
 		LearningAreaID: learningAreaID2,
 		TeacherID:      userID, // Same teacher, but different structure — this should be OK
 		RoomIdentifier: ptr("Room 202"),
 	})
 	require.NoError(t, err) // Different structure, so OK
 
-	// Now create a third structure and try to create a slot with teacher conflict on SAME structure
+	// Now create a third structure and try to create an allocation with teacher conflict on SAME structure
 	structID3 := uuid.New().String()
 	_, err = pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 3', '09:30', '10:10', false)`,
 		structID3, tenantID, schoolID, academicYearID)
 	require.NoError(t, err)
 
-	// Update slot2 to use structID3 and same teacher as slot1 — should conflict
-	_, err = repo.UpdateSlot(ctx, slot2.ID, tenantID, schoolID, UpdateSlotPayload{
+	// Update alloc2 to use structID3 and same teacher as alloc1 — should conflict
+	_, err = repo.UpdateAllocation(ctx, alloc2.ID, tenantID, schoolID, UpdateAllocationPayload{
 		LearningAreaID: learningAreaID2,
-		TeacherID:      userID, // Same teacher as slot1, but slot1 is on structID1
+		TeacherID:      userID, // Same teacher as alloc1, but alloc1 is on structID1
 		RoomIdentifier: ptr("Room 202"),
 	})
 	require.NoError(t, err) // Different structure, so still OK
 
 	// To test teacher conflict, we need to update to same structure
-	// First, create a slot on structID1 with a different teacher
+	// First, create an allocation on structID1 with a different teacher
 	teacher3 := uuid.New().String()
 	_, err = pool.Exec(ctx, `INSERT INTO users (id, email, tenant_id, full_name) VALUES ($1, $2, $3, $4)`,
 		teacher3, "teacher3@test.com", tenantID, "Teacher 3")
 	require.NoError(t, err)
 
-	slot3, err := repo.CreateSlot(ctx, tenantID, schoolID, academicYearID, SlotPayload{
+	alloc3, err := repo.CreateAllocation(ctx, tenantID, schoolID, academicYearID, CreateAllocationPayload{
 		BlockID:        structID1,
 		ClassID:        classID2,
 		LearningAreaID: learningAreaID2,
@@ -1000,17 +1012,17 @@ func TestPgRepository_UpdateSlot_Conflict(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Now try to update slot3 to use userID (teacher conflict on same structure)
-	_, err = repo.UpdateSlot(ctx, slot3.ID, tenantID, schoolID, UpdateSlotPayload{
+	// Now try to update alloc3 to use userID (teacher conflict on same structure)
+	_, err = repo.UpdateAllocation(ctx, alloc3.ID, tenantID, schoolID, UpdateAllocationPayload{
 		LearningAreaID: learningAreaID2,
-		TeacherID:      userID, // Conflict with slot1 on structID1
+		TeacherID:      userID, // Conflict with alloc1 on structID1
 		RoomIdentifier: ptr("Room 203"),
 	})
 	require.Error(t, err)
 	require.ErrorIs(t, err, ErrTeacherDoubleBooked)
 }
 
-func TestPgRepository_DeleteSlot(t *testing.T) {
+func TestPgRepository_DeleteAllocation(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
@@ -1028,7 +1040,7 @@ func TestPgRepository_DeleteSlot(t *testing.T) {
 		structID, tenantID, schoolID, academicYearID)
 	require.NoError(t, err)
 
-	slot, err := repo.CreateSlot(ctx, tenantID, schoolID, academicYearID, SlotPayload{
+	alloc, err := repo.CreateAllocation(ctx, tenantID, schoolID, academicYearID, CreateAllocationPayload{
 		BlockID:        structID,
 		ClassID:        classID,
 		LearningAreaID: learningAreaID,
@@ -1037,17 +1049,17 @@ func TestPgRepository_DeleteSlot(t *testing.T) {
 	require.NoError(t, err)
 
 	// Delete it
-	err = repo.DeleteSlot(ctx, slot.ID, tenantID, schoolID)
+	err = repo.DeleteAllocation(ctx, alloc.ID, tenantID, schoolID)
 	require.NoError(t, err)
 
 	// Verify it's gone
 	var count int
-	err = pool.QueryRow(ctx, `SELECT COUNT(*) FROM timetable_allocations WHERE id = $1`, slot.ID).Scan(&count)
+	err = pool.QueryRow(ctx, `SELECT COUNT(*) FROM timetable_allocations WHERE id = $1`, alloc.ID).Scan(&count)
 	require.NoError(t, err)
 	require.Equal(t, 0, count)
 }
 
-func TestPgRepository_DeleteSlot_NotFound(t *testing.T) {
+func TestPgRepository_DeleteAllocation_NotFound(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
@@ -1058,7 +1070,7 @@ func TestPgRepository_DeleteSlot_NotFound(t *testing.T) {
 	tenantID, schoolID, _, _ := setupTimeBlockTestData(t, pool)
 	repo := newRepo(pool)
 
-	err := repo.DeleteSlot(ctx, uuid.New().String(), tenantID, schoolID)
+	err := repo.DeleteAllocation(ctx, uuid.New().String(), tenantID, schoolID)
 	require.Error(t, err)
 	require.ErrorIs(t, err, ErrNotFound)
 }

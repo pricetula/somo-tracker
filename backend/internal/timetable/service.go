@@ -61,56 +61,56 @@ func (s *ServiceImpl) DeleteBlock(ctx context.Context, id, tenantID, schoolID st
 	return &DeleteResult{Deleted: true}, nil
 }
 
-// ListSlots lists all slots for a tenant/school/year
-func (s *ServiceImpl) ListSlots(ctx context.Context, f SlotFilter) ([]Slot, error) {
-	slots, err := s.repo.ListSlots(ctx, f)
+// ListAllocations lists all allocations with joined names for a tenant/school/year
+func (s *ServiceImpl) ListAllocations(ctx context.Context, f AllocationFilter) ([]Allocation, error) {
+	allocations, err := s.repo.ListAllocations(ctx, f)
 	if err != nil {
-		return nil, fmt.Errorf("timetable.ServiceImpl.ListSlots: %w", err)
+		return nil, fmt.Errorf("timetable.ServiceImpl.ListAllocations: %w", err)
 	}
-	return slots, nil
+	return allocations, nil
 }
 
-// GetSlot retrieves a single slot by ID
-func (s *ServiceImpl) GetSlot(ctx context.Context, id string, tenantID, schoolID string) (*Slot, error) {
-	slot, err := s.repo.GetSlot(ctx, id, tenantID, schoolID)
+// GetAllocation retrieves a single allocation by ID with joined names
+func (s *ServiceImpl) GetAllocation(ctx context.Context, id string, tenantID, schoolID string) (*Allocation, error) {
+	allocation, err := s.repo.GetAllocation(ctx, id, tenantID, schoolID)
 	if err != nil {
-		return nil, fmt.Errorf("timetable.ServiceImpl.GetSlot: %w", err)
+		return nil, fmt.Errorf("timetable.ServiceImpl.GetAllocation: %w", err)
 	}
-	return slot, nil
+	return allocation, nil
 }
 
-// CreateSlot creates a new slot
-func (s *ServiceImpl) CreateSlot(ctx context.Context, tenantID, schoolID, academicYearID string, p SlotPayload) (*Slot, error) {
-	slot, err := s.repo.CreateSlot(ctx, tenantID, schoolID, academicYearID, p)
+// CreateAllocation creates a new allocation
+func (s *ServiceImpl) CreateAllocation(ctx context.Context, tenantID, schoolID, academicYearID string, p CreateAllocationPayload) (*Allocation, error) {
+	allocation, err := s.repo.CreateAllocation(ctx, tenantID, schoolID, academicYearID, p)
 	if err != nil {
-		return nil, fmt.Errorf("timetable.ServiceImpl.CreateSlot: %w", err)
+		return nil, fmt.Errorf("timetable.ServiceImpl.CreateAllocation: %w", err)
 	}
-	return slot, nil
+	return allocation, nil
 }
 
-// BatchCreateSlots creates multiple slots at once
-func (s *ServiceImpl) BatchCreateSlots(ctx context.Context, tenantID, schoolID, academicYearID string, ps []SlotPayload) ([]Slot, error) {
-	slots, err := s.repo.BatchCreateSlots(ctx, tenantID, schoolID, academicYearID, ps)
+// BatchCreateAllocations creates multiple allocations at once
+func (s *ServiceImpl) BatchCreateAllocations(ctx context.Context, tenantID, schoolID, academicYearID string, ps []CreateAllocationPayload) ([]Allocation, error) {
+	allocations, err := s.repo.BatchCreateAllocations(ctx, tenantID, schoolID, academicYearID, ps)
 	if err != nil {
-		return nil, fmt.Errorf("timetable.ServiceImpl.BatchCreateSlots: %w", err)
+		return nil, fmt.Errorf("timetable.ServiceImpl.BatchCreateAllocations: %w", err)
 	}
-	return slots, nil
+	return allocations, nil
 }
 
-// UpdateSlot updates an existing slot
-func (s *ServiceImpl) UpdateSlot(ctx context.Context, id string, tenantID, schoolID string, p UpdateSlotPayload) (*Slot, error) {
-	slot, err := s.repo.UpdateSlot(ctx, id, tenantID, schoolID, p)
+// UpdateAllocation updates an existing allocation
+func (s *ServiceImpl) UpdateAllocation(ctx context.Context, id string, tenantID, schoolID string, p UpdateAllocationPayload) (*Allocation, error) {
+	allocation, err := s.repo.UpdateAllocation(ctx, id, tenantID, schoolID, p)
 	if err != nil {
-		return nil, fmt.Errorf("timetable.ServiceImpl.UpdateSlot: %w", err)
+		return nil, fmt.Errorf("timetable.ServiceImpl.UpdateAllocation: %w", err)
 	}
-	return slot, nil
+	return allocation, nil
 }
 
-// DeleteSlot deletes a slot by ID
-func (s *ServiceImpl) DeleteSlot(ctx context.Context, id, tenantID, schoolID string) error {
-	err := s.repo.DeleteSlot(ctx, id, tenantID, schoolID)
+// DeleteAllocation deletes an allocation by ID
+func (s *ServiceImpl) DeleteAllocation(ctx context.Context, id, tenantID, schoolID string) error {
+	err := s.repo.DeleteAllocation(ctx, id, tenantID, schoolID)
 	if err != nil {
-		return fmt.Errorf("timetable.ServiceImpl.DeleteSlot: %w", err)
+		return fmt.Errorf("timetable.ServiceImpl.DeleteAllocation: %w", err)
 	}
 	return nil
 }
@@ -140,31 +140,4 @@ func (s *ServiceImpl) DeleteTrack(ctx context.Context, id, tenantID, schoolID st
 		return nil, fmt.Errorf("timetable.ServiceImpl.DeleteTrack: %w", err)
 	}
 	return &DeleteResult{Deleted: true}, nil
-}
-
-// CreateAllocation creates a new allocation
-func (s *ServiceImpl) CreateAllocation(ctx context.Context, tenantID, schoolID, blockID string, p CreateAllocationPayload) (*Allocation, error) {
-	allocation, err := s.repo.CreateAllocation(ctx, tenantID, schoolID, blockID, p)
-	if err != nil {
-		return nil, fmt.Errorf("timetable.ServiceImpl.CreateAllocation: %w", err)
-	}
-	return allocation, nil
-}
-
-// UpdateAllocation updates an existing allocation
-func (s *ServiceImpl) UpdateAllocation(ctx context.Context, id, tenantID, schoolID string, p UpdateAllocationPayload) (*Allocation, error) {
-	allocation, err := s.repo.UpdateAllocation(ctx, id, tenantID, schoolID, p)
-	if err != nil {
-		return nil, fmt.Errorf("timetable.ServiceImpl.UpdateAllocation: %w", err)
-	}
-	return allocation, nil
-}
-
-// DeleteAllocation deletes an allocation by ID
-func (s *ServiceImpl) DeleteAllocation(ctx context.Context, id, tenantID, schoolID string) error {
-	err := s.repo.DeleteAllocation(ctx, id, tenantID, schoolID)
-	if err != nil {
-		return fmt.Errorf("timetable.ServiceImpl.DeleteAllocation: %w", err)
-	}
-	return nil
 }

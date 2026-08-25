@@ -422,7 +422,7 @@ func (h *Handler) GetTimetable(c *fiber.Ctx) error {
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
-	slots, err := h.svc.ListSlots(c.Context(), SlotFilter{
+	allocations, err := h.svc.ListAllocations(c.Context(), AllocationFilter{
 		TenantID: tenantID,
 		SchoolID: schoolID,
 	})
@@ -430,8 +430,8 @@ func (h *Handler) GetTimetable(c *fiber.Ctx) error {
 		return middleware.HTTPError(c, err)
 	}
 	return c.JSON(fiber.Map{
-		"structures": blocks,
-		"slots":      slots,
+		"blocks":      blocks,
+		"allocations": allocations,
 	})
 }
 

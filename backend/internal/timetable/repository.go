@@ -153,95 +153,123 @@ func (r *PgRepository) DeleteBlock(ctx context.Context, id, tenantID, schoolID s
 	return nil
 }
 
-func (r *PgRepository) ListSlots(ctx context.Context, f SlotFilter) ([]Slot, error) {
+func (r *PgRepository) ListAllocations(ctx context.Context, f AllocationFilter) ([]Allocation, error) {
 	query := `
-		SELECT id, tenant_id, school_id, academic_year_id, block_id,
-		       class_id, learning_area_id, teacher_id, room_identifier,
-		       created_at, updated_at
-		FROM timetable_allocations
-		WHERE tenant_id = $1 AND school_id = $2
+		SELECT 
+			a.id, a.tenant_id, a.school_id, a.academic_year_id, a.block_id,
+			a.class_id, a.learning_area_id, a.teacher_id, a.room_identifier,
+			a.created_at, a.updated_at,
+			c.grade_level, c.stream_id,
+			la.name AS learning_area_name, la.code AS learning_area_code,
+			u.full_name AS teacher_name,
+			COALESCE(a.room_identifier, '') AS room_name
+		FROM timetable_allocations a
+		JOIN cbc_classes c ON c.tenant_id = a.tenant_id AND c.id = a.class_id
+		JOIN cbc_learning_areas la ON la.tenant_id = a.tenant_id AND la.id = a.learning_area_id
+		JOIN users u ON u.tenant_id = a.tenant_id AND u.id = a.teacher_id
+		WHERE a.tenant_id = $1 AND a.school_id = $2
 	`
 	args := []any{f.TenantID, f.SchoolID}
 	argIdx := 3
 
 	if f.AcademicYearID != "" {
-		query += fmt.Sprintf(" AND academic_year_id = $%d", argIdx)
+		query += fmt.Sprintf(" AND a.academic_year_id = $%d", argIdx)
 		args = append(args, f.AcademicYearID)
 		argIdx++
 	}
 	if f.BlockID != "" {
-		query += fmt.Sprintf(" AND block_id = $%d", argIdx)
+		query += fmt.Sprintf(" AND a.block_id = $%d", argIdx)
 		args = append(args, f.BlockID)
 		argIdx++
 	}
 	if f.ClassID != "" {
-		query += fmt.Sprintf(" AND class_id = $%d", argIdx)
+		query += fmt.Sprintf(" AND a.class_id = $%d", argIdx)
 		args = append(args, f.ClassID)
 		argIdx++
 	}
 	if f.TeacherID != "" {
-		query += fmt.Sprintf(" AND teacher_id = $%d", argIdx)
+		query += fmt.Sprintf(" AND a.teacher_id = $%d", argIdx)
 		args = append(args, f.TeacherID)
 		argIdx++
 	}
 	if f.LearningAreaID != "" {
-		query += fmt.Sprintf(" AND learning_area_id = $%d", argIdx)
+		query += fmt.Sprintf(" AND a.learning_area_id = $%d", argIdx)
 		args = append(args, f.LearningAreaID)
-		argIdx++
 	}
 
-	query += " ORDER BY created_at DESC"
+	query += " ORDER BY a.created_at DESC"
 
 	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("timetable.Repository.ListSlots: %w", err)
+		return nil, fmt.Errorf("timetable.Repository.ListAllocations: %w", err)
 	}
 	defer rows.Close()
 
-	slots := []Slot{}
+	allocations := []Allocation{}
 	for rows.Next() {
-		var s Slot
+		var a Allocation
+		var classGradeLevel, classStreamID string
 		if err := rows.Scan(
-			&s.ID, &s.TenantID, &s.SchoolID, &s.AcademicYearID,
-			&s.BlockID, &s.ClassID, &s.LearningAreaID, &s.TeacherID,
-			&s.RoomIdentifier, &s.CreatedAt, &s.UpdatedAt,
+			&a.ID, &a.TenantID, &a.SchoolID, &a.AcademicYearID, &a.BlockID,
+			&a.ClassID, &a.LearningAreaID, &a.TeacherID, &a.RoomIdentifier,
+			&a.CreatedAt, &a.UpdatedAt,
+			&classGradeLevel, &classStreamID,
+			&a.LearningAreaName, &a.LearningAreaCode,
+			&a.TeacherName,
+			&a.RoomName,
 		); err != nil {
-			return nil, fmt.Errorf("timetable.Repository.ListSlots: scan: %w", err)
+			return nil, fmt.Errorf("timetable.Repository.ListAllocations: scan: %w", err)
 		}
-		slots = append(slots, s)
+		// Build class name from grade level and stream
+		a.ClassName = fmt.Sprintf("Grade %s%s", classGradeLevel, classStreamID)
+		allocations = append(allocations, a)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("timetable.Repository.ListSlots: rows: %w", err)
+		return nil, fmt.Errorf("timetable.Repository.ListAllocations: rows: %w", err)
 	}
 
-	return slots, nil
+	return allocations, nil
 }
 
-func (r *PgRepository) GetSlot(ctx context.Context, id, tenantID, schoolID string) (*Slot, error) {
+func (r *PgRepository) GetAllocation(ctx context.Context, id, tenantID, schoolID string) (*Allocation, error) {
 	const query = `
-		SELECT id, tenant_id, school_id, academic_year_id, block_id,
-		       class_id, learning_area_id, teacher_id, room_identifier,
-		       created_at, updated_at
-		FROM timetable_allocations
-		WHERE id = $1 AND tenant_id = $2 AND school_id = $3
+		SELECT 
+			a.id, a.tenant_id, a.school_id, a.academic_year_id, a.block_id,
+			a.class_id, a.learning_area_id, a.teacher_id, a.room_identifier,
+			a.created_at, a.updated_at,
+			c.grade_level, c.stream_id,
+			la.name AS learning_area_name, la.code AS learning_area_code,
+			u.full_name AS teacher_name,
+			COALESCE(a.room_identifier, '') AS room_name
+		FROM timetable_allocations a
+		JOIN cbc_classes c ON c.tenant_id = a.tenant_id AND c.id = a.class_id
+		JOIN cbc_learning_areas la ON la.tenant_id = a.tenant_id AND la.id = a.learning_area_id
+		JOIN users u ON u.tenant_id = a.tenant_id AND u.id = a.teacher_id
+		WHERE a.id = $1 AND a.tenant_id = $2 AND a.school_id = $3
 	`
 
-	var s Slot
+	var a Allocation
+	var classGradeLevel, classStreamID string
 	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, id, tenantID, schoolID).Scan(
-		&s.ID, &s.TenantID, &s.SchoolID, &s.AcademicYearID,
-		&s.BlockID, &s.ClassID, &s.LearningAreaID, &s.TeacherID,
-		&s.RoomIdentifier, &s.CreatedAt, &s.UpdatedAt,
+		&a.ID, &a.TenantID, &a.SchoolID, &a.AcademicYearID, &a.BlockID,
+		&a.ClassID, &a.LearningAreaID, &a.TeacherID, &a.RoomIdentifier,
+		&a.CreatedAt, &a.UpdatedAt,
+		&classGradeLevel, &classStreamID,
+		&a.LearningAreaName, &a.LearningAreaCode,
+		&a.TeacherName,
+		&a.RoomName,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, fmt.Errorf("timetable.Repository.GetSlot: %w", ErrNotFound)
+			return nil, fmt.Errorf("timetable.Repository.GetAllocation: %w", ErrNotFound)
 		}
-		return nil, fmt.Errorf("timetable.Repository.GetSlot: %w", err)
+		return nil, fmt.Errorf("timetable.Repository.GetAllocation: %w", err)
 	}
-	return &s, nil
+	a.ClassName = fmt.Sprintf("Grade %s%s", classGradeLevel, classStreamID)
+	return &a, nil
 }
 
-func (r *PgRepository) CreateSlot(ctx context.Context, tenantID, schoolID, academicYearID string, p SlotPayload) (*Slot, error) {
+func (r *PgRepository) CreateAllocation(ctx context.Context, tenantID, schoolID, academicYearID string, p CreateAllocationPayload) (*Allocation, error) {
 	const query = `
 		INSERT INTO timetable_allocations (tenant_id, school_id, academic_year_id, block_id,
 		                                 class_id, learning_area_id, teacher_id, room_identifier)
@@ -251,30 +279,30 @@ func (r *PgRepository) CreateSlot(ctx context.Context, tenantID, schoolID, acade
 		          created_at, updated_at
 	`
 
-	var s Slot
+	var a Allocation
 	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query,
 		tenantID, schoolID, academicYearID, p.BlockID,
 		p.ClassID, p.LearningAreaID, p.TeacherID, p.RoomIdentifier,
 	).Scan(
-		&s.ID, &s.TenantID, &s.SchoolID, &s.AcademicYearID,
-		&s.BlockID, &s.ClassID, &s.LearningAreaID, &s.TeacherID,
-		&s.RoomIdentifier, &s.CreatedAt, &s.UpdatedAt,
+		&a.ID, &a.TenantID, &a.SchoolID, &a.AcademicYearID,
+		&a.BlockID, &a.ClassID, &a.LearningAreaID, &a.TeacherID,
+		&a.RoomIdentifier, &a.CreatedAt, &a.UpdatedAt,
 	)
 	if err != nil {
 		if isUniqueViolation(err) {
-			return nil, fmt.Errorf("timetable.Repository.CreateSlot: %w", classifySlotConflict(err))
+			return nil, fmt.Errorf("timetable.Repository.CreateAllocation: %w", classifyAllocationConflict(err))
 		}
-		return nil, fmt.Errorf("timetable.Repository.CreateSlot: %w", err)
+		return nil, fmt.Errorf("timetable.Repository.CreateAllocation: %w", err)
 	}
-	return &s, nil
+	return &a, nil
 }
 
-func classifySlotConflict(err error) error {
+func classifyAllocationConflict(err error) error {
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) {
 		switch pgErr.ConstraintName {
 		case "unique_class_slot":
-			return ErrClassSlotOccupied
+			return ErrClassAllocationOccupied
 		case "unique_teacher_slot":
 			return ErrTeacherDoubleBooked
 		case "unique_room_slot":
@@ -284,19 +312,19 @@ func classifySlotConflict(err error) error {
 	return ErrConflict
 }
 
-func (r *PgRepository) BatchCreateSlots(ctx context.Context, tenantID, schoolID, academicYearID string, payloads []SlotPayload) ([]Slot, error) {
+func (r *PgRepository) BatchCreateAllocations(ctx context.Context, tenantID, schoolID, academicYearID string, payloads []CreateAllocationPayload) ([]Allocation, error) {
 	if len(payloads) == 0 {
-		return []Slot{}, nil
+		return []Allocation{}, nil
 	}
 
 	tx, err := database.Begin(ctx, r.pool)
 	if err != nil {
-		return nil, fmt.Errorf("timetable.Repository.BatchCreateSlots: begin tx: %w", err)
+		return nil, fmt.Errorf("timetable.Repository.BatchCreateAllocations: begin tx: %w", err)
 	}
 	defer func() {
 		if err != nil {
 			if rbErr := tx.Rollback(ctx); rbErr != nil {
-				r.logger.Warnw("timetable.Repository.BatchCreateSlots: rollback error", "error", rbErr)
+				r.logger.Warnw("timetable.Repository.BatchCreateAllocations: rollback error", "error", rbErr)
 			}
 		}
 	}()
@@ -317,36 +345,36 @@ func (r *PgRepository) BatchCreateSlots(ctx context.Context, tenantID, schoolID,
 
 	results := tx.SendBatch(ctx, batch)
 
-	allSlots := make([]Slot, 0, len(payloads))
+	allAllocations := make([]Allocation, 0, len(payloads))
 	for range payloads {
-		var s Slot
+		var a Allocation
 		err = results.QueryRow().Scan(
-			&s.ID, &s.TenantID, &s.SchoolID, &s.AcademicYearID,
-			&s.BlockID, &s.ClassID, &s.LearningAreaID, &s.TeacherID,
-			&s.RoomIdentifier, &s.CreatedAt, &s.UpdatedAt,
+			&a.ID, &a.TenantID, &a.SchoolID, &a.AcademicYearID,
+			&a.BlockID, &a.ClassID, &a.LearningAreaID, &a.TeacherID,
+			&a.RoomIdentifier, &a.CreatedAt, &a.UpdatedAt,
 		)
 		if err != nil {
 			_ = results.Close()
 			if isUniqueViolation(err) {
-				return nil, fmt.Errorf("timetable.Repository.BatchCreateSlots: %w", ErrConflict)
+				return nil, fmt.Errorf("timetable.Repository.BatchCreateAllocations: %w", ErrConflict)
 			}
-			return nil, fmt.Errorf("timetable.Repository.BatchCreateSlots: insert: %w", err)
+			return nil, fmt.Errorf("timetable.Repository.BatchCreateAllocations: insert: %w", err)
 		}
-		allSlots = append(allSlots, s)
+		allAllocations = append(allAllocations, a)
 	}
 
 	// Ensure all batch results are consumed before commit
 	if err = results.Close(); err != nil {
-		return nil, fmt.Errorf("timetable.Repository.BatchCreateSlots: close batch: %w", err)
+		return nil, fmt.Errorf("timetable.Repository.BatchCreateAllocations: close batch: %w", err)
 	}
 
 	if err = tx.Commit(ctx); err != nil {
-		return nil, fmt.Errorf("timetable.Repository.BatchCreateSlots: commit tx: %w", err)
+		return nil, fmt.Errorf("timetable.Repository.BatchCreateAllocations: commit tx: %w", err)
 	}
-	return allSlots, nil
+	return allAllocations, nil
 }
 
-func (r *PgRepository) UpdateSlot(ctx context.Context, id, tenantID, schoolID string, p UpdateSlotPayload) (*Slot, error) {
+func (r *PgRepository) UpdateAllocation(ctx context.Context, id, tenantID, schoolID string, p UpdateAllocationPayload) (*Allocation, error) {
 	const query = `
 		UPDATE timetable_allocations
 		SET learning_area_id = $1, teacher_id = $2, room_identifier = $3, updated_at = NOW()
@@ -356,34 +384,34 @@ func (r *PgRepository) UpdateSlot(ctx context.Context, id, tenantID, schoolID st
 		          created_at, updated_at
 	`
 
-	var s Slot
+	var a Allocation
 	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query,
 		p.LearningAreaID, p.TeacherID, p.RoomIdentifier, id, tenantID, schoolID,
 	).Scan(
-		&s.ID, &s.TenantID, &s.SchoolID, &s.AcademicYearID,
-		&s.BlockID, &s.ClassID, &s.LearningAreaID, &s.TeacherID,
-		&s.RoomIdentifier, &s.CreatedAt, &s.UpdatedAt,
+		&a.ID, &a.TenantID, &a.SchoolID, &a.AcademicYearID,
+		&a.BlockID, &a.ClassID, &a.LearningAreaID, &a.TeacherID,
+		&a.RoomIdentifier, &a.CreatedAt, &a.UpdatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, fmt.Errorf("timetable.Repository.UpdateSlot: %w", ErrNotFound)
+			return nil, fmt.Errorf("timetable.Repository.UpdateAllocation: %w", ErrNotFound)
 		}
 		if isUniqueViolation(err) {
-			return nil, fmt.Errorf("timetable.Repository.UpdateSlot: %w", classifySlotConflict(err))
+			return nil, fmt.Errorf("timetable.Repository.UpdateAllocation: %w", classifyAllocationConflict(err))
 		}
-		return nil, fmt.Errorf("timetable.Repository.UpdateSlot: %w", err)
+		return nil, fmt.Errorf("timetable.Repository.UpdateAllocation: %w", err)
 	}
-	return &s, nil
+	return &a, nil
 }
 
-func (r *PgRepository) DeleteSlot(ctx context.Context, id, tenantID, schoolID string) error {
+func (r *PgRepository) DeleteAllocation(ctx context.Context, id, tenantID, schoolID string) error {
 	const query = `DELETE FROM timetable_allocations WHERE id = $1 AND tenant_id = $2 AND school_id = $3`
 	tag, err := database.FromContext(ctx, r.pool).Exec(ctx, query, id, tenantID, schoolID)
 	if err != nil {
-		return fmt.Errorf("timetable.Repository.DeleteSlot: %w", err)
+		return fmt.Errorf("timetable.Repository.DeleteAllocation: %w", err)
 	}
 	if tag.RowsAffected() == 0 {
-		return fmt.Errorf("timetable.Repository.DeleteSlot: %w", ErrNotFound)
+		return fmt.Errorf("timetable.Repository.DeleteAllocation: %w", ErrNotFound)
 	}
 	return nil
 }
@@ -406,14 +434,5 @@ func (r *PgRepository) UpdateTrack(ctx context.Context, id, tenantID, schoolID s
 	return nil, fmt.Errorf("not implemented")
 }
 func (r *PgRepository) DeleteTrack(ctx context.Context, id, tenantID, schoolID string) error {
-	return fmt.Errorf("not implemented")
-}
-func (r *PgRepository) CreateAllocation(ctx context.Context, tenantID, schoolID, blockID string, p CreateAllocationPayload) (*Allocation, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-func (r *PgRepository) UpdateAllocation(ctx context.Context, id, tenantID, schoolID string, p UpdateAllocationPayload) (*Allocation, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-func (r *PgRepository) DeleteAllocation(ctx context.Context, id, tenantID, schoolID string) error {
 	return fmt.Errorf("not implemented")
 }

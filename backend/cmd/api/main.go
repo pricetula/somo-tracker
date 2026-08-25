@@ -36,6 +36,7 @@ import (
 	"somotracker/backend/internal/teacherperformance"
 	"somotracker/backend/internal/teachers"
 	"somotracker/backend/internal/teacherworkloadsummaries"
+	"somotracker/backend/internal/telemetry"
 	"somotracker/backend/internal/timetable"
 	"somotracker/backend/internal/utils"
 )
@@ -47,6 +48,7 @@ func main() {
 		logger.Module,
 		database.Module,
 		utils.Module,
+		telemetry.Module,
 
 		// Feature modules
 		academicyears.Module,

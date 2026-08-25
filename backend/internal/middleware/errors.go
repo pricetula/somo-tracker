@@ -12,7 +12,8 @@
 // code is always a snake_case string the frontend can switch on
 // (e.g. "member_not_found", "invalid_member_input", "unauthorized").
 // message is a safe, human-readable string. For 500 errors it must be a
-// generic string — never an internal detail.
+// generic
+// — never an internal detail.
 // errors is an optional field populated exclusively on validation or
 // semantic failures (e.g. 400 Bad Request, 422 Unprocessable Entity).
 // It can be a map of field→messages or any other structured data
@@ -30,6 +31,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
+	"somotracker/backend/internal/telemetry"
 	"somotracker/backend/internal/xerrors"
 )
 
@@ -54,6 +56,24 @@ var (
 	}
 )
 
+func handleSpecialErrors(c *fiber.Ctx, err error) error {
+	switch {
+	case errors.Is(err, context.Canceled):
+		return c.Status(499).JSON(withRequestID(c, fiber.Map{
+			"code":    string(xerrors.CodeRequestCanceled),
+			"message": "the request was canceled",
+		}))
+	case errors.Is(err, context.DeadlineExceeded):
+		return c.Status(fiber.StatusGatewayTimeout).JSON(withRequestID(c, fiber.Map{
+			"code":    string(xerrors.CodeTimeout),
+			"message": "the request timed out",
+		}))
+	}
+
+	// Let the fiber error handler deal with Fiber errors
+	return c.Next() // falls through to global handler
+}
+
 // HTTPError is the single place where errors are mapped to HTTP status
 // codes and JSON response bodies. All handlers must call this function
 // instead of duplicating error-mapping logic inline.
@@ -77,92 +97,175 @@ func HTTPError(c *fiber.Ctx, err error) error {
 	// Try to extract a *xerrors.DomainError from the chain.
 	var de *xerrors.DomainError
 	if errors.As(err, &de) {
-		// Build the response body.
-		// Use err.Error() for the message — it includes context added by
-		// callers via xerrors.Wrap/Wrapf. For 500 errors we replace it
-		// with a generic message to avoid leaking internals.
-		resp := withRequestID(c, fiber.Map{
-			"code":    de.Code,
-			"message": err.Error(),
-		})
-
-		// Check for field-level validation errors (middleware.FieldError or
-		// any error implementing FieldErrors() interface).
-		type hasFieldErrors interface{ FieldErrors() map[string][]string }
-		if fe, ok := err.(hasFieldErrors); ok && len(fe.FieldErrors()) > 0 {
-			resp["errors"] = fe.FieldErrors()
-		} else if len(de.Fields) > 0 {
-			resp["errors"] = de.Fields
-		}
-
-		// Check for extra metadata (implemented by custom error types
-		// that embed *xerrors.DomainError).
-		var details any
-		if hd, ok := err.(xerrors.HasDetails); ok {
-			details = hd.ErrorDetails()
-		}
-		if details != nil {
-			resp["errors"] = details
-		}
-
-		// Log internal/unexpected errors only — the rest are client errors.
-		if de.Status == fiber.StatusInternalServerError {
-			resp["message"] = "an unexpected error occurred"
-			fields := []interface{}{
-				"method", c.Method(),
-				"path", c.Path(),
-				"code", de.Code,
-				"error", err.Error(),
-			}
-			if rid := GetRequestID(c); rid != "" {
-				fields = append(fields, "request_id", rid)
-			}
-			loggerFrom(c).Errorw("HTTPError: internal error", fields...)
-		}
-
-		return c.Status(de.Status).JSON(resp)
+		return handleDomainError(c, err, de)
 	}
 
 	// Special cases that aren't DomainErrors but have standard mappings.
+	return handleSpecialErrors(c, err)
+}
+
+// handleDomainError processes a DomainError and sends to telemetry.
+func handleDomainError(c *fiber.Ctx, err error, de *xerrors.DomainError) error {
+	// Build telemetry request with context
+	req := buildTelemetryRequest(c)
+
+	// Add error metadata to telemetry request
+	if de.Meta != nil && len(de.Meta) > 0 {
+		if req.Context == nil {
+			req.Context = make(map[string]any)
+		}
+		for k, v := range de.Meta {
+			req.Context["error_meta_"+k] = v
+		}
+	}
+
+	// Add source location if available
+	if de.Source != nil {
+		if req.Context == nil {
+			req.Context = make(map[string]any)
+		}
+		req.Context["error_source"] = map[string]any{
+			"package":  de.Source.Package,
+			"function": de.Source.Function,
+			"file":     de.Source.File,
+			"line":     de.Source.Line,
+		}
+	}
+
+	// Select and apply policy
+	policy := selectPolicy(de)
+	policy.Apply(c.Context(), req, de)
+
+	// Build the response body
+	resp := buildResponseBody(c, err)
+
+	// Sanitize 500 messages per policy
+	if de.Status == fiber.StatusInternalServerError {
+		resp["message"] = "an unexpected error occurred"
+	}
+
+	return c.Status(statusForError(err)).JSON(resp)
+}
+
+// buildTelemetryRequest creates a telemetry request from Fiber context.
+func buildTelemetryRequest(c *fiber.Ctx) *xerrors.TelemetryRequest {
+	req := &xerrors.TelemetryRequest{
+		Method:  c.Method(),
+		Path:    c.Path(),
+		Query:   make(map[string][]string),
+		Context: make(map[string]any),
+	}
+
+	// Extract request ID via resolver
+	if telemetry.RequestIDResolver != nil {
+		if rid := telemetry.RequestIDResolver(c); rid != "" {
+			req.RequestID = rid
+		}
+	}
+
+	// Extract session context via resolver
+	if telemetry.SessionResolver != nil {
+		if sess := telemetry.SessionResolver(c); sess != nil {
+			req.UserID = sess.UserID
+			req.TenantID = sess.TenantID
+			if req.Context == nil {
+				req.Context = make(map[string]any)
+			}
+			req.Context["role"] = sess.Role
+			req.Context["stytch_member_id"] = sess.StytchMemberID
+		}
+	}
+
+	// Extract key headers
+	req.Headers = make(map[string]string)
+	for _, h := range []string{"user-agent", "referer", "x-forwarded-for"} {
+		if v := c.Get(h); v != "" {
+			req.Headers[h] = v
+		}
+	}
+
+	return req
+}
+
+// selectPolicy returns the appropriate error policy based on the domain error.
+func selectPolicy(de *xerrors.DomainError) *telemetry.ErrorPolicy {
 	switch {
-	case errors.Is(err, context.Canceled):
-		return c.Status(499).JSON(withRequestID(c, fiber.Map{
-			"code":    string(xerrors.CodeRequestCanceled),
-			"message": "the request was canceled",
-		}))
-	case errors.Is(err, context.DeadlineExceeded):
-		return c.Status(fiber.StatusGatewayTimeout).JSON(withRequestID(c, fiber.Map{
-			"code":    string(xerrors.CodeTimeout),
-			"message": "the request timed out",
-		}))
+	case de.Status >= 500:
+		return telemetry.InternalErrorPolicy()
+	case de.Status == http.StatusUnauthorized || de.Status == http.StatusForbidden:
+		return telemetry.AuthPolicy()
+	case de.Status >= 400:
+		return telemetry.ValidationPolicy()
+	default:
+		return telemetry.DefaultPolicy()
+	}
+}
+
+// buildResponseBody constructs the JSON response body.
+func buildResponseBody(c *fiber.Ctx, err error) fiber.Map {
+	var code string
+	var message string
+
+	var de *xerrors.DomainError
+	if errors.As(err, &de) {
+		code = de.Code
+		message = err.Error()
+
+	} else {
+		// Handle special cases
+		switch {
+		case errors.Is(err, context.Canceled):
+			code = string(xerrors.CodeRequestCanceled)
+			message = "the request was canceled"
+
+		case errors.Is(err, context.DeadlineExceeded):
+			code = string(xerrors.CodeTimeout)
+			message = "the request timed out"
+
+		default:
+			// Fiber errors or unknown errors
+			var fe *fiber.Error
+			if errors.As(err, &fe) {
+				code = fiberErrToCode(fe.Code)
+				message = fe.Message
+
+			} else {
+				code = string(xerrors.CodeInternalError)
+				message = "an unexpected error occurred"
+
+			}
+		}
 	}
 
-	// Handle Fiber's built-in HTTP errors (404, 405, etc.) by mapping them
-	// to the canonical JSON format instead of returning HTML/text.
-	var fe *fiber.Error
-	if errors.As(err, &fe) {
-		code := fiberErrToCode(fe.Code)
-		return c.Status(fe.Code).JSON(withRequestID(c, fiber.Map{
-			"code":    code,
-			"message": fe.Message,
-		}))
+	resp := fiber.Map{
+		"code":    code,
+		"message": message,
 	}
 
-	// Unknown error — something leaked through without a domain wrapper.
-	// Log it and return a generic 500.
-	fields := []interface{}{
-		"method", c.Method(),
-		"path", c.Path(),
-		"error", err.Error(),
+	// Check for field-level validation errors
+	type hasFieldErrors interface{ FieldErrors() map[string][]string }
+	if fe, ok := err.(hasFieldErrors); ok && len(fe.FieldErrors()) > 0 {
+		resp["errors"] = fe.FieldErrors()
+	} else if de, ok := err.(*xerrors.DomainError); ok && len(de.Fields) > 0 {
+		resp["errors"] = de.Fields
 	}
+
+	// Check for extra metadata (implemented by custom error types
+	// that embed *xerrors.DomainError).
+	var details any
+	if hd, ok := err.(xerrors.HasDetails); ok {
+		details = hd.ErrorDetails()
+	}
+	if details != nil {
+		resp["errors"] = details
+	}
+
+	// Add request ID to response
 	if rid := GetRequestID(c); rid != "" {
-		fields = append(fields, "request_id", rid)
+		resp["request_id"] = rid
 	}
-	loggerFrom(c).Errorw("HTTPError: unclassified error — wrap with xerrors.DomainError", fields...)
-	return c.Status(fiber.StatusInternalServerError).JSON(withRequestID(c, fiber.Map{
-		"code":    string(xerrors.CodeInternalError),
-		"message": "an unexpected error occurred",
-	}))
+
+	return resp
 }
 
 // fiberErrToCode maps Fiber HTTP status codes to our canonical error codes.

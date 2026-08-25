@@ -13,19 +13,32 @@
 package xerrors
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
+	"runtime"
+	"strings"
 )
 
 // DomainError is a structured error that crosses layer boundaries.
 // It implements error and Unwrap interfaces so that both
 // errors.Is/errors.As and the HTTP middleware can inspect it.
+//
+// Fields:
+//   - Code: Machine-readable snake_case error code (e.g. "member_not_found")
+//   - Message: Human-readable message safe for client consumption
+//   - Status: HTTP status code (not serialized to client)
+//   - Fields: Optional field-level validation errors (serialized to "errors")
+//   - Meta: Internal metadata for telemetry/observability (NOT serialized to client)
+//   - Source: Source code location where error was created (NOT serialized to client)
 type DomainError struct {
 	Code    string              `json:"code"`
 	Message string              `json:"message"`
 	Status  int                 `json:"-"`
 	Fields  map[string][]string `json:"errors,omitempty"`
+	Meta    map[string]any      `json:"-"`
+	Source  *ErrorSource        `json:"-"`
 }
 
 func (e *DomainError) Error() string {
@@ -40,6 +53,84 @@ func (e *DomainError) Unwrap() error { return nil }
 // ErrorDetails returns any extra metadata for the response body.
 // Implemented by custom error types that embed *DomainError.
 func (e *DomainError) ErrorDetails() any { return nil }
+
+// HasMeta is an interface for errors that carry internal telemetry metadata.
+// Implemented by DomainError to expose Meta without type assertion.
+type HasMeta interface {
+	ErrorMeta() map[string]any
+}
+
+func (e *DomainError) ErrorMeta() map[string]any { return e.Meta }
+
+// ErrorSource captures where an error was created for debugging.
+// Not serialized to the client response.
+type ErrorSource struct {
+	Package  string
+	Function string
+	File     string
+	Line     int
+}
+
+// WithMeta attaches internal metadata for telemetry/observability.
+// This metadata is NOT sent to the client response but is available
+// to telemetry sinks for debugging and monitoring.
+//
+// Usage:
+//
+//	err := xerrors.New("db_timeout", 504, "query timed out")
+//	err = xerrors.WithMeta(err, map[string]any{
+//		"query":     "SELECT * FROM users WHERE id = $1",
+//		"duration":  5000,
+//		"attempt":   3,
+//	})
+func WithMeta(de *DomainError, meta map[string]any) *DomainError {
+	if de.Meta == nil {
+		de.Meta = make(map[string]any)
+	}
+	for k, v := range meta {
+		de.Meta[k] = v
+	}
+	return de
+}
+
+// WithSource captures the source code location.
+// Intended to be called via xerrors.CaptureSource() at the error creation site.
+func WithSource(de *DomainError, source *ErrorSource) *DomainError {
+	de.Source = source
+	return de
+}
+
+// CaptureSource returns an ErrorSource for the caller's location.
+// Use this when creating errors to automatically capture file/function/line.
+//
+// Usage:
+//
+//	return xerrors.New("db_error", 500, "query failed").WithSource(xerrors.CaptureSource(1))
+func CaptureSource(skip int) *ErrorSource {
+	pc, file, line, ok := runtime.Caller(skip + 1)
+	if !ok {
+		return nil
+	}
+	fn := runtime.FuncForPC(pc)
+	var pkg, function string
+	if fn != nil {
+		// Extract package and function name from full path
+		fullName := fn.Name()
+		// Format: github.com/user/repo/pkg.Func
+		if idx := strings.LastIndex(fullName, "."); idx != -1 {
+			pkg = fullName[:idx]
+			function = fullName[idx+1:]
+		} else {
+			function = fullName
+		}
+	}
+	return &ErrorSource{
+		Package:  pkg,
+		Function: function,
+		File:     file,
+		Line:     line,
+	}
+}
 
 // ── Wrapping helpers ──────────────────────────────────────────────────────
 
@@ -70,6 +161,49 @@ func Wrapf(err error, format string, args ...any) error {
 	return fmt.Errorf(format+": %w", append(args, err)...)
 }
 
+// WrapMeta wraps an error with additional metadata while preserving the chain.
+// The metadata is merged with any existing Meta on the underlying DomainError.
+//
+// Usage:
+//
+//	return xerrors.WrapMeta(err, "users.Service.CreateUser", map[string]any{
+//		"user_id": userID,
+//		"email":   email,
+//	})
+func WrapMeta(err error, msg string, meta map[string]any) error {
+	if err == nil {
+		return nil
+	}
+	wrapped := fmt.Errorf("%s: %w", msg, err)
+
+	// Try to update the underlying DomainError's Meta if present
+	var de *DomainError
+	if errors.As(err, &de) {
+		// Merge metadata with existing
+		merged := make(map[string]any)
+		if de.Meta != nil {
+			for k, v := range de.Meta {
+				merged[k] = v
+			}
+		}
+		for k, v := range meta {
+			merged[k] = v
+		}
+		// Update the existing DomainError's Meta directly
+		de.Meta = merged
+	}
+
+	return wrapped
+}
+
+// WrapMetaf is like WrapMeta but with formatted message.
+func WrapMetaf(err error, meta map[string]any, format string, args ...any) error {
+	if err == nil {
+		return nil
+	}
+	return WrapMeta(err, fmt.Sprintf(format, args...), meta)
+}
+
 // ── IsDomainError / AsDomainError ─────────────────────────────────────────
 
 // Is is a convenience wrapper around errors.Is for *DomainError comparands.
@@ -80,6 +214,16 @@ func As(err error) (*DomainError, bool) {
 	var de *DomainError
 	ok := errors.As(err, &de)
 	return de, ok
+}
+
+// GetMeta extracts the Meta map from the nearest DomainError in the chain.
+// Returns nil if no DomainError with Meta is found.
+func GetMeta(err error) map[string]any {
+	var de *DomainError
+	if errors.As(err, &de) && de.Meta != nil {
+		return de.Meta
+	}
+	return nil
 }
 
 // ── Error Codes (constants for compile-time safety) ───────────────────────
@@ -103,7 +247,7 @@ const (
 )
 
 // ── Sentinels ─────────────────────────────────────────────────────────────
-//
+
 // These package-level sentinels are used by middleware (auth.go, etc.)
 // that must return errors without a domain context. Domain packages should
 // define their own sentinels using the constructors below.
@@ -136,6 +280,15 @@ var ErrDeviceFingerprintMismatch = &DomainError{
 // can distinguish it from "session_ref_expired" or "mfa_required".
 func New(code string, status int, message string) *DomainError {
 	return &DomainError{Code: code, Status: status, Message: message}
+}
+
+// NewWithMeta creates a DomainError with initial metadata for telemetry.
+func NewWithMeta(code string, status int, message string, meta map[string]any) *DomainError {
+	de := &DomainError{Code: code, Status: status, Message: message}
+	if meta != nil {
+		de.Meta = meta
+	}
+	return de
 }
 
 func NotFound(msg string) *DomainError {
@@ -188,6 +341,34 @@ func WithFields(de *DomainError, fields map[string][]string) *DomainError {
 // of the canonical JSON response.
 type HasDetails interface {
 	ErrorDetails() any
+}
+
+// ── Telemetry Interface ────────────────────────────────────────────────────
+
+// TelemetrySink defines the interface for error telemetry backends.
+// Implementation examples: Sentry, Datadog, New Relic, Prometheus, custom.
+type TelemetrySink interface {
+	// ProcessError receives error details for telemetry.
+	// Must be safe to call from goroutines.
+	ProcessError(ctx context.Context, err *DomainError, req *TelemetryRequest)
+	// Flush ensures all buffered data is sent.
+	// Called during server shutdown.
+	Flush(ctx context.Context) error
+	// Name returns the sink's identifier for logging/debugging.
+	Name() string
+}
+
+// TelemetryRequest contains contextual information about the error occurrence.
+type TelemetryRequest struct {
+	Method    string
+	Path      string
+	Query     map[string][]string
+	Headers   map[string]string
+	UserID    string
+	TenantID  string
+	RequestID string
+	// Context is additional structured data from the request
+	Context map[string]any
 }
 
 // ── pgx Helpers ───────────────────────────────────────────────────────────

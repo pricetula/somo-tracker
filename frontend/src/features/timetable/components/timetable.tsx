@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 export function TimeTable() {
     const { data, isLoading } = useTimetableView();
 
-    if (!isLoading) {
+    if (isLoading) {
         return (
             <article className="relative max-h-150 w-full overflow-auto rounded-md border text-xs">
                 <table className="w-full">
@@ -52,6 +52,8 @@ export function TimeTable() {
             </article>
         );
     }
+
+    if (!data) return null;
 
     const { days = [], rows = [] } = data as TimetableViewResult;
 

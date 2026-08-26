@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS timetable_blocks (
     start_time       TIME             NOT NULL,
     end_time         TIME             NOT NULL,
     is_break         BOOLEAN          NOT NULL DEFAULT FALSE,
+    order_index      INT              NOT NULL DEFAULT 1,
     created_at       TIMESTAMPTZ      NOT NULL DEFAULT NOW(),
     updated_at       TIMESTAMPTZ      NOT NULL DEFAULT NOW(),
 
@@ -40,6 +41,8 @@ CREATE INDEX IF NOT EXISTS idx_timetable_block_track
     ON timetable_blocks (track_id);
 CREATE INDEX IF NOT EXISTS idx_timetable_block_school_day
     ON timetable_blocks (school_id, day_of_week);
+CREATE INDEX IF NOT EXISTS idx_timetable_block_order
+    ON timetable_blocks (track_id, day_of_week, order_index);
 
 DROP TRIGGER IF EXISTS trg_timetable_blocks_updated_at ON timetable_blocks;
 CREATE TRIGGER trg_timetable_blocks_updated_at
@@ -69,3 +72,6 @@ COMMENT ON COLUMN timetable_blocks.period_name IS
 COMMENT ON COLUMN timetable_blocks.is_break IS
     'Flags recess, lunch, or other non-instructional blocks. UI can use this to
      disable assignment cells and render break rows in a distinct style.';
+COMMENT ON COLUMN timetable_blocks.order_index IS
+    'Sorting order for blocks within a day per track. Ensures blocks are
+     returned and rendered in sequence (Period 1, Period 2, Break, etc.).';

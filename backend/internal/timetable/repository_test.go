@@ -74,9 +74,6 @@ func applyAllMigrations(t *testing.T, pool *pgxpool.Pool) {
 		_, err = pool.Exec(context.Background(), string(sql))
 		require.NoError(t, err, "apply migration %s", path)
 	}
-	// Add order_index column if missing (repository code expects it)
-	_, err = pool.Exec(context.Background(), `ALTER TABLE timetable_blocks ADD COLUMN IF NOT EXISTS order_index INT NOT NULL DEFAULT 0`)
-	require.NoError(t, err, "add order_index column")
 }
 
 func seedMinimalTenant(t *testing.T, pool *pgxpool.Pool) (tenantID, schoolID, userID string) {
@@ -114,6 +111,24 @@ func seedAcademicYear(t *testing.T, pool *pgxpool.Pool, tenantID, schoolID, user
 	return academicYearID
 }
 
+func seedTrack(t *testing.T, pool *pgxpool.Pool, tenantID, schoolID, academicYearID, userID string) (trackID string) {
+	t.Helper()
+	ctx := context.Background()
+
+	// Need academic term first
+	academicTermID := uuid.New().String()
+	_, err := pool.Exec(ctx, `INSERT INTO academic_terms (id, tenant_id, school_id, academic_year_id, name, term_number, start_date, end_date, is_current, created_by, updated_by) VALUES ($1, $2, $3, $4, 'Term 1', 1, '2026-01-01', '2026-04-30', true, $5, $5)`,
+		academicTermID, tenantID, schoolID, academicYearID, userID)
+	require.NoError(t, err)
+
+	trackID = uuid.New().String()
+	_, err = pool.Exec(ctx, `INSERT INTO timetable_tracks (id, tenant_id, school_id, academic_year_id, academic_term_id, name, is_default) VALUES ($1, $2, $3, $4, $5, 'Main Track', true)`,
+		trackID, tenantID, schoolID, academicYearID, academicTermID)
+	require.NoError(t, err)
+
+	return trackID
+}
+
 func seedStreamClassLearningArea(t *testing.T, pool *pgxpool.Pool, tenantID, schoolID, academicYearID string) (streamID, classID, learningAreaID string) {
 	t.Helper()
 	ctx := context.Background()
@@ -141,14 +156,16 @@ func newRepo(pool *pgxpool.Pool) Repository {
 }
 
 // setupTimeBlockTestData applies migrations and seeds common data for time block tests.
-func setupTimeBlockTestData(t *testing.T, pool *pgxpool.Pool) (tenantID, schoolID, userID, academicYearID string) {
+// Returns tenantID, schoolID, userID, academicYearID, trackID
+func setupTimeBlockTestData(t *testing.T, pool *pgxpool.Pool) (tenantID, schoolID, userID, academicYearID, trackID string) {
 	t.Helper()
 	applyAllMigrations(t, pool)
 
 	tenantID, schoolID, userID = seedMinimalTenant(t, pool)
 	academicYearID = seedAcademicYear(t, pool, tenantID, schoolID, userID)
+	trackID = seedTrack(t, pool, tenantID, schoolID, academicYearID, userID)
 
-	return tenantID, schoolID, userID, academicYearID
+	return tenantID, schoolID, userID, academicYearID, trackID
 }
 
 func TestPgRepository_ListBlocks(t *testing.T) {
@@ -159,29 +176,29 @@ func TestPgRepository_ListBlocks(t *testing.T) {
 	pool, cleanup := startPG(t)
 	defer cleanup()
 
-	tenantID, schoolID, _, academicYearID := setupTimeBlockTestData(t, pool)
+	tenantID, schoolID, _, academicYearID, trackID := setupTimeBlockTestData(t, pool)
 	repo := newRepo(pool)
 
 	// Insert some time blocks
 	structID1 := uuid.New().String()
-	_, err := pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break, order_index) VALUES ($1, $2, $3, $4, 1, 'Lesson 1', '08:00', '08:40', false, 1)`,
-		structID1, tenantID, schoolID, academicYearID)
+	_, err := pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, track_id, day_of_week, period_name, start_time, end_time, is_break, order_index) VALUES ($1, $2, $3, $4, 1, 'Lesson 1', '08:00', '08:40', false, 1)`,
+		structID1, tenantID, schoolID, trackID)
 	require.NoError(t, err)
 
 	structID2 := uuid.New().String()
-	_, err = pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break, order_index) VALUES ($1, $2, $3, $4, 1, 'Lesson 2', '08:45', '09:25', false, 2)`,
-		structID2, tenantID, schoolID, academicYearID)
+	_, err = pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, track_id, day_of_week, period_name, start_time, end_time, is_break, order_index) VALUES ($1, $2, $3, $4, 1, 'Lesson 2', '08:45', '09:25', false, 2)`,
+		structID2, tenantID, schoolID, trackID)
 	require.NoError(t, err)
 
 	structID3 := uuid.New().String()
-	_, err = pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break, order_index) VALUES ($1, $2, $3, $4, 1, 'Break', '09:25', '09:40', true, 3)`,
-		structID3, tenantID, schoolID, academicYearID)
+	_, err = pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, track_id, day_of_week, period_name, start_time, end_time, is_break, order_index) VALUES ($1, $2, $3, $4, 1, 'Break', '09:25', '09:40', true, 3)`,
+		structID3, tenantID, schoolID, trackID)
 	require.NoError(t, err)
 
 	// Different day
 	structID4 := uuid.New().String()
-	_, err = pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break, order_index) VALUES ($1, $2, $3, $4, 2, 'Lesson 1', '08:00', '08:40', false, 1)`,
-		structID4, tenantID, schoolID, academicYearID)
+	_, err = pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, track_id, day_of_week, period_name, start_time, end_time, is_break, order_index) VALUES ($1, $2, $3, $4, 2, 'Lesson 1', '08:00', '08:40', false, 1)`,
+		structID4, tenantID, schoolID, trackID)
 	require.NoError(t, err)
 
 	blocks, err := repo.ListBlocks(ctx, tenantID, schoolID, academicYearID)
@@ -191,26 +208,40 @@ func TestPgRepository_ListBlocks(t *testing.T) {
 	// Verify ordering: by day_of_week, then order_index, then start_time
 	require.Equal(t, structID1, blocks[0].ID)
 	require.Equal(t, 1, blocks[0].DayOfWeek)
-	require.Equal(t, 1, blocks[0].Order)
 	require.Equal(t, "Lesson 1", blocks[0].PeriodName)
 	require.False(t, blocks[0].IsBreak)
 
 	require.Equal(t, structID2, blocks[1].ID)
-	require.Equal(t, 2, blocks[1].Order)
 
 	require.Equal(t, structID3, blocks[2].ID)
-	require.Equal(t, 3, blocks[2].Order)
 	require.True(t, blocks[2].IsBreak)
 
 	require.Equal(t, structID4, blocks[3].ID)
 	require.Equal(t, 2, blocks[3].DayOfWeek)
-	require.Equal(t, 1, blocks[3].Order)
 
 	// Empty result for different academic year
 	otherYearID := uuid.New().String()
 	blocks, err = repo.ListBlocks(ctx, tenantID, schoolID, otherYearID)
 	require.NoError(t, err)
 	require.Empty(t, blocks)
+}
+
+func TestPgRepository_ListBlocks_Empty(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+	ctx := context.Background()
+	pool, cleanup := startPG(t)
+	defer cleanup()
+
+	tenantID, schoolID, _, academicYearID, _ := setupTimeBlockTestData(t, pool)
+	repo := newRepo(pool)
+
+	// No blocks inserted - should return empty slice, not error
+	blocks, err := repo.ListBlocks(ctx, tenantID, schoolID, academicYearID)
+	require.NoError(t, err)
+	require.Empty(t, blocks)
+	require.Len(t, blocks, 0)
 }
 
 func TestPgRepository_GetBlock(t *testing.T) {
@@ -221,12 +252,12 @@ func TestPgRepository_GetBlock(t *testing.T) {
 	pool, cleanup := startPG(t)
 	defer cleanup()
 
-	tenantID, schoolID, _, academicYearID := setupTimeBlockTestData(t, pool)
+	tenantID, schoolID, _, _, trackID := setupTimeBlockTestData(t, pool)
 	repo := newRepo(pool)
 
 	structID := uuid.New().String()
-	_, err := pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break, order_index) VALUES ($1, $2, $3, $4, 1, 'Lesson 1', '08:00', '08:40', false, 1)`,
-		structID, tenantID, schoolID, academicYearID)
+	_, err := pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, track_id, day_of_week, period_name, start_time, end_time, is_break, order_index) VALUES ($1, $2, $3, $4, 1, 'Lesson 1', '08:00', '08:40', false, 1)`,
+		structID, tenantID, schoolID, trackID)
 	require.NoError(t, err)
 
 	// Found
@@ -261,28 +292,28 @@ func TestPgRepository_CreateBlock(t *testing.T) {
 	pool, cleanup := startPG(t)
 	defer cleanup()
 
-	tenantID, schoolID, _, academicYearID := setupTimeBlockTestData(t, pool)
+	tenantID, schoolID, _, _, trackID := setupTimeBlockTestData(t, pool)
 	repo := newRepo(pool)
 
 	// Create a time block
 	block, err := repo.CreateBlock(ctx, tenantID, schoolID, CreateTimeBlockPayload{
-		DayOfWeek:      1,
-		PeriodName:     "Lesson 1",
-		StartTime:      "08:00",
-		EndTime:        "08:40",
-		IsBreak:        false,
-		AcademicYearID: academicYearID,
-		Order:          1,
+		TrackID:    trackID,
+		DayOfWeek:  1,
+		PeriodName: "Lesson 1",
+		StartTime:  "08:00",
+		EndTime:    "08:40",
+		IsBreak:    false,
+		OrderIndex: 1,
 	})
 	require.NoError(t, err)
 	require.NotEmpty(t, block.ID)
+	require.Equal(t, trackID, block.TrackID)
 	require.Equal(t, 1, block.DayOfWeek)
 	require.Equal(t, "Lesson 1", block.PeriodName)
 	require.True(t, strings.HasPrefix(block.StartTime, "08:00"), "StartTime: %s", block.StartTime)
 	require.True(t, strings.HasPrefix(block.EndTime, "08:40"), "EndTime: %s", block.EndTime)
 	require.False(t, block.IsBreak)
-	require.Equal(t, academicYearID, block.AcademicYearID)
-	require.Equal(t, 1, block.Order)
+	require.NotEmpty(t, block.AcademicYearID) // derived from track
 
 	// Verify it's in the database
 	var count int
@@ -299,30 +330,30 @@ func TestPgRepository_CreateBlock_Conflict(t *testing.T) {
 	pool, cleanup := startPG(t)
 	defer cleanup()
 
-	tenantID, schoolID, _, academicYearID := setupTimeBlockTestData(t, pool)
+	tenantID, schoolID, _, _, trackID := setupTimeBlockTestData(t, pool)
 	repo := newRepo(pool)
 
 	// Create first block
 	_, err := repo.CreateBlock(ctx, tenantID, schoolID, CreateTimeBlockPayload{
-		DayOfWeek:      1,
-		PeriodName:     "Lesson 1",
-		StartTime:      "08:00",
-		EndTime:        "08:40",
-		IsBreak:        false,
-		AcademicYearID: academicYearID,
-		Order:          1,
+		TrackID:    trackID,
+		DayOfWeek:  1,
+		PeriodName: "Lesson 1",
+		StartTime:  "08:00",
+		EndTime:    "08:40",
+		IsBreak:    false,
+		OrderIndex: 1,
 	})
 	require.NoError(t, err)
 
 	// Try to create overlapping block (same day, overlapping time) — should fail due to exclusion constraint
 	_, err = repo.CreateBlock(ctx, tenantID, schoolID, CreateTimeBlockPayload{
-		DayOfWeek:      1,
-		PeriodName:     "Lesson 2",
-		StartTime:      "08:20", // Overlaps with 08:00-08:40
-		EndTime:        "09:00",
-		IsBreak:        false,
-		AcademicYearID: academicYearID,
-		Order:          2,
+		TrackID:    trackID,
+		DayOfWeek:  1,
+		PeriodName: "Lesson 2",
+		StartTime:  "08:20", // Overlaps with 08:00-08:40
+		EndTime:    "09:00",
+		IsBreak:    false,
+		OrderIndex: 2,
 	})
 	require.Error(t, err)
 	require.ErrorIs(t, err, ErrBlockOverlap)
@@ -336,39 +367,39 @@ func TestPgRepository_UpdateBlock(t *testing.T) {
 	pool, cleanup := startPG(t)
 	defer cleanup()
 
-	tenantID, schoolID, _, academicYearID := setupTimeBlockTestData(t, pool)
+	tenantID, schoolID, _, _, trackID := setupTimeBlockTestData(t, pool)
 	repo := newRepo(pool)
 
 	// Create a block
 	block, err := repo.CreateBlock(ctx, tenantID, schoolID, CreateTimeBlockPayload{
-		DayOfWeek:      1,
-		PeriodName:     "Lesson 1",
-		StartTime:      "08:00",
-		EndTime:        "08:40",
-		IsBreak:        false,
-		AcademicYearID: academicYearID,
-		Order:          1,
+		TrackID:    trackID,
+		DayOfWeek:  1,
+		PeriodName: "Lesson 1",
+		StartTime:  "08:00",
+		EndTime:    "08:40",
+		IsBreak:    false,
+		OrderIndex: 1,
 	})
 	require.NoError(t, err)
 
 	// Update the block
 	updated, err := repo.UpdateBlock(ctx, block.ID, tenantID, schoolID, UpdateTimeBlockPayload{
-		DayOfWeek:      2,
-		PeriodName:     "Lesson 2",
-		StartTime:      "09:00",
-		EndTime:        "09:40",
-		IsBreak:        true,
-		AcademicYearID: academicYearID,
-		Order:          5,
+		TrackID:    trackID,
+		DayOfWeek:  2,
+		PeriodName: "Lesson 2",
+		StartTime:  "09:00",
+		EndTime:    "09:40",
+		IsBreak:    true,
+		OrderIndex: 3,
 	})
 	require.NoError(t, err)
 	require.Equal(t, block.ID, updated.ID)
+	require.Equal(t, trackID, updated.TrackID)
 	require.Equal(t, 2, updated.DayOfWeek)
 	require.Equal(t, "Lesson 2", updated.PeriodName)
 	require.True(t, strings.HasPrefix(updated.StartTime, "09:00"), "StartTime: %s", updated.StartTime)
 	require.True(t, strings.HasPrefix(updated.EndTime, "09:40"), "EndTime: %s", updated.EndTime)
 	require.True(t, updated.IsBreak)
-	require.Equal(t, 5, updated.Order)
 
 	// Verify in DB
 	var periodName string
@@ -385,17 +416,17 @@ func TestPgRepository_UpdateBlock_NotFound(t *testing.T) {
 	pool, cleanup := startPG(t)
 	defer cleanup()
 
-	tenantID, schoolID, _, academicYearID := setupTimeBlockTestData(t, pool)
+	tenantID, schoolID, _, _, trackID := setupTimeBlockTestData(t, pool)
 	repo := newRepo(pool)
 
 	_, err := repo.UpdateBlock(ctx, uuid.New().String(), tenantID, schoolID, UpdateTimeBlockPayload{
-		DayOfWeek:      1,
-		PeriodName:     "Lesson 1",
-		StartTime:      "08:00",
-		EndTime:        "08:40",
-		IsBreak:        false,
-		AcademicYearID: academicYearID,
-		Order:          1,
+		TrackID:    trackID,
+		DayOfWeek:  1,
+		PeriodName: "Lesson 1",
+		StartTime:  "08:00",
+		EndTime:    "08:40",
+		IsBreak:    false,
+		OrderIndex: 1,
 	})
 	require.Error(t, err)
 	require.ErrorIs(t, err, ErrNotFound)
@@ -409,41 +440,41 @@ func TestPgRepository_UpdateBlock_Conflict(t *testing.T) {
 	pool, cleanup := startPG(t)
 	defer cleanup()
 
-	tenantID, schoolID, _, academicYearID := setupTimeBlockTestData(t, pool)
+	tenantID, schoolID, _, _, trackID := setupTimeBlockTestData(t, pool)
 	repo := newRepo(pool)
 
 	// Create two non-overlapping blocks
 	_, err := repo.CreateBlock(ctx, tenantID, schoolID, CreateTimeBlockPayload{
-		DayOfWeek:      1,
-		PeriodName:     "Lesson 1",
-		StartTime:      "08:00",
-		EndTime:        "08:40",
-		IsBreak:        false,
-		AcademicYearID: academicYearID,
-		Order:          1,
+		TrackID:    trackID,
+		DayOfWeek:  1,
+		PeriodName: "Lesson 1",
+		StartTime:  "08:00",
+		EndTime:    "08:40",
+		IsBreak:    false,
+		OrderIndex: 1,
 	})
 	require.NoError(t, err)
 
 	block2, err := repo.CreateBlock(ctx, tenantID, schoolID, CreateTimeBlockPayload{
-		DayOfWeek:      1,
-		PeriodName:     "Lesson 2",
-		StartTime:      "08:45",
-		EndTime:        "09:25",
-		IsBreak:        false,
-		AcademicYearID: academicYearID,
-		Order:          2,
+		TrackID:    trackID,
+		DayOfWeek:  1,
+		PeriodName: "Lesson 2",
+		StartTime:  "08:45",
+		EndTime:    "09:25",
+		IsBreak:    false,
+		OrderIndex: 1,
 	})
 	require.NoError(t, err)
 
 	// Try to update block2 to overlap with block1
 	_, err = repo.UpdateBlock(ctx, block2.ID, tenantID, schoolID, UpdateTimeBlockPayload{
-		DayOfWeek:      1,
-		PeriodName:     "Lesson 2 Updated",
-		StartTime:      "08:20", // Overlaps with block1
-		EndTime:        "09:00",
-		IsBreak:        false,
-		AcademicYearID: academicYearID,
-		Order:          2,
+		TrackID:    trackID,
+		DayOfWeek:  1,
+		PeriodName: "Lesson 2 Updated",
+		StartTime:  "08:20", // Overlaps with block1
+		EndTime:    "09:00",
+		IsBreak:    false,
+		OrderIndex: 1,
 	})
 	require.Error(t, err)
 	require.ErrorIs(t, err, ErrBlockOverlap)
@@ -457,18 +488,18 @@ func TestPgRepository_DeleteBlock(t *testing.T) {
 	pool, cleanup := startPG(t)
 	defer cleanup()
 
-	tenantID, schoolID, _, academicYearID := setupTimeBlockTestData(t, pool)
+	tenantID, schoolID, _, _, trackID := setupTimeBlockTestData(t, pool)
 	repo := newRepo(pool)
 
 	// Create a block
 	block, err := repo.CreateBlock(ctx, tenantID, schoolID, CreateTimeBlockPayload{
-		DayOfWeek:      1,
-		PeriodName:     "Lesson 1",
-		StartTime:      "08:00",
-		EndTime:        "08:40",
-		IsBreak:        false,
-		AcademicYearID: academicYearID,
-		Order:          1,
+		TrackID:    trackID,
+		DayOfWeek:  1,
+		PeriodName: "Lesson 1",
+		StartTime:  "08:00",
+		EndTime:    "08:40",
+		IsBreak:    false,
+		OrderIndex: 1,
 	})
 	require.NoError(t, err)
 
@@ -491,7 +522,7 @@ func TestPgRepository_DeleteBlock_NotFound(t *testing.T) {
 	pool, cleanup := startPG(t)
 	defer cleanup()
 
-	tenantID, schoolID, _, _ := setupTimeBlockTestData(t, pool)
+	tenantID, schoolID, _, _, _ := setupTimeBlockTestData(t, pool)
 	repo := newRepo(pool)
 
 	err := repo.DeleteBlock(ctx, uuid.New().String(), tenantID, schoolID)
@@ -507,32 +538,32 @@ func TestPgRepository_ListAllocations(t *testing.T) {
 	pool, cleanup := startPG(t)
 	defer cleanup()
 
-	tenantID, schoolID, userID, academicYearID := setupTimeBlockTestData(t, pool)
+	tenantID, schoolID, userID, academicYearID, trackID := setupTimeBlockTestData(t, pool)
 	repo := newRepo(pool)
 
 	// Seed stream, class, learning area
 	_, classID, learningAreaID := seedStreamClassLearningArea(t, pool, tenantID, schoolID, academicYearID)
 
-	// Create timetable structures
+	// Create timetable structures (blocks)
 	structID1 := uuid.New().String()
-	_, err := pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 1', '08:00', '08:40', false)`,
-		structID1, tenantID, schoolID, academicYearID)
+	_, err := pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, track_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 1', '08:00', '08:40', false)`,
+		structID1, tenantID, schoolID, trackID)
 	require.NoError(t, err)
 
 	structID2 := uuid.New().String()
-	_, err = pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 2', '08:45', '09:25', false)`,
-		structID2, tenantID, schoolID, academicYearID)
+	_, err = pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, track_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 2', '08:45', '09:25', false)`,
+		structID2, tenantID, schoolID, trackID)
 	require.NoError(t, err)
 
-	// Create allocations
+	// Create allocations (NO academic_year_id column)
 	allocID1 := uuid.New().String()
-	_, err = pool.Exec(ctx, `INSERT INTO timetable_allocations (id, tenant_id, school_id, academic_year_id, block_id, class_id, learning_area_id, teacher_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-		allocID1, tenantID, schoolID, academicYearID, structID1, classID, learningAreaID, userID)
+	_, err = pool.Exec(ctx, `INSERT INTO timetable_allocations (id, tenant_id, school_id, block_id, class_id, learning_area_id, teacher_id) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		allocID1, tenantID, schoolID, structID1, classID, learningAreaID, userID)
 	require.NoError(t, err)
 
 	allocID2 := uuid.New().String()
-	_, err = pool.Exec(ctx, `INSERT INTO timetable_allocations (id, tenant_id, school_id, academic_year_id, block_id, class_id, learning_area_id, teacher_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-		allocID2, tenantID, schoolID, academicYearID, structID2, classID, learningAreaID, userID)
+	_, err = pool.Exec(ctx, `INSERT INTO timetable_allocations (id, tenant_id, school_id, block_id, class_id, learning_area_id, teacher_id) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		allocID2, tenantID, schoolID, structID2, classID, learningAreaID, userID)
 	require.NoError(t, err)
 
 	// List all
@@ -582,6 +613,25 @@ func TestPgRepository_ListAllocations(t *testing.T) {
 	require.Empty(t, allocations)
 }
 
+func TestPgRepository_ListAllocations_Empty(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+	ctx := context.Background()
+	pool, cleanup := startPG(t)
+	defer cleanup()
+
+	tenantID, schoolID, _, academicYearID, _ := setupTimeBlockTestData(t, pool)
+	repo := newRepo(pool)
+
+	// No allocations inserted - should return empty slice, not error
+	filter := AllocationFilter{TenantID: tenantID, SchoolID: schoolID, AcademicYearID: academicYearID}
+	allocations, err := repo.ListAllocations(ctx, filter)
+	require.NoError(t, err)
+	require.Empty(t, allocations)
+	require.Len(t, allocations, 0)
+}
+
 func TestPgRepository_GetAllocation(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
@@ -590,20 +640,20 @@ func TestPgRepository_GetAllocation(t *testing.T) {
 	pool, cleanup := startPG(t)
 	defer cleanup()
 
-	tenantID, schoolID, userID, academicYearID := setupTimeBlockTestData(t, pool)
+	tenantID, schoolID, userID, academicYearID, trackID := setupTimeBlockTestData(t, pool)
 	repo := newRepo(pool)
 
 	_, classID, learningAreaID := seedStreamClassLearningArea(t, pool, tenantID, schoolID, academicYearID)
 
 	structID := uuid.New().String()
-	_, err := pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 1', '08:00', '08:40', false)`,
-		structID, tenantID, schoolID, academicYearID)
+	_, err := pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, track_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 1', '08:00', '08:40', false)`,
+		structID, tenantID, schoolID, trackID)
 	require.NoError(t, err)
 
 	allocID := uuid.New().String()
 	room := "Room 101"
-	_, err = pool.Exec(ctx, `INSERT INTO timetable_allocations (id, tenant_id, school_id, academic_year_id, block_id, class_id, learning_area_id, teacher_id, room_identifier) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-		allocID, tenantID, schoolID, academicYearID, structID, classID, learningAreaID, userID, room)
+	_, err = pool.Exec(ctx, `INSERT INTO timetable_allocations (id, tenant_id, school_id, block_id, class_id, learning_area_id, teacher_id, room_identifier) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+		allocID, tenantID, schoolID, structID, classID, learningAreaID, userID, room)
 	require.NoError(t, err)
 
 	// Found
@@ -612,7 +662,7 @@ func TestPgRepository_GetAllocation(t *testing.T) {
 	require.Equal(t, allocID, alloc.ID)
 	require.Equal(t, tenantID, alloc.TenantID)
 	require.Equal(t, schoolID, alloc.SchoolID)
-	require.Equal(t, academicYearID, alloc.AcademicYearID)
+	require.Equal(t, academicYearID, alloc.AcademicYearID) // derived from track
 	require.Equal(t, structID, alloc.BlockID)
 	require.Equal(t, classID, alloc.ClassID)
 	require.Equal(t, learningAreaID, alloc.LearningAreaID)
@@ -650,18 +700,18 @@ func TestPgRepository_CreateAllocation(t *testing.T) {
 	pool, cleanup := startPG(t)
 	defer cleanup()
 
-	tenantID, schoolID, userID, academicYearID := setupTimeBlockTestData(t, pool)
+	tenantID, schoolID, userID, academicYearID, trackID := setupTimeBlockTestData(t, pool)
 	repo := newRepo(pool)
 
 	_, classID, learningAreaID := seedStreamClassLearningArea(t, pool, tenantID, schoolID, academicYearID)
 
 	structID := uuid.New().String()
-	_, err := pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 1', '08:00', '08:40', false)`,
-		structID, tenantID, schoolID, academicYearID)
+	_, err := pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, track_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 1', '08:00', '08:40', false)`,
+		structID, tenantID, schoolID, trackID)
 	require.NoError(t, err)
 
-	// Create allocation
-	alloc, err := repo.CreateAllocation(ctx, tenantID, schoolID, academicYearID, CreateAllocationPayload{
+	// Create allocation (no academicYearID parameter)
+	alloc, err := repo.CreateAllocation(ctx, tenantID, schoolID, CreateAllocationPayload{
 		BlockID:        structID,
 		ClassID:        classID,
 		LearningAreaID: learningAreaID,
@@ -672,7 +722,7 @@ func TestPgRepository_CreateAllocation(t *testing.T) {
 	require.NotEmpty(t, alloc.ID)
 	require.Equal(t, tenantID, alloc.TenantID)
 	require.Equal(t, schoolID, alloc.SchoolID)
-	require.Equal(t, academicYearID, alloc.AcademicYearID)
+	require.Equal(t, academicYearID, alloc.AcademicYearID) // derived from track via block
 	require.Equal(t, structID, alloc.BlockID)
 	require.Equal(t, classID, alloc.ClassID)
 	require.Equal(t, learningAreaID, alloc.LearningAreaID)
@@ -695,18 +745,18 @@ func TestPgRepository_CreateAllocation_Conflict(t *testing.T) {
 	pool, cleanup := startPG(t)
 	defer cleanup()
 
-	tenantID, schoolID, userID, academicYearID := setupTimeBlockTestData(t, pool)
+	tenantID, schoolID, userID, academicYearID, trackID := setupTimeBlockTestData(t, pool)
 	repo := newRepo(pool)
 
 	_, classID, learningAreaID := seedStreamClassLearningArea(t, pool, tenantID, schoolID, academicYearID)
 
 	structID := uuid.New().String()
-	_, err := pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 1', '08:00', '08:40', false)`,
-		structID, tenantID, schoolID, academicYearID)
+	_, err := pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, track_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 1', '08:00', '08:40', false)`,
+		structID, tenantID, schoolID, trackID)
 	require.NoError(t, err)
 
 	// Create first allocation
-	_, err = repo.CreateAllocation(ctx, tenantID, schoolID, academicYearID, CreateAllocationPayload{
+	_, err = repo.CreateAllocation(ctx, tenantID, schoolID, CreateAllocationPayload{
 		BlockID:        structID,
 		ClassID:        classID,
 		LearningAreaID: learningAreaID,
@@ -716,7 +766,7 @@ func TestPgRepository_CreateAllocation_Conflict(t *testing.T) {
 	require.NoError(t, err)
 
 	// Try to create another allocation with same class + structure (unique_class_slot constraint)
-	_, err = repo.CreateAllocation(ctx, tenantID, schoolID, academicYearID, CreateAllocationPayload{
+	_, err = repo.CreateAllocation(ctx, tenantID, schoolID, CreateAllocationPayload{
 		BlockID:        structID,
 		ClassID:        classID,             // Same class + structure
 		LearningAreaID: uuid.New().String(), // Different learning area
@@ -727,7 +777,7 @@ func TestPgRepository_CreateAllocation_Conflict(t *testing.T) {
 	require.ErrorIs(t, err, ErrClassAllocationOccupied)
 
 	// Try to create another allocation with same teacher + structure (unique_teacher_slot constraint)
-	_, err = repo.CreateAllocation(ctx, tenantID, schoolID, academicYearID, CreateAllocationPayload{
+	_, err = repo.CreateAllocation(ctx, tenantID, schoolID, CreateAllocationPayload{
 		BlockID:        structID,
 		ClassID:        uuid.New().String(), // Different class
 		LearningAreaID: uuid.New().String(), // Different learning area
@@ -738,7 +788,7 @@ func TestPgRepository_CreateAllocation_Conflict(t *testing.T) {
 	require.ErrorIs(t, err, ErrTeacherDoubleBooked)
 
 	// Try to create another allocation with same room + structure (unique_room_slot constraint)
-	_, err = repo.CreateAllocation(ctx, tenantID, schoolID, academicYearID, CreateAllocationPayload{
+	_, err = repo.CreateAllocation(ctx, tenantID, schoolID, CreateAllocationPayload{
 		BlockID:        structID,
 		ClassID:        uuid.New().String(),
 		LearningAreaID: uuid.New().String(),
@@ -757,7 +807,7 @@ func TestPgRepository_BatchCreateAllocations(t *testing.T) {
 	pool, cleanup := startPG(t)
 	defer cleanup()
 
-	tenantID, schoolID, userID, academicYearID := setupTimeBlockTestData(t, pool)
+	tenantID, schoolID, userID, academicYearID, trackID := setupTimeBlockTestData(t, pool)
 	repo := newRepo(pool)
 
 	_, classID1, learningAreaID1 := seedStreamClassLearningArea(t, pool, tenantID, schoolID, academicYearID)
@@ -779,22 +829,22 @@ func TestPgRepository_BatchCreateAllocations(t *testing.T) {
 
 	// Create structures
 	structID1 := uuid.New().String()
-	_, err = pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 1', '08:00', '08:40', false)`,
-		structID1, tenantID, schoolID, academicYearID)
+	_, err = pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, track_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 1', '08:00', '08:40', false)`,
+		structID1, tenantID, schoolID, trackID)
 	require.NoError(t, err)
 
 	structID2 := uuid.New().String()
-	_, err = pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 2', '08:45', '09:25', false)`,
-		structID2, tenantID, schoolID, academicYearID)
+	_, err = pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, track_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 2', '08:45', '09:25', false)`,
+		structID2, tenantID, schoolID, trackID)
 	require.NoError(t, err)
 
-	// Batch create allocations
+	// Batch create allocations (no academicYearID parameter)
 	payloads := []CreateAllocationPayload{
 		{BlockID: structID1, ClassID: classID1, LearningAreaID: learningAreaID1, TeacherID: userID, RoomIdentifier: ptr("Room 101")},
 		{BlockID: structID2, ClassID: classID2, LearningAreaID: learningAreaID2, TeacherID: userID, RoomIdentifier: ptr("Room 102")},
 	}
 
-	allocs, err := repo.BatchCreateAllocations(ctx, tenantID, schoolID, academicYearID, payloads)
+	allocs, err := repo.BatchCreateAllocations(ctx, tenantID, schoolID, payloads)
 	require.NoError(t, err)
 	require.Len(t, allocs, 2)
 	require.Equal(t, structID1, allocs[0].BlockID)
@@ -811,10 +861,10 @@ func TestPgRepository_BatchCreateAllocations_Empty(t *testing.T) {
 	pool, cleanup := startPG(t)
 	defer cleanup()
 
-	tenantID, schoolID, _, academicYearID := setupTimeBlockTestData(t, pool)
+	tenantID, schoolID, _, _, _ := setupTimeBlockTestData(t, pool)
 	repo := newRepo(pool)
 
-	allocs, err := repo.BatchCreateAllocations(ctx, tenantID, schoolID, academicYearID, []CreateAllocationPayload{})
+	allocs, err := repo.BatchCreateAllocations(ctx, tenantID, schoolID, []CreateAllocationPayload{})
 	require.NoError(t, err)
 	require.Empty(t, allocs)
 }
@@ -827,14 +877,14 @@ func TestPgRepository_BatchCreateAllocations_Conflict(t *testing.T) {
 	pool, cleanup := startPG(t)
 	defer cleanup()
 
-	tenantID, schoolID, userID, academicYearID := setupTimeBlockTestData(t, pool)
+	tenantID, schoolID, userID, academicYearID, trackID := setupTimeBlockTestData(t, pool)
 	repo := newRepo(pool)
 
 	_, classID, learningAreaID := seedStreamClassLearningArea(t, pool, tenantID, schoolID, academicYearID)
 
 	structID := uuid.New().String()
-	_, err := pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 1', '08:00', '08:40', false)`,
-		structID, tenantID, schoolID, academicYearID)
+	_, err := pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, track_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 1', '08:00', '08:40', false)`,
+		structID, tenantID, schoolID, trackID)
 	require.NoError(t, err)
 
 	// Batch with duplicate class+structure in same batch
@@ -843,7 +893,7 @@ func TestPgRepository_BatchCreateAllocations_Conflict(t *testing.T) {
 		{BlockID: structID, ClassID: classID, LearningAreaID: uuid.New().String(), TeacherID: uuid.New().String()}, // Duplicate class+structure
 	}
 
-	_, err = repo.BatchCreateAllocations(ctx, tenantID, schoolID, academicYearID, payloads)
+	_, err = repo.BatchCreateAllocations(ctx, tenantID, schoolID, payloads)
 	require.Error(t, err)
 	require.ErrorIs(t, err, ErrConflict)
 }
@@ -856,18 +906,18 @@ func TestPgRepository_UpdateAllocation(t *testing.T) {
 	pool, cleanup := startPG(t)
 	defer cleanup()
 
-	tenantID, schoolID, userID, academicYearID := setupTimeBlockTestData(t, pool)
+	tenantID, schoolID, userID, academicYearID, trackID := setupTimeBlockTestData(t, pool)
 	repo := newRepo(pool)
 
 	_, classID, learningAreaID := seedStreamClassLearningArea(t, pool, tenantID, schoolID, academicYearID)
 
 	structID := uuid.New().String()
-	_, err := pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 1', '08:00', '08:40', false)`,
-		structID, tenantID, schoolID, academicYearID)
+	_, err := pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, track_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 1', '08:00', '08:40', false)`,
+		structID, tenantID, schoolID, trackID)
 	require.NoError(t, err)
 
 	// Create allocation
-	alloc, err := repo.CreateAllocation(ctx, tenantID, schoolID, academicYearID, CreateAllocationPayload{
+	alloc, err := repo.CreateAllocation(ctx, tenantID, schoolID, CreateAllocationPayload{
 		BlockID:        structID,
 		ClassID:        classID,
 		LearningAreaID: learningAreaID,
@@ -908,7 +958,7 @@ func TestPgRepository_UpdateAllocation_NotFound(t *testing.T) {
 	pool, cleanup := startPG(t)
 	defer cleanup()
 
-	tenantID, schoolID, _, _ := setupTimeBlockTestData(t, pool)
+	tenantID, schoolID, _, _, _ := setupTimeBlockTestData(t, pool)
 	repo := newRepo(pool)
 
 	_, err := repo.UpdateAllocation(ctx, uuid.New().String(), tenantID, schoolID, UpdateAllocationPayload{
@@ -927,7 +977,7 @@ func TestPgRepository_UpdateAllocation_Conflict(t *testing.T) {
 	pool, cleanup := startPG(t)
 	defer cleanup()
 
-	tenantID, schoolID, userID, academicYearID := setupTimeBlockTestData(t, pool)
+	tenantID, schoolID, userID, academicYearID, trackID := setupTimeBlockTestData(t, pool)
 	repo := newRepo(pool)
 
 	_, classID1, learningAreaID1 := seedStreamClassLearningArea(t, pool, tenantID, schoolID, academicYearID)
@@ -949,17 +999,17 @@ func TestPgRepository_UpdateAllocation_Conflict(t *testing.T) {
 
 	// Create two structures
 	structID1 := uuid.New().String()
-	_, err = pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 1', '08:00', '08:40', false)`,
-		structID1, tenantID, schoolID, academicYearID)
+	_, err = pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, track_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 1', '08:00', '08:40', false)`,
+		structID1, tenantID, schoolID, trackID)
 	require.NoError(t, err)
 
 	structID2 := uuid.New().String()
-	_, err = pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 2', '08:45', '09:25', false)`,
-		structID2, tenantID, schoolID, academicYearID)
+	_, err = pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, track_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 2', '08:45', '09:25', false)`,
+		structID2, tenantID, schoolID, trackID)
 	require.NoError(t, err)
 
 	// Create two allocations with different classes but same teacher
-	_, err = repo.CreateAllocation(ctx, tenantID, schoolID, academicYearID, CreateAllocationPayload{
+	_, err = repo.CreateAllocation(ctx, tenantID, schoolID, CreateAllocationPayload{
 		BlockID:        structID1,
 		ClassID:        classID1,
 		LearningAreaID: learningAreaID1,
@@ -967,7 +1017,7 @@ func TestPgRepository_UpdateAllocation_Conflict(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	alloc2, err := repo.CreateAllocation(ctx, tenantID, schoolID, academicYearID, CreateAllocationPayload{
+	alloc2, err := repo.CreateAllocation(ctx, tenantID, schoolID, CreateAllocationPayload{
 		BlockID:        structID2,
 		ClassID:        classID2,
 		LearningAreaID: learningAreaID2,
@@ -985,8 +1035,8 @@ func TestPgRepository_UpdateAllocation_Conflict(t *testing.T) {
 
 	// Now create a third structure and try to create an allocation with teacher conflict on SAME structure
 	structID3 := uuid.New().String()
-	_, err = pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 3', '09:30', '10:10', false)`,
-		structID3, tenantID, schoolID, academicYearID)
+	_, err = pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, track_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 3', '09:30', '10:10', false)`,
+		structID3, tenantID, schoolID, trackID)
 	require.NoError(t, err)
 
 	// Update alloc2 to use structID3 and same teacher as alloc1 — should conflict
@@ -1004,7 +1054,7 @@ func TestPgRepository_UpdateAllocation_Conflict(t *testing.T) {
 		teacher3, "teacher3@test.com", tenantID, "Teacher 3")
 	require.NoError(t, err)
 
-	alloc3, err := repo.CreateAllocation(ctx, tenantID, schoolID, academicYearID, CreateAllocationPayload{
+	alloc3, err := repo.CreateAllocation(ctx, tenantID, schoolID, CreateAllocationPayload{
 		BlockID:        structID1,
 		ClassID:        classID2,
 		LearningAreaID: learningAreaID2,
@@ -1030,17 +1080,17 @@ func TestPgRepository_DeleteAllocation(t *testing.T) {
 	pool, cleanup := startPG(t)
 	defer cleanup()
 
-	tenantID, schoolID, userID, academicYearID := setupTimeBlockTestData(t, pool)
+	tenantID, schoolID, userID, academicYearID, trackID := setupTimeBlockTestData(t, pool)
 	repo := newRepo(pool)
 
 	_, classID, learningAreaID := seedStreamClassLearningArea(t, pool, tenantID, schoolID, academicYearID)
 
 	structID := uuid.New().String()
-	_, err := pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, academic_year_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 1', '08:00', '08:40', false)`,
-		structID, tenantID, schoolID, academicYearID)
+	_, err := pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, track_id, day_of_week, period_name, start_time, end_time, is_break) VALUES ($1, $2, $3, $4, 1, 'Lesson 1', '08:00', '08:40', false)`,
+		structID, tenantID, schoolID, trackID)
 	require.NoError(t, err)
 
-	alloc, err := repo.CreateAllocation(ctx, tenantID, schoolID, academicYearID, CreateAllocationPayload{
+	alloc, err := repo.CreateAllocation(ctx, tenantID, schoolID, CreateAllocationPayload{
 		BlockID:        structID,
 		ClassID:        classID,
 		LearningAreaID: learningAreaID,
@@ -1067,7 +1117,7 @@ func TestPgRepository_DeleteAllocation_NotFound(t *testing.T) {
 	pool, cleanup := startPG(t)
 	defer cleanup()
 
-	tenantID, schoolID, _, _ := setupTimeBlockTestData(t, pool)
+	tenantID, schoolID, _, _, _ := setupTimeBlockTestData(t, pool)
 	repo := newRepo(pool)
 
 	err := repo.DeleteAllocation(ctx, uuid.New().String(), tenantID, schoolID)

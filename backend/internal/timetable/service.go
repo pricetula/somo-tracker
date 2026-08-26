@@ -80,8 +80,8 @@ func (s *ServiceImpl) GetAllocation(ctx context.Context, id string, tenantID, sc
 }
 
 // CreateAllocation creates a new allocation
-func (s *ServiceImpl) CreateAllocation(ctx context.Context, tenantID, schoolID, academicYearID string, p CreateAllocationPayload) (*Allocation, error) {
-	allocation, err := s.repo.CreateAllocation(ctx, tenantID, schoolID, academicYearID, p)
+func (s *ServiceImpl) CreateAllocation(ctx context.Context, tenantID, schoolID string, p CreateAllocationPayload) (*Allocation, error) {
+	allocation, err := s.repo.CreateAllocation(ctx, tenantID, schoolID, p)
 	if err != nil {
 		return nil, fmt.Errorf("timetable.ServiceImpl.CreateAllocation: %w", err)
 	}
@@ -89,8 +89,8 @@ func (s *ServiceImpl) CreateAllocation(ctx context.Context, tenantID, schoolID, 
 }
 
 // BatchCreateAllocations creates multiple allocations at once
-func (s *ServiceImpl) BatchCreateAllocations(ctx context.Context, tenantID, schoolID, academicYearID string, ps []CreateAllocationPayload) ([]Allocation, error) {
-	allocations, err := s.repo.BatchCreateAllocations(ctx, tenantID, schoolID, academicYearID, ps)
+func (s *ServiceImpl) BatchCreateAllocations(ctx context.Context, tenantID, schoolID string, ps []CreateAllocationPayload) ([]Allocation, error) {
+	allocations, err := s.repo.BatchCreateAllocations(ctx, tenantID, schoolID, ps)
 	if err != nil {
 		return nil, fmt.Errorf("timetable.ServiceImpl.BatchCreateAllocations: %w", err)
 	}

@@ -70,8 +70,12 @@ func handleSpecialErrors(c *fiber.Ctx, err error) error {
 		}))
 	}
 
-	// Let the fiber error handler deal with Fiber errors
-	return c.Next() // falls through to global handler
+	// Unknown / unwrapped errors (DB failures, etc.): log and return canonical 500
+	loggerFrom(c).Errorw("unhandled error in HTTPError", "error", err.Error(), "method", c.Method(), "path", c.Path())
+	return c.Status(fiber.StatusInternalServerError).JSON(withRequestID(c, fiber.Map{
+		"code":    string(xerrors.CodeInternalError),
+		"message": "an unexpected error occurred",
+	}))
 }
 
 // HTTPError is the single place where errors are mapped to HTTP status

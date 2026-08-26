@@ -88,7 +88,7 @@ func (h *Handler) CreateTrackWithBlocks(c *fiber.Ctx) error {
 	}
 
 	// Create track first
-	track, err := h.svc.CreateTrack(c.Context(), tenantID, schoolID, yearID, payload.AcademicTermID, payload.Name, payload.Description, payload.IsDefault)
+	track, err := h.svc.CreateTrack(c.UserContext(), tenantID, schoolID, yearID, payload.AcademicTermID, payload.Name, payload.Description, payload.IsDefault)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
@@ -100,13 +100,13 @@ func (h *Handler) CreateTrackWithBlocks(c *fiber.Ctx) error {
 			if err := validateTimeBlockPayload((*CreateTimeBlockPayload)(&blockPayload)); err != nil {
 				return middleware.HTTPError(c, err)
 			}
-			_, err := h.svc.CreateBlock(c.Context(), tenantID, schoolID, blockPayload)
+			_, err := h.svc.CreateBlock(c.UserContext(), tenantID, schoolID, blockPayload)
 			if err != nil {
 				// If blocks fail, delete track and return error
-				_, _ = h.svc.DeleteTrack(c.Context(), track.ID, tenantID, schoolID)
+				_, _ = h.svc.DeleteTrack(c.UserContext(), track.ID, tenantID, schoolID)
 				return middleware.HTTPError(c, err)
 			}
-			payload.InitialBlocks[i].AcademicYearID = yearID
+			payload.InitialBlocks[i].TrackID = track.ID
 		}
 	}
 
@@ -136,7 +136,7 @@ func (h *Handler) UpdateTrack(c *fiber.Ctx) error {
 		})
 	}
 
-	track, err := h.svc.UpdateTrack(c.Context(), payload.ID, tenantID, schoolID, payload)
+	track, err := h.svc.UpdateTrack(c.UserContext(), payload.ID, tenantID, schoolID, payload)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
@@ -152,7 +152,7 @@ func (h *Handler) DeleteTrack(c *fiber.Ctx) error {
 	}
 
 	id := c.Params("id")
-	result, err := h.svc.DeleteTrack(c.Context(), id, tenantID, schoolID)
+	result, err := h.svc.DeleteTrack(c.UserContext(), id, tenantID, schoolID)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
@@ -186,7 +186,7 @@ func (h *Handler) BulkDeleteTracks(c *fiber.Ctx) error {
 
 	deleted := 0
 	for _, id := range req.IDs {
-		_, err := h.svc.DeleteTrack(c.Context(), id, tenantID, schoolID)
+		_, err := h.svc.DeleteTrack(c.UserContext(), id, tenantID, schoolID)
 		if err == nil {
 			deleted++
 		}
@@ -227,7 +227,7 @@ func (h *Handler) CreateBlocks(c *fiber.Ctx) error {
 				"message": "track_id is required",
 			})
 		}
-		if _, err := h.svc.CreateBlock(c.Context(), tenantID, schoolID, blockPayload); err != nil {
+		if _, err := h.svc.CreateBlock(c.UserContext(), tenantID, schoolID, blockPayload); err != nil {
 			return middleware.HTTPError(c, err)
 		}
 	}
@@ -259,7 +259,7 @@ func (h *Handler) UpdateBlock(c *fiber.Ctx) error {
 		})
 	}
 
-	_, err = h.svc.UpdateBlock(c.Context(), payload.ID, tenantID, schoolID, payload)
+	_, err = h.svc.UpdateBlock(c.UserContext(), payload.ID, tenantID, schoolID, payload)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
@@ -293,7 +293,7 @@ func (h *Handler) BulkDeleteBlocks(c *fiber.Ctx) error {
 
 	deleted := 0
 	for _, id := range req.IDs {
-		_, err := h.svc.DeleteBlock(c.Context(), id, tenantID, schoolID)
+		_, err := h.svc.DeleteBlock(c.UserContext(), id, tenantID, schoolID)
 		if err == nil {
 			deleted++
 		}
@@ -334,7 +334,7 @@ func (h *Handler) CreateAllocations(c *fiber.Ctx) error {
 				"message": "block_id is required",
 			})
 		}
-		if _, err := h.svc.CreateAllocation(c.Context(), tenantID, schoolID, allocationPayload.BlockID, allocationPayload); err != nil {
+		if _, err := h.svc.CreateAllocation(c.UserContext(), tenantID, schoolID, allocationPayload); err != nil {
 			return middleware.HTTPError(c, err)
 		}
 	}
@@ -366,7 +366,7 @@ func (h *Handler) UpdateAllocation(c *fiber.Ctx) error {
 		})
 	}
 
-	if _, err := h.svc.UpdateAllocation(c.Context(), payload.ID, tenantID, schoolID, payload); err != nil {
+	if _, err := h.svc.UpdateAllocation(c.UserContext(), payload.ID, tenantID, schoolID, payload); err != nil {
 		return middleware.HTTPError(c, err)
 	}
 
@@ -399,7 +399,7 @@ func (h *Handler) BulkDeleteAllocations(c *fiber.Ctx) error {
 
 	deleted := 0
 	for _, id := range req.IDs {
-		err := h.svc.DeleteAllocation(c.Context(), id, tenantID, schoolID)
+		err := h.svc.DeleteAllocation(c.UserContext(), id, tenantID, schoolID)
 		if err == nil {
 			deleted++
 		}
@@ -418,11 +418,11 @@ func (h *Handler) GetTimetable(c *fiber.Ctx) error {
 		return err
 	}
 
-	blocks, err := h.svc.ListBlocks(c.Context(), tenantID, schoolID, "")
+	blocks, err := h.svc.ListBlocks(c.UserContext(), tenantID, schoolID, "")
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
-	allocations, err := h.svc.ListAllocations(c.Context(), AllocationFilter{
+	allocations, err := h.svc.ListAllocations(c.UserContext(), AllocationFilter{
 		TenantID: tenantID,
 		SchoolID: schoolID,
 	})
@@ -437,13 +437,17 @@ func (h *Handler) GetTimetable(c *fiber.Ctx) error {
 
 // tmMiddleware extracts common tenant/school context.
 func (h *Handler) tmMiddleware(c *fiber.Ctx) (tenantID, schoolID string, err error) {
-	tenantID = c.Locals("tenant_id").(string)
+	var ok bool
+	tenantID, ok = c.Locals("tenant_id").(string)
+	if !ok || tenantID == "" {
+		return "", "", middleware.ErrUnauthorized
+	}
 	schoolID, _ = c.Locals("active_school_id").(string)
 	if schoolID == "" {
-		return "", "", c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "active school not set",
-		})
+		return "", "", &middleware.FieldError{
+			Err:    middleware.ErrInvalidInput,
+			Fields: map[string][]string{"active_school_id": {"active school not set"}},
+		}
 	}
 	return tenantID, schoolID, nil
 }

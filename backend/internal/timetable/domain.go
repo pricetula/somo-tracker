@@ -23,13 +23,14 @@ var (
 
 type TimeBlock struct {
 	ID             string    `json:"id"`
+	TrackID        string    `json:"track_id"`
 	DayOfWeek      int       `json:"day_of_week"`
 	PeriodName     string    `json:"period_name"`
 	StartTime      string    `json:"start_time"`
 	EndTime        string    `json:"end_time"`
 	IsBreak        bool      `json:"is_break"`
-	AcademicYearID string    `json:"academic_year_id,omitempty"`
-	Order          int       `json:"order"` // NEW — for UI sorting
+	OrderIndex     int       `json:"order_index"`
+	AcademicYearID string    `json:"academic_year_id,omitempty"` // derived from track
 	CreatedAt      time.Time `json:"created_at,omitempty"`
 	UpdatedAt      time.Time `json:"updated_at,omitempty"`
 }
@@ -39,7 +40,7 @@ type Allocation struct {
 	ID             string    `json:"id"`
 	TenantID       string    `json:"tenant_id"`
 	SchoolID       string    `json:"school_id"`
-	AcademicYearID string    `json:"academic_year_id"`
+	AcademicYearID string    `json:"academic_year_id"` // derived from block -> track
 	BlockID        string    `json:"block_id"`
 	ClassID        string    `json:"class_id"`
 	LearningAreaID string    `json:"learning_area_id"`
@@ -78,32 +79,31 @@ type AllocationListResult struct {
 
 // Payload types (input only — no joined fields)
 type CreateTimeBlockPayload struct {
-	TrackID        string `json:"track_id,omitempty"`
-	DayOfWeek      int    `json:"day_of_week"`
-	PeriodName     string `json:"period_name"`
-	StartTime      string `json:"start_time"`
-	EndTime        string `json:"end_time"`
-	IsBreak        bool   `json:"is_break"`
-	AcademicYearID string `json:"academic_year_id,omitempty"`
-	Order          int    `json:"order"`
+	TrackID    string `json:"track_id" validate:"required"`
+	DayOfWeek  int    `json:"day_of_week"`
+	PeriodName string `json:"period_name"`
+	StartTime  string `json:"start_time"`
+	EndTime    string `json:"end_time"`
+	IsBreak    bool   `json:"is_break"`
+	OrderIndex int    `json:"order_index"`
 }
 
 type UpdateTimeBlockPayload struct {
-	ID             string `json:"id"`
-	DayOfWeek      int    `json:"day_of_week"`
-	PeriodName     string `json:"period_name"`
-	StartTime      string `json:"start_time"`
-	EndTime        string `json:"end_time"`
-	IsBreak        bool   `json:"is_break"`
-	AcademicYearID string `json:"academic_year_id"`
-	Order          int    `json:"order"`
+	ID         string `json:"id" validate:"required"`
+	TrackID    string `json:"track_id" validate:"required"`
+	DayOfWeek  int    `json:"day_of_week"`
+	PeriodName string `json:"period_name"`
+	StartTime  string `json:"start_time"`
+	EndTime    string `json:"end_time"`
+	IsBreak    bool   `json:"is_break"`
+	OrderIndex int    `json:"order_index"`
 }
 
 type CreateAllocationPayload struct {
-	BlockID        string  `json:"block_id"`
-	ClassID        string  `json:"class_id"`
-	LearningAreaID string  `json:"learning_area_id"`
-	TeacherID      string  `json:"teacher_id"`
+	BlockID        string  `json:"block_id" validate:"required"`
+	ClassID        string  `json:"class_id" validate:"required"`
+	LearningAreaID string  `json:"learning_area_id" validate:"required"`
+	TeacherID      string  `json:"teacher_id" validate:"required"`
 	RoomIdentifier *string `json:"room_identifier,omitempty"`
 }
 
@@ -131,8 +131,8 @@ type Repository interface {
 
 	ListAllocations(ctx context.Context, filter AllocationFilter) ([]Allocation, error)
 	GetAllocation(ctx context.Context, id, tenantID, schoolID string) (*Allocation, error)
-	CreateAllocation(ctx context.Context, tenantID, schoolID, academicYearID string, payload CreateAllocationPayload) (*Allocation, error)
-	BatchCreateAllocations(ctx context.Context, tenantID, schoolID, academicYearID string, payloads []CreateAllocationPayload) ([]Allocation, error)
+	CreateAllocation(ctx context.Context, tenantID, schoolID string, payload CreateAllocationPayload) (*Allocation, error)
+	BatchCreateAllocations(ctx context.Context, tenantID, schoolID string, payloads []CreateAllocationPayload) ([]Allocation, error)
 	UpdateAllocation(ctx context.Context, id, tenantID, schoolID string, p UpdateAllocationPayload) (*Allocation, error)
 	DeleteAllocation(ctx context.Context, id, tenantID, schoolID string) error
 
@@ -151,8 +151,8 @@ type Service interface {
 
 	ListAllocations(ctx context.Context, f AllocationFilter) ([]Allocation, error)
 	GetAllocation(ctx context.Context, id, tenantID, schoolID string) (*Allocation, error)
-	CreateAllocation(ctx context.Context, tenantID, schoolID, academicYearID string, p CreateAllocationPayload) (*Allocation, error)
-	BatchCreateAllocations(ctx context.Context, tenantID, schoolID, academicYearID string, ps []CreateAllocationPayload) ([]Allocation, error)
+	CreateAllocation(ctx context.Context, tenantID, schoolID string, p CreateAllocationPayload) (*Allocation, error)
+	BatchCreateAllocations(ctx context.Context, tenantID, schoolID string, ps []CreateAllocationPayload) ([]Allocation, error)
 	UpdateAllocation(ctx context.Context, id, tenantID, schoolID string, p UpdateAllocationPayload) (*Allocation, error)
 	DeleteAllocation(ctx context.Context, id, tenantID, schoolID string) error
 

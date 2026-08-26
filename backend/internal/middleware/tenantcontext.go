@@ -3,9 +3,9 @@ package middleware
 import (
 	"context"
 	"fmt"
-	"go.uber.org/zap"
 
 	"github.com/gofiber/fiber/v2"
+	"go.uber.org/zap"
 
 	"somotracker/backend/internal/database"
 )
@@ -36,7 +36,7 @@ func WithTenantContext(pools *database.Pools) fiber.Handler {
 			return c.Next()
 		}
 
-		ctx := c.Context()
+		ctx := c.UserContext()
 		tx, err := pools.PG.Begin(ctx)
 		if err != nil {
 			return fmt.Errorf("middleware.WithTenantContext: begin: %w", err)
@@ -56,11 +56,26 @@ func WithTenantContext(pools *database.Pools) fiber.Handler {
 			return fmt.Errorf("middleware.WithTenantContext: set_config: %w", err)
 		}
 
+		// Put transaction in Go context so database.FromContext can find it
+		ctx = context.WithValue(ctx, database.TenantTxKey, tx)
+		c.SetUserContext(ctx)
+
 		c.Locals(database.TenantTxKey, tx)
 		c.Locals(database.TenantIDKey, sess.TenantID)
 
 		if err := c.Next(); err != nil {
-			return err
+			return err // error triggers defer rollback
+		}
+
+		// Handler returned no error, but may have written an error response via HTTPError.
+		// If status >= 400, the transaction is likely aborted (DB error); rollback instead of commit.
+		if c.Response().StatusCode() >= 400 {
+			// Response already written; roll back to avoid "commit unexpectedly resulted in rollback"
+			committed = true // suppress defer rollback
+			if rbErr := tx.Rollback(context.WithoutCancel(ctx)); rbErr != nil {
+				zap.L().Warn("tx rollback after error response", zap.Error(rbErr))
+			}
+			return nil
 		}
 
 		if err := tx.Commit(ctx); err != nil {

@@ -2,10 +2,16 @@
 
 import Link from "next/link";
 import { PlusIcon } from "lucide-react";
-import { useTimetableView, type TimetableViewResult } from "../hooks";
-import { AllocationBlock } from "./allocation-block";
+import { formatDateString } from "@/lib/utils/date";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useTimetableView, type TimetableViewResult } from "../hooks";
+import { AllocationBlock } from "./allocation-block";
+
+const formatDateStringOptions = {
+    inputFormat: "HH:mm:ss.SSSSSS",
+    outputFormat: "HH:mm",
+};
 
 export function TimeTable() {
     const { data, isLoading } = useTimetableView();
@@ -126,21 +132,20 @@ export function TimeTable() {
                                     >
                                         <div className="font-medium">{period.period_name}</div>
                                         <div className="text-muted-foreground text-[10px]">
-                                            {period.start_time} - {period.end_time}
+                                            {formatDateString(
+                                                period.start_time,
+                                                formatDateStringOptions
+                                            )}
+                                            -
+                                            {formatDateString(
+                                                period.end_time,
+                                                formatDateStringOptions
+                                            )}
                                         </div>
                                     </td>
 
                                     {days.map((day) => {
                                         const allocation = period.allocationByDay[day.day_of_week];
-
-                                        if (!allocation) {
-                                            return (
-                                                <td
-                                                    key={day.day_of_week}
-                                                    className="bg-row-disabled border-r pl-4"
-                                                />
-                                            );
-                                        }
 
                                         if (period.is_break) {
                                             return (
@@ -162,7 +167,7 @@ export function TimeTable() {
                                             <td key={day.day_of_week} className="border-r">
                                                 <AllocationBlock
                                                     allocation={allocation}
-                                                    isBreak={period.is_break}
+                                                    isBreak={false}
                                                 />
                                             </td>
                                         );

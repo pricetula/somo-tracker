@@ -6,7 +6,7 @@ interface TimeSlotProps {
 }
 
 export function AllocationBlock({ allocation, isBreak }: TimeSlotProps) {
-    if (!allocation.id) {
+    if (!allocation?.id) {
         return (
             <section className="class-info empty-slot">
                 <span className="text-muted-foreground text-xs">—</span>

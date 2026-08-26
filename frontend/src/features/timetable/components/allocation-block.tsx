@@ -1,15 +1,28 @@
+import Link from "next/link";
+import { Plus } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
 import { type Allocation } from "@/lib/api/timetable";
 
 interface TimeSlotProps {
     isBreak: boolean;
     allocation: Allocation;
+    dayOfWeek?: number;
+    blockId?: string;
 }
 
-export function AllocationBlock({ allocation, isBreak }: TimeSlotProps) {
+export function AllocationBlock({ allocation, isBreak, dayOfWeek, blockId }: TimeSlotProps) {
+    if (!dayOfWeek || !blockId) return null;
+
     if (!allocation?.id) {
         return (
-            <section className="class-info empty-slot">
-                <span className="text-muted-foreground text-xs">—</span>
+            <section className="flex items-center">
+                <Link
+                    href={`/timetable/allocate?block=${blockId}&day=${dayOfWeek}`}
+                    className={buttonVariants({ variant: "outline" })}
+                >
+                    <Plus />
+                    <span>Assign Teacher</span>
+                </Link>
             </section>
         );
     }

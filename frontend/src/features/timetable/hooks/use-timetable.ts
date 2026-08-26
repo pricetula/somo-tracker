@@ -351,6 +351,7 @@ export interface TimetableRow {
     end_time: string;
     order: number;
     is_break: boolean;
+    blockId: string;
     allocationByDay: Record<number, Allocation>; // Keyed by day_of_week (e.g., 1: Allocation)
 }
 
@@ -376,6 +377,7 @@ export function timetableViewSelect({
             order: number;
             is_break: boolean;
             allocationByDay: Record<number, Allocation>; // Direct object mapping instead of array
+            blockId: string;
         }
     >();
 
@@ -403,6 +405,7 @@ export function timetableViewSelect({
                 order: block.order,
                 is_break: block.is_break,
                 allocationByDay: {},
+                blockId: block.id,
             });
         }
     });

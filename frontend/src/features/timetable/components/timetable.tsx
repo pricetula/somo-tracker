@@ -164,10 +164,12 @@ export function TimeTable() {
                                         // const cell = dayCells[0] ?? null;
 
                                         return (
-                                            <td key={day.day_of_week} className="border-r">
+                                            <td key={day.day_of_week} className="border-r p-4">
                                                 <AllocationBlock
                                                     allocation={allocation}
                                                     isBreak={false}
+                                                    dayOfWeek={day.day_of_week}
+                                                    blockId={period.blockId}
                                                 />
                                             </td>
                                         );

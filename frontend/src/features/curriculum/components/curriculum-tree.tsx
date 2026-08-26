@@ -11,7 +11,8 @@ import * as React from "react";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { buttonVariants } from "@/components/ui/button";
 
 import type { LearningAreaTree, PerformanceIndicator } from "@/lib/api/curriculum";
 import { EducationLevelPill } from "@/features/education-level";
@@ -62,12 +63,13 @@ export function CurriculumTree({ tree, isLoading, isError }: CurriculumTreeProps
                         </span>
                     </div>
                 </div>
-                <Button variant="outline" size="sm" asChild>
-                    <Link href={`/curriculum/new-strand?learningAreaId=${tree.id}`}>
-                        <Plus className="mr-1.5 size-3.5" />
-                        Add Strand
-                    </Link>
-                </Button>
+                <Link
+                    href={`/curriculum/new-strand?learningAreaId=${tree.id}`}
+                    className={buttonVariants({ variant: "outline", size: "sm" })}
+                >
+                    <Plus className="mr-1.5 size-3.5" />
+                    Add Strand
+                </Link>
             </div>
 
             {/* Divider */}
@@ -80,12 +82,13 @@ export function CurriculumTree({ tree, isLoading, isError }: CurriculumTreeProps
                     <p className="text-muted-foreground text-xs">
                         Add a strand to start building your curriculum.
                     </p>
-                    <Button variant="outline" size="sm" className="mt-2" asChild>
-                        <Link href={`/curriculum/new-strand?learningAreaId=${tree.id}`}>
-                            <Plus className="mr-1.5 size-3.5" />
-                            Add Strand
-                        </Link>
-                    </Button>
+                    <Link
+                        href={`/curriculum/new-strand?learningAreaId=${tree.id}`}
+                        className={cn(buttonVariants({ variant: "outline", size: "sm" }), "mt-2")}
+                    >
+                        <Plus className="mr-1.5 size-3.5" />
+                        Add Strand
+                    </Link>
                 </div>
             ) : (
                 <div className="space-y-1">

@@ -52,9 +52,20 @@ export function useCreateTrack() {
 
     return useMutation({
         mutationFn: (payload: CreateTrackPayload) => createTrack(payload),
-        onSuccess: () => {
+        onMutate: async (_payload) => {
+            await queryClient.cancelQueries({ queryKey: timetableKeys.combined.all });
+            const previous = queryClient.getQueryData(timetableKeys.combined.all);
+            return { previous };
+        },
+        onError: (_err, _payload, context) => {
+            if (context?.previous) {
+                queryClient.setQueryData(timetableKeys.combined.all, context.previous);
+            }
+        },
+        onSettled: () => {
             queryClient.invalidateQueries({ queryKey: timetableKeys.tracks.all });
             queryClient.invalidateQueries({ queryKey: timetableKeys.blocks.all });
+            queryClient.invalidateQueries({ queryKey: timetableKeys.combined.all });
         },
     });
 }
@@ -69,8 +80,19 @@ export function useUpdateTrack() {
         mutationFn: (
             payload: { id: string } & { name?: string; description?: string; is_default?: boolean }
         ) => updateTrack(payload),
-        onSuccess: () => {
+        onMutate: async () => {
+            await queryClient.cancelQueries({ queryKey: timetableKeys.combined.all });
+            const previous = queryClient.getQueryData(timetableKeys.combined.all);
+            return { previous };
+        },
+        onError: (_err, _vars, context) => {
+            if (context?.previous) {
+                queryClient.setQueryData(timetableKeys.combined.all, context.previous);
+            }
+        },
+        onSettled: () => {
             queryClient.invalidateQueries({ queryKey: timetableKeys.tracks.all });
+            queryClient.invalidateQueries({ queryKey: timetableKeys.combined.all });
         },
     });
 }
@@ -83,9 +105,20 @@ export function useBulkDeleteTracks() {
 
     return useMutation({
         mutationFn: (ids: string[]) => bulkDeleteTracks({ ids }),
-        onSuccess: () => {
+        onMutate: async () => {
+            await queryClient.cancelQueries({ queryKey: timetableKeys.combined.all });
+            const previous = queryClient.getQueryData(timetableKeys.combined.all);
+            return { previous };
+        },
+        onError: (_err, _vars, context) => {
+            if (context?.previous) {
+                queryClient.setQueryData(timetableKeys.combined.all, context.previous);
+            }
+        },
+        onSettled: () => {
             queryClient.invalidateQueries({ queryKey: timetableKeys.tracks.all });
             queryClient.invalidateQueries({ queryKey: timetableKeys.blocks.all });
+            queryClient.invalidateQueries({ queryKey: timetableKeys.combined.all });
         },
     });
 }
@@ -110,8 +143,19 @@ export function useCreateBlocks() {
                 order?: number;
             }[]
         ) => createBlocks(payload),
-        onSuccess: () => {
+        onMutate: async () => {
+            await queryClient.cancelQueries({ queryKey: timetableKeys.combined.all });
+            const previous = queryClient.getQueryData(timetableKeys.combined.all);
+            return { previous };
+        },
+        onError: (_err, _vars, context) => {
+            if (context?.previous) {
+                queryClient.setQueryData(timetableKeys.combined.all, context.previous);
+            }
+        },
+        onSettled: () => {
             queryClient.invalidateQueries({ queryKey: timetableKeys.blocks.all });
+            queryClient.invalidateQueries({ queryKey: timetableKeys.combined.all });
         },
     });
 }
@@ -132,8 +176,19 @@ export function useUpdateBlock() {
             is_break?: boolean;
             order?: number;
         }) => updateBlock(payload),
-        onSuccess: () => {
+        onMutate: async () => {
+            await queryClient.cancelQueries({ queryKey: timetableKeys.combined.all });
+            const previous = queryClient.getQueryData(timetableKeys.combined.all);
+            return { previous };
+        },
+        onError: (_err, _vars, context) => {
+            if (context?.previous) {
+                queryClient.setQueryData(timetableKeys.combined.all, context.previous);
+            }
+        },
+        onSettled: () => {
             queryClient.invalidateQueries({ queryKey: timetableKeys.blocks.all });
+            queryClient.invalidateQueries({ queryKey: timetableKeys.combined.all });
         },
     });
 }
@@ -146,9 +201,20 @@ export function useBulkDeleteBlocks() {
 
     return useMutation({
         mutationFn: (ids: string[]) => bulkDeleteBlocks({ ids }),
-        onSuccess: () => {
+        onMutate: async () => {
+            await queryClient.cancelQueries({ queryKey: timetableKeys.combined.all });
+            const previous = queryClient.getQueryData(timetableKeys.combined.all);
+            return { previous };
+        },
+        onError: (_err, _vars, context) => {
+            if (context?.previous) {
+                queryClient.setQueryData(timetableKeys.combined.all, context.previous);
+            }
+        },
+        onSettled: () => {
             queryClient.invalidateQueries({ queryKey: timetableKeys.blocks.all });
             queryClient.invalidateQueries({ queryKey: ["timetable", "allocations"] });
+            queryClient.invalidateQueries({ queryKey: timetableKeys.combined.all });
         },
     });
 }
@@ -171,8 +237,19 @@ export function useCreateAllocations() {
                 room_identifier?: string | null;
             }[]
         ) => createAllocations(payload),
-        onSuccess: () => {
+        onMutate: async () => {
+            await queryClient.cancelQueries({ queryKey: timetableKeys.combined.all });
+            const previous = queryClient.getQueryData(timetableKeys.combined.all);
+            return { previous };
+        },
+        onError: (_err, _vars, context) => {
+            if (context?.previous) {
+                queryClient.setQueryData(timetableKeys.combined.all, context.previous);
+            }
+        },
+        onSettled: () => {
             queryClient.invalidateQueries({ queryKey: ["timetable", "allocations"] });
+            queryClient.invalidateQueries({ queryKey: timetableKeys.combined.all });
         },
     });
 }
@@ -191,8 +268,19 @@ export function useUpdateAllocation() {
             teacher_id?: string;
             room_identifier?: string | null;
         }) => updateAllocation(payload),
-        onSuccess: () => {
+        onMutate: async () => {
+            await queryClient.cancelQueries({ queryKey: timetableKeys.combined.all });
+            const previous = queryClient.getQueryData(timetableKeys.combined.all);
+            return { previous };
+        },
+        onError: (_err, _vars, context) => {
+            if (context?.previous) {
+                queryClient.setQueryData(timetableKeys.combined.all, context.previous);
+            }
+        },
+        onSettled: () => {
             queryClient.invalidateQueries({ queryKey: ["timetable", "allocations"] });
+            queryClient.invalidateQueries({ queryKey: timetableKeys.combined.all });
         },
     });
 }
@@ -205,8 +293,19 @@ export function useBulkDeleteAllocations() {
 
     return useMutation({
         mutationFn: (ids: string[]) => bulkDeleteAllocations({ ids }),
-        onSuccess: () => {
+        onMutate: async () => {
+            await queryClient.cancelQueries({ queryKey: timetableKeys.combined.all });
+            const previous = queryClient.getQueryData(timetableKeys.combined.all);
+            return { previous };
+        },
+        onError: (_err, _vars, context) => {
+            if (context?.previous) {
+                queryClient.setQueryData(timetableKeys.combined.all, context.previous);
+            }
+        },
+        onSettled: () => {
             queryClient.invalidateQueries({ queryKey: ["timetable", "allocations"] });
+            queryClient.invalidateQueries({ queryKey: timetableKeys.combined.all });
         },
     });
 }

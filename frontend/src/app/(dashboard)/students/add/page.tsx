@@ -9,5 +9,5 @@
 import { StudentsImportForm } from "@/features/students/components/students-import/students-import";
 
 export default function StudentsImport() {
-    return <StudentsImportForm isDialogVersion={false} />;
+    return <StudentsImportForm isDialogVersion={false} onSuccess={() => {}} />;
 }

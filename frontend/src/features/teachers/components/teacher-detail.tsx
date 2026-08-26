@@ -107,13 +107,12 @@ export function TeacherDetail({ id }: TeacherDetailProps) {
         }
     }, [teacher, form]);
 
-    const handleDelete = React.useCallback(async () => {
-        try {
-            await deleteMutation.mutateAsync(id);
-            router.back();
-        } catch {
-            // Error handled by the hook
-        }
+    const handleDelete = React.useCallback(() => {
+        deleteMutation.mutate(id, {
+            onSuccess: () => {
+                router.back();
+            },
+        });
     }, [deleteMutation, router, id]);
 
     // ── Loading state ─────────────────────────────────────────────────────
@@ -132,7 +131,7 @@ export function TeacherDetail({ id }: TeacherDetailProps) {
 
     // ── Error state ───────────────────────────────────────────────────────
     if (isError) {
-        return router.back();
+        return <p className="text-destructive py-4">Failed to load teacher.</p>;
     }
 
     // ── Not found state ───────────────────────────────────────────────────

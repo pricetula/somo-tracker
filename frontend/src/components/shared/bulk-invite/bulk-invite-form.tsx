@@ -126,7 +126,7 @@ export function BulkInviteForm({ role, submitFn, onSuccess }: BulkInviteFormProp
 
     function handleReset() {
         dispatch({ type: "RESET" });
-        onSuccess();
+        onSuccess?.();
     }
 
     function handleJobCreated(jobId: string, totalRecords: number) {

@@ -99,8 +99,10 @@ export function ClassCombobox({
             itemToStringValue={(i) => i.label}
             onValueChange={(v) => {
                 if (v) {
-                    const id = v.value;
-                    onChange(id);
+                    const id = Array.isArray(v)
+                        ? (v[0] as ClassOption | undefined)?.value
+                        : (v as ClassOption).value;
+                    if (id) onChange(id);
                 }
             }}
             multiple={isMultiSelect}
@@ -108,7 +110,7 @@ export function ClassCombobox({
             {isMultiSelect ? (
                 <ComboboxChips>
                     <ComboboxValue>
-                        {(value as string[]).map((item) => (
+                        {(value as unknown as string[]).map((item) => (
                             <ComboboxChip key={item}>{item}</ComboboxChip>
                         ))}
                     </ComboboxValue>

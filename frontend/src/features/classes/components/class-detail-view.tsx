@@ -69,7 +69,7 @@ export function ClassDetailView({ classId }: ClassDetailViewProps) {
     const [selectedTermId, setSelectedTermId] = useState("");
 
     // Derive effective values — user selection, or auto-select current year/term as default
-    const yearId = selectedYearId || (yearsData?.items?.find((y) => y.is_current)?.id ?? "");
+    const yearId = selectedYearId || (yearsData?.data?.find((y) => y.is_current)?.id ?? "");
     const termId = selectedTermId || (termsData?.items?.find((t) => t.is_current)?.id ?? "");
 
     // Reset term when year changes
@@ -117,13 +117,10 @@ export function ClassDetailView({ classId }: ClassDetailViewProps) {
                             <AlertDialogCancel>Cancel</AlertDialogCancel>
                             <AlertDialogAction
                                 variant="destructive"
-                                onClick={async () => {
-                                    try {
-                                        await deleteMutation.mutateAsync([classId]);
-                                        router.push("/classes");
-                                    } catch {
-                                        // handled by hook onError
-                                    }
+                                onClick={() => {
+                                    deleteMutation.mutate([classId], {
+                                        onSuccess: () => router.push("/classes"),
+                                    });
                                 }}
                                 disabled={deleteMutation.isPending}
                             >

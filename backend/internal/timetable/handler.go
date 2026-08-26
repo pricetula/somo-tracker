@@ -106,19 +106,28 @@ func (h *Handler) CreateTrackWithBlocks(c *fiber.Ctx) error {
 		return middleware.HTTPError(c, err)
 	}
 
-	// If initial blocks provided, create them for this track
+	// If initial blocks provided, create them for this track — replicate each to all 7 days
 	if len(payload.InitialBlocks) > 0 {
-		for i, blockPayload := range payload.InitialBlocks {
-			blockPayload.TrackID = track.ID
-			if err := validateTimeBlockPayload((*CreateTimeBlockPayload)(&blockPayload)); err != nil {
-				return middleware.HTTPError(c, err)
+		for _, blockPayload := range payload.InitialBlocks {
+			for day := 1; day <= 7; day++ {
+				bp := blockPayload
+				bp.TrackID = track.ID
+				bp.DayOfWeek = day
+				if bp.OrderIndex <= 0 {
+					bp.OrderIndex = 1
+				}
+				if err := validateTimeBlockPayload(&bp); err != nil {
+					_, _ = h.svc.DeleteTrack(c.UserContext(), track.ID, tenantID, schoolID)
+					return middleware.HTTPError(c, err)
+				}
+				_, err := h.svc.CreateBlock(c.UserContext(), tenantID, schoolID, bp)
+				if err != nil {
+					_, _ = h.svc.DeleteTrack(c.UserContext(), track.ID, tenantID, schoolID)
+					return middleware.HTTPError(c, err)
+				}
 			}
-			_, err := h.svc.CreateBlock(c.UserContext(), tenantID, schoolID, blockPayload)
-			if err != nil {
-				// If blocks fail, delete track and return error
-				_, _ = h.svc.DeleteTrack(c.UserContext(), track.ID, tenantID, schoolID)
-				return middleware.HTTPError(c, err)
-			}
+		}
+		for i := range payload.InitialBlocks {
 			payload.InitialBlocks[i].TrackID = track.ID
 		}
 	}

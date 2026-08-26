@@ -15,12 +15,6 @@ export function TimeTable() {
             <div className="space-y-4">
                 <div className="flex items-center justify-between">
                     <h1 className="text-lg font-medium">Timetable</h1>
-                    <Link href="/timetable/new">
-                        <Button variant="default" size="sm">
-                            <PlusIcon className="mr-1.5 size-3.5" />
-                            New Timetable
-                        </Button>
-                    </Link>
                 </div>
                 <article className="relative max-h-150 w-full overflow-auto rounded-md border text-xs">
                     <table className="w-full">
@@ -85,16 +79,21 @@ export function TimeTable() {
 
     const { days = [], rows = [] } = data as TimetableViewResult;
 
+    if (!days.length) {
+        return (
+            <Link href="/timetable/new">
+                <Button variant="default" size="sm">
+                    <PlusIcon className="mr-1.5 size-3.5" />
+                    New Timetable
+                </Button>
+            </Link>
+        );
+    }
+
     return (
         <div className="space-y-4">
             <div className="flex items-center justify-between">
                 <h1 className="text-lg font-medium">Timetable</h1>
-                <Link href="/timetable/new">
-                    <Button variant="default" size="sm">
-                        <PlusIcon className="mr-1.5 size-3.5" />
-                        New Timetable
-                    </Button>
-                </Link>
             </div>
             <article className="relative max-h-150 w-full overflow-auto rounded-md border text-xs">
                 <table className="w-full">

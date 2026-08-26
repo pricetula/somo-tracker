@@ -106,14 +106,34 @@ function TimeBlockRow({
 export function TimetableCreateBlocks({ form, onBack, onSubmit, isPending }: BlocksStepProps) {
     const addBlock = () => {
         const currentBlocks = form.getValues("blocks");
+        const first = currentBlocks[0];
+        const last = currentBlocks[currentBlocks.length - 1];
+
+        const parseMin = (t: string) => {
+            const [h, m] = t.split(":").map(Number);
+            return h * 60 + m;
+        };
+        const fmt = (m: number) => {
+            const h = Math.floor(m / 60)
+                .toString()
+                .padStart(2, "0");
+            const mm = (m % 60).toString().padStart(2, "0");
+            return `${h}:${mm}`;
+        };
+
+        const durationMin = parseMin(first.end_time) - parseMin(first.start_time);
+        const lastEndMin = parseMin(last.end_time);
+        const newStartMin = lastEndMin;
+        const newEndMin = newStartMin + durationMin;
+
         const nextIndex = currentBlocks.length + 1;
         form.setValue("blocks", [
             ...currentBlocks,
             {
                 day_of_week: 1,
                 period_name: `Lesson ${nextIndex}`,
-                start_time: "08:00",
-                end_time: "09:00",
+                start_time: fmt(newStartMin),
+                end_time: fmt(newEndMin),
                 is_break: false,
             },
         ]);

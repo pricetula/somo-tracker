@@ -4,11 +4,16 @@ import React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useCreateTrack } from "../hooks";
 import { Form } from "@/components/ui/form";
 import { TimetableCreateDetails } from "./timetable-create-details";
 import { TimetableCreateBlocks } from "./timetable-create-blocks";
+
+interface CreateTimetableProps {
+    handleRouteBack?: () => void;
+}
 
 export const TimeBlockSchema = z.object({
     day_of_week: z.number().int().min(1).max(7),
@@ -38,9 +43,8 @@ function sanitizeName(value: string): string {
         .replace(/[<>"'&]/g, "");
 }
 
-export function CreateTimetable() {
-    const router = useRouter();
-    const createTrack = useCreateTrack();
+export function CreateTimetable({ handleRouteBack }: CreateTimetableProps) {
+    const { mutate, isPending, isSuccess, isError, error } = useCreateTrack();
     const [step, setStep] = React.useState<Step>("details");
 
     const form = useForm<CreateTimetableFormData>({
@@ -60,9 +64,17 @@ export function CreateTimetable() {
         },
     });
 
-    const handleRouteBack = React.useCallback(() => {
-        router.back();
-    }, [router]);
+    React.useEffect(() => {
+        if (isSuccess && handleRouteBack) {
+            handleRouteBack();
+        }
+    }, [isSuccess, handleRouteBack]);
+
+    React.useEffect(() => {
+        if (isError && error) {
+            toast.error(error?.message);
+        }
+    }, [isError, error]);
 
     const handleNext = async () => {
         const nameValue = form.getValues("name");
@@ -83,26 +95,21 @@ export function CreateTimetable() {
     };
 
     const onSubmit = async (data: CreateTimetableFormData) => {
-        try {
-            const payload = {
-                name: data.name,
-                description: data.description,
-                initial_blocks: data.blocks.map((block, i) => ({
-                    track_id: "",
-                    day_of_week: block.day_of_week,
-                    period_name: block.period_name,
-                    start_time: block.start_time,
-                    end_time: block.end_time,
-                    is_break: block.is_break,
-                    order: i + 1,
-                })),
-            };
+        const payload = {
+            name: data.name,
+            description: data.description,
+            initial_blocks: data.blocks.map((block, i) => ({
+                track_id: "",
+                day_of_week: block.day_of_week,
+                period_name: block.period_name,
+                start_time: block.start_time,
+                end_time: block.end_time,
+                is_break: block.is_break,
+                order: i + 1,
+            })),
+        };
 
-            await createTrack.mutateAsync(payload);
-            handleRouteBack();
-        } catch (error) {
-            console.error("Failed to create timetable:", error);
-        }
+        mutate(payload);
     };
 
     return (
@@ -122,7 +129,11 @@ export function CreateTimetable() {
                         <TimetableCreateDetails
                             control={form.control}
                             onNext={handleNext}
-                            onCancel={handleRouteBack}
+                            onCancel={() => {
+                                if (handleRouteBack) {
+                                    handleRouteBack();
+                                }
+                            }}
                         />
                     )}
 
@@ -131,7 +142,7 @@ export function CreateTimetable() {
                             form={form}
                             onBack={handleBack}
                             onSubmit={() => form.handleSubmit(onSubmit)()}
-                            isPending={createTrack.isPending}
+                            isPending={isPending}
                         />
                     )}
                 </form>

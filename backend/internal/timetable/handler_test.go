@@ -291,11 +291,9 @@ func decodeError(t *testing.T, resp *http.Response) map[string]interface{} {
 
 func newValidTrackPayload() []byte {
 	p := CreateTrackPayload{
-		Name:           "Test Track",
-		Description:    "A test track",
-		IsDefault:      false,
-		AcademicYearID: "year_001",
-		AcademicTermID: "term_001",
+		Name:        "Test Track",
+		Description: "A test track",
+		IsDefault:   false,
 	}
 	b, _ := json.Marshal(p)
 	return b
@@ -421,11 +419,9 @@ func TestHandler_CreateTrack_WithInitialBlocks(t *testing.T) {
 	}
 
 	payload := CreateTrackPayload{
-		Name:           "Test Track",
-		Description:    "A test track",
-		IsDefault:      false,
-		AcademicYearID: "year_001",
-		AcademicTermID: "term_001",
+		Name:        "Test Track",
+		Description: "A test track",
+		IsDefault:   false,
 		InitialBlocks: []CreateTimeBlockPayload{
 			{DayOfWeek: 1, PeriodName: "Period 1", StartTime: "08:00", EndTime: "08:40", IsBreak: false, OrderIndex: 1},
 		},
@@ -444,11 +440,9 @@ func TestHandler_CreateTrack_ValidationError_MissingName(t *testing.T) {
 	h := newHandlerTestHarness()
 
 	payload := CreateTrackPayload{
-		Name:           "",
-		Description:    "A test track",
-		IsDefault:      false,
-		AcademicYearID: "year_001",
-		AcademicTermID: "term_001",
+		Name:        "",
+		Description: "A test track",
+		IsDefault:   false,
 	}
 	body, _ := json.Marshal(payload)
 

@@ -176,12 +176,10 @@ type Track struct {
 }
 
 type CreateTrackPayload struct {
-	Name           string                   `json:"name"`
-	Description    string                   `json:"description,omitempty"`
-	IsDefault      bool                     `json:"is_default,omitempty"`
-	AcademicYearID string                   `json:"academic_year_id,omitempty"`
-	AcademicTermID string                   `json:"academic_term_id,omitempty"`
-	InitialBlocks  []CreateTimeBlockPayload `json:"initial_blocks,omitempty"`
+	Name          string                   `json:"name"`
+	Description   string                   `json:"description,omitempty"`
+	IsDefault     bool                     `json:"is_default,omitempty"`
+	InitialBlocks []CreateTimeBlockPayload `json:"initial_blocks,omitempty"`
 }
 
 type UpdateTrackPayload struct {

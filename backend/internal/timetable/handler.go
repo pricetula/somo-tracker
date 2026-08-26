@@ -5,13 +5,14 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
+	"somotracker/backend/internal/academicyears"
 	"somotracker/backend/internal/middleware"
 )
 
 // Handler exposes timetable HTTP endpoints.
 type Handler struct {
 	svc              Service
-	academicYearsSvc interface{}
+	academicYearsSvc academicyears.AcademicYearTermResolver
 }
 
 // NewHandler creates a new timetable Handler.
@@ -46,7 +47,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 }
 
 // CreateTrackWithBlocks handles POST /api/v1/timetable (create track + optional initial blocks)
-func (h *Handler) SetAcademicYearsService(svc interface{}) {
+func (h *Handler) SetAcademicYearsService(svc *academicyears.Service) {
 	h.academicYearsSvc = svc
 }
 
@@ -87,8 +88,25 @@ func (h *Handler) CreateTrackWithBlocks(c *fiber.Ctx) error {
 		}
 	}
 
+	// Resolve academic term if not provided
+	termID := payload.AcademicTermID
+	if termID == "" {
+		if h.academicYearsSvc != nil {
+			_, termID, err = h.academicYearsSvc.GetCurrentYearAndTermID(c.UserContext(), tenantID, schoolID)
+			if err != nil {
+				return middleware.HTTPError(c, err)
+			}
+		}
+	}
+	if termID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "NO_ACTIVE_ACADEMIC_TERM",
+			"message": "No current academic term is active.",
+		})
+	}
+
 	// Create track first
-	track, err := h.svc.CreateTrack(c.UserContext(), tenantID, schoolID, yearID, payload.AcademicTermID, payload.Name, payload.Description, payload.IsDefault)
+	track, err := h.svc.CreateTrack(c.UserContext(), tenantID, schoolID, yearID, termID, payload.Name, payload.Description, payload.IsDefault)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
@@ -454,7 +472,10 @@ func (h *Handler) tmMiddleware(c *fiber.Ctx) (tenantID, schoolID string, err err
 
 // resolveCurrentYear resolves the current academic year ID for the school.
 func (h *Handler) resolveCurrentYear(c *fiber.Ctx, tenantID, schoolID string) (string, error) {
-	return "", nil
+	if h.academicYearsSvc == nil {
+		return "", nil
+	}
+	return h.academicYearsSvc.GetCurrentAcademicYearID(c.UserContext(), tenantID, schoolID)
 }
 
 // validateTimeBlockPayload validates CreateTimeBlockPayload / UpdateTimeBlockPayload.

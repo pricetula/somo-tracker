@@ -1,21 +1,16 @@
 package teacherperformance
 
 import (
-	"context"
 	"github.com/gofiber/fiber/v2"
+	"somotracker/backend/internal/academicyears"
 
 	"somotracker/backend/internal/middleware"
 )
 
-// AcademicYearTermResolver defines the interface for resolving current academic year and term.
-type AcademicYearTermResolver interface {
-	GetCurrentYearAndTermID(ctx context.Context, tenantID, schoolID string) (yearID, termID string, err error)
-}
-
 // Handler exposes teacher performance HTTP endpoints.
 type Handler struct {
 	svc              *Service
-	academicYearsSvc AcademicYearTermResolver
+	academicYearsSvc academicyears.AcademicYearTermResolver
 }
 
 // NewHandler creates a new teacher performance Handler.
@@ -24,7 +19,7 @@ func NewHandler(svc *Service) *Handler {
 }
 
 // SetAcademicYearsService sets the academicyears service reference.
-func (h *Handler) SetAcademicYearsService(aySvc AcademicYearTermResolver) {
+func (h *Handler) SetAcademicYearsService(aySvc academicyears.AcademicYearTermResolver) {
 	h.academicYearsSvc = aySvc
 }
 

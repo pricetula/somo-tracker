@@ -1,18 +1,13 @@
 package cbcclasses
 
 import (
-	"context"
+	"somotracker/backend/internal/academicyears"
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
 
 	"somotracker/backend/internal/middleware"
 )
-
-// AcademicYearTermResolver defines the interface for resolving current academic year and term.
-type AcademicYearTermResolver interface {
-	GetCurrentYearAndTermID(ctx context.Context, tenantID, schoolID string) (yearID, termID string, err error)
-}
 
 // getQuerySlice returns all values for a given query parameter key.
 // Handles repeated keys like ?grade_level=G7&grade_level=G8.
@@ -27,7 +22,7 @@ func getQuerySlice(c *fiber.Ctx, key string) []string {
 // Handler exposes class HTTP endpoints.
 type Handler struct {
 	svc              *Service
-	academicYearsSvc AcademicYearTermResolver
+	academicYearsSvc academicyears.AcademicYearTermResolver
 }
 
 // NewHandler creates a new Handler.
@@ -36,7 +31,7 @@ func NewHandler(svc *Service) *Handler {
 }
 
 // SetAcademicYearsService sets the academicyears service reference.
-func (h *Handler) SetAcademicYearsService(aySvc AcademicYearTermResolver) {
+func (h *Handler) SetAcademicYearsService(aySvc academicyears.AcademicYearTermResolver) {
 	h.academicYearsSvc = aySvc
 }
 

@@ -486,3 +486,9 @@ func (s *Service) GetCurrentYearAndTermID(ctx context.Context, tenantID, schoolI
 	}
 	return current.AcademicYearID, current.AcademicTermID, nil
 }
+
+// GetAllActiveTermIDs returns all active term IDs across all schools.
+// Used by system-wide background workers that need to process all active terms.
+func (s *Service) GetAllActiveTermIDs(ctx context.Context) ([]string, error) {
+	return s.Repo.GetAllActiveTermIDs(ctx)
+}

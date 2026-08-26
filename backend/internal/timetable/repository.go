@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -475,11 +476,85 @@ func isUniqueViolation(err error) bool {
 }
 
 func (r *PgRepository) CreateTrack(ctx context.Context, tenantID, schoolID, academicYearID, academicTermID, name, description string, isDefault bool) (*Track, error) {
-	return nil, fmt.Errorf("not implemented")
+	const query = `
+		INSERT INTO timetable_tracks (tenant_id, school_id, academic_year_id, academic_term_id, name, description, is_default)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		RETURNING id, tenant_id, school_id, academic_year_id, academic_term_id, name, description, is_default, created_at, updated_at
+	`
+	var t Track
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, tenantID, schoolID, academicYearID, academicTermID, name, description, isDefault).Scan(
+		&t.ID, &t.TenantID, &t.SchoolID, &t.AcademicYearID, &t.AcademicTermID, &t.Name, &t.Description, &t.IsDefault, &t.CreatedAt, &t.UpdatedAt,
+	)
+	if err != nil {
+		if isUniqueViolation(err) {
+			return nil, fmt.Errorf("timetable.Repository.CreateTrack: %w", ErrAlreadyExists)
+		}
+		return nil, fmt.Errorf("timetable.Repository.CreateTrack: %w", err)
+	}
+	return &t, nil
 }
+
 func (r *PgRepository) UpdateTrack(ctx context.Context, id, tenantID, schoolID string, p UpdateTrackPayload) (*Track, error) {
-	return nil, fmt.Errorf("not implemented")
+	sets := []string{}
+	args := []any{}
+	argIdx := 1
+	if p.Name != "" {
+		sets = append(sets, fmt.Sprintf("name = $%d", argIdx))
+		args = append(args, p.Name)
+		argIdx++
+	}
+	if p.Description != "" || len(p.Description) == 0 { // allow clearing; but can't distinguish omitted. We'll always include if payload has it.
+		sets = append(sets, fmt.Sprintf("description = $%d", argIdx))
+		args = append(args, p.Description)
+		argIdx++
+	}
+	if p.IsDefault != nil {
+		sets = append(sets, fmt.Sprintf("is_default = $%d", argIdx))
+		args = append(args, *p.IsDefault)
+		argIdx++
+	}
+	if len(sets) == 0 {
+		// Nothing to update; fetch current
+		const query = `SELECT id, tenant_id, school_id, academic_year_id, academic_term_id, name, description, is_default, created_at, updated_at FROM timetable_tracks WHERE id = $1 AND tenant_id = $2 AND school_id = $3`
+		var t Track
+		err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, id, tenantID, schoolID).Scan(
+			&t.ID, &t.TenantID, &t.SchoolID, &t.AcademicYearID, &t.AcademicTermID, &t.Name, &t.Description, &t.IsDefault, &t.CreatedAt, &t.UpdatedAt,
+		)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return nil, fmt.Errorf("timetable.Repository.UpdateTrack: %w", ErrNotFound)
+			}
+			return nil, fmt.Errorf("timetable.Repository.UpdateTrack: %w", err)
+		}
+		return &t, nil
+	}
+	sets = append(sets, "updated_at = NOW()")
+	query := fmt.Sprintf(`UPDATE timetable_tracks SET %s WHERE id = $%d AND tenant_id = $%d AND school_id = $%d RETURNING id, tenant_id, school_id, academic_year_id, academic_term_id, name, description, is_default, created_at, updated_at`, strings.Join(sets, ", "), argIdx, argIdx+1, argIdx+2)
+	args = append(args, id, tenantID, schoolID)
+	var t Track
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, args...).Scan(
+		&t.ID, &t.TenantID, &t.SchoolID, &t.AcademicYearID, &t.AcademicTermID, &t.Name, &t.Description, &t.IsDefault, &t.CreatedAt, &t.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("timetable.Repository.UpdateTrack: %w", ErrNotFound)
+		}
+		if isUniqueViolation(err) {
+			return nil, fmt.Errorf("timetable.Repository.UpdateTrack: %w", ErrAlreadyExists)
+		}
+		return nil, fmt.Errorf("timetable.Repository.UpdateTrack: %w", err)
+	}
+	return &t, nil
 }
+
 func (r *PgRepository) DeleteTrack(ctx context.Context, id, tenantID, schoolID string) error {
-	return fmt.Errorf("not implemented")
+	const query = `DELETE FROM timetable_tracks WHERE id = $1 AND tenant_id = $2 AND school_id = $3`
+	tag, err := database.FromContext(ctx, r.pool).Exec(ctx, query, id, tenantID, schoolID)
+	if err != nil {
+		return fmt.Errorf("timetable.Repository.DeleteTrack: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("timetable.Repository.DeleteTrack: %w", ErrNotFound)
+	}
+	return nil
 }

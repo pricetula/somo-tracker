@@ -18,7 +18,8 @@ import (
 // ============================================================================
 
 type mockAcademicYearsService struct {
-	getCurrentYearAndTermIDFn func(ctx context.Context, tenantID, schoolID string) (string, string, error)
+	getCurrentYearAndTermIDFn  func(ctx context.Context, tenantID, schoolID string) (string, string, error)
+	getCurrentAcademicYearIDFn func(ctx context.Context, tenantID, schoolID string) (string, error)
 }
 
 func (m *mockAcademicYearsService) GetCurrentYearAndTermID(ctx context.Context, tenantID, schoolID string) (string, string, error) {
@@ -26,6 +27,13 @@ func (m *mockAcademicYearsService) GetCurrentYearAndTermID(ctx context.Context, 
 		return m.getCurrentYearAndTermIDFn(ctx, tenantID, schoolID)
 	}
 	return "year_001", "term_001", nil
+}
+
+func (m *mockAcademicYearsService) GetCurrentAcademicYearID(ctx context.Context, tenantID, schoolID string) (string, error) {
+	if m.getCurrentAcademicYearIDFn != nil {
+		return m.getCurrentAcademicYearIDFn(ctx, tenantID, schoolID)
+	}
+	return "year_001", nil
 }
 
 type handlerTestHarness struct {

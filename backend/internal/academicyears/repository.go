@@ -357,10 +357,10 @@ func (r *PgRepository) UpdateTerm(ctx context.Context, term *AcademicTerm) error
 
 // mapTermWriteError translates PostgreSQL constraint violations raised by term
 // writes into domain errors:
-//   - 23P01 GIST exclusion  → TermDateOverlapError      (409 Conflict)
-//   - P0001 bounds trigger  → TermOutOfYearBoundsError  (400 Bad Request)
-//   - 23514 date-order check → ErrInvalidInput          (400 Bad Request)
-//   - 23505 term_number     → TermNumberExistsError     (409 Conflict)
+//   - 23P01 GIST exclusion  -> TermDateOverlapError      (409 Conflict)
+//   - P0001 bounds trigger  -> TermOutOfYearBoundsError  (400 Bad Request)
+//   - 23514 date-order check -> ErrInvalidInput          (400 Bad Request)
+//   - 23505 term_number     -> TermNumberExistsError     (409 Conflict)
 func mapTermWriteError(err error) error {
 	var pgErr *pgconn.PgError
 	if !errors.As(err, &pgErr) {
@@ -762,6 +762,34 @@ func (r *PgRepository) GetCurrentAcademicTermID(ctx context.Context, academicYea
 		return "", fmt.Errorf("academicyears.Repository.GetCurrentAcademicTermID: %w", err)
 	}
 	return id, nil
+}
+
+// GetAllActiveTermIDs returns all active term IDs across all schools.
+// Used by system-wide background workers that need to process all active terms.
+func (r *PgRepository) GetAllActiveTermIDs(ctx context.Context) ([]string, error) {
+	const query = `
+		SELECT at.id FROM academic_terms at
+		JOIN academic_years ay ON ay.id = at.academic_year_id
+		WHERE at.is_current = TRUE AND ay.is_current = TRUE
+	`
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("academicyears.Repository.GetAllActiveTermIDs: %w", err)
+	}
+	defer rows.Close()
+
+	var termIDs []string
+	for rows.Next() {
+		var termID string
+		if err := rows.Scan(&termID); err != nil {
+			return nil, fmt.Errorf("academicyears.Repository.GetAllActiveTermIDs: scan: %w", err)
+		}
+		termIDs = append(termIDs, termID)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("academicyears.Repository.GetAllActiveTermIDs: rows: %w", err)
+	}
+	return termIDs, nil
 }
 
 // nullableUUID returns a *string for SQL query parameter use. An empty string

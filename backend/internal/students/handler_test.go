@@ -42,7 +42,8 @@ func (m *mockImportServiceAdapter) CreateJob(ctx context.Context, req imports.Cr
 // ============================================================================
 
 type mockAcademicYearsAdapter struct {
-	getCurrentYearAndTermIDFn func(ctx context.Context, tenantID, schoolID string) (string, string, error)
+	getCurrentYearAndTermIDFn  func(ctx context.Context, tenantID, schoolID string) (string, string, error)
+	getCurrentAcademicYearIDFn func(ctx context.Context, tenantID, schoolID string) (string, error)
 }
 
 func (m *mockAcademicYearsAdapter) GetCurrentYearAndTermID(ctx context.Context, tenantID, schoolID string) (string, string, error) {
@@ -50,6 +51,13 @@ func (m *mockAcademicYearsAdapter) GetCurrentYearAndTermID(ctx context.Context, 
 		return m.getCurrentYearAndTermIDFn(ctx, tenantID, schoolID)
 	}
 	return "year_001", "term_001", nil
+}
+
+func (m *mockAcademicYearsAdapter) GetCurrentAcademicYearID(ctx context.Context, tenantID, schoolID string) (string, error) {
+	if m.getCurrentAcademicYearIDFn != nil {
+		return m.getCurrentAcademicYearIDFn(ctx, tenantID, schoolID)
+	}
+	return "year_001", nil
 }
 
 // ============================================================================

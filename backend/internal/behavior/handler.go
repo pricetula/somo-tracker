@@ -1,22 +1,17 @@
 package behavior
 
 import (
-	"context"
 	"github.com/gofiber/fiber/v2"
+	"somotracker/backend/internal/academicyears"
 
 	"somotracker/backend/internal/middleware"
 	"somotracker/backend/internal/xerrors"
 )
 
-// AcademicYearTermResolver defines the interface for resolving current academic year and term.
-type AcademicYearTermResolver interface {
-	GetCurrentYearAndTermID(ctx context.Context, tenantID, schoolID string) (yearID, termID string, err error)
-}
-
 // Handler exposes behavior HTTP endpoints.
 type Handler struct {
 	svc              *Service
-	academicYearsSvc AcademicYearTermResolver
+	academicYearsSvc academicyears.AcademicYearTermResolver
 }
 
 // NewHandler creates a new behavior Handler.
@@ -25,7 +20,7 @@ func NewHandler(svc *Service) *Handler {
 }
 
 // SetAcademicYearsService sets the academicyears service reference.
-func (h *Handler) SetAcademicYearsService(aySvc AcademicYearTermResolver) {
+func (h *Handler) SetAcademicYearsService(aySvc academicyears.AcademicYearTermResolver) {
 	h.academicYearsSvc = aySvc
 }
 

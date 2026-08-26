@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"somotracker/backend/internal/academicyears"
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
@@ -15,11 +16,6 @@ import (
 	"somotracker/backend/internal/middleware"
 	"somotracker/backend/internal/xerrors"
 )
-
-// AcademicYearTermResolver defines the interface for resolving current academic year and term.
-type AcademicYearTermResolver interface {
-	GetCurrentYearAndTermID(ctx context.Context, tenantID, schoolID string) (yearID, termID string, err error)
-}
 
 // importServiceAdapter is the subset of imports.Service that the handler uses.
 type importServiceAdapter interface {
@@ -40,7 +36,7 @@ type AttendanceSummaryProvider func(ctx context.Context, tenantID, schoolID, stu
 type Handler struct {
 	svc              *Service
 	impSvc           importServiceAdapter
-	academicYearsSvc AcademicYearTermResolver
+	academicYearsSvc academicyears.AcademicYearTermResolver
 	behaviorNotesFn  BehaviorNotesProvider
 	attendanceFn     AttendanceSummaryProvider
 }
@@ -56,7 +52,7 @@ func (h *Handler) SetImportService(impSvc importServiceAdapter) {
 }
 
 // SetAcademicYearsService sets the academicyears service reference.
-func (h *Handler) SetAcademicYearsService(aySvc AcademicYearTermResolver) {
+func (h *Handler) SetAcademicYearsService(aySvc academicyears.AcademicYearTermResolver) {
 	h.academicYearsSvc = aySvc
 }
 

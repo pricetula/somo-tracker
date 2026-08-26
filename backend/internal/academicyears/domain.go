@@ -291,8 +291,18 @@ type Repository interface {
 	// Returns empty string if none is set.
 	GetCurrentAcademicTermID(ctx context.Context, academicYearID string) (string, error)
 
+	// GetAllActiveTermIDs returns all active term IDs across all schools.
+	// Used by system-wide background workers that need to process all active terms.
+	GetAllActiveTermIDs(ctx context.Context) ([]string, error)
+
 	// Transaction helpers for composing operations
 	Begin(ctx context.Context) (Tx, error)
+}
+
+// AcademicYearTermResolver defines the interface for resolving current academic year and term.
+type AcademicYearTermResolver interface {
+	GetCurrentYearAndTermID(ctx context.Context, tenantID, schoolID string) (yearID, termID string, err error)
+	GetCurrentAcademicYearID(ctx context.Context, tenantID, schoolID string) (string, error)
 }
 
 // Tx wraps a database transaction for composable operations.

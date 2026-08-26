@@ -1,7 +1,7 @@
 package attendance
 
 import (
-	"context"
+	"somotracker/backend/internal/academicyears"
 	"strconv"
 	"time"
 
@@ -11,15 +11,10 @@ import (
 	"somotracker/backend/internal/xerrors"
 )
 
-// AcademicYearTermResolver defines the interface for resolving current academic year and term.
-type AcademicYearTermResolver interface {
-	GetCurrentYearAndTermID(ctx context.Context, tenantID, schoolID string) (yearID, termID string, err error)
-}
-
 // Handler exposes attendance HTTP endpoints.
 type Handler struct {
 	svc              *Service
-	academicYearsSvc AcademicYearTermResolver
+	academicYearsSvc academicyears.AcademicYearTermResolver
 }
 
 // NewHandler creates a new attendance Handler.
@@ -28,7 +23,7 @@ func NewHandler(svc *Service) *Handler {
 }
 
 // SetAcademicYearsService sets the academicyears service reference.
-func (h *Handler) SetAcademicYearsService(aySvc AcademicYearTermResolver) {
+func (h *Handler) SetAcademicYearsService(aySvc academicyears.AcademicYearTermResolver) {
 	h.academicYearsSvc = aySvc
 }
 

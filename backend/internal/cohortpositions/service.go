@@ -9,6 +9,7 @@ import (
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 
+	"somotracker/backend/internal/academicyears"
 	"somotracker/backend/internal/database"
 )
 
@@ -17,14 +18,20 @@ import (
 // Service handles business logic for cohort position computations.
 // It orchestrates the batch refresh and read queries.
 type Service struct {
-	repo   Repository
-	pools  *database.Pools
-	logger *zap.SugaredLogger
+	repo             Repository
+	pools            *database.Pools
+	logger           *zap.SugaredLogger
+	academicYearsSvc *academicyears.Service
 }
 
 // NewService creates a new cohort positions Service.
 func NewService(repo Repository, pools *database.Pools, logger *zap.SugaredLogger) *Service {
 	return &Service{repo: repo, pools: pools, logger: logger}
+}
+
+// SetAcademicYearsService injects the academicyears service.
+func (s *Service) SetAcademicYearsService(aySvc *academicyears.Service) {
+	s.academicYearsSvc = aySvc
 }
 
 // RefreshTerm triggers a batch recomputation of cohort positions for all
@@ -39,24 +46,13 @@ func (s *Service) RefreshTerm(ctx context.Context, termID string) error {
 // RefreshAllActiveTerms finds all active academic terms across the system and
 // refreshes cohort positions for each. Used by the periodic background worker.
 func (s *Service) RefreshAllActiveTerms(ctx context.Context) error {
-	rows, err := s.pools.PG.Query(ctx, `
-		SELECT id FROM academic_terms WHERE is_current = true
-	`)
-	if err != nil {
-		return fmt.Errorf("cohortpositions.Service.RefreshAllActiveTerms: query active terms: %w", err)
+	if s.academicYearsSvc == nil {
+		return fmt.Errorf("cohortpositions.Service.RefreshAllActiveTerms: academicyears service not configured")
 	}
-	defer rows.Close()
 
-	var termIDs []string
-	for rows.Next() {
-		var termID string
-		if err := rows.Scan(&termID); err != nil {
-			return fmt.Errorf("cohortpositions.Service.RefreshAllActiveTerms: scan: %w", err)
-		}
-		termIDs = append(termIDs, termID)
-	}
-	if err := rows.Err(); err != nil {
-		return fmt.Errorf("cohortpositions.Service.RefreshAllActiveTerms: rows: %w", err)
+	termIDs, err := s.academicYearsSvc.GetAllActiveTermIDs(ctx)
+	if err != nil {
+		return fmt.Errorf("cohortpositions.Service.RefreshAllActiveTerms: %w", err)
 	}
 
 	if len(termIDs) == 0 {

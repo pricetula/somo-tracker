@@ -31,6 +31,7 @@ type MockRepository struct {
 	termDependencyCountsFn     func(ctx context.Context, termID string) (map[string]int64, error)
 	countOrphansOutsideRangeFn func(ctx context.Context, termID string, newStart, newEnd time.Time) (map[string]int64, error)
 	syncCurrentTermFn          func(ctx context.Context, academicYearID string, now time.Time) error
+	getAllActiveTermIDsFn      func(ctx context.Context) ([]string, error)
 	beginFn                    func(ctx context.Context) (Tx, error)
 }
 
@@ -154,6 +155,10 @@ func (m *MockRepository) GetCurrentAcademicYearID(ctx context.Context, tenantID,
 
 func (m *MockRepository) GetCurrentAcademicTermID(ctx context.Context, academicYearID string) (string, error) {
 	return "term_001", nil
+}
+
+func (m *MockRepository) GetAllActiveTermIDs(ctx context.Context) ([]string, error) {
+	return []string{"term_001", "term_002"}, nil
 }
 
 func (m *MockRepository) Begin(ctx context.Context) (Tx, error) {

@@ -1,8 +1,8 @@
 package assessments
 
 import (
-	"context"
 	"fmt"
+	"somotracker/backend/internal/academicyears"
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
@@ -10,15 +10,10 @@ import (
 	"somotracker/backend/internal/middleware"
 )
 
-// AcademicYearTermResolver defines the interface for resolving current academic year and term.
-type AcademicYearTermResolver interface {
-	GetCurrentYearAndTermID(ctx context.Context, tenantID, schoolID string) (yearID, termID string, err error)
-}
-
 // Handler exposes assessment HTTP endpoints.
 type Handler struct {
 	svc              *Service
-	academicYearsSvc AcademicYearTermResolver
+	academicYearsSvc academicyears.AcademicYearTermResolver
 }
 
 // NewHandler creates a new Handler.
@@ -27,7 +22,7 @@ func NewHandler(svc *Service) *Handler {
 }
 
 // SetAcademicYearsService sets the academicyears service reference.
-func (h *Handler) SetAcademicYearsService(aySvc AcademicYearTermResolver) {
+func (h *Handler) SetAcademicYearsService(aySvc academicyears.AcademicYearTermResolver) {
 	h.academicYearsSvc = aySvc
 }
 

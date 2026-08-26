@@ -5,6 +5,6 @@
  */
 
 export { TimeTable } from "./components/timetable";
-export { CreateTimetableDialog } from "./components/timetable-create-dialog";
+export { CreateTimetable } from "./components/timetable-create";
 
 export * from "./hooks";

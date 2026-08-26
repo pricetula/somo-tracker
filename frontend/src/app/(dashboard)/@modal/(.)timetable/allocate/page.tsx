@@ -24,9 +24,9 @@ export default function TimetableCreateModal() {
         <Dialog open onOpenChange={handleRouteBack}>
             <DialogContent className="max-h-[90vh] w-full overflow-y-auto sm:max-w-2xl">
                 <DialogHeader>
-                    <DialogTitle>Create Timetable</DialogTitle>
+                    <DialogTitle>Allocate teacher & subject</DialogTitle>
                     <DialogDescription>
-                        Set up a new timetable track with time blocks.
+                        Select teacher and subject for selected time table slot
                     </DialogDescription>
                 </DialogHeader>
                 <AllocationForm onSuccess={handleRouteBack} />

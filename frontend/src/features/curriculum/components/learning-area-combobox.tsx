@@ -7,40 +7,38 @@
 
 "use client";
 
+import { toast } from "sonner";
 import * as React from "react";
 import Link from "next/link";
 
-import { cn } from "@/lib/utils";
-import { Combobox, ComboboxChip } from "@/components/ui/combobox";
-const ComboboxAny = Combobox as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+import {
+    Combobox,
+    ComboboxInput,
+    ComboboxContent,
+    ComboboxList,
+    ComboboxEmpty,
+    ComboboxItem,
+} from "@/components/ui/combobox";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { getErrorMessage } from "@/lib/errors";
 import { useLearningAreas } from "@/features/curriculum/hooks/use-curriculum";
+
+interface Option {
+    value: string;
+    label: string;
+}
 
 // ─── Props ────────────────────────────────────────────────────────────────
 
 export interface LearningAreaComboboxProps {
-    /** Currently selected learning area ID(s) (controlled). */
-    value: string | string[];
-    /** Called when a learning area is selected / deselected. */
-    onChange: (value: string | string[]) => void;
+    /** Currently selected learning area ID (controlled). */
+    value: string;
+    /** Called when a learning area is selected. */
+    onChange: (value: string) => void;
     /** Placeholder text when nothing is selected. */
     placeholder?: string;
     /** Optional outer container class. */
     className?: string;
-    /** Allow selecting multiple (default: false). */
-    isMultiSelect?: boolean;
-    /**
-     * When search yields no results, shows a "Create" option.
-     * If omitted, no create option is shown.
-     */
-    onCreateItem?: (search: string) => void;
-    /**
-     * When true, automatically selects the first option if no value is set.
-     * Defaults to false.
-     */
-    doPreselectFirstOption?: boolean;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────
@@ -50,9 +48,6 @@ export function LearningAreaCombobox({
     onChange,
     placeholder = "Select a learning area...",
     className,
-    isMultiSelect = false,
-    onCreateItem,
-    doPreselectFirstOption = false,
 }: LearningAreaComboboxProps) {
     const { data, isLoading, isError, error } = useLearningAreas();
 
@@ -65,100 +60,62 @@ export function LearningAreaCombobox({
         [data]
     );
 
-    // ── Auto-preselect first option ──────────────────────────────────────
-    const hasPreselected = React.useRef(false);
     React.useEffect(() => {
-        if (!doPreselectFirstOption || items.length === 0 || hasPreselected.current) return;
-
-        const hasValue = isMultiSelect ? (value as string[]).length > 0 : (value as string) !== "";
-
-        if (hasValue) {
-            hasPreselected.current = true;
-            return;
+        if (isError) {
+            toast.error(getErrorMessage(error));
         }
+    }, [isError, error]);
 
-        hasPreselected.current = true;
-        onChange(isMultiSelect ? [items[0].value] : items[0].value);
-    }, [doPreselectFirstOption, items, isMultiSelect, value, onChange]);
+    const selectedOption = React.useMemo(
+        () => items.find((o) => o.value === value) || items[0],
+        [items, value]
+    );
+
+    React.useEffect(() => {
+        if (!value && selectedOption) {
+            onChange(selectedOption.value);
+        }
+    }, [selectedOption, value, onChange]);
+
+    // ── Error state ──────────────────────────────────────────────────────
+    if (isError) return null;
 
     // ── Loading state ─────────────────────────────────────────────────────
     if (isLoading) {
-        return (
-            <div className={cn("w-full", className)}>
-                <Skeleton className="h-9 w-full" />
-            </div>
-        );
+        return <Skeleton className={className ?? "h-7 w-full"} />;
     }
 
-    // ── Error state ──────────────────────────────────────────────────────
-    if (isError) {
-        return (
-            <div className={cn("w-full", className)}>
-                <Alert variant="destructive" className="h-9 items-center py-0 text-xs">
-                    <AlertDescription>{getErrorMessage(error)}</AlertDescription>
-                </Alert>
-            </div>
-        );
-    }
-
-    // ── No items at all ──────────────────────────────────────────────────
+    // ── No items at all (not just search miss) ───────────────────────────
     if (items.length === 0) {
         return (
-            <Alert className="text-muted-foreground h-9 items-center py-0 text-xs">
-                <AlertDescription>
-                    No learning areas configured.{" "}
-                    <Link href="/curriculum/new" className="underline underline-offset-2">
-                        Add one
-                    </Link>
-                    .
-                </AlertDescription>
-            </Alert>
+            <Link href="/curriculum/add" className="underline underline-offset-2">
+                Add one
+            </Link>
         );
     }
 
-    // ── Single-select ───────────────────────────────────────────────────
-    if (!isMultiSelect) {
-        return (
-            <ComboboxAny
-                items={items}
-                value={value as string}
-                onValueChange={(v: string | null) => onChange(v ?? "")}
-                placeholder={placeholder}
-                emptyText="No learning area found."
-                className={cn("w-full", className)}
-                onCreateItem={onCreateItem}
-            />
-        );
-    }
-
-    // ── Multi-select ────────────────────────────────────────────────────
     return (
-        <ComboboxAny
-            items={items}
-            value={value as string[]}
-            onValueChange={(v: string[] | null) => onChange(v ?? [])}
-            multiple
-            placeholder={placeholder}
-            emptyText="No learning area found."
-            className={cn("w-full", className)}
-            onCreateItem={onCreateItem}
-            renderTrigger={(
-                { selectedItems }: any // eslint-disable-line @typescript-eslint/no-explicit-any
-            ) =>
-                selectedItems.length > 0 ? (
-                    <span className="flex flex-wrap gap-1">
-                        {selectedItems.map(
-                            (
-                                item: any // eslint-disable-line @typescript-eslint/no-explicit-any
-                            ) => (
-                                <ComboboxChip key={item.value}>{item.label}</ComboboxChip>
-                            )
-                        )}
-                    </span>
-                ) : (
-                    <span className="text-muted-foreground truncate">{placeholder}</span>
-                )
-            }
-        />
+        <Combobox
+            items={items as Option[]}
+            value={selectedOption}
+            itemToStringValue={(i) => i.label}
+            onValueChange={(v) => {
+                if (v) {
+                    onChange(v.value);
+                }
+            }}
+        >
+            <ComboboxInput placeholder={placeholder} className={className} />
+            <ComboboxContent>
+                <ComboboxEmpty>No items found.</ComboboxEmpty>
+                <ComboboxList>
+                    {(i) => (
+                        <ComboboxItem key={i.value} value={i as Option}>
+                            {i.label}
+                        </ComboboxItem>
+                    )}
+                </ComboboxList>
+            </ComboboxContent>
+        </Combobox>
     );
 }

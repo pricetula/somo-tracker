@@ -85,7 +85,7 @@ export function ClassCombobox({
     // ── No items at all (not just search miss) ───────────────────────────
     if (items.length === 0) {
         return (
-            <Link href="/classes/add" className="underline underline-offset-2">
+            <Link href="/classes/add" className="text-xs underline underline-offset-2">
                 Add class
             </Link>
         );

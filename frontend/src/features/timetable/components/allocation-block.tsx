@@ -8,16 +8,23 @@ interface TimeSlotProps {
     allocation: Allocation;
     dayOfWeek?: number;
     blockId?: string;
+    classId?: string;
 }
 
-export function AllocationBlock({ allocation, isBreak, dayOfWeek, blockId }: TimeSlotProps) {
+export function AllocationBlock({
+    allocation,
+    isBreak,
+    dayOfWeek,
+    blockId,
+    classId,
+}: TimeSlotProps) {
     if (!dayOfWeek || !blockId) return null;
 
     if (!allocation?.id) {
         return (
             <section className="flex items-center">
                 <Link
-                    href={`/timetable/allocate?block=${blockId}&day=${dayOfWeek}`}
+                    href={`/timetable/allocate?block=${blockId}&day=${dayOfWeek}&class=${classId ?? ""}`}
                     className={buttonVariants({ variant: "outline" })}
                 >
                     <Plus />

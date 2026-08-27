@@ -5,8 +5,10 @@ import { PlusIcon } from "lucide-react";
 import { formatDateString } from "@/lib/utils/date";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ClassCombobox } from "@/features/classes/components/class-combobox";
 import { useTimetableView, type TimetableViewResult } from "../hooks";
 import { AllocationBlock } from "./allocation-block";
+import { useState } from "react";
 
 const formatDateStringOptions = {
     inputFormat: "HH:mm:ss.SSSSSS",
@@ -14,6 +16,7 @@ const formatDateStringOptions = {
 };
 
 export function TimeTable() {
+    const [classId, setClassId] = useState("");
     const { data, isLoading } = useTimetableView();
 
     if (isLoading) {
@@ -100,6 +103,16 @@ export function TimeTable() {
         <div className="space-y-4">
             <div className="flex items-center justify-between">
                 <h1 className="text-lg font-medium">Timetable</h1>
+                <ClassCombobox
+                    value={classId}
+                    onChange={(c) => {
+                        if (Array.isArray(c)) {
+                            setClassId(c[0]);
+                            return;
+                        }
+                        setClassId(c);
+                    }}
+                />
             </div>
             <article className="relative max-h-150 w-full overflow-auto rounded-md border text-xs">
                 <table className="w-full">
@@ -156,6 +169,7 @@ export function TimeTable() {
                                                     <AllocationBlock
                                                         allocation={allocation}
                                                         isBreak={period.is_break}
+                                                        classId={classId}
                                                     />
                                                 </td>
                                             );
@@ -170,6 +184,7 @@ export function TimeTable() {
                                                     isBreak={false}
                                                     dayOfWeek={day.day_of_week}
                                                     blockId={period.blockId}
+                                                    classId={classId}
                                                 />
                                             </td>
                                         );

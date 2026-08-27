@@ -1,7 +1,11 @@
+import { toast } from "sonner";
 import Link from "next/link";
+import React from "react";
 import { Plus, Trash } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { type Allocation } from "@/lib/api/timetable";
+import { Spinner } from "@/components/ui/spinner";
+import { useBulkDeleteAllocations } from "../hooks";
 
 interface TimeSlotProps {
     isBreak: boolean;
@@ -18,6 +22,24 @@ export function AllocationBlock({
     blockId,
     classId,
 }: TimeSlotProps) {
+    const {
+        mutate: deleteMutate,
+        isPending: isDeletePending,
+        isError: isDeleteError,
+        error: deleteError,
+    } = useBulkDeleteAllocations();
+
+    const handleDelete = React.useCallback(() => {
+        if (!allocation?.id) return;
+        deleteMutate([allocation.id]);
+    }, [deleteMutate, allocation]);
+
+    React.useEffect(() => {
+        if (isDeleteError && deleteError) {
+            toast.error(deleteError.message);
+        }
+    }, [isDeleteError, deleteError]);
+
     if (!dayOfWeek || !blockId) return null;
 
     if (!allocation?.id) {
@@ -55,8 +77,13 @@ export function AllocationBlock({
                         </Link>
                     )}
                 </h4>
-                <Button size="xs" variant="outline">
-                    <Trash />
+                <Button
+                    size="xs"
+                    variant="outline"
+                    onClick={handleDelete}
+                    disabled={isDeletePending}
+                >
+                    {isDeletePending ? <Spinner /> : <Trash />}
                 </Button>
             </header>
 

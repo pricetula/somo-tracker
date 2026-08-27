@@ -1,14 +1,16 @@
 "use client";
 
+import React from "react";
+import { toast } from "sonner";
 import Link from "next/link";
-import { PlusIcon } from "lucide-react";
+import { PlusIcon, Trash, Plus } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import { formatDateString } from "@/lib/utils/date";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ClassCombobox } from "@/features/classes/components/class-combobox";
-import { useTimetableView, type TimetableViewResult } from "../hooks";
+import { useTimetableView, useBulkDeleteBlocks, type TimetableViewResult } from "../hooks";
 import { AllocationBlock } from "./allocation-block";
-import { useState } from "react";
 
 const formatDateStringOptions = {
     inputFormat: "HH:mm:ss.SSSSSS",
@@ -16,8 +18,23 @@ const formatDateStringOptions = {
 };
 
 export function TimeTable() {
-    const [classId, setClassId] = useState("");
+    const [classId, setClassId] = React.useState("");
     const { data, isLoading } = useTimetableView();
+    // const {
+    //     mutate: deleteBlockMutate,
+    //     isError: isErrorDeleteBlock,
+    //     error: errorDeleteBlock,
+    // } = useBulkDeleteBlocks();
+
+    // React.useEffect(() => {
+    //     if (isErrorDeleteBlock && errorDeleteBlock) {
+    //         toast.error(errorDeleteBlock.message);
+    //     }
+    // }, [isErrorDeleteBlock, errorDeleteBlock]);
+
+    const handleDeleteBlock = React.useCallback((blockName: string) => {
+        console.log("Delete blocks with", blockName);
+    }, []);
 
     if (isLoading) {
         return (
@@ -143,18 +160,31 @@ export function TimeTable() {
                                         scope="row"
                                         className="bg-background sticky left-0 z-10 border-r p-4 align-top whitespace-nowrap"
                                     >
-                                        <div className="font-medium">{period.period_name}</div>
-                                        <div className="text-muted-foreground text-[10px]">
-                                            {formatDateString(
-                                                period.start_time,
-                                                formatDateStringOptions
-                                            )}
-                                            -
-                                            {formatDateString(
-                                                period.end_time,
-                                                formatDateStringOptions
-                                            )}
-                                        </div>
+                                        <section className="space-y-2">
+                                            <header className="flex items-center justify-between">
+                                                <h4>{period.period_name}</h4>
+                                                <Button
+                                                    size="xs"
+                                                    variant="outline"
+                                                    onClick={() =>
+                                                        handleDeleteBlock(period.period_name)
+                                                    }
+                                                >
+                                                    <Trash />
+                                                </Button>
+                                            </header>
+                                            <div className="text-muted-foreground text-[10px]">
+                                                {formatDateString(
+                                                    period.start_time,
+                                                    formatDateStringOptions
+                                                )}
+                                                -
+                                                {formatDateString(
+                                                    period.end_time,
+                                                    formatDateStringOptions
+                                                )}
+                                            </div>
+                                        </section>
                                     </td>
 
                                     {days.map((day) => {

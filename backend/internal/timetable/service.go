@@ -153,6 +153,14 @@ func (s *ServiceImpl) UpdateTrack(ctx context.Context, id, tenantID, schoolID st
 	return track, nil
 }
 
+func (s *ServiceImpl) UpdateBlockPeriod(ctx context.Context, tenantID, schoolID string, p UpdatePeriodPayload) ([]TimeBlock, error) {
+	return s.repo.UpdateBlockPeriod(ctx, tenantID, schoolID, p)
+}
+
+func (s *ServiceImpl) DeleteBlockPeriod(ctx context.Context, tenantID, schoolID string, p DeletePeriodPayload) (*DeleteResult, error) {
+	return s.repo.DeleteBlockPeriod(ctx, tenantID, schoolID, p)
+}
+
 // DeleteTrack deletes a track by ID
 func (s *ServiceImpl) DeleteTrack(ctx context.Context, id, tenantID, schoolID string) (*DeleteResult, error) {
 	err := s.repo.DeleteTrack(ctx, id, tenantID, schoolID)

@@ -4,6 +4,7 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { api } from "@/lib/api/client";
 import {
     createTrack,
     updateTrack,
@@ -19,6 +20,7 @@ import {
     type AllocationFilter,
     type Allocation,
     type TimeBlock,
+    type TimetableTrack,
     DAY_NAMES,
     DAY_NAMES_SHORT,
 } from "@/lib/api/timetable";
@@ -433,10 +435,25 @@ export function timetableViewSelect({
 /**
  * Get combined timetable view (blocks + allocations).
  */
-export function useTimetableView() {
+export function useTracks() {
     return useQuery({
-        queryKey: ["timetable", "combined"],
-        queryFn: getTimetable,
-        select: timetableViewSelect,
+        queryKey: ["timetable", "tracks"],
+        queryFn: async () => {
+            return api.get<{ items: TimetableTrack[]; total: number }>("/api/v1/timetable/tracks");
+        },
+    });
+}
+
+export function useTimetableView(trackId?: string) {
+    return useQuery({
+        queryKey: ["timetable", "combined", trackId ?? "all"],
+        queryFn: async () => {
+            const params = new URLSearchParams();
+            if (trackId) params.set("track_id", trackId);
+            const query = params.toString() ? `?${params.toString()}` : "";
+            return getTimetable(query);
+        },
+        select: ({ blocks, allocations }: { blocks: TimeBlock[]; allocations: Allocation[] }) =>
+            timetableViewSelect({ blocks, allocations }),
     });
 }

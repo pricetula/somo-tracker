@@ -231,12 +231,12 @@ export async function bulkDeleteAllocations(
 // ─── API Functions: Combined View ────────────────────────────────────────
 
 /** Get combined timetable view (blocks + allocations with joined names). */
-export async function getTimetable(): Promise<{
+export async function getTimetable(query?: string): Promise<{
     blocks: TimeBlock[];
     allocations: Allocation[];
 }> {
     return api.get<{
         blocks: TimeBlock[];
         allocations: Allocation[];
-    }>("/api/v1/timetable");
+    }>(`/api/v1/timetable${query ?? ""}`);
 }

@@ -17,9 +17,9 @@ const formatDateStringOptions = {
     outputFormat: "HH:mm",
 };
 
-export function TimeTable() {
+export function TimeTable({ trackId }: { trackId?: string } = {}) {
     const [classId, setClassId] = React.useState("");
-    const { data, isLoading } = useTimetableView();
+    const { data, isLoading } = useTimetableView(trackId);
     // const {
     //     mutate: deleteBlockMutate,
     //     isError: isErrorDeleteBlock,

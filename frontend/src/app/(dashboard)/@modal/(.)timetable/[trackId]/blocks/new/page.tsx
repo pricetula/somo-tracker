@@ -26,7 +26,7 @@ export default function BlockNewModal() {
                     <DialogTitle>Add Time Block</DialogTitle>
                     <DialogDescription>Define a new period for this timetable.</DialogDescription>
                 </DialogHeader>
-                <BlockCreateForm trackId={trackId} />
+                <BlockCreateForm trackId={trackId} onSuccess={handleBack} />
             </DialogContent>
         </Dialog>
     );

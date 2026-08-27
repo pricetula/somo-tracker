@@ -30,6 +30,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	// Read-only endpoints
 	base.Get("/", middleware.RequireAuth, h.GetTimetable)
 	base.Get("/tracks", middleware.RequireAuth, h.ListTracks)
+	base.Get("/tracks/:id", middleware.RequireAuth, h.GetTrack)
 
 	// Track operations (ID in body)
 	base.Post("/", middleware.RequireAuth, h.CreateTrackWithBlocks)
@@ -45,6 +46,19 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	base.Post("/allocations", middleware.RequireAuth, h.CreateAllocations)
 	base.Put("/allocations", middleware.RequireAuth, h.UpdateAllocation)
 	base.Delete("/allocations", middleware.RequireAuth, h.BulkDeleteAllocations)
+}
+
+func (h *Handler) GetTrack(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.tmMiddleware(c)
+	if err != nil {
+		return err
+	}
+	id := c.Params("id")
+	track, err := h.svc.GetTrack(c.UserContext(), id, tenantID, schoolID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	return c.JSON(track)
 }
 
 func (h *Handler) ListTracks(c *fiber.Ctx) error {

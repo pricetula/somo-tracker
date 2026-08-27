@@ -148,6 +148,7 @@ type Repository interface {
 	CreateBlock(ctx context.Context, tenantID, schoolID string, payload CreateTimeBlockPayload) (*TimeBlock, error)
 	UpdateBlock(ctx context.Context, id, tenantID, schoolID string, payload UpdateTimeBlockPayload) (*TimeBlock, error)
 	DeleteBlock(ctx context.Context, id, tenantID, schoolID string) error
+	GetTrack(ctx context.Context, id, tenantID, schoolID string) (*Track, error)
 	UpdateBlockPeriod(ctx context.Context, tenantID, schoolID string, p UpdatePeriodPayload) ([]TimeBlock, error)
 	DeleteBlockPeriod(ctx context.Context, tenantID, schoolID string, p DeletePeriodPayload) (*DeleteResult, error)
 
@@ -183,6 +184,7 @@ type Service interface {
 
 	// Track
 	ListTracks(ctx context.Context, tenantID, schoolID, academicYearID string) ([]Track, error)
+	GetTrack(ctx context.Context, id, tenantID, schoolID string) (*Track, error)
 	CreateTrack(ctx context.Context, tenantID, schoolID, academicYearID, academicTermID, name, description string, isDefault bool) (*Track, error)
 	UpdateTrack(ctx context.Context, id, tenantID, schoolID string, p UpdateTrackPayload) (*Track, error)
 	DeleteTrack(ctx context.Context, id, tenantID, schoolID string) (*DeleteResult, error)

@@ -127,6 +127,14 @@ func (s *ServiceImpl) DeleteAllocation(ctx context.Context, id, tenantID, school
 }
 
 // ListTracks lists all timetable tracks for a school/year
+func (s *ServiceImpl) GetTrack(ctx context.Context, id, tenantID, schoolID string) (*Track, error) {
+	t, err := s.repo.GetTrack(ctx, id, tenantID, schoolID)
+	if err != nil {
+		return nil, fmt.Errorf("timetable.ServiceImpl.GetTrack: %w", err)
+	}
+	return t, nil
+}
+
 func (s *ServiceImpl) ListTracks(ctx context.Context, tenantID, schoolID, yearID string) ([]Track, error) {
 	tracks, err := s.repo.ListTracks(ctx, tenantID, schoolID, yearID)
 	if err != nil {

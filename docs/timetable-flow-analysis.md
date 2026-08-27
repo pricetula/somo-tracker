@@ -568,3 +568,7 @@ Delete period "Morning Break" in track X:
 When `CreateBlocks` replicates to all 7 days, the user thinks of "Lesson 1" as one entity, not 7 separate DB rows. Updating by `period_name` respects that mental model.
 
 ---
+---
+
+## Note Added: Dedicated Track Detail Endpoint
+`GET /api/v1/timetable` returns all blocks + allocations (combined view). For `/timetable/[trackId]` the frontend should call `GET /api/v1/timetable/tracks/[id]` (not the combined endpoint) to retrieve the specific track with its block/allocation context.

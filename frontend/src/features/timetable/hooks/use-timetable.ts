@@ -435,6 +435,14 @@ export function timetableViewSelect({
 /**
  * Get combined timetable view (blocks + allocations).
  */
+export function useTrack(trackId: string) {
+    return useQuery({
+        queryKey: ["timetable", "tracks", trackId],
+        queryFn: () => api.get<TimetableTrack>(`/api/v1/timetable/tracks/${trackId}`),
+        enabled: !!trackId,
+    });
+}
+
 export function useTracks() {
     return useQuery({
         queryKey: ["timetable", "tracks"],

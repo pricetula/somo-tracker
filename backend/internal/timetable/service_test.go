@@ -18,6 +18,13 @@ type mockRepo struct {
 	allocID     string
 }
 
+func (m *mockRepo) GetTrack(ctx context.Context, id, tenantID, schoolID string) (*Track, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return &Track{ID: id, Name: "Mock Track"}, nil
+}
+
 func (m *mockRepo) ListBlocks(ctx context.Context, tenantID, schoolID, yearID string) ([]TimeBlock, error) {
 	if m.err != nil {
 		return nil, m.err

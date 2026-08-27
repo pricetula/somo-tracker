@@ -23,6 +23,21 @@ func NewRepository(pools *database.Pools, logger *zap.SugaredLogger) *PgReposito
 	return &PgRepository{pool: pools.PG, logger: logger}
 }
 
+func (r *PgRepository) GetTrack(ctx context.Context, id, tenantID, schoolID string) (*Track, error) {
+	const query = `SELECT id, tenant_id, school_id, academic_year_id, academic_term_id, name, description, is_default, created_at, updated_at FROM timetable_tracks WHERE id = $1 AND tenant_id = $2 AND school_id = $3`
+	var t Track
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, id, tenantID, schoolID).Scan(
+		&t.ID, &t.TenantID, &t.SchoolID, &t.AcademicYearID, &t.AcademicTermID, &t.Name, &t.Description, &t.IsDefault, &t.CreatedAt, &t.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("timetable.Repository.GetTrack: %w", ErrNotFound)
+		}
+		return nil, fmt.Errorf("timetable.Repository.GetTrack: %w", err)
+	}
+	return &t, nil
+}
+
 func (r *PgRepository) ListBlocks(ctx context.Context, tenantID, schoolID, academicYearID string) ([]TimeBlock, error) {
 	query := `
 		SELECT b.id, b.track_id, b.day_of_week, b.period_name, b.start_time, b.end_time, b.is_break, b.order_index,

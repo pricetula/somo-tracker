@@ -52,6 +52,9 @@ Every non-2xx HTTP response from the backend MUST return this exact JSON body:
 - **Standard version:** 1.0.0 (June 2026)
 - **Owner:** Platform team. Any changes to this standard must be reviewed by the platform team and propagated to both AGENTS.md files.
 
+### Page Navigation — No Dumb Back Buttons
+No `ArrowLeft` / icon-only back buttons, "Back to" links, or breadcrumb navigation inside `src/app/` pages or feature containers (`features/*/components/`). Navigation belongs in the app shell (`layout.tsx`); pages are content panes only. If you need a back path, rely on browser back or global shell navigation — never add a button that says "Back" or uses a left-arrow icon.
+
 ### Isolation Rule
 > **Strictly edit only the AGENTS.md located in the top‑level directory that corresponds to the layer you are working on.**
 > • `backend/AGENTS.md` – backend contracts only.

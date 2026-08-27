@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -129,9 +128,14 @@ function TimeBlockRow({
     );
 }
 
-export function BlockCreateForm({ trackId }: { trackId: string }) {
-    const router = useRouter();
-    const { mutate, isPending, isError, error } = useCreateBlocks();
+export function BlockCreateForm({
+    trackId,
+    onSuccess,
+}: {
+    trackId: string;
+    onSuccess?: () => void;
+}) {
+    const { mutate, isPending, isError, error, isSuccess } = useCreateBlocks();
 
     const form = useForm<FormData>({
         resolver: zodResolver(Schema),
@@ -148,10 +152,16 @@ export function BlockCreateForm({ trackId }: { trackId: string }) {
     });
 
     React.useEffect(() => {
+        if (isSuccess && onSuccess) {
+            onSuccess();
+        }
+    }, [isSuccess, onSuccess]);
+
+    React.useEffect(() => {
         if (isError && error) toast.error(error.message);
     }, [isError, error]);
 
-    const addBlock = () => {
+    const addBlock = React.useCallback(() => {
         const current = form.getValues("blocks");
         const first = current[0];
         const last = current[current.length - 1];
@@ -170,35 +180,39 @@ export function BlockCreateForm({ trackId }: { trackId: string }) {
                 is_break: false,
             },
         ]);
-    };
+    }, [form]);
 
-    const removeBlock = (i: number) => {
-        const current = form.getValues("blocks");
-        if (current.length <= 1) return;
-        form.setValue(
-            "blocks",
-            current.filter((_, idx) => idx !== i)
-        );
-    };
+    const removeBlock = React.useCallback(
+        (i: number) => {
+            const current = form.getValues("blocks");
+            if (current.length <= 1) return;
+            form.setValue(
+                "blocks",
+                current.filter((_, idx) => idx !== i)
+            );
+        },
+        [form]
+    );
 
-    const onSubmit = (data: FormData) => {
-        if (!trackId) {
-            toast.error("No track context");
-            return;
-        }
-        const payloads = data.blocks.map((b, i) => ({
-            track_id: trackId,
-            day_of_week: 1,
-            period_name: b.period_name,
-            start_time: b.start_time,
-            end_time: b.end_time,
-            is_break: b.is_break,
-            order: i + 1,
-        }));
-        mutate(payloads, {
-            onSuccess: () => router.push(`/timetable/${trackId}`),
-        });
-    };
+    const onSubmit = React.useCallback(
+        (data: FormData) => {
+            if (!trackId) {
+                toast.error("No track context");
+                return;
+            }
+            const payloads = data.blocks.map((b, i) => ({
+                track_id: trackId,
+                day_of_week: 1,
+                period_name: b.period_name,
+                start_time: b.start_time,
+                end_time: b.end_time,
+                is_break: b.is_break,
+                order: i + 1,
+            }));
+            mutate(payloads);
+        },
+        [mutate, trackId]
+    );
 
     return (
         <Form {...form}>

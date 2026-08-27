@@ -213,6 +213,13 @@ func (m *mockService) GetAllocation(ctx context.Context, id, tenantID, schoolID 
 	return nil, ErrNotFound
 }
 
+func (m *mockService) GetTrack(ctx context.Context, id, tenantID, schoolID string) (*Track, error) {
+	if m.svcErr != nil {
+		return nil, m.svcErr
+	}
+	return &Track{ID: id}, nil
+}
+
 func (m *mockService) ListTracks(ctx context.Context, tenantID, schoolID, yearID string) ([]Track, error) {
 	if m.svcErr != nil {
 		return nil, m.svcErr

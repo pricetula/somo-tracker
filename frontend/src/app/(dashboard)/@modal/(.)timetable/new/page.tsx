@@ -26,7 +26,7 @@ export default function TrackCreateModal() {
                         Create a track. Add blocks and assignments after.
                     </DialogDescription>
                 </DialogHeader>
-                <TrackCreateForm />
+                <TrackCreateForm onSuccess={handleBack} />
             </DialogContent>
         </Dialog>
     );

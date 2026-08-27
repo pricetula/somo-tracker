@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -19,28 +18,41 @@ import {
     FormMessage,
 } from "@/components/ui/form";
 
+interface TrackCreateFormProps {
+    onSuccess?: () => void;
+}
+
 const Schema = z.object({
     name: z.string().min(1, "Name required").max(100),
     description: z.string().max(500).optional(),
 });
 
-export function TrackCreateForm() {
-    const router = useRouter();
-    const { mutate, isPending } = useCreateTrack();
+export function TrackCreateForm({ onSuccess }: TrackCreateFormProps) {
+    const { mutate, isPending, isError, error, isSuccess } = useCreateTrack();
+
+    React.useEffect(() => {
+        if (isSuccess && onSuccess) {
+            onSuccess();
+        }
+    }, [isSuccess, onSuccess]);
+
+    React.useEffect(() => {
+        if (isError && error) {
+            toast.error(error.message);
+        }
+    }, [isError, error]);
 
     const form = useForm<{ name: string; description?: string }>({
         resolver: zodResolver(Schema),
         defaultValues: { name: "", description: "" },
     });
 
-    const onSubmit = (data: { name: string; description?: string }) => {
-        mutate(
-            { name: data.name, description: data.description },
-            {
-                onSuccess: () => router.push("/timetable"),
-            }
-        );
-    };
+    const onSubmit = React.useCallback(
+        (data: { name: string; description?: string }) => {
+            mutate({ name: data.name, description: data.description });
+        },
+        [mutate]
+    );
 
     return (
         <Form {...form}>

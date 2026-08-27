@@ -178,7 +178,10 @@ export function TimeTable() {
                                         // const cell = dayCells[0] ?? null;
 
                                         return (
-                                            <td key={day.day_of_week} className="border-r p-4">
+                                            <td
+                                                key={day.day_of_week}
+                                                className="border-r p-4 align-top"
+                                            >
                                                 <AllocationBlock
                                                     allocation={allocation}
                                                     isBreak={false}

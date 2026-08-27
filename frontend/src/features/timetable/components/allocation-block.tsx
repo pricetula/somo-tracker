@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { Plus } from "lucide-react";
-import { buttonVariants } from "@/components/ui/button";
+import { Plus, Trash } from "lucide-react";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { type Allocation } from "@/lib/api/timetable";
 
 interface TimeSlotProps {
@@ -22,15 +22,13 @@ export function AllocationBlock({
 
     if (!allocation?.id) {
         return (
-            <section className="flex items-center">
-                <Link
-                    href={`/timetable/allocate?block=${blockId}&day=${dayOfWeek}&class=${classId ?? ""}`}
-                    className={buttonVariants({ variant: "outline" })}
-                >
-                    <Plus />
-                    <span>Assign Teacher</span>
-                </Link>
-            </section>
+            <Link
+                href={`/timetable/allocate?block=${blockId}&day=${dayOfWeek}&class=${classId ?? ""}`}
+                className={buttonVariants({ variant: "outline" })}
+            >
+                <Plus />
+                <span>Assign Teacher</span>
+            </Link>
         );
     }
 
@@ -45,16 +43,32 @@ export function AllocationBlock({
     }
 
     return (
-        <section className="class-info filled-slot p-4">
-            <h4 className="truncate text-xs font-medium">
-                {allocation.learning_area_name ?? "TBA"}
-            </h4>
-            <p className="text-muted-foreground truncate text-[10px]">
-                {allocation.teacher_name ? <strong>{allocation.teacher_name}</strong> : "TBA"}
-            </p>
-            <p className="text-muted-foreground truncate text-[10px]">
-                {allocation.room_identifier ? <strong>{allocation.room_identifier}</strong> : "TBA"}
-            </p>
+        <section className="space-y-2">
+            <header className="flex items-center justify-between">
+                <h4>
+                    {allocation.learning_area_id && allocation.learning_area_name && (
+                        <Link
+                            href={`/curriculum/${allocation.learning_area_id}`}
+                            className="truncate"
+                        >
+                            {allocation.learning_area_name}
+                        </Link>
+                    )}
+                </h4>
+                <Button size="xs" variant="outline">
+                    <Trash />
+                </Button>
+            </header>
+
+            {allocation.teacher_name && allocation.teacher_id && (
+                <Link href={`/teachers/${allocation.teacher_id}`} className="truncate">
+                    {allocation.teacher_name}
+                </Link>
+            )}
+
+            {allocation.room_identifier && (
+                <p className="text-muted-foreground truncate">{allocation.room_identifier}</p>
+            )}
         </section>
     );
 }

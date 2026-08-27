@@ -5,6 +5,8 @@ import (
 	"fmt"
 
 	"go.uber.org/zap"
+
+	"somotracker/backend/internal/xerrors"
 )
 
 type ServiceImpl struct {
@@ -81,6 +83,15 @@ func (s *ServiceImpl) GetAllocation(ctx context.Context, id string, tenantID, sc
 
 // CreateAllocation creates a new allocation
 func (s *ServiceImpl) CreateAllocation(ctx context.Context, tenantID, schoolID string, p CreateAllocationPayload) (*Allocation, error) {
+	// Reject allocations on break blocks
+	block, err := s.repo.GetBlock(ctx, p.BlockID, tenantID, schoolID)
+	if err != nil {
+		return nil, fmt.Errorf("timetable.ServiceImpl.CreateAllocation: get block: %w", err)
+	}
+	if block.IsBreak {
+		return nil, fmt.Errorf("timetable.ServiceImpl.CreateAllocation: %w", xerrors.Conflict("cannot assign to a break block"))
+	}
+
 	allocation, err := s.repo.CreateAllocation(ctx, tenantID, schoolID, p)
 	if err != nil {
 		return nil, fmt.Errorf("timetable.ServiceImpl.CreateAllocation: %w", err)
@@ -113,6 +124,15 @@ func (s *ServiceImpl) DeleteAllocation(ctx context.Context, id, tenantID, school
 		return fmt.Errorf("timetable.ServiceImpl.DeleteAllocation: %w", err)
 	}
 	return nil
+}
+
+// ListTracks lists all timetable tracks for a school/year
+func (s *ServiceImpl) ListTracks(ctx context.Context, tenantID, schoolID, yearID string) ([]Track, error) {
+	tracks, err := s.repo.ListTracks(ctx, tenantID, schoolID, yearID)
+	if err != nil {
+		return nil, fmt.Errorf("timetable.ServiceImpl.ListTracks: %w", err)
+	}
+	return tracks, nil
 }
 
 // CreateTrack creates a new timetable track

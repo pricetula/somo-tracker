@@ -178,6 +178,27 @@ func (m *mockRepo) DeleteAllocation(ctx context.Context, id, tenantID, schoolID 
 	return ErrNotFound
 }
 
+func (m *mockRepo) ListTracks(ctx context.Context, tenantID, schoolID, yearID string) ([]Track, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return []Track{}, nil
+}
+
+func (m *mockRepo) UpdateBlockPeriod(ctx context.Context, tenantID, schoolID string, p UpdatePeriodPayload) ([]TimeBlock, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return []TimeBlock{}, nil
+}
+
+func (m *mockRepo) DeleteBlockPeriod(ctx context.Context, tenantID, schoolID string, p DeletePeriodPayload) (*DeleteResult, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return &DeleteResult{Deleted: true}, nil
+}
+
 func (m *mockRepo) CreateTrack(ctx context.Context, tenantID, schoolID, academicYearID, academicTermID, name, description string, isDefault bool) (*Track, error) {
 	if m.err != nil {
 		return nil, m.err

@@ -27,6 +27,10 @@ func NewHandler(svc Service) *Handler {
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	base := router.Group("/api/v1/timetable")
 
+	// Read-only endpoints
+	base.Get("/", middleware.RequireAuth, h.GetTimetable)
+	base.Get("/tracks", middleware.RequireAuth, h.ListTracks)
+
 	// Track operations (ID in body)
 	base.Post("/", middleware.RequireAuth, h.CreateTrackWithBlocks)
 	base.Put("/", middleware.RequireAuth, h.UpdateTrack)
@@ -41,9 +45,23 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	base.Post("/allocations", middleware.RequireAuth, h.CreateAllocations)
 	base.Put("/allocations", middleware.RequireAuth, h.UpdateAllocation)
 	base.Delete("/allocations", middleware.RequireAuth, h.BulkDeleteAllocations)
+}
 
-	// Read-only combined view
-	base.Get("/", middleware.RequireAuth, h.GetTimetable)
+func (h *Handler) ListTracks(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.tmMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	yearID := c.Query("academic_year_id", "")
+	tracks, err := h.svc.ListTracks(c.UserContext(), tenantID, schoolID, yearID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	return c.JSON(fiber.Map{
+		"items": tracks,
+		"total": len(tracks),
+	})
 }
 
 // CreateTrackWithBlocks handles POST /api/v1/timetable (create track + optional initial blocks)
@@ -440,17 +458,33 @@ func (h *Handler) GetTimetable(c *fiber.Ctx) error {
 		return err
 	}
 
+	trackID := c.Query("track_id", "")
+
 	blocks, err := h.svc.ListBlocks(c.UserContext(), tenantID, schoolID, "")
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
+
+	// Filter blocks by track if provided
+	if trackID != "" {
+		filtered := make([]TimeBlock, 0, len(blocks))
+		for _, b := range blocks {
+			if b.TrackID == trackID {
+				filtered = append(filtered, b)
+			}
+		}
+		blocks = filtered
+	}
+
 	allocations, err := h.svc.ListAllocations(c.UserContext(), AllocationFilter{
 		TenantID: tenantID,
 		SchoolID: schoolID,
+		TrackID:  trackID,
 	})
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
+
 	return c.JSON(fiber.Map{
 		"blocks":      blocks,
 		"allocations": allocations,

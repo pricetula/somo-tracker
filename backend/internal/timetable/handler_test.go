@@ -213,6 +213,27 @@ func (m *mockService) GetAllocation(ctx context.Context, id, tenantID, schoolID 
 	return nil, ErrNotFound
 }
 
+func (m *mockService) ListTracks(ctx context.Context, tenantID, schoolID, yearID string) ([]Track, error) {
+	if m.svcErr != nil {
+		return nil, m.svcErr
+	}
+	return []Track{}, nil
+}
+
+func (m *mockService) UpdateBlockPeriod(ctx context.Context, tenantID, schoolID string, p UpdatePeriodPayload) ([]TimeBlock, error) {
+	if m.svcErr != nil {
+		return nil, m.svcErr
+	}
+	return []TimeBlock{}, nil
+}
+
+func (m *mockService) DeleteBlockPeriod(ctx context.Context, tenantID, schoolID string, p DeletePeriodPayload) (*DeleteResult, error) {
+	if m.svcErr != nil {
+		return nil, m.svcErr
+	}
+	return &DeleteResult{Deleted: true}, nil
+}
+
 func (m *mockService) GetTimetable(ctx context.Context, tenantID, schoolID string) ([]TimeBlock, []Allocation, error) {
 	if m.svcErr != nil {
 		return nil, nil, m.svcErr

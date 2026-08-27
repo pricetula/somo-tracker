@@ -61,6 +61,7 @@ type AllocationFilter struct {
 	TenantID       string `json:"tenant_id"`
 	SchoolID       string `json:"school_id"`
 	AcademicYearID string `json:"academic_year_id"`
+	TrackID        string `json:"track_id,omitempty"`
 	BlockID        string `json:"block_id,omitempty"`
 	ClassID        string `json:"class_id,omitempty"`
 	TeacherID      string `json:"teacher_id,omitempty"`
@@ -99,6 +100,25 @@ type UpdateTimeBlockPayload struct {
 	OrderIndex int    `json:"order_index"`
 }
 
+// UpdatePeriodPayload updates ALL blocks (across 7 days) that share the same
+// (track_id, period_name) tuple. Used to edit a logical period once and have
+// the change apply to every day-of-week replication.
+type UpdatePeriodPayload struct {
+	TrackID    string `json:"track_id" validate:"required"`
+	PeriodName string `json:"period_name" validate:"required"`
+	StartTime  string `json:"start_time,omitempty"`
+	EndTime    string `json:"end_time,omitempty"`
+	IsBreak    *bool  `json:"is_break,omitempty"`
+}
+
+// DeletePeriodPayload deletes ALL blocks across 7 days for the given
+// (track_id, period_name). Cascades to any allocations referencing the blocks.
+type DeletePeriodPayload struct {
+	TrackID     string   `json:"track_id" validate:"required"`
+	PeriodName  string   `json:"period_name" validate:"required"`
+	PeriodNames []string `json:"period_names,omitempty"` // optional bulk variant
+}
+
 type CreateAllocationPayload struct {
 	BlockID        string  `json:"block_id" validate:"required"`
 	ClassID        string  `json:"class_id" validate:"required"`
@@ -128,6 +148,8 @@ type Repository interface {
 	CreateBlock(ctx context.Context, tenantID, schoolID string, payload CreateTimeBlockPayload) (*TimeBlock, error)
 	UpdateBlock(ctx context.Context, id, tenantID, schoolID string, payload UpdateTimeBlockPayload) (*TimeBlock, error)
 	DeleteBlock(ctx context.Context, id, tenantID, schoolID string) error
+	UpdateBlockPeriod(ctx context.Context, tenantID, schoolID string, p UpdatePeriodPayload) ([]TimeBlock, error)
+	DeleteBlockPeriod(ctx context.Context, tenantID, schoolID string, p DeletePeriodPayload) (*DeleteResult, error)
 
 	ListAllocations(ctx context.Context, filter AllocationFilter) ([]Allocation, error)
 	GetAllocation(ctx context.Context, id, tenantID, schoolID string) (*Allocation, error)
@@ -137,6 +159,7 @@ type Repository interface {
 	DeleteAllocation(ctx context.Context, id, tenantID, schoolID string) error
 
 	// Track
+	ListTracks(ctx context.Context, tenantID, schoolID, academicYearID string) ([]Track, error)
 	CreateTrack(ctx context.Context, tenantID, schoolID, academicYearID, academicTermID, name, description string, isDefault bool) (*Track, error)
 	UpdateTrack(ctx context.Context, id, tenantID, schoolID string, p UpdateTrackPayload) (*Track, error)
 	DeleteTrack(ctx context.Context, id, tenantID, schoolID string) error
@@ -148,6 +171,8 @@ type Service interface {
 	CreateBlock(ctx context.Context, tenantID, schoolID string, p CreateTimeBlockPayload) (*TimeBlock, error)
 	UpdateBlock(ctx context.Context, id, tenantID, schoolID string, p UpdateTimeBlockPayload) (*TimeBlock, error)
 	DeleteBlock(ctx context.Context, id, tenantID, schoolID string) (*DeleteResult, error)
+	UpdateBlockPeriod(ctx context.Context, tenantID, schoolID string, p UpdatePeriodPayload) ([]TimeBlock, error)
+	DeleteBlockPeriod(ctx context.Context, tenantID, schoolID string, p DeletePeriodPayload) (*DeleteResult, error)
 
 	ListAllocations(ctx context.Context, f AllocationFilter) ([]Allocation, error)
 	GetAllocation(ctx context.Context, id, tenantID, schoolID string) (*Allocation, error)
@@ -157,6 +182,7 @@ type Service interface {
 	DeleteAllocation(ctx context.Context, id, tenantID, schoolID string) error
 
 	// Track
+	ListTracks(ctx context.Context, tenantID, schoolID, academicYearID string) ([]Track, error)
 	CreateTrack(ctx context.Context, tenantID, schoolID, academicYearID, academicTermID, name, description string, isDefault bool) (*Track, error)
 	UpdateTrack(ctx context.Context, id, tenantID, schoolID string, p UpdateTrackPayload) (*Track, error)
 	DeleteTrack(ctx context.Context, id, tenantID, schoolID string) (*DeleteResult, error)

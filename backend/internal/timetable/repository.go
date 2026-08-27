@@ -25,7 +25,7 @@ func NewRepository(pools *database.Pools, logger *zap.SugaredLogger) *PgReposito
 
 func (r *PgRepository) ListBlocks(ctx context.Context, tenantID, schoolID, academicYearID string) ([]TimeBlock, error) {
 	query := `
-		SELECT b.id, b.day_of_week, b.period_name, b.start_time, b.end_time, b.is_break, b.order_index,
+		SELECT b.id, b.track_id, b.day_of_week, b.period_name, b.start_time, b.end_time, b.is_break, b.order_index,
 		       t.academic_year_id,
 		       b.created_at, b.updated_at
 		FROM timetable_blocks b
@@ -52,7 +52,7 @@ func (r *PgRepository) ListBlocks(ctx context.Context, tenantID, schoolID, acade
 	for rows.Next() {
 		var b TimeBlock
 		if err := rows.Scan(
-			&b.ID, &b.DayOfWeek, &b.PeriodName, &b.StartTime, &b.EndTime,
+			&b.ID, &b.TrackID, &b.DayOfWeek, &b.PeriodName, &b.StartTime, &b.EndTime,
 			&b.IsBreak, &b.OrderIndex, &b.AcademicYearID,
 			&b.CreatedAt, &b.UpdatedAt,
 		); err != nil {
@@ -65,6 +65,47 @@ func (r *PgRepository) ListBlocks(ctx context.Context, tenantID, schoolID, acade
 	}
 
 	return blocks, nil
+}
+
+func (r *PgRepository) ListTracks(ctx context.Context, tenantID, schoolID, academicYearID string) ([]Track, error) {
+	query := `
+		SELECT t.id, t.tenant_id, t.school_id, t.academic_year_id, t.academic_term_id,
+		       t.name, t.description, t.is_default, t.created_at, t.updated_at
+		FROM timetable_tracks t
+		WHERE t.tenant_id = $1 AND t.school_id = $2`
+	args := []any{tenantID, schoolID}
+	argIdx := 3
+
+	if academicYearID != "" {
+		query += fmt.Sprintf(" AND t.academic_year_id = $%d", argIdx)
+		args = append(args, academicYearID)
+		argIdx++
+	}
+
+	query += " ORDER BY t.created_at DESC"
+
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("timetable.Repository.ListTracks: %w", err)
+	}
+	defer rows.Close()
+
+	tracks := []Track{}
+	for rows.Next() {
+		var t Track
+		if err := rows.Scan(
+			&t.ID, &t.TenantID, &t.SchoolID, &t.AcademicYearID, &t.AcademicTermID,
+			&t.Name, &t.Description, &t.IsDefault, &t.CreatedAt, &t.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("timetable.Repository.ListTracks: scan: %w", err)
+		}
+		tracks = append(tracks, t)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("timetable.Repository.ListTracks: rows: %w", err)
+	}
+
+	return tracks, nil
 }
 
 func (r *PgRepository) GetBlock(ctx context.Context, id, tenantID, schoolID string) (*TimeBlock, error) {
@@ -152,6 +193,14 @@ func (r *PgRepository) UpdateBlock(ctx context.Context, id, tenantID, schoolID s
 	return &b, nil
 }
 
+func (r *PgRepository) UpdateBlockPeriod(ctx context.Context, tenantID, schoolID string, p UpdatePeriodPayload) ([]TimeBlock, error) {
+	return nil, fmt.Errorf("timetable.Repository.UpdateBlockPeriod: not implemented")
+}
+
+func (r *PgRepository) DeleteBlockPeriod(ctx context.Context, tenantID, schoolID string, p DeletePeriodPayload) (*DeleteResult, error) {
+	return &DeleteResult{Deleted: false}, fmt.Errorf("timetable.Repository.DeleteBlockPeriod: not implemented")
+}
+
 func (r *PgRepository) DeleteBlock(ctx context.Context, id, tenantID, schoolID string) error {
 	const query = `
 		DELETE FROM timetable_blocks
@@ -221,6 +270,12 @@ func (r *PgRepository) ListAllocations(ctx context.Context, f AllocationFilter) 
 	if f.LearningAreaID != "" {
 		query += fmt.Sprintf(" AND a.learning_area_id = $%d", argIdx)
 		args = append(args, f.LearningAreaID)
+		argIdx++
+	}
+	if f.TrackID != "" {
+		query += fmt.Sprintf(" AND b.track_id = $%d", argIdx)
+		args = append(args, f.TrackID)
+		argIdx++
 	}
 
 	query += " ORDER BY a.created_at DESC"

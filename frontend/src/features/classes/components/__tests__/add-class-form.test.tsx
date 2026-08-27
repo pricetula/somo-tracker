@@ -54,24 +54,17 @@ vi.mock("@/features/grade-level", () => ({
 }));
 
 vi.mock("@/features/streams", () => ({
-    StreamCombobox: vi.fn(({ value, onChange, placeholder, onCreateItem }) => (
-        <div>
-            <select
-                data-testid="stream-combobox"
-                value={value}
-                onChange={(e) => onChange(e.target.value)}
-                aria-label={placeholder}
-            >
-                <option value="">Select a stream...</option>
-                <option value="stream1">Stream A</option>
-                <option value="stream2">Stream B</option>
-            </select>
-            {onCreateItem && (
-                <button data-testid="create-stream" onClick={() => onCreateItem("new stream")}>
-                    Create new stream
-                </button>
-            )}
-        </div>
+    StreamCombobox: vi.fn(({ value, onChange, placeholder }) => (
+        <select
+            data-testid="stream-combobox"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            aria-label={placeholder}
+        >
+            <option value="">Select a stream...</option>
+            <option value="stream1">Stream A</option>
+            <option value="stream2">Stream B</option>
+        </select>
     )),
 }));
 

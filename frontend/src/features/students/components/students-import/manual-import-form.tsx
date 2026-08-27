@@ -616,7 +616,6 @@ export function StudentManualImportForm({ onReset, onJobCreated }: StudentManual
                                         }
                                         placeholder="None (no enrollment)"
                                         className="h-8"
-                                        onCreateItem={() => router.push("/classes/add")}
                                     />
                                     <p className="text-muted-foreground text-[0.625rem]">
                                         Leave blank to create without enrollment

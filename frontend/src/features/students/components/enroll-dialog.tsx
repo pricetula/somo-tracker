@@ -96,7 +96,6 @@ export function EnrollDialog({ open, onOpenChange, studentId }: EnrollDialogProp
                         value={selectedTermId}
                         onChange={setSelectedTermId}
                         placeholder="Select a term"
-                        onCreateItem={() => router.push("/academic-terms/new")}
                     />
                 </div>
 
@@ -107,7 +106,6 @@ export function EnrollDialog({ open, onOpenChange, studentId }: EnrollDialogProp
                         value={selectedClassId}
                         onChange={(v) => setSelectedClassId(v as string)}
                         placeholder="Select a class"
-                        onCreateItem={() => router.push("/classes/add")}
                     />
                 </div>
 

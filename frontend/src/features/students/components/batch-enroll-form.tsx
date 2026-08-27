@@ -94,9 +94,6 @@ export function BatchEnrollForm({ onSuccess, onCancel }: BatchEnrollFormProps) {
                     value={selectedClassId}
                     onChange={(v) => setSelectedClassId(v as string)}
                     placeholder="Select a class"
-                    onCreateItem={() => {
-                        router.push("/classes/add");
-                    }}
                 />
             </div>
 

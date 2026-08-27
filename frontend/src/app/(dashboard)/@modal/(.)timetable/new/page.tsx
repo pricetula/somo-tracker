@@ -1,5 +1,5 @@
 /**
- * Intercepted route — Create timetable rendered as a dialog overlay.
+ * Intercepted route — track creation rendered as a dialog overlay.
  */
 "use client";
 import { useCallback } from "react";
@@ -11,25 +11,22 @@ import {
     DialogTitle,
     DialogDescription,
 } from "@/components/ui/dialog";
-import { CreateTimetable } from "@/features/timetable";
+import { TrackCreateForm } from "@/features/timetable/components/track-create-form";
 
-export default function TimetableCreateModal() {
+export default function TrackCreateModal() {
     const router = useRouter();
-
-    const handleRouteBack = useCallback(() => {
-        router.back();
-    }, [router]);
+    const handleBack = useCallback(() => router.back(), [router]);
 
     return (
-        <Dialog open onOpenChange={handleRouteBack}>
-            <DialogContent className="max-h-[90vh] w-full overflow-y-auto sm:max-w-2xl">
+        <Dialog open onOpenChange={handleBack}>
+            <DialogContent className="max-h-[90vh] w-full overflow-y-auto sm:max-w-lg">
                 <DialogHeader>
-                    <DialogTitle>Create Timetable</DialogTitle>
+                    <DialogTitle>New Timetable</DialogTitle>
                     <DialogDescription>
-                        Set up a new timetable track with time blocks.
+                        Create a track. Add blocks and assignments after.
                     </DialogDescription>
                 </DialogHeader>
-                <CreateTimetable handleRouteBack={handleRouteBack} />
+                <TrackCreateForm />
             </DialogContent>
         </Dialog>
     );

@@ -3,7 +3,7 @@
  */
 "use client";
 import { useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import {
     Dialog,
     DialogContent,
@@ -15,6 +15,8 @@ import { BlockCreateForm } from "@/features/timetable/components/block-create-fo
 
 export default function BlockNewModal() {
     const router = useRouter();
+    const params = useParams();
+    const trackId = (params?.trackId as string) ?? "";
     const handleBack = useCallback(() => router.back(), [router]);
 
     return (
@@ -24,7 +26,7 @@ export default function BlockNewModal() {
                     <DialogTitle>Add Time Block</DialogTitle>
                     <DialogDescription>Define a new period for this timetable.</DialogDescription>
                 </DialogHeader>
-                <BlockCreateForm trackId={""} />
+                <BlockCreateForm trackId={trackId} />
             </DialogContent>
         </Dialog>
     );

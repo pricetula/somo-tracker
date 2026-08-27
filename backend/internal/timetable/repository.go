@@ -345,8 +345,6 @@ func classifyAllocationConflict(err error) error {
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) {
 		switch pgErr.ConstraintName {
-		case "unique_class_slot":
-			return ErrClassAllocationOccupied
 		case "unique_teacher_slot":
 			return ErrTeacherDoubleBooked
 		case "unique_room_slot":

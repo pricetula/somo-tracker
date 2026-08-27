@@ -351,8 +351,8 @@ export interface TimetableRow {
     end_time: string;
     order: number;
     is_break: boolean;
-    blockId: string;
-    allocationByDay: Record<number, Allocation>; // Keyed by day_of_week (e.g., 1: Allocation)
+    blockIdByDay: Record<number, string>; // block id per day (correct for links/allocations)
+    allocationByDay: Record<number, Allocation>;
 }
 
 export interface TimetableViewResult {
@@ -376,8 +376,8 @@ export function timetableViewSelect({
             end_time: string;
             order: number;
             is_break: boolean;
-            allocationByDay: Record<number, Allocation>; // Direct object mapping instead of array
-            blockId: string;
+            allocationByDay: Record<number, Allocation>;
+            blockIdByDay: Record<number, string>;
         }
     >();
 
@@ -405,9 +405,11 @@ export function timetableViewSelect({
                 order: block.order,
                 is_break: block.is_break,
                 allocationByDay: {},
-                blockId: block.id,
+                blockIdByDay: {},
             });
         }
+        const row = rowMap.get(rowKey)!;
+        row.blockIdByDay[block.day_of_week] = block.id;
     });
 
     // 2. Process allocations: O(M)

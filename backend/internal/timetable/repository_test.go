@@ -765,16 +765,15 @@ func TestPgRepository_CreateAllocation_Conflict(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Try to create another allocation with same class + structure (unique_class_slot constraint)
+	// Same class + same block with different subject is now allowed (unique_class_slot removed)
 	_, err = repo.CreateAllocation(ctx, tenantID, schoolID, CreateAllocationPayload{
 		BlockID:        structID,
-		ClassID:        classID,             // Same class + structure
+		ClassID:        classID,             // Same class + structure — allowed
 		LearningAreaID: uuid.New().String(), // Different learning area
 		TeacherID:      uuid.New().String(), // Different teacher
 		RoomIdentifier: ptr("Room 102"),
 	})
-	require.Error(t, err)
-	require.ErrorIs(t, err, ErrClassAllocationOccupied)
+	require.NoError(t, err) // Should succeed now
 
 	// Try to create another allocation with same teacher + structure (unique_teacher_slot constraint)
 	_, err = repo.CreateAllocation(ctx, tenantID, schoolID, CreateAllocationPayload{
@@ -887,10 +886,10 @@ func TestPgRepository_BatchCreateAllocations_Conflict(t *testing.T) {
 		structID, tenantID, schoolID, trackID)
 	require.NoError(t, err)
 
-	// Batch with duplicate class+structure in same batch
+	// Batch with duplicate teacher + same block (unique_teacher_slot constraint)
 	payloads := []CreateAllocationPayload{
 		{BlockID: structID, ClassID: classID, LearningAreaID: learningAreaID, TeacherID: userID},
-		{BlockID: structID, ClassID: classID, LearningAreaID: uuid.New().String(), TeacherID: uuid.New().String()}, // Duplicate class+structure
+		{BlockID: structID, ClassID: uuid.New().String(), LearningAreaID: uuid.New().String(), TeacherID: userID}, // Duplicate teacher + structure
 	}
 
 	_, err = repo.BatchCreateAllocations(ctx, tenantID, schoolID, payloads)

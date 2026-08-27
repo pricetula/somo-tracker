@@ -183,7 +183,7 @@ export function TimeTable() {
                                                     allocation={allocation}
                                                     isBreak={false}
                                                     dayOfWeek={day.day_of_week}
-                                                    blockId={period.blockId}
+                                                    blockId={period.blockIdByDay[day.day_of_week]}
                                                     classId={classId}
                                                 />
                                             </td>

@@ -175,12 +175,20 @@ export function getDayNameShort(day: number): string {
 
 /** Create a new timetable track with optional initial blocks. */
 export async function createTrack(payload: CreateTrackPayload): Promise<TimetableTrack> {
-    return api.post<TimetableTrack>("/api/v1/timetable", payload);
+    const result = await api.post<{ track: TimetableTrack; message: string }>(
+        "/api/v1/timetable",
+        payload
+    );
+    return result.track;
 }
 
 /** Update a timetable track (ID passed in body). */
 export async function updateTrack(payload: UpdateTrackPayload): Promise<TimetableTrack> {
-    return api.put<TimetableTrack>("/api/v1/timetable", payload);
+    const result = await api.put<{ updated: boolean; track: TimetableTrack }>(
+        "/api/v1/timetable",
+        payload
+    );
+    return result.track ?? payload;
 }
 
 /** Bulk delete tracks (IDs passed in body). */
@@ -239,4 +247,33 @@ export async function getTimetable(query?: string): Promise<{
         blocks: TimeBlock[];
         allocations: Allocation[];
     }>(`/api/v1/timetable${query ?? ""}`);
+}
+
+// ─── API Functions: Track List / Single ───────────────────────────────────
+
+/** List all timetable tracks for the active school. */
+export async function getTracks(): Promise<{ items: TimetableTrack[]; total: number }> {
+    return api.get<{ items: TimetableTrack[]; total: number }>("/api/v1/timetable/tracks");
+}
+
+/** Get a single timetable track by ID. */
+export async function getTrack(trackId: string): Promise<TimetableTrack> {
+    return api.get<TimetableTrack>(`/api/v1/timetable/tracks/${trackId}`);
+}
+
+/** Update a track's default status (convenience endpoint). */
+export async function setDefaultTrack(trackId: string): Promise<TimetableTrack> {
+    const result = await api.put<{ updated: boolean; track: TimetableTrack }>("/api/v1/timetable", {
+        id: trackId,
+        is_default: true,
+    });
+    return result.track ?? (await getTrack(trackId));
+}
+
+/** Create a track with initial blocks (server replicates to all 7 days). */
+export async function createTrackWithBlocks(payload: CreateTrackPayload): Promise<{
+    track: TimetableTrack;
+    message: string;
+}> {
+    return api.post<{ track: TimetableTrack; message: string }>("/api/v1/timetable", payload);
 }

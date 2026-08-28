@@ -2,9 +2,7 @@
 
 import React from "react";
 import { toast } from "sonner";
-import Link from "next/link";
-import { PlusIcon, Trash, Plus } from "lucide-react";
-import { Spinner } from "@/components/ui/spinner";
+import { Trash } from "lucide-react";
 import { formatDateString } from "@/lib/utils/date";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -20,21 +18,40 @@ const formatDateStringOptions = {
 export function TimeTable({ trackId }: { trackId?: string } = {}) {
     const [classId, setClassId] = React.useState("");
     const { data, isLoading } = useTimetableView(trackId);
-    // const {
-    //     mutate: deleteBlockMutate,
-    //     isError: isErrorDeleteBlock,
-    //     error: errorDeleteBlock,
-    // } = useBulkDeleteBlocks();
+    const {
+        mutate: deleteBlockMutate,
+        isError: isErrorDeleteBlock,
+        error: errorDeleteBlock,
+    } = useBulkDeleteBlocks();
 
-    // React.useEffect(() => {
-    //     if (isErrorDeleteBlock && errorDeleteBlock) {
-    //         toast.error(errorDeleteBlock.message);
-    //     }
-    // }, [isErrorDeleteBlock, errorDeleteBlock]);
+    React.useEffect(() => {
+        if (isErrorDeleteBlock && errorDeleteBlock) {
+            toast.error(errorDeleteBlock.message ?? "Failed to delete time block");
+        }
+    }, [isErrorDeleteBlock, errorDeleteBlock]);
 
-    const handleDeleteBlock = React.useCallback((blockName: string) => {
-        console.log("Delete blocks with", blockName);
-    }, []);
+    const handleDeleteBlock = React.useCallback(
+        (blockName: string) => {
+            const viewData = data as TimetableViewResult | undefined;
+            if (!viewData) return;
+            const ids: string[] = [];
+            for (const row of viewData.rows ?? []) {
+                if (row.period_name === blockName) {
+                    for (const id of Object.values(row.blockIdByDay)) {
+                        if (id) ids.push(id);
+                    }
+                }
+            }
+            if (ids.length === 0) {
+                toast.warning("No blocks found with that name");
+                return;
+            }
+            deleteBlockMutate(ids, {
+                onSuccess: () => toast.success("Time block deleted"),
+            });
+        },
+        [data, deleteBlockMutate]
+    );
 
     if (isLoading) {
         return (
@@ -89,16 +106,7 @@ export function TimeTable({ trackId }: { trackId?: string } = {}) {
 
     if (!data)
         return (
-            <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                    <h1 className="text-lg font-medium">Timetable</h1>
-                    <Link href="/timetable/new">
-                        <Button variant="default" size="sm">
-                            <PlusIcon className="mr-1.5 size-3.5" />
-                            New Timetable
-                        </Button>
-                    </Link>
-                </div>
+            <div className="flex h-48 items-center justify-center space-y-4">
                 <p className="text-muted-foreground">No timetable data available.</p>
             </div>
         );
@@ -107,12 +115,9 @@ export function TimeTable({ trackId }: { trackId?: string } = {}) {
 
     if (!days.length) {
         return (
-            <Link href="/timetable/new">
-                <Button variant="default" size="sm">
-                    <PlusIcon className="mr-1.5 size-3.5" />
-                    New Timetable
-                </Button>
-            </Link>
+            <div className="flex h-48 items-center justify-center space-y-4">
+                <p className="text-muted-foreground">No timetable data available.</p>
+            </div>
         );
     }
 

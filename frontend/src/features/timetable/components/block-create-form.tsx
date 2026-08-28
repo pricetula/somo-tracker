@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
@@ -52,8 +52,7 @@ function TimeBlockRow({
 }) {
     return (
         <div className="bg-muted/30 space-y-3 rounded-md p-4">
-            <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Block {index + 1}</span>
+            <div className="flex items-center justify-end">
                 <Button
                     type="button"
                     variant="ghost"
@@ -71,7 +70,7 @@ function TimeBlockRow({
                     name={`blocks.${index}.period_name`}
                     render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Period Name</FormLabel>
+                            <FormLabel>Name</FormLabel>
                             <FormControl>
                                 <Input {...field} placeholder="e.g., Lesson 1" />
                             </FormControl>
@@ -151,6 +150,12 @@ export function BlockCreateForm({
         },
     });
 
+    // Inside your component:
+    const blocks = useWatch({
+        control: form.control,
+        name: "blocks",
+    });
+
     React.useEffect(() => {
         if (isSuccess && onSuccess) {
             onSuccess();
@@ -218,22 +223,22 @@ export function BlockCreateForm({
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <div className="flex items-center justify-between">
-                    <h3 className="font-medium">Time Blocks</h3>
+                    <h3 className="font-medium">Periods</h3>
                     <Button type="button" variant="outline" size="sm" onClick={addBlock}>
                         <PlusIcon className="mr-1.5 size-3.5" />
-                        Add Block
+                        Add Period
                     </Button>
                 </div>
 
                 <div className="space-y-3">
-                    {form.watch("blocks").map((_, i) => (
+                    {blocks.map((_, i) => (
                         <TimeBlockRow key={i} index={i} form={form} removeBlock={removeBlock} />
                     ))}
                 </div>
 
                 <div className="flex justify-end pt-2">
                     <Button type="submit" disabled={isPending}>
-                        {isPending ? "Saving..." : "Save Blocks"}
+                        {isPending ? "Saving..." : "Save Periods"}
                     </Button>
                 </div>
             </form>

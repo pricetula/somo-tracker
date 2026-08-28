@@ -4,7 +4,6 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "@/lib/api/client";
 import {
     createTrack,
     updateTrack,
@@ -16,11 +15,12 @@ import {
     updateAllocation,
     bulkDeleteAllocations,
     getTimetable,
-    type CreateTrackPayload,
+    getTrack,
+    getTracks,
     type AllocationFilter,
+    type CreateTrackPayload,
     type Allocation,
     type TimeBlock,
-    type TimetableTrack,
     DAY_NAMES,
     DAY_NAMES_SHORT,
 } from "@/lib/api/timetable";
@@ -215,7 +215,7 @@ export function useBulkDeleteBlocks() {
         },
         onSettled: () => {
             queryClient.invalidateQueries({ queryKey: timetableKeys.blocks.all });
-            queryClient.invalidateQueries({ queryKey: ["timetable", "allocations"] });
+            queryClient.invalidateQueries({ queryKey: timetableKeys.allocations.all });
             queryClient.invalidateQueries({ queryKey: timetableKeys.combined.all });
         },
     });
@@ -250,7 +250,7 @@ export function useCreateAllocations() {
             }
         },
         onSettled: () => {
-            queryClient.invalidateQueries({ queryKey: ["timetable", "allocations"] });
+            queryClient.invalidateQueries({ queryKey: timetableKeys.allocations.all });
             queryClient.invalidateQueries({ queryKey: timetableKeys.combined.all });
         },
     });
@@ -281,7 +281,7 @@ export function useUpdateAllocation() {
             }
         },
         onSettled: () => {
-            queryClient.invalidateQueries({ queryKey: ["timetable", "allocations"] });
+            queryClient.invalidateQueries({ queryKey: timetableKeys.allocations.all });
             queryClient.invalidateQueries({ queryKey: timetableKeys.combined.all });
         },
     });
@@ -306,37 +306,9 @@ export function useBulkDeleteAllocations() {
             }
         },
         onSettled: () => {
-            queryClient.invalidateQueries({ queryKey: ["timetable", "allocations"] });
+            queryClient.invalidateQueries({ queryKey: timetableKeys.allocations.all });
             queryClient.invalidateQueries({ queryKey: timetableKeys.combined.all });
         },
-    });
-}
-
-/**
- * List allocations with filters.
- */
-export function useAllocations(filters: {
-    block_id?: string;
-    class_id?: string;
-    teacher_id?: string;
-    learning_area_id?: string;
-}) {
-    // Note: Backend GET /api/v1/timetable returns full view; use getTimetable instead
-    // This hook kept for compatibility if a dedicated list endpoint is added
-    return useQuery({
-        queryKey: ["timetable", "allocations", "list", filters],
-        queryFn: async () => {
-            const data = await getTimetable();
-            return data.allocations.filter((a: Allocation) => {
-                if (filters.block_id && a.block_id !== filters.block_id) return false;
-                if (filters.class_id && a.class_id !== filters.class_id) return false;
-                if (filters.teacher_id && a.teacher_id !== filters.teacher_id) return false;
-                if (filters.learning_area_id && a.learning_area_id !== filters.learning_area_id)
-                    return false;
-                return true;
-            });
-        },
-        enabled: true,
     });
 }
 
@@ -433,25 +405,29 @@ export function timetableViewSelect({
 }
 
 /**
- * Get combined timetable view (blocks + allocations).
+ * Get a single timetable track by ID.
  */
 export function useTrack(trackId: string) {
     return useQuery({
         queryKey: ["timetable", "tracks", trackId],
-        queryFn: () => api.get<TimetableTrack>(`/api/v1/timetable/tracks/${trackId}`),
+        queryFn: () => getTrack(trackId),
         enabled: !!trackId,
     });
 }
 
+/**
+ * List all timetable tracks for the active school.
+ */
 export function useTracks() {
     return useQuery({
-        queryKey: ["timetable", "tracks"],
-        queryFn: async () => {
-            return api.get<{ items: TimetableTrack[]; total: number }>("/api/v1/timetable/tracks");
-        },
+        queryKey: timetableKeys.tracks.all,
+        queryFn: getTracks,
     });
 }
 
+/**
+ * Get combined timetable view (blocks + allocations).
+ */
 export function useTimetableView(trackId?: string) {
     return useQuery({
         queryKey: ["timetable", "combined", trackId ?? "all"],

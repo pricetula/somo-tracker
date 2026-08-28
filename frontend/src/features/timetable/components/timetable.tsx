@@ -17,7 +17,7 @@ const formatDateStringOptions = {
 
 export function TimeTable({ trackId }: { trackId?: string } = {}) {
     const [classId, setClassId] = React.useState("");
-    const { data, isLoading } = useTimetableView(trackId);
+    const { data, isLoading } = useTimetableView(trackId, classId);
     const {
         mutate: deleteBlockMutate,
         isError: isErrorDeleteBlock,

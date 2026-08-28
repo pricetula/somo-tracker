@@ -486,6 +486,7 @@ func (h *Handler) GetTimetable(c *fiber.Ctx) error {
 	}
 
 	trackID := c.Query("track_id", "")
+	classID := c.Query("class_id", "")
 
 	blocks, err := h.svc.ListBlocks(c.UserContext(), tenantID, schoolID, "")
 	if err != nil {
@@ -507,6 +508,7 @@ func (h *Handler) GetTimetable(c *fiber.Ctx) error {
 		TenantID: tenantID,
 		SchoolID: schoolID,
 		TrackID:  trackID,
+		ClassID:  classID,
 	})
 	if err != nil {
 		return middleware.HTTPError(c, err)

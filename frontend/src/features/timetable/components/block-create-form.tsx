@@ -41,6 +41,15 @@ const fmtMin = (m: number): string => {
     return `${h}:${mm}`;
 };
 
+function derivePeriodName(index: number, blocks: { is_break: boolean }[]): string {
+    if (blocks[index]?.is_break) return "Break time";
+    let lessonCount = 0;
+    for (let i = 0; i <= index; i++) {
+        if (!blocks[i]?.is_break) lessonCount++;
+    }
+    return `Lesson ${lessonCount}`;
+}
+
 function TimeBlockRow({
     index,
     form,
@@ -115,7 +124,29 @@ function TimeBlockRow({
                             <input
                                 type="checkbox"
                                 checked={field.value}
-                                onChange={(e) => field.onChange(e.target.checked)}
+                                onChange={(e) => {
+                                    const checked = e.target.checked;
+                                    field.onChange(checked);
+                                    const currentBlocks = form.getValues("blocks") as {
+                                        is_break: boolean;
+                                    }[];
+                                    const currentName = form.getValues(
+                                        `blocks.${index}.period_name`
+                                    );
+                                    const derived = derivePeriodName(
+                                        index,
+                                        currentBlocks.map((b, i) =>
+                                            i === index ? { ...b, is_break: checked } : b
+                                        )
+                                    );
+                                    const isCustom =
+                                        currentName &&
+                                        currentName !== "Break time" &&
+                                        currentName !== derivePeriodName(index, currentBlocks);
+                                    if (!isCustom) {
+                                        form.setValue(`blocks.${index}.period_name`, derived);
+                                    }
+                                }}
                                 className="border-input size-4 rounded"
                             />
                         </FormControl>
@@ -175,11 +206,11 @@ export function BlockCreateForm({
         const newStartMin = parseMin(last.end_time);
         const newEndMin = newStartMin + durationMin;
 
-        const nextIndex = current.length + 1;
+        const nonBreakCount = current.filter((b) => !b.is_break).length;
         form.setValue("blocks", [
             ...current,
             {
-                period_name: `Lesson ${nextIndex}`,
+                period_name: `Lesson ${nonBreakCount + 1}`,
                 start_time: fmtMin(newStartMin),
                 end_time: fmtMin(newEndMin),
                 is_break: false,

@@ -16,7 +16,8 @@ import {
     FormControl,
     FormMessage,
 } from "@/components/ui/form";
-import { useCreateBlocks } from "@/features/timetable/hooks";
+import { useCreateBlocks, useTrackBlocks } from "@/features/timetable/hooks";
+import { formatDateString } from "@/lib/utils/date";
 
 const BlockSchema = z.object({
     period_name: z.string().min(1, "Period name is required"),
@@ -48,6 +49,31 @@ function derivePeriodName(index: number, blocks: { is_break: boolean }[]): strin
         if (!blocks[i]?.is_break) lessonCount++;
     }
     return `Lesson ${lessonCount}`;
+}
+
+type DbBlock = { start_time: string; end_time: string; is_break: boolean; order: number };
+
+function sortedByOrder(blocks: DbBlock[]): DbBlock[] {
+    return [...blocks].sort((a, b) => a.order - b.order);
+}
+
+function deriveNextPeriodName(blocks: DbBlock[]): string {
+    const nonBreakCount = blocks.filter((b) => !b.is_break).length;
+    return `Lesson ${nonBreakCount + 1}`;
+}
+
+function deriveNextStartTime(blocks: DbBlock[]): string {
+    if (blocks.length === 0) return "08:00";
+    return formatDateString(sortedByOrder(blocks)[blocks.length - 1].end_time);
+}
+
+function deriveNextEndTime(blocks: DbBlock[]): string {
+    if (blocks.length === 0) return "09:00";
+    const sorted = sortedByOrder(blocks);
+    const last = sorted[sorted.length - 1];
+    const first = sorted[0];
+    const durationMin = parseMin(first.end_time) - parseMin(first.start_time);
+    return fmtMin(parseMin(last.end_time) + durationMin);
 }
 
 function TimeBlockRow({
@@ -166,6 +192,7 @@ export function BlockCreateForm({
     onSuccess?: () => void;
 }) {
     const { mutate, isPending, isError, error, isSuccess } = useCreateBlocks();
+    const { data: trackBlocks } = useTrackBlocks(trackId);
 
     const form = useForm<FormData>({
         resolver: zodResolver(Schema),
@@ -192,6 +219,27 @@ export function BlockCreateForm({
             onSuccess();
         }
     }, [isSuccess, onSuccess]);
+
+    React.useEffect(() => {
+        if (form && trackBlocks && trackBlocks.length >= 0) {
+            const periodColl = new Map();
+            trackBlocks.forEach((b) => {
+                if (periodColl.has(b.period_name)) return;
+                periodColl.set(b.period_name, b);
+            });
+            const periodArray = [...periodColl.values()];
+            form.reset({
+                blocks: [
+                    {
+                        period_name: deriveNextPeriodName(periodArray),
+                        start_time: deriveNextStartTime(periodArray),
+                        end_time: deriveNextEndTime(periodArray),
+                        is_break: false,
+                    },
+                ],
+            });
+        }
+    }, [trackBlocks, form]);
 
     React.useEffect(() => {
         if (isError && error) toast.error(error.message);

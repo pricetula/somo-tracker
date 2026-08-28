@@ -10,11 +10,6 @@ import { ClassCombobox } from "@/features/classes/components/class-combobox";
 import { useTimetableView, useBulkDeleteBlocks, type TimetableViewResult } from "../hooks";
 import { AllocationBlock } from "./allocation-block";
 
-const formatDateStringOptions = {
-    inputFormat: "HH:mm:ss.SSSSSS",
-    outputFormat: "HH:mm",
-};
-
 export function TimeTable({ trackId }: { trackId?: string } = {}) {
     const [classId, setClassId] = React.useState("");
     const { data, isLoading } = useTimetableView(trackId, classId);
@@ -179,15 +174,8 @@ export function TimeTable({ trackId }: { trackId?: string } = {}) {
                                                 </Button>
                                             </header>
                                             <div className="text-muted-foreground text-[10px]">
-                                                {formatDateString(
-                                                    period.start_time,
-                                                    formatDateStringOptions
-                                                )}
-                                                -
-                                                {formatDateString(
-                                                    period.end_time,
-                                                    formatDateStringOptions
-                                                )}
+                                                {formatDateString(period.start_time)}-
+                                                {formatDateString(period.end_time)}
                                             </div>
                                         </section>
                                     </td>

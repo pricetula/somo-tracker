@@ -7,7 +7,13 @@ interface OptionFormatDateString {
 
 const currentDateObj = new Date();
 
-export function formatDateString(dateStr: string, options: OptionFormatDateString): string {
+export function formatDateString(
+    dateStr: string,
+    options: OptionFormatDateString = {
+        inputFormat: "HH:mm:ss.SSSSSS",
+        outputFormat: "HH:mm",
+    }
+): string {
     try {
         if (!options.inputFormat || !options.outputFormat || !isMatch(dateStr, options.inputFormat))
             return "";

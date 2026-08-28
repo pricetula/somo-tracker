@@ -426,6 +426,23 @@ export function useTracks() {
 }
 
 /**
+ * Get raw blocks for a track (no view transformation).
+ */
+export function useTrackBlocks(trackId?: string) {
+    return useQuery({
+        queryKey: ["timetable", "blocks", "track", trackId ?? "all"],
+        queryFn: async () => {
+            const params = new URLSearchParams();
+            if (trackId) params.set("track_id", trackId);
+            const query = params.toString() ? `?${params.toString()}` : "";
+            return getTimetable(query);
+        },
+        select: ({ blocks }: { blocks: TimeBlock[]; allocations: Allocation[] }) => blocks,
+        enabled: !!trackId,
+    });
+}
+
+/**
  * Get combined timetable view (blocks + allocations).
  */
 export function useTimetableView(trackId?: string, classId?: string) {

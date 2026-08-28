@@ -253,6 +253,7 @@ func (h *Handler) BulkDeleteTracks(c *fiber.Ctx) error {
 }
 
 // CreateBlocks handles POST /api/v1/timetable/blocks (create blocks for a track)
+// Each block in the payload is replicated for all 7 days of the week (Monday-Sunday).
 func (h *Handler) CreateBlocks(c *fiber.Ctx) error {
 	tenantID, schoolID, err := h.tmMiddleware(c)
 	if err != nil {
@@ -281,13 +282,25 @@ func (h *Handler) CreateBlocks(c *fiber.Ctx) error {
 				"message": "track_id is required",
 			})
 		}
-		if _, err := h.svc.CreateBlock(c.UserContext(), tenantID, schoolID, blockPayload); err != nil {
-			return middleware.HTTPError(c, err)
+		// Replicate each block for all 7 days of the week
+		for day := 1; day <= 7; day++ {
+			bp := blockPayload
+			bp.DayOfWeek = day
+			if bp.OrderIndex <= 0 {
+				bp.OrderIndex = 1
+			}
+			if err := validateTimeBlockPayload(&bp); err != nil {
+				return middleware.HTTPError(c, err)
+			}
+			if _, err := h.svc.CreateBlock(c.UserContext(), tenantID, schoolID, bp); err != nil {
+				return middleware.HTTPError(c, err)
+			}
 		}
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-		"blocks": payloads,
+		"blocks":          payloads,
+		"replicated_days": 7,
 	})
 }
 

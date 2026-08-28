@@ -541,11 +541,16 @@ func TestHandler_BulkDeleteTracks_HappyPath(t *testing.T) {
 func TestHandler_CreateBlocks_HappyPath(t *testing.T) {
 	h := newHandlerTestHarness()
 
+	// Each input block should be replicated across 7 days (Monday-Sunday).
+	daysSeen := make(map[int]int)
 	h.svc.createBlockFn = func(ctx context.Context, tenantID, schoolID string, p CreateTimeBlockPayload) (*TimeBlock, error) {
 		require.Equal(t, "tenant_001", tenantID)
 		require.Equal(t, "school_001", schoolID)
 		require.Equal(t, "track_001", p.TrackID)
-		return &TimeBlock{ID: "block_001", TrackID: p.TrackID}, nil
+		require.GreaterOrEqual(t, p.DayOfWeek, 1)
+		require.LessOrEqual(t, p.DayOfWeek, 7)
+		daysSeen[p.DayOfWeek]++
+		return &TimeBlock{ID: "block_001", TrackID: p.TrackID, DayOfWeek: p.DayOfWeek}, nil
 	}
 
 	payload := []CreateTimeBlockPayload{
@@ -559,6 +564,48 @@ func TestHandler_CreateBlocks_HappyPath(t *testing.T) {
 	var result map[string]interface{}
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&result))
 	require.NotNil(t, result["blocks"])
+	require.Equal(t, float64(7), result["replicated_days"])
+
+	// One block was provided, replicated to 7 days
+	require.Len(t, daysSeen, 7)
+	for day := 1; day <= 7; day++ {
+		require.Equal(t, 1, daysSeen[day], "day %d should have been created once", day)
+	}
+}
+
+func TestHandler_CreateBlocks_ReplicatesMultipleBlocksAcrossAllDays(t *testing.T) {
+	h := newHandlerTestHarness()
+
+	// Two periods * 7 days = 14 block creations
+	periodsSeen := make(map[string]map[int]int)
+	h.svc.createBlockFn = func(ctx context.Context, tenantID, schoolID string, p CreateTimeBlockPayload) (*TimeBlock, error) {
+		require.Equal(t, "track_001", p.TrackID)
+		require.GreaterOrEqual(t, p.DayOfWeek, 1)
+		require.LessOrEqual(t, p.DayOfWeek, 7)
+		if periodsSeen[p.PeriodName] == nil {
+			periodsSeen[p.PeriodName] = make(map[int]int)
+		}
+		periodsSeen[p.PeriodName][p.DayOfWeek]++
+		return &TimeBlock{ID: "block_001", TrackID: p.TrackID, PeriodName: p.PeriodName, DayOfWeek: p.DayOfWeek}, nil
+	}
+
+	payload := []CreateTimeBlockPayload{
+		{TrackID: "track_001", PeriodName: "Period 1", StartTime: "08:00", EndTime: "08:40", IsBreak: false, OrderIndex: 1},
+		{TrackID: "track_001", PeriodName: "Period 2", StartTime: "08:40", EndTime: "09:20", IsBreak: false, OrderIndex: 2},
+	}
+	body, _ := json.Marshal(payload)
+
+	resp := doRequest(h.app, "POST", "/api/v1/timetable/blocks", body)
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+
+	// Each period should be present for every day of the week
+	require.Len(t, periodsSeen, 2)
+	for _, periodName := range []string{"Period 1", "Period 2"} {
+		require.Len(t, periodsSeen[periodName], 7, "%s should exist on all 7 days", periodName)
+		for day := 1; day <= 7; day++ {
+			require.Equal(t, 1, periodsSeen[periodName][day], "%s on day %d should have been created once", periodName, day)
+		}
+	}
 }
 
 // ============================================================================

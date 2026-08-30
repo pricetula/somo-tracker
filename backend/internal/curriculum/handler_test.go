@@ -27,7 +27,7 @@ func newHandlerTestHarness(t *testing.T) *handlerTestHarness {
 
 	repo := &MockRepository{}
 	svc := NewService(repo)
-	handler := NewHandler(svc)
+	handler := NewHandler(svc, nil)
 
 	app := fiber.New()
 
@@ -342,7 +342,7 @@ func TestHandler_CreateStrand_InvalidBody(t *testing.T) {
 func TestHandler_ListStrands_HappyPath(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
-	h.repo.listStrandsFn = func(ctx context.Context, learningAreaID, tenantID string) ([]Strand, error) {
+	h.repo.listStrandsFn = func(ctx context.Context, learningAreaID, tenantID, search string, page, limit int) ([]Strand, error) {
 		return []Strand{
 			{ID: "strand_001", TenantID: tenantID, LearningAreaID: learningAreaID, Name: "Numbers"},
 		}, nil
@@ -450,7 +450,7 @@ func TestHandler_CreateSubStrand_HappyPath(t *testing.T) {
 func TestHandler_ListSubStrands_HappyPath(t *testing.T) {
 	h := newHandlerTestHarness(t)
 
-	h.repo.listSubStrandsFn = func(ctx context.Context, strandID, tenantID string) ([]SubStrand, error) {
+	h.repo.listSubStrandsFn = func(ctx context.Context, strandID, tenantID, search string, page, limit int) ([]SubStrand, error) {
 		return []SubStrand{
 			{ID: "sub_001", TenantID: tenantID, StrandID: strandID, Name: "Addition"},
 		}, nil
@@ -622,7 +622,7 @@ func TestHandler_DeletePerformanceIndicator_HappyPath(t *testing.T) {
 func TestHandler_NoActiveSchool(t *testing.T) {
 	repo := &MockRepository{}
 	svc := NewService(repo)
-	handler := NewHandler(svc)
+	handler := NewHandler(svc, nil)
 
 	app := fiber.New()
 

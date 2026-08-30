@@ -142,11 +142,26 @@ func (s *Service) GetStrand(ctx context.Context, id, tenantID string) (*Strand, 
 }
 
 // ListStrands returns strands filtered by learning_area_id, scoped to tenant.
-func (s *Service) ListStrands(ctx context.Context, learningAreaID, tenantID string) ([]Strand, error) {
+// Supports optional search and pagination.
+func (s *Service) ListStrands(ctx context.Context, learningAreaID, tenantID, search string, page, limit int) ([]Strand, int, error) {
 	if learningAreaID == "" || tenantID == "" {
-		return nil, fmt.Errorf("curriculum.Service.ListStrands: learning_area_id and tenant_id are required: %w", ErrInvalidInput)
+		return nil, 0, fmt.Errorf("curriculum.Service.ListStrands: learning_area_id and tenant_id are required: %w", ErrInvalidInput)
 	}
-	return s.Repo.ListStrandsByLearningArea(ctx, learningAreaID, tenantID)
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 {
+		limit = 50
+	}
+	items, err := s.Repo.ListStrandsByLearningArea(ctx, learningAreaID, tenantID, search, page, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+	total, err := s.Repo.CountStrandsByLearningArea(ctx, learningAreaID, tenantID, search)
+	if err != nil {
+		return nil, 0, err
+	}
+	return items, total, nil
 }
 
 // UpdateStrand updates a strand's name, scoped to tenant.
@@ -208,11 +223,26 @@ func (s *Service) GetSubStrand(ctx context.Context, id, tenantID string) (*SubSt
 }
 
 // ListSubStrands returns sub-strands filtered by strand_id, scoped to tenant.
-func (s *Service) ListSubStrands(ctx context.Context, strandID, tenantID string) ([]SubStrand, error) {
+// Supports optional search and pagination.
+func (s *Service) ListSubStrands(ctx context.Context, strandID, tenantID, search string, page, limit int) ([]SubStrand, int, error) {
 	if strandID == "" || tenantID == "" {
-		return nil, fmt.Errorf("curriculum.Service.ListSubStrands: strand_id and tenant_id are required: %w", ErrInvalidInput)
+		return nil, 0, fmt.Errorf("curriculum.Service.ListSubStrands: strand_id and tenant_id are required: %w", ErrInvalidInput)
 	}
-	return s.Repo.ListSubStrandsByStrand(ctx, strandID, tenantID)
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 {
+		limit = 50
+	}
+	items, err := s.Repo.ListSubStrandsByStrand(ctx, strandID, tenantID, search, page, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+	total, err := s.Repo.CountSubStrandsByStrand(ctx, strandID, tenantID, search)
+	if err != nil {
+		return nil, 0, err
+	}
+	return items, total, nil
 }
 
 // UpdateSubStrand updates a sub-strand's name, scoped to tenant.

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 
 	"somotracker/backend/internal/middleware"
 	"somotracker/backend/internal/xerrors"
@@ -13,16 +14,21 @@ import (
 
 // Handler exposes curriculum HTTP endpoints.
 type Handler struct {
-	svc *Service
+	svc        *Service
+	seedingSvc *SeedingService
 }
 
 // NewHandler creates a new Handler.
-func NewHandler(svc *Service) *Handler {
-	return &Handler{svc: svc}
+func NewHandler(svc *Service, seedingSvc *SeedingService) *Handler {
+	return &Handler{svc: svc, seedingSvc: seedingSvc}
 }
 
 // RegisterRoutes mounts all curriculum routes on the given router.
 func (h *Handler) RegisterRoutes(router fiber.Router) {
+	// Curriculum-level operations
+	curriculum := router.Group("/api/v1/curriculum")
+	curriculum.Post("/seed-default", middleware.RequireAuth, h.SeedDefaultCurriculum)
+
 	// Learning Areas
 	areas := router.Group("/api/v1/curriculum/learning-areas")
 	areas.Post("/", middleware.RequireAuth, h.CreateLearningArea)
@@ -36,6 +42,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	strands := router.Group("/api/v1/curriculum/strands")
 	strands.Post("/", middleware.RequireAuth, h.CreateStrand)
 	strands.Get("/", middleware.RequireAuth, h.ListStrands)
+	strands.Get("/:id", middleware.RequireAuth, h.GetStrand)
 	strands.Put("/:id", middleware.RequireAuth, h.UpdateStrand)
 	strands.Delete("/", middleware.RequireAuth, h.DeleteStrand)
 
@@ -43,6 +50,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	subStrands := router.Group("/api/v1/curriculum/sub-strands")
 	subStrands.Post("/", middleware.RequireAuth, h.CreateSubStrand)
 	subStrands.Get("/", middleware.RequireAuth, h.ListSubStrands)
+	subStrands.Get("/:id", middleware.RequireAuth, h.GetSubStrand)
 	subStrands.Put("/:id", middleware.RequireAuth, h.UpdateSubStrand)
 	subStrands.Delete("/", middleware.RequireAuth, h.DeleteSubStrand)
 
@@ -52,6 +60,31 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	indicators.Get("/", middleware.RequireAuth, h.ListPerformanceIndicators)
 	indicators.Put("/:id", middleware.RequireAuth, h.UpdatePerformanceIndicator)
 	indicators.Delete("/", middleware.RequireAuth, h.DeletePerformanceIndicator)
+}
+
+func (h *Handler) SeedDefaultCurriculum(c *fiber.Ctx) error {
+	tenantIDStr, schoolIDStr, err := getTenantAndSchool(c)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	tenantID, err := uuid.Parse(tenantIDStr)
+	if err != nil {
+		return middleware.HTTPError(c, fmt.Errorf("invalid tenant_id: %w", xerrors.ErrInvalidInput))
+	}
+
+	schoolID, err := uuid.Parse(schoolIDStr)
+	if err != nil {
+		return middleware.HTTPError(c, fmt.Errorf("invalid school_id: %w", xerrors.ErrInvalidInput))
+	}
+
+	if err := h.seedingSvc.SeedSchoolCurriculumDefault(c.Context(), tenantID, schoolID); err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"message": "Default CBC curriculum seeded successfully",
+	})
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────
@@ -322,6 +355,25 @@ func (h *Handler) CreateStrand(c *fiber.Ctx) error {
 }
 
 // ListStrands handles GET /api/v1/curriculum/strands?learning_area_id=X.
+func (h *Handler) GetStrand(c *fiber.Ctx) error {
+	tenantID, _, err := getTenantAndSchool(c)
+	if err != nil {
+		return err
+	}
+
+	strandID := c.Params("id")
+	if strandID == "" {
+		return middleware.HTTPError(c, fmt.Errorf("strand id is required: %w", xerrors.ErrInvalidInput))
+	}
+
+	strand, err := h.svc.GetStrand(c.Context(), strandID, tenantID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(strand)
+}
+
 func (h *Handler) ListStrands(c *fiber.Ctx) error {
 	tenantID, _, err := getTenantAndSchool(c)
 	if err != nil {
@@ -333,16 +385,26 @@ func (h *Handler) ListStrands(c *fiber.Ctx) error {
 		return middleware.HTTPError(c, fmt.Errorf("learning_area_id query parameter is required: %w", xerrors.ErrInvalidInput))
 	}
 
-	strands, err := h.svc.ListStrands(c.Context(), learningAreaID, tenantID)
+	search := strings.TrimSpace(c.Query("search", ""))
+	page, _ := strconv.Atoi(c.Query("page", "1"))
+	limit, _ := strconv.Atoi(c.Query("limit", "50"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 50
+	}
+
+	strands, total, err := h.svc.ListStrands(c.Context(), learningAreaID, tenantID, search, page, limit)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
 
 	return c.JSON(ListStrandsResponse{
 		Items: strands,
-		Total: len(strands),
-		Page:  1,
-		Limit: len(strands),
+		Total: total,
+		Page:  page,
+		Limit: limit,
 	})
 }
 
@@ -428,6 +490,25 @@ func (h *Handler) CreateSubStrand(c *fiber.Ctx) error {
 }
 
 // ListSubStrands handles GET /api/v1/curriculum/sub-strands?strand_id=X.
+func (h *Handler) GetSubStrand(c *fiber.Ctx) error {
+	tenantID, _, err := getTenantAndSchool(c)
+	if err != nil {
+		return err
+	}
+
+	subStrandID := c.Params("id")
+	if subStrandID == "" {
+		return middleware.HTTPError(c, fmt.Errorf("sub-strand id is required: %w", xerrors.ErrInvalidInput))
+	}
+
+	subStrand, err := h.svc.GetSubStrand(c.Context(), subStrandID, tenantID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(subStrand)
+}
+
 func (h *Handler) ListSubStrands(c *fiber.Ctx) error {
 	tenantID, _, err := getTenantAndSchool(c)
 	if err != nil {
@@ -439,16 +520,26 @@ func (h *Handler) ListSubStrands(c *fiber.Ctx) error {
 		return middleware.HTTPError(c, fmt.Errorf("strand_id query parameter is required: %w", xerrors.ErrInvalidInput))
 	}
 
-	subs, err := h.svc.ListSubStrands(c.Context(), strandID, tenantID)
+	search := strings.TrimSpace(c.Query("search", ""))
+	page, _ := strconv.Atoi(c.Query("page", "1"))
+	limit, _ := strconv.Atoi(c.Query("limit", "50"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 50
+	}
+
+	subs, total, err := h.svc.ListSubStrands(c.Context(), strandID, tenantID, search, page, limit)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
 
 	return c.JSON(ListSubStrandsResponse{
 		Items: subs,
-		Total: len(subs),
-		Page:  1,
-		Limit: len(subs),
+		Total: total,
+		Page:  page,
+		Limit: limit,
 	})
 }
 

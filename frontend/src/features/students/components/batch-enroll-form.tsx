@@ -9,7 +9,6 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Loader2, Users } from "lucide-react";
@@ -31,7 +30,6 @@ interface BatchEnrollFormProps {
 // ─── Component ─────────────────────────────────────────────────────────────
 
 export function BatchEnrollForm({ onSuccess, onCancel }: BatchEnrollFormProps) {
-    const router = useRouter();
     const [selectedClassId, setSelectedClassId] = React.useState("");
     const [error, setError] = React.useState<string | null>(null);
 

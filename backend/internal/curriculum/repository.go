@@ -264,15 +264,41 @@ func (r *PgRepository) GetStrandByID(ctx context.Context, id, tenantID string) (
 	return &s, nil
 }
 
-// ListStrandsByLearningArea returns all strands for a given learning area, scoped to tenant.
-func (r *PgRepository) ListStrandsByLearningArea(ctx context.Context, learningAreaID, tenantID string) ([]Strand, error) {
-	const query = `
-		SELECT id, tenant_id, learning_area_id, name
-		FROM cbc_strands
-		WHERE learning_area_id = $1 AND tenant_id = $2
-		ORDER BY name ASC
-	`
-	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, learningAreaID, tenantID)
+// ListStrandsByLearningArea returns strands for a given learning area, scoped to tenant.
+// Supports optional search by name and pagination via page/limit.
+func (r *PgRepository) ListStrandsByLearningArea(ctx context.Context, learningAreaID, tenantID, search string, page, limit int) ([]Strand, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 {
+		limit = 50
+	}
+	offset := (page - 1) * limit
+
+	var (
+		rows pgx.Rows
+		err  error
+	)
+	if search == "" {
+		const query = `
+			SELECT id, tenant_id, learning_area_id, name
+			FROM cbc_strands
+			WHERE learning_area_id = $1 AND tenant_id = $2
+			ORDER BY name ASC
+			LIMIT $3 OFFSET $4
+		`
+		rows, err = database.FromContext(ctx, r.pool).Query(ctx, query, learningAreaID, tenantID, limit, offset)
+	} else {
+		const query = `
+			SELECT id, tenant_id, learning_area_id, name
+			FROM cbc_strands
+			WHERE learning_area_id = $1 AND tenant_id = $2
+			  AND name ILIKE '%' || $3 || '%'
+			ORDER BY name ASC
+			LIMIT $4 OFFSET $5
+		`
+		rows, err = database.FromContext(ctx, r.pool).Query(ctx, query, learningAreaID, tenantID, search, limit, offset)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("curriculum.Repository.ListStrandsByLearningArea: %w", err)
 	}
@@ -295,6 +321,34 @@ func (r *PgRepository) ListStrandsByLearningArea(ctx context.Context, learningAr
 	}
 
 	return strands, nil
+}
+
+// CountStrandsByLearningArea returns the total count of strands for a learning area, scoped to tenant.
+// Optional search matches strand name.
+func (r *PgRepository) CountStrandsByLearningArea(ctx context.Context, learningAreaID, tenantID, search string) (int, error) {
+	var (
+		row pgx.Row
+		err error
+	)
+	if search == "" {
+		const query = `SELECT COUNT(*) FROM cbc_strands WHERE learning_area_id = $1 AND tenant_id = $2`
+		row = database.FromContext(ctx, r.pool).QueryRow(ctx, query, learningAreaID, tenantID)
+	} else {
+		const query = `
+			SELECT COUNT(*) FROM cbc_strands
+			WHERE learning_area_id = $1 AND tenant_id = $2
+			  AND name ILIKE '%' || $3 || '%'
+		`
+		row = database.FromContext(ctx, r.pool).QueryRow(ctx, query, learningAreaID, tenantID, search)
+	}
+	if err != nil {
+		return 0, fmt.Errorf("curriculum.Repository.CountStrandsByLearningArea: %w", err)
+	}
+	var total int
+	if err := row.Scan(&total); err != nil {
+		return 0, fmt.Errorf("curriculum.Repository.CountStrandsByLearningArea: %w", err)
+	}
+	return total, nil
 }
 
 // UpdateStrand modifies a strand's name, scoped to tenant.
@@ -372,15 +426,41 @@ func (r *PgRepository) GetSubStrandByID(ctx context.Context, id, tenantID string
 	return &s, nil
 }
 
-// ListSubStrandsByStrand returns all sub-strands for a given strand, scoped to tenant.
-func (r *PgRepository) ListSubStrandsByStrand(ctx context.Context, strandID, tenantID string) ([]SubStrand, error) {
-	const query = `
-		SELECT id, tenant_id, strand_id, name
-		FROM cbc_sub_strands
-		WHERE strand_id = $1 AND tenant_id = $2
-		ORDER BY name ASC
-	`
-	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, strandID, tenantID)
+// ListSubStrandsByStrand returns sub-strands for a given strand, scoped to tenant.
+// Supports optional search by name and pagination via page/limit.
+func (r *PgRepository) ListSubStrandsByStrand(ctx context.Context, strandID, tenantID, search string, page, limit int) ([]SubStrand, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 {
+		limit = 50
+	}
+	offset := (page - 1) * limit
+
+	var (
+		rows pgx.Rows
+		err  error
+	)
+	if search == "" {
+		const query = `
+			SELECT id, tenant_id, strand_id, name
+			FROM cbc_sub_strands
+			WHERE strand_id = $1 AND tenant_id = $2
+			ORDER BY name ASC
+			LIMIT $3 OFFSET $4
+		`
+		rows, err = database.FromContext(ctx, r.pool).Query(ctx, query, strandID, tenantID, limit, offset)
+	} else {
+		const query = `
+			SELECT id, tenant_id, strand_id, name
+			FROM cbc_sub_strands
+			WHERE strand_id = $1 AND tenant_id = $2
+			  AND name ILIKE '%' || $3 || '%'
+			ORDER BY name ASC
+			LIMIT $4 OFFSET $5
+		`
+		rows, err = database.FromContext(ctx, r.pool).Query(ctx, query, strandID, tenantID, search, limit, offset)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("curriculum.Repository.ListSubStrandsByStrand: %w", err)
 	}
@@ -403,6 +483,34 @@ func (r *PgRepository) ListSubStrandsByStrand(ctx context.Context, strandID, ten
 	}
 
 	return subs, nil
+}
+
+// CountSubStrandsByStrand returns the total count of sub-strands for a strand, scoped to tenant.
+// Optional search matches sub-strand name.
+func (r *PgRepository) CountSubStrandsByStrand(ctx context.Context, strandID, tenantID, search string) (int, error) {
+	var (
+		row pgx.Row
+		err error
+	)
+	if search == "" {
+		const query = `SELECT COUNT(*) FROM cbc_sub_strands WHERE strand_id = $1 AND tenant_id = $2`
+		row = database.FromContext(ctx, r.pool).QueryRow(ctx, query, strandID, tenantID)
+	} else {
+		const query = `
+			SELECT COUNT(*) FROM cbc_sub_strands
+			WHERE strand_id = $1 AND tenant_id = $2
+			  AND name ILIKE '%' || $3 || '%'
+		`
+		row = database.FromContext(ctx, r.pool).QueryRow(ctx, query, strandID, tenantID, search)
+	}
+	if err != nil {
+		return 0, fmt.Errorf("curriculum.Repository.CountSubStrandsByStrand: %w", err)
+	}
+	var total int
+	if err := row.Scan(&total); err != nil {
+		return 0, fmt.Errorf("curriculum.Repository.CountSubStrandsByStrand: %w", err)
+	}
+	return total, nil
 }
 
 // UpdateSubStrand modifies a sub-strand's name, scoped to tenant.
@@ -605,8 +713,9 @@ func (r *PgRepository) GetTree(ctx context.Context, learningAreaID, tenantID str
 		return nil, fmt.Errorf("curriculum.Repository.GetTree: %w", err)
 	}
 
-	// 2. Fetch strands (tenant-scoped)
-	strands, err := r.ListStrandsByLearningArea(ctx, learningAreaID, tenantID)
+	// 2. Fetch strands (tenant-scoped). GetTree always returns the full
+	//    hierarchy for a learning area, so we read with a large limit.
+	strands, err := r.ListStrandsByLearningArea(ctx, learningAreaID, tenantID, "", 1, 10000)
 	if err != nil {
 		return nil, fmt.Errorf("curriculum.Repository.GetTree: %w", err)
 	}
@@ -618,7 +727,7 @@ func (r *PgRepository) GetTree(ctx context.Context, learningAreaID, tenantID str
 	}
 
 	for _, strand := range strands {
-		subStrands, err := r.ListSubStrandsByStrand(ctx, strand.ID, tenantID)
+		subStrands, err := r.ListSubStrandsByStrand(ctx, strand.ID, tenantID, "", 1, 10000)
 		if err != nil {
 			return nil, fmt.Errorf("curriculum.Repository.GetTree: %w", err)
 		}

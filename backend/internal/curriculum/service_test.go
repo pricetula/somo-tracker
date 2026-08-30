@@ -17,17 +17,19 @@ type MockRepository struct {
 	updateLearningAreaFn  func(ctx context.Context, params UpdateLearningAreaParams) error
 	deleteLearningAreaFn  func(ctx context.Context, id, tenantID, schoolID string) error
 
-	createStrandFn  func(ctx context.Context, params CreateStrandParams) (string, error)
-	getStrandByIDFn func(ctx context.Context, id, tenantID string) (*Strand, error)
-	listStrandsFn   func(ctx context.Context, learningAreaID, tenantID string) ([]Strand, error)
-	updateStrandFn  func(ctx context.Context, params UpdateStrandParams) error
-	deleteStrandFn  func(ctx context.Context, id, tenantID string) error
+	createStrandFn               func(ctx context.Context, params CreateStrandParams) (string, error)
+	getStrandByIDFn              func(ctx context.Context, id, tenantID string) (*Strand, error)
+	listStrandsFn                func(ctx context.Context, learningAreaID, tenantID, search string, page, limit int) ([]Strand, error)
+	countStrandsByLearningAreaFn func(ctx context.Context, learningAreaID, tenantID, search string) (int, error)
+	updateStrandFn               func(ctx context.Context, params UpdateStrandParams) error
+	deleteStrandFn               func(ctx context.Context, id, tenantID string) error
 
-	createSubStrandFn  func(ctx context.Context, params CreateSubStrandParams) (string, error)
-	getSubStrandByIDFn func(ctx context.Context, id, tenantID string) (*SubStrand, error)
-	listSubStrandsFn   func(ctx context.Context, strandID, tenantID string) ([]SubStrand, error)
-	updateSubStrandFn  func(ctx context.Context, params UpdateSubStrandParams) error
-	deleteSubStrandFn  func(ctx context.Context, id, tenantID string) error
+	createSubStrandFn         func(ctx context.Context, params CreateSubStrandParams) (string, error)
+	getSubStrandByIDFn        func(ctx context.Context, id, tenantID string) (*SubStrand, error)
+	listSubStrandsFn          func(ctx context.Context, strandID, tenantID, search string, page, limit int) ([]SubStrand, error)
+	countSubStrandsByStrandFn func(ctx context.Context, strandID, tenantID, search string) (int, error)
+	updateSubStrandFn         func(ctx context.Context, params UpdateSubStrandParams) error
+	deleteSubStrandFn         func(ctx context.Context, id, tenantID string) error
 
 	createPIFn  func(ctx context.Context, params CreatePerformanceIndicatorParams) (string, error)
 	getPIBYIDFn func(ctx context.Context, id, tenantID string) (*PerformanceIndicator, error)
@@ -101,11 +103,18 @@ func (m *MockRepository) GetStrandByID(ctx context.Context, id, tenantID string)
 	return &Strand{ID: id, TenantID: tenantID, LearningAreaID: "area_001", Name: "Numbers"}, nil
 }
 
-func (m *MockRepository) ListStrandsByLearningArea(ctx context.Context, learningAreaID, tenantID string) ([]Strand, error) {
+func (m *MockRepository) ListStrandsByLearningArea(ctx context.Context, learningAreaID, tenantID, search string, page, limit int) ([]Strand, error) {
 	if m.listStrandsFn != nil {
-		return m.listStrandsFn(ctx, learningAreaID, tenantID)
+		return m.listStrandsFn(ctx, learningAreaID, tenantID, search, page, limit)
 	}
 	return []Strand{}, nil
+}
+
+func (m *MockRepository) CountStrandsByLearningArea(ctx context.Context, learningAreaID, tenantID, search string) (int, error) {
+	if m.countStrandsByLearningAreaFn != nil {
+		return m.countStrandsByLearningAreaFn(ctx, learningAreaID, tenantID, search)
+	}
+	return 0, nil
 }
 
 func (m *MockRepository) UpdateStrand(ctx context.Context, params UpdateStrandParams) error {
@@ -136,11 +145,18 @@ func (m *MockRepository) GetSubStrandByID(ctx context.Context, id, tenantID stri
 	return &SubStrand{ID: id, TenantID: tenantID, StrandID: "strand_001", Name: "Addition"}, nil
 }
 
-func (m *MockRepository) ListSubStrandsByStrand(ctx context.Context, strandID, tenantID string) ([]SubStrand, error) {
+func (m *MockRepository) ListSubStrandsByStrand(ctx context.Context, strandID, tenantID, search string, page, limit int) ([]SubStrand, error) {
 	if m.listSubStrandsFn != nil {
-		return m.listSubStrandsFn(ctx, strandID, tenantID)
+		return m.listSubStrandsFn(ctx, strandID, tenantID, search, page, limit)
 	}
 	return []SubStrand{}, nil
+}
+
+func (m *MockRepository) CountSubStrandsByStrand(ctx context.Context, strandID, tenantID, search string) (int, error) {
+	if m.countSubStrandsByStrandFn != nil {
+		return m.countSubStrandsByStrandFn(ctx, strandID, tenantID, search)
+	}
+	return 0, nil
 }
 
 func (m *MockRepository) UpdateSubStrand(ctx context.Context, params UpdateSubStrandParams) error {
@@ -401,14 +417,14 @@ func TestListStrands_HappyPath(t *testing.T) {
 		{ID: "strand_002", LearningAreaID: "area_001", Name: "Algebra"},
 	}
 
-	h.repo.listStrandsFn = func(ctx context.Context, learningAreaID, tenantID string) ([]Strand, error) {
+	h.repo.listStrandsFn = func(ctx context.Context, learningAreaID, tenantID, search string, page, limit int) ([]Strand, error) {
 		if learningAreaID != "area_001" {
 			t.Errorf("expected learningAreaID 'area_001', got %q", learningAreaID)
 		}
 		return expected, nil
 	}
 
-	strands, err := h.svc.ListStrands(context.Background(), "area_001", "tenant_001")
+	strands, _, err := h.svc.ListStrands(context.Background(), "area_001", "tenant_001", "", 1, 20)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -419,7 +435,7 @@ func TestListStrands_HappyPath(t *testing.T) {
 
 func TestListStrands_EmptyLearningAreaID(t *testing.T) {
 	h := newTestHarness()
-	_, err := h.svc.ListStrands(context.Background(), "", "tenant_001")
+	_, _, err := h.svc.ListStrands(context.Background(), "", "tenant_001", "", 1, 20)
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -540,13 +556,13 @@ func TestListSubStrands_HappyPath(t *testing.T) {
 	expected := []SubStrand{
 		{ID: "sub_001", StrandID: "strand_001", Name: "Addition"},
 	}
-	h.repo.listSubStrandsFn = func(ctx context.Context, strandID, tenantID string) ([]SubStrand, error) {
+	h.repo.listSubStrandsFn = func(ctx context.Context, strandID, tenantID, search string, page, limit int) ([]SubStrand, error) {
 		if strandID != "strand_001" {
 			t.Errorf("expected strandID 'strand_001', got %q", strandID)
 		}
 		return expected, nil
 	}
-	subs, err := h.svc.ListSubStrands(context.Background(), "strand_001", "tenant_001")
+	subs, _, err := h.svc.ListSubStrands(context.Background(), "strand_001", "tenant_001", "", 1, 20)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

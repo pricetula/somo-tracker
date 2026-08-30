@@ -39,6 +39,8 @@ import { getErrorMessage } from "@/lib/errors";
 
 // ─── Query keys ───────────────────────────────────────────────────────────
 
+export { useSeedDefaultCBC } from "./use-seed-default-cbc";
+
 export const curriculumKeys = {
     all: ["curriculum"] as const,
     learningAreas: {

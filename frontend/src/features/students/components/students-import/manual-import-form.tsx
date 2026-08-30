@@ -13,7 +13,6 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
 import { Plus, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -151,7 +150,6 @@ interface StudentManualImportFormProps {
 // ─── Component ────────────────────────────────────────────────────────────
 
 export function StudentManualImportForm({ onReset, onJobCreated }: StudentManualImportFormProps) {
-    const router = useRouter();
     const [rows, setRows] = React.useState<StudentRow[]>([freshRow()]);
     const [submitting, setSubmitting] = React.useState(false);
     const [checkingDuplicates, setCheckingDuplicates] = React.useState(false);

@@ -368,7 +368,7 @@ export function DataTable<TItem, TParams extends object, TResult>({
                 )}
 
                 <div className="ml-auto flex items-center gap-3">
-                    {renderToolBarComponents?.(selectedIds)}
+                    {renderToolBarComponents?.(selectedIds, virtualItems?.length)}
 
                     {/* ── Alerts ────────────────────────── */}
                     {selectedIds.size > 0 && deleteFn && (

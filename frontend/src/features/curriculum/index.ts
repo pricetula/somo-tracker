@@ -2,6 +2,10 @@
  * Curriculum feature — public API barrel.
  */
 
+export { SeedDefaultButton } from "./components/seed-default-button";
+export { CurriculumPage } from "./components/curriculum-page";
+export { CurriculumDetailPage } from "./components/curriculum-detail-page";
+export { StrandDetailPage } from "./components/strand-detail-page";
 export { CurriculumTree } from "./components/curriculum-tree";
 export { LearningAreaCombobox } from "./components/learning-area-combobox";
 export { CreateLearningAreaDialog } from "./components/create-learning-area-dialog";
@@ -12,6 +16,7 @@ export { CreateIndicatorDialog } from "./components/create-indicator-dialog";
 export {
     useLearningAreas,
     useLearningAreaTree,
+    useSeedDefaultCBC,
     useCreateLearningArea,
     useUpdateLearningArea,
     useDeleteLearningArea,

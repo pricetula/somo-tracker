@@ -32,14 +32,16 @@ type Repository interface {
 	// Strands
 	CreateStrand(ctx context.Context, params CreateStrandParams) (string, error)
 	GetStrandByID(ctx context.Context, id, tenantID string) (*Strand, error)
-	ListStrandsByLearningArea(ctx context.Context, learningAreaID, tenantID string) ([]Strand, error)
+	ListStrandsByLearningArea(ctx context.Context, learningAreaID, tenantID, search string, page, limit int) ([]Strand, error)
+	CountStrandsByLearningArea(ctx context.Context, learningAreaID, tenantID, search string) (int, error)
 	UpdateStrand(ctx context.Context, params UpdateStrandParams) error
 	DeleteStrand(ctx context.Context, id, tenantID string) error
 
 	// Sub-Strands
 	CreateSubStrand(ctx context.Context, params CreateSubStrandParams) (string, error)
 	GetSubStrandByID(ctx context.Context, id, tenantID string) (*SubStrand, error)
-	ListSubStrandsByStrand(ctx context.Context, strandID, tenantID string) ([]SubStrand, error)
+	ListSubStrandsByStrand(ctx context.Context, strandID, tenantID, search string, page, limit int) ([]SubStrand, error)
+	CountSubStrandsByStrand(ctx context.Context, strandID, tenantID, search string) (int, error)
 	UpdateSubStrand(ctx context.Context, params UpdateSubStrandParams) error
 	DeleteSubStrand(ctx context.Context, id, tenantID string) error
 

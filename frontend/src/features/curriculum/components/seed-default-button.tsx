@@ -33,12 +33,14 @@ export function SeedDefaultButton() {
 
     return (
         <AlertDialog open={open} onOpenChange={setOpen}>
-            <AlertDialogTrigger>
-                <Button variant="outline" size="sm">
-                    <Database className="mr-1.5 size-3.5" />
-                    Seed Default CBC Curriculum
-                </Button>
-            </AlertDialogTrigger>
+            <AlertDialogTrigger
+                render={
+                    <Button variant="outline" size="sm">
+                        <Database className="mr-1.5 size-3.5" />
+                        Seed Default CBC Curriculum
+                    </Button>
+                }
+            />
             <AlertDialogContent>
                 <AlertDialogHeader>
                     <AlertDialogTitle>Seed Default CBC Curriculum?</AlertDialogTitle>

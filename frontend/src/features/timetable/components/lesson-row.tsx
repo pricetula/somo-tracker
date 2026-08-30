@@ -23,20 +23,20 @@ export function LessonRow({ entry, isFirst, isLast }: LessonRowProps) {
     const isBreak = !!entry.is_break;
 
     return (
-        <article className="relative flex gap-0 md:gap-2 lg:gap-4">
-            <aside className="sticky top-0 w-24 shrink-0 self-start pt-5 pr-2 pb-4 text-right md:w-32 md:pr-3 lg:w-36">
-                <div className="text-foreground block leading-tight font-medium">{dateLabel}</div>
-                <div className="text-muted-foreground block leading-tight tracking-wide">
+        <article className="relative flex gap-1">
+            <aside className="sticky top-0 w-30 shrink-0 self-start pt-5 pr-2 pb-4 text-right">
+                <div className="text-foreground leading-tight font-medium">{dateLabel}</div>
+                <div className="text-muted-foreground text-[10px] leading-tight tracking-wide">
                     {timeRange}
                 </div>
             </aside>
 
             <div className="relative flex w-10 shrink-0 flex-col items-center pt-5 pb-4">
-                {!isFirst && <div className="bg-muted-foreground/20 h-3 w-px" />}
-                {isFirst && <div className="h-3" />}
+                {/*{!isFirst && <div className="bg-muted-foreground/20 h-3 w-px" />}
+                {isFirst && <div className="h-3" />}*/}
                 <span
                     className={
-                        "ring-background z-10 block h-3 w-3 rounded-full ring-2 " +
+                        "ring-background z-10 h-3 w-3 rounded-full ring-2 " +
                         (isBreak ? "bg-muted-foreground" : "bg-primary")
                     }
                 />
@@ -110,7 +110,7 @@ export function LessonRow({ entry, isFirst, isLast }: LessonRowProps) {
                                 <p>
                                     {isBreak
                                         ? "Break period — use for prep, grading, or student support."
-                                        : `Scheduled lesson for ${entry.class_name}. Focus on ${entry.subject_name} during the ${entry.period_name} block.`}
+                                        : `Scheduled lesson for ${entry.class_name}. Focus on ${entry.subject_name} during the ${entry.period_name} .`}
                                 </p>
                                 <ul className="ml-1 list-inside list-disc space-y-1">
                                     <li>Review prior week materials</li>

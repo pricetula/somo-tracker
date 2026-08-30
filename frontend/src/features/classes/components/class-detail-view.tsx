@@ -99,12 +99,14 @@ export function ClassDetailView({ classId }: ClassDetailViewProps) {
                     <h1 className="text-lg font-semibold">{classData.display_label}</h1>
                 </div>
                 <AlertDialog>
-                    <AlertDialogTrigger>
-                        <Button variant="outline" size="sm" className="text-destructive">
-                            <Trash2 className="mr-1.5 size-3.5" />
-                            Delete
-                        </Button>
-                    </AlertDialogTrigger>
+                    <AlertDialogTrigger
+                        render={
+                            <Button variant="outline" size="sm" className="text-destructive">
+                                <Trash2 className="mr-1.5 size-3.5" />
+                                Delete
+                            </Button>
+                        }
+                    />
                     <AlertDialogContent>
                         <AlertDialogHeader>
                             <AlertDialogTitle>Delete Class</AlertDialogTitle>

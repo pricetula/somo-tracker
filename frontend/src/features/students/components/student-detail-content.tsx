@@ -132,12 +132,14 @@ export function StudentDetailContent({
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                     <AlertDialog>
-                        <AlertDialogTrigger>
-                            <Button variant="outline" size="sm" className="text-destructive">
-                                <Trash2 className="size-3.5" />
-                                {isCompact ? null : "Delete"}
-                            </Button>
-                        </AlertDialogTrigger>
+                        <AlertDialogTrigger
+                            render={
+                                <Button variant="outline" size="sm" className="text-destructive">
+                                    <Trash2 className="size-3.5" />
+                                    {isCompact ? null : "Delete"}
+                                </Button>
+                            }
+                        />
                         <AlertDialogContent>
                             <AlertDialogHeader>
                                 <AlertDialogTitle>Delete Student</AlertDialogTitle>

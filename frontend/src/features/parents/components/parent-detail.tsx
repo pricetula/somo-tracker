@@ -221,12 +221,14 @@ export function ParentDetailView({ parentId }: ParentDetailViewProps) {
                                 </Button>
                                 {/* Delete parent */}
                                 <AlertDialog>
-                                    <AlertDialogTrigger>
-                                        <Button variant="outline" className="text-destructive">
-                                            <Trash2 className="mr-1.5 size-3.5" />
-                                            Delete Parent
-                                        </Button>
-                                    </AlertDialogTrigger>
+                                    <AlertDialogTrigger
+                                        render={
+                                            <Button variant="outline" className="text-destructive">
+                                                <Trash2 className="mr-1.5 size-3.5" />
+                                                Delete Parent
+                                            </Button>
+                                        }
+                                    />
                                     <AlertDialogContent>
                                         <AlertDialogHeader>
                                             <AlertDialogTitle>Delete Parent</AlertDialogTitle>

@@ -729,12 +729,14 @@ export function FileImporter({ onReset, onJobCreated }: FileImporterProps) {
             {/* Discard draft button */}
             <div className="flex justify-end">
                 <AlertDialog>
-                    <AlertDialogTrigger>
-                        <Button variant="ghost" size="sm" className="text-muted-foreground h-7">
-                            <Trash2 className="mr-1 size-3" />
-                            Discard Draft
-                        </Button>
-                    </AlertDialogTrigger>
+                    <AlertDialogTrigger
+                        render={
+                            <Button variant="ghost" size="sm" className="text-muted-foreground h-7">
+                                <Trash2 className="mr-1 size-3" />
+                                Discard Draft
+                            </Button>
+                        }
+                    />
                     <AlertDialogContent>
                         <AlertDialogHeader>
                             <AlertDialogTitle>Discard import draft?</AlertDialogTitle>

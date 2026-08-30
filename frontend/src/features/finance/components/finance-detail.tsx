@@ -189,12 +189,14 @@ export function FinanceDetail({ id }: FinanceDetailProps) {
                         </Button>
                         {/* Delete button */}
                         <AlertDialog>
-                            <AlertDialogTrigger>
-                                <Button variant="outline" className="text-destructive">
-                                    <Trash2 className="mr-1.5 size-3.5" />
-                                    Delete Finance Staff
-                                </Button>
-                            </AlertDialogTrigger>
+                            <AlertDialogTrigger
+                                render={
+                                    <Button variant="outline" className="text-destructive">
+                                        <Trash2 className="mr-1.5 size-3.5" />
+                                        Delete Finance Staff
+                                    </Button>
+                                }
+                            />
                             <AlertDialogContent>
                                 <AlertDialogHeader>
                                     <AlertDialogTitle>Delete Finance Staff</AlertDialogTitle>

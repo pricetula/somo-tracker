@@ -32,6 +32,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	// Teacher-specific dashboard routes
 	teachers.Get("/:user_id/classes", middleware.RequireAuth, h.ListClasses)
 	teachers.Get("/:user_id/timetable", middleware.RequireAuth, h.GetTimetable)
+	teachers.Get("/:user_id/lessons", middleware.RequireAuth, h.GetLessons)
 }
 
 // ─── Handlers ──────────────────────────────────────────────────────────────
@@ -221,6 +222,32 @@ func (h *Handler) ListClasses(c *fiber.Ctx) error {
 }
 
 // GetTimetable handles GET /api/v1/teachers/:user_id/timetable?day_of_week=1.
+// GetLessons handles GET /api/v1/teachers/:user_id/lessons.
+func (h *Handler) GetLessons(c *fiber.Ctx) error {
+	tenantID := c.Locals("tenant_id").(string)
+	schoolID := c.Locals("active_school_id").(string)
+	if schoolID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "VALIDATION_ERROR",
+			"message": "active school not set",
+		})
+	}
+
+	userID := c.Params("user_id")
+	weekStart := c.Query("week_start", "")
+	limitStr := c.Query("limit", "20")
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit < 1 || limit > 200 {
+		limit = 20
+	}
+
+	result, err := h.svc.ListTeacherLessonTimeline(c.Context(), tenantID, schoolID, userID, weekStart, limit)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	return c.JSON(result)
+}
+
 func (h *Handler) GetTimetable(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
 	schoolID := c.Locals("active_school_id").(string)

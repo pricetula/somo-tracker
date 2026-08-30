@@ -82,6 +82,27 @@ func (s *Service) ListTeacherClasses(ctx context.Context, tenantID, schoolID, us
 }
 
 // GetTeacherTimetable returns the teacher's timetable for a given day.
+func (s *Service) ListTeacherLessonTimeline(ctx context.Context, tenantID, schoolID, userID, weekStart string, limit int) (*TeacherLessonTimelinePage, error) {
+	if userID == "" {
+		return nil, fmt.Errorf("teachers.Service.ListTeacherLessonTimeline: user_id is required: %w", ErrInvalidInput)
+	}
+	items, nextCursor, err := s.repo.ListTeacherLessonTimeline(ctx, tenantID, schoolID, userID, weekStart, limit)
+	if err != nil {
+		return nil, err
+	}
+	return &TeacherLessonTimelinePage{
+		Entries:    items,
+		NextCursor: strPtrIfNotEmpty(nextCursor),
+	}, nil
+}
+
+func strPtrIfNotEmpty(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+
 func (s *Service) GetTeacherTimetable(ctx context.Context, tenantID, schoolID, userID string, dayOfWeek int) (*TeacherTimetableResponse, error) {
 	if userID == "" {
 		return nil, fmt.Errorf("teachers.Service.GetTeacherTimetable: user_id is required: %w", ErrInvalidInput)

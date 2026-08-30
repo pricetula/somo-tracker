@@ -10,6 +10,8 @@
 "use client";
 
 import React from "react";
+import { TeacherLessonTimeline } from "@/features/timetable/components/teacher-lesson-timeline";
+import { useTracks } from "@/features/timetable/hooks";
 import { Loader2, Trash2 } from "lucide-react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -59,6 +61,7 @@ export function TeacherDetail({ id }: TeacherDetailProps) {
     const { data: teacher, isLoading, isError, error } = useTeacherDetail(id);
     const updateMutation = useUpdateTeacher();
     const deleteMutation = useDeleteTeacher();
+    const { data: tracks } = useTracks();
 
     const form = useForm<TeacherDetailSchema>({
         resolver: zodResolver(teacherDetailSchema),
@@ -139,121 +142,135 @@ export function TeacherDetail({ id }: TeacherDetailProps) {
         return <p className="text-muted-foreground py-4">Teacher not found.</p>;
     }
 
+    const defaultTrack = tracks?.items?.find((t) => t.is_default) ?? tracks?.items?.[0];
+
     return (
-        <div className="space-y-6 py-2">
-            {/* Read-only email */}
-            <div className="space-y-1.5">
-                <Label>Email</Label>
-                <p className="text-muted-foreground text-sm">{teacher.email}</p>
-            </div>
+        <div className="space-y-8 py-2">
+            {/* Profile form section */}
+            <section className="space-y-6">
+                {/* Read-only email */}
+                <div className="space-y-1.5">
+                    <Label>Email</Label>
+                    <p className="text-muted-foreground text-sm">{teacher.email}</p>
+                </div>
 
-            {/* Editable fields form */}
-            <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                    {/* Editable full name */}
-                    <FormField
-                        control={form.control}
-                        name="fullName"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel htmlFor="full-name">Full Name</FormLabel>
-                                <FormControl>
-                                    <Input
-                                        id="full-name"
-                                        placeholder="Full name"
-                                        autoFocus
-                                        {...field}
-                                    />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-
-                    {/* Editable TSC number */}
-                    <FormField
-                        control={form.control}
-                        name="tscNumber"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel htmlFor="tsc-number">TSC Number</FormLabel>
-                                <FormControl>
-                                    <Input
-                                        id="tsc-number"
-                                        placeholder="e.g. TSC123456"
-                                        {...field}
-                                    />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-
-                    {/* Editable KNEC Panel Assessor ID */}
-                    <FormField
-                        control={form.control}
-                        name="knecAssessor"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel htmlFor="knec-assessor">
-                                    KNEC Panel Assessor ID
-                                </FormLabel>
-                                <FormControl>
-                                    <Input
-                                        id="knec-assessor"
-                                        placeholder="e.g. KNEC-12345"
-                                        {...field}
-                                    />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-
-                    <footer className="flex gap-4">
-                        {/* Save button */}
-                        <Button type="submit" disabled={updateMutation.isPending}>
-                            {updateMutation.isPending ? (
-                                <>
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    Saving…
-                                </>
-                            ) : (
-                                "Save Changes"
+                {/* Editable fields form */}
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                        {/* Editable full name */}
+                        <FormField
+                            control={form.control}
+                            name="fullName"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel htmlFor="full-name">Full Name</FormLabel>
+                                    <FormControl>
+                                        <Input
+                                            id="full-name"
+                                            placeholder="Full name"
+                                            autoFocus
+                                            {...field}
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
                             )}
-                        </Button>
+                        />
 
-                        {/* Delete button */}
-                        <AlertDialog>
-                            <AlertDialogTrigger>
-                                <Button variant="outline" className="text-destructive">
-                                    <Trash2 className="mr-1.5 size-3.5" />
-                                    Delete Teacher
-                                </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>Delete Teacher</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        Are you sure you want to delete &ldquo;{teacher.full_name}
-                                        &rdquo;? This action cannot be undone.
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction
-                                        variant="destructive"
-                                        onClick={handleDelete}
-                                        disabled={deleteMutation.isPending}
-                                    >
-                                        {deleteMutation.isPending ? "Deleting…" : "Delete"}
-                                    </AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
-                    </footer>
-                </form>
-            </Form>
+                        {/* Editable TSC number */}
+                        <FormField
+                            control={form.control}
+                            name="tscNumber"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel htmlFor="tsc-number">TSC Number</FormLabel>
+                                    <FormControl>
+                                        <Input
+                                            id="tsc-number"
+                                            placeholder="e.g. TSC123456"
+                                            {...field}
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        {/* Editable KNEC Panel Assessor ID */}
+                        <FormField
+                            control={form.control}
+                            name="knecAssessor"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel htmlFor="knec-assessor">
+                                        KNEC Panel Assessor ID
+                                    </FormLabel>
+                                    <FormControl>
+                                        <Input
+                                            id="knec-assessor"
+                                            placeholder="e.g. KNEC-12345"
+                                            {...field}
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        <footer className="flex gap-4">
+                            {/* Save button */}
+                            <Button type="submit" disabled={updateMutation.isPending}>
+                                {updateMutation.isPending ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Saving…
+                                    </>
+                                ) : (
+                                    "Save Changes"
+                                )}
+                            </Button>
+
+                            {/* Delete button */}
+                            <AlertDialog>
+                                <AlertDialogTrigger
+                                    render={
+                                        <Button variant="outline" className="text-destructive">
+                                            <Trash2 className="mr-1.5 size-3.5" />
+                                            Delete Teacher
+                                        </Button>
+                                    }
+                                />
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Delete Teacher</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            Are you sure you want to delete &ldquo;
+                                            {teacher.full_name}
+                                            &rdquo;? This action cannot be undone.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction
+                                            variant="destructive"
+                                            onClick={handleDelete}
+                                            disabled={deleteMutation.isPending}
+                                        >
+                                            {deleteMutation.isPending ? "Deleting…" : "Delete"}
+                                        </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        </footer>
+                    </form>
+                </Form>
+            </section>
+
+            {/* Lessons section */}
+            <section className="space-y-4">
+                <h2 className="text-base font-medium">Lessons</h2>
+                <TeacherLessonTimeline teacherId={id} />
+            </section>
         </div>
     );
 }

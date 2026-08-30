@@ -10,9 +10,9 @@ import { ClassCombobox } from "@/features/classes/components/class-combobox";
 import { useTimetableView, useBulkDeleteBlocks, type TimetableViewResult } from "../hooks";
 import { AllocationBlock } from "./allocation-block";
 
-export function TimeTable({ trackId }: { trackId?: string } = {}) {
+export function TimeTable({ trackId, teacherId }: { trackId?: string; teacherId?: string } = {}) {
     const [classId, setClassId] = React.useState("");
-    const { data, isLoading } = useTimetableView(trackId, classId);
+    const { data, isLoading } = useTimetableView(trackId, classId, teacherId);
     const {
         mutate: deleteBlockMutate,
         isError: isErrorDeleteBlock,

@@ -487,6 +487,7 @@ func (h *Handler) GetTimetable(c *fiber.Ctx) error {
 
 	trackID := c.Query("track_id", "")
 	classID := c.Query("class_id", "")
+	teacherID := c.Query("teacher_id", "")
 
 	blocks, err := h.svc.ListBlocks(c.UserContext(), tenantID, schoolID, "")
 	if err != nil {
@@ -505,10 +506,11 @@ func (h *Handler) GetTimetable(c *fiber.Ctx) error {
 	}
 
 	allocations, err := h.svc.ListAllocations(c.UserContext(), AllocationFilter{
-		TenantID: tenantID,
-		SchoolID: schoolID,
-		TrackID:  trackID,
-		ClassID:  classID,
+		TenantID:  tenantID,
+		SchoolID:  schoolID,
+		TrackID:   trackID,
+		ClassID:   classID,
+		TeacherID: teacherID,
 	})
 	if err != nil {
 		return middleware.HTTPError(c, err)

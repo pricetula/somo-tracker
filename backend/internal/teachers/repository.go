@@ -332,6 +332,65 @@ func (r *PgRepository) GetTeacherTimetable(ctx context.Context, tenantID, school
 	return items, nil
 }
 
+// ListTeacherLessonTimeline returns flat weekly lesson items for the teacher's
+// timeline view, paginated by week offset.
+func (r *PgRepository) ListTeacherLessonTimeline(ctx context.Context, tenantID, schoolID, userID, weekStart string, limit int) ([]TeacherLessonTimelineItem, string, error) {
+	if limit <= 0 || limit > 200 {
+		limit = 50
+	}
+	query := `
+		SELECT
+			ts.id::text,
+			COALESCE(la.name, '') AS subject_name,
+			c.grade_level || ' ' || COALESCE(st.name, '') AS class_name,
+			tstr.period_name,
+			to_char(($4::date + (tstr.day_of_week - 1) * INTERVAL '1 day') + tstr.start_time, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS start_time,
+			to_char(($4::date + (tstr.day_of_week - 1) * INTERVAL '1 day') + tstr.end_time, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS end_time,
+			ts.room_identifier
+		FROM timetable_allocations ts
+		JOIN timetable_blocks tstr ON tstr.id = ts.block_id
+		JOIN cbc_classes c ON c.id = ts.class_id AND c.tenant_id = $1
+		LEFT JOIN cbc_streams st ON st.id = c.stream_id
+		LEFT JOIN cbc_learning_areas la ON la.id = ts.learning_area_id
+		WHERE ts.teacher_id = $3
+		  AND ts.school_id = $2
+		  AND tstr.is_break = false
+		ORDER BY (($4::date + (tstr.day_of_week - 1) * INTERVAL '1 day') + tstr.start_time) ASC
+		LIMIT $5
+	`
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, query, tenantID, schoolID, userID, weekStart, limit)
+	if err != nil {
+		return nil, "", fmt.Errorf("teachers.Repository.ListTeacherLessonTimeline: %w", err)
+	}
+	defer rows.Close()
+
+	items := make([]TeacherLessonTimelineItem, 0)
+	for rows.Next() {
+		var item TeacherLessonTimelineItem
+		if err := rows.Scan(
+			&item.ID,
+			&item.SubjectName,
+			&item.ClassName,
+			&item.PeriodName,
+			&item.StartTime,
+			&item.EndTime,
+			&item.Room,
+		); err != nil {
+			return nil, "", fmt.Errorf("teachers.Repository.ListTeacherLessonTimeline: scan: %w", err)
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, "", fmt.Errorf("teachers.Repository.ListTeacherLessonTimeline: rows: %w", err)
+	}
+
+	nextCursor := ""
+	if len(items) == limit {
+		nextCursor = "1" // backend signals "another week is available" — frontend continues paginating by date
+	}
+	return items, nextCursor, nil
+}
+
 // GetActiveSchoolID returns the active school ID for a user in a tenant.
 func (r *PgRepository) GetActiveSchoolID(ctx context.Context, tenantID, userID string) (string, error) {
 	const query = `

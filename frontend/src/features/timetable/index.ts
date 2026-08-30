@@ -5,6 +5,7 @@
  */
 
 export { TimeTable } from "./components/timetable";
+export { TeacherLessonTimeline } from "./components/teacher-lesson-timeline";
 export { TrackDetail } from "./components/track-detail";
 export { TrackCreateForm } from "./components/track-create-form";
 export { BlockCreateForm } from "./components/block-create-form";

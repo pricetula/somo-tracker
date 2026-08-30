@@ -29,6 +29,8 @@ type Repository interface {
 	ListTeacherClasses(ctx context.Context, tenantID, schoolID, userID, termID string) ([]TeacherClassItem, error)
 	// GetTeacherTimetable returns the teacher's timetable slots for a given day of week.
 	GetTeacherTimetable(ctx context.Context, tenantID, schoolID, userID string, dayOfWeek int) ([]TeacherTimetableAllocation, error)
+	// ListTeacherLessonTimeline returns flat weekly lesson items for timeline view.
+	ListTeacherLessonTimeline(ctx context.Context, tenantID, schoolID, userID string, weekStart string, limit int) ([]TeacherLessonTimelineItem, string, error)
 }
 
 // Teacher represents a user with the TEACHER role, including
@@ -88,6 +90,23 @@ type TeacherTimetableAllocation struct {
 	LearningAreaID        string  `json:"learning_area_id"`
 	LearningAreaName      string  `json:"learning_area_name"`
 	RoomIdentifier        *string `json:"room_identifier,omitempty"`
+}
+
+// TeacherLessonTimelineItem represents a lesson in the teacher's flat timeline.
+type TeacherLessonTimelineItem struct {
+	ID          string  `json:"id"`
+	SubjectName string  `json:"subject_name"`
+	ClassName   string  `json:"class_name"`
+	PeriodName  string  `json:"period_name"`
+	StartTime   string  `json:"start_time"`
+	EndTime     string  `json:"end_time"`
+	Room        *string `json:"room,omitempty"`
+}
+
+// TeacherLessonTimelinePage is paginated by week offset.
+type TeacherLessonTimelinePage struct {
+	Entries    []TeacherLessonTimelineItem `json:"entries"`
+	NextCursor *string                     `json:"next_cursor,omitempty"`
 }
 
 // TeacherTimetableResponse wraps a teacher's timetable.

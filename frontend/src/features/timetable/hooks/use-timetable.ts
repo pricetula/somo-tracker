@@ -445,15 +445,15 @@ export function useTrackBlocks(trackId?: string) {
 /**
  * Get combined timetable view (blocks + allocations).
  */
-export function useTimetableView(trackId?: string, classId?: string) {
+export function useTimetableView(trackId?: string, classId?: string, teacherId?: string) {
     return useQuery({
-        queryKey: ["timetable", "combined", trackId ?? "all", classId ?? "all"],
+        queryKey: ["timetable", "combined", trackId ?? "all", classId ?? "all", teacherId ?? "all"],
         queryFn: async () => {
             const params = new URLSearchParams();
             if (trackId) params.set("track_id", trackId);
             if (classId) params.set("class_id", classId);
             const query = params.toString() ? `?${params.toString()}` : "";
-            return getTimetable(query);
+            return getTimetable(query, teacherId);
         },
         select: ({ blocks, allocations }: { blocks: TimeBlock[]; allocations: Allocation[] }) =>
             timetableViewSelect({ blocks, allocations }),

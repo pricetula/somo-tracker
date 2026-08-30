@@ -1265,9 +1265,10 @@ Trigger functions that keep the single-row global `member_counts` aggregate in s
 
 **Constraints:**
 
-- `unique_class_slot` UNIQUE (tenant_id, block_id, class_id) - one assignment per class per structure block
 - `unique_teacher_slot` UNIQUE (tenant_id, block_id, teacher_id) - prevents teacher double-booking
 - `unique_room_slot` UNIQUE (tenant_id, block_id, room_identifier) - prevents room double-booking
+
+The `unique_class_slot` constraint (one assignment per class per block) was removed in migration 000065 to allow a class to have multiple learning areas in the same timetable block.
 - `fk_timetable_allocations_tenant_school` FOREIGN KEY (tenant_id, school_id) REFERENCES cbc_schools(tenant_id, id) ON DELETE CASCADE
 - `fk_timetable_allocations_tenant_class` FOREIGN KEY (tenant_id, class_id) REFERENCES cbc_classes(tenant_id, id) ON DELETE CASCADE
 - `fk_timetable_allocations_tenant_teacher` FOREIGN KEY (tenant_id, teacher_id) REFERENCES users(tenant_id, id) ON DELETE CASCADE
@@ -1276,7 +1277,7 @@ Trigger functions that keep the single-row global `member_counts` aggregate in s
 
 **Comments:**
 
-- TABLE timetable_allocations: 'Grid Allocation Layer — lightweight relational mapping table using fast B-Tree composite unique constraints. The grid definition (time ranges) lives in timetable_blocks; this table only stores assignments of class → teacher → learning_area → room per structure block. Academic year/term context is inherited via block → track → timetable_tracks.'
+- TABLE timetable_allocations: 'Grid Allocation Layer — lightweight relational mapping table using fast B-Tree composite unique constraints (teacher and room double-booking prevention only; class can have multiple learning areas per block since migration 000065). The grid definition (time ranges) lives in timetable_blocks; this table only stores assignments of class → teacher → learning_area → room per structure block. Academic year/term context is inherited via block → track → timetable_tracks.'
 
 **Indexes:**
 

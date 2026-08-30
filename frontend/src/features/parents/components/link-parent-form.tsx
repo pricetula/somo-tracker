@@ -136,7 +136,7 @@ export function LinkParentForm({ studentId, onSuccess, onCancel }: LinkParentFor
                                     onClick={() => setSelectedParentId(p.id)}
                                 >
                                     <span className="flex-1 truncate">{p.full_name}</span>
-                                    <span className="text-muted-foreground truncate text-xs">
+                                    <span className="text-muted-foreground truncate">
                                         {p.email}
                                     </span>
                                     {isSelected && (

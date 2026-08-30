@@ -35,8 +35,8 @@ export function HealthSection({
     //         {/* Health Profile */}
     //         {profile && (
     //             <div className="bg-muted/30 p-4">
-    //                 <h3 className="mb-2 text-sm font-semibold">Health Profile</h3>
-    //                 <div className="space-y-1 text-xs">
+    //                 <h3 className="mb-2  font-semibold">Health Profile</h3>
+    //                 <div className="space-y-1 ">
     //                     {profile.blood_group && (
     //                         <p>
     //                             <span className="text-muted-foreground">Blood Group:</span>{" "}
@@ -68,7 +68,7 @@ export function HealthSection({
     //         {/* Medical Incidents */}
     //         <div>
     //             <div className="mb-3 flex items-center justify-between">
-    //                 <h3 className="text-sm font-semibold">
+    //                 <h3 className=" font-semibold">
     //                     Medical Incidents
     //                     {incidents.length > 0 && (
     //                         <span className="text-muted-foreground ml-2 font-normal">
@@ -95,8 +95,8 @@ export function HealthSection({
     //                         <div key={incident.id} className="bg-muted/30 p-3">
     //                             <div className="flex items-start justify-between">
     //                                 <div className="space-y-1">
-    //                                     <p className="text-xs font-medium">{incident.symptoms}</p>
-    //                                     <p className="text-muted-foreground text-xs">
+    //                                     <p className=" font-medium">{incident.symptoms}</p>
+    //                                     <p className="text-muted-foreground ">
     //                                         {new Date(
     //                                             incident.incident_timestamp
     //                                         ).toLocaleDateString("en-US", {
@@ -110,7 +110,7 @@ export function HealthSection({
     //                                             ` \u00b7 ${incident.logged_by_name}`}
     //                                     </p>
     //                                     {incident.action_taken && (
-    //                                         <p className="text-muted-foreground mt-1 text-xs">
+    //                                         <p className="text-muted-foreground mt-1 ">
     //                                             Action: {incident.action_taken}
     //                                         </p>
     //                                     )}

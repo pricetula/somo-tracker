@@ -48,7 +48,7 @@ export function StrandDetailPage({ learningAreaId, strandId }: StrandDetailProps
     return (
         <>
             <div className="space-y-2">
-                <nav className="text-muted-foreground font-mono text-xs">
+                <nav className="text-muted-foreground font-mono">
                     <Link href="/curriculum" className="hover:text-foreground">
                         Curriculum
                     </Link>

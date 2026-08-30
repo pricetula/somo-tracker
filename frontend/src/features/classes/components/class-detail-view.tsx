@@ -134,9 +134,7 @@ export function ClassDetailView({ classId }: ClassDetailViewProps) {
             {/* Academic year / term selector */}
             <div className="flex flex-wrap items-end gap-3">
                 <div className="flex flex-col gap-1.5">
-                    <label className="text-muted-foreground text-xs font-medium">
-                        Academic Year
-                    </label>
+                    <label className="text-muted-foreground font-medium">Academic Year</label>
                     <AcademicYearCombobox
                         value={yearId}
                         onChange={handleYearChange}
@@ -145,9 +143,7 @@ export function ClassDetailView({ classId }: ClassDetailViewProps) {
                     />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                    <label className="text-muted-foreground text-xs font-medium">
-                        Academic Term
-                    </label>
+                    <label className="text-muted-foreground font-medium">Academic Term</label>
                     <AcademicTermCombobox
                         value={termId}
                         onChange={setSelectedTermId}

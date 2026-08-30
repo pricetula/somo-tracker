@@ -86,13 +86,13 @@ export function EditableRow({
                         value={fullName}
                         onChange={(e) => setFullName(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        className="h-7 text-xs"
+                        className="h-7"
                         autoFocus
                     />
                 </div>
                 <div className="w-20 shrink-0">
                     <Select value={gender} onValueChange={setGender}>
-                        <SelectTrigger className="h-7 text-xs">
+                        <SelectTrigger className="h-7">
                             <SelectValue placeholder="-" />
                         </SelectTrigger>
                         <SelectContent>
@@ -107,7 +107,7 @@ export function EditableRow({
                         value={upi}
                         onChange={(e) => setUpi(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        className="h-7 text-xs"
+                        className="h-7"
                         placeholder="-"
                     />
                 </div>
@@ -116,7 +116,7 @@ export function EditableRow({
                         value={knec}
                         onChange={(e) => setKnec(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        className="h-7 text-xs"
+                        className="h-7"
                         placeholder="-"
                     />
                 </div>
@@ -125,7 +125,7 @@ export function EditableRow({
                         value={dob}
                         onChange={(e) => setDob(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        className="h-7 text-xs"
+                        className="h-7"
                         placeholder="-"
                         type="date"
                     />

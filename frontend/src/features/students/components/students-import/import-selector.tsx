@@ -24,9 +24,7 @@ export function StudentsImportSelector({ onSelect }: StudentsImportSelectorProps
                     <Keyboard className="size-8" />
                     <div className="space-y-1">
                         <p className="text-base font-medium">Manual Entry</p>
-                        <p className="text-muted-foreground text-xs">
-                            Type student details one by one
-                        </p>
+                        <p className="text-muted-foreground">Type student details one by one</p>
                     </div>
                 </Button>
 
@@ -39,7 +37,7 @@ export function StudentsImportSelector({ onSelect }: StudentsImportSelectorProps
                     <FileText className="size-8" />
                     <div className="space-y-1">
                         <p className="text-base font-medium">Import File</p>
-                        <p className="text-muted-foreground text-xs">Upload a CSV or Excel file</p>
+                        <p className="text-muted-foreground">Upload a CSV or Excel file</p>
                     </div>
                 </Button>
             </div>

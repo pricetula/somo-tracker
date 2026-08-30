@@ -180,7 +180,7 @@ export function StepColumnMapping({
         <div className="space-y-6">
             <div>
                 <h3 className="font-medium">Map File Columns</h3>
-                <p className="text-muted-foreground mt-1 text-xs">
+                <p className="text-muted-foreground mt-1">
                     Match your file columns to the student fields below. Only &ldquo;Full
                     Name&rdquo; is required.
                 </p>
@@ -196,9 +196,7 @@ export function StepColumnMapping({
                         {/* Target field label */}
                         <div className="min-w-0">
                             <span className="font-medium">{field.label}</span>
-                            {field.required && (
-                                <span className="text-destructive ml-1 text-xs">*</span>
-                            )}
+                            {field.required && <span className="text-destructive ml-1">*</span>}
                         </div>
 
                         {/* Arrow */}
@@ -270,7 +268,7 @@ export function StepColumnMapping({
 
             {/* Multi-column indicator for full_name */}
             {Array.isArray(mappings.full_name) && mappings.full_name.length > 1 && (
-                <div className="bg-muted/50 text-muted-foreground rounded-md p-3 text-xs">
+                <div className="bg-muted/50 text-muted-foreground rounded-md p-3">
                     Full name will be assembled from:{" "}
                     <span className="text-foreground font-medium">
                         {mappings.full_name.join(" + ")}
@@ -280,7 +278,7 @@ export function StepColumnMapping({
 
             {/* Unmapped headers warning */}
             {headers.length > Object.keys(mappings).length && (
-                <p className="text-muted-foreground text-xs">
+                <p className="text-muted-foreground">
                     {headers.length - Object.keys(mappings).length} column(s) unmapped — they will
                     be ignored.
                 </p>

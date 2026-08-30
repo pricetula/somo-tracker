@@ -165,15 +165,13 @@ export function EnrollStudentsPanel({
     if (!initialTermId) {
         return (
             <div className="flex flex-col gap-4">
-                <p className="text-muted-foreground text-sm">
+                <p className="text-muted-foreground">
                     Select an academic year and term to enroll students into.
                 </p>
 
                 {/* Academic Year combobox */}
                 <div className="flex flex-col gap-1.5">
-                    <label className="text-muted-foreground text-xs font-medium">
-                        Academic Year
-                    </label>
+                    <label className="text-muted-foreground font-medium">Academic Year</label>
                     <AcademicYearCombobox
                         value={yearOrDefault}
                         onChange={(v) => {
@@ -187,9 +185,7 @@ export function EnrollStudentsPanel({
 
                 {/* Academic Term combobox */}
                 <div className="flex flex-col gap-1.5">
-                    <label className="text-muted-foreground text-xs font-medium">
-                        Academic Term
-                    </label>
+                    <label className="text-muted-foreground font-medium">Academic Term</label>
                     <AcademicTermCombobox
                         value={selectedTermId}
                         onChange={(v) => {
@@ -243,7 +239,7 @@ export function EnrollStudentsPanel({
 
                 {/* Selection actions */}
                 {students.length > 0 && (
-                    <div className="text-muted-foreground flex items-center gap-2 text-xs">
+                    <div className="text-muted-foreground flex items-center gap-2">
                         <button
                             type="button"
                             onClick={handleSelectAll}
@@ -305,7 +301,7 @@ export function EnrollStudentsPanel({
                                             <span className="truncate font-medium">
                                                 {student.full_name}
                                             </span>
-                                            <span className="text-muted-foreground truncate text-xs">
+                                            <span className="text-muted-foreground truncate">
                                                 {student.admission_number &&
                                                     `Adm: ${student.admission_number}`}
                                                 {student.admission_number &&
@@ -315,11 +311,11 @@ export function EnrollStudentsPanel({
                                             </span>
                                         </div>
                                         {student.current_class ? (
-                                            <span className="text-muted-foreground shrink-0 text-xs">
+                                            <span className="text-muted-foreground shrink-0">
                                                 In: {student.current_class}
                                             </span>
                                         ) : (
-                                            <span className="shrink-0 text-xs text-emerald-600">
+                                            <span className="shrink-0 text-emerald-600">
                                                 Unenrolled
                                             </span>
                                         )}

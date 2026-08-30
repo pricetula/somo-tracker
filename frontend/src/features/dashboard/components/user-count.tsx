@@ -61,7 +61,7 @@ export function UserCount() {
                     key={m.label}
                 >
                     <span className="text-2xl">{numberCompactor(m.count)}</span>
-                    <span className="text-muted-foreground text-xs">{m.label}</span>
+                    <span className="text-muted-foreground">{m.label}</span>
                 </Link>
             ))}
         </section>

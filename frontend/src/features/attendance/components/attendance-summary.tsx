@@ -239,22 +239,19 @@ export function AttendanceSummary() {
         <Card className="flex h-64 flex-col">
             <CardHeader className="flex items-center justify-between pb-0">
                 <CardTitle>Attendance {data?.academic_year}</CardTitle>
-                <CardAction className="text-xs">
+                <CardAction className="">
                     <Combobox
                         id="summary-group-combobox"
                         items={mappedKeys}
                         value={summaryGroup}
                         onValueChange={(val) => setSummaryGroup(val || "")}
                     >
-                        <ComboboxInput
-                            placeholder="Select a framework"
-                            className="max-w-34 text-xs"
-                        />
+                        <ComboboxInput placeholder="Select a framework" className="max-w-34" />
                         <ComboboxContent>
                             <ComboboxEmpty>No items found.</ComboboxEmpty>
                             <ComboboxList>
                                 {(item) => (
-                                    <ComboboxItem key={item} value={item} className="text-xs">
+                                    <ComboboxItem key={item} value={item} className="">
                                         {item}
                                     </ComboboxItem>
                                 )}
@@ -385,7 +382,7 @@ export function AttendanceSummary() {
                     </RadialBarChart>
                 </ChartContainer>
             </CardContent>
-            <CardFooter className="flex-col gap-2 text-xs">
+            <CardFooter className="flex-col gap-2">
                 <div className="flex items-center gap-2 leading-none font-medium">
                     Trending {percentageChange > 0 ? "up" : "down"} by{" "}
                     {Math.abs(percentageChange).toFixed(1)}% this term{" "}

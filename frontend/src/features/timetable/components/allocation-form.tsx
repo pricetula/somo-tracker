@@ -121,21 +121,21 @@ export function AllocationForm({ onSuccess }: AllocationFormProps) {
     // Guard against missing / invalid URL state
     if (dayOfWeek === null) {
         return (
-            <div className="bg-destructive/10 text-destructive rounded-md px-4 py-3 text-sm">
+            <div className="bg-destructive/10 text-destructive rounded-md px-4 py-3">
                 Invalid day parameter (<code>?day=</code> must be a number 1–7).
             </div>
         );
     }
     if (!blockId) {
         return (
-            <div className="bg-destructive/10 text-destructive rounded-md px-4 py-3 text-sm">
+            <div className="bg-destructive/10 text-destructive rounded-md px-4 py-3">
                 Missing <code>?block=</code> parameter.
             </div>
         );
     }
     if (!classId) {
         return (
-            <div className="bg-destructive/10 text-destructive rounded-md px-4 py-3 text-sm">
+            <div className="bg-destructive/10 text-destructive rounded-md px-4 py-3">
                 Missing <code>?class=</code> parameter.
             </div>
         );

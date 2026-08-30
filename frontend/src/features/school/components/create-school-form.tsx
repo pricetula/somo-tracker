@@ -103,10 +103,8 @@ export function CreateSchoolForm({ onSuccess }: CreateSchoolFormProps) {
                     disabled={isSubmitting}
                     aria-invalid={!!fieldErrors?.name}
                 />
-                {fieldErrors?.name && (
-                    <p className="text-destructive text-xs">{fieldErrors.name}</p>
-                )}
-                <p className="text-muted-foreground text-xs">
+                {fieldErrors?.name && <p className="text-destructive">{fieldErrors.name}</p>}
+                <p className="text-muted-foreground">
                     A new school will be created within your tenant. CBC curriculum will be seeded
                     automatically.
                 </p>

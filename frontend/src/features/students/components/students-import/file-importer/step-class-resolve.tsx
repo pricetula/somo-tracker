@@ -136,7 +136,7 @@ export function StepClassResolve({
             <div className="space-y-4">
                 <div>
                     <h3 className="font-medium">Class Resolution</h3>
-                    <p className="text-muted-foreground mt-1 text-xs">
+                    <p className="text-muted-foreground mt-1">
                         No class column was mapped, so all students will be created without a class
                         enrollment.
                     </p>
@@ -165,7 +165,7 @@ export function StepClassResolve({
         <div className="space-y-4">
             <div>
                 <h3 className="font-medium">Resolve Class/Stream Values</h3>
-                <p className="text-muted-foreground mt-1 text-xs">
+                <p className="text-muted-foreground mt-1">
                     Review how each unique class value from your file maps to a school class.
                     &ldquo;Auto&rdquo; matches are high-confidence. Review items that need
                     attention.

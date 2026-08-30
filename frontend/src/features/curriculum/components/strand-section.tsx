@@ -45,7 +45,7 @@ export function StrandSection({ strand, learningAreaId, onEditIndicator }: Stran
                     )}
                     <span className="font-semibold">{strand.name}</span>
                 </button>
-                <Badge className="text-xs font-normal">
+                <Badge className="font-normal">
                     {subStrandCount} sub-strand{subStrandCount !== 1 ? "s" : ""}
                 </Badge>
                 <div className="ml-auto flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
@@ -69,9 +69,7 @@ export function StrandSection({ strand, learningAreaId, onEditIndicator }: Stran
             {expanded && (
                 <div>
                     {subStrandCount === 0 ? (
-                        <p className="text-muted-foreground py-2 pl-8 text-xs">
-                            No sub-strands yet.
-                        </p>
+                        <p className="text-muted-foreground py-2 pl-8">No sub-strands yet.</p>
                     ) : (
                         strand.sub_strands.map((subStrand) => (
                             <SubStrandSection

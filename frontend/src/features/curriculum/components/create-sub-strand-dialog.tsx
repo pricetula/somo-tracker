@@ -75,9 +75,7 @@ export function CreateSubStrandDialog({
                             placeholder="e.g. Addition and Subtraction"
                             {...register("name", { required: "Name is required" })}
                         />
-                        {errors.name && (
-                            <p className="text-destructive text-xs">{errors.name.message}</p>
-                        )}
+                        {errors.name && <p className="text-destructive">{errors.name.message}</p>}
                     </div>
 
                     <DialogFooter>

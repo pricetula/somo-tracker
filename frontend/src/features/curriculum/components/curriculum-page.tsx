@@ -26,7 +26,7 @@ const columns: DataTableColumn<LearningArea>[] = [
         id: "code",
         header: "Code",
         width: "100px",
-        cell: (row) => <span className="font-mono text-xs">{row.code}</span>,
+        cell: (row) => <span className="font-mono">{row.code}</span>,
     },
     {
         id: "grade_level",

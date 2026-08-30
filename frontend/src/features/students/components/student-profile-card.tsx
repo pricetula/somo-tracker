@@ -61,9 +61,7 @@ export function StudentProfileCard({ detail, isLoading }: StudentProfileCardProp
                 <FieldRow label="KNEC Assessment #" value={detail.knec_assessment_number || "—"} />
                 <FieldRow label="Enrolled" value={formatDate(detail.created_at)} />
                 <div className="flex items-baseline gap-4 py-1.5">
-                    <span className="text-muted-foreground w-32 shrink-0 text-xs font-medium">
-                        Status
-                    </span>
+                    <span className="text-muted-foreground w-32 shrink-0 font-medium">Status</span>
                     <Badge
                         variant="secondary"
                         className={

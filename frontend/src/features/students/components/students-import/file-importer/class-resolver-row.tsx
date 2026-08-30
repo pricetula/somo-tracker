@@ -100,7 +100,7 @@ export function ClassResolverRow({
                                 role="combobox"
                                 aria-expanded={open}
                                 className={cn(
-                                    "h-7 w-full justify-between px-2 text-xs font-normal",
+                                    "h-7 w-full justify-between px-2 font-normal",
                                     !localResolvedId && "text-muted-foreground"
                                 )}
                             >

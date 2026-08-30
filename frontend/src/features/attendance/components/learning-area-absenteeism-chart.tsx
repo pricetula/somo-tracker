@@ -93,7 +93,7 @@ export function LearningAreaAbsenteeismChart({ termId }: LearningAreaAbsenteeism
         return (
             <section className="space-y-4">
                 {heading}
-                <p className="text-muted-foreground text-sm">
+                <p className="text-muted-foreground">
                     No learning area attendance summaries for this term yet. Mark attendance to see
                     the subject breakdown here.
                 </p>

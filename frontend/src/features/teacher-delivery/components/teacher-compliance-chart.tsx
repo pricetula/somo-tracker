@@ -89,7 +89,7 @@ export function TeacherComplianceChart({ termId }: TeacherComplianceChartProps) 
         return (
             <section className="space-y-4">
                 {heading}
-                <p className="text-muted-foreground text-sm">
+                <p className="text-muted-foreground">
                     No delivery summaries for this term yet. Mark attendance or skip lessons to see
                     the teacher delivery breakdown here.
                 </p>

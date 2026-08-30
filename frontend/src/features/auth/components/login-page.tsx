@@ -84,7 +84,7 @@ export function LoginPage({ tooltipSummary }: LoginPageProps) {
                             </Button>
                         </form>
                     </Form>
-                    <p className="text-muted-foreground mt-8 text-center text-xs">
+                    <p className="text-muted-foreground mt-8 text-center">
                         No password needed.
                         {tooltipSummary && (
                             <DocTooltip

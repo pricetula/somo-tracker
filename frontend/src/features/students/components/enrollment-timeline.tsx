@@ -62,7 +62,7 @@ export function EnrollmentTimeline({
                 <div className="bg-muted/30 flex items-center justify-center rounded-md px-4 py-8">
                     <div className="text-center">
                         <p className="text-muted-foreground font-medium">No enrollment history</p>
-                        <p className="text-muted-foreground mt-1 text-xs">
+                        <p className="text-muted-foreground mt-1">
                             Enroll this student in a class to get started.
                         </p>
                     </div>
@@ -86,13 +86,13 @@ export function EnrollmentTimeline({
                                     <div className="flex flex-wrap items-center gap-2">
                                         <span className="font-medium">{enrollment.term_name}</span>
                                         {enrollment.academic_year && (
-                                            <span className="text-muted-foreground text-xs">
+                                            <span className="text-muted-foreground">
                                                 {enrollment.academic_year}
                                             </span>
                                         )}
                                     </div>
                                     <div className="mt-0.5 flex flex-wrap items-center gap-2">
-                                        <span className="text-muted-foreground text-xs">
+                                        <span className="text-muted-foreground">
                                             {enrollment.class_name || "—"}
                                         </span>
                                         {enrollment.status && (

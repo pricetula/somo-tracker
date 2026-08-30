@@ -13,7 +13,7 @@ export function LowestAttendanceStudents() {
 
     if (isLoading) {
         return (
-            <article className="p-4 text-xs">
+            <article className="p-4">
                 <header className="mb-8">Students with lowest attendance</header>
                 <ul className="space-y-4">
                     {[...Array(5)].map((_, i) => (
@@ -35,7 +35,7 @@ export function LowestAttendanceStudents() {
 
     if (isError) {
         return (
-            <article className="p-4 text-xs">
+            <article className="p-4">
                 <header className="mb-8">Students with lowest attendance</header>
                 <p className="text-destructive py-4 text-center">Failed to load data</p>
             </article>
@@ -44,7 +44,7 @@ export function LowestAttendanceStudents() {
 
     if (!studentList?.length) {
         return (
-            <article className="p-4 text-xs">
+            <article className="p-4">
                 <header className="mb-8">Students with lowest attendance</header>
                 <p className="text-muted-foreground py-8 text-center">
                     No attendance data for this week
@@ -54,7 +54,7 @@ export function LowestAttendanceStudents() {
     }
 
     return (
-        <article className="p-4 text-xs">
+        <article className="p-4">
             <header className="mb-8">Students with lowest attendance</header>
             <ul>
                 {studentList.map((s) => (
@@ -71,9 +71,7 @@ export function LowestAttendanceStudents() {
                             {s.first_name} {s.last_name}
                         </Link>
                         <span className="ml-auto flex flex-col items-end">
-                            <span className="mb-2 text-sm text-rose-500">
-                                {s.attendance_percentage}%
-                            </span>
+                            <span className="mb-2 text-rose-500">{s.attendance_percentage}%</span>
                             <span className="text-muted-foreground">
                                 <b>
                                     {s.present_count}/{s.total_periods}

@@ -45,7 +45,7 @@ export function AcademicYearHandler() {
 
     return (
         <section className="w-64">
-            <div className="text-muted-foreground mb-2 text-xs">{academicYear?.name}</div>
+            <div className="text-muted-foreground mb-2">{academicYear?.name}</div>
             <div className="mb-4">{academicTerm?.name}</div>
 
             <Progress
@@ -53,7 +53,7 @@ export function AcademicYearHandler() {
                 className="mb-2 [&>div]:bg-green-500"
             />
 
-            <div className="flex justify-between text-xs">
+            <div className="flex justify-between">
                 <span>{formatDate(academicTerm?.start_date || "")}</span>
                 <span>{formatDate(academicTerm?.end_date || "")}</span>
             </div>

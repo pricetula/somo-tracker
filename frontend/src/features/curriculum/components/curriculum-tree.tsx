@@ -56,7 +56,7 @@ export function CurriculumTree({ tree, isLoading, isError }: CurriculumTreeProps
                 <div>
                     <h2 className="text-xl font-semibold">{tree.name}</h2>
                     <div className="text-muted-foreground mt-1 flex items-center gap-3">
-                        <span className="font-mono text-xs">{tree.code}</span>
+                        <span className="font-mono">{tree.code}</span>
                         <EducationLevelPill level={tree.education_level} />
                         <span>
                             {strandCount} strand{strandCount !== 1 ? "s" : ""}
@@ -79,7 +79,7 @@ export function CurriculumTree({ tree, isLoading, isError }: CurriculumTreeProps
             {strandCount === 0 ? (
                 <div className="flex flex-col items-center gap-2 py-16">
                     <p className="text-muted-foreground font-medium">No strands yet</p>
-                    <p className="text-muted-foreground text-xs">
+                    <p className="text-muted-foreground">
                         Add a strand to start building your curriculum.
                     </p>
                     <Link

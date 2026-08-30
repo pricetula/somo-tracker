@@ -33,7 +33,7 @@ export function TrackDetail({ trackId }: { trackId: string }) {
                         {track?.name ?? "Track"}
                     </h1>
                     {track?.description && (
-                        <p className="text-muted-foreground text-sm">{track.description}</p>
+                        <p className="text-muted-foreground">{track.description}</p>
                     )}
                 </div>
                 <Link href={`/timetable/${trackId}/blocks/new`}>

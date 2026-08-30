@@ -710,7 +710,7 @@ export function FileImporter({ onReset, onJobCreated }: FileImporterProps) {
                 {STEPS.map((step, idx) => (
                     <React.Fragment key={step.key}>
                         <div
-                            className={`flex items-center gap-1.5 text-xs ${idx < stepIndex ? "text-emerald-600" : ""} ${idx === stepIndex ? "text-foreground font-medium" : ""} ${idx > stepIndex ? "text-muted-foreground" : ""} `}
+                            className={`flex items-center gap-1.5 ${idx < stepIndex ? "text-emerald-600" : ""} ${idx === stepIndex ? "text-foreground font-medium" : ""} ${idx > stepIndex ? "text-muted-foreground" : ""} `}
                         >
                             {step.icon}
                             <span className="hidden sm:inline">{step.label}</span>
@@ -730,11 +730,7 @@ export function FileImporter({ onReset, onJobCreated }: FileImporterProps) {
             <div className="flex justify-end">
                 <AlertDialog>
                     <AlertDialogTrigger>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-muted-foreground h-7 text-xs"
-                        >
+                        <Button variant="ghost" size="sm" className="text-muted-foreground h-7">
                             <Trash2 className="mr-1 size-3" />
                             Discard Draft
                         </Button>

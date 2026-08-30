@@ -168,7 +168,7 @@ export function ParentDetailView({ parentId }: ParentDetailViewProps) {
                 <div className="mt-4 space-y-4">
                     {/* Email (read-only) */}
                     <div>
-                        <Label className="text-muted-foreground text-xs">Email</Label>
+                        <Label className="text-muted-foreground">Email</Label>
                         <p className="">{detail.email}</p>
                     </div>
 

@@ -45,7 +45,7 @@ export function CurriculumDetailPage({ learningAreaId }: CurriculumDetailProps) 
     return (
         <>
             <div className="space-y-2">
-                <nav className="text-muted-foreground font-mono text-xs">
+                <nav className="text-muted-foreground font-mono">
                     <Link href="/curriculum" className="hover:text-foreground">
                         Curriculum
                     </Link>
@@ -57,8 +57,8 @@ export function CurriculumDetailPage({ learningAreaId }: CurriculumDetailProps) 
                     {tree?.name ?? "Loading…"}
                 </h1>
                 {tree && (
-                    <p className="text-muted-foreground flex items-center gap-2 text-sm">
-                        <span className="font-mono text-xs">{tree.code}</span>
+                    <p className="text-muted-foreground flex items-center gap-2">
+                        <span className="font-mono">{tree.code}</span>
                         <span>·</span>
                         <span>{tree.education_level}</span>
                         <span>·</span>

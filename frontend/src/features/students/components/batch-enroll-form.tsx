@@ -72,13 +72,13 @@ export function BatchEnrollForm({ onSuccess, onCancel }: BatchEnrollFormProps) {
     return (
         <div className="space-y-6">
             {error && (
-                <div className="text-destructive bg-destructive/10 rounded-md px-3 py-2 text-sm">
+                <div className="text-destructive bg-destructive/10 rounded-md px-3 py-2">
                     {error}
                 </div>
             )}
 
             {/* Student count */}
-            <div className="text-muted-foreground flex items-center gap-2 text-sm">
+            <div className="text-muted-foreground flex items-center gap-2">
                 <Users className="size-4" />
                 <span>
                     {studentCount} student{studentCount === 1 ? "" : "s"} selected

@@ -224,7 +224,7 @@ export function StepDataReview({ onProceed, onBack, schoolId }: StepDataReviewPr
         <div className="space-y-4">
             <div>
                 <h3 className="font-medium">Review Staged Records</h3>
-                <p className="text-muted-foreground mt-1 text-xs">
+                <p className="text-muted-foreground mt-1">
                     {counts.total} records loaded —{" "}
                     <span className="text-emerald-600">{counts.valid} valid</span>
                     {counts.error > 0 && (
@@ -256,7 +256,7 @@ export function StepDataReview({ onProceed, onBack, schoolId }: StepDataReviewPr
                         key={f}
                         variant={filter === f ? "secondary" : "ghost"}
                         size="sm"
-                        className="h-7 text-xs"
+                        className="h-7"
                         onClick={() => handleFilterChange(f)}
                     >
                         {f === "all" && `All (${counts.total})`}
@@ -303,7 +303,7 @@ export function StepDataReview({ onProceed, onBack, schoolId }: StepDataReviewPr
             {/* Pagination */}
             {totalPages > 1 && (
                 <div className="flex items-center justify-between">
-                    <p className="text-muted-foreground text-xs">
+                    <p className="text-muted-foreground">
                         Page {page} of {totalPages} ({total} total)
                     </p>
                     <div className="flex items-center gap-1">

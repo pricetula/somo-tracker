@@ -78,7 +78,7 @@ export function StudentEntryRow({
                     disabled={isSubmitting}
                 />
                 {fieldErrors[`students.${index}.full_name`] && (
-                    <p className="text-destructive text-xs">
+                    <p className="text-destructive">
                         {fieldErrors[`students.${index}.full_name`][0]}
                     </p>
                 )}

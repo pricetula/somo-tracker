@@ -133,7 +133,7 @@ export function NurseDetail({ id }: NurseDetailProps) {
             {/* Read-only email */}
             <div className="space-y-1.5">
                 <Label>Email</Label>
-                <p className="text-muted-foreground text-sm">{nurse.email}</p>
+                <p className="text-muted-foreground">{nurse.email}</p>
             </div>
 
             {/* Editable fields form */}

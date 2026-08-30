@@ -54,7 +54,7 @@ export function TimeTable({ trackId, teacherId }: { trackId?: string; teacherId?
                 <div className="flex items-center justify-between">
                     <h1 className="text-lg font-medium">Timetable</h1>
                 </div>
-                <article className="relative max-h-150 w-full overflow-auto rounded-md border text-xs">
+                <article className="relative max-h-150 w-full overflow-auto rounded-md border">
                     <table className="w-full">
                         <thead className="border-b tracking-wider">
                             <tr>
@@ -131,7 +131,7 @@ export function TimeTable({ trackId, teacherId }: { trackId?: string; teacherId?
                     }}
                 />
             </div>
-            <article className="relative max-h-150 w-full overflow-auto rounded-md border text-xs">
+            <article className="relative max-h-150 w-full overflow-auto rounded-md border">
                 <table className="w-full">
                     <thead className="border-b tracking-wider">
                         <tr>

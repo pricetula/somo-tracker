@@ -86,7 +86,7 @@ export function AdminDetail({ id }: AdminDetailProps) {
                 {isLoading ? (
                     <Skeleton className="h-5 w-40" />
                 ) : (
-                    <p className="text-muted-foreground text-sm">{admin?.email}</p>
+                    <p className="text-muted-foreground">{admin?.email}</p>
                 )}
             </div>
 

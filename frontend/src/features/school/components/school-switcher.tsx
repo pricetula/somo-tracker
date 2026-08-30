@@ -55,7 +55,7 @@ export function SchoolSwitcher() {
                                         {/*<AvatarImage src={user.avatar} alt={user.name} />*/}
                                         <AvatarFallback>{initials}</AvatarFallback>
                                     </Avatar>
-                                    <div className="grid flex-1 text-left text-sm leading-tight">
+                                    <div className="grid flex-1 text-left leading-tight">
                                         <span className="truncate font-medium">
                                             {activeSchoolName}
                                         </span>
@@ -71,7 +71,7 @@ export function SchoolSwitcher() {
                             sideOffset={4}
                         >
                             <DropdownMenuGroup>
-                                <DropdownMenuLabel className="text-muted-foreground text-xs">
+                                <DropdownMenuLabel className="text-muted-foreground">
                                     Teams
                                 </DropdownMenuLabel>
                                 {schools.map((school) => (

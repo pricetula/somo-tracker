@@ -57,7 +57,7 @@ export function AllocationBlock({
     if (isBreak) {
         return (
             <section className="class-info break-slot p-4">
-                <span className="text-muted-foreground text-xs italic">
+                <span className="text-muted-foreground italic">
                     {allocation.learning_area_name ?? "Break"}
                 </span>
             </section>

@@ -179,10 +179,9 @@ export async function deleteFeeCategory(id: string): Promise<void> {
 // ==========================================================================
 
 export async function listFeeTemplates(
-    params: { academic_term_id?: string; grade_level?: string } = {}
+    params: { grade_level?: string } = {}
 ): Promise<ListFeeTemplatesResponse> {
     const searchParams = new URLSearchParams();
-    if (params.academic_term_id) searchParams.set("academic_term_id", params.academic_term_id);
     if (params.grade_level) searchParams.set("grade_level", params.grade_level);
     const qs = searchParams.toString();
 
@@ -213,7 +212,6 @@ export async function deleteFeeTemplate(id: string): Promise<void> {
 export async function listInvoices(filter: InvoiceFilter = {}): Promise<ListInvoicesResponse> {
     const searchParams = new URLSearchParams();
     if (filter.student_id) searchParams.set("student_id", filter.student_id);
-    if (filter.academic_term_id) searchParams.set("academic_term_id", filter.academic_term_id);
     if (filter.payment_status) searchParams.set("payment_status", filter.payment_status);
     const qs = searchParams.toString();
 

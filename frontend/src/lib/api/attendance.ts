@@ -39,16 +39,10 @@ export interface SchoolAttendanceKPI {
  * Fetch macro-level school attendance KPIs for the active school.
  *
  * @param date   ISO date (YYYY-MM-DD) — typically today. The backend derives
- *               the active term from this date when termId is omitted.
- * @param termId Optional academic term id; when omitted the backend resolves
- *               the active term covering `date`.
+ *               the active term from this date.
  */
-export async function getSchoolAttendanceKPIs(
-    date: string,
-    termId?: string
-): Promise<SchoolAttendanceKPI> {
+export async function getSchoolAttendanceKPIs(date: string): Promise<SchoolAttendanceKPI> {
     const searchParams = new URLSearchParams({ date });
-    if (termId) searchParams.set("term_id", termId);
 
     return {
         /** Average daily attendance rate across all classes on the requested date. */
@@ -99,16 +93,9 @@ export interface ClassAttendanceBreakdownList {
 }
 
 /**
- * Fetch per-class Present/Late/Absent counts for a school term.
- *
- * @param termId Academic term id (UUID) — the term to aggregate
- *               (class_term_attendance_summaries are per class × term).
+ * Fetch per-class Present/Late/Absent counts for the current active term.
  */
-export async function getClassAttendanceBreakdowns(
-    termId: string
-): Promise<ClassAttendanceBreakdownList> {
-    const searchParams = new URLSearchParams({ academic_term_id: termId });
-
+export async function getClassAttendanceBreakdowns(): Promise<ClassAttendanceBreakdownList> {
     const items = Array.from({ length: 5 }).map((_, i) => {
         return {
             class_id: "uuid" + i,
@@ -121,14 +108,10 @@ export async function getClassAttendanceBreakdowns(
             term_attendance_rate: 10,
         };
     });
-    console.log(items);
     return {
         items,
         total: 5,
     };
-    return api.get<ClassAttendanceBreakdownList>(
-        `/api/v1/attendance/class-term/breakdown?${searchParams.toString()}`
-    );
 }
 
 // ─── Day-of-Week Attendance Exceptions ────────────────────────────────────
@@ -212,13 +195,9 @@ export interface LearningAreaAttendanceBreakdownList {
  *               (class_learning_area_term_summaries are per class × learning
  *               area × term).
  */
-export async function getLearningAreaAttendanceBreakdowns(
-    termId: string
-): Promise<LearningAreaAttendanceBreakdownList> {
-    const searchParams = new URLSearchParams({ academic_term_id: termId });
-
+export async function getLearningAreaAttendanceBreakdowns(): Promise<LearningAreaAttendanceBreakdownList> {
     return api.get<LearningAreaAttendanceBreakdownList>(
-        `/api/v1/attendance/class-learning-area/breakdown?${searchParams.toString()}`
+        `/api/v1/attendance/class-learning-area/breakdown`
     );
 }
 

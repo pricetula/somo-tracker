@@ -43,12 +43,6 @@ export interface TeacherDeliveryBreakdownList {
  * @param termId Academic term id (UUID) — the term to aggregate
  *               (teacher_delivery_summaries are per teacher × term).
  */
-export async function getTeacherDeliveryBreakdown(
-    termId: string
-): Promise<TeacherDeliveryBreakdownList> {
-    const searchParams = new URLSearchParams({ academic_term_id: termId });
-
-    return api.get<TeacherDeliveryBreakdownList>(
-        `/api/v1/teacher-delivery-summaries/breakdown?${searchParams.toString()}`
-    );
+export async function getTeacherDeliveryBreakdown(): Promise<TeacherDeliveryBreakdownList> {
+    return api.get<TeacherDeliveryBreakdownList>(`/api/v1/teacher-delivery-summaries/breakdown`);
 }

@@ -7,10 +7,6 @@ import Link from "next/link";
 
 interface ClassRosterProps {
     classId: string;
-    /** Optional academic year ID; if omitted the backend uses the current year. */
-    academicYearId?: string;
-    /** Optional academic term ID; if omitted the backend uses the current term. */
-    academicTermId?: string;
 }
 function buildColumns(classId: string): DataTableColumn<RosterEntry>[] {
     return [
@@ -36,11 +32,9 @@ function buildColumns(classId: string): DataTableColumn<RosterEntry>[] {
         },
     ];
 }
-function createRosterQueryFn(classId: string, academicYearId?: string, academicTermId?: string) {
+function createRosterQueryFn(classId: string) {
     return (params: { page?: number; limit?: number; search?: string }) =>
         getClassRoster(classId, {
-            academic_year_id: academicYearId,
-            academic_term_id: academicTermId,
             page: params.page,
             limit: params.limit,
             search: params.search,
@@ -54,9 +48,9 @@ function createBulkUnenrollFn(classId: string) {
 
 import { UnenrollCell } from "./unenroll-cell";
 
-export function ClassRoster({ classId, academicYearId, academicTermId }: ClassRosterProps) {
+export function ClassRoster({ classId }: ClassRosterProps) {
     const columns = buildColumns(classId);
-    const rosterQueryFn = createRosterQueryFn(classId, academicYearId, academicTermId);
+    const rosterQueryFn = createRosterQueryFn(classId);
     const bulkUnenrollFn = createBulkUnenrollFn(classId);
 
     // Build addHref with academic term if available
@@ -66,7 +60,7 @@ export function ClassRoster({ classId, academicYearId, academicTermId }: ClassRo
         <DataTable
             isCheckable
             addHref={addHref}
-            queryKey={["class-roster", classId, academicYearId, academicTermId]}
+            queryKey={["class-roster", classId]}
             queryFn={rosterQueryFn}
             columns={columns}
             getRowId={(row) => row.id}

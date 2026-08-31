@@ -444,7 +444,8 @@ export function DataTable<TItem, TParams extends object, TResult>({
                         {isCheckable && (
                             <div className="flex items-center justify-center">
                                 <Checkbox
-                                    checked={allSelected ? true : someSelected ? undefined : false}
+                                    checked={allSelected}
+                                    indeterminate={someSelected}
                                     onCheckedChange={handleSelectAll}
                                 />
                             </div>

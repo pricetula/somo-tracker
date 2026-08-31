@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { AlertTriangle } from "lucide-react";
+import Link from "next/link";
 
 // ─── Props ─────────────────────────────────────────────────────────────────
 
@@ -82,7 +83,12 @@ export function EnrollStudentsPanel({ classId, onSuccess }: EnrollStudentsPanelP
                 width: "200px",
                 cell: (row) =>
                     row.current_class_id ? (
-                        <span className="text-muted-foreground truncate">{row.current_class}</span>
+                        <Link
+                            href={`/classes/${row.current_class_id}`}
+                            className="text-muted-foreground truncate"
+                        >
+                            {row.current_class}
+                        </Link>
                     ) : (
                         <span className="shrink-0 text-emerald-600">Unenrolled</span>
                     ),

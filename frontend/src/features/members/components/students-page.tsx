@@ -82,7 +82,7 @@ export function StudentsPage() {
                 queryFn={listStudents}
                 params={{}}
                 columns={columns}
-                getRowId={(row) => row.id}
+                getRowId={(row: Student) => row.id}
                 isSearchable
                 searchPlaceholder="Search students..."
                 isCheckable

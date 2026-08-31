@@ -34,8 +34,8 @@ interface TestItem {
 }
 
 const defaultColumns: DataTableColumn<TestItem>[] = [
-    { id: "name", header: "Name", cell: (row) => row.name },
-    { id: "value", header: "Value", cell: (row) => row.value, width: "200px" },
+    { id: "name", header: "Name", cell: (row: TestItem) => row.name },
+    { id: "value", header: "Value", cell: (row: TestItem) => row.value, width: "200px" },
 ];
 
 interface VirtualItem {

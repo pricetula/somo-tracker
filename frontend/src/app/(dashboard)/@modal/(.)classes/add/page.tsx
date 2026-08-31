@@ -35,7 +35,8 @@ export default function AddClassModal() {
                 <DialogHeader>
                     <DialogTitle>Create Class</DialogTitle>
                     <DialogDescription>
-                        Create a new class by selecting a grade level, stream, and academic year.
+                        Create a new class by selecting a grade level and stream. The current
+                        academic year and term will be used automatically.
                     </DialogDescription>
                 </DialogHeader>
                 <AddClassForm onSuccess={() => handleDialogOpen(false)} />

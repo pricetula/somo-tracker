@@ -50,6 +50,7 @@ export function AcademicTermCombobox({
     const { data, isLoading, isError, error } = useAcademicTerms();
 
     const items = React.useMemo(() => {
+        console.log(data);
         if (!data?.items) return [];
         return data.items.map((t) => ({
             value: t.id,

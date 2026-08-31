@@ -98,13 +98,12 @@ export async function listAcademicYears(): Promise<{ data: AcademicYear[] }> {
 /** List academic terms for the active school, optionally filtered by year. */
 export async function listTerms(
     params: { academic_year_id?: string } = {}
-): Promise<{ items: AcademicTerm[] }> {
+): Promise<AcademicTerm[]> {
     const searchParams = new URLSearchParams();
     if (params.academic_year_id) searchParams.set("academic_year_id", params.academic_year_id);
 
     const qs = searchParams.toString();
-    const terms = await api.get<AcademicTerm[]>(`/api/v1/academic-terms?${qs}`);
-    return { items: terms };
+    return await api.get<AcademicTerm[]>(`/api/v1/academic-terms?${qs}`);
 }
 
 /** Create a new academic term. Returns the created term. */

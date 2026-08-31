@@ -1,8 +1,8 @@
 /**
- * Enroll Dialog — modal to enroll a student in a class for a term.
+ * Enroll Dialog — modal to enroll a student in a class.
  *
+ * Academic term is resolved server-side from the current active term.
  * Features:
- * - Select academic term
  * - Select class
  * - Optional enrollment status (default ACTIVE)
  */
@@ -22,7 +22,6 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 
-import { AcademicTermCombobox } from "@/features/academic-terms";
 import { ClassCombobox } from "@/features/classes";
 import { useCreateEnrollment } from "../hooks/use-student-detail";
 import { getErrorMessage } from "@/lib/errors";
@@ -38,17 +37,12 @@ interface EnrollDialogProps {
 // ─── Component ─────────────────────────────────────────────────────────────
 
 export function EnrollDialog({ open, onOpenChange, studentId }: EnrollDialogProps) {
-    const [selectedTermId, setSelectedTermId] = React.useState("");
     const [selectedClassId, setSelectedClassId] = React.useState("");
     const [error, setError] = React.useState<string | null>(null);
 
     const createEnrollment = useCreateEnrollment();
 
     const handleEnroll = async () => {
-        if (!selectedTermId) {
-            setError("Please select a term");
-            return;
-        }
         if (!selectedClassId) {
             setError("Please select a class");
             return;
@@ -73,9 +67,10 @@ export function EnrollDialog({ open, onOpenChange, studentId }: EnrollDialogProp
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-md">
                 <DialogHeader>
-                    <DialogTitle>Enroll in New Term</DialogTitle>
+                    <DialogTitle>Enroll Student</DialogTitle>
                     <DialogDescription>
-                        Select a term and class to enroll this student.
+                        Select a class to enroll this student. The current academic term will be
+                        used automatically.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -85,16 +80,6 @@ export function EnrollDialog({ open, onOpenChange, studentId }: EnrollDialogProp
                             {error}
                         </div>
                     )}
-                </div>
-
-                {/* Term selection */}
-                <div className="space-y-1.5">
-                    <Label>Academic Term</Label>
-                    <AcademicTermCombobox
-                        value={selectedTermId}
-                        onChange={setSelectedTermId}
-                        placeholder="Select a term"
-                    />
                 </div>
 
                 {/* Class selection */}
@@ -118,7 +103,7 @@ export function EnrollDialog({ open, onOpenChange, studentId }: EnrollDialogProp
                     </Button>
                     <Button
                         onClick={handleEnroll}
-                        disabled={!selectedTermId || !selectedClassId || createEnrollment.isPending}
+                        disabled={!selectedClassId || createEnrollment.isPending}
                     >
                         {createEnrollment.isPending ? (
                             <>

@@ -14,13 +14,7 @@ export { WeekdayAttendanceExceptionsChart } from "./components/weekday-attendanc
 
 // Hooks
 export { useSchoolAttendanceKPIs } from "./hooks/use-school-attendance-kpis";
-export {
-    useClassAttendanceBreakdowns,
-    useCurrentTermId,
-} from "./hooks/use-class-attendance-breakdowns";
-export {
-    useLearningAreaAttendanceBreakdowns,
-    useCurrentTermId as useLearningAreaCurrentTermId,
-} from "./hooks/use-learning-area-attendance-breakdowns";
+export { useClassAttendanceBreakdowns } from "./hooks/use-class-attendance-breakdowns";
+export { useLearningAreaAttendanceBreakdowns } from "./hooks/use-learning-area-attendance-breakdowns";
 export { useDayOfWeekSummaries } from "./hooks/use-day-of-week-summaries";
 export { useLowestAttendanceStudents } from "./hooks/use-lowest-attendance-students";

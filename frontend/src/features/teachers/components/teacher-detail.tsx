@@ -142,7 +142,7 @@ export function TeacherDetail({ id }: TeacherDetailProps) {
         return <p className="text-muted-foreground py-4">Teacher not found.</p>;
     }
 
-    const defaultTrack = tracks?.items?.find((t) => t.is_default) ?? tracks?.items?.[0];
+    const _defaultTrack = tracks?.items?.find((t) => t.is_default) ?? tracks?.items?.[0];
 
     return (
         <div className="space-y-8 py-2">

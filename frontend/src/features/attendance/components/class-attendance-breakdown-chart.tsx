@@ -9,10 +9,7 @@ import {
 } from "@/components/ui/chart";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-    useClassAttendanceBreakdowns,
-    useCurrentTermId,
-} from "@/features/attendance/hooks/use-class-attendance-breakdowns";
+import { useClassAttendanceBreakdowns } from "@/features/attendance/hooks/use-class-attendance-breakdowns";
 import { getErrorMessage } from "@/lib/errors";
 
 const chartConfig = {
@@ -30,11 +27,6 @@ const chartConfig = {
     },
 } satisfies ChartConfig;
 
-interface ClassAttendanceBreakdownChartProps {
-    /** Optional academic term id; when omitted the active term is resolved. */
-    termId?: string;
-}
-
 /**
  * Shadcn UI grouped BarChart for the School Administrator dashboard.
  *
@@ -43,21 +35,16 @@ interface ClassAttendanceBreakdownChartProps {
  * by absent count descending, so high-absenteeism classes — the truancy and
  * chronic absenteeism watch list — surface at the top.
  *
- * Backed by GET /api/v1/attendance/class-term/breakdown?academic_term_id=….
+ * Backed by GET /api/v1/attendance/class-term/breakdown.
  */
-export function ClassAttendanceBreakdownChart({ termId }: ClassAttendanceBreakdownChartProps) {
-    // Resolve the active term only when the caller did not pass one — the
-    // chart stays a zero-config dashboard section like SchoolAttendanceKPIs.
-    const currentTermQuery = useCurrentTermId(!termId);
-    const effectiveTermId = termId ?? currentTermQuery.data;
-    const { data, isLoading, isError, error } = useClassAttendanceBreakdowns(effectiveTermId);
+export function ClassAttendanceBreakdownChart() {
+    const { data, isLoading, isError, error } = useClassAttendanceBreakdowns();
 
-    const isResolvingTerm = !termId && currentTermQuery.isPending;
-    const loadFailed = isError || currentTermQuery.isError;
+    const loadFailed = isError;
 
     const heading = <h3 className="text-foreground font-medium">Attendance spread</h3>;
 
-    if (isLoading || isResolvingTerm) {
+    if (isLoading) {
         return (
             <section className="space-y-4">
                 {heading}
@@ -72,9 +59,7 @@ export function ClassAttendanceBreakdownChart({ termId }: ClassAttendanceBreakdo
                 {heading}
                 <Alert variant="destructive">
                     <AlertTitle>Unable to load class attendance breakdown</AlertTitle>
-                    <AlertDescription>
-                        {getErrorMessage(error ?? currentTermQuery.error)}
-                    </AlertDescription>
+                    <AlertDescription>{getErrorMessage(error)}</AlertDescription>
                 </Alert>
             </section>
         );

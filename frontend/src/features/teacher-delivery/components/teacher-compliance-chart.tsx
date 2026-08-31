@@ -10,10 +10,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { TeacherDeliveryBreakdownItem } from "@/lib/api/teacher-delivery";
-import {
-    useCurrentTermId,
-    useTeacherDeliveryBreakdown,
-} from "@/features/teacher-delivery/hooks/use-teacher-delivery-breakdown";
+import { useTeacherDeliveryBreakdown } from "@/features/teacher-delivery/hooks/use-teacher-delivery-breakdown";
 import { getErrorMessage } from "@/lib/errors";
 
 const chartConfig = {
@@ -27,11 +24,6 @@ const chartConfig = {
     },
 } satisfies ChartConfig;
 
-interface TeacherComplianceChartProps {
-    /** Optional academic term id; when omitted the active term is resolved. */
-    termId?: string;
-}
-
 /**
  * Shadcn UI grouped BarChart for the School Administrator dashboard.
  *
@@ -41,17 +33,12 @@ interface TeacherComplianceChartProps {
  * roll-call and delivery negligence watch list — surface at the top. Hover
  * tooltips show exact counts alongside the teacher name and TSC number.
  *
- * Backed by GET /api/v1/teacher-delivery-summaries/breakdown?academic_term_id=….
+ * Backed by GET /api/v1/teacher-delivery-summaries/breakdown.
  */
-export function TeacherComplianceChart({ termId }: TeacherComplianceChartProps) {
-    // Resolve the active term only when the caller did not pass one — the
-    // chart stays a zero-config dashboard section.
-    const currentTermQuery = useCurrentTermId(!termId);
-    const effectiveTermId = termId ?? currentTermQuery.data;
-    const { data, isLoading, isError, error } = useTeacherDeliveryBreakdown(effectiveTermId);
+export function TeacherComplianceChart() {
+    const { data, isLoading, isError, error } = useTeacherDeliveryBreakdown();
 
-    const isResolvingTerm = !termId && currentTermQuery.isPending;
-    const loadFailed = isError || currentTermQuery.isError;
+    const loadFailed = isError;
 
     const heading = (
         <h3 className="text-foreground text-lg font-medium">
@@ -59,7 +46,7 @@ export function TeacherComplianceChart({ termId }: TeacherComplianceChartProps) 
         </h3>
     );
 
-    if (isLoading || isResolvingTerm) {
+    if (isLoading) {
         return (
             <section className="space-y-4">
                 {heading}
@@ -74,9 +61,7 @@ export function TeacherComplianceChart({ termId }: TeacherComplianceChartProps) 
                 {heading}
                 <Alert variant="destructive">
                     <AlertTitle>Unable to load teacher delivery breakdown</AlertTitle>
-                    <AlertDescription>
-                        {getErrorMessage(error ?? currentTermQuery.error)}
-                    </AlertDescription>
+                    <AlertDescription>{getErrorMessage(error)}</AlertDescription>
                 </Alert>
             </section>
         );

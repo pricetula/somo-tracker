@@ -10,7 +10,6 @@ const mockUseCurrentTermId = vi.hoisted(() => vi.fn());
 const mockUseTeacherDeliveryBreakdown = vi.hoisted(() => vi.fn());
 
 vi.mock("@/features/teacher-delivery/hooks/use-teacher-delivery-breakdown", () => ({
-    useCurrentTermId: mockUseCurrentTermId,
     useTeacherDeliveryBreakdown: mockUseTeacherDeliveryBreakdown,
 }));
 

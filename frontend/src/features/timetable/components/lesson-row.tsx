@@ -15,7 +15,7 @@ export interface LessonRowProps {
     isLast: boolean;
 }
 
-export function LessonRow({ entry, isFirst, isLast }: LessonRowProps) {
+export function LessonRow({ entry, isLast }: LessonRowProps) {
     const start = parseISO(entry.start_time);
     const end = parseISO(entry.end_time);
     const dateLabel = format(start, "EEE MMM d");

@@ -10,7 +10,6 @@ const mockUseCurrentTermId = vi.hoisted(() => vi.fn());
 const mockUseLearningAreaAttendanceBreakdowns = vi.hoisted(() => vi.fn());
 
 vi.mock("@/features/attendance/hooks/use-learning-area-attendance-breakdowns", () => ({
-    useCurrentTermId: mockUseCurrentTermId,
     useLearningAreaAttendanceBreakdowns: mockUseLearningAreaAttendanceBreakdowns,
 }));
 

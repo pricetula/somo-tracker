@@ -9,10 +9,7 @@ import {
 } from "@/components/ui/chart";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-    useCurrentTermId,
-    useLearningAreaAttendanceBreakdowns,
-} from "@/features/attendance/hooks/use-learning-area-attendance-breakdowns";
+import { useLearningAreaAttendanceBreakdowns } from "@/features/attendance/hooks/use-learning-area-attendance-breakdowns";
 import { getErrorMessage } from "@/lib/errors";
 
 const chartConfig = {
@@ -30,11 +27,6 @@ const chartConfig = {
     },
 } satisfies ChartConfig;
 
-interface LearningAreaAbsenteeismChartProps {
-    /** Optional academic term id; when omitted the active term is resolved. */
-    termId?: string;
-}
-
 /**
  * Shadcn UI grouped BarChart for the School Administrator dashboard.
  *
@@ -44,18 +36,12 @@ interface LearningAreaAbsenteeismChartProps {
  * high truancy / absenteeism — the disengagement hotspot watch — surface at
  * the top. Hover tooltips break down the period metrics per subject.
  *
- * Backed by GET /api/v1/attendance/class-learning-area/breakdown?academic_term_id=….
+ * Backed by GET /api/v1/attendance/class-learning-area/breakdown.
  */
-export function LearningAreaAbsenteeismChart({ termId }: LearningAreaAbsenteeismChartProps) {
-    // Resolve the active term only when the caller did not pass one — the
-    // chart stays a zero-config dashboard section like SchoolAttendanceKPIs.
-    const currentTermQuery = useCurrentTermId(!termId);
-    const effectiveTermId = termId ?? currentTermQuery.data;
-    const { data, isLoading, isError, error } =
-        useLearningAreaAttendanceBreakdowns(effectiveTermId);
+export function LearningAreaAbsenteeismChart() {
+    const { data, isLoading, isError, error } = useLearningAreaAttendanceBreakdowns();
 
-    const isResolvingTerm = !termId && currentTermQuery.isPending;
-    const loadFailed = isError || currentTermQuery.isError;
+    const loadFailed = isError;
 
     const heading = (
         <h3 className="text-foreground text-lg font-medium">
@@ -63,7 +49,7 @@ export function LearningAreaAbsenteeismChart({ termId }: LearningAreaAbsenteeism
         </h3>
     );
 
-    if (isLoading || isResolvingTerm) {
+    if (isLoading) {
         return (
             <section className="space-y-4">
                 {heading}
@@ -78,9 +64,7 @@ export function LearningAreaAbsenteeismChart({ termId }: LearningAreaAbsenteeism
                 {heading}
                 <Alert variant="destructive">
                     <AlertTitle>Unable to load learning area attendance breakdown</AlertTitle>
-                    <AlertDescription>
-                        {getErrorMessage(error ?? currentTermQuery.error)}
-                    </AlertDescription>
+                    <AlertDescription>{getErrorMessage(error)}</AlertDescription>
                 </Alert>
             </section>
         );

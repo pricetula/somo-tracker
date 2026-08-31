@@ -216,7 +216,6 @@ export interface RejectSessionPayload {
 export interface ListSessionsParams {
     class_id?: string;
     learning_area_id?: string;
-    academic_term_id?: string;
     status?: string;
     evaluation_method?: string;
     search?: string;
@@ -306,7 +305,6 @@ export async function listSessions(params: ListSessionsParams = {}): Promise<Ses
 
     if (params.class_id) searchParams.set("class_id", params.class_id);
     if (params.learning_area_id) searchParams.set("learning_area_id", params.learning_area_id);
-    if (params.academic_term_id) searchParams.set("academic_term_id", params.academic_term_id);
     if (params.status) searchParams.set("status", params.status);
     if (params.evaluation_method) searchParams.set("evaluation_method", params.evaluation_method);
     if (params.search) searchParams.set("search", params.search);
@@ -400,24 +398,14 @@ export async function getGradingData(sessionId: string): Promise<GradingDataResp
 // PARENT VIEW & REPORT CARDS
 // ════════════════════════════════════════════════════════════════════════════
 
-/** Get all published assessments for a student in a term. */
-export async function getParentAssessments(
-    studentId: string,
-    academicTermId: string
-): Promise<ParentAssessmentsResult> {
-    return api.get(
-        `/api/v1/parent/students/${studentId}/assessments?academic_term_id=${academicTermId}`
-    );
+/** Get all published assessments for a student in the current term. */
+export async function getParentAssessments(studentId: string): Promise<ParentAssessmentsResult> {
+    return api.get(`/api/v1/parent/students/${studentId}/assessments`);
 }
 
-/** Compile term report card using the "Last One" chronological mode aggregator. */
-export async function getStudentTermGrades(
-    studentId: string,
-    academicTermId: string
-): Promise<StudentTermGradesResult> {
-    return api.get(
-        `/api/v1/parent/students/${studentId}/report-card?academic_term_id=${academicTermId}`
-    );
+/** Compile term report card using the current active term. */
+export async function getStudentTermGrades(studentId: string): Promise<StudentTermGradesResult> {
+    return api.get(`/api/v1/parent/students/${studentId}/report-card`);
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -493,11 +481,10 @@ export async function createWeightConfig(
  * GET /api/v1/parent/students/:studentId/term-subject-summaries?academic_term_id=
  */
 export async function getStudentTermSubjectSummaries(
-    studentId: string,
-    academicTermId: string
+    studentId: string
 ): Promise<{ items: unknown[] }> {
     return api.get<{ items: unknown[] }>(
-        `/api/v1/parent/students/${studentId}/term-subject-summaries?academic_term_id=${encodeURIComponent(academicTermId)}`
+        `/api/v1/parent/students/${studentId}/term-subject-summaries`
     );
 }
 
@@ -506,11 +493,10 @@ export async function getStudentTermSubjectSummaries(
  * GET /api/v1/assessments/sessions/learning-area/:learningAreaId/term-subject-summaries?academic_term_id=
  */
 export async function getLearningAreaSummaries(
-    learningAreaId: string,
-    academicTermId: string
+    learningAreaId: string
 ): Promise<{ items: unknown[] }> {
     return api.get<{ items: unknown[] }>(
-        `/api/v1/assessments/sessions/learning-area/${learningAreaId}/term-subject-summaries?academic_term_id=${encodeURIComponent(academicTermId)}`
+        `/api/v1/assessments/sessions/learning-area/${learningAreaId}/term-subject-summaries`
     );
 }
 
@@ -546,23 +532,18 @@ export async function setTeacherRemark(
  * Refresh overall term summaries for a whole term.
  * POST /api/v1/assessments/term-overall-summaries/refresh — SCHOOL_ADMIN only.
  */
-export async function refreshTermOverall(termId: string): Promise<{ message: string }> {
-    return api.post<{ message: string }>("/api/v1/assessments/term-overall-summaries/refresh", {
-        term_id: termId,
-    });
+export async function refreshTermOverall(): Promise<{ message: string }> {
+    return api.post<{ message: string }>("/api/v1/assessments/term-overall-summaries/refresh", {});
 }
 
 /**
  * Refresh the overall summary for a single student+term pair.
  * POST /api/v1/assessments/term-overall-summaries/refresh-student.
  */
-export async function refreshSingleStudentOverall(
-    studentId: string,
-    termId: string
-): Promise<{ message: string }> {
+export async function refreshSingleStudentOverall(studentId: string): Promise<{ message: string }> {
     return api.post<{ message: string }>(
         "/api/v1/assessments/term-overall-summaries/refresh-student",
-        { student_id: studentId, term_id: termId }
+        { student_id: studentId }
     );
 }
 
@@ -570,11 +551,8 @@ export async function refreshSingleStudentOverall(
  * Get a single student's overall term summary.
  * GET /api/v1/assessments/term-overall-summaries/:studentId/:termId
  */
-export async function getStudentTermOverallSummary(
-    studentId: string,
-    termId: string
-): Promise<unknown> {
-    return api.get<unknown>(`/api/v1/assessments/term-overall-summaries/${studentId}/${termId}`);
+export async function getStudentTermOverallSummary(studentId: string): Promise<unknown> {
+    return api.get<unknown>(`/api/v1/assessments/term-overall-summaries/${studentId}`);
 }
 
 /**
@@ -582,13 +560,11 @@ export async function getStudentTermOverallSummary(
  * GET /api/v1/assessments/term-overall-summaries
  */
 export async function listStudentTermOverallSummaries(params?: {
-    academic_term_id?: string;
     class_id?: string;
     page?: number;
     limit?: number;
 }): Promise<{ items: unknown[]; total: number }> {
     const searchParams = new URLSearchParams();
-    if (params?.academic_term_id) searchParams.set("academic_term_id", params.academic_term_id);
     if (params?.class_id) searchParams.set("class_id", params.class_id);
     if (params?.page) searchParams.set("page", String(params.page));
     if (params?.limit) searchParams.set("limit", String(params.limit));
@@ -631,11 +607,10 @@ export async function refreshStrandSummaries(sessionId: string): Promise<{ messa
  * GET /api/v1/assessments/subject-strand-summaries/:studentId/:termId
  */
 export async function getStudentSubjectStrandSummaries(
-    studentId: string,
-    termId: string
+    studentId: string
 ): Promise<{ items: unknown[] }> {
     return api.get<{ items: unknown[] }>(
-        `/api/v1/assessments/subject-strand-summaries/${studentId}/${termId}`
+        `/api/v1/assessments/subject-strand-summaries/${studentId}`
     );
 }
 
@@ -644,11 +619,9 @@ export async function getStudentSubjectStrandSummaries(
  * GET /api/v1/assessments/subject-strand-summaries
  */
 export async function listSubjectStrandSummariesByTerm(params?: {
-    academic_term_id?: string;
     class_id?: string;
 }): Promise<{ items: unknown[]; total: number }> {
     const searchParams = new URLSearchParams();
-    if (params?.academic_term_id) searchParams.set("academic_term_id", params.academic_term_id);
     if (params?.class_id) searchParams.set("class_id", params.class_id);
     const qs = searchParams.toString();
     return api.get<{ items: unknown[]; total: number }>(
@@ -675,8 +648,8 @@ export async function refreshProjections(): Promise<{ message: string; term_id: 
  * Get a single student's performance projection.
  * GET /api/v1/assessments/projections/:studentId/:termId
  */
-export async function getStudentProjection(studentId: string, termId: string): Promise<unknown> {
-    return api.get<unknown>(`/api/v1/assessments/projections/${studentId}/${termId}`);
+export async function getStudentProjection(studentId: string): Promise<unknown> {
+    return api.get<unknown>(`/api/v1/assessments/projections/${studentId}`);
 }
 
 /**
@@ -684,12 +657,10 @@ export async function getStudentProjection(studentId: string, termId: string): P
  * GET /api/v1/assessments/projections
  */
 export async function listStudentProjections(params?: {
-    academic_term_id?: string;
     page?: number;
     limit?: number;
 }): Promise<{ items: unknown[]; total: number }> {
     const searchParams = new URLSearchParams();
-    if (params?.academic_term_id) searchParams.set("academic_term_id", params.academic_term_id);
     if (params?.page) searchParams.set("page", String(params.page));
     if (params?.limit) searchParams.set("limit", String(params.limit));
     const qs = searchParams.toString();

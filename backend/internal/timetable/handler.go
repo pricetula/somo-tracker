@@ -67,7 +67,18 @@ func (h *Handler) ListTracks(c *fiber.Ctx) error {
 		return err
 	}
 
-	yearID := c.Query("academic_year_id", "")
+	// Always resolve current academic year server-side
+	yearID, err := h.resolveCurrentYear(c, tenantID, schoolID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	if yearID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "NO_ACTIVE_ACADEMIC_YEAR",
+			"message": "No current academic year is active.",
+		})
+	}
+
 	tracks, err := h.svc.ListTracks(c.UserContext(), tenantID, schoolID, yearID)
 	if err != nil {
 		return middleware.HTTPError(c, err)

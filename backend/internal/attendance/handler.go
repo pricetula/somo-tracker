@@ -232,19 +232,16 @@ func (h *Handler) BatchMark(c *fiber.Ctx) error {
 		return middleware.HTTPError(c, xerrors.UnprocessableEntity("invalid request body"))
 	}
 
-	// Resolve academic term: use query param if provided, otherwise resolve current term
-	termID := c.Query("term_id")
+	// Always resolve current academic term server-side
+	termID, err := h.resolveCurrentTerm(c, tenantID, schoolID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
 	if termID == "" {
-		termID, err = h.resolveCurrentTerm(c, tenantID, schoolID)
-		if err != nil {
-			return middleware.HTTPError(c, err)
-		}
-		if termID == "" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"code":    "NO_ACTIVE_ACADEMIC_TERM",
-				"message": "No current academic term is active.",
-			})
-		}
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "NO_ACTIVE_ACADEMIC_TERM",
+			"message": "No current academic term is active.",
+		})
 	}
 
 	result, err := h.svc.BatchMark(c.Context(), tenantID, schoolID, payload, userID, termID)
@@ -279,9 +276,19 @@ func (h *Handler) ListRecordsByStudentTerm(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-
 	studentID := c.Params("student_id")
-	termID := c.Query("term_id")
+
+	// Always resolve current academic term server-side
+	termID, err := h.resolveCurrentTerm(c, tenantID, schoolID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	if termID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "NO_ACTIVE_ACADEMIC_TERM",
+			"message": "No current academic term is active.",
+		})
+	}
 
 	result, err := h.svc.ListRecordsByStudentTerm(c.Context(), tenantID, schoolID, studentID, termID)
 	if err != nil {
@@ -297,10 +304,20 @@ func (h *Handler) ListRecordsByClassDate(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-
 	classID := c.Params("class_id")
 	date := c.Params("date")
-	termID := c.Query("term_id")
+
+	// Always resolve current academic term server-side
+	termID, err := h.resolveCurrentTerm(c, tenantID, schoolID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	if termID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "NO_ACTIVE_ACADEMIC_TERM",
+			"message": "No current academic term is active.",
+		})
+	}
 
 	result, err := h.svc.ListRecordsByClassDate(c.Context(), tenantID, schoolID, classID, date, termID)
 	if err != nil {
@@ -317,12 +334,24 @@ func (h *Handler) ListRecords(c *fiber.Ctx) error {
 		return err
 	}
 
+	// Always resolve current academic term server-side for filtering
+	termID, err := h.resolveCurrentTerm(c, tenantID, schoolID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	if termID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "NO_ACTIVE_ACADEMIC_TERM",
+			"message": "No current academic term is active.",
+		})
+	}
+
 	filter := RecordFilter{
 		TimetableAllocationID: c.Query("timetable_allocation_id"),
 		Date:                  c.Query("date"),
 		StudentID:             c.Query("student_id"),
 		ClassID:               c.Query("class_id"),
-		AcademicTermID:        c.Query("academic_term_id"),
+		AcademicTermID:        termID,
 		Status:                c.Query("status"),
 		SchoolID:              schoolID,
 		TenantID:              tenantID,
@@ -368,18 +397,17 @@ func (h *Handler) GetStudentTermSummary(c *fiber.Ctx) error {
 	}
 
 	studentID := c.Params("student_id")
-	termID := c.Query("term_id")
+
+	// Always resolve current academic term server-side
+	termID, err := h.resolveCurrentTerm(c, tenantID, schoolID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
 	if termID == "" {
-		termID, err = h.resolveCurrentTerm(c, tenantID, schoolID)
-		if err != nil {
-			return middleware.HTTPError(c, err)
-		}
-		if termID == "" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"code":    "NO_ACTIVE_ACADEMIC_TERM",
-				"message": "No current academic term is active.",
-			})
-		}
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "NO_ACTIVE_ACADEMIC_TERM",
+			"message": "No current academic term is active.",
+		})
 	}
 
 	result, err := h.svc.GetStudentTermSummary(c.Context(), tenantID, schoolID, studentID, termID)
@@ -399,18 +427,17 @@ func (h *Handler) GetClassTermSummary(c *fiber.Ctx) error {
 	}
 
 	classID := c.Params("class_id")
-	termID := c.Query("term_id")
+
+	// Always resolve current academic term server-side
+	termID, err := h.resolveCurrentTerm(c, tenantID, schoolID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
 	if termID == "" {
-		termID, err = h.resolveCurrentTerm(c, tenantID, schoolID)
-		if err != nil {
-			return middleware.HTTPError(c, err)
-		}
-		if termID == "" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"code":    "NO_ACTIVE_ACADEMIC_TERM",
-				"message": "No current academic term is active.",
-			})
-		}
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "NO_ACTIVE_ACADEMIC_TERM",
+			"message": "No current academic term is active.",
+		})
 	}
 
 	result, err := h.svc.GetClassTermSummary(c.Context(), tenantID, schoolID, classID, termID)
@@ -429,26 +456,16 @@ func (h *Handler) RefreshSummaries(c *fiber.Ctx) error {
 		return err
 	}
 
-	var payload struct {
-		TermID string `json:"term_id"`
+	// Always resolve current academic term server-side
+	termID, err := h.resolveCurrentTerm(c, tenantID, schoolID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
 	}
-	if err := c.BodyParser(&payload); err != nil {
-		return middleware.HTTPError(c, xerrors.UnprocessableEntity("invalid request body"))
-	}
-
-	// Resolve term if not provided
-	termID := payload.TermID
 	if termID == "" {
-		termID, err = h.resolveCurrentTerm(c, tenantID, schoolID)
-		if err != nil {
-			return middleware.HTTPError(c, err)
-		}
-		if termID == "" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"code":    "NO_ACTIVE_ACADEMIC_TERM",
-				"message": "No current academic term is active.",
-			})
-		}
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "NO_ACTIVE_ACADEMIC_TERM",
+			"message": "No current academic term is active.",
+		})
 	}
 
 	result, err := h.svc.RefreshSummaries(c.Context(), tenantID, schoolID, termID)
@@ -616,18 +633,16 @@ func (h *Handler) ListClassAttendanceBreakdowns(c *fiber.Ctx) error {
 		return err
 	}
 
-	termID := c.Query("academic_term_id")
+	// Always resolve current academic term server-side
+	termID, err := h.resolveCurrentTerm(c, tenantID, schoolID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
 	if termID == "" {
-		termID, err = h.resolveCurrentTerm(c, tenantID, schoolID)
-		if err != nil {
-			return middleware.HTTPError(c, err)
-		}
-		if termID == "" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"code":    "NO_ACTIVE_ACADEMIC_TERM",
-				"message": "No current academic term is active.",
-			})
-		}
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "NO_ACTIVE_ACADEMIC_TERM",
+			"message": "No current academic term is active.",
+		})
 	}
 
 	result, err := h.svc.ListClassAttendanceBreakdowns(c.Context(), tenantID, schoolID, termID)
@@ -655,18 +670,16 @@ func (h *Handler) ListLearningAreaBreakdowns(c *fiber.Ctx) error {
 		return err
 	}
 
-	termID := c.Query("academic_term_id")
+	// Always resolve current academic term server-side
+	termID, err := h.resolveCurrentTerm(c, tenantID, schoolID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
 	if termID == "" {
-		termID, err = h.resolveCurrentTerm(c, tenantID, schoolID)
-		if err != nil {
-			return middleware.HTTPError(c, err)
-		}
-		if termID == "" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"code":    "NO_ACTIVE_ACADEMIC_TERM",
-				"message": "No current academic term is active.",
-			})
-		}
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "NO_ACTIVE_ACADEMIC_TERM",
+			"message": "No current academic term is active.",
+		})
 	}
 
 	result, err := h.svc.ListLearningAreaBreakdowns(c.Context(), tenantID, schoolID, termID)

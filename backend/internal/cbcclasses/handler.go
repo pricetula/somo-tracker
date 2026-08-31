@@ -64,40 +64,22 @@ func (h *Handler) List(c *fiber.Ctx) error {
 		})
 	}
 
-	academicYearID := c.Query("academic_year_id")
-	academicTermID := c.Query("academic_term_id")
-
-	// If neither provided, resolve current academic year and term
-	if academicYearID == "" && academicTermID == "" {
-		var err error
-		academicYearID, academicTermID, err = h.academicYearsSvc.GetCurrentYearAndTermID(c.Context(), tenantID, schoolID)
-		if err != nil {
-			return middleware.HTTPError(c, err)
-		}
-		// No current academic year/term configured — nothing to list
-		if academicYearID == "" || academicTermID == "" {
-			return c.JSON(ClassListResult{Items: []Class{}, Total: 0, Page: 1, Limit: 50})
-		}
-	} else if academicYearID == "" && academicTermID != "" {
-		// If term is provided but year is not, resolve current academic year
-		var err error
-		academicYearID, _, err = h.academicYearsSvc.GetCurrentYearAndTermID(c.Context(), tenantID, schoolID)
-		if err != nil {
-			return middleware.HTTPError(c, err)
-		}
-		if academicYearID == "" {
-			return c.JSON(ClassListResult{Items: []Class{}, Total: 0, Page: 1, Limit: 50})
-		}
-	} else if academicYearID != "" && academicTermID == "" {
-		// If year is provided but term is not, resolve current term for that year
-		var err error
-		_, academicTermID, err = h.academicYearsSvc.GetCurrentYearAndTermID(c.Context(), tenantID, schoolID)
-		if err != nil {
-			return middleware.HTTPError(c, err)
-		}
-		if academicTermID == "" {
-			return c.JSON(ClassListResult{Items: []Class{}, Total: 0, Page: 1, Limit: 50})
-		}
+	// Always resolve current academic year and term server-side
+	academicYearID, academicTermID, err := h.academicYearsSvc.GetCurrentYearAndTermID(c.Context(), tenantID, schoolID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	if academicYearID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "NO_ACTIVE_ACADEMIC_YEAR",
+			"message": "No current academic year is set for this school.",
+		})
+	}
+	if academicTermID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "NO_ACTIVE_ACADEMIC_TERM",
+			"message": "No current academic term is active.",
+		})
 	}
 
 	page := 1
@@ -163,17 +145,9 @@ func (h *Handler) Get(c *fiber.Ctx) error {
 		return mapClassError(c, err)
 	}
 
-	// Get student count from roster — scope to the provided term or current
-	academicTermID := c.Query("academic_term_id")
-	if academicTermID == "" {
-		_, academicTermID, err := h.academicYearsSvc.GetCurrentYearAndTermID(c.Context(), tenantID, schoolID)
-		if err == nil && academicTermID != "" {
-			rosterResult, rosterErr := h.svc.GetRoster(c.Context(), classID, tenantID, schoolID, academicTermID, 1, 1, "")
-			if rosterErr == nil {
-				class.StudentCount = rosterResult.Total
-			}
-		}
-	} else {
+	// Get student count from roster using current academic term
+	_, academicTermID, err := h.academicYearsSvc.GetCurrentYearAndTermID(c.Context(), tenantID, schoolID)
+	if err == nil && academicTermID != "" {
 		rosterResult, rosterErr := h.svc.GetRoster(c.Context(), classID, tenantID, schoolID, academicTermID, 1, 1, "")
 		if rosterErr == nil {
 			class.StudentCount = rosterResult.Total
@@ -399,28 +373,22 @@ func (h *Handler) GetRoster(c *fiber.Ctx) error {
 		})
 	}
 
-	academicYearID := c.Query("academic_year_id")
-	academicTermID := c.Query("academic_term_id")
-
-	// If neither provided, fall back to the current academic year/term
-	if academicYearID == "" && academicTermID == "" {
-		var err error
-		academicYearID, academicTermID, err = h.academicYearsSvc.GetCurrentYearAndTermID(c.Context(), tenantID, schoolID)
-		if err != nil {
-			return middleware.HTTPError(c, err)
-		}
-		if academicYearID == "" || academicTermID == "" {
-			return c.JSON(RosterListResult{Items: []RosterEntry{}, Total: 0, Page: 1, Limit: 50})
-		}
-	} else if academicTermID == "" && academicYearID != "" {
-		var err error
-		_, academicTermID, err = h.academicYearsSvc.GetCurrentYearAndTermID(c.Context(), tenantID, schoolID)
-		if err != nil {
-			return middleware.HTTPError(c, err)
-		}
-		if academicTermID == "" {
-			return c.JSON(RosterListResult{Items: []RosterEntry{}, Total: 0, Page: 1, Limit: 50})
-		}
+	// Always resolve current academic year and term server-side
+	academicYearID, academicTermID, err := h.academicYearsSvc.GetCurrentYearAndTermID(c.Context(), tenantID, schoolID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	if academicYearID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "NO_ACTIVE_ACADEMIC_YEAR",
+			"message": "No current academic year is set for this school.",
+		})
+	}
+	if academicTermID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "NO_ACTIVE_ACADEMIC_TERM",
+			"message": "No current academic term is active.",
+		})
 	}
 
 	page := 1
@@ -476,21 +444,17 @@ func (h *Handler) BatchEnroll(c *fiber.Ctx) error {
 		})
 	}
 
-	// Use the provided academic term or resolve the current one
-	academicTermID := payload.AcademicTermID
-	if academicTermID == "" {
-		_, academicTermID, err := h.academicYearsSvc.GetCurrentYearAndTermID(c.Context(), tenantID, schoolID)
-		if err != nil {
-			return middleware.HTTPError(c, err)
-		}
-		if academicTermID == "" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"code":    "NO_ACTIVE_ACADEMIC_TERM",
-				"message": "No current academic term is active.",
-			})
-		}
+	// Always resolve current academic term server-side
+	_, academicTermID, err := h.academicYearsSvc.GetCurrentYearAndTermID(c.Context(), tenantID, schoolID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
 	}
-
+	if academicTermID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "NO_ACTIVE_ACADEMIC_TERM",
+			"message": "No current academic term is active.",
+		})
+	}
 	if len(payload.StudentIDs) == 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"code":    "VALIDATION_ERROR",
@@ -529,19 +493,16 @@ func (h *Handler) UnenrollStudent(c *fiber.Ctx) error {
 		})
 	}
 
-	// Use the provided academic term from query or resolve the current one
-	academicTermID := c.Query("academic_term_id")
+	// Always resolve current academic term server-side
+	_, academicTermID, err := h.academicYearsSvc.GetCurrentYearAndTermID(c.Context(), tenantID, schoolID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
 	if academicTermID == "" {
-		_, academicTermID, err := h.academicYearsSvc.GetCurrentYearAndTermID(c.Context(), tenantID, schoolID)
-		if err != nil {
-			return middleware.HTTPError(c, err)
-		}
-		if academicTermID == "" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"code":    "NO_ACTIVE_ACADEMIC_TERM",
-				"message": "No current academic term is active.",
-			})
-		}
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "NO_ACTIVE_ACADEMIC_TERM",
+			"message": "No current academic term is active.",
+		})
 	}
 
 	if err := h.svc.UnenrollStudent(c.Context(), classID, studentID, tenantID, schoolID, academicTermID); err != nil {
@@ -575,28 +536,22 @@ func (h *Handler) GetAvailableStudents(c *fiber.Ctx) error {
 		})
 	}
 
-	// Use the provided academic year/term from query or resolve the current one
-	academicYearID := c.Query("academic_year_id")
-	academicTermID := c.Query("academic_term_id")
-
-	if academicYearID == "" && academicTermID == "" {
-		var err error
-		academicYearID, academicTermID, err = h.academicYearsSvc.GetCurrentYearAndTermID(c.Context(), tenantID, schoolID)
-		if err != nil {
-			return middleware.HTTPError(c, err)
-		}
-		if academicYearID == "" || academicTermID == "" {
-			return c.JSON(AvailableStudentsResponse{Items: []AvailableStudent{}, Total: 0, Page: 1, Limit: 50})
-		}
-	} else if academicTermID == "" && academicYearID != "" {
-		var err error
-		_, academicTermID, err = h.academicYearsSvc.GetCurrentYearAndTermID(c.Context(), tenantID, schoolID)
-		if err != nil {
-			return middleware.HTTPError(c, err)
-		}
-		if academicTermID == "" {
-			return c.JSON(AvailableStudentsResponse{Items: []AvailableStudent{}, Total: 0, Page: 1, Limit: 50})
-		}
+	// Always resolve current academic year and term server-side
+	academicYearID, academicTermID, err := h.academicYearsSvc.GetCurrentYearAndTermID(c.Context(), tenantID, schoolID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	if academicYearID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "NO_ACTIVE_ACADEMIC_YEAR",
+			"message": "No current academic year is set for this school.",
+		})
+	}
+	if academicTermID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "NO_ACTIVE_ACADEMIC_TERM",
+			"message": "No current academic term is active.",
+		})
 	}
 
 	page := 1

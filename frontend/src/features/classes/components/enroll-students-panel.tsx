@@ -1,25 +1,28 @@
 /**
- * EnrollStudentsPanel — Searchable checklist for batch-enrolling students.
+ * EnrollStudentsPanel — Paginated searchable checklist for batch-enrolling students.
  *
- * Academic year and term are resolved server-side from the current active term.
- * No user selection is required.
+ * Uses DataTable with infinite pagination. Academic year and term are resolved
+ * server-side from the current active term.
  */
 
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Search, Loader2, Check, AlertTriangle } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Loader2, Check } from "lucide-react";
 
-import { getAvailableStudents, batchEnrollStudents } from "@/lib/api/classes";
+import { DataTable } from "@/components/shared/data-table";
+import { type DataTableColumn } from "@/components/shared/data-table/types";
+import {
+    batchEnrollStudents,
+    getAvailableStudents,
+    type AvailableStudent,
+} from "@/lib/api/classes";
 import { getErrorMessage } from "@/lib/errors";
-import { STALE_TIMES } from "@/lib/query-config";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
+import { AlertTriangle } from "lucide-react";
 
 // ─── Props ─────────────────────────────────────────────────────────────────
 
@@ -29,103 +32,96 @@ interface EnrollStudentsPanelProps {
     onSuccess?: () => void;
 }
 
+// ─── Query-fn factory ──────────────────────────────────────────────────────
+
+function createAvailableStudentsQueryFn(classId: string) {
+    return (params: { page?: number; limit?: number; search?: string }) =>
+        getAvailableStudents(classId, {
+            page: params.page,
+            limit: params.limit,
+            search: params.search,
+        });
+}
+
 // ─── Component ─────────────────────────────────────────────────────────────
 
 export function EnrollStudentsPanel({ classId, onSuccess }: EnrollStudentsPanelProps) {
     const queryClient = useQueryClient();
-    const [search, setSearch] = useState("");
-    const [debouncedSearch, setDebouncedSearch] = useState("");
-    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [errorBanner, setErrorBanner] = useState<string | null>(null);
-    const searchInputRef = useRef<HTMLInputElement>(null);
 
-    // Auto-focus search when it appears
-    useEffect(() => {
-        setTimeout(() => searchInputRef.current?.focus(), 100);
+    const columns = useMemo((): DataTableColumn<AvailableStudent>[] => {
+        return [
+            {
+                id: "full_name",
+                header: "Student Name",
+                cell: (row) => <span className="truncate font-medium">{row.full_name}</span>,
+            },
+            {
+                id: "admission_number",
+                header: "Admission No.",
+                width: "160px",
+                cell: (row) => (
+                    <span className="text-muted-foreground truncate font-mono">
+                        {row.admission_number ?? "—"}
+                    </span>
+                ),
+            },
+            {
+                id: "upi_number",
+                header: "UPI Number",
+                width: "160px",
+                cell: (row) => (
+                    <span className="text-muted-foreground truncate font-mono">
+                        {row.upi_number ?? "—"}
+                    </span>
+                ),
+            },
+            {
+                id: "current_class",
+                header: "Current Class",
+                width: "200px",
+                cell: (row) =>
+                    row.current_class_id ? (
+                        <span className="text-muted-foreground truncate">{row.current_class}</span>
+                    ) : (
+                        <span className="shrink-0 text-emerald-600">Unenrolled</span>
+                    ),
+            },
+        ];
     }, []);
 
-    // ── Fetch available students (backend resolves current academic term) ────
-    const {
-        data: availableData,
-        isLoading,
-        isError: isListError,
-        error: listError,
-    } = useQuery({
-        queryKey: ["available-students", classId, debouncedSearch],
-        queryFn: () =>
-            getAvailableStudents(classId, {
-                search: debouncedSearch,
-                limit: 200,
-            }),
-        staleTime: STALE_TIMES.LIVE,
-    });
+    const queryFn = useMemo(() => createAvailableStudentsQueryFn(classId), [classId]);
 
-    // ── Debounce search input ────────────────────────────────────────
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setDebouncedSearch(search);
-        }, 300);
-        return () => clearTimeout(timer);
-    }, [search]);
-
-    const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-        setSearch(e.target.value);
-    }, []);
+    const isRowCheckable = useCallback((row: AvailableStudent) => !row.current_class_id, []);
 
     // ── Batch enrollment mutation ────────────────────────────────────
     const enrollMutation = useMutation({
         mutationFn: (studentIds: string[]) => batchEnrollStudents(classId, studentIds),
         onSuccess: (data) => {
-            toast.success(data.message || `${data.enrolled_count} students successfully enrolled.`);
+            toast.success(data.message ?? `${data.enrolled_count} students enrolled.`);
             queryClient.invalidateQueries({ queryKey: ["class-roster", classId] });
             queryClient.invalidateQueries({ queryKey: ["available-students", classId] });
             onSuccess?.();
         },
-        onError: () => {
-            setErrorBanner(
-                "Enrollment failed. One or more selected students were updated elsewhere. Please refresh and try again."
-            );
+        onError: (err) => {
+            setErrorBanner(getErrorMessage(err));
         },
     });
 
-    // ── Handlers ─────────────────────────────────────────────────────
-    const handleToggleStudent = useCallback((studentId: string) => {
-        setSelectedIds((prev) => {
-            const next = new Set(prev);
-            if (next.has(studentId)) {
-                next.delete(studentId);
-            } else {
-                next.add(studentId);
-            }
-            return next;
-        });
-        setErrorBanner(null);
-    }, []);
-
-    const handleSelectAll = useCallback(() => {
-        if (!availableData?.items) return;
-        setSelectedIds(new Set(availableData.items.map((s) => s.id)));
-        setErrorBanner(null);
-    }, [availableData]);
-
-    const handleDeselectAll = useCallback(() => {
-        setSelectedIds(new Set());
-        setErrorBanner(null);
-    }, []);
-
-    const handleConfirmEnrollment = useCallback(() => {
-        if (selectedIds.size === 0) return;
-        setErrorBanner(null);
-        enrollMutation.mutate(Array.from(selectedIds));
-    }, [selectedIds, enrollMutation]);
-
-    const students = availableData?.items ?? [];
+    const handleConfirmEnrollment = useCallback(
+        (selectedIds: Set<string>) => {
+            if (selectedIds.size === 0) return;
+            setErrorBanner(null);
+            enrollMutation.mutate(Array.from(selectedIds));
+        },
+        [enrollMutation]
+    );
 
     return (
         <div className="flex flex-col gap-4">
             <p className="text-muted-foreground">
                 Search and select students to enroll in this class. The current academic term will
-                be used automatically.
+                be used automatically. Students already enrolled in another class are disabled.
             </p>
 
             {/* Error banner */}
@@ -136,123 +132,40 @@ export function EnrollStudentsPanel({ classId, onSuccess }: EnrollStudentsPanelP
                 </Alert>
             )}
 
-            {/* Search input */}
-            <div className="relative">
-                <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
-                <Input
-                    ref={searchInputRef}
-                    placeholder="Search by name or admission number..."
-                    value={search}
-                    onChange={handleSearchChange}
-                    className="pl-9"
-                />
-            </div>
-
-            {/* Selection actions */}
-            {students.length > 0 && (
-                <div className="text-muted-foreground flex items-center gap-2">
-                    <button
-                        type="button"
-                        onClick={handleSelectAll}
-                        className="hover:text-foreground hover:underline"
+            {/* Paginated DataTable */}
+            <DataTable
+                isCheckable
+                isRowCheckable={isRowCheckable}
+                queryKey={["available-students", classId]}
+                queryFn={queryFn}
+                columns={columns}
+                getRowId={(row) => row.id}
+                isSearchable
+                searchPlaceholder="Search by name or admission number..."
+                pageSize={50}
+                height={500}
+                emptyState="All students are already enrolled in this class."
+                noResultsState="No students match your search."
+                renderToolBarComponents={(selectedIds) => (
+                    <Button
+                        size="sm"
+                        onClick={() => handleConfirmEnrollment(selectedIds)}
+                        disabled={selectedIds.size === 0 || enrollMutation.isPending}
                     >
-                        Select all
-                    </button>
-                    <span aria-hidden>&middot;</span>
-                    <button
-                        type="button"
-                        onClick={handleDeselectAll}
-                        className="hover:text-foreground hover:underline"
-                    >
-                        Deselect all
-                    </button>
-                    {selectedIds.size > 0 && (
-                        <span className="ml-auto tabular-nums">{selectedIds.size} selected</span>
-                    )}
-                </div>
-            )}
-
-            {/* Student list */}
-            <div className="max-h-[50vh] overflow-y-auto rounded-md border">
-                {isLoading ? (
-                    <div className="space-y-2 p-4">
-                        <Skeleton className="h-10 w-full" />
-                        <Skeleton className="h-10 w-full" />
-                        <Skeleton className="h-10 w-3/4" />
-                        <Skeleton className="h-10 w-full" />
-                        <Skeleton className="h-10 w-5/6" />
-                    </div>
-                ) : isListError ? (
-                    <p className="text-destructive p-4 text-center">{getErrorMessage(listError)}</p>
-                ) : students.length === 0 ? (
-                    <p className="text-muted-foreground p-6 text-center">
-                        {debouncedSearch
-                            ? "No students match your search."
-                            : "All students are already enrolled in this class."}
-                    </p>
-                ) : (
-                    <ul className="divide-y">
-                        {students.map((student) => (
-                            <li key={student.id}>
-                                <label
-                                    className={`hover:bg-muted/50 flex cursor-pointer items-center gap-3 px-4 py-2.5 transition-colors ${
-                                        student.current_class_id ? "opacity-50" : ""
-                                    }`}
-                                >
-                                    <Checkbox
-                                        checked={selectedIds.has(student.id)}
-                                        onCheckedChange={() => handleToggleStudent(student.id)}
-                                        disabled={!!student.current_class_id}
-                                    />
-                                    <div className="flex min-w-0 flex-1 flex-col">
-                                        <span className="truncate font-medium">
-                                            {student.full_name}
-                                        </span>
-                                        <span className="text-muted-foreground truncate">
-                                            {student.admission_number &&
-                                                `Adm: ${student.admission_number}`}
-                                            {student.admission_number &&
-                                                student.upi_number &&
-                                                " \u00b7 "}
-                                            {student.upi_number && `UPI: ${student.upi_number}`}
-                                        </span>
-                                    </div>
-                                    {student.current_class ? (
-                                        <span className="text-muted-foreground shrink-0">
-                                            In: {student.current_class}
-                                        </span>
-                                    ) : (
-                                        <span className="shrink-0 text-emerald-600">
-                                            Unenrolled
-                                        </span>
-                                    )}
-                                </label>
-                            </li>
-                        ))}
-                    </ul>
+                        {enrollMutation.isPending ? (
+                            <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Enrolling…
+                            </>
+                        ) : (
+                            <>
+                                <Check className="mr-2 h-4 w-4" />
+                                Confirm Enrollment ({selectedIds.size})
+                            </>
+                        )}
+                    </Button>
                 )}
-            </div>
-
-            {/* Confirm button */}
-            <div className="flex items-center justify-end gap-2 pt-2">
-                <Button
-                    size="sm"
-                    onClick={handleConfirmEnrollment}
-                    disabled={selectedIds.size === 0 || enrollMutation.isPending}
-                >
-                    {enrollMutation.isPending ? (
-                        <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Enrolling...
-                        </>
-                    ) : (
-                        <>
-                            <Check className="mr-2 h-4 w-4" />
-                            Confirm Enrollment
-                        </>
-                    )}
-                </Button>
-            </div>
+            />
         </div>
     );
 }

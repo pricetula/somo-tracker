@@ -1,11 +1,13 @@
 package auth
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -91,6 +93,7 @@ func NewHandlerWithLimiters(svc *Service, logger *zap.Logger, cfg config.Config,
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	auth := router.Group("/api/auth")
 	auth.Delete("/session", h.Logout)
+	auth.Delete("/sessions/:token", middleware.RequireAuth, middleware.RequireRole("admin"), h.RevokeSession)
 
 	// Public endpoints: IP‑based rate limit (stricter than global coarse limiter).
 	// Applied per-route, NOT as group middleware — Fiber group middleware
@@ -171,11 +174,41 @@ func (h *Handler) Discover(c *fiber.Ctx) error {
 		return middleware.HTTPError(c, fmt.Errorf("email is required and must be a valid address: %w", middleware.ErrInvalidInput))
 	}
 
+	// Per-email brute-force protection: max 5 discovers per 15 minutes per email
+	if limited, err := h.checkEmailRateLimit(c.Context(), payload.Email); err != nil {
+		return middleware.HTTPError(c, err)
+	} else if limited {
+		return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
+			"code":    "rate_limit_exceeded",
+			"message": "too many discovery attempts for this email, please try again later",
+		})
+	}
+
 	if err := h.svc.Discover(c.Context(), payload.Email); err != nil {
 		return middleware.HTTPError(c, err)
 	}
 
 	return c.SendStatus(fiber.StatusOK)
+}
+
+// checkEmailRateLimit enforces a per-email throttle for magic-link discovers.
+func (h *Handler) checkEmailRateLimit(ctx context.Context, email string) (bool, error) {
+	rdb := h.svc.GetRedis()
+	key := "ratelimit:email_discover:" + strings.ToLower(email)
+	cnt, err := rdb.Incr(ctx, key).Result()
+	if err != nil {
+		// Fail open on Redis errors to avoid blocking legitimate logins
+		h.logger.Warn("email rate limit redis error", zap.Error(err))
+		return false, nil
+	}
+	if cnt == 1 {
+		// Set expiry on first hit
+		rdb.Expire(ctx, key, 15*time.Minute)
+	}
+	if cnt > 5 {
+		return true, nil
+	}
+	return false, nil
 }
 
 // isValidEmail performs a lightweight format check on an email address.
@@ -516,6 +549,18 @@ func (h *Handler) Logout(c *fiber.Ctx) error {
 		return middleware.HTTPError(c, err)
 	}
 
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+// RevokeSession handles DELETE /api/auth/sessions/:token for admin users.
+func (h *Handler) RevokeSession(c *fiber.Ctx) error {
+	token := c.Params("token")
+	if token == "" {
+		return middleware.HTTPError(c, errors.New("token required"))
+	}
+	if err := h.svc.Logout(c.Context(), token); err != nil {
+		return middleware.HTTPError(c, err)
+	}
 	return c.SendStatus(fiber.StatusNoContent)
 }
 

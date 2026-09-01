@@ -26,7 +26,7 @@ func Register(app *fiber.App, pools *database.Pools, cfg config.Config, logger *
 	app.Use(NewPanicRecover())
 	app.Use(NewRequestID())
 	app.Use(NewCORS(cfg))
-	app.Use(NewSecurityHeaders())
+	app.Use(NewSecurityHeaders(cfg))
 	app.Use(NewCSRFGuard(cfg))
 	app.Use(NewRateLimiter(pools.Redis, RateLimiterConfig{
 		Limit:  cfg.RateLimitIPMax,

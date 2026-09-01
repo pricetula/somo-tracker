@@ -30,6 +30,7 @@ type Config struct {
 	RateLimitIPMax    int64         // Tier 1: Max requests per window per IP (e.g. 300)
 	RateLimitUserMax  int64         // Tier 2: Max requests per window per User ID (e.g. 60)
 	RateLimitWindow   time.Duration // Rate limit window (e.g. 1m)
+	SessionTTL        time.Duration // Session token TTL, default 30 days
 
 	// EnforceDeviceFingerprint turns the C5 device-bound session check into a
 	// hard 401 in production. Defaults to false: mismatches are logged but the
@@ -97,6 +98,7 @@ func Load() Config {
 		RateLimitIPMax:   envInt("RATE_LIMIT_IP_MAX", 300),
 		RateLimitUserMax: envInt("RATE_LIMIT_USER_MAX", 60),
 		RateLimitWindow:  envDuration("RATE_LIMIT_WINDOW", time.Minute),
+		SessionTTL:       envDuration("SESSION_TTL", 30*24*time.Hour),
 
 		// C5 device-bound session enforcement (opt-in; see field docs)
 		EnforceDeviceFingerprint: enforceDeviceFingerprint,

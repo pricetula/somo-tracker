@@ -4,9 +4,10 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
+	"somotracker/backend/internal/config"
 )
 
-func NewSecurityHeaders() fiber.Handler {
+func NewSecurityHeaders(cfg config.Config) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		// 1. Prevent MIME-type sniffing
 		c.Set("X-Content-Type-Options", "nosniff")
@@ -26,8 +27,9 @@ func NewSecurityHeaders() fiber.Handler {
 		// 6. Cross-Origin Resource Policy
 		c.Set("Cross-Origin-Resource-Policy", "same-site")
 
-		// 7. Enforce HTTPS via HSTS (only on TLS or when behind an SSL-terminating reverse proxy)
-		if c.Protocol() == "https" || c.Get("X-Forwarded-Proto") == "https" {
+		// 7. Enforce HTTPS via HSTS
+		// In production, enforce HSTS unconditionally; in dev require explicit HTTPS detection
+		if cfg.AppEnv == "production" || c.Protocol() == "https" || c.Get("X-Forwarded-Proto") == "https" {
 			c.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 		}
 

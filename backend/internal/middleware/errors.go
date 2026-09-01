@@ -114,7 +114,7 @@ func handleDomainError(c *fiber.Ctx, err error, de *xerrors.DomainError) error {
 	req := buildTelemetryRequest(c)
 
 	// Add error metadata to telemetry request
-	if de.Meta != nil && len(de.Meta) > 0 {
+	if len(de.Meta) > 0 {
 		if req.Context == nil {
 			req.Context = make(map[string]any)
 		}
@@ -138,7 +138,7 @@ func handleDomainError(c *fiber.Ctx, err error, de *xerrors.DomainError) error {
 
 	// Select and apply policy
 	policy := selectPolicy(de)
-	policy.Apply(c.Context(), req, de)
+	_ = policy.Apply(c.Context(), req, de)
 
 	// Build the response body
 	resp := buildResponseBody(c, err)

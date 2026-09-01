@@ -25,10 +25,13 @@ import (
 // ============================================================================
 
 const (
-	istTTL        = 10 * time.Minute    // Redis TTL for IST cache (requirement 2)
-	sessionTTL    = 30 * 24 * time.Hour // 30-day Redis TTL for session token (requirement 4)
-	istKeyPrefix  = "ist:"              // key pattern: "ist:{env}:{uuid}"
-	sessionPrefix = "session:"          // key pattern: "session:{token}"
+	istTTL        = 10 * time.Minute // Redis TTL for IST cache (requirement 2)
+	istKeyPrefix  = "ist:"           // key pattern: "ist:{env}:{uuid}"
+	sessionPrefix = "session:"       // key pattern: "session:{token}"
+)
+
+var (
+	sessionTTL = 30 * 24 * time.Hour // 30-day Redis TTL for session token (requirement 4), overridden in NewService from config
 )
 
 // Service holds business logic dependencies.
@@ -75,6 +78,11 @@ func NewService(
 			return nil
 		},
 	})
+
+	// Override package-level session TTL from config for configurability
+	if cfg.SessionTTL > 0 {
+		sessionTTL = cfg.SessionTTL
+	}
 
 	return &Service{
 		idp:           idp,

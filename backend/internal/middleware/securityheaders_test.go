@@ -9,11 +9,14 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"somotracker/backend/internal/config"
 )
 
 func TestSecurityHeaders(t *testing.T) {
 	app := fiber.New()
-	app.Use(NewSecurityHeaders())
+	cfg := config.Config{AppEnv: "development"}
+	app.Use(NewSecurityHeaders(cfg))
 
 	// Register dummy endpoints
 	app.Get("/api/v1/students", func(c *fiber.Ctx) error {

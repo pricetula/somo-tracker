@@ -13,7 +13,9 @@ import { api } from "@/lib/api/client";
 export interface LessonEntry {
     id: string;
     subject_name: string;
+    subject_id: string;
     class_name: string;
+    class_id: string;
     period_name: string;
     start_time: string; // ISO datetime string
     end_time: string; // ISO datetime string

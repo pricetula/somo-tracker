@@ -96,7 +96,9 @@ type TeacherTimetableAllocation struct {
 type TeacherLessonTimelineItem struct {
 	ID          string  `json:"id"`
 	SubjectName string  `json:"subject_name"`
+	SubjectID   string  `json:"subject_id"`
 	ClassName   string  `json:"class_name"`
+	ClassID     string  `json:"class_id"`
 	PeriodName  string  `json:"period_name"`
 	StartTime   string  `json:"start_time"`
 	EndTime     string  `json:"end_time"`

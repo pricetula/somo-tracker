@@ -342,10 +342,12 @@ func (r *PgRepository) ListTeacherLessonTimeline(ctx context.Context, tenantID, 
 		SELECT
 			ts.id::text,
 			COALESCE(la.name, '') AS subject_name,
+			COALESCE(ts.learning_area_id::text, '') AS subject_id,
 			c.grade_level || ' ' || COALESCE(st.name, '') AS class_name,
+			c.id AS class_id,
 			tstr.period_name,
-			to_char(($4::date + (tstr.day_of_week - 1) * INTERVAL '1 day') + tstr.start_time, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS start_time,
-			to_char(($4::date + (tstr.day_of_week - 1) * INTERVAL '1 day') + tstr.end_time, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS end_time,
+			to_char(($4::date + (tstr.day_of_week - 1) * INTERVAL '1 day') + tstr.start_time, 'YYYY-MM-DD"T"HH24:MI:SS') AS start_time,
+			to_char(($4::date + (tstr.day_of_week - 1) * INTERVAL '1 day') + tstr.end_time, 'YYYY-MM-DD"T"HH24:MI:SS') AS end_time,
 			ts.room_identifier
 		FROM timetable_allocations ts
 		JOIN timetable_blocks tstr ON tstr.id = ts.block_id
@@ -370,7 +372,9 @@ func (r *PgRepository) ListTeacherLessonTimeline(ctx context.Context, tenantID, 
 		if err := rows.Scan(
 			&item.ID,
 			&item.SubjectName,
+			&item.SubjectID,
 			&item.ClassName,
+			&item.ClassID,
 			&item.PeriodName,
 			&item.StartTime,
 			&item.EndTime,

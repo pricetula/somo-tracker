@@ -3,6 +3,7 @@ package teachers
 import (
 	"context"
 	"fmt"
+	"time"
 )
 
 // Service contains business logic for the teachers domain.
@@ -85,6 +86,9 @@ func (s *Service) ListTeacherClasses(ctx context.Context, tenantID, schoolID, us
 func (s *Service) ListTeacherLessonTimeline(ctx context.Context, tenantID, schoolID, userID, weekStart string, limit int) (*TeacherLessonTimelinePage, error) {
 	if userID == "" {
 		return nil, fmt.Errorf("teachers.Service.ListTeacherLessonTimeline: user_id is required: %w", ErrInvalidInput)
+	}
+	if weekStart == "" {
+		weekStart = time.Now().UTC().Format("2006-01-02")
 	}
 	items, nextCursor, err := s.repo.ListTeacherLessonTimeline(ctx, tenantID, schoolID, userID, weekStart, limit)
 	if err != nil {

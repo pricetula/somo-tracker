@@ -8,6 +8,7 @@ import (
 	"go.uber.org/fx"
 
 	"somotracker/backend/internal/middleware"
+	"somotracker/backend/internal/validation"
 )
 
 // Handler exposes teacher HTTP endpoints.
@@ -226,14 +227,14 @@ func (h *Handler) ListClasses(c *fiber.Ctx) error {
 func (h *Handler) GetLessons(c *fiber.Ctx) error {
 	tenantID := c.Locals("tenant_id").(string)
 	schoolID := c.Locals("active_school_id").(string)
-	if schoolID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "VALIDATION_ERROR",
-			"message": "active school not set",
-		})
+	if err := validation.RequireUUIDs(map[string]string{
+		"tenant_id": tenantID,
+		"school_id": schoolID,
+		"user_id":   c.Params("user_id"),
+	}); err != nil {
+		return middleware.HTTPError(c, err)
 	}
 
-	userID := c.Params("user_id")
 	weekStart := c.Query("week_start", "")
 	limitStr := c.Query("limit", "20")
 	limit, err := strconv.Atoi(limitStr)
@@ -241,7 +242,7 @@ func (h *Handler) GetLessons(c *fiber.Ctx) error {
 		limit = 20
 	}
 
-	result, err := h.svc.ListTeacherLessonTimeline(c.Context(), tenantID, schoolID, userID, weekStart, limit)
+	result, err := h.svc.ListTeacherLessonTimeline(c.Context(), tenantID, schoolID, c.Params("user_id"), weekStart, limit)
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}

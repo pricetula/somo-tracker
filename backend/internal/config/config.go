@@ -60,10 +60,24 @@ func Load() Config {
 		}
 	}
 
+	appEnv := getEnv("APP_ENV", "development")
+	cookieSecret := getEnv("COOKIE_SECRET", "")
+	if cookieSecret == "" {
+		if appEnv == "development" {
+			cookieSecret = "dev-insecure-change-in-production"
+		}
+	}
+	if appEnv != "development" && cookieSecret == "" {
+		panic("COOKIE_SECRET must be set in non-development environments")
+	}
+	if appEnv != "development" && cookieSecret == "dev-insecure-change-in-production" {
+		panic("COOKIE_SECRET must not be the development default in non-development environments")
+	}
+
 	return Config{
 		DatabaseURL:       getEnv("DATABASE_URL", "postgres://somo_admin:somo_secure_password@somotracker_postgres:5432/somotracker_dev?sslmode=disable"),
 		RedisURL:          getEnv("REDIS_URL", "redis:6379"),
-		AppEnv:            getEnv("APP_ENV", "development"),
+		AppEnv:            appEnv,
 		Port:              getEnv("PORT", "3030"),
 		AllowedOrigins:    getEnv("ALLOWED_ORIGINS", "http://localhost:3000"),
 		CookieDomain:      getEnv("COOKIE_DOMAIN", ""),
@@ -74,7 +88,7 @@ func Load() Config {
 		StytchBaseURL:     getEnv("STYTCH_BASE_URL", ""),
 		BackendURL:        getEnv("BACKEND_URL", "http://localhost:3030"),
 		FrontendURL:       getEnv("FRONTEND_URL", "http://localhost:3000"),
-		CookieSecret:      getEnv("COOKIE_SECRET", "dev-insecure-change-in-production"),
+		CookieSecret:      cookieSecret,
 		// Rate Limiting Configuration
 		RateLimitIPMax:   envInt("RATE_LIMIT_IP_MAX", 300),
 		RateLimitUserMax: envInt("RATE_LIMIT_USER_MAX", 60),

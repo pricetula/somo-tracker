@@ -553,4 +553,30 @@ func TestSessionResolver(t *testing.T) {
 		app := deviceApp(config.Config{AppEnv: "development"}, "fp-evil")
 		assert.Equal(t, http.StatusOK, requestStatus(t, app, rawToken))
 	})
+
+	t.Run("Negative cache TTL is short to avoid stale rejections", func(t *testing.T) {
+		rawToken := "negative-cache-ttl-token"
+		tokenHash := hashToken(rawToken)
+		cacheKey := "session:" + tokenHash
+
+		app := fiber.New()
+		app.Use(NewSessionResolver(pools, testResolverCfg()))
+		app.Get("/api/v1/test", func(c *fiber.Ctx) error {
+			return c.SendString("ok")
+		})
+
+		req := httptest.NewRequest("GET", "/api/v1/test", nil)
+		req.Header.Set("Cookie", "somo_sid="+rawToken)
+		_, _ = app.Test(req)
+
+		// Negative cache should be written
+		val, err := mr.Get(cacheKey)
+		require.NoError(t, err)
+		assert.Equal(t, "INVALID", val)
+
+		// TTL should be short (<=10s) to mitigate M-1 risk
+		ttl := mr.TTL(cacheKey)
+		// miniredis TTL is in seconds, allow a small margin for execution time
+		assert.True(t, ttl > 0 && ttl <= 10*time.Second, "negative cache TTL should be short, got %v", ttl)
+	})
 }

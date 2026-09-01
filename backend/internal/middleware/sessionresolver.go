@@ -231,8 +231,9 @@ func resolveSession(ctx context.Context, pools *database.Pools, rawToken string)
 	defer cancel()
 
 	if errors.Is(err, ErrNotFound) {
-		// Negative caching: Cache invalid token in Redis for 30 seconds to prevent DB pool exhaustion
-		pools.Redis.Set(writeCtx, cacheKey, invalidCacheToken, 30*time.Second)
+		// Negative caching: Cache invalid token in Redis briefly to prevent DB pool exhaustion.
+		// Short TTL reduces risk of rejecting a freshly created session due to clock skew.
+		pools.Redis.Set(writeCtx, cacheKey, invalidCacheToken, 5*time.Second)
 		return nil, err
 	}
 	if err != nil {

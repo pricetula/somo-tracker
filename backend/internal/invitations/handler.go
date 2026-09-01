@@ -47,11 +47,10 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	// Bulk invitation endpoint for parents
 	router.Post("/api/v1/parents/invite", middleware.RequireAuth, h.BulkInviteParents)
 
-	// Invitation list/management endpoints
-	invitations := router.Group("/api/v1/invitations")
-	invitations.Get("/", middleware.RequireAuth, h.ListInvitations)
-	invitations.Get("/count", middleware.RequireAuth, h.CountInvitations)
-	invitations.Patch("/:id/revoke", middleware.RequireAuth, middleware.RequireRole("SCHOOL_ADMIN"), h.RevokeInvitation)
+	// Only bulk invite endpoints are called by frontend; list/management
+	// routes (/invitations) have zero frontend callers and were gutted.
+	router.Post("/api/v1/staff/invite", middleware.RequireAuth, h.BulkInviteStaff)
+	router.Post("/api/v1/parents/invite", middleware.RequireAuth, h.BulkInviteParents)
 }
 
 // ─── Error response helper ─────────────────────────────────────────────────

@@ -14,13 +14,12 @@ import (
 // ============================================================================
 
 type MockRepository struct {
-	createFn           func(ctx context.Context, tenantID string, name string) (string, error)
-	getByIDFn          func(ctx context.Context, id string) (*School, error)
-	getByTenantName    func(ctx context.Context, tenantID, name string) (*School, error)
-	listByTenantFn     func(ctx context.Context, tenantID, userID string) ([]SchoolWithMemberCount, error)
-	updateFn           func(ctx context.Context, school SchoolUpdateFields) error
-	deleteFn           func(ctx context.Context, id string) error
-	onboardingStatusFn func(ctx context.Context, tenantID string) (*OnboardingStatus, error)
+	createFn        func(ctx context.Context, tenantID string, name string) (string, error)
+	getByIDFn       func(ctx context.Context, id string) (*School, error)
+	getByTenantName func(ctx context.Context, tenantID, name string) (*School, error)
+	listByTenantFn  func(ctx context.Context, tenantID, userID string) ([]SchoolWithMemberCount, error)
+	updateFn        func(ctx context.Context, school SchoolUpdateFields) error
+	deleteFn        func(ctx context.Context, id string) error
 }
 
 func (m *MockRepository) Create(ctx context.Context, tenantID string, name string) (string, error) {
@@ -63,22 +62,6 @@ func (m *MockRepository) Delete(ctx context.Context, id string) error {
 		return m.deleteFn(ctx, id)
 	}
 	return nil
-}
-
-func (m *MockRepository) OnboardingStatus(ctx context.Context, tenantID string) (*OnboardingStatus, error) {
-	if m.onboardingStatusFn != nil {
-		return m.onboardingStatusFn(ctx, tenantID)
-	}
-	// Return a default value for tests that don't set the function
-	return &OnboardingStatus{
-		TenantID:                   tenantID,
-		ClassStreamsCreated:        false,
-		AcademicCalendarConfigured: false,
-		CurriculumInitialized:      false,
-		StaffInvited:               false,
-		StudentsEnrolled:           false,
-		IsOnboardingComplete:       false,
-	}, nil
 }
 
 // ============================================================================
@@ -458,52 +441,4 @@ func TestCreateSchool_WithoutSeeder_DoesNotSeed(t *testing.T) {
 	// There's no way to inspect this directly, but we verify the school was
 	// created successfully, which is the expected behavior when no seeder is
 	// wired.
-}
-
-func TestOnboardingStatus_HappyPath(t *testing.T) {
-	h := newTestHarness()
-
-	expectedTenantID := "tenant_001"
-	expectedStatus := &OnboardingStatus{
-		TenantID:                   expectedTenantID,
-		ClassStreamsCreated:        true,
-		AcademicCalendarConfigured: false,
-		CurriculumInitialized:      true,
-		StaffInvited:               false,
-		StudentsEnrolled:           true,
-		IsOnboardingComplete:       false,
-	}
-
-	h.repo.onboardingStatusFn = func(ctx context.Context, tenantID string) (*OnboardingStatus, error) {
-		if tenantID != expectedTenantID {
-			t.Errorf("expected tenantID %q, got %q", expectedTenantID, tenantID)
-		}
-		return expectedStatus, nil
-	}
-
-	status, err := h.svc.OnboardingStatus(context.Background(), expectedTenantID)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if status.TenantID != expectedStatus.TenantID {
-		t.Fatalf("expected tenantID %q, got %q", expectedStatus.TenantID, status.TenantID)
-	}
-	if status.ClassStreamsCreated != expectedStatus.ClassStreamsCreated {
-		t.Fatalf("expected ClassStreamsCreated %v, got %v", expectedStatus.ClassStreamsCreated, status.ClassStreamsCreated)
-	}
-	if status.AcademicCalendarConfigured != expectedStatus.AcademicCalendarConfigured {
-		t.Fatalf("expected AcademicCalendarConfigured %v, got %v", expectedStatus.AcademicCalendarConfigured, status.AcademicCalendarConfigured)
-	}
-	if status.CurriculumInitialized != expectedStatus.CurriculumInitialized {
-		t.Fatalf("expected CurriculumInitialized %v, got %v", expectedStatus.CurriculumInitialized, status.CurriculumInitialized)
-	}
-	if status.StaffInvited != expectedStatus.StaffInvited {
-		t.Fatalf("expected StaffInvited %v, got %v", expectedStatus.StaffInvited, status.StaffInvited)
-	}
-	if status.StudentsEnrolled != expectedStatus.StudentsEnrolled {
-		t.Fatalf("expected StudentsEnrolled %v, got %v", expectedStatus.StudentsEnrolled, status.StudentsEnrolled)
-	}
-	if status.IsOnboardingComplete != expectedStatus.IsOnboardingComplete {
-		t.Fatalf("expected IsOnboardingComplete %v, got %v", expectedStatus.IsOnboardingComplete, status.IsOnboardingComplete)
-	}
 }

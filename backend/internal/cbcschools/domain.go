@@ -25,7 +25,6 @@ type Repository interface {
 	ListByTenantID(ctx context.Context, tenantID, userID string) ([]SchoolWithMemberCount, error)
 	Update(ctx context.Context, school SchoolUpdateFields) error
 	Delete(ctx context.Context, id string) error
-	OnboardingStatus(ctx context.Context, tenantID string) (*OnboardingStatus, error)
 }
 
 // School represents a CBC school record.
@@ -69,17 +68,6 @@ type SchoolUpdateFields struct {
 	NemisCode      *string
 	SchoolType     *string
 	IsActive       *bool
-}
-
-// OnboardingStatus represents the onboarding status of a tenant.
-type OnboardingStatus struct {
-	TenantID                   string
-	ClassStreamsCreated        bool
-	AcademicCalendarConfigured bool
-	CurriculumInitialized      bool
-	StaffInvited               bool
-	StudentsEnrolled           bool
-	IsOnboardingComplete       bool
 }
 
 // ListSchoolsResponse wraps a list of schools.

@@ -234,8 +234,3 @@ func (s *Service) SeedCurriculum(ctx context.Context, tenantID string, schoolID 
 
 	return nil
 }
-
-// OnboardingStatus returns the onboarding status for the given tenant.
-func (s *Service) OnboardingStatus(ctx context.Context, tenantID string) (*OnboardingStatus, error) {
-	return s.repo.OnboardingStatus(ctx, tenantID)
-}

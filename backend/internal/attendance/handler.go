@@ -29,62 +29,10 @@ func (h *Handler) SetAcademicYearsService(aySvc academicyears.AcademicYearTermRe
 
 // RegisterRoutes mounts attendance routes on the given router.
 func (h *Handler) RegisterRoutes(router fiber.Router) {
-	// Attendance sessions
-	sessions := router.Group("/api/v1/attendance/sessions")
-	sessions.Post("/", middleware.RequireAuth, h.CreateSession)
-	sessions.Get("/", middleware.RequireAuth, h.ListSessions)
-	sessions.Get("/class/:class_id/date/:date", middleware.RequireAuth, h.GetSessionsForClassDate)
-	sessions.Get("/:id", middleware.RequireAuth, h.GetSession)
-	sessions.Put("/:id", middleware.RequireAuth, h.UpdateSession)
-
-	// Attendance records
+	// Only the batch endpoint is called by frontend; all other attendance routes
+	// have zero frontend callers and were gutted during API cleanup.
 	records := router.Group("/api/v1/attendance/records")
 	records.Post("/batch", middleware.RequireAuth, h.BatchMark)
-	records.Get("/slot", middleware.RequireAuth, h.ListRecordsBySlotDate)
-	records.Get("/student/:student_id", middleware.RequireAuth, h.ListRecordsByStudentTerm)
-	records.Get("/class/:class_id/date/:date", middleware.RequireAuth, h.ListRecordsByClassDate)
-	records.Get("/", middleware.RequireAuth, h.ListRecords)
-	records.Put("/:id", middleware.RequireAuth, h.UpdateRecord)
-
-	// Attendance summaries
-	summaries := router.Group("/api/v1/attendance/summaries")
-	summaries.Get("/student/:student_id", middleware.RequireAuth, h.GetStudentTermSummary)
-	summaries.Get("/class/:class_id", middleware.RequireAuth, h.GetClassTermSummary)
-	summaries.Post("/refresh", middleware.RequireAuth, h.RefreshSummaries)
-
-	// Class daily attendance summaries
-	daily := router.Group("/api/v1/attendance/daily")
-	daily.Get("/class/:class_id/date/:date", middleware.RequireAuth, h.GetClassDailySummary)
-	daily.Post("/class/:class_id/date/:date/refresh", middleware.RequireAuth, h.RefreshClassDailySummary)
-	daily.Get("/class/:class_id", middleware.RequireAuth, h.ListClassDailySummaries)
-
-	// Class learning area term summaries
-	classLA := router.Group("/api/v1/attendance/class-learning-area")
-	classLA.Get("/breakdown", middleware.RequireAuth, h.ListLearningAreaBreakdowns)
-	classLA.Get("/class/:class_id/term/:term_id", middleware.RequireAuth, h.ListClassLearningAreaTermSummaries)
-	classLA.Get("/class/:class_id/learning-area/:learning_area_id/term/:term_id", middleware.RequireAuth, h.GetClassLearningAreaTermSummary)
-	classLA.Post("/class/:class_id/term/:term_id/refresh", middleware.RequireAuth, h.RefreshClassLearningAreaTermSummary)
-
-	// Class term attendance summaries
-	classTerm := router.Group("/api/v1/attendance/class-term")
-	classTerm.Get("/breakdown", middleware.RequireAuth, h.ListClassAttendanceBreakdowns)
-	classTerm.Get("/class/:class_id/term/:term_id", middleware.RequireAuth, h.GetClassTermAttendanceSummary)
-	classTerm.Get("/term/:term_id", middleware.RequireAuth, h.ListClassTermAttendanceSummaries)
-	classTerm.Post("/class/:class_id/term/:term_id/refresh", middleware.RequireAuth, h.RefreshClassTermAttendanceSummary)
-
-	// Calendar status (monthly overview)
-	calendar := router.Group("/api/v1/attendance/calendar")
-	calendar.Get("/status", middleware.RequireAuth, h.GetCalendarStatus)
-
-	// Day-of-week attendance exceptions (weekday stacked bar chart)
-	router.Group("/api/v1/attendance").Get("/day-of-week-summaries", middleware.RequireAuth, h.GetDayOfWeekSummaries)
-
-	// School attendance KPIs (School Administrator dashboard)
-	// kpis := router.Group("/api/v1/attendance/kpis")
-	// Students attendance rankings
-	students := router.Group("/api/v1/attendance/students")
-	students.Get("/lowest-attendance", middleware.RequireAuth, h.GetLowestAttendanceStudents)
-	router.Group("/api/v1/attendance").Get("/class-term-percentages", middleware.RequireAuth, h.GetClassTermPercentages)
 }
 
 // attMiddleware extracts common tenant/school context.

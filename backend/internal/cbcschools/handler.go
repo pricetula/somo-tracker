@@ -25,19 +25,6 @@ type UpdateSchoolPayload struct {
 	IsActive       *bool   `json:"is_active,omitempty"`
 }
 
-// OnboardingStatusResponse is the response payload for GET /api/v1/school/status.
-type OnboardingStatusResponse struct {
-	TenantID             string `json:"tenant_id"`
-	IsOnboardingComplete bool   `json:"is_onboarding_complete"`
-	Steps                struct {
-		AcademicCalendarConfigured bool `json:"academic_calendar_configured"`
-		CurriculumInitialized      bool `json:"curriculum_initialized"`
-		ClassStreamsCreated        bool `json:"class_streams_created"`
-		StaffInvited               bool `json:"staff_invited"`
-		StudentsEnrolled           bool `json:"students_enrolled"`
-	} `json:"steps"`
-}
-
 // ─── Handler ───────────────────────────────────────────────────────────────
 
 // Handler exposes school HTTP endpoints.
@@ -59,10 +46,6 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	schools.Delete("/", middleware.RequireAuth, h.Delete)
 	schools.Post("/:id/activate", middleware.RequireAuth, h.SetActive)
 	schools.Post("/seed-curriculum", middleware.RequireAuth, h.SeedCurriculum)
-
-	// Singular school endpoints (e.g., status)
-	school := router.Group("/api/v1/school")
-	school.Get("/status", middleware.RequireAuth, h.OnboardingStatus)
 }
 
 // ─── Handlers ──────────────────────────────────────────────────────────────
@@ -233,37 +216,6 @@ func (h *Handler) SeedCurriculum(c *fiber.Ctx) error {
 	}
 
 	return c.SendStatus(fiber.StatusOK)
-}
-
-// OnboardingStatus handles GET /api/v1/school/status.
-// Returns the onboarding status for the current tenant.
-func (h *Handler) OnboardingStatus(c *fiber.Ctx) error {
-	tenantID := c.Locals("tenant_id").(string)
-
-	status, err := h.svc.OnboardingStatus(c.Context(), tenantID)
-	if err != nil {
-		return middleware.HTTPError(c, err)
-	}
-
-	response := OnboardingStatusResponse{
-		TenantID:             status.TenantID,
-		IsOnboardingComplete: status.IsOnboardingComplete,
-		Steps: struct {
-			AcademicCalendarConfigured bool `json:"academic_calendar_configured"`
-			CurriculumInitialized      bool `json:"curriculum_initialized"`
-			ClassStreamsCreated        bool `json:"class_streams_created"`
-			StaffInvited               bool `json:"staff_invited"`
-			StudentsEnrolled           bool `json:"students_enrolled"`
-		}{
-			AcademicCalendarConfigured: status.AcademicCalendarConfigured,
-			CurriculumInitialized:      status.CurriculumInitialized,
-			ClassStreamsCreated:        status.ClassStreamsCreated,
-			StaffInvited:               status.StaffInvited,
-			StudentsEnrolled:           status.StudentsEnrolled,
-		},
-	}
-
-	return c.JSON(response)
 }
 
 // Delete handles DELETE /api/v1/schools/:id.

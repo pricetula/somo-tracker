@@ -286,6 +286,7 @@ func newHandlerTestHarness() *handlerTestHarness {
 	base.Put("/api/v1/timetable/allocations", handler.UpdateAllocation)
 	base.Delete("/api/v1/timetable/allocations", handler.BulkDeleteAllocations)
 	base.Get("/api/v1/timetable", handler.GetTimetable)
+	base.Get("/api/v1/timetable/allocations/:id", handler.GetAllocation)
 
 	return &handlerTestHarness{
 		app:     app,
@@ -611,6 +612,50 @@ func TestHandler_CreateBlocks_ReplicatesMultipleBlocksAcrossAllDays(t *testing.T
 // ============================================================================
 // Tests: GET /api/v1/timetable (GetTimetable)
 // ============================================================================
+
+func TestHandler_GetAllocation_HappyPath(t *testing.T) {
+	h := newHandlerTestHarness()
+
+	h.svc.getAllocationFn = func(ctx context.Context, id, tenantID, schoolID string) (*Allocation, error) {
+		require.Equal(t, "alloc_1", id)
+		require.Equal(t, "tenant_001", tenantID)
+		require.Equal(t, "school_001", schoolID)
+		return &Allocation{
+			ID:               id,
+			TenantID:         tenantID,
+			SchoolID:         schoolID,
+			BlockID:          "block_1",
+			ClassID:          "class_1",
+			LearningAreaID:   "la_1",
+			TeacherID:        "teacher_1",
+			ClassName:        "Grade 10A",
+			LearningAreaName: "Mathematics",
+			TeacherName:      "Jane Doe",
+			RoomName:         "Room 101",
+		}, nil
+	}
+
+	resp := doRequest(h.app, http.MethodGet, "/api/v1/timetable/allocations/alloc_1", nil)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	var result Allocation
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&result))
+	require.Equal(t, "alloc_1", result.ID)
+	require.Equal(t, "Grade 10A", result.ClassName)
+	require.Equal(t, "Mathematics", result.LearningAreaName)
+	require.Equal(t, "Jane Doe", result.TeacherName)
+}
+
+func TestHandler_GetAllocation_NotFound(t *testing.T) {
+	h := newHandlerTestHarness()
+
+	h.svc.getAllocationFn = func(ctx context.Context, id, tenantID, schoolID string) (*Allocation, error) {
+		return nil, ErrNotFound
+	}
+
+	resp := doRequest(h.app, http.MethodGet, "/api/v1/timetable/allocations/missing", nil)
+	require.NotEqual(t, http.StatusOK, resp.StatusCode)
+}
 
 func TestHandler_GetTimetable_HappyPath(t *testing.T) {
 	h := newHandlerTestHarness()

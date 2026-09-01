@@ -264,3 +264,112 @@ export async function getLowestAttendanceStudents(
         `/api/v1/attendance/students/lowest-attendance${qs ? `?${qs}` : ""}`
     );
 }
+
+// ─── Session & Records (Attendance Marking) ────────────────────────────────────
+
+/** Session status for a slot on a specific date. */
+export type SessionStatus = "SUBMITTED" | "SKIPPED" | "";
+
+export interface SlotSession {
+    id: string;
+    timetable_allocation_id: string;
+    date: string;
+    status: SessionStatus;
+    skip_reason?: string | null;
+}
+
+/**
+ * Fetch session for a slot + date.
+ * Returns null items array if no session exists yet.
+ *
+ * Backend: GET /api/v1/attendance/sessions
+ */
+export async function getSessionsForSlot(
+    allocationId: string,
+    date: string
+): Promise<SlotSession | null> {
+    const params = new URLSearchParams({
+        timetable_allocation_id: allocationId,
+        date,
+    });
+    const result = await api.get<{ items: SlotSession[] }>(
+        `/api/v1/attendance/sessions?${params.toString()}`
+    );
+    return result.items?.[0] ?? null;
+}
+
+// ─── Per-Student Record ──────────────────────────────────────────────────────
+
+/**
+ * A single student's attendance mark for a slot on a date.
+ * status is blank string when unmarked — NOT pre-filled as PRESENT.
+ */
+export interface StudentAttendanceRecord {
+    /**
+     * attendance_records.id — null when unmarked.
+     * Used as attendance_record_id when submitting batch updates.
+     */
+    id: string | null;
+    student_id: string;
+    /**
+     * Blank string "" = not yet marked.
+     * PRESENT | ABSENT | LATE | EXCUSED = already marked.
+     */
+    status: "PRESENT" | "ABSENT" | "LATE" | "EXCUSED" | "";
+    note?: string | null;
+    /** Pre-filled for display */
+    student_full_name: string;
+    class_name: string;
+    period_name: string;
+    start_time: string;
+    end_time: string;
+}
+
+export interface SlotRecordsResponse {
+    items: StudentAttendanceRecord[];
+    total: number;
+}
+
+/**
+ * Fetch per-student attendance records for a slot + date.
+ * Returns every enrolled student; status is blank when unmarked.
+ *
+ * Backend: GET /api/v1/attendance/records/slot
+ */
+export async function getRecordsBySlot(
+    allocationId: string,
+    date: string
+): Promise<SlotRecordsResponse> {
+    const params = new URLSearchParams({
+        timetable_allocation_id: allocationId,
+        date,
+    });
+    return api.get<SlotRecordsResponse>(`/api/v1/attendance/records/slot?${params.toString()}`);
+}
+
+/**
+ * Batch-mark attendance for a slot on a date.
+ *
+ * Backend: POST /api/v1/attendance/records/batch
+ */
+export interface BatchMarkPayload {
+    date: string;
+    timetable_allocation_id: string;
+    records: StudentMarkPayload[];
+}
+
+export interface StudentMarkPayload {
+    student_id: string;
+    status: "PRESENT" | "ABSENT" | "LATE" | "EXCUSED";
+    note?: string | null;
+}
+
+export interface BatchMarkResult {
+    created: number;
+    updated: number;
+    failed: number;
+}
+
+export async function batchMarkAttendance(payload: BatchMarkPayload): Promise<BatchMarkResult> {
+    return api.post<BatchMarkResult>("/api/v1/attendance/records/batch", payload);
+}

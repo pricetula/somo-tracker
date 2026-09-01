@@ -445,14 +445,14 @@ func (r *pgRepository) GetRecordByID(ctx context.Context, id, tenantID string) (
 func (r *pgRepository) ListRecordsBySlotDate(ctx context.Context, tenantID, schoolID, timetableSlotID, date string) ([]RecordWithEnrichedData, error) {
 	query := `
 		SELECT
-			COALESCE(ar.id::text, gen_random_uuid()::text) AS id,
+			COALESCE(ar.id::text, '') AS id,
 			$1::text AS tenant_id,
 			$2::text AS school_id,
 			s.id::text AS student_id,
 			ts.id::text AS timetable_allocation_id,
 			COALESCE(ar.academic_term_id::text, enr.academic_term_id::text) AS academic_term_id,
 			$4::text AS date,
-			COALESCE(ar.status, 'PRESENT') AS status,
+			COALESCE(ar.status::text, '') AS status,
 			COALESCE(ar.marked_by::text, '') AS marked_by,
 			COALESCE(ar.marked_at::text, '') AS marked_at,
 			ar.note,

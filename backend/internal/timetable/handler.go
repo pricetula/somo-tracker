@@ -31,6 +31,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	base.Get("/", middleware.RequireAuth, h.GetTimetable)
 	base.Get("/tracks", middleware.RequireAuth, h.ListTracks)
 	base.Get("/tracks/:id", middleware.RequireAuth, h.GetTrack)
+	base.Get("/allocations/:id", middleware.RequireAuth, h.GetAllocation)
 
 	// Track operations (ID in body)
 	base.Post("/", middleware.RequireAuth, h.CreateTrackWithBlocks)
@@ -59,6 +60,22 @@ func (h *Handler) GetTrack(c *fiber.Ctx) error {
 		return middleware.HTTPError(c, err)
 	}
 	return c.JSON(track)
+}
+
+// GetAllocation handles GET /api/v1/timetable/allocations/:id.
+// Returns the joined allocation details (class, learning area, teacher, room)
+// needed to render the attendance marking modal header.
+func (h *Handler) GetAllocation(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.tmMiddleware(c)
+	if err != nil {
+		return err
+	}
+	id := c.Params("id")
+	allocation, err := h.svc.GetAllocation(c.UserContext(), id, tenantID, schoolID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	return c.JSON(allocation)
 }
 
 func (h *Handler) ListTracks(c *fiber.Ctx) error {

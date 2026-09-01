@@ -1,7 +1,8 @@
 import React from "react";
 import Link from "next/link";
-import { Clock } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { format, parseISO, isBefore, isAfter } from "date-fns";
+import { Clock, ClipboardCheck } from "lucide-react";
 import { motion } from "framer-motion";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { LessonEntry } from "../hooks";
@@ -24,6 +25,7 @@ export interface LessonRowProps {
 }
 
 export function LessonRow({ entry, isLast, isScrollTarget }: LessonRowProps) {
+    const router = useRouter();
     const { start, end } = React.useMemo(
         () => ({
             start: entry?.start_time ? parseISO(entry.start_time) : null,
@@ -38,6 +40,18 @@ export function LessonRow({ entry, isLast, isScrollTarget }: LessonRowProps) {
     );
     const isBreak = !!entry.is_break;
     const status = React.useMemo(() => getLessonStatus(start, end), [start, end]);
+
+    const attendanceHref = React.useMemo(() => {
+        if (!start) return "#";
+        const dateStr = format(start, "yyyy-MM-dd");
+        return `/timetable/${entry.id}/attendance?date=${dateStr}`;
+    }, [start, entry.id]);
+
+    const handleMarkAttendance = (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        router.push(attendanceHref);
+    };
 
     return (
         <motion.article
@@ -84,16 +98,30 @@ export function LessonRow({ entry, isLast, isScrollTarget }: LessonRowProps) {
             </div>
 
             <div className="min-w-0 flex-1 space-y-3 pt-3 pr-4 pb-6 md:pr-6 lg:pl-2">
-                <div className="space-y-1">
-                    <h3 className="text-foreground mb-6 text-base font-semibold">
-                        <Link href={`/curriculum/${entry.subject_id}`}>{entry.subject_name}</Link>
-                    </h3>
-                    <p className="text-muted-foreground leading-relaxed">
-                        {entry.period_name}
-                        {entry.room ? ` · ${entry.room}` : ""}
-                        {isBreak ? " — Break / Prep" : ""}
-                    </p>
-                    <Link href={`/classes/${entry.class_id}`}>{entry.class_name}</Link>
+                <div className="flex items-start justify-between gap-2">
+                    <div className="space-y-1">
+                        <h3 className="text-foreground mb-6 text-base font-semibold">
+                            <Link href={`/curriculum/${entry.subject_id}`}>
+                                {entry.subject_name}
+                            </Link>
+                        </h3>
+                        <p className="text-muted-foreground leading-relaxed">
+                            {entry.period_name}
+                            {entry.room ? ` · ${entry.room}` : ""}
+                            {isBreak ? " — Break / Prep" : ""}
+                        </p>
+                        <Link href={`/classes/${entry.class_id}`}>{entry.class_name}</Link>
+                    </div>
+                    {!isBreak && (
+                        <button
+                            type="button"
+                            onClick={handleMarkAttendance}
+                            className="text-muted-foreground hover:text-foreground mt-1 shrink-0 rounded-md p-1.5 transition-colors"
+                            title="Mark attendance"
+                        >
+                            <ClipboardCheck size={16} />
+                        </button>
+                    )}
                 </div>
             </div>
         </motion.article>

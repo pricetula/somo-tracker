@@ -1,5 +1,5 @@
-import React from "react";
-import { Book, BookOpenCheck, BookOpen, Clock, ClockFading } from "lucide-react";
+import React, { useMemo } from "react";
+import { Clock } from "lucide-react";
 import { format, parseISO, isBefore, isAfter } from "date-fns";
 import Link from "next/link";
 import type { LessonEntry } from "../hooks";
@@ -20,12 +20,20 @@ export interface LessonRowProps {
 }
 
 export function LessonRow({ entry, isLast }: LessonRowProps) {
-    const start = parseISO(entry.start_time);
-    const end = parseISO(entry.end_time);
-    const dateLabel = format(start, "EEE MMM d");
-    const timeRange = `${format(start, "h:mm a")} — ${format(end, "h:mm a")}`;
+    const { start, end } = React.useMemo(
+        () => ({
+            start: entry?.start_time ? parseISO(entry.start_time) : null,
+            end: entry?.end_time ? parseISO(entry.end_time) : null,
+        }),
+        [entry]
+    );
+    const dateLabel = React.useMemo(() => format(start, "EEE MMM d"), [start]);
+    const timeRange = React.useMemo(
+        () => `${format(start, "h:mm a")} — ${format(end, "h:mm a")}`,
+        [start, end]
+    );
     const isBreak = !!entry.is_break;
-    const status = getLessonStatus(start, end);
+    const status = React.useMemo(() => getLessonStatus(start, end), [start, end]);
 
     return (
         <article className="relative flex gap-1">

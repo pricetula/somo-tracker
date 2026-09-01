@@ -45,11 +45,6 @@ func (s *Service) CreateSession(ctx context.Context, tenantID, schoolID string, 
 	return s.repo.CreateSession(ctx, tenantID, schoolID, payload)
 }
 
-// GetSession returns a single session by ID.
-func (s *Service) GetSession(ctx context.Context, id, tenantID string) (*AttendanceSession, error) {
-	return s.repo.GetSessionByID(ctx, id, tenantID)
-}
-
 // GetEnrichedSession returns a single session with enriched data.
 func (s *Service) GetEnrichedSession(ctx context.Context, id, tenantID string) (*SessionWithEnrichedData, error) {
 	return s.repo.GetEnrichedSessionByID(ctx, id, tenantID)
@@ -170,11 +165,6 @@ func (s *Service) UpdateRecord(ctx context.Context, id, tenantID string, payload
 		}
 	}
 	return s.repo.UpdateRecord(ctx, id, tenantID, payload)
-}
-
-// GetRecord returns a single attendance record.
-func (s *Service) GetRecord(ctx context.Context, id, tenantID string) (*AttendanceRecord, error) {
-	return s.repo.GetRecordByID(ctx, id, tenantID)
 }
 
 // ListRecordsBySlotDate returns all records for a timetable slot on a date.

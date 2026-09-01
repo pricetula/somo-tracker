@@ -301,14 +301,6 @@ func (s *Service) CreatePerformanceIndicator(ctx context.Context, params CreateP
 	return s.Repo.CreatePerformanceIndicator(ctx, params)
 }
 
-// GetPerformanceIndicator retrieves a single performance indicator by ID, scoped to tenant.
-func (s *Service) GetPerformanceIndicator(ctx context.Context, id, tenantID string) (*PerformanceIndicator, error) {
-	if id == "" || tenantID == "" {
-		return nil, fmt.Errorf("curriculum.Service.GetPerformanceIndicator: %w", ErrInvalidInput)
-	}
-	return s.Repo.GetPerformanceIndicatorByID(ctx, id, tenantID)
-}
-
 // ListPerformanceIndicators returns performance indicators filtered by sub_strand_id, scoped to tenant.
 func (s *Service) ListPerformanceIndicators(ctx context.Context, subStrandID, tenantID string) ([]PerformanceIndicator, error) {
 	if subStrandID == "" || tenantID == "" {

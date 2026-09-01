@@ -5,11 +5,12 @@
  */
 "use client";
 
-import React, { useCallback } from "react";
+import React, { useCallback, useEffect, useRef } from "react";
 import { useTeacherLessonTimeline, type LessonEntry, type LessonTimelinePage } from "../hooks";
 import { getErrorMessage } from "@/lib/errors";
-import { LessonRow } from "./lesson-row";
+import { LessonRow, getLessonStatus } from "./lesson-row";
 import { LessonTimelineSkeleton } from "./lesson-timeline-skeleton";
+import { parseISO } from "date-fns";
 
 interface TeacherLessonTimelineProps {
     teacherId: string;
@@ -32,6 +33,30 @@ export function TeacherLessonTimeline({ teacherId }: TeacherLessonTimelineProps)
 
     const pages = (data?.pages as LessonTimelinePage[] | undefined) ?? [];
     const entries: LessonEntry[] = pages.flatMap((p: LessonTimelinePage) => p.entries ?? []);
+
+    const hasScrolled = useRef(false);
+    const targetIndex = React.useMemo(() => {
+        let firstFuture = -1;
+        for (let i = 0; i < entries.length; i++) {
+            const entry = entries[i];
+            const start = entry?.start_time ? parseISO(entry.start_time) : null;
+            const end = entry?.end_time ? parseISO(entry.end_time) : null;
+            const status = getLessonStatus(start, end);
+            if (status === "present") return i;
+            if (status === "future" && firstFuture === -1) firstFuture = i;
+        }
+        return firstFuture;
+    }, [entries]);
+
+    useEffect(() => {
+        if (targetIndex >= 0 && !hasScrolled.current) {
+            const el = document.getElementById("timeline-scroll-target");
+            if (el) {
+                el.scrollIntoView({ block: "start", behavior: "smooth" });
+                hasScrolled.current = true;
+            }
+        }
+    }, [targetIndex, entries.length]);
 
     if (isLoading && !pages.length) return <LessonTimelineSkeleton />;
     if (isError && error) {
@@ -61,6 +86,7 @@ export function TeacherLessonTimeline({ teacherId }: TeacherLessonTimelineProps)
                         entry={entry}
                         isFirst={index === 0}
                         isLast={index === entries.length - 1 && !hasNextPage}
+                        isScrollTarget={index === targetIndex}
                     />
                 ))}
                 {isFetchingNextPage && (

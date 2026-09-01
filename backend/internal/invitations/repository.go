@@ -9,7 +9,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"somotracker/backend/internal/database"
-	"somotracker/backend/internal/middleware"
 )
 
 // uuidToPtr converts a uuid.UUID to a *uuid.UUID, returning nil for uuid.Nil.
@@ -32,103 +31,7 @@ func NewRepository(pools *database.Pools) *PgRepository {
 }
 
 // ListInvitations returns paginated invitations with optional filters.
-func (r *PgRepository) ListInvitations(ctx context.Context, tenantID, schoolID string, filter ListInvitationsFilter) ([]Invitation, int, error) {
-	// Build count query
-	countQuery := `SELECT COUNT(*) FROM invitations WHERE tenant_id = $1 AND school_id = $2`
-	dataQuery := `SELECT id, school_id, tenant_id, email, role::text, status::text, full_name, expires_at, created_at FROM invitations WHERE tenant_id = $1 AND school_id = $2`
-
-	args := []interface{}{tenantID, schoolID}
-	argIdx := 3
-
-	if !filter.Expired {
-		countQuery += ` AND (status != 'expired' OR (status = 'pending' AND expires_at > NOW()))`
-		dataQuery += ` AND (status != 'expired' OR (status = 'pending' AND expires_at > NOW()))`
-	}
-
-	if filter.Search != "" {
-		pattern := "%" + filter.Search + "%"
-		countQuery += fmt.Sprintf(` AND (full_name ILIKE $%d)`, argIdx)
-		dataQuery += fmt.Sprintf(` AND (full_name ILIKE $%d)`, argIdx)
-		args = append(args, pattern)
-		argIdx++
-	}
-
-	if filter.Email != "" {
-		pattern := "%" + filter.Email + "%"
-		countQuery += fmt.Sprintf(` AND email ILIKE $%d`, argIdx)
-		dataQuery += fmt.Sprintf(` AND email ILIKE $%d`, argIdx)
-		args = append(args, pattern)
-		argIdx++
-	}
-
-	if filter.Status != "" {
-		countQuery += fmt.Sprintf(` AND status::text = $%d`, argIdx)
-		dataQuery += fmt.Sprintf(` AND status::text = $%d`, argIdx)
-		args = append(args, filter.Status)
-		argIdx++
-	}
-
-	if filter.Role != "" {
-		countQuery += fmt.Sprintf(` AND role::text = $%d`, argIdx)
-		dataQuery += fmt.Sprintf(` AND role::text = $%d`, argIdx)
-		args = append(args, filter.Role)
-		argIdx++
-	}
-
-	// Count total
-	var total int
-	if err := database.FromContext(ctx, r.pool).QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
-		return nil, 0, fmt.Errorf("count invitations: %w", err)
-	}
-
-	// Fetch data
-	dataQuery += ` ORDER BY created_at DESC`
-	dataQuery += fmt.Sprintf(` LIMIT $%d OFFSET $%d`, argIdx, argIdx+1)
-	args = append(args, filter.Limit, filter.Offset)
-
-	rows, err := database.FromContext(ctx, r.pool).Query(ctx, dataQuery, args...)
-	if err != nil {
-		return nil, 0, fmt.Errorf("list invitations: %w", err)
-	}
-	defer rows.Close()
-
-	var invitations []Invitation
-	for rows.Next() {
-		var inv Invitation
-		if err := rows.Scan(&inv.ID, &inv.SchoolID, &inv.TenantID, &inv.Email, &inv.Role, &inv.Status,
-			&inv.FullName, &inv.ExpiresAt, &inv.CreatedAt); err != nil {
-			return nil, 0, fmt.Errorf("scan invitation: %w", err)
-		}
-		invitations = append(invitations, inv)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, 0, fmt.Errorf("rows iteration: %w", err)
-	}
-
-	if invitations == nil {
-		invitations = []Invitation{}
-	}
-
-	return invitations, total, nil
-}
-
 // CountInvitations returns the total count of invitations for a given role.
-func (r *PgRepository) CountInvitations(ctx context.Context, tenantID, schoolID string, role string) (int, error) {
-	const query = `
-		SELECT COUNT(*)
-		FROM invitations
-		WHERE tenant_id = $1 AND school_id = $2 AND role::text = $3
-		  AND (status != 'expired' OR (status = 'pending' AND expires_at > NOW()))
-	`
-
-	var total int
-	if err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, tenantID, schoolID, role).Scan(&total); err != nil {
-		return 0, fmt.Errorf("count invitations: %w", err)
-	}
-
-	return total, nil
-}
-
 // ============================================================================
 // Bulk Invitation Repository Methods
 // ============================================================================
@@ -193,18 +96,6 @@ func (r *PgRepository) InsertInvitation(ctx context.Context, tx pgx.Tx, params I
 }
 
 // RevokeInvitation sets an invitation's status to 'revoked'.
-func (r *PgRepository) RevokeInvitation(ctx context.Context, id, schoolID string) error {
-	query := `UPDATE invitations SET status = 'revoked', updated_at = NOW() WHERE id = $1::uuid AND school_id = $2 AND status = 'pending'`
-	tag, err := database.FromContext(ctx, r.pool).Exec(ctx, query, id, schoolID)
-	if err != nil {
-		return fmt.Errorf("revoke invitation: %w", err)
-	}
-	if tag.RowsAffected() == 0 {
-		return fmt.Errorf("revoke invitation: %w", middleware.ErrNotFound)
-	}
-	return nil
-}
-
 // GetStytchOrgID retrieves the Stytch organization ID for a tenant.
 func (r *PgRepository) GetStytchOrgID(ctx context.Context, tenantID string) (string, error) {
 	query := `SELECT stytch_org_id FROM tenants WHERE id = $1`

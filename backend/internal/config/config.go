@@ -73,6 +73,10 @@ func Load() Config {
 	if appEnv != "development" && cookieSecret == "dev-insecure-change-in-production" {
 		panic("COOKIE_SECRET must not be the development default in non-development environments")
 	}
+	enforceDeviceFingerprint := envBool("ENFORCE_DEVICE_FINGERPRINT", false)
+	if appEnv != "development" && !enforceDeviceFingerprint {
+		panic("ENFORCE_DEVICE_FINGERPRINT must be true in non-development environments")
+	}
 
 	return Config{
 		DatabaseURL:       getEnv("DATABASE_URL", "postgres://somo_admin:somo_secure_password@somotracker_postgres:5432/somotracker_dev?sslmode=disable"),
@@ -95,7 +99,7 @@ func Load() Config {
 		RateLimitWindow:  envDuration("RATE_LIMIT_WINDOW", time.Minute),
 
 		// C5 device-bound session enforcement (opt-in; see field docs)
-		EnforceDeviceFingerprint: envBool("ENFORCE_DEVICE_FINGERPRINT", false),
+		EnforceDeviceFingerprint: enforceDeviceFingerprint,
 	}
 }
 

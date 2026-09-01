@@ -57,11 +57,13 @@ func NewRateLimiter(rdb *redis.Client, cfg RateLimiterConfig) fiber.Handler {
 
 		result, err := script.Run(ctx, rdb, []string{key}, now, windowMs, cfg.Limit, memberID).Int()
 		if err != nil {
-			// Fail-open strategy: allow the request through so a Redis outage
-			// doesn't take down the API — but surface the degradation instead
-			// of silently disabling the throttle.
+			// Fail-closed: Redis is required for rate limiting. Reject the request
+			// instead of silently allowing unlimited traffic during an outage.
 			warnRateLimitDegraded(c, cfg.Prefix, err)
-			return c.Next()
+			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+				"code":    "rate_limiter_unavailable",
+				"message": "rate limiting is temporarily unavailable",
+			})
 		}
 
 		if result == 0 {

@@ -161,3 +161,30 @@ func TestRateLimiter_BotScenarios(t *testing.T) {
 		assert.Equal(t, http.StatusOK, respRecovered.StatusCode)
 	})
 }
+
+func TestRateLimiter_FailsClosedOnRedisError(t *testing.T) {
+	// Create a Redis client pointing to a closed miniredis instance
+	mr, err := miniredis.Run()
+	require.NoError(t, err)
+	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	defer func() { _ = rdb.Close() }()
+
+	app := fiber.New()
+	app.Use(NewRateLimiter(rdb, RateLimiterConfig{
+		Limit:     10,
+		Window:    1 * time.Minute,
+		Prefix:    "fail_closed",
+		KeyLookup: func(c *fiber.Ctx) string { return c.IP() },
+	}))
+	app.Get("/", func(c *fiber.Ctx) error { return c.SendString("ok") })
+
+	// Shut down Redis to simulate outage
+	mr.Close()
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	resp, err := app.Test(req)
+	require.NoError(t, err)
+
+	// With fail-closed, Redis errors must result in 503, not 200
+	assert.Equal(t, http.StatusServiceUnavailable, resp.StatusCode)
+}

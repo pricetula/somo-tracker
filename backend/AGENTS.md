@@ -197,10 +197,10 @@ return nil, fmt.Errorf("members.Service.GetMember: %w", err)
 - `HTTPError(c *fiber.Ctx, err error) error` is the **only** place HTTP status codes are decided for domain errors.
 - Uses `errors.As()` to extract the nearest `*xerrors.DomainError` from the chain; `errors.Is()` for special cases (`context.Canceled`, `context.DeadlineExceeded`).
 - Status mapping (from the embedded `DomainError.Status`):
-  - `ErrNotFound` → 404, `ErrAlreadyExists` → 409, `ErrInvalidInput` → 400
-  - `ErrUnauthorized` → 401, `ErrForbidden` → 403, `ErrConflict` → 409, `UnprocessableEntity` → 422
-  - `context.Canceled` → 499, `context.DeadlineExceeded` → 504
-  - everything else → 500 (logged, generic message)
+    - `ErrNotFound` → 404, `ErrAlreadyExists` → 409, `ErrInvalidInput` → 400
+    - `ErrUnauthorized` → 401, `ErrForbidden` → 403, `ErrConflict` → 409, `UnprocessableEntity` → 422
+    - `context.Canceled` → 499, `context.DeadlineExceeded` → 504
+    - everything else → 500 (logged, generic message)
 - Handlers must always wrap errors before returning them, e.g. `fmt.Errorf("invalid request body: %w", xerrors.UnprocessableEntity("malformed request body"))`, so the HTTPError message includes handler context.
 
 ### Global Fiber error handler (`cmd/api/main.go`)
@@ -242,3 +242,30 @@ return nil, fmt.Errorf("members.Service.GetMember: %w", err)
 ### When adding a new module
 
 Every new module must follow this standard from creation. No retrofitting later.
+
+---
+
+## 7. Security Checks & Automated Auditing
+
+All backend code written or modified by the agent must pass local security and vulnerability checks prior to completing any task.
+
+### Mandated Tooling & Local Rules
+
+1. **Static Analysis (SAST):** `gosec` must run against changed Go packages to catch unsafe pointers, hardcoded keys, SQL injection vulnerabilities, and bad permissions.
+2. **Vulnerability Scanning:** `govulncheck` must run to verify that no introduced dependencies contain published vulnerabilities in the Go vulnerability database.
+3. **Secret Leak Detection:** No hardcoded API keys, JWT secrets, database passwords, or private tokens in source files or configuration samples. `gitleaks` must be evaluated before commits.
+
+### Verification Protocol for Agents
+
+Before completing any feature, bug fix, or refactor involving `cmd/` or `internal/`, the agent **must** execute the following shell pipeline:
+
+```bash
+# 1. Dependency vulnerability audit
+govulncheck ./...
+
+# 2. Security-focused static analysis
+gosec -quiet ./...
+
+# 3. Detect accidentally staged or hardcoded credentials
+gitleaks detect --no-git --verbose
+```

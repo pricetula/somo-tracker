@@ -493,7 +493,7 @@ export function DataTable<TItem, TParams extends object, TResult>({
                             {/* ── Virtualized rows ──────────────── */}
                             <div
                                 ref={parentRef}
-                                style={{ height, overflow: "auto" }}
+                                style={{ maxHeight: height, overflow: "auto" }}
                                 className="mb-4"
                             >
                                 <div

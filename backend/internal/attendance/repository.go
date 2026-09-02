@@ -22,6 +22,146 @@ func NewRepository(pools *database.Pools) Repository {
 
 // ── Sessions ──────────────────────────────────────────────────────────────
 
+// ── Marked Timetable Allocation ─────────────────────────────────────────────────
+
+// GetMarkedTimetableAllocation returns the full payload for the teacher
+// attendance marking view: allocation metadata (class, subject, teacher,
+// room), existing session info for the date/slot, and the class roster for
+// the supplied academic term with any pre-existing attendance records
+// pre-joined. The academic term is resolved by the handler so the roster is
+// restricted to students enrolled in that term for the allocation's class.
+//
+// Behaviour:
+//   - Strict tenant isolation on every joined table.
+//   - Roster is restricted to ACTIVE enrollments in the supplied term for the
+//     allocation's class.
+//   - Existing attendance session and records are LEFT JOINed — if absent,
+//     session_id, session_status, skip_reason, and student status/note are
+//     returned as null / empty values (frontend treats as "unmarked").
+//   - Returns ErrNotFound when the allocation itself does not exist for the
+//     given tenant/school.
+func (r *pgRepository) GetMarkedTimetableAllocation(ctx context.Context, tenantID, schoolID, allocationID, academicTermID, date string) (*MarkedTimetableAllocationResponse, error) {
+	var (
+		classID     string
+		subjectID   string
+		teacherID   string
+		roomID      *string
+		className   string
+		subjectName string
+		teacherName string
+	)
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, `
+		SELECT
+			ts.class_id,
+			ts.learning_area_id,
+			ts.teacher_id,
+			ts.room_identifier,
+			c.grade_level || ' ' || COALESCE(st.name, '') AS class_name,
+			COALESCE(la.name, '') AS subject_name,
+			COALESCE(u.full_name, '') AS teacher_name
+		FROM timetable_allocations ts
+		JOIN cbc_classes c ON c.id = ts.class_id AND c.tenant_id = ts.tenant_id
+		LEFT JOIN cbc_streams st ON st.id = c.stream_id
+		LEFT JOIN cbc_learning_areas la ON la.id = ts.learning_area_id AND la.tenant_id = ts.tenant_id
+		LEFT JOIN users u ON u.id = ts.teacher_id AND u.tenant_id = ts.tenant_id
+		WHERE ts.id = $1 AND ts.tenant_id = $2 AND ts.school_id = $3
+	`, allocationID, tenantID, schoolID).Scan(&classID, &subjectID, &teacherID, &roomID, &className, &subjectName, &teacherName)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("attendance.Repository.GetMarkedTimetableAllocation: %w", ErrNotFound)
+		}
+		return nil, fmt.Errorf("attendance.Repository.GetMarkedTimetableAllocation: lookup allocation: %w", err)
+	}
+
+	var (
+		sessionID     *string
+		sessionStatus *string
+		skipReason    *string
+	)
+	err = database.FromContext(ctx, r.pool).QueryRow(ctx, `
+		SELECT s.id, s.status, s.skip_reason
+		FROM cbc_attendance_sessions s
+		WHERE s.tenant_id = $1
+		  AND s.school_id = $2
+		  AND s.timetable_allocation_id = $3
+		  AND s.date = $4::date
+		LIMIT 1
+	`, tenantID, schoolID, allocationID, date).Scan(&sessionID, &sessionStatus, &skipReason)
+	if err != nil && err != pgx.ErrNoRows {
+		return nil, fmt.Errorf("attendance.Repository.GetMarkedTimetableAllocation: lookup session: %w", err)
+	}
+
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, `
+		SELECT
+			s.id,
+			s.full_name,
+			ar.status,
+			ar.note
+		FROM cbc_student_enrollments e
+		JOIN cbc_students s ON s.id = e.student_id AND s.tenant_id = e.tenant_id
+		LEFT JOIN attendance_records ar
+		    ON ar.tenant_id = e.tenant_id
+		   AND ar.student_id = e.student_id
+		   AND ar.timetable_allocation_id = $1
+		   AND ar.academic_term_id = $5
+		   AND ar.date = $4::date
+		WHERE e.tenant_id = $2
+		  AND e.school_id = $3
+		  AND e.academic_term_id = $5
+		  AND e.class_id = $6
+		  AND e.status = 'ACTIVE'
+		  AND s.is_active = true
+		ORDER BY s.full_name ASC
+	`, allocationID, tenantID, schoolID, date, academicTermID, classID)
+	if err != nil {
+		return nil, fmt.Errorf("attendance.Repository.GetMarkedTimetableAllocation: query roster: %w", err)
+	}
+	defer rows.Close()
+
+	students := make([]StudentMarkingRecord, 0)
+	for rows.Next() {
+		var (
+			studentID   string
+			studentName string
+			status      *string
+			note        *string
+		)
+		if err := rows.Scan(&studentID, &studentName, &status, &note); err != nil {
+			return nil, fmt.Errorf("attendance.Repository.GetMarkedTimetableAllocation: scan roster: %w", err)
+		}
+		studentStatus := ""
+		if status != nil {
+			studentStatus = string(*status)
+		}
+		students = append(students, StudentMarkingRecord{
+			StudentID:   studentID,
+			StudentName: studentName,
+			Status:      studentStatus,
+			Note:        note,
+		})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("attendance.Repository.GetMarkedTimetableAllocation: rows: %w", err)
+	}
+
+	return &MarkedTimetableAllocationResponse{
+		Date:           date,
+		SessionID:      sessionID,
+		SessionStatus:  sessionStatus,
+		SkipReason:     skipReason,
+		ClassID:        classID,
+		ClassName:      className,
+		SubjectID:      subjectID,
+		SubjectName:    subjectName,
+		TeacherID:      teacherID,
+		TeacherName:    teacherName,
+		RoomIdentifier: roomID,
+		Students:       students,
+	}, nil
+}
+
+// ── Sessions ──────────────────────────────────────────────────────────────────────
+
 func (r *pgRepository) CreateSession(ctx context.Context, tenantID, schoolID string, payload CreateSessionPayload) (*AttendanceSession, error) {
 	var s AttendanceSession
 	err := database.FromContext(ctx, r.pool).QueryRow(ctx, `

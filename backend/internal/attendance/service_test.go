@@ -47,6 +47,10 @@ type MockRepository struct {
 	listAttendanceSummaryFn               func(ctx context.Context, tenantID, schoolID, academicYear string) ([]AttendanceSummaryRow, error)
 }
 
+func (m *MockRepository) GetMarkedTimetableAllocation(ctx context.Context, tenantID, schoolID, allocationID, academicTermID, date string) (*MarkedTimetableAllocationResponse, error) {
+	return nil, nil
+}
+
 func (m *MockRepository) CreateSession(ctx context.Context, tenantID, schoolID string, payload CreateSessionPayload) (*AttendanceSession, error) {
 	if m.createSessionFn != nil {
 		return m.createSessionFn(ctx, tenantID, schoolID, payload)

@@ -24,6 +24,35 @@ func (s *Service) SetEnqueuer(e *Enqueuer) {
 
 // ── Sessions ──────────────────────────────────────────────────────────────
 
+// ── Marked Timetable Allocation ─────────────────────────────────────────────────
+
+// GetMarkedTimetableAllocation returns the full payload needed for the
+// teacher attendance marking view. The handler is responsible for resolving
+// the academic term; this method forwards it to the repository so the roster
+// is restricted to students enrolled in that term for the allocation's class.
+func (s *Service) GetMarkedTimetableAllocation(ctx context.Context, tenantID, schoolID, allocationID, academicTermID, date string) (*MarkedTimetableAllocationResponse, error) {
+	if allocationID == "" {
+		return nil, fmt.Errorf("attendance.Service.GetMarkedTimetableAllocation: timetable_allocation_id is required: %w", ErrInvalidInput)
+	}
+	if academicTermID == "" {
+		return nil, fmt.Errorf("attendance.Service.GetMarkedTimetableAllocation: academic_term_id is required: %w", ErrInvalidInput)
+	}
+	if date == "" {
+		return nil, fmt.Errorf("attendance.Service.GetMarkedTimetableAllocation: date is required: %w", ErrInvalidInput)
+	}
+
+	resp, err := s.repo.GetMarkedTimetableAllocation(ctx, tenantID, schoolID, allocationID, academicTermID, date)
+	if err != nil {
+		return nil, fmt.Errorf("attendance.Service.GetMarkedTimetableAllocation: %w", err)
+	}
+	if resp.Students == nil {
+		resp.Students = []StudentMarkingRecord{}
+	}
+	return resp, nil
+}
+
+// ── Sessions ──────────────────────────────────────────────────────────────────────
+
 // CreateSession creates a new attendance session.
 func (s *Service) CreateSession(ctx context.Context, tenantID, schoolID string, payload CreateSessionPayload) (*AttendanceSession, error) {
 	if payload.TimetableAllocationID == "" {

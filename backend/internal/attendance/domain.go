@@ -175,6 +175,30 @@ type UpdateRecordPayload struct {
 	Note   *string           `json:"note,omitempty"`
 }
 
+// ─── Marked Timetable Allocation Response ───────────────────────────────
+
+type StudentMarkingRecord struct {
+	StudentID   string  `json:"student_id"`
+	StudentName string  `json:"student_name"`
+	Status      string  `json:"status"`
+	Note        *string `json:"note,omitempty"`
+}
+
+type MarkedTimetableAllocationResponse struct {
+	Date           string                 `json:"date"`
+	SessionID      *string                `json:"session_id,omitempty"`
+	SessionStatus  *string                `json:"session_status,omitempty"`
+	SkipReason     *string                `json:"skip_reason,omitempty"`
+	ClassID        string                 `json:"class_id"`
+	ClassName      string                 `json:"class_name"`
+	SubjectID      string                 `json:"subject_id"`
+	SubjectName    string                 `json:"subject_name"`
+	TeacherID      string                 `json:"teacher_id"`
+	TeacherName    string                 `json:"teacher_name"`
+	RoomIdentifier *string                `json:"room_identifier,omitempty"`
+	Students       []StudentMarkingRecord `json:"students"`
+}
+
 // SessionFilter contains optional filter params for listing sessions.
 type SessionFilter struct {
 	TimetableAllocationID string `json:"timetable_allocation_id,omitempty"`
@@ -499,6 +523,10 @@ type Repository interface {
 
 	// GetEnrichedSessionByID returns a session with joined data.
 	GetEnrichedSessionByID(ctx context.Context, id, tenantID string) (*SessionWithEnrichedData, error)
+
+	// GetMarkedTimetableAllocation returns all data needed to render the
+	// teacher attendance marking view for a single timetable allocation on a date.
+	GetMarkedTimetableAllocation(ctx context.Context, tenantID, schoolID, allocationID, academicTermID, date string) (*MarkedTimetableAllocationResponse, error)
 
 	// ListSessions returns all sessions matching the filter (enriched).
 	ListSessions(ctx context.Context, filter SessionFilter) ([]SessionWithEnrichedData, error)

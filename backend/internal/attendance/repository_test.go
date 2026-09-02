@@ -926,3 +926,55 @@ func TestListAttendanceSummary_RealDB(t *testing.T) {
 	require.Contains(t, classNames, "All")
 	require.True(t, len(rows) >= 2, "expected at least class + All aggregate")
 }
+
+func TestPgRepository_GetMarkedTimetableAllocation(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+	ctx := context.Background()
+	pool, cleanup := startPG(t)
+	defer cleanup()
+
+	applyAllMigrations(t, pool)
+	tenantID, schoolID, userID := seedTenantSchoolUser(t, pool)
+
+	academicYearID := uuid.New().String()
+	_, err := pool.Exec(ctx, `INSERT INTO academic_years (id, tenant_id, school_id, name, start_date, end_date, is_current, created_by, updated_by) VALUES ($1, $2, $3, '2026', '2026-01-01', '2026-12-31', true, $4, $4)`,
+		academicYearID, tenantID, schoolID, userID)
+	require.NoError(t, err)
+
+	academicTermID := uuid.New().String()
+	_, err = pool.Exec(ctx, `INSERT INTO academic_terms (id, tenant_id, school_id, academic_year_id, name, term_number, start_date, end_date, is_current, is_final, created_by, updated_by) VALUES ($1, $2, $3, $4, 'Term 1', 1, '2026-01-01', '2026-03-31', true, false, $5, $5)`,
+		academicTermID, tenantID, schoolID, academicYearID, userID)
+	require.NoError(t, err)
+
+	classID := uuid.New().String()
+	laID := uuid.New().String()
+	streamID := uuid.New().String()
+	_, err = pool.Exec(ctx, `INSERT INTO cbc_streams (id, tenant_id, school_id, name) VALUES ($1,$2,$3,'Blue')`, streamID, tenantID, schoolID)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `INSERT INTO cbc_classes (id, tenant_id, school_id, academic_year_id, grade_level, stream_id, is_active) VALUES ($1,$2,$3,$4,'G1',$5,true)`, classID, tenantID, schoolID, academicYearID, streamID)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `INSERT INTO cbc_learning_areas (id, tenant_id, school_id, name, code, education_level, grade_level) VALUES ($1,$2,$3,'Math','MATH','Early_Years','G1')`, laID, tenantID, schoolID)
+	require.NoError(t, err)
+
+	trackID := uuid.New().String()
+	_, err = pool.Exec(ctx, `INSERT INTO timetable_tracks (id, tenant_id, school_id, academic_year_id, academic_term_id, name, is_default) VALUES ($1,$2,$3,$4,$5,'T',true)`, trackID, tenantID, schoolID, academicYearID, academicTermID)
+	require.NoError(t, err)
+
+	blockID := uuid.New().String()
+	_, err = pool.Exec(ctx, `INSERT INTO timetable_blocks (id, tenant_id, school_id, track_id, day_of_week, period_name, start_time, end_time, is_break, order_index) VALUES ($1,$2,$3,$4,1,'P1','08:00','09:00',false,1)`, blockID, tenantID, schoolID, trackID)
+	require.NoError(t, err)
+
+	allocationID := uuid.New().String()
+	_, err = pool.Exec(ctx, `INSERT INTO timetable_allocations (id, tenant_id, school_id, block_id, class_id, learning_area_id, teacher_id, room_identifier) VALUES ($1,$2,$3,$4,$5,$6,$7,'R1')`, allocationID, tenantID, schoolID, blockID, classID, laID, userID)
+	require.NoError(t, err)
+
+	repo := NewRepository(&database.Pools{PG: pool})
+	resp, err := repo.GetMarkedTimetableAllocation(ctx, tenantID, schoolID, allocationID, academicTermID, "2026-02-10")
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	require.Equal(t, classID, resp.ClassID)
+	require.Empty(t, resp.Students)
+	require.Nil(t, resp.SessionID)
+}

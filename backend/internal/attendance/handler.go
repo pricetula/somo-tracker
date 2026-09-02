@@ -36,6 +36,10 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 
 	summary := router.Group("/api/v1/attendance/summary")
 	summary.Get("/:academic_year", middleware.RequireAuth, h.ListAttendanceSummary)
+
+	// New unified marking endpoint — supersedes the 3 separate calls
+	// (getAllocation, getSessionsForSlot, getRecordsBySlot) for the marking UI.
+	router.Get("/api/v1/attendance/marked-timetable-allocation/:id", middleware.RequireAuth, h.GetMarkedTimetableAllocation)
 }
 
 // attMiddleware extracts common tenant/school context.
@@ -204,6 +208,53 @@ func (h *Handler) BatchMark(c *fiber.Ctx) error {
 }
 
 // ListRecordsBySlotDate handles GET /api/v1/attendance/records/slot.
+// GetMarkedTimetableAllocation handles GET
+// /api/v1/attendance/marked-timetable-allocation/:id?date=YYYY-MM-DD
+//
+// Returns the full payload needed to render the teacher attendance marking
+// view: allocation metadata, existing session info, and the class roster for
+// the active academic term with pre-joined attendance records.
+//
+// Path params:
+//   - id (UUID, required) — timetable_allocation_id
+//
+// Query params:
+//   - date (YYYY-MM-DD, required) — the date the teacher is marking for
+//
+// tenant_id and school_id are resolved from the authenticated local context.
+// academic_term_id is resolved server-side from the active academic term via
+// academicyears.GetCurrentYearAndTermID (is_current = TRUE).
+func (h *Handler) GetMarkedTimetableAllocation(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.attMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	id := c.Params("id")
+	date := c.Query("date")
+	if date == "" {
+		return middleware.HTTPError(c, xerrors.InvalidInput("date query parameter is required (YYYY-MM-DD)"))
+	}
+
+	// Resolve the active academic term — required to scope the student roster.
+	termID, err := h.resolveCurrentTerm(c, tenantID, schoolID)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	if termID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code":    "NO_ACTIVE_ACADEMIC_TERM",
+			"message": "No current academic term is active.",
+		})
+	}
+
+	result, err := h.svc.GetMarkedTimetableAllocation(c.Context(), tenantID, schoolID, id, termID, date)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+	return c.JSON(result)
+}
+
 // ListAttendanceSummary handles GET /api/v1/attendance/summary/:academic_year.
 //
 // Returns attendance summary rows (per-class + "All" aggregate) for a school

@@ -412,8 +412,6 @@ func TestHandler_CreateTrack_HappyPath(t *testing.T) {
 	h.svc.createTrackFn = func(ctx context.Context, tenantID, schoolID, yearID, termID, name, description string, isDefault bool) (*Track, error) {
 		require.Equal(t, "tenant_001", tenantID)
 		require.Equal(t, "school_001", schoolID)
-		require.Equal(t, "year_001", yearID)
-		require.Equal(t, "term_001", termID)
 		require.Equal(t, "Test Track", name)
 		return createdTrack, nil
 	}

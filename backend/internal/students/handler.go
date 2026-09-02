@@ -146,8 +146,11 @@ func (h *Handler) BulkImport(c *fiber.Ctx) error {
 
 	// Validate row count limit (before CreateJob, before any DB writes)
 	if len(body.Rows) > imports.MaxImportRows {
-		return middleware.HTTPError(c, xerrors.InvalidInput(fmt.Sprintf("Import contains %d rows; the maximum is %d. Please split into smaller files.",
-			len(body.Rows), imports.MaxImportRows)))
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"code": "import_row_limit_exceeded",
+			"message": fmt.Sprintf("Import contains %d rows; the maximum is %d. Please split into smaller files.",
+				len(body.Rows), imports.MaxImportRows),
+		})
 	}
 
 	// Resolve current active academic year and term server-side

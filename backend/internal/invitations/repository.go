@@ -3,6 +3,7 @@ package invitations
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -31,7 +32,94 @@ func NewRepository(pools *database.Pools) *PgRepository {
 }
 
 // ListInvitations returns paginated invitations with optional filters.
+func (r *PgRepository) ListInvitations(ctx context.Context, tenantID, schoolID string, filter ListInvitationsFilter) ([]Invitation, int, error) {
+	// Build WHERE clause based on filters
+	conditions := []string{"tenant_id = $1", "school_id = $2"}
+	args := []any{tenantID, schoolID}
+	argIdx := 3
+
+	if filter.Status != "" {
+		conditions = append(conditions, fmt.Sprintf("status = $%d", argIdx))
+		args = append(args, filter.Status)
+		argIdx++
+	}
+	if filter.Role != "" {
+		conditions = append(conditions, fmt.Sprintf("role = $%d::user_role", argIdx))
+		args = append(args, filter.Role)
+		argIdx++
+	}
+	if filter.Email != "" {
+		conditions = append(conditions, fmt.Sprintf("email = $%d", argIdx))
+		args = append(args, filter.Email)
+		argIdx++
+	}
+	if filter.Search != "" {
+		conditions = append(conditions, fmt.Sprintf("(email ILIKE $%d OR full_name ILIKE $%d)", argIdx, argIdx))
+		args = append(args, "%"+filter.Search+"%")
+		argIdx++
+	}
+	if filter.Expired {
+		conditions = append(conditions, "expires_at < NOW()")
+	} else {
+		conditions = append(conditions, "(expires_at IS NULL OR expires_at >= NOW())")
+	}
+
+	whereClause := strings.Join(conditions, " AND ")
+
+	// Count total
+	countQuery := "SELECT COUNT(*) FROM invitations WHERE " + whereClause
+	var total int
+	if err := database.FromContext(ctx, r.pool).QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count invitations: %w", err)
+	}
+
+	// Fetch page
+	listQuery := fmt.Sprintf(`
+		SELECT id::text, school_id::text, tenant_id::text, email, role::text, status, full_name, expires_at, created_at, updated_at
+		FROM invitations
+		WHERE %s
+		ORDER BY created_at DESC
+		LIMIT $%d OFFSET $%d
+	`, whereClause, argIdx, argIdx+1)
+	args = append(args, filter.Limit, filter.Offset)
+
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, listQuery, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("list invitations: %w", err)
+	}
+	defer rows.Close()
+
+	invitations := make([]Invitation, 0)
+	for rows.Next() {
+		var inv Invitation
+		if err := rows.Scan(&inv.ID, &inv.SchoolID, &inv.TenantID, &inv.Email, &inv.Role, &inv.Status, &inv.FullName, &inv.ExpiresAt, &inv.CreatedAt, &inv.UpdatedAt); err != nil {
+			return nil, 0, fmt.Errorf("scan invitation: %w", err)
+		}
+		invitations = append(invitations, inv)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("rows error: %w", err)
+	}
+
+	return invitations, total, nil
+}
+
 // CountInvitations returns the total count of invitations for a given role.
+func (r *PgRepository) CountInvitations(ctx context.Context, tenantID, schoolID string, role string) (int, error) {
+	query := `
+		SELECT COUNT(*)
+		FROM invitations
+		WHERE tenant_id = $1 AND school_id = $2 AND role = $3::user_role
+		  AND status NOT IN ('expired', 'revoked')
+	`
+	var total int
+	err := database.FromContext(ctx, r.pool).QueryRow(ctx, query, tenantID, schoolID, role).Scan(&total)
+	if err != nil {
+		return 0, fmt.Errorf("count invitations: %w", err)
+	}
+	return total, nil
+}
+
 // ============================================================================
 // Bulk Invitation Repository Methods
 // ============================================================================
@@ -96,6 +184,18 @@ func (r *PgRepository) InsertInvitation(ctx context.Context, tx pgx.Tx, params I
 }
 
 // RevokeInvitation sets an invitation's status to 'revoked'.
+func (r *PgRepository) RevokeInvitation(ctx context.Context, id, schoolID string) error {
+	query := `UPDATE invitations SET status = 'revoked', updated_at = NOW() WHERE id = $1::uuid AND school_id = $2::uuid`
+	result, err := database.FromContext(ctx, r.pool).Exec(ctx, query, id, schoolID)
+	if err != nil {
+		return fmt.Errorf("revoke invitation: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // GetStytchOrgID retrieves the Stytch organization ID for a tenant.
 func (r *PgRepository) GetStytchOrgID(ctx context.Context, tenantID string) (string, error) {
 	query := `SELECT stytch_org_id FROM tenants WHERE id = $1`

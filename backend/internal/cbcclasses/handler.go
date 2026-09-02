@@ -70,15 +70,21 @@ func (h *Handler) List(c *fiber.Ctx) error {
 		return middleware.HTTPError(c, err)
 	}
 	if academicYearID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "NO_ACTIVE_ACADEMIC_YEAR",
-			"message": "No current academic year is set for this school.",
+		// No active academic year configured; return empty result set
+		return c.JSON(fiber.Map{
+			"items": []Class{},
+			"total": 0,
+			"page":  1,
+			"limit": 50,
 		})
 	}
 	if academicTermID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "NO_ACTIVE_ACADEMIC_TERM",
-			"message": "No current academic term is active.",
+		// No active academic term configured; return empty result set
+		return c.JSON(fiber.Map{
+			"items": []Class{},
+			"total": 0,
+			"page":  1,
+			"limit": 50,
 		})
 	}
 

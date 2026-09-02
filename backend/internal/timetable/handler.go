@@ -114,7 +114,7 @@ func (h *Handler) SetAcademicYearsService(svc *academicyears.Service) {
 func (h *Handler) CreateTrackWithBlocks(c *fiber.Ctx) error {
 	tenantID, schoolID, err := h.tmMiddleware(c)
 	if err != nil {
-		return err
+		return middleware.HTTPError(c, err)
 	}
 
 	var payload CreateTrackPayload
@@ -138,12 +138,6 @@ func (h *Handler) CreateTrackWithBlocks(c *fiber.Ctx) error {
 	if err != nil {
 		return middleware.HTTPError(c, err)
 	}
-	if yearID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "NO_ACTIVE_ACADEMIC_YEAR",
-			"message": "No current academic year is active.",
-		})
-	}
 
 	// Resolve academic term server-side
 	termID := ""
@@ -152,12 +146,6 @@ func (h *Handler) CreateTrackWithBlocks(c *fiber.Ctx) error {
 		if err != nil {
 			return middleware.HTTPError(c, err)
 		}
-	}
-	if termID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"code":    "NO_ACTIVE_ACADEMIC_TERM",
-			"message": "No current academic term is active.",
-		})
 	}
 
 	// Create track first

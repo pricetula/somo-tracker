@@ -427,7 +427,7 @@ func TestServiceImpl_GetAllocation_Error(t *testing.T) {
 }
 
 func TestServiceImpl_CreateAllocation(t *testing.T) {
-	m := &mockRepo{allocID: "new-alloc"}
+	m := &mockRepo{allocID: "new-alloc", blocks: []TimeBlock{{ID: "struct1", TrackID: "track1", DayOfWeek: 1, PeriodName: "P1", StartTime: "08:00", EndTime: "08:45", OrderIndex: 1}}}
 	s := newService(m)
 
 	alloc, err := s.CreateAllocation(context.Background(), "t", "s", CreateAllocationPayload{

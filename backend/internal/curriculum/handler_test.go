@@ -347,6 +347,9 @@ func TestHandler_ListStrands_HappyPath(t *testing.T) {
 			{ID: "strand_001", TenantID: tenantID, LearningAreaID: learningAreaID, Name: "Numbers"},
 		}, nil
 	}
+	h.repo.countStrandsByLearningAreaFn = func(ctx context.Context, learningAreaID, tenantID, search string) (int, error) {
+		return 1, nil
+	}
 
 	resp := doRequest(h.app, "GET", "/api/v1/curriculum/strands?learning_area_id=area_001", nil)
 	if resp.StatusCode != fiber.StatusOK {
@@ -454,6 +457,9 @@ func TestHandler_ListSubStrands_HappyPath(t *testing.T) {
 		return []SubStrand{
 			{ID: "sub_001", TenantID: tenantID, StrandID: strandID, Name: "Addition"},
 		}, nil
+	}
+	h.repo.countSubStrandsByStrandFn = func(ctx context.Context, strandID, tenantID, search string) (int, error) {
+		return 1, nil
 	}
 
 	resp := doRequest(h.app, "GET", "/api/v1/curriculum/sub-strands?strand_id=strand_001", nil)

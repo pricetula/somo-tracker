@@ -78,6 +78,14 @@ func handleSpecialErrors(c *fiber.Ctx, err error) error {
 	}))
 }
 
+func handleFiberError(c *fiber.Ctx, err error, fe *fiber.Error) error {
+	code := fiberErrToCode(fe.Code)
+	return c.Status(fe.Code).JSON(withRequestID(c, fiber.Map{
+		"code":    code,
+		"message": fe.Message,
+	}))
+}
+
 // HTTPError is the single place where errors are mapped to HTTP status
 // codes and JSON response bodies. All handlers must call this function
 // instead of duplicating error-mapping logic inline.
@@ -102,6 +110,12 @@ func HTTPError(c *fiber.Ctx, err error) error {
 	var de *xerrors.DomainError
 	if errors.As(err, &de) {
 		return handleDomainError(c, err, de)
+	}
+
+	// Handle Fiber errors.
+	var fe *fiber.Error
+	if errors.As(err, &fe) {
+		return handleFiberError(c, err, fe)
 	}
 
 	// Special cases that aren't DomainErrors but have standard mappings.

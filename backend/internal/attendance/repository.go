@@ -467,20 +467,37 @@ func (r *pgRepository) BatchMark(ctx context.Context, tenantID, schoolID string,
 		}
 	}()
 
+	// Upsert the session first and capture its id; record inserts depend on it
+	// because attendance_records.attendance_session_id is NOT NULL.
+	var sessionID string
+	err = tx.QueryRow(ctx, `
+		INSERT INTO cbc_attendance_sessions
+			(tenant_id, school_id, timetable_allocation_id, date, status)
+		VALUES ($1, $2, $3, $4, 'SUBMITTED')
+		ON CONFLICT (school_id, timetable_allocation_id, date)
+		DO UPDATE SET
+			status = 'SUBMITTED'
+		RETURNING id
+	`, tenantID, schoolID, payload.TimetableAllocationID, payload.Date).Scan(&sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("attendance.Repository.BatchMark: upsert session: %w", err)
+	}
+
 	for _, rec := range payload.Records {
 		tag, err := tx.Exec(ctx, `
 			INSERT INTO attendance_records
 				(tenant_id, school_id, student_id, timetable_allocation_id, academic_term_id,
-				 date, status, marked_by, note)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+				 date, status, marked_by, note, attendance_session_id)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 			ON CONFLICT (student_id, timetable_allocation_id, date)
 			DO UPDATE SET
 				status = EXCLUDED.status,
 				note = COALESCE(EXCLUDED.note, attendance_records.note),
 				marked_by = EXCLUDED.marked_by,
-				marked_at = NOW()
+				marked_at = NOW(),
+				attendance_session_id = EXCLUDED.attendance_session_id
 		`, tenantID, schoolID, rec.StudentID, payload.TimetableAllocationID, termID,
-			payload.Date, string(rec.Status), markedBy, rec.Note,
+			payload.Date, string(rec.Status), markedBy, rec.Note, sessionID,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("attendance.Repository.BatchMark: upsert: %w", err)
@@ -493,20 +510,6 @@ func (r *pgRepository) BatchMark(ctx context.Context, tenantID, schoolID string,
 			// UPDATE (existing row)
 			result.Updated++
 		}
-	}
-
-	// Upsert a session record so the timeline recognises this slot+date as completed.
-	// The unique constraint is on (school_id, timetable_allocation_id, date).
-	_, err = tx.Exec(ctx, `
-		INSERT INTO cbc_attendance_sessions
-			(tenant_id, school_id, timetable_allocation_id, date, status)
-		VALUES ($1, $2, $3, $4, 'SUBMITTED')
-		ON CONFLICT (school_id, timetable_allocation_id, date)
-		DO UPDATE SET
-			status = 'SUBMITTED'
-	`, tenantID, schoolID, payload.TimetableAllocationID, payload.Date)
-	if err != nil {
-		return nil, fmt.Errorf("attendance.Repository.BatchMark: upsert session: %w", err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {

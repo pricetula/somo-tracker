@@ -1043,7 +1043,7 @@ func TestPgRepository_GetMarkedTimetableAllocation_RosterAndRecords(t *testing.T
 	_, err = pool.Exec(ctx, `INSERT INTO cbc_attendance_sessions (id, tenant_id, school_id, timetable_allocation_id, date, status, skip_reason) VALUES ($1,$2,$3,$4,'2026-02-10','SUBMITTED',NULL)`, sessionID, tenantID, schoolID, allocationID)
 	require.NoError(t, err)
 
-	_, err = pool.Exec(ctx, `INSERT INTO attendance_records (id, tenant_id, school_id, student_id, timetable_allocation_id, academic_term_id, date, status, note, attendance_session_id) VALUES ($1,$2,$3,$4,$5,$6,'2026-02-10','PRESENT','late',NULL)`, uuid.New().String(), tenantID, schoolID, studentID, allocationID, academicTermID)
+	_, err = pool.Exec(ctx, `INSERT INTO attendance_records (id, tenant_id, school_id, student_id, timetable_allocation_id, academic_term_id, date, status, note, attendance_session_id, marked_by) VALUES ($1,$2,$3,$4,$5,$6,'2026-02-10','PRESENT','late',$7,$8)`, uuid.New().String(), tenantID, schoolID, studentID, allocationID, academicTermID, sessionID, userID)
 	require.NoError(t, err)
 
 	resp2, err := repo.GetMarkedTimetableAllocation(ctx, tenantID, schoolID, allocationID, academicTermID, "2026-02-10")

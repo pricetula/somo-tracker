@@ -376,6 +376,38 @@ export async function getRecordsBySlot(
  *
  * Backend: POST /api/v1/attendance/records/batch
  */
+export interface MarkedTimetableAllocationResponse {
+    date: string;
+    session_id?: string | null;
+    session_status?: string | null;
+    skip_reason?: string | null;
+    class_id: string;
+    class_name: string;
+    subject_id: string;
+    subject_name: string;
+    teacher_id: string;
+    teacher_name: string;
+    room_identifier?: string | null;
+    students: StudentMarkingRecord[];
+}
+
+export interface StudentMarkingRecord {
+    student_id: string;
+    student_name: string;
+    status: string;
+    note?: string | null;
+}
+
+/** Fetch unified marking view data for a timetable allocation + date. */
+export async function getMarkedTimetableAllocation(
+    allocationId: string,
+    date: string
+): Promise<MarkedTimetableAllocationResponse> {
+    return api.get<MarkedTimetableAllocationResponse>(
+        `/api/v1/attendance/marked-timetable-allocation/${encodeURIComponent(allocationId)}?date=${encodeURIComponent(date)}`
+    );
+}
+
 export interface BatchMarkPayload {
     date: string;
     timetable_allocation_id: string;

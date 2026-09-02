@@ -1,0 +1,122 @@
+"use client";
+
+/**
+ * StepStreaming — submit the validated invitation records.
+ * Matches the student import StepStreaming pattern — reads from IndexedDB.
+ */
+
+import * as React from "react";
+import { Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { getErrorMessage } from "@/lib/errors";
+import { useInvalidateInvitationCount } from "@/features/invitations/hooks/use-invitations";
+import { submitBulkInvite, getImportAlreadyInProgress } from "@/lib/api/invitations";
+import { getStagedRecordsByStatus } from "./db";
+import { resolveActiveJobTotalRecords } from "../active-job-utils";
+import type { StagedInviteRecord } from "./types";
+
+interface StepStreamingProps {
+    onError: (error: string) => void;
+    onJobCreated: (jobId: string, totalRecords: number) => void;
+    schoolId: string;
+    role: string;
+    /** Custom submit function for different invite endpoints (e.g., parents vs staff). */
+    submitFn?: typeof submitBulkInvite;
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────
+
+export function StepStreaming({
+    onError,
+    onJobCreated,
+    schoolId,
+    role,
+    submitFn = submitBulkInvite,
+}: StepStreamingProps) {
+    const invalidateInvitationCount = useInvalidateInvitationCount(role);
+    const [records, setRecords] = React.useState<StagedInviteRecord[]>([]);
+    const [loading, setLoading] = React.useState(true);
+    const [submitting, setSubmitting] = React.useState(false);
+    const idempotencyKeyRef = React.useRef<string | null>(null);
+
+    // Load valid records on mount
+    React.useEffect(() => {
+        getStagedRecordsByStatus(schoolId, "valid").then((valid) => {
+            setRecords(valid);
+            setLoading(false);
+        });
+    }, [schoolId]);
+
+    const handleStartImport = React.useCallback(async () => {
+        if (records.length === 0) {
+            onError("No valid records to invite.");
+            return;
+        }
+
+        setSubmitting(true);
+
+        if (!idempotencyKeyRef.current) {
+            idempotencyKeyRef.current = crypto.randomUUID();
+        }
+
+        const inviteRows = records.map((r) => ({
+            email: r.email.trim(),
+            ...(r.full_name.trim() ? { full_name: r.full_name.trim() } : {}),
+        }));
+
+        try {
+            const result = await submitFn({
+                role,
+                rows: inviteRows,
+            });
+            idempotencyKeyRef.current = null;
+            invalidateInvitationCount();
+            onJobCreated(result.job_id, inviteRows.length);
+        } catch (err) {
+            const activeJobId = getImportAlreadyInProgress(err);
+            if (activeJobId) {
+                // The active job may have a different (larger) total than this batch —
+                // resolve the real count so ImportProgress shows an accurate total.
+                const totalRecords = await resolveActiveJobTotalRecords(
+                    activeJobId,
+                    inviteRows.length
+                );
+                onJobCreated(activeJobId, totalRecords);
+                return;
+            }
+
+            setSubmitting(false);
+            onError(getErrorMessage(err));
+        }
+    }, [records, role, onError, onJobCreated, submitFn, invalidateInvitationCount]);
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center py-8">
+                <Loader2 className="text-muted-foreground size-5 animate-spin" />
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-4">
+            <div>
+                <h3 className="font-medium">Ready to Send</h3>
+                <p className="text-muted-foreground mt-1 text-xs">
+                    {records.length} invitation{records.length !== 1 ? "s" : ""} will be sent in a
+                    single request.
+                </p>
+            </div>
+
+            <Button size="sm" onClick={handleStartImport} disabled={submitting}>
+                {submitting ? (
+                    <>
+                        <Loader2 className="mr-1.5 size-3.5 animate-spin" /> Submitting…
+                    </>
+                ) : (
+                    `Send ${records.length} Invitation${records.length !== 1 ? "s" : ""}`
+                )}
+            </Button>
+        </div>
+    );
+}

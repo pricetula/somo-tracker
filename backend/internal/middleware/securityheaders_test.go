@@ -127,3 +127,17 @@ func TestSecurityHeaders(t *testing.T) {
 		})
 	}
 }
+
+func TestSecurityHeaders_HSTS_Production(t *testing.T) {
+	app := fiber.New()
+	cfg := config.Config{AppEnv: "production"}
+	app.Use(NewSecurityHeaders(cfg))
+
+	app.Get("/test", func(c *fiber.Ctx) error { return c.SendString("ok") })
+
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	resp, err := app.Test(req)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Equal(t, "max-age=31536000; includeSubDomains", resp.Header.Get("Strict-Transport-Security"))
+}

@@ -50,6 +50,29 @@ func TestLoad_CookieSecret_Validation(t *testing.T) {
 	})
 }
 
+func TestLoad_SessionTTL(t *testing.T) {
+	t.Run("defaults to 30 days", func(t *testing.T) {
+		t.Setenv("APP_ENV", "development")
+		t.Setenv("COOKIE_SECRET", "")
+		t.Setenv("SESSION_TTL", "")
+		cfg := Load()
+		expected := 30 * 24 * 60 * 60 // seconds
+		if int(cfg.SessionTTL.Seconds()) != expected {
+			t.Fatalf("expected default 30d, got %v", cfg.SessionTTL)
+		}
+	})
+
+	t.Run("reads custom value", func(t *testing.T) {
+		t.Setenv("APP_ENV", "development")
+		t.Setenv("COOKIE_SECRET", "")
+		t.Setenv("SESSION_TTL", "72h")
+		cfg := Load()
+		if cfg.SessionTTL.Hours() != 72 {
+			t.Fatalf("expected 72h, got %v", cfg.SessionTTL)
+		}
+	})
+}
+
 func TestLoad_DeviceFingerprint_Enforcement(t *testing.T) {
 	t.Run("development allows enforcement disabled", func(t *testing.T) {
 		t.Setenv("APP_ENV", "development")

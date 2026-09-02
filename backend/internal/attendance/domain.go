@@ -335,6 +335,24 @@ type ClassTermAttendanceSummary struct {
 }
 
 // ClassTermAttendanceSummaryListResponse wraps a list of class term attendance summaries.
+type AttendanceSummaryRow struct {
+	ClassName         string  `json:"class_name"`
+	TermName          string  `json:"term_name"`
+	TermNumber        int     `json:"term_number"`
+	AcademicYear      string  `json:"academic_year"`
+	PresentPercentage float64 `json:"present_percentage"`
+	AbsentPercentage  float64 `json:"absent_percentage"`
+	ExcusedPercentage float64 `json:"excused_percentage"`
+	LatePercentage    float64 `json:"late_percentage"`
+	DaysInTerm        int     `json:"days_in_term"`
+	TotalEnrolledAvg  float64 `json:"total_enrolled_avg"`
+}
+
+type AttendanceSummaryResponse struct {
+	AcademicYear string                 `json:"academic_year"`
+	Data         []AttendanceSummaryRow `json:"data"`
+}
+
 type ClassTermAttendanceSummaryListResponse struct {
 	Items []ClassTermAttendanceSummary `json:"items"`
 	Total int                          `json:"total"`
@@ -559,6 +577,10 @@ type Repository interface {
 	// ListClassTermAttendanceSummaries returns all class term attendance summaries
 	// for a school and term (or specific class if provided).
 	ListClassTermAttendanceSummaries(ctx context.Context, tenantID, schoolID, classID, termID string) ([]ClassTermAttendanceSummary, error)
+
+	// ListAttendanceSummary returns attendance rollup rows (per-class + aggregate)
+	// for a school across an entire academic year.
+	ListAttendanceSummary(ctx context.Context, tenantID, schoolID, academicYear string) ([]AttendanceSummaryRow, error)
 
 	// ListClassAttendanceBreakdowns returns per-class present/late/absent counts
 	// for a school in a term (class names included), ordered by absent count

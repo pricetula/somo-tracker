@@ -33,6 +33,30 @@ export interface SchoolAttendanceKPI {
     skipped_sessions_today: number;
 }
 
+export interface AttendanceSummaryRow {
+    class_name: string;
+    term_name: string;
+    term_number: number;
+    academic_year: string;
+    present_percentage: number;
+    absent_percentage: number;
+    excused_percentage: number;
+    late_percentage: number;
+    days_in_term: number;
+    total_enrolled_avg: number;
+}
+
+export interface AttendanceSummaryResponse {
+    academic_year: string;
+    data: AttendanceSummaryRow[];
+}
+
+export async function getAttendanceSummary(
+    academicYear: string
+): Promise<AttendanceSummaryResponse> {
+    return api.get(`/api/v1/attendance/summary/${encodeURIComponent(academicYear)}`);
+}
+
 // ─── API Functions ─────────────────────────────────────────────────────────
 
 /**

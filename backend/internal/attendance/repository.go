@@ -860,6 +860,100 @@ func (r *pgRepository) scanSummaries(ctx context.Context, query string, args ...
 
 // ── Class Daily Summaries ─────────────────────────────────────────────────
 
+func (r *pgRepository) ListAttendanceSummary(ctx context.Context, tenantID, schoolID, academicYear string) ([]AttendanceSummaryRow, error) {
+	rows, err := database.FromContext(ctx, r.pool).Query(ctx, `
+WITH base AS (
+    SELECT
+        cc.id AS class_id,
+        COALESCE(cc.grade_level::text || ' ' || COALESCE(st.name, '')) AS class_name,
+        at.name AS term_name,
+        at.term_number,
+        aty.name AS academic_year,
+        ctas.days_in_term,
+        ctas.total_enrolled_avg,
+        ctas.present_count,
+        ctas.absent_count,
+        ctas.late_count,
+        ctas.excused_count
+    FROM class_term_attendance_summaries ctas
+    JOIN cbc_classes cc ON cc.tenant_id = ctas.tenant_id AND cc.id = ctas.class_id
+    LEFT JOIN cbc_streams st ON st.tenant_id = cc.tenant_id AND st.id = cc.stream_id
+    JOIN academic_terms at ON at.tenant_id = ctas.tenant_id AND at.id = ctas.academic_term_id
+    JOIN academic_years aty ON aty.tenant_id = ctas.tenant_id AND aty.id = ctas.academic_year_id
+    WHERE ctas.tenant_id = $1 AND ctas.school_id = $2 AND aty.name = $3
+),
+aggregate AS (
+    SELECT
+        'All' AS class_name,
+        at.name AS term_name,
+        at.term_number,
+        aty.name AS academic_year,
+        SUM(ctas.days_in_term) AS days_in_term,
+        SUM(ctas.total_enrolled_avg) AS total_enrolled_avg,
+        SUM(ctas.present_count) AS present_count,
+        SUM(ctas.absent_count) AS absent_count,
+        SUM(ctas.late_count) AS late_count,
+        SUM(ctas.excused_count) AS excused_count
+    FROM class_term_attendance_summaries ctas
+    JOIN cbc_classes cc ON cc.tenant_id = ctas.tenant_id AND cc.id = ctas.class_id
+    JOIN academic_terms at ON at.tenant_id = ctas.tenant_id AND at.id = ctas.academic_term_id
+    JOIN academic_years aty ON aty.tenant_id = ctas.tenant_id AND aty.id = ctas.academic_year_id
+    WHERE ctas.tenant_id = $1 AND ctas.school_id = $2 AND aty.name = $3
+    GROUP BY at.name, at.term_number, aty.name
+),
+combined AS (
+    SELECT
+        class_name, term_name, term_number, academic_year,
+        days_in_term, total_enrolled_avg,
+        present_count, absent_count, late_count, excused_count,
+        (present_count + absent_count + late_count + excused_count) AS total
+    FROM base
+    UNION ALL
+    SELECT
+        class_name, term_name, term_number, academic_year,
+        days_in_term, total_enrolled_avg,
+        present_count, absent_count, late_count, excused_count,
+        (present_count + absent_count + late_count + excused_count) AS total
+    FROM aggregate
+)
+SELECT
+    class_name,
+    term_name,
+    term_number,
+    academic_year,
+    days_in_term,
+    total_enrolled_avg,
+    CASE WHEN total > 0 THEN ROUND(((present_count::numeric / total) * 100)::numeric, 2)::float ELSE 0 END AS present_percentage,
+    CASE WHEN total > 0 THEN ROUND(((absent_count::numeric / total) * 100)::numeric, 2)::float ELSE 0 END AS absent_percentage,
+    CASE WHEN total > 0 THEN ROUND(((excused_count::numeric / total) * 100)::numeric, 2)::float ELSE 0 END AS excused_percentage,
+    CASE WHEN total > 0 THEN ROUND(((late_count::numeric / total) * 100)::numeric, 2)::float ELSE 0 END AS late_percentage
+FROM combined
+ORDER BY academic_year, term_number, class_name
+`, tenantID, schoolID, academicYear)
+	if err != nil {
+		return nil, fmt.Errorf("attendance.Repository.ListAttendanceSummary: %w", err)
+	}
+	defer rows.Close()
+
+	var results []AttendanceSummaryRow
+	for rows.Next() {
+		var r AttendanceSummaryRow
+		if err := rows.Scan(
+			&r.ClassName, &r.TermName, &r.TermNumber, &r.AcademicYear,
+			&r.DaysInTerm, &r.TotalEnrolledAvg,
+			&r.PresentPercentage, &r.AbsentPercentage,
+			&r.ExcusedPercentage, &r.LatePercentage,
+		); err != nil {
+			return nil, fmt.Errorf("attendance.Repository.ListAttendanceSummary: scan: %w", err)
+		}
+		results = append(results, r)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("attendance.Repository.ListAttendanceSummary: rows: %w", err)
+	}
+	return results, nil
+}
+
 func (r *pgRepository) GetClassDailySummary(ctx context.Context, tenantID, schoolID, classID, date string) (*ClassDailyAttendanceSummary, error) {
 	var s ClassDailyAttendanceSummary
 	err := database.FromContext(ctx, r.pool).QueryRow(ctx, `

@@ -887,3 +887,42 @@ func TestPgRepository_GetLowestAttendanceStudents(t *testing.T) {
 		require.Empty(t, items)
 	})
 }
+
+// ============================================================================
+// ListAttendanceSummary — repo integration (real DB via testcontainers)
+// ============================================================================
+func TestListAttendanceSummary_RealDB(t *testing.T) {
+	pool, cleanup := startPG(t)
+	defer cleanup()
+
+	ids := setupTestTables(t, pool)
+	repo := newRepo(pool)
+	ctx := context.Background()
+
+	// Insert class term attendance summaries for two classes
+	_, err := pool.Exec(ctx, `
+		INSERT INTO class_term_attendance_summaries
+		(tenant_id, school_id, class_id, academic_term_id, academic_year_id, days_in_term, total_enrolled_avg, present_count, absent_count, late_count, excused_count, term_attendance_rate)
+		VALUES ($1, $2, $3, $4, $5, 60, 150, 92, 4, 2, 2, 92.0)`,
+		ids.TenantID, ids.SchoolID, ids.ClassID1, ids.AcademicTermID, ids.AcademicYearID)
+	require.NoError(t, err)
+
+	_, err = pool.Exec(ctx, `
+		INSERT INTO class_term_attendance_summaries
+		(tenant_id, school_id, class_id, academic_term_id, academic_year_id, days_in_term, total_enrolled_avg, present_count, absent_count, late_count, excused_count, term_attendance_rate)
+		VALUES ($1, $2, $3, $4, $5, 60, 50, 45, 3, 1, 1, 90.0)`,
+		ids.TenantID, ids.SchoolID, ids.ClassID2, ids.AcademicTermID, ids.AcademicYearID)
+	require.NoError(t, err)
+
+	rows, err := repo.ListAttendanceSummary(ctx, ids.TenantID, ids.SchoolID, "2026")
+	require.NoError(t, err)
+	require.NotEmpty(t, rows)
+
+	// Should include per-class rows and an "All" aggregate
+	classNames := make([]string, len(rows))
+	for i, r := range rows {
+		classNames[i] = r.ClassName
+	}
+	require.Contains(t, classNames, "All")
+	require.True(t, len(rows) >= 2, "expected at least class + All aggregate")
+}

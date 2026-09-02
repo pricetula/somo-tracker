@@ -28,6 +28,7 @@ import {
     type ChartConfig,
 } from "@/components/ui/chart";
 import { SvgNumberTicker } from "@/components/shared/svg-ticker";
+import { getAttendanceSummary } from "@/lib/api/attendance";
 
 function TrendIndicator({ percentageChange }: { percentageChange: number }) {
     return (
@@ -195,6 +196,59 @@ const chartConfig = {
 export function AttendanceSummary() {
     const [hasMounted, setHasMounted] = React.useState(false);
     const [summaryGroup, setSummaryGroup] = React.useState("All");
+    const [summaryData, setSummaryData] = React.useState<{
+        academic_year: string;
+        data: {
+            class_name: string;
+            term_name: string;
+            term_number: number;
+            academic_year: string;
+            present_percentage: number;
+            absent_percentage: number;
+            excused_percentage: number;
+            late_percentage: number;
+            days_in_term: number;
+            total_enrolled_avg: number;
+        }[];
+    } | null>(null);
+    const [isLoading, setIsLoading] = React.useState(true);
+    const [error, setError] = React.useState<string | null>(null);
+
+    React.useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setHasMounted(true);
+    }, []);
+
+    React.useEffect(() => {
+        let cancelled = false;
+        async function load() {
+            setIsLoading(true);
+            setError(null);
+            try {
+                // Use the current active academic year from the session/context.
+                // Fall back to the current calendar year if no year is available.
+                const year = new Date().getFullYear().toString();
+                const result = await getAttendanceSummary(year);
+                if (!cancelled) {
+                    setSummaryData(result as typeof summaryData);
+                }
+            } catch (e) {
+                if (!cancelled) {
+                    setError(e instanceof Error ? e.message : "Failed to load attendance summary");
+                }
+            } finally {
+                if (!cancelled) {
+                    setIsLoading(false);
+                }
+            }
+        }
+        load();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    const data = summaryData ?? { academic_year: "", data: [] };
 
     const mappedData = React.useMemo(() => {
         if (!data?.data?.length) return null;

@@ -33,6 +33,9 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	// have zero frontend callers and were gutted during API cleanup.
 	records := router.Group("/api/v1/attendance/records")
 	records.Post("/batch", middleware.RequireAuth, h.BatchMark)
+
+	summary := router.Group("/api/v1/attendance/summary")
+	summary.Get("/:academic_year", middleware.RequireAuth, h.ListAttendanceSummary)
 }
 
 // attMiddleware extracts common tenant/school context.
@@ -201,6 +204,34 @@ func (h *Handler) BatchMark(c *fiber.Ctx) error {
 }
 
 // ListRecordsBySlotDate handles GET /api/v1/attendance/records/slot.
+// ListAttendanceSummary handles GET /api/v1/attendance/summary/:academic_year.
+//
+// Returns attendance summary rows (per-class + "All" aggregate) for a school
+// across all terms in the given academic year.
+//
+// Path params:
+//   - academic_year (string, required) — e.g. "2026"
+//
+// tenant_id and school_id are resolved from the authenticated local context.
+func (h *Handler) ListAttendanceSummary(c *fiber.Ctx) error {
+	tenantID, schoolID, err := h.attMiddleware(c)
+	if err != nil {
+		return err
+	}
+
+	academicYear := c.Params("academic_year")
+	if academicYear == "" {
+		return middleware.HTTPError(c, fiber.NewError(fiber.StatusBadRequest, "academic_year path param is required"))
+	}
+
+	result, err := h.svc.ListAttendanceSummary(c.Context(), tenantID, schoolID, academicYear)
+	if err != nil {
+		return middleware.HTTPError(c, err)
+	}
+
+	return c.JSON(result)
+}
+
 func (h *Handler) ListRecordsBySlotDate(c *fiber.Ctx) error {
 	tenantID, schoolID, err := h.attMiddleware(c)
 	if err != nil {

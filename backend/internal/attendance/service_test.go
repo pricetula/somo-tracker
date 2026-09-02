@@ -44,6 +44,7 @@ type MockRepository struct {
 	getSchoolAttendanceKPIsFn             func(ctx context.Context, tenantID, schoolID, date, termID string) (*SchoolAttendanceKPI, error)
 	listClassTermPercentagesFn            func(ctx context.Context, tenantID, schoolID string) ([]ClassTermPercentageItem, error)
 	getLowestAttendanceStudentsFn         func(ctx context.Context, tenantID, schoolID string, limit int) ([]LowestAttendanceStudent, error)
+	listAttendanceSummaryFn               func(ctx context.Context, tenantID, schoolID, academicYear string) ([]AttendanceSummaryRow, error)
 }
 
 func (m *MockRepository) CreateSession(ctx context.Context, tenantID, schoolID string, payload CreateSessionPayload) (*AttendanceSession, error) {
@@ -279,6 +280,13 @@ func (m *MockRepository) GetLowestAttendanceStudents(ctx context.Context, tenant
 		return m.getLowestAttendanceStudentsFn(ctx, tenantID, schoolID, limit)
 	}
 	return []LowestAttendanceStudent{}, nil
+}
+
+func (m *MockRepository) ListAttendanceSummary(ctx context.Context, tenantID, schoolID, academicYear string) ([]AttendanceSummaryRow, error) {
+	if m.listAttendanceSummaryFn != nil {
+		return m.listAttendanceSummaryFn(ctx, tenantID, schoolID, academicYear)
+	}
+	return []AttendanceSummaryRow{}, nil
 }
 
 // ============================================================================
@@ -662,5 +670,32 @@ func TestGetCalendarStatus_NilToEmptySlice(t *testing.T) {
 	}
 	if result.Total != 0 {
 		t.Fatalf("expected 0 total, got %d", result.Total)
+	}
+}
+
+// ============================================================================
+// ListAttendanceSummary — service unit (mock repo)
+// ============================================================================
+func TestListAttendanceSummary_ServiceUnit(t *testing.T) {
+	h := newTestHarness()
+
+	h.repo.listAttendanceSummaryFn = func(ctx context.Context, tenantID, schoolID, academicYear string) ([]AttendanceSummaryRow, error) {
+		return []AttendanceSummaryRow{
+			{ClassName: "All", TermName: "Term 1", TermNumber: 1, AcademicYear: "2026", PresentPercentage: 92.0},
+		}, nil
+	}
+
+	result, err := h.svc.ListAttendanceSummary(context.Background(), "t", "s", "2026")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected non-nil result")
+	}
+	if result.AcademicYear != "2026" {
+		t.Errorf("expected academic year 2026, got %s", result.AcademicYear)
+	}
+	if len(result.Data) != 1 {
+		t.Errorf("expected 1 data row, got %d", len(result.Data))
 	}
 }

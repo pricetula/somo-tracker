@@ -168,6 +168,23 @@ func (s *Service) UpdateRecord(ctx context.Context, id, tenantID string, payload
 }
 
 // ListRecordsBySlotDate returns all records for a timetable slot on a date.
+func (s *Service) ListAttendanceSummary(ctx context.Context, tenantID, schoolID, academicYear string) (*AttendanceSummaryResponse, error) {
+	rows, err := s.repo.ListAttendanceSummary(ctx, tenantID, schoolID, academicYear)
+	if err != nil {
+		return nil, err
+	}
+	if len(rows) == 0 {
+		return &AttendanceSummaryResponse{
+			AcademicYear: academicYear,
+			Data:         []AttendanceSummaryRow{},
+		}, nil
+	}
+	return &AttendanceSummaryResponse{
+		AcademicYear: rows[0].AcademicYear,
+		Data:         rows,
+	}, nil
+}
+
 func (s *Service) ListRecordsBySlotDate(ctx context.Context, tenantID, schoolID, timetableSlotID, date string) (*RecordListResponse, error) {
 	if timetableSlotID == "" {
 		return nil, fmt.Errorf("attendance.Service.ListRecordsBySlotDate: timetable_allocation_id is required: %w", ErrInvalidInput)

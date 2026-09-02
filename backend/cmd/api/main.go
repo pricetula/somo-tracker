@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 
 	"somotracker/backend/internal/academicyears"
+	"somotracker/backend/internal/assessments"
 	"somotracker/backend/internal/attendance"
 	"somotracker/backend/internal/auth"
 	"somotracker/backend/internal/cbcclasses"
@@ -41,6 +42,7 @@ func main() {
 
 		// Feature modules
 		academicyears.Module,
+		assessments.Module,
 		attendance.Module,
 		auth.Module,
 		cbcclasses.Module,
@@ -66,6 +68,7 @@ func main() {
 			cfg config.Config,
 			pools *database.Pools,
 			log *zap.Logger,
+			assessmentshandler *assessments.Handler,
 			academicyearshandler *academicyears.Handler,
 			attendancehandler *attendance.Handler,
 			authhandler *auth.Handler,
@@ -118,6 +121,7 @@ func main() {
 			cbcclasseshandler.RegisterRoutes(app)
 			cbcschoolshandler.RegisterRoutes(app)
 			cbcstreamshandler.RegisterRoutes(app)
+			assessmentshandler.RegisterRoutes(app)
 			curriculumhandler.RegisterRoutes(app)
 			importshandler.RegisterRoutes(app)
 			invitationshandler.RegisterRoutes(app)

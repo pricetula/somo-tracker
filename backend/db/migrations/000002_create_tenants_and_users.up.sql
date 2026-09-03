@@ -54,17 +54,25 @@ CREATE TABLE users (
     is_active       BOOLEAN      NOT NULL    DEFAULT TRUE,
     external_auth_id VARCHAR(255)             UNIQUE,
     created_at      TIMESTAMPTZ  NOT NULL    DEFAULT NOW(),
-    updated_at      TIMESTAMPTZ  NOT NULL    DEFAULT NOW()
+    updated_at      TIMESTAMPTZ  NOT NULL    DEFAULT NOW(),
+
+    -- Per-tenant email uniqueness: the same email address may appear in different
+    -- tenants but not twice within the same tenant.
+    CONSTRAINT users_tenant_email_uniq UNIQUE (tenant_id, email),
+
+    -- Enforce lowercase at the database layer so the application does not need to
+    -- normalise before INSERT. "Alice@x.com" and "alice@x.com" are the same row;
+    -- mixed-case emails are rejected.
+    CONSTRAINT users_email_lowercase CHECK (email = LOWER(email))
 );
 
--- Index: users_tenant_id is the single most important index for this table.
--- It is used by RLS policy evaluation (every row is checked against the session
--- tenant) and by all tenant-scoped queries (user listing, member lookup, etc).
+-- Index: users_tenant_id covers the most common access pattern. The composite
+-- UNIQUE (tenant_id, email) constraint on the table implicitly creates a
+-- composite btree index on (tenant_id, email), which already satisfies
+-- tenant_id-leading lookups. The standalone users_tenant_id_idx is retained
+-- for pure-tenant scans that do not project email — it is narrower and
+-- therefore cheaper to maintain than the composite.
 CREATE INDEX users_tenant_id_idx ON users (tenant_id);
-
--- Index: users_email supports fast lookups during auth flows (magic-link,
--- passwordless, SSO callback) without scanning every tenant.
-CREATE INDEX users_email_idx ON users (email);
 
 -- Index: users_external_auth_id enables O(1) lookup when a Stytch token is
 -- decoded and we need to hydrate the local user row.
@@ -87,7 +95,7 @@ COMMENT ON COLUMN tenants.created_at                IS 'UTC timestamp of row cre
 
 COMMENT ON TABLE  users                             IS 'Per-tenant user accounts. Rows are scoped to exactly one tenant via the foreign key on tenant_id. Users are identified by email within a tenant scope; the same email may appear in different tenants.';
 COMMENT ON COLUMN users.id                          IS 'Auto-generated UUID primary key. No external meaning — treat as opaque.';
-COMMENT ON COLUMN users.email                       IS 'Canonical email address. Unique within a tenant but not globally. Case-insensitive comparison recommended at the application layer.';
+COMMENT ON COLUMN users.email                       IS 'Canonical email address. Lowercase (enforced by CHECK), unique within a tenant but not globally via users_tenant_email_uniq.';
 COMMENT ON COLUMN users.tenant_id                   IS 'Foreign key to tenants(id). Every user must belong to exactly one tenant. Deleting the tenant cascades this row.';
 COMMENT ON COLUMN users.full_name                   IS 'Display name chosen by the user. May be empty.';
 COMMENT ON COLUMN users.is_active                   IS 'Soft-disable flag. Inactive users cannot authenticate but their rows are retained for audit purposes.';

@@ -1,4 +1,4 @@
-.PHONY: up up-d down ps logs-down logs-api logs-postgres logs-redis logs-frontend restart-api rebuild-api build-api generate-swagger generate-api-types lint vet test test-short test-integration test-verbose test-all help migrated migrate-down migrate-range migrate-verify test-db-up test-db-down test-db-status test-db-logs test-db-reset
+.PHONY: up up-d down ps logs-down logs-api logs-postgres logs-redis logs-frontend restart-api rebuild-api build-api sqlc-gen generate-swagger generate-api-types lint vet test test-short test-integration test-verbose test-all help migrated migrate-down migrate-range migrate-verify test-db-up test-db-down test-db-status test-db-logs test-db-reset
 
 # ─── Docker Compose shortcuts ────────────────────────────────────────────────
 
@@ -120,13 +120,16 @@ test-all: test-short test-integration  ## Run unit + integration tests
 
 # ─── Code generation ─────────────────────────────────────────────────────────
 
+sqlc-gen:  ## Run sqlc code generation (requires queries in db/queries/)
+	cd backend && sqlc generate
+
 generate-swagger:  ## Generate Swagger/OpenAPI docs from Go annotations
 	cd backend && swag init -g cmd/api/main.go --output docs --parseDependency --parseInternal
 
 generate-api-types: generate-swagger  ## Generate TypeScript types from swagger.json
 	cd frontend && pnpm generate:api
 
-generate: generate-api-types  ## Run all code generation (swagger + TS types)
+generate: sqlc-gen generate-api-types  ## Run all code generation (sqlc + swagger + TS types)
 
 # ─── Help ─────────────────────────────────────────────────────────────────────
 

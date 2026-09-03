@@ -27,7 +27,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useRegister } from "@/hooks/use-auth";
-import { DocTooltip } from "@/components/ui/DocTooltip";
+import { DocTooltip } from "@/components/shared/DocTooltip";
 
 // ─── Schema ───────────────────────────────────────────────────────────────
 

@@ -31,10 +31,10 @@ export function InvitationCountBadge({ role, href }: InvitationCountBadgeProps) 
 
     if (count === 0) return null;
 
-    const label = `${count} ${count === 1 ? "invitation" : "invitations"}`;
+    const label = `${count} invitated`;
 
     return (
-        <Button variant="outline" size="sm" asChild>
+        <Button variant="outline" size="sm">
             <Link href={href}>{label}</Link>
         </Button>
     );

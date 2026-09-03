@@ -1,7 +1,7 @@
 /**
  * Academic Terms & Years API functions.
  *
- * Backend contract (backend/internal/academicyears/handler.go):
+ * Backend contract (backend/internal/academic-years/handler.go):
  *
  *   Academic years are READ-ONLY via the API — year creation is driven by the
  *   term lifecycle and SetupInitialYear during school registration. All term
@@ -75,6 +75,11 @@ export interface UpdateTermPayload {
     version: number; // required for optimistic locking
 }
 
+// ─── Response Types ────────────────────────────────────────────────────────
+export interface ActivateTermResponse extends AcademicTerm {
+    message: string;
+}
+
 // ─── API Functions — Academic Years (read-only) ───────────────────────────
 
 /** Get the current academic year plus its current term for the active school. */
@@ -83,9 +88,9 @@ export async function getCurrentYearAndTerm(): Promise<CurrentAcademicYearWithCu
 }
 
 /** List academic years for the active school (each with nested terms). */
-export async function listAcademicYears(): Promise<{ items: AcademicYear[] }> {
-    const raw = await api.get<{ data: AcademicYear[] }>("/api/v1/academic-years");
-    return { items: raw.data ?? [] };
+export async function listAcademicYears(): Promise<{ data: AcademicYear[] }> {
+    const years = await api.get<{ data: AcademicYear[] }>("/api/v1/academic-years");
+    return years;
 }
 
 // ─── API Functions — Academic Terms ───────────────────────────────────────
@@ -93,13 +98,12 @@ export async function listAcademicYears(): Promise<{ items: AcademicYear[] }> {
 /** List academic terms for the active school, optionally filtered by year. */
 export async function listTerms(
     params: { academic_year_id?: string } = {}
-): Promise<{ items: AcademicTerm[] }> {
+): Promise<AcademicTerm[]> {
     const searchParams = new URLSearchParams();
     if (params.academic_year_id) searchParams.set("academic_year_id", params.academic_year_id);
 
     const qs = searchParams.toString();
-    const raw = await api.get<{ data: AcademicTerm[] }>(`/api/v1/academic-terms?${qs}`);
-    return { items: raw.data ?? [] };
+    return await api.get<AcademicTerm[]>(`/api/v1/academic-terms?${qs}`);
 }
 
 /** Create a new academic term. Returns the created term. */
@@ -116,8 +120,8 @@ export async function updateTerm(id: string, payload: UpdateTermPayload): Promis
  * Activate an academic term, making it the school's current term.
  * POST /api/v1/academic-terms/:id/activate — SCHOOL_ADMIN only.
  */
-export async function activateTerm(id: string): Promise<{ message: string }> {
-    return api.post<{ message: string }>(`/api/v1/academic-terms/${id}/activate`);
+export async function activateTerm(id: string): Promise<ActivateTermResponse> {
+    return api.post<ActivateTermResponse>(`/api/v1/academic-terms/${id}/activate`);
 }
 
 /**

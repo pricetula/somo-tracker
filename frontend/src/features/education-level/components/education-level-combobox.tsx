@@ -7,10 +7,22 @@
 
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import React from "react";
 
-import { Combobox } from "@/components/ui/combobox";
+import {
+    Combobox,
+    ComboboxInput,
+    ComboboxContent,
+    ComboboxList,
+    ComboboxItem,
+    ComboboxEmpty,
+} from "@/components/ui/combobox";
 import { EDUCATION_LEVEL_LABELS } from "../types";
+
+interface Option {
+    value: string;
+    label: string;
+}
 
 // ─── Props ────────────────────────────────────────────────────────────────
 
@@ -23,11 +35,6 @@ export interface EducationLevelComboboxProps {
     placeholder?: string;
     /** Optional outer container class. */
     className?: string;
-    /**
-     * When true, automatically selects the first option if no value is set.
-     * Defaults to false.
-     */
-    doPreselectFirstOption?: boolean;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────
@@ -37,9 +44,8 @@ export function EducationLevelCombobox({
     onChange,
     placeholder = "Select an education level...",
     className,
-    doPreselectFirstOption = false,
 }: EducationLevelComboboxProps) {
-    const items = useMemo(
+    const items = React.useMemo(
         () =>
             Object.entries(EDUCATION_LEVEL_LABELS).map(([value, label]) => ({
                 value,
@@ -48,25 +54,39 @@ export function EducationLevelCombobox({
         []
     );
 
-    // ── Auto-preselect first option ──────────────────────────────────────
-    const hasPreselected = useRef(false);
-    useEffect(() => {
-        if (!doPreselectFirstOption || items.length === 0 || hasPreselected.current) return;
-        if (value) {
-            hasPreselected.current = true;
-            return;
+    const selectedOption = React.useMemo(
+        () => items.find((o) => o.value === value) || items[0],
+        [items, value]
+    );
+
+    React.useEffect(() => {
+        if (!value && selectedOption) {
+            onChange(selectedOption.value);
         }
-        hasPreselected.current = true;
-        onChange(items[0].value);
-    }, [doPreselectFirstOption, items, value, onChange]);
+    }, [selectedOption, value, onChange]);
 
     return (
         <Combobox
-            items={items}
-            value={value}
-            onValueChange={(v) => onChange(v as string)}
-            placeholder={placeholder}
-            className={className}
-        />
+            items={items as Option[]}
+            value={selectedOption}
+            itemToStringValue={(i) => i.label}
+            onValueChange={(v) => {
+                if (v) {
+                    onChange(v.value);
+                }
+            }}
+        >
+            <ComboboxInput placeholder={placeholder} className={className} />
+            <ComboboxContent>
+                <ComboboxEmpty>No items found.</ComboboxEmpty>
+                <ComboboxList>
+                    {(i) => (
+                        <ComboboxItem key={i.value} value={i as Option}>
+                            {i.label}
+                        </ComboboxItem>
+                    )}
+                </ComboboxList>
+            </ComboboxContent>
+        </Combobox>
     );
 }

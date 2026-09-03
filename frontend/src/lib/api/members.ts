@@ -10,6 +10,23 @@ import type { Member, ListMembersResponse } from "./generated";
 
 export type UserRole = "TEACHER" | "NURSE" | "FINANCE" | "SCHOOL_ADMIN";
 
+/** Aggregate member counts returned by GET /api/v1/members/member-counts. */
+export interface MemberCounts {
+    students: number;
+    admins: number;
+    nurses: number;
+    teachers: number;
+    parents: number;
+    finance: number;
+}
+
+/** Envelope returned by GET /api/v1/members/member-counts. */
+export interface MemberCountsResponse {
+    code: string;
+    message: string;
+    data: MemberCounts;
+}
+
 export const MappedUserRoles: Map<string, string> = new Map([
     ["TEACHER", "Teacher"],
     ["NURSE", "Nurse"],
@@ -45,4 +62,9 @@ export async function listMembers(
 
     const qs = searchParams.toString();
     return api.get<ListMembersResponse>(`/api/v1/members?${qs}`);
+}
+
+/** Get aggregate member counts (students, admins, nurses, teachers, parents, finance). */
+export async function getMemberCounts(): Promise<MemberCountsResponse> {
+    return api.get<MemberCountsResponse>("/api/v1/members/member-counts");
 }

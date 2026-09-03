@@ -108,9 +108,7 @@ export function CreateLearningAreaDialog({ open, onOpenChange }: CreateLearningA
                             placeholder="e.g. MATH, INT_SCI"
                             {...register("code", { required: "Code is required" })}
                         />
-                        {errors.code && (
-                            <p className="text-destructive text-xs">{errors.code.message}</p>
-                        )}
+                        {errors.code && <p className="text-destructive">{errors.code.message}</p>}
                     </div>
 
                     <div className="space-y-2">
@@ -120,9 +118,7 @@ export function CreateLearningAreaDialog({ open, onOpenChange }: CreateLearningA
                             placeholder="e.g. Mathematics"
                             {...register("name", { required: "Name is required" })}
                         />
-                        {errors.name && (
-                            <p className="text-destructive text-xs">{errors.name.message}</p>
-                        )}
+                        {errors.name && <p className="text-destructive">{errors.name.message}</p>}
                     </div>
 
                     <div className="space-y-2">
@@ -133,9 +129,7 @@ export function CreateLearningAreaDialog({ open, onOpenChange }: CreateLearningA
                             placeholder="Select education level"
                         />
                         {errors.education_level && (
-                            <p className="text-destructive text-xs">
-                                {errors.education_level.message}
-                            </p>
+                            <p className="text-destructive">{errors.education_level.message}</p>
                         )}
                     </div>
 
@@ -147,7 +141,7 @@ export function CreateLearningAreaDialog({ open, onOpenChange }: CreateLearningA
                             placeholder="Select grade"
                         />
                         {errors.grade_level && (
-                            <p className="text-destructive text-xs">{errors.grade_level.message}</p>
+                            <p className="text-destructive">{errors.grade_level.message}</p>
                         )}
                     </div>
 

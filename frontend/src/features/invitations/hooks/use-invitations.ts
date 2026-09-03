@@ -4,7 +4,8 @@
 
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import React from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { getInvitationCount } from "@/lib/api/invitations";
 import { STALE_TIMES } from "@/lib/query-config";
@@ -25,4 +26,12 @@ export function useInvitationCount(role: string) {
         queryFn: () => getInvitationCount(role),
         staleTime: STALE_TIMES.REFERENCE_DATA,
     });
+}
+
+export function useInvalidateInvitationCount(role: string) {
+    const queryClient = useQueryClient();
+
+    return React.useCallback(() => {
+        queryClient.invalidateQueries({ queryKey: invitationKeys.count(role) });
+    }, [queryClient, role]);
 }

@@ -1,12 +1,13 @@
 "use client";
 
+import React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Trash2, Link2 } from "lucide-react";
+import { Trash2, Link2, Loader2 } from "lucide-react";
 import { StaticTable } from "@/components/shared/static-table";
 import {
     AlertDialog,
@@ -20,34 +21,87 @@ import {
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
+    Form,
+    FormControl,
+    FormField,
+    FormItem,
+    FormLabel,
+    FormMessage,
+} from "@/components/ui/form";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/errors";
+import {
     useParentDetail,
     useUpdateParent,
     useUnlinkStudent,
     useDeleteParent,
 } from "../hooks/use-parents";
 import { LinkStudentDialog } from "./link-student-dialog";
-import * as React from "react";
+import { EmptyState } from "./empty-state";
 
 interface ParentDetailViewProps {
     parentId: string;
-    onBack: () => void;
 }
 
-import { EmptyState } from "./empty-state";
+const parentDetailSchema = z.object({
+    phoneNumber: z.string().trim().min(1, "Phone number is required"),
+});
 
-export function ParentDetailView({ parentId, onBack }: ParentDetailViewProps) {
-    const { data: detailData, isLoading, isError } = useParentDetail(parentId);
+type ParentDetailSchema = z.infer<typeof parentDetailSchema>;
 
+export function ParentDetailView({ parentId }: ParentDetailViewProps) {
+    const router = useRouter();
+    const { data: detailData, isLoading, isError, error } = useParentDetail(parentId);
     const updateParent = useUpdateParent();
     const unlinkStudent = useUnlinkStudent();
     const deleteMutation = useDeleteParent();
 
     const [linkDialogOpen, setLinkDialogOpen] = React.useState(false);
-    const [editPhone, setEditPhone] = React.useState<string | null>(null);
 
     const detail = detailData?.data;
-    const displayPhone = editPhone ?? detail?.phone_number ?? "";
-    const isEditingPhone = editPhone !== null;
+
+    const form = useForm<ParentDetailSchema>({
+        resolver: zodResolver(parentDetailSchema),
+        defaultValues: {
+            phoneNumber: "",
+        },
+    });
+
+    React.useEffect(() => {
+        if (isError) {
+            toast.error(getErrorMessage(error));
+        }
+    }, [isError, error]);
+
+    React.useEffect(() => {
+        if (updateParent.error) {
+            toast.error(getErrorMessage(updateParent.error));
+        }
+        if (updateParent.isSuccess) {
+            router.back();
+            toast.success("Parent updated successfully.");
+        }
+    }, [updateParent, router]);
+
+    const onSubmit = React.useCallback(
+        (values: ParentDetailSchema) => {
+            updateParent.mutate({
+                id: parentId,
+                data: { phone_number: values.phoneNumber.trim() },
+            });
+        },
+        [updateParent, parentId]
+    );
+
+    React.useEffect(() => {
+        if (detail?.phone_number) {
+            form.setValue("phoneNumber", detail.phone_number);
+        }
+    }, [detail, form]);
 
     const handleToggleActive = async () => {
         if (!detail) return;
@@ -56,20 +110,6 @@ export function ParentDetailView({ parentId, onBack }: ParentDetailViewProps) {
                 id: parentId,
                 data: { is_active: !detail.is_active },
             });
-        } catch {
-            // handled by mutation onError
-        }
-    };
-
-    const handleSavePhone = async () => {
-        const phone = displayPhone.trim();
-        if (!detail || !phone) return;
-        try {
-            await updateParent.mutateAsync({
-                id: parentId,
-                data: { phone_number: phone },
-            });
-            setEditPhone(null);
         } catch {
             // handled by mutation onError
         }
@@ -87,6 +127,16 @@ export function ParentDetailView({ parentId, onBack }: ParentDetailViewProps) {
         }
     };
 
+    const handleDelete = async () => {
+        try {
+            await deleteMutation.mutateAsync(parentId);
+            router.back();
+        } catch {
+            // Error handled by the hook
+        }
+    };
+
+    // Loading state
     if (isLoading) {
         return (
             <div className="flex flex-col gap-4 px-6 pt-6 pb-8">
@@ -98,17 +148,14 @@ export function ParentDetailView({ parentId, onBack }: ParentDetailViewProps) {
         );
     }
 
-    if (isError || !detail) {
-        return (
-            <div className="flex items-center justify-center py-16">
-                <div className="text-center">
-                    <p className="text-destructive font-medium">Failed to load parent details.</p>
-                    <Button variant="outline" size="sm" className="mt-4" onClick={onBack}>
-                        Go to Parents
-                    </Button>
-                </div>
-            </div>
-        );
+    // Error state
+    if (isError) {
+        return null;
+    }
+
+    // Not found state
+    if (!detail) {
+        return <p className="text-muted-foreground py-4">Parent not found.</p>;
     }
 
     const linkedCount = detail.linked_students?.length ?? 0;
@@ -121,106 +168,91 @@ export function ParentDetailView({ parentId, onBack }: ParentDetailViewProps) {
                 <div className="mt-4 space-y-4">
                     {/* Email (read-only) */}
                     <div>
-                        <Label className="text-muted-foreground text-xs">Email</Label>
+                        <Label className="text-muted-foreground">Email</Label>
                         <p className="">{detail.email}</p>
                     </div>
 
-                    {/* Phone (editable) */}
-                    <div>
-                        <Label className="text-muted-foreground text-xs">Phone Number</Label>
-                        {isEditingPhone ? (
-                            <div className="mt-1 flex items-center gap-2">
-                                <Input
-                                    value={displayPhone}
-                                    onChange={(e) => setEditPhone(e.target.value)}
-                                    className="h-8 max-w-xs"
+                    {/* Phone (editable) - using Form */}
+                    <Form {...form}>
+                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                            <FormField
+                                control={form.control}
+                                name="phoneNumber"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel htmlFor="phone-number">Phone Number</FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                id="phone-number"
+                                                placeholder="Phone number"
+                                                autoFocus
+                                                {...field}
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+
+                            {/* Active toggle */}
+                            <div className="flex items-center gap-3">
+                                <Switch
+                                    id="parent-active"
+                                    checked={detail.is_active}
+                                    onCheckedChange={handleToggleActive}
+                                    disabled={updateParent.isPending}
                                 />
-                                <Button size="sm" variant="outline" onClick={handleSavePhone}>
-                                    Save
-                                </Button>
-                                <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => setEditPhone(null)}
-                                >
-                                    Cancel
-                                </Button>
+                                <Label htmlFor="parent-active" className="">
+                                    {detail.is_active ? "Active" : "Inactive"}
+                                </Label>
                             </div>
-                        ) : (
-                            <div className="mt-1 flex items-center gap-2">
-                                <span className="">{detail.phone_number}</span>
-                                <Button
-                                    variant="ghost"
-                                    size="icon-sm"
-                                    onClick={() => setEditPhone(detail?.phone_number ?? "")}
-                                >
-                                    <svg
-                                        className="size-3.5"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                    >
-                                        <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            strokeWidth={2}
-                                            d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-                                        />
-                                    </svg>
-                                    <span className="sr-only">Edit phone</span>
+
+                            <footer className="flex gap-4">
+                                {/* Save button */}
+                                <Button type="submit" disabled={updateParent.isPending}>
+                                    {updateParent.isPending ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            Saving…
+                                        </>
+                                    ) : (
+                                        "Save Changes"
+                                    )}
                                 </Button>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Active toggle */}
-                    <div className="flex items-center gap-3">
-                        <Switch
-                            id="parent-active"
-                            checked={detail.is_active}
-                            onCheckedChange={handleToggleActive}
-                            disabled={updateParent.isPending}
-                        />
-                        <Label htmlFor="parent-active" className="">
-                            {detail.is_active ? "Active" : "Inactive"}
-                        </Label>
-                    </div>
-
-                    {/* Delete parent */}
-                    <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                            <Button variant="outline" size="sm" className="text-destructive">
-                                <Trash2 className="mr-1.5 size-3.5" />
-                                Delete Parent
-                            </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>Delete Parent</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    Are you sure you want to delete &ldquo;{detail.full_name}
-                                    &rdquo;? This action cannot be undone.
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                    variant="destructive"
-                                    onClick={async () => {
-                                        try {
-                                            await deleteMutation.mutateAsync(parentId);
-                                            onBack();
-                                        } catch {
-                                            // handled by hook onError
+                                {/* Delete parent */}
+                                <AlertDialog>
+                                    <AlertDialogTrigger
+                                        render={
+                                            <Button variant="outline" className="text-destructive">
+                                                <Trash2 className="mr-1.5 size-3.5" />
+                                                Delete Parent
+                                            </Button>
                                         }
-                                    }}
-                                    disabled={deleteMutation.isPending}
-                                >
-                                    {deleteMutation.isPending ? "Deleting…" : "Delete"}
-                                </AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
+                                    />
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>Delete Parent</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                Are you sure you want to delete &ldquo;
+                                                {detail.full_name}&rdquo;? This action cannot be
+                                                undone.
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                            <AlertDialogAction
+                                                variant="destructive"
+                                                onClick={handleDelete}
+                                                disabled={deleteMutation.isPending}
+                                            >
+                                                {deleteMutation.isPending ? "Deleting…" : "Delete"}
+                                            </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            </footer>
+                        </form>
+                    </Form>
                 </div>
             </div>
 
@@ -258,7 +290,7 @@ export function ParentDetailView({ parentId, onBack }: ParentDetailViewProps) {
                                 header: "Relationship",
                                 cell: (link) => (
                                     <span className="text-muted-foreground">
-                                        {link.relationship || "—"}
+                                        {link.relationship || "\u2014"}
                                     </span>
                                 ),
                             },

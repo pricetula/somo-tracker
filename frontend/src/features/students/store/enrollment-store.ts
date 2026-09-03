@@ -21,7 +21,6 @@ export const useEnrollmentStore = create<EnrollmentState>((set) => ({
     selectedStudentIds: [],
     setSelectedStudentIds: (ids) => set({ selectedStudentIds: ids }),
     clearSelectedStudentIds: () => {
-        console.log("Cleeraaaa");
         set({ selectedStudentIds: [] });
     },
 }));

@@ -141,7 +141,6 @@ export interface UpdateStudentPayload {
 }
 
 export interface CreateEnrollmentPayload {
-    academic_term_id: string;
     class_id: string;
     status?: string;
 }

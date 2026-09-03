@@ -1,48 +1,33 @@
-# ── Stage 1: Build ──────────────────────────────────────────────────────────
-FROM golang:1.26-alpine AS builder
+# Stage 1: Builder
+FROM golang:alpine AS builder
 
-RUN apk add --no-cache --update git ca-certificates tzdata
+# Install build dependencies
+RUN apk add --no-cache git ca-certificates
 
 WORKDIR /app
 
-# Cache module downloads (separate layer so go.mod/go.sum changes don't
-# invalidate the full source copy)
+# Copy module files and download dependencies
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy the rest of the source
+# Copy source code
 COPY . .
 
-# Build a fully static binary — zero libc dependencies
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-    go build -ldflags="-s -w" \
-    -o /build/api \
-    ./cmd/api
+# Build a statically linked binary
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /bin/api ./cmd/api/main.go
 
-# ── Stage 2: Runtime ────────────────────────────────────────────────────────
-FROM alpine:3.20
+# Stage 2: Runner
+FROM alpine:latest
 
-RUN apk add --no-cache --update ca-certificates tzdata wget
-
-# Create a non-root user for security best practices
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+# Install ca-certificates for HTTPS/secure connections
+RUN apk --no-cache add ca-certificates
 
 WORKDIR /app
 
-# Copy the binary
-COPY --from=builder /build/api .
+# Copy certificates and the compiled binary from the builder
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=builder /bin/api /bin/api
 
-# Copy migrations (golang-migrate resolves them via file:// relative to CWD)
-COPY --from=builder /app/internal/database/migrations ./internal/database/migrations
-
-# Drop privileges
-USER appuser
-
-# HEALTHCHECK — Render uses this for zero-downtime deploys and early restarts
-HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:${PORT:-3030}/health || exit 1
-
-# Render injects the PORT env var; default fallback in config.go is 3030
 EXPOSE 3030
 
-ENTRYPOINT ["./api"]
+ENTRYPOINT ["/bin/api"]

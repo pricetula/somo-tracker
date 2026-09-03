@@ -1,19 +1,14 @@
 /**
  * Enrollment Page — Full page render for /classes/:id/enroll.
  *
- * Reads the `academictermid` query param.
- * - If present, passes it to EnrollStudentsPanel so the form uses that term.
- * - If absent, EnrollStudentsPanel shows academic year + term comboboxes.
- *
- * On hard refresh, this renders the enrollment panel directly.
- * When client-navigated from the class detail page, it renders as
- * a second-layer overlay (intercepted by @modal/(.)classes/[id]/enroll).
+ * Academic year and term are resolved server-side from the current active term.
+ * No user selection is required.
  */
 
 "use client";
 
 import { Suspense, use } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 import { EnrollStudentsPanel } from "@/features/classes";
 
@@ -23,32 +18,16 @@ interface Props {
 
 function EnrollStudentsContent({ classId }: { classId: string }) {
     const router = useRouter();
-    const searchParams = useSearchParams();
-    const academicTermId = searchParams.get("academictermid") ?? undefined;
 
     return (
         <div className="p-6">
             <div className="mx-auto max-w-lg">
-                {academicTermId ? (
-                    <>
-                        <h1 className="mb-1 text-lg font-semibold">Enroll Students</h1>
-                        <p className="text-muted-foreground mb-6">
-                            Search and select students to enroll in this class.
-                        </p>
-                    </>
-                ) : (
-                    <>
-                        <h1 className="mb-1 text-lg font-semibold">Enroll Students</h1>
-                        <p className="text-muted-foreground mb-6">
-                            Select an academic year and term to enroll students into this class.
-                        </p>
-                    </>
-                )}
-                <EnrollStudentsPanel
-                    classId={classId}
-                    academicTermId={academicTermId}
-                    onSuccess={() => router.back()}
-                />
+                <h1 className="mb-1 text-lg font-semibold">Enroll Students</h1>
+                <p className="text-muted-foreground mb-6">
+                    Search and select students to enroll in this class. The current academic term
+                    will be used automatically.
+                </p>
+                <EnrollStudentsPanel classId={classId} onSuccess={() => router.back()} />
             </div>
         </div>
     );

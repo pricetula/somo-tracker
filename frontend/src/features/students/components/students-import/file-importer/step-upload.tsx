@@ -217,7 +217,7 @@ export function StepUpload({ onParsed, onBack, isResuming, resumeFileName }: Ste
                     <Upload className="text-muted-foreground size-8" />
                     <div className="text-center">
                         <p className="font-medium">Drop your file here, or click to browse</p>
-                        <p className="text-muted-foreground mt-1 text-xs">
+                        <p className="text-muted-foreground mt-1">
                             Supports CSV, TSV, Excel (.xlsx, .xls), and ODS files (max 15MB)
                         </p>
                     </div>

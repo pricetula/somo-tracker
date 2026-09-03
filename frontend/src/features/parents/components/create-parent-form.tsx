@@ -92,7 +92,7 @@ export function CreateParentForm({ onSuccess }: CreateParentFormProps) {
                     placeholder="parent@example.com"
                     disabled={isSubmitting}
                 />
-                <p className="text-muted-foreground text-xs">
+                <p className="text-muted-foreground">
                     The user must already exist in the system. Their account will be linked as a
                     parent.
                 </p>
@@ -124,7 +124,7 @@ export function CreateParentForm({ onSuccess }: CreateParentFormProps) {
                     placeholder="e.g. +254712345678"
                     disabled={isSubmitting}
                 />
-                <p className="text-muted-foreground text-xs">
+                <p className="text-muted-foreground">
                     Used for M-Pesa billing notifications and SMS alerts.
                 </p>
             </div>

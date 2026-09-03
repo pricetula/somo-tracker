@@ -14,7 +14,7 @@ import { SkeletonRows } from "./skeleton-rows";
 import type { DataTableProps, NormalizedListResult } from "./types";
 
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
     AlertDialog,
@@ -367,22 +367,24 @@ export function DataTable<TItem, TParams extends object, TResult>({
                     />
                 )}
 
-                <div className="ml-auto flex items-center gap-1.5">
-                    {renderToolBarComponents?.(selectedIds)}
+                <div className="ml-auto flex items-center gap-3">
+                    {renderToolBarComponents?.(selectedIds, virtualItems?.length)}
 
                     {/* ── Alerts ────────────────────────── */}
                     {selectedIds.size > 0 && deleteFn && (
                         <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
-                            <AlertDialogTrigger asChild>
-                                <Button
-                                    variant="destructive"
-                                    size="sm"
-                                    disabled={isToolbarDisabled}
-                                >
-                                    <Trash2 className="size-3" />
-                                    Delete {selectedIds.size}
-                                </Button>
-                            </AlertDialogTrigger>
+                            <AlertDialogTrigger
+                                render={
+                                    <Button
+                                        variant="destructive"
+                                        size="sm"
+                                        disabled={isToolbarDisabled}
+                                    >
+                                        <Trash2 className="size-3" />
+                                        Delete {selectedIds.size}
+                                    </Button>
+                                }
+                            />
                             <AlertDialogContent>
                                 <AlertDialogHeader>
                                     <AlertDialogTitle>
@@ -408,11 +410,18 @@ export function DataTable<TItem, TParams extends object, TResult>({
                     )}
 
                     {addHref && (
-                        <Button variant="outline" size="icon" disabled={isToolbarDisabled} asChild>
-                            <Link href={addHref}>
-                                <Plus className="size-3.5" />
-                            </Link>
-                        </Button>
+                        <Link
+                            href={addHref}
+                            className={cn(
+                                buttonVariants({
+                                    variant: "outline",
+                                    size: "sm",
+                                }),
+                                "border"
+                            )}
+                        >
+                            <Plus className="size-3.5" />
+                        </Link>
                     )}
                 </div>
             </div>
@@ -435,9 +444,8 @@ export function DataTable<TItem, TParams extends object, TResult>({
                         {isCheckable && (
                             <div className="flex items-center justify-center">
                                 <Checkbox
-                                    checked={
-                                        allSelected ? true : someSelected ? "indeterminate" : false
-                                    }
+                                    checked={allSelected}
+                                    indeterminate={someSelected}
                                     onCheckedChange={handleSelectAll}
                                 />
                             </div>
@@ -485,7 +493,7 @@ export function DataTable<TItem, TParams extends object, TResult>({
                             {/* ── Virtualized rows ──────────────── */}
                             <div
                                 ref={parentRef}
-                                style={{ height, overflow: "auto" }}
+                                style={{ maxHeight: height, overflow: "auto" }}
                                 className="mb-4"
                             >
                                 <div

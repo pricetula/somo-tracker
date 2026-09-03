@@ -198,10 +198,25 @@ export async function deleteLearningArea(id: string): Promise<void> {
 // ── Strands ───────────────────────────────────────────────────────────────
 
 /** List strands for a learning area. */
-export async function listStrands(learningAreaId: string): Promise<ListStrandsResponse> {
-    return api.get<ListStrandsResponse>(
-        `/api/v1/curriculum/strands?learning_area_id=${encodeURIComponent(learningAreaId)}`
-    );
+export async function listStrands(
+    params: { learning_area_id: string; search?: string; page?: number; limit?: number } = {} as {
+        learning_area_id: string;
+        search?: string;
+        page?: number;
+        limit?: number;
+    }
+): Promise<ListStrandsResponse> {
+    const sp = new URLSearchParams();
+    sp.set("learning_area_id", params.learning_area_id);
+    if (params.search) sp.set("search", params.search);
+    if (params.page) sp.set("page", String(params.page));
+    if (params.limit) sp.set("limit", String(params.limit));
+    return api.get<ListStrandsResponse>(`/api/v1/curriculum/strands?${sp}`);
+}
+
+/** Get a single strand by ID. */
+export async function getStrand(id: string): Promise<Strand> {
+    return api.get<Strand>(`/api/v1/curriculum/strands/${id}`);
 }
 
 /** Create a new strand. */
@@ -222,10 +237,25 @@ export async function deleteStrand(id: string): Promise<void> {
 // ── Sub-Strands ───────────────────────────────────────────────────────────
 
 /** List sub-strands for a strand. */
-export async function listSubStrands(strandId: string): Promise<ListSubStrandsResponse> {
-    return api.get<ListSubStrandsResponse>(
-        `/api/v1/curriculum/sub-strands?strand_id=${encodeURIComponent(strandId)}`
-    );
+export async function listSubStrands(
+    params: { strand_id: string; search?: string; page?: number; limit?: number } = {} as {
+        strand_id: string;
+        search?: string;
+        page?: number;
+        limit?: number;
+    }
+): Promise<ListSubStrandsResponse> {
+    const sp = new URLSearchParams();
+    sp.set("strand_id", params.strand_id);
+    if (params.search) sp.set("search", params.search);
+    if (params.page) sp.set("page", String(params.page));
+    if (params.limit) sp.set("limit", String(params.limit));
+    return api.get<ListSubStrandsResponse>(`/api/v1/curriculum/sub-strands?${sp}`);
+}
+
+/** Get a single sub-strand by ID. */
+export async function getSubStrand(id: string): Promise<SubStrand> {
+    return api.get<SubStrand>(`/api/v1/curriculum/sub-strands/${id}`);
 }
 
 /** Create a new sub-strand. */
@@ -267,6 +297,11 @@ export async function updatePerformanceIndicator(
     data: UpdatePerformanceIndicatorPayload
 ): Promise<void> {
     return api.put<void>(`/api/v1/curriculum/performance-indicators/${id}`, data);
+}
+
+/** Seed default CBC curriculum for the current school. */
+export async function seedDefaultCBC(): Promise<{ message: string }> {
+    return api.post<{ message: string }>("/api/v1/curriculum/seed-default");
 }
 
 /** Delete a performance indicator. */

@@ -13,7 +13,6 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
 import { Plus, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -151,7 +150,6 @@ interface StudentManualImportFormProps {
 // ─── Component ────────────────────────────────────────────────────────────
 
 export function StudentManualImportForm({ onReset, onJobCreated }: StudentManualImportFormProps) {
-    const router = useRouter();
     const [rows, setRows] = React.useState<StudentRow[]>([freshRow()]);
     const [submitting, setSubmitting] = React.useState(false);
     const [checkingDuplicates, setCheckingDuplicates] = React.useState(false);
@@ -394,7 +392,7 @@ export function StudentManualImportForm({ onReset, onJobCreated }: StudentManual
                 <div>
                     <h3 className="font-medium">Manual Student Import</h3>
                     {blockingCount > 0 && (
-                        <p className="text-destructive mt-0.5 text-xs">
+                        <p className="text-destructive mt-0.5">
                             {blockingCount} row{blockingCount !== 1 ? "s" : ""} with errors
                         </p>
                     )}
@@ -422,7 +420,7 @@ export function StudentManualImportForm({ onReset, onJobCreated }: StudentManual
 
             {/* Rows */}
             {rows.length === 0 ? (
-                <div className="text-muted-foreground flex flex-col items-center gap-3 py-12 text-xs">
+                <div className="text-muted-foreground flex flex-col items-center gap-3 py-12">
                     <p>No students added yet.</p>
                     <Button variant="outline" size="sm" onClick={addRow}>
                         <Plus className="mr-1 size-3.5" />
@@ -441,7 +439,7 @@ export function StudentManualImportForm({ onReset, onJobCreated }: StudentManual
                                 className={`rounded-md p-3 ${hasRowErrors ? "bg-destructive/5 ring-destructive/20 ring-1" : "bg-muted/30"}`}
                             >
                                 <div className="mb-2 flex items-center justify-between">
-                                    <span className="text-muted-foreground text-xs font-medium">
+                                    <span className="text-muted-foreground font-medium">
                                         Student {index + 1}
                                         {hasRowErrors && (
                                             <span className="text-destructive ml-1">(errors)</span>
@@ -476,7 +474,7 @@ export function StudentManualImportForm({ onReset, onJobCreated }: StudentManual
                                             }
                                             placeholder="e.g. John Kiprop"
                                             disabled={isSubmitting}
-                                            className="h-8 text-xs"
+                                            className="h-8"
                                         />
                                         {fieldError(row.id, "full_name") && (
                                             <p className="text-destructive text-[0.625rem]">
@@ -496,10 +494,7 @@ export function StudentManualImportForm({ onReset, onJobCreated }: StudentManual
                                             onValueChange={(v) => updateRow(row.id, { gender: v })}
                                             disabled={isSubmitting}
                                         >
-                                            <SelectTrigger
-                                                id={`gender-${row.id}`}
-                                                className="h-8 text-xs"
-                                            >
+                                            <SelectTrigger id={`gender-${row.id}`} className="h-8">
                                                 <SelectValue placeholder="-" />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -542,7 +537,7 @@ export function StudentManualImportForm({ onReset, onJobCreated }: StudentManual
                                             }
                                             placeholder="e.g. UP123456789"
                                             disabled={isSubmitting}
-                                            className={`h-8 text-xs ${fieldError(row.id, "upiNumber") ? "border-destructive" : ""}`}
+                                            className={`h-8 ${fieldError(row.id, "upiNumber") ? "border-destructive" : ""}`}
                                         />
                                         {fieldError(row.id, "upiNumber") && (
                                             <p className="text-destructive text-[0.625rem]">
@@ -569,7 +564,7 @@ export function StudentManualImportForm({ onReset, onJobCreated }: StudentManual
                                             }
                                             placeholder="e.g. KNEC123456"
                                             disabled={isSubmitting}
-                                            className={`h-8 text-xs ${fieldError(row.id, "knecNumber") ? "border-destructive" : ""}`}
+                                            className={`h-8 ${fieldError(row.id, "knecNumber") ? "border-destructive" : ""}`}
                                         />
                                         {fieldError(row.id, "knecNumber") && (
                                             <p className="text-destructive text-[0.625rem]">
@@ -594,7 +589,7 @@ export function StudentManualImportForm({ onReset, onJobCreated }: StudentManual
                                             }
                                             placeholder="e.g. ADM001"
                                             disabled={isSubmitting}
-                                            className={`h-8 text-xs ${fieldError(row.id, "admissionNumber") ? "border-destructive" : ""}`}
+                                            className={`h-8 ${fieldError(row.id, "admissionNumber") ? "border-destructive" : ""}`}
                                         />
                                         {fieldError(row.id, "admissionNumber") && (
                                             <p className="text-destructive text-[0.625rem]">
@@ -616,7 +611,6 @@ export function StudentManualImportForm({ onReset, onJobCreated }: StudentManual
                                         }
                                         placeholder="None (no enrollment)"
                                         className="h-8"
-                                        onCreateItem={() => router.push("/classes/add")}
                                     />
                                     <p className="text-muted-foreground text-[0.625rem]">
                                         Leave blank to create without enrollment

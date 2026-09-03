@@ -14,7 +14,7 @@
 
 import * as React from "react";
 import { Loader2 } from "lucide-react";
-import { ImportProgress } from "@/features/students/components/students-import/import-progress";
+import { ImportProgress } from "./import-progress";
 import { getActiveImportJob, type ImportResponse } from "@/lib/api/imports";
 import { useMe } from "@/hooks/use-auth";
 import { BulkInviteSelector } from "./bulk-invite-selector";
@@ -68,6 +68,7 @@ interface BulkInviteFormProps {
     role: "SCHOOL_ADMIN" | "TEACHER" | "NURSE" | "FINANCE" | "PARENT";
     /** Custom submit function for different invite endpoints (e.g., parents vs staff). */
     submitFn?: BulkInviteSubmitFn;
+    onSuccess?: () => void;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────
@@ -84,7 +85,7 @@ const ROLE_LABELS: Record<string, string> = {
 
 // ─── Component ────────────────────────────────────────────────────────────
 
-export function BulkInviteForm({ role, submitFn }: BulkInviteFormProps) {
+export function BulkInviteForm({ role, submitFn, onSuccess }: BulkInviteFormProps) {
     const { data: me } = useMe();
     const [pageState, dispatch] = React.useReducer(pageReducer, { phase: "idle", step: null });
 
@@ -110,8 +111,10 @@ export function BulkInviteForm({ role, submitFn }: BulkInviteFormProps) {
                     });
                 }
             })
-            .catch(() => {
-                // Transient — fall through to normal flow
+            .catch((err) => {
+                // Transient — fall through to normal flow, but surface the failure
+                // so an intermittent backend hiccup isn't silently swallowed.
+                console.warn("Active import job check failed; assuming none is active.", err);
             });
 
         return () => {
@@ -123,6 +126,7 @@ export function BulkInviteForm({ role, submitFn }: BulkInviteFormProps) {
 
     function handleReset() {
         dispatch({ type: "RESET" });
+        onSuccess?.();
     }
 
     function handleJobCreated(jobId: string, totalRecords: number) {
@@ -130,15 +134,16 @@ export function BulkInviteForm({ role, submitFn }: BulkInviteFormProps) {
     }
 
     function handleRetry() {
-        dispatch({ type: "RESET" });
+        // dispatch({ type: "RESET" });
     }
 
     // ── Render ────────────────────────────────────────────────────────
 
     if (!meResolved) {
         return (
-            <div className="flex items-center justify-center py-12">
+            <div className="flex items-center justify-center gap-2 py-12">
                 <Loader2 className="text-muted-foreground size-5 animate-spin" />
+                <p className="text-muted-foreground text-xs">Loading session...</p>
             </div>
         );
     }

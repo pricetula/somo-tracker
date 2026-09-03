@@ -1,37 +1,37 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites tests="1163" failures="0" errors="0" time="23.012949">
-	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/cmd/api" timestamp="2026-08-13T04:13:51+03:00">
+<testsuites tests="1171" failures="0" errors="0" time="24.720994">
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/cmd/api" timestamp="2026-08-16T21:05:11+03:00">
 		<properties>
-			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="42" failures="0" skipped="8" time="1.865000" name="somotracker/backend/internal/academicyears" timestamp="2026-08-13T04:13:52+03:00">
+	<testsuite tests="42" failures="0" skipped="8" time="1.871000" name="somotracker/backend/internal/academicyears" timestamp="2026-08-16T21:05:12+03:00">
 		<properties>
-			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>
 		<testcase classname="somotracker/backend/internal/academicyears" name="TestPgRepository_CreateAndListYears" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_CreateAndListYears&#xA;    repository_test.go:102: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_CreateAndListYears (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_CreateAndListYears&#xA;    repository_test.go:105: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_CreateAndListYears (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/academicyears" name="TestPgRepository_GetYearByID" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_GetYearByID&#xA;    repository_test.go:141: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetYearByID (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_GetYearByID&#xA;    repository_test.go:144: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetYearByID (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/academicyears" name="TestPgRepository_SetCurrentYear" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_SetCurrentYear&#xA;    repository_test.go:178: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_SetCurrentYear (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_SetCurrentYear&#xA;    repository_test.go:181: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_SetCurrentYear (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/academicyears" name="TestPgRepository_ActivateTerm" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_ActivateTerm&#xA;    repository_test.go:218: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ActivateTerm (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_ActivateTerm&#xA;    repository_test.go:221: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ActivateTerm (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/academicyears" name="TestPgRepository_TermDependencyCounts" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_TermDependencyCounts&#xA;    repository_test.go:309: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_TermDependencyCounts (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_TermDependencyCounts&#xA;    repository_test.go:312: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_TermDependencyCounts (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/academicyears" name="TestPgRepository_CountOrphansOutsideRange" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_CountOrphansOutsideRange&#xA;    repository_test.go:366: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_CountOrphansOutsideRange (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_CountOrphansOutsideRange&#xA;    repository_test.go:369: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_CountOrphansOutsideRange (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/academicyears" name="TestPgRepository_UpdateTerm_IsFinal" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_UpdateTerm_IsFinal&#xA;    repository_test.go:441: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_UpdateTerm_IsFinal (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_UpdateTerm_IsFinal&#xA;    repository_test.go:444: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_UpdateTerm_IsFinal (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/academicyears" name="TestPgRepository_CreateAndListTerms" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_CreateAndListTerms&#xA;    repository_test.go:503: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_CreateAndListTerms (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_CreateAndListTerms&#xA;    repository_test.go:506: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_CreateAndListTerms (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/academicyears" name="TestHandler_ListYears_WithTerms" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/academicyears" name="TestHandler_CreateTerm_BeforeYearStart" time="0.000000"></testcase>
@@ -68,57 +68,57 @@
 		<testcase classname="somotracker/backend/internal/academicyears" name="TestPatchTerm_OrphanGuardAllowsWidening" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/academicyears" name="TestPatchTerm_AppliesIsFinal" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="64" failures="0" skipped="16" time="2.280000" name="somotracker/backend/internal/assessments" timestamp="2026-08-13T04:13:53+03:00">
+	<testsuite tests="67" failures="0" skipped="16" time="1.859000" name="somotracker/backend/internal/assessments" timestamp="2026-08-16T21:05:13+03:00">
 		<properties>
-			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>
 		<testcase classname="somotracker/backend/internal/assessments" name="TestPgRepository_CreateAndGetScaleProfile" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_CreateAndGetScaleProfile&#xA;    repository_test.go:196: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_CreateAndGetScaleProfile (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_CreateAndGetScaleProfile&#xA;    repository_test.go:193: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_CreateAndGetScaleProfile (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/assessments" name="TestPgRepository_ListScaleProfiles" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_ListScaleProfiles&#xA;    repository_test.go:232: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListScaleProfiles (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_ListScaleProfiles&#xA;    repository_test.go:229: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListScaleProfiles (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/assessments" name="TestPgRepository_ToggleScaleProfileActive" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_ToggleScaleProfileActive&#xA;    repository_test.go:267: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ToggleScaleProfileActive (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_ToggleScaleProfileActive&#xA;    repository_test.go:264: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ToggleScaleProfileActive (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/assessments" name="TestPgRepository_DeleteScaleProfile" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_DeleteScaleProfile&#xA;    repository_test.go:300: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_DeleteScaleProfile (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_DeleteScaleProfile&#xA;    repository_test.go:297: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_DeleteScaleProfile (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/assessments" name="TestPgRepository_ReplaceScaleRanges" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_ReplaceScaleRanges&#xA;    repository_test.go:330: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ReplaceScaleRanges (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_ReplaceScaleRanges&#xA;    repository_test.go:327: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ReplaceScaleRanges (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/assessments" name="TestPgRepository_SessionLifecycle" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_SessionLifecycle&#xA;    repository_test.go:370: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_SessionLifecycle (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_SessionLifecycle&#xA;    repository_test.go:367: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_SessionLifecycle (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/assessments" name="TestPgRepository_ListSessions" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_ListSessions&#xA;    repository_test.go:440: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListSessions (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_ListSessions&#xA;    repository_test.go:437: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListSessions (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/assessments" name="TestPgRepository_DeleteSession" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_DeleteSession&#xA;    repository_test.go:483: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_DeleteSession (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_DeleteSession&#xA;    repository_test.go:480: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_DeleteSession (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/assessments" name="TestPgRepository_UpsertAndGetStudentScores" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_UpsertAndGetStudentScores&#xA;    repository_test.go:524: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_UpsertAndGetStudentScores (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_UpsertAndGetStudentScores&#xA;    repository_test.go:521: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_UpsertAndGetStudentScores (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/assessments" name="TestPgRepository_BulkUpsertStudentScores" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_BulkUpsertStudentScores&#xA;    repository_test.go:579: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_BulkUpsertStudentScores (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_BulkUpsertStudentScores&#xA;    repository_test.go:576: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_BulkUpsertStudentScores (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/assessments" name="TestPgRepository_UpsertAndGetOutcomeGrades" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_UpsertAndGetOutcomeGrades&#xA;    repository_test.go:627: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_UpsertAndGetOutcomeGrades (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_UpsertAndGetOutcomeGrades&#xA;    repository_test.go:624: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_UpsertAndGetOutcomeGrades (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/assessments" name="TestPgRepository_WeightConfigCRUD" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_WeightConfigCRUD&#xA;    repository_test.go:694: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_WeightConfigCRUD (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_WeightConfigCRUD&#xA;    repository_test.go:691: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_WeightConfigCRUD (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/assessments" name="TestPgRepository_HasScoresForSession" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_HasScoresForSession&#xA;    repository_test.go:737: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_HasScoresForSession (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_HasScoresForSession&#xA;    repository_test.go:739: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_HasScoresForSession (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/assessments" name="TestPgRepository_CountSessionsReferencingScale" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_CountSessionsReferencingScale&#xA;    repository_test.go:791: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_CountSessionsReferencingScale (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_CountSessionsReferencingScale&#xA;    repository_test.go:793: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_CountSessionsReferencingScale (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/assessments" name="TestPgRepository_IsTermFinalised" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_IsTermFinalised&#xA;    repository_test.go:841: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_IsTermFinalised (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_IsTermFinalised&#xA;    repository_test.go:843: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_IsTermFinalised (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/assessments" name="TestPgRepository_GetSessionStatusAndTerm" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_GetSessionStatusAndTerm&#xA;    repository_test.go:876: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetSessionStatusAndTerm (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_GetSessionStatusAndTerm&#xA;    repository_test.go:878: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetSessionStatusAndTerm (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/assessments" name="TestHandler_CreateWeightConfig_HappyPath" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/assessments" name="TestHandler_CreateWeightConfig_InvalidJSON" time="0.000000"></testcase>
@@ -168,32 +168,35 @@
 		<testcase classname="somotracker/backend/internal/assessments" name="TestGetStudentTermGrades_SingleAssessment" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/assessments" name="TestGetStudentTermGrades_RepoReturnsNil" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/assessments" name="TestGetStudentTermGrades_RepoError" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/assessments" name="TestGetGradingData_NilRosterProvider" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/assessments" name="TestGetGradingData_QuantitativeMergesScores" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/assessments" name="TestGetGradingData_RubricMergesGrades" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="57" failures="0" skipped="6" time="3.074000" name="somotracker/backend/internal/attendance" timestamp="2026-08-13T04:13:53+03:00">
+	<testsuite tests="57" failures="0" skipped="6" time="2.292000" name="somotracker/backend/internal/attendance" timestamp="2026-08-16T21:05:14+03:00">
 		<properties>
-			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>
 		<testcase classname="somotracker/backend/internal/attendance" name="TestPgRepository_CreateAndGetSession" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_CreateAndGetSession&#xA;    repository_test.go:240: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_CreateAndGetSession (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_CreateAndGetSession&#xA;    repository_test.go:243: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_CreateAndGetSession (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/attendance" name="TestPgRepository_GetSession_NotFound" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_GetSession_NotFound&#xA;    repository_test.go:277: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetSession_NotFound (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_GetSession_NotFound&#xA;    repository_test.go:280: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetSession_NotFound (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/attendance" name="TestPgRepository_GetClassLearningAreaTermSummary" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_GetClassLearningAreaTermSummary&#xA;    repository_test.go:312: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetClassLearningAreaTermSummary (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_GetClassLearningAreaTermSummary&#xA;    repository_test.go:315: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetClassLearningAreaTermSummary (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/attendance" name="TestPgRepository_ListClassLearningAreaTermSummaries" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_ListClassLearningAreaTermSummaries&#xA;    repository_test.go:372: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListClassLearningAreaTermSummaries (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_ListClassLearningAreaTermSummaries&#xA;    repository_test.go:375: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListClassLearningAreaTermSummaries (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/attendance" name="TestPgRepository_GetClassTermAttendanceSummary" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_GetClassTermAttendanceSummary&#xA;    repository_test.go:426: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetClassTermAttendanceSummary (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_GetClassTermAttendanceSummary&#xA;    repository_test.go:429: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetClassTermAttendanceSummary (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/attendance" name="TestPgRepository_ListClassTermAttendanceSummaries" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_ListClassTermAttendanceSummaries&#xA;    repository_test.go:480: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListClassTermAttendanceSummaries (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_ListClassTermAttendanceSummaries&#xA;    repository_test.go:483: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListClassTermAttendanceSummaries (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/attendance" name="TestCreateSession_HappyPath" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/attendance" name="TestCreateSession_SkippedWithReason" time="0.000000"></testcase>
-		<testcase classname="somotracker/backend/internal/attendance" name="TestCreateSession_EmptyTimetableSlotID" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/attendance" name="TestCreateSession_EmptyTimetableAllocationID" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/attendance" name="TestCreateSession_EmptyDate" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/attendance" name="TestCreateSession_InvalidStatus" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/attendance" name="TestCreateSession_SkippedMissingReason" time="0.000000"></testcase>
@@ -206,7 +209,7 @@
 		<testcase classname="somotracker/backend/internal/attendance" name="TestGetSessionsForClassDate_EmptyClassID" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/attendance" name="TestGetSessionsForClassDate_EmptyDate" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/attendance" name="TestBatchMark_HappyPath" time="0.000000"></testcase>
-		<testcase classname="somotracker/backend/internal/attendance" name="TestBatchMark_EmptyTimetableSlotID" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/attendance" name="TestBatchMark_EmptyTimetableAllocationID" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/attendance" name="TestBatchMark_EmptyDate" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/attendance" name="TestBatchMark_EmptyRecords" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/attendance" name="TestBatchMark_InvalidStatus" time="0.000000"></testcase>
@@ -243,9 +246,9 @@
 		<testcase classname="somotracker/backend/internal/attendance" name="TestGetCalendarStatus_Validation" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/attendance" name="TestGetCalendarStatus_NilToEmptySlice" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="151" failures="0" skipped="45" time="6.006000" name="somotracker/backend/internal/auth" timestamp="2026-08-13T04:13:54+03:00">
+	<testsuite tests="151" failures="0" skipped="45" time="6.233000" name="somotracker/backend/internal/auth" timestamp="2026-08-16T21:05:14+03:00">
 		<properties>
-			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>
 		<testcase classname="somotracker/backend/internal/auth" name="TestIntegration_Stytch_DiscoveryEmailTimeout" time="0.000000">
 			<skipped message="=== RUN   TestIntegration_Stytch_DiscoveryEmailTimeout&#xA;    integration_test.go:26: skipping integration test in short mode&#xA;--- SKIP: TestIntegration_Stytch_DiscoveryEmailTimeout (0.00s)&#xA;"></skipped>
@@ -365,24 +368,24 @@
 			<skipped message="=== RUN   TestIntegration_EdgeCase_EmptyDeviceFingerprint&#xA;    integration_test.go:2290: skipping integration test in short mode&#xA;--- SKIP: TestIntegration_EdgeCase_EmptyDeviceFingerprint (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/auth" name="TestPgRepository_TenantExists" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_TenantExists&#xA;    repository_test.go:110: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_TenantExists (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_TenantExists&#xA;    repository_test.go:113: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_TenantExists (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/auth" name="TestPgRepository_GetTenantByName" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_GetTenantByName&#xA;    repository_test.go:135: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetTenantByName (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_GetTenantByName&#xA;    repository_test.go:138: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetTenantByName (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/auth" name="TestPgRepository_CreateUserSessionAndGetSession" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_CreateUserSessionAndGetSession&#xA;    repository_test.go:163: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_CreateUserSessionAndGetSession (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_CreateUserSessionAndGetSession&#xA;    repository_test.go:166: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_CreateUserSessionAndGetSession (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/auth" name="TestPgRepository_CreateSessionOnly_NoRawToken" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_CreateSessionOnly_NoRawToken&#xA;    repository_test.go:211: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_CreateSessionOnly_NoRawToken (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_CreateSessionOnly_NoRawToken&#xA;    repository_test.go:214: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_CreateSessionOnly_NoRawToken (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/auth" name="TestPgRepository_GetSessionByToken_NotFound" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_GetSessionByToken_NotFound&#xA;    repository_test.go:242: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetSessionByToken_NotFound (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_GetSessionByToken_NotFound&#xA;    repository_test.go:245: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetSessionByToken_NotFound (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/auth" name="TestPgRepository_GetInvitationByEmail_CaseInsensitive" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_GetInvitationByEmail_CaseInsensitive&#xA;    repository_test.go:261: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetInvitationByEmail_CaseInsensitive (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_GetInvitationByEmail_CaseInsensitive&#xA;    repository_test.go:264: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetInvitationByEmail_CaseInsensitive (0.00s)&#xA;"></skipped>
 		</testcase>
-		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Me_HappyPath" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Me_HappyPath" time="0.010000"></testcase>
 		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Me_MissingCookie" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Me_EmptyCookie" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Me_ExpiredToken" time="0.000000"></testcase>
@@ -427,11 +430,11 @@
 		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Me_SchoolIDCookieSet" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Callback_NewUser_SetsCSRFCookie" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Callback_NotBlockedByIPLimiter" time="0.010000"></testcase>
-		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Discover_InvalidEmail" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Discover_InvalidEmail" time="0.010000"></testcase>
 		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Discover_ValidEmailTrimmed" time="0.000000"></testcase>
-		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Register_ConcurrentSameSessionRef" time="0.020000"></testcase>
+		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Register_ConcurrentSameSessionRef" time="0.010000"></testcase>
 		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Register_CookieSecurityFlags" time="0.000000"></testcase>
-		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Register_CSRFTokenUnpredictable" time="0.010000"></testcase>
+		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Register_CSRFTokenUnpredictable" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/auth" name="TestHandler_Register_SessionTokenNotIST" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/auth" name="TestVerify_StytchTimeout" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/auth" name="TestVerify_StytchExpiredToken" time="0.000000"></testcase>
@@ -481,7 +484,7 @@
 		<testcase classname="somotracker/backend/internal/auth" name="TestErrorToCode_OrgNotFound" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/auth" name="TestErrorToCode_WrappedError" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/auth" name="TestErrorToCode_UnknownError" time="0.000000"></testcase>
-		<testcase classname="somotracker/backend/internal/auth" name="TestReadAndDeleteIST_ConsumedReturnsSessionRefExpired" time="0.010000"></testcase>
+		<testcase classname="somotracker/backend/internal/auth" name="TestReadAndDeleteIST_ConsumedReturnsSessionRefExpired" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/auth" name="TestReadAndDeleteIST_JSONWithoutEmail_KeepsIST" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/auth" name="TestRegister_ExistingUserReusesUserRow" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/auth" name="TestRegister_NewUserInExistingTenant_ReusesSchool" time="0.000000"></testcase>
@@ -489,30 +492,30 @@
 		<testcase classname="somotracker/backend/internal/auth" name="TestGetMe_RedisMiss_ReturnsProfileFromDB" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/auth" name="TestLogout_PurgesBothCacheKeys" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="34" failures="0" skipped="7" time="3.254000" name="somotracker/backend/internal/behavior" timestamp="2026-08-13T04:13:54+03:00">
+	<testsuite tests="34" failures="0" skipped="7" time="4.035000" name="somotracker/backend/internal/behavior" timestamp="2026-08-16T21:05:14+03:00">
 		<properties>
-			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>
 		<testcase classname="somotracker/backend/internal/behavior" name="TestPgRepository_CreateCategory" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_CreateCategory&#xA;    repository_test.go:156: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_CreateCategory (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_CreateCategory&#xA;    repository_test.go:159: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_CreateCategory (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/behavior" name="TestPgRepository_ListCategories" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_ListCategories&#xA;    repository_test.go:198: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListCategories (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_ListCategories&#xA;    repository_test.go:201: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListCategories (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/behavior" name="TestPgRepository_GetCategoryByID" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_GetCategoryByID&#xA;    repository_test.go:235: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetCategoryByID (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_GetCategoryByID&#xA;    repository_test.go:238: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetCategoryByID (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/behavior" name="TestPgRepository_UpdateCategory" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_UpdateCategory&#xA;    repository_test.go:270: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_UpdateCategory (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_UpdateCategory&#xA;    repository_test.go:273: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_UpdateCategory (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/behavior" name="TestPgRepository_CreateNote" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_CreateNote&#xA;    repository_test.go:306: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_CreateNote (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_CreateNote&#xA;    repository_test.go:309: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_CreateNote (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/behavior" name="TestPgRepository_GetNoteByID" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_GetNoteByID&#xA;    repository_test.go:345: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetNoteByID (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_GetNoteByID&#xA;    repository_test.go:348: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetNoteByID (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/behavior" name="TestPgRepository_ReviewNote" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_ReviewNote&#xA;    repository_test.go:383: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ReviewNote (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_ReviewNote&#xA;    repository_test.go:386: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ReviewNote (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/behavior" name="TestListCategories_HappyPath" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/behavior" name="TestListCategories_ActiveOnly" time="0.000000"></testcase>
@@ -542,21 +545,21 @@
 		<testcase classname="somotracker/backend/internal/behavior" name="TestGetNote_HappyPath" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/behavior" name="TestGetNote_NotFound" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="115" failures="0" skipped="4" time="3.950000" name="somotracker/backend/internal/billing" timestamp="2026-08-13T04:13:54+03:00">
+	<testsuite tests="115" failures="0" skipped="4" time="4.843000" name="somotracker/backend/internal/billing" timestamp="2026-08-16T21:05:14+03:00">
 		<properties>
-			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>
 		<testcase classname="somotracker/backend/internal/billing" name="TestPgRepository_CreateAndListFeeCategories" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_CreateAndListFeeCategories&#xA;    repository_test.go:93: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_CreateAndListFeeCategories (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_CreateAndListFeeCategories&#xA;    repository_test.go:96: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_CreateAndListFeeCategories (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/billing" name="TestPgRepository_CreateFeeCategory_Duplicate" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_CreateFeeCategory_Duplicate&#xA;    repository_test.go:116: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_CreateFeeCategory_Duplicate (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_CreateFeeCategory_Duplicate&#xA;    repository_test.go:119: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_CreateFeeCategory_Duplicate (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/billing" name="TestPgRepository_UpdateFeeCategory" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_UpdateFeeCategory&#xA;    repository_test.go:135: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_UpdateFeeCategory (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_UpdateFeeCategory&#xA;    repository_test.go:138: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_UpdateFeeCategory (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/billing" name="TestPgRepository_DeleteFeeCategory" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_DeleteFeeCategory&#xA;    repository_test.go:159: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_DeleteFeeCategory (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_DeleteFeeCategory&#xA;    repository_test.go:162: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_DeleteFeeCategory (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/billing" name="TestHandler_CreateFeeCategory_HappyPath" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/billing" name="TestHandler_CreateFeeCategory_MissingName" time="0.000000"></testcase>
@@ -670,18 +673,18 @@
 		<testcase classname="somotracker/backend/internal/billing" name="TestListPayments_EmptyInvoiceID" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/billing" name="TestListPayments_EmptyTenantID" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="53" failures="0" skipped="3" time="4.655000" name="somotracker/backend/internal/cbcclasses" timestamp="2026-08-13T04:13:54+03:00">
+	<testsuite tests="53" failures="0" skipped="3" time="5.580000" name="somotracker/backend/internal/cbcclasses" timestamp="2026-08-16T21:05:14+03:00">
 		<properties>
-			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>
 		<testcase classname="somotracker/backend/internal/cbcclasses" name="TestPgRepository_CreateAndGetByID" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_CreateAndGetByID&#xA;    repository_test.go:102: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_CreateAndGetByID (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_CreateAndGetByID&#xA;    repository_test.go:105: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_CreateAndGetByID (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/cbcclasses" name="TestPgRepository_List" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_List&#xA;    repository_test.go:137: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_List (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_List&#xA;    repository_test.go:140: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_List (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/cbcclasses" name="TestPgRepository_GetByID_NotFound" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_GetByID_NotFound&#xA;    repository_test.go:172: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetByID_NotFound (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_GetByID_NotFound&#xA;    repository_test.go:175: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetByID_NotFound (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/cbcclasses" name="TestHandler_ListClasses_HappyPath" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/cbcclasses" name="TestHandler_ListClasses_Metadata" time="0.000000"></testcase>
@@ -734,24 +737,24 @@
 		<testcase classname="somotracker/backend/internal/cbcclasses" name="TestBulkDeleteClasses_OverLimit" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/cbcclasses" name="TestBulkDeleteClasses_EmptyTenantID" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="31" failures="0" skipped="5" time="5.204000" name="somotracker/backend/internal/cbcschools" timestamp="2026-08-13T04:13:54+03:00">
+	<testsuite tests="33" failures="0" skipped="5" time="6.284000" name="somotracker/backend/internal/cbcschools" timestamp="2026-08-16T21:05:14+03:00">
 		<properties>
-			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>
 		<testcase classname="somotracker/backend/internal/cbcschools" name="TestPgRepository_CreateSchool" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_CreateSchool&#xA;    repository_test.go:88: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_CreateSchool (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_CreateSchool&#xA;    repository_test.go:89: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_CreateSchool (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/cbcschools" name="TestPgRepository_GetByID" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_GetByID&#xA;    repository_test.go:123: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetByID (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_GetByID&#xA;    repository_test.go:124: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetByID (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/cbcschools" name="TestPgRepository_ListByTenantID" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_ListByTenantID&#xA;    repository_test.go:159: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListByTenantID (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_ListByTenantID&#xA;    repository_test.go:160: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListByTenantID (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/cbcschools" name="TestPgRepository_UpdateSchool" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_UpdateSchool&#xA;    repository_test.go:211: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_UpdateSchool (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_UpdateSchool&#xA;    repository_test.go:212: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_UpdateSchool (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/cbcschools" name="TestPgRepository_DeleteSchool" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_DeleteSchool&#xA;    repository_test.go:274: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_DeleteSchool (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_DeleteSchool&#xA;    repository_test.go:275: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_DeleteSchool (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/cbcschools" name="TestHandler_CreateSchool_HappyPath" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/cbcschools" name="TestHandler_CreateSchool_MissingName" time="0.000000"></testcase>
@@ -765,6 +768,7 @@
 		<testcase classname="somotracker/backend/internal/cbcschools" name="TestHandler_DeleteSchool_HappyPath" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/cbcschools" name="TestHandler_DeleteSchool_WrongTenant" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/cbcschools" name="TestHandler_DeleteSchool_NotFound" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/cbcschools" name="TestHandler_OnboardingStatus_HappyPath" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/cbcschools" name="TestCreateSchool_HappyPath" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/cbcschools" name="TestCreateSchool_EmptyName" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/cbcschools" name="TestListSchools_HappyPath" time="0.000000"></testcase>
@@ -779,28 +783,29 @@
 		<testcase classname="somotracker/backend/internal/cbcschools" name="TestCreateSchool_SeedsCurriculum" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/cbcschools" name="TestCreateSchool_SeedFailure_DoesNotFailSchoolCreation" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/cbcschools" name="TestCreateSchool_WithoutSeeder_DoesNotSeed" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/cbcschools" name="TestOnboardingStatus_HappyPath" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="20" failures="0" skipped="6" time="5.830000" name="somotracker/backend/internal/cbcstreams" timestamp="2026-08-13T04:13:54+03:00">
+	<testsuite tests="20" failures="0" skipped="6" time="6.975000" name="somotracker/backend/internal/cbcstreams" timestamp="2026-08-16T21:05:14+03:00">
 		<properties>
-			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>
 		<testcase classname="somotracker/backend/internal/cbcstreams" name="TestPgRepository_CreateStream" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_CreateStream&#xA;    repository_test.go:92: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_CreateStream (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_CreateStream&#xA;    repository_test.go:93: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_CreateStream (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/cbcstreams" name="TestPgRepository_ListStreams" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_ListStreams&#xA;    repository_test.go:143: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListStreams (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_ListStreams&#xA;    repository_test.go:144: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListStreams (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/cbcstreams" name="TestPgRepository_GetByID" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_GetByID&#xA;    repository_test.go:192: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetByID (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_GetByID&#xA;    repository_test.go:193: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetByID (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/cbcstreams" name="TestPgRepository_UpdateStream" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_UpdateStream&#xA;    repository_test.go:238: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_UpdateStream (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_UpdateStream&#xA;    repository_test.go:239: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_UpdateStream (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/cbcstreams" name="TestPgRepository_DeleteStream" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_DeleteStream&#xA;    repository_test.go:290: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_DeleteStream (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_DeleteStream&#xA;    repository_test.go:291: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_DeleteStream (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/cbcstreams" name="TestPgRepository_HasActiveEnrollments" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_HasActiveEnrollments&#xA;    repository_test.go:332: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_HasActiveEnrollments (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_HasActiveEnrollments&#xA;    repository_test.go:333: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_HasActiveEnrollments (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/cbcstreams" name="TestListStreams_HappyPath" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/cbcstreams" name="TestListStreams_EmptyTenantID" time="0.000000"></testcase>
@@ -817,9 +822,9 @@
 		<testcase classname="somotracker/backend/internal/cbcstreams" name="TestDeleteStream_HasActiveEnrollments" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/cbcstreams" name="TestDeleteStream_NotFound" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="27" failures="0" skipped="2" time="5.807000" name="somotracker/backend/internal/cbctimetableslots" timestamp="2026-08-13T04:13:55+03:00">
+	<testsuite tests="27" failures="0" skipped="2" time="6.433000" name="somotracker/backend/internal/cbctimetableslots" timestamp="2026-08-16T21:05:15+03:00">
 		<properties>
-			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>
 		<testcase classname="somotracker/backend/internal/cbctimetableslots" name="TestPgRepository_ListEnriched" time="0.000000">
 			<skipped message="=== RUN   TestPgRepository_ListEnriched&#xA;    repository_test.go:33: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListEnriched (0.00s)&#xA;"></skipped>
@@ -853,30 +858,30 @@
 		<testcase classname="somotracker/backend/internal/cbctimetableslots" name="TestClearClassDay_EmptyStructureID" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/cbctimetableslots" name="TestClearClassDay_EmptyClassID" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="30" failures="0" skipped="7" time="5.792000" name="somotracker/backend/internal/classteachers" timestamp="2026-08-13T04:13:56+03:00">
+	<testsuite tests="30" failures="0" skipped="7" time="6.464000" name="somotracker/backend/internal/classteachers" timestamp="2026-08-16T21:05:16+03:00">
 		<properties>
-			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>
 		<testcase classname="somotracker/backend/internal/classteachers" name="TestPgRepository_CreateAndGetByID" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_CreateAndGetByID&#xA;    repository_test.go:133: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_CreateAndGetByID (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_CreateAndGetByID&#xA;    repository_test.go:136: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_CreateAndGetByID (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/classteachers" name="TestPgRepository_DuplicateCreate" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_DuplicateCreate&#xA;    repository_test.go:171: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_DuplicateCreate (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_DuplicateCreate&#xA;    repository_test.go:174: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_DuplicateCreate (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/classteachers" name="TestPgRepository_ListByClass" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_ListByClass&#xA;    repository_test.go:204: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListByClass (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_ListByClass&#xA;    repository_test.go:207: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListByClass (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/classteachers" name="TestPgRepository_ListByTeacher" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_ListByTeacher&#xA;    repository_test.go:237: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListByTeacher (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_ListByTeacher&#xA;    repository_test.go:240: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListByTeacher (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/classteachers" name="TestPgRepository_Delete" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_Delete&#xA;    repository_test.go:270: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_Delete (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_Delete&#xA;    repository_test.go:273: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_Delete (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/classteachers" name="TestPgRepository_CountPrimaryForClass" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_CountPrimaryForClass&#xA;    repository_test.go:300: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_CountPrimaryForClass (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_CountPrimaryForClass&#xA;    repository_test.go:303: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_CountPrimaryForClass (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/classteachers" name="TestPgRepository_ExistsForSubject" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_ExistsForSubject&#xA;    repository_test.go:330: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ExistsForSubject (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_ExistsForSubject&#xA;    repository_test.go:333: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ExistsForSubject (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/classteachers" name="TestHandler_CreatePrimaryTeacher" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/classteachers" name="TestHandler_CreatePrimaryAlreadyAssigned" time="0.000000"></testcase>
@@ -902,18 +907,18 @@
 		<testcase classname="somotracker/backend/internal/classteachers" name="TestDelete_NotFound" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/classteachers" name="TestCreate_RepoReturnsAlreadyExists" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="10" failures="0" skipped="3" time="5.241000" name="somotracker/backend/internal/cohortpositions" timestamp="2026-08-13T04:13:57+03:00">
+	<testsuite tests="10" failures="0" skipped="3" time="5.468000" name="somotracker/backend/internal/cohortpositions" timestamp="2026-08-16T21:05:18+03:00">
 		<properties>
-			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>
 		<testcase classname="somotracker/backend/internal/cohortpositions" name="TestPgRepository_GetByStudentTerm_NotFound" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_GetByStudentTerm_NotFound&#xA;    repository_test.go:79: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetByStudentTerm_NotFound (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_GetByStudentTerm_NotFound&#xA;    repository_test.go:82: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetByStudentTerm_NotFound (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/cohortpositions" name="TestPgRepository_ListByClassTerm_Empty" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_ListByClassTerm_Empty&#xA;    repository_test.go:95: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListByClassTerm_Empty (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_ListByClassTerm_Empty&#xA;    repository_test.go:98: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListByClassTerm_Empty (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/cohortpositions" name="TestPgRepository_ListByGradeTerm_Empty" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_ListByGradeTerm_Empty&#xA;    repository_test.go:111: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListByGradeTerm_Empty (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_ListByGradeTerm_Empty&#xA;    repository_test.go:114: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListByGradeTerm_Empty (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/cohortpositions" name="TestRefreshTerm_EmptyID" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/cohortpositions" name="TestRefreshTerm_Success" time="0.000000"></testcase>
@@ -923,17 +928,17 @@
 		<testcase classname="somotracker/backend/internal/cohortpositions" name="TestListByClassTerm_Empty" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/cohortpositions" name="TestListByGradeTerm_EmptyParams" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/config" timestamp="2026-08-13T04:13:58+03:00">
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/config" timestamp="2026-08-16T21:05:19+03:00">
 		<properties>
-			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="94" failures="0" skipped="1" time="4.693000" name="somotracker/backend/internal/curriculum" timestamp="2026-08-13T04:13:58+03:00">
+	<testsuite tests="94" failures="0" skipped="1" time="4.717000" name="somotracker/backend/internal/curriculum" timestamp="2026-08-16T21:05:20+03:00">
 		<properties>
-			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>
 		<testcase classname="somotracker/backend/internal/curriculum" name="TestPgRepository_ListLearningAreas" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_ListLearningAreas&#xA;    repository_test.go:93: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListLearningAreas (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_ListLearningAreas&#xA;    repository_test.go:96: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListLearningAreas (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/curriculum" name="TestHandler_CreateLearningArea_HappyPath" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/curriculum" name="TestHandler_CreateLearningArea_MissingName" time="0.000000"></testcase>
@@ -1029,56 +1034,56 @@
 		<testcase classname="somotracker/backend/internal/curriculum" name="TestUpdateLearningArea_HappyPath" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/curriculum" name="TestDeleteLearningArea_HappyPath" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="6" failures="0" skipped="5" time="6.633000" name="somotracker/backend/internal/database" timestamp="2026-08-13T04:13:59+03:00">
+	<testsuite tests="6" failures="0" skipped="5" time="6.391000" name="somotracker/backend/internal/database" timestamp="2026-08-16T21:05:20+03:00">
 		<properties>
-			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>
 		<testcase classname="somotracker/backend/internal/database" name="TestMigrationsIntegration_ApplyAll" time="0.000000">
-			<skipped message="=== RUN   TestMigrationsIntegration_ApplyAll&#xA;    migration_test.go:319: skipping integration test in short mode&#xA;--- SKIP: TestMigrationsIntegration_ApplyAll (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestMigrationsIntegration_ApplyAll&#xA;    migration_test.go:332: skipping integration test in short mode&#xA;--- SKIP: TestMigrationsIntegration_ApplyAll (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/database" name="TestMigrationsIntegration_ConstraintsAndIndexes_M3_to_M13" time="0.000000">
-			<skipped message="=== RUN   TestMigrationsIntegration_ConstraintsAndIndexes_M3_to_M13&#xA;    migration_test.go:433: skipping integration test in short mode&#xA;--- SKIP: TestMigrationsIntegration_ConstraintsAndIndexes_M3_to_M13 (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestMigrationsIntegration_ConstraintsAndIndexes_M3_to_M13&#xA;    migration_test.go:437: skipping integration test in short mode&#xA;--- SKIP: TestMigrationsIntegration_ConstraintsAndIndexes_M3_to_M13 (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/database" name="TestMigrationsIntegration_UniqueConstraints_M14_to_M17" time="0.000000">
-			<skipped message="=== RUN   TestMigrationsIntegration_UniqueConstraints_M14_to_M17&#xA;    migration_test.go:697: skipping integration test in short mode&#xA;--- SKIP: TestMigrationsIntegration_UniqueConstraints_M14_to_M17 (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestMigrationsIntegration_UniqueConstraints_M14_to_M17&#xA;    migration_test.go:701: skipping integration test in short mode&#xA;--- SKIP: TestMigrationsIntegration_UniqueConstraints_M14_to_M17 (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/database" name="TestMigrationsIntegration_PartialUniqueIndexes_M18_to_M22" time="0.000000">
-			<skipped message="=== RUN   TestMigrationsIntegration_PartialUniqueIndexes_M18_to_M22&#xA;    migration_test.go:792: skipping integration test in short mode&#xA;--- SKIP: TestMigrationsIntegration_PartialUniqueIndexes_M18_to_M22 (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestMigrationsIntegration_PartialUniqueIndexes_M18_to_M22&#xA;    migration_test.go:796: skipping integration test in short mode&#xA;--- SKIP: TestMigrationsIntegration_PartialUniqueIndexes_M18_to_M22 (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/database" name="TestRLSTenantIsolationEndToEnd" time="0.000000">
 			<skipped message="=== RUN   TestRLSTenantIsolationEndToEnd&#xA;    rls_test.go:31: skipping integration test in short mode&#xA;--- SKIP: TestRLSTenantIsolationEndToEnd (0.00s)&#xA;"></skipped>
 		</testcase>
-		<testcase classname="somotracker/backend/internal/database" name="TestMigrationStaticAnalysis_ForeignKeyUniqueConstraints" time="0.930000"></testcase>
+		<testcase classname="somotracker/backend/internal/database" name="TestMigrationStaticAnalysis_ForeignKeyUniqueConstraints" time="0.980000"></testcase>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/database/testhelper" timestamp="2026-08-13T04:13:59+03:00">
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/database/testhelper" timestamp="2026-08-16T21:05:20+03:00">
 		<properties>
-			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="19" failures="0" skipped="7" time="5.191000" name="somotracker/backend/internal/health" timestamp="2026-08-13T04:14:00+03:00">
+	<testsuite tests="19" failures="0" skipped="7" time="5.201000" name="somotracker/backend/internal/health" timestamp="2026-08-16T21:05:21+03:00">
 		<properties>
-			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>
 		<testcase classname="somotracker/backend/internal/health" name="TestPgRepository_CreateAndGetIncident" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_CreateAndGetIncident&#xA;    repository_test.go:106: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_CreateAndGetIncident (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_CreateAndGetIncident&#xA;    repository_test.go:109: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_CreateAndGetIncident (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/health" name="TestPgRepository_GetIncident_NotFound" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_GetIncident_NotFound&#xA;    repository_test.go:138: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetIncident_NotFound (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_GetIncident_NotFound&#xA;    repository_test.go:141: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetIncident_NotFound (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/health" name="TestPgRepository_UpdateIncident" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_UpdateIncident&#xA;    repository_test.go:153: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_UpdateIncident (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_UpdateIncident&#xA;    repository_test.go:156: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_UpdateIncident (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/health" name="TestPgRepository_DeleteIncident" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_DeleteIncident&#xA;    repository_test.go:182: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_DeleteIncident (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_DeleteIncident&#xA;    repository_test.go:185: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_DeleteIncident (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/health" name="TestPgRepository_UpsertAndGetProfile" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_UpsertAndGetProfile&#xA;    repository_test.go:209: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_UpsertAndGetProfile (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_UpsertAndGetProfile&#xA;    repository_test.go:212: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_UpsertAndGetProfile (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/health" name="TestPgRepository_GetProfile_NotFound" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_GetProfile_NotFound&#xA;    repository_test.go:247: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetProfile_NotFound (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_GetProfile_NotFound&#xA;    repository_test.go:250: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetProfile_NotFound (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/health" name="TestPgRepository_ListIncidentsByStudent" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_ListIncidentsByStudent&#xA;    repository_test.go:262: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListIncidentsByStudent (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_ListIncidentsByStudent&#xA;    repository_test.go:265: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListIncidentsByStudent (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/health" name="TestCreateIncident" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/health" name="TestCreateIncident_MissingFields" time="0.000000"></testcase>
@@ -1093,42 +1098,42 @@
 		<testcase classname="somotracker/backend/internal/health" name="TestGetProfileByStudent" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/health" name="TestGetStudentHealth" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="48" failures="0" skipped="10" time="4.957000" name="somotracker/backend/internal/imports" timestamp="2026-08-13T04:14:01+03:00">
+	<testsuite tests="48" failures="0" skipped="10" time="5.286000" name="somotracker/backend/internal/imports" timestamp="2026-08-16T21:05:22+03:00">
 		<properties>
-			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>
 		<testcase classname="somotracker/backend/internal/imports" name="TestIntegration_HappyPath_Import50Students" time="0.000000">
-			<skipped message="=== RUN   TestIntegration_HappyPath_Import50Students&#xA;    integration_test.go:528: skipping integration test in short mode&#xA;--- SKIP: TestIntegration_HappyPath_Import50Students (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestIntegration_HappyPath_Import50Students&#xA;    integration_test.go:535: skipping integration test in short mode&#xA;--- SKIP: TestIntegration_HappyPath_Import50Students (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/imports" name="TestIntegration_RedeliveryAfterCrash" time="0.000000">
-			<skipped message="=== RUN   TestIntegration_RedeliveryAfterCrash&#xA;    integration_test.go:654: skipping integration test in short mode&#xA;--- SKIP: TestIntegration_RedeliveryAfterCrash (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestIntegration_RedeliveryAfterCrash&#xA;    integration_test.go:661: skipping integration test in short mode&#xA;--- SKIP: TestIntegration_RedeliveryAfterCrash (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/imports" name="TestIntegration_ConcurrentClaim" time="0.000000">
-			<skipped message="=== RUN   TestIntegration_ConcurrentClaim&#xA;    integration_test.go:788: skipping integration test in short mode&#xA;--- SKIP: TestIntegration_ConcurrentClaim (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestIntegration_ConcurrentClaim&#xA;    integration_test.go:795: skipping integration test in short mode&#xA;--- SKIP: TestIntegration_ConcurrentClaim (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/imports" name="TestIntegration_DoubleChunkCompletion" time="0.000000">
-			<skipped message="=== RUN   TestIntegration_DoubleChunkCompletion&#xA;    integration_test.go:912: skipping integration test in short mode&#xA;--- SKIP: TestIntegration_DoubleChunkCompletion (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestIntegration_DoubleChunkCompletion&#xA;    integration_test.go:919: skipping integration test in short mode&#xA;--- SKIP: TestIntegration_DoubleChunkCompletion (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/imports" name="TestIntegration_UniqueConstraintOnStagingRow" time="0.000000">
-			<skipped message="=== RUN   TestIntegration_UniqueConstraintOnStagingRow&#xA;    integration_test.go:1018: skipping integration test in short mode&#xA;--- SKIP: TestIntegration_UniqueConstraintOnStagingRow (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestIntegration_UniqueConstraintOnStagingRow&#xA;    integration_test.go:1025: skipping integration test in short mode&#xA;--- SKIP: TestIntegration_UniqueConstraintOnStagingRow (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/imports" name="TestIntegration_ChunkAlreadyClaimed_NoProcessing" time="0.000000">
-			<skipped message="=== RUN   TestIntegration_ChunkAlreadyClaimed_NoProcessing&#xA;    integration_test.go:1176: skipping integration test in short mode&#xA;--- SKIP: TestIntegration_ChunkAlreadyClaimed_NoProcessing (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestIntegration_ChunkAlreadyClaimed_NoProcessing&#xA;    integration_test.go:1183: skipping integration test in short mode&#xA;--- SKIP: TestIntegration_ChunkAlreadyClaimed_NoProcessing (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/imports" name="TestPgRepository_CreateJob" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_CreateJob&#xA;    repository_test.go:98: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_CreateJob (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_CreateJob&#xA;    repository_test.go:101: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_CreateJob (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/imports" name="TestPgRepository_GetJobByIDempotencyKey" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_GetJobByIDempotencyKey&#xA;    repository_test.go:127: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetJobByIDempotencyKey (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_GetJobByIDempotencyKey&#xA;    repository_test.go:130: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetJobByIDempotencyKey (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/imports" name="TestPgRepository_InsertStagingRowsAndGetStagingRows" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_InsertStagingRowsAndGetStagingRows&#xA;    repository_test.go:162: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_InsertStagingRowsAndGetStagingRows (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_InsertStagingRowsAndGetStagingRows&#xA;    repository_test.go:165: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_InsertStagingRowsAndGetStagingRows (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/imports" name="TestPgRepository_UpdateJobStatus" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_UpdateJobStatus&#xA;    repository_test.go:220: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_UpdateJobStatus (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_UpdateJobStatus&#xA;    repository_test.go:223: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_UpdateJobStatus (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/imports" name="TestCreateJob_SingleSmallChunk" time="0.010000"></testcase>
-		<testcase classname="somotracker/backend/internal/imports" name="TestCreateJob_ExactlyDivisibleMultiChunk" time="0.020000"></testcase>
+		<testcase classname="somotracker/backend/internal/imports" name="TestCreateJob_ExactlyDivisibleMultiChunk" time="0.030000"></testcase>
 		<testcase classname="somotracker/backend/internal/imports" name="TestCreateJob_NonDivisibleMultiChunk" time="0.020000"></testcase>
 		<testcase classname="somotracker/backend/internal/imports" name="TestCreateJob_EmptyRows" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/imports" name="TestCreateJob_Idempotency_FirstCreatesSecondReplays" time="0.000000"></testcase>
@@ -1166,18 +1171,18 @@
 		<testcase classname="somotracker/backend/internal/imports" name="TestCleanupExpiredData_NeverDeletesJobRows" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/imports" name="TestLastProgressAt_UpdatesOnChunkCompletion" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="17" failures="0" skipped="3" time="5.557000" name="somotracker/backend/internal/invitations" timestamp="2026-08-13T04:14:01+03:00">
+	<testsuite tests="17" failures="0" skipped="3" time="5.391000" name="somotracker/backend/internal/invitations" timestamp="2026-08-16T21:05:22+03:00">
 		<properties>
-			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>
 		<testcase classname="somotracker/backend/internal/invitations" name="TestPgRepository_InsertAndListInvitations" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_InsertAndListInvitations&#xA;    repository_test.go:107: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_InsertAndListInvitations (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_InsertAndListInvitations&#xA;    repository_test.go:110: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_InsertAndListInvitations (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/invitations" name="TestPgRepository_CheckExistingEmails" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_CheckExistingEmails&#xA;    repository_test.go:148: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_CheckExistingEmails (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_CheckExistingEmails&#xA;    repository_test.go:151: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_CheckExistingEmails (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/invitations" name="TestPgRepository_RevokeInvitation" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_RevokeInvitation&#xA;    repository_test.go:188: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_RevokeInvitation (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_RevokeInvitation&#xA;    repository_test.go:191: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_RevokeInvitation (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/invitations" name="TestHandler_ListInvitations_HappyPath" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/invitations" name="TestHandler_ListInvitations_WithFilters" time="0.000000"></testcase>
@@ -1194,29 +1199,32 @@
 		<testcase classname="somotracker/backend/internal/invitations" name="TestListInvitations_InvalidLimit" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/invitations" name="TestListInvitations_NegativeOffset" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/logger" timestamp="2026-08-13T04:14:01+03:00">
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/logger" timestamp="2026-08-16T21:05:23+03:00">
 		<properties>
-			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="16" failures="0" skipped="5" time="5.589000" name="somotracker/backend/internal/members" timestamp="2026-08-13T04:14:02+03:00">
+	<testsuite tests="19" failures="0" skipped="6" time="5.637000" name="somotracker/backend/internal/members" timestamp="2026-08-16T21:05:23+03:00">
 		<properties>
-			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>
+		<testcase classname="somotracker/backend/internal/members" name="TestMemberCounts_TriggersStayInSync" time="0.000000">
+			<skipped message="=== RUN   TestMemberCounts_TriggersStayInSync&#xA;    member_counts_test.go:27: skipping integration test in short mode&#xA;--- SKIP: TestMemberCounts_TriggersStayInSync (0.00s)&#xA;"></skipped>
+		</testcase>
 		<testcase classname="somotracker/backend/internal/members" name="TestPgRepository_ListByRole" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_ListByRole&#xA;    repository_test.go:97: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListByRole (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_ListByRole&#xA;    repository_test.go:100: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListByRole (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/members" name="TestPgRepository_ListByRole_Empty" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_ListByRole_Empty&#xA;    repository_test.go:121: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListByRole_Empty (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_ListByRole_Empty&#xA;    repository_test.go:124: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListByRole_Empty (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/members" name="TestPgRepository_ListByRole_Search" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_ListByRole_Search&#xA;    repository_test.go:139: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListByRole_Search (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_ListByRole_Search&#xA;    repository_test.go:142: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListByRole_Search (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/members" name="TestPgRepository_GetByID" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_GetByID&#xA;    repository_test.go:161: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetByID (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_GetByID&#xA;    repository_test.go:164: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetByID (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/members" name="TestPgRepository_GetByID_NotFound" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_GetByID_NotFound&#xA;    repository_test.go:183: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetByID_NotFound (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_GetByID_NotFound&#xA;    repository_test.go:186: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetByID_NotFound (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/members" name="TestHandler_ListMembers_HappyPath" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/members" name="TestHandler_ListMembers_WithSearch" time="0.000000"></testcase>
@@ -1224,18 +1232,20 @@
 		<testcase classname="somotracker/backend/internal/members" name="TestHandler_ListMembers_InvalidRole" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/members" name="TestHandler_ListMembers_EmptyResults" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/members" name="TestHandler_ListMembers_Pagination" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/members" name="TestHandler_GetCounts_HappyPath" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/members" name="TestHandler_GetCounts_ServiceError" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/members" name="TestListMembers_HappyPath" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/members" name="TestListMembers_WithSearch" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/members" name="TestListMembers_Empty" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/members" name="TestListMembers_InvalidLimit" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/members" name="TestListMembers_NegativeOffset" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="59" failures="0" skipped="2" time="5.974000" name="somotracker/backend/internal/middleware" timestamp="2026-08-13T04:14:02+03:00">
+	<testsuite tests="59" failures="0" skipped="2" time="5.548000" name="somotracker/backend/internal/middleware" timestamp="2026-08-16T21:05:24+03:00">
 		<properties>
-			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>
 		<testcase classname="somotracker/backend/internal/middleware" name="TestSessionResolver" time="0.000000">
-			<skipped message="=== RUN   TestSessionResolver&#xA;    sessionresolver_test.go:126: skipping integration test in short mode&#xA;--- SKIP: TestSessionResolver (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestSessionResolver&#xA;    sessionresolver_test.go:129: skipping integration test in short mode&#xA;--- SKIP: TestSessionResolver (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/middleware" name="TestWithTenantContext_RequestScopedRLS" time="0.000000">
 			<skipped message="=== RUN   TestWithTenantContext_RequestScopedRLS&#xA;    tenantcontext_test.go:28: skipping integration test in short mode&#xA;--- SKIP: TestWithTenantContext_RequestScopedRLS (0.00s)&#xA;"></skipped>
@@ -1283,7 +1293,7 @@
 		<testcase classname="somotracker/backend/internal/middleware" name="TestPanicRecover/Panics_are_caught_and_converted_to_500_Internal_Server_Error" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/middleware" name="TestPanicRecover/Server_remains_healthy_after_a_panic" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/middleware" name="TestPanicRecover" time="0.000000"></testcase>
-		<testcase classname="somotracker/backend/internal/middleware" name="TestRateLimiter_BotScenarios/Scenario_1:_Concurrency_Burst_-_50_parallel_requests_within_1ms" time="0.030000"></testcase>
+		<testcase classname="somotracker/backend/internal/middleware" name="TestRateLimiter_BotScenarios/Scenario_1:_Concurrency_Burst_-_50_parallel_requests_within_1ms" time="0.020000"></testcase>
 		<testcase classname="somotracker/backend/internal/middleware" name="TestRateLimiter_BotScenarios/Scenario_2:_IP_Hopping_-_Bot_changes_IP_but_keeps_same_User_ID_(Tier_2_Catch)" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/middleware" name="TestRateLimiter_BotScenarios/Scenario_3:_Sliding_Window_Precision_-_Fast_recovery_test" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/middleware" name="TestRateLimiter_BotScenarios" time="0.030000"></testcase>
@@ -1298,18 +1308,18 @@
 		<testcase classname="somotracker/backend/internal/middleware" name="TestSecurityHeaders/404_Not_Found_routes_still_receive_baseline_security_headers" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/middleware" name="TestSecurityHeaders" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="47" failures="0" skipped="3" time="5.570000" name="somotracker/backend/internal/parents" timestamp="2026-08-13T04:14:03+03:00">
+	<testsuite tests="47" failures="0" skipped="3" time="5.523000" name="somotracker/backend/internal/parents" timestamp="2026-08-16T21:05:24+03:00">
 		<properties>
-			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>
 		<testcase classname="somotracker/backend/internal/parents" name="TestPgRepository_CreateAndGetByUserID" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_CreateAndGetByUserID&#xA;    repository_test.go:99: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_CreateAndGetByUserID (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_CreateAndGetByUserID&#xA;    repository_test.go:102: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_CreateAndGetByUserID (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/parents" name="TestPgRepository_GetByID_NotFound" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_GetByID_NotFound&#xA;    repository_test.go:139: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetByID_NotFound (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_GetByID_NotFound&#xA;    repository_test.go:142: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetByID_NotFound (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/parents" name="TestPgRepository_LinkStudent" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_LinkStudent&#xA;    repository_test.go:153: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_LinkStudent (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_LinkStudent&#xA;    repository_test.go:156: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_LinkStudent (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/parents" name="TestService_Create/success" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/parents" name="TestService_Create/empty_email" time="0.000000"></testcase>
@@ -1356,12 +1366,12 @@
 		<testcase classname="somotracker/backend/internal/parents" name="TestService_UnlinkStudent/cross-tenant" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/parents" name="TestService_UnlinkStudent" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="11" failures="0" skipped="1" time="5.721000" name="somotracker/backend/internal/reports" timestamp="2026-08-13T04:14:04+03:00">
+	<testsuite tests="11" failures="0" skipped="1" time="5.542000" name="somotracker/backend/internal/reports" timestamp="2026-08-16T21:05:25+03:00">
 		<properties>
-			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>
 		<testcase classname="somotracker/backend/internal/reports" name="TestPgRepository_Ping" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_Ping&#xA;    repository_test.go:97: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_Ping (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_Ping&#xA;    repository_test.go:100: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_Ping (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/reports" name="TestGetTermReport_HappyPath" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/reports" name="TestGetTermReport_EmptyStudentID" time="0.000000"></testcase>
@@ -1374,9 +1384,9 @@
 		<testcase classname="somotracker/backend/internal/reports" name="TestGetTermReport_EmptyAttendance" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/reports" name="TestGetTermReport_NilAssessmentData" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="22" failures="0" time="5.102000" name="somotracker/backend/internal/slug" timestamp="2026-08-13T04:14:05+03:00">
+	<testsuite tests="22" failures="0" time="5.293000" name="somotracker/backend/internal/slug" timestamp="2026-08-16T21:05:26+03:00">
 		<properties>
-			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>
 		<testcase classname="somotracker/backend/internal/slug" name="TestGenerate/lowercase" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/slug" name="TestGenerate/uppercase" time="0.000000"></testcase>
@@ -1401,24 +1411,24 @@
 		<testcase classname="somotracker/backend/internal/slug" name="TestValidate/digits_only" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/slug" name="TestValidate" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="54" failures="0" skipped="4" time="5.027000" name="somotracker/backend/internal/students" timestamp="2026-08-13T04:14:06+03:00">
+	<testsuite tests="54" failures="0" skipped="4" time="4.973000" name="somotracker/backend/internal/students" timestamp="2026-08-16T21:05:27+03:00">
 		<properties>
-			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>
 		<testcase classname="somotracker/backend/internal/students" name="TestPgRepository_CreateAndGetByID" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_CreateAndGetByID&#xA;    repository_test.go:94: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_CreateAndGetByID (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_CreateAndGetByID&#xA;    repository_test.go:97: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_CreateAndGetByID (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/students" name="TestPgRepository_GetByID_NotFound" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_GetByID_NotFound&#xA;    repository_test.go:124: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetByID_NotFound (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_GetByID_NotFound&#xA;    repository_test.go:127: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetByID_NotFound (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/students" name="TestPgRepository_Update" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_Update&#xA;    repository_test.go:140: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_Update (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_Update&#xA;    repository_test.go:143: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_Update (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/students" name="TestPgRepository_Delete" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_Delete&#xA;    repository_test.go:167: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_Delete (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_Delete&#xA;    repository_test.go:170: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_Delete (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/students" name="TestBulkImport_ZeroRows_ReturnsInvalidInput" time="0.000000"></testcase>
-		<testcase classname="somotracker/backend/internal/students" name="TestBulkImport_ExactlyMaxImportRows_Succeeds" time="0.080000"></testcase>
+		<testcase classname="somotracker/backend/internal/students" name="TestBulkImport_ExactlyMaxImportRows_Succeeds" time="0.070000"></testcase>
 		<testcase classname="somotracker/backend/internal/students" name="TestBulkImport_ExceedsMaxImportRows_ReturnsRowLimitExceeded" time="0.050000"></testcase>
 		<testcase classname="somotracker/backend/internal/students" name="TestBulkImport_WellBelowLimit_Succeeds" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/students" name="TestStudentImporter_JobType" time="0.000000"></testcase>
@@ -1468,30 +1478,30 @@
 		<testcase classname="somotracker/backend/internal/students" name="TestUpdateStudent" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/students" name="TestDeleteStudent" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="25" failures="0" skipped="7" time="4.885000" name="somotracker/backend/internal/teacherdeliverysummaries" timestamp="2026-08-13T04:14:07+03:00">
+	<testsuite tests="25" failures="0" skipped="7" time="4.976000" name="somotracker/backend/internal/teacherdeliverysummaries" timestamp="2026-08-16T21:05:28+03:00">
 		<properties>
-			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>
 		<testcase classname="somotracker/backend/internal/teacherdeliverysummaries" name="TestPgRepository_ListByTeacher" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_ListByTeacher&#xA;    repository_test.go:136: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListByTeacher (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_ListByTeacher&#xA;    repository_test.go:133: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListByTeacher (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/teacherdeliverysummaries" name="TestPgRepository_ListByTeacher_NotFound" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_ListByTeacher_NotFound&#xA;    repository_test.go:175: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListByTeacher_NotFound (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_ListByTeacher_NotFound&#xA;    repository_test.go:172: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListByTeacher_NotFound (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/teacherdeliverysummaries" name="TestPgRepository_ListByTerm" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_ListByTerm&#xA;    repository_test.go:192: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListByTerm (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_ListByTerm&#xA;    repository_test.go:189: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListByTerm (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/teacherdeliverysummaries" name="TestPgRepository_GetByTeacherTerm" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_GetByTeacherTerm&#xA;    repository_test.go:232: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetByTeacherTerm (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_GetByTeacherTerm&#xA;    repository_test.go:229: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetByTeacherTerm (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/teacherdeliverysummaries" name="TestPgRepository_GetByTeacherTerm_NotFound" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_GetByTeacherTerm_NotFound&#xA;    repository_test.go:264: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetByTeacherTerm_NotFound (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_GetByTeacherTerm_NotFound&#xA;    repository_test.go:261: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetByTeacherTerm_NotFound (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/teacherdeliverysummaries" name="TestPgRepository_ListByTerm_Empty" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_ListByTerm_Empty&#xA;    repository_test.go:279: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListByTerm_Empty (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_ListByTerm_Empty&#xA;    repository_test.go:276: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListByTerm_Empty (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/teacherdeliverysummaries" name="TestPgRepository_RefreshComputation" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_RefreshComputation&#xA;    repository_test.go:297: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_RefreshComputation (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_RefreshComputation&#xA;    repository_test.go:294: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_RefreshComputation (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/teacherdeliverysummaries" name="TestRefreshComputation_HappyPath" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/teacherdeliverysummaries" name="TestRefreshComputation_EmptyTermID" time="0.000000"></testcase>
@@ -1512,18 +1522,18 @@
 		<testcase classname="somotracker/backend/internal/teacherdeliverysummaries" name="TestGetByTeacherTerm_EmptyInputs" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/teacherdeliverysummaries" name="TestGetByTeacherTerm_NotFound" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="11" failures="0" skipped="3" time="4.843000" name="somotracker/backend/internal/teacherperformance" timestamp="2026-08-13T04:14:07+03:00">
+	<testsuite tests="11" failures="0" skipped="3" time="5.234000" name="somotracker/backend/internal/teacherperformance" timestamp="2026-08-16T21:05:28+03:00">
 		<properties>
-			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>
 		<testcase classname="somotracker/backend/internal/teacherperformance" name="TestPgRepository_GetByTeacherClassSubject_NotFound" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_GetByTeacherClassSubject_NotFound&#xA;    repository_test.go:79: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetByTeacherClassSubject_NotFound (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_GetByTeacherClassSubject_NotFound&#xA;    repository_test.go:82: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetByTeacherClassSubject_NotFound (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/teacherperformance" name="TestPgRepository_ListByTeacher_Empty" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_ListByTeacher_Empty&#xA;    repository_test.go:95: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListByTeacher_Empty (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_ListByTeacher_Empty&#xA;    repository_test.go:98: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListByTeacher_Empty (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/teacherperformance" name="TestPgRepository_ListByTerm_Empty" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_ListByTerm_Empty&#xA;    repository_test.go:111: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListByTerm_Empty (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_ListByTerm_Empty&#xA;    repository_test.go:114: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListByTerm_Empty (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/teacherperformance" name="TestRefreshComputation_EmptyID" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/teacherperformance" name="TestRefreshComputation_Success" time="0.000000"></testcase>
@@ -1534,21 +1544,21 @@
 		<testcase classname="somotracker/backend/internal/teacherperformance" name="TestGetByTeacherClassSubject_Found" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/teacherperformance" name="TestGetByTeacherClassSubject_NotFound" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="16" failures="0" skipped="4" time="4.813000" name="somotracker/backend/internal/teachers" timestamp="2026-08-13T04:14:08+03:00">
+	<testsuite tests="16" failures="0" skipped="4" time="5.120000" name="somotracker/backend/internal/teachers" timestamp="2026-08-16T21:05:29+03:00">
 		<properties>
-			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>
 		<testcase classname="somotracker/backend/internal/teachers" name="TestPgRepository_ListBySchool" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_ListBySchool&#xA;    repository_test.go:114: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListBySchool (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_ListBySchool&#xA;    repository_test.go:117: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListBySchool (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/teachers" name="TestPgRepository_ListBySchool_WithSearch" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_ListBySchool_WithSearch&#xA;    repository_test.go:148: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListBySchool_WithSearch (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_ListBySchool_WithSearch&#xA;    repository_test.go:151: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListBySchool_WithSearch (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/teachers" name="TestPgRepository_ToggleActive" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_ToggleActive&#xA;    repository_test.go:181: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ToggleActive (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_ToggleActive&#xA;    repository_test.go:184: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ToggleActive (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/teachers" name="TestPgRepository_Delete" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_Delete&#xA;    repository_test.go:216: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_Delete (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_Delete&#xA;    repository_test.go:219: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_Delete (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/teachers" name="TestListTeachers_HappyPath" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/teachers" name="TestListTeachers_DefaultPagination" time="0.000000"></testcase>
@@ -1563,30 +1573,30 @@
 		<testcase classname="somotracker/backend/internal/teachers" name="TestDelete_EmptyUserID" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/teachers" name="TestDelete_NotFound" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="25" failures="0" skipped="7" time="4.802000" name="somotracker/backend/internal/teacherworkloadsummaries" timestamp="2026-08-13T04:14:09+03:00">
+	<testsuite tests="25" failures="0" skipped="7" time="5.066000" name="somotracker/backend/internal/teacherworkloadsummaries" timestamp="2026-08-16T21:05:30+03:00">
 		<properties>
-			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>
 		<testcase classname="somotracker/backend/internal/teacherworkloadsummaries" name="TestPgRepository_ListByTeacher" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_ListByTeacher&#xA;    repository_test.go:122: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListByTeacher (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_ListByTeacher&#xA;    repository_test.go:119: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListByTeacher (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/teacherworkloadsummaries" name="TestPgRepository_ListByTeacher_NotFound" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_ListByTeacher_NotFound&#xA;    repository_test.go:159: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListByTeacher_NotFound (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_ListByTeacher_NotFound&#xA;    repository_test.go:156: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListByTeacher_NotFound (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/teacherworkloadsummaries" name="TestPgRepository_ListByYear" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_ListByYear&#xA;    repository_test.go:176: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListByYear (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_ListByYear&#xA;    repository_test.go:173: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListByYear (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/teacherworkloadsummaries" name="TestPgRepository_ListByYear_Empty" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_ListByYear_Empty&#xA;    repository_test.go:215: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListByYear_Empty (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_ListByYear_Empty&#xA;    repository_test.go:212: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListByYear_Empty (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/teacherworkloadsummaries" name="TestPgRepository_GetByTeacherYear" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_GetByTeacherYear&#xA;    repository_test.go:233: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetByTeacherYear (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_GetByTeacherYear&#xA;    repository_test.go:230: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetByTeacherYear (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/teacherworkloadsummaries" name="TestPgRepository_GetByTeacherYear_NotFound" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_GetByTeacherYear_NotFound&#xA;    repository_test.go:264: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetByTeacherYear_NotFound (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_GetByTeacherYear_NotFound&#xA;    repository_test.go:261: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetByTeacherYear_NotFound (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/teacherworkloadsummaries" name="TestPgRepository_RefreshComputation" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_RefreshComputation&#xA;    repository_test.go:279: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_RefreshComputation (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_RefreshComputation&#xA;    repository_test.go:276: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_RefreshComputation (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/teacherworkloadsummaries" name="TestRefreshComputation_HappyPath" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/teacherworkloadsummaries" name="TestRefreshComputation_EmptyYearID" time="0.000000"></testcase>
@@ -1607,69 +1617,69 @@
 		<testcase classname="somotracker/backend/internal/teacherworkloadsummaries" name="TestGetByTeacherYear_EmptyInputs" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/teacherworkloadsummaries" name="TestGetByTeacherYear_NotFound" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="59" failures="0" skipped="20" time="4.609000" name="somotracker/backend/internal/timetablestructure" timestamp="2026-08-13T04:14:10+03:00">
+	<testsuite tests="59" failures="0" skipped="20" time="5.041000" name="somotracker/backend/internal/timetablestructure" timestamp="2026-08-16T21:05:31+03:00">
 		<properties>
-			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>
 		<testcase classname="somotracker/backend/internal/timetablestructure" name="TestPgRepository_CreateAndGetByID" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_CreateAndGetByID&#xA;    repository_test.go:113: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_CreateAndGetByID (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_CreateAndGetByID&#xA;    repository_test.go:116: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_CreateAndGetByID (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/timetablestructure" name="TestPgRepository_GetByID_NotFound" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_GetByID_NotFound&#xA;    repository_test.go:147: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetByID_NotFound (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_GetByID_NotFound&#xA;    repository_test.go:150: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_GetByID_NotFound (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/timetablestructure" name="TestPgRepository_ListByDay" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_ListByDay&#xA;    repository_test.go:163: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListByDay (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_ListByDay&#xA;    repository_test.go:166: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListByDay (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/timetablestructure" name="TestPgRepository_ListByDay_Empty" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_ListByDay_Empty&#xA;    repository_test.go:203: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListByDay_Empty (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_ListByDay_Empty&#xA;    repository_test.go:206: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListByDay_Empty (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/timetablestructure" name="TestPgRepository_ListAll" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_ListAll&#xA;    repository_test.go:221: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListAll (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_ListAll&#xA;    repository_test.go:224: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListAll (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/timetablestructure" name="TestPgRepository_Update" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_Update&#xA;    repository_test.go:252: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_Update (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_Update&#xA;    repository_test.go:255: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_Update (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/timetablestructure" name="TestPgRepository_Delete" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_Delete&#xA;    repository_test.go:285: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_Delete (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_Delete&#xA;    repository_test.go:288: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_Delete (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/timetablestructure" name="TestPgRepository_Delete_NotFound" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_Delete_NotFound&#xA;    repository_test.go:311: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_Delete_NotFound (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_Delete_NotFound&#xA;    repository_test.go:314: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_Delete_NotFound (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/timetablestructure" name="TestPgRepository_DeleteByDay" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_DeleteByDay&#xA;    repository_test.go:327: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_DeleteByDay (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_DeleteByDay&#xA;    repository_test.go:330: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_DeleteByDay (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/timetablestructure" name="TestPgRepository_FindOverlappingBlock" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_FindOverlappingBlock&#xA;    repository_test.go:367: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_FindOverlappingBlock (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_FindOverlappingBlock&#xA;    repository_test.go:370: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_FindOverlappingBlock (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/timetablestructure" name="TestPgRepository_BatchCreate" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_BatchCreate&#xA;    repository_test.go:404: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_BatchCreate (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_BatchCreate&#xA;    repository_test.go:407: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_BatchCreate (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/timetablestructure" name="TestPgRepository_BatchCreate_Empty" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_BatchCreate_Empty&#xA;    repository_test.go:431: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_BatchCreate_Empty (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_BatchCreate_Empty&#xA;    repository_test.go:434: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_BatchCreate_Empty (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/timetablestructure" name="TestPgRepository_ReplicateDay" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_ReplicateDay&#xA;    repository_test.go:448: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ReplicateDay (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_ReplicateDay&#xA;    repository_test.go:451: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ReplicateDay (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/timetablestructure" name="TestPgRepository_ListByPeriodName" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_ListByPeriodName&#xA;    repository_test.go:481: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListByPeriodName (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_ListByPeriodName&#xA;    repository_test.go:484: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListByPeriodName (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/timetablestructure" name="TestPgRepository_ListByDayAfter" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_ListByDayAfter&#xA;    repository_test.go:512: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListByDayAfter (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_ListByDayAfter&#xA;    repository_test.go:515: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_ListByDayAfter (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/timetablestructure" name="TestPgRepository_DeleteByPeriodName" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_DeleteByPeriodName&#xA;    repository_test.go:538: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_DeleteByPeriodName (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_DeleteByPeriodName&#xA;    repository_test.go:541: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_DeleteByPeriodName (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/timetablestructure" name="TestPgRepository_BatchUpdateBlocks" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_BatchUpdateBlocks&#xA;    repository_test.go:569: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_BatchUpdateBlocks (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_BatchUpdateBlocks&#xA;    repository_test.go:572: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_BatchUpdateBlocks (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/timetablestructure" name="TestPgRepository_HasLinkedLessons" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_HasLinkedLessons&#xA;    repository_test.go:600: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_HasLinkedLessons (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_HasLinkedLessons&#xA;    repository_test.go:603: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_HasLinkedLessons (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/timetablestructure" name="TestPgRepository_HasLinkedLessonsForBlocks_Empty" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_HasLinkedLessonsForBlocks_Empty&#xA;    repository_test.go:625: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_HasLinkedLessonsForBlocks_Empty (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_HasLinkedLessonsForBlocks_Empty&#xA;    repository_test.go:628: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_HasLinkedLessonsForBlocks_Empty (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/timetablestructure" name="TestPgRepository_CreateOverlapError" time="0.000000">
-			<skipped message="=== RUN   TestPgRepository_CreateOverlapError&#xA;    repository_test.go:641: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_CreateOverlapError (0.00s)&#xA;"></skipped>
+			<skipped message="=== RUN   TestPgRepository_CreateOverlapError&#xA;    repository_test.go:644: skipping integration test in short mode&#xA;--- SKIP: TestPgRepository_CreateOverlapError (0.00s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/timetablestructure" name="TestListBlocksByDay_HappyPath" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/timetablestructure" name="TestListBlocksByDay_InvalidDay" time="0.000000"></testcase>
@@ -1711,14 +1721,14 @@
 		<testcase classname="somotracker/backend/internal/timetablestructure" name="TestParseTimeMinutes_ShortString" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/timetablestructure" name="TestFormatMinutes" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/utils" timestamp="2026-08-13T04:14:10+03:00">
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/utils" timestamp="2026-08-16T21:05:31+03:00">
 		<properties>
-			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/xerrors" timestamp="2026-08-13T04:14:10+03:00">
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/xerrors" timestamp="2026-08-16T21:05:31+03:00">
 		<properties>
-			<property name="go.version" value="go1.26.5 darwin/arm64"></property>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>
 	</testsuite>
 </testsuites>

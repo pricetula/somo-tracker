@@ -1,6 +1,7 @@
 "use client";
 
 import { AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { type StagedInviteRecord } from "./types";
@@ -45,13 +46,17 @@ export function StepDataReview({ onProceed, onBack, schoolId }: StepDataReviewPr
     }, [page, filter, schoolId]);
 
     const handleSaveRecord = React.useCallback(
-        (updated: StagedInviteRecord) => {
+        (updated: StagedInviteRecord, original: StagedInviteRecord) => {
             const recordId = updated.id;
             if (recordId === undefined) return;
 
             // Debounce: cancel any pending save for this record
             const existing = debounceTimers.current.get(recordId);
             if (existing) clearTimeout(existing);
+
+            // Optimistically apply the edit so the UI feels instant; we roll
+            // back to `original` if the persisted write fails below.
+            setRecords((prev) => prev.map((r) => (r.id === recordId ? updated : r)));
 
             const timer = setTimeout(async () => {
                 try {
@@ -74,14 +79,16 @@ export function StepDataReview({ onProceed, onBack, schoolId }: StepDataReviewPr
                     setTotal(paginated.total);
                     setCounts(statusCounts);
                 } catch (err) {
+                    debounceTimers.current.delete(recordId);
+                    // Roll back the optimistic update so the UI matches what was
+                    // actually persisted (the edit never made it to IndexedDB).
+                    setRecords((prev) => prev.map((r) => (r.id === recordId ? original : r)));
+                    toast.error("Failed to save your changes. Please try again.");
                     console.error("Failed to save record:", err);
                 }
             }, 300);
 
             debounceTimers.current.set(recordId, timer);
-
-            // Optimistically update local state
-            setRecords((prev) => prev.map((r) => (r.id === recordId ? updated : r)));
         },
         [page, filter, schoolId]
     );

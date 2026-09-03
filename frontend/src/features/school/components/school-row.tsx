@@ -40,7 +40,7 @@ export function SchoolRow({
                     className="flex items-center gap-2"
                 >
                     <Avatar className="h-7 w-7 overflow-hidden bg-transparent">
-                        <AvatarFallback className="rounded-lg text-xs">
+                        <AvatarFallback className="rounded-lg">
                             {school.name
                                 .split(" ")
                                 .map((n) => n.charAt(0))

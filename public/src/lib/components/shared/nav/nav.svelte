@@ -3,7 +3,7 @@
 	import Logo from '../logo/logo.svelte';
 </script>
 
-<nav class="py-2 fixed top-0 w-full z-10 bg-background">
+<nav class="fixed top-0 z-10 w-full bg-background py-2">
 	<Container class="flex justify-center">
 		<Logo />
 	</Container>

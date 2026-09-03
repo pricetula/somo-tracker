@@ -152,8 +152,13 @@ export function BulkInviteFileImporter({
     const jobSubmittedRef = React.useRef(false);
 
     // ── Broadcast channel for multi-tab detection ──────────────────────
+    // Scoped per role so staff and parent invite wizards in different tabs
+    // don't falsely warn about each other.
+    const channelName = `somo_invite_${role}`;
+    const activeTabStorageKey = `somo_invite_active_tab_${role}`;
+
     React.useEffect(() => {
-        const channel = new BroadcastChannel("somo_staff_invite");
+        const channel = new BroadcastChannel(channelName);
         channel.postMessage({ type: "tab_online", tabId });
 
         const handler = (event: MessageEvent) => {
@@ -165,22 +170,26 @@ export function BulkInviteFileImporter({
         channel.addEventListener("message", handler);
 
         const storageHandler = (e: StorageEvent) => {
-            if (e.key === "somo_staff_invite_active_tab" && e.newValue !== tabId) {
+            if (e.key === activeTabStorageKey && e.newValue !== tabId) {
                 setMultiTabWarning(true);
             }
         };
         window.addEventListener("storage", storageHandler);
 
         try {
-            localStorage.setItem("somo_staff_invite_active_tab", tabId);
-        } catch {}
+            localStorage.setItem(activeTabStorageKey, tabId);
+        } catch (err) {
+            // Private mode / storage blocked — degrade gracefully, but don't
+            // silently swallow the failure.
+            console.warn("Unable to persist active-tab marker; multi-tab detection disabled.", err);
+        }
 
         return () => {
             channel.removeEventListener("message", handler);
             window.removeEventListener("storage", storageHandler);
             channel.close();
         };
-    }, [tabId]);
+    }, [tabId, role, channelName, activeTabStorageKey]);
 
     // ── Session recovery on mount ──────────────────────────────────────
     React.useEffect(() => {
@@ -486,7 +495,10 @@ export function BulkInviteFileImporter({
     );
 
     const handleImportError = React.useCallback((error: string) => {
+        // Log for diagnostics and surface to the user — the streaming step has
+        // no inline error state, so the toast is the only feedback they get.
         console.error("Import error:", error);
+        toast.error(error);
     }, []);
 
     const handleDiscardDraft = React.useCallback(async () => {
@@ -641,16 +653,18 @@ export function BulkInviteFileImporter({
             {/* Discard draft button */}
             <div className="flex justify-end">
                 <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-muted-foreground h-7 text-xs"
-                        >
-                            <Trash2 className="mr-1 size-3" />
-                            Discard Draft
-                        </Button>
-                    </AlertDialogTrigger>
+                    <AlertDialogTrigger
+                        render={
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-muted-foreground h-7 text-xs"
+                            >
+                                <Trash2 className="mr-1 size-3" />
+                                Discard Draft
+                            </Button>
+                        }
+                    />
                     <AlertDialogContent>
                         <AlertDialogHeader>
                             <AlertDialogTitle>Discard import draft?</AlertDialogTitle>

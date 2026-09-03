@@ -49,7 +49,7 @@ export function SubStrandSection({
                     )}
                     <span className="font-medium">{subStrand.name}</span>
                 </button>
-                <Badge variant="secondary" className="text-xs font-normal">
+                <Badge variant="secondary" className="font-normal">
                     {indicatorCount} indicator{indicatorCount !== 1 ? "s" : ""}
                 </Badge>
                 <div className="ml-auto flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
@@ -73,7 +73,7 @@ export function SubStrandSection({
             {expanded && (
                 <div>
                     {indicatorCount === 0 ? (
-                        <p className="text-muted-foreground py-2 pl-12 text-xs">
+                        <p className="text-muted-foreground py-2 pl-12">
                             No performance indicators yet.
                         </p>
                     ) : (

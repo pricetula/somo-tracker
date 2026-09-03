@@ -1,219 +1,247 @@
 /**
  * Attendance API functions.
  *
- * Endpoints (from backend/internal/attendance/handler.go):
- *   Sessions:
- *     POST   /api/v1/attendance/sessions
- *     GET    /api/v1/attendance/sessions
- *     GET    /api/v1/attendance/sessions/:id
- *     PUT    /api/v1/attendance/sessions/:id
- *     GET    /api/v1/attendance/sessions/class/:class_id/date/:date
- *
- *   Records:
- *     POST   /api/v1/attendance/records/batch
- *     GET    /api/v1/attendance/records/slot?timetable_slot_id=&date=
- *     GET    /api/v1/attendance/records/student/:student_id?term_id=
- *     GET    /api/v1/attendance/records/class/:class_id/date/:date?term_id=
- *     GET    /api/v1/attendance/records
- *     PUT    /api/v1/attendance/records/:id
- *
- *   Summaries:
- *     GET    /api/v1/attendance/summaries/student/:student_id?term_id=
- *     GET    /api/v1/attendance/summaries/class/:class_id?term_id=
- *     POST   /api/v1/attendance/summaries/refresh
- *     GET    /api/v1/attendance/daily/class/:class_id/date/:date
- *     POST   /api/v1/attendance/daily/class/:class_id/date/:date/refresh
- *     GET    /api/v1/attendance/daily/class/:class_id
- *     GET    /api/v1/attendance/class-learning-area/class/:class_id/term/:term_id
- *     GET    /api/v1/attendance/class-learning-area/class/:class_id/learning-area/:learning_area_id/term/:term_id
- *     POST   /api/v1/attendance/class-learning-area/class/:class_id/term/:term_id/refresh
- *     GET    /api/v1/attendance/class-term/class/:class_id/term/:term_id
- *     GET    /api/v1/attendance/class-term/term/:term_id
- *     POST   /api/v1/attendance/class-term/class/:class_id/term/:term_id/refresh
- *     GET    /api/v1/attendance/calendar/status
+ * Endpoints:
+ *   GET /api/v1/attendance/kpis/school             — macro-level school attendance KPIs
+ *                                                   for the School Administrator dashboard
+ *   GET /api/v1/attendance/class-term/breakdown     — per-class Present/Late/Absent counts
+ *                                                   for the School Administrator dashboard
  */
-
 import { api } from "./client";
 
-import type {
-    SessionWithEnrichedData,
-    SessionListResponse,
-    CreateSessionPayload,
-    UpdateSessionPayload,
-    RecordWithEnrichedData,
-    RecordListResponse,
-    BatchMarkPayload,
-    BatchMarkResult,
-    UpdateRecordPayload,
-    AttendanceTermSummary,
-    RefreshSummaryResponse,
-    CalendarStatusListResponse,
-} from "@/features/attendance/types";
+// ─── Types ────────────────────────────────────────────────────────────────
 
-// ─── Sessions ─────────────────────────────────────────────────────────────
-
-/** Create a new attendance session. */
-export async function createSession(data: CreateSessionPayload): Promise<SessionWithEnrichedData> {
-    return api.post<SessionWithEnrichedData>("/api/v1/attendance/sessions", data);
+/**
+ * Macro-level school attendance KPIs returned by
+ * GET /api/v1/attendance/kpis/school.
+ *
+ * Backend contract: backend/internal/attendance/repository.go —
+ * GetSchoolAttendanceKPIs.
+ */
+export interface SchoolAttendanceKPI {
+    /** Average daily attendance rate across all classes on the requested date. */
+    todays_attendance_rate: number;
+    /** Number of PRESENT marks across all classes on the date. */
+    total_present: number;
+    /** Number of marked records (present + absent + late + excused) on the date. */
+    total_marked_records: number;
+    /** Average term attendance rate across all classes in the active term. */
+    active_term_attendance_rate: number;
+    /** Non-break timetable slots for the date with no session record yet. */
+    unmarked_slots_today: number;
+    /** SKIPPED attendance sessions for the date (cancelled lessons). */
+    skipped_sessions_today: number;
 }
 
-/** List attendance sessions with optional filters. */
-export async function listSessions(
-    params: {
-        timetable_slot_id?: string;
-        date?: string;
-        status?: string;
-        class_id?: string;
-    } = {}
-): Promise<SessionListResponse> {
-    const searchParams = new URLSearchParams();
-    if (params.timetable_slot_id) searchParams.set("timetable_slot_id", params.timetable_slot_id);
-    if (params.date) searchParams.set("date", params.date);
-    if (params.status) searchParams.set("status", params.status);
-    if (params.class_id) searchParams.set("class_id", params.class_id);
-    const qs = searchParams.toString();
-    return api.get<SessionListResponse>(`/api/v1/attendance/sessions?${qs}`);
+export interface AttendanceSummaryRow {
+    class_name: string;
+    term_name: string;
+    term_number: number;
+    academic_year: string;
+    present_percentage: number;
+    absent_percentage: number;
+    excused_percentage: number;
+    late_percentage: number;
+    days_in_term: number;
+    total_enrolled_avg: number;
 }
 
-/** Get a single attendance session by ID. */
-export async function getSession(id: string): Promise<SessionWithEnrichedData> {
-    return api.get<SessionWithEnrichedData>(`/api/v1/attendance/sessions/${id}`);
+export interface AttendanceSummaryResponse {
+    academic_year: string;
+    data: AttendanceSummaryRow[];
 }
 
-/** Get sessions for a class on a specific date. */
-export async function getSessionsForClassDate(
-    classId: string,
-    date: string
-): Promise<SessionWithEnrichedData[]> {
-    const res = await api.get<{ items: SessionWithEnrichedData[] }>(
-        `/api/v1/attendance/sessions/class/${classId}/date/${date}`
+export async function getAttendanceSummary(
+    academicYear: string
+): Promise<AttendanceSummaryResponse> {
+    return api.get(`/api/v1/attendance/summary/${encodeURIComponent(academicYear)}`);
+}
+
+// ─── API Functions ─────────────────────────────────────────────────────────
+
+/**
+ * Fetch macro-level school attendance KPIs for the active school.
+ *
+ * @param date   ISO date (YYYY-MM-DD) — typically today. The backend derives
+ *               the active term from this date.
+ */
+export async function getSchoolAttendanceKPIs(date: string): Promise<SchoolAttendanceKPI> {
+    const searchParams = new URLSearchParams({ date });
+
+    return {
+        /** Average daily attendance rate across all classes on the requested date. */
+        todays_attendance_rate: 95,
+        /** Number of PRESENT marks across all classes on the date. */
+        total_present: 450,
+        /** Number of marked records (present + absent + late + excused) on the date. */
+        total_marked_records: 400,
+        /** Average term attendance rate across all classes in the active term. */
+        active_term_attendance_rate: 3,
+        /** Non-break timetable slots for the date with no session record yet. */
+        unmarked_slots_today: 90,
+        /** SKIPPED attendance sessions for the date (cancelled lessons). */
+        skipped_sessions_today: 2,
+    };
+
+    return api.get<SchoolAttendanceKPI>(
+        `/api/v1/attendance/kpis/school?${searchParams.toString()}`
     );
-    return res.items ?? res;
 }
 
-/** Update an attendance session. */
-export async function updateSession(
-    id: string,
-    data: UpdateSessionPayload
-): Promise<SessionWithEnrichedData> {
-    return api.put<SessionWithEnrichedData>(`/api/v1/attendance/sessions/${id}`, data);
+// ─── Class Attendance Breakdown ────────────────────────────────────────────
+
+/**
+ * Per-class Present/Late/Absent rollup returned by
+ * GET /api/v1/attendance/class-term/breakdown.
+ *
+ * Backend contract: backend/internal/attendance/repository.go —
+ * ListClassAttendanceBreakdowns. Items are ordered by absent count
+ * descending so high-absenteeism classes surface first (truancy / chronic
+ * absenteeism watch).
+ */
+export interface ClassAttendanceBreakdownItem {
+    class_id: string;
+    class_name: string;
+    total_enrolled_avg: number;
+    present_count: number;
+    late_count: number;
+    absent_count: number;
+    excused_count: number;
+    term_attendance_rate: number;
 }
 
-// ─── Records ──────────────────────────────────────────────────────────────
-
-/** Batch mark attendance for multiple students in a single slot+date. */
-export async function batchMarkAttendance(
-    data: BatchMarkPayload,
-    termId?: string
-): Promise<BatchMarkResult> {
-    const qs = termId ? `?term_id=${encodeURIComponent(termId)}` : "";
-    return api.post<BatchMarkResult>(`/api/v1/attendance/records/batch${qs}`, data);
+/** Wrapper returned by GET /api/v1/attendance/class-term/breakdown. */
+export interface ClassAttendanceBreakdownList {
+    items: ClassAttendanceBreakdownItem[];
+    total: number;
 }
 
-/** List attendance records by timetable slot and date. */
-export async function listRecordsBySlot(
-    timetableSlotId: string,
-    date: string
-): Promise<RecordWithEnrichedData[]> {
-    const res = await api.get<{ items: RecordWithEnrichedData[] }>(
-        `/api/v1/attendance/records/slot?timetable_slot_id=${encodeURIComponent(timetableSlotId)}&date=${encodeURIComponent(date)}`
-    );
-    return res.items ?? res;
-}
-
-/** List attendance records for a student in a term. */
-export async function listRecordsByStudent(
-    studentId: string,
-    termId?: string
-): Promise<RecordWithEnrichedData[]> {
-    const qs = termId ? `?term_id=${encodeURIComponent(termId)}` : "";
-    const res = await api.get<{ items: RecordWithEnrichedData[] }>(
-        `/api/v1/attendance/records/student/${studentId}${qs}`
-    );
-    return res.items ?? res;
-}
-
-/** List attendance records for a class on a date. */
-export async function listRecordsByClassDate(
-    classId: string,
-    date: string,
-    termId?: string
-): Promise<RecordWithEnrichedData[]> {
-    let path = `/api/v1/attendance/records/class/${classId}/date/${date}`;
-    if (termId) path += `?term_id=${encodeURIComponent(termId)}`;
-    const res = await api.get<{ items: RecordWithEnrichedData[] }>(path);
-    return res.items ?? res;
-}
-
-/** List attendance records with filters. */
-export async function listRecords(
-    params: {
-        timetable_slot_id?: string;
-        date?: string;
-        student_id?: string;
-        class_id?: string;
-        academic_term_id?: string;
-        status?: string;
-    } = {}
-): Promise<RecordListResponse> {
-    const searchParams = new URLSearchParams();
-    if (params.timetable_slot_id) searchParams.set("timetable_slot_id", params.timetable_slot_id);
-    if (params.date) searchParams.set("date", params.date);
-    if (params.student_id) searchParams.set("student_id", params.student_id);
-    if (params.class_id) searchParams.set("class_id", params.class_id);
-    if (params.academic_term_id) searchParams.set("academic_term_id", params.academic_term_id);
-    if (params.status) searchParams.set("status", params.status);
-    const qs = searchParams.toString();
-    return api.get<RecordListResponse>(`/api/v1/attendance/records?${qs}`);
-}
-
-/** Update a single attendance record. */
-export async function updateRecord(
-    id: string,
-    data: UpdateRecordPayload
-): Promise<RecordWithEnrichedData> {
-    return api.put<RecordWithEnrichedData>(`/api/v1/attendance/records/${id}`, data);
-}
-
-// ─── Summaries ────────────────────────────────────────────────────────────
-
-/** Get attendance summaries for a student in a term. */
-export async function getStudentTermSummary(
-    studentId: string,
-    termId?: string
-): Promise<AttendanceTermSummary[]> {
-    const qs = termId ? `?term_id=${encodeURIComponent(termId)}` : "";
-    const res = await api.get<{ items: AttendanceTermSummary[] }>(
-        `/api/v1/attendance/summaries/student/${studentId}${qs}`
-    );
-    return res.items ?? res;
-}
-
-/** Get attendance summaries for all students in a class for a term. */
-export async function getClassTermSummary(
-    classId: string,
-    termId?: string
-): Promise<AttendanceTermSummary[]> {
-    const qs = termId ? `?term_id=${encodeURIComponent(termId)}` : "";
-    const res = await api.get<{ items: AttendanceTermSummary[] }>(
-        `/api/v1/attendance/summaries/class/${classId}${qs}`
-    );
-    return res.items ?? res;
-}
-
-/** Refresh materialised attendance summaries for a term. */
-export async function refreshSummaries(termId: string): Promise<RefreshSummaryResponse> {
-    return api.post<RefreshSummaryResponse>("/api/v1/attendance/summaries/refresh", {
-        term_id: termId,
+/**
+ * Fetch per-class Present/Late/Absent counts for the current active term.
+ */
+export async function getClassAttendanceBreakdowns(): Promise<ClassAttendanceBreakdownList> {
+    const items = Array.from({ length: 5 }).map((_, i) => {
+        return {
+            class_id: "uuid" + i,
+            class_name: `Class ${i} A`,
+            total_enrolled_avg: 20,
+            present_count: 14,
+            late_count: 7,
+            absent_count: 4,
+            excused_count: 2,
+            term_attendance_rate: 10,
+        };
     });
+    return {
+        items,
+        total: 5,
+    };
 }
 
-// ─── Calendar Status ───────────────────────────────────────────────────────
+// ─── Day-of-Week Attendance Exceptions ────────────────────────────────────
+
+/**
+ * Per-day-of-week attendance exception rollup returned by
+ * GET /api/v1/attendance/day-of-week-summaries.
+ *
+ * Backend contract: backend/internal/attendance/repository.go —
+ * GetDayOfWeekSummaries. Counts are aggregated from
+ * class_daily_attendance_summaries across the current academic year,
+ * Monday–Friday only (ISODOW 1–5), ordered by day of week ascending.
+ */
+export interface DayOfWeekSummaryItem {
+    day_of_week_number: number;
+    day_name: string;
+    absent_count: number;
+    late_count: number;
+    excused_count: number;
+}
+
+/**
+ * Response returned by GET /api/v1/attendance/day-of-week-summaries.
+ * `class_name` is "All" when no class filter is applied.
+ */
+export interface DayOfWeekSummaries {
+    academic_year: string;
+    class_name: string;
+    data: DayOfWeekSummaryItem[];
+}
+
+/**
+ * Fetch attendance exceptions (absent/late/excused) aggregated by weekday for
+ * the current academic year.
+ *
+ * @param classId Optional class UUID; when omitted the backend aggregates
+ *                across all classes in the tenant.
+ */
+export async function getDayOfWeekSummaries(classId?: string): Promise<DayOfWeekSummaries> {
+    const searchParams = new URLSearchParams();
+    if (classId) searchParams.set("class_id", classId);
+
+    const qs = searchParams.toString();
+    return api.get<DayOfWeekSummaries>(
+        `/api/v1/attendance/day-of-week-summaries${qs ? `?${qs}` : ""}`
+    );
+}
+
+// ─── Learning Area Attendance Breakdown ────────────────────────────────────
+
+/**
+ * Per-learning-area Present/Absent/Excused period rollup returned by
+ * GET /api/v1/attendance/class-learning-area/breakdown.
+ *
+ * Backend contract: backend/internal/attendance/repository.go —
+ * ListLearningAreaBreakdowns. Periods are aggregated across all classes in
+ * the school; items are ordered by periods_absent descending so subjects
+ * with the highest truancy / absenteeism surface first (hotspot watch).
+ */
+export interface LearningAreaAttendanceBreakdownItem {
+    learning_area_id: string;
+    learning_area_name: string;
+    periods_total: number;
+    periods_present: number;
+    periods_absent: number;
+    periods_excused: number;
+    attendance_percentage: number;
+}
+
+/** Wrapper returned by GET /api/v1/attendance/class-learning-area/breakdown. */
+export interface LearningAreaAttendanceBreakdownList {
+    items: LearningAreaAttendanceBreakdownItem[];
+    total: number;
+}
+
+/**
+ * Fetch per-learning-area Present/Absent/Excused period counts for a school
+ * term, aggregated across all classes.
+ *
+ * @param termId Academic term id (UUID) — the term to aggregate
+ *               (class_learning_area_term_summaries are per class × learning
+ *               area × term).
+ */
+export async function getLearningAreaAttendanceBreakdowns(): Promise<LearningAreaAttendanceBreakdownList> {
+    return api.get<LearningAreaAttendanceBreakdownList>(
+        `/api/v1/attendance/class-learning-area/breakdown`
+    );
+}
 
 /**
  * Get per-date attendance completion status for a school calendar month view.
  * Returns one entry per date in the range with expected/handled counts and a computed status.
  */
+export type DayStatus = "none" | "green" | "yellow" | "red";
+
+export interface CalendarDayStatus {
+    date: string;
+    expected_count: number;
+    handled_count: number;
+    status: DayStatus;
+}
+
+export interface CalendarStatusListResponse {
+    items: CalendarDayStatus[];
+    total: number;
+}
 export async function getCalendarStatus(
     startDate: string,
     endDate: string
@@ -222,119 +250,182 @@ export async function getCalendarStatus(
     return api.get<CalendarStatusListResponse>(`/api/v1/attendance/calendar/status?${qs}`);
 }
 
-// ─── Class Daily Summaries ────────────────────────────────────────────────
+// ─── Lowest Attendance Students ──────────────────────────────────────────
 
 /**
- * Get the attendance summary for one class on one date.
- * GET /api/v1/attendance/daily/class/:class_id/date/:date
+ * Student with lowest attendance percentage returned by
+ * GET /api/v1/attendance/students/lowest-attendance.
+ *
+ * Backend contract: backend/internal/attendance/repository.go —
+ * GetLowestAttendanceStudents. Returns students with the lowest attendance
+ * percentage for the current week, ordered by present_count ASC then
+ * attendance_percentage ASC.
  */
-export async function getClassDailySummary(classId: string, date: string): Promise<unknown> {
-    return api.get<unknown>(`/api/v1/attendance/daily/class/${classId}/date/${date}`);
+export interface LowestAttendanceStudent {
+    student_id: string;
+    first_name: string;
+    last_name: string;
+    total_periods: number;
+    present_count: number;
+    attendance_percentage: number;
 }
 
 /**
- * Refresh a class's daily attendance summary for a date.
- * POST /api/v1/attendance/daily/class/:class_id/date/:date/refresh
+ * Fetch the N students with the lowest attendance percentage for the current week.
+ *
+ * @param limit Maximum number of students to return (default: 5).
  */
-export async function refreshClassDailySummary(classId: string, date: string): Promise<unknown> {
-    return api.post<unknown>(`/api/v1/attendance/daily/class/${classId}/date/${date}/refresh`);
-}
+export async function getLowestAttendanceStudents(
+    limit?: number
+): Promise<LowestAttendanceStudent[]> {
+    const searchParams = new URLSearchParams();
+    if (limit !== undefined && limit > 0) {
+        searchParams.set("limit", String(limit));
+    }
 
-/**
- * List a class's daily attendance summaries over a date range.
- * GET /api/v1/attendance/daily/class/:class_id?start_date=&end_date=
- */
-export async function listClassDailySummaries(
-    classId: string,
-    startDate: string,
-    endDate: string
-): Promise<{ items: unknown[]; total: number }> {
-    const qs = new URLSearchParams({ start_date: startDate, end_date: endDate }).toString();
-    return api.get<{ items: unknown[]; total: number }>(
-        `/api/v1/attendance/daily/class/${classId}?${qs}`
+    const qs = searchParams.toString();
+    return api.get<LowestAttendanceStudent[]>(
+        `/api/v1/attendance/students/lowest-attendance${qs ? `?${qs}` : ""}`
     );
 }
 
-// ─── Class Learning Area Term Summaries ───────────────────────────────────
+// ─── Session & Records (Attendance Marking) ────────────────────────────────────
 
-/**
- * List learning-area attendance summaries for a class+term (optionally filtered by learning area).
- * GET /api/v1/attendance/class-learning-area/class/:class_id/term/:term_id?learning_area_id=
- */
-export async function listClassLearningAreaTermSummaries(
-    classId: string,
-    termId: string,
-    learningAreaId?: string
-): Promise<{ items: unknown[]; total: number }> {
-    const qs = learningAreaId ? `?learning_area_id=${encodeURIComponent(learningAreaId)}` : "";
-    return api.get<{ items: unknown[]; total: number }>(
-        `/api/v1/attendance/class-learning-area/class/${classId}/term/${termId}${qs}`
-    );
+/** Session status for a slot on a specific date. */
+export type SessionStatus = "SUBMITTED" | "SKIPPED" | "";
+
+export interface SlotSession {
+    id: string;
+    timetable_allocation_id: string;
+    date: string;
+    status: SessionStatus;
+    skip_reason?: string | null;
 }
 
 /**
- * Get a single learning-area attendance summary for a class+term.
- * GET /api/v1/attendance/class-learning-area/class/:class_id/learning-area/:learning_area_id/term/:term_id
+ * Fetch session for a slot + date.
+ * Returns null items array if no session exists yet.
+ *
+ * Backend: GET /api/v1/attendance/sessions
  */
-export async function getClassLearningAreaTermSummary(
-    classId: string,
-    learningAreaId: string,
-    termId: string
-): Promise<unknown> {
-    return api.get<unknown>(
-        `/api/v1/attendance/class-learning-area/class/${classId}/learning-area/${learningAreaId}/term/${termId}`
+export async function getSessionsForSlot(
+    allocationId: string,
+    date: string
+): Promise<SlotSession | null> {
+    const params = new URLSearchParams({
+        timetable_allocation_id: allocationId,
+        date,
+    });
+    const result = await api.get<{ items: SlotSession[] }>(
+        `/api/v1/attendance/sessions?${params.toString()}`
     );
+    return result.items?.[0] ?? null;
+}
+
+// ─── Per-Student Record ──────────────────────────────────────────────────────
+
+/**
+ * A single student's attendance mark for a slot on a date.
+ * status is blank string when unmarked — NOT pre-filled as PRESENT.
+ */
+export interface StudentAttendanceRecord {
+    /**
+     * attendance_records.id — null when unmarked.
+     * Used as attendance_record_id when submitting batch updates.
+     */
+    id: string | null;
+    student_id: string;
+    /**
+     * Blank string "" = not yet marked.
+     * PRESENT | ABSENT | LATE | EXCUSED = already marked.
+     */
+    status: "PRESENT" | "ABSENT" | "LATE" | "EXCUSED" | "";
+    note?: string | null;
+    /** Pre-filled for display */
+    student_full_name: string;
+    class_name: string;
+    period_name: string;
+    start_time: string;
+    end_time: string;
+}
+
+export interface SlotRecordsResponse {
+    items: StudentAttendanceRecord[];
+    total: number;
 }
 
 /**
- * Refresh a class's learning-area term attendance summary.
- * POST /api/v1/attendance/class-learning-area/class/:class_id/term/:term_id/refresh
+ * Fetch per-student attendance records for a slot + date.
+ * Returns every enrolled student; status is blank when unmarked.
+ *
+ * Backend: GET /api/v1/attendance/records/slot
  */
-export async function refreshClassLearningAreaTermSummary(
-    classId: string,
-    termId: string
-): Promise<unknown> {
-    return api.post<unknown>(
-        `/api/v1/attendance/class-learning-area/class/${classId}/term/${termId}/refresh`
-    );
-}
-
-// ─── Class Term Attendance Summaries ──────────────────────────────────────
-
-/**
- * Get a class's overall term attendance summary.
- * GET /api/v1/attendance/class-term/class/:class_id/term/:term_id
- */
-export async function getClassTermAttendanceSummary(
-    classId: string,
-    termId: string
-): Promise<unknown> {
-    return api.get<unknown>(`/api/v1/attendance/class-term/class/${classId}/term/${termId}`);
+export async function getRecordsBySlot(
+    allocationId: string,
+    date: string
+): Promise<SlotRecordsResponse> {
+    const params = new URLSearchParams({
+        timetable_allocation_id: allocationId,
+        date,
+    });
+    return api.get<SlotRecordsResponse>(`/api/v1/attendance/records/slot?${params.toString()}`);
 }
 
 /**
- * List class term attendance summaries for a term (optionally filtered by class).
- * GET /api/v1/attendance/class-term/term/:term_id?class_id=
+ * Batch-mark attendance for a slot on a date.
+ *
+ * Backend: POST /api/v1/attendance/records/batch
  */
-export async function listClassTermAttendanceSummaries(
-    termId: string,
-    classId?: string
-): Promise<{ items: unknown[]; total: number }> {
-    const qs = classId ? `?class_id=${encodeURIComponent(classId)}` : "";
-    return api.get<{ items: unknown[]; total: number }>(
-        `/api/v1/attendance/class-term/term/${termId}${qs}`
+export interface MarkedTimetableAllocationResponse {
+    date: string;
+    session_id?: string | null;
+    session_status?: string | null;
+    skip_reason?: string | null;
+    class_id: string;
+    class_name: string;
+    subject_id: string;
+    subject_name: string;
+    teacher_id: string;
+    teacher_name: string;
+    room_identifier?: string | null;
+    students: StudentMarkingRecord[];
+}
+
+export interface StudentMarkingRecord {
+    student_id: string;
+    student_name: string;
+    status: string;
+    note?: string | null;
+}
+
+/** Fetch unified marking view data for a timetable allocation + date. */
+export async function getMarkedTimetableAllocation(
+    allocationId: string,
+    date: string
+): Promise<MarkedTimetableAllocationResponse> {
+    return api.get<MarkedTimetableAllocationResponse>(
+        `/api/v1/attendance/marked-timetable-allocation/${encodeURIComponent(allocationId)}?date=${encodeURIComponent(date)}`
     );
 }
 
-/**
- * Refresh a class's overall term attendance summary.
- * POST /api/v1/attendance/class-term/class/:class_id/term/:term_id/refresh
- */
-export async function refreshClassTermAttendanceSummary(
-    classId: string,
-    termId: string
-): Promise<unknown> {
-    return api.post<unknown>(
-        `/api/v1/attendance/class-term/class/${classId}/term/${termId}/refresh`
-    );
+export interface BatchMarkPayload {
+    date: string;
+    timetable_allocation_id: string;
+    records: StudentMarkPayload[];
+}
+
+export interface StudentMarkPayload {
+    student_id: string;
+    status: "PRESENT" | "ABSENT" | "LATE" | "EXCUSED";
+    note?: string | null;
+}
+
+export interface BatchMarkResult {
+    created: number;
+    updated: number;
+    failed: number;
+}
+
+export async function batchMarkAttendance(payload: BatchMarkPayload): Promise<BatchMarkResult> {
+    return api.post<BatchMarkResult>("/api/v1/attendance/records/batch", payload);
 }

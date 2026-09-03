@@ -7,35 +7,37 @@
 
 "use client";
 
+import { toast } from "sonner";
 import * as React from "react";
 import Link from "next/link";
-import { Combobox } from "@/components/ui/combobox";
+import {
+    Combobox,
+    ComboboxInput,
+    ComboboxContent,
+    ComboboxList,
+    ComboboxItem,
+    ComboboxEmpty,
+} from "@/components/ui/combobox";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { getErrorMessage } from "@/lib/errors";
 import { useStreamList } from "../hooks/use-streams";
+
+interface Option {
+    value: string;
+    label: string;
+}
 
 // ─── Props ────────────────────────────────────────────────────────────────
 
 export interface StreamComboboxProps {
-    /** Currently selected stream ID (controlled). */
+    /** Currently selected grade level (controlled). */
     value: string;
-    /** Called when a stream is selected. */
+    /** Called when a grade level is selected. */
     onChange: (value: string) => void;
     /** Placeholder text when nothing is selected. */
     placeholder?: string;
     /** Optional outer container class. */
     className?: string;
-    /**
-     * When search yields no results, shows a "Create" option.
-     * If omitted, no create option is shown.
-     */
-    onCreateItem?: (search: string) => void;
-    /**
-     * When true, automatically selects the first option if no value is set.
-     * Defaults to false.
-     */
-    doPreselectFirstOption?: boolean;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────
@@ -45,63 +47,73 @@ export function StreamCombobox({
     onChange,
     placeholder = "Select a stream...",
     className,
-    onCreateItem,
-    doPreselectFirstOption = false,
 }: StreamComboboxProps) {
     const { data, isLoading, isError, error } = useStreamList();
 
-    const items = data?.items ?? [];
+    const items = React.useMemo(() => {
+        if (!data?.items) return [];
+        return data.items.map((t) => ({
+            value: t.id,
+            label: t.name,
+        }));
+    }, [data]);
 
-    // ── Auto-preselect first option ──────────────────────────────────────
-    const hasPreselected = React.useRef(false);
     React.useEffect(() => {
-        const list = data?.items;
-        if (!doPreselectFirstOption || !list || list.length === 0 || hasPreselected.current) return;
-        if (value) {
-            hasPreselected.current = true;
-            return;
+        if (isError) {
+            toast.error(getErrorMessage(error));
         }
-        hasPreselected.current = true;
-        onChange(list[0].id);
-    }, [doPreselectFirstOption, data, value, onChange]);
+    }, [isError, error]);
+
+    const selectedOption = React.useMemo(
+        () => items.find((o) => o.value === value) || items[0],
+        [items, value]
+    );
+
+    React.useEffect(() => {
+        if (!value && selectedOption) {
+            onChange(selectedOption.value);
+        }
+    }, [selectedOption, value, onChange]);
+
+    // ── Error state ──────────────────────────────────────────────────────
+    if (isError) return null;
 
     // ── Loading state ─────────────────────────────────────────────────────
     if (isLoading) {
-        return <Skeleton className={className ?? "h-9 w-full"} />;
-    }
-
-    // ── Error state ──────────────────────────────────────────────────────
-    if (isError) {
-        return (
-            <Alert variant="destructive" className="h-9 items-center py-0 text-xs">
-                <AlertDescription>{getErrorMessage(error)}</AlertDescription>
-            </Alert>
-        );
+        return <Skeleton className={className ?? "h-7 w-full"} />;
     }
 
     // ── No items at all (not just search miss) ───────────────────────────
     if (items.length === 0) {
         return (
-            <Alert className="text-muted-foreground h-9 items-center py-0 text-xs">
-                <AlertDescription>
-                    No streams configured.{" "}
-                    <Link href="/streams/add" className="underline underline-offset-2">
-                        Add one
-                    </Link>
-                    .
-                </AlertDescription>
-            </Alert>
+            <Link href="/streams/add" className="underline underline-offset-2">
+                Add one
+            </Link>
         );
     }
 
     return (
         <Combobox
-            items={items.map((s) => ({ value: s.id, label: s.name }))}
-            value={value}
-            onValueChange={(v) => onChange(v as string)}
-            placeholder={placeholder}
-            className={className}
-            onCreateItem={onCreateItem}
-        />
+            items={items as Option[]}
+            value={selectedOption}
+            itemToStringValue={(i) => i.label}
+            onValueChange={(v) => {
+                if (v) {
+                    onChange(v.value);
+                }
+            }}
+        >
+            <ComboboxInput placeholder={placeholder} className={className} />
+            <ComboboxContent>
+                <ComboboxEmpty>No items found.</ComboboxEmpty>
+                <ComboboxList>
+                    {(i) => (
+                        <ComboboxItem key={i.value} value={i as Option}>
+                            {i.label}
+                        </ComboboxItem>
+                    )}
+                </ComboboxList>
+            </ComboboxContent>
+        </Combobox>
     );
 }

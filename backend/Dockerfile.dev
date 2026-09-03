@@ -1,13 +1,20 @@
-FROM golang:1.26-alpine AS builder
+FROM golang:alpine
 
+# Install build essentials and ca-certificates
+RUN apk add --no-cache git ca-certificates build-base
+
+# Install air for hot reloading
 RUN go install github.com/air-verse/air@latest
-
-FROM golang:1.26-alpine
-
-RUN apk add --no-cache git ca-certificates tzdata
-
-COPY --from=builder /go/bin/air /usr/local/bin/air
 
 WORKDIR /app
 
-CMD ["air", "-c", ".air.toml"]
+# Copy source (volume mount will overlay for development)
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+EXPOSE 3030
+
+# Default command runs air for hot reload
+CMD ["air"]

@@ -1,9 +1,9 @@
 /**
  * Classes listing page.
  *
- * Uses the shared DataTable component with filters for grade level, stream,
- * and academic year. Stream options are fetched dynamically from the streams
- * endpoint. Academic year options are fetched from the academic years endpoint.
+ * Uses the shared DataTable component with filters for grade level and stream.
+ * Stream options are fetched dynamically from the streams endpoint.
+ * The current academic year and term are resolved server-side automatically.
  *
  * Maps to GET /api/v1/classes.
  */
@@ -12,7 +12,7 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
-import { GraduationCap, Calendar, Split } from "lucide-react";
+import { GraduationCap, Split } from "lucide-react";
 
 import { DataTable } from "@/components/shared/data-table";
 import type { DataTableColumn } from "@/components/shared/data-table/types";
@@ -21,7 +21,6 @@ import { listClasses, type Class } from "@/lib/api/classes";
 import { StreamPill } from "@/features/settings-school";
 import { GradeLevelPill, getGradeLevelFilterSubmenu } from "@/features/grade-level";
 import { useStreamList } from "@/features/streams";
-import { useAcademicYears } from "@/features/academic-terms";
 import { useDeleteClasses } from "@/features/classes";
 
 // ─── Columns ──────────────────────────────────────────────────────────────
@@ -64,7 +63,6 @@ const columns: DataTableColumn<Class>[] = [
 export default function ClassesPage() {
     // ── Fetch dynamic filter options ────────────────────────────────
     const { data: streamsData } = useStreamList();
-    const { data: academicYearsData } = useAcademicYears();
 
     // ── Build filter groups dynamically ─────────────────────────────
     const filterGroups = useMemo<FilterGroup[]>(() => {
@@ -89,24 +87,8 @@ export default function ClassesPage() {
                 type: "sub_menu_multi",
                 submenu: streams.map((s) => ({
                     id: s.id,
-                    label: <StreamPill name={s.name} color={s.color} />,
+                    label: "<StreamPill name={s.name} color={s.color} />",
                     value: s.id,
-                })),
-            });
-        }
-
-        // Add academic year filter if data is available
-        const years = academicYearsData?.items ?? [];
-        if (years.length > 0) {
-            items.push({
-                id: "academic_year_id",
-                label: "Academic Year",
-                icon: Calendar,
-                type: "sub_menu_single",
-                submenu: years.map((ay) => ({
-                    id: ay.id,
-                    label: ay.name,
-                    value: ay.id,
                 })),
             });
         }
@@ -118,7 +100,7 @@ export default function ClassesPage() {
                 items,
             },
         ];
-    }, [streamsData, academicYearsData]);
+    }, [streamsData]);
 
     const deleteMutation = useDeleteClasses();
 

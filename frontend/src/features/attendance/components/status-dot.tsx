@@ -11,9 +11,9 @@ export function StatusDot({ status }: StatusDotProps) {
     if (status === "none") return null;
 
     const colorClass = {
-        green: "bg-green-500",
-        yellow: "bg-yellow-500",
-        red: "bg-red-500",
+        green: "bg-primary",
+        yellow: "bg-blue-300",
+        red: "bg-rose-500",
     }[status];
 
     return (

@@ -1,127 +1,138 @@
+// Package config provides a strongly-typed configuration loader for the
+// Somotracker backend service. Values are sourced from environment variables
+// (typically injected by Doppler in non-local environments) and validated on
+// load. Missing values fall back to safe defaults.
 package config
 
 import (
+	"fmt"
+	"net/url"
 	"os"
-	"path/filepath"
 	"strconv"
-	"time"
-
-	"github.com/joho/godotenv"
-	"go.uber.org/fx"
-	"go.uber.org/zap"
+	"strings"
 )
 
-// Config holds all application configuration loaded from environment variables.
+// Config is the strongly-typed application configuration.
+//
+// Values are populated by [Load] from environment variables. Direct construction
+// of Config is reserved for tests; production code should always use [Load] or
+// the Fx provider in [AsFxOption].
 type Config struct {
-	DatabaseURL       string
-	RedisURL          string
-	AppEnv            string
-	Port              string
-	AllowedOrigins    string
-	CookieDomain      string
-	StytchProjectID   string
-	StytchSecret      string
-	StytchEnv         string
-	StytchRedirectURL string
-	StytchBaseURL     string // optional: override Stytch API base URL (for testing)
-	BackendURL        string
-	FrontendURL       string
-	CookieSecret      string        // HMAC-SHA256 key for signing somo_role cookie
-	RateLimitIPMax    int64         // Tier 1: Max requests per window per IP (e.g. 300)
-	RateLimitUserMax  int64         // Tier 2: Max requests per window per User ID (e.g. 60)
-	RateLimitWindow   time.Duration // Rate limit window (e.g. 1m)
+	// Host is the interface address the HTTP server binds to.
+	// Empty string means "all interfaces" (Fiber's ":port" form).
+	Host string
 
-	// EnforceDeviceFingerprint turns the C5 device-bound session check into a
-	// hard 401 in production. Defaults to false: mismatches are logged but the
-	// request is allowed, so IP/UA churn behind proxies/NAT/mobile networks
-	// cannot log users out. Enable only when strict device binding is required.
-	EnforceDeviceFingerprint bool
+	// Port is the TCP port the HTTP server listens on.
+	// Defaults to 3030 when unset or invalid.
+	Port int
+
+	// Environment describes the deployment environment (e.g. "local",
+	// "development", "staging", "production"). Populated from APP_ENV.
+	Environment string
+
+	// LogLevel is the zap log level ("debug", "info", "warn", "error").
+	// Defaults to "info" when unset.
+	LogLevel string
 }
 
-// Load reads configuration from environment variables with safe fallbacks.
-// It also attempts to load a .env file adjacent to the binary or in the
-// working directory as a fallback for local development.
-func Load() Config {
-	// Attempt to load .env file — this is a no-op if the file doesn't exist.
-	// Docker/CI should set all vars via the OS environment; .env is a
-	// convenience for local development without docker-compose.
-	if err := godotenv.Load(); err == nil {
-		// Only log if we actually found and loaded a file
-		logger, _ := zap.NewProduction()
-		if logger != nil {
-			cwd, _ := os.Getwd()
-			envPath := filepath.Join(cwd, ".env")
-			if _, statErr := os.Stat(envPath); statErr == nil {
-				logger.Info("config: loaded .env file", zap.String("path", envPath))
-			}
-			if syncErr := logger.Sync(); syncErr != nil {
-				logger.Warn("config: logger sync failed", zap.Error(syncErr))
-			}
+// ListenAddr returns the address string passed to fiber.App.Listen.
+// Empty host yields ":port"; otherwise it returns "host:port".
+func (c Config) ListenAddr() string {
+	// Treat empty, 0.0.0.0, or localhost as binding to all interfaces for the server
+	if c.Host == "" || c.Host == "0.0.0.0" || c.Host == "localhost" {
+		return fmt.Sprintf(":%d", c.Port)
+	}
+	return fmt.Sprintf("%s:%d", c.Host, c.Port)
+}
+
+// IsProduction reports whether the service is running in a production-like
+// environment. Used to switch between zap.NewProduction and zap.NewDevelopment.
+func (c Config) IsProduction() bool {
+	switch strings.ToLower(c.Environment) {
+	case "production", "prod":
+		return true
+	default:
+		return false
+	}
+}
+
+// Load reads configuration from environment variables, validates required
+// fields, and applies defaults. It is safe to call from package init or from
+// an Fx provider.
+//
+// Recognized variables:
+//
+//	BACKEND_URL  Full URL of the backend (e.g. "http://api.example.com:8080").
+//	             Host and port are derived from this when set.
+//	APP_ENV      Environment name. Defaults to "local".
+//	LOG_LEVEL    Zap log level. Defaults to "info".
+//	BACKEND_HOST Optional host override (e.g. "127.0.0.1"). Takes precedence
+//	             over the host portion of BACKEND_URL.
+//	BACKEND_PORT Optional port override. Takes precedence over the port portion
+//	             of BACKEND_URL. Defaults to 3030.
+func Load() (*Config, error) {
+	cfg := &Config{
+		Host:        "",
+		Port:        defaultPort,
+		Environment: getEnv("APP_ENV", "local"),
+		LogLevel:    strings.ToLower(getEnv("LOG_LEVEL", "info")),
+	}
+
+	if raw := os.Getenv("BACKEND_URL"); raw != "" {
+		host, port, err := parseBackendURL(raw)
+		if err != nil {
+			return nil, fmt.Errorf("config.Load: invalid BACKEND_URL %q: %w", raw, err)
+		}
+		if host != "" {
+			cfg.Host = host
+		}
+		if port != 0 {
+			cfg.Port = port
 		}
 	}
 
-	return Config{
-		DatabaseURL:       getEnv("DATABASE_URL", "postgres://somo_admin:somo_secure_password@somotracker_postgres:5432/somotracker_dev?sslmode=disable"),
-		RedisURL:          getEnv("REDIS_URL", "redis:6379"),
-		AppEnv:            getEnv("APP_ENV", "development"),
-		Port:              getEnv("PORT", "3030"),
-		AllowedOrigins:    getEnv("ALLOWED_ORIGINS", "http://localhost:3000"),
-		CookieDomain:      getEnv("COOKIE_DOMAIN", ""),
-		StytchProjectID:   getEnv("STYTCH_PROJECT_ID", ""),
-		StytchSecret:      getEnv("STYTCH_SECRET", ""),
-		StytchEnv:         getEnv("STYTCH_ENV", "test"),
-		StytchRedirectURL: getEnv("STYTCH_REDIRECT_URL", "http://localhost:3030/api/auth/callback"),
-		StytchBaseURL:     getEnv("STYTCH_BASE_URL", ""),
-		BackendURL:        getEnv("BACKEND_URL", "http://localhost:3030"),
-		FrontendURL:       getEnv("FRONTEND_URL", "http://localhost:3000"),
-		CookieSecret:      getEnv("COOKIE_SECRET", "dev-insecure-change-in-production"),
-		// Rate Limiting Configuration
-		RateLimitIPMax:   envInt("RATE_LIMIT_IP_MAX", 300),
-		RateLimitUserMax: envInt("RATE_LIMIT_USER_MAX", 60),
-		RateLimitWindow:  envDuration("RATE_LIMIT_WINDOW", time.Minute),
-
-		// C5 device-bound session enforcement (opt-in; see field docs)
-		EnforceDeviceFingerprint: envBool("ENFORCE_DEVICE_FINGERPRINT", false),
+	if err := cfg.validate(); err != nil {
+		return nil, err
 	}
+
+	return cfg, nil
+}
+
+const defaultPort = 3030
+
+func (c *Config) validate() error {
+	if c.Port <= 0 || c.Port > 65535 {
+		return fmt.Errorf("config.Load: port %d out of range (1-65535)", c.Port)
+	}
+	switch c.LogLevel {
+	case "debug", "info", "warn", "error":
+	default:
+		return fmt.Errorf("config.Load: invalid log level %q (want debug|info|warn|error)", c.LogLevel)
+	}
+	return nil
+}
+
+// parseBackendURL extracts host and port from a URL string. The scheme is
+// optional. A missing port returns (host, 0, nil) so the caller can apply its
+// own default.
+func parseBackendURL(raw string) (host string, port int, err error) {
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		return "", 0, err
+	}
+	host = parsed.Hostname()
+	if p := parsed.Port(); p != "" {
+		port, err = strconv.Atoi(p)
+		if err != nil {
+			return "", 0, fmt.Errorf("non-numeric port %q", p)
+		}
+	}
+	return host, port, nil
 }
 
 func getEnv(key, fallback string) string {
-	if val, ok := os.LookupEnv(key); ok && val != "" {
-		return val
+	if v, ok := os.LookupEnv(key); ok && v != "" {
+		return v
 	}
 	return fallback
 }
-
-// envBool parses key as a boolean, falling back when unset or invalid.
-func envBool(key string, fallback bool) bool {
-	if v := os.Getenv(key); v != "" {
-		if b, err := strconv.ParseBool(v); err == nil {
-			return b
-		}
-	}
-	return fallback
-}
-
-// envInt parses key as a positive int64, falling back when unset or invalid.
-func envInt(key string, fallback int64) int64 {
-	if v := os.Getenv(key); v != "" {
-		if n, err := strconv.ParseInt(v, 10, 64); err == nil && n > 0 {
-			return n
-		}
-	}
-	return fallback
-}
-
-// envDuration parses key as a Go duration (e.g. "1m"), falling back when
-// unset or invalid.
-func envDuration(key string, fallback time.Duration) time.Duration {
-	if v := os.Getenv(key); v != "" {
-		if d, err := time.ParseDuration(v); err == nil && d > 0 {
-			return d
-		}
-	}
-	return fallback
-}
-
-// Module is an fx-compatible provider for Config.
-var Module = fx.Provide(Load)

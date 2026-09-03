@@ -139,9 +139,8 @@ export function StaticTable<TItem>({
                         {isCheckable && (
                             <div className="flex items-center justify-center">
                                 <Checkbox
-                                    checked={
-                                        allSelected ? true : someSelected ? "indeterminate" : false
-                                    }
+                                    checked={allSelected}
+                                    indeterminate={someSelected && !allSelected}
                                     onCheckedChange={handleSelectAll}
                                 />
                             </div>

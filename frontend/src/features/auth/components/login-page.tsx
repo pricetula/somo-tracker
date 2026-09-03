@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useDiscover } from "@/hooks/use-auth";
 import { Loader2 } from "lucide-react";
-import { DocTooltip } from "@/components/ui/DocTooltip";
+import { DocTooltip } from "@/components/shared/DocTooltip";
 
 interface LoginPageProps {
     tooltipSummary?: string;
@@ -84,7 +84,7 @@ export function LoginPage({ tooltipSummary }: LoginPageProps) {
                             </Button>
                         </form>
                     </Form>
-                    <p className="text-muted-foreground mt-8 text-center text-xs">
+                    <p className="text-muted-foreground mt-8 text-center">
                         No password needed.
                         {tooltipSummary && (
                             <DocTooltip

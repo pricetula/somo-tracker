@@ -4,168 +4,134 @@
  * Uses reusable comboboxes from their respective feature modules:
  *  - GradeLevelCombobox from grade-level feature
  *  - StreamCombobox from streams feature
- *  - AcademicYearCombobox from academic-terms feature
  *
- * The academic_term_id is resolved server-side from the current active term.
+ * The academic_year_id and academic_term_id are resolved server-side
+ * from the current active academic year/term.
+ *
+ * Form validation is handled by zod + react-hook-form.
  */
 
 "use client";
 
-import { useState, useCallback } from "react";
+import React from "react";
+import { z } from "zod";
 import { useRouter } from "next/navigation";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2 } from "lucide-react";
-
-import { createClass, type Class } from "@/lib/api/classes";
-import { getErrorMessage, isApiError } from "@/lib/errors";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { GradeLevelCombobox } from "@/features/grade-level";
 import { StreamCombobox } from "@/features/streams";
-import { AcademicYearCombobox } from "@/features/academic-terms";
 import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+    Form,
+    FormControl,
+    FormField,
+    FormItem,
+    FormLabel,
+    FormMessage,
+} from "@/components/ui/form";
+import { useCreateClass } from "../hooks/use-classes";
+
+// ─── Zod Schema ────────────────────────────────────────────────────────────
+
+const createClassSchema = z.object({
+    grade_level: z.string().min(1, "Grade level is required"),
+    stream_id: z.string().min(1, "Stream is required"),
+    student_ids: z.array(z.string()),
+});
+
+type CreateClassSchema = z.infer<typeof createClassSchema>;
 
 // ─── Props ─────────────────────────────────────────────────────────────────
 
 interface AddClassFormProps {
     /** Called when the class is successfully created. */
-    onSuccess?: (cls: Class) => void;
+    onSuccess?: () => void;
 }
 
 // ─── Component ─────────────────────────────────────────────────────────────
 
 export function AddClassForm({ onSuccess }: AddClassFormProps) {
     const router = useRouter();
-    const queryClient = useQueryClient();
 
-    // ── Form state ────────────────────────────────────────────────────
-    const [gradeLevel, setGradeLevel] = useState("");
-    const [streamId, setStreamId] = useState("");
-    const [academicYearId, setAcademicYearId] = useState("");
-    const [error, setError] = useState<string | null>(null);
-    const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
-
-    // ── Mutation ──────────────────────────────────────────────────────
-    const createMutation = useMutation({
-        mutationFn: () => {
-            if (!gradeLevel) throw new Error("Grade level is required.");
-            if (!streamId) throw new Error("Stream is required.");
-            if (!academicYearId) throw new Error("Academic year is required.");
-
-            return createClass({
-                grade_level: gradeLevel,
-                stream_id: streamId,
-                academic_year_id: academicYearId,
-                academic_term_id: "", // resolved server-side to current active term
-                student_ids: [],
-            });
-        },
-        onSuccess: (cls) => {
-            queryClient.invalidateQueries({ queryKey: ["classes"] });
-            onSuccess?.(cls);
-            router.back();
-        },
-        onError: (err) => {
-            if (isApiError(err) && err.status === 400 && err.errors) {
-                setFieldErrors(err.errors);
-                setError(null);
-            } else {
-                setFieldErrors({});
-                setError(getErrorMessage(err));
-            }
+    const form = useForm<CreateClassSchema>({
+        resolver: zodResolver(createClassSchema),
+        defaultValues: {
+            grade_level: "",
+            stream_id: "",
+            student_ids: [] as string[],
         },
     });
 
-    // ── Handlers ──────────────────────────────────────────────────────
-    const handleSubmit = useCallback(
-        (e: React.FormEvent) => {
-            e.preventDefault();
-            setError(null);
-            setFieldErrors({});
-            createMutation.mutate();
-        },
-        [createMutation]
-    );
+    const createClassMutation = useCreateClass();
+
+    const onSubmit = (data: CreateClassSchema) => {
+        createClassMutation.mutate(data, {
+            onSuccess,
+        });
+    };
+
+    const handleCancel = () => {
+        router.back();
+    };
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-4">
-            {/* General error */}
-            {error && (
-                <Alert variant="destructive">
-                    <AlertDescription>{error}</AlertDescription>
-                </Alert>
-            )}
-
-            {/* Grade Level */}
-            <div className="space-y-1.5">
-                <label className="font-medium">Grade Level</label>
-                <GradeLevelCombobox
-                    value={gradeLevel}
-                    onChange={(v) => {
-                        setGradeLevel(v);
-                        setFieldErrors({});
+        <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
+                    control={form.control}
+                    name="grade_level"
+                    render={({ field }) => {
+                        return (
+                            <FormItem>
+                                <FormLabel>Grade Level</FormLabel>
+                                <FormControl>
+                                    <GradeLevelCombobox
+                                        value={field.value}
+                                        onChange={(value: string) => {
+                                            field.onChange({
+                                                target: { value },
+                                            } as React.ChangeEvent<HTMLSelectElement>);
+                                        }}
+                                    />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        );
                     }}
                 />
-                {fieldErrors.grade_level && (
-                    <p className="text-destructive text-xs">{fieldErrors.grade_level[0]}</p>
-                )}
-            </div>
 
-            {/* Stream */}
-            <div className="space-y-1.5">
-                <label className="font-medium">Stream</label>
-                <StreamCombobox
-                    value={streamId}
-                    onChange={(v) => {
-                        setStreamId(v);
-                        setFieldErrors({});
-                    }}
-                    onCreateItem={(search) => {
-                        router.push(`/streams/add?value=${encodeURIComponent(search)}`);
+                <FormField
+                    control={form.control}
+                    name="stream_id"
+                    render={({ field }) => {
+                        return (
+                            <FormItem>
+                                <FormLabel>Stream</FormLabel>
+                                <FormControl>
+                                    <StreamCombobox
+                                        value={field.value}
+                                        onChange={(value: string) => {
+                                            field.onChange({
+                                                target: { value },
+                                            } as React.ChangeEvent<HTMLSelectElement>);
+                                        }}
+                                    />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        );
                     }}
                 />
-                {fieldErrors.stream_id && (
-                    <p className="text-destructive text-xs">{fieldErrors.stream_id[0]}</p>
-                )}
-            </div>
 
-            {/* Academic Year */}
-            <div className="space-y-1.5">
-                <label className="font-medium">Academic Year</label>
-                <AcademicYearCombobox
-                    value={academicYearId}
-                    onChange={(v) => {
-                        setAcademicYearId(v);
-                        setFieldErrors({});
-                    }}
-                    onCreateItem={() => router.push("/academic-terms/new")}
-                />
-                {fieldErrors.academic_year_id && (
-                    <p className="text-destructive text-xs">{fieldErrors.academic_year_id[0]}</p>
-                )}
-            </div>
-
-            {/* Submit */}
-            <div className="flex items-center justify-end gap-2 pt-2">
-                <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => router.back()}
-                    disabled={createMutation.isPending}
-                >
-                    Cancel
-                </Button>
-                <Button type="submit" size="sm" disabled={createMutation.isPending}>
-                    {createMutation.isPending ? (
-                        <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Creating...
-                        </>
-                    ) : (
-                        "Create Class"
-                    )}
-                </Button>
-            </div>
-        </form>
+                <div className="flex gap-2 pt-4">
+                    <Button type="submit" disabled={createClassMutation.isPending}>
+                        {createClassMutation.isPending ? "Creating..." : "Create Class"}
+                    </Button>
+                    <Button type="button" variant="outline" onClick={handleCancel}>
+                        Cancel
+                    </Button>
+                </div>
+            </form>
+        </Form>
     );
 }

@@ -94,13 +94,13 @@ export function ClassResolverRow({
                     <span className="text-muted-foreground block truncate">{resolvedLabel}</span>
                 ) : (
                     <Popover open={open} onOpenChange={setOpen}>
-                        <PopoverTrigger asChild>
+                        <PopoverTrigger>
                             <Button
                                 variant="outline"
                                 role="combobox"
                                 aria-expanded={open}
                                 className={cn(
-                                    "h-7 w-full justify-between px-2 text-xs font-normal",
+                                    "h-7 w-full justify-between px-2 font-normal",
                                     !localResolvedId && "text-muted-foreground"
                                 )}
                             >
@@ -114,7 +114,7 @@ export function ClassResolverRow({
                             </Button>
                         </PopoverTrigger>
                         <PopoverContent
-                            className="w-(--radix-popover-trigger-width) p-0"
+                            className="w-(--base-ui-popover-trigger-width) p-0"
                             align="start"
                             sideOffset={4}
                         >

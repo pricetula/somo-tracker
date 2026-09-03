@@ -81,6 +81,17 @@ export async function submitBulkInvite(body: BulkInviteRequest): Promise<ImportR
 }
 
 /**
+ * POST /api/v1/parents/invite — submit a bulk parent invitation job.
+ * Accepts an array of email rows (role is implicitly PARENT).
+ * Returns immediately with a job_id for progress polling.
+ */
+export async function submitBulkParentInvite(
+    body: Omit<BulkInviteRequest, "role">
+): Promise<ImportResponse> {
+    return api.post<ImportResponse>("/api/v1/parents/invite", body);
+}
+
+/**
  * PATCH /api/v1/invitations/:id/revoke — revoke a pending invitation.
  * Only SCHOOL_ADMIN can revoke invitations.
  */

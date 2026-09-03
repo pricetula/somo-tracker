@@ -10,7 +10,7 @@
 
 import { use } from "react";
 import { useRouter } from "next/navigation";
-import { AdminDetail } from "@/features/admin/components/admin-detail";
+import { AdminDetail } from "@/features/admin";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 interface Props {

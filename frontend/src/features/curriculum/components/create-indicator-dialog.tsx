@@ -125,7 +125,7 @@ export function CreateIndicatorDialog({
                             })}
                         />
                         {errors.description && (
-                            <p className="text-destructive text-xs">{errors.description.message}</p>
+                            <p className="text-destructive">{errors.description.message}</p>
                         )}
                     </div>
 
@@ -138,9 +138,7 @@ export function CreateIndicatorDialog({
                             placeholder="Auto if empty"
                             {...register("sequence_order", { valueAsNumber: true })}
                         />
-                        <p className="text-muted-foreground text-xs">
-                            Leave empty to auto-increment.
-                        </p>
+                        <p className="text-muted-foreground">Leave empty to auto-increment.</p>
                     </div>
 
                     <DialogFooter>

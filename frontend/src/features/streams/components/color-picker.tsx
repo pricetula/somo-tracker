@@ -42,7 +42,7 @@ export function ColorPicker({
                 ))}
                 {/* Custom color input */}
                 <label
-                    className="border-muted-foreground/50 text-muted-foreground hover:border-foreground/50 flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border-2 border-dashed text-xs"
+                    className="border-muted-foreground/50 text-muted-foreground hover:border-foreground/50 flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border-2 border-dashed"
                     aria-label="Custom colour"
                 >
                     <span className="text-lg leading-none">+</span>

@@ -11,37 +11,37 @@
 import * as React from "react";
 import Link from "next/link";
 
-import { cn } from "@/lib/utils";
-import { Combobox, ComboboxChip } from "@/components/ui/combobox";
+import { toast } from "sonner";
+import {
+    Combobox,
+    ComboboxChip,
+    ComboboxChips,
+    ComboboxChipsInput,
+    ComboboxContent,
+    ComboboxEmpty,
+    ComboboxInput,
+    ComboboxItem,
+    ComboboxList,
+    ComboboxValue,
+} from "@/components/ui/combobox";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { getErrorMessage } from "@/lib/errors";
-
 import { useClassList } from "../hooks/use-classes";
+import { ClassOption } from "../types";
 
 // ─── Props ────────────────────────────────────────────────────────────────
 
 export interface ClassComboboxProps {
-    /** Currently selected class ID(s) (controlled). */
-    value: string | string[];
-    /** Called when a class is selected / deselected. */
+    /** Currently selected grade level (controlled). */
+    value: string;
+    /** Called when a grade level is selected. */
     onChange: (value: string | string[]) => void;
     /** Placeholder text when nothing is selected. */
     placeholder?: string;
     /** Optional outer container class. */
     className?: string;
-    /** Allow selecting multiple classes (default: false). */
+    /** Allow selecting multiple teachers (default: false). */
     isMultiSelect?: boolean;
-    /**
-     * When search yields no results, shows a "Create" option.
-     * If omitted, no create option is shown.
-     */
-    onCreateItem?: (search: string) => void;
-    /**
-     * When true, automatically selects the first class from the list if no
-     * value is currently set. Defaults to false.
-     */
-    doPreselectFirstOption?: boolean;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────
@@ -52,111 +52,84 @@ export function ClassCombobox({
     placeholder = "Select a class...",
     className,
     isMultiSelect = false,
-    onCreateItem,
-    doPreselectFirstOption = false,
 }: ClassComboboxProps) {
     const { data, isLoading, isError, error } = useClassList();
 
-    const items = data?.items ?? [];
+    const items = React.useMemo(() => data?.items || [], [data]);
 
-    // ── Auto-preselect first option when doPreselectFirstOption is true ──
-    const hasPreselected = React.useRef(false);
+    const selectedOption = React.useMemo(
+        () => items.find((o) => o.value === value) || items[0],
+        [items, value]
+    );
+
     React.useEffect(() => {
-        const list = data?.items;
-        if (!doPreselectFirstOption || !list || list.length === 0 || hasPreselected.current) return;
-
-        const hasValue = isMultiSelect ? (value as string[]).length > 0 : (value as string) !== "";
-
-        if (hasValue) {
-            hasPreselected.current = true;
-            return;
+        if (isError) {
+            toast.error(getErrorMessage(error));
         }
+    }, [isError, error]);
 
-        hasPreselected.current = true;
-        onChange(isMultiSelect ? [list[0].value] : list[0].value);
-    }, [doPreselectFirstOption, data, isMultiSelect, value, onChange]);
+    React.useEffect(() => {
+        if (!value && selectedOption) {
+            onChange(selectedOption.value);
+        }
+    }, [selectedOption, value, onChange]);
+
+    // ── Error state ──────────────────────────────────────────────────────
+    if (isError) return null;
 
     // ── Loading state ─────────────────────────────────────────────────────
     if (isLoading) {
-        return (
-            <div className={cn("w-full", className)}>
-                <Skeleton className="h-9 w-full" />
-            </div>
-        );
-    }
-
-    // ── Error state ──────────────────────────────────────────────────────
-    if (isError) {
-        return (
-            <div className={cn("w-full", className)}>
-                <Alert variant="destructive" className="h-9 items-center py-0 text-xs">
-                    <AlertDescription>{getErrorMessage(error)}</AlertDescription>
-                </Alert>
-            </div>
-        );
+        return <Skeleton className="h-9 w-full" />;
     }
 
     // ── No items at all (not just search miss) ───────────────────────────
     if (items.length === 0) {
         return (
-            <Alert className="text-muted-foreground h-9 items-center py-0 text-xs">
-                <AlertDescription>
-                    No classes configured.{" "}
-                    <Link href="/classes/add" className="underline underline-offset-2">
-                        Add one
-                    </Link>
-                    .
-                </AlertDescription>
-            </Alert>
-        );
-    }
-
-    // ── Single-select ───────────────────────────────────────────────────
-    if (!isMultiSelect) {
-        return (
-            <Combobox
-                items={items}
-                value={value as string}
-                onValueChange={onChange}
-                placeholder={placeholder}
-                emptyText="No class found."
-                className={cn("w-full", className)}
-                onCreateItem={onCreateItem}
-            />
+            <Link href="/classes/add" className="underline underline-offset-2">
+                Add class
+            </Link>
         );
     }
 
     // ── Multi-select ────────────────────────────────────────────────────
     return (
         <Combobox
-            items={items}
-            value={value as string[]}
-            onValueChange={onChange}
-            multiple
-            placeholder={placeholder}
-            emptyText="No class found."
-            className={cn("w-full", className)}
-            onCreateItem={onCreateItem}
-            renderTrigger={({ selectedItems }) =>
-                selectedItems.length > 0 ? (
-                    <span className="flex flex-wrap gap-1">
-                        {selectedItems.map((item) => (
-                            <ComboboxChip
-                                key={item.value}
-                                value={item.value}
-                                onRemove={(v) => {
-                                    const next = (value as string[]).filter((id) => id !== v);
-                                    onChange(next);
-                                }}
-                            >
-                                {item.label}
-                            </ComboboxChip>
+            items={items as ClassOption[]}
+            value={selectedOption}
+            itemToStringValue={(i) => i.label}
+            onValueChange={(v) => {
+                if (v) {
+                    const id = Array.isArray(v)
+                        ? (v[0] as ClassOption | undefined)?.value
+                        : (v as ClassOption).value;
+                    if (id) onChange(id);
+                }
+            }}
+            multiple={isMultiSelect}
+        >
+            {isMultiSelect ? (
+                <ComboboxChips>
+                    <ComboboxValue>
+                        {(value as unknown as string[]).map((item) => (
+                            <ComboboxChip key={item}>{item}</ComboboxChip>
                         ))}
-                    </span>
-                ) : (
-                    <span className="text-muted-foreground truncate">{placeholder}</span>
-                )
-            }
-        />
+                    </ComboboxValue>
+                    <ComboboxChipsInput placeholder="Add framework" />
+                </ComboboxChips>
+            ) : (
+                <ComboboxInput placeholder={placeholder} className={className} />
+            )}
+
+            <ComboboxContent>
+                <ComboboxEmpty>No items found.</ComboboxEmpty>
+                <ComboboxList>
+                    {(i) => (
+                        <ComboboxItem key={i.value} value={i as ClassOption}>
+                            {i.label}
+                        </ComboboxItem>
+                    )}
+                </ComboboxList>
+            </ComboboxContent>
+        </Combobox>
     );
 }

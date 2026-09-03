@@ -4,11 +4,11 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
     DropdownMenu,
     DropdownMenuContent,
-    DropdownMenuGroup,
     DropdownMenuItem,
     DropdownMenuLabel,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
+    DropdownMenuGroup,
 } from "@/components/ui/dropdown-menu";
 import {
     SidebarMenu,
@@ -16,19 +16,17 @@ import {
     SidebarMenuItem,
     useSidebar,
 } from "@/components/ui/sidebar";
-import { ChevronsUpDownIcon, Plus } from "lucide-react";
+import { ChevronsUpDown, Plus, Check } from "lucide-react";
 import { useMe } from "@/hooks/use-auth";
 import { useSchools, useSetActiveSchool } from "../hooks/use-schools";
 import { CreateSchoolDialog } from "./create-school-dialog";
 import * as React from "react";
 
-import { SchoolRow } from "./school-row";
-
 export function SchoolSwitcher() {
     const { isMobile } = useSidebar();
     const { data: me } = useMe();
     const { data: schoolsData } = useSchools();
-    const { mutate: switchSchool, isPending: isSwitching } = useSetActiveSchool();
+    const { mutate: switchSchool } = useSetActiveSchool();
     const [dialogOpen, setDialogOpen] = React.useState(false);
 
     const activeSchoolName = me?.school_name ?? "School";
@@ -47,55 +45,58 @@ export function SchoolSwitcher() {
             <SidebarMenu>
                 <SidebarMenuItem>
                     <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <SidebarMenuButton
-                                size="lg"
-                                className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-                            >
-                                <Avatar className="h-8 w-8 overflow-hidden bg-transparent">
-                                    <AvatarFallback className="rounded-lg">
-                                        {initials}
-                                    </AvatarFallback>
-                                </Avatar>
-                                <div className="grid flex-1 text-left leading-tight">
-                                    <span className="truncate font-medium">{activeSchoolName}</span>
-                                </div>
-                                <ChevronsUpDownIcon className="ml-auto size-4" />
-                            </SidebarMenuButton>
-                        </DropdownMenuTrigger>
+                        <DropdownMenuTrigger
+                            render={
+                                <SidebarMenuButton
+                                    size="lg"
+                                    className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                                >
+                                    <Avatar>
+                                        {/*<AvatarImage src={user.avatar} alt={user.name} />*/}
+                                        <AvatarFallback>{initials}</AvatarFallback>
+                                    </Avatar>
+                                    <div className="grid flex-1 text-left leading-tight">
+                                        <span className="truncate font-medium">
+                                            {activeSchoolName}
+                                        </span>
+                                    </div>
+                                    <ChevronsUpDown className="ml-auto" />
+                                </SidebarMenuButton>
+                            }
+                        />
                         <DropdownMenuContent
-                            className="w-fit min-w-56"
-                            side={isMobile ? "bottom" : "right"}
+                            className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
                             align="start"
+                            side={isMobile ? "bottom" : "right"}
                             sideOffset={4}
                         >
-                            <DropdownMenuLabel className="text-muted-foreground text-xs font-medium">
-                                Schools
-                            </DropdownMenuLabel>
                             <DropdownMenuGroup>
-                                {schools.length === 0 ? (
-                                    <div className="text-muted-foreground px-2 py-3 text-center text-xs">
-                                        No schools yet
-                                    </div>
-                                ) : (
-                                    schools.map((school) => (
-                                        <SchoolRow
-                                            key={school.id}
-                                            school={school}
-                                            activeSchoolId={activeSchoolId}
-                                            isSwitching={isSwitching}
-                                            onSwitch={switchSchool}
-                                        />
-                                    ))
-                                )}
+                                <DropdownMenuLabel className="text-muted-foreground">
+                                    Teams
+                                </DropdownMenuLabel>
+                                {schools.map((school) => (
+                                    <DropdownMenuItem
+                                        key={school.name}
+                                        onClick={() => switchSchool(school.id)}
+                                        className="gap-2 p-2"
+                                    >
+                                        <Avatar>
+                                            <AvatarFallback>{school.name[0]}</AvatarFallback>
+                                        </Avatar>
+                                        {school.name}
+                                        {activeSchoolId === school.id && <Check />}
+                                    </DropdownMenuItem>
+                                ))}
                             </DropdownMenuGroup>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
+                                className="gap-2 p-2"
                                 onClick={() => setDialogOpen(true)}
-                                className="text-muted-foreground flex items-center gap-2"
                             >
-                                <Plus className="size-4" />
-                                <span>Add School</span>
+                                <div className="flex size-6 items-center justify-center rounded-md border bg-transparent">
+                                    <Plus className="size-4" />
+                                </div>
+                                <div className="text-muted-foreground font-medium">Add team</div>
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>

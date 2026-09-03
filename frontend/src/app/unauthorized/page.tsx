@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { ShieldAlert } from "lucide-react";
 
 /**
@@ -28,9 +27,7 @@ export default function UnauthorizedPage() {
                     </p>
                 </div>
 
-                <Button asChild>
-                    <Link href="/logout">Sign out and try again</Link>
-                </Button>
+                <Link href="/logout">Sign out and try again</Link>
             </div>
         </div>
     );

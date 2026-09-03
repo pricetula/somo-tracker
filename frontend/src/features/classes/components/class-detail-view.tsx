@@ -8,19 +8,13 @@
 
 "use client";
 
-import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { GraduationCap, Trash2 } from "lucide-react";
 
 import { getClass } from "@/lib/api/classes";
 import { STALE_TIMES } from "@/lib/query-config";
-import {
-    useAcademicYears,
-    useAcademicTerms,
-    AcademicYearCombobox,
-    AcademicTermCombobox,
-} from "@/features/academic-terms";
+import { useAcademicYears, useAcademicTerms } from "@/features/academic-terms";
 import { ClassRoster } from "./class-roster";
 import { ClassDetailSkeleton } from "./class-detail-skeleton";
 import { Button } from "@/components/ui/button";
@@ -64,20 +58,6 @@ export function ClassDetailView({ classId }: ClassDetailViewProps) {
     const deleteMutation = useDeleteClasses();
     const { data: termsData } = useAcademicTerms();
 
-    // Selected academic year and term (controlled comboboxes)
-    const [selectedYearId, setSelectedYearId] = useState("");
-    const [selectedTermId, setSelectedTermId] = useState("");
-
-    // Derive effective values — user selection, or auto-select current year/term as default
-    const yearId = selectedYearId || (yearsData?.items?.find((y) => y.is_current)?.id ?? "");
-    const termId = selectedTermId || (termsData?.items?.find((t) => t.is_current)?.id ?? "");
-
-    // Reset term when year changes
-    const handleYearChange = (nextYearId: string) => {
-        setSelectedYearId(nextYearId);
-        setSelectedTermId("");
-    };
-
     if (isLoading) return <ClassDetailSkeleton />;
 
     if (isError || !classData) {
@@ -99,12 +79,14 @@ export function ClassDetailView({ classId }: ClassDetailViewProps) {
                     <h1 className="text-lg font-semibold">{classData.display_label}</h1>
                 </div>
                 <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                        <Button variant="outline" size="sm" className="text-destructive">
-                            <Trash2 className="mr-1.5 size-3.5" />
-                            Delete
-                        </Button>
-                    </AlertDialogTrigger>
+                    <AlertDialogTrigger
+                        render={
+                            <Button variant="outline" size="sm" className="text-destructive">
+                                <Trash2 className="mr-1.5 size-3.5" />
+                                Delete
+                            </Button>
+                        }
+                    />
                     <AlertDialogContent>
                         <AlertDialogHeader>
                             <AlertDialogTitle>Delete Class</AlertDialogTitle>
@@ -117,13 +99,10 @@ export function ClassDetailView({ classId }: ClassDetailViewProps) {
                             <AlertDialogCancel>Cancel</AlertDialogCancel>
                             <AlertDialogAction
                                 variant="destructive"
-                                onClick={async () => {
-                                    try {
-                                        await deleteMutation.mutateAsync([classId]);
-                                        router.push("/classes");
-                                    } catch {
-                                        // handled by hook onError
-                                    }
+                                onClick={() => {
+                                    deleteMutation.mutate([classId], {
+                                        onSuccess: () => router.push("/classes"),
+                                    });
                                 }}
                                 disabled={deleteMutation.isPending}
                             >
@@ -134,44 +113,30 @@ export function ClassDetailView({ classId }: ClassDetailViewProps) {
                 </AlertDialog>
             </header>
 
-            {/* Academic year / term selector */}
+            {/* Current academic year / term (resolved server-side) */}
             <div className="flex flex-wrap items-end gap-3">
                 <div className="flex flex-col gap-1.5">
-                    <label className="text-muted-foreground text-xs font-medium">
-                        Academic Year
-                    </label>
-                    <AcademicYearCombobox
-                        value={yearId}
-                        onChange={handleYearChange}
-                        placeholder="Select year..."
-                        className="w-56"
-                    />
+                    <label className="text-muted-foreground font-medium">Academic Year</label>
+                    <span className="text-foreground w-56 truncate py-1.5 text-sm">
+                        {(Array.isArray(yearsData?.data)
+                            ? yearsData.data.find((y) => y.is_current)?.name
+                            : null) ?? "—"}
+                    </span>
                 </div>
                 <div className="flex flex-col gap-1.5">
-                    <label className="text-muted-foreground text-xs font-medium">
-                        Academic Term
-                    </label>
-                    <AcademicTermCombobox
-                        value={termId}
-                        onChange={setSelectedTermId}
-                        placeholder="Select term..."
-                        className="w-56"
-                    />
+                    <label className="text-muted-foreground font-medium">Academic Term</label>
+                    <span className="text-foreground w-56 truncate py-1.5 text-sm">
+                        {(Array.isArray(termsData?.items)
+                            ? termsData.items.find((t) => t.is_current)?.name
+                            : null) ?? "—"}
+                    </span>
                 </div>
             </div>
 
-            {/* Roster for the selected term */}
+            {/* Roster for the current active term (resolved server-side) */}
             <div>
-                <h2 className="text-muted-foreground mb-3 font-medium">
-                    Roster
-                    {termId && termsData?.items && (
-                        <span className="ml-2 font-normal">
-                            &mdash;{" "}
-                            {termsData.items.find((t) => t.id === termId)?.name ?? "selected term"}
-                        </span>
-                    )}
-                </h2>
-                <ClassRoster classId={classId} academicYearId={yearId} academicTermId={termId} />
+                <h2 className="text-muted-foreground mb-3 font-medium">Roster</h2>
+                <ClassRoster classId={classId} />
             </div>
         </article>
     );

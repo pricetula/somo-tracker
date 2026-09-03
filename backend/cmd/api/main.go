@@ -3,207 +3,125 @@ package main
 import (
 	"context"
 	"errors"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 
-	"somotracker/backend/internal/academicyears"
-	"somotracker/backend/internal/assessments"
-	"somotracker/backend/internal/attendance"
-	"somotracker/backend/internal/auth"
-	"somotracker/backend/internal/behavior"
-	"somotracker/backend/internal/billing"
-	"somotracker/backend/internal/cbcclasses"
-	"somotracker/backend/internal/cbcschools"
-	"somotracker/backend/internal/cbcstreams"
-	"somotracker/backend/internal/cbctimetableslots"
-	"somotracker/backend/internal/classteachers"
-	"somotracker/backend/internal/cohortpositions"
 	"somotracker/backend/internal/config"
-	"somotracker/backend/internal/curriculum"
-	"somotracker/backend/internal/database"
-	"somotracker/backend/internal/health"
-	"somotracker/backend/internal/imports"
-	"somotracker/backend/internal/invitations"
-	"somotracker/backend/internal/logger"
-	"somotracker/backend/internal/members"
-	"somotracker/backend/internal/middleware"
-	"somotracker/backend/internal/parents"
-	"somotracker/backend/internal/reports"
-	"somotracker/backend/internal/students"
-	"somotracker/backend/internal/teacherdeliverysummaries"
-	"somotracker/backend/internal/teacherperformance"
-	"somotracker/backend/internal/teachers"
-	"somotracker/backend/internal/teacherworkloadsummaries"
-	"somotracker/backend/internal/timetablestructure"
-	"somotracker/backend/internal/utils"
 )
 
 func main() {
-	fx.New(
-		// Global dependencies
-		config.Module,
-		logger.Module,
-		database.Module,
-		utils.Module,
+	app := fx.New(
+		fx.Provide(config.Load),
+		fx.Provide(newLogger),
+		fx.Provide(newFiberApp),
+		fx.Invoke(registerHooks),
+	)
 
-		// Feature modules
-		academicyears.Module,
-		assessments.Module,
-		attendance.Module,
-		auth.Module,
-		behavior.Module,
-		billing.Module,
-		cbcclasses.Module,
-		cbcschools.Module,
-		cbcstreams.Module,
-		cbctimetableslots.Module,
-		classteachers.Module,
-		cohortpositions.Module,
-		curriculum.Module,
-		health.Module,
-		imports.Module,
-		invitations.Module,
-		members.Module,
-		parents.Module,
-		reports.Module,
-		students.Module,
-		teacherdeliverysummaries.Module,
-		teacherperformance.Module,
-		teachers.Module,
-		teacherworkloadsummaries.Module,
-		timetablestructure.Module,
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
 
-		// Background workers whose lifecycle hooks are not registered inside
-		// their own modules — wired here so fx starts/stops them with the app.
-		fx.Invoke(imports.RegisterWorkerHooks),
-		fx.Invoke(imports.RegisterCleanupSchedulerHooks),
-		fx.Invoke(cohortpositions.RegisterWorkerHooks),
-		fx.Invoke(cohortpositions.RegisterSchedulerHooks),
+	startCtx, cancelStart := context.WithTimeout(context.Background(), 15*time.Second)
+	if err := app.Start(startCtx); err != nil && !errors.Is(err, context.Canceled) {
+		cancelStart()
+		os.Exit(1)
+	}
+	cancelStart()
 
-		// Entrypoint – must be wrapped in fx.Invoke
-		fx.Invoke(func(
-			lc fx.Lifecycle,
-			cfg config.Config,
-			pools *database.Pools,
-			log *zap.Logger,
-			academicyearshandler *academicyears.Handler,
-			assessmentshandler *assessments.Handler,
-			attendancehandler *attendance.Handler,
-			authhandler *auth.Handler,
-			behaviorhandler *behavior.Handler,
-			billinghandler *billing.Handler,
-			cbcclasseshandler *cbcclasses.Handler,
-			cbcschoolshandler *cbcschools.Handler,
-			cbcstreamshandler *cbcstreams.Handler,
-			cbctimetableslotshandler *cbctimetableslots.Handler,
-			classteachershandler *classteachers.Handler,
-			cohortpositionshandler *cohortpositions.Handler,
-			curriculumhandler *curriculum.Handler,
-			healthhandler *health.Handler,
-			importshandler *imports.Handler,
-			invitationshandler *invitations.Handler,
-			membershandler *members.Handler,
-			parentshandler *parents.Handler,
-			reportshandler *reports.Handler,
-			studentshandler *students.Handler,
-			teacherdeliverysummarieshandler *teacherdeliverysummaries.Handler,
-			teacherperformancehandler *teacherperformance.Handler,
-			teachershandler *teachers.Handler,
-			teacherworkloadsummarieshandler *teacherworkloadsummaries.Handler,
-			timetablestructurehandler *timetablestructure.Handler,
-		) {
-			// Build Fiber app with the canonical error handler: domain errors are
-			// mapped to the standard {code, message, errors} body via
-			// middleware.HTTPError, while Fiber's built-in 404/405 responses are
-			// preserved.
-			app := fiber.New(fiber.Config{
-				ErrorHandler: func(c *fiber.Ctx, err error) error {
-					// 1. Check if the error is a Fiber HTTP error (e.g., 404, 405, 400)
-					var e *fiber.Error
-					if errors.As(err, &e) {
-						// Let Fiber handle standard HTTP status errors (404 Not Found, 405, etc.)
-						if e.Code < 500 {
-							return fiber.DefaultErrorHandler(c, err)
-						}
-					}
+	<-sigCh
 
-					// 2. Pass internal domain/server errors to your custom HTTPError middleware
-					return middleware.HTTPError(c, err)
-				},
-				AppName: "somotracker-api",
-				// Deliberate limits: 4 MB JSON body cap (import endpoints are
-				// JSON job polling — no file uploads), plus server-level timeouts
-				// so a hung client or handler can't hold connections open
-				// indefinitely.
-				BodyLimit:    4 * 1024 * 1024,
-				ReadTimeout:  15 * time.Second,
-				WriteTimeout: 30 * time.Second,
-				IdleTimeout:  60 * time.Second,
-				// Trust the X-Forwarded-For header to get the original client IP
-				// for logging, rate limiting, and device fingerprinting.
-				// ProxyHeader: fiber.HeaderXForwardedFor,
+	stopCtx, cancelStop := context.WithTimeout(context.Background(), 30*time.Second)
+	if err := app.Stop(stopCtx); err != nil {
+		cancelStop()
+		os.Exit(1)
+	}
+	cancelStop()
+}
+
+// newLogger creates a zap.Logger based on the injected config.
+func newLogger(cfg *config.Config) (*zap.Logger, error) {
+	if cfg.IsProduction() {
+		return zap.NewProduction()
+	}
+	return zap.NewDevelopment()
+}
+
+// newFiberApp creates and configures a Fiber v3 application with health endpoints.
+func newFiberApp(cfg *config.Config, logger *zap.Logger) *fiber.App {
+	app := fiber.New(fiber.Config{
+		AppName: "somotracker-api",
+		ErrorHandler: func(c fiber.Ctx, err error) error {
+			// Do not treat 404 route misses as server errors.
+			if errors.Is(err, fiber.ErrNotFound) || (err != nil && err.Error() == "Not Found") {
+				return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+					"code":    "not_found",
+					"message": "Resource not found",
+					"errors":  fiber.Map{},
+				})
+			}
+
+			logger.Error("unhandled error",
+				zap.Error(err),
+				zap.String("env", cfg.Environment),
+			)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"code":    "internal_error",
+				"message": "An unexpected error occurred",
+				"errors":  fiber.Map{},
 			})
+		},
+	})
 
-			// Health check
-			app.Get("/health", func(c *fiber.Ctx) error {
-				return c.JSON(fiber.Map{"status": "ok"})
-			})
-			app.Get("/", func(c *fiber.Ctx) error {
-				return c.JSON(fiber.Map{"status": "ok"})
-			})
+	app.Get("/health", func(c fiber.Ctx) error {
+		return c.JSON(fiber.Map{
+			"status":  "ok",
+			"service": "somotracker-api",
+		})
+	})
 
-			// Global security + context middleware (session resolver, CSRF guard,
-			// rate limiters, device fingerprint). Must run before routes so that
-			// middleware.RequireAuth (used by protected routes) can read the
-			// resolved session from Locals (D1).
-			middleware.Register(app, pools, cfg, log.Sugar())
+	app.Get("/livez", func(c fiber.Ctx) error {
+		return c.SendStatus(fiber.StatusOK)
+	})
 
-			// Register all API routes.
-			academicyearshandler.RegisterRoutes(app)
-			assessmentshandler.RegisterRoutes(app)
-			attendancehandler.RegisterRoutes(app)
-			authhandler.RegisterRoutes(app)
-			behaviorhandler.RegisterRoutes(app)
-			billinghandler.RegisterRoutes(app)
-			cbcclasseshandler.RegisterRoutes(app)
-			cbcschoolshandler.RegisterRoutes(app)
-			cbcstreamshandler.RegisterRoutes(app)
-			cbctimetableslotshandler.RegisterRoutes(app)
-			classteachershandler.RegisterRoutes(app)
-			cohortpositionshandler.RegisterRoutes(app)
-			curriculumhandler.RegisterRoutes(app)
-			healthhandler.RegisterRoutes(app)
-			importshandler.RegisterRoutes(app)
-			invitationshandler.RegisterRoutes(app)
-			membershandler.RegisterRoutes(app)
-			parentshandler.RegisterRoutes(app)
-			reportshandler.RegisterRoutes(app)
-			studentshandler.RegisterRoutes(app)
-			teacherdeliverysummarieshandler.RegisterRoutes(app)
-			teacherperformancehandler.RegisterRoutes(app)
-			teachershandler.RegisterRoutes(app)
-			teacherworkloadsummarieshandler.RegisterRoutes(app)
-			timetablestructurehandler.RegisterRoutes(app)
+	app.Get("/readyz", func(c fiber.Ctx) error {
+		return c.SendStatus(fiber.StatusOK)
+	})
 
-			// Lifecycle hooks for non-blocking Fiber server
-			lc.Append(fx.Hook{
-				OnStart: func(ctx context.Context) error {
-					log.Info("starting server", zap.String("port", cfg.Port))
-					go func() {
-						if err := app.Listen(":" + cfg.Port); err != nil {
-							log.Error("server listen failed", zap.Error(err))
-						}
-					}()
-					return nil
-				},
-				OnStop: func(ctx context.Context) error {
-					log.Info("shutting down fiber server")
-					return app.ShutdownWithContext(ctx)
-				},
-			})
-		}),
-	).Run()
+	return app
+}
+
+// registerHooks wires the Fiber server start/stop lifecycle using the injected
+// config. The listen address is derived cleanly from Config.ListenAddr().
+func registerHooks(lc fx.Lifecycle, cfg *config.Config, app *fiber.App, logger *zap.Logger) {
+	lc.Append(fx.Hook{
+		OnStart: func(ctx context.Context) error {
+			go func() {
+				addr := cfg.ListenAddr()
+				logger.Info("starting HTTP server",
+					zap.String("address", addr),
+					zap.Int("port", cfg.Port),
+					zap.String("env", cfg.Environment),
+				)
+				if err := app.Listen(addr); err != nil && !errors.Is(err, http.ErrServerClosed) {
+					logger.Error("server error",
+						zap.Error(err),
+						zap.String("address", addr),
+					)
+				}
+			}()
+			return nil
+		},
+		OnStop: func(ctx context.Context) error {
+			logger.Info("shutting down HTTP server",
+				zap.String("address", cfg.ListenAddr()),
+			)
+			return app.Shutdown()
+		},
+	})
 }

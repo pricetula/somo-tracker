@@ -1,16 +1,17 @@
 "use client";
 
+import * as React from "react";
 import { useRouter } from "next/navigation";
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, format } from "date-fns";
-import { cn } from "@/lib/utils";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { useCalendarStatus } from "@/features/attendance/hooks/use-attendance";
 import { useMe } from "@/hooks/use-auth";
 import dynamic from "next/dynamic";
-import * as React from "react";
+import { CalendarSkeleton } from "./calendar-skeleton";
+import { StatusDot } from "./status-dot";
 
 const Calendar = dynamic(() => import("@/components/shared/calendar").then((mod) => mod.Calendar), {
     ssr: false,
-    loading: () => <CalendarSkeleton />,
 });
 export interface DaySummary {
     present: number;
@@ -44,10 +45,12 @@ interface AttendanceCalendarProps {
     attendanceRateMap?: Record<string, number>;
 }
 
-import { CalendarSkeleton } from "./calendar-skeleton";
-import { StatusDot } from "./status-dot";
-
-export function AttendanceCalendar({ schoolId: propSchoolId, className }: AttendanceCalendarProps) {
+export function AttendanceCalendar({ schoolId: propSchoolId }: AttendanceCalendarProps) {
+    const statusTypes = [
+        { label: "Complete", color: "bg-primary" },
+        { label: "Partially recorded", color: "bg-blue-300" },
+        { label: "Not recorded", color: "bg-rose-500" },
+    ];
     const router = useRouter();
     const { data: me } = useMe();
     const schoolId = propSchoolId ?? me?.school_id ?? "";
@@ -64,7 +67,7 @@ export function AttendanceCalendar({ schoolId: propSchoolId, className }: Attend
         data,
         isFetching,
         isError,
-        error: queryError,
+        error: _error,
     } = useCalendarStatus(startDate, endDate, schoolId);
 
     // Build a map of date → status for O(1) lookup
@@ -90,33 +93,41 @@ export function AttendanceCalendar({ schoolId: propSchoolId, className }: Attend
     );
 
     return (
-        <section className={cn("w-fit", className)}>
-            <header>Attendance Calendar</header>
-            <Calendar
-                month={currentMonth}
-                onMonthChange={setCurrentMonth}
-                onDayClick={(date) => {
-                    const dateStr = format(date, "yyyy-MM-dd");
-                    if (dateStr) {
-                        router.push(`/attendance/${dateStr}`);
-                    }
-                }}
-                disabled={[{ after: today }]}
-                dayContent={dayContent}
-                showOutsideDays={true}
-            />
-            {isFetching && (
-                <p className="text-muted-foreground mt-1 text-xs" role="status">
-                    Loading attendance status…
-                </p>
-            )}
-            {isError && (
-                <p className="text-destructive mt-1 text-xs" role="alert">
-                    {queryError instanceof Error
-                        ? queryError.message
-                        : "Failed to load attendance status"}
-                </p>
-            )}
-        </section>
+        <Card className="flex flex-col">
+            <CardHeader className="flex items-center justify-between pb-0">
+                <CardTitle>Attendance recorded</CardTitle>
+            </CardHeader>
+            <CardContent className="flex h-90 justify-center pb-0">
+                {isFetching ? (
+                    <CalendarSkeleton />
+                ) : isError ? (
+                    <div className="text-foreground text-center">
+                        Failed to load attendance data.
+                    </div>
+                ) : (
+                    <Calendar
+                        month={currentMonth}
+                        onMonthChange={setCurrentMonth}
+                        onDayClick={(date) => {
+                            const dateStr = format(date, "yyyy-MM-dd");
+                            if (dateStr) {
+                                router.push(`/attendance/${dateStr}`);
+                            }
+                        }}
+                        disabled={[{ after: today }]}
+                        dayContent={dayContent}
+                        showOutsideDays={true}
+                    />
+                )}
+            </CardContent>
+            <CardFooter className="flex justify-center gap-4">
+                {statusTypes.map((s) => (
+                    <span key={s.color}>
+                        <span className={`mr-2 inline-block h-2 w-2 rounded-full ${s.color}`} />
+                        <span>{s.label}</span>
+                    </span>
+                ))}
+            </CardFooter>
+        </Card>
     );
 }

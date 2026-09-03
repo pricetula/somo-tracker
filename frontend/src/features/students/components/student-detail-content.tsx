@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { StaticTable } from "@/components/shared/static-table";
 import { useStudentDetail, useDeleteStudent } from "@/features/students";
-import { useUnlinkStudent } from "@/features/parents";
+// import { useUnlinkStudent } from "@/features/parents";
 import Link from "next/link";
 
 interface StudentDetailContentProps {
@@ -49,7 +49,7 @@ export function StudentDetailContent({
     const { data: detailResponse, isLoading: detailLoading } = useStudentDetail(studentId);
     const queryClient = useQueryClient();
     const deleteMutation = useDeleteStudent();
-    const unlinkStudentMutation = useUnlinkStudent();
+    // const unlinkStudentMutation = useUnlinkStudent();
     const detail = detailResponse?.data;
 
     const emDash = "\u2014";
@@ -79,7 +79,7 @@ export function StudentDetailContent({
     const handleUnlinkParent = async (parentId: string, parentName: string) => {
         if (!window.confirm(`Unlink ${parentName} from this student?`)) return;
         try {
-            await unlinkStudentMutation.mutateAsync({ parentId, studentId });
+            // await unlinkStudentMutation.mutateAsync({ parentId, studentId });
             queryClient.invalidateQueries({ queryKey: ["students", "detail", studentId] });
         } catch {
             // handled by hook onError
@@ -101,7 +101,7 @@ export function StudentDetailContent({
                     <Heading className="text-foreground text-2xl font-bold">
                         {detail.full_name}
                     </Heading>
-                    <div className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+                    <div className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1">
                         {detail.admission_number && (
                             <span>
                                 Adm: <span className="font-mono">{detail.admission_number}</span>
@@ -121,10 +121,10 @@ export function StudentDetailContent({
                         <span>Gender: {detail.gender === "M" ? "Male" : "Female"}</span>
                     </div>
                     {currentEnrollment && (
-                        <p className="text-muted-foreground text-xs">
+                        <p className="text-muted-foreground">
                             {currentEnrollment.class_name} &middot; {currentEnrollment.term_name}{" "}
                             {currentEnrollment.academic_year}
-                            <Badge variant="secondary" className="ml-2 text-xs">
+                            <Badge variant="secondary" className="ml-2">
                                 {currentEnrollment.status}
                             </Badge>
                         </p>
@@ -132,12 +132,14 @@ export function StudentDetailContent({
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                     <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                            <Button variant="outline" size="sm" className="text-destructive">
-                                <Trash2 className="size-3.5" />
-                                {isCompact ? null : "Delete"}
-                            </Button>
-                        </AlertDialogTrigger>
+                        <AlertDialogTrigger
+                            render={
+                                <Button variant="outline" size="sm" className="text-destructive">
+                                    <Trash2 className="size-3.5" />
+                                    {isCompact ? null : "Delete"}
+                                </Button>
+                            }
+                        />
                         <AlertDialogContent>
                             <AlertDialogHeader>
                                 <AlertDialogTitle>Delete Student</AlertDialogTitle>
@@ -170,13 +172,13 @@ export function StudentDetailContent({
 
             {/* ── Overview ─────────────────────────────────────────── */}
             <section>
-                <h2 className="text-muted-foreground mb-3 text-xs font-semibold tracking-wider uppercase">
+                <h2 className="text-muted-foreground mb-3 font-semibold tracking-wider uppercase">
                     Overview
                 </h2>
                 <div className={`grid ${overviewCols} gap-6`}>
                     {/* Behavior summary */}
                     <div className="bg-muted/30 p-4">
-                        <div className="text-muted-foreground flex items-center gap-2 text-xs font-medium">
+                        <div className="text-muted-foreground flex items-center gap-2 font-medium">
                             <AlertTriangle className="h-4 w-4" />
                             Behavior Notes
                         </div>
@@ -201,7 +203,7 @@ export function StudentDetailContent({
 
                     {/* Enrollment summary */}
                     <div className="bg-muted/30 p-4">
-                        <div className="text-muted-foreground flex items-center gap-2 text-xs font-medium">
+                        <div className="text-muted-foreground flex items-center gap-2 font-medium">
                             <BookOpen className="h-4 w-4" />
                             Enrollments
                         </div>
@@ -211,7 +213,7 @@ export function StudentDetailContent({
                                 terms
                             </span>
                         </p>
-                        <p className="text-muted-foreground text-xs">
+                        <p className="text-muted-foreground">
                             Latest: {currentEnrollment?.class_name ?? emDash}
                         </p>
                     </div>
@@ -220,7 +222,7 @@ export function StudentDetailContent({
 
             {/* ── Behavior Notes ─────────────────────────────────────── */}
             <section>
-                <h2 className="text-muted-foreground mb-3 text-xs font-semibold tracking-wider uppercase">
+                <h2 className="text-muted-foreground mb-3 font-semibold tracking-wider uppercase">
                     Behavior Notes
                     {behaviorNotes.length > 0 && (
                         <span className="ml-2 font-normal">({behaviorNotes.length})</span>
@@ -251,12 +253,12 @@ export function StudentDetailContent({
                                                     Urgent
                                                 </Badge>
                                             )}
-                                            <Badge variant="secondary" className="text-xs">
+                                            <Badge variant="secondary" className="">
                                                 {note.status}
                                             </Badge>
                                         </div>
                                         <p className="text-foreground">{note.description}</p>
-                                        <p className="text-muted-foreground text-xs">{note.date}</p>
+                                        <p className="text-muted-foreground">{note.date}</p>
                                     </div>
                                 </div>
                             </div>
@@ -267,7 +269,7 @@ export function StudentDetailContent({
 
             {/* ── Health ──────────────────────────────────────────────── */}
             <section>
-                <h2 className="text-muted-foreground mb-3 text-xs font-semibold tracking-wider uppercase">
+                <h2 className="text-muted-foreground mb-3 font-semibold tracking-wider uppercase">
                     Health
                 </h2>
                 <HealthSection studentId={studentId} isCompact={isCompact} />
@@ -276,13 +278,13 @@ export function StudentDetailContent({
             {/* ── Parents ────────────────────────────────────────────── */}
             <section>
                 <div className="mb-3 flex items-center justify-between">
-                    <h2 className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
+                    <h2 className="text-muted-foreground font-semibold tracking-wider uppercase">
                         Parents
                         {linkedParents.length > 0 && (
                             <span className="ml-2 font-normal">({linkedParents.length})</span>
                         )}
                     </h2>
-                    <Button variant="outline" size="sm" asChild>
+                    <Button variant="outline" size="sm">
                         <Link href={`/students/${studentId}/link-parent`}>
                             <Link2 className="mr-1.5 size-3.5" />
                             Link Parent
@@ -296,7 +298,7 @@ export function StudentDetailContent({
                     >
                         <Users className="h-8 w-8" />
                         <p className="font-medium">No linked parents</p>
-                        <Button variant="outline" size="sm" className="mt-2" asChild>
+                        <Button variant="outline" size="sm" className="mt-2">
                             <Link href={`/students/${studentId}/link-parent`}>
                                 <UserPlus className="mr-1.5 size-3.5" />
                                 Link Parent
@@ -395,7 +397,7 @@ export function StudentDetailContent({
 
             {/* ── Enrollments ──────────────────────────────────────────── */}
             <section>
-                <h2 className="text-muted-foreground mb-3 text-xs font-semibold tracking-wider uppercase">
+                <h2 className="text-muted-foreground mb-3 font-semibold tracking-wider uppercase">
                     Enrollments
                     {enrollments.length > 0 && (
                         <span className="ml-2 font-normal">({enrollments.length})</span>
@@ -433,7 +435,7 @@ export function StudentDetailContent({
 
             {/* ── Reports ─────────────────────────────────────────────── */}
             <section>
-                <h2 className="text-muted-foreground mb-3 text-xs font-semibold tracking-wider uppercase">
+                <h2 className="text-muted-foreground mb-3 font-semibold tracking-wider uppercase">
                     Reports
                 </h2>
                 <div
@@ -441,8 +443,8 @@ export function StudentDetailContent({
                 >
                     <BarChart3 className="h-8 w-8" />
                     <p className="font-medium">Student Reports</p>
-                    <p className="text-xs">Generate and view term reports for this student.</p>
-                    <Button variant="outline" size="sm" asChild className="mt-2">
+                    <p className="">Generate and view term reports for this student.</p>
+                    <Button variant="outline" size="sm" className="mt-2">
                         <Link href={`/reports/student/${studentId}`}>
                             <ArrowUpRight className="mr-1 h-4 w-4" />
                             View Reports

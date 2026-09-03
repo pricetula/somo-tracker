@@ -1,21 +1,14 @@
 /**
- * Curriculum Detail Page — full tree view for a single learning area.
- *
- * Shows strands, sub-strands, and performance indicators in a three-tier
- * expandable tree with CRUD actions at every level.
+ * Route: /curriculum/[id] — learning area detail.
  */
 
-"use client";
+import { CurriculumDetailPage } from "@/features/curriculum";
 
-import { useParams } from "next/navigation";
+interface Props {
+    params: Promise<{ id: string }>;
+}
 
-import { CurriculumTree, useLearningAreaTree } from "@/features/curriculum";
-
-export default function CurriculumDetailPage() {
-    const params = useParams();
-    const id = params.id as string;
-
-    const { data: tree, isLoading, isError } = useLearningAreaTree(id);
-
-    return <CurriculumTree tree={tree} isLoading={isLoading} isError={isError} />;
+export default async function CurriculumDetailRoute({ params }: Props) {
+    const { id } = await params;
+    return <CurriculumDetailPage learningAreaId={id} />;
 }

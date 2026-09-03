@@ -113,7 +113,7 @@ export function LinkParentForm({ studentId, onSuccess, onCancel }: LinkParentFor
             </div>
 
             {/* Parent results */}
-            <div className="min-h-[120px]">
+            <div className="min-h-30">
                 {parentsLoading ? (
                     <div className="flex items-center justify-center py-8">
                         <Loader2 className="text-muted-foreground size-5 animate-spin" />
@@ -136,7 +136,7 @@ export function LinkParentForm({ studentId, onSuccess, onCancel }: LinkParentFor
                                     onClick={() => setSelectedParentId(p.id)}
                                 >
                                     <span className="flex-1 truncate">{p.full_name}</span>
-                                    <span className="text-muted-foreground truncate text-xs">
+                                    <span className="text-muted-foreground truncate">
                                         {p.email}
                                     </span>
                                     {isSelected && (

@@ -10,7 +10,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import {
-    seedSchool,
     listSchools,
     createSchool,
     updateSchool,
@@ -20,7 +19,6 @@ import {
 import { getErrorMessage } from "@/lib/errors";
 import { authKeys } from "@/hooks/use-auth";
 import type { ListSchoolsResponse, CreateSchoolPayload } from "../types";
-import { curriculumKeys } from "@/features/curriculum";
 
 // ─── Query keys ───────────────────────────────────────────────────────────
 
@@ -176,20 +174,6 @@ export function useCreateSchool() {
         onSettled: () => {
             queryClient.invalidateQueries({ queryKey: schoolKeys.all });
             queryClient.invalidateQueries({ queryKey: authKeys.me });
-        },
-    });
-}
-
-/** Seed a school with default CBE/ CBC curriculum. */
-export function useSeedSchool() {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn: () => seedSchool(),
-        onError: (err, _data) => {
-            toast.error(getErrorMessage(err));
-        },
-        onSettled: () => {
-            queryClient.invalidateQueries({ queryKey: curriculumKeys.learningAreas.list() });
         },
     });
 }

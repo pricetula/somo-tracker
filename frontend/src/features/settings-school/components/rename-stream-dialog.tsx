@@ -40,7 +40,7 @@ export function RenameStreamDialog({ stream }: { stream: Stream }) {
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
+            <DialogTrigger>
                 <Button size="icon" variant="ghost" className="h-8 w-8">
                     <Pencil className="h-4 w-4" />
                     <span className="sr-only">Rename {stream.name}</span>
@@ -64,7 +64,7 @@ export function RenameStreamDialog({ stream }: { stream: Stream }) {
                         <ColorPicker value={color} onChange={setColor} />
                     </div>
                     <DialogFooter>
-                        <DialogClose asChild>
+                        <DialogClose>
                             <Button type="button" variant="ghost">
                                 Cancel
                             </Button>

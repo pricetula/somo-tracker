@@ -165,7 +165,7 @@ export interface DataTableProps<TItem, TParams extends object, TResult> {
     noResultsState?: ReactNode;
 
     // ─── Toolbar component ──────────────────────────────────────────────────────
-    renderToolBarComponents?: (selectedIds: Set<string>) => ReactNode;
+    renderToolBarComponents?: (selectedIds: Set<string>, numberOfRows?: number) => ReactNode;
 
     className?: string;
 }

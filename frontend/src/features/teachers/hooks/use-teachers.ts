@@ -156,13 +156,28 @@ export function useUpdateTeacher() {
                 queryKey: teachersKeys.all,
             });
 
-            queryClient.setQueriesData<ListTeachersResponse>(
+            queryClient.setQueriesData<{ pages: Array<{ items: Array<TeacherMember> }> }>(
                 { queryKey: teachersKeys.all },
                 (old) => {
-                    if (!old) return old;
+                    if (!old?.pages) return old;
+                    // Build index once: O(N)
+                    const userIndex = new Map();
+
+                    old.pages.forEach((page) => {
+                        page.items.forEach((item) => userIndex.set(item.id, item));
+                    });
+
+                    // Direct O(1) lookup & update
+                    const target = userIndex.get(userId);
+                    if (target) {
+                        target.full_name = payload.full_name;
+                        target.knec_panel_assessor_id = payload.knec_panel_assessor_id;
+                        target.tsc_number = payload.tsc_number;
+                    }
+
                     return {
                         ...old,
-                        items: old.items.map((t) => (t.id === userId ? { ...t, ...payload } : t)),
+                        pages: old?.pages,
                     };
                 }
             );
@@ -177,8 +192,12 @@ export function useUpdateTeacher() {
             }
             toast.error(getErrorMessage(err));
         },
-        onSettled: () => {
-            queryClient.invalidateQueries({ queryKey: teachersKeys.all });
+        onSettled: (respData, err, val) => {
+            if (respData && !err && val.userId) {
+                queryClient.invalidateQueries({
+                    queryKey: [...teachersKeys.all, "detail", val.userId],
+                });
+            }
         },
     });
 }

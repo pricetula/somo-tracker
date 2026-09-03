@@ -48,22 +48,22 @@ function DatePicker({
 
     return (
         <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>
-                <Button
-                    id={id}
-                    variant="outline"
-                    role="combobox"
-                    disabled={disabled}
-                    className={cn(
-                        "h-7 w-full justify-start gap-1.5 px-2 text-xs font-normal",
-                        !date && "text-muted-foreground",
-                        className
-                    )}
-                >
-                    <CalendarIcon className="text-muted-foreground size-3.5 shrink-0" />
-                    {date ? format(date, "MMM d, yyyy") : <span>{placeholder}</span>}
-                </Button>
-            </PopoverTrigger>
+            <PopoverTrigger
+                render={
+                    <Button
+                        id={id}
+                        variant={"outline"}
+                        data-empty={!date}
+                        className={cn(
+                            "data-[empty=true]:text-muted-foreground w-53 justify-between text-left font-normal",
+                            className
+                        )}
+                    >
+                        {date ? format(date, "PPP") : <span>{placeholder}</span>}
+                        <CalendarIcon data-icon="inline-end" />
+                    </Button>
+                }
+            />
             <PopoverContent className="w-auto p-0" align="start">
                 <Calendar
                     mode="single"

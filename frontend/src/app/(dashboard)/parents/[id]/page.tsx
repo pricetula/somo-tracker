@@ -7,14 +7,13 @@
 
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 
 import { ParentDetailView } from "@/features/parents";
 
 export default function ParentDetailPage() {
     const params = useParams();
-    const router = useRouter();
     const id = params.id as string;
 
-    return <ParentDetailView parentId={id} onBack={() => router.push("/parents")} />;
+    return <ParentDetailView parentId={id} />;
 }

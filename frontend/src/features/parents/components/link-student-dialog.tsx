@@ -146,7 +146,7 @@ export function LinkStudentDialog({ open, onOpenChange, parentId }: LinkStudentD
                     </div>
 
                     {/* Student results */}
-                    <div className="min-h-[120px]">
+                    <div className="min-h-30">
                         {studentsLoading ? (
                             <div className="flex items-center justify-center py-8">
                                 <Loader2 className="text-muted-foreground size-5 animate-spin" />
@@ -172,7 +172,7 @@ export function LinkStudentDialog({ open, onOpenChange, parentId }: LinkStudentD
                                         >
                                             <span className="flex-1 truncate">{s.full_name}</span>
                                             {s.class_name && (
-                                                <span className="text-muted-foreground text-xs">
+                                                <span className="text-muted-foreground">
                                                     {s.class_name}
                                                 </span>
                                             )}

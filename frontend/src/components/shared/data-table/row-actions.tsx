@@ -78,17 +78,19 @@ export function RowActions({ rowId, label, onDelete, actions, disabled }: RowAct
         <div className="flex items-center justify-end">
             <AlertDialog>
                 <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            disabled={disabled}
-                            className="text-muted-foreground data-[state=open]:bg-muted size-6"
-                        >
-                            <MoreHorizontal className="size-3.5" />
-                            <span className="sr-only">Actions for {label ?? rowId}</span>
-                        </Button>
-                    </DropdownMenuTrigger>
+                    <DropdownMenuTrigger
+                        render={
+                            <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                disabled={disabled}
+                                className="text-muted-foreground data-[state=open]:bg-muted size-6"
+                            >
+                                <MoreHorizontal className="size-3.5" />
+                                <span className="sr-only">Actions for {label ?? rowId}</span>
+                            </Button>
+                        }
+                    />
                     <DropdownMenuContent align="end" sideOffset={4}>
                         {menuItems.map((action) => {
                             const Icon = action.icon;
@@ -112,15 +114,17 @@ export function RowActions({ rowId, label, onDelete, actions, disabled }: RowAct
                             );
                         })}
                         {onDelete && (
-                            <AlertDialogTrigger asChild>
-                                <DropdownMenuItem
-                                    className="text-destructive cursor-pointer"
-                                    onSelect={(e) => e.preventDefault()}
-                                >
-                                    <Trash2 className="mr-2 size-3.5" />
-                                    Delete
-                                </DropdownMenuItem>
-                            </AlertDialogTrigger>
+                            <AlertDialogTrigger
+                                render={
+                                    <DropdownMenuItem
+                                        className="text-destructive cursor-pointer"
+                                        onSelect={(e) => e.preventDefault()}
+                                    >
+                                        <Trash2 className="mr-2 size-3.5" />
+                                        Delete
+                                    </DropdownMenuItem>
+                                }
+                            />
                         )}
                     </DropdownMenuContent>
                 </DropdownMenu>

@@ -291,7 +291,7 @@ export function ImportProgress({
                     <>
                         <Progress value={percentComplete} className="h-2" />
 
-                        <div className="flex items-center gap-4 text-xs">
+                        <div className="flex items-center gap-4">
                             {job.success_count > 0 && (
                                 <span className="flex items-center gap-1 text-emerald-600">
                                     <CheckCircle2 className="size-3.5" />
@@ -323,7 +323,7 @@ export function ImportProgress({
 
             {/* Stalled-job message — visible while processing/cancelling with no recent progress */}
             {isStalled && (
-                <div className="flex items-start gap-2 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                <div className="flex items-start gap-2 rounded-md bg-amber-50 px-3 py-2 text-amber-700">
                     <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
                     <span>
                         This import is taking longer than usual — you can keep waiting or cancel it.
@@ -383,7 +383,7 @@ export function ImportProgress({
                                   : "Import completed with issues"}
                         </p>
                         {isCancelled ? (
-                            <p className="mt-0.5 text-xs opacity-80">
+                            <p className="mt-0.5 opacity-80">
                                 {job!.success_count > 0
                                     ? `${job!.success_count} student${job!.success_count === 1 ? "" : "s"} ${
                                           job!.success_count === 1 ? "was" : "were"
@@ -393,7 +393,7 @@ export function ImportProgress({
                                     ` ${job!.failed_count} row${job!.failed_count === 1 ? "" : "s"} failed before cancellation.`}
                             </p>
                         ) : (
-                            <p className="mt-0.5 text-xs opacity-80">
+                            <p className="mt-0.5 opacity-80">
                                 {job!.success_count} succeeded, {job!.failed_count} failed
                                 {job!.total_records > 0 && ` out of ${job!.total_records} total`}
                             </p>
@@ -402,15 +402,15 @@ export function ImportProgress({
                         {/* Failure details (only for completed_with_errors, not cancelled) */}
                         {!isCancelled && failures.length > 0 && (
                             <div className="mt-2 space-y-1">
-                                <p className="text-xs font-medium">Failed rows:</p>
-                                <ul className="list-inside list-disc space-y-0.5 text-xs opacity-80">
+                                <p className="font-medium">Failed rows:</p>
+                                <ul className="list-inside list-disc space-y-0.5 opacity-80">
                                     {failures.slice(0, 20).map((f, i) => (
                                         <li key={i}>
                                             Row {f.row_number}: {f.error_message}
                                         </li>
                                     ))}
                                     {failures.length > 20 && (
-                                        <li className="list-none text-xs italic">
+                                        <li className="list-none italic">
                                             …and {failures.length - 20} more
                                         </li>
                                     )}

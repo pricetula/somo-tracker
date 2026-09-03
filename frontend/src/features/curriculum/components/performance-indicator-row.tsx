@@ -31,7 +31,7 @@ export function PerformanceIndicatorRow({
         <>
             <div className="group flex items-center gap-2 py-1.5 pl-12">
                 <GripVertical className="text-muted-foreground/30 size-3.5 shrink-0" />
-                <span className="text-muted-foreground text-xs tabular-nums">
+                <span className="text-muted-foreground tabular-nums">
                     {indicator.sequence_order}.
                 </span>
                 <p className="">{indicator.description}</p>

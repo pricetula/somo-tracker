@@ -13,12 +13,19 @@ import type { Member, ListMembersResponse } from "./generated";
 
 export type { Member, ListMembersResponse };
 
+// ─── Params Types ──────────────────────────────────────────────────────────
+
+export interface ListAdminsParams {
+    page?: number;
+    limit?: number;
+    search?: string;
+    include_inactive?: boolean;
+}
+
 // ─── API Functions ─────────────────────────────────────────────────────────
 
 /** List active admins (SCHOOL_ADMIN role). */
-export async function listAdmins(
-    params: { page?: number; limit?: number; search?: string; include_inactive?: boolean } = {}
-): Promise<ListMembersResponse> {
+export async function listAdmins(params: ListAdminsParams = {}): Promise<ListMembersResponse> {
     const searchParams = new URLSearchParams({ role: "SCHOOL_ADMIN" });
     if (params.page) searchParams.set("page", String(params.page));
     if (params.limit) searchParams.set("limit", String(params.limit));

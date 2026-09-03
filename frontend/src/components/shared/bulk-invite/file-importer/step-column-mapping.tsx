@@ -196,24 +196,27 @@ export function StepColumnMapping({
                             open={openPopover === field.target_key}
                             onOpenChange={(open) => setOpenPopover(open ? field.target_key : null)}
                         >
-                            <PopoverTrigger asChild>
-                                <Button
-                                    variant="outline"
-                                    role="combobox"
-                                    aria-expanded={openPopover === field.target_key}
-                                    className={cn(
-                                        "h-9 w-full justify-between px-3 font-normal",
-                                        !mappings[field.target_key] && "text-muted-foreground"
-                                    )}
-                                >
-                                    <span className="truncate">
-                                        {getMappingDisplay(field.target_key) || "Select column..."}
-                                    </span>
-                                    <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
-                                </Button>
-                            </PopoverTrigger>
+                            <PopoverTrigger
+                                render={
+                                    <Button
+                                        variant="outline"
+                                        role="combobox"
+                                        aria-expanded={openPopover === field.target_key}
+                                        className={cn(
+                                            "h-9 w-full justify-between px-3 font-normal",
+                                            !mappings[field.target_key] && "text-muted-foreground"
+                                        )}
+                                    >
+                                        <span className="truncate">
+                                            {getMappingDisplay(field.target_key) ||
+                                                "Select column..."}
+                                        </span>
+                                        <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
+                                    </Button>
+                                }
+                            />
                             <PopoverContent
-                                className="w-(--radix-popover-trigger-width) p-0"
+                                className="w-(--base-ui-popover-trigger-width) p-0"
                                 align="start"
                                 sideOffset={4}
                             >

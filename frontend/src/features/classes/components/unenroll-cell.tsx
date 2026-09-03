@@ -8,19 +8,11 @@ import { unenrollStudent, type RosterEntry } from "@/lib/api/classes";
 import { getErrorMessage } from "@/lib/errors";
 import { toast } from "sonner";
 
-export function UnenrollCell({
-    classId,
-    student,
-    academicTermId,
-}: {
-    classId: string;
-    student: RosterEntry;
-    academicTermId?: string;
-}) {
+export function UnenrollCell({ classId, student }: { classId: string; student: RosterEntry }) {
     const queryClient = useQueryClient();
 
     const unenrollMutation = useMutation({
-        mutationFn: () => unenrollStudent(classId, student.id, academicTermId),
+        mutationFn: () => unenrollStudent(classId, student.id),
         onSuccess: () => {
             toast.success(`${student.full_name} unenrolled.`);
             queryClient.invalidateQueries({ queryKey: ["class-roster", classId] });

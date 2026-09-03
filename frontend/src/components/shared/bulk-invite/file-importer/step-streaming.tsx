@@ -9,8 +9,10 @@ import * as React from "react";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getErrorMessage } from "@/lib/errors";
+import { useInvalidateInvitationCount } from "@/features/invitations/hooks/use-invitations";
 import { submitBulkInvite, getImportAlreadyInProgress } from "@/lib/api/invitations";
 import { getStagedRecordsByStatus } from "./db";
+import { resolveActiveJobTotalRecords } from "../active-job-utils";
 import type { StagedInviteRecord } from "./types";
 
 interface StepStreamingProps {
@@ -31,6 +33,7 @@ export function StepStreaming({
     role,
     submitFn = submitBulkInvite,
 }: StepStreamingProps) {
+    const invalidateInvitationCount = useInvalidateInvitationCount(role);
     const [records, setRecords] = React.useState<StagedInviteRecord[]>([]);
     const [loading, setLoading] = React.useState(true);
     const [submitting, setSubmitting] = React.useState(false);
@@ -67,18 +70,25 @@ export function StepStreaming({
                 rows: inviteRows,
             });
             idempotencyKeyRef.current = null;
+            invalidateInvitationCount();
             onJobCreated(result.job_id, inviteRows.length);
         } catch (err) {
             const activeJobId = getImportAlreadyInProgress(err);
             if (activeJobId) {
-                onJobCreated(activeJobId, inviteRows.length);
+                // The active job may have a different (larger) total than this batch —
+                // resolve the real count so ImportProgress shows an accurate total.
+                const totalRecords = await resolveActiveJobTotalRecords(
+                    activeJobId,
+                    inviteRows.length
+                );
+                onJobCreated(activeJobId, totalRecords);
                 return;
             }
 
             setSubmitting(false);
             onError(getErrorMessage(err));
         }
-    }, [records, role, onError, onJobCreated, submitFn]);
+    }, [records, role, onError, onJobCreated, submitFn, invalidateInvitationCount]);
 
     if (loading) {
         return (

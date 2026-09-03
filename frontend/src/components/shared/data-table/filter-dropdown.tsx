@@ -223,15 +223,18 @@ export function FilterDropdown({
     return (
         <>
             <DropdownMenu>
-                <DropdownMenuTrigger asChild disabled={disabled}>
-                    <Button
-                        variant="outline"
-                        size="icon"
-                        className={cn(hasActiveFilters && "bg-muted")}
-                    >
-                        <Filter className="size-3.5" />
-                    </Button>
-                </DropdownMenuTrigger>
+                <DropdownMenuTrigger
+                    disabled={disabled}
+                    render={
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            className={cn(hasActiveFilters && "bg-muted")}
+                        >
+                            <Filter className="size-3.5" />
+                        </Button>
+                    }
+                />
                 <DropdownMenuContent align="end" className="w-48">
                     {groups.map((group, idx) => (
                         <div key={group.id}>

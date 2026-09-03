@@ -148,74 +148,78 @@ export function TeacherDetail({ id }: TeacherDetailProps) {
         <div className="space-y-8 py-2">
             {/* Profile form section */}
             <section className="space-y-6">
-                {/* Read-only email */}
-                <div className="space-y-1.5">
-                    <Label>Email</Label>
-                    <p className="text-muted-foreground">{teacher.email}</p>
-                </div>
-
                 {/* Editable fields form */}
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                        {/* Editable full name */}
-                        <FormField
-                            control={form.control}
-                            name="fullName"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel htmlFor="full-name">Full Name</FormLabel>
-                                    <FormControl>
-                                        <Input
-                                            id="full-name"
-                                            placeholder="Full name"
-                                            autoFocus
-                                            {...field}
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
+                        <div className="grid grid-cols-2 gap-4">
+                            {/* Read-only email */}
+                            <div className="space-y-2">
+                                <Label>Email</Label>
+                                <p className="text-muted-foreground flex h-7 items-center">
+                                    {teacher.email}
+                                </p>
+                            </div>
 
-                        {/* Editable TSC number */}
-                        <FormField
-                            control={form.control}
-                            name="tscNumber"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel htmlFor="tsc-number">TSC Number</FormLabel>
-                                    <FormControl>
-                                        <Input
-                                            id="tsc-number"
-                                            placeholder="e.g. TSC123456"
-                                            {...field}
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
+                            {/* Editable full name */}
+                            <FormField
+                                control={form.control}
+                                name="fullName"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel htmlFor="full-name">Full Name</FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                id="full-name"
+                                                placeholder="Full name"
+                                                autoFocus
+                                                {...field}
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
 
-                        {/* Editable KNEC Panel Assessor ID */}
-                        <FormField
-                            control={form.control}
-                            name="knecAssessor"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel htmlFor="knec-assessor">
-                                        KNEC Panel Assessor ID
-                                    </FormLabel>
-                                    <FormControl>
-                                        <Input
-                                            id="knec-assessor"
-                                            placeholder="e.g. KNEC-12345"
-                                            {...field}
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
+                            {/* Editable TSC number */}
+                            <FormField
+                                control={form.control}
+                                name="tscNumber"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel htmlFor="tsc-number">TSC Number</FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                id="tsc-number"
+                                                placeholder="e.g. TSC123456"
+                                                {...field}
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+
+                            {/* Editable KNEC Panel Assessor ID */}
+                            <FormField
+                                control={form.control}
+                                name="knecAssessor"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel htmlFor="knec-assessor">
+                                            KNEC Panel Assessor ID
+                                        </FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                id="knec-assessor"
+                                                placeholder="e.g. KNEC-12345"
+                                                {...field}
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        </div>
 
                         <footer className="flex gap-4">
                             {/* Save button */}

@@ -79,22 +79,20 @@ export function TeacherLessonTimeline({ teacherId }: TeacherLessonTimelineProps)
             className="bg-background max-h-95 overflow-y-auto scroll-smooth rounded-md"
             onScroll={handleScroll}
         >
-            <div className="space-y-0">
-                {entries.map((entry, index) => (
-                    <LessonRow
-                        key={`${entry.id}-${index}`}
-                        entry={entry}
-                        isFirst={index === 0}
-                        isLast={index === entries.length - 1 && !hasNextPage}
-                        isScrollTarget={index === targetIndex}
-                    />
-                ))}
-                {isFetchingNextPage && (
-                    <div className="px-4 py-4">
-                        <div className="bg-muted h-16 w-full animate-pulse rounded-md" />
-                    </div>
-                )}
-            </div>
+            {entries.map((entry, index) => (
+                <LessonRow
+                    key={`${entry.id}-${index}`}
+                    entry={entry}
+                    isFirst={index === 0}
+                    isLast={index === entries.length - 1 && !hasNextPage}
+                    isScrollTarget={index === targetIndex}
+                />
+            ))}
+            {isFetchingNextPage && (
+                <div className="px-4 py-4">
+                    <div className="bg-muted h-16 w-full animate-pulse rounded-md" />
+                </div>
+            )}
         </div>
     );
 }

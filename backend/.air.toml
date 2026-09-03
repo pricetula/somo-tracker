@@ -1,0 +1,15 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+bin = "./tmp/main"
+cmd = "go build -o ./tmp/main ./cmd/api/main.go"
+exclude_dir = ["vendor", "tmp", "assets", "node_modules"]
+exclude_regex = [".git", ".idea", ".vscode"]
+include_ext = ["go"]
+
+[watch]
+exclude_dir = ["vendor", "tmp", "assets", "node_modules"]
+
+[misc]
+clean_on_exit = true

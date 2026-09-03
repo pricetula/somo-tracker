@@ -26,7 +26,7 @@ type Tenant struct {
 type User struct {
 	// Auto-generated UUID primary key. No external meaning — treat as opaque.
 	ID pgtype.UUID `json:"id"`
-	// Canonical email address. Unique within a tenant but not globally. Case-insensitive comparison recommended at the application layer.
+	// Canonical email address. Lowercase (enforced by CHECK), unique within a tenant but not globally via users_tenant_email_uniq.
 	Email string `json:"email"`
 	// Foreign key to tenants(id). Every user must belong to exactly one tenant. Deleting the tenant cascades this row.
 	TenantID pgtype.UUID `json:"tenant_id"`

@@ -9,6 +9,31 @@ import (
 	"context"
 )
 
+const getTenantBySlug = `-- name: GetTenantBySlug :one
+SELECT
+    id,
+    name,
+    slug,
+    stytch_org_id,
+    created_at
+FROM tenants
+WHERE slug = $1
+LIMIT 1
+`
+
+func (q *Queries) GetTenantBySlug(ctx context.Context, slug string) (Tenant, error) {
+	row := q.db.QueryRow(ctx, getTenantBySlug, slug)
+	var i Tenant
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Slug,
+		&i.StytchOrgID,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getTenantByStytchOrgID = `-- name: GetTenantByStytchOrgID :one
 SELECT
     id,

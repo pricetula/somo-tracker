@@ -6,10 +6,15 @@ package sqlc
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Querier interface {
+	GetTenantBySlug(ctx context.Context, slug string) (Tenant, error)
 	GetTenantByStytchOrgID(ctx context.Context, stytchOrgID string) (Tenant, error)
+	GetUserByEmail(ctx context.Context, arg GetUserByEmailParams) (User, error)
+	GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 }
 
 var _ Querier = (*Queries)(nil)

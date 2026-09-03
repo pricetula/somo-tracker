@@ -1,0 +1,37 @@
+# docker-compose.test.yml
+# Shared long-lived Postgres instance used by integration tests.
+# Started by `make test-db-up`, torn down by `make test-db-down`.
+#
+# Design notes:
+#   * tmpfs mounts make data ephemeral — restarts start from a clean schema.
+#   * Port 5433 is the test port; the dev compose file uses 5432.
+#   * No port exposure outside loopback is required.
+#   * The healthcheck uses `pg_isready` so `make test-db-up` can block until
+#     the server is accepting connections.
+
+services:
+  postgres_test:
+    image: postgres:16-alpine
+    container_name: somotracker_postgres_test
+    environment:
+      POSTGRES_DB: somotracker_test
+      POSTGRES_USER: somo_admin
+      POSTGRES_PASSWORD: somo_secure_password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U somo_admin -d somotracker_test"]
+      interval: 1s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - type: tmpfs
+        target: /var/lib/postgresql/data
+        tmpfs:
+          size: 256m
+    restart: "no"
+
+# No `volumes:` block — the tmpfs in `services.postgres_test.volumes` is
+# ephemeral, so nothing survives `docker compose down`. That guarantees every
+# `make test-db-up` starts from a clean Postgres state.

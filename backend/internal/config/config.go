@@ -10,6 +10,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Config is the strongly-typed application configuration.
@@ -33,6 +34,22 @@ type Config struct {
 	// LogLevel is the zap log level ("debug", "info", "warn", "error").
 	// Defaults to "info" when unset.
 	LogLevel string
+
+	// DatabaseURL is the PostgreSQL connection string.
+	// Defaults to "postgres://localhost:5432/somotracker?sslmode=disable".
+	DatabaseURL string
+
+	// DBMaxConns is the maximum number of connections in the pool.
+	// Defaults to 10.
+	DBMaxConns int
+
+	// DBMaxConnLifetime is the maximum time a connection may be reused.
+	// Defaults to 30 minutes.
+	DBMaxConnLifetime time.Duration
+
+	// DBMaxConnIdleTime is the maximum idle time before a connection is closed.
+	// Defaults to 5 minutes.
+	DBMaxConnIdleTime time.Duration
 }
 
 // ListenAddr returns the address string passed to fiber.App.Listen.
@@ -72,10 +89,14 @@ func (c Config) IsProduction() bool {
 //	             of BACKEND_URL. Defaults to 3030.
 func Load() (*Config, error) {
 	cfg := &Config{
-		Host:        "",
-		Port:        defaultPort,
-		Environment: getEnv("APP_ENV", "local"),
-		LogLevel:    strings.ToLower(getEnv("LOG_LEVEL", "info")),
+		Host:              "",
+		Port:              defaultPort,
+		Environment:       getEnv("APP_ENV", "local"),
+		LogLevel:          strings.ToLower(getEnv("LOG_LEVEL", "info")),
+		DatabaseURL:       getEnv("DATABASE_URL", "postgres://localhost:5432/somotracker?sslmode=disable"),
+		DBMaxConns:        10,
+		DBMaxConnLifetime: 30 * time.Minute,
+		DBMaxConnIdleTime: 5 * time.Minute,
 	}
 
 	if raw := os.Getenv("BACKEND_URL"); raw != "" {
@@ -91,6 +112,30 @@ func Load() (*Config, error) {
 		}
 	}
 
+	if raw := os.Getenv("DB_MAX_CONNS"); raw != "" {
+		n, err := strconv.Atoi(raw)
+		if err != nil || n <= 0 {
+			return nil, fmt.Errorf("config.Load: invalid DB_MAX_CONNS %q: %w", raw, err)
+		}
+		cfg.DBMaxConns = n
+	}
+
+	if raw := os.Getenv("DB_MAX_CONN_LIFETIME"); raw != "" {
+		d, err := time.ParseDuration(raw)
+		if err != nil || d <= 0 {
+			return nil, fmt.Errorf("config.Load: invalid DB_MAX_CONN_LIFETIME %q: %w", raw, err)
+		}
+		cfg.DBMaxConnLifetime = d
+	}
+
+	if raw := os.Getenv("DB_MAX_CONN_IDLE_TIME"); raw != "" {
+		d, err := time.ParseDuration(raw)
+		if err != nil || d <= 0 {
+			return nil, fmt.Errorf("config.Load: invalid DB_MAX_CONN_IDLE_TIME %q: %w", raw, err)
+		}
+		cfg.DBMaxConnIdleTime = d
+	}
+
 	if err := cfg.validate(); err != nil {
 		return nil, err
 	}
@@ -103,6 +148,18 @@ const defaultPort = 3030
 func (c *Config) validate() error {
 	if c.Port <= 0 || c.Port > 65535 {
 		return fmt.Errorf("config.Load: port %d out of range (1-65535)", c.Port)
+	}
+	if c.DatabaseURL == "" {
+		return fmt.Errorf("config.Load: DATABASE_URL is required")
+	}
+	if c.DBMaxConns <= 0 {
+		return fmt.Errorf("config.Load: DBMaxConns must be positive")
+	}
+	if c.DBMaxConnLifetime <= 0 {
+		return fmt.Errorf("config.Load: DBMaxConnLifetime must be positive")
+	}
+	if c.DBMaxConnIdleTime <= 0 {
+		return fmt.Errorf("config.Load: DBMaxConnIdleTime must be positive")
 	}
 	switch c.LogLevel {
 	case "debug", "info", "warn", "error":

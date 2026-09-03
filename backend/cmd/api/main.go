@@ -10,17 +10,21 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 
 	"somotracker/backend/internal/config"
+	"somotracker/backend/internal/database"
 )
 
 func main() {
 	app := fx.New(
 		fx.Provide(config.Load),
 		fx.Provide(newLogger),
+		fx.Provide(database.NewPool),
 		fx.Provide(newFiberApp),
+		fx.Invoke(database.RunMigrations),
 		fx.Invoke(registerHooks),
 	)
 
@@ -52,8 +56,10 @@ func newLogger(cfg *config.Config) (*zap.Logger, error) {
 	return zap.NewDevelopment()
 }
 
-// newFiberApp creates and configures a Fiber v3 application with health endpoints.
-func newFiberApp(cfg *config.Config, logger *zap.Logger) *fiber.App {
+// newFiberApp creates and configures a Fiber v3 application with health
+// endpoints. The /readyz handler pings the database connection pool so the
+// API only reports ready when PostgreSQL is reachable.
+func newFiberApp(cfg *config.Config, logger *zap.Logger, pool *pgxpool.Pool) *fiber.App {
 	app := fiber.New(fiber.Config{
 		AppName: "somotracker-api",
 		ErrorHandler: func(c fiber.Ctx, err error) error {
@@ -85,11 +91,28 @@ func newFiberApp(cfg *config.Config, logger *zap.Logger) *fiber.App {
 		})
 	})
 
+	// Liveness: process is running. Cheap — no I/O.
 	app.Get("/livez", func(c fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusOK)
 	})
 
+	// Readiness: process is ready to serve traffic. Pings PostgreSQL.
+	// On failure we return 503 so the orchestrator (k8s, load balancer)
+	// stops routing requests until the database is reachable again.
 	app.Get("/readyz", func(c fiber.Ctx) error {
+		// Cap the readiness probe at the request's own deadline (Fiber
+		// already enforces a server-level timeout). Ping has its own
+		// internal cap of 2s.
+		if err := database.Ping(c.Context(), pool); err != nil {
+			logger.Warn("readiness probe failed: database unreachable",
+				zap.Error(err),
+			)
+			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+				"code":    "database_unavailable",
+				"message": "Database is not reachable",
+				"errors":  fiber.Map{},
+			})
+		}
 		return c.SendStatus(fiber.StatusOK)
 	})
 

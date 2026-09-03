@@ -1,4 +1,4 @@
-.PHONY: up up-d down ps logs-down logs-api logs-postgres logs-redis logs-frontend restart-api rebuild-api build-api generate-swagger generate-api-types lint vet test test-short test-integration test-verbose test-all help
+.PHONY: up up-d down ps logs-down logs-api logs-postgres logs-redis logs-frontend restart-api rebuild-api build-api generate-swagger generate-api-types lint vet test test-short test-integration test-verbose test-all help migrated migrate-down migrate-range migrate-verify test-db-up test-db-down test-db-status test-db-logs test-db-reset
 
 # ─── Docker Compose shortcuts ────────────────────────────────────────────────
 
@@ -66,6 +66,48 @@ test-short:  ## Run unit tests only, race-detected, junit output
 test-integration:  ## Run integration tests (requires Docker)
 	cd backend && $(GOTESTSUM) --junitfile ../test-results/integration.xml -- -race -count=1 ./...
 
+# Shared long-lived test database.
+# `make test-db-up` starts the postgres:16-alpine instance on port 5433 with
+# tmpfs storage. `make test` (above) then runs -tags=integration tests
+# against it without spinning up containers per test.
+TEST_DSN ?= postgres://somo_admin:somo_secure_password@127.0.0.1:5433/somotracker_test?sslmode=disable
+
+test-db-up:  ## Start the test Postgres (port 5433, tmpfs, no data persistence)
+	docker compose -f docker-compose.test.yml up -d
+	@echo "Waiting for Postgres to become ready..."
+	@for i in $$(seq 1 30); do \
+		if docker exec somotracker_postgres_test pg_isready -U somo_admin -d somotracker_test >/dev/null 2>&1; then \
+			echo "Test Postgres is ready on port 5433."; \
+			exit 0; \
+		fi; \
+		sleep 1; \
+	done; \
+	echo "Test Postgres failed to become ready within 30s. Check: docker compose -f docker-compose.test.yml logs"; \
+	exit 1
+
+test-db-down:  ## Tear down the test Postgres
+	docker compose -f docker-compose.test.yml down
+
+test-db-status:  ## Print test Postgres container status
+	docker compose -f docker-compose.test.yml ps
+
+test-db-logs:  ## Tail test Postgres logs
+	docker compose -f docker-compose.test.yml logs -f
+
+test-db-reset:  ## Recreate the test Postgres (drops all data)
+	docker compose -f docker-compose.test.yml down
+	docker compose -f docker-compose.test.yml up -d
+	@echo "Waiting for Postgres to become ready..."
+	@for i in $$(seq 1 30); do \
+		if docker exec somotracker_postgres_test pg_isready -U somo_admin -d somotracker_test >/dev/null 2>&1; then \
+			echo "Test Postgres is ready on port 5433."; \
+			exit 0; \
+		fi; \
+		sleep 1; \
+	done; \
+	echo "Test Postgres failed to become ready within 30s."; \
+	exit 1
+
 test-verbose:  ## Run all tests with verbose output
 	cd backend && $(GOTESTSUM) --format standard-verbose -- -race -count=1 ./...
 
@@ -95,3 +137,20 @@ help:  ## Show this help
 
 setup-hooks:
 	lefthook install
+
+# ─── Database migrations (golang-migrate) ───────────────────────────────────
+
+MIGRATE_DIR := backend/db/migrations
+MIGRATE_URL := $(DATABASE_URL)
+
+migrated:  ## Apply pending migrations against the dev/postgres database
+	migrate -database "$(MIGRATE_URL)" -path $(MIGRATE_DIR) up
+
+migrate-down:  ## Roll back one migration
+	migrate -database "$(MIGRATE_URL)" -path $(MIGRATE_DIR) down 1
+
+migrate-range:  ## Migrate to a specific version (e.g. 1, 2, ...)
+	@migrate -database "$(MIGRATE_URL)" -path $(MIGRATE_DIR) goto $(VERSION)
+
+migrate-verify:  ## Force version check / status
+	migrate -database "$(MIGRATE_URL)" -path $(MIGRATE_DIR) version

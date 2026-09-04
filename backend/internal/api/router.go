@@ -49,7 +49,7 @@ func (r *Router) RegisterRoutes(app *fiber.App) {
 	// Magic-link callback (GET for browser redirects from Stytch).
 	// Rate-limited independently from sendMagicLink because it's public-facing.
 	app.Get("/api/auth/callback",
-		ratelimit.NewRateLimitMiddleware(r.limiter, redis_rate.PerMinute(30), "api:auth:callback"),
+		ratelimit.NewRateLimitMiddleware(r.limiter, authRate, "api:auth:callback"),
 		r.Auth.callback,
 	)
 }

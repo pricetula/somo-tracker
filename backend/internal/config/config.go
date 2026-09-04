@@ -11,6 +11,20 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"go.uber.org/fx"
+)
+
+// Module is the Fx module that exposes [Load] as a Fx provider. Import this
+// from your fx.App to obtain a *Config via dependency injection:
+//
+//	fx.New(config.Module, ...)
+//
+// Other Fx modules can then declare *config.Config as a constructor argument
+// without having to re-define the provider.
+var Module = fx.Module(
+	"config",
+	fx.Provide(Load),
 )
 
 // Config is the strongly-typed application configuration.
@@ -50,6 +64,11 @@ type Config struct {
 	// DBMaxConnIdleTime is the maximum idle time before a connection is closed.
 	// Defaults to 5 minutes.
 	DBMaxConnIdleTime time.Duration
+
+	// RedisURL is the full Redis connection URL from Doppler.
+	// Example: redis://:password@host:6379/0 — this is the only
+	// Redis environment variable used in production.
+	RedisURL string
 }
 
 // ListenAddr returns the address string passed to fiber.App.Listen.
@@ -87,6 +106,7 @@ func (c Config) IsProduction() bool {
 //	             over the host portion of BACKEND_URL.
 //	BACKEND_PORT Optional port override. Takes precedence over the port portion
 //	             of BACKEND_URL. Defaults to 3030.
+//	REDIS_URL    Full Redis URL from Doppler (required). Example: redis://:password@host:6379/0
 func Load() (*Config, error) {
 	cfg := &Config{
 		Host:              "",
@@ -97,6 +117,7 @@ func Load() (*Config, error) {
 		DBMaxConns:        10,
 		DBMaxConnLifetime: 30 * time.Minute,
 		DBMaxConnIdleTime: 5 * time.Minute,
+		RedisURL:          os.Getenv("REDIS_URL"),
 	}
 
 	if raw := os.Getenv("BACKEND_URL"); raw != "" {
@@ -136,6 +157,13 @@ func Load() (*Config, error) {
 		cfg.DBMaxConnIdleTime = d
 	}
 
+	// Redis: only REDIS_URL is supported (Doppler environment).
+	if cfg.RedisURL != "" {
+		if _, err := url.Parse(cfg.RedisURL); err != nil {
+			return nil, fmt.Errorf("config.Load: invalid REDIS_URL %q: %w", cfg.RedisURL, err)
+		}
+	}
+
 	if err := cfg.validate(); err != nil {
 		return nil, err
 	}
@@ -165,6 +193,9 @@ func (c *Config) validate() error {
 	case "debug", "info", "warn", "error":
 	default:
 		return fmt.Errorf("config.Load: invalid log level %q (want debug|info|warn|error)", c.LogLevel)
+	}
+	if c.RedisURL == "" {
+		return fmt.Errorf("config.Load: REDIS_URL is required")
 	}
 	return nil
 }

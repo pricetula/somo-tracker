@@ -20,12 +20,13 @@ import (
 	"somotracker/backend/internal/database"
 	"somotracker/backend/internal/database/sqlc"
 	"somotracker/backend/internal/observability"
+	"somotracker/backend/internal/redis"
 	"somotracker/backend/internal/services"
 )
 
 func main() {
 	app := fx.New(
-		fx.Provide(config.Load),
+		config.Module,
 		fx.Provide(newLogger),
 		fx.Provide(database.NewPool),
 		fx.Provide(newQuerier),
@@ -38,6 +39,7 @@ func main() {
 		fx.Provide(middleware.NewRequestIDHandler),
 		fx.Provide(newFiberApp),
 		fx.Invoke(database.RunMigrations),
+		redis.Module,
 		fx.Invoke(registerHooks),
 	)
 

@@ -157,3 +157,10 @@ migrate-range:  ## Migrate to a specific version (e.g. 1, 2, ...)
 
 migrate-verify:  ## Force version check / status
 	migrate -database "$(MIGRATE_URL)" -path $(MIGRATE_DIR) version
+
+prometheus:
+    docker run -d \
+    --name prometheus \
+    -p 9090:9090 \
+    -v $(pwd)/prometheus.yml:/etc/prometheus/prometheus.yml \
+    prom/prometheus

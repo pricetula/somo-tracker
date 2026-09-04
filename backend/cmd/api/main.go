@@ -34,6 +34,7 @@ func main() {
 		fx.Provide(api.NewRouter),
 		fx.Provide(observability.NewTracerProvider),
 		fx.Provide(observability.NewMeterProvider),
+		fx.Invoke(observability.MetricsInvoke),
 		fx.Provide(middleware.NewRequestIDHandler),
 		fx.Provide(newFiberApp),
 		fx.Invoke(database.RunMigrations),

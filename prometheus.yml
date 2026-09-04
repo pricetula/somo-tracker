@@ -1,0 +1,7 @@
+global:
+    scrape_interval: 5s
+
+scrape_configs:
+    - job_name: "somo-backend"
+      static_configs:
+          - targets: ["host.docker.internal:3030"] # Change to your app's port if different

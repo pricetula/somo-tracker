@@ -14,8 +14,12 @@ import (
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 
+	"somotracker/backend/internal/api"
+	"somotracker/backend/internal/api/middleware"
 	"somotracker/backend/internal/config"
 	"somotracker/backend/internal/database"
+	"somotracker/backend/internal/database/sqlc"
+	"somotracker/backend/internal/services"
 )
 
 func main() {
@@ -23,6 +27,11 @@ func main() {
 		fx.Provide(config.Load),
 		fx.Provide(newLogger),
 		fx.Provide(database.NewPool),
+		fx.Provide(newQuerier),
+		fx.Provide(services.NewTenantService),
+		fx.Provide(services.NewUserService),
+		fx.Provide(api.NewRouter),
+		fx.Provide(middleware.NewRequestIDHandler),
 		fx.Provide(newFiberApp),
 		fx.Invoke(database.RunMigrations),
 		fx.Invoke(registerHooks),
@@ -56,10 +65,18 @@ func newLogger(cfg *config.Config) (*zap.Logger, error) {
 	return zap.NewDevelopment()
 }
 
+// newQuerier adapts the sqlc constructor for Fx. Fx can resolve concrete
+// types automatically, but it cannot infer that *sqlc.Queries satisfies
+// sqlc.Querier. A named adapter (returning the interface) is the cleanest
+// way to make the interface the public DI type without leaking the pool.
+func newQuerier(pool *pgxpool.Pool) sqlc.Querier {
+	return sqlc.New(pool)
+}
+
 // newFiberApp creates and configures a Fiber v3 application with health
 // endpoints. The /readyz handler pings the database connection pool so the
 // API only reports ready when PostgreSQL is reachable.
-func newFiberApp(cfg *config.Config, logger *zap.Logger, pool *pgxpool.Pool) *fiber.App {
+func newFiberApp(cfg *config.Config, logger *zap.Logger, pool *pgxpool.Pool, router *api.Router, reqIDHandler fiber.Handler) *fiber.App {
 	app := fiber.New(fiber.Config{
 		AppName: "somotracker-api",
 		ErrorHandler: func(c fiber.Ctx, err error) error {
@@ -116,6 +133,8 @@ func newFiberApp(cfg *config.Config, logger *zap.Logger, pool *pgxpool.Pool) *fi
 		return c.SendStatus(fiber.StatusOK)
 	})
 
+	app.Use(reqIDHandler)
+	router.RegisterRoutes(app)
 	return app
 }
 

@@ -16,6 +16,7 @@ import (
 
 	"somotracker/backend/internal/api"
 	"somotracker/backend/internal/api/middleware"
+	"somotracker/backend/internal/api/middleware/ratelimit"
 	"somotracker/backend/internal/config"
 	"somotracker/backend/internal/database"
 	"somotracker/backend/internal/database/sqlc"
@@ -33,6 +34,7 @@ func main() {
 		fx.Provide(newQuerier),
 		fx.Provide(services.NewTenantService),
 		fx.Provide(services.NewUserService),
+		fx.Provide(services.NewAuthService),
 		fx.Provide(api.NewRouter),
 		fx.Provide(observability.NewTracerProvider),
 		fx.Provide(observability.NewMeterProvider),
@@ -41,6 +43,7 @@ func main() {
 		fx.Provide(newFiberApp),
 		fx.Invoke(database.RunMigrations),
 		redis.Module,
+		ratelimit.Module,
 		stytch.Module,
 		fx.Invoke(registerHooks),
 	)

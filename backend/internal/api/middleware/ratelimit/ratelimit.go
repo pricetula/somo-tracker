@@ -82,7 +82,7 @@ func NewLimiter(client *redis.Client) (*redis_rate.Limiter, error) {
 //
 // The returned handler is safe to register on any number of routes — the
 // limiter itself is concurrency-safe.
-func Middleware(limiter *redis_rate.Limiter, rate redis_rate.Limit, keyPrefix string) fiber.Handler {
+func NewRateLimitMiddleware(limiter *redis_rate.Limiter, rate redis_rate.Limit, keyPrefix string) fiber.Handler {
 	return func(c fiber.Ctx) error {
 		if limiter == nil {
 			// Defensive: pass through if limiter is unconfigured (e.g. tests).

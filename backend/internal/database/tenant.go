@@ -135,3 +135,55 @@ func errString(err error) string {
 	}
 	return err.Error()
 }
+
+// WithTx runs fn inside a single database transaction with no tenant
+// scoping. This is used for system-level operations that span tenants —
+// specifically the magic-link auth callback, which must atomically
+// provision a tenant, user, and member row before the tenant scope is
+// known. Production per-request queries should always use WithTenantTx.
+func WithTx(
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	logger *zap.Logger,
+	fn func(ctx context.Context, tx pgx.Tx) error,
+) (err error) {
+	if pool == nil {
+		return fmt.Errorf("database.WithTx: pool is nil")
+	}
+	if fn == nil {
+		return fmt.Errorf("database.WithTx: fn is nil")
+	}
+	if logger == nil {
+		return fmt.Errorf("database.WithTx: logger is required")
+	}
+
+	tx, beginErr := pool.BeginTx(ctx, pgx.TxOptions{
+		IsoLevel:   pgx.ReadCommitted,
+		AccessMode: pgx.ReadWrite,
+	})
+	if beginErr != nil {
+		return fmt.Errorf("database.WithTx: begin transaction: %w", beginErr)
+	}
+
+	defer func() {
+		if rbErr := tx.Rollback(ctx); rbErr != nil && !errors.Is(rbErr, pgx.ErrTxClosed) {
+			logger.Error("transaction rollback failed",
+				zap.String("original_error", errString(err)),
+				zap.String("rollback_error", rbErr.Error()),
+			)
+			if err == nil {
+				err = fmt.Errorf("database.WithTx: rollback: %w", rbErr)
+			}
+		}
+	}()
+
+	if fnErr := fn(ctx, tx); fnErr != nil {
+		return fmt.Errorf("database.WithTx: user callback: %w", fnErr)
+	}
+
+	if commitErr := tx.Commit(ctx); commitErr != nil {
+		return fmt.Errorf("database.WithTx: commit: %w", commitErr)
+	}
+
+	return nil
+}

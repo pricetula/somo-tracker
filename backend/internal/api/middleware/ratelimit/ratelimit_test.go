@@ -19,9 +19,9 @@ func TestNewLimiter_NilClient(t *testing.T) {
 	assert.Nil(t, limiter)
 }
 
-func TestMiddleware_NilLimiter_PassesThrough(t *testing.T) {
+func TestNewRateLimitMiddleware_NilLimiter_PassesThrough(t *testing.T) {
 	app := fiber.New()
-	app.Use(Middleware(nil, redis_rate.PerMinute(10), "test"))
+	app.Use(NewRateLimitMiddleware(nil, redis_rate.PerMinute(10), "test"))
 	app.Get("/ok", func(c fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusOK)
 	})
@@ -33,11 +33,11 @@ func TestMiddleware_NilLimiter_PassesThrough(t *testing.T) {
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 }
 
-func TestMiddleware_AllowedRequest_SetsHeaders(t *testing.T) {
-	// We test with a nil limiter to verify header setting logic doesn't
-	// crash; full integration requires a live Redis instance.
+func TestNewRateLimitMiddleware_AllowedRequest_SetsHeaders(t *testing.T) {
+	// Nil limiter verifies header-setting logic doesn't crash;
+	// full integration requires a live Redis instance.
 	app := fiber.New()
-	app.Use(Middleware(nil, redis_rate.PerMinute(10), "test"))
+	app.Use(NewRateLimitMiddleware(nil, redis_rate.PerMinute(10), "test"))
 	app.Get("/ok", func(c fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusOK)
 	})
@@ -50,15 +50,11 @@ func TestMiddleware_AllowedRequest_SetsHeaders(t *testing.T) {
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 }
 
-func TestMiddleware_ExtractClientIP(t *testing.T) {
+func TestExtractClientID_ExtractsIP(t *testing.T) {
 	app := fiber.New()
-	var capturedKey string
-	app.Use(func(c fiber.Ctx) error {
-		// Direct call to middleware logic via custom wrapper
-		return c.Next()
-	})
+	var capturedIP string
 	app.Get("/capture", func(c fiber.Ctx) error {
-		capturedKey = c.IP()
+		capturedIP = extractClientID(c)
 		return c.SendStatus(fiber.StatusOK)
 	})
 
@@ -69,7 +65,7 @@ func TestMiddleware_ExtractClientIP(t *testing.T) {
 	defer resp.Body.Close()
 
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
-	assert.NotEmpty(t, capturedKey)
+	assert.NotEmpty(t, capturedIP)
 }
 
 func TestFallbackLogger_GlobalWhenNotSet(t *testing.T) {
@@ -77,7 +73,7 @@ func TestFallbackLogger_GlobalWhenNotSet(t *testing.T) {
 	zap.ReplaceGlobals(base)
 
 	app := fiber.New()
-	app.Use(Middleware(nil, redis_rate.PerMinute(10), "test"))
+	app.Use(NewRateLimitMiddleware(nil, redis_rate.PerMinute(10), "test"))
 	app.Get("/ok", func(c fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusOK)
 	})

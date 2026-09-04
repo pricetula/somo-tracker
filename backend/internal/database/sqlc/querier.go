@@ -7,14 +7,32 @@ package sqlc
 import (
 	"context"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Querier interface {
+	// Tenant queries
 	GetTenantBySlug(ctx context.Context, slug string) (Tenant, error)
 	GetTenantByStytchOrgID(ctx context.Context, stytchOrgID string) (Tenant, error)
+
+	// User queries
 	GetUserByEmail(ctx context.Context, arg GetUserByEmailParams) (User, error)
 	GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
+
+	// Session queries
+	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
+	DeleteSession(ctx context.Context, token string) error
+	GetSessionByToken(ctx context.Context, token string) (Session, error)
+	UpdateSessionLastSeen(ctx context.Context, id pgtype.UUID) error
+
+	// Member queries
+	CreateMember(ctx context.Context, arg CreateMemberParams) (Member, error)
+	GetMemberByStytchMemberID(ctx context.Context, stytchMemberID string) (Member, error)
+	UpdateMemberRoles(ctx context.Context, arg UpdateMemberRolesParams) error
+
+	// WithTx scopes all subsequent queries to a specific transaction.
+	WithTx(tx pgx.Tx) *Queries
 }
 
 var _ Querier = (*Queries)(nil)

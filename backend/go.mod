@@ -4,12 +4,17 @@ go 1.26.3
 
 require (
 	github.com/exaring/otelpgx v0.11.1
+	github.com/go-redis/redis_rate/v10 v10.0.1
 	github.com/gofiber/fiber/v3 v3.5.0
 	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/prometheus/client_golang v1.24.1
+	github.com/redis/go-redis/extra/redisotel/v9 v9.7.0
+	github.com/redis/go-redis/v9 v9.7.0
+	github.com/sony/gobreaker v1.0.0
 	github.com/stretchr/testify v1.12.1
+	github.com/stytchauth/stytch-go/v18 v18.1.0
 	go.opentelemetry.io/otel v1.46.0
 	go.opentelemetry.io/otel/exporters/stdout/stdoutmetric v1.46.0
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.46.0
@@ -29,7 +34,6 @@ require (
 	github.com/felixge/httpsnoop v1.1.0 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
-	github.com/go-redis/redis_rate/v10 v10.0.1 // indirect
 	github.com/gofiber/schema v1.8.3 // indirect
 	github.com/gofiber/utils/v2 v2.4.1 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
@@ -49,10 +53,6 @@ require (
 	github.com/prometheus/common v0.70.1 // indirect
 	github.com/prometheus/procfs v0.21.1 // indirect
 	github.com/redis/go-redis/extra/rediscmd/v9 v9.7.0 // indirect
-	github.com/redis/go-redis/extra/redisotel/v9 v9.7.0 // indirect
-	github.com/redis/go-redis/v9 v9.7.0 // indirect
-	github.com/sony/gobreaker v1.0.0 // indirect
-	github.com/stytchauth/stytch-go/v18 v18.1.0 // indirect
 	github.com/tinylib/msgp v1.6.4 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.73.0 // indirect

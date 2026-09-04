@@ -65,6 +65,15 @@ type Config struct {
 	// Defaults to 5 minutes.
 	DBMaxConnIdleTime time.Duration
 
+	// StytchProjectID is the Stytch B2B project key.
+	StytchProjectID string
+
+	// StytchSecret is the Stytch B2B secret.
+	StytchSecret string
+
+	// StytchEnv is the Stytch environment (test or live). Defaults to test.
+	StytchEnv string
+
 	// RedisURL is the full Redis connection URL from Doppler.
 	// Example: redis://:password@host:6379/0 — this is the only
 	// Redis environment variable used in production.
@@ -107,6 +116,9 @@ func (c Config) IsProduction() bool {
 //	BACKEND_PORT Optional port override. Takes precedence over the port portion
 //	             of BACKEND_URL. Defaults to 3030.
 //	REDIS_URL    Full Redis URL from Doppler (required). Example: redis://:password@host:6379/0
+//	STYTCH_PROJECT_ID  Stytch B2B project ID (required).
+//	STYTCH_SECRET      Stytch B2B secret (required).
+//	STYTCH_ENV         Stytch environment (test or live). Defaults to test.
 func Load() (*Config, error) {
 	cfg := &Config{
 		Host:              "",
@@ -118,6 +130,9 @@ func Load() (*Config, error) {
 		DBMaxConnLifetime: 30 * time.Minute,
 		DBMaxConnIdleTime: 5 * time.Minute,
 		RedisURL:          os.Getenv("REDIS_URL"),
+		StytchProjectID:   os.Getenv("STYTCH_PROJECT_ID"),
+		StytchSecret:      os.Getenv("STYTCH_SECRET"),
+		StytchEnv:         getEnv("STYTCH_ENV", "test"),
 	}
 
 	if raw := os.Getenv("BACKEND_URL"); raw != "" {
@@ -196,6 +211,15 @@ func (c *Config) validate() error {
 	}
 	if c.RedisURL == "" {
 		return fmt.Errorf("config.Load: REDIS_URL is required")
+	}
+	if c.StytchEnv != "test" && c.StytchEnv != "live" {
+		return fmt.Errorf("config.Load: STYTCH_ENV must be test or live, got %q", c.StytchEnv)
+	}
+	if c.StytchProjectID == "" {
+		return fmt.Errorf("config.Load: STYTCH_PROJECT_ID is required")
+	}
+	if c.StytchSecret == "" {
+		return fmt.Errorf("config.Load: STYTCH_SECRET is required")
 	}
 	return nil
 }

@@ -22,6 +22,7 @@ import (
 	"somotracker/backend/internal/observability"
 	"somotracker/backend/internal/redis"
 	"somotracker/backend/internal/services"
+	"somotracker/backend/internal/stytch"
 )
 
 func main() {
@@ -40,6 +41,7 @@ func main() {
 		fx.Provide(newFiberApp),
 		fx.Invoke(database.RunMigrations),
 		redis.Module,
+		stytch.Module,
 		fx.Invoke(registerHooks),
 	)
 

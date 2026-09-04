@@ -8,6 +8,44 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+// B2B member identity mirroring Stytch. Created/updated atomically with users during magic-link provisioning.
+type Member struct {
+	// Auto-generated UUID primary key.
+	ID pgtype.UUID `json:"id"`
+	// Stytch B2B Member.member_id. Unique across the entire system.
+	StytchMemberID string `json:"stytch_member_id"`
+	// FK to users(id). The Somotracker application identity.
+	UserID pgtype.UUID `json:"user_id"`
+	// FK to tenants(id). The B2B organization.
+	TenantID pgtype.UUID `json:"tenant_id"`
+	// Cached Stytch member object (JSONB) for audit/debugging. Sensitive metadata fields are stripped before storage.
+	StytchMemberRaw []byte `json:"stytch_member_raw"`
+	// UTC timestamp of member creation.
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	// UTC timestamp of last modification.
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+// Server-issued opaque session tokens. Tokens are stored in HttpOnly cookies; the raw Stytch session token is cached only in Redis.
+type Session struct {
+	// Auto-generated UUID primary key.
+	ID pgtype.UUID `json:"id"`
+	// Opaque 256-bit token, hex-encoded. Never exposed to JavaScript or URLs.
+	Token string `json:"token"`
+	// Opaque Stytch session ID used for revocation / validation against Stytch.
+	StytchSessionID string `json:"stytch_session_id"`
+	// FK to users(id). Deleting the user cascades all sessions.
+	UserID pgtype.UUID `json:"user_id"`
+	// FK to tenants(id). Used for fast tenant-scoped session lookup.
+	TenantID pgtype.UUID `json:"tenant_id"`
+	// Rolling expiry timestamp. Default 7 days.
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+	// UTC timestamp of session creation.
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	// UTC timestamp of last validated request. Used for rolling expiry refresh.
+	LastSeenAt pgtype.Timestamptz `json:"last_seen_at"`
+}
+
 // Maps 1:1 to a Stytch OIDC organization. All Somotracker data is scoped under exactly one tenant row.
 type Tenant struct {
 	// Auto-generated UUID primary key. No external meaning — treat as opaque.
@@ -39,45 +77,5 @@ type User struct {
 	// UTC timestamp of row creation.
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	// UTC timestamp of last modification (updated by application code, not triggers by default).
-	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
-}
-
-// Server-issued opaque session tokens. Tokens are stored in HttpOnly cookies; the raw Stytch session token is cached only in Redis.
-type Session struct {
-	// Auto-generated UUID primary key.
-	ID pgtype.UUID `json:"id"`
-	// Opaque 256-bit token, hex-encoded. Never exposed to JavaScript or URLs.
-	Token string `json:"token"`
-	// Opaque Stytch session ID used for revocation / validation against Stytch.
-	StytchSessionID string `json:"stytch_session_id"`
-	// FK to users(id). Deleting the user cascades all sessions.
-	UserID pgtype.UUID `json:"user_id"`
-	// FK to tenants(id). Used for fast tenant-scoped session lookup.
-	TenantID pgtype.UUID `json:"tenant_id"`
-	// Rolling expiry timestamp. Default 7 days.
-	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
-	// UTC timestamp of session creation.
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	// UTC timestamp of last validated request. Used for rolling expiry refresh.
-	LastSeenAt pgtype.Timestamptz `json:"last_seen_at"`
-}
-
-// B2B member identity mirroring Stytch. Created/updated atomically with users during magic-link provisioning.
-type Member struct {
-	// Auto-generated UUID primary key.
-	ID pgtype.UUID `json:"id"`
-	// Stytch B2B Member.member_id. Unique across the entire system.
-	StytchMemberID string `json:"stytch_member_id"`
-	// FK to users(id). The Somotracker application identity.
-	UserID pgtype.UUID `json:"user_id"`
-	// FK to tenants(id). The B2B organization.
-	TenantID pgtype.UUID `json:"tenant_id"`
-	// Array of Somotracker role names. Somotracker currently uses: admin, member.
-	Roles []string `json:"roles"`
-	// Cached Stytch member object (JSONB) for audit/debugging.
-	StytchMemberRaw []byte `json:"stytch_member_raw"`
-	// UTC timestamp of member creation.
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	// UTC timestamp of last modification.
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }

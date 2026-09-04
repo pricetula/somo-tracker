@@ -12,16 +12,15 @@ import (
 )
 
 const createMember = `-- name: CreateMember :one
-INSERT INTO members (stytch_member_id, user_id, tenant_id, roles, stytch_member_raw)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, stytch_member_id, user_id, tenant_id, roles, stytch_member_raw, created_at, updated_at
+INSERT INTO members (stytch_member_id, user_id, tenant_id, stytch_member_raw)
+VALUES ($1, $2, $3, $4)
+RETURNING id, stytch_member_id, user_id, tenant_id, stytch_member_raw, created_at, updated_at
 `
 
 type CreateMemberParams struct {
 	StytchMemberID  string      `json:"stytch_member_id"`
 	UserID          pgtype.UUID `json:"user_id"`
 	TenantID        pgtype.UUID `json:"tenant_id"`
-	Roles           []string    `json:"roles"`
 	StytchMemberRaw []byte      `json:"stytch_member_raw"`
 }
 
@@ -30,7 +29,6 @@ func (q *Queries) CreateMember(ctx context.Context, arg CreateMemberParams) (Mem
 		arg.StytchMemberID,
 		arg.UserID,
 		arg.TenantID,
-		arg.Roles,
 		arg.StytchMemberRaw,
 	)
 	var i Member
@@ -39,7 +37,6 @@ func (q *Queries) CreateMember(ctx context.Context, arg CreateMemberParams) (Mem
 		&i.StytchMemberID,
 		&i.UserID,
 		&i.TenantID,
-		&i.Roles,
 		&i.StytchMemberRaw,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -53,7 +50,6 @@ SELECT
     stytch_member_id,
     user_id,
     tenant_id,
-    roles,
     stytch_member_raw,
     created_at,
     updated_at
@@ -70,26 +66,9 @@ func (q *Queries) GetMemberByStytchMemberID(ctx context.Context, stytchMemberID 
 		&i.StytchMemberID,
 		&i.UserID,
 		&i.TenantID,
-		&i.Roles,
 		&i.StytchMemberRaw,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
-}
-
-const updateMemberRoles = `-- name: UpdateMemberRoles :exec
-UPDATE members
-SET roles = $2, updated_at = NOW()
-WHERE id = $1
-`
-
-type UpdateMemberRolesParams struct {
-	ID    pgtype.UUID `json:"id"`
-	Roles []string    `json:"roles"`
-}
-
-func (q *Queries) UpdateMemberRoles(ctx context.Context, arg UpdateMemberRolesParams) error {
-	_, err := q.db.Exec(ctx, updateMemberRoles, arg.ID, arg.Roles)
-	return err
 }

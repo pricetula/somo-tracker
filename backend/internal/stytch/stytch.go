@@ -149,18 +149,18 @@ func (c *Client) SanitizedError(err error) error {
 			strings.Contains(string(stErr.ErrorMessage), "invalid") ||
 			strings.Contains(string(stErr.ErrorMessage), "magic_link") ||
 			strings.Contains(string(stErr.ErrorMessage), "token"):
-			return fmt.Errorf("bad_request: The magic link is invalid or has already been used. Please request a new one.")
+			return fmt.Errorf("bad_request: the magic link is invalid or has already been used, please request a new one")
 
 		// Session expired / missing session.
 		case stErr.StatusCode == 401 || strings.Contains(string(stErr.ErrorType), "session") ||
 			strings.Contains(string(stErr.ErrorMessage), "expired") ||
 			strings.Contains(string(stErr.ErrorMessage), "session"):
-			return fmt.Errorf("unauthorized: Your session has expired. Please log in again.")
+			return fmt.Errorf("unauthorized: your session has expired, please log in again")
 
 		// Rate-limit patterns.
 		case stErr.StatusCode == 429 || strings.Contains(string(stErr.ErrorType), "rate_limit") ||
 			strings.Contains(string(stErr.ErrorMessage), "rate"):
-			return fmt.Errorf("too_many_requests: Too many requests. Please wait a few minutes before trying again.")
+			return fmt.Errorf("too_many_requests: too many requests, please wait a few minutes before trying again")
 
 		default:
 			c.logger.Error("stytch: unexpected API error",
@@ -168,7 +168,7 @@ func (c *Client) SanitizedError(err error) error {
 				zap.String("error_type", string(stErr.ErrorType)),
 				zap.Error(err),
 			)
-			return fmt.Errorf("internal_error: An unexpected error occurred. Please try again later.")
+			return fmt.Errorf("internal_error: an unexpected error occurred, please try again later")
 		}
 	}
 
@@ -176,7 +176,7 @@ func (c *Client) SanitizedError(err error) error {
 	c.logger.Error("stytch: non-API failure",
 		zap.String("error", err.Error()),
 	)
-	return fmt.Errorf("internal_error: An unexpected error occurred. Please try again later.")
+	return fmt.Errorf("internal_error: an unexpected error occurred, please try again later")
 }
 
 // RetryWithBackoff executes the given operation with exponential backoff

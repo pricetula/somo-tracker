@@ -29,7 +29,7 @@ func TestNewRateLimitMiddleware_NilLimiter_PassesThrough(t *testing.T) {
 	req := httptest.NewRequest("GET", "/ok", nil)
 	resp, err := app.Test(req)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 }
 
@@ -45,7 +45,7 @@ func TestNewRateLimitMiddleware_AllowedRequest_SetsHeaders(t *testing.T) {
 	req := httptest.NewRequest("GET", "/ok", nil)
 	resp, err := app.Test(req)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 }
@@ -62,7 +62,7 @@ func TestExtractClientID_ExtractsIP(t *testing.T) {
 	req.RemoteAddr = "192.168.1.10:1234"
 	resp, err := app.Test(req)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 	assert.NotEmpty(t, capturedIP)
@@ -81,7 +81,7 @@ func TestFallbackLogger_GlobalWhenNotSet(t *testing.T) {
 	req := httptest.NewRequest("GET", "/ok", nil)
 	resp, err := app.Test(req)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 }

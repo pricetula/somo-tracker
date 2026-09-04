@@ -8,13 +8,13 @@
 --   attacker still needs the Redis token to authenticate.
 --
 -- members:
---   Mirrors Stytch's Member model so we can store roles/permissions locally
---   without querying Stytch on every request. The stytch_member_id is the
+--   Mirrors Stytch's Member model. The stytch_member_id is the
 --   canonical external identity; the local user_id is the Somotracker user
 --   row (which participates in RLS).  The member row lives in the same tenant
 --   as the user row but is NOT RLS-protected because it is cross-tenant for
 --   admin lookups (e.g. listing all members of an org).  We rely on the API
 --   handler / service layer to enforce org-scoped access instead.
+--   Roles / permissions are deferred to the school_members table.
 --
 -- Dependencies:
 --   - 000002_create_tenants_and_users (must run first; provides tenants + users).
@@ -90,10 +90,6 @@ CREATE TABLE members (
                                          ON DELETE CASCADE,
     tenant_id           UUID        NOT NULL    REFERENCES tenants(id)
                                          ON DELETE CASCADE,
-    -- Roles are stored as an array of text for flexibility. Somotracker
-    -- currently uses: "admin", "member". Future roles can be added without
-    -- schema changes.  The application service layer enforces permissions.
-    roles               TEXT[]       NOT NULL    DEFAULT '{member}',
     -- Raw Stytch member object stored as JSONB for audit / debugging.
     -- Sensitive fields (e.g. untrusted third-party metadata) are stripped
     -- before storage; only the fields we explicitly read are persisted.
@@ -135,7 +131,6 @@ COMMENT ON COLUMN members.id                     IS 'Auto-generated UUID primary
 COMMENT ON COLUMN members.stytch_member_id       IS 'Stytch B2B Member.member_id. Unique across the entire system.';
 COMMENT ON COLUMN members.user_id                IS 'FK to users(id). The Somotracker application identity.';
 COMMENT ON COLUMN members.tenant_id              IS 'FK to tenants(id). The B2B organization.';
-COMMENT ON COLUMN members.roles                  IS 'Array of Somotracker role names. Somotracker currently uses: admin, member.';
 COMMENT ON COLUMN members.stytch_member_raw      IS 'Cached Stytch member object (JSONB) for audit/debugging. Sensitive metadata fields are stripped before storage.';
 COMMENT ON COLUMN members.created_at             IS 'UTC timestamp of member creation.';
 COMMENT ON COLUMN members.updated_at            IS 'UTC timestamp of last modification.';

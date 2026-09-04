@@ -140,7 +140,7 @@ func NewClient(lc fx.Lifecycle, cfg *config.Config, logger *zap.Logger) (*redis.
 	// ordering: observability.NewTracerProvider is provided before redis.Module
 	// is invoked because Fx builds the dependency graph in order).
 	if err := redisotel.InstrumentTracing(client); err != nil {
-		client.Close()
+		_ = client.Close()
 		return nil, fmt.Errorf("redis.NewClient: attach otel tracing: %w", err)
 	}
 	// Best-effort metrics — failure here is non-fatal because the cache is

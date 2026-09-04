@@ -7,7 +7,6 @@ package sqlc
 
 import (
 	"context"
-	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -19,11 +18,11 @@ RETURNING id, token, stytch_session_id, user_id, tenant_id, expires_at, created_
 `
 
 type CreateSessionParams struct {
-	Token           string      `json:"token"`
-	StytchSessionID string      `json:"stytch_session_id"`
-	UserID          pgtype.UUID `json:"user_id"`
-	TenantID        pgtype.UUID `json:"tenant_id"`
-	ExpiresAt       time.Time   `json:"expires_at"`
+	Token           string             `json:"token"`
+	StytchSessionID string             `json:"stytch_session_id"`
+	UserID          pgtype.UUID        `json:"user_id"`
+	TenantID        pgtype.UUID        `json:"tenant_id"`
+	ExpiresAt       pgtype.Timestamptz `json:"expires_at"`
 }
 
 func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error) {

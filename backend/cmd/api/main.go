@@ -80,7 +80,7 @@ func newLogger(cfg *config.Config) (*zap.Logger, error) {
 // types automatically, but it cannot infer that *sqlc.Queries satisfies
 // sqlc.Querier. A named adapter (returning the interface) is the cleanest
 // way to make the interface the public DI type without leaking the pool.
-func newQuerier(pool *pgxpool.Pool) sqlc.Querier {
+func newQuerier(pool *pgxpool.Pool) *sqlc.Queries {
 	return sqlc.New(pool)
 }
 

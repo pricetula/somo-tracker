@@ -45,7 +45,7 @@ func TestRequestIDMiddleware_GeneratesUUIDWhenMissing(t *testing.T) {
 	req := httptest.NewRequest("GET", "/ping", nil)
 	resp, err := app.Test(req)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	headerID := resp.Header.Get("X-Request-ID")
 	assert.NotEmpty(t, headerID, "response must include X-Request-ID header")
@@ -64,7 +64,7 @@ func TestRequestIDMiddleware_ReusesIncomingHeader(t *testing.T) {
 	req.Header.Set("X-Request-ID", incoming)
 	resp, err := app.Test(req)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, incoming, resp.Header.Get("X-Request-ID"),
 		"middleware must echo the inbound X-Request-ID")
@@ -90,7 +90,7 @@ func TestRequestIDMiddleware_StoresInContext(t *testing.T) {
 	req.Header.Set("X-Request-ID", incoming)
 	resp, err := app.Test(req)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	require.NotNil(t, capturedLogger, "logger must be injected into context")
 	assert.Equal(t, incoming, RequestID(capturedCtx),
@@ -111,7 +111,7 @@ func TestNewRequestIDHandler_ResolvesLogger(t *testing.T) {
 	req := httptest.NewRequest("GET", "/ok", nil)
 	resp, err := app.Test(req)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	assert.NotEmpty(t, resp.Header.Get("X-Request-ID"))
 }

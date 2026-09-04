@@ -102,7 +102,7 @@ func NewMigrator(pool *pgxpool.Pool, log *zap.Logger) (*Migrator, error) {
 		StatementTimeout: DefaultMigrationStatementTimeout,
 	})
 	if err != nil {
-		sqlDB.Close()
+		_ = sqlDB.Close()
 		return nil, fmt.Errorf("database.NewMigrator: pgx driver: %w", err)
 	}
 
@@ -113,7 +113,7 @@ func NewMigrator(pool *pgxpool.Pool, log *zap.Logger) (*Migrator, error) {
 	//  - databaseInstance:  the database.Driver returned by pgx.WithInstance
 	m, err := migrate.NewWithInstance("iofs", src, "pgx", driver)
 	if err != nil {
-		sqlDB.Close()
+		_ = sqlDB.Close()
 		return nil, fmt.Errorf("database.NewMigrator.NewWithInstance: %w", err)
 	}
 

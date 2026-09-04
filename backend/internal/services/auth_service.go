@@ -49,7 +49,7 @@ type SessionResult struct {
 type authService struct {
 	client  *stytch.Client
 	pool    *pgxpool.Pool
-	queries sqlc.Querier
+	queries *sqlc.Queries
 	session *session.Store
 	logger  *zap.Logger
 }
@@ -57,7 +57,7 @@ type authService struct {
 func NewAuthService(
 	client *stytch.Client,
 	pool *pgxpool.Pool,
-	queries sqlc.Querier,
+	queries *sqlc.Queries,
 	redisClient *go_redis.Client,
 	logger *zap.Logger,
 ) AuthService {
@@ -156,7 +156,7 @@ func (s *authService) AuthenticateCallback(ctx context.Context, token string) (*
 		}
 		userID = u.ID.Bytes
 
-		if err := s.upsertMember(ctx, tx, auth.MemberID, userID, tenantID, []string{"member"}); err != nil {
+		if err := s.upsertMember(ctx, tx, auth.MemberID, userID, tenantID); err != nil {
 			return fmt.Errorf("upsert member: %w", err)
 		}
 		return nil
@@ -184,7 +184,7 @@ func (s *authService) AuthenticateCallback(ctx context.Context, token string) (*
 		StytchSessionID: auth.StytchSessionID,
 		UserID:          pgtype.UUID{Bytes: [16]byte(userID)},
 		TenantID:        pgtype.UUID{Bytes: [16]byte(tenantID)},
-		ExpiresAt:       expiresAt,
+		ExpiresAt:       pgtype.Timestamptz{Time: expiresAt, Valid: true},
 	}); err != nil {
 		s.logger.Error("auth: failed to persist session row",
 			zap.Error(err),
@@ -308,7 +308,7 @@ func insertUser(ctx context.Context, tx pgx.Tx, tenantID uuid.UUID, email, fullN
 	return u, nil
 }
 
-func (s *authService) upsertMember(ctx context.Context, tx pgx.Tx, stytchMemberID string, userID, tenantID uuid.UUID, roles []string) error {
+func (s *authService) upsertMember(ctx context.Context, tx pgx.Tx, stytchMemberID string, userID, tenantID uuid.UUID) error {
 	_, err := s.queries.WithTx(tx).GetMemberByStytchMemberID(ctx, stytchMemberID)
 	if err == nil {
 		return nil
@@ -320,7 +320,6 @@ func (s *authService) upsertMember(ctx context.Context, tx pgx.Tx, stytchMemberI
 		StytchMemberID: stytchMemberID,
 		UserID:         pgtype.UUID{Bytes: [16]byte(userID)},
 		TenantID:       pgtype.UUID{Bytes: [16]byte(tenantID)},
-		Roles:          roles,
 	})
 	return insertErr
 }

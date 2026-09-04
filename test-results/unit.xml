@@ -1,26 +1,59 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites tests="0" failures="0" errors="0" time="0.044773">
-	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/cmd/api" timestamp="2026-09-03T23:00:35+03:00">
+<testsuites tests="6" failures="0" errors="0" time="3.291553">
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/cmd/api" timestamp="2026-09-04T04:27:30+03:00">
 		<properties>
 			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/db" timestamp="2026-09-03T23:00:35+03:00">
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/db" timestamp="2026-09-04T04:27:30+03:00">
 		<properties>
 			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/config" timestamp="2026-09-03T23:00:35+03:00">
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/api" timestamp="2026-09-04T04:27:30+03:00">
 		<properties>
 			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/database" timestamp="2026-09-03T23:00:35+03:00">
+	<testsuite tests="4" failures="0" time="1.702000" name="somotracker/backend/internal/api/middleware" timestamp="2026-09-04T04:27:31+03:00">
+		<properties>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
+		</properties>
+		<testcase classname="somotracker/backend/internal/api/middleware" name="TestRequestIDMiddleware_GeneratesUUIDWhenMissing" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api/middleware" name="TestRequestIDMiddleware_ReusesIncomingHeader" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api/middleware" name="TestRequestIDMiddleware_StoresInContext" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api/middleware" name="TestNewRequestIDHandler_ResolvesLogger" time="0.000000"></testcase>
+	</testsuite>
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/config" timestamp="2026-09-04T04:27:31+03:00">
 		<properties>
 			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/testdb" timestamp="2026-09-03T23:00:35+03:00">
+	<testsuite tests="2" failures="0" skipped="1" time="2.386000" name="somotracker/backend/internal/database" timestamp="2026-09-04T04:27:31+03:00">
+		<properties>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
+		</properties>
+		<testcase classname="somotracker/backend/internal/database" name="TestPoolTracer_EmitsSpan" time="0.110000">
+			<skipped message="=== RUN   TestPoolTracer_EmitsSpan&#xA;    database_tracer_integration_test.go:46: test database unavailable (skip): database.NewPool: initial ping: pgxpool: too many failed attempts acquiring connection; likely bug in PrepareConn, BeforeAcquire, or ShouldPing hook&#xA;          hint: run `make test-db-up` and ensure TEST_DATABASE_URL is set&#xA;--- SKIP: TestPoolTracer_EmitsSpan (0.11s)&#xA;"></skipped>
+		</testcase>
+		<testcase classname="somotracker/backend/internal/database" name="TestPoolConfig_HasTracer" time="0.000000"></testcase>
+	</testsuite>
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/database/sqlc" timestamp="2026-09-04T04:27:31+03:00">
+		<properties>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
+		</properties>
+	</testsuite>
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/observability" timestamp="2026-09-04T04:27:31+03:00">
+		<properties>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
+		</properties>
+	</testsuite>
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/services" timestamp="2026-09-04T04:27:31+03:00">
+		<properties>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
+		</properties>
+	</testsuite>
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/testdb" timestamp="2026-09-04T04:27:31+03:00">
 		<properties>
 			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>

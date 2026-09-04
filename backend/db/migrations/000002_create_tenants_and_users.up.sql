@@ -111,6 +111,7 @@ COMMENT ON COLUMN users.updated_at                  IS 'UTC timestamp of last mo
 -- roles used by migration tooling) bypasses the policy. Production application
 -- queries run under a role that has RLS enforced.
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE users FORCE ROW LEVEL SECURITY;
 
 -- Policy: users_tenant_isolation
 --

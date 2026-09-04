@@ -25,7 +25,7 @@ DROP POLICY IF EXISTS users_tenant_isolation ON users;
 -- ============================================================================
 
 DROP INDEX IF EXISTS users_tenant_id_idx;
-DROP INDEX IF EXISTS users_email_idx;
+DROP INDEX IF EXISTS users_tenant_email_uniq;
 DROP INDEX IF EXISTS users_external_auth_id_idx;
 DROP INDEX IF EXISTS users_updated_at_idx;
 

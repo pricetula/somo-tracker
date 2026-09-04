@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/exaring/otelpgx"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
@@ -42,6 +43,15 @@ const (
 // registers an OnStop hook so the pool is closed cleanly when the Fx
 // application terminates.
 //
+// The pool is instrumented with OpenTelemetry tracing via
+// [github.com/exaring/otelpgx]. The tracer is attached to the pgx ConnConfig
+// before the pool is built so every query, copy, batch, prepare, acquire and
+// connect operation emits a span. Pool-level statistics (active / idle /
+// total connections, acquire duration, etc.) are exported by the
+// [otelpgx.RecordStats] background loop, registered as an fx.OnStart hook
+// so it shares the application's TracerProvider and MeterProvider via
+// otel.GetTracerProvider / otel.GetMeterProvider.
+//
 // The constructor intentionally returns (T, error) — required by the backend
 // AGENTS.md DI contract — so any startup failure (bad DSN, unreachable host,
 // pool init error) is propagated to fx, which refuses to start.
@@ -57,6 +67,11 @@ func NewPool(lc fx.Lifecycle, cfg *config.Config, logger *zap.Logger) (*pgxpool.
 	if err != nil {
 		return nil, fmt.Errorf("database.NewPool: parse DATABASE_URL: %w", err)
 	}
+
+	// Attach the OpenTelemetry tracer to the connection config. This must
+	// happen *before* pgxpool.NewWithConfig so the tracer is wired into every
+	// connection at acquisition time.
+	poolCfg.ConnConfig.Tracer = otelpgx.NewTracer()
 
 	poolCfg.MaxConns = int32(cfg.DBMaxConns) //nolint:gosec // bounds-checked in validate()
 	poolCfg.MaxConnLifetime = cfg.DBMaxConnLifetime
@@ -80,6 +95,16 @@ func NewPool(lc fx.Lifecycle, cfg *config.Config, logger *zap.Logger) (*pgxpool.
 
 	lc.Append(fx.Hook{
 		OnStart: func(startCtx context.Context) error {
+			// Start the background pool-stats recorder. It samples
+			// pool.Stat() on its own goroutine and reports metrics via the
+			// global OTel MeterProvider. Failure here is non-fatal — we
+			// log and continue; pool spans and basic DB connectivity still
+			// work without metrics.
+			if statsErr := otelpgx.RecordStats(pool); statsErr != nil {
+				logger.Warn("otelpgx.RecordStats failed to start",
+					zap.Error(statsErr),
+				)
+			}
 			logger.Info("database pool initialized",
 				zap.Int("max_conns", cfg.DBMaxConns),
 				zap.Duration("max_conn_lifetime", cfg.DBMaxConnLifetime),

@@ -19,6 +19,7 @@ import (
 	"somotracker/backend/internal/config"
 	"somotracker/backend/internal/database"
 	"somotracker/backend/internal/database/sqlc"
+	"somotracker/backend/internal/observability"
 	"somotracker/backend/internal/services"
 )
 
@@ -31,6 +32,8 @@ func main() {
 		fx.Provide(services.NewTenantService),
 		fx.Provide(services.NewUserService),
 		fx.Provide(api.NewRouter),
+		fx.Provide(observability.NewTracerProvider),
+		fx.Provide(observability.NewMeterProvider),
 		fx.Provide(middleware.NewRequestIDHandler),
 		fx.Provide(newFiberApp),
 		fx.Invoke(database.RunMigrations),

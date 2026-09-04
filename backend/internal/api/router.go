@@ -39,13 +39,6 @@ func NewRouter(
 
 // RegisterRoutes attaches the grouped endpoints to the Fiber app.
 func (r *Router) RegisterRoutes(app *fiber.App) {
-	// Tenant routes — non-RLS, direct sqlc lookup.
-	app.Get("/api/tenants/slug/:slug", r.Tenant.getBySlug)
-
-	// User routes — RLS-backed via WithTenantTx inside UserService.
-	app.Get("/api/users/:id", r.User.getByID)
-	app.Get("/api/users/email/:email", r.User.getByEmail)
-
 	// Auth routes — protected by Redis-backed rate limiting.
 	// The magic-link initiation endpoint is scoped to "api:auth:magic-link".
 	app.Post("/api/auth/magic-link/send",
@@ -53,8 +46,10 @@ func (r *Router) RegisterRoutes(app *fiber.App) {
 		r.Auth.sendMagicLink,
 	)
 
-	// Magic-link callback (GET for browser redirects, POST for programmatic).
-	// The token can be passed in the query string (Stitch redirect) or body.
-	app.Get("/api/auth/callback", r.Auth.callback)
-	app.Post("/api/auth/callback", r.Auth.callback)
+	// Magic-link callback (GET for browser redirects from Stytch).
+	// Rate-limited independently from sendMagicLink because it's public-facing.
+	app.Get("/api/auth/callback",
+		ratelimit.NewRateLimitMiddleware(r.limiter, redis_rate.PerMinute(30), "api:auth:callback"),
+		r.Auth.callback,
+	)
 }

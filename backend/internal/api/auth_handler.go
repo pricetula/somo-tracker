@@ -97,19 +97,12 @@ func mapAuthError(c fiber.Ctx, err error) error {
 	}
 }
 
-// callback handles the Stytch magic-link redirect (GET or POST).
-// The token may be passed as a query parameter (GET redirect from Stytch)
-// or in the request body (POST from a client that consumes the callback).
+// callback handles the Stytch magic-link redirect.
+// Stytch redirects the user's browser to this URL with the magic-link token
+// in the query string. Rate limiting is applied by the route group
+// (see RegisterRoutes).
 func (h *authHandler) callback(c fiber.Ctx) error {
 	token := strings.TrimSpace(c.Query("token"))
-	if token == "" {
-		var body struct {
-			Token string `json:"token"`
-		}
-		if err := c.Bind().Body(&body); err == nil {
-			token = strings.TrimSpace(body.Token)
-		}
-	}
 	if token == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"code":    "missing_token",

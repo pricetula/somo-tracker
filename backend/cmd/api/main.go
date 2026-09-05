@@ -17,7 +17,9 @@ import (
 
 	"somotracker/backend/internal/api"
 	"somotracker/backend/internal/api/middleware"
+	"somotracker/backend/internal/api/middleware/bodylimit"
 	"somotracker/backend/internal/api/middleware/ratelimit"
+	"somotracker/backend/internal/api/middleware/timeout"
 	"somotracker/backend/internal/config"
 	"somotracker/backend/internal/database"
 	"somotracker/backend/internal/database/sqlc"
@@ -91,6 +93,11 @@ func newQuerier(pool *pgxpool.Pool) *sqlc.Queries {
 func newFiberApp(cfg *config.Config, logger *zap.Logger, pool *pgxpool.Pool, router *api.Router, reqIDHandler fiber.Handler, redisClient *redis.Client) *fiber.App {
 	app := fiber.New(fiber.Config{
 		AppName: "somotracker-api",
+		// Lift fasthttp's own transport-level cap above our middleware cap so
+		// that oversized requests reach the bodylimit middleware and produce
+		// our canonical 413 response (rather than being dropped silently by
+		// fasthttp at the connection layer).
+		BodyLimit: 50 * 1024 * 1024, // 50MB
 		ErrorHandler: func(c fiber.Ctx, err error) error {
 			// Do not treat 404 route misses as server errors.
 			if errors.Is(err, fiber.ErrNotFound) || (err != nil && err.Error() == "Not Found") {
@@ -146,6 +153,8 @@ func newFiberApp(cfg *config.Config, logger *zap.Logger, pool *pgxpool.Pool, rou
 	})
 
 	app.Use(reqIDHandler)
+	app.Use(bodylimit.Middleware())
+	app.Use(timeout.Middleware())
 	router.RegisterRoutes(app, redisClient, logger)
 	return app
 }

@@ -11,6 +11,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 
@@ -21,7 +22,7 @@ import (
 	"somotracker/backend/internal/database"
 	"somotracker/backend/internal/database/sqlc"
 	"somotracker/backend/internal/observability"
-	"somotracker/backend/internal/redis"
+	somoredis "somotracker/backend/internal/redis"
 	"somotracker/backend/internal/services"
 	"somotracker/backend/internal/stytch"
 )
@@ -42,7 +43,7 @@ func main() {
 		fx.Provide(middleware.NewRequestIDHandler),
 		fx.Provide(newFiberApp),
 		fx.Invoke(database.RunMigrations),
-		redis.Module,
+		somoredis.Module,
 		ratelimit.Module,
 		stytch.Module,
 		fx.Invoke(registerHooks),
@@ -87,7 +88,7 @@ func newQuerier(pool *pgxpool.Pool) *sqlc.Queries {
 // newFiberApp creates and configures a Fiber v3 application with health
 // endpoints. The /readyz handler pings the database connection pool so the
 // API only reports ready when PostgreSQL is reachable.
-func newFiberApp(cfg *config.Config, logger *zap.Logger, pool *pgxpool.Pool, router *api.Router, reqIDHandler fiber.Handler) *fiber.App {
+func newFiberApp(cfg *config.Config, logger *zap.Logger, pool *pgxpool.Pool, router *api.Router, reqIDHandler fiber.Handler, redisClient *redis.Client) *fiber.App {
 	app := fiber.New(fiber.Config{
 		AppName: "somotracker-api",
 		ErrorHandler: func(c fiber.Ctx, err error) error {
@@ -145,7 +146,7 @@ func newFiberApp(cfg *config.Config, logger *zap.Logger, pool *pgxpool.Pool, rou
 	})
 
 	app.Use(reqIDHandler)
-	router.RegisterRoutes(app)
+	router.RegisterRoutes(app, redisClient, logger)
 	return app
 }
 

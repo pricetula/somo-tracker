@@ -60,11 +60,15 @@ const (
 //
 // The function signature matches the pattern used by other middleware constructors
 // in the codebase (e.g. NewRequestIDHandler, NewRateLimitMiddleware).
-func NewSessionMiddleware(client *redis.Client) fiber.Handler {
+func NewSessionMiddleware(client *redis.Client, logger *zap.Logger) fiber.Handler {
 	return func(c fiber.Ctx) error {
 		// Early return if redis client is not configured (defensive for tests).
 		if client == nil {
-			zap.L().Warn("session middleware: redis client not configured, skipping validation")
+			if logger != nil {
+				logger.Warn("session middleware: redis client not configured, skipping validation")
+			} else {
+				zap.L().Warn("session middleware: redis client not configured, skipping validation")
+			}
 			return c.Next()
 		}
 
@@ -72,7 +76,7 @@ func NewSessionMiddleware(client *redis.Client) fiber.Handler {
 		token := c.Cookies(CookieName)
 		if token == "" {
 			// Log the unauthorized attempt with client context for security monitoring.
-			logUnauthorized(c, "missing_session_cookie", "no session cookie provided")
+			logUnauthorized(c, logger, "missing_session_cookie", "no session cookie provided")
 
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 				"code":    "unauthorized",
@@ -100,7 +104,7 @@ func NewSessionMiddleware(client *redis.Client) fiber.Handler {
 					Secure:   true,
 				})
 
-				logUnauthorized(c, "session_not_found", "session not found in cache")
+				logUnauthorized(c, logger, "session_not_found", "session not found in cache")
 
 				return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 					"code":    "unauthorized",
@@ -111,7 +115,7 @@ func NewSessionMiddleware(client *redis.Client) fiber.Handler {
 
 			// Redis error (connection issue, etc.) – log and still fail fast.
 			// We don't retry here; Redis unavailability is a temporary outage.
-			logUnauthorized(c, "redis_error", "failed to query session cache", zap.Error(err))
+			logUnauthorized(c, logger, "redis_error", "failed to query session cache", zap.Error(err))
 
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 				"code":    "unauthorized",
@@ -123,7 +127,7 @@ func NewSessionMiddleware(client *redis.Client) fiber.Handler {
 		// Parse the session data from JSON (stored in Redis via session.Store.Cache).
 		sessionData, parseErr := parseSessionData(val)
 		if parseErr != nil {
-			logUnauthorized(c, "session_parse_error", "failed to parse session data", zap.Error(parseErr))
+			logUnauthorized(c, logger, "session_parse_error", "failed to parse session data", zap.Error(parseErr))
 
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 				"code":    "unauthorized",
@@ -146,7 +150,7 @@ func NewSessionMiddleware(client *redis.Client) fiber.Handler {
 				Secure:   true,
 			})
 
-			logUnauthorized(c, "session_expired", "session has expired",
+			logUnauthorized(c, logger, "session_expired", "session has expired",
 				zap.Time("expires_at", sessionData.ExpiresAt),
 				zap.Time("now", now))
 
@@ -159,7 +163,7 @@ func NewSessionMiddleware(client *redis.Client) fiber.Handler {
 
 		// Validate required fields are present.
 		if sessionData.UserID == "" || sessionData.TenantID == "" {
-			logUnauthorized(c, "session_invalid", "session missing required fields",
+			logUnauthorized(c, logger, "session_invalid", "session missing required fields",
 				zap.String("user_id", sessionData.UserID),
 				zap.String("tenant_id", sessionData.TenantID))
 
@@ -210,8 +214,10 @@ func sessionCacheKey(token string) string {
 
 // logUnauthorized logs security events related to session validation failures.
 // It never logs the raw session token to avoid leaking sensitive data in logs.
-func logUnauthorized(c fiber.Ctx, reason, message string, fields ...zap.Field) {
-	logger := zap.L()
+func logUnauthorized(c fiber.Ctx, logger *zap.Logger, reason, message string, fields ...zap.Field) {
+	if logger == nil {
+		logger = zap.L()
+	}
 
 	// Build log entry with all relevant context.
 	logFields := []zap.Field{
@@ -224,7 +230,5 @@ func logUnauthorized(c fiber.Ctx, reason, message string, fields ...zap.Field) {
 	}
 	logFields = append(logFields, fields...)
 
-	if logger != nil {
-		logger.Warn("session middleware: unauthorized", logFields...)
-	}
+	logger.Warn("session middleware: unauthorized", logFields...)
 }

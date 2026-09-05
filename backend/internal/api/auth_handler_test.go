@@ -48,7 +48,7 @@ func (m *mockAuthService) AuthenticateCallback(_ context.Context, token string) 
 func newTestRouter(mock *mockAuthService) *fiber.App {
 	router := NewRouter(nil, nil, mock, nil)
 	app := fiber.New()
-	router.RegisterRoutes(app)
+	router.RegisterRoutes(app, nil, nil)
 	return app
 }
 
@@ -326,7 +326,7 @@ func TestCallback_RateLimitMiddlewareAttached(t *testing.T) {
 	}
 	router := NewRouter(nil, nil, mock, nil) // nil limiter → passes through
 	app := fiber.New()
-	router.RegisterRoutes(app)
+	router.RegisterRoutes(app, nil, nil)
 
 	resp, err := app.Test(httptest.NewRequest("GET", "/api/auth/callback?token=ok", nil))
 	require.NoError(t, err)

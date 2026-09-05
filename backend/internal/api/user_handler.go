@@ -18,20 +18,44 @@ func newUserHandler(svc services.UserService) *userHandler {
 	return &userHandler{svc: svc}
 }
 
+// getByID retrieves a user by ID within the authenticated tenant context.
+// The session middleware populates c.Locals("user_id") and c.Locals("tenant_id"),
+// and these values are passed to the service layer which applies Row-Level Security
+// via database.WithTenantTx.
 func (h *userHandler) getByID(c fiber.Ctx) error {
-	id := c.Params("id")
-	tenantID := c.Get("X-Tenant-ID")
+	userID, _ := c.Locals("user_id").(string)
+	tenantID, _ := c.Locals("tenant_id").(string)
 
-	user, err := h.svc.GetByID(c.Context(), tenantID, id)
+	if tenantID == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"code":    "unauthorized",
+			"message": "tenant context missing",
+			"errors":  fiber.Map{},
+		})
+	}
+
+	user, err := h.svc.GetByID(c.Context(), tenantID, userID)
 	if err != nil {
 		return mapServiceError(c, err)
 	}
 	return c.JSON(user)
 }
 
+// getByEmail retrieves a user by email within the authenticated tenant context.
+// The session middleware populates c.Locals("user_id") and c.Locals("tenant_id"),
+// and these values are passed to the service layer which applies Row-Level Security
+// via database.WithTenantTx.
 func (h *userHandler) getByEmail(c fiber.Ctx) error {
 	email := c.Params("email")
-	tenantID := c.Get("X-Tenant-ID")
+	tenantID, _ := c.Locals("tenant_id").(string)
+
+	if tenantID == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"code":    "unauthorized",
+			"message": "tenant context missing",
+			"errors":  fiber.Map{},
+		})
+	}
 
 	user, err := h.svc.GetByEmail(c.Context(), tenantID, email)
 	if err != nil {
@@ -53,7 +77,7 @@ func mapServiceError(c fiber.Ctx, err error) error {
 	case errors.Is(err, services.ErrTenantRequired):
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"code":    "invalid_tenant",
-			"message": "valid X-Tenant-ID required for email lookup",
+			"message": "valid tenant required for email lookup",
 			"errors":  fiber.Map{"tenant_id": []string{"required UUID"}},
 		})
 	case errors.Is(err, services.ErrNotFound):

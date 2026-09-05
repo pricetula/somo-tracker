@@ -3,8 +3,11 @@ package api
 import (
 	"github.com/go-redis/redis_rate/v10"
 	"github.com/gofiber/fiber/v3"
+	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
 
 	"somotracker/backend/internal/api/middleware/ratelimit"
+	"somotracker/backend/internal/api/middleware/session"
 	"somotracker/backend/internal/services"
 )
 
@@ -22,7 +25,8 @@ type Router struct {
 }
 
 // NewRouter creates a Router from the injected services and the Redis
-// rate-limiting limiter singleton.
+// rate-limiting limiter singleton. It also accepts a redis.Client for the
+// session middleware that protects authenticated routes.
 func NewRouter(
 	userSvc services.UserService,
 	tenantSvc services.TenantService,
@@ -38,18 +42,27 @@ func NewRouter(
 }
 
 // RegisterRoutes attaches the grouped endpoints to the Fiber app.
-func (r *Router) RegisterRoutes(app *fiber.App) {
+// Routes are split into public (auth-related) and protected groups.
+func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logger *zap.Logger) {
+	// Create protected group with session middleware for multi-tenant RLS.
+	protected := app.Group("/api", session.NewSessionMiddleware(redisClient, logger))
+
 	// Auth routes — protected by Redis-backed rate limiting.
-	// The magic-link initiation endpoint is scoped to "api:auth:magic-link".
-	app.Post("/api/auth/magic-link/send",
+	// These remain on the public group (no session required).
+	public := app.Group("/api/auth")
+	public.Post("/magic-link/send",
 		ratelimit.NewRateLimitMiddleware(r.limiter, authRate, "api:auth:magic-link"),
 		r.Auth.sendMagicLink,
 	)
 
-	// Magic-link callback (GET for browser redirects from Stytch).
-	// Rate-limited independently from sendMagicLink because it's public-facing.
-	app.Get("/api/auth/callback",
+	public.Get("/callback",
 		ratelimit.NewRateLimitMiddleware(r.limiter, authRate, "api:auth:callback"),
 		r.Auth.callback,
 	)
+
+	// Protected routes — session middleware validates session cookie,
+	// injects user_id and tenant_id into c.Locals, and binds RLS context.
+	protected.Get("/users/:id", r.User.getByID)
+	protected.Get("/users/email/:email", r.User.getByEmail)
+	protected.Get("/tenants/slug/:slug", r.Tenant.getBySlug)
 }

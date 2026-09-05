@@ -18,6 +18,9 @@ import (
 	"somotracker/backend/internal/api"
 	"somotracker/backend/internal/api/middleware"
 	"somotracker/backend/internal/api/middleware/bodylimit"
+	"somotracker/backend/internal/api/middleware/compression"
+	"somotracker/backend/internal/api/middleware/cors"
+	"somotracker/backend/internal/api/middleware/helmet"
 	"somotracker/backend/internal/api/middleware/ratelimit"
 	"somotracker/backend/internal/api/middleware/timeout"
 	"somotracker/backend/internal/config"
@@ -92,32 +95,9 @@ func newQuerier(pool *pgxpool.Pool) *sqlc.Queries {
 // API only reports ready when PostgreSQL is reachable.
 func newFiberApp(cfg *config.Config, logger *zap.Logger, pool *pgxpool.Pool, router *api.Router, reqIDHandler fiber.Handler, redisClient *redis.Client) *fiber.App {
 	app := fiber.New(fiber.Config{
-		AppName: "somotracker-api",
-		// Lift fasthttp's own transport-level cap above our middleware cap so
-		// that oversized requests reach the bodylimit middleware and produce
-		// our canonical 413 response (rather than being dropped silently by
-		// fasthttp at the connection layer).
-		BodyLimit: 50 * 1024 * 1024, // 50MB
-		ErrorHandler: func(c fiber.Ctx, err error) error {
-			// Do not treat 404 route misses as server errors.
-			if errors.Is(err, fiber.ErrNotFound) || (err != nil && err.Error() == "Not Found") {
-				return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-					"code":    "not_found",
-					"message": "Resource not found",
-					"errors":  fiber.Map{},
-				})
-			}
-
-			logger.Error("unhandled error",
-				zap.Error(err),
-				zap.String("env", cfg.Environment),
-			)
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"code":    "internal_error",
-				"message": "An unexpected error occurred",
-				"errors":  fiber.Map{},
-			})
-		},
+		AppName:      "somotracker-api",
+		BodyLimit:    50 * 1024 * 1024, // 50MB
+		ErrorHandler: api.NewErrorHandler(),
 	})
 
 	app.Get("/health", func(c fiber.Ctx) error {
@@ -153,6 +133,9 @@ func newFiberApp(cfg *config.Config, logger *zap.Logger, pool *pgxpool.Pool, rou
 	})
 
 	app.Use(reqIDHandler)
+	app.Use(cors.Middleware(cfg))
+	app.Use(helmet.Middleware())
+	app.Use(compression.Middleware())
 	app.Use(bodylimit.Middleware())
 	app.Use(timeout.Middleware())
 	router.RegisterRoutes(app, redisClient, logger)

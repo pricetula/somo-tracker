@@ -74,10 +74,50 @@ type Config struct {
 	// StytchEnv is the Stytch environment (test or live). Defaults to test.
 	StytchEnv string
 
+	// StytchRedirectURL is the OAuth callback URL for the Stytch magic link
+	// flow (e.g. "https://app.somo.io/api/auth/callback").
+	StytchRedirectURL string
+
 	// RedisURL is the full Redis connection URL from Doppler.
 	// Example: redis://:password@host:6379/0 — this is the only
 	// Redis environment variable used in production.
 	RedisURL string
+
+	// BackendURL is the full URL of this service (scheme + host + port).
+	// Used to derive Host/Port and for absolute URL generation (e.g. OAuth
+	// redirect URIs). Populated from BACKEND_URL.
+	BackendURL string
+
+	// FrontendURL is the URL of the Next.js frontend application.
+	// Populated from FRONTEND_URL.
+	FrontendURL string
+
+	// AllowedOrigins is the raw comma-separated list of origins allowed by
+	// this API for CORS. Set by Doppler; do not construct or modify it here.
+	// See [AllowedOriginsList] for the parsed slice.
+	AllowedOrigins string
+
+	// CookieDomain is the domain scope for session cookies (e.g. ".somo.io").
+	// Populated from COOKIE_DOMAIN.
+	CookieDomain string
+
+	// CookieSecret is the secret key used to sign session cookies.
+	// Populated from COOKIE_SECRET.
+	CookieSecret string
+}
+
+// AllowedOriginsList returns the comma-separated AllowedOrigins value split
+// into a slice of individual origin strings. Whitespace is trimmed from
+// each entry. Returns nil if AllowedOrigins is empty.
+func (c Config) AllowedOriginsList() []string {
+	if c.AllowedOrigins == "" {
+		return nil
+	}
+	origins := strings.Split(c.AllowedOrigins, ",")
+	for i := range origins {
+		origins[i] = strings.TrimSpace(origins[i])
+	}
+	return origins
 }
 
 // ListenAddr returns the address string passed to fiber.App.Listen.
@@ -133,6 +173,12 @@ func Load() (*Config, error) {
 		StytchProjectID:   os.Getenv("STYTCH_PROJECT_ID"),
 		StytchSecret:      os.Getenv("STYTCH_SECRET"),
 		StytchEnv:         getEnv("STYTCH_ENV", "test"),
+		StytchRedirectURL: os.Getenv("STYTCH_REDIRECT_URL"),
+		BackendURL:        os.Getenv("BACKEND_URL"),
+		FrontendURL:       os.Getenv("FRONTEND_URL"),
+		AllowedOrigins:    os.Getenv("ALLOWED_ORIGINS"),
+		CookieDomain:      os.Getenv("COOKIE_DOMAIN"),
+		CookieSecret:      os.Getenv("COOKIE_SECRET"),
 	}
 
 	if raw := os.Getenv("BACKEND_URL"); raw != "" {
@@ -220,6 +266,18 @@ func (c *Config) validate() error {
 	}
 	if c.StytchSecret == "" {
 		return fmt.Errorf("config.Load: STYTCH_SECRET is required")
+	}
+	if c.AllowedOrigins == "" {
+		return fmt.Errorf("config.Load: ALLOWED_ORIGINS is required (set via Doppler)")
+	}
+	if c.CookieSecret == "" {
+		return fmt.Errorf("config.Load: COOKIE_SECRET is required")
+	}
+	if c.CookieDomain == "" {
+		return fmt.Errorf("config.Load: COOKIE_DOMAIN is required")
+	}
+	if c.StytchRedirectURL == "" {
+		return fmt.Errorf("config.Load: STYTCH_REDIRECT_URL is required")
 	}
 	return nil
 }

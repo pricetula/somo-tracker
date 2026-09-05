@@ -26,6 +26,8 @@ type mockAuthService struct {
 	sendErr            error
 	authenticateErr    error
 	authenticateResult *services.SessionResult
+	revokeCalls        []string
+	revokeErr          error
 }
 
 type sendMagicLinkCall struct {
@@ -38,9 +40,14 @@ func (m *mockAuthService) SendMagicLink(_ context.Context, email, orgIDOrSlug st
 	return m.sendErr
 }
 
-func (m *mockAuthService) AuthenticateCallback(_ context.Context, token string) (*services.SessionResult, error) {
+func (m *mockAuthService) AuthenticateCallback(_ context.Context, token string, _ fiber.Ctx) (*services.SessionResult, error) {
 	m.authenticateCalls = append(m.authenticateCalls, token)
 	return m.authenticateResult, m.authenticateErr
+}
+
+func (m *mockAuthService) RevokeSession(_ context.Context, token string, _ string) error {
+	m.revokeCalls = append(m.revokeCalls, token)
+	return m.revokeErr
 }
 
 // newTestRouter wires a real *Router against a mockAuthService. The rate

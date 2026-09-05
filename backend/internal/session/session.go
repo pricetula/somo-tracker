@@ -5,21 +5,28 @@ package session
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
+	"github.com/gofiber/fiber/v3"
 	"github.com/redis/go-redis/v9"
 )
 
 // SessionData holds the session metadata cached in Redis for fast validation.
 // The raw Stytch session token is included here so that subsequent auth
 // checks can use it without hitting the database.
+// Fingerprint is a hash of the client's User-Agent and standard headers
+// used to detect session hijacking / cookie theft.
 type SessionData struct {
 	UserID          string    `json:"user_id"`
 	TenantID        string    `json:"tenant_id"`
 	StytchSessionID string    `json:"stytch_session_id"`
 	ExpiresAt       time.Time `json:"expires_at"`
+	Fingerprint     string    `json:"fingerprint,omitempty"`
 }
 
 const (
@@ -99,4 +106,30 @@ func (s *Store) Delete(ctx context.Context, token string) error {
 
 func sessionKey(token string) string {
 	return fmt.Sprintf("session:%s", token)
+}
+
+// ComputeFingerprint generates a device fingerprint from the request.
+// It hashes the User-Agent and a set of standard headers that are
+// relatively stable for a given browser/device combination.
+func ComputeFingerprint(c fiber.Ctx) string {
+	parts := []string{
+		c.Get("User-Agent"),
+		c.Get("Accept-Language"),
+		c.Get("Accept-Encoding"),
+	}
+	// Join with a separator and hash
+	input := strings.Join(parts, "|")
+	hash := sha256.Sum256([]byte(input))
+	return hex.EncodeToString(hash[:])
+}
+
+// FingerprintMismatchError is returned when the request fingerprint
+// doesn't match the stored session fingerprint.
+type FingerprintMismatchError struct {
+	Expected string
+	Actual   string
+}
+
+func (e *FingerprintMismatchError) Error() string {
+	return fmt.Sprintf("fingerprint mismatch: expected %s, got %s", e.Expected[:16]+"...", e.Actual[:16]+"...")
 }

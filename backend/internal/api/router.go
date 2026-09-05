@@ -6,6 +6,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 
+	"somotracker/backend/internal/api/middleware/ipblacklist"
 	"somotracker/backend/internal/api/middleware/ratelimit"
 	"somotracker/backend/internal/api/middleware/session"
 	"somotracker/backend/internal/services"
@@ -44,6 +45,10 @@ func NewRouter(
 // RegisterRoutes attaches the grouped endpoints to the Fiber app.
 // Routes are split into public (auth-related) and protected groups.
 func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logger *zap.Logger) {
+	// IP blacklist middleware - checks blacklist before any other processing.
+	// Uses fail-open behavior: Redis errors allow request through.
+	app.Use(ipblacklist.NewIPBlacklistMiddleware(redisClient, logger, ipblacklist.DefaultConfig()))
+
 	// Create protected group with session middleware for multi-tenant RLS.
 	protected := app.Group("/api", session.NewSessionMiddleware(redisClient, logger))
 
@@ -59,6 +64,9 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 		ratelimit.NewRateLimitMiddleware(r.limiter, authRate, "api:auth:callback"),
 		r.Auth.callback,
 	)
+
+	// Logout - protected by session middleware, revokes session from Redis and DB.
+	protected.Post("/auth/logout", r.Auth.logout)
 
 	// Protected routes — session middleware validates session cookie,
 	// injects user_id and tenant_id into c.Locals, and binds RLS context.

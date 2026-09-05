@@ -2,6 +2,7 @@ package api
 
 import (
 	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v3"
 
@@ -111,7 +112,7 @@ func (h *authHandler) callback(c fiber.Ctx) error {
 		})
 	}
 
-	sessionResult, err := h.svc.AuthenticateCallback(c.Context(), token)
+	sessionResult, err := h.svc.AuthenticateCallback(c.Context(), token, c)
 	if err != nil {
 		return mapAuthError(c, err)
 	}
@@ -131,6 +132,57 @@ func (h *authHandler) callback(c fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"code":    "authenticated",
 		"message": "Authentication successful",
+		"errors":  fiber.Map{},
+	})
+}
+
+// logout handles user logout by revoking the session.
+// It requires a valid session cookie and returns a sanitized response.
+func (h *authHandler) logout(c fiber.Ctx) error {
+	// Extract the session token from the cookie.
+	token := c.Cookies("session_token")
+	if token == "" {
+		// No session cookie - still return success to prevent enumeration
+		// but clear any stale cookie.
+		c.Cookie(&fiber.Cookie{
+			Name:     "session_token",
+			Value:    "",
+			Path:     "/",
+			Expires:  time.Now().Add(-24 * time.Hour),
+			MaxAge:   -1,
+			HTTPOnly: true,
+			Secure:   true,
+		})
+		return c.JSON(fiber.Map{
+			"code":    "logged_out",
+			"message": "Logged out successfully",
+			"errors":  fiber.Map{},
+		})
+	}
+
+	// Get request ID for audit logging
+	requestID := c.Get("X-Request-ID")
+
+	// Revoke the session (deletes from Redis and database)
+	if err := h.svc.RevokeSession(c.Context(), token, requestID); err != nil {
+		return mapAuthError(c, err)
+	}
+
+	// Clear the session cookie
+	c.Cookie(&fiber.Cookie{
+		Name:     "session_token",
+		Value:    "",
+		Path:     "/",
+		Expires:  time.Now().Add(-24 * time.Hour),
+		MaxAge:   -1,
+		HTTPOnly: true,
+		Secure:   true,
+		SameSite: fiber.CookieSameSiteLaxMode,
+	})
+
+	return c.JSON(fiber.Map{
+		"code":    "logged_out",
+		"message": "Logged out successfully",
 		"errors":  fiber.Map{},
 	})
 }

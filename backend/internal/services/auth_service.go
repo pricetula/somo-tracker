@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -33,9 +34,15 @@ type AuthService interface {
 
 	// AuthenticateCallback validates a magic-link token with Stytch B2B,
 	// atomically provisions / updates local DB records inside a pgx.Tx,
-	// caches session metadata in Redis, and returns session data for
-	// cookie issuance. All errors are mapped to the canonical contract.
-	AuthenticateCallback(ctx context.Context, token string) (*SessionResult, error)
+	// caches session metadata in Redis (including device fingerprint),
+	// and returns session data for cookie issuance. All errors are mapped
+	// to the canonical contract.
+	AuthenticateCallback(ctx context.Context, token string, c fiber.Ctx) (*SessionResult, error)
+
+	// RevokeSession invalidates a session by removing it from Redis and
+	// the database. Used for logout and security-sensitive actions.
+	// The request context should contain X-Request-ID for audit logging.
+	RevokeSession(ctx context.Context, token string, requestID string) error
 }
 
 type SessionResult struct {
@@ -98,7 +105,39 @@ func (s *authService) SendMagicLink(ctx context.Context, email string, orgIDOrSl
 	return nil
 }
 
-func (s *authService) AuthenticateCallback(ctx context.Context, token string) (*SessionResult, error) {
+func (s *authService) RevokeSession(ctx context.Context, token string, requestID string) error {
+	if s.session == nil {
+		return fmt.Errorf("auth.RevokeSession: session store is nil")
+	}
+	if token == "" {
+		return fmt.Errorf("bad_request: missing token")
+	}
+
+	// Delete from Redis
+	if err := s.session.Delete(ctx, token); err != nil {
+		s.logger.Error("auth: failed to delete session from Redis",
+			zap.String("request_id", requestID),
+			zap.Error(err),
+		)
+		return fmt.Errorf("internal_error: failed to revoke session")
+	}
+
+	// Delete from database
+	if err := s.queries.DeleteSession(ctx, token); err != nil {
+		s.logger.Error("auth: failed to delete session from database",
+			zap.String("request_id", requestID),
+			zap.Error(err),
+		)
+		return fmt.Errorf("internal_error: failed to revoke session")
+	}
+
+	s.logger.Info("auth: session revoked",
+		zap.String("request_id", requestID),
+	)
+	return nil
+}
+
+func (s *authService) AuthenticateCallback(ctx context.Context, token string, c fiber.Ctx) (*SessionResult, error) {
 	if s.client == nil {
 		return nil, fmt.Errorf("auth.AuthenticateCallback: stytch client is nil")
 	}
@@ -192,11 +231,15 @@ func (s *authService) AuthenticateCallback(ctx context.Context, token string) (*
 		return nil, fmt.Errorf("internal_error: failed to issue session")
 	}
 
+	// Compute device fingerprint for session hijacking detection
+	fingerprint := session.ComputeFingerprint(c)
+
 	if err := s.session.Cache(ctx, opaque, session.SessionData{
 		UserID:          userID.String(),
 		TenantID:        tenantID.String(),
 		StytchSessionID: auth.StytchSessionID,
 		ExpiresAt:       expiresAt,
+		Fingerprint:     fingerprint,
 	}); err != nil {
 		s.logger.Warn("auth: redis session cache write failed (continuing)",
 			zap.Error(err),
@@ -206,6 +249,7 @@ func (s *authService) AuthenticateCallback(ctx context.Context, token string) (*
 	s.logger.Info("auth: session issued",
 		zap.String("user_id", userID.String()),
 		zap.String("tenant_id", tenantID.String()),
+		zap.String("fingerprint_prefix", fingerprint[:16]+"..."),
 	)
 
 	return &SessionResult{

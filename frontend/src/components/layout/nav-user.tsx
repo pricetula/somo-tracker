@@ -20,28 +20,14 @@ import {
     SidebarMenuItem,
     useSidebar,
 } from "@/components/ui/sidebar";
-import { useMe } from "@/hooks/use-auth";
 
 export function NavUser() {
     const router = useRouter();
     const { isMobile } = useSidebar();
-    const { data: me, isLoading } = useMe();
 
-    const initials = React.useMemo(() => {
-        if (!me?.full_name?.length) return "U";
-        return me.full_name
-            .split(" ")
-            .map((name) => {
-                const trimmedName = name.trim();
-                if (!trimmedName.length) return "";
-                return trimmedName[0].toUpperCase();
-            })
-            .join("");
-    }, [me]);
-
-    if (isLoading) {
-        return <Skeleton className="h-12" />;
-    }
+    // Note: Backend doesn't provide /me endpoint, so user info is not available.
+    // Display a generic user avatar/name. Update when backend adds /me endpoint.
+    const initials = "U";
 
     return (
         <SidebarMenu>
@@ -51,12 +37,11 @@ export function NavUser() {
                         render={<SidebarMenuButton size="lg" className="aria-expanded:bg-muted" />}
                     >
                         <Avatar>
-                            {/*<AvatarImage src={user.avatar} alt={user.name} />*/}
                             <AvatarFallback>{initials}</AvatarFallback>
                         </Avatar>
                         <div className="grid flex-1 text-left text-sm leading-tight">
-                            <span className="truncate font-medium">{me?.full_name || "-"}</span>
-                            <span className="truncate text-xs">{me?.email || "-"}</span>
+                            <span className="truncate font-medium">User</span>
+                            <span className="truncate text-xs">Signed in</span>
                         </div>
                         <ChevronsUpDownIcon className="ml-auto size-4" />
                     </DropdownMenuTrigger>
@@ -70,14 +55,11 @@ export function NavUser() {
                             <DropdownMenuLabel className="p-0 font-normal">
                                 <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                                     <Avatar>
-                                        {/*<AvatarImage src={user.avatar} alt={user.name} />*/}
                                         <AvatarFallback>{initials}</AvatarFallback>
                                     </Avatar>
                                     <div className="grid flex-1 text-left text-sm leading-tight">
-                                        <span className="truncate font-medium">
-                                            {me?.full_name || "-"}
-                                        </span>
-                                        <span className="truncate text-xs">{me?.email || "-"}</span>
+                                        <span className="truncate font-medium">User</span>
+                                        <span className="truncate text-xs">Authenticated</span>
                                     </div>
                                 </div>
                             </DropdownMenuLabel>

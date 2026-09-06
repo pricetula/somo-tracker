@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useDiscover } from "@/hooks/use-auth";
+import { useSendMagicLink } from "@/hooks/use-auth";
 import { Loader2 } from "lucide-react";
 import { DocTooltip } from "@/components/shared/DocTooltip";
 
@@ -30,7 +30,7 @@ const loginSchema = z.object({
 type LoginValues = z.infer<typeof loginSchema>;
 
 export function LoginPage({ tooltipSummary }: LoginPageProps) {
-    const discoverMutation = useDiscover();
+    const discoverMutation = useSendMagicLink();
 
     const form = useForm<LoginValues>({
         resolver: zodResolver(loginSchema),

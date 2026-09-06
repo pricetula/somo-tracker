@@ -1,35 +1,27 @@
-import { getVerifiedRole } from "@/lib/auth-server";
+/**
+ * AuthorizedByRole — DEPRECATED: Backend no longer provides role cookie or /me endpoint.
+ *
+ * This component previously verified the signed `somo_role` cookie server-side.
+ * The current backend auth flow uses only the HttpOnly `session_token` cookie with
+ * fingerprint validation. Role information is not available client-side without
+ * a /me endpoint.
+ *
+ * TODO: Re-implement when backend adds /me endpoint with role/tenant info.
+ * For now, this component passes through children unconditionally.
+ * Actual authorization is enforced by the backend session middleware on API calls.
+ */
 
 interface AuthorizedByRoleProps {
     children: React.ReactNode;
-    allowedRoles: string[];
+    allowedRoles?: string[];
 }
 
 export async function AuthorizedByRole({
     children,
-    allowedRoles = ["TEACHER", "SCHOOL_ADMIN", "SYSTEM_ADMIN"],
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    allowedRoles,
 }: AuthorizedByRoleProps) {
-    if (!allowedRoles || allowedRoles.length === 0) {
-        return null;
-    }
-
-    const role = await getVerifiedRole();
-
-    if (!role) {
-        return (
-            <article>
-                <p>Unable to verify your session. Please log in again.</p>
-            </article>
-        );
-    }
-
-    if (!allowedRoles.includes(role)) {
-        return (
-            <article>
-                <p>You do not have access to this page.</p>
-            </article>
-        );
-    }
-
+    // Role verification not available without backend /me endpoint.
+    // Backend enforces authorization on all API endpoints via session middleware.
     return children;
 }

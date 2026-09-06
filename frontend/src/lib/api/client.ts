@@ -22,7 +22,7 @@
  *
  * All requests carry a per-page-load correlation id in the X-Request-ID header
  * (honored + echoed by the backend) and are sent with `credentials: "include"`
- * so the HttpOnly `somo_sid` cookie is attached automatically by the browser.
+ * so the HttpOnly `session_token` cookie is attached automatically by the browser.
  *
  * Backend counterpart: internal/middleware/errors.go
  */
@@ -67,11 +67,8 @@ export class ApiError extends Error {
 
 export interface RequestOptions {
     /** If true, skip the global 401 redirect to /logout. Use for endpoints
-     *  where a 401 is structurally expected (e.g. initial me check). */
+     *  where a 401 is structurally expected (e.g. initial session check). */
     skipGlobal401Handler?: boolean;
-    /** If true, skip the global 403 redirect to /unauthorized (only applies
-     *  to GET /api/auth/me — a session rejected by the backend's resolver). */
-    skipGlobal403Handler?: boolean;
 }
 
 // ─── Correlation id ────────────────────────────────────────────────────────
@@ -114,13 +111,8 @@ async function request<T>(
         headers["Content-Type"] = "application/json";
     }
 
-    // Include CSRF token on mutating requests (double-submit cookie pattern)
-    if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
-        const csrf = getCSRFToken();
-        if (csrf) {
-            headers["X-CSRF-Token"] = csrf;
-        }
-    }
+    // No CSRF token — backend uses SameSite=Lax cookie + fingerprint validation instead
+    // of double-submit pattern.
 
     const res = await fetch(url, {
         method,
@@ -168,22 +160,6 @@ async function request<T>(
             window.location.href = "/logout";
         }
 
-        // ─── Global 403 — session without any membership (B3) ───────────
-        // The session resolver rejects a VALID session whose user has zero
-        // active memberships with 403 forbidden on every request. GET /me is
-        // the session probe, so a 403 there unambiguously means "authenticated
-        // but entitled to nothing" — show /unauthorized (offers sign-out +
-        // contact-admin guidance) instead of silently treating the user as
-        // logged out.
-        if (
-            res.status === 403 &&
-            path === "/api/auth/me" &&
-            error.code === "forbidden" &&
-            !options?.skipGlobal403Handler
-        ) {
-            window.location.href = "/unauthorized";
-        }
-
         throw error;
     }
 
@@ -199,13 +175,6 @@ async function request<T>(
     }
 
     return undefined as T;
-}
-
-/** Read the CSRF token from the non-HttpOnly cookie set by the backend. */
-function getCSRFToken(): string | null {
-    if (typeof document === "undefined") return null;
-    const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]*)/);
-    return match ? decodeURIComponent(match[1]) : null;
 }
 
 // ─── Public API surface ───────────────────────────────────────────────────

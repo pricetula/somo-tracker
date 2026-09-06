@@ -6,6 +6,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
+	"somotracker/backend/internal/api/middleware/csrf"
 	"somotracker/backend/internal/services"
 )
 
@@ -129,6 +130,21 @@ func (h *authHandler) callback(c fiber.Ctx) error {
 		SameSite: fiber.CookieSameSiteLaxMode,
 	})
 
+	// Issue CSRF token as non-HttpOnly cookie for double-submit pattern.
+	// JavaScript reads this and sends it in X-CSRF-Token header on mutating requests.
+	csrfToken, err := csrf.GenerateCSRFToken()
+	if err == nil {
+		c.Cookie(&fiber.Cookie{
+			Name:     csrf.CSRFCookieName,
+			Value:    csrfToken,
+			Path:     "/",
+			MaxAge:   csrf.CSRFCookieMaxAge,
+			Secure:   true,
+			HTTPOnly: false, // Must be readable by JavaScript
+			SameSite: fiber.CookieSameSiteLaxMode,
+		})
+	}
+
 	return c.JSON(fiber.Map{
 		"code":    "authenticated",
 		"message": "Authentication successful",
@@ -153,6 +169,17 @@ func (h *authHandler) logout(c fiber.Ctx) error {
 			HTTPOnly: true,
 			Secure:   true,
 		})
+		// Clear the CSRF token cookie
+		c.Cookie(&fiber.Cookie{
+			Name:     csrf.CSRFCookieName,
+			Value:    "",
+			Path:     "/",
+			Expires:  time.Now().Add(-24 * time.Hour),
+			MaxAge:   -1,
+			HTTPOnly: false,
+			Secure:   true,
+			SameSite: fiber.CookieSameSiteLaxMode,
+		})
 		return c.JSON(fiber.Map{
 			"code":    "logged_out",
 			"message": "Logged out successfully",
@@ -176,6 +203,18 @@ func (h *authHandler) logout(c fiber.Ctx) error {
 		Expires:  time.Now().Add(-24 * time.Hour),
 		MaxAge:   -1,
 		HTTPOnly: true,
+		Secure:   true,
+		SameSite: fiber.CookieSameSiteLaxMode,
+	})
+
+	// Clear the CSRF token cookie
+	c.Cookie(&fiber.Cookie{
+		Name:     csrf.CSRFCookieName,
+		Value:    "",
+		Path:     "/",
+		Expires:  time.Now().Add(-24 * time.Hour),
+		MaxAge:   -1,
+		HTTPOnly: false,
 		Secure:   true,
 		SameSite: fiber.CookieSameSiteLaxMode,
 	})

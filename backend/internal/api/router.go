@@ -6,6 +6,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 
+	"somotracker/backend/internal/api/middleware/csrf"
 	"somotracker/backend/internal/api/middleware/ipblacklist"
 	"somotracker/backend/internal/api/middleware/ratelimit"
 	"somotracker/backend/internal/api/middleware/session"
@@ -49,27 +50,32 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 	// Uses fail-open behavior: Redis errors allow request through.
 	app.Use(ipblacklist.NewIPBlacklistMiddleware(redisClient, logger, ipblacklist.DefaultConfig()))
 
-	// Create protected group with session middleware for multi-tenant RLS.
-	protected := app.Group("/api", session.NewSessionMiddleware(redisClient, logger))
-
-	// Auth routes — protected by Redis-backed rate limiting.
-	// These remain on the public group (no session required).
-	public := app.Group("/api/auth")
-	public.Post("/magic-link/send",
+	// ─── Public auth routes (no session, no CSRF) ──────────────────────
+	// These are registered directly on the app with full paths to avoid
+	// inheriting middleware from the protected group below.
+	app.Post("/api/auth/magic-link/send",
 		ratelimit.NewRateLimitMiddleware(r.limiter, authRate, "api:auth:magic-link"),
 		r.Auth.sendMagicLink,
 	)
 
-	public.Get("/callback",
+	app.Get("/api/auth/callback",
 		ratelimit.NewRateLimitMiddleware(r.limiter, authRate, "api:auth:callback"),
 		r.Auth.callback,
 	)
 
-	// Logout - protected by session middleware, revokes session from Redis and DB.
+	// ─── Protected routes (session + CSRF) ─────────────────────────────
+	// All routes under /api except the public auth endpoints above.
+	protected := app.Group("/api",
+		session.NewSessionMiddleware(redisClient, logger),
+		csrf.NewCSRFMiddleware(),
+	)
+
+	// Logout - requires session + CSRF (mutating request)
 	protected.Post("/auth/logout", r.Auth.logout)
 
-	// Protected routes — session middleware validates session cookie,
+	// Protected resources — session middleware validates session cookie,
 	// injects user_id and tenant_id into c.Locals, and binds RLS context.
+	// CSRF middleware validates double-submit token on mutating requests.
 	protected.Get("/users/:id", r.User.getByID)
 	protected.Get("/users/email/:email", r.User.getByEmail)
 	protected.Get("/tenants/slug/:slug", r.Tenant.getBySlug)

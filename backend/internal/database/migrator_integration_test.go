@@ -550,3 +550,296 @@ func TestMigrator_AcademicCalendar(t *testing.T) {
 		require.Truef(t, exists, "trigger %s_updated_at_trg should exist", table)
 	}
 }
+
+// TestMigrator_ClassRoomsAndEnrollments verifies the class_rooms and
+// student_class_enrollments migration (000007). Tests: tables, enum, indexes,
+// triggers, RLS policy, unique constraints, and an end-to-end RLS isolation
+// check via SET LOCAL app.current_tenant_id.
+func TestMigrator_ClassRoomsAndEnrollments(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db := testdb.DB(t)
+
+	dsn := "postgres://somo_admin:somo_secure_password@127.0.0.1:5433/somotracker_test?sslmode=disable"
+	pool, err := pgxpool.New(ctx, dsn)
+	require.NoError(t, err)
+	t.Cleanup(pool.Close)
+
+	logger := zap.NewNop()
+	migrator, err := NewMigrator(pool, logger)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = migrator.Close() })
+
+	err = migrator.Up(ctx)
+	require.NoError(t, err, "migrator.Up should not fail")
+
+	// --- Tables exist ---
+	enrollmentTables := []string{"class_rooms", "student_class_enrollments"}
+	for _, table := range enrollmentTables {
+		var exists bool
+		err = db.QueryRowContext(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM information_schema.tables
+				WHERE table_schema = 'public' AND table_name = $1
+			)
+		`, table).Scan(&exists)
+		require.NoError(t, err)
+		require.Truef(t, exists, "table %q should exist", table)
+	}
+
+	// --- enrollment_status enum exists with correct values ---
+	var enumValues []string
+	rows, err := db.QueryContext(ctx, `
+		SELECT enumlabel FROM pg_enum
+		WHERE enumtypid = 'enrollment_status'::regtype
+		ORDER BY enumsortorder
+	`)
+	require.NoError(t, err)
+	for rows.Next() {
+		var val string
+		require.NoError(t, rows.Scan(&val))
+		enumValues = append(enumValues, val)
+	}
+	require.NoError(t, rows.Close())
+	require.Equal(t, []string{"ACTIVE", "PROMOTED", "REPEATING", "GRADUATED"}, enumValues)
+
+	// --- Indexes exist ---
+	enrollmentIndexes := []string{
+		"class_rooms_school_id_idx", "class_rooms_academic_year_id_idx",
+		"class_rooms_grade_level_id_idx", "class_rooms_name_idx",
+		"student_class_enrollments_school_id_idx", "student_class_enrollments_student_id_idx",
+		"student_class_enrollments_class_room_id_idx", "student_class_enrollments_academic_year_id_idx",
+		"student_class_enrollments_academic_term_id_idx", "student_class_enrollments_status_idx",
+	}
+	for _, idx := range enrollmentIndexes {
+		var exists bool
+		err = db.QueryRowContext(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM pg_indexes
+				WHERE schemaname = 'public' AND indexname = $1
+			)
+		`, idx).Scan(&exists)
+		require.NoError(t, err)
+		require.Truef(t, exists, "index %q should exist", idx)
+	}
+
+	// --- Unique constraints exist ---
+	uniqueConstraints := []struct {
+		table string
+		name  string
+	}{
+		{"class_rooms", "class_rooms_school_year_grade_stream_uniq"},
+		{"student_class_enrollments", "student_class_enrollments_student_year_uniq"},
+		{"student_class_enrollments", "student_class_enrollments_student_term_uniq"},
+	}
+	for _, uc := range uniqueConstraints {
+		var exists bool
+		err = db.QueryRowContext(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM information_schema.table_constraints
+				WHERE table_schema = 'public'
+				  AND table_name = $1
+				  AND constraint_name = $2
+				  AND constraint_type = 'UNIQUE'
+			)
+		`, uc.table, uc.name).Scan(&exists)
+		require.NoError(t, err)
+		require.Truef(t, exists, "unique constraint %q on %q should exist", uc.name, uc.table)
+	}
+
+	// --- updated_at triggers exist ---
+	for _, table := range enrollmentTables {
+		var exists bool
+		err = db.QueryRowContext(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM information_schema.triggers
+				WHERE event_object_table = $1
+				  AND trigger_name = $2 || '_updated_at_trg'
+				  AND trigger_schema = 'public'
+			)
+		`, table, table).Scan(&exists)
+		require.NoError(t, err)
+		require.Truef(t, exists, "trigger %s_updated_at_trg should exist", table)
+	}
+
+	// --- RLS is enabled on student_class_enrollments ---
+	var rlsEnabled, rlsForced bool
+	err = db.QueryRowContext(ctx, `
+		SELECT relrowsecurity, relforcerowsecurity
+		FROM pg_class
+		WHERE relname = 'student_class_enrollments'
+		  AND relnamespace = 'public'::regnamespace
+	`).Scan(&rlsEnabled, &rlsForced)
+	require.NoError(t, err)
+	require.True(t, rlsEnabled, "RLS should be enabled on student_class_enrollments")
+	require.True(t, rlsForced, "RLS should be FORCED on student_class_enrollments")
+
+	// --- RLS policy exists and references app.current_tenant_id ---
+	var policyName string
+	err = db.QueryRowContext(ctx, `
+		SELECT policyname FROM pg_policies
+		WHERE schemaname = 'public' AND tablename = 'student_class_enrollments'
+		  AND policyname = 'student_class_enrollments_tenant_isolation'
+	`).Scan(&policyName)
+	require.NoError(t, err)
+	require.Equal(t, "student_class_enrollments_tenant_isolation", policyName,
+		"student_class_enrollments_tenant_isolation policy should be installed")
+
+	var policyQual string
+	err = db.QueryRowContext(ctx, `
+		SELECT COALESCE(qual, '') FROM pg_policies
+		WHERE schemaname = 'public' AND tablename = 'student_class_enrollments'
+		  AND policyname = 'student_class_enrollments_tenant_isolation'
+	`).Scan(&policyQual)
+	require.NoError(t, err)
+	require.Contains(t, policyQual, "current_setting",
+		"policy qual should reference current_setting()")
+	require.Contains(t, policyQual, "app.current_tenant_id",
+		"policy qual should reference app.current_tenant_id")
+
+	// --- Functional check: RLS isolation works end-to-end ---
+	// 1. Insert two tenants, two schools (one per tenant), one class_room per
+	//    school, and one student_class_enrollment per class_room.
+	// 2. Set app.current_tenant_id to tenant A's UUID inside a transaction.
+	// 3. Verify only tenant A's enrollment is visible.
+	//
+	// We use SET LOCAL inside a transaction so the GUC is scoped and never
+	// leaks into the shared pool.
+	tx, err := db.BeginTx(ctx, nil)
+	require.NoError(t, err)
+
+	var tenantA, tenantB string
+	err = tx.QueryRowContext(ctx, `
+		INSERT INTO tenants (name, slug, stytch_org_id)
+		VALUES ('Test Tenant A ENR', 'test-tenant-a-enr', 'stytch-org-enr-a')
+		RETURNING id::text
+	`).Scan(&tenantA)
+	require.NoError(t, err)
+	err = tx.QueryRowContext(ctx, `
+		INSERT INTO tenants (name, slug, stytch_org_id)
+		VALUES ('Test Tenant B ENR', 'test-tenant-b-enr', 'stytch-org-enr-b')
+		RETURNING id::text
+	`).Scan(&tenantB)
+	require.NoError(t, err)
+
+	var countryID string
+	err = tx.QueryRowContext(ctx, `
+		INSERT INTO countries (country_name, country_code)
+		VALUES ('Test Country ENR', 'TE')
+		RETURNING id::text
+	`).Scan(&countryID)
+	require.NoError(t, err)
+
+	var eduSystemID string
+	err = tx.QueryRowContext(ctx, `
+		INSERT INTO education_systems (system_name, description)
+		VALUES ('Test System ENR', 'ENR test')
+		RETURNING id::text
+	`).Scan(&eduSystemID)
+	require.NoError(t, err)
+
+	var gradeLevelID string
+	err = tx.QueryRowContext(ctx, `
+		INSERT INTO grade_levels (education_system_id, country_id, tier_stage, local_label, sequence_index)
+		VALUES ($1, $2, 'primary', 'Grade 1', 1)
+		RETURNING id::text
+	`, eduSystemID, countryID).Scan(&gradeLevelID)
+	require.NoError(t, err)
+
+	var schoolA, schoolB string
+	err = tx.QueryRowContext(ctx, `
+		INSERT INTO schools (tenant_id, school_name, country_id, education_system_id)
+		VALUES ($1, 'School A ENR', $2, $3)
+		RETURNING id::text
+	`, tenantA, countryID, eduSystemID).Scan(&schoolA)
+	require.NoError(t, err)
+	err = tx.QueryRowContext(ctx, `
+		INSERT INTO schools (tenant_id, school_name, country_id, education_system_id)
+		VALUES ($1, 'School B ENR', $2, $3)
+		RETURNING id::text
+	`, tenantB, countryID, eduSystemID).Scan(&schoolB)
+	require.NoError(t, err)
+
+	var yearA, yearB string
+	err = tx.QueryRowContext(ctx, `
+		INSERT INTO academic_years (school_id, name, start_date, end_date)
+		VALUES ($1, '2026', '2026-01-01', '2026-12-31')
+		RETURNING id::text
+	`, schoolA).Scan(&yearA)
+	require.NoError(t, err)
+	err = tx.QueryRowContext(ctx, `
+		INSERT INTO academic_years (school_id, name, start_date, end_date)
+		VALUES ($1, '2026', '2026-01-01', '2026-12-31')
+		RETURNING id::text
+	`, schoolB).Scan(&yearB)
+	require.NoError(t, err)
+
+	var classRoomA, classRoomB string
+	err = tx.QueryRowContext(ctx, `
+		INSERT INTO class_rooms (school_id, academic_year_id, grade_level_id, name, stream)
+		VALUES ($1, $2, $3, 'Class 1 Blue', 'Blue')
+		RETURNING id::text
+	`, schoolA, yearA, gradeLevelID).Scan(&classRoomA)
+	require.NoError(t, err)
+	err = tx.QueryRowContext(ctx, `
+		INSERT INTO class_rooms (school_id, academic_year_id, grade_level_id, name, stream)
+		VALUES ($1, $2, $3, 'Class 1 Blue', 'Blue')
+		RETURNING id::text
+	`, schoolB, yearB, gradeLevelID).Scan(&classRoomB)
+	require.NoError(t, err)
+
+	var studentA, studentB string
+	err = tx.QueryRowContext(ctx, `
+		INSERT INTO students (school_id, admission_number, full_name, date_of_birth, gender)
+		VALUES ($1, 'ADM-001-A', 'Student A', '2015-01-01', 'F')
+		RETURNING student_id::text
+	`, schoolA).Scan(&studentA)
+	require.NoError(t, err)
+	err = tx.QueryRowContext(ctx, `
+		INSERT INTO students (school_id, admission_number, full_name, date_of_birth, gender)
+		VALUES ($1, 'ADM-001-B', 'Student B', '2015-01-01', 'F')
+		RETURNING student_id::text
+	`, schoolB).Scan(&studentB)
+	require.NoError(t, err)
+
+	// Insert one enrollment per school.
+	_, err = tx.ExecContext(ctx, `
+		INSERT INTO student_class_enrollments
+			(school_id, student_id, class_room_id, academic_year_id, status)
+		VALUES ($1, $2, $3, $4, 'ACTIVE')
+	`, schoolA, studentA, classRoomA, yearA)
+	require.NoError(t, err)
+	_, err = tx.ExecContext(ctx, `
+		INSERT INTO student_class_enrollments
+			(school_id, student_id, class_room_id, academic_year_id, status)
+		VALUES ($1, $2, $3, $4, 'ACTIVE')
+	`, schoolB, studentB, classRoomB, yearB)
+	require.NoError(t, err)
+
+	// Set the GUC to tenant A and verify only tenant A's enrollment is visible.
+	_, err = tx.ExecContext(ctx,
+		fmt.Sprintf("SET LOCAL app.current_tenant_id = '%s'", tenantA))
+	require.NoError(t, err)
+
+	var countA int
+	err = tx.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM student_class_enrollments
+	`).Scan(&countA)
+	require.NoError(t, err)
+	require.Equal(t, 1, countA, "only tenant A's enrollment should be visible")
+
+	// Switch to tenant B and verify only tenant B's enrollment is visible.
+	_, err = tx.ExecContext(ctx,
+		fmt.Sprintf("SET LOCAL app.current_tenant_id = '%s'", tenantB))
+	require.NoError(t, err)
+
+	var countB int
+	err = tx.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM student_class_enrollments
+	`).Scan(&countB)
+	require.NoError(t, err)
+	require.Equal(t, 1, countB, "only tenant B's enrollment should be visible")
+
+	require.NoError(t, tx.Rollback())
+}

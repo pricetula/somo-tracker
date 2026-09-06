@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"somotracker/backend/internal/config"
 	"somotracker/backend/internal/services"
 )
 
@@ -53,7 +54,10 @@ func (m *mockAuthService) RevokeSession(_ context.Context, token string, _ strin
 // newTestRouter wires a real *Router against a mockAuthService. The rate
 // limiter is nil so the middleware falls through (no Redis required).
 func newTestRouter(mock *mockAuthService) *fiber.App {
-	router := NewRouter(nil, nil, mock, nil)
+	cfg := &config.Config{
+		CAPTCHAEnabled: false,
+	}
+	router := NewRouter(nil, nil, mock, nil, cfg)
 	app := fiber.New()
 	router.RegisterRoutes(app, nil, nil)
 	return app
@@ -331,7 +335,8 @@ func TestCallback_RateLimitMiddlewareAttached(t *testing.T) {
 			ExpiresAt:   time.Now().Add(time.Hour),
 		},
 	}
-	router := NewRouter(nil, nil, mock, nil) // nil limiter → passes through
+	cfg := &config.Config{CAPTCHAEnabled: false}
+	router := NewRouter(nil, nil, mock, nil, cfg) // nil limiter → passes through
 	app := fiber.New()
 	router.RegisterRoutes(app, nil, nil)
 

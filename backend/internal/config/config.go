@@ -104,6 +104,24 @@ type Config struct {
 	// CookieSecret is the secret key used to sign session cookies.
 	// Populated from COOKIE_SECRET.
 	CookieSecret string
+
+	// CAPTCHA configuration
+	// CAPTCHAEnabled turns on CAPTCHA verification for abuse-prone endpoints.
+	// Defaults to false for local development.
+	CAPTCHAEnabled bool
+
+	// CAPTCHAProvider identifies the CAPTCHA provider ("hcaptcha", "turnstile", "recaptcha").
+	CAPTCHAProvider string
+
+	// CAPTCHASiteKey is the public site key (used by frontend).
+	CAPTCHASiteKey string
+
+	// CAPTCHASecretKey is the private secret key (used by backend verification).
+	CAPTCHASecretKey string
+
+	// CAPTCHAScoreThreshold for score-based providers (reCAPTCHA v3, Turnstile).
+	// Requests below this score are rejected. Range: 0.0 - 1.0.
+	CAPTCHAScoreThreshold float64
 }
 
 // AllowedOriginsList returns the comma-separated AllowedOrigins value split
@@ -159,26 +177,36 @@ func (c Config) IsProduction() bool {
 //	STYTCH_PROJECT_ID  Stytch B2B project ID (required).
 //	STYTCH_SECRET      Stytch B2B secret (required).
 //	STYTCH_ENV         Stytch environment (test or live). Defaults to test.
+//	CAPTCHA_ENABLED    Enable CAPTCHA verification (default: false).
+//	CAPTCHA_PROVIDER   CAPTCHA provider: hcaptcha, turnstile, recaptcha.
+//	CAPTCHA_SITE_KEY   Public site key for frontend.
+//	CAPTCHA_SECRET_KEY Private secret key for backend verification.
+//	CAPTCHA_SCORE_THRESHOLD Score threshold for score-based providers (default: 0.5).
 func Load() (*Config, error) {
 	cfg := &Config{
-		Host:              "",
-		Port:              defaultPort,
-		Environment:       getEnv("APP_ENV", "local"),
-		LogLevel:          strings.ToLower(getEnv("LOG_LEVEL", "info")),
-		DatabaseURL:       getEnv("DATABASE_URL", "postgres://localhost:5432/somotracker?sslmode=disable"),
-		DBMaxConns:        10,
-		DBMaxConnLifetime: 30 * time.Minute,
-		DBMaxConnIdleTime: 5 * time.Minute,
-		RedisURL:          os.Getenv("REDIS_URL"),
-		StytchProjectID:   os.Getenv("STYTCH_PROJECT_ID"),
-		StytchSecret:      os.Getenv("STYTCH_SECRET"),
-		StytchEnv:         getEnv("STYTCH_ENV", "test"),
-		StytchRedirectURL: os.Getenv("STYTCH_REDIRECT_URL"),
-		BackendURL:        os.Getenv("BACKEND_URL"),
-		FrontendURL:       os.Getenv("FRONTEND_URL"),
-		AllowedOrigins:    os.Getenv("ALLOWED_ORIGINS"),
-		CookieDomain:      os.Getenv("COOKIE_DOMAIN"),
-		CookieSecret:      os.Getenv("COOKIE_SECRET"),
+		Host:                  "",
+		Port:                  defaultPort,
+		Environment:           getEnv("APP_ENV", "local"),
+		LogLevel:              strings.ToLower(getEnv("LOG_LEVEL", "info")),
+		DatabaseURL:           getEnv("DATABASE_URL", "postgres://localhost:5432/somotracker?sslmode=disable"),
+		DBMaxConns:            10,
+		DBMaxConnLifetime:     30 * time.Minute,
+		DBMaxConnIdleTime:     5 * time.Minute,
+		RedisURL:              os.Getenv("REDIS_URL"),
+		StytchProjectID:       os.Getenv("STYTCH_PROJECT_ID"),
+		StytchSecret:          os.Getenv("STYTCH_SECRET"),
+		StytchEnv:             getEnv("STYTCH_ENV", "test"),
+		StytchRedirectURL:     os.Getenv("STYTCH_REDIRECT_URL"),
+		BackendURL:            os.Getenv("BACKEND_URL"),
+		FrontendURL:           os.Getenv("FRONTEND_URL"),
+		AllowedOrigins:        os.Getenv("ALLOWED_ORIGINS"),
+		CookieDomain:          os.Getenv("COOKIE_DOMAIN"),
+		CookieSecret:          os.Getenv("COOKIE_SECRET"),
+		CAPTCHAEnabled:        getEnv("CAPTCHA_ENABLED", "false") == "true",
+		CAPTCHAProvider:       getEnv("CAPTCHA_PROVIDER", "turnstile"),
+		CAPTCHASiteKey:        os.Getenv("CAPTCHA_SITE_KEY"),
+		CAPTCHASecretKey:      os.Getenv("CAPTCHA_SECRET_KEY"),
+		CAPTCHAScoreThreshold: getEnvFloat("CAPTCHA_SCORE_THRESHOLD", 0.5),
 	}
 
 	if raw := os.Getenv("BACKEND_URL"); raw != "" {
@@ -279,6 +307,15 @@ func (c *Config) validate() error {
 	if c.StytchRedirectURL == "" {
 		return fmt.Errorf("config.Load: STYTCH_REDIRECT_URL is required")
 	}
+	// CAPTCHA validation (only if enabled)
+	if c.CAPTCHAEnabled {
+		if c.CAPTCHAProvider == "" {
+			return fmt.Errorf("config.Load: CAPTCHA_PROVIDER required when CAPTCHA_ENABLED=true")
+		}
+		if c.CAPTCHASecretKey == "" {
+			return fmt.Errorf("config.Load: CAPTCHA_SECRET_KEY required when CAPTCHA_ENABLED=true")
+		}
+	}
 	return nil
 }
 
@@ -303,6 +340,15 @@ func parseBackendURL(raw string) (host string, port int, err error) {
 func getEnv(key, fallback string) string {
 	if v, ok := os.LookupEnv(key); ok && v != "" {
 		return v
+	}
+	return fallback
+}
+
+func getEnvFloat(key string, fallback float64) float64 {
+	if v, ok := os.LookupEnv(key); ok && v != "" {
+		if f, err := strconv.ParseFloat(v, 64); err == nil {
+			return f
+		}
 	}
 	return fallback
 }

@@ -6,15 +6,22 @@ import (
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 
+	"somotracker/backend/internal/api/middleware/captcha"
 	"somotracker/backend/internal/api/middleware/csrf"
 	"somotracker/backend/internal/api/middleware/ipblacklist"
 	"somotracker/backend/internal/api/middleware/ratelimit"
 	"somotracker/backend/internal/api/middleware/session"
+	"somotracker/backend/internal/config"
 	"somotracker/backend/internal/services"
 )
 
-// authRate defines the per-client limit for magic-link initiation.
-var authRate = redis_rate.PerMinute(10)
+// Rate limit tiers for auth endpoints.
+// IP-based: first line of defense against distributed attacks.
+// Email-based: stricter limit to prevent email bombing/enumeration.
+var (
+	authRateIP    = redis_rate.PerMinute(10) // 10 req/min per IP
+	authRateEmail = redis_rate.PerHour(3)    // 3 req/hour per email
+)
 
 // Router wires all delivery-layer routes. It depends only on the service
 // interfaces (not concrete implementations), which makes it fully testable
@@ -24,6 +31,7 @@ type Router struct {
 	Tenant  *tenantHandler
 	Auth    *authHandler
 	limiter *redis_rate.Limiter
+	cfg     *config.Config
 }
 
 // NewRouter creates a Router from the injected services and the Redis
@@ -34,12 +42,14 @@ func NewRouter(
 	tenantSvc services.TenantService,
 	authSvc services.AuthService,
 	limiter *redis_rate.Limiter,
+	cfg *config.Config,
 ) *Router {
 	return &Router{
 		User:    newUserHandler(userSvc),
 		Tenant:  newTenantHandler(tenantSvc),
 		Auth:    newAuthHandler(authSvc),
 		limiter: limiter,
+		cfg:     cfg,
 	}
 }
 
@@ -50,16 +60,33 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 	// Uses fail-open behavior: Redis errors allow request through.
 	app.Use(ipblacklist.NewIPBlacklistMiddleware(redisClient, logger, ipblacklist.DefaultConfig()))
 
+	// CAPTCHA middleware for abuse-prone endpoints.
+	// Reads config to determine if enabled and which provider to use.
+	captchaMW := captcha.NewCaptchaMiddleware(captcha.Config{
+		Enabled:        r.cfg.CAPTCHAEnabled,
+		ProviderName:   r.cfg.CAPTCHAProvider,
+		SiteKey:        r.cfg.CAPTCHASiteKey,
+		SecretKey:      r.cfg.CAPTCHASecretKey,
+		ScoreThreshold: r.cfg.CAPTCHAScoreThreshold,
+	}, logger)
+
 	// ─── Public auth routes (no session, no CSRF) ──────────────────────
 	// These are registered directly on the app with full paths to avoid
 	// inheriting middleware from the protected group below.
+
+	// Magic-link send: dual rate limits (IP + email) + optional CAPTCHA
+	// IP limit: 10/min — catches distributed botnets
+	// Email limit: 3/hour — prevents email bombing/enumeration per address
+	// CAPTCHA: enabled via config (disabled by default for local dev)
 	app.Post("/api/auth/magic-link/send",
-		ratelimit.NewRateLimitMiddleware(r.limiter, authRate, "api:auth:magic-link"),
+		ratelimit.NewRateLimitMiddleware(r.limiter, authRateIP, "api:auth:magic-link:ip"),
+		ratelimit.NewRateLimitMiddleware(r.limiter, authRateEmail, "api:auth:magic-link:email"),
+		captchaMW,
 		r.Auth.sendMagicLink,
 	)
 
 	app.Get("/api/auth/callback",
-		ratelimit.NewRateLimitMiddleware(r.limiter, authRate, "api:auth:callback"),
+		ratelimit.NewRateLimitMiddleware(r.limiter, authRateIP, "api:auth:callback"),
 		r.Auth.callback,
 	)
 

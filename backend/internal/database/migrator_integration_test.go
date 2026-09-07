@@ -1306,3 +1306,179 @@ func TestMigrator_TimetableScheduling(t *testing.T) {
 
 	require.NoError(t, tx.Rollback())
 }
+
+// TestMigrator_AttendanceTracking verifies the attendance tracking migration
+// (000009). Tests: tables, enums, indexes, unique constraints, triggers,
+// and RLS policies.
+func TestMigrator_AttendanceTracking(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db := testdb.DB(t)
+
+	dsn := "postgres://somo_admin:somo_secure_password@127.0.0.1:5433/somotracker_test?sslmode=disable"
+	pool, err := pgxpool.New(ctx, dsn)
+	require.NoError(t, err)
+	t.Cleanup(pool.Close)
+
+	logger := zap.NewNop()
+	migrator, err := NewMigrator(pool, logger)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = migrator.Close() })
+
+	err = migrator.Up(ctx)
+	require.NoError(t, err, "migrator.Up should not fail")
+
+	// --- Tables exist ---
+	attendanceTables := []string{"timetable_attendance", "event_attendance"}
+	for _, table := range attendanceTables {
+		var exists bool
+		err = db.QueryRowContext(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM information_schema.tables
+				WHERE table_schema = 'public' AND table_name = $1
+			)
+		`, table).Scan(&exists)
+		require.NoError(t, err)
+		require.Truef(t, exists, "table %q should exist", table)
+	}
+
+	// --- Enums exist with correct values ---
+	var ttStatusValues []string
+	rows, err := db.QueryContext(ctx, `
+		SELECT enumlabel FROM pg_enum
+		WHERE enumtypid = 'timetable_attendance_status'::regtype
+		ORDER BY enumsortorder
+	`)
+	require.NoError(t, err)
+	for rows.Next() {
+		var val string
+		require.NoError(t, rows.Scan(&val))
+		ttStatusValues = append(ttStatusValues, val)
+	}
+	require.NoError(t, rows.Close())
+	require.Equal(t, []string{"PRESENT", "ABSENT", "LATE", "EXCUSED"}, ttStatusValues)
+
+	var evStatusValues []string
+	rows, err = db.QueryContext(ctx, `
+		SELECT enumlabel FROM pg_enum
+		WHERE enumtypid = 'event_attendance_status'::regtype
+		ORDER BY enumsortorder
+	`)
+	require.NoError(t, err)
+	for rows.Next() {
+		var val string
+		require.NoError(t, rows.Scan(&val))
+		evStatusValues = append(evStatusValues, val)
+	}
+	require.NoError(t, rows.Close())
+	require.Equal(t, []string{"PRESENT", "ABSENT", "EXCUSED"}, evStatusValues)
+
+	// --- Indexes exist ---
+	attendanceIndexes := []string{
+		"timetable_attendance_school_id_idx",
+		"timetable_attendance_student_id_idx",
+		"timetable_attendance_slot_id_idx",
+		"timetable_attendance_date_idx",
+		"timetable_attendance_recorded_by_idx",
+		"timetable_attendance_slot_date_idx",
+		"timetable_attendance_student_date_idx",
+		"event_attendance_school_id_idx",
+		"event_attendance_student_id_idx",
+		"event_attendance_event_id_idx",
+		"event_attendance_date_idx",
+		"event_attendance_student_event_idx",
+	}
+	for _, idx := range attendanceIndexes {
+		var exists bool
+		err = db.QueryRowContext(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM pg_indexes
+				WHERE schemaname = 'public' AND indexname = $1
+			)
+		`, idx).Scan(&exists)
+		require.NoError(t, err)
+		require.Truef(t, exists, "index %q should exist", idx)
+	}
+
+	// --- Unique constraints exist ---
+	uniqueConstraints := []struct {
+		table string
+		name  string
+	}{
+		{"timetable_attendance", "timetable_attendance_uniq_student_slot_date"},
+		{"event_attendance", "event_attendance_uniq_student_event_date"},
+	}
+	for _, uc := range uniqueConstraints {
+		var exists bool
+		err = db.QueryRowContext(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM information_schema.table_constraints
+				WHERE table_schema = 'public'
+				  AND table_name = $1
+				  AND constraint_name = $2
+				  AND constraint_type = 'UNIQUE'
+			)
+		`, uc.table, uc.name).Scan(&exists)
+		require.NoError(t, err)
+		require.Truef(t, exists, "unique constraint %q on %q should exist", uc.name, uc.table)
+	}
+
+	// --- updated_at triggers exist ---
+	for _, table := range attendanceTables {
+		var exists bool
+		err = db.QueryRowContext(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM information_schema.triggers
+				WHERE event_object_table = $1
+				  AND trigger_name = $2 || '_updated_at_trg'
+				  AND trigger_schema = 'public'
+			)
+		`, table, table).Scan(&exists)
+		require.NoError(t, err)
+		require.Truef(t, exists, "trigger %s_updated_at_trg should exist", table)
+	}
+
+	// --- RLS is enabled and FORCED on both attendance tables ---
+	for _, table := range attendanceTables {
+		var rlsEnabled, rlsForced bool
+		err = db.QueryRowContext(ctx, `
+			SELECT relrowsecurity, relforcerowsecurity
+			FROM pg_class
+			WHERE relname = $1
+			  AND relnamespace = 'public'::regnamespace
+		`, table).Scan(&rlsEnabled, &rlsForced)
+		require.NoError(t, err)
+		require.Truef(t, rlsEnabled, "RLS should be enabled on %s", table)
+		require.Truef(t, rlsForced, "RLS should be FORCED on %s", table)
+	}
+
+	// --- RLS policies exist and reference app.current_tenant_id ---
+	policies := []string{
+		"timetable_attendance_tenant_isolation",
+		"event_attendance_tenant_isolation",
+	}
+	for _, policyName := range policies {
+		tableName := strings.TrimSuffix(policyName, "_tenant_isolation")
+		var foundName string
+		err = db.QueryRowContext(ctx, `
+			SELECT policyname FROM pg_policies
+			WHERE schemaname = 'public' AND tablename = $1
+			  AND policyname = $2
+		`, tableName, policyName).Scan(&foundName)
+		require.NoError(t, err)
+		require.Equal(t, policyName, foundName, "policy %q should be installed", policyName)
+
+		var policyQual string
+		err = db.QueryRowContext(ctx, `
+			SELECT COALESCE(qual, '') FROM pg_policies
+			WHERE schemaname = 'public' AND tablename = $1
+			  AND policyname = $2
+		`, tableName, policyName).Scan(&policyQual)
+		require.NoError(t, err)
+		require.Contains(t, policyQual, "current_setting",
+			"policy %q qual should reference current_setting()", policyName)
+		require.Contains(t, policyQual, "app.current_tenant_id",
+			"policy %q qual should reference app.current_tenant_id", policyName)
+	}
+}

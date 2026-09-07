@@ -16,10 +16,8 @@ type Querier interface {
 	DeleteSession(ctx context.Context, token string) error
 	GetMemberByStytchMemberID(ctx context.Context, stytchMemberID string) (Member, error)
 	GetSessionByToken(ctx context.Context, token string) (Session, error)
-	GetTenantBySlug(ctx context.Context, slug string) (Tenant, error)
 	GetTenantByStytchOrgID(ctx context.Context, stytchOrgID string) (Tenant, error)
 	GetUserByEmail(ctx context.Context, arg GetUserByEmailParams) (User, error)
-	GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 	UpdateSessionLastSeen(ctx context.Context, id pgtype.UUID) error
 }
 

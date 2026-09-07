@@ -27,8 +27,6 @@ var (
 // interfaces (not concrete implementations), which makes it fully testable
 // with mock services.
 type Router struct {
-	User    *userHandler
-	Tenant  *tenantHandler
 	Auth    *authHandler
 	Me      *meHandler
 	limiter *redis_rate.Limiter
@@ -39,16 +37,12 @@ type Router struct {
 // rate-limiting limiter singleton. It also accepts a redis.Client for the
 // session middleware that protects authenticated routes.
 func NewRouter(
-	userSvc services.UserService,
-	tenantSvc services.TenantService,
 	authSvc services.AuthService,
 	meSvc services.MeService,
 	limiter *redis_rate.Limiter,
 	cfg *config.Config,
 ) *Router {
 	return &Router{
-		User:    newUserHandler(userSvc),
-		Tenant:  newTenantHandler(tenantSvc),
 		Auth:    newAuthHandler(authSvc),
 		Me:      newMeHandler(meSvc),
 		limiter: limiter,
@@ -106,8 +100,5 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 	// Protected resources — session middleware validates session cookie,
 	// injects user_id and tenant_id into c.Locals, and binds RLS context.
 	// CSRF middleware validates double-submit token on mutating requests.
-	protected.Get("/users/:id", r.User.getByID)
-	protected.Get("/users/email/:email", r.User.getByEmail)
-	protected.Get("/tenants/slug/:slug", r.Tenant.getBySlug)
 	protected.Get("/me", r.Me.getMe)
 }

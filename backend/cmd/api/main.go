@@ -38,8 +38,6 @@ func main() {
 		fx.Provide(newLogger),
 		fx.Provide(database.NewPool),
 		fx.Provide(newQuerier),
-		fx.Provide(services.NewTenantService),
-		fx.Provide(services.NewUserService),
 		fx.Provide(services.NewAuthService),
 		fx.Provide(services.NewMeService),
 		fx.Provide(api.NewRouter),

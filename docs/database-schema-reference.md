@@ -77,6 +77,10 @@ Mirrors Stytch's B2B Member model. Created and updated atomically with the `user
 
 - **`user_role`** — Role for `school_memberships`: `ADMIN`, `TEACHER`, `GUARDIAN`, `FINANCE`.
 - **`enrollment_status`** — Student enrollment lifecycle: `ACTIVE`, `PROMOTED`, `REPEATING`, `GRADUATED`.
+- **`substitution_status`** — Substitution lifecycle: `PENDING`, `ASSIGNED`, `COMPLETED`, `CANCELLED`.
+- **`room_type`** — Physical room category: `STANDARD`, `SCIENCE_LAB`, `COMPUTER_LAB`, `GYM`.
+- **`timetable_attendance_status`** — Attendance state for timetable-linked lessons: `PRESENT`, `ABSENT`, `LATE`, `EXCUSED`.
+- **`event_attendance_status`** — Attendance state for school-wide events: `PRESENT`, `ABSENT`, `EXCUSED`.
 
 ---
 
@@ -316,6 +320,146 @@ RLS is enabled and forced on this table. All row-level operations are gated by a
 
 ---
 
+## Timetable & Scheduling Layer
+
+### `timetable_templates`
+Parent container for a distinct bell schedule configuration per school. A school can define multiple schedule patterns (e.g. "Standard 6-Period Day", "Morning Shift 3-Lesson", "Half-Day Schedule").
+
+| Field                | Type       | Description                                                      |
+|----------------------|------------|------------------------------------------------------------------|
+| `id`                 | UUID (PK)  | Auto-generated primary key.                                      |
+| `school_id`          | UUID (FK)  | Foreign key to `schools(id)`. Cascades on school delete.         |
+| `name`               | VARCHAR(255) | Human-readable template name (e.g. "Standard 6-Period Day"). Unique per school. |
+| `description`        | TEXT       | Optional details about when or who uses this template.            |
+| `created_at`         | TIMESTAMPTZ| UTC timestamp of row creation.                                   |
+| `updated_at`         | TIMESTAMPTZ| UTC timestamp of last modification.                               |
+
+---
+
+### `time_slots`
+Individual periods or breaks belonging to a timetable template. Each slot represents a fixed time window (e.g. "Period 1" 08:00–08:40, "Morning Break" 10:00–10:15) and can be instructional (`is_instructional`) or a non-instructional break.
+
+| Field                | Type       | Description                                                      |
+|----------------------|------------|------------------------------------------------------------------|
+| `id`                 | UUID (PK)  | Auto-generated primary key.                                      |
+| `school_id`          | UUID (FK)  | Foreign key to `schools(id)`. Cascades on school delete.         |
+| `timetable_template_id` | UUID (FK) | Foreign key to `timetable_templates(id)`. Cascades on delete.    |
+| `name`               | VARCHAR(255) | Slot label (e.g. "Period 1", "Morning Break").                  |
+| `start_time`         | TIME       | Slot start time (e.g. 08:00:00).                                 |
+| `end_time`           | TIME       | Slot end time (e.g. 08:40:00). Must be after `start_time`.       |
+| `sequence_index`     | INTEGER    | Order of the slot within the template. Unique per template.      |
+| `is_instructional`   | BOOLEAN    | `TRUE` for instructional periods; `FALSE` for breaks/recess.     |
+| `created_at`         | TIMESTAMPTZ| UTC timestamp of row creation.                                   |
+| `updated_at`         | TIMESTAMPTZ| UTC timestamp of last modification.                               |
+
+---
+
+### `rooms`
+Physical facilities and campus locations to prevent room overbooking. Distinct from `class_rooms` (operational containers per year/stream) — a `room` is a concrete space (e.g. "Lab A", "Room 204", "Gymnasium").
+
+| Field                | Type       | Description                                                      |
+|----------------------|------------|------------------------------------------------------------------|
+| `id`                 | UUID (PK)  | Auto-generated primary key.                                      |
+| `school_id`          | UUID (FK)  | Foreign key to `schools(id)`. Cascades on school delete.         |
+| `name`               | VARCHAR(255) | Room identifier or name (e.g. "Lab A"). Unique per school.      |
+| `capacity`           | INTEGER    | Maximum student capacity the room can hold. Optional (nullable). |
+| `room_type`          | room_type  | Category: `STANDARD`, `SCIENCE_LAB`, `COMPUTER_LAB`, `GYM`.      |
+| `created_at`         | TIMESTAMPTZ| UTC timestamp of row creation.                                   |
+| `updated_at`         | TIMESTAMPTZ| UTC timestamp of last modification.                               |
+
+---
+
+### `class_timetable_slots`
+Maps a `class_room` to an academic term, assigning a subject, teacher (`school_membership`), and optional physical `room` to a `time_slot` for a specific day of the week. This is the master weekly recurring timetable.
+
+| Field                     | Type       | Description                                                      |
+|---------------------------|------------|------------------------------------------------------------------|
+| `id`                      | UUID (PK)  | Auto-generated primary key.                                      |
+| `school_id`               | UUID (FK)  | Foreign key to `schools(id)`. Cascades on school delete.         |
+| `class_room_id`           | UUID (FK)  | Foreign key to `class_rooms(id)`. Cascades on delete.             |
+| `academic_term_id`        | UUID (FK)  | Foreign key to `academic_terms(id)`. Cascades on delete.         |
+| `day_of_week`              | INTEGER    | Day index: `1` = Monday through `7` = Sunday.                    |
+| `time_slot_id`             | UUID (FK)  | Foreign key to `time_slots(id)`. Cascades on delete.             |
+| `subject_id`               | UUID (FK)  | Foreign key to `subjects(id)`. Cascades on delete.               |
+| `teacher_membership_id`    | UUID (FK)  | Foreign key to `school_memberships(id)`. The assigned teacher. Cascades on delete. |
+| `room_id`                  | UUID (FK)  | Foreign key to `rooms(id)`. Optional physical location. Cascades on delete (set NULL). |
+| `created_at`               | TIMESTAMPTZ| UTC timestamp of row creation.                                   |
+| `updated_at`               | TIMESTAMPTZ| UTC timestamp of last modification.                               |
+
+**Constraints / Indexes (from SQL):**
+- `UNIQUE (teacher_membership_id, academic_term_id, day_of_week, time_slot_id)` — a teacher cannot be double-booked in the same slot across classes in the same term (`class_timetable_slots_teacher_no_clash`).
+- `UNIQUE (class_room_id, academic_term_id, day_of_week, time_slot_id)` — a class room has at most one subject per time slot per day (`class_timetable_slots_class_day_time_uniq`).
+- RLS enabled and forced; tenant isolation via `schools.tenant_id`.
+
+---
+
+### `timetable_substitutions`
+Handles emergency or planned teacher absences on specific calendar dates without modifying the master weekly recurring timetable (`class_timetable_slots`). A substitution overrides a single timetable slot instance on a given date.
+
+| Field                        | Type              | Description                                                      |
+|------------------------------|-------------------|------------------------------------------------------------------|
+| `id`                         | UUID (PK)         | Auto-generated primary key.                                      |
+| `school_id`                  | UUID (FK)         | Foreign key to `schools(id)`. Cascades on school delete.         |
+| `class_timetable_slot_id`    | UUID (FK)         | Foreign key to `class_timetable_slots(id)`. The overridden slot. Cascades on delete. |
+| `substitution_date`           | DATE              | The precise calendar date of the absence/coverage.               |
+| `original_teacher_membership_id` | UUID (FK)     | The teacher who is away (`school_memberships.id`). Cascades on delete. |
+| `substitute_teacher_membership_id` | UUID (FK)  | The covering teacher. Optional (`NULL` if unassigned). Cascades on delete (set NULL). |
+| `status`                     | `substitution_status` | `PENDING`, `ASSIGNED`, `COMPLETED`, `CANCELLED`. Default `PENDING`. |
+| `reason`                     | TEXT              | Optional explanation (e.g. "Medical leave", "Training").          |
+| `created_at`                 | TIMESTAMPTZ       | UTC timestamp of row creation.                                   |
+| `updated_at`                 | TIMESTAMPTZ       | UTC timestamp of last modification.                               |
+
+**Constraints / Indexes (from SQL):**
+- `UNIQUE (class_timetable_slot_id, substitution_date)` — only one substitution per slot per date (`timetable_substitutions_slot_date_uniq`).
+- RLS enabled and forced; tenant isolation via `schools.tenant_id`.
+
+---
+
+## Attendance Tracking Layer
+
+### `timetable_attendance`
+Primary attendance tracking table linking to specific timetable slot instances on calendar dates. A subject teacher records presence (`PRESENT`, `ABSENT`, `LATE`, `EXCUSED`) for each student during an instructional period (`is_instructional = TRUE`).
+
+| Field                     | Type                  | Description                                                      |
+|---------------------------|-----------------------|------------------------------------------------------------------|
+| `id`                      | UUID (PK)             | Auto-generated primary key.                                      |
+| `school_id`               | UUID (FK)             | Foreign key to `schools(id)`. Cascades on school delete.         |
+| `student_id`              | UUID (FK)             | Foreign key to `students(student_id)`. Cascades on delete.      |
+| `class_timetable_slot_id` | UUID (FK)             | Foreign key to `class_timetable_slots(id)`. Cascades on delete.  |
+| `attendance_date`         | DATE                  | The calendar date of the lesson instance.                        |
+| `status`                  | `timetable_attendance_status` | `PRESENT`, `ABSENT`, `LATE`, `EXCUSED`.               |
+| `remarks`                 | TEXT                  | Optional notes (e.g. "Left early due to illness").             |
+| `recorded_by_membership_id` | UUID (FK)          | Foreign key to `school_memberships(id)`. The recording teacher. Cascades on delete. |
+| `created_at`              | TIMESTAMPTZ           | UTC timestamp of row creation.                                   |
+| `updated_at`              | TIMESTAMPTZ           | UTC timestamp of last modification.                               |
+
+**Constraints / Indexes (from SQL):**
+- `UNIQUE (student_id, class_timetable_slot_id, attendance_date)` — one attendance entry per student per slot per date (`timetable_attendance_uniq_student_slot_date`).
+- RLS enabled and forced; tenant isolation via `schools.tenant_id`.
+
+---
+
+### `event_attendance`
+Attendance tracking for special school-wide activities (sports days, symposia, admission days) where the regular timetable is suspended. Links to `school_events` rather than `class_timetable_slots`.
+
+| Field                | Type              | Description                                                      |
+|----------------------|-------------------|------------------------------------------------------------------|
+| `id`                 | UUID (PK)         | Auto-generated primary key.                                      |
+| `school_id`          | UUID (FK)         | Foreign key to `schools(id)`. Cascades on school delete.         |
+| `student_id`         | UUID (FK)         | Foreign key to `students(student_id)`. Cascades on delete.       |
+| `school_event_id`    | UUID (FK)         | Foreign key to `school_events(id)`. Cascades on delete.          |
+| `attendance_date`    | DATE              | The calendar date of the event.                                  |
+| `status`             | `event_attendance_status` | `PRESENT`, `ABSENT`, `EXCUSED`.                        |
+| `remarks`            | TEXT              | Optional details about event attendance.                          |
+| `created_at`         | TIMESTAMPTZ       | UTC timestamp of row creation.                                   |
+| `updated_at`         | TIMESTAMPTZ       | UTC timestamp of last modification.                               |
+
+**Constraints / Indexes (from SQL):**
+- `UNIQUE (student_id, school_event_id, attendance_date)` — one attendance entry per student per event per date (`event_attendance_uniq_student_event_date`).
+- RLS enabled and forced; tenant isolation via `schools.tenant_id`.
+
+---
+
 ## Summary of Relationships
 
 ```
@@ -332,8 +476,15 @@ schools               (FK tenant_id → tenants.id, FK country_id → countries.
   ├── academic_years  (FK school_id → schools.id)
   │     └── academic_terms (FK academic_year_id → academic_years.id)
   ├── school_events   (FK school_id → schools.id)
-  └── class_rooms     (FK school_id → schools.id, FK academic_year_id → academic_years.id, FK grade_level_id → grade_levels.id)
-        └── student_class_enrollments (FK class_room_id → class_rooms.id, FK student_id → students.student_id, FK academic_year_id → academic_years.id, FK academic_term_id → academic_terms.id, RLS-isolated)
+  │     └── event_attendance (FK school_event_id → school_events.id, FK student_id → students.student_id, RLS-isolated)
+  ├── class_rooms     (FK school_id → schools.id, FK academic_year_id → academic_years.id, FK grade_level_id → grade_levels.id)
+  │     └── student_class_enrollments (FK class_room_id → class_rooms.id, FK student_id → students.student_id, FK academic_year_id → academic_years.id, FK academic_term_id → academic_terms.id, RLS-isolated)
+  ├── timetable_templates (FK school_id → schools.id, RLS-isolated)
+  │     └── time_slots (FK timetable_template_id → timetable_templates.id, RLS-isolated)
+  ├── rooms          (FK school_id → schools.id, RLS-isolated)
+  └── class_timetable_slots (FK class_room_id → class_rooms.id, FK academic_term_id → academic_terms.id, FK time_slot_id → time_slots.id, FK subject_id → subjects.id, FK teacher_membership_id → school_memberships.id, FK room_id → rooms.id, RLS-isolated)
+        ├── timetable_attendance (FK class_timetable_slot_id → class_timetable_slots.id, FK student_id → students.student_id, RLS-isolated)
+        └── timetable_substitutions (FK class_timetable_slot_id → class_timetable_slots.id, FK original_teacher_membership_id → school_memberships.id, FK substitute_teacher_membership_id → school_memberships.id, RLS-isolated)
 
 countries
   ├── grade_levels    (FK country_id → countries.id, FK education_system_id → education_systems.id)
@@ -351,8 +502,8 @@ education_systems
 ## Cross-Cutting Conventions
 
 - **Primary keys** are auto-generated UUIDs via `gen_random_uuid()` (from the `pgcrypto` extension). Treat as opaque.
-- **Timestamps** are stored as `TIMESTAMPTZ` in UTC. All tables include `created_at` and (except `sessions`) `updated_at`. The `set_updated_at()` trigger maintains `updated_at` on row updates for all SIS, curriculum, calendar, and classroom tables.
+- **Timestamps** are stored as `TIMESTAMPTZ` in UTC. All tables include `created_at` and (except `sessions`) `updated_at`. The `set_updated_at()` trigger maintains `updated_at` on row updates for all SIS, curriculum, calendar, classroom, timetable, and attendance tables.
 - **Cascade behavior:** Foreign keys cascade on delete unless otherwise noted (e.g. `members` and `sessions` cascade from `users` and `tenants`).
-- **Multi-tenant isolation** is enforced via RLS on `users` and `student_class_enrollments`. All application transactions run inside `database.WithTenantTx`, which sets `app.current_tenant_id` via `SET LOCAL`. Raw queries outside a tenant-scoped transaction return zero rows (fail-closed).
+- **Multi-tenant isolation** is enforced via RLS on `users`, `student_class_enrollments`, `timetable_templates`, `time_slots`, `rooms`, `class_timetable_slots`, `timetable_attendance`, and `event_attendance`. All application transactions run inside `database.WithTenantTx`, which sets `app.current_tenant_id` via `SET LOCAL`. Raw queries outside a tenant-scoped transaction return zero rows (fail-closed).
 - **Unique constraints** typically combine the parent FK with a business identifier (e.g. `(school_id, admission_number)`, `(education_system_id, code)`, `(tenant_id, email)`) to enforce scoping without relying on global uniqueness.
 - **Soft-delete** is used only on `users.is_active`; other tables use hard deletes with cascading FKs.

@@ -152,11 +152,9 @@ func (h *authHandler) callback(c fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(fiber.Map{
-		"code":    "authenticated",
-		"message": "Authentication successful",
-		"errors":  fiber.Map{},
-	})
+	// Redirect to frontend dashboard after successful auth.
+	// The HttpOnly session cookie is already set; frontend validates via session endpoint.
+	return c.Redirect().Status(fiber.StatusFound).To("/")
 }
 
 // logout handles user logout by revoking the session.

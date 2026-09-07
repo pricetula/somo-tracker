@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
@@ -146,6 +147,15 @@ func (s *authService) AuthenticateCallback(ctx context.Context, token string, c 
 		return nil, fmt.Errorf("bad_request: missing token")
 	}
 
+	// Discovery flow: authenticate URL token → IST + discovered orgs
+	discResp, authErr := s.client.AuthenticateDiscovery(ctx, token)
+	if authErr != nil {
+		return nil, authErr
+	}
+	if discResp == nil {
+		return nil, fmt.Errorf("internal_error: empty discovery authenticate response")
+	}
+
 	type stytchAuthResult struct {
 		MemberID        string
 		MemberEmail     string
@@ -156,27 +166,69 @@ func (s *authService) AuthenticateCallback(ctx context.Context, token string, c 
 		StytchSessionID string
 		ExpiresAt       time.Time
 	}
+
 	var auth stytchAuthResult
 
-	authErr := s.client.ReadCall(func(ctx context.Context) error {
-		_ = ctx
+	if len(discResp.DiscoveredOrganizations) == 0 {
+		// New user / new org
+		ist := discResp.IntermediateSessionToken
+		if ist == "" {
+			return nil, fmt.Errorf("bad_request: intermediate session token missing after discovery")
+		}
+		// Derive basic org identifiers from email domain; backend can refine
+		slug := discResp.EmailAddress
+		if idx := strings.Index(discResp.EmailAddress, "@"); idx > 0 {
+			slug = discResp.EmailAddress[idx+1:]
+		}
+		name := slug
+		createResp, createErr := s.client.CreateDiscoveryOrganization(ctx, ist, name, slug)
+		if createErr != nil {
+			return nil, createErr
+		}
+		if createResp == nil {
+			return nil, fmt.Errorf("internal_error: empty organization create response")
+		}
+		if !createResp.MemberAuthenticated {
+			return nil, fmt.Errorf("bad_request: authentication incomplete, member must complete MFA (status: %d)", createResp.StatusCode)
+		}
 		auth = stytchAuthResult{
-			MemberID:        fmt.Sprintf("member-%s", token[:min(8, len(token))]),
-			MemberEmail:     "",
-			MemberName:      "",
-			OrgID:           fmt.Sprintf("org-%s", token[:min(8, len(token))]),
-			OrgSlug:         fmt.Sprintf("org-%s", token[:min(8, len(token))]),
-			OrgName:         "",
-			StytchSessionID: fmt.Sprintf("session-%s", token[:min(8, len(token))]),
+			MemberID:        createResp.MemberID,
+			MemberEmail:     discResp.EmailAddress,
+			MemberName:      createResp.Member.Name,
+			OrgID:           createResp.Organization.OrganizationID,
+			OrgSlug:         createResp.Organization.OrganizationSlug,
+			OrgName:         createResp.Organization.OrganizationName,
+			StytchSessionID: createResp.SessionToken,
 			ExpiresAt:       time.Now().Add(defaultSessionTTL),
 		}
-		return nil
-	})
-	if authErr != nil {
-		s.logger.Warn("auth: stytch token exchange failed",
-			zap.Error(authErr),
-		)
-		return nil, authErr
+	} else {
+		// Existing org — exchange IST for session using first discovered org
+		ist := discResp.IntermediateSessionToken
+		chosenOrg := discResp.DiscoveredOrganizations[0].Organization.OrganizationID
+		exchResp, exchErr := s.client.ExchangeWithOrg(ctx, ist, chosenOrg)
+		if exchErr != nil {
+			return nil, exchErr
+		}
+		if exchResp == nil {
+			return nil, fmt.Errorf("internal_error: empty exchange response from stytch")
+		}
+		if !exchResp.MemberAuthenticated {
+			return nil, fmt.Errorf("bad_request: authentication incomplete, member must complete MFA (status: %d)", exchResp.StatusCode)
+		}
+		auth = stytchAuthResult{
+			MemberID:        exchResp.MemberID,
+			MemberEmail:     discResp.EmailAddress,
+			MemberName:      exchResp.Member.Name,
+			OrgID:           exchResp.Organization.OrganizationID,
+			OrgSlug:         exchResp.Organization.OrganizationSlug,
+			OrgName:         exchResp.Organization.OrganizationName,
+			StytchSessionID: exchResp.SessionToken,
+			ExpiresAt:       time.Now().Add(defaultSessionTTL),
+		}
+	}
+
+	if auth.OrgID == "" || auth.StytchSessionID == "" || auth.MemberID == "" || auth.MemberEmail == "" {
+		return nil, fmt.Errorf("bad_request: incomplete stytch response (missing org/member/session)")
 	}
 
 	var tenantID, userID uuid.UUID
@@ -219,8 +271,8 @@ func (s *authService) AuthenticateCallback(ctx context.Context, token string, c 
 	if _, err := s.queries.CreateSession(ctx, sqlc.CreateSessionParams{
 		Token:           opaque,
 		StytchSessionID: auth.StytchSessionID,
-		UserID:          pgtype.UUID{Bytes: [16]byte(userID)},
-		TenantID:        pgtype.UUID{Bytes: [16]byte(tenantID)},
+		UserID:          pgtype.UUID{Bytes: [16]byte(userID), Valid: true},
+		TenantID:        pgtype.UUID{Bytes: [16]byte(tenantID), Valid: true},
 		ExpiresAt:       pgtype.Timestamptz{Time: expiresAt, Valid: true},
 	}); err != nil {
 		s.logger.Error("auth: failed to persist session row",
@@ -311,7 +363,7 @@ func (s *authService) upsertUser(ctx context.Context, tx pgx.Tx, tenantID uuid.U
 	if email == "" {
 		return sqlc.User{}, fmt.Errorf("email is required")
 	}
-	tenantPgUUID := pgtype.UUID{Bytes: [16]byte(tenantID)}
+	tenantPgUUID := pgtype.UUID{Bytes: [16]byte(tenantID), Valid: true}
 	q := s.queries.WithTx(tx)
 	existing, err := q.GetUserByEmail(ctx, sqlc.GetUserByEmailParams{
 		Email: email, TenantID: tenantPgUUID,
@@ -339,7 +391,7 @@ func insertUser(ctx context.Context, tx pgx.Tx, tenantID uuid.UUID, email, fullN
 	var u sqlc.User
 	if err := tx.QueryRow(ctx, q,
 		email,
-		pgtype.UUID{Bytes: [16]byte(tenantID)},
+		pgtype.UUID{Bytes: [16]byte(tenantID), Valid: true},
 		fullName,
 		stytchMemberID,
 	).Scan(
@@ -360,8 +412,8 @@ func (s *authService) upsertMember(ctx context.Context, tx pgx.Tx, stytchMemberI
 	}
 	_, insertErr := s.queries.WithTx(tx).CreateMember(ctx, sqlc.CreateMemberParams{
 		StytchMemberID: stytchMemberID,
-		UserID:         pgtype.UUID{Bytes: [16]byte(userID)},
-		TenantID:       pgtype.UUID{Bytes: [16]byte(tenantID)},
+		UserID:         pgtype.UUID{Bytes: [16]byte(userID), Valid: true},
+		TenantID:       pgtype.UUID{Bytes: [16]byte(tenantID), Valid: true},
 	})
 	return insertErr
 }

@@ -23,7 +23,10 @@ import (
 
 	"github.com/sony/gobreaker"
 	b2bstytchapi "github.com/stytchauth/stytch-go/v18/stytch/b2b/b2bstytchapi"
-	b2bdiscovery "github.com/stytchauth/stytch-go/v18/stytch/b2b/magiclinks/email/discovery"
+	b2bintermediatesessions "github.com/stytchauth/stytch-go/v18/stytch/b2b/discovery/intermediatesessions"
+	b2bdiscoveryorg "github.com/stytchauth/stytch-go/v18/stytch/b2b/discovery/organizations"
+	b2bdiscovery "github.com/stytchauth/stytch-go/v18/stytch/b2b/magiclinks/discovery"
+	b2bdiscoveryemail "github.com/stytchauth/stytch-go/v18/stytch/b2b/magiclinks/email/discovery"
 	stytchconfig "github.com/stytchauth/stytch-go/v18/stytch/config"
 	"github.com/stytchauth/stytch-go/v18/stytch/stytcherror"
 	"go.uber.org/fx"
@@ -135,7 +138,7 @@ func (c *Client) SanitizedError(err error) error {
 		return nil
 	}
 
-	var stErr *stytcherror.Error
+	var stErr stytcherror.Error
 	if errors.As(err, &stErr) {
 		c.logger.Warn("stytch: API error",
 			zap.Int("status_code", stErr.StatusCode),
@@ -259,7 +262,7 @@ func (c *Client) SendMagicLink(ctx context.Context, email string) error {
 		return fmt.Errorf("stytch.SendMagicLink: api is nil")
 	}
 	_, err := c.cb.Execute(func() (any, error) {
-		_, sdkErr := c.api.MagicLinks.Email.Discovery.Send(ctx, &b2bdiscovery.SendParams{
+		_, sdkErr := c.api.MagicLinks.Email.Discovery.Send(ctx, &b2bdiscoveryemail.SendParams{
 			EmailAddress: email,
 		})
 		return nil, sdkErr
@@ -268,6 +271,111 @@ func (c *Client) SendMagicLink(ctx context.Context, email string) error {
 		return c.SanitizedError(err)
 	}
 	return nil
+}
+
+// Exchange validates an Intermediate Session Token (IST) with Stytch B2B
+// and exchanges it for a full Member Session / organization details.
+// Uses ReadCall (idempotent verification with retries + breaker).
+func (c *Client) Exchange(ctx context.Context, intermediateToken string) (*b2bintermediatesessions.ExchangeResponse, error) {
+	if c.api == nil {
+		return nil, fmt.Errorf("stytch.Exchange: api is nil")
+	}
+	if intermediateToken == "" {
+		return nil, fmt.Errorf("bad_request: intermediate session token is required")
+	}
+	var resp *b2bintermediatesessions.ExchangeResponse
+	err := c.ReadCall(func(ctx context.Context) error {
+		var opErr error
+		resp, opErr = c.api.Discovery.IntermediateSessions.Exchange(ctx, &b2bintermediatesessions.ExchangeParams{
+			IntermediateSessionToken: intermediateToken,
+		})
+		return opErr
+	})
+	if err != nil {
+		return nil, err
+	}
+	if resp == nil {
+		return nil, fmt.Errorf("internal_error: empty exchange response")
+	}
+	return resp, nil
+}
+
+// AuthenticateDiscovery validates the discovery magic-link token and
+// returns the Intermediate Session Token + discovered orgs.
+func (c *Client) AuthenticateDiscovery(ctx context.Context, token string) (*b2bdiscovery.AuthenticateResponse, error) {
+	if c.api == nil {
+		return nil, fmt.Errorf("stytch.AuthenticateDiscovery: api is nil")
+	}
+	if token == "" {
+		return nil, fmt.Errorf("bad_request: discovery token is required")
+	}
+	var resp *b2bdiscovery.AuthenticateResponse
+	err := c.ReadCall(func(ctx context.Context) error {
+		var opErr error
+		resp, opErr = c.api.MagicLinks.Discovery.Authenticate(ctx, &b2bdiscovery.AuthenticateParams{
+			DiscoveryMagicLinksToken: token,
+		})
+		return opErr
+	})
+	if err != nil {
+		return nil, err
+	}
+	if resp == nil {
+		return nil, fmt.Errorf("internal_error: empty discovery authenticate response")
+	}
+	return resp, nil
+}
+
+// CreateDiscoveryOrganization creates a new org from an IST (new user flow).
+func (c *Client) CreateDiscoveryOrganization(ctx context.Context, ist string, name, slug string) (*b2bdiscoveryorg.CreateResponse, error) {
+	if c.api == nil {
+		return nil, fmt.Errorf("stytch.CreateDiscoveryOrganization: api is nil")
+	}
+	if ist == "" {
+		return nil, fmt.Errorf("bad_request: intermediate session token is required")
+	}
+	var resp *b2bdiscoveryorg.CreateResponse
+	err := c.ReadCall(func(ctx context.Context) error {
+		var opErr error
+		resp, opErr = c.api.Discovery.Organizations.Create(ctx, &b2bdiscoveryorg.CreateParams{
+			IntermediateSessionToken: ist,
+			OrganizationName:         name,
+			OrganizationSlug:         slug,
+		})
+		return opErr
+	})
+	if err != nil {
+		return nil, err
+	}
+	if resp == nil {
+		return nil, fmt.Errorf("internal_error: empty organization create response")
+	}
+	return resp, nil
+}
+
+func (c *Client) ExchangeWithOrg(ctx context.Context, intermediateToken, orgID string) (*b2bintermediatesessions.ExchangeResponse, error) {
+	if c.api == nil {
+		return nil, fmt.Errorf("stytch.ExchangeWithOrg: api is nil")
+	}
+	if intermediateToken == "" {
+		return nil, fmt.Errorf("bad_request: intermediate session token is required")
+	}
+	var resp *b2bintermediatesessions.ExchangeResponse
+	err := c.ReadCall(func(ctx context.Context) error {
+		var opErr error
+		resp, opErr = c.api.Discovery.IntermediateSessions.Exchange(ctx, &b2bintermediatesessions.ExchangeParams{
+			IntermediateSessionToken: intermediateToken,
+			OrganizationID:           orgID,
+		})
+		return opErr
+	})
+	if err != nil {
+		return nil, err
+	}
+	if resp == nil {
+		return nil, fmt.Errorf("internal_error: empty exchange response")
+	}
+	return resp, nil
 }
 
 // WriteCall executes through the circuit breaker WITHOUT retries. Non-

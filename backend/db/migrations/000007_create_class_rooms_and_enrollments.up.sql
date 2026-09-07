@@ -59,9 +59,9 @@ CREATE INDEX class_rooms_name_idx ON class_rooms (name);
 -- Constraint: class_rooms_school_year_grade_stream_uniq ensures a school
 -- cannot have duplicate class_rooms for the same year/grade/stream combination.
 -- Stream may be NULL (e.g., "Class 1" without a stream), so we use
--- NULLIF(stream, '') for the constraint to treat NULL streams as equal.
-ALTER TABLE class_rooms ADD CONSTRAINT class_rooms_school_year_grade_stream_uniq
-    UNIQUE (school_id, academic_year_id, grade_level_id, NULLIF(stream, ''));
+-- NULLIF(stream, '') in a unique index to treat NULL streams as equal.
+CREATE UNIQUE INDEX class_rooms_school_year_grade_stream_uniq
+    ON class_rooms (school_id, academic_year_id, grade_level_id, NULLIF(stream, ''));
 
 -- ============================================================================
 -- Section 3: student_class_enrollments
@@ -109,6 +109,18 @@ CREATE INDEX student_class_enrollments_academic_term_id_idx ON student_class_enr
 
 -- Index: student_class_enrollments_status_idx supports status filtering.
 CREATE INDEX student_class_enrollments_status_idx ON student_class_enrollments (status);
+
+-- Constraint: student_class_enrollments_student_year_uniq ensures a student
+-- cannot be enrolled in multiple class_rooms within the same academic year.
+ALTER TABLE student_class_enrollments ADD CONSTRAINT student_class_enrollments_student_year_uniq
+    UNIQUE (student_id, academic_year_id);
+
+-- Constraint: student_class_enrollments_student_term_uniq ensures a student
+-- cannot be enrolled in multiple class_rooms within the same academic term.
+-- Only applies when academic_term_id is not NULL.
+CREATE UNIQUE INDEX student_class_enrollments_student_term_uniq
+    ON student_class_enrollments (student_id, academic_term_id)
+    WHERE academic_term_id IS NOT NULL;
 
 
 

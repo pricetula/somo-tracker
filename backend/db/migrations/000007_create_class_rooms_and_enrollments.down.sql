@@ -32,9 +32,9 @@ DROP INDEX IF EXISTS class_rooms_grade_level_id_idx;
 DROP INDEX IF EXISTS class_rooms_name_idx;
 
 -- ============================================================================
--- Section 4: Drop unique constraint on class_rooms
+-- Section 4: Drop unique index on class_rooms
 -- ============================================================================
-ALTER TABLE class_rooms DROP CONSTRAINT IF EXISTS class_rooms_school_year_grade_stream_uniq;
+DROP INDEX IF EXISTS class_rooms_school_year_grade_stream_uniq;
 
 -- ============================================================================
 -- Section 5: Drop indexes on student_class_enrollments
@@ -45,6 +45,12 @@ DROP INDEX IF EXISTS student_class_enrollments_class_room_id_idx;
 DROP INDEX IF EXISTS student_class_enrollments_academic_year_id_idx;
 DROP INDEX IF EXISTS student_class_enrollments_academic_term_id_idx;
 DROP INDEX IF EXISTS student_class_enrollments_status_idx;
+DROP INDEX IF EXISTS student_class_enrollments_student_term_uniq;
+
+-- ============================================================================
+-- Section 5b: Drop unique constraints on student_class_enrollments
+-- ============================================================================
+ALTER TABLE student_class_enrollments DROP CONSTRAINT IF EXISTS student_class_enrollments_student_year_uniq;
 
 -- ============================================================================
 -- Section 6: Drop tables

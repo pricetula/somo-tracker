@@ -17,6 +17,15 @@ func newMeHandler(svc services.MeService) *meHandler {
 	return &meHandler{svc: svc}
 }
 
+// getMe returns the current authenticated user's profile.
+//
+// @Summary Get current user
+// @Tags User
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{}
+// @Failure 401 {object} map[string]interface{}
+// @Router /api/me [get]
 func (h *meHandler) getMe(c fiber.Ctx) error {
 	// Extract the session token from the HTTP-only cookie.
 	token := c.Cookies("session_token")

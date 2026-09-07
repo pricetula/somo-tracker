@@ -292,7 +292,7 @@ COMMENT ON COLUMN school_memberships.id IS 'Auto-generated UUID primary key.';
 COMMENT ON COLUMN school_memberships.school_id IS 'FK to schools(id). Cascades on school delete.';
 COMMENT ON COLUMN school_memberships.user_id IS 'FK to users(id). Cascades on user delete.';
 COMMENT ON COLUMN school_memberships.role IS 'Role within the school (user_role enum).';
-COMMENT ON COLUMN school_memberships.is_active IS 'Whether this membership is the user\'s currently active school. Enforced by partial unique index: only one active per user.';
+COMMENT ON COLUMN school_memberships.is_active IS 'Whether this membership is the user''s currently active school. Enforced by partial unique index: only one active per user.';
 COMMENT ON COLUMN school_memberships.created_at IS 'UTC timestamp of row creation.';
 COMMENT ON COLUMN school_memberships.updated_at IS 'UTC timestamp of last modification.';
 

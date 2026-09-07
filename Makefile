@@ -144,7 +144,7 @@ setup-hooks:
 # ─── Database migrations (golang-migrate) ───────────────────────────────────
 
 MIGRATE_DIR := backend/db/migrations
-MIGRATE_URL := $(DATABASE_URL)
+MIGRATE_URL := postgres://somo_admin:somo_secure_password@somotracker_postgres:5432/somotracker_dev?sslmode=disable
 
 migrated:  ## Apply pending migrations against the dev/postgres database
 	migrate -database "$(MIGRATE_URL)" -path $(MIGRATE_DIR) up

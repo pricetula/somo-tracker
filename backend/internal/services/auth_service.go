@@ -30,7 +30,7 @@ type AuthService interface {
 	// It always returns a sanitized neutral success (200) even on failure
 	// to prevent user enumeration. The underlying Stytch call is protected
 	// by the circuit breaker and writes are never retried.
-	SendMagicLink(ctx context.Context, email string, orgIDOrSlug string) error
+	SendMagicLink(ctx context.Context, email string) error
 
 	// AuthenticateCallback validates a magic-link token with Stytch B2B,
 	// atomically provisions / updates local DB records inside a pgx.Tx,
@@ -80,7 +80,7 @@ func NewAuthService(
 
 const defaultSessionTTL = 7 * 24 * time.Hour
 
-func (s *authService) SendMagicLink(ctx context.Context, email string, orgIDOrSlug string) error {
+func (s *authService) SendMagicLink(ctx context.Context, email string) error {
 	if s.client == nil {
 		return fmt.Errorf("auth.SendMagicLink: stytch client is nil")
 	}
@@ -92,9 +92,7 @@ func (s *authService) SendMagicLink(ctx context.Context, email string, orgIDOrSl
 		zap.String("email", email),
 	)
 
-	sendErr := s.client.WriteCall(func(ctx context.Context) error {
-		return nil
-	})
+	sendErr := s.client.SendMagicLink(ctx, email)
 	if sendErr != nil {
 		s.logger.Warn("auth: magic link send failed (suppressed from client)",
 			zap.String("email", email),

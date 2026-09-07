@@ -208,7 +208,7 @@ func Load() (*Config, error) {
 		CAPTCHASecretKey:      os.Getenv("CAPTCHA_SECRET_KEY"),
 		CAPTCHAScoreThreshold: getEnvFloat("CAPTCHA_SCORE_THRESHOLD", 0.5),
 	}
-
+	fmt.Println(cfg.DatabaseURL)
 	if raw := os.Getenv("BACKEND_URL"); raw != "" {
 		host, port, err := parseBackendURL(raw)
 		if err != nil {
@@ -301,9 +301,9 @@ func (c *Config) validate() error {
 	if c.CookieSecret == "" {
 		return fmt.Errorf("config.Load: COOKIE_SECRET is required")
 	}
-	if c.CookieDomain == "" {
-		return fmt.Errorf("config.Load: COOKIE_DOMAIN is required")
-	}
+	// if c.CookieDomain == "" {
+	// 	return fmt.Errorf("config.Load: COOKIE_DOMAIN is required")
+	// }
 	if c.StytchRedirectURL == "" {
 		return fmt.Errorf("config.Load: STYTCH_REDIRECT_URL is required")
 	}

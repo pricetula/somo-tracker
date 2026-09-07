@@ -21,6 +21,15 @@ func newAuthHandler(svc services.AuthService) *authHandler {
 
 // sendMagicLink initiates a magic-link email for the provided address.
 //
+// @Summary Send magic-link email
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param email formData string true "User email"
+// @Param org_id query string false "Organization ID or slug"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/auth/magic-link/send [post]
+//
 // Request body (JSON):
 //
 //	{ "email": "user@example.com" }
@@ -45,18 +54,7 @@ func (h *authHandler) sendMagicLink(c fiber.Ctx) error {
 		})
 	}
 
-	// Accept optional discovery context (org slug / existing org id) from JSON or query.
-	orgIDOrSlug := strings.TrimSpace(c.Query("org_id"))
-	if orgIDOrSlug == "" {
-		var body struct {
-			OrgIDOrSlug string `json:"org_id"`
-		}
-		if err := c.Bind().Body(&body); err == nil {
-			orgIDOrSlug = strings.TrimSpace(body.OrgIDOrSlug)
-		}
-	}
-
-	if err := h.svc.SendMagicLink(c.Context(), email, orgIDOrSlug); err != nil {
+	if err := h.svc.SendMagicLink(c.Context(), email); err != nil {
 		return mapAuthError(c, err)
 	}
 
@@ -100,6 +98,15 @@ func mapAuthError(c fiber.Ctx, err error) error {
 }
 
 // callback handles the Stytch magic-link redirect.
+//
+// @Summary Authenticate magic-link token
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param token query string true "Magic-link token"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/auth/callback [get]
+//
 // Stytch redirects the user's browser to this URL with the magic-link token
 // in the query string. Rate limiting is applied by the route group
 // (see RegisterRoutes).
@@ -153,6 +160,14 @@ func (h *authHandler) callback(c fiber.Ctx) error {
 }
 
 // logout handles user logout by revoking the session.
+//
+// @Summary Logout and revoke session
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{}
+// @Router /api/auth/logout [post]
+//
 // It requires a valid session cookie and returns a sanitized response.
 func (h *authHandler) logout(c fiber.Ctx) error {
 	// Extract the session token from the cookie.

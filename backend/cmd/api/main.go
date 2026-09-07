@@ -1,3 +1,11 @@
+// @title Somotracker API
+// @version 1.0.0
+// @description Backend REST API for Somotracker educational dashboard
+// @termsOfService http://somotracker.local/terms
+// @contact.name Platform team
+// @license.name MIT
+// @host localhost:8080
+// @BasePath /api
 package main
 
 import (

@@ -32,12 +32,11 @@ type mockAuthService struct {
 }
 
 type sendMagicLinkCall struct {
-	email       string
-	orgIDOrSlug string
+	email string
 }
 
-func (m *mockAuthService) SendMagicLink(_ context.Context, email, orgIDOrSlug string) error {
-	m.sendCalls = append(m.sendCalls, sendMagicLinkCall{email: email, orgIDOrSlug: orgIDOrSlug})
+func (m *mockAuthService) SendMagicLink(_ context.Context, email string) error {
+	m.sendCalls = append(m.sendCalls, sendMagicLinkCall{email: email})
 	return m.sendErr
 }
 
@@ -86,7 +85,7 @@ type httpRequest struct {
 // readJSON decodes the response body into a map.
 func readJSON(t *testing.T, resp *http.Response) map[string]any {
 	t.Helper()
-	defer resp.Body.Close()
+	defer suppressBodyClose(resp.Body)
 	var got map[string]any
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&got))
 	return got
@@ -124,7 +123,7 @@ func TestSendMagicLink_HappyPath_Returns200(t *testing.T) {
 		path:   "/api/auth/magic-link/send",
 		body:   body,
 	})
-	defer resp.Body.Close()
+	defer suppressBodyClose(resp.Body)
 
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 	require.Len(t, mock.sendCalls, 1, "service should be called exactly once")
@@ -141,7 +140,7 @@ func TestSendMagicLink_MissingEmail_Returns400(t *testing.T) {
 		path:   "/api/auth/magic-link/send",
 		body:   body,
 	})
-	defer resp.Body.Close()
+	defer suppressBodyClose(resp.Body)
 
 	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
 	assert.Empty(t, mock.sendCalls, "service must not be called when email is missing")
@@ -157,7 +156,7 @@ func TestSendMagicLink_AcceptsFormEncodedEmail(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	resp, err := app.Test(req)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer suppressBodyClose(resp.Body)
 
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 	require.Len(t, mock.sendCalls, 1)
@@ -174,14 +173,14 @@ func TestSendMagicLink_ServiceError_Returns500WithoutLeakage(t *testing.T) {
 		path:   "/api/auth/magic-link/send",
 		body:   body,
 	})
-	defer resp.Body.Close()
+	defer suppressBodyClose(resp.Body)
 
 	assert.Equal(t, fiber.StatusInternalServerError, resp.StatusCode)
 	assert.Equal(t, "internal_error", readJSONField(t, resp, "code"),
 		"service errors must not leak their internal type to clients")
 }
 
-func TestSendMagicLink_OrgIDOrSlug_PassesThroughToService(t *testing.T) {
+func TestSendMagicLink_PassesEmailToService(t *testing.T) {
 	mock := &mockAuthService{}
 	app := newTestRouter(mock)
 
@@ -191,11 +190,11 @@ func TestSendMagicLink_OrgIDOrSlug_PassesThroughToService(t *testing.T) {
 		path:   "/api/auth/magic-link/send",
 		body:   body,
 	})
-	defer resp.Body.Close()
+	defer suppressBodyClose(resp.Body)
 
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 	require.Len(t, mock.sendCalls, 1)
-	assert.Equal(t, "acme-university", mock.sendCalls[0].orgIDOrSlug)
+	assert.Equal(t, "alice@example.com", mock.sendCalls[0].email)
 }
 
 // =============================================================================
@@ -217,7 +216,7 @@ func TestCallback_HappyPath_SetsSessionCookieAndReturns200(t *testing.T) {
 
 	resp, err := app.Test(httptest.NewRequest("GET", "/api/auth/callback?token=valid-token", nil))
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer suppressBodyClose(resp.Body)
 
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 	assert.Equal(t, "authenticated", readJSONField(t, resp, "code"))
@@ -233,7 +232,7 @@ func TestCallback_MissingToken_Returns400(t *testing.T) {
 
 	resp, err := app.Test(httptest.NewRequest("GET", "/api/auth/callback", nil))
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer suppressBodyClose(resp.Body)
 
 	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
 	assert.Equal(t, "missing_token", readJSONField(t, resp, "code"))
@@ -246,7 +245,7 @@ func TestCallback_WhitespaceToken_Returns400(t *testing.T) {
 
 	resp, err := app.Test(httptest.NewRequest("GET", "/api/auth/callback?token=%20%20", nil))
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer suppressBodyClose(resp.Body)
 
 	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
 	assert.Empty(t, mock.authenticateCalls)
@@ -260,7 +259,7 @@ func TestCallback_ServiceBadRequest_Returns400(t *testing.T) {
 
 	resp, err := app.Test(httptest.NewRequest("GET", "/api/auth/callback?token=bogus", nil))
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer suppressBodyClose(resp.Body)
 
 	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
 	assert.Equal(t, "invalid_request", readJSONField(t, resp, "code"))
@@ -274,7 +273,7 @@ func TestCallback_ServiceUnauthorized_Returns401(t *testing.T) {
 
 	resp, err := app.Test(httptest.NewRequest("GET", "/api/auth/callback?token=expired", nil))
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer suppressBodyClose(resp.Body)
 
 	assert.Equal(t, fiber.StatusUnauthorized, resp.StatusCode)
 	assert.Equal(t, "unauthorized", readJSONField(t, resp, "code"))
@@ -288,7 +287,7 @@ func TestCallback_ServiceTooManyRequests_Returns429(t *testing.T) {
 
 	resp, err := app.Test(httptest.NewRequest("GET", "/api/auth/callback?token=spam", nil))
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer suppressBodyClose(resp.Body)
 
 	assert.Equal(t, fiber.StatusTooManyRequests, resp.StatusCode)
 	assert.Equal(t, "rate_limit_exceeded", readJSONField(t, resp, "code"))
@@ -302,7 +301,7 @@ func TestCallback_ServiceInternalError_Returns500WithoutLeakage(t *testing.T) {
 
 	resp, err := app.Test(httptest.NewRequest("GET", "/api/auth/callback?token=any", nil))
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer suppressBodyClose(resp.Body)
 
 	assert.Equal(t, fiber.StatusInternalServerError, resp.StatusCode)
 	assert.Equal(t, "internal_error", readJSONField(t, resp, "code"),
@@ -318,7 +317,7 @@ func TestCallback_RouteIsRegisteredGETOnly(t *testing.T) {
 	body := bytes.NewReader([]byte(`{"token":"valid-token"}`))
 	resp, err := app.Test(httptest.NewRequest("POST", "/api/auth/callback", body))
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer suppressBodyClose(resp.Body)
 
 	assert.Equal(t, fiber.StatusMethodNotAllowed, resp.StatusCode,
 		"POST /api/auth/callback must not be routed; the route is GET-only")
@@ -342,7 +341,7 @@ func TestCallback_RateLimitMiddlewareAttached(t *testing.T) {
 
 	resp, err := app.Test(httptest.NewRequest("GET", "/api/auth/callback?token=ok", nil))
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer suppressBodyClose(resp.Body)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode,
 		"callback route must be reachable through the rate-limit middleware chain")
 }

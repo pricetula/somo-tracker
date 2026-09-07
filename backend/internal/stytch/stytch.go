@@ -23,6 +23,7 @@ import (
 
 	"github.com/sony/gobreaker"
 	b2bstytchapi "github.com/stytchauth/stytch-go/v18/stytch/b2b/b2bstytchapi"
+	b2bdiscovery "github.com/stytchauth/stytch-go/v18/stytch/b2b/magiclinks/email/discovery"
 	stytchconfig "github.com/stytchauth/stytch-go/v18/stytch/config"
 	"github.com/stytchauth/stytch-go/v18/stytch/stytcherror"
 	"go.uber.org/fx"
@@ -160,7 +161,7 @@ func (c *Client) SanitizedError(err error) error {
 		// Rate-limit patterns.
 		case stErr.StatusCode == 429 || strings.Contains(string(stErr.ErrorType), "rate_limit") ||
 			strings.Contains(string(stErr.ErrorMessage), "rate"):
-			return fmt.Errorf("too_many_requests: too many requests, please wait a few minutes before trying again")
+			return fmt.Errorf("too_many_requests: Too many requests, please wait a few minutes before trying again")
 
 		default:
 			c.logger.Error("stytch: unexpected API error",
@@ -244,6 +245,24 @@ func isRetryable(err error) bool {
 func (c *Client) ReadCall(op func(context.Context) error) error {
 	_, err := c.cb.Execute(func() (any, error) {
 		return nil, c.RetryWithBackoff(context.Background(), op)
+	})
+	if err != nil {
+		return c.SanitizedError(err)
+	}
+	return nil
+}
+
+// SendMagicLink sends a B2B email magic link via Stytch (non-idempotent write,
+// protected by circuit breaker, never retried). Errors are sanitized.
+func (c *Client) SendMagicLink(ctx context.Context, email string) error {
+	if c.api == nil {
+		return fmt.Errorf("stytch.SendMagicLink: api is nil")
+	}
+	_, err := c.cb.Execute(func() (any, error) {
+		_, sdkErr := c.api.MagicLinks.Email.Discovery.Send(ctx, &b2bdiscovery.SendParams{
+			EmailAddress: email,
+		})
+		return nil, sdkErr
 	})
 	if err != nil {
 		return c.SanitizedError(err)

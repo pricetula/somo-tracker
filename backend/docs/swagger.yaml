@@ -1,0 +1,94 @@
+basePath: /api
+host: localhost:8080
+info:
+  contact:
+    name: Platform team
+  description: Backend REST API for Somotracker educational dashboard
+  license:
+    name: MIT
+  termsOfService: http://somotracker.local/terms
+  title: Somotracker API
+  version: 1.0.0
+paths:
+  /api/auth/callback:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: Magic-link token
+        in: query
+        name: token
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Authenticate magic-link token
+      tags:
+      - Auth
+  /api/auth/logout:
+    post:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Logout and revoke session
+      tags:
+      - Auth
+  /api/auth/magic-link/send:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: User email
+        in: formData
+        name: email
+        required: true
+        type: string
+      - description: Organization ID or slug
+        in: query
+        name: org_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Send magic-link email
+      tags:
+      - Auth
+  /api/me:
+    get:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get current user
+      tags:
+      - User
+swagger: "2.0"

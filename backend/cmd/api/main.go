@@ -58,6 +58,7 @@ func main() {
 		somoredis.Module,
 		ratelimit.Module,
 		stytch.Module,
+		fx.Provide(func(c *stytch.Client) services.StytchClient { return c }),
 		fx.Invoke(registerHooks),
 	)
 

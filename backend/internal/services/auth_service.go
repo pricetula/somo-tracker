@@ -19,13 +19,23 @@ import (
 	"somotracker/backend/internal/database"
 	"somotracker/backend/internal/database/sqlc"
 	"somotracker/backend/internal/session"
-	"somotracker/backend/internal/stytch"
+
+	b2bintermediatesessions "github.com/stytchauth/stytch-go/v18/stytch/b2b/discovery/intermediatesessions"
+	b2bdiscoveryorg "github.com/stytchauth/stytch-go/v18/stytch/b2b/discovery/organizations"
+	b2bdiscovery "github.com/stytchauth/stytch-go/v18/stytch/b2b/magiclinks/discovery"
 )
 
 // AuthService describes the authentication orchestration layer.
 // It wraps the Stytch B2B SDK for magic-link flows, handles atomic
 // database provisioning inside pgx.Tx, and manages secure session
 // caching in Redis.
+type StytchClient interface {
+	SendMagicLink(ctx context.Context, email string) error
+	AuthenticateDiscovery(ctx context.Context, token string) (*b2bdiscovery.AuthenticateResponse, error)
+	CreateDiscoveryOrganization(ctx context.Context, ist string, name, slug string) (*b2bdiscoveryorg.CreateResponse, error)
+	ExchangeWithOrg(ctx context.Context, intermediateToken, orgID string) (*b2bintermediatesessions.ExchangeResponse, error)
+}
+
 type AuthService interface {
 	// SendMagicLink initiates a Stytch B2B magic-link email.
 	// It always returns a sanitized neutral success (200) even on failure
@@ -55,7 +65,7 @@ type SessionResult struct {
 }
 
 type authService struct {
-	client  *stytch.Client
+	client  StytchClient
 	pool    *pgxpool.Pool
 	queries *sqlc.Queries
 	session *session.Store
@@ -63,7 +73,7 @@ type authService struct {
 }
 
 func NewAuthService(
-	client *stytch.Client,
+	client StytchClient,
 	pool *pgxpool.Pool,
 	queries *sqlc.Queries,
 	redisClient *go_redis.Client,

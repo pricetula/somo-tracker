@@ -7,16 +7,18 @@ import (
 	"github.com/gofiber/fiber/v3"
 
 	"somotracker/backend/internal/api/middleware/csrf"
+	"somotracker/backend/internal/config"
 	"somotracker/backend/internal/services"
 )
 
 // authHandler responds to /api/auth/*.
 type authHandler struct {
 	svc services.AuthService
+	cfg *config.Config
 }
 
-func newAuthHandler(svc services.AuthService) *authHandler {
-	return &authHandler{svc: svc}
+func newAuthHandler(svc services.AuthService, cfg *config.Config) *authHandler {
+	return &authHandler{svc: svc, cfg: cfg}
 }
 
 // sendMagicLink initiates a magic-link email for the provided address.
@@ -154,7 +156,13 @@ func (h *authHandler) callback(c fiber.Ctx) error {
 
 	// Redirect to frontend dashboard after successful auth.
 	// The HttpOnly session cookie is already set; frontend validates via session endpoint.
-	return c.Redirect().Status(fiber.StatusFound).To("/")
+	redirectURL := h.cfg.FrontendURL
+	if redirectURL == "" {
+		redirectURL = "http://localhost:3000/"
+	} else if redirectURL[len(redirectURL)-1:] != "/" {
+		redirectURL += "/"
+	}
+	return c.Redirect().Status(fiber.StatusFound).To(redirectURL)
 }
 
 // logout handles user logout by revoking the session.

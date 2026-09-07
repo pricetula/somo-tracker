@@ -218,8 +218,7 @@ func TestCallback_HappyPath_SetsSessionCookieAndReturns200(t *testing.T) {
 	require.NoError(t, err)
 	defer suppressBodyClose(resp.Body)
 
-	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
-	assert.Equal(t, "authenticated", readJSONField(t, resp, "code"))
+	assert.Equal(t, fiber.StatusFound, resp.StatusCode)
 	assert.Equal(t, "opaque-abc123", readCookie(t, resp, "session_token"),
 		"session_token cookie must be set from the service result")
 	require.Len(t, mock.authenticateCalls, 1)
@@ -342,7 +341,7 @@ func TestCallback_RateLimitMiddlewareAttached(t *testing.T) {
 	resp, err := app.Test(httptest.NewRequest("GET", "/api/auth/callback?token=ok", nil))
 	require.NoError(t, err)
 	defer suppressBodyClose(resp.Body)
-	assert.Equal(t, fiber.StatusOK, resp.StatusCode,
+	assert.Equal(t, fiber.StatusFound, resp.StatusCode,
 		"callback route must be reachable through the rate-limit middleware chain")
 }
 

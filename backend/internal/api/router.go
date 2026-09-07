@@ -43,7 +43,7 @@ func NewRouter(
 	cfg *config.Config,
 ) *Router {
 	return &Router{
-		Auth:    newAuthHandler(authSvc),
+		Auth:    newAuthHandler(authSvc, cfg),
 		Me:      newMeHandler(meSvc),
 		limiter: limiter,
 		cfg:     cfg,

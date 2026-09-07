@@ -16,3 +16,6 @@
 
 /** Name of the HttpOnly session cookie set by the Go backend. */
 export const SESSION_COOKIE_NAME = "session_token";
+
+/** Name of the CSRF cookie set by the Go backend. */
+export const CSRF_COOKIE_NAME = "csrf_token";

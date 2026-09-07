@@ -6,7 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { logout } from "@/lib/api/auth";
-import { SESSION_COOKIE_NAME } from "@/lib/auth";
+import { SESSION_COOKIE_NAME, CSRF_COOKIE_NAME } from "@/lib/auth";
 import { getErrorMessage } from "@/lib/errors";
 
 export default function LogoutPage() {
@@ -17,18 +17,21 @@ export default function LogoutPage() {
         async function doLogout() {
             try {
                 await logout();
+                // Explicitly expire both cookies locally in case the backend
+                // response cookies don't apply correctly.
+                document.cookie = `${SESSION_COOKIE_NAME}=; path=/; max-age=0; Secure; SameSite=Lax`;
+                document.cookie = `${CSRF_COOKIE_NAME}=; path=/; max-age=0; Secure; SameSite=Lax`;
                 queryClient.clear();
                 toast.success("Logged out");
             } catch (err) {
                 // Session may already be expired or backend unreachable —
                 // still redirect to /login. When the API call fails (network
                 // error, backend down), cookies are NOT cleared server-side,
-                // so we clear the session cookie here to prevent the proxy
+                // so we clear both cookies here to prevent the proxy
                 // middleware from seeing stale cookies.
                 console.warn("logout: session deletion failed", getErrorMessage(err));
-                // Clear the session cookie locally (HttpOnly means we can't read it,
-                // but we can expire it by setting max-age=0)
-                document.cookie = `${SESSION_COOKIE_NAME}=; path=/; max-age=0`;
+                document.cookie = `${SESSION_COOKIE_NAME}=; path=/; max-age=0; Secure; SameSite=Lax`;
+                document.cookie = `${CSRF_COOKIE_NAME}=; path=/; max-age=0; Secure; SameSite=Lax`;
             } finally {
                 router.replace("/login");
             }

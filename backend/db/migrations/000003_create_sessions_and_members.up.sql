@@ -48,6 +48,7 @@ CREATE TABLE sessions (
 );
 
 -- Index: sessions_token covers the primary lookup path (cookie value → session row).
+-- Verified/indexed for fast cookie-to-session lookup on GET /me.
 CREATE INDEX sessions_token_idx ON sessions (token);
 
 -- Index: sessions_stytch_session_id enables global Stytch revocation (e.g. logout-all).

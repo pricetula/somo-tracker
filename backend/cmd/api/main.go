@@ -41,6 +41,7 @@ func main() {
 		fx.Provide(services.NewTenantService),
 		fx.Provide(services.NewUserService),
 		fx.Provide(services.NewAuthService),
+		fx.Provide(services.NewMeService),
 		fx.Provide(api.NewRouter),
 		fx.Provide(observability.NewTracerProvider),
 		fx.Provide(observability.NewMeterProvider),

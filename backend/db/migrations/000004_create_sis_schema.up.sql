@@ -138,6 +138,7 @@ CREATE TABLE school_memberships (
 -- Index: school_memberships_school_id_idx supports school-scoped member listings.
 CREATE INDEX school_memberships_school_id_idx ON school_memberships (school_id);
 -- Index: school_memberships_user_id_idx supports user→school reverse lookups.
+-- Added/verified for high-performance GET /me query joins (unique constraint leads with school_id).
 CREATE INDEX school_memberships_user_id_idx ON school_memberships (user_id);
 -- Index: school_memberships_role_idx supports role-based filtering.
 CREATE INDEX school_memberships_role_idx ON school_memberships (role);

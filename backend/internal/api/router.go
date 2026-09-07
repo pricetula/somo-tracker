@@ -30,6 +30,7 @@ type Router struct {
 	User    *userHandler
 	Tenant  *tenantHandler
 	Auth    *authHandler
+	Me      *meHandler
 	limiter *redis_rate.Limiter
 	cfg     *config.Config
 }
@@ -41,6 +42,7 @@ func NewRouter(
 	userSvc services.UserService,
 	tenantSvc services.TenantService,
 	authSvc services.AuthService,
+	meSvc services.MeService,
 	limiter *redis_rate.Limiter,
 	cfg *config.Config,
 ) *Router {
@@ -48,6 +50,7 @@ func NewRouter(
 		User:    newUserHandler(userSvc),
 		Tenant:  newTenantHandler(tenantSvc),
 		Auth:    newAuthHandler(authSvc),
+		Me:      newMeHandler(meSvc),
 		limiter: limiter,
 		cfg:     cfg,
 	}
@@ -106,4 +109,5 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 	protected.Get("/users/:id", r.User.getByID)
 	protected.Get("/users/email/:email", r.User.getByEmail)
 	protected.Get("/tenants/slug/:slug", r.Tenant.getBySlug)
+	protected.Get("/me", r.Me.getMe)
 }

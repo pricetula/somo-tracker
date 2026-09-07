@@ -128,6 +128,7 @@ CREATE TABLE school_memberships (
     user_id     UUID        NOT NULL    REFERENCES users(id)
                                        ON DELETE CASCADE,
     role        user_role   NOT NULL,
+    is_active   BOOLEAN     NOT NULL    DEFAULT FALSE,
     created_at  TIMESTAMPTZ  NOT NULL    DEFAULT NOW(),
     updated_at  TIMESTAMPTZ  NOT NULL    DEFAULT NOW(),
 
@@ -140,6 +141,8 @@ CREATE INDEX school_memberships_school_id_idx ON school_memberships (school_id);
 CREATE INDEX school_memberships_user_id_idx ON school_memberships (user_id);
 -- Index: school_memberships_role_idx supports role-based filtering.
 CREATE INDEX school_memberships_role_idx ON school_memberships (role);
+-- Partial unique index: at most one active membership per user.
+CREATE UNIQUE INDEX school_memberships_active_user_uniq_idx ON school_memberships (user_id) WHERE is_active = true;
 
 -- ============================================================================
 -- Section 6: students
@@ -283,11 +286,12 @@ COMMENT ON COLUMN schools.education_system_id IS 'FK to education_systems(id). C
 COMMENT ON COLUMN schools.created_at IS 'UTC timestamp of row creation.';
 COMMENT ON COLUMN schools.updated_at IS 'UTC timestamp of last modification.';
 
-COMMENT ON TABLE school_memberships IS 'Links a user to a school with a role. A user has at most one membership per school.';
+COMMENT ON TABLE school_memberships IS 'Links a user to a school with a role. A user has at most one membership per school, and at most one active membership across all schools.';
 COMMENT ON COLUMN school_memberships.id IS 'Auto-generated UUID primary key.';
 COMMENT ON COLUMN school_memberships.school_id IS 'FK to schools(id). Cascades on school delete.';
 COMMENT ON COLUMN school_memberships.user_id IS 'FK to users(id). Cascades on user delete.';
 COMMENT ON COLUMN school_memberships.role IS 'Role within the school (user_role enum).';
+COMMENT ON COLUMN school_memberships.is_active IS 'Whether this membership is the user\'s currently active school. Enforced by partial unique index: only one active per user.';
 COMMENT ON COLUMN school_memberships.created_at IS 'UTC timestamp of row creation.';
 COMMENT ON COLUMN school_memberships.updated_at IS 'UTC timestamp of last modification.';
 

@@ -159,8 +159,14 @@ migrate-verify:  ## Force version check / status
 	migrate -database "$(MIGRATE_URL)" -path $(MIGRATE_DIR) version
 
 prometheus:
-    docker run -d \
-    --name prometheus \
-    -p 9090:9090 \
-    -v $(pwd)/prometheus.yml:/etc/prometheus/prometheus.yml \
-    prom/prometheus
+	docker run -d \
+		--name prometheus \
+		-p 9090:9090 \
+		-v $$(pwd)/prometheus.yml:/etc/prometheus/prometheus.yml \
+		prom/prometheus
+
+prometheus-stop:
+	docker rm -f prometheus
+
+prometheus-logs:
+	docker logs -f prometheus

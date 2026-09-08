@@ -5,14 +5,13 @@ import React from "react";
 import { DashboardAuthLayout } from "../dashboard-auth-layout";
 
 // Mock Next.js server APIs
-const mockRedirect = vi.fn();
 const mockCookies = vi.fn();
 
 vi.mock("next/navigation", async () => {
     const actual = await vi.importActual("next/navigation");
     return {
         ...actual,
-        redirect: (...args: unknown[]) => {
+        redirect: () => {
             const error = new Error("NEXT_REDIRECT");
             (error as Error & { digest?: string }).digest = "redirect";
             throw error;
@@ -53,8 +52,8 @@ describe("DashboardAuthLayout", () => {
     it("redirects to /logout when session_token cookie is missing", async () => {
         mockCookies.mockReturnValue(undefined);
 
-        const { container } = render(
-            React.createElement(DashboardAuthLayout, {}, React.createElement("div", {}, "Test"))
+        render(
+            React.createElement(DashboardAuthLayout, null, React.createElement("div", {}, "Test"))
         );
 
         // redirect should be called (it throws internally in Next.js)
@@ -72,8 +71,8 @@ describe("DashboardAuthLayout", () => {
             json: () => Promise.resolve(mockMeData),
         } as Response);
 
-        const { container } = render(
-            React.createElement(DashboardAuthLayout, {}, React.createElement("div", {}, "Test"))
+        render(
+            React.createElement(DashboardAuthLayout, null, React.createElement("div", {}, "Test"))
         );
 
         // Restore fetch
@@ -91,7 +90,7 @@ describe("DashboardAuthLayout", () => {
         } as Response);
 
         render(
-            React.createElement(DashboardAuthLayout, {}, React.createElement("div", {}, "Test"))
+            React.createElement(DashboardAuthLayout, null, React.createElement("div", {}, "Test"))
         );
 
         global.fetch = originalFetch;
@@ -113,7 +112,7 @@ describe("DashboardAuthLayout", () => {
         } as Response);
 
         render(
-            React.createElement(DashboardAuthLayout, {}, React.createElement("div", {}, "Test"))
+            React.createElement(DashboardAuthLayout, null, React.createElement("div", {}, "Test"))
         );
 
         global.fetch = originalFetch;

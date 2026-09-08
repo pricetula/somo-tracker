@@ -100,11 +100,12 @@ Reference table of countries supported by the SIS. Country codes follow ISO 3166
 | `updated_at`    | TIMESTAMPTZ| UTC timestamp of last modification.                |
 
 #### `education_systems`
-Reference table of education systems (e.g. Competency-Based Education / CBE).
+Reference table of education systems (e.g. Competency-Based Education / CBE). Scoped to a country.
 
 | Field           | Type       | Description                                        |
 |-----------------|------------|----------------------------------------------------|
 | `id`            | UUID (PK)  | Auto-generated primary key.                        |
+| `country_id`    | UUID (FK)  | Foreign key to `countries(id)`. Cascades on delete. |
 | `system_name`   | VARCHAR    | Human-readable system name.                        |
 | `description`   | TEXT       | Optional free-text description of the system.      |
 | `created_at`    | TIMESTAMPTZ| UTC timestamp of row creation.                     |
@@ -150,6 +151,7 @@ Links a user to a school with a role. A user may have at most one membership rec
 | `school_id` | UUID (FK)  | Foreign key to `schools(id)`. Cascades on school delete.        |
 | `user_id`   | UUID (FK)  | Foreign key to `users(id)`. Cascades on user delete.           |
 | `role`      | user_role  | Role within the school: `ADMIN`, `TEACHER`, `GUARDIAN`, `FINANCE`. |
+| `is_active` | BOOLEAN    | Soft-disable flag. Defaults to `FALSE`.                        |
 | `created_at`| TIMESTAMPTZ| UTC timestamp of row creation.                                  |
 | `updated_at`| TIMESTAMPTZ| UTC timestamp of last modification.                             |
 
@@ -252,16 +254,17 @@ Academic terms (semester, quarter, term 1/2/3) scoped to an academic year. Each 
 | `updated_at`       | TIMESTAMPTZ| UTC timestamp of last modification.                              |
 
 #### `public_holidays`
-Public holidays declared at the country level. These are fixed-date holidays that apply nationwide (e.g. Madaraka Day, Jamhuri Day, Labour Day).
+Public holidays declared at the country level. These apply nationwide (e.g. Madaraka Day, Jamhuri Day, Labour Day). Stored as `month`/`day` to handle recurring annual holidays.
 
 | Field        | Type       | Description                                                      |
 |--------------|------------|------------------------------------------------------------------|
 | `id`         | UUID (PK)  | Auto-generated primary key.                                      |
 | `country_id` | UUID (FK)  | Foreign key to `countries(id)`. Cascades on country delete.       |
 | `name`       | VARCHAR    | Holiday name (e.g. "Madaraka Day", "Labour Day").               |
-| `date`       | DATE       | The calendar date of the holiday.                                |
-| `created_at` | TIMESTAMPTZ| UTC timestamp of row creation.                                   |
-| `updated_at` | TIMESTAMPTZ| UTC timestamp of last modification.                              |
+| `month`       | SMALLINT   | Month of the holiday (1–12).                             |
+| `day`         | SMALLINT   | Day of the month (1–31).                                |
+| `created_at`  | TIMESTAMPTZ| UTC timestamp of row creation.                          |
+| `updated_at`  | TIMESTAMPTZ| UTC timestamp of last modification.                     |
 
 #### `school_events`
 School-specific events such as sports days, admission days, exams, etc. Events may span multiple days and may optionally require student attendance tracking.

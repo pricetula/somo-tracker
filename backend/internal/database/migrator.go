@@ -46,8 +46,9 @@ const (
 // It is constructed by [NewMigrator] and should only be used within the Fx
 // OnStart hook; it is not safe for concurrent use across goroutines.
 type Migrator struct {
-	m   *migrate.Migrate
-	log *zap.Logger
+	m     *migrate.Migrate
+	sqlDB *sql.DB
+	log   *zap.Logger
 }
 
 // NewMigrator builds a *Migrator backed by the shared pgx pool and the
@@ -121,7 +122,7 @@ func NewMigrator(pool *pgxpool.Pool, log *zap.Logger) (*Migrator, error) {
 	// noise goes to the same destination as the rest of the service.
 	m.Log = &migrateZapAdapter{log: log}
 
-	return &Migrator{m: m, log: log}, nil
+	return &Migrator{m: m, sqlDB: sqlDB, log: log}, nil
 }
 
 // Up runs all pending "up" migrations. It is designed to be called from a
@@ -151,14 +152,19 @@ func (m *Migrator) Up(ctx context.Context) error {
 		m.log.Info("database schema is up to date",
 			zap.Uint("current_version", v),
 		)
-		return nil
+	} else {
+		v, dirty, _ := m.m.Version()
+		m.log.Info("database migrations applied successfully",
+			zap.Uint("version", v),
+			zap.Bool("dirty", dirty),
+		)
 	}
 
-	v, dirty, _ := m.m.Version()
-	m.log.Info("database migrations applied successfully",
-		zap.Uint("version", v),
-		zap.Bool("dirty", dirty),
-	)
+	// Seed reference data after migrations finish (applied or already current).
+	if seedErr := m.seed(ctx); seedErr != nil {
+		return fmt.Errorf("database.Migrator.Up: seed after migration failed: %w", seedErr)
+	}
+
 	return nil
 }
 
@@ -232,4 +238,90 @@ func (a *migrateZapAdapter) Printf(format string, v ...any) {
 
 func (a *migrateZapAdapter) Verbose() bool {
 	return false
+}
+
+func (m *Migrator) seed(ctx context.Context) error {
+	// 1. Countries — insert if empty.
+	var countryCount int
+	if err := m.sqlDB.QueryRowContext(ctx, "SELECT COUNT(*) FROM countries").Scan(&countryCount); err != nil {
+		return fmt.Errorf("database.Migrator.seed: check countries: %w", err)
+	}
+	if countryCount == 0 {
+		_, err := m.sqlDB.ExecContext(ctx, `
+			INSERT INTO countries (country_name, country_code) VALUES
+			('Kenya', 'KE'),
+			('Tanzania', 'TZ'),
+			('Uganda', 'UG'),
+			('Rwanda', 'RW')
+		`)
+		if err != nil {
+			return fmt.Errorf("database.Migrator.seed: insert countries: %w", err)
+		}
+	}
+
+	// 2. Education systems — insert CBE for Kenya if empty.
+	var eduCount int
+	if err := m.sqlDB.QueryRowContext(ctx, "SELECT COUNT(*) FROM education_systems").Scan(&eduCount); err != nil {
+		return fmt.Errorf("database.Migrator.seed: check education_systems: %w", err)
+	}
+	if eduCount == 0 {
+		_, err := m.sqlDB.ExecContext(ctx, `
+			INSERT INTO education_systems (system_name, description) VALUES
+			('Competency-Based Education / CBE', 'Kenya CBE system')
+		`)
+		if err != nil {
+			return fmt.Errorf("database.Migrator.seed: insert education_systems: %w", err)
+		}
+	}
+
+	// 3. Grade levels — insert for CBE if empty.
+	var gradeCount int
+	if err := m.sqlDB.QueryRowContext(ctx, "SELECT COUNT(*) FROM grade_levels").Scan(&gradeCount); err != nil {
+		return fmt.Errorf("database.Migrator.seed: check grade_levels: %w", err)
+	}
+	if gradeCount == 0 {
+		var cbeID string
+		var kenyaID string
+		if err := m.sqlDB.QueryRowContext(ctx, `
+			SELECT id FROM education_systems WHERE system_name = 'Competency-Based Education / CBE'
+		`).Scan(&cbeID); err != nil {
+			return fmt.Errorf("database.Migrator.seed: lookup CBE for grade levels: %w", err)
+		}
+		if err := m.sqlDB.QueryRowContext(ctx, "SELECT id FROM countries WHERE country_code = 'KE'").Scan(&kenyaID); err != nil {
+			return fmt.Errorf("database.Migrator.seed: lookup Kenya for grade levels: %w", err)
+		}
+
+		grades := []struct {
+			label    string
+			stage    string
+			sequence int
+		}{
+			{"PP1", "pre_primary", 1},
+			{"PP2", "pre_primary", 2},
+			{"Grade 1", "primary", 3},
+			{"Grade 2", "primary", 4},
+			{"Grade 3", "primary", 5},
+			{"Grade 4", "primary", 6},
+			{"Grade 5", "primary", 7},
+			{"Grade 6", "primary", 8},
+			{"Grade 7", "lower_secondary", 9},
+			{"Grade 8", "lower_secondary", 10},
+			{"Grade 9", "lower_secondary", 11},
+			{"Grade 10", "upper_secondary", 12},
+			{"Grade 11", "upper_secondary", 13},
+			{"Grade 12", "upper_secondary", 14},
+		}
+
+		for _, g := range grades {
+			_, err := m.sqlDB.ExecContext(ctx, `
+				INSERT INTO grade_levels (education_system_id, country_id, tier_stage, local_label, sequence_index)
+				VALUES ($1, $2, $3, $4, $5)
+			`, cbeID, kenyaID, g.stage, g.label, g.sequence)
+			if err != nil {
+				return fmt.Errorf("database.Migrator.seed: insert grade_level %s: %w", g.label, err)
+			}
+		}
+	}
+
+	return nil
 }

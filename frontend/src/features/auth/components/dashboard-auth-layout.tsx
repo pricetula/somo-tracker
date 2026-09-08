@@ -1,33 +1,30 @@
-"use client";
-
-import { useQuery } from "@tanstack/react-query";
-import { api } from "@/lib/api/client";
-import type { MeResult } from "@/features/auth/lib/types";
 import type { ReactNode } from "react";
+import { redirect } from "next/navigation";
+import { serverApi } from "@/lib/api/server";
+import type { MeResult } from "@/features/auth/lib/types";
 
-export function DashboardAuthLayout({ children }: { children: ReactNode }) {
-    const {
-        data: me,
-        isLoading,
-        isError,
-    } = useQuery<MeResult, Error>({
-        queryKey: ["me"],
-        queryFn: async () => {
-            const res = await api.get<MeResult>("/api/me");
-            return res;
-        },
-        staleTime: 60_000,
-        retry: 1,
-        refetchOnWindowFocus: false,
-    });
+interface CustomError {
+    status: number;
+    code: string;
+    errors: object;
+    name: string;
+}
 
-    if (isLoading) {
-        return <div>Loading session…</div>;
+export async function DashboardAuthLayout({ children }: { children: ReactNode }) {
+    let me: MeResult | null = null;
+
+    try {
+        me = await serverApi.get<MeResult>("/api/me");
+    } catch (e) {
+        const err = e as CustomError;
+        if (err && err.status && err.status === 401) {
+            // return redirect("/login");
+        }
     }
 
-    if (isError || !me) {
-        return <div>Authentication error.</div>;
-    }
+    if (!me) return redirect("/logout");
+
+    if (!me.active_school_id) return redirect("/register");
 
     // Auth guard: active school context
     // if (!me.active_school_id || !me.active_school_role) {

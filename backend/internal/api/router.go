@@ -87,15 +87,15 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 		r.Auth.callback,
 	)
 
+	// Logout - requires session + CSRF (mutating request)
+	app.Post("/api/auth/logout", ratelimit.NewRateLimitMiddleware(r.limiter, authRateIP, "api:auth:callback"), r.Auth.logout)
+
 	// ─── Protected routes (session + CSRF) ─────────────────────────────
 	// All routes under /api except the public auth endpoints above.
 	protected := app.Group("/api",
 		session.NewSessionMiddleware(redisClient, logger),
 		csrf.NewCSRFMiddleware(),
 	)
-
-	// Logout - requires session + CSRF (mutating request)
-	protected.Post("/auth/logout", r.Auth.logout)
 
 	// Protected resources — session middleware validates session cookie,
 	// injects user_id and tenant_id into c.Locals, and binds RLS context.

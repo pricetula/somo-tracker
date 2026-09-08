@@ -29,7 +29,6 @@ export default function LogoutPage() {
                 // error, backend down), cookies are NOT cleared server-side,
                 // so we clear both cookies here to prevent the proxy
                 // middleware from seeing stale cookies.
-                console.warn("logout: session deletion failed", getErrorMessage(err));
                 document.cookie = `${SESSION_COOKIE_NAME}=; path=/; max-age=0; Secure; SameSite=Lax`;
                 document.cookie = `${CSRF_COOKIE_NAME}=; path=/; max-age=0; Secure; SameSite=Lax`;
             } finally {

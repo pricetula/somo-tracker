@@ -96,11 +96,19 @@ export class ApiError extends Error {
 
 // ─── Request options ──────────────────────────────────────────────────────
 
+function getCsrfToken(): string | null {
+    if (!isBrowser()) return null;
+    const match = document.cookie.match(/(?:^|;)\s*csrf_token=([^;]+)/);
+    return match ? decodeURIComponent(match[1]) : null;
+}
+
 export interface RequestOptions {
     skipGlobal401Handler?: boolean;
     headers?: Record<string, string>;
     /** Server-only: raw Cookie header to forward (e.g. from next/headers or req.headers.cookie). */
     cookieHeader?: string;
+    /** Server-only: CSRF token value to send as X-CSRF-Token header. */
+    csrfHeader?: string;
 }
 
 // ─── Correlation id ────────────────────────────────────────────────────────
@@ -155,8 +163,25 @@ async function request<T>(
         headers["Content-Type"] = "application/json";
     }
 
-    // No CSRF token — backend uses SameSite=Lax cookie + fingerprint validation instead
-    // of double-submit pattern.
+    // Server-only: forward an explicit Cookie header if the caller supplied one
+    // (e.g. via next/headers on App Router, or req.headers.cookie on Pages
+    // Router). Never applied in the browser — the browser already attaches
+    // cookies itself via credentials: "include".
+    if (!isBrowser() && options?.cookieHeader) {
+        headers["Cookie"] = options.cookieHeader;
+    }
+
+    // Client-side: include CSRF token for mutating requests per backend csrf middleware.
+    if (isBrowser()) {
+        const csrf = getCsrfToken();
+        if (csrf) headers["X-CSRF-Token"] = csrf;
+    }
+
+    // Server-only: include CSRF token header if caller provided it (e.g. via serverApi).
+    if (!isBrowser() && options?.csrfHeader) {
+        headers["X-CSRF-Token"] = options.csrfHeader;
+    }
+
     const res = await fetch(url, {
         method,
         headers,

@@ -43,17 +43,25 @@ CREATE INDEX countries_created_at_idx ON countries (created_at DESC);
 -- ============================================================================
 
 -- Reference table of education systems (e.g., Competency-Based Education / CBE).
+-- Each education system belongs to exactly one country.
 CREATE TABLE education_systems (
     id            UUID        NOT NULL    DEFAULT gen_random_uuid()
                                        PRIMARY KEY,
+    country_id    UUID        NOT NULL    REFERENCES countries(id)
+                                       ON DELETE CASCADE,
     system_name   VARCHAR(255) NOT NULL,
     description   TEXT,
     created_at    TIMESTAMPTZ  NOT NULL    DEFAULT NOW(),
     updated_at    TIMESTAMPTZ  NOT NULL    DEFAULT NOW()
 );
 
+-- Index: education_systems_country_id_idx supports country-scoped lookups.
+CREATE INDEX education_systems_country_id_idx ON education_systems (country_id);
 -- Index: education_systems_system_name_idx covers lookups by system name.
 CREATE INDEX education_systems_system_name_idx ON education_systems (system_name);
+-- Composite unique: a country cannot have duplicate system names.
+ALTER TABLE education_systems ADD CONSTRAINT education_systems_country_name_uniq
+    UNIQUE (country_id, system_name);
 
 -- ============================================================================
 -- Section 3: grade_levels
@@ -261,8 +269,9 @@ COMMENT ON COLUMN countries.country_code IS 'ISO 3166-1 alpha-2 code (e.g. KE). 
 COMMENT ON COLUMN countries.created_at IS 'UTC timestamp of row creation.';
 COMMENT ON COLUMN countries.updated_at IS 'UTC timestamp of last modification.';
 
-COMMENT ON TABLE education_systems IS 'Reference table of education systems (e.g. Competency-Based Education / CBE).';
+COMMENT ON TABLE education_systems IS 'Reference table of education systems (e.g. Competency-Based Education / CBE). Each system belongs to one country.';
 COMMENT ON COLUMN education_systems.id IS 'Auto-generated UUID primary key.';
+COMMENT ON COLUMN education_systems.country_id IS 'FK to countries(id). The country this education system belongs to. Cascades on country delete.';
 COMMENT ON COLUMN education_systems.system_name IS 'Human-readable system name (e.g. Competency-Based Education / CBE).';
 COMMENT ON COLUMN education_systems.description IS 'Optional free-text description of the education system.';
 COMMENT ON COLUMN education_systems.created_at IS 'UTC timestamp of row creation.';

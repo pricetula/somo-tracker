@@ -27,7 +27,38 @@
  * Backend counterpart: internal/middleware/errors.go
  */
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
+// ─── Environment detection ────────────────────────────────────────────────
+
+/**
+ * Determines if code is running in a browser context.
+ * Works in RSC, Server Actions, Route Handlers, Middleware, and Client Components.
+ */
+function isBrowser(): boolean {
+    return typeof window !== "undefined";
+}
+
+/**
+ * Gets the API base URL for the current execution context.
+ *
+ * - Server (RSC, Server Actions, Route Handlers, Middleware): Uses `API_URL` env var
+ *   (e.g., `http://somotracker_api:3030` in Docker, `https://api.example.com` in prod).
+ *   This bypasses the Next.js proxy for direct backend access.
+ * - Client (Browser): Uses the Next.js rewrite proxy prefix (e.g., `/backend`).
+ *   The proxy forwards to the backend via the same-origin rewrite.
+ *
+ * This function is evaluated at **call time**, not module load time, so it works
+ * correctly regardless of which bundle (server/client) the code runs in.
+ */
+function getApiBase(): string {
+    if (isBrowser()) {
+        // Client-side: use the public proxy prefix configured in next.config.ts
+        // Falls back to "/backend" if not set (matches default in next.config.ts).
+        return process.env.NEXT_PUBLIC_API_PROXY_PREFIX ?? "/backend";
+    }
+    // Server-side: use the direct backend URL from server-only env var.
+    // Falls back to localhost for local development outside Docker.
+    return process.env.API_URL ?? "http://localhost:3030";
+}
 
 // ─── ApiError ──────────────────────────────────────────────────────────────
 
@@ -68,6 +99,8 @@ export class ApiError extends Error {
 export interface RequestOptions {
     skipGlobal401Handler?: boolean;
     headers?: Record<string, string>;
+    /** Server-only: raw Cookie header to forward (e.g. from next/headers or req.headers.cookie). */
+    cookieHeader?: string;
 }
 
 // ─── Correlation id ────────────────────────────────────────────────────────
@@ -93,6 +126,14 @@ function getCorrelationId(): string {
     return correlationId;
 }
 
+/**
+ * Resets the correlation id. Useful for testing or when navigating to a new
+ * logical "page" in a SPA context without full reload.
+ */
+export function resetCorrelationId(): void {
+    correlationId = null;
+}
+
 // ─── Base fetch wrapper ───────────────────────────────────────────────────
 
 async function request<T>(
@@ -101,12 +142,15 @@ async function request<T>(
     body?: unknown,
     options?: RequestOptions
 ): Promise<T> {
-    const url = `${API_BASE}${path}`;
+    // Resolve base URL at call time to handle both server and client contexts correctly.
+    const baseUrl = getApiBase();
+    const url = `${baseUrl}${path}`;
 
     const headers: Record<string, string> = {
         "X-Request-ID": getCorrelationId(),
         ...(options?.headers ?? {}),
     };
+
     if (body !== undefined) {
         headers["Content-Type"] = "application/json";
     }
@@ -155,7 +199,7 @@ async function request<T>(
         // If any API request returns 401 Unauthorized, force a redirect to
         // /logout to clear HTTP session cookies, invalidate local state, and
         // wipe the React Query cache.
-        if (res.status === 401 && !options?.skipGlobal401Handler && typeof window !== "undefined") {
+        if (res.status === 401 && !options?.skipGlobal401Handler && isBrowser()) {
             window.location.href = "/logout";
         }
 

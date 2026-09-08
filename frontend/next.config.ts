@@ -13,21 +13,23 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
     async rewrites() {
-        // API_INTERNAL_URL is the Docker-internal hostname for proxying (e.g.
-        // "http://somotracker_api:3030"). Falls back to NEXT_PUBLIC_API_URL
-        // which is what the browser uses to reach the backend externally.
-        const internalUrl =
-            process.env.API_INTERNAL_URL ??
-            process.env.NEXT_PUBLIC_API_URL ??
-            "http://localhost:3030";
+        // Server-only env var: Docker service URL locally, Render HTTPS URL in prod.
+        const apiUrl = process.env.API_URL ?? "http://localhost:3030";
+        // Client-exposed proxy prefix — keeps /api free for Next.js Route Handlers.
+        const proxyPrefix = process.env.NEXT_PUBLIC_API_PROXY_PREFIX ?? "/backend";
         return [
             {
-                source: "/api/:path*",
-                destination: `${internalUrl}/api/:path*`,
+                source: `${proxyPrefix}/:path*`,
+                // Proxy client calls to backend through same-origin /backend.
+                // API paths already include /api (e.g., /api/auth/...), so we forward as-is.
+                // Server components/RSC/Server Actions call API_URL directly; no proxy needed.
+                destination: `${apiUrl}/:path*`,
             },
         ];
     },
     async headers() {
+        // Client-exposed proxy prefix for CSP connect-src.
+        const proxyPrefix = process.env.NEXT_PUBLIC_API_PROXY_PREFIX ?? "/backend";
         return [
             {
                 source: "/(.*)",
@@ -40,7 +42,7 @@ const nextConfig: NextConfig = {
                             "style-src 'self' 'unsafe-inline'",
                             "img-src 'self' data: blob:",
                             "font-src 'self'",
-                            `connect-src 'self' ${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3030"}`,
+                            `connect-src 'self' ${proxyPrefix}`,
                             "frame-ancestors 'none'",
                             "base-uri 'self'",
                             "form-action 'self'",

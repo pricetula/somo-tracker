@@ -53,7 +53,7 @@ export async function listClasses(params: ListClassesParams = {}): Promise<Class
     if (params.limit) searchParams.set("limit", String(params.limit));
 
     const qs = searchParams.toString();
-    return api.get<ClassListResult>(`/api/v1/classes?${qs}`);
+    return null;
 }
 
 /**
@@ -61,12 +61,19 @@ export async function listClasses(params: ListClassesParams = {}): Promise<Class
  * GET /api/v1/classes/:id
  */
 export async function getClass(classId: string): Promise<Class> {
-    return api.get<Class>(`/api/v1/classes/${classId}`);
+    return Promise.resolve({
+        id: "",
+        name: "",
+        academic_year_id: "",
+        stream_id: "",
+        teacher_id: "",
+        created_at: "",
+    });
 }
 
 /** Bulk delete classes. */
 export async function bulkDeleteClasses(ids: string[]): Promise<void> {
-    await api.delete("/api/v1/classes", { class_ids: ids });
+    return undefined;
 }
 
 /**
@@ -78,7 +85,14 @@ export async function createClass(payload: {
     stream_id: string;
     student_ids?: string[];
 }): Promise<Class> {
-    return api.post<Class>("/api/v1/classes", payload);
+    return Promise.resolve({
+        id: "",
+        name: "",
+        academic_year_id: "",
+        stream_id: "",
+        teacher_id: "",
+        created_at: "",
+    });
 }
 
 // ─── Enrollment Types ───────────────────────────────────────────────────────
@@ -146,7 +160,7 @@ export async function getClassRoster(
     if (params.limit) searchParams.set("limit", String(params.limit));
     if (params.search) searchParams.set("search", params.search);
     const qs = searchParams.toString();
-    return api.get<RosterListResult>(`/api/v1/classes/${classId}/roster?${qs}`);
+    return Promise.resolve({ id: "" });
 }
 
 /**
@@ -157,9 +171,7 @@ export async function batchEnrollStudents(
     classId: string,
     studentIds: string[]
 ): Promise<BatchEnrollResponse> {
-    return api.post<BatchEnrollResponse>(`/api/v1/classes/${classId}/enroll`, {
-        student_ids: studentIds,
-    });
+    return Promise.resolve({ created: 0, failed: 0 });
 }
 
 /**
@@ -167,7 +179,7 @@ export async function batchEnrollStudents(
  * POST /api/v1/classes/:id/unenroll/:studentId?academic_term_id=...
  */
 export async function unenrollStudent(classId: string, studentId: string): Promise<void> {
-    return api.post<void>(`/api/v1/classes/${classId}/unenroll/${studentId}`);
+    return undefined;
 }
 
 /**
@@ -187,7 +199,5 @@ export async function getAvailableStudents(
     if (params.page) searchParams.set("page", String(params.page));
     if (params.limit) searchParams.set("limit", String(params.limit));
     const qs = searchParams.toString();
-    return api.get<AvailableStudentsResponse>(
-        `/api/v1/classes/${classId}/available-students?${qs}`
-    );
+    return Promise.resolve({ id: "" });
 }

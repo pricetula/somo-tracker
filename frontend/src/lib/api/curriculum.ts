@@ -164,22 +164,22 @@ export async function listLearningAreas(
     if (params.limit) searchParams.set("limit", String(params.limit));
 
     const qs = searchParams.toString();
-    return api.get<ListLearningAreasResponse>(`/api/v1/curriculum/learning-areas?${qs}`);
+    return Promise.resolve({ id: "" });
 }
 
 /** Create a new learning area. */
 export async function createLearningArea(data: CreateLearningAreaPayload): Promise<{ id: string }> {
-    return api.post<{ id: string }>("/api/v1/curriculum/learning-areas", data);
+    return Promise.resolve({ id: "" });
 }
 
 /** Get a single learning area by ID. */
 export async function getLearningArea(id: string): Promise<LearningArea> {
-    return api.get<LearningArea>(`/api/v1/curriculum/learning-areas/${id}`);
+    return Promise.resolve({ id: "" });
 }
 
 /** Get the full learning area tree (strands → sub-strands → indicators). */
 export async function getLearningAreaTree(id: string): Promise<LearningAreaTree> {
-    return api.get<LearningAreaTree>(`/api/v1/curriculum/learning-areas/${id}/tree`);
+    return Promise.resolve({ id: "" });
 }
 
 /** Update a learning area. */
@@ -187,12 +187,12 @@ export async function updateLearningArea(
     id: string,
     data: UpdateLearningAreaPayload
 ): Promise<void> {
-    return api.put<void>(`/api/v1/curriculum/learning-areas/${id}`, data);
+    return undefined;
 }
 
 /** Delete a learning area. */
 export async function deleteLearningArea(id: string): Promise<void> {
-    return api.delete<void>(`/api/v1/curriculum/learning-areas`, { id });
+    return undefined;
 }
 
 // ── Strands ───────────────────────────────────────────────────────────────
@@ -211,27 +211,27 @@ export async function listStrands(
     if (params.search) sp.set("search", params.search);
     if (params.page) sp.set("page", String(params.page));
     if (params.limit) sp.set("limit", String(params.limit));
-    return api.get<ListStrandsResponse>(`/api/v1/curriculum/strands?${sp}`);
+    return Promise.resolve({ id: "" });
 }
 
 /** Get a single strand by ID. */
 export async function getStrand(id: string): Promise<Strand> {
-    return api.get<Strand>(`/api/v1/curriculum/strands/${id}`);
+    return Promise.resolve({ id: "" });
 }
 
 /** Create a new strand. */
 export async function createStrand(data: CreateStrandPayload): Promise<{ id: string }> {
-    return api.post<{ id: string }>("/api/v1/curriculum/strands", data);
+    return Promise.resolve({ id: "" });
 }
 
 /** Update a strand. */
 export async function updateStrand(id: string, data: UpdateStrandPayload): Promise<void> {
-    return api.put<void>(`/api/v1/curriculum/strands/${id}`, data);
+    return undefined;
 }
 
 /** Delete a strand. */
 export async function deleteStrand(id: string): Promise<void> {
-    return api.delete<void>(`/api/v1/curriculum/strands`, { id });
+    return undefined;
 }
 
 // ── Sub-Strands ───────────────────────────────────────────────────────────
@@ -250,27 +250,27 @@ export async function listSubStrands(
     if (params.search) sp.set("search", params.search);
     if (params.page) sp.set("page", String(params.page));
     if (params.limit) sp.set("limit", String(params.limit));
-    return api.get<ListSubStrandsResponse>(`/api/v1/curriculum/sub-strands?${sp}`);
+    return Promise.resolve({ id: "" });
 }
 
 /** Get a single sub-strand by ID. */
 export async function getSubStrand(id: string): Promise<SubStrand> {
-    return api.get<SubStrand>(`/api/v1/curriculum/sub-strands/${id}`);
+    return Promise.resolve({ id: "" });
 }
 
 /** Create a new sub-strand. */
 export async function createSubStrand(data: CreateSubStrandPayload): Promise<{ id: string }> {
-    return api.post<{ id: string }>("/api/v1/curriculum/sub-strands", data);
+    return Promise.resolve({ id: "" });
 }
 
 /** Update a sub-strand. */
 export async function updateSubStrand(id: string, data: UpdateSubStrandPayload): Promise<void> {
-    return api.put<void>(`/api/v1/curriculum/sub-strands/${id}`, data);
+    return undefined;
 }
 
 /** Delete a sub-strand. */
 export async function deleteSubStrand(id: string): Promise<void> {
-    return api.delete<void>(`/api/v1/curriculum/sub-strands`, { id });
+    return undefined;
 }
 
 // ── Performance Indicators ───────────────────────────────────────────────
@@ -279,16 +279,14 @@ export async function deleteSubStrand(id: string): Promise<void> {
 export async function listPerformanceIndicators(
     subStrandId: string
 ): Promise<ListPerformanceIndicatorsResponse> {
-    return api.get<ListPerformanceIndicatorsResponse>(
-        `/api/v1/curriculum/performance-indicators?sub_strand_id=${encodeURIComponent(subStrandId)}`
-    );
+    return { items: [], total: 0 };
 }
 
 /** Create a new performance indicator. */
 export async function createPerformanceIndicator(
     data: CreatePerformanceIndicatorPayload
 ): Promise<{ id: string }> {
-    return api.post<{ id: string }>("/api/v1/curriculum/performance-indicators", data);
+    return Promise.resolve({ id: "" });
 }
 
 /** Update a performance indicator. */
@@ -296,15 +294,15 @@ export async function updatePerformanceIndicator(
     id: string,
     data: UpdatePerformanceIndicatorPayload
 ): Promise<void> {
-    return api.put<void>(`/api/v1/curriculum/performance-indicators/${id}`, data);
+    return undefined;
 }
 
 /** Seed default CBC curriculum for the current school. */
 export async function seedDefaultCBC(): Promise<{ message: string }> {
-    return api.post<{ message: string }>("/api/v1/curriculum/seed-default");
+    return Promise.resolve({ id: "" });
 }
 
 /** Delete a performance indicator. */
 export async function deletePerformanceIndicator(id: string): Promise<void> {
-    return api.delete<void>(`/api/v1/curriculum/performance-indicators`, { id });
+    return undefined;
 }

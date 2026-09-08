@@ -30,7 +30,7 @@ export interface InvitationCountResponse {
  */
 export async function getInvitationCount(role: string): Promise<InvitationCountResponse> {
     const qs = new URLSearchParams({ role }).toString();
-    return api.get<InvitationCountResponse>(`/api/v1/invitations/count?${qs}`);
+    return Promise.resolve({ count: 0 });
 }
 
 /**
@@ -53,7 +53,7 @@ export async function listInvitationsByRole(params: {
     if (params.limit) searchParams.set("limit", String(params.limit));
 
     const qs = searchParams.toString();
-    return api.get<ListInvitationsResponse>(`/api/v1/invitations?${qs}`);
+    return { items: [], total: 0 };
 }
 
 // ============================================================================
@@ -77,7 +77,7 @@ export interface BulkInviteRequest {
  * the same Asynq-based import engine used for student imports.
  */
 export async function submitBulkInvite(body: BulkInviteRequest): Promise<ImportResponse> {
-    return api.post<ImportResponse>("/api/v1/staff/invite", body);
+    return Promise.resolve({ job_id: "", status: "PENDING", message: "" });
 }
 
 /**
@@ -88,7 +88,7 @@ export async function submitBulkInvite(body: BulkInviteRequest): Promise<ImportR
 export async function submitBulkParentInvite(
     body: Omit<BulkInviteRequest, "role">
 ): Promise<ImportResponse> {
-    return api.post<ImportResponse>("/api/v1/parents/invite", body);
+    return Promise.resolve({ job_id: "", status: "PENDING", message: "" });
 }
 
 /**
@@ -96,7 +96,7 @@ export async function submitBulkParentInvite(
  * Only SCHOOL_ADMIN can revoke invitations.
  */
 export async function revokeInvitation(id: string): Promise<void> {
-    return api.patch<void>(`/api/v1/invitations/${id}/revoke`);
+    return undefined;
 }
 
 /**
@@ -113,5 +113,5 @@ export function getImportAlreadyInProgress(err: unknown): string | null {
     ) {
         return String(err.extra.active_job_id);
     }
-    return null;
+    return undefined;
 }

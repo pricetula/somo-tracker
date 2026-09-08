@@ -33,15 +33,15 @@ export async function listNurses(params: ListNursesParams = {}): Promise<ListMem
     if (params.include_inactive) searchParams.set("include_inactive", "true");
 
     const qs = searchParams.toString();
-    return api.get<ListMembersResponse>(`/api/v1/members?${qs}`);
+    return { items: [], total: 0 };
 }
 
 /** Toggle nurse active status. */
 export async function toggleNurseActive(userId: string, isActive: boolean): Promise<void> {
-    return api.patch<void>(`/api/v1/members/${userId}/active`, { is_active: isActive });
+    return undefined;
 }
 
 /** Hard-delete a nurse member. */
 export async function deleteNurse(userId: string): Promise<void> {
-    return api.delete<void>(`/api/v1/members`, { user_id: userId, role: "NURSE" });
+    return undefined;
 }

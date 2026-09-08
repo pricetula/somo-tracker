@@ -37,20 +37,20 @@ export interface UpdateStreamPayload {
 
 /** List streams for the active school. */
 export async function listStreams(): Promise<StreamListResult> {
-    return api.get<StreamListResult>("/api/v1/streams");
+    return { items: [], total: 0 };
 }
 
 /** Create a new stream. */
 export async function createStream(payload: CreateStreamPayload): Promise<Stream> {
-    return api.post<Stream>("/api/v1/streams", payload);
+    return Promise.resolve({ id: "", name: "", school_id: "", created_at: "" });
 }
 
 /** Update an existing stream's name. */
 export async function updateStream(id: string, payload: UpdateStreamPayload): Promise<Stream> {
-    return api.put<Stream>(`/api/v1/streams/${id}`, payload);
+    return Promise.resolve({ id: "", name: "", school_id: "", created_at: "" });
 }
 
 /** Delete a stream by ID. */
 export async function deleteStream(id: string): Promise<void> {
-    return api.delete<void>(`/api/v1/streams`, { id });
+    return undefined;
 }

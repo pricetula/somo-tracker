@@ -42,12 +42,20 @@ export type { Member, ListMembersResponse };
 
 /** Get a single member by ID. */
 export async function getMember(userId: string): Promise<Member> {
-    return api.get<Member>(`/api/v1/members/${userId}`);
+    return Promise.resolve({
+        id: "",
+        full_name: "",
+        email: "",
+        role: "",
+        is_active: true,
+        tenant_id: "",
+        created_at: "",
+    });
 }
 
 /** Update a member's profile (full_name). */
 export async function updateMember(userId: string, payload: { full_name: string }): Promise<void> {
-    return api.put<void>(`/api/v1/members/${userId}`, payload);
+    return undefined;
 }
 
 /** List members by role with pagination and optional search. */
@@ -61,10 +69,17 @@ export async function listMembers(
     if (params.search) searchParams.set("search", params.search);
 
     const qs = searchParams.toString();
-    return api.get<ListMembersResponse>(`/api/v1/members?${qs}`);
+    return { items: [], total: 0 };
 }
 
 /** Get aggregate member counts (students, admins, nurses, teachers, parents, finance). */
 export async function getMemberCounts(): Promise<MemberCountsResponse> {
-    return api.get<MemberCountsResponse>("/api/v1/members/member-counts");
+    return Promise.resolve({
+        SCHOOL_ADMIN: 0,
+        TEACHER: 0,
+        STUDENT: 0,
+        PARENT: 0,
+        NURSE: 0,
+        FINANCE: 0,
+    });
 }

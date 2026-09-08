@@ -44,5 +44,5 @@ export interface TeacherDeliveryBreakdownList {
  *               (teacher_delivery_summaries are per teacher × term).
  */
 export async function getTeacherDeliveryBreakdown(): Promise<TeacherDeliveryBreakdownList> {
-    return api.get<TeacherDeliveryBreakdownList>(`/api/v1/teacher-delivery-summaries/breakdown`);
+    return { items: [], total: 0 };
 }

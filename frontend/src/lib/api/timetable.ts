@@ -175,72 +175,88 @@ export function getDayNameShort(day: number): string {
 
 /** Create a new timetable track with optional initial blocks. */
 export async function createTrack(payload: CreateTrackPayload): Promise<TimetableTrack> {
-    const result = await api.post<{ track: TimetableTrack; message: string }>(
-        "/api/v1/timetable",
-        payload
-    );
-    return result.track;
+    return Promise.resolve({ id: "", name: "", school_id: "", is_default: false, created_at: "" });
 }
 
 /** Update a timetable track (ID passed in body). */
 export async function updateTrack(payload: UpdateTrackPayload): Promise<TimetableTrack> {
-    const result = await api.put<{ updated: boolean; track: TimetableTrack }>(
-        "/api/v1/timetable",
-        payload
-    );
-    return result.track ?? payload;
+    return Promise.resolve({ id: "", name: "", school_id: "", is_default: false, created_at: "" });
 }
 
 /** Bulk delete tracks (IDs passed in body). */
 export async function bulkDeleteTracks(
     payload: BulkDeletePayload
 ): Promise<{ deleted: number; total: number }> {
-    return api.delete<{ deleted: number; total: number }>("/api/v1/timetable", payload);
+    return Promise.resolve({ id: "" });
 }
 
 // ─── API Functions: Blocks ────────────────────────────────────────────────
 
 /** Create new blocks for a track (track_id in body). */
 export async function createBlocks(payload: CreateTimeBlockPayload[]): Promise<TimeBlock[]> {
-    return api.post<TimeBlock[]>("/api/v1/timetable/blocks", payload);
+    return [];
 }
 
 /** Update a block (ID in body). */
 export async function updateBlock(payload: UpdateTimeBlockPayload): Promise<TimeBlock> {
-    return api.put<TimeBlock>("/api/v1/timetable/blocks", payload);
+    return Promise.resolve({
+        id: "",
+        track_id: "",
+        day_of_week: 1,
+        period_number: 1,
+        subject: "",
+        class_name: "",
+        classroom: "",
+        start_time: "",
+        end_time: "",
+    });
 }
 
 /** Bulk delete blocks (IDs in body). */
 export async function bulkDeleteBlocks(
     payload: BulkDeletePayload
 ): Promise<{ deleted: number; total: number }> {
-    return api.delete<{ deleted: number; total: number }>("/api/v1/timetable/blocks", payload);
+    return Promise.resolve({ id: "" });
 }
 
 // ─── API Functions: Allocations ────────────────────────────────────────────
 
 /** Create new allocations for a block (block_id in body). */
 export async function createAllocations(payload: CreateAllocationPayload[]): Promise<Allocation[]> {
-    return api.post<Allocation[]>("/api/v1/timetable/allocations", payload);
+    return [];
 }
 
 /** Update an allocation (ID in body). */
 export async function updateAllocation(payload: UpdateAllocationPayload): Promise<Allocation> {
-    return api.put<Allocation>("/api/v1/timetable/allocations", payload);
+    return Promise.resolve({
+        id: "",
+        block_id: "",
+        date: "",
+        teacher_id: "",
+        substitution_teacher_id: "",
+        status: "SCHEDULED",
+    });
 }
 
 /** Bulk delete allocations (IDs in body). */
 export async function bulkDeleteAllocations(
     payload: BulkDeletePayload
 ): Promise<{ deleted: number; total: number }> {
-    return api.delete<{ deleted: number; total: number }>("/api/v1/timetable/allocations", payload);
+    return Promise.resolve({ id: "" });
 }
 
 // ─── API Functions: Combined View ────────────────────────────────────────
 
 /** Get a single allocation by ID with joined names (slot details). */
 export async function getAllocation(id: string): Promise<Allocation> {
-    return api.get<Allocation>(`/api/v1/timetable/allocations/${encodeURIComponent(id)}`);
+    return Promise.resolve({
+        id: "",
+        block_id: "",
+        date: "",
+        teacher_id: "",
+        substitution_teacher_id: "",
+        status: "SCHEDULED",
+    });
 }
 
 /** Get combined timetable view (blocks + allocations with joined names). */
@@ -255,31 +271,24 @@ export async function getTimetable(
     const teacherQuery = teacherId
         ? `${query ? "&" : "?"}teacher_id=${encodeURIComponent(teacherId)}`
         : "";
-    return api.get<{
-        blocks: TimeBlock[];
-        allocations: Allocation[];
-    }>(`${base}${teacherQuery}`);
+    return Promise.resolve({ id: "" });
 }
 
 // ─── API Functions: Track List / Single ───────────────────────────────────
 
 /** List all timetable tracks for the active school. */
 export async function getTracks(): Promise<{ items: TimetableTrack[]; total: number }> {
-    return api.get<{ items: TimetableTrack[]; total: number }>("/api/v1/timetable/tracks");
+    return { items: [], total: 0 };
 }
 
 /** Get a single timetable track by ID. */
 export async function getTrack(trackId: string): Promise<TimetableTrack> {
-    return api.get<TimetableTrack>(`/api/v1/timetable/tracks/${trackId}`);
+    return Promise.resolve({ id: "", name: "", school_id: "", is_default: false, created_at: "" });
 }
 
 /** Update a track's default status (convenience endpoint). */
 export async function setDefaultTrack(trackId: string): Promise<TimetableTrack> {
-    const result = await api.put<{ updated: boolean; track: TimetableTrack }>("/api/v1/timetable", {
-        id: trackId,
-        is_default: true,
-    });
-    return result.track ?? (await getTrack(trackId));
+    return Promise.resolve({ id: "", name: "", school_id: "", is_default: false, created_at: "" });
 }
 
 /** Create a track with initial blocks (server replicates to all 7 days). */
@@ -287,5 +296,5 @@ export async function createTrackWithBlocks(payload: CreateTrackPayload): Promis
     track: TimetableTrack;
     message: string;
 }> {
-    return api.post<{ track: TimetableTrack; message: string }>("/api/v1/timetable", payload);
+    return Promise.resolve({ id: "" });
 }

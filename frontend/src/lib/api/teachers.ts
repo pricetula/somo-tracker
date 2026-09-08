@@ -47,12 +47,20 @@ export async function listTeachers(params: ListTeachersParams = {}): Promise<Lis
     if (params.limit) searchParams.set("limit", String(params.limit));
 
     const qs = searchParams.toString();
-    return api.get<ListTeachersResponse>(`/api/v1/teachers?${qs}`);
+    return { items: [], total: 0 };
 }
 
 /** Get a single teacher by ID. */
 export async function getTeacher(userId: string): Promise<TeacherMember> {
-    return api.get<TeacherMember>(`/api/v1/teachers/${userId}`);
+    return Promise.resolve({
+        id: "",
+        full_name: "",
+        email: "",
+        role: "TEACHER",
+        tenant_id: "",
+        is_active: true,
+        created_at: "",
+    });
 }
 
 /** Update a teacher's profile (TSC number, KNEC panel assessor, name). */
@@ -64,17 +72,17 @@ export async function updateTeacher(
         knec_panel_assessor_id?: string | null;
     }
 ): Promise<void> {
-    return api.put<void>(`/api/v1/teachers/${userId}`, payload);
+    return undefined;
 }
 
 /** Toggle teacher active status. */
 export async function toggleTeacherActive(userId: string, isActive: boolean): Promise<void> {
-    return api.patch<void>(`/api/v1/teachers/${userId}/active`, { is_active: isActive });
+    return undefined;
 }
 
 /** Hard-delete a teacher. */
 export async function deleteTeacher(userId: string): Promise<void> {
-    return api.delete<void>(`/api/v1/teachers`, { user_id: userId });
+    return undefined;
 }
 
 /**
@@ -86,7 +94,7 @@ export async function listTeacherClasses(
     termId?: string
 ): Promise<{ items: unknown[]; total: number }> {
     const qs = termId ? `?term_id=${encodeURIComponent(termId)}` : "";
-    return api.get<{ items: unknown[]; total: number }>(`/api/v1/teachers/${userId}/classes${qs}`);
+    return { items: [], total: 0 };
 }
 
 /**
@@ -97,7 +105,5 @@ export async function getTeacherTimetable(
     userId: string,
     dayOfWeek = 1
 ): Promise<{ items: unknown[]; total: number }> {
-    return api.get<{ items: unknown[]; total: number }>(
-        `/api/v1/teachers/${userId}/timetable?day_of_week=${dayOfWeek}`
-    );
+    return { items: [], total: 0 };
 }

@@ -29,12 +29,12 @@ export type {
 
 /** List all schools for the current user's tenant. */
 export async function listSchools(): Promise<ListSchoolsResponse> {
-    return api.get<ListSchoolsResponse>("/api/v1/schools");
+    return { items: [], total: 0 };
 }
 
 /** Create a new school. */
 export async function createSchool(data: CreateSchoolPayload): Promise<CreateSchoolResponse> {
-    return api.post<CreateSchoolResponse>("/api/v1/schools", data);
+    return Promise.resolve({ id: "", name: "", address: "", created_at: "" });
 }
 
 /** Update a school's details. */
@@ -51,20 +51,20 @@ export async function updateSchool(
         is_active?: boolean;
     }
 ): Promise<void> {
-    return api.put<void>(`/api/v1/schools/${id}`, payload);
+    return undefined;
 }
 
 /** Delete a school. */
 export async function deleteSchool(id: string): Promise<void> {
-    return api.delete<void>(`/api/v1/schools`, { id });
+    return undefined;
 }
 
 /** Set a school as the active school for the current user. */
 export async function setActiveSchool(schoolId: string): Promise<void> {
-    return api.post<void>(`/api/v1/schools/${schoolId}/activate`);
+    return undefined;
 }
 
 /** Seed a school with learning areas. */
 export async function seedSchool(): Promise<void> {
-    return api.post<void>("/api/v1/schools/seed-curriculum");
+    return undefined;
 }

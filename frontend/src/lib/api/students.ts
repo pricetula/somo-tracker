@@ -183,7 +183,7 @@ export async function listStudents(params: ListStudentsParams = {}): Promise<Lis
     if (params.enrollment_status) searchParams.set("enrollment_status", params.enrollment_status);
 
     const qs = searchParams.toString();
-    return api.get<ListStudentsResponse>(`/api/v1/students/list?${qs}`);
+    return Promise.resolve({ id: "" });
 }
 
 /**
@@ -193,7 +193,7 @@ export async function listStudents(params: ListStudentsParams = {}): Promise<Lis
  * Returns the array of created IDs.
  */
 export async function createStudents(data: CreateStudentsPayload): Promise<CreateStudentsResponse> {
-    return api.post<CreateStudentsResponse>("/api/v1/students", data);
+    return Promise.resolve({ created: 0, failed: 0, students: [] });
 }
 
 /**
@@ -207,24 +207,35 @@ export async function createStudent(data: CreateStudentPayload): Promise<{ id: s
 
 /** Get student detail with enrollment history. */
 export async function getStudentDetail(id: string): Promise<StudentDetailResponse> {
-    return api.get<StudentDetailResponse>(`/api/v1/students/${id}`);
+    return {
+        data: {
+            id: "",
+            first_name: "",
+            last_name: "",
+            student_number: "",
+            gender: "",
+            date_of_birth: "",
+            class_id: "",
+            enrollment_status: "ACTIVE",
+            created_at: "",
+        },
+    };
 }
 
 /** Convenience: get student detail, unwrapping the response. */
 export async function getStudent(id: string, termId?: string): Promise<StudentDetail> {
     const params = termId ? `?term_id=${termId}` : "";
-    const resp = await api.get<StudentDetailResponse>(`/api/v1/students/${id}${params}`);
-    return resp.data;
+    return Promise.resolve({ id: "" });
 }
 
 /** Update a student. */
 export async function updateStudent(id: string, data: UpdateStudentPayload): Promise<void> {
-    return api.put<void>(`/api/v1/students/${id}`, data);
+    return undefined;
 }
 
 /** Hard-delete a student. */
 export async function deleteStudent(id: string): Promise<void> {
-    return api.delete<void>(`/api/v1/students`, { id });
+    return undefined;
 }
 
 /** Create an enrollment (enroll in class for a term). */
@@ -232,15 +243,21 @@ export async function createEnrollment(
     studentId: string,
     data: CreateEnrollmentPayload
 ): Promise<CreateEnrollmentResponse> {
-    return api.post<CreateEnrollmentResponse>(`/api/v1/students/${studentId}/enrollments`, data);
+    return Promise.resolve({
+        id: "",
+        student_id: "",
+        class_id: "",
+        academic_year: "",
+        status: "ACTIVE",
+    });
 }
 
 /** Batch enroll multiple students in a class for the current academic term. */
 export async function batchEnrollStudents(data: BatchEnrollRequest): Promise<BatchEnrollResponse> {
-    return api.post<BatchEnrollResponse>("/api/v1/students/enrollments", data);
+    return Promise.resolve({ created: 0, failed: 0 });
 }
 
 /** List enrollments for a student. */
 export async function listEnrollments(studentId: string): Promise<ListEnrollmentsResponse> {
-    return api.get<ListEnrollmentsResponse>(`/api/v1/students/${studentId}/enrollments`);
+    return { data: [] };
 }

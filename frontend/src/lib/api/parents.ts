@@ -112,45 +112,66 @@ export async function listParents(params: ListParentsParams = {}): Promise<ListP
     if (params.limit) searchParams.set("limit", String(params.limit));
 
     const qs = searchParams.toString();
-    return api.get<ListParentsResponse>(`/api/v1/parents?${qs}`);
+    return { items: [], total: 0 };
 }
 
 /** Create a new parent profile. */
 export async function createParent(data: CreateParentPayload): Promise<CreateParentResponse> {
-    return api.post<CreateParentResponse>("/api/v1/parents", data);
+    return Promise.resolve({
+        id: "",
+        full_name: "",
+        email: "",
+        phone_number: "",
+        relationship: "",
+        students: [],
+        created_at: "",
+    });
 }
 
 /** Get parent detail with linked students. */
 export async function getParentDetail(id: string): Promise<ParentDetailResponse> {
-    return api.get<ParentDetailResponse>(`/api/v1/parents/${id}`);
+    return Promise.resolve({
+        id: "",
+        full_name: "",
+        email: "",
+        phone_number: "",
+        relationship: "",
+        students: [],
+        created_at: "",
+    });
 }
 
 /** Get the authenticated parent's own profile with linked children. */
 export async function getMyParentProfile(): Promise<ParentDetailResponse> {
-    return api.get<ParentDetailResponse>("/api/v1/parents/me");
+    return Promise.resolve({
+        id: "",
+        full_name: "",
+        email: "",
+        phone_number: "",
+        relationship: "",
+        students: [],
+        created_at: "",
+    });
 }
 
 /** Update a parent profile (phone_number, is_active). */
 export async function updateParent(id: string, data: UpdateParentPayload): Promise<void> {
-    return api.put<void>(`/api/v1/parents/${id}`, data);
+    return undefined;
 }
 
 /** Delete a parent profile. */
 export async function deleteParent(id: string): Promise<void> {
-    return api.delete<void>(`/api/v1/parents`, { id });
+    return undefined;
 }
 
 /** Link a student to a parent. */
 export async function linkStudent(parentId: string, data: LinkStudentPayload): Promise<void> {
-    return api.post<void>(`/api/v1/parents/${parentId}/students`, data);
+    return undefined;
 }
 
 /** Unlink a student from a parent. */
 export async function unlinkStudent(parentId: string, studentId: string): Promise<void> {
-    return api.delete<void>(`/api/v1/parents/student-link`, {
-        parent_id: parentId,
-        student_id: studentId,
-    });
+    return undefined;
 }
 
 // ============================================================================
@@ -181,9 +202,7 @@ export async function submitParentBulkInvite(body: {
 }): Promise<ImportResponse> {
     // The role field is accepted for compatibility with BulkInviteForm's submitFn
     // interface but is ignored — the backend endpoint always creates PARENT invites.
-    return api.post<ImportResponse>("/api/v1/parents/invite", {
-        rows: body.rows,
-    });
+    return Promise.resolve({ job_id: "", status: "PENDING", message: "" });
 }
 
 /**
@@ -197,5 +216,5 @@ export function getParentImportAlreadyInProgress(err: unknown): string | null {
     ) {
         return String(err.extra.active_job_id);
     }
-    return null;
+    return Promise.resolve({ job_id: "", status: "PENDING", message: "" });
 }

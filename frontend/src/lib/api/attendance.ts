@@ -54,7 +54,7 @@ export interface AttendanceSummaryResponse {
 export async function getAttendanceSummary(
     academicYear: string
 ): Promise<AttendanceSummaryResponse> {
-    return api.get(`/api/v1/attendance/summary/${encodeURIComponent(academicYear)}`);
+    return { academic_year: "", data: [] };
 }
 
 // ─── API Functions ─────────────────────────────────────────────────────────
@@ -69,23 +69,13 @@ export async function getSchoolAttendanceKPIs(date: string): Promise<SchoolAtten
     const searchParams = new URLSearchParams({ date });
 
     return {
-        /** Average daily attendance rate across all classes on the requested date. */
-        todays_attendance_rate: 95,
-        /** Number of PRESENT marks across all classes on the date. */
-        total_present: 450,
-        /** Number of marked records (present + absent + late + excused) on the date. */
-        total_marked_records: 400,
-        /** Average term attendance rate across all classes in the active term. */
-        active_term_attendance_rate: 3,
-        /** Non-break timetable slots for the date with no session record yet. */
-        unmarked_slots_today: 90,
-        /** SKIPPED attendance sessions for the date (cancelled lessons). */
-        skipped_sessions_today: 2,
+        todays_attendance_rate: 0,
+        total_present: 0,
+        total_marked_records: 0,
+        active_term_attendance_rate: 0,
+        unmarked_slots_today: 0,
+        skipped_sessions_today: 0,
     };
-
-    return api.get<SchoolAttendanceKPI>(
-        `/api/v1/attendance/kpis/school?${searchParams.toString()}`
-    );
 }
 
 // ─── Class Attendance Breakdown ────────────────────────────────────────────
@@ -179,9 +169,7 @@ export async function getDayOfWeekSummaries(classId?: string): Promise<DayOfWeek
     if (classId) searchParams.set("class_id", classId);
 
     const qs = searchParams.toString();
-    return api.get<DayOfWeekSummaries>(
-        `/api/v1/attendance/day-of-week-summaries${qs ? `?${qs}` : ""}`
-    );
+    return { academic_year: "", class_name: "", data: [] };
 }
 
 // ─── Learning Area Attendance Breakdown ────────────────────────────────────
@@ -220,9 +208,7 @@ export interface LearningAreaAttendanceBreakdownList {
  *               area × term).
  */
 export async function getLearningAreaAttendanceBreakdowns(): Promise<LearningAreaAttendanceBreakdownList> {
-    return api.get<LearningAreaAttendanceBreakdownList>(
-        `/api/v1/attendance/class-learning-area/breakdown`
-    );
+    return { items: [], total: 0 };
 }
 
 /**
@@ -246,8 +232,7 @@ export async function getCalendarStatus(
     startDate: string,
     endDate: string
 ): Promise<CalendarStatusListResponse> {
-    const qs = new URLSearchParams({ start_date: startDate, end_date: endDate }).toString();
-    return api.get<CalendarStatusListResponse>(`/api/v1/attendance/calendar/status?${qs}`);
+    return { items: [], total: 0 };
 }
 
 // ─── Lowest Attendance Students ──────────────────────────────────────────
@@ -284,9 +269,7 @@ export async function getLowestAttendanceStudents(
     }
 
     const qs = searchParams.toString();
-    return api.get<LowestAttendanceStudent[]>(
-        `/api/v1/attendance/students/lowest-attendance${qs ? `?${qs}` : ""}`
-    );
+    return [];
 }
 
 // ─── Session & Records (Attendance Marking) ────────────────────────────────────
@@ -316,10 +299,7 @@ export async function getSessionsForSlot(
         timetable_allocation_id: allocationId,
         date,
     });
-    const result = await api.get<{ items: SlotSession[] }>(
-        `/api/v1/attendance/sessions?${params.toString()}`
-    );
-    return result.items?.[0] ?? null;
+    return Promise.resolve({ id: "" });
 }
 
 // ─── Per-Student Record ──────────────────────────────────────────────────────
@@ -368,7 +348,7 @@ export async function getRecordsBySlot(
         timetable_allocation_id: allocationId,
         date,
     });
-    return api.get<SlotRecordsResponse>(`/api/v1/attendance/records/slot?${params.toString()}`);
+    return { items: [], total: 0 };
 }
 
 /**
@@ -403,9 +383,7 @@ export async function getMarkedTimetableAllocation(
     allocationId: string,
     date: string
 ): Promise<MarkedTimetableAllocationResponse> {
-    return api.get<MarkedTimetableAllocationResponse>(
-        `/api/v1/attendance/marked-timetable-allocation/${encodeURIComponent(allocationId)}?date=${encodeURIComponent(date)}`
-    );
+    return Promise.resolve({ date: "", session_id: "", session_status: "" });
 }
 
 export interface BatchMarkPayload {
@@ -427,5 +405,5 @@ export interface BatchMarkResult {
 }
 
 export async function batchMarkAttendance(payload: BatchMarkPayload): Promise<BatchMarkResult> {
-    return api.post<BatchMarkResult>("/api/v1/attendance/records/batch", payload);
+    return Promise.resolve({ created: 0, updated: 0, failed: 0 });
 }

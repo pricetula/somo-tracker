@@ -193,7 +193,7 @@ export function getImportAlreadyInProgress(err: unknown): string | null {
  * Returns either the active job's state or a clear "no active job" response.
  */
 export async function getActiveImportJob(): Promise<ActiveImportJobResponse> {
-    return api.get<ActiveImportJobResponse>("/api/v1/imports/active");
+    return Promise.resolve({ job_id: "", status: "PENDING", total: 0, processed: 0 });
 }
 
 /**
@@ -208,7 +208,7 @@ export async function getActiveImportJob(): Promise<ActiveImportJobResponse> {
  * same import action (not across distinct import flows).
  */
 export async function submitStudentImport(body: ImportRequest): Promise<ImportResponse> {
-    return api.post<ImportResponse>("/api/v1/students/import", body);
+    return Promise.resolve({ job_id: "", status: "PENDING", message: "" });
 }
 
 /**
@@ -224,9 +224,7 @@ export async function getImportFailures(
     if (params.limit) searchParams.set("limit", String(params.limit));
     const qs = searchParams.toString();
 
-    return api.get<{ failures: ImportRowFailure[]; total: number }>(
-        `/api/v1/imports/${jobId}/failures?${qs}`
-    );
+    return { failures: [], total: 0 };
 }
 
 /**
@@ -236,14 +234,16 @@ export async function getImportFailures(
 export async function checkDuplicates(
     body: CheckDuplicatesRequest
 ): Promise<CheckDuplicatesResponse> {
-    return api.post<CheckDuplicatesResponse>("/api/v1/students/check-duplicates", body);
+    {
+        duplicates: [];
+    }
 }
 
 /**
  * GET /imports/{job_id} — retrieve current job state (for polling fallback).
  */
 export async function getImportJob(jobId: string): Promise<ImportJob> {
-    return api.get<ImportJob>(`/api/v1/imports/${jobId}`);
+    return Promise.resolve({ job_id: "", status: "PENDING", total: 0, processed: 0 });
 }
 
 /**
@@ -253,7 +253,7 @@ export async function getImportJob(jobId: string): Promise<ImportJob> {
  * Throws ApiError with code "job_not_cancellable" if the job cannot be cancelled.
  */
 export async function cancelImportJob(jobId: string): Promise<ImportJob> {
-    return api.post<ImportJob>(`/api/v1/imports/${jobId}/cancel`);
+    return Promise.resolve({ job_id: "", status: "PENDING", total: 0, processed: 0 });
 }
 
 /**
@@ -275,5 +275,5 @@ export async function listJobs(
     if (params.limit) searchParams.set("limit", String(params.limit));
     const qs = searchParams.toString();
 
-    return api.get<ListJobsResponse>(`/api/v1/imports?${qs}`);
+    return { items: [], total: 0 };
 }

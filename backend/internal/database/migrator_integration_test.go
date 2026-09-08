@@ -521,7 +521,7 @@ func TestMigrator_AcademicCalendar(t *testing.T) {
 	calendarIndexes := []string{
 		"academic_years_school_id_idx", "academic_years_name_idx",
 		"academic_terms_academic_year_id_idx", "academic_terms_name_idx",
-		"public_holidays_country_id_idx", "public_holidays_date_idx", "public_holidays_country_date_idx",
+		"public_holidays_country_id_idx", "public_holidays_month_day_idx", "public_holidays_country_month_day_idx",
 		"school_events_school_id_idx", "school_events_event_type_idx", "school_events_date_range_idx",
 	}
 	for _, idx := range calendarIndexes {

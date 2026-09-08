@@ -82,7 +82,8 @@ CREATE TABLE public_holidays (
     country_id UUID        NOT NULL    REFERENCES countries(id)
                                    ON DELETE CASCADE,
     name       VARCHAR(255) NOT NULL,
-    date       DATE        NOT NULL,
+    month      SMALLINT     NOT NULL    CHECK (month BETWEEN 1 AND 12),
+    day        SMALLINT     NOT NULL    CHECK (day BETWEEN 1 AND 31),
     created_at TIMESTAMPTZ  NOT NULL    DEFAULT NOW(),
     updated_at TIMESTAMPTZ  NOT NULL    DEFAULT NOW()
 );
@@ -90,13 +91,13 @@ CREATE TABLE public_holidays (
 -- Index: public_holidays_country_id_idx covers country-scoped holiday queries.
 CREATE INDEX public_holidays_country_id_idx ON public_holidays (country_id);
 
--- Index: public_holidays_date_idx supports date-based lookups (e.g., "what holidays
--- are on this date?").
-CREATE INDEX public_holidays_date_idx ON public_holidays (date);
+-- Index: public_holidays_month_day_idx supports month/day-based lookups
+-- (e.g., "what holidays are on this month/day?").
+CREATE INDEX public_holidays_month_day_idx ON public_holidays (month, day);
 
--- Index: public_holidays_country_date_idx is a composite index for efficient
--- country+date queries.
-CREATE INDEX public_holidays_country_date_idx ON public_holidays (country_id, date);
+-- Index: public_holidays_country_month_day_idx is a composite index for efficient
+-- country+month/day queries.
+CREATE INDEX public_holidays_country_month_day_idx ON public_holidays (country_id, month, day);
 
 -- ============================================================================
 -- Section 4: school_events
@@ -180,7 +181,8 @@ COMMENT ON TABLE public_holidays IS 'National public holidays at the country lev
 COMMENT ON COLUMN public_holidays.id IS 'Auto-generated UUID primary key.';
 COMMENT ON COLUMN public_holidays.country_id IS 'FK to countries(id). Cascades on country delete.';
 COMMENT ON COLUMN public_holidays.name IS 'Holiday name (e.g., "Madaraka Day", "Labour Day").';
-COMMENT ON COLUMN public_holidays.date IS 'The calendar date of the holiday.';
+COMMENT ON COLUMN public_holidays.month IS 'Month of the holiday (1-12).';
+COMMENT ON COLUMN public_holidays.day IS 'Day of the month (1-31).';
 COMMENT ON COLUMN public_holidays.created_at IS 'UTC timestamp of row creation.';
 COMMENT ON COLUMN public_holidays.updated_at IS 'UTC timestamp of last modification.';
 

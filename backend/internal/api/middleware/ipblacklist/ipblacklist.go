@@ -189,9 +189,16 @@ func (m *ipBlacklistMiddleware) handle(c fiber.Ctx) error {
 	// Execute the request and capture the response status
 	err = c.Next()
 
-	// After request completes, check if response is a violation
-	if m.isViolation(c.Response().StatusCode()) {
-		m.recordViolation(c.Context(), clientIP, c.Response().StatusCode(), c.Get("X-Request-ID"))
+	// After request completes, check if response is a violation.
+	// Only treat 401 as a violation for auth endpoints; protected resources
+	// (e.g. /api/me) return 401 for unauthenticated users — that's expected.
+	statusCode := c.Response().StatusCode()
+	if m.isViolation(statusCode) {
+		if statusCode == fiber.StatusUnauthorized && !isAuthEndpoint(c.Path()) {
+			// Not an auth endpoint — don't penalize normal unauthenticated access
+		} else {
+			m.recordViolation(c.Context(), clientIP, statusCode, c.Get("X-Request-ID"))
+		}
 	}
 
 	return err
@@ -283,6 +290,11 @@ func (m *ipBlacklistMiddleware) recordViolation(ctx context.Context, ip string, 
 			zap.String("request_id", requestID),
 		)
 	}
+}
+
+// isAuthEndpoint returns true for paths under /api/auth/*
+func isAuthEndpoint(path string) bool {
+	return strings.HasPrefix(path, "/api/auth/")
 }
 
 // isViolation checks if a status code is considered a security violation.

@@ -58,16 +58,26 @@ func (h *meHandler) getMe(c fiber.Ctx) error {
 func mapMeError(c fiber.Ctx, err error) error {
 	msg := err.Error()
 	switch {
-	case strings.HasPrefix(msg, "bad_request:"):
+	case strings.Contains(msg, "bad_request:"):
+		parts := strings.SplitN(msg, "bad_request: ", 2)
+		message := msg
+		if len(parts) == 2 {
+			message = parts[1]
+		}
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"code":    "bad_request",
-			"message": strings.TrimPrefix(msg, "bad_request: "),
+			"message": message,
 			"errors":  fiber.Map{},
 		})
-	case strings.HasPrefix(msg, "not_found:"):
+	case strings.Contains(msg, "not_found:"):
+		parts := strings.SplitN(msg, "not_found: ", 2)
+		message := msg
+		if len(parts) == 2 {
+			message = parts[1]
+		}
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"code":    "not_found",
-			"message": strings.TrimPrefix(msg, "not_found: "),
+			"message": message,
 			"errors":  fiber.Map{},
 		})
 	default:

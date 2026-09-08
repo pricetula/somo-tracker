@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -94,7 +95,7 @@ func WithTenantTx(
 
 	// Bind the tenant scope to this transaction. SET LOCAL is scoped to the
 	// current transaction; we use $1 to keep the value safely parameterized.
-	if _, setErr := tx.Exec(ctx, fmt.Sprintf("SET LOCAL %s = $1", TenantSessionKey), tenantID); setErr != nil {
+	if _, setErr := tx.Exec(ctx, fmt.Sprintf("SET LOCAL %s = '%s'", TenantSessionKey, strings.ReplaceAll(tenantID, "'", "''"))); setErr != nil {
 		return fmt.Errorf("database.WithTenantTx: set tenant context %q: %w", TenantSessionKey, setErr)
 	}
 
@@ -121,7 +122,7 @@ func SetTenantOnTx(ctx context.Context, tx pgx.Tx, tenantID string) error {
 	if tx == nil {
 		return fmt.Errorf("database.SetTenantOnTx: tx is nil")
 	}
-	if _, err := tx.Exec(ctx, fmt.Sprintf("SET LOCAL %s = $1", TenantSessionKey), tenantID); err != nil {
+	if _, err := tx.Exec(ctx, fmt.Sprintf("SET LOCAL %s = '%s'", TenantSessionKey, strings.ReplaceAll(tenantID, "'", "''"))); err != nil {
 		return fmt.Errorf("database.SetTenantOnTx: set tenant context %q: %w", TenantSessionKey, err)
 	}
 	return nil

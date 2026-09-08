@@ -66,9 +66,8 @@ export class ApiError extends Error {
 // ─── Request options ──────────────────────────────────────────────────────
 
 export interface RequestOptions {
-    /** If true, skip the global 401 redirect to /logout. Use for endpoints
-     *  where a 401 is structurally expected (e.g. initial session check). */
     skipGlobal401Handler?: boolean;
+    headers?: Record<string, string>;
 }
 
 // ─── Correlation id ────────────────────────────────────────────────────────
@@ -106,6 +105,7 @@ async function request<T>(
 
     const headers: Record<string, string> = {
         "X-Request-ID": getCorrelationId(),
+        ...(options?.headers ?? {}),
     };
     if (body !== undefined) {
         headers["Content-Type"] = "application/json";
@@ -113,7 +113,6 @@ async function request<T>(
 
     // No CSRF token — backend uses SameSite=Lax cookie + fingerprint validation instead
     // of double-submit pattern.
-
     const res = await fetch(url, {
         method,
         headers,
@@ -156,7 +155,7 @@ async function request<T>(
         // If any API request returns 401 Unauthorized, force a redirect to
         // /logout to clear HTTP session cookies, invalidate local state, and
         // wipe the React Query cache.
-        if (res.status === 401 && !options?.skipGlobal401Handler) {
+        if (res.status === 401 && !options?.skipGlobal401Handler && typeof window !== "undefined") {
             window.location.href = "/logout";
         }
 

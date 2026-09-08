@@ -267,7 +267,13 @@ func (m *ipBlacklistMiddleware) recordViolation(ctx context.Context, ip string, 
 		}
 
 		// Clean up violation counter since IP is now blacklisted
-		_ = m.client.Del(ctx, violationKey).Err()
+		if delErr := m.client.Del(ctx, violationKey).Err(); delErr != nil {
+			m.logger.Warn("ipblacklist: failed to clean up violation key after blacklist",
+				zap.String("ip", ip),
+				zap.String("violation_key", violationKey),
+				zap.Error(delErr),
+			)
+		}
 
 		m.logger.Warn("ipblacklist: IP auto-blacklisted",
 			zap.String("ip", ip),
@@ -337,7 +343,9 @@ func GetBlacklistStatus(ctx context.Context, client *redis.Client, ip string) (b
 	ttl := blacklistTTL.Val()
 	var violations int64
 	if violationCount.Err() == nil {
-		violations, _ = strconv.ParseInt(violationCount.Val(), 10, 64)
+		if v, parseErr := strconv.ParseInt(violationCount.Val(), 10, 64); parseErr == nil {
+			violations = v
+		}
 	} else if violationCount.Err() != redis.Nil {
 		violations = 0
 	}

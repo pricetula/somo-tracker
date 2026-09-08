@@ -201,8 +201,18 @@ func NewSessionMiddleware(client *redis.Client, logger *zap.Logger) fiber.Handle
 		c.Locals("stytch_session_id", sessionData.StytchSessionID)
 
 		// Update the session's last_seen timestamp if update is needed.
-		// This is a best-effort operation; failures are logged but don't affect auth.
-		_ = client.Expire(ctx, sessionKey, sessionCacheTTL)
+		// Best-effort; log failure but don't affect auth (no silent discard).
+		if expireCmd := client.Expire(ctx, sessionKey, sessionCacheTTL); expireCmd.Err() != nil {
+			expireErr := expireCmd.Err()
+			if logger != nil {
+				logger.Warn("session middleware: failed to refresh session cache TTL",
+					zap.String("session_key", sessionKey),
+					zap.Error(expireErr),
+				)
+			} else {
+				zap.L().Warn("session middleware: failed to refresh session cache TTL", zap.Error(expireErr))
+			}
+		}
 
 		return c.Next()
 	}

@@ -63,7 +63,7 @@ func sendMeRequest(t *testing.T, app *fiber.App, cookie string) *http.Response {
 
 func readJSONMap(t *testing.T, resp *http.Response) map[string]any {
 	t.Helper()
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	var got map[string]any
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&got))
 	return got
@@ -87,7 +87,7 @@ func TestGetMe_HappyPath_Returns200(t *testing.T) {
 	app := newMeTestApp(mock, true)
 
 	resp := sendMeRequest(t, app, "token-abc")
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 	require.Len(t, mock.calls, 1)
@@ -108,7 +108,7 @@ func TestGetMe_MissingCookie_Returns401(t *testing.T) {
 	app := newMeTestApp(mock, true)
 
 	resp := sendMeRequest(t, app, "")
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, fiber.StatusUnauthorized, resp.StatusCode)
 	assert.Empty(t, mock.calls, "service must not be called when cookie is missing")
@@ -127,7 +127,7 @@ func TestGetMe_MissingTenantContext_Returns401(t *testing.T) {
 	app := newMeTestApp(mock, false)
 
 	resp := sendMeRequest(t, app, "token-xyz")
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, fiber.StatusUnauthorized, resp.StatusCode)
 	assert.Empty(t, mock.calls)
@@ -145,7 +145,7 @@ func TestGetMe_ServiceBadRequest_Returns400(t *testing.T) {
 	app := newMeTestApp(mock, true)
 
 	resp := sendMeRequest(t, app, "bad-token")
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
 	body := readJSONMap(t, resp)
@@ -158,7 +158,7 @@ func TestGetMe_ServiceNotFound_Returns404(t *testing.T) {
 	app := newMeTestApp(mock, true)
 
 	resp := sendMeRequest(t, app, "expired")
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, fiber.StatusNotFound, resp.StatusCode)
 	body := readJSONMap(t, resp)
@@ -171,7 +171,7 @@ func TestGetMe_ServiceUnknownError_Returns500WithoutLeakage(t *testing.T) {
 	app := newMeTestApp(mock, true)
 
 	resp := sendMeRequest(t, app, "any")
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, fiber.StatusInternalServerError, resp.StatusCode)
 	body := readJSONMap(t, resp)
@@ -188,7 +188,7 @@ func TestGetMe_CookieValuePassedToService(t *testing.T) {
 	app := newMeTestApp(mock, true)
 
 	resp := sendMeRequest(t, app, "secret-cookie-value")
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 	require.Len(t, mock.calls, 1)
@@ -207,7 +207,7 @@ func TestGetMe_EmptyCookieValue_Returns401(t *testing.T) {
 	req.AddCookie(&http.Cookie{Name: "session_token", Value: ""})
 	resp, err := app.Test(req)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, fiber.StatusUnauthorized, resp.StatusCode)
 	assert.Empty(t, mock.calls)

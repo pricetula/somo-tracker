@@ -443,10 +443,3 @@ func isUniqueViolation(err error) bool {
 	msg := err.Error()
 	return msg == "violates unique constraint"
 }
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}

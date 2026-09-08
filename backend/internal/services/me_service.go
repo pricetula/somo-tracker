@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 
@@ -45,22 +46,22 @@ SELECT
     u.full_name AS user_name,
     u.email,
     sm.school_id AS active_school_id,
-    sch.school_name,
+    COALESCE(sch.school_name, '') AS school_name,
     sm.role AS active_school_role,
-    u.tenant_id
+    u.tenant_id,
+    COALESCE(sm.is_active, FALSE) AS membership_active
 FROM 
     sessions s
 JOIN 
     users u ON s.user_id = u.id
-JOIN 
+LEFT JOIN 
     school_memberships sm ON u.id = sm.user_id
-JOIN 
+LEFT JOIN 
     schools sch ON sm.school_id = sch.id
 WHERE 
     s.token = $1
     AND s.expires_at > NOW()
-    AND u.is_active = TRUE
-    AND sm.is_active = TRUE;
+    AND u.is_active = TRUE;
 `
 
 func (s *meService) GetCurrentUser(ctx context.Context, token string, tenantID string) (MeResult, error) {
@@ -75,13 +76,17 @@ func (s *meService) GetCurrentUser(ctx context.Context, token string, tenantID s
 	txErr := database.WithTenantTx(ctx, s.pool, s.logger, tenantID, func(ctx context.Context, tx pgx.Tx) error {
 		row := tx.QueryRow(ctx, getMeQuery, token)
 		var schoolID, tenantIDPg pgtype.UUID
+		var membershipActive bool
+		var schoolName sql.NullString
+		var activeSchoolRole sql.NullString
 		err := row.Scan(
 			&result.UserName,
 			&result.Email,
 			&schoolID,
-			&result.SchoolName,
-			&result.ActiveSchoolRole,
+			&schoolName,
+			&activeSchoolRole,
 			&tenantIDPg,
+			&membershipActive,
 		)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fmt.Errorf("not_found: session expired or invalid")
@@ -89,8 +94,18 @@ func (s *meService) GetCurrentUser(ctx context.Context, token string, tenantID s
 		if err != nil {
 			return fmt.Errorf("internal_error: failed to retrieve user: %w", err)
 		}
-		if schoolID.Valid {
+		if membershipActive && schoolID.Valid {
 			result.ActiveSchoolID = schoolID.String()
+			result.SchoolName = schoolName.String
+			if activeSchoolRole.Valid {
+				result.ActiveSchoolRole = activeSchoolRole.String
+			} else {
+				result.ActiveSchoolRole = ""
+			}
+		} else {
+			result.ActiveSchoolID = ""
+			result.SchoolName = ""
+			result.ActiveSchoolRole = ""
 		}
 		if tenantIDPg.Valid {
 			result.TenantID = tenantIDPg.String()

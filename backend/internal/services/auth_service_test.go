@@ -12,10 +12,6 @@ import (
 	b2bdiscovery "github.com/stytchauth/stytch-go/v18/stytch/b2b/magiclinks/discovery"
 )
 
-type mockErr struct{}
-
-func (mockErr) Error() string { return "mock error" }
-
 type mockStytchClient struct {
 	newUser bool
 }

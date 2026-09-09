@@ -22,7 +22,7 @@ export default function LogoutPage() {
                 document.cookie = `${CSRF_COOKIE_NAME}=; path=/; max-age=0; Secure; SameSite=Lax`;
                 queryClient.clear();
                 toast.success("Logged out");
-            } catch (err) {
+            } catch {
                 // Session may already be expired or backend unreachable —
                 // still redirect to /login. When the API call fails (network
                 // error, backend down), cookies are NOT cleared server-side,

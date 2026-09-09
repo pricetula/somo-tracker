@@ -16,6 +16,18 @@ func NewAcademicPeriodHandler(svc services.AcademicPeriodService) *AcademicPerio
 	return &AcademicPeriodHandler{service: svc}
 }
 
+// CreateAcademicPeriod creates a new academic year with nested terms.
+//
+// @Summary Create academic period
+// @Description Creates a new academic year with nested terms for the active school.
+// @Tags Academic Periods
+// @Accept json
+// @Produce json
+// @Param body body services.AcademicPeriodRequest true "Academic period payload"
+// @Success 201 {object} object
+// @Failure 400 {object} object
+// @Failure 401 {object} object
+// @Router /school/academic-period [post]
 func (h *AcademicPeriodHandler) CreateAcademicPeriod(c fiber.Ctx) error {
 	schoolID, ok := c.Locals("active_school_id").(string)
 	if !ok || schoolID == "" {

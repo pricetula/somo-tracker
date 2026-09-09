@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState, useMemo, useSyncExternalStore } from "react";
+
 import { DateRange } from "react-day-picker";
-import { format } from "date-fns";
-import { Copy, Check, Trash2, Plus } from "lucide-react";
+import { format, startOfYear, endOfYear } from "date-fns";
+import { Trash2, Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
@@ -18,6 +19,18 @@ import {
     DialogFooter,
 } from "@/components/ui/dialog";
 import { YearSelect } from "@/components/shared/year-select";
+import { useCreateAcademicPeriod } from "@/features/school/hooks/use-academic-period";
+
+// Helper functions for client subscription
+const emptySubscribe = () => () => {};
+const getSnapshot = () => true;
+const getServerSnapshot = () => false;
+
+const initRange = { from: undefined, to: undefined };
+
+function useIsMounted() {
+    return useSyncExternalStore(emptySubscribe, getSnapshot, getServerSnapshot);
+}
 
 // ---- Types mirroring the Go structs ----
 interface TermInput {
@@ -41,36 +54,49 @@ interface CreateAcademicYearProps {
 }
 
 export function CreateAcademicYear({ onSuccess }: CreateAcademicYearProps) {
-    const currentYear = new Date().getFullYear();
-
+    const mutation = useCreateAcademicPeriod();
+    const isMounted = useIsMounted();
+    const currentDate = useMemo(() => new Date(), []);
+    const currentYear = useMemo(() => currentDate.getFullYear(), [currentDate]);
     const [year, setYear] = useState<number>(currentYear);
-    const [range, setRange] = useState<DateRange | undefined>(undefined);
-
+    const [range, setRange] = useState<DateRange>(initRange);
     const [dialogOpen, setDialogOpen] = useState(false);
     const [termName, setTermName] = useState("");
-
     const [terms, setTerms] = useState<TermInput[]>([]);
-    const [copied, setCopied] = useState(false);
+    const payload: AcademicPeriodRequest = useMemo(() => ({ year, terms }), [year, terms]);
+    const disableCreateButton = useMemo(() => !payload?.year || !payload?.terms?.length, [payload]);
+    const { minDate, maxDate } = useMemo(() => {
+        const d = new Date(year, 0);
+        return { minDate: startOfYear(d), maxDate: endOfYear(d) };
+    }, [year]);
 
-    function handleRangeSelect(next: DateRange | undefined) {
-        setRange(next);
-        // Open the dialog once both a start (from) and end (to) date are picked
-        if (next?.from && next?.to) {
-            setDialogOpen(true);
-        }
-    }
-
-    function resetSelection() {
-        setRange(undefined);
+    const handleRangeSelect = useCallback(
+        (next: DateRange | undefined) => {
+            const r = { ...range };
+            if (!next?.from || !next?.to) return;
+            if (!r?.from || (r?.from && r?.to)) {
+                r.from = next.from;
+                r.to = undefined;
+            } else if (r?.from && !r?.to) {
+                r.to = next.to;
+            }
+            setRange(r);
+            // Open the dialog once both a start (from) and end (to) date are picked
+            if (r?.from && r?.to) {
+                setDialogOpen(true);
+            }
+        },
+        [range]
+    );
+    const resetSelection = useCallback(() => {
+        setRange(initRange);
         setTermName("");
-    }
-
-    function handleCancel() {
+    }, []);
+    const handleCancel = useCallback(() => {
         setDialogOpen(false);
         resetSelection();
-    }
-
-    function handleSave() {
+    }, [resetSelection]);
+    const handleSave = useCallback(() => {
         if (!termName.trim() || !range?.from || !range?.to) return;
 
         setTerms((prev) => [
@@ -84,42 +110,35 @@ export function CreateAcademicYear({ onSuccess }: CreateAcademicYearProps) {
 
         setDialogOpen(false);
         resetSelection();
-    }
-
-    function removeTerm(index: number) {
+    }, [termName, range, resetSelection]);
+    const removeTerm = useCallback((index: number) => {
         setTerms((prev) => prev.filter((_, i) => i !== index));
-    }
-
-    const payload: AcademicPeriodRequest = { year, terms };
-    const payloadJson = JSON.stringify(payload, null, 2);
-
-    function copyJson() {
-        navigator.clipboard?.writeText(payloadJson);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1500);
-    }
+    }, []);
 
     return (
-        <div className="mx-auto max-w-4xl space-y-6 p-6">
+        <div>
             <div>
                 <h1 className="text-2xl font-semibold">Academic period setup</h1>
                 <p className="text-muted-foreground mt-1 text-sm">
-                    Choose a year, select a date range for each term, then name and save it.
+                    Choose a year, select a date range for each term, name and save it.
                 </p>
             </div>
 
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-5">
-                {/* Left: year + calendar */}
-                <div className="space-y-4 md:col-span-3">
+            <div className="flex items-start gap-4">
+                <div className="space-y-4">
                     <Card>
                         <CardHeader>
                             <CardTitle className="text-base">Academic year</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <YearSelect year={year} onSelect={setYear} />
-                            <p className="text-muted-foreground mt-2 text-xs">
-                                Years beyond {currentYear} aren&apos;t offered.
-                            </p>
+                            <YearSelect
+                                year={year}
+                                onSelect={(y) => {
+                                    setYear(y);
+                                    setTerms([]);
+                                    setRange(initRange);
+                                }}
+                            />
                         </CardContent>
                     </Card>
 
@@ -128,14 +147,17 @@ export function CreateAcademicYear({ onSuccess }: CreateAcademicYearProps) {
                             <CardTitle className="text-base">Term dates</CardTitle>
                         </CardHeader>
                         <CardContent className="flex flex-col items-center">
-                            <Calendar
-                                mode="range"
-                                selected={range}
-                                onSelect={handleRangeSelect}
-                                numberOfMonths={1}
-                                defaultMonth={new Date(year, 0)}
-                                className="rounded-md border"
-                            />
+                            {isMounted && (
+                                <Calendar
+                                    mode="range"
+                                    selected={range}
+                                    onSelect={handleRangeSelect}
+                                    numberOfMonths={2}
+                                    className="rounded-lg border"
+                                    startMonth={minDate}
+                                    endMonth={maxDate}
+                                />
+                            )}
                             <p className="text-muted-foreground mt-3 self-start text-xs">
                                 {range?.from
                                     ? `${format(range.from, "MMM d, yyyy")}${
@@ -149,72 +171,53 @@ export function CreateAcademicYear({ onSuccess }: CreateAcademicYearProps) {
                     </Card>
                 </div>
 
-                {/* Right: terms list + JSON preview */}
-                <div className="space-y-4 md:col-span-2">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-base">Terms for {year}</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            {terms.length === 0 ? (
-                                <p className="text-muted-foreground text-sm italic">
-                                    No terms added yet.
-                                </p>
-                            ) : (
-                                <ul className="space-y-2">
-                                    {terms.map((t, i) => (
-                                        <li
-                                            key={i}
-                                            className="flex items-start justify-between gap-2 rounded-md border px-3 py-2"
+                <Card className="w-70">
+                    <CardHeader>
+                        <CardTitle className="text-base">Terms for {year}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        {terms.length === 0 ? (
+                            <p className="text-muted-foreground text-sm italic">
+                                No terms added yet.
+                            </p>
+                        ) : (
+                            <ul className="space-y-2">
+                                {terms.map((t, i) => (
+                                    <li
+                                        key={i}
+                                        className="flex items-start justify-between gap-2 rounded-md border px-3 py-2"
+                                    >
+                                        <div>
+                                            <p className="text-sm font-medium">{t.name}</p>
+                                            <p className="text-muted-foreground text-xs">
+                                                {t.start_date} → {t.end_date}
+                                            </p>
+                                        </div>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7"
+                                            onClick={() => removeTerm(i)}
+                                            aria-label={`Remove ${t.name}`}
                                         >
-                                            <div>
-                                                <p className="text-sm font-medium">{t.name}</p>
-                                                <p className="text-muted-foreground text-xs">
-                                                    {t.start_date} → {t.end_date}
-                                                </p>
-                                            </div>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-7 w-7"
-                                                onClick={() => removeTerm(i)}
-                                                aria-label={`Remove ${t.name}`}
-                                            >
-                                                <Trash2 className="h-3.5 w-3.5" />
-                                            </Button>
-                                        </li>
-                                    ))}
-                                </ul>
-                            )}
-                        </CardContent>
-                    </Card>
-
-                    <Card className="border-zinc-800 bg-zinc-950 text-zinc-100">
-                        <CardHeader className="flex flex-row items-center justify-between py-3">
-                            <CardTitle className="font-mono text-xs text-zinc-400">
-                                AcademicPeriodRequest
-                            </CardTitle>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 text-zinc-300 hover:bg-zinc-800 hover:text-white"
-                                onClick={copyJson}
-                            >
-                                {copied ? (
-                                    <Check className="mr-1 h-3.5 w-3.5" />
-                                ) : (
-                                    <Copy className="mr-1 h-3.5 w-3.5" />
-                                )}
-                                {copied ? "Copied" : "Copy"}
-                            </Button>
-                        </CardHeader>
-                        <CardContent>
-                            <pre className="overflow-x-auto font-mono text-xs whitespace-pre">
-                                {payloadJson}
-                            </pre>
-                        </CardContent>
-                    </Card>
-                </div>
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                        </Button>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </CardContent>
+                    <CardFooter>
+                        <Button
+                            disabled={disableCreateButton || mutation.isPending}
+                            onClick={() =>
+                                mutation.mutate(payload, { onSuccess: () => onSuccess() })
+                            }
+                        >
+                            {mutation.isPending ? "Creating..." : "Create"}
+                        </Button>
+                    </CardFooter>
+                </Card>
             </div>
 
             {/* Dialog: non-dismissable except via Cancel/Save */}

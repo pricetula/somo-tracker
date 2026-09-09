@@ -64,6 +64,31 @@ export interface paths {
             };
         };
     };
+    "/school/academic-period": {
+        /** Creates a new academic year with nested terms for the active school. */
+        post: {
+            parameters: {
+                body: {
+                    /** Academic period payload */
+                    body: definitions["services.AcademicPeriodRequest"];
+                };
+            };
+            responses: {
+                /** Created */
+                201: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Bad Request */
+                400: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
     "/school/register": {
         /** Creates a new school for the authenticated user and assigns them as ADMIN. Updates user's full_name atomically. */
         post: {
@@ -84,6 +109,44 @@ export interface paths {
                 };
             };
         };
+    };
+    "/school/streams": {
+        /** Creates one or more streams for the active school. */
+        post: {
+            parameters: {
+                body: {
+                    /** Stream names */
+                    body: string[];
+                };
+            };
+            responses: {
+                /** Created */
+                201: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Bad Request */
+                400: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+}
+
+export interface definitions {
+    "services.AcademicPeriodRequest": {
+        terms?: definitions["services.TermInput"][];
+        year?: number;
+    };
+    "services.TermInput": {
+        end_date?: string;
+        name?: string;
+        /** @description "2026-01-15" */
+        start_date?: string;
     };
 }
 

@@ -1,5 +1,5 @@
-import { OnboardingForm } from "@/features/school/components/onboarding-form";
+import { Onboarding } from "@/features/school";
 
 export default function Register() {
-    return <OnboardingForm />;
+    return <Onboarding />;
 }

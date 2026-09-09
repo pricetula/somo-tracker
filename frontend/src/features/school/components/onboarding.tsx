@@ -12,7 +12,7 @@ import { OnboardingForm } from "./onboarding-form";
 import { CreateAcademicYear } from "./create-academic-year";
 
 export function Onboarding() {
-    const [stage, setStage] = React.useState(0);
+    const [stage, setStage] = React.useState(1);
 
     return (
         <>

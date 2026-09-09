@@ -138,6 +138,52 @@
                 }
             }
         },
+        "/school/academic-period": {
+            "post": {
+                "description": "Creates a new academic year with nested terms for the active school.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Academic Periods"
+                ],
+                "summary": "Create academic period",
+                "parameters": [
+                    {
+                        "description": "Academic period payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/services.AcademicPeriodRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "object"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                }
+            }
+        },
         "/school/register": {
             "post": {
                 "description": "Creates a new school for the authenticated user and assigns them as ADMIN. Updates user's full_name atomically.",
@@ -175,6 +221,86 @@
                             "type": "object"
                         }
                     }
+                }
+            }
+        },
+        "/school/streams": {
+            "post": {
+                "description": "Creates one or more streams for the active school.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Streams"
+                ],
+                "summary": "Create streams",
+                "parameters": [
+                    {
+                        "description": "Stream names",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "object"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "services.AcademicPeriodRequest": {
+            "type": "object",
+            "properties": {
+                "terms": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/services.TermInput"
+                    }
+                },
+                "year": {
+                    "type": "integer"
+                }
+            }
+        },
+        "services.TermInput": {
+            "type": "object",
+            "properties": {
+                "end_date": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "start_date": {
+                    "description": "\"2026-01-15\"",
+                    "type": "string"
                 }
             }
         }

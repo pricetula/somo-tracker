@@ -16,6 +16,18 @@ func NewStreamsHandler(svc services.StreamsService) *StreamsHandler {
 	return &StreamsHandler{service: svc}
 }
 
+// CreateStreams creates one or more streams for the active school.
+//
+// @Summary Create streams
+// @Description Creates one or more streams for the active school.
+// @Tags Streams
+// @Accept json
+// @Produce json
+// @Param body body []string true "Stream names"
+// @Success 201 {object} object
+// @Failure 400 {object} object
+// @Failure 401 {object} object
+// @Router /school/streams [post]
 func (h *StreamsHandler) CreateStreams(c fiber.Ctx) error {
 	schoolID, ok := c.Locals("active_school_id").(string)
 	if !ok || schoolID == "" {

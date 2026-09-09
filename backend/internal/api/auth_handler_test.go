@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"go.uber.org/zap"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -56,7 +57,7 @@ func newTestRouter(mock *mockAuthService) *fiber.App {
 	cfg := &config.Config{
 		CAPTCHAEnabled: false,
 	}
-	router := NewRouter(mock, nil, nil, cfg)
+	router := NewRouter(mock, nil, services.NewSchoolRegistrationService(nil, zap.NewNop()), nil, cfg)
 	app := fiber.New()
 	router.RegisterRoutes(app, nil, nil)
 	return app
@@ -334,7 +335,7 @@ func TestCallback_RateLimitMiddlewareAttached(t *testing.T) {
 		},
 	}
 	cfg := &config.Config{CAPTCHAEnabled: false}
-	router := NewRouter(mock, nil, nil, cfg) // nil limiter → passes through
+	router := NewRouter(mock, nil, services.NewSchoolRegistrationService(nil, zap.NewNop()), nil, cfg) // nil limiter → passes through
 	app := fiber.New()
 	router.RegisterRoutes(app, nil, nil)
 

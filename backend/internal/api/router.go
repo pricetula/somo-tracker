@@ -29,6 +29,7 @@ var (
 type Router struct {
 	Auth    *authHandler
 	Me      *meHandler
+	School  *SchoolHandler
 	limiter *redis_rate.Limiter
 	cfg     *config.Config
 }
@@ -39,12 +40,14 @@ type Router struct {
 func NewRouter(
 	authSvc services.AuthService,
 	meSvc services.MeService,
+	schoolSvc services.SchoolRegistrationService,
 	limiter *redis_rate.Limiter,
 	cfg *config.Config,
 ) *Router {
 	return &Router{
 		Auth:    newAuthHandler(authSvc, cfg),
 		Me:      newMeHandler(meSvc),
+		School:  NewSchoolHandler(&schoolSvc),
 		limiter: limiter,
 		cfg:     cfg,
 	}
@@ -101,4 +104,5 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 	// injects user_id and tenant_id into c.Locals, and binds RLS context.
 	// CSRF middleware validates double-submit token on mutating requests.
 	protected.Get("/me", r.Me.getMe)
+	protected.Post("/register-school", r.School.RegisterSchool)
 }

@@ -48,6 +48,7 @@ func main() {
 		fx.Provide(newQuerier),
 		fx.Provide(services.NewAuthService),
 		fx.Provide(services.NewMeService),
+		fx.Provide(services.NewSchoolRegistrationService),
 		fx.Provide(api.NewRouter),
 		fx.Provide(observability.NewTracerProvider),
 		fx.Provide(observability.NewMeterProvider),

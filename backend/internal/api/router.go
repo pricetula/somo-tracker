@@ -32,6 +32,7 @@ type Router struct {
 	Me             *meHandler
 	School         *SchoolHandler
 	AcademicPeriod *AcademicPeriodHandler
+	Streams        *StreamsHandler
 	limiter        *redis_rate.Limiter
 	cfg            *config.Config
 }
@@ -44,6 +45,7 @@ func NewRouter(
 	meSvc services.MeService,
 	schoolSvc services.SchoolRegistrationService,
 	academicSvc services.AcademicPeriodService,
+	streamsSvc services.StreamsService,
 	limiter *redis_rate.Limiter,
 	cfg *config.Config,
 ) *Router {
@@ -52,6 +54,7 @@ func NewRouter(
 		Me:             newMeHandler(meSvc),
 		School:         NewSchoolHandler(&schoolSvc),
 		AcademicPeriod: NewAcademicPeriodHandler(academicSvc),
+		Streams:        NewStreamsHandler(streamsSvc),
 		limiter:        limiter,
 		cfg:            cfg,
 	}
@@ -112,4 +115,5 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 	protected.Get("/me", r.Me.getMe)
 	protected.Post("/school/register", r.School.RegisterSchool)
 	protected.Post("/school/academic-period", r.AcademicPeriod.CreateAcademicPeriod)
+	protected.Post("/school/streams", r.Streams.CreateStreams)
 }

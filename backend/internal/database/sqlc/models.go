@@ -582,6 +582,15 @@ type Session struct {
 	LastSeenAt pgtype.Timestamptz `json:"last_seen_at"`
 }
 
+type Stream struct {
+	ID        pgtype.UUID        `json:"id"`
+	SchoolID  pgtype.UUID        `json:"school_id"`
+	Name      string             `json:"name"`
+	Color     pgtype.Text        `json:"color"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
 // Student records scoped to a school. admission_number is unique per school. metadata stores flexible external identifiers (NEMIS, KICD, etc.).
 type Student struct {
 	// Auto-generated UUID primary key.

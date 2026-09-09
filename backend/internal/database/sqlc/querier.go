@@ -15,6 +15,7 @@ type Querier interface {
 	CreateAcademicYear(ctx context.Context, arg CreateAcademicYearParams) (AcademicYear, error)
 	CreateMember(ctx context.Context, arg CreateMemberParams) (Member, error)
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
+	CreateStream(ctx context.Context, arg CreateStreamParams) (Stream, error)
 	DeleteSession(ctx context.Context, token string) error
 	GetMemberByStytchMemberID(ctx context.Context, stytchMemberID string) (Member, error)
 	GetSessionByToken(ctx context.Context, token string) (Session, error)

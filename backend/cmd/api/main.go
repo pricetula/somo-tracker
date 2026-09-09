@@ -50,6 +50,7 @@ func main() {
 		fx.Provide(services.NewMeService),
 		fx.Provide(services.NewSchoolRegistrationService),
 		fx.Provide(services.NewAcademicPeriodService),
+		fx.Provide(services.NewStreamsService),
 		fx.Provide(api.NewRouter),
 		fx.Provide(observability.NewTracerProvider),
 		fx.Provide(observability.NewMeterProvider),

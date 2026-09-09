@@ -29,7 +29,7 @@ func NewSchoolHandler(svc *services.SchoolRegistrationService) *SchoolHandler {
 // @Param body body object{"school_name":"string","user_name":"string"} true "School registration payload"
 // @Success 201 {object} object
 // @Failure 400 {object} object
-// @Router /register-school [post]
+// @Router /school/register [post]
 func (h *SchoolHandler) RegisterSchool(c fiber.Ctx) error {
 	// Get user ID and tenant ID from session locals
 	userID, ok := c.Locals("user_id").(string)

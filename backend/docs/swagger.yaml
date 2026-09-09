@@ -91,7 +91,7 @@ paths:
       summary: Get current user
       tags:
       - User
-  /register-school:
+  /school/register:
     post:
       consumes:
       - application/json

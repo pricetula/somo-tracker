@@ -104,5 +104,5 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 	// injects user_id and tenant_id into c.Locals, and binds RLS context.
 	// CSRF middleware validates double-submit token on mutating requests.
 	protected.Get("/me", r.Me.getMe)
-	protected.Post("/register-school", r.School.RegisterSchool)
+	protected.Post("/school/register", r.School.RegisterSchool)
 }

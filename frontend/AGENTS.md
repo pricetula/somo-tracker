@@ -162,6 +162,23 @@ Sub-navigation belongs in the sidebar or in dedicated feature-level route pages.
 
 ---
 
+## 9.5 Form Implementation — Onboarding / Registration
+
+Standard for school registration / onboarding forms (e.g., `features/school/components/onboarding-form.tsx`):
+
+- **Compound form only**: shadcn `Form`, `FormField`, `FormItem`, `FormLabel`, `FormControl`, `FormMessage`. No raw `<form>` + `useState` replacements.
+- **Validation**: `zod` schema + `zodResolver`; `useForm` with typed `defaultValues`.
+- **Submit handler**: wrapped in `useCallback`; calls mutation directly (`mutate` from feature hook like `useRegisterSchool`). No `onSuccess` prop required when mutation handles its own toast / redirect.
+- **Layout**: flat vertical stack (`space-y-5` or `space-y-4`). No card/widget wrapper, no border isolation, no custom hex colors. Semantic CSS vars only.
+- **Errors**: mutation-level error surfacing only (`useRegisterSchool` `onError` → `toast.error`). Forbidden: duplicate `useEffect` watching `isError` / `error` to call `toast.error` again. Field-level 400 errors drive `form.setError`; never generic toasts for validation failures.
+- **Pending state**: `disabled={isPending}` on `Input` and `Button`; loader inside button (`Loader2` + `animate-spin`).
+- **Success step**: handled by mutation `onSuccess` (toast / redirect), never by `useEffect` watching `isSuccess`. Forbidden: `useEffect` that calls `router.push()` or `setState` on `isSuccess`. If redirect required, pass `onSuccess` to `mutate` or configure the feature hook. `router.push()` must include a destination path; empty calls are invalid.
+- **Error / success duplication**: mutation hook (`useRegisterSchool`) surfaces errors via `onError` and success via `onSuccess`; do not duplicate either with `useEffect` watching `isError` / `isSuccess`. `mutate` may pass `onSuccess` / `onError` directly (e.g., redirect in `onSuccess`, toast in `onError`) — never via reactive effects.
+
+Reference file: `frontend/src/features/school/components/onboarding-form.tsx`.
+
+---
+
 ## 9. Shadcn UI Components — never modify, never add by hand
 
 Files under `src/components/ui/` are auto-generated shadcn primitives.

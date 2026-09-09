@@ -24,7 +24,7 @@ func TestRegisterSchool_HappyPath_Returns201(t *testing.T) {
 	// Use direct Fiber app with middleware injection
 	app := fiber.New()
 	app.Use(injectUserTenantMW("user-1", "tenant-42"))
-	app.Post("/api/register-school", func(c fiber.Ctx) error {
+	app.Post("/api/school/register", func(c fiber.Ctx) error {
 		// Direct handler call using mock
 		// Since handler needs service pointer, construct fresh
 		var body struct {
@@ -38,7 +38,7 @@ func TestRegisterSchool_HappyPath_Returns201(t *testing.T) {
 	})
 
 	reqBody, _ := json.Marshal(map[string]string{"school_name": "Test School", "user_name": "Alice"})
-	req := httptest.NewRequest("POST", "/api/register-school", bytes.NewReader(reqBody))
+	req := httptest.NewRequest("POST", "/api/school/register", bytes.NewReader(reqBody))
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := app.Test(req)
 	require.NoError(t, err)
@@ -50,7 +50,7 @@ func TestRegisterSchool_HappyPath_Returns201(t *testing.T) {
 func TestRegisterSchool_MissingBody_Returns400(t *testing.T) {
 	app := fiber.New()
 	app.Use(injectUserTenantMW("user-1", "tenant-42"))
-	app.Post("/api/register-school", func(c fiber.Ctx) error {
+	app.Post("/api/school/register", func(c fiber.Ctx) error {
 		var body struct {
 			SchoolName string `json:"school_name"`
 			UserName   string `json:"user_name"`
@@ -62,7 +62,7 @@ func TestRegisterSchool_MissingBody_Returns400(t *testing.T) {
 		return c.JSON(fiber.Map{"school_id": "s1"})
 	})
 
-	req := httptest.NewRequest("POST", "/api/register-school", bytes.NewReader([]byte(`{}`)))
+	req := httptest.NewRequest("POST", "/api/school/register", bytes.NewReader([]byte(`{}`)))
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := app.Test(req)
 	require.NoError(t, err)

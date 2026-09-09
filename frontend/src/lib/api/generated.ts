@@ -64,7 +64,7 @@ export interface paths {
             };
         };
     };
-    "/register-school": {
+    "/school/register": {
         /** Creates a new school for the authenticated user and assigns them as ADMIN. Updates user's full_name atomically. */
         post: {
             parameters: {

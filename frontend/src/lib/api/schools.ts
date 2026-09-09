@@ -3,7 +3,7 @@
  * Previous endpoints (list/update/delete/seed) are deprecated.
  *
  * Endpoint (from backend/internal/api/school_handler.go, swaggo annotated):
- *   POST /api/register-school — register a new school and assign ADMIN
+ *   POST /api/school/register — register a new school and assign ADMIN
  */
 
 import { api } from "./client";
@@ -24,5 +24,5 @@ export interface RegisterSchoolResponse {
 
 /** Register a new school (atomic: updates user + creates school + creates ADMIN membership). */
 export async function registerSchool(data: RegisterSchoolPayload): Promise<RegisterSchoolResponse> {
-    return api.post<RegisterSchoolResponse>("/register-school", data);
+    return api.post<RegisterSchoolResponse>("/school/register", data);
 }

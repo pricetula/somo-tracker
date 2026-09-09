@@ -144,7 +144,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/register-school": {
+        "/school/register": {
             "post": {
                 "description": "Creates a new school for the authenticated user and assigns them as ADMIN. Updates user's full_name atomically.",
                 "consumes": [

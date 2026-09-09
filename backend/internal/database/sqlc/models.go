@@ -5,8 +5,450 @@
 package sqlc
 
 import (
+	"database/sql/driver"
+	"fmt"
+
 	"github.com/jackc/pgx/v5/pgtype"
 )
+
+// Student enrollment lifecycle status: ACTIVE (currently enrolled), PROMOTED (moved to next grade), REPEATING (retained in same grade), GRADUATED (completed final grade / alumni).
+type EnrollmentStatus string
+
+const (
+	EnrollmentStatusACTIVE    EnrollmentStatus = "ACTIVE"
+	EnrollmentStatusPROMOTED  EnrollmentStatus = "PROMOTED"
+	EnrollmentStatusREPEATING EnrollmentStatus = "REPEATING"
+	EnrollmentStatusGRADUATED EnrollmentStatus = "GRADUATED"
+)
+
+func (e *EnrollmentStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = EnrollmentStatus(s)
+	case string:
+		*e = EnrollmentStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for EnrollmentStatus: %T", src)
+	}
+	return nil
+}
+
+type NullEnrollmentStatus struct {
+	EnrollmentStatus EnrollmentStatus `json:"enrollment_status"`
+	Valid            bool             `json:"valid"` // Valid is true if EnrollmentStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullEnrollmentStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.EnrollmentStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.EnrollmentStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullEnrollmentStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.EnrollmentStatus), nil
+}
+
+// Attendance state for special school events: PRESENT, ABSENT, or EXCUSED.
+type EventAttendanceStatus string
+
+const (
+	EventAttendanceStatusPRESENT EventAttendanceStatus = "PRESENT"
+	EventAttendanceStatusABSENT  EventAttendanceStatus = "ABSENT"
+	EventAttendanceStatusEXCUSED EventAttendanceStatus = "EXCUSED"
+)
+
+func (e *EventAttendanceStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = EventAttendanceStatus(s)
+	case string:
+		*e = EventAttendanceStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for EventAttendanceStatus: %T", src)
+	}
+	return nil
+}
+
+type NullEventAttendanceStatus struct {
+	EventAttendanceStatus EventAttendanceStatus `json:"event_attendance_status"`
+	Valid                 bool                  `json:"valid"` // Valid is true if EventAttendanceStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullEventAttendanceStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.EventAttendanceStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.EventAttendanceStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullEventAttendanceStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.EventAttendanceStatus), nil
+}
+
+// Category of room: STANDARD (regular classroom), SCIENCE_LAB, COMPUTER_LAB, GYM.
+type RoomType string
+
+const (
+	RoomTypeSTANDARD    RoomType = "STANDARD"
+	RoomTypeSCIENCELAB  RoomType = "SCIENCE_LAB"
+	RoomTypeCOMPUTERLAB RoomType = "COMPUTER_LAB"
+	RoomTypeGYM         RoomType = "GYM"
+)
+
+func (e *RoomType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = RoomType(s)
+	case string:
+		*e = RoomType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for RoomType: %T", src)
+	}
+	return nil
+}
+
+type NullRoomType struct {
+	RoomType RoomType `json:"room_type"`
+	Valid    bool     `json:"valid"` // Valid is true if RoomType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullRoomType) Scan(value interface{}) error {
+	if value == nil {
+		ns.RoomType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.RoomType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullRoomType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.RoomType), nil
+}
+
+// Lifecycle state for substitutions: PENDING (awaiting assignment), ASSIGNED (cover teacher confirmed), COMPLETED (coverage done), CANCELLED (substitution revoked).
+type SubstitutionStatus string
+
+const (
+	SubstitutionStatusPENDING   SubstitutionStatus = "PENDING"
+	SubstitutionStatusASSIGNED  SubstitutionStatus = "ASSIGNED"
+	SubstitutionStatusCOMPLETED SubstitutionStatus = "COMPLETED"
+	SubstitutionStatusCANCELLED SubstitutionStatus = "CANCELLED"
+)
+
+func (e *SubstitutionStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = SubstitutionStatus(s)
+	case string:
+		*e = SubstitutionStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for SubstitutionStatus: %T", src)
+	}
+	return nil
+}
+
+type NullSubstitutionStatus struct {
+	SubstitutionStatus SubstitutionStatus `json:"substitution_status"`
+	Valid              bool               `json:"valid"` // Valid is true if SubstitutionStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullSubstitutionStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.SubstitutionStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.SubstitutionStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullSubstitutionStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.SubstitutionStatus), nil
+}
+
+// Attendance state for timetable-linked lessons: PRESENT, ABSENT, LATE, or EXCUSED.
+type TimetableAttendanceStatus string
+
+const (
+	TimetableAttendanceStatusPRESENT TimetableAttendanceStatus = "PRESENT"
+	TimetableAttendanceStatusABSENT  TimetableAttendanceStatus = "ABSENT"
+	TimetableAttendanceStatusLATE    TimetableAttendanceStatus = "LATE"
+	TimetableAttendanceStatusEXCUSED TimetableAttendanceStatus = "EXCUSED"
+)
+
+func (e *TimetableAttendanceStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = TimetableAttendanceStatus(s)
+	case string:
+		*e = TimetableAttendanceStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for TimetableAttendanceStatus: %T", src)
+	}
+	return nil
+}
+
+type NullTimetableAttendanceStatus struct {
+	TimetableAttendanceStatus TimetableAttendanceStatus `json:"timetable_attendance_status"`
+	Valid                     bool                      `json:"valid"` // Valid is true if TimetableAttendanceStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullTimetableAttendanceStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.TimetableAttendanceStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.TimetableAttendanceStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullTimetableAttendanceStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.TimetableAttendanceStatus), nil
+}
+
+// Role enum for school_memberships: ADMIN, TEACHER, GUARDIAN, FINANCE.
+type UserRole string
+
+const (
+	UserRoleADMIN    UserRole = "ADMIN"
+	UserRoleTEACHER  UserRole = "TEACHER"
+	UserRoleGUARDIAN UserRole = "GUARDIAN"
+	UserRoleFINANCE  UserRole = "FINANCE"
+)
+
+func (e *UserRole) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = UserRole(s)
+	case string:
+		*e = UserRole(s)
+	default:
+		return fmt.Errorf("unsupported scan type for UserRole: %T", src)
+	}
+	return nil
+}
+
+type NullUserRole struct {
+	UserRole UserRole `json:"user_role"`
+	Valid    bool     `json:"valid"` // Valid is true if UserRole is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullUserRole) Scan(value interface{}) error {
+	if value == nil {
+		ns.UserRole, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.UserRole.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullUserRole) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.UserRole), nil
+}
+
+// Academic terms (semester, quarter, term 1/2/3) within an academic year.
+type AcademicTerm struct {
+	// Auto-generated UUID primary key.
+	ID pgtype.UUID `json:"id"`
+	// FK to academic_years(id). Cascades on academic year delete.
+	AcademicYearID pgtype.UUID `json:"academic_year_id"`
+	// Term name (e.g., "Term 1", "Semester 1"). Unique within an academic year.
+	Name string `json:"name"`
+	// First day of the term.
+	StartDate pgtype.Date `json:"start_date"`
+	// Last day of the term.
+	EndDate pgtype.Date `json:"end_date"`
+	// UTC timestamp of row creation.
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	// UTC timestamp of last modification.
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+// Academic years scoped to a school (e.g., 2026, 2026-2027). Used for scheduling, grading periods.
+type AcademicYear struct {
+	// Auto-generated UUID primary key.
+	ID pgtype.UUID `json:"id"`
+	// FK to schools(id). Cascades on school delete.
+	SchoolID pgtype.UUID `json:"school_id"`
+	// Human-readable year identifier (e.g., "2026", "2026-2027"). Unique per school.
+	Name string `json:"name"`
+	// First day of the academic year.
+	StartDate pgtype.Date `json:"start_date"`
+	// Last day of the academic year.
+	EndDate pgtype.Date `json:"end_date"`
+	// UTC timestamp of row creation.
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	// UTC timestamp of last modification.
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+// Operational classroom container per academic year and stream (e.g., Class 1 Blue, Class 3 Yellow). Each academic year creates new class_room entries.
+type ClassRoom struct {
+	// Auto-generated UUID primary key.
+	ID pgtype.UUID `json:"id"`
+	// FK to schools(id). Cascades on school delete.
+	SchoolID pgtype.UUID `json:"school_id"`
+	// FK to academic_years(id). Links the class_room to a specific academic year.
+	AcademicYearID pgtype.UUID `json:"academic_year_id"`
+	// FK to grade_levels(id). The grade level for this class_room (e.g., Grade 1, Grade 3).
+	GradeLevelID pgtype.UUID `json:"grade_level_id"`
+	// Human-readable class_room name (e.g., "Class 1 Blue", "Grade 3 Yellow").
+	Name string `json:"name"`
+	// Optional stream identifier within the grade (e.g., "Blue", "Yellow", "A", "B"). NULL if no streams.
+	Stream pgtype.Text `json:"stream"`
+	// UTC timestamp of row creation.
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	// UTC timestamp of last modification.
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+// Maps a classroom to an academic term, assigning subjects, teachers, and rooms to a template time slots for a specific day.
+type ClassTimetableSlot struct {
+	// Auto-generated UUID primary key.
+	ID pgtype.UUID `json:"id"`
+	// FK to schools(id). Cascades on school delete.
+	SchoolID pgtype.UUID `json:"school_id"`
+	// FK to class_rooms(id). The operational classroom. Cascades on class_room delete.
+	ClassRoomID pgtype.UUID `json:"class_room_id"`
+	// FK to academic_terms(id). The academic term. Cascades on term delete.
+	AcademicTermID pgtype.UUID `json:"academic_term_id"`
+	// Day index (1 = Monday through 7 = Sunday).
+	DayOfWeek int32 `json:"day_of_week"`
+	// FK to time_slots(id). The period within the day. Cascades on slot delete.
+	TimeSlotID pgtype.UUID `json:"time_slot_id"`
+	// FK to subjects(id). The taught subject. Cascades on subject delete.
+	SubjectID pgtype.UUID `json:"subject_id"`
+	// FK to school_memberships(id) for the assigned teacher. Cascades on membership delete.
+	TeacherMembershipID pgtype.UUID `json:"teacher_membership_id"`
+	// FK to rooms(id). Optional physical location constraint. Cascades on room delete.
+	RoomID pgtype.UUID `json:"room_id"`
+	// UTC timestamp of row creation.
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	// UTC timestamp of last modification.
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+// Reference table of countries supported by the SIS (ISO 3166-1 alpha-2 codes).
+type Country struct {
+	// Auto-generated UUID primary key.
+	ID pgtype.UUID `json:"id"`
+	// Human-readable country name (e.g. Kenya).
+	CountryName string `json:"country_name"`
+	// ISO 3166-1 alpha-2 code (e.g. KE). Unique.
+	CountryCode string `json:"country_code"`
+	// UTC timestamp of row creation.
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	// UTC timestamp of last modification.
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+// Reference table of education systems (e.g. Competency-Based Education / CBE). Each system belongs to one country.
+type EducationSystem struct {
+	// Auto-generated UUID primary key.
+	ID pgtype.UUID `json:"id"`
+	// FK to countries(id). The country this education system belongs to. Cascades on country delete.
+	CountryID pgtype.UUID `json:"country_id"`
+	// Human-readable system name (e.g. Competency-Based Education / CBE).
+	SystemName string `json:"system_name"`
+	// Optional free-text description of the education system.
+	Description pgtype.Text `json:"description"`
+	// UTC timestamp of row creation.
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	// UTC timestamp of last modification.
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+// Attendance tracking for special school-wide activities (sports days, symposia) where the regular timetable is suspended.
+type EventAttendance struct {
+	// Auto-generated UUID primary key.
+	ID pgtype.UUID `json:"id"`
+	// FK to schools(id). Cascades on school delete.
+	SchoolID pgtype.UUID `json:"school_id"`
+	// FK to students(student_id). Cascades on student delete.
+	StudentID pgtype.UUID `json:"student_id"`
+	// FK to school_events(id). Cascades on event delete.
+	SchoolEventID pgtype.UUID `json:"school_event_id"`
+	// The calendar date of the event.
+	AttendanceDate pgtype.Date `json:"attendance_date"`
+	// Attendance state: PRESENT, ABSENT, or EXCUSED.
+	Status EventAttendanceStatus `json:"status"`
+	// Optional details about event attendance.
+	Remarks pgtype.Text `json:"remarks"`
+	// UTC timestamp of row creation.
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	// UTC timestamp of last modification.
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+// Grade levels scoped to an education system and country (e.g. PP1, Grade 7, Senior 1).
+type GradeLevel struct {
+	// Auto-generated UUID primary key.
+	ID pgtype.UUID `json:"id"`
+	// FK to education_systems(id). Cascades on education system delete.
+	EducationSystemID pgtype.UUID `json:"education_system_id"`
+	// FK to countries(id). Cascades on country delete.
+	CountryID pgtype.UUID `json:"country_id"`
+	// Broad stage bucket: pre_primary, primary, lower_secondary, upper_secondary.
+	TierStage string `json:"tier_stage"`
+	// Local label used in that country/system (e.g. PP1, Grade 7, Senior 1).
+	LocalLabel string `json:"local_label"`
+	// Integer for chronological sorting; unique within system+country.
+	SequenceIndex int32 `json:"sequence_index"`
+	// UTC timestamp of row creation.
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	// UTC timestamp of last modification.
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+// Links a guardian (via school_membership) to a student with a relationship type.
+type GuardianStudentLink struct {
+	// Auto-generated UUID primary key.
+	ID pgtype.UUID `json:"id"`
+	// FK to school_memberships(id). Cascades on membership delete.
+	SchoolMembershipID pgtype.UUID `json:"school_membership_id"`
+	// FK to students(student_id). Cascades on student delete.
+	StudentID pgtype.UUID `json:"student_id"`
+	// Relationship type (e.g. Parent, Legal Guardian, Sponsor).
+	RelationshipType string `json:"relationship_type"`
+	// UTC timestamp of row creation.
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	// UTC timestamp of last modification.
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
 
 // B2B member identity mirroring Stytch. Created/updated atomically with users during magic-link provisioning.
 type Member struct {
@@ -21,6 +463,100 @@ type Member struct {
 	// Cached Stytch member object (JSONB) for audit/debugging. Sensitive metadata fields are stripped before storage.
 	StytchMemberRaw []byte `json:"stytch_member_raw"`
 	// UTC timestamp of member creation.
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	// UTC timestamp of last modification.
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+// National public holidays at the country level (e.g., Madaraka Day, Labour Day).
+type PublicHoliday struct {
+	// Auto-generated UUID primary key.
+	ID pgtype.UUID `json:"id"`
+	// FK to countries(id). Cascades on country delete.
+	CountryID pgtype.UUID `json:"country_id"`
+	// Holiday name (e.g., "Madaraka Day", "Labour Day").
+	Name string `json:"name"`
+	// Month of the holiday (1-12).
+	Month int16 `json:"month"`
+	// Day of the month (1-31).
+	Day int16 `json:"day"`
+	// UTC timestamp of row creation.
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	// UTC timestamp of last modification.
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+// Physical facilities and campus locations to prevent room overbooking (e.g., Lab A, Room 204). Distinct from class_rooms.
+type Room struct {
+	// Auto-generated UUID primary key.
+	ID pgtype.UUID `json:"id"`
+	// FK to schools(id). Cascades on school delete.
+	SchoolID pgtype.UUID `json:"school_id"`
+	// Room identifier or name (e.g., Lab A, Room 204). Unique per school.
+	Name string `json:"name"`
+	// Maximum student capacity the room can hold. Optional.
+	Capacity pgtype.Int4 `json:"capacity"`
+	// Category of room (STANDARD, SCIENCE_LAB, COMPUTER_LAB, GYM).
+	RoomType RoomType `json:"room_type"`
+	// UTC timestamp of row creation.
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	// UTC timestamp of last modification.
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+// Schools operated by a tenant. Each school belongs to one tenant, country, and education system.
+type School struct {
+	// Auto-generated UUID primary key.
+	ID pgtype.UUID `json:"id"`
+	// FK to tenants(id). The B2B organization that operates the school. Cascades on tenant delete.
+	TenantID pgtype.UUID `json:"tenant_id"`
+	// Human-readable school name.
+	SchoolName string `json:"school_name"`
+	// FK to countries(id). Cascades on country delete.
+	CountryID pgtype.UUID `json:"country_id"`
+	// FK to education_systems(id). Cascades on education system delete.
+	EducationSystemID pgtype.UUID `json:"education_system_id"`
+	// UTC timestamp of row creation.
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	// UTC timestamp of last modification.
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+// School-specific events (sports, exams, admission days, etc.) with optional attendance tracking.
+type SchoolEvent struct {
+	// Auto-generated UUID primary key.
+	ID pgtype.UUID `json:"id"`
+	// FK to schools(id). Cascades on school delete.
+	SchoolID pgtype.UUID `json:"school_id"`
+	// Event title (e.g., "Inter-House Sports Day").
+	Title string `json:"title"`
+	// Event type: SPORTS, ADMISSION, EXAM, etc.
+	EventType string `json:"event_type"`
+	// First day of the event.
+	StartDate pgtype.Date `json:"start_date"`
+	// Last day of the event.
+	EndDate pgtype.Date `json:"end_date"`
+	// Whether student attendance must be tracked for this event.
+	RequiresAttendance bool `json:"requires_attendance"`
+	// UTC timestamp of row creation.
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	// UTC timestamp of last modification.
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+// Links a user to a school with a role. A user has at most one membership per school, and at most one active membership across all schools.
+type SchoolMembership struct {
+	// Auto-generated UUID primary key.
+	ID pgtype.UUID `json:"id"`
+	// FK to schools(id). Cascades on school delete.
+	SchoolID pgtype.UUID `json:"school_id"`
+	// FK to users(id). Cascades on user delete.
+	UserID pgtype.UUID `json:"user_id"`
+	// Role within the school (user_role enum).
+	Role UserRole `json:"role"`
+	// Whether this membership is the user's currently active school. Enforced by partial unique index: only one active per user.
+	IsActive bool `json:"is_active"`
+	// UTC timestamp of row creation.
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	// UTC timestamp of last modification.
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
@@ -46,6 +582,90 @@ type Session struct {
 	LastSeenAt pgtype.Timestamptz `json:"last_seen_at"`
 }
 
+// Student records scoped to a school. admission_number is unique per school. metadata stores flexible external identifiers (NEMIS, KICD, etc.).
+type Student struct {
+	// Auto-generated UUID primary key.
+	StudentID pgtype.UUID `json:"student_id"`
+	// FK to schools(id). Cascades on school delete.
+	SchoolID pgtype.UUID `json:"school_id"`
+	// School-scoped admission number (unique per school).
+	AdmissionNumber string `json:"admission_number"`
+	// Student full name (first + last).
+	FullName string `json:"full_name"`
+	// Date of birth.
+	DateOfBirth pgtype.Date `json:"date_of_birth"`
+	// Gender (free-text for international flexibility).
+	Gender string `json:"gender"`
+	// JSONB for flexible external identifiers (e.g. NEMIS, KICD tracking codes).
+	Metadata []byte `json:"metadata"`
+	// UTC timestamp of row creation.
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	// UTC timestamp of last modification.
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+// Historical mapping of a student to a class_room for a specific academic term or year. Preserves attendance, assessments, and report cards permanently.
+type StudentClassEnrollment struct {
+	// Auto-generated UUID primary key.
+	ID pgtype.UUID `json:"id"`
+	// FK to schools(id). Enforces multi-tenant isolation via RLS. Cascades on school delete.
+	SchoolID pgtype.UUID `json:"school_id"`
+	// FK to students(student_id). The enrolled student.
+	StudentID pgtype.UUID `json:"student_id"`
+	// FK to class_rooms(id). The operational class_room for this enrollment.
+	ClassRoomID pgtype.UUID `json:"class_room_id"`
+	// FK to academic_years(id). The academic year of enrollment.
+	AcademicYearID pgtype.UUID `json:"academic_year_id"`
+	// FK to academic_terms(id). Optional; NULL for year-level enrollments (e.g., final year without term splits).
+	AcademicTermID pgtype.UUID `json:"academic_term_id"`
+	// Enrollment status (enrollment_status enum). Controls promotion, repetition, and graduation workflows.
+	Status EnrollmentStatus `json:"status"`
+	// UTC timestamp when the student was enrolled in this class_room.
+	EnrolledAt pgtype.Timestamptz `json:"enrolled_at"`
+	// UTC timestamp when enrollment reached a terminal status (PROMOTED, REPEATING, GRADUATED). NULL for ACTIVE.
+	CompletedAt pgtype.Timestamptz `json:"completed_at"`
+	// JSONB for flexible enrollment metadata (e.g., previous school, transfer notes).
+	Metadata []byte `json:"metadata"`
+	// UTC timestamp of row creation.
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	// UTC timestamp of last modification.
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+// Sub-topics within a topic, ordered by sequence_index for granular curriculum sequencing.
+type SubTopic struct {
+	// Auto-generated UUID primary key.
+	ID pgtype.UUID `json:"id"`
+	// FK to topics(id). Cascades on topic delete.
+	TopicID pgtype.UUID `json:"topic_id"`
+	// Sub-topic name (e.g. Addition of Fractions).
+	Name string `json:"name"`
+	// Integer for chronological sorting; unique within a topic.
+	SequenceIndex int32 `json:"sequence_index"`
+	// UTC timestamp of row creation.
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	// UTC timestamp of last modification.
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+// Subjects offered within an education system (e.g. Mathematics, English). Scoped to education_system_id.
+type Subject struct {
+	// Auto-generated UUID primary key.
+	ID pgtype.UUID `json:"id"`
+	// FK to education_systems(id). Cascades on education system delete.
+	EducationSystemID pgtype.UUID `json:"education_system_id"`
+	// Human-readable subject name (e.g. Mathematics).
+	Name string `json:"name"`
+	// Short subject code (e.g. MAT, ENG). Unique within an education system.
+	Code string `json:"code"`
+	// Subject type: Core, Optional, Elective, etc.
+	Type string `json:"type"`
+	// UTC timestamp of row creation.
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	// UTC timestamp of last modification.
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
 // Maps 1:1 to a Stytch OIDC organization. All Somotracker data is scoped under exactly one tenant row.
 type Tenant struct {
 	// Auto-generated UUID primary key. No external meaning — treat as opaque.
@@ -58,6 +678,110 @@ type Tenant struct {
 	StytchOrgID string `json:"stytch_org_id"`
 	// UTC timestamp of row creation.
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+// Individual periods or breaks belonging to a specific template (e.g., Period 1, Morning Break).
+type TimeSlot struct {
+	// Auto-generated UUID primary key.
+	ID pgtype.UUID `json:"id"`
+	// FK to schools(id). Cascades on school delete.
+	SchoolID pgtype.UUID `json:"school_id"`
+	// FK to timetable_templates(id). Cascades on template delete.
+	TimetableTemplateID pgtype.UUID `json:"timetable_template_id"`
+	// Period label (e.g., Period 1, Morning Break).
+	Name string `json:"name"`
+	// Slot start time (e.g., 08:00:00).
+	StartTime pgtype.Time `json:"start_time"`
+	// Slot end time (e.g., 08:40:00).
+	EndTime pgtype.Time `json:"end_time"`
+	// Order of the slot within the template (1, 2, 3...).
+	SequenceIndex int32 `json:"sequence_index"`
+	// True for classes, False for breaks/recess. Defaults to TRUE.
+	IsInstructional bool `json:"is_instructional"`
+	// UTC timestamp of row creation.
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	// UTC timestamp of last modification.
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+// Primary attendance tracking table linking to specific timetable slot instances on calendar dates, allowing subject teachers to record presence during instructional periods.
+type TimetableAttendance struct {
+	// Auto-generated UUID primary key.
+	ID pgtype.UUID `json:"id"`
+	// FK to schools(id). Cascades on school delete.
+	SchoolID pgtype.UUID `json:"school_id"`
+	// FK to students(student_id). Cascades on student delete.
+	StudentID pgtype.UUID `json:"student_id"`
+	// FK to class_timetable_slots(id). Cascades on slot delete.
+	ClassTimetableSlotID pgtype.UUID `json:"class_timetable_slot_id"`
+	// The specific calendar date of the lesson instance.
+	AttendanceDate pgtype.Date `json:"attendance_date"`
+	// Attendance state: PRESENT, ABSENT, LATE, or EXCUSED.
+	Status TimetableAttendanceStatus `json:"status"`
+	// Optional notes (e.g., "Left early due to illness").
+	Remarks pgtype.Text `json:"remarks"`
+	// FK to school_memberships(id) for the teacher who took the register. Cascades on membership delete.
+	RecordedByMembershipID pgtype.UUID `json:"recorded_by_membership_id"`
+	// UTC timestamp of row creation.
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	// UTC timestamp of last modification.
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+// Handles emergency or planned teacher absences on specific calendar dates without modifying the master weekly recurring timetable.
+type TimetableSubstitution struct {
+	// Auto-generated UUID primary key.
+	ID pgtype.UUID `json:"id"`
+	// FK to schools(id). Cascades on school delete.
+	SchoolID pgtype.UUID `json:"school_id"`
+	// FK to class_timetable_slots(id) being overridden. Cascades on slot delete.
+	ClassTimetableSlotID pgtype.UUID `json:"class_timetable_slot_id"`
+	// The precise calendar date of the absence/coverage.
+	SubstitutionDate pgtype.Date `json:"substitution_date"`
+	// FK to school_memberships(id) for the teacher who is away.
+	OriginalTeacherMembershipID pgtype.UUID `json:"original_teacher_membership_id"`
+	// FK to school_memberships(id) for the covering teacher. NULL if unassigned.
+	SubstituteTeacherMembershipID pgtype.UUID `json:"substitute_teacher_membership_id"`
+	// Lifecycle state: PENDING, ASSIGNED, COMPLETED, or CANCELLED.
+	Status SubstitutionStatus `json:"status"`
+	// Optional explanation (e.g., Medical leave).
+	Reason pgtype.Text `json:"reason"`
+	// UTC timestamp of row creation.
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	// UTC timestamp of last modification.
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+// Parent container for a distinct bell schedule configuration (e.g., "Standard 6-Period Day", "Morning Shift 3-Lesson").
+type TimetableTemplate struct {
+	// Auto-generated UUID primary key.
+	ID pgtype.UUID `json:"id"`
+	// FK to schools(id). Cascades on school delete.
+	SchoolID pgtype.UUID `json:"school_id"`
+	// Name of the template (e.g., "Primary Schedule", "Standard 6-Period Day").
+	Name string `json:"name"`
+	// Optional details about when or who uses this template.
+	Description pgtype.Text `json:"description"`
+	// UTC timestamp of row creation.
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	// UTC timestamp of last modification.
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+// Topics within a subject, ordered by sequence_index for curriculum sequencing.
+type Topic struct {
+	// Auto-generated UUID primary key.
+	ID pgtype.UUID `json:"id"`
+	// FK to subjects(id). Cascades on subject delete.
+	SubjectID pgtype.UUID `json:"subject_id"`
+	// Topic name (e.g. Fractions and Decimals).
+	Name string `json:"name"`
+	// Integer for chronological sorting; unique within a subject.
+	SequenceIndex int32 `json:"sequence_index"`
+	// UTC timestamp of row creation.
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	// UTC timestamp of last modification.
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
 // Per-tenant user accounts. Rows are scoped to exactly one tenant via the foreign key on tenant_id. Users are identified by email within a tenant scope; the same email may appear in different tenants.

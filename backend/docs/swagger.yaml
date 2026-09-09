@@ -91,4 +91,31 @@ paths:
       summary: Get current user
       tags:
       - User
+  /register-school:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new school for the authenticated user and assigns them
+        as ADMIN. Updates user's full_name atomically.
+      parameters:
+      - description: School registration payload
+        in: body
+        name: body
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            type: object
+      summary: Register a new school
+      tags:
+      - Schools
 swagger: "2.0"

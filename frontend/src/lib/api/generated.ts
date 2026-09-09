@@ -1,512 +1,92 @@
-// Auto-generated API types derived from the Somotracker Go backend.
-// Generated from: backend/internal/*/handler.go, domain.go.
-// Generator: openapi-typescript (planned) -- manually maintained for now.
-// Run `pnpm generate:api` to regenerate from the backend swagger.json.
-
-// ─── Enum-like types (CBC curriculum) ────────────────────────────────────
-// These correspond to fixed string values enforced by the backend.
-
-/** Canonical grade level values used across the CBC curriculum. */
-export type GradeLevel =
-    | "PP1"
-    | "PP2"
-    | "G1"
-    | "G2"
-    | "G3"
-    | "G4"
-    | "G5"
-    | "G6"
-    | "G7"
-    | "G8"
-    | "G9"
-    | "G10"
-    | "G11"
-    | "G12";
-
-/** Canonical education level values used across the CBC curriculum. */
-export type EducationLevel = "Early_Years" | "Upper_Primary" | "Junior_Secondary" | "Senior_School";
-
-// ─── Auth API Payloads ───────────────────────────────────────────────────
-
-export interface MagicLinkRequest {
-    email: string;
-    org_id?: string;
-}
-
-export interface MagicLinkResponse {
-    code: string;
-    message: string;
-    errors: Record<string, string[]>;
-}
-
-export interface CallbackResponse {
-    code: string;
-    message: string;
-    errors: Record<string, string[]>;
-}
-
-export interface LogoutResponse {
-    code: string;
-    message: string;
-    errors: Record<string, string[]>;
-}
-
-export interface CreateTenantPayload {
-    name: string;
-    slug?: string;
-}
-
-export interface Tenant {
-    id: string;
-    name: string;
-    slug: string;
-    created_at: string;
-}
-
-export interface CreateSchoolPayload {
-    name: string;
-}
-
-export interface CreateSchoolResponse {
-    id: string;
-}
-
-export interface UpdateSchoolPayload {
-    name?: string;
-    county?: string;
-    sub_county?: string;
-    ward?: string;
-    knec_school_code?: string;
-    nemis_code?: string;
-    school_type?: string;
-    is_active?: boolean;
-}
-
-export interface SchoolWithMemberCount {
-    id: string;
-    tenant_id: string;
-    name: string;
-    knec_school_code?: string;
-    county: string;
-    sub_county: string;
-    ward?: string;
-    school_type: string;
-    is_active: boolean;
-    created_at: string;
-    updated_at: string;
-    admins: number;
-    teachers: number;
-    nurses: number;
-    finance: number;
-    parents: number;
-    students: number;
-    is_member_active_school: boolean;
-}
-
-export interface ListSchoolsResponse {
-    items: SchoolWithMemberCount[];
-    total: number;
-}
-
-export interface CreateStreamPayload {
-    name: string;
-}
-
-export interface UpdateStreamPayload {
-    name: string;
-}
-
-export interface Stream {
-    id: string;
-    name: string;
-    created_at: string;
-    updated_at: string;
-}
-
-export interface ListStreamsResponse {
-    items: Stream[];
-}
-
-export interface CreateClassPayload {
-    grade_level: string;
-    academic_year_id: string;
-    academic_term_id: string;
-    stream_id: string;
-    student_ids?: string[];
-}
-
-export interface UpdateClassPayload {
-    grade_level: string;
-    stream_id: string;
-    academic_term_id: string;
-    student_ids?: string[];
-}
-
-export interface BulkDeleteClassesPayload {
-    class_ids: string[];
-}
-
-export interface Class {
-    id: string;
-    grade_level: string;
-    stream_name: string;
-    stream_color: string;
-    display_label: string;
-    stream_id: string;
-    student_count?: number;
-    created_at?: string;
-    updated_at?: string;
-}
-
-export interface ClassListResult {
-    items: Class[];
-    total: number;
-    page: number;
-    limit: number;
-}
-
-export interface Member {
-    id: string;
-    email: string;
-    full_name: string;
-    role: "TEACHER" | "NURSE" | "FINANCE" | "SCHOOL_ADMIN";
-    is_active: boolean;
-    created_at: string;
-}
-
-export interface ListMembersResponse {
-    items: Member[];
-    total: number;
-    page: number;
-    limit: number;
-}
-
-export interface TeacherMember {
-    id: string;
-    email: string;
-    full_name: string;
-    tsc_number: string | null;
-    knec_panel_assessor_id: string | null;
-    teacher_role: string | null;
-    is_active: boolean;
-    created_at: string;
-}
-
-export interface ListTeachersResponse {
-    items: TeacherMember[];
-    total: number;
-    page: number;
-    limit: number;
-}
-
-export type InvitationStatus = "pending" | "accepted" | "expired" | "revoked" | "invite_failed";
-
-export type InvitationRole = "SYSTEM_ADMIN" | "SCHOOL_ADMIN" | "TEACHER" | "NURSE" | "FINANCE";
-
-export interface Invitation {
-    id: string;
-    school_id: string;
-    tenant_id: string;
-    email: string;
-    role: InvitationRole;
-    status: InvitationStatus;
-    full_name?: string;
-    expires_at: string;
-    created_at: string;
-}
-
-export interface ListInvitationsResponse {
-    items: Invitation[];
-    total: number;
-    page: number;
-    limit: number;
-}
-
-export interface SwitchActiveSchoolPayload {
-    school_id: string;
-}
-
-export interface ActiveSchoolResponse {
-    school_id: string;
-}
-
-export interface ActiveSchoolUpdateResponse {
-    message: string;
-}
-
-export interface AcademicYear {
-    id: string;
-    name: string;
-    start_date: string;
-    end_date: string;
-    is_current: boolean;
-    version: number;
-    created_at: string;
-    updated_at: string;
-    terms: AcademicTerm[];
-}
-
-export interface AcademicTerm {
-    id: string;
-    academic_year_id: string;
-    name: string;
-    term_number: number;
-    start_date: string;
-    end_date: string;
-    is_current: boolean;
-    is_final: boolean;
-    version: number;
-    created_at: string;
-    updated_at: string;
-}
-
-export interface PatchYearBody {
-    name?: string;
-    start_date?: string;
-    end_date?: string;
-    version: number;
-}
-
-export interface PatchYearResponse {
-    id: string;
-    name: string;
-    start_date: string;
-    end_date: string;
-    is_current: boolean;
-    version: number;
-    warnings?: string[];
-}
-
-export interface SetCurrentYearResponse {
-    message: string;
-}
-
-export interface CreateTermBody {
-    academic_year_id: string;
-    name: string;
-    term_number: number;
-    start_date: string;
-    end_date: string;
-}
-
-export interface PatchTermBody {
-    name?: string;
-    start_date?: string;
-    end_date?: string;
-    version: number;
-}
-
-export interface PatchTermResponse {
-    id: string;
-    name: string;
-    term_number: number;
-    start_date: string;
-    end_date: string;
-    is_current: boolean;
-    academic_year_id: string;
-    version: number;
-    warnings?: string[];
-}
-
-export interface ListYearsResponse {
-    items: AcademicYear[];
-}
-
-export interface ListTermsResponse {
-    items: AcademicTerm[];
-}
-
-export type TeacherRole = "PRIMARY_CLASS_TEACHER" | "SUBJECT_TEACHER" | "SUBSTITUTE_TEACHER";
-
-export interface CreateTimetableAllocationInput {
-    class_id: string;
-    teacher_id: string;
-    learning_area_id?: string;
-    room_identifier?: string;
-    day_of_week: number;
-    start_time: string;
-    end_time: string;
-}
-
-export interface BulkCreateTimetableAllocationsInput {
-    academic_year_id: string;
-    academic_term_id: string;
-    slots: CreateTimetableAllocationInput[];
-}
-
-export interface TimetableAllocation {
-    id: string;
-    tenant_id: string;
-    school_id: string;
-    academic_year_id: string;
-    academic_term_id: string;
-    class_id: string;
-    teacher_id: string;
-    learning_area_id?: string;
-    room_identifier?: string;
-    day_of_week: number;
-    start_time: string;
-    end_time: string;
-}
-
-export interface ListTimetableAllocationsResponse {
-    items: TimetableAllocation[];
-}
-
-export interface AssignTeacherPayload {
-    user_id: string;
-    learning_area_id?: string;
-    teacher_role: TeacherRole;
-}
-
-export interface AssignTeacherResponse {
-    code: string;
-    message: string;
-}
-
-export interface RemoveTeacherResponse {
-    code: string;
-    message: string;
-}
-
-export interface BulkCreateSlotsResponse {
-    code: string;
-    message: string;
-}
-
-export interface ImportStaffRecord {
-    temp_id: string;
-    email: string;
-    full_name: string;
-    phone?: string;
-    registration_number?: string;
-}
-
-export interface StartImportRequest {
-    role: "SCHOOL_ADMIN" | "NURSE" | "FINANCE" | "TEACHER";
-    records: ImportStaffRecord[];
-    parent_import_job_id?: string;
-}
-
-export interface StartImportResponse {
-    import_job_id: string;
-    status: string;
-    total: number;
-}
-
-export interface ImportJob {
-    id: string;
-    tenant_id: string;
-    school_id: string;
-    role: string;
-    created_by?: string;
-    status: string;
-    total_records: number;
-    processed_records: number;
-    success_count: number;
-    failed_count: number;
-    parent_import_job_id?: string;
-    created_at: string;
-    started_at?: string;
-    completed_at?: string;
-}
-
-export interface TrackImportResponse {
-    job: ImportJob;
-    failed_records: number;
-}
-
-export interface ImportProgressEvent {
-    type: "connected" | "import_progress" | "import_finished" | "import_error";
-    import_job_id: string;
-    status?: string;
-    processed_records?: number;
-    success_count?: number;
-    failed_count?: number;
-    total_records?: number;
-}
-
-export interface FailedInvitation {
-    id: string;
-    email: string;
-    full_name?: string;
-    phone?: string;
-    error_message?: string;
-}
-
-export interface ListFailedInvitationsResponse {
-    items: FailedInvitation[];
-}
-
-export interface StudentRecord {
-    full_name: string;
-    gender: string;
-    date_of_birth?: string;
-    upi_number?: string;
-    knec_assessment_number?: string;
-    cbc_student_parents_id?: string;
-    class_id?: string;
-}
-
-export interface StartStudentImportRequest {
-    academic_year: string;
-    term: string;
-    students: StudentRecord[];
-}
-
-export interface StartStudentImportResponse {
-    job_id: string;
-    status: string;
-}
-
-export interface ProgressFrame {
-    status: string;
-    processed: number;
-    total: number;
-    success_count: number;
-    failed_count: number;
-}
-
-export interface ParentRecord {
-    id: string;
-    full_name: string;
-    phone?: string;
-    email?: string;
-}
-
-export interface ClassRecord {
-    id: string;
-    name: string;
-    grade_level: string;
-    stream_name: string;
-    display_label: string;
-}
-
-export interface ExistingStudentRecord {
-    full_name: string;
-    date_of_birth?: string;
-    upi_number?: string;
-}
-
-export interface AcademicYearRecord {
-    id: string;
-    name: string;
-    start_date: string;
-    end_date: string;
-    is_current: boolean;
-}
-
-export interface AcademicPeriodRecord {
-    id: string;
-    name: string;
-    term_number: number;
-    start_date: string;
-    end_date: string;
-    is_current: boolean;
-}
-
-export interface ApiErrorBody {
-    code: string;
-    message: string;
-    errors?: Record<string, string[]>;
-}
+/**
+ * This file was auto-generated by openapi-typescript.
+ * Do not make direct changes to the file.
+ */
+
+export interface paths {
+    "/api/auth/callback": {
+        get: {
+            parameters: {
+                query: {
+                    /** Magic-link token */
+                    token: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+    "/api/auth/logout": {
+        post: {
+            responses: {
+                /** OK */
+                200: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+    "/api/auth/magic-link/send": {
+        post: {
+            parameters: {
+                formData: {
+                    /** User email */
+                    email: string;
+                };
+                query: {
+                    /** Organization ID or slug */
+                    org_id?: string;
+                };
+            };
+            responses: {
+                /** OK */
+                200: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+    "/api/me": {
+        get: {
+            responses: {
+                /** OK */
+                200: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Unauthorized */
+                401: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+    "/register-school": {
+        /** Creates a new school for the authenticated user and assigns them as ADMIN. Updates user's full_name atomically. */
+        post: {
+            parameters: {
+                body: {
+                    /** School registration payload */
+                    body: { [key: string]: unknown };
+                };
+            };
+            responses: {
+                /** Created */
+                201: {
+                    schema: { [key: string]: unknown };
+                };
+                /** Bad Request */
+                400: {
+                    schema: { [key: string]: unknown };
+                };
+            };
+        };
+    };
+}
+
+export interface operations {}
+
+export interface external {}

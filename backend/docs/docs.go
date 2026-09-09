@@ -143,6 +143,46 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/register-school": {
+            "post": {
+                "description": "Creates a new school for the authenticated user and assigns them as ADMIN. Updates user's full_name atomically.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Schools"
+                ],
+                "summary": "Register a new school",
+                "parameters": [
+                    {
+                        "description": "School registration payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "object"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                }
+            }
         }
     }
 }`

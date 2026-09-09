@@ -21,6 +21,15 @@ func NewSchoolHandler(svc *services.SchoolRegistrationService) *SchoolHandler {
 // 1. Updates the user's full_name
 // 2. Creates a new school record
 // 3. Creates a school membership with role=ADMIN
+// @Summary Register a new school
+// @Description Creates a new school for the authenticated user and assigns them as ADMIN. Updates user's full_name atomically.
+// @Tags Schools
+// @Accept json
+// @Produce json
+// @Param body body object{"school_name":"string","user_name":"string"} true "School registration payload"
+// @Success 201 {object} object
+// @Failure 400 {object} object
+// @Router /register-school [post]
 func (h *SchoolHandler) RegisterSchool(c fiber.Ctx) error {
 	// Get user ID and tenant ID from session locals
 	userID, ok := c.Locals("user_id").(string)

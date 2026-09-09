@@ -9,16 +9,23 @@
 
 import React from "react";
 import { OnboardingForm } from "./onboarding-form";
+import { CreateAcademicYear } from "./create-academic-year";
 
 export function Onboarding() {
-    const [schoolId, setSchoolId] = React.useState("");
-
-    if (schoolId) {
-    }
+    const [stage, setStage] = React.useState(0);
 
     return (
         <>
-            <OnboardingForm onSuccess={setSchoolId} />
+            {(stage === 0 && (
+                <OnboardingForm
+                    onSuccess={(s) => {
+                        if (s) {
+                            setStage(1);
+                        }
+                    }}
+                />
+            )) ||
+                (stage === 1 && <CreateAcademicYear onSuccess={() => setStage(1)} />)}
         </>
     );
 }

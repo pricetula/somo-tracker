@@ -7,7 +7,6 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { logout } from "@/lib/api/auth";
 import { SESSION_COOKIE_NAME, CSRF_COOKIE_NAME } from "@/lib/auth";
-import { getErrorMessage } from "@/lib/errors";
 
 export default function LogoutPage() {
     const router = useRouter();

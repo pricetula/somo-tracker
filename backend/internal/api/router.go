@@ -28,11 +28,12 @@ var (
 // interfaces (not concrete implementations), which makes it fully testable
 // with mock services.
 type Router struct {
-	Auth    *authHandler
-	Me      *meHandler
-	School  *SchoolHandler
-	limiter *redis_rate.Limiter
-	cfg     *config.Config
+	Auth           *authHandler
+	Me             *meHandler
+	School         *SchoolHandler
+	AcademicPeriod *AcademicPeriodHandler
+	limiter        *redis_rate.Limiter
+	cfg            *config.Config
 }
 
 // NewRouter creates a Router from the injected services and the Redis
@@ -42,15 +43,17 @@ func NewRouter(
 	authSvc services.AuthService,
 	meSvc services.MeService,
 	schoolSvc services.SchoolRegistrationService,
+	academicSvc services.AcademicPeriodService,
 	limiter *redis_rate.Limiter,
 	cfg *config.Config,
 ) *Router {
 	return &Router{
-		Auth:    newAuthHandler(authSvc, cfg),
-		Me:      newMeHandler(meSvc),
-		School:  NewSchoolHandler(&schoolSvc),
-		limiter: limiter,
-		cfg:     cfg,
+		Auth:           newAuthHandler(authSvc, cfg),
+		Me:             newMeHandler(meSvc),
+		School:         NewSchoolHandler(&schoolSvc),
+		AcademicPeriod: NewAcademicPeriodHandler(academicSvc),
+		limiter:        limiter,
+		cfg:            cfg,
 	}
 }
 
@@ -108,4 +111,5 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 
 	protected.Get("/me", r.Me.getMe)
 	protected.Post("/school/register", r.School.RegisterSchool)
+	protected.Post("/school/academic-period", r.AcademicPeriod.CreateAcademicPeriod)
 }

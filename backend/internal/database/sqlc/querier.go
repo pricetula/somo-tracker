@@ -11,6 +11,8 @@ import (
 )
 
 type Querier interface {
+	CreateAcademicTerm(ctx context.Context, arg CreateAcademicTermParams) (AcademicTerm, error)
+	CreateAcademicYear(ctx context.Context, arg CreateAcademicYearParams) (AcademicYear, error)
 	CreateMember(ctx context.Context, arg CreateMemberParams) (Member, error)
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
 	DeleteSession(ctx context.Context, token string) error

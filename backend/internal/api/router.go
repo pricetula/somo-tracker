@@ -13,6 +13,7 @@ import (
 	"somotracker/backend/internal/api/middleware/session"
 	"somotracker/backend/internal/config"
 	"somotracker/backend/internal/services"
+	sessionpkg "somotracker/backend/internal/session"
 )
 
 // Rate limit tiers for auth endpoints.
@@ -103,6 +104,8 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 	// Protected resources — session middleware validates session cookie,
 	// injects user_id and tenant_id into c.Locals, and binds RLS context.
 	// CSRF middleware validates double-submit token on mutating requests.
+	r.School.session = sessionpkg.NewStore(redisClient)
+
 	protected.Get("/me", r.Me.getMe)
 	protected.Post("/school/register", r.School.RegisterSchool)
 }

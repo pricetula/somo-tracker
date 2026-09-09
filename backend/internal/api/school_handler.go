@@ -4,12 +4,15 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v3"
+	go_uber_zap "go.uber.org/zap"
 	"somotracker/backend/internal/services"
+	"somotracker/backend/internal/session"
 )
 
 // SchoolHandler handles the school registration endpoint.
 type SchoolHandler struct {
 	service *services.SchoolRegistrationService
+	session *session.Store
 }
 
 func NewSchoolHandler(svc *services.SchoolRegistrationService) *SchoolHandler {
@@ -74,6 +77,17 @@ func (h *SchoolHandler) RegisterSchool(c fiber.Ctx) error {
 			return fiber.NewError(fiber.StatusBadRequest, code)
 		}
 		return fiber.NewError(fiber.StatusInternalServerError, "internal_error: failed to register school")
+	}
+
+	// Update active school in Redis session cache so authorized clients
+	// can read tenant + active_school_id without PostgreSQL round-trips.
+	cookieToken := c.Cookies("session_token")
+	if cookieToken != "" && h.session != nil {
+		if updateErr := h.session.UpdateActiveSchool(c.Context(), cookieToken, schoolID); updateErr != nil {
+			go_uber_zap.L().Warn("school_handler: session active_school update best-effort failed",
+				go_uber_zap.String("error", updateErr.Error()),
+			)
+		}
 	}
 
 	// Return the newly created school details

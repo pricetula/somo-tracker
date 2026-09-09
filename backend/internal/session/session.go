@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -103,6 +104,29 @@ func (s *Store) Delete(ctx context.Context, token string) error {
 		return fmt.Errorf("session.Delete: redis del: %w", err)
 	}
 	return nil
+}
+
+// UpdateActiveSchool performs a safe read-modify-write on the session
+// payload in Redis, updating only the ActiveSchoolID field while
+// preserving all other session metadata (fingerprint, expiry, etc.).
+func (s *Store) UpdateActiveSchool(ctx context.Context, token string, schoolID string) error {
+	if s.client == nil {
+		return fmt.Errorf("session.UpdateActiveSchool: redis client is nil")
+	}
+	if token == "" {
+		return fmt.Errorf("session.UpdateActiveSchool: token is required")
+	}
+
+	data, err := s.Retrieve(ctx, token)
+	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			return fmt.Errorf("session.UpdateActiveSchool: session not found: %w", err)
+		}
+		return fmt.Errorf("session.UpdateActiveSchool: retrieve failed: %w", err)
+	}
+
+	data.ActiveSchoolID = schoolID
+	return s.Cache(ctx, token, data)
 }
 
 func sessionKey(token string) string {

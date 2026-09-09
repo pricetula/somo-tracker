@@ -291,12 +291,23 @@ func (s *authService) AuthenticateCallback(ctx context.Context, token string, c 
 		return nil, fmt.Errorf("internal_error: failed to issue session")
 	}
 
+	// Query user's currently active school (if any) for fast session lookup
+	var activeSchoolID string
+	schoolErr := s.pool.QueryRow(ctx, `SELECT school_id::text FROM school_memberships WHERE user_id = $1 AND is_active = true LIMIT 1`, userID).Scan(&activeSchoolID)
+	if schoolErr != nil && schoolErr != pgx.ErrNoRows {
+		s.logger.Warn("auth: failed to query active school membership",
+			zap.String("user_id", userID.String()),
+			zap.Error(schoolErr),
+		)
+	}
+
 	// Compute device fingerprint for session hijacking detection
 	fingerprint := session.ComputeFingerprint(c)
 
 	if err := s.session.Cache(ctx, opaque, session.SessionData{
 		UserID:          userID.String(),
 		TenantID:        tenantID.String(),
+		ActiveSchoolID:  activeSchoolID,
 		StytchSessionID: auth.StytchSessionID,
 		ExpiresAt:       expiresAt,
 		Fingerprint:     fingerprint,

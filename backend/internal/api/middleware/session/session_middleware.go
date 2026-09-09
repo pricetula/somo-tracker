@@ -196,6 +196,7 @@ func NewSessionMiddleware(client *redis.Client, logger *zap.Logger) fiber.Handle
 		// Inject multi-tenant metadata into Fiber locals for downstream handlers.
 		c.Locals("user_id", sessionData.UserID)
 		c.Locals("tenant_id", sessionData.TenantID)
+		c.Locals("active_school_id", sessionData.ActiveSchoolID)
 
 		// Also store the Stytch session ID for potential DB operations.
 		c.Locals("stytch_session_id", sessionData.StytchSessionID)

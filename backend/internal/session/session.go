@@ -24,6 +24,7 @@ import (
 type SessionData struct {
 	UserID          string    `json:"user_id"`
 	TenantID        string    `json:"tenant_id"`
+	ActiveSchoolID  string    `json:"active_school_id"`
 	StytchSessionID string    `json:"stytch_session_id"`
 	ExpiresAt       time.Time `json:"expires_at"`
 	Fingerprint     string    `json:"fingerprint,omitempty"`

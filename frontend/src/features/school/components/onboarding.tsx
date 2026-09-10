@@ -28,7 +28,7 @@ export function Onboarding() {
                     }}
                 />
             )) ||
-                (stage === 1 && <CreateAcademicYear onSuccess={() => setStage(1)} />) ||
+                (stage === 1 && <CreateAcademicYear onSuccess={() => setStage(2)} />) ||
                 (stage === 2 && <CreateStreams onSuccess={() => router.push("/")} />)}
         </>
     );

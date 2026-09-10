@@ -63,6 +63,14 @@ export function CreateAcademicYear({ onSuccess }: CreateAcademicYearProps) {
     const [dialogOpen, setDialogOpen] = useState(false);
     const [termName, setTermName] = useState("");
     const [terms, setTerms] = useState<TermInput[]>([]);
+    const blockedDates = useMemo(
+        () =>
+            terms.map((t) => ({
+                from: new Date(t.start_date),
+                to: new Date(t.end_date),
+            })),
+        [terms]
+    );
     const payload: AcademicPeriodRequest = useMemo(() => ({ year, terms }), [year, terms]);
     const disableCreateButton = useMemo(() => !payload?.year || !payload?.terms?.length, [payload]);
     const { minDate, maxDate } = useMemo(() => {
@@ -156,6 +164,7 @@ export function CreateAcademicYear({ onSuccess }: CreateAcademicYearProps) {
                                     className="rounded-lg border"
                                     startMonth={minDate}
                                     endMonth={maxDate}
+                                    disabled={blockedDates}
                                 />
                             )}
                             <p className="text-muted-foreground mt-3 self-start text-xs">

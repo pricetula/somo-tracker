@@ -71,6 +71,10 @@ export function CreateStreams({ onSuccess }: CreateStreamsProps) {
                 </Button>
             </div>
 
+            <div className="text-muted-foreground text-xs">
+                Examples: Blue · Red · Green · Yellow · Purple
+            </div>
+
             <div className="flex flex-wrap gap-2">
                 {names.map((n) => (
                     <Badge key={n} variant="secondary" className="gap-1 py-1 pr-1 pl-2">

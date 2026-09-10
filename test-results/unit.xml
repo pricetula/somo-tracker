@@ -1,21 +1,68 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites tests="8" failures="0" errors="0" time="2.958639">
-	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/cmd/api" timestamp="2026-09-04T04:41:32+03:00">
+<testsuites tests="134" failures="0" errors="0" time="22.085928">
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/cmd/api" timestamp="2026-09-10T18:42:51+03:00">
 		<properties>
 			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/db" timestamp="2026-09-04T04:41:32+03:00">
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/db" timestamp="2026-09-10T18:42:51+03:00">
 		<properties>
 			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/api" timestamp="2026-09-04T04:41:32+03:00">
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/docs" timestamp="2026-09-10T18:42:51+03:00">
 		<properties>
 			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="4" failures="0" time="2.255000" name="somotracker/backend/internal/api/middleware" timestamp="2026-09-04T04:41:32+03:00">
+	<testsuite tests="42" failures="0" time="2.926000" name="somotracker/backend/internal/api" timestamp="2026-09-10T18:42:52+03:00">
+		<properties>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
+		</properties>
+		<testcase classname="somotracker/backend/internal/api" name="TestCreateAcademicPeriod_HappyPath_Returns201" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api" name="TestCreateAcademicPeriod_MissingSchoolID_Returns401" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api" name="TestCreateAcademicPeriod_InvalidJSON_Returns400" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api" name="TestCreateAcademicPeriod_MissingYear_Returns400" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api" name="TestCreateAcademicPeriod_MissingTerms_Returns400" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api" name="TestCreateAcademicPeriod_ServiceBadRequest_Returns400" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api" name="TestCreateAcademicPeriod_ServiceInternalError_Returns500" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api" name="TestCreateAcademicPeriod_InvalidTermDates_Returns400" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api" name="TestCreateAcademicPeriod_HandlerPassesRequestToService" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api" name="TestSendMagicLink_HappyPath_Returns200" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api" name="TestSendMagicLink_MissingEmail_Returns400" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api" name="TestSendMagicLink_AcceptsFormEncodedEmail" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api" name="TestSendMagicLink_ServiceError_Returns500WithoutLeakage" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api" name="TestSendMagicLink_PassesEmailToService" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api" name="TestCallback_HappyPath_SetsSessionCookieAndReturns200" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api" name="TestCallback_MissingToken_Returns400" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api" name="TestCallback_WhitespaceToken_Returns400" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api" name="TestCallback_ServiceBadRequest_Returns400" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api" name="TestCallback_ServiceUnauthorized_Returns401" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api" name="TestCallback_ServiceTooManyRequests_Returns429" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api" name="TestCallback_ServiceInternalError_Returns500WithoutLeakage" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api" name="TestCallback_RouteIsRegisteredGETOnly" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api" name="TestCallback_RateLimitMiddlewareAttached" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api" name="TestErrorHandler_404ReturnsCanonicalJSON" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api" name="TestGetMe_HappyPath_Returns200" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api" name="TestGetMe_MissingCookie_Returns401" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api" name="TestGetMe_MissingTenantContext_Returns401" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api" name="TestGetMe_ServiceBadRequest_Returns400" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api" name="TestGetMe_ServiceNotFound_Returns404" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api" name="TestGetMe_ServiceUnknownError_Returns500WithoutLeakage" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api" name="TestGetMe_CookieValuePassedToService" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api" name="TestGetMe_EmptyCookieValue_Returns401" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api" name="TestRegisterSchool_HappyPath_Returns201" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api" name="TestRegisterSchool_MissingBody_Returns400" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api" name="TestCreateStreams_HappyPath_Returns201" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api" name="TestCreateStreams_MissingSchoolID_Returns401" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api" name="TestCreateStreams_EmptyBody_Returns400" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api" name="TestCreateStreams_InvalidJSON_Returns400" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api" name="TestCreateStreams_ServiceBadRequest_Returns400" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api" name="TestCreateStreams_ServiceInternalError_Returns500" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api" name="TestCreateStreams_EmptyNameInArray_Skipped" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api" name="TestCreateStreams_SingleStringNotArray_Returns400" time="0.000000"></testcase>
+	</testsuite>
+	<testsuite tests="4" failures="0" time="1.645000" name="somotracker/backend/internal/api/middleware" timestamp="2026-09-10T18:42:52+03:00">
 		<properties>
 			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>
@@ -24,38 +71,189 @@
 		<testcase classname="somotracker/backend/internal/api/middleware" name="TestRequestIDMiddleware_StoresInContext" time="0.000000"></testcase>
 		<testcase classname="somotracker/backend/internal/api/middleware" name="TestNewRequestIDHandler_ResolvesLogger" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/config" timestamp="2026-09-04T04:41:32+03:00">
+	<testsuite tests="3" failures="0" time="2.385000" name="somotracker/backend/internal/api/middleware/bodylimit" timestamp="2026-09-10T18:42:52+03:00">
+		<properties>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
+		</properties>
+		<testcase classname="somotracker/backend/internal/api/middleware/bodylimit" name="TestBodyLimitMiddleware_AllowsUnderLimit" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api/middleware/bodylimit" name="TestBodyLimitMiddleware_AllowsExactlyFourMB" time="0.050000"></testcase>
+		<testcase classname="somotracker/backend/internal/api/middleware/bodylimit" name="TestBodyLimitMiddleware_RejectsOverLimit" time="0.040000"></testcase>
+	</testsuite>
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/api/middleware/captcha" timestamp="2026-09-10T18:42:53+03:00">
 		<properties>
 			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="2" failures="0" skipped="1" time="1.758000" name="somotracker/backend/internal/database" timestamp="2026-09-04T04:41:32+03:00">
+	<testsuite tests="3" failures="0" time="3.310000" name="somotracker/backend/internal/api/middleware/compression" timestamp="2026-09-10T18:42:53+03:00">
 		<properties>
 			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>
-		<testcase classname="somotracker/backend/internal/database" name="TestPoolTracer_EmitsSpan" time="0.080000">
-			<skipped message="=== RUN   TestPoolTracer_EmitsSpan&#xA;    database_tracer_integration_test.go:46: test database unavailable (skip): database.NewPool: initial ping: pgxpool: too many failed attempts acquiring connection; likely bug in PrepareConn, BeforeAcquire, or ShouldPing hook&#xA;          hint: run `make test-db-up` and ensure TEST_DATABASE_URL is set&#xA;--- SKIP: TestPoolTracer_EmitsSpan (0.08s)&#xA;"></skipped>
+		<testcase classname="somotracker/backend/internal/api/middleware/compression" name="TestCompressionMiddleware_CompressesLargeResponseWithGzip" time="0.020000"></testcase>
+		<testcase classname="somotracker/backend/internal/api/middleware/compression" name="TestCompressionMiddleware_DoesNotCompressSmallResponse" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api/middleware/compression" name="TestCompressionMiddleware_RespectsNoEncoding" time="0.000000"></testcase>
+	</testsuite>
+	<testsuite tests="10" failures="0" time="3.858000" name="somotracker/backend/internal/api/middleware/cors" timestamp="2026-09-10T18:42:53+03:00">
+		<properties>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
+		</properties>
+		<testcase classname="somotracker/backend/internal/api/middleware/cors" name="TestCORSMiddleware_AllowsConfiguredOrigin" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api/middleware/cors" name="TestCORSMiddleware_RejectsUnconfiguredOrigin" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api/middleware/cors" name="TestCORSMiddleware_PreflightAllowedMethods" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api/middleware/cors" name="TestCORSMiddleware_AllowsCredentials" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api/middleware/cors" name="TestCORSMiddleware_ExposesXRequestIDHeader" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api/middleware/cors" name="TestAllowedOriginsList_ParsesCommaSeparated/empty" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api/middleware/cors" name="TestAllowedOriginsList_ParsesCommaSeparated/single" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api/middleware/cors" name="TestAllowedOriginsList_ParsesCommaSeparated/multiple" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api/middleware/cors" name="TestAllowedOriginsList_ParsesCommaSeparated/with_spaces" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api/middleware/cors" name="TestAllowedOriginsList_ParsesCommaSeparated" time="0.000000"></testcase>
+	</testsuite>
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/api/middleware/csrf" timestamp="2026-09-10T18:42:53+03:00">
+		<properties>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
+		</properties>
+	</testsuite>
+	<testsuite tests="3" failures="0" time="4.388000" name="somotracker/backend/internal/api/middleware/helmet" timestamp="2026-09-10T18:42:53+03:00">
+		<properties>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
+		</properties>
+		<testcase classname="somotracker/backend/internal/api/middleware/helmet" name="TestHelmetMiddleware_SetsSecurityHeaders" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api/middleware/helmet" name="TestHelmetMiddleware_PreservesRequestID" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api/middleware/helmet" name="TestHelmetMiddleware_SetsHeadersOnError" time="0.000000"></testcase>
+	</testsuite>
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/api/middleware/ipblacklist" timestamp="2026-09-10T18:42:53+03:00">
+		<properties>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
+		</properties>
+	</testsuite>
+	<testsuite tests="5" failures="0" time="4.978000" name="somotracker/backend/internal/api/middleware/ratelimit" timestamp="2026-09-10T18:42:53+03:00">
+		<properties>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
+		</properties>
+		<testcase classname="somotracker/backend/internal/api/middleware/ratelimit" name="TestNewLimiter_NilClient" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api/middleware/ratelimit" name="TestNewRateLimitMiddleware_NilLimiter_PassesThrough" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api/middleware/ratelimit" name="TestNewRateLimitMiddleware_AllowedRequest_SetsHeaders" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api/middleware/ratelimit" name="TestExtractClientID_ExtractsIP" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api/middleware/ratelimit" name="TestFallbackLogger_GlobalWhenNotSet" time="0.000000"></testcase>
+	</testsuite>
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/api/middleware/session" timestamp="2026-09-10T18:42:53+03:00">
+		<properties>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
+		</properties>
+	</testsuite>
+	<testsuite tests="2" failures="0" time="20.016000" name="somotracker/backend/internal/api/middleware/timeout" timestamp="2026-09-10T18:42:53+03:00">
+		<properties>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
+		</properties>
+		<testcase classname="somotracker/backend/internal/api/middleware/timeout" name="TestTimeoutMiddleware_AllowsFastHandler" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/api/middleware/timeout" name="TestTimeoutMiddleware_RejectsSlowHandler" time="15.000000"></testcase>
+	</testsuite>
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/config" timestamp="2026-09-10T18:42:54+03:00">
+		<properties>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
+		</properties>
+	</testsuite>
+	<testsuite tests="2" failures="0" skipped="1" time="4.941000" name="somotracker/backend/internal/database" timestamp="2026-09-10T18:42:54+03:00">
+		<properties>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
+		</properties>
+		<testcase classname="somotracker/backend/internal/database" name="TestPoolTracer_EmitsSpan" time="0.010000">
+			<skipped message="=== RUN   TestPoolTracer_EmitsSpan&#xA;    database_tracer_integration_test.go:46: test database unavailable (skip): database.NewPool: initial ping: failed to connect to `user=somo_admin database=somotracker_test`: 127.0.0.1:5433 (127.0.0.1): dial error: dial tcp 127.0.0.1:5433: connect: connection refused&#xA;          hint: run `make test-db-up` and ensure TEST_DATABASE_URL is set&#xA;--- SKIP: TestPoolTracer_EmitsSpan (0.01s)&#xA;"></skipped>
 		</testcase>
 		<testcase classname="somotracker/backend/internal/database" name="TestPoolConfig_HasTracer" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/database/sqlc" timestamp="2026-09-04T04:41:32+03:00">
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/database/sqlc" timestamp="2026-09-10T18:42:55+03:00">
 		<properties>
 			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="2" failures="0" time="2.315000" name="somotracker/backend/internal/observability" timestamp="2026-09-04T04:41:33+03:00">
+	<testsuite tests="2" failures="0" time="4.890000" name="somotracker/backend/internal/observability" timestamp="2026-09-10T18:42:55+03:00">
 		<properties>
 			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>
 		<testcase classname="somotracker/backend/internal/observability" name="TestMetricsEndpoint_DoesNotBreakRequestIDMiddleware" time="0.010000"></testcase>
 		<testcase classname="somotracker/backend/internal/observability" name="TestMetricsEndpoint_AvailableAndContainsStandardMetrics" time="0.000000"></testcase>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/services" timestamp="2026-09-04T04:41:33+03:00">
+	<testsuite tests="5" failures="0" time="4.913000" name="somotracker/backend/internal/redis" timestamp="2026-09-10T18:42:55+03:00">
+		<properties>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
+		</properties>
+		<testcase classname="somotracker/backend/internal/redis" name="TestNewClient_HappyPath" time="0.010000"></testcase>
+		<testcase classname="somotracker/backend/internal/redis" name="TestNewClient_NilConfig" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/redis" name="TestNewClient_NilLogger" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/redis" name="TestPing_NilClient" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/redis" name="TestPing_NilContext" time="0.000000"></testcase>
+	</testsuite>
+	<testsuite tests="26" failures="0" time="4.923000" name="somotracker/backend/internal/services" timestamp="2026-09-10T18:42:56+03:00">
+		<properties>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
+		</properties>
+		<testcase classname="somotracker/backend/internal/services" name="TestAcademicPeriodService_ValidationErrors/empty_schoolID" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/services" name="TestAcademicPeriodService_ValidationErrors/zero_year" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/services" name="TestAcademicPeriodService_ValidationErrors/no_terms" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/services" name="TestAcademicPeriodService_ValidationErrors/invalid_schoolID" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/services" name="TestAcademicPeriodService_ValidationErrors/invalid_term_start_date" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/services" name="TestAcademicPeriodService_ValidationErrors/invalid_term_end_date" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/services" name="TestAcademicPeriodService_ValidationErrors" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/services" name="TestAcademicPeriodService_ValidInput_PassesValidation" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/services" name="TestParseDate_ValidFormat" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/services" name="TestParseDate_InvalidFormat" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/services" name="TestEndToEnd_NewUser_CreatesTenantUserAndSession" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/services" name="TestEndToEnd_Rehydration_DBEmpty_StytchExists" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/services" name="TestEndToEnd_ExistingUser_DoesNotCreateNewTenant" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/services" name="TestMockStytchClient_BothBranches" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/services" name="TestMeService_ValidationErrors/empty_token" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/services" name="TestMeService_ValidationErrors/empty_tenantID" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/services" name="TestMeService_ValidationErrors/both_empty" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/services" name="TestMeService_ValidationErrors" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/services" name="TestMeService_NonValidationErrorsRequireDB" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/services" name="TestMeResult_StructSerialization" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/services" name="TestMeResult_EmptyFields" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/services" name="TestMeService_ErrorPatterns" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/services" name="TestSchoolRegistration_ValidationErrors" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/services" name="TestSchoolRegistration_TransactionalFlow_RealDB" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/services" name="TestStreamsService_ValidationErrors" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/services" name="TestStreamsService_ValidInput_PassesValidation" time="0.000000"></testcase>
+	</testsuite>
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/session" timestamp="2026-09-10T18:42:56+03:00">
 		<properties>
 			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>
 	</testsuite>
-	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/testdb" timestamp="2026-09-04T04:41:33+03:00">
+	<testsuite tests="27" failures="0" skipped="1" time="4.919000" name="somotracker/backend/internal/stytch" timestamp="2026-09-10T18:42:56+03:00">
+		<properties>
+			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
+		</properties>
+		<testcase classname="somotracker/backend/internal/stytch" name="TestNewClient_InvalidEnv" time="0.000000">
+			<skipped message="=== RUN   TestNewClient_InvalidEnv&#xA;    stytch_test.go:162: requires live Stytch credentials for JWKS initialization&#xA;--- SKIP: TestNewClient_InvalidEnv (0.00s)&#xA;"></skipped>
+		</testcase>
+		<testcase classname="somotracker/backend/internal/stytch" name="TestSanitizedError_InvalidMagicLink" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/stytch" name="TestSanitizedError_TokenExpired" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/stytch" name="TestSanitizedError_RateLimit" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/stytch" name="TestSanitizedError_UnexpectedSystemError" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/stytch" name="TestSanitizedError_Nil" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/stytch" name="TestSanitizedError_NonStytchError" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/stytch" name="TestSanitizedError_NoLeak" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/stytch" name="TestNewClient_NilConfig" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/stytch" name="TestNewClient_NilLogger" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/stytch" name="TestNewClient_MissingProjectID" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/stytch" name="TestNewClient_MissingSecret" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/stytch" name="TestSanitizedError_StatusCodePatterns/bad_request" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/stytch" name="TestSanitizedError_StatusCodePatterns/unauthorized" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/stytch" name="TestSanitizedError_StatusCodePatterns/too_many_requests" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/stytch" name="TestSanitizedError_StatusCodePatterns/internal_error" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/stytch" name="TestSanitizedError_StatusCodePatterns" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/stytch" name="TestIsRetryable/connection_refused" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/stytch" name="TestIsRetryable/temporary_failure" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/stytch" name="TestIsRetryable/timeout_exceeded" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/stytch" name="TestIsRetryable/network_unreachable" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/stytch" name="TestIsRetryable/too_many_requests" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/stytch" name="TestIsRetryable/invalid_token" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/stytch" name="TestIsRetryable/session_not_found" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/stytch" name="TestIsRetryable/#00" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/stytch" name="TestIsRetryable/internal_server_error" time="0.000000"></testcase>
+		<testcase classname="somotracker/backend/internal/stytch" name="TestIsRetryable" time="0.000000"></testcase>
+	</testsuite>
+	<testsuite tests="0" failures="0" time="0.000000" name="somotracker/backend/internal/testdb" timestamp="2026-09-10T18:42:57+03:00">
 		<properties>
 			<property name="go.version" value="go1.26.6 darwin/arm64"></property>
 		</properties>

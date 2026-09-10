@@ -2,7 +2,6 @@
 
 import React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
     SidebarGroup,
@@ -136,7 +135,6 @@ function buildNavItems(): NavItem[] {
 }
 
 export function NavMain() {
-    const router = useRouter();
     const items = React.useMemo(() => buildNavItems(), []);
 
     return (

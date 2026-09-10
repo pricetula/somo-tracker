@@ -29,9 +29,9 @@ vi.mock("@tanstack/react-query", async () => {
     const actual = await vi.importActual("@tanstack/react-query");
     return {
         ...actual,
-        dehydrate: vi.fn((client: unknown) => ({})),
+        dehydrate: vi.fn((_client: unknown) => ({})),
         HydrationBoundary: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-        QueryClient: vi.fn(),
+        QueryClient: vi.fn(() => ({})),
     };
 });
 

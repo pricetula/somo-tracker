@@ -52,4 +52,17 @@ pattern as the existing tests.
 For all other backend conventions (error handling, API patterns, dependencies,
 etc.) refer to the **root** `AGENTS.md` at the project root.
 
+---
+
+## Swagger / Endpoint URI Verification
+
+Before writing `swaggo` annotations (`@Router`, `@Param body`) for any new endpoint:
+
+1. Read the router group (`app.Group("/api", ...)`) in `internal/api/router.go`.
+2. Combine group prefix + route string → full URI (e.g., `/api` + `/school/academic-period` = `/api/school/academic-period`).
+3. Verify the frontend `lib/api/*.ts` call uses the matching full path (with `/api` if routed under the group).
+4. After `swag init`, confirm `swagger.json` path matches; after `openapi-typescript`, confirm `generated.ts` path matches.
+
+Never assume the route string alone is the complete endpoint URI.
+
 **Version:** 1.0.0 (September 2025)

@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
-import { getErrorMessage, isApiError } from "@/lib/errors";
+import { getErrorMessage } from "@/lib/errors";
 
 import { sendMagicLink, logout, type MagicLinkResponse, type LogoutResponse } from "@/lib/api/auth";
 

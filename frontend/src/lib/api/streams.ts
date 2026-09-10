@@ -3,7 +3,7 @@
  *
  * Backend contract (backend/internal/api/streams_handler.go):
  *
- *   POST   /school/streams      — create streams (protected, active_school_id required)
+ *   POST   /api/school/streams  — create streams (protected, active_school_id required)
  */
 
 import { api } from "./client";
@@ -26,5 +26,5 @@ export interface CreateStreamsResponse {
 
 /** Create streams for the active school. */
 export async function createStreams(names: string[]): Promise<CreateStreamsResponse> {
-    return api.post<CreateStreamsResponse>("/school/streams", names);
+    return api.post<CreateStreamsResponse>("/api/school/streams", names);
 }

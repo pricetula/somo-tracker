@@ -25,6 +25,7 @@ func Middleware(cfg *config.Config) fiber.Handler {
 			"Content-Type",
 			"Accept",
 			"X-Request-ID",
+			"X-CSRF-Token",
 		},
 		AllowCredentials: true,
 	})

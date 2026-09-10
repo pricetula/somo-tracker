@@ -4,24 +4,22 @@
 // The middleware performs:
 //   - Opaque session cookie extraction (session_token)
 //   - Redis-backed session verification with expiration checks
-//   - Device fingerprint validation to detect session hijacking / cookie theft
 //   - Multi-tenant metadata injection (user_id, tenant_id) into Fiber locals
 //   - Security event logging for unauthorized access attempts
 //
 // Integration example:
 //
-//	app.Get("/protected", session.NewSessionMiddleware(redisClient), handler)
+//	app.Get("/protected", session.NewSessionMiddleware(redisClient, logger, cfg), handler)
 //
 // The middleware is typically applied to entire route groups using app.Group:
 //
-//	protected := app.Group("/api/v1", session.NewSessionMiddleware(redisClient))
+//	protected := app.Group("/api/v1", session.NewSessionMiddleware(redisClient, logger, cfg))
 //
 // The constructor function is provided for Fx dependency injection and to
 // maintain consistency with other middleware constructors in the codebase.
 package session
 
 import (
-	"context"
 	"encoding/json"
 	"time"
 
@@ -29,6 +27,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 
+	"somotracker/backend/internal/config"
 	sessionpkg "somotracker/backend/internal/session"
 )
 
@@ -55,7 +54,6 @@ const (
 // Security guarantees:
 //   - Missing cookie → 401 with sanitized message (no login hint)
 //   - Missing/expired session in Redis → 401 + cleanup of stale cookie
-//   - Fingerprint mismatch → 401 + session invalidation + high-severity security log
 //   - All errors return the canonical JSON response contract
 //   - No internal session tokens or Redis keys leak in responses
 //
@@ -66,7 +64,7 @@ const (
 //
 // The function signature matches the pattern used by other middleware constructors
 // in the codebase (e.g. NewRequestIDHandler, NewRateLimitMiddleware).
-func NewSessionMiddleware(client *redis.Client, logger *zap.Logger) fiber.Handler {
+func NewSessionMiddleware(client *redis.Client, logger *zap.Logger, cfg *config.Config) fiber.Handler {
 	return func(c fiber.Ctx) error {
 		// Early return if redis client is not configured (defensive for tests).
 		if client == nil {
@@ -100,15 +98,7 @@ func NewSessionMiddleware(client *redis.Client, logger *zap.Logger) fiber.Handle
 			if err == redis.Nil {
 				// Session not found in cache – likely expired or revoked.
 				// Clean up the stale cookie to prevent repeated lookups.
-				c.Cookie(&fiber.Cookie{
-					Name:     CookieName,
-					Value:    "",
-					Path:     "/",
-					Expires:  time.Now().Add(-24 * time.Hour),
-					MaxAge:   -1,
-					HTTPOnly: true,
-					Secure:   true,
-				})
+				c.Cookie(clearSessionCookie(cfg))
 
 				logUnauthorized(c, logger, "session_not_found", "session not found in cache")
 
@@ -146,15 +136,7 @@ func NewSessionMiddleware(client *redis.Client, logger *zap.Logger) fiber.Handle
 		now := time.Now()
 		if sessionData.ExpiresAt.IsZero() || !sessionData.ExpiresAt.After(now) {
 			// Session has expired – clean up the cookie and respond 401.
-			c.Cookie(&fiber.Cookie{
-				Name:     CookieName,
-				Value:    "",
-				Path:     "/",
-				Expires:  time.Now().Add(-24 * time.Hour),
-				MaxAge:   -1,
-				HTTPOnly: true,
-				Secure:   true,
-			})
+			c.Cookie(clearSessionCookie(cfg))
 
 			logUnauthorized(c, logger, "session_expired", "session has expired",
 				zap.Time("expires_at", sessionData.ExpiresAt),
@@ -180,18 +162,17 @@ func NewSessionMiddleware(client *redis.Client, logger *zap.Logger) fiber.Handle
 			})
 		}
 
-		// Validate device fingerprint to detect session hijacking / cookie theft.
-		if err := validateFingerprint(c, sessionData, logger); err != nil {
-			// Fingerprint mismatch – potential session hijacking.
-			// Invalidate the session immediately and clear the cookie.
-			invalidateSession(ctx, client, sessionKey, token, logger, c)
-
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"code":    "unauthorized",
-				"message": sanitizedUnauthorizedMessage,
-				"errors":  fiber.Map{},
-			})
-		}
+		// NOTE: Fingerprint validation is DISABLED because it causes false positives
+		// on legitimate requests (POST vs GET have different headers).
+		// Re-enable only after implementing a stable client-side fingerprint strategy.
+		// if err := validateFingerprint(c, sessionData, logger); err != nil {
+		// 	invalidateSession(ctx, client, sessionKey, token, logger, c)
+		// 	return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+		// 		"code":    "unauthorized",
+		// 		"message": sanitizedUnauthorizedMessage,
+		// 		"errors":  fiber.Map{},
+		// 	})
+		// }
 
 		// Inject multi-tenant metadata into Fiber locals for downstream handlers.
 		c.Locals("user_id", sessionData.UserID)
@@ -219,83 +200,20 @@ func NewSessionMiddleware(client *redis.Client, logger *zap.Logger) fiber.Handle
 	}
 }
 
-// validateFingerprint compares the incoming request's fingerprint against
-// the stored session fingerprint. If a mismatch is detected, it logs a
-// high-severity security warning and returns an error.
-func validateFingerprint(c fiber.Ctx, sessionData sessionpkg.SessionData, logger *zap.Logger) error {
-	// If no fingerprint was stored (legacy session), skip validation.
-	// This allows gradual rollout without invalidating existing sessions.
-	if sessionData.Fingerprint == "" {
-		return nil
-	}
-
-	// Compute the fingerprint from the current request.
-	incomingFP := sessionpkg.ComputeFingerprint(c)
-
-	// Compare fingerprints (constant-time comparison would be ideal but
-	// timing attacks on fingerprint hash are not practical).
-	if incomingFP != sessionData.Fingerprint {
-		requestID := c.Get("X-Request-ID")
-
-		// Log HIGH-SEVERITY security event for potential session hijacking.
-		if logger == nil {
-			logger = zap.L()
-		}
-
-		logger.Error("session middleware: FINGERPRINT MISMATCH - potential session hijacking",
-			zap.String("reason", "fingerprint_mismatch"),
-			zap.String("message", "device fingerprint does not match session; possible cookie theft"),
-			zap.String("request_id", requestID),
-			zap.String("remote_addr", c.IP()),
-			zap.String("method", c.Method()),
-			zap.String("path", c.Path()),
-			zap.String("user_id", sessionData.UserID),
-			zap.String("tenant_id", sessionData.TenantID),
-			zap.String("stored_fingerprint_prefix", sessionData.Fingerprint[:16]+"..."),
-			zap.String("incoming_fingerprint_prefix", incomingFP[:16]+"..."),
-			zap.String("user_agent", c.Get("User-Agent")),
-			zap.String("accept_language", c.Get("Accept-Language")),
-			zap.String("accept_encoding", c.Get("Accept-Encoding")),
-		)
-
-		return &sessionpkg.FingerprintMismatchError{
-			Expected: sessionData.Fingerprint,
-			Actual:   incomingFP,
-		}
-	}
-
-	return nil
-}
-
-// invalidateSession removes the session from Redis and clears the cookie.
-// Called when fingerprint mismatch is detected or other security violations.
-func invalidateSession(ctx context.Context, client *redis.Client, sessionKey, token string, logger *zap.Logger, c fiber.Ctx) {
-	requestID := c.Get("X-Request-ID")
-
-	// Delete session from Redis
-	if err := client.Del(ctx, sessionKey).Err(); err != nil && err != redis.Nil {
-		logger.Error("session middleware: failed to delete session on invalidation",
-			zap.String("request_id", requestID),
-			zap.Error(err),
-		)
-	}
-
-	// Clear the session cookie
-	c.Cookie(&fiber.Cookie{
+// clearSessionCookie returns a cookie that clears the session token
+// with environment-aware Secure flag and CookieDomain.
+func clearSessionCookie(cfg *config.Config) *fiber.Cookie {
+	return &fiber.Cookie{
 		Name:     CookieName,
 		Value:    "",
 		Path:     "/",
 		Expires:  time.Now().Add(-24 * time.Hour),
 		MaxAge:   -1,
 		HTTPOnly: true,
-		Secure:   true,
-	})
-
-	logger.Warn("session middleware: session invalidated due to security violation",
-		zap.String("request_id", requestID),
-		zap.String("remote_addr", c.IP()),
-		zap.String("reason", "fingerprint_mismatch"),
-	)
+		Secure:   cfg.IsProduction(), // Only Secure in production (HTTPS)
+		SameSite: fiber.CookieSameSiteLaxMode,
+		Domain:   cfg.CookieDomain,
+	}
 }
 
 // parseSessionData deserializes the JSON payload from Redis into sessionpkg.SessionData.

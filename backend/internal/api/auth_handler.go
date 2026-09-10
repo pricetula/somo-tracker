@@ -99,6 +99,66 @@ func mapAuthError(c fiber.Ctx, err error) error {
 	}
 }
 
+// sessionCookie returns a properly configured session cookie.
+// Uses environment-aware Secure flag and CookieDomain.
+func (h *authHandler) sessionCookie(value string, expires time.Time) *fiber.Cookie {
+	return &fiber.Cookie{
+		Name:     "session_token",
+		Value:    value,
+		Path:     "/",
+		Expires:  expires,
+		Secure:   h.cfg.IsProduction(), // Only Secure in production (HTTPS)
+		HTTPOnly: true,
+		SameSite: fiber.CookieSameSiteLaxMode,
+		Domain:   h.cfg.CookieDomain,
+	}
+}
+
+// csrfCookie returns a properly configured CSRF cookie.
+// Non-HttpOnly so JavaScript can read it for double-submit pattern.
+func (h *authHandler) csrfCookie(value string) *fiber.Cookie {
+	return &fiber.Cookie{
+		Name:     csrf.CSRFCookieName,
+		Value:    value,
+		Path:     "/",
+		MaxAge:   csrf.CSRFCookieMaxAge,
+		Secure:   h.cfg.IsProduction(), // Only Secure in production (HTTPS)
+		HTTPOnly: false,                // Must be readable by JavaScript
+		SameSite: fiber.CookieSameSiteLaxMode,
+		Domain:   h.cfg.CookieDomain,
+	}
+}
+
+// clearSessionCookie returns a cookie that clears the session token.
+func (h *authHandler) clearSessionCookie() *fiber.Cookie {
+	return &fiber.Cookie{
+		Name:     "session_token",
+		Value:    "",
+		Path:     "/",
+		Expires:  time.Now().Add(-24 * time.Hour),
+		MaxAge:   -1,
+		HTTPOnly: true,
+		Secure:   h.cfg.IsProduction(),
+		SameSite: fiber.CookieSameSiteLaxMode,
+		Domain:   h.cfg.CookieDomain,
+	}
+}
+
+// clearCSRFCookie returns a cookie that clears the CSRF token.
+func (h *authHandler) clearCSRFCookie() *fiber.Cookie {
+	return &fiber.Cookie{
+		Name:     csrf.CSRFCookieName,
+		Value:    "",
+		Path:     "/",
+		Expires:  time.Now().Add(-24 * time.Hour),
+		MaxAge:   -1,
+		HTTPOnly: false,
+		Secure:   h.cfg.IsProduction(),
+		SameSite: fiber.CookieSameSiteLaxMode,
+		Domain:   h.cfg.CookieDomain,
+	}
+}
+
 // callback handles the Stytch magic-link redirect.
 //
 // @Summary Authenticate magic-link token
@@ -129,29 +189,13 @@ func (h *authHandler) callback(c fiber.Ctx) error {
 
 	// Issue the opaque session token as an HttpOnly, Secure, SameSite=Lax cookie.
 	// The raw token is NEVER exposed to client-side JavaScript.
-	c.Cookie(&fiber.Cookie{
-		Name:     "session_token",
-		Value:    sessionResult.OpaqueToken,
-		Path:     "/",
-		Expires:  sessionResult.ExpiresAt,
-		Secure:   true,
-		HTTPOnly: true,
-		SameSite: fiber.CookieSameSiteLaxMode,
-	})
+	c.Cookie(h.sessionCookie(sessionResult.OpaqueToken, sessionResult.ExpiresAt))
 
 	// Issue CSRF token as non-HttpOnly cookie for double-submit pattern.
 	// JavaScript reads this and sends it in X-CSRF-Token header on mutating requests.
 	csrfToken, err := csrf.GenerateCSRFToken()
 	if err == nil {
-		c.Cookie(&fiber.Cookie{
-			Name:     csrf.CSRFCookieName,
-			Value:    csrfToken,
-			Path:     "/",
-			MaxAge:   csrf.CSRFCookieMaxAge,
-			Secure:   true,
-			HTTPOnly: false, // Must be readable by JavaScript
-			SameSite: fiber.CookieSameSiteLaxMode,
-		})
+		c.Cookie(h.csrfCookie(csrfToken))
 	}
 
 	// Redirect to frontend dashboard after successful auth.
@@ -181,26 +225,9 @@ func (h *authHandler) logout(c fiber.Ctx) error {
 	if token == "" {
 		// No session cookie - still return success to prevent enumeration
 		// but clear any stale cookie.
-		c.Cookie(&fiber.Cookie{
-			Name:     "session_token",
-			Value:    "",
-			Path:     "/",
-			Expires:  time.Now().Add(-24 * time.Hour),
-			MaxAge:   -1,
-			HTTPOnly: true,
-			Secure:   true,
-		})
+		c.Cookie(h.clearSessionCookie())
 		// Clear the CSRF token cookie
-		c.Cookie(&fiber.Cookie{
-			Name:     csrf.CSRFCookieName,
-			Value:    "",
-			Path:     "/",
-			Expires:  time.Now().Add(-24 * time.Hour),
-			MaxAge:   -1,
-			HTTPOnly: false,
-			Secure:   true,
-			SameSite: fiber.CookieSameSiteLaxMode,
-		})
+		c.Cookie(h.clearCSRFCookie())
 		return c.JSON(fiber.Map{
 			"code":    "logged_out",
 			"message": "Logged out successfully",
@@ -217,28 +244,10 @@ func (h *authHandler) logout(c fiber.Ctx) error {
 	}
 
 	// Clear the session cookie
-	c.Cookie(&fiber.Cookie{
-		Name:     "session_token",
-		Value:    "",
-		Path:     "/",
-		Expires:  time.Now().Add(-24 * time.Hour),
-		MaxAge:   -1,
-		HTTPOnly: true,
-		Secure:   true,
-		SameSite: fiber.CookieSameSiteLaxMode,
-	})
+	c.Cookie(h.clearSessionCookie())
 
 	// Clear the CSRF token cookie
-	c.Cookie(&fiber.Cookie{
-		Name:     csrf.CSRFCookieName,
-		Value:    "",
-		Path:     "/",
-		Expires:  time.Now().Add(-24 * time.Hour),
-		MaxAge:   -1,
-		HTTPOnly: false,
-		Secure:   true,
-		SameSite: fiber.CookieSameSiteLaxMode,
-	})
+	c.Cookie(h.clearCSRFCookie())
 
 	return c.JSON(fiber.Map{
 		"code":    "logged_out",

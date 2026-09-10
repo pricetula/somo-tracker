@@ -34,5 +34,5 @@ export interface CreateAcademicPeriodResponse {
 export async function createAcademicPeriod(
     payload: AcademicPeriodRequest
 ): Promise<CreateAcademicPeriodResponse> {
-    return api.post<CreateAcademicPeriodResponse>("/school/academic-period", payload);
+    return api.post<CreateAcademicPeriodResponse>("/api/school/academic-period", payload);
 }

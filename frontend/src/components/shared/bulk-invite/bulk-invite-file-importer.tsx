@@ -118,8 +118,10 @@ export function BulkInviteFileImporter({
     onJobCreated,
     submitFn,
 }: BulkInviteFileImporterProps) {
-    const { data: me } = useMe();
-    const schoolId = me?.school_id ?? "";
+    const { data: me } = useMe() as {
+        data: { active_school_id?: string | null } | null | undefined;
+    };
+    const schoolId = me?.active_school_id ?? "";
 
     // ── State ──────────────────────────────────────────────────────────
     const [currentStep, setCurrentStep] = React.useState<WizardStep>("upload");

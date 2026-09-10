@@ -3,9 +3,10 @@ package api
 import (
 	"strings"
 
+	"somotracker/backend/internal/services"
+
 	"github.com/gofiber/fiber/v3"
 	go_uber_zap "go.uber.org/zap"
-	"somotracker/backend/internal/services"
 )
 
 type AcademicPeriodHandler struct {
@@ -27,7 +28,7 @@ func NewAcademicPeriodHandler(svc services.AcademicPeriodService) *AcademicPerio
 // @Success 201 {object} object
 // @Failure 400 {object} object
 // @Failure 401 {object} object
-// @Router /school/academic-period [post]
+// @Router /api/school/academic-period [post]
 func (h *AcademicPeriodHandler) CreateAcademicPeriod(c fiber.Ctx) error {
 	schoolID, ok := c.Locals("active_school_id").(string)
 	if !ok || schoolID == "" {

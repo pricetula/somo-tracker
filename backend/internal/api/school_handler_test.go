@@ -42,7 +42,7 @@ func TestRegisterSchool_HappyPath_Returns201(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := app.Test(req)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, fiber.StatusCreated, resp.StatusCode)
 }
@@ -66,7 +66,7 @@ func TestRegisterSchool_MissingBody_Returns400(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := app.Test(req)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
 }

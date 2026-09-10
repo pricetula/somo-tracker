@@ -9,7 +9,6 @@ import { useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 
 export function RegisterForm() {
     const router = useRouter();

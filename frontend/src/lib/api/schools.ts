@@ -24,5 +24,5 @@ export interface RegisterSchoolResponse {
 
 /** Register a new school (atomic: updates user + creates school + creates ADMIN membership). */
 export async function registerSchool(data: RegisterSchoolPayload): Promise<RegisterSchoolResponse> {
-    return api.post<RegisterSchoolResponse>("/school/register", data);
+    return api.post<RegisterSchoolResponse>("/api/school/register", data);
 }

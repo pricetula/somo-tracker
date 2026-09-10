@@ -169,7 +169,7 @@ export function NavMain() {
                     ) : (
                         <SidebarMenuItem key={item.title}>
                             <SidebarMenuButton tooltip={item.title}>
-                                <Link href={item.url}>
+                                <Link href={item.url} className="flex gap-2">
                                     {item.icon}
                                     <span>{item.title}</span>
                                 </Link>

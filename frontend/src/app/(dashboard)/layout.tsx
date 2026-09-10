@@ -1,4 +1,5 @@
 import { AppLayout } from "@/components/layout/layout";
+import { DashboardAuthLayout } from "@/features/auth/components/dashboard-auth-layout";
 
 /**
  * Dashboard layout — wraps all authenticated pages.
@@ -11,12 +12,14 @@ export default function DashboardLayout({
     modal,
 }: {
     children: React.ReactNode;
-    modal: React.ReactNode;
+    modal?: React.ReactNode;
 }) {
     return (
-        <AppLayout>
-            {children}
-            {modal}
-        </AppLayout>
+        <DashboardAuthLayout>
+            <AppLayout>
+                {children}
+                {modal}
+            </AppLayout>
+        </DashboardAuthLayout>
     );
 }

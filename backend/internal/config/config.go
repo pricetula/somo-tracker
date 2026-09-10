@@ -10,6 +10,21 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
+
+	"go.uber.org/fx"
+)
+
+// Module is the Fx module that exposes [Load] as a Fx provider. Import this
+// from your fx.App to obtain a *Config via dependency injection:
+//
+//	fx.New(config.Module, ...)
+//
+// Other Fx modules can then declare *config.Config as a constructor argument
+// without having to re-define the provider.
+var Module = fx.Module(
+	"config",
+	fx.Provide(Load),
 )
 
 // Config is the strongly-typed application configuration.
@@ -33,6 +48,94 @@ type Config struct {
 	// LogLevel is the zap log level ("debug", "info", "warn", "error").
 	// Defaults to "info" when unset.
 	LogLevel string
+
+	// DatabaseURL is the PostgreSQL connection string.
+	// Defaults to "postgres://localhost:5432/somotracker?sslmode=disable".
+	DatabaseURL string
+
+	// DBMaxConns is the maximum number of connections in the pool.
+	// Defaults to 10.
+	DBMaxConns int
+
+	// DBMaxConnLifetime is the maximum time a connection may be reused.
+	// Defaults to 30 minutes.
+	DBMaxConnLifetime time.Duration
+
+	// DBMaxConnIdleTime is the maximum idle time before a connection is closed.
+	// Defaults to 5 minutes.
+	DBMaxConnIdleTime time.Duration
+
+	// StytchProjectID is the Stytch B2B project key.
+	StytchProjectID string
+
+	// StytchSecret is the Stytch B2B secret.
+	StytchSecret string
+
+	// StytchEnv is the Stytch environment (test or live). Defaults to test.
+	StytchEnv string
+
+	// StytchRedirectURL is the OAuth callback URL for the Stytch magic link
+	// flow (e.g. "https://app.somo.io/api/auth/callback").
+	StytchRedirectURL string
+
+	// RedisURL is the full Redis connection URL from Doppler.
+	// Example: redis://:password@host:6379/0 — this is the only
+	// Redis environment variable used in production.
+	RedisURL string
+
+	// BackendURL is the full URL of this service (scheme + host + port).
+	// Used to derive Host/Port and for absolute URL generation (e.g. OAuth
+	// redirect URIs). Populated from BACKEND_URL.
+	BackendURL string
+
+	// FrontendURL is the URL of the Next.js frontend application.
+	// Populated from FRONTEND_URL.
+	FrontendURL string
+
+	// AllowedOrigins is the raw comma-separated list of origins allowed by
+	// this API for CORS. Set by Doppler; do not construct or modify it here.
+	// See [AllowedOriginsList] for the parsed slice.
+	AllowedOrigins string
+
+	// CookieDomain is the domain scope for session cookies (e.g. ".somo.io").
+	// Populated from COOKIE_DOMAIN.
+	CookieDomain string
+
+	// CookieSecret is the secret key used to sign session cookies.
+	// Populated from COOKIE_SECRET.
+	CookieSecret string
+
+	// CAPTCHA configuration
+	// CAPTCHAEnabled turns on CAPTCHA verification for abuse-prone endpoints.
+	// Defaults to false for local development.
+	CAPTCHAEnabled bool
+
+	// CAPTCHAProvider identifies the CAPTCHA provider ("hcaptcha", "turnstile", "recaptcha").
+	CAPTCHAProvider string
+
+	// CAPTCHASiteKey is the public site key (used by frontend).
+	CAPTCHASiteKey string
+
+	// CAPTCHASecretKey is the private secret key (used by backend verification).
+	CAPTCHASecretKey string
+
+	// CAPTCHAScoreThreshold for score-based providers (reCAPTCHA v3, Turnstile).
+	// Requests below this score are rejected. Range: 0.0 - 1.0.
+	CAPTCHAScoreThreshold float64
+}
+
+// AllowedOriginsList returns the comma-separated AllowedOrigins value split
+// into a slice of individual origin strings. Whitespace is trimmed from
+// each entry. Returns nil if AllowedOrigins is empty.
+func (c Config) AllowedOriginsList() []string {
+	if c.AllowedOrigins == "" {
+		return nil
+	}
+	origins := strings.Split(c.AllowedOrigins, ",")
+	for i := range origins {
+		origins[i] = strings.TrimSpace(origins[i])
+	}
+	return origins
 }
 
 // ListenAddr returns the address string passed to fiber.App.Listen.
@@ -70,14 +173,42 @@ func (c Config) IsProduction() bool {
 //	             over the host portion of BACKEND_URL.
 //	BACKEND_PORT Optional port override. Takes precedence over the port portion
 //	             of BACKEND_URL. Defaults to 3030.
+//	REDIS_URL    Full Redis URL from Doppler (required). Example: redis://:password@host:6379/0
+//	STYTCH_PROJECT_ID  Stytch B2B project ID (required).
+//	STYTCH_SECRET      Stytch B2B secret (required).
+//	STYTCH_ENV         Stytch environment (test or live). Defaults to test.
+//	CAPTCHA_ENABLED    Enable CAPTCHA verification (default: false).
+//	CAPTCHA_PROVIDER   CAPTCHA provider: hcaptcha, turnstile, recaptcha.
+//	CAPTCHA_SITE_KEY   Public site key for frontend.
+//	CAPTCHA_SECRET_KEY Private secret key for backend verification.
+//	CAPTCHA_SCORE_THRESHOLD Score threshold for score-based providers (default: 0.5).
 func Load() (*Config, error) {
 	cfg := &Config{
-		Host:        "",
-		Port:        defaultPort,
-		Environment: getEnv("APP_ENV", "local"),
-		LogLevel:    strings.ToLower(getEnv("LOG_LEVEL", "info")),
+		Host:                  "",
+		Port:                  defaultPort,
+		Environment:           getEnv("APP_ENV", "local"),
+		LogLevel:              strings.ToLower(getEnv("LOG_LEVEL", "info")),
+		DatabaseURL:           getEnv("DATABASE_URL", "postgres://localhost:5432/somotracker?sslmode=disable"),
+		DBMaxConns:            10,
+		DBMaxConnLifetime:     30 * time.Minute,
+		DBMaxConnIdleTime:     5 * time.Minute,
+		RedisURL:              os.Getenv("REDIS_URL"),
+		StytchProjectID:       os.Getenv("STYTCH_PROJECT_ID"),
+		StytchSecret:          os.Getenv("STYTCH_SECRET"),
+		StytchEnv:             getEnv("STYTCH_ENV", "test"),
+		StytchRedirectURL:     os.Getenv("STYTCH_REDIRECT_URL"),
+		BackendURL:            os.Getenv("BACKEND_URL"),
+		FrontendURL:           os.Getenv("FRONTEND_URL"),
+		AllowedOrigins:        os.Getenv("ALLOWED_ORIGINS"),
+		CookieDomain:          os.Getenv("COOKIE_DOMAIN"),
+		CookieSecret:          os.Getenv("COOKIE_SECRET"),
+		CAPTCHAEnabled:        getEnv("CAPTCHA_ENABLED", "false") == "true",
+		CAPTCHAProvider:       getEnv("CAPTCHA_PROVIDER", "turnstile"),
+		CAPTCHASiteKey:        os.Getenv("CAPTCHA_SITE_KEY"),
+		CAPTCHASecretKey:      os.Getenv("CAPTCHA_SECRET_KEY"),
+		CAPTCHAScoreThreshold: getEnvFloat("CAPTCHA_SCORE_THRESHOLD", 0.5),
 	}
-
+	fmt.Println(cfg.DatabaseURL)
 	if raw := os.Getenv("BACKEND_URL"); raw != "" {
 		host, port, err := parseBackendURL(raw)
 		if err != nil {
@@ -88,6 +219,37 @@ func Load() (*Config, error) {
 		}
 		if port != 0 {
 			cfg.Port = port
+		}
+	}
+
+	if raw := os.Getenv("DB_MAX_CONNS"); raw != "" {
+		n, err := strconv.Atoi(raw)
+		if err != nil || n <= 0 {
+			return nil, fmt.Errorf("config.Load: invalid DB_MAX_CONNS %q: %w", raw, err)
+		}
+		cfg.DBMaxConns = n
+	}
+
+	if raw := os.Getenv("DB_MAX_CONN_LIFETIME"); raw != "" {
+		d, err := time.ParseDuration(raw)
+		if err != nil || d <= 0 {
+			return nil, fmt.Errorf("config.Load: invalid DB_MAX_CONN_LIFETIME %q: %w", raw, err)
+		}
+		cfg.DBMaxConnLifetime = d
+	}
+
+	if raw := os.Getenv("DB_MAX_CONN_IDLE_TIME"); raw != "" {
+		d, err := time.ParseDuration(raw)
+		if err != nil || d <= 0 {
+			return nil, fmt.Errorf("config.Load: invalid DB_MAX_CONN_IDLE_TIME %q: %w", raw, err)
+		}
+		cfg.DBMaxConnIdleTime = d
+	}
+
+	// Redis: only REDIS_URL is supported (Doppler environment).
+	if cfg.RedisURL != "" {
+		if _, err := url.Parse(cfg.RedisURL); err != nil {
+			return nil, fmt.Errorf("config.Load: invalid REDIS_URL %q: %w", cfg.RedisURL, err)
 		}
 	}
 
@@ -104,10 +266,55 @@ func (c *Config) validate() error {
 	if c.Port <= 0 || c.Port > 65535 {
 		return fmt.Errorf("config.Load: port %d out of range (1-65535)", c.Port)
 	}
+	if c.DatabaseURL == "" {
+		return fmt.Errorf("config.Load: DATABASE_URL is required")
+	}
+	if c.DBMaxConns <= 0 {
+		return fmt.Errorf("config.Load: DBMaxConns must be positive")
+	}
+	if c.DBMaxConnLifetime <= 0 {
+		return fmt.Errorf("config.Load: DBMaxConnLifetime must be positive")
+	}
+	if c.DBMaxConnIdleTime <= 0 {
+		return fmt.Errorf("config.Load: DBMaxConnIdleTime must be positive")
+	}
 	switch c.LogLevel {
 	case "debug", "info", "warn", "error":
 	default:
 		return fmt.Errorf("config.Load: invalid log level %q (want debug|info|warn|error)", c.LogLevel)
+	}
+	if c.RedisURL == "" {
+		return fmt.Errorf("config.Load: REDIS_URL is required")
+	}
+	if c.StytchEnv != "test" && c.StytchEnv != "live" {
+		return fmt.Errorf("config.Load: STYTCH_ENV must be test or live, got %q", c.StytchEnv)
+	}
+	if c.StytchProjectID == "" {
+		return fmt.Errorf("config.Load: STYTCH_PROJECT_ID is required")
+	}
+	if c.StytchSecret == "" {
+		return fmt.Errorf("config.Load: STYTCH_SECRET is required")
+	}
+	if c.AllowedOrigins == "" {
+		return fmt.Errorf("config.Load: ALLOWED_ORIGINS is required (set via Doppler)")
+	}
+	if c.CookieSecret == "" {
+		return fmt.Errorf("config.Load: COOKIE_SECRET is required")
+	}
+	// if c.CookieDomain == "" {
+	// 	return fmt.Errorf("config.Load: COOKIE_DOMAIN is required")
+	// }
+	if c.StytchRedirectURL == "" {
+		return fmt.Errorf("config.Load: STYTCH_REDIRECT_URL is required")
+	}
+	// CAPTCHA validation (only if enabled)
+	if c.CAPTCHAEnabled {
+		if c.CAPTCHAProvider == "" {
+			return fmt.Errorf("config.Load: CAPTCHA_PROVIDER required when CAPTCHA_ENABLED=true")
+		}
+		if c.CAPTCHASecretKey == "" {
+			return fmt.Errorf("config.Load: CAPTCHA_SECRET_KEY required when CAPTCHA_ENABLED=true")
+		}
 	}
 	return nil
 }
@@ -133,6 +340,15 @@ func parseBackendURL(raw string) (host string, port int, err error) {
 func getEnv(key, fallback string) string {
 	if v, ok := os.LookupEnv(key); ok && v != "" {
 		return v
+	}
+	return fallback
+}
+
+func getEnvFloat(key string, fallback float64) float64 {
+	if v, ok := os.LookupEnv(key); ok && v != "" {
+		if f, err := strconv.ParseFloat(v, 64); err == nil {
+			return f
+		}
 	}
 	return fallback
 }

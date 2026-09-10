@@ -4,17 +4,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
-import { getErrorMessage, isApiError } from "@/lib/errors";
+import { getErrorMessage } from "@/lib/errors";
 
-import {
-    discover,
-    getMe,
-    logout,
-    register,
-    verifyToken,
-    type MeResponse,
-    type RegisterPayload,
-} from "@/lib/api/auth";
+import { sendMagicLink, logout, type MagicLinkResponse, type LogoutResponse } from "@/lib/api/auth";
 
 // ─── Query keys ───────────────────────────────────────────────────────────
 
@@ -22,27 +14,21 @@ export const authKeys = {
     me: ["auth", "me"] as const,
 };
 
-// ─── Hooks ────────────────────────────────────────────────────────────────
-
-/** Fetch the current user session. Returns null when not authenticated. */
+/** Fetch the current user session. Returns null when not authenticated.
+ *  Note: Backend doesn't have a /me endpoint, so this will always return null.
+ *  Use this only if backend adds a /me endpoint in the future. */
 export function useMe() {
-    return useQuery<MeResponse | null>({
+    return useQuery<null>({
         queryKey: authKeys.me,
-        queryFn: async () => {
-            try {
-                return await getMe();
-            } catch {
-                return null;
-            }
-        },
-        retry: false,
+        queryFn: async () => null,
+        enabled: false,
     });
 }
 
 /** PHASE 1: Send a magic link to the given email. */
-export function useDiscover() {
-    return useMutation({
-        mutationFn: (email: string) => discover(email),
+export function useSendMagicLink() {
+    return useMutation<MagicLinkResponse, Error, string>({
+        mutationFn: (email: string) => sendMagicLink(email),
         onSuccess: (_data, email) => {
             toast.success("Magic link sent!", {
                 description: `Check ${email} for your sign-in link.`,
@@ -56,76 +42,12 @@ export function useDiscover() {
     });
 }
 
-/** PHASE 2: Verify a magic-link token. */
-export function useVerifyToken() {
-    return useMutation({
-        mutationFn: (token: string) => verifyToken(token),
-        onError: (err) => {
-            const msg = getErrorMessage(err);
-            // The backend emits distinct 401 codes (A5): expired_token for a
-            // magic link whose time has passed, session_ref_expired for one
-            // that was already consumed.
-            const code = isApiError(err) ? err.code : null;
-            if (code === "expired_token" || code === "session_ref_expired") {
-                toast.error("Link expired", {
-                    description: "This magic link has expired. Please request a new one.",
-                });
-            } else {
-                toast.error("Verification failed", {
-                    description: msg,
-                });
-            }
-        },
-    });
-}
-
-/** PHASE 3: Register (create tenant + user + session). */
-export function useRegister() {
-    const queryClient = useQueryClient();
-    const router = useRouter();
-
-    return useMutation({
-        mutationFn: (payload: RegisterPayload) => register(payload),
-        onSuccess: async () => {
-            // Invalidate the me query so it re-fetches with the new session cookie
-            await queryClient.invalidateQueries({ queryKey: authKeys.me });
-            toast.success("Account created!", {
-                description: "Welcome to Somotracker.",
-            });
-            router.push("/");
-        },
-        onError: (err) => {
-            // 401 means the session_ref is expired or already consumed —
-            // redirect to login so the user can request a new magic link.
-            // Distinguish the two cases via the backend's wire codes (A5).
-            if (isApiError(err) && err.status === 401) {
-                if (err.code === "session_ref_expired") {
-                    toast.error("Link already used", {
-                        description:
-                            "This sign-up link has already been used. Please request a new magic link.",
-                    });
-                } else {
-                    toast.error("Link expired", {
-                        description:
-                            "This registration session has expired. Please request a new magic link.",
-                    });
-                }
-                router.replace("/login");
-                return;
-            }
-            toast.error("Registration failed", {
-                description: getErrorMessage(err),
-            });
-        },
-    });
-}
-
 /** Logout: destroy session and redirect to login. */
 export function useLogout() {
     const queryClient = useQueryClient();
     const router = useRouter();
 
-    return useMutation({
+    return useMutation<LogoutResponse, Error, void>({
         mutationFn: () => logout(),
         onSuccess: async () => {
             // Clear all cached queries so no stale data leaks across sessions
@@ -137,6 +59,8 @@ export function useLogout() {
             toast.error("Logout failed", {
                 description: getErrorMessage(err),
             });
+            // Still redirect to login to clear local state
+            router.push("/login");
         },
     });
 }

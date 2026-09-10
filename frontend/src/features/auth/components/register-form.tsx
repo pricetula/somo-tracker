@@ -1,150 +1,47 @@
 /**
- * Register Form — the inner form component for creating a school account.
- *
- * Reads `session_ref` from URL search params and handles the registration mutation.
- * Must be wrapped in <Suspense> at the call site due to useSearchParams.
+ * Register Page — redirects to login since backend handles user provisioning
+ * via Stytch magic-link callback. No separate registration step exists.
  */
 
 "use client";
 
-import { useSearchParams, useRouter } from "next/navigation";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import { z } from "zod";
 import { useEffect } from "react";
-import { Loader2 } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Loader2, AlertCircle } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-import { Button } from "@/components/ui/button";
-import {
-    Form,
-    FormControl,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-    FormDescription,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useRegister } from "@/hooks/use-auth";
-import { DocTooltip } from "@/components/shared/DocTooltip";
-
-// ─── Schema ───────────────────────────────────────────────────────────────
-
-const registerSchema = z.object({
-    school_name: z
-        .string()
-        .min(2, "School name must be at least 2 characters")
-        .max(100, "School name must be less than 100 characters"),
-    full_name: z
-        .string()
-        .min(1, "Full name is required")
-        .max(200, "Full name must be less than 200 characters"),
-});
-
-type RegisterValues = z.infer<typeof registerSchema>;
-
-// ─── Types ─────────────────────────────────────────────────────────────────
-
-export interface RegisterFormProps {
-    tooltipSummary?: string;
-}
-
-// ─── Component ─────────────────────────────────────────────────────────────
-
-export function RegisterForm({ tooltipSummary }: RegisterFormProps) {
-    const searchParams = useSearchParams();
+export function RegisterForm() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const sessionRef = searchParams.get("session_ref");
-    const registerMutation = useRegister();
 
-    const form = useForm<RegisterValues>({
-        resolver: zodResolver(registerSchema),
-        defaultValues: {
-            school_name: "",
-            full_name: "",
-        },
-    });
-
-    // Redirect to login if no session_ref is present
     useEffect(() => {
-        if (!sessionRef) {
+        // If we have a session_ref, it means Stytch redirected here but
+        // the backend callback should have already handled it and set the cookie.
+        // Redirect to dashboard to let the proxy validate the session.
+        if (sessionRef) {
+            router.replace("/");
+        } else {
             router.replace("/login");
         }
-    }, [sessionRef, router]);
-
-    if (!sessionRef) {
-        return null;
-    }
-
-    function onSubmit(values: RegisterValues) {
-        registerMutation.mutate({
-            school_name: values.school_name,
-            session_ref: sessionRef!,
-            full_name: values.full_name,
-        });
-    }
+    }, [router, sessionRef]);
 
     return (
         <div className="flex min-h-screen items-center justify-center px-4">
-            <Card className="w-full max-w-md">
+            <Card className="w-full max-w-sm">
                 <CardHeader className="text-center">
-                    <CardTitle className="text-2xl">Create Your School Account</CardTitle>
-                    <CardDescription>
-                        Set up your school or educational organization
-                        {tooltipSummary && (
-                            <DocTooltip summary={tooltipSummary} slug="authentication" />
-                        )}
-                    </CardDescription>
+                    <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-yellow-100">
+                        <AlertCircle className="h-6 w-6 text-yellow-600" />
+                    </div>
+                    <CardTitle className="text-2xl">Redirecting…</CardTitle>
                 </CardHeader>
-                <CardContent>
-                    <Form {...form}>
-                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                            <FormField
-                                control={form.control}
-                                name="school_name"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>School Name</FormLabel>
-                                        <FormControl>
-                                            <Input
-                                                placeholder="e.g. Lincoln High School"
-                                                autoFocus
-                                                {...field}
-                                            />
-                                        </FormControl>
-                                        <FormDescription>
-                                            The name of your educational institution
-                                        </FormDescription>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={form.control}
-                                name="full_name"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Full Name</FormLabel>
-                                        <FormControl>
-                                            <Input placeholder="Jane Doe" {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <Button
-                                type="submit"
-                                className="w-full"
-                                disabled={registerMutation.isPending}
-                            >
-                                {registerMutation.isPending && (
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                )}
-                                Create Account
-                            </Button>
-                        </form>
-                    </Form>
+                <CardContent className="text-center">
+                    <p className="text-muted-foreground mb-4">
+                        {sessionRef
+                            ? "Completing sign-in…"
+                            : "No active sign-in session. Redirecting to login…"}
+                    </p>
+                    <Loader2 className="text-muted-foreground mx-auto h-8 w-8 animate-spin" />
                 </CardContent>
             </Card>
         </div>

@@ -22,12 +22,43 @@
  *
  * All requests carry a per-page-load correlation id in the X-Request-ID header
  * (honored + echoed by the backend) and are sent with `credentials: "include"`
- * so the HttpOnly `somo_sid` cookie is attached automatically by the browser.
+ * so the HttpOnly `session_token` cookie is attached automatically by the browser.
  *
  * Backend counterpart: internal/middleware/errors.go
  */
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
+// ─── Environment detection ────────────────────────────────────────────────
+
+/**
+ * Determines if code is running in a browser context.
+ * Works in RSC, Server Actions, Route Handlers, Middleware, and Client Components.
+ */
+function isBrowser(): boolean {
+    return typeof window !== "undefined";
+}
+
+/**
+ * Gets the API base URL for the current execution context.
+ *
+ * - Server (RSC, Server Actions, Route Handlers, Middleware): Uses `API_URL` env var
+ *   (e.g., `http://somotracker_api:3030` in Docker, `https://api.example.com` in prod).
+ *   This bypasses the Next.js proxy for direct backend access.
+ * - Client (Browser): Uses the Next.js rewrite proxy prefix (e.g., `/backend`).
+ *   The proxy forwards to the backend via the same-origin rewrite.
+ *
+ * This function is evaluated at **call time**, not module load time, so it works
+ * correctly regardless of which bundle (server/client) the code runs in.
+ */
+function getApiBase(): string {
+    if (isBrowser()) {
+        // Client-side: use the public proxy prefix configured in next.config.ts
+        // Falls back to "/backend" if not set (matches default in next.config.ts).
+        return process.env.NEXT_PUBLIC_API_PROXY_PREFIX ?? "/backend";
+    }
+    // Server-side: use the direct backend URL from server-only env var.
+    // Falls back to localhost for local development outside Docker.
+    return process.env.API_URL ?? "http://somotracker_api:3030";
+}
 
 // ─── ApiError ──────────────────────────────────────────────────────────────
 
@@ -65,13 +96,19 @@ export class ApiError extends Error {
 
 // ─── Request options ──────────────────────────────────────────────────────
 
+function getCsrfToken(): string | null {
+    if (!isBrowser()) return null;
+    const match = document.cookie.match(/(?:^|;)\s*csrf_token=([^;]+)/);
+    return match ? decodeURIComponent(match[1]) : null;
+}
+
 export interface RequestOptions {
-    /** If true, skip the global 401 redirect to /logout. Use for endpoints
-     *  where a 401 is structurally expected (e.g. initial me check). */
     skipGlobal401Handler?: boolean;
-    /** If true, skip the global 403 redirect to /unauthorized (only applies
-     *  to GET /api/auth/me — a session rejected by the backend's resolver). */
-    skipGlobal403Handler?: boolean;
+    headers?: Record<string, string>;
+    /** Server-only: raw Cookie header to forward (e.g. from next/headers or req.headers.cookie). */
+    cookieHeader?: string;
+    /** Server-only: CSRF token value to send as X-CSRF-Token header. */
+    csrfHeader?: string;
 }
 
 // ─── Correlation id ────────────────────────────────────────────────────────
@@ -97,6 +134,14 @@ function getCorrelationId(): string {
     return correlationId;
 }
 
+/**
+ * Resets the correlation id. Useful for testing or when navigating to a new
+ * logical "page" in a SPA context without full reload.
+ */
+export function resetCorrelationId(): void {
+    correlationId = null;
+}
+
 // ─── Base fetch wrapper ───────────────────────────────────────────────────
 
 async function request<T>(
@@ -105,21 +150,36 @@ async function request<T>(
     body?: unknown,
     options?: RequestOptions
 ): Promise<T> {
-    const url = `${API_BASE}${path}`;
+    // Resolve base URL at call time to handle both server and client contexts correctly.
+    const baseUrl = getApiBase();
+    const url = `${baseUrl}${path}`;
 
     const headers: Record<string, string> = {
         "X-Request-ID": getCorrelationId(),
+        ...(options?.headers ?? {}),
     };
+
     if (body !== undefined) {
         headers["Content-Type"] = "application/json";
     }
 
-    // Include CSRF token on mutating requests (double-submit cookie pattern)
-    if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
-        const csrf = getCSRFToken();
-        if (csrf) {
-            headers["X-CSRF-Token"] = csrf;
-        }
+    // Server-only: forward an explicit Cookie header if the caller supplied one
+    // (e.g. via next/headers on App Router, or req.headers.cookie on Pages
+    // Router). Never applied in the browser — the browser already attaches
+    // cookies itself via credentials: "include".
+    if (!isBrowser() && options?.cookieHeader) {
+        headers["Cookie"] = options.cookieHeader;
+    }
+
+    // Client-side: include CSRF token for mutating requests per backend csrf middleware.
+    if (isBrowser()) {
+        const csrf = getCsrfToken();
+        if (csrf) headers["X-CSRF-Token"] = csrf;
+    }
+
+    // Server-only: include CSRF token header if caller provided it (e.g. via serverApi).
+    if (!isBrowser() && options?.csrfHeader) {
+        headers["X-CSRF-Token"] = options.csrfHeader;
     }
 
     const res = await fetch(url, {
@@ -164,24 +224,8 @@ async function request<T>(
         // If any API request returns 401 Unauthorized, force a redirect to
         // /logout to clear HTTP session cookies, invalidate local state, and
         // wipe the React Query cache.
-        if (res.status === 401 && !options?.skipGlobal401Handler) {
+        if (res.status === 401 && !options?.skipGlobal401Handler && isBrowser()) {
             window.location.href = "/logout";
-        }
-
-        // ─── Global 403 — session without any membership (B3) ───────────
-        // The session resolver rejects a VALID session whose user has zero
-        // active memberships with 403 forbidden on every request. GET /me is
-        // the session probe, so a 403 there unambiguously means "authenticated
-        // but entitled to nothing" — show /unauthorized (offers sign-out +
-        // contact-admin guidance) instead of silently treating the user as
-        // logged out.
-        if (
-            res.status === 403 &&
-            path === "/api/auth/me" &&
-            error.code === "forbidden" &&
-            !options?.skipGlobal403Handler
-        ) {
-            window.location.href = "/unauthorized";
         }
 
         throw error;
@@ -199,13 +243,6 @@ async function request<T>(
     }
 
     return undefined as T;
-}
-
-/** Read the CSRF token from the non-HttpOnly cookie set by the backend. */
-function getCSRFToken(): string | null {
-    if (typeof document === "undefined") return null;
-    const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]*)/);
-    return match ? decodeURIComponent(match[1]) : null;
 }
 
 // ─── Public API surface ───────────────────────────────────────────────────

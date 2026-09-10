@@ -2,7 +2,6 @@
 
 import React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
     SidebarGroup,
@@ -29,7 +28,6 @@ import {
     HeartPulse,
     DollarSignIcon,
 } from "lucide-react";
-import { useMe } from "@/hooks/use-auth";
 
 interface NavItem {
     title: string;
@@ -39,37 +37,10 @@ interface NavItem {
     items?: { title: string; url: string }[];
 }
 
-function buildNavItems(role: string): NavItem[] {
-    if (!role) return [];
-
-    // ── Parent role: simplified nav ────────────────────────────────
-    if (role === "PARENT") {
-        return [
-            {
-                title: "Dashboard",
-                url: "/",
-                icon: <LayoutDashboardIcon className="size-4" />,
-                isActive: true,
-            },
-            {
-                title: "Assessments",
-                url: "/assessments",
-                icon: <ClipboardCheckIcon className="size-4" />,
-            },
-            {
-                title: "Reports",
-                url: "/reports",
-                icon: <BarChart3Icon className="size-4" />,
-            },
-            {
-                title: "Behavior",
-                url: "/behavior",
-                icon: <AlertTriangleIcon className="size-4" />,
-            },
-        ];
-    }
-
-    // ── School staff roles ─────────────────────────────────────────
+// Build all nav items without role filtering.
+// Backend handles authorization on API endpoints via session middleware.
+// Role-based nav filtering would require a /me endpoint (not currently available).
+function buildNavItems(): NavItem[] {
     const items: NavItem[] = [
         {
             title: "Dashboard",
@@ -164,17 +135,7 @@ function buildNavItems(role: string): NavItem[] {
 }
 
 export function NavMain() {
-    const router = useRouter();
-    const { data: me, isLoading } = useMe();
-    const items = React.useMemo(() => (me?.role ? buildNavItems(me.role || "") : []), [me]);
-
-    if (isLoading) {
-        return (
-            <ul>
-                <li>loading</li>
-            </ul>
-        );
-    }
+    const items = React.useMemo(() => buildNavItems(), []);
 
     return (
         <SidebarGroup>
@@ -197,13 +158,9 @@ export function NavMain() {
                                 <SidebarMenuSub>
                                     {item.items?.map((subItem) => (
                                         <SidebarMenuSubItem key={subItem.title}>
-                                            <SidebarMenuSubButton
-                                                render={
-                                                    <Link href={subItem.url}>
-                                                        <span>{subItem.title}</span>
-                                                    </Link>
-                                                }
-                                            />
+                                            <SidebarMenuSubButton href={subItem.url}>
+                                                {subItem.title}
+                                            </SidebarMenuSubButton>
                                         </SidebarMenuSubItem>
                                     ))}
                                 </SidebarMenuSub>
@@ -211,16 +168,12 @@ export function NavMain() {
                         </Collapsible>
                     ) : (
                         <SidebarMenuItem key={item.title}>
-                            <SidebarMenuButton
-                                onClick={() => router.push(item.url)}
-                                tooltip={item.title}
-                                render={
-                                    <Link href={item.url}>
-                                        {item.icon}
-                                        <span>{item.title}</span>
-                                    </Link>
-                                }
-                            />
+                            <SidebarMenuButton tooltip={item.title}>
+                                <Link href={item.url} className="flex gap-2">
+                                    {item.icon}
+                                    <span>{item.title}</span>
+                                </Link>
+                            </SidebarMenuButton>
                         </SidebarMenuItem>
                     )
                 )}

@@ -1,7 +1,5 @@
-import { RegisterPage } from "@/features/auth";
-import { getTooltipContent } from "@/lib/docs";
+import { Onboarding } from "@/features/school";
 
 export default function Register() {
-    const authSummary = getTooltipContent("authentication");
-    return <RegisterPage tooltipSummary={authSummary} />;
+    return <Onboarding />;
 }

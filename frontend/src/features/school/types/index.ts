@@ -5,7 +5,6 @@
  */
 
 import type {
-    SchoolWithMemberCount as ApiSchoolWithMemberCount,
     CreateSchoolPayload as ApiCreateSchoolPayload,
     CreateSchoolResponse,
     ListSchoolsResponse,
@@ -13,7 +12,11 @@ import type {
 
 // ─── Domain types ─────────────────────────────────────────────────────────
 
-export type SchoolWithMemberCount = ApiSchoolWithMemberCount;
+export interface SchoolWithMemberCount {
+    id: string;
+    name: string;
+    member_count: number;
+}
 export type { ListSchoolsResponse, CreateSchoolResponse };
 
 // ─── Payload types ────────────────────────────────────────────────────────

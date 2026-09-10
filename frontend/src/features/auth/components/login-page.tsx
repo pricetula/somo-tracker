@@ -15,8 +15,10 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useDiscover } from "@/hooks/use-auth";
+import { useSendMagicLink } from "@/hooks/use-auth";
+import { isApiError } from "@/lib/errors";
 import { Loader2 } from "lucide-react";
+import { useEffect } from "react";
 import { DocTooltip } from "@/components/shared/DocTooltip";
 
 interface LoginPageProps {
@@ -30,7 +32,7 @@ const loginSchema = z.object({
 type LoginValues = z.infer<typeof loginSchema>;
 
 export function LoginPage({ tooltipSummary }: LoginPageProps) {
-    const discoverMutation = useDiscover();
+    const discoverMutation = useSendMagicLink();
 
     const form = useForm<LoginValues>({
         resolver: zodResolver(loginSchema),
@@ -38,6 +40,18 @@ export function LoginPage({ tooltipSummary }: LoginPageProps) {
             email: "",
         },
     });
+
+    useEffect(() => {
+        if (discoverMutation.error && isApiError(discoverMutation.error)) {
+            const apiErr = discoverMutation.error;
+            if (apiErr.status === 400 && apiErr.errors && apiErr.errors.email) {
+                form.setError("email", {
+                    type: "manual",
+                    message: apiErr.errors.email.join(", "),
+                });
+            }
+        }
+    }, [discoverMutation.error, form]);
 
     function onSubmit(values: LoginValues) {
         discoverMutation.mutate(values.email);

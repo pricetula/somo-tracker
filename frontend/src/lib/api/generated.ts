@@ -26,36 +26,29 @@ export type GradeLevel =
 /** Canonical education level values used across the CBC curriculum. */
 export type EducationLevel = "Early_Years" | "Upper_Primary" | "Junior_Secondary" | "Senior_School";
 
-// ─── API Payloads ────────────────────────────────────────────────────────
+// ─── Auth API Payloads ───────────────────────────────────────────────────
 
-export interface DiscoveryPayload {
+export interface MagicLinkRequest {
     email: string;
+    org_id?: string;
 }
 
-export interface VerifyResponse {
-    session_ref: string;
+export interface MagicLinkResponse {
+    code: string;
+    message: string;
+    errors: Record<string, string[]>;
 }
 
-export interface ExistingUserVerifyResponse {
-    session_token: string;
-    role: string;
-    email: string;
+export interface CallbackResponse {
+    code: string;
+    message: string;
+    errors: Record<string, string[]>;
 }
 
-export interface RegistrationPayload {
-    school_name: string;
-    session_ref: string;
-    full_name: string;
-}
-
-export interface MeResponse {
-    user_id: string;
-    tenant_id: string;
-    role: string;
-    school_id: string;
-    school_name: string;
-    full_name: string;
-    email: string;
+export interface LogoutResponse {
+    code: string;
+    message: string;
+    errors: Record<string, string[]>;
 }
 
 export interface CreateTenantPayload {

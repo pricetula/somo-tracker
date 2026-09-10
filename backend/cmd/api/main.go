@@ -1,3 +1,11 @@
+// @title Somotracker API
+// @version 1.0.0
+// @description Backend REST API for Somotracker educational dashboard
+// @termsOfService http://somotracker.local/terms
+// @contact.name Platform team
+// @license.name MIT
+// @host localhost:8080
+// @BasePath /api
 package main
 
 import (
@@ -10,17 +18,53 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 
+	"somotracker/backend/internal/api"
+	"somotracker/backend/internal/api/middleware"
+	"somotracker/backend/internal/api/middleware/bodylimit"
+	"somotracker/backend/internal/api/middleware/compression"
+	"somotracker/backend/internal/api/middleware/cors"
+	"somotracker/backend/internal/api/middleware/helmet"
+	"somotracker/backend/internal/api/middleware/ratelimit"
+	"somotracker/backend/internal/api/middleware/timeout"
 	"somotracker/backend/internal/config"
+	"somotracker/backend/internal/database"
+	"somotracker/backend/internal/database/sqlc"
+	"somotracker/backend/internal/observability"
+	somoredis "somotracker/backend/internal/redis"
+	"somotracker/backend/internal/services"
+	"somotracker/backend/internal/stytch"
 )
 
 func main() {
 	app := fx.New(
-		fx.Provide(config.Load),
+		config.Module,
 		fx.Provide(newLogger),
+		fx.Provide(database.NewPool),
+		fx.Provide(newQuerier),
+		fx.Provide(services.NewAuthService),
+		fx.Provide(services.NewMeService),
+		fx.Provide(services.NewSchoolRegistrationService),
+		fx.Provide(services.NewAcademicPeriodService),
+		fx.Provide(services.NewStreamsService),
+		fx.Provide(func(pool *pgxpool.Pool, q *sqlc.Queries, logger *zap.Logger) services.GradesService {
+			return services.NewGradesService(pool, q, logger)
+		}),
+		fx.Provide(api.NewRouter),
+		fx.Provide(observability.NewTracerProvider),
+		fx.Provide(observability.NewMeterProvider),
+		fx.Invoke(observability.MetricsInvoke),
+		fx.Provide(middleware.NewRequestIDHandler),
 		fx.Provide(newFiberApp),
+		fx.Invoke(database.RunMigrations),
+		somoredis.Module,
+		ratelimit.Module,
+		stytch.Module,
+		fx.Provide(func(c *stytch.Client) services.StytchClient { return c }),
 		fx.Invoke(registerHooks),
 	)
 
@@ -52,30 +96,22 @@ func newLogger(cfg *config.Config) (*zap.Logger, error) {
 	return zap.NewDevelopment()
 }
 
-// newFiberApp creates and configures a Fiber v3 application with health endpoints.
-func newFiberApp(cfg *config.Config, logger *zap.Logger) *fiber.App {
-	app := fiber.New(fiber.Config{
-		AppName: "somotracker-api",
-		ErrorHandler: func(c fiber.Ctx, err error) error {
-			// Do not treat 404 route misses as server errors.
-			if errors.Is(err, fiber.ErrNotFound) || (err != nil && err.Error() == "Not Found") {
-				return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-					"code":    "not_found",
-					"message": "Resource not found",
-					"errors":  fiber.Map{},
-				})
-			}
+// newQuerier adapts the sqlc constructor for Fx. Fx can resolve concrete
+// types automatically, but it cannot infer that *sqlc.Queries satisfies
+// sqlc.Querier. A named adapter (returning the interface) is the cleanest
+// way to make the interface the public DI type without leaking the pool.
+func newQuerier(pool *pgxpool.Pool) *sqlc.Queries {
+	return sqlc.New(pool)
+}
 
-			logger.Error("unhandled error",
-				zap.Error(err),
-				zap.String("env", cfg.Environment),
-			)
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"code":    "internal_error",
-				"message": "An unexpected error occurred",
-				"errors":  fiber.Map{},
-			})
-		},
+// newFiberApp creates and configures a Fiber v3 application with health
+// endpoints. The /readyz handler pings the database connection pool so the
+// API only reports ready when PostgreSQL is reachable.
+func newFiberApp(cfg *config.Config, logger *zap.Logger, pool *pgxpool.Pool, router *api.Router, reqIDHandler fiber.Handler, redisClient *redis.Client) *fiber.App {
+	app := fiber.New(fiber.Config{
+		AppName:      "somotracker-api",
+		BodyLimit:    50 * 1024 * 1024, // 50MB
+		ErrorHandler: api.NewErrorHandler(),
 	})
 
 	app.Get("/health", func(c fiber.Ctx) error {
@@ -85,14 +121,38 @@ func newFiberApp(cfg *config.Config, logger *zap.Logger) *fiber.App {
 		})
 	})
 
+	// Liveness: process is running. Cheap — no I/O.
 	app.Get("/livez", func(c fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusOK)
 	})
 
+	// Readiness: process is ready to serve traffic. Pings PostgreSQL.
+	// On failure we return 503 so the orchestrator (k8s, load balancer)
+	// stops routing requests until the database is reachable again.
 	app.Get("/readyz", func(c fiber.Ctx) error {
+		// Cap the readiness probe at the request's own deadline (Fiber
+		// already enforces a server-level timeout). Ping has its own
+		// internal cap of 2s.
+		if err := database.Ping(c.Context(), pool); err != nil {
+			logger.Warn("readiness probe failed: database unreachable",
+				zap.Error(err),
+			)
+			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+				"code":    "database_unavailable",
+				"message": "Database is not reachable",
+				"errors":  fiber.Map{},
+			})
+		}
 		return c.SendStatus(fiber.StatusOK)
 	})
 
+	app.Use(reqIDHandler)
+	app.Use(cors.Middleware(cfg))
+	app.Use(helmet.Middleware())
+	app.Use(compression.Middleware())
+	app.Use(bodylimit.Middleware())
+	app.Use(timeout.Middleware())
+	router.RegisterRoutes(app, redisClient, logger)
 	return app
 }
 

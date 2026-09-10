@@ -76,8 +76,16 @@ services:
       - "3000:3000"
     environment:
       NODE_ENV: development
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+      # API configuration for server-side calls (direct to backend)
+      API_URL: ${API_URL:-http://somotracker_api:3030}
+      # Proxy prefix for client-side calls (via Next.js rewrite)
+      NEXT_PUBLIC_API_PROXY_PREFIX: ${NEXT_PUBLIC_API_PROXY_PREFIX:-/backend}
+      # Required for cookie handling
       COOKIE_SECRET: ${COOKIE_SECRET}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN}
+      # Required for CORS and redirects
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+      FRONTEND_URL: ${FRONTEND_URL}
     command: sh -c "npm install -g pnpm@9 && pnpm install --frozen-lockfile --ignore-scripts && pnpm run dev"
     depends_on:
       - somotracker_api

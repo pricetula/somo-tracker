@@ -81,7 +81,7 @@ func TestPing_NilClient(t *testing.T) {
 func TestPing_NilContext(t *testing.T) {
 	client := redis.NewClient(&redis.Options{Addr: "localhost:6379"})
 	defer func() { _ = client.Close() }()
-	err := Ping(context.TODO(), client)
+	err := Ping(nil, client)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "context is nil")
 }

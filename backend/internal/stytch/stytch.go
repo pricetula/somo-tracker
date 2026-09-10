@@ -138,8 +138,17 @@ func (c *Client) SanitizedError(err error) error {
 		return nil
 	}
 
+	matched := false
+	var ptrStErr *stytcherror.Error
 	var stErr stytcherror.Error
-	if errors.As(err, &stErr) {
+	if errors.As(err, &ptrStErr) && ptrStErr != nil {
+		stErr = *ptrStErr
+		matched = true
+	} else if errors.As(err, &stErr) {
+		matched = true
+	}
+
+	if matched {
 		c.logger.Warn("stytch: API error",
 			zap.Int("status_code", stErr.StatusCode),
 			zap.String("error_type", string(stErr.ErrorType)),

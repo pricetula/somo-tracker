@@ -10,9 +10,12 @@
 import React from "react";
 import { OnboardingForm } from "./onboarding-form";
 import { CreateAcademicYear } from "./create-academic-year";
+import { CreateStreams } from "./create-streams";
+import { useRouter } from "next/navigation";
 
 export function Onboarding() {
-    const [stage, setStage] = React.useState(1);
+    const router = useRouter();
+    const [stage, setStage] = React.useState(0);
 
     return (
         <>
@@ -25,7 +28,8 @@ export function Onboarding() {
                     }}
                 />
             )) ||
-                (stage === 1 && <CreateAcademicYear onSuccess={() => setStage(1)} />)}
+                (stage === 1 && <CreateAcademicYear onSuccess={() => setStage(1)} />) ||
+                (stage === 2 && <CreateStreams onSuccess={() => router.push("/")} />)}
         </>
     );
 }

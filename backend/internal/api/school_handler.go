@@ -76,7 +76,7 @@ func (h *SchoolHandler) RegisterSchool(c fiber.Ctx) error {
 			code := err.Error()[len("bad_request:"):]
 			return fiber.NewError(fiber.StatusBadRequest, code)
 		}
-		return fiber.NewError(fiber.StatusInternalServerError, "internal_error: failed to register school")
+		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
 
 	// Update active school in Redis session cache so authorized clients

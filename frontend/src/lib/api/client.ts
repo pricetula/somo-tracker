@@ -57,7 +57,7 @@ function getApiBase(): string {
     }
     // Server-side: use the direct backend URL from server-only env var.
     // Falls back to localhost for local development outside Docker.
-    return process.env.API_URL ?? "http://localhost:3030";
+    return process.env.API_URL ?? "http://somotracker_api:3030";
 }
 
 // ─── ApiError ──────────────────────────────────────────────────────────────

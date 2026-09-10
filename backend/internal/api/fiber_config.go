@@ -25,7 +25,7 @@ func NewErrorHandler() fiber.ErrorHandler {
 
 		return c.Status(status).JSON(fiber.Map{
 			"code":    code,
-			"message": humanMessage(code),
+			"message": err.Error(),
 			"errors":  fiber.Map{},
 		})
 	}
@@ -58,14 +58,5 @@ func stableCode(httpStatus int) string {
 		return "forbidden"
 	default:
 		return "internal_error"
-	}
-}
-
-func humanMessage(code string) string {
-	switch code {
-	case "not_found":
-		return "Resource not found"
-	default:
-		return "An unexpected error occurred"
 	}
 }

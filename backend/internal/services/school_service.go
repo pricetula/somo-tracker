@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -52,16 +53,16 @@ func (s *SchoolRegistrationService) RegisterSchool(
 		// Step 1: Update user's full_name
 		updateSQL := `UPDATE users SET full_name = $1 WHERE id = $2`
 		if _, err := tx.Exec(ctx, updateSQL, userName, userID); err != nil {
-			return errors.New("internal_error: failed to update user full_name")
+			return fmt.Errorf("internal_error: failed to update user full_name: %w", err)
 		}
 
 		// Step 2: Create new school — default Kenya / CBE
 		var countryID, educationSystemID string
 		if err := tx.QueryRow(ctx, `SELECT id FROM countries WHERE country_name = 'Kenya' LIMIT 1`).Scan(&countryID); err != nil {
-			return errors.New("internal_error: Kenya country not found")
+			return fmt.Errorf("internal_error: Kenya country not found: %w", err)
 		}
 		if err := tx.QueryRow(ctx, `SELECT id FROM education_systems WHERE country_id = $1 AND system_name ILIKE '%CBE%' LIMIT 1`, countryID).Scan(&educationSystemID); err != nil {
-			return errors.New("internal_error: CBE education system for Kenya not found")
+			return fmt.Errorf("internal_error: CBE education system for Kenya not found: %w", err)
 		}
 
 		// Insert school
@@ -69,14 +70,14 @@ func (s *SchoolRegistrationService) RegisterSchool(
 			VALUES ($1, $2, $3, $4) RETURNING id`
 		if err := tx.QueryRow(ctx, insertSchoolSQL, tenantID, schoolName, countryID, educationSystemID).
 			Scan(&schoolID); err != nil {
-			return errors.New("internal_error: failed to create school")
+			return fmt.Errorf("internal_error: failed to create school: %w", err)
 		}
 
 		// Step 3: Create school membership with role=ADMIN
 		insertMembershipSQL := `INSERT INTO school_memberships (school_id, user_id, role, is_active)
 			VALUES ($1, $2, 'ADMIN', TRUE)`
 		if _, err := tx.Exec(ctx, insertMembershipSQL, schoolID, userID); err != nil {
-			return errors.New("internal_error: failed to create school membership")
+			return fmt.Errorf("internal_error: failed to create school membership: %w", err)
 		}
 
 		return nil

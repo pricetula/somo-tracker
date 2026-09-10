@@ -265,10 +265,14 @@ func (m *Migrator) seed(ctx context.Context) error {
 		return fmt.Errorf("database.Migrator.seed: check education_systems: %w", err)
 	}
 	if eduCount == 0 {
+		var kenyaID string
+		if err := m.sqlDB.QueryRowContext(ctx, "SELECT id FROM countries WHERE country_code = 'KE'").Scan(&kenyaID); err != nil {
+			return fmt.Errorf("database.Migrator.seed: lookup Kenya for education_systems: %w", err)
+		}
 		_, err := m.sqlDB.ExecContext(ctx, `
-			INSERT INTO education_systems (system_name, description) VALUES
-			('Competency-Based Education / CBE', 'Kenya CBE system')
-		`)
+			INSERT INTO education_systems (country_id, system_name, description) VALUES
+			($1, 'Competency-Based Education / CBE', 'Kenya CBE system')
+		`, kenyaID)
 		if err != nil {
 			return fmt.Errorf("database.Migrator.seed: insert education_systems: %w", err)
 		}

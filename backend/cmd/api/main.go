@@ -51,6 +51,9 @@ func main() {
 		fx.Provide(services.NewSchoolRegistrationService),
 		fx.Provide(services.NewAcademicPeriodService),
 		fx.Provide(services.NewStreamsService),
+		fx.Provide(func(pool *pgxpool.Pool, q *sqlc.Queries, logger *zap.Logger) services.GradesService {
+			return services.NewGradesService(pool, q, logger)
+		}),
 		fx.Provide(api.NewRouter),
 		fx.Provide(observability.NewTracerProvider),
 		fx.Provide(observability.NewMeterProvider),

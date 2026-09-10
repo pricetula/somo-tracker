@@ -28,8 +28,6 @@ const nextConfig: NextConfig = {
         ];
     },
     async headers() {
-        // Client-exposed proxy prefix for CSP connect-src.
-        const proxyPrefix = process.env.NEXT_PUBLIC_API_PROXY_PREFIX ?? "/backend";
         return [
             {
                 source: "/(.*)",
@@ -42,7 +40,7 @@ const nextConfig: NextConfig = {
                             "style-src 'self' 'unsafe-inline'",
                             "img-src 'self' data: blob:",
                             "font-src 'self'",
-                            `connect-src 'self' ${proxyPrefix}`,
+                            `connect-src 'self'`,
                             "frame-ancestors 'none'",
                             "base-uri 'self'",
                             "form-action 'self'",

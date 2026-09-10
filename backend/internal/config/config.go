@@ -83,9 +83,8 @@ type Config struct {
 	// Redis environment variable used in production.
 	RedisURL string
 
-	// BackendURL is the full URL of this service (scheme + host + port).
-	// Used to derive Host/Port and for absolute URL generation (e.g. OAuth
-	// redirect URIs). Populated from BACKEND_URL.
+	// BackendURL is the full public URL of this service (e.g. redirect origin).
+	// It does not affect the server bind address.
 	BackendURL string
 
 	// FrontendURL is the URL of the Next.js frontend application.
@@ -166,13 +165,10 @@ func (c Config) IsProduction() bool {
 // Recognized variables:
 //
 //	BACKEND_URL  Full URL of the backend (e.g. "http://api.example.com:8080").
-//	             Host and port are derived from this when set.
+//	             Used for redirect/absolute URL generation only; does not affect
+//	             the server bind address.
 //	APP_ENV      Environment name. Defaults to "local".
 //	LOG_LEVEL    Zap log level. Defaults to "info".
-//	BACKEND_HOST Optional host override (e.g. "127.0.0.1"). Takes precedence
-//	             over the host portion of BACKEND_URL.
-//	BACKEND_PORT Optional port override. Takes precedence over the port portion
-//	             of BACKEND_URL. Defaults to 3030.
 //	REDIS_URL    Full Redis URL from Doppler (required). Example: redis://:password@host:6379/0
 //	STYTCH_PROJECT_ID  Stytch B2B project ID (required).
 //	STYTCH_SECRET      Stytch B2B secret (required).
@@ -207,19 +203,6 @@ func Load() (*Config, error) {
 		CAPTCHASiteKey:        os.Getenv("CAPTCHA_SITE_KEY"),
 		CAPTCHASecretKey:      os.Getenv("CAPTCHA_SECRET_KEY"),
 		CAPTCHAScoreThreshold: getEnvFloat("CAPTCHA_SCORE_THRESHOLD", 0.5),
-	}
-	fmt.Println(cfg.DatabaseURL)
-	if raw := os.Getenv("BACKEND_URL"); raw != "" {
-		host, port, err := parseBackendURL(raw)
-		if err != nil {
-			return nil, fmt.Errorf("config.Load: invalid BACKEND_URL %q: %w", raw, err)
-		}
-		if host != "" {
-			cfg.Host = host
-		}
-		if port != 0 {
-			cfg.Port = port
-		}
 	}
 
 	if raw := os.Getenv("DB_MAX_CONNS"); raw != "" {
@@ -317,24 +300,6 @@ func (c *Config) validate() error {
 		}
 	}
 	return nil
-}
-
-// parseBackendURL extracts host and port from a URL string. The scheme is
-// optional. A missing port returns (host, 0, nil) so the caller can apply its
-// own default.
-func parseBackendURL(raw string) (host string, port int, err error) {
-	parsed, err := url.Parse(raw)
-	if err != nil {
-		return "", 0, err
-	}
-	host = parsed.Hostname()
-	if p := parsed.Port(); p != "" {
-		port, err = strconv.Atoi(p)
-		if err != nil {
-			return "", 0, fmt.Errorf("non-numeric port %q", p)
-		}
-	}
-	return host, port, nil
 }
 
 func getEnv(key, fallback string) string {

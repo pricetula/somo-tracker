@@ -285,6 +285,24 @@ School-specific events such as sports days, admission days, exams, etc. Events m
 
 ## Classrooms & Enrollments Layer
 
+### `streams`
+School-scoped stream definitions (e.g. "Blue", "Yellow", "A", "B") that may be referenced by class rooms. Created per school; stream names must be unique within a school.
+
+| Field      | Type       | Description                                                      |
+|------------|------------|------------------------------------------------------------------|
+| `id`       | UUID (PK)  | Auto-generated primary key.                                      |
+| `school_id`| UUID (FK)  | Foreign key to `schools(id)`. Cascades on school delete.         |
+| `name`     | VARCHAR(64)| Stream identifier (e.g. "Blue"). Unique per school.             |
+| `color`    | VARCHAR(32)| Optional display color (e.g. hex code, named color).             |
+| `created_at`| TIMESTAMPTZ| UTC timestamp of row creation.                                   |
+| `updated_at`| TIMESTAMPTZ| UTC timestamp of last modification.                               |
+
+**Constraints / Indexes (from SQL):**
+- `UNIQUE (school_id, name)` (`streams_school_name_uniq`).
+- Index `streams_school_id_idx`.
+
+---
+
 #### `class_rooms`
 Operational classroom container for a specific academic year and stream. Represents a grade-level + stream combination (e.g. "Class 1 Blue", "Class 3 Yellow") within a given academic year. Each year creates new `class_room` entries, preserving historical context for past enrollments.
 
@@ -475,6 +493,7 @@ tenants
                     └── students (FK student_id → students.student_id)
 
 schools               (FK tenant_id → tenants.id, FK country_id → countries.id, FK education_system_id → education_systems.id)
+  ├── streams         (FK school_id → schools.id)
   ├── students        (FK school_id → schools.id)
   ├── academic_years  (FK school_id → schools.id)
   │     └── academic_terms (FK academic_year_id → academic_years.id)

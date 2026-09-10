@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -99,17 +99,11 @@ export function DataTable<TItem, TParams extends object, TResult>({
     const isToolbarDisabled = !hasLoadedOnceRef.current && isPending;
 
     // ── Toast on pagination errors (page 2+) ─────────────────────────
-    const prevErrorRef = useRef<typeof error>(null);
-    if (isError && error && error !== prevErrorRef.current && !isPending) {
-        prevErrorRef.current = error;
-        // Defer toast to avoid setState-in-render issues
-        queueMicrotask(() => {
+    useEffect(() => {
+        if (isError && error) {
             toast.error(getErrorMessage(error));
-        });
-    }
-    if (!isError) {
-        prevErrorRef.current = null;
-    }
+        }
+    }, [isError, error]);
 
     // ── Event handlers ───────────────────────────────────────────────
 
@@ -316,13 +310,16 @@ export function DataTable<TItem, TParams extends object, TResult>({
 
     const virtualItems = virtualizer.getVirtualItems();
 
-    // Fetch next page when scrolling near the last loaded row
     const lastVirtualIndex =
         virtualItems.length > 0 ? virtualItems[virtualItems.length - 1].index : -1;
 
-    if (lastVirtualIndex >= rows.length - 1 && hasNextPage && !isFetchingNextPage) {
-        fetchNextPage();
-    }
+    // Fetch next page when scrolling near the last loaded row
+    useEffect(() => {
+        if (lastVirtualIndex >= rows.length - 1 && hasNextPage && !isFetchingNextPage) {
+            fetchNextPage();
+        }
+    }, [lastVirtualIndex, rows.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
+
     // ── State checks ─────────────────────────────────────────────────
 
     const hasData = rows.length > 0;

@@ -209,7 +209,7 @@ describe("DataTable", () => {
                     rows: [],
                     isPending: false,
                     isError: true,
-                    error: new Error("string error message"),
+                    error: "string error message",
                 })
             );
 
@@ -1310,8 +1310,8 @@ describe("DataTable", () => {
             const row1Checkbox = checkboxes[1];
             fireEvent.click(row1Checkbox);
 
-            // The Radix UI Checkbox uses data-state="indeterminate" for indeterminate
-            expect(headerCheckbox.getAttribute("data-state")).toBe("indeterminate");
+            // Base UI Checkbox uses aria-checked="mixed" for indeterminate
+            expect(headerCheckbox.getAttribute("aria-checked")).toBe("mixed");
         });
 
         it("row checkbox toggles individual selection", () => {

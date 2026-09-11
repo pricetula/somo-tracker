@@ -65,6 +65,9 @@ importers:
       date-fns:
         specifier: ^4.4.0
         version: 4.4.0
+      dexie:
+        specifier: ^4.4.5
+        version: 4.4.5
       framer-motion:
         specifier: ^13.1.0
         version: 13.1.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -2758,6 +2761,9 @@ packages:
 
   devlop@1.1.0:
     resolution: {integrity: sha512-RWmIqhcFf1lRYBvNmr7qTNuyCt/7/ns2jbpp1+PalgE/rDQcBT0fioSMUpJ93irlUhC5hrg4cYqe6U+0ImW0rA==}
+
+  dexie@4.4.5:
+    resolution: {integrity: sha512-wWCHdihT3dmlUSuNhn5mMZDWSpG0suxjAni7YjjiZdzabZcKmy3uNZGZ7AeYYXBoLbpSXX35fikPLkPC44Osiw==}
 
   diff@8.0.4:
     resolution: {integrity: sha512-DPi0FmjiSU5EvQV0++GFDOJ9ASQUVFh5kD+OzOnYdi7n3Wpm9hWWGfB/O2blfHcMVTL5WkQXSnRiK9makhrcnw==}
@@ -7823,6 +7829,8 @@ snapshots:
   devlop@1.1.0:
     dependencies:
       dequal: 2.0.3
+
+  dexie@4.4.5: {}
 
   diff@8.0.4: {}
 

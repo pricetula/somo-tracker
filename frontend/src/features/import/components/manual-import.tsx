@@ -8,7 +8,7 @@ interface ManualImportProps {
 export function ManualImport({ onCancel }: ManualImportProps) {
     return (
         <div>
-            <Button size="icon" onClick={onCancel}>
+            <Button size="icon" variant="outline" onClick={onCancel}>
                 <X />
             </Button>
             Manual import

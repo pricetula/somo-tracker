@@ -53,8 +53,10 @@ export function ImportOrchestrator() {
                         transition={{ duration: 0.25, ease: "easeInOut" }}
                         className="flex h-full w-full items-center justify-center gap-4"
                     >
-                        <Button onClick={() => setImportType("manual")}>Manual Import</Button>
                         <Button onClick={() => setImportType("upload")}>Upload</Button>
+                        <Button variant="outline" onClick={() => setImportType("manual")}>
+                            Manual Import
+                        </Button>
                     </motion.div>
                 )}
             </AnimatePresence>

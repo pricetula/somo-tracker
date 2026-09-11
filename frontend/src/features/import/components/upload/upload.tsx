@@ -8,7 +8,7 @@ interface UploadProps {
 export function Upload({ onCancel }: UploadProps) {
     return (
         <div>
-            <Button size="icon" onClick={onCancel}>
+            <Button size="icon" variant="outline" onClick={onCancel}>
                 <X />
             </Button>
             Upload

@@ -4,48 +4,20 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 import { UploadFile } from "./upload-file";
-import { FieldMapper, FieldDef, ExtractedRow, MappingResult } from "./field-mapper";
+import { FieldMapper, FieldDef, ExtractedRow, MappingResult, MappedRow } from "./field-mapper";
 
 interface UploadProps {
     onCancel: () => void;
     fieldDef: FieldDef[];
+    onMappedList: (rows: MappedRow[]) => void;
 }
 
-// Sample admin import schema
-const ADMIN_FIELDS: FieldDef[] = [
-    {
-        key: "full_name",
-        label: "Full name",
-        aliases: ["name", "first name", "first_name", "full name"],
-        required: true,
-    },
-    {
-        key: "email",
-        label: "Email",
-        aliases: ["e-mail", "mail", "email address"],
-        required: true,
-        validator: (value) => {
-            if (typeof value !== "string" || !value.includes("@")) return "Invalid email";
-            return null;
-        },
-    },
-    {
-        key: "role",
-        label: "Role",
-        aliases: ["user role", "permission", "access"],
-        required: true,
-    },
-    {
-        key: "school_slug",
-        label: "School slug",
-        aliases: ["school", "academy", "institution"],
-        required: false,
-    },
-];
-
-export function Upload({ onCancel, fieldDef = ADMIN_FIELDS }: UploadProps) {
+export function Upload({ onCancel, fieldDef, onMappedList }: UploadProps) {
     const [extractedRows, setExtractedRows] = React.useState<ExtractedRow[]>([]);
-    const [mappingResult, setMappingResult] = React.useState<MappingResult | null>(null);
+
+    const handleMappingChange = (result: MappingResult) => {
+        onMappedList?.(result.rows);
+    };
 
     const handleUploaded = (raw: Record<string, object>[]) => {
         const withIds: ExtractedRow[] = raw.map((r, i) => ({
@@ -56,7 +28,6 @@ export function Upload({ onCancel, fieldDef = ADMIN_FIELDS }: UploadProps) {
             ...r,
         })) as ExtractedRow[];
         setExtractedRows(withIds);
-        setMappingResult(null);
     };
 
     return (
@@ -75,7 +46,7 @@ export function Upload({ onCancel, fieldDef = ADMIN_FIELDS }: UploadProps) {
                     <FieldMapper
                         extractedRows={extractedRows}
                         desiredFields={fieldDef}
-                        onMappingChange={setMappingResult}
+                        onMappingChange={handleMappingChange}
                     />
                 )}
             </div>

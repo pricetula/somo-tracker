@@ -5,6 +5,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Upload } from "./upload";
 import { ManualImport } from "./manual-import";
+import { FieldDef, MappedRow } from "./upload/field-mapper";
+
+interface ImportOrchestratorProps {
+    fieldDef: FieldDef[];
+    onMappedList: (rows: MappedRow[]) => void;
+}
 
 /**
  * ImportOrchestrator — central state machine for the data import flow.
@@ -16,7 +22,7 @@ import { ManualImport } from "./manual-import";
  * State transitions follow the spec exactly.
  */
 
-export function ImportOrchestrator() {
+export function ImportOrchestrator({ fieldDef, onMappedList }: ImportOrchestratorProps) {
     const [importType, setImportType] = React.useState("");
 
     return (
@@ -42,7 +48,11 @@ export function ImportOrchestrator() {
                         transition={{ duration: 0.25, ease: "easeInOut" }}
                         className="h-full w-full"
                     >
-                        <Upload onCancel={() => setImportType("")} />
+                        <Upload
+                            onCancel={() => setImportType("")}
+                            fieldDef={fieldDef}
+                            onMappedList={onMappedList}
+                        />
                     </motion.div>
                 ) : (
                     <motion.div

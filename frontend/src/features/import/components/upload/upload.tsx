@@ -8,6 +8,7 @@ import { FieldMapper, FieldDef, ExtractedRow, MappingResult } from "./field-mapp
 
 interface UploadProps {
     onCancel: () => void;
+    fieldDef: FieldDef[];
 }
 
 // Sample admin import schema
@@ -42,7 +43,7 @@ const ADMIN_FIELDS: FieldDef[] = [
     },
 ];
 
-export function Upload({ onCancel }: UploadProps) {
+export function Upload({ onCancel, fieldDef = ADMIN_FIELDS }: UploadProps) {
     const [extractedRows, setExtractedRows] = React.useState<ExtractedRow[]>([]);
     const [mappingResult, setMappingResult] = React.useState<MappingResult | null>(null);
 
@@ -71,22 +72,11 @@ export function Upload({ onCancel }: UploadProps) {
                 {extractedRows.length === 0 && <UploadFile onUploaded={handleUploaded} />}
 
                 {extractedRows.length > 0 && (
-                    <>
-                        <FieldMapper
-                            extractedRows={extractedRows}
-                            desiredFields={ADMIN_FIELDS}
-                            onMappingChange={setMappingResult}
-                        />
-                        {mappingResult && (
-                            <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-                                Mapping saved —{" "}
-                                {mappingResult.mapping
-                                    ? Object.values(mappingResult.mapping).filter(Boolean).length
-                                    : 0}{" "}
-                                fields mapped.
-                            </div>
-                        )}
-                    </>
+                    <FieldMapper
+                        extractedRows={extractedRows}
+                        desiredFields={fieldDef}
+                        onMappingChange={setMappingResult}
+                    />
                 )}
             </div>
         </div>

@@ -20,7 +20,7 @@ export function ImportOrchestrator() {
     const [importType, setImportType] = React.useState("");
 
     return (
-        <div className="relative flex h-100 gap-4 overflow-hidden">
+        <div className="relative flex max-w-4xl gap-4 overflow-hidden">
             <AnimatePresence mode="wait">
                 {importType === "manual" ? (
                     <motion.div

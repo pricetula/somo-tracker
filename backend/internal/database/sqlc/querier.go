@@ -21,7 +21,13 @@ type Querier interface {
 	GetSessionByToken(ctx context.Context, token string) (Session, error)
 	GetTenantByStytchOrgID(ctx context.Context, stytchOrgID string) (Tenant, error)
 	GetUserByEmail(ctx context.Context, arg GetUserByEmailParams) (User, error)
+	// Updates invitation/acceptance timestamps and role for an existing membership.
+	UpdateMembershipInvitationState(ctx context.Context, arg UpdateMembershipInvitationStateParams) error
 	UpdateSessionLastSeen(ctx context.Context, id pgtype.UUID) error
+	// Upserts (or updates) a school_membership during bulk invitation.
+	// On conflict over the school/user unique constraint, updates invitation state,
+	// role, active flag, and invitation metadata. Returns the full row.
+	UpsertSchoolMembership(ctx context.Context, arg UpsertSchoolMembershipParams) (UpsertSchoolMembershipRow, error)
 }
 
 var _ Querier = (*Queries)(nil)

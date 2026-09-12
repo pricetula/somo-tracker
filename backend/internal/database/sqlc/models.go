@@ -559,7 +559,10 @@ type SchoolMembership struct {
 	// UTC timestamp of row creation.
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	// UTC timestamp of last modification.
-	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+	InvitedAt  pgtype.Timestamptz `json:"invited_at"`
+	InvitedBy  pgtype.UUID        `json:"invited_by"`
+	AcceptedAt pgtype.Timestamptz `json:"accepted_at"`
 }
 
 // Server-issued opaque session tokens. Tokens are stored in HttpOnly cookies; the raw Stytch session token is cached only in Redis.

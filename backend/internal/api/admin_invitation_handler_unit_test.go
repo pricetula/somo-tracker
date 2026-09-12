@@ -46,7 +46,7 @@ func TestHandleInvites_Validation(t *testing.T) {
 	}{
 		{
 			name:       "valid payload 1 row -> 202",
-			body:       `{"invitations":[{"email":"a@b.co","full_name":"Alice","role":"ADMIN"}]}`,
+			body:       `{"invitations":[{"email":"a@b.co","full_name":"Alice"}]}`,
 			locals:     map[string]interface{}{"active_school_id": uuid.New(), "tenant_id": uuid.New(), "user_id": uuid.New()},
 			wantStatus: fiber.StatusAccepted,
 		},
@@ -73,35 +73,28 @@ func TestHandleInvites_Validation(t *testing.T) {
 		},
 		{
 			name:        "missing email on one row -> 400 with row_index, other rows reported",
-			body:        `{"invitations":[{"email":"","full_name":"A","role":"ADMIN"},{"email":"b@c.co","full_name":"B","role":"TEACHER"}]}`,
+			body:        `{"invitations":[{"email":"","full_name":"A"},{"email":"b@c.co","full_name":"B"}]}`,
 			locals:      map[string]interface{}{"active_school_id": uuid.New(), "tenant_id": uuid.New(), "user_id": uuid.New()},
 			wantStatus:  fiber.StatusBadRequest,
 			wantErrCode: "validation_failed",
 		},
 		{
 			name:        "malformed email -> 400 field email",
-			body:        `{"invitations":[{"email":"not-an-email","full_name":"A","role":"ADMIN"}]}`,
+			body:        `{"invitations":[{"email":"not-an-email","full_name":"A"}]}`,
 			locals:      map[string]interface{}{"active_school_id": uuid.New(), "tenant_id": uuid.New(), "user_id": uuid.New()},
 			wantStatus:  fiber.StatusBadRequest,
 			wantErrCode: "validation_failed",
 		},
 		{
 			name:        "empty/whitespace full_name -> 400",
-			body:        `{"invitations":[{"email":"a@b.co","full_name":"   ","role":"ADMIN"}]}`,
-			locals:      map[string]interface{}{"active_school_id": uuid.New(), "tenant_id": uuid.New(), "user_id": uuid.New()},
-			wantStatus:  fiber.StatusBadRequest,
-			wantErrCode: "validation_failed",
-		},
-		{
-			name:        "invalid role -> 400",
-			body:        `{"invitations":[{"email":"a@b.co","full_name":"A","role":"SUPER_ADMIN"}]}`,
+			body:        `{"invitations":[{"email":"a@b.co","full_name":"   "}]}`,
 			locals:      map[string]interface{}{"active_school_id": uuid.New(), "tenant_id": uuid.New(), "user_id": uuid.New()},
 			wantStatus:  fiber.StatusBadRequest,
 			wantErrCode: "validation_failed",
 		},
 		{
 			name:        "multiple invalid rows -> 400 ALL errors with correct row_index",
-			body:        `{"invitations":[{"email":"bad","full_name":"","role":"BAD"},{"email":"ok@ok.co","full_name":"","role":"ADMIN"}]}`,
+			body:        `{"invitations":[{"email":"bad","full_name":""},{"email":"ok@ok.co","full_name":""}]}`,
 			locals:      map[string]interface{}{"active_school_id": uuid.New(), "tenant_id": uuid.New(), "user_id": uuid.New()},
 			wantStatus:  fiber.StatusBadRequest,
 			wantErrCode: "validation_failed",
@@ -141,7 +134,7 @@ func TestHandleInvites_DuplicateEmailsPayload(t *testing.T) {
 	t.Parallel()
 	svc := &mockAdminInvitationService{}
 	h := newTestHandler(svc)
-	body := `{"invitations":[{"email":"dup@dup.co","full_name":"A","role":"ADMIN"},{"email":"dup@dup.co","full_name":"B","role":"TEACHER"}]}`
+	body := `{"invitations":[{"email":"dup@dup.co","full_name":"A"},{"email":"dup@dup.co","full_name":"B"}]}`
 	req, _ := http.NewRequest(http.MethodPost, "/invitations", bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
 	app := setupFiber()
@@ -182,7 +175,7 @@ func TestHandleInvites_MissingInvalidLocals(t *testing.T) {
 				}
 				return h.HandleInvites(f)
 			})
-			req, _ := http.NewRequest(http.MethodPost, "/invitations", bytes.NewBufferString(`{"invitations":[{"email":"a@b.co","full_name":"A","role":"ADMIN"}]}`))
+			req, _ := http.NewRequest(http.MethodPost, "/invitations", bytes.NewBufferString(`{"invitations":[{"email":"a@b.co","full_name":"A"}]}`))
 			req.Header.Set("Content-Type", "application/json")
 			resp, err := app.Test(req, fiber.TestConfig{})
 			require.NoError(t, err)
@@ -203,7 +196,7 @@ func makeRowsJSON(n int) string {
 		b.WriteString(strings.Repeat("a", 8))
 		b.WriteString(`@test.co","full_name":"Row`)
 		b.WriteString(string(rune('0' + i%10)))
-		b.WriteString(`","role":"ADMIN"}`)
+		b.WriteString(`"}`)
 	}
 	b.WriteByte(']')
 	return b.String()
@@ -214,7 +207,7 @@ type mockAdminInvitationService struct{}
 func (m *mockAdminInvitationService) CreateBulkJob(ctx context.Context, schoolID, tenantID, createdBy uuid.UUID, idempotencyKey string, total int) (uuid.UUID, error) {
 	return uuid.New(), nil
 }
-func (m *mockAdminInvitationService) InsertItems(ctx context.Context, jobID uuid.UUID, items []map[string]interface{}) error {
+func (m *mockAdminInvitationService) InsertItems(ctx context.Context, jobID uuid.UUID, items []services.InvitationItem) error {
 	return nil
 }
 func (m *mockAdminInvitationService) GetJob(ctx context.Context, jobID uuid.UUID) (*services.BulkJob, error) {

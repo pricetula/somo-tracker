@@ -32,7 +32,6 @@ func NewAdminInvitationHandler(svc services.AdminInvitationService, cli *stytch.
 type InvitationRow struct {
 	Email    string `json:"email"`
 	FullName string `json:"full_name"`
-	Role     string `json:"role"`
 }
 
 type BulkInvitationRequest struct {
@@ -73,7 +72,6 @@ func (h *AdminInvitationHandler) HandleInvites(c fiber.Ctx) error {
 	}
 
 	var errors []fiber.Map
-	allowedRoles := map[string]bool{"ADMIN": true, "TEACHER": true, "STAFF": true, "PRINCIPAL": true}
 	for idx, row := range req.Invitations {
 		if strings.TrimSpace(row.Email) == "" {
 			errors = append(errors, fiber.Map{"row_index": idx, "field": "email", "message": "required"})
@@ -84,11 +82,6 @@ func (h *AdminInvitationHandler) HandleInvites(c fiber.Ctx) error {
 		}
 		if strings.TrimSpace(row.FullName) == "" {
 			errors = append(errors, fiber.Map{"row_index": idx, "field": "full_name", "message": "required"})
-		}
-		if strings.TrimSpace(row.Role) == "" {
-			errors = append(errors, fiber.Map{"row_index": idx, "field": "role", "message": "required"})
-		} else if !allowedRoles[strings.ToUpper(row.Role)] {
-			errors = append(errors, fiber.Map{"row_index": idx, "field": "role", "message": "invalid role"})
 		}
 	}
 	if len(errors) > 0 {
@@ -120,9 +113,9 @@ func (h *AdminInvitationHandler) HandleInvites(c fiber.Ctx) error {
 	}
 
 	// Insert items
-	items := make([]map[string]interface{}, len(req.Invitations))
+	items := make([]services.InvitationItem, len(req.Invitations))
 	for i, r := range req.Invitations {
-		items[i] = map[string]interface{}{"email": r.Email, "full_name": r.FullName, "role": strings.ToUpper(r.Role)}
+		items[i] = services.InvitationItem{Email: r.Email, FullName: r.FullName, Role: "ADMIN"}
 	}
 	if err := h.svc.InsertItems(c.Context(), jobID, items); err != nil {
 		h.logger.Error("bulk item insertion failed", zap.Error(err))

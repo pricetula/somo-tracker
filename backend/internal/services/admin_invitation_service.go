@@ -13,6 +13,12 @@ import (
 	"go.uber.org/zap"
 )
 
+type InvitationItem struct {
+	Email    string `json:"email"`
+	FullName string `json:"full_name"`
+	Role     string `json:"role"`
+}
+
 type BulkJob struct {
 	ID             uuid.UUID       `json:"id"`
 	JobType        string          `json:"job_type"`
@@ -45,7 +51,7 @@ type BulkJobItem struct {
 
 type AdminInvitationService interface {
 	CreateBulkJob(ctx context.Context, schoolID, tenantID, createdBy uuid.UUID, idempotencyKey string, total int) (uuid.UUID, error)
-	InsertItems(ctx context.Context, jobID uuid.UUID, items []map[string]interface{}) error
+	InsertItems(ctx context.Context, jobID uuid.UUID, items []InvitationItem) error
 	GetJob(ctx context.Context, jobID uuid.UUID) (*BulkJob, error)
 	GetFailedOrDeferredItems(ctx context.Context, jobID uuid.UUID) ([]BulkJobItem, error)
 	GetItemByID(ctx context.Context, itemID uuid.UUID) (*BulkJobItem, error)
@@ -82,7 +88,7 @@ func (s *adminInvitationService) CreateBulkJob(ctx context.Context, schoolID, te
 	return id, nil
 }
 
-func (s *adminInvitationService) InsertItems(ctx context.Context, jobID uuid.UUID, items []map[string]interface{}) error {
+func (s *adminInvitationService) InsertItems(ctx context.Context, jobID uuid.UUID, items []InvitationItem) error {
 	if s.pool == nil {
 		return fmt.Errorf("pool nil")
 	}

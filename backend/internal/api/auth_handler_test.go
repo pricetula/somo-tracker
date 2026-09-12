@@ -59,7 +59,7 @@ func newTestRouter(mock *mockAuthService) *fiber.App {
 	}
 	router := NewRouter(mock, nil, services.NewSchoolRegistrationService(nil, zap.NewNop()), services.NewAcademicPeriodService(nil, nil, zap.NewNop()), services.NewStreamsService(nil, nil, zap.NewNop()), nil, nil, cfg)
 	app := fiber.New()
-	router.RegisterRoutes(app, nil, nil)
+	router.RegisterRoutes(app, nil, nil, nil)
 	return app
 }
 
@@ -337,7 +337,7 @@ func TestCallback_RateLimitMiddlewareAttached(t *testing.T) {
 	cfg := &config.Config{CAPTCHAEnabled: false}
 	router := NewRouter(mock, nil, services.NewSchoolRegistrationService(nil, zap.NewNop()), services.NewAcademicPeriodService(nil, nil, zap.NewNop()), services.NewStreamsService(nil, nil, zap.NewNop()), nil, nil, cfg) // nil limiter → passes through
 	app := fiber.New()
-	router.RegisterRoutes(app, nil, nil)
+	router.RegisterRoutes(app, nil, nil, nil)
 
 	resp, err := app.Test(httptest.NewRequest("GET", "/api/auth/callback?token=ok", nil))
 	require.NoError(t, err)

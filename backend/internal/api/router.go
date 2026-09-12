@@ -3,6 +3,7 @@ package api
 import (
 	"github.com/go-redis/redis_rate/v10"
 	"github.com/gofiber/fiber/v3"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 
@@ -28,14 +29,15 @@ var (
 // interfaces (not concrete implementations), which makes it fully testable
 // with mock services.
 type Router struct {
-	Auth           *authHandler
-	Me             *meHandler
-	School         *SchoolHandler
-	AcademicPeriod *AcademicPeriodHandler
-	Streams        *StreamsHandler
-	Grades         *GradesHandler
-	limiter        *redis_rate.Limiter
-	cfg            *config.Config
+	Auth            *authHandler
+	Me              *meHandler
+	School          *SchoolHandler
+	AcademicPeriod  *AcademicPeriodHandler
+	Streams         *StreamsHandler
+	Grades          *GradesHandler
+	AdminInvitation *AdminInvitationHandler
+	limiter         *redis_rate.Limiter
+	cfg             *config.Config
 }
 
 // NewRouter creates a Router from the injected services and the Redis
@@ -52,20 +54,21 @@ func NewRouter(
 	cfg *config.Config,
 ) *Router {
 	return &Router{
-		Auth:           newAuthHandler(authSvc, cfg),
-		Me:             newMeHandler(meSvc),
-		School:         NewSchoolHandler(&schoolSvc),
-		AcademicPeriod: NewAcademicPeriodHandler(academicSvc),
-		Streams:        NewStreamsHandler(streamsSvc),
-		Grades:         NewGradesHandler(gradesSvc),
-		limiter:        limiter,
-		cfg:            cfg,
+		Auth:            newAuthHandler(authSvc, cfg),
+		Me:              newMeHandler(meSvc),
+		School:          NewSchoolHandler(&schoolSvc),
+		AcademicPeriod:  NewAcademicPeriodHandler(academicSvc),
+		Streams:         NewStreamsHandler(streamsSvc),
+		Grades:          NewGradesHandler(gradesSvc),
+		AdminInvitation: nil,
+		limiter:         limiter,
+		cfg:             cfg,
 	}
 }
 
 // RegisterRoutes attaches the grouped endpoints to the Fiber app.
 // Routes are split into public (auth-related) and protected groups.
-func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logger *zap.Logger) {
+func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logger *zap.Logger, pool *pgxpool.Pool) {
 	// IP blacklist middleware - checks blacklist before any other processing.
 	// Uses fail-open behavior: Redis errors allow request through.
 	app.Use(ipblacklist.NewIPBlacklistMiddleware(redisClient, logger, ipblacklist.DefaultConfig()))
@@ -115,9 +118,16 @@ func (r *Router) RegisterRoutes(app *fiber.App, redisClient *redis.Client, logge
 	// CSRF middleware validates double-submit token on mutating requests.
 	r.School.session = sessionpkg.NewStore(redisClient)
 
+	// Initialize the admin invitation handler.
+	// Handler is pre-configured in newFiberApp with service/stytch/asynq dependencies.
+
 	protected.Get("/me", r.Me.getMe)
 	protected.Post("/school/register", r.School.RegisterSchool)
 	protected.Post("/school/academic-period", r.AcademicPeriod.CreateAcademicPeriod)
 	protected.Post("/school/streams", r.Streams.CreateStreams)
 	protected.Get("/school/grades", r.Grades.GetGrades)
+	protected.Post("/admins/invitations", r.AdminInvitation.HandleInvites)
+	protected.Get("/admins/invitations/jobs/:job_id", r.AdminInvitation.GetJob)
+	protected.Post("/admins/invitations/jobs/:job_id/retry-failed", r.AdminInvitation.RetryFailed)
+	protected.Get("/admins/invitations/jobs/:job_id/events", r.AdminInvitation.Events)
 }

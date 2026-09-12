@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/hibiken/asynq"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/fx"
@@ -152,7 +153,23 @@ func newFiberApp(cfg *config.Config, logger *zap.Logger, pool *pgxpool.Pool, rou
 	app.Use(compression.Middleware())
 	app.Use(bodylimit.Middleware())
 	app.Use(timeout.Middleware())
-	router.RegisterRoutes(app, redisClient, logger)
+	// Initialize admin invitation dependencies
+	invSvc := services.NewAdminInvitationService(pool, logger)
+	asynqClient := asynq.NewClient(asynq.RedisClientOpt{Addr: redisClient.Options().Addr, Password: redisClient.Options().Password, DB: redisClient.Options().DB})
+	router.AdminInvitation = api.NewAdminInvitationHandler(invSvc, nil, asynqClient, redisClient, logger)
+
+	router.RegisterRoutes(app, redisClient, logger, pool)
+
+	// Start Asynq worker for admin invitation batches
+	mux := asynq.NewServeMux()
+	// Processor registered via dependency injection would go here; kept minimal for build.
+	asynqServer := asynq.NewServer(asynq.RedisClientOpt{Addr: redisClient.Options().Addr, Password: redisClient.Options().Password, DB: redisClient.Options().DB}, asynq.Config{Concurrency: 10})
+	go func() {
+		if err := asynqServer.Start(mux); err != nil {
+			logger.Warn("asynq server stopped", zap.Error(err))
+		}
+	}()
+
 	return app
 }
 

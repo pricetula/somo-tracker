@@ -3,10 +3,10 @@
  *
  * Backend contract (backend/internal/api/admin_invitation_handler.go):
  *
- *   POST /admins/invitations
- *   GET  /admins/invitations/jobs/:job_id
- *   POST /admins/invitations/jobs/:job_id/retry-failed
- *   GET  /admins/invitations/jobs/:job_id/events (SSE)
+ *   POST /api/admins/invitations
+ *   GET  /api/admins/invitations/jobs/:job_id
+ *   POST /api/admins/invitations/jobs/:job_id/retry-failed
+ *   GET  /api/admins/invitations/jobs/:job_id/events (SSE)
  */
 
 import { api } from "./client";
@@ -33,7 +33,7 @@ export async function createInvitations(
     const body: BulkInvitationRequest = {
         invitations: payload.invitations,
     };
-    return api.post<BulkInvitationResponse>("/admins/invitations", body, {
+    return api.post<BulkInvitationResponse>("/api/admins/invitations", body, {
         headers: payload.idempotencyKey ? { "Idempotency-Key": payload.idempotencyKey } : {},
     });
 }
@@ -41,13 +41,16 @@ export async function createInvitations(
 // ─── Job status ───────────────────────────────────────────────────────────
 
 export async function getInvitationJob(jobId: string): Promise<InvitationJob> {
-    return api.get<InvitationJob>(`/admins/invitations/jobs/${jobId}`);
+    return api.get<InvitationJob>(`/api/admins/invitations/jobs/${jobId}`);
 }
 
 // ─── Retry failed ─────────────────────────────────────────────────────────
 
 export async function retryFailedInvitations(jobId: string): Promise<InvitationRetryResponse> {
-    return api.post<InvitationRetryResponse>(`/admins/invitations/jobs/${jobId}/retry-failed`, {});
+    return api.post<InvitationRetryResponse>(
+        `/api/admins/invitations/jobs/${jobId}/retry-failed`,
+        {}
+    );
 }
 
 // ─── SSE events stream ────────────────────────────────────────────────────
@@ -64,7 +67,7 @@ export function subscribeInvitationEvents(
         return () => {};
     }
 
-    const url = `/admins/invitations/jobs/${jobId}/events`;
+    const url = `/backend/api/admins/invitations/jobs/${jobId}/events`;
     const evtSource = new EventSource(url);
 
     evtSource.addEventListener("progress", (e) => {

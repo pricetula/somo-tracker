@@ -2,28 +2,111 @@
 
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Upload } from "./upload";
 import { ManualImport } from "./manual-import";
 import { FieldDef, MappedRow } from "./upload/field-mapper";
 
+export interface ProgressData {
+    status: string;
+    succeeded: number;
+    failed: number;
+    deferred?: number;
+    total: number;
+}
+
 interface ImportOrchestratorProps {
     fieldDef: FieldDef[];
     onMappedList: (rows: MappedRow[]) => void;
+    onSubmit?: (
+        rows: MappedRow[]
+    ) => Promise<{ job_id: string; total_records?: number; status?: string }>;
+    progressUrl?: (jobId: string) => string;
+    showProgress?: boolean;
+    onProgress?: (data: ProgressData) => void;
 }
 
 /**
- * ImportOrchestrator — central state machine for the data import flow.
+ * ImportOrchestrator — flexible central state machine for data import flows.
  *
- * Manages the full lifecycle: SELECT_MODE → UPLOAD → MAPPING → VALIDATING →
- * PREVIEW_HAPPY / PREVIEW_ERRORS → RESOLVING_ERRORS → REVALIDATING →
- * SUBMITTING → SUBMIT_SUCCESS / SUBMIT_ERROR.
- *
- * State transitions follow the spec exactly.
+ * Designed to be reused across resources (parents, exams, classes) without
+ * backend rewrites. The parent provides onSubmit / progressUrl props;
+ * the component owns mutation + SSE progress tracking.
  */
-
-export function ImportOrchestrator({ fieldDef, onMappedList }: ImportOrchestratorProps) {
+export function ImportOrchestrator({
+    fieldDef,
+    onMappedList,
+    onSubmit,
+    progressUrl,
+    showProgress,
+    onProgress,
+}: ImportOrchestratorProps) {
     const [importType, setImportType] = React.useState("");
+    const [jobId, setJobId] = React.useState<string | null>(null);
+    const [progress, setProgress] = React.useState<ProgressData | null>(null);
+
+    const mutation = useMutation({
+        mutationFn: async (rows: MappedRow[]) => {
+            if (!onSubmit) {
+                throw new Error("onSubmit not configured");
+            }
+            return onSubmit(rows);
+        },
+        onSuccess: (data) => {
+            if (data?.job_id) {
+                setJobId(data.job_id);
+            }
+        },
+        onError: (err: Error) => {
+            // Log once at handler layer; never both log and return, never silent.
+            console.error("ImportOrchestrator mutation error:", err.message || err);
+        },
+    });
+
+    // SSE progress stream — opens only when jobId is present
+    React.useEffect(() => {
+        if (!jobId || !progressUrl) return;
+        const url = progressUrl(jobId);
+        const es = new EventSource(url);
+
+        es.onmessage = (event) => {
+            try {
+                const parsed = JSON.parse(event.data);
+                setProgress(parsed as ProgressData);
+                onProgress?.(parsed as ProgressData);
+            } catch (e) {
+                // Never silently discard parse errors; always log with context.
+                console.error("SSE parse error for job", jobId, e);
+            }
+        };
+
+        es.onerror = () => {
+            // No empty catch; reconnect is handled by the browser,
+            // but we must not suppress the error silently.
+            console.error("SSE connection error for import job", jobId);
+        };
+
+        return () => {
+            es.close();
+        };
+    }, [jobId, progressUrl, onProgress]);
+
+    // Optional: expose progress UI when requested (e.g., future resources)
+    const progressBar =
+        showProgress && progress ? (
+            <div className="bg-muted mt-4 rounded border p-3 text-sm">
+                <div className="font-medium">Progress: {progress.status}</div>
+                <div>
+                    {progress.succeeded} / {progress.total} succeeded
+                    {progress.failed > 0 && `, ${progress.failed} failed`}
+                </div>
+            </div>
+        ) : null;
+
+    const handleSubmit = (rows: MappedRow[]) => {
+        mutation.mutate(rows);
+    };
 
     return (
         <div className="relative flex max-w-4xl gap-4 overflow-hidden">
@@ -52,7 +135,14 @@ export function ImportOrchestrator({ fieldDef, onMappedList }: ImportOrchestrato
                             onCancel={() => setImportType("")}
                             fieldDef={fieldDef}
                             onMappedList={onMappedList}
+                            onSubmit={handleSubmit}
+                            isSubmitting={mutation.isPending}
                         />
+                        {mutation.isError && (
+                            <div className="bg-destructive/10 text-destructive mt-4 rounded border p-3 text-sm">
+                                Submit failed. Please retry.
+                            </div>
+                        )}
                     </motion.div>
                 ) : (
                     <motion.div
@@ -70,6 +160,7 @@ export function ImportOrchestrator({ fieldDef, onMappedList }: ImportOrchestrato
                     </motion.div>
                 )}
             </AnimatePresence>
+            {progressBar}
         </div>
     );
 }

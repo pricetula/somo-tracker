@@ -10,12 +10,16 @@ interface UploadProps {
     onCancel: () => void;
     fieldDef: FieldDef[];
     onMappedList: (rows: MappedRow[]) => void;
+    onSubmit?: (rows: MappedRow[]) => void;
+    isSubmitting?: boolean;
 }
 
-export function Upload({ onCancel, fieldDef, onMappedList }: UploadProps) {
+export function Upload({ onCancel, fieldDef, onMappedList, onSubmit, isSubmitting }: UploadProps) {
     const [extractedRows, setExtractedRows] = React.useState<ExtractedRow[]>([]);
+    const [mappedRows, setMappedRows] = React.useState<MappedRow[]>([]);
 
     const handleMappingChange = (result: MappingResult) => {
+        setMappedRows(result.rows);
         onMappedList?.(result.rows);
     };
 
@@ -43,11 +47,22 @@ export function Upload({ onCancel, fieldDef, onMappedList }: UploadProps) {
                 {extractedRows.length === 0 && <UploadFile onUploaded={handleUploaded} />}
 
                 {extractedRows.length > 0 && (
-                    <FieldMapper
-                        extractedRows={extractedRows}
-                        desiredFields={fieldDef}
-                        onMappingChange={handleMappingChange}
-                    />
+                    <div className="space-y-3">
+                        <FieldMapper
+                            extractedRows={extractedRows}
+                            desiredFields={fieldDef}
+                            onMappingChange={handleMappingChange}
+                        />
+                        {onSubmit && (
+                            <Button
+                                onClick={() => onSubmit(mappedRows)}
+                                disabled={isSubmitting || mappedRows.length === 0}
+                                className="w-full"
+                            >
+                                {isSubmitting ? "Submitting..." : "Submit Import"}
+                            </Button>
+                        )}
+                    </div>
                 )}
             </div>
         </div>

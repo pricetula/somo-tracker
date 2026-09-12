@@ -69,6 +69,9 @@ func (p *AdminInvitationProcessor) ProcessTask(ctx context.Context, task *asynq.
 		zap.Int("batch_index", payload.BatchIndex),
 		zap.Int("item_count", len(payload.ItemIDs)),
 	)
+	if len(payload.ItemIDs) == 0 {
+		p.logger.Warn("batch payload has zero item_ids — payload contract mismatch", zap.String("job_id", payload.JobID), zap.Int("batch_index", payload.BatchIndex))
+	}
 
 	// Mark job as PROCESSING if still QUEUED
 	_ = p.svc.UpdateJobStatus(ctx, jobID, "PROCESSING")
@@ -85,6 +88,11 @@ func (p *AdminInvitationProcessor) ProcessTask(ctx context.Context, task *asynq.
 
 	// After batch, derive and update job status
 	p.deriveJobStatus(ctx, jobID)
+	p.logger.Info("batch completed",
+		zap.String("job_id", payload.JobID),
+		zap.Int("batch_index", payload.BatchIndex),
+		zap.Int("items_processed", len(payload.ItemIDs)),
+	)
 	return nil
 }
 

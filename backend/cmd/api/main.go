@@ -170,6 +170,7 @@ func newFiberApp(cfg *config.Config, logger *zap.Logger, pool *pgxpool.Pool, rou
 	mux.HandleFunc("admin:invitation:retry", processor.ProcessRetryTask)
 	asynqServer := asynq.NewServer(asynq.RedisClientOpt{Addr: redisClient.Options().Addr, Password: redisClient.Options().Password, DB: redisClient.Options().DB}, asynq.Config{Concurrency: 10})
 	go func() {
+		logger.Info("asynq server starting", zap.String("queue", "admin_invitation"), zap.Int("concurrency", 10))
 		if err := asynqServer.Start(mux); err != nil {
 			logger.Warn("asynq server stopped", zap.Error(err))
 		}

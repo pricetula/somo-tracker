@@ -115,7 +115,12 @@ func (h *AdminInvitationHandler) HandleInvites(c fiber.Ctx) error {
 	// Insert items
 	items := make([]services.InvitationItem, len(req.Invitations))
 	for i, r := range req.Invitations {
-		items[i] = services.InvitationItem{Email: r.Email, FullName: r.FullName, Role: "ADMIN"}
+		items[i] = services.InvitationItem{
+			ID:       uuid.New(),
+			Email:    r.Email,
+			FullName: r.FullName,
+			Role:     "ADMIN",
+		}
 	}
 	if err := h.svc.InsertItems(c.Context(), jobID, items); err != nil {
 		h.logger.Error("bulk item insertion failed", zap.Error(err))
@@ -134,12 +139,21 @@ func (h *AdminInvitationHandler) HandleInvites(c fiber.Ctx) error {
 			if end > len(items) {
 				end = len(items)
 			}
-			payload, _ := json.Marshal(map[string]interface{}{
-				"job_id": jobID.String(), "batch_index": b, "start_index": start, "end_index": end,
+			batchItemIDs := make([]string, 0, end-start)
+			for j := start; j < end; j++ {
+				batchItemIDs = append(batchItemIDs, items[j].ID.String())
+			}
+			payload, marshalErr := json.Marshal(map[string]interface{}{
+				"job_id": jobID.String(), "batch_index": b, "item_ids": batchItemIDs,
 			})
+			if marshalErr != nil {
+				h.logger.Error("asynq payload marshal failed", zap.Error(marshalErr))
+				continue
+			}
 			_, enqueueErr := h.asynq.EnqueueContext(c.Context(), asynq.NewTask("admin:invitation:batch", payload), asynq.Queue("admin_invitation"), asynq.TaskID(fmt.Sprintf("%s_%d", jobID.String(), b)))
 			if enqueueErr != nil {
 				h.logger.Error("asynq enqueue failed", zap.Error(enqueueErr))
+				continue
 			}
 		}
 	}

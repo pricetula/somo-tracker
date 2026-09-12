@@ -14,9 +14,10 @@ import (
 )
 
 type InvitationItem struct {
-	Email    string `json:"email"`
-	FullName string `json:"full_name"`
-	Role     string `json:"role"`
+	ID       uuid.UUID `json:"id"`
+	Email    string    `json:"email"`
+	FullName string    `json:"full_name"`
+	Role     string    `json:"role"`
 }
 
 type BulkJob struct {
@@ -94,15 +95,21 @@ func (s *adminInvitationService) InsertItems(ctx context.Context, jobID uuid.UUI
 	}
 	batch := &pgx.Batch{}
 	for idx, it := range items {
-		payload, _ := json.Marshal(it)
-		batch.Queue(`INSERT INTO bulk_job_items (job_id, row_index, payload, status) VALUES ($1,$2,$3,$4)`, jobID, idx, payload, "PENDING")
+		payload, err := json.Marshal(it)
+		if err != nil {
+			return fmt.Errorf("batch_insert_items: marshal payload at %d: %w", idx, err)
+		}
+		batch.Queue(`INSERT INTO bulk_job_items (id, job_id, row_index, payload, status) VALUES ($1,$2,$3,$4,$5)`, it.ID, jobID, idx, payload, "PENDING")
 	}
 	br := s.pool.SendBatch(ctx, batch)
 	_, err := br.Exec()
 	if err != nil {
 		return fmt.Errorf("batch_insert_items: %w", err)
 	}
-	return br.Close()
+	if err := br.Close(); err != nil {
+		return fmt.Errorf("batch_insert_items: close batch: %w", err)
+	}
+	return nil
 }
 
 func (s *adminInvitationService) GetJob(ctx context.Context, jobID uuid.UUID) (*BulkJob, error) {

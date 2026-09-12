@@ -48,7 +48,9 @@ type AdminInvitationService interface {
 	InsertItems(ctx context.Context, jobID uuid.UUID, items []map[string]interface{}) error
 	GetJob(ctx context.Context, jobID uuid.UUID) (*BulkJob, error)
 	GetFailedOrDeferredItems(ctx context.Context, jobID uuid.UUID) ([]BulkJobItem, error)
-	UpdateItem(ctx context.Context, itemID uuid.UUID, status string, result json.RawMessage, lastError string, attempts int) error
+	GetItemByID(ctx context.Context, itemID uuid.UUID) (*BulkJobItem, error)
+	GetItemsByJobID(ctx context.Context, jobID uuid.UUID) ([]BulkJobItem, error)
+	UpdateItemStatus(ctx context.Context, itemID uuid.UUID, status string, result json.RawMessage, lastError string, attempts int) error
 	UpdateItemResultOnly(ctx context.Context, itemID uuid.UUID, result json.RawMessage, status string, lastError string) error
 	UpdateJobStatus(ctx context.Context, jobID uuid.UUID, status string) error
 	IncrementJobCounters(ctx context.Context, jobID uuid.UUID, succeeded, failed, deferred int) error
@@ -141,6 +143,38 @@ func (s *adminInvitationService) UpdateJobStatus(ctx context.Context, jobID uuid
 
 func (s *adminInvitationService) IncrementJobCounters(ctx context.Context, jobID uuid.UUID, succeeded, failed, deferred int) error {
 	_, err := s.pool.Exec(ctx, `UPDATE bulk_jobs SET succeeded_count = succeeded_count + $1, failed_count = failed_count + $2, deferred_count = deferred_count + $3, updated_at = NOW() WHERE id=$4`, succeeded, failed, deferred, jobID)
+	return err
+}
+
+func (s *adminInvitationService) GetItemByID(ctx context.Context, itemID uuid.UUID) (*BulkJobItem, error) {
+	row := s.pool.QueryRow(ctx, `SELECT id, job_id, row_index, payload, result, status, attempt_count, last_error, created_at, updated_at FROM bulk_job_items WHERE id=$1`, itemID)
+	var i BulkJobItem
+	err := row.Scan(&i.ID, &i.JobID, &i.RowIndex, &i.Payload, &i.Result, &i.Status, &i.AttemptCount, &i.LastError, &i.CreatedAt, &i.UpdatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("get_item_by_id: %w", err)
+	}
+	return &i, nil
+}
+
+func (s *adminInvitationService) GetItemsByJobID(ctx context.Context, jobID uuid.UUID) ([]BulkJobItem, error) {
+	rows, err := s.pool.Query(ctx, `SELECT id, job_id, row_index, payload, result, status, attempt_count, last_error, created_at, updated_at FROM bulk_job_items WHERE job_id=$1 ORDER BY row_index`, jobID)
+	if err != nil {
+		return nil, fmt.Errorf("get_items_by_job_id: %w", err)
+	}
+	defer rows.Close()
+	var out []BulkJobItem
+	for rows.Next() {
+		var i BulkJobItem
+		if err := rows.Scan(&i.ID, &i.JobID, &i.RowIndex, &i.Payload, &i.Result, &i.Status, &i.AttemptCount, &i.LastError, &i.CreatedAt, &i.UpdatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, i)
+	}
+	return out, rows.Err()
+}
+
+func (s *adminInvitationService) UpdateItemStatus(ctx context.Context, itemID uuid.UUID, status string, result json.RawMessage, lastError string, attempts int) error {
+	_, err := s.pool.Exec(ctx, `UPDATE bulk_job_items SET status=$1, result=$2, last_error=$3, attempt_count=$4, updated_at=NOW() WHERE id=$5`, status, result, lastError, attempts, itemID)
 	return err
 }
 

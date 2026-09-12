@@ -9,17 +9,16 @@ import { FieldMapper, FieldDef, ExtractedRow, MappingResult, MappedRow } from ".
 interface UploadProps {
     onCancel: () => void;
     fieldDef: FieldDef[];
-    onMappedList: (rows: MappedRow[]) => void;
-    onSubmit?: (rows: MappedRow[]) => void;
+    onMappedList: (
+        rows: MappedRow[]
+    ) => Promise<{ job_id: string; total_records?: number; status?: string }>;
     isSubmitting?: boolean;
 }
 
-export function Upload({ onCancel, fieldDef, onMappedList, onSubmit, isSubmitting }: UploadProps) {
+export function Upload({ onCancel, fieldDef, onMappedList, isSubmitting }: UploadProps) {
     const [extractedRows, setExtractedRows] = React.useState<ExtractedRow[]>([]);
-    const [mappedRows, setMappedRows] = React.useState<MappedRow[]>([]);
 
     const handleMappingChange = (result: MappingResult) => {
-        setMappedRows(result.rows);
         onMappedList?.(result.rows);
     };
 
@@ -52,16 +51,8 @@ export function Upload({ onCancel, fieldDef, onMappedList, onSubmit, isSubmittin
                             extractedRows={extractedRows}
                             desiredFields={fieldDef}
                             onMappingChange={handleMappingChange}
+                            isSubmitting={isSubmitting}
                         />
-                        {onSubmit && (
-                            <Button
-                                onClick={() => onSubmit(mappedRows)}
-                                disabled={isSubmitting || mappedRows.length === 0}
-                                className="w-full"
-                            >
-                                {isSubmitting ? "Submitting..." : "Submit Import"}
-                            </Button>
-                        )}
                     </div>
                 )}
             </div>

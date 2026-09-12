@@ -33,6 +33,7 @@ export interface FieldMapperProps {
     extractedRows: ExtractedRow[];
     desiredFields: FieldDef[];
     onMappingChange: (result: MappingResult) => void;
+    isSubmitting?: boolean;
 }
 
 function normalize(str: string): string {
@@ -145,6 +146,7 @@ export const FieldMapper = React.memo(function FieldMapper({
     extractedRows,
     desiredFields,
     onMappingChange,
+    isSubmitting,
 }: FieldMapperProps) {
     const [mapping, setMapping] = useState<Record<string, string[] | null>>(() =>
         computeAutoMapping(extractedRows, desiredFields)
@@ -271,7 +273,7 @@ export const FieldMapper = React.memo(function FieldMapper({
                 </div>
                 <Button
                     type="button"
-                    disabled={!result.isValid}
+                    disabled={!result.isValid || isSubmitting}
                     onClick={() => onMappingChange(result)}
                     aria-label="Save mapping"
                 >

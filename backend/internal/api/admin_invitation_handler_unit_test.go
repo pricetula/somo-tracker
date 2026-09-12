@@ -15,13 +15,15 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"somotracker/backend/internal/services"
 )
 
 // Design note: if a production interface exists, replace mock implementation.
 func newTestHandler(svc services.AdminInvitationService) *AdminInvitationHandler {
-	return NewAdminInvitationHandler(svc, nil, nil, nil, nil)
+	logger, _ := zap.NewDevelopment()
+	return NewAdminInvitationHandler(svc, nil, nil, nil, logger)
 }
 
 func setupFiber() *fiber.App {
@@ -45,26 +47,26 @@ func TestHandleInvites_Validation(t *testing.T) {
 		{
 			name:       "valid payload 1 row -> 202",
 			body:       `{"invitations":[{"email":"a@b.co","full_name":"Alice","role":"ADMIN"}]}`,
-			locals:     map[string]interface{}{"school_id": uuid.New(), "tenant_id": uuid.New(), "admin_user_id": uuid.New()},
+			locals:     map[string]interface{}{"active_school_id": uuid.New(), "tenant_id": uuid.New(), "user_id": uuid.New()},
 			wantStatus: fiber.StatusAccepted,
 		},
 		{
 			name:       "valid payload exactly 10000 rows -> 202",
 			body:       `{"invitations":` + makeRowsJSON(10000) + `}`,
-			locals:     map[string]interface{}{"school_id": uuid.New(), "tenant_id": uuid.New(), "admin_user_id": uuid.New()},
+			locals:     map[string]interface{}{"active_school_id": uuid.New(), "tenant_id": uuid.New(), "user_id": uuid.New()},
 			wantStatus: fiber.StatusAccepted,
 		},
 		{
 			name:        "payload 10001 rows -> 400 (or 413 from body-limit middleware; confirm layer)",
 			body:        `{"invitations":` + makeRowsJSON(10001) + `}`,
-			locals:      map[string]interface{}{"school_id": uuid.New(), "tenant_id": uuid.New(), "admin_user_id": uuid.New()},
+			locals:      map[string]interface{}{"active_school_id": uuid.New(), "tenant_id": uuid.New(), "user_id": uuid.New()},
 			wantStatus:  fiber.StatusBadRequest,
 			wantErrCode: "bad_request",
 		},
 		{
 			name:        "empty array -> 400, no job created",
 			body:        `{"invitations":[]}`,
-			locals:      map[string]interface{}{"school_id": uuid.New(), "tenant_id": uuid.New(), "admin_user_id": uuid.New()},
+			locals:      map[string]interface{}{"active_school_id": uuid.New(), "tenant_id": uuid.New(), "user_id": uuid.New()},
 			wantStatus:  fiber.StatusBadRequest,
 			wantErrCode: "bad_request",
 			wantDBZero:  true,
@@ -72,35 +74,35 @@ func TestHandleInvites_Validation(t *testing.T) {
 		{
 			name:        "missing email on one row -> 400 with row_index, other rows reported",
 			body:        `{"invitations":[{"email":"","full_name":"A","role":"ADMIN"},{"email":"b@c.co","full_name":"B","role":"TEACHER"}]}`,
-			locals:      map[string]interface{}{"school_id": uuid.New(), "tenant_id": uuid.New(), "admin_user_id": uuid.New()},
+			locals:      map[string]interface{}{"active_school_id": uuid.New(), "tenant_id": uuid.New(), "user_id": uuid.New()},
 			wantStatus:  fiber.StatusBadRequest,
 			wantErrCode: "validation_failed",
 		},
 		{
 			name:        "malformed email -> 400 field email",
 			body:        `{"invitations":[{"email":"not-an-email","full_name":"A","role":"ADMIN"}]}`,
-			locals:      map[string]interface{}{"school_id": uuid.New(), "tenant_id": uuid.New(), "admin_user_id": uuid.New()},
+			locals:      map[string]interface{}{"active_school_id": uuid.New(), "tenant_id": uuid.New(), "user_id": uuid.New()},
 			wantStatus:  fiber.StatusBadRequest,
 			wantErrCode: "validation_failed",
 		},
 		{
 			name:        "empty/whitespace full_name -> 400",
 			body:        `{"invitations":[{"email":"a@b.co","full_name":"   ","role":"ADMIN"}]}`,
-			locals:      map[string]interface{}{"school_id": uuid.New(), "tenant_id": uuid.New(), "admin_user_id": uuid.New()},
+			locals:      map[string]interface{}{"active_school_id": uuid.New(), "tenant_id": uuid.New(), "user_id": uuid.New()},
 			wantStatus:  fiber.StatusBadRequest,
 			wantErrCode: "validation_failed",
 		},
 		{
 			name:        "invalid role -> 400",
 			body:        `{"invitations":[{"email":"a@b.co","full_name":"A","role":"SUPER_ADMIN"}]}`,
-			locals:      map[string]interface{}{"school_id": uuid.New(), "tenant_id": uuid.New(), "admin_user_id": uuid.New()},
+			locals:      map[string]interface{}{"active_school_id": uuid.New(), "tenant_id": uuid.New(), "user_id": uuid.New()},
 			wantStatus:  fiber.StatusBadRequest,
 			wantErrCode: "validation_failed",
 		},
 		{
 			name:        "multiple invalid rows -> 400 ALL errors with correct row_index",
 			body:        `{"invitations":[{"email":"bad","full_name":"","role":"BAD"},{"email":"ok@ok.co","full_name":"","role":"ADMIN"}]}`,
-			locals:      map[string]interface{}{"school_id": uuid.New(), "tenant_id": uuid.New(), "admin_user_id": uuid.New()},
+			locals:      map[string]interface{}{"active_school_id": uuid.New(), "tenant_id": uuid.New(), "user_id": uuid.New()},
 			wantStatus:  fiber.StatusBadRequest,
 			wantErrCode: "validation_failed",
 		},
@@ -109,7 +111,12 @@ func TestHandleInvites_Validation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			app := setupFiber()
-			app.Post("/invitations", func(c fiber.Ctx) error { return h.HandleInvites(c) })
+			app.Post("/invitations", func(c fiber.Ctx) error {
+				for k, v := range tt.locals {
+					c.Locals(k, v)
+				}
+				return h.HandleInvites(c)
+			})
 
 			req, err := http.NewRequest(http.MethodPost, "/invitations", bytes.NewBufferString(tt.body))
 			require.NoError(t, err)
@@ -138,7 +145,12 @@ func TestHandleInvites_DuplicateEmailsPayload(t *testing.T) {
 	req, _ := http.NewRequest(http.MethodPost, "/invitations", bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
 	app := setupFiber()
-	app.Post("/invitations", func(c fiber.Ctx) error { return h.HandleInvites(c) })
+	app.Post("/invitations", func(c fiber.Ctx) error {
+		c.Locals("active_school_id", uuid.New())
+		c.Locals("tenant_id", uuid.New())
+		c.Locals("user_id", uuid.New())
+		return h.HandleInvites(c)
+	})
 	resp, err := app.Test(req, fiber.TestConfig{})
 	require.NoError(t, err)
 	// Design decision TODO: allowed vs rejected not finalized.
@@ -156,9 +168,9 @@ func TestHandleInvites_MissingInvalidLocals(t *testing.T) {
 		name   string
 		locals map[string]interface{}
 	}{
-		{"missing school_id", map[string]interface{}{"tenant_id": uuid.New(), "admin_user_id": uuid.New()}},
-		{"missing tenant_id", map[string]interface{}{"school_id": uuid.New(), "admin_user_id": uuid.New()}},
-		{"wrong type string school_id", map[string]interface{}{"school_id": "not-uuid", "tenant_id": uuid.New(), "admin_user_id": uuid.New()}},
+		{"missing active_school_id", map[string]interface{}{"tenant_id": uuid.New(), "user_id": uuid.New()}},
+		{"missing tenant_id", map[string]interface{}{"active_school_id": uuid.New(), "user_id": uuid.New()}},
+		{"wrong type string active_school_id", map[string]interface{}{"active_school_id": "not-uuid", "tenant_id": uuid.New(), "user_id": uuid.New()}},
 	}
 
 	for _, c := range cases {
@@ -166,7 +178,7 @@ func TestHandleInvites_MissingInvalidLocals(t *testing.T) {
 			app := setupFiber()
 			app.Post("/invitations", func(f fiber.Ctx) error {
 				for k, v := range c.locals {
-					f.Set(k, fmt.Sprintf("%v", v))
+					f.Locals(k, fmt.Sprintf("%v", v))
 				}
 				return h.HandleInvites(f)
 			})
@@ -225,4 +237,13 @@ func (m *mockAdminInvitationService) IncrementJobCounters(ctx context.Context, j
 }
 func (m *mockAdminInvitationService) GetJobByIdempotency(ctx context.Context, tenantID uuid.UUID, key string) (*services.BulkJob, error) {
 	return nil, nil
+}
+func (m *mockAdminInvitationService) GetItemByID(ctx context.Context, itemID uuid.UUID) (*services.BulkJobItem, error) {
+	return nil, nil
+}
+func (m *mockAdminInvitationService) GetItemsByJobID(ctx context.Context, jobID uuid.UUID) ([]services.BulkJobItem, error) {
+	return nil, nil
+}
+func (m *mockAdminInvitationService) UpdateItemStatus(ctx context.Context, itemID uuid.UUID, status string, result json.RawMessage, lastError string, attempts int) error {
+	return nil
 }

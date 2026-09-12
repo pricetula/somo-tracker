@@ -32,6 +32,7 @@ func NewAdminInvitationHandler(svc services.AdminInvitationService, cli *stytch.
 type InvitationRow struct {
 	Email    string `json:"email"`
 	FullName string `json:"full_name"`
+	Role     string `json:"role"`
 }
 
 type BulkInvitationRequest struct {
@@ -40,9 +41,9 @@ type BulkInvitationRequest struct {
 
 func (h *AdminInvitationHandler) HandleInvites(c fiber.Ctx) error {
 	// Extract locals
-	schoolIDStr := c.Locals("school_id")
+	schoolIDStr := c.Locals("active_school_id")
 	tenantIDStr := c.Locals("tenant_id")
-	adminUserIDStr := c.Locals("admin_user_id")
+	adminUserIDStr := c.Locals("user_id")
 
 	schoolID, err1 := uuid.Parse(fmt.Sprintf("%v", schoolIDStr))
 	tenantID, err2 := uuid.Parse(fmt.Sprintf("%v", tenantIDStr))
@@ -72,6 +73,7 @@ func (h *AdminInvitationHandler) HandleInvites(c fiber.Ctx) error {
 	}
 
 	var errors []fiber.Map
+	allowedRoles := map[string]bool{"ADMIN": true, "TEACHER": true, "STAFF": true, "PRINCIPAL": true}
 	for idx, row := range req.Invitations {
 		if strings.TrimSpace(row.Email) == "" {
 			errors = append(errors, fiber.Map{"row_index": idx, "field": "email", "message": "required"})
@@ -82,6 +84,11 @@ func (h *AdminInvitationHandler) HandleInvites(c fiber.Ctx) error {
 		}
 		if strings.TrimSpace(row.FullName) == "" {
 			errors = append(errors, fiber.Map{"row_index": idx, "field": "full_name", "message": "required"})
+		}
+		if strings.TrimSpace(row.Role) == "" {
+			errors = append(errors, fiber.Map{"row_index": idx, "field": "role", "message": "required"})
+		} else if !allowedRoles[strings.ToUpper(row.Role)] {
+			errors = append(errors, fiber.Map{"row_index": idx, "field": "role", "message": "invalid role"})
 		}
 	}
 	if len(errors) > 0 {
@@ -115,7 +122,7 @@ func (h *AdminInvitationHandler) HandleInvites(c fiber.Ctx) error {
 	// Insert items
 	items := make([]map[string]interface{}, len(req.Invitations))
 	for i, r := range req.Invitations {
-		items[i] = map[string]interface{}{"email": r.Email, "full_name": r.FullName, "role": "ADMIN"}
+		items[i] = map[string]interface{}{"email": r.Email, "full_name": r.FullName, "role": strings.ToUpper(r.Role)}
 	}
 	if err := h.svc.InsertItems(c.Context(), jobID, items); err != nil {
 		h.logger.Error("bulk item insertion failed", zap.Error(err))
@@ -125,20 +132,22 @@ func (h *AdminInvitationHandler) HandleInvites(c fiber.Ctx) error {
 	}
 
 	// Enqueue batches of 40
-	batchSize := 40
-	totalBatches := (len(items) + batchSize - 1) / batchSize
-	for b := 0; b < totalBatches; b++ {
-		start := b * batchSize
-		end := start + batchSize
-		if end > len(items) {
-			end = len(items)
-		}
-		payload, _ := json.Marshal(map[string]interface{}{
-			"job_id": jobID.String(), "batch_index": b, "start_index": start, "end_index": end,
-		})
-		_, enqueueErr := h.asynq.EnqueueContext(c.Context(), asynq.NewTask("admin:invitation:batch", payload), asynq.Queue("admin_invitation"), asynq.TaskID(fmt.Sprintf("%s_%d", jobID.String(), b)))
-		if enqueueErr != nil {
-			h.logger.Error("asynq enqueue failed", zap.Error(enqueueErr))
+	if h.asynq != nil {
+		batchSize := 40
+		totalBatches := (len(items) + batchSize - 1) / batchSize
+		for b := 0; b < totalBatches; b++ {
+			start := b * batchSize
+			end := start + batchSize
+			if end > len(items) {
+				end = len(items)
+			}
+			payload, _ := json.Marshal(map[string]interface{}{
+				"job_id": jobID.String(), "batch_index": b, "start_index": start, "end_index": end,
+			})
+			_, enqueueErr := h.asynq.EnqueueContext(c.Context(), asynq.NewTask("admin:invitation:batch", payload), asynq.Queue("admin_invitation"), asynq.TaskID(fmt.Sprintf("%s_%d", jobID.String(), b)))
+			if enqueueErr != nil {
+				h.logger.Error("asynq enqueue failed", zap.Error(enqueueErr))
+			}
 		}
 	}
 
@@ -183,10 +192,12 @@ func (h *AdminInvitationHandler) RetryFailed(c fiber.Ctx) error {
 	for i, it := range items {
 		itemIDs[i] = it.ID.String()
 	}
-	payload, _ := json.Marshal(map[string]interface{}{"job_id": jobID.String(), "item_ids": itemIDs, "retry": true})
-	_, enqueueErr := h.asynq.EnqueueContext(c.Context(), asynq.NewTask("admin:invitation:retry", payload), asynq.Queue("admin_invitation"))
-	if enqueueErr != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"code": "internal_error", "message": "retry enqueue failed", "errors": fiber.Map{}})
+	if h.asynq != nil {
+		payload, _ := json.Marshal(map[string]interface{}{"job_id": jobID.String(), "item_ids": itemIDs, "retry": true})
+		_, enqueueErr := h.asynq.EnqueueContext(c.Context(), asynq.NewTask("admin:invitation:retry", payload), asynq.Queue("admin_invitation"))
+		if enqueueErr != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"code": "internal_error", "message": "retry enqueue failed", "errors": fiber.Map{}})
+		}
 	}
 	return c.Status(fiber.StatusAccepted).JSON(fiber.Map{"job_id": jobID.String(), "message": "retry queued", "count": len(items)})
 }

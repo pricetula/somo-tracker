@@ -27,13 +27,19 @@ const ADMIN_INVITE_FIELDS = [
 export function AdminInviteOrchestrator() {
     const mutation = useBulkInviteUsers();
 
-    const handleMappedList = (rows: MappedRow[]) => {
+    const handleMappedList = async (rows: MappedRow[]) => {
         const invitations: InvitationRow[] = rows.map((r) => ({
             email: String(r.data.email ?? ""),
             full_name: String(r.data.full_name ?? ""),
         }));
-        mutation.mutate({ invitations });
+        return mutation.mutateAsync({ invitations });
     };
 
-    return <ImportOrchestrator fieldDef={ADMIN_INVITE_FIELDS} onMappedList={handleMappedList} />;
+    return (
+        <ImportOrchestrator
+            fieldDef={ADMIN_INVITE_FIELDS}
+            onMappedList={handleMappedList}
+            isSubmitting={mutation.isPending}
+        />
+    );
 }

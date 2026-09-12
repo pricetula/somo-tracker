@@ -26,6 +26,7 @@ import (
 	b2bintermediatesessions "github.com/stytchauth/stytch-go/v18/stytch/b2b/discovery/intermediatesessions"
 	b2bdiscoveryorg "github.com/stytchauth/stytch-go/v18/stytch/b2b/discovery/organizations"
 	b2bdiscovery "github.com/stytchauth/stytch-go/v18/stytch/b2b/magiclinks/discovery"
+	b2bemail "github.com/stytchauth/stytch-go/v18/stytch/b2b/magiclinks/email"
 	b2bdiscoveryemail "github.com/stytchauth/stytch-go/v18/stytch/b2b/magiclinks/email/discovery"
 	stytchconfig "github.com/stytchauth/stytch-go/v18/stytch/config"
 	"github.com/stytchauth/stytch-go/v18/stytch/stytcherror"
@@ -432,19 +433,40 @@ func (c *Client) InviteMember(ctx context.Context, email, fullName, role string,
 	if c.api == nil {
 		return nil, fmt.Errorf("stytch.InviteMember: api nil")
 	}
-	var resp struct {
-		InviteToken string
-		MemberID    string
+
+	// Stytch B2B requires organization_id (our tenant_id) and invite_redirect_url
+	// The redirect URL should be configured in the dashboard or passed explicitly
+	inviteParams := &b2bemail.InviteParams{
+		EmailAddress:      email,
+		Name:              fullName,
+		OrganizationID:    tenantID,
+		Roles:             []string{role},
+		InviteRedirectURL: c.getInviteRedirectURL(),
 	}
+
+	var resp *b2bemail.InviteResponse
 	err := c.WriteCall(func(ctx context.Context) error {
-		// Actual SDK endpoint for member invitation varies by SDK version;
-		// invoke through breaker with structured logging for traceability.
-		return nil
+		var opErr error
+		resp, opErr = c.api.MagicLinks.Email.Invite(ctx, inviteParams)
+		return opErr
 	})
 	if err != nil {
 		return nil, err
 	}
-	return &InviteMemberResult{StytchInviteID: resp.InviteToken, StytchMemberID: resp.MemberID}, nil
+	if resp == nil {
+		return nil, fmt.Errorf("stytch.InviteMember: empty response")
+	}
+	return &InviteMemberResult{
+		StytchInviteID: resp.RequestID,
+		StytchMemberID: resp.MemberID,
+	}, nil
+}
+
+// getInviteRedirectURL returns the configured invite redirect URL.
+// In production, this should come from config. For now, use a placeholder.
+func (c *Client) getInviteRedirectURL() string {
+	// TODO: Make this configurable via config.Config
+	return "https://app.somotracker.local/auth/invite/callback"
 }
 
 // WriteCall executes through the circuit breaker WITHOUT retries. Non-

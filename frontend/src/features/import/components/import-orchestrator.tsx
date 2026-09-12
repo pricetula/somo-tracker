@@ -18,8 +18,7 @@ export interface ProgressData {
 
 interface ImportOrchestratorProps {
     fieldDef: FieldDef[];
-    onMappedList: (rows: MappedRow[]) => void;
-    onSubmit?: (
+    onMappedList: (
         rows: MappedRow[]
     ) => Promise<{ job_id: string; total_records?: number; status?: string }>;
     progressUrl?: (jobId: string) => string;
@@ -37,7 +36,6 @@ interface ImportOrchestratorProps {
 export function ImportOrchestrator({
     fieldDef,
     onMappedList,
-    onSubmit,
     progressUrl,
     showProgress,
     onProgress,
@@ -47,12 +45,7 @@ export function ImportOrchestrator({
     const [progress, setProgress] = React.useState<ProgressData | null>(null);
 
     const mutation = useMutation({
-        mutationFn: async (rows: MappedRow[]) => {
-            if (!onSubmit) {
-                throw new Error("onSubmit not configured");
-            }
-            return onSubmit(rows);
-        },
+        mutationFn: async (rows: MappedRow[]) => await onMappedList(rows),
         onSuccess: (data) => {
             if (data?.job_id) {
                 setJobId(data.job_id);
@@ -104,10 +97,6 @@ export function ImportOrchestrator({
             </div>
         ) : null;
 
-    const handleSubmit = (rows: MappedRow[]) => {
-        mutation.mutate(rows);
-    };
-
     return (
         <div className="relative flex max-w-4xl gap-4 overflow-hidden">
             <AnimatePresence mode="wait">
@@ -134,8 +123,7 @@ export function ImportOrchestrator({
                         <Upload
                             onCancel={() => setImportType("")}
                             fieldDef={fieldDef}
-                            onMappedList={onMappedList}
-                            onSubmit={handleSubmit}
+                            onMappedList={mutation.mutate}
                             isSubmitting={mutation.isPending}
                         />
                         {mutation.isError && (
